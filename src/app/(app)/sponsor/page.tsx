@@ -8,6 +8,8 @@ import {
   compact,
 } from "@/components/charts";
 import { HeroBand, InsightStrip, MiniChip, Monogram } from "@/components/hero";
+import { EmptyState, SkeletonPage } from "@/components/states";
+import { demoState } from "@/lib/demo";
 import {
   engagementSpark,
   funnelDetail,
@@ -41,22 +43,54 @@ const CAMPAIGN_TONE = {
 
 const spentPct = Math.round((sponsorBudget.spent / sponsorBudget.contracted) * 100);
 
-export default function SponsorDashboardPage() {
+export default async function SponsorDashboardPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const demo = await demoState(searchParams);
+  if (demo === "loading") return <SkeletonPage />;
+  if (demo === "error") throw new Error("Demo error state");
+
+  const heading = (
+    <div>
+      <h1 className="text-xl font-semibold tracking-tight">
+        Campaign Overview
+      </h1>
+      {demo === "empty" ? (
+        <p className="mt-0.5 text-xs text-muted">{sponsor.name}</p>
+      ) : (
+        <p className="mt-0.5 text-xs text-muted">
+          {sponsor.name} · {sponsorCampaigns.length} campaigns ·{" "}
+          {sponsor.dateRange}
+        </p>
+      )}
+    </div>
+  );
+
+  /* Brand-new sponsor tenant: no brief matched yet — the dashboard is only
+     the next action, not zeros dressed up as a campaign portfolio. */
+  if (demo === "empty") {
+    return (
+      <div className="space-y-5">
+        {heading}
+        <EmptyState
+          mark="chart"
+          title="No campaigns yet"
+          hint="Your dashboard fills in once BTG matches your first brief."
+          action={{ label: "Browse the marketplace", href: "/sponsor/marketplace" }}
+        />
+      </div>
+    );
+  }
+
   const totalSpend = sponsorCampaigns.reduce((n, c) => n + c.spend, 0);
 
   return (
     <div className="space-y-5">
       {/* ---------------------------------------------------------- header */}
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-xl font-semibold tracking-tight">
-            Campaign Overview
-          </h1>
-          <p className="mt-0.5 text-xs text-muted">
-            {sponsor.name} · {sponsorCampaigns.length} campaigns ·{" "}
-            {sponsor.dateRange}
-          </p>
-        </div>
+        {heading}
         <div className="flex items-center gap-2">
           <button
             type="button"
@@ -88,8 +122,9 @@ export default function SponsorDashboardPage() {
             <p className="sx-gradient-text mt-1 text-4xl font-bold tabular-nums tracking-tight sm:text-5xl">
               {sponsorHero.views.toLocaleString()}
             </p>
-            <p className="mt-1.5 flex items-center gap-2 text-xs font-medium text-success">
-              ▲ {sponsorHero.deltaPct}% vs April <MiniChip kind="ver" />
+            <p className="mt-1.5 flex items-center gap-2 text-xs text-muted">
+              <MiniChip kind="ver">▲ {sponsorHero.deltaPct}%</MiniChip> vs
+              April <MiniChip kind="ver" />
             </p>
 
             <p className="mt-4 text-[11px] text-muted">
@@ -105,10 +140,8 @@ export default function SponsorDashboardPage() {
             </div>
             <p className="mt-3 flex items-center gap-1.5 text-[11px] text-faint">
               On pace for{" "}
-              <strong className="text-primary-soft">
-                {sponsorHero.projectedTotal}
-              </strong>{" "}
-              by season end <MiniChip kind="est" />
+              <MiniChip kind="est">{sponsorHero.projectedTotal} · EST</MiniChip>{" "}
+              by season end
             </p>
           </div>
 
@@ -132,8 +165,17 @@ export default function SponsorDashboardPage() {
               <span className="flex items-center gap-1.5">
                 <span className="h-0.5 w-3 rounded bg-accent" /> Engagements
               </span>
-              <span className="text-primary-soft">╌ projection (EST)</span>
-              <span className="text-success">⚑ attributed value crossed spend</span>
+              <span className="flex items-center gap-1.5">
+                <span
+                  aria-hidden="true"
+                  className="h-0 w-3 border-t border-dashed border-primary-soft"
+                />
+                projection (EST)
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span aria-hidden="true">⚑</span> attributed value crossed
+                spend
+              </span>
             </div>
           </div>
         </div>

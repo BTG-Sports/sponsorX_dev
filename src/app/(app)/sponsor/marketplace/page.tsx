@@ -2,6 +2,8 @@ import Link from "next/link";
 import { Badge, Card } from "@/components/ui";
 import { MiniChip, Monogram, initials } from "@/components/hero";
 import { compact } from "@/components/charts";
+import { EmptyState, SkeletonPage } from "@/components/states";
+import { demoState } from "@/lib/demo";
 import {
   INVENTORY_COPY,
   athleteInv,
@@ -105,8 +107,43 @@ function IdentityCard({
 export default async function MarketplacePage({
   searchParams,
 }: {
-  searchParams: Promise<{ tab?: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
+  const demo = await demoState(searchParams);
+  if (demo === "loading") return <SkeletonPage />;
+  if (demo === "error") throw new Error("Demo error state");
+
+  const heading = (
+    <div>
+      <h1 className="text-xl font-semibold tracking-tight">Marketplace</h1>
+      {demo === "empty" ? (
+        <p className="mt-1 text-xs text-muted">curated by BTG</p>
+      ) : (
+        <p className="mt-1 text-xs text-muted">
+          {athleteInv.length} athletes · {marketplacePackages.length} packages
+          · curated by BTG
+        </p>
+      )}
+    </div>
+  );
+
+  /* Filters (or a brand-new sponsor) can legitimately zero out the catalogue
+     — the empty state says so instead of rendering three blank tabs. */
+  if (demo === "empty") {
+    return (
+      <div className="space-y-5">
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          {heading}
+        </div>
+        <EmptyState
+          mark="users"
+          title="No inventory matches these filters"
+          hint="BTG curates new athlete inventory weekly."
+        />
+      </div>
+    );
+  }
+
   const { tab } = await searchParams;
   const active: TabKey = TABS.some((t) => t.key === tab)
     ? (tab as TabKey)
@@ -116,13 +153,7 @@ export default async function MarketplacePage({
     <div className="space-y-5">
       {/* ------------------------------------------------------- heading */}
       <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="text-xl font-semibold tracking-tight">Marketplace</h1>
-          <p className="mt-1 text-xs text-muted">
-            {athleteInv.length} athletes · {marketplacePackages.length} packages
-            · curated by BTG
-          </p>
-        </div>
+        {heading}
       </div>
 
       {/* ---------------------------------------------------------- tabs */}

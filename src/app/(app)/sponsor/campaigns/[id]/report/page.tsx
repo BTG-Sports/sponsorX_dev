@@ -10,6 +10,8 @@ import {
   compact,
 } from "@/components/charts";
 import { HeroBand, MiniChip, Monogram } from "@/components/hero";
+import { EmptyState, SkeletonPage } from "@/components/states";
+import { demoState } from "@/lib/demo";
 import { resolveBack } from "@/lib/back";
 import {
   efficiency,
@@ -44,11 +46,50 @@ export default async function RoiReportPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ from?: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const { id } = await params;
-  const { from } = await searchParams;
-  const back = resolveBack(from, "sponsor");
+  const demo = await demoState(searchParams);
+  if (demo === "loading") return <SkeletonPage />;
+  if (demo === "error") throw new Error("Demo error state");
+
+  const sp = await searchParams;
+  const fromParam = Array.isArray(sp.from) ? sp.from[0] : sp.from;
+  const back = resolveBack(fromParam, "sponsor");
+
+  const heading = (
+    <div>
+      <h1 className="text-xl font-semibold tracking-tight">
+        Campaign ROI Report
+      </h1>
+      {demo === "empty" ? (
+        <p className="mt-1 text-xs text-muted">Campaign {id}</p>
+      ) : (
+        <p className="mt-1 text-xs text-muted">
+          {roiReport.campaign} · Presented by {roiReport.presentedBy} ·{" "}
+          {roiReport.period}
+        </p>
+      )}
+    </div>
+  );
+
+  /* Report builds from verified deliverables and rolled-up metrics — nothing
+     to gauge or chart until the first ones land. */
+  if (demo === "empty") {
+    return (
+      <div className="space-y-5">
+        <BackLink target={back} />
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          {heading}
+        </div>
+        <EmptyState
+          mark="chart"
+          title="No report data yet"
+          hint="The ROI report builds as deliverables verify and metrics roll up."
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-5">
@@ -56,15 +97,7 @@ export default async function RoiReportPage({
 
       {/* ---------------------------------------------------------- header */}
       <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h1 className="text-xl font-semibold tracking-tight">
-            Campaign ROI Report
-          </h1>
-          <p className="mt-1 text-xs text-muted">
-            {roiReport.campaign} · Presented by {roiReport.presentedBy} ·{" "}
-            {roiReport.period}
-          </p>
-        </div>
+        {heading}
         <div className="flex flex-wrap items-center gap-2">
           <button
             type="button"
