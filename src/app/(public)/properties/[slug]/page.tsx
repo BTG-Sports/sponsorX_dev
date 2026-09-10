@@ -60,22 +60,22 @@ export default async function PropertyProfilePage({
 
         {/* Cover art. Real artwork comes from the R2 public bucket. */}
         <div className="relative aspect-16/9 overflow-hidden rounded-xl border border-line lg:aspect-4/3">
-          <div className="absolute inset-0 bg-gradient-to-br from-[#3a1220] via-[#241026] to-[#0e1016]" />
+          <div className="absolute inset-0 bg-gradient-to-br from-[#103a4e] via-[#0d2233] to-[#0a0c10]" />
           <div
             aria-hidden="true"
             className="absolute -left-10 bottom-0 size-64 rounded-full bg-danger/25 blur-[80px]"
           />
           <div className="relative grid h-full place-items-center px-6 text-center">
             <div>
-              <p className="text-lg font-bold leading-tight tracking-tight text-white/80">
+              <p className="text-lg font-bold leading-tight tracking-tight text-text/80">
                 BTG SPORTS
               </p>
-              <p className="text-lg font-bold leading-tight tracking-tight text-white/80">
+              <p className="text-lg font-bold leading-tight tracking-tight text-text/80">
                 TALK
               </p>
             </div>
           </div>
-          <p className="absolute bottom-3 left-0 right-0 text-center text-[10px] text-white/25">
+          <p className="absolute bottom-3 left-0 right-0 text-center text-[10px] text-text/25">
             cover art pending
           </p>
         </div>
