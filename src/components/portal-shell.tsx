@@ -1,11 +1,17 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { Logo } from "./logo";
+import { MobileNav } from "./mobile-nav";
 import { PortalNav, type NavItem } from "./portal-nav";
+import { ThemeToggle } from "./theme-toggle";
+import { UserMenu } from "./user-menu";
 
 /* --------------------------------------------------------------------------
    Portal chrome: left sidebar and top bar, per the mockup's sponsor dashboard
-   (screen 3). Portal accent colours come from the three portal chips on the
-   mockup sheet — sponsor purple, athlete teal, admin red.
+   (screen 3), reworked to the sponsor-redesign language (spec 2026-09-11):
+   accent glow atmosphere, gradient hairlines, staggered entrance, editorial
+   watermark. Portal accent colours follow the BTG SponsorX logo (Roadmap A0):
+   Athlete = blue, Sponsor = orange, Admin = steel, Property = soft blue.
    -------------------------------------------------------------------------- */
 
 export type Portal = "sponsor" | "athlete" | "admin" | "property";
@@ -13,17 +19,57 @@ export type { NavItem };
 
 const ACCENT: Record<
   Portal,
-  { text: string; bg: string; dot: string; label: string }
+  {
+    text: string;
+    bg: string;
+    dot: string;
+    /** Gradient start for the active nav item's wash, faded to transparent. */
+    wash: string;
+    /** Gradient start for accent hairlines: header underline, sidebar edge. */
+    edge: string;
+    label: string;
+  }
 > = {
-  sponsor: { text: "text-primary-soft", bg: "bg-primary/15", dot: "bg-primary", label: "Sponsor Portal" },
-  athlete: { text: "text-accent", bg: "bg-accent/12", dot: "bg-accent", label: "Athlete Portal" },
-  admin: { text: "text-danger", bg: "bg-danger/12", dot: "bg-danger", label: "Admin Portal" },
-  property: { text: "text-primary-soft", bg: "bg-primary/15", dot: "bg-primary", label: "Property Portal" },
+  athlete: {
+    text: "text-athlete",
+    bg: "bg-athlete/15",
+    dot: "bg-athlete",
+    wash: "from-athlete/15",
+    edge: "from-athlete/60",
+    label: "Athlete Portal",
+  },
+  sponsor: {
+    text: "text-sponsor",
+    bg: "bg-sponsor/15",
+    dot: "bg-sponsor",
+    wash: "from-sponsor/15",
+    edge: "from-sponsor/60",
+    label: "Sponsor Portal",
+  },
+  admin: {
+    text: "text-admin",
+    bg: "bg-admin/15",
+    dot: "bg-admin",
+    wash: "from-admin/15",
+    edge: "from-admin/50",
+    label: "Admin Portal",
+  },
+  property: {
+    text: "text-property",
+    bg: "bg-property/15",
+    dot: "bg-property",
+    wash: "from-property/15",
+    edge: "from-property/60",
+    label: "Property Portal",
+  },
 };
 
 function TopIcon({ path, label }: { path: string; label: string }) {
   return (
-    <span title={label} className="text-muted transition-colors hover:text-text">
+    <span
+      title={label}
+      className="grid size-9 cursor-pointer place-items-center rounded-full border border-line/70 bg-surface-2/40 text-muted transition-all duration-300 hover:-translate-y-0.5 hover:border-line hover:text-text hover:shadow-lg hover:shadow-black/30"
+    >
       <svg
         viewBox="0 0 24 24"
         fill="none"
@@ -64,48 +110,107 @@ export function PortalShell({
   return (
     <div className="flex min-h-screen">
       {/* ------------------------------------------------------- sidebar */}
-      <aside className="hidden w-52 shrink-0 flex-col border-r border-line bg-surface md:flex">
-        <Link href={rootHref} className="block px-5 py-5">
-          <span className="block text-[13px] font-bold leading-none tracking-tight">
-            BTG
-          </span>
-          <span className="mt-0.5 block text-[13px] font-bold leading-none tracking-tight">
-            SPONSOR<span className={accent.text}>X</span>
-          </span>
+      <aside className="sticky top-0 hidden h-screen w-56 shrink-0 overflow-hidden border-r border-line/70 bg-gradient-to-b from-surface via-surface to-bg md:flex md:flex-col">
+        {/* atmosphere: accent bloom, gradient edge, portal watermark */}
+        <div
+          aria-hidden="true"
+          className={`pointer-events-none absolute -left-20 -top-20 size-56 rounded-full ${accent.dot} opacity-[0.13] blur-[90px]`}
+        />
+        <span
+          aria-hidden="true"
+          className={`pointer-events-none absolute right-0 top-0 h-64 w-px bg-gradient-to-b ${accent.edge} to-transparent`}
+        />
+        <span
+          aria-hidden="true"
+          className="pointer-events-none absolute bottom-14 right-0.5 select-none text-5xl font-black leading-none tracking-tighter text-text/[0.04] [writing-mode:vertical-rl]"
+        >
+          {accent.label.split(" ")[0].toUpperCase()}
+        </span>
+
+        <Link href={rootHref} className="sx-animate relative block px-5 pb-4 pt-5">
+          <Logo className="h-7" />
         </Link>
 
-        <div className="mb-1 flex items-center gap-2 px-5">
-          <span className={`size-1.5 rounded-full ${accent.dot}`} />
-          <span className="text-[10px] font-medium uppercase tracking-wider text-muted">
+        <div
+          className="sx-animate relative mb-2 flex items-center gap-2 px-5"
+          style={{ animationDelay: "40ms" }}
+        >
+          <span className="relative flex size-1.5">
+            <span
+              className={`absolute inline-flex h-full w-full animate-ping rounded-full ${accent.dot} opacity-60 motion-reduce:animate-none`}
+            />
+            <span className={`relative inline-flex size-1.5 rounded-full ${accent.dot}`} />
+          </span>
+          <span className="text-[10px] font-medium uppercase tracking-[0.2em] text-muted">
             {accent.label}
           </span>
+          <span className="h-px flex-1 bg-gradient-to-r from-line to-transparent" />
         </div>
 
-        <PortalNav
-          nav={nav}
-          accentBg={accent.bg}
-          accentText={accent.text}
-          rootHref={rootHref}
-        />
+        <div className="relative min-h-0 flex-1 overflow-y-auto">
+          <PortalNav
+            nav={nav}
+            accentBg={accent.bg}
+            accentText={accent.text}
+            accentDot={accent.dot}
+            accentWash={accent.wash}
+            rootHref={rootHref}
+          />
+        </div>
 
-        <div className="border-t border-line px-5 py-4">
-          <Link href="/map" className="text-[11px] text-faint hover:text-muted">
-            ← route map
+        <div className="relative border-t border-line/70 px-5 py-4">
+          <Link
+            href="/map"
+            className="group flex items-center justify-between text-[11px] text-faint transition-colors hover:text-muted"
+          >
+            <span className="flex items-center gap-1.5">
+              <span
+                aria-hidden="true"
+                className="transition-transform duration-300 group-hover:-translate-x-0.5"
+              >
+                ←
+              </span>
+              route map
+            </span>
+            <span className="text-[9px] uppercase tracking-[0.2em] text-faint/70">
+              SponsorX
+            </span>
           </Link>
         </div>
       </aside>
 
       {/* ----------------------------------------------------- main column */}
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="flex items-center justify-between gap-4 border-b border-line bg-surface px-6 py-3">
-          <div className="min-w-0">
-            <p className="text-[11px] leading-tight text-muted">Welcome back,</p>
+        <header className="sticky top-0 z-20 flex items-center justify-between gap-4 bg-surface/70 px-4 py-3 backdrop-blur-xl sm:px-6">
+          {/* accent hairline instead of a flat border */}
+          <span
+            aria-hidden="true"
+            className={`pointer-events-none absolute inset-x-0 bottom-0 h-px bg-gradient-to-r ${accent.edge} via-line to-transparent`}
+          />
+
+          <MobileNav
+            nav={nav}
+            rootHref={rootHref}
+            accentBg={accent.bg}
+            accentText={accent.text}
+            accentDot={accent.dot}
+            portalLabel={accent.label}
+          />
+          <div className="min-w-0 flex-1">
+            <p className="text-[10px] uppercase leading-tight tracking-[0.2em] text-faint">
+              Welcome back
+            </p>
             <p className="truncate text-base font-semibold leading-tight tracking-tight">
               {orgName ?? userName}
+              <span
+                aria-hidden="true"
+                className={`ml-1.5 inline-block size-1.5 rounded-full align-middle ${accent.dot}`}
+              />
             </p>
           </div>
 
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3">
+            <ThemeToggle />
             <TopIcon
               path="M6 16V10a6 6 0 1 1 12 0v6l2 3H4l2-3Zm4 3a2 2 0 0 0 4 0"
               label="Notifications — not wired"
@@ -114,16 +219,13 @@ export function PortalShell({
               path="M12 17h.01M12 13.5c0-1.5 2-1.8 2-3.5a2 2 0 1 0-4 0M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Z"
               label="Help — not wired"
             />
-            <span className="hidden h-6 w-px bg-line sm:block" />
-            <div className="hidden text-right sm:block">
-              <p className="text-xs font-medium leading-tight">{userName}</p>
-              <p className="text-[10px] leading-tight text-faint">{userRole}</p>
-            </div>
-            <span
-              className={`grid size-8 shrink-0 place-items-center rounded-full ${accent.bg} text-xs font-semibold ${accent.text}`}
-            >
-              {userName.slice(0, 1)}
-            </span>
+            <span className="hidden h-6 w-px bg-gradient-to-b from-transparent via-line to-transparent sm:block" />
+            <UserMenu
+              userName={userName}
+              userRole={userRole}
+              accentBg={accent.bg}
+              accentText={accent.text}
+            />
           </div>
         </header>
 

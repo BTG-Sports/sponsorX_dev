@@ -18,7 +18,15 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="en" className={`${poppins.variable} h-full antialiased`}>
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="min-h-full flex flex-col">
+        <script
+          // Applies the stored theme before first paint; dark needs no attribute.
+          dangerouslySetInnerHTML={{
+            __html: `try{if(localStorage.getItem("sx-theme")==="light")document.documentElement.dataset.theme="light"}catch(e){}`,
+          }}
+        />
+        {children}
+      </body>
     </html>
   );
 }

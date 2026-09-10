@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { Logo } from "./logo";
+import { ThemeToggle } from "./theme-toggle";
 
 /* --------------------------------------------------------------------------
    Public marketing chrome — mockup screen 1.
@@ -21,10 +23,7 @@ export function SiteHeader() {
     <header className="sticky top-0 z-20 border-b border-line bg-bg/85 backdrop-blur">
       <div className="mx-auto flex w-full max-w-6xl items-center gap-6 px-6 py-3.5">
         <Link href="/" className="shrink-0 leading-none">
-          <span className="block text-[13px] font-bold tracking-tight">BTG</span>
-          <span className="mt-0.5 block text-[13px] font-bold tracking-tight">
-            SPONSOR<span className="text-primary-soft">X</span>
-          </span>
+          <Logo className="h-7" />
         </Link>
 
         <nav className="ml-auto hidden items-center gap-6 md:flex">
@@ -50,6 +49,7 @@ export function SiteHeader() {
         </nav>
 
         <div className="ml-auto flex items-center gap-3 md:ml-0">
+          <ThemeToggle />
           <Link
             href="/login"
             className="text-xs font-medium text-muted transition-colors hover:text-text"
@@ -74,9 +74,7 @@ export function SiteFooter() {
       <div className="mx-auto w-full max-w-6xl px-6 py-10">
         <div className="flex flex-wrap items-start justify-between gap-8">
           <div>
-            <p className="text-[13px] font-bold leading-none tracking-tight">
-              BTG SPONSOR<span className="text-primary-soft">X</span>
-            </p>
+            <Logo className="h-7" />
             <p className="mt-2 max-w-xs text-[11px] leading-relaxed text-faint">
               Connecting brands, athletes and fans — with the delivery and the
               numbers on record.
