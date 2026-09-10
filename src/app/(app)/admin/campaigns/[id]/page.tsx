@@ -1,8 +1,11 @@
 import Link from "next/link";
 import { BackLink } from "@/components/back-link";
 import { Badge, Card, Meter, SectionHeading } from "@/components/ui";
+import { AreaChart } from "@/components/charts";
+import { ChartLegend } from "@/components/line-chart";
+import { EmptyState, SkeletonPage } from "@/components/states";
 import { resolveBack } from "@/lib/back";
-import { ChartLegend, LineChart } from "@/components/line-chart";
+import { demoState } from "@/lib/demo";
 import {
   campaign,
   campaignRoster,
@@ -25,13 +28,33 @@ export default async function CampaignDashboardPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ from?: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
+  const demo = await demoState(searchParams);
+  if (demo === "loading") return <SkeletonPage />;
+  if (demo === "error") throw new Error("Demo error state");
+
   const { id } = await params;
-  const { from } = await searchParams;
+  const sp = await searchParams;
+  const from = Array.isArray(sp.from) ? sp.from[0] : sp.from;
   const back = resolveBack(from, "admin");
+
+  if (demo === "empty") {
+    return (
+      <div className="space-y-6">
+        <BackLink target={back} />
+        <EmptyState
+          mark="chart"
+          title="No tracking data yet"
+          hint="Metrics fill in as deliverables publish."
+        />
+      </div>
+    );
+  }
+
   const c = campaign;
   const pct = Math.round((c.viewsDelivered / c.viewsTarget) * 100);
+  const viewsRemaining = c.viewsTarget - c.viewsDelivered;
 
   return (
     <div className="space-y-6">
@@ -100,7 +123,10 @@ export default async function CampaignDashboardPage({
           <div className="mt-2">
             <Meter value={pct} tone={pct >= 90 ? "accent" : "primary"} />
           </div>
-          <p className="mt-1 text-[10px] tabular-nums text-faint">{pct}%</p>
+          <p className="mt-1 text-[10px] tabular-nums text-faint">
+            {pct}% delivered · {viewsRemaining.toLocaleString()} views to
+            target · {c.daysRemaining}d left
+          </p>
         </Card>
 
         <Card className="p-4">
@@ -136,7 +162,7 @@ export default async function CampaignDashboardPage({
             action={<ChartLegend aName="Views" bName="Engagements" />}
           />
           <Card>
-            <LineChart
+            <AreaChart
               points={campaignSeries}
               aName="Views"
               bName="Engagements"

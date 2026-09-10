@@ -1,6 +1,9 @@
 import Link from "next/link";
-import { Badge, Card, SectionHeading, SourceLabel } from "@/components/ui";
-import { ChartLegend, LineChart } from "@/components/line-chart";
+import { Card, SectionHeading, SourceLabel } from "@/components/ui";
+import { AreaChart } from "@/components/charts";
+import { ChartLegend } from "@/components/line-chart";
+import { EmptyState, SkeletonPage } from "@/components/states";
+import { demoState } from "@/lib/demo";
 import {
   redemptionSeries,
   rewardStats,
@@ -20,21 +23,46 @@ import {
    redeem as separate rows.
    -------------------------------------------------------------------------- */
 
-export default function RewardAnalyticsPage() {
+export default async function RewardAnalyticsPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const demo = await demoState(searchParams);
+  if (demo === "loading") return <SkeletonPage />;
+  if (demo === "error") throw new Error("Demo error state");
+
+  const heading = (
+    <div>
+      <h1 className="text-xl font-semibold tracking-tight">
+        Reward Performance
+      </h1>
+      <p className="mt-1 text-xs text-muted">
+        Fan funnel across all active campaigns.
+      </p>
+    </div>
+  );
+
+  if (demo === "empty") {
+    return (
+      <div className="space-y-6">
+        {heading}
+        <EmptyState
+          mark="chart"
+          title="No reward events yet"
+          hint="Scans, claims and redemptions appear once QR rewards go live (B6)."
+        />
+      </div>
+    );
+  }
+
   const maxOffer = Math.max(...topOffers.map((o) => o.count));
 
   return (
     <div className="space-y-6">
       {/* --------------------------------------------------------- header */}
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-xl font-semibold tracking-tight">
-            Reward Performance
-          </h1>
-          <p className="mt-1 text-xs text-muted">
-            Fan funnel across all active campaigns.
-          </p>
-        </div>
+        {heading}
         <button
           type="button"
           title="Range picker — not wired"
@@ -85,7 +113,7 @@ export default function RewardAnalyticsPage() {
             action={<ChartLegend aName="Redemptions" bName="Claims" />}
           />
           <Card>
-            <LineChart
+            <AreaChart
               points={redemptionSeries}
               aName="Redemptions"
               bName="Claims"
