@@ -3,28 +3,33 @@
 /* --------------------------------------------------------------------------
    SponsorX design tokens
 
-   Taken from the style guide on "BTG SponsorX UI/UX Mockups v1.0":
-     #6D34FF  primary purple
-     #00E08B  accent teal
-     #FF4D4F  red
-     #0E1016  page ground
+   Brand palette (Roadmap A0) — matched to the BTG SponsorX logo, which lives on
+   black with an electric-blue "BTG" wordmark and an orange "X" / "Brand Impact":
+     #2E9BF5  primary blue   (the "BTG" wordmark)
+     #F97A1F  accent orange  (the "X" / Brand Impact)
+     #FACC15  warn yellow    (functional — kept apart from the brand orange)
+     #FF4D4F  danger red     (functional)
+     #0A0C10  page ground    (near-black, the logo's own ground)
    Typeface: Poppins (Bold / Medium / Regular).
 
-   The product is dark-themed throughout. Surface steps and line colours below
-   are read off the mockup rather than specified by it, so they are the one
-   part of this palette open to adjustment.
+   This supersedes the mockup-v1.0 purple/teal scheme (#6D34FF / #00E08B on
+   #0E1016). The product is dark-themed throughout; dark is primary because the
+   logo lives on black. Surface steps and line colours are tuned to the darker
+   ground rather than specified by the logo, so they remain the one part of this
+   palette open to adjustment.
 
-   Portal accents come from the three portal chips on the sheet:
-   Sponsor = purple, Athlete = teal, Admin = red.
+   Portal accents follow the logo (its "ATHLETE NETWORK" is blue, "BRAND IMPACT"
+   is orange): Athlete = blue, Sponsor = orange, Admin = steel, Property = soft
+   blue.
    -------------------------------------------------------------------------- */
 
 :root {
   /* ground and surfaces */
-  --sx-bg: #0e1016;
-  --sx-surface: #161923;
-  --sx-surface-2: #1e2230;
-  --sx-line: #262b3a;
-  --sx-line-soft: #1d2130;
+  --sx-bg: #0a0c10;
+  --sx-surface: #12151d;
+  --sx-surface-2: #1a1f2b;
+  --sx-line: #242a38;
+  --sx-line-soft: #191d29;
 
   /* text */
   --sx-text: #f4f5f7;
@@ -32,16 +37,19 @@
   --sx-text-faint: #5d6375;
 
   /* brand */
-  --sx-primary: #6d34ff;
-  --sx-primary-soft: #8a5cff;
-  --sx-accent: #00e08b;
+  --sx-primary: #2e9bf5;
+  --sx-primary-soft: #63b4f8;
+  --sx-accent: #f97a1f;
+  --sx-accent-soft: #fb923c;
   --sx-danger: #ff4d4f;
-  --sx-warn: #f5a524;
+  --sx-warn: #facc15;
+  --sx-success: #22c98d; /* positive deltas, verified states, break-even (spec 2026-09-11) */
 
-  /* portal accents */
-  --sx-sponsor: #6d34ff;
-  --sx-athlete: #00e08b;
-  --sx-admin: #ff4d4f;
+  /* portal accents — follow the logo */
+  --sx-athlete: #2e9bf5;
+  --sx-sponsor: #f97a1f;
+  --sx-admin: #cbd5e1;
+  --sx-property: #63b4f8;
 
   --background: var(--sx-bg);
   --foreground: var(--sx-text);
@@ -64,12 +72,15 @@
   --color-primary: var(--sx-primary);
   --color-primary-soft: var(--sx-primary-soft);
   --color-accent: var(--sx-accent);
+  --color-accent-soft: var(--sx-accent-soft);
   --color-danger: var(--sx-danger);
   --color-warn: var(--sx-warn);
+  --color-success: var(--sx-success);
 
   --color-sponsor: var(--sx-sponsor);
   --color-athlete: var(--sx-athlete);
   --color-admin: var(--sx-admin);
+  --color-property: var(--sx-property);
 
   --font-sans: var(--font-poppins);
 }
@@ -85,3 +96,39 @@ body {
 * {
   scrollbar-color: var(--sx-line) transparent;
 }
+
+/* --------------------------------------------------------------------------
+   Sponsor-portal redesign utilities (spec 2026-09-11). Server-rendered wow:
+   gradient headline text, entrance motion, mobile snap strips. Motion is
+   opt-out via prefers-reduced-motion.
+   -------------------------------------------------------------------------- */
+
+.sx-gradient-text {
+  background: linear-gradient(90deg, var(--sx-primary-soft), var(--sx-primary));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+@keyframes sx-fade-up {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.sx-animate { animation: sx-fade-up 0.5s ease-out both; }
+.sx-delay-1 { animation-delay: 60ms; }
+.sx-delay-2 { animation-delay: 120ms; }
+.sx-delay-3 { animation-delay: 180ms; }
+.sx-delay-4 { animation-delay: 240ms; }
+.sx-delay-5 { animation-delay: 300ms; }
+
+@media (prefers-reduced-motion: reduce) {
+  .sx-animate { animation: none; }
+}
+
+/* Horizontal snap strip (mobile insight carousels) */
+.sx-snap-x {
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+}
+.sx-snap-x > * { scroll-snap-align: start; }
