@@ -121,7 +121,55 @@ export const invitations = [
     usageRights: "Campaign channels + event recap, 90 days",
     exclusivity: null,
   },
+  {
+    id: "inv_4",
+    sponsor: "BTG Sports Talk",
+    campaign: "Road to College",
+    jobId: "SX-06",
+    jobName: "Content Day",
+    offered: 32_000,
+    state: "ACCEPTED" as InviteState,
+    expiresIn: "—",
+    deliverableCount: 3,
+    usageRights: "Campaign channels, 90 days",
+    exclusivity: null,
+  },
+  {
+    id: "inv_5",
+    sponsor: "Rockville Athletic",
+    campaign: "Spring Open House",
+    jobId: "SX-02",
+    jobName: "Sponsored Post",
+    offered: 9_000,
+    state: "DECLINED" as InviteState,
+    expiresIn: "—",
+    deliverableCount: 1,
+    usageRights: "Organic only, 30 days",
+    exclusivity: null,
+  },
+  {
+    id: "inv_6",
+    sponsor: "Metro Gear",
+    campaign: "Winter Warmup",
+    jobId: "SX-01",
+    jobName: "Story Drop",
+    offered: 4_000,
+    state: "EXPIRED" as InviteState,
+    expiresIn: "expired 3 days ago",
+    deliverableCount: 1,
+    usageRights: "Organic only, 30 days",
+    exclusivity: null,
+  },
 ];
+
+/** Copy + relative timing for the invite lifecycle (§21). */
+export const INVITE_COPY: Record<InviteState, string> = {
+  INVITED: "New invitation",
+  VIEWED: "Viewed",
+  ACCEPTED: "Accepted",
+  DECLINED: "Declined",
+  EXPIRED: "Expired",
+};
 
 /** §21 — deliverable pipeline, ordered by due date. */
 export const deliverables = [
@@ -283,12 +331,12 @@ export const marketplacePackages = [
 ];
 
 export const athleteInv = [
-  { id: "ai1", athlete: "Shammah Kwizera", slug: "shammah-kwizera", sport: "Basketball", tier: "Creator", geo: "DMV", jobId: "SX-03", jobName: "Athlete Reel", sellPrice: 60_000, reach: 128_000, source: "SELF_REPORTED" as const, state: "ACTIVE" as InventoryState },
-  { id: "ai2", athlete: "Amara Okafor", slug: "amara-okafor", sport: "Track & Field", tier: "Emerging", geo: "Silver Spring, MD", jobId: "SX-02", jobName: "Sponsored Post", sellPrice: 25_000, reach: 21_400, source: "SELF_REPORTED" as const, state: "ACTIVE" as InventoryState },
-  { id: "ai3", athlete: "Jalen Brooks", slug: "jalen-brooks", sport: "Football", tier: "Premium", geo: "Baltimore, MD", jobId: "SX-05", jobName: "Local Appearance", sellPrice: 75_000, reach: 44_800, source: "VERIFIED_API" as const, state: "LIMITED" as InventoryState },
-  { id: "ai4", athlete: "Nia Mutesi", slug: "nia-mutesi", sport: "Volleyball", tier: "Emerging", geo: "Kigali, RW", jobId: "SX-01", jobName: "Story Drop", sellPrice: 12_500, reach: 8_900, source: "SELF_REPORTED" as const, state: "ACTIVE" as InventoryState },
-  { id: "ai5", athlete: "Marcus Reed", slug: "marcus-reed", sport: "Basketball", tier: "Premium", geo: "Washington, DC", jobId: "SX-07", jobName: "Monthly Ambassador", sellPrice: 200_000, reach: 96_200, source: "VERIFIED_MANUAL" as const, state: "ACTIVE" as InventoryState },
-  { id: "ai6", athlete: "Leila Haddad", slug: "leila-haddad", sport: "Soccer", tier: "Creator", geo: "Rockville, MD", jobId: "SX-04", jobName: "Product Experience", sellPrice: 65_000, reach: 33_100, source: "SELF_REPORTED" as const, state: "SOLD_OUT" as InventoryState },
+  { id: "ai1", athlete: "Shammah Kwizera", slug: "shammah-kwizera", sport: "Basketball", tier: "Creator", geo: "DMV", jobId: "SX-03", jobName: "Athlete Reel", sellPrice: 60_000, reach: 128_000, source: "SELF_REPORTED" as const, state: "ACTIVE" as InventoryState, engagementRate: 8.7, onTimeRate: 94, verified: true },
+  { id: "ai2", athlete: "Amara Okafor", slug: "amara-okafor", sport: "Track & Field", tier: "Emerging", geo: "Silver Spring, MD", jobId: "SX-02", jobName: "Sponsored Post", sellPrice: 25_000, reach: 21_400, source: "SELF_REPORTED" as const, state: "ACTIVE" as InventoryState, engagementRate: 6.1, onTimeRate: 100, verified: false },
+  { id: "ai3", athlete: "Jalen Brooks", slug: "jalen-brooks", sport: "Football", tier: "Premium", geo: "Baltimore, MD", jobId: "SX-05", jobName: "Local Appearance", sellPrice: 75_000, reach: 44_800, source: "VERIFIED_API" as const, state: "LIMITED" as InventoryState, engagementRate: 4.9, onTimeRate: 88, verified: true },
+  { id: "ai4", athlete: "Nia Mutesi", slug: "nia-mutesi", sport: "Volleyball", tier: "Emerging", geo: "Kigali, RW", jobId: "SX-01", jobName: "Story Drop", sellPrice: 12_500, reach: 8_900, source: "SELF_REPORTED" as const, state: "ACTIVE" as InventoryState, engagementRate: 7.4, onTimeRate: 100, verified: false },
+  { id: "ai5", athlete: "Marcus Reed", slug: "marcus-reed", sport: "Basketball", tier: "Premium", geo: "Washington, DC", jobId: "SX-07", jobName: "Monthly Ambassador", sellPrice: 200_000, reach: 96_200, source: "VERIFIED_MANUAL" as const, state: "ACTIVE" as InventoryState, engagementRate: 5.6, onTimeRate: 96, verified: true },
+  { id: "ai6", athlete: "Leila Haddad", slug: "leila-haddad", sport: "Soccer", tier: "Creator", geo: "Rockville, MD", jobId: "SX-04", jobName: "Product Experience", sellPrice: 65_000, reach: 33_100, source: "SELF_REPORTED" as const, state: "SOLD_OUT" as InventoryState, engagementRate: 6.2, onTimeRate: 100, verified: false },
 ];
 
 /** The six cards the mockup draws. Prices and CPMs are its figures. */
@@ -541,3 +589,537 @@ export const roiSeries = [
   { label: "May 22", a: 2.1 },
   { label: "May 31", a: 2.73 },
 ];
+
+/* ==========================================================================
+   Roadmap A1 additions — data for the ten screens built on fixtures.
+
+   Same rule as everything above: shapes mirror the V2 Prisma models (guide
+   §03) so Block B is a substitution, not a rewrite. Amounts in cents.
+   ========================================================================== */
+
+/* ---- (public)/join — Athlete application, §11 · §39 front door ---- */
+
+/**
+ * The ten onboarding sections. The application funnel is DRAFT → SUBMITTED
+ * (§11); this screen collects, it does not submit — acceptance of the Content
+ * Collaboration Agreement is blocked until counsel approves the template (§12).
+ * Field defs stay UI-side; nothing here is a stored model shape.
+ */
+export const applicationSections = [
+  {
+    id: "identity",
+    title: "Identity",
+    blurb: "Legal name, date of birth and contact. A date of birth under 18 opens the guardian section (§4).",
+    fields: [
+      { label: "Legal first name", placeholder: "Shammah", type: "text" as const },
+      { label: "Legal last name", placeholder: "Kwizera", type: "text" as const },
+      { label: "Date of birth", placeholder: "YYYY-MM-DD", type: "text" as const },
+      { label: "Email", placeholder: "you@example.com", type: "text" as const },
+      { label: "Phone", placeholder: "+1 …", type: "text" as const },
+    ],
+  },
+  {
+    id: "sport",
+    title: "Sport & team",
+    blurb: "Primary sport, position, level and current team or school.",
+    fields: [
+      { label: "Primary sport", placeholder: "Basketball", type: "text" as const },
+      { label: "Position", placeholder: "Forward", type: "text" as const },
+      { label: "Level", placeholder: "NCAA / High school / Club", type: "text" as const },
+      { label: "Team or school", placeholder: "…", type: "text" as const },
+    ],
+  },
+  {
+    id: "location",
+    title: "Location",
+    blurb: "Home market and any secondary markets — geography feeds matching (§13 step 3).",
+    fields: [
+      { label: "City", placeholder: "Silver Spring", type: "text" as const },
+      { label: "State / region", placeholder: "MD", type: "text" as const },
+      { label: "Country", placeholder: "USA", type: "text" as const },
+    ],
+  },
+  {
+    id: "social",
+    title: "Social accounts",
+    blurb: "Handles per platform. Followers are self-reported until verified (§22).",
+    fields: [
+      { label: "Instagram", placeholder: "@handle", type: "text" as const },
+      { label: "TikTok", placeholder: "@handle", type: "text" as const },
+      { label: "YouTube", placeholder: "@handle", type: "text" as const },
+    ],
+  },
+  {
+    id: "capabilities",
+    title: "Content capabilities",
+    blurb: "What you can produce — formats, turnaround, equipment.",
+    fields: [
+      { label: "Formats", placeholder: "Reels, stories, appearances", type: "text" as const },
+      { label: "Typical turnaround", placeholder: "3–5 days", type: "text" as const },
+    ],
+  },
+  {
+    id: "interests",
+    title: "Brand interests",
+    blurb: "Categories you want to work with. Used for fit scoring, not exclusivity.",
+    fields: [
+      { label: "Interested categories", placeholder: "Apparel, nutrition, local", type: "text" as const },
+    ],
+  },
+  {
+    id: "restrictions",
+    title: "Restrictions & conflicts",
+    blurb: "Existing deals and categories you cannot promote. Checked against every brief before an invite (§26).",
+    fields: [
+      { label: "Existing sponsorships", placeholder: "e.g. competing apparel brand", type: "text" as const },
+      { label: "Categories to exclude", placeholder: "Alcohol, gambling …", type: "text" as const },
+    ],
+  },
+  {
+    id: "guardian",
+    title: "Guardian / authorized rep",
+    blurb: "Required for minors (§4). A verified guardian must authorize before any Campaign Order.",
+    minorOnly: true,
+    fields: [
+      { label: "Guardian legal name", placeholder: "…", type: "text" as const },
+      { label: "Relationship", placeholder: "Parent / legal guardian", type: "text" as const },
+      { label: "Guardian email", placeholder: "guardian@example.com", type: "text" as const },
+    ],
+  },
+  {
+    id: "payment",
+    title: "Payment recipient",
+    blurb: "Who earnings are attributed to. Status only — SponsorX stores no bank details or tax ID (§26, Addendum A6).",
+    fields: [
+      { label: "Recipient name", placeholder: "…", type: "text" as const },
+    ],
+  },
+  {
+    id: "agreement",
+    title: "Agreement",
+    blurb: "The Content Collaboration Agreement. Acceptance is blocked until counsel approves the template (§12).",
+    blocked: true,
+    fields: [],
+  },
+] as const;
+
+/* ---- athlete/orders/[id] — Campaign Order, §12 · guide §08 ---- */
+
+/**
+ * Terms shared by the Campaign Order view. Deliverable specs are derived from
+ * the invitation in-page; these are the parts common to every order. The
+ * agreement body is deliberately a placeholder: guide §08 blocks acceptance
+ * until counsel approves the Campaign Order template.
+ */
+export const orderTerms = {
+  agreementVersion: "Campaign Order · draft (counsel review pending)",
+  paymentSchedule:
+    "Earnings status is tracked in SponsorX; funds move outside the system in Phase 1 (§26). No tax ID or bank details are collected.",
+  clauses: [
+    "Scope of deliverables and due dates",
+    "Compensation and earnings status",
+    "Usage rights and term",
+    "Category exclusivity, where applicable",
+    "Content approval and revision process (§21)",
+    "Cancellation and under-delivery",
+  ],
+};
+
+/* ---- admin/applications — review queue + AthleteScore snapshot (§14) ---- */
+
+export type ApplicationState = "SUBMITTED" | "UNDER_REVIEW" | "APPROVED" | "REJECTED";
+
+/**
+ * §14 Content Value Score is rules-based in Phase 1 (`method: "rules-v1"`),
+ * stored as a factor snapshot so a score can be explained after the fact.
+ * Factors: engagement, content quality, audience, reliability, geography, fit,
+ * sponsor performance.
+ */
+export const applications = [
+  {
+    id: "app_1",
+    name: "Amara Okafor",
+    slug: "amara-okafor",
+    sport: "Track & Field",
+    region: "Silver Spring, MD",
+    submittedAt: "2 hours ago",
+    state: "SUBMITTED" as ApplicationState,
+    isMinor: false,
+    guardianVerified: null as boolean | null,
+    followers: 21_400,
+    flags: [] as string[],
+    score: {
+      total: 65,
+      method: "rules-v1",
+      factors: [
+        { label: "Engagement", value: 72 },
+        { label: "Content quality", value: 68 },
+        { label: "Audience", value: 54 },
+        { label: "Reliability", value: 60 },
+        { label: "Geography", value: 80 },
+        { label: "Fit", value: 66 },
+      ],
+    },
+  },
+  {
+    id: "app_2",
+    name: "Nia Mutesi",
+    slug: "nia-mutesi",
+    sport: "Volleyball",
+    region: "Kigali, RW",
+    submittedAt: "1 day ago",
+    state: "UNDER_REVIEW" as ApplicationState,
+    isMinor: true,
+    guardianVerified: false,
+    followers: 8_900,
+    flags: ["Guardian verification pending"],
+    score: {
+      total: 58,
+      method: "rules-v1",
+      factors: [
+        { label: "Engagement", value: 61 },
+        { label: "Content quality", value: 70 },
+        { label: "Audience", value: 40 },
+        { label: "Reliability", value: 55 },
+        { label: "Geography", value: 62 },
+        { label: "Fit", value: 60 },
+      ],
+    },
+  },
+  {
+    id: "app_3",
+    name: "Jalen Brooks",
+    slug: "jalen-brooks",
+    sport: "Football",
+    region: "Baltimore, MD",
+    submittedAt: "2 days ago",
+    state: "UNDER_REVIEW" as ApplicationState,
+    isMinor: false,
+    guardianVerified: null,
+    followers: 44_800,
+    flags: ["Competing apparel deal declared — check conflicts (§26)"],
+    score: {
+      total: 71,
+      method: "rules-v1",
+      factors: [
+        { label: "Engagement", value: 66 },
+        { label: "Content quality", value: 74 },
+        { label: "Audience", value: 78 },
+        { label: "Reliability", value: 70 },
+        { label: "Geography", value: 68 },
+        { label: "Fit", value: 70 },
+      ],
+    },
+  },
+  {
+    id: "app_4",
+    name: "Leila Haddad",
+    slug: "leila-haddad",
+    sport: "Soccer",
+    region: "Rockville, MD",
+    submittedAt: "4 days ago",
+    state: "APPROVED" as ApplicationState,
+    isMinor: false,
+    guardianVerified: null,
+    followers: 33_100,
+    flags: [] as string[],
+    score: {
+      total: 69,
+      method: "rules-v1",
+      factors: [
+        { label: "Engagement", value: 71 },
+        { label: "Content quality", value: 72 },
+        { label: "Audience", value: 64 },
+        { label: "Reliability", value: 68 },
+        { label: "Geography", value: 70 },
+        { label: "Fit", value: 69 },
+      ],
+    },
+  },
+];
+
+export const APPLICATION_COPY: Record<ApplicationState, string> = {
+  SUBMITTED: "Submitted",
+  UNDER_REVIEW: "Under review",
+  APPROVED: "Approved",
+  REJECTED: "Rejected",
+};
+
+/* ---- admin/approvals — content approval workspace (§21) ---- */
+
+/**
+ * The deliverables awaiting a decision, with the creative-asset reference that
+ * lives in the private R2 bucket (signed URLs only — never public, guide §11).
+ */
+export const contentReviewQueue = deliverables
+  .filter((d) => d.state === "BTG_REVIEW" || d.state === "SPONSOR_REVIEW" || d.state === "DRAFT_SUBMITTED")
+  .map((d) => ({
+    ...d,
+    athlete: "Shammah Kwizera",
+    assetKind: "video" as "video" | "image",
+    version: 2,
+    submittedAt: "1 day ago",
+  }));
+
+/* ---- admin/finance & athlete/earnings — Earning rows + Zoho refs ---- */
+
+/**
+ * Per-order earning rows (Earning model, §21). Status only — no tax ID, no bank
+ * details (§26, Addendum A6). `reference` holds a Zoho/payment reference where
+ * one exists, never a credential.
+ */
+export const earningItems = [
+  { id: "ern_1", athlete: "Shammah Kwizera", campaign: "Player of the Week", jobId: "SX-03", jobName: "Athlete Reel", amount: 15_000, state: "ELIGIBLE" as EarningState, reference: null as string | null, updatedAt: "May 16" },
+  { id: "ern_2", athlete: "Shammah Kwizera", campaign: "Player of the Week", jobId: "SX-06", jobName: "Content Day", amount: 32_000, state: "APPROVED_FOR_PAYOUT" as EarningState, reference: "ZB-2026-0412", updatedAt: "May 14" },
+  { id: "ern_3", athlete: "Shammah Kwizera", campaign: "Road to College", jobId: "SX-01", jobName: "Story Drop", amount: 4_000, state: "PENDING" as EarningState, reference: null, updatedAt: "May 18" },
+  { id: "ern_4", athlete: "Marcus Reed", campaign: "Player of the Week", jobId: "SX-07", jobName: "Monthly Ambassador", amount: 65_000, state: "PAID" as EarningState, reference: "ZB-2026-0388", updatedAt: "May 2" },
+  { id: "ern_5", athlete: "Jalen Brooks", campaign: "Player of the Week", jobId: "SX-05", jobName: "Local Appearance", amount: 28_000, state: "HELD" as EarningState, reference: null, updatedAt: "May 10" },
+  { id: "ern_6", athlete: "Amara Okafor", campaign: "Local Blitz — Spring", jobId: "SX-02", jobName: "Sponsored Post", amount: 9_000, state: "DISPUTED" as EarningState, reference: null, updatedAt: "May 9" },
+];
+
+export const EARNING_COPY: Record<EarningState, string> = {
+  PENDING: "Pending",
+  ELIGIBLE: "Eligible",
+  APPROVED_FOR_PAYOUT: "Approved for payout",
+  PAID: "Paid",
+  HELD: "Held",
+  DISPUTED: "Disputed",
+};
+
+/**
+ * Sponsor invoices live in Zoho Books; SponsorX holds only the reference and
+ * the status Zoho reports. Inbound only — SponsorX never writes invoices (§18).
+ */
+export type InvoiceStatus = "DRAFT" | "SENT" | "PAID" | "OVERDUE";
+export const sponsorInvoices = [
+  { id: "inv_zb_1", sponsor: "Under Armour", campaign: "Player of the Week", ref: "ZB-2026-0412", amount: 1_920_000, status: "PAID" as InvoiceStatus, issuedAt: "May 1" },
+  { id: "inv_zb_2", sponsor: "Silver Spring Grill", campaign: "Local Blitz — Spring", ref: "ZB-2026-0431", amount: 280_000, status: "SENT" as InvoiceStatus, issuedAt: "May 8" },
+  { id: "inv_zb_3", sponsor: "Kigali Sports Co.", campaign: "Community Campaign", ref: "ZB-2026-0440", amount: 500_000, status: "OVERDUE" as InvoiceStatus, issuedAt: "Apr 24" },
+  { id: "inv_zb_4", sponsor: "BTG Sports Talk", campaign: "Road to College", ref: "ZB-2026-0455", amount: 75_000, status: "DRAFT" as InvoiceStatus, issuedAt: "—" },
+];
+
+export const INVOICE_COPY: Record<InvoiceStatus, string> = {
+  DRAFT: "Draft",
+  SENT: "Sent",
+  PAID: "Paid",
+  OVERDUE: "Overdue",
+};
+
+/* ---- admin (§23) — command center: integration health + activity ---- */
+
+/**
+ * §23 requires an integration-health view. These systems are the stack in
+ * CLAUDE.md; Zoho is never on a request path (queued), so "syncing" is normal
+ * and not an error state.
+ */
+export type HealthStatus = "OK" | "SYNCING" | "DEGRADED" | "DOWN";
+export const integrationHealth = [
+  { system: "Clerk", detail: "Auth + MFA", status: "OK" as HealthStatus },
+  { system: "Postgres", detail: "Products · queue · audit log", status: "OK" as HealthStatus },
+  { system: "Worker queue", detail: "0 jobs waiting · 0 failed", status: "OK" as HealthStatus },
+  { system: "Zoho CRM + Books", detail: "Last sync 4 min ago · 2 queued", status: "SYNCING" as HealthStatus },
+  { system: "Cloudflare R2", detail: "Public CDN + private signed", status: "OK" as HealthStatus },
+];
+
+export const HEALTH_COPY: Record<HealthStatus, string> = {
+  OK: "Operational",
+  SYNCING: "Syncing",
+  DEGRADED: "Degraded",
+  DOWN: "Down",
+};
+
+/** §23 activity feed — recent events across the marketplace. */
+export const adminActivity = [
+  { at: "2h", text: "Amara Okafor submitted an application", kind: "application" as const },
+  { at: "5h", text: "Under Armour — Player of the Week: 2 deliverables entered BTG review", kind: "content" as const },
+  { at: "1d", text: "Invoice ZB-2026-0412 marked paid in Zoho Books", kind: "finance" as const },
+  { at: "1d", text: "Jalen Brooks flagged for a competing apparel deal", kind: "conflict" as const },
+  { at: "2d", text: "Leila Haddad application approved", kind: "application" as const },
+];
+
+/* ==========================================================================
+   Sponsor portal redesign fixtures (spec 2026-09-11).
+
+   Same discipline as everything above: every figure is retrievable —
+   MetricDaily, RewardEvent (+resolve-geo), Deliverable, Zoho Books/CRM, or a
+   platform API — and carries its provenance. Curated constants (benchmarks,
+   market CPM) are ESTIMATED and say so. Amounts in cents.
+   ========================================================================== */
+
+/* ---- /sponsor hero — MetricDaily daily cumulative, May 1–31 ---- */
+
+const heroDay = (i: number) => {
+  // Smooth ease with a gentle organic wobble; lands exactly on the totals.
+  const t = (i + 1) / 31;
+  const ease = t * t * (3 - 2 * t);
+  const wobble = 1 + 0.05 * Math.sin(i * 1.7) * (1 - t);
+  return {
+    label: `May ${i + 1}`,
+    a: Math.round(823_400 * ease * wobble),
+    b: Math.round(42_815 * ease * wobble),
+  };
+};
+
+export const sponsorHero = {
+  views: 823_400,
+  deltaPct: 12.5,
+  target: 1_200_000,
+  pacingPct: 104,
+  projectedTotal: "1.31M",
+  series: Array.from({ length: 31 }, (_, i) => heroDay(i)),
+  /** Dashed tail — linear extrapolation of the May run-rate (ESTIMATED). */
+  projection: [
+    { label: "Jun 4", a: 878_000 },
+    { label: "Jun 8", a: 924_000 },
+    { label: "Jun 11", a: 967_000 },
+    { label: "Jun 15", a: 1_018_000 },
+  ],
+  breakEvenIndex: 13,
+  breakEvenLabel: "broke even · May 14",
+};
+
+/** Computed callouts — RewardEvent + MetricDaily queries, written as copy. */
+export const sponsorInsights = [
+  { icon: "⚡", text: "Engagement spiked 2.1× on May 18 — Shammah's Week 5 reel" },
+  { icon: "📈", text: "Weekend scans beat weekdays by 34%" },
+  { icon: "⏱", text: "Half of fans redeem within 26h of scanning" },
+];
+
+/** MetricDaily.source distribution — provenance metadata, not a metric. */
+export const metricTrust = [
+  { label: "verified API", pct: 58, className: "bg-success" },
+  { label: "verified manual", pct: 24, className: "bg-primary" },
+  { label: "attributed", pct: 11, className: "bg-admin" },
+  { label: "estimated", pct: 7, className: "bg-surface-2" },
+];
+
+/** Zoho Books — contracted vs invoiced-and-paid to date. */
+export const sponsorBudget = { contracted: 4_750_000, spent: 3_025_000 };
+
+/** Daily engagement counts for the bento sparkline (last 8 MetricDaily rows). */
+export const engagementSpark = [980, 1_240, 1_105, 1_610, 1_465, 1_890, 2_040, 2_215];
+
+/**
+ * Per-campaign display extension keyed by sponsorCampaigns id — keeps the
+ * original array intact for /admin. Views from MetricDaily; pacing compares
+ * delivery progress against elapsed campaign time (Deliverable dates).
+ */
+export const sponsorCampaignsX: Record<
+  string,
+  { views: number; monogram: string; endsIn: string; pacing: "ON_TRACK" | "BEHIND" }
+> = {
+  c1: { views: 312_540, monogram: "PW", endsIn: "ends in 12 days", pacing: "ON_TRACK" },
+  c2: { views: 148_900, monogram: "LB", endsIn: "reporting", pacing: "ON_TRACK" },
+  c3: { views: 96_200, monogram: "CC", endsIn: "45 days left", pacing: "BEHIND" },
+  c4: { views: 201_300, monogram: "SL", endsIn: "completed", pacing: "ON_TRACK" },
+  c5: { views: 64_460, monogram: "RC", endsIn: "staffing", pacing: "ON_TRACK" },
+};
+
+/** MetricDaily grouped by deliverable→athlete, top 3 by views. */
+export const topAthletes = [
+  { rank: 1, name: "Shammah Kwizera", initials: "SK", views: 312_540, flag: null as string | null },
+  { rank: 2, name: "Marcus Reed", initials: "MR", views: 268_100, flag: null },
+  { rank: 3, name: "Jalen Brooks", initials: "JB", views: 149_000, flag: "under-delivering" },
+];
+
+/* ---- ROI report (c1) ---- */
+
+export const roiGauge = {
+  value: "2.73×",
+  /** Ring sweep — 2.73 on a 0–4× demo scale. */
+  sweep: 0.68,
+  invested: 1_920_000,
+  attributed: 5_250_000,
+  mediaValue: 3_293_600,
+};
+
+/** Return multiple over time; crosses 1.0× at breakEvenIndex. */
+export const roiTimeline = {
+  series: [
+    { label: "May 1", a: 0.1 },
+    { label: "May 5", a: 0.35 },
+    { label: "May 9", a: 0.68 },
+    { label: "May 14", a: 1.0 },
+    { label: "May 18", a: 1.42 },
+    { label: "May 22", a: 1.9 },
+    { label: "May 26", a: 2.31 },
+    { label: "May 31", a: 2.73 },
+  ],
+  breakEvenIndex: 3,
+  breakEvenLabel: "1.0× · May 14",
+};
+
+/** MetricDaily grouped by deliverable→NilJob (SX taxonomy). */
+export const formatPerformance = [
+  { label: "Reels", sub: "SX-03", value: 412_000, display: "412K", tone: "primary" as const },
+  { label: "Posts", sub: "SX-02", value: 218_400, display: "218K", tone: "soft" as const },
+  { label: "Stories", sub: "SX-01", value: 133_000, display: "133K", tone: "soft" as const },
+  { label: "Appearances", sub: "SX-05", value: 60_000, display: "60K ▼", tone: "warn" as const },
+];
+export const formatInsight = "Reels deliver 3.1× the views-per-dollar of stories";
+
+/** MetricDaily grouped by deliverable→platform. VERIFIED_MANUAL until OAuth. */
+export const platformSplit = {
+  segments: [
+    { label: "Instagram", value: 428_200, color: "var(--sx-primary)" },
+    { label: "TikTok", value: 264_100, color: "var(--sx-accent)" },
+    { label: "YouTube", value: 131_100, color: "var(--sx-primary-soft)" },
+  ],
+  leaderPct: "52%",
+  leader: "Instagram",
+  insight: "TikTok engagement rate is 2.4× Instagram's — despite fewer views",
+};
+
+/** RewardEvent × resolve-geo (city-level, no IP stored). */
+export const geoMarkets = [
+  { label: "Washington DC", value: 24, display: "24%" },
+  { label: "Baltimore", value: 18, display: "18%" },
+  { label: "Silver Spring", value: 12, display: "12%" },
+  { label: "Atlanta", value: 9, display: "9%" },
+  { label: "Kigali", value: 7, display: "7%" },
+];
+export const geoInsight = "54% of redemptions within 25mi of DC — city-level only, no IP stored";
+
+/** RewardEvent funnel with latency + lead push (consent-gated → Zoho CRM). */
+export const funnelDetail = {
+  stages: [
+    { label: "Scans", value: 8_200 },
+    { label: "Landing", value: 6_410 },
+    { label: "Claims", value: 4_300 },
+    { label: "Redeemed", value: 1_870 },
+  ],
+  overallPct: 23,
+  medianRedeemHours: 26,
+  leadsPushed: 4_300,
+};
+
+/** Computed from spend (Zoho) ÷ MetricDaily / RewardEvent counts.
+    benchDeltaPct compares against BTG-curated category medians (ESTIMATED). */
+export const efficiency = [
+  { label: "Cost per view", value: "$0.023", benchDeltaPct: -39 as number | null },
+  { label: "Cost per engagement", value: "$0.45", benchDeltaPct: -18 as number | null },
+  { label: "Cost per redemption", value: "$10.27", benchDeltaPct: -24 as number | null },
+  { label: "Cost per lead", value: "$4.47", benchDeltaPct: null as number | null },
+];
+
+/** MetricDaily per deliverable, top 3 — extends the old topContent shape. */
+export const topContentX = [
+  { rank: 1, title: "Week 5 — Highlight Reel", athlete: "Shammah Kwizera", initials: "SK", format: "Reel", platform: "Instagram", views: 185_000, engagementRate: 7.1 },
+  { rank: 2, title: "Week 4 — Interview", athlete: "Marcus Reed", initials: "MR", format: "Reel", platform: "TikTok", views: 162_000, engagementRate: 6.4 },
+  { rank: 3, title: "Week 3 — Game Winner", athlete: "Jalen Brooks", initials: "JB", format: "Post", platform: "Instagram", views: 149_000, engagementRate: 5.2 },
+];
+
+export const roiRecommendation = {
+  body: "Reels at the Creator tier drove your best views-per-dollar. Shift the appearance budget into 2 more reels and DC-area rewards for a projected +22% return.",
+  liftPct: 22,
+};
+
+/** Delivery block for the report — Deliverable + MetricDaily counts. */
+export const roiDelivery = {
+  views: 823_400,
+  engagements: 42_815,
+  deliverablesDone: 18,
+  deliverablesTotal: 24,
+  onTimePct: 94,
+  leads: 4_300,
+};
