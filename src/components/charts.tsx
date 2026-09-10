@@ -364,7 +364,10 @@ export function Donut({
 }) {
   const C = 2 * Math.PI * 30;
   const total = segments.reduce((s, x) => s + x.value, 0) || 1;
-  let offset = 0;
+  const lens = segments.map((s) => (s.value / total) * C);
+  const offsets = lens.map((_, i) =>
+    lens.slice(0, i).reduce((a, b) => a + b, 0),
+  );
   return (
     <svg
       viewBox="0 0 80 80"
@@ -373,25 +376,20 @@ export function Donut({
       role="img"
       aria-label={segments.map((s) => `${s.label} ${s.value}`).join(", ")}
     >
-      {segments.map((s) => {
-        const len = (s.value / total) * C;
-        const el = (
-          <circle
-            key={s.label}
-            cx="40"
-            cy="40"
-            r="30"
-            fill="none"
-            stroke={s.color}
-            strokeWidth="13"
-            strokeDasharray={`${len} ${C}`}
-            strokeDashoffset={-offset}
-            transform="rotate(-90 40 40)"
-          />
-        );
-        offset += len;
-        return el;
-      })}
+      {segments.map((s, i) => (
+        <circle
+          key={s.label}
+          cx="40"
+          cy="40"
+          r="30"
+          fill="none"
+          stroke={s.color}
+          strokeWidth="13"
+          strokeDasharray={`${lens[i]} ${C}`}
+          strokeDashoffset={-offsets[i]}
+          transform="rotate(-90 40 40)"
+        />
+      ))}
       <text
         x="40"
         y="38"
