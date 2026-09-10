@@ -9,10 +9,17 @@ import {
   SourceLabel,
   StatTile,
 } from "@/components/ui";
+import { Sparkline, compact } from "@/components/charts";
+import { HeroBand, MiniChip } from "@/components/hero";
+import { ProgressRing } from "@/components/progress-ring";
+import { EmptyState, SkeletonPage } from "@/components/states";
+import { demoState } from "@/lib/demo";
 import {
   DELIVERABLE_COPY,
   agreements,
   athlete,
+  athleteCareer,
+  athleteEarningsTrend,
   deliverables,
   earnings,
   invitations,
@@ -25,12 +32,19 @@ import {
 } from "@/lib/fixtures";
 
 /* --------------------------------------------------------------------------
-   Athlete Portal — §9 screen 6, requirements in §24.
+   Athlete Portal — §9 screen 6, requirements in §24. Redesigned 2026-09-11 (A2).
 
    No mockup exists for this screen: the mockup sheet's "6. Athlete Profile"
    is the sponsor-facing profile (Follow, Request Partnership, sponsor prices),
    which is §9 screen 5. This is built in the mockup's visual language against
    §24's thirteen requirements.
+
+   The milestone hero answers "what is my NIL career worth right now?": career
+   earnings, progress to the next payout, on-time reliability and audience —
+   every figure provenance-tagged (§22). Canonical totals come from
+   `athleteCareer` (Postgres); the legacy per-state `earnings` rows are a
+   smaller, in-cycle sample and are framed as such so they never read as the
+   career total.
 
    Data is fixtures (src/lib/fixtures.ts) shaped to the Prisma models in guide
    V2 §03. Nothing here is wired to a database yet.
@@ -58,7 +72,49 @@ const EARNING_TONE: Record<EarningState, "neutral" | "primary" | "accent" | "dan
   DISPUTED: "danger",
 };
 
-export default function AthletePortalPage() {
+export default async function AthletePortalPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const demo = await demoState(searchParams);
+  if (demo === "loading") return <SkeletonPage />;
+  if (demo === "error") throw new Error("Demo error state");
+
+  const heading = (
+    <div className="flex flex-wrap items-end justify-between gap-4">
+      <div>
+        <h1 className="text-xl font-semibold tracking-tight">
+          {athlete.firstName}&rsquo;s dashboard
+        </h1>
+        <p className="mt-1 text-xs text-muted">
+          {athlete.sport} · {athlete.position} · {athlete.region} ·{" "}
+          {athlete.school}
+        </p>
+      </div>
+      <div className="flex items-center gap-2">
+        <Badge tone="accent">{athlete.tier} tier</Badge>
+        <Badge tone="neutral">{athlete.tierMultiplier} multiplier</Badge>
+      </div>
+    </div>
+  );
+
+  /* Brand-new athlete: no invites, no earnings — the screen is the next step,
+     not a wall of zeros dressed up as progress. */
+  if (demo === "empty") {
+    return (
+      <div className="space-y-6">
+        {heading}
+        <EmptyState
+          mark="chart"
+          title="Your story starts here"
+          hint="Stats fill in as you accept invitations and deliver."
+          action={{ label: "See invitations", href: "/athlete/invitations" }}
+        />
+      </div>
+    );
+  }
+
   const openInvites = invitations.filter(
     (i) => i.state === "INVITED" || i.state === "VIEWED",
   );
@@ -67,6 +123,11 @@ export default function AthletePortalPage() {
     .sort((a, b) => a.dueDate.localeCompare(b.dueDate));
   const pending = earnings.find((e) => e.state === "PENDING")!;
   const outstanding = profileChecklist.filter((c) => !c.done);
+
+  // Momentum: monthly earnings trend average (Σ Earning by month — Postgres).
+  const trendAvgCents = Math.round(
+    athleteEarningsTrend.reduce((s, v) => s + v, 0) / athleteEarningsTrend.length,
+  );
 
   return (
     <div className="space-y-6">
@@ -88,23 +149,50 @@ export default function AthletePortalPage() {
       )}
 
       {/* -------------------------------------------------------- headline */}
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <h1 className="text-xl font-semibold tracking-tight">
-            {athlete.firstName}&rsquo;s dashboard
-          </h1>
-          <p className="mt-1 text-xs text-muted">
-            {athlete.sport} · {athlete.position} · {athlete.region} ·{" "}
-            {athlete.school}
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Badge tone="accent">{athlete.tier} tier</Badge>
-          <Badge tone="neutral">{athlete.tierMultiplier} multiplier</Badge>
-        </div>
-      </div>
+      {heading}
 
-      {/* ----------------------------------------------------- stat tiles */}
+      {/* ----------------------------------------------------- milestone hero */}
+      <HeroBand border="border-athlete/30" className="sx-animate">
+        <div className="flex flex-col gap-6 sm:flex-row sm:items-center">
+          <ProgressRing pct={athleteCareer.payoutRingPct}>
+            <div>
+              <p className="text-lg font-bold tabular-nums leading-none">
+                {athleteCareer.payoutRingPct}%
+              </p>
+              <p className="mt-0.5 text-[9px] uppercase tracking-wide text-muted">
+                to payout
+              </p>
+            </div>
+          </ProgressRing>
+          <div className="min-w-0">
+            <p className="text-[10px] font-medium uppercase tracking-[0.2em] text-muted">
+              {athlete.firstName} — your NIL career
+            </p>
+            <p className="mt-1 bg-[linear-gradient(90deg,var(--sx-primary),var(--sx-accent))] bg-clip-text text-4xl font-bold tabular-nums tracking-tight text-transparent sm:text-5xl">
+              {money(athleteCareer.careerEarningsCents)} earned
+            </p>
+            <p className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted">
+              <span className="font-semibold text-text">
+                {money(athleteCareer.approvedCents)}
+              </span>
+              approved → payout {athleteCareer.nextPayout}
+              <MiniChip kind="ver">POSTGRES</MiniChip>
+              · on-time {athleteCareer.onTimeRatePct}% · {openInvites.length}{" "}
+              invites waiting
+            </p>
+            <p className="mt-3 flex flex-wrap items-center gap-2 text-xs text-muted">
+              Audience
+              <span className="font-semibold text-text">
+                {compact(athleteCareer.followers)}
+              </span>
+              followers · {athleteCareer.engagementRatePct}% engagement
+              <MiniChip kind="manual">VERIFIED · MANUAL</MiniChip>
+            </p>
+          </div>
+        </div>
+      </HeroBand>
+
+      {/* ------------------------------------------------ slim stat + momentum */}
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <StatTile
           label="Open invitations"
@@ -119,21 +207,28 @@ export default function AthletePortalPage() {
         <StatTile
           label="Pending earnings"
           value={money(pending.amount)}
-          sub={`${pending.count} orders`}
+          sub={`${pending.count} orders in cycle`}
         />
-        <StatTile
-          label="On-time rate"
-          value={`${athlete.onTimeRate}%`}
-          delta={{ value: "3%", direction: "up" }}
-          sub="feeds your score"
-        />
+        <Card className="p-4">
+          <p className="text-[11px] font-medium uppercase tracking-wide text-muted">
+            Momentum
+          </p>
+          <div className="mt-2.5">
+            <Sparkline points={athleteEarningsTrend} stroke="var(--sx-athlete)" />
+          </div>
+          <p className="mt-2 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-[11px] text-faint">
+            <span className="font-semibold text-text">{money(trendAvgCents)}</span>
+            / month avg
+            <MiniChip kind="ver">POSTGRES</MiniChip>
+          </p>
+        </Card>
       </div>
 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_20rem]">
         {/* =============================================== main column */}
         <div className="min-w-0 space-y-6">
           {/* ------------------------------------------- invitation inbox */}
-          <section>
+          <section className="sx-animate sx-delay-1">
             <SectionHeading
               title="Campaign invitations"
               hint="§21 — INVITED → VIEWED → ACCEPTED / DECLINED / EXPIRED"
@@ -215,7 +310,7 @@ export default function AthletePortalPage() {
           </section>
 
           {/* --------------------------------------- deliverable calendar */}
-          <section>
+          <section className="sx-animate sx-delay-2">
             <SectionHeading
               title="Deliverables"
               hint="§21 — NOT_STARTED → DRAFT_SUBMITTED → BTG_REVIEW → SPONSOR_REVIEW → APPROVED → PUBLISHED → VERIFIED"
@@ -259,7 +354,7 @@ export default function AthletePortalPage() {
           </section>
 
           {/* ---------------------------------------------- rate card */}
-          <section>
+          <section className="sx-animate sx-delay-3">
             <SectionHeading
               title="Your rate card"
               hint="§5 job catalogue at your confirmed rates. Sponsors never see these amounts."
@@ -288,8 +383,11 @@ export default function AthletePortalPage() {
         {/* ==================================================== side rail */}
         <div className="space-y-6">
           {/* ------------------------------------------------- earnings */}
-          <section>
-            <SectionHeading title="Earnings" hint="Status only" />
+          <section className="sx-animate sx-delay-2">
+            <SectionHeading
+              title="Earnings"
+              hint="This cycle by state — status only, not the career total (§21)"
+            />
             <Card>
               <ul className="space-y-2.5">
                 {earnings.map((e) => (
@@ -315,7 +413,7 @@ export default function AthletePortalPage() {
           </section>
 
           {/* --------------------------------------- profile completion */}
-          <section>
+          <section className="sx-animate sx-delay-3">
             <SectionHeading title="Profile completion" />
             <Card>
               <div className="flex items-baseline justify-between">
@@ -354,7 +452,7 @@ export default function AthletePortalPage() {
           </section>
 
           {/* -------------------------------------------------- audience */}
-          <section>
+          <section className="sx-animate sx-delay-4">
             <SectionHeading
               title="Audience"
               hint="§22 — every figure carries its source"
@@ -380,7 +478,7 @@ export default function AthletePortalPage() {
           </section>
 
           {/* ------------------------------------------------ agreements */}
-          <section>
+          <section className="sx-animate sx-delay-5">
             <SectionHeading
               title="Agreements"
               hint="§12 — metadata and signature references"
@@ -403,7 +501,7 @@ export default function AthletePortalPage() {
 
           {/* -------------------------------------------------- guardian */}
           {athlete.isMinor && (
-            <section>
+            <section className="sx-animate sx-delay-5">
               <SectionHeading title="Guardian" hint="§4 · §11" />
               <Card>
                 <p className="text-xs">{athlete.guardian?.legalName}</p>
