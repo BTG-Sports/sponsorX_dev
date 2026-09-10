@@ -40,6 +40,13 @@ function stage(state: DeliverableState): string {
   return "Cleared";
 }
 
+/** The primary action that advances a queued deliverable one step (§21). */
+const QUEUE_ACTION: Partial<Record<DeliverableState, string>> = {
+  DRAFT_SUBMITTED: "Start BTG review",
+  BTG_REVIEW: "Send to sponsor",
+  SPONSOR_REVIEW: "Approve & publish",
+};
+
 export default async function AdminApprovalsPage({
   searchParams,
 }: {
@@ -135,8 +142,8 @@ export default async function AdminApprovalsPage({
                   </p>
 
                   <div className="mt-3 flex flex-wrap gap-2">
-                    <Button title="Approve to the next stage — not wired">
-                      {d.state === "SPONSOR_REVIEW" ? "Approve & publish" : "Send to sponsor"}
+                    <Button title="Advance to the next stage — not wired">
+                      {QUEUE_ACTION[d.state] ?? "Review"}
                     </Button>
                     <Button
                       variant="secondary"

@@ -140,7 +140,8 @@ export default async function AdminApplicationsPage({
                 </div>
                 <p className="mt-1 text-xs text-muted">
                   {a.sport} · {a.region} · {a.followers.toLocaleString()}{" "}
-                  followers · submitted {a.submittedAt}
+                  followers <MiniChip kind="warn">SELF</MiniChip> · submitted{" "}
+                  {a.submittedAt}
                 </p>
 
                 {a.flags.length > 0 && (
@@ -168,34 +169,45 @@ export default async function AdminApplicationsPage({
                   </div>
                 )}
 
-                <div className="mt-4 flex flex-wrap gap-2">
-                  <Button
-                    disabled={a.isMinor && !a.guardianVerified}
-                    title={
-                      a.isMinor && !a.guardianVerified
-                        ? "Blocked: a minor needs a verified guardian before approval (§4)"
-                        : "Approve into the network — not wired (B1)"
-                    }
-                  >
-                    Approve
-                  </Button>
-                  <Button variant="secondary" title="Request changes — not wired">
-                    Request info
-                  </Button>
-                  <Button variant="ghost" title="Reject — not wired">
-                    Reject
-                  </Button>
+                <div className="mt-4 flex flex-wrap items-center gap-2">
+                  {a.state === "SUBMITTED" || a.state === "UNDER_REVIEW" ? (
+                    <>
+                      <Button
+                        disabled={a.isMinor && !a.guardianVerified}
+                        title={
+                          a.isMinor && !a.guardianVerified
+                            ? "Blocked: a minor needs a verified guardian before approval (§4)"
+                            : "Approve into the network — not wired (B1)"
+                        }
+                      >
+                        Approve
+                      </Button>
+                      <Button variant="secondary" title="Request changes — not wired">
+                        Request info
+                      </Button>
+                      <Button variant="ghost" title="Reject — not wired">
+                        Reject
+                      </Button>
+                    </>
+                  ) : (
+                    <Badge tone={a.state === "APPROVED" ? "accent" : "danger"}>
+                      {a.state === "APPROVED" ? "In the network" : "Rejected"}
+                    </Badge>
+                  )}
                 </div>
               </div>
 
               {/* ------------------------------------- score snapshot */}
               <div className="rounded-xl border border-line bg-surface-2 p-4">
-                <div className="flex items-baseline justify-between">
+                <div className="flex items-baseline justify-between gap-2">
                   <span className="text-[11px] font-medium uppercase tracking-wide text-muted">
                     Content Value Score
                   </span>
-                  <span className="text-xl font-semibold tabular-nums">
-                    {a.score.total}
+                  <span className="flex items-center gap-2">
+                    <MiniChip kind="neutral">rules-v1 · POSTGRES</MiniChip>
+                    <span className="text-xl font-semibold tabular-nums">
+                      {a.score.total}
+                    </span>
                   </span>
                 </div>
                 <ul className="mt-3 space-y-2">
