@@ -67,14 +67,31 @@ export default async function InvitationsPage({
   if (demo === "loading") return <SkeletonPage />;
   if (demo === "error") throw new Error("Demo error state");
 
+  /* Brand-new athlete: no invites at all — heading plus the single empty
+     state, no counts and no tabs pretending there is anything to filter. */
+  if (demo === "empty") {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-xl font-semibold tracking-tight">
+            Campaign invitations
+          </h1>
+          <p className="mt-1 text-xs text-muted">
+            §21 — INVITED → VIEWED → ACCEPTED / DECLINED / EXPIRED.
+          </p>
+        </div>
+        {inviteEmpty}
+      </div>
+    );
+  }
+
   const sp = await searchParams;
   const stateParam = typeof sp.state === "string" ? sp.state : undefined;
   const active: FilterKey = FILTERS.some((f) => f.key === stateParam)
     ? (stateParam as FilterKey)
     : "all";
   const matcher = FILTERS.find((f) => f.key === active)!.match;
-  // ?demo=empty renders the branded empty state for every filter.
-  const shown = demo === "empty" ? [] : invitations.filter((i) => matcher(i.state));
+  const shown = invitations.filter((i) => matcher(i.state));
 
   const openInvites = invitations.filter(
     (i) => i.state === "INVITED" || i.state === "VIEWED",

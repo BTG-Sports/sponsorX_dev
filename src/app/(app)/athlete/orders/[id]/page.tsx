@@ -7,6 +7,7 @@ import {
   invitations,
   money,
   orderTerms,
+  type InviteState,
 } from "@/lib/fixtures";
 
 /* --------------------------------------------------------------------------
@@ -24,6 +25,15 @@ import {
    §4 additionally requires a verified guardian before any acceptance. UI is
    built; the acceptOrder domain function is B4.
    -------------------------------------------------------------------------- */
+
+/** Same state → tone mapping as the invitations inbox. */
+const STATE_TONE: Record<InviteState, "primary" | "accent" | "neutral" | "danger" | "warn"> = {
+  INVITED: "primary",
+  VIEWED: "warn",
+  ACCEPTED: "accent",
+  DECLINED: "neutral",
+  EXPIRED: "danger",
+};
 
 export default async function CampaignOrderPage({
   params,
@@ -71,7 +81,7 @@ export default async function CampaignOrderPage({
               {inv.campaign}
             </h1>
             <Badge tone="neutral">{inv.jobId}</Badge>
-            <Badge tone={actionable ? "primary" : "neutral"}>
+            <Badge tone={STATE_TONE[inv.state]}>
               {INVITE_COPY[inv.state]}
             </Badge>
           </div>

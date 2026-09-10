@@ -72,6 +72,18 @@ const EARNING_TONE: Record<EarningState, "neutral" | "primary" | "accent" | "dan
   DISPUTED: "danger",
 };
 
+/** Sort key for fixture due dates like "May 9" / "May 15" — month-name + day.
+ *  Static month map, no deps; unparseable strings sort last. */
+const MONTHS: Record<string, number> = {
+  Jan: 1, Feb: 2, Mar: 3, Apr: 4, May: 5, Jun: 6,
+  Jul: 7, Aug: 8, Sep: 9, Oct: 10, Nov: 11, Dec: 12,
+};
+const dueKey = (s: string) => {
+  const [mon, day] = s.split(" ");
+  const m = MONTHS[mon?.slice(0, 3)];
+  return m ? m * 100 + Number(day ?? 0) : Number.MAX_SAFE_INTEGER;
+};
+
 export default async function AthletePortalPage({
   searchParams,
 }: {
@@ -120,7 +132,7 @@ export default async function AthletePortalPage({
   );
   const upcoming = [...deliverables]
     .filter((d) => d.state !== "VERIFIED")
-    .sort((a, b) => a.dueDate.localeCompare(b.dueDate));
+    .sort((a, b) => dueKey(a.dueDate) - dueKey(b.dueDate));
   const pending = earnings.find((e) => e.state === "PENDING")!;
   const outstanding = profileChecklist.filter((c) => !c.done);
 
@@ -168,8 +180,11 @@ export default async function AthletePortalPage({
             <p className="text-[10px] font-medium uppercase tracking-[0.2em] text-muted">
               {athlete.firstName} — your NIL career
             </p>
-            <p className="mt-1 bg-[linear-gradient(90deg,var(--sx-primary),var(--sx-accent))] bg-clip-text text-4xl font-bold tabular-nums tracking-tight text-transparent sm:text-5xl">
-              {money(athleteCareer.careerEarningsCents)} earned
+            <p className="mt-1 flex flex-wrap items-baseline gap-2">
+              <span className="bg-[linear-gradient(90deg,var(--sx-primary),var(--sx-accent))] bg-clip-text text-4xl font-bold tabular-nums tracking-tight text-transparent sm:text-5xl">
+                {money(athleteCareer.careerEarningsCents)} earned
+              </span>
+              <MiniChip kind="ver">POSTGRES</MiniChip>
             </p>
             <p className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted">
               <span className="font-semibold text-text">
@@ -202,7 +217,7 @@ export default async function AthletePortalPage({
         <StatTile
           label="Deliverables due"
           value={String(upcoming.length)}
-          sub="next: May 15"
+          sub={`next: ${upcoming[0]?.dueDate ?? "—"}`}
         />
         <StatTile
           label="Pending earnings"
@@ -288,7 +303,7 @@ export default async function AthletePortalPage({
                     </Button>
                     <Button variant="secondary">Decline</Button>
                     <Link
-                      href={`/athlete/orders/${inv.id}`}
+                      href={`/athlete/orders/${inv.id}?from=athlete-portal`}
                       className="text-xs text-muted hover:text-text"
                     >
                       Full terms →
