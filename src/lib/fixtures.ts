@@ -1123,3 +1123,74 @@ export const roiDelivery = {
   onTimePct: 94,
   leads: 4_300,
 };
+
+/* --------------------------------------------------------------------------
+   A2 admin operations board (spec 2026-09-11 A2 §2). Every number names its
+   Block B retrieval path. Money in cents, like everything above.
+   -------------------------------------------------------------------------- */
+
+export const adminOps = {
+  /** Σ CampaignOrder.total launched this quarter — Postgres */
+  gmvQuarterCents: 128_450_000,
+  gmvDeltaPct: 18,
+  liveCampaigns: 12,
+  /** count Athlete SUBMITTED/UNDER_REVIEW; aging = createdAt > 48h */
+  queues: [
+    { label: "Applications waiting", count: 7, aging: 2, agingLabel: "2 > 48h", href: "/admin/applications" },
+    { label: "Approvals due", count: 5, aging: 0, agingLabel: "", href: "/admin/approvals" },
+  ],
+  /** median(CampaignInvite.createdAt − CampaignBrief.submittedAt) — Postgres */
+  medianMatchHours: 26,
+  /** booked = Postgres; invoiced/collected = Zoho Books */
+  bookedCents: 128_450_000,
+  invoicedCents: 96_200_000,
+  collectedCents: 78_900_000,
+  campaignsOnTrack: 9,
+  campaignsBehind: 3,
+  /** count Athlete ACTIVE, weekly snapshots — Postgres */
+  networkSize: 148,
+  networkGrowth: [122, 126, 131, 133, 138, 141, 148],
+};
+
+export const adminPipeline = {
+  /** count Athlete by state, this quarter — Postgres */
+  stages: [
+    { label: "Submitted", value: 42 },
+    { label: "Under review", value: 19 },
+    { label: "Approved", value: 12 },
+  ],
+  medianReviewHours: 31,
+  approvalRatePct: 63,
+  /** AthleteScore.total bands, current queue — Postgres */
+  scoreBands: [
+    { label: "80–100", value: 4 },
+    { label: "60–79", value: 11 },
+    { label: "40–59", value: 3 },
+    { label: "< 40", value: 1 },
+  ],
+};
+
+export const adminApprovalsX = {
+  /** count Deliverable by review state — Postgres */
+  medianTurnaroundHours: 9,
+  approvalRatePct: 88,
+};
+
+export const adminFinanceX = {
+  /** collected / invoiced — Zoho Books */
+  collectionRatePct: 82,
+  /** invoice aging buckets, cents — Zoho Books */
+  aging: [
+    { label: "Current", value: 5_210_000 },
+    { label: "1–30 days", value: 1_730_000 },
+    { label: "31–60 days", value: 640_000 },
+    { label: "> 60 days", value: 210_000 },
+  ],
+  /** Σ Earning by state, cents — Postgres */
+  earningsFlow: [
+    { label: "Pending", value: 1_840_000 },
+    { label: "Eligible", value: 2_760_000 },
+    { label: "Approved", value: 840_000 },
+    { label: "Paid", value: 4_625_000 },
+  ],
+};
