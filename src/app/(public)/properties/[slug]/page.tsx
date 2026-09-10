@@ -1,8 +1,18 @@
 import Link from "next/link";
 import { BackLink } from "@/components/back-link";
+import { HeroBand } from "@/components/hero";
 import { Badge, Card, SectionHeading, SourceLabel } from "@/components/ui";
 import { INVENTORY_COPY, money, property } from "@/lib/fixtures";
 import { resolveBack } from "@/lib/back";
+
+/** Static stagger classes (globals.css) — index by clamped position. */
+const STAGGER = [
+  "sx-delay-1",
+  "sx-delay-2",
+  "sx-delay-3",
+  "sx-delay-4",
+  "sx-delay-5",
+] as const;
 
 /* --------------------------------------------------------------------------
    Property Profile — §9 screen 5, mockup screen 5.
@@ -81,22 +91,27 @@ export default async function PropertyProfilePage({
         </div>
       </div>
 
-      {/* ------------------------------------------------------ stat row */}
-      <dl className="mt-8 grid grid-cols-2 gap-px overflow-hidden rounded-xl border border-line bg-line sm:grid-cols-4">
-        {p.stats.map((s) => (
-          <div key={s.label} className="bg-surface px-4 py-4">
-            <dd className="text-xl font-semibold tabular-nums tracking-tight">
-              {s.value}
-            </dd>
-            <dt className="mt-1 text-[10px] leading-tight text-muted">
-              {s.label}
-            </dt>
-            <div className="mt-2">
-              <SourceLabel source={s.source} />
+      {/* ------------------------------------------------------ stat band */}
+      <HeroBand border="border-property/30" className="mt-8 sx-animate">
+        <dl className="grid grid-cols-2 gap-x-4 gap-y-5 sm:grid-cols-4">
+          {p.stats.map((s, i) => (
+            <div
+              key={s.label}
+              className={["sx-animate", STAGGER[Math.min(i, 4)]].join(" ")}
+            >
+              <dd className="text-2xl font-bold tabular-nums tracking-tight sm:text-3xl">
+                {s.value}
+              </dd>
+              <dt className="mt-1 text-[10px] leading-tight text-muted">
+                {s.label}
+              </dt>
+              <div className="mt-2">
+                <SourceLabel source={s.source} />
+              </div>
             </div>
-          </div>
-        ))}
-      </dl>
+          ))}
+        </dl>
+      </HeroBand>
 
       {/* --------------------------------------- sponsorship opportunities */}
       <section className="mt-10">

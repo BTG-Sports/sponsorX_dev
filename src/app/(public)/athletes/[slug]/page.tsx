@@ -1,8 +1,17 @@
-import Link from "next/link";
 import { BackLink } from "@/components/back-link";
+import { HeroBand } from "@/components/hero";
 import { Badge, Card, SourceLabel } from "@/components/ui";
 import { INVENTORY_COPY, athletePublic } from "@/lib/fixtures";
 import { resolveBack } from "@/lib/back";
+
+/** Static stagger classes (globals.css) — index by clamped position. */
+const STAGGER = [
+  "sx-delay-1",
+  "sx-delay-2",
+  "sx-delay-3",
+  "sx-delay-4",
+  "sx-delay-5",
+] as const;
 
 /* --------------------------------------------------------------------------
    Athlete Profile — §9 screen 5, mockup screen 6.
@@ -117,22 +126,27 @@ export default async function AthleteProfilePage({
             </button>
           </div>
 
-          {/* ------------------------------------------------ stat strip */}
-          <dl className="mt-5 grid grid-cols-2 gap-px overflow-hidden rounded-xl border border-line bg-line sm:grid-cols-4">
-            {a.stats.map((s) => (
-              <div key={s.label} className="bg-surface px-3 py-3">
-                <dd className="text-base font-semibold tabular-nums tracking-tight">
-                  {s.value}
-                </dd>
-                <dt className="mt-0.5 text-[10px] leading-tight text-muted">
-                  {s.label}
-                </dt>
-                <div className="mt-1.5">
-                  <SourceLabel source={s.source} />
+          {/* ------------------------------------------------ stat band */}
+          <HeroBand border="border-athlete/30" className="mt-5 sx-animate">
+            <dl className="grid grid-cols-2 gap-x-4 gap-y-5 sm:grid-cols-4">
+              {a.stats.map((s, i) => (
+                <div
+                  key={s.label}
+                  className={["sx-animate", STAGGER[Math.min(i, 4)]].join(" ")}
+                >
+                  <dd className="text-2xl font-bold tabular-nums tracking-tight sm:text-3xl">
+                    {s.value}
+                  </dd>
+                  <dt className="mt-1 text-[10px] leading-tight text-muted">
+                    {s.label}
+                  </dt>
+                  <div className="mt-1.5">
+                    <SourceLabel source={s.source} />
+                  </div>
                 </div>
-              </div>
-            ))}
-          </dl>
+              ))}
+            </dl>
+          </HeroBand>
         </div>
       </div>
 

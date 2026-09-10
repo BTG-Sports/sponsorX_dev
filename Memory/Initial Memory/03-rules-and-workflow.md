@@ -5,6 +5,16 @@
 
 This rule is also stored in Claude's persistent memory as `memory-backup-workflow`.
 
+## Always-use-graphify rule
+> This repo carries a persistent knowledge graph in `graphify-out/`. **Always use
+> graphify first** for any question about the codebase, its architecture, file
+> relationships, or project content — treat the request as a graphify query
+> before grep/read/manual exploration. Invoke the `graphify` skill (`/graphify`)
+> at the start of such tasks; fall back to direct file tools only when graphify
+> can't answer. Re-run graphify ingestion after material changes.
+
+This rule is also recorded in the project `CLAUDE.md` ("Always use graphify").
+
 ## Current working mode
 - **No coding yet. No implementation/sprint plans yet.** The user is in a planning + understanding phase.
 - Deliverables are **documentation** (editable Word docs generated via python-docx) and **discussion / plain-English explanations**.
@@ -19,4 +29,4 @@ This rule is also stored in Claude's persistent memory as `memory-backup-workflo
 ## Global user context (from CLAUDE.md)
 - User email: creativebrainstudiosinc@gmail.com.
 - `/graphify` skill available for knowledge-graph tasks.
-- Environment: Windows 11, PowerShell primary shell, project is not a git repo.
+- Environment: Windows 11, PowerShell primary shell. Project **is** a git repo (branch `main`).

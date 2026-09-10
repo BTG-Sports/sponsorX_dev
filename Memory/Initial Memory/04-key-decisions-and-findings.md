@@ -16,6 +16,24 @@
 - **Zoho dual system-of-record:** risk of drift/duplicates → external IDs + queued retries + clear ownership per object.
 - **The operating loop IS the product:** if the loop works for the first ~25 athletes and ~10 businesses, later phases are justified; if not, nothing else matters.
 
+## ⚠️ Open discrepancy — stack baseline vs. current CLAUDE.md
+This `Initial Memory` baseline (see `02-confirmed-tech-stack.md`) records the
+stack as **Node.js + Express / Prisma / Redis / MinIO**. The current project
+`CLAUDE.md` and `.claude/stack-decision.md` have since moved to a different
+stack:
+
+| Concern | Baseline memory (02) | Current CLAUDE.md / stack-decision.md |
+|---|---|---|
+| API layer | Node.js + Express (separate) | **Next.js route handlers** under `/api/v1` (one service, TS everywhere) |
+| Hosting | (unspecified) | **Railway** (app + API + PDF worker + Postgres) |
+| Object storage | MinIO | **Cloudflare R2** (public CDN + private signed buckets) |
+| Cache / queue | Redis + BullMQ | **Postgres** job queue (no Redis — Addendum A3) |
+| Auth | (app-managed) | **Clerk** (identity only; authz stays in Postgres) |
+
+The baseline snapshot predates the stack decision. **Not auto-corrected** —
+reconcile with the team before editing `02-confirmed-tech-stack.md`; the
+`.claude/stack-decision.md` Addendum A is the current source of truth.
+
 ## Risks tracked (with mitigations)
 | Risk | Mitigation |
 |------|-----------|

@@ -14,6 +14,26 @@ for minors (§4); and a public fan QR page with no login (§16).
 
 **Status:** greenfield — no application code yet. No build/test commands exist.
 
+## Always use graphify
+
+This repo has a persistent knowledge graph in [graphify-out/](graphify-out/).
+**Always use graphify first** for any question about the codebase, its
+architecture, file relationships, or project content — treat the request as a
+graphify query before reaching for grep/read/manual exploration. Invoke the
+`graphify` skill (or `/graphify`) at the start of such tasks and let its
+query/path/explain tools drive discovery; fall back to direct file tools only
+when graphify can't answer. Re-run graphify ingestion after material changes so
+the graph stays current.
+
+## Sync with the team via `memory/`
+
+The [memory/](memory/) folder is the shared, in-repo record other developers
+update — often daily. **Read it at the start of each session** to stay in sync:
+`memory/Initial Memory/` is the baseline snapshot (project, stack, rules,
+decisions), and each `memory/YYYY-MM-DD/` subfolder logs that day's work.
+After completing any task, append to today's dated subfolder (create it first
+if missing) and update the baseline only when foundational facts change.
+
 ## Stack
 
 | Concern | Vendor |

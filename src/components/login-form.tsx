@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { MOCK_ACCOUNTS, resolveMockAccount } from "@/lib/mock-auth";
+import { Logo } from "@/components/logo";
 
 /* --------------------------------------------------------------------------
    Sponsor login form — mockup screen 2.
@@ -43,11 +44,8 @@ export function LoginForm() {
       }}
       aria-label="Sign in"
     >
-      <div className="text-center">
-        <p className="text-[15px] font-bold leading-none tracking-tight">BTG</p>
-        <p className="mt-1 text-[15px] font-bold leading-none tracking-tight">
-          SPONSOR<span className="text-primary-soft">X</span>
-        </p>
+      <div className="flex justify-center">
+        <Logo className="h-10" />
       </div>
 
       <h1 className="mt-8 text-center text-xl font-semibold tracking-tight">
