@@ -207,3 +207,150 @@ navigation and top bar, extending the sponsor-redesign language (spec
 - `tsc --noEmit` and `eslint` clean on all touched files. Visual check on the
   running dev server is on the user; no fixtures or data paths touched, so the
   stats-provenance rule is unaffected.
+
+## Task 7 — A2: state & polish pass + portal-wide stats wow (roadmap A2, extended)
+
+**Trigger:** roadmap item A2 (`docs/superpowers/plans/2026-09-11-a2-state-polish-portal-wow.md`),
+executed as 15 subagent-driven tasks (1–15b) with two-stage reviews per task,
+this session's job being Task 16 — the closing verification matrix + memory log.
+
+### Scope
+A2 covers state handling (loading/empty/error), a full light theme, and
+responsive polish, extended to bring the sponsor-portal's stats-wow visual
+language to admin, athlete, property and the public marketing site. Spec:
+`docs/superpowers/specs/2026-09-11-a2-state-polish-portal-wow-design.md`.
+Plan: `docs/superpowers/plans/2026-09-11-a2-state-polish-portal-wow.md`.
+
+### Key decisions
+- **Frost light theme**: `[data-theme=light]` selector, toggle added to portal
+  chrome; theme applied pre-paint via an inline script (per the vendored Next
+  guide on preventing flash-before-hydration) with a React Strict-Mode
+  `useLayoutEffect` reapply, plus `suppressHydrationWarning` on `<html>`
+  (`src/app/layout.tsx`) since the pre-paint script sets `data-theme` outside
+  React's JSX declaration.
+- **Contrast pass**: all light-theme brand/portal tokens were darkened to
+  clear WCAG AA 4.5:1 *both* bare-on-white *and* composited on their own
+  `/12`–`/15` chip backgrounds — measured and documented directly in
+  `globals.css`, because tinting a chip toward its own text hue reduces
+  contrast rather than helping it (a lesson re-applied across every chip
+  token).
+- **`--sx-on-media`**: new theme-invariant token for fixed-dark artwork panels
+  (e.g. the `/r/[token]` fan page) that must stay legible regardless of the
+  active theme.
+- **Branded state system** (`states.tsx`): cascade-safe `ErrorPanel`
+  (`role="alert"`), soft-prop skeleton loaders, and `EmptyState` (action
+  object + `next/link`), wired to a `?demo=loading|empty|error` query-param
+  switcher on 12+ pages (13 counted this run — see verification). Added
+  `loading.tsx` / `error.tsx` per route group, plus a branded 404. `error.tsx`
+  files use the Next 16.3 stable `retry` prop (not `reset`) per the vendored
+  local docs.
+- **Differentiated heroes**: admin gets an ops-board hero with `QueueTickers`
+  and Network GMV `$1,284,500`; athlete gets a milestone hero at
+  `$46,250` career earnings with a `ProgressRing` at an **honest 23%** (the
+  plan's originally-specced 68% didn't match the underlying math and was
+  corrected); property gets a showcase hero at `2.5M` estimated views aligned
+  to the canonical fixture value.
+- **Public landing**: the old `HERO_STATS` hard-coded constant was replaced by
+  a retrievable `networkStats` fixture plus a `CountUp` client island — closes
+  out the `stats-must-be-retrievable` rule for the marketing page.
+- **Charts consolidation**: `ChartLegend` and the compact chart variant moved
+  into `charts.tsx`; `line-chart.tsx` was deleted (its last admin/property
+  consumers migrated to the sponsor-redesign chart set from Task 1); dual
+  `aria-label`s restored on the merged components.
+- **`HeroBand`** gained a `border` prop after a same-property Tailwind
+  class-collision bug (see gotchas).
+
+### Gotchas worth remembering
+- Tailwind emits opacity-modifier utilities (`bg-x/10`, `bg-x/20`, …) in
+  ascending order regardless of source order, so concatenating two
+  same-property class strings (e.g. a base border color + a conditional
+  border color) is a cascade lottery, not a merge — hit this 3× across the
+  A2 pass: `ErrorPanel` border, skeleton alpha levels, and `HeroBand` border
+  (fixed by giving `HeroBand` an explicit `border` prop instead of string
+  concatenation).
+- CSS animations override static `opacity-*` utilities while the animation is
+  active (matters for anything that both animates and sets a resting
+  opacity).
+- Next dev Strict Mode wipes attributes set on `<html>` before paint, so the
+  pre-paint theme script needs the vendored guide's `useLayoutEffect` reapply
+  pattern to survive the double-invoke.
+- `error.tsx` in this Next version takes `retry`, not `reset` — confirmed
+  against the locally vendored docs, not training-data assumptions.
+- Code review caught a real crash in `src/lib/back.ts`: the `TARGETS` map was
+  missing an entry for athlete-invitations (left uncommitted from earlier
+  work), which would have thrown on that page's back-navigation.
+
+### Fixture landmines flagged for A3
+- Legacy small-scale rows coexist with the canonical, larger A2 fixtures:
+  `earnings` (~$150-class rows) and `invitations` ($495 offers) vs.
+  `athleteCareer` ($46,250 total). Pages frame the legacy rows as
+  "sample / this cycle" data to avoid contradicting the career number.
+- `athleteCareer.openInvites` / `openInviteValueCents` / `nextExpiry` fields
+  exist but are deliberately **not** surfaced anywhere yet, because they
+  contradict the live `invitations` fixtures — a trap for anyone wiring them
+  up in A3 without reconciling the two data sets first.
+
+### Verification (this session, Task 16)
+
+**Build gates — all pass:**
+- `npx tsc --noEmit` → clean, no errors.
+- `npx eslint src` → 0 errors, 1 pre-existing warning
+  (`src/app/t/[code]/route.ts:21` — `'code' is assigned a value but never
+  used`, `@typescript-eslint/no-unused-vars`); not introduced by A2, left as-is.
+- `npx next build` → compiled successfully, all 21 app routes listed green
+  (mix of `○` static / `ƒ` dynamic), no failed routes.
+
+**Acceptance greps — all pass:**
+- `(ring|bg|border|from|via|to)-white/` in `src/` → **none found.** (Note:
+  Task 6's memory log recorded a `ring-white/15` on the user-menu avatar;
+  that has since been resolved to a themeable token — confirmed no raw
+  `-white/` opacity utilities remain anywhere in `src/`.)
+- `HERO_STATS` in `src/` → **none found** (fully replaced by `networkStats`
+  + `CountUp`, per plan).
+- `ScreenStub` usage in `src/app` → **none found.** The component file
+  `src/components/screen-stub.tsx` still exists on disk but is imported by no
+  page — matches the acceptance criterion exactly.
+- `demoState` across `src/app/**/page.tsx` → **13 files** (≥ 12 required):
+  admin (`page`, `analytics`, `applications`, `approvals`,
+  `campaigns/[id]`, `finance`), athlete (`page`, `earnings`, `invitations`),
+  `property/page`, sponsor (`page`, `marketplace`,
+  `campaigns/[id]/report`).
+- `AthleteRate` in `src/app/(public)` and `src/app/(app)/sponsor` → 3 matches,
+  **all prose/comments** documenting the rule (`athletes/[slug]/page.tsx:24`,
+  `sponsor/marketplace/page.tsx:27` and `:354`) — no data usage. Pass.
+
+**Prod smoke test — `npx next start -p 3311`, all pass:**
+- `/` → HTTP 200, contains "Live network counts".
+- `/admin` → HTTP 200, contains "Operations board" and "Network GMV".
+- `/athlete` → HTTP 200, contains "earned".
+- `/property` → HTTP 200, contains "implied media value".
+- `/sponsor` → HTTP 200, contains "Data trust".
+- `/r/demo-token` → HTTP 200, contains "SCAN" and "REDEEM". Verified the
+  page's own source (`src/app/r/[token]/page.tsx`) has zero imports and no
+  `"use client"` — confirmed hand-rolled, JS-optional markup as documented.
+  The rendered HTML does include one route-specific `<script src>` beyond the
+  shared framework/webpack chunks (diffed against `/` and `/login`'s script
+  sets to isolate it); its contents were fetched and inspected directly and
+  are Next's own bundled `next/link` module, pulled in by the framework's
+  implicit not-found/error boundary wiring (every route in this build gets
+  its own small per-route chunk this way — `/` and `/login` each have one
+  too, with different hashes). This is Next/Turbopack per-route chunking
+  overhead, not an authored client component on this page. Reported honestly
+  per the instruction rather than waived silently.
+- `/admin?demo=empty` → HTTP 200, contains "No campaigns yet".
+- `/nonexistent-xyz` → HTTP 404, contains "This page doesn't exist".
+- Light theme: `npx next build`'s CSS output
+  (`.next/static/chunks/3trwdzm3l-xk6.css`) contains `[data-theme=light]`
+  rules (confirmed non-empty, with real property values) — this is as far as
+  a curl-only smoke test can verify; actual visual light-theme QA in a
+  browser (toggle behavior, contrast in practice) remains a human step.
+- One incidental fix during setup: `next start` printed a warning that it
+  "does not work with output: standalone" and recommends
+  `node .next/standalone/server.js`; it served all routes correctly anyway
+  for this smoke test, but worth switching the verification command to the
+  standalone server in a future pass for full production fidelity.
+
+### Note
+Remaining A0/A1 working-tree leftovers flagged in Task 1's memory entry were
+committed during the A2 slice commits (same repo precedent as Task 1). The
+tree should now be clean of feature work aside from this memory-log commit.
