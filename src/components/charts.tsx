@@ -1,0 +1,569 @@
+import { useId } from "react";
+import { compact } from "./line-chart";
+
+/* --------------------------------------------------------------------------
+   Chart primitives for the sponsor portal redesign (spec 2026-09-11).
+   Hand-rolled SVG server components — same rationale as line-chart.tsx: no
+   client bundle until interactivity is actually needed (recharts is a B-phase
+   decision). Every chart is a static, deterministic render of fixture data.
+   -------------------------------------------------------------------------- */
+
+export type SeriesPoint = { label: string; a: number; b?: number };
+
+const W = 760;
+
+function niceMax(v: number) {
+  if (v <= 0) return 1;
+  const mag = 10 ** Math.floor(Math.log10(v));
+  return Math.ceil(v / (mag / 2)) * (mag / 2);
+}
+
+/* ------------------------------------------------------------- Sparkline */
+
+export function Sparkline({
+  points,
+  stroke = "var(--sx-accent)",
+  height = 24,
+}: {
+  points: number[];
+  stroke?: string;
+  height?: number;
+}) {
+  const max = Math.max(...points, 1);
+  const min = Math.min(...points, 0);
+  const span = max - min || 1;
+  const x = (i: number) => (i / (points.length - 1)) * 100;
+  const y = (v: number) => 2 + (1 - (v - min) / span) * (height - 4);
+  return (
+    <svg
+      viewBox={`0 0 100 ${height}`}
+      preserveAspectRatio="none"
+      className="h-6 w-full"
+      aria-hidden="true"
+    >
+      <polyline
+        points={points.map((v, i) => `${x(i)},${y(v)}`).join(" ")}
+        fill="none"
+        stroke={stroke}
+        strokeWidth="1.75"
+        strokeLinejoin="round"
+        strokeLinecap="round"
+        vectorEffect="non-scaling-stroke"
+      />
+    </svg>
+  );
+}
+
+/* ------------------------------------------------------------- AreaChart */
+
+/**
+ * Gradient-filled area chart with an optional second series (own scale,
+ * dual-axis like LineChart), an optional dashed projection tail and an
+ * optional vertical event marker (break-even flag).
+ */
+export function AreaChart({
+  points,
+  aName,
+  bName,
+  projection,
+  marker,
+  fmtA = compact,
+  fmtB = compact,
+  xTicks = 4,
+  height = 230,
+}: {
+  points: SeriesPoint[];
+  aName: string;
+  bName?: string;
+  projection?: { label: string; a: number }[];
+  marker?: { index: number; label: string };
+  fmtA?: (n: number) => string;
+  fmtB?: (n: number) => string;
+  xTicks?: number;
+  height?: number;
+}) {
+  const gid = useId().replace(/[^a-zA-Z0-9]/g, "");
+  const dual = Boolean(bName) && points.some((p) => typeof p.b === "number");
+  const PAD = { top: 18, right: dual ? 54 : 18, bottom: 26, left: 54 };
+
+  const proj = projection ?? [];
+  const all = [...points.map((p) => ({ label: p.label, a: p.a })), ...proj];
+  const n = all.length;
+
+  const aMax = niceMax(Math.max(...all.map((p) => p.a)));
+  const bMax = dual ? niceMax(Math.max(...points.map((p) => p.b ?? 0))) : 1;
+
+  const plotW = W - PAD.left - PAD.right;
+  const plotH = height - PAD.top - PAD.bottom;
+  const x = (i: number) =>
+    PAD.left + (n === 1 ? plotW / 2 : (i / (n - 1)) * plotW);
+  const yA = (v: number) => PAD.top + plotH - (v / aMax) * plotH;
+  const yB = (v: number) => PAD.top + plotH - (v / bMax) * plotH;
+
+  const lastI = points.length - 1;
+  const areaPath =
+    `M${x(0)},${yA(points[0].a)} ` +
+    points.map((p, i) => `L${x(i)},${yA(p.a)}`).join(" ") +
+    ` L${x(lastI)},${PAD.top + plotH} L${x(0)},${PAD.top + plotH} Z`;
+
+  const rows = 3;
+  const tickEvery = Math.max(1, Math.round((n - 1) / (xTicks - 1)));
+
+  return (
+    <div className="w-full overflow-x-auto">
+      <svg
+        viewBox={`0 0 ${W} ${height}`}
+        className="h-auto w-full min-w-[30rem]"
+        role="img"
+        aria-label={`${aName} over time${proj.length ? " with projection" : ""}`}
+      >
+        <defs>
+          <linearGradient id={gid} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stopColor="var(--sx-primary)" stopOpacity="0.4" />
+            <stop offset="1" stopColor="var(--sx-primary)" stopOpacity="0" />
+          </linearGradient>
+        </defs>
+
+        {Array.from({ length: rows + 1 }, (_, r) => {
+          const y = PAD.top + (plotH / rows) * r;
+          return (
+            <g key={r}>
+              <line
+                x1={PAD.left}
+                x2={W - PAD.right}
+                y1={y}
+                y2={y}
+                stroke="var(--sx-line-soft)"
+                strokeWidth="1"
+              />
+              <text
+                x={PAD.left - 8}
+                y={y + 3.5}
+                textAnchor="end"
+                fontSize="9"
+                fill="var(--sx-text-faint)"
+              >
+                {fmtA((aMax / rows) * (rows - r))}
+              </text>
+              {dual && (
+                <text
+                  x={W - PAD.right + 8}
+                  y={y + 3.5}
+                  textAnchor="start"
+                  fontSize="9"
+                  fill="var(--sx-text-faint)"
+                >
+                  {fmtB((bMax / rows) * (rows - r))}
+                </text>
+              )}
+            </g>
+          );
+        })}
+
+        {all.map((p, i) =>
+          i % tickEvery === 0 || i === n - 1 ? (
+            <text
+              key={`${p.label}-${i}`}
+              x={x(i)}
+              y={height - 6}
+              textAnchor="middle"
+              fontSize="9"
+              fill="var(--sx-text-faint)"
+            >
+              {p.label}
+            </text>
+          ) : null,
+        )}
+
+        <path d={areaPath} fill={`url(#${gid})`} />
+
+        {dual && (
+          <polyline
+            points={points.map((p, i) => `${x(i)},${yB(p.b ?? 0)}`).join(" ")}
+            fill="none"
+            stroke="var(--sx-accent)"
+            strokeWidth="1.6"
+            strokeLinejoin="round"
+            strokeLinecap="round"
+            opacity="0.9"
+          />
+        )}
+
+        <polyline
+          points={points.map((p, i) => `${x(i)},${yA(p.a)}`).join(" ")}
+          fill="none"
+          stroke="var(--sx-primary)"
+          strokeWidth="2.25"
+          strokeLinejoin="round"
+          strokeLinecap="round"
+        />
+
+        {proj.length > 0 && (
+          <polyline
+            points={[
+              `${x(lastI)},${yA(points[lastI].a)}`,
+              ...proj.map((p, i) => `${x(lastI + 1 + i)},${yA(p.a)}`),
+            ].join(" ")}
+            fill="none"
+            stroke="var(--sx-primary-soft)"
+            strokeWidth="1.8"
+            strokeDasharray="5 5"
+            strokeLinejoin="round"
+            strokeLinecap="round"
+            opacity="0.9"
+          />
+        )}
+
+        {marker && marker.index >= 0 && marker.index < n && (
+          <g>
+            <line
+              x1={x(marker.index)}
+              x2={x(marker.index)}
+              y1={PAD.top - 4}
+              y2={PAD.top + plotH}
+              stroke="var(--sx-success)"
+              strokeWidth="1"
+              strokeDasharray="3 3"
+              opacity="0.85"
+            />
+            <text
+              x={Math.min(
+                Math.max(x(marker.index), PAD.left + 46),
+                W - PAD.right - 46,
+              )}
+              y={PAD.top - 8}
+              textAnchor="middle"
+              fontSize="9"
+              fill="var(--sx-success)"
+            >
+              ⚑ {marker.label}
+            </text>
+          </g>
+        )}
+
+        <circle
+          cx={x(lastI)}
+          cy={yA(points[lastI].a)}
+          r="7"
+          fill="var(--sx-primary)"
+          opacity="0.22"
+        />
+        <circle
+          cx={x(lastI)}
+          cy={yA(points[lastI].a)}
+          r="3.25"
+          fill="var(--sx-primary)"
+        />
+        {dual && (
+          <circle
+            cx={x(lastI)}
+            cy={yB(points[lastI].b ?? 0)}
+            r="2.75"
+            fill="var(--sx-accent)"
+          />
+        )}
+      </svg>
+    </div>
+  );
+}
+
+/* ----------------------------------------------------------- RadialGauge */
+
+export function RadialGauge({
+  display,
+  sweep,
+  caption,
+  sub,
+  size = 150,
+}: {
+  /** Center text, e.g. "2.73×". */
+  display: string;
+  /** 0–1 fraction of the ring to fill. */
+  sweep: number;
+  caption?: string;
+  sub?: string;
+  size?: number;
+}) {
+  const gid = useId().replace(/[^a-zA-Z0-9]/g, "");
+  const C = 2 * Math.PI * 48;
+  const filled = Math.max(0, Math.min(1, sweep)) * C;
+  return (
+    <div className="text-center" style={{ width: size }}>
+      <svg
+        viewBox="0 0 120 120"
+        width={size}
+        height={size}
+        role="img"
+        aria-label={`${caption ?? "Gauge"}: ${display}`}
+      >
+        <defs>
+          <linearGradient id={gid} x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0" stopColor="var(--sx-primary)" />
+            <stop offset="1" stopColor="var(--sx-accent)" />
+          </linearGradient>
+        </defs>
+        <circle
+          cx="60"
+          cy="60"
+          r="48"
+          fill="none"
+          stroke="var(--sx-line-soft)"
+          strokeWidth="10"
+        />
+        <circle
+          cx="60"
+          cy="60"
+          r="48"
+          fill="none"
+          stroke={`url(#${gid})`}
+          strokeWidth="10"
+          strokeLinecap="round"
+          strokeDasharray={`${filled} ${C}`}
+          transform="rotate(-90 60 60)"
+        />
+        <text
+          x="60"
+          y="58"
+          textAnchor="middle"
+          fontSize="23"
+          fontWeight="700"
+          fill="var(--sx-text)"
+        >
+          {display}
+        </text>
+        {caption && (
+          <text
+            x="60"
+            y="74"
+            textAnchor="middle"
+            fontSize="8"
+            fill="var(--sx-text-muted)"
+            style={{ letterSpacing: "0.12em" }}
+          >
+            {caption.toUpperCase()}
+          </text>
+        )}
+      </svg>
+      {sub && <p className="mt-1 text-[10px] leading-snug text-faint">{sub}</p>}
+    </div>
+  );
+}
+
+/* ----------------------------------------------------------------- Donut */
+
+export function Donut({
+  segments,
+  centerValue,
+  centerLabel,
+  size = 88,
+}: {
+  segments: { label: string; value: number; color: string }[];
+  centerValue: string;
+  centerLabel: string;
+  size?: number;
+}) {
+  const C = 2 * Math.PI * 30;
+  const total = segments.reduce((s, x) => s + x.value, 0) || 1;
+  let offset = 0;
+  return (
+    <svg
+      viewBox="0 0 80 80"
+      width={size}
+      height={size}
+      role="img"
+      aria-label={segments.map((s) => `${s.label} ${s.value}`).join(", ")}
+    >
+      {segments.map((s) => {
+        const len = (s.value / total) * C;
+        const el = (
+          <circle
+            key={s.label}
+            cx="40"
+            cy="40"
+            r="30"
+            fill="none"
+            stroke={s.color}
+            strokeWidth="13"
+            strokeDasharray={`${len} ${C}`}
+            strokeDashoffset={-offset}
+            transform="rotate(-90 40 40)"
+          />
+        );
+        offset += len;
+        return el;
+      })}
+      <text
+        x="40"
+        y="38"
+        textAnchor="middle"
+        fontSize="11"
+        fontWeight="700"
+        fill="var(--sx-text)"
+      >
+        {centerValue}
+      </text>
+      <text
+        x="40"
+        y="50"
+        textAnchor="middle"
+        fontSize="5.5"
+        fill="var(--sx-text-muted)"
+        style={{ letterSpacing: "0.1em" }}
+      >
+        {centerLabel.toUpperCase()}
+      </text>
+    </svg>
+  );
+}
+
+/* ----------------------------------------------------------- FunnelSteps */
+
+/**
+ * True stepped funnel. Full mode renders labeled bars with inter-stage
+ * conversion rates; compact mode renders the 4-bar glyph for bento cells.
+ */
+export function FunnelSteps({
+  stages,
+  compact: isCompact = false,
+}: {
+  stages: { label: string; value: number }[];
+  compact?: boolean;
+}) {
+  const max = Math.max(...stages.map((s) => s.value), 1);
+
+  if (isCompact) {
+    return (
+      <svg viewBox="0 0 100 30" className="h-8 w-full" aria-hidden="true">
+        {stages.map((s, i) => {
+          const w = Math.max((s.value / max) * 100, 6);
+          return (
+            <rect
+              key={s.label}
+              x={(100 - w) / 2}
+              y={i * 8}
+              width={w}
+              height={5}
+              rx={2.5}
+              fill={i < 2 ? "var(--sx-primary)" : "var(--sx-accent)"}
+              opacity={i === 0 || i === stages.length - 1 ? 1 : 0.75}
+            />
+          );
+        })}
+      </svg>
+    );
+  }
+
+  return (
+    <div className="space-y-0.5">
+      {stages.map((s, i) => {
+        const pct = Math.max((s.value / max) * 100, 14);
+        const conv =
+          i > 0 ? Math.round((s.value / stages[i - 1].value) * 100) : null;
+        return (
+          <div key={s.label}>
+            {conv !== null && (
+              <p className="py-0.5 pl-2 text-[10px] text-faint">↓ {conv}%</p>
+            )}
+            <div className="flex items-center gap-2">
+              <div
+                className={[
+                  "flex h-6 items-center rounded-md px-2.5 text-[10px] font-medium text-white",
+                  i < 2 ? "bg-primary" : "bg-accent",
+                  i === 1 || i === 2 ? "opacity-80" : "",
+                ].join(" ")}
+                style={{ width: `${pct}%` }}
+              >
+                <span className="truncate">
+                  {s.label} · {s.value.toLocaleString()}
+                </span>
+              </div>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------- HBarList */
+
+export function HBarList({
+  rows,
+}: {
+  rows: {
+    label: string;
+    sub?: string;
+    value: number;
+    display: string;
+    tone?: "primary" | "soft" | "warn";
+  }[];
+}) {
+  const max = Math.max(...rows.map((r) => r.value), 1);
+  const FILL = {
+    primary: "bg-gradient-to-r from-primary to-primary-soft",
+    soft: "bg-primary/60",
+    warn: "bg-warn",
+  } as const;
+  return (
+    <ul className="space-y-2.5">
+      {rows.map((r) => (
+        <li key={r.label}>
+          <div className="flex items-baseline justify-between gap-2 text-[11px]">
+            <span className="min-w-0 truncate">
+              {r.label}
+              {r.sub && <span className="ml-1.5 text-faint">{r.sub}</span>}
+            </span>
+            <span
+              className={[
+                "shrink-0 tabular-nums",
+                r.tone === "warn" ? "font-medium text-warn" : "text-muted",
+              ].join(" ")}
+            >
+              {r.display}
+            </span>
+          </div>
+          <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-surface-2">
+            <div
+              className={["h-full rounded-full", FILL[r.tone ?? "primary"]].join(" ")}
+              style={{ width: `${Math.max((r.value / max) * 100, 3)}%` }}
+            />
+          </div>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+/* ------------------------------------------------------------ TrustMeter */
+
+/** §22 as a feature: the provenance mix of every metric on screen. */
+export function TrustMeter({
+  segments,
+}: {
+  segments: { label: string; pct: number; className: string }[];
+}) {
+  return (
+    <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+      <div className="flex h-2 min-w-44 flex-1 overflow-hidden rounded-full">
+        {segments.map((s) => (
+          <div
+            key={s.label}
+            className={s.className}
+            style={{ width: `${s.pct}%` }}
+          />
+        ))}
+      </div>
+      <div className="flex flex-wrap gap-x-3 gap-y-1">
+        {segments.map((s) => (
+          <span
+            key={s.label}
+            className="flex items-center gap-1.5 text-[10px] text-muted"
+          >
+            <span className={["size-1.5 rounded-full", s.className].join(" ")} />
+            {s.pct}% {s.label}
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
