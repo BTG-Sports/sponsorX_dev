@@ -17,7 +17,14 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="en" className={`${poppins.variable} h-full antialiased`}>
+    // suppressHydrationWarning: the pre-paint script below may set data-theme
+    // on <html> before React hydrates, and the JSX never declares it (vendored
+    // guide preventing-flash-before-hydration.md, Themes section).
+    <html
+      lang="en"
+      className={`${poppins.variable} h-full antialiased`}
+      suppressHydrationWarning
+    >
       <body className="min-h-full flex flex-col">
         <script
           // Applies the stored theme before first paint; dark needs no attribute.

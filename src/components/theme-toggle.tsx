@@ -1,6 +1,6 @@
 "use client";
 
-import { useSyncExternalStore } from "react";
+import { useLayoutEffect, useSyncExternalStore } from "react";
 
 /* --------------------------------------------------------------------------
    Sun/moon theme toggle (A2). Dark is the default; "light" is stored in
@@ -48,6 +48,24 @@ function applyTheme(next: Theme) {
 
 export function ThemeToggle() {
   const theme = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
+
+  // Dev-only guard (vendored guide "Re-applying attributes in development"):
+  // Strict Mode's remount resets <html> to only the attributes React manages
+  // from JSX, wiping the data-theme the pre-paint script set. Re-apply the
+  // stored value before paint. This touches only the DOM (no setState);
+  // useSyncExternalStore re-reads its snapshot when it subscribes (after
+  // layout effects), so the icon stays in sync with what this restores.
+  useLayoutEffect(() => {
+    try {
+      if (localStorage.getItem("sx-theme") === "light") {
+        document.documentElement.dataset.theme = "light";
+      } else {
+        delete document.documentElement.dataset.theme;
+      }
+    } catch {
+      /* storage unavailable — keep whatever the DOM already has */
+    }
+  }, []);
 
   const toggle = () => applyTheme(theme === "dark" ? "light" : "dark");
 
