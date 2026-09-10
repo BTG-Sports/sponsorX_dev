@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { InsightCarousel, type InsightItem } from "./insight-carousel";
 
 /* --------------------------------------------------------------------------
    Hero-band primitives for the sponsor portal redesign (spec 2026-09-11).
@@ -9,14 +10,18 @@ import type { ReactNode } from "react";
 export function HeroBand({
   children,
   className = "",
+  border = "border-primary/25",
 }: {
   children: ReactNode;
   className?: string;
+  /** Border-color utility — portals override (e.g. "border-admin/25"). */
+  border?: string;
 }) {
   return (
     <div
       className={[
-        "rounded-2xl border border-primary/25 p-5 sm:p-6",
+        "rounded-2xl border p-5 sm:p-6",
+        border,
         "bg-[linear-gradient(120deg,rgba(46,155,245,.18),transparent_55%),linear-gradient(240deg,rgba(249,122,31,.13),transparent_50%)]",
         "bg-surface/40",
         className,
@@ -102,27 +107,30 @@ export function MiniChip({
 }
 
 /**
- * Computed-insight callouts. Wraps on ≥sm; on phones it is a scroll-snap
- * carousel (no JS — .sx-snap-x from globals.css).
+ * Computed-insight callouts. Wraps on ≥sm; on phones it becomes an autoplay
+ * infinite carousel (InsightCarousel client island).
  */
-export function InsightStrip({
-  items,
-}: {
-  items: { icon: string; text: ReactNode }[];
-}) {
+export function InsightStrip({ items }: { items: InsightItem[] }) {
   return (
-    <div className="sx-snap-x flex gap-2 overflow-x-auto pb-1 sm:flex-wrap sm:overflow-visible sm:pb-0">
-      {items.map((it, i) => (
-        <div
-          key={i}
-          className="flex shrink-0 basis-[78%] items-center gap-2 rounded-lg border border-line bg-surface/75 px-3 py-2 sm:basis-0 sm:flex-1 sm:shrink"
-        >
-          <span aria-hidden="true" className="text-sm">
-            {it.icon}
-          </span>
-          <span className="text-[11px] leading-snug text-muted">{it.text}</span>
-        </div>
-      ))}
-    </div>
+    <>
+      <div className="hidden gap-2 sm:flex sm:flex-wrap">
+        {items.map((it, i) => (
+          <div
+            key={i}
+            className="flex flex-1 items-center gap-2 rounded-lg border border-line bg-surface/75 px-3 py-2"
+          >
+            <span aria-hidden="true" className="text-sm">
+              {it.icon}
+            </span>
+            <span className="text-[11px] leading-snug text-muted">
+              {it.text}
+            </span>
+          </div>
+        ))}
+      </div>
+      <div className="sm:hidden">
+        <InsightCarousel items={items} />
+      </div>
+    </>
   );
 }

@@ -78,7 +78,32 @@ export default async function AdminHomePage({
   const demo = await demoState(searchParams);
   if (demo === "loading") return <SkeletonPage />;
   if (demo === "error") throw new Error("Demo error state");
-  const isEmpty = demo === "empty";
+
+  const heading = (
+    <div>
+      <h1 className="text-xl font-semibold tracking-tight">Operations Board</h1>
+      <p className="mt-1 text-xs text-muted">
+        Everything across the SponsorX marketplace — §23. Managed operations:
+        matching, approvals and invoicing are done by BTG staff in Phase 1.
+      </p>
+    </div>
+  );
+
+  /* Brand-new tenant: nothing booked, nothing queued — the board is only the
+     next action, not zeros dressed up as insight. */
+  if (demo === "empty") {
+    return (
+      <div className="space-y-6">
+        {heading}
+        <EmptyState
+          mark="inbox"
+          title="No campaigns yet"
+          hint="The board fills as briefs are matched and orders launch."
+          action={{ label: "Review applications", href: "/admin/applications" }}
+        />
+      </div>
+    );
+  }
 
   const pendingApplications = applications.filter(
     (a) => a.state === "SUBMITTED" || a.state === "UNDER_REVIEW",
@@ -118,18 +143,10 @@ export default async function AdminHomePage({
   return (
     <div className="space-y-6">
       {/* ---------------------------------------------------------- headline */}
-      <div>
-        <h1 className="text-xl font-semibold tracking-tight">
-          Operations Board
-        </h1>
-        <p className="mt-1 text-xs text-muted">
-          Everything across the SponsorX marketplace — §23. Managed operations:
-          matching, approvals and invoicing are done by BTG staff in Phase 1.
-        </p>
-      </div>
+      {heading}
 
       {/* -------------------------------------------------------- hero band */}
-      <HeroBand className="sx-animate border-admin/25">
+      <HeroBand className="sx-animate" border="border-admin/25">
         <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
           <div>
             <p className="text-[10px] font-medium uppercase tracking-[0.2em] text-muted">
@@ -139,9 +156,7 @@ export default async function AdminHomePage({
               {money(adminOps.gmvQuarterCents)}
             </p>
             <p className="mt-1.5 flex flex-wrap items-center gap-2 text-xs text-muted">
-              <span className="font-medium text-success">
-                ▲ {adminOps.gmvDeltaPct}%
-              </span>
+              <MiniChip kind="ver">▲ {adminOps.gmvDeltaPct}% QTR</MiniChip>
               vs last quarter · {adminOps.liveCampaigns} campaigns live
               <MiniChip kind="ver">POSTGRES</MiniChip>
             </p>
@@ -203,29 +218,21 @@ export default async function AdminHomePage({
             </span>
             <Badge tone="warn">{adminOps.campaignsBehind} behind</Badge>
           </p>
-          {isEmpty ? (
-            <p className="mt-3 text-[11px] text-faint">
-              Campaign links appear once briefs are matched.
-            </p>
-          ) : (
-            <ul className="mt-3 space-y-1.5">
-              {sponsorCampaigns.map((c) => (
-                <li key={c.id}>
-                  <Link
-                    href={`/admin/campaigns/${c.id}`}
-                    className="flex items-center justify-between gap-3 rounded-lg px-2 py-1.5 text-[11px] transition-colors hover:bg-surface-2"
-                  >
-                    <span className="min-w-0 truncate font-medium">
-                      {c.name}
-                    </span>
-                    <span className="shrink-0 tabular-nums text-muted">
-                      {money(c.spend)}
-                    </span>
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          )}
+          <ul className="mt-3 space-y-1.5">
+            {sponsorCampaigns.map((c) => (
+              <li key={c.id}>
+                <Link
+                  href={`/admin/campaigns/${c.id}`}
+                  className="flex items-center justify-between gap-3 rounded-lg px-2 py-1.5 text-[11px] transition-colors hover:bg-surface-2"
+                >
+                  <span className="min-w-0 truncate font-medium">{c.name}</span>
+                  <span className="shrink-0 tabular-nums text-muted">
+                    {money(c.spend)}
+                  </span>
+                </Link>
+              </li>
+            ))}
+          </ul>
           <p className="mt-2 flex items-center gap-1.5 text-[10px] text-faint">
             deliverables vs elapsed time <MiniChip kind="ver">POSTGRES</MiniChip>
           </p>
@@ -251,71 +258,62 @@ export default async function AdminHomePage({
           </ul>
           <p className="mt-3 border-t border-line-soft pt-3 text-[10px] leading-relaxed text-faint">
             Zoho never sits on a request path — a queued sync is healthy, not an
-            outage (CLAUDE.md).
+            outage (§18).
           </p>
         </Card>
       </div>
 
       {/* ------------------------------------------------ below the fold */}
-      {isEmpty ? (
-        <EmptyState
-          mark="inbox"
-          title="No campaigns yet"
-          hint="The board fills as briefs are matched and orders launch."
-          action={{ label: "Review applications", href: "/admin/applications" }}
-        />
-      ) : (
-        <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_20rem] xl:items-start">
-          <section className="sx-animate sx-delay-4 min-w-0">
-            <SectionHeading
-              title="Needs BTG action"
-              hint="The managed-marketplace work — the §39 loop runs through these"
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_20rem] xl:items-start">
+        <section className="sx-animate sx-delay-4 min-w-0">
+          <SectionHeading
+            title="Needs BTG action"
+            hint="The managed-marketplace work — the §39 loop runs through these"
+          />
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Queue
+              href="/admin/applications"
+              label="Athlete applications"
+              count={pendingApplications}
+              hint="review · score · approve"
             />
-            <div className="grid gap-3 sm:grid-cols-2">
-              <Queue
-                href="/admin/applications"
-                label="Athlete applications"
-                count={pendingApplications}
-                hint="review · score · approve"
-              />
-              <Queue
-                href="/admin/approvals"
-                label="Content approvals"
-                count={awaitingContent}
-                hint="BTG & sponsor review"
-              />
-              <Queue
-                href="/admin/campaigns/new"
-                label="Briefs to match"
-                count={openInvites}
-                hint="match athletes · invite"
-              />
-              <Queue
-                href="/admin/finance"
-                label="Finance attention"
-                count={heldOrDisputed + overdueInvoices}
-                hint={`${heldOrDisputed} held/disputed · ${overdueInvoices} overdue`}
-              />
-            </div>
-          </section>
+            <Queue
+              href="/admin/approvals"
+              label="Content approvals"
+              count={awaitingContent}
+              hint="BTG & sponsor review"
+            />
+            <Queue
+              href="/admin/campaigns/new"
+              label="Briefs to match"
+              count={openInvites}
+              hint="match athletes · invite"
+            />
+            <Queue
+              href="/admin/finance"
+              label="Finance attention"
+              count={heldOrDisputed + overdueInvoices}
+              hint={`${heldOrDisputed} held/disputed · ${overdueInvoices} overdue`}
+            />
+          </div>
+        </section>
 
-          <section className="sx-animate sx-delay-5">
-            <SectionHeading title="Recent activity" />
-            <Card>
-              <ul className="space-y-3">
-                {adminActivity.map((a, i) => (
-                  <li key={i} className="flex gap-3 text-[11px]">
-                    <span className="w-6 shrink-0 text-faint tabular-nums">
-                      {a.at}
-                    </span>
-                    <span className="text-muted">{a.text}</span>
-                  </li>
-                ))}
-              </ul>
-            </Card>
-          </section>
-        </div>
-      )}
+        <section className="sx-animate sx-delay-5">
+          <SectionHeading title="Recent activity" />
+          <Card>
+            <ul className="space-y-3">
+              {adminActivity.map((a, i) => (
+                <li key={i} className="flex gap-3 text-[11px]">
+                  <span className="w-6 shrink-0 text-faint tabular-nums">
+                    {a.at}
+                  </span>
+                  <span className="text-muted">{a.text}</span>
+                </li>
+              ))}
+            </ul>
+          </Card>
+        </section>
+      </div>
     </div>
   );
 }
