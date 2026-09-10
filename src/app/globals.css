@@ -38,6 +38,9 @@
   --sx-text: #f4f5f7;
   --sx-text-muted: #8a90a2;
   --sx-text-faint: #5d6375;
+  /* ink on fixed-dark media/artwork panels — theme-invariant; no light
+     override on purpose */
+  --sx-on-media: #f4f5f7;
 
   /* brand */
   --sx-primary: #2e9bf5;
@@ -112,6 +115,7 @@
   --color-text: var(--sx-text);
   --color-muted: var(--sx-text-muted);
   --color-faint: var(--sx-text-faint);
+  --color-on-media: var(--sx-on-media);
 
   --color-primary: var(--sx-primary);
   --color-primary-soft: var(--sx-primary-soft);

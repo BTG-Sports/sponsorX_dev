@@ -119,18 +119,18 @@ export default async function InventoryDetailPage({
             />
             <div className="relative grid h-full place-items-center text-center">
               <div>
-                <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-text/40">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-on-media/40">
                   BTG
                 </p>
-                <p className="mt-1 text-xl font-bold leading-none tracking-tight text-text/75">
+                <p className="mt-1 text-xl font-bold leading-none tracking-tight text-on-media/75">
                   PLAYER
                 </p>
-                <p className="text-xl font-bold leading-none tracking-tight text-text/75">
+                <p className="text-xl font-bold leading-none tracking-tight text-on-media/75">
                   OF THE WEEK
                 </p>
               </div>
             </div>
-            <p className="absolute bottom-3 left-0 right-0 text-center text-[10px] text-text/25">
+            <p className="absolute bottom-3 left-0 right-0 text-center text-[10px] text-on-media/25">
               creative pending
             </p>
           </div>

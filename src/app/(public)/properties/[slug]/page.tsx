@@ -67,15 +67,15 @@ export default async function PropertyProfilePage({
           />
           <div className="relative grid h-full place-items-center px-6 text-center">
             <div>
-              <p className="text-lg font-bold leading-tight tracking-tight text-text/80">
+              <p className="text-lg font-bold leading-tight tracking-tight text-on-media/80">
                 BTG SPORTS
               </p>
-              <p className="text-lg font-bold leading-tight tracking-tight text-text/80">
+              <p className="text-lg font-bold leading-tight tracking-tight text-on-media/80">
                 TALK
               </p>
             </div>
           </div>
-          <p className="absolute bottom-3 left-0 right-0 text-center text-[10px] text-text/25">
+          <p className="absolute bottom-3 left-0 right-0 text-center text-[10px] text-on-media/25">
             cover art pending
           </p>
         </div>

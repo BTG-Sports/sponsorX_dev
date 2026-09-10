@@ -35,7 +35,7 @@ export default function LoginPage() {
           />
           <div
             aria-hidden="true"
-            className="absolute inset-x-0 top-1/2 h-40 -translate-y-1/2 bg-[radial-gradient(ellipse_at_center,color-mix(in_srgb,var(--sx-text)_10%,transparent),transparent_70%)]"
+            className="absolute inset-x-0 top-1/2 h-40 -translate-y-1/2 bg-[radial-gradient(ellipse_at_center,color-mix(in_srgb,var(--sx-on-media)_10%,transparent),transparent_70%)]"
           />
           <div className="relative grid h-full place-items-center">
             {/* eslint-disable-next-line @next/next/no-img-element -- brand badge, host-portable */}
@@ -45,7 +45,7 @@ export default function LoginPage() {
               className="h-40 w-40 drop-shadow-[0_0_40px_rgba(46,155,245,0.25)]"
             />
           </div>
-          <p className="absolute bottom-4 left-0 right-0 text-center text-[10px] text-text/25">
+          <p className="absolute bottom-4 left-0 right-0 text-center text-[10px] text-on-media/25">
             venue photography pending
           </p>
         </div>
