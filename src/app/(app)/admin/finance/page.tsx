@@ -7,6 +7,7 @@ import {
   EARNING_COPY,
   INVOICE_COPY,
   adminFinanceX,
+  adminOps,
   earningItems,
   money,
   sponsorInvoices,
@@ -79,10 +80,6 @@ export default async function AdminFinancePage({
     );
   }
 
-  const invoiced = sponsorInvoices.reduce((s, i) => s + i.amount, 0);
-  const collected = sponsorInvoices
-    .filter((i) => i.status === "PAID")
-    .reduce((s, i) => s + i.amount, 0);
   const owedToAthletes = earningItems
     .filter((e) => e.state !== "PAID" && e.state !== "DISPUTED")
     .reduce((s, e) => s + e.amount, 0);
@@ -134,7 +131,8 @@ export default async function AdminFinancePage({
             </div>
           </div>
           <p className="mt-3 flex items-center gap-1.5 text-[10px] text-faint">
-            collected / invoiced <MiniChip kind="ver">ZOHO BOOKS</MiniChip>
+            collected / invoiced · quarter to date{" "}
+            <MiniChip kind="ver">ZOHO BOOKS</MiniChip>
           </p>
         </Card>
 
@@ -149,7 +147,10 @@ export default async function AdminFinancePage({
             <HBarList
               rows={adminFinanceX.aging.map((row) => ({
                 ...row,
-                tone: row.label === "> 60 days" ? "warn" : "primary",
+                tone:
+                  row.label === "31–60 days" || row.label === "> 60 days"
+                    ? "warn"
+                    : "primary",
               }))}
             />
           </div>
@@ -161,8 +162,8 @@ export default async function AdminFinancePage({
 
       {/* ----------------------------------------------------- stat tiles */}
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <StatTile label="Invoiced" value={money(invoiced)} sub="via Zoho Books" source="VERIFIED_MANUAL" />
-        <StatTile label="Collected" value={money(collected)} sub="marked paid in Zoho" source="VERIFIED_MANUAL" />
+        <StatTile label="Invoiced" value={money(adminOps.invoicedCents)} sub="quarter to date · Zoho Books" source="VERIFIED_MANUAL" />
+        <StatTile label="Collected" value={money(adminOps.collectedCents)} sub="quarter to date · Zoho Books" source="VERIFIED_MANUAL" />
         <StatTile label="Owed to athletes" value={money(owedToAthletes)} sub="not yet paid" />
         <StatTile label="Needs attention" value={String(attention)} sub="held / disputed" />
       </div>
@@ -171,7 +172,7 @@ export default async function AdminFinancePage({
       <section>
         <SectionHeading
           title="Sponsor invoices"
-          hint="§18 — from Zoho Books, inbound only. SponsorX never writes an invoice."
+          hint={`Latest invoices — most recent ${sponsorInvoices.length} shown, not the quarter total. §18 — from Zoho Books, inbound only; SponsorX never writes an invoice.`}
         />
         <Card className="p-0">
           <div className="overflow-x-auto">
@@ -286,6 +287,9 @@ export default async function AdminFinancePage({
           </ul>
           <p className="mt-3 flex items-center gap-1.5 text-[10px] text-faint">
             Σ Earning by state <MiniChip kind="ver">POSTGRES</MiniChip>
+          </p>
+          <p className="mt-2 text-[10px] leading-relaxed text-faint">
+            Balance sitting in each state — not a conversion funnel.
           </p>
           <p className="mt-2 text-[10px] leading-relaxed text-faint">
             Earnings are status-tracked only — no tax ID or bank details are

@@ -1190,7 +1190,7 @@ export const adminFinanceX = {
   earningsFlow: [
     { label: "Pending", value: 1_840_000 },
     { label: "Eligible", value: 2_760_000 },
-    { label: "Approved", value: 840_000 },
+    { label: "Approved for payout", value: 840_000 },
     { label: "Paid", value: 4_625_000 },
   ],
 };
