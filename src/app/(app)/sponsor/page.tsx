@@ -1,27 +1,35 @@
 import Link from "next/link";
 import { Badge, Card, SectionHeading } from "@/components/ui";
-import { ChartLegend, LineChart } from "@/components/line-chart";
 import {
+  AreaChart,
+  FunnelSteps,
+  Sparkline,
+  TrustMeter,
+} from "@/components/charts";
+import { HeroBand, InsightStrip, MiniChip, Monogram } from "@/components/hero";
+import { compact } from "@/components/line-chart";
+import {
+  engagementSpark,
+  funnelDetail,
+  metricTrust,
   money,
-  performanceSeries,
-  rewardFunnel,
   sponsor,
+  sponsorBudget,
   sponsorCampaigns,
-  sponsorStats,
-  topCampaign,
+  sponsorCampaignsX,
+  sponsorHero,
+  sponsorInsights,
+  topAthletes,
 } from "@/lib/fixtures";
 
 /* --------------------------------------------------------------------------
-   Sponsor Dashboard — §9 screen 3, mockup screen 3.
+   Sponsor Dashboard — §9 screen 3, redesigned per spec 2026-09-11
+   ("Command Deck hero + Executive Bento").
 
-   The top half follows the mockup: Overview heading with a date-range control,
-   four stat cards, Campaign Performance chart, Top Performing Campaign.
-
-   The second half covers the §9.3 requirements the mockup thumbnail omits —
-   spend, package status, athlete count, deliverables, the QR funnel split into
-   its four events, and the renewal CTA.
-
-   Data is fixtures. Nothing is wired.
+   Every figure traces to MetricDaily, RewardEvent, Deliverable or Zoho Books
+   and carries its provenance (§22): the projection is ESTIMATED and dashed,
+   the break-even flag is attributed-revenue-vs-spend, and the trust meter is
+   the provenance mix itself. Fixtures only — nothing is wired.
    -------------------------------------------------------------------------- */
 
 const CAMPAIGN_TONE = {
@@ -31,231 +39,322 @@ const CAMPAIGN_TONE = {
   COMPLETED: "neutral",
 } as const;
 
+const spentPct = Math.round((sponsorBudget.spent / sponsorBudget.contracted) * 100);
+
 export default function SponsorDashboardPage() {
-  const funnelMax = Math.max(...rewardFunnel.map((f) => f.value));
   const totalSpend = sponsorCampaigns.reduce((n, c) => n + c.spend, 0);
 
   return (
-    <div className="space-y-6">
-      {/* ---------------------------------------------- overview heading */}
+    <div className="space-y-5">
+      {/* ---------------------------------------------------------- header */}
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-base font-semibold tracking-tight">Overview</h1>
-        <button
-          type="button"
-          title="Date range picker — not wired"
-          className="flex items-center gap-2 rounded-lg border border-line bg-surface px-3 py-1.5 text-[11px] font-medium text-muted transition-colors hover:text-text"
-        >
-          {sponsor.dateRange}
-          <svg
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            className="size-3"
-            aria-hidden="true"
+        <div>
+          <h1 className="text-xl font-semibold tracking-tight">
+            Campaign Overview
+          </h1>
+          <p className="mt-0.5 text-xs text-muted">
+            {sponsor.name} · {sponsorCampaigns.length} campaigns ·{" "}
+            {sponsor.dateRange}
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            title="Date range picker — not wired"
+            className="flex items-center gap-2 rounded-lg border border-line bg-surface px-3 py-1.5 text-[11px] font-medium text-muted transition-colors hover:text-text"
           >
-            <path d="m6 9 6 6 6-6" />
-          </svg>
-        </button>
+            May 2026
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" className="size-3" aria-hidden="true">
+              <path d="m6 9 6 6 6-6" />
+            </svg>
+          </button>
+          <button
+            type="button"
+            title="Queues render-report on the worker — not wired"
+            className="rounded-lg bg-primary px-3.5 py-1.5 text-[11px] font-medium text-white transition-colors hover:bg-primary-soft"
+          >
+            Export report
+          </button>
+        </div>
       </div>
 
-      {/* ------------------------------------------------------ stat cards */}
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        {sponsorStats.map((s) => (
-          <Card key={s.label} className="p-4">
-            <p className="text-[11px] font-medium text-muted">{s.label}</p>
-            <div className="mt-2 flex items-baseline gap-2">
-              <span className="text-2xl font-semibold tabular-nums tracking-tight">
-                {s.value}
-              </span>
-              {s.delta && (
-                <span className="text-[11px] font-medium tabular-nums text-accent">
-                  +{s.delta}
-                </span>
-              )}
+      {/* ------------------------------------------------------- hero band */}
+      <HeroBand className="sx-animate">
+        <div className="grid gap-6 lg:grid-cols-[15rem_minmax(0,1fr)] lg:items-start">
+          <div>
+            <p className="text-[11px] font-medium uppercase tracking-wider text-muted">
+              Views delivered
+            </p>
+            <p className="sx-gradient-text mt-1 text-4xl font-bold tabular-nums tracking-tight sm:text-5xl">
+              {sponsorHero.views.toLocaleString()}
+            </p>
+            <p className="mt-1.5 flex items-center gap-2 text-xs font-medium text-success">
+              ▲ {sponsorHero.deltaPct}% vs April <MiniChip kind="ver" />
+            </p>
+
+            <p className="mt-4 text-[11px] text-muted">
+              Pacing{" "}
+              <strong className="text-text">{sponsorHero.pacingPct}%</strong> of
+              the {compact(sponsorHero.target)} season target
+            </p>
+            <div className="mt-1.5 h-1.5 w-full max-w-44 overflow-hidden rounded-full bg-surface-2">
+              <div
+                className="h-full rounded-full bg-gradient-to-r from-primary to-primary-soft"
+                style={{ width: `${Math.min(sponsorHero.pacingPct, 100)}%` }}
+              />
             </div>
-          </Card>
-        ))}
-      </div>
+            <p className="mt-3 flex items-center gap-1.5 text-[11px] text-faint">
+              On pace for{" "}
+              <strong className="text-primary-soft">
+                {sponsorHero.projectedTotal}
+              </strong>{" "}
+              by season end <MiniChip kind="est" />
+            </p>
+          </div>
 
-      {/* -------------------------------- performance + top campaign */}
-      <div className="grid gap-5 xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
-        <section className="min-w-0">
-          <SectionHeading
-            title="Campaign Performance"
-            action={<ChartLegend aName="Views" bName="Engagements" />}
-          />
-          <Card>
-            <LineChart
-              points={performanceSeries}
+          <div className="min-w-0">
+            <AreaChart
+              points={sponsorHero.series}
               aName="Views"
               bName="Engagements"
+              projection={sponsorHero.projection}
+              marker={{
+                index: sponsorHero.breakEvenIndex,
+                label: sponsorHero.breakEvenLabel,
+              }}
+              xTicks={4}
+              height={210}
             />
-            <p className="mt-3 border-t border-line-soft pt-3 text-[10px] leading-relaxed text-faint">
-              Cumulative for the period. Views read against the left axis,
-              engagements against the right — on a shared scale the engagements
-              line would sit flat on the floor.
-            </p>
-          </Card>
-        </section>
-
-        <section className="min-w-0">
-          <SectionHeading title="Top Performing Campaign" />
-          <Card className="flex h-[calc(100%-2rem)] flex-col">
-            <div className="flex items-start gap-3">
-              {/* Campaign thumbnail. Real creative comes from the R2 public
-                  bucket once assets exist. */}
-              <div className="grid size-11 shrink-0 place-items-center rounded-lg border border-line bg-surface-2 text-[9px] font-semibold text-faint">
-                BTG
-              </div>
-              <div className="min-w-0">
-                <p className="truncate text-sm font-semibold tracking-tight">
-                  {topCampaign.name}
-                </p>
-                <p className="mt-0.5 truncate text-[11px] text-muted">
-                  Presented by {topCampaign.presentedBy}
-                </p>
-              </div>
+            <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-[10px] text-muted">
+              <span className="flex items-center gap-1.5">
+                <span className="h-0.5 w-3 rounded bg-primary" /> Views · MetricDaily
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span className="h-0.5 w-3 rounded bg-accent" /> Engagements
+              </span>
+              <span className="text-primary-soft">╌ projection (EST)</span>
+              <span className="text-success">⚑ attributed value crossed spend</span>
             </div>
+          </div>
+        </div>
 
-            <dl className="mt-5 grid grid-cols-2 gap-4">
-              <div>
-                <dt className="text-[11px] text-muted">Views</dt>
-                <dd className="mt-0.5 text-lg font-semibold tabular-nums tracking-tight">
-                  {topCampaign.views.toLocaleString()}
-                </dd>
-              </div>
-              <div>
-                <dt className="text-[11px] text-muted">Engagement</dt>
-                <dd className="mt-0.5 text-lg font-semibold tabular-nums tracking-tight">
-                  {topCampaign.engagement.toLocaleString()}
-                </dd>
-              </div>
-            </dl>
+        <div className="mt-4">
+          <InsightStrip items={sponsorInsights} />
+        </div>
+      </HeroBand>
 
-            <div className="mt-auto pt-5">
-              <Link
-                href="/sponsor/campaigns/c1/report"
-                className="block rounded-lg bg-primary px-4 py-2.5 text-center text-xs font-medium text-white transition-colors hover:bg-primary-soft"
-              >
-                View Details
-              </Link>
-            </div>
-          </Card>
-        </section>
+      {/* ------------------------------------------------------- bento KPIs */}
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <Card className="sx-animate sx-delay-1 p-4">
+          <p className="text-[11px] font-medium uppercase tracking-wide text-muted">
+            Engagements
+          </p>
+          <p className="mt-1.5 text-2xl font-semibold tabular-nums tracking-tight">
+            42,815{" "}
+            <span className="text-xs font-medium text-success">+8.7%</span>
+          </p>
+          <div className="mt-2">
+            <Sparkline points={engagementSpark} />
+          </div>
+          <p className="mt-1.5 text-[10px] text-faint">
+            5.2% avg rate · MetricDaily
+          </p>
+        </Card>
+
+        <Card className="sx-animate sx-delay-2 p-4">
+          <p className="text-[11px] font-medium uppercase tracking-wide text-muted">
+            Spend
+          </p>
+          <p className="mt-1.5 text-2xl font-semibold tabular-nums tracking-tight">
+            {money(sponsorBudget.spent)}
+          </p>
+          <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-surface-2">
+            <div
+              className="h-full rounded-full bg-primary"
+              style={{ width: `${spentPct}%` }}
+            />
+          </div>
+          <p className="mt-1.5 text-[10px] text-faint">
+            {spentPct}% of {money(sponsorBudget.contracted)} · Zoho Books
+          </p>
+        </Card>
+
+        <Card className="sx-animate sx-delay-3 p-4">
+          <p className="text-[11px] font-medium uppercase tracking-wide text-muted">
+            Reward funnel
+          </p>
+          <div className="mt-2">
+            <FunnelSteps stages={funnelDetail.stages} compact />
+          </div>
+          <p className="mt-1.5 text-[10px] text-faint">
+            8,200 →{" "}
+            <strong className="text-accent">1,870</strong> (
+            {funnelDetail.overallPct}%) · median {funnelDetail.medianRedeemHours}h
+            to redeem
+          </p>
+        </Card>
+
+        <Card className="sx-animate sx-delay-4 border-accent/35 bg-gradient-to-br from-accent/15 to-surface p-4">
+          <p className="text-[11px] font-medium uppercase tracking-wide text-accent-soft">
+            Return
+          </p>
+          <p className="mt-1.5 text-2xl font-bold tabular-nums tracking-tight text-accent">
+            2.73×
+          </p>
+          <p className="mt-1 flex items-center gap-1.5 text-[10px] text-accent-soft">
+            $52.5K attributed ÷ $19.2K <MiniChip kind="att" />
+          </p>
+          <Link
+            href="/sponsor/campaigns/c1/report"
+            className="mt-2 inline-block text-[11px] font-medium text-primary-soft hover:underline"
+          >
+            Full ROI report →
+          </Link>
+        </Card>
       </div>
 
-      {/* ------------------------------ campaigns + funnel (§9.3 remainder) */}
-      <div className="grid gap-5 xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+      {/* ------------------------------------------------------ trust meter */}
+      <Card className="sx-animate sx-delay-5 py-3.5">
+        <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
+          <p
+            className="shrink-0 text-[11px] font-medium uppercase tracking-wider text-muted"
+            title="§22 — provenance of every metric on this page"
+          >
+            Data trust
+          </p>
+          <div className="min-w-0 flex-1">
+            <TrustMeter segments={metricTrust} />
+          </div>
+        </div>
+      </Card>
+
+      {/* --------------------------------------------- portfolio + rail */}
+      <div className="grid gap-5 xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)] xl:items-start">
         <section className="min-w-0">
           <SectionHeading
-            title="Active campaigns"
+            title="Campaign portfolio"
             hint={`${money(totalSpend)} contracted across ${sponsorCampaigns.length} campaigns`}
           />
           <Card className="p-0">
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[36rem] text-left">
-                <thead>
-                  <tr className="border-b border-line text-[10px] uppercase tracking-wider text-faint">
-                    <th className="px-4 py-2.5 font-medium">Campaign</th>
-                    <th className="px-4 py-2.5 font-medium">Package</th>
-                    <th className="px-4 py-2.5 font-medium">Athletes</th>
-                    <th className="px-4 py-2.5 font-medium">Deliverables</th>
-                    <th className="px-4 py-2.5 text-right font-medium">Spend</th>
-                    <th className="px-4 py-2.5 font-medium">Status</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-line-soft">
-                  {sponsorCampaigns.map((c) => {
-                    const [done, total] = c.deliverables;
-                    return (
-                      <tr key={c.id}>
-                        <td className="px-4 py-2.5 text-xs font-medium">
-                          {c.name}
-                        </td>
-                        <td className="px-4 py-2.5 text-xs text-muted">
-                          {c.pkg}
-                        </td>
-                        <td className="px-4 py-2.5 text-xs tabular-nums text-muted">
-                          {c.athletes}
-                        </td>
-                        <td className="px-4 py-2.5">
-                          <span
-                            className={[
-                              "text-xs tabular-nums",
-                              done < total ? "text-warn" : "text-accent",
-                            ].join(" ")}
-                          >
-                            {done}/{total}
+            <ul className="divide-y divide-line-soft">
+              {sponsorCampaigns.map((c) => {
+                const x = sponsorCampaignsX[c.id];
+                const [done, total] = c.deliverables;
+                const behind = x.pacing === "BEHIND";
+                return (
+                  <li key={c.id} className="px-4 py-3.5">
+                    <div className="flex items-center gap-3">
+                      <Monogram
+                        text={x.monogram}
+                        tone={behind ? "accent" : "primary"}
+                      />
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="text-xs font-semibold tracking-tight">
+                            {c.name}
                           </span>
-                        </td>
-                        <td className="px-4 py-2.5 text-right text-xs tabular-nums">
+                          {behind ? (
+                            <Badge tone="warn">Pacing behind</Badge>
+                          ) : (
+                            <Badge tone={CAMPAIGN_TONE[c.state]}>
+                              {c.state.toLowerCase()}
+                            </Badge>
+                          )}
+                        </div>
+                        <p className="mt-0.5 truncate text-[11px] text-faint">
+                          {c.pkg} · {c.athletes} athletes · {x.endsIn}
+                        </p>
+                      </div>
+                      <div className="shrink-0 text-right">
+                        <p className="text-xs font-semibold tabular-nums">
+                          {compact(x.views)}{" "}
+                          <span className="font-normal text-faint">views</span>
+                        </p>
+                        <p className="mt-0.5 text-[11px] tabular-nums text-muted">
                           {money(c.spend)}
-                        </td>
-                        <td className="px-4 py-2.5">
-                          <Badge tone={CAMPAIGN_TONE[c.state]}>
-                            {c.state.toLowerCase()}
-                          </Badge>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
+                        </p>
+                      </div>
+                    </div>
+                    <div className="mt-2.5 flex items-center gap-3 pl-11">
+                      <div className="h-1 min-w-0 flex-1 overflow-hidden rounded-full bg-surface-2">
+                        <div
+                          className={
+                            behind
+                              ? "h-full rounded-full bg-warn"
+                              : "h-full rounded-full bg-gradient-to-r from-primary to-primary-soft"
+                          }
+                          style={{ width: `${(done / total) * 100}%` }}
+                        />
+                      </div>
+                      <span className="shrink-0 text-[10px] tabular-nums text-faint">
+                        {done}/{total} deliverables
+                      </span>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
           </Card>
           <p className="mt-2 text-[10px] text-faint">
-            Under-delivery shows amber. §9.9 makes flagging it the campaign
-            manager&rsquo;s job, not something a sponsor has to notice.
+            Pacing compares delivery progress against elapsed campaign time.
+            Flagging under-delivery is the campaign manager&rsquo;s job (§9.9) —
+            shown here so the sponsor never has to discover it.
           </p>
         </section>
 
         <div className="space-y-5">
-          {/* -------------------------------------------- reward funnel */}
+          {/* ------------------------------------------------ leaderboard */}
           <section>
             <SectionHeading
-              title="Reward funnel"
-              hint="§16 — four separate events"
+              title="Top athletes"
+              hint="MetricDaily by athlete"
             />
             <Card>
               <ul className="space-y-3">
-                {rewardFunnel.map((f, i) => (
-                  <li key={f.stage}>
-                    <div className="flex items-baseline justify-between gap-2">
-                      <span className="text-[11px] text-muted">{f.stage}</span>
-                      <span className="text-xs font-semibold tabular-nums">
-                        {f.value.toLocaleString()}
-                      </span>
+                {topAthletes.map((a) => (
+                  <li key={a.rank} className="flex items-center gap-3">
+                    <span
+                      className={[
+                        "w-3 text-xs font-bold tabular-nums",
+                        a.rank === 1 ? "text-accent" : "text-faint",
+                      ].join(" ")}
+                    >
+                      {a.rank}
+                    </span>
+                    <Monogram
+                      text={a.initials}
+                      shape="circle"
+                      tone={a.rank === 1 ? "primary" : "neutral"}
+                    />
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-xs font-medium">{a.name}</p>
+                      {a.flag && (
+                        <p className="text-[10px] text-warn">▲ {a.flag}</p>
+                      )}
                     </div>
-                    <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-surface-2">
-                      <div
-                        className={i === rewardFunnel.length - 1 ? "h-full rounded-full bg-accent" : "h-full rounded-full bg-primary"}
-                        style={{ width: `${(f.value / funnelMax) * 100}%` }}
-                      />
-                    </div>
+                    <span className="text-xs font-semibold tabular-nums text-muted">
+                      {compact(a.views)}
+                    </span>
                   </li>
                 ))}
               </ul>
-              <p className="mt-4 border-t border-line-soft pt-3 text-[10px] leading-relaxed text-faint">
-                Scan, landing, claim and redeem are stored as separate rows —
-                the funnel is meaningless if they are collapsed into a counter.
-              </p>
             </Card>
           </section>
 
-          {/* ------------------------------------------------- renewal */}
+          {/* --------------------------------------------------- renewal */}
           <section>
             <SectionHeading title="Renewal" />
-            <Card>
-              <p className="text-xs leading-relaxed text-muted">
-                Player of the Week closes in 12 days. Renewing keeps the
-                athlete roster and the category exclusivity.
+            <Card className="border-primary/30 bg-gradient-to-br from-primary/15 to-surface">
+              <p className="text-xs font-semibold tracking-tight">
+                Player of the Week closes in 12 days
+              </p>
+              <p className="mt-1.5 text-[11px] leading-relaxed text-muted">
+                Renewing keeps your athlete roster and the category exclusivity.
               </p>
               <div className="mt-4 space-y-2">
                 <button
                   type="button"
-                  title="Creates a renewal opportunity in Zoho — not wired"
+                  title="Creates a renewal opportunity in Zoho via the queue — not wired"
                   className="w-full rounded-lg bg-primary px-4 py-2.5 text-xs font-medium text-white transition-colors hover:bg-primary-soft"
                 >
                   Discuss renewal
@@ -275,6 +374,12 @@ export default function SponsorDashboardPage() {
           </section>
         </div>
       </div>
+
+      <p className="text-[10px] text-faint">
+        All figures are fixture data shaped to MetricDaily, RewardEvent,
+        Deliverable and Zoho Books — every number on this page has a retrieval
+        path, and the soft ones say so.
+      </p>
     </div>
   );
 }
