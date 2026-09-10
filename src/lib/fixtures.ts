@@ -1227,3 +1227,22 @@ export const athleteCareer = {
 export const athleteEarningsTrend = [
   180_000, 240_000, 310_000, 420_000, 380_000, 510_000, 640_000, 720_000, 830_000,
 ];
+
+/* --------------------------------------------------------------------------
+   A2 property showcase hero (spec 2026-09-11 A2 §2).
+   -------------------------------------------------------------------------- */
+
+export const propertyShowcase = {
+  /** MetricDaily rollup, season-to-date — EST until verified */
+  estSeasonViews: 2_400_000,
+  /** estSeasonViews × curated CPM — EST · curated */
+  curatedCpmCents: 1_300,
+  impliedMediaValueCents: 3_120_000,
+  /** booked / total inventory slots — Postgres */
+  slotsBooked: 17,
+  slotsTotal: 25,
+  sellThroughPct: 68,
+  /** count roster athletes — Postgres */
+  rosterCount: 14,
+  avgEngagementPct: 4.2,
+};
