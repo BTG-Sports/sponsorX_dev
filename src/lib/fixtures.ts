@@ -1233,11 +1233,13 @@ export const athleteEarningsTrend = [
    -------------------------------------------------------------------------- */
 
 export const propertyShowcase = {
-  /** MetricDaily rollup, season-to-date — EST until verified */
-  estSeasonViews: 2_400_000,
-  /** estSeasonViews × curated CPM — EST · curated */
+  /** MetricDaily rollup, season-to-date — EST until verified. Matches the
+   *  canonical "Est. Views / Season" 2.5M in `property.stats` above. */
+  estSeasonViews: 2_500_000,
+  /** Curated market CPM constant — EST · curated */
   curatedCpmCents: 1_300,
-  impliedMediaValueCents: 3_120_000,
+  /** estSeasonViews / 1000 × curatedCpmCents = 2_500 × 1_300 — EST · curated */
+  impliedMediaValueCents: 3_250_000,
   /** booked / total inventory slots — Postgres */
   slotsBooked: 17,
   slotsTotal: 25,
