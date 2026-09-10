@@ -21,6 +21,9 @@
    Portal accents follow the logo (its "ATHLETE NETWORK" is blue, "BRAND IMPACT"
    is orange): Athlete = blue, Sponsor = orange, Admin = steel, Property = soft
    blue.
+
+   A2 adds the Frost light variant under [data-theme="light"]; dark remains
+   primary.
    -------------------------------------------------------------------------- */
 
 :root {
@@ -53,6 +56,46 @@
 
   --background: var(--sx-bg);
   --foreground: var(--sx-text);
+}
+
+/* --------------------------------------------------------------------------
+   Frost / Command Deck Light (spec 2026-09-11 A2). Dark stays the :root
+   default; [data-theme="light"] on <html> re-points the same tokens, so both
+   themes cascade through Tailwind's @theme inline mapping with no class
+   changes. Brand hues are darkened one step for AA contrast on light ground.
+   -------------------------------------------------------------------------- */
+[data-theme="light"] {
+  --sx-bg: #eff5fc;
+  --sx-surface: #ffffff;
+  --sx-surface-2: #f4f8fc;
+  --sx-line: #d9e5f2;
+  --sx-line-soft: #e4edf6;
+
+  --sx-text: #0f1b2d;
+  --sx-text-muted: #4a6885;
+  --sx-text-faint: #8aa5c4;
+
+  --sx-primary: #1b84e0;
+  --sx-primary-soft: #2e9bf5;
+  --sx-accent: #f0680c;
+  --sx-accent-soft: #f97a1f;
+  --sx-danger: #dc2626;
+  --sx-warn: #ca8a04;
+  --sx-success: #0e9f6e;
+
+  --sx-athlete: #1b84e0;
+  --sx-sponsor: #f0680c;
+  --sx-admin: #475569;
+  --sx-property: #1d7fd6;
+}
+
+/* Frost ground: blue cast top-left, faint orange horizon bottom-right. */
+[data-theme="light"] body {
+  background:
+    radial-gradient(70% 50% at 10% 0%, rgba(46, 155, 245, 0.10), transparent 55%),
+    radial-gradient(80% 60% at 85% 100%, rgba(249, 122, 31, 0.08), transparent 60%),
+    var(--sx-bg);
+  background-attachment: fixed;
 }
 
 @theme inline {
@@ -122,8 +165,43 @@ body {
 .sx-delay-4 { animation-delay: 240ms; }
 .sx-delay-5 { animation-delay: 300ms; }
 
+/* Quick pop-in for dropdowns / popovers — anchored top-right */
+@keyframes sx-pop {
+  from { opacity: 0; transform: translateY(-4px) scale(0.96); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.sx-pop {
+  transform-origin: top right;
+  animation: sx-pop 0.16s ease-out both;
+}
+
+/* Full-screen mobile menu: circle reveal from the hamburger corner (top-left).
+   Reduced motion shortens these to 1ms instead of removing them so the
+   animationend event that unmounts the closing menu still fires. */
+@keyframes sx-menu-in {
+  from { clip-path: circle(0% at 2rem 2rem); }
+  to { clip-path: circle(150% at 2rem 2rem); }
+}
+
+.sx-menu-in {
+  animation: sx-menu-in 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes sx-menu-out {
+  from { clip-path: circle(150% at 2rem 2rem); }
+  to { clip-path: circle(0% at 2rem 2rem); }
+}
+
+.sx-menu-out {
+  animation: sx-menu-out 0.4s cubic-bezier(0.55, 0, 0.68, 0.19) both;
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .sx-animate { animation: none; }
+  .sx-animate,
+  .sx-pop { animation: none; }
+  .sx-menu-in,
+  .sx-menu-out { animation-duration: 1ms; }
 }
 
 /* Horizontal snap strip (mobile insight carousels) */
@@ -132,3 +210,15 @@ body {
   -webkit-overflow-scrolling: touch;
 }
 .sx-snap-x > * { scroll-snap-align: start; }
+
+/* Branded loading shimmer (A2 state system). Skeleton blocks are painted with
+   token alphas, so this reads correctly in both themes. */
+@keyframes sx-shimmer {
+  0%, 100% { opacity: 0.55; }
+  50% { opacity: 1; }
+}
+.sx-shimmer { animation: sx-shimmer 1.6s ease-in-out infinite; }
+
+@media (prefers-reduced-motion: reduce) {
+  .sx-shimmer { animation: none; }
+}
