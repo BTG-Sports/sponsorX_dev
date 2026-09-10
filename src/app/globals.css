@@ -1,0 +1,87 @@
+@import "tailwindcss";
+
+/* --------------------------------------------------------------------------
+   SponsorX design tokens
+
+   Taken from the style guide on "BTG SponsorX UI/UX Mockups v1.0":
+     #6D34FF  primary purple
+     #00E08B  accent teal
+     #FF4D4F  red
+     #0E1016  page ground
+   Typeface: Poppins (Bold / Medium / Regular).
+
+   The product is dark-themed throughout. Surface steps and line colours below
+   are read off the mockup rather than specified by it, so they are the one
+   part of this palette open to adjustment.
+
+   Portal accents come from the three portal chips on the sheet:
+   Sponsor = purple, Athlete = teal, Admin = red.
+   -------------------------------------------------------------------------- */
+
+:root {
+  /* ground and surfaces */
+  --sx-bg: #0e1016;
+  --sx-surface: #161923;
+  --sx-surface-2: #1e2230;
+  --sx-line: #262b3a;
+  --sx-line-soft: #1d2130;
+
+  /* text */
+  --sx-text: #f4f5f7;
+  --sx-text-muted: #8a90a2;
+  --sx-text-faint: #5d6375;
+
+  /* brand */
+  --sx-primary: #6d34ff;
+  --sx-primary-soft: #8a5cff;
+  --sx-accent: #00e08b;
+  --sx-danger: #ff4d4f;
+  --sx-warn: #f5a524;
+
+  /* portal accents */
+  --sx-sponsor: #6d34ff;
+  --sx-athlete: #00e08b;
+  --sx-admin: #ff4d4f;
+
+  --background: var(--sx-bg);
+  --foreground: var(--sx-text);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+
+  --color-bg: var(--sx-bg);
+  --color-surface: var(--sx-surface);
+  --color-surface-2: var(--sx-surface-2);
+  --color-line: var(--sx-line);
+  --color-line-soft: var(--sx-line-soft);
+
+  --color-text: var(--sx-text);
+  --color-muted: var(--sx-text-muted);
+  --color-faint: var(--sx-text-faint);
+
+  --color-primary: var(--sx-primary);
+  --color-primary-soft: var(--sx-primary-soft);
+  --color-accent: var(--sx-accent);
+  --color-danger: var(--sx-danger);
+  --color-warn: var(--sx-warn);
+
+  --color-sponsor: var(--sx-sponsor);
+  --color-athlete: var(--sx-athlete);
+  --color-admin: var(--sx-admin);
+
+  --font-sans: var(--font-poppins);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-poppins), system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* The mockup's charts and tables sit on dark surfaces; keep scrollbars quiet. */
+* {
+  scrollbar-color: var(--sx-line) transparent;
+}

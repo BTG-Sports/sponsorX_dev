@@ -1,0 +1,350 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>SponsorX — Plain English Explainer</title>
+<style>
+  /* Print-first. Light ground, brand accents. System fonts so the PDF
+     renders identically with no network access. */
+  @page { size: letter; margin: 18mm 16mm 16mm; }
+
+  :root {
+    --ink:      #171123;
+    --body:     #33303d;
+    --muted:    #6b6878;
+    --line:     #ddd9e6;
+    --purple:   #6d34ff;
+    --teal:     #00a06a;
+    --wash:     #f7f6fb;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    font-family: "Segoe UI", -apple-system, system-ui, Roboto, Helvetica, Arial, sans-serif;
+    font-size: 10.5pt;
+    line-height: 1.55;
+    color: var(--body);
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  h1, h2, h3 { color: var(--ink); font-weight: 700; letter-spacing: -0.01em; }
+
+  h1 { font-size: 25pt; line-height: 1.1; margin: 0; }
+  h2 {
+    font-size: 13.5pt;
+    margin: 26px 0 8px;
+    padding-bottom: 5px;
+    border-bottom: 1.5px solid var(--line);
+  }
+  h3 { font-size: 11pt; margin: 18px 0 5px; }
+
+  p  { margin: 0 0 9px; }
+  ul, ol { margin: 0 0 9px; padding-left: 20px; }
+  li { margin-bottom: 5px; }
+  strong { color: var(--ink); }
+
+  /* ---------------------------------------------------------- masthead */
+  .masthead {
+    border-bottom: 3px solid var(--ink);
+    padding-bottom: 14px;
+    margin-bottom: 6px;
+  }
+  .brand {
+    font-size: 9pt;
+    font-weight: 700;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 10px;
+  }
+  .brand .x { color: var(--purple); }
+  .sub {
+    font-size: 11.5pt;
+    color: var(--muted);
+    margin-top: 8px;
+  }
+  .meta {
+    font-size: 8.5pt;
+    color: var(--muted);
+    margin-top: 12px;
+  }
+
+  /* ------------------------------------------------------------ pieces */
+  .pull {
+    background: var(--wash);
+    border-left: 3px solid var(--purple);
+    padding: 13px 16px;
+    margin: 14px 0;
+    font-size: 12.5pt;
+    line-height: 1.4;
+    color: var(--ink);
+    font-weight: 600;
+  }
+
+  .steps { list-style: none; padding: 0; counter-reset: s; }
+  .steps li {
+    counter-increment: s;
+    position: relative;
+    padding-left: 30px;
+    margin-bottom: 9px;
+  }
+  .steps li::before {
+    content: counter(s);
+    position: absolute; left: 0; top: 1px;
+    width: 19px; height: 19px;
+    background: var(--purple);
+    color: #fff;
+    border-radius: 50%;
+    font-size: 8.5pt;
+    font-weight: 700;
+    display: flex; align-items: center; justify-content: center;
+  }
+
+  .key {
+    border: 1.5px solid var(--teal);
+    background: #f2fbf7;
+    border-radius: 6px;
+    padding: 13px 16px;
+    margin: 14px 0;
+  }
+  .key .label {
+    font-size: 8pt;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--teal);
+    margin-bottom: 5px;
+  }
+
+  .warn {
+    border: 1px solid #e8c88a;
+    background: #fdf8ec;
+    border-radius: 6px;
+    padding: 12px 15px;
+    margin: 12px 0;
+  }
+  .warn .label {
+    font-size: 8pt;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: #9a6b13;
+    margin-bottom: 4px;
+  }
+
+  .two { display: flex; gap: 18px; }
+  .two > div { flex: 1; }
+
+  .card {
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 13px 15px;
+    background: #fff;
+  }
+  .card h3 { margin-top: 0; }
+
+  table { width: 100%; border-collapse: collapse; margin: 8px 0 12px; }
+  th, td {
+    text-align: left;
+    padding: 7px 10px;
+    border-bottom: 1px solid var(--line);
+    vertical-align: top;
+    font-size: 9.5pt;
+  }
+  th {
+    font-size: 8pt;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: var(--muted);
+    border-bottom: 1.5px solid var(--line);
+  }
+  td:first-child { font-weight: 600; color: var(--ink); width: 34%; }
+
+  footer {
+    margin-top: 30px;
+    padding-top: 12px;
+    border-top: 1px solid var(--line);
+    font-size: 8pt;
+    color: var(--muted);
+  }
+
+  .avoid-break { break-inside: avoid; }
+  .page-break { break-before: page; }
+</style>
+</head>
+<body>
+
+<div class="masthead">
+  <div class="brand">BTG Sports Group &nbsp;·&nbsp; Sponsor<span class="x">X</span></div>
+  <h1>How SponsorX Works</h1>
+  <div class="sub">The whole system, in plain English</div>
+  <div class="meta">Positioning and messaging reference &nbsp;·&nbsp; September 2026 &nbsp;·&nbsp; Internal</div>
+</div>
+
+<h2>The ten-second version</h2>
+
+<div class="pull">
+  Local athletes already have your customers&rsquo; attention. SponsorX rents
+  you that attention &mdash; as a package, at a fixed price, with proof it
+  worked.
+</div>
+
+<h2>The thirty-second version</h2>
+
+<p>
+  Sponsoring sports today gives you a banner and a shrug. You pay, your logo
+  goes up, and nobody can tell you whether a single person walked through your
+  door because of it.
+</p>
+<p>
+  SponsorX flips that. You tell us what you want and your budget. We pick a
+  group of local athletes whose followers are your actual customers. They post,
+  film, or show up in person. Fans scan a code to get an offer from you, and
+  redeem it in your store. At the end you get a report showing how many people
+  saw it, how many claimed the offer, and how many actually came in.
+</p>
+<p>
+  You never have to find an athlete, negotiate a rate, write a contract, or
+  chase anyone for a deliverable. That is our job.
+</p>
+
+<h2>The problem, on both sides</h2>
+
+<div class="two avoid-break">
+  <div class="card">
+    <h3>For a business</h3>
+    <p style="margin:0">
+      One athlete with 20,000 followers is not worth the hassle of a contract.
+      Ten of them is a real campaign &mdash; but now you have ten contracts, ten
+      negotiations and ten people to chase. Nobody has time for that.
+    </p>
+  </div>
+  <div class="card">
+    <h3>For an athlete</h3>
+    <p style="margin:0">
+      You have a real, engaged audience, but you are too small for a brand to
+      bother with. So you get nothing, or you get a free pair of shoes.
+    </p>
+  </div>
+</div>
+
+<p style="margin-top:12px">
+  SponsorX sits in the middle and bundles them. Many small audiences become one
+  sellable thing, and one business deals with one invoice.
+</p>
+
+<h2>How it works, in five steps</h2>
+
+<ol class="steps">
+  <li>
+    <strong>You say what you want.</strong> More foot traffic, a new product
+    known, bodies at an event. Plus your budget.
+  </li>
+  <li>
+    <strong>We pick the athletes.</strong> From our roster, matched to your
+    neighbourhood and your customers. Not by follower count &mdash; by who
+    actually gets engagement and who reliably delivers.
+  </li>
+  <li>
+    <strong>They make the content.</strong> Posts, reels, appearances. You
+    approve everything before it goes public.
+  </li>
+  <li>
+    <strong>Fans get an offer.</strong> Each athlete gets their own code. A fan
+    scans it, claims something &mdash; 20% off, a free drink &mdash; and redeems
+    it with you.
+  </li>
+  <li>
+    <strong>You get the numbers.</strong> Views, engagement, codes scanned,
+    offers claimed, offers actually redeemed. Per athlete, so you know who moved
+    the needle.
+  </li>
+</ol>
+
+<div class="key avoid-break">
+  <div class="label">The one thing that makes it different</div>
+  <p style="margin:0">
+    Step four. Every other form of local sponsorship ends at <em>&ldquo;your
+    logo was seen.&rdquo;</em> This one ends at <em>&ldquo;1,870 people used
+    your code.&rdquo;</em> That is the whole pitch. Everything else is a
+    feature; this is the reason to believe.
+  </p>
+</div>
+
+<h2>The pitch to an athlete</h2>
+
+<ul>
+  <li>You get paid for content you are half-making already</li>
+  <li>You pick each job. Nothing is automatic, and you can say no with no penalty</li>
+  <li><strong>It is not exclusive.</strong> Your own deals stay yours. This is not signing your career over to an agency</li>
+  <li>Under 18? A parent or guardian has to approve before anything happens</li>
+  <li>You can see what you have earned and exactly where it stands</li>
+</ul>
+
+<h2>The four objections you will actually get</h2>
+
+<table>
+  <thead>
+    <tr><th>They ask</th><th>You answer</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>&ldquo;How much?&rdquo;</td>
+      <td>Start at <strong>$750</strong>. Three athletes, one post each, a real
+      report. Deliberately cheap enough to say yes to without a meeting.</td>
+    </tr>
+    <tr>
+      <td>&ldquo;Isn&rsquo;t this just influencer marketing?&rdquo;</td>
+      <td>No. Influencers rent you an audience. Athletes rent you
+      <strong>standing in a community</strong>. A kid people watch play on
+      Friday night carries weight a random creator does not.</td>
+    </tr>
+    <tr>
+      <td>&ldquo;How do I know it worked?&rdquo;</td>
+      <td>Because the offer is redeemed in your store. Not impressions.
+      <strong>Redemptions.</strong></td>
+    </tr>
+    <tr>
+      <td>&ldquo;What if the athlete posts something stupid?&rdquo;</td>
+      <td>You approve every piece before it goes out. Nothing publishes without
+      your sign-off.</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2>Two things to be careful about</h2>
+
+<div class="warn avoid-break">
+  <div class="label">Do not lead with reach</div>
+  <p style="margin:0">
+    The current homepage says &ldquo;1.2M Monthly Reach / 2.4M Fans
+    Engaged.&rdquo; That is the <em>old</em> pitch &mdash; selling audience
+    size, which invites comparison to buying ads, a game you lose on price. The
+    current strategy sells outcomes. Lead with &ldquo;$750, three athletes, and
+    a number you can check.&rdquo;
+  </p>
+</div>
+
+<div class="warn avoid-break">
+  <div class="label">You have no results yet</div>
+  <p style="margin:0">
+    Four anchor athletes, no completed campaigns. The first five campaigns are
+    not sales, they are <strong>proof-building</strong> &mdash; price them as
+    pilots and get written permission to publish the numbers. Until then, do not
+    imply results you do not have. The case-study slots on the homepage are
+    deliberately empty for exactly this reason.
+  </p>
+</div>
+
+<footer>
+  BTG SponsorX &mdash; plain English explainer. Positioning derives from the
+  Master Development Blueprint v2.0 (September 2026), which replaced the
+  original owned-audience launch strategy with the managed athlete network
+  described here. Figures used as examples are illustrative, not results.
+</footer>
+
+</body>
+</html>
