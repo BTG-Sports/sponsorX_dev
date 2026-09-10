@@ -62,7 +62,9 @@
    Frost / Command Deck Light (spec 2026-09-11 A2). Dark stays the :root
    default; [data-theme="light"] on <html> re-points the same tokens, so both
    themes cascade through Tailwind's @theme inline mapping with no class
-   changes. Brand hues are darkened one step for AA contrast on light ground.
+   changes. Brand hues are darkened until each clears WCAG AA 4.5:1 as bare
+   small text on the worst-case white surface; the -soft variants stay brighter
+   because they paint fills/gradients, never text.
    -------------------------------------------------------------------------- */
 [data-theme="light"] {
   --sx-bg: #eff5fc;
@@ -75,18 +77,18 @@
   --sx-text-muted: #4a6885;
   --sx-text-faint: #8aa5c4;
 
-  --sx-primary: #1b84e0;
+  --sx-primary: #1978cc;
   --sx-primary-soft: #2e9bf5;
-  --sx-accent: #f0680c;
+  --sx-accent: #c4550a;
   --sx-accent-soft: #f97a1f;
   --sx-danger: #dc2626;
-  --sx-warn: #ca8a04;
-  --sx-success: #0e9f6e;
+  --sx-warn: #9f6d03;
+  --sx-success: #0c855c;
 
-  --sx-athlete: #1b84e0;
-  --sx-sponsor: #f0680c;
+  --sx-athlete: #1978cc;
+  --sx-sponsor: #c4550a;
   --sx-admin: #475569;
-  --sx-property: #1d7fd6;
+  --sx-property: #1b78cb;
 }
 
 /* Frost ground: blue cast top-left, faint orange horizon bottom-right. */
@@ -95,7 +97,6 @@
     radial-gradient(70% 50% at 10% 0%, rgba(46, 155, 245, 0.10), transparent 55%),
     radial-gradient(80% 60% at 85% 100%, rgba(249, 122, 31, 0.08), transparent 60%),
     var(--sx-bg);
-  background-attachment: fixed;
 }
 
 @theme inline {
