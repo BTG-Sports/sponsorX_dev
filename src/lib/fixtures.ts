@@ -1194,3 +1194,36 @@ export const adminFinanceX = {
     { label: "Paid", value: 4_625_000 },
   ],
 };
+
+/* --------------------------------------------------------------------------
+   A2 athlete milestone hero (spec 2026-09-11 A2 §2).
+   -------------------------------------------------------------------------- */
+
+export const athleteCareer = {
+  /** Σ Earning state ∈ {APPROVED, PAID} — Postgres */
+  careerEarningsCents: 4_625_000,
+  approvedCents: 840_000,
+  nextPayout: "Friday",
+  /**
+   * approved / (approved + eligible). Draft plan value was 68; the honest
+   * figure against adminFinanceX.earningsFlow (approved 840_000, eligible
+   * 2_760_000 — this demo athlete is the platform's only earner so far, per
+   * the Paid-bucket match with careerEarningsCents below) is
+   * round(840_000 / (840_000 + 2_760_000) * 100) = 23.
+   */
+  payoutRingPct: 23,
+  /** Deliverable due vs submitted timestamps — Postgres */
+  onTimeRatePct: 96,
+  /** Σ AthleteSocial.followers — VERIFIED_MANUAL → platform APIs (sync-social-metrics) */
+  followers: 128_400,
+  followersSource: "VERIFIED_MANUAL" as const,
+  engagementRatePct: 4.8,
+  openInvites: 2,
+  openInviteValueCents: 1_900_000,
+  nextExpiry: "2d 14h",
+};
+
+/** Cents earned per month YTD — Σ Earning by month, Postgres */
+export const athleteEarningsTrend = [
+  180_000, 240_000, 310_000, 420_000, 380_000, 510_000, 640_000, 720_000, 830_000,
+];
