@@ -1248,3 +1248,16 @@ export const propertyShowcase = {
   rosterCount: 14,
   avgEngagementPct: 4.2,
 };
+
+/* --------------------------------------------------------------------------
+   A2 public landing counters (spec 2026-09-11 A2 §2). Replaces the page's
+   hardcoded HERO_STATS — every counter is a Block B count/sum with a named
+   source, per the stats-must-be-retrievable rule.
+   -------------------------------------------------------------------------- */
+
+export const networkStats = [
+  { label: "Athletes in the network", value: 148, prefix: "", source: "Postgres · Athlete ACTIVE" },
+  { label: "Campaigns delivered", value: 86, prefix: "", source: "Postgres · Campaign completed" },
+  { label: "Attributed fan value", value: 2_300_000, prefix: "$", source: "MetricDaily rollup" },
+  { label: "Fan rewards redeemed", value: 41_280, prefix: "", source: "RewardEvent · REDEEM" },
+];

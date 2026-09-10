@@ -1,5 +1,8 @@
 import Link from "next/link";
 import { BuildPreview } from "@/components/build-preview";
+import { CountUp } from "@/components/count-up";
+import { Logo } from "@/components/logo";
+import { networkStats } from "@/lib/fixtures";
 
 /* --------------------------------------------------------------------------
    SponsorX Network Landing — §9 screen 1, mockup screen 1.
@@ -9,26 +12,6 @@ import { BuildPreview } from "@/components/build-preview";
    explain the Athlete Network, the sponsor packages, the content-partner
    opportunity, and leave slots for proof / case studies.
    -------------------------------------------------------------------------- */
-
-/**
- * STRATEGY CONFLICT — read before changing these.
- *
- * These are the mockup's figures, and they pitch BTG's *owned audience*
- * (monthly reach, fans engaged). Blueprint v2.0 §1 explicitly replaced that
- * launch strategy with a managed micro-NIL athlete network selling to local
- * and regional businesses, and §2's 90-day targets are 25 athletes and 10
- * paying businesses — not 1.2M reach.
- *
- * Kept as-is to match the approved mockup. Swapping to network metrics
- * (athletes, campaigns delivered, athlete earnings paid) is a one-line change
- * here.
- */
-const HERO_STATS = [
-  { value: "1.2M+", label: "Monthly Reach" },
-  { value: "250+", label: "Athletes & Teams" },
-  { value: "150+", label: "Sponsors" },
-  { value: "2.4M+", label: "Fans Engaged" },
-];
 
 /** §39's operating loop, written for a sponsor rather than an engineer. */
 const STEPS = [
@@ -88,7 +71,8 @@ export default function HomePage() {
         />
         <div className="relative mx-auto grid w-full max-w-6xl gap-10 px-6 py-16 lg:grid-cols-[minmax(0,1fr)_26rem] lg:items-center lg:py-24">
           <div>
-            <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-muted">
+            <Logo className="h-14" />
+            <p className="mt-6 text-[11px] font-semibold uppercase tracking-[0.2em] text-muted">
               Connecting brands. Athletes. Fans. Results.
             </p>
 
@@ -149,12 +133,16 @@ export default function HomePage() {
         {/* ---------------------------------------------- stats bar */}
         <div className="mx-auto w-full max-w-6xl px-6">
           <dl className="grid grid-cols-2 gap-px overflow-hidden rounded-t-xl border border-b-0 border-line bg-line sm:grid-cols-4">
-            {HERO_STATS.map((s) => (
-              <div key={s.label} className="bg-surface px-5 py-5 text-center">
+            {networkStats.map((s, i) => (
+              <div
+                key={s.label}
+                title={s.source}
+                className={`sx-animate sx-delay-${i + 1} bg-surface px-5 py-5 text-center`}
+              >
                 <dt className="sr-only">{s.label}</dt>
                 <dd>
                   <span className="block text-2xl font-semibold tracking-tight">
-                    {s.value}
+                    <CountUp value={s.value} prefix={s.prefix} />
                   </span>
                   <span className="mt-1 block text-[11px] text-muted">
                     {s.label}
@@ -163,6 +151,9 @@ export default function HomePage() {
               </div>
             ))}
           </dl>
+          <p className="mt-2 text-[10px] text-faint">
+            Live network counts — Postgres · MetricDaily · RewardEvent
+          </p>
         </div>
       </section>
 
