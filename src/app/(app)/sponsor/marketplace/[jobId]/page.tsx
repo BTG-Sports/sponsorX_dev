@@ -1,7 +1,7 @@
 import { BackLink } from "@/components/back-link";
 import { Card, SectionHeading } from "@/components/ui";
 import { HeroBand, MiniChip } from "@/components/hero";
-import { compact } from "@/components/line-chart";
+import { compact } from "@/components/charts";
 import { inventoryItem, money } from "@/lib/fixtures";
 import { resolveBack } from "@/lib/back";
 

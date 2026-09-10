@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { Card, SectionHeading, SourceLabel } from "@/components/ui";
-import { AreaChart } from "@/components/charts";
-import { ChartLegend } from "@/components/line-chart";
+import { AreaChart, ChartLegend } from "@/components/charts";
+import { MiniChip } from "@/components/hero";
 import { EmptyState, SkeletonPage } from "@/components/states";
 import { demoState } from "@/lib/demo";
 import {
@@ -96,11 +96,14 @@ export default async function RewardAnalyticsPage({
                 +{s.delta}
               </span>
             </div>
-            {s.source && (
-              <div className="mt-2">
+            <div className="mt-2">
+              {s.source ? (
                 <SourceLabel source={s.source} />
-              </div>
-            )}
+              ) : (
+                /* Scan/claim/redeem are our own §16 event rows. */
+                <MiniChip kind="ver">POSTGRES</MiniChip>
+              )}
+            </div>
           </Card>
         ))}
       </div>

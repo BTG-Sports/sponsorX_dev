@@ -5,9 +5,9 @@ import {
   FunnelSteps,
   Sparkline,
   TrustMeter,
+  compact,
 } from "@/components/charts";
 import { HeroBand, InsightStrip, MiniChip, Monogram } from "@/components/hero";
-import { compact } from "@/components/line-chart";
 import {
   engagementSpark,
   funnelDetail,

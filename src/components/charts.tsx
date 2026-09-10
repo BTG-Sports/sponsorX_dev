@@ -1,16 +1,22 @@
 import { useId } from "react";
-import { compact } from "./line-chart";
 
 /* --------------------------------------------------------------------------
    Chart primitives for the sponsor portal redesign (spec 2026-09-11).
-   Hand-rolled SVG server components — same rationale as line-chart.tsx: no
-   client bundle until interactivity is actually needed (recharts is a B-phase
-   decision). Every chart is a static, deterministic render of fixture data.
+   Hand-rolled SVG server components — no client bundle until interactivity is
+   actually needed (recharts is a B-phase decision). Every chart is a static,
+   deterministic render of fixture data.
    -------------------------------------------------------------------------- */
 
 export type SeriesPoint = { label: string; a: number; b?: number };
 
 const W = 760;
+
+/** Axis-tick number formatting: 823_400 → "823K", 1_200_000 → "1.2M". */
+export const compact = (n: number) => {
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(n % 1_000_000 === 0 ? 0 : 1)}M`;
+  if (n >= 1_000) return `${Math.round(n / 1_000)}K`;
+  return String(Math.round(n));
+};
 
 function niceMax(v: number) {
   if (v <= 0) return 1;
@@ -115,7 +121,7 @@ export function AreaChart({
         viewBox={`0 0 ${W} ${height}`}
         className="h-auto w-full min-w-[30rem]"
         role="img"
-        aria-label={`${aName} over time${proj.length ? " with projection" : ""}`}
+        aria-label={`${dual ? `${aName} and ${bName}` : aName} over time${proj.length ? " with projection" : ""}`}
       >
         <defs>
           <linearGradient id={gid} x1="0" y1="0" x2="0" y2="1">
@@ -263,6 +269,32 @@ export function AreaChart({
           />
         )}
       </svg>
+    </div>
+  );
+}
+
+/* ----------------------------------------------------------- ChartLegend */
+
+/** Swatches match AreaChart's strokes: series a solid primary, series b accent. */
+export function ChartLegend({
+  aName,
+  bName,
+}: {
+  aName: string;
+  bName?: string;
+}) {
+  return (
+    <div className="flex items-center gap-4">
+      <span className="flex items-center gap-1.5 text-[11px] text-muted">
+        <span className="h-0.5 w-3 rounded bg-primary" />
+        {aName}
+      </span>
+      {bName && (
+        <span className="flex items-center gap-1.5 text-[11px] text-muted">
+          <span className="h-0.5 w-3 rounded bg-accent" />
+          {bName}
+        </span>
+      )}
     </div>
   );
 }

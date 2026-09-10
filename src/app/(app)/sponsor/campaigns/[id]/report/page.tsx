@@ -7,9 +7,9 @@ import {
   FunnelSteps,
   HBarList,
   RadialGauge,
+  compact,
 } from "@/components/charts";
 import { HeroBand, MiniChip, Monogram } from "@/components/hero";
-import { compact } from "@/components/line-chart";
 import { resolveBack } from "@/lib/back";
 import {
   efficiency,

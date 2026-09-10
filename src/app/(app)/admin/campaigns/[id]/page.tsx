@@ -1,8 +1,8 @@
 import Link from "next/link";
 import { BackLink } from "@/components/back-link";
 import { Badge, Card, Meter, SectionHeading } from "@/components/ui";
-import { AreaChart } from "@/components/charts";
-import { ChartLegend } from "@/components/line-chart";
+import { AreaChart, ChartLegend } from "@/components/charts";
+import { MiniChip } from "@/components/hero";
 import { EmptyState, SkeletonPage } from "@/components/states";
 import { resolveBack } from "@/lib/back";
 import { demoState } from "@/lib/demo";
@@ -54,7 +54,7 @@ export default async function CampaignDashboardPage({
 
   const c = campaign;
   const pct = Math.round((c.viewsDelivered / c.viewsTarget) * 100);
-  const viewsRemaining = c.viewsTarget - c.viewsDelivered;
+  const viewsRemaining = Math.max(0, c.viewsTarget - c.viewsDelivered);
 
   return (
     <div className="space-y-6">
@@ -101,7 +101,7 @@ export default async function CampaignDashboardPage({
             className={[
               "rounded-md px-3 py-1.5 text-xs font-medium",
               i === 0
-                ? "bg-danger/12 text-danger"
+                ? "bg-primary/15 text-primary-soft"
                 : "cursor-default text-faint",
             ].join(" ")}
           >
@@ -127,6 +127,9 @@ export default async function CampaignDashboardPage({
             {pct}% delivered · {viewsRemaining.toLocaleString()} views to
             target · {c.daysRemaining}d left
           </p>
+          <div className="mt-2">
+            <MiniChip kind="manual">VERIFIED · MANUAL</MiniChip>
+          </div>
         </Card>
 
         <Card className="p-4">
@@ -137,6 +140,9 @@ export default async function CampaignDashboardPage({
             </span>
             <span className="text-[11px] font-medium text-accent">+1.7%</span>
           </div>
+          <div className="mt-2">
+            <MiniChip kind="manual">VERIFIED · MANUAL</MiniChip>
+          </div>
         </Card>
 
         <Card className="p-4">
@@ -144,6 +150,9 @@ export default async function CampaignDashboardPage({
           <p className="mt-2 text-2xl font-semibold tabular-nums tracking-tight">
             {c.rewardsRedeemed.toLocaleString()}
           </p>
+          <div className="mt-2">
+            <MiniChip kind="ver">POSTGRES</MiniChip>
+          </div>
         </Card>
 
         <Card className="p-4">

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { Badge, Card } from "@/components/ui";
 import { MiniChip, Monogram, initials } from "@/components/hero";
-import { compact } from "@/components/line-chart";
+import { compact } from "@/components/charts";
 import {
   INVENTORY_COPY,
   athleteInv,
