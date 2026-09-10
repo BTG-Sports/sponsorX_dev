@@ -1251,8 +1251,8 @@ export const propertyShowcase = {
 
 /* --------------------------------------------------------------------------
    A2 public landing counters (spec 2026-09-11 A2 §2). Replaces the page's
-   hardcoded HERO_STATS — every counter is a Block B count/sum with a named
-   source, per the stats-must-be-retrievable rule.
+   previously hardcoded hero stat tiles — every counter is a Block B count/sum
+   with a named source, per the stats-must-be-retrievable rule.
    -------------------------------------------------------------------------- */
 
 export const networkStats = [

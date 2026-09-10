@@ -13,6 +13,9 @@ import { networkStats } from "@/lib/fixtures";
    opportunity, and leave slots for proof / case studies.
    -------------------------------------------------------------------------- */
 
+/** Static stagger classes for the stats bar — one per networkStats tile. */
+const DELAYS = ["sx-delay-1", "sx-delay-2", "sx-delay-3", "sx-delay-4"] as const;
+
 /** §39's operating loop, written for a sponsor rather than an engineer. */
 const STEPS = [
   {
@@ -137,7 +140,7 @@ export default function HomePage() {
               <div
                 key={s.label}
                 title={s.source}
-                className={`sx-animate sx-delay-${i + 1} bg-surface px-5 py-5 text-center`}
+                className={`sx-animate ${DELAYS[i]} bg-surface px-5 py-5 text-center`}
               >
                 <dt className="sr-only">{s.label}</dt>
                 <dd>

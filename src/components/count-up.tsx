@@ -24,6 +24,7 @@ const fmt = (n: number) =>
 export function CountUp({ value, prefix = "" }: { value: number; prefix?: string }) {
   const ref = useRef<HTMLSpanElement>(null);
   const started = useRef(false);
+  const frameRef = useRef(0);
 
   useEffect(() => {
     const el = ref.current;
@@ -46,14 +47,17 @@ export function CountUp({ value, prefix = "" }: { value: number; prefix?: string
         const tick = (t: number) => {
           const p = Math.min(1, (t - t0) / 1400);
           write(Math.round(value * (1 - Math.pow(1 - p, 3))));
-          if (p < 1) requestAnimationFrame(tick);
+          if (p < 1) frameRef.current = requestAnimationFrame(tick);
         };
-        requestAnimationFrame(tick);
+        frameRef.current = requestAnimationFrame(tick);
       },
       { threshold: 0.4 },
     );
     io.observe(el);
-    return () => io.disconnect();
+    return () => {
+      io.disconnect();
+      cancelAnimationFrame(frameRef.current);
+    };
   }, [value, prefix]);
 
   return (
