@@ -123,8 +123,8 @@ export default async function SponsorDashboardPage({
               {sponsorHero.views.toLocaleString()}
             </p>
             <p className="mt-1.5 flex items-center gap-2 text-xs text-muted">
-              <MiniChip kind="ver">▲ {sponsorHero.deltaPct}%</MiniChip> vs
-              April <MiniChip kind="ver" />
+              <MiniChip kind="ver">▲ {sponsorHero.deltaPct}% · VER</MiniChip>{" "}
+              vs April
             </p>
 
             <p className="mt-4 text-[11px] text-muted">
