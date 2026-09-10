@@ -1163,10 +1163,10 @@ export const adminPipeline = {
   approvalRatePct: 63,
   /** AthleteScore.total bands, current queue — Postgres */
   scoreBands: [
-    { label: "80–100", value: 4 },
-    { label: "60–79", value: 11 },
-    { label: "40–59", value: 3 },
-    { label: "< 40", value: 1 },
+    { label: "80–100", value: 4, display: "4" },
+    { label: "60–79", value: 11, display: "11" },
+    { label: "40–59", value: 3, display: "3" },
+    { label: "< 40", value: 1, display: "1" },
   ],
 };
 
@@ -1181,10 +1181,10 @@ export const adminFinanceX = {
   collectionRatePct: 82,
   /** invoice aging buckets, cents — Zoho Books */
   aging: [
-    { label: "Current", value: 5_210_000 },
-    { label: "1–30 days", value: 1_730_000 },
-    { label: "31–60 days", value: 640_000 },
-    { label: "> 60 days", value: 210_000 },
+    { label: "Current", value: 5_210_000, display: "$52,100" },
+    { label: "1–30 days", value: 1_730_000, display: "$17,300" },
+    { label: "31–60 days", value: 640_000, display: "$6,400" },
+    { label: "> 60 days", value: 210_000, display: "$2,100" },
   ],
   /** Σ Earning by state, cents — Postgres */
   earningsFlow: [
