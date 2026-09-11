@@ -5,6 +5,7 @@ import { EmptyState, SkeletonPage } from "@/components/states";
 import { demoState } from "@/lib/demo";
 import {
   INVITE_COPY,
+  athleteMinor,
   invitations,
   money,
   type InviteState,
@@ -118,6 +119,14 @@ export default async function InvitationsPage({
           ACCEPTED / DECLINED / EXPIRED.
         </p>
       </div>
+
+      {demo === "minor" && (
+        <BlockedNotice>
+          Guardian authorization pending (§4) — invitations can be reviewed
+          but not accepted until {athleteMinor.guardian.legalName} is
+          verified.
+        </BlockedNotice>
+      )}
 
       {/* ---------------------------------------------------------- filter */}
       <div className="flex flex-wrap gap-1 rounded-lg border border-line bg-surface p-1">

@@ -106,6 +106,7 @@ export const invitations = [
     deliverableCount: 1,
     usageRights: "Campaign channels, 90 days",
     exclusivity: "Category — athletic apparel, 26 weeks",
+    declineReason: null as string | null,
   },
   {
     id: "inv_2",
@@ -119,6 +120,7 @@ export const invitations = [
     deliverableCount: 1,
     usageRights: "Organic only, 30 days",
     exclusivity: null,
+    declineReason: null as string | null,
   },
   {
     id: "inv_3",
@@ -132,6 +134,7 @@ export const invitations = [
     deliverableCount: 2,
     usageRights: "Campaign channels + event recap, 90 days",
     exclusivity: null,
+    declineReason: null as string | null,
   },
   {
     id: "inv_4",
@@ -145,6 +148,7 @@ export const invitations = [
     deliverableCount: 3,
     usageRights: "Campaign channels, 90 days",
     exclusivity: null,
+    declineReason: null as string | null,
   },
   {
     id: "inv_5",
@@ -158,6 +162,8 @@ export const invitations = [
     deliverableCount: 1,
     usageRights: "Organic only, 30 days",
     exclusivity: null,
+    declineReason:
+      "Declined May 4 — scheduling conflict with the state playoff window.",
   },
   {
     id: "inv_6",
@@ -171,6 +177,7 @@ export const invitations = [
     deliverableCount: 1,
     usageRights: "Organic only, 30 days",
     exclusivity: null,
+    declineReason: null as string | null,
   },
 ];
 
