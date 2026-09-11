@@ -61,16 +61,24 @@ distinctly — muted, no accept action. Fix rendering only if it fails this.
 
 ### 4. Under-delivering campaign — canonical `c3`
 
-"Community Champions" (`sponsorCampaignsX.c3`, already `pacing: "BEHIND"`) is
-*the* under-delivering campaign everywhere:
+"Community Campaign" (`sponsorCampaigns`/`sponsorCampaignsX` id `c3`, already
+`pacing: "BEHIND"`, 96,200 views, 11/22 deliverables) is *the*
+under-delivering campaign everywhere:
 
 - Sponsor portfolio row keeps its `PACING BEHIND` chip.
-- Admin campaign detail for c3 shows the delivered-vs-planned shortfall, the
-  existing flagged roster athlete ("Under-delivering") as the cause, and a
-  warning-tinted staff notice ("2 of 6 deliverables landed — re-match or
-  adjust order").
-- **One set of delivered/planned/views figures, stated once in fixtures,
-  consumed by every surface.** No screen may contradict another.
+- The admin campaign detail today ignores the route id and always renders the
+  healthy `campaign` (c1) fixture with c1's series/top-content/roster — so a
+  keyed `campaignDetailX` extension supplies c3's own campaign object, chart
+  series, top content and roster, and the page resolves by id (c1 stays the
+  default and its existing exports are reused untouched).
+- c3's detail shows the delivered-vs-planned shortfall (11 of 22), the flagged
+  under-delivering roster athlete as a cause, and a warning-tinted staff
+  notice ("re-match or adjust the Campaign Order").
+- **One set of figures, stated once in fixtures, consumed by every surface:**
+  c3's detail views equal `sponsorCampaignsX.c3.views` (96,200), roster
+  delivered/planned sums to 11/22 matching `sponsorCampaigns.c3.deliverables`,
+  per-athlete views sum to the campaign total. No screen may contradict
+  another.
 
 ### 5. Held earning (athlete side)
 
@@ -83,13 +91,17 @@ row for the same athlete, or be clearly a different athlete's.
 
 ### 6. Declined order
 
-- **Admin:** append a `DECLINED` entry to `campaignRoster` (`delivered: 0,
-  planned: 0`, "Replacement needed" flag), rendered on the admin campaign
-  detail where BTG staff re-match.
-- **Athlete:** one declined Campaign Order fixture reachable at
-  `athlete/orders/[id]` rendering a terminal declined state — decline reason,
-  no action buttons, back-link to invitations. It is the same order the
-  existing `DECLINED` invitation row refers to: one data story.
+- **Admin:** the `DECLINED` roster entry lives on **c3's roster** (not c1's —
+  c1's `campaignRoster` stays untouched): an athlete who declined the order
+  (`delivered: 0`, "Replacement needed" flag), rendered on the admin campaign
+  detail where BTG staff re-match. It is also part of *why* c3 under-delivers
+  — one coherent story instead of two disconnected edge cases.
+- **Athlete:** the existing `DECLINED` invitation (`inv_5`) is the declined
+  order — `athlete/orders/inv_5` already resolves it. The order page gains
+  terminal-state handling (declined/expired/accepted get a status panel
+  instead of the accept card) and the invitation rows gain a
+  `declineReason: string | null` field (a schema extension — every row gets
+  the field, only `inv_5` carries a value; no existing value or id changes).
 
 ## Guardrails
 
