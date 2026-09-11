@@ -112,7 +112,7 @@ export default async function RoiReportPage({
           <button
             type="button"
             title="Queues render-report on the worker (Playwright) — not wired"
-            className="flex items-center gap-2 rounded-lg bg-primary px-3.5 py-2 text-[11px] font-medium text-white transition-colors hover:bg-primary-soft"
+            className="flex items-center gap-2 rounded-lg bg-primary px-3.5 py-2 text-[11px] font-medium text-cta-ink transition-colors hover:bg-primary-soft"
           >
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="size-3.5" aria-hidden="true">
               <path d="M12 3v12m0 0-4-4m4 4 4-4M4 19h16" />
@@ -384,7 +384,7 @@ export default async function RoiReportPage({
             </p>
             <Link
               href="/sponsor/marketplace?from=report"
-              className="mt-4 block rounded-lg bg-primary py-2.5 text-center text-xs font-medium text-white transition-colors hover:bg-primary-soft"
+              className="mt-4 block rounded-lg bg-primary py-2.5 text-center text-xs font-medium text-cta-ink transition-colors hover:bg-primary-soft"
             >
               Plan the renewal →
             </Link>

@@ -148,7 +148,7 @@ export default async function InventoryDetailPage({
               <button
                 type="button"
                 title="Creates a CampaignBrief in DRAFT — not wired"
-                className="w-full rounded-lg bg-accent py-2.5 text-xs font-semibold text-white transition-colors hover:bg-accent-soft"
+                className="w-full rounded-lg bg-accent py-2.5 text-xs font-semibold text-cta-ink transition-colors hover:bg-accent-soft"
               >
                 Request this inventory
               </button>

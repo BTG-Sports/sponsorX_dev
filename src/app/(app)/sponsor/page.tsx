@@ -105,7 +105,7 @@ export default async function SponsorDashboardPage({
           <button
             type="button"
             title="Queues render-report on the worker — not wired"
-            className="rounded-lg bg-primary px-3.5 py-1.5 text-[11px] font-medium text-white transition-colors hover:bg-primary-soft"
+            className="rounded-lg bg-primary px-3.5 py-1.5 text-[11px] font-medium text-cta-ink transition-colors hover:bg-primary-soft"
           >
             Export report
           </button>
@@ -397,7 +397,7 @@ export default async function SponsorDashboardPage({
                 <button
                   type="button"
                   title="Creates a renewal opportunity in Zoho via the queue — not wired"
-                  className="w-full rounded-lg bg-primary px-4 py-2.5 text-xs font-medium text-white transition-colors hover:bg-primary-soft"
+                  className="w-full rounded-lg bg-primary px-4 py-2.5 text-xs font-medium text-cta-ink transition-colors hover:bg-primary-soft"
                 >
                   Discuss renewal
                 </button>

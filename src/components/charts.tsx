@@ -497,7 +497,7 @@ export function FunnelSteps({
             <div className="flex items-center gap-2">
               <div
                 className={[
-                  "flex h-6 items-center rounded-md px-2.5 text-[10px] font-medium text-white",
+                  "flex h-6 items-center rounded-md px-2.5 text-[10px] font-medium text-cta-ink",
                   i < 2 ? "bg-primary" : "bg-accent",
                   i === 1 || i === 2 ? "opacity-80" : "",
                 ].join(" ")}

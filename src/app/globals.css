@@ -37,10 +37,17 @@
   /* text */
   --sx-text: #f4f5f7;
   --sx-text-muted: #8a90a2;
-  --sx-text-faint: #5d6375;
+  /* P1-QA-02: was #5d6375 (3.05:1 on surface — under AA 4.5). Now 5.14 on
+     surface / 5.51 on bg / 4.64 on surface-2, still below muted (5.73) so the
+     de-emphasis hierarchy survives. */
+  --sx-text-faint: #7e88a0;
   /* ink on fixed-dark media/artwork panels — theme-invariant; no light
      override on purpose */
   --sx-on-media: #f4f5f7;
+  /* CTA label ink: white on #2e9bf5 is 2.95:1 — dark ink is 6.64 (and 8.77 on
+     the primary-soft hover, 7.3 on accent). Light theme overrides to white,
+     which passes there because light brand fills are darkened. (P1-QA-02) */
+  --sx-cta-ink: #0a0c10;
 
   /* brand */
   --sx-primary: #2e9bf5;
@@ -83,12 +90,19 @@
 
   --sx-text: #0f1b2d;
   --sx-text-muted: #4a6885;
-  --sx-text-faint: #8aa5c4;
+  /* P1-QA-02: was #8aa5c4 (2.54:1 on white). Now 5.16 white / 4.70 bg /
+     4.83 surface-2, still above muted so hierarchy survives. */
+  --sx-text-faint: #52708f;
+  /* CTA ink: light brand fills are darkened, so white passes (5.67 on
+     primary, 5.34 on accent). See the dark-theme token for why this exists. */
+  --sx-cta-ink: #ffffff;
 
   --sx-primary: #1669b3; /* 4.57:1 on primary/15 chip */
   --sx-primary-soft: #0969b9; /* 4.54:1 on primary/15 chip */
   --sx-accent: #b14d09; /* 4.50:1 on accent/12 chip */
-  --sx-accent-soft: #f97a1f;
+  /* P1-QA-02: was #f97a1f — 2.68:1 as text on white and as the white-ink CTA
+     hover fill. Darkened like the other light brand hues. */
+  --sx-accent-soft: #9c4507;
   --sx-danger: #cd2121; /* 4.51:1 on danger/12 chip */
   --sx-warn: #906303; /* 4.50:1 on warn/12 chip */
   --sx-success: #0b7954; /* 4.58:1 on success/12 chip */
@@ -121,6 +135,7 @@
   --color-muted: var(--sx-text-muted);
   --color-faint: var(--sx-text-faint);
   --color-on-media: var(--sx-on-media);
+  --color-cta-ink: var(--sx-cta-ink);
 
   --color-primary: var(--sx-primary);
   --color-primary-soft: var(--sx-primary-soft);

@@ -82,7 +82,7 @@ export default async function CampaignDashboardPage({
           </Link>
           <Link
             href={`/sponsor/campaigns/${id}/report?from=campaign`}
-            className="rounded-lg bg-primary px-3.5 py-2 text-[11px] font-medium text-white transition-colors hover:bg-primary-soft"
+            className="rounded-lg bg-primary px-3.5 py-2 text-[11px] font-medium text-cta-ink transition-colors hover:bg-primary-soft"
           >
             Sponsor report
           </Link>
