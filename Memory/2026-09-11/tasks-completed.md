@@ -463,3 +463,81 @@ a Google Sheet). Resolved to **two artefacts with distinct jobs**:
   Revisit when the team grows. Repo has a GitHub remote but no `.github/workflows`.
 - A formula column that recomputes Ready/Blocked inside the Sheet was offered and
   not yet added.
+
+
+## Task 10 — Full programme task board: all four blueprint phases
+
+**Trigger:** user pointed out the board covered only blueprint Phase 1 and asked for every
+phase, each on its own sheet.
+
+### Root cause of the confusion (mine)
+Two different meanings of "phase" were colliding. The blueprint has **product phases 1–4**
+(managed marketplace → transactional marketplace → intelligence → INFINEX). I had also
+numbered the *delivery stages inside Phase 1* as "phases 0–8". Renamed the column to
+**Stage** throughout.
+
+### Read and broken down
+`documentation/Master/BTG_SponsorX_Phases_2_4_Detailed_Developer_Specifications.docx` —
+a genuine handoff spec, not a summary: feature modules, screens, API domains, database
+tables, integrations, sprint plans, acceptance criteria and staffing per phase.
+
+| Phase | Tasks | Person-days | Timeline | Budget |
+|---|---|---|---|---|
+| 1 · Managed marketplace | 184 | 442 | 14–18 wks | $75–105K |
+| 2 · Marketplace & commerce | 64 | 260 | 16–20 wks | $80–120K |
+| 3 · Intelligence & attribution | 44 | 184 | 18–22 wks | $105–160K |
+| 4 · INFINEX integration | 51 | 207 | 18–22 wks | $90–150K |
+| **Total** | **343** | **1,093** | **66–82 wks** | **$350–535K** |
+
+ID scheme: Phase 1 keeps `P{stage}-{CAT}-{nn}`; Phases 2–4 use `{phase}S{sprint}-{CAT}-{nn}`
+(e.g. `2S5-BE-04` = Phase 2, Sprint 5, Backend, task 04), following the blueprint's own sprint plans.
+
+### Key findings carried into the tasks
+- **Phase 2's real risk is the ledger, not the marketplace.** `2S0-PMO-02` designs it before
+  any code: order revenue becomes ledger entries at contract time and is never recalculated
+  at payout. Get it wrong and editing a rate card silently changes historical payouts.
+- **Three shortcuts the spec explicitly forbids** (now on the Roadmap sheet): no ML pricing
+  before clean history exists; no marketplace payouts before refunds/disputes/audit are
+  tested; no virtual impressions reported to sponsors before viewability and de-duplication
+  are validated against pilot telemetry.
+- **Phase 3 is a language problem first.** `3S0-PMO-01` fixes what "attribution" may claim —
+  verified redemption, verified transaction, modelled attribution and estimated media value
+  are four different things and must never blend in a sponsor report.
+
+### Deliverables
+- **`documentation/SponsorX-Full-Programme-Task-Board.xlsx`** — 7 sheets: Roadmap, Dashboard
+  (live COUNTIF across all phases), Phase 1–4, Legend. Verified: zip integrity OK, 0 formula
+  errors, 343 unique IDs, dashboard reconciles.
+- **Four Markdown plan files replacing the single combined document** (deleted
+  `SponsorX-Phase1-Development-Plan.md`): `SponsorX-Phase{1..4}-*.md`.
+
+### Workflow changed — three artefacts, not two
+| Artefact | Owns | Cadence |
+|---|---|---|
+| The four `.md` files | The plan | Changed by pull request only |
+| The consolidated `.xlsx` | Working tracker | Continuously, during the day |
+| Google Sheet | Published status | Once a day, end of day |
+
+Standing rule updated in `CLAUDE.md` and `Memory/Initial Memory/03`: tag **In progress** in
+the xlsx during the day; **at end of day update the Google Sheet to match**, whatever the state.
+
+### Incident — corrupted upload
+The Drive connector accepts file content only as inline text, so a binary `.xlsx` has to be
+hand-transcribed as base64. The provisioning workbook (≈15,000 base64 characters) arrived
+corrupted and would not open. **Do not upload binaries that way.** Deliver `.xlsx` as bytes
+via `device_commit_files` / file delivery and have the user drag it into Drive, or use CSV
+when a single flat sheet is acceptable. Replaced with *SponsorX Provisioning Sequence v2*
+(CSV → native Sheet, opens reliably); the corrupt copy was trashed.
+
+### Also this session
+- **Data residency closed: US East.** `us-east4-eqdc4a` (Virginia) + R2 hint `ENAM`, decided
+  from the prelaunch materials' DMV / Baltimore focus, not the org's PST timezone setting
+  (which is itself wrong and should be corrected in Zoho — it skews every CRM timestamp by
+  three hours). Recorded in `.claude/stack-decision.md`; `P0-PMO-02` marked Done.
+- **Zoho org inspected:** iCARRe Foundation, Zoho One Enterprise, 7 licences, **paid_expiry
+  2026-09-18**. Completely stock — zero custom modules. Five of §18's six objects already
+  exist (Accounts, Contacts, Leads, Deals, Tasks) plus a native Campaigns module; only an
+  **Athlete / Content Partner custom module** is missing. Admin is rcarr@icarrefound.org.
+- **Vendor costs verified against live pricing:** $0 through Phase 1 → ~$5/mo from Phase 2 →
+  ~$25–45/mo at production. Clerk gates **MFA behind Pro ($20/mo)** and §26 makes MFA a hard
+  production requirement — budget it as part of going live, not as an optional upgrade.

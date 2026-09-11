@@ -15,29 +15,33 @@ This rule is also stored in Claude's persistent memory as `memory-backup-workflo
 
 This rule is also recorded in the project `CLAUDE.md` ("Always use graphify").
 
-## Task-board rule (single source of truth)
+## Task-board rule (three artefacts, one daily habit)
 
-> **After completing any task or fix, update the task board spreadsheet in Google
-> Drive before closing your branch.** Set `Status`, `Date Done` and `Owner` on that
-> task's row. Marking a task **Done** is what flips everything depending on it from
-> Blocked to Ready — leave it and your teammate has no way to know the work is
-> available. Put the task ID (e.g. `P2-BE-04`) in the branch name and commit message
-> so the row and the code can be matched later.
+The programme is 344 tasks across the blueprint's four phases.
 
-**Where each thing lives — do not let these drift:**
+| Artefact | Owns | Changes | Who touches it |
+|---|---|---|---|
+| `documentation/SponsorX-Phase{1..4}-*.md` | The **plan** — task definitions, plain-English detail, acceptance criteria, gates | Only when scope or a task's meaning changes | Anyone, by pull request, reviewed like code |
+| `documentation/SponsorX-Full-Programme-Task-Board.xlsx` | The **working tracker** — all four phases in one file | Continuously, during the day | Every developer as they work |
+| Google Sheet [SponsorXFullProgrammeTaskBoard](https://docs.google.com/spreadsheets/d/10PGtZb3jGBBHhbNOWwl__hS0b_HKN7EL0KRHrnSVoI0/) | The **published status** | Once a day, at end of day | Whoever worked that day |
 
-| Artefact | Owns | Edited |
-|---|---|---|
-| `documentation/SponsorX-Phase1-Development-Plan.md` | The **plan** — 184 task definitions, details, acceptance criteria, dependencies, gates, risks | Via pull request, reviewed like code |
-| Google Sheet *SponsorX — Phase 1 Task Board* (Google Drive) | The **status** — Status, Owner, Weight, Date Started, Date Done, Notes | Directly in the browser, by any developer, from any workstation |
+> **During the day:** tag your task **In progress** in the consolidated **xlsx**. Set `Owner`
+> and `Date Started`. Move to `Code review`, then `Done`, as it advances.
+>
+> **At end of day:** whatever state your tasks are in — finished, half-done, blocked,
+> untouched — **update the Google Sheet to match.** That is the copy other people read.
+> A task left `Blocked` in the Sheet when you have actually finished it is a teammate sitting
+> idle tomorrow for no reason.
+>
+> **Reference the task ID** (e.g. `2S5-BE-04`) in the branch name and commit message.
 
-**No spreadsheet is committed to this repository.** A committed `.xlsx` goes stale
-the moment someone edits the Sheet, and a binary cannot be reviewed in a diff.
-`*.xlsx` under `documentation/` is gitignored for that reason. Need a spreadsheet
-copy? Export it from the Sheet.
+Task IDs: Phase 1 uses `P{stage}-{CAT}-{nn}`; Phases 2–4 use `{phase}S{sprint}-{CAT}-{nn}`.
 
-If a task's *definition* turns out to be wrong, change it in the Markdown via a pull
-request — and note it in the Sheet's Notes column so the other person sees why.
+If a task's *definition* is wrong, fix it in the Markdown by pull request — do not quietly
+reinterpret it in the tracker.
+
+**No spreadsheet is committed.** `documentation/*.xlsx` is gitignored: a committed binary goes
+stale against the Sheet the moment anyone edits it, and cannot be reviewed in a diff.
 
 ## Current working mode
 - **No coding yet. No implementation/sprint plans yet.** The user is in a planning + understanding phase.

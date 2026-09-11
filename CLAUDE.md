@@ -52,23 +52,33 @@ to, and why.
 
 ## The task board
 
-Phase 1 is broken into 184 dependency-ordered tasks. Two artefacts, two jobs —
-**keep them from drifting**:
+The programme is 344 tasks across the blueprint's four phases. **Three artefacts, three
+jobs** — keep them straight or they drift:
 
-- **[`documentation/SponsorX-Phase1-Development-Plan.md`](documentation/SponsorX-Phase1-Development-Plan.md)**
-  owns the *plan*: every task's definition, plain-English detail, acceptance
-  criteria, dependencies, the seven decision gates and the risk register. Change it
-  by pull request.
-- **The Google Sheet `SponsorX — Phase 1 Task Board`** (Google Drive) owns the
-  *status*: Status, Owner, Weight, Date Started, Date Done, Notes.
+| Artefact | Owns | Changes | Who |
+|---|---|---|---|
+| `documentation/SponsorX-Phase{1..4}-*.md` | The **plan** — every task's definition, plain-English detail, acceptance criteria | Only when scope changes | Anyone, by pull request |
+| `documentation/SponsorX-Full-Programme-Task-Board.xlsx` | The **working tracker** — all four phases consolidated | Continuously, during the day | Every developer |
+| Google Sheet [SponsorXFullProgrammeTaskBoard](https://docs.google.com/spreadsheets/d/10PGtZb3jGBBHhbNOWwl__hS0b_HKN7EL0KRHrnSVoI0/) | The **published status** — what the team and stakeholders read | Once a day | Whoever worked that day |
 
-> **Standing rule — after any fix, update the Sheet.** When a task is complete, set
-> its `Status`, `Date Done` and `Owner` in the Sheet before closing the branch.
-> Marking a task Done is what releases its dependents from Blocked to Ready.
-> Reference the task ID (e.g. `P2-BE-04`) in the branch name and commit message.
+> **The daily rule.** During the day, tag your task **In progress** in the consolidated
+> **xlsx**, set `Owner` and `Date Started`, and move it to `Code review` then `Done` as it
+> advances. **At end of day — whatever state your tasks are in — update the Google Sheet to
+> match.** That is the copy other people read; a task left `Blocked` there when you have
+> actually finished it is a teammate idle tomorrow for no reason. Put the task ID
+> (e.g. `2S5-BE-04`) in the branch name and commit message.
 
-**Never commit a spreadsheet to this repo** — `*.xlsx` under `documentation/` is
-gitignored. The Markdown is the only in-repo copy.
+If a task's *definition* is wrong, fix it in the Markdown by pull request — never by quietly
+reinterpreting it in the tracker.
+
+**Never commit a spreadsheet** — `documentation/*.xlsx` is gitignored. Each developer keeps
+their own working copy; the Sheet is the shared truth.
+
+**Phase files:**
+[Phase 1 · Managed Marketplace](documentation/SponsorX-Phase1-Managed-Marketplace.md) (184 tasks) ·
+[Phase 2 · Marketplace & Commerce](documentation/SponsorX-Phase2-Marketplace-Commerce.md) (64) ·
+[Phase 3 · Intelligence & Attribution](documentation/SponsorX-Phase3-Intelligence-Attribution.md) (44) ·
+[Phase 4 · INFINEX Integration](documentation/SponsorX-Phase4-INFINEX-Integration.md) (51)
 
 ## Architecture rules
 
