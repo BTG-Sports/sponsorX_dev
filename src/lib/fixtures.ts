@@ -542,6 +542,65 @@ export const campaignRoster = [
   { name: "Amara Okafor", slug: "amara-okafor", order: "SENT", delivered: 0, planned: 4, views: 0, flag: "Awaiting acceptance" },
 ];
 
+/** §9.9 keyed by campaign id. c1 stays the canonical healthy campaign and
+ *  reuses the existing exports untouched. c3 "Community Campaign" is THE
+ *  under-delivering campaign (sponsorCampaignsX.c3 is pacing BEHIND):
+ *  views here (96,200) equal sponsorCampaignsX.c3.views; roster
+ *  delivered/planned sums to 11/22 = sponsorCampaigns c3 deliverables;
+ *  per-athlete views sum to the campaign total. One declined order on the
+ *  roster is part of why it under-delivers. */
+export const campaignDetailX: Record<
+  "c1" | "c3",
+  {
+    campaign: typeof campaign;
+    series: typeof campaignSeries;
+    topContent: typeof topContent;
+    roster: typeof campaignRoster;
+    notice: string | null;
+  }
+> = {
+  c1: {
+    campaign,
+    series: campaignSeries,
+    topContent,
+    roster: campaignRoster,
+    notice: null,
+  },
+  c3: {
+    campaign: {
+      id: "c3",
+      name: "Community Campaign",
+      presentedBy: "Under Armour",
+      state: "ACTIVE",
+      daysRemaining: 45,
+      viewsDelivered: 96_200,
+      viewsTarget: 400_000,
+      engagements: 4_910,
+      rewardsRedeemed: 214,
+      tabs: campaign.tabs,
+    },
+    series: [
+      { label: "Jul 1", a: 0, b: 0 },
+      { label: "Jul 15", a: 18_400, b: 940 },
+      { label: "Aug 1", a: 44_100, b: 2_260 },
+      { label: "Aug 15", a: 71_800, b: 3_680 },
+      { label: "Sep 1", a: 96_200, b: 4_910 },
+    ],
+    topContent: [
+      { title: "Community Day — Recap Reel", athlete: "Marcus Reed", views: 38_900 },
+      { title: "Coach's Corner — Ep. 2", athlete: "Jalen Brooks", views: 24_300 },
+      { title: "Neighborhood Clinic — Story", athlete: "Marcus Reed", views: 18_100 },
+    ],
+    roster: [
+      { name: "Marcus Reed", slug: "marcus-reed", order: "ACCEPTED", delivered: 8, planned: 8, views: 57_000, flag: null },
+      { name: "Jalen Brooks", slug: "jalen-brooks", order: "ACCEPTED", delivered: 3, planned: 8, views: 39_200, flag: "Under-delivering" },
+      { name: "Amara Okafor", slug: "amara-okafor", order: "DECLINED", delivered: 0, planned: 6, views: 0, flag: "Replacement needed" },
+    ],
+    notice:
+      "11 of 22 deliverables landed and views are pacing behind target — one Campaign Order was declined and one athlete is under-delivering. Re-match the declined slot or adjust the order (§9.9).",
+  },
+};
+
 /* ---- 10. QR / Reward Creator (mockup screen 10) ---- */
 export const rewardSteps = ["Reward Details", "Design", "Distribution"];
 

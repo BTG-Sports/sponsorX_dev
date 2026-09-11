@@ -1,17 +1,12 @@
 import Link from "next/link";
 import { BackLink } from "@/components/back-link";
-import { Badge, Card, Meter, SectionHeading } from "@/components/ui";
+import { Badge, BlockedNotice, Card, Meter, SectionHeading } from "@/components/ui";
 import { AreaChart, ChartLegend } from "@/components/charts";
 import { MiniChip } from "@/components/hero";
 import { EmptyState, SkeletonPage } from "@/components/states";
 import { resolveBack } from "@/lib/back";
 import { demoState } from "@/lib/demo";
-import {
-  campaign,
-  campaignRoster,
-  campaignSeries,
-  topContent,
-} from "@/lib/fixtures";
+import { campaignDetailX } from "@/lib/fixtures";
 
 /* --------------------------------------------------------------------------
    Campaign Operations Dashboard — §9 screen 9, mockup screen 9.
@@ -52,7 +47,9 @@ export default async function CampaignDashboardPage({
     );
   }
 
-  const c = campaign;
+  const d =
+    campaignDetailX[id as keyof typeof campaignDetailX] ?? campaignDetailX.c1;
+  const c = d.campaign;
   const pct = Math.round((c.viewsDelivered / c.viewsTarget) * 100);
   const viewsRemaining = Math.max(0, c.viewsTarget - c.viewsDelivered);
 
@@ -163,6 +160,8 @@ export default async function CampaignDashboardPage({
         </Card>
       </div>
 
+      {d.notice && <BlockedNotice>{d.notice}</BlockedNotice>}
+
       {/* ------------------------------------ performance + top content */}
       <div className="grid gap-5 xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
         <section className="min-w-0">
@@ -172,7 +171,7 @@ export default async function CampaignDashboardPage({
           />
           <Card>
             <AreaChart
-              points={campaignSeries}
+              points={d.series}
               aName="Views"
               bName="Engagements"
             />
@@ -183,7 +182,7 @@ export default async function CampaignDashboardPage({
           <SectionHeading title="Top Content" />
           <Card className="p-0">
             <ul className="divide-y divide-line-soft">
-              {topContent.map((t) => (
+              {d.topContent.map((t) => (
                 <li key={t.title} className="flex items-center gap-3 px-4 py-3">
                   <div className="grid size-9 shrink-0 place-items-center rounded-md border border-line bg-surface-2 text-[8px] font-semibold text-faint">
                     BTG
@@ -225,7 +224,7 @@ export default async function CampaignDashboardPage({
                 </tr>
               </thead>
               <tbody className="divide-y divide-line-soft">
-                {campaignRoster.map((r) => (
+                {d.roster.map((r) => (
                   <tr key={r.slug}>
                     <td className="px-4 py-2.5">
                       <Link
@@ -236,7 +235,15 @@ export default async function CampaignDashboardPage({
                       </Link>
                     </td>
                     <td className="px-4 py-2.5">
-                      <Badge tone={r.order === "ACCEPTED" ? "accent" : "warn"}>
+                      <Badge
+                        tone={
+                          r.order === "ACCEPTED"
+                            ? "accent"
+                            : r.order === "DECLINED"
+                              ? "danger"
+                              : "warn"
+                        }
+                      >
                         {r.order.toLowerCase()}
                       </Badge>
                     </td>
