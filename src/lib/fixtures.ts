@@ -49,6 +49,18 @@ export const athlete = {
   onTimeRate: 94,
 };
 
+/** §4 — the same athlete rendered as a minor whose guardian is not yet
+ *  verified. Selected by ?demo=minor on athlete-portal pages; the base
+ *  `athlete` object is untouched and remains the default. */
+export const athleteMinor = {
+  ...athlete,
+  isMinor: true,
+  guardian: {
+    legalName: "Immaculée Kwizera",
+    verifiedAt: null as string | null,
+  },
+};
+
 /** §11 — the onboarding sections, and whether each is done. */
 export const profileChecklist = [
   { label: "Identity", done: true },
