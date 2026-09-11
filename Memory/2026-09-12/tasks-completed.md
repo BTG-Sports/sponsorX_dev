@@ -66,6 +66,12 @@ Blocked-status formality (the P1-FE-04 dependency is complete on
   the run — marker casing, viewport-expanding emulation, drawer exit-animation
   race, mid-page theme flips, RSC `$40` tokens). Regression instructions
   included; the three tracker rows reference the report.
+- **Word checklist added on user request** (commit `b4be1a3`):
+  `documentation/SponsorX-Stage1-QA-Checklist.docx` — landscape checklist with
+  ☑ per executed case (23), steps/expected/status/evidence columns, defect
+  log, harness-anomaly table, and a signature sign-off row for rcfworks.
+  Generated with python-docx in the scratchpad venv (now holds openpyxl +
+  python-docx).
 
 ### Tracker / handoff
 - xlsx: `P1-FE-04`, `P1-FE-05`, `P1-QA-01/02/03`, `P1-PMO-01` all **Code
