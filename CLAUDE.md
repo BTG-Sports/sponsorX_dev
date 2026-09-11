@@ -52,7 +52,7 @@ to, and why.
 
 ## The task board
 
-The programme is 344 tasks across the blueprint's four phases. **Three artefacts, three
+The programme is 345 tasks across the blueprint's four phases. **Three artefacts, three
 jobs** — keep them straight or they drift:
 
 | Artefact | Owns | Changes | Who |
@@ -68,6 +68,22 @@ jobs** — keep them straight or they drift:
 > actually finished it is a teammate idle tomorrow for no reason. Put the task ID
 > (e.g. `2S5-BE-04`) in the branch name and commit message.
 
+> **Claude updates the xlsx too — it is part of finishing a task, not a handoff.**
+> When you complete a task, edit `documentation/SponsorX-Full-Programme-Task-Board.xlsx`
+> yourself in the same pass as the code, the docs and the `memory/` log: set `Status`,
+> `Owner`, `Date Started` and `Date Done`, and **add a row** when a task is newly raised.
+> Never tell the user the tracker is their step. The **Google Sheet** genuinely is theirs —
+> it is the end-of-day published mirror a person updates by hand.
+>
+> Two things that make this go wrong. **`openpyxl` is not installed** — build a throwaway
+> virtualenv in the session scratchpad rather than installing anything globally or into the
+> project, and back the workbook up there first. And **inserting a row moves no ranges**:
+> the Dashboard's `COUNTIF` / `COUNTA` / `SUMIF` formulas, the autofilter, the
+> conditional-formatting ranges and the Status data-validation list all hardcode the last
+> row, so each must be extended by hand or the Dashboard silently undercounts forever.
+> Use a fractional `Order` (e.g. `24.5`) when inserting, so no existing row needs
+> renumbering in anyone else's copy.
+
 If a task's *definition* is wrong, fix it in the Markdown by pull request — never by quietly
 reinterpreting it in the tracker.
 
@@ -75,7 +91,7 @@ reinterpreting it in the tracker.
 their own working copy; the Sheet is the shared truth.
 
 **Phase files:**
-[Phase 1 · Managed Marketplace](documentation/SponsorX-Phase1-Managed-Marketplace.md) (184 tasks) ·
+[Phase 1 · Managed Marketplace](documentation/SponsorX-Phase1-Managed-Marketplace.md) (186 tasks) ·
 [Phase 2 · Marketplace & Commerce](documentation/SponsorX-Phase2-Marketplace-Commerce.md) (64) ·
 [Phase 3 · Intelligence & Attribution](documentation/SponsorX-Phase3-Intelligence-Attribution.md) (44) ·
 [Phase 4 · INFINEX Integration](documentation/SponsorX-Phase4-INFINEX-Integration.md) (51)

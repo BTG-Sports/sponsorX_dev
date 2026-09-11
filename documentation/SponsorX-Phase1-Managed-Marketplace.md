@@ -5,7 +5,7 @@
 | | |
 |---|---|
 | **Goal** | Launch real micro-NIL campaigns while building the data foundation. BTG staff run matching, pricing, conflict checks and invoicing; the software standardises and records every step. |
-| **Tasks** | 185 · 445 person-days |
+| **Tasks** | 186 · 446 person-days |
 | **Blueprint timeline** | 14–18 weeks |
 | **Balanced budget** | $75K–$105K |
 | **Depends on** | Nothing — this is the start |
@@ -15,7 +15,7 @@
 
 | Phase | File | Tasks | Timeline |
 |---|---|---|---|
-| 1 | [`SponsorX-Phase1-Managed-Marketplace.md`](./SponsorX-Phase1-Managed-Marketplace.md) **← you are here** | 185 | 14–18 weeks |
+| 1 | [`SponsorX-Phase1-Managed-Marketplace.md`](./SponsorX-Phase1-Managed-Marketplace.md) **← you are here** | 186 | 14–18 weeks |
 | 2 | [`SponsorX-Phase2-Marketplace-Commerce.md`](./SponsorX-Phase2-Marketplace-Commerce.md)  | 64 | 16–20 weeks |
 | 3 | [`SponsorX-Phase3-Intelligence-Attribution.md`](./SponsorX-Phase3-Intelligence-Attribution.md)  | 44 | 18–22 weeks |
 | 4 | [`SponsorX-Phase4-INFINEX-Integration.md`](./SponsorX-Phase4-INFINEX-Integration.md)  | 51 | 18–22 weeks |
@@ -123,7 +123,7 @@ When scope must give, cut from the self-service / ecommerce end. Never from this
 
 **Exit gate.** G-01 … G-07 all resolved in writing and linked from
 
-*28 tasks · 0 person-days*
+*29 tasks · 0 person-days*
 
 ### ✅ `P0-PMO-02` · Confirm data residency and set regions (G-02)
 
@@ -365,15 +365,26 @@ Get Zoho API credentials and a sandbox org, so sync can be built without touchin
 - **Done when:** Client ID, secret and refresh token issued; a sandbox or test org available for sync development
 - **Reference:** §18
 
-### ⏸ `P0-OPS-05` · Create the Athlete / Content Partner custom module in Zoho
+### ✅ `P0-OPS-05` · Create the Athlete / Content Partner custom module in Zoho
 
-**Order** 24 · **OPS** · **Where:** Zoho dashboard · **3d** · **Blocked** · **Unblocks** 0
+**Order** 24 · **OPS** · **Where:** Zoho dashboard · **3d** · **Done** · **Unblocks** 0
 
 Click-work in the Zoho CRM admin UI: Setup → Modules and Fields → Create Module, then add the fields the mapping document specifies. This is the only object in §18 with no home in your CRM — Accounts, Contacts, Leads, Deals, Tasks and Campaigns all exist as stock modules already. It must come AFTER P0-PMO-08, because the mapping document is what says which fields the module needs; building it first means building it twice. rcfworks@gmail.com holds the Administrator profile, so no one else's permission is required.
 
 - **Depends on:** P0-PMO-08
 - **Done when:** The Athlete / Content Partner custom module exists in Zoho with every field the mapping document specifies, and its API name is recorded for the sync code to use
 - **Reference:** §18, §38
+
+### ✅ `P0-OPS-06` · Add the `SponsorX_ID` external-ID field to the five stock modules
+
+**Order** 24.5 · **OPS** · **Where:** Zoho dashboard · **1d** · **Done** · **Unblocks** 6
+
+§18 requires every synced object to carry an external ID so that a retry cannot create a duplicate, and the org had nothing to put one in — no external field existed on any module. Add one custom field, `SponsorX ID`, to `Accounts`, `Contacts`, `Leads`, `Deals` and `Tasks`: Single Line, 50 characters, marked **External**, shown on the layout and not editable by staff. Zoho treats an external field as inherently unique, so the separate Unique flag is neither needed nor accepted alongside it. Raised out of gap **G-1** of the mapping document, which found this work unowned — `P0-OPS-05` covers only the custom module, and without these five fields §18's duplicate prevention is unimplementable.
+
+- **Depends on:** P0-PMO-08
+- **Done when:** `SponsorX_ID` exists on all five stock modules as an external field, and each generated API name is confirmed by a metadata read
+- **Reference:** §18, §5.1 of the mapping document
+
 
 ### ▶ `P0-PMO-04` · Decide SMS in/out for Phase 1 (G-06)
 

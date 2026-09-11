@@ -541,3 +541,304 @@ when a single flat sheet is acceptable. Replaced with *SponsorX Provisioning Seq
 - **Vendor costs verified against live pricing:** $0 through Phase 1 → ~$5/mo from Phase 2 →
   ~$25–45/mo at production. Clerk gates **MFA behind Pro ($20/mo)** and §26 makes MFA a hard
   production requirement — budget it as part of going live, not as an optional upgrade.
+
+---
+
+## Task 3 — `P0-PMO-08` · Zoho module + field mapping document (§38 deliverable)
+
+**Trigger:** user asked to do `P0-PMO-08`, referring to the Phase 1 task file.
+Mid-task the user interrupted with **"give me the plan first before doing
+anything"** — plan was presented and approved before the document was written.
+(Also recorded in Claude persistent memory as `plan-before-executing`.)
+
+**Shipped:** `documentation/SponsorX-Zoho-Field-Mapping.md` (v0.1, 13 sections,
+~718 lines). All nine §18 objects mapped field-by-field with direction and
+system-of-record per field, plus the custom-module build spec `P0-OPS-05` needs.
+
+### Sources
+- §18 and §38 extracted from the local blueprint
+  (`documentation/Master/Updated_BTG_SponsorX_Master_Development_Blueprint_Integrated_Athlete_Network.docx`)
+  — the Drive connector was not needed, the file is in the repo.
+- V2 Prisma models from `documentation/SponsorX-Implementation-Guide-V2.md` (§03, §07).
+- **The live Zoho org** (`iCARRe Foundation`, zgid 749122837) read via the CRM
+  metadata API for `Accounts`, `Contacts`, `Leads`, `Deals`, `Tasks`, `Campaigns`.
+
+### User decisions this task
+- **O-1 (invoice/payment reference: Zoho Books vs CRM `Invoices` module) — left
+  OPEN** at the user's instruction. `P7-BE-04` must not start until it closes.
+- **O-3 athlete data — conservative set**, expandable later. Eleven fields, no
+  `legalName`, no `birthDate`, no `city`/`school`/`gradYear`, no guardian data,
+  no socials/rates/scores. Document states the asymmetry: adding a Zoho field
+  later is a click, un-syncing PII already in the CRM is not.
+- Document name confirmed as `SponsorX-Zoho-Field-Mapping.md`.
+
+### Key findings / decisions recorded in the document
+- **No external-ID field exists on any Zoho module** — §18's "use external IDs
+  to prevent duplicates" is currently unimplementable. Raised as gap **G-1**:
+  `SponsorX_ID` (unique + external) must be added to Accounts, Contacts, Leads,
+  Deals, Tasks. **No task owns this work** — fold into `P0-OPS-05` or raise `P0-OPS-06`.
+- **Campaign maps to `Deals`, not the CRM `Campaigns` module (O-2).** The stock
+  module is an email-marketing object (Type = Conference/Webinar/Email…, Status =
+  Planning/Active/Inactive/Complete) carrying nine Zoho Campaigns + Zoho Survey
+  extension fields. Brief and campaign are two stages of **one** Deal; renewal is
+  a second Deal. Keys: `brief:<id>` / `campaign:<id>` / `renewal:<id>`.
+- **Two deliberate split SoRs:** `Deals.Amount` is Zoho's while negotiating and
+  SponsorX's from `CAMPAIGN_CREATED`; `Deals.Stage` is Zoho's except SponsorX
+  asserts `Closed Won` (campaign contracted) and `Closed Lost` (cancelled).
+- **Nine schema gaps (S-1…S-9) — the handoff to `P3-BE-01`:** `SponsorContact`
+  and `Inquiry` and `SyncTask` models are missing entirely; `CampaignBrief.zohoDealId`,
+  `User.zohoUserId`, `updatedAt` on every Zoho-touched model (needed for conflict
+  detection — `Athlete` has only `createdAt`, `Sponsor` has neither), sync markers
+  on `Campaign`/`CampaignBrief`, and `Property.zohoId` is orphaned (§18 maps no
+  Property object).
+- **Only 3 of 8 `AthleteState` values ever reach Zoho** (Approved/Active/Suspended) —
+  an application under review is not a business relationship and must not put an
+  unvetted minor into the CRM.
+- Environment: org timezone is **PST** (contradicts DMV market — already flagged in
+  stack-decision); **production org, no sandbox** (`P0-OPS-04`); licence `paid_expiry`
+  reads 2026-09-18.
+- Conflicts are logged to `AuditLog` as `sync.conflict`, never resolved silently.
+
+### Verification
+- Script-checked **103 Zoho field API names and 26 picklist values** in the document
+  against the live org metadata read: **0 missing**. No field name came from
+  documentation or memory.
+- All nine §18 objects present in the register; eight fully mapped, object 8
+  provisional pending O-1 and flagged as such.
+- **No writes to Zoho** — read-only metadata calls. Creating the custom module stays
+  `P0-OPS-05`; the external-ID fields are G-1.
+
+### Follow-on in the same session (user asked for a PDF + tracker update)
+
+**PDF.** `documentation/SponsorX-Zoho-Field-Mapping.pdf` — 21 pages, 1.0 MB.
+Pipeline (all in the scratchpad venv, nothing installed into the project):
+`markdown` → styled print-first HTML matching the house style of
+`SponsorX-Plain-English-Explainer.html` → headless Chrome `--print-to-pdf` →
+`pypdf`/`reportlab` overlay for the footer rule and `Page n of N`, then
+`compress_content_streams` + `compress_identical_objects` (3.7 MB → 1.0 MB) and
+PDF metadata (title, subject, author, keywords).
+Masthead + metadata card + two-column clickable contents; repeating table
+headers (`thead{display:table-header-group}`), `tr{break-inside:avoid}`, blue
+pull-quotes for quoted rules and orange callouts for schema gaps / OPEN items.
+**Chrome's CSS `position:fixed` footer printed on top of table content on
+continuation pages** — fixed by removing it and stamping the footer with
+reportlab instead, where placement is exact. Also had to set
+`word-break:keep-all` on table code spans (`Last_Synced` was breaking as
+`Last_Syn`/`ced`). Verified by rendering pages 1, 7, 12 to PNG via `qlmanage`
+and looking at them.
+
+**Task board.** `openpyxl` in the venv, so the xlsx *was* updated (this
+supersedes the earlier hand-back note). Backed up first; verified no charts or
+images existed, because openpyxl silently drops those on save. Confirmed the
+status vocabulary from the sheet's own data validation
+(`Ready, In progress, Code review, Blocked, Done`).
+- `P0-PMO-08` → **Code review**, Owner `rcfworks`, Date Started 2026-09-11, Notes.
+- **Notes only, no status change** (dependency logic belongs to the plan, not to
+  a side edit) on `P0-OPS-05` (build spec location + the G-1 scope question),
+  `P3-BE-01` (the nine schema items), `P7-BE-04` (blocked on O-1),
+  `P0-OPS-04` (production org, no sandbox, licence expiry).
+- Post-save diff against the backup: **exactly 8 changed cells**, and all 75
+  Dashboard COUNTIF formulas, conditional formatting, freeze panes, autofilters
+  and the status dropdown intact. Dashboard counts recalculate when the file is
+  next opened.
+- **G-1 was deliberately not added as a new task row** — a missing task is a
+  change to the *plan*, which `CLAUDE.md` says goes in the Markdown by pull
+  request, never invented in the tracker.
+
+### Still outstanding
+- **Google Sheet not updated** — the published copy is a Google Sheet and there
+  is no Sheets write tool available; the Drive connector cannot edit cells. Must
+  be mirrored by hand at end of day per the daily rule.
+- **Nothing committed.** `documentation/SponsorX-Zoho-Field-Mapping.{md,pdf}` are
+  untracked and *not* gitignored (only `*.xlsx` is). Commit is the user's call.
+- `graphify-out/` holds only `cache/` and intermediate JSON — no built graph — so
+  discovery used direct file tools. Worth re-running ingestion.
+
+---
+
+## Task 4 — `P0-OPS-06` · The `SponsorX_ID` external-ID field on five stock modules
+
+**Trigger:** user opened the session with "ok, lets do this... `P0-OPS-05`". Gap
+**G-1** of the mapping document said that task's sibling work — the external-ID
+fields — was unowned, and asked whether to fold it in or raise a new task.
+
+### User decisions this task
+- **G-1 scope:** raise **`P0-OPS-06`** rather than fold into `P0-OPS-05`. The
+  reasoning offered and accepted: the external IDs block every `P8-INT` sync
+  task, whereas the custom module blocks only the athlete push. Folding them
+  would have made the sponsor-sync tasks look dependent on athlete-module work.
+- **Environment:** user asked "can't you build sandbox first? if not ok build
+  in production." It cannot be done — Zoho CRM sandbox creation is UI-only
+  (Setup → Developer Space → Sandbox, and it is `P0-OPS-04`'s scope), and more
+  decisively the connector's OAuth token is scoped to the production org, so a
+  sandbox would be unreachable by API and every field would become manual
+  click-work plus a deployment step. Since Zoho clones sandboxes *from*
+  production, building in production means a later sandbox inherits the work.
+  Proceeded in production on the user's stated fallback.
+
+### What the connector can and cannot do
+The claude.ai Zoho CRM connector has **no create-module endpoint** — it exposes
+metadata reads, `createFields`, and record operations only. The one
+`create_custom_module` tool belongs to Zoho **Books**, a different product, and
+must not be used for a CRM module. Consequence: `P0-OPS-05` is genuinely split
+— the module shell is human click-work in the CRM admin UI, the ten remaining
+fields are API work.
+
+### Live-org state confirmed before writing (read-only)
+- 55 modules; **no custom module exists** — the only non-default entries are the
+  `DealHistory` field-tracker and four subforms. §2.1 of the mapping doc holds.
+- **No `SponsorX_ID` and no external-type field** on `Accounts` (40 fields),
+  `Contacts` (54), `Leads` (49), `Deals` (28) or `Tasks` (28).
+
+### Three things Zoho rejected, and what they taught
+1. `unique: {case_sensitive: true}` → **only `false` is supported.** Uniqueness
+   on a Zoho text field is case-insensitive. Harmless for cuids, but it is the
+   reason a mapper must never case-normalise an id before sending it.
+2. `unique` **together with** `external` → *"unique cannot be set as true for
+   external field"*. An external field is inherently unique. §5.1 had listed
+   both as separate "Yes" properties; corrected.
+3. Separately, `field_label` caps at **25 characters** and the **api_name is
+   derived from the label** and cannot be supplied independently. This changes
+   two of §6.2's labels (see below) — a label is really an api_name spec.
+
+### Shipped
+- `SponsorX ID` created and **verified by metadata read** on all five modules:
+  api_name `SponsorX_ID`, text(50), `external: {show: true, type: "org"}`,
+  Administrator `read_write` / Standard `read_only`. Field ids recorded in §5.1
+  of the mapping document. Zoho additionally makes external fields
+  non-editable in the UI for *every* profile, so §5.1's "staff should see it,
+  never edit it" is enforced by the platform rather than by permissions.
+- Mapping document to **v0.2**: §5.1 rewritten (unique/external conflict,
+  case-insensitivity, built-and-verified table), §6.2 gained a label-constraint
+  note and two corrected labels (`Guardian Auth Required`, `Property Name`),
+  §6.2 field 5 gained the non-US-athlete rule, **G-1 closed**.
+- Task board: `P0-OPS-06` added to Stage 0 of the Phase 1 markdown at
+  **Order 24.5** — a fractional order so that no existing row in anyone's xlsx
+  or the Google Sheet needs renumbering, while the two related tasks stay
+  adjacent in the plan.
+- Counts updated: Phase 1 `185 → 186` tasks and `445 → 446` person-days (445
+  was verified to be the exact sum of the per-task `Nd` estimates), the Phase 1
+  row in all four phase files, and `CLAUDE.md` `344 → 345`. **Note a
+  pre-existing off-by-one corrected in passing:** `CLAUDE.md` said Phase 1 had
+  184 tasks while the phase file itself said 185 (and 185 is what the stage
+  counts sum to), so `CLAUDE.md` went `184 → 186`, not `185 → 186`.
+
+### `Home_State` — a finding worth re-reading before the mapper is written
+§6.2 specifies a US-states picklist, but the fixture athlete set already
+contains one in **Kigali, RW**. The field is optional so no record fails, but a
+picklist value Zoho does not hold is rejected *for the whole record*, so the
+mapper must **omit** the field rather than send an unmatched value. The
+accepted consequence: an empty `Home_State` means either *unknown* or *not in
+the US*. If that distinction ever matters, the fix is a `Country` field, not a
+wider picklist.
+
+### Still outstanding on `P0-OPS-05`
+- User to create the module shell in the UI: Setup → Customization → Modules
+  and Fields → + New Module, singular `Content Partner`, plural
+  `Content Partners` (the plural is what derives the module api_name), with
+  §6.1's description, **and no fields added**.
+- Then, by API: the ten remaining §6.2 fields, `Sport` picklist seeded from the
+  five distinct fixture values (Basketball, Football, Soccer, Track & Field,
+  Volleyball), `Tier` with all four spec'd values including the as-yet-unused
+  `Anchor`, `Network_Status` with exactly `Approved` / `Active` / `Suspended`.
+  Then verify every generated api_name against §6.2 and record the module's
+  real api_name, which is `P0-OPS-05`'s acceptance criterion.
+- **Tracker updated** (see Task 5 for the mechanics). The Google Sheet still
+  needs mirroring by hand at end of day per the daily rule.
+
+---
+
+## Task 5 — `P0-OPS-05` · The Athlete / Content Partner custom module in Zoho
+
+**Trigger:** the second half of the session's opening request, unblocked once
+`P0-OPS-06` closed gap G-1 and the module shell existed.
+
+### Split of the work, and why
+The connector has no create-module endpoint, so the **module shell was human
+click-work** in the CRM admin UI and the **ten non-display fields were API
+work**. Zoho CRM module creation has no public API at all, so this split is
+permanent — it is not a connector configuration problem.
+
+### Decisions taken during the build
+- **Organization module, not a team module.** A team module scopes records to a
+  Team Space's members, which contradicts §18's trigger (*a business
+  relationship requiring CRM visibility*) by hiding the records from the sales
+  staff who are the reason to push them. Recorded as a row in §6.1.
+- **Teamspace permission: added the `Standard` profile** alongside
+  `Administrator`. The dialog defaults to Administrator only, which would have
+  made the module invisible to everyone in sales.
+- **Zoho's default layout had to be stripped.** A new custom module ships with
+  `Email`, `Secondary Email`, `Email Opt Out` and a record-image toggle — the
+  record image and athlete email are both things §6.4 explicitly excludes. My
+  first instruction to the user said "leave every other box at its default",
+  which was wrong for exactly this reason and was corrected before saving.
+
+### Shipped
+- Module **`Content_Partners`** exists, API name confirmed by read-back — which
+  is the task's actual acceptance criterion.
+- All eleven §6.2 fields verified by metadata read: **api_name, label and data
+  type match the spec on every one.** Field ids recorded in the new §6.2.1 of
+  the mapping document, along with the layout id `4857533000012840008`.
+- Field permissions: Administrator `read_write`, Standard `read_only` on all
+  ten synced fields, so a CRM user can read the mirror without fighting it.
+- `Home_State` seeded with the 50 states plus DC, **two-letter code as the
+  stored value** and full state name as the display value, because
+  `Athlete.state` holds codes.
+- `Sport` seeded from the five distinct fixture values; `Tier` with all four
+  spec'd values including the as-yet-unused `Anchor`; `Network_Status` with
+  exactly `Approved` / `Active` / `Suspended`.
+
+### Three build facts the mapper must account for
+1. **Zoho prepends `-None-` to every picklist.** It is the empty option, not a
+   seeded value. The mapper should omit a field rather than send `-None-`.
+2. **Mandatory is a layout property, not a field property**, and cannot be set
+   through the field-creation API. §6.2's `Req` column is therefore not yet
+   enforced in Zoho for `SponsorX_ID`, `Sport` and `Network_Status`. Since
+   nothing is hand-created in this module, the mapper is the real protection.
+3. **Removing a field from the layout does not delete it from the module.**
+   `Email` survived into Unused Fields (with `Unsubscribed_Mode` and
+   `Unsubscribed_Time`, which Zoho adds itself). It holds nothing and is on no
+   layout, but stays API-writable — a standing invitation to do the thing §6.4
+   forbids.
+
+### Open follow-ups, none blocking the sync
+- Delete the `Email` field from the module (Unused Fields). No delete-field
+  endpoint exists in the connector, so this is click-work.
+- Tighten the Standard profile's create/edit/delete on the module under
+  Setup → Security Control → Profiles — one-way mirror, so a CRM-side edit is
+  silently overwritten by the next push.
+- Set the §6.1 module description from the module's settings. Documentation
+  only; the builder exposed no description box.
+
+### Verification
+`getFields` on `Content_Partners` read back 24 fields; the eleven spec fields
+were compared programmatically against §6.2 on api_name, label and data type —
+all eleven matched, and no unexpected custom field was present.
+
+### Tracker — xlsx updated
+
+`P0-OPS-05` marked ✅ Done in the Phase 1 markdown, and
+**`documentation/SponsorX-Full-Programme-Task-Board.xlsx` was updated directly**
+(it is gitignored, so it stays a local working copy and is never committed):
+
+- Row 35 `P0-OPS-05` → `Done`, with `Date Started` / `Date Done` `2026-09-11`,
+  `Owner` `rcfworks`, and its Notes rewritten — the scope question it carried is
+  now answered.
+- New row 36 `P0-OPS-06` inserted at **Order 24.5**, `Done`, with the five Zoho
+  field ids in Notes. A fractional order avoids renumbering any existing row.
+- Phase 1 subtitle `185 tasks · 445 person-days` → `186 · 446`; Roadmap
+  `344 tasks` → `345`.
+- **The ranges had to be extended by hand**, because inserting a row does not
+  move them: the autofilter `A4:R189→A4:R190`, all three conditional-formatting
+  ranges, the Status data-validation list, and **15 Dashboard formulas** whose
+  `COUNTIF` / `COUNTA` / `SUMIF` ranges were hardcoded to `$189`. Missing those
+  would have left the Dashboard silently undercounting by one row forever.
+
+**Tooling note for next time:** `openpyxl` is not installed in the user's
+environment. Rather than installing it globally, build a throwaway virtualenv in
+the session scratchpad. A backup of the workbook was taken there before writing.
+Verified after saving: 186 task rows, no duplicate ids, all seven sheets, freeze
+panes, conditional formatting and data validation intact.
+
+The Google Sheet still needs mirroring by hand at end of day — that one is
+genuinely a person's step.
