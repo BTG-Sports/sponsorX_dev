@@ -962,3 +962,25 @@ limitation is a worse outcome than mirroring by hand.
   done here because deletion is destructive and was not asked for.
 - Optionally share the Sheet with `infinex1@icarrefound.org` so at least
   *reading* it for verification becomes possible. It will still not be writable.
+
+
+## Task — Knowledge graph full rebuild (/graphify)
+
+**Trigger:** `/graphify` invoked on the repo root after `/clear`.
+
+- Installed `graphifyy[office]` so all 16 previously-skipped `.docx` files
+  (Master Blueprints, Systems Architecture, prelaunch binder, agreements,
+  school plans) now convert and are in the graph.
+- Corpus: 123 files / ~644k words (71 code, 34 docs, 3 PDFs, 15 images).
+- Extraction: AST (408 nodes / 985 edges) + 18 parallel semantic subagents.
+  Two chunks had to be re-run: chunk 01 hit a session limit mid-write
+  (edges were `'_'` placeholders) and chunk 02 was stale from another
+  machine root — both rebuilt cleanly.
+- Final graph: **682 nodes, 1,277 edges, 56 labeled communities**.
+  Health check: 43 dangling-endpoint edges (semantic refs to missing IDs),
+  13 collapsed duplicate edges — noted, non-fatal.
+- Outputs refreshed in `graphify-out/`: `graph.json`, `graph.html`,
+  `GRAPH_REPORT.md`, `manifest.json`, `cost.json` (~659k in / 22.5k out
+  tokens this run). Benchmark: ~9x token reduction per query.
+- Note: the installed graphify skill file is v0.9.39 vs package 0.9.57 —
+  `graphify install --platform claude` will refresh it.
