@@ -52,6 +52,10 @@ Blocked-status formality (the P1-FE-04 dependency is complete on
   (12 PNGs at 1440px, dark theme): every §9 core screen as built, with route,
   refs, data provenance, states, deliberate blocks, and the supplementary
   surfaces table. Regeneration instructions included.
+- **Wireframes added on user request** (commit `53c2c53`):
+  `design-record/SponsorX-Wireframes.html` — self-contained, printable
+  schematics of all 12 screens; solid buttons = live affordances, dashed =
+  deliberately unwired. Linked from the design record.
 
 ### Tracker / handoff
 - xlsx: `P1-FE-04`, `P1-FE-05`, `P1-QA-01/02/03`, `P1-PMO-01` all **Code
