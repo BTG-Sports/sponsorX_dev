@@ -245,7 +245,13 @@ export const earnings = [
   { state: "ELIGIBLE" as EarningState, label: "Eligible", amount: 15_000, count: 1 },
   { state: "APPROVED_FOR_PAYOUT" as EarningState, label: "Approved for payout", amount: 32_000, count: 2 },
   { state: "PAID" as EarningState, label: "Paid", amount: 78_500, count: 6 },
+  { state: "HELD" as EarningState, label: "Held", amount: 12_000, count: 1 },
 ];
+
+/** §21 — why the held order is held; shown beside the state list. One held
+ *  order (ern_7), so one note. */
+export const heldNote =
+  "Skills Lab Series — the published proof failed verification; BTG Finance is re-checking the post URL before this earning can move again (§21).";
 
 /** §12 — agreement metadata and signature references, not the text itself. */
 export const agreements = [
@@ -948,6 +954,7 @@ export const earningItems = [
   { id: "ern_4", athlete: "Marcus Reed", campaign: "Player of the Week", jobId: "SX-07", jobName: "Monthly Ambassador", amount: 65_000, state: "PAID" as EarningState, reference: "ZB-2026-0388", updatedAt: "May 2" },
   { id: "ern_5", athlete: "Jalen Brooks", campaign: "Player of the Week", jobId: "SX-05", jobName: "Local Appearance", amount: 28_000, state: "HELD" as EarningState, reference: null, updatedAt: "May 10" },
   { id: "ern_6", athlete: "Amara Okafor", campaign: "Local Blitz — Spring", jobId: "SX-02", jobName: "Sponsored Post", amount: 9_000, state: "DISPUTED" as EarningState, reference: null, updatedAt: "May 9" },
+  { id: "ern_7", athlete: "Shammah Kwizera", campaign: "Skills Lab Series", jobId: "SX-02", jobName: "Sponsored Post", amount: 12_000, state: "HELD" as EarningState, reference: null, updatedAt: "May 17" },
 ];
 
 export const EARNING_COPY: Record<EarningState, string> = {

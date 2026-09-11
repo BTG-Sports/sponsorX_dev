@@ -10,6 +10,7 @@ import {
   athleteEarningsTrend,
   earningItems,
   earnings,
+  heldNote,
   money,
   type EarningState,
 } from "@/lib/fixtures";
@@ -195,6 +196,9 @@ export default async function AthleteEarningsPage({
                 </li>
               ))}
             </ul>
+            <p className="mt-2 rounded-lg border border-danger/25 bg-danger/8 px-2.5 py-1.5 text-[11px] leading-relaxed text-muted">
+              {heldNote}
+            </p>
             <p className="mt-3 flex items-center gap-1.5 text-[10px] text-faint">
               Σ Earning by state, this cycle <MiniChip kind="ver">POSTGRES</MiniChip>
             </p>
