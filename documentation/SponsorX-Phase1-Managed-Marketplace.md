@@ -363,7 +363,7 @@ Get Zoho API credentials and a sandbox org, so sync can be built without touchin
 
 - **Depends on:** nothing — startable now
 - **Done when:** Client ID, secret and refresh token issued; a sandbox or test org available for sync development
-- **Reference:** §18
+- **Reference:** §18, Addendum A9, [`SponsorX-Zoho-Credentials-and-Sandbox.md`](./SponsorX-Zoho-Credentials-and-Sandbox.md) — the scope list, env contract and both console runbooks
 
 ### ✅ `P0-OPS-05` · Create the Athlete / Content Partner custom module in Zoho
 

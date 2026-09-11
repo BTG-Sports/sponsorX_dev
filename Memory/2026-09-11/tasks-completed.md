@@ -842,3 +842,123 @@ panes, conditional formatting and data validation intact.
 
 The Google Sheet still needs mirroring by hand at end of day — that one is
 genuinely a person's step.
+
+---
+
+## Task 6 — `P0-OPS-04` · Zoho API credentials and sandbox (spec complete, provisioning outstanding)
+
+**Trigger:** user asked for `P0-OPS-04` directly after `P0-OPS-05` closed.
+
+### User decision
+- **Zoho CRM credentials only.** Books deferred, because §7.7's Invoice /
+  Payment Reference mapping is still **OPEN as O-1** — specifying a Books scope
+  list now would mean guessing, and an OAuth client provisioned against a guess
+  gets reissued. Recorded in §6 of the new document so it reads as a decision
+  rather than an oversight.
+
+### Shape of the task
+Both provisioning halves are console click-work with **no public API** — the
+Zoho API Console and the Sandbox page alike — so they are the user's steps. The
+specification is the part worth doing carefully, and it is now written down
+instead of being improvised at the console.
+
+### Shipped — `documentation/SponsorX-Zoho-Credentials-and-Sandbox.md`
+- **The OAuth scope list, derived from the object register rather than
+  defaulted.** The headline decision: **no `DELETE` scope on any module**, and
+  therefore never `ZohoCRM.modules.ALL`. §6.3 of the mapping document suspends
+  records and never deletes them, so a token that can delete is a token that can
+  only ever be used to violate the mapping. Every granted scope is justified in
+  a table against the section that requires it; every withheld scope
+  (`users.READ`, `settings.ALL`, `notifications.ALL`, all `ZohoBooks.*`) has a
+  stated reason.
+- `modules.leads.UPDATE` **is** granted despite §7.3 being one-way, because an
+  upsert retry after a timeout resolves to an update on the existing record.
+- **Environment contract as a table in the committed document**, not a
+  `.env.example` — `.gitignore` excludes `.env*` wholesale, so a sample file
+  would be invisible to the team.
+- **`ZOHO_ACCOUNTS_DOMAIN` / `ZOHO_API_DOMAIN` are part of the residency
+  answer**, not boilerplate: Zoho partitions by data centre, this org is on the
+  US DC, and a token issued in one DC is invalid in another.
+- Token-handling rules: cache the access token and refresh on expiry rather
+  than per request, because Zoho caps refresh-token issuance per client and a
+  worker that refreshes per job will lock itself out. Record **who authorised**
+  the refresh token — it is bound to that user and dies with their account.
+- Both console runbooks written as literal numbered steps, including the
+  grant-token → refresh-token `curl`, with the explicit instruction that the
+  secrets go from the Zoho console to Railway and **never into a chat, a ticket
+  or a commit**. A provisioning log table (names and dates, no secrets) is at §7.
+
+### Two questions deliberately handed back rather than assumed
+- **Which sandbox types the edition offers.** A configuration-only sandbox
+  cannot rehearse `P8-INT-07`'s backfill against realistic volumes, so the
+  answer changes that task's plan. Not readable through the connector.
+- **How the worker authenticates against the sandbox**, which is a separate org
+  on `sandbox.zohoapis.com`. Flagged as a thing to verify when it exists rather
+  than guessed at.
+
+### Reaffirmed by this task
+The sandbox will **inherit** `Content_Partners` and the five `SponsorX_ID`
+fields, because Zoho clones a sandbox *from* production — which confirms that
+building `P0-OPS-05` and `P0-OPS-06` in production first was the right
+sequencing rather than a compromise forced by tooling.
+
+### Tracker
+Row 34 `P0-OPS-04` → **In progress** in the xlsx, `Owner` `rcfworks`,
+`Date Started` `2026-09-11`, Refs and Notes updated to point at the new
+document and list exactly what remains. The Phase 1 markdown's `Reference` line
+for the task now links it too. Google Sheet still to be mirrored at end of day.
+
+### Also outstanding
+The licence `paid_expiry` reads **2026-09-18**, seven days out. Confirm the
+renewal before issuing long-lived tokens and provisioning a sandbox across that
+boundary.
+
+---
+
+## Task 7 — Tracker hygiene: the Google Drive copies and what can actually be automated
+
+**Trigger:** user asked to "update both trackers", then "fix this" once the
+second tracker turned out not to be updatable.
+
+### What was found
+- The **xlsx was updated and verified** — `P0-OPS-04` In progress, `P0-OPS-05`
+  and `P0-OPS-06` Done, all with Owner and dates.
+- The **Google Sheet named in `CLAUDE.md`** (`10PGtZb3…`) is **not reachable**
+  from the Drive account the connector is attached to
+  (`infinex1@icarrefound.org`) — it returns "Requested entity was not found",
+  so it is presumably owned by or shared only with another account.
+- **Two stray `.xlsx` uploads** sat in Drive, both owned by `infinex1@`, one in
+  a `Tasks` folder and one in My Drive root, uploaded at 09:07 and 10:40 —
+  neither a native Sheet, both already stale.
+
+### The constraint that settles it
+**The Google Sheet cannot be written by any available tool.** The Drive
+connector is metadata-only for content: `update_file` changes a file's title
+and parent folder, and `create_file` creates a *new* file rather than a new
+revision. Access is not the blocker — even with the Sheet shared, there is no
+cell-level write. So the end-of-day mirror is genuinely a person's job, and
+that is now recorded rather than rediscovered each session.
+
+### Why no replacement Sheet was created
+The tempting fix — upload today's xlsx, let Drive convert it to a native Sheet,
+repoint the docs — was rejected. That Sheet ID appears in **ten places across
+six files**: `CLAUDE.md`, all four phase documents and
+`Memory/Initial Memory/03-rules-and-workflow.md`. It is the established
+team-wide link, not a stale one, and a second copy would fragment a link people
+already hold. Fragmenting the published tracker to work around a tooling
+limitation is a worse outcome than mirroring by hand.
+
+### Shipped
+- Both stray Drive uploads **renamed** (not deleted — reversible, and deletion
+  was not authorised) to `ARCHIVE 2026-09-11 <time> — task board snapshot (NOT
+  the tracker)`, so neither can be mistaken for the live board.
+- `CLAUDE.md` gained a blockquote under the daily rule recording both facts: the
+  Sheet is mirrored by hand and must not be replaced with a rival copy, and
+  xlsx files in Drive are snapshots rather than the tracker.
+
+### Left for the user
+- Mirror the three status changes into the Sheet by hand at end of day.
+- Decide whether the two `ARCHIVE …` files should be trashed outright — not
+  done here because deletion is destructive and was not asked for.
+- Optionally share the Sheet with `infinex1@icarrefound.org` so at least
+  *reading* it for verification becomes possible. It will still not be writable.

@@ -84,6 +84,20 @@ jobs** — keep them straight or they drift:
 > Use a fractional `Order` (e.g. `24.5`) when inserting, so no existing row needs
 > renumbering in anyone else's copy.
 
+> **The Google Sheet cannot be automated — it is mirrored by hand.** The Drive connector is
+> metadata-only for content: `update_file` changes a file's title and folder, and
+> `create_file` makes a *new* file rather than a new revision, so there is no way to write
+> cells in the published Sheet. Do not offer to update it, and do not "solve" this by
+> uploading a rival copy — the Sheet's URL is referenced in ten places across this file, the
+> four phase documents and the baseline memory, and a second copy fragments a link the team
+> already has. Mirror it by hand at end of day, as the daily rule says.
+>
+> **Copies of the xlsx sitting in Google Drive are snapshots, not the tracker.** Two such
+> uploads existed on 2026-09-11 and were renamed with an `ARCHIVE …` prefix to stop them
+> being mistaken for the live board. If you find more, treat them the same way: the local
+> xlsx is the working tracker, the Sheet is the published one, and a file in Drive is
+> neither.
+
 If a task's *definition* is wrong, fix it in the Markdown by pull request — never by quietly
 reinterpreting it in the tracker.
 
