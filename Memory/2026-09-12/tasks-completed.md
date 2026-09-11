@@ -57,6 +57,16 @@ Blocked-status formality (the P1-FE-04 dependency is complete on
   schematics of all 12 screens; solid buttons = live affordances, dashed =
   deliberately unwired. Linked from the design record.
 
+### Formal QA report (user request, post-batch)
+- `documentation/SponsorX-Stage1-QA-Report.md` — Senior-QA-style verification
+  report for P1-QA-01/02/03: 23 automated test cases re-executed as one
+  consolidated run against the final build (**23/23 PASS**), defect log
+  D-01..D-11 (all fixed on-branch), traceability matrix, sign-off block for
+  rcfworks, and §6 harness-anomaly table (5 false failures diagnosed during
+  the run — marker casing, viewport-expanding emulation, drawer exit-animation
+  race, mid-page theme flips, RSC `$40` tokens). Regression instructions
+  included; the three tracker rows reference the report.
+
 ### Tracker / handoff
 - xlsx: `P1-FE-04`, `P1-FE-05`, `P1-QA-01/02/03`, `P1-PMO-01` all **Code
   review**, Owner HeckerCreatives. **Stage 1 is fully built and audited** —
