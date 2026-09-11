@@ -354,3 +354,112 @@ Plan: `docs/superpowers/plans/2026-09-11-a2-state-polish-portal-wow.md`.
 Remaining A0/A1 working-tree leftovers flagged in Task 1's memory entry were
 committed during the A2 slice commits (same repo precedent as Task 1). The
 tree should now be clean of feature work aside from this memory-log commit.
+
+## Task 8 — Memory synchronization (restored Claude persistent memory + drift audit)
+
+**Trigger:** user asked to "synchronize with backed up memories".
+
+- **Finding: Claude's persistent memory store for this project was empty.** The
+  per-project memory directory
+  (`~/.claude/projects/-Users-bob-Documents-work-iCarr-sponsorX-sponsorX-dev/memory/`)
+  contained no files, so every persistent memory referenced in earlier logs
+  (`memory-backup-workflow`, `stats-must-be-retrievable`, the graphify rule, the
+  project/stack/working-mode notes and the `MEMORY.md` index) had been lost —
+  most likely because the machine changed (earlier logs record Windows 11 +
+  PowerShell; this session is macOS + zsh, under a different user email).
+  The in-repo `Memory/` folder was the only surviving copy, which is exactly
+  what the backup rule was created to protect against.
+- **Restored four persistent memories** from the repo backup, the first three
+  pinned so they load in every future session:
+  `memory-backup-workflow` (read `Memory/` at session start, log each task to
+  `Memory/YYYY-MM-DD/`), `always-use-graphify` (treat codebase questions as
+  graphify queries first), `stats-must-be-retrievable` (every displayed number
+  needs a real retrieval path; curated constants labelled `EST · curated`; no
+  demographics / sentiment / real-time in Phase 1), and
+  `sponsorx-build-sequence-and-ui-constraints` (UI scaffold before backend, zero
+  new deps until B0, server components by default, mockups are reference only,
+  logo-derived portal accents).
+
+### Drift found between the backup and the live repo (reported, not silently fixed)
+
+| Where | Says | Reality |
+|---|---|---|
+| `CLAUDE.md` "Status" line | "greenfield — no application code yet. No build/test commands exist." | 25 routes build green; A0, A1 and A2 have shipped |
+| `Initial Memory/02-confirmed-tech-stack.md` | Express / Prisma / Redis / MinIO | `CLAUDE.md` + `.claude/stack-decision.md` moved to Next.js route handlers / Railway / R2 / Postgres queue / Clerk — already flagged in `04`, still awaiting team reconciliation, so left untouched |
+| `Initial Memory/03-rules-and-workflow.md` "Global user context" | Windows 11 + PowerShell; email `creativebrainstudiosinc@gmail.com`; "no coding yet, documentation phase" | macOS + zsh; different account; the project has been shipping code since 2026-09-10 |
+| `Initial Memory/00-README.md` + `01-project-overview.md` | baseline describes a pre-code planning phase | superseded by Tasks 9–11 (2026-09-10) and Tasks 1–7 (2026-09-11) |
+
+- Also noted: work is on branch **`A0-A2-Roadmap`** (not `main`), working tree
+  clean at `a6c7b61`.
+- No source files were changed by this task.
+
+
+## Task 9 — Phase 1 development plan, task board, and drift fix
+
+**Trigger:** user asked for a development flow with categorised, distributable tasks
+built on `.claude/stack-decision.md` and Blueprint v2.0; then for it as a spreadsheet
+in Google Drive; then for execution ordering, statuses and plain-English detail.
+
+### What was produced
+- **184 tasks** across **9 phases** (0 Foundation & Decisions → 8 Integration,
+  Hardening & Launch), in **dependency order**, across **10 categories**: BE 47 ·
+  FE 31 · PMO 20 · OPS 17 · QA 14 · INT 14 · SEC 13 · ART 12 · DATA 10 · LEG 6.
+  Unassigned by design — the user assigns.
+- Each task carries: Order, DETAILS (plain English, no codes to look up), Status,
+  Weight (S=1/M=3/L=5 person-days), Unblocks, Depends On, acceptance criteria, refs.
+- **Status seeded from the dependency graph:** 28 Ready · 150 Blocked · 6 Done.
+- **Seven decision gates** (`G-01`…`G-07`) extracted and folded into the DETAILS of
+  the tasks that own them, plus the §37 blueprint gates.
+
+### Key findings surfaced
+- **`P0-PMO-02` (data residency) unblocks 118 of 184 tasks** — a one-page decision is
+  the highest-leverage item in the project. Then `P0-OPS-01` (115), `P2-OPS-01` (114),
+  `P0-PMO-07` RBAC matrix (106), `P2-BE-02` Prisma schema (104).
+- **Longest dependency chain is 18 tasks / 60 days**, running data residency → Railway
+  → schema → Clerk → scope.ts → sponsor/brief/matching/invite → Campaign Order →
+  deliverables → metrics → ROI report → final E2E. That chain is the schedule.
+- **442 person-days total ≈ 44 weeks at 2 people.** Blueprint §31 budgets 14–18 weeks
+  at 4.5–7.5 FTE. Scope, not stack, is the binding constraint — recorded in the plan.
+- **LEG is only 6 tasks but is on the critical path for Phase 5**: counsel has the
+  longest external lead time and `G-05` hard-blocks `P5-BE-01` (Campaign Order
+  acceptance). Building acceptance on unapproved text = an audit trail for an
+  unenforceable agreement. Commission templates on day one.
+
+### Defects caught during the build
+- Phase 6's entry gate cited `G-04` (email provider) when it meant the fan-funnel
+  privacy review (`P0-LEG-04`). Fixed.
+- Three Phase 8 tasks (`P8-QA-01`, `P8-SEC-01`, `P8-PMO-05`) list "all phases" as
+  their dependency — unparseable as task IDs, so they were seeded **Ready** when they
+  are obviously blocked. Now treated as blocking. Ready count 31 → 28.
+
+### Drift fix (this is the important part)
+Three copies of the same 184 tasks had accumulated (Markdown plan, two `.xlsx`,
+a Google Sheet). Resolved to **two artefacts with distinct jobs**:
+
+| Artefact | Owns |
+|---|---|
+| `documentation/SponsorX-Phase1-Development-Plan.md` | The **plan** — task definitions, details, acceptance criteria, dependencies, gates, risks. Changed by pull request. |
+| Google Sheet *SponsorX — Phase 1 Task Board* (Drive) | The **status** — Status, Owner, Weight, Date Started/Done, Notes. Edited in the browser from any workstation. |
+
+- Rewrote the Markdown as the single in-repo source: 184 task blocks with Order,
+  DETAILS, status badges, Start Here list, critical path, gates, risks (98KB).
+- **Deleted both `.xlsx` from the repo**; added `documentation/*.xlsx` to
+  `.gitignore` so one cannot be re-committed.
+- Deleted the superseded `SponsorX-Phase1-Development-Plan.docx`.
+- Trashed two earlier Google Sheets; the live board is
+  *SponsorX — Phase 1 Task Board*.
+
+### Standing rule added (Memory `03` + `CLAUDE.md`)
+> After completing any task or fix, update the task board spreadsheet in Google Drive
+> before closing your branch — set `Status`, `Date Done`, `Owner`. Marking a task Done
+> is what flips its dependents from Blocked to Ready. Put the task ID in the branch
+> name and commit message.
+
+### Open / not done
+- Nothing committed to git — all changes are working-tree only on branch
+  `A0-A2-Roadmap`.
+- Auto-sync from code activity (a merged PR marking a task Done via GitHub Action)
+  was discussed and **deferred** — judged not worth the setup for a two-person team.
+  Revisit when the team grows. Repo has a GitHub remote but no `.github/workflows`.
+- A formula column that recomputes Ready/Blocked inside the Sheet was offered and
+  not yet added.

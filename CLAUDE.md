@@ -50,6 +50,26 @@ proposing any hosting, database or vendor change. Addendum A there reconciles
 the stack against Blueprint v2.0 and records what §27's open choices resolved
 to, and why.
 
+## The task board
+
+Phase 1 is broken into 184 dependency-ordered tasks. Two artefacts, two jobs —
+**keep them from drifting**:
+
+- **[`documentation/SponsorX-Phase1-Development-Plan.md`](documentation/SponsorX-Phase1-Development-Plan.md)**
+  owns the *plan*: every task's definition, plain-English detail, acceptance
+  criteria, dependencies, the seven decision gates and the risk register. Change it
+  by pull request.
+- **The Google Sheet `SponsorX — Phase 1 Task Board`** (Google Drive) owns the
+  *status*: Status, Owner, Weight, Date Started, Date Done, Notes.
+
+> **Standing rule — after any fix, update the Sheet.** When a task is complete, set
+> its `Status`, `Date Done` and `Owner` in the Sheet before closing the branch.
+> Marking a task Done is what releases its dependents from Blocked to Ready.
+> Reference the task ID (e.g. `P2-BE-04`) in the branch name and commit message.
+
+**Never commit a spreadsheet to this repo** — `*.xlsx` under `documentation/` is
+gitignored. The Markdown is the only in-repo copy.
+
 ## Architecture rules
 
 - **The Zoho boundary.** Zoho knows who we're selling to and whether they've
