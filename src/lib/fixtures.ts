@@ -836,6 +836,60 @@ export const applications = [
       ],
     },
   },
+  {
+    id: "app_5",
+    name: "Devon Price",
+    slug: "devon-price",
+    sport: "Football",
+    region: "Alexandria, VA",
+    submittedAt: "6 days ago",
+    state: "REJECTED" as ApplicationState,
+    isMinor: false,
+    guardianVerified: null as boolean | null,
+    followers: 3_900,
+    flags: [
+      "Category conflict — active exclusivity with a competing apparel brand (§26)",
+    ] as string[],
+    score: {
+      total: 38,
+      method: "rules-v1",
+      factors: [
+        { label: "Engagement", value: 41 },
+        { label: "Content quality", value: 35 },
+        { label: "Audience", value: 22 },
+        { label: "Reliability", value: 48 },
+        { label: "Geography", value: 74 },
+        { label: "Fit", value: 18 },
+      ],
+    },
+  },
+  {
+    id: "app_6",
+    name: "Tyler Nguyen",
+    slug: "tyler-nguyen",
+    sport: "Soccer",
+    region: "Rockville, MD",
+    submittedAt: "3 days ago",
+    state: "SUBMITTED" as ApplicationState,
+    isMinor: true,
+    guardianVerified: false as boolean | null,
+    followers: 12_800,
+    flags: [
+      "Guardian authorization pending — cannot go ACTIVE until verified (§4)",
+    ] as string[],
+    score: {
+      total: 61,
+      method: "rules-v1",
+      factors: [
+        { label: "Engagement", value: 66 },
+        { label: "Content quality", value: 63 },
+        { label: "Audience", value: 47 },
+        { label: "Reliability", value: 58 },
+        { label: "Geography", value: 82 },
+        { label: "Fit", value: 60 },
+      ],
+    },
+  },
 ];
 
 export const APPLICATION_COPY: Record<ApplicationState, string> = {
