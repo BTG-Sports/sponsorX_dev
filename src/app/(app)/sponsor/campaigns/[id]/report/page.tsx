@@ -327,7 +327,9 @@ export default async function RoiReportPage({
 
       {/* --------------------------- zone 4: content + recommendation */}
       <div className="grid gap-4 xl:grid-cols-[1.6fr_1fr] xl:items-start">
-        <Card className="sx-animate sx-delay-1 p-0">
+        {/* min-w-0: the implicit single column below xl must be allowed to
+            shrink under the content rows' min-content (P1-QA-03, 360px). */}
+        <Card className="min-w-0 sx-animate sx-delay-1 p-0">
           <div className="border-b border-line px-5 py-3">
             <h2 className="text-sm font-semibold tracking-tight">Top content</h2>
           </div>

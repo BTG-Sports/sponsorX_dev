@@ -98,8 +98,10 @@ export default async function CampaignBuilderPage({
       </Card>
 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_20rem] xl:items-start">
-        {/* ------------------------------------------------ details form */}
-        <div className="space-y-6">
+        {/* ------------------------------------------------ details form.
+            min-w-0: lets the implicit mobile column shrink under the eligible-
+            athletes table's min-w (P1-QA-03, 360px). */}
+        <div className="min-w-0 space-y-6">
           <section>
             <SectionHeading title="Campaign details" />
             <Card className="space-y-4">

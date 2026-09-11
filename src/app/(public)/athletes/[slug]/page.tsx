@@ -170,7 +170,10 @@ export default async function AthleteProfilePage({
 
       {/* --------------------------------------------- inventory + about */}
       <div className="mt-5 grid gap-5 lg:grid-cols-[minmax(0,1fr)_18rem] lg:items-start">
-        <section>
+        {/* min-w-0: the implicit single column below lg must be allowed to
+            shrink under the inventory rows' min-content, or the page widens
+            past 360 (P1-QA-03). */}
+        <section className="min-w-0">
           <h2 className="mb-3 text-sm font-semibold tracking-tight">
             Available Inventory
           </h2>
@@ -212,7 +215,7 @@ export default async function AthleteProfilePage({
           </p>
         </section>
 
-        <div className="space-y-5">
+        <div className="min-w-0 space-y-5">
           <section>
             <h2 className="mb-3 text-sm font-semibold tracking-tight">About</h2>
             <Card>

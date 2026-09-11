@@ -182,7 +182,7 @@ export default async function MarketplacePage({
         <>
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             {marketplacePackages.map((p, i) => (
-              <div key={p.id} className={`sx-animate sx-delay-${Math.min(i + 1, 5)}`}>
+              <div key={p.id} className={`min-w-0 sx-animate sx-delay-${Math.min(i + 1, 5)}`}>
                 <IdentityCard
                   band={
                     <>
@@ -253,7 +253,7 @@ export default async function MarketplacePage({
             {athleteInv.map((a, i) => {
               const soldOut = a.state === "SOLD_OUT";
               return (
-                <div key={a.id} className={`sx-animate sx-delay-${Math.min(i + 1, 5)}`}>
+                <div key={a.id} className={`min-w-0 sx-animate sx-delay-${Math.min(i + 1, 5)}`}>
                   <IdentityCard
                     dimmed={soldOut}
                     band={
@@ -364,7 +364,7 @@ export default async function MarketplacePage({
         <>
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             {mediaInv.map((m, i) => (
-              <div key={m.id} className={`sx-animate sx-delay-${Math.min(i + 1, 5)}`}>
+              <div key={m.id} className={`min-w-0 sx-animate sx-delay-${Math.min(i + 1, 5)}`}>
                 <IdentityCard
                   band={
                     <>
