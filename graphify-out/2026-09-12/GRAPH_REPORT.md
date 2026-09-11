@@ -1,11 +1,11 @@
 # Graph Report - sponsorX_dev  (2026-09-12)
 
 ## Corpus Check
-- 123 files · ~870,427 words
+- 123 files · ~869,915 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 1277 nodes · 1876 edges · 118 communities (92 shown, 25 thin omitted)
+- 1276 nodes · 1875 edges · 119 communities (93 shown, 25 thin omitted)
 - Extraction: 96% EXTRACTED · 4% INFERRED · 0% AMBIGUOUS · INFERRED: 79 edges (avg confidence: 0.89)
 - Token cost: 0 input · 0 output
 
@@ -19,13 +19,14 @@
 - SponsorX Stack Decision — Phase 1
 - marketplace/page.tsx
 - package.json
+- campaigns/new/page.tsx
 - states.tsx
 - SponsorX Implementation Guide
 - ui.tsx
 - Block A — Finish the UI Scaffold (Fixtures Only)
 - campaigns/[id]/page.tsx
 - fixtures.ts
-- admin/page.tsx
+- sponsor/page.tsx
 - athlete/page.tsx
 - compilerOptions
 - BTG SponsorX UI/UX Mockups v1.0
@@ -171,7 +172,7 @@
 - **§39 Protected Loop Delivery Chain** — claude_section_39_core_loop, documentation_sponsorx_phase1_build_roadmap_block_b, documentation_sponsorx_implementation_guide_v2_document, memory_initial_memory_01_project_overview_core_loop, memory_initial_memory_04_key_decisions_and_findings_operating_loop_is_the_product [INFERRED 0.85]
 - **Zoho Sync Pipeline (Queued, Worker-Mediated, Loop-Safe)** — documentation_sponsorx_implementation_guide_transactional_outbox, documentation_sponsorx_implementation_guide_zoho_loop_prevention, documentation_sponsorx_stack_summary_zoho_boundary, documentation_sponsorx_stack_summary_railway_worker [INFERRED 0.85]
 
-## Communities (118 total, 25 thin omitted)
+## Communities (119 total, 25 thin omitted)
 
 ### Community 0 - "portal-shell.tsx"
 Cohesion: 0.15
@@ -183,43 +184,47 @@ Nodes (49): Addendum A — Reconciliation with Blueprint v2.0, Cloudflare R2, Da
 
 ### Community 2 - "marketplace/page.tsx"
 Cohesion: 0.11
-Nodes (18): STATE_TONE, TabKey, TABS, FILTERS, PackagesPage(), STAGGER, STATE_TONE, CHIP_TONES (+10 more)
+Nodes (16): STATE_TONE, TabKey, TABS, FILTERS, PackagesPage(), STAGGER, STATE_TONE, CHIP_TONES (+8 more)
 
 ### Community 3 - "package.json"
 Cohesion: 0.05
 Nodes (33): nextConfig, dependencies, next, react, react-dom, devDependencies, eslint, eslint-config-next (+25 more)
 
+### Community 4 - "campaigns/new/page.tsx"
+Cohesion: 0.15
+Nodes (11): JoinPage(), BackLink(), MiniChip(), BlockedNotice(), BackTarget, TARGETS, applicationSections, builderDraft (+3 more)
+
 ### Community 5 - "states.tsx"
 Cohesion: 0.09
-Nodes (5): ErrorPanel(), MARKS, SkeletonBlock(), SkeletonPage(), SkeletonRows()
+Nodes (4): ErrorPanel(), MARKS, SkeletonBlock(), SkeletonRows()
 
 ### Community 6 - "SponsorX Implementation Guide"
 Cohesion: 0.14
 Nodes (29): SponsorX Implementation Guide, Authorization Test Matrix, Vertical Slice Build Order, Campaign Order, Environments and Deploy Pipeline, Master Development Blueprint v2.0, Pinned Package Versions, Prisma Schema (Core Tables) (+21 more)
 
 ### Community 7 - "ui.tsx"
-Cohesion: 0.16
-Nodes (20): AdminApplicationsPage(), STATE_TONE, STATE_TONE, STAGGER, Badge(), Button(), Card(), cx() (+12 more)
+Cohesion: 0.11
+Nodes (26): AdminApplicationsPage(), STATE_TONE, STATE_TONE, ICONS, STAGGER, TABS, STAGGER, HeroBand() (+18 more)
 
 ### Community 8 - "Block A — Finish the UI Scaffold (Fixtures Only)"
 Cohesion: 0.10
 Nodes (22): A2 State & Polish + Portal-Wide Stats Wow — Implementation Plan, Sponsor Portal Redesign — Implementation Plan, Branded State System (states.tsx), ?demo= State Switcher, A2 State & Polish + Portal Wow — Design Spec, Frost Light Theme, Sponsor Portal Redesign — Design Spec, Locked Statistic Inventory (Stat → Source → Label) (+14 more)
 
 ### Community 9 - "campaigns/[id]/page.tsx"
-Cohesion: 0.20
-Nodes (9): RewardAnalyticsPage(), ChartLegend(), EmptyState(), SearchParams, campaignDetailX, redemptionSeries, rewardStats, topLocations (+1 more)
+Cohesion: 0.22
+Nodes (9): RewardAnalyticsPage(), ChartLegend(), EmptyState(), SkeletonPage(), campaignDetailX, redemptionSeries, rewardStats, topLocations (+1 more)
 
 ### Community 10 - "fixtures.ts"
-Cohesion: 0.08
-Nodes (36): CAMPAIGN_TONE, spentPct, InsightStrip(), builderDraft, builderSteps, campaign, campaignRoster, campaignSeries (+28 more)
+Cohesion: 0.07
+Nodes (38): EARNING_TONE, INVOICE_TONE, HEALTH_CHIP, QueueTicker(), adminActivity, adminFinanceX, adminOps, campaign (+30 more)
 
-### Community 11 - "admin/page.tsx"
-Cohesion: 0.11
-Nodes (25): EARNING_TONE, INVOICE_TONE, HEALTH_CHIP, AreaChart(), Donut(), FunnelSteps(), HBarList(), niceMax() (+17 more)
+### Community 11 - "sponsor/page.tsx"
+Cohesion: 0.14
+Nodes (20): CAMPAIGN_TONE, spentPct, AreaChart(), Donut(), FunnelSteps(), HBarList(), niceMax(), RadialGauge() (+12 more)
 
 ### Community 12 - "athlete/page.tsx"
-Cohesion: 0.09
-Nodes (24): AdminApprovalsPage(), QUEUE_ACTION, stage(), STATE_TONE, EARNING_TONE, DELIVERABLE_TONE, dueKey(), EARNING_TONE (+16 more)
+Cohesion: 0.10
+Nodes (23): AdminApprovalsPage(), QUEUE_ACTION, stage(), STATE_TONE, EARNING_TONE, DELIVERABLE_TONE, dueKey(), EARNING_TONE (+15 more)
 
 ### Community 13 - "compilerOptions"
 Cohesion: 0.11
@@ -230,8 +235,8 @@ Cohesion: 0.16
 Nodes (18): Screen 6: Athlete Profile (follower/engagement stats, available inventory pricing, Request Partnership CTA), Screen 8: Campaign Builder (4-step wizard: inventory, details, rewards, review & launch), Screen 9: Campaign Dashboard (views/engagements over time, top content list, tabbed detail), Dark Theme Design Language, Screen 11: Fan/Reward Analytics (QR scans, offers claimed, redemptions over time, top locations), Screen 1: SponsorX Homepage (hero: Maximize Impact. Measure Results. Reward Fans.), Screen 7: Inventory Listing (Player of the Week package detail, est. views/CPM/price, Add to Campaign), Screen 4: Marketplace (filterable card grid of sponsorship inventory with CPM/price) (+10 more)
 
 ### Community 15 - "invitations/page.tsx"
-Cohesion: 0.09
-Nodes (23): FilterKey, FILTERS, InvitationsPage(), STATE_TONE, urgencyHours(), STATE_TONE, AthleteProfilePage(), ICONS (+15 more)
+Cohesion: 0.18
+Nodes (12): FilterKey, FILTERS, InvitationsPage(), STATE_TONE, urgencyHours(), STATE_TONE, SearchParams, athleteMinor (+4 more)
 
 ### Community 16 - "BTG SponsorX Master Development Blueprint v1.0 (Aug 2026)"
 Cohesion: 0.13
@@ -326,8 +331,8 @@ Cohesion: 0.11
 Nodes (18): ▶ `P5-ART-01` · Design the deliverable and approval states, ⏸ `P5-BE-01` · Campaign Order acceptance with body-hash capture, ⏸ `P5-BE-02` · Campaign Order model and state machine, ⏸ `P5-BE-03` · Auto-create deliverables from the job/package template, ⏸ `P5-BE-04` · launchCampaign transactional domain function, ⏸ `P5-BE-05` · Deliverable state machine, ⏸ `P5-BE-06` · Creative asset model + direct R2 upload, ⏸ `P5-BE-07` · Image derivative worker job (+10 more)
 
 ### Community 62 - "demoState"
-Cohesion: 0.21
-Nodes (17): CampaignDashboardPage(), CampaignBuilderPage(), AdminFinancePage(), AdminHomePage(), AthleteEarningsPage(), CampaignOrderPage(), AthletePortalPage(), PropertyPortalPage() (+9 more)
+Cohesion: 0.23
+Nodes (18): CampaignDashboardPage(), CampaignBuilderPage(), AdminFinancePage(), AdminHomePage(), AthleteEarningsPage(), CampaignOrderPage(), AthletePortalPage(), PropertyPortalPage() (+10 more)
 
 ### Community 63 - "Stage 1 · UI Scaffold on Fixtures"
 Cohesion: 0.12
@@ -366,8 +371,8 @@ Cohesion: 0.18
 Nodes (6): react-dom, MobileNav(), Phase, ICONS, NavIcon, PortalNav()
 
 ### Community 72 - "Stage 1 close-out batch: `P1-QA-01` · `P1-QA-03` · `P1-QA-02` · `P1-PMO-01`"
-Cohesion: 0.18
-Nodes (10): Formal QA report (user request, post-batch), Iteration 2 — sparkline regression + funnel readability (user screenshots), `P1-FE-06` — chart entrance + idle motion, all dashboards (newly raised), `P1-PMO-01` — §38 design record (commit `f174249`), `P1-QA-01` — §39 loop walk (commit `b07267d`), `P1-QA-02` — accessibility audit (commit `76df208`, 26 files), `P1-QA-03` — responsive audit (commit `2154c35`), Stage 1 close-out batch: `P1-QA-01` · `P1-QA-03` · `P1-QA-02` · `P1-PMO-01` (+2 more)
+Cohesion: 0.20
+Nodes (9): Formal QA report (user request, post-batch), `P1-FE-06` — chart entrance + idle motion, all dashboards (newly raised), `P1-PMO-01` — §38 design record (commit `f174249`), `P1-QA-01` — §39 loop walk (commit `b07267d`), `P1-QA-02` — accessibility audit (commit `76df208`, 26 files), `P1-QA-03` — responsive audit (commit `2154c35`), Stage 1 close-out batch: `P1-QA-01` · `P1-QA-03` · `P1-QA-02` · `P1-PMO-01`, Tasks Completed — 2026-09-12 (+1 more)
 
 ### Community 73 - "login-form.tsx"
 Cohesion: 0.29
@@ -560,9 +565,9 @@ _Questions this graph is uniquely positioned to answer:_
 - **What is the exact relationship between `BTG SponsorX Systems Architecture (Draft 0.1, Phase 1)` and `My View - Founder Strategy Note (Platform Vision, Athletiverse Analysis)`?**
   _Edge tagged AMBIGUOUS (relation: cites) - confidence is low._
 - **Why does `The tasks` connect `The tasks` to `Stage 4 · Sponsor Demand & Matching`, `Stage 6 · Measurement & Reward`, `Stage 0 · Foundation & Decisions`, `Stage 2 · Platform Foundations`, `Stage 8 · Integration, Hardening & Launch`, `Stage 3 · Athlete Network`, `Stage 7 · Money & Reporting`, `Stage 5 · Campaign Execution`, `Stage 1 · UI Scaffold on Fixtures`?**
-  _High betweenness centrality (0.083) - this node is a cross-community bridge._
+  _High betweenness centrality (0.081) - this node is a cross-community bridge._
 - **Why does `The tasks` connect `The tasks` to `Sprint 7 · Analytics & governance`, `Sprint 5 · Payments, ledger & payouts`, `Sprint 0 · Architecture & design`, `Sprint 2 · Athlete & team portals`, `The tasks`, `Sprint 1 · External property onboarding`, `Sprint 4 · Cart, reservations & orders`, `Sprint 8 · QA, security & rollout`, `Sprint 3 · Listing engine`?**
-  _High betweenness centrality (0.043) - this node is a cross-community bridge._
+  _High betweenness centrality (0.040) - this node is a cross-community bridge._
 - **Why does `The tasks` connect `The tasks` to `Sprint 0 · Contract & taxonomy`, `Sprint 4 · Telemetry ingestion`, `Sprint 5 · Viewability & aggregates`, `Sprint 6 · Activations & rewards`, `Sprint 7 · Cross-channel reporting`, `Sprint 8 · Operations & load`, `The tasks`, `Sprint 1 · World & placement registry`, `Sprint 9 · Pilot world launch`, `Sprint 2 · Manifest & creative deployment`?**
   _High betweenness centrality (0.029) - this node is a cross-community bridge._
 - **What connects `eslintConfig`, `nextConfig`, `name` to the rest of the system?**

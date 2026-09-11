@@ -84,3 +84,73 @@ Blocked-status formality (the P1-FE-04 dependency is complete on
 - Next code work when review lands: Stage 2 stays blocked on `P0-OPS-01`
   (Railway) + `P0-PMO-07` (RBAC matrix); Ready fillers: `P0-PMO-11` (pin
   deps), RBAC matrix drafting.
+
+## `P1-FE-06` — chart entrance + idle motion, all dashboards (newly raised)
+
+**Trigger:** user asked for wow-factor / awwwards-style animation on every
+graph, for first showing and for idle. New row `P1-FE-06` (Order 33.5, Code
+review, Owner HeckerCreatives) inserted in the tracker; Dashboard formulas,
+autofilter, conditional formatting, status validation and the "186 tasks"
+banner all extended to row 190.
+
+- **Design:** charts stay server components. One new ~0.5 kB client component
+  `src/components/reveal.tsx` (IntersectionObserver, same idiom as
+  count-up.tsx — writes `el.dataset` directly, never setState-in-effect) flips
+  `data-reveal` `out → in` on first viewport entry. All motion is CSS in
+  globals.css (`sx-viz-*` block): the SVG/HTML attributes still describe the
+  *finished* chart, animations are overlays that settle onto it, so
+  reduced-motion (`animation: none`) and no-JS renders are automatically
+  correct. A `@media (scripting: enabled)` gate pauses the choreography at
+  frame 0 from first paint until reveal — no flash, and below-fold charts
+  save their entrance until seen. Per-element stagger rides on a `--sx-d`
+  custom property so one class serves every row/segment.
+- **Entrances:** lines draw on via `pathLength={1}` + dashoffset (Sparkline,
+  AreaChart main + dual series); area fill wipes left→right behind the
+  drawing line (`clip-path: inset`); gauges sweep from empty
+  (`--sx-sweep` = hidden dashoffset, RadialGauge + ProgressRing); donut
+  segments sweep open in sequence (`--sx-seg`/`--sx-c` dasharray keyframe);
+  funnel/HBar/TrustMeter bars wipe or scaleX with stagger; grid, ticks,
+  labels, legends fade/rise; endpoint dots pop with overshoot bezier.
+- **Idle loops (recessive by design — never move data marks):** radar pulse
+  on the latest data point (AreaChart halo), glint sweep across bar tracks
+  every ~6 s (HBarList, funnel bars, TrustMeter), slow breathe on gauge
+  rings. Projection stays a fade (draw-on would fight its own dasharray).
+- **Verified** against the running dev server (port 3000 was already serving
+  the working tree): SSR markup on all 8 chart-bearing pages carries
+  `data-reveal="out"` + sx-viz classes + inline vars; compiled CSS ships all
+  11 keyframes + the pause gate; `npm run build` and lint clean. Grep
+  counts double-count class names (DOM + RSC flight payload) —
+  `data-reveal="out"`/`pathLength="1"` are DOM-only, divide the rest by 2.
+- **Findings:** the **property dashboard has zero charts** (imports only the
+  `compact` formatter) — nothing to animate there; flag if a property graph
+  is ever specced. CLAUDE.md still says "greenfield — no application code
+  yet" — stale. The live tracker is `Claude outputs/…Task-Board.xlsx`
+  (has the Code-review statuses); the repo-root copy is a stale snapshot
+  (still shows Blocked) — CLAUDE.md's `documentation/` path doesn't exist.
+
+### Iteration 2 — sparkline regression + funnel readability (user screenshots)
+
+User (senior statistician/designer hat) flagged both bento graphs as hard to
+understand. One was a real regression, one a design failure:
+
+- **Sparkline bug (regression from iteration 1):** `vector-effect:
+  non-scaling-stroke` makes Chromium compute `stroke-dasharray` in **screen
+  pixels and ignore `pathLength` normalization**, so the draw-on trick
+  (`dasharray: 1` + `pathLength={1}`) leaves the line permanently rendered as
+  scattered dashes. **Rule: never combine the dash-draw entrance with
+  non-scaling-stroke** — use a clip-path wipe there instead. AreaChart's
+  polylines were safe (no vector-effect). Sparkline also gained anchors so it
+  reads as a trend, not a floating stroke: gradient tint down to the
+  baseline + endpoint dot (dot drawn as a zero-length round-capped polyline
+  because preserveAspectRatio="none" would stretch a `<circle>`).
+- **Funnel redesign (both modes):** compact glyph was center-aligned with an
+  arbitrary 2+2 blue/orange split — read as four unrelated bars. Now
+  left-aligned from a common origin (decay is the visible shape), single
+  sequential primary ramp (opacity 1 → .5) with **only the final conversion
+  stage in accent**. Full mode: same semantic — solid primary pipeline,
+  accent final bar, dropped the old `opacity-80` middle tweak (opacity on
+  labeled bars would erode the P1-QA-02 cta-ink AA contrast).
+- Verified: build + SSR markup on all chart pages (no dasharray on sparkline,
+  area fill + dot present, rects `x="0"` with ramp, full funnels 2×primary +
+  1×accent per 3-stage funnel). Tracker P1-FE-06 Notes updated (still Code
+  review).

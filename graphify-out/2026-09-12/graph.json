@@ -163,17 +163,17 @@
       "source_location": "L17"
     },
     {
-      "id": "src_components_charts_seriespoint",
-      "label": "SeriesPoint",
+      "id": "src_lib_fixtures_earningstate",
+      "label": "EarningState",
       "_callable": true,
       "_callable_class": true,
       "_origin": "ast",
-      "community": 11,
-      "community_name": "admin/page.tsx",
+      "community": 10,
+      "community_name": "fixtures.ts",
       "file_type": "code",
-      "norm_label": "seriespoint",
-      "source_file": "src/components/charts.tsx",
-      "source_location": "L23"
+      "norm_label": "earningstate",
+      "source_file": "src/lib/fixtures.ts",
+      "source_location": "L27"
     },
     {
       "id": "src_lib_fixtures_healthstatus",
@@ -181,8 +181,8 @@
       "_callable": true,
       "_callable_class": true,
       "_origin": "ast",
-      "community": 11,
-      "community_name": "admin/page.tsx",
+      "community": 10,
+      "community_name": "fixtures.ts",
       "file_type": "code",
       "norm_label": "healthstatus",
       "source_file": "src/lib/fixtures.ts",
@@ -194,12 +194,25 @@
       "_callable": true,
       "_callable_class": true,
       "_origin": "ast",
-      "community": 11,
-      "community_name": "admin/page.tsx",
+      "community": 10,
+      "community_name": "fixtures.ts",
       "file_type": "code",
       "norm_label": "invoicestatus",
       "source_file": "src/lib/fixtures.ts",
       "source_location": "L1032"
+    },
+    {
+      "id": "src_components_charts_seriespoint",
+      "label": "SeriesPoint",
+      "_callable": true,
+      "_callable_class": true,
+      "_origin": "ast",
+      "community": 11,
+      "community_name": "sponsor/page.tsx",
+      "file_type": "code",
+      "norm_label": "seriespoint",
+      "source_file": "src/components/charts.tsx",
+      "source_location": "L23"
     },
     {
       "id": "src_lib_fixtures_deliverablestate",
@@ -215,19 +228,6 @@
       "source_location": "L19"
     },
     {
-      "id": "src_lib_fixtures_earningstate",
-      "label": "EarningState",
-      "_callable": true,
-      "_callable_class": true,
-      "_origin": "ast",
-      "community": 12,
-      "community_name": "athlete/page.tsx",
-      "file_type": "code",
-      "norm_label": "earningstate",
-      "source_file": "src/lib/fixtures.ts",
-      "source_location": "L27"
-    },
-    {
       "id": "src_app_app_athlete_invitations_page_filterkey",
       "label": "FilterKey",
       "_callable": true,
@@ -241,17 +241,17 @@
       "source_location": "L43"
     },
     {
-      "id": "src_lib_back_backtarget",
-      "label": "BackTarget",
+      "id": "src_lib_demo_searchparams",
+      "label": "SearchParams",
       "_callable": true,
       "_callable_class": true,
       "_origin": "ast",
       "community": 15,
       "community_name": "invitations/page.tsx",
       "file_type": "code",
-      "norm_label": "backtarget",
-      "source_file": "src/lib/back.ts",
-      "source_location": "L17"
+      "norm_label": "searchparams",
+      "source_file": "src/lib/demo.ts",
+      "source_location": "L12"
     },
     {
       "id": "src_lib_fixtures_invitestate",
@@ -330,6 +330,19 @@
       "norm_label": "props",
       "source_file": "src/components/screen-stub.tsx",
       "source_location": "L3"
+    },
+    {
+      "id": "src_lib_back_backtarget",
+      "label": "BackTarget",
+      "_callable": true,
+      "_callable_class": true,
+      "_origin": "ast",
+      "community": 4,
+      "community_name": "campaigns/new/page.tsx",
+      "file_type": "code",
+      "norm_label": "backtarget",
+      "source_file": "src/lib/back.ts",
+      "source_location": "L17"
     },
     {
       "id": "src_lib_demo_demostate",
@@ -436,19 +449,6 @@
       "source_location": "L18"
     },
     {
-      "id": "src_lib_demo_searchparams",
-      "label": "SearchParams",
-      "_callable": true,
-      "_callable_class": true,
-      "_origin": "ast",
-      "community": 9,
-      "community_name": "campaigns/[id]/page.tsx",
-      "file_type": "code",
-      "norm_label": "searchparams",
-      "source_file": "src/lib/demo.ts",
-      "source_location": "L12"
-    },
-    {
       "id": "src_app_app_admin_layout_adminlayout",
       "label": "AdminLayout()",
       "_callable": true,
@@ -521,16 +521,28 @@
       "source_location": "L67"
     },
     {
-      "id": "src_components_hero_insightstrip",
-      "label": "InsightStrip()",
+      "id": "src_app_app_admin_page_queue",
+      "label": "Queue()",
       "_callable": true,
       "_origin": "ast",
       "community": 10,
       "community_name": "fixtures.ts",
       "file_type": "code",
-      "norm_label": "insightstrip()",
-      "source_file": "src/components/hero.tsx",
-      "source_location": "L113"
+      "norm_label": "queue()",
+      "source_file": "src/app/(app)/admin/page.tsx",
+      "source_location": "L43"
+    },
+    {
+      "id": "src_components_queue_ticker_queueticker",
+      "label": "QueueTicker()",
+      "_callable": true,
+      "_origin": "ast",
+      "community": 10,
+      "community_name": "fixtures.ts",
+      "file_type": "code",
+      "norm_label": "queueticker()",
+      "source_file": "src/components/queue-ticker.tsx",
+      "source_location": "L8"
     },
     {
       "id": "src_lib_fixtures_heroday",
@@ -545,28 +557,16 @@
       "source_location": "L1090"
     },
     {
-      "id": "src_app_app_admin_page_queue",
-      "label": "Queue()",
-      "_callable": true,
-      "_origin": "ast",
-      "community": 11,
-      "community_name": "admin/page.tsx",
-      "file_type": "code",
-      "norm_label": "queue()",
-      "source_file": "src/app/(app)/admin/page.tsx",
-      "source_location": "L43"
-    },
-    {
       "id": "src_components_charts_areachart",
       "label": "AreaChart()",
       "_callable": true,
       "_origin": "ast",
       "community": 11,
-      "community_name": "admin/page.tsx",
+      "community_name": "sponsor/page.tsx",
       "file_type": "code",
       "norm_label": "areachart()",
       "source_file": "src/components/charts.tsx",
-      "source_location": "L124"
+      "source_location": "L88"
     },
     {
       "id": "src_components_charts_donut",
@@ -574,11 +574,11 @@
       "_callable": true,
       "_origin": "ast",
       "community": 11,
-      "community_name": "admin/page.tsx",
+      "community_name": "sponsor/page.tsx",
       "file_type": "code",
       "norm_label": "donut()",
       "source_file": "src/components/charts.tsx",
-      "source_location": "L475"
+      "source_location": "L439"
     },
     {
       "id": "src_components_charts_funnelsteps",
@@ -586,11 +586,11 @@
       "_callable": true,
       "_origin": "ast",
       "community": 11,
-      "community_name": "admin/page.tsx",
+      "community_name": "sponsor/page.tsx",
       "file_type": "code",
       "norm_label": "funnelsteps()",
       "source_file": "src/components/charts.tsx",
-      "source_location": "L563"
+      "source_location": "L521"
     },
     {
       "id": "src_components_charts_hbarlist",
@@ -598,11 +598,11 @@
       "_callable": true,
       "_origin": "ast",
       "community": 11,
-      "community_name": "admin/page.tsx",
+      "community_name": "sponsor/page.tsx",
       "file_type": "code",
       "norm_label": "hbarlist()",
       "source_file": "src/components/charts.tsx",
-      "source_location": "L637"
+      "source_location": "L595"
     },
     {
       "id": "src_components_charts_nicemax",
@@ -610,7 +610,7 @@
       "_callable": true,
       "_origin": "ast",
       "community": 11,
-      "community_name": "admin/page.tsx",
+      "community_name": "sponsor/page.tsx",
       "file_type": "code",
       "norm_label": "nicemax()",
       "source_file": "src/components/charts.tsx",
@@ -622,11 +622,11 @@
       "_callable": true,
       "_origin": "ast",
       "community": 11,
-      "community_name": "admin/page.tsx",
+      "community_name": "sponsor/page.tsx",
       "file_type": "code",
       "norm_label": "radialgauge()",
       "source_file": "src/components/charts.tsx",
-      "source_location": "L378"
+      "source_location": "L342"
     },
     {
       "id": "src_components_charts_sparkline",
@@ -634,11 +634,11 @@
       "_callable": true,
       "_origin": "ast",
       "community": 11,
-      "community_name": "admin/page.tsx",
+      "community_name": "sponsor/page.tsx",
       "file_type": "code",
       "norm_label": "sparkline()",
       "source_file": "src/components/charts.tsx",
-      "source_location": "L52"
+      "source_location": "L42"
     },
     {
       "id": "src_components_charts_trustmeter",
@@ -646,11 +646,11 @@
       "_callable": true,
       "_origin": "ast",
       "community": 11,
-      "community_name": "admin/page.tsx",
+      "community_name": "sponsor/page.tsx",
       "file_type": "code",
       "norm_label": "trustmeter()",
       "source_file": "src/components/charts.tsx",
-      "source_location": "L701"
+      "source_location": "L659"
     },
     {
       "id": "src_components_charts_vizdelay",
@@ -658,23 +658,11 @@
       "_callable": true,
       "_origin": "ast",
       "community": 11,
-      "community_name": "admin/page.tsx",
+      "community_name": "sponsor/page.tsx",
       "file_type": "code",
       "norm_label": "vizdelay()",
       "source_file": "src/components/charts.tsx",
       "source_location": "L20"
-    },
-    {
-      "id": "src_components_queue_ticker_queueticker",
-      "label": "QueueTicker()",
-      "_callable": true,
-      "_origin": "ast",
-      "community": 11,
-      "community_name": "admin/page.tsx",
-      "file_type": "code",
-      "norm_label": "queueticker()",
-      "source_file": "src/components/queue-ticker.tsx",
-      "source_location": "L8"
     },
     {
       "id": "src_app_app_admin_approvals_page_adminapprovalspage",
@@ -735,90 +723,6 @@
       "norm_label": "urgencyhours()",
       "source_file": "src/app/(app)/athlete/invitations/page.tsx",
       "source_location": "L47"
-    },
-    {
-      "id": "src_app_public_athletes_slug_page_athleteprofilepage",
-      "label": "AthleteProfilePage()",
-      "_callable": true,
-      "_origin": "ast",
-      "community": 15,
-      "community_name": "invitations/page.tsx",
-      "file_type": "code",
-      "norm_label": "athleteprofilepage()",
-      "source_file": "src/app/(public)/athletes/[slug]/page.tsx",
-      "source_location": "L72"
-    },
-    {
-      "id": "src_app_public_athletes_slug_page_invicon",
-      "label": "InvIcon()",
-      "_callable": true,
-      "_origin": "ast",
-      "community": 15,
-      "community_name": "invitations/page.tsx",
-      "file_type": "code",
-      "norm_label": "invicon()",
-      "source_file": "src/app/(public)/athletes/[slug]/page.tsx",
-      "source_location": "L38"
-    },
-    {
-      "id": "src_app_public_athletes_slug_page_verifiedtick",
-      "label": "VerifiedTick()",
-      "_callable": true,
-      "_origin": "ast",
-      "community": 15,
-      "community_name": "invitations/page.tsx",
-      "file_type": "code",
-      "norm_label": "verifiedtick()",
-      "source_file": "src/app/(public)/athletes/[slug]/page.tsx",
-      "source_location": "L55"
-    },
-    {
-      "id": "src_app_public_join_page_joinpage",
-      "label": "JoinPage()",
-      "_callable": true,
-      "_origin": "ast",
-      "community": 15,
-      "community_name": "invitations/page.tsx",
-      "file_type": "code",
-      "norm_label": "joinpage()",
-      "source_file": "src/app/(public)/join/page.tsx",
-      "source_location": "L46"
-    },
-    {
-      "id": "src_app_public_join_page_textfield",
-      "label": "TextField()",
-      "_callable": true,
-      "_origin": "ast",
-      "community": 15,
-      "community_name": "invitations/page.tsx",
-      "file_type": "code",
-      "norm_label": "textfield()",
-      "source_file": "src/app/(public)/join/page.tsx",
-      "source_location": "L27"
-    },
-    {
-      "id": "src_components_back_link_backlink",
-      "label": "BackLink()",
-      "_callable": true,
-      "_origin": "ast",
-      "community": 15,
-      "community_name": "invitations/page.tsx",
-      "file_type": "code",
-      "norm_label": "backlink()",
-      "source_file": "src/components/back-link.tsx",
-      "source_location": "L5"
-    },
-    {
-      "id": "src_components_ui_blockednotice",
-      "label": "BlockedNotice()",
-      "_callable": true,
-      "_origin": "ast",
-      "community": 15,
-      "community_name": "invitations/page.tsx",
-      "file_type": "code",
-      "norm_label": "blockednotice()",
-      "source_file": "src/components/ui.tsx",
-      "source_location": "L249"
     },
     {
       "id": "src_app_public_page_homepage",
@@ -941,18 +845,6 @@
       "source_location": "L60"
     },
     {
-      "id": "src_components_hero_heroband",
-      "label": "HeroBand()",
-      "_callable": true,
-      "_origin": "ast",
-      "community": 2,
-      "community_name": "marketplace/page.tsx",
-      "file_type": "code",
-      "norm_label": "heroband()",
-      "source_file": "src/components/hero.tsx",
-      "source_location": "L10"
-    },
-    {
       "id": "src_components_hero_initials",
       "label": "initials()",
       "_callable": true,
@@ -965,16 +857,16 @@
       "source_location": "L67"
     },
     {
-      "id": "src_components_hero_minichip",
-      "label": "MiniChip()",
+      "id": "src_components_hero_insightstrip",
+      "label": "InsightStrip()",
       "_callable": true,
       "_origin": "ast",
       "community": 2,
       "community_name": "marketplace/page.tsx",
       "file_type": "code",
-      "norm_label": "minichip()",
+      "norm_label": "insightstrip()",
       "source_file": "src/components/hero.tsx",
-      "source_location": "L89"
+      "source_location": "L113"
     },
     {
       "id": "src_components_hero_monogram",
@@ -1181,6 +1073,90 @@
       "source_location": "L18"
     },
     {
+      "id": "src_app_app_admin_campaigns_new_page_field",
+      "label": "Field()",
+      "_callable": true,
+      "_origin": "ast",
+      "community": 4,
+      "community_name": "campaigns/new/page.tsx",
+      "file_type": "code",
+      "norm_label": "field()",
+      "source_file": "src/app/(app)/admin/campaigns/new/page.tsx",
+      "source_location": "L54"
+    },
+    {
+      "id": "src_app_app_admin_campaigns_new_page_stepper",
+      "label": "Stepper()",
+      "_callable": true,
+      "_origin": "ast",
+      "community": 4,
+      "community_name": "campaigns/new/page.tsx",
+      "file_type": "code",
+      "norm_label": "stepper()",
+      "source_file": "src/app/(app)/admin/campaigns/new/page.tsx",
+      "source_location": "L20"
+    },
+    {
+      "id": "src_app_public_join_page_joinpage",
+      "label": "JoinPage()",
+      "_callable": true,
+      "_origin": "ast",
+      "community": 4,
+      "community_name": "campaigns/new/page.tsx",
+      "file_type": "code",
+      "norm_label": "joinpage()",
+      "source_file": "src/app/(public)/join/page.tsx",
+      "source_location": "L46"
+    },
+    {
+      "id": "src_app_public_join_page_textfield",
+      "label": "TextField()",
+      "_callable": true,
+      "_origin": "ast",
+      "community": 4,
+      "community_name": "campaigns/new/page.tsx",
+      "file_type": "code",
+      "norm_label": "textfield()",
+      "source_file": "src/app/(public)/join/page.tsx",
+      "source_location": "L27"
+    },
+    {
+      "id": "src_components_back_link_backlink",
+      "label": "BackLink()",
+      "_callable": true,
+      "_origin": "ast",
+      "community": 4,
+      "community_name": "campaigns/new/page.tsx",
+      "file_type": "code",
+      "norm_label": "backlink()",
+      "source_file": "src/components/back-link.tsx",
+      "source_location": "L5"
+    },
+    {
+      "id": "src_components_hero_minichip",
+      "label": "MiniChip()",
+      "_callable": true,
+      "_origin": "ast",
+      "community": 4,
+      "community_name": "campaigns/new/page.tsx",
+      "file_type": "code",
+      "norm_label": "minichip()",
+      "source_file": "src/components/hero.tsx",
+      "source_location": "L89"
+    },
+    {
+      "id": "src_components_ui_blockednotice",
+      "label": "BlockedNotice()",
+      "_callable": true,
+      "_origin": "ast",
+      "community": 4,
+      "community_name": "campaigns/new/page.tsx",
+      "file_type": "code",
+      "norm_label": "blockednotice()",
+      "source_file": "src/components/ui.tsx",
+      "source_location": "L249"
+    },
+    {
       "id": "src_app_app_admin_error_grouperror",
       "label": "GroupError()",
       "_callable": true,
@@ -1361,18 +1337,6 @@
       "source_location": "L39"
     },
     {
-      "id": "src_components_states_skeletonpage",
-      "label": "SkeletonPage()",
-      "_callable": true,
-      "_origin": "ast",
-      "community": 5,
-      "community_name": "states.tsx",
-      "file_type": "code",
-      "norm_label": "skeletonpage()",
-      "source_file": "src/components/states.tsx",
-      "source_location": "L92"
-    },
-    {
       "id": "src_components_states_skeletonrows",
       "label": "SkeletonRows()",
       "_callable": true,
@@ -1419,30 +1383,6 @@
       "norm_label": "campaignbuilderpage()",
       "source_file": "src/app/(app)/admin/campaigns/new/page.tsx",
       "source_location": "L74"
-    },
-    {
-      "id": "src_app_app_admin_campaigns_new_page_field",
-      "label": "Field()",
-      "_callable": true,
-      "_origin": "ast",
-      "community": 62,
-      "community_name": "demoState",
-      "file_type": "code",
-      "norm_label": "field()",
-      "source_file": "src/app/(app)/admin/campaigns/new/page.tsx",
-      "source_location": "L54"
-    },
-    {
-      "id": "src_app_app_admin_campaigns_new_page_stepper",
-      "label": "Stepper()",
-      "_callable": true,
-      "_origin": "ast",
-      "community": 62,
-      "community_name": "demoState",
-      "file_type": "code",
-      "norm_label": "stepper()",
-      "source_file": "src/app/(app)/admin/campaigns/new/page.tsx",
-      "source_location": "L20"
     },
     {
       "id": "src_app_app_admin_finance_page_adminfinancepage",
@@ -1565,6 +1505,18 @@
       "source_location": "L46"
     },
     {
+      "id": "src_app_public_athletes_slug_page_athleteprofilepage",
+      "label": "AthleteProfilePage()",
+      "_callable": true,
+      "_origin": "ast",
+      "community": 62,
+      "community_name": "demoState",
+      "file_type": "code",
+      "norm_label": "athleteprofilepage()",
+      "source_file": "src/app/(public)/athletes/[slug]/page.tsx",
+      "source_location": "L72"
+    },
+    {
       "id": "src_app_public_properties_slug_page_propertyprofilepage",
       "label": "PropertyProfilePage()",
       "_callable": true,
@@ -1623,6 +1575,42 @@
       "norm_label": "adminapplicationspage()",
       "source_file": "src/app/(app)/admin/applications/page.tsx",
       "source_location": "L35"
+    },
+    {
+      "id": "src_app_public_athletes_slug_page_invicon",
+      "label": "InvIcon()",
+      "_callable": true,
+      "_origin": "ast",
+      "community": 7,
+      "community_name": "ui.tsx",
+      "file_type": "code",
+      "norm_label": "invicon()",
+      "source_file": "src/app/(public)/athletes/[slug]/page.tsx",
+      "source_location": "L38"
+    },
+    {
+      "id": "src_app_public_athletes_slug_page_verifiedtick",
+      "label": "VerifiedTick()",
+      "_callable": true,
+      "_origin": "ast",
+      "community": 7,
+      "community_name": "ui.tsx",
+      "file_type": "code",
+      "norm_label": "verifiedtick()",
+      "source_file": "src/app/(public)/athletes/[slug]/page.tsx",
+      "source_location": "L55"
+    },
+    {
+      "id": "src_components_hero_heroband",
+      "label": "HeroBand()",
+      "_callable": true,
+      "_origin": "ast",
+      "community": 7,
+      "community_name": "ui.tsx",
+      "file_type": "code",
+      "norm_label": "heroband()",
+      "source_file": "src/components/hero.tsx",
+      "source_location": "L10"
     },
     {
       "id": "src_components_ui_badge",
@@ -2018,7 +2006,7 @@
       "file_type": "code",
       "norm_label": "chartlegend()",
       "source_file": "src/components/charts.tsx",
-      "source_location": "L353"
+      "source_location": "L317"
     },
     {
       "id": "src_components_states_emptystate",
@@ -2031,6 +2019,18 @@
       "norm_label": "emptystate()",
       "source_file": "src/components/states.tsx",
       "source_location": "L117"
+    },
+    {
+      "id": "src_components_states_skeletonpage",
+      "label": "SkeletonPage()",
+      "_callable": true,
+      "_origin": "ast",
+      "community": 9,
+      "community_name": "campaigns/[id]/page.tsx",
+      "file_type": "code",
+      "norm_label": "skeletonpage()",
+      "source_file": "src/components/states.tsx",
+      "source_location": "L92"
     },
     {
       "id": "src_app_app_admin_layout",
@@ -2154,6 +2154,61 @@
       "source_location": "L277"
     },
     {
+      "id": "src_app_app_admin_finance_page",
+      "label": "finance/page.tsx",
+      "_origin": "ast",
+      "community": 10,
+      "community_name": "fixtures.ts",
+      "file_type": "code",
+      "norm_label": "finance/page.tsx",
+      "source_file": "src/app/(app)/admin/finance/page.tsx",
+      "source_location": "L1"
+    },
+    {
+      "id": "src_app_app_admin_finance_page_earning_tone",
+      "label": "EARNING_TONE",
+      "_origin": "ast",
+      "community": 10,
+      "community_name": "fixtures.ts",
+      "file_type": "code",
+      "norm_label": "earning_tone",
+      "source_file": "src/app/(app)/admin/finance/page.tsx",
+      "source_location": "L35"
+    },
+    {
+      "id": "src_app_app_admin_finance_page_invoice_tone",
+      "label": "INVOICE_TONE",
+      "_origin": "ast",
+      "community": 10,
+      "community_name": "fixtures.ts",
+      "file_type": "code",
+      "norm_label": "invoice_tone",
+      "source_file": "src/app/(app)/admin/finance/page.tsx",
+      "source_location": "L44"
+    },
+    {
+      "id": "src_app_app_admin_page",
+      "label": "admin/page.tsx",
+      "_origin": "ast",
+      "community": 10,
+      "community_name": "fixtures.ts",
+      "file_type": "code",
+      "norm_label": "admin/page.tsx",
+      "source_file": "src/app/(app)/admin/page.tsx",
+      "source_location": "L1"
+    },
+    {
+      "id": "src_app_app_admin_page_health_chip",
+      "label": "HEALTH_CHIP",
+      "_origin": "ast",
+      "community": 10,
+      "community_name": "fixtures.ts",
+      "file_type": "code",
+      "norm_label": "health_chip",
+      "source_file": "src/app/(app)/admin/page.tsx",
+      "source_location": "L36"
+    },
+    {
       "id": "src_app_app_sponsor_campaigns_id_report_page",
       "label": "report/page.tsx",
       "_origin": "ast",
@@ -2165,37 +2220,15 @@
       "source_location": "L1"
     },
     {
-      "id": "src_app_app_sponsor_page",
-      "label": "sponsor/page.tsx",
+      "id": "src_components_queue_ticker",
+      "label": "queue-ticker.tsx",
       "_origin": "ast",
       "community": 10,
       "community_name": "fixtures.ts",
       "file_type": "code",
-      "norm_label": "sponsor/page.tsx",
-      "source_file": "src/app/(app)/sponsor/page.tsx",
+      "norm_label": "queue-ticker.tsx",
+      "source_file": "src/components/queue-ticker.tsx",
       "source_location": "L1"
-    },
-    {
-      "id": "src_app_app_sponsor_page_campaign_tone",
-      "label": "CAMPAIGN_TONE",
-      "_origin": "ast",
-      "community": 10,
-      "community_name": "fixtures.ts",
-      "file_type": "code",
-      "norm_label": "campaign_tone",
-      "source_file": "src/app/(app)/sponsor/page.tsx",
-      "source_location": "L37"
-    },
-    {
-      "id": "src_app_app_sponsor_page_spentpct",
-      "label": "spentPct",
-      "_origin": "ast",
-      "community": 10,
-      "community_name": "fixtures.ts",
-      "file_type": "code",
-      "norm_label": "spentpct",
-      "source_file": "src/app/(app)/sponsor/page.tsx",
-      "source_location": "L44"
     },
     {
       "id": "src_lib_fixtures",
@@ -2209,26 +2242,37 @@
       "source_location": "L1"
     },
     {
-      "id": "src_lib_fixtures_builderdraft",
-      "label": "builderDraft",
+      "id": "src_lib_fixtures_adminactivity",
+      "label": "adminActivity",
       "_origin": "ast",
       "community": 10,
       "community_name": "fixtures.ts",
       "file_type": "code",
-      "norm_label": "builderdraft",
+      "norm_label": "adminactivity",
       "source_file": "src/lib/fixtures.ts",
-      "source_location": "L483"
+      "source_location": "L1071"
     },
     {
-      "id": "src_lib_fixtures_buildersteps",
-      "label": "builderSteps",
+      "id": "src_lib_fixtures_adminfinancex",
+      "label": "adminFinanceX",
       "_origin": "ast",
       "community": 10,
       "community_name": "fixtures.ts",
       "file_type": "code",
-      "norm_label": "buildersteps",
+      "norm_label": "adminfinancex",
       "source_file": "src/lib/fixtures.ts",
-      "source_location": "L476"
+      "source_location": "L1318"
+    },
+    {
+      "id": "src_lib_fixtures_adminops",
+      "label": "adminOps",
+      "_origin": "ast",
+      "community": 10,
+      "community_name": "fixtures.ts",
+      "file_type": "code",
+      "norm_label": "adminops",
+      "source_file": "src/lib/fixtures.ts",
+      "source_location": "L1271"
     },
     {
       "id": "src_lib_fixtures_campaign",
@@ -2264,6 +2308,28 @@
       "source_location": "L522"
     },
     {
+      "id": "src_lib_fixtures_earning_copy",
+      "label": "EARNING_COPY",
+      "_origin": "ast",
+      "community": 10,
+      "community_name": "fixtures.ts",
+      "file_type": "code",
+      "norm_label": "earning_copy",
+      "source_file": "src/lib/fixtures.ts",
+      "source_location": "L1019"
+    },
+    {
+      "id": "src_lib_fixtures_earningitems",
+      "label": "earningItems",
+      "_origin": "ast",
+      "community": 10,
+      "community_name": "fixtures.ts",
+      "file_type": "code",
+      "norm_label": "earningitems",
+      "source_file": "src/lib/fixtures.ts",
+      "source_location": "L1009"
+    },
+    {
       "id": "src_lib_fixtures_efficiency",
       "label": "efficiency",
       "_origin": "ast",
@@ -2273,28 +2339,6 @@
       "norm_label": "efficiency",
       "source_file": "src/lib/fixtures.ts",
       "source_location": "L1237"
-    },
-    {
-      "id": "src_lib_fixtures_eligibleathletes",
-      "label": "eligibleAthletes",
-      "_origin": "ast",
-      "community": 10,
-      "community_name": "fixtures.ts",
-      "file_type": "code",
-      "norm_label": "eligibleathletes",
-      "source_file": "src/lib/fixtures.ts",
-      "source_location": "L500"
-    },
-    {
-      "id": "src_lib_fixtures_engagementspark",
-      "label": "engagementSpark",
-      "_origin": "ast",
-      "community": 10,
-      "community_name": "fixtures.ts",
-      "file_type": "code",
-      "norm_label": "engagementspark",
-      "source_file": "src/lib/fixtures.ts",
-      "source_location": "L1139"
     },
     {
       "id": "src_lib_fixtures_formatinsight",
@@ -2319,17 +2363,6 @@
       "source_location": "L1192"
     },
     {
-      "id": "src_lib_fixtures_funneldetail",
-      "label": "funnelDetail",
-      "_origin": "ast",
-      "community": 10,
-      "community_name": "fixtures.ts",
-      "file_type": "code",
-      "norm_label": "funneldetail",
-      "source_file": "src/lib/fixtures.ts",
-      "source_location": "L1223"
-    },
-    {
       "id": "src_lib_fixtures_geoinsight",
       "label": "geoInsight",
       "_origin": "ast",
@@ -2352,15 +2385,37 @@
       "source_location": "L1213"
     },
     {
-      "id": "src_lib_fixtures_metrictrust",
-      "label": "metricTrust",
+      "id": "src_lib_fixtures_health_copy",
+      "label": "HEALTH_COPY",
       "_origin": "ast",
       "community": 10,
       "community_name": "fixtures.ts",
       "file_type": "code",
-      "norm_label": "metrictrust",
+      "norm_label": "health_copy",
       "source_file": "src/lib/fixtures.ts",
-      "source_location": "L1128"
+      "source_location": "L1063"
+    },
+    {
+      "id": "src_lib_fixtures_integrationhealth",
+      "label": "integrationHealth",
+      "_origin": "ast",
+      "community": 10,
+      "community_name": "fixtures.ts",
+      "file_type": "code",
+      "norm_label": "integrationhealth",
+      "source_file": "src/lib/fixtures.ts",
+      "source_location": "L1055"
+    },
+    {
+      "id": "src_lib_fixtures_invoice_copy",
+      "label": "INVOICE_COPY",
+      "_origin": "ast",
+      "community": 10,
+      "community_name": "fixtures.ts",
+      "file_type": "code",
+      "norm_label": "invoice_copy",
+      "source_file": "src/lib/fixtures.ts",
+      "source_location": "L1040"
     },
     {
       "id": "src_lib_fixtures_performanceseries",
@@ -2383,17 +2438,6 @@
       "norm_label": "platformsplit",
       "source_file": "src/lib/fixtures.ts",
       "source_location": "L1201"
-    },
-    {
-      "id": "src_lib_fixtures_propertyshowcase",
-      "label": "propertyShowcase",
-      "_origin": "ast",
-      "community": 10,
-      "community_name": "fixtures.ts",
-      "file_type": "code",
-      "norm_label": "propertyshowcase",
-      "source_file": "src/lib/fixtures.ts",
-      "source_location": "L1374"
     },
     {
       "id": "src_lib_fixtures_rewardfunnel",
@@ -2473,48 +2517,26 @@
       "source_location": "L1176"
     },
     {
-      "id": "src_lib_fixtures_sponsorbudget",
-      "label": "sponsorBudget",
+      "id": "src_lib_fixtures_sponsorcampaigns",
+      "label": "sponsorCampaigns",
       "_origin": "ast",
       "community": 10,
       "community_name": "fixtures.ts",
       "file_type": "code",
-      "norm_label": "sponsorbudget",
+      "norm_label": "sponsorcampaigns",
       "source_file": "src/lib/fixtures.ts",
-      "source_location": "L1136"
+      "source_location": "L314"
     },
     {
-      "id": "src_lib_fixtures_sponsorcampaignsx",
-      "label": "sponsorCampaignsX",
+      "id": "src_lib_fixtures_sponsorinvoices",
+      "label": "sponsorInvoices",
       "_origin": "ast",
       "community": 10,
       "community_name": "fixtures.ts",
       "file_type": "code",
-      "norm_label": "sponsorcampaignsx",
+      "norm_label": "sponsorinvoices",
       "source_file": "src/lib/fixtures.ts",
-      "source_location": "L1146"
-    },
-    {
-      "id": "src_lib_fixtures_sponsorhero",
-      "label": "sponsorHero",
-      "_origin": "ast",
-      "community": 10,
-      "community_name": "fixtures.ts",
-      "file_type": "code",
-      "norm_label": "sponsorhero",
-      "source_file": "src/lib/fixtures.ts",
-      "source_location": "L1102"
-    },
-    {
-      "id": "src_lib_fixtures_sponsorinsights",
-      "label": "sponsorInsights",
-      "_origin": "ast",
-      "community": 10,
-      "community_name": "fixtures.ts",
-      "file_type": "code",
-      "norm_label": "sponsorinsights",
-      "source_file": "src/lib/fixtures.ts",
-      "source_location": "L1121"
+      "source_location": "L1033"
     },
     {
       "id": "src_lib_fixtures_sponsorstats",
@@ -2526,17 +2548,6 @@
       "norm_label": "sponsorstats",
       "source_file": "src/lib/fixtures.ts",
       "source_location": "L285"
-    },
-    {
-      "id": "src_lib_fixtures_topathletes",
-      "label": "topAthletes",
-      "_origin": "ast",
-      "community": 10,
-      "community_name": "fixtures.ts",
-      "file_type": "code",
-      "norm_label": "topathletes",
-      "source_file": "src/lib/fixtures.ts",
-      "source_location": "L1158"
     },
     {
       "id": "src_lib_fixtures_topcampaign",
@@ -3292,180 +3303,136 @@
       "source_location": "L568"
     },
     {
-      "id": "src_app_app_admin_finance_page",
-      "label": "finance/page.tsx",
+      "id": "src_app_app_sponsor_page",
+      "label": "sponsor/page.tsx",
       "_origin": "ast",
       "community": 11,
-      "community_name": "admin/page.tsx",
+      "community_name": "sponsor/page.tsx",
       "file_type": "code",
-      "norm_label": "finance/page.tsx",
-      "source_file": "src/app/(app)/admin/finance/page.tsx",
+      "norm_label": "sponsor/page.tsx",
+      "source_file": "src/app/(app)/sponsor/page.tsx",
       "source_location": "L1"
     },
     {
-      "id": "src_app_app_admin_finance_page_earning_tone",
-      "label": "EARNING_TONE",
+      "id": "src_app_app_sponsor_page_campaign_tone",
+      "label": "CAMPAIGN_TONE",
       "_origin": "ast",
       "community": 11,
-      "community_name": "admin/page.tsx",
+      "community_name": "sponsor/page.tsx",
       "file_type": "code",
-      "norm_label": "earning_tone",
-      "source_file": "src/app/(app)/admin/finance/page.tsx",
-      "source_location": "L35"
+      "norm_label": "campaign_tone",
+      "source_file": "src/app/(app)/sponsor/page.tsx",
+      "source_location": "L37"
     },
     {
-      "id": "src_app_app_admin_finance_page_invoice_tone",
-      "label": "INVOICE_TONE",
+      "id": "src_app_app_sponsor_page_spentpct",
+      "label": "spentPct",
       "_origin": "ast",
       "community": 11,
-      "community_name": "admin/page.tsx",
+      "community_name": "sponsor/page.tsx",
       "file_type": "code",
-      "norm_label": "invoice_tone",
-      "source_file": "src/app/(app)/admin/finance/page.tsx",
+      "norm_label": "spentpct",
+      "source_file": "src/app/(app)/sponsor/page.tsx",
       "source_location": "L44"
-    },
-    {
-      "id": "src_app_app_admin_page",
-      "label": "admin/page.tsx",
-      "_origin": "ast",
-      "community": 11,
-      "community_name": "admin/page.tsx",
-      "file_type": "code",
-      "norm_label": "admin/page.tsx",
-      "source_file": "src/app/(app)/admin/page.tsx",
-      "source_location": "L1"
-    },
-    {
-      "id": "src_app_app_admin_page_health_chip",
-      "label": "HEALTH_CHIP",
-      "_origin": "ast",
-      "community": 11,
-      "community_name": "admin/page.tsx",
-      "file_type": "code",
-      "norm_label": "health_chip",
-      "source_file": "src/app/(app)/admin/page.tsx",
-      "source_location": "L36"
     },
     {
       "id": "src_components_charts",
       "label": "charts.tsx",
       "_origin": "ast",
       "community": 11,
-      "community_name": "admin/page.tsx",
+      "community_name": "sponsor/page.tsx",
       "file_type": "code",
       "norm_label": "charts.tsx",
       "source_file": "src/components/charts.tsx",
       "source_location": "L1"
     },
     {
-      "id": "src_components_queue_ticker",
-      "label": "queue-ticker.tsx",
+      "id": "src_lib_fixtures_engagementspark",
+      "label": "engagementSpark",
       "_origin": "ast",
       "community": 11,
-      "community_name": "admin/page.tsx",
+      "community_name": "sponsor/page.tsx",
       "file_type": "code",
-      "norm_label": "queue-ticker.tsx",
-      "source_file": "src/components/queue-ticker.tsx",
-      "source_location": "L1"
+      "norm_label": "engagementspark",
+      "source_file": "src/lib/fixtures.ts",
+      "source_location": "L1139"
     },
     {
-      "id": "src_lib_fixtures_adminactivity",
-      "label": "adminActivity",
+      "id": "src_lib_fixtures_funneldetail",
+      "label": "funnelDetail",
       "_origin": "ast",
       "community": 11,
-      "community_name": "admin/page.tsx",
+      "community_name": "sponsor/page.tsx",
       "file_type": "code",
-      "norm_label": "adminactivity",
+      "norm_label": "funneldetail",
       "source_file": "src/lib/fixtures.ts",
-      "source_location": "L1071"
+      "source_location": "L1223"
     },
     {
-      "id": "src_lib_fixtures_adminfinancex",
-      "label": "adminFinanceX",
+      "id": "src_lib_fixtures_metrictrust",
+      "label": "metricTrust",
       "_origin": "ast",
       "community": 11,
-      "community_name": "admin/page.tsx",
+      "community_name": "sponsor/page.tsx",
       "file_type": "code",
-      "norm_label": "adminfinancex",
+      "norm_label": "metrictrust",
       "source_file": "src/lib/fixtures.ts",
-      "source_location": "L1318"
+      "source_location": "L1128"
     },
     {
-      "id": "src_lib_fixtures_adminops",
-      "label": "adminOps",
+      "id": "src_lib_fixtures_sponsorbudget",
+      "label": "sponsorBudget",
       "_origin": "ast",
       "community": 11,
-      "community_name": "admin/page.tsx",
+      "community_name": "sponsor/page.tsx",
       "file_type": "code",
-      "norm_label": "adminops",
+      "norm_label": "sponsorbudget",
       "source_file": "src/lib/fixtures.ts",
-      "source_location": "L1271"
+      "source_location": "L1136"
     },
     {
-      "id": "src_lib_fixtures_earningitems",
-      "label": "earningItems",
+      "id": "src_lib_fixtures_sponsorcampaignsx",
+      "label": "sponsorCampaignsX",
       "_origin": "ast",
       "community": 11,
-      "community_name": "admin/page.tsx",
+      "community_name": "sponsor/page.tsx",
       "file_type": "code",
-      "norm_label": "earningitems",
+      "norm_label": "sponsorcampaignsx",
       "source_file": "src/lib/fixtures.ts",
-      "source_location": "L1009"
+      "source_location": "L1146"
     },
     {
-      "id": "src_lib_fixtures_health_copy",
-      "label": "HEALTH_COPY",
+      "id": "src_lib_fixtures_sponsorhero",
+      "label": "sponsorHero",
       "_origin": "ast",
       "community": 11,
-      "community_name": "admin/page.tsx",
+      "community_name": "sponsor/page.tsx",
       "file_type": "code",
-      "norm_label": "health_copy",
+      "norm_label": "sponsorhero",
       "source_file": "src/lib/fixtures.ts",
-      "source_location": "L1063"
+      "source_location": "L1102"
     },
     {
-      "id": "src_lib_fixtures_integrationhealth",
-      "label": "integrationHealth",
+      "id": "src_lib_fixtures_sponsorinsights",
+      "label": "sponsorInsights",
       "_origin": "ast",
       "community": 11,
-      "community_name": "admin/page.tsx",
+      "community_name": "sponsor/page.tsx",
       "file_type": "code",
-      "norm_label": "integrationhealth",
+      "norm_label": "sponsorinsights",
       "source_file": "src/lib/fixtures.ts",
-      "source_location": "L1055"
+      "source_location": "L1121"
     },
     {
-      "id": "src_lib_fixtures_invoice_copy",
-      "label": "INVOICE_COPY",
+      "id": "src_lib_fixtures_topathletes",
+      "label": "topAthletes",
       "_origin": "ast",
       "community": 11,
-      "community_name": "admin/page.tsx",
+      "community_name": "sponsor/page.tsx",
       "file_type": "code",
-      "norm_label": "invoice_copy",
+      "norm_label": "topathletes",
       "source_file": "src/lib/fixtures.ts",
-      "source_location": "L1040"
-    },
-    {
-      "id": "src_lib_fixtures_sponsorcampaigns",
-      "label": "sponsorCampaigns",
-      "_origin": "ast",
-      "community": 11,
-      "community_name": "admin/page.tsx",
-      "file_type": "code",
-      "norm_label": "sponsorcampaigns",
-      "source_file": "src/lib/fixtures.ts",
-      "source_location": "L314"
-    },
-    {
-      "id": "src_lib_fixtures_sponsorinvoices",
-      "label": "sponsorInvoices",
-      "_origin": "ast",
-      "community": 11,
-      "community_name": "admin/page.tsx",
-      "file_type": "code",
-      "norm_label": "sponsorinvoices",
-      "source_file": "src/lib/fixtures.ts",
-      "source_location": "L1033"
+      "source_location": "L1158"
     },
     {
       "id": "documentation_sponsorx_phase1_managed_marketplace",
@@ -4045,6 +4012,17 @@
       "source_location": "L257"
     },
     {
+      "id": "src_lib_fixtures_athlete",
+      "label": "athlete",
+      "_origin": "ast",
+      "community": 12,
+      "community_name": "athlete/page.tsx",
+      "file_type": "code",
+      "norm_label": "athlete",
+      "source_file": "src/lib/fixtures.ts",
+      "source_location": "L35"
+    },
+    {
       "id": "src_lib_fixtures_athletecareer",
       "label": "athleteCareer",
       "_origin": "ast",
@@ -4098,17 +4076,6 @@
       "norm_label": "deliverables",
       "source_file": "src/lib/fixtures.ts",
       "source_location": "L194"
-    },
-    {
-      "id": "src_lib_fixtures_earning_copy",
-      "label": "EARNING_COPY",
-      "_origin": "ast",
-      "community": 12,
-      "community_name": "athlete/page.tsx",
-      "file_type": "code",
-      "norm_label": "earning_copy",
-      "source_file": "src/lib/fixtures.ts",
-      "source_location": "L1019"
     },
     {
       "id": "src_lib_fixtures_earnings",
@@ -4430,114 +4397,15 @@
       "source_location": "L32"
     },
     {
-      "id": "src_app_public_athletes_slug_page",
-      "label": "athletes/[slug]/page.tsx",
+      "id": "src_lib_demo",
+      "label": "demo.ts",
       "_origin": "ast",
       "community": 15,
       "community_name": "invitations/page.tsx",
       "file_type": "code",
-      "norm_label": "athletes/[slug]/page.tsx",
-      "source_file": "src/app/(public)/athletes/[slug]/page.tsx",
+      "norm_label": "demo.ts",
+      "source_file": "src/lib/demo.ts",
       "source_location": "L1"
-    },
-    {
-      "id": "src_app_public_athletes_slug_page_icons",
-      "label": "ICONS",
-      "_origin": "ast",
-      "community": 15,
-      "community_name": "invitations/page.tsx",
-      "file_type": "code",
-      "norm_label": "icons",
-      "source_file": "src/app/(public)/athletes/[slug]/page.tsx",
-      "source_location": "L30"
-    },
-    {
-      "id": "src_app_public_athletes_slug_page_stagger",
-      "label": "STAGGER",
-      "_origin": "ast",
-      "community": 15,
-      "community_name": "invitations/page.tsx",
-      "file_type": "code",
-      "norm_label": "stagger",
-      "source_file": "src/app/(public)/athletes/[slug]/page.tsx",
-      "source_location": "L8"
-    },
-    {
-      "id": "src_app_public_athletes_slug_page_tabs",
-      "label": "TABS",
-      "_origin": "ast",
-      "community": 15,
-      "community_name": "invitations/page.tsx",
-      "file_type": "code",
-      "norm_label": "tabs",
-      "source_file": "src/app/(public)/athletes/[slug]/page.tsx",
-      "source_location": "L28"
-    },
-    {
-      "id": "src_app_public_join_page",
-      "label": "join/page.tsx",
-      "_origin": "ast",
-      "community": 15,
-      "community_name": "invitations/page.tsx",
-      "file_type": "code",
-      "norm_label": "join/page.tsx",
-      "source_file": "src/app/(public)/join/page.tsx",
-      "source_location": "L1"
-    },
-    {
-      "id": "src_components_back_link",
-      "label": "back-link.tsx",
-      "_origin": "ast",
-      "community": 15,
-      "community_name": "invitations/page.tsx",
-      "file_type": "code",
-      "norm_label": "back-link.tsx",
-      "source_file": "src/components/back-link.tsx",
-      "source_location": "L1"
-    },
-    {
-      "id": "src_lib_back",
-      "label": "back.ts",
-      "_origin": "ast",
-      "community": 15,
-      "community_name": "invitations/page.tsx",
-      "file_type": "code",
-      "norm_label": "back.ts",
-      "source_file": "src/lib/back.ts",
-      "source_location": "L1"
-    },
-    {
-      "id": "src_lib_back_targets",
-      "label": "TARGETS",
-      "_origin": "ast",
-      "community": 15,
-      "community_name": "invitations/page.tsx",
-      "file_type": "code",
-      "norm_label": "targets",
-      "source_file": "src/lib/back.ts",
-      "source_location": "L19"
-    },
-    {
-      "id": "src_lib_fixtures_applicationsections",
-      "label": "applicationSections",
-      "_origin": "ast",
-      "community": 15,
-      "community_name": "invitations/page.tsx",
-      "file_type": "code",
-      "norm_label": "applicationsections",
-      "source_file": "src/lib/fixtures.ts",
-      "source_location": "L692"
-    },
-    {
-      "id": "src_lib_fixtures_athlete",
-      "label": "athlete",
-      "_origin": "ast",
-      "community": 15,
-      "community_name": "invitations/page.tsx",
-      "file_type": "code",
-      "norm_label": "athlete",
-      "source_file": "src/lib/fixtures.ts",
-      "source_location": "L35"
     },
     {
       "id": "src_lib_fixtures_athleteminor",
@@ -4549,17 +4417,6 @@
       "norm_label": "athleteminor",
       "source_file": "src/lib/fixtures.ts",
       "source_location": "L55"
-    },
-    {
-      "id": "src_lib_fixtures_athletepublic",
-      "label": "athletePublic",
-      "_origin": "ast",
-      "community": 15,
-      "community_name": "invitations/page.tsx",
-      "file_type": "code",
-      "norm_label": "athletepublic",
-      "source_file": "src/lib/fixtures.ts",
-      "source_location": "L421"
     },
     {
       "id": "src_lib_fixtures_invitations",
@@ -4694,17 +4551,6 @@
       "source_location": "L1397"
     },
     {
-      "id": "src_app_app_sponsor_marketplace_jobid_page",
-      "label": "[jobId]/page.tsx",
-      "_origin": "ast",
-      "community": 2,
-      "community_name": "marketplace/page.tsx",
-      "file_type": "code",
-      "norm_label": "[jobid]/page.tsx",
-      "source_file": "src/app/(app)/sponsor/marketplace/[jobId]/page.tsx",
-      "source_location": "L1"
-    },
-    {
       "id": "src_app_app_sponsor_marketplace_page",
       "label": "marketplace/page.tsx",
       "_origin": "ast",
@@ -4824,17 +4670,6 @@
       "norm_label": "athleteinv",
       "source_file": "src/lib/fixtures.ts",
       "source_location": "L358"
-    },
-    {
-      "id": "src_lib_fixtures_inventoryitem",
-      "label": "inventoryItem",
-      "_origin": "ast",
-      "community": 2,
-      "community_name": "marketplace/page.tsx",
-      "file_type": "code",
-      "norm_label": "inventoryitem",
-      "source_file": "src/lib/fixtures.ts",
-      "source_location": "L452"
     },
     {
       "id": "src_lib_fixtures_marketplacepackages",
@@ -5912,6 +5747,127 @@
       "norm_label": "screen-stub.tsx",
       "source_file": "src/components/screen-stub.tsx",
       "source_location": "L1"
+    },
+    {
+      "id": "src_app_app_admin_campaigns_new_page",
+      "label": "campaigns/new/page.tsx",
+      "_origin": "ast",
+      "community": 4,
+      "community_name": "campaigns/new/page.tsx",
+      "file_type": "code",
+      "norm_label": "campaigns/new/page.tsx",
+      "source_file": "src/app/(app)/admin/campaigns/new/page.tsx",
+      "source_location": "L1"
+    },
+    {
+      "id": "src_app_app_sponsor_marketplace_jobid_page",
+      "label": "[jobId]/page.tsx",
+      "_origin": "ast",
+      "community": 4,
+      "community_name": "campaigns/new/page.tsx",
+      "file_type": "code",
+      "norm_label": "[jobid]/page.tsx",
+      "source_file": "src/app/(app)/sponsor/marketplace/[jobId]/page.tsx",
+      "source_location": "L1"
+    },
+    {
+      "id": "src_app_public_join_page",
+      "label": "join/page.tsx",
+      "_origin": "ast",
+      "community": 4,
+      "community_name": "campaigns/new/page.tsx",
+      "file_type": "code",
+      "norm_label": "join/page.tsx",
+      "source_file": "src/app/(public)/join/page.tsx",
+      "source_location": "L1"
+    },
+    {
+      "id": "src_components_back_link",
+      "label": "back-link.tsx",
+      "_origin": "ast",
+      "community": 4,
+      "community_name": "campaigns/new/page.tsx",
+      "file_type": "code",
+      "norm_label": "back-link.tsx",
+      "source_file": "src/components/back-link.tsx",
+      "source_location": "L1"
+    },
+    {
+      "id": "src_lib_back",
+      "label": "back.ts",
+      "_origin": "ast",
+      "community": 4,
+      "community_name": "campaigns/new/page.tsx",
+      "file_type": "code",
+      "norm_label": "back.ts",
+      "source_file": "src/lib/back.ts",
+      "source_location": "L1"
+    },
+    {
+      "id": "src_lib_back_targets",
+      "label": "TARGETS",
+      "_origin": "ast",
+      "community": 4,
+      "community_name": "campaigns/new/page.tsx",
+      "file_type": "code",
+      "norm_label": "targets",
+      "source_file": "src/lib/back.ts",
+      "source_location": "L19"
+    },
+    {
+      "id": "src_lib_fixtures_applicationsections",
+      "label": "applicationSections",
+      "_origin": "ast",
+      "community": 4,
+      "community_name": "campaigns/new/page.tsx",
+      "file_type": "code",
+      "norm_label": "applicationsections",
+      "source_file": "src/lib/fixtures.ts",
+      "source_location": "L692"
+    },
+    {
+      "id": "src_lib_fixtures_builderdraft",
+      "label": "builderDraft",
+      "_origin": "ast",
+      "community": 4,
+      "community_name": "campaigns/new/page.tsx",
+      "file_type": "code",
+      "norm_label": "builderdraft",
+      "source_file": "src/lib/fixtures.ts",
+      "source_location": "L483"
+    },
+    {
+      "id": "src_lib_fixtures_buildersteps",
+      "label": "builderSteps",
+      "_origin": "ast",
+      "community": 4,
+      "community_name": "campaigns/new/page.tsx",
+      "file_type": "code",
+      "norm_label": "buildersteps",
+      "source_file": "src/lib/fixtures.ts",
+      "source_location": "L476"
+    },
+    {
+      "id": "src_lib_fixtures_eligibleathletes",
+      "label": "eligibleAthletes",
+      "_origin": "ast",
+      "community": 4,
+      "community_name": "campaigns/new/page.tsx",
+      "file_type": "code",
+      "norm_label": "eligibleathletes",
+      "source_file": "src/lib/fixtures.ts",
+      "source_location": "L500"
+    },
+    {
+      "id": "src_lib_fixtures_inventoryitem",
+      "label": "inventoryItem",
+      "_origin": "ast",
+      "community": 4,
+      "community_name": "campaigns/new/page.tsx",
+      "file_type": "code",
+      "norm_label": "inventoryitem",
+      "source_file": "src/lib/fixtures.ts",
+      "source_location": "L452"
     },
     {
       "id": "eslint_config",
@@ -7829,17 +7785,6 @@
       "source_location": "L1253"
     },
     {
-      "id": "src_app_app_admin_campaigns_new_page",
-      "label": "campaigns/new/page.tsx",
-      "_origin": "ast",
-      "community": 62,
-      "community_name": "demoState",
-      "file_type": "code",
-      "norm_label": "campaigns/new/page.tsx",
-      "source_file": "src/app/(app)/admin/campaigns/new/page.tsx",
-      "source_location": "L1"
-    },
-    {
       "id": "documentation_sponsorx_phase1_managed_marketplace_p1_art_01_brand_retheme_mockup_v1_0_purple_teal_btg_logo_blue_orange",
       "label": "\u2705 `P1-ART-01` \u00b7 Brand retheme \u2014 mockup v1.0 purple/teal \u2192 BTG logo blue/orange",
       "_origin": "ast",
@@ -9180,6 +9125,50 @@
       "source_location": "L43"
     },
     {
+      "id": "src_app_public_athletes_slug_page",
+      "label": "athletes/[slug]/page.tsx",
+      "_origin": "ast",
+      "community": 7,
+      "community_name": "ui.tsx",
+      "file_type": "code",
+      "norm_label": "athletes/[slug]/page.tsx",
+      "source_file": "src/app/(public)/athletes/[slug]/page.tsx",
+      "source_location": "L1"
+    },
+    {
+      "id": "src_app_public_athletes_slug_page_icons",
+      "label": "ICONS",
+      "_origin": "ast",
+      "community": 7,
+      "community_name": "ui.tsx",
+      "file_type": "code",
+      "norm_label": "icons",
+      "source_file": "src/app/(public)/athletes/[slug]/page.tsx",
+      "source_location": "L30"
+    },
+    {
+      "id": "src_app_public_athletes_slug_page_stagger",
+      "label": "STAGGER",
+      "_origin": "ast",
+      "community": 7,
+      "community_name": "ui.tsx",
+      "file_type": "code",
+      "norm_label": "stagger",
+      "source_file": "src/app/(public)/athletes/[slug]/page.tsx",
+      "source_location": "L8"
+    },
+    {
+      "id": "src_app_public_athletes_slug_page_tabs",
+      "label": "TABS",
+      "_origin": "ast",
+      "community": 7,
+      "community_name": "ui.tsx",
+      "file_type": "code",
+      "norm_label": "tabs",
+      "source_file": "src/app/(public)/athletes/[slug]/page.tsx",
+      "source_location": "L28"
+    },
+    {
       "id": "src_app_public_properties_slug_page",
       "label": "properties/[slug]/page.tsx",
       "_origin": "ast",
@@ -9257,6 +9246,17 @@
       "source_location": "L822"
     },
     {
+      "id": "src_lib_fixtures_athletepublic",
+      "label": "athletePublic",
+      "_origin": "ast",
+      "community": 7,
+      "community_name": "ui.tsx",
+      "file_type": "code",
+      "norm_label": "athletepublic",
+      "source_file": "src/lib/fixtures.ts",
+      "source_location": "L421"
+    },
+    {
       "id": "src_lib_fixtures_inventory_copy",
       "label": "INVENTORY_COPY",
       "_origin": "ast",
@@ -9277,6 +9277,17 @@
       "norm_label": "property",
       "source_file": "src/lib/fixtures.ts",
       "source_location": "L388"
+    },
+    {
+      "id": "src_lib_fixtures_propertyshowcase",
+      "label": "propertyShowcase",
+      "_origin": "ast",
+      "community": 7,
+      "community_name": "ui.tsx",
+      "file_type": "code",
+      "norm_label": "propertyshowcase",
+      "source_file": "src/lib/fixtures.ts",
+      "source_location": "L1374"
     },
     {
       "id": "documentation_sponsorx_phase2_marketplace_commerce_2s5_be_01_commission_rule_engine",
@@ -9489,18 +9500,6 @@
       "norm_label": "formal qa report (user request, post-batch)",
       "source_file": "Memory/2026-09-12/tasks-completed.md",
       "source_location": "L60"
-    },
-    {
-      "id": "memory_2026_09_12_tasks_completed_iteration_2_sparkline_regression_funnel_readability_user_screenshots",
-      "label": "Iteration 2 \u2014 sparkline regression + funnel readability (user screenshots)",
-      "_origin": "ast",
-      "community": 72,
-      "community_name": "Stage 1 close-out batch: `P1-QA-01` \u00b7 `P1-QA-03` \u00b7 `P1-QA-02` \u00b7 `P1-PMO-01`",
-      "file_type": "document",
-      "node_kind": "heading",
-      "norm_label": "iteration 2 \u2014 sparkline regression + funnel readability (user screenshots)",
-      "source_file": "Memory/2026-09-12/tasks-completed.md",
-      "source_location": "L131"
     },
     {
       "id": "memory_2026_09_12_tasks_completed_p1_fe_06_chart_entrance_idle_motion_all_dashboards_newly_raised",
@@ -11067,17 +11066,6 @@
       "file_type": "code",
       "norm_label": "campaigns/[id]/page.tsx",
       "source_file": "src/app/(app)/admin/campaigns/[id]/page.tsx",
-      "source_location": "L1"
-    },
-    {
-      "id": "src_lib_demo",
-      "label": "demo.ts",
-      "_origin": "ast",
-      "community": 9,
-      "community_name": "campaigns/[id]/page.tsx",
-      "file_type": "code",
-      "norm_label": "demo.ts",
-      "source_file": "src/lib/demo.ts",
       "source_location": "L1"
     },
     {
@@ -16798,7 +16786,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "src/components/charts.tsx",
-      "source_location": "L153",
+      "source_location": "L117",
       "weight": 1.0
     },
     {
@@ -16810,7 +16798,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "src/components/charts.tsx",
-      "source_location": "L190",
+      "source_location": "L154",
       "weight": 1.0
     },
     {
@@ -16822,7 +16810,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "src/components/charts.tsx",
-      "source_location": "L531",
+      "source_location": "L495",
       "weight": 1.0
     },
     {
@@ -16834,7 +16822,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "src/components/charts.tsx",
-      "source_location": "L590",
+      "source_location": "L547",
       "weight": 1.0
     },
     {
@@ -16846,7 +16834,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "src/components/charts.tsx",
-      "source_location": "L661",
+      "source_location": "L619",
       "weight": 1.0
     },
     {
@@ -16858,7 +16846,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "src/components/charts.tsx",
-      "source_location": "L442",
+      "source_location": "L406",
       "weight": 1.0
     },
     {
@@ -16870,7 +16858,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "src/components/charts.tsx",
-      "source_location": "L87",
+      "source_location": "L74",
       "weight": 1.0
     },
     {
@@ -16882,7 +16870,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "src/components/charts.tsx",
-      "source_location": "L722",
+      "source_location": "L680",
       "weight": 1.0
     },
     {
@@ -29907,17 +29895,6 @@
       "weight": 1.0
     },
     {
-      "source": "memory_2026_09_12_tasks_completed_p1_fe_06_chart_entrance_idle_motion_all_dashboards_newly_raised",
-      "target": "memory_2026_09_12_tasks_completed_iteration_2_sparkline_regression_funnel_readability_user_screenshots",
-      "relation": "contains",
-      "_origin": "ast",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "Memory/2026-09-12/tasks-completed.md",
-      "source_location": "L131",
-      "weight": 1.0
-    },
-    {
       "source": "memory_2026_09_12_tasks_completed_stage_1_close_out_batch_p1_qa_01_p1_qa_03_p1_qa_02_p1_pmo_01",
       "target": "memory_2026_09_12_tasks_completed_p1_qa_01_39_loop_walk_commit_b07267d",
       "relation": "contains",
@@ -31404,17 +31381,6 @@
     },
     {
       "source": "src_components_charts",
-      "target": "src_components_charts_areachart",
-      "relation": "contains",
-      "_origin": "ast",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "src/components/charts.tsx",
-      "source_location": "L124",
-      "weight": 1.0
-    },
-    {
-      "source": "src_components_charts",
       "target": "src_components_charts_vizdelay",
       "relation": "contains",
       "_origin": "ast",
@@ -31448,6 +31414,17 @@
     },
     {
       "source": "src_components_charts",
+      "target": "src_components_charts_chartlegend",
+      "relation": "contains",
+      "_origin": "ast",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "src/components/charts.tsx",
+      "source_location": "L317",
+      "weight": 1.0
+    },
+    {
+      "source": "src_components_charts",
       "target": "src_components_charts_nicemax",
       "relation": "contains",
       "_origin": "ast",
@@ -31459,35 +31436,13 @@
     },
     {
       "source": "src_components_charts",
-      "target": "src_components_charts_chartlegend",
-      "relation": "contains",
-      "_origin": "ast",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "src/components/charts.tsx",
-      "source_location": "L353",
-      "weight": 1.0
-    },
-    {
-      "source": "src_components_charts",
       "target": "src_components_charts_radialgauge",
       "relation": "contains",
       "_origin": "ast",
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "src/components/charts.tsx",
-      "source_location": "L378",
-      "weight": 1.0
-    },
-    {
-      "source": "src_components_charts",
-      "target": "src_components_charts_donut",
-      "relation": "contains",
-      "_origin": "ast",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "src/components/charts.tsx",
-      "source_location": "L475",
+      "source_location": "L342",
       "weight": 1.0
     },
     {
@@ -31498,7 +31453,18 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "src/components/charts.tsx",
-      "source_location": "L52",
+      "source_location": "L42",
+      "weight": 1.0
+    },
+    {
+      "source": "src_components_charts",
+      "target": "src_components_charts_donut",
+      "relation": "contains",
+      "_origin": "ast",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "src/components/charts.tsx",
+      "source_location": "L439",
       "weight": 1.0
     },
     {
@@ -31509,7 +31475,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "src/components/charts.tsx",
-      "source_location": "L563",
+      "source_location": "L521",
       "weight": 1.0
     },
     {
@@ -31520,7 +31486,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "src/components/charts.tsx",
-      "source_location": "L637",
+      "source_location": "L595",
       "weight": 1.0
     },
     {
@@ -31531,7 +31497,18 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "src/components/charts.tsx",
-      "source_location": "L701",
+      "source_location": "L659",
+      "weight": 1.0
+    },
+    {
+      "source": "src_components_charts",
+      "target": "src_components_charts_areachart",
+      "relation": "contains",
+      "_origin": "ast",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "src/components/charts.tsx",
+      "source_location": "L88",
       "weight": 1.0
     },
     {
