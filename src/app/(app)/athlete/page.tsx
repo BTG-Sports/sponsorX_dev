@@ -18,6 +18,7 @@ import {
   DELIVERABLE_COPY,
   agreements,
   athlete,
+  athleteMinor,
   athleteCareer,
   athleteEarningsTrend,
   deliverables,
@@ -93,20 +94,25 @@ export default async function AthletePortalPage({
   if (demo === "loading") return <SkeletonPage />;
   if (demo === "error") throw new Error("Demo error state");
 
+  /* §4 — ?demo=minor renders the same athlete as a minor whose guardian is
+     still unverified; every action that creates an obligation gates on it. */
+  const a = demo === "minor" ? athleteMinor : athlete;
+  const guardianPending = a.isMinor && !a.guardian?.verifiedAt;
+
   const heading = (
     <div className="flex flex-wrap items-end justify-between gap-4">
       <div>
         <h1 className="text-xl font-semibold tracking-tight">
-          {athlete.firstName}&rsquo;s dashboard
+          {a.firstName}&rsquo;s dashboard
         </h1>
         <p className="mt-1 text-xs text-muted">
-          {athlete.sport} · {athlete.position} · {athlete.region} ·{" "}
-          {athlete.school}
+          {a.sport} · {a.position} · {a.region} ·{" "}
+          {a.school}
         </p>
       </div>
       <div className="flex items-center gap-2">
-        <Badge tone="accent">{athlete.tier} tier</Badge>
-        <Badge tone="neutral">{athlete.tierMultiplier} multiplier</Badge>
+        <Badge tone="accent">{a.tier} tier</Badge>
+        <Badge tone="neutral">{a.tierMultiplier} multiplier</Badge>
       </div>
     </div>
   );
@@ -160,6 +166,15 @@ export default async function AthletePortalPage({
         </div>
       )}
 
+      {guardianPending && (
+        <BlockedNotice>
+          Guardian authorization pending — {a.guardian?.legalName} must be
+          verified before {a.firstName} can accept an invitation or submit a
+          deliverable (§4). Invitations stay open; nothing is lost while
+          verification completes.
+        </BlockedNotice>
+      )}
+
       {/* -------------------------------------------------------- headline */}
       {heading}
 
@@ -178,7 +193,7 @@ export default async function AthletePortalPage({
           </ProgressRing>
           <div className="min-w-0">
             <p className="text-[10px] font-medium uppercase tracking-[0.2em] text-muted">
-              {athlete.firstName} — your NIL career
+              {a.firstName} — your NIL career
             </p>
             <p className="mt-1 flex flex-wrap items-baseline gap-2">
               <span className="bg-[linear-gradient(90deg,var(--sx-primary),var(--sx-accent))] bg-clip-text text-4xl font-bold tabular-nums tracking-tight text-transparent sm:text-5xl">
@@ -353,7 +368,17 @@ export default async function AthletePortalPage({
                     </Badge>
                     <div className="shrink-0">
                       {d.state === "NOT_STARTED" ? (
-                        <Button variant="secondary">Upload proof</Button>
+                        <Button
+                          variant="secondary"
+                          disabled={guardianPending}
+                          title={
+                            guardianPending
+                              ? "Blocked: a minor needs a verified guardian first (§4)"
+                              : undefined
+                          }
+                        >
+                          Upload proof
+                        </Button>
                       ) : (
                         <Button variant="ghost">View</Button>
                       )}
@@ -433,7 +458,7 @@ export default async function AthletePortalPage({
             <Card>
               <div className="flex items-baseline justify-between">
                 <span className="text-2xl font-semibold tabular-nums">
-                  {athlete.profileCompletion}%
+                  {a.profileCompletion}%
                 </span>
                 <span className="text-[11px] text-muted">
                   {profileChecklist.filter((c) => c.done).length}/
@@ -441,7 +466,7 @@ export default async function AthletePortalPage({
                 </span>
               </div>
               <div className="mt-2">
-                <Meter value={athlete.profileCompletion} tone="accent" />
+                <Meter value={a.profileCompletion} tone="accent" />
               </div>
               <ul className="mt-4 space-y-1.5">
                 {profileChecklist.map((c) => (
@@ -515,13 +540,13 @@ export default async function AthletePortalPage({
           </section>
 
           {/* -------------------------------------------------- guardian */}
-          {athlete.isMinor && (
+          {a.isMinor && (
             <section className="sx-animate sx-delay-5">
               <SectionHeading title="Guardian" hint="§4 · §11" />
               <Card>
-                <p className="text-xs">{athlete.guardian?.legalName}</p>
+                <p className="text-xs">{a.guardian?.legalName}</p>
                 <div className="mt-2">
-                  {athlete.guardian?.verifiedAt ? (
+                  {a.guardian?.verifiedAt ? (
                     <Badge tone="accent">Verified</Badge>
                   ) : (
                     <Badge tone="warn">Verification pending</Badge>
