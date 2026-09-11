@@ -4,7 +4,10 @@
 Captures the twelve §9 core screens as built, on branch `P1-FE-QA-PMO`
 (fixture stage — Stage 1 complete). Screenshots in
 [design-record/](design-record/) were taken from the running build at 1440px,
-dark theme. Every screen also supports the **Frost light theme**
+dark theme. **Schematic wireframes for all twelve screens:**
+[design-record/SponsorX-Wireframes.html](design-record/SponsorX-Wireframes.html)
+(self-contained, printable; solid buttons = live affordances, dashed =
+deliberately unwired in Stage 1). Every screen also supports the **Frost light theme**
 (`html[data-theme=light]`, toggle in portal chrome) and the `?demo=` state
 switcher (`loading` · `empty` · `error`, plus `minor` on the athlete portal).
 All statistics carry provenance chips per §22, and every displayed number has
