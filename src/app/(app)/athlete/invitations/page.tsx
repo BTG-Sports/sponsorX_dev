@@ -209,7 +209,12 @@ export default async function InvitationsPage({
                       >
                         Review &amp; accept
                       </Button>
-                      <Button variant="secondary">Decline</Button>
+                      <Button
+                        variant="secondary"
+                        title="Records the decline — a wireable transition, not wired in the fixture build"
+                      >
+                        Decline
+                      </Button>
                     </>
                   ) : (
                     <Badge tone={STATE_TONE[inv.state]}>

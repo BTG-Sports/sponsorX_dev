@@ -316,7 +316,12 @@ export default async function AthletePortalPage({
                     >
                       Review &amp; accept
                     </Button>
-                    <Button variant="secondary">Decline</Button>
+                    <Button
+                      variant="secondary"
+                      title="Records the decline — a wireable transition, not wired in the fixture build"
+                    >
+                      Decline
+                    </Button>
                     <Link
                       href={`/athlete/orders/${inv.id}?from=athlete-portal`}
                       className="text-xs text-muted hover:text-text"
@@ -374,7 +379,7 @@ export default async function AthletePortalPage({
                           title={
                             guardianPending
                               ? "Blocked: a minor needs a verified guardian first (§4)"
-                              : undefined
+                              : "Opens the direct-to-R2 presigned upload (guide §11) — not wired"
                           }
                         >
                           Upload proof
