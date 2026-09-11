@@ -1048,3 +1048,20 @@ plan: `docs/superpowers/plans/2026-09-11-p1-fe-04-edge-state-fixtures.md`.
   (the standing A3 landmine).
 - Tracker: `P1-FE-04` → **Code review** in the xlsx. Google Sheet mirror at
   end of day is the human step, per the daily rule.
+
+## Task — `P1-FE-05` · Field-level authz audit (2026-09-12, logged here as the session continued)
+
+**Trigger:** user chose to start it despite the board showing Blocked — the
+dependency (`P1-FE-04` fixtures) is complete on `P1-FE-QA-PMO`, only the
+review formality is pending. Noted in the tracker.
+
+- **Result: zero leaks, no code changes.** Full route-by-route record:
+  `docs/superpowers/audits/2026-09-12-p1-fe-05-field-authz-audit.md`.
+- Method: import analysis (`rates` only in `/athlete`; budget fixtures only in
+  sponsor-own/admin pages) + visible-HTML string checks on 16 routes with the
+  exact `money()` renderings.
+- **Trap documented for future auditors:** Next's inline RSC flight payload
+  uses `"$40"`-style row-reference tokens — a naive dollar-grep false-positives
+  on every page. Strip `<script>` blocks first.
+- Tracker: `P1-FE-05` → **Code review**. Both P1-FE tasks now await rcfworks
+  review; Google Sheet mirror still the human end-of-day step.
