@@ -2,8 +2,8 @@ import Link from "next/link";
 import { Badge, Card, SectionHeading } from "@/components/ui";
 import {
   AreaChart,
+  BarStrip,
   FunnelSteps,
-  Sparkline,
   TrustMeter,
   compact,
 } from "@/components/charts";
@@ -105,7 +105,7 @@ export default async function SponsorDashboardPage({
           <button
             type="button"
             title="Queues render-report on the worker — not wired"
-            className="rounded-lg bg-primary px-3.5 py-1.5 text-[11px] font-medium text-white transition-colors hover:bg-primary-soft"
+            className="rounded-lg bg-primary px-3.5 py-1.5 text-[11px] font-medium text-cta-ink transition-colors hover:bg-primary-soft"
           >
             Export report
           </button>
@@ -196,7 +196,7 @@ export default async function SponsorDashboardPage({
             <span className="text-xs font-medium text-success">+8.7%</span>
           </p>
           <div className="mt-2">
-            <Sparkline points={engagementSpark} />
+            <BarStrip points={engagementSpark} />
           </div>
           <p className="mt-1.5 text-[10px] text-faint">
             5.2% avg rate · MetricDaily
@@ -229,10 +229,8 @@ export default async function SponsorDashboardPage({
             <FunnelSteps stages={funnelDetail.stages} compact />
           </div>
           <p className="mt-1.5 text-[10px] text-faint">
-            8,200 →{" "}
-            <strong className="text-accent">1,870</strong> (
-            {funnelDetail.overallPct}%) · median {funnelDetail.medianRedeemHours}h
-            to redeem
+            <strong className="text-accent">{funnelDetail.overallPct}%</strong>{" "}
+            convert · median {funnelDetail.medianRedeemHours}h to redeem
           </p>
         </Card>
 
@@ -397,7 +395,7 @@ export default async function SponsorDashboardPage({
                 <button
                   type="button"
                   title="Creates a renewal opportunity in Zoho via the queue — not wired"
-                  className="w-full rounded-lg bg-primary px-4 py-2.5 text-xs font-medium text-white transition-colors hover:bg-primary-soft"
+                  className="w-full rounded-lg bg-primary px-4 py-2.5 text-xs font-medium text-cta-ink transition-colors hover:bg-primary-soft"
                 >
                   Discuss renewal
                 </button>

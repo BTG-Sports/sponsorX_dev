@@ -134,7 +134,7 @@ export default function PackagesPage() {
             <button
               type="button"
               title="Creates a CampaignBrief in DRAFT — not wired (B3)"
-              className="mt-5 w-full rounded-lg bg-primary py-2.5 text-xs font-medium text-white transition-colors hover:bg-primary-soft"
+              className="mt-5 w-full rounded-lg bg-primary py-2.5 text-xs font-medium text-cta-ink transition-colors hover:bg-primary-soft"
             >
               Request a brief
             </button>

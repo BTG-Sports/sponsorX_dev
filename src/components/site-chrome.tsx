@@ -58,7 +58,7 @@ export function SiteHeader() {
           </Link>
           <Link
             href="/login"
-            className="rounded-full bg-primary px-4 py-1.5 text-xs font-medium text-white transition-colors hover:bg-primary-soft"
+            className="rounded-full bg-primary px-4 py-1.5 text-xs font-medium text-cta-ink transition-colors hover:bg-primary-soft"
           >
             Get Started
           </Link>

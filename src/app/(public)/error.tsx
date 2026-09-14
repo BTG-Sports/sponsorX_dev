@@ -16,7 +16,7 @@ export default function GroupError({
         <button
           type="button"
           onClick={retry}
-          className="mt-1 rounded-lg bg-primary px-3.5 py-2 text-xs font-medium text-white transition-colors hover:bg-primary-soft"
+          className="mt-1 rounded-lg bg-primary px-3.5 py-2 text-xs font-medium text-cta-ink transition-colors hover:bg-primary-soft"
         >
           Try again
         </button>

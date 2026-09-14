@@ -182,7 +182,7 @@ export default async function MarketplacePage({
         <>
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             {marketplacePackages.map((p, i) => (
-              <div key={p.id} className={`sx-animate sx-delay-${Math.min(i + 1, 5)}`}>
+              <div key={p.id} className={`min-w-0 sx-animate sx-delay-${Math.min(i + 1, 5)}`}>
                 <IdentityCard
                   band={
                     <>
@@ -230,7 +230,7 @@ export default async function MarketplacePage({
                     <button
                       type="button"
                       title="Creates a CampaignBrief in DRAFT — not wired"
-                      className="mt-3 w-full rounded-lg bg-primary py-2 text-[11px] font-medium text-white transition-colors hover:bg-primary-soft"
+                      className="mt-3 w-full rounded-lg bg-primary py-2 text-[11px] font-medium text-cta-ink transition-colors hover:bg-primary-soft"
                     >
                       Request a brief
                     </button>
@@ -253,7 +253,7 @@ export default async function MarketplacePage({
             {athleteInv.map((a, i) => {
               const soldOut = a.state === "SOLD_OUT";
               return (
-                <div key={a.id} className={`sx-animate sx-delay-${Math.min(i + 1, 5)}`}>
+                <div key={a.id} className={`min-w-0 sx-animate sx-delay-${Math.min(i + 1, 5)}`}>
                   <IdentityCard
                     dimmed={soldOut}
                     band={
@@ -339,7 +339,7 @@ export default async function MarketplacePage({
                             ? "Sold out — waitlist not wired"
                             : "Adds to a campaign brief — not wired"
                         }
-                        className="flex-1 rounded-lg bg-accent py-2 text-[11px] font-medium text-white transition-colors hover:bg-accent-soft disabled:cursor-not-allowed disabled:opacity-40"
+                        className="flex-1 rounded-lg bg-accent py-2 text-[11px] font-medium text-cta-ink transition-colors hover:bg-accent-soft disabled:cursor-not-allowed disabled:opacity-40"
                       >
                         {soldOut ? "Join waitlist" : "Add to brief"}
                       </button>
@@ -364,7 +364,7 @@ export default async function MarketplacePage({
         <>
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             {mediaInv.map((m, i) => (
-              <div key={m.id} className={`sx-animate sx-delay-${Math.min(i + 1, 5)}`}>
+              <div key={m.id} className={`min-w-0 sx-animate sx-delay-${Math.min(i + 1, 5)}`}>
                 <IdentityCard
                   band={
                     <>
@@ -428,7 +428,7 @@ export default async function MarketplacePage({
                     </Link>
                     <Link
                       href={`/sponsor/marketplace/${m.id}?from=mk-media`}
-                      className="flex-1 rounded-lg bg-primary py-2 text-center text-[11px] font-medium text-white transition-colors hover:bg-primary-soft"
+                      className="flex-1 rounded-lg bg-primary py-2 text-center text-[11px] font-medium text-cta-ink transition-colors hover:bg-primary-soft"
                     >
                       View Details
                     </Link>

@@ -1,0 +1,422 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SponsorX — Phase 1 Wireframes (§38 · P1-PMO-01)</title>
+<style>
+  :root { --ink:#2b2f36; --line:#c4c9d1; --soft:#e8ebef; --fill:#f4f5f7; --tag:#6b7280; }
+  * { box-sizing:border-box; margin:0; }
+  body { font:13px/1.45 "Segoe UI",system-ui,sans-serif; color:var(--ink); background:#fff; padding:32px; max-width:860px; margin:0 auto; }
+  h1 { font-size:22px; letter-spacing:-.02em; }
+  .meta { color:var(--tag); font-size:12px; margin:6px 0 8px; }
+  .intro { font-size:12px; color:var(--tag); border-left:3px solid var(--line); padding-left:10px; margin:14px 0 30px; }
+  section { margin:0 0 44px; page-break-inside:avoid; }
+  h2 { font-size:14px; margin-bottom:2px; }
+  .route { font:11px/1.4 Consolas,monospace; color:var(--tag); margin-bottom:10px; }
+  /* wireframe kit */
+  .wf { border:2px solid var(--ink); border-radius:6px; padding:10px; background:#fff; }
+  .row { display:flex; gap:8px; margin-bottom:8px; align-items:stretch; }
+  .row:last-child { margin-bottom:0; }
+  .col { display:flex; flex-direction:column; gap:8px; }
+  .grow { flex:1 1 0; min-width:0; }
+  .box { border:1.5px solid var(--line); border-radius:4px; padding:8px; background:#fff; }
+  .box .cap, .cap { font-size:10px; text-transform:uppercase; letter-spacing:.06em; color:var(--tag); }
+  .fill { background:var(--fill); }
+  .bar { height:10px; background:var(--soft); border-radius:3px; margin-top:6px; }
+  .bar.w40{width:40%} .bar.w60{width:60%} .bar.w80{width:80%} .bar.big{height:18px}
+  .btn { border:1.5px solid var(--ink); border-radius:4px; padding:4px 10px; font-size:11px; display:inline-block; background:#fff; }
+  .btn.solid { background:var(--ink); color:#fff; }
+  .btn.dis { border-style:dashed; color:var(--tag); border-color:var(--tag); }
+  .chip { border:1px solid var(--line); border-radius:99px; padding:1px 8px; font-size:10px; color:var(--tag); display:inline-block; margin-right:4px; }
+  .img { position:relative; background:var(--fill); border:1.5px solid var(--line); border-radius:4px; min-height:64px; overflow:hidden; }
+  .img::before,.img::after { content:""; position:absolute; left:0; top:0; width:200%; border-top:1.5px solid var(--line); transform-origin:0 0; }
+  .img::before { transform:rotate(18deg); } .img::after { transform:rotate(-18deg); top:100%; transform-origin:0 100%; }
+  .img .cap { position:absolute; left:6px; bottom:4px; background:#fff; padding:0 4px; z-index:1; }
+  .chart { background:repeating-linear-gradient(90deg,var(--soft) 0 2px,transparent 2px 26px), linear-gradient(to top, var(--fill), #fff); border:1.5px solid var(--line); border-radius:4px; min-height:70px; position:relative; }
+  .chart .cap { position:absolute; left:6px; top:4px; }
+  .list > div { border-bottom:1px solid var(--soft); padding:5px 2px; display:flex; gap:8px; align-items:center; font-size:11px; }
+  .list > div:last-child { border-bottom:0; }
+  .dot { width:18px; height:18px; border:1.5px solid var(--line); border-radius:50%; flex:none; }
+  .sq { width:22px; height:22px; border:1.5px solid var(--line); border-radius:4px; flex:none; background:var(--fill); }
+  .t { flex:1; } .t .bar { margin-top:3px; }
+  .r { font-size:10px; color:var(--tag); white-space:nowrap; }
+  .note { font-size:11px; color:var(--tag); margin-top:8px; }
+  .note b { color:var(--ink); }
+  /* portal frame */
+  .frame { display:flex; gap:8px; }
+  .side { width:96px; flex:none; border:1.5px solid var(--line); border-radius:4px; padding:8px 6px; background:var(--fill); display:flex; flex-direction:column; gap:6px; }
+  .side .cap { font-size:9px; }
+  .navi { border:1px solid var(--line); border-radius:3px; padding:3px 5px; font-size:10px; background:#fff; }
+  .navi.on { border-color:var(--ink); font-weight:600; }
+  .main { flex:1; min-width:0; }
+  .topbar { border:1.5px solid var(--line); border-radius:4px; padding:5px 8px; display:flex; align-items:center; gap:8px; margin-bottom:8px; font-size:10px; color:var(--tag); background:#fff; }
+  .topbar .sp { flex:1; }
+  .kpis { display:grid; grid-template-columns:repeat(4,1fr); gap:8px; }
+  .grid3 { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; }
+  .grid2 { display:grid; grid-template-columns:repeat(2,1fr); gap:8px; }
+  .tag { position:absolute; } /* unused, reserved */
+  @media print { body { padding:12mm; } section { page-break-inside:avoid; } }
+</style>
+</head>
+<body>
+
+<h1>SponsorX — Phase 1 Wireframes</h1>
+<p class="meta">§38 deliverable · task P1-PMO-01 · v1.0 · 2026-09-12 · companion to <b>SponsorX-Design-Record.md</b> and the screen captures in this folder</p>
+<p class="intro">Schematic layout record of the twelve §9 core screens as built (branch P1-FE-QA-PMO, fixture stage).
+Solid-border buttons are live affordances; <span class="btn dis" style="padding:1px 6px">dashed</span> buttons are deliberately
+unwired in Stage&nbsp;1 and carry explanatory tooltips in the build. Portal screens share one chrome: fixed sidebar
+(logo, nav, role chip), sticky top bar (menu/drawer on phones, theme toggle, notifications, user menu with logout).
+Every stat carries a provenance chip (§22). Wireframes are desktop-proportioned; all screens reflow to a single
+column at 360px with the sidebar behind a drawer (see the P1-QA-03 audit).</p>
+
+<!-- ============================================================ SCREEN 1 -->
+<section>
+  <h2>Screen 1 · SponsorX Network Landing</h2>
+  <p class="route">/ · public · §9 screen 1</p>
+  <div class="wf">
+    <div class="topbar">◱ logo <span class="chip">How It Works</span><span class="chip">Athletes</span><span class="chip">Sponsors</span><span class="sp"></span><span class="btn solid">Get Started</span></div>
+    <div class="row">
+      <div class="col grow">
+        <div class="box"><div class="cap">Hero headline</div><div class="bar big w80"></div><div class="bar w60"></div>
+          <div style="margin-top:8px"><span class="btn solid">I’m a Sponsor</span> <span class="btn">Learn More</span></div></div>
+        <div class="row">
+          <div class="box grow"><div class="cap">athletes</div><div class="bar big w40"></div></div>
+          <div class="box grow"><div class="cap">campaigns</div><div class="bar big w40"></div></div>
+          <div class="box grow"><div class="cap">fan value</div><div class="bar big w40"></div></div>
+          <div class="box grow"><div class="cap">redeemed</div><div class="bar big w40"></div></div>
+        </div>
+      </div>
+      <div class="img" style="width:38%"><span class="cap">athlete photography pending (P1-ART-06)</span></div>
+    </div>
+    <div class="row"><div class="box grow fill"><div class="cap">the 12 screens — gallery strip</div><div class="bar w80"></div></div></div>
+    <div class="row">
+      <div class="box grow"><div class="cap">package</div><div class="bar w60"></div><div class="bar w40"></div></div>
+      <div class="box grow"><div class="cap">package (popular)</div><div class="bar w60"></div><div class="bar w40"></div></div>
+      <div class="box grow"><div class="cap">package</div><div class="bar w60"></div><div class="bar w40"></div></div>
+    </div>
+  </div>
+  <p class="note"><b>Data:</b> live network counters (count-up) from Postgres counts/sums — never hardcoded.</p>
+</section>
+
+<!-- ============================================================ SCREEN 2 -->
+<section>
+  <h2>Screen 2 · Login (mock role picker)</h2>
+  <p class="route">/login · public</p>
+  <div class="wf" style="display:flex;justify-content:center;padding:28px">
+    <div class="box" style="width:46%">
+      <div style="text-align:center"><div class="sq" style="margin:0 auto 8px;width:34px;height:34px"></div><div class="cap">SponsorX</div></div>
+      <div class="col" style="margin-top:10px">
+        <span class="btn">Enter as Athlete</span><span class="btn">Enter as Sponsor</span>
+        <span class="btn">Enter as Property</span><span class="btn">Enter as BTG Admin</span>
+      </div>
+      <div class="bar w80" style="margin-top:10px"></div>
+    </div>
+  </div>
+  <p class="note"><b>Replaced by Clerk at P2-INT-01.</b> No credentials collected; exists so every portal demos without auth.</p>
+</section>
+
+<!-- ============================================================ SCREEN 3 -->
+<section>
+  <h2>Screen 3 · Sponsor Dashboard (“Command Deck”)</h2>
+  <p class="route">/sponsor · sponsor portal · §9 screen 3</p>
+  <div class="wf"><div class="frame">
+    <div class="side"><div class="cap">Sponsor</div><div class="navi on">Dashboard</div><div class="navi">Marketplace</div><div class="navi">Campaigns</div><div class="navi">Analytics ·soon</div></div>
+    <div class="main">
+      <div class="topbar">☰ <span>Welcome back — sponsor</span><span class="sp"></span>◐ 🔔 <span class="dot"></span></div>
+      <div class="box fill"><div class="cap">Hero band — views delivered (gradient number) · pacing meter · projection copy</div>
+        <div class="bar big w40"></div>
+        <div class="chart" style="margin-top:8px"><span class="cap">cumulative views + engagements · dashed projection tail · break-even flag</span></div>
+        <div style="margin-top:6px"><span class="chip">insight strip → snap carousel on phones</span></div></div>
+      <div class="kpis" style="margin-top:8px">
+        <div class="box"><div class="cap">engagements + sparkline</div><div class="bar w60"></div></div>
+        <div class="box"><div class="cap">spend vs Zoho budget</div><div class="bar w60"></div></div>
+        <div class="box"><div class="cap">reward funnel (compact)</div><div class="bar w60"></div></div>
+        <div class="box"><div class="cap">ROI tile</div><div class="bar w60"></div></div>
+      </div>
+      <div class="box" style="margin-top:8px"><div class="cap">data-trust provenance bar — verified API / manual / attributed / estimated</div><div class="bar w80"></div></div>
+      <div class="box" style="margin-top:8px"><div class="cap">campaign portfolio — card rows</div>
+        <div class="list">
+          <div><span class="sq"></span><span class="t">Player of the Week<span class="bar w60"></span></span><span class="chip">on track</span></div>
+          <div><span class="sq"></span><span class="t">Community Campaign<span class="bar w60"></span></span><span class="chip">PACING BEHIND</span></div>
+          <div><span class="sq"></span><span class="t">Skills Lab Series<span class="bar w60"></span></span><span class="chip">completed</span></div>
+        </div></div>
+      <div class="grid2" style="margin-top:8px">
+        <div class="box"><div class="cap">top athletes leaderboard</div><div class="bar w80"></div><div class="bar w60"></div></div>
+        <div class="box fill"><div class="cap">renewal card (glow)</div><div class="bar w60"></div><span class="btn solid" style="margin-top:6px">Discuss renewal</span></div>
+      </div>
+    </div>
+  </div></div>
+  <p class="note"><b>Sources:</b> MetricDaily, RewardEvent, Zoho Books (budget/spend). “Community Campaign” (c3) is the canonical under-delivering row everywhere.</p>
+</section>
+
+<!-- ============================================================ SCREEN 4 -->
+<section>
+  <h2>Screen 4 · Sponsor Marketplace</h2>
+  <p class="route">/sponsor/marketplace (public catalog: /packages) · §9 screen 4 · §7 · §17</p>
+  <div class="wf"><div class="frame">
+    <div class="side"><div class="cap">Sponsor</div><div class="navi">Dashboard</div><div class="navi on">Marketplace</div><div class="navi">Campaigns</div></div>
+    <div class="main">
+      <div class="topbar">☰ Marketplace — curated by BTG<span class="sp"></span>◐ <span class="dot"></span></div>
+      <div class="row"><span class="chip"><b>Packages 6</b></span><span class="chip">Athlete inventory 6</span><span class="chip">Media properties 6</span></div>
+      <div class="row"><span class="chip">Basketball ✕</span><span class="chip">Sport ▾</span><span class="chip">Geography ▾</span><span class="chip">Tier ▾</span><span class="chip">Budget ▾</span><span class="r">filters decorative until §13 eligibility query (B3)</span></div>
+      <div class="grid3">
+        <div class="box"><div class="row" style="margin-bottom:6px"><span class="sq"></span><span class="t">Package name<span class="bar w60"></span></span><span class="chip">Active</span></div>
+          <div class="grid2"><div class="box"><div class="cap">price</div></div><div class="box"><div class="cap">athletes</div></div></div>
+          <div class="bar w80"></div><span class="btn dis" style="margin-top:6px">Request a brief</span></div>
+        <div class="box"><div class="row" style="margin-bottom:6px"><span class="dot"></span><span class="t">Athlete card<span class="bar w60"></span></span><span class="chip">tier</span></div>
+          <div class="grid3"><div class="box"><div class="cap">followers</div></div><div class="box"><div class="cap">eng %</div></div><div class="box"><div class="cap">on-time</div></div></div>
+          <div class="bar w60"></div><span class="btn dis" style="margin-top:6px">Add to brief</span></div>
+        <div class="box"><div class="row" style="margin-bottom:6px"><span class="sq"></span><span class="t">Media property<span class="bar w60"></span></span><span class="chip">CPM</span></div>
+          <div class="bar w80"></div><div class="bar w60"></div><span class="btn dis" style="margin-top:6px">Request</span></div>
+      </div>
+    </div>
+  </div></div>
+  <p class="note"><b>Sponsor prices only</b> — AthleteRate.amount never reaches this page (guide §04, audited P1-FE-05). SOLD_OUT dims to “Join waitlist”. No checkout — managed model (§17).</p>
+</section>
+
+<!-- ============================================================ SCREEN 5 -->
+<section>
+  <h2>Screen 5 · Athlete Profile (sponsor-facing) · sibling: Property Profile</h2>
+  <p class="route">/athletes/[slug] · /properties/[slug] · public · §9 screen 5</p>
+  <div class="wf">
+    <div class="topbar">◱ site header<span class="sp"></span><span class="chip">nav</span></div>
+    <div class="row">
+      <div class="img" style="width:120px;min-height:150px"><span class="cap">portrait — R2 pending</span></div>
+      <div class="col grow">
+        <div class="row" style="align-items:center"><b>Athlete Name ✓</b><span class="sp" style="flex:1"></span><span class="btn dis">Follow</span></div>
+        <div class="bar w40"></div>
+        <div class="box fill"><div class="cap">stat band — followers · engagement · reach · core age (each with source label)</div>
+          <div class="kpis" style="margin-top:6px"><div class="bar big"></div><div class="bar big"></div><div class="bar big"></div><div class="bar big"></div></div></div>
+      </div>
+    </div>
+    <div class="row"><span class="chip"><b>Overview</b></span><span class="chip">Inventory</span><span class="chip">Media</span><span class="chip">Performance</span></div>
+    <div class="row">
+      <div class="box grow"><div class="cap">available inventory — sponsor prices</div>
+        <div class="list">
+          <div><span class="sq"></span><span class="t">Instagram Post <span class="chip">SX-02</span></span><span class="r">$ price</span></div>
+          <div><span class="sq"></span><span class="t">Instagram Reel <span class="chip">SX-03</span></span><span class="r">$ price</span></div>
+          <div><span class="sq"></span><span class="t">Appearances <span class="chip">Limited</span></span><span class="r">$ price</span></div>
+        </div><span class="btn solid" style="margin-top:6px">Request Partnership</span></div>
+      <div class="col" style="width:32%">
+        <div class="box"><div class="cap">about</div><div class="bar w80"></div><div class="bar w60"></div></div>
+        <div class="box"><div class="cap">interests (chips)</div><div class="bar w60"></div></div>
+        <div class="box"><div class="cap">restrictions</div><div class="bar w60"></div></div>
+      </div>
+    </div>
+  </div>
+  <p class="note"><b>Prices are what a sponsor pays.</b> The athlete’s own rates never render here (§26 / guide §04).</p>
+</section>
+
+<!-- ============================================================ SCREEN 6 -->
+<section>
+  <h2>Screen 6 · Athlete Portal (dashboard)</h2>
+  <p class="route">/athlete · athlete portal · §9 screen 6 · §24 · ?demo=minor variant (§4)</p>
+  <div class="wf"><div class="frame">
+    <div class="side"><div class="cap">Athlete</div><div class="navi on">Dashboard</div><div class="navi">Invitations</div><div class="navi">Earnings</div></div>
+    <div class="main">
+      <div class="topbar">☰ <span>Welcome back — athlete</span><span class="sp"></span>◐ <span class="dot"></span></div>
+      <div class="box" style="border-style:dashed"><div class="cap">compliance strip — outstanding onboarding items · (demo=minor: guardian-pending notice, §4)</div></div>
+      <div class="box fill" style="margin-top:8px"><div class="row" style="align-items:center">
+        <span class="dot" style="width:44px;height:44px"></span>
+        <div class="col grow"><div class="cap">milestone hero — career earned (gradient) · approved → payout · on-time · audience</div><div class="bar big w60"></div><div class="bar w80"></div></div></div></div>
+      <div class="kpis" style="margin-top:8px">
+        <div class="box"><div class="cap">open invitations</div></div><div class="box"><div class="cap">deliverables due</div></div>
+        <div class="box"><div class="cap">pending earnings</div></div><div class="box"><div class="cap">momentum sparkline</div></div>
+      </div>
+      <div class="row" style="margin-top:8px">
+        <div class="col grow">
+          <div class="box"><div class="cap">campaign invitations (open) — cards</div>
+            <div class="list"><div><span class="t">Campaign · offer $<span class="bar w60"></span></span><span class="btn dis">Review &amp; accept</span><span class="btn dis">Decline</span></div></div></div>
+          <div class="box"><div class="cap">deliverables — §21 pipeline list</div>
+            <div class="list"><div><span class="r">May 15</span><span class="t">Highlight reel<span class="bar w40"></span></span><span class="chip">BTG review</span></div>
+            <div><span class="r">May 21</span><span class="t">Story drop<span class="bar w40"></span></span><span class="btn dis">Upload proof</span></div></div></div>
+          <div class="box"><div class="cap">rate card — the athlete’s own rates (only place they render)</div><div class="bar w80"></div><div class="bar w80"></div></div>
+        </div>
+        <div class="col" style="width:30%">
+          <div class="box"><div class="cap">earnings by state (incl. HELD)</div><div class="bar w60"></div><div class="bar w60"></div></div>
+          <div class="box"><div class="cap">profile completion + meter</div><div class="bar w40"></div></div>
+          <div class="box"><div class="cap">audience + source labels</div><div class="bar w60"></div></div>
+          <div class="box"><div class="cap">agreements (§12 metadata)</div><div class="bar w60"></div></div>
+          <div class="box" style="border-style:dashed"><div class="cap">guardian (§4) — renders for minors</div></div>
+        </div>
+      </div>
+    </div>
+  </div></div>
+  <p class="note"><b>demo=minor:</b> guardian notice strip, “Upload proof” disabled with §4 tooltip, guardian rail card visible. Acceptance blocked until counsel approves the order template (§37 / guide §08).</p>
+</section>
+
+<!-- ============================================================ SCREEN 7 -->
+<section>
+  <h2>Screen 7 · NIL Job / Inventory Detail</h2>
+  <p class="route">/sponsor/marketplace/[jobId] · sponsor portal · §9 screen 7 · §15</p>
+  <div class="wf"><div class="frame">
+    <div class="side"><div class="cap">Sponsor</div><div class="navi">Dashboard</div><div class="navi on">Marketplace</div></div>
+    <div class="main">
+      <div class="topbar">☰ ← back<span class="sp"></span><span class="dot"></span></div>
+      <div class="box fill"><div class="cap">hero band — title · EXCLUSIVE chip · est-views EST chip · implied CPM (§15) · price</div>
+        <div class="bar big w60"></div><div class="row" style="margin-top:6px"><span class="chip">EXCLUSIVE</span><span class="chip">1.2M EST</span><span class="chip">CPM $16</span></div></div>
+      <div class="row" style="margin-top:8px">
+        <div class="col grow">
+          <div class="box"><div class="cap">includes grid</div><div class="grid2" style="margin-top:6px"><div class="bar"></div><div class="bar"></div><div class="bar"></div><div class="bar"></div></div></div>
+          <div class="img"><span class="cap">creative / artwork placeholder</span></div>
+        </div>
+        <div class="col" style="width:32%">
+          <div class="box fill"><div class="cap">Managed by BTG rail</div><span class="btn solid" style="margin-top:6px">Request this inventory</span> <span class="btn">Talk to BTG</span></div>
+          <div class="box"><div class="cap">usage rights · approval terms</div><div class="bar w80"></div></div>
+        </div>
+      </div>
+    </div>
+  </div></div>
+</section>
+
+<!-- ============================================================ SCREEN 8 -->
+<section>
+  <h2>Screen 8 · Campaign Builder + Athlete Matching (staff)</h2>
+  <p class="route">/admin/campaigns/new · admin · §9 screen 8 · §13</p>
+  <div class="wf"><div class="frame">
+    <div class="side"><div class="cap">BTG Admin</div><div class="navi">Command</div><div class="navi on">Campaigns</div><div class="navi">Approvals</div></div>
+    <div class="main">
+      <div class="topbar">☰ New campaign<span class="sp"></span><span class="dot"></span></div>
+      <div class="row"><span class="chip"><b>1 Select Inventory</b></span><span class="chip">2 Details</span><span class="chip">3 Rewards</span><span class="chip">4 Review &amp; Launch</span></div>
+      <div class="row">
+        <div class="col grow">
+          <div class="box"><div class="cap">campaign details form — name · dates · budget · CPM · est views</div><div class="bar w80"></div><div class="bar w60"></div></div>
+          <div class="box"><div class="cap">eligible athletes — §13 step 3 (scores, conflict flags) · scrolls on phone</div>
+            <div class="list">
+              <div><span class="dot"></span><span class="t">Athlete · score 84<span class="bar w40"></span></span><span class="chip">☑ selected</span></div>
+              <div><span class="dot"></span><span class="t">Athlete · score 69<span class="bar w40"></span></span><span class="chip">⚠ conflict</span></div>
+            </div></div>
+          <div class="box"><div class="cap">platform toggles</div><div class="row"><span class="chip">IG ☑</span><span class="chip">YT ☑</span><span class="chip">TikTok ☑</span><span class="chip">FB ☐</span></div></div>
+        </div>
+        <div class="col" style="width:30%">
+          <div class="box fill"><div class="cap">summary rail</div><div class="bar w60"></div><div class="bar w40"></div><span class="btn dis" style="margin-top:6px">Launch → STAFFING</span></div>
+        </div>
+      </div>
+    </div>
+  </div></div>
+</section>
+
+<!-- ============================================================ SCREEN 9 -->
+<section>
+  <h2>Screen 9 · Campaign Operations Dashboard (staff)</h2>
+  <p class="route">/admin/campaigns/[id] · admin · §9 screen 9 · resolves c1 (healthy) / c3 (under-delivering)</p>
+  <div class="wf"><div class="frame">
+    <div class="side"><div class="cap">BTG Admin</div><div class="navi">Command</div><div class="navi on">Campaigns</div></div>
+    <div class="main">
+      <div class="topbar">☰ ← back · Campaign name <span class="chip">Active</span><span class="sp"></span><span class="btn">Edit Campaign</span><span class="btn solid">Sponsor report</span></div>
+      <div class="row"><span class="chip"><b>Overview</b></span><span class="chip">Content Calendar</span><span class="chip">Performance</span><span class="chip">Rewards</span><span class="chip">Leads</span></div>
+      <div class="kpis">
+        <div class="box"><div class="cap">views delivered vs target + meter</div><div class="bar big w60"></div></div>
+        <div class="box"><div class="cap">engagements</div><div class="bar big w40"></div></div>
+        <div class="box"><div class="cap">rewards redeemed</div><div class="bar big w40"></div></div>
+        <div class="box"><div class="cap">days remaining</div><div class="bar big w40"></div></div>
+      </div>
+      <div class="box" style="margin-top:8px;border-style:dashed"><div class="cap">⚠ c3 only: “11 of 22 deliverables landed… re-match the declined slot or adjust the order” (§9.9)</div></div>
+      <div class="row" style="margin-top:8px">
+        <div class="chart grow"><span class="cap">performance over time — views + engagements</span></div>
+        <div class="box" style="width:32%"><div class="cap">top content</div><div class="bar w80"></div><div class="bar w60"></div><div class="bar w60"></div></div>
+      </div>
+      <div class="box" style="margin-top:8px"><div class="cap">athlete roster — §9.9: order · delivered/planned · views · flag · scrolls on phone</div>
+        <div class="list">
+          <div><span class="t">Athlete A</span><span class="chip">accepted</span><span class="r">8/8</span><span class="r">—</span></div>
+          <div><span class="t">Athlete B</span><span class="chip">accepted</span><span class="r">3/8</span><span class="chip">Under-delivering</span></div>
+          <div><span class="t">Athlete C</span><span class="chip">declined</span><span class="r">0/6</span><span class="chip">Replacement needed</span></div>
+        </div></div>
+    </div>
+  </div></div>
+</section>
+
+<!-- =========================================================== SCREEN 10 -->
+<section>
+  <h2>Screen 10 · QR / Reward Creator (staff)</h2>
+  <p class="route">/admin/rewards/new · admin · §9 screen 10 · §16</p>
+  <div class="wf"><div class="frame">
+    <div class="side"><div class="cap">BTG Admin</div><div class="navi">Command</div><div class="navi on">Rewards</div></div>
+    <div class="main">
+      <div class="topbar">☰ New reward<span class="sp"></span><span class="dot"></span></div>
+      <div class="row"><span class="chip"><b>1 Reward Details</b></span><span class="chip">2 Design</span><span class="chip">3 Distribution</span></div>
+      <div class="row">
+        <div class="col grow">
+          <div class="box"><div class="cap">details form — sponsor · offer · redemption type · expiration · terms</div>
+            <div class="bar w80"></div><div class="bar w60"></div><div class="bar w80"></div></div>
+          <div><span class="btn dis">Save as draft</span> <span class="btn dis">Continue</span></div>
+        </div>
+        <div class="box" style="width:36%;background:var(--ink);color:#fff"><div class="cap" style="color:#cbd0d8">fan card preview</div>
+          <div style="font-weight:700;font-size:16px;margin-top:8px">20% OFF</div>
+          <div style="font-size:10px">YOUR NEXT PURCHASE</div>
+          <div class="img" style="margin-top:8px;min-height:56px"><span class="cap">QR</span></div>
+          <div style="font-size:9px;margin-top:6px;color:#cbd0d8">BTG WIN REWARD</div></div>
+      </div>
+    </div>
+  </div></div>
+  <p class="note">Reward terms review is P0-LEG-05; single-use + expiry states render on the fan page (screen list: /r/[token]).</p>
+</section>
+
+<!-- =========================================================== SCREEN 11 -->
+<section>
+  <h2>Screen 11 · Analytics / Athlete Performance (staff)</h2>
+  <p class="route">/admin/analytics · admin · §9 screen 11 · §22 · §16</p>
+  <div class="wf"><div class="frame">
+    <div class="side"><div class="cap">BTG Admin</div><div class="navi">Command</div><div class="navi on">Analytics</div></div>
+    <div class="main">
+      <div class="topbar">☰ Fan &amp; reward analytics<span class="sp"></span><span class="dot"></span></div>
+      <div class="kpis">
+        <div class="box"><div class="cap">QR scans</div><div class="bar big w40"></div></div>
+        <div class="box"><div class="cap">offers claimed</div><div class="bar big w40"></div></div>
+        <div class="box"><div class="cap">redeemed</div><div class="bar big w40"></div></div>
+        <div class="box"><div class="cap">revenue ATTRIBUTED</div><div class="bar big w40"></div></div>
+      </div>
+      <div class="row" style="margin-top:8px">
+        <div class="chart grow"><span class="cap">redemption series</span></div>
+        <div class="box" style="width:34%"><div class="cap">top locations — city-level only, no IP stored</div><div class="bar w80"></div><div class="bar w60"></div><div class="bar w40"></div></div>
+      </div>
+      <div class="grid2" style="margin-top:8px">
+        <div class="box"><div class="cap">top offers</div><div class="bar w80"></div><div class="bar w60"></div></div>
+        <div class="box"><div class="cap">athlete performance</div><div class="bar w80"></div><div class="bar w60"></div></div>
+      </div>
+    </div>
+  </div></div>
+</section>
+
+<!-- =========================================================== SCREEN 12 -->
+<section>
+  <h2>Screen 12 · Sponsor ROI / Campaign Report</h2>
+  <p class="route">/sponsor/campaigns/[id]/report · sponsor portal · §9 screen 12 · §16 · §22</p>
+  <div class="wf"><div class="frame">
+    <div class="side"><div class="cap">Sponsor</div><div class="navi">Dashboard</div><div class="navi on">Campaigns</div></div>
+    <div class="main">
+      <div class="topbar">☰ Campaign report · period<span class="sp"></span><span class="btn solid">Export report</span></div>
+      <div class="row">
+        <div class="box" style="width:26%;text-align:center"><div class="dot" style="width:64px;height:64px;margin:8px auto;border-width:4px"></div><div class="cap">radial ROI gauge — 2.73×</div></div>
+        <div class="box grow"><div class="cap">money story</div>
+          <div class="list"><div><span class="t">Invested <span class="chip">ZOHO BOOKS</span></span><span class="r">$</span></div>
+          <div><span class="t">Attributed revenue</span><span class="r">$</span></div>
+          <div><span class="t">Media value <span class="chip">EST · curated CPM</span></span><span class="r">$</span></div></div></div>
+        <div class="chart grow"><span class="cap">return over time — 1.0× break-even marker</span></div>
+      </div>
+      <div class="grid3" style="margin-top:8px">
+        <div class="box"><div class="cap">format performance (HBars, ▼ under-performer)</div><div class="bar w80"></div><div class="bar w60"></div></div>
+        <div class="box"><div class="cap">platform split (donut)</div><div class="dot" style="width:44px;height:44px;margin:6px auto"></div></div>
+        <div class="box"><div class="cap">geo markets</div><div class="bar w80"></div><div class="bar w60"></div></div>
+      </div>
+      <div class="grid3" style="margin-top:8px">
+        <div class="box"><div class="cap">funnel + stage conversions</div><div class="bar w80"></div></div>
+        <div class="box"><div class="cap">efficiency vs curated benchmarks</div><div class="bar w80"></div></div>
+        <div class="box"><div class="cap">delivery — deliverables · on-time · leads</div><div class="bar w80"></div></div>
+      </div>
+      <div class="grid2" style="margin-top:8px">
+        <div class="box"><div class="cap">top content</div><div class="bar w80"></div><div class="bar w60"></div></div>
+        <div class="box fill"><div class="cap">recommendation card — projected lift</div><div class="bar w80"></div></div>
+      </div>
+      <div class="box" style="margin-top:8px;border-style:dashed"><div class="cap">sourcing footnote — §16 · §22 (media value estimated, revenue attributed via merchant redemption)</div></div>
+    </div>
+  </div></div>
+  <p class="note">Print/PDF layout of this screen is P1-ART-04 (blocked on P0-PMO-05).</p>
+</section>
+
+<p class="intro" style="margin-top:8px">End of wireframes. Layout truth is the code; captures in this folder are the
+visual record; this file is the schematic. Regenerate all three together when a screen changes.</p>
+
+</body>
+</html>

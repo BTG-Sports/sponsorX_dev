@@ -49,6 +49,18 @@ export const athlete = {
   onTimeRate: 94,
 };
 
+/** §4 — the same athlete rendered as a minor whose guardian is not yet
+ *  verified. Selected by ?demo=minor on athlete-portal pages; the base
+ *  `athlete` object is untouched and remains the default. */
+export const athleteMinor = {
+  ...athlete,
+  isMinor: true,
+  guardian: {
+    legalName: "Immaculée Kwizera",
+    verifiedAt: null as string | null,
+  },
+};
+
 /** §11 — the onboarding sections, and whether each is done. */
 export const profileChecklist = [
   { label: "Identity", done: true },
@@ -94,6 +106,7 @@ export const invitations = [
     deliverableCount: 1,
     usageRights: "Campaign channels, 90 days",
     exclusivity: "Category — athletic apparel, 26 weeks",
+    declineReason: null as string | null,
   },
   {
     id: "inv_2",
@@ -107,6 +120,7 @@ export const invitations = [
     deliverableCount: 1,
     usageRights: "Organic only, 30 days",
     exclusivity: null,
+    declineReason: null as string | null,
   },
   {
     id: "inv_3",
@@ -120,6 +134,7 @@ export const invitations = [
     deliverableCount: 2,
     usageRights: "Campaign channels + event recap, 90 days",
     exclusivity: null,
+    declineReason: null as string | null,
   },
   {
     id: "inv_4",
@@ -133,6 +148,7 @@ export const invitations = [
     deliverableCount: 3,
     usageRights: "Campaign channels, 90 days",
     exclusivity: null,
+    declineReason: null as string | null,
   },
   {
     id: "inv_5",
@@ -146,6 +162,8 @@ export const invitations = [
     deliverableCount: 1,
     usageRights: "Organic only, 30 days",
     exclusivity: null,
+    declineReason:
+      "Declined May 4 — scheduling conflict with the state playoff window.",
   },
   {
     id: "inv_6",
@@ -159,6 +177,7 @@ export const invitations = [
     deliverableCount: 1,
     usageRights: "Organic only, 30 days",
     exclusivity: null,
+    declineReason: null as string | null,
   },
 ];
 
@@ -226,7 +245,13 @@ export const earnings = [
   { state: "ELIGIBLE" as EarningState, label: "Eligible", amount: 15_000, count: 1 },
   { state: "APPROVED_FOR_PAYOUT" as EarningState, label: "Approved for payout", amount: 32_000, count: 2 },
   { state: "PAID" as EarningState, label: "Paid", amount: 78_500, count: 6 },
+  { state: "HELD" as EarningState, label: "Held", amount: 12_000, count: 1 },
 ];
+
+/** §21 — why the held order is held; shown beside the state list. One held
+ *  order (ern_7), so one note. */
+export const heldNote =
+  "Skills Lab Series — the published proof failed verification; BTG Finance is re-checking the post URL before this earning can move again (§21).";
 
 /** §12 — agreement metadata and signature references, not the text itself. */
 export const agreements = [
@@ -516,6 +541,65 @@ export const campaignRoster = [
   { name: "Jalen Brooks", slug: "jalen-brooks", order: "ACCEPTED", delivered: 3, planned: 6, views: 149_000, flag: "Under-delivering" },
   { name: "Amara Okafor", slug: "amara-okafor", order: "SENT", delivered: 0, planned: 4, views: 0, flag: "Awaiting acceptance" },
 ];
+
+/** §9.9 keyed by campaign id. c1 stays the canonical healthy campaign and
+ *  reuses the existing exports untouched. c3 "Community Campaign" is THE
+ *  under-delivering campaign (sponsorCampaignsX.c3 is pacing BEHIND):
+ *  views here (96,200) equal sponsorCampaignsX.c3.views; roster
+ *  delivered/planned sums to 11/22 = sponsorCampaigns c3 deliverables;
+ *  per-athlete views sum to the campaign total. One declined order on the
+ *  roster is part of why it under-delivers. */
+export const campaignDetailX: Record<
+  "c1" | "c3",
+  {
+    campaign: typeof campaign;
+    series: typeof campaignSeries;
+    topContent: typeof topContent;
+    roster: typeof campaignRoster;
+    notice: string | null;
+  }
+> = {
+  c1: {
+    campaign,
+    series: campaignSeries,
+    topContent,
+    roster: campaignRoster,
+    notice: null,
+  },
+  c3: {
+    campaign: {
+      id: "c3",
+      name: "Community Campaign",
+      presentedBy: "Under Armour",
+      state: "ACTIVE",
+      daysRemaining: 45,
+      viewsDelivered: 96_200,
+      viewsTarget: 400_000,
+      engagements: 4_910,
+      rewardsRedeemed: 214,
+      tabs: campaign.tabs,
+    },
+    series: [
+      { label: "Jul 1", a: 0, b: 0 },
+      { label: "Jul 15", a: 18_400, b: 940 },
+      { label: "Aug 1", a: 44_100, b: 2_260 },
+      { label: "Aug 15", a: 71_800, b: 3_680 },
+      { label: "Sep 1", a: 96_200, b: 4_910 },
+    ],
+    topContent: [
+      { title: "Community Day — Recap Reel", athlete: "Marcus Reed", views: 38_900 },
+      { title: "Coach's Corner — Ep. 2", athlete: "Jalen Brooks", views: 24_300 },
+      { title: "Neighborhood Clinic — Story", athlete: "Marcus Reed", views: 18_100 },
+    ],
+    roster: [
+      { name: "Marcus Reed", slug: "marcus-reed", order: "ACCEPTED", delivered: 8, planned: 8, views: 57_000, flag: null },
+      { name: "Jalen Brooks", slug: "jalen-brooks", order: "ACCEPTED", delivered: 3, planned: 8, views: 39_200, flag: "Under-delivering" },
+      { name: "Amara Okafor", slug: "amara-okafor", order: "DECLINED", delivered: 0, planned: 6, views: 0, flag: "Replacement needed" },
+    ],
+    notice:
+      "11 of 22 deliverables landed and views are pacing behind target — one Campaign Order was declined and one athlete is under-delivering. Re-match the declined slot or adjust the order (§9.9).",
+  },
+};
 
 /* ---- 10. QR / Reward Creator (mockup screen 10) ---- */
 export const rewardSteps = ["Reward Details", "Design", "Distribution"];
@@ -836,6 +920,60 @@ export const applications = [
       ],
     },
   },
+  {
+    id: "app_5",
+    name: "Devon Price",
+    slug: "devon-price",
+    sport: "Football",
+    region: "Alexandria, VA",
+    submittedAt: "6 days ago",
+    state: "REJECTED" as ApplicationState,
+    isMinor: false,
+    guardianVerified: null as boolean | null,
+    followers: 3_900,
+    flags: [
+      "Category conflict — active exclusivity with a competing apparel brand (§26)",
+    ] as string[],
+    score: {
+      total: 38,
+      method: "rules-v1",
+      factors: [
+        { label: "Engagement", value: 41 },
+        { label: "Content quality", value: 35 },
+        { label: "Audience", value: 22 },
+        { label: "Reliability", value: 48 },
+        { label: "Geography", value: 74 },
+        { label: "Fit", value: 18 },
+      ],
+    },
+  },
+  {
+    id: "app_6",
+    name: "Tyler Nguyen",
+    slug: "tyler-nguyen",
+    sport: "Soccer",
+    region: "Rockville, MD",
+    submittedAt: "3 days ago",
+    state: "SUBMITTED" as ApplicationState,
+    isMinor: true,
+    guardianVerified: false as boolean | null,
+    followers: 12_800,
+    flags: [
+      "Guardian authorization pending — cannot go ACTIVE until verified (§4)",
+    ] as string[],
+    score: {
+      total: 61,
+      method: "rules-v1",
+      factors: [
+        { label: "Engagement", value: 66 },
+        { label: "Content quality", value: 63 },
+        { label: "Audience", value: 47 },
+        { label: "Reliability", value: 58 },
+        { label: "Geography", value: 82 },
+        { label: "Fit", value: 60 },
+      ],
+    },
+  },
 ];
 
 export const APPLICATION_COPY: Record<ApplicationState, string> = {
@@ -875,6 +1013,7 @@ export const earningItems = [
   { id: "ern_4", athlete: "Marcus Reed", campaign: "Player of the Week", jobId: "SX-07", jobName: "Monthly Ambassador", amount: 65_000, state: "PAID" as EarningState, reference: "ZB-2026-0388", updatedAt: "May 2" },
   { id: "ern_5", athlete: "Jalen Brooks", campaign: "Player of the Week", jobId: "SX-05", jobName: "Local Appearance", amount: 28_000, state: "HELD" as EarningState, reference: null, updatedAt: "May 10" },
   { id: "ern_6", athlete: "Amara Okafor", campaign: "Local Blitz — Spring", jobId: "SX-02", jobName: "Sponsored Post", amount: 9_000, state: "DISPUTED" as EarningState, reference: null, updatedAt: "May 9" },
+  { id: "ern_7", athlete: "Shammah Kwizera", campaign: "Skills Lab Series", jobId: "SX-02", jobName: "Sponsored Post", amount: 12_000, state: "HELD" as EarningState, reference: null, updatedAt: "May 17" },
 ];
 
 export const EARNING_COPY: Record<EarningState, string> = {

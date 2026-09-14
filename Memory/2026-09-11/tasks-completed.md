@@ -984,3 +984,84 @@ limitation is a worse outcome than mirroring by hand.
   tokens this run). Benchmark: ~9x token reduction per query.
 - Note: the installed graphify skill file is v0.9.39 vs package 0.9.57 —
   `graphify install --platform claude` will refresh it.
+
+## Task — `P1-FE-04` · Edge-state fixtures (Stage 1, Roadmap A3)
+
+**Trigger:** first task picked off the new Phase 1 board after pulling the
+lead's four phase/tracker commits. Branch **`P1-FE-QA-PMO`** (from
+`A0-A2-Roadmap`). Spec:
+`docs/superpowers/specs/2026-09-11-p1-fe-04-edge-state-fixtures-design.md`;
+plan: `docs/superpowers/plans/2026-09-11-p1-fe-04-edge-state-fixtures.md`.
+
+### User decisions
+- Minor w/ unverified guardian = admin applicant row **plus** a `?demo=minor`
+  athlete-portal variant (option B; no second persona).
+- Declined order = **both** an order-level roster entry and an athlete-side
+  terminal order state (option C).
+- Under-delivery = one canonical campaign, **c3 "Community Campaign"**,
+  consistent across every surface (option B; no ROI-report re-plumbing).
+
+### Shipped (6 commits on `P1-FE-QA-PMO`, append-only fixtures)
+- **Rejected application:** `app_5` Devon Price (REJECTED, category-conflict
+  flag, score 38). **Minor applicant:** `app_6` Tyler Nguyen (`isMinor`,
+  `guardianVerified: false`) — exercises the §4-disabled Approve button the
+  admin page already had.
+- **`?demo=minor`:** `DemoState` gained `"minor"` (athlete-portal-only);
+  `athleteMinor` overlay fixture (guardian Immaculée Kwizera, unverified).
+  Dashboard: guardian `BlockedNotice` strip, gated "Upload proof", guardian
+  side-rail card now reachable. Invitations page: guardian notice.
+  Orders page: previously-dead guardian rail now lights up.
+- **Declined/expired order:** `invitations` rows gained
+  `declineReason: string | null` (schema extension — only `inv_5` carries a
+  value); `athlete/orders/[id]` renders a terminal "Order status" panel for
+  DECLINED / EXPIRED / ACCEPTED (reason shown, no accept card, back-link)
+  instead of the always-on accept rail.
+- **Held earning:** `earnings` gained a HELD bucket ($120, count 1) = new
+  `earningItems` row `ern_7` (Shammah, Skills Lab Series) so athlete earnings
+  and admin finance can never disagree; `heldNote` explains why. Campaign is
+  deliberately NOT "Spring Open House" — Shammah declined that one (`inv_5`).
+- **Under-delivering c3:** new keyed `campaignDetailX` (c1 reuses existing
+  exports; c3 gets own campaign object, series, top content, roster, notice);
+  `admin/campaigns/[id]` now resolves by id (unknown ids fall back to c1).
+  The DECLINED roster entry (Amara, "Replacement needed") lives on c3 —
+  part of why it under-delivers. **Arithmetic invariant:** roster
+  delivered/planned 8+3+0 / 8+8+6 = 11/22 = `sponsorCampaigns` c3;
+  roster views 57,000+39,200 = 96,200 = `sponsorCampaignsX.c3.views`;
+  per-athlete top-content sums ≤ roster views.
+
+### Verification
+- `tsc --noEmit` clean · `eslint src` 0 errors (1 pre-existing warning) ·
+  `next build` green, all routes.
+- Prod smoke (`next start -p 3311`): **11-URL marker matrix, all PASS**,
+  including two negative checks (default `/athlete` has no guardian notice;
+  c1 has no under-delivery notice). Demo URLs: `/admin/applications`,
+  `/athlete?demo=minor`, `/athlete/invitations(?demo=minor)`,
+  `/athlete/orders/inv_5|inv_6|inv_1?demo=minor`, `/athlete/earnings`,
+  `/admin/campaigns/c3`.
+- All six acceptance cases representable **and** rendered — the task's Done
+  condition.
+
+### Notes for the team
+- The dev server on :3000 (user's) was reused for render checks; the plan's
+  own :3399 server refused to start beside it — fine, hot reload covered it.
+- `athleteCareer.openInvites` / `nextExpiry` remain deliberately unwired
+  (the standing A3 landmine).
+- Tracker: `P1-FE-04` → **Code review** in the xlsx. Google Sheet mirror at
+  end of day is the human step, per the daily rule.
+
+## Task — `P1-FE-05` · Field-level authz audit (2026-09-12, logged here as the session continued)
+
+**Trigger:** user chose to start it despite the board showing Blocked — the
+dependency (`P1-FE-04` fixtures) is complete on `P1-FE-QA-PMO`, only the
+review formality is pending. Noted in the tracker.
+
+- **Result: zero leaks, no code changes.** Full route-by-route record:
+  `docs/superpowers/audits/2026-09-12-p1-fe-05-field-authz-audit.md`.
+- Method: import analysis (`rates` only in `/athlete`; budget fixtures only in
+  sponsor-own/admin pages) + visible-HTML string checks on 16 routes with the
+  exact `money()` renderings.
+- **Trap documented for future auditors:** Next's inline RSC flight payload
+  uses `"$40"`-style row-reference tokens — a naive dollar-grep false-positives
+  on every page. Strip `<script>` blocks first.
+- Tracker: `P1-FE-05` → **Code review**. Both P1-FE tasks now await rcfworks
+  review; Google Sheet mirror still the human end-of-day step.

@@ -137,7 +137,7 @@ export default async function JoinPage({
           type="button"
           disabled
           title="Blocked: submission needs the Zod contract and the counsel-approved agreement (B1). UI only."
-          className="rounded-lg bg-primary px-5 py-2.5 text-xs font-medium text-white transition-colors hover:bg-primary-soft disabled:cursor-not-allowed disabled:opacity-40"
+          className="rounded-lg bg-primary px-5 py-2.5 text-xs font-medium text-cta-ink transition-colors hover:bg-primary-soft disabled:cursor-not-allowed disabled:opacity-40"
         >
           Submit application
         </button>

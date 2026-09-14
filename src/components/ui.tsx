@@ -123,7 +123,7 @@ export function Button({
   const base =
     "inline-flex items-center justify-center gap-1.5 rounded-lg px-3.5 py-2 text-xs font-medium transition-colors outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-bg";
   const styles = {
-    primary: "bg-primary text-white hover:bg-primary-soft",
+    primary: "bg-primary text-cta-ink hover:bg-primary-soft",
     secondary: "border border-line bg-transparent text-text hover:bg-surface-2",
     ghost: "text-muted hover:text-text",
   }[variant];

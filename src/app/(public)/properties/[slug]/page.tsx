@@ -143,7 +143,7 @@ export default async function PropertyProfilePage({
                 <button
                   type="button"
                   title="Adds this opportunity to a CampaignBrief — not wired"
-                  className="rounded-lg bg-primary px-5 py-2 text-[11px] font-medium text-white transition-colors hover:bg-primary-soft"
+                  className="rounded-lg bg-primary px-5 py-2 text-[11px] font-medium text-cta-ink transition-colors hover:bg-primary-soft"
                 >
                   Select
                 </button>
