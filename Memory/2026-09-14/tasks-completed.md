@@ -624,3 +624,28 @@ gitignored.
 fresh checkout reports six bogus `Cannot find name 'LayoutProps'` errors,
 because Next generates those types into `.next/types` during the build. Build
 first, then typecheck, or the errors are noise. I nearly reported them as real.
+
+### Tracker reconciled against the memory logs
+
+After the consolidation, checked every task the memory logs record as worked on
+against the tracker's status. **Two rows were stale**, both Friday's work that
+went into the `documentation/` copy and never reached `Claude outputs/`:
+
+- **`P0-OPS-05`** read **Blocked**; it was completed 2026-09-11. Corrected to
+  Done. **Verified live**, not taken on trust — today's Zoho API call
+  (`GET /crm/v8/settings/modules`) returned the `Content_Partners` custom module
+  in org 749122837, so the work demonstrably exists.
+- **`P0-PMO-08`** read **Ready**; the field-mapping document shipped 2026-09-11
+  and is in the repo. Corrected to Code review, with the open O-1 item noted.
+
+This is exactly the damage the split-brain caused, and worth repeating whenever
+copies are merged: **reconcile the tracker against the memory logs, and verify
+against the live system where one exists.** A status is a claim; the Zoho API
+is evidence.
+
+Board after reconciliation: **10 Done · 24 Ready · 1 In progress · 9 Code
+review · 301 Blocked.**
+
+Commit `630b6fa` was pushed to `origin/development/roadmap_2` by the user at
+16:32 — confirmed from the remote-tracking reflog. The agent shell has no
+GitHub credentials, so pushing is always theirs.
