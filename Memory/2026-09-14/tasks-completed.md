@@ -288,3 +288,141 @@ environment holds fabricated data because copying real contacts into a
 break-it environment is a privacy decision; and **this key is for development
 only** — it is bound to a personal Google account, so production needs its own
 key created by Rodney, which takes fifteen minutes and cannot be done for him.
+
+## Task — `P0-PMO-07` · RBAC matrix drafted (Code review)
+
+**Trigger:** user picked it as the next task after `P0-OPS-04` closed. Chosen
+over `P0-OPS-01` (Railway) because Railway unblocks more — 115 tasks — but
+signing up starts its 30-day trial clock, and Stage C of the provisioning
+sequence warns against burning that before there is anything to deploy.
+
+### Blueprint §8 is not empty — the conversion lost it
+The task cites §8 as its source. The converted copy in `graphify-out/` shows
+`# 8. User Roles & Permissions` with nothing under it. Reading the original
+through the Drive connector shows a **twelve-row table**, and those twelve roles
+map **1:1** onto the `Role` enum already in `SponsorX-Implementation-Guide-V2.md`.
+No conflict between the two sources, which was the main risk.
+
+**The conversion dropped every table in the blueprint** — not just §8, but §7
+packages, §5 job codes, §6 rate tiers, §18 Zoho objects, §20 database tables,
+§21 state machines, §19 API endpoints. Prose survived; tables did not. This is
+why an early graphify query for "the twelve roles" returned UI components: the
+graph was built on a copy with the substance removed. **Worth re-running
+ingestion with a converter that keeps tables** — raised as its own task, not
+folded into this one.
+
+Also recorded: v1 of the blueprint had a **Fan** role; v2 dropped it and added
+**Athlete Network Manager**. Dropping Fan is consistent with the fan QR page
+having no login, and the matrix says so explicitly so nobody re-adds it.
+
+### The task definition was wrong, and was amended by PR
+The original read *"12 roles down one side, every resource across the top,
+allow/deny in each cell."* That shape cannot carry the rules it needs to: a
+`PROPERTY_MGR` may read an athlete on their own roster and must not read one on
+another property's — same role, same resource, opposite answers. Ownership is
+the missing axis, and it was already present in §09's twenty starter rows,
+merely encoded inside a resource string.
+
+Amended in `documentation/SponsorX-Phase1-Managed-Marketplace.md` to four axes:
+**role × resource(+field) × action × ownership**. Per the project rule this was
+a change to the Markdown with the reasoning recorded inline, not a quiet
+reinterpretation in the tracker. Left uncommitted on `A0-A2-Roadmap`.
+
+### Two rounds of user correction, both right
+**"make sure you are not over engineering please"** — the audit was worth doing
+honestly. The roles, resources and test cases are what the task literally asks
+for. But I had flagged **eight** open decisions when four were already answered
+by §8. Trimmed to four and the settled ones recorded as settled, so they are
+visible without being in anyone's queue.
+
+**"make sure the gating is solid"** — this one found real holes, and the draft
+was genuinely incomplete before it:
+- **`campaignOrder.compensation`** — the worst. §12 puts compensation *inside*
+  the Campaign Order, which sponsors could read. Denying `athleteRate.amount`
+  while leaving that open achieved nothing.
+- **`campaign.guarantee`** — §20 lists budget *and* guarantee; only one was
+  protected.
+- **`athlete.email` / `athlete.phone`** — privacy, but mainly
+  disintermediation: a sponsor with the athlete's mobile does not need BTG next
+  time.
+- **`athlete.restrictions`** — "already works with Nike" is competitive
+  intelligence. Sponsors now get a conflict yes/no, never the list.
+- **`rewardClaim.fanContact`** — the only personal data belonging to people who
+  never logged in. Denied to everyone, including the sponsor who funded it.
+
+Plus three rules that stop the field table being walked around: derived values
+inherit the restriction; exports and reports are reads; audit-log access must be
+at least as restricted as the most sensitive field it records.
+
+**A limitation stated rather than papered over:** package prices are published
+in §7 of the blueprint, so an athlete can already divide $750 by 3 athletes.
+The rules stop SponsorX *showing* the sponsor price; they cannot make it
+unknowable. That belongs in the D2 decision rather than hidden.
+
+### Shipped
+- `documentation/SponsorX-RBAC-Matrix.md` v0.1 — 12 roles, ~26 resources, the
+  sensitive-field tables, five open decisions, and **85 active test cases plus 3
+  deferred** in §09's `CASES` format, ready to lift into `authz.matrix.test.ts`.
+- `documentation/SponsorX-Who-Can-See-What.md` — the plain-English companion.
+  I offered to delete it as duplication; **the user chose to keep it for
+  reference.**
+- Phase 1 markdown task definition amended.
+
+### Status — deliberately not Done
+Acceptance reads *"…in a table, **agreed**"*. Five decisions (D1–D5) need human
+answers, so the task sits at **Code review** — the same place `P0-PMO-08` sits
+for the same reason. "Code review" is an awkward label for a document task, but
+it is the closest value the board's status list offers and it matches precedent.
+Board: 10 Done · 26 Ready · 2 Code review · 307 Blocked.
+
+**The five:** D1 guardian accepting for a minor (§8 explicitly defers, and it
+ties to the open e-signature question) · D2 athlete seeing sponsor price ·
+D3 property manager seeing roster earnings (legal) · D4 sales seeing athlete
+rates · D5 athlete seeing their own Content Value Score.
+
+### `P0-PMO-07` closed — Done 2026-09-14
+
+The user adopted all five defaults. Matrix promoted to **v1.0, agreed**, §12
+rewritten from *Open decisions* to *Decisions taken*, and the three deferred test
+rows activated — **91 active cases, none deferred**.
+
+**Every decision was adopted at its restrictive option**, and that framing is
+what made the sign-off quick: each one can later be loosened by a deliberate,
+recorded decision, and none can leak anything by accident meanwhile. Being wrong
+in that direction costs a conversation; being wrong in the other costs a
+disclosure that cannot be withdrawn. Worth reusing when putting a set of
+access-control choices to a non-specialist.
+
+- **D1** — guardian authorises **and** athlete accepts; both required for a
+  minor. Modelled as `campaignOrder.authorize` (guardian, ward) distinct from
+  `campaignOrder.accept` (athlete, own), so neither substitutes for the other.
+- **D2** — athlete does not see sponsor price.
+- **D3** — property manager does not see individual earnings.
+- **D4** — sales cannot see athlete rates.
+- **D5** — athlete sees tier, not factor scores.
+
+**D1 and D3 stay subject to legal confirmation** — D1 to the open guardian
+e-signature question, D3 to whatever the school and club agreements actually
+say. Neither blocks, because confirmation can only ratify or tighten them.
+
+### A correction from the user that improved the document
+The user pushed back on sponsors seeing athlete pay — *"its selfish and it has
+no connection ethic wise."* That rule was already in place, but had been
+justified in the draft purely as protecting BTG's margin. Their argument is
+better and is now what the document says: **a sponsor is buying an outcome, not
+an hour of someone's labour, and what the athlete is paid is not their
+business.** The margin protection follows from that rather than the reverse.
+This matters practically — a rule defended only as commercial self-interest is
+the kind that gets traded away in a negotiation.
+
+They also caught a genuine communication failure: I had been asking them to
+adopt "the five defaults" without ever stating what those defaults were, since
+they existed only inside a document I had written. Recorded as a persistent
+Claude memory. **Writing something to a file does not communicate it.**
+
+### Trackers
+Task board: `P0-PMO-07` → Done, `Date Done` 2026-09-14. Board now **11 Done ·
+26 Ready · 1 Code review · 307 Blocked** — the remaining Code review is
+`P0-PMO-08` from Friday. Dashboard formulas intact (75). The provisioning
+sequence does not list `P0-PMO-07` (it covers vendor steps only), so no change
+there. Google Sheet still to be mirrored by hand at end of day.

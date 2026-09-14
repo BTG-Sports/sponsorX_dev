@@ -149,11 +149,13 @@ Open the Railway account and project in the region chosen above. Set a spend ale
 
 **Order** 2 · **PMO** · **Where:** Document · **3d** · **Ready** · **Unblocks** 106
 
-A table: each of the 12 user roles down one side, every Phase 1 resource across the top, allow/deny in each cell. This table literally becomes the automated test suite later, so it has to be agreed by humans first.
+A table of authorization rules: each of the 12 user roles against every Phase 1 resource, qualified by ownership (own / other / ward / own-tenant / other-tenant / own-property / any) and by action (read / write / approve), allow or deny for each. Sensitive fields — sponsor price, campaign budget, athlete rate — are listed as resources in their own right. This table literally becomes the automated test suite later, so it has to be agreed by humans first.
+
+*Amended 2026-09-14.* The original wording described a flat grid — roles down one side, resources across the top. That shape cannot express the rules it has to carry: a `PROPERTY_MGR` may read an athlete on their own roster and must not read one on another property's, which is the same role and the same resource with opposite answers. Ownership and sensitive fields were already present in the twenty starter rows in §09 of the implementation guide; the amendment names them as axes rather than leaving them encoded inside a resource string.
 
 - **Depends on:** nothing — startable now
-- **Done when:** All 12 roles × every Phase 1 resource, in a table, agreed — this becomes the authz test suite
-- **Reference:** §8, §38
+- **Done when:** All 12 roles × every Phase 1 resource × ownership × action, in a table, agreed — this becomes the authz test suite
+- **Reference:** §8 (the twelve roles, as a table in the original document — note that the copy converted into `graphify-out/` has lost it), §38, and §09 of [`SponsorX-Implementation-Guide-V2.md`](./SponsorX-Implementation-Guide-V2.md) for the twenty starter rows and the target test format
 
 ### ▶ `P0-OPS-03` · Create Clerk application (dev + production instances)
 
