@@ -114,6 +114,57 @@ export function Sparkline({
   );
 }
 
+/* -------------------------------------------------------------- BarStrip */
+
+/**
+ * Column-per-period strip for stat tiles whose series is a discrete count
+ * (daily engagements etc.) — bars are the honest mark for sums, and stay
+ * legible where a flattish sparkline reads as noise. Pipeline hue with the
+ * latest bar in accent ("now"), matching the funnel's outcome semantic.
+ * Columns rise from the baseline in a left→right wave; the latest bar
+ * breathes on idle. No rounded corners: preserveAspectRatio="none" would
+ * stretch the radii unevenly.
+ */
+export function BarStrip({
+  points,
+  height = 24,
+}: {
+  points: number[];
+  height?: number;
+}) {
+  const max = Math.max(...points, 1);
+  const n = points.length;
+  const bw = 100 / n;
+  return (
+    <Reveal>
+      <svg
+        viewBox={`0 0 100 ${height}`}
+        preserveAspectRatio="none"
+        className="h-6 w-full"
+        aria-hidden="true"
+      >
+        {points.map((v, i) => {
+          const h = Math.max((v / max) * (height - 2), 1.5);
+          const last = i === n - 1;
+          return (
+            <rect
+              key={i}
+              x={i * bw + bw * 0.15}
+              y={height - h}
+              width={bw * 0.7}
+              height={h}
+              fill={last ? "var(--sx-accent)" : "var(--sx-primary)"}
+              opacity={last ? 1 : 0.4 + 0.35 * (i / Math.max(n - 1, 1))}
+              className={last ? "sx-viz-grow-y-live" : "sx-viz-grow-y"}
+              style={vizDelay(0.1 + i * 0.035)}
+            />
+          );
+        })}
+      </svg>
+    </Reveal>
+  );
+}
+
 /* ------------------------------------------------------------- AreaChart */
 
 /**
@@ -552,13 +603,14 @@ export function Donut({
 
 /**
  * True stepped funnel. Full mode renders labeled bars with inter-stage
- * conversion rates; compact mode renders the bar glyph for bento cells.
+ * conversion rates; compact mode renders labeled mini rows for bento cells.
  *
- * Readability redesign (2026-09-12, senior-dataviz feedback): bars share a
- * left origin so the stage-to-stage decay is the shape you see, and color
- * follows the data's one job — a single sequential primary ramp for the
- * pipeline with only the final conversion stage in accent. The old centered
- * glyph with a 2+2 blue/orange split read as four unrelated bars.
+ * Readability redesign (2026-09-12, senior-dataviz feedback, iterated twice):
+ * bars share a left origin so stage-to-stage decay is the shape you see, and
+ * color follows the data's one job — sequential primary for the pipeline,
+ * accent reserved for the final conversion stage. Compact mode was an
+ * unlabeled centered glyph; it now names each stage and shows its value,
+ * because a funnel a reader can't decode is decoration, not data.
  */
 export function FunnelSteps({
   stages,
@@ -573,25 +625,43 @@ export function FunnelSteps({
   if (isCompact) {
     return (
       <Reveal>
-        <svg viewBox="0 0 100 30" className="h-8 w-full" aria-hidden="true">
-          {stages.map((s, i) => {
-            const w = Math.max((s.value / max) * 100, 6);
-            return (
-              <rect
-                key={s.label}
-                x={0}
-                y={i * 8}
-                width={w}
-                height={5}
-                rx={2.5}
-                fill={i === last ? "var(--sx-accent)" : "var(--sx-primary)"}
-                opacity={i === last ? 1 : 1 - i * (0.5 / Math.max(last - 1, 1))}
-                className="sx-viz-grow-x"
+        <ul className="space-y-1">
+          {stages.map((s, i) => (
+            <li key={s.label} className="flex items-center gap-2">
+              <span
+                className="sx-viz-fade w-16 shrink-0 truncate text-[9px] uppercase tracking-wide text-faint"
                 style={vizDelay(i * 0.1)}
-              />
-            );
-          })}
-        </svg>
+              >
+                {s.label}
+              </span>
+              <div
+                className="sx-viz-glint h-1.5 min-w-0 flex-1 overflow-hidden rounded-full bg-surface-2"
+                style={vizDelay(i * 0.4)}
+              >
+                <div
+                  className="sx-viz-grow-x h-full rounded-full"
+                  style={{
+                    width: `${Math.max((s.value / max) * 100, 3)}%`,
+                    background:
+                      i === last ? "var(--sx-accent)" : "var(--sx-primary)",
+                    opacity:
+                      i === last ? 1 : 1 - i * (0.4 / Math.max(last - 1, 1)),
+                    ...vizDelay(i * 0.1),
+                  }}
+                />
+              </div>
+              <span
+                className={[
+                  "sx-viz-fade w-11 shrink-0 text-right text-[10px] tabular-nums",
+                  i === last ? "font-medium text-accent" : "text-muted",
+                ].join(" ")}
+                style={vizDelay(i * 0.1 + 0.15)}
+              >
+                {s.value.toLocaleString()}
+              </span>
+            </li>
+          ))}
+        </ul>
       </Reveal>
     );
   }

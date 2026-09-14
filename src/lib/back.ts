@@ -35,6 +35,10 @@ const TARGETS: Record<string, BackTarget> = {
   sponsor: { href: "/sponsor", label: "Back to Dashboard" },
   admin: { href: "/admin", label: "Back to Admin" },
   "athlete-portal": { href: "/athlete", label: "Back to your dashboard" },
+  "athlete-profile": {
+    href: "/athlete/profile",
+    label: "Back to your portal",
+  },
   "athlete-invitations": {
     href: "/athlete/invitations",
     label: "Back to invitations",
