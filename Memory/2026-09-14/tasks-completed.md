@@ -690,3 +690,38 @@ split, which is a fixture *shape* change and so has to land in the Prisma model
 too, not just the fixtures).
 
 Board: **11 Done · 24 Ready · 1 In progress · 8 Code review · 301 Blocked.**
+
+## Code review closed — eight rows to Done
+
+Reviewed the queue rather than rubber-stamping it. Three claims were verified
+mechanically, not taken on trust:
+
+- **`P1-FE-04`** — all six edge states its acceptance names are genuinely in
+  `fixtures.ts`, and modelled well: the minor is a separate `athleteMinor`
+  fixture selected by `?demo=minor`, with a guardian whose `verifiedAt` can be
+  null, rather than duplicated screens.
+- **`P1-FE-05`** — grepped route by route. No athlete rate on any sponsor-facing
+  or public screen; no campaign budget on any athlete screen. Matches the
+  authz matrix written earlier the same day.
+- **`P1-FE-06`** — checked against the running dev server. 8 chart-bearing pages
+  carry the markup (the eighth is `/admin/campaigns/[id]`), `globals.css` ships
+  exactly 11 `sx-viz` keyframes, the scripting pause gate, and 4
+  reduced-motion guards. **Every figure in HeckerCreatives' claim was precisely
+  right** — worth saying, because it means their records can be trusted where
+  they cannot be independently checked.
+
+Partially verified: **`P1-QA-02`**'s no-JS redeem page returns HTTP 200 with
+server-rendered content. **`P1-QA-03`** has no static culprits — viewport meta
+correct, no `min-width` above 360px, charts and carousel in overflow containers.
+Contrast, keyboard navigation and actual scrollWidth all need a browser; their
+Chrome DevTools measurements are more rigorous than a shell can manage and were
+accepted on the record.
+
+**`P0-PMO-08` approved with O-1 carried.** Eight of nine §18 objects are mapped;
+the ninth (Invoice/Payment Reference) depends on the payment policy, which the
+user has deliberately put on the backburner. The eight mapped objects are what
+the sync gets built from, so holding the document hostage to a deferred question
+helps nobody. Flagged to reopen if O-1 ends up changing a mapped field.
+
+**Board: 19 Done · 24 Ready · 1 In progress · 301 Blocked — nothing in Code
+review.** Stage 1 is closed.
