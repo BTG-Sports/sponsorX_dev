@@ -1,10 +1,11 @@
-import { Badge, Card, SectionHeading, StatTile } from "@/components/ui";
-import { FunnelSteps, Sparkline } from "@/components/charts";
-import { MiniChip } from "@/components/hero";
+import { Card, SectionHeading, Badge } from "@/components/ui";
+import { AreaChart } from "@/components/charts";
+import { HeroBand, MiniChip } from "@/components/hero";
+import { ActivityExplorer } from "@/components/activity-explorer";
 import { EmptyState, SkeletonPage } from "@/components/states";
 import { demoState } from "@/lib/demo";
+import { JOURNEY, when } from "@/lib/earnings-ui";
 import {
-  EARNING_COPY,
   athlete,
   athleteCareer,
   athleteEarningsTrend,
@@ -12,33 +13,46 @@ import {
   earnings,
   heldNote,
   money,
-  type EarningState,
 } from "@/lib/fixtures";
 
 /* --------------------------------------------------------------------------
-   Athlete Earnings — §24, §21. Athlete portal. Redesigned 2026-09-11 (A2).
+   Athlete Earnings — §24, §21. Redesigned 2026-09-14 (UX feedback: the A2
+   layout leaked spec language — "§21 state machine", Σ notation, a card
+   *explaining* the state machine — and buried the career total in a tile row).
 
-   Status only. The Earning state machine (§21) is the whole feature here:
-   PENDING → ELIGIBLE → APPROVED_FOR_PAYOUT → PAID, with HELD / DISPUTED as
-   off-ramps. SponsorX stores no bank details and no tax ID (§26, Addendum A6),
-   and no money moves through the system in Phase 1 — payout happens outside
-   it. Earning.reference holds a Zoho/payment reference where one exists, never
-   a credential.
+   The page answers the athlete's four questions in reading order: how much
+   have I made (hero), what's arriving next (payout line), where is each
+   dollar right now (the money journey), and is anything stuck (hold strip).
+   §21 is still the backbone — the journey's four cells ARE
+   PENDING → ELIGIBLE → APPROVED_FOR_PAYOUT → PAID, just written in plain
+   English (shared copy in src/lib/earnings-ui.ts), with HELD pulled out as
+   an attention strip instead of a lecture.
 
-   Canonical career totals come from `athleteCareer` (Postgres). The per-state
-   `earnings` rows and the `earningItems` table are a smaller, in-cycle sample
-   at a different scale — they are framed as "this cycle / recent items", never
-   as the career total, so the two never contradict on screen.
+   Recent activity is the page's one client island (ActivityExplorer):
+   instant search + date/status/type filters and a slide-over detail drawer.
+   A first pass used a no-JS GET form + <details> accordion; feedback was
+   that the Apply button and accordion felt clunky, so this screen spends
+   the same small client budget as InsightCarousel. Filter state still lives
+   in the URL (replaceState) and is seeded back on first render, so filtered
+   views stay shareable.
+
+   Constraints unchanged: status only, no money moves through SponsorX in
+   Phase 1, no bank details or tax ID anywhere (§26, Addendum A6) — said once,
+   in the trust bar. §22 provenance is kept but quiet: one chip on the hero
+   figure, one on the trend, one "all figures" chip in the trust bar.
+   Canonical career totals come from `athleteCareer` (Postgres); the per-state
+   `earnings` buckets and `earningItems` rows are the in-cycle sample and are
+   framed as such.
    -------------------------------------------------------------------------- */
 
-const EARNING_TONE: Record<EarningState, "neutral" | "primary" | "accent" | "danger"> = {
-  PENDING: "neutral",
-  ELIGIBLE: "primary",
-  APPROVED_FOR_PAYOUT: "primary",
-  PAID: "accent",
-  HELD: "danger",
-  DISPUTED: "danger",
+/** Axis ticks in dollars ($2.8K), not the raw-cents "283K" `compact` gives. */
+const fmtUsd = (c: number) => {
+  if (c === 0) return "$0";
+  const k = c / 100_000;
+  return `$${k >= 10 ? Math.round(k) : k.toFixed(1).replace(/\.0$/, "")}K`;
 };
+
+const MONTH_LABELS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
 export default async function AthleteEarningsPage({
   searchParams,
@@ -53,8 +67,7 @@ export default async function AthleteEarningsPage({
     <div>
       <h1 className="text-xl font-semibold tracking-tight">Earnings</h1>
       <p className="mt-1 text-xs text-muted">
-        Status of what you&rsquo;ve earned across campaigns. §21 state machine
-        — status only, no payment details.
+        Every dollar from delivered work to payout — in one place.
       </p>
     </div>
   );
@@ -74,9 +87,24 @@ export default async function AthleteEarningsPage({
 
   // This portal is scoped to the signed-in athlete; fixtures use one demo
   // athlete, so filter earning rows to them (the real query is tenant-scoped).
-  const mine = earningItems.filter((e) => e.athlete === athlete.displayName);
+  const mine = earningItems
+    .filter((e) => e.athlete === athlete.displayName)
+    .sort((a, b) => when(b.updatedAt) - when(a.updatedAt));
+
+  // Seed the explorer's filters from the URL so filtered links stay
+  // shareable; the island clamps stale values and keeps the URL in sync.
+  const sp = await searchParams;
+  const one = (v: string | string[] | undefined) =>
+    typeof v === "string" ? v : "";
+
+  const byState = Object.fromEntries(earnings.map((e) => [e.state, e]));
+  const held = byState.HELD;
 
   // Monthly earnings trend (Σ Earning by month — Postgres).
+  const trendPoints = athleteEarningsTrend.map((a, i) => ({
+    label: MONTH_LABELS[i] ?? "",
+    a,
+  }));
   const trendAvgCents = Math.round(
     athleteEarningsTrend.reduce((s, v) => s + v, 0) / athleteEarningsTrend.length,
   );
@@ -86,157 +114,204 @@ export default async function AthleteEarningsPage({
       {/* -------------------------------------------------------- headline */}
       {heading}
 
-      {/* ------------------------------------------- canonical tiles + YTD */}
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <StatTile
-          label="Career earned"
-          value={money(athleteCareer.careerEarningsCents)}
-          sub="approved + paid, to date"
-        />
-        <StatTile
-          label="Approved for payout"
-          value={money(athleteCareer.approvedCents)}
-          sub={`payout ${athleteCareer.nextPayout}`}
-        />
-        <StatTile
-          label="On-time rate"
-          value={`${athleteCareer.onTimeRatePct}%`}
-          sub="deliverables on schedule"
-        />
-        <Card className="p-4">
-          <p className="text-[11px] font-medium uppercase tracking-wide text-muted">
-            YTD momentum
-          </p>
-          <div className="mt-2.5">
-            <Sparkline points={athleteEarningsTrend} stroke="var(--sx-athlete)" />
-          </div>
-          <p className="mt-2 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-[11px] text-faint">
-            <span className="font-semibold text-text">{money(trendAvgCents)}</span>
-            / month avg
-            <MiniChip kind="ver">POSTGRES</MiniChip>
-          </p>
-        </Card>
-      </div>
-      <p className="-mt-2 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-[10px] text-faint">
-        Career, approved and on-time are Σ Earning / deliverable timestamps
-        <MiniChip kind="ver">POSTGRES</MiniChip>
-        · payout status only, no tax ID or bank details (§26)
-      </p>
+      {/* -------------------------------------------------- career hero */}
+      <HeroBand border="border-athlete/30" className="sx-animate">
+        <div className="grid gap-6 lg:grid-cols-[17rem_minmax(0,1fr)] lg:items-center">
+          <div>
+            <p className="text-[10px] font-medium uppercase tracking-[0.2em] text-muted">
+              Career earnings
+            </p>
+            <p className="mt-1 flex flex-wrap items-baseline gap-2">
+              <span className="bg-[linear-gradient(90deg,var(--sx-primary),var(--sx-accent))] bg-clip-text text-4xl font-bold tabular-nums tracking-tight text-transparent sm:text-5xl">
+                {money(athleteCareer.careerEarningsCents)}
+              </span>
+              <MiniChip kind="ver">POSTGRES</MiniChip>
+            </p>
+            <p className="mt-1 text-[11px] text-faint">
+              everything you&rsquo;ve earned across campaigns, to date
+            </p>
 
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_18rem] xl:items-start">
-        {/* ============================================== earning rows */}
-        <section className="min-w-0">
-          <SectionHeading
-            title="Recent orders"
-            hint="Recent items — a sample of the cycle, not the career total. Each Campaign Order earns once its deliverables are verified."
-          />
-          <Card className="p-0">
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[32rem] text-left">
-                <thead>
-                  <tr className="border-b border-line text-[10px] uppercase tracking-wider text-faint">
-                    <th className="px-4 py-2.5 font-medium">Campaign</th>
-                    <th className="px-4 py-2.5 font-medium">Job</th>
-                    <th className="px-4 py-2.5 font-medium">Status</th>
-                    <th className="px-4 py-2.5 text-right font-medium">Amount</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-line-soft">
-                  {mine.map((e) => (
-                    <tr key={e.id}>
-                      <td className="px-4 py-3">
-                        <p className="text-xs font-medium">{e.campaign}</p>
-                        <p className="mt-0.5 text-[11px] text-faint">
-                          updated {e.updatedAt}
-                          {e.reference && (
-                            <>
-                              {" · ref "}
-                              <code className="font-mono">{e.reference}</code>
-                            </>
-                          )}
-                        </p>
-                      </td>
-                      <td className="px-4 py-3">
-                        <Badge tone="neutral">{e.jobId}</Badge>
-                      </td>
-                      <td className="px-4 py-3">
-                        <Badge tone={EARNING_TONE[e.state]}>
-                          {EARNING_COPY[e.state]}
-                        </Badge>
-                      </td>
-                      <td className="px-4 py-3 text-right text-xs font-semibold tabular-nums">
-                        {money(e.amount)}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            <div className="mt-5 space-y-2.5 text-xs text-muted">
+              <p className="flex items-center gap-2">
+                <span className="relative inline-flex size-2 shrink-0" aria-hidden="true">
+                  <span className="sx-viz-pulse absolute inset-0 rounded-full bg-success" />
+                  <span className="relative inline-flex size-2 rounded-full bg-success" />
+                </span>
+                <span>
+                  <strong className="font-semibold text-text">
+                    {money(athleteCareer.approvedCents)}
+                  </strong>{" "}
+                  on the way — payout {athleteCareer.nextPayout}
+                </span>
+              </p>
+              <p className="flex items-center gap-2">
+                <span
+                  className="inline-flex size-2 shrink-0 rounded-full bg-primary"
+                  aria-hidden="true"
+                />
+                <span>
+                  <strong className="font-semibold text-text">
+                    {athleteCareer.onTimeRatePct}%
+                  </strong>{" "}
+                  on-time delivery — sponsors notice
+                </span>
+              </p>
             </div>
-          </Card>
-        </section>
+          </div>
 
-        {/* ==================================================== side rail */}
-        <div className="space-y-4">
-          <Card>
-            <SectionHeading
-              title="This cycle by state"
-              hint="§21 — sample, not the career total"
+          <div className="min-w-0">
+            <AreaChart
+              points={trendPoints}
+              aName="Monthly earnings"
+              fmtA={fmtUsd}
+              xTicks={5}
+              height={200}
             />
-            <FunnelSteps
-              stages={earnings.map((e) => ({ label: e.label, value: e.amount }))}
-              compact
-            />
-            <ul className="mt-3 space-y-1.5">
-              {earnings.map((e) => (
-                <li key={e.state} className="flex items-center gap-3">
-                  <Badge tone={EARNING_TONE[e.state]}>{e.label}</Badge>
-                  <span className="ml-auto text-xs font-semibold tabular-nums">
-                    {money(e.amount)}
-                  </span>
-                </li>
-              ))}
-            </ul>
-            <p className="mt-2 rounded-lg border border-danger/25 bg-danger/8 px-2.5 py-1.5 text-[11px] leading-relaxed text-muted">
-              {heldNote}
-            </p>
-            <p className="mt-3 flex items-center gap-1.5 text-[10px] text-faint">
-              Σ Earning by state, this cycle <MiniChip kind="ver">POSTGRES</MiniChip>
-            </p>
-          </Card>
-
-          <Card>
-            <SectionHeading title="The state machine" hint="§21" />
-            <ol className="space-y-2 text-[11px]">
-              {(
-                [
-                  "PENDING",
-                  "ELIGIBLE",
-                  "APPROVED_FOR_PAYOUT",
-                  "PAID",
-                ] as EarningState[]
-              ).map((s, i) => (
-                <li key={s} className="flex items-center gap-2.5">
-                  <span className="text-faint tabular-nums">{i + 1}</span>
-                  <Badge tone={EARNING_TONE[s]}>{EARNING_COPY[s]}</Badge>
-                </li>
-              ))}
-            </ol>
-            <p className="mt-3 border-t border-line-soft pt-3 text-[11px] leading-relaxed text-faint">
-              <Badge tone="danger">Held</Badge> and{" "}
-              <Badge tone="danger">Disputed</Badge> are off-ramps handled by
-              BTG Finance.
-            </p>
-          </Card>
-
-          <Card>
-            <p className="text-[11px] font-medium text-muted">No account details</p>
-            <p className="mt-1.5 text-[11px] leading-relaxed text-faint">
-              SponsorX never collects a bank account or tax ID (§26, Addendum
-              A6). This screen shows the status of your earnings; the payout
-              itself happens outside SponsorX in Phase 1.
-            </p>
-          </Card>
+            <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-[10px] text-muted">
+              <span className="flex items-center gap-1.5">
+                <span className="h-0.5 w-3 rounded bg-primary" /> Monthly
+                earnings, 2026
+              </span>
+              <span>
+                avg{" "}
+                <strong className="font-semibold text-text">
+                  {money(trendAvgCents)}
+                </strong>
+                /month
+              </span>
+              <MiniChip kind="ver">POSTGRES</MiniChip>
+            </div>
+          </div>
         </div>
+      </HeroBand>
+
+      {/* ------------------------------------------------- the money journey */}
+      <section className="sx-animate sx-delay-1">
+        <SectionHeading
+          title="Where your money is"
+          hint="Every order moves left to right — reviewed, cleared, approved, paid. This cycle, not your career total."
+        />
+        <Card className="overflow-hidden p-0">
+          <div
+            className="h-1 w-full bg-gradient-to-r from-primary/40 via-primary to-accent"
+            aria-hidden="true"
+          />
+          <div className="grid grid-cols-2 gap-px bg-line-soft lg:grid-cols-4">
+            {JOURNEY.map((stage, i) => {
+              const bucket = byState[stage.state];
+              const last = i === JOURNEY.length - 1;
+              return (
+                <div
+                  key={stage.state}
+                  className={[
+                    "p-4 sm:p-5",
+                    `sx-animate sx-delay-${i + 1}`,
+                    last
+                      ? "bg-gradient-to-br from-accent/12 to-surface"
+                      : "bg-surface",
+                  ].join(" ")}
+                >
+                  <div className="flex items-center gap-2">
+                    <span
+                      className={[
+                        "grid size-5 shrink-0 place-items-center rounded-full text-[10px] font-bold",
+                        stage.dot,
+                      ].join(" ")}
+                    >
+                      {i + 1}
+                    </span>
+                    <p className="text-[11px] font-medium uppercase tracking-wide text-muted">
+                      {stage.title}
+                    </p>
+                    {!last && (
+                      <svg
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        className="ml-auto hidden size-3 text-faint lg:block"
+                        aria-hidden="true"
+                      >
+                        <path d="m9 18 6-6-6-6" />
+                      </svg>
+                    )}
+                  </div>
+                  <p
+                    className={[
+                      "mt-2.5 text-2xl font-semibold tabular-nums tracking-tight",
+                      last ? "text-accent" : "",
+                    ].join(" ")}
+                  >
+                    {money(bucket?.amount ?? 0)}
+                  </p>
+                  <p className="mt-0.5 text-[11px] tabular-nums text-faint">
+                    {bucket?.count ?? 0}{" "}
+                    {(bucket?.count ?? 0) === 1 ? "order" : "orders"}
+                  </p>
+                  <p className="mt-2 text-[11px] leading-relaxed text-muted">
+                    {stage.blurb}
+                  </p>
+                </div>
+              );
+            })}
+          </div>
+        </Card>
+
+        {held && (
+          <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-xl border border-danger/25 bg-danger/8 px-4 py-3">
+            <Badge tone="danger">On hold</Badge>
+            <span className="text-xs font-semibold tabular-nums">
+              {money(held.amount)}
+            </span>
+            <span className="min-w-0 flex-1 text-xs leading-relaxed text-muted">
+              {heldNote.replace(" (§21)", "")}
+            </span>
+          </div>
+        )}
+      </section>
+
+      {/* ------------------------------------------------------ recent orders */}
+      <section id="activity" className="sx-animate sx-delay-2">
+        <SectionHeading
+          title="Recent activity"
+          hint="Search or filter your orders — click one for the full story. A sample of the cycle, not the career total."
+        />
+        <ActivityExplorer
+          items={mine}
+          demoParam={one(sp.demo) || undefined}
+          initial={{
+            q: one(sp.q),
+            from: one(sp.from),
+            to: one(sp.to),
+            status: one(sp.status),
+            type: one(sp.type),
+          }}
+        />
+      </section>
+
+      {/* ---------------------------------------------------------- trust bar */}
+      <div className="sx-animate sx-delay-3 flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-xl border border-line bg-surface/60 px-4 py-3">
+        <svg
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          className="size-3.5 shrink-0 text-faint"
+          aria-hidden="true"
+        >
+          <rect x="4" y="11" width="16" height="9" rx="2" />
+          <path d="M8 11V7a4 4 0 0 1 8 0v4" />
+        </svg>
+        <p className="min-w-0 flex-1 text-[11px] leading-relaxed text-muted">
+          Your bank account and tax ID never touch SponsorX — BTG Finance
+          handles the payout itself, outside the platform.
+        </p>
+        <span className="flex items-center gap-1.5 text-[10px] text-faint">
+          all figures <MiniChip kind="ver">POSTGRES</MiniChip>
+        </span>
       </div>
     </div>
   );

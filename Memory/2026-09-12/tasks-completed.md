@@ -154,3 +154,48 @@ understand. One was a real regression, one a design failure:
   area fill + dot present, rects `x="0"` with ramp, full funnels 2×primary +
   1×accent per 3-stage funnel). Tracker P1-FE-06 Notes updated (still Code
   review).
+
+### Iteration 3 — compact funnel → labeled stage rows (user chose from 4 options)
+
+Offered four alternative designs for the reward-funnel bento card (labeled
+stage rows / sankey-lite flow band / single conversion track / waffle unit
+grid); **user picked labeled stage rows**, the readability-first option.
+
+- `FunnelSteps` compact mode is no longer an SVG glyph: each stage is now a
+  row — uppercase 9px label (w-16, truncated) · track bar (primary ramp,
+  final stage accent, glint idle) · exact right-aligned value
+  (`toLocaleString()`, NOT `compact()` — 1,870 was rounding to "2K", killing
+  the card's key number; final value in accent). Same left-origin +
+  accent-final semantics as full mode. Only the sponsor bento card used
+  compact mode, so no other screens changed shape.
+- Sponsor card caption de-duplicated (numbers now live in the rows):
+  "8,200 → 1,870 (23%) · median 26h" → "**23%** convert · median 26h to
+  redeem".
+- Grep trap: RSC/SSR splits JSX text with `<!-- -->` comment nodes — grep for
+  fragments ("convert"), not full sentences.
+- Verified on the running dev server: rows render Scans/Landing/Claims/
+  Redeemed with exact values, build + lint clean.
+
+### Iteration 4 — engagements sparkline → BarStrip (user chose from 4 options)
+
+Offered four alternatives for the sponsor engagements stat tile (bar strip /
+line + average baseline / start→end delta story / heat strip); **user picked
+bar strip**, the recommended option.
+
+- New `BarStrip` primitive in charts.tsx: one column per period —
+  the honest mark for discrete daily counts (bars = sums; a line implies
+  continuity). Primary hue with a subtle recency opacity ramp (0.4 → 0.75),
+  latest bar solid accent = "now" (same accent-as-outcome semantic as the
+  funnel). No rounded corners: `preserveAspectRatio="none"` stretches radii
+  unevenly. Entrance: columns rise from the baseline in a left→right wave
+  (`sx-viz-grow-y`, transform-origin bottom); idle: latest bar breathes
+  (`sx-viz-grow-y-live` — one class carrying BOTH animation shorthands,
+  because stacking two classes that each set `animation` overrides, the same
+  reason sx-viz-gauge exists).
+- Only the sponsor engagements card swapped. The other Sparkline sites
+  (athlete/admin earnings *trends*) keep the line — correct mark for
+  cumulative trends. Sparkline itself unchanged and still in use.
+- Unpicked options (avg-baseline band, delta-story endpoints, heat strip)
+  sketched in this session's AskUserQuestion mockups if a future card wants
+  them; the avg-rate caption still has no visual home on the card — the
+  line+avg-baseline option is the fix if that ever bites.

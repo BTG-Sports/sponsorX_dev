@@ -14,6 +14,7 @@ import { HeroBand, MiniChip } from "@/components/hero";
 import { ProgressRing } from "@/components/progress-ring";
 import { EmptyState, SkeletonPage } from "@/components/states";
 import { demoState } from "@/lib/demo";
+import { CHECKLIST_SECTION } from "@/lib/profile-sections";
 import {
   DELIVERABLE_COPY,
   agreements,
@@ -473,23 +474,34 @@ export default async function AthletePortalPage({
               <div className="mt-2">
                 <Meter value={a.profileCompletion} tone="accent" />
               </div>
-              <ul className="mt-4 space-y-1.5">
+              <ul className="mt-4 space-y-0.5">
                 {profileChecklist.map((c) => (
-                  <li
-                    key={c.label}
-                    className="flex items-center gap-2 text-[11px]"
-                  >
-                    <span
-                      className={
-                        c.done ? "text-accent" : "text-faint"
-                      }
-                      aria-hidden="true"
+                  <li key={c.label}>
+                    <Link
+                      href={`/athlete/profile/edit?section=${CHECKLIST_SECTION[c.label]}`}
+                      className="group flex items-center gap-2 rounded-md px-1.5 py-1 text-[11px] transition-colors hover:bg-surface-2/70"
                     >
-                      {c.done ? "✓" : "▢"}
-                    </span>
-                    <span className={c.done ? "text-muted" : "text-text"}>
-                      {c.label}
-                    </span>
+                      <span
+                        className={c.done ? "text-accent" : "text-faint"}
+                        aria-hidden="true"
+                      >
+                        {c.done ? "✓" : "▢"}
+                      </span>
+                      <span
+                        className={[
+                          "flex-1",
+                          c.done ? "text-muted" : "text-text",
+                        ].join(" ")}
+                      >
+                        {c.label}
+                      </span>
+                      <span
+                        aria-hidden="true"
+                        className="text-faint opacity-0 transition-opacity group-hover:opacity-100"
+                      >
+                        {c.done ? "edit →" : "finish →"}
+                      </span>
+                    </Link>
                   </li>
                 ))}
               </ul>

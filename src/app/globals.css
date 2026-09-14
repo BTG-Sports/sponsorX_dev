@@ -222,11 +222,46 @@ body {
   animation: sx-menu-out 0.4s cubic-bezier(0.55, 0, 0.68, 0.19) both;
 }
 
+/* Slide-over drawer (athlete earnings activity detail) + its backdrop.
+   The panel slides fully off-screen ↔ in; unmount waits for the -out
+   animationend, so reduced motion shortens these to 1ms (like the mobile
+   menu) instead of removing them — the close event must still fire. */
+@keyframes sx-drawer-in {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
+
+@keyframes sx-drawer-out {
+  from { transform: translateX(0); }
+  to { transform: translateX(100%); }
+}
+
+@keyframes sx-backdrop-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes sx-backdrop-out {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+/* Exits are faster than entrances and use the decelerating house ease —
+   an ease-in exit sits still for its first ~100ms, which reads as lag. */
+.sx-drawer { animation: sx-drawer-in 0.4s var(--sx-ease) both; }
+.sx-drawer-out { animation: sx-drawer-out 0.22s var(--sx-ease) both; }
+.sx-backdrop { animation: sx-backdrop-in 0.3s ease-out both; }
+.sx-backdrop-out { animation: sx-backdrop-out 0.18s ease-out both; }
+
 @media (prefers-reduced-motion: reduce) {
   .sx-animate,
   .sx-pop { animation: none; }
   .sx-menu-in,
-  .sx-menu-out { animation-duration: 1ms; }
+  .sx-menu-out,
+  .sx-drawer,
+  .sx-drawer-out,
+  .sx-backdrop,
+  .sx-backdrop-out { animation-duration: 1ms; }
 }
 
 /* --------------------------------------------------------------------------
@@ -321,6 +356,25 @@ body {
   animation: sx-viz-grow-x 0.7s var(--sx-ease) var(--sx-d, 0s) both;
 }
 
+/* Entrance — columns rise from the baseline; -live adds the idle breathe for
+   the "today" bar (one class: two animation shorthands would override) */
+@keyframes sx-viz-grow-y {
+  from { transform: scaleY(0); }
+  to { transform: scaleY(1); }
+}
+.sx-viz-grow-y {
+  transform-box: fill-box;
+  transform-origin: center bottom;
+  animation: sx-viz-grow-y 0.6s var(--sx-ease) var(--sx-d, 0s) both;
+}
+.sx-viz-grow-y-live {
+  transform-box: fill-box;
+  transform-origin: center bottom;
+  animation:
+    sx-viz-grow-y 0.6s var(--sx-ease) var(--sx-d, 0s) both,
+    sx-viz-breathe 4s ease-in-out calc(var(--sx-d, 0s) + 1.2s) infinite;
+}
+
 /* Entrance + idle — gauge rings sweep from empty (--sx-sweep is the hidden
    dashoffset in px), then breathe slowly forever */
 @keyframes sx-viz-sweep {
@@ -389,6 +443,8 @@ body {
   .sx-viz-pop,
   .sx-viz-grow-x,
   .sx-viz-grow-mid,
+  .sx-viz-grow-y,
+  .sx-viz-grow-y-live,
   .sx-viz-gauge,
   .sx-viz-arc,
   .sx-viz-pulse {
