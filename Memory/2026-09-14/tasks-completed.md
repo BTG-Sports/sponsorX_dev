@@ -426,3 +426,28 @@ Task board: `P0-PMO-07` → Done, `Date Done` 2026-09-14. Board now **11 Done ·
 `P0-PMO-08` from Friday. Dashboard formulas intact (75). The provisioning
 sequence does not list `P0-PMO-07` (it covers vendor steps only), so no change
 there. Google Sheet still to be mirrored by hand at end of day.
+
+## Task — `P0-OPS-03` Clerk · development instance only (In progress)
+
+Clerk account created; development instance **`SponsorXDev`** exists on the free
+tier. No Pro purchased — MFA is Pro-only and is a launch cost (provisioning
+sequence step 16), not a today cost.
+
+**Production instance deferred at the user's explicit direction.** A Clerk
+production instance needs a domain BTG does not have yet, and there is nothing
+to deploy. The task stays **In progress** rather than Done, because its
+criterion is *"both instances exist"* — closing it on half the criterion would
+be false.
+
+**No Clerk SDK was installed.** The console's onboarding screen pushes straight
+into adding the package to the codebase; that is code work and sits behind the
+standing no-new-dependencies-until-B0 rule. Skipped deliberately.
+
+### A process note for whoever picks this up
+The user had to say "development only" three times. Each time I acknowledged it
+and then appended one more thing to do in the console — a production instance, a
+sign-in-method check. **When they narrow scope, the narrowing is immediate and
+total.** Recorded as a persistent Claude memory.
+
+Remaining for this task, whenever a domain exists: create the production
+instance, then enable MFA for admin and finance at launch.
