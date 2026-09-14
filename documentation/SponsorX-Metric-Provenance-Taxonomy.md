@@ -2,12 +2,13 @@
 
 | | |
 |---|---|
-| **Version** | 0.2 — **two decisions open (§7); F-1/F-2/F-3 fixed** |
+| **Version** | **1.0 — agreed 2026-09-14** |
 | **Date** | 2026-09-14 |
 | **Author** | rcfworks |
 | **Task** | `P0-DATA-01` · Define the metric provenance taxonomy |
 | **Sources** | §22 (analytics layers), §26 (compliance), `SourceLabel` in [`src/components/ui.tsx`](../src/components/ui.tsx), the labelled values in [`src/lib/fixtures.ts`](../src/lib/fixtures.ts) |
 | **Also governs** | §38's *"Analytics metric definitions and verification labels"* deliverable |
+| **Status** | **Agreed.** Both decisions taken 2026-09-14: a sixth label for first-party measurement, and rollups show their mix. |
 
 ---
 
@@ -35,18 +36,25 @@ biggest credibility risk in the product, and these labels are the whole defence.
 
 Ordered by strength. This ordering is not decorative — §4 depends on it.
 
-### `VERIFIED_API` — machine-measured
-A machine read the number from the system that owns it, with no human
-retyping. Two cases qualify:
+### `VERIFIED_SYSTEM` — SponsorX measured it — *displays as "measured"*
+An event SponsorX recorded itself as it happened: a QR scan, a landing visit, a
+reward claim, a redemption, a tracking-link click. Nobody reported it to us and
+nobody typed it in.
 
-- **Platform APIs** — Instagram, TikTok and YouTube reporting their own view
-  and engagement counts.
-- **SponsorX's own instrumentation** — QR scans, landing visits, reward claims,
-  redemptions, tracking-link clicks. SponsorX records these events itself, so
-  they are as machine-measured as anything gets.
+**This is the strongest label**, above platform APIs, for one reason: we can
+audit it end to end. Every row has a timestamp and an origin in our own
+database. When an Instagram figure looks wrong there is nobody to ask.
 
-Both must name their retrieval path (§6). *"Verified"* means a machine
-measured it, not that BTG trusts it.
+**May be written by:** `SERVICE` only, as events arrive. Never by a person.
+
+### `VERIFIED_API` — an outside platform reported it — *displays as "verified · platform"*
+A machine read the number from a platform that owns it — Instagram, TikTok or
+YouTube reporting their own view and engagement counts — with no human
+retyping.
+
+Strong, but not ours. We cannot inspect how the platform counted, and their
+definitions change without notice. *"Verified"* here means a machine measured
+it, not that BTG can vouch for it.
 
 **May be written by:** `SERVICE` and BTG staff. **Never by** `ATHLETE` or
 `GUARDIAN` — see the authorization matrix.
@@ -89,8 +97,10 @@ not a metric.
 ## 3 · The strength ladder
 
 ```
-VERIFIED_API  >  VERIFIED_MANUAL  >  SELF_REPORTED  >  ESTIMATED
+VERIFIED_SYSTEM  >  VERIFIED_API  >  VERIFIED_MANUAL  >  SELF_REPORTED  >  ESTIMATED
 ```
+
+Our own measurement outranks a platform's because we can audit ours.
 
 `ATTRIBUTED` is **off the ladder**. It is a different kind of statement and
 propagates by its own rule in §4.
@@ -111,15 +121,26 @@ where provenance actually leaks. Both rules below are the same idea.
 Dividing two numbers cannot make either more certain. Anything touching an
 `ESTIMATED` input is `ESTIMATED`.
 
-### 4.2 · A rollup takes the weakest of its parts
+### 4.2 · A rollup shows its mix, and falls back to its weakest part
 
-> A campaign's Total Views is the sum of each athlete's reported views.
-> If any athlete's figure is `SELF_REPORTED`, **the campaign total is
-> `SELF_REPORTED`** — however many verified athletes it also contains.
+A campaign total is built from many athletes' figures, and they rarely share
+one provenance. **The total shows the proportions**, not a single flattened
+label:
 
-This is the rule the current fixtures break (§8). It is deliberately harsh:
-one unverified part makes the whole unverified, because a sponsor reading a
-verified total has no way to know which quarter of it was a claim.
+> Total Views · 823,400
+> *40% measured · 30% verified · manual · 30% self-reported*
+
+**Where only one label fits** — a compact stat tile, a chip, an export column —
+it shows the **weakest** contributing label. A single badge must never claim
+more than its worst part, because a sponsor reading "verified" has no way to
+know which third of it was a claim.
+
+So the mix is the honest presentation and the weakest label is the honest
+compression. Neither ever overstates.
+
+The provenance-mix visual already built into
+[`charts.tsx`](../src/components/charts.tsx) is what renders this — the
+capability exists; this rule is what obliges its use on every rollup.
 
 ### 4.3 · `ATTRIBUTED` propagates upward
 
@@ -175,7 +196,14 @@ come to wire the screen up.
 
 ## 7 · Open decisions
 
-**D1 · Does `VERIFIED_API` cover SponsorX's own instrumentation?**
+**D1 — DECIDED 2026-09-14: no. A sixth label was added.**
+`VERIFIED_SYSTEM` now covers first-party measurement and `VERIFIED_API` narrows
+to mean an outside platform. This costs a Prisma enum value, and it is worth it:
+the previous arrangement had `VERIFIED_API` standing for numbers no API
+produced, which made the label's own name misleading. The two are genuinely
+different in who can be held to account when a figure is wrong.
+
+*Original framing:* Does `VERIFIED_API` cover SponsorX's own instrumentation?
 §2 assumes yes: a QR redemption recorded by our own reward funnel is
 machine-measured, and the alternative is a sixth label and a Prisma enum
 change. The counter-argument is that "API" reads as *external platform*, and
@@ -184,7 +212,13 @@ difference in who can be blamed when they are wrong.
 *Proposed: yes, covered — with `retrieval` naming the system, so first-party
 and platform numbers stay distinguishable without a new label.*
 
-**D2 · Is the weakest-input rule too harsh for rollups?**
+**D2 — DECIDED 2026-09-14: show the mix with percentages.**
+A rollup displays the proportion of each provenance rather than collapsing to
+one word, and falls back to the weakest label only where a single value must
+fit. Honest either way, and it avoids most Phase 1 totals reading
+`SELF_REPORTED` when a substantial share of them is measured.
+
+*Original framing:* Is the weakest-input rule too harsh for rollups?
 §4.2 makes one self-reported athlete turn a whole campaign total
 self-reported. That is honest, and it will mean most Phase 1 campaign totals
 read `SELF_REPORTED` — which is accurate but weakens how the reports look.
@@ -253,7 +287,7 @@ screen.
 a plausible-looking demographic invites a sponsor to ask for demographic
 targeting the product cannot deliver.
 
-### 8.5 · F-4 · `Leads Generated` needs its retrieval path stated
+### 8.5 · ✅ F-4 · `Leads Generated` needs its retrieval path stated — **FIXED 2026-09-14**
 
 ```
 fixtures.ts:658   Leads Generated  4,300   VERIFIED_API
@@ -295,9 +329,14 @@ severity ones. `Total Views` and `Engagements` on the sponsor report are now
 audience age bands were removed rather than relabelled. Each change carries a
 short comment citing the rule, so nobody restores it as a "missing" label.
 
-**Not yet fixed: F-4, F-5 and F-6.** F-4 and F-6 wait on decision D1; F-5 needs
-someone who knows what evidence backs the property figures. None is on the
-sponsor report.
+**F-4 fixed too**, once D1 settled: `Leads Generated` and `Rewards Redeemed`
+are `VERIFIED_SYSTEM`, since both come from SponsorX's own reward funnel.
+
+**Still open: F-5 and F-6.** F-5 needs someone who knows what evidence backs the
+property figures. F-6 — the homepage counters carrying a retrieval path and no
+strength label — needs the two-field change in §6, which is a fixture *shape*
+change and so must land in the Prisma model too, not only here. Neither is on
+the sponsor report.
 
 The second field proposed in §6 is a fixture-shape change, and fixture shapes
 mirror the V2 Prisma models so that Block B stays a substitution. It therefore

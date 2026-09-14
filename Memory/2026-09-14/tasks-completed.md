@@ -649,3 +649,44 @@ review · 301 Blocked.**
 Commit `630b6fa` was pushed to `origin/development/roadmap_2` by the user at
 16:32 — confirmed from the remote-tracking reflog. The agent shell has no
 GitHub credentials, so pushing is always theirs.
+
+### `P0-DATA-01` closed — Done 2026-09-14, both decisions taken
+
+The user chose **against both of my recommendations**, and was right on the
+first in a way I had missed.
+
+**D1 — a sixth label, `VERIFIED_SYSTEM`.** I had proposed reusing
+`VERIFIED_API` for SponsorX's own instrumentation to avoid a Prisma enum
+change. The user chose the sixth label, which exposes something I had papered
+over: **`VERIFIED_API` was standing for numbers no API produced.** The label's
+own name was misleading. Splitting them makes both honest —
+`VERIFIED_SYSTEM` for events we record ourselves (QR scan, redemption),
+`VERIFIED_API` for what an outside platform reports.
+
+`VERIFIED_SYSTEM` sits **above** `VERIFIED_API` on the ladder, because we can
+audit our own event rows end to end; when an Instagram figure looks wrong there
+is nobody to ask. It displays as **"measured"**, and `VERIFIED_API` now displays
+as **"verified · platform"**.
+
+**D2 — rollups show their mix.** Rather than a campaign total collapsing to
+`SELF_REPORTED` because one athlete of ten was unverified, it shows the
+proportions — *40% measured · 30% verified · manual · 30% self-reported* — and
+falls back to the weakest label only where a single value must fit (a chip, an
+export column). The mix is the honest presentation; the weakest label is the
+honest compression. The provenance-mix visual already in `charts.tsx` renders
+it, so the capability existed and the rule now obliges its use.
+
+**Implemented:** `SourceLabel` takes six labels; `Leads Generated` and
+`Rewards Redeemed` moved to `VERIFIED_SYSTEM` (F-4), both being reward-funnel
+events. Build, typecheck and lint all clean.
+
+**Corrected my own error:** a code comment claimed to fix F-4 *and* F-6 when it
+only addressed F-4. Fixed the comment rather than leaving a false claim in the
+source.
+
+**Still open, neither on the sponsor report:** F-5 (property stats need stated
+evidence) and F-6 (homepage counters need the two-field `source`/`retrieval`
+split, which is a fixture *shape* change and so has to land in the Prisma model
+too, not just the fixtures).
+
+Board: **11 Done · 24 Ready · 1 In progress · 8 Code review · 301 Blocked.**

@@ -660,8 +660,11 @@ export const roiReport = {
     // Taxonomy §4.2. To make these verified, verify each athlete's contribution.
     { label: "Total Views", value: "823,400", source: "SELF_REPORTED" as const },
     { label: "Engagements", value: "42,815", source: "SELF_REPORTED" as const },
-    { label: "Leads Generated", value: "4,300", source: "VERIFIED_API" as const },
-    { label: "Rewards Redeemed", value: "1,870", source: "VERIFIED_API" as const },
+    // F-4 · both come from SponsorX's own reward funnel, not an outside
+    // platform, so they are VERIFIED_SYSTEM — the strongest label, because we
+    // recorded the events ourselves and can audit them. Taxonomy §2.
+    { label: "Leads Generated", value: "4,300", source: "VERIFIED_SYSTEM" as const },
+    { label: "Rewards Redeemed", value: "1,870", source: "VERIFIED_SYSTEM" as const },
     { label: "Revenue Attributed", value: "$52,500", source: "ATTRIBUTED" as const },
   ],
   right: [
