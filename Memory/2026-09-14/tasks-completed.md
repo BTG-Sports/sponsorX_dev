@@ -127,3 +127,164 @@ easily confused with user login. It is not. The hardcoded list in
 `src/lib/mock-auth.ts` is people signing into SponsorX and is replaced by Clerk;
 the Self Client key is SponsorX letting itself into Zoho, with no person
 involved. Two different doors.
+
+### Credentials half of `P0-OPS-04` completed and verified
+
+Walked the §4 runbook with the user at the console, one step at a time.
+
+- **Self Client created** under `rcfworks@gmail.com` (avatar confirmed before
+  the client was made), portal CRM → Production → iCARRe Foundation.
+- **All 24 scopes granted, none trimmed or rejected** — confirmed in the token
+  response's `scope` field. The paste had gone in whole; the user said so and
+  was right.
+- **Refresh token issued** and stored, along with the client ID and secret, in
+  the macOS Keychain as `sponsorx-zoho-client-id`, `-client-secret`,
+  `-refresh-token`.
+- **Verified against the live API**: minted an access token from the refresh
+  token, then `GET /crm/v8/settings/modules` → **HTTP 200, 56 modules**, all
+  five §18 stock modules present plus the `Content_Partners` custom module.
+  **Acceptance criterion 2 is met**, and it independently confirms Friday's
+  `P0-OPS-05` work exists in the org.
+
+### How the secrets were kept out of the transcript
+The user asked whether the exchange could be run for them. It could not be run
+*in the transcript* — the response contains the refresh token. The resolution
+was a script in the session scratchpad (`zoho-exchange.sh`) that prompts for the
+three values, performs the exchange, writes all three into the Keychain, and
+prints only non-secret diagnostics: `api_domain`, `token_type`, and the granted
+scope list. Verification afterwards read the secrets out of the Keychain inside
+a single command and printed only HTTP status and module names.
+
+Worth reusing: **the granted-scope list is the useful non-secret output** of an
+OAuth exchange, and printing it is what turned "did the long paste truncate?"
+from a guess into a fact.
+
+### There is no password manager on this project
+Searched the graph and the docs: the only mentions of "password manager" were
+sentences written earlier the same day. Nothing is established. The credentials
+now sit in the macOS Keychain, which is a local stopgap, not a team answer.
+**Zoho Vault is the obvious candidate** — Zoho One Enterprise already includes
+it, so it costs nothing new, it is organisation-owned, and Rodney can grant and
+revoke access. Raise it with him alongside the licence renewal and his
+production key: one conversation, not three.
+
+### Console labels corrected in §4
+Zoho's actual field names are **"Code expiry duration"** (defaults to 3 minutes,
+must be changed to 10) and **"Description"** — not "Time Duration" and "Scope
+Description" as the runbook had it. The *Select Portal* step is also a second
+screen with its own Create button, which the runbook did not mention. Both fixed
+and marked as verified against the console.
+
+### Tracker
+`P0-OPS-04` remains **In progress**. The sandbox (§5) is now the only thing
+between this task and Done. Row 34 Notes updated; Dashboard formulas intact.
+
+### Sandbox requested — and the two Friday questions are now answered
+
+`SponsorX-Dev`, type **Sample Data**, requested 2026-09-14. Provisioning; Zoho
+offers **no ETA** — the form carries no estimate and the confirmation screen says
+only "ready soon". That is itself the answer to Friday's second open question.
+
+**The edition offers all three sandbox types** — Configuration, Sample Data and
+Partial Data. Friday's document recorded this as unreadable through the
+connector, and a probe earlier today confirmed it genuinely was. Answered by
+looking at the form.
+
+**Partial Data was rejected on privacy grounds, not technical ones.** It copies
+real contacts and real deals out of the live CRM into an environment that exists
+to be broken and that contractors can reach. Nothing being built now needs
+realistic data volumes, so there is no case for it. Sample Data gives fabricated
+records that exercise the same round trip, and inherits `Content_Partners` from
+production like any type. Written into the document as new §5.1, including the
+point that if a later task does need production-scale data, that call belongs to
+whoever owns the data rather than to the developer who finds it convenient.
+
+### Two more runbook corrections, both found by walking it
+- The Sandbox page is under **Data Administration**, not Developer Space — which
+  is where Zoho's own documentation points. Direct URL recorded.
+- The sandbox web address is **`crmsandbox.zoho.com`**, not `sandbox.zohoapis.com`
+  as §5 assumed. The latter may still be the API domain; that is unconfirmed and
+  is part of the outstanding token-strategy question, so the document no longer
+  asserts it.
+
+**Pattern worth noting:** every single field label and menu path in this runbook
+was slightly wrong, and the errors only surfaced by having someone walk it at the
+console. A runbook written from documentation is a draft until somebody follows it.
+
+### What is left on `P0-OPS-04`
+Acceptance criterion 3 is *"a sandbox exists, its type is recorded, and the
+question of how the worker authenticates against it has an answer rather than an
+assumption."* Two of those three now hold. The token strategy needs the sandbox
+to finish provisioning before it can be established. Task stays **In progress**.
+
+### `P0-OPS-04` closed — Done 2026-09-14
+
+**Sandbox live.** `SponsorX-Dev`, Sample Data, at
+`crmsandbox.zoho.com/crm/sponsorxdev`. Sample data populated successfully.
+
+**The token strategy answered by observation, not assumption.** Back in the API
+console's *Select Portal* screen, the sandbox now appears under its own
+`Sandbox` heading beside `Production`. So **one Self Client serves both orgs** —
+choosing the portal at code-generation time yields a separate refresh token per
+org. No second client, no separate credential set to manage. This was the last
+clause of acceptance criterion 3.
+
+**A sandbox token was deliberately not minted.** Having confirmed the mechanism,
+I proposed generating the sandbox token as well, and the user stopped it:
+*"you already confirmed the sandbox is good. what is this extra step about?"*
+They were right — the acceptance asks that the question have an answer, which it
+now does. Nothing consumes a sandbox token yet, and whoever builds the sync will
+issue it as their first step. Consequence: the sandbox **API domain is still
+unconfirmed** — the exchange response's `api_domain` field reports it, and the
+document says so rather than guessing between `crmsandbox.zoho.com` and
+`sandbox.zohoapis.com`. Recorded as a persistent Claude memory
+(`stop-at-the-acceptance-criteria`).
+
+**Judgement call on closing.** The board's criterion — *"Client ID, secret and
+refresh token issued; a sandbox or test org available for sync development"* —
+is fully met. The credentials document's §8 additionally said "three secrets
+present in Railway", which cannot hold because Railway does not exist. That
+belongs to `P2-OPS-04` (configure the environment variable set), not here, so the
+task was closed **Done** with the Keychain-not-Railway gap recorded explicitly in
+§7 and §8 rather than quietly satisfied.
+
+### Both trackers updated
+- **Task board**: `P0-OPS-04` → Done, `Date Done` 2026-09-14. Board now 10 Done,
+  27 Ready, 307 Blocked, 1 Code review, 0 In progress. Dashboard formulas intact.
+- **Provisioning sequence** (approved by the user this session): step 6
+  `P0-PMO-08` → In progress, step 7 `P0-OPS-05` → Done 2026-09-11, step 8
+  `P0-OPS-04` → Done 2026-09-14, all with owner. Step 14's dependency list now
+  reads `8 ✓, 9, 10, 13`, matching the sheet's own convention.
+
+**Two things about that workbook worth knowing before editing it again.** Its
+progress line `C29` is a **formula** — `=COUNTIF(J7:J26,"Done")&" of 17 steps
+complete…"` — so it recomputes itself and must never be hardcoded; it now reads
+*4 of 17*. And column J carries a **data validation list** whose only permitted
+values are `Not started, In progress, Done, N/A`. There is no `Code review`,
+which is why `P0-PMO-08` shows as In progress here while the board says Code
+review. Anything written outside that list breaks the dropdown.
+
+Also worth correcting an earlier misreading of mine: the workbook header naming
+`rcfworks@gmail.com` as holding Administrator is **accurate**, not a conflict
+with the credentials document. Both `rcfworks@gmail.com` and
+`rcarr@icarrefound.org` hold the Administrator profile — confirmed against the
+live user list. Nothing needed changing there.
+
+### Deliverable — `documentation/SponsorX-Zoho-API-Access.md`
+
+A plain-English summary of what `P0-OPS-04` produced and why it matters, written
+for a reader without technical background — in practice, for Rodney.
+
+It is deliberately **not** a second copy of
+`SponsorX-Zoho-Credentials-and-Sandbox.md`, and its header says so: that document
+is the specification (scope list, environment contract, console runbooks,
+provisioning log) and is what you read if you are doing the work. This one
+explains what exists, why the choices were made, and what is still needed. The
+two are cross-referenced by purpose so they do not drift into duplicates.
+
+Its three substantive points, all of which needed saying to a non-technical
+reader: the key cannot delete anything and that was deliberate; the practice
+environment holds fabricated data because copying real contacts into a
+break-it environment is a privacy decision; and **this key is for development
+only** — it is bound to a personal Google account, so production needs its own
+key created by Rodney, which takes fifteen minutes and cannot be done for him.

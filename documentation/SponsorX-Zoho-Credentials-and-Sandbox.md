@@ -7,7 +7,7 @@
 | **Version** | 0.2 |
 | **Date** | 2026-09-14 |
 | **Author** | rcfworks |
-| **Status** | Specification complete. The two provisioning steps are console click-work and are marked **YOU** below. |
+| **Status** | **Complete, 2026-09-14.** Credentials issued and verified against the live API; sandbox `SponsorX-Dev` created. The one open item is not this task's: the secrets sit in the macOS Keychain because Railway does not exist yet (`P0-OPS-01`), and move to it under `P2-OPS-04`. |
 | **Authorising account** | Development key: **`rcfworks@gmail.com`** (decided 2026-09-14). Production key: **`rcarr@icarrefound.org`**, created separately by Rodney — two keys, not a transfer. See §9. |
 | **Scope** | **Zoho CRM only.** Zoho Books credentials are deliberately out of scope — see §6. |
 | **Unblocks** | `P7-BE-04` · `P8-INT-01` · `P8-INT-02` · `P8-INT-03` · `P8-INT-05` · `P8-INT-07` |
@@ -155,12 +155,19 @@ Self Client is the grant type built for exactly that.
 3. The **Client ID** and **Client Secret** are now on the *Client Secret* tab.
    Copy them straight into Railway. Do not put them anywhere else.
 4. Open the **Generate Code** tab:
-   - **Scope** — paste the whole comma-separated list from §2.1, as one line
-     with no spaces or newlines.
-   - **Time Duration** — 10 minutes is plenty.
-   - **Scope Description** — `SponsorX sync worker`.
-   - Choose the portal/org when prompted, then **Create**. Copy the
-     **grant token**. It is single-use and dies in 10 minutes.
+   - **Scope** — paste the single line from §2.1a. Not the formatted block in
+     §2.1; the field wants one unbroken line. Watch for a trailing newline
+     arriving with the paste, and delete it if it does.
+   - **Code expiry duration** — defaults to **3 minutes**; change it to
+     **10**. Three is tight for copying the code and running the exchange.
+   - **Description** — `SponsorX sync worker`.
+   - **Create** → a *Select Portal* screen appears. Choose **CRM**, then under
+     *Production* select **iCARRe Foundation**, then **Create** again. Copy the
+     **grant token**. It is single-use and dies within the duration you chose.
+
+   *Zoho's labels here are "Code expiry duration" and "Description" — the field
+   names differ from Zoho's own documentation. Verified against the console
+   2026-09-14.*
 5. Exchange it for a refresh token. Run this **in your own terminal**, with the
    three values substituted in — not in a chat, and not in a file that gets
    committed:
@@ -219,10 +226,11 @@ from what is written here, tell me rather than guessing at the nearest match.
 1. Go to **https://crm.zoho.com** and sign in as **`rcfworks@gmail.com`**.
 2. Click the **⚙ gear icon** in the top-right of the CRM header bar. This opens
    Setup.
-3. In the left-hand Setup menu, scroll down to the **Developer Space** group
-   (it sits below *Automation* and *Data Administration*).
-4. Click **Sandbox**.
-5. Click **New Sandbox**, top right of the panel.
+3. In the left-hand Setup menu, open **Data Administration** — *not* Developer
+   Space, which is where Zoho's own documentation points. Verified 2026-09-14.
+4. Click **Sandbox**. The direct URL is
+   `crm.zoho.com/crm/org749122837/settings/sandbox`.
+5. Click **Create New Sandbox**.
 6. **Stop here.** Do not fill the form in yet — read the two questions below
    off the page and tell me the answers first. They change `P8-INT-07`'s plan,
    and the sandbox type cannot be changed after creation.
@@ -231,24 +239,35 @@ from what is written here, tell me rather than guessing at the nearest match.
 8. Note the **sandbox domain** Zoho gives you — it will be under
    `sandbox.zohoapis.com`, and it is not the production domain. Record it in §7.
 
-Two things to tell me at step 6, because they depend on the
-edition and I cannot read them through the connector:
+**Answered at the console 2026-09-14** — both questions below are now closed.
 
-- **Which sandbox types are offered.** Zoho distinguishes a configuration-only
-  sandbox from a full-data one, and availability varies by edition. Either is
-  enough for `P0-OPS-04`'s acceptance ("a sandbox or test org available"), but
-  which one we get changes `P8-INT-07`'s plan: a configuration-only sandbox
-  cannot rehearse a backfill against realistic data volumes.
-- **How long it says provisioning will take.** A sandbox is a copy of
-  production and is not instant.
+- **Which sandbox types are offered.** All three: **Configuration** (schema and
+  customisations only), **Sample Data** (schema plus fabricated demo records)
+  and **Partial Data** (schema plus a subset of real production records). The
+  edition does support data-bearing sandboxes, so a backfill *can* be rehearsed
+  against realistic data if a later task needs it.
+- **How long provisioning takes.** Zoho does not say. The form carries no
+  estimate and the confirmation screen reads only "your sandbox account is being
+  created and will be ready soon". Plan around an unknown, not a number.
 
-*Checked 2026-09-14 and confirmed unreadable.* The CRM connector's module
-metadata was tried as a way to answer the first question without you. It
-returns `FEATURE_NOT_SUPPORTED` for `sandbox` — but it returns the same for
-`custommodule`, which this org demonstrably has, so the response says nothing
-about the edition. The question genuinely needs eyes on the Setup page.
+### 5.1 · Why Sample Data, not Partial Data
 
-Two facts already established that matter here:
+**Partial Data was rejected deliberately.** It copies real records out of the
+live CRM — actual contacts and actual deals — into an environment that exists
+precisely to be broken, and that contractors hold access to. That is a privacy
+decision rather than a technical one, and nothing being built now needs
+realistic data volumes.
+
+**Sample Data** carries fabricated records with no real personal data, and still
+exercises everything a sync does: writing records, reading them back, and
+checking they survived the round trip. Like every type, it inherits
+`Content_Partners` and its fields from production.
+
+If a later task genuinely needs production-scale data to rehearse against, that
+is the moment to weigh Partial Data on its merits — and it is a decision for
+whoever owns the data, not for the developer who finds it convenient.
+
+Two facts already established that matter here:Two facts already established that matter here:
 
 - **The sandbox will inherit `Content_Partners` and the five `SponsorX_ID`
   fields**, because Zoho clones a sandbox *from* production and that work is
@@ -285,12 +304,13 @@ Fill in as each step completes. No secrets here — names and dates only.
 | Item | Status | Date | Who | Notes |
 |---|---|---|---|---|
 | Dev key — authorising account chosen | ☑ | 2026-09-14 | rcfworks | **`rcfworks@gmail.com`** — development key (§9) |
-| Self Client created | ☐ | | | |
-| Scopes granted per §2.1 | ☐ | | | Record any scope Zoho rejected |
-| Refresh token issued | ☐ | | | **Record who authorised it** — the token is bound to that user |
-| Secrets in Railway | ☐ | | | |
-| Sandbox created | ☐ | | | Record the type offered and the sandbox domain |
-| Sandbox token strategy confirmed | ☐ | | | How the worker authenticates against the sandbox |
+| Self Client created | ☑ | 2026-09-14 | rcfworks | Under `rcfworks@gmail.com` (avatar confirmed). Dev key. |
+| Scopes granted per §2.1 | ☑ | 2026-09-14 | rcfworks | **All 24 granted, none rejected or trimmed.** Confirmed in the token response `scope` field. |
+| Refresh token issued | ☑ | 2026-09-14 | rcfworks | **Authorised by `rcfworks@gmail.com`** — the token is bound to that user. Portal: CRM → Production → iCARRe Foundation (`749122837`). |
+| Secrets in Railway | ☐ | | | Railway does not exist yet (`P0-OPS-01`). Held in macOS Keychain as `sponsorx-zoho-client-id` / `-client-secret` / `-refresh-token`. Move at sequence step 14. |
+| Verified against the live API | ☑ | 2026-09-14 | rcfworks | `GET /crm/v8/settings/modules` → HTTP 200, 56 modules, `Content_Partners` present. Acceptance criterion 2 met. |
+| Sandbox created | ☑ | 2026-09-14 | rcfworks | **`SponsorX-Dev`, type Sample Data.** Requested 2026-09-14; Zoho gave no ETA ("ready soon"). Web access under `crmsandbox.zoho.com`. |
+| Sandbox token strategy confirmed | ☑ | 2026-09-14 | rcfworks | **Same Self Client serves both orgs.** The sandbox appears in the API console's *Select Portal* screen under a `Sandbox` heading alongside `Production`; choosing it at code-generation time yields a separate refresh token for that org. No second client, no separate credential set. A sandbox token has deliberately **not** been minted — nothing consumes one yet, and whoever builds the sync will issue it as their first step. The sandbox API domain is therefore still unconfirmed; the exchange response's `api_domain` field will report it. |
 | Production key created by Rodney | ☐ | | | §9 — `rcarr@icarrefound.org`, before real records move |
 
 ---
@@ -307,6 +327,11 @@ development"* — which means, concretely:
    which also exercises `settings.modules.READ`.
 3. A sandbox exists, its type is recorded in §7, and the question of how the
    worker authenticates against it has an answer rather than an assumption.
+
+**All three met on 2026-09-14**, with one qualification on the first: the three
+secrets are in the macOS Keychain rather than Railway, because Railway does not
+exist yet. Moving them there is `P2-OPS-04`, not this task. Recorded in §7 so the
+gap is visible rather than assumed closed.
 
 ---
 
