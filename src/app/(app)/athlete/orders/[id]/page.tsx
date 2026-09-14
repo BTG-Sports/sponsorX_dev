@@ -1,9 +1,11 @@
 import { BackLink } from "@/components/back-link";
 import { Badge, BlockedNotice, Button, Card, SectionHeading } from "@/components/ui";
 import { resolveBack } from "@/lib/back";
+import { demoState } from "@/lib/demo";
 import {
   INVITE_COPY,
   athlete,
+  athleteMinor,
   invitations,
   money,
   orderTerms,
@@ -40,10 +42,15 @@ export default async function CampaignOrderPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ from?: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const { id } = await params;
-  const { from } = await searchParams;
+  const sp = await searchParams;
+  const from = Array.isArray(sp.from) ? sp.from[0] : sp.from;
+  const demo = await demoState(searchParams);
+  /* §4 — ?demo=minor renders this order as seen by a minor whose guardian
+     is still unverified; the guardian rail below keys off it. */
+  const a = demo === "minor" ? athleteMinor : athlete;
   const back = resolveBack(from, "athlete-invitations");
   const inv = invitations.find((i) => i.id === id);
 
@@ -187,37 +194,60 @@ export default async function CampaignOrderPage({
 
         {/* ==================================================== side rail */}
         <div className="space-y-4">
-          <Card>
-            <SectionHeading title="Accept this order" />
-            <div className="space-y-2">
-              <Button
-                full
-                disabled
-                title="Blocked: the Campaign Order template needs counsel approval (guide §08)"
-              >
-                Review &amp; accept
-              </Button>
-              <Button variant="secondary" full href="/athlete/invitations">
-                Decline
-              </Button>
-            </div>
+          {actionable ? (
+            <Card>
+              <SectionHeading title="Accept this order" />
+              <div className="space-y-2">
+                <Button
+                  full
+                  disabled
+                  title="Blocked: the Campaign Order template needs counsel approval (guide §08)"
+                >
+                  Review &amp; accept
+                </Button>
+                <Button variant="secondary" full href="/athlete/invitations">
+                  Decline
+                </Button>
+              </div>
 
-            <BlockedNotice>
-              Acceptance is not wired. Guide §08 blocks it until counsel approves
-              the Campaign Order template — the acceptOrder domain function (B4)
-              hashes whatever text it is shown.
-            </BlockedNotice>
-          </Card>
+              <BlockedNotice>
+                Acceptance is not wired. Guide §08 blocks it until counsel approves
+                the Campaign Order template — the acceptOrder domain function (B4)
+                hashes whatever text it is shown.
+              </BlockedNotice>
+            </Card>
+          ) : (
+            <Card>
+              <SectionHeading title="Order status" />
+              <Badge tone={STATE_TONE[inv.state]}>
+                {INVITE_COPY[inv.state]}
+              </Badge>
+              <p className="mt-2 text-[11px] leading-relaxed text-muted">
+                {inv.state === "DECLINED" &&
+                  (inv.declineReason ??
+                    "This invitation was declined; no Campaign Order was created.")}
+                {inv.state === "EXPIRED" &&
+                  "This invitation expired before a response. The sponsor can re-invite through BTG."}
+                {inv.state === "ACCEPTED" &&
+                  "This order is live — its deliverables are tracked on your dashboard."}
+              </p>
+              <div className="mt-3">
+                <Button variant="secondary" full href="/athlete/invitations">
+                  Back to invitations
+                </Button>
+              </div>
+            </Card>
+          )}
 
-          {athlete.isMinor ? (
+          {a.isMinor ? (
             <Card>
               <SectionHeading title="Guardian authorization" />
               <p className="text-[11px] leading-relaxed text-muted">
-                {athlete.firstName} is a minor. §4 requires a verified guardian
+                {a.firstName} is a minor. §4 requires a verified guardian
                 to authorize this order before it can be accepted.
               </p>
               <div className="mt-2">
-                {athlete.guardian?.verifiedAt ? (
+                {a.guardian?.verifiedAt ? (
                   <Badge tone="accent">Guardian verified</Badge>
                 ) : (
                   <Badge tone="warn">Guardian verification pending</Badge>

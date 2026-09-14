@@ -77,7 +77,7 @@ export default async function RedeemPage({
                   className={[
                     "grid size-5 shrink-0 place-items-center rounded-full text-[10px] font-bold tabular-nums",
                     active
-                      ? "bg-[#2e9bf5] text-white"
+                      ? "bg-[#2e9bf5] text-[#0a0c10]"
                       : "bg-on-media/10 text-on-media/60",
                   ].join(" ")}
                 >

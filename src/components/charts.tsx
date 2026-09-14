@@ -1,11 +1,24 @@
 import { useId } from "react";
+import type { CSSProperties } from "react";
+import { Reveal } from "@/components/reveal";
 
 /* --------------------------------------------------------------------------
    Chart primitives for the sponsor portal redesign (spec 2026-09-11).
    Hand-rolled SVG server components — no client bundle until interactivity is
    actually needed (recharts is a B-phase decision). Every chart is a static,
    deterministic render of fixture data.
+
+   Chart motion pass (2026-09-12): each chart wraps itself in <Reveal> (the
+   one ~0.5 kB client component) and carries sx-viz-* classes from
+   globals.css — a first-view entrance choreography plus a recessive idle
+   loop. The SVG attributes still describe the finished chart; motion is pure
+   CSS layered on top, so reduced-motion and no-JS renders stay correct.
+   Stagger is passed per element through the --sx-d custom property.
    -------------------------------------------------------------------------- */
+
+/** Per-element stagger/duration vars for the sx-viz-* animations. */
+const vizDelay = (s: number, dur?: string) =>
+  ({ "--sx-d": `${s}s`, ...(dur ? { "--sx-dur": dur } : {}) }) as CSSProperties;
 
 export type SeriesPoint = { label: string; a: number; b?: number };
 
@@ -26,6 +39,16 @@ function niceMax(v: number) {
 
 /* ------------------------------------------------------------- Sparkline */
 
+/**
+ * Trend line with a gradient tint down to the baseline and an endpoint dot —
+ * the tint and dot anchor the line so a scale-free sparkline still reads as
+ * "a measure over time, currently here".
+ *
+ * Entrance is a clip-path wipe, NOT the dash draw the other lines use:
+ * vector-effect: non-scaling-stroke makes Chromium compute dashes in screen
+ * pixels, ignoring pathLength normalization, which renders the "solid" line
+ * as scattered dashes (found 2026-09-12 on the sponsor engagement card).
+ */
 export function Sparkline({
   points,
   stroke = "var(--sx-accent)",
@@ -35,28 +58,59 @@ export function Sparkline({
   stroke?: string;
   height?: number;
 }) {
+  const gid = useId().replace(/[^a-zA-Z0-9]/g, "");
   const max = Math.max(...points, 1);
   const min = Math.min(...points, 0);
   const span = max - min || 1;
   const x = (i: number) => (i / (points.length - 1)) * 100;
   const y = (v: number) => 2 + (1 - (v - min) / span) * (height - 4);
+  const line = points.map((v, i) => `${x(i)},${y(v)}`).join(" ");
+  const lastI = points.length - 1;
   return (
-    <svg
-      viewBox={`0 0 100 ${height}`}
-      preserveAspectRatio="none"
-      className="h-6 w-full"
-      aria-hidden="true"
-    >
-      <polyline
-        points={points.map((v, i) => `${x(i)},${y(v)}`).join(" ")}
-        fill="none"
-        stroke={stroke}
-        strokeWidth="1.75"
-        strokeLinejoin="round"
-        strokeLinecap="round"
-        vectorEffect="non-scaling-stroke"
-      />
-    </svg>
+    <Reveal>
+      <svg
+        viewBox={`0 0 100 ${height}`}
+        preserveAspectRatio="none"
+        className="h-6 w-full"
+        aria-hidden="true"
+      >
+        <defs>
+          <linearGradient id={gid} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stopColor={stroke} stopOpacity="0.28" />
+            <stop offset="1" stopColor={stroke} stopOpacity="0" />
+          </linearGradient>
+        </defs>
+        <path
+          d={`M${line.replace(/ /g, " L")} L100,${height} L0,${height} Z`}
+          fill={`url(#${gid})`}
+          className="sx-viz-wipe"
+          style={vizDelay(0.1, "0.9s")}
+        />
+        <polyline
+          points={line}
+          fill="none"
+          stroke={stroke}
+          strokeWidth="1.75"
+          strokeLinejoin="round"
+          strokeLinecap="round"
+          vectorEffect="non-scaling-stroke"
+          className="sx-viz-wipe"
+          style={vizDelay(0.1, "0.9s")}
+        />
+        {/* preserveAspectRatio=none would stretch a circle into an ellipse;
+            a short round-capped segment keeps the dot round on any card. */}
+        <polyline
+          points={`${x(lastI)},${y(points[lastI])} ${x(lastI)},${y(points[lastI])}`}
+          fill="none"
+          stroke={stroke}
+          strokeWidth="4.5"
+          strokeLinecap="round"
+          vectorEffect="non-scaling-stroke"
+          className="sx-viz-pop"
+          style={vizDelay(0.95)}
+        />
+      </svg>
+    </Reveal>
   );
 }
 
@@ -116,7 +170,7 @@ export function AreaChart({
   const tickEvery = Math.max(1, Math.round((n - 1) / (xTicks - 1)));
 
   return (
-    <div className="w-full overflow-x-auto">
+    <Reveal className="w-full overflow-x-auto">
       <svg
         viewBox={`0 0 ${W} ${height}`}
         className="h-auto w-full min-w-[30rem]"
@@ -133,7 +187,7 @@ export function AreaChart({
         {Array.from({ length: rows + 1 }, (_, r) => {
           const y = PAD.top + (plotH / rows) * r;
           return (
-            <g key={r}>
+            <g key={r} className="sx-viz-fade" style={vizDelay(r * 0.06)}>
               <line
                 x1={PAD.left}
                 x2={W - PAD.right}
@@ -175,13 +229,20 @@ export function AreaChart({
               textAnchor="middle"
               fontSize="9"
               fill="var(--sx-text-faint)"
+              className="sx-viz-fade"
+              style={vizDelay(0.2 + (i / Math.max(n - 1, 1)) * 0.3)}
             >
               {p.label}
             </text>
           ) : null,
         )}
 
-        <path d={areaPath} fill={`url(#${gid})`} />
+        <path
+          d={areaPath}
+          fill={`url(#${gid})`}
+          className="sx-viz-wipe"
+          style={vizDelay(0.2, "1.15s")}
+        />
 
         {dual && (
           <polyline
@@ -192,6 +253,9 @@ export function AreaChart({
             strokeLinejoin="round"
             strokeLinecap="round"
             opacity="0.9"
+            pathLength={1}
+            className="sx-viz-draw"
+            style={vizDelay(0.55, "0.9s")}
           />
         )}
 
@@ -202,6 +266,9 @@ export function AreaChart({
           strokeWidth="2.25"
           strokeLinejoin="round"
           strokeLinecap="round"
+          pathLength={1}
+          className="sx-viz-draw"
+          style={vizDelay(0.2, "1.15s")}
         />
 
         {proj.length > 0 && (
@@ -217,11 +284,13 @@ export function AreaChart({
             strokeLinejoin="round"
             strokeLinecap="round"
             opacity="0.9"
+            className="sx-viz-fade"
+            style={vizDelay(1.2)}
           />
         )}
 
         {marker && marker.index >= 0 && marker.index < n && (
-          <g>
+          <g className="sx-viz-rise" style={vizDelay(1.3)}>
             <line
               x1={x(marker.index)}
               x2={x(marker.index)}
@@ -253,12 +322,15 @@ export function AreaChart({
           r="7"
           fill="var(--sx-primary)"
           opacity="0.22"
+          className="sx-viz-pulse"
         />
         <circle
           cx={x(lastI)}
           cy={yA(points[lastI].a)}
           r="3.25"
           fill="var(--sx-primary)"
+          className="sx-viz-pop"
+          style={vizDelay(1.2)}
         />
         {dual && (
           <circle
@@ -266,10 +338,12 @@ export function AreaChart({
             cy={yB(points[lastI].b ?? 0)}
             r="2.75"
             fill="var(--sx-accent)"
+            className="sx-viz-pop"
+            style={vizDelay(1.35)}
           />
         )}
       </svg>
-    </div>
+    </Reveal>
   );
 }
 
@@ -321,62 +395,77 @@ export function RadialGauge({
   const filled = Math.max(0, Math.min(1, sweep)) * C;
   return (
     <div className="text-center" style={{ width: size }}>
-      <svg
-        viewBox="0 0 120 120"
-        width={size}
-        height={size}
-        role="img"
-        aria-label={`${caption ?? "Gauge"}: ${display}`}
-      >
-        <defs>
-          <linearGradient id={gid} x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0" stopColor="var(--sx-primary)" />
-            <stop offset="1" stopColor="var(--sx-accent)" />
-          </linearGradient>
-        </defs>
-        <circle
-          cx="60"
-          cy="60"
-          r="48"
-          fill="none"
-          stroke="var(--sx-line-soft)"
-          strokeWidth="10"
-        />
-        <circle
-          cx="60"
-          cy="60"
-          r="48"
-          fill="none"
-          stroke={`url(#${gid})`}
-          strokeWidth="10"
-          strokeLinecap="round"
-          strokeDasharray={`${filled} ${C}`}
-          transform="rotate(-90 60 60)"
-        />
-        <text
-          x="60"
-          y="58"
-          textAnchor="middle"
-          fontSize="23"
-          fontWeight="700"
-          fill="var(--sx-text)"
+      <Reveal>
+        <svg
+          viewBox="0 0 120 120"
+          width={size}
+          height={size}
+          role="img"
+          aria-label={`${caption ?? "Gauge"}: ${display}`}
         >
-          {display}
-        </text>
-        {caption && (
+          <defs>
+            <linearGradient id={gid} x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0" stopColor="var(--sx-primary)" />
+              <stop offset="1" stopColor="var(--sx-accent)" />
+            </linearGradient>
+          </defs>
+          <circle
+            cx="60"
+            cy="60"
+            r="48"
+            fill="none"
+            stroke="var(--sx-line-soft)"
+            strokeWidth="10"
+            className="sx-viz-fade"
+          />
+          <circle
+            cx="60"
+            cy="60"
+            r="48"
+            fill="none"
+            stroke={`url(#${gid})`}
+            strokeWidth="10"
+            strokeLinecap="round"
+            strokeDasharray={`${filled} ${C}`}
+            transform="rotate(-90 60 60)"
+            className="sx-viz-gauge"
+            style={{ "--sx-sweep": `${filled}px` } as CSSProperties}
+          />
           <text
             x="60"
-            y="74"
+            y="58"
             textAnchor="middle"
-            fontSize="8"
-            fill="var(--sx-text-muted)"
-            style={{ letterSpacing: "0.12em" }}
+            fontSize="23"
+            fontWeight="700"
+            fill="var(--sx-text)"
+            className="sx-viz-rise"
+            style={vizDelay(0.55)}
           >
-            {caption.toUpperCase()}
+            {display}
           </text>
+          {caption && (
+            <text
+              x="60"
+              y="74"
+              textAnchor="middle"
+              fontSize="8"
+              fill="var(--sx-text-muted)"
+              className="sx-viz-fade"
+              style={{ letterSpacing: "0.12em", ...vizDelay(0.75) }}
+            >
+              {caption.toUpperCase()}
+            </text>
+          )}
+        </svg>
+        {sub && (
+          <p
+            className="sx-viz-fade mt-1 text-[10px] leading-snug text-faint"
+            style={vizDelay(0.9)}
+          >
+            {sub}
+          </p>
         )}
-      </svg>
-      {sub && <p className="mt-1 text-[10px] leading-snug text-faint">{sub}</p>}
+      </Reveal>
     </div>
   );
 }
@@ -401,48 +490,61 @@ export function Donut({
     lens.slice(0, i).reduce((a, b) => a + b, 0),
   );
   return (
-    <svg
-      viewBox="0 0 80 80"
-      width={size}
-      height={size}
-      role="img"
-      aria-label={segments.map((s) => `${s.label} ${s.value}`).join(", ")}
-    >
-      {segments.map((s, i) => (
-        <circle
-          key={s.label}
-          cx="40"
-          cy="40"
-          r="30"
-          fill="none"
-          stroke={s.color}
-          strokeWidth="13"
-          strokeDasharray={`${lens[i]} ${C}`}
-          strokeDashoffset={-offsets[i]}
-          transform="rotate(-90 40 40)"
-        />
-      ))}
-      <text
-        x="40"
-        y="38"
-        textAnchor="middle"
-        fontSize="11"
-        fontWeight="700"
-        fill="var(--sx-text)"
+    <Reveal>
+      <svg
+        viewBox="0 0 80 80"
+        width={size}
+        height={size}
+        role="img"
+        aria-label={segments.map((s) => `${s.label} ${s.value}`).join(", ")}
       >
-        {centerValue}
-      </text>
-      <text
-        x="40"
-        y="50"
-        textAnchor="middle"
-        fontSize="5.5"
-        fill="var(--sx-text-muted)"
-        style={{ letterSpacing: "0.1em" }}
-      >
-        {centerLabel.toUpperCase()}
-      </text>
-    </svg>
+        {segments.map((s, i) => (
+          <circle
+            key={s.label}
+            cx="40"
+            cy="40"
+            r="30"
+            fill="none"
+            stroke={s.color}
+            strokeWidth="13"
+            strokeDasharray={`${lens[i]} ${C}`}
+            strokeDashoffset={-offsets[i]}
+            transform="rotate(-90 40 40)"
+            className="sx-viz-arc"
+            style={
+              {
+                "--sx-seg": lens[i],
+                "--sx-c": C,
+                "--sx-d": `${i * 0.14}s`,
+              } as CSSProperties
+            }
+          />
+        ))}
+        <text
+          x="40"
+          y="38"
+          textAnchor="middle"
+          fontSize="11"
+          fontWeight="700"
+          fill="var(--sx-text)"
+          className="sx-viz-rise"
+          style={vizDelay(0.5)}
+        >
+          {centerValue}
+        </text>
+        <text
+          x="40"
+          y="50"
+          textAnchor="middle"
+          fontSize="5.5"
+          fill="var(--sx-text-muted)"
+          className="sx-viz-fade"
+          style={{ letterSpacing: "0.1em", ...vizDelay(0.7) }}
+        >
+          {centerLabel.toUpperCase()}
+        </text>
+      </svg>
+    </Reveal>
   );
 }
 
@@ -450,7 +552,13 @@ export function Donut({
 
 /**
  * True stepped funnel. Full mode renders labeled bars with inter-stage
- * conversion rates; compact mode renders the 4-bar glyph for bento cells.
+ * conversion rates; compact mode renders the bar glyph for bento cells.
+ *
+ * Readability redesign (2026-09-12, senior-dataviz feedback): bars share a
+ * left origin so the stage-to-stage decay is the shape you see, and color
+ * follows the data's one job — a single sequential primary ramp for the
+ * pipeline with only the final conversion stage in accent. The old centered
+ * glyph with a 2+2 blue/orange split read as four unrelated bars.
  */
 export function FunnelSteps({
   stages,
@@ -460,31 +568,36 @@ export function FunnelSteps({
   compact?: boolean;
 }) {
   const max = Math.max(...stages.map((s) => s.value), 1);
+  const last = stages.length - 1;
 
   if (isCompact) {
     return (
-      <svg viewBox="0 0 100 30" className="h-8 w-full" aria-hidden="true">
-        {stages.map((s, i) => {
-          const w = Math.max((s.value / max) * 100, 6);
-          return (
-            <rect
-              key={s.label}
-              x={(100 - w) / 2}
-              y={i * 8}
-              width={w}
-              height={5}
-              rx={2.5}
-              fill={i < 2 ? "var(--sx-primary)" : "var(--sx-accent)"}
-              opacity={i === 0 || i === stages.length - 1 ? 1 : 0.75}
-            />
-          );
-        })}
-      </svg>
+      <Reveal>
+        <svg viewBox="0 0 100 30" className="h-8 w-full" aria-hidden="true">
+          {stages.map((s, i) => {
+            const w = Math.max((s.value / max) * 100, 6);
+            return (
+              <rect
+                key={s.label}
+                x={0}
+                y={i * 8}
+                width={w}
+                height={5}
+                rx={2.5}
+                fill={i === last ? "var(--sx-accent)" : "var(--sx-primary)"}
+                opacity={i === last ? 1 : 1 - i * (0.5 / Math.max(last - 1, 1))}
+                className="sx-viz-grow-x"
+                style={vizDelay(i * 0.1)}
+              />
+            );
+          })}
+        </svg>
+      </Reveal>
     );
   }
 
   return (
-    <div className="space-y-0.5">
+    <Reveal className="space-y-0.5">
       {stages.map((s, i) => {
         const pct = Math.max((s.value / max) * 100, 14);
         const conv =
@@ -492,16 +605,20 @@ export function FunnelSteps({
         return (
           <div key={s.label}>
             {conv !== null && (
-              <p className="py-0.5 pl-2 text-[10px] text-faint">↓ {conv}%</p>
+              <p
+                className="sx-viz-fade py-0.5 pl-2 text-[10px] text-faint"
+                style={vizDelay(i * 0.11 + 0.15)}
+              >
+                ↓ {conv}%
+              </p>
             )}
             <div className="flex items-center gap-2">
               <div
                 className={[
-                  "flex h-6 items-center rounded-md px-2.5 text-[10px] font-medium text-white",
-                  i < 2 ? "bg-primary" : "bg-accent",
-                  i === 1 || i === 2 ? "opacity-80" : "",
+                  "sx-viz-wipe sx-viz-glint flex h-6 items-center rounded-md px-2.5 text-[10px] font-medium text-cta-ink",
+                  i === last ? "bg-accent" : "bg-primary",
                 ].join(" ")}
-                style={{ width: `${pct}%` }}
+                style={{ width: `${pct}%`, ...vizDelay(i * 0.11) }}
               >
                 <span className="truncate">
                   {s.label} · {s.value.toLocaleString()}
@@ -511,7 +628,7 @@ export function FunnelSteps({
           </div>
         );
       })}
-    </div>
+    </Reveal>
   );
 }
 
@@ -535,32 +652,46 @@ export function HBarList({
     warn: "bg-warn",
   } as const;
   return (
-    <ul className="space-y-2.5">
-      {rows.map((r) => (
-        <li key={r.label}>
-          <div className="flex items-baseline justify-between gap-2 text-[11px]">
-            <span className="min-w-0 truncate">
-              {r.label}
-              {r.sub && <span className="ml-1.5 text-faint">{r.sub}</span>}
-            </span>
-            <span
-              className={[
-                "shrink-0 tabular-nums",
-                r.tone === "warn" ? "font-medium text-warn" : "text-muted",
-              ].join(" ")}
-            >
-              {r.display}
-            </span>
-          </div>
-          <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-surface-2">
+    <Reveal>
+      <ul className="space-y-2.5">
+        {rows.map((r, i) => (
+          <li key={r.label}>
             <div
-              className={["h-full rounded-full", FILL[r.tone ?? "primary"]].join(" ")}
-              style={{ width: `${Math.max((r.value / max) * 100, 3)}%` }}
-            />
-          </div>
-        </li>
-      ))}
-    </ul>
+              className="sx-viz-fade flex items-baseline justify-between gap-2 text-[11px]"
+              style={vizDelay(i * 0.09)}
+            >
+              <span className="min-w-0 truncate">
+                {r.label}
+                {r.sub && <span className="ml-1.5 text-faint">{r.sub}</span>}
+              </span>
+              <span
+                className={[
+                  "shrink-0 tabular-nums",
+                  r.tone === "warn" ? "font-medium text-warn" : "text-muted",
+                ].join(" ")}
+              >
+                {r.display}
+              </span>
+            </div>
+            <div
+              className="sx-viz-glint mt-1 h-1.5 w-full overflow-hidden rounded-full bg-surface-2"
+              style={vizDelay(i * 0.45)}
+            >
+              <div
+                className={[
+                  "sx-viz-grow-x h-full rounded-full",
+                  FILL[r.tone ?? "primary"],
+                ].join(" ")}
+                style={{
+                  width: `${Math.max((r.value / max) * 100, 3)}%`,
+                  ...vizDelay(i * 0.09),
+                }}
+              />
+            </div>
+          </li>
+        ))}
+      </ul>
+    </Reveal>
   );
 }
 
@@ -573,8 +704,8 @@ export function TrustMeter({
   segments: { label: string; pct: number; className: string }[];
 }) {
   return (
-    <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-      <div className="flex h-2 min-w-44 flex-1 overflow-hidden rounded-full">
+    <Reveal className="flex flex-wrap items-center gap-x-4 gap-y-2">
+      <div className="sx-viz-wipe sx-viz-glint flex h-2 min-w-44 flex-1 overflow-hidden rounded-full">
         {segments.map((s) => (
           <div
             key={s.label}
@@ -584,16 +715,17 @@ export function TrustMeter({
         ))}
       </div>
       <div className="flex flex-wrap gap-x-3 gap-y-1">
-        {segments.map((s) => (
+        {segments.map((s, i) => (
           <span
             key={s.label}
-            className="flex items-center gap-1.5 text-[10px] text-muted"
+            className="sx-viz-fade flex items-center gap-1.5 text-[10px] text-muted"
+            style={vizDelay(0.3 + i * 0.08)}
           >
             <span className={["size-1.5 rounded-full", s.className].join(" ")} />
             {s.pct}% {s.label}
           </span>
         ))}
       </div>
-    </div>
+    </Reveal>
   );
 }

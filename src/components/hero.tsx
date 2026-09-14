@@ -33,8 +33,8 @@ export function HeroBand({
 }
 
 const MONO_TONES = {
-  primary: "bg-gradient-to-br from-primary to-primary-soft text-white",
-  accent: "bg-gradient-to-br from-accent to-accent-soft text-white",
+  primary: "bg-gradient-to-br from-primary to-primary-soft text-cta-ink",
+  accent: "bg-gradient-to-br from-accent to-accent-soft text-cta-ink",
   neutral: "bg-surface-2 text-muted",
 } as const;
 

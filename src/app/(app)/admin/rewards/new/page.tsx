@@ -23,7 +23,7 @@ function Stepper({ steps, current }: { steps: string[]; current: number }) {
           <span
             className={[
               "grid size-5 shrink-0 place-items-center rounded-full text-[10px] font-semibold",
-              i === current ? "bg-primary text-white" : "bg-surface-2 text-faint",
+              i === current ? "bg-primary text-cta-ink" : "bg-surface-2 text-faint",
             ].join(" ")}
           >
             {i + 1}
@@ -179,7 +179,7 @@ export default function RewardCreatorPage() {
               <button
                 type="button"
                 title="Not wired"
-                className="rounded-lg bg-primary px-4 py-2.5 text-xs font-medium text-white transition-colors hover:bg-primary-soft"
+                className="rounded-lg bg-primary px-4 py-2.5 text-xs font-medium text-cta-ink transition-colors hover:bg-primary-soft"
               >
                 Next: Design
               </button>

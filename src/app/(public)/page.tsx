@@ -96,7 +96,7 @@ export default function HomePage() {
             <div className="mt-7 flex flex-wrap items-center gap-3">
               <Link
                 href="#for-sponsors"
-                className="rounded-lg bg-primary px-5 py-2.5 text-xs font-medium text-white transition-colors hover:bg-primary-soft"
+                className="rounded-lg bg-primary px-5 py-2.5 text-xs font-medium text-cta-ink transition-colors hover:bg-primary-soft"
               >
                 I&rsquo;m a Sponsor
               </Link>
@@ -248,7 +248,7 @@ export default function HomePage() {
                     className={[
                       "block rounded-lg px-4 py-2.5 text-center text-xs font-medium transition-colors",
                       p.featured
-                        ? "bg-primary text-white hover:bg-primary-soft"
+                        ? "bg-primary text-cta-ink hover:bg-primary-soft"
                         : "border border-line text-text hover:bg-surface-2",
                     ].join(" ")}
                   >
@@ -394,7 +394,7 @@ export default function HomePage() {
             <div className="mt-7 flex flex-wrap justify-center gap-3">
               <Link
                 href="/packages"
-                className="rounded-lg bg-primary px-5 py-2.5 text-xs font-medium text-white transition-colors hover:bg-primary-soft"
+                className="rounded-lg bg-primary px-5 py-2.5 text-xs font-medium text-cta-ink transition-colors hover:bg-primary-soft"
               >
                 Request a brief
               </Link>

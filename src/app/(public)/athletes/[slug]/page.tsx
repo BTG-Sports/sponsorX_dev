@@ -120,7 +120,7 @@ export default async function AthleteProfilePage({
             <button
               type="button"
               title="Follow — not wired"
-              className="rounded-lg bg-primary px-5 py-2 text-[11px] font-medium text-white transition-colors hover:bg-primary-soft"
+              className="rounded-lg bg-primary px-5 py-2 text-[11px] font-medium text-cta-ink transition-colors hover:bg-primary-soft"
             >
               Follow
             </button>
@@ -170,7 +170,10 @@ export default async function AthleteProfilePage({
 
       {/* --------------------------------------------- inventory + about */}
       <div className="mt-5 grid gap-5 lg:grid-cols-[minmax(0,1fr)_18rem] lg:items-start">
-        <section>
+        {/* min-w-0: the implicit single column below lg must be allowed to
+            shrink under the inventory rows' min-content, or the page widens
+            past 360 (P1-QA-03). */}
+        <section className="min-w-0">
           <h2 className="mb-3 text-sm font-semibold tracking-tight">
             Available Inventory
           </h2>
@@ -200,7 +203,7 @@ export default async function AthleteProfilePage({
           <button
             type="button"
             title="Opens a CampaignBrief with this athlete attached — not wired"
-            className="mt-4 w-full rounded-lg bg-primary py-2.5 text-xs font-medium text-white transition-colors hover:bg-primary-soft"
+            className="mt-4 w-full rounded-lg bg-primary py-2.5 text-xs font-medium text-cta-ink transition-colors hover:bg-primary-soft"
           >
             Request Partnership
           </button>
@@ -212,7 +215,7 @@ export default async function AthleteProfilePage({
           </p>
         </section>
 
-        <div className="space-y-5">
+        <div className="min-w-0 space-y-5">
           <section>
             <h2 className="mb-3 text-sm font-semibold tracking-tight">About</h2>
             <Card>

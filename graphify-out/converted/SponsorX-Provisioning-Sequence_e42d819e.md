@@ -1,0 +1,38 @@
+<!-- converted from SponsorX-Provisioning-Sequence.xlsx -->
+
+## Sheet: Provisioning
+|  | SponsorX — Vendor Provisioning Sequence |  |  |  |  |  |  |  |  |  |  |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+|  | Work top to bottom. Every step says WHERE the work happens — a written document, click-work in an admin UI, or a vendor console. Stages are lettered A–D so they never collide with the plan's Phases 0–8. |  |  |  |  |  |  |  |  |  |  |
+|  | REGION DECIDED · US EAST (Railway us-east4-eqdc4a · R2 hint ENAM)          ZOHO ADMIN CONFIRMED · rcfworks@gmail.com holds Administrator |  |  |  |  |  |  |  |  |  |  |
+|  | # | Action | Where the work happens | Task | Order | Cost | After | What this unlocks / why it matters | Status | Date done | Owner |
+|  | STAGE A  ·  Access & decisions   —   Nothing here costs money. Two of the five are already done. |  |  |  |  |  |  |  |  |  |  |
+|  | 1 | Data residency — decide the region | Document | P0-PMO-02 | 1 | Free | — | DECIDED · US EAST. Railway us-east4-eqdc4a (Virginia), Cloudflare R2 hint ENAM. East not West: the prelaunch materials target the DMV and Baltimore, and Rodney's Zoho profile is America/New_York. Apply at steps 9 and 12 — fixed at creation, no migration path. | Done |  |  |
+|  | 2 | Zoho admin rights — CONFIRMED, nothing to do | — | — |  | Free | — | Verified 2026-09-11: rcfworks@gmail.com holds the Administrator profile (role Manager). Covers custom modules, fields, API credentials, users and integrations. Steps 6, 7 and 8 need nobody's permission. | Done |  |  |
+|  | 3 | Fix the Zoho org timezone — PST, should be Eastern | Zoho dashboard | — |  | Free | — | No admin is on Pacific: Rodney is America/New_York, the PH-based team is Asia/Manila, the business is DMV. Left uncorrected, every CRM timestamp is three hours off. | Not started |  |  |
+|  | 4 | Review chiro.collabhealing@gmail.com's Administrator access | Zoho dashboard | — |  | Free | — | An outside party — reads like a client, not BTG staff — holds full Administrator, so every sponsor record is visible to them. §26 also makes MFA mandatory for privileged accounts in production. Standard profile is likely correct. | Not started |  |  |
+|  | 5 | Confirm the Zoho licence renewal — expires 2026-09-18 | — | — |  | Already paid | — | Rodney is the org's primary contact and therefore Zoho One super admin: licensing, billing and renewal are his, not yours. CRM configuration is yours; the subscription is not. | Not started |  |  |
+|  | STAGE B  ·  Free setup — one afternoon   —   Zero cost. All of plan Phase 0 and the rest of Phase 1 run on this, plus Postgres locally. |  |  |  |  |  |  |  |  |  |  |
+|  | 6 | Author the Zoho field-mapping document | Document | P0-PMO-08 | 8 | Free | — | A WRITTEN SPEC, not configuration. Every SponsorX object mapped to its Zoho equivalent field by field, with sync direction and which system wins on conflict. It is the input the sync code is built from — and it defines the fields step 7 creates. | Not started |  |  |
+|  | 7 | Create the Athlete / Content Partner custom module | Zoho dashboard | P0-OPS-05 | 24 | Included | Step 6 | CLICK-WORK in the Zoho admin UI: Setup → Modules and Fields → Create Module. The only object in §18 with no CRM home — Accounts, Contacts, Leads, Deals, Tasks and Campaigns already exist as stock modules. Must follow step 6: the mapping document says which fields it needs. | Not started |  |  |
+|  | 8 | Zoho — issue API credentials and a sandbox org | Zoho dashboard | P0-OPS-04 | 23 | Included | Step 2 ✓ | Lets sync be developed against test data instead of the live sales pipeline. | Not started |  |  |
+|  | 9 | Cloudflare R2 — two buckets, location hint ENAM | Vendor console | P0-OPS-02 | 9 | Free · 10 GB | Step 1 ✓ | One PRIVATE bucket for contracts and draft creative, one PUBLIC for published video. Different security rules — they must not share a policy. Egress is free. | Not started |  |  |
+|  | 10 | Clerk — account plus dev and production instances | Vendor console | P0-OPS-03 | 4 | Free · 50k users | — | Free tier covers 50,000 monthly users. Do NOT buy Pro yet — see step 15. | Not started |  |  |
+|  | 11 | Pick the transactional email provider | Document | P0-PMO-03 | 13 | Free · 3k/mo | — | A decision, then a free signup. The whole campaign loop — invitations, deadlines, revisions, approvals — is email. | Not started |  |  |
+|  | STAGE C  ·  The clock starts   —   First real spend. Do not sign up for Railway before you need it. |  |  |  |  |  |  |  |  |  |  |
+|  | 12 | Sign up for Railway | Vendor console | P0-OPS-01 | 2 | Trial · $5 | Step 1 ✓ | The 30-day trial starts at signup, not first use. Signing up early wastes the only free production capacity you get. | Not started |  |  |
+|  | 13 | Create the Railway project — web, worker, postgres | Vendor console | P2-OPS-01 | 37 | ~$5/mo | Step 12 | Private networking, region us-east4-eqdc4a. Unblocks 114 downstream tasks — the single biggest gate in the programme. | Not started |  |  |
+|  | 14 | Set the environment variables | Vendor console | P2-OPS-04 | 57 | — | 8, 9, 10, 13 | Zoho secrets belong on the worker ONLY. Putting them on the public web app exposes CRM credentials. | Not started |  |  |
+|  | 15 | Staging and production environments | Vendor console | P2-OPS-09 | 46 | Usage | Step 13 | Backups on, and a restore actually performed. An untested restore is not a backup. | Not started |  |  |
+|  | STAGE D  ·  Before you go live   —   Production requirements, not optional upgrades. |  |  |  |  |  |  |  |  |  |  |
+|  | 16 | Upgrade Clerk to Pro | Vendor console | P2-INT-02 | 55 | $20/mo | Step 10 | MFA is Pro-only and §26 makes it a hard production requirement for admin and finance. Budget it as part of going live. | Not started |  |  |
+|  | 17 | Upgrade email only if you outgrow the free tier | Vendor console | — |  | $20/mo | Step 11 | Phase 1 volume — 25 athletes, 10 sponsors — sits comfortably inside free. Most likely never needed. | Not started |  |  |
+|  | WHERE THINGS STAND |  |  |  |  |  |  |  |  |  |  |
+|  | Progress | 2 of 17 steps complete  ·  $0 — nothing provisioned that bills yet |  |  |  |  |  |  |  |  |  |
+|  | Steps 6 and 7 are different jobs | Step 6 is a written mapping document. Step 7 is click-work in Zoho. They were one row until 2026-09-11 and should never be merged again — the document defines the fields the module needs. |  |  |  |  |  |  |  |  |  |
+|  | Already settled | Region (US East) and your Zoho Administrator rights. |  |  |  |  |  |  |  |  |  |
+|  | Not yours to do | The Zoho One licence renewal is Rodney's — he is the org's primary contact and super admin. |  |  |  |  |  |  |  |  |  |
+|  | From plan Phase 2 | ~$5 / month — Railway Hobby minimum |  |  |  |  |  |  |  |  |  |
+|  | At production | ~$25–45 / month — Railway Hobby + Clerk Pro for MFA |  |  |  |  |  |  |  |  |  |
+|  | The one trap | Step 1 must precede steps 9 and 13. An R2 bucket or Railway database created in the wrong region is the only mistake here with no undo short of a migration. |  |  |  |  |  |  |  |  |  |
+|  | Stages vs Phases | Stages A–D are this checklist. Phases 0–8 are the delivery stages inside blueprint Phase 1. The Task and Order columns map each step to its row in the task board. |  |  |  |  |  |  |  |  |  |

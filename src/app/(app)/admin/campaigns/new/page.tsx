@@ -26,7 +26,7 @@ function Stepper({ steps, current }: { steps: string[]; current: number }) {
             className={[
               "grid size-5 shrink-0 place-items-center rounded-full text-[10px] font-semibold",
               i === current
-                ? "bg-primary text-white"
+                ? "bg-primary text-cta-ink"
                 : i < current
                   ? "bg-accent/15 text-accent"
                   : "bg-surface-2 text-faint",
@@ -98,8 +98,10 @@ export default async function CampaignBuilderPage({
       </Card>
 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_20rem] xl:items-start">
-        {/* ------------------------------------------------ details form */}
-        <div className="space-y-6">
+        {/* ------------------------------------------------ details form.
+            min-w-0: lets the implicit mobile column shrink under the eligible-
+            athletes table's min-w (P1-QA-03, 360px). */}
+        <div className="min-w-0 space-y-6">
           <section>
             <SectionHeading title="Campaign details" />
             <Card className="space-y-4">
@@ -238,7 +240,7 @@ export default async function CampaignBuilderPage({
               <button
                 type="button"
                 title="Sends CampaignInvites and moves the campaign to STAFFING — not wired"
-                className="w-full rounded-lg bg-primary py-2.5 text-xs font-medium text-white transition-colors hover:bg-primary-soft"
+                className="w-full rounded-lg bg-primary py-2.5 text-xs font-medium text-cta-ink transition-colors hover:bg-primary-soft"
               >
                 Next: Rewards
               </button>
