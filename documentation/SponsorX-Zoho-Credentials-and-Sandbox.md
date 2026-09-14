@@ -4,10 +4,11 @@
 
 | | |
 |---|---|
-| **Version** | 0.1 |
-| **Date** | 2026-09-11 |
+| **Version** | 0.2 |
+| **Date** | 2026-09-14 |
 | **Author** | rcfworks |
 | **Status** | Specification complete. The two provisioning steps are console click-work and are marked **YOU** below. |
+| **Authorising account** | Development key: **`rcfworks@gmail.com`** (decided 2026-09-14). Production key: **`rcarr@icarrefound.org`**, created separately by Rodney — two keys, not a transfer. See §9. |
 | **Scope** | **Zoho CRM only.** Zoho Books credentials are deliberately out of scope — see §6. |
 | **Unblocks** | `P7-BE-04` · `P8-INT-01` · `P8-INT-02` · `P8-INT-03` · `P8-INT-05` · `P8-INT-07` |
 
@@ -64,6 +65,15 @@ ZohoCRM.coql.READ,
 ZohoCRM.org.READ,
 ZohoCRM.bulk.READ,
 ZohoCRM.bulk.CREATE
+```
+
+### 2.1a · The same list, paste-ready
+
+The Generate Code field takes one line with no spaces and no newlines. This is
+§2.1 flattened — 24 scopes, 662 characters. Paste this, not the block above.
+
+```
+ZohoCRM.modules.accounts.READ,ZohoCRM.modules.accounts.CREATE,ZohoCRM.modules.accounts.UPDATE,ZohoCRM.modules.contacts.READ,ZohoCRM.modules.contacts.CREATE,ZohoCRM.modules.contacts.UPDATE,ZohoCRM.modules.leads.READ,ZohoCRM.modules.leads.CREATE,ZohoCRM.modules.leads.UPDATE,ZohoCRM.modules.deals.READ,ZohoCRM.modules.deals.CREATE,ZohoCRM.modules.deals.UPDATE,ZohoCRM.modules.tasks.READ,ZohoCRM.modules.tasks.CREATE,ZohoCRM.modules.tasks.UPDATE,ZohoCRM.modules.custom.READ,ZohoCRM.modules.custom.CREATE,ZohoCRM.modules.custom.UPDATE,ZohoCRM.settings.fields.READ,ZohoCRM.settings.modules.READ,ZohoCRM.coql.READ,ZohoCRM.org.READ,ZohoCRM.bulk.READ,ZohoCRM.bulk.CREATE
 ```
 
 ### 2.2 · What each one is for
@@ -136,8 +146,11 @@ answer, not boilerplate.
 worker: no user ever logs in, and there is no redirect URI to receive a code.
 Self Client is the grant type built for exactly that.
 
-1. Go to **https://api-console.zoho.com** and sign in as the Zoho admin
-   (`rcarr@icarrefound.org`).
+1. Go to **https://api-console.zoho.com**. **Check which account the browser
+   is already signed into before you do anything else** — the grant token is
+   issued as whoever is signed in, and the refresh token inherits that identity
+   permanently. Sign in as **`rcfworks@gmail.com`** — this is the development
+   key (§9). Production gets its own, created by Rodney.
 2. **Add Client** → choose **Self Client** → Create. Confirm.
 3. The **Client ID** and **Client Secret** are now on the *Client Secret* tab.
    Copy them straight into Railway. Do not put them anywhere else.
@@ -167,15 +180,58 @@ Self Client is the grant type built for exactly that.
    If it returns `invalid_code`, the grant token has already been used or has
    expired. Generate a new one at step 4; nothing else needs redoing.
 
-6. Put all three secrets into Railway's environment variables. Done.
+6. Put all three secrets into Railway's environment variables.
+
+   **Railway does not exist yet** — `P0-OPS-01` is unstarted, and Stage C warns
+   against starting its 30-day trial early. Until it does, hold the three
+   values in a password manager. They do not go in this repo, a chat, or a
+   ticket. Moving them into Railway is step 14 of the provisioning sequence.
+
+7. **Prove it works** — this is acceptance criterion 2. Mint an access token
+   from the refresh token, then make one real call:
+
+   ```bash
+   ACCESS=$(curl -s -X POST "https://accounts.zoho.com/oauth/v2/token" \
+     -d "grant_type=refresh_token" \
+     -d "client_id=YOUR_CLIENT_ID" \
+     -d "client_secret=YOUR_CLIENT_SECRET" \
+     -d "refresh_token=YOUR_REFRESH_TOKEN" | sed -n 's/.*"access_token":"\([^"]*\)".*/\1/p')
+
+   curl -s "https://www.zohoapis.com/crm/v8/settings/modules" \
+     -H "Authorization: Zoho-oauthtoken $ACCESS" | head -c 400
+   ```
+
+   A JSON body listing modules is a pass: it proves the refresh token works and
+   exercises `settings.modules.READ`. `INVALID_TOKEN` means the refresh token
+   or client pair is wrong; `OAUTH_SCOPE_MISMATCH` means the scope list did not
+   go through in full — regenerate at step 4 with the §2.1a line.
+
+   Tell me it passed. **Do not paste the output** — it is unremarkable, and the
+   command line above contains all three secrets.
 
 ---
 
 ## 5 · YOU · Create the sandbox
 
-**Setup (⚙) → Developer Space → Sandbox → New Sandbox.**
+Click by click. Zoho moves Setup items between releases, so if a label differs
+from what is written here, tell me rather than guessing at the nearest match.
 
-Two things to tell me once you are on that page, because they depend on the
+1. Go to **https://crm.zoho.com** and sign in as **`rcfworks@gmail.com`**.
+2. Click the **⚙ gear icon** in the top-right of the CRM header bar. This opens
+   Setup.
+3. In the left-hand Setup menu, scroll down to the **Developer Space** group
+   (it sits below *Automation* and *Data Administration*).
+4. Click **Sandbox**.
+5. Click **New Sandbox**, top right of the panel.
+6. **Stop here.** Do not fill the form in yet — read the two questions below
+   off the page and tell me the answers first. They change `P8-INT-07`'s plan,
+   and the sandbox type cannot be changed after creation.
+7. Once we have agreed the type: name it **`SponsorX-Dev`**, leave the default
+   user set unless it forces a choice, and create it.
+8. Note the **sandbox domain** Zoho gives you — it will be under
+   `sandbox.zohoapis.com`, and it is not the production domain. Record it in §7.
+
+Two things to tell me at step 6, because they depend on the
 edition and I cannot read them through the connector:
 
 - **Which sandbox types are offered.** Zoho distinguishes a configuration-only
@@ -185,6 +241,12 @@ edition and I cannot read them through the connector:
   cannot rehearse a backfill against realistic data volumes.
 - **How long it says provisioning will take.** A sandbox is a copy of
   production and is not instant.
+
+*Checked 2026-09-14 and confirmed unreadable.* The CRM connector's module
+metadata was tried as a way to answer the first question without you. It
+returns `FEATURE_NOT_SUPPORTED` for `sandbox` — but it returns the same for
+`custommodule`, which this org demonstrably has, so the response says nothing
+about the edition. The question genuinely needs eyes on the Setup page.
 
 Two facts already established that matter here:
 
@@ -222,12 +284,14 @@ Fill in as each step completes. No secrets here — names and dates only.
 
 | Item | Status | Date | Who | Notes |
 |---|---|---|---|---|
+| Dev key — authorising account chosen | ☑ | 2026-09-14 | rcfworks | **`rcfworks@gmail.com`** — development key (§9) |
 | Self Client created | ☐ | | | |
 | Scopes granted per §2.1 | ☐ | | | Record any scope Zoho rejected |
 | Refresh token issued | ☐ | | | **Record who authorised it** — the token is bound to that user |
 | Secrets in Railway | ☐ | | | |
 | Sandbox created | ☐ | | | Record the type offered and the sandbox domain |
 | Sandbox token strategy confirmed | ☐ | | | How the worker authenticates against the sandbox |
+| Production key created by Rodney | ☐ | | | §9 — `rcarr@icarrefound.org`, before real records move |
 
 ---
 
@@ -243,3 +307,63 @@ development"* — which means, concretely:
    which also exercises `settings.modules.READ`.
 3. A sandbox exists, its type is recorded in §7, and the question of how the
    worker authenticates against it has an answer rather than an assumption.
+
+---
+
+## 9 · Two keys, by purpose
+
+Not one key that moves. **Two keys that coexist**, each created by the account
+that should own it:
+
+| Key | Created by | Used for |
+|---|---|---|
+| Development | `rcfworks@gmail.com` | Building and testing the sync |
+| Production | `rcarr@icarrefound.org` | The live sync, once it runs for real |
+
+This supersedes the earlier plan of issuing under a personal account and later
+"transferring" it. There is no transfer in Zoho — but there does not need to be
+one, because nothing stops both keys existing at the same time against the same
+org. They do not conflict.
+
+The arrangement is better on two counts. The production credential belongs to an
+account the organisation owns and that does not leave when a contractor does.
+And development stops sharing a credential with production, which is ordinary
+practice and worth having by default rather than by migration.
+
+### 9.1 · What Rodney does
+
+**He has to do this himself.** A Self Client is created inside the API console
+of whoever is signed in, so it cannot be made on his behalf. Roughly fifteen
+minutes.
+
+1. Sign into **https://api-console.zoho.com** as `rcarr@icarrefound.org`.
+2. **Add Client → Self Client → Create.**
+3. Copy the **Client ID** and **Client Secret** from the *Client Secret* tab.
+4. On the **Generate Code** tab, paste the scope line from **§2.1a** of this
+   document — send him that section; it is the only part he needs.
+   Time Duration 10 minutes, description `SponsorX sync worker`.
+5. Exchange the grant token for a refresh token using **§4 step 5**, and verify
+   with **§4 step 7**.
+6. Record it in the §7 log.
+
+### 9.2 · What stays true of both keys
+
+- **A key can only be managed by the account that created it.** Rodney cannot
+  rotate or revoke the development key from his own console, and the reverse is
+  equally true. Each is administered by its owner alone.
+- **Each key acts as its creator.** Records the sync writes are attributed in
+  Zoho's history to whoever authorised the key that wrote them. That history is
+  not rewritable, which is the concrete reason production should be on Rodney's
+  key before real sponsor records start moving — not after.
+- **A key dies with its user's access.** If either account is removed from the
+  org, unlicensed, or deleted, that key stops working. For the development key
+  that is an inconvenience; for the production key it would be an outage, which
+  is exactly why production belongs on an organisation-owned account.
+
+### 9.3 · The one rule
+
+**The development key must never be what production runs on.** That is the
+whole point of the split, and it is the easiest thing to let slide — the dev key
+will already work, so nothing fails to remind anyone. Production is not
+correctly set up until Rodney's key is the one in use, and the §7 log has a row
+for it precisely so its absence stays visible.
