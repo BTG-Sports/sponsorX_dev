@@ -451,3 +451,176 @@ total.** Recorded as a persistent Claude memory.
 
 Remaining for this task, whenever a domain exists: create the production
 instance, then enable MFA for admin and finance at launch.
+
+## Tracker consolidated — `Claude outputs/` is now the working tracker
+
+**Trigger:** the user pulled an update that merged `origin/P1-FE-QA-PMO`, and
+asked me to re-check the tasks. Doing so exposed a split-brain.
+
+### What was wrong
+**Three copies of the task board existed, and none was complete.**
+
+| Copy | In git | Held |
+|---|---|---|
+| repo root `SponsorX-Full-Programme-Task-Board.xlsx` | yes | stale, 1000 rows |
+| `documentation/…xlsx` | no — gitignored | **only** my 2026-09-14 rows |
+| `Claude outputs/…xlsx` | yes | **only** HeckerCreatives' Stage 1 rows |
+
+I had spent the whole day editing the copy nobody else can see, because
+`.gitignore` line 46 excludes `documentation/*.xlsx`. HeckerCreatives had put
+Stage 1 into Code review in a copy I never opened.
+
+**Root cause:** `CLAUDE.md` said each developer keeps a private copy with the
+Google Sheet as shared truth — but the Sheet is unreachable from the connector
+and only mirrored by hand at end of day, so there was no working shared status
+anywhere. Committing one file is what makes a shared tracker shared.
+
+### What was done
+The user chose `Claude outputs/` and asked for it to be written into the
+instructions so other members know.
+
+- Merged my four rows into the tracker: `P0-OPS-04` Done, `P0-PMO-07` Done,
+  `P0-OPS-03` In progress, `P0-ART-01` Ready. Dashboard formulas verified intact
+  (75).
+- Ported the provisioning-sequence updates too (steps 6, 7, 8, 10 and step 14's
+  dependency line); its `C29` COUNTIF formula and status validation survived,
+  and it now reads **4 of 17**.
+- `CLAUDE.md` rewritten: both tracker paths corrected, and the "never commit a
+  spreadsheet" rule **explicitly reversed** with the reason, the binary-merge
+  guidance, and a warning that the `documentation/` and repo-root copies are
+  dead. Neither stale copy was deleted — not authorised.
+
+**Tracker now reads:** 9 Done · 26 Ready · 1 In progress · 7 Code review ·
+302 Blocked.
+
+### Stage 1 is finished — and I nearly recommended work already done
+HeckerCreatives completed `P1-FE-04`, `P1-FE-05`, `P1-QA-01/02/03` and
+`P1-PMO-01` on 2026-09-11/12, all at Code review, plus a newly raised
+`P1-FE-06` (chart entrance and idle motion). Their handoff: *"Stage 1 is fully
+built and audited — rcfworks review is the only gate left."*
+
+I had been about to recommend `P1-FE-04` as the last piece of Block A, reading a
+stale board. **The remote branch `origin/P1-FE-QA-PMO` was visible in git output
+at the very start of the session and I never looked at it** — its name literally
+listed the tasks. Check remote branches when the board looks quiet.
+
+### Also worth knowing, from HeckerCreatives' log
+- The property dashboard has **zero charts**, so there was nothing to animate
+  there — flag if a property graph is ever specced.
+- `CLAUDE.md` still says "greenfield — no application code yet", which is stale
+  and has been stale for days.
+
+## Task — `P0-DATA-01` · Metric provenance taxonomy (Code review)
+
+**Shipped:** `documentation/SponsorX-Metric-Provenance-Taxonomy.md` v0.1.
+
+The blueprint only ever *names* the five labels — §22 gives them one table row,
+§26 says keep them separate — while the built screens already apply them
+everywhere via `SourceLabel`. So the task was codifying rules the shipped UI is
+already meant to follow, and auditing where it does not.
+
+### The two rules the blueprint never gave
+- **A derived value takes the weakest of its inputs.** Cost per View cannot be
+  more certain than the view count it divides.
+- **A rollup takes the weakest of its parts.** One self-reported athlete makes
+  the whole campaign total self-reported. Deliberately harsh: a sponsor reading
+  a verified total has no way to know which quarter of it was a claim.
+- `ATTRIBUTED` sits **off** the strength ladder — it is a causal claim, not a
+  measurement — and propagates upward through anything derived from it.
+
+The consequence is stated plainly rather than hidden: **verified totals must be
+earned bottom-up**, athlete by athlete, which is a real operational cost.
+
+### Two conventions found in one field
+`fixtures.ts` uses the five-label enum in most places but free-text retrieval
+paths for the homepage counters (`"Postgres · Athlete ACTIVE"`). Both are
+right and they answer different questions — *how sure are we* versus *where does
+it come from*. Proposed as two fields, `source` and `retrieval`. The second is
+what makes the standing every-number-must-be-retrievable rule checkable instead
+of aspirational.
+
+### Audit — 6 findings, 3 high severity, 2 on the sponsor report
+- **F-1** campaign `Total Views` is `VERIFIED_MANUAL` while its athlete inputs
+  are `SELF_REPORTED`. The exact failure the labels exist to prevent, live in
+  the demo.
+- **F-2** `Cost per View` / `Cost per Engagement` marked `VERIFIED_MANUAL`;
+  derived, so they inherit `SELF_REPORTED` once F-1 is fixed.
+- **F-3** `"Primary Age" 18-34` and `"Core Age" 18-24` are **audience
+  demographics**, explicitly out of scope for Phase 1 with no retrieval path.
+  **Remove them — do not relabel.** A plausible-looking demographic invites a
+  sponsor to ask for targeting the product cannot deliver.
+- **F-4** `Leads Generated` = `VERIFIED_API` needs its retrieval path named;
+  fine if it is our own reward funnel, not fine if it is a sponsor's CRM.
+- **F-5** two property stats claim manual verification without stated evidence.
+- **F-6** homepage counters carry a retrieval path and no strength label.
+
+### Status
+**Code review**, not Done — two open decisions: D1 whether `VERIFIED_API`
+covers SponsorX's own instrumentation (proposed yes, with `retrieval` naming
+the system, avoiding a sixth label and a Prisma enum change), and D2 whether
+the weakest-input rollup rule is too harsh (proposed keep it; the
+provenance-mix visual already in `charts.tsx` can show the split alongside).
+
+**No code was changed.** The six findings are a list. Fixing them wants its own
+task row — offered to the user, not yet raised, because inserting a row means
+extending the Dashboard formulas, autofilter, conditional formatting and status
+validation by hand.
+
+### F-1 / F-2 / F-3 fixed in `fixtures.ts` (same day)
+
+The user asked for the findings to be fixed against the taxonomy rather than
+left as a list. Applied the three high-severity ones:
+
+- **F-1** — sponsor-report `Total Views` (823,400) and `Engagements` (42,815)
+  moved `VERIFIED_MANUAL` → `SELF_REPORTED`. Both are rollups of figures the
+  athletes reported themselves. `Engagements` was not in the original audit
+  write-up; it carries the identical defect and fixing only its neighbour would
+  have been arbitrary.
+- **F-2** — `Cost per View` and `Cost per Engagement` follow their weakest
+  input. Verified investment ÷ self-reported views is not a verified cost.
+- **F-3** — `"Primary Age" 18-34` and `"Core Age" 18-24` **removed**, not
+  relabelled. Checked first that all three call sites render with `.map()` and
+  no length assumption, so dropping an entry is safe.
+
+Each edit carries a short comment citing the rule that produced it, in the
+house style, so nobody restores the labels later as "missing".
+
+**Not build-verified.** There is no `node` or `npm` on the agent's PATH, though
+the npm registry is reachable by curl. `npm run build` is a human step.
+
+### A process note
+The user's patience ran out on verification questions — *"this little questions
+are actually starting to become blockers."* The render check I was mid-way
+through was worth running, but it should have run silently as part of doing the
+work rather than being surfaced as another question to answer.
+
+### Build verified — and this machine had no Node at all
+
+I had reported the fixture fixes as "not build-verified" and framed running the
+build as the user's step. They pushed back: *"I am not familiar with a mac,
+can't you install node or npm in the terminal and run this?"* Fair — local
+machine setup is my work, not theirs. Recorded as a persistent memory.
+
+**This Mac has no Node toolchain whatsoever** — no `node`, `npm`, `nvm`,
+`volta`, `asdf`, and no working Homebrew despite `/opt/homebrew` existing. The
+project had never been installed here either: no `node_modules`.
+
+**Solution, and the shape to reuse:** download a standalone Node tarball from
+nodejs.org into the session scratchpad (arm64 build — the machine is Apple
+Silicon) and prepend it to `PATH`. Nothing is installed system-wide, nothing
+outside the scratchpad is touched, and it disappears with the session — the
+same reasoning as the throwaway virtualenv used for `openpyxl`. `npm ci` then
+installs the project's own dependencies normally, since `node_modules` is
+gitignored.
+
+**Results, all clean:**
+- `npm ci` — 359 packages
+- `npm run build` — **passed**, 27 routes, 21 static pages
+- `npx tsc --noEmit` — clean
+- `npm run lint` — 0 errors, 1 pre-existing warning (`'code' is assigned a
+  value but never used` in `src/app/t/[code]/route.ts`, untouched by this work)
+
+**Gotcha worth carrying:** running `tsc --noEmit` *before* `next build` on a
+fresh checkout reports six bogus `Cannot find name 'LayoutProps'` errors,
+because Next generates those types into `.next/types` during the build. Build
+first, then typecheck, or the errors are noise. I nearly reported them as real.
