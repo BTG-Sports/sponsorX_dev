@@ -28,6 +28,9 @@ User picked "both, staged" (money then actions) from three layout options.
 Commits: journey strip island, useSyncExternalStore fix, page rewrite.
 
 **Follow-up 2026-09-16:** queue paginated —
-`src/components/attention-queue.tsx` (second client island), 5 rows/page,
-URL-synced `?attn=`, pager above & below (house pagination pattern), hidden
-at ≤ 5 rows; in-review list stays server-rendered as children.
+`src/components/attention-queue.tsx` (second client island), 5 rows/page.
+Per user feedback the two sections page independently, each pager directly
+under its own list: actionable rows (`?attn=`, pager between the rows and
+the in-review section) and in-review list (`?rev=`, pager below the card),
+both always visible (`alwaysShow` — ‹ 1 › with disabled arrows at one page).
+In-review moved from server children into the island as `ReviewRow` data.

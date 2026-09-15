@@ -26,7 +26,7 @@ const SCREENS: Screen[] = [
   { n: "5", label: "Property Profile", href: "/properties/demo-property", status: "built", surface: "public" },
   { n: "6", label: "Athlete Profile", href: "/athletes/shammah-kwizera", status: "built", surface: "public" },
   { n: "7", label: "Inventory Listing", href: "/sponsor/marketplace/SX-03", status: "built", surface: "sponsor" },
-  { n: "8", label: "Campaign Builder", href: "/admin/campaigns/new", status: "built", surface: "admin" },
+  { n: "8", label: "Campaign Builder", href: "/admin/campaigns", status: "built", surface: "admin" },
   { n: "9", label: "Campaign Dashboard", href: "/admin/campaigns/c1", status: "built", surface: "admin" },
   { n: "10", label: "QR / Reward Creator", href: "/admin/rewards/new", status: "built", surface: "admin" },
   { n: "11", label: "Fan / Reward Analytics", href: "/admin/analytics", status: "built", surface: "admin" },

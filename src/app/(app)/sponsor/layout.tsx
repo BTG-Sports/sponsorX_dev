@@ -6,7 +6,7 @@ import { sponsor } from "@/lib/fixtures";
 const NAV: NavItem[] = [
   { href: "/sponsor", label: "Dashboard", icon: "grid" },
   { href: "/sponsor/marketplace", label: "Marketplace", icon: "store" },
-  { href: "/sponsor/campaigns/c1/report", label: "Campaigns", icon: "megaphone" },
+  { href: "/sponsor/campaigns", label: "Campaigns", icon: "megaphone" },
   { href: "#", label: "Analytics", icon: "chart", pending: true },
   { href: "#", label: "Rewards", icon: "gift", pending: true },
   { href: "#", label: "Leads", icon: "users", pending: true },
