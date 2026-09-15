@@ -26,3 +26,8 @@ User picked "both, staged" (money then actions) from three layout options.
 
 **Plan:** `docs/superpowers/plans/2026-09-15-athlete-dashboard-redesign.md`.
 Commits: journey strip island, useSyncExternalStore fix, page rewrite.
+
+**Follow-up 2026-09-16:** queue paginated —
+`src/components/attention-queue.tsx` (second client island), 5 rows/page,
+URL-synced `?attn=`, pager above & below (house pagination pattern), hidden
+at ≤ 5 rows; in-review list stays server-rendered as children.
