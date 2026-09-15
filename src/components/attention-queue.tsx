@@ -10,12 +10,12 @@ import { Pagination } from "@/components/pagination";
 
    Two sections share the card, and each pages independently: the actionable
    rows (invites → due deliverables → profile gaps, priority order) and the
-   quiet in-review list below them. Each pager sits directly under its own
-   list — the actionable pager (?attn=) between the rows and the in-review
-   section, the in-review pager (?rev=) below the card — so neither reads as
-   controlling the other.
-   Pagers are always visible (‹ 1 › with disabled arrows at one page) so the
-   queue's capacity is legible before it ever fills.
+   quiet in-review list below them. Each pager sits inside the card, directly
+   under its own list — the actionable pager (?attn=) between the rows and
+   the in-review section, the in-review pager (?rev=) closing the card — so
+   neither reads as controlling the other. Pagers are always visible (‹ 1 ›
+   with disabled arrows at one page) so the queue's capacity is legible
+   before it ever fills.
 
    Same island conventions as sponsor-campaigns-list: the server page builds
    serializable rows and seeds initial pages from the URL, this island owns
@@ -131,116 +131,112 @@ export function AttentionQueue({
   }, [attn.safePage, rev.safePage]);
 
   return (
-    <div>
-      <Card className="p-0">
-        <ul className="divide-y divide-line-soft">
-          {attn.paged.map((row) => (
-            <li
-              key={row.id}
-              className="flex flex-wrap items-center gap-x-3 gap-y-2 px-4 py-3"
-            >
-              <QueueIcon kind={row.kind} />
-              <div className="min-w-0 flex-1">
-                <p className="text-xs font-semibold tracking-tight">
-                  {row.title}
-                  {row.money && (
-                    <>
-                      {" "}
-                      · <span className="tabular-nums">{row.money}</span>
-                    </>
-                  )}
-                </p>
-                <p className="mt-0.5 truncate text-[11px] text-faint">
-                  {row.sub}
-                </p>
-              </div>
-              {row.badges.map((b) => (
-                <Badge key={b.label} tone={b.tone}>
-                  {b.label}
-                </Badge>
-              ))}
-              <Button
-                variant={row.action.variant ?? "secondary"}
-                href={row.action.href}
-                disabled={row.action.disabled}
-                title={row.action.title}
-              >
-                {row.action.label}
-              </Button>
-            </li>
-          ))}
-          {rows.length === 0 && (
-            <li className="px-4 py-6 text-center text-xs text-faint">
-              Nothing needs your attention right now.
-            </li>
-          )}
-        </ul>
-
-        {/* ------- section 1 pager — closes the actionable rows, above the
-                   in-review section so each pager sits with its own list --- */}
-        <div className="flex flex-wrap items-center justify-between gap-2 border-t border-line-soft px-4 py-2.5">
-          <p className="text-[11px] tabular-nums text-faint">
-            {attn.rangeStart}–{attn.rangeEnd} of {rows.length}
-          </p>
-          <Pagination
-            page={attn.safePage}
-            count={attn.totalPages}
-            onChange={attn.setPage}
-            tone="athlete"
-            alwaysShow
-          />
-        </div>
-
-        {/* ----------------------- section 2: waiting on others, paged --- */}
-        {reviewRows.length > 0 && (
-          <>
-            <div className="border-t border-dashed border-line-soft px-4 py-2.5 text-[11px] text-faint">
-              In review, nothing to do:{" "}
-              <span className="font-medium text-muted">
-                {reviewRows.length}{" "}
-                {reviewRows.length === 1 ? "deliverable" : "deliverables"}
-              </span>{" "}
-              with BTG / sponsor
+    <Card className="p-0">
+      <ul className="divide-y divide-line-soft">
+        {attn.paged.map((row) => (
+          <li
+            key={row.id}
+            className="flex flex-wrap items-center gap-x-3 gap-y-2 px-4 py-3"
+          >
+            <QueueIcon kind={row.kind} />
+            <div className="min-w-0 flex-1">
+              <p className="text-xs font-semibold tracking-tight">
+                {row.title}
+                {row.money && (
+                  <>
+                    {" "}
+                    · <span className="tabular-nums">{row.money}</span>
+                  </>
+                )}
+              </p>
+              <p className="mt-0.5 truncate text-[11px] text-faint">
+                {row.sub}
+              </p>
             </div>
-            <ul
-              id="in-review"
-              className="divide-y divide-line-soft border-t border-line-soft bg-surface-2/30"
+            {row.badges.map((b) => (
+              <Badge key={b.label} tone={b.tone}>
+                {b.label}
+              </Badge>
+            ))}
+            <Button
+              variant={row.action.variant ?? "secondary"}
+              href={row.action.href}
+              disabled={row.action.disabled}
+              title={row.action.title}
             >
-              {rev.paged.map((d) => (
-                <li
-                  key={d.id}
-                  className="flex flex-wrap items-center gap-x-3 gap-y-1 px-4 py-2"
-                >
-                  <span className="w-12 shrink-0 text-[11px] text-faint">
-                    {d.due}
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-[11px] text-muted">{d.title}</p>
-                    <p className="truncate text-[10px] text-faint">{d.sub}</p>
-                  </div>
-                  <Badge tone={d.badge.tone}>{d.badge.label}</Badge>
-                </li>
-              ))}
-            </ul>
-          </>
+              {row.action.label}
+            </Button>
+          </li>
+        ))}
+        {rows.length === 0 && (
+          <li className="px-4 py-6 text-center text-xs text-faint">
+            Nothing needs your attention right now.
+          </li>
         )}
-      </Card>
+      </ul>
 
-      {/* ------------------------------- section 2 pager: in-review rows */}
+      {/* ------- section 1 pager — closes the actionable rows, above the
+                   in-review section so each pager sits with its own list --- */}
+      <div className="flex flex-wrap items-center justify-between gap-2 border-t border-line-soft px-4 py-2.5">
+        <p className="text-[11px] tabular-nums text-faint">
+          {attn.rangeStart}–{attn.rangeEnd} of {rows.length}
+        </p>
+        <Pagination
+          page={attn.safePage}
+          count={attn.totalPages}
+          onChange={attn.setPage}
+          tone="athlete"
+          alwaysShow
+        />
+      </div>
+
+      {/* ----------------------- section 2: waiting on others, paged --- */}
       {reviewRows.length > 0 && (
-        <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
-          <p className="text-[11px] tabular-nums text-faint">
-            in review {rev.rangeStart}–{rev.rangeEnd} of {reviewRows.length}
-          </p>
-          <Pagination
-            page={rev.safePage}
-            count={rev.totalPages}
-            onChange={rev.setPage}
-            tone="athlete"
-            alwaysShow
-          />
-        </div>
+        <>
+          <div className="border-t border-dashed border-line-soft px-4 py-2.5 text-[11px] text-faint">
+            In review, nothing to do:{" "}
+            <span className="font-medium text-muted">
+              {reviewRows.length}{" "}
+              {reviewRows.length === 1 ? "deliverable" : "deliverables"}
+            </span>{" "}
+            with BTG / sponsor
+          </div>
+          <ul
+            id="in-review"
+            className="divide-y divide-line-soft border-t border-line-soft bg-surface-2/30"
+          >
+            {rev.paged.map((d) => (
+              <li
+                key={d.id}
+                className="flex flex-wrap items-center gap-x-3 gap-y-1 px-4 py-2"
+              >
+                <span className="w-12 shrink-0 text-[11px] text-faint">
+                  {d.due}
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-[11px] text-muted">{d.title}</p>
+                  <p className="truncate text-[10px] text-faint">{d.sub}</p>
+                </div>
+                <Badge tone={d.badge.tone}>{d.badge.label}</Badge>
+              </li>
+            ))}
+          </ul>
+
+          {/* -------------- section 2 pager — closes the in-review rows */}
+          <div className="flex flex-wrap items-center justify-between gap-2 border-t border-line-soft bg-surface-2/30 px-4 py-2.5">
+            <p className="text-[11px] tabular-nums text-faint">
+              in review {rev.rangeStart}–{rev.rangeEnd} of {reviewRows.length}
+            </p>
+            <Pagination
+              page={rev.safePage}
+              count={rev.totalPages}
+              onChange={rev.setPage}
+              tone="athlete"
+              alwaysShow
+            />
+          </div>
+        </>
       )}
-    </div>
+    </Card>
   );
 }
