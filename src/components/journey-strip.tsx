@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useSyncExternalStore } from "react";
 
 /* --------------------------------------------------------------------------
    Journey strip — the athlete dashboard's teaching element (spec 2026-09-15).
@@ -14,12 +14,40 @@ import { useEffect, useState } from "react";
 
    Same island conventions as reveal.tsx / count-up.tsx: server page stays the
    source of truth (steps and counts arrive as props), the island only owns
-   the dismissed bit. First paint always renders the strip; the useEffect
-   hides it post-mount for returning dismissers — a brief flash for them beats
-   hiding it from everyone with JS off.
+   the dismissed bit. Server paint always renders the strip; returning
+   dismissers drop it at hydration — a brief flash for them beats hiding it
+   from everyone with JS off.
    -------------------------------------------------------------------------- */
 
 const STORAGE_KEY = "sx-athlete-journey-dismissed";
+
+/* Dismissal is storage state, not React state — read it through
+   useSyncExternalStore so the server snapshot renders the strip, returning
+   dismissers drop it at hydration, and the ✕ notifies without a
+   setState-in-effect cascade (react-hooks/set-state-in-effect). The module
+   flag covers private-mode browsers where localStorage.setItem throws:
+   dismissal still works for the session, it just isn't remembered. */
+let sessionDismissed = false;
+let listeners: Array<() => void> = [];
+const notify = () => {
+  for (const l of listeners) l();
+};
+const subscribe = (cb: () => void) => {
+  listeners.push(cb);
+  window.addEventListener("storage", cb);
+  return () => {
+    listeners = listeners.filter((l) => l !== cb);
+    window.removeEventListener("storage", cb);
+  };
+};
+const readDismissed = () => {
+  if (sessionDismissed) return true;
+  try {
+    return localStorage.getItem(STORAGE_KEY) === "1";
+  } catch {
+    return false;
+  }
+};
 
 export type JourneyStep = {
   label: string;
@@ -36,25 +64,18 @@ export function JourneyStrip({
   /** 0-based index of the athlete's current stage. */
   current: number;
 }) {
-  const [hidden, setHidden] = useState(false);
-
-  useEffect(() => {
-    try {
-      if (localStorage.getItem(STORAGE_KEY) === "1") setHidden(true);
-    } catch {
-      /* storage unavailable — strip just stays visible */
-    }
-  }, []);
+  const hidden = useSyncExternalStore(subscribe, readDismissed, () => false);
 
   if (hidden) return null;
 
   const dismiss = () => {
-    setHidden(true);
+    sessionDismissed = true;
     try {
       localStorage.setItem(STORAGE_KEY, "1");
     } catch {
-      /* ignore — dismissal still applies for this render */
+      /* private mode — session flag above still hides it */
     }
+    notify();
   };
 
   return (
