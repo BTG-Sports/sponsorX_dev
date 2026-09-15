@@ -114,8 +114,14 @@ Three glanceable link-out cards (plus Guardian for minors):
   precedent.
 - **Rewrite:** `src/app/(app)/athlete/page.tsx` — same fixtures
   (`athleteCareer`, `invitations`, `deliverables`, `earnings`,
-  `profileChecklist`, `socials`), new composition. Queue is plain server
-  JSX; no new island beyond the journey strip.
+  `profileChecklist`, `socials`), new composition.
+- **New (added 2026-09-16):** `src/components/attention-queue.tsx` — a second
+  client island: the queue pages at 5 rows (any section can outgrow a
+  screenful), URL-synced via `?attn=` (replaceState, seeded by the server
+  page), pager duplicated above and below per the house pagination pattern,
+  hidden entirely at ≤ 5 rows. The server page builds serializable
+  `QueueRow`s; the in-review footer + quiet list pass through as
+  server-rendered children.
 - **Reused:** `Card`, `Badge`, `Button`, `Meter`, `StatTile` (or a slim
   variant), `ProgressRing`, `HeroBand`, `MiniChip`, `SourceLabel`,
   `Sparkline`, `EmptyState`, `SkeletonPage`.
