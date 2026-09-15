@@ -132,6 +132,16 @@ export function AttentionQueue({
 
   return (
     <Card className="p-0">
+      {/* ------------------------------------- section 1 header: to do --- */}
+      <div className="flex items-baseline gap-1.5 border-b border-line-soft px-4 py-2">
+        <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted">
+          To do
+        </span>
+        <span className="text-[10px] tabular-nums text-faint">
+          · {rows.length} waiting on you
+        </span>
+      </div>
+
       <ul className="divide-y divide-line-soft">
         {attn.paged.map((row) => (
           <li
@@ -193,13 +203,16 @@ export function AttentionQueue({
       {/* ----------------------- section 2: waiting on others, paged --- */}
       {reviewRows.length > 0 && (
         <>
-          <div className="border-t border-dashed border-line-soft px-4 py-2.5 text-[11px] text-faint">
-            In review, nothing to do:{" "}
-            <span className="font-medium text-muted">
-              {reviewRows.length}{" "}
-              {reviewRows.length === 1 ? "deliverable" : "deliverables"}
-            </span>{" "}
-            with BTG / sponsor
+          {/* ------------------------------ section 2 header: in review --- */}
+          <div className="flex items-baseline gap-1.5 border-t-2 border-line px-4 py-2">
+            <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted">
+              In review
+            </span>
+            <span className="text-[10px] tabular-nums text-faint">
+              · {reviewRows.length}{" "}
+              {reviewRows.length === 1 ? "deliverable" : "deliverables"} with
+              BTG / sponsor — nothing to do
+            </span>
           </div>
           <ul
             id="in-review"
