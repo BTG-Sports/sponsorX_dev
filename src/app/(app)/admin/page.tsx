@@ -284,7 +284,7 @@ export default async function AdminHomePage({
               hint="BTG & sponsor review"
             />
             <Queue
-              href="/admin/campaigns/new"
+              href="/admin/campaigns"
               label="Briefs to match"
               count={openInvites}
               hint="match athletes · invite"

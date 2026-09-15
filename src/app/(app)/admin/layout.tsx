@@ -4,8 +4,7 @@ import { PortalShell, type NavItem } from "@/components/portal-shell";
 const NAV: NavItem[] = [
   { href: "/admin", label: "Dashboard", icon: "grid" },
   { href: "/admin/applications", label: "Applications", icon: "users" },
-  { href: "/admin/campaigns/c1", label: "Campaigns", icon: "megaphone" },
-  { href: "/admin/campaigns/new", label: "New campaign", icon: "file" },
+  { href: "/admin/campaigns", label: "Campaigns", icon: "megaphone" },
   { href: "/admin/approvals", label: "Approvals", icon: "inbox" },
   { href: "/admin/rewards/new", label: "Rewards", icon: "gift" },
   { href: "/admin/analytics", label: "Analytics", icon: "chart" },

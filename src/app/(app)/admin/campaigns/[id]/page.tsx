@@ -12,10 +12,18 @@ import {
 import { HeroBand, MiniChip, Monogram, initials } from "@/components/hero";
 import { RosterOps } from "@/components/roster-ops";
 import { EmptyState, SkeletonPage } from "@/components/states";
+import { CampaignLauncher } from "@/components/campaign-launcher";
 import { resolveBack } from "@/lib/back";
 import { PACE_COPY, fmtRate, paceFor, paceProjection } from "@/lib/campaign-ui";
 import { demoState } from "@/lib/demo";
-import { campaignDetailX } from "@/lib/fixtures";
+import {
+  builderDraft,
+  builderSteps,
+  campaignDetailX,
+  eligibleAthletes,
+  mediaInv,
+  rewardDraft,
+} from "@/lib/fixtures";
 
 /* --------------------------------------------------------------------------
    Campaign Operations Dashboard — §9 screen 9, mockup screen 9.
@@ -106,12 +114,15 @@ export default async function CampaignDashboardPage({
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <Link
-            href="/admin/campaigns/new?from=campaign"
-            className="rounded-lg border border-line px-3.5 py-2 text-[11px] font-medium text-text transition-colors hover:bg-surface-2"
-          >
-            Edit campaign
-          </Link>
+          <CampaignLauncher
+            label="Edit campaign"
+            variant="secondary"
+            inventory={mediaInv}
+            athletes={eligibleAthletes}
+            steps={builderSteps}
+            draft={builderDraft}
+            reward={rewardDraft}
+          />
           <Link
             href={`/sponsor/campaigns/${id}/report?from=campaign`}
             className="rounded-lg bg-primary px-3.5 py-2 text-[11px] font-medium text-cta-ink transition-colors hover:bg-primary-soft"
