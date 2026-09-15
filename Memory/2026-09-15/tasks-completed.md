@@ -317,3 +317,201 @@ Items 1–4 of the pre-subscription list are done. The remaining vendor-free wor
 is the decision documents and the design deliverables. **`P2-BE-02` — the full
 Prisma schema, which unblocks 104 tasks — needs a database, and therefore
 Railway.** That is still the wall.
+
+---
+
+## `P0-PMO-01` · Phase 1 payment policy (G-01) — drafted, awaiting signature
+
+Shipped `documentation/SponsorX-Phase1-Payment-Policy.md` v0.1, and uploaded it
+to the user's Drive review folder as a Google Doc:
+*SponsorX — Phase 1 Payment Policy (G-01) — DRAFT for signature*
+(`1RB-irpjIrf1Uzu5uJ-KZUaS-pZ9hx6K2ujWwVAAsJmI`).
+
+**This codified a decision rather than making one.** The answer was already
+settled in three places — `CLAUDE.md`, the build roadmap's A-gates, and
+`.claude/stack-decision.md` Addendum A6 — all saying earnings *status* only and
+no tax ID. Addendum A6 traces it to §11 ("no raw bank credentials in SponsorX"),
+§26 repeating it as a hard requirement, §27 making Phase 1 invoice/reference
+tracking only, and §31's lean scenario. Writing it as a new decision would have
+manufactured work.
+
+The six earning states in §2 of the policy are exactly `P7-BE-01`'s acceptance —
+PENDING → ELIGIBLE → APPROVED_FOR_PAYOUT → PAID / HELD / DISPUTED — so the one
+task this unblocks can be built straight from the policy without interpretation.
+
+The policy's own contribution beyond restating the decision: framing `PAID` as
+**a bookkeeping mark about something that already happened elsewhere, never an
+instruction**; an explicit list of what must never be added; and §7's four
+triggers that force a replacement policy before the work starts.
+
+**Left at Code review, not Done.** Acceptance requires a signature from whoever
+runs athlete payouts. The user was explicit that they or Rodney give the go on
+whether it is signed. One open item is carried in §6 for the signer to check:
+whether anything in the current manual payout process pushes a tax ID into the
+app anyway (an emailed W-9, an imported spreadsheet column, a note field used as
+a workaround) — if so the route gets closed rather than the policy widened.
+
+**Drive conversion artefact worth knowing.** Uploading markdown with
+`contentMimeType: text/markdown` converts to a Doc and keeps headings, bold and
+tables — but **bold markers inside table cells are escaped rather than applied**,
+so a `**Status**` header cell renders literally, and underscores in table cells
+come through as `APPROVED\_FOR\_PAYOUT`. Next time, put plain text in table cells.
+Also note the connector reported `fileSize: 1` on creation, which is wrong — the
+content was verified present by reading the file back.
+
+**Board: 20 Done · 20 Ready · 1 In progress · 5 Code review · 290 Blocked.**
+
+---
+
+## Nine Stage 0 decision documents — `P0-PMO-03/04/05/06/09/10/12`, `P0-DATA-02/03`
+
+User asked for the rest of the pre-subscription document tasks, **one document
+per task, explicitly not consolidated**. All nine written to `documentation/`
+and uploaded individually to the Drive review folder as Google Docs.
+
+**Source discipline:** the blueprint v2.0 `.docx` is in the repo at
+`documentation/Master/Updated_BTG_..._Integrated_Athlete_Network.docx`, so §5,
+§6, §7, §14 and §16 were read from it directly rather than reconstructed. The
+"Confirm…" tasks transcribe the blueprint's own numbers; they do not invent
+them.
+
+### The three genuine findings
+
+**`P0-PMO-09` — the tier multiplier breaks the sell floor on every job.** §5 sets
+athlete pay and sponsor price bands; §6 sets tier multipliers (Emerging 1.00×,
+Creator 1.25×, Premium 1.50×). The two tables were written independently and
+multiply against each other. At the **top of the base band with a Premium
+athlete, athlete cost exceeds the sell floor on all seven jobs**: SX-07 by $375,
+SX-05 by $50, SX-02/03/04/06 by $25 each, SX-01 landing at exactly $0. Creator
+tier also goes negative on SX-07 (−$187.50) and breaks even on SX-02. SX-07 is
+worst because its base top ($750) equals its sell floor ($750) before any
+multiplier at all. Midpoint margins are by contrast healthy and strikingly
+consistent — 60–67% across all seven — which is what shows the bands were set
+deliberately and the *collision* is the accident. Recommended a floor rule
+(price ≥ athlete cost × 1.4) as the Phase 1 fix.
+
+**`P0-PMO-10` — packages cannot be seeded because none names its job codes.**
+Price is fixed, athlete count is a range, and "premium content" is sales
+language rather than a bill of materials. Athlete Takeover at ~$10,000 swings
+from **83% margin to −31%** purely on job mix chosen after the sale. Proposed
+concrete line items per package, pitched deliberately lower than the
+descriptions imply — because if Takeover is to mean ambassador-grade work, the
+price has to rise rather than the margin absorb it. Also flagged the Local
+Blitz / 10-Athlete Blitz overlap at $2,500 / 10 athletes, and that "iMC/BTG
+feature" is sold in three packages with no cost line.
+
+**`P0-DATA-03` — the Content Value Score is half self-reported.** The seven §14
+factors total 100%, and follower count is only 15%, which is the right emphasis.
+But only **20% of the score (Reliability + Sponsor Performance) is data the
+system itself observed**; 50% is self-reported by the athlete being scored. Rule
+written in: the score is never displayed as a bare number — its provenance mix
+goes with it.
+
+### The decisions taken
+
+- **`P0-PMO-03` (G-04): Resend**, behind a single send interface, Postmark as
+  fallback. Cost and deliverability are near-identical at 25-athlete volume, so
+  the deciding factor is operational burden — which rules SES out. The
+  abstraction matters more than the vendor: no feature code imports the SDK,
+  templates are ours, sends are queued.
+- **`P0-PMO-05` (G-07): a file is required, but a print stylesheet supplies it.**
+  The reason is *who reads the report* — the renewal signer often never logs in.
+  Separating "sponsor needs a file" from "system must render it unattended" is
+  what dissolves the PDF worker.
+- **`P0-PMO-06`: drop the PDF worker**, keep the worker service (queue, Zoho,
+  rollups, geo, image derivatives need it regardless). Recorded the wider lesson:
+  an infrastructure decision should name the written requirement it serves — the
+  second service was justifiable on the job queue alone the whole time.
+- **`P0-PMO-04` (G-06): SMS out.** Already enforced — `P2-BE-01` left `twilio`
+  uninstalled and no `TWILIO_*` exists anywhere.
+- **`P0-DATA-02`: the four reward events defined by trigger.** The sharp points:
+  a CLAIM *is* the consent record, not a metric that happens to carry an email;
+  REDEEM is enforced once-forever by a partial unique index, not application
+  logic; the SCAN→LANDING gap is an operational finding about venue wifi and must
+  not be engineered away; and **only REDEEM is business outcome** — presenting
+  SCAN as a result is overselling.
+
+### `P0-PMO-12` was repo edits, not a document
+
+Corrected `Memory/Initial Memory/02-confirmed-tech-stack.md` to the Railway
+stack, keeping the superseded 2026-09-10 table at the bottom **labelled** with
+why each component changed — deleting it would have destroyed the reasoning;
+leaving it unlabelled was the original fault. Closed the open-discrepancy section
+in `04`. Corrected `03`'s reversed "no spreadsheet is committed" rule and the
+344 → 345 task count. Left `01` and `05` alone, and deliberately left `03`'s
+Windows/PowerShell contributor note alone — correcting it for one machine makes
+it wrong for the next.
+
+### Tracker
+
+All nine → **Code review**, Owner `rcfworks`, Date Started 2026-09-15, each
+carrying its findings in Notes. `P0-PMO-06` moved Blocked → Code review as
+`P0-PMO-05` answered its dependency.
+
+**Board: 20 Done · 12 Ready · 1 In progress · 14 Code review · 289 Blocked.**
+77 formulas intact.
+
+### Note on Drive uploads
+
+Bold inside markdown table cells is escaped rather than applied by the Doc
+converter, so these nine were written with **plain text in table cells** —
+unlike the payment policy uploaded earlier, which shows literal `**Status**` in
+two header rows. The connector also reports `fileSize: 1` on every create; it is
+wrong and can be ignored.
+
+---
+
+## Board summary and legal brief (both Drive deliverables, not board tasks)
+
+### Board summary — written twice
+
+First version led with progress numbers and the sign-off list. The user's
+correction: *"not quite, expand on the existing prototype website. This will be
+read by people who does not know technical stuff."*
+
+**The rewrite made the prototype the body of the document, not a line in a
+table** — a walk through the site grouped by who sees what: the public pages,
+the sponsor's area (ending at the campaign report, "the document that earns the
+renewal"), the athlete's phone view, the BTG staff area ("the largest part of
+the product and the part an outsider never sees"), and the fan QR page. It also
+explains *what a prototype is* rather than assuming it, and why building this
+way was worth it — changing a screen now costs an afternoon, later a week.
+
+Two things worth keeping from that rewrite: an honest what-is-real table
+(buttons that open the right screen but save nothing), and a short section on
+what the prototype has already earned — a sales tool that exists today, design
+decisions settled cheaply, and the pricing problems found only because someone
+had to decide what a screen would display.
+
+**Drive cannot revise a document.** `create_file` makes a new file and
+`update_file` is metadata-only, so the revision is a second document and the
+superseded one is still in the folder. Asked the user before trashing it rather
+than deciding myself. Both live in the review folder
+`1cZC-1KpT0myKSdmT6wbP_HVGliGIT-TC`.
+
+### Legal work brief
+
+Consolidated the nine `LEG` rows into one commissionable document, saved to a
+separate Drive folder (`10mOueV2D1PXAl2jPTTpayz8HJR2EWuO9`) with a repo copy at
+`documentation/SponsorX-Legal-Work-Brief.md`.
+
+Written **for outside counsel**, not for us — so it opens with the background a
+lawyer would otherwise have to ask for: that many athletes are minors, that
+athletes are not employees, that fan PII is collected at youth sporting events
+and passed to a commercial third party, that the DMV and Baltimore are the
+target jurisdictions, and that Phase 1 moves no money and collects no tax IDs.
+That last point deliberately narrows scope.
+
+Six Phase 1 items in priority order, three later-phase items marked **do not
+start now**, each with a "done when" so counsel can quote without a call.
+~14 days of Phase 1 counsel time; items 1, 2 and 5 share subject matter and are
+efficient to commission together.
+
+**One requirement counsel would not otherwise know:** every template must be
+delivered as *versioned final text*, because the platform stores a fingerprint
+of the exact wording each athlete accepted. A quietly amended template breaks
+the audit trail for everyone who already accepted it.
+
+The brief states the draft-text consequence plainly rather than burying it: any
+acceptance captured before sign-off must be re-issued against approved wording
+before go-live — a launch condition, not a coding one.
