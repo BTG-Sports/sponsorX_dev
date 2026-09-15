@@ -116,12 +116,13 @@ Three glanceable link-out cards (plus Guardian for minors):
   (`athleteCareer`, `invitations`, `deliverables`, `earnings`,
   `profileChecklist`, `socials`), new composition.
 - **New (added 2026-09-16):** `src/components/attention-queue.tsx` — a second
-  client island: the queue pages at 5 rows (any section can outgrow a
-  screenful), URL-synced via `?attn=` (replaceState, seeded by the server
-  page), pager duplicated above and below per the house pagination pattern,
-  always visible (‹ 1 › with disabled arrows at a single page). The server page builds serializable
-  `QueueRow`s; the in-review footer + quiet list pass through as
-  server-rendered children.
+  client island: both queue sections page independently at 5 rows (any
+  section can outgrow a screenful), each pager directly under its own list —
+  the actionable pager (`?attn=`) between the rows and the in-review section,
+  the in-review pager (`?rev=`) below the card. Both URL-synced
+  (replaceState, seeded by the server page), always visible (‹ 1 › with
+  disabled arrows at a single page), out-of-range seeds clamp. The server
+  page builds serializable `QueueRow`s and `ReviewRow`s.
 - **Reused:** `Card`, `Badge`, `Button`, `Meter`, `StatTile` (or a slim
   variant), `ProgressRing`, `HeroBand`, `MiniChip`, `SourceLabel`,
   `Sparkline`, `EmptyState`, `SkeletonPage`.

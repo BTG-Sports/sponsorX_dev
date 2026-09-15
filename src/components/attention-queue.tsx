@@ -1,24 +1,26 @@
 "use client";
 
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useState } from "react";
 import { Badge, Button, Card } from "@/components/ui";
 import { Pagination } from "@/components/pagination";
 
 /* --------------------------------------------------------------------------
    Attention queue — the athlete dashboard's "Needs your attention" list
-   (spec 2026-09-15, pagination added same day).
+   (spec 2026-09-15, pagination added 2026-09-16).
 
-   The queue merges three row kinds (invites → due deliverables → profile
-   gaps) in priority order; with a real roster any of those sections can run
-   past a screenful, so the list pages at five rows. Same island conventions
-   as sponsor-campaigns-list: the server page builds the rows and seeds the
-   initial page from ?attn=, this island owns page state, syncs it back via
-   replaceState (shareable, survives reload), and clamps out-of-range seeds.
-   Pager controls render above and below the list (house pagination pattern),
-   always visible — at one page they show ‹ 1 › with disabled arrows so the
-   queue's capacity is legible before it ever fills. The waiting-on-others footer and
-   in-review list arrive server-rendered as `children` so they stay out of
-   the client bundle.
+   Two sections share the card, and each pages independently: the actionable
+   rows (invites → due deliverables → profile gaps, priority order) and the
+   quiet in-review list below them. Each pager sits directly under its own
+   list — the actionable pager (?attn=) between the rows and the in-review
+   section, the in-review pager (?rev=) below the card — so neither reads as
+   controlling the other.
+   Pagers are always visible (‹ 1 › with disabled arrows at one page) so the
+   queue's capacity is legible before it ever fills.
+
+   Same island conventions as sponsor-campaigns-list: the server page builds
+   serializable rows and seeds initial pages from the URL, this island owns
+   page state, syncs it back via replaceState (shareable, survives reload)
+   and clamps out-of-range seeds.
    -------------------------------------------------------------------------- */
 
 const PAGE_SIZE = 5;
@@ -38,6 +40,14 @@ export type QueueRow = {
     disabled?: boolean;
     title?: string;
   };
+};
+
+export type ReviewRow = {
+  id: string;
+  due: string;
+  title: string;
+  sub: string;
+  badge: { label: string; tone: "neutral" | "primary" | "accent" | "warn" };
 };
 
 function QueueIcon({ kind }: { kind: QueueRow["kind"] }) {
@@ -69,35 +79,46 @@ function QueueIcon({ kind }: { kind: QueueRow["kind"] }) {
   );
 }
 
-export function AttentionQueue({
-  rows,
-  initialPage,
-  children,
-}: {
-  rows: QueueRow[];
-  /** Raw ?attn= value from the server page — seeds the first render. */
-  initialPage?: string;
-  /** Server-rendered waiting-on-others footer + in-review list. */
-  children?: ReactNode;
-}) {
+/** Shared per-section page state: raw intent clamped to range + slice. */
+function usePaged<T>(rows: T[], initial?: string) {
   const [page, setPage] = useState(() => {
-    const n = Number(initialPage);
+    const n = Number(initial);
     return Number.isInteger(n) && n > 0 ? n : 1;
   });
-
   const totalPages = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
-  /* `page` is raw intent; `safePage` is the effective, in-range value used
-     for slicing, the pager and the URL — a seeded ?attn= past the end just
-     clamps here. */
   const safePage = Math.min(Math.max(page, 1), totalPages);
   const paged = rows.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
+  const rangeStart = rows.length === 0 ? 0 : (safePage - 1) * PAGE_SIZE + 1;
+  const rangeEnd = Math.min(safePage * PAGE_SIZE, rows.length);
+  return { safePage, setPage, totalPages, paged, rangeStart, rangeEnd };
+}
 
-  /* Page lives in the URL (no navigation) so a view is shareable and
-     survives reload. Only `attn` is touched — demo/other params pass through. */
+export function AttentionQueue({
+  rows,
+  reviewRows = [],
+  initialPage,
+  initialReviewPage,
+}: {
+  rows: QueueRow[];
+  /** Waiting-on-others deliverables — the quiet second section. */
+  reviewRows?: ReviewRow[];
+  /** Raw ?attn= value from the server page — seeds the first render. */
+  initialPage?: string;
+  /** Raw ?rev= value — seeds the in-review section's page. */
+  initialReviewPage?: string;
+}) {
+  const attn = usePaged(rows, initialPage);
+  const rev = usePaged(reviewRows, initialReviewPage);
+
+  /* Pages live in the URL (no navigation) so a view is shareable and
+     survives reload. Only attn/rev are touched — demo/other params pass
+     through. */
   useEffect(() => {
     const p = new URLSearchParams(window.location.search);
-    if (safePage > 1) p.set("attn", String(safePage));
+    if (attn.safePage > 1) p.set("attn", String(attn.safePage));
     else p.delete("attn");
+    if (rev.safePage > 1) p.set("rev", String(rev.safePage));
+    else p.delete("rev");
     const qs = p.toString();
     const next = qs ? `?${qs}` : "";
     if (next !== window.location.search) {
@@ -107,29 +128,13 @@ export function AttentionQueue({
         `${window.location.pathname}${next}${window.location.hash}`,
       );
     }
-  }, [safePage]);
-
-  const rangeStart = rows.length === 0 ? 0 : (safePage - 1) * PAGE_SIZE + 1;
-  const rangeEnd = Math.min(safePage * PAGE_SIZE, rows.length);
+  }, [attn.safePage, rev.safePage]);
 
   return (
     <div>
-      <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-        <p className="text-[11px] tabular-nums text-faint">
-          {rangeStart}–{rangeEnd} of {rows.length}
-        </p>
-        <Pagination
-          page={safePage}
-          count={totalPages}
-          onChange={setPage}
-          tone="athlete"
-          alwaysShow
-        />
-      </div>
-
       <Card className="p-0">
         <ul className="divide-y divide-line-soft">
-          {paged.map((row) => (
+          {attn.paged.map((row) => (
             <li
               key={row.id}
               className="flex flex-wrap items-center gap-x-3 gap-y-2 px-4 py-3"
@@ -170,18 +175,72 @@ export function AttentionQueue({
             </li>
           )}
         </ul>
-        {children}
+
+        {/* ------- section 1 pager — closes the actionable rows, above the
+                   in-review section so each pager sits with its own list --- */}
+        <div className="flex flex-wrap items-center justify-between gap-2 border-t border-line-soft px-4 py-2.5">
+          <p className="text-[11px] tabular-nums text-faint">
+            {attn.rangeStart}–{attn.rangeEnd} of {rows.length}
+          </p>
+          <Pagination
+            page={attn.safePage}
+            count={attn.totalPages}
+            onChange={attn.setPage}
+            tone="athlete"
+            alwaysShow
+          />
+        </div>
+
+        {/* ----------------------- section 2: waiting on others, paged --- */}
+        {reviewRows.length > 0 && (
+          <>
+            <div className="border-t border-dashed border-line-soft px-4 py-2.5 text-[11px] text-faint">
+              In review, nothing to do:{" "}
+              <span className="font-medium text-muted">
+                {reviewRows.length}{" "}
+                {reviewRows.length === 1 ? "deliverable" : "deliverables"}
+              </span>{" "}
+              with BTG / sponsor
+            </div>
+            <ul
+              id="in-review"
+              className="divide-y divide-line-soft border-t border-line-soft bg-surface-2/30"
+            >
+              {rev.paged.map((d) => (
+                <li
+                  key={d.id}
+                  className="flex flex-wrap items-center gap-x-3 gap-y-1 px-4 py-2"
+                >
+                  <span className="w-12 shrink-0 text-[11px] text-faint">
+                    {d.due}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-[11px] text-muted">{d.title}</p>
+                    <p className="truncate text-[10px] text-faint">{d.sub}</p>
+                  </div>
+                  <Badge tone={d.badge.tone}>{d.badge.label}</Badge>
+                </li>
+              ))}
+            </ul>
+          </>
+        )}
       </Card>
 
-      <div className="mt-2 flex justify-end">
-        <Pagination
-          page={safePage}
-          count={totalPages}
-          onChange={setPage}
-          tone="athlete"
-          alwaysShow
-        />
-      </div>
+      {/* ------------------------------- section 2 pager: in-review rows */}
+      {reviewRows.length > 0 && (
+        <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
+          <p className="text-[11px] tabular-nums text-faint">
+            in review {rev.rangeStart}–{rev.rangeEnd} of {reviewRows.length}
+          </p>
+          <Pagination
+            page={rev.safePage}
+            count={rev.totalPages}
+            onChange={rev.setPage}
+            tone="athlete"
+            alwaysShow
+          />
+        </div>
+      )}
     </div>
   );
 }

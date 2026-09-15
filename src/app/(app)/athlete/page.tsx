@@ -7,7 +7,11 @@ import {
   Meter,
   SectionHeading,
 } from "@/components/ui";
-import { AttentionQueue, type QueueRow } from "@/components/attention-queue";
+import {
+  AttentionQueue,
+  type QueueRow,
+  type ReviewRow,
+} from "@/components/attention-queue";
 import { Sparkline, compact } from "@/components/charts";
 import { HeroBand, MiniChip } from "@/components/hero";
 import { JourneyStrip, type JourneyStep } from "@/components/journey-strip";
@@ -130,10 +134,11 @@ export default async function AthletePortalPage({
   if (demo === "loading") return <SkeletonPage />;
   if (demo === "error") throw new Error("Demo error state");
 
-  /* Queue page — seeded into the AttentionQueue island so ?attn= links land
-     on the right page. */
+  /* Queue pages — seeded into the AttentionQueue island so ?attn= (actionable
+     rows) and ?rev= (in-review list) links land on the right pages. */
   const sp = await searchParams;
   const attn = typeof sp.attn === "string" ? sp.attn : undefined;
+  const rev = typeof sp.rev === "string" ? sp.rev : undefined;
 
   /* §4 — ?demo=minor renders the same athlete as a minor whose guardian is
      still unverified; every action that creates an obligation gates on it. */
@@ -256,6 +261,16 @@ export default async function AthletePortalPage({
       : []),
   ];
   const attentionCount = queueRows.length;
+
+  /* Waiting-on-others rows for the queue's quiet second section — same
+     serializable shape, paged independently in the island. */
+  const reviewRows: ReviewRow[] = inReview.map((d) => ({
+    id: d.id,
+    due: d.dueDate,
+    title: d.title,
+    sub: `${d.campaign} · ${d.sponsor}`,
+    badge: { label: DELIVERABLE_COPY[d.state], tone: DELIVERABLE_TONE[d.state] },
+  }));
 
   // Momentum: monthly earnings trend average (Σ Earning by month — Postgres).
   const trendAvgCents = Math.round(
@@ -388,50 +403,12 @@ export default async function AthletePortalPage({
             title={`Needs your attention · ${attentionCount}`}
             hint="Everything waiting on you, most urgent first"
           />
-          <AttentionQueue rows={queueRows} initialPage={attn}>
-            {/* --------------- waiting-on-others footer + quiet list ------ */}
-            {inReview.length > 0 && (
-              <>
-                <div className="border-t border-dashed border-line-soft px-4 py-2.5 text-[11px] text-faint">
-                  In review, nothing to do:{" "}
-                  <span className="font-medium text-muted">
-                    {inReview.length}{" "}
-                    {inReview.length === 1 ? "deliverable" : "deliverables"}
-                  </span>{" "}
-                  with BTG / sponsor ·{" "}
-                  <a href="#in-review" className="text-accent hover:underline">
-                    see all →
-                  </a>
-                </div>
-                <ul
-                  id="in-review"
-                  className="divide-y divide-line-soft border-t border-line-soft bg-surface-2/30"
-                >
-                  {inReview.map((d) => (
-                    <li
-                      key={d.id}
-                      className="flex flex-wrap items-center gap-x-3 gap-y-1 px-4 py-2"
-                    >
-                      <span className="w-12 shrink-0 text-[11px] text-faint">
-                        {d.dueDate}
-                      </span>
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-[11px] text-muted">
-                          {d.title}
-                        </p>
-                        <p className="truncate text-[10px] text-faint">
-                          {d.campaign} · {d.sponsor}
-                        </p>
-                      </div>
-                      <Badge tone={DELIVERABLE_TONE[d.state]}>
-                        {DELIVERABLE_COPY[d.state]}
-                      </Badge>
-                    </li>
-                  ))}
-                </ul>
-              </>
-            )}
-          </AttentionQueue>
+          <AttentionQueue
+            rows={queueRows}
+            reviewRows={reviewRows}
+            initialPage={attn}
+            initialReviewPage={rev}
+          />
         </section>
 
         {/* ==================================================== rail */}
