@@ -171,6 +171,8 @@ Create the Clerk account with separate dev and production instances. Clerk handl
 
 **Order** 4 · **LEG** · **Where:** External · counsel · **3d** · **Ready** · **Unblocks** 32
 
+> **Tracked on the Legal sheet of the task board, not in the delivery queue** (moved 2026-09-15). No development task depends on this; counsel lead times must never sit on the build's critical path.
+
 DECISION GATE G-05 · Counsel-approved templates — both agreements signed off before any acceptance code is built.  —  Get a lawyer to draft the agreement athletes sign to join the network. Longest lead time in the project — start it on day one, everything else can proceed while you wait.
 
 - **Depends on:** nothing — startable now
@@ -181,6 +183,8 @@ DECISION GATE G-05 · Counsel-approved templates — both agreements signed off 
 
 **Order** 5 · **LEG** · **Where:** External · counsel · **1d** · **Blocked** · **Unblocks** 31
 
+> **Tracked on the Legal sheet of the task board, not in the delivery queue** (moved 2026-09-15). No development task depends on this; counsel lead times must never sit on the build's critical path.
+
 DECISION GATE G-03 · Guardian e-signature — is click-to-accept enough for a parent authorising a minor?  —  Ask counsel whether a click-to-accept checkbox is enough for a parent authorising a minor, or whether you need real e-signature. If they say e-signature, that is a new vendor and more work.
 
 - **Depends on:** P0-LEG-01
@@ -190,6 +194,8 @@ DECISION GATE G-03 · Guardian e-signature — is click-to-accept enough for a p
 ### ▶ `P0-LEG-02` · Commission Campaign Order template from counsel
 
 **Order** 6 · **LEG** · **Where:** External · counsel · **3d** · **Ready** · **Unblocks** 30
+
+> **Tracked on the Legal sheet of the task board, not in the delivery queue** (moved 2026-09-15). No development task depends on this; counsel lead times must never sit on the build's critical path.
 
 DECISION GATE G-05 · Counsel-approved templates — both agreements signed off before any acceptance code is built.  —  Get a lawyer to draft the per-campaign contract an athlete accepts: what they deliver, what they are paid, usage rights, exclusivity, deadlines, disclosure.
 
@@ -240,6 +246,8 @@ DECISION GATE G-01 · Phase 1 payment policy — do we track payment status only
 ### ▶ `P0-LEG-04` · Privacy review of the fan reward funnel
 
 **Order** 11 · **LEG** · **Where:** External · counsel · **3d** · **Ready** · **Unblocks** 5
+
+> **Tracked on the Legal sheet of the task board, not in the delivery queue** (moved 2026-09-15). No development task depends on this; counsel lead times must never sit on the build's critical path.
 
 Have counsel approve the consent wording fans see when they scan a QR code and hand over their details. This is the most legally sensitive flow in the product, often at youth sports events.
 
@@ -311,6 +319,8 @@ Agree the seven things that make up an athlete's score and how much each counts.
 
 **Order** 18 · **LEG** · **Where:** External · counsel · **3d** · **Ready** · **Unblocks** 1
 
+> **Tracked on the Legal sheet of the task board, not in the delivery queue** (moved 2026-09-15). No development task depends on this; counsel lead times must never sit on the build's critical path.
+
 Find out what state NIL law and high-school athletic associations actually forbid, so the product can enforce it rather than discovering it later.
 
 - **Depends on:** nothing — startable now
@@ -343,13 +353,15 @@ Draw the eight lifecycle diagrams — how an application, an invitation, a campa
 
 Define exactly what counts as a scan, a landing, a claim and a redemption. If these are fuzzy, the whole reward funnel measures nothing.
 
-- **Depends on:** P0-LEG-04
+- **Depends on:** nothing — startable now *(Legal dependency removed 2026-09-15 — counsel approvals no longer gate development; see the Legal sheet in the task board.)*
 - **Done when:** SCAN / LANDING / CLAIM / REDEEM defined with the exact trigger for each
 - **Reference:** §16, §38
 
 ### ▶ `P0-LEG-05` · Reward terms review (sweepstakes / coupon legality)
 
 **Order** 22 · **LEG** · **Where:** External · counsel · **1d** · **Ready** · **Unblocks** 0
+
+> **Tracked on the Legal sheet of the task board, not in the delivery queue** (moved 2026-09-15). No development task depends on this; counsel lead times must never sit on the build's critical path.
 
 Check which reward types are legal in your states — coupons are easy, sweepstakes are heavily regulated.
 
@@ -508,7 +520,7 @@ Design the sponsor's results report at print width, so it survives being turned 
 
 Design what a fan sees after scanning: the offer, the consent text, and the 'already used' and 'expired' states.
 
-- **Depends on:** P0-LEG-04
+- **Depends on:** nothing — startable now *(Legal dependency removed 2026-09-15 — counsel approvals no longer gate development; see the Legal sheet in the task board.)*
 - **Done when:** Consent language placed, offer presentation designed, single-use and expired states designed
 - **Reference:** §16
 
@@ -898,7 +910,7 @@ Store what content an athlete can make, which brands they like, and crucially wh
 
 When someone accepts an agreement, record a fingerprint of the exact text they were shown, plus who, when and from where. That is what makes it hold up, not a signature image.
 
-- **Depends on:** P0-LEG-01, P0-LEG-03
+- **Depends on:** nothing — startable now *(Legal dependency removed 2026-09-15 — counsel approvals no longer gate development; see the Legal sheet in the task board.)*
 - **Done when:** Acceptance records agreement version, body hash, signer, timestamp, IP, user agent and guardian where applicable
 - **Reference:** §12, Guide §08
 
@@ -1078,7 +1090,7 @@ An automated test covering the whole path from application to active athlete, in
 
 Check that the legal constraints around minors are enforced in the code, not just written in a document.
 
-- **Depends on:** P3-BE-03, P0-LEG-06
+- **Depends on:** P3-BE-03 *(Legal dependency removed 2026-09-15 — counsel approvals no longer gate development; see the Legal sheet in the task board.)*
 - **Done when:** Date of birth handling, guardian PII and the constraints from P0-LEG-06 are enforced in code, not just documented
 - **Reference:** §4, §26
 
@@ -1268,7 +1280,7 @@ Re-check every sponsor-facing query lists its fields explicitly and never includ
 
 Accepting a campaign contract: record the exact text shown, who accepted, when and from where. An unverified guardian blocks acceptance. Do not build this until counsel has approved the template.
 
-- **Depends on:** P0-LEG-02, P3-BE-06, P4-BE-04
+- **Depends on:** P3-BE-06, P4-BE-04 *(Legal dependency removed 2026-09-15 — counsel approvals no longer gate development; see the Legal sheet in the task board.)*
 - **Done when:** Acceptance records agreement version, body hash, signer, timestamp, IP and user agent; an unverified guardian blocks acceptance; state must be SENT to accept
 - **Reference:** §12, Guide §08
 
@@ -1498,7 +1510,7 @@ Short links that redirect instantly and record the click after the visitor has a
 
 Record consent with its version at the moment a fan claims. No fan's details leave the system without it.
 
-- **Depends on:** P0-LEG-04, P6-BE-03
+- **Depends on:** P6-BE-03 *(Legal dependency removed 2026-09-15 — counsel approvals no longer gate development; see the Legal sheet in the task board.)*
 - **Done when:** Consent is recorded with its version at claim time; no fan PII leaves the system without it
 - **Reference:** §26
 

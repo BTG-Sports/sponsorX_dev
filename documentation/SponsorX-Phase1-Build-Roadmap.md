@@ -118,7 +118,7 @@ from fixtures. Ordered in three loop-aligned batches:
 **Batch 1 — front door + athlete side of the loop**
 - [`(public)/join`](../src/app/\(public\)/join/page.tsx) — athlete application (the §39 front door; absent from mockup v1.0)
 - [`athlete/invitations`](../src/app/\(app\)/athlete/invitations/page.tsx)
-- [`athlete/orders/[id]`](../src/app/\(app\)/athlete/orders/[id]/page.tsx) — Campaign Order view/accept (UI only; acceptance logic is B4, gated on counsel templates)
+- [`athlete/orders/[id]`](../src/app/\(app\)/athlete/orders/[id]/page.tsx) — Campaign Order view/accept (UI only; acceptance logic is B4)
 - [`athlete/earnings`](../src/app/\(app\)/athlete/earnings/page.tsx) — status-only, no tax ID / bank details
 
 **Batch 2 — BTG operations**
@@ -165,12 +165,14 @@ nothing sits idle. Each is a written decision, not code.
 |---|---|---|
 | Phase 1 payment policy (§37 gate one) | B7 | Earnings *status* only, no tax ID collected |
 | Data residency | B0 | US-only; set Railway + R2 regions explicitly |
-| Guardian e-signature for minors | B1 / B4 | Click-wrap for Phase 1; confirm counsel doesn't require true e-sign |
+| Guardian e-signature for minors | — *(no longer a gate)* | **Click-wrap is the working assumption** — build on it. Counsel confirmation is tracked on the Legal sheet and does not block B1 or B4; if it later demands true e-sign, that is a swap of the signing step, not a redesign. |
 | Transactional email provider | B1 | Resend (Addendum A1) |
 | SMS | B-wide | Deferred — no `TWILIO_*` in Phase 1 unless approved |
-| Counsel-approved templates (Campaign Order, Content Collaboration Agreement) | B4 | The two documents missing from the ops binder — get them signed off |
+| ~~Counsel-approved templates~~ | ~~B4~~ | **No longer a gate — decided 2026-09-15.** Legal work moved to the Legal sheet of the task board and blocks nothing. Build against draft text; re-point at approved wording before launch. |
 
-**Exit:** all six written down and linked from `.claude/stack-decision.md`.
+**Exit:** the four remaining gates written down and linked from
+`.claude/stack-decision.md`. The two counsel gates were removed on 2026-09-15 —
+legal approval no longer blocks any development task.
 
 ---
 
@@ -235,7 +237,7 @@ Models: `Campaign`, `CampaignOrder`, `AgreementAcceptance`. `acceptOrder` domain
 (body-hash acceptance, guardian branch, deliverable auto-creation);
 `launchCampaign` transactional → outbox `zoho.pushCampaign` + `notify`. Replaces
 fixtures: `athlete/orders/[id]`, `agreements`, campaign ops.
-**Requires the counsel-approved Campaign Order template (A-gates).**
+Built against **draft** Campaign Order text — counsel approval is no longer a gate (2026-09-15). The stored body-hash must be re-generated against the approved wording before launch.
 
 **Exit:** accepted invite → signed Order → live campaign with deliverables;
 Zoho push queued. *(M)*
@@ -295,8 +297,12 @@ cohort onboarded in staging → production go/no-go. *(L)*
   `Campaign.budget` to an athlete). Honor it in A1's fixtures and enforce it in
   every B-milestone's `select`.
 - **Gates block Block B, not Block A.** Resolve A-gates during the UI work.
-- **Don't build acceptance on unapproved text.** B4 stores a hash of whatever
-  agreement text it's shown; that text must clear counsel first (§08).
+- **Acceptance may be built on draft text — but the hash must be re-issued.**
+  Changed 2026-09-15: counsel approval no longer gates any development task, so
+  B4 is built against draft agreement wording. B4 stores a hash of whatever text
+  it is shown, so **every stored `AgreementAcceptance` hash generated against
+  draft text is void** and must be regenerated once counsel signs off (§08).
+  Treat that re-issue as a launch-blocking item, not a coding one.
 - **Substitution, not rewrite.** Keep fixtures shaped to the V2 models so B is
   wiring, not re-authoring.
 

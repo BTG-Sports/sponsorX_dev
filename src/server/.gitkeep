@@ -1,0 +1,9 @@
+Server-only modules, imported by BOTH the Next app and the worker so the two can
+never disagree (Guide §02). Expected here:
+  db.ts      Prisma singleton                       P2-BE-02
+  actor.ts   who is asking          (§04)           P2-BE-04
+  scope.ts   what they may see      (§04)           P2-BE-04
+  outbox.ts  transactional enqueue  (§05)           P2-BE-05
+  audit.ts   audit helper                           P2-BE-06
+  r2.ts      presign, two buckets   (§12)           P2-BE-08
+  domain/    campaign.ts, reward.ts, earnings.ts …
