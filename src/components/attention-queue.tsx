@@ -14,8 +14,9 @@ import { Pagination } from "@/components/pagination";
    as sponsor-campaigns-list: the server page builds the rows and seeds the
    initial page from ?attn=, this island owns page state, syncs it back via
    replaceState (shareable, survives reload), and clamps out-of-range seeds.
-   Pager controls render above and below the list (house pagination pattern)
-   and disappear entirely at one page. The waiting-on-others footer and
+   Pager controls render above and below the list (house pagination pattern),
+   always visible — at one page they show ‹ 1 › with disabled arrows so the
+   queue's capacity is legible before it ever fills. The waiting-on-others footer and
    in-review list arrive server-rendered as `children` so they stay out of
    the client bundle.
    -------------------------------------------------------------------------- */
@@ -110,23 +111,21 @@ export function AttentionQueue({
 
   const rangeStart = rows.length === 0 ? 0 : (safePage - 1) * PAGE_SIZE + 1;
   const rangeEnd = Math.min(safePage * PAGE_SIZE, rows.length);
-  const paging = rows.length > PAGE_SIZE;
 
   return (
     <div>
-      {paging && (
-        <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-          <p className="text-[11px] tabular-nums text-faint">
-            {rangeStart}–{rangeEnd} of {rows.length}
-          </p>
-          <Pagination
-            page={safePage}
-            count={totalPages}
-            onChange={setPage}
-            tone="athlete"
-          />
-        </div>
-      )}
+      <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+        <p className="text-[11px] tabular-nums text-faint">
+          {rangeStart}–{rangeEnd} of {rows.length}
+        </p>
+        <Pagination
+          page={safePage}
+          count={totalPages}
+          onChange={setPage}
+          tone="athlete"
+          alwaysShow
+        />
+      </div>
 
       <Card className="p-0">
         <ul className="divide-y divide-line-soft">
@@ -174,16 +173,15 @@ export function AttentionQueue({
         {children}
       </Card>
 
-      {paging && (
-        <div className="mt-2 flex justify-end">
-          <Pagination
-            page={safePage}
-            count={totalPages}
-            onChange={setPage}
-            tone="athlete"
-          />
-        </div>
-      )}
+      <div className="mt-2 flex justify-end">
+        <Pagination
+          page={safePage}
+          count={totalPages}
+          onChange={setPage}
+          tone="athlete"
+          alwaysShow
+        />
+      </div>
     </div>
   );
 }

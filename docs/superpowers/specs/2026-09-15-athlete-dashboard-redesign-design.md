@@ -119,7 +119,7 @@ Three glanceable link-out cards (plus Guardian for minors):
   client island: the queue pages at 5 rows (any section can outgrow a
   screenful), URL-synced via `?attn=` (replaceState, seeded by the server
   page), pager duplicated above and below per the house pagination pattern,
-  hidden entirely at ≤ 5 rows. The server page builds serializable
+  always visible (‹ 1 › with disabled arrows at a single page). The server page builds serializable
   `QueueRow`s; the in-review footer + quiet list pass through as
   server-rendered children.
 - **Reused:** `Card`, `Badge`, `Button`, `Meter`, `StatTile` (or a slim
