@@ -7,6 +7,7 @@ import {
   Meter,
   SectionHeading,
 } from "@/components/ui";
+import { AttentionQueue, type QueueRow } from "@/components/attention-queue";
 import { Sparkline, compact } from "@/components/charts";
 import { HeroBand, MiniChip } from "@/components/hero";
 import { JourneyStrip, type JourneyStep } from "@/components/journey-strip";
@@ -83,36 +84,6 @@ const expiryKey = (s: string) => {
 /** Urgent = expiring within 3 days; drives the warn pill. */
 const expiresSoon = (s: string) => expiryKey(s) <= 72;
 
-/* ------------------------------------------------------------- queue icon */
-function QueueIcon({ kind }: { kind: "invite" | "deliverable" | "profile" }) {
-  const paths = {
-    invite: <path d="M13 2 3 14h7l-1 8 10-12h-7l1-8Z" />,
-    deliverable: (
-      <>
-        <path d="m22 8-6 4 6 4V8Z" />
-        <rect x="2" y="6" width="14" height="12" rx="2" />
-      </>
-    ),
-    profile: <path d="M17 3a2.8 2.8 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3Z" />,
-  } as const;
-  return (
-    <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-athlete/10 text-athlete">
-      <svg
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.8"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        className="size-4"
-        aria-hidden="true"
-      >
-        {paths[kind]}
-      </svg>
-    </span>
-  );
-}
-
 /* ------------------------------------------- slim clickable stat tile */
 function SlimTile({
   label,
@@ -158,6 +129,11 @@ export default async function AthletePortalPage({
   const demo = await demoState(searchParams);
   if (demo === "loading") return <SkeletonPage />;
   if (demo === "error") throw new Error("Demo error state");
+
+  /* Queue page — seeded into the AttentionQueue island so ?attn= links land
+     on the right page. */
+  const sp = await searchParams;
+  const attn = typeof sp.attn === "string" ? sp.attn : undefined;
 
   /* §4 — ?demo=minor renders the same athlete as a minor whose guardian is
      still unverified; every action that creates an obligation gates on it. */
@@ -211,8 +187,75 @@ export default async function AthletePortalPage({
   ).size;
   const pending = earnings.find((e) => e.state === "PENDING")!;
   const outstanding = profileChecklist.filter((c) => !c.done);
-  const attentionCount =
-    openInvites.length + due.length + (outstanding.length > 0 ? 1 : 0);
+
+  /* The queue's rows, flattened in priority order — expiring invites, then
+     due deliverables, then one collapsed profile row — as serializable data
+     for the AttentionQueue island (it pages at five rows). */
+  const queueRows: QueueRow[] = [
+    ...openInvites.map(
+      (inv): QueueRow => ({
+        id: inv.id,
+        kind: "invite",
+        title: `${inv.sponsor} — ${inv.campaign}`,
+        money: money(inv.offered),
+        sub: `${inv.deliverableCount} ${
+          inv.deliverableCount === 1 ? "deliverable" : "deliverables"
+        } · usage ${inv.usageRights} · ${inv.exclusivity ?? "no exclusivity"}`,
+        badges: [
+          ...(inv.state === "INVITED"
+            ? [{ label: "New", tone: "primary" as const }]
+            : []),
+          {
+            label: `expires in ${inv.expiresIn}`,
+            tone: expiresSoon(inv.expiresIn) ? "warn" : "neutral",
+          },
+        ],
+        action: {
+          label: "Review terms",
+          href: `/athlete/orders/${inv.id}?from=athlete-portal`,
+        },
+      }),
+    ),
+    ...due.map(
+      (d, i): QueueRow => ({
+        id: d.id,
+        kind: "deliverable",
+        title: d.title,
+        sub: `${d.campaign} · ${d.sponsor}`,
+        badges: [
+          { label: `due ${d.dueDate}`, tone: i === 0 ? "warn" : "neutral" },
+        ],
+        action: {
+          label: "Upload proof",
+          disabled: guardianPending,
+          title: guardianPending
+            ? "Blocked: a minor needs a verified guardian first (§4)"
+            : "Opens the direct-to-R2 presigned upload (guide §11) — not wired",
+        },
+      }),
+    ),
+    ...(outstanding.length > 0
+      ? [
+          {
+            id: "profile-gaps",
+            kind: "profile",
+            title: `Finish your profile — ${outstanding.length} ${
+              outstanding.length === 1 ? "item" : "items"
+            } left`,
+            sub: outstanding.map((o) => o.label).join(" · "),
+            badges: [],
+            action: {
+              label: "Finish →",
+              variant: "ghost",
+              href: `/athlete/profile/edit?section=${
+                CHECKLIST_SECTION[outstanding[0].label] ?? "identity"
+              }`,
+            },
+          } satisfies QueueRow,
+        ]
+      : []),
+  ];
+  const attentionCount = queueRows.length;
 
   // Momentum: monthly earnings trend average (Σ Earning by month — Postgres).
   const trendAvgCents = Math.round(
@@ -345,99 +388,7 @@ export default async function AthletePortalPage({
             title={`Needs your attention · ${attentionCount}`}
             hint="Everything waiting on you, most urgent first"
           />
-          <Card className="p-0">
-            <ul className="divide-y divide-line-soft">
-              {/* -------- open invitations, soonest expiry first -------- */}
-              {openInvites.map((inv) => (
-                <li
-                  key={inv.id}
-                  className="flex flex-wrap items-center gap-x-3 gap-y-2 px-4 py-3"
-                >
-                  <QueueIcon kind="invite" />
-                  <div className="min-w-0 flex-1">
-                    <p className="text-xs font-semibold tracking-tight">
-                      {inv.sponsor} — {inv.campaign} ·{" "}
-                      <span className="tabular-nums">{money(inv.offered)}</span>
-                    </p>
-                    <p className="mt-0.5 truncate text-[11px] text-faint">
-                      {inv.deliverableCount}{" "}
-                      {inv.deliverableCount === 1
-                        ? "deliverable"
-                        : "deliverables"}{" "}
-                      · usage {inv.usageRights} ·{" "}
-                      {inv.exclusivity ?? "no exclusivity"}
-                    </p>
-                  </div>
-                  {inv.state === "INVITED" && <Badge tone="primary">New</Badge>}
-                  <Badge tone={expiresSoon(inv.expiresIn) ? "warn" : "neutral"}>
-                    expires in {inv.expiresIn}
-                  </Badge>
-                  <Button
-                    variant="secondary"
-                    href={`/athlete/orders/${inv.id}?from=athlete-portal`}
-                  >
-                    Review terms
-                  </Button>
-                </li>
-              ))}
-
-              {/* --------- due deliverables, soonest due first ---------- */}
-              {due.map((d, i) => (
-                <li
-                  key={d.id}
-                  className="flex flex-wrap items-center gap-x-3 gap-y-2 px-4 py-3"
-                >
-                  <QueueIcon kind="deliverable" />
-                  <div className="min-w-0 flex-1">
-                    <p className="text-xs font-semibold tracking-tight">
-                      {d.title}
-                    </p>
-                    <p className="mt-0.5 truncate text-[11px] text-faint">
-                      {d.campaign} · {d.sponsor}
-                    </p>
-                  </div>
-                  <Badge tone={i === 0 ? "warn" : "neutral"}>
-                    due {d.dueDate}
-                  </Badge>
-                  <Button
-                    variant="secondary"
-                    disabled={guardianPending}
-                    title={
-                      guardianPending
-                        ? "Blocked: a minor needs a verified guardian first (§4)"
-                        : "Opens the direct-to-R2 presigned upload (guide §11) — not wired"
-                    }
-                  >
-                    Upload proof
-                  </Button>
-                </li>
-              ))}
-
-              {/* ------------- profile gaps, one collapsed row ---------- */}
-              {outstanding.length > 0 && (
-                <li className="flex flex-wrap items-center gap-x-3 gap-y-2 px-4 py-3">
-                  <QueueIcon kind="profile" />
-                  <div className="min-w-0 flex-1">
-                    <p className="text-xs font-semibold tracking-tight">
-                      Finish your profile — {outstanding.length}{" "}
-                      {outstanding.length === 1 ? "item" : "items"} left
-                    </p>
-                    <p className="mt-0.5 truncate text-[11px] text-faint">
-                      {outstanding.map((o) => o.label).join(" · ")}
-                    </p>
-                  </div>
-                  <Button
-                    variant="ghost"
-                    href={`/athlete/profile/edit?section=${
-                      CHECKLIST_SECTION[outstanding[0].label] ?? "identity"
-                    }`}
-                  >
-                    Finish →
-                  </Button>
-                </li>
-              )}
-            </ul>
-
+          <AttentionQueue rows={queueRows} initialPage={attn}>
             {/* --------------- waiting-on-others footer + quiet list ------ */}
             {inReview.length > 0 && (
               <>
@@ -480,7 +431,7 @@ export default async function AthletePortalPage({
                 </ul>
               </>
             )}
-          </Card>
+          </AttentionQueue>
         </section>
 
         {/* ==================================================== rail */}
