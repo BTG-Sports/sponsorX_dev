@@ -236,9 +236,9 @@ export function AttentionQueue({
           </ul>
 
           {/* -------------- section 2 pager — closes the in-review rows */}
-          <div className="flex flex-wrap items-center justify-between gap-2 border-t border-line-soft bg-surface-2/30 px-4 py-2.5">
+          <div className="flex flex-wrap items-center justify-between gap-2 border-t border-line-soft px-4 py-2.5">
             <p className="text-[11px] tabular-nums text-faint">
-              in review {rev.rangeStart}–{rev.rangeEnd} of {reviewRows.length}
+              {rev.rangeStart}–{rev.rangeEnd} of {reviewRows.length}
             </p>
             <Pagination
               page={rev.safePage}
