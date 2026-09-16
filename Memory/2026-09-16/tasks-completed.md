@@ -261,3 +261,58 @@ corrected by hand — Dashboard `A2` 336→337 delivery and 345→346 total, Pha
 formulas, and nothing updates them automatically.
 
 **Board: 31 Done · 18 Ready · 1 In progress · 6 Code review · 290 Blocked = 346.**
+
+---
+
+## `P1-ART-05` — fan reward landing design, reviewed and accepted
+
+Designed in Claude Design from a brief written for it, extracted to
+`documentation/Design/fan-reward-landing/SponsorX Reward Landing.dc.html`
+(source zip kept in `documentation/Design/other landing pages/`). Seven
+artboards at 390px: offer, claim/consent, claimed, returning fan, already
+redeemed, expired, unavailable.
+
+**Acceptance met** — consent language placed, offer presentation designed,
+single-use and expired states designed.
+
+### What was actually verified, not eyeballed
+
+**Contrast.** Every `color:` declaration was extracted and its ratio computed
+against its *real* background, not against the page ground. All pass WCAG AA.
+Lowest on-ground value is white at 50% = **5.36:1**; the inverted code card is
+18.4:1; the primary button 6.8:1. Four colours fail against the dark ground and
+that is correct — they are dark ink on the light card. **Checking against the
+page ground alone would have produced four false failures**, which is the trap
+in auditing a design that deliberately inverts one surface.
+
+**No-JS.** The three `<script>` tags in the `.dc.html` are Claude Design canvas
+infrastructure (`support.js`, the `_ds` bundle, a `text/x-dc` logic block), not
+page code. The design uses one email field and a native `required` checkbox, so
+validation works with JS off.
+
+**Content rules.** No invented statistics, no countdown, no account or app
+prompt, nothing collected beyond an email.
+
+### The finding worth keeping
+
+**The consent copy makes three promises that no task in the 348 delivers.**
+Searched every Task, DETAILS and Acceptance field: zero hits for unsubscribe,
+opt-out or lead export.
+
+1. *"You can unsubscribe from any of it, at any time, in one tap"* — no
+   unsubscribe mechanism exists anywhere in the programme.
+2. *"Northbridge Coffee receives your email address"* — nothing hands claimed
+   emails to the sponsor. `P6-SEC-02` is fan PII *purpose limitation*, which
+   points the other way.
+3. *"We emailed this code to you as well"* — a transactional send at CLAIM,
+   depending on `P3-INT-01` (Ready, unbuilt) and named in no reward task.
+
+This is the design doing its job: deciding what a screen says forced three
+backend commitments into the open before `P6-FE-02` wires the page. Either the
+backend gains them or the consent copy narrows before launch. **A consent
+promise that is not true is the worst possible version of this page**, so it
+cannot be left to be discovered during the pilot.
+
+Not raised as tasks — flagged to the user for the call.
+
+**Board: 33 Done · 17 Ready · 1 In progress · 7 Code review · 290 Blocked = 348.**
