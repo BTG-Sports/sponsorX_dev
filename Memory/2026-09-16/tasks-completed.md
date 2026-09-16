@@ -129,3 +129,61 @@ Invitation needed none.
   `PUPPETEER_SKIP_DOWNLOAD=1` and pointed at the installed Chrome — **nothing
   was added to the project**, which keeps the zero-new-dependencies-until-B0
   rule intact. The regeneration recipe is in `documentation/diagrams/README.md`.
+
+---
+
+## `P0-ART-03` — paginated process flowchart (new task, raised today)
+
+User's reaction to the ERD: *"the phase 1 erd is quite large. can you make a set,
+a flowchart with start and end. likewise divide the flowchart into pages so it
+will be easy to navigate."* Asked whether each page should carry the flowchart
+plus its tables, a pure process flowchart, or the ERD split by domain; they chose
+**pure process flowchart**. The A0 ERD stays exactly as it is.
+
+**Raised as a new task rather than folded into `P0-ART-01`**, whose acceptance is
+the ERD and was already met. `P0-ART-03` was the next free ID; Order `20.5` puts
+it directly after `P0-ART-02` without renumbering anyone else's rows.
+
+### What it is
+
+`documentation/diagrams/SponsorX-Phase1-Process-Flow.pdf` — 11 pages A3
+portrait. Cover carries a whole-loop map with the page number for each stage,
+an actor colour key and an index; then one §39 stage per page, START on page 2
+and END on page 11, with black off-page connectors — *from page N* at the top,
+*continues on page N* at the bottom — so the loop can be followed in either
+direction.
+
+Colour by actor: athlete/guardian, BTG staff, sponsor, fan, system/worker.
+Record state changes are dashed boxes, so a reader can see exactly which enum
+moves at each step and cross-reference the state-machine PDF.
+
+**Every step is traceable**: §11 onboarding capture, §12 agreements, §13's
+twelve-step managed campaign workflow, §16 the QR funnel, §21 the state
+machines, §26 conflict checks. The blueprint v2.0 `.docx` in
+`documentation/Master/` was read directly for each. Nothing invented.
+
+Each page carries a one-line note in the margin holding the thing that is easy
+to get wrong there — the sell-floor collision on stage 3, the missing restricted
+categories on stage 5, the void-draft-acceptance consequence on stage 6, "only
+REDEEM is a business outcome" on stage 8, "PAID is a bookkeeping mark" on
+stage 9.
+
+### The layout lesson
+
+First render was unreadable: commentary written as graph *nodes* made the pages
+1:3.3 tall and forced the diagram down to ~6.5pt on A3. **Moving commentary out
+of the graph and into the page margin** cut the tallest page from 2536px to
+2144px and brought every page to 8–11pt. Prose belongs in the page, not in the
+flowchart.
+
+### Tracker
+
+New row at **Phase 1 row 185** — deliberately *appended into free rows inside
+the existing ranges* (`I5:I190`, autofilter `A4:R190`) rather than inserted, so
+**not one formula, validation or conditional-formatting range needed touching**.
+77 formulas verified identical. The two subtitle cells that state totals were
+corrected by hand — Dashboard `A2` 336→337 delivery and 345→346 total, Phase 1
+`A2` 186→187 tasks and 446→447 person-days — because those are text, not
+formulas, and nothing updates them automatically.
+
+**Board: 31 Done · 18 Ready · 1 In progress · 6 Code review · 290 Blocked = 346.**

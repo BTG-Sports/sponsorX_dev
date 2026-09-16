@@ -8,6 +8,14 @@ distribution. The source is the deliverable; the PDF is a copy of it.
 |---|---|---|
 | **ERD** (`P0-ART-01`) | [`SponsorX-Phase1-ERD.mmd`](./SponsorX-Phase1-ERD.mmd) | [`SponsorX-Phase1-ERD.pdf`](./SponsorX-Phase1-ERD.pdf) — one A0 landscape sheet · [`.svg`](./SponsorX-Phase1-ERD.svg) |
 | **State machines** (`P0-ART-02`) | [`state-machines/*.mmd`](./state-machines) — eight files | [`SponsorX-Phase1-State-Machines.pdf`](./SponsorX-Phase1-State-Machines.pdf) — 9 pages, A3 portrait · [`svg/`](./state-machines/svg) |
+| **Process flow** (`P0-ART-03`) | [`process-flow/*.mmd`](./process-flow) — a map plus ten stages | [`SponsorX-Phase1-Process-Flow.pdf`](./SponsorX-Phase1-Process-Flow.pdf) — 11 pages, A3 portrait · [`svg/`](./process-flow/svg) |
+
+**Which one to reach for.** The ERD says *what is stored*, the state machines say
+*what each record may do next*, and the process flow says *who does what, in what
+order*. The ERD is a single A0 wall chart — correct, but not something to read at
+a desk; the process flow is the navigable version of the same system, one stage
+per page with off-page connectors, and is the one to walk a non-technical
+stakeholder through.
 
 **Sources of truth.** Blueprint v2.0 §20 (tables) and §21 (state machines), as
 modelled in [`../SponsorX-Implementation-Guide-V2.md`](../SponsorX-Implementation-Guide-V2.md).

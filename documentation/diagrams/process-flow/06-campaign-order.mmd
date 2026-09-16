@@ -1,0 +1,33 @@
+flowchart TD
+%% Page 7 of 11 — Stage 6. Campaign Order. §12 agreements, §13 steps 6-7, §21 OrderState.
+    IN[/"FROM PAGE 6 · invitation ACCEPTED"/]:::conn
+    F1["Order drafted: job, compensation,<br/>usage rights, exclusivity, deadline"]:::system
+    ST1["OrderState · DRAFT"]:::state
+    F2["Campaign Manager sends the order"]:::btg
+    ST2["OrderState · SENT"]:::state
+    F3["Athlete reads the terms"]:::athlete
+    ACC{"Accepts?"}
+    ST3["OrderState · REJECTED"]:::state
+    ENDR(["END for this athlete · re-staff on page 6"]):::term
+    MINOR{"Minor?"}
+    F4["Guardian co-signs"]:::athlete
+    F5["AgreementAcceptance written with body hash"]:::system
+    ST4["OrderState · ACCEPTED"]:::state
+    F6["Deliverables and due dates created"]:::system
+    ST5["OrderState · ACTIVE"]:::state
+    OUT[/"CONTINUES ON PAGE 8"/]:::conn
+
+    IN --> F1 --> ST1 --> F2 --> ST2 --> F3 --> ACC
+    ACC -- "rejects" --> ST3 --> ENDR
+    ACC -- "accepts" --> MINOR
+    MINOR -- "yes" --> F4 --> F5
+    MINOR -- "no" --> F5
+    F5 --> ST4 --> F6 --> ST5 --> OUT
+    classDef athlete fill:#E3EEFB,stroke:#1F4E9C,stroke-width:1.5px,color:#0A0C10
+    classDef btg fill:#FFF1E0,stroke:#C97A16,stroke-width:1.5px,color:#0A0C10
+    classDef sponsor fill:#E4F4EC,stroke:#1E7A52,stroke-width:1.5px,color:#0A0C10
+    classDef fan fill:#F0E8FA,stroke:#6B3FA0,stroke-width:1.5px,color:#0A0C10
+    classDef system fill:#EFF2F6,stroke:#5A6676,stroke-width:1.5px,color:#0A0C10
+    classDef state fill:#FFFFFF,stroke:#3A4759,stroke-width:1.5px,stroke-dasharray:4 3,color:#0A0C10
+    classDef conn fill:#0A0C10,stroke:#0A0C10,color:#FFFFFF
+    classDef term fill:#1F4E9C,stroke:#1F4E9C,color:#FFFFFF,stroke-width:2px

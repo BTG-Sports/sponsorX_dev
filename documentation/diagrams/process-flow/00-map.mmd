@@ -1,0 +1,23 @@
+flowchart LR
+%% Page 1 of 11 — the whole §39 loop on one line, with the page each stage is drawn on.
+    START(["START"]):::term
+    P2["1 · Athlete<br/>application<br/><b>page 2</b>"]:::athlete
+    P3["2 · Review and<br/>approval<br/><b>page 3</b>"]:::btg
+    P4["3 · NIL job<br/>and rate<br/><b>page 4</b>"]:::btg
+    P5["4 · Sponsor<br/>brief<br/><b>page 5</b>"]:::sponsor
+    P6["5 · Matching and<br/>invitation<br/><b>page 6</b>"]:::btg
+    P7["6 · Campaign<br/>Order<br/><b>page 7</b>"]:::athlete
+    P8["7 · Deliverable<br/><b>page 8</b>"]:::athlete
+    P9["8 · Tracking and<br/>fan reward<br/><b>page 9</b>"]:::fan
+    P10["9 · Metrics and<br/>earnings<br/><b>page 10</b>"]:::btg
+    P11["10 · Sponsor report<br/>and renewal<br/><b>page 11</b>"]:::sponsor
+    ENDX(["END"]):::term
+
+    START --> P2 --> P3 --> P4 --> P5 --> P6 --> P7 --> P8 --> P9 --> P10 --> P11 --> ENDX
+    P11 -. "renewal starts a new brief" .-> P5
+
+    classDef athlete fill:#E3EEFB,stroke:#1F4E9C,stroke-width:1.5px,color:#0A0C10
+    classDef btg fill:#FFF1E0,stroke:#C97A16,stroke-width:1.5px,color:#0A0C10
+    classDef sponsor fill:#E4F4EC,stroke:#1E7A52,stroke-width:1.5px,color:#0A0C10
+    classDef fan fill:#F0E8FA,stroke:#6B3FA0,stroke-width:1.5px,color:#0A0C10
+    classDef term fill:#1F4E9C,stroke:#1F4E9C,color:#FFFFFF,stroke-width:2px

@@ -1,0 +1,35 @@
+flowchart TD
+%% Page 8 of 11 — Stage 7. Deliverable. §13 steps 8-9, §21 DeliverableState.
+    IN[/"FROM PAGE 7 · order is ACTIVE"/]:::conn
+    ST0["DeliverableState · NOT_STARTED"]:::state
+    G1["Athlete uploads a draft direct to R2"]:::athlete
+    ST1["DeliverableState · DRAFT_SUBMITTED"]:::state
+    ST2["DeliverableState · BTG_REVIEW"]:::state
+    D1{"BTG approves?"}
+    G3["Changes requested"]:::btg
+    NEED{"Sponsor approval<br/>required?"}
+    ST3["DeliverableState · SPONSOR_REVIEW"]:::state
+    D2{"Sponsor approves?"}
+    ST4["DeliverableState · APPROVED"]:::state
+    G5["Athlete publishes, live URL recorded"]:::athlete
+    ST5["DeliverableState · PUBLISHED"]:::state
+    G6["BTG confirms the live post"]:::btg
+    ST6["DeliverableState · VERIFIED"]:::state
+    OUT[/"CONTINUES ON PAGE 9"/]:::conn
+
+    IN --> ST0 --> G1 --> ST1 --> ST2 --> D1
+    D1 -- "no" --> G3 --> ST1
+    D1 -- "yes" --> NEED
+    NEED -- "yes" --> ST3 --> D2
+    D2 -- "no" --> G3
+    D2 -- "yes" --> ST4
+    NEED -- "no" --> ST4
+    ST4 --> G5 --> ST5 --> G6 --> ST6 --> OUT
+    classDef athlete fill:#E3EEFB,stroke:#1F4E9C,stroke-width:1.5px,color:#0A0C10
+    classDef btg fill:#FFF1E0,stroke:#C97A16,stroke-width:1.5px,color:#0A0C10
+    classDef sponsor fill:#E4F4EC,stroke:#1E7A52,stroke-width:1.5px,color:#0A0C10
+    classDef fan fill:#F0E8FA,stroke:#6B3FA0,stroke-width:1.5px,color:#0A0C10
+    classDef system fill:#EFF2F6,stroke:#5A6676,stroke-width:1.5px,color:#0A0C10
+    classDef state fill:#FFFFFF,stroke:#3A4759,stroke-width:1.5px,stroke-dasharray:4 3,color:#0A0C10
+    classDef conn fill:#0A0C10,stroke:#0A0C10,color:#FFFFFF
+    classDef term fill:#1F4E9C,stroke:#1F4E9C,color:#FFFFFF,stroke-width:2px

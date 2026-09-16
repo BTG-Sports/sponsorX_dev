@@ -1,0 +1,25 @@
+flowchart TD
+%% Page 11 of 11 — Stage 10. Sponsor report and renewal. §12, §13 step 12, §21 CampaignState.
+    IN[/"FROM PAGE 10 · earnings settled"/]:::conn
+    ST1["CampaignState · ACTIVE → REPORTING"]:::state
+    K1["Results compiled per athlete and deliverable"]:::system
+    K2["Every number names its source"]:::system
+    K3["Campaign Manager reviews and releases it"]:::btg
+    K4["Sponsor reads it, and prints or saves the file"]:::sponsor
+    K5["Renewal opportunity created in Zoho, queued"]:::system
+    ST2["CampaignState · COMPLETED"]:::state
+    RENEW{"Sponsor<br/>renews?"}
+    BACK[/"BACK TO PAGE 5 · a new brief"/]:::conn
+    ENDX(["END · the §39 loop is complete"]):::term
+
+    IN --> ST1 --> K1 --> K2 --> K3 --> K4 --> K5 --> ST2 --> RENEW
+    RENEW -- "yes" --> BACK
+    RENEW -- "no" --> ENDX
+    classDef athlete fill:#E3EEFB,stroke:#1F4E9C,stroke-width:1.5px,color:#0A0C10
+    classDef btg fill:#FFF1E0,stroke:#C97A16,stroke-width:1.5px,color:#0A0C10
+    classDef sponsor fill:#E4F4EC,stroke:#1E7A52,stroke-width:1.5px,color:#0A0C10
+    classDef fan fill:#F0E8FA,stroke:#6B3FA0,stroke-width:1.5px,color:#0A0C10
+    classDef system fill:#EFF2F6,stroke:#5A6676,stroke-width:1.5px,color:#0A0C10
+    classDef state fill:#FFFFFF,stroke:#3A4759,stroke-width:1.5px,stroke-dasharray:4 3,color:#0A0C10
+    classDef conn fill:#0A0C10,stroke:#0A0C10,color:#FFFFFF
+    classDef term fill:#1F4E9C,stroke:#1F4E9C,color:#FFFFFF,stroke-width:2px

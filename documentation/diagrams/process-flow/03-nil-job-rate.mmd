@@ -1,0 +1,24 @@
+flowchart TD
+%% Page 4 of 11 — Stage 3. NIL job and rate card. §5 bands, §6 tiers, §14 score.
+    IN[/"FROM PAGE 3 · athlete is ACTIVE"/]:::conn
+    C1["Network Manager opens the rate card"]:::btg
+    C2["Picks which SX jobs the athlete will take"]:::btg
+    C3["Sets the base rate inside the §5 band"]:::btg
+    C4["Applies the tier multiplier by hand"]:::btg
+    GUARD{"Clears the<br/>sell floor?"}
+    C5["Repriced, or tier reviewed"]:::btg
+    C6["AthleteRate written and versioned"]:::system
+    C7["Content Value Score snapshotted"]:::system
+    OUT[/"CONTINUES ON PAGE 5"/]:::conn
+
+    IN --> C1 --> C2 --> C3 --> C4 --> GUARD
+    GUARD -- "no" --> C5 --> C3
+    GUARD -- "yes" --> C6 --> C7 --> OUT
+    classDef athlete fill:#E3EEFB,stroke:#1F4E9C,stroke-width:1.5px,color:#0A0C10
+    classDef btg fill:#FFF1E0,stroke:#C97A16,stroke-width:1.5px,color:#0A0C10
+    classDef sponsor fill:#E4F4EC,stroke:#1E7A52,stroke-width:1.5px,color:#0A0C10
+    classDef fan fill:#F0E8FA,stroke:#6B3FA0,stroke-width:1.5px,color:#0A0C10
+    classDef system fill:#EFF2F6,stroke:#5A6676,stroke-width:1.5px,color:#0A0C10
+    classDef state fill:#FFFFFF,stroke:#3A4759,stroke-width:1.5px,stroke-dasharray:4 3,color:#0A0C10
+    classDef conn fill:#0A0C10,stroke:#0A0C10,color:#FFFFFF
+    classDef term fill:#1F4E9C,stroke:#1F4E9C,color:#FFFFFF,stroke-width:2px
