@@ -54,8 +54,12 @@ const TARGETS: Record<string, BackTarget> = {
     label: "Back to BTG Sports Talk",
   },
   builder: {
-    href: "/admin/campaigns/new",
-    label: "Back to Campaign Builder",
+    href: "/admin/campaigns",
+    label: "Back to Campaigns",
+  },
+  "sponsor-campaigns": {
+    href: "/sponsor/campaigns",
+    label: "Back to Campaigns",
   },
   campaign: {
     href: "/admin/campaigns/c1",

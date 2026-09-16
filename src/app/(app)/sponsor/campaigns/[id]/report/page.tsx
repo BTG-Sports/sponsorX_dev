@@ -55,7 +55,12 @@ export default async function RoiReportPage({
 
   const sp = await searchParams;
   const fromParam = Array.isArray(sp.from) ? sp.from[0] : sp.from;
-  const back = resolveBack(fromParam, "sponsor");
+  /* Reached from this campaign's own dashboard — return to it. The static
+     back-link map can't express an id-dynamic target, so resolve it inline. */
+  const back =
+    fromParam === "sponsor-campaign"
+      ? { href: `/sponsor/campaigns/${id}`, label: "Back to campaign" }
+      : resolveBack(fromParam, "sponsor");
 
   const heading = (
     <div>

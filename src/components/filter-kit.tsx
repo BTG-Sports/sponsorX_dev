@@ -12,7 +12,7 @@ import { useEffect, useRef, useState } from "react";
    via static class maps so Tailwind sees every utility.
    -------------------------------------------------------------------------- */
 
-export type FilterTone = "athlete" | "admin";
+export type FilterTone = "athlete" | "admin" | "sponsor";
 
 const TONE = {
   athlete: {
@@ -24,6 +24,11 @@ const TONE = {
     chip: "border-admin/30 bg-admin/10",
     trigger: "border-admin/40",
     search: "focus:border-admin/50 focus-visible:ring-admin/30",
+  },
+  sponsor: {
+    chip: "border-sponsor/30 bg-sponsor/10",
+    trigger: "border-sponsor/40",
+    search: "focus:border-sponsor/50 focus-visible:ring-sponsor/30",
   },
 } satisfies Record<FilterTone, { chip: string; trigger: string; search: string }>;
 
@@ -230,6 +235,9 @@ export function Dropdown({
   options,
   onChange,
   tone = "athlete",
+  includeAll = true,
+  placement = "down",
+  block = false,
 }: {
   /** aria-label of the control, e.g. "Filter by status". */
   label: string;
@@ -239,18 +247,28 @@ export function Dropdown({
   options: { value: string; label: string }[];
   onChange: (v: string) => void;
   tone?: FilterTone;
+  /** Prepend a "no selection" row (value ""). Off for always-set controls
+      like a page-size picker, where an empty choice is meaningless. */
+  includeAll?: boolean;
+  /** Open the panel above the trigger instead of below — use for controls
+      near the bottom of the page so the menu doesn't extend/scroll it. */
+  placement?: "down" | "up";
+  /** Full-width form variant: the trigger fills its column with the chevron
+      pinned right, matching text inputs — for use as a form field rather than
+      an inline toolbar pill. */
+  block?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   useOutsideClose(ref, () => setOpen(false), open);
 
   const current = options.find((o) => o.value === value);
-  const rows = [{ value: "", label: allLabel }, ...options];
+  const rows = includeAll ? [{ value: "", label: allLabel }, ...options] : options;
 
   return (
     <div
       ref={ref}
-      className="relative"
+      className={block ? "relative w-full" : "relative"}
       onKeyDown={(e) => {
         if (e.key === "Escape") setOpen(false);
       }}
@@ -261,14 +279,23 @@ export function Dropdown({
         aria-haspopup="listbox"
         aria-expanded={open}
         onClick={() => setOpen((v) => !v)}
-        className={triggerCls(Boolean(value), open, tone)}
+        className={[triggerCls(Boolean(value), open, tone), block ? "w-full justify-between" : ""].join(" ")}
       >
-        {current?.label ?? allLabel}
+        <span className={block ? "min-w-0 truncate" : ""}>
+          {current?.label ?? allLabel}
+        </span>
         <ChevronDown open={open} />
       </button>
 
       {open && (
-        <div className={`${PANEL_CLS} min-w-full w-max py-1`} role="listbox" aria-label={label}>
+        <div
+          className={[
+            "sx-pop absolute right-0 z-30 min-w-full w-max overflow-hidden rounded-xl border border-line bg-surface py-1 shadow-xl",
+            placement === "up" ? "bottom-full mb-1.5" : "top-full mt-1.5",
+          ].join(" ")}
+          role="listbox"
+          aria-label={label}
+        >
           {rows.map((o) => {
             const selected = o.value === value;
             return (

@@ -476,9 +476,10 @@ export const inventoryItem = {
 
 /* ---- 8. Campaign Builder (mockup screen 8) ---- */
 export const builderSteps = [
-  "Select Inventory",
-  "Campaign Details",
-  "Rewards (Optional)",
+  "Inventory",
+  "Details",
+  "Athletes",
+  "Rewards",
   "Review & Launch",
 ];
 
