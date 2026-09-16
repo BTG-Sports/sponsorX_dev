@@ -68,3 +68,64 @@ globally and not into the project.
 
 End-of-day mirror of the Google Sheet by hand, as the daily rule requires —
 eleven rows to Done, three rows Blocked → Ready.
+
+---
+
+## `P0-ART-01` and `P0-ART-02` — the two §38 diagram deliverables
+
+Both built and moved to **Code review**, owner `rcfworks`, Date Started
+2026-09-16. Board: **31 Done · 18 Ready · 1 In progress · 5 Code review ·
+290 Blocked** = 345. 77 formulas verified identical.
+
+### Format, and why
+
+User asked whether Claude Design was needed. It is not, for these two: they are
+technical drawings that `P2-BE-02` builds the Prisma schema and enums from, so
+they must diff in git and regenerate when the schema moves. **Mermaid source
+committed in `documentation/diagrams/`, PDF rendered from it for distribution.**
+The user asked for PDF explicitly. Claude Design stays for the visual ART tasks.
+
+- **ERD** — one A0 landscape sheet, 29 models with relationships, PK/FK/UK and
+  state columns. A0 because the diagram's aspect is 1.37 and at A1 the attribute
+  text lands near 6.5pt; at A0 it is ~9.7pt and scales down cleanly to A1/A2.
+- **State machines** — 9 pages A3 portrait, cover plus one machine per page,
+  each page carrying the §21 line it was drawn from.
+
+### Two findings worth carrying into `P2-BE-02`
+
+**Five §20 tables are not modelled in Implementation Guide V2 at all:**
+`sponsor_contacts`, `athlete_content_capabilities`, `athlete_brand_preferences`,
+`integration_connections` — and `roles` / `user_roles` are collapsed into a
+`Role[]` array on `User`, which contradicts both §20 and `CLAUDE.md`'s
+"`tenants`, `roles` and `user_roles` in Postgres authorize", and cannot carry a
+grant's scope, grantor or date. The sharp one is `athlete_brand_preferences`:
+**§26's conflict check needs the athlete's restricted categories and only the
+sponsor's side exists today**, so the check cannot currently be implemented.
+`payouts` is deliberately absent per G-01 and is not a gap. Full table-by-table
+audit in `documentation/diagrams/README.md`.
+
+**§21 states forward paths only.** Nine arrows across six machines had to be
+drawn to avoid dead-end states — a review that requests changes, a payment hold
+that is resolved, a pause that is lifted. Each is labelled `(derived)` on the
+diagram and called out on the cover page, as proposals for `P2-BE-02` to
+confirm rather than established requirements. Campaign Brief and Athlete
+Invitation needed none.
+
+### Toolchain notes (cost time once; should not again)
+
+- **Mermaid drops the newline after a bare `%%` line**, which glues the comment
+  block onto the diagram declaration and fails the parse. Every comment line in
+  these sources carries text, and the diagram declaration is line 1.
+- **Chrome's `--print-to-pdf` does not recognise `@page { size: A0 }`** — it
+  silently falls back to US Letter. Give explicit millimetres
+  (`size: 1189mm 841mm`). A3/A4 names do work.
+- A `.page` block taller than the printable area silently doubles the page
+  count, footers landing on their own pages. Caught by counting pages, not by
+  looking at the first one.
+- Mermaid's default layout put the ERD at 7470×3382 (aspect 2.2, unprintable);
+  `layout: elk` gives 4900×3588, aspect 1.37, which is what makes an A0 sheet
+  work.
+- `@mermaid-js/mermaid-cli` was installed in the session scratchpad with
+  `PUPPETEER_SKIP_DOWNLOAD=1` and pointed at the installed Chrome — **nothing
+  was added to the project**, which keeps the zero-new-dependencies-until-B0
+  rule intact. The regeneration recipe is in `documentation/diagrams/README.md`.

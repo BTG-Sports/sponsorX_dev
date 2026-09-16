@@ -1,0 +1,15 @@
+stateDiagram-v2
+%% §21 machine 2 of 8 — Campaign Brief  (Prisma enum: BriefState)
+%% §21: DRAFT -> QUALIFIED -> APPROVED -> CAMPAIGN_CREATED -> CLOSED
+    direction TB
+    [*] --> DRAFT : sponsor starts a brief
+    DRAFT --> QUALIFIED : BTG sales qualifies it
+    QUALIFIED --> APPROVED : budget and targeting agreed
+    APPROVED --> CAMPAIGN_CREATED : campaign record opened (1:1)
+    CAMPAIGN_CREATED --> CLOSED : campaign finished or abandoned
+    CLOSED --> [*]
+
+    note right of CAMPAIGN_CREATED
+      Phase 1 is a managed marketplace: qualification
+      and approval are BTG staff actions, not checkout.
+    end note

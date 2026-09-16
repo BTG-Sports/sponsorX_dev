@@ -1,0 +1,27 @@
+stateDiagram-v2
+%% §21 machine 1 of 8 — Athlete Application  (Prisma enum: AthleteState)
+%% §21: DRAFT -> SUBMITTED -> UNDER_REVIEW -> APPROVED / CHANGES_REQUESTED / REJECTED -> ACTIVE / SUSPENDED
+%% One of the two machines §38 names explicitly. Built by P3-* (B1 · onboarding).
+    direction TB
+    [*] --> DRAFT : athlete starts application
+    DRAFT --> SUBMITTED : submits
+    SUBMITTED --> UNDER_REVIEW : network manager picks it up
+    UNDER_REVIEW --> APPROVED : accepted into the network
+    UNDER_REVIEW --> CHANGES_REQUESTED : more information needed
+    UNDER_REVIEW --> REJECTED : declined
+    CHANGES_REQUESTED --> SUBMITTED : resubmits (derived)
+    APPROVED --> ACTIVE : agreements accepted, profile live
+    ACTIVE --> SUSPENDED : conduct / eligibility hold
+    SUSPENDED --> ACTIVE : hold lifted (derived)
+    REJECTED --> [*]
+
+    note right of APPROVED
+      A minor cannot reach ACTIVE until a
+      verified guardian is recorded (§4, §37).
+    end note
+    note right of SUSPENDED
+      Derived transitions are marked. §21 states
+      the forward path only; the return paths are
+      required for the state to be usable and are
+      confirmed in P2-BE-02.
+    end note
