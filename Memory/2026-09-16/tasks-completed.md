@@ -316,3 +316,43 @@ cannot be left to be discovered during the pilot.
 Not raised as tasks — flagged to the user for the call.
 
 **Board: 33 Done · 17 Ready · 1 In progress · 7 Code review · 290 Blocked = 348.**
+
+---
+
+## Tracker sweep — two gaps raised, one finding retracted
+
+User asked for the trackers to be updated. Audited the whole board first rather
+than assuming: **no Blocked task had all dependencies Done, and no Ready / In
+progress / Code review task had an unmet dependency.** All 20 of the day's rows
+were already applied. The xlsx needed no correction.
+
+### A finding of mine was wrong, and the check is the lesson
+
+I reported that the `P1-ART-05` consent copy promised the sponsor would receive
+the fan's email with no task delivering it. **`P6-INT-01` — "Consent-gated lead
+push to Zoho" — already covers exactly that**, with `P6-SEC-02` limiting the
+fields to what consent permits. My keyword search had looked for *export*,
+*lead export* and *claimed emails*; the task says *lead push*. **A keyword
+search across a 350-row board is evidence of absence only when the vocabulary
+is right** — the confirming step is to read the neighbouring rows in the same
+stage, which is what surfaced it.
+
+### The two gaps that are real
+
+| New task | Why |
+|---|---|
+| `P6-INT-02` · Email the reward code to the fan at CLAIM | The three notification-job tasks cover applications (`P3-INT-02`), invitations (`P4-INT-01`) and deliverables (`P5-INT-01`). **None covers the fan.** The design's claimed screen says the code was emailed; without this the on-screen code is the fan's only copy, and losing signal in a venue loses the reward. |
+| `P6-SEC-03` · Fan unsubscribe and consent withdrawal | The consent copy promises unsubscribe "at any time, in one tap" and nothing delivered it. `P6-SEC-01` records that consent was **given**; nothing records it being **taken back**. A consent record with no withdrawal path is not a consent mechanism. |
+
+Both Blocked, weight 1d, no legal dependency (standing rule). Written into free
+rows 188–189 inside the existing ranges, Orders `131.5` and `134.5`, so **no
+formula, validation or conditional-formatting range was touched** — 77 formulas
+verified identical. Subtitles corrected to 341 delivery / 350 total / 191
+Phase 1 tasks / 451 person-days.
+
+**Only one free row now remains inside `I5:I190` on the Phase 1 sheet.** The
+next person to raise a Phase 1 task must extend the Dashboard ranges, the
+autofilter and the Status validation by hand, or the Dashboard silently
+undercounts. Worth doing deliberately rather than discovering it.
+
+**Board: 33 Done · 17 Ready · 1 In progress · 7 Code review · 292 Blocked = 350.**
