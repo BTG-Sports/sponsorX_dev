@@ -13,6 +13,8 @@ import {
 import { CountUp } from "@/components/count-up";
 import { ScoreRing } from "@/components/score-ring";
 import { InsightBanner } from "@/components/insight-banner";
+import { ExportReport } from "@/components/export-report";
+import { buildAnalyticsReport } from "@/lib/analytics-report-data";
 import {
   analyticsRanges,
   athleteLeaderboard,
@@ -279,28 +281,36 @@ export function AnalyticsStory({ initialRange }: { initialRange: RangeKey }) {
               </button>
             ))}
           </div>
-          <div
-            className="ml-auto flex gap-1.5"
-            role="group"
-            aria-label="Date range"
-          >
-            {RANGES.map((r) => (
-              <button
-                key={r}
-                type="button"
-                onClick={() => setRange(r)}
-                aria-pressed={r === range}
-                title={analyticsRanges[r].label}
-                className={[
-                  "rounded-lg border px-3 py-1.5 text-[11px] font-medium transition-colors",
-                  r === range
-                    ? "border-primary/40 bg-primary/10 text-text"
-                    : "border-line bg-surface text-muted hover:text-text",
-                ].join(" ")}
-              >
-                {r}
-              </button>
-            ))}
+          <div className="ml-auto flex items-center gap-2">
+            <ExportReport
+              payload={{
+                kind: "admin-analytics",
+                report: buildAnalyticsReport(range),
+              }}
+            />
+            <div
+              className="flex gap-1.5"
+              role="group"
+              aria-label="Date range"
+            >
+              {RANGES.map((r) => (
+                <button
+                  key={r}
+                  type="button"
+                  onClick={() => setRange(r)}
+                  aria-pressed={r === range}
+                  title={analyticsRanges[r].label}
+                  className={[
+                    "rounded-lg border px-3 py-1.5 text-[11px] font-medium transition-colors",
+                    r === range
+                      ? "border-primary/40 bg-primary/10 text-text"
+                      : "border-line bg-surface text-muted hover:text-text",
+                  ].join(" ")}
+                >
+                  {r}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
 
