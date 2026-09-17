@@ -48,10 +48,34 @@ build.
 **No invented statistics anywhere**, including in the hero. If a number would
 help, leave a labelled placeholder for a real one.
 
-**The packages must be comparable.** A sponsor choosing between six options
-needs to see the difference at a glance: what they get, roughly what it costs,
-and how many athletes are involved. Exact prices are not settled yet — leave
-them as placeholders rather than inventing a figure.
+**The packages must be comparable — and these are the six.** Do not invent a
+package model, rename them, or change the counts. They come from §7 and are
+recorded in `documentation/SponsorX-Sponsor-Packages-and-Inventory.md`:
+
+| Package | Price (USD) | Athletes | Purpose |
+|---|---|---|---|
+| SponsorX Test Drive | $750 | 3 | Low-friction first purchase |
+| Local Blitz | $1,500–$3,000 | 5–10 | Local awareness and traffic |
+| 10-Athlete Blitz | ~$2,500 | 10 | Distributed athlete media |
+| Community Campaign | ~$5,000 | 10–15 | Mid-level campaign |
+| Athlete Takeover | ~$10,000 | 15–25 | Major activation |
+| Season Partner | $15K–$30K+ | recurring | Category ownership |
+
+**Prices are US dollars.** SponsorX is a US product — NIL is US law and the
+sponsors are local US businesses. No other currency appears anywhere.
+
+**Only four things about these packages are real**: price, athlete count,
+duration, and — on Season Partner alone — exclusivity. Everything else in the
+§7 descriptions is sales language, and no package has yet been assigned its NIL
+job codes. So compare them on those four. **Do not draw a feature matrix with
+ticks per package, and do not invent a tiered "everything in the previous one"
+ladder** — neither exists, and inventing one commits BTG to selling it.
+
+Two known problems the design should not paper over: Local Blitz and 10-Athlete
+Blitz overlap almost completely at $2,500 with 10 athletes, and "iMC/BTG
+feature" appears in three packages but is not a NIL job and has no cost line.
+Present what is true and let the overlap show rather than manufacturing a
+difference.
 
 **The action is "request a brief", not "buy".** Phase 1 is a managed
 marketplace: a sponsor tells BTG what they want and a person follows up. Nothing
@@ -85,8 +109,9 @@ marketing site is talking to sponsors, so orange leads.
 Typeface **Poppins** (400 / 500 / 600 / 700). Label ink on a primary blue or
 orange fill is `#0A0C10`, not white.
 
-Logo files available: `sponsorx-full.png`, `sponsorx-title.png`,
-`sponsorx-badge.png`.
+Logo files: `sponsorx-full.png`, `sponsorx-title.png`, `sponsorx-badge.png`,
+in the project's `public/` folder. **Attach them to the Claude Design session** —
+without them the hero can only carry a `[SPONSORX LOGO]` placeholder.
 
 ## Constraints
 
