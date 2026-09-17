@@ -1,8 +1,8 @@
 # Marketing site visual assets — `P1-ART-06`
 
 Imagery and visual treatments for the public marketing site: the hero, the slots
-where proof and case studies will sit, and how the six sponsorship packages are
-presented.
+where proof and case studies will sit, how the six sponsorship packages are
+presented, and a flat redraw of the logo for screen use.
 
 ## What is here
 
@@ -12,48 +12,53 @@ presented.
 | `exports/01-hero-desktop-1440.png`, `02-hero-phone-390.png` | The hero, both widths |
 | `exports/03-proof-slot.png`, `03b-proof-slot-phone.png` | The repeatable proof card |
 | `exports/04-case-study-section-1440.png` | Three slots as the homepage shows them |
-| `exports/05-packages-1440.png`, `05b-packages-phone-390.png` | The six packages **— needs a re-run, see below** |
-| `exports/06-package-detail-1440.png`, `06b-package-detail-phone-390.png` | One package in detail **— same** |
+| `exports/05-packages-1440.png`, `05b-packages-phone-390.png` | The six packages |
+| `exports/06-package-detail-1440.png`, `06b-package-detail-phone-390.png` | One package in detail |
+| `exports/07-logo-assets.png` | The logo sheet — every lockup, dark and light |
+| `exports/logos/` | The logo files themselves: SVG, favicon and app icon, with their own README |
 
-Designed in Claude Design on 2026-09-17, exported as
-`Missing logo files.zip`.
+Designed in Claude Design on 2026-09-17 from `BRIEF.md`. The package screens are
+a second pass; the first invented a different six-package model and priced it in
+pounds, because the brief had not said what the six packages are.
 
-## What is right
+## What the design commits to
 
-The hero does what it was asked to. It carries a `[SPONSORX LOGO]` placeholder
-rather than a fabricated mark, three `[NUMBER]` placeholders rather than
-invented statistics, and a photo slot with a written direction for the shot
-("a single school or college athlete, shot on a dark ground — training or
-competing, mid-effort, not posed. Real athlete on the platform, with release.
-No stock.") instead of faked photography. The action is *Request a brief*, not a
-purchase, which is correct for a managed Phase 1 marketplace. Orange leads, as
-the sponsor-facing accent should.
+**Nothing is invented.** The hero carries `[NUMBER]` placeholders rather than
+statistics, a `[SPONSORX LOGO]` slot in the first pass and the real redrawn mark
+now, and a photo slot with a written direction for the shot — "a single school
+or college athlete, shot on a dark ground, training or competing, mid-effort,
+not posed. Real athlete on the platform, with release. No stock." The
+case-study slots are structure with `[SPONSOR NAME]` and `[RESULT]`
+placeholders, because BTG has no case studies yet.
 
-The proof and case-study slots are structure with placeholders, as briefed.
+**The packages are the §7 six**, by name, in US dollars, at their real athlete
+counts. Each card says *"Deliverables not yet defined — no NIL job codes
+assigned to this package"* rather than listing features that do not exist, and
+Local Blitz and 10-Athlete Blitz both carry an `OVERLAP` chip. A closing panel
+names what is unsettled: the two packages are indistinguishable at $2,500 with
+ten athletes, and "iMC/BTG feature" appears in three descriptions without being
+a NIL job or carrying a cost line.
 
-## What is wrong, and why
+**The action is *Request a brief***, never a purchase — correct for a managed
+Phase 1 marketplace.
 
-**The package screens invent a different product.** They show "Package 1"
-through "Package 6" at 1, 2, 3, 5, 8 and 10+ athletes, with a tiered
-"everything in Package N" ladder and an exclusivity progression from *shared* to
-*category priority* to *category exclusive — town* to *category exclusive —
-region*. None of that is SponsorX. The real six are SponsorX Test Drive, Local
-Blitz, 10-Athlete Blitz, Community Campaign, Athlete Takeover and Season
-Partner, at 3, 5–10, 10, 10–15, 15–25 and recurring athletes, with exclusivity
-only on Season Partner.
+## Two things to resolve before any of this ships publicly
 
-**The prices are in pounds.** SponsorX is a US product — NIL is US law and the
-sponsors are local US businesses.
+**The honesty markers are internal language on a customer-facing page.** A
+sponsor reading "no NIL job codes assigned to this package" learns that BTG has
+not decided what it is selling. The design is right to refuse to fabricate the
+content, but the fix is the pricing decision `P0-PMO-10` asks for — assign each
+package its job codes and counts — not styling the markers away.
 
-The cause was the brief, not the tool: it asked for "the six packages as a
-comparable set" without ever saying what the six packages are. `BRIEF.md` now
-carries the table from §7, states USD, and forbids both the invented feature
-ladder and any tick-matrix, since no package has been assigned its NIL job codes
-and there is nothing real to tick.
+**The logo SVGs reference their typeface by name.** They are set in Barlow
+Condensed 800 italic as a stand-in for the original heavy condensed italic, so a
+machine without that font renders a fallback. Before they go into `public/`, the
+real brand typeface should be substituted if one exists, the type converted to
+outlines, and each viewBox refitted. This is recorded in
+`exports/logos/README.md` by the designer, not discovered later.
 
 ## Status
 
-`P1-ART-06` stays **In progress**. Four of the six assets are usable; the two
-package screens need a re-run against the corrected brief. Attaching the three
-logo files from `public/` to that run would also replace the hero's placeholder
-with the real mark.
+At **Code review**. All seven assets delivered and checked against the brief;
+not yet reviewed by a second person, and no contrast audit run beyond the
+per-file colour notes the logo README carries.

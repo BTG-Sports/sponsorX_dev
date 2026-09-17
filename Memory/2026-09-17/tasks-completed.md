@@ -175,3 +175,65 @@ than implying the design is fully reviewed.
 
 `P1-ART-06` (marketing site visual assets) is the last of the three, still In
 progress with its brief written and ready to paste.
+
+---
+
+## `P1-ART-06` — marketing visuals and a flat logo redraw
+
+Seven assets: hero at desktop and phone, the proof slot, the case-study section,
+the package presentation, one package in detail, and a logo sheet with the files
+behind it. Saved to `documentation/Design/marketing-visuals/`. Row moved to
+**Code review**. Board: **40 Done · 11 Ready · 1 In progress · 3 Code review ·
+286 Blocked = 341**, 77 formulas identical.
+
+### The first pass failed, and the brief was the cause
+
+The package screens came back as "Package 1" through "Package 6" at 1, 2, 3, 5,
+8 and 10+ athletes, with an invented "everything in Package N" ladder, an
+exclusivity progression from shared to region-exclusive, and prices in **pounds**.
+None of it is SponsorX.
+
+**My brief had asked for "the six packages as a comparable set" without ever
+saying what the six packages are.** Claude Design cannot know what it is not
+told, and a brief that names a set without listing it invites a plausible
+invention. The corrected brief carries the §7 table by name, price in USD and
+athlete count, states the currency explicitly, and bans both a feature matrix
+and a tiered ladder — because no package has NIL job codes yet, so there is
+nothing real to tick.
+
+The second pass is correct: real names, real prices, real counts, each card
+reading *"Deliverables not yet defined — no NIL job codes assigned"*, `OVERLAP`
+chips on Local Blitz and 10-Athlete Blitz, and a closing panel naming what is
+unsettled.
+
+### The honesty markers are the pricing decision surfacing on a public page
+
+A sponsor reading "no NIL job codes assigned to this package" learns BTG has not
+decided what it is selling. The design is right to refuse to fabricate the
+content; **the fix is `P0-PMO-10`'s pricing decision, not styling the markers
+away.** Worth remembering when someone asks for a "cleaner" package page.
+
+### The logo was redrawn, not reused
+
+The existing mark is a raster esports lockup with bevels, chrome gradients,
+outer glow and a drop shadow on a dark plate — it cannot be recoloured, does not
+hold at 32px and cannot sit on the light theme. The brief described what
+identifies the mark (the two-part X with orange bolt and blade, BTG above
+SPONSOR, the blue-then-orange tagline split, the circular badge) and what to
+drop, so the redraw reproduces rather than reinvents.
+
+Delivered as SVG in `exports/logos/`: horizontal, stacked, wordmark, tagline, X
+alone and badge, each dark and light, plus favicon 32 and app icon 180. The
+favicon drops the X entirely because it does not read at that size.
+
+**These SVGs reference Barlow Condensed 800 italic by font name**, a stand-in
+for the original letterforms, so a machine without it renders a fallback. Before
+they go into `public/`: substitute the real brand typeface if one exists,
+convert type to outlines, refit each viewBox. The designer recorded this in
+`exports/logos/README.md` rather than leaving it to be discovered.
+
+### All three ART tasks are now at Code review
+
+`P1-ART-07`, `P4-ART-01`, `P1-ART-06` — none reviewed by a second person.
+`P5-ART-01` and `P1-ART-04` are the next ART tasks, both Ready with no
+dependencies.
