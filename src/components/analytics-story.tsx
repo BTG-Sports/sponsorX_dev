@@ -141,10 +141,23 @@ export function AnalyticsStory({ initialRange }: { initialRange: RangeKey }) {
      the effect body (repo's react-hooks/set-state-in-effect rule). */
   useEffect(() => {
     const onScroll = () => {
-      let current: ChapterId = CHAPTERS[0].id;
-      for (const c of CHAPTERS) {
-        const el = document.getElementById(c.id);
-        if (el && el.getBoundingClientRect().top <= 168) current = c.id;
+      /* The last chapter is shorter than a viewport, so its top can never
+         cross the reading line before the document runs out of scroll range —
+         at the (scrollable) bottom of the page the final chapter wins. The
+         scrollY > 0 guard keeps a page that fits the viewport on chapter 1;
+         the 4px slack absorbs fractional scroll positions on scaled displays. */
+      const atBottom =
+        window.scrollY > 0 &&
+        window.innerHeight + window.scrollY >=
+          document.documentElement.scrollHeight - 4;
+      let current: ChapterId = atBottom
+        ? CHAPTERS[CHAPTERS.length - 1].id
+        : CHAPTERS[0].id;
+      if (!atBottom) {
+        for (const c of CHAPTERS) {
+          const el = document.getElementById(c.id);
+          if (el && el.getBoundingClientRect().top <= 168) current = c.id;
+        }
       }
       setActive(current);
     };
