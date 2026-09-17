@@ -271,3 +271,36 @@ list, the return paths and the per-audience accents are all stated.
 
 **41 Done · 10 Ready · 2 In progress · 2 Code review · 286 Blocked = 341.**
 77 formulas verified identical.
+
+---
+
+## `P5-ART-01` — deliverable and approval states, delivered
+
+Nine screens saved to `documentation/Design/deliverable-states/screens/`. Row at
+**Code review**. Board: **41 Done · 10 Ready · 1 In progress · 3 Code review ·
+286 Blocked = 341**, 77 formulas identical.
+
+All seven §21 states are designed, with both derived return paths — and the
+second one carries a decision worth keeping: `SPONSOR_REVIEW → DRAFT_SUBMITTED`
+routes the sponsor's reason **through BTG to the athlete** rather than
+delivering a rejection raw.
+
+### Screen 09 is a field-level visibility matrix, not just a comparison
+
+It states, for one deliverable in `SPONSOR_REVIEW`, what each audience sees:
+
+- **Shared by all three** — deliverable name, state word, who holds the ball and
+  since when.
+- **Hidden from the sponsor** — athlete fee, campaign margin, BTG's internal
+  checks and notes, anything on another campaign.
+- **Hidden from the athlete** — margin, the sponsor's SLA clock, BTG's checklist
+  state, every other athlete's deliverable.
+
+That is a direct input to `P4-SEC-02` and to the `P1-FE-05` audit, and should be
+treated as a proposal to enforce rather than as design garnish.
+
+### Known issue
+
+The per-screen title band renders near-white on white in the export. Export
+furniture, not part of any screen, but it needs fixing before these go outside
+the team.
