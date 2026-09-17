@@ -435,6 +435,23 @@ body {
   animation: sx-viz-glint 6s ease-in-out calc(2.6s + var(--sx-d, 0s)) infinite;
 }
 
+/* Insight emphasis (analytics guided story, spec 2026-09-17). One soft glow
+   pulse on first reveal, then rest — the phrase keeps its tone color, so
+   reduced-motion/no-JS renders are just colored text. Gated by the same
+   [data-reveal] pause as every sx-viz-* animation. */
+@keyframes sx-ins-glow {
+  0%,
+  100% {
+    text-shadow: none;
+  }
+  35% {
+    text-shadow: 0 0 18px color-mix(in srgb, currentColor 55%, transparent);
+  }
+}
+.sx-ins-hot {
+  animation: sx-ins-glow 2.2s var(--sx-ease) var(--sx-d, 0.4s) 1 both;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .sx-viz-draw,
   .sx-viz-wipe,
@@ -447,7 +464,8 @@ body {
   .sx-viz-grow-y-live,
   .sx-viz-gauge,
   .sx-viz-arc,
-  .sx-viz-pulse {
+  .sx-viz-pulse,
+  .sx-ins-hot {
     animation: none;
   }
   .sx-viz-glint::after {
