@@ -304,3 +304,49 @@ treated as a proposal to enforce rather than as design garnish.
 The per-screen title band renders near-white on white in the export. Export
 furniture, not part of any screen, but it needs fixing before these go outside
 the team.
+
+---
+
+## `P1-ART-04` — sponsor ROI report, print layout
+
+Eight artboards saved to `documentation/Design/sponsor-report-print/pages/`:
+six US Letter pages, the running header/footer, and one chart redrawn for flat
+print. Row at **Code review**.
+
+Black on white, because G-07 chose the print-stylesheet route — the browser's
+own Save as PDF, no rendering service — and the reader is a local business
+printing on a cheap printer. This is the only SponsorX surface that is not
+dark-themed.
+
+### The provenance system this design establishes
+
+Boxed letters that survive greyscale, with a legend on the cover: **V** verified
+(platform API or measured by SponsorX), **M** manually verified (BTG checked a
+screenshot or receipt), **S** self-reported, **E** estimated (modelled, never
+presented as measured), **A** attributed (derived from two verified figures).
+Direction is an arrow plus words — over / at / under target — never colour alone.
+
+**Two rules here are new decisions, not inherited from an earlier document, and
+`P7-BE-05` should enforce them:** an attributed figure carries the weaker
+provenance of its two sources, and a figure with no source is left **blank, not
+zero**.
+
+### Page 6 is the one that matters
+
+The under-delivering cover keeps the same layout in the same order, softens
+nothing, states the shortfall in the summary band, adds "no figure below has been
+restated to compensate", and names the agreed remedy with who agreed it and when.
+Its closing line is the standard for the whole report: *a missed number is
+reported with the same provenance as a met one.*
+
+### Not done
+
+Nobody has run it through an actual browser Save-as-PDF. That is the check that
+decides whether G-07's Option A really holds, and it belongs to `P7-BE-05`.
+
+### Phase 1 ART is now clear
+
+Every actionable ART task in Phase 1 is delivered. `P1-ART-06` is Done; four sit
+at Code review (`P1-ART-04`, `P1-ART-07`, `P4-ART-01`, `P5-ART-01`) waiting on a
+second reader. `P6-ART-01` is the only one left and is genuinely blocked behind
+`P6-BE-06`.
