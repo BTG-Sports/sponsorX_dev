@@ -116,7 +116,7 @@ function Kpi({
 
 export function AnalyticsStory({ initialRange }: { initialRange: RangeKey }) {
   const [range, setRange] = useState<RangeKey>(initialRange);
-  const [active, setActive] = useState<ChapterId>("what-happened");
+  const [active, setActive] = useState<ChapterId[]>(["what-happened"]);
 
   /* Range lives in the URL (no navigation) so a view is shareable and
      survives reload; the server page seeds initialRange from it. */
@@ -136,9 +136,13 @@ export function AnalyticsStory({ initialRange }: { initialRange: RangeKey }) {
   }, [range]);
 
   /* Scrollspy: the last chapter whose top has passed the reading line is
-     current. Five sections — a passive scroll listener is plenty. The
-     initial position is read in a rAF so no state is set synchronously in
-     the effect body (repo's react-hooks/set-state-in-effect rule). */
+     current. The line sits at mid-viewport, not near the top — the page's
+     tail (the 3+4 row and chapter 5) shares the final ~200px of scroll
+     range, and a near-top line gives those chapters windows narrower than
+     one wheel notch, so a normal scroll skips them entirely. Five sections —
+     a passive scroll listener is plenty. The initial position is read in a
+     rAF so no state is set synchronously in the effect body (repo's
+     react-hooks/set-state-in-effect rule). */
   useEffect(() => {
     const onScroll = () => {
       /* The last chapter is shorter than a viewport, so its top can never
@@ -150,16 +154,38 @@ export function AnalyticsStory({ initialRange }: { initialRange: RangeKey }) {
         window.scrollY > 0 &&
         window.innerHeight + window.scrollY >=
           document.documentElement.scrollHeight - 4;
-      let current: ChapterId = atBottom
-        ? CHAPTERS[CHAPTERS.length - 1].id
-        : CHAPTERS[0].id;
-      if (!atBottom) {
+      let lit: ChapterId[];
+      if (atBottom) {
+        lit = [CHAPTERS[CHAPTERS.length - 1].id];
+      } else {
+        const line = window.innerHeight * 0.5;
+        let current: ChapterId = CHAPTERS[0].id;
+        const tops: Partial<Record<ChapterId, number>> = {};
         for (const c of CHAPTERS) {
           const el = document.getElementById(c.id);
-          if (el && el.getBoundingClientRect().top <= 168) current = c.id;
+          if (!el) continue;
+          const top = el.getBoundingClientRect().top;
+          tops[c.id] = top;
+          if (top <= line) current = c.id;
         }
+        /* Side-by-side chapters (3+4 share a grid row on lg+) are read
+           together — light every chapter whose top aligns with the current
+           one, so neither half of the row reads as skipped. */
+        lit = CHAPTERS.filter(
+          (c) =>
+            c.id === current ||
+            Math.abs(
+              (tops[c.id] ?? Number.POSITIVE_INFINITY) -
+                (tops[current] ?? 0),
+            ) < 1,
+        ).map((c) => c.id);
       }
-      setActive(current);
+      /* New array every event — only commit when membership actually changed. */
+      setActive((prev) =>
+        prev.length === lit.length && prev.every((id, i) => id === lit[i])
+          ? prev
+          : lit,
+      );
     };
     const frame = requestAnimationFrame(onScroll);
     window.addEventListener("scroll", onScroll, { passive: true });
@@ -201,10 +227,10 @@ export function AnalyticsStory({ initialRange }: { initialRange: RangeKey }) {
             key={c.id}
             type="button"
             onClick={() => jump(c.id)}
-            aria-current={active === c.id ? "true" : undefined}
+            aria-current={active.includes(c.id) ? "true" : undefined}
             className={[
               "block w-full border-l-2 py-1 pl-3 text-left text-xs transition-colors",
-              active === c.id
+              active.includes(c.id)
                 ? "border-primary font-medium text-text"
                 : "border-line text-muted hover:text-text",
             ].join(" ")}
@@ -231,10 +257,10 @@ export function AnalyticsStory({ initialRange }: { initialRange: RangeKey }) {
                 key={c.id}
                 type="button"
                 onClick={() => jump(c.id)}
-                aria-current={active === c.id ? "true" : undefined}
+                aria-current={active.includes(c.id) ? "true" : undefined}
                 className={[
                   "shrink-0 rounded-full border px-2.5 py-1 text-[11px] font-medium transition-colors",
-                  active === c.id
+                  active.includes(c.id)
                     ? "border-primary/40 bg-primary/10 text-text"
                     : "border-line text-muted hover:text-text",
                 ].join(" ")}
