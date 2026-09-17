@@ -63,3 +63,36 @@ Added **P1-FE-14** (row 53, Order 33.995, Status `Code review`, started
 extended autofilter, Status validation, conditional formatting and all 15
 Dashboard formulas from row 197 → 198. Backup in the session scratchpad.
 Google Sheet mirror is the end-of-day manual step.
+
+### Follow-up fixes (same day)
+
+- **Scrollspy**: last chapter now wins at the scrollable page bottom; reading
+  line moved to mid-viewport (the near-top line gave tail chapters
+  sub-wheel-notch windows); side-by-side chapters 3+4 light **as a pair** —
+  their section tops tie, so only one could ever win.
+- **Layout**: chapter 3/4 cards equalize to the grid row height (`fill` prop
+  on `Chapter`, Card `flex-1`, footnotes pinned to card bottoms).
+
+## Task — Admin analytics "Export report", PDF + XLSX (P1-FE-15)
+
+Fourth instance of the export triplet
+([spec](../../docs/superpowers/specs/2026-09-17-admin-analytics-export-report-design.md) ·
+[plan](../../docs/superpowers/plans/2026-09-17-admin-analytics-export-report.md)):
+
+- [analytics-report-data.ts](../../src/lib/analytics-report-data.ts) —
+  `AdminAnalyticsReport` + `buildAnalyticsReport(range)`. **Built client-side**
+  (unlike the other three reports) because the range pills are client state —
+  you export the range you're looking at; filename carries the range label.
+- [analytics-report-pdf.ts](../../src/lib/analytics-report-pdf.ts) /
+  [analytics-report-xlsx.ts](../../src/lib/analytics-report-xlsx.ts) — A4 PDF +
+  5-sheet workbook (Summary/Funnel/Trend/Reach/Athletes) on the shared kits.
+- Derived statistics beyond the screen: unredeemed-claims KPI, per-stage +
+  cumulative funnel conversion and drop-off (weakest stage flagged in WARN),
+  per-point redemption rate and gap, offer share of **total** redemptions,
+  athlete claim→redeem conversion with a roster totals/average benchmark row.
+  The five insight sentences print as "Key findings" — same derivations as the
+  page, so report and screen can't disagree.
+- `export-report.tsx` gained the `admin-analytics` payload kind (that file —
+  previously untracked from the export work — is now committed).
+- Task board: **P1-FE-15** row 54, Order 33.996, `Code review`; ranges
+  extended 198 → 199, 15 Dashboard formulas updated. Backup in scratchpad.
