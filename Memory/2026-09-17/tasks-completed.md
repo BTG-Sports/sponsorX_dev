@@ -237,3 +237,37 @@ convert type to outlines, refit each viewBox. The designer recorded this in
 `P1-ART-07`, `P4-ART-01`, `P1-ART-06` — none reviewed by a second person.
 `P5-ART-01` and `P1-ART-04` are the next ART tasks, both Ready with no
 dependencies.
+
+---
+
+## `P1-ART-06` closed, `P5-ART-01` started
+
+`P1-ART-06` moved **Code review → Done**, Date Done 2026-09-17, at the user's
+instruction. Seven assets accepted.
+
+`P5-ART-01` — design the deliverable and approval states — moved to **In
+progress**, brief written to `documentation/Design/deliverable-states/BRIEF.md`.
+
+### What the brief asks for
+
+Nine screens: a state map, three athlete screens at 390 (the deliverable across
+states, changes-requested, upload), two BTG screens at 1440 (the review queue,
+reviewing one), two sponsor screens at 1440 (awaiting sign-off, reviewing one),
+and one screen showing the same deliverable in `SPONSOR_REVIEW` as all three
+audiences see it.
+
+The seven §21 states are given verbatim from
+`documentation/diagrams/state-machines/05-deliverable.mmd` — NOT_STARTED,
+DRAFT_SUBMITTED, BTG_REVIEW, SPONSOR_REVIEW, APPROVED, PUBLISHED, VERIFIED —
+with both derived return paths (`BTG_REVIEW → DRAFT_SUBMITTED` and
+`SPONSOR_REVIEW → DRAFT_SUBMITTED`) called out, because a rejected draft with
+nowhere to go is exactly the gap that machine was drawn to close.
+
+**Naming the states in the brief is the lesson from `P1-ART-06`** — a brief that
+refers to a fixed set without listing it invites a plausible invention. Here the
+list, the return paths and the per-audience accents are all stated.
+
+### Board after
+
+**41 Done · 10 Ready · 2 In progress · 2 Code review · 286 Blocked = 341.**
+77 formulas verified identical.
