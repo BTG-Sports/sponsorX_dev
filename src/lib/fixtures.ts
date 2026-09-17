@@ -616,20 +616,181 @@ export const rewardDraft = {
   footer: "BTG WIN REWARD",
 };
 
-/* ---- 11. Fan / Reward Analytics (mockup screen 11) ---- */
-export const rewardStats = [
-  { label: "QR Scans", value: "8,200", delta: "18.2%" },
-  { label: "Offers Claimed", value: "4,300", delta: "15.7%" },
-  { label: "Rewards Redeemed", value: "1,250", delta: "12.4%" },
-  { label: "Revenue Attributed", value: "$52,500", delta: "20.6%", source: "ATTRIBUTED" as const },
+export type RewardState =
+  | "DRAFT"
+  | "SCHEDULED"
+  | "ACTIVE"
+  | "EXPIRED"
+  | "PENDING_LEGAL";
+
+export const REWARD_COPY: Record<RewardState, string> = {
+  DRAFT: "Being written — fans can't see it and no tokens exist yet.",
+  SCHEDULED: "Ready to go; tokens generate when the start date hits.",
+  ACTIVE: "Live — athletes are distributing tokens and fans can redeem.",
+  EXPIRED: "Past its end date. Tokens stopped resolving; history is kept.",
+  PENDING_LEGAL: "Sweepstakes-style rewards need legal approval before launch (§16).",
+};
+
+/** Fan reward types — §16's redemption models, one line each for the creator. */
+export const REWARD_TYPES = [
+  { value: "One-time use", blurb: "Each token redeems once — enforced by a partial unique index on RewardEvent, not an app check (guide §03)." },
+  { value: "Campaign code", blurb: "A shared code fans can reuse until the reward expires. Good for online checkouts." },
+  { value: "Event check-in", blurb: "Redeems only at the venue on event day — staff scan the fan's screen." },
+  { value: "Lead capture", blurb: "Fan trades contact details for the reward. §26 consent copy is mandatory." },
+  { value: "Sweepstakes entry", blurb: "Entry into a prize draw. Blocked until counsel approves the rules (§16).", blocked: true },
+] as const;
+
+/* Reward list — §16 event counts (scans/claims/redeemed) roll up exactly to
+   rewardFunnel's 8,200 / 4,300 / 1,870, so the desk's header math and the
+   analytics screen agree. Rows with zero traffic (drafts, scheduled, blocked)
+   contribute nothing, which is why the sums close. */
+export const rewards = [
+  { id: "rw1", offer: "20% Off", sponsor: "Under Armour", type: "One-time use", state: "ACTIVE" as RewardState, expires: "Jun 30, 2026", created: "May 1, 2026", athletes: 6, scans: 3_120, claims: 1_650, redeemed: 720 },
+  { id: "rw2", offer: "$5 Off Any Meal", sponsor: "Silver Spring Grill", type: "One-time use", state: "ACTIVE" as RewardState, expires: "Jul 15, 2026", created: "May 4, 2026", athletes: 4, scans: 2_240, claims: 1_180, redeemed: 540 },
+  { id: "rw3", offer: "Free Drink", sponsor: "Silver Spring Grill", type: "Event check-in", state: "ACTIVE" as RewardState, expires: "End of campaign", created: "May 9, 2026", athletes: 3, scans: 1_410, claims: 760, redeemed: 310 },
+  { id: "rw4", offer: "BOGO Training Tee", sponsor: "Under Armour", type: "Campaign code", state: "EXPIRED" as RewardState, expires: "May 31, 2026", created: "Apr 18, 2026", athletes: 2, scans: 690, claims: 340, redeemed: 120 },
+  { id: "rw5", offer: "Free Shipping Weekend", sponsor: "Kigali Sports Co.", type: "Campaign code", state: "EXPIRED" as RewardState, expires: "May 24, 2026", created: "Apr 30, 2026", athletes: 3, scans: 460, claims: 250, redeemed: 110 },
+  { id: "rw6", offer: "Game-Day Poster", sponsor: "BTG Events", type: "Lead capture", state: "ACTIVE" as RewardState, expires: "Aug 1, 2026", created: "May 20, 2026", athletes: 2, scans: 280, claims: 120, redeemed: 70 },
+  { id: "rw7", offer: "VIP Meet & Greet", sponsor: "BTG Events", type: "Sweepstakes entry", state: "PENDING_LEGAL" as RewardState, expires: "—", created: "May 22, 2026", athletes: 0, scans: 0, claims: 0, redeemed: 0 },
+  { id: "rw8", offer: "10% Off Cleats", sponsor: "Kigali Sports Co.", type: "One-time use", state: "DRAFT" as RewardState, expires: "—", created: "May 26, 2026", athletes: 0, scans: 0, claims: 0, redeemed: 0 },
+  { id: "rw9", offer: "Season-Opener Combo", sponsor: "Silver Spring Grill", type: "One-time use", state: "SCHEDULED" as RewardState, expires: "Sep 30, 2026", created: "May 27, 2026", athletes: 5, scans: 0, claims: 0, redeemed: 0 },
+  { id: "rw10", offer: "Free Gym Day Pass", sponsor: "BTG Events", type: "Event check-in", state: "SCHEDULED" as RewardState, expires: "Oct 12, 2026", created: "May 28, 2026", athletes: 3, scans: 0, claims: 0, redeemed: 0 },
+  { id: "rw11", offer: "15% Off Team Kits", sponsor: "Under Armour", type: "Campaign code", state: "DRAFT" as RewardState, expires: "—", created: "May 29, 2026", athletes: 0, scans: 0, claims: 0, redeemed: 0 },
+  { id: "rw12", offer: "Signed Ball Raffle", sponsor: "Kigali Sports Co.", type: "Sweepstakes entry", state: "PENDING_LEGAL" as RewardState, expires: "—", created: "May 30, 2026", athletes: 0, scans: 0, claims: 0, redeemed: 0 },
+  { id: "rw13", offer: "Family Meal Deal", sponsor: "Silver Spring Grill", type: "One-time use", state: "DRAFT" as RewardState, expires: "—", created: "Jun 1, 2026", athletes: 0, scans: 0, claims: 0, redeemed: 0 },
+  { id: "rw14", offer: "Back-to-School Bundle", sponsor: "Under Armour", type: "Lead capture", state: "SCHEDULED" as RewardState, expires: "Sep 5, 2026", created: "Jun 2, 2026", athletes: 4, scans: 0, claims: 0, redeemed: 0 },
 ];
 
-export const redemptionSeries = [
-  { label: "May 1", a: 40, b: 95 },
-  { label: "May 8", a: 210, b: 520 },
-  { label: "May 15", a: 520, b: 1_390 },
-  { label: "May 22", a: 880, b: 2_760 },
-  { label: "May 31", a: 1_250, b: 4_300 },
+/* ---- 11. Fan / Reward Analytics — Guided Story (spec 2026-09-17) ----
+
+   One dataset per range. Chapter 1's scans/claims/redemptions KPIs are
+   DERIVED from `funnel`, and `series` ends on the funnel's claim/redeem
+   counts, so chapters can never disagree on the same metric. Athlete rows
+   (base = 30d) are scaled by `athleteFactor`; the 30d base sums match the
+   30d funnel (claims 4,300 / redeemed 1,250) for cross-chapter coherence. */
+
+export type RangeKey = "7d" | "30d" | "90d";
+
+export type AnalyticsDataset = {
+  label: string;
+  /** scan → landing → claim → redeem. §16 stores each as its own event row. */
+  funnel: { stage: string; value: number; blurb: string }[];
+  /** vs the previous period of the same length. */
+  deltas: { scans: string; claims: string; redeemed: string; revenue: string };
+  /** Whole dollars; ATTRIBUTED (modeled), never claimed as verified. */
+  revenue: number;
+  /** Cumulative: a = redemptions, b = claims. Last point matches `funnel`. */
+  series: { label: string; a: number; b: number }[];
+  /** Ranked by redemptions — what fans used, not what they grabbed. */
+  offers: { offer: string; count: number }[];
+  /** Multiplier on athleteLeaderboard base counts for this range. */
+  athleteFactor: number;
+};
+
+const FUNNEL_BLURBS = [
+  "fan opened the QR",
+  "reward page loaded",
+  "reward saved to phone",
+  "shown at the venue",
+];
+
+const funnelStages = (
+  scan: number,
+  landing: number,
+  claim: number,
+  redeem: number,
+) =>
+  [
+    { stage: "Scan", value: scan, blurb: FUNNEL_BLURBS[0] },
+    { stage: "Landing", value: landing, blurb: FUNNEL_BLURBS[1] },
+    { stage: "Claim", value: claim, blurb: FUNNEL_BLURBS[2] },
+    { stage: "Redeem", value: redeem, blurb: FUNNEL_BLURBS[3] },
+  ];
+
+export const analyticsRanges: Record<RangeKey, AnalyticsDataset> = {
+  "7d": {
+    label: "Last 7 days",
+    funnel: funnelStages(2_140, 1_690, 1_180, 355),
+    deltas: { scans: "6.1%", claims: "5.4%", redeemed: "4.2%", revenue: "5.0%" },
+    revenue: 14_200,
+    series: [
+      { label: "Mon", a: 30, b: 120 },
+      { label: "Tue", a: 85, b: 310 },
+      { label: "Wed", a: 140, b: 495 },
+      { label: "Thu", a: 190, b: 660 },
+      { label: "Fri", a: 245, b: 840 },
+      { label: "Sat", a: 310, b: 1_030 },
+      { label: "Sun", a: 355, b: 1_180 },
+    ],
+    offers: [
+      { offer: "20% Off Under Armour", count: 355 },
+      { offer: "$5 Off Any Meal", count: 270 },
+      { offer: "Free Drink", count: 170 },
+    ],
+    athleteFactor: 0.284,
+  },
+  "30d": {
+    label: "Last 30 days",
+    funnel: funnelStages(8_200, 6_410, 4_300, 1_250),
+    deltas: { scans: "18.2%", claims: "15.7%", redeemed: "12.4%", revenue: "20.6%" },
+    revenue: 52_500,
+    series: [
+      { label: "May 1", a: 40, b: 95 },
+      { label: "May 8", a: 210, b: 520 },
+      { label: "May 15", a: 520, b: 1_390 },
+      { label: "May 22", a: 880, b: 2_760 },
+      { label: "May 31", a: 1_250, b: 4_300 },
+    ],
+    offers: [
+      { offer: "20% Off Under Armour", count: 1_250 },
+      { offer: "$5 Off Any Meal", count: 980 },
+      { offer: "Free Drink", count: 620 },
+    ],
+    athleteFactor: 1,
+  },
+  "90d": {
+    label: "Last 90 days",
+    funnel: funnelStages(21_900, 17_300, 11_600, 3_420),
+    deltas: { scans: "41.3%", claims: "36.8%", redeemed: "33.5%", revenue: "38.9%" },
+    revenue: 139_800,
+    series: [
+      { label: "Mar 15", a: 480, b: 1_650 },
+      { label: "Mar 31", a: 920, b: 3_210 },
+      { label: "Apr 15", a: 1_540, b: 5_340 },
+      { label: "Apr 30", a: 2_210, b: 7_620 },
+      { label: "May 15", a: 2_850, b: 9_700 },
+      { label: "May 31", a: 3_420, b: 11_600 },
+    ],
+    offers: [
+      { offer: "20% Off Under Armour", count: 3_420 },
+      { offer: "$5 Off Any Meal", count: 2_680 },
+      { offer: "Free Drink", count: 1_710 },
+    ],
+    athleteFactor: 2.55,
+  },
+};
+
+/* §9 screen 11 / §22 — the athlete half of analytics. Base counts are the
+   30d period; claims sum 4,300 and redemptions sum 1,250 = the 30d funnel.
+   `source` labels views/engagement data quality per §22 — claims/redeems
+   are always ours (§16 Postgres events). */
+export type AthleteLeaderRow = {
+  name: string;
+  sport: string;
+  views: number;
+  engagement: number; // %
+  claims: number;
+  redeemed: number;
+  score: number; // §14 Content Value Score
+  source: "VERIFIED_API" | "SELF_REPORTED" | "ESTIMATED";
+};
+
+export const athleteLeaderboard: AthleteLeaderRow[] = [
+  { name: "Maya Torres", sport: "Basketball · Georgetown", views: 212_400, engagement: 8.4, claims: 1_510, redeemed: 610, score: 96, source: "VERIFIED_API" },
+  { name: "Jaylen Okafor", sport: "Football · Howard", views: 148_200, engagement: 6.1, claims: 1_050, redeemed: 320, score: 88, source: "VERIFIED_API" },
+  { name: "Riley Chen", sport: "Soccer · Maryland", views: 96_500, engagement: 5.2, claims: 780, redeemed: 180, score: 82, source: "SELF_REPORTED" },
+  { name: "Dre Williams", sport: "Track · Morgan State", views: 71_300, engagement: 4.6, claims: 560, redeemed: 90, score: 77, source: "ESTIMATED" },
+  { name: "Sofia Marino", sport: "Volleyball · GWU", views: 55_100, engagement: 3.9, claims: 400, redeemed: 50, score: 74, source: "ESTIMATED" },
 ];
 
 export const topLocations = [
@@ -638,12 +799,6 @@ export const topLocations = [
   { place: "Silver Spring, MD", pct: 12 },
   { place: "Atlanta, GA", pct: 9 },
   { place: "Kigali, RW", pct: 7 },
-];
-
-export const topOffers = [
-  { offer: "20% Off Under Armour", count: 1_250 },
-  { offer: "$5 Off Any Meal", count: 980 },
-  { offer: "Free Drink", count: 620 },
 ];
 
 /* ---- 12. Sponsor ROI Report (mockup screen 12) ---- */
@@ -990,15 +1145,154 @@ export const APPLICATION_COPY: Record<ApplicationState, string> = {
  * The deliverables awaiting a decision, with the creative-asset reference that
  * lives in the private R2 bucket (signed URLs only — never public, guide §11).
  */
-export const contentReviewQueue = deliverables
-  .filter((d) => d.state === "BTG_REVIEW" || d.state === "SPONSOR_REVIEW" || d.state === "DRAFT_SUBMITTED")
-  .map((d) => ({
-    ...d,
-    athlete: "Shammah Kwizera",
-    assetKind: "video" as "video" | "image",
+export type ReviewContentItem = {
+  id: string;
+  campaign: string;
+  sponsor: string;
+  title: string;
+  dueDate: string;
+  state: DeliverableState;
+  revisionRequested: boolean;
+  athlete: string;
+  assetKind: "video" | "image";
+  version: number;
+  submittedAt: string;
+  /** Hours since submission — drives the aging flag and "waiting longest". */
+  waitingHours: number;
+  /** Cleared rows only — when the deliverable left the review desks. */
+  clearedAt?: string;
+};
+
+/** Review-desk fields for Shammah's rows, keyed by deliverable id — his rows
+ *  derive from `deliverables` so the athlete portal stays the single source. */
+const QUEUE_META: Record<
+  string,
+  Pick<ReviewContentItem, "assetKind" | "version" | "submittedAt" | "waitingHours">
+> = {
+  del_1: { assetKind: "video", version: 2, submittedAt: "9 hours ago", waitingHours: 9 },
+  del_2: { assetKind: "video", version: 3, submittedAt: "1 day ago", waitingHours: 26 },
+};
+
+export const contentReviewQueue: ReviewContentItem[] = [
+  ...deliverables
+    .filter((d) => d.state === "BTG_REVIEW" || d.state === "SPONSOR_REVIEW" || d.state === "DRAFT_SUBMITTED")
+    .map((d) => ({
+      ...d,
+      athlete: "Shammah Kwizera",
+      ...(QUEUE_META[d.id] ?? {
+        assetKind: "video" as const,
+        version: 2,
+        submittedAt: "1 day ago",
+        waitingHours: 26,
+      }),
+    })),
+  /* The rest of the network's queue — these rows exist only on the admin
+     desk; athlete-portal pages read `deliverables` and never see them. */
+  {
+    id: "del_q3",
+    campaign: "Community Campaign",
+    sponsor: "Silver Spring Grill",
+    title: "Community day recap — photo set",
+    dueDate: "May 16",
+    state: "DRAFT_SUBMITTED",
+    revisionRequested: false,
+    athlete: "Amara Diallo",
+    assetKind: "image",
+    version: 1,
+    submittedAt: "3 hours ago",
+    waitingHours: 3,
+  },
+  {
+    id: "del_q4",
+    campaign: "Skills Lab Series",
+    sponsor: "BTG Sports Talk",
+    title: "Skills lab session — cut 2",
+    dueDate: "May 14",
+    state: "BTG_REVIEW",
+    revisionRequested: false,
+    athlete: "Jordan Okafor",
+    assetKind: "video",
+    version: 3,
+    submittedAt: "2 days ago",
+    waitingHours: 50,
+  },
+  {
+    id: "del_q5",
+    campaign: "Local Blitz — Spring",
+    sponsor: "Silver Spring Grill",
+    title: "Story drop + swipe-up",
+    dueDate: "May 19",
+    state: "DRAFT_SUBMITTED",
+    revisionRequested: false,
+    athlete: "Maya Chen",
+    assetKind: "image",
+    version: 1,
+    submittedAt: "6 hours ago",
+    waitingHours: 6,
+  },
+  {
+    id: "del_q6",
+    campaign: "Player of the Week",
+    sponsor: "Under Armour",
+    title: "Training montage — week 5",
+    dueDate: "May 15",
+    state: "SPONSOR_REVIEW",
+    revisionRequested: false,
+    athlete: "Leo Barros",
+    assetKind: "video",
     version: 2,
-    submittedAt: "1 day ago",
-  }));
+    submittedAt: "18 hours ago",
+    waitingHours: 18,
+  },
+];
+
+/** When each of Shammah's cleared deliverables left the review desks. */
+const CLEARED_AT: Record<string, string> = { del_4: "May 10", del_5: "May 7" };
+
+/** Recently cleared content — past both reviews (APPROVED and beyond, §21). */
+export const contentCleared: ReviewContentItem[] = [
+  ...deliverables
+    .filter((d) => d.state === "APPROVED" || d.state === "PUBLISHED" || d.state === "VERIFIED")
+    .map((d) => ({
+      ...d,
+      athlete: "Shammah Kwizera",
+      assetKind: "video" as const,
+      version: 2,
+      submittedAt: "May 8",
+      waitingHours: 0,
+      clearedAt: CLEARED_AT[d.id] ?? "May 10",
+    })),
+  {
+    id: "del_c3",
+    campaign: "Community Campaign",
+    sponsor: "Silver Spring Grill",
+    title: "Sponsor shoutout reel",
+    dueDate: "May 12",
+    state: "APPROVED",
+    revisionRequested: false,
+    athlete: "Amara Diallo",
+    assetKind: "video",
+    version: 2,
+    submittedAt: "May 11",
+    waitingHours: 0,
+    clearedAt: "May 12",
+  },
+  {
+    id: "del_c4",
+    campaign: "Skills Lab Series",
+    sponsor: "BTG Sports Talk",
+    title: "Community day recap — ep. 1",
+    dueDate: "May 5",
+    state: "VERIFIED",
+    revisionRequested: false,
+    athlete: "Jordan Okafor",
+    assetKind: "image",
+    version: 1,
+    submittedAt: "May 3",
+    waitingHours: 0,
+    clearedAt: "May 5",
+  },
+];
 
 /* ---- admin/finance & athlete/earnings — Earning rows + Zoho refs ---- */
 
