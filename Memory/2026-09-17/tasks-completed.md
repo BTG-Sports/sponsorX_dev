@@ -82,3 +82,59 @@ no `ScreenStub` remains anywhere in `src/app`. What is left in the block:
 
 `P0-OPS-01` (Railway) carries 115 unblocks but is Block B; the roadmap's block
 order governs, not the Unblocks column.
+
+---
+
+## `P1-ART-07` — athlete onboarding visuals, designed and imported
+
+Twelve screens: the flow map, the ten §11 sections in order, and the
+post-submit state. Saved to `documentation/Design/athlete-onboarding/screens/`
+with a README recording provenance, alongside the brief they were made from.
+Row moved to **Code review**.
+
+### The workflow, corrected mid-task
+
+I began by writing the artboards myself in a Claude Design canvas. The user
+stopped me — *"we need claude design to do the whole design, you provide
+direction"* — after saying the same thing twice in different words. **On an ART
+task the deliverable is the brief; Claude Design produces the screens.** The
+brief is kept beside the design at `documentation/Design/<name>/BRIEF.md` so the
+next person can see what was asked for rather than inferring it from the result.
+
+Two canvases I filled by hand are still on the account and are not the
+deliverable: `AdEcdsgFPuzyUHx7Pbb2uB` (onboarding, 12 artboards) and
+`HhAh1BKRVJu3aLiHNZ2Z3b` (matching, 2 of 5). They are kept only until the user
+says to delete them.
+
+### A second failure worth not repeating
+
+I created the second canvas and then spent several minutes writing artboards
+before publishing any, so the user opened a live but empty page: *"I am getting
+blank artifacts."* A canvas must be filled and published before anyone is given
+its link.
+
+### What came back, and what did not
+
+The export from the Claude Design project
+(`claude.ai/design/p/c0570fc3-5743-486f-b69a-b82c1ac07e3c`) is **PNG only** —
+the editable `.dc.html` stayed in the project. Importing it directly needs the
+`claude_design` MCP, which is not configured in this session, or `DesignSync`,
+which refused: *"needs design-system authorization, and /design-login cannot run
+in this non-interactive session."* **A one-time `/design-login` from an
+interactive Claude Code session on this machine would remove the download step
+for the remaining ART tasks.**
+
+### Checks
+
+The screens follow the brief on the two rules that carry consequence. Section 9
+lists what SponsorX never asks for — bank account or routing numbers, card
+details, Social Security or tax ID — matching §26 and Addendum A6. The flow map
+marks section 8 as the single branch, taken only when the date of birth on
+section 1 is under 18, and marks section 7 as enforced on every campaign.
+
+### Still open
+
+`P4-ART-01` and `P1-ART-06` have briefs written
+(`documentation/Design/matching-roster-review/BRIEF.md`,
+`documentation/Design/marketing-visuals/BRIEF.md`) and are In progress, awaiting
+the same Claude Design pass.
