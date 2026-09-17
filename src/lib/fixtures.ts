@@ -667,7 +667,7 @@ export const rewards = [
    DERIVED from `funnel`, and `series` ends on the funnel's claim/redeem
    counts, so chapters can never disagree on the same metric. Athlete rows
    (base = 30d) are scaled by `athleteFactor`; the 30d base sums match the
-   30d funnel (claims 4,300 / redeemed 1,250) for cross-chapter coherence. */
+   30d funnel (claims 4,300 / redeemed 1,870) for cross-chapter coherence. */
 
 export type RangeKey = "7d" | "30d" | "90d";
 
@@ -710,68 +710,70 @@ const funnelStages = (
 export const analyticsRanges: Record<RangeKey, AnalyticsDataset> = {
   "7d": {
     label: "Last 7 days",
-    funnel: funnelStages(2_140, 1_690, 1_180, 355),
+    funnel: funnelStages(2_140, 1_690, 1_180, 510),
     deltas: { scans: "6.1%", claims: "5.4%", redeemed: "4.2%", revenue: "5.0%" },
     revenue: 14_200,
     series: [
-      { label: "Mon", a: 30, b: 120 },
-      { label: "Tue", a: 85, b: 310 },
-      { label: "Wed", a: 140, b: 495 },
-      { label: "Thu", a: 190, b: 660 },
-      { label: "Fri", a: 245, b: 840 },
-      { label: "Sat", a: 310, b: 1_030 },
-      { label: "Sun", a: 355, b: 1_180 },
+      { label: "Mon", a: 45, b: 120 },
+      { label: "Tue", a: 120, b: 310 },
+      { label: "Wed", a: 200, b: 495 },
+      { label: "Thu", a: 275, b: 660 },
+      { label: "Fri", a: 350, b: 840 },
+      { label: "Sat", a: 435, b: 1_030 },
+      { label: "Sun", a: 510, b: 1_180 },
     ],
     offers: [
-      { offer: "20% Off Under Armour", count: 355 },
-      { offer: "$5 Off Any Meal", count: 270 },
-      { offer: "Free Drink", count: 170 },
+      { offer: "20% Off Under Armour", count: 225 },
+      { offer: "$5 Off Any Meal", count: 150 },
+      { offer: "Free Drink", count: 85 },
     ],
     athleteFactor: 0.284,
   },
   "30d": {
+    /* Scans/claims/redeems match rewardFunnel (and the rewards desk's header
+       math) — 8,200 / 4,300 / 1,870 — so the two screens can't disagree. */
     label: "Last 30 days",
-    funnel: funnelStages(8_200, 6_410, 4_300, 1_250),
+    funnel: funnelStages(8_200, 6_410, 4_300, 1_870),
     deltas: { scans: "18.2%", claims: "15.7%", redeemed: "12.4%", revenue: "20.6%" },
     revenue: 52_500,
     series: [
-      { label: "May 1", a: 40, b: 95 },
-      { label: "May 8", a: 210, b: 520 },
-      { label: "May 15", a: 520, b: 1_390 },
-      { label: "May 22", a: 880, b: 2_760 },
-      { label: "May 31", a: 1_250, b: 4_300 },
+      { label: "May 1", a: 60, b: 95 },
+      { label: "May 8", a: 320, b: 520 },
+      { label: "May 15", a: 780, b: 1_390 },
+      { label: "May 22", a: 1_320, b: 2_760 },
+      { label: "May 31", a: 1_870, b: 4_300 },
     ],
     offers: [
-      { offer: "20% Off Under Armour", count: 1_250 },
-      { offer: "$5 Off Any Meal", count: 980 },
-      { offer: "Free Drink", count: 620 },
+      { offer: "20% Off Under Armour", count: 820 },
+      { offer: "$5 Off Any Meal", count: 560 },
+      { offer: "Free Drink", count: 310 },
     ],
     athleteFactor: 1,
   },
   "90d": {
     label: "Last 90 days",
-    funnel: funnelStages(21_900, 17_300, 11_600, 3_420),
+    funnel: funnelStages(21_900, 17_300, 11_600, 4_980),
     deltas: { scans: "41.3%", claims: "36.8%", redeemed: "33.5%", revenue: "38.9%" },
     revenue: 139_800,
     series: [
-      { label: "Mar 15", a: 480, b: 1_650 },
-      { label: "Mar 31", a: 920, b: 3_210 },
-      { label: "Apr 15", a: 1_540, b: 5_340 },
-      { label: "Apr 30", a: 2_210, b: 7_620 },
-      { label: "May 15", a: 2_850, b: 9_700 },
-      { label: "May 31", a: 3_420, b: 11_600 },
+      { label: "Mar 15", a: 700, b: 1_650 },
+      { label: "Mar 31", a: 1_350, b: 3_210 },
+      { label: "Apr 15", a: 2_250, b: 5_340 },
+      { label: "Apr 30", a: 3_220, b: 7_620 },
+      { label: "May 15", a: 4_130, b: 9_700 },
+      { label: "May 31", a: 4_980, b: 11_600 },
     ],
     offers: [
-      { offer: "20% Off Under Armour", count: 3_420 },
-      { offer: "$5 Off Any Meal", count: 2_680 },
-      { offer: "Free Drink", count: 1_710 },
+      { offer: "20% Off Under Armour", count: 2_190 },
+      { offer: "$5 Off Any Meal", count: 1_480 },
+      { offer: "Free Drink", count: 840 },
     ],
-    athleteFactor: 2.55,
+    athleteFactor: 2.66,
   },
 };
 
 /* §9 screen 11 / §22 — the athlete half of analytics. Base counts are the
-   30d period; claims sum 4,300 and redemptions sum 1,250 = the 30d funnel.
+   30d period; claims sum 4,300 and redemptions sum 1,870 = the 30d funnel.
    `source` labels views/engagement data quality per §22 — claims/redeems
    are always ours (§16 Postgres events). */
 export type AthleteLeaderRow = {
@@ -786,11 +788,11 @@ export type AthleteLeaderRow = {
 };
 
 export const athleteLeaderboard: AthleteLeaderRow[] = [
-  { name: "Maya Torres", sport: "Basketball · Georgetown", views: 212_400, engagement: 8.4, claims: 1_510, redeemed: 610, score: 96, source: "VERIFIED_API" },
-  { name: "Jaylen Okafor", sport: "Football · Howard", views: 148_200, engagement: 6.1, claims: 1_050, redeemed: 320, score: 88, source: "VERIFIED_API" },
-  { name: "Riley Chen", sport: "Soccer · Maryland", views: 96_500, engagement: 5.2, claims: 780, redeemed: 180, score: 82, source: "SELF_REPORTED" },
-  { name: "Dre Williams", sport: "Track · Morgan State", views: 71_300, engagement: 4.6, claims: 560, redeemed: 90, score: 77, source: "ESTIMATED" },
-  { name: "Sofia Marino", sport: "Volleyball · GWU", views: 55_100, engagement: 3.9, claims: 400, redeemed: 50, score: 74, source: "ESTIMATED" },
+  { name: "Maya Torres", sport: "Basketball · Georgetown", views: 212_400, engagement: 8.4, claims: 1_510, redeemed: 910, score: 96, source: "VERIFIED_API" },
+  { name: "Jaylen Okafor", sport: "Football · Howard", views: 148_200, engagement: 6.1, claims: 1_050, redeemed: 480, score: 88, source: "VERIFIED_API" },
+  { name: "Riley Chen", sport: "Soccer · Maryland", views: 96_500, engagement: 5.2, claims: 780, redeemed: 270, score: 82, source: "SELF_REPORTED" },
+  { name: "Dre Williams", sport: "Track · Morgan State", views: 71_300, engagement: 4.6, claims: 560, redeemed: 140, score: 77, source: "ESTIMATED" },
+  { name: "Sofia Marino", sport: "Volleyball · GWU", views: 55_100, engagement: 3.9, claims: 400, redeemed: 70, score: 74, source: "ESTIMATED" },
 ];
 
 export const topLocations = [
