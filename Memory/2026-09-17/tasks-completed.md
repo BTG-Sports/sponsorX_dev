@@ -138,3 +138,215 @@ section 1 is under 18, and marks section 7 as enforced on every campaign.
 (`documentation/Design/matching-roster-review/BRIEF.md`,
 `documentation/Design/marketing-visuals/BRIEF.md`) and are In progress, awaiting
 the same Claude Design pass.
+
+---
+
+## `P4-ART-01` — matching and roster review, designed and imported
+
+Five screens — matching workspace, roster comparison, conflict detail, review &
+send, and the nothing-matches state — designed in Claude Design from
+`documentation/Design/matching-roster-review/BRIEF.md`. Row moved to
+**Code review**.
+
+### This export came back as source, not pictures
+
+`P1-ART-07` exported as twelve PNGs; this one exported as
+`Matching and Roster Review.dc.html` plus `support.js` and the `_ds/nocturne-…`
+design system — **editable source that diffs in git**, with all five screens as
+state branches inside the one file rather than separate artboards. The export
+format appears to depend on what is chosen in Claude Design, so it is worth
+asking for source rather than images on the remaining ART tasks.
+
+### What was checked, and what was not
+
+Content was verified against the brief by inspecting the source: conflict
+handling, margin and the 1.4× floor, verified-versus-self-reported reach,
+guardian state, shortlist, comparison and invitations are all present, as are
+the three athlete tiers. **It has not been looked at, and no contrast audit was
+run** — that is what Code review is for, and the folder README says so rather
+than implying the design is fully reviewed.
+
+### Board after
+
+**40 Done · 11 Ready · 2 In progress · 2 Code review · 286 Blocked = 341.**
+77 formulas verified identical.
+
+### Remaining
+
+`P1-ART-06` (marketing site visual assets) is the last of the three, still In
+progress with its brief written and ready to paste.
+
+---
+
+## `P1-ART-06` — marketing visuals and a flat logo redraw
+
+Seven assets: hero at desktop and phone, the proof slot, the case-study section,
+the package presentation, one package in detail, and a logo sheet with the files
+behind it. Saved to `documentation/Design/marketing-visuals/`. Row moved to
+**Code review**. Board: **40 Done · 11 Ready · 1 In progress · 3 Code review ·
+286 Blocked = 341**, 77 formulas identical.
+
+### The first pass failed, and the brief was the cause
+
+The package screens came back as "Package 1" through "Package 6" at 1, 2, 3, 5,
+8 and 10+ athletes, with an invented "everything in Package N" ladder, an
+exclusivity progression from shared to region-exclusive, and prices in **pounds**.
+None of it is SponsorX.
+
+**My brief had asked for "the six packages as a comparable set" without ever
+saying what the six packages are.** Claude Design cannot know what it is not
+told, and a brief that names a set without listing it invites a plausible
+invention. The corrected brief carries the §7 table by name, price in USD and
+athlete count, states the currency explicitly, and bans both a feature matrix
+and a tiered ladder — because no package has NIL job codes yet, so there is
+nothing real to tick.
+
+The second pass is correct: real names, real prices, real counts, each card
+reading *"Deliverables not yet defined — no NIL job codes assigned"*, `OVERLAP`
+chips on Local Blitz and 10-Athlete Blitz, and a closing panel naming what is
+unsettled.
+
+### The honesty markers are the pricing decision surfacing on a public page
+
+A sponsor reading "no NIL job codes assigned to this package" learns BTG has not
+decided what it is selling. The design is right to refuse to fabricate the
+content; **the fix is `P0-PMO-10`'s pricing decision, not styling the markers
+away.** Worth remembering when someone asks for a "cleaner" package page.
+
+### The logo was redrawn, not reused
+
+The existing mark is a raster esports lockup with bevels, chrome gradients,
+outer glow and a drop shadow on a dark plate — it cannot be recoloured, does not
+hold at 32px and cannot sit on the light theme. The brief described what
+identifies the mark (the two-part X with orange bolt and blade, BTG above
+SPONSOR, the blue-then-orange tagline split, the circular badge) and what to
+drop, so the redraw reproduces rather than reinvents.
+
+Delivered as SVG in `exports/logos/`: horizontal, stacked, wordmark, tagline, X
+alone and badge, each dark and light, plus favicon 32 and app icon 180. The
+favicon drops the X entirely because it does not read at that size.
+
+**These SVGs reference Barlow Condensed 800 italic by font name**, a stand-in
+for the original letterforms, so a machine without it renders a fallback. Before
+they go into `public/`: substitute the real brand typeface if one exists,
+convert type to outlines, refit each viewBox. The designer recorded this in
+`exports/logos/README.md` rather than leaving it to be discovered.
+
+### All three ART tasks are now at Code review
+
+`P1-ART-07`, `P4-ART-01`, `P1-ART-06` — none reviewed by a second person.
+`P5-ART-01` and `P1-ART-04` are the next ART tasks, both Ready with no
+dependencies.
+
+---
+
+## `P1-ART-06` closed, `P5-ART-01` started
+
+`P1-ART-06` moved **Code review → Done**, Date Done 2026-09-17, at the user's
+instruction. Seven assets accepted.
+
+`P5-ART-01` — design the deliverable and approval states — moved to **In
+progress**, brief written to `documentation/Design/deliverable-states/BRIEF.md`.
+
+### What the brief asks for
+
+Nine screens: a state map, three athlete screens at 390 (the deliverable across
+states, changes-requested, upload), two BTG screens at 1440 (the review queue,
+reviewing one), two sponsor screens at 1440 (awaiting sign-off, reviewing one),
+and one screen showing the same deliverable in `SPONSOR_REVIEW` as all three
+audiences see it.
+
+The seven §21 states are given verbatim from
+`documentation/diagrams/state-machines/05-deliverable.mmd` — NOT_STARTED,
+DRAFT_SUBMITTED, BTG_REVIEW, SPONSOR_REVIEW, APPROVED, PUBLISHED, VERIFIED —
+with both derived return paths (`BTG_REVIEW → DRAFT_SUBMITTED` and
+`SPONSOR_REVIEW → DRAFT_SUBMITTED`) called out, because a rejected draft with
+nowhere to go is exactly the gap that machine was drawn to close.
+
+**Naming the states in the brief is the lesson from `P1-ART-06`** — a brief that
+refers to a fixed set without listing it invites a plausible invention. Here the
+list, the return paths and the per-audience accents are all stated.
+
+### Board after
+
+**41 Done · 10 Ready · 2 In progress · 2 Code review · 286 Blocked = 341.**
+77 formulas verified identical.
+
+---
+
+## `P5-ART-01` — deliverable and approval states, delivered
+
+Nine screens saved to `documentation/Design/deliverable-states/screens/`. Row at
+**Code review**. Board: **41 Done · 10 Ready · 1 In progress · 3 Code review ·
+286 Blocked = 341**, 77 formulas identical.
+
+All seven §21 states are designed, with both derived return paths — and the
+second one carries a decision worth keeping: `SPONSOR_REVIEW → DRAFT_SUBMITTED`
+routes the sponsor's reason **through BTG to the athlete** rather than
+delivering a rejection raw.
+
+### Screen 09 is a field-level visibility matrix, not just a comparison
+
+It states, for one deliverable in `SPONSOR_REVIEW`, what each audience sees:
+
+- **Shared by all three** — deliverable name, state word, who holds the ball and
+  since when.
+- **Hidden from the sponsor** — athlete fee, campaign margin, BTG's internal
+  checks and notes, anything on another campaign.
+- **Hidden from the athlete** — margin, the sponsor's SLA clock, BTG's checklist
+  state, every other athlete's deliverable.
+
+That is a direct input to `P4-SEC-02` and to the `P1-FE-05` audit, and should be
+treated as a proposal to enforce rather than as design garnish.
+
+### Known issue
+
+The per-screen title band renders near-white on white in the export. Export
+furniture, not part of any screen, but it needs fixing before these go outside
+the team.
+
+---
+
+## `P1-ART-04` — sponsor ROI report, print layout
+
+Eight artboards saved to `documentation/Design/sponsor-report-print/pages/`:
+six US Letter pages, the running header/footer, and one chart redrawn for flat
+print. Row at **Code review**.
+
+Black on white, because G-07 chose the print-stylesheet route — the browser's
+own Save as PDF, no rendering service — and the reader is a local business
+printing on a cheap printer. This is the only SponsorX surface that is not
+dark-themed.
+
+### The provenance system this design establishes
+
+Boxed letters that survive greyscale, with a legend on the cover: **V** verified
+(platform API or measured by SponsorX), **M** manually verified (BTG checked a
+screenshot or receipt), **S** self-reported, **E** estimated (modelled, never
+presented as measured), **A** attributed (derived from two verified figures).
+Direction is an arrow plus words — over / at / under target — never colour alone.
+
+**Two rules here are new decisions, not inherited from an earlier document, and
+`P7-BE-05` should enforce them:** an attributed figure carries the weaker
+provenance of its two sources, and a figure with no source is left **blank, not
+zero**.
+
+### Page 6 is the one that matters
+
+The under-delivering cover keeps the same layout in the same order, softens
+nothing, states the shortfall in the summary band, adds "no figure below has been
+restated to compensate", and names the agreed remedy with who agreed it and when.
+Its closing line is the standard for the whole report: *a missed number is
+reported with the same provenance as a met one.*
+
+### Not done
+
+Nobody has run it through an actual browser Save-as-PDF. That is the check that
+decides whether G-07's Option A really holds, and it belongs to `P7-BE-05`.
+
+### Phase 1 ART is now clear
+
+Every actionable ART task in Phase 1 is delivered. `P1-ART-06` is Done; four sit
+at Code review (`P1-ART-04`, `P1-ART-07`, `P4-ART-01`, `P5-ART-01`) waiting on a
+second reader. `P6-ART-01` is the only one left and is genuinely blocked behind
+`P6-BE-06`.

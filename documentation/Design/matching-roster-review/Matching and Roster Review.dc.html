@@ -1,0 +1,951 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="_ds/nocturne-6cabdcd9-4641-4613-9572-8c27991e1a3a/styles.css">
+<script src="_ds/nocturne-6cabdcd9-4641-4613-9572-8c27991e1a3a/_ds_bundle.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  body { margin: 0; background: #0A0C10; font-family: Poppins, system-ui, sans-serif; }
+  * { box-sizing: border-box; }
+  a { color: #2E9BF5; text-decoration: none; border-bottom: 1px solid rgba(46,155,245,.35); }
+  a:hover { color: #7CC3FB; border-bottom-color: #7CC3FB; }
+  button { font-family: inherit; cursor: pointer; }
+  input, select { font-family: inherit; }
+  :focus-visible { outline: 2px solid #2E9BF5; outline-offset: 2px; }
+  ::selection { background: rgba(46,155,245,.32); }
+  .scroll::-webkit-scrollbar { width: 10px; height: 10px; }
+  .scroll::-webkit-scrollbar-thumb { background: #242A38; border-radius: 6px; }
+  .scroll::-webkit-scrollbar-track { background: transparent; }
+  .arow:hover { background: #151922 !important; }
+</style>
+</helmet>
+
+<div style="min-height:100vh;padding:28px 24px 56px;display:flex;flex-direction:column;align-items:flex-start;gap:14px;color:#F4F5F7;width:max-content">
+
+  <div style="width:1440px;display:flex;align-items:flex-end;justify-content:space-between;gap:24px">
+    <div>
+      <div style="font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:#8A90A2;font-weight:600">BTG Athlete Network · P4-ART-01</div>
+      <div style="font-size:19px;font-weight:600;margin-top:4px">Matching and roster review</div>
+    </div>
+    <div style="display:flex;gap:6px;padding:4px;background:#12151D;border:1px solid #242A38;border-radius:10px">
+      <sc-for list="{{ tabs }}" as="t" hint-placeholder-count="5">
+        <button type="button" onClick="{{ t.go }}" style="border:1px solid {{ t.bd }};background:{{ t.bg }};color:{{ t.fg }};font-size:12px;font-weight:{{ t.fw }};padding:8px 12px;border-radius:7px;display:flex;align-items:center;gap:7px">
+          <span style="font-variant-numeric:tabular-nums;opacity:.65">{{ t.n }}</span>{{ t.label }}
+        </button>
+      </sc-for>
+    </div>
+  </div>
+
+  <div style="width:1440px;height:980px;background:#0A0C10;border:1px solid #242A38;border-radius:14px;overflow:hidden;position:relative;display:flex;flex-direction:column;box-shadow:0 24px 60px rgba(0,0,0,.55)">
+
+    <div style="height:52px;flex:none;display:flex;align-items:center;justify-content:space-between;padding:0 20px;border-bottom:1px solid #242A38;background:#0A0C10">
+      <div style="display:flex;align-items:center;gap:14px;min-width:0">
+        <div style="display:flex;align-items:center;gap:8px;color:#CBD5E1">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M4 7h16M4 12h10M4 17h6"/></svg>
+          <span style="font-size:12px;font-weight:600;letter-spacing:.04em">MANAGED CAMPAIGN</span>
+        </div>
+        <div style="width:1px;height:20px;background:#242A38"></div>
+        <div style="font-size:13px;font-weight:500;white-space:nowrap">Southwest Hydration Push — Rally Sports Drink</div>
+        <div style="font-size:12px;color:#8A90A2;white-space:nowrap">CMP-2026-0418</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:16px">
+        <div style="display:flex;align-items:center;gap:8px;font-size:12px;color:#8A90A2">
+          <span style="color:#CBD5E1;font-weight:600">Step 3 of 12</span>
+          <span>Matching &amp; roster</span>
+        </div>
+        <div style="display:flex;gap:3px">
+          <sc-for list="{{ steps }}" as="s" hint-placeholder-count="12">
+            <div style="width:14px;height:4px;border-radius:2px;background:{{ s.bg }}"></div>
+          </sc-for>
+        </div>
+        <div style="font-size:12px;color:#8A90A2">M. Reyes · Network Manager</div>
+      </div>
+    </div>
+
+    <sc-if value="{{ showBrief }}" hint-placeholder-val="{{ true }}">
+      <div style="flex:none;display:grid;grid-template-columns:1.05fr 1.15fr .9fr 1.5fr .95fr;border-bottom:1px solid #242A38;background:#12151D">
+        <div style="padding:13px 20px;border-right:1px solid #242A38">
+          <div style="font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:#8A90A2;font-weight:600">Budget</div>
+          <div style="font-size:17px;font-weight:600;margin-top:5px;font-variant-numeric:tabular-nums">$60,000</div>
+          <div style="font-size:11px;color:#8A90A2;margin-top:2px">sponsor-approved, sell side</div>
+        </div>
+        <div style="padding:13px 18px;border-right:1px solid #242A38">
+          <div style="font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:#8A90A2;font-weight:600">Campaign window</div>
+          <div style="font-size:17px;font-weight:600;margin-top:5px">6 Oct – 28 Nov 2026</div>
+          <div style="font-size:11px;color:#8A90A2;margin-top:2px">invitations expire 7 days after send</div>
+        </div>
+        <div style="padding:13px 18px;border-right:1px solid #242A38">
+          <div style="font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:#8A90A2;font-weight:600">Market</div>
+          <div style="font-size:17px;font-weight:600;margin-top:5px">Texas — metro</div>
+          <div style="font-size:11px;color:#8A90A2;margin-top:2px">home market must match</div>
+        </div>
+        <div style="padding:13px 18px;border-right:1px solid #242A38">
+          <div style="font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:#8A90A2;font-weight:600">Job codes to fill</div>
+          <div style="display:flex;gap:6px;margin-top:7px;flex-wrap:wrap">
+            <sc-for list="{{ jobs }}" as="j" hint-placeholder-count="3">
+              <div style="display:flex;align-items:baseline;gap:6px;padding:3px 8px;border:1px solid #242A38;border-radius:6px;background:#1A1F2B">
+                <span style="font-size:11px;font-weight:600;color:#CBD5E1;font-variant-numeric:tabular-nums">{{ j.code }}</span>
+                <span style="font-size:11px;color:#8A90A2">{{ j.label }}</span>
+                <span style="font-size:11px;color:#F4F5F7;font-variant-numeric:tabular-nums">×{{ j.qty }}</span>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+        <div style="padding:13px 20px">
+          <div style="font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:#8A90A2;font-weight:600">Athletes needed</div>
+          <div style="display:flex;align-items:baseline;gap:7px;margin-top:5px">
+            <span style="font-size:17px;font-weight:600;font-variant-numeric:tabular-nums">{{ filledCount }} / 6</span>
+            <span style="font-size:11px;color:{{ fillColor }}">{{ fillNote }}</span>
+          </div>
+          <div style="display:flex;gap:4px;margin-top:6px">
+            <sc-for list="{{ slots }}" as="s" hint-placeholder-count="6">
+              <div style="flex:1;height:4px;border-radius:2px;background:{{ s.bg }}"></div>
+            </sc-for>
+          </div>
+        </div>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ s1 }}" hint-placeholder-val="{{ true }}">
+      <div style="flex:1;min-height:0;display:flex">
+
+        <div class="scroll" style="width:236px;flex:none;border-right:1px solid #242A38;padding:16px 14px;overflow-y:auto;background:#0A0C10">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+            <div style="font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:#CBD5E1;font-weight:600">Filters</div>
+            <button type="button" onClick="{{ resetFilters }}" style="background:none;border:none;color:#2E9BF5;font-size:11px;padding:2px 0">Reset</button>
+          </div>
+
+          <label for="q" style="display:block;font-size:11px;color:#8A90A2;font-weight:500;margin-bottom:5px">Search athletes</label>
+          <div style="position:relative;margin-bottom:16px">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#8A90A2" stroke-width="1.8" stroke-linecap="round" style="position:absolute;left:9px;top:9px"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4 4"/></svg>
+            <input id="q" type="search" placeholder="Name or sport" value="{{ q }}" onChange="{{ setQ }}" style="width:100%;background:#12151D;border:1px solid #242A38;border-radius:7px;color:#F4F5F7;font-size:12px;padding:8px 10px 8px 28px" />
+          </div>
+
+          <label for="sport" style="display:block;font-size:11px;color:#8A90A2;font-weight:500;margin-bottom:5px">Sport</label>
+          <select id="sport" value="{{ sport }}" onChange="{{ setSport }}" style="width:100%;background:#12151D;border:1px solid #242A38;border-radius:7px;color:#F4F5F7;font-size:12px;padding:8px 10px;margin-bottom:16px;appearance:none">
+            <sc-for list="{{ sportOptions }}" as="o" hint-placeholder-count="6">
+              <option value="{{ o }}">{{ o }}</option>
+            </sc-for>
+          </select>
+
+          <div style="font-size:11px;color:#8A90A2;font-weight:500;margin-bottom:6px">Tier</div>
+          <div role="group" aria-label="Tier" style="display:flex;flex-direction:column;gap:4px;margin-bottom:16px">
+            <sc-for list="{{ tierOptions }}" as="t" hint-placeholder-count="4">
+              <button type="button" onClick="{{ t.go }}" aria-pressed="{{ t.on }}" style="display:flex;align-items:center;justify-content:space-between;background:{{ t.bg }};border:1px solid {{ t.bd }};border-radius:7px;color:{{ t.fg }};font-size:12px;font-weight:500;padding:7px 10px;text-align:left">
+                <span>{{ t.label }}</span>
+                <span style="font-size:11px;color:#8A90A2;font-variant-numeric:tabular-nums">{{ t.count }}</span>
+              </button>
+            </sc-for>
+          </div>
+
+          <label for="score" style="display:flex;align-items:baseline;justify-content:space-between;font-size:11px;color:#8A90A2;font-weight:500;margin-bottom:8px">
+            <span>Minimum score</span>
+            <span style="font-size:13px;color:#F4F5F7;font-weight:600;font-variant-numeric:tabular-nums">{{ minScore }}</span>
+          </label>
+          <input id="score" type="range" min="40" max="95" step="1" value="{{ minScore }}" onChange="{{ setMinScore }}" style="width:100%;accent-color:#2E9BF5;margin-bottom:18px" />
+
+          <div style="font-size:11px;color:#8A90A2;font-weight:500;margin-bottom:7px">Eligibility</div>
+          <div style="display:flex;flex-direction:column;gap:9px;margin-bottom:18px">
+            <label for="active" style="display:flex;align-items:flex-start;gap:9px;font-size:12px;line-height:1.35;cursor:pointer">
+              <input id="active" type="checkbox" checked="{{ activeOnly }}" onChange="{{ toggleActive }}" style="margin:1px 0 0;width:15px;height:15px;accent-color:#2E9BF5;flex:none" />
+              <span>Approved &amp; active only<span style="display:block;color:#8A90A2;font-size:11px">contract signed, profile live</span></span>
+            </label>
+            <label for="guardian" style="display:flex;align-items:flex-start;gap:9px;font-size:12px;line-height:1.35;cursor:pointer">
+              <input id="guardian" type="checkbox" checked="{{ guardianOnly }}" onChange="{{ toggleGuardian }}" style="margin:1px 0 0;width:15px;height:15px;accent-color:#2E9BF5;flex:none" />
+              <span>Guardian-verified only<span style="display:block;color:#8A90A2;font-size:11px">excludes pending minors</span></span>
+            </label>
+          </div>
+
+          <div style="border-top:1px solid #242A38;padding-top:14px">
+            <div style="font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:#CBD5E1;font-weight:600;margin-bottom:9px">Where numbers come from</div>
+            <div style="display:flex;flex-direction:column;gap:9px;font-size:11px;color:#8A90A2;line-height:1.45">
+              <div><span style="color:#F4F5F7;font-weight:500">Score</span> — stored snapshot, rules-based method v4. <a href="#method">Method</a></div>
+              <div><span style="color:#F4F5F7;font-weight:500">Reach</span> — platform-verified where connected, otherwise self-reported.</div>
+              <div><span style="color:#F4F5F7;font-weight:500">Cost</span> — athlete's own rate card.</div>
+              <div><span style="color:#F4F5F7;font-weight:500">Sell price</span> — package price band. <a href="#catalogue">Catalogue</a></div>
+            </div>
+          </div>
+        </div>
+
+        <div style="flex:1;min-width:0;display:flex;flex-direction:column">
+          <div style="flex:none;padding:12px 18px;display:flex;align-items:center;justify-content:space-between;gap:16px;border-bottom:1px solid #242A38">
+            <div style="display:flex;align-items:baseline;gap:10px">
+              <div style="font-size:13px;font-weight:600">{{ shownCount }} athletes match</div>
+              <div style="font-size:11px;color:#8A90A2">of 40 in network · {{ blockedCount }} blocked by conflict, kept visible</div>
+            </div>
+            <div style="display:flex;align-items:center;gap:14px">
+              <div style="display:flex;align-items:center;gap:12px">
+                <sc-for list="{{ legend }}" as="l" hint-placeholder-count="4">
+                  <div style="display:flex;align-items:center;gap:5px;font-size:11px;color:#8A90A2;white-space:nowrap">
+                    <span style="width:7px;height:7px;border-radius:2px;background:{{ l.c }}"></span>{{ l.t }}
+                  </div>
+                </sc-for>
+              </div>
+              <div style="width:1px;height:18px;background:#242A38"></div>
+              <label for="sort" style="font-size:11px;color:#8A90A2">Sort</label>
+              <select id="sort" value="{{ sortBy }}" onChange="{{ setSort }}" style="background:#12151D;border:1px solid #242A38;border-radius:7px;color:#F4F5F7;font-size:12px;padding:6px 9px;appearance:none">
+                <option value="score">Score, high to low</option>
+                <option value="margin">Margin, low to high</option>
+                <option value="cost">Athlete cost, low to high</option>
+              </select>
+            </div>
+          </div>
+
+          <div style="flex:none;display:grid;grid-template-columns:24px minmax(0,1fr) 98px 104px 74px 74px 96px 124px 58px;gap:10px;align-items:center;padding:9px 18px;background:#12151D;border-bottom:1px solid #242A38;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:#8A90A2;font-weight:600">
+            <div></div>
+            <div>Athlete</div>
+            <div>Score <span style="color:#CBD5E1">/100</span></div>
+            <div>Reach</div>
+            <div style="text-align:right">Cost</div>
+            <div style="text-align:right">Sell</div>
+            <div style="text-align:right">Margin</div>
+            <div>Status</div>
+            <div></div>
+          </div>
+
+          <div class="scroll" style="flex:1;min-height:0;overflow-y:auto">
+            <sc-for list="{{ athletes }}" as="a" hint-placeholder-count="8">
+              <div class="arow" style="display:grid;grid-template-columns:24px minmax(0,1fr) 98px 104px 74px 74px 96px 124px 58px;gap:10px;align-items:center;padding:10px 18px;border-bottom:1px solid #1A1F2B;background:{{ a.rowBg }};opacity:{{ a.rowOpacity }}">
+                <div>
+                  <input id="{{ a.cbId }}" type="checkbox" aria-label="{{ a.cbLabel }}" checked="{{ a.on }}" disabled="{{ a.blocked }}" onChange="{{ a.toggle }}" style="width:15px;height:15px;accent-color:#2E9BF5" />
+                </div>
+                <div style="min-width:0;display:flex;align-items:center;gap:9px">
+                  <div style="width:3px;height:26px;border-radius:2px;background:{{ a.tierMark }};flex:none"></div>
+                  <div style="min-width:0">
+                    <div style="font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ a.name }}</div>
+                    <div style="font-size:11px;color:#8A90A2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ a.sport }} · {{ a.market }} · {{ a.tier }}</div>
+                  </div>
+                </div>
+                <div>
+                  <div style="font-size:13px;font-weight:600;font-variant-numeric:tabular-nums">{{ a.score }}</div>
+                  <div style="height:3px;background:#1A1F2B;border-radius:2px;margin-top:4px;overflow:hidden">
+                    <div style="height:100%;border-radius:2px;background:#CBD5E1;width:{{ a.scorePct }}"></div>
+                  </div>
+                </div>
+                <div>
+                  <div style="font-size:13px;font-variant-numeric:tabular-nums">{{ a.reach }}</div>
+                  <div style="display:flex;align-items:center;gap:4px;margin-top:2px">
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="{{ a.reachColor }}" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="{{ a.reachIcon }}"/></svg>
+                    <span style="font-size:10px;color:{{ a.reachColor }};font-weight:500">{{ a.reachLabel }}</span>
+                  </div>
+                </div>
+                <div style="text-align:right;font-size:13px;font-variant-numeric:tabular-nums;color:#CBD5E1">{{ a.cost }}</div>
+                <div style="text-align:right;font-size:13px;font-variant-numeric:tabular-nums">{{ a.price }}</div>
+                <div style="text-align:right">
+                  <div style="font-size:13px;font-weight:600;font-variant-numeric:tabular-nums;color:{{ a.marginColor }}">{{ a.marginPct }}</div>
+                  <div style="font-size:10px;color:{{ a.marginColor }};font-variant-numeric:tabular-nums">{{ a.ratio }}× {{ a.floorNote }}</div>
+                </div>
+                <div>
+                  <div style="display:inline-flex;align-items:center;gap:5px;padding:3px 7px;border-radius:5px;background:{{ a.statusBg }};border:1px solid {{ a.statusBd }};max-width:100%">
+                    <span style="width:6px;height:6px;border-radius:50%;background:{{ a.statusColor }};flex:none"></span>
+                    <span style="font-size:11px;font-weight:500;color:{{ a.statusColor }};white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ a.statusLabel }}</span>
+                  </div>
+                  <sc-if value="{{ a.statusSub }}" hint-placeholder-val="{{ false }}">
+                    <div style="font-size:10px;color:#8A90A2;margin-top:3px;line-height:1.3">{{ a.statusSub }}</div>
+                  </sc-if>
+                </div>
+                <div style="display:flex;justify-content:flex-end;gap:4px">
+                  <sc-if value="{{ a.blocked }}" hint-placeholder-val="{{ false }}">
+                    <button type="button" onClick="{{ a.openConflict }}" style="background:rgba(255,77,79,.1);border:1px solid rgba(255,77,79,.4);border-radius:6px;color:#FF4D4F;font-size:11px;font-weight:500;padding:5px 7px">Why</button>
+                  </sc-if>
+                  <sc-if value="{{ a.notBlocked }}" hint-placeholder-val="{{ true }}">
+                    <button type="button" aria-label="{{ a.cbLabel }}" onClick="{{ a.toggle }}" style="background:{{ a.addBg }};border:1px solid {{ a.addBd }};border-radius:6px;color:{{ a.addFg }};font-size:11px;font-weight:600;padding:5px 8px">{{ a.addLabel }}</button>
+                  </sc-if>
+                </div>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+
+        <div style="width:300px;flex:none;border-left:1px solid #242A38;background:#12151D;display:flex;flex-direction:column">
+          <div style="padding:14px 16px;border-bottom:1px solid #242A38">
+            <div style="display:flex;align-items:center;justify-content:space-between">
+              <div style="font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:#CBD5E1;font-weight:600">Shortlist</div>
+              <div style="font-size:12px;color:#8A90A2;font-variant-numeric:tabular-nums">{{ filledCount }} of 6 filled</div>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px">
+              <div style="background:#1A1F2B;border:1px solid #242A38;border-radius:8px;padding:9px 10px">
+                <div style="font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:#8A90A2;font-weight:600">Committed</div>
+                <div style="font-size:16px;font-weight:600;margin-top:3px;font-variant-numeric:tabular-nums">{{ committed }}</div>
+                <div style="font-size:10px;color:#8A90A2;margin-top:1px">of $60,000 budget</div>
+              </div>
+              <div style="background:#1A1F2B;border:1px solid #242A38;border-radius:8px;padding:9px 10px">
+                <div style="font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:#8A90A2;font-weight:600">Blended margin</div>
+                <div style="font-size:16px;font-weight:600;margin-top:3px;font-variant-numeric:tabular-nums;color:{{ blendedColor }}">{{ blendedPct }}</div>
+                <div style="font-size:10px;color:#8A90A2;margin-top:1px;font-variant-numeric:tabular-nums">{{ blendedRatio }}× cost</div>
+              </div>
+            </div>
+          </div>
+
+          <sc-if value="{{ hasBreach }}" hint-placeholder-val="{{ true }}">
+            <div style="margin:12px 16px 0;background:rgba(249,122,31,.1);border:1px solid rgba(249,122,31,.45);border-radius:8px;padding:10px 11px;display:flex;gap:9px">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#F97A1F" stroke-width="1.8" stroke-linecap="round" style="flex:none;margin-top:1px"><path d="M12 4.5 2.8 20h18.4L12 4.5Z"/><path d="M12 10v4.5M12 17.2v.3"/></svg>
+              <div>
+                <div style="font-size:12px;font-weight:600;color:#F97A1F">{{ breachCount }} below the 1.4× floor</div>
+                <div style="font-size:11px;color:#F4F5F7;line-height:1.4;margin-top:3px">{{ breachNames }} sell for less than 1.4× their cost. Resolve before invitations go out.</div>
+              </div>
+            </div>
+          </sc-if>
+
+          <div class="scroll" style="flex:1;min-height:0;overflow-y:auto;padding:12px 16px">
+            <sc-for list="{{ shortlist }}" as="s" hint-placeholder-count="4">
+              <div style="background:#1A1F2B;border:1px solid {{ s.bd }};border-radius:8px;padding:9px 10px;margin-bottom:8px">
+                <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px">
+                  <div style="min-width:0">
+                    <div style="font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ s.name }}</div>
+                    <div style="font-size:11px;color:#8A90A2">{{ s.sport }} · {{ s.tier }} · {{ s.job }}</div>
+                  </div>
+                  <button type="button" aria-label="{{ s.removeLabel }}" onClick="{{ s.remove }}" style="background:none;border:1px solid #242A38;border-radius:5px;color:#8A90A2;padding:3px;line-height:0;flex:none">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>
+                  </button>
+                </div>
+                <div style="display:flex;align-items:center;gap:10px;margin-top:7px;font-size:11px;font-variant-numeric:tabular-nums">
+                  <span style="color:#8A90A2">cost <span style="color:#CBD5E1">{{ s.cost }}</span></span>
+                  <span style="color:#8A90A2">sell <span style="color:#F4F5F7">{{ s.price }}</span></span>
+                  <span style="color:{{ s.marginColor }};font-weight:600;margin-left:auto">{{ s.ratio }}×</span>
+                </div>
+                <sc-if value="{{ s.flag }}" hint-placeholder-val="{{ false }}">
+                  <div style="font-size:10px;color:{{ s.flagColor }};margin-top:6px;padding-top:6px;border-top:1px solid #242A38">{{ s.flag }}</div>
+                </sc-if>
+              </div>
+            </sc-for>
+            <sc-for list="{{ emptySlots }}" as="e" hint-placeholder-count="2">
+              <div style="border:1px dashed #242A38;border-radius:8px;padding:11px 10px;margin-bottom:8px;font-size:11px;color:#8A90A2">Slot {{ e.n }} unfilled — {{ e.job }}</div>
+            </sc-for>
+          </div>
+
+          <div style="padding:13px 16px;border-top:1px solid #242A38;display:flex;flex-direction:column;gap:9px">
+            <button type="button" onClick="{{ goCompare }}" style="background:none;border:1px solid #CBD5E1;border-radius:8px;color:#CBD5E1;font-size:12px;font-weight:500;padding:9px 12px">Compare shortlist factor by factor</button>
+            <button type="button" onClick="{{ goReview }}" style="background:#2E9BF5;border:1px solid #2E9BF5;border-radius:8px;color:#0A0C10;font-size:13px;font-weight:600;padding:10px 12px">Review {{ filledCount }} and send invitations</button>
+            <div style="font-size:10px;color:#8A90A2;line-height:1.4;text-align:center">Athlete cost is BTG-internal. It is not shown on any sponsor surface.</div>
+          </div>
+        </div>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ s2 }}" hint-placeholder-val="{{ false }}">
+      <div class="scroll" style="flex:1;min-height:0;overflow-y:auto;padding:20px 24px">
+        <div style="display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:16px">
+          <div>
+            <button type="button" onClick="{{ goWorkspace }}" style="background:none;border:none;color:#2E9BF5;font-size:12px;padding:0;margin-bottom:6px;display:flex;align-items:center;gap:5px">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M14 6l-6 6 6 6"/></svg>Back to matching
+            </button>
+            <div style="font-size:17px;font-weight:600">Roster comparison</div>
+            <div style="font-size:12px;color:#8A90A2;margin-top:3px">Three shortlisted athletes, factor by factor. Scores are stored snapshots from method v4 — <a href="#method">how the score is built</a>.</div>
+          </div>
+          <div style="display:flex;gap:8px">
+            <button type="button" style="background:none;border:1px solid #242A38;border-radius:8px;color:#CBD5E1;font-size:12px;padding:8px 12px">Swap athlete</button>
+            <button type="button" onClick="{{ goReview }}" style="background:#2E9BF5;border:1px solid #2E9BF5;border-radius:8px;color:#0A0C10;font-size:12px;font-weight:600;padding:8px 12px">Continue to review</button>
+          </div>
+        </div>
+
+        <div style="border:1px solid #242A38;border-radius:12px;overflow:hidden;background:#12151D">
+          <div style="display:grid;grid-template-columns:200px repeat(3, minmax(0,1fr));border-bottom:1px solid #242A38">
+            <div style="padding:14px 16px;border-right:1px solid #242A38"></div>
+            <sc-for list="{{ compareHeads }}" as="h" hint-placeholder-count="3">
+              <div style="padding:14px 16px;border-right:1px solid #242A38">
+                <div style="display:flex;align-items:center;gap:8px">
+                  <div style="width:3px;height:30px;border-radius:2px;background:{{ h.tierMark }}"></div>
+                  <div>
+                    <div style="font-size:14px;font-weight:600">{{ h.name }}</div>
+                    <div style="font-size:11px;color:#8A90A2">{{ h.sport }} · {{ h.market }}</div>
+                  </div>
+                </div>
+                <div style="display:flex;align-items:center;gap:7px;margin-top:9px">
+                  <span style="font-size:11px;padding:2px 7px;border-radius:5px;background:#1A1F2B;border:1px solid #242A38;color:#CBD5E1;font-weight:500">{{ h.tier }}</span>
+                  <span style="font-size:11px;padding:2px 7px;border-radius:5px;background:{{ h.statusBg }};border:1px solid {{ h.statusBd }};color:{{ h.statusColor }};font-weight:500">{{ h.statusLabel }}</span>
+                </div>
+              </div>
+            </sc-for>
+          </div>
+
+          <sc-for list="{{ compareRows }}" as="r" hint-placeholder-count="12">
+            <div style="display:grid;grid-template-columns:200px repeat(3, minmax(0,1fr));border-bottom:1px solid #1A1F2B;background:{{ r.bg }}">
+              <div style="padding:11px 16px;border-right:1px solid #242A38">
+                <div style="font-size:12px;font-weight:500;color:{{ r.labelColor }}">{{ r.label }}</div>
+                <sc-if value="{{ r.sub }}" hint-placeholder-val="{{ false }}">
+                  <div style="font-size:10px;color:#8A90A2;margin-top:2px">{{ r.sub }}</div>
+                </sc-if>
+              </div>
+              <div style="padding:11px 16px;border-right:1px solid #242A38">
+                <div style="display:flex;align-items:center;gap:9px">
+                  <div style="font-size:13px;font-weight:{{ r.c1.fw }};color:{{ r.c1.color }};font-variant-numeric:tabular-nums;min-width:52px">{{ r.c1.text }}</div>
+                  <sc-if value="{{ r.isBar }}" hint-placeholder-val="{{ false }}">
+                    <div style="flex:1;height:5px;background:#1A1F2B;border-radius:3px;overflow:hidden"><div style="height:100%;border-radius:3px;background:{{ r.c1.barColor }};width:{{ r.c1.pct }}"></div></div>
+                  </sc-if>
+                </div>
+                <sc-if value="{{ r.c1.sub }}" hint-placeholder-val="{{ false }}">
+                  <div style="font-size:10px;color:{{ r.c1.subColor }};margin-top:3px">{{ r.c1.sub }}</div>
+                </sc-if>
+              </div>
+              <div style="padding:11px 16px;border-right:1px solid #242A38">
+                <div style="display:flex;align-items:center;gap:9px">
+                  <div style="font-size:13px;font-weight:{{ r.c2.fw }};color:{{ r.c2.color }};font-variant-numeric:tabular-nums;min-width:52px">{{ r.c2.text }}</div>
+                  <sc-if value="{{ r.isBar }}" hint-placeholder-val="{{ false }}">
+                    <div style="flex:1;height:5px;background:#1A1F2B;border-radius:3px;overflow:hidden"><div style="height:100%;border-radius:3px;background:{{ r.c2.barColor }};width:{{ r.c2.pct }}"></div></div>
+                  </sc-if>
+                </div>
+                <sc-if value="{{ r.c2.sub }}" hint-placeholder-val="{{ false }}">
+                  <div style="font-size:10px;color:{{ r.c2.subColor }};margin-top:3px">{{ r.c2.sub }}</div>
+                </sc-if>
+              </div>
+              <div style="padding:11px 16px">
+                <div style="display:flex;align-items:center;gap:9px">
+                  <div style="font-size:13px;font-weight:{{ r.c3.fw }};color:{{ r.c3.color }};font-variant-numeric:tabular-nums;min-width:52px">{{ r.c3.text }}</div>
+                  <sc-if value="{{ r.isBar }}" hint-placeholder-val="{{ false }}">
+                    <div style="flex:1;height:5px;background:#1A1F2B;border-radius:3px;overflow:hidden"><div style="height:100%;border-radius:3px;background:{{ r.c3.barColor }};width:{{ r.c3.pct }}"></div></div>
+                  </sc-if>
+                </div>
+                <sc-if value="{{ r.c3.sub }}" hint-placeholder-val="{{ false }}">
+                  <div style="font-size:10px;color:{{ r.c3.subColor }};margin-top:3px">{{ r.c3.sub }}</div>
+                </sc-if>
+              </div>
+            </div>
+          </sc-for>
+        </div>
+
+        <div style="display:flex;gap:14px;margin-top:16px">
+          <div style="flex:1;border:1px solid #242A38;border-radius:10px;padding:13px 15px;background:#12151D">
+            <div style="font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:#CBD5E1;font-weight:600;margin-bottom:7px">Reading these scores</div>
+            <div style="font-size:12px;color:#8A90A2;line-height:1.5">Each factor is scored 0–100 by the rules-based method and stored with a date. Nothing on this screen is recalculated live. Where a factor was scored on self-reported inputs it is marked, and the snapshot date tells you how stale it is.</div>
+          </div>
+          <div style="flex:1;border:1px solid rgba(249,122,31,.4);border-radius:10px;padding:13px 15px;background:rgba(249,122,31,.07)">
+            <div style="font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:#F97A1F;font-weight:600;margin-bottom:7px">Margin check</div>
+            <div style="font-size:12px;color:#F4F5F7;line-height:1.5">Maya Ortiz-Bell sells at 1.25× her cost against the JOB-A12 band ceiling — below BTG's 1.4× floor. Either move her to a higher-priced job code, renegotiate the rate, or drop her from the roster.</div>
+          </div>
+        </div>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ s3 }}" hint-placeholder-val="{{ false }}">
+      <div style="flex:1;min-height:0;position:relative;display:flex;align-items:center;justify-content:center;padding:24px;background:#0A0C10">
+        <div style="position:absolute;inset:0;padding:18px 24px;opacity:.18;pointer-events:none">
+          <sc-for list="{{ ghostRows }}" as="g" hint-placeholder-count="9">
+            <div style="height:54px;border-bottom:1px solid #242A38;display:flex;align-items:center;gap:12px">
+              <div style="width:3px;height:26px;background:#242A38;border-radius:2px"></div>
+              <div style="width:{{ g.w }};height:10px;background:#242A38;border-radius:3px"></div>
+            </div>
+          </sc-for>
+        </div>
+
+        <div style="position:relative;width:760px;background:#1A1F2B;border:1px solid #242A38;border-radius:14px;box-shadow:0 30px 70px rgba(0,0,0,.6);overflow:hidden">
+          <div style="padding:18px 22px;border-bottom:1px solid #242A38;display:flex;align-items:flex-start;justify-content:space-between;gap:16px">
+            <div style="display:flex;gap:12px">
+              <div style="width:34px;height:34px;border-radius:9px;background:rgba(255,77,79,.12);border:1px solid rgba(255,77,79,.45);display:flex;align-items:center;justify-content:center;flex:none">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#FF4D4F" stroke-width="1.8" stroke-linecap="round"><path d="M12 4.5 2.8 20h18.4L12 4.5Z"/><path d="M12 10v4.5M12 17.2v.3"/></svg>
+              </div>
+              <div>
+                <div style="font-size:15px;font-weight:600">Lena Sørensen is blocked by a declared conflict</div>
+                <div style="font-size:12px;color:#8A90A2;margin-top:3px">Tennis · Plano, TX · Creator tier · score 74 · she stays in the list, visibly blocked</div>
+              </div>
+            </div>
+            <button type="button" aria-label="Close conflict detail" onClick="{{ goWorkspace }}" style="background:none;border:1px solid #242A38;border-radius:7px;color:#8A90A2;padding:6px;line-height:0;flex:none">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>
+            </button>
+          </div>
+
+          <div style="padding:18px 22px">
+            <div style="font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:#CBD5E1;font-weight:600;margin-bottom:10px">The declaration</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:1px;background:#242A38;border:1px solid #242A38;border-radius:10px;overflow:hidden">
+              <sc-for list="{{ conflictFacts }}" as="f" hint-placeholder-count="6">
+                <div style="background:#12151D;padding:11px 13px">
+                  <div style="font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:#8A90A2;font-weight:600">{{ f.k }}</div>
+                  <div style="font-size:13px;margin-top:4px;color:{{ f.color }};font-weight:500">{{ f.v }}</div>
+                  <sc-if value="{{ f.sub }}" hint-placeholder-val="{{ false }}">
+                    <div style="font-size:11px;color:#8A90A2;margin-top:2px">{{ f.sub }}</div>
+                  </sc-if>
+                </div>
+              </sc-for>
+            </div>
+
+            <div style="margin-top:16px;background:#12151D;border:1px solid #242A38;border-radius:10px;padding:13px 15px">
+              <div style="font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:#CBD5E1;font-weight:600;margin-bottom:8px">Why this blocks the invitation</div>
+              <div style="font-size:12px;color:#F4F5F7;line-height:1.55">The athlete declared an exclusive deal in <span style="font-weight:600">sporting goods — racquets</span>, and this campaign's sponsor category is <span style="font-weight:600">beverages — sports hydration</span>. Those categories do not overlap, but her declaration carries a whole-of-endorsement exclusivity clause for the deal's term, which covers 6 Oct – 28 Nov 2026 entirely. Until the clause is waived in writing she cannot be invited.</div>
+              <div style="font-size:11px;color:#8A90A2;margin-top:9px">Declared by the athlete on 14 Aug 2026 · reviewed by J. Okafor, Compliance · <a href="#declaration">open the declaration record</a></div>
+            </div>
+
+            <div style="margin-top:16px">
+              <div style="font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:#CBD5E1;font-weight:600;margin-bottom:9px">What you can do</div>
+              <div style="display:flex;flex-direction:column;gap:8px">
+                <sc-for list="{{ conflictActions }}" as="c" hint-placeholder-count="3">
+                  <div style="display:flex;align-items:center;justify-content:space-between;gap:14px;background:#12151D;border:1px solid #242A38;border-radius:9px;padding:11px 13px">
+                    <div>
+                      <div style="font-size:12px;font-weight:600">{{ c.title }}</div>
+                      <div style="font-size:11px;color:#8A90A2;margin-top:2px;line-height:1.4">{{ c.body }}</div>
+                    </div>
+                    <button type="button" style="background:{{ c.bg }};border:1px solid {{ c.bd }};border-radius:7px;color:{{ c.fg }};font-size:12px;font-weight:600;padding:8px 12px;white-space:nowrap;flex:none">{{ c.cta }}</button>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+          </div>
+
+          <div style="padding:13px 22px;border-top:1px solid #242A38;display:flex;align-items:center;justify-content:space-between;background:#12151D">
+            <div style="font-size:11px;color:#8A90A2">Blocked athletes are never removed from the list. The manager can always see who was excluded and why.</div>
+            <button type="button" onClick="{{ goWorkspace }}" style="background:none;border:1px solid #CBD5E1;border-radius:8px;color:#CBD5E1;font-size:12px;font-weight:500;padding:8px 14px">Back to matching</button>
+          </div>
+        </div>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ s4 }}" hint-placeholder-val="{{ false }}">
+      <div class="scroll" style="flex:1;min-height:0;overflow-y:auto;padding:20px 24px">
+        <div style="display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:16px">
+          <div>
+            <button type="button" onClick="{{ goWorkspace }}" style="background:none;border:none;color:#2E9BF5;font-size:12px;padding:0;margin-bottom:6px;display:flex;align-items:center;gap:5px">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M14 6l-6 6 6 6"/></svg>Back to matching
+            </button>
+            <div style="font-size:17px;font-weight:600">Review &amp; send invitations</div>
+            <div style="font-size:12px;color:#8A90A2;margin-top:3px">Six athletes, what each is being offered, and what happens when you send.</div>
+          </div>
+          <div style="display:flex;align-items:center;gap:22px">
+            <sc-for list="{{ reviewTotals }}" as="t" hint-placeholder-count="4">
+              <div>
+                <div style="font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:#8A90A2;font-weight:600">{{ t.k }}</div>
+                <div style="font-size:16px;font-weight:600;margin-top:3px;font-variant-numeric:tabular-nums;color:{{ t.color }}">{{ t.v }}</div>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+
+        <div style="background:rgba(249,122,31,.08);border:1px solid rgba(249,122,31,.45);border-radius:10px;padding:13px 15px;display:flex;align-items:flex-start;gap:11px;margin-bottom:16px">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#F97A1F" stroke-width="1.8" stroke-linecap="round" style="flex:none;margin-top:1px"><path d="M12 4.5 2.8 20h18.4L12 4.5Z"/><path d="M12 10v4.5M12 17.2v.3"/></svg>
+          <div style="flex:1">
+            <div style="font-size:13px;font-weight:600;color:#F97A1F">One line on this roster breaks the 1.4× margin floor</div>
+            <div style="font-size:12px;color:#F4F5F7;line-height:1.5;margin-top:3px">Maya Ortiz-Bell costs $9,500 against a $11,900 sell on JOB-A12 — 1.25×. The blended roster margin is healthy, but the floor is a per-line rule. Send anyway and the exception is recorded against your name.</div>
+            <label for="ack" style="display:flex;align-items:center;gap:8px;margin-top:10px;font-size:12px;cursor:pointer">
+              <input id="ack" type="checkbox" checked="{{ ack }}" onChange="{{ toggleAck }}" style="width:15px;height:15px;accent-color:#F97A1F" />
+              <span>I am sending with a recorded margin exception on 1 line</span>
+            </label>
+          </div>
+        </div>
+
+        <div style="border:1px solid #242A38;border-radius:12px;overflow:hidden;background:#12151D">
+          <div style="display:grid;grid-template-columns:minmax(0,1.5fr) 118px 1fr 92px 92px 88px 130px;gap:12px;padding:10px 16px;background:#1A1F2B;border-bottom:1px solid #242A38;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:#8A90A2;font-weight:600">
+            <div>Athlete</div>
+            <div>Job code</div>
+            <div>Deliverables offered</div>
+            <div style="text-align:right">Offer (cost)</div>
+            <div style="text-align:right">Sell</div>
+            <div style="text-align:right">Margin</div>
+            <div>Can accept</div>
+          </div>
+          <sc-for list="{{ reviewRows }}" as="r" hint-placeholder-count="6">
+            <div style="display:grid;grid-template-columns:minmax(0,1.5fr) 118px 1fr 92px 92px 88px 130px;gap:12px;padding:12px 16px;border-bottom:1px solid #1A1F2B;align-items:center">
+              <div style="display:flex;align-items:center;gap:9px;min-width:0">
+                <div style="width:3px;height:28px;border-radius:2px;background:{{ r.tierMark }};flex:none"></div>
+                <div style="min-width:0">
+                  <div style="font-size:13px;font-weight:500">{{ r.name }}</div>
+                  <div style="font-size:11px;color:#8A90A2">{{ r.sport }} · {{ r.market }} · {{ r.tier }}</div>
+                </div>
+              </div>
+              <div style="font-size:12px;font-weight:600;color:#CBD5E1;font-variant-numeric:tabular-nums">{{ r.job }}</div>
+              <div style="font-size:12px;color:#F4F5F7;line-height:1.4">{{ r.deliverables }}</div>
+              <div style="text-align:right;font-size:13px;color:#CBD5E1;font-variant-numeric:tabular-nums">{{ r.cost }}</div>
+              <div style="text-align:right;font-size:13px;font-variant-numeric:tabular-nums">{{ r.price }}</div>
+              <div style="text-align:right">
+                <div style="font-size:13px;font-weight:600;color:{{ r.marginColor }};font-variant-numeric:tabular-nums">{{ r.ratio }}×</div>
+                <div style="font-size:10px;color:{{ r.marginColor }}">{{ r.marginPct }}</div>
+              </div>
+              <div>
+                <div style="display:inline-flex;align-items:center;gap:5px;padding:3px 7px;border-radius:5px;background:{{ r.accBg }};border:1px solid {{ r.accBd }}">
+                  <span style="width:6px;height:6px;border-radius:50%;background:{{ r.accColor }}"></span>
+                  <span style="font-size:11px;color:{{ r.accColor }};font-weight:500">{{ r.accLabel }}</span>
+                </div>
+                <sc-if value="{{ r.accSub }}" hint-placeholder-val="{{ false }}">
+                  <div style="font-size:10px;color:#8A90A2;margin-top:3px;line-height:1.3">{{ r.accSub }}</div>
+                </sc-if>
+              </div>
+            </div>
+          </sc-for>
+        </div>
+
+        <div style="display:flex;gap:14px;margin-top:16px;align-items:stretch">
+          <div style="flex:1;border:1px solid #242A38;border-radius:10px;background:#12151D;padding:14px 16px">
+            <div style="font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:#CBD5E1;font-weight:600;margin-bottom:9px">What sending does</div>
+            <div style="display:flex;flex-direction:column;gap:7px">
+              <sc-for list="{{ sendSteps }}" as="s" hint-placeholder-count="4">
+                <div style="display:flex;gap:9px;font-size:12px;color:#F4F5F7;line-height:1.45">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#22C98D" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="flex:none;margin-top:2px"><path d="M4 12.5l5 5L20 6.5"/></svg>
+                  <span>{{ s }}</span>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+          <div style="width:340px;flex:none;border:1px solid #242A38;border-radius:10px;background:#12151D;padding:14px 16px;display:flex;flex-direction:column">
+            <div style="font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:#CBD5E1;font-weight:600;margin-bottom:9px">Send</div>
+            <div style="display:flex;align-items:baseline;justify-content:space-between;font-size:12px;color:#8A90A2;margin-bottom:5px"><span>Invitations</span><span style="color:#F4F5F7;font-weight:600">6</span></div>
+            <div style="display:flex;align-items:baseline;justify-content:space-between;font-size:12px;color:#8A90A2;margin-bottom:5px"><span>Guardian consent required</span><span style="color:#FACC15;font-weight:600">1</span></div>
+            <div style="display:flex;align-items:baseline;justify-content:space-between;font-size:12px;color:#8A90A2;margin-bottom:5px"><span>Margin exceptions</span><span style="color:#F97A1F;font-weight:600">1</span></div>
+            <div style="display:flex;align-items:baseline;justify-content:space-between;font-size:12px;color:#8A90A2"><span>Response deadline</span><span style="color:#F4F5F7;font-weight:600">24 Sep 2026</span></div>
+            <div style="margin-top:auto;padding-top:13px">
+              <button type="button" disabled="{{ sendDisabled }}" style="width:100%;background:{{ sendBg }};border:1px solid {{ sendBd }};border-radius:8px;color:{{ sendFg }};font-size:13px;font-weight:600;padding:11px;opacity:{{ sendOpacity }}">Send 6 invitations</button>
+              <div style="font-size:10px;color:#8A90A2;margin-top:7px;line-height:1.4;text-align:center">{{ sendNote }}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ s5 }}" hint-placeholder-val="{{ false }}">
+      <div style="flex:1;min-height:0;display:flex">
+        <div style="width:236px;flex:none;border-right:1px solid #242A38;padding:16px 14px;background:#0A0C10">
+          <div style="font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:#CBD5E1;font-weight:600;margin-bottom:12px">Filters</div>
+          <div style="display:flex;flex-direction:column;gap:8px">
+            <sc-for list="{{ activeFilters }}" as="f" hint-placeholder-count="4">
+              <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;background:#12151D;border:1px solid {{ f.bd }};border-radius:7px;padding:8px 10px">
+                <div style="min-width:0">
+                  <div style="font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:#8A90A2;font-weight:600">{{ f.k }}</div>
+                  <div style="font-size:12px;font-weight:500;color:{{ f.color }};margin-top:2px">{{ f.v }}</div>
+                </div>
+                <button type="button" aria-label="{{ f.clearLabel }}" style="background:none;border:1px solid #242A38;border-radius:5px;color:#8A90A2;padding:3px;line-height:0;flex:none">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>
+                </button>
+              </div>
+            </sc-for>
+          </div>
+          <button type="button" onClick="{{ goWorkspace }}" style="width:100%;margin-top:14px;background:none;border:1px solid #CBD5E1;border-radius:8px;color:#CBD5E1;font-size:12px;font-weight:500;padding:9px">Clear all filters</button>
+        </div>
+
+        <div style="flex:1;min-width:0;display:flex;flex-direction:column">
+          <div style="flex:none;padding:12px 18px;border-bottom:1px solid #242A38;display:flex;align-items:baseline;gap:10px">
+            <div style="font-size:13px;font-weight:600">0 athletes match</div>
+            <div style="font-size:11px;color:#8A90A2">of 40 in network · 2 blocked by conflict, kept visible below</div>
+          </div>
+          <div class="scroll" style="flex:1;min-height:0;overflow-y:auto;padding:28px 18px">
+            <div style="max-width:620px;margin:0 auto 26px;text-align:center">
+              <div style="width:44px;height:44px;margin:0 auto 14px;border-radius:11px;border:1px solid #242A38;background:#12151D;display:flex;align-items:center;justify-content:center">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#8A90A2" stroke-width="1.6" stroke-linecap="round"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4 4"/></svg>
+              </div>
+              <div style="font-size:16px;font-weight:600">Nothing matches these five filters at once</div>
+              <div style="font-size:12px;color:#8A90A2;line-height:1.55;margin-top:7px">Minimum score 88 with Emerging tier is the pair doing the work — no Emerging athlete in the Texas metro market is scored above 84. Relax one constraint to see candidates again.</div>
+              <div style="display:flex;gap:8px;justify-content:center;margin-top:16px;flex-wrap:wrap">
+                <sc-for list="{{ relaxOptions }}" as="r" hint-placeholder-count="3">
+                  <button type="button" onClick="{{ goWorkspace }}" style="background:#12151D;border:1px solid #2E9BF5;border-radius:8px;color:#2E9BF5;font-size:12px;font-weight:500;padding:8px 12px">{{ r.label }} <span style="color:#8A90A2">{{ r.count }}</span></button>
+                </sc-for>
+              </div>
+            </div>
+
+            <div style="max-width:760px;margin:0 auto">
+              <div style="font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:#CBD5E1;font-weight:600;margin-bottom:9px">Blocked, not hidden</div>
+              <div style="font-size:12px;color:#8A90A2;margin-bottom:10px">These two would match your filters but carry a conflict. They are shown here so nobody wonders where they went.</div>
+              <sc-for list="{{ blockedAthletes }}" as="b" hint-placeholder-count="2">
+                <div style="display:flex;align-items:center;justify-content:space-between;gap:14px;background:#12151D;border:1px solid rgba(255,77,79,.35);border-radius:9px;padding:11px 13px;margin-bottom:8px">
+                  <div style="display:flex;align-items:center;gap:10px;min-width:0">
+                    <div style="width:3px;height:28px;border-radius:2px;background:{{ b.tierMark }};flex:none"></div>
+                    <div style="min-width:0">
+                      <div style="font-size:13px;font-weight:500">{{ b.name }}</div>
+                      <div style="font-size:11px;color:#8A90A2">{{ b.sport }} · {{ b.market }} · {{ b.tier }} · score {{ b.score }}</div>
+                    </div>
+                  </div>
+                  <div style="display:flex;align-items:center;gap:12px;flex:none">
+                    <div style="font-size:11px;color:#FF4D4F;font-weight:500">{{ b.reason }}</div>
+                    <button type="button" onClick="{{ b.openConflict }}" style="background:rgba(255,77,79,.1);border:1px solid rgba(255,77,79,.4);border-radius:6px;color:#FF4D4F;font-size:11px;font-weight:500;padding:6px 9px">See detail</button>
+                  </div>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+        </div>
+
+        <div style="width:300px;flex:none;border-left:1px solid #242A38;background:#12151D;padding:14px 16px">
+          <div style="font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:#CBD5E1;font-weight:600">Shortlist</div>
+          <div style="font-size:12px;color:#8A90A2;margin-top:4px">0 of 6 filled</div>
+          <div style="margin-top:14px;display:flex;flex-direction:column;gap:8px">
+            <sc-for list="{{ emptySix }}" as="e" hint-placeholder-count="6">
+              <div style="border:1px dashed #242A38;border-radius:8px;padding:11px 10px;font-size:11px;color:#8A90A2">Slot {{ e.n }} unfilled — {{ e.job }}</div>
+            </sc-for>
+          </div>
+          <div style="margin-top:14px;font-size:11px;color:#8A90A2;line-height:1.45">The shortlist keeps anything you already added. Clearing a filter does not clear it.</div>
+        </div>
+      </div>
+    </sc-if>
+  </div>
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1500,&quot;height&quot;:1100},&quot;marginFloor&quot;:{&quot;editor&quot;:&quot;range&quot;,&quot;default&quot;:1.4,&quot;min&quot;:1,&quot;max&quot;:2,&quot;step&quot;:0.05,&quot;unit&quot;:&quot;×&quot;,&quot;tsType&quot;:&quot;number&quot;,&quot;section&quot;:&quot;Business rules&quot;},&quot;sortBy&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;score&quot;,&quot;margin&quot;,&quot;cost&quot;],&quot;default&quot;:&quot;score&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Business rules&quot;}}">
+class Component extends DCLogic {
+  state = {
+    screen: 1, selected: ['maya', 'dion', 'amara', 'jules'],
+    q: '', sport: 'All sports', tier: 'All tiers', minScore: 60,
+    activeOnly: true, guardianOnly: false, ack: false
+  };
+
+  roster = [
+    { id: 'kwame', name: 'Kwame Asante', sport: 'Football', market: 'Fort Worth, TX', tier: 'Premium', score: 90, factors: [92, 88, 95, 86, 90, 89], reach: 355000, verified: true, cost: 8800, price: 11900, job: 'JOB-A12', guardian: 'na' },
+    { id: 'maya', name: 'Maya Ortiz-Bell', sport: 'Track & Field', market: 'Austin, TX', tier: 'Premium', score: 92, factors: [94, 90, 93, 95, 88, 92], reach: 412000, verified: true, cost: 9500, price: 11900, job: 'JOB-A12', guardian: 'na' },
+    { id: 'dion', name: 'Dion Whitaker', sport: 'Basketball', market: 'Atlanta, GA', tier: 'Premium', score: 88, factors: [90, 86, 89, 84, 72, 91], reach: 268000, verified: true, cost: 7200, price: 11900, job: 'JOB-A12', guardian: 'na' },
+    { id: 'aiden', name: 'Aiden Park', sport: 'Golf', market: 'Houston, TX', tier: 'Premium', score: 86, factors: [80, 92, 84, 90, 86, 82], reach: 205000, verified: true, cost: 6900, price: 11900, job: 'JOB-A12', guardian: 'na' },
+    { id: 'amara', name: 'Amara Nwosu', sport: 'Soccer', market: 'Houston, TX', tier: 'Creator', score: 85, factors: [88, 84, 82, 87, 86, 83], reach: 154000, verified: true, cost: 3400, price: 6200, job: 'JOB-B04', guardian: 'na' },
+    { id: 'naomi', name: 'Naomi Frazier', sport: 'Softball', market: 'Round Rock, TX', tier: 'Creator', score: 83, factors: [82, 86, 78, 85, 88, 80], reach: 121000, verified: true, cost: 3600, price: 6200, job: 'JOB-B04', guardian: 'na' },
+    { id: 'teo', name: 'Teo Vasquez', sport: 'Baseball', market: 'San Antonio, TX', tier: 'Creator', score: 81, factors: [84, 76, 79, 82, 86, 80], reach: 96500, verified: false, cost: 2900, price: 5400, job: 'JOB-B04', guardian: 'na' },
+    { id: 'priya', name: 'Priya Raman', sport: 'Gymnastics', market: 'Frisco, TX', tier: 'Emerging', score: 80, factors: [78, 84, 70, 83, 84, 79], reach: 33600, verified: true, cost: 1300, price: 2900, job: 'JOB-C07', guardian: 'pending' },
+    { id: 'jules', name: 'Jules Kaminski', sport: 'Swimming', market: 'Dallas, TX', tier: 'Emerging', score: 78, factors: [74, 82, 68, 86, 82, 76], reach: 41200, verified: true, cost: 1450, price: 2900, job: 'JOB-C07', guardian: 'na' },
+    { id: 'bree', name: 'Bree Halloran', sport: 'Volleyball', market: 'Austin, TX', tier: 'Creator', score: 76, factors: [80, 72, 74, 76, 84, 72], reach: 88000, verified: false, cost: 3100, price: 5400, job: 'JOB-B04', guardian: 'pending' },
+    { id: 'lena', name: 'Lena Sørensen', sport: 'Tennis', market: 'Plano, TX', tier: 'Creator', score: 74, factors: [72, 78, 68, 80, 76, 70], reach: 62400, verified: true, cost: 2600, price: 5400, job: 'JOB-B04', guardian: 'na', conflict: 'Competing deal — racquets' },
+    { id: 'sasha', name: 'Sasha Mbeki', sport: 'Rugby', market: 'Austin, TX', tier: 'Emerging', score: 73, factors: [70, 74, 62, 78, 80, 71], reach: 24100, verified: false, cost: 980, price: 2900, job: 'JOB-C07', guardian: 'na', conflict: 'Category exclusivity — hydration' },
+    { id: 'rico', name: 'Rico Delgado', sport: 'Boxing', market: 'El Paso, TX', tier: 'Emerging', score: 71, factors: [74, 68, 64, 72, 78, 70], reach: 28900, verified: false, cost: 1100, price: 2900, job: 'JOB-C07', guardian: 'na' },
+    { id: 'cole', name: 'Cole Bergstrom', sport: 'Hockey', market: 'Dallas, TX', tier: 'Creator', score: 69, factors: [66, 72, 64, 74, 70, 68], reach: 51000, verified: false, cost: 2400, price: 5400, job: 'JOB-B04', guardian: 'na' }
+  ];
+
+  factorLabels = [
+    ['Engagement', 'interaction rate, stored'],
+    ['Content quality', 'manual review score'],
+    ['Audience', 'size and retention'],
+    ['Reliability', 'past delivery record'],
+    ['Geography', 'fit to campaign market'],
+    ['Fit', 'sponsor category match']
+  ];
+
+  money(n) { return '$' + n.toLocaleString('en-US'); }
+  reachStr(n) { return n >= 1000 ? Math.round(n / 1000) + 'K' : String(n); }
+  floor() { return this.props.marginFloor ?? 1.4; }
+
+  marginColorFor(a) {
+    const r = a.price / a.cost;
+    if (r < this.floor()) return '#F97A1F';
+    return r < this.floor() + 0.3 ? '#FACC15' : '#22C98D';
+  }
+  tierMarkFor(t) { return t === 'Premium' ? '#F97A1F' : t === 'Creator' ? '#CBD5E1' : '#242A38'; }
+
+  status(a) {
+    if (a.conflict) return { label: 'Conflict — blocked', color: '#FF4D4F', bg: 'rgba(255,77,79,.1)', bd: 'rgba(255,77,79,.4)', sub: a.conflict };
+    if (a.guardian === 'pending') return { label: 'Guardian pending', color: '#FACC15', bg: 'rgba(250,204,21,.1)', bd: 'rgba(250,204,21,.4)', sub: 'can be shortlisted, cannot accept' };
+    return { label: 'Eligible', color: '#22C98D', bg: 'rgba(34,201,141,.1)', bd: 'rgba(34,201,141,.35)', sub: '' };
+  }
+
+  toggle(id) {
+    this.setState(s => ({ selected: s.selected.includes(id) ? s.selected.filter(x => x !== id) : s.selected.concat([id]) }));
+  }
+
+  visible() {
+    const q = this.state.q.trim().toLowerCase();
+    let list = this.roster.filter(a => {
+      if (q && !(a.name + ' ' + a.sport).toLowerCase().includes(q)) return false;
+      if (this.state.sport !== 'All sports' && a.sport !== this.state.sport) return false;
+      if (this.state.tier !== 'All tiers' && a.tier !== this.state.tier) return false;
+      if (a.score < this.state.minScore) return false;
+      if (this.state.guardianOnly && a.guardian === 'pending') return false;
+      return true;
+    });
+    const by = this.props.sortBy ?? this.state.sortBy ?? 'score';
+    const sorted = list.slice().sort((x, y) => by === 'margin' ? (x.price / x.cost) - (y.price / y.cost) : by === 'cost' ? x.cost - y.cost : y.score - x.score);
+    return sorted;
+  }
+
+  renderVals() {
+    const S = this.state, floor = this.floor();
+    const tabs = ['Matching workspace', 'Roster comparison', 'Conflict detail', 'Review & send', 'Nothing matches'].map((label, i) => {
+      const n = i + 1, on = S.screen === n;
+      return { n, label, on, fw: on ? 600 : 500, bg: on ? '#1A1F2B' : 'transparent', bd: on ? '#CBD5E1' : 'transparent', fg: on ? '#F4F5F7' : '#8A90A2', go: () => this.setState({ screen: n }) };
+    });
+
+    const sel = this.roster.filter(a => S.selected.includes(a.id));
+    const costSum = sel.reduce((t, a) => t + a.cost, 0), priceSum = sel.reduce((t, a) => t + a.price, 0);
+    const blended = priceSum ? (priceSum - costSum) / priceSum : 0;
+    const breaches = sel.filter(a => a.price / a.cost < floor);
+    const jobLabels = { 'JOB-A12': 'Reel ×2', 'JOB-B04': 'Appearance 2h', 'JOB-C07': 'Photo day' };
+
+    const athletes = this.visible().map(a => {
+      const st = this.status(a), r = a.price / a.cost, blocked = !!a.conflict, on = S.selected.includes(a.id);
+      return {
+        ...a, cbId: 'cb-' + a.id, cbLabel: (on ? 'Remove ' : 'Add ') + a.name + (blocked ? ' (blocked by conflict)' : '') + ' to shortlist',
+        on, blocked, notBlocked: !blocked, rowBg: on ? '#151B26' : 'transparent', rowOpacity: blocked ? 0.72 : 1,
+        tierMark: this.tierMarkFor(a.tier), scorePct: a.score + '%',
+        reach: this.reachStr(a.reach), reachLabel: a.verified ? 'Verified' : 'Self-reported',
+        reachColor: a.verified ? '#22C98D' : '#FACC15',
+        reachIcon: a.verified ? 'M4 12.5l5 5L20 6.5' : 'M12 4.5 2.8 20h18.4L12 4.5Z',
+        cost: this.money(a.cost), price: this.money(a.price),
+        marginPct: Math.round((a.price - a.cost) / a.price * 100) + '%', ratio: r.toFixed(2),
+        floorNote: r < floor ? 'below floor' : '', marginColor: this.marginColorFor(a),
+        statusLabel: st.label, statusColor: st.color, statusBg: st.bg, statusBd: st.bd, statusSub: st.sub,
+        addLabel: on ? 'Added' : 'Add', addBg: on ? '#2E9BF5' : 'transparent', addBd: on ? '#2E9BF5' : '#CBD5E1', addFg: on ? '#0A0C10' : '#CBD5E1',
+        toggle: () => { if (!blocked) this.toggle(a.id); },
+        openConflict: () => this.setState({ screen: 3 })
+      };
+    });
+
+    const shortlist = sel.map(a => {
+      const r = a.price / a.cost;
+      return {
+        name: a.name, sport: a.sport, tier: a.tier, job: a.job, cost: this.money(a.cost), price: this.money(a.price),
+        ratio: r.toFixed(2), marginColor: this.marginColorFor(a), bd: r < floor ? 'rgba(249,122,31,.5)' : '#242A38',
+        flag: r < floor ? 'Margin ' + r.toFixed(2) + '× — below the ' + floor + '× floor' : (a.guardian === 'pending' ? 'Guardian consent outstanding — cannot accept yet' : ''),
+        flagColor: r < floor ? '#F97A1F' : '#FACC15',
+        removeLabel: 'Remove ' + a.name + ' from shortlist', remove: () => this.toggle(a.id)
+      };
+    });
+
+    const slotJobs = ['JOB-A12', 'JOB-A12', 'JOB-A12', 'JOB-B04', 'JOB-B04', 'JOB-C07'];
+    const emptySlots = slotJobs.slice(sel.length).map((j, i) => ({ n: sel.length + i + 1, job: j + ' · ' + jobLabels[j] }));
+
+    const cmp = ['maya', 'dion', 'aiden'].map(id => this.roster.find(a => a.id === id));
+    const cell = (a, text, opts) => Object.assign({ text, fw: 500, color: '#F4F5F7', sub: '', subColor: '#8A90A2', pct: '0%', barColor: '#CBD5E1' }, opts || {});
+    const bestOf = vals => Math.max.apply(null, vals);
+
+    const compareRows = [];
+    compareRows.push({
+      label: 'Composite score', sub: 'snapshot 2 Sep 2026', labelColor: '#F4F5F7', bg: '#151922', isBar: true,
+      c1: cell(cmp[0], String(cmp[0].score), { fw: 600, pct: cmp[0].score + '%' }),
+      c2: cell(cmp[1], String(cmp[1].score), { fw: 600, pct: cmp[1].score + '%' }),
+      c3: cell(cmp[2], String(cmp[2].score), { fw: 600, pct: cmp[2].score + '%' })
+    });
+    this.factorLabels.forEach((fl, i) => {
+      const vals = cmp.map(a => a.factors[i]), top = bestOf(vals);
+      const mk = k => cell(cmp[k], String(vals[k]), { pct: vals[k] + '%', color: vals[k] === top ? '#F4F5F7' : '#8A90A2', barColor: vals[k] === top ? '#CBD5E1' : '#3A4356', sub: vals[k] === top ? 'strongest of three' : '' });
+      compareRows.push({ label: fl[0], sub: fl[1], labelColor: '#8A90A2', bg: 'transparent', isBar: true, c1: mk(0), c2: mk(1), c3: mk(2) });
+    });
+    const mkPlain = (k, text, opts) => cell(cmp[k], text, opts);
+    compareRows.push({
+      label: 'Reach', sub: 'followers across connected platforms', labelColor: '#F4F5F7', bg: '#151922', isBar: false,
+      c1: mkPlain(0, this.reachStr(cmp[0].reach), { fw: 600, sub: 'Platform-verified', subColor: '#22C98D' }),
+      c2: mkPlain(1, this.reachStr(cmp[1].reach), { fw: 600, sub: 'Platform-verified', subColor: '#22C98D' }),
+      c3: mkPlain(2, this.reachStr(cmp[2].reach), { fw: 600, sub: 'Platform-verified', subColor: '#22C98D' })
+    });
+    compareRows.push({
+      label: 'Athlete cost', sub: 'from rate card · BTG internal', labelColor: '#F4F5F7', bg: 'transparent', isBar: false,
+      c1: mkPlain(0, this.money(cmp[0].cost), { color: '#CBD5E1' }), c2: mkPlain(1, this.money(cmp[1].cost), { color: '#CBD5E1' }), c3: mkPlain(2, this.money(cmp[2].cost), { color: '#CBD5E1' })
+    });
+    compareRows.push({
+      label: 'Sell price', sub: 'JOB-A12 band ceiling', labelColor: '#F4F5F7', bg: 'transparent', isBar: false,
+      c1: mkPlain(0, this.money(cmp[0].price)), c2: mkPlain(1, this.money(cmp[1].price)), c3: mkPlain(2, this.money(cmp[2].price))
+    });
+    compareRows.push({
+      label: 'Margin', sub: 'floor is ' + floor + '× cost', labelColor: '#F4F5F7', bg: '#151922', isBar: false,
+      c1: mkPlain(0, (cmp[0].price / cmp[0].cost).toFixed(2) + '×', { fw: 600, color: this.marginColorFor(cmp[0]), sub: cmp[0].price / cmp[0].cost < floor ? 'Below floor — resolve before sending' : 'Healthy', subColor: this.marginColorFor(cmp[0]) }),
+      c2: mkPlain(1, (cmp[1].price / cmp[1].cost).toFixed(2) + '×', { fw: 600, color: this.marginColorFor(cmp[1]), sub: 'Healthy', subColor: this.marginColorFor(cmp[1]) }),
+      c3: mkPlain(2, (cmp[2].price / cmp[2].cost).toFixed(2) + '×', { fw: 600, color: this.marginColorFor(cmp[2]), sub: 'Healthy', subColor: this.marginColorFor(cmp[2]) })
+    });
+    compareRows.push({
+      label: 'Conflicts', sub: 'declared competing deals', labelColor: '#F4F5F7', bg: 'transparent', isBar: false,
+      c1: mkPlain(0, 'None declared', { color: '#22C98D' }), c2: mkPlain(1, 'None declared', { color: '#22C98D' }), c3: mkPlain(2, 'None declared', { color: '#22C98D' })
+    });
+    compareRows.push({
+      label: 'Guardian consent', sub: 'required for minors', labelColor: '#F4F5F7', bg: 'transparent', isBar: false,
+      c1: mkPlain(0, 'Not applicable', { color: '#8A90A2' }), c2: mkPlain(1, 'Not applicable', { color: '#8A90A2' }), c3: mkPlain(2, 'Not applicable', { color: '#8A90A2' })
+    });
+
+    const reviewIds = ['maya', 'dion', 'aiden', 'amara', 'naomi', 'priya'];
+    const rev = reviewIds.map(id => this.roster.find(a => a.id === id));
+    const deliverables = { 'JOB-A12': '2 × Instagram Reel, 30s, sponsor-supplied brief', 'JOB-B04': '1 × in-person appearance, 2 hours, Austin', 'JOB-C07': '1 × brand photo day, 4 hours, studio' };
+    const reviewRows = rev.map(a => {
+      const r = a.price / a.cost, pend = a.guardian === 'pending';
+      return {
+        name: a.name, sport: a.sport, market: a.market, tier: a.tier, tierMark: this.tierMarkFor(a.tier), job: a.job,
+        deliverables: deliverables[a.job], cost: this.money(a.cost), price: this.money(a.price),
+        ratio: r.toFixed(2), marginPct: Math.round((a.price - a.cost) / a.price * 100) + '% margin', marginColor: this.marginColorFor(a),
+        accLabel: pend ? 'Not until consent' : 'Yes', accColor: pend ? '#FACC15' : '#22C98D',
+        accBg: pend ? 'rgba(250,204,21,.1)' : 'rgba(34,201,141,.1)', accBd: pend ? 'rgba(250,204,21,.4)' : 'rgba(34,201,141,.35)',
+        accSub: pend ? 'guardian invited in parallel' : ''
+      };
+    });
+    const revCost = rev.reduce((t, a) => t + a.cost, 0), revPrice = rev.reduce((t, a) => t + a.price, 0);
+
+    const counts = t => this.roster.filter(a => a.tier === t).length;
+
+    return {
+      tabs, steps: Array.from({ length: 12 }, (_, i) => ({ bg: i < 2 ? '#CBD5E1' : i === 2 ? '#2E9BF5' : '#242A38' })),
+      s1: S.screen === 1, s2: S.screen === 2, s3: S.screen === 3, s4: S.screen === 4, s5: S.screen === 5,
+      showBrief: S.screen === 1 || S.screen === 5,
+      jobs: [{ code: 'JOB-A12', label: 'Reel ×2', qty: 3 }, { code: 'JOB-B04', label: 'Appearance', qty: 2 }, { code: 'JOB-C07', label: 'Photo day', qty: 1 }],
+      filledCount: S.screen === 5 ? 0 : sel.length,
+      fillNote: sel.length >= 6 ? 'roster complete' : (6 - sel.length) + ' to go',
+      fillColor: sel.length >= 6 ? '#22C98D' : '#8A90A2',
+      slots: Array.from({ length: 6 }, (_, i) => ({ bg: i < sel.length ? '#2E9BF5' : '#242A38' })),
+
+      q: S.q, setQ: e => this.setState({ q: e.target.value }),
+      sport: S.sport, setSport: e => this.setState({ sport: e.target.value }),
+      sportOptions: ['All sports'].concat(Array.from(new Set(this.roster.map(a => a.sport))).sort()),
+      tierOptions: ['All tiers', 'Premium', 'Creator', 'Emerging'].map(t => ({
+        label: t, on: S.tier === t, count: t === 'All tiers' ? this.roster.length : counts(t),
+        bg: S.tier === t ? '#1A1F2B' : '#12151D', bd: S.tier === t ? '#CBD5E1' : '#242A38', fg: S.tier === t ? '#F4F5F7' : '#8A90A2',
+        go: () => this.setState({ tier: t })
+      })),
+      minScore: S.minScore, setMinScore: e => this.setState({ minScore: Number(e.target.value) }),
+      activeOnly: S.activeOnly, toggleActive: () => this.setState(s => ({ activeOnly: !s.activeOnly })),
+      guardianOnly: S.guardianOnly, toggleGuardian: () => this.setState(s => ({ guardianOnly: !s.guardianOnly })),
+      resetFilters: () => this.setState({ q: '', sport: 'All sports', tier: 'All tiers', minScore: 60, guardianOnly: false }),
+      sortBy: S.sortBy ?? 'score', setSort: e => this.setState({ sortBy: e.target.value }),
+
+      athletes, shownCount: athletes.length, blockedCount: athletes.filter(a => a.blocked).length,
+      legend: [{ c: '#22C98D', t: 'Eligible' }, { c: '#FACC15', t: 'Guardian pending' }, { c: '#FF4D4F', t: 'Conflict' }, { c: '#F97A1F', t: 'Below margin floor' }],
+
+      shortlist, emptySlots, committed: this.money(priceSum),
+      blendedPct: Math.round(blended * 100) + '%', blendedRatio: costSum ? (priceSum / costSum).toFixed(2) : '0.00',
+      blendedColor: costSum && priceSum / costSum < floor ? '#F97A1F' : '#22C98D',
+      hasBreach: breaches.length > 0, breachCount: breaches.length + (breaches.length === 1 ? ' line' : ' lines'),
+      breachNames: breaches.map(a => a.name).join(', '),
+      goCompare: () => this.setState({ screen: 2 }), goReview: () => this.setState({ screen: 4 }), goWorkspace: () => this.setState({ screen: 1 }),
+
+      compareHeads: cmp.map(a => {
+        const st = this.status(a);
+        return { name: a.name, sport: a.sport, market: a.market, tier: a.tier, tierMark: this.tierMarkFor(a.tier), statusLabel: st.label, statusColor: st.color, statusBg: st.bg, statusBd: st.bd };
+      }),
+      compareRows,
+
+      ghostRows: Array.from({ length: 11 }, (_, i) => ({ w: (140 + (i * 37) % 260) + 'px' })),
+      conflictFacts: [
+        { k: 'Conflict type', v: 'Declared competing deal', color: '#FF4D4F', sub: 'athlete-declared, compliance-reviewed' },
+        { k: 'Counterparty category', v: 'Sporting goods — racquets', color: '#F4F5F7', sub: 'counterparty name withheld from matching' },
+        { k: 'Exclusivity scope', v: 'Whole-of-endorsement', color: '#FF4D4F', sub: 'not category-limited' },
+        { k: 'Deal term', v: '1 Sep 2026 – 31 Dec 2026', color: '#F4F5F7', sub: 'covers the full campaign window' },
+        { k: 'Campaign window', v: '6 Oct – 28 Nov 2026', color: '#FACC15', sub: '54 days of overlap' },
+        { k: 'Waiver on file', v: 'None', color: '#FF4D4F', sub: 'a written waiver would clear the block' }
+      ],
+      conflictActions: [
+        { title: 'Request a waiver', body: 'Sends a waiver request to the athlete and her representation. Compliance reviews the reply before the block lifts.', cta: 'Request waiver', bg: '#2E9BF5', bd: '#2E9BF5', fg: '#0A0C10' },
+        { title: 'Offer a later window', body: 'The deal term ends 31 Dec 2026. A campaign starting in January would not overlap.', cta: 'Note on campaign', bg: 'transparent', bd: '#CBD5E1', fg: '#CBD5E1' },
+        { title: 'Leave her out of this roster', body: 'She stays visible in the list as blocked, with this reason, so the exclusion is on the record.', cta: 'Keep excluded', bg: 'transparent', bd: '#242A38', fg: '#8A90A2' }
+      ],
+
+      reviewRows,
+      reviewTotals: [
+        { k: 'Athletes', v: '6 of 6', color: '#F4F5F7' },
+        { k: 'Athlete cost', v: this.money(revCost), color: '#CBD5E1' },
+        { k: 'Sell total', v: this.money(revPrice), color: '#F4F5F7' },
+        { k: 'Blended margin', v: Math.round((revPrice - revCost) / revPrice * 100) + '% · ' + (revPrice / revCost).toFixed(2) + '×', color: '#22C98D' }
+      ],
+      ack: S.ack, toggleAck: () => this.setState(s => ({ ack: !s.ack })),
+      sendDisabled: !S.ack, sendBg: S.ack ? '#2E9BF5' : '#1A1F2B', sendBd: S.ack ? '#2E9BF5' : '#242A38',
+      sendFg: S.ack ? '#0A0C10' : '#8A90A2', sendOpacity: S.ack ? 1 : 0.7,
+      sendNote: S.ack ? 'Invitations go out immediately. Offers are fixed once sent.' : 'Acknowledge the margin exception above to send.',
+      sendSteps: [
+        'Each athlete receives the job code, deliverables, the offer amount and a 7-day response window.',
+        'Priya Raman\'s guardian receives a consent request in parallel; she cannot accept until it is confirmed.',
+        'The sponsor sees the roster and sell prices only — athlete cost stays on BTG staff screens.',
+        'The margin exception is written to the campaign audit log against M. Reyes.'
+      ],
+
+      activeFilters: [
+        { k: 'Search', v: '"sprint"', color: '#F4F5F7', bd: '#242A38', clearLabel: 'Clear search filter' },
+        { k: 'Sport', v: 'Track & Field', color: '#F4F5F7', bd: '#242A38', clearLabel: 'Clear sport filter' },
+        { k: 'Tier', v: 'Emerging', color: '#FACC15', bd: 'rgba(250,204,21,.4)', clearLabel: 'Clear tier filter' },
+        { k: 'Minimum score', v: '88', color: '#FACC15', bd: 'rgba(250,204,21,.4)', clearLabel: 'Clear minimum score filter' },
+        { k: 'Eligibility', v: 'Approved & active, guardian-verified', color: '#F4F5F7', bd: '#242A38', clearLabel: 'Clear eligibility filters' }
+      ],
+      relaxOptions: [
+        { label: 'Drop minimum score to 70', count: '9 match' },
+        { label: 'Allow all tiers', count: '4 match' },
+        { label: 'Clear the search term', count: '2 match' }
+      ],
+      blockedAthletes: this.roster.filter(a => a.conflict).map(a => ({
+        name: a.name, sport: a.sport, market: a.market, tier: a.tier, score: a.score,
+        tierMark: this.tierMarkFor(a.tier), reason: a.conflict, openConflict: () => this.setState({ screen: 3 })
+      })),
+      emptySix: slotJobs.map((j, i) => ({ n: i + 1, job: j + ' · ' + jobLabels[j] }))
+    };
+  }
+}
+</script>
+</body>
+</html>
