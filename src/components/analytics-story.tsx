@@ -55,21 +55,31 @@ function Chapter({
   no,
   title,
   hint,
+  fill = false,
   children,
 }: {
   id: ChapterId;
   no: number;
   title: string;
   hint?: string;
+  /** Grid-row chapters: stretch the content column so sibling cards can
+      equalize to the row height (their Card takes flex-1). */
+  fill?: boolean;
   children: React.ReactNode;
 }) {
   return (
-    <section id={id} aria-label={title} className="scroll-mt-28">
+    <section
+      id={id}
+      aria-label={title}
+      className={fill ? "flex flex-col scroll-mt-28" : "scroll-mt-28"}
+    >
       <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-faint">
         Chapter {no} · {title}
       </p>
       {hint && <p className="mt-0.5 text-[11px] text-muted">{hint}</p>}
-      <div className="mt-2">{children}</div>
+      <div className={fill ? "mt-2 flex flex-1 flex-col" : "mt-2"}>
+        {children}
+      </div>
     </section>
   );
 }
@@ -387,16 +397,18 @@ export function AnalyticsStory({ initialRange }: { initialRange: RangeKey }) {
 
           {/* --------------------------------------- ch 3 + 4, side by side */}
           <div className="grid gap-6 gap-y-10 lg:grid-cols-2">
-            <Chapter id="where" no={3} title="Where">
+            <Chapter id="where" no={3} title="Where" fill>
               <InsightBanner insight={locationInsight(topLocations)} />
-              <Card>
-                <HBarList
-                  rows={topLocations.map((l) => ({
-                    label: l.place,
-                    value: l.pct,
-                    display: `${l.pct}%`,
-                  }))}
-                />
+              <Card className="flex flex-1 flex-col">
+                <div className="flex-1">
+                  <HBarList
+                    rows={topLocations.map((l) => ({
+                      label: l.place,
+                      value: l.pct,
+                      display: `${l.pct}%`,
+                    }))}
+                  />
+                </div>
                 <p className="mt-3 border-t border-line-soft pt-3 text-[10px] leading-relaxed text-faint">
                   ⓘ Share of scans. Resolved in the worker — the fan IP is
                   never stored.
@@ -404,17 +416,19 @@ export function AnalyticsStory({ initialRange }: { initialRange: RangeKey }) {
               </Card>
             </Chapter>
 
-            <Chapter id="what-fans-took" no={4} title="What fans took">
+            <Chapter id="what-fans-took" no={4} title="What fans took" fill>
               <InsightBanner insight={offerInsight(d)} />
-              <Card>
-                <HBarList
-                  rows={d.offers.map((o) => ({
-                    label: o.offer,
-                    value: o.count,
-                    display: o.count.toLocaleString("en-US"),
-                    tone: "warn" as const,
-                  }))}
-                />
+              <Card className="flex flex-1 flex-col">
+                <div className="flex-1">
+                  <HBarList
+                    rows={d.offers.map((o) => ({
+                      label: o.offer,
+                      value: o.count,
+                      display: o.count.toLocaleString("en-US"),
+                      tone: "warn" as const,
+                    }))}
+                  />
+                </div>
                 <p className="mt-3 flex flex-wrap items-center gap-1.5 border-t border-line-soft pt-3 text-[10px] leading-relaxed text-faint">
                   ⓘ Ranked by redemptions, not claims — what fans actually
                   used. <MiniChip kind="ver">POSTGRES</MiniChip>
