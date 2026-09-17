@@ -138,3 +138,40 @@ section 1 is under 18, and marks section 7 as enforced on every campaign.
 (`documentation/Design/matching-roster-review/BRIEF.md`,
 `documentation/Design/marketing-visuals/BRIEF.md`) and are In progress, awaiting
 the same Claude Design pass.
+
+---
+
+## `P4-ART-01` — matching and roster review, designed and imported
+
+Five screens — matching workspace, roster comparison, conflict detail, review &
+send, and the nothing-matches state — designed in Claude Design from
+`documentation/Design/matching-roster-review/BRIEF.md`. Row moved to
+**Code review**.
+
+### This export came back as source, not pictures
+
+`P1-ART-07` exported as twelve PNGs; this one exported as
+`Matching and Roster Review.dc.html` plus `support.js` and the `_ds/nocturne-…`
+design system — **editable source that diffs in git**, with all five screens as
+state branches inside the one file rather than separate artboards. The export
+format appears to depend on what is chosen in Claude Design, so it is worth
+asking for source rather than images on the remaining ART tasks.
+
+### What was checked, and what was not
+
+Content was verified against the brief by inspecting the source: conflict
+handling, margin and the 1.4× floor, verified-versus-self-reported reach,
+guardian state, shortlist, comparison and invitations are all present, as are
+the three athlete tiers. **It has not been looked at, and no contrast audit was
+run** — that is what Code review is for, and the folder README says so rather
+than implying the design is fully reviewed.
+
+### Board after
+
+**40 Done · 11 Ready · 2 In progress · 2 Code review · 286 Blocked = 341.**
+77 formulas verified identical.
+
+### Remaining
+
+`P1-ART-06` (marketing site visual assets) is the last of the three, still In
+progress with its brief written and ready to paste.
