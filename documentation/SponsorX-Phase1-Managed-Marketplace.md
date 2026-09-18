@@ -5,7 +5,7 @@
 | | |
 |---|---|
 | **Goal** | Launch real micro-NIL campaigns while building the data foundation. BTG staff run matching, pricing, conflict checks and invoicing; the software standardises and records every step. |
-| **Tasks** | 186 · 446 person-days |
+| **Tasks** | 188 · 450 person-days |
 | **Blueprint timeline** | 14–18 weeks |
 | **Balanced budget** | $75K–$105K |
 | **Depends on** | Nothing — this is the start |
@@ -304,6 +304,16 @@ Confirm the six sponsor packages — Test Drive through Season Partner — with 
 - **Depends on:** nothing — startable now
 - **Done when:** Name, price band, athlete count and inventory JSON confirmed per package
 - **Reference:** §7
+
+### ▶ `P0-PMO-13` · Decide the margin floor rule and tier-derived sell floors
+
+**Order** 16.5 · **PMO** · **Where:** Document · **1d** · **Done** · **Unblocks** 1
+
+Answer the commercial question `P0-PMO-09` and `P0-PMO-10` documented but could not close. The §6 tier multiplier scales athlete pay while nothing scales the §5 sell floor, so a Premium athlete at the top of the base band costs more than the job's cheapest sell price on all seven jobs. Decide the rule that prevents it and the floors that follow from it.
+
+- **Depends on:** nothing — startable now
+- **Done when:** Floor multiple, per-tier derived sell floors, the SX-07 band correction and the six packages' job-code line items all recorded in a decision document
+- **Reference:** §5, §6, §7 · `documentation/SponsorX-Pricing-Floor-Decision.md`
 
 ### ▶ `P0-DATA-03` · Define Content Value Score v1 factors and weights
 
@@ -983,6 +993,16 @@ Load the six sponsor packages into the database.
 - **Depends on:** P0-PMO-10
 - **Done when:** All six §7 packages seeded with price band, athlete count and inventory
 - **Reference:** §7
+
+### ⏸ `P3-BE-12` · Enforce the margin floor at quote and Campaign Order creation
+
+**Order** 74.5 · **BE** · **Where:** Code · **3d** · **Blocked** · **Unblocks** 0
+
+Refuse to save a campaign order line whose sponsor price is below athlete cost × 1.4, at the moment the price is set rather than at month end. A hard block, not a warning — the rule exists because a network manager can otherwise assign a strong athlete to a discounted job in good faith and lose money on the campaign with nothing in the system objecting.
+
+- **Depends on:** P0-PMO-13, P3-BE-11
+- **Done when:** A line below the floor cannot be saved; the error names the job, the athlete tier, the computed floor and the shortfall; tests cover all seven jobs at all three tiers
+- **Reference:** §5, §6, §7, §19 · `documentation/SponsorX-Pricing-Floor-Decision.md`
 
 ### ⏸ `P3-DATA-01` · Pilot cohort import job
 

@@ -1,0 +1,93 @@
+# 2026-09-18 — tasks completed
+
+---
+
+# rcfworks — pricing
+
+## `P0-PMO-13` raised and closed — the margin floor rule
+
+An untracked workbook, `SponsorX-Pricing-Collision.xlsx`, turned out to hold the
+commercial question that `P0-PMO-09` and `P0-PMO-10` documented on 2026-09-15 and
+closed on 2026-09-17 without answering. **No task in the 345 owned that answer** —
+the two PMO rows closed the documents, not the decision. So it was raised as a
+task and decided in the same pass, at the user's instruction: *"we follow this new
+pricing scheme as it provides better business returns... others will adjust."*
+
+Written to
+[documentation/SponsorX-Pricing-Floor-Decision.md](../../documentation/SponsorX-Pricing-Floor-Decision.md).
+
+### What was decided
+
+**Sponsor price may never be below athlete cost × 1.4**, computed from the agreed
+rate after the §6 tier multiplier, as a hard block per campaign-order line.
+
+A floor rule alone is not enough, and this is the part worth remembering: applied
+against the base-band top, 1.4× makes **every** published §5 sell floor
+unreachable for a Premium athlete. So the rate card now carries a floor per job
+per tier, derived as `base-band top × tier multiplier × 1.4` — the substance of
+the workbook's option 2 obtained by formula from option 1, with no hand
+re-pricing. SX-07 is the one job the rule cannot rescue on its own, because its
+base-band top ($750) equalled its old sell floor; its sell band becomes
+**$1,050–$2,000**.
+
+Package side: `P0-PMO-10` §3's line items adopted as written (all six clear 1.4×
+across their range, tightest is Local Blitz at 2.2×); Local Blitz narrowed to
+$1,500–$2,400 / 5–9 athletes so 10-Athlete Blitz is a distinct product; "iMC/BTG
+feature" becomes a non-NIL inventory line with a record, because §26 exclusivity
+and delivery tracking both need it to exist.
+
+### The assumption it rests on
+
+**The §5 sell-band floor is a real floor, not an opening indication staff may
+discount below.** `P0-PMO-09` §5 Q3 raised that risk and it was never answered; a
+discountable floor makes the whole rule decorative. Stated in §2 of the decision
+document rather than buried, so it is visible if the business later permits
+discounting.
+
+### Raised
+
+| Task | | |
+|---|---|---|
+| `P0-PMO-13` | Decide the margin floor rule and tier-derived sell floors | Done, order 16.5 |
+| `P3-BE-12` | Enforce the margin floor at quote and Campaign Order creation | Blocked on `P0-PMO-13` + `P3-BE-11`, order 74.5 |
+
+Both added to the Phase 1 plan document as well as the board. `P3-BE-11`'s
+Unblocks went 1 → 2; the `P0-PMO-09` and `P0-PMO-10` rows carry a RESOLVED note
+pointing at the decision rather than being reopened.
+
+### The workbook was in `public/`
+
+It was untracked at `public/SponsorX-Pricing-Collision.xlsx` — Next.js's static
+directory, so it would have served athlete cost and BTG margin at
+`/SponsorX-Pricing-Collision.xlsx` on the first deploy. Moved to
+`Claude outputs/` and committed there.
+
+### Board after
+
+**42 Done · 9 Ready · 1 In progress · 4 Code review · 131 Blocked = 187** on
+Phase 1 (343 delivery tasks, 352 with Legal). All **77 formulas verified
+identical** after rewriting them; two rows were physically inserted, so the
+Dashboard's `$I$5:$I$190` ranges, the autofilter, the three conditional-formatting
+ranges and the Status data-validation list were each extended to row 192 by hand,
+and the row heights were re-mapped so they follow their rows across the insert.
+Backed up to the session scratchpad first; `openpyxl` in a throwaway venv there.
+
+**Noticed, not fixed:** the phase sheets' subtitle totals were already stale
+before today — Phase 1's `A2` claimed 191 tasks and 451 person-days against 185
+rows and 437 days, and Roadmap `C5`/`D5` disagree with both. Every stated total
+was bumped by today's delta (+2 tasks, +4 days) on its own basis rather than
+re-baselined, because silently rewriting someone else's number on inference is
+worse than a visible inconsistency. Worth one person deciding which figure is
+authoritative.
+
+### Fixtures
+
+Checked before deciding: the tightest sponsor-price-to-athlete-cost pair in
+[src/lib/fixtures.ts](../../src/lib/fixtures.ts) is Jalen Brooks, Premium, SX-05
+at **1.67×**. Nothing in Block A's demo data contradicts the rule, so adopting it
+costs no fixture churn and `P3-BE-12` inherits a clean baseline.
+
+### Still to do
+
+End-of-day mirror of the Google Sheet by hand: two rows raised (`P0-PMO-13` Done,
+`P3-BE-12` Blocked), `P3-BE-11` Unblocks 1 → 2.
