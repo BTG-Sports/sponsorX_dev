@@ -34,6 +34,31 @@ decisions), and each `memory/YYYY-MM-DD/` subfolder logs that day's work.
 After completing any task, append to today's dated subfolder (create it first
 if missing) and update the baseline only when foundational facts change.
 
+## Local setup
+
+**Node 24.21.0 (LTS) and npm 11.x.** Next 16 needs Node 20.9 or newer.
+
+If `node -v` fails, install it **without admin rights** — no Homebrew, no
+installer, no password:
+
+```bash
+mkdir -p ~/.local && cd ~/.local
+curl -sLO https://nodejs.org/dist/v24.21.0/node-v24.21.0-darwin-arm64.tar.xz   # Apple Silicon
+tar -xf node-v24.21.0-darwin-arm64.tar.xz && mv node-v24.21.0-darwin-arm64 node
+rm node-v24.21.0-darwin-arm64.tar.xz
+echo 'export PATH="$HOME/.local/node/bin:$PATH"' >> ~/.zshrc
+```
+
+Open a new terminal, then `npm ci` in the repo. Use `node-v24.21.0-darwin-x64`
+on an Intel Mac. To undo: delete the `.zshrc` line and `rm -rf ~/.local/node`.
+
+**Verify with `npm run build`, not `npx tsc --noEmit`.** On a fresh checkout the
+typechecker reports six phantom `Cannot find name 'LayoutProps'` errors, because
+Next generates those types into `.next/types` during the build. Build first,
+then typecheck if you want it separately.
+
+**`openpyxl` is deliberately not installed** — see the task-board section below.
+
 ## Stack
 
 | Concern | Vendor |
@@ -49,6 +74,92 @@ Full rationale, rejected alternatives and revisit triggers:
 proposing any hosting, database or vendor change. Addendum A there reconciles
 the stack against Blueprint v2.0 and records what §27's open choices resolved
 to, and why.
+
+## The task board
+
+The programme is 345 tasks across the blueprint's four phases. **Three artefacts, three
+jobs** — keep them straight or they drift:
+
+| Artefact | Owns | Changes | Who |
+|---|---|---|---|
+| `documentation/SponsorX-Phase{1..4}-*.md` | The **plan** — every task's definition, plain-English detail, acceptance criteria | Only when scope changes | Anyone, by pull request |
+| `Claude outputs/SponsorX-Full-Programme-Task-Board.xlsx` | The **working tracker** — all four phases consolidated | Continuously, during the day | Every developer |
+| Google Sheet [SponsorXFullProgrammeTaskBoard](https://docs.google.com/spreadsheets/d/10PGtZb3jGBBHhbNOWwl__hS0b_HKN7EL0KRHrnSVoI0/) | The **published status** — what the team and stakeholders read | Once a day | Whoever worked that day |
+
+> **The daily rule.** During the day, tag your task **In progress** in the consolidated
+> **xlsx**, set `Owner` and `Date Started`, and move it to `Code review` then `Done` as it
+> advances. **At end of day — whatever state your tasks are in — update the Google Sheet to
+> match.** That is the copy other people read; a task left `Blocked` there when you have
+> actually finished it is a teammate idle tomorrow for no reason. Put the task ID
+> (e.g. `2S5-BE-04`) in the branch name and commit message.
+
+> **Claude updates the xlsx too — it is part of finishing a task, not a handoff.**
+> When you complete a task, edit `Claude outputs/SponsorX-Full-Programme-Task-Board.xlsx`
+> yourself in the same pass as the code, the docs and the `memory/` log: set `Status`,
+> `Owner`, `Date Started` and `Date Done`, and **add a row** when a task is newly raised.
+> Never tell the user the tracker is their step. The **Google Sheet** genuinely is theirs —
+> it is the end-of-day published mirror a person updates by hand.
+>
+> Two things that make this go wrong. **`openpyxl` is not installed** — build a throwaway
+> virtualenv in the session scratchpad rather than installing anything globally or into the
+> project, and back the workbook up there first. And **inserting a row moves no ranges**:
+> the Dashboard's `COUNTIF` / `COUNTA` / `SUMIF` formulas, the autofilter, the
+> conditional-formatting ranges and the Status data-validation list all hardcode the last
+> row, so each must be extended by hand or the Dashboard silently undercounts forever.
+> Use a fractional `Order` (e.g. `24.5`) when inserting, so no existing row needs
+> renumbering in anyone else's copy.
+
+> **The Google Sheet cannot be automated — it is mirrored by hand.** The Drive connector is
+> metadata-only for content: `update_file` changes a file's title and folder, and
+> `create_file` makes a *new* file rather than a new revision, so there is no way to write
+> cells in the published Sheet. Do not offer to update it, and do not "solve" this by
+> uploading a rival copy — the Sheet's URL is referenced in ten places across this file, the
+> four phase documents and the baseline memory, and a second copy fragments a link the team
+> already has. Mirror it by hand at end of day, as the daily rule says.
+>
+> **Copies of the xlsx sitting in Google Drive are snapshots, not the tracker.** Two such
+> uploads existed on 2026-09-11 and were renamed with an `ARCHIVE …` prefix to stop them
+> being mistaken for the live board. If you find more, treat them the same way: the local
+> xlsx is the working tracker, the Sheet is the published one, and a file in Drive is
+> neither.
+
+If a task's *definition* is wrong, fix it in the Markdown by pull request — never by quietly
+reinterpreting it in the tracker.
+
+### Where the tracker lives — changed 2026-09-14
+
+**The tracker is `Claude outputs/SponsorX-Full-Programme-Task-Board.xlsx`, and it
+IS committed.** So is `Claude outputs/SponsorX-Provisioning-Sequence.xlsx`. This
+reverses the earlier "never commit a spreadsheet" rule, deliberately.
+
+**Why it changed.** The old rule said each developer keeps a private copy in
+`documentation/` (gitignored) with the Google Sheet as the shared truth. That
+does not work, because the Sheet is not reachable from the Drive connector and
+is only ever updated by hand at end of day. In practice two developers spent
+2026-09-14 updating two different files, neither able to see the other's status:
+one had the Zoho and RBAC tasks closed, the other had the whole of Stage 1 at
+Code review. Committing one file is what makes a shared tracker actually shared.
+
+**What this means for you.**
+
+- **Edit `Claude outputs/…xlsx` and commit it** with your work, like any other
+  file. Do not edit a copy anywhere else.
+- **Expect merge conflicts on it.** A binary file cannot be merged by git. If
+  you hit one, take the other side's version, re-apply your own rows by hand,
+  and commit — do not resolve it by discarding theirs. Keep your edits to the
+  rows you own and conflicts stay rare.
+- **`documentation/*.xlsx` remains gitignored** and is now **dead**. Two stale
+  copies exist as of 2026-09-14 — one in `documentation/`, one at the repo
+  root — and neither is the tracker. Do not read status from them. They are
+  kept only until someone confirms they can go.
+- **The Google Sheet is unchanged**: still the published mirror, still updated
+  by hand at end of day, still the copy stakeholders read.
+
+**Phase files:**
+[Phase 1 · Managed Marketplace](documentation/SponsorX-Phase1-Managed-Marketplace.md) (186 tasks) ·
+[Phase 2 · Marketplace & Commerce](documentation/SponsorX-Phase2-Marketplace-Commerce.md) (64) ·
+[Phase 3 · Intelligence & Attribution](documentation/SponsorX-Phase3-Intelligence-Attribution.md) (44) ·
+[Phase 4 · INFINEX Integration](documentation/SponsorX-Phase4-INFINEX-Integration.md) (51)
 
 ## Architecture rules
 

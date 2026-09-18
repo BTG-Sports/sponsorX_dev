@@ -1,13 +1,14 @@
 import Link from "next/link";
-import { Badge, Card, SectionHeading } from "@/components/ui";
+import { Card, SectionHeading } from "@/components/ui";
 import {
   AreaChart,
+  BarStrip,
   FunnelSteps,
-  Sparkline,
   TrustMeter,
   compact,
 } from "@/components/charts";
 import { HeroBand, InsightStrip, MiniChip, Monogram } from "@/components/hero";
+import { SponsorPortfolioList } from "@/components/sponsor-portfolio-list";
 import { EmptyState, SkeletonPage } from "@/components/states";
 import { demoState } from "@/lib/demo";
 import {
@@ -33,13 +34,6 @@ import {
    the break-even flag is attributed-revenue-vs-spend, and the trust meter is
    the provenance mix itself. Fixtures only — nothing is wired.
    -------------------------------------------------------------------------- */
-
-const CAMPAIGN_TONE = {
-  ACTIVE: "accent",
-  REPORTING: "primary",
-  STAFFING: "warn",
-  COMPLETED: "neutral",
-} as const;
 
 const spentPct = Math.round((sponsorBudget.spent / sponsorBudget.contracted) * 100);
 
@@ -86,6 +80,27 @@ export default async function SponsorDashboardPage({
 
   const totalSpend = sponsorCampaigns.reduce((n, c) => n + c.spend, 0);
 
+  /* Shape the compact portfolio rows here (server) and hand them to the
+     client island, which paginates them — a portfolio can outgrow one page. */
+  const portfolioRows = sponsorCampaigns.map((c) => {
+    const x = sponsorCampaignsX[c.id];
+    const [done, total] = c.deliverables;
+    return {
+      id: c.id,
+      name: c.name,
+      pkg: c.pkg,
+      athletes: c.athletes,
+      endsIn: x.endsIn,
+      monogram: x.monogram,
+      views: x.views,
+      spend: c.spend,
+      done,
+      total,
+      behind: x.pacing === "BEHIND",
+      state: c.state,
+    };
+  });
+
   return (
     <div className="space-y-5">
       {/* ---------------------------------------------------------- header */}
@@ -105,7 +120,7 @@ export default async function SponsorDashboardPage({
           <button
             type="button"
             title="Queues render-report on the worker — not wired"
-            className="rounded-lg bg-primary px-3.5 py-1.5 text-[11px] font-medium text-white transition-colors hover:bg-primary-soft"
+            className="rounded-lg bg-primary px-3.5 py-1.5 text-[11px] font-medium text-cta-ink transition-colors hover:bg-primary-soft"
           >
             Export report
           </button>
@@ -196,7 +211,7 @@ export default async function SponsorDashboardPage({
             <span className="text-xs font-medium text-success">+8.7%</span>
           </p>
           <div className="mt-2">
-            <Sparkline points={engagementSpark} />
+            <BarStrip points={engagementSpark} />
           </div>
           <p className="mt-1.5 text-[10px] text-faint">
             5.2% avg rate · MetricDaily
@@ -229,10 +244,8 @@ export default async function SponsorDashboardPage({
             <FunnelSteps stages={funnelDetail.stages} compact />
           </div>
           <p className="mt-1.5 text-[10px] text-faint">
-            8,200 →{" "}
-            <strong className="text-accent">1,870</strong> (
-            {funnelDetail.overallPct}%) · median {funnelDetail.medianRedeemHours}h
-            to redeem
+            <strong className="text-accent">{funnelDetail.overallPct}%</strong>{" "}
+            convert · median {funnelDetail.medianRedeemHours}h to redeem
           </p>
         </Card>
 
@@ -278,64 +291,7 @@ export default async function SponsorDashboardPage({
             hint={`${money(totalSpend)} contracted across ${sponsorCampaigns.length} campaigns`}
           />
           <Card className="p-0">
-            <ul className="divide-y divide-line-soft">
-              {sponsorCampaigns.map((c) => {
-                const x = sponsorCampaignsX[c.id];
-                const [done, total] = c.deliverables;
-                const behind = x.pacing === "BEHIND";
-                return (
-                  <li key={c.id} className="px-4 py-3.5">
-                    <div className="flex items-center gap-3">
-                      <Monogram
-                        text={x.monogram}
-                        tone={behind ? "accent" : "primary"}
-                      />
-                      <div className="min-w-0 flex-1">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <span className="text-xs font-semibold tracking-tight">
-                            {c.name}
-                          </span>
-                          {behind ? (
-                            <Badge tone="warn">Pacing behind</Badge>
-                          ) : (
-                            <Badge tone={CAMPAIGN_TONE[c.state]}>
-                              {c.state.toLowerCase()}
-                            </Badge>
-                          )}
-                        </div>
-                        <p className="mt-0.5 truncate text-[11px] text-faint">
-                          {c.pkg} · {c.athletes} athletes · {x.endsIn}
-                        </p>
-                      </div>
-                      <div className="shrink-0 text-right">
-                        <p className="text-xs font-semibold tabular-nums">
-                          {compact(x.views)}{" "}
-                          <span className="font-normal text-faint">views</span>
-                        </p>
-                        <p className="mt-0.5 text-[11px] tabular-nums text-muted">
-                          {money(c.spend)}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="mt-2.5 flex items-center gap-3 pl-11">
-                      <div className="h-1 min-w-0 flex-1 overflow-hidden rounded-full bg-surface-2">
-                        <div
-                          className={
-                            behind
-                              ? "h-full rounded-full bg-warn"
-                              : "h-full rounded-full bg-gradient-to-r from-primary to-primary-soft"
-                          }
-                          style={{ width: `${(done / total) * 100}%` }}
-                        />
-                      </div>
-                      <span className="shrink-0 text-[10px] tabular-nums text-faint">
-                        {done}/{total} deliverables
-                      </span>
-                    </div>
-                  </li>
-                );
-              })}
-            </ul>
+            <SponsorPortfolioList rows={portfolioRows} />
           </Card>
           <p className="mt-2 text-[10px] text-faint">
             Pacing compares delivery progress against elapsed campaign time.
@@ -397,7 +353,7 @@ export default async function SponsorDashboardPage({
                 <button
                   type="button"
                   title="Creates a renewal opportunity in Zoho via the queue — not wired"
-                  className="w-full rounded-lg bg-primary px-4 py-2.5 text-xs font-medium text-white transition-colors hover:bg-primary-soft"
+                  className="w-full rounded-lg bg-primary px-4 py-2.5 text-xs font-medium text-cta-ink transition-colors hover:bg-primary-soft"
                 >
                   Discuss renewal
                 </button>

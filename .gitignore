@@ -40,3 +40,11 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 .superpowers/
+
+# Task board spreadsheets live in Google Drive, never in the repo
+# (they go stale against the Sheet and cannot be diffed)
+documentation/*.xlsx
+documentation/*.xls
+
+# Prisma 7 generated client (Guide §02 — output set in prisma/schema.prisma)
+/src/generated/prisma

@@ -1,0 +1,21 @@
+stateDiagram-v2
+%% §21 machine 6 of 8 — Campaign  (Prisma enum: CampaignState)
+%% §21: DRAFT -> STAFFING -> APPROVAL -> ACTIVE -> REPORTING -> COMPLETED / CANCELLED
+    direction TB
+    [*] --> DRAFT : created from an approved brief
+    DRAFT --> STAFFING : matching and invitations go out
+    STAFFING --> APPROVAL : roster agreed with the sponsor
+    APPROVAL --> STAFFING : sponsor wants a different roster (derived)
+    APPROVAL --> ACTIVE : orders accepted, work begins
+    ACTIVE --> REPORTING : delivery finished, results being compiled
+    REPORTING --> COMPLETED : sponsor report delivered
+    ACTIVE --> CANCELLED : cancelled in flight
+    STAFFING --> CANCELLED : cancelled before it started
+    COMPLETED --> [*]
+    CANCELLED --> [*]
+
+    note right of REPORTING
+      The sponsor report is the document that earns
+      the renewal — REPORTING is a real working state,
+      not a formality.
+    end note

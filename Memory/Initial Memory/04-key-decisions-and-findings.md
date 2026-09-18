@@ -16,23 +16,20 @@
 - **Zoho dual system-of-record:** risk of drift/duplicates → external IDs + queued retries + clear ownership per object.
 - **The operating loop IS the product:** if the loop works for the first ~25 athletes and ~10 businesses, later phases are justified; if not, nothing else matters.
 
-## ⚠️ Open discrepancy — stack baseline vs. current CLAUDE.md
-This `Initial Memory` baseline (see `02-confirmed-tech-stack.md`) records the
-stack as **Node.js + Express / Prisma / Redis / MinIO**. The current project
-`CLAUDE.md` and `.claude/stack-decision.md` have since moved to a different
-stack:
+## ✅ Resolved 2026-09-15 — stack baseline reconciled (`P0-PMO-12`)
 
-| Concern | Baseline memory (02) | Current CLAUDE.md / stack-decision.md |
-|---|---|---|
-| API layer | Node.js + Express (separate) | **Next.js route handlers** under `/api/v1` (one service, TS everywhere) |
-| Hosting | (unspecified) | **Railway** (app + API + PDF worker + Postgres) |
-| Object storage | MinIO | **Cloudflare R2** (public CDN + private signed buckets) |
-| Cache / queue | Redis + BullMQ | **Postgres** job queue (no Redis — Addendum A3) |
-| Auth | (app-managed) | **Clerk** (identity only; authz stays in Postgres) |
+This section previously flagged that `02-confirmed-tech-stack.md` still
+described Node/Express + Redis + MinIO while `CLAUDE.md` and
+`.claude/stack-decision.md` had moved to Next route handlers on Railway with
+Postgres queues, R2 and Clerk. It was left deliberately un-corrected pending
+team agreement.
 
-The baseline snapshot predates the stack decision. **Not auto-corrected** —
-reconcile with the team before editing `02-confirmed-tech-stack.md`; the
-`.claude/stack-decision.md` Addendum A is the current source of truth.
+**`02-confirmed-tech-stack.md` has now been rewritten to the current stack**,
+with the superseded 2026-09-10 version kept at the bottom of that file and
+labelled as such, plus a short note on why each component changed.
+
+`.claude/stack-decision.md` remains the source of truth. If the baseline and
+that file ever disagree again, believe `stack-decision.md`.
 
 ## Risks tracked (with mitigations)
 | Risk | Mitigation |

@@ -104,8 +104,15 @@ the Master Development Blueprint v2.0.
       Expected outcome: earnings *status* tracking only, no tax ID collected,
       no restricted store needed (Addendum A6). Confirm with whoever runs
       payouts.
-- [ ] **Data residency.** Likely US-only (Addendum A7). Confirm with counsel,
-      then set Railway and R2 regions explicitly rather than by default.
+- [x] **Data residency — decided: US, East region.** Confirmed 2026-09-11.
+      Jurisdiction is US-only (Addendum A7). Region is **US East**, not West:
+      the prelaunch materials target the **DMV** (DC / Maryland / Virginia) and
+      Baltimore, and the org's registered number is a 443 area code. Set
+      **Railway `us-east4-eqdc4a` (Virginia)** and **R2 location hint `ENAM`**
+      explicitly at creation — both are fixed when the resource is created.
+      *(Note: the Zoho org's timezone is set to PST, which contradicts a DMV
+      operation and should be corrected there — it skews every CRM timestamp
+      by three hours.)*
 - [ ] **Transactional email provider.** Resend / Postmark / SES — pick when the
       first notification is built (Addendum A1).
 - [ ] **Guardian e-signature for minors.** Click-wrap covers Phase 1
@@ -245,7 +252,7 @@ requires before coding starts.
 Still to confirm with whoever runs payouts: whether anything in the manual
 process pushes a tax ID into the app anyway.
 
-## A7. Data residency — probably US
+## A7. Data residency — decided: US East
 
 The concern above was raised speculatively. The blueprint states no geography,
 but NIL is a US legal construct, §1 targets "local and regional businesses,"
@@ -255,6 +262,17 @@ selection.
 
 Confirm with counsel alongside §37's pre-pilot privacy review, then set regions
 explicitly rather than accepting defaults.
+
+**Resolved 2026-09-11.** US-only is confirmed. The region question the section
+left open resolves to **East**: the prelaunch campaign materials target the DMV
+(DC / Maryland / Virginia) and Baltimore, so the athletes, sponsors and fans are
+Mid-Atlantic. Concretely — Railway `us-east4-eqdc4a` (Virginia) and Cloudflare R2
+location hint `ENAM`. Both are set at resource creation and cannot be changed
+afterwards without a migration, so this decision gates `P0-OPS-02` (R2 buckets)
+and `P2-OPS-01` (Railway project).
+
+Counsel's §37 pre-pilot privacy review is a separate, still-open item — it
+governs *what* may be collected, not *where* it is stored.
 
 ## A8. R2 carries two access patterns, not one
 

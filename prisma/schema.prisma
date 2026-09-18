@@ -1,0 +1,25 @@
+// SponsorX — Prisma schema
+//
+// SKELETON ONLY (P2-BE-01). This file carries the datasource and the generator
+// so that `prisma validate` and client generation work and the client output
+// path is explicit, per Guide §02.
+//
+// The actual data model is P2-BE-02 — "Author the full Prisma schema + initial
+// migration", a five-day task whose acceptance is: every §20 table modelled;
+// tenantId on everything; all eight §21 state machines as enums; external IDs +
+// lastSyncOrigin + lastSyncHash on every Zoho-touched model. Do not add tables
+// here piecemeal — that task writes the structure in one go, deliberately.
+
+generator client {
+  provider = "prisma-client"
+
+  // Explicit output path (Guide §02). Gitignored — generated, never committed.
+  output = "../src/generated/prisma"
+}
+
+// Prisma 7: `url` is NOT permitted here any more. The connection string for
+// Migrate lives in prisma.config.ts, and PrismaClient itself is constructed
+// with an adapter. See https://pris.ly/d/config-datasource
+datasource db {
+  provider = "postgresql"
+}

@@ -1,36 +1,29 @@
-import Link from "next/link";
-import { Badge, Button, Card, Meter } from "@/components/ui";
-import { FunnelSteps, HBarList } from "@/components/charts";
-import { MiniChip } from "@/components/hero";
+import { SectionHeading } from "@/components/ui";
+import { FunnelSteps } from "@/components/charts";
+import { HeroBand, MiniChip } from "@/components/hero";
+import { ApplicationsDesk } from "@/components/applications-desk";
 import { EmptyState, SkeletonPage } from "@/components/states";
 import { demoState } from "@/lib/demo";
-import {
-  APPLICATION_COPY,
-  adminPipeline,
-  applications,
-  type ApplicationState,
-} from "@/lib/fixtures";
+import { AGING_HOURS, waitHours } from "@/lib/applications-ui";
+import { adminPipeline, applications } from "@/lib/fixtures";
 
 /* --------------------------------------------------------------------------
    Athlete Network Manager Workspace — application review, §10 · §23 · §14.
+   Redesigned 2026-09-14 (UX feedback: the old page was a flat card dump —
+   every application fully expanded, spec jargon in the copy, dead buttons).
 
-   The queue the Network Manager works: review a submitted application, read
-   the Content Value Score factor snapshot, check social verification,
-   restrictions/conflicts and (for minors) guardian verification, then approve
-   into the network. Approval is what confirms the rate card downstream (B2).
+   The page now works like a desk: a hero band answers "how is the queue
+   doing" (waiting count, aging alert, funnel, review pace), and the queue
+   itself is the ApplicationsDesk client island — tabs, instant search and
+   filters, a score ring per row, and a slide-over review drawer where the
+   §14 factor snapshot, the §4 guardian gate and the §26 conflict check live.
+   Approve / Request info / Reject are the §11 B1 transitions, working
+   locally on fixtures ("this visit only") until the backend lands.
 
    §14: the score is rules-based in Phase 1 (`method: "rules-v1"`) and stored
-   as a factor snapshot so it can be explained after the fact — not a black-box
-   number. Approval and rejection are the wireable transitions (B1); shown here
-   on fixtures.
+   as a factor snapshot so it can be explained after the fact — the drawer
+   shows exactly that snapshot. Approval confirms the rate card (B2).
    -------------------------------------------------------------------------- */
-
-const STATE_TONE: Record<ApplicationState, "primary" | "warn" | "accent" | "danger"> = {
-  SUBMITTED: "primary",
-  UNDER_REVIEW: "warn",
-  APPROVED: "accent",
-  REJECTED: "danger",
-};
 
 export default async function AdminApplicationsPage({
   searchParams,
@@ -47,8 +40,8 @@ export default async function AdminApplicationsPage({
         Athlete applications
       </h1>
       <p className="mt-1 text-xs text-muted">
-        §11 funnel DRAFT → SUBMITTED → UNDER_REVIEW → APPROVED → ACTIVE.
-        Approval confirms the rate card (B2).
+        Review new athletes, check the score and safeguards, and approve them
+        into the network.
       </p>
     </div>
   );
@@ -67,177 +60,111 @@ export default async function AdminApplicationsPage({
     );
   }
 
-  const queue = applications.filter(
+  const waiting = applications.filter(
     (a) => a.state === "SUBMITTED" || a.state === "UNDER_REVIEW",
   );
+  const overdue = waiting.filter((a) => waitHours(a.submittedAt) > AGING_HOURS);
+
+  // Seed the desk's tabs and filters from the URL so a filtered queue is
+  // shareable; the island clamps stale values and keeps the URL in sync.
+  const sp = await searchParams;
+  const one = (v: string | string[] | undefined) =>
+    typeof v === "string" ? v : "";
 
   return (
     <div className="space-y-6">
       {/* -------------------------------------------------------- headline */}
-      <div>
-        <h1 className="text-xl font-semibold tracking-tight">
-          Athlete applications
-        </h1>
-        <p className="mt-1 text-xs text-muted">
-          {queue.length} awaiting review · §11 funnel DRAFT → SUBMITTED →
-          UNDER_REVIEW → APPROVED → ACTIVE. Approval confirms the rate card (B2).
-        </p>
-      </div>
+      {heading}
 
-      {/* -------------------------------------------------------- pipeline */}
-      <div className="grid gap-4 md:grid-cols-2">
-        <Card className="sx-animate sx-delay-1 p-4">
-          <p className="text-[11px] font-medium uppercase tracking-wide text-muted">
-            Pipeline · this quarter
-          </p>
-          <div className="mt-3">
-            <FunnelSteps stages={adminPipeline.stages} />
-          </div>
-          <p className="mt-3 flex items-center gap-1.5 text-[10px] text-faint">
-            count Athlete by state <MiniChip kind="ver">POSTGRES</MiniChip>
-          </p>
-        </Card>
+      {/* ------------------------------------------------------- hero band */}
+      <HeroBand border="border-admin/25" className="sx-animate">
+        <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-center">
+          <div>
+            <p className="text-[10px] font-medium uppercase tracking-[0.2em] text-muted">
+              Review queue
+            </p>
+            <p className="mt-1 flex flex-wrap items-baseline gap-2">
+              <span className="bg-[linear-gradient(90deg,var(--sx-admin),var(--sx-primary))] bg-clip-text text-4xl font-bold tabular-nums tracking-tight text-transparent sm:text-5xl">
+                {waiting.length}
+              </span>
+              <span className="text-sm text-muted">
+                {waiting.length === 1 ? "athlete" : "athletes"} waiting
+              </span>
+              <MiniChip kind="ver">POSTGRES</MiniChip>
+            </p>
 
-        <Card className="sx-animate sx-delay-2 p-4">
-          <p className="text-[11px] font-medium uppercase tracking-wide text-muted">
-            Quality · score distribution
-          </p>
-          <div className="mt-3">
-            <HBarList rows={adminPipeline.scoreBands} />
-          </div>
-          <p className="mt-3 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
-            <span className="text-muted">Median review</span>
-            <span className="font-semibold text-text">
-              {adminPipeline.medianReviewHours}h
-            </span>
-            <span className="text-muted">· Approval rate</span>
-            <span className="font-semibold text-text">
-              {adminPipeline.approvalRatePct}%
-            </span>
-            <MiniChip kind="ver">POSTGRES</MiniChip>
-          </p>
-        </Card>
-      </div>
-
-      {/* ----------------------------------------------------------- list */}
-      <div className="space-y-4">
-        {applications.map((a) => (
-          <Card key={a.id}>
-            <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_16rem] lg:items-start">
-              {/* ------------------------------------------- applicant */}
-              <div className="min-w-0">
-                <div className="flex flex-wrap items-center gap-2">
-                  <Link
-                    href={`/athletes/${a.slug}?from=applications`}
-                    className="text-sm font-semibold tracking-tight hover:text-accent"
-                  >
-                    {a.name}
-                  </Link>
-                  <Badge tone={STATE_TONE[a.state]}>
-                    {APPLICATION_COPY[a.state]}
-                  </Badge>
-                  {a.isMinor && <Badge tone="warn">Minor · §4</Badge>}
-                </div>
-                <p className="mt-1 text-xs text-muted">
-                  {a.sport} · {a.region} · {a.followers.toLocaleString()}{" "}
-                  followers <MiniChip kind="warn">SELF</MiniChip> · submitted{" "}
-                  {a.submittedAt}
-                </p>
-
-                {a.flags.length > 0 && (
-                  <ul className="mt-3 space-y-1">
-                    {a.flags.map((f) => (
-                      <li
-                        key={f}
-                        className="flex gap-2 text-[11px] text-danger"
-                      >
-                        <span aria-hidden="true">▲</span>
-                        <span>{f}</span>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-
-                {a.isMinor && (
-                  <div className="mt-3 flex items-center gap-2 text-[11px]">
-                    <span className="text-faint">Guardian</span>
-                    {a.guardianVerified ? (
-                      <Badge tone="accent">Verified</Badge>
-                    ) : (
-                      <Badge tone="warn">Verification pending</Badge>
-                    )}
-                  </div>
-                )}
-
-                <div className="mt-4 flex flex-wrap items-center gap-2">
-                  {a.state === "SUBMITTED" || a.state === "UNDER_REVIEW" ? (
-                    <>
-                      <Button
-                        disabled={a.isMinor && !a.guardianVerified}
-                        title={
-                          a.isMinor && !a.guardianVerified
-                            ? "Blocked: a minor needs a verified guardian before approval (§4)"
-                            : "Approve into the network — not wired (B1)"
-                        }
-                      >
-                        Approve
-                      </Button>
-                      <Button variant="secondary" title="Request changes — not wired">
-                        Request info
-                      </Button>
-                      <Button variant="ghost" title="Reject — not wired">
-                        Reject
-                      </Button>
-                    </>
-                  ) : (
-                    <Badge tone={a.state === "APPROVED" ? "accent" : "danger"}>
-                      {a.state === "APPROVED" ? "In the network" : "Rejected"}
-                    </Badge>
-                  )}
-                </div>
-              </div>
-
-              {/* ------------------------------------- score snapshot */}
-              <div className="rounded-xl border border-line bg-surface-2 p-4">
-                <div className="flex items-baseline justify-between gap-2">
-                  <span className="text-[11px] font-medium uppercase tracking-wide text-muted">
-                    Content Value Score
+            <div className="mt-4 space-y-2.5 text-xs text-muted">
+              {overdue.length > 0 ? (
+                <p className="flex items-center gap-2">
+                  <span className="relative inline-flex size-2 shrink-0" aria-hidden="true">
+                    <span className="sx-viz-pulse absolute inset-0 rounded-full bg-warn" />
+                    <span className="relative inline-flex size-2 rounded-full bg-warn" />
                   </span>
-                  <span className="flex items-center gap-2">
-                    <MiniChip kind="neutral">rules-v1 · POSTGRES</MiniChip>
-                    <span className="text-xl font-semibold tabular-nums">
-                      {a.score.total}
-                    </span>
+                  <span>
+                    <strong className="font-semibold text-text">
+                      {overdue.length}
+                    </strong>{" "}
+                    waiting over 48 hours — the queue below puts them first
                   </span>
-                </div>
-                <ul className="mt-3 space-y-2">
-                  {a.score.factors.map((f) => (
-                    <li key={f.label}>
-                      <div className="flex items-baseline justify-between text-[11px]">
-                        <span className="text-muted">{f.label}</span>
-                        <span className="tabular-nums text-faint">{f.value}</span>
-                      </div>
-                      <div className="mt-1">
-                        <Meter value={f.value} />
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-                <p className="mt-3 text-[10px] leading-relaxed text-faint">
-                  method{" "}
-                  <code className="font-mono">{a.score.method}</code> · §14.
-                  Rules-based in Phase 1; algorithmic scoring is Phase 3.
                 </p>
-              </div>
+              ) : (
+                <p className="flex items-center gap-2">
+                  <span
+                    className="inline-flex size-2 shrink-0 rounded-full bg-success"
+                    aria-hidden="true"
+                  />
+                  <span>Queue is fresh — nothing waiting over 48 hours</span>
+                </p>
+              )}
+              <p className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                Median review
+                <strong className="font-semibold text-text">
+                  {adminPipeline.medianReviewHours}h
+                </strong>
+                · approval rate
+                <strong className="font-semibold text-text">
+                  {adminPipeline.approvalRatePct}%
+                </strong>
+                <MiniChip kind="ver">POSTGRES</MiniChip>
+              </p>
             </div>
-          </Card>
-        ))}
-      </div>
+          </div>
 
-      <p className="text-[10px] leading-relaxed text-faint">
-        The compliance checklist here gates §37&rsquo;s pre-pilot gate: an
-        athlete cannot go ACTIVE with an unverified guardian or an unresolved
-        category conflict (§26).
+          <div className="min-w-0">
+            <p className="text-[11px] font-medium uppercase tracking-wide text-muted">
+              Pipeline · this quarter
+            </p>
+            <div className="mt-2">
+              <FunnelSteps stages={adminPipeline.stages} />
+            </div>
+          </div>
+        </div>
+      </HeroBand>
+
+      {/* ----------------------------------------------------------- desk */}
+      <section className="sx-animate sx-delay-1">
+        <SectionHeading
+          title="The queue"
+          hint="Click an application to review it — search and filters apply instantly."
+        />
+        <ApplicationsDesk
+          items={applications}
+          demoParam={one(sp.demo) || undefined}
+          initial={{
+            tab: one(sp.tab),
+            q: one(sp.q),
+            sport: one(sp.sport),
+            flag: one(sp.flag),
+            sort: one(sp.sort),
+          }}
+        />
+      </section>
+
+      {/* ------------------------------------------------------ trust note */}
+      <p className="sx-animate sx-delay-2 text-[10px] leading-relaxed text-faint">
+        An athlete cannot go live with an unverified guardian or an unresolved
+        category conflict — approval is also what confirms their rate card
+        downstream.
       </p>
     </div>
   );

@@ -18,7 +18,7 @@ const ROUTES = [
   { href: "/property", title: 'Property Portal', ref: '§8 PROPERTY_MGR', surface: 'property portal' },
   { href: "/admin", title: 'BTG Admin Command Center', ref: '§10 · §23', surface: 'admin' },
   { href: "/admin/applications", title: 'Athlete Network Manager Workspace', ref: '§10 · §23', surface: 'admin' },
-  { href: "/admin/campaigns/new", title: 'Campaign Builder + Athlete Matching', ref: '§9 screen 8', surface: 'admin' },
+  { href: "/admin/campaigns", title: 'Campaigns + Builder (Athlete Matching)', ref: '§9 screen 8', surface: 'admin' },
   { href: "/admin/campaigns/demo-campaign", title: 'Campaign Operations Dashboard', ref: '§9 screen 9', surface: 'admin' },
   { href: "/admin/approvals", title: 'Content Approval Workspace', ref: '§10', surface: 'admin' },
   { href: "/admin/rewards/new", title: 'QR / Reward Creator', ref: '§9 screen 10 · §16', surface: 'admin' },

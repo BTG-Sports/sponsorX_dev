@@ -1,0 +1,31 @@
+flowchart TD
+%% Page 9 of 11 — Stage 8. Tracking and the fan reward. §16 QR workflow.
+    IN[/"FROM PAGE 8 · deliverable PUBLISHED"/]:::conn
+    H1["Unique tracking link and QR minted per athlete"]:::system
+    H2["Athlete shares the link or QR"]:::athlete
+    H3["Fan scans the QR or follows the link"]:::fan
+    EV1["RewardEvent · SCAN"]:::state
+    H4["Fan lands on the public reward page, no login"]:::fan
+    EV2["RewardEvent · LANDING"]:::state
+    CLAIM{"Fan claims<br/>the offer?"}
+    ENDF(["END · scan recorded, nothing claimed"]):::term
+    H5["Fan consents and gives an email"]:::fan
+    EV3["RewardEvent · CLAIM"]:::state
+    H6["Coupon or token issued"]:::system
+    RED{"Redeemed at<br/>the venue?"}
+    EV4["RewardEvent · REDEEM"]:::state
+    OUT[/"CONTINUES ON PAGE 10"/]:::conn
+
+    IN --> H1 --> H2 --> H3 --> EV1 --> H4 --> EV2 --> CLAIM
+    CLAIM -- "no" --> ENDF
+    CLAIM -- "yes" --> H5 --> EV3 --> H6 --> RED
+    RED -- "no" --> ENDF
+    RED -- "yes" --> EV4 --> OUT
+    classDef athlete fill:#E3EEFB,stroke:#1F4E9C,stroke-width:1.5px,color:#0A0C10
+    classDef btg fill:#FFF1E0,stroke:#C97A16,stroke-width:1.5px,color:#0A0C10
+    classDef sponsor fill:#E4F4EC,stroke:#1E7A52,stroke-width:1.5px,color:#0A0C10
+    classDef fan fill:#F0E8FA,stroke:#6B3FA0,stroke-width:1.5px,color:#0A0C10
+    classDef system fill:#EFF2F6,stroke:#5A6676,stroke-width:1.5px,color:#0A0C10
+    classDef state fill:#FFFFFF,stroke:#3A4759,stroke-width:1.5px,stroke-dasharray:4 3,color:#0A0C10
+    classDef conn fill:#0A0C10,stroke:#0A0C10,color:#FFFFFF
+    classDef term fill:#1F4E9C,stroke:#1F4E9C,color:#FFFFFF,stroke-width:2px

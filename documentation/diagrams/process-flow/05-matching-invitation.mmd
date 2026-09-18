@@ -1,0 +1,30 @@
+flowchart TD
+%% Page 6 of 11 — Stage 5. Matching and invitation. §13 steps 3-5, §26, §21 InviteState.
+    IN[/"FROM PAGE 5 · campaign is STAFFING"/]:::conn
+    E1["Eligible athletes filtered by sport, geo, tier"]:::system
+    E2["Conflict and category check · §26"]:::system
+    E3["Campaign Manager selects athletes by hand"]:::btg
+    E4["Invitations sent with the offered amount"]:::btg
+    ST1["InviteState · INVITED"]:::state
+    E5["Athlete opens the invitation"]:::athlete
+    ST2["InviteState · VIEWED"]:::state
+    RESP{"Responds?"}
+    ST3["InviteState · EXPIRED"]:::state
+    ST4["InviteState · DECLINED"]:::state
+    E7["Roster short — invite another athlete"]:::btg
+    ST5["InviteState · ACCEPTED"]:::state
+    OUT[/"CONTINUES ON PAGE 7"/]:::conn
+
+    IN --> E1 --> E2 --> E3 --> E4 --> ST1 --> E5 --> ST2 --> RESP
+    RESP -- "no response" --> ST3 --> E7
+    RESP -- "declines" --> ST4 --> E7
+    E7 --> E3
+    RESP -- "accepts" --> ST5 --> OUT
+    classDef athlete fill:#E3EEFB,stroke:#1F4E9C,stroke-width:1.5px,color:#0A0C10
+    classDef btg fill:#FFF1E0,stroke:#C97A16,stroke-width:1.5px,color:#0A0C10
+    classDef sponsor fill:#E4F4EC,stroke:#1E7A52,stroke-width:1.5px,color:#0A0C10
+    classDef fan fill:#F0E8FA,stroke:#6B3FA0,stroke-width:1.5px,color:#0A0C10
+    classDef system fill:#EFF2F6,stroke:#5A6676,stroke-width:1.5px,color:#0A0C10
+    classDef state fill:#FFFFFF,stroke:#3A4759,stroke-width:1.5px,stroke-dasharray:4 3,color:#0A0C10
+    classDef conn fill:#0A0C10,stroke:#0A0C10,color:#FFFFFF
+    classDef term fill:#1F4E9C,stroke:#1F4E9C,color:#FFFFFF,stroke-width:2px

@@ -1,28 +1,28 @@
 import Link from "next/link";
-import { Badge, Card } from "@/components/ui";
-import { MiniChip, Monogram, initials } from "@/components/hero";
-import { compact } from "@/components/charts";
+import { Card } from "@/components/ui";
 import { EmptyState, SkeletonPage } from "@/components/states";
 import { demoState } from "@/lib/demo";
 import {
-  INVENTORY_COPY,
+  AthleteCatalog,
+  MediaCatalog,
+  PackagesCatalog,
+  type CatalogInitial,
+} from "@/components/marketplace-catalog";
+import {
   athleteInv,
   marketplacePackages,
   mediaInv,
-  money,
-  type InventoryState,
 } from "@/lib/fixtures";
 
 /* --------------------------------------------------------------------------
-   Sponsor Marketplace — §9 screen 4, redesigned per spec 2026-09-11.
+   Sponsor Marketplace — §9 screen 4, redesigned per spec 2026-09-11 and wired
+   for real client-side filtering 2026-09-15.
 
-   Same catalogue structure as before (three tabs, packages first, §17 managed
-   marketplace — "Request" and "Add to brief", never checkout), with the new
-   visual language: gradient identity bands, 3-stat strips with provenance
-   chips, filter chips.
-
-   Filters stay decorative: §9.4 wants sport, geography, athlete tier, job
-   type and budget, which needs the eligibility query from §13 step 3 (B3).
+   Three tabs (packages first, §17 managed marketplace — "Request" and "Add to
+   brief", never checkout). Each tab is now a live client island
+   (marketplace-catalog): instant search, filter dropdowns and sort, active
+   filters as dismissible chips, page-size + numbered pager, all URL-synced.
+   The tab strip stays a server-rendered nav (?tab=), preserving the demo param.
 
    Sponsor prices only. AthleteRate.amount never reaches this page — the
    field-level rule in guide §04, a §30 acceptance test.
@@ -35,74 +35,6 @@ const TABS = [
 ] as const;
 
 type TabKey = (typeof TABS)[number]["key"];
-
-const STATE_TONE: Record<InventoryState, "accent" | "warn" | "primary" | "neutral"> = {
-  ACTIVE: "accent",
-  LIMITED: "warn",
-  BOOKED: "primary",
-  SOLD_OUT: "neutral",
-};
-
-function Chevron() {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      className="size-3"
-      aria-hidden="true"
-    >
-      <path d="m6 9 6 6 6-6" />
-    </svg>
-  );
-}
-
-function FilterChips() {
-  return (
-    <div className="sx-snap-x flex gap-2 overflow-x-auto pb-1 sm:flex-wrap sm:overflow-visible sm:pb-0">
-      <button
-        type="button"
-        title="Filters not wired — needs the §13 eligibility query"
-        className="flex shrink-0 items-center gap-1.5 rounded-full border border-primary/30 bg-primary/15 px-3 py-1.5 text-[11px] font-medium text-primary-soft"
-      >
-        Basketball ✕
-      </button>
-      {["Sport", "Geography", "Tier", "Budget"].map((f) => (
-        <button
-          key={f}
-          type="button"
-          title="Filters not wired — needs the §13 eligibility query"
-          className="flex shrink-0 items-center gap-1.5 rounded-full border border-line bg-surface px-3 py-1.5 text-[11px] font-medium text-muted transition-colors hover:text-text"
-        >
-          {f}
-          <Chevron />
-        </button>
-      ))}
-    </div>
-  );
-}
-
-/** Shared card frame: identity band on top, body below. */
-function IdentityCard({
-  dimmed,
-  band,
-  children,
-}: {
-  dimmed?: boolean;
-  band: React.ReactNode;
-  children: React.ReactNode;
-}) {
-  return (
-    <Card className={["overflow-hidden p-0", dimmed ? "opacity-75" : ""].join(" ")}>
-      <div className="flex items-center gap-3 bg-gradient-to-br from-primary/20 to-transparent p-4">
-        {band}
-      </div>
-      {children}
-    </Card>
-  );
-}
 
 export default async function MarketplacePage({
   searchParams,
@@ -127,8 +59,8 @@ export default async function MarketplacePage({
     </div>
   );
 
-  /* Filters (or a brand-new sponsor) can legitimately zero out the catalogue
-     — the empty state says so instead of rendering three blank tabs. */
+  /* A brand-new sponsor can legitimately have an empty catalogue — the empty
+     state says so instead of rendering three blank tabs. */
   if (demo === "empty") {
     return (
       <div className="space-y-5">
@@ -144,10 +76,24 @@ export default async function MarketplacePage({
     );
   }
 
-  const { tab } = await searchParams;
-  const active: TabKey = TABS.some((t) => t.key === tab)
-    ? (tab as TabKey)
+  const sp = await searchParams;
+  const active: TabKey = TABS.some((t) => t.key === sp.tab)
+    ? (sp.tab as TabKey)
     : "packages";
+
+  /* Flatten to string-only params for the client island to seed from, and
+     preserve the demo param across tab navigation. */
+  const demoParam = typeof sp.demo === "string" ? sp.demo : undefined;
+  const initial: CatalogInitial = Object.fromEntries(
+    Object.entries(sp).filter(([, v]) => typeof v === "string") as [
+      string,
+      string,
+    ][],
+  );
+  const tabHref = (key: string) =>
+    `/sponsor/marketplace?${new URLSearchParams(
+      demoParam ? { tab: key, demo: demoParam } : { tab: key },
+    ).toString()}`;
 
   return (
     <div className="space-y-5">
@@ -161,7 +107,7 @@ export default async function MarketplacePage({
         {TABS.map((t) => (
           <Link
             key={t.key}
-            href={`/sponsor/marketplace?tab=${t.key}`}
+            href={tabHref(t.key)}
             className={[
               "flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-colors",
               t.key === active
@@ -175,70 +121,10 @@ export default async function MarketplacePage({
         ))}
       </div>
 
-      <FilterChips />
-
       {/* ====================================================== packages */}
       {active === "packages" && (
         <>
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-            {marketplacePackages.map((p, i) => (
-              <div key={p.id} className={`sx-animate sx-delay-${Math.min(i + 1, 5)}`}>
-                <IdentityCard
-                  band={
-                    <>
-                      <Monogram
-                        text={initials(p.name)}
-                        tone={p.featured ? "accent" : "primary"}
-                        className="size-10 text-xs"
-                      />
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-semibold tracking-tight">
-                          {p.name}
-                        </p>
-                        <p className="mt-0.5 truncate text-[11px] text-muted">
-                          {p.note}
-                        </p>
-                      </div>
-                      {p.featured ? (
-                        <Badge tone="primary">Popular</Badge>
-                      ) : (
-                        <Badge tone={STATE_TONE[p.state]}>
-                          {INVENTORY_COPY[p.state]}
-                        </Badge>
-                      )}
-                    </>
-                  }
-                >
-                  <div className="grid grid-cols-2 divide-x divide-line-soft border-y border-line-soft">
-                    <div className="px-4 py-2.5">
-                      <p className="text-sm font-semibold tabular-nums tracking-tight">
-                        {p.price}
-                      </p>
-                      <p className="mt-0.5 text-[10px] text-faint">price</p>
-                    </div>
-                    <div className="px-4 py-2.5">
-                      <p className="text-sm font-semibold tabular-nums tracking-tight">
-                        {p.athletes}
-                      </p>
-                      <p className="mt-0.5 text-[10px] text-faint">athletes</p>
-                    </div>
-                  </div>
-                  <div className="p-4">
-                    <p className="min-h-8 text-[11px] leading-relaxed text-muted">
-                      {p.includes}
-                    </p>
-                    <button
-                      type="button"
-                      title="Creates a CampaignBrief in DRAFT — not wired"
-                      className="mt-3 w-full rounded-lg bg-primary py-2 text-[11px] font-medium text-white transition-colors hover:bg-primary-soft"
-                    >
-                      Request a brief
-                    </button>
-                  </div>
-                </IdentityCard>
-              </div>
-            ))}
-          </div>
+          <PackagesCatalog initial={initial} demoParam={demoParam} />
           <p className="text-[10px] text-faint">
             §7&rsquo;s six packages. Phase 1 sponsors request or reserve — there
             is no self-service checkout until Phase 2 (§17).
@@ -249,106 +135,7 @@ export default async function MarketplacePage({
       {/* =============================================== athlete inventory */}
       {active === "athletes" && (
         <>
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-            {athleteInv.map((a, i) => {
-              const soldOut = a.state === "SOLD_OUT";
-              return (
-                <div key={a.id} className={`sx-animate sx-delay-${Math.min(i + 1, 5)}`}>
-                  <IdentityCard
-                    dimmed={soldOut}
-                    band={
-                      <>
-                        <Monogram
-                          text={initials(a.athlete)}
-                          shape="circle"
-                          tone={soldOut ? "neutral" : "primary"}
-                          className="size-10 text-xs"
-                        />
-                        <div className="min-w-0 flex-1">
-                          <p className="flex items-center gap-1.5 truncate text-sm font-semibold tracking-tight">
-                            {a.athlete}
-                            {a.verified && (
-                              <span
-                                title="Verified athlete"
-                                className="text-primary-soft"
-                              >
-                                ✔
-                              </span>
-                            )}
-                          </p>
-                          <p className="mt-0.5 truncate text-[11px] text-muted">
-                            {a.sport} · {a.geo}
-                          </p>
-                        </div>
-                        {soldOut ? (
-                          <Badge tone="neutral">Sold out</Badge>
-                        ) : (
-                          <Badge tone="primary">{a.tier} tier</Badge>
-                        )}
-                      </>
-                    }
-                  >
-                    <div className="grid grid-cols-3 divide-x divide-line-soft border-y border-line-soft">
-                      <div className="px-3 py-2.5">
-                        <p className="text-sm font-semibold tabular-nums tracking-tight">
-                          {compact(a.reach)}
-                        </p>
-                        <p className="mt-0.5 flex items-center gap-1 text-[10px] text-faint">
-                          followers{" "}
-                          <MiniChip kind={a.verified ? "ver" : "warn"}>
-                            {a.verified ? "VER" : "SELF"}
-                          </MiniChip>
-                        </p>
-                      </div>
-                      <div className="px-3 py-2.5">
-                        <p className="text-sm font-semibold tabular-nums tracking-tight">
-                          {a.engagementRate}%
-                        </p>
-                        <p className="mt-0.5 text-[10px] text-faint">engagement</p>
-                      </div>
-                      <div className="px-3 py-2.5">
-                        <p className="text-sm font-semibold tabular-nums tracking-tight">
-                          {a.onTimeRate}%
-                        </p>
-                        <p className="mt-0.5 flex items-center gap-1 text-[10px] text-faint">
-                          on-time <MiniChip kind="ver">VER</MiniChip>
-                        </p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2 px-4 py-3">
-                      <Badge tone="neutral">{a.jobId}</Badge>
-                      <span className="min-w-0 flex-1 truncate text-[11px] text-muted">
-                        {a.jobName}
-                      </span>
-                      <span className="text-sm font-bold tabular-nums tracking-tight">
-                        {money(a.sellPrice)}
-                      </span>
-                    </div>
-                    <div className="flex gap-2 px-4 pb-4">
-                      <Link
-                        href={`/athletes/${a.slug}?from=mk-athletes`}
-                        className="flex-1 rounded-lg border border-line py-2 text-center text-[11px] font-medium text-text transition-colors hover:bg-surface-2"
-                      >
-                        Profile
-                      </Link>
-                      <button
-                        type="button"
-                        disabled={soldOut}
-                        title={
-                          soldOut
-                            ? "Sold out — waitlist not wired"
-                            : "Adds to a campaign brief — not wired"
-                        }
-                        className="flex-1 rounded-lg bg-accent py-2 text-[11px] font-medium text-white transition-colors hover:bg-accent-soft disabled:cursor-not-allowed disabled:opacity-40"
-                      >
-                        {soldOut ? "Join waitlist" : "Add to brief"}
-                      </button>
-                    </div>
-                  </IdentityCard>
-                </div>
-              );
-            })}
-          </div>
+          <AthleteCatalog initial={initial} demoParam={demoParam} />
           <p className="text-[10px] leading-relaxed text-faint">
             Sponsor prices only. The athlete&rsquo;s own rate
             (<code className="font-mono">AthleteRate.amount</code>) never reaches
@@ -362,81 +149,7 @@ export default async function MarketplacePage({
       {/* ================================================ media properties */}
       {active === "media" && (
         <>
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-            {mediaInv.map((m, i) => (
-              <div key={m.id} className={`sx-animate sx-delay-${Math.min(i + 1, 5)}`}>
-                <IdentityCard
-                  band={
-                    <>
-                      <Monogram
-                        text={initials(m.property)}
-                        tone="neutral"
-                        className="size-10 text-[10px]"
-                      />
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-semibold tracking-tight">
-                          {m.name}
-                        </p>
-                        <p className="mt-0.5 truncate text-[11px] text-muted">
-                          {m.property}
-                        </p>
-                      </div>
-                      <Badge tone={STATE_TONE[m.state]}>
-                        {INVENTORY_COPY[m.state]}
-                      </Badge>
-                    </>
-                  }
-                >
-                  <div className="grid grid-cols-3 divide-x divide-line-soft border-y border-line-soft">
-                    <div className="px-3 py-2.5">
-                      <p className="text-sm font-semibold tabular-nums tracking-tight">
-                        {m.estViews}
-                      </p>
-                      <p className="mt-0.5 flex items-center gap-1 text-[10px] text-faint">
-                        est. views <MiniChip kind="est" />
-                      </p>
-                    </div>
-                    <div className="px-3 py-2.5">
-                      <p className="text-sm font-semibold tabular-nums tracking-tight">
-                        ${m.cpm}
-                      </p>
-                      <p className="mt-0.5 text-[10px] text-faint">CPM</p>
-                    </div>
-                    <div className="px-3 py-2.5">
-                      <p className="text-sm font-semibold tabular-nums tracking-tight">
-                        {money(m.price)}
-                      </p>
-                      <p className="mt-0.5 text-[10px] text-faint">price</p>
-                    </div>
-                  </div>
-                  <div className="flex flex-wrap gap-1 px-4 pt-3">
-                    {m.platforms.map((p) => (
-                      <span
-                        key={p}
-                        className="rounded-full bg-surface-2 px-2 py-0.5 text-[10px] text-faint"
-                      >
-                        {p}
-                      </span>
-                    ))}
-                  </div>
-                  <div className="flex gap-2 px-4 py-4">
-                    <Link
-                      href={`/properties/${m.slug ?? "btg-sports-talk"}?from=mk-media`}
-                      className="flex-1 rounded-lg border border-line py-2 text-center text-[11px] font-medium text-text transition-colors hover:bg-surface-2"
-                    >
-                      Property
-                    </Link>
-                    <Link
-                      href={`/sponsor/marketplace/${m.id}?from=mk-media`}
-                      className="flex-1 rounded-lg bg-primary py-2 text-center text-[11px] font-medium text-white transition-colors hover:bg-primary-soft"
-                    >
-                      View Details
-                    </Link>
-                  </div>
-                </IdentityCard>
-              </div>
-            ))}
-          </div>
+          <MediaCatalog initial={initial} demoParam={demoParam} />
           <Card className="border-warn/30 bg-warn/8">
             <p className="text-[11px] leading-relaxed text-warn">
               These are BTG&rsquo;s own media properties, priced on CPM — the

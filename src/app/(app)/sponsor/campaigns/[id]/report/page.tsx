@@ -55,7 +55,12 @@ export default async function RoiReportPage({
 
   const sp = await searchParams;
   const fromParam = Array.isArray(sp.from) ? sp.from[0] : sp.from;
-  const back = resolveBack(fromParam, "sponsor");
+  /* Reached from this campaign's own dashboard — return to it. The static
+     back-link map can't express an id-dynamic target, so resolve it inline. */
+  const back =
+    fromParam === "sponsor-campaign"
+      ? { href: `/sponsor/campaigns/${id}`, label: "Back to campaign" }
+      : resolveBack(fromParam, "sponsor");
 
   const heading = (
     <div>
@@ -112,7 +117,7 @@ export default async function RoiReportPage({
           <button
             type="button"
             title="Queues render-report on the worker (Playwright) — not wired"
-            className="flex items-center gap-2 rounded-lg bg-primary px-3.5 py-2 text-[11px] font-medium text-white transition-colors hover:bg-primary-soft"
+            className="flex items-center gap-2 rounded-lg bg-primary px-3.5 py-2 text-[11px] font-medium text-cta-ink transition-colors hover:bg-primary-soft"
           >
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="size-3.5" aria-hidden="true">
               <path d="M12 3v12m0 0-4-4m4 4 4-4M4 19h16" />
@@ -327,7 +332,9 @@ export default async function RoiReportPage({
 
       {/* --------------------------- zone 4: content + recommendation */}
       <div className="grid gap-4 xl:grid-cols-[1.6fr_1fr] xl:items-start">
-        <Card className="sx-animate sx-delay-1 p-0">
+        {/* min-w-0: the implicit single column below xl must be allowed to
+            shrink under the content rows' min-content (P1-QA-03, 360px). */}
+        <Card className="min-w-0 sx-animate sx-delay-1 p-0">
           <div className="border-b border-line px-5 py-3">
             <h2 className="text-sm font-semibold tracking-tight">Top content</h2>
           </div>
@@ -382,7 +389,7 @@ export default async function RoiReportPage({
             </p>
             <Link
               href="/sponsor/marketplace?from=report"
-              className="mt-4 block rounded-lg bg-primary py-2.5 text-center text-xs font-medium text-white transition-colors hover:bg-primary-soft"
+              className="mt-4 block rounded-lg bg-primary py-2.5 text-center text-xs font-medium text-cta-ink transition-colors hover:bg-primary-soft"
             >
               Plan the renewal →
             </Link>

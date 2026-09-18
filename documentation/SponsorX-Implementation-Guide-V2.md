@@ -38,39 +38,84 @@ survive that change almost entirely; its hosting details do not.
 
 ## 01 · Pin these versions
 
-The pins below are V1's, verified against the npm registry in September 2026.
-**Re-verify before Sprint 0 and pin whatever is current then** — that
-instruction is V1's and it still holds.
+**Re-verified against the npm registry on 2026-09-15** (`P0-PMO-11`). Every
+version below is the newest stable release as at that date, except where the
+Migration note records a deliberate hold. Re-verify again before Sprint 0 if
+that date has gone stale.
 
 | Package | Version | Migration note |
 |---|---|---|
-| `next` | 16.3.4 | App Router. `params` is a Promise — `const { code } = await params`. |
-| `react` | 19.2.8 | Server Components default; `useActionState` for form mutations. |
-| `prisma` / `@prisma/client` | 7.10.0 | Not 8.x — still release-candidate. v7 uses `prisma.config.ts` and a generated-client output path you must set explicitly. |
-| `zod` | 4.5.4 | v4 changed error customisation and `.default()` inference. Do not copy v3 snippets. |
+| `next` | 16.3.5 | App Router. `params` is a Promise — `const { code } = await params`. |
+| `react` | 19.3.0 | Pin `react-dom` to the same version. Server Components default; `useActionState` for form mutations. |
+| `prisma` / `@prisma/client` | 7.10.0 | **Two v7 breaking changes cost time in P2-BE-01 — see the note under this table.** **Hold.** The `latest` dist-tag points at `8.0.0-rc.15`, so an unpinned install takes a release candidate while `@prisma/client` resolves to stable 7.10.0 — a mismatched pair. Not 8.x — still release-candidate. v7 uses `prisma.config.ts` and a generated-client output path you must set explicitly. |
+| `zod` | 4.6.5 | v4 changed error customisation and `.default()` inference. Do not copy v3 snippets. |
 | `tailwindcss` | 4.3.3 | CSS-first config. No `tailwind.config.js` — theme lives in `@theme` in your CSS. |
-| `@clerk/nextjs` | 7.9.1 | **Authentication, MFA and sessions only.** Do not map Organizations to tenants; see §04. |
-| `pg-boss` | 12.30.0 | Queues live in your Postgres. Run its migrations on worker boot, not in the web app. |
-| `react-hook-form` | 7.87.0 | With `@hookform/resolvers` for the Zod bridge. |
+| `@clerk/nextjs` | 7.9.2 | **Authentication, MFA and sessions only.** Do not map Organizations to tenants; see §04. |
+| `pg-boss` | 12.32.0 | Queues live in your Postgres. Run its migrations on worker boot, not in the web app. |
+| `react-hook-form` | 7.88.0 | With `@hookform/resolvers` 5.9.1 for the Zod bridge. |
 | `recharts` | 3.10.1 | Client components only — wrap in `"use client"` islands. |
 | `playwright` | 1.63.0 | Two jobs: E2E tests, and sponsor-report PDF rendering on the worker. |
-| `resend` | 6.26.0 | Transactional email. See the vendor note in §10. |
-| `twilio` | 6.1.0 | SMS. **Not yet approved for Phase 1** — Addendum A1 defers it. |
+| `resend` | 6.28.0 | Transactional email. See the vendor note in §10. |
+| `twilio` | 6.1.1 | Version recorded only — **do not install**. SMS is not yet approved for Phase 1; Addendum A1 defers it and `P0-PMO-04` (G-06) is still open. |
 | `vitest` | 5.0.0 | Unit tests and the authorization matrix in §09. |
 
-Added by V2 — pin at Sprint 0 against the registry:
+Added by V2 — **pinned 2026-09-15** (`P0-PMO-11`):
 
-| Package | Purpose |
-|---|---|
-| `sharp` | Image derivatives on the worker (§12) |
-| `@aws-sdk/client-s3` + `@aws-sdk/s3-request-presigner` | R2 is S3-compatible; presigned PUT and GET |
-| `maxmind` + GeoLite2-City | Offline geo resolution for reward events (§06) |
-| `qrcode` | QR PNG generation into R2 |
-| `@asteasolutions/zod-to-openapi` | Zod contract registry → `openapi.json` (§02) |
+| Package | Version | Purpose |
+|---|---|---|
+| `sharp` | 0.35.4 | Image derivatives on the worker (§12) |
+| `@aws-sdk/client-s3` | 3.1132.0 | R2 is S3-compatible; presigned PUT and GET |
+| `@aws-sdk/s3-request-presigner` | 3.1132.0 | Pin to the same version as `client-s3` — the AWS SDK ships both daily and in lockstep. |
+| `maxmind` | 5.0.7 | Offline geo resolution for reward events (§06). GeoLite2-City is a data file, not a package — it is downloaded separately. |
+| `qrcode` | 1.5.4 | QR PNG generation into R2 |
+| `@asteasolutions/zod-to-openapi` | 9.1.0 | Zod contract registry → `openapi.json` (§02) |
+| `@hookform/resolvers` | 5.9.1 | The Zod bridge for `react-hook-form`. Named in V1's note but never pinned. |
+
+Already in `package.json` but never listed here — **pinned 2026-09-15**
+(`P0-PMO-11`). These carried carets, which is how three unwanted major versions
+were one `npm install` away:
+
+| Package | Version | Why this one |
+|---|---|---|
+| `typescript` | 5.9.3 | **Hold at 5.x.** Latest is 7.0.2 — the Go rewrite. A major migration, not a bump. |
+| `eslint` | 9.39.5 | **Hold at 9.x.** Latest is 10.10.0; `eslint-config-next` 16.3.5 targets the 9 line. |
+| `@types/node` | 20.19.43 | **Mismatched — see the note below.** |
+| `@types/react` | 19.3.0 | Track `react`. |
+| `@types/react-dom` | 19.3.0 | Track `react-dom`. |
+| `tailwindcss` | 4.3.3 | Same version as the entry above; it appears in both places. |
+| `@tailwindcss/postcss` | 4.3.3 | Ships in lockstep with `tailwindcss`. |
+| `eslint-config-next` | 16.3.5 | Track `next`. |
+
+> **Open finding — `@types/node` is four major lines behind the runtime.**
+> The project runs Node 24.21.0, but the types are pinned at 20.19.43, so
+> TypeScript checks against Node 20's API surface. `@types/node` 24.13.4 exists
+> and matches. Moving it is an install, so it belongs to `P2-BE-01`, not to the
+> pinning task that found it — but it must not be forgotten there.
+
+> **Prisma 7 — two breaking changes, both hit during `P2-BE-01`.**
+>
+> 1. **`url` is no longer allowed in a `datasource` block.** `prisma validate`
+>    fails with P1012 telling you to move the connection string to
+>    `prisma.config.ts`. The schema keeps only `provider`; `PrismaClient` itself
+>    is constructed with an adapter.
+> 2. **Do not use `prisma/config`'s `env()` helper for `DATABASE_URL` yet.** It
+>    resolves eagerly and throws, so with no database provisioned *every* prisma
+>    command fails — including `validate` and `generate`, which need no
+>    connection. Read `process.env.DATABASE_URL` directly until Railway exists.
+>
+> Also: npm 11 blocks install scripts by default, so `prisma` and
+> `@prisma/engines` need `npm install-scripts approve` or the query engine is
+> never fetched and the client cannot run.
 
 Pin exactly, no carets, for the first two sprints. A team this size does not
 need a transitive minor bump breaking the build on a Tuesday. Move to ranges
 once CI is trustworthy.
+
+> **Note on what is pinned where.** The tables above are the agreed target
+> versions. `package.json` currently pins the versions that are *installed*,
+> which for `next`, `react` and `react-dom` are one release behind the targets.
+> That gap closes in `P2-BE-01`, which installs the set — `P0-PMO-11` decides
+> the numbers, it does not install them.
 
 ---
 

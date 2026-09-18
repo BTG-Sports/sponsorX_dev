@@ -86,14 +86,27 @@ export function Badge({
  * §22 requires every metric to declare where it came from. This renders that
  * label, so a self-reported follower count can never be mistaken for a
  * verified one.
+ *
+ * VERIFIED_SYSTEM vs VERIFIED_API is a real distinction, not a nicety.
+ * VERIFIED_SYSTEM is an event SponsorX recorded itself — a QR scan, a
+ * redemption — which we can audit end to end. VERIFIED_API is a number an
+ * outside platform reported to us, which we cannot. Ours sits above theirs.
+ * See documentation/SponsorX-Metric-Provenance-Taxonomy.md.
  */
 export function SourceLabel({
   source,
 }: {
-  source: "VERIFIED_API" | "VERIFIED_MANUAL" | "SELF_REPORTED" | "ESTIMATED" | "ATTRIBUTED";
+  source:
+    | "VERIFIED_SYSTEM"
+    | "VERIFIED_API"
+    | "VERIFIED_MANUAL"
+    | "SELF_REPORTED"
+    | "ESTIMATED"
+    | "ATTRIBUTED";
 }) {
   const copy: Record<typeof source, [string, Tone]> = {
-    VERIFIED_API: ["verified", "accent"],
+    VERIFIED_SYSTEM: ["measured", "accent"],
+    VERIFIED_API: ["verified · platform", "accent"],
     VERIFIED_MANUAL: ["verified · manual", "accent"],
     SELF_REPORTED: ["self-reported", "warn"],
     ESTIMATED: ["estimated", "neutral"],
@@ -123,7 +136,7 @@ export function Button({
   const base =
     "inline-flex items-center justify-center gap-1.5 rounded-lg px-3.5 py-2 text-xs font-medium transition-colors outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-bg";
   const styles = {
-    primary: "bg-primary text-white hover:bg-primary-soft",
+    primary: "bg-primary text-cta-ink hover:bg-primary-soft",
     secondary: "border border-line bg-transparent text-text hover:bg-surface-2",
     ghost: "text-muted hover:text-text",
   }[variant];
