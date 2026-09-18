@@ -509,3 +509,56 @@ produces noise, and noise teaches a team to ignore the pager.
 
 Every Railway task is Done except `P2-OPS-11`, which cannot close until the
 worker is real. The genuine next task is `P2-BE-02`, the full Prisma schema.
+
+---
+
+## `P2-BE-02` — the full Prisma schema and initial migration
+
+The largest task in the programme, at **Code review**. `prisma/schema.prisma`
+carries 29 models and 13 enums; the initial migration at
+`prisma/migrations/20260918060000_init/` is 29 tables, 31 foreign keys and 55
+indexes. `prisma validate` passes, the client generates, `npm run build`
+compiles.
+
+Mostly reconciliation rather than invention — Implementation Guide V2 §03 already
+carried a near-complete schema. The work was in the four acceptance clauses §03
+does not itself satisfy, each verified programmatically rather than by eye:
+
+- **29/29 models carry `tenantId`** except `Tenant` itself. §03 omitted it from
+  six models.
+- **All eight §21 state machines** present as enums, checked value-by-value
+  against the `.mmd` files. They matched exactly.
+- **Sync markers on all four Zoho-touched models** — Sponsor, Athlete, Property,
+  Campaign. §03 gave them to only two.
+- **Events are rows, never counters**, across RewardEvent, LinkEvent and
+  MetricDaily.
+
+### A bug in the guide
+
+**§03's schema will not compile as published.** It gives `Athlete` both
+`state String?` (the US state) and `state_ AthleteState @map("state")` (the
+lifecycle) — two fields on one column. Resolved by naming geography `stateCode`
+on Athlete, Property and CampaignBrief, leaving `state` to mean the lifecycle
+enum on every model without exception. **The guide still carries the broken
+version** and should be corrected, or the next person will paste it and lose an
+hour.
+
+### Prisma 7 flag change
+
+`prisma migrate diff --to-schema-datamodel` was **removed**; the flag is now
+`--to-schema`. That matters because generating a migration offline is the only
+way to author one here: `postgres.railway.internal` is unreachable from a
+developer machine by design, and the `prisma migrate deploy` pre-deploy step
+applies it on release instead.
+
+### Added beyond §03, from decisions taken since it was written
+
+`NilJob.sellFloorEmerging/Creator/Premium` and `SponsorPackage.lineItems` plus
+`athleteCountMin/Max`, all from `P0-PMO-13`; and an `AthleteTier` enum in place
+of a free-text tier string, so the four §6 tiers cannot be misspelled into
+existence.
+
+### Why Code review and not Done
+
+**The migration has never been applied to a database.** `migrate deploy` runs on
+the next release to `main`, and that is the first time it executes anywhere.

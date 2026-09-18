@@ -638,7 +638,7 @@ Create three services in one Railway project — the web app, the background wor
 
 ### ▶ `P2-BE-02` · Author the full Prisma schema + initial migration
 
-**Order** 39 · **BE** · **Where:** Code · **5d** · **In progress** · **Unblocks** 104
+**Order** 39 · **BE** · **Where:** Code · **5d** · **Code review** · **Unblocks** 104
 
 Write the entire database structure in one go: every table, every lifecycle state, a tenant marker on everything. The single largest task in the project and almost everything depends on it.
 
