@@ -135,9 +135,9 @@ DECISION GATE G-02 · Data residency — which region do Railway and R2 run in? 
 - **Done when:** Railway region and R2 region chosen explicitly, recorded, not left at defaults
 - **Reference:** Addendum A7
 
-### ▶ `P0-OPS-01` · Create Railway account, project and billing
+### ✅ `P0-OPS-01` · Create Railway account, project and billing
 
-**Order** 1 · **OPS** · **Where:** Vendor console · **1d** · **In progress** · **Unblocks** 115
+**Order** 1 · **OPS** · **Where:** Vendor console · **1d** · **Done** · **Unblocks** 115
 
 Open the Railway account and project in the region chosen above. Set a spend alert — usage-based hosting surprises people.
 
@@ -614,9 +614,9 @@ Check every screen on a phone. The athlete portal and redeem page are phone-firs
 
 *27 tasks · 0 person-days*
 
-### ▶ `P2-OPS-01` · Create the Railway project with three services
+### ✅ `P2-OPS-01` · Create the Railway project with three services
 
-**Order** 38 · **OPS** · **Where:** Vendor console · **3d** · **Ready** · **Unblocks** 114
+**Order** 38 · **OPS** · **Where:** Vendor console · **3d** · **Done** · **Unblocks** 114
 
 Create three services in one Railway project — the web app, the background worker, and Postgres — talking privately to each other with the database never exposed to the internet.
 
@@ -624,9 +624,9 @@ Create three services in one Railway project — the web app, the background wor
 - **Done when:** web, worker and postgres exist in one project; web and worker reach Postgres over the internal hostname; the database has no public exposure
 - **Reference:** Guide §10
 
-### ⏸ `P2-BE-02` · Author the full Prisma schema + initial migration
+### ▶ `P2-BE-02` · Author the full Prisma schema + initial migration
 
-**Order** 39 · **BE** · **Where:** Code · **5d** · **Blocked** · **Unblocks** 104
+**Order** 39 · **BE** · **Where:** Code · **5d** · **Ready** · **Unblocks** 104
 
 Write the entire database structure in one go: every table, every lifecycle state, a tenant marker on everything. The single largest task in the project and almost everything depends on it.
 
@@ -684,9 +684,9 @@ Generate temporary upload links so a phone can send video straight to Cloudflare
 - **Done when:** presignUpload() issues short-TTL signed PUTs against the private bucket; public-bucket reads need no signing; every private grant is audited
 - **Reference:** Addendum A8, Guide §11
 
-### ⏸ `P2-OPS-03` · Wire migrations as a pre-deploy release step
+### ▶ `P2-OPS-03` · Wire migrations as a pre-deploy release step
 
-**Order** 45 · **OPS** · **Where:** Vendor console · **1d** · **Blocked** · **Unblocks** 5
+**Order** 45 · **OPS** · **Where:** Vendor console · **1d** · **Ready** · **Unblocks** 5
 
 Database migrations run as a release step just before new code goes live — never during the build, which runs far more often.
 
@@ -804,9 +804,9 @@ Require two-factor authentication for admin and finance accounts in production.
 - **Done when:** Admin and finance roles require MFA in the production instance
 - **Reference:** §26
 
-### ⏸ `P2-OPS-02` · Configure web for standalone output
+### ▶ `P2-OPS-02` · Configure web for standalone output
 
-**Order** 57 · **OPS** · **Where:** Code · **1d** · **Blocked** · **Unblocks** 0
+**Order** 57 · **OPS** · **Where:** Code · **1d** · **Ready** · **Unblocks** 0
 
 Configure the app to build as a plain Node server, so it can move to another host without a rewrite.
 
@@ -854,9 +854,9 @@ Give every pull request its own throwaway environment with a fresh seeded databa
 - **Done when:** Each pull request gets its own environment with a fresh Postgres, seeded by the job — never a copy of production
 - **Reference:** Guide §10
 
-### ⏸ `P2-OPS-10` · Define the deploy ordering rule
+### ▶ `P2-OPS-10` · Define the deploy ordering rule
 
-**Order** 62 · **OPS** · **Where:** Document · **1d** · **Blocked** · **Unblocks** 0
+**Order** 62 · **OPS** · **Where:** Document · **1d** · **Ready** · **Unblocks** 0
 
 Write down and enforce the rule that the worker deploys before the web app, so a new job type always has a handler waiting.
 

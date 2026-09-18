@@ -275,3 +275,32 @@ lost.
 detached (`serviceId: null`), after `volumeDelete` returned `true` twice. Either
 it is reaped when Postgres redeploys, or it needs removing in the console —
 worth checking, because an orphaned 50GB volume is a bill nobody is watching.
+
+### `P0-OPS-01` and `P2-OPS-01` both closed
+
+All three services deployed SUCCESS in `us-east4-eqdc4a`, Postgres on the new
+US East volume. `web` and `worker` resolve `DATABASE_URL` to
+`postgres.railway.internal:5432`; no service has a public domain and none has a
+TCP proxy.
+
+**On the word "reach" in the acceptance:** the internal address is configured and
+both services have deployed carrying it, but nothing in the repo opens a database
+connection yet. Live connectivity is proven by `P2-BE-02`'s first migration, not
+here, and the row says so rather than implying more than was tested.
+
+**The redeploy trap, worth knowing before the next region change:**
+`railway deployment redeploy` replays the *previous deployment's manifest* and
+ignores configuration changed since. `web` sat in `sfo` through one pointless
+redeploy before that was understood. The mutation `serviceInstanceRedeploy`
+deploys from current config and is what actually moved it.
+
+**Still open:** orphaned `sfo` volume `18d938bd` remains listed, detached, after
+two `volumeDelete` calls and a full redeploy. It needs removing in the console.
+
+### Cascade — four tasks unblocked
+
+`P2-BE-02` (author the full Prisma schema, **104 unblocks, the largest task in
+the programme**), `P2-OPS-02`, `P2-OPS-03` and `P2-OPS-10` all had their last
+dependency closed and moved **Blocked → Ready**.
+
+Board: **48 Done · 12 Ready · 1 In progress · 126 Blocked = 187.**
