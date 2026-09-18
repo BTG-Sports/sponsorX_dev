@@ -704,9 +704,9 @@ Install every library at its pinned version and set up the Prisma config.
 - **Done when:** Every package from Guide §01 installed at an exact version; prisma.config.ts present with the explicit client output path
 - **Reference:** Guide §01
 
-### ▶ `P2-OPS-09` · Establish staging + production environments
+### ✅ `P2-OPS-09` · Establish staging + production environments
 
-**Order** 47 · **OPS** · **Where:** Vendor console · **3d** · **In progress** · **Unblocks** 4
+**Order** 47 · **OPS** · **Where:** Vendor console · **3d** · **Done** · **Unblocks** 4
 
 Stand up staging and production, each with its own database. Turn on backups and confirm you can actually restore to a point in time.
 
@@ -724,9 +724,9 @@ A script that fills an empty database with realistic demo data. Because preview 
 - **Done when:** worker/jobs/seed-environment.ts builds a usable demo tenant from scratch; a fresh PR environment is immediately usable
 - **Reference:** Guide §10
 
-### ⏸ `P2-OPS-11` · Configure monitoring and alerting
+### ▶ `P2-OPS-11` · Configure monitoring and alerting
 
-**Order** 49 · **OPS** · **Where:** Vendor console · **3d** · **Blocked** · **Unblocks** 2
+**Order** 49 · **OPS** · **Where:** Vendor console · **3d** · **Ready** · **Unblocks** 2
 
 Make service health, queue depth and failed jobs visible, and make sure somebody gets woken up if the worker stops processing.
 
@@ -864,9 +864,9 @@ Write down and enforce the rule that the worker deploys before the web app, so a
 - **Done when:** Documented and enforced: worker deploys before web on any release adding a job type; pg-boss migrations run on worker boot only
 - **Reference:** Guide §10
 
-### ⏸ `P2-PMO-01` · Write the deployment runbook (§38 deliverable)
+### ▶ `P2-PMO-01` · Write the deployment runbook (§38 deliverable)
 
-**Order** 63 · **PMO** · **Where:** Document · **3d** · **Blocked** · **Unblocks** 0
+**Order** 63 · **PMO** · **Where:** Document · **3d** · **Ready** · **Unblocks** 0
 
 Document how to deploy, how to roll back, and what to do when a migration fails. Then test it once, for real.
 

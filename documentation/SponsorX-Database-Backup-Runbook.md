@@ -13,14 +13,22 @@ first attempt.
 
 | | Staging | Production |
 |---|---|---|
-| Postgres | `Postgres` `f345dcfb`, volume in `us-east4-eqdc4a` | **None — deliberately deferred to promotion** |
-| Point-in-time recovery | **On**, bucket wired | — |
-| Scheduled backups | **Daily + weekly** | — |
-| Restore | **Tested and working** | — |
+| Postgres | `Postgres` `f345dcfb`, volume in `us-east4-eqdc4a` | `Postgres-production` `75db2da3`, volume in `us-east4-eqdc4a` |
+| Point-in-time recovery | **On**, bucket wired | **On**, bucket wired |
+| Scheduled backups | **Daily + weekly** | **Daily + weekly + monthly** |
+| Restore | **Tested and working** | Mechanism identical; tested on staging |
 | Backup bucket | `sponsorx-pg-backups` `34211549`, region `iad` (US East) | same bucket serves both |
 
-Production has no database because the project is staging-first: production gets
-its Postgres at promotion, using this document. `P2-OPS-09` stays open until then.
+**Production's database was created on 2026-09-18 rather than at promotion**, and
+deliberately so: the PITR recovery window begins when PITR is enabled, so a
+database protected from the moment it exists has no unprotected first hours. The
+application still ships to staging first — only the database is ready early.
+
+**The two environments use different reference strings.** Service names are
+unique per project, so production's database is `Postgres-production` and its web
+service reads `${{Postgres-production.DATABASE_URL}}`, where staging reads
+`${{Postgres.DATABASE_URL}}`. Do not copy one environment's variable to the
+other.
 
 **The bucket region is a residency decision.** Railway bucket regions use their
 own names — `sjc` (US West), `iad` (US East), `ams`, `sin` — not the service

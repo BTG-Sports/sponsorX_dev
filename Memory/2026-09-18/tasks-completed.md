@@ -448,3 +448,28 @@ why enabling comes before the database holds anything.
 No restore has been tested with real data — staging is empty until `P2-BE-02`.
 And nobody has timed a restore of a realistic database; 16MB in a minute says
 nothing about the recovery-time figure Phase 2 will need.
+
+### Production got its database after all, and for a better reason
+
+The user asked whether both databases could simply be created now. Yes — and the
+argument for doing it is stronger than the argument for waiting: **the PITR
+recovery window starts when PITR is enabled**, so a database created and
+protected now has no unprotected first hours, where one created at promotion
+does.
+
+`Postgres-production` (`75db2da3`), volume `46c1b4b9` in `us-east4-eqdc4a`, PITR
+on, backups daily + weekly + monthly. Production `web` resolves `DATABASE_URL` to
+`postgres-apsb.railway.internal`. This does not undo staging-first: the
+application still ships to staging first, only the database is ready early.
+
+**The two environments use different reference strings.** Service names are
+unique per project, so production's is `Postgres-production` and its variable is
+`${{Postgres-production.DATABASE_URL}}`, where staging's is
+`${{Postgres.DATABASE_URL}}`. Copying one environment's variable to the other
+will silently point at the wrong database.
+
+**An in-place `backup restore` swaps the volume.** The staging restore left the
+old volume detached and attached a new one named for the backup timestamp — so
+the restore test itself produced another orphan to clean up. Expect that.
+
+`P2-OPS-09` is **Done**. It cascaded `P2-OPS-11` and `P2-PMO-01` to Ready.
