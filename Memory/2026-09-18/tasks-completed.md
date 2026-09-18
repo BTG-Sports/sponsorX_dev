@@ -587,3 +587,104 @@ started** — Status now signals ownership of the workstream, not availability.
 neither Railway, Clerk nor backend and was handed over earlier today.
 
 Board: **40 Done · 33 In progress · 6 Ready · 109 Blocked.**
+
+---
+
+## The migration ran — the backend spine is real
+
+Merged as PR #7 (`915c9a98`) and deployed to staging at 07:27 UTC. Three things
+were proven at once, none of which had ever executed before:
+
+**The migration applied.** The pre-deploy step ran
+`npx prisma@7.10.0 migrate deploy` against `postgres-hhot.railway.internal` and
+logged `1 migration found` → `Applying migration 20260918060000_init` → **`All
+migrations have been successfully applied.`** Deployment `08cd56a3` SUCCESS.
+The staging database now holds all 29 tables.
+
+**The pre-deploy wiring works** (`P2-OPS-03`), on its first real execution. The
+version pin earned its keep: unpinned `npx prisma` would have fetched
+`8.0.0-rc.15` against a client on 7.10.0.
+
+**The worker is finally a worker** (`P2-OPS-02`). It deployed with
+`node worker/index.js` and logged `[worker] entrypoint up … placeholder, no
+queue attached yet` and `DATABASE_URL is present`. Until today that service had
+been quietly running a second copy of the Next app.
+
+Statuses were left at In progress rather than moved to Done, because the user
+asked the whole backend cluster to read as one owned workstream. The evidence is
+in each row's notes instead.
+
+---
+
+## Watch Paths — the gate against accidental deploys
+
+The user's concern: `main` is auto-deployed, so any commit reaching it
+redeploys staging, and an accidental commit could take a service down. Branch
+protection would have been the obvious answer and is unavailable — see below —
+so the gate went in at Railway instead, where it is free.
+
+**Railway now redeploys only when changed files match a service's Watch Paths.**
+
+| Service | Watch Paths |
+|---|---|
+| `web` | `/src/**` `/prisma/**` `/public/**` `/package.json` `/package-lock.json` `/next.config.ts` `/prisma.config.ts` `/tsconfig.json` |
+| `worker` | `/worker/**` `/prisma/**` `/package.json` `/package-lock.json` `/prisma.config.ts` |
+
+This targets the real risk precisely. Of the seventeen commits made on
+2026-09-18, most touched only `documentation/`, `memory/` and the task board —
+every one of them rebuilt staging, and not one should have. Chosen over turning
+auto-deploy off, which would have removed the fast feedback that proved the
+migration an hour earlier.
+
+**The trap to remember:** a new top-level directory holding real code must be
+added to the patterns, or changes to it will silently never deploy — a quiet
+failure that looks like a broken pipeline rather than a missing line of config.
+
+### Branch protection is not available on this repo
+
+`infinex1/sponsorX_dev` is private on a **Free** plan, and both the classic
+branch-protection API and the newer rulesets API return
+`Upgrade to GitHub Pro or make this repository public`. Buying Pro was ruled out
+and the repository cannot go public — it tracks the pricing collision workbook,
+the NIL job economics and the pricing floor decision, which together publish
+BTG's margin structure and its negotiating floor. No credentials are tracked, so
+the exposure would be commercial rather than a security breach; that is still
+the wrong trade.
+
+**A further subtlety worth keeping:** the GitHub CLI here authenticates as the
+user's own account, so protection could never have distinguished me from them
+anyway. What binds me is the standing rule to never push to `main`.
+
+---
+
+## `P2-BE-03` — the indexes Prisma cannot express
+
+Three partial indexes in `prisma/sql/` with a README explaining each, applied by
+migration `20260918080000_partial_indexes`.
+
+**`reward_single_redeem`** is the one that carries real risk: a UNIQUE index on
+`RewardEvent(tokenId) WHERE type = 'REDEEM'`. Two fans scanning the same code in
+the same millisecond at an event is not hypothetical, and an application-level
+"have we already redeemed?" check reads before it writes and loses that race
+every time. The correct implementation is to attempt the insert, catch the unique
+violation and render "already used".
+
+**`outbox_pending`** keeps the drain's index the size of the backlog rather than
+of all history. **`invite_one_open`** is below.
+
+### A constraint that was too strong
+
+`CampaignInvite` carried `@@unique([campaignId, athleteId, jobId])` from Guide
+§03 — one invite per athlete per job, **ever**. That forbids re-inviting an
+athlete whose previous invitation EXPIRED or was DECLINED, which is ordinary
+business and which §21 treats as a normal terminal state rather than a permanent
+bar.
+
+Dropped it, replaced with a plain index plus the partial unique over
+`('INVITED', 'VIEWED')`. The rule actually wanted is **"no two live offers for
+the same work"**, and only a partial index can say that. It also makes the
+guide's own `invite_one_open` index meaningful — under the full constraint it was
+redundant.
+
+Validate passes, client regenerates, build compiles. The migration has not run
+yet; it applies on the next deploy to `main`.

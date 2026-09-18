@@ -1,8 +1,8 @@
 # Deploy Ordering and the Release Step
 
-**Task `P2-OPS-10` · Version 1.0 · 2026-09-18 · Status: in force**
+**Task `P2-OPS-10` · Version 1.2 · 2026-09-18 · Status: in force (rules 1–3)**
 
-Three rules govern how a SponsorX release reaches Railway. They exist because
+Four rules govern how a SponsorX release reaches Railway. They exist because
 each one has a specific failure it prevents, and each is written here with that
 failure named — a rule whose reason is forgotten gets dropped the first time it
 is inconvenient.
@@ -25,8 +25,12 @@ at the moment the new code is about to serve.
 2026-09-18 it is set on `staging`:
 
 ```
-preDeployCommand: npx prisma migrate deploy
+preDeployCommand: npx prisma@7.10.0 migrate deploy
 ```
+
+**The version is pinned on purpose.** `prisma`'s `latest` dist-tag currently
+points at `8.0.0-rc.15`, so an unpinned `npx prisma` would run a release
+candidate against a client pinned at 7.10.0.
 
 Production has no services beyond `web` yet and gets the same command when the
 spine is promoted.
@@ -76,15 +80,47 @@ schema, pg-boss owns its queue tables, and neither touches the other's.
 
 ---
 
-## Current state, 2026-09-18
+## 4 · Watch Paths — set, then removed
 
-The rules are in force; two of the three have nothing to act on yet.
+**Status: NOT IN FORCE.** Set on 2026-09-18 and removed the same day at the user's
+instruction. Every commit to `main` triggers a deploy again. The reasoning is
+kept because the exposure it addressed has not gone away.
+
+**The rule was.** Each service declares Watch Paths, and Railway redeploys only when
+a changed file matches. A commit touching `documentation/`, `memory/` or the task
+board deploys nothing.
+
+**Why.** `main` is auto-deployed, so before this every board update and every
+memory log triggered a full rebuild of staging — on 2026-09-18 that was most of
+seventeen commits, none of which changed a line of code. The risk is not the
+wasted build; it is that a documentation commit can take a service down if the
+build environment has drifted, and nobody expects a doc change to do that.
+
+| Service | Watch Paths |
+|---|---|
+| `web` | `/src/**` `/prisma/**` `/public/**` `/package.json` `/package-lock.json` `/next.config.ts` `/prisma.config.ts` `/tsconfig.json` |
+| `worker` | `/worker/**` `/prisma/**` `/package.json` `/package-lock.json` `/prisma.config.ts` |
+
+**Keep them current.** A new top-level directory holding real code — `src/` moving,
+a `config/` appearing — must be added, or changes to it will silently never
+deploy. That failure is quiet and confusing: the commit lands, nothing happens,
+and the obvious suspicion is the deploy pipeline rather than a missing pattern.
+
+`/prisma/**` is in both lists on purpose: a migration must reach the service that
+runs `migrate deploy` AND the service that will read the new tables.
+
+---
+
+## Current state, 2026-09-18
 
 | Rule | State |
 |---|---|
-| 1 · pre-deploy migration | **Set on staging `web`.** No migrations exist yet — `P2-BE-02` writes the first. |
+| 1 · pre-deploy migration | **Executed successfully**, 2026-09-18 07:27 UTC — `20260918060000_init` applied to the staging database on deployment `08cd56a3`. |
 | 2 · worker before web | **In force, manual.** No job types exist yet, so no release has needed it. |
 | 3 · pg-boss on worker boot | **Not yet applicable.** `worker/index.js` is a placeholder; the task that attaches pg-boss implements this rule. |
+| 4 · watch paths | **Removed.** Every commit to `main` redeploys staging. |
+
+---
 
 **Service commands** (Guide §10), set on staging:
 
