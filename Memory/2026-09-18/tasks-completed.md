@@ -708,3 +708,46 @@ been left blank when the cluster was switched to In progress.
 
 Second clean run of the pre-deploy pipeline, this time applying a migration on
 top of an existing schema rather than to an empty database.
+
+---
+
+## `P2-BE-05` — the transactional outbox and pg-boss drain · Done
+
+Closed straight to **Done** at the user's instruction; code review skipped.
+
+| File | What it is |
+|---|---|
+| `src/server/outbox.ts` | `enqueue(tx, tenantId, name, payload)` — takes a `TransactionClient`, never the db client, so writing outside the caller's transaction is awkward to do by accident. `JobName` is a string union, so a typo is a compile error rather than a job nothing handles. |
+| `src/server/db.ts` | The Prisma 7 client on the `PrismaPg` driver adapter, cached on `globalThis` in development because a fresh client per Next hot reload exhausts the pool within minutes. |
+| `worker/index.mts` | pg-boss boot plus a 1-second drain: `SELECT … FOR UPDATE SKIP LOCKED LIMIT 100`, send, then mark dispatched. |
+
+### Three things worth carrying forward
+
+**The worker had to become `.mts`.** The package is `"type": "commonjs"` and the
+generated Prisma client is ESM-syntax TypeScript, so plain `node` cannot load
+it — Next bundles, this process does not. `.mts` is always an ES module, Node 24
+strips types natively, and `pg` and `pg-boss` both import cleanly. No build step,
+no bundler, no extra dependency. The alternative was flipping the whole package
+to `"type": "module"`, which is a repo-wide risk for one process.
+
+**pg-boss 12 is ESM and exports `PgBoss` as a named export.**
+`import PgBoss from "pg-boss"` fails at load with *"does not provide an export
+named default"* — a confusing way to discover it.
+
+**Delivery is at-least-once and every handler must be idempotent.** The drain
+sends to pg-boss and then marks the rows dispatched, so a crash between those two
+steps re-sends on the next tick. Deliberate: marking first risks losing a job
+outright, and a duplicated Zoho push is recoverable where a dropped one is
+silent.
+
+### Dependencies added, all pinned exactly
+
+`@prisma/adapter-pg` 7.10.0, `pg` 8.23.0, `@types/pg` 8.23.1 (dev) — no carets,
+per `P0-PMO-11`. Prisma 7 requires a driver adapter; the client cannot be
+constructed without one.
+
+No job handlers are registered yet. Each arrives with the feature that needs it,
+and until then jobs queue visibly rather than dropping silently — which is also
+what makes queue depth meaningful for `P2-OPS-11`.
+
+`P7-BE-04` and `P8-INT-01` cascaded to Ready.
