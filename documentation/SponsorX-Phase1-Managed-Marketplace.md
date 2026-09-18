@@ -135,9 +135,9 @@ DECISION GATE G-02 · Data residency — which region do Railway and R2 run in? 
 - **Done when:** Railway region and R2 region chosen explicitly, recorded, not left at defaults
 - **Reference:** Addendum A7
 
-### ▶ `P0-OPS-01` · Create Railway account, project and billing
+### ✅ `P0-OPS-01` · Create Railway account, project and billing
 
-**Order** 1 · **OPS** · **Where:** Vendor console · **1d** · **Ready** · **Unblocks** 115
+**Order** 1 · **OPS** · **Where:** Vendor console · **1d** · **Done** · **Unblocks** 115
 
 Open the Railway account and project in the region chosen above. Set a spend alert — usage-based hosting surprises people.
 
@@ -305,7 +305,7 @@ Confirm the six sponsor packages — Test Drive through Season Partner — with 
 - **Done when:** Name, price band, athlete count and inventory JSON confirmed per package
 - **Reference:** §7
 
-### ▶ `P0-PMO-13` · Decide the margin floor rule and tier-derived sell floors
+### ✅ `P0-PMO-13` · Decide the margin floor rule and tier-derived sell floors
 
 **Order** 16.5 · **PMO** · **Where:** Document · **1d** · **Done** · **Unblocks** 1
 
@@ -514,9 +514,9 @@ The mock data currently shows happy paths. Add the awkward cases — a minor wit
 - **Done when:** A minor athlete with unverified guardian, an expired invite, an under-delivering campaign, a held earning, a declined order and a rejected application are all representable and rendered
 - **Reference:** Roadmap A3
 
-### ⏸ `P1-ART-04` · Design the sponsor ROI report layout for print/PDF
+### ✅ `P1-ART-04` · Design the sponsor ROI report layout for print/PDF
 
-**Order** 29 · **ART** · **Where:** Design tool · **3d** · **Blocked** · **Unblocks** 0
+**Order** 29 · **ART** · **Where:** Design tool · **3d** · **Done** · **Unblocks** 0
 
 Design the sponsor's results report at print width, so it survives being turned into a PDF rather than looking broken.
 
@@ -544,9 +544,9 @@ Produce the imagery for the public marketing site — hero, case-study slots, pa
 - **Done when:** Hero, proof/case-study slots and package presentation art ready for the public homepage
 - **Reference:** §9 screen 1
 
-### ▶ `P1-ART-07` · Design the athlete onboarding flow visuals (§11 ten sections)
+### ✅ `P1-ART-07` · Design the athlete onboarding flow visuals (§11 ten sections)
 
-**Order** 32 · **ART** · **Where:** Design tool · **3d** · **Ready** · **Unblocks** 0
+**Order** 32 · **ART** · **Where:** Design tool · **3d** · **Done** · **Unblocks** 0
 
 Design the athlete sign-up as a progressive flow across its ten sections, including the branch where a parent has to be involved.
 
@@ -614,9 +614,9 @@ Check every screen on a phone. The athlete portal and redeem page are phone-firs
 
 *27 tasks · 0 person-days*
 
-### ⏸ `P2-OPS-01` · Create the Railway project with three services
+### ▶ `P2-OPS-01` · Create the Railway project with three services
 
-**Order** 38 · **OPS** · **Where:** Vendor console · **3d** · **Blocked** · **Unblocks** 114
+**Order** 38 · **OPS** · **Where:** Vendor console · **3d** · **Ready** · **Unblocks** 114
 
 Create three services in one Railway project — the web app, the background worker, and Postgres — talking privately to each other with the database never exposed to the internet.
 
@@ -1194,9 +1194,9 @@ The athlete's invitation inbox — opening one marks it viewed; accept and decli
 - **Done when:** Real invitations render in all five states; viewing transitions INVITED→VIEWED; accept and decline both work
 - **Reference:** §24
 
-### ▶ `P4-ART-01` · Design the matching and roster-review experience
+### ✅ `P4-ART-01` · Design the matching and roster-review experience
 
-**Order** 93 · **ART** · **Where:** Design tool · **3d** · **Ready** · **Unblocks** 0
+**Order** 93 · **ART** · **Where:** Design tool · **3d** · **Done** · **Unblocks** 0
 
 Design the matching screen before it is built. It is the densest screen in the product: filters, roster comparison, scores side by side.
 
@@ -1364,9 +1364,9 @@ The content approval board where BTG staff work: review drafts, request changes,
 - **Done when:** The full review board works — draft review, revision request, sponsor routing, approval, publication proof
 - **Reference:** §10, §23
 
-### ▶ `P5-ART-01` · Design the deliverable and approval states
+### ✅ `P5-ART-01` · Design the deliverable and approval states
 
-**Order** 109 · **ART** · **Where:** Design tool · **3d** · **Ready** · **Unblocks** 0
+**Order** 109 · **ART** · **Where:** Design tool · **3d** · **Done** · **Unblocks** 0
 
 Design how each deliverable state looks to the athlete, to BTG and to the sponsor — three different audiences, same record.
 

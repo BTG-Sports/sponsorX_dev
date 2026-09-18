@@ -152,3 +152,26 @@ where the already-deployed `sponsorX_dev` service gets regularised into
 
 **43 Done · 9 Ready · 1 In progress · 4 Code review · 130 Blocked = 187.**
 77 formulas verified identical; no rows inserted.
+
+---
+
+## All four Code review rows closed to Done
+
+`P1-ART-04`, `P1-ART-07`, `P4-ART-01`, `P5-ART-01` moved **Code review → Done**,
+Date Done 2026-09-18, at the user's instruction. Nothing was Blocked on any of
+them, so no cascade followed.
+
+These were the four design deliveries from 2026-09-17 that had never been read by
+a second person. Closing them accepts that; the known issues recorded on the day
+stand and did not go away with the status — `P5-ART-01`'s export title band
+renders near-white on white, and `P1-ART-06`'s logo SVGs still reference Barlow
+Condensed by font name and need outlining before they go into `public/`.
+
+The Phase 1 plan document's status glyphs were re-synced for every row that moved
+today, so the ✅ / ▶ / ⏸ markers and the status word in each meta line match the
+tracker again.
+
+### Board after
+
+**47 Done · 9 Ready · 1 In progress · 130 Blocked = 187.** Nothing at Code
+review. 77 formulas verified identical.
