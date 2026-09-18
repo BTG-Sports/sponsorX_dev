@@ -159,7 +159,7 @@ A table of authorization rules: each of the 12 user roles against every Phase 1 
 
 ### ▶ `P0-OPS-06` · Register the SponsorX domain and hold the DNS
 
-**Order** 2.5 · **OPS** · **Where:** Vendor console · **1d** · **Ready** · **Unblocks** 3
+**Order** 2.5 · **OPS** · **Where:** Vendor console · **1d** · **In progress** · **Unblocks** 3
 
 Buy the domain the whole product is addressed at, and keep control of its DNS. Nothing in the programme registers one, yet three separate threads assume it exists — a Clerk production instance, a publicly reachable `web`, and the short-link domain the fan QR and tracking routes need.
 
@@ -638,7 +638,7 @@ Create three services in one Railway project — the web app, the background wor
 
 ### ▶ `P2-BE-02` · Author the full Prisma schema + initial migration
 
-**Order** 39 · **BE** · **Where:** Code · **5d** · **Ready** · **Unblocks** 104
+**Order** 39 · **BE** · **Where:** Code · **5d** · **In progress** · **Unblocks** 104
 
 Write the entire database structure in one go: every table, every lifecycle state, a tenant marker on everything. The single largest task in the project and almost everything depends on it.
 
