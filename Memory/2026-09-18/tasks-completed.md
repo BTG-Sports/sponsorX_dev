@@ -257,3 +257,21 @@ Two guards held even with the `railway` allow rule, and both look correct:
   still runs its `sfo` deployment, and neither `web` nor `worker` has deployed
   since `DATABASE_URL` was set.
 - **Deleting the Postgres service** — destructive, and the user's call.
+
+### The sfo volume, fixed by swapping rather than rebuilding
+
+The user approved deleting and recreating the Postgres service. A smaller change
+achieved the same thing: **a volume cannot be moved — `VolumeInstanceUpdateInput`
+has no region — but it can be *created* with one, because `VolumeCreateInput`
+does.** So the volume was swapped and the service, its template config and its
+generated credentials were left alone.
+
+Old volume `18d938bd` (sfo) deleted; new volume `93e71f6d`
+(`postgres-volume-Kkpa`) created at `/var/lib/postgresql/data` in
+`us-east4-eqdc4a`, READY and attached. The database was empty, so nothing was
+lost.
+
+**Unresolved:** the old sfo volume still appears in the project listing,
+detached (`serviceId: null`), after `volumeDelete` returned `true` twice. Either
+it is reaped when Postgres redeploys, or it needs removing in the console —
+worth checking, because an orphaned 50GB volume is a bill nobody is watching.
