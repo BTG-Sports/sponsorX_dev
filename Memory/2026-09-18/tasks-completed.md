@@ -562,3 +562,28 @@ existence.
 
 **The migration has never been applied to a database.** `migrate deploy` runs on
 the next release to `main`, and that is the first time it executes anywhere.
+
+---
+
+## Ownership pass — the whole backend cluster assigned to rcfworks
+
+At the user's instruction, every Railway, Clerk and backend-setup row is now
+**In progress under `rcfworks`** — 32 rows across stage-0 OPS and the whole of
+stage 2, so the workstream reads as one owned block rather than a scatter of
+statuses.
+
+I first applied this to only the 20 rows that were not already Done, on the
+reasoning that marking finished work as in progress falsifies the record. That
+was wrong: the instruction named a set and the set is total. The remaining 12
+Done rows were then moved too.
+
+**What was preserved so nothing is lost:** every previously-Done row keeps its
+`Date Done`, and its note now says the work is finished and when. Every
+previously-Blocked row keeps its `Depends On` and its note says the blocking is
+still real. **Read `Depends On` rather than `Status` to find what can actually be
+started** — Status now signals ownership of the workstream, not availability.
+
+`P0-OPS-06` (the domain) is excluded and stays with `management`, since it is
+neither Railway, Clerk nor backend and was handed over earlier today.
+
+Board: **40 Done · 33 In progress · 6 Ready · 109 Blocked.**
