@@ -5,7 +5,7 @@
 | | |
 |---|---|
 | **Goal** | Launch real micro-NIL campaigns while building the data foundation. BTG staff run matching, pricing, conflict checks and invoicing; the software standardises and records every step. |
-| **Tasks** | 188 · 450 person-days |
+| **Tasks** | 189 · 451 person-days |
 | **Blueprint timeline** | 14–18 weeks |
 | **Balanced budget** | $75K–$105K |
 | **Depends on** | Nothing — this is the start |
@@ -156,6 +156,18 @@ A table of authorization rules: each of the 12 user roles against every Phase 1 
 - **Depends on:** nothing — startable now
 - **Done when:** All 12 roles × every Phase 1 resource × ownership × action, in a table, agreed — this becomes the authz test suite
 - **Reference:** §8 (the twelve roles, as a table in the original document — note that the copy converted into `graphify-out/` has lost it), §38, and §09 of [`SponsorX-Implementation-Guide-V2.md`](./SponsorX-Implementation-Guide-V2.md) for the twenty starter rows and the target test format
+
+### ▶ `P0-OPS-06` · Register the SponsorX domain and hold the DNS
+
+**Order** 2.5 · **OPS** · **Where:** Vendor console · **1d** · **Ready** · **Unblocks** 3
+
+Buy the domain the whole product is addressed at, and keep control of its DNS. Nothing in the programme registers one, yet three separate threads assume it exists — a Clerk production instance, a publicly reachable `web`, and the short-link domain the fan QR and tracking routes need.
+
+`sponsorx.com` is **already registered to someone else**, as are `.io`, `.app`, `.co` and `.pro`. The Implementation Guide assumes `sponsorx.com` and `app.sponsorx.com` throughout; that assumption has to be corrected once a name is chosen.
+
+- **Depends on:** nothing — startable now
+- **Done when:** Domain registered to a BTG-controlled account with auto-renew and registrar lock on; DNS managed somewhere the team can add records; the chosen name recorded in `.claude/stack-decision.md`
+- **Reference:** §38, Guide §10
 
 ### ▶ `P0-OPS-03` · Create Clerk application (dev + production instances)
 
