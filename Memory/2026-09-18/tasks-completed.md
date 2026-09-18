@@ -356,3 +356,46 @@ Production is deliberately dormant — `web` is there but no longer ships on a
 merge to `main`. Promoting means recreating `worker` and `Postgres` in production
 from the proven staging configuration, with the region pinned **before** the
 first deploy.
+
+---
+
+## The three remaining Railway tasks
+
+`P2-OPS-02` and `P2-OPS-03` are at **Code review**, `P2-OPS-10` is **Done**.
+
+**`P2-OPS-02` — standalone output and service commands.** `next.config.ts`
+already carried `output: 'standalone'` (with a documented Vercel exception), so
+that half predated today. Added: `worker/index.js`, the entrypoint Guide §10
+names — without it Railway can only run the worker as a second copy of the web
+app, which is what it had been doing. It is a placeholder that boots, reports
+whether `DATABASE_URL` is present, heartbeats every five minutes and exits
+cleanly on SIGTERM; the pg-boss task replaces it. Plain `.js` on purpose: the
+worker service has no build step of its own, and adding one belongs to the task
+that makes the worker real.
+
+**`P2-OPS-03` — the pre-deploy migration.** `preDeployCommand` is set on staging
+`web` to `npx prisma migrate deploy`. **The field takes an array, and wants a
+single shell string inside it** — an argv-style array (`["npx","prisma",...]`) is
+rejected with "Invalid input". It is on `web` rather than `worker` so one service
+owns schema migration and two cannot race.
+
+**`P2-OPS-10` — the deploy ordering rule.** Written to
+[SponsorX-Deploy-Ordering.md](../../documentation/SponsorX-Deploy-Ordering.md):
+migrations as a pre-deploy step never in the build; worker before web on any
+release adding a job type; pg-boss migrations on worker boot only. Each rule
+names the failure it prevents, because a rule whose reason is forgotten gets
+dropped the first time it is inconvenient. **Rule 2 is enforced by hand and the
+document says so** — Railway does not order deployments across services and no
+release pipeline exists yet to encode it.
+
+### Why two are at Code review rather than Done
+
+Neither is proven. Railway deploys `main`, this work is on
+`development/bob/roadmap_2`, and the commands take effect on the next merge —
+which is also when we learn whether `prisma migrate deploy` exits 0 with no
+migrations directory. If it exits non-zero the deploy is blocked and the previous
+version keeps serving, which is the correct failure and the reason it was set in
+staging first.
+
+**Do not redeploy the worker before that merge** — the start command now points
+at a file that is not yet on `main`, so it would crash-loop.

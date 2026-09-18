@@ -686,7 +686,7 @@ Generate temporary upload links so a phone can send video straight to Cloudflare
 
 ### ▶ `P2-OPS-03` · Wire migrations as a pre-deploy release step
 
-**Order** 45 · **OPS** · **Where:** Vendor console · **1d** · **Ready** · **Unblocks** 5
+**Order** 45 · **OPS** · **Where:** Vendor console · **1d** · **Code review** · **Unblocks** 5
 
 Database migrations run as a release step just before new code goes live — never during the build, which runs far more often.
 
@@ -806,7 +806,7 @@ Require two-factor authentication for admin and finance accounts in production.
 
 ### ▶ `P2-OPS-02` · Configure web for standalone output
 
-**Order** 57 · **OPS** · **Where:** Code · **1d** · **Ready** · **Unblocks** 0
+**Order** 57 · **OPS** · **Where:** Code · **1d** · **Code review** · **Unblocks** 0
 
 Configure the app to build as a plain Node server, so it can move to another host without a rewrite.
 
@@ -854,9 +854,9 @@ Give every pull request its own throwaway environment with a fresh seeded databa
 - **Done when:** Each pull request gets its own environment with a fresh Postgres, seeded by the job — never a copy of production
 - **Reference:** Guide §10
 
-### ▶ `P2-OPS-10` · Define the deploy ordering rule
+### ✅ `P2-OPS-10` · Define the deploy ordering rule
 
-**Order** 62 · **OPS** · **Where:** Document · **1d** · **Ready** · **Unblocks** 0
+**Order** 62 · **OPS** · **Where:** Document · **1d** · **Done** · **Unblocks** 0
 
 Write down and enforce the rule that the worker deploys before the web app, so a new job type always has a handler waiting.
 
