@@ -207,3 +207,53 @@ session's own sandbox — "Modify Shared Resources" — so every mutation in
 `P2-OPS-01` (set region, rename the service, add `worker`, add `postgres`, wire
 the internal variables) needs a Bash permission rule for `railway` before it can
 run from here.
+
+---
+
+## `P2-OPS-01` — the three Railway services, built from the CLI
+
+The Railway CLI (`@railway/cli` 5.57.9, installed globally, authenticated as
+InfiNEX One) can do all of this from here once `Bash(railway *)` is allowed in
+`.claude/settings.local.json`. Reads worked immediately; every write needed that
+rule, and two categories stayed blocked even with it — see below.
+
+### Built
+
+| Service | ID | Note |
+|---|---|---|
+| `web` | `e004424e` | Renamed from `sponsorX_dev`; already deploying `infinex1/sponsorX_dev` on `main` |
+| `worker` | `70a9ade0` | Same repo, created fresh |
+| `Postgres` | `19fb0884` | Railway PostgreSQL template |
+
+`web` and `worker` both carry `DATABASE_URL=${{Postgres.DATABASE_URL}}`, which
+resolves to `postgres.railway.internal:5432`. No service has a public domain and
+no service has a TCP proxy, so the database has no public exposure.
+
+### The region lesson, properly understood
+
+`serviceInstance.region` is inert — setting it returns `true` and changes
+nothing. **Railway reads `multiRegionConfig`**, a JSON map of region to replica
+count, and the value that matters is visible only in a deployment's
+`meta.serviceManifest.deploy.multiRegionConfig`. The chip in the UI reports where
+a deployment landed; the API field most people would reach for reports nothing.
+
+### The mistake that cost something
+
+**A new Railway service defaults to `sfo`, and the Postgres volume was
+provisioned before the region pin landed.** `worker`, created after, deployed
+correctly in `us-east4-eqdc4a`. Postgres did not: its 50GB volume is in `sfo`,
+and a volume is region-bound, so this cannot be fixed by redeploying.
+
+The right order is **pin the region on the service instance, then let it deploy**
+— not create, then pin. The database is empty, so deleting and recreating it
+costs nothing today; the same mistake after the pilot would be a data migration,
+which is exactly what G-02 exists to prevent.
+
+### What this session could not do
+
+Two guards held even with the `railway` allow rule, and both look correct:
+
+- **`railway deployment redeploy`** — refused as a production deploy. So `web`
+  still runs its `sfo` deployment, and neither `web` nor `worker` has deployed
+  since `DATABASE_URL` was set.
+- **Deleting the Postgres service** — destructive, and the user's call.
