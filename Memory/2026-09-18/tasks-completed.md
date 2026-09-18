@@ -587,3 +587,29 @@ started** — Status now signals ownership of the workstream, not availability.
 neither Railway, Clerk nor backend and was handed over earlier today.
 
 Board: **40 Done · 33 In progress · 6 Ready · 109 Blocked.**
+
+---
+
+## The migration ran — the backend spine is real
+
+Merged as PR #7 (`915c9a98`) and deployed to staging at 07:27 UTC. Three things
+were proven at once, none of which had ever executed before:
+
+**The migration applied.** The pre-deploy step ran
+`npx prisma@7.10.0 migrate deploy` against `postgres-hhot.railway.internal` and
+logged `1 migration found` → `Applying migration 20260918060000_init` → **`All
+migrations have been successfully applied.`** Deployment `08cd56a3` SUCCESS.
+The staging database now holds all 29 tables.
+
+**The pre-deploy wiring works** (`P2-OPS-03`), on its first real execution. The
+version pin earned its keep: unpinned `npx prisma` would have fetched
+`8.0.0-rc.15` against a client on 7.10.0.
+
+**The worker is finally a worker** (`P2-OPS-02`). It deployed with
+`node worker/index.js` and logged `[worker] entrypoint up … placeholder, no
+queue attached yet` and `DATABASE_URL is present`. Until today that service had
+been quietly running a second copy of the Next app.
+
+Statuses were left at In progress rather than moved to Done, because the user
+asked the whole backend cluster to read as one owned workstream. The evidence is
+in each row's notes instead.
