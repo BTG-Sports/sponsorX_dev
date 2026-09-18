@@ -654,3 +654,37 @@ the wrong trade.
 **A further subtlety worth keeping:** the GitHub CLI here authenticates as the
 user's own account, so protection could never have distinguished me from them
 anyway. What binds me is the standing rule to never push to `main`.
+
+---
+
+## `P2-BE-03` — the indexes Prisma cannot express
+
+Three partial indexes in `prisma/sql/` with a README explaining each, applied by
+migration `20260918080000_partial_indexes`.
+
+**`reward_single_redeem`** is the one that carries real risk: a UNIQUE index on
+`RewardEvent(tokenId) WHERE type = 'REDEEM'`. Two fans scanning the same code in
+the same millisecond at an event is not hypothetical, and an application-level
+"have we already redeemed?" check reads before it writes and loses that race
+every time. The correct implementation is to attempt the insert, catch the unique
+violation and render "already used".
+
+**`outbox_pending`** keeps the drain's index the size of the backlog rather than
+of all history. **`invite_one_open`** is below.
+
+### A constraint that was too strong
+
+`CampaignInvite` carried `@@unique([campaignId, athleteId, jobId])` from Guide
+§03 — one invite per athlete per job, **ever**. That forbids re-inviting an
+athlete whose previous invitation EXPIRED or was DECLINED, which is ordinary
+business and which §21 treats as a normal terminal state rather than a permanent
+bar.
+
+Dropped it, replaced with a plain index plus the partial unique over
+`('INVITED', 'VIEWED')`. The rule actually wanted is **"no two live offers for
+the same work"**, and only a partial index can say that. It also makes the
+guide's own `invite_one_open` index meaningful — under the full constraint it was
+redundant.
+
+Validate passes, client regenerates, build compiles. The migration has not run
+yet; it applies on the next deploy to `main`.

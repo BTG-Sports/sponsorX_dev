@@ -501,8 +501,13 @@ model CampaignInvite {
   athlete  Athlete  @relation(fields: [athleteId], references: [id])
   job      NilJob   @relation(fields: [jobId], references: [id])
 
-  @@unique([campaignId, athleteId, jobId])
+  /// NO full @@unique here on purpose. "One invite per athlete per job, ever"
+  /// would forbid re-inviting an athlete whose previous invitation EXPIRED or
+  /// was DECLINED, which is ordinary business. The rule actually wanted is one
+  /// OPEN invite at a time, and that needs a partial unique index — see
+  /// prisma/sql/invite_one_open.sql (P2-BE-03).
   @@index([tenantId, state, expiresAt])
+  @@index([campaignId, athleteId, jobId])
 }
 
 /// The commercial record, one per athlete per job.
