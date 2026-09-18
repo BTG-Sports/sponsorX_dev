@@ -688,3 +688,23 @@ redundant.
 
 Validate passes, client regenerates, build compiles. The migration has not run
 yet; it applies on the next deploy to `main`.
+
+---
+
+## PR #8 merged — the partial indexes are live
+
+Created and merged at the user's explicit request (my standing rule is to leave
+`main` merges to them; they asked for this one). Merge commit `a0ddb357`,
+staging deployment `e40f2e89` SUCCESS, and the pre-deploy logged:
+
+> 2 migrations found in prisma/migrations
+> Applying migration `20260918080000_partial_indexes`
+> All migrations have been successfully applied.
+
+So `reward_single_redeem`, `outbox_pending` and `invite_one_open` are enforced by
+Postgres in staging, and `CampaignInvite`'s over-strict unique constraint is
+gone. `P2-BE-02` and `P2-BE-03` both carry `Date Done` 2026-09-18 now — they had
+been left blank when the cluster was switched to In progress.
+
+Second clean run of the pre-deploy pipeline, this time applying a migration on
+top of an existing schema rather than to an empty database.
