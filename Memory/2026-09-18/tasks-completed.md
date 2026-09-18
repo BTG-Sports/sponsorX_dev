@@ -91,3 +91,25 @@ costs no fixture churn and `P3-BE-12` inherits a clean baseline.
 
 End-of-day mirror of the Google Sheet by hand: two rows raised (`P0-PMO-13` Done,
 `P3-BE-12` Blocked), `P3-BE-11` Unblocks 1 → 2.
+
+---
+
+## The cascade into the downstream tasks
+
+The decision changes what seven existing tasks have to do, so their definitions
+were updated rather than left to be reinterpreted later — in the Phase 1 plan
+document and the tracker together, as the definition rule requires.
+
+| Task | What changed |
+|---|---|
+| `P3-BE-08` | Seeds SX-07's corrected band and each job's per-tier derived floor, not just the §5 bands |
+| `P3-BE-09` | Setting an athlete rate must surface the minimum sell price it implies (rate × 1.4) |
+| `P3-BE-11` | Seeds job-code line items, the narrowed Local Blitz and the iMC/BTG inventory line |
+| `P3-FE-05` | The public package page shows the line items each package contains |
+| `P7-BE-03` | Margin computed from the agreed rate and price, not the band midpoints |
+| `P2-BE-02` | `NilJob` carries the per-tier floor; `SponsorPackage` carries `lineItems` |
+| `2S3-BE-03` | Phase 2's "sub-floor pricing" is named as the same 1.4× rule |
+
+`P3-BE-08` and `P3-BE-11` now also depend on `P0-PMO-13`, which is Done, so no
+status changed. `P0-PMO-13`'s Unblocks went 1 → 3. All 77 formulas verified
+identical again; no rows inserted in this pass.
