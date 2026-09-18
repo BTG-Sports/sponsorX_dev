@@ -1,6 +1,6 @@
 # Database Backups and Restore — Runbook
 
-**Task `P2-OPS-09` · Version 1.0 · 2026-09-18 · Status: proven on staging**
+**Task `P2-OPS-09` · Version 1.1 · 2026-09-18 · Status: in force, both environments**
 
 Every command below was run against the staging database on 2026-09-18 and the
 output recorded. This is not a plan for how backups might work — it is what
@@ -125,8 +125,9 @@ mistake.
 - **No restore has been tested with real data in it.** The staging database was
   empty. The mechanism is proven; the fidelity of a restore is not, and cannot be
   until `P2-BE-02` creates a schema and something writes rows.
-- **Production has no database yet**, so none of this is live where it would
-  matter most.
+- **Production's restore has never been exercised**, only staging's. The
+  mechanism is identical and the commands are above, but the first production
+  restore will still be somebody's first production restore.
 - **Nobody has timed a restore of a realistic database.** Sixteen megabytes came
   back in about a minute. That number tells you nothing about a real one, and the
   recovery-time figure `2S0-OPS-01` asks for in Phase 2 needs a real measurement.
@@ -134,5 +135,4 @@ mistake.
 ---
 
 *References: Implementation Guide V2 §10; `.claude/stack-decision.md` A7 (data
-residency, US East). Implements part of `P2-OPS-09`; the production half is
-deferred to promotion.*
+residency, US East). Implements `P2-OPS-09`.*
