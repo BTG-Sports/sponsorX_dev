@@ -1,6 +1,6 @@
 # Deploy Ordering and the Release Step
 
-**Task `P2-OPS-10` · Version 1.1 · 2026-09-18 · Status: in force**
+**Task `P2-OPS-10` · Version 1.2 · 2026-09-18 · Status: in force (rules 1–3)**
 
 Four rules govern how a SponsorX release reaches Railway. They exist because
 each one has a specific failure it prevents, and each is written here with that
@@ -80,9 +80,13 @@ schema, pg-boss owns its queue tables, and neither touches the other's.
 
 ---
 
-## 4 · Only code changes trigger a deploy
+## 4 · Watch Paths — set, then removed
 
-**The rule.** Each service declares Watch Paths, and Railway redeploys only when
+**Status: NOT IN FORCE.** Set on 2026-09-18 and removed the same day at the user's
+instruction. Every commit to `main` triggers a deploy again. The reasoning is
+kept because the exposure it addressed has not gone away.
+
+**The rule was.** Each service declares Watch Paths, and Railway redeploys only when
 a changed file matches. A commit touching `documentation/`, `memory/` or the task
 board deploys nothing.
 
@@ -114,7 +118,7 @@ runs `migrate deploy` AND the service that will read the new tables.
 | 1 · pre-deploy migration | **Executed successfully**, 2026-09-18 07:27 UTC — `20260918060000_init` applied to the staging database on deployment `08cd56a3`. |
 | 2 · worker before web | **In force, manual.** No job types exist yet, so no release has needed it. |
 | 3 · pg-boss on worker boot | **Not yet applicable.** `worker/index.js` is a placeholder; the task that attaches pg-boss implements this rule. |
-| 4 · watch paths | **Live on both staging services.** |
+| 4 · watch paths | **Removed.** Every commit to `main` redeploys staging. |
 
 ---
 
