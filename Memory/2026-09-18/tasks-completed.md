@@ -473,3 +473,39 @@ old volume detached and attached a new one named for the backup timestamp — so
 the restore test itself produced another orphan to clean up. Expect that.
 
 `P2-OPS-09` is **Done**. It cascaded `P2-OPS-11` and `P2-PMO-01` to Ready.
+
+---
+
+## `P2-OPS-11` — monitoring, and the honest limit of it
+
+The last Railway task, taken as far as it can go. Written up as
+[SponsorX-Monitoring-Plan.md](../../documentation/SponsorX-Monitoring-Plan.md).
+
+**Two of the four signals are live** — service health (CPU, memory, network, up
+and down) and volume usage against its limit, confirmed with
+`railway metrics --all`. Deployment success and failure are visible too. That is
+visibility, not alerting: nobody is told anything.
+
+**Three blockers, and none of them is a task dependency**, which is exactly why
+the board showed this Ready:
+
+1. **Queue depth and failed jobs cannot be measured because there is no queue.**
+   `worker/index.js` is a placeholder and pg-boss is not attached. These are the
+   signals that matter most — a worker that is *up* but not *draining* looks
+   perfectly healthy on CPU and memory, and that is the failure this task exists
+   to catch.
+2. **HTTP error rate needs `web` to have a public domain.** It has none in either
+   environment, so there is no request volume to measure.
+3. **Paging needs a vendor choice and console click-work.** Railway's project
+   webhooks are not in the public GraphQL API, so this one genuinely cannot be
+   scripted from here.
+
+The alerting design is written and ordered: only "worker not draining" pages;
+deployment failed, volume above 80% and job failure rate notify. **Thresholds are
+deliberately left unset** until there is a baseline — a guessed threshold
+produces noise, and noise teaches a team to ignore the pager.
+
+### Railway is now as finished as it can be
+
+Every Railway task is Done except `P2-OPS-11`, which cannot close until the
+worker is real. The genuine next task is `P2-BE-02`, the full Prisma schema.

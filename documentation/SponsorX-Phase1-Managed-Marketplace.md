@@ -726,7 +726,7 @@ A script that fills an empty database with realistic demo data. Because preview 
 
 ### ▶ `P2-OPS-11` · Configure monitoring and alerting
 
-**Order** 49 · **OPS** · **Where:** Vendor console · **3d** · **Ready** · **Unblocks** 2
+**Order** 49 · **OPS** · **Where:** Vendor console · **3d** · **In progress** · **Unblocks** 2
 
 Make service health, queue depth and failed jobs visible, and make sure somebody gets woken up if the worker stops processing.
 
