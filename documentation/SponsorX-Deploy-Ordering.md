@@ -117,7 +117,7 @@ runs `migrate deploy` AND the service that will read the new tables.
 |---|---|
 | 1 · pre-deploy migration | **Executed successfully**, 2026-09-18 07:27 UTC — `20260918060000_init` applied to the staging database on deployment `08cd56a3`. |
 | 2 · worker before web | **In force, manual.** No job types exist yet, so no release has needed it. |
-| 3 · pg-boss on worker boot | **Not yet applicable.** `worker/index.js` is a placeholder; the task that attaches pg-boss implements this rule. |
+| 3 · pg-boss on worker boot | **In force.** `worker/index.mts` calls `boss.start()`, which installs pg-boss's schema. The web app never does. |
 | 4 · watch paths | **Removed.** Every commit to `main` redeploys staging. |
 
 ---
@@ -127,7 +127,7 @@ runs `migrate deploy` AND the service that will read the new tables.
 | Service | Start command | Public |
 |---|---|---|
 | `web` | `next start` | Yes, once a domain is generated |
-| `worker` | `node worker/index.js` | **No — never give the worker a domain** |
+| `worker` | `node worker/index.mts` | **No — never give the worker a domain** |
 | `Postgres` | Railway template | No. Private networking only |
 
 ---

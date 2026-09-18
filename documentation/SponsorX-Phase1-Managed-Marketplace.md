@@ -666,9 +666,9 @@ Two files that answer 'who is asking' and 'what are they allowed to see'. Every 
 - **Done when:** requireActor() resolves a Clerk user to a Postgres tenant + roles; every scope function defaults to DENY; no query in the codebase bypasses them
 - **Reference:** Addendum A4, Guide §04
 
-### ▶ `P2-BE-05` · Build the outbox + pg-boss drain
+### ✅ `P2-BE-05` · Build the outbox + pg-boss drain
 
-**Order** 42 · **BE** · **Where:** Code · **3d** · **In progress** · **Unblocks** 23
+**Order** 42 · **BE** · **Where:** Code · **3d** · **Done** · **Unblocks** 23
 
 Background jobs stored in Postgres rather than Redis. The key property: a job is saved in the same transaction as the thing that caused it, so neither can exist without the other.
 
@@ -1736,9 +1736,9 @@ Closing an approved deliverable makes the athlete's earning eligible, automatica
 - **Done when:** Closing an accepted deliverable makes the associated earning ELIGIBLE; the transition is audited
 - **Reference:** §13 step 11
 
-### ⏸ `P7-BE-04` · Invoice / payment reference ingestion from Zoho
+### ▶ `P7-BE-04` · Invoice / payment reference ingestion from Zoho
 
-**Order** 143 · **BE** · **Where:** Code · **3d** · **Blocked** · **Unblocks** 0
+**Order** 143 · **BE** · **Where:** Code · **3d** · **Ready** · **Unblocks** 0
 
 Pull invoice and payment status in from Zoho. SponsorX never becomes the invoicing system.
 
@@ -1866,9 +1866,9 @@ Search the whole codebase to confirm no tax ID, bank or card field exists anywhe
 
 *24 tasks · 0 person-days*
 
-### ⏸ `P8-INT-01` · Zoho outbound push jobs for all four bi-directional objects
+### ▶ `P8-INT-01` · Zoho outbound push jobs for all four bi-directional objects
 
-**Order** 155 · **INT** · **Where:** Code · **5d** · **Blocked** · **Unblocks** 8
+**Order** 155 · **INT** · **Where:** Code · **5d** · **Ready** · **Unblocks** 8
 
 Push accounts, contacts, deals and tasks to Zoho from the background worker, using a shared ID so records never duplicate.
 
