@@ -106,11 +106,16 @@ description.
 
 | | |
 |---|---|
-| **Packages confirmed as written** | Yes / with changes below |
-| **Line items confirmed** | |
-| **Blitz overlap resolved as** | |
-| **Confirmed by** | |
-| **Date** | |
+| **Packages confirmed as written** | Yes — with Local Blitz narrowed to $1,500–$2,400 / 5–9 athletes |
+| **Line items confirmed** | §3 adopted as proposed. All six clear the 1.4× margin floor across their whole range. |
+| **Blitz overlap resolved as** | Local Blitz stops below $2,500, leaving 10-Athlete Blitz a distinct product rather than a point inside another range |
+| **"iMC/BTG feature"** | Sold inventory — a non-NIL line with a record and a zero cost line, so §26 conflict checks and delivery tracking can see it |
+| **Confirmed by** | rcfworks |
+| **Date** | 2026-09-18 |
+
+Recorded in [SponsorX-Pricing-Floor-Decision.md](SponsorX-Pricing-Floor-Decision.md)
+(`P0-PMO-13`). `P3-BE-11` can now seed. Season Partner's exclusivity scope is
+still undefined and is called out there as outstanding.
 
 *References: Blueprint §7, §5, §26. Implements `P0-PMO-10`. Seeds
 `SponsorPackage` (`P3-BE-11`) and the public catalogue (`P3-FE-05`).*

@@ -104,10 +104,14 @@ does not require re-pricing the catalogue before launch.
 
 | | |
 |---|---|
-| **Catalogue confirmed as written** | Yes / with changes below |
-| **Margin-collision resolution** | |
-| **Confirmed by** | |
-| **Date** | |
+| **Catalogue confirmed as written** | Yes — with the SX-07 sell band corrected to $1,050–$2,000 |
+| **Margin-collision resolution** | Option 1, the floor rule, at 1.4× — plus sell floors derived per tier from the same formula. See [SponsorX-Pricing-Floor-Decision.md](SponsorX-Pricing-Floor-Decision.md) (`P0-PMO-13`), enforced by `P3-BE-12`. |
+| **Confirmed by** | rcfworks |
+| **Date** | 2026-09-18 |
+
+The §5 Q3 question — is the sell-band floor real, or an opening indication — is
+answered **real**, as a stated assumption of that decision. A discountable floor
+makes the rule decorative.
 
 *References: Blueprint §5, §6; Addendum A. Implements `P0-PMO-09`. Seeds the
 `NilJob` and `AthleteRate` models (`P2-BE-02`, `P3-BE-10`).*

@@ -5,7 +5,7 @@
 | | |
 |---|---|
 | **Goal** | Launch real micro-NIL campaigns while building the data foundation. BTG staff run matching, pricing, conflict checks and invoicing; the software standardises and records every step. |
-| **Tasks** | 186 · 446 person-days |
+| **Tasks** | 188 · 450 person-days |
 | **Blueprint timeline** | 14–18 weeks |
 | **Balanced budget** | $75K–$105K |
 | **Depends on** | Nothing — this is the start |
@@ -304,6 +304,16 @@ Confirm the six sponsor packages — Test Drive through Season Partner — with 
 - **Depends on:** nothing — startable now
 - **Done when:** Name, price band, athlete count and inventory JSON confirmed per package
 - **Reference:** §7
+
+### ▶ `P0-PMO-13` · Decide the margin floor rule and tier-derived sell floors
+
+**Order** 16.5 · **PMO** · **Where:** Document · **1d** · **Done** · **Unblocks** 1
+
+Answer the commercial question `P0-PMO-09` and `P0-PMO-10` documented but could not close. The §6 tier multiplier scales athlete pay while nothing scales the §5 sell floor, so a Premium athlete at the top of the base band costs more than the job's cheapest sell price on all seven jobs. Decide the rule that prevents it and the floors that follow from it.
+
+- **Depends on:** nothing — startable now
+- **Done when:** Floor multiple, per-tier derived sell floors, the SX-07 band correction and the six packages' job-code line items all recorded in a decision document
+- **Reference:** §5, §6, §7 · `documentation/SponsorX-Pricing-Floor-Decision.md`
 
 ### ▶ `P0-DATA-03` · Define Content Value Score v1 factors and weights
 
@@ -940,8 +950,8 @@ One function for sending email, with the chosen vendor hidden behind it, so swit
 
 Load the seven standard job types into the database with their pay and price bands.
 
-- **Depends on:** P0-PMO-09, P2-BE-02
-- **Done when:** All seven jobs seeded with base pay and sell price bands from §5
+- **Depends on:** P0-PMO-09, P2-BE-02, P0-PMO-13
+- **Done when:** All seven jobs seeded with base pay and sell price bands from §5, SX-07's corrected sell band ($1,050–$2,000), and each job's derived minimum sell price at Emerging, Creator and Premium
 - **Reference:** §5
 
 ### ⏸ `P3-BE-03` · Guardian model, linkage and verification
@@ -971,7 +981,7 @@ Record social handles and follower counts, tagged with where the number came fro
 Set each athlete's individual rate per job type, with a manual tier multiplier. These numbers must never be visible to sponsors.
 
 - **Depends on:** P3-BE-08
-- **Done when:** Network manager sets tier and per-job rate manually; rates are versioned; AthleteRate.amount is never exposed to a sponsor-scoped query
+- **Done when:** Network manager sets tier and per-job rate manually; rates are versioned; AthleteRate.amount is never exposed to a sponsor-scoped query; setting a rate surfaces the minimum sell price it implies (rate × 1.4)
 - **Reference:** §6, Guide §04
 
 ### ⏸ `P3-BE-11` · Seed the sponsor package catalogue
@@ -980,9 +990,19 @@ Set each athlete's individual rate per job type, with a manual tier multiplier. 
 
 Load the six sponsor packages into the database.
 
-- **Depends on:** P0-PMO-10
-- **Done when:** All six §7 packages seeded with price band, athlete count and inventory
+- **Depends on:** P0-PMO-10, P0-PMO-13
+- **Done when:** All six §7 packages seeded with price band, athlete count and the job-code line items confirmed in `P0-PMO-13` — including Local Blitz narrowed to $1,500–$2,400 / 5–9 athletes and "iMC/BTG feature" as a non-NIL inventory line
 - **Reference:** §7
+
+### ⏸ `P3-BE-12` · Enforce the margin floor at quote and Campaign Order creation
+
+**Order** 74.5 · **BE** · **Where:** Code · **3d** · **Blocked** · **Unblocks** 0
+
+Refuse to save a campaign order line whose sponsor price is below athlete cost × 1.4, at the moment the price is set rather than at month end. A hard block, not a warning — the rule exists because a network manager can otherwise assign a strong athlete to a discounted job in good faith and lose money on the campaign with nothing in the system objecting.
+
+- **Depends on:** P0-PMO-13, P3-BE-11
+- **Done when:** A line below the floor cannot be saved; the error names the job, the athlete tier, the computed floor and the shortfall; tests cover all seven jobs at all three tiers
+- **Reference:** §5, §6, §7, §19 · `documentation/SponsorX-Pricing-Floor-Decision.md`
 
 ### ⏸ `P3-DATA-01` · Pilot cohort import job
 
@@ -1061,7 +1081,7 @@ Let an athlete see their own rates — and nobody else's.
 Show the real packages publicly, with sponsor prices only. Athlete pay must never appear on a public page.
 
 - **Depends on:** P3-BE-11
-- **Done when:** Real packages render with sponsor prices only — athlete base pay never appears on a public surface
+- **Done when:** Real packages render with sponsor prices only — athlete base pay never appears on a public surface — and each package shows the job-code line items it contains
 - **Reference:** §7
 
 ### ⏸ `P3-INT-02` · Application and approval notification jobs
@@ -1671,7 +1691,7 @@ Assemble the sponsor's results report: what was promised, who delivered, what it
 Work out gross pay, adjustments and BTG's margin from the job's pay and price.
 
 - **Depends on:** P7-BE-01
-- **Done when:** Gross compensation, adjustments and BTG margin computed from the job's base pay and sell price
+- **Done when:** Gross compensation, adjustments and BTG margin computed from the agreed athlete rate and the sponsor price; a line below athlete cost × 1.4 cannot exist, because `P3-BE-12` blocks it at creation
 - **Reference:** §5, §10
 
 ### ⏸ `P7-FE-03` · Wire the sponsor ROI report screen
