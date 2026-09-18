@@ -684,9 +684,9 @@ Generate temporary upload links so a phone can send video straight to Cloudflare
 - **Done when:** presignUpload() issues short-TTL signed PUTs against the private bucket; public-bucket reads need no signing; every private grant is audited
 - **Reference:** Addendum A8, Guide §11
 
-### ▶ `P2-OPS-03` · Wire migrations as a pre-deploy release step
+### ✅ `P2-OPS-03` · Wire migrations as a pre-deploy release step
 
-**Order** 45 · **OPS** · **Where:** Vendor console · **1d** · **Code review** · **Unblocks** 5
+**Order** 45 · **OPS** · **Where:** Vendor console · **1d** · **Done** · **Unblocks** 5
 
 Database migrations run as a release step just before new code goes live — never during the build, which runs far more often.
 
@@ -704,9 +704,9 @@ Install every library at its pinned version and set up the Prisma config.
 - **Done when:** Every package from Guide §01 installed at an exact version; prisma.config.ts present with the explicit client output path
 - **Reference:** Guide §01
 
-### ⏸ `P2-OPS-09` · Establish staging + production environments
+### ▶ `P2-OPS-09` · Establish staging + production environments
 
-**Order** 47 · **OPS** · **Where:** Vendor console · **3d** · **Blocked** · **Unblocks** 4
+**Order** 47 · **OPS** · **Where:** Vendor console · **3d** · **In progress** · **Unblocks** 4
 
 Stand up staging and production, each with its own database. Turn on backups and confirm you can actually restore to a point in time.
 
@@ -804,9 +804,9 @@ Require two-factor authentication for admin and finance accounts in production.
 - **Done when:** Admin and finance roles require MFA in the production instance
 - **Reference:** §26
 
-### ▶ `P2-OPS-02` · Configure web for standalone output
+### ✅ `P2-OPS-02` · Configure web for standalone output
 
-**Order** 57 · **OPS** · **Where:** Code · **1d** · **Code review** · **Unblocks** 0
+**Order** 57 · **OPS** · **Where:** Code · **1d** · **Done** · **Unblocks** 0
 
 Configure the app to build as a plain Node server, so it can move to another host without a rewrite.
 

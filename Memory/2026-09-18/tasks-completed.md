@@ -399,3 +399,52 @@ staging first.
 
 **Do not redeploy the worker before that merge** — the start command now points
 at a file that is not yet on `main`, so it would crash-loop.
+
+---
+
+## `P2-OPS-09` — backups and a restore that was actually tested
+
+Closed `P2-OPS-02` and `P2-OPS-03` to Done at the user's instruction — no problem
+was encountered, the configuration reads back correctly from the API, and what
+remained was execution rather than correctness. That cascaded `P2-OPS-09` to
+Ready.
+
+`P2-OPS-09` asks for staging and production to exist, each with its own Postgres,
+backups on and point-in-time restore *confirmed*. The production half conflicts
+with the staging-first rule, so the user chose to take the staging half now,
+prove the restore where it is safe, and defer production's database to promotion.
+The row is **In progress**, not closed on a half-truth.
+
+Written up as
+[SponsorX-Database-Backup-Runbook.md](../../documentation/SponsorX-Database-Backup-Runbook.md)
+— every command in it was run and its output recorded, so the production pass is
+a repeat rather than a first attempt.
+
+### Done on staging
+
+PITR enabled and bucket wired, daily + weekly schedules on, and a **real restore
+performed**: manual backup `e005db9e` created and restored in place, the service
+back to `SUCCESS` in about a minute with PITR still enabled afterwards.
+
+### Three things worth carrying
+
+**Railway bucket regions have their own names** — `sjc`, `iad`, `ams`, `sin` —
+not the service region ids. `iad` is US East. A backup bucket in the wrong region
+puts a full copy of the database outside the agreed jurisdiction, which is the
+same failure as a misplaced volume and much easier to miss.
+
+**`pitr backup restore` restores IN PLACE and has no `--new-service-name`.** It
+replaces the live volume. `pitr restore --at` builds a *new* service and leaves
+the live database alone — that is the incident tool, and the runbook says so
+plainly because the destructive one is exactly what gets typed under pressure.
+
+**A restore to a time before PITR was enabled fails outright.** `--at 5m` against
+a database whose continuous backups were minutes old returned "Failed to start
+the point-in-time restore". The recovery window begins at enable time, which is
+why enabling comes before the database holds anything.
+
+### Not proven, and recorded as such
+
+No restore has been tested with real data — staging is empty until `P2-BE-02`.
+And nobody has timed a restore of a realistic database; 16MB in a minute says
+nothing about the recovery-time figure Phase 2 will need.
