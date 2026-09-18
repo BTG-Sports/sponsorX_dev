@@ -175,3 +175,35 @@ tracker again.
 
 **47 Done · 9 Ready · 1 In progress · 130 Blocked = 187.** Nothing at Code
 review. 77 formulas verified identical.
+
+---
+
+## `P0-OPS-01` reopened — the region was never set
+
+Closing it earlier was wrong, and the CLI is what showed it. `region` is **null**
+on the `sponsorX_dev` service instance in **both** environments — nothing was ever
+configured, so Railway placed each deployment by default: `staging` happened to
+land on **US East**, `production` on **`sfo`** (San Francisco).
+
+The US East chip read in the console belonged to staging. Production violates
+G-02, which fixes SponsorX in `us-east4-eqdc4a`.
+
+**The lesson worth keeping: a region chip in the Railway UI reports where a
+deployment landed, not what was configured.** The configured value is
+`serviceInstance.region`, and it is per environment. Read it from the API, not
+from the screen.
+
+The row is back at **In progress** with the billing half recorded as met. It
+closes when one `serviceInstanceUpdate` per environment sets
+`region: "us-east4-eqdc4a"` — which must happen before `P2-OPS-01` creates
+Postgres, since moving a database region afterwards is the exact pain G-02 was
+written to avoid.
+
+### Blocked on a permission, not on Railway
+
+The Railway CLI is installed and authenticated as InfiNEX One
+(`infinex1@icarrefound.org`), and read access works. The write was refused by the
+session's own sandbox — "Modify Shared Resources" — so every mutation in
+`P2-OPS-01` (set region, rename the service, add `worker`, add `postgres`, wire
+the internal variables) needs a Bash permission rule for `railway` before it can
+run from here.

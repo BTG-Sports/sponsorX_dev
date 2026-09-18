@@ -135,9 +135,9 @@ DECISION GATE G-02 · Data residency — which region do Railway and R2 run in? 
 - **Done when:** Railway region and R2 region chosen explicitly, recorded, not left at defaults
 - **Reference:** Addendum A7
 
-### ✅ `P0-OPS-01` · Create Railway account, project and billing
+### ▶ `P0-OPS-01` · Create Railway account, project and billing
 
-**Order** 1 · **OPS** · **Where:** Vendor console · **1d** · **Done** · **Unblocks** 115
+**Order** 1 · **OPS** · **Where:** Vendor console · **1d** · **In progress** · **Unblocks** 115
 
 Open the Railway account and project in the region chosen above. Set a spend alert — usage-based hosting surprises people.
 
