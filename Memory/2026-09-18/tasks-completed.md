@@ -304,3 +304,55 @@ the programme**), `P2-OPS-02`, `P2-OPS-03` and `P2-OPS-10` all had their last
 dependency closed and moved **Blocked → Ready**.
 
 Board: **48 Done · 12 Ready · 1 In progress · 126 Blocked = 187.**
+
+---
+
+## The spine was built in the wrong environment, and rebuilt in staging
+
+I recommended putting `web`, `worker` and `postgres` in **production only**,
+reasoning that two live environments would roughly double spend against Pro's $20
+credit. The user approved on that basis and then, seeing the result, corrected
+it: *"why is this in production, we need to put this first in the staging.
+everything needs to be a staging first. then when all is done, we put it in
+production. that is the most basic and correct way to do development right?"*
+
+They are right. **Cost is not an engineering reason to skip the staging step**,
+and it should not have been offered as the recommendation. Recorded as a standing
+rule for SponsorX, alongside the existing preference for a vendor sandbox over a
+production org.
+
+### Where the spine lives now
+
+| Environment | Services |
+|---|---|
+| `staging` | `web` `e004424e` · `worker` `ca264963` · `Postgres` `f345dcfb` (volume `69f06876`) |
+| `production` | `web` only, **auto-deploy off** |
+
+All four service instances deployed SUCCESS in `us-east4-eqdc4a`. Both app
+services resolve `DATABASE_URL` to the internal host; no service has a public
+domain.
+
+### Two Railway facts worth carrying forward
+
+**Environments in this project are independent.** A service created while linked
+to `production` has no instance in `staging` at all — `serviceInstanceUpdate`
+against the other environment returns "ServiceInstance not found". Services are
+not shared across environments here, they are built per environment.
+
+**Service names are unique per project, not per environment.** That is why the
+production copies were deleted rather than left idle: an undeployed production
+`Postgres` would have forced a generated name like `Postgres-HHOT` on the staging
+one that actually matters.
+
+And a consequence of the second: **Railway fixes a service's private hostname at
+creation from its generated name, and renaming afterwards does not change it.**
+The staging database answers to `postgres-hhot.railway.internal` even though the
+service is now called `Postgres`. Harmless, but confusing to anyone reading the
+connection string later.
+
+### Promotion, when it comes
+
+Production is deliberately dormant — `web` is there but no longer ships on a
+merge to `main`. Promoting means recreating `worker` and `Postgres` in production
+from the proven staging configuration, with the region pinned **before** the
+first deploy.
