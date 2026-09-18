@@ -613,3 +613,44 @@ been quietly running a second copy of the Next app.
 Statuses were left at In progress rather than moved to Done, because the user
 asked the whole backend cluster to read as one owned workstream. The evidence is
 in each row's notes instead.
+
+---
+
+## Watch Paths — the gate against accidental deploys
+
+The user's concern: `main` is auto-deployed, so any commit reaching it
+redeploys staging, and an accidental commit could take a service down. Branch
+protection would have been the obvious answer and is unavailable — see below —
+so the gate went in at Railway instead, where it is free.
+
+**Railway now redeploys only when changed files match a service's Watch Paths.**
+
+| Service | Watch Paths |
+|---|---|
+| `web` | `/src/**` `/prisma/**` `/public/**` `/package.json` `/package-lock.json` `/next.config.ts` `/prisma.config.ts` `/tsconfig.json` |
+| `worker` | `/worker/**` `/prisma/**` `/package.json` `/package-lock.json` `/prisma.config.ts` |
+
+This targets the real risk precisely. Of the seventeen commits made on
+2026-09-18, most touched only `documentation/`, `memory/` and the task board —
+every one of them rebuilt staging, and not one should have. Chosen over turning
+auto-deploy off, which would have removed the fast feedback that proved the
+migration an hour earlier.
+
+**The trap to remember:** a new top-level directory holding real code must be
+added to the patterns, or changes to it will silently never deploy — a quiet
+failure that looks like a broken pipeline rather than a missing line of config.
+
+### Branch protection is not available on this repo
+
+`infinex1/sponsorX_dev` is private on a **Free** plan, and both the classic
+branch-protection API and the newer rulesets API return
+`Upgrade to GitHub Pro or make this repository public`. Buying Pro was ruled out
+and the repository cannot go public — it tracks the pricing collision workbook,
+the NIL job economics and the pricing floor decision, which together publish
+BTG's margin structure and its negotiating floor. No credentials are tracked, so
+the exposure would be commercial rather than a security breach; that is still
+the wrong trade.
+
+**A further subtlety worth keeping:** the GitHub CLI here authenticates as the
+user's own account, so protection could never have distinguished me from them
+anyway. What binds me is the standing rule to never push to `main`.
