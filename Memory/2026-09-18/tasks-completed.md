@@ -113,3 +113,42 @@ document and the tracker together, as the definition rule requires.
 `P3-BE-08` and `P3-BE-11` now also depend on `P0-PMO-13`, which is Done, so no
 status changed. `P0-PMO-13`'s Unblocks went 1 → 3. All 77 formulas verified
 identical again; no rows inserted in this pass.
+
+---
+
+## `P0-OPS-01` — Railway account, project and billing · Done
+
+Closed 2026-09-18. The first Block B vendor step, and the one the roadmap's B0
+milestone opens with.
+
+| | |
+|---|---|
+| Workspace | `rcarr-crypto's Projects` |
+| Project | `sponsorX` · `1c11f29a-b569-4d14-98cf-e97a4d3ae209` |
+| Environment | `staging` |
+| Region | US East — matches G-02's `us-east4-eqdc4a` |
+| Plan | **Pro**, $20/month with $20 usage credit included |
+| Spend limits | compute hard $150 / email alert $25; agent hard $20 / agent email alert $20 |
+
+**Region is a per-service setting on Railway, not a project one.** The project
+page has no region field, so G-02 compliance is read off the service. Worth
+knowing before someone hunts for it in Project Settings.
+
+**Two things happened in the console that the task did not ask for.** A GitHub
+service `sponsorX_dev` was already deployed into the project before the task
+began — that is `P2-OPS-01` work, recorded in the row so nobody is surprised to
+find it. And a first workspace, `InfiNEX One's Projects`, was deleted partway
+through; the project was rebuilt under the personal workspace, which is why the
+project ID here differs from the one in the first console screenshot.
+
+### Cascade
+
+`P2-OPS-01` (Railway services and private networking) had `P0-OPS-01` as its sole
+dependency and moved **Blocked → Ready**. It is the natural next task, and it is
+where the already-deployed `sponsorX_dev` service gets regularised into
+`web` / `worker` / `postgres`.
+
+### Board after
+
+**43 Done · 9 Ready · 1 In progress · 4 Code review · 130 Blocked = 187.**
+77 formulas verified identical; no rows inserted.
