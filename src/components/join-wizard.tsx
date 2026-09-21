@@ -449,7 +449,7 @@ export function JoinWizard({ demo }: { demo: Demo }) {
       </div>
 
       {/* action bar */}
-      <div className="sticky bottom-0 border-t border-line bg-bg/95 px-6 py-4 backdrop-blur">
+      <div className="sticky bottom-0 border-t border-line bg-bg/95 px-6 py-4 backdrop-blur lg:rounded-b-2xl">
         <button
           type="button"
           onClick={goNext}
