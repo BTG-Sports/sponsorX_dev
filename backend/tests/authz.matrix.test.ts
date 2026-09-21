@@ -13,10 +13,13 @@ import {
   type Resource,
   type Role,
   type Scope,
-} from "@/server/authz-policy";
+} from "../src/auth/policy";
 
 /* --------------------------------------------------------------------------
    The authorisation matrix, asserted — P2-SEC-01 (policy half), §30, Guide §09.
+
+   Moved to the backend workspace on 2026-09-21 along with the policy it asserts.
+   It imports nothing but that data, so the move cost nothing.
 
    The task's own purpose: "when someone widens a permission to fix a bug, this
    tells them what else they just widened." That is what the digest test at the

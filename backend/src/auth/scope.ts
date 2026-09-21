@@ -1,6 +1,10 @@
 /* --------------------------------------------------------------------------
    What they may see — P2-BE-04, Guide §04 and §09.
 
+   Moved from frontend/src/server on 2026-09-21 with the rest of authorisation:
+   the API is reached by the portals, by §8's service account and by INFINEX
+   alike, so the check has to live where the data is (Addendum B).
+
    `actor.ts` answers who is asking. This answers what that actor may reach,
    and it does so in two layers that are deliberately separate:
 
@@ -23,9 +27,9 @@
    both refuse it.
    -------------------------------------------------------------------------- */
 
-import type { Actor } from "@/server/actor";
-import { ForbiddenError } from "@/server/errors";
-import { scopeFor, type Action, type Resource, type Scope } from "@/server/authz-policy";
+import type { Actor } from "./actor";
+import { ForbiddenError } from "./errors";
+import { scopeFor, type Action, type Resource, type Scope } from "./policy";
 
 export { type Action, type Resource, type Scope };
 

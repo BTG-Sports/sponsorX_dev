@@ -20,6 +20,13 @@ const schema = z.object({
 
   REDIS_URL: z.string().default("redis://localhost:6379"),
 
+  /* Clerk authenticates; Postgres authorises (Addendum A4). No default: an
+     API that silently starts without the ability to verify a caller would
+     answer every request as anonymous, which looks like a permissions bug
+     rather than a missing variable. */
+  CLERK_SECRET_KEY: z.string().min(1, "CLERK_SECRET_KEY is not set"),
+  CLERK_PUBLISHABLE_KEY: z.string().min(1, "CLERK_PUBLISHABLE_KEY is not set"),
+
   // Local dev talks to MinIO (docker-compose.yml); staging/production talk to
   // Cloudflare R2 with the same S3 API. Only the endpoint and credentials
   // change — code paths stay identical (.claude/stack-decision.md).

@@ -7,8 +7,13 @@
  */
 import { Router } from "express";
 
+import { meRouter } from "./me";
+
 export const v1Router = Router();
 
 v1Router.get("/", (_req, res) => {
   res.json({ service: "sponsorx-api", version: "v1" });
 });
+
+/* Identity first: every portal asks who it is talking to before it renders. */
+v1Router.use("/me", meRouter);
