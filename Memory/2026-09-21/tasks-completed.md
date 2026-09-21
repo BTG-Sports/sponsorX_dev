@@ -115,3 +115,67 @@ So `P2-INT-02` is **deferred by choice, not blocked** — it buys Pro at
 provisioning step 16, before real admin and finance accounts touch invoices and
 earnings, and enables **TOTP plus backup codes, never SMS** (G-06). Until then
 the compensating control is that admin accounts are the two-person team.
+
+## `P2-INT-01` — mock-auth replaced with Clerk *(Code review, not Done)*
+
+Real sign-in works. The mirror does not yet have a database to write to, so
+half the `Done when` is unverified — see the end of this section.
+
+**Two deprecations shaped the whole design, and both were found by reading
+rather than by assuming.**
+
+*Next 16 renamed `middleware.ts` to `proxy.ts`.* The exported function must be
+named `proxy`, and the `edge` runtime is not supported under the new name — the
+proxy runtime is `nodejs` and cannot be configured. Clerk 7.9.2 already knows:
+its `suggestMiddlewareLocation()` looks for `middleware` *and* `proxy` when the
+installed Next is 16 or higher, so `clerkMiddleware()` is still correct in a
+file that is no longer called middleware.
+
+*Clerk deprecated `createRouteMatcher()`*, and its reasoning is worth keeping:
+"middleware-based auth checks rely on path matching, which can diverge from how
+Next.js routes requests and leave protected resources reachable." So protection
+is **not** in the proxy. Each portal's `layout.tsx` calls `auth.protect()`, and
+because a layout wraps every page beneath it, adding a route cannot bypass the
+check. The proxy now only attaches Clerk's request context. This is also where
+`requireActor()` goes in `P2-BE-04`, so the two agree rather than duplicating.
+
+**`NEXT_PUBLIC_CLERK_SIGN_IN_URL=/login` has to be an environment variable.**
+Clerk's note on `auth()` states that server-side redirect URLs can only come
+from env vars — not from the `ClerkProvider` prop and not from the
+`clerkMiddleware` option. Without it, signed-out visitors are bounced to
+Clerk's hosted portal on `accounts.dev` rather than the designed screen, which
+is exactly what happened on the first run. **`P2-OPS-04` must set it in
+Railway**, or staging will send people to a vendor URL.
+
+**The mirror never invents a tenant.** A Clerk identity with no matching `User`
+row is authenticated but *unprovisioned*, and `/portal` says so plainly. That
+is the managed-marketplace model: BTG staff grant access, athletes are approved
+rather than self-served. Linking is by verified email — an admin creates the
+`User` row ahead of time and the first sign-in claims it by writing the real
+`clerkId`. Creating a tenant here would be precisely the drift of authorization
+into the identity provider that Addendum A4 exists to stop.
+
+**`/portal` is the only route that touches the database.** Everything else
+still runs on fixtures, which is what keeps the app buildable and runnable on a
+machine with no `DATABASE_URL`.
+
+**A build failure worth remembering:** `src/server/db.ts` constructed the Prisma
+client at module import. `next build` imports every route module to collect its
+configuration, so the first build died with "DATABASE_URL is not set" while
+collecting `/portal` — a missing connection string became a *build* failure
+rather than a *query* failure. The client is now built on first use behind a
+proxy object, so the throw happens at the first real query, where the message
+makes sense. Any future module that imports `db` at the top level inherits this
+fix rather than re-hitting it.
+
+**Verified:** `npm run build` passes; all four portals and their nested pages
+(`/admin/finance`, `/sponsor/marketplace`, `/athlete/earnings`) return 307 to
+`/login` signed out; `/`, `/packages`, `/join`, `/map`, `/athletes/[slug]` and
+the fan surfaces `/r/[token]` and `/t/[code]` stay reachable; no deprecation
+warnings remain in the dev log.
+
+**Not verified, and the reason the row is Code review rather than Done:**
+`User.clerkId mirrors the Clerk identity` cannot be exercised locally. There is
+no local Postgres by design — Railway is private-networking only, and the
+machine has neither docker nor psql. The mirror, `/portal`'s role-aware
+routing and the unprovisioned state all need a staging deploy to prove.
