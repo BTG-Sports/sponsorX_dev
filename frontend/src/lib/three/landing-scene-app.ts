@@ -1,17 +1,21 @@
 import * as THREE from "three";
+import { chapterAt } from "@/lib/landing-scene-math";
 
 /* --------------------------------------------------------------------------
    Landing 3D scene — framework-free three.js app (P1-ART-08).
 
    React only creates the <canvas> and calls start()/dispose(); everything WebGL
    lives here so it never couples to React internals (the reason we use vanilla
-   three.js and not react-three-fiber — see spec §7). Task 6 renders a centered,
-   brand-lit sphere; scroll/morph/environments are layered on in later tasks.
+   three.js and not react-three-fiber — see spec §7). This adds scroll-scrubbing:
+   one smoothed 0..1 progress drives ball spin + a subtle camera parallax and
+   reports the active chapter. Morph/environments layer on in later tasks.
    -------------------------------------------------------------------------- */
 
 export interface LandingSceneOpts {
   dprCap?: number;
   onReady?: () => void;
+  /** Called (only on change) with the active chapter index — drives the rail. */
+  onChapter?: (index: number) => void;
 }
 
 export class LandingSceneApp {
@@ -19,11 +23,19 @@ export class LandingSceneApp {
   private scene = new THREE.Scene();
   private camera: THREE.PerspectiveCamera;
   private ball: THREE.Mesh;
+  private clock = new THREE.Clock();
   private raf = 0;
+
+  private targetProgress = 0;
+  private smoothProgress = 0;
+  private lastChapter = -1;
+
   private onReady?: () => void;
+  private onChapter?: (index: number) => void;
 
   constructor(canvas: HTMLCanvasElement, opts: LandingSceneOpts = {}) {
     this.onReady = opts.onReady;
+    this.onChapter = opts.onChapter;
 
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, opts.dprCap ?? 2));
@@ -44,9 +56,16 @@ export class LandingSceneApp {
     );
     this.scene.add(this.ball);
 
+    this.onScroll();
     this.resize();
     window.addEventListener("resize", this.resize);
+    window.addEventListener("scroll", this.onScroll, { passive: true });
   }
+
+  private onScroll = () => {
+    const max = document.documentElement.scrollHeight - window.innerHeight;
+    this.targetProgress = max > 0 ? window.scrollY / max : 0;
+  };
 
   private resize = () => {
     const w = window.innerWidth;
@@ -60,7 +79,24 @@ export class LandingSceneApp {
     let first = true;
     const loop = () => {
       this.raf = requestAnimationFrame(loop);
-      this.ball.rotation.y += 0.005;
+      const dt = this.clock.getDelta();
+
+      // Frame-rate-independent ease toward the scroll target (the scrub feel).
+      this.smoothProgress += (this.targetProgress - this.smoothProgress) * Math.min(1, dt * 4);
+
+      // Idle spin + a touch more the further you are (reads as momentum).
+      this.ball.rotation.y += 0.004 + this.smoothProgress * 0.02;
+
+      // Subtle camera parallax so the ball feels seated in space.
+      this.camera.position.x = Math.sin(this.smoothProgress * Math.PI * 2) * 0.15;
+      this.camera.lookAt(0, 0, 0);
+
+      const { index } = chapterAt(this.smoothProgress);
+      if (index !== this.lastChapter) {
+        this.lastChapter = index;
+        this.onChapter?.(index);
+      }
+
       this.renderer.render(this.scene, this.camera);
       if (first) {
         first = false;
@@ -73,6 +109,7 @@ export class LandingSceneApp {
   dispose(): void {
     cancelAnimationFrame(this.raf);
     window.removeEventListener("resize", this.resize);
+    window.removeEventListener("scroll", this.onScroll);
     this.scene.traverse((o) => {
       const m = o as THREE.Mesh;
       m.geometry?.dispose?.();

@@ -8,15 +8,21 @@ import { LandingSceneApp } from "@/lib/three/landing-scene-app";
    only via next/dynamic(ssr:false) from landing-scene-mount.tsx.
    -------------------------------------------------------------------------- */
 
-export function LandingScene({ onReady }: { onReady?: () => void }) {
+export function LandingScene({
+  onReady,
+  onChapter,
+}: {
+  onReady?: () => void;
+  onChapter?: (index: number) => void;
+}) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
     if (!canvasRef.current) return;
-    const app = new LandingSceneApp(canvasRef.current, { onReady });
+    const app = new LandingSceneApp(canvasRef.current, { onReady, onChapter });
     app.start();
     return () => app.dispose();
-  }, [onReady]);
+  }, [onReady, onChapter]);
 
   return <canvas ref={canvasRef} className="block h-full w-full" />;
 }
