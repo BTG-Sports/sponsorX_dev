@@ -89,3 +89,29 @@ written half — the chosen name still has to be recorded in `.claude/stack-deci
 and the Implementation Guide still assumes `sponsorx.com` and `app.sponsorx.com`
 throughout, which is dead. `P2-OPS-11` and the fan-QR short-link domain were the other
 two threads waiting on the domain.
+
+## Decision — Phase 1 proceeds on the Clerk Hobby plan
+
+Recorded on the task board against `P2-INT-02`, with a cross-reference from
+`P0-OPS-03` so it is findable from either row.
+
+**Hobby is not a sandbox.** The free plan includes a production instance with up
+to 10,000 monthly active users, and the production instance verified on
+`sponsorx.net` today is the one a minimal launch runs on. Launching on the
+*development* instance was considered and rejected: dev instances cap at 100
+users, serve `.accounts.dev` URLs, and Clerk treats their sessions as
+non-production.
+
+**`P2-INT-02` is the only Phase 1 task that needs Clerk Pro.** Nothing else in
+the §39 loop touches a paid feature — sign-up, sign-in, sessions, the account
+portal and auth email from `sponsorx.net` are all included. Three further Pro
+traps are avoided by decisions already taken: Satellites (multi-domain) is Pro
+and the single-host `sponsorx.net` choice removes the need; Organizations is
+where Clerk's B2B pricing sits and is off per Addendum A4; Google OAuth is off.
+The only visible cost of staying free is the "Secured by Clerk" badge on the
+sign-in box.
+
+So `P2-INT-02` is **deferred by choice, not blocked** — it buys Pro at
+provisioning step 16, before real admin and finance accounts touch invoices and
+earnings, and enables **TOTP plus backup codes, never SMS** (G-06). Until then
+the compensating control is that admin accounts are the two-person team.
