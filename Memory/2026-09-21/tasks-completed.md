@@ -179,3 +179,37 @@ warnings remain in the dev log.
 no local Postgres by design — Railway is private-networking only, and the
 machine has neither docker nor psql. The mirror, `/portal`'s role-aware
 routing and the unprovisioned state all need a staging deploy to prove.
+
+## Staging is live, and the first deploy found a bug localhost cannot show you
+
+`P2-INT-01` was deployed to Railway staging and given a public URL,
+`https://web-staging-904a.up.railway.app`. Clerk's three variables were set on
+staging `web` — the development keys, because the production Clerk instance is
+bound to `sponsorx.net` and will not serve a `*.up.railway.app` host — and each
+value was checked by hash against the local file rather than assumed, after a
+byte-order mark in `.env.local` made the shell mis-read line 1.
+
+Everything verified on localhost held on the real host: every portal and nested
+page 307s to `/login`, the public pages and `/r/[token]` stay open, `/login`
+serves Clerk, and the redirect goes to our own screen rather than
+`accounts.dev`. The pre-deploy step reported "2 migrations found… No pending
+migrations to apply", which is the first confirmation that `web` reaches
+Postgres over private networking.
+
+**The bug: `/t/ABC123` redirected to `https://localhost:8080/`.** The scaffold
+route builds its fallback with `new URL(FALLBACK_URL, req.url)`, and inside a
+Railway container `req.url` carries the internal origin, not the public host.
+
+The lesson is about *where* it was caught. On `localhost:3000` the internal and
+public origins are the same string, so this class of bug is invisible until the
+app sits behind a proxy — no amount of local testing would have found it. It
+was raised as a note on `P6-BE-01` (still Blocked; the note stops the defect
+being rebuilt, it does not unblock the row) with the fix named: prefer a
+relative `Location` header, which is valid per RFC 7231, needs no origin at all
+and honours the host-portability rule, over reconstructing the origin from
+`x-forwarded-*`. `/r/[token]` was checked for the same pattern and is clean.
+
+Two further observations from the deploy, both belonging to other rows:
+`next start` warns that it "does not work with `output: standalone`"
+(`P2-OPS-02` owns that), and Prisma is advertising 8.0.0-rc against the pinned
+7.10.0 (`P2-BE-01` owns pins).
