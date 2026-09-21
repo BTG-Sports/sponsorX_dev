@@ -1,0 +1,29 @@
+{
+  "compilerOptions": {
+    // The runtime is tsx (see package.json scripts and the Dockerfile), so
+    // this config exists for typechecking and editor support. `bundler`
+    // resolution matches how tsx resolves extensionless imports — the same
+    // mode the generated Prisma client is written for.
+    "target": "ES2023",
+    "lib": ["ES2023"],
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "strict": true,
+    "noEmit": true,
+    /* The worker is plain ES modules run by `node --import tsx`, not bundled,
+       so Node's loader requires the real file extension in a relative import —
+       `./jobs/seed-environment.mts`. TypeScript rejects that specifier by
+       default (TS5097), and this tsconfig type-checks `worker`, so the backend
+       build fails without this. Safe because `noEmit` is true: nothing is
+       compiled, so no emitted import can point at a `.mts` path that would not
+       exist after a build. */
+    "allowImportingTsExtensions": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "isolatedModules": true,
+    "resolveJsonModule": true,
+    "forceConsistentCasingInFileNames": true,
+    "types": ["node"]
+  },
+  "include": ["src", "worker"]
+}

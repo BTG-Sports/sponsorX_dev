@@ -1,0 +1,40 @@
+import { requirePortalAccess } from "@/server/portal";
+import { PortalShell, type NavItem } from "@/components/portal-shell";
+import { sponsor } from "@/lib/fixtures";
+
+/* Sidebar matches the mockup's nine items. Those without a route yet are
+   flagged `pending` and render as inert text rather than dead links. */
+const NAV: NavItem[] = [
+  { href: "/sponsor", label: "Dashboard", icon: "grid" },
+  { href: "/sponsor/marketplace", label: "Marketplace", icon: "store" },
+  { href: "/sponsor/campaigns", label: "Campaigns", icon: "megaphone" },
+  { href: "#", label: "Analytics", icon: "chart", pending: true },
+  { href: "#", label: "Rewards", icon: "gift", pending: true },
+  { href: "#", label: "Leads", icon: "users", pending: true },
+  { href: "#", label: "Billing", icon: "card", pending: true },
+  { href: "#", label: "Messages", icon: "mail", pending: true },
+  { href: "#", label: "Settings", icon: "gear", pending: true },
+];
+
+/* Authorisation, not merely authentication (P2-BE-04). requirePortalAccess()
+   resolves the Clerk identity to its Postgres tenant and roles and admits only
+   the roles this portal is for — P2-INT-01 checked that you were signed in as
+   *somebody*, which let any signed-in identity open any workspace.
+
+   Which rows this portal may then read is scope.ts, applied per query. */
+export default async function SponsorLayout({ children }: LayoutProps<"/sponsor">) {
+  await requirePortalAccess("sponsor");
+
+  return (
+    <PortalShell
+      portal="sponsor"
+      nav={NAV}
+      rootHref="/sponsor"
+      orgName={sponsor.name}
+      userName={sponsor.contactName}
+      userRole={sponsor.role}
+    >
+      {children}
+    </PortalShell>
+  );
+}

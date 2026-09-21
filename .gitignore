@@ -1,7 +1,7 @@
 # See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
 
-# dependencies
-/node_modules
+# dependencies (npm workspaces — one hoisted store at root, plus per-workspace)
+node_modules/
 /.pnp
 .pnp.*
 .yarn/*
@@ -11,14 +11,16 @@
 !.yarn/versions
 
 # testing
-/coverage
+coverage/
 
 # next.js
-/.next/
-/out/
+.next/
+out/
 
-# production
-/build
+# production / build output
+build/
+frontend/.next/
+backend/dist/
 
 # misc
 .DS_Store
@@ -32,6 +34,7 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+!.env.example
 
 # vercel
 .vercel
@@ -46,5 +49,7 @@ next-env.d.ts
 documentation/*.xlsx
 documentation/*.xls
 
-# Prisma 7 generated client (Guide §02 — output set in prisma/schema.prisma)
-/src/generated/prisma
+# Prisma 7 generated client — one schema (backend/prisma), one output. The
+# frontend's copy was removed on 2026-09-21 with the generator that made it.
+# Generated, never committed (Guide §02).
+backend/src/generated/prisma

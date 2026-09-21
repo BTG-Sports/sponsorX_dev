@@ -119,9 +119,10 @@ the Master Development Blueprint v2.0.
       agreements; guardian authorization may not (Addendum A5). Legal question.
 - [ ] **Confirm the PDF worker has a real requirement.** Absent from all 39
       blueprint sections, yet it shaped the hosting architecture (Addendum A10).
-- [x] **Framework confirmed.** Next.js `output: 'standalone'`, with the Phase 1
-      API in route handlers and TypeScript as the single backend standard
-      (Addendum A2).
+- [x] **Framework confirmed.** Next.js `output: 'standalone'` for the web app,
+      TypeScript as the single backend standard. ~~Phase 1 API in route
+      handlers~~ — **superseded 2026-09-21 (Addendum B): the API is a separate
+      Express service** so it is not coupled to the Next.js runtime.
 
 ## Revisit triggers
 
@@ -167,6 +168,12 @@ behind a single send interface.
 
 ## A2. §27's backend fork resolves to Next.js route handlers
 
+> **Superseded 2026-09-21 by Addendum B.** The Phase 1 API is now a separate
+> Node.js + Express service in a `backend/` workspace, not Next.js route
+> handlers. "TypeScript everywhere" and the schema-first (Zod → OpenAPI)
+> contract rule below both still hold. The paragraphs that follow are kept as
+> the original record.
+
 §27 says choose FastAPI/Python **or** NestJS/TypeScript as "one primary backend
 standard," and §3 requires the product be API-first from day one. A separate
 API service means a third Railway service in a second language — precisely the
@@ -187,6 +194,13 @@ boundary, OpenAPI generated from it — rather than hand-writing the spec
 afterwards.
 
 ## A3. Redis is deferred; the queue stays in Postgres
+
+> **Amended 2026-09-21 by Addendum B.** Redis is now provisioned (locally in
+> Docker; Railway Redis in staging/production) — but **only for caching and
+> rate limiting**. The core claim below is unchanged and load-bearing: the
+> **job queue stays in Postgres** (pg-boss), because a job must be written in
+> the same transaction as the thing that caused it. Nothing about the queue
+> moved to Redis.
 
 §27 asks for "Redis + durable job worker/queue." Phase 1 volume (§2: 25
 athletes, 10 paying businesses, 10-20 campaigns, 100+ deliverables in 90 days)
@@ -323,3 +337,86 @@ The risk is entirely scope, and §39 names what to protect: application to
 approval to rate to brief to matching to invitation to Campaign Order to
 deliverable to tracking/reward to earnings to sponsor report — ahead of
 self-service ecommerce. Cut from the ecommerce end.
+
+---
+
+# Addendum B — Repo split and a standalone Express API
+
+**Date:** 2026-09-21
+**Status:** Decided. Supersedes Addendum A2 (route handlers) and amends A3 (Redis).
+
+Addendum A2 put the Phase 1 API in Next.js route handlers to avoid a second
+service. That was the right call for "fewest moving parts," but it couples the
+API to the Next.js runtime: the same code cannot be consumed off-web (a future
+mobile client, the INFINEX game-engine integration in Phase 4 §8, a partner
+using the API Service Account, or a CLI) without dragging the web framework
+along, and it forces every backend concern through Next's request lifecycle.
+The decision here trades one extra service for an API that stands on its own.
+
+## B1. The repo is two npm workspaces
+
+```
+/            root — npm workspaces, docker-compose, shared tooling
+  frontend/  @sponsorx/frontend — the Next.js 16 app (unchanged in spirit)
+  backend/   @sponsorx/backend  — the API (Express), the worker, Prisma
+```
+
+One `npm install` at the root; `git mv` kept history on everything moved. The
+web app and the API deploy as two Railway services from one repo — which is
+what Addendum A always described for the worker anyway ("queued background work
+*should* be separate"). The API is now separate for the same reason: it is a
+distinct concern with a distinct consumer set.
+
+## B2. The API is Node.js + Express, run with tsx
+
+TypeScript everywhere still holds (A2's surviving half). The API is Express 5
+under `backend/src`, run directly by **tsx** — no compile step in dev or in the
+container. Entry is split `index.ts` (listen) / `app.ts` (routes + middleware)
+so it is testable without binding a port. The versioned `/api/v1` prefix, the
+API Service Account as a first-class consumer (§8), and **schema-first
+contracts (Zod → OpenAPI, §38)** are all carried over from A2 unchanged.
+
+## B3. Prisma: one schema, two generated clients
+
+The schema stays the single source of truth at `backend/prisma/schema.prisma`.
+It declares two generator blocks — one client for the backend, one for the
+frontend (which still reads Postgres directly from its server components in
+Phase 1). `frontend/prisma.config.ts` points at the backend schema. Migrations
+are owned by the backend. No schema is duplicated.
+
+## B4. Local stack is Docker; it mirrors the cloud, it does not replace it
+
+`docker-compose.yml` brings up Postgres, Redis, MinIO (+ bucket creation), a
+one-shot Prisma `migrate`, and the worker; the API and web are behind an `apps`
+profile so day-to-day they run on the host against the containers. The point is
+a one-command local environment, not a hosting change:
+
+- **Postgres** — same engine as Railway Postgres.
+- **MinIO** — the S3 API locally; **Cloudflare R2 is unchanged** as the real
+  target (A8's two-bucket public/private split is reproduced in the compose
+  bucket setup). MinIO is a dev convenience, not a new vendor.
+- **Redis** — this is the amendment to A3. Redis is now real, but scoped to
+  **caching and rate limiting only**. The **job queue stays in Postgres**
+  (pg-boss); a job is still written in the same transaction as its cause. If
+  nothing needs Redis, it drops out of compose without touching another service.
+
+## B5. What did not change
+
+The Zoho boundary and its queue (A9), Clerk-for-identity-only (A4), click-wrap
+signatures (A5), no tax-ID storage (A6), US-East residency (A7), direct-to-R2
+uploads (A8), the fan QR page as a plain dynamic route (A10), and the portability
+rule (standalone Node, no host-specific primitives by default). Splitting the
+API out of Next.js *strengthens* the portability rule — the API no longer
+depends on a web framework at all.
+
+## B6. Accepted costs
+
+- One more service to deploy and one more `package.json`. Mitigated by the
+  monorepo (one install, one CI) and by the two services being genuinely
+  independent concerns.
+- A second Prisma client to keep generated. Mitigated by the single schema and
+  a single `prisma generate` running both generators.
+- `legacy-peer-deps=true` is pinned in `.npmrc` to work around an npm 10.x
+  arborist crash on the workspace graph; because peers no longer auto-install,
+  `vite` (vitest's peer) is an explicit devDependency in both workspaces. Revisit
+  when npm fixes the bug.

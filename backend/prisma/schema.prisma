@@ -1,0 +1,857 @@
+// SponsorX — Prisma schema (P2-BE-02)
+//
+// Source: Implementation Guide V2 §03, reconciled against the eight §21 state
+// machines in documentation/diagrams/state-machines/ and the pricing decision
+// in documentation/SponsorX-Pricing-Floor-Decision.md (P0-PMO-13).
+//
+// FOUR CONVENTIONS, applied without exception:
+//
+//   1. `tenantId` on every model except Tenant itself. It is a plain column,
+//      not a relation, exactly as §03 has it — enforcement is the job of the
+//      scope functions (§04) and the authorization matrix (§09), and 25 foreign
+//      keys back to one table buys nothing that a discipline plus a test does
+//      not. WebhookDelivery.tenantId is the one nullable case: an inbound Zoho
+//      webhook is recorded before it is known which tenant it belongs to, and
+//      recording it anyway is the point of the model.
+//
+//   2. State enums lifted verbatim from §21. Every value in the eight .mmd
+//      files appears below and nothing else does.
+//
+//   3. External IDs plus `lastSyncOrigin` and `lastSyncHash` on every model
+//      Zoho touches — §18 makes Accounts, Contacts, Deals and Tasks
+//      bi-directional, so that is Sponsor, Athlete, Property and Campaign.
+//      §03 gave markers to only two of the four; the other two are corrected
+//      here.
+//
+//   4. Events are rows, never counters. RewardEvent, LinkEvent and MetricDaily
+//      each store one row per occurrence so the four-event fan funnel (§16)
+//      stays separable after the fact.
+//
+// MONEY IS INTEGER CENTS throughout. No floats, anywhere, ever.
+//
+// ONE CORRECTION TO §03: the guide gives Athlete both `state String?` (the US
+// state) and `state_ AthleteState @map("state")` (the lifecycle). Those collide
+// on the same column and the schema will not compile. Geography is `stateCode`
+// here — on Athlete, Property and CampaignBrief alike — and `state` means the
+// lifecycle enum on every model without exception.
+//
+// WHAT IS DELIBERATELY NOT HERE: the three partial indexes Prisma cannot
+// express — single-use reward redemption, the outbox drain and the one-open-
+// invite rule. They are `P2-BE-03` and live in prisma/sql/, applied by their
+// own migration. Adding them here would mean writing raw SQL into a file that
+// is supposed to be the model.
+
+generator client {
+  provider = "prisma-client"
+
+  // Explicit output path (Guide §02). Gitignored — generated, never committed.
+  // Relative to this schema (backend/prisma/) → backend/src/generated/prisma.
+  output = "../src/generated/prisma"
+}
+
+// REMOVED 2026-09-21 — there was a second generator here emitting a client into
+// frontend/src/generated/prisma. It existed because, at the split, the frontend
+// still queried Postgres directly.
+//
+// It does not any more: authorisation and every database read moved to this
+// workspace (Addendum B), and the frontend reaches them over /api/v1. A second
+// generated client would be a second way into the database from a workspace
+// that must not have one — precisely the hazard that move removed — so the
+// generator is gone rather than merely unused.
+
+// Prisma 7: `url` is NOT permitted here any more. The connection string for
+// Migrate lives in prisma.config.ts, and PrismaClient itself is constructed
+// with an adapter. See https://pris.ly/d/config-datasource
+datasource db {
+  provider = "postgresql"
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Enums — §21 state machines, verbatim
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Authorization lives here and in user_roles, never in Clerk (§04, Addendum A4).
+enum Role {
+  SUPER_ADMIN
+  BTG_ADMIN
+  SALES
+  CAMPAIGN_MGR
+  NETWORK_MGR
+  FINANCE
+  ATHLETE
+  GUARDIAN
+  PROPERTY_MGR
+  SPONSOR_ADMIN
+  SPONSOR_ANALYST
+  SERVICE
+}
+
+enum AthleteState {
+  DRAFT
+  SUBMITTED
+  UNDER_REVIEW
+  APPROVED
+  CHANGES_REQUESTED
+  REJECTED
+  ACTIVE
+  SUSPENDED
+}
+
+enum BriefState {
+  DRAFT
+  QUALIFIED
+  APPROVED
+  CAMPAIGN_CREATED
+  CLOSED
+}
+
+enum InviteState {
+  INVITED
+  VIEWED
+  ACCEPTED
+  DECLINED
+  EXPIRED
+}
+
+enum CampaignState {
+  DRAFT
+  STAFFING
+  APPROVAL
+  ACTIVE
+  REPORTING
+  COMPLETED
+  CANCELLED
+}
+
+enum OrderState {
+  DRAFT
+  SENT
+  ACCEPTED
+  REJECTED
+  ACTIVE
+  COMPLETED
+  CANCELLED
+}
+
+enum DeliverableState {
+  NOT_STARTED
+  DRAFT_SUBMITTED
+  BTG_REVIEW
+  SPONSOR_REVIEW
+  APPROVED
+  PUBLISHED
+  VERIFIED
+}
+
+enum EarningState {
+  PENDING
+  ELIGIBLE
+  APPROVED_FOR_PAYOUT
+  PAID
+  HELD
+  DISPUTED
+}
+
+enum RewardState {
+  DRAFT
+  ACTIVE
+  PAUSED
+  EXPIRED
+  ARCHIVED
+}
+
+/// Four distinct events across the fan journey (§16). Never one counter.
+enum RewardEventType {
+  SCAN
+  LANDING
+  CLAIM
+  REDEEM
+}
+
+/// The provenance taxonomy (P0-DATA-01). Every displayed number carries one.
+enum MetricSource {
+  VERIFIED_API
+  VERIFIED_MANUAL
+  SELF_REPORTED
+  ESTIMATED
+  ATTRIBUTED
+}
+
+enum SyncOrigin {
+  SPONSORX
+  ZOHO
+}
+
+/// §6 tier multipliers. Phase 1 sets these by hand; ANCHOR is negotiated and
+/// therefore carries no derived sell floor (P0-PMO-13 §3).
+enum AthleteTier {
+  EMERGING
+  CREATOR
+  PREMIUM
+  ANCHOR
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Tenancy and identity
+// ─────────────────────────────────────────────────────────────────────────────
+
+model Tenant {
+  id        String   @id @default(cuid())
+  name      String
+  createdAt DateTime @default(now())
+}
+
+model User {
+  id         String   @id @default(cuid())
+  tenantId   String
+  /// Identity lives in Clerk; this row is the mirror. Never a password.
+  clerkId    String   @unique
+  email      String
+  /// Authorization lives here, not in Clerk — §04.
+  roles      Role[]
+  athleteId  String?  @unique
+  sponsorId  String?
+  propertyId String?
+  guardianId String?
+  createdAt  DateTime @default(now())
+
+  athlete     Athlete?              @relation(fields: [athleteId], references: [id])
+  acceptances AgreementAcceptance[]
+
+  @@index([tenantId])
+  @@index([tenantId, email])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Athlete network
+// ─────────────────────────────────────────────────────────────────────────────
+
+model Property {
+  id        String  @id @default(cuid())
+  tenantId  String
+  /// Public profile URL.
+  slug      String  @unique
+  name      String
+  /// TEAM | SCHOOL | EVENT | MEDIA | VIRTUAL
+  kind      String
+  city      String?
+  /// US state code, e.g. "MD".
+  stateCode String?
+
+  // Zoho (§18 — Accounts are bi-directional)
+  zohoId         String?     @unique
+  lastSyncOrigin SyncOrigin?
+  lastSyncHash   String?
+
+  athletes Athlete[]
+
+  @@index([tenantId])
+}
+
+model Guardian {
+  id           String    @id @default(cuid())
+  tenantId     String
+  legalName    String
+  email        String
+  phone        String?
+  /// PARENT | LEGAL_GUARDIAN | AUTHORIZED_REP
+  relationship String
+  /// §37 pre-pilot gate — a minor cannot go ACTIVE without this set.
+  verifiedAt   DateTime?
+
+  wards Athlete[]
+
+  @@index([tenantId])
+}
+
+model Athlete {
+  id           String    @id @default(cuid())
+  tenantId     String
+  /// Public profile URL.
+  slug         String    @unique
+  legalName    String
+  displayName  String
+  /// Drives the guardian path — under 18 at campaign start requires a Guardian.
+  birthDate    DateTime?
+  city         String?
+  /// US state code, e.g. "MD". Geography, not lifecycle — see `state` below.
+  stateCode    String?
+  sport        String
+  /// §11 §2 — position, level and achievements complete the Sports section.
+  position     String?
+  school       String?
+  /// HIGH_SCHOOL | COLLEGE | SEMI_PRO | PRO | AMATEUR. A small vocabulary kept
+  /// as text, matching Property.kind and Guardian.relationship — an enum here
+  /// would need a migration every time a new competition level appears.
+  level        String?
+  gradYear     Int?
+  achievements String?
+
+  /// §11 §1 — the applicant's own contact details. Distinct from User.email,
+  /// which belongs to the Clerk identity: an athlete may be onboarded by BTG
+  /// long before they ever sign in, and a guardian-managed minor may never
+  /// hold a login at all.
+  email   String
+  phone   String?
+  /// §11 permits an age band instead of a date of birth. Both are optional in
+  /// the column sense and the contract requires one of the two, because §26's
+  /// guardian workflow cannot be decided without knowing whether the
+  /// applicant is a minor.
+  ageBand String?
+
+  state AthleteState @default(DRAFT)
+
+  /// §11 §10 — Compliance status. Reviewer notes are internal and shown to
+  /// the applicant only when the state is CHANGES_REQUESTED. The expiry
+  /// exists because §11 asks for it: a clearance that never expires is one
+  /// nobody revisits.
+  reviewerNotes       String?
+  reviewedAt          DateTime?
+  complianceExpiresAt DateTime?
+  /// §6 — set by a network manager in Phase 1, never computed.
+  tier                AthleteTier?
+  guardianId          String?
+  propertyId          String?
+
+  // Zoho (§18 — Contacts are bi-directional)
+  zohoId         String?     @unique
+  lastSyncOrigin SyncOrigin?
+  lastSyncHash   String?
+
+  createdAt DateTime @default(now())
+
+  guardian Guardian?        @relation(fields: [guardianId], references: [id])
+  property Property?        @relation(fields: [propertyId], references: [id])
+  socials  AthleteSocial[]
+  rates    AthleteRate[]
+  scores   AthleteScore[]
+  invites  CampaignInvite[]
+  orders   CampaignOrder[]
+  earnings Earning[]
+  tokens   RewardToken[]
+  user     User?
+
+  @@index([tenantId, state])
+  @@index([tenantId, sport, stateCode])
+}
+
+model AthleteSocial {
+  id         String       @id @default(cuid())
+  tenantId   String
+  athleteId  String
+  platform   String
+  handle     String
+  followers  Int?
+  avgViews   Int?
+  /// Phase 1 is largely SELF_REPORTED. The label is what keeps that honest.
+  source     MetricSource @default(SELF_REPORTED)
+  capturedAt DateTime     @default(now())
+
+  athlete Athlete @relation(fields: [athleteId], references: [id])
+
+  @@unique([athleteId, platform])
+  @@index([tenantId])
+}
+
+/// §14 — a score is never stored without the factors that produced it.
+model AthleteScore {
+  id        String   @id @default(cuid())
+  tenantId  String
+  athleteId String
+  /// 0–100
+  score     Int
+  /// engagement, quality, audience, reliability …
+  factors   Json
+  /// "rules-v1" — Phase 3 replaces the method, not the model.
+  method    String
+  scoredBy  String?
+  scoredAt  DateTime @default(now())
+
+  athlete Athlete @relation(fields: [athleteId], references: [id])
+
+  @@index([athleteId, scoredAt])
+  @@index([tenantId])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Commercial catalogue
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// SX-01 … SX-07. Bands are integer cents.
+///
+/// The three sellFloor* columns are the P0-PMO-13 decision made durable: a
+/// sell floor derived per tier as base-band top × tier multiplier × 1.4. They
+/// are the published rate-card view. The binding rule at quote time is the
+/// same formula against the athlete's AGREED rate, enforced by P3-BE-12 —
+/// these columns tell a salesperson the worst case before they quote.
+model NilJob {
+  /// "SX-03"
+  id       String @id
+  tenantId String
+  name     String
+  baseLow  Int
+  baseHigh Int
+  sellLow  Int
+  sellHigh Int
+
+  sellFloorEmerging Int
+  sellFloorCreator  Int
+  sellFloorPremium  Int
+
+  rates   AthleteRate[]
+  invites CampaignInvite[]
+  orders  CampaignOrder[]
+
+  @@index([tenantId])
+}
+
+model AthleteRate {
+  id        String @id @default(cuid())
+  tenantId  String
+  athleteId String
+  jobId     String
+  /// cents
+  amount    Int
+  version   Int    @default(1)
+
+  athlete Athlete @relation(fields: [athleteId], references: [id])
+  job     NilJob  @relation(fields: [jobId], references: [id])
+
+  @@unique([athleteId, jobId, version])
+  @@index([tenantId])
+}
+
+/// §7 — Test Drive … Season Partner.
+///
+/// `lineItems` is what P0-PMO-10 §2 said a package could not be sold without:
+/// job codes and counts, e.g. [{ "jobCode": "SX-02", "quantityPerAthlete": 1 }].
+/// Athlete count is a RANGE because the §7 packages are ranges, and the range
+/// is precisely where the margin swing lived before the pricing decision.
+model SponsorPackage {
+  id              String  @id @default(cuid())
+  tenantId        String
+  code            String
+  name            String
+  priceLow        Int
+  priceHigh       Int
+  athleteCountMin Int
+  athleteCountMax Int
+  lineItems       Json
+  /// Non-NIL inventory sold alongside the jobs, e.g. an iMC/BTG feature.
+  includes        Json?
+  exclusivity     Boolean @default(false)
+  durationWeeks   Int?
+  active          Boolean @default(true)
+
+  briefs CampaignBrief[]
+
+  @@unique([tenantId, code])
+  @@index([tenantId])
+}
+
+model Sponsor {
+  id       String @id @default(cuid())
+  tenantId String
+  name     String
+
+  // Zoho (§18 — Accounts are bi-directional)
+  zohoAccountId  String?     @unique
+  lastSyncOrigin SyncOrigin?
+  lastSyncHash   String?
+
+  briefs    CampaignBrief[]
+  campaigns Campaign[]
+
+  @@index([tenantId])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Brief → matching → campaign
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// §13 step 2.
+model CampaignBrief {
+  id         String     @id @default(cuid())
+  tenantId   String
+  sponsorId  String
+  objective  String
+  /// cents
+  budget     Int
+  packageId  String?
+  startDate  DateTime
+  endDate    DateTime
+  sports     String[]
+  /// US state codes targeted by the brief.
+  stateCodes String[]
+  /// Conflict-check input — §26.
+  categories String[]
+  state      BriefState @default(DRAFT)
+  createdAt  DateTime   @default(now())
+
+  sponsor  Sponsor         @relation(fields: [sponsorId], references: [id])
+  package  SponsorPackage? @relation(fields: [packageId], references: [id])
+  campaign Campaign?
+
+  @@index([tenantId, state])
+}
+
+model Campaign {
+  id        String        @id @default(cuid())
+  tenantId  String
+  sponsorId String
+  briefId   String?       @unique
+  name      String
+  /// cents
+  budget    Int
+  startDate DateTime
+  endDate   DateTime
+  state     CampaignState @default(DRAFT)
+
+  // Zoho (§18 — Deals are bi-directional)
+  zohoDealId     String?     @unique
+  lastSyncOrigin SyncOrigin?
+  lastSyncHash   String?
+
+  sponsor Sponsor          @relation(fields: [sponsorId], references: [id])
+  brief   CampaignBrief?   @relation(fields: [briefId], references: [id])
+  invites CampaignInvite[]
+  orders  CampaignOrder[]
+  rewards Reward[]
+
+  @@index([tenantId, state])
+}
+
+/// §21 — INVITED → VIEWED → ACCEPTED / DECLINED / EXPIRED.
+model CampaignInvite {
+  id          String      @id @default(cuid())
+  tenantId    String
+  campaignId  String
+  athleteId   String
+  jobId       String
+  /// cents
+  offered     Int
+  state       InviteState @default(INVITED)
+  sentAt      DateTime    @default(now())
+  viewedAt    DateTime?
+  respondedAt DateTime?
+  expiresAt   DateTime
+
+  campaign Campaign @relation(fields: [campaignId], references: [id])
+  athlete  Athlete  @relation(fields: [athleteId], references: [id])
+  job      NilJob   @relation(fields: [jobId], references: [id])
+
+  /// NO full @@unique here on purpose. "One invite per athlete per job, ever"
+  /// would forbid re-inviting an athlete whose previous invitation EXPIRED or
+  /// was DECLINED, which is ordinary business. The rule actually wanted is one
+  /// OPEN invite at a time, and that needs a partial unique index — see
+  /// prisma/sql/invite_one_open.sql (P2-BE-03).
+  @@index([tenantId, state, expiresAt])
+  @@index([campaignId, athleteId, jobId])
+}
+
+/// The commercial record, one per athlete per job.
+model CampaignOrder {
+  id           String     @id @default(cuid())
+  tenantId     String
+  campaignId   String
+  athleteId    String
+  jobId        String
+  /// cents — the agreed athlete compensation, not the sponsor price.
+  compensation Int
+  usageRights  String
+  exclusivity  String?
+  dueDate      DateTime
+  state        OrderState @default(DRAFT)
+  acceptedAt   DateTime?
+  acceptanceId String?    @unique
+
+  campaign     Campaign             @relation(fields: [campaignId], references: [id])
+  athlete      Athlete              @relation(fields: [athleteId], references: [id])
+  job          NilJob               @relation(fields: [jobId], references: [id])
+  acceptance   AgreementAcceptance? @relation(fields: [acceptanceId], references: [id])
+  deliverables Deliverable[]
+  earning      Earning?
+
+  @@unique([campaignId, athleteId, jobId])
+  @@index([tenantId, state])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Delivery
+// ─────────────────────────────────────────────────────────────────────────────
+
+model Deliverable {
+  id           String           @id @default(cuid())
+  tenantId     String
+  orderId      String
+  title        String
+  dueDate      DateTime
+  state        DeliverableState @default(NOT_STARTED)
+  publishedUrl String?
+  publishedAt  DateTime?
+
+  order   CampaignOrder   @relation(fields: [orderId], references: [id])
+  assets  CreativeAsset[]
+  link    TrackingLink?
+  metrics MetricDaily[]
+
+  @@index([tenantId, state, dueDate])
+}
+
+model CreativeAsset {
+  id            String   @id @default(cuid())
+  tenantId      String
+  deliverableId String
+  version       Int
+  /// Private bucket; signed-URL access only (§11). Never a public URL.
+  r2Key         String
+  /// §12 — pre-derived sizes, since next/image optimization is not adopted.
+  derivatives   Json?
+  uploadedBy    String
+  uploadedAt    DateTime @default(now())
+
+  deliverable Deliverable @relation(fields: [deliverableId], references: [id])
+
+  @@unique([deliverableId, version])
+  @@index([tenantId])
+}
+
+model MetricDaily {
+  id            String       @id @default(cuid())
+  tenantId      String
+  deliverableId String
+  day           DateTime     @db.Date
+  views         Int          @default(0)
+  engagements   Int          @default(0)
+  source        MetricSource
+  enteredBy     String?
+
+  deliverable Deliverable @relation(fields: [deliverableId], references: [id])
+
+  /// Same day, same deliverable, different source is a DIFFERENT row — a
+  /// manually verified figure never silently overwrites an API one.
+  @@unique([deliverableId, day, source])
+  @@index([tenantId])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// The two funnels — kept apart on purpose
+//
+// A tracking link measures AN ATHLETE'S DELIVERABLE. A reward token measures
+// A FAN'S JOURNEY. V1 collapsed them and wrote a TrackingLink id into a field
+// that foreign-keys RewardToken; that bug is the reason these are separate.
+// ─────────────────────────────────────────────────────────────────────────────
+
+model TrackingLink {
+  id             String @id @default(cuid())
+  tenantId       String
+  /// Short and opaque. Never the record id.
+  code           String @unique
+  deliverableId  String @unique
+  destinationUrl String
+
+  deliverable Deliverable @relation(fields: [deliverableId], references: [id])
+  events      LinkEvent[]
+
+  @@index([tenantId])
+}
+
+/// Athlete-attribution clicks. Geo resolved in a worker job (§06), never from
+/// request headers — those are host-specific and Railway does not send them.
+model LinkEvent {
+  id       String   @id @default(cuid())
+  tenantId String
+  linkId   String
+  at       DateTime @default(now())
+  city     String?
+  region   String?
+
+  link TrackingLink @relation(fields: [linkId], references: [id])
+
+  @@index([tenantId, linkId, at])
+}
+
+model Reward {
+  id         String      @id @default(cuid())
+  tenantId   String
+  campaignId String
+  offerText  String
+  singleUse  Boolean     @default(true)
+  expiresAt  DateTime
+  terms      String
+  state      RewardState @default(DRAFT)
+
+  campaign Campaign      @relation(fields: [campaignId], references: [id])
+  tokens   RewardToken[]
+
+  @@index([tenantId, state])
+}
+
+model RewardToken {
+  id        String  @id @default(cuid())
+  tenantId  String
+  rewardId  String
+  /// Per-athlete attribution — which athlete's QR produced this journey.
+  athleteId String?
+  /// Opaque, never the record id.
+  token     String  @unique
+  /// R2 object in the private bucket.
+  qrKey     String?
+
+  reward  Reward        @relation(fields: [rewardId], references: [id])
+  athlete Athlete?      @relation(fields: [athleteId], references: [id])
+  events  RewardEvent[]
+
+  @@index([tenantId])
+}
+
+/// One row per event. The single-use rule is enforced by a partial unique
+/// index on (tokenId) WHERE type = 'REDEEM' — P2-BE-03, not this file. An
+/// application-level "already redeemed?" check loses the race; an index does
+/// not.
+model RewardEvent {
+  id       String          @id @default(cuid())
+  tenantId String
+  tokenId  String
+  type     RewardEventType
+  at       DateTime        @default(now())
+  city     String?
+  region   String?
+  fanEmail String?
+
+  token RewardToken @relation(fields: [tokenId], references: [id])
+
+  @@index([tenantId, type, at])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Money, agreements, plumbing
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Phase 1 tracks earnings STATUS only. No tax ID, no bank details, ever —
+/// §26 and Addendum A6. `reference` holds a Zoho or bank reference, which is
+/// a pointer, not a credential.
+model Earning {
+  id         String       @id @default(cuid())
+  tenantId   String
+  athleteId  String
+  orderId    String       @unique
+  /// cents
+  gross      Int
+  adjustment Int          @default(0)
+  state      EarningState @default(PENDING)
+  taxYear    Int
+  paidAt     DateTime?
+  reference  String?
+
+  order   CampaignOrder @relation(fields: [orderId], references: [id])
+  athlete Athlete       @relation(fields: [athleteId], references: [id])
+
+  /// Year-end reporting rollup.
+  @@index([athleteId, taxYear])
+  @@index([tenantId, state])
+}
+
+/// A versioned agreement template. `bodyHash` is the sha256 of the exact text
+/// shown, so a later wording change can never be mistaken for what somebody
+/// actually agreed to.
+model Agreement {
+  id          String   @id @default(cuid())
+  tenantId    String
+  /// COLLAB | CAMPAIGN_ORDER | GUARDIAN | RELEASE
+  kind        String
+  version     Int
+  bodyHash    String
+  effectiveAt DateTime
+
+  acceptances AgreementAcceptance[]
+
+  @@unique([tenantId, kind, version])
+}
+
+model AgreementAcceptance {
+  id          String   @id @default(cuid())
+  tenantId    String
+  agreementId String
+  userId      String
+  /// Copied at accept time, not read back through the template.
+  bodyHash    String
+  ip          String
+  userAgent   String
+  acceptedAt  DateTime @default(now())
+  /// Set when the athlete is a minor — §4.
+  guardianId  String?
+
+  agreement Agreement      @relation(fields: [agreementId], references: [id])
+  user      User           @relation(fields: [userId], references: [id])
+  order     CampaignOrder?
+
+  @@index([tenantId, agreementId])
+}
+
+/// The transactional outbox (§05). A job is written in the same transaction as
+/// the work that causes it, and drained separately — so Zoho being down never
+/// touches a request path.
+model OutboxJob {
+  id           String    @id @default(cuid())
+  tenantId     String
+  name         String
+  payload      Json
+  createdAt    DateTime  @default(now())
+  dispatchedAt DateTime?
+
+  @@index([dispatchedAt, createdAt])
+  @@index([tenantId])
+}
+
+/// §20 — inbound Zoho attempts, recorded whether or not they were accepted.
+/// tenantId is nullable because a webhook is logged before it is known which
+/// tenant it resolves to; recording the rejected ones is the point.
+model WebhookDelivery {
+  id          String   @id @default(cuid())
+  tenantId    String?
+  /// "zoho"
+  source      String
+  externalId  String?
+  signatureOk Boolean
+  payload     Json
+  /// RECEIVED | APPLIED | REJECTED | FAILED
+  status      String
+  error       String?
+  receivedAt  DateTime @default(now())
+
+  @@index([source, receivedAt])
+}
+
+/// Sent-email ledger (P3-INT-01). Not a copy of the message — the key, the
+/// template and the recipient only, because §26 is clear that personal data
+/// should not accumulate in places nobody thinks to look.
+///
+/// Its whole job is idempotency: outbox delivery is at-least-once and pg-boss
+/// retries, so the handler claims a key here before sending and refuses a key
+/// it has already claimed. Without it a redelivered job emails a person twice,
+/// and "your application was rejected" twice is its own small harm.
+model EmailSendLog {
+  idempotencyKey String   @id
+  tenantId       String
+  template       String
+  to             String
+  sentAt         DateTime @default(now())
+
+  @@index([tenantId, sentAt])
+}
+
+model AuditLog {
+  id       String   @id @default(cuid())
+  tenantId String
+  actorId  String?
+  action   String
+  entity   String
+  entityId String
+  before   Json?
+  after    Json?
+  at       DateTime @default(now())
+
+  @@index([tenantId, entity, entityId])
+  @@index([tenantId, at])
+}
