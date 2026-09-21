@@ -20,30 +20,50 @@ references point into [`.claude/stack-decision.md`](../.claude/stack-decision.md
 
 ## 0 · Where things actually stand
 
-Two facts drive the whole plan:
+*Updated 2026-09-21 for the repo split. The original text described a single
+Next.js application with a greenfield backend; both halves of that are now out
+of date, and the paths it used no longer exist.*
+
+**The repo is two npm workspaces** — `frontend/` (`@sponsorx/frontend`, the
+Next.js app) and `backend/` (`@sponsorx/backend`, the Express API, the worker
+and Prisma). The Phase 1 API (§19) is a standalone Node + Express service under
+`backend/src`, not Next route handlers, so the same API can serve mobile,
+INFINEX (§8) and partners rather than only the web app. The reasoning is
+**Addendum B** in [`.claude/stack-decision.md`](../.claude/stack-decision.md),
+which supersedes Addendum A2.
+
+Three facts drive the plan:
 
 1. **A front-end prototype already exists.** All 12 screens, the three portals,
    the public site and the fan-redeem page are built on the pinned stack
-   (Next 16.3.4 · React 19 · Tailwind 4). They run entirely on mocks —
-   [`src/lib/fixtures.ts`](../src/lib/fixtures.ts) (data deliberately shaped to
-   the V2 Prisma models) and [`src/lib/mock-auth.ts`](../src/lib/mock-auth.ts)
-   (fake sign-in, no session). **10 routes are still `ScreenStub` skeletons**
-   (see A1).
+   (Next 16.3.5 · React 19 · Tailwind 4), running on
+   [`frontend/src/lib/fixtures.ts`](../frontend/src/lib/fixtures.ts) — data
+   deliberately shaped to the V2 Prisma models.
 
-2. **The backend is greenfield.** `package.json` carries only
-   `next`/`react`/`react-dom` + tooling. None of the Implementation-Guide-V2
-   machinery exists yet: no `prisma/`, no Clerk/Zod/pg-boss/@aws-sdk/recharts/
-   vitest/playwright, no `src/server/`, no `src/contracts/`, no `worker/`, no
-   `api/v1/` handlers, no tests.
+2. **The backend spine is real, and no longer greenfield.** The Prisma schema
+   carries 29 models with two migrations applied; the outbox drains into
+   pg-boss from `backend/worker`; Railway runs the services over private
+   networking; R2, the contracts registry and the openapi output are in
+   progress. What B0 still owes is listed below.
+
+3. **Authentication is no longer mocked.** `mock-auth.ts` is deleted. Clerk
+   authenticates, and
+   [`frontend/src/server/actor.ts`](../frontend/src/server/actor.ts) resolves
+   that identity to a Postgres tenant and roles, with the agreed RBAC matrix
+   transcribed as data in `authz-policy.ts` and enforced by `scope.ts`.
 
 The prototype is **step 6 of the §12 build order** (UI) built ahead on
 fixtures. Because those fixtures mirror the real models, replacing them is *a
-substitution, not a rewrite* — which is exactly why UI-scaffold-first is safe
-here.
+substitution, not a rewrite* — which is exactly why UI-scaffold-first was safe.
 
 > **Note — supersedes the "greenfield, no code" baseline.** The
 > `Memory/Initial Memory/` snapshot predates this prototype. Application code
 > now exists; this roadmap is the current source of truth for sequencing.
+>
+> **Open, and it changes where B-milestone code goes:** `actor.ts` and
+> `scope.ts` currently live in `frontend/src/server`, written when the API was
+> Next route handlers. Authorisation belongs with the API, which has since
+> moved to `backend/`. Settle this before B1 builds on either answer.
 
 ---
 
@@ -68,7 +88,7 @@ loop** on mock data — so Block B is pure substitution behind finished screens.
 
 ## A0 · Brand retheme — match the BTG SponsorX logo
 
-The whole theme lives in one file, [`src/app/globals.css`](../src/app/globals.css),
+The whole theme lives in one file, [`frontend/src/app/globals.css`](../frontend/src/app/globals.css),
 as CSS custom properties; every component already uses semantic tokens
 (`text-accent`, `bg-surface-2`, `text-primary-soft`, `border-warn`,
 `text-admin`…). A token swap cascades through all ~25 routes.
@@ -99,8 +119,8 @@ as CSS custom properties; every component already uses semantic tokens
 **Also in A0:** update the source-of-truth comment block at the top of
 `globals.css` (it still cites mockups v1.0); add the logo asset to `public/` and
 place it in the login page, the portal chrome
-([`portal-shell.tsx`](../src/components/portal-shell.tsx) /
-[`site-chrome.tsx`](../src/components/site-chrome.tsx)) and the marketing hero.
+([`portal-shell.tsx`](../frontend/src/components/portal-shell.tsx) /
+[`site-chrome.tsx`](../frontend/src/components/site-chrome.tsx)) and the marketing hero.
 Dark stays primary (the logo lives on black); the light-theme variant is done in
 A2.
 
@@ -116,22 +136,22 @@ now** — a sponsor-facing screen must never display `AthleteRate.amount` even
 from fixtures. Ordered in three loop-aligned batches:
 
 **Batch 1 — front door + athlete side of the loop**
-- [`(public)/join`](../src/app/\(public\)/join/page.tsx) — athlete application (the §39 front door; absent from mockup v1.0)
-- [`athlete/invitations`](../src/app/\(app\)/athlete/invitations/page.tsx)
-- [`athlete/orders/[id]`](../src/app/\(app\)/athlete/orders/[id]/page.tsx) — Campaign Order view/accept (UI only; acceptance logic is B4)
-- [`athlete/earnings`](../src/app/\(app\)/athlete/earnings/page.tsx) — status-only, no tax ID / bank details
+- [`(public)/join`](../frontend/src/app/\(public\)/join/page.tsx) — athlete application (the §39 front door; absent from mockup v1.0)
+- [`athlete/invitations`](../frontend/src/app/\(app\)/athlete/invitations/page.tsx)
+- [`athlete/orders/[id]`](../frontend/src/app/\(app\)/athlete/orders/[id]/page.tsx) — Campaign Order view/accept (UI only; acceptance logic is B4)
+- [`athlete/earnings`](../frontend/src/app/\(app\)/athlete/earnings/page.tsx) — status-only, no tax ID / bank details
 
 **Batch 2 — BTG operations**
-- [`admin`](../src/app/\(app\)/admin/page.tsx) — workspace home (§23)
-- [`admin/applications`](../src/app/\(app\)/admin/applications/page.tsx) — athlete review + score snapshot
-- [`admin/approvals`](../src/app/\(app\)/admin/approvals/page.tsx) — content approval workspace
-- [`admin/finance`](../src/app/\(app\)/admin/finance/page.tsx) — earnings states (UI only; policy gate resolves separately)
+- [`admin`](../frontend/src/app/\(app\)/admin/page.tsx) — workspace home (§23)
+- [`admin/applications`](../frontend/src/app/\(app\)/admin/applications/page.tsx) — athlete review + score snapshot
+- [`admin/approvals`](../frontend/src/app/\(app\)/admin/approvals/page.tsx) — content approval workspace
+- [`admin/finance`](../frontend/src/app/\(app\)/admin/finance/page.tsx) — earnings states (UI only; policy gate resolves separately)
 
 **Batch 3 — sponsor public + property**
-- [`(public)/packages`](../src/app/\(public\)/packages/page.tsx) — §7 six packages + filters + request-a-brief CTA
-- [`property`](../src/app/\(app\)/property/page.tsx) — property portal (own-property athletes)
+- [`(public)/packages`](../frontend/src/app/\(public\)/packages/page.tsx) — §7 six packages + filters + request-a-brief CTA
+- [`property`](../frontend/src/app/\(app\)/property/page.tsx) — property portal (own-property athletes)
 
-**Exit:** no `<ScreenStub>` remains in `src/app`; all portals fully navigable on
+**Exit:** no `<ScreenStub>` remains in `frontend/src/app`; all portals fully navigable on
 fixtures. *(Relative effort: L)*
 
 ## A2 · State & polish pass (all ~25 routes)
@@ -139,7 +159,7 @@ fixtures. *(Relative effort: L)*
 - Loading / empty / error states for every screen.
 - **Light-theme variant** of the A0 palette (dark remains default).
 - Responsive from phone to desktop.
-- Redeem page ([`r/[token]`](../src/app/r/\[token\]/page.tsx)) verified to render
+- Redeem page ([`r/[token]`](../frontend/src/app/r/\[token\]/page.tsx)) verified to render
   **without JavaScript** and remain accessible (§16 — it is hit once, on venue
   wifi, on a phone).
 
@@ -182,18 +202,32 @@ Every screen already exists, so each milestone follows the §12 order and ends b
 **wiring the finished UI to real data**:
 
 > Zod contract → Prisma model + migration → scope fn + authz-matrix row →
-> domain fn (`audit` + `enqueue`) → route handler / server action →
-> **wire the existing UI** → E2E test.
+> domain fn (`audit` + `enqueue`) → **Express route under `backend/src/routes/v1`**
+> → **wire the existing UI** → E2E test.
+
+*(That step read "route handler / server action" before the repo split. The API
+is now a standalone Express service — Addendum B. A server action that only
+reads for its own page is still fine; anything another consumer could want is
+an API route, because §8's service account and INFINEX reach the same surface.)*
 
 ## B0 · Foundations *(unblocks everything — the heaviest milestone)*
 
 Pins & deps (§01) · full Prisma schema + migrations + partial indexes (§03) ·
-Railway project: `web` / `worker` / `postgres` over private networking (§10) ·
-**Clerk replaces `mock-auth`** with `requireActor()` (§04) · `actor.ts` +
-`scope.ts` + the **authorization matrix green in CI** (§04, §09) · outbox +
-pg-boss draining with `FOR UPDATE SKIP LOCKED` (§05) · R2 two-bucket presign
-(§11) · contracts registry → `openapi.json` (§02) · seed job for PR
+Railway services over private networking — `web`, the Express `api`, `worker`
+and `postgres`, plus Redis for cache and rate limiting only, never the queue
+(§10, Addendum B4) · **Clerk replaces `mock-auth`** with `requireActor()` (§04)
+· `actor.ts` + `scope.ts` + the **authorization matrix green in CI** (§04, §09)
+· outbox + pg-boss draining with `FOR UPDATE SKIP LOCKED` (§05) · R2 two-bucket
+presign (§11) · contracts registry → `openapi.json` (§02) · seed job for PR
 environments (§10) · lint rule failing a bare `findMany()` with no `select`.
+
+**Done as of 2026-09-21:** deps and pins, the schema and both migrations, the
+Railway services, the outbox and pg-boss drain, Clerk replacing `mock-auth`,
+`actor.ts`/`scope.ts`, and the seed job's identity slice.
+**Still owed:** the authorisation matrix green in CI (`P2-SEC-01` +
+`P2-OPS-07`, and CI needs a Postgres service before the seeded half can run),
+R2 presign, the contracts registry and `openapi.json`, the bare-`findMany()`
+lint rule, and the rest of the seed's demo data.
 
 **Exit:** an authenticated Clerk user, backed by a real Postgres tenant/role,
 loads an empty portal; authz matrix passes in CI; the worker drains an empty
