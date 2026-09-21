@@ -31,3 +31,61 @@ Check the row count and the ID set on both sides before resolving — a version 
 **Still open:** `P1-FE-09` … `P1-FE-15` exist on the board but have no entries in
 `documentation/SponsorX-Phase1-Managed-Marketplace.md`. The plan document owns
 task definitions, so those seven need writing by whoever did the work.
+
+## `P0-OPS-03` — Clerk production instance, on `sponsorx.net`
+
+The domain landed: `sponsorx.net` was registered through Cloudflare on 2026-09-18,
+Cloudflare nameservers authoritative, registrar lock on, zone empty. That released
+the thread `P0-OPS-06` had been holding — a Clerk production instance needs a domain.
+
+**The development instance from 2026-09-14 was gone.** The ICARRE FOUNDATION
+workspace listed no applications at all, so `SponsorXDev` had been deleted or was
+never in that workspace. Nothing was lost — it held default settings only.
+
+**Recreated as `SponsorX`**, not `SponsorXDev`: one Clerk *application* contains both
+the development and production *instances*, so a name carrying "Dev" mislabels half of
+it. That naming confusion is the likely reason the first one went astray.
+
+Settings chosen, and why each one is a project rule rather than a preference:
+
+- **Consumer**, not B2B — B2B enables Clerk Organizations for roles and permissions,
+  and Addendum A4 puts tenancy and roles in Postgres. Organizations left off for the
+  same reason.
+- **Email only.** Phone off because G-06 puts SMS out of Phase 1 entirely. Google off
+  because a production Clerk instance needs your own Google OAuth credentials, meaning
+  a Google Cloud project and consent screen that no task in the 345 covers.
+
+**DNS was written by Cloudflare Domain Connect, not by hand.** Clerk's *Configure
+automatically* button on the Domains page runs the Domain Connect flow; you authorise
+in Cloudflare and Clerk writes all five records itself. This is strictly better than
+hand-entry: no transcription risk, and the records come out **DNS-only** rather than
+proxied, which is the mistake that breaks Clerk verification behind Cloudflare. The
+usual caveat — Clerk may add a DMARC policy — did not apply, because the zone was empty.
+
+Verified independently of the dashboard: all five CNAMEs resolve on both `1.1.1.1` and
+`8.8.8.8`, and SSL has **issued** for `clerk.sponsorx.net` and `accounts.sponsorx.net`
+(Google Trust Services WE1, from 2026-09-21) — the dashboard still read *Issuing* at
+the time. No `_dmarc` TXT exists on the zone; it is not one of the five and did not
+block verification.
+
+**The row stays In progress**, and this is the honest reading of a two-part *Done when*.
+Both instances exist — first half met. The second, "MFA available for privileged roles",
+cannot be met on the Hobby plan: **all three** MFA strategies are Pro-badged
+(SMS — also unavailable with phone numbers off, correctly — Authenticator application,
+and Backup codes), and *Require multi-factor authentication* needs at least one strategy
+enabled, so it is unreachable too. This matches the 2026-09-14 finding and remains a
+launch cost at provisioning sequence step 16. When Pro is bought, the strategy to enable
+is **TOTP + backup codes, never SMS**, because G-06 forbids the SMS channel outright.
+
+**Keys were deliberately not captured.** Clerk's setup checklist offers to write
+`pk_live`/`sk_live` into a local `.env.local`; they belong in Railway when `P2-INT-01`
+installs the SDK, and touching them now would breach the B0 no-new-dependencies rule.
+
+IDs for later: application `app_3JcMVfla0x1djZe95U38EcsxfRP`, development instance
+`ins_3JcMVgKOWFsPxVEQknFjjWg8d8k`, production instance `ins_3JcQVIy69lPJqNJb4XcS0PHDe2o`.
+
+**Left open by this session:** `P0-OPS-06` is now factually complete except for its
+written half — the chosen name still has to be recorded in `.claude/stack-decision.md`,
+and the Implementation Guide still assumes `sponsorx.com` and `app.sponsorx.com`
+throughout, which is dead. `P2-OPS-11` and the fan-QR short-link domain were the other
+two threads waiting on the domain.
