@@ -33,6 +33,13 @@ describe("validateBriefStep", () => {
     expect(Object.keys(validateBriefStep(1, d))).toHaveLength(0);
   });
 
+  it("step 2 requires a market (free text)", () => {
+    const d = emptyBriefDraft();
+    expect(validateBriefStep(2, d).market).toBeTruthy();
+    d.answers.market = "Silver Spring, MD";
+    expect(Object.keys(validateBriefStep(2, d))).toHaveLength(0);
+  });
+
   it("step 3 requires company, name and a real email", () => {
     const d = emptyBriefDraft();
     d.answers.company = "Midwest Running Co.";

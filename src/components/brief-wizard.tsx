@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import {
+  AUDIENCES,
   BRIEF_DRAFT_KEY,
   BRIEF_STEPS,
   BUDGET_BANDS,
@@ -77,9 +78,10 @@ export function BriefWizard({
   const [save, setSave] = useState<"idle" | "saving" | "saved">("idle");
   const [reviewing, setReviewing] = useState(false);
   /* Lifted so the ancestor chain can out-stack the later-DOM siblings while
-     the listbox is open — the sx-join-* fill animations keep every sibling a
-     stacking context, so the panel's own z-index can't win from inside. */
-  const [pkgOpen, setPkgOpen] = useState(false);
+     a listbox is open — the sx-join-* fill animations keep every sibling a
+     stacking context, so a panel's own z-index can't win from inside. One
+     key for all selects; opening one closes any other. */
+  const [openSelect, setOpenSelect] = useState<"package" | "audience" | null>(null);
   const headingRef = useRef<HTMLHeadingElement>(null);
   const stepRef = useRef<HTMLDivElement>(null);
 
@@ -298,7 +300,7 @@ export function BriefWizard({
       <div
         key={`${def.id}-${dir}`}
         ref={stepRef}
-        className={`sx-join-step flex-1 px-6 py-7 ${pkgOpen ? "relative z-20" : ""}`}
+        className={`sx-join-step flex-1 px-6 py-7 ${openSelect ? "relative z-20" : ""}`}
         style={{ "--sx-from": dir === 1 ? "24px" : "-24px" } as React.CSSProperties}
       >
         <h1 ref={headingRef} tabIndex={-1} className="text-3xl font-semibold tracking-tight outline-none">
@@ -363,14 +365,17 @@ export function BriefWizard({
                 {errors.budget && <p className="mt-1.5 text-[11px] text-danger">{errors.budget}</p>}
               </div>
               <div
-                className={`sx-join-rise ${pkgOpen ? "relative z-30" : ""}`}
+                className={`sx-join-rise ${openSelect === "package" ? "relative z-30" : ""}`}
                 style={{ "--sx-d": "0.05s" } as React.CSSProperties}
               >
-                <PackageSelect
+                <WizardSelect
+                  label="Starting package"
+                  placeholder="Pick a package"
+                  options={PACKAGE_OPTIONS.map((p) => ({ id: p.id, name: p.name, meta: p.price }))}
                   value={chosen.id}
                   onChange={(id) => setTouched({ ...draft, package: id })}
-                  open={pkgOpen}
-                  onOpenChange={setPkgOpen}
+                  open={openSelect === "package"}
+                  onOpenChange={(o) => setOpenSelect(o ? "package" : null)}
                 />
                 <p className="mt-1 text-[11px] text-faint">
                   A starting point, not a commitment — BTG shapes the final scope.
@@ -389,6 +394,23 @@ export function BriefWizard({
               onChange={(v) => setAnswer(f.key, v)}
             />
           ))}
+
+          {def.id === "market" && (
+            <div
+              className={`sx-join-rise ${openSelect === "audience" ? "relative z-30" : ""}`}
+              style={{ "--sx-d": "0.05s" } as React.CSSProperties}
+            >
+              <WizardSelect
+                label="Audience"
+                placeholder="Optional — pick the closest fit"
+                options={AUDIENCES.map((a) => ({ id: a, name: a }))}
+                value={draft.answers.audience ?? ""}
+                onChange={(id) => setAnswer("audience", id)}
+                open={openSelect === "audience"}
+                onOpenChange={(o) => setOpenSelect(o ? "audience" : null)}
+              />
+            </div>
+          )}
         </div>
       </div>
 
@@ -409,26 +431,36 @@ export function BriefWizard({
   );
 }
 
-/* Custom listbox for the starting package — the native <select> popup is
-   OS-rendered and unstylable (export-report.tsx dropdown precedent for the
-   outside-click/Escape discipline). Real buttons take focus, so Enter/Tab
-   behave natively; arrows rove between options. */
-function PackageSelect({
+/* Custom listbox — the native <select> popup is OS-rendered and unstylable
+   (export-report.tsx dropdown precedent for the outside-click/Escape
+   discipline). Real buttons take focus, so Enter/Tab behave natively;
+   arrows rove between options. Open state is controlled by the wizard so
+   ancestors can raise their z-index while a panel is out. */
+type SelectOption = { id: string; name: string; meta?: string };
+
+function WizardSelect({
+  label,
+  placeholder,
+  options,
   value,
+  error,
   onChange,
   open,
   onOpenChange,
 }: {
+  label: string;
+  placeholder: string;
+  options: SelectOption[];
   value: string;
+  error?: string;
   onChange: (id: string) => void;
-  /** Controlled by the wizard: ancestors raise their z-index while open. */
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
   const setOpen = onOpenChange;
   const rootRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
-  const chosen = PACKAGE_OPTIONS.find((p) => p.id === value) ?? PACKAGE_OPTIONS[0];
+  const chosen = options.find((o) => o.id === value);
 
   useEffect(() => {
     if (!open) return;
@@ -464,20 +496,26 @@ function PackageSelect({
 
   return (
     <div ref={rootRef} className="relative">
-      <span className="text-[11px] font-medium text-muted">Starting package</span>
+      <span className="text-[11px] font-medium text-muted">{label}</span>
       <button
         ref={triggerRef}
         type="button"
         aria-haspopup="listbox"
         aria-expanded={open}
         onClick={() => setOpen(!open)}
-        className={`mt-1.5 flex min-h-11 w-full items-center justify-between gap-3 rounded-xl border bg-surface-2 px-3.5 py-3 text-left text-base text-text transition-colors focus:outline-none ${
-          open ? "border-accent/60" : "border-line hover:border-line/80 focus:border-accent/60"
+        className={`mt-1.5 flex min-h-11 w-full items-center justify-between gap-3 rounded-xl border bg-surface-2 px-3.5 py-3 text-left text-base transition-colors focus:outline-none ${
+          error
+            ? "border-danger text-text"
+            : open
+              ? "border-accent/60 text-text"
+              : "border-line text-text hover:border-line/80 focus:border-accent/60"
         }`}
       >
-        <span className="truncate">{chosen.name}</span>
+        <span className={`truncate ${chosen ? "" : "text-faint"}`}>
+          {chosen ? chosen.name : placeholder}
+        </span>
         <span className="flex shrink-0 items-center gap-2.5">
-          {chosen.price && <span className="text-sm text-faint">{chosen.price}</span>}
+          {chosen?.meta && <span className="text-sm text-faint">{chosen.meta}</span>}
           <svg
             viewBox="0 0 16 16"
             className={`size-4 text-muted transition-transform duration-200 ${open ? "rotate-180" : ""}`}
@@ -496,10 +534,10 @@ function PackageSelect({
       {open && (
         <div
           role="listbox"
-          aria-label="Starting package"
+          aria-label={label}
           className="sx-pop absolute z-20 mt-2 w-full origin-top overflow-hidden rounded-xl border border-line bg-surface shadow-[0_16px_48px_-16px_rgba(0,0,0,0.6)]"
         >
-          {PACKAGE_OPTIONS.map((p, i) => {
+          {options.map((p, i) => {
             const on = p.id === value;
             return (
               <button
@@ -528,7 +566,7 @@ function PackageSelect({
                   </span>
                   <span className={`truncate ${on ? "font-semibold" : "font-medium"}`}>{p.name}</span>
                 </span>
-                {p.price && <span className="shrink-0 text-xs text-faint">{p.price}</span>}
+                {p.meta && <span className="shrink-0 text-xs text-faint">{p.meta}</span>}
               </button>
             );
           })}

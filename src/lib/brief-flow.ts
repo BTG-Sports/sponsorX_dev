@@ -64,10 +64,9 @@ export const BRIEF_STEPS: BriefStepDef[] = [
   {
     id: "market",
     heading: "Where should it land?",
-    sub: "Campaigns are matched to athletes in your market (§13).",
+    sub: "Campaigns are matched to athletes in your market (§13). Today the network is strongest in the DMV, with a hub in Kigali.",
     fields: [
       { key: "market", label: "City / region", placeholder: "Silver Spring, MD", required: true },
-      { key: "audience", label: "Audience", placeholder: "Optional — e.g. high-school families", required: false },
     ],
   },
   {
@@ -82,6 +81,20 @@ export const BRIEF_STEPS: BriefStepDef[] = [
     ],
   },
 ];
+
+/* -------------------------------------------------------------- audiences */
+
+/** The audiences this product actually reaches — high-school and college
+    athletes' followings and event crowds (§4, §16). Optional on the form.
+    Market stays free text: a sponsor outside today's network is still a
+    lead BTG wants to see, not an input error. */
+export const AUDIENCES = [
+  "High-school students & families",
+  "College students & fans",
+  "Youth sports parents",
+  "Local event-goers",
+  "General local community",
+] as const;
 
 /* --------------------------------------------------------------- packages */
 
