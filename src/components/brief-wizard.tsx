@@ -358,24 +358,15 @@ export function BriefWizard({
                 </div>
                 {errors.budget && <p className="mt-1.5 text-[11px] text-danger">{errors.budget}</p>}
               </div>
-              <label className="sx-join-rise block" style={{ "--sx-d": "0.05s" } as React.CSSProperties}>
-                <span className="text-[11px] font-medium text-muted">Starting package</span>
-                <select
+              <div className="sx-join-rise" style={{ "--sx-d": "0.05s" } as React.CSSProperties}>
+                <PackageSelect
                   value={chosen.id}
-                  onChange={(e) => setTouched({ ...draft, package: e.target.value })}
-                  className="mt-1.5 min-h-11 w-full rounded-xl border border-line bg-surface-2 px-3.5 py-3 text-base text-text focus:border-accent/60 focus:outline-none"
-                >
-                  {PACKAGE_OPTIONS.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.name}
-                      {p.price ? ` · ${p.price}` : ""}
-                    </option>
-                  ))}
-                </select>
-                <span className="mt-1 block text-[11px] text-faint">
+                  onChange={(id) => setTouched({ ...draft, package: id })}
+                />
+                <p className="mt-1 text-[11px] text-faint">
                   A starting point, not a commitment — BTG shapes the final scope.
-                </span>
-              </label>
+                </p>
+              </div>
             </>
           )}
 
@@ -405,6 +396,130 @@ export function BriefWizard({
           No card, no checkout — BTG replies with a proposal.
         </p>
       </div>
+    </div>
+  );
+}
+
+/* Custom listbox for the starting package — the native <select> popup is
+   OS-rendered and unstylable (export-report.tsx dropdown precedent for the
+   outside-click/Escape discipline). Real buttons take focus, so Enter/Tab
+   behave natively; arrows rove between options. */
+function PackageSelect({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (id: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const chosen = PACKAGE_OPTIONS.find((p) => p.id === value) ?? PACKAGE_OPTIONS[0];
+
+  useEffect(() => {
+    if (!open) return;
+    const onPointerDown = (e: PointerEvent) => {
+      if (!rootRef.current?.contains(e.target as Node)) setOpen(false);
+    };
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setOpen(false);
+        triggerRef.current?.focus();
+      }
+      if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+        e.preventDefault();
+        const items = Array.from(
+          rootRef.current?.querySelectorAll<HTMLButtonElement>('[role="option"]') ?? [],
+        );
+        if (items.length === 0) return;
+        const at = items.indexOf(document.activeElement as HTMLButtonElement);
+        const next =
+          e.key === "ArrowDown"
+            ? items[Math.min(at + 1, items.length - 1)]
+            : items[Math.max(at - 1, 0)];
+        next?.focus();
+      }
+    };
+    document.addEventListener("pointerdown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [open]);
+
+  return (
+    <div ref={rootRef} className="relative">
+      <span className="text-[11px] font-medium text-muted">Starting package</span>
+      <button
+        ref={triggerRef}
+        type="button"
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        onClick={() => setOpen((v) => !v)}
+        className={`mt-1.5 flex min-h-11 w-full items-center justify-between gap-3 rounded-xl border bg-surface-2 px-3.5 py-3 text-left text-base text-text transition-colors focus:outline-none ${
+          open ? "border-accent/60" : "border-line hover:border-line/80 focus:border-accent/60"
+        }`}
+      >
+        <span className="truncate">{chosen.name}</span>
+        <span className="flex shrink-0 items-center gap-2.5">
+          {chosen.price && <span className="text-sm text-faint">{chosen.price}</span>}
+          <svg
+            viewBox="0 0 16 16"
+            className={`size-4 text-muted transition-transform duration-200 ${open ? "rotate-180" : ""}`}
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden
+          >
+            <path d="M3.5 6L8 10.5 12.5 6" />
+          </svg>
+        </span>
+      </button>
+
+      {open && (
+        <div
+          role="listbox"
+          aria-label="Starting package"
+          className="sx-pop absolute z-20 mt-2 w-full origin-top overflow-hidden rounded-xl border border-line bg-surface shadow-[0_16px_48px_-16px_rgba(0,0,0,0.6)]"
+        >
+          {PACKAGE_OPTIONS.map((p, i) => {
+            const on = p.id === value;
+            return (
+              <button
+                key={p.id}
+                type="button"
+                role="option"
+                aria-selected={on}
+                onClick={() => {
+                  onChange(p.id);
+                  setOpen(false);
+                  triggerRef.current?.focus();
+                }}
+                className={`sx-join-rise flex min-h-11 w-full items-center justify-between gap-3 px-3.5 py-3 text-left text-sm transition-colors ${
+                  on ? "bg-accent/10 text-text" : "text-text hover:bg-surface-2"
+                }`}
+                style={{ "--sx-d": `${i * 0.025}s` } as React.CSSProperties}
+              >
+                <span className="flex min-w-0 items-center gap-2.5">
+                  <span
+                    className={`grid size-4 shrink-0 place-items-center ${on ? "" : "invisible"}`}
+                    aria-hidden
+                  >
+                    <svg viewBox="0 0 12 12" className="size-3.5" fill="none" stroke="var(--sx-accent)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M2.5 6.5l2.5 2.5 4.5-5.5" pathLength={1} className="sx-join-draw" style={{ "--sx-d": "0s" } as React.CSSProperties} />
+                    </svg>
+                  </span>
+                  <span className={`truncate ${on ? "font-semibold" : "font-medium"}`}>{p.name}</span>
+                </span>
+                {p.price && <span className="shrink-0 text-xs text-faint">{p.price}</span>}
+              </button>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
