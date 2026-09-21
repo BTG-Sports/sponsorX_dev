@@ -213,3 +213,66 @@ Two further observations from the deploy, both belonging to other rows:
 `next start` warns that it "does not work with `output: standalone`"
 (`P2-OPS-02` owns that), and Prisma is advertising 8.0.0-rc against the pinned
 7.10.0 (`P2-BE-01` owns pins).
+
+## `P2-BE-04` — `requireActor()` and the scope functions *(Code review)*
+
+The task's own note calls retrofitting this "the most expensive mistake
+available", so the shape was agreed before any code was written.
+
+**Policy and filter are separate, and that is the whole design.**
+`authz-policy.ts` is a complete transcription of the agreed RBAC matrix as
+pure data — 32 resources, 12 roles, 3 actions, no Prisma, no imports that can
+drift. `scope.ts` turns a scope token into a Prisma `where` fragment, and only
+for resources something actually queries (today `user`, `tenant`, `auditLog`).
+
+The reasoning is worth keeping, because the tempting alternative looks more
+thorough: writing thirty speculative `where` fragments for models nothing
+reads yet would be authorisation code whose correctness nobody can check, and
+**wrong authorisation code is worse than absent authorisation code, because it
+looks like protection.** Each B-milestone adds its builder with the model's
+real shape in front of it. The policy being complete is what lets `P2-SEC-01`
+assert the entire matrix without a database.
+
+**Deny fails closed twice.** An unlisted resource/role/action denies. A
+resource whose builder is unwritten *throws* rather than returning `{}` —
+because in Prisma an empty `where` matches every row in the table, so "no
+restriction" and "no access" would be the same object. That is the single most
+plausible way to leak an entire tenant, so both layers refuse it.
+
+The three cells the matrix defers to its own decisions D1 and D3 resolve to a
+denial rather than an allowance: widening later is safe, narrowing later is a
+regression someone has already built on.
+
+**A throwaway check found a real bug in the new code.** `scopeFor()` seeded
+its accumulator as `"deny"` and only replaced on strictly-greater breadth —
+and `deferred` and `deny` are both zero-breadth, so `deferred` could never
+surface. Access was still correctly refused, but the distinction had been
+documented as meaningful one screen earlier and was unreachable in practice.
+The lesson is the cheap one: assertions over a policy table cost minutes and
+catch the errors that reading the code does not, because the code looked
+obviously correct.
+
+**It closes the hole `P2-INT-01` left open.** Those layouts checked
+authentication only, so any signed-in Clerk identity — including a stranger
+who self-registered on a public URL — could open the admin workspace.
+`requirePortalAccess()` now admits only the roles a portal is for, and
+forwards a wrong-portal visit to the actor's own portal rather than
+dead-ending.
+
+**And a flaw in the first draft of that gate, caught before committing:** it
+caught *every* error and redirected to "your account isn't set up yet". A
+database outage would have been reported to the user as a confident lie about
+their account. Only the two known error types are handled now; everything else
+is rethrown. Three error types exist for the same reason — unauthenticated,
+unprovisioned and forbidden have three different remedies, and collapsing them
+sends a new sponsor round a sign-in loop that can never succeed.
+
+**Known small regression:** the sign-in redirect no longer carries
+`?redirect_url=`, because our own `redirect("/login")` replaced Clerk's
+`auth.protect()`. A user lands on their portal rather than the page they
+originally asked for. Cosmetic, recorded on the row for a polish pass.
+
+Verified anonymously on staging after deploy: all four portals and `/portal`
+307 to `/login`, the public surface and `/r/[token]` unaffected, no runtime
+errors. What is *not* verified is the signed-in path — that a real actor with
+`BTG_ADMIN` reaches `/admin` and an athlete is turned away from it.
