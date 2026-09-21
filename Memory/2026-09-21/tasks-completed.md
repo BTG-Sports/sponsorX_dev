@@ -726,3 +726,49 @@ stranger who registers gets an identity, no `User` row, and therefore nothing.
 The real fix is to issue a Clerk invitation at the moment BTG provisions a
 user, which belongs with the admin provisioning work in B1 rather than being a
 console toggle today.
+
+## `P2-OPS-07` — CI exists, and is green on its first run
+
+`.github/workflows/ci.yml` runs on every push and pull request: backend build,
+frontend build, lint, backend tests (19, including the 1,152-pair
+authorisation matrix) and frontend tests (46). Run 35574058026 passed end to
+end first time, 2m07s, and both checks on pull request #14 are green.
+
+This is the first automated check this repo has ever had. Until today every
+guarantee rested on someone remembering to run something locally, with two
+people working in the same tree and a binary tracker that had already lost
+seven rows of work once.
+
+Choices worth keeping: Node pinned to **24.21.0** to match what `CLAUDE.md`
+pins locally, because a CI Node that drifts from the developer Node produces
+failures nobody can reproduce; `npm ci` rather than `npm install`, so a
+lockfile disagreeing with `package.json` fails here instead of resolving
+differently in silence; and a **Postgres 17 service that nothing uses yet**,
+added deliberately so whoever writes `P2-SEC-01`'s seeded half finds it
+waiting rather than rediscovering why a plain Node runner is not enough. No
+repository secrets are needed — verified by building with the environment
+files moved aside.
+
+**The row stays In progress, and the blocker is commercial rather than
+technical.** The acceptance says *"the authz matrix is a required check, not
+an advisory one"*, and that cannot be configured here: the repo is **private
+on a personal Free account**, and GitHub answers both the branch-protection
+and the rulesets APIs with *"Upgrade to GitHub Pro or make this repository
+public to enable this feature."* Public is not an option, so the remaining
+path is GitHub Pro at roughly $4/month. A red check is visible on a pull
+request but cannot block a merge.
+
+**The same finding reaches further than this row.** The standing rule that
+nothing reaches `main` except by pull request cannot be enforced by GitHub on
+this plan *at all*. The earlier framing — that branch protection could not be
+enforced against me specifically, because the CLI runs as the repo owner — was
+too narrow. On this account it is discipline for everybody, or nothing.
+
+**One practical trap for future sessions:** creating or editing anything under
+`.github/workflows/` requires an OAuth token with the `workflow` scope, and
+the CLI token on this machine carries only `gist, read:org, repo`. Two
+device-flow refreshes did not add it, and the push was rejected each time with
+"refusing to allow an OAuth App to create or update workflow ... without
+`workflow` scope". The file reached GitHub by the user's own hand in the end.
+Assume any future workflow change needs them, and say so at the start rather
+than after two failed attempts.
