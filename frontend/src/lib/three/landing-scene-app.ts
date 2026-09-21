@@ -96,7 +96,7 @@ export class LandingSceneApp {
       const by = ballWorldY(this.smoothProgress);
       this.rig.setWorldY(by);
       this.rig.update(this.smoothProgress, dt);
-      this.world.update();
+      this.world.update(this.smoothProgress);
 
       // Camera follows the ball; during the between-stadium drop it pulls in
       // close and over-centre so it dives *through the hole* with the ball
