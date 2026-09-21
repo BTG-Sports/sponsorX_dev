@@ -11,6 +11,14 @@
     "moduleResolution": "bundler",
     "resolveJsonModule": true,
     "isolatedModules": true,
+    /* The worker is plain ES modules run by `node`, not bundled, so Node's
+       loader requires the real file extension in a relative import —
+       `./jobs/seed-environment.mts`. TypeScript rejects that specifier by
+       default (TS5097), which failed the Railway build the first time one
+       worker file imported another. Safe to enable here because `noEmit` is
+       true: nothing is compiled, so no emitted import can be left pointing at
+       a `.mts` path that would not exist after a build. */
+    "allowImportingTsExtensions": true,
     "jsx": "react-jsx",
     "incremental": true,
     "plugins": [
