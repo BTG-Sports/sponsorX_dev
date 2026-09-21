@@ -191,3 +191,8 @@ Content components stay server-rendered; only the canvas layer is client.
 - Environment build: **Tripo environment models per sport (option B).** **✓**
 - Rendering library: ~~react-three-fiber + drei~~ → **vanilla three.js** (revised 2026-09-22:
   r3f peer excludes React 19.3.0). **✓**
+- Cinematic per-section reveal (added 2026-09-22): each chapter is a **pinned/sticky
+  section** whose 2D content **fades in → holds → fades out** on scroll (hero visible on
+  load; mid sections fade both ways; finale fades in only). Driven by `landing-reveal.tsx`
+  from scroll position; progressive enhancement — no-JS / reduced-motion keep content fully
+  visible (`scripting: enabled` gate + reduced-motion override in globals.css). **✓**

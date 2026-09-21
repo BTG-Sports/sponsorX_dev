@@ -63,6 +63,20 @@ readable page (capability gate never mounts the canvas); FPS watchdog tears the
 scene down to the poster if it can't hold ~40fps; mobile drops side gutters,
 caps DPR to 1.5, and adds a scrim for text contrast.
 
+### Follow-up (same session) — cinematic per-section reveal
+
+Added a scroll-driven reveal on top of the scene: each chapter is now a **pinned
+/ sticky** section (tall wrapper, `sticky` inner) whose 2D content **fades in →
+holds → fades out** as you scroll — content appears one section at a time over the
+3D. Hero is visible on load; mid sections fade both ways; finale fades in only.
+Controller: [landing-reveal.tsx](../../frontend/src/components/landing/landing-reveal.tsx)
+(scroll+rAF, reduced-motion aware); CSS gate in
+[globals.css](../../frontend/src/app/globals.css) (`[data-lreveal]`,
+`@media (scripting: enabled)` pre-hide, reduced-motion override) so no-JS /
+reduced-motion keep content fully visible. Sections restructured in
+[landing-content.tsx](../../frontend/src/components/landing/landing-content.tsx)
+(`h-[200vh]` + sticky). Chosen by user: hero-on-load + pinned-hold.
+
 ### Verified
 
 `npm run build` (frontend) compiles (26 pages); `npm test -w @sponsorx/frontend`
