@@ -183,6 +183,14 @@ async function main(): Promise<void> {
      (P3-INT-01); zoho.pushCampaign arrives with the Zoho integration and
      reward.generateQr with the QR task. A job with no handler queues and
      waits, which shows up as queue depth rather than a silent drop. */
+  /* The queue must exist before anything can consume from it. pg-boss 10+
+     requires createQueue for BOTH sides, and `ensureQueue` above only covers
+     the send path — which runs when a job is dispatched, i.e. after this
+     registration. On a database that has never had an email queued, work()
+     therefore failed on a loop with "Queue notify.email does not exist"
+     until this line was added. Idempotent, so it costs nothing on restart. */
+  await ensureQueue("notify.email");
+
   await boss.work<EmailJob>("notify.email", async ([job]) => {
     const outcome = await handleSendEmail(pool, job.data);
     /* Logged because a duplicate is not a failure — it means the message had
