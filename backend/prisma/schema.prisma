@@ -227,14 +227,14 @@ model User {
 // ─────────────────────────────────────────────────────────────────────────────
 
 model Property {
-  id       String  @id @default(cuid())
-  tenantId String
+  id        String  @id @default(cuid())
+  tenantId  String
   /// Public profile URL.
-  slug     String  @unique
-  name     String
+  slug      String  @unique
+  name      String
   /// TEAM | SCHOOL | EVENT | MEDIA | VIRTUAL
-  kind     String
-  city     String?
+  kind      String
+  city      String?
   /// US state code, e.g. "MD".
   stateCode String?
 
@@ -249,7 +249,7 @@ model Property {
 }
 
 model Guardian {
-  id           String  @id @default(cuid())
+  id           String    @id @default(cuid())
   tenantId     String
   legalName    String
   email        String
@@ -265,25 +265,53 @@ model Guardian {
 }
 
 model Athlete {
-  id          String       @id @default(cuid())
-  tenantId    String
+  id           String    @id @default(cuid())
+  tenantId     String
   /// Public profile URL.
-  slug        String       @unique
-  legalName   String
-  displayName String
+  slug         String    @unique
+  legalName    String
+  displayName  String
   /// Drives the guardian path — under 18 at campaign start requires a Guardian.
-  birthDate   DateTime?
-  city        String?
+  birthDate    DateTime?
+  city         String?
   /// US state code, e.g. "MD". Geography, not lifecycle — see `state` below.
-  stateCode   String?
-  sport       String
-  school      String?
-  gradYear    Int?
-  state       AthleteState @default(DRAFT)
+  stateCode    String?
+  sport        String
+  /// §11 §2 — position, level and achievements complete the Sports section.
+  position     String?
+  school       String?
+  /// HIGH_SCHOOL | COLLEGE | SEMI_PRO | PRO | AMATEUR. A small vocabulary kept
+  /// as text, matching Property.kind and Guardian.relationship — an enum here
+  /// would need a migration every time a new competition level appears.
+  level        String?
+  gradYear     Int?
+  achievements String?
+
+  /// §11 §1 — the applicant's own contact details. Distinct from User.email,
+  /// which belongs to the Clerk identity: an athlete may be onboarded by BTG
+  /// long before they ever sign in, and a guardian-managed minor may never
+  /// hold a login at all.
+  email   String
+  phone   String?
+  /// §11 permits an age band instead of a date of birth. Both are optional in
+  /// the column sense and the contract requires one of the two, because §26's
+  /// guardian workflow cannot be decided without knowing whether the
+  /// applicant is a minor.
+  ageBand String?
+
+  state AthleteState @default(DRAFT)
+
+  /// §11 §10 — Compliance status. Reviewer notes are internal and shown to
+  /// the applicant only when the state is CHANGES_REQUESTED. The expiry
+  /// exists because §11 asks for it: a clearance that never expires is one
+  /// nobody revisits.
+  reviewerNotes       String?
+  reviewedAt          DateTime?
+  complianceExpiresAt DateTime?
   /// §6 — set by a network manager in Phase 1, never computed.
-  tier        AthleteTier?
-  guardianId  String?
-  propertyId  String?
+  tier                AthleteTier?
+  guardianId          String?
+  propertyId          String?
 
   // Zoho (§18 — Contacts are bi-directional)
   zohoId         String?     @unique
@@ -562,7 +590,7 @@ model Deliverable {
   publishedUrl String?
   publishedAt  DateTime?
 
-  order   CampaignOrder @relation(fields: [orderId], references: [id])
+  order   CampaignOrder   @relation(fields: [orderId], references: [id])
   assets  CreativeAsset[]
   link    TrackingLink?
   metrics MetricDaily[]

@@ -157,6 +157,31 @@ const BUILDERS: Partial<Record<Resource, Builder>> = {
   },
 
   auditLog: tenantScoped,
+
+  /* Added with P3-BE-01, the first task to query athletes. This is the
+     pattern the file was designed for: the policy already allowed these
+     scopes, only the filter was missing, and it is written now with the
+     model's real columns in front of us rather than guessed months ago.
+
+     `assigned` and `ward` are NOT implemented yet on purpose. A sponsor sees
+     only athletes assigned to their campaigns, and a guardian only their
+     wards — both need CampaignInvite and Guardian joins that arrive with B3
+     and B1's guardian path. Leaving them to fall through to MATCHES_NOTHING
+     means a sponsor currently sees no athletes at all, which is the safe
+     direction to be wrong in. */
+  athlete: (actor, scope) => {
+    switch (scope) {
+      case "any":
+        return {};
+      case "own-tenant":
+        return { tenantId: actor.tenantId };
+      case "own":
+        /* The athlete's own record, reached through the User mirror. */
+        return { tenantId: actor.tenantId, user: { is: { id: actor.userId } } };
+      default:
+        return MATCHES_NOTHING;
+    }
+  },
 };
 
 /**
