@@ -1,0 +1,71 @@
+import { describe, expect, it } from "vitest";
+import {
+  BRIEF_STEPS,
+  BUDGET_BANDS,
+  GOALS,
+  emptyBriefDraft,
+  packageOption,
+  parseBriefDraft,
+  validateBriefStep,
+} from "@/lib/brief-flow";
+
+describe("steps", () => {
+  it("has the four intake steps in order", () => {
+    expect(BRIEF_STEPS.map((s) => s.id)).toEqual(["goal", "budget", "market", "contact"]);
+  });
+});
+
+describe("validateBriefStep", () => {
+  it("step 0 requires a goal chip and a category", () => {
+    const d = emptyBriefDraft();
+    const errs = validateBriefStep(0, d);
+    expect(errs.goal).toBeTruthy();
+    expect(errs.category).toBeTruthy();
+    d.goal = GOALS[0];
+    d.answers.category = "Quick-service restaurant";
+    expect(Object.keys(validateBriefStep(0, d))).toHaveLength(0);
+  });
+
+  it("step 1 requires a budget band", () => {
+    const d = emptyBriefDraft();
+    expect(validateBriefStep(1, d).budget).toBeTruthy();
+    d.budget = BUDGET_BANDS[2];
+    expect(Object.keys(validateBriefStep(1, d))).toHaveLength(0);
+  });
+
+  it("step 3 requires company, name and a real email", () => {
+    const d = emptyBriefDraft();
+    d.answers.company = "Midwest Running Co.";
+    d.answers.name = "Jordan Avery";
+    d.answers.email = "not-an-email";
+    expect(validateBriefStep(3, d).email).toBeTruthy();
+    d.answers.email = "jordan@midwestrunning.com";
+    expect(Object.keys(validateBriefStep(3, d))).toHaveLength(0);
+  });
+});
+
+describe("packageOption", () => {
+  it("resolves a known package id", () => {
+    expect(packageOption("pk4").name).toBe("Community Campaign");
+  });
+  it("falls back to 'Not sure yet' for unknown or missing ids", () => {
+    expect(packageOption("nope").id).toBe("unsure");
+    expect(packageOption(undefined).id).toBe("unsure");
+  });
+});
+
+describe("draft round-trip", () => {
+  it("survives serialize → parse", () => {
+    const d = emptyBriefDraft("pk2");
+    d.goal = GOALS[1];
+    d.budget = BUDGET_BANDS[0];
+    d.answers.company = "Cafe Milo";
+    d.step = 2;
+    expect(parseBriefDraft(JSON.stringify(d))).toEqual(d);
+  });
+  it("rejects garbage, null and wrong versions", () => {
+    expect(parseBriefDraft("garbage")).toBeNull();
+    expect(parseBriefDraft(null)).toBeNull();
+    expect(parseBriefDraft(JSON.stringify({ v: 9 }))).toBeNull();
+  });
+});
