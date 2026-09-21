@@ -7,10 +7,12 @@ import {
   TrustMeter,
   compact,
 } from "@/components/charts";
+import { ExportReport } from "@/components/export-report";
 import { HeroBand, InsightStrip, MiniChip, Monogram } from "@/components/hero";
 import { SponsorPortfolioList } from "@/components/sponsor-portfolio-list";
 import { EmptyState, SkeletonPage } from "@/components/states";
 import { demoState } from "@/lib/demo";
+import { buildSponsorReport } from "@/lib/report-data";
 import {
   engagementSpark,
   funnelDetail,
@@ -117,13 +119,11 @@ export default async function SponsorDashboardPage({
               <path d="m6 9 6 6 6-6" />
             </svg>
           </button>
-          <button
-            type="button"
-            title="Queues render-report on the worker — not wired"
-            className="rounded-lg bg-primary px-3.5 py-1.5 text-[11px] font-medium text-cta-ink transition-colors hover:bg-primary-soft"
-          >
-            Export report
-          </button>
+          {/* Client-side export of the same report model this page draws;
+              §19's render-report worker replaces the generation step later. */}
+          <ExportReport
+            payload={{ kind: "sponsor-dashboard", report: buildSponsorReport() }}
+          />
         </div>
       </div>
 

@@ -1,51 +1,39 @@
-import { Badge, Button, Card, SectionHeading } from "@/components/ui";
-import { MiniChip } from "@/components/hero";
+import { SectionHeading } from "@/components/ui";
+import { HeroBand, MiniChip } from "@/components/hero";
+import { ApprovalsDesk } from "@/components/approvals-desk";
 import { EmptyState, SkeletonPage } from "@/components/states";
 import { demoState } from "@/lib/demo";
+import { AGING_HOURS, PIPELINE_STEPS } from "@/lib/approvals-ui";
 import {
-  DELIVERABLE_COPY,
   adminApprovalsX,
+  contentCleared,
   contentReviewQueue,
-  deliverables,
-  type DeliverableState,
 } from "@/lib/fixtures";
 
 /* --------------------------------------------------------------------------
    Content Approval Workspace — §10, deliverable pipeline §21.
+   Redesigned 2026-09-16 (same UX feedback as the applications desk: the old
+   page was a flat card dump with dead buttons and spec jargon in the copy).
 
-   BTG reviews a submitted draft, then the sponsor reviews, then it is approved
-   and published. The state machine is the feature:
-   NOT_STARTED → DRAFT_SUBMITTED → BTG_REVIEW → SPONSOR_REVIEW → APPROVED →
-   PUBLISHED → VERIFIED (§21). Revision requests send a deliverable back a step.
+   The page now works like a desk: a hero band answers "how is the queue
+   doing" (awaiting count, aging alert, review pace) and teaches the §21
+   pipeline as four desks with live counts; the queue itself is the
+   ApprovalsDesk client island — tabs, instant search and filters, and a
+   slide-over review drawer where the signed-asset preview, the stage tracker
+   and the decision bar live. Advance / Request revision walk the real state
+   machine locally ("this visit only") until B5 wires the backend.
 
    Creative assets live in the PRIVATE R2 bucket and are only ever reached
-   through short-lived signed URLs — never public (guide §11). The preview here
-   is a placeholder standing in for that signed fetch.
+   through short-lived signed URLs — never public (guide §11). The preview in
+   the drawer is a placeholder standing in for that signed fetch.
    -------------------------------------------------------------------------- */
 
-const STATE_TONE: Record<DeliverableState, "neutral" | "primary" | "warn" | "accent"> = {
-  NOT_STARTED: "neutral",
-  DRAFT_SUBMITTED: "primary",
-  BTG_REVIEW: "warn",
-  SPONSOR_REVIEW: "warn",
-  APPROVED: "accent",
-  PUBLISHED: "accent",
-  VERIFIED: "accent",
-};
-
-/** Whose desk the deliverable is on, given its state. */
-function stage(state: DeliverableState): string {
-  if (state === "DRAFT_SUBMITTED" || state === "BTG_REVIEW") return "With BTG";
-  if (state === "SPONSOR_REVIEW") return "With sponsor";
-  return "Cleared";
-}
-
-/** The primary action that advances a queued deliverable one step (§21). */
-const QUEUE_ACTION: Partial<Record<DeliverableState, string>> = {
-  DRAFT_SUBMITTED: "Start BTG review",
-  BTG_REVIEW: "Send to sponsor",
-  SPONSOR_REVIEW: "Approve & publish",
-};
+const PIPELINE_HINTS = [
+  "A draft lands from the athlete portal",
+  "Brand safety and brief fit",
+  "The sponsor's final say",
+  "Approved, publishing on schedule",
+];
 
 export default async function AdminApprovalsPage({
   searchParams,
@@ -62,8 +50,8 @@ export default async function AdminApprovalsPage({
         Content approvals
       </h1>
       <p className="mt-1 text-xs text-muted">
-        §21 pipeline. Assets are fetched from the private R2 bucket with
-        signed URLs (guide §11).
+        Review submitted content, pass it to the sponsor, and clear it to
+        publish.
       </p>
     </div>
   );
@@ -81,119 +69,152 @@ export default async function AdminApprovalsPage({
     );
   }
 
-  const cleared = deliverables.filter(
-    (d) => d.state === "APPROVED" || d.state === "PUBLISHED" || d.state === "VERIFIED",
-  );
+  const waiting = contentReviewQueue.length;
+  const aging = contentReviewQueue.filter(
+    (d) => d.waitingHours > AGING_HOURS,
+  ).length;
+
+  /* Live count under each desk of the pipeline strip. */
+  const stageCounts = [
+    contentReviewQueue.filter((d) => d.state === "DRAFT_SUBMITTED").length,
+    contentReviewQueue.filter((d) => d.state === "BTG_REVIEW").length,
+    contentReviewQueue.filter((d) => d.state === "SPONSOR_REVIEW").length,
+    contentCleared.length,
+  ];
+
+  // Seed the desk's tabs and filters from the URL so a filtered queue is
+  // shareable; the island clamps stale values and keeps the URL in sync.
+  const sp = await searchParams;
+  const one = (v: string | string[] | undefined) =>
+    typeof v === "string" ? v : "";
 
   return (
     <div className="space-y-6">
       {/* -------------------------------------------------------- headline */}
-      <div>
-        <h1 className="text-xl font-semibold tracking-tight">
-          Content approvals
-        </h1>
-        <p className="mt-1 text-xs text-muted">
-          {contentReviewQueue.length} awaiting a decision · §21 pipeline. Assets
-          are fetched from the private R2 bucket with signed URLs (guide §11).
-        </p>
-        <p className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
-          <span className="text-muted">Median turnaround</span>
-          <span className="font-semibold text-text">
-            {adminApprovalsX.medianTurnaroundHours}h
-          </span>
-          <span className="text-muted">· Approval rate</span>
-          <span className="font-semibold text-text">
-            {adminApprovalsX.approvalRatePct}%
-          </span>
-          <MiniChip kind="neutral">timestamps</MiniChip>
-        </p>
-      </div>
+      {heading}
 
-      {/* --------------------------------------------------------- review */}
-      <section>
-        <SectionHeading
-          title="In review"
-          hint="BTG_REVIEW → SPONSOR_REVIEW → APPROVED → PUBLISHED → VERIFIED"
-        />
-        <div className="space-y-3">
-          {contentReviewQueue.map((d) => (
-            <Card key={d.id} className="p-4">
-              <div className="flex flex-wrap items-start gap-4">
-                {/* --------------------------------- asset placeholder */}
-                <div className="grid h-16 w-24 shrink-0 place-items-center rounded-lg border border-line bg-surface-2 text-[10px] text-faint">
-                  {d.assetKind === "video" ? "▶ video" : "▦ image"}
-                </div>
+      {/* ------------------------------------------------------- hero band */}
+      <HeroBand border="border-admin/25" className="sx-animate">
+        <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_22rem] lg:items-center">
+          <div>
+            <p className="text-[10px] font-medium uppercase tracking-[0.2em] text-muted">
+              Approval queue
+            </p>
+            <p className="mt-1 flex flex-wrap items-baseline gap-2">
+              <span className="bg-[linear-gradient(90deg,var(--sx-admin),var(--sx-primary))] bg-clip-text text-4xl font-bold tabular-nums tracking-tight text-transparent sm:text-5xl">
+                {waiting}
+              </span>
+              <span className="text-sm text-muted">
+                {waiting === 1 ? "deliverable" : "deliverables"} awaiting a
+                decision
+              </span>
+              <MiniChip kind="ver">POSTGRES</MiniChip>
+            </p>
 
-                <div className="min-w-0 flex-1">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="text-sm font-semibold tracking-tight">
-                      {d.title}
+            <div className="mt-4 space-y-2.5 text-xs text-muted">
+              {aging > 0 ? (
+                <p className="flex items-center gap-2">
+                  <span
+                    className="relative inline-flex size-2 shrink-0"
+                    aria-hidden="true"
+                  >
+                    <span className="sx-viz-pulse absolute inset-0 rounded-full bg-warn" />
+                    <span className="relative inline-flex size-2 rounded-full bg-warn" />
+                  </span>
+                  <span>
+                    <strong className="font-semibold text-text">{aging}</strong>{" "}
+                    waiting over {AGING_HOURS} hours — the queue below puts them
+                    first
+                  </span>
+                </p>
+              ) : (
+                <p className="flex items-center gap-2">
+                  <span
+                    className="inline-flex size-2 shrink-0 rounded-full bg-success"
+                    aria-hidden="true"
+                  />
+                  <span>
+                    Queue is fresh — nothing waiting over {AGING_HOURS} hours
+                  </span>
+                </p>
+              )}
+              <p className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                Median turnaround
+                <strong className="font-semibold text-text">
+                  {adminApprovalsX.medianTurnaroundHours}h
+                </strong>
+                · approval rate
+                <strong className="font-semibold text-text">
+                  {adminApprovalsX.approvalRatePct}%
+                </strong>
+                <MiniChip kind="ver">POSTGRES</MiniChip>
+              </p>
+            </div>
+          </div>
+
+          {/* The §21 pipeline as four desks — the teaching element; the
+              drawer's stage tracker repeats the same labels. */}
+          <div className="min-w-0">
+            <p className="text-[11px] font-medium uppercase tracking-wide text-muted">
+              How content clears
+            </p>
+            <ol className="mt-2 space-y-1.5">
+              {PIPELINE_STEPS.map((label, i) => (
+                <li
+                  key={label}
+                  className="flex items-center gap-3 rounded-lg border border-line bg-surface/75 px-3 py-2"
+                >
+                  <span
+                    className="grid size-5 shrink-0 place-items-center rounded-full bg-admin/15 text-[10px] font-semibold text-admin"
+                    aria-hidden="true"
+                  >
+                    {i + 1}
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-xs font-medium leading-tight">
+                      {label}
                     </span>
-                    <Badge tone="neutral">v{d.version}</Badge>
-                    <Badge tone={STATE_TONE[d.state]}>
-                      {DELIVERABLE_COPY[d.state]}
-                    </Badge>
-                  </div>
-                  <p className="mt-1 text-xs text-muted">
-                    {d.athlete} · {d.campaign} · {d.sponsor}
-                  </p>
-                  <p className="mt-0.5 text-[11px] text-faint">
-                    {stage(d.state)} · due {d.dueDate} · submitted {d.submittedAt}
-                  </p>
-
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    <Button title="Advance to the next stage — not wired">
-                      {QUEUE_ACTION[d.state] ?? "Review"}
-                    </Button>
-                    <Button
-                      variant="secondary"
-                      title="Request a revision — sends the deliverable back a step (not wired)"
-                    >
-                      Request revision
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      title="Open the signed asset URL — not wired"
-                    >
-                      View asset
-                    </Button>
-                  </div>
-                </div>
-              </div>
-            </Card>
-          ))}
+                    <span className="block truncate text-[10px] leading-tight text-faint">
+                      {PIPELINE_HINTS[i]}
+                    </span>
+                  </span>
+                  <span className="tabular-nums text-sm font-semibold">
+                    {stageCounts[i]}
+                  </span>
+                </li>
+              ))}
+            </ol>
+          </div>
         </div>
+      </HeroBand>
+
+      {/* ----------------------------------------------------------- desk */}
+      <section className="sx-animate sx-delay-1">
+        <SectionHeading
+          title="The queue"
+          hint="Click a deliverable to review it — search and filters apply instantly."
+        />
+        <ApprovalsDesk
+          items={[...contentReviewQueue, ...contentCleared]}
+          demoParam={one(sp.demo) || undefined}
+          initial={{
+            tab: one(sp.tab),
+            q: one(sp.q),
+            camp: one(sp.camp),
+            kind: one(sp.kind),
+            sort: one(sp.sort),
+            page: one(sp.page),
+            size: one(sp.size),
+          }}
+        />
       </section>
 
-      {/* -------------------------------------------------------- cleared */}
-      <section>
-        <SectionHeading title="Recently cleared" />
-        <Card className="p-0">
-          <ul className="divide-y divide-line-soft">
-            {cleared.map((d) => (
-              <li
-                key={d.id}
-                className="flex flex-wrap items-center gap-x-4 gap-y-1 px-4 py-3"
-              >
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-xs font-medium">{d.title}</p>
-                  <p className="truncate text-[11px] text-faint">
-                    {d.campaign} · {d.sponsor}
-                  </p>
-                </div>
-                <Badge tone={STATE_TONE[d.state]}>
-                  {DELIVERABLE_COPY[d.state]}
-                </Badge>
-              </li>
-            ))}
-          </ul>
-        </Card>
-      </section>
-
-      <p className="text-[10px] leading-relaxed text-faint">
-        Usage-rights expiry is tracked from publication (§21). A PUBLISHED
-        deliverable whose rights window closes is flagged for takedown — wired
-        in B5 alongside the R2 upload/derive pipeline.
+      {/* ------------------------------------------------------ trust note */}
+      <p className="sx-animate sx-delay-2 text-[10px] leading-relaxed text-faint">
+        Creative assets live in a private bucket and are only ever opened
+        through short-lived signed links. Usage-rights windows are tracked from
+        publication — a published post whose window closes is flagged for
+        takedown (wired in B5 with the upload pipeline).
       </p>
     </div>
   );

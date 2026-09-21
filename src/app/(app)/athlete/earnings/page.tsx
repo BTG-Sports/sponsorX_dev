@@ -2,8 +2,10 @@ import { Card, SectionHeading, Badge } from "@/components/ui";
 import { AreaChart } from "@/components/charts";
 import { HeroBand, MiniChip } from "@/components/hero";
 import { ActivityExplorer } from "@/components/activity-explorer";
+import { ExportReport } from "@/components/export-report";
 import { EmptyState, SkeletonPage } from "@/components/states";
 import { demoState } from "@/lib/demo";
+import { buildAthleteEarningsReport } from "@/lib/earnings-report-data";
 import { JOURNEY, when } from "@/lib/earnings-ui";
 import {
   athlete,
@@ -112,7 +114,17 @@ export default async function AthleteEarningsPage({
   return (
     <div className="space-y-6">
       {/* -------------------------------------------------------- headline */}
-      {heading}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        {heading}
+        {/* Client-side export of the athlete's own statement — same model
+            the page draws; §19's render worker takes over generation later. */}
+        <ExportReport
+          payload={{
+            kind: "athlete-earnings",
+            report: buildAthleteEarningsReport(),
+          }}
+        />
+      </div>
 
       {/* -------------------------------------------------- career hero */}
       <HeroBand border="border-athlete/30" className="sx-animate">
