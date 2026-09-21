@@ -1,0 +1,160 @@
+# SponsorX local stack.
+#
+# `docker compose up -d` brings up everything the backend needs to run:
+# Postgres, Redis, MinIO (with its buckets created), the Prisma migrations,
+# and the pg-boss worker. The API and web apps are under the `apps` profile
+# so the default is infra + data plane only — day-to-day the two Node apps
+# run on the host (`npm run dev:api`, `npm run dev:web`) against these
+# containers, which is faster to iterate on. Bring the apps up in Docker too
+# with `docker compose --profile apps up -d`.
+#
+# Everything here is DEV credentials on a private compose network. Staging and
+# production use Railway Postgres, Railway Redis and Cloudflare R2 — same
+# interfaces, real secrets injected by the platform (.claude/stack-decision.md).
+
+name: sponsorx
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: sponsorx
+      POSTGRES_PASSWORD: sponsorx
+      POSTGRES_DB: sponsorx
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sponsorx -d sponsorx"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  minio:
+    image: minio/minio:latest
+    restart: unless-stopped
+    command: ["server", "/data", "--console-address", ":9001"]
+    environment:
+      MINIO_ROOT_USER: sponsorx
+      MINIO_ROOT_PASSWORD: sponsorx-dev-secret
+    ports:
+      - "9000:9000" # S3 API
+      - "9001:9001" # web console
+    volumes:
+      - minio-data:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # One-shot: create the public and private buckets and make the public one
+  # world-readable, mirroring the two R2 bucket policies. Exits 0 when done.
+  minio-setup:
+    image: minio/mc:latest
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        mc alias set local http://minio:9000 sponsorx sponsorx-dev-secret &&
+        mc mb --ignore-existing local/sponsorx-public &&
+        mc mb --ignore-existing local/sponsorx-private &&
+        mc anonymous set download local/sponsorx-public &&
+        echo "buckets ready"
+
+  # Prisma migrations, one-shot. Runs before the worker and API so the schema
+  # is present. `migrate deploy` applies committed migrations only — no
+  # interactive prompts, safe to run on every `up`.
+  migrate:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    command: ["npm", "run", "prisma:deploy", "-w", "@sponsorx/backend"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://sponsorx:sponsorx@postgres:5432/sponsorx
+
+  worker:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    restart: unless-stopped
+    command: ["npm", "run", "worker", "-w", "@sponsorx/backend"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    environment:
+      NODE_ENV: development
+      DATABASE_URL: postgresql://sponsorx:sponsorx@postgres:5432/sponsorx
+
+  api:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    profiles: ["apps"]
+    restart: unless-stopped
+    command: ["npm", "start", "-w", "@sponsorx/backend"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio-setup:
+        condition: service_completed_successfully
+      migrate:
+        condition: service_completed_successfully
+    environment:
+      NODE_ENV: development
+      PORT: "4000"
+      DATABASE_URL: postgresql://sponsorx:sponsorx@postgres:5432/sponsorx
+      REDIS_URL: redis://redis:6379
+      S3_ENDPOINT: http://minio:9000
+      S3_ACCESS_KEY_ID: sponsorx
+      S3_SECRET_ACCESS_KEY: sponsorx-dev-secret
+      S3_BUCKET_PUBLIC: sponsorx-public
+      S3_BUCKET_PRIVATE: sponsorx-private
+    ports:
+      - "4000:4000"
+
+  web:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    profiles: ["apps"]
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_started
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://sponsorx:sponsorx@postgres:5432/sponsorx
+    ports:
+      - "3000:3000"
+
+volumes:
+  postgres-data:
+  redis-data:
+  minio-data:
