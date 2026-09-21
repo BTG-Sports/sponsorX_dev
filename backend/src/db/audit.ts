@@ -84,6 +84,18 @@ export const AUDIT_ACTIONS = {
     roleRevoke: "role.revoke",
     tenantAccessGrant: "tenant.accessGrant",
   },
+  /**
+   * Private-object grants (P2-BE-08). Not one of §26's five areas, but the
+   * same reasoning applies: a presigned URL is a bearer credential handed to
+   * a browser, and "who was given access to this agreement, and when" is a
+   * question that has to be answerable afterwards. The grant is the auditable
+   * event — the upload itself happens directly against R2 and the server
+   * never sees it.
+   */
+  storage: {
+    privateUploadGrant: "storage.privateUploadGrant",
+    privateDownloadGrant: "storage.privateDownloadGrant",
+  },
 } as const;
 
 type Change = {
