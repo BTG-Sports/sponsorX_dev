@@ -636,3 +636,44 @@ per CLAUDE.md:
   extended the autofilter, Status validation, the three CF ranges and all 15
   Phase-1 Dashboard formulas 202 → 203. Verified: 199 Phase-1 rows, no duplicate
   IDs, Legal sheet preserved, formulas intact. Backups in the scratchpad.
+
+## Roadmap reconciled with the repo split, then `P2-SEC-01`'s policy half
+
+**The roadmap had gone stale in the way that matters most.** It is the document
+the next task is chosen from, and it still described a single Next.js app with
+a greenfield backend — every path in it pointed at `src/`, which no longer
+exists. Addendum B reached `CLAUDE.md` and `stack-decision.md` but not here.
+Fixed: §0 rewritten for the two workspaces and what is actually built, the §12
+order's "route handler / server action" step becomes an Express route under
+`backend/src/routes/v1`, B0's service list now names web / api / worker /
+postgres plus Redis (cache and rate-limit only), and B0 states explicitly what
+it has done and what it still owes. Fourteen links repointed; all nine
+relative links in the file resolve.
+
+The lesson is about *which* documents rot. A stale README is an annoyance; a
+stale roadmap actively misdirects, because it is consulted precisely when
+someone is deciding what to do next and is therefore trusted at exactly the
+wrong moment.
+
+**`P2-SEC-01`'s policy half** is `frontend/tests/authz.matrix.test.ts` — 19
+tests, all passing, whole frontend suite 65/65. It asserts every role against
+every resource (32 × 12 × 3 = 1,152 pairs), the §30 coverage requirement, with
+no database at all. That is only possible because `P2-BE-04` made the matrix
+pure data; had the policy been entangled with Prisma fragments, this suite
+would have been blocked behind a database that does not exist yet.
+
+Beyond the named invariants, the suite pins a **sha256 digest of the entire
+grid**. Any policy change fails the build with the moved pairs in the message,
+which is exactly the task's stated purpose: *"when someone widens a permission
+to fix a bug, this tells them what else they just widened."* Accepting a
+change means reading the failing pairs against the RBAC document and then
+updating the constant — updating it without reading them defeats the test.
+
+**The row stays In progress, and the reason is worth stating plainly.** The
+acceptance also requires a seeded suite proving the scope *filters* return the
+right rows. That needs a live Postgres, and **the repo has no `.github`
+directory at all** — so B0's exit criterion, "authz matrix passes in CI", is
+not merely unproven, it is unrunnable until `P2-OPS-07` creates a workflow
+*with a Postgres service container*. Annotated on that row so whoever builds
+it knows a plain node runner is not enough. The seeded half was deliberately
+not faked: asserting `where` fragments against a mock would test the mock.
