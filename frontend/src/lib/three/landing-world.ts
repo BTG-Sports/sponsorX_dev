@@ -18,10 +18,11 @@ import {
    -------------------------------------------------------------------------- */
 
 export const GAP = 26; // vertical distance between consecutive stadium floors
-export const REST_ABOVE = 1.3; // ball-centre height above the floor when landed
+export const REST_ABOVE = 1.0; // ball-centre height above the floor when landed (radius≈1 → sits on it)
 export const SKY = 9; // how high above level 0 the ball starts (its "sky")
 const GROUND = 60; // ground plane size
 const STAND_R = 22; // stadium stand-ring radius
+const HOLE_R = 2.2; // radius of the central hole the ball drops through
 
 const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
 const smooth = (x: number) => {
@@ -75,6 +76,29 @@ export class LandingWorld {
     return x;
   }
 
+  /** A flat square floor with a central round hole for the ball to drop through,
+   *  with UVs remapped to 0..1 so the baked court texture still maps correctly. */
+  private floorGeometry(size: number, holeR: number): THREE.ShapeGeometry {
+    const h = size / 2;
+    const shape = new THREE.Shape();
+    shape.moveTo(-h, -h);
+    shape.lineTo(h, -h);
+    shape.lineTo(h, h);
+    shape.lineTo(-h, h);
+    shape.lineTo(-h, -h);
+    const hole = new THREE.Path();
+    hole.absarc(0, 0, holeR, 0, Math.PI * 2, true);
+    shape.holes.push(hole);
+    const geo = new THREE.ShapeGeometry(shape, 32);
+    const pos = geo.attributes.position;
+    const uv = geo.attributes.uv;
+    for (let i = 0; i < pos.count; i++) {
+      uv.setXY(i, (pos.getX(i) + h) / size, (pos.getY(i) + h) / size);
+    }
+    uv.needsUpdate = true;
+    return geo;
+  }
+
   private groundTexture(ch: Chapter): THREE.Texture | null {
     switch (ch.id) {
       case "soccer": return this.track(soccerGround());
@@ -89,16 +113,17 @@ export class LandingWorld {
     const y = groundY(i);
     const accent = accentHex(ch);
 
-    // ground / court
+    // ground / court — a square with a central hole the ball drops through
     const map = this.groundTexture(ch);
     const floor = new THREE.Mesh(
-      this.track(new THREE.PlaneGeometry(GROUND, GROUND)),
+      this.track(this.floorGeometry(GROUND, HOLE_R)),
       this.track(
         new THREE.MeshStandardMaterial({
           map: map ?? undefined,
           color: map ? 0xffffff : ch.kind === "finale" ? 0x14151d : 0x0a0c10,
           roughness: 0.92,
           metalness: 0,
+          side: THREE.DoubleSide, // acts as a ceiling once the camera is below it
           emissive: ch.kind === "finale" ? accent : 0x000000,
           emissiveIntensity: ch.kind === "finale" ? 0.25 : 0,
         }),
@@ -107,6 +132,14 @@ export class LandingWorld {
     floor.rotation.x = -Math.PI / 2;
     floor.position.y = y;
     this.group.add(floor);
+
+    // dark collar around the hole so it reads as a pit/shaft, not a cut-out
+    const collar = new THREE.Mesh(
+      this.track(new THREE.CylinderGeometry(HOLE_R, HOLE_R * 0.9, 3.5, 32, 1, true)),
+      this.track(new THREE.MeshStandardMaterial({ color: 0x07060a, roughness: 1, side: THREE.DoubleSide })),
+    );
+    collar.position.y = y - 1.6;
+    this.group.add(collar);
 
     // stand ring (open cylinder bowl)
     const stands = new THREE.Mesh(

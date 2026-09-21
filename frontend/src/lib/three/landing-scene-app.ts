@@ -1,11 +1,12 @@
 import * as THREE from "three";
 import { chapterAt } from "@/lib/landing-scene-math";
+import { SECTION_COUNT } from "@/lib/landing-chapters";
 import { LandingAssets } from "./landing-assets";
 import { LandingBallRig } from "./landing-ball-rig";
 import { LandingWorld, ballWorldY } from "./landing-world";
 
-const CAM_UP = 2.2; // camera height above the ball
-const CAM_DIST = 7; // camera distance back from the ball
+const CAM_UP = 1.3; // camera height above the ball
+const CAM_DIST = 4.2; // camera distance back from the ball (closer = bigger ball)
 
 /* --------------------------------------------------------------------------
    Landing 3D scene — framework-free three.js app (P1-ART-08).
@@ -97,15 +98,23 @@ export class LandingSceneApp {
       this.rig.update(this.smoothProgress, dt);
       this.world.update();
 
-      // Camera follows the ball down the shaft, looking slightly at the floor.
-      this.camera.position.set(
-        Math.sin(this.smoothProgress * Math.PI * 2) * 0.3,
-        by + CAM_UP,
-        CAM_DIST,
-      );
-      this.camera.lookAt(0, by - 0.6, 0);
-
+      // Camera follows the ball; during the between-stadium drop it pulls in
+      // close and over-centre so it dives *through the hole* with the ball
+      // (seamless underground pass), then swings back out at each stadium.
       const at = chapterAt(this.smoothProgress);
+      let gap = 0;
+      if (at.local < 0.2 && at.index > 0) gap = 1 - at.local / 0.2;
+      else if (at.local > 0.8 && at.index < SECTION_COUNT - 1) gap = (at.local - 0.8) / 0.2;
+      const g = gap * gap * (3 - 2 * gap); // smoothstep
+      const dist = CAM_DIST + (1.6 - CAM_DIST) * g;
+      const up = CAM_UP + (0.4 - CAM_UP) * g;
+      this.camera.position.set(
+        Math.sin(this.smoothProgress * Math.PI * 2) * 0.25 * (1 - g),
+        by + up,
+        dist,
+      );
+      this.camera.lookAt(0, by, 0);
+
       if (at.index !== this.lastChapter) {
         this.lastChapter = at.index;
         this.onChapter?.(at.index);
