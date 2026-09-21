@@ -45,7 +45,19 @@ generator client {
   provider = "prisma-client"
 
   // Explicit output path (Guide §02). Gitignored — generated, never committed.
+  // Relative to this schema (backend/prisma/) → backend/src/generated/prisma.
   output = "../src/generated/prisma"
+}
+
+// Second client for the Next.js frontend. The repo is split into backend/ and
+// frontend/ workspaces but keeps ONE schema (this file). `prisma generate`
+// runs every generator block, so a single generate — from either workspace —
+// materialises both clients. Frontend code imports @/generated/prisma exactly
+// as before; only the file's origin changed. Gitignored, same as the backend
+// client (see .gitignore).
+generator frontend {
+  provider = "prisma-client"
+  output   = "../../frontend/src/generated/prisma"
 }
 
 // Prisma 7: `url` is NOT permitted here any more. The connection string for

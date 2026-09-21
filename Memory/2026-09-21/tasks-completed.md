@@ -231,3 +231,87 @@ and all 15 Dashboard formulas from row 201 → 202. Also restored
 **P4-ART-01 → Done / 2026-09-17 / rcfworks** — the 09-21 merge had reverted
 it to `Ready`, same failure as P1-ART-07. Backup in the session scratchpad.
 Google Sheet mirror remains the human end-of-day step.
+
+## Repo restructure — frontend/ + backend/ workspaces, Docker local stack, Express backend scaffold
+
+**Trigger:** user asked to "create the scaffold of the backend" — split the repo
+into `frontend/` and `backend/` folders, use Docker to initialise Postgres,
+MinIO, Redis, Prisma and the worker, and stand up a backend file structure.
+User explicitly directed the backend stack: **Node.js + Express.js**.
+
+**⚠️ This diverges from documented architecture — flag for decision, not yet on the board.**
+- `.claude/stack-decision.md` and CLAUDE.md say the Phase 1 API is **Next.js
+  route handlers under `/api/v1`** ("one language, one service"), not a
+  separate Express service.
+- `SponsorX-Baseline-Memory-Reconciliation.md` lists **Express + Redis + MinIO**
+  as the *old, rejected* stack; the confirmed stack is Railway Postgres as the
+  job queue (no Redis), Cloudflare R2 (no MinIO).
+- The Docker stack here uses MinIO (R2's S3 API locally) and Redis (added for
+  cache/rate-limit only — **jobs stay on pg-boss/Postgres**, Addendum A3
+  unchanged; the worker still drains the Postgres outbox).
+- No pre-existing task ID matches this work. Per CLAUDE.md ("fix a task's
+  definition in the Markdown by PR, never by quietly reinterpreting it in the
+  tracker"; "do not code around open decisions silently") **the xlsx row and
+  the stack-decision docs are deliberately left for a human decision.** Code is
+  done and verified; the board/docs are the open question.
+
+### What was done
+
+- **Split via `git mv`** (history preserved): `src/ public/ tests/` + all Next
+  config → `frontend/`; `prisma/ worker/` → `backend/`. Had to kill a running
+  `next dev` (it locked `src/` on Windows) before the move would go.
+- **npm workspaces** at root (`frontend`, `backend`). Frontend renamed
+  `@sponsorx/frontend`; new `@sponsorx/backend`. Root scripts: `dev:web`,
+  `dev:api`, `dev:worker`, `build`, `test`, `docker:up/down`, `infra:up/down`.
+- **Backend scaffold** (`backend/src/`), Express 5, run via **tsx** (no build
+  step): `index.ts` (listen) + `app.ts` (routes/middleware split for tests),
+  `config/env.ts` (Zod-validated env), `db/client.ts` (Prisma `PrismaPg`
+  adapter, mirrors the frontend one), `lib/redis.ts` (ioredis, cache-only,
+  `redisReachable()`), `lib/storage.ts` (S3 presign for MinIO/R2, two buckets),
+  `routes/health.ts` (`/health` liveness + `/health/ready` probing PG/Redis/S3),
+  `routes/v1/`. Worker kept at `backend/worker/index.mts`.
+- **Prisma: one schema, two clients.** Schema stays the single source at
+  `backend/prisma/schema.prisma`; added a second `generator frontend` block
+  writing `frontend/src/generated/prisma`, `generator client` →
+  `backend/src/generated/prisma`. `frontend/prisma.config.ts` repointed at the
+  backend schema so `next build`'s `prisma generate` still produces its client.
+  Both gitignored.
+- **Docker** (`docker-compose.yml`): postgres 17, redis 7, minio (+ `minio-setup`
+  one-shot creating public/private buckets), `migrate` (one-shot
+  `prisma migrate deploy`), `worker`. `api` + `web` under an `apps` profile
+  (default `up` = infra + data plane; apps run on host for fast iteration).
+  `backend/Dockerfile` (tsx runtime, serves api/worker/migrate by command
+  override) and `frontend/Dockerfile` (Next standalone). `.dockerignore` added.
+- **`.gitignore`** rewritten for the workspace layout (per-workspace
+  `node_modules`, `.next`, both generated Prisma dirs). **`.env.example`**
+  rewritten (root `.env` for backend, `frontend/.env.local` for web; defaults
+  match compose). **`.npmrc`** pins `legacy-peer-deps=true` — see gotcha below.
+
+### Gotchas (cost real time)
+
+- **npm arborist crash.** `npm install` under the new workspace graph died with
+  `Cannot read properties of null (reading 'edgesOut')` in `#loadPeerSet`
+  (npm 10.9.2, resolving vitest's peers). Worked around with
+  `legacy-peer-deps=true` in `.npmrc` (also keeps Docker `npm ci` consistent).
+- **Side effect of that:** legacy-peer-deps stops auto-installing peers, so
+  `vite` (vitest 5's peer) went missing and `vitest` failed at startup with
+  `Cannot find package 'vite'`. Fixed by adding `vite 7.1.12` as an explicit
+  devDependency in both workspaces.
+- **Redis health false-negative.** First `/health/ready` reported `redis:false`
+  though the container was healthy: `enableOfflineQueue:false` + `lazyConnect`
+  makes the first `ping()` reject before the socket opens. Removed the offline-
+  queue override and added `redisReachable()` that opens the lazy connection
+  first.
+
+### Verification (all green)
+
+- `npm install` (workspaces) ✓ · `prisma generate` → both clients ✓
+- backend `tsc --noEmit` ✓ · frontend `next build` ✓ · tests **46/46** ✓
+- `docker compose config` valid ✓ · infra `up` → postgres/redis/minio all
+  **healthy**, `minio-setup` created both buckets & exited 0 ✓
+- `prisma migrate deploy` applied both migrations to dockerised PG ✓
+- API booted against the stack: `/health` 200, `/api/v1` 200,
+  `/health/ready` **200 `{db:true,redis:true,storage:true}`**, unknown → 404 ✓
+- worker booted: pg-boss started, outbox drain loop running ✓
+- Docker infra torn down after (volumes retained). Branch:
+  `development/Jan/backend-scaffold`.

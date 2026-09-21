@@ -2,53 +2,23 @@
   "name": "sponsorx",
   "version": "0.1.0",
   "private": true,
+  "workspaces": [
+    "frontend",
+    "backend"
+  ],
   "scripts": {
-    "dev": "prisma generate && next dev",
-    "build": "prisma generate && next build",
-    "start": "next start",
-    "lint": "eslint",
-    "test": "vitest run"
-  },
-  "dependencies": {
-    "@asteasolutions/zod-to-openapi": "9.1.0",
-    "@aws-sdk/client-s3": "3.1132.0",
-    "@aws-sdk/s3-request-presigner": "3.1132.0",
-    "@clerk/nextjs": "7.9.2",
-    "@hookform/resolvers": "5.9.1",
-    "@prisma/adapter-pg": "7.10.0",
-    "@prisma/client": "7.10.0",
-    "exceljs": "^4.4.0",
-    "jspdf": "^4.2.1",
-    "jspdf-autotable": "^5.0.8",
-    "maxmind": "5.0.7",
-    "next": "16.3.5",
-    "pg": "8.23.0",
-    "pg-boss": "12.32.0",
-    "qrcode": "1.5.4",
-    "react": "19.3.0",
-    "react-dom": "19.3.0",
-    "react-hook-form": "7.88.0",
-    "recharts": "3.10.1",
-    "resend": "6.28.0",
-    "sharp": "0.35.4",
-    "zod": "4.6.5"
-  },
-  "devDependencies": {
-    "@tailwindcss/postcss": "4.3.3",
-    "@types/node": "24.13.4",
-    "@types/pg": "8.23.1",
-    "@types/react": "19.3.0",
-    "@types/react-dom": "19.3.0",
-    "eslint": "9.39.5",
-    "eslint-config-next": "16.3.5",
-    "playwright": "1.63.0",
-    "prisma": "7.10.0",
-    "tailwindcss": "4.3.3",
-    "typescript": "5.9.3",
-    "vitest": "5.0.0"
-  },
-  "allowScripts": {
-    "prisma@7.10.0": true,
-    "@prisma/engines@7.10.0": true
+    "dev:web": "npm run dev -w @sponsorx/frontend",
+    "dev:api": "npm run dev -w @sponsorx/backend",
+    "dev:worker": "npm run worker -w @sponsorx/backend",
+    "build": "npm run build -w @sponsorx/backend && npm run build -w @sponsorx/frontend",
+    "test": "npm run test -w @sponsorx/backend && npm run test -w @sponsorx/frontend",
+    "lint": "npm run lint -w @sponsorx/frontend",
+    "prisma:generate": "npm run prisma:generate -w @sponsorx/backend",
+    "prisma:migrate": "npm run prisma:migrate -w @sponsorx/backend",
+    "prisma:deploy": "npm run prisma:deploy -w @sponsorx/backend",
+    "infra:up": "docker compose up -d postgres redis minio minio-setup",
+    "infra:down": "docker compose down",
+    "docker:up": "docker compose up -d",
+    "docker:down": "docker compose down"
   }
 }
