@@ -74,4 +74,17 @@ export class LandingAssets {
     this.pending.set(file, p);
     return p;
   }
+
+  /** Like load(), but resolves null on error (for environments, where a sphere
+   *  fallback is wrong — the caller keeps its procedural base instead). */
+  tryLoad(file: string): Promise<THREE.Object3D | null> {
+    return new Promise((resolve) => {
+      this.loader.load(
+        BASE + file,
+        (gltf) => resolve(this.normalize(gltf.scene)),
+        undefined,
+        () => resolve(null),
+      );
+    });
+  }
 }

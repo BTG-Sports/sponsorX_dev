@@ -2,6 +2,7 @@ import * as THREE from "three";
 import { chapterAt } from "@/lib/landing-scene-math";
 import { LandingAssets } from "./landing-assets";
 import { LandingBallRig } from "./landing-ball-rig";
+import { LandingEnvironmentRig } from "./landing-environment-rig";
 
 /* --------------------------------------------------------------------------
    Landing 3D scene — framework-free three.js app (P1-ART-08).
@@ -26,6 +27,7 @@ export class LandingSceneApp {
   private camera: THREE.PerspectiveCamera;
   private assets = new LandingAssets();
   private rig: LandingBallRig;
+  private env: LandingEnvironmentRig;
   private clock = new THREE.Clock();
   private raf = 0;
 
@@ -54,6 +56,7 @@ export class LandingSceneApp {
     this.scene.add(blue, orange);
 
     this.rig = new LandingBallRig(this.scene, this.assets);
+    this.env = new LandingEnvironmentRig(this.scene, this.assets);
 
     this.onScroll();
     this.resize();
@@ -86,14 +89,17 @@ export class LandingSceneApp {
       // Ball spin + spin-and-swap morph, keyed to the smoothed scroll.
       this.rig.update(this.smoothProgress, dt);
 
+      // Environment (floor/fog/accent light, and env models once they exist).
+      const at = chapterAt(this.smoothProgress);
+      this.env.update(at);
+
       // Subtle camera parallax so the ball feels seated in space.
       this.camera.position.x = Math.sin(this.smoothProgress * Math.PI * 2) * 0.15;
       this.camera.lookAt(0, 0, 0);
 
-      const { index } = chapterAt(this.smoothProgress);
-      if (index !== this.lastChapter) {
-        this.lastChapter = index;
-        this.onChapter?.(index);
+      if (at.index !== this.lastChapter) {
+        this.lastChapter = at.index;
+        this.onChapter?.(at.index);
       }
 
       this.renderer.render(this.scene, this.camera);
@@ -110,6 +116,7 @@ export class LandingSceneApp {
     window.removeEventListener("resize", this.resize);
     window.removeEventListener("scroll", this.onScroll);
     this.rig.dispose();
+    this.env.dispose();
     this.scene.traverse((o) => {
       const m = o as THREE.Mesh;
       m.geometry?.dispose?.();
