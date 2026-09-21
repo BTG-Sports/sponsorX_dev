@@ -756,9 +756,9 @@ Turn the RBAC matrix into an automated test that runs on every commit. When some
 - **Done when:** tests/authz.matrix.test.ts seeds two tenants, two sponsors, two athletes, a guardian and a property, and asserts every role against every resource
 - **Reference:** §30, Guide §09
 
-### ▶ `P2-BE-06` · Build the audit helper
+### ✅ `P2-BE-06` · Build the audit helper
 
-**Order** 51 · **BE** · **Where:** Code · **1d** · **In progress** · **Unblocks** 1
+**Order** 51 · **BE** · **Where:** Code · **1d** · **Done** · **Unblocks** 1
 
 A single helper that records who changed what and when, for pricing, agreements, campaigns, payouts and permissions.
 
@@ -906,9 +906,9 @@ Add the specific tests proving a sponsor cannot read athlete pay and an athlete 
 
 *21 tasks · 0 person-days*
 
-### ⏸ `P3-BE-01` · Athlete application contract + model + migration
+### ▶ `P3-BE-01` · Athlete application contract + model + migration
 
-**Order** 65 · **BE** · **Where:** Code · **3d** · **Blocked** · **Unblocks** 51
+**Order** 65 · **BE** · **Where:** Code · **3d** · **Ready** · **Unblocks** 51
 
 The athlete sign-up form's data model and its approval lifecycle, from draft through review to active.
 
@@ -926,9 +926,9 @@ Store what content an athlete can make, which brands they like, and crucially wh
 - **Done when:** All three §11 sections stored; restrictions are queryable for the conflict check in Phase 4
 - **Reference:** §11, §26
 
-### ⏸ `P3-BE-06` · Agreement acceptance with body hash
+### ▶ `P3-BE-06` · Agreement acceptance with body hash
 
-**Order** 67 · **BE** · **Where:** Code · **3d** · **Blocked** · **Unblocks** 30
+**Order** 67 · **BE** · **Where:** Code · **3d** · **Ready** · **Unblocks** 30
 
 When someone accepts an agreement, record a fingerprint of the exact text they were shown, plus who, when and from where. That is what makes it hold up, not a signature image.
 
@@ -956,9 +956,9 @@ One function for sending email, with the chosen vendor hidden behind it, so swit
 - **Done when:** A single send() abstraction behind which the chosen vendor sits; every send is a queued job so it retries
 - **Reference:** Addendum A1, Guide §10
 
-### ⏸ `P3-BE-08` · Seed the SX-01…SX-07 NIL job catalogue
+### ▶ `P3-BE-08` · Seed the SX-01…SX-07 NIL job catalogue
 
-**Order** 70 · **BE** · **Where:** Code · **1d** · **Blocked** · **Unblocks** 2
+**Order** 70 · **BE** · **Where:** Code · **1d** · **Ready** · **Unblocks** 2
 
 Load the seven standard job types into the database with their pay and price bands.
 
@@ -1486,9 +1486,9 @@ Confirm every temporary link to a private file is logged, short-lived, and that 
 
 *16 tasks · 0 person-days*
 
-### ⏸ `P6-BE-02` · Reward, reward token and reward event models
+### ▶ `P6-BE-02` · Reward, reward token and reward event models
 
-**Order** 119 · **BE** · **Where:** Code · **3d** · **Blocked** · **Unblocks** 14
+**Order** 119 · **BE** · **Where:** Code · **3d** · **Ready** · **Unblocks** 14
 
 The reward, the individual QR tokens, and the events they generate.
 
@@ -1966,9 +1966,9 @@ Load the real first-25 athletes and first sponsors into staging so user testing 
 - **Done when:** The real first-25 athlete cohort and first sponsors exist in staging for UAT
 - **Reference:** §36
 
-### ⏸ `P8-FE-02` · Wire the audit log view
+### ▶ `P8-FE-02` · Wire the audit log view
 
-**Order** 165 · **FE** · **Where:** Code · **3d** · **Blocked** · **Unblocks** 0
+**Order** 165 · **FE** · **Where:** Code · **3d** · **Ready** · **Unblocks** 0
 
 Make the audit log browsable and filterable by record and by person.
 

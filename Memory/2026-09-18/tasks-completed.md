@@ -751,3 +751,47 @@ and until then jobs queue visibly rather than dropping silently — which is als
 what makes queue depth meaningful for `P2-OPS-11`.
 
 `P7-BE-04` and `P8-INT-01` cascaded to Ready.
+
+---
+
+## `P2-BE-06` — the audit helper · Done
+
+`src/server/audit.ts`. Closed straight to Done, code review skipped, same flow as
+`P2-BE-05`.
+
+`audit(tx, actor, action, entity, entityId, {before, after})` writes into
+`AuditLog` **inside the caller's transaction** — the same discipline as
+`enqueue()`, and for a sharper reason: an audit written outside the transaction
+can describe a change that rolled back, which is worse than no audit at all,
+because it is a confident record of something that never happened.
+
+`tenantId` comes from the actor and never from an argument. A row filed under the
+wrong tenant is invisible to the tenant it belongs to and visible to one it is
+not.
+
+### Two decisions worth keeping
+
+**`AuditActor` is deliberately narrow — `{ userId, tenantId }`.** `P2-BE-04`
+defines the full `Actor` with roles and the athlete/sponsor/property ids, and it
+satisfies this structurally. Typing against the whole thing would have made this
+task wait for Clerk for no benefit.
+
+**`changedFields(before, after, fields)`** reduces a pair to only what changed.
+Passing whole records into a `Json` column is how a bank detail or a tax ID ends
+up in a table nobody thought of as sensitive — §26 forbids the first, Addendum A6
+the second. Making the narrow option the easy one is cheaper than remembering.
+
+`AUDIT_ACTIONS` names the actions for all five §26 areas so they are not spelled
+three ways, while `AuditAction` stays a template type so new domain functions add
+actions without editing this file.
+
+### On "coverage"
+
+The acceptance asks that pricing, agreement, campaign, payout and permission
+changes are all covered. The helper and the action names are in place, but
+coverage **cannot be demonstrated yet** — the domain functions that make those
+changes do not exist. Each calls `audit()` as it is built, and `P7-SEC-01` is the
+task that proves it. Recorded on the row rather than claimed.
+
+Five tasks cascaded to Ready: `P3-BE-01`, `P3-BE-06`, `P3-BE-08`, `P6-BE-02`,
+`P8-FE-02`.
