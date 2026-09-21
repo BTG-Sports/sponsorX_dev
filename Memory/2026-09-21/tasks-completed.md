@@ -79,6 +79,19 @@ driven: intro rail, `?demo=minor` (section 1 + branch notice),
 draft resume after refresh, the branch inserting a progress segment live —
 worth a human pass.
 
+### Follow-ups (same day)
+
+- **Login → /join.** The login page's sign-up link pointed at `/packages`
+  (stale). Now `/join`, relabelled "Apply as an athlete" — the application
+  is not account creation. `/join` was already linked from the marketing
+  home CTAs and the footer.
+- **Desktop split-stage.** The phone-first column read as "mobile site on
+  desktop" at 1920px (the brief never asked for a desktop comp). At `lg+`
+  the page is now a split stage: sticky brand panel (headline + §26 trust
+  notes, single-sourced from `join-flow.NEVER_ASKED`) beside the wizard as
+  an elevated 430px card (`lg:` border/shadow, action bar `lg:rounded-b-2xl`).
+  The form column never widens; below `lg` nothing changed.
+
 ### Task board
 
 Added **P1-FE-16** (row 55, Order 33.997, `Code review`, started 2026-09-21);
