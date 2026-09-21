@@ -77,6 +77,12 @@ export class LandingBallRig {
     });
   }
 
+  /** Move the whole ball (and its flash light) to a world-Y as it falls the shaft. */
+  setWorldY(y: number): void {
+    this.group.position.y = y;
+    this.flash.position.set(0, y, 2.6);
+  }
+
   private show(index: number, scale: number, sx = scale, sy = scale): void {
     const o = this.objects[index];
     if (!o) return;
