@@ -145,10 +145,10 @@ export function LoginForm() {
       <p className="mt-5 text-center text-[11px] text-muted">
         Don&rsquo;t have an account?{" "}
         <Link
-          href="/packages"
+          href="/join"
           className="font-medium text-primary-soft hover:underline"
         >
-          Sign Up
+          Apply as an athlete
         </Link>
       </p>
 
