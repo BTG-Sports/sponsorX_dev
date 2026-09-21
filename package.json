@@ -12,7 +12,7 @@
     "dev:worker": "npm run worker -w @sponsorx/backend",
     "build": "npm run build -w @sponsorx/backend && npm run build -w @sponsorx/frontend",
     "test": "npm run test -w @sponsorx/backend && npm run test -w @sponsorx/frontend",
-    "lint": "npm run lint -w @sponsorx/frontend",
+    "lint": "npm run lint -w @sponsorx/backend && npm run lint -w @sponsorx/frontend",
     "prisma:generate": "npm run prisma:generate -w @sponsorx/backend",
     "prisma:migrate": "npm run prisma:migrate -w @sponsorx/backend",
     "prisma:deploy": "npm run prisma:deploy -w @sponsorx/backend",

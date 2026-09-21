@@ -636,3 +636,320 @@ per CLAUDE.md:
   extended the autofilter, Status validation, the three CF ranges and all 15
   Phase-1 Dashboard formulas 202 → 203. Verified: 199 Phase-1 rows, no duplicate
   IDs, Legal sheet preserved, formulas intact. Backups in the scratchpad.
+
+## Roadmap reconciled with the repo split, then `P2-SEC-01`'s policy half
+
+**The roadmap had gone stale in the way that matters most.** It is the document
+the next task is chosen from, and it still described a single Next.js app with
+a greenfield backend — every path in it pointed at `src/`, which no longer
+exists. Addendum B reached `CLAUDE.md` and `stack-decision.md` but not here.
+Fixed: §0 rewritten for the two workspaces and what is actually built, the §12
+order's "route handler / server action" step becomes an Express route under
+`backend/src/routes/v1`, B0's service list now names web / api / worker /
+postgres plus Redis (cache and rate-limit only), and B0 states explicitly what
+it has done and what it still owes. Fourteen links repointed; all nine
+relative links in the file resolve.
+
+The lesson is about *which* documents rot. A stale README is an annoyance; a
+stale roadmap actively misdirects, because it is consulted precisely when
+someone is deciding what to do next and is therefore trusted at exactly the
+wrong moment.
+
+**`P2-SEC-01`'s policy half** is `frontend/tests/authz.matrix.test.ts` — 19
+tests, all passing, whole frontend suite 65/65. It asserts every role against
+every resource (32 × 12 × 3 = 1,152 pairs), the §30 coverage requirement, with
+no database at all. That is only possible because `P2-BE-04` made the matrix
+pure data; had the policy been entangled with Prisma fragments, this suite
+would have been blocked behind a database that does not exist yet.
+
+Beyond the named invariants, the suite pins a **sha256 digest of the entire
+grid**. Any policy change fails the build with the moved pairs in the message,
+which is exactly the task's stated purpose: *"when someone widens a permission
+to fix a bug, this tells them what else they just widened."* Accepting a
+change means reading the failing pairs against the RBAC document and then
+updating the constant — updating it without reading them defeats the test.
+
+**The row stays In progress, and the reason is worth stating plainly.** The
+acceptance also requires a seeded suite proving the scope *filters* return the
+right rows. That needs a live Postgres, and **the repo has no `.github`
+directory at all** — so B0's exit criterion, "authz matrix passes in CI", is
+not merely unproven, it is unrunnable until `P2-OPS-07` creates a workflow
+*with a Postgres service container*. Annotated on that row so whoever builds
+it knows a plain node runner is not enough. The seeded half was deliberately
+not faked: asserting `where` fragments against a mock would test the mock.
+
+## Authorisation moved to the backend, and why that was the better answer
+
+The question was where `requireActor()` and the scope functions belong after
+the repo split. The deciding argument was not tidiness: **`/api/v1` is reached
+by the portals, by §8's API service account and by INFINEX on equal terms**, so
+a check enforced in the Next app would have covered exactly one caller of
+three. A rule one caller of three obeys is not a rule.
+
+The second argument was quieter and would have bitten later: after the split
+there were **two Prisma clients**, one per workspace, either of which could
+open the database. Two enforcement points means the forgotten one is the leak,
+and it will not be the one under test.
+
+The shape that came out of it is worth keeping. `resolveActor()` is pure
+domain logic over Postgres — no HTTP, no Clerk — so it is testable directly;
+`requireActor()` is the Express middleware that feeds it; and
+`backend/src/auth/clerk.ts` is the **only** file in the backend that knows
+Clerk exists, because `stack-decision.md` keeps a live revisit trigger on Clerk
+and a swap should touch one file. `portalFor()` stayed in the frontend: which
+workspace to render is routing, not authorisation.
+
+`GET /api/v1/me` returns tenant and roles and *also completes a first sign-in*,
+because claiming a provisioned row happens inside `resolveActor()`.
+
+The 1,152-pair matrix suite moved with the policy and cost nothing to move,
+which is the dividend of having kept the matrix as data in the first place.
+
+**Left open on purpose:** `frontend/src/server/{db,audit,outbox}.ts` are now
+orphaned but still constitute a second Prisma client in the frontend — the
+exact hazard this move removes. They belong to `P2-BE-05`/`P2-BE-06`, so they
+should follow in their own change rather than be swept into an authorisation
+refactor.
+
+## A correction worth recording: restricting Clerk sign-up would break onboarding
+
+I had listed "switch Clerk sign-up to Restricted" as a one-toggle safety
+improvement. Checking it against the provisioning flow before advising it
+again: **it would break onboarding.** Access is granted by an admin creating a
+`User` row against an email, which the person then claims by signing up at
+Clerk with that address. Restricted mode permits sign-up only for allowlisted
+addresses or holders of a Clerk invitation, so a properly provisioned person
+could no longer create the identity that claims their row.
+
+Leaving sign-up open is safe *because* authorisation now sits at the API: a
+stranger who registers gets an identity, no `User` row, and therefore nothing.
+The real fix is to issue a Clerk invitation at the moment BTG provisions a
+user, which belongs with the admin provisioning work in B1 rather than being a
+console toggle today.
+
+## `P2-OPS-07` — CI exists, and is green on its first run
+
+`.github/workflows/ci.yml` runs on every push and pull request: backend build,
+frontend build, lint, backend tests (19, including the 1,152-pair
+authorisation matrix) and frontend tests (46). Run 35574058026 passed end to
+end first time, 2m07s, and both checks on pull request #14 are green.
+
+This is the first automated check this repo has ever had. Until today every
+guarantee rested on someone remembering to run something locally, with two
+people working in the same tree and a binary tracker that had already lost
+seven rows of work once.
+
+Choices worth keeping: Node pinned to **24.21.0** to match what `CLAUDE.md`
+pins locally, because a CI Node that drifts from the developer Node produces
+failures nobody can reproduce; `npm ci` rather than `npm install`, so a
+lockfile disagreeing with `package.json` fails here instead of resolving
+differently in silence; and a **Postgres 17 service that nothing uses yet**,
+added deliberately so whoever writes `P2-SEC-01`'s seeded half finds it
+waiting rather than rediscovering why a plain Node runner is not enough. No
+repository secrets are needed — verified by building with the environment
+files moved aside.
+
+**The row stays In progress, and the blocker is commercial rather than
+technical.** The acceptance says *"the authz matrix is a required check, not
+an advisory one"*, and that cannot be configured here: the repo is **private
+on a personal Free account**, and GitHub answers both the branch-protection
+and the rulesets APIs with *"Upgrade to GitHub Pro or make this repository
+public to enable this feature."* Public is not an option, so the remaining
+path is GitHub Pro at roughly $4/month. A red check is visible on a pull
+request but cannot block a merge.
+
+**The same finding reaches further than this row.** The standing rule that
+nothing reaches `main` except by pull request cannot be enforced by GitHub on
+this plan *at all*. The earlier framing — that branch protection could not be
+enforced against me specifically, because the CLI runs as the repo owner — was
+too narrow. On this account it is discipline for everybody, or nothing.
+
+**One practical trap for future sessions:** creating or editing anything under
+`.github/workflows/` requires an OAuth token with the `workflow` scope, and
+the CLI token on this machine carries only `gist, read:org, repo`. Two
+device-flow refreshes did not add it, and the push was rejected each time with
+"refusing to allow an OAuth App to create or update workflow ... without
+`workflow` scope". The file reached GitHub by the user's own hand in the end.
+Assume any future workflow change needs them, and say so at the start rather
+than after two failed attempts.
+
+## `P2-OPS-06` — the bare-`findMany()` rule, and a task that looked done but guarded nothing
+
+The rule already existed. It was written for this task in
+`frontend/eslint.config.mjs` before the repo split, and it is a good rule.
+
+**Then Addendum B moved Prisma, the API, the worker and the whole
+authorisation layer into `backend/`** — and the backend had *no linting at
+all*: no eslint config, no lint script, and the root `lint` script forwarding
+only to the frontend. So the guard sat on the workspace that no longer touches
+the database, while the one that does was unchecked. Anyone reading the board
+would have seen a rule that existed and assumed it was working.
+
+That is the shape worth remembering: **a safeguard does not fail loudly when
+the code it guards moves out from under it.** Tests fail, builds fail, but a
+lint rule with nothing left to match simply passes. Whenever code moves
+between workspaces, ask what was watching it.
+
+What was done: the rule moved to `eslint.prisma-select.mjs` at the repo root
+and both configs import it, so one definition cannot drift from itself.
+`backend/eslint.config.mjs` written from scratch — `js.configs.recommended`
+plus `typescript-eslint`, no Next presets since it is a plain Node service —
+ignoring `src/generated/**`, because Prisma's machine-written client calls
+`find*()` without a `select` by definition and would bury the rule in false
+positives. The root `lint` script now runs both workspaces, which is what makes
+CI enforce it across the whole repo instead of half.
+
+Coverage is `findMany`, `findFirst`, `findFirstOrThrow`, `findUnique` and
+`findUniqueOrThrow`. The task title names `findMany` alone, but a `findUnique`
+without a `select` leaks exactly the same columns, and the fields at stake are
+the ones §7.1 and §7.2 of the RBAC matrix protect.
+
+**Proven rather than assumed:** a probe file with three bare reads produced
+exactly three errors and failed the lint; the two reads carrying a `select`
+produced none; removing the probe returned it to clean. The frontend rule was
+probed the same way after being repointed at the shared file.
+
+## `P2-BE-07` — the API now publishes its own contract
+
+`GET /api/v1/openapi.json` is served by the Express API and generated from the
+Zod registry on every request. Verified against a booted server: 200,
+`openapi: 3.1.0`, servers `[/api/v1]`, components `ProblemDetails`,
+`PageQuery`, `PageMeta`, `Provenance`, security scheme `bearerAuth`.
+
+**This was the third instance of one pattern in a single day.** The registry,
+the generator dependency and the route all already existed — in `frontend/`.
+After Addendum B moved the API to Express, the published description of the
+API was being produced and served by a process that is no longer the API. The
+row's acceptance was *technically satisfied* by a route describing the wrong
+service, which is worse than having no spec at all, because §8's service
+account and INFINEX would read it as authoritative.
+
+The three together, worth stating as one lesson:
+
+- `allowImportingTsExtensions` followed a rename into the workspace that
+  didn't need it, while the workspace that did failed to build.
+- The Prisma `select` rule guarded the workspace that no longer queries
+  Prisma.
+- The OpenAPI spec was emitted by the workspace that is no longer the API.
+
+**When code moves between workspaces, ask what was describing it or watching
+it.** Those things never fail loudly — a compiler flag in the wrong place, a
+lint rule with nothing to match, a spec generated from an empty registry: all
+of them pass, and all of them silently stop being true. Only the thing that
+moved gets tested.
+
+What moved: `src/contracts/{zod,common,registry}.ts` into
+`backend/src/contracts` with history preserved; the Next route deleted, so the
+frontend now ships **no** `/api` routes at all; `@asteasolutions/zod-to-openapi`
+declared in the backend and removed from the frontend.
+
+Also verified while the server was up: `/health` 200, `/api/v1` 200,
+`/api/v1/me` **401** both with no credential and with a bogus bearer token. A
+500 on the first attempt was my own fake probe key — Clerk rejects a
+publishable key that isn't in `pk_test`/`pk_live` format before it looks at the
+request at all.
+
+**Found and deliberately not fixed:** the published spec declares
+`ProblemDetails` (RFC 9457) as the error envelope for every endpoint, but
+`app.ts` returns `{error:{code,message}}` and labels a 401 as `bad_request`. So
+the spec and the API disagree *today* — exactly the drift this row exists to
+prevent — but the error handler belongs to the backend scaffold rather than to
+this task, so it is raised rather than changed unilaterally.
+
+## `P2-BE-08` — private grants are audited because the unaudited path is gone
+
+The acceptance said "every private grant is audited". The way to make that
+true is not to remember to call the audit — it is to delete the path that
+skips it. The raw presigners are no longer exported; the private bucket is
+reachable only through `presignPrivateUpload` and `presignPrivateDownload`,
+which demand an actor and write the audit row first.
+
+**The grant is the auditable event, not the upload.** The browser uploads
+straight to R2, so the server never sees the PUT. The last moment anything can
+be recorded is when the credential is handed over, and a presigned URL is
+exactly that — a bearer token in a query string, good for fifteen minutes to
+whoever holds it.
+
+**The audit row does not contain the signed URL**, and that is the point most
+likely to be undone by someone later trying to make the log more useful. The
+URL *is* the credential; storing it would turn an audit table every
+`BTG_ADMIN` can read into a set of live keys to the private bucket. There is a
+test asserting the signature never appears in the audit payload.
+
+It fails closed: the audit runs in a transaction before the URL is returned,
+so a failed audit write means no credential is issued.
+
+**The tests were mutation-checked.** Removing the audit call from the upload
+path makes two of the seven fail. A test that has never failed proves nothing
+about the regression it was written for, and this one now has.
+
+CORS on the private bucket was verified by real preflight: 204 echoing the
+origin for all three allowed hosts, 403 for an unlisted one. No wildcard,
+for the same reason the URL stays out of the log.
+
+Left for other rows: the R2 credentials still need to reach Railway
+(`P2-OPS-04`), and the `r2.dev` public hostname should become a custom domain
+such as `cdn.sponsorx.net` before launch — Cloudflare rate-limits `r2.dev` and
+says plainly it is not for production.
+
+## Staging runs the split repo — deployment, and three bugs only a deploy finds
+
+Both workspaces now run in Railway staging against a migrated database. The
+service configuration was set through **Railway's GraphQL API**, because the
+CLI exposes neither build nor start commands — worth knowing before anyone
+else tries and concludes it cannot be done. A previous session had already
+used the same API for the region fix on 18 September.
+
+| | build / start |
+|---|---|
+| `api` (was `worker`) | `@sponsorx/backend`, healthcheck `/health`, pre-deploy runs migrations |
+| `web` | `@sponsorx/frontend` |
+
+**The pre-deploy migration command had been silently broken by the split.** It
+read `npx prisma@7.10.0 migrate deploy` and sat on the **web** service —
+written when Prisma lived at the repo root. Post-split it would have run in a
+workspace with no schema: applying nothing, reporting success. Corrected, and
+moved onto the backend service, because Guide §10 says one service owns schema
+migration and two must not race.
+
+That fix mattered immediately: **all four migrations applied for the first
+time** — the 29-table init and partial indexes from 18 September, plus today's
+athlete fields and `EmailSendLog`. The 18 September note that "the migration
+has never been applied to a database" is now out of date. The risky column —
+`email TEXT NOT NULL`, no default — applied cleanly because `Athlete` was
+empty, exactly as the migration's own header predicted.
+
+**Renaming a Railway service does not move its private hostname.** `worker`
+is now `api`, but the internal domain is still `worker.railway.internal`, so
+`API_URL` was left alone. A previous session recorded the same behaviour
+renaming Postgres — Railway fixes the internal domain at creation. The
+name/hostname mismatch is permanent for this service and will confuse someone
+later.
+
+**A pg-boss bug that cannot reproduce locally.** pg-boss 10+ requires
+`createQueue` for *both* producing and consuming. The drain's `ensureQueue`
+only covers sending, which happens after boot, so on a database that had never
+had an email queued `boss.work()` failed in a continuous loop with "Queue
+notify.email does not exist". There is no local Postgres by design, so the
+worker had never actually run on a developer machine — the first real deploy
+was the first execution. Error count after the fix: zero.
+
+**A hang that looked like an integration failure and was not.** After a
+successful password reset the page sat on "Signing you in". The web log said
+*"Failed to find Server Action … from an older or newer deployment"*: a
+browser tab loaded from the previous deployment, posting an action ID the new
+build does not have. The API log showed **no request had arrived at all**,
+which is what ruled the integration out. Any Next.js redeploy does this to
+open tabs.
+
+Incidentally that settles an open question: **passwords are enabled and reset
+works end to end** — Clerk emailed a code, accepted a new password and created
+a session, with no code of ours involved.
+
+**Still unproven, and worth being blunt about it:** `web` has never
+successfully called the API. The API log shows zero inbound requests since the
+split. Until someone signs in and reaches `/portal`, the private-network hop
+is configuration we believe in rather than a path we have watched work. The
+same is true of email: the queue, the worker, the ledger and the templates all
+exist, but nothing calls `send()` until `P3-BE-07` notifies an applicant, so
+the outbox → worker → Resend path has never been exercised.

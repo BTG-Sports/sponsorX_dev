@@ -13,14 +13,13 @@
 
    This closes the gap `P2-INT-01` deliberately left: the layouts proved
    authentication only, so any signed-in Clerk identity could open the admin
-   workspace. Now the roles come from Postgres and decide.
+   workspace. Now the roles decide — read from Postgres by the API, which is
+   the only thing that touches the database (Addendum B).
    -------------------------------------------------------------------------- */
 
 import { redirect } from "next/navigation";
 
-import { requireActor, type Actor } from "@/server/actor";
-import { UnauthenticatedError, UnprovisionedError } from "@/server/errors";
-import type { Role } from "@/server/authz-policy";
+import { fetchActor, type Actor } from "@/server/api";
 
 export type Portal = "admin" | "athlete" | "sponsor" | "property";
 
@@ -30,7 +29,7 @@ export type Portal = "admin" | "athlete" | "sponsor" | "property";
  * role lands in the workspace carrying the most authority, not whichever
  * happens to match first alphabetically.
  */
-const PORTAL_ROLES: ReadonlyArray<readonly [Portal, readonly Role[]]> = [
+const PORTAL_ROLES: ReadonlyArray<readonly [Portal, readonly string[]]> = [
   [
     "admin",
     [
@@ -49,17 +48,16 @@ const PORTAL_ROLES: ReadonlyArray<readonly [Portal, readonly Role[]]> = [
      it has credentials and no workspace, and must never be routed anywhere. */
 ];
 
-/* Both take `readonly string[]` rather than `readonly Role[]`: the mirror
-   hands back whatever strings the database holds, and an unrecognised role
-   must simply match nothing rather than fail to type-check at the call site.
-   The table above stays strongly typed, which is where it matters. */
+/* Roles arrive from the API as plain strings. An unrecognised one must simply
+   match nothing rather than fail to type-check at the call site — the strongly
+   typed copy of the role union lives in backend/src/auth/policy.ts, where the
+   authorisation decisions are actually made. This table only decides which
+   workspace to render, which is a routing concern, not an authorisation one. */
 
 /** Where this actor belongs, or `null` if no portal admits them. */
 export function portalFor(roles: readonly string[]): string | null {
   for (const [portal, admitted] of PORTAL_ROLES) {
-    if (roles.some((role) => (admitted as readonly string[]).includes(role))) {
-      return `/${portal}`;
-    }
+    if (roles.some((role) => admitted.includes(role))) return `/${portal}`;
   }
   return null;
 }
@@ -71,7 +69,7 @@ export function canOpenPortal(
 ): boolean {
   const entry = PORTAL_ROLES.find(([name]) => name === portal);
   if (!entry) return false;
-  return roles.some((role) => (entry[1] as readonly string[]).includes(role));
+  return roles.some((role) => entry[1].includes(role));
 }
 
 /**
@@ -90,19 +88,16 @@ export function canOpenPortal(
  * end that looks like the product is broken.
  */
 export async function requirePortalAccess(portal: Portal): Promise<Actor> {
-  const actor = await requireActor().catch((error: unknown) => {
-    if (error instanceof UnauthenticatedError) redirect("/login");
-    if (error instanceof UnprovisionedError) redirect("/portal");
+  /* `fetchActor()` throws only when the API itself is broken, and that throw
+     is deliberately not caught: an outage must surface as an error, not as
+     "your account isn't set up yet". The two look identical to a user and
+     only one of them is their problem. */
+  const result = await fetchActor();
 
-    /* Anything else is rethrown deliberately. A database outage must surface
-       as an error, not as "your account isn't set up yet" — the two look
-       identical to a user and only one of them is their problem. Catching
-       broadly here would turn every infrastructure failure into a confident
-       lie about their account. */
-    throw error;
-  });
+  if (result.status === "anonymous") redirect("/login");
+  if (result.status === "unprovisioned") redirect("/portal");
 
-  if (!canOpenPortal(actor.roles, portal)) redirect("/portal");
+  if (!canOpenPortal(result.actor.roles, portal)) redirect("/portal");
 
-  return actor;
+  return result.actor;
 }

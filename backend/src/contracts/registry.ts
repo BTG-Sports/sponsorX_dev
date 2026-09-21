@@ -7,6 +7,12 @@ import {
 // that registry.register() depends on. See src/contracts/zod.ts.
 import "./zod";
 import { PageMeta, PageQuery, ProblemDetails, Provenance } from "./common";
+import {
+  AthleteApplicationInput,
+  AthleteApplicationReview,
+  AthleteState,
+  SocialAccount,
+} from "./athlete";
 
 /**
  * The contracts registry (P2-BE-07 — §38, Addendum A2, Guide §02).
@@ -29,6 +35,13 @@ registry.register("ProblemDetails", ProblemDetails);
 registry.register("PageQuery", PageQuery);
 registry.register("PageMeta", PageMeta);
 registry.register("Provenance", Provenance);
+
+// --- athlete onboarding (P3-BE-01, §11) ---------------------------------
+
+registry.register("AthleteState", AthleteState);
+registry.register("SocialAccount", SocialAccount);
+registry.register("AthleteApplicationInput", AthleteApplicationInput);
+registry.register("AthleteApplicationReview", AthleteApplicationReview);
 
 /**
  * Bearer auth for §8's API Service Account. Clerk issues the session for human

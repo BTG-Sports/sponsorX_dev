@@ -3,53 +3,36 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "prisma generate && next dev",
-    "build": "prisma generate && next build",
+    "dev": "next dev",
+    "build": "next build",
     "start": "next start",
     "lint": "eslint",
     "test": "vitest run"
   },
   "dependencies": {
-    "@asteasolutions/zod-to-openapi": "9.1.0",
-    "@aws-sdk/client-s3": "3.1132.0",
-    "@aws-sdk/s3-request-presigner": "3.1132.0",
     "@clerk/nextjs": "7.9.2",
     "@hookform/resolvers": "5.9.1",
-    "@prisma/adapter-pg": "7.10.0",
-    "@prisma/client": "7.10.0",
     "exceljs": "^4.4.0",
     "jspdf": "^4.2.1",
     "jspdf-autotable": "^5.0.8",
-    "maxmind": "5.0.7",
     "next": "16.3.5",
-    "pg": "8.23.0",
-    "pg-boss": "12.32.0",
-    "qrcode": "1.5.4",
     "react": "19.3.0",
     "react-dom": "19.3.0",
     "react-hook-form": "7.88.0",
     "recharts": "3.10.1",
-    "resend": "6.28.0",
-    "sharp": "0.35.4",
     "zod": "4.6.5"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "4.3.3",
     "@types/node": "24.13.4",
-    "@types/pg": "8.23.1",
     "@types/react": "19.3.0",
     "@types/react-dom": "19.3.0",
     "eslint": "9.39.5",
     "eslint-config-next": "16.3.5",
     "playwright": "1.63.0",
-    "prisma": "7.10.0",
     "tailwindcss": "4.3.3",
     "typescript": "5.9.3",
     "vite": "7.1.12",
     "vitest": "5.0.0"
-  },
-  "allowScripts": {
-    "prisma@7.10.0": true,
-    "@prisma/engines@7.10.0": true
   }
 }

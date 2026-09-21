@@ -2,7 +2,8 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { SignOutButton } from "@clerk/nextjs";
 import { Logo } from "@/components/logo";
-import { mirrorCurrentUser } from "@/server/identity";
+import { currentUser } from "@clerk/nextjs/server";
+import { fetchActor } from "@/server/api";
 import { portalFor } from "@/server/portal";
 
 /* --------------------------------------------------------------------------
@@ -13,9 +14,10 @@ import { portalFor } from "@/server/portal";
    Addendum A4 wants it: Clerk proved who you are, Postgres decides what that
    means.
 
-   It is also the only route in the app that touches the database today, which
-   is deliberate — every other screen still runs on fixtures, so the app boots
-   on a laptop with no `DATABASE_URL`.
+   Nothing here touches the database. Authorisation moved to the API with
+   Addendum B, so this asks `GET /api/v1/me` — and that call is also what
+   *completes* a first sign-in, because claiming a provisioned row happens
+   inside the API's resolveActor().
    -------------------------------------------------------------------------- */
 
 export const metadata = { title: "Signing you in — SponsorX" };
@@ -24,19 +26,25 @@ export const metadata = { title: "Signing you in — SponsorX" };
 export const dynamic = "force-dynamic";
 
 export default async function PortalPage() {
-  const result = await mirrorCurrentUser();
+  const result = await fetchActor();
 
   if (result.status === "anonymous") redirect("/login");
 
   if (result.status === "linked") {
-    const destination = portalFor(result.user.roles);
+    const destination = portalFor(result.actor.roles);
     if (destination) redirect(destination);
   }
 
   /* Authenticated, but with no portal to go to: either no `User` row was
      prepared for this address, or the row holds only the SERVICE role. Say so
-     plainly instead of dropping them on a portal they cannot use. */
-  const email = result.status === "unprovisioned" ? result.email : null;
+     plainly instead of dropping them on a portal they cannot use.
+
+     The address comes from Clerk rather than the API, because the API has no
+     account to report — telling someone which address failed is the single
+     most useful thing on this page, since the usual cause is signing up with
+     a different one from the address BTG provisioned. */
+  const clerkUser = await currentUser();
+  const email = clerkUser?.primaryEmailAddress?.emailAddress ?? null;
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center px-6 py-12">

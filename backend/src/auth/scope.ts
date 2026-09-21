@@ -1,6 +1,10 @@
 /* --------------------------------------------------------------------------
    What they may see — P2-BE-04, Guide §04 and §09.
 
+   Moved from frontend/src/server on 2026-09-21 with the rest of authorisation:
+   the API is reached by the portals, by §8's service account and by INFINEX
+   alike, so the check has to live where the data is (Addendum B).
+
    `actor.ts` answers who is asking. This answers what that actor may reach,
    and it does so in two layers that are deliberately separate:
 
@@ -23,9 +27,9 @@
    both refuse it.
    -------------------------------------------------------------------------- */
 
-import type { Actor } from "@/server/actor";
-import { ForbiddenError } from "@/server/errors";
-import { scopeFor, type Action, type Resource, type Scope } from "@/server/authz-policy";
+import type { Actor } from "./actor";
+import { ForbiddenError } from "./errors";
+import { scopeFor, type Action, type Resource, type Scope } from "./policy";
 
 export { type Action, type Resource, type Scope };
 
@@ -153,6 +157,37 @@ const BUILDERS: Partial<Record<Resource, Builder>> = {
   },
 
   auditLog: tenantScoped,
+
+  /* Added with P3-BE-01, the first task to query athletes. This is the
+     pattern the file was designed for: the policy already allowed these
+     scopes, only the filter was missing, and it is written now with the
+     model's real columns in front of us rather than guessed months ago.
+
+     `assigned` and `ward` are NOT implemented yet on purpose. A sponsor sees
+     only athletes assigned to their campaigns, and a guardian only their
+     wards — both need CampaignInvite and Guardian joins that arrive with B3
+     and B1's guardian path. Leaving them to fall through to MATCHES_NOTHING
+     means a sponsor currently sees no athletes at all, which is the safe
+     direction to be wrong in. */
+  /* Guardians are tenant data with no cross-tenant case at all — even
+     SUPER_ADMIN's `any` is the only scope that leaves the tenant, and the
+     matrix gives athletes and guardians only `own`/`ward`, which need the
+     Athlete join that arrives with B1's wiring. */
+  guardian: tenantScoped,
+
+  athlete: (actor, scope) => {
+    switch (scope) {
+      case "any":
+        return {};
+      case "own-tenant":
+        return { tenantId: actor.tenantId };
+      case "own":
+        /* The athlete's own record, reached through the User mirror. */
+        return { tenantId: actor.tenantId, user: { is: { id: actor.userId } } };
+      default:
+        return MATCHES_NOTHING;
+    }
+  },
 };
 
 /**
