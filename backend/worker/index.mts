@@ -195,19 +195,46 @@ async function main(): Promise<void> {
   await tick(); // sweep once at boot rather than waiting a full interval
 }
 
-async function shutdown(signal: string): Promise<void> {
-  console.log(`[worker] ${signal} received — shutting down.`);
+/**
+ * Stop draining and release the pool. Exported without calling `process.exit`
+ * so a host process can shut the worker down and then close its own server —
+ * see `src/combined.mts`. The standalone entry below still exits, because
+ * when the worker *is* the process there is nothing else to wait for.
+ */
+export async function stopWorker(): Promise<void> {
   if (timer) clearInterval(timer);
+  timer = undefined;
   await boss.stop({ graceful: true }).catch(() => {});
   await pool.end().catch(() => {});
-  process.exit(0);
 }
 
-for (const signal of ["SIGTERM", "SIGINT"] as const) {
-  process.on(signal, () => void shutdown(signal));
+/** Boot the worker. Exported so it can run inside another process. */
+export const startWorker = main;
+
+/**
+ * Only self-start when this file IS the process.
+ *
+ * Without this guard, importing the module to run it alongside the API would
+ * start it twice — once on import and once when the host calls startWorker()
+ * — giving two drains competing for the same rows. SKIP LOCKED would keep
+ * that correct but it would still be two of everything for no reason.
+ */
+const isEntrypoint =
+  process.argv[1] !== undefined &&
+  import.meta.url === new URL(`file://${process.argv[1]}`).href;
+
+if (isEntrypoint) {
+  for (const signal of ["SIGTERM", "SIGINT"] as const) {
+    process.on(signal, () => {
+      console.log(`[worker] ${signal} received — shutting down.`);
+      void stopWorker().then(() => process.exit(0));
+    });
+  }
 }
 
-main().catch((error) => {
-  console.error("[worker] failed to start:", error);
-  process.exit(1);
-});
+if (isEntrypoint) {
+  main().catch((error) => {
+    console.error("[worker] failed to start:", error);
+    process.exit(1);
+  });
+}

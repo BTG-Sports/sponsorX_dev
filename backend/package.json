@@ -5,14 +5,16 @@
   "type": "module",
   "scripts": {
     "dev": "prisma generate && node --env-file-if-exists=../.env --import tsx --watch src/index.ts",
-    "start": "node --env-file-if-exists=../.env --import tsx src/index.ts",
+    "start": "node --env-file-if-exists=../.env --import tsx src/combined.mts",
     "build": "prisma generate && tsc -p tsconfig.json",
     "worker": "node --env-file-if-exists=../.env --import tsx worker/index.mts",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:deploy": "prisma migrate deploy",
     "test": "vitest run",
-    "lint": "eslint"
+    "lint": "eslint",
+    "start:api": "node --env-file-if-exists=../.env --import tsx src/index.ts",
+    "start:worker": "node --env-file-if-exists=../.env --import tsx worker/index.mts"
   },
   "dependencies": {
     "@asteasolutions/zod-to-openapi": "9.1.0",
