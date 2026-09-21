@@ -891,3 +891,65 @@ Left for other rows: the R2 credentials still need to reach Railway
 (`P2-OPS-04`), and the `r2.dev` public hostname should become a custom domain
 such as `cdn.sponsorx.net` before launch — Cloudflare rate-limits `r2.dev` and
 says plainly it is not for production.
+
+## Staging runs the split repo — deployment, and three bugs only a deploy finds
+
+Both workspaces now run in Railway staging against a migrated database. The
+service configuration was set through **Railway's GraphQL API**, because the
+CLI exposes neither build nor start commands — worth knowing before anyone
+else tries and concludes it cannot be done. A previous session had already
+used the same API for the region fix on 18 September.
+
+| | build / start |
+|---|---|
+| `api` (was `worker`) | `@sponsorx/backend`, healthcheck `/health`, pre-deploy runs migrations |
+| `web` | `@sponsorx/frontend` |
+
+**The pre-deploy migration command had been silently broken by the split.** It
+read `npx prisma@7.10.0 migrate deploy` and sat on the **web** service —
+written when Prisma lived at the repo root. Post-split it would have run in a
+workspace with no schema: applying nothing, reporting success. Corrected, and
+moved onto the backend service, because Guide §10 says one service owns schema
+migration and two must not race.
+
+That fix mattered immediately: **all four migrations applied for the first
+time** — the 29-table init and partial indexes from 18 September, plus today's
+athlete fields and `EmailSendLog`. The 18 September note that "the migration
+has never been applied to a database" is now out of date. The risky column —
+`email TEXT NOT NULL`, no default — applied cleanly because `Athlete` was
+empty, exactly as the migration's own header predicted.
+
+**Renaming a Railway service does not move its private hostname.** `worker`
+is now `api`, but the internal domain is still `worker.railway.internal`, so
+`API_URL` was left alone. A previous session recorded the same behaviour
+renaming Postgres — Railway fixes the internal domain at creation. The
+name/hostname mismatch is permanent for this service and will confuse someone
+later.
+
+**A pg-boss bug that cannot reproduce locally.** pg-boss 10+ requires
+`createQueue` for *both* producing and consuming. The drain's `ensureQueue`
+only covers sending, which happens after boot, so on a database that had never
+had an email queued `boss.work()` failed in a continuous loop with "Queue
+notify.email does not exist". There is no local Postgres by design, so the
+worker had never actually run on a developer machine — the first real deploy
+was the first execution. Error count after the fix: zero.
+
+**A hang that looked like an integration failure and was not.** After a
+successful password reset the page sat on "Signing you in". The web log said
+*"Failed to find Server Action … from an older or newer deployment"*: a
+browser tab loaded from the previous deployment, posting an action ID the new
+build does not have. The API log showed **no request had arrived at all**,
+which is what ruled the integration out. Any Next.js redeploy does this to
+open tabs.
+
+Incidentally that settles an open question: **passwords are enabled and reset
+works end to end** — Clerk emailed a code, accepted a new password and created
+a session, with no code of ours involved.
+
+**Still unproven, and worth being blunt about it:** `web` has never
+successfully called the API. The API log shows zero inbound requests since the
+split. Until someone signs in and reaches `/portal`, the private-network hop
+is configuration we believe in rather than a path we have watched work. The
+same is true of email: the queue, the worker, the ledger and the templates all
+exist, but nothing calls `send()` until `P3-BE-07` notifies an applicant, so
+the outbox → worker → Resend path has never been exercised.
