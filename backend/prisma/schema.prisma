@@ -823,6 +823,24 @@ model WebhookDelivery {
   @@index([source, receivedAt])
 }
 
+/// Sent-email ledger (P3-INT-01). Not a copy of the message — the key, the
+/// template and the recipient only, because §26 is clear that personal data
+/// should not accumulate in places nobody thinks to look.
+///
+/// Its whole job is idempotency: outbox delivery is at-least-once and pg-boss
+/// retries, so the handler claims a key here before sending and refuses a key
+/// it has already claimed. Without it a redelivered job emails a person twice,
+/// and "your application was rejected" twice is its own small harm.
+model EmailSendLog {
+  idempotencyKey String   @id
+  tenantId       String
+  template       String
+  to             String
+  sentAt         DateTime @default(now())
+
+  @@index([tenantId, sentAt])
+}
+
 model AuditLog {
   id       String   @id @default(cuid())
   tenantId String

@@ -34,6 +34,7 @@
 import { PgBoss } from "pg-boss";
 import pg from "pg";
 import { seedEnvironment } from "./jobs/seed-environment.mts";
+import { handleSendEmail, type EmailJob } from "./jobs/send-email.mts";
 
 const connectionString = process.env.DATABASE_URL;
 
@@ -178,10 +179,17 @@ async function main(): Promise<void> {
 
   boss.on("error", (error) => console.error("[worker] pg-boss error:", error));
 
-  /* No job handlers are registered yet. Each handler lands with the feature
-     that needs it — zoho.pushCampaign with the Zoho integration, reward.
-     generateQr with the QR task. Until then jobs queue and wait, which is
-     visible as queue depth rather than hidden as a silent drop. */
+  /* Handlers land with the feature that needs them. The first is email
+     (P3-INT-01); zoho.pushCampaign arrives with the Zoho integration and
+     reward.generateQr with the QR task. A job with no handler queues and
+     waits, which shows up as queue depth rather than a silent drop. */
+  await boss.work<EmailJob>("notify.email", async ([job]) => {
+    const outcome = await handleSendEmail(pool, job.data);
+    /* Logged because a duplicate is not a failure — it means the message had
+       already gone once, which is what was asked for. Silence here would
+       make an at-least-once delivery look like a lost email. */
+    console.log(`[worker] notify.email ${outcome}: ${job.data.template} -> ${job.data.to}`);
+  });
 
   timer = setInterval(tick, DRAIN_INTERVAL_MS);
   await tick(); // sweep once at boot rather than waiting a full interval
