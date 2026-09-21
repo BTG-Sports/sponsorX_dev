@@ -30,11 +30,28 @@ function createClient() {
 }
 
 /* Next dev reloads modules on every edit, and a fresh PrismaClient per reload
-   exhausts the connection pool within a few minutes. Cache it on globalThis in
-   development; in production the module is evaluated once and this is a plain
-   singleton. */
+   exhausts the connection pool within a few minutes. Cache it on globalThis so
+   a reload reuses one client; in production the module is evaluated once and
+   this is a plain singleton either way. */
 const globalForDb = globalThis as unknown as { db?: PrismaClient };
 
-export const db: PrismaClient = globalForDb.db ?? createClient();
+function client(): PrismaClient {
+  globalForDb.db ??= createClient();
+  return globalForDb.db;
+}
 
-if (process.env.NODE_ENV !== "production") globalForDb.db = db;
+/* Constructed on first use, not on import (P2-INT-01).
+
+   `next build` imports every route module to collect its configuration, so
+   building anything that transitively imports this file used to require a live
+   `DATABASE_URL` — which no developer machine has, because Railway Postgres is
+   private-networking only. Eagerly calling createClient() here therefore broke
+   the build rather than the query. Behind this proxy the throw still happens,
+   but at the first real database call, which is where a missing connection
+   string is actually a problem and where the error message makes sense. */
+export const db: PrismaClient = new Proxy({} as PrismaClient, {
+  get(_target, property, receiver) {
+    const value = Reflect.get(client(), property, receiver);
+    return typeof value === "function" ? value.bind(client()) : value;
+  },
+});

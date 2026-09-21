@@ -1,11 +1,22 @@
-import Link from "next/link";
-import { LoginForm } from "@/components/login-form";
+import { SignIn } from "@clerk/nextjs";
 
 /* --------------------------------------------------------------------------
    Authentication — §9 screen 2, mockup screen 2.
 
    Deliberately outside the (public) route group so it does not inherit the
    marketing header and footer; the mockup shows this screen full-bleed.
+
+   P2-INT-01 replaced the mock form with Clerk. The two-panel composition from
+   the mockup is kept and Clerk's <SignIn /> occupies the left panel, so the
+   screen still reads as the designed one rather than as a vendor default.
+
+   `routing="hash"` keeps this a single route: Clerk drives its own steps
+   (password, reset, verification) through the URL fragment instead of
+   demanding a `[[...rest]]` catch-all, which would have split one designed
+   screen across a route group for no benefit.
+
+   Where it lands: /portal, which reads the Postgres roles and forwards to the
+   right workspace. Role-aware routing stays a database decision (§9.2, A4).
    -------------------------------------------------------------------------- */
 
 export const metadata = {
@@ -18,9 +29,19 @@ export default function LoginPage() {
       <div className="grid w-full max-w-4xl overflow-hidden rounded-2xl border border-line bg-surface md:grid-cols-2">
         {/* --------------------------------------------------- form panel */}
         <div className="flex items-center justify-center bg-bg px-8 py-12 sm:px-12">
-          <div className="w-full max-w-[17rem]">
-            <LoginForm />
-          </div>
+          <SignIn
+            routing="hash"
+            forceRedirectUrl="/portal"
+            appearance={{
+              elements: {
+                /* The panel already provides the card, so Clerk's own card
+                   chrome would double it up. */
+                cardBox: "shadow-none border-0 bg-transparent w-full",
+                card: "shadow-none border-0 bg-transparent px-0 py-0",
+                footer: "bg-transparent",
+              },
+            }}
+          />
         </div>
 
         {/* -------------------------------------------------- image panel */}
@@ -48,32 +69,6 @@ export default function LoginPage() {
           <p className="absolute bottom-4 left-0 right-0 text-center text-[10px] text-on-media/25">
             venue photography pending
           </p>
-        </div>
-      </div>
-
-      {/* Build note — not part of the design. */}
-      <div className="mt-6 w-full max-w-4xl">
-        <p className="rounded-lg border border-warn/30 bg-warn/8 px-3 py-2 text-[11px] leading-relaxed text-warn">
-          Mock sign-in. The form matches the email against a fixed list and
-          navigates — there is no session, no token and no server check, so
-          every portal is still reachable by URL. Real auth is Clerk plus the{" "}
-          <code className="font-mono">requireActor()</code> lookup in guide §04,
-          which also brings MFA (§26 requires it for admin and finance),
-          guardian/athlete linkage and tenant context.
-        </p>
-        <div className="mt-3 flex flex-wrap gap-4 text-[11px]">
-          <Link href="/sponsor" className="text-accent hover:underline">
-            → Sponsor dashboard
-          </Link>
-          <Link href="/athlete" className="text-accent hover:underline">
-            → Athlete portal
-          </Link>
-          <Link href="/admin" className="text-accent hover:underline">
-            → Admin
-          </Link>
-          <Link href="/map" className="text-muted hover:text-text">
-            route map
-          </Link>
         </div>
       </div>
     </div>
