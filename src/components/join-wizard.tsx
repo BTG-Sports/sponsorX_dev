@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import {
   DRAFT_KEY,
   NEVER_ASKED,
@@ -52,8 +52,26 @@ function seed(demo: Demo): JoinDraft {
   return d;
 }
 
+/* SSR renders the seeded state; after hydration the client snapshot swaps in
+   the stored draft without a setState-in-effect (journey-strip.tsx precedent).
+   getItem returns a stable string, so Object.is dedupes re-renders. */
+const emptySubscribe = () => () => {};
+
 export function JoinWizard({ demo }: { demo: Demo }) {
-  const [draft, setDraft] = useState<JoinDraft>(() => seed(demo));
+  const storedRaw = useSyncExternalStore(
+    emptySubscribe,
+    () => {
+      try {
+        return localStorage.getItem(DRAFT_KEY);
+      } catch {
+        return null;
+      }
+    },
+    () => null,
+  );
+  const [touched, setTouched] = useState<JoinDraft | null>(null);
+  const draft: JoinDraft =
+    touched ?? (demo ? seed(demo) : (parseDraft(storedRaw) ?? emptyDraft()));
   const [dir, setDir] = useState<1 | -1>(1);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [save, setSave] = useState<"idle" | "saving" | "saved">("idle");
@@ -61,17 +79,18 @@ export function JoinWizard({ demo }: { demo: Demo }) {
   const headingRef = useRef<HTMLHeadingElement>(null);
   const stepRef = useRef<HTMLDivElement>(null);
 
-  /* Hydrate a stored draft (not in demo mode). */
-  useEffect(() => {
-    if (demo) return;
-    const stored = parseDraft(localStorage.getItem(DRAFT_KEY));
-    if (stored) setDraft(stored);
-  }, [demo]);
+  const setDraft = (next: JoinDraft) => setTouched(next);
 
   /* Persist + saved-indicator theatre. */
   const persist = (next: JoinDraft) => {
     setDraft(next);
-    if (!demo) localStorage.setItem(DRAFT_KEY, JSON.stringify(next));
+    if (!demo) {
+      try {
+        localStorage.setItem(DRAFT_KEY, JSON.stringify(next));
+      } catch {
+        /* private mode — the in-memory draft still works this session */
+      }
+    }
     setSave("saving");
     window.setTimeout(() => setSave("saved"), 350);
   };

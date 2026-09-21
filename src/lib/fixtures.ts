@@ -850,111 +850,11 @@ export const roiSeries = [
    §03) so Block B is a substitution, not a rewrite. Amounts in cents.
    ========================================================================== */
 
-/* ---- (public)/join — Athlete application, §11 · §39 front door ---- */
-
-/**
- * The ten onboarding sections. The application funnel is DRAFT → SUBMITTED
- * (§11); this screen collects, it does not submit — acceptance of the Content
- * Collaboration Agreement is blocked until counsel approves the template (§12).
- * Field defs stay UI-side; nothing here is a stored model shape.
- */
-export const applicationSections = [
-  {
-    id: "identity",
-    title: "Identity",
-    blurb: "Legal name, date of birth and contact. A date of birth under 18 opens the guardian section (§4).",
-    fields: [
-      { label: "Legal first name", placeholder: "Shammah", type: "text" as const },
-      { label: "Legal last name", placeholder: "Kwizera", type: "text" as const },
-      { label: "Date of birth", placeholder: "YYYY-MM-DD", type: "text" as const },
-      { label: "Email", placeholder: "you@example.com", type: "text" as const },
-      { label: "Phone", placeholder: "+1 …", type: "text" as const },
-    ],
-  },
-  {
-    id: "sport",
-    title: "Sport & team",
-    blurb: "Primary sport, position, level and current team or school.",
-    fields: [
-      { label: "Primary sport", placeholder: "Basketball", type: "text" as const },
-      { label: "Position", placeholder: "Forward", type: "text" as const },
-      { label: "Level", placeholder: "NCAA / High school / Club", type: "text" as const },
-      { label: "Team or school", placeholder: "…", type: "text" as const },
-    ],
-  },
-  {
-    id: "location",
-    title: "Location",
-    blurb: "Home market and any secondary markets — geography feeds matching (§13 step 3).",
-    fields: [
-      { label: "City", placeholder: "Silver Spring", type: "text" as const },
-      { label: "State / region", placeholder: "MD", type: "text" as const },
-      { label: "Country", placeholder: "USA", type: "text" as const },
-    ],
-  },
-  {
-    id: "social",
-    title: "Social accounts",
-    blurb: "Handles per platform. Followers are self-reported until verified (§22).",
-    fields: [
-      { label: "Instagram", placeholder: "@handle", type: "text" as const },
-      { label: "TikTok", placeholder: "@handle", type: "text" as const },
-      { label: "YouTube", placeholder: "@handle", type: "text" as const },
-    ],
-  },
-  {
-    id: "capabilities",
-    title: "Content capabilities",
-    blurb: "What you can produce — formats, turnaround, equipment.",
-    fields: [
-      { label: "Formats", placeholder: "Reels, stories, appearances", type: "text" as const },
-      { label: "Typical turnaround", placeholder: "3–5 days", type: "text" as const },
-    ],
-  },
-  {
-    id: "interests",
-    title: "Brand interests",
-    blurb: "Categories you want to work with. Used for fit scoring, not exclusivity.",
-    fields: [
-      { label: "Interested categories", placeholder: "Apparel, nutrition, local", type: "text" as const },
-    ],
-  },
-  {
-    id: "restrictions",
-    title: "Restrictions & conflicts",
-    blurb: "Existing deals and categories you cannot promote. Checked against every brief before an invite (§26).",
-    fields: [
-      { label: "Existing sponsorships", placeholder: "e.g. competing apparel brand", type: "text" as const },
-      { label: "Categories to exclude", placeholder: "Alcohol, gambling …", type: "text" as const },
-    ],
-  },
-  {
-    id: "guardian",
-    title: "Guardian / authorized rep",
-    blurb: "Required for minors (§4). A verified guardian must authorize before any Campaign Order.",
-    minorOnly: true,
-    fields: [
-      { label: "Guardian legal name", placeholder: "…", type: "text" as const },
-      { label: "Relationship", placeholder: "Parent / legal guardian", type: "text" as const },
-      { label: "Guardian email", placeholder: "guardian@example.com", type: "text" as const },
-    ],
-  },
-  {
-    id: "payment",
-    title: "Payment recipient",
-    blurb: "Who earnings are attributed to. Status only — SponsorX stores no bank details or tax ID (§26, Addendum A6).",
-    fields: [
-      { label: "Recipient name", placeholder: "…", type: "text" as const },
-    ],
-  },
-  {
-    id: "agreement",
-    title: "Agreement",
-    blurb: "The Content Collaboration Agreement. Acceptance is blocked until counsel approves the template (§12).",
-    blocked: true,
-    fields: [],
-  },
-] as const;
+/* ---- (public)/join — Athlete application, §11 · §39 front door ----
+   Section data and flow logic live in src/lib/join-flow.ts (P1-ART-07 wizard,
+   2026-09-21). Agreement is click-wrap against v0.4 draft — G-05 stopped
+   being a gate on 2026-09-15, so the old "blocked until counsel" copy that
+   lived here is retired with the block. */
 
 /* ---- athlete/orders/[id] — Campaign Order, §12 · guide §08 ---- */
 
