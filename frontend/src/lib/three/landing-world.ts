@@ -26,8 +26,8 @@ const STAND_R = 22; // stadium stand-ring radius
 // (only the morphing ball stays visible), which hides the stadium swap.
 const FOG_OPEN_NEAR = 10;
 const FOG_OPEN_FAR = 34;
-const FOG_VOID_NEAR = 0.5;
-const FOG_VOID_FAR = 6;
+const FOG_VOID_NEAR = 0.3;
+const FOG_VOID_FAR = 3.5;
 
 const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
 const smooth = (x: number) => {
@@ -203,8 +203,11 @@ export class LandingWorld {
     const x = f - i;
     if (x <= 0 || x >= 1) return 0;
     let o = 1;
-    if (i > 0 && x < 0.2) o = x / 0.2;
-    if (i < SECTION_COUNT - 1 && x > 0.8) o = 1 - (x - 0.8) / 0.2;
+    // Sharp fades right at the hold edges: the floor vanishes just after you
+    // leave a stadium (x>0.8) and only re-appears just before you land in the
+    // next (x>0.14), so it never lingers into the dark passage.
+    if (i > 0 && x < 0.2) o = (x - 0.14) / 0.06; // fade in over [0.14, 0.2]
+    if (i < SECTION_COUNT - 1 && x > 0.8) o = 1 - (x - 0.8) / 0.06; // out over [0.8, 0.86]
     return clamp01(o);
   }
 
@@ -219,9 +222,10 @@ export class LandingWorld {
     const fog = this.scene.fog as THREE.Fog | null;
     if (fog) {
       const { index, local } = chapterAt(progress);
+      // Collapse to the void fast, aligned with the level fade window above.
       let gap = 0;
-      if (local < 0.2 && index > 0) gap = 1 - local / 0.2;
-      else if (local > 0.8 && index < SECTION_COUNT - 1) gap = (local - 0.8) / 0.2;
+      if (local < 0.2 && index > 0) gap = Math.min(1, (0.2 - local) / 0.06);
+      else if (local > 0.8 && index < SECTION_COUNT - 1) gap = Math.min(1, (local - 0.8) / 0.06);
       const g = gap * gap * (3 - 2 * gap);
       fog.near = FOG_OPEN_NEAR + (FOG_VOID_NEAR - FOG_OPEN_NEAR) * g;
       fog.far = FOG_OPEN_FAR + (FOG_VOID_FAR - FOG_OPEN_FAR) * g;
