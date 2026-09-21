@@ -12,7 +12,10 @@ athlete and property (§8); four BTG admin workspaces — Admin, Athlete Network
 Manager, Finance, Content Approval (§10, §23); guardian / authorized-rep access
 for minors (§4); and a public fan QR page with no login (§16).
 
-**Status:** greenfield — no application code yet. No build/test commands exist.
+**Status:** in build. The repo is npm workspaces — `frontend/` (Next.js app,
+Stage 1 UI on fixtures largely shipped) and `backend/` (Express API + pg-boss
+worker + Prisma, scaffolded 2026-09-21, Addendum B). `npm run build` /
+`npm test` at the root run both; `npm run docker:up` stands up local infra.
 
 ## Always use graphify
 
@@ -63,17 +66,18 @@ then typecheck if you want it separately.
 
 | Concern | Vendor |
 |---|---|
-| App + API + PDF worker + Postgres | Railway (one project, private networking) |
-| Video, agreements, creative assets | Cloudflare R2 (public CDN and private signed buckets — separate policies) |
+| Web app + API + PDF worker + Postgres + Redis | Railway (one project, private networking; web and API are **two services** — Addendum B) |
+| Video, agreements, creative assets | Cloudflare R2 (public CDN and private signed buckets — separate policies; MinIO is the local S3 stand-in) |
 | Authentication + MFA | Clerk (identity only) |
 | Sales, invoices, payment status | Zoho (CRM + Books) |
 | Transactional email | Not yet chosen — Resend / Postmark / SES |
 
-Full rationale, rejected alternatives and revisit triggers:
+Redis is **cache / rate-limit only** — the job queue stays in Postgres (pg-boss),
+Addendum A3/B4. Full rationale, rejected alternatives and revisit triggers:
 **[.claude/stack-decision.md](.claude/stack-decision.md)** — read this before
-proposing any hosting, database or vendor change. Addendum A there reconciles
-the stack against Blueprint v2.0 and records what §27's open choices resolved
-to, and why.
+proposing any hosting, database or vendor change. Addendum A reconciles the stack
+against Blueprint v2.0; **Addendum B (2026-09-21)** records the split into
+`frontend/` + `backend/` workspaces and the standalone Express API.
 
 ## The task board
 
@@ -170,20 +174,28 @@ Code review. Committing one file is what makes a shared tracker actually shared.
   worker, queued. Inbound Zoho webhooks land in the queue too — §18 makes
   Accounts, Contacts, Deals and Tasks bi-directional. If Zoho is down, sponsors
   still browse, athletes still accept orders, fans still redeem — syncs wait.
-- **One language, one service.** TypeScript everywhere. The Phase 1 API (§19)
-  is Next.js route handlers under `/api/v1`, consumed by the portals and by
-  §8's API Service Account on equal terms. Contracts are schema-first (Zod →
-  OpenAPI) because §38 requires a spec.
-- **Stay host-portable.** Next.js `output: 'standalone'`. Treat ISR,
-  `next/image` optimization and edge middleware as host-specific primitives —
-  adopt deliberately, never by default. The fan QR page stays a plain dynamic
-  route.
+- **One language, two workspaces.** TypeScript everywhere. The repo is npm
+  workspaces: `frontend/` (`@sponsorx/frontend`, the Next.js app) and
+  `backend/` (`@sponsorx/backend`, the API + worker + Prisma). The Phase 1 API
+  (§19) is a **standalone Node.js + Express service** under `backend/src`
+  (run with tsx), serving `/api/v1` to the portals and to §8's API Service
+  Account on equal terms — deliberately not coupled to the Next.js runtime, so
+  the same API serves off-web consumers (mobile, INFINEX §8, partners).
+  Contracts stay schema-first (Zod → OpenAPI) because §38 requires a spec.
+  Rationale: **Addendum B** in stack-decision.md.
+- **Stay host-portable.** The web app is Next.js `output: 'standalone'`; the API
+  is a plain Node server. Treat ISR, `next/image` optimization and edge
+  middleware as host-specific primitives — adopt deliberately, never by default.
+  The fan QR page stays a plain dynamic route. Local dev is one command
+  (`npm run docker:up` → Postgres, Redis, MinIO, migrate, worker); the two apps
+  run on the host.
 - **Authorization is ours.** Clerk authenticates; `tenants`, `roles` and
   `user_roles` in Postgres authorize. Every protected record is tenant-scoped
   (§26), and §30 makes cross-tenant and role tests an acceptance criterion.
 - **Uploads go direct to R2** via presigned URLs, never through the app server.
 - **Postgres holds** product records, the job queue (Postgres, not Redis —
-  Addendum A3) and the audit log.
+  Addendum A3/B4) and the audit log. Redis exists but is **cache / rate-limit
+  only**; nothing about the queue lives in it.
 - **Postgres does not hold** passwords (Clerk), files (R2), invoices (Zoho),
   bank details (nowhere — forbidden by §26), or tax IDs (not collected in
   Phase 1 — Addendum A6).

@@ -1,0 +1,21 @@
+{
+  "compilerOptions": {
+    // The runtime is tsx (see package.json scripts and the Dockerfile), so
+    // this config exists for typechecking and editor support. `bundler`
+    // resolution matches how tsx resolves extensionless imports — the same
+    // mode the generated Prisma client is written for.
+    "target": "ES2023",
+    "lib": ["ES2023"],
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "strict": true,
+    "noEmit": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "isolatedModules": true,
+    "resolveJsonModule": true,
+    "forceConsistentCasingInFileNames": true,
+    "types": ["node"]
+  },
+  "include": ["src", "worker"]
+}
