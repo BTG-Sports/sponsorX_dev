@@ -1,5 +1,11 @@
 # 2026-09-21 — tasks completed
 
+> **Board dates note.** At the user's request, the four HeckerCreatives/infinex
+> tasks worked this day — **P1-FE-16, P1-FE-17, P4-FE-06, P0-OPS-07** — were
+> re-dated on the tracker to **2026-09-18** (Date Started, and Date Done for the
+> two Done rows). The work itself happened on 2026-09-21, which this log records;
+> only the board's date columns were moved. Backup: `board-backup-pre-redate.xlsx`.
+
 ## Board repair — seven of Jan's rows were lost in a binary conflict
 
 The task board is a committed `.xlsx`, so git cannot merge it. On 2026-09-21 two
