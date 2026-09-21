@@ -1,0 +1,26 @@
+stateDiagram-v2
+%% §21 machine 5 of 8 — Deliverable  (Prisma enum: DeliverableState)
+%% §21: NOT_STARTED -> DRAFT_SUBMITTED -> BTG_REVIEW -> SPONSOR_REVIEW -> APPROVED -> PUBLISHED -> VERIFIED
+    direction TB
+    [*] --> NOT_STARTED : created with the order
+    NOT_STARTED --> DRAFT_SUBMITTED : athlete uploads a draft
+    DRAFT_SUBMITTED --> BTG_REVIEW : content approval queue
+    BTG_REVIEW --> SPONSOR_REVIEW : BTG passes it on
+    BTG_REVIEW --> DRAFT_SUBMITTED : changes requested (derived)
+    SPONSOR_REVIEW --> APPROVED : sponsor signs off
+    SPONSOR_REVIEW --> DRAFT_SUBMITTED : changes requested (derived)
+    APPROVED --> PUBLISHED : athlete posts it, publishedUrl captured
+    PUBLISHED --> VERIFIED : BTG confirms the live post
+    VERIFIED --> [*]
+
+    note right of BTG_REVIEW
+      §21 states the forward path only. Both review
+      states need a way back or a rejected draft has
+      nowhere to go; the two return arrows are derived
+      and confirmed in P2-BE-02.
+    end note
+    note right of VERIFIED
+      VERIFIED is a measured fact, not a claim:
+      metrics recorded against this deliverable carry
+      their own MetricSource provenance.
+    end note

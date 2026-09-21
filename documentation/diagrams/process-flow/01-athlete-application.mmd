@@ -1,0 +1,27 @@
+flowchart TD
+%% Page 2 of 11 — Stage 1 of the §39 loop. Athlete application. Blueprint §11, §21 AthleteState.
+    START(["START"]):::term
+    A1["Athlete opens the public join page"]:::athlete
+    A2["Identity, sport, school, social handles"]:::athlete
+    A3["Content capabilities and brand interests"]:::athlete
+    A4["Restrictions and existing NIL deals"]:::athlete
+    MINOR{"Under 18?"}
+    G1["Guardian named and invited to confirm"]:::athlete
+    AG["Accepts the Content Collaboration Agreement"]:::athlete
+    ST1["AthleteState · DRAFT"]:::state
+    A5["Athlete submits"]:::athlete
+    ST2["AthleteState · SUBMITTED"]:::state
+    OUT[/"CONTINUES ON PAGE 3"/]:::conn
+
+    START --> A1 --> A2 --> A3 --> A4 --> MINOR
+    MINOR -- "yes" --> G1 --> AG
+    MINOR -- "no" --> AG
+    AG --> ST1 --> A5 --> ST2 --> OUT
+    classDef athlete fill:#E3EEFB,stroke:#1F4E9C,stroke-width:1.5px,color:#0A0C10
+    classDef btg fill:#FFF1E0,stroke:#C97A16,stroke-width:1.5px,color:#0A0C10
+    classDef sponsor fill:#E4F4EC,stroke:#1E7A52,stroke-width:1.5px,color:#0A0C10
+    classDef fan fill:#F0E8FA,stroke:#6B3FA0,stroke-width:1.5px,color:#0A0C10
+    classDef system fill:#EFF2F6,stroke:#5A6676,stroke-width:1.5px,color:#0A0C10
+    classDef state fill:#FFFFFF,stroke:#3A4759,stroke-width:1.5px,stroke-dasharray:4 3,color:#0A0C10
+    classDef conn fill:#0A0C10,stroke:#0A0C10,color:#FFFFFF
+    classDef term fill:#1F4E9C,stroke:#1F4E9C,color:#FFFFFF,stroke-width:2px

@@ -1,0 +1,18 @@
+stateDiagram-v2
+%% §21 machine 3 of 8 — Athlete Invitation  (Prisma enum: InviteState)
+%% §21: INVITED -> VIEWED -> ACCEPTED / DECLINED / EXPIRED
+    direction TB
+    [*] --> INVITED : campaign manager sends the invite
+    INVITED --> VIEWED : athlete opens it
+    INVITED --> EXPIRED : expiresAt passes
+    VIEWED --> ACCEPTED : athlete accepts
+    VIEWED --> DECLINED : athlete declines
+    VIEWED --> EXPIRED : expiresAt passes
+    ACCEPTED --> [*] : Campaign Order raised
+    DECLINED --> [*]
+    EXPIRED --> [*]
+
+    note right of EXPIRED
+      Expiry is a worker job sweeping expiresAt,
+      not a check performed on read.
+    end note

@@ -1,0 +1,2 @@
+Partial indexes and raw SQL Prisma will not create (Guide §03, task P2-BE-03).
+The single-use reward-token index that makes fan redemption race-safe lives here.

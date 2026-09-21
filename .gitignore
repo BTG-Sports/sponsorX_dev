@@ -45,3 +45,6 @@ next-env.d.ts
 # (they go stale against the Sheet and cannot be diffed)
 documentation/*.xlsx
 documentation/*.xls
+
+# Prisma 7 generated client (Guide §02 — output set in prisma/schema.prisma)
+/src/generated/prisma

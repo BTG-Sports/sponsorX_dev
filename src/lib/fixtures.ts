@@ -397,7 +397,9 @@ export const property = {
     { label: "Est. Views / Season", value: "2.5M", source: "ESTIMATED" as const },
     { label: "Avg. Engagement", value: "15K", source: "VERIFIED_MANUAL" as const },
     { label: "Episodes / Year", value: "52", source: "VERIFIED_MANUAL" as const },
-    { label: "Primary Age", value: "18-34", source: "ESTIMATED" as const },
+    // No age band here: audience demographics are out of scope for Phase 1 —
+    // there is no retrieval path for them, so they must not appear even as
+    // demo garnish. Taxonomy §8.4.
   ],
   opportunities: [
     { id: "op1", name: "Presenting Sponsor (Exclusive)", detail: "Category ownership, all episodes", price: 3_500_000, state: "ACTIVE" as InventoryState },
@@ -432,7 +434,7 @@ export const athletePublic = {
     { label: "Followers", value: "128K", source: "SELF_REPORTED" as const },
     { label: "Engagement", value: "8.7%", source: "SELF_REPORTED" as const },
     { label: "Monthly Reach", value: "1.2M", source: "ESTIMATED" as const },
-    { label: "Core Age", value: "18-24", source: "ESTIMATED" as const },
+    // No age band — see the note on the property stats above. Taxonomy §8.4.
   ],
   /** Sponsor prices against the SX catalogue. */
   inventory: [
@@ -811,16 +813,25 @@ export const roiReport = {
   roi: "2.73X",
   left: [
     { label: "Investment", value: "$19,200", source: "VERIFIED_MANUAL" as const },
-    { label: "Total Views", value: "823,400", source: "VERIFIED_MANUAL" as const },
-    { label: "Engagements", value: "42,815", source: "VERIFIED_MANUAL" as const },
-    { label: "Leads Generated", value: "4,300", source: "VERIFIED_API" as const },
-    { label: "Rewards Redeemed", value: "1,870", source: "VERIFIED_API" as const },
+    // Rollups of per-athlete figures the athletes reported themselves, so they
+    // inherit SELF_REPORTED — a total cannot be more verified than its parts.
+    // Taxonomy §4.2. To make these verified, verify each athlete's contribution.
+    { label: "Total Views", value: "823,400", source: "SELF_REPORTED" as const },
+    { label: "Engagements", value: "42,815", source: "SELF_REPORTED" as const },
+    // F-4 · both come from SponsorX's own reward funnel, not an outside
+    // platform, so they are VERIFIED_SYSTEM — the strongest label, because we
+    // recorded the events ourselves and can audit them. Taxonomy §2.
+    { label: "Leads Generated", value: "4,300", source: "VERIFIED_SYSTEM" as const },
+    { label: "Rewards Redeemed", value: "1,870", source: "VERIFIED_SYSTEM" as const },
     { label: "Revenue Attributed", value: "$52,500", source: "ATTRIBUTED" as const },
   ],
   right: [
     { label: "Media Value", value: "$32,936", source: "ESTIMATED" as const },
-    { label: "Cost per View (CPV)", value: "$0.023", source: "VERIFIED_MANUAL" as const },
-    { label: "Cost per Engagement", value: "$0.45", source: "VERIFIED_MANUAL" as const },
+    // Derived from Investment ÷ the rollups above, so they take the weakest
+    // input — taxonomy §4.1. Verified investment ÷ self-reported views is not
+    // a verified cost.
+    { label: "Cost per View (CPV)", value: "$0.023", source: "SELF_REPORTED" as const },
+    { label: "Cost per Engagement", value: "$0.45", source: "SELF_REPORTED" as const },
   ],
 };
 

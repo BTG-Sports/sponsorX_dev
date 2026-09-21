@@ -1,0 +1,22 @@
+stateDiagram-v2
+%% §21 machine 7 of 8 — Earnings  (Prisma enum: EarningState)
+%% §21: PENDING -> ELIGIBLE -> APPROVED_FOR_PAYOUT -> PAID / HELD / DISPUTED
+%% These six states are P7-BE-01's acceptance and match the Phase 1 Payment Policy (G-01) §2.
+    direction TB
+    [*] --> PENDING : order accepted, work not yet complete
+    PENDING --> ELIGIBLE : order COMPLETED
+    ELIGIBLE --> APPROVED_FOR_PAYOUT : finance approves
+    APPROVED_FOR_PAYOUT --> PAID : payment made outside SponsorX
+    ELIGIBLE --> HELD : query raised
+    APPROVED_FOR_PAYOUT --> HELD : query raised
+    HELD --> ELIGIBLE : query resolved (derived)
+    ELIGIBLE --> DISPUTED : athlete disputes the amount
+    DISPUTED --> ELIGIBLE : dispute resolved (derived)
+    PAID --> [*]
+
+    note right of PAID
+      PAID is a bookkeeping mark about something that
+      already happened elsewhere — never an instruction
+      to move money. SponsorX stores no bank details
+      and collects no tax IDs in Phase 1 (§26, G-01).
+    end note

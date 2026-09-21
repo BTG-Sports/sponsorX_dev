@@ -1,0 +1,319 @@
+erDiagram
+%% SponsorX — Phase 1 Entity Relationship Diagram
+%% P0-ART-01 · §38 deliverable · source for P2-BE-02 (full Prisma schema)
+%% Every Phase 1 table from Blueprint v2.0 §20, as modelled in
+%% documentation/SponsorX-Implementation-Guide-V2.md. Attributes are trimmed to
+%% keys, foreign keys, state columns and Zoho sync columns so the whole model
+%% stays readable at print size; the Guide carries the full column list.
+%% tenantId is on every tenant-scoped table and is NOT drawn as a relationship —
+%% it is a scoping column enforced in application code (§26), not a Postgres FK.
+
+%% ───────────── Tenancy and identity ─────────────
+  TENANT ||--o{ USER : "scopes (tenantId)"
+  USER |o--|| ATHLETE : "is (athleteId, 1:1)"
+  USER ||--o{ AGREEMENT_ACCEPTANCE : accepts
+
+  TENANT {
+    string id PK
+    string name
+    datetime createdAt
+  }
+  USER {
+    string id PK
+    string tenantId
+    string clerkId UK "identity mirror — Clerk owns the credential"
+    string email
+    enum_array roles "Role[] — authorization lives here, not in Clerk"
+    string athleteId FK "nullable, unique"
+    string sponsorId FK
+    string propertyId FK
+    string guardianId FK
+  }
+
+%% ───────────── Athlete network ─────────────
+  PROPERTY ||--o{ ATHLETE : parents
+  GUARDIAN ||--o{ ATHLETE : "wards (minors, §4)"
+  ATHLETE ||--o{ ATHLETE_SOCIAL : declares
+  ATHLETE ||--o{ ATHLETE_SCORE : "scored over time"
+  ATHLETE ||--o{ ATHLETE_RATE : "rate card"
+  ATHLETE ||--o{ CAMPAIGN_INVITE : "invited to"
+  ATHLETE ||--o{ CAMPAIGN_ORDER : "contracted for"
+  ATHLETE ||--o{ REWARD_TOKEN : "attributed to"
+
+  PROPERTY {
+    string id PK
+    string tenantId
+    string slug UK
+    string name
+    string kind "TEAM | SCHOOL | EVENT | MEDIA | VIRTUAL"
+    string zohoId UK
+  }
+  GUARDIAN {
+    string id PK
+    string tenantId
+    string legalName
+    string relationship "PARENT | LEGAL_GUARDIAN | AUTHORIZED_REP"
+    datetime verifiedAt "§37 pre-pilot gate"
+  }
+  ATHLETE {
+    string id PK
+    string tenantId
+    string slug UK "public profile URL"
+    string legalName
+    datetime birthDate "drives the guardian path"
+    string sport
+    enum state "AthleteState — §21 machine 1"
+    string tier "§6 multiplier, manual in Phase 1"
+    string guardianId FK
+    string propertyId FK
+    string zohoId UK
+    enum lastSyncOrigin "SyncOrigin"
+    string lastSyncHash
+  }
+  ATHLETE_SOCIAL {
+    string id PK
+    string athleteId FK
+    string platform UK "unique with athleteId"
+    string handle
+    int followers
+    enum source "MetricSource — provenance"
+  }
+  ATHLETE_SCORE {
+    string id PK
+    string athleteId FK
+    int score "0-100"
+    json factors "§14 factor snapshot, not just a number"
+    string method "rules-v1 — Phase 3 replaces this"
+  }
+
+%% ───────────── Commercial catalogue ─────────────
+  NIL_JOB ||--o{ ATHLETE_RATE : prices
+  SPONSOR_PACKAGE ||--o{ CAMPAIGN_BRIEF : "sold as"
+
+  NIL_JOB {
+    string id PK "SX-01 … SX-07"
+    string tenantId
+    string name
+    int baseLow "athlete pay band, §5"
+    int baseHigh
+    int sellLow "sponsor price band, §5"
+    int sellHigh
+  }
+  ATHLETE_RATE {
+    string id PK
+    string athleteId FK
+    string jobId FK
+    int amount "cents"
+    int version "unique with athleteId + jobId"
+  }
+  SPONSOR_PACKAGE {
+    string id PK
+    string tenantId
+    string name "Test Drive … Season Partner, §7"
+    int priceLow
+    int priceHigh
+    int athleteCount
+    json inventory "job codes and counts"
+  }
+
+%% ───────────── Sponsor demand ─────────────
+  SPONSOR ||--o{ CAMPAIGN_BRIEF : submits
+  SPONSOR ||--o{ CAMPAIGN : buys
+  CAMPAIGN_BRIEF |o--|| CAMPAIGN : "becomes (1:1)"
+  CAMPAIGN ||--o{ CAMPAIGN_INVITE : staffs
+  CAMPAIGN ||--o{ CAMPAIGN_ORDER : contracts
+  CAMPAIGN ||--o{ REWARD : funds
+
+  SPONSOR {
+    string id PK
+    string tenantId
+    string name
+    string zohoAccountId UK
+    enum lastSyncOrigin "SyncOrigin"
+    string lastSyncHash
+  }
+  CAMPAIGN_BRIEF {
+    string id PK
+    string tenantId
+    string sponsorId FK
+    string objective
+    int budget
+    string packageId FK
+    string_array categories "conflict-check input, §26"
+    enum state "BriefState — §21 machine 2"
+  }
+  CAMPAIGN {
+    string id PK
+    string tenantId
+    string sponsorId FK
+    string briefId FK "unique"
+    int budget "cents"
+    datetime startDate
+    datetime endDate
+    enum state "CampaignState — §21 machine 6"
+    string zohoDealId
+  }
+  CAMPAIGN_INVITE {
+    string id PK
+    string tenantId
+    string campaignId FK
+    string athleteId FK
+    string jobId FK
+    int offered "cents"
+    enum state "InviteState — §21 machine 3"
+    datetime expiresAt "swept by a worker job"
+  }
+
+%% ───────────── Execution ─────────────
+  CAMPAIGN_ORDER ||--o{ DELIVERABLE : "breaks into"
+  CAMPAIGN_ORDER |o--|| EARNING : "earns (1:1)"
+  CAMPAIGN_ORDER |o--|| AGREEMENT_ACCEPTANCE : "accepted via"
+  DELIVERABLE ||--o{ CREATIVE_ASSET : versions
+  DELIVERABLE ||--o{ METRIC_DAILY : measured
+  DELIVERABLE |o--|| TRACKING_LINK : "tracked by (1:1)"
+  TRACKING_LINK ||--o{ LINK_EVENT : records
+
+  CAMPAIGN_ORDER {
+    string id PK
+    string tenantId
+    string campaignId FK
+    string athleteId FK
+    string jobId FK
+    int compensation
+    string usageRights
+    string exclusivity
+    datetime dueDate
+    enum state "OrderState — §21 machine 4"
+    string acceptanceId FK "unique → AgreementAcceptance"
+  }
+  DELIVERABLE {
+    string id PK
+    string tenantId
+    string orderId FK
+    string title
+    datetime dueDate
+    enum state "DeliverableState — §21 machine 5"
+    string publishedUrl
+    datetime publishedAt
+  }
+  CREATIVE_ASSET {
+    string id PK
+    string deliverableId FK
+    int version "unique with deliverableId"
+    string r2Key "private bucket — signed URL only"
+    json derivatives "pre-derived sizes, §12"
+  }
+  METRIC_DAILY {
+    string id PK
+    string deliverableId FK
+    date day "unique with deliverableId + source"
+    int views
+    int engagements
+    enum source "MetricSource — provenance"
+  }
+  TRACKING_LINK {
+    string id PK
+    string tenantId
+    string code UK "short, opaque"
+    string deliverableId FK "unique"
+    string destinationUrl
+  }
+  LINK_EVENT {
+    string id PK
+    string tenantId
+    string linkId FK
+    datetime at
+    string city "coarse geo only"
+    string region
+  }
+
+%% ───────────── Fan reward funnel (§16) ─────────────
+  REWARD ||--o{ REWARD_TOKEN : mints
+  REWARD_TOKEN ||--o{ REWARD_EVENT : "scanned / claimed / redeemed"
+
+  REWARD {
+    string id PK
+    string tenantId
+    string campaignId FK
+    string offerText
+    boolean singleUse
+    datetime expiresAt
+    enum state "RewardState — §21 machine 8"
+  }
+  REWARD_TOKEN {
+    string id PK
+    string rewardId FK
+    string athleteId FK "per-athlete attribution"
+    string token UK "opaque — never the record id"
+    string qrKey "R2 object, private bucket"
+  }
+  REWARD_EVENT {
+    string id PK
+    string tenantId
+    string tokenId FK
+    enum type "SCAN | LANDING | CLAIM | REDEEM"
+    datetime at
+    string fanEmail "captured at CLAIM — the consent record"
+  }
+
+%% ───────────── Money (status only — no bank details, §26) ─────────────
+  EARNING {
+    string id PK
+    string tenantId
+    string athleteId FK
+    string orderId FK "unique"
+    int gross
+    int adjustment
+    enum state "EarningState — §21 machine 7"
+    int taxYear
+    string reference "Zoho / bank reference — never credentials"
+  }
+
+%% ───────────── Agreements ─────────────
+  AGREEMENT ||--o{ AGREEMENT_ACCEPTANCE : "accepted as"
+  GUARDIAN ||--o{ AGREEMENT_ACCEPTANCE : "co-signs for minors"
+
+  AGREEMENT {
+    string id PK
+    string kind "COLLAB | CAMPAIGN_ORDER | GUARDIAN | RELEASE"
+    int version "unique with kind"
+    string bodyHash "sha256 of the exact text shown"
+    datetime effectiveAt
+  }
+  AGREEMENT_ACCEPTANCE {
+    string id PK
+    string tenantId
+    string agreementId FK
+    string userId FK
+    string bodyHash "copied at accept time — the audit trail"
+    string ip
+    string userAgent
+    string guardianId FK "set when the athlete is a minor"
+  }
+
+%% ───────────── Platform infrastructure (no FKs by design) ─────────────
+  OUTBOX_JOB {
+    string id PK
+    string tenantId
+    string name
+    json payload
+    datetime dispatchedAt "null = pending; drained FOR UPDATE SKIP LOCKED"
+  }
+  WEBHOOK_DELIVERY {
+    string id PK
+    string tenantId
+    string source "zoho"
+    boolean signatureOk
+    json payload
+    string status "RECEIVED | APPLIED | REJECTED | FAILED"
+  }
+  AUDIT_LOG {
+    string id PK
+    string tenantId
+    string actorId
+    string action
+    string entity
+    string entityId
+    json before
+    json after
+  }

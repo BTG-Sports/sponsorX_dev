@@ -129,6 +129,8 @@ Choose the provider that handles checkout, connected-account onboarding, platfor
 
 **Order** 4 · **LEG** · **Where:** External · counsel · **5d** · **Blocked**
 
+> **Tracked on the Legal sheet of the task board, not in the delivery queue** (moved 2026-09-15). No development task depends on this; counsel lead times must never sit on the build's critical path.
+
 Counsel drafts the documents external properties accept: platform terms, marketplace terms, payout terms, privacy terms, and any BTG representation documents. Longest lead time in Phase 2 — start it first.
 
 - **Depends on:** Phase 1 complete
@@ -138,6 +140,8 @@ Counsel drafts the documents external properties accept: platform terms, marketp
 ### ⏸ `2S0-LEG-02` · Tax and withholding position for marketplace payouts
 
 **Order** 5 · **LEG** · **Where:** External · counsel · **3d** · **Blocked**
+
+> **Tracked on the Legal sheet of the task board, not in the delivery queue** (moved 2026-09-15). No development task depends on this; counsel lead times must never sit on the build's critical path.
 
 Phase 1 collected no tax IDs because money moved outside the system. Phase 2 moves real money, so that changes. Determine what the payment provider handles versus what SponsorX must collect and report.
 

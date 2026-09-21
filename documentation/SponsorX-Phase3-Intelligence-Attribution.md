@@ -149,6 +149,8 @@ Snowflake, BigQuery, Redshift or Postgres depending on scale, plus dbt or equiva
 
 **Order** 6 · **LEG** · **Where:** External · counsel · **3d** · **Blocked**
 
+> **Tracked on the Legal sheet of the task board, not in the delivery queue** (moved 2026-09-15). No development task depends on this; counsel lead times must never sit on the build's critical path.
+
 Counsel reviews the attribution claims, the consent basis for using fan data this way, and what partner contracts actually permit.
 
 - **Depends on:** 3S0-PMO-01

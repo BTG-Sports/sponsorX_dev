@@ -1,35 +1,40 @@
-# Graph Report - sponsorX_dev  (2026-09-14)
+# Graph Report - sponsorX_dev  (2026-09-16)
 
 ## Corpus Check
-- 81 files · ~886,969 words
+- 160 files · ~927,848 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 1386 nodes · 2124 edges · 126 communities (98 shown, 27 thin omitted)
-- Extraction: 96% EXTRACTED · 4% INFERRED · 0% AMBIGUOUS · INFERRED: 85 edges (avg confidence: 0.89)
-- Token cost: 55,000 input · 4,400 output
+- 1672 nodes · 2670 edges · 136 communities (109 shown, 26 thin omitted)
+- Extraction: 97% EXTRACTED · 3% INFERRED · 0% AMBIGUOUS · INFERRED: 87 edges (avg confidence: 0.89)
+- Token cost: 0 input · 0 output
+
+## Graph Freshness
+- Built from commit: `4e3568b7`
+- Run `git rev-parse HEAD` and compare to check if the graph is stale.
+- Run `graphify update .` after code changes (no API cost).
 
 ## Community Hubs (Navigation)
-- athlete/page.tsx
+- activity-explorer.tsx
 - SponsorX ↔ Zoho — Module and Field Mapping
 - fixtures.ts
 - package.json
-- ui.tsx
 - athlete/page.tsx
-- finance/page.tsx
-- marketplace/page.tsx
+- profile-editor.tsx
+- admin/page.tsx
+- marketplace-catalog.tsx
 - Stage 0 · Foundation & Decisions
-- campaigns/[id]/page.tsx
+- orders/[id]/page.tsx
 - Stage 2 · Platform Foundations
 - Stage 8 · Integration, Hardening & Launch
-- 2026-09-14 Redesign Log
-- applications/page.tsx
+- ApplicationsDesk client island (src/components/applications-desk.tsx)
+- admin/campaigns/[id]/page.tsx
 - Block A — Finish the UI Scaffold (Fixtures Only)
 - Stage 3 · Athlete Network
 - Stage 7 · Money & Reporting
-- portal-shell.tsx
+- athlete/layout.tsx
 - compilerOptions
-- SponsorX Stack Decision — Phase 1
+- §39 Protected Core Loop
 - BTG SponsorX UI/UX Mockups v1.0
 - Stage 5 · Campaign Execution
 - states.tsx
@@ -40,24 +45,24 @@
 - BTG SponsorX UI/UX Mockups v1.0 (12-screen sheet)
 - The SponsorX Flow (6-Step Pipeline Diagram)
 - SponsorX — Phase 1 Design Record (§38 deliverable)
-- demoState
+- invitations-inbox.tsx
 - (public)/page.tsx
 - SponsorX — Stage 1 QA Verification Report & Checklist
 - SponsorX ↔ Zoho — API credentials and sandbox
 - BTG SponsorX Systems Architecture (Draft 0.1, Phase 1)
 - Design
-- SponsorX Implementation Guide
+- Master Development Blueprint v2.0
 - BTG SponsorX Master Development Blueprint v2.0 - Integrated Athlete Network (Sep 2026)
 - Stage 1 close-out batch: `P1-QA-01` · `P1-QA-03` · `P1-QA-02` · `P1-PMO-01`
-- states.tsx
-- SponsorX Implementation Guide
+- ErrorPanel
+- Zoho Boundary
 - Sprint 5 · Payments, ledger & payouts
 - Pilot Campaign: WHAT'S YOUR PREGAME MEAL?
 - BTG Partner School Execution Plan (12-Month Playbook)
-- mobile-nav.tsx
+- portal-shell.tsx
 - SponsorX Stack Decision — Phase 1
 - login-form.tsx
-- SponsorX Stack Decision — Phase 1
+- SponsorX Zoho Field Mapping Document (P0-PMO-08)
 - P1-FE-04 Edge-State Fixtures Implementation Plan
 - SponsorX — Phase 1 · Managed Marketplace
 - Sprint 0 · Architecture & design
@@ -65,7 +70,7 @@
 - react
 - site-chrome.tsx
 - Clerk Scoped to Identity Only
-- SponsorX Implementation Guide
+- SponsorX Plain English Explainer
 - Sprint 1 · External property onboarding
 - Sprint 4 · Cart, reservations & orders
 - The tasks
@@ -79,14 +84,14 @@
 - theme-toggle.tsx
 - P1-FE-05 — Field-level authorization audit of every fixture-backed screen
 - Sprint 3 · Listing engine
-- SponsorX — Phase 2 · Marketplace & Athlete Commerce
+- The tasks
 - Sprint 0 · Analytics architecture
 - SponsorX — Phase 3 · Intelligence & Attribution
 - Sprint 2 · Manifest & creative deployment
 - The tasks
 - SponsorX Prelaunch Operations Binder (24-Document System)
-- ui.tsx
-- SponsorX Stack Decision — Phase 1
+- campaign-builder.tsx
+- SponsorX Implementation Guide V2
 - P1-QA-01 — §39 loop walk on fixtures: pass/fail for all 11 steps
 - P1-QA-02 — Accessibility audit: AA contrast both themes, keyboard, no-JS redeem
 - P1-QA-03 — Responsive audit: 360px, no horizontal scroll, phone nav
@@ -102,7 +107,7 @@
 - Sprint 7 · Cross-channel reporting
 - Sprint 8 · Operations & load
 - Task Board — Three Artefacts, Three Jobs
-- The tasks
+- SponsorX RBAC Matrix
 - Sprint 1 · Warehouse & benchmarks
 - Sprint 2 · Dynamic CPM engine
 - Sprint 3 · Sponsor matching
@@ -135,18 +140,28 @@
 - SponsorX Full Logo
 - SponsorX Title Logo
 - SponsorX App Icon
+- Sponsor brief-request drawer — design (2026-09-15)
+- money
+- roster-ops.tsx
+- Who Can See What in SponsorX
+- athlete-profile-view.tsx
+- Athlete Dashboard Redesign — easier learning curve
+- Task — Complete `/athlete/invitations` frontend functionality (sort, filter, search, pagination)
+- File map
+- journey-strip.tsx
+- athlete-dashboard-redesign.md
 
 ## God Nodes (most connected - your core abstractions)
-1. `money()` - 32 edges
-2. `Stage 0 · Foundation & Decisions` - 30 edges
-3. `DemoState` - 29 edges
-4. `Stage 2 · Platform Foundations` - 28 edges
-5. `Stage 8 · Integration, Hardening & Launch` - 25 edges
-6. `Card()` - 25 edges
-7. `Stage 3 · Athlete Network` - 22 edges
-8. `Stage 7 · Money & Reporting` - 21 edges
-9. `Badge()` - 21 edges
-10. `react` - 19 edges
+1. `money()` - 47 edges
+2. `demoState` - 33 edges
+3. `react` - 30 edges
+4. `initials()` - 30 edges
+5. `Stage 0 · Foundation & Decisions` - 30 edges
+6. `Card()` - 29 edges
+7. `Stage 2 · Platform Foundations` - 28 edges
+8. `Badge()` - 27 edges
+9. `Stage 8 · Integration, Hardening & Launch` - 25 edges
+10. `compact()` - 23 edges
 
 ## Surprising Connections (you probably didn't know these)
 - `SponsorX Project CLAUDE.md` --cites--> `Master Development Blueprint v2.0`  [EXTRACTED]
@@ -167,57 +182,57 @@
 - **Four-Phase SponsorX Programme (Managed Marketplace to INFINEX)** — graphify_out_converted_btg_sponsorx_master_development_blueprint_integrated_athlete_network_f5776aa7_managed_micro_nil_marketplace, graphify_out_converted_btg_sponsorx_phases_2_4_detailed_developer_specifications_978a9117_phase2_marketplace, graphify_out_converted_btg_sponsorx_phases_2_4_detailed_developer_specifications_978a9117_phase3_intelligence_attribution, graphify_out_converted_btg_sponsorx_phases_2_4_detailed_developer_specifications_978a9117_phase4_infinex_integration, graphify_out_converted_btg_sponsorx_master_development_blueprint_609a437c_four_phase_roadmap [EXTRACTED 1.00]
 - **The Six Load-Bearing Implementation Patterns** — documentation_sponsorx_implementation_guide_tenant_scoping, documentation_sponsorx_implementation_guide_transactional_outbox, documentation_sponsorx_implementation_guide_tracking_reward_funnel, documentation_sponsorx_implementation_guide_zoho_loop_prevention, documentation_sponsorx_implementation_guide_signature_capture, documentation_sponsorx_implementation_guide_authorization_matrix [EXTRACTED 1.00]
 - **WHAT'S YOUR PREGAME MEAL? Pilot Campaign System** — graphify_out_converted_campaign_f7343c64_pregame_meal_campaign, graphify_out_converted_btg_sponsorx_prelaunch_operations_binder_8b3b39f1_pregame_meal_pilot, graphify_out_converted_btg_sponsorx_sponsor_campaign_agreement_and_brief_4e631412_campaign_brief_exhibit_a, graphify_out_converted_btg_sponsorx_athlete_campaign_order_c630d187_campaign_order, graphify_out_converted_sponsorx_youth_content_media_academy_branded_workbook_76628cab_youth_media_academy [EXTRACTED 1.00]
+- **history.replaceState URL-sync idiom adopters** — memory_2026_09_14_tasks_completed_activity_explorer, memory_2026_09_14_tasks_completed_athlete_profile_view, memory_2026_09_14_tasks_completed_profile_editor, memory_2026_09_14_tasks_completed_applications_desk [EXTRACTED 1.00]
 - **Sponsor Portal Redesign Pipeline (Spec → Plan → Shipped)** — docs_superpowers_specs_2026_09_11_sponsor_portal_redesign_design_document, docs_superpowers_plans_2026_09_11_sponsor_portal_redesign_document, memory_2026_09_11_tasks_completed_sponsor_portal_redesign, memory_2026_09_11_tasks_completed_stats_must_be_retrievable [EXTRACTED 1.00]
 - **SponsorX Legal Agreement Framework (Master Agreement + Campaign Order + Sponsor Agreement + Brief)** — graphify_out_converted_sponsorx_athlete_content_collaboration_agreement_172716de_content_collaboration_agreement, graphify_out_converted_btg_sponsorx_athlete_campaign_order_c630d187_campaign_order, graphify_out_converted_btg_sponsorx_sponsor_campaign_agreement_and_brief_4e631412_sponsor_campaign_agreement, graphify_out_converted_btg_sponsorx_sponsor_campaign_agreement_and_brief_4e631412_campaign_brief_exhibit_a [EXTRACTED 1.00]
+- **Slide-over drawer (sx-drawer) choreography adopters** — memory_2026_09_14_tasks_completed_activity_explorer, memory_2026_09_14_tasks_completed_applications_desk, memory_2026_09_14_tasks_completed_slide_over_drawer [EXTRACTED 1.00]
 - **Three-Artefact Task Board System** — claude_task_board, claude_full_programme_task_board_xlsx, claude_google_sheet_task_board, memory_initial_memory_03_rules_and_workflow_task_board_rule [EXTRACTED 1.00]
 - **Fan Redemption Proof Loop (Scan to Verified Redemption)** — documentation_sponsorx_implementation_guide_tracking_reward_funnel, documentation_sponsorx_implementation_guide_single_use_redemption_index, documentation_sponsorx_plain_english_explainer_redemption_as_proof [INFERRED 0.85]
 - **§39 Protected Loop Delivery Chain** — claude_section_39_core_loop, documentation_sponsorx_phase1_build_roadmap_block_b, documentation_sponsorx_implementation_guide_v2_document, memory_initial_memory_01_project_overview_core_loop, memory_initial_memory_04_key_decisions_and_findings_operating_loop_is_the_product [INFERRED 0.85]
-- **Zoho Sync Pipeline (Queued, Worker-Mediated, Loop-Safe)** — documentation_sponsorx_implementation_guide_transactional_outbox, documentation_sponsorx_implementation_guide_zoho_loop_prevention, _claude_stack_decision_zoho_boundary, documentation_sponsorx_stack_summary_railway_worker [INFERRED 0.85]
-- **Slide-over drawer (sx-drawer) choreography adopters** — memory_2026_09_14_tasks_completed_activity_explorer, memory_2026_09_14_tasks_completed_applications_desk, memory_2026_09_14_tasks_completed_slide_over_drawer [EXTRACTED 1.00]
-- **history.replaceState URL-sync idiom adopters** — memory_2026_09_14_tasks_completed_activity_explorer, memory_2026_09_14_tasks_completed_athlete_profile_view, memory_2026_09_14_tasks_completed_profile_editor, memory_2026_09_14_tasks_completed_applications_desk [EXTRACTED 1.00]
 - **Server-safe shared copy/data modules preventing drift** — memory_2026_09_14_tasks_completed_earnings_ui, memory_2026_09_14_tasks_completed_applications_ui, memory_2026_09_14_tasks_completed_profile_sections [INFERRED 0.85]
+- **Zoho Sync Pipeline (Queued, Worker-Mediated, Loop-Safe)** — documentation_sponsorx_implementation_guide_transactional_outbox, documentation_sponsorx_implementation_guide_zoho_loop_prevention, _claude_stack_decision_zoho_boundary, documentation_sponsorx_stack_summary_railway_worker [INFERRED 0.85]
 
-## Communities (126 total, 27 thin omitted)
+## Communities (136 total, 26 thin omitted)
 
-### Community 0 - "athlete/page.tsx"
-Cohesion: 0.05
-Nodes (51): ActivityExplorer(), DateRangePicker(), DOW, fmtCode(), Item, MONTH_NAMES, parseCode(), rangeLabel() (+43 more)
+### Community 0 - "activity-explorer.tsx"
+Cohesion: 0.06
+Nodes (42): MONTH_LABELS, ActivityExplorer(), DateRangePicker(), DOW, Drawer(), fmtCode(), Item, MONTH_NAMES (+34 more)
 
 ### Community 1 - "SponsorX ↔ Zoho — Module and Field Mapping"
 Cohesion: 0.05
 Nodes (42): 10 · Open decisions, 11 · Schema and configuration changes this document requires, 12 · Acceptance, 13 · Revision history, 1 · Purpose and the boundary it enforces, 2.1 · What exists in the org today, 2 · The Zoho environment this maps onto, 3 · Conventions used in every table below (+34 more)
 
 ### Community 2 - "fixtures.ts"
-Cohesion: 0.08
-Nodes (35): CAMPAIGN_TONE, spentPct, InsightStrip(), campaign, campaignRoster, campaignSeries, efficiency, engagementSpark (+27 more)
+Cohesion: 0.09
+Nodes (29): RewardAnalyticsPage(), NAV, ChartLegend(), campaign, campaignSeries, efficiency, formatInsight, formatPerformance (+21 more)
 
 ### Community 3 - "package.json"
 Cohesion: 0.05
 Nodes (33): nextConfig, dependencies, next, react, react-dom, devDependencies, eslint, eslint-config-next (+25 more)
 
-### Community 4 - "ui.tsx"
-Cohesion: 0.12
-Nodes (27): AdminApprovalsPage(), QUEUE_ACTION, stage(), STATE_TONE, DELIVERABLE_TONE, EARNING_TONE, MONTHS, STATE_TONE (+19 more)
-
-### Community 5 - "athlete/page.tsx"
+### Community 4 - "athlete/page.tsx"
 Cohesion: 0.08
-Nodes (18): AthleteProfileView(), ICONS, isTab(), SOURCE_EXPLAINED, STAGGER, TabKey, TABS, INTEREST_OPTIONS (+10 more)
+Nodes (34): AdminApprovalsPage(), QUEUE_ACTION, stage(), STATE_TONE, AthletePortalPage(), DELIVERABLE_TONE, dueKey(), expiresSoon() (+26 more)
 
-### Community 6 - "finance/page.tsx"
+### Community 5 - "profile-editor.tsx"
+Cohesion: 0.15
+Nodes (11): INTEREST_OPTIONS, isSection(), ProfileEditor(), RESTRICTION_OPTIONS, agreements, athletePublic, profileChecklist, rates (+3 more)
+
+### Community 6 - "admin/page.tsx"
 Cohesion: 0.10
-Nodes (26): EARNING_TONE, INVOICE_TONE, HEALTH_CHIP, AreaChart(), BarStrip(), ChartLegend(), Donut(), FunnelSteps() (+18 more)
+Nodes (26): EARNING_TONE, INVOICE_TONE, HEALTH_CHIP, AreaChart(), BarStrip(), Donut(), FunnelSteps(), HBarList() (+18 more)
 
-### Community 7 - "marketplace/page.tsx"
-Cohesion: 0.09
-Nodes (25): AdminFinancePage(), AdminHomePage(), AthleteEarningsPage(), AthletePortalPage(), dueKey(), PropertyPortalPage(), InventoryDetailPage(), MarketplacePage() (+17 more)
+### Community 7 - "marketplace-catalog.tsx"
+Cohesion: 0.05
+Nodes (42): TabKey, TABS, FILTERS, PackagesPage(), STAGGER, STATE_TONE, BriefForm(), BriefRequestDrawer() (+34 more)
 
 ### Community 8 - "Stage 0 · Foundation & Decisions"
 Cohesion: 0.07
 Nodes (30): ⏸ `P0-ART-01` · Produce the ERD as a distributable diagram (§38 deliverable), ▶ `P0-ART-02` · Produce the state-machine diagrams (§38 deliverable), ▶ `P0-DATA-01` · Define the metric provenance taxonomy, ⏸ `P0-DATA-02` · Define the reward event taxonomy (§38 deliverable), ▶ `P0-DATA-03` · Define Content Value Score v1 factors and weights, ▶ `P0-LEG-01` · Commission Content Collaboration Agreement from counsel, ▶ `P0-LEG-02` · Commission Campaign Order template from counsel, ⏸ `P0-LEG-03` · Resolve guardian authorisation method for minors (G-03) (+22 more)
 
-### Community 9 - "campaigns/[id]/page.tsx"
-Cohesion: 0.13
-Nodes (19): RewardAnalyticsPage(), CampaignDashboardPage(), CampaignBuilderPage(), CampaignOrderPage(), RoiReportPage(), AthleteProfilePage(), JoinPage(), BackLink() (+11 more)
+### Community 9 - "orders/[id]/page.tsx"
+Cohesion: 0.14
+Nodes (17): STATE_TONE, InventoryDetailPage(), AthleteProfilePage(), JoinPage(), PropertyProfilePage(), STAGGER, BackLink(), HeroBand() (+9 more)
 
 ### Community 10 - "Stage 2 · Platform Foundations"
 Cohesion: 0.07
@@ -227,13 +242,13 @@ Nodes (28): ⏸ `P2-BE-01` · Install and pin the dependency set, ⏸ `P2-BE-02`
 Cohesion: 0.08
 Nodes (25): ⏸ `P8-DATA-01` · Seed the staging pilot cohort, ⏸ `P8-FE-01` · Wire the integration health view, ⏸ `P8-FE-02` · Wire the audit log view, ⏸ `P8-INT-01` · Zoho outbound push jobs for all four bi-directional objects, ⏸ `P8-INT-02` · Loop prevention via origin + hash, ⏸ `P8-INT-03` · Inbound Zoho webhook route with signature verification, ⏸ `P8-INT-04` · Webhook delivery recording, ⏸ `P8-INT-05` · Zoho reconciliation job (+17 more)
 
-### Community 12 - "2026-09-14 Redesign Log"
+### Community 12 - "ApplicationsDesk client island (src/components/applications-desk.tsx)"
 Cohesion: 0.13
 Nodes (25): ActivityExplorer client island (src/components/activity-explorer.tsx), Admin Applications Page Redesign, ApplicationsDesk client island (src/components/applications-desk.tsx), Applications UI copy module (src/lib/applications-ui.ts), Athlete Earnings Page Redesign, Athlete Invitations Page Redesign, Athlete profile edit page (src/app/(app)/athlete/profile/edit/page.tsx), Athlete portal profile page (src/app/(app)/athlete/profile/page.tsx) (+17 more)
 
-### Community 13 - "applications/page.tsx"
-Cohesion: 0.13
-Nodes (18): AdminApplicationsPage(), MONTH_LABELS, ApplicationsDesk(), CHIP_TONES, HeroBand(), MiniChip(), MONO_TONES, EmptyState() (+10 more)
+### Community 13 - "admin/campaigns/[id]/page.tsx"
+Cohesion: 0.16
+Nodes (18): CampaignDashboardPage(), PACE_DOT, CampaignsListPage(), SponsorCampaignDetailPage(), STATE_TONE, CHIP_TONES, InsightStrip(), MiniChip() (+10 more)
 
 ### Community 14 - "Block A — Finish the UI Scaffold (Fixtures Only)"
 Cohesion: 0.10
@@ -247,17 +262,17 @@ Nodes (22): ⏸ `P3-BE-01` · Athlete application contract + model + migration, 
 Cohesion: 0.10
 Nodes (21): ⏸ `P7-BE-01` · Earnings model and state machine, ⏸ `P7-BE-02` · Earnings eligibility from deliverable completion, ⏸ `P7-BE-03` · Commission and management fee calculation, ⏸ `P7-BE-04` · Invoice / payment reference ingestion from Zoho, ⏸ `P7-BE-05` · Sponsor ROI report data assembly, ⏸ `P7-BE-06` · Report render worker job, ⏸ `P7-DATA-01` · Metric entry with provenance labels, ⏸ `P7-DATA-02` · Metric rollup worker job (+13 more)
 
-### Community 17 - "portal-shell.tsx"
-Cohesion: 0.14
-Nodes (10): NAV, NAV, NAV, NAV, NavItem, ACCENT, Portal, PortalShell() (+2 more)
+### Community 17 - "athlete/layout.tsx"
+Cohesion: 0.18
+Nodes (7): NAV, NAV, NAV, NavItem, PortalShell(), athlete, property
 
 ### Community 18 - "compilerOptions"
 Cohesion: 0.11
 Nodes (18): compilerOptions, allowJs, esModuleInterop, incremental, isolatedModules, jsx, lib, module (+10 more)
 
-### Community 19 - "SponsorX Stack Decision — Phase 1"
-Cohesion: 0.12
-Nodes (18): §39 Protected Core Loop, SponsorX Phase 1 — Managed Marketplace, SponsorX Implementation Guide V2, Repo Layout — One Repo, Two Deployables, B0 · Foundations, Block B — Backend Spine (Swap Mock → Real), SponsorX Phase 1 Build Roadmap, SponsorX Plain English Explainer (HTML) (+10 more)
+### Community 19 - "§39 Protected Core Loop"
+Cohesion: 0.15
+Nodes (14): §39 Protected Core Loop, SponsorX Phase 1 — Managed Marketplace, SponsorX Phase 1 Build Roadmap, SponsorX Plain English Explainer (HTML), How It Works in Five Steps, Daily Task Log — 2026-09-10, Front-End Prototype (Next 16 / React 19 / Tailwind 4 on Fixtures), SponsorX Core Loop (+6 more)
 
 ### Community 20 - "BTG SponsorX UI/UX Mockups v1.0"
 Cohesion: 0.16
@@ -268,8 +283,8 @@ Cohesion: 0.11
 Nodes (18): ▶ `P5-ART-01` · Design the deliverable and approval states, ⏸ `P5-BE-01` · Campaign Order acceptance with body-hash capture, ⏸ `P5-BE-02` · Campaign Order model and state machine, ⏸ `P5-BE-03` · Auto-create deliverables from the job/package template, ⏸ `P5-BE-04` · launchCampaign transactional domain function, ⏸ `P5-BE-05` · Deliverable state machine, ⏸ `P5-BE-06` · Creative asset model + direct R2 upload, ⏸ `P5-BE-07` · Image derivative worker job (+10 more)
 
 ### Community 22 - "states.tsx"
-Cohesion: 0.15
-Nodes (4): MARKS, SkeletonBlock(), SkeletonPage(), SkeletonRows()
+Cohesion: 0.13
+Nodes (6): MARKS, SkeletonBlock(), SkeletonPage(), SkeletonRows(), adminPipeline, applications
 
 ### Community 23 - "Stage 1 · UI Scaffold on Fixtures"
 Cohesion: 0.12
@@ -299,9 +314,9 @@ Nodes (16): Athlete Role (Builds Skills, Brand, Real-World Experience), SponsorX
 Cohesion: 0.12
 Nodes (15): Regenerating the captures, Screen 10 · QR / Reward Creator — `/admin/rewards/new`, Screen 11 · Analytics / Athlete Performance — `/admin/analytics`, Screen 12 · Sponsor ROI / Campaign Report — `/sponsor/campaigns/[id]/report`, Screen 1 · SponsorX Network Landing — `/`, Screen 2 · Login — `/login`, Screen 3 · Sponsor Dashboard — `/sponsor`, Screen 4 · Sponsor Marketplace — `/sponsor/marketplace` (public catalog: `/packages`) (+7 more)
 
-### Community 30 - "demoState"
+### Community 30 - "invitations-inbox.tsx"
 Cohesion: 0.17
-Nodes (13): FilterKey, FILTERS, InvitationsPage(), isOpen(), STATE_ORDER, STATE_TONE, urgencyHours(), STATE_TONE (+5 more)
+Nodes (18): InvitationsPage(), InboxInitial, InvitationsInbox(), Invite, JOB_OPTIONS, SIZE_OPTIONS, SORT_OPTIONS, SORTERS (+10 more)
 
 ### Community 31 - "(public)/page.tsx"
 Cohesion: 0.16
@@ -312,8 +327,8 @@ Cohesion: 0.14
 Nodes (13): 1 · Scope, 2 · Environment & tooling, 3 · Test execution summary — final consolidated run, 4.1 · P1-QA-01 — §39 loop walk (group A), 4.2 · P1-QA-03 — responsive, 360px (group B), 4.3 · P1-QA-02 — accessibility (group C), 4 · Test cases and results, 5 · Defect log — product defects found and fixed (+5 more)
 
 ### Community 33 - "SponsorX ↔ Zoho — API credentials and sandbox"
-Cohesion: 0.14
-Nodes (13): 1 · What this task is actually for, 2.1 · Request exactly these, 2.2 · What each one is for, 2.3 · Deliberately not requested, 2 · The OAuth scopes — and why not `ZohoCRM.modules.ALL`, 3.1 · Token handling rules for whoever writes the client, 3 · Environment contract, 4 · YOU · Issue the credentials (+5 more)
+Cohesion: 0.08
+Nodes (24): In plain terms, Still outstanding, ⚠️ This is for development, Why it matters, Zoho API Access for SponsorX, 1 · What this task is actually for, 2.1 · Request exactly these, 2.1a · The same list, paste-ready (+16 more)
 
 ### Community 34 - "BTG SponsorX Systems Architecture (Draft 0.1, Phase 1)"
 Cohesion: 0.15
@@ -323,7 +338,7 @@ Nodes (14): QR Reward & Fan Commerce Engine, Immediate Build Priority Loop (Sect
 Cohesion: 0.15
 Nodes (12): 1. Rejected application, 2. Minor with unverified guardian, 3. Expired invite, 4. Under-delivering campaign — canonical `c3`, 5. Held earning (athlete side), 6. Declined order, Decisions taken with the user, Design (+4 more)
 
-### Community 36 - "SponsorX Implementation Guide"
+### Community 36 - "Master Development Blueprint v2.0"
 Cohesion: 0.28
 Nodes (13): SponsorX Implementation Guide, Authorization Test Matrix, Vertical Slice Build Order, Master Development Blueprint v2.0, Pinned Package Versions, Prisma Schema (Core Tables), Repo Layout (One Repository, Two Deployables), Campaign Order Acceptance (Signature Capture) (+5 more)
 
@@ -335,9 +350,9 @@ Nodes (13): BTG Anchor Athlete, BTG SponsorX Master Development Blueprint v2.0 -
 Cohesion: 0.15
 Nodes (12): Formal QA report (user request, post-batch), Iteration 2 — sparkline regression + funnel readability (user screenshots), Iteration 3 — compact funnel → labeled stage rows (user chose from 4 options), Iteration 4 — engagements sparkline → BarStrip (user chose from 4 options), `P1-FE-06` — chart entrance + idle motion, all dashboards (newly raised), `P1-PMO-01` — §38 design record (commit `f174249`), `P1-QA-01` — §39 loop walk (commit `b07267d`), `P1-QA-02` — accessibility audit (commit `76df208`, 26 files) (+4 more)
 
-### Community 40 - "SponsorX Implementation Guide"
-Cohesion: 0.24
-Nodes (12): Zoho (CRM + Books), Zoho Bi-directional Sync (Four Objects), Zoho Boundary, Zoho Boundary (Architecture Rule), Environments and Deploy Pipeline, Transactional Job Enqueue (Outbox Pattern), Zoho Sync Loop Prevention, SponsorX Stack Summary (+4 more)
+### Community 40 - "Zoho Boundary"
+Cohesion: 0.27
+Nodes (11): Zoho (CRM + Books), Zoho Bi-directional Sync (Four Objects), Zoho Boundary, Zoho Boundary (Architecture Rule), Environments and Deploy Pipeline, Transactional Job Enqueue (Outbox Pattern), Zoho Sync Loop Prevention, SponsorX Stack Summary (+3 more)
 
 ### Community 41 - "Sprint 5 · Payments, ledger & payouts"
 Cohesion: 0.17
@@ -351,21 +366,21 @@ Nodes (12): Campaign Order (Athlete Campaign Authorization), BTG SponsorX Athlet
 Cohesion: 0.18
 Nodes (11): Core Operating Loop v1 (Property to Renewal), Athlete Content Value Score, Core Operating Loop v2 (Sponsor Brief to Renewal), Athlete Readiness Scoring Rubric (Developing / Nearly Ready / Sponsor Ready), BTG Partner School Execution Plan (12-Month Playbook), Partner School Package ($5,000 / 25 Athletes / 12 Months), Sponsor Qualification Score (School Alignment / Reputation / Activation Fit), Four Athlete-Development Workshops (NIL, Financial Literacy, Branding, Media Readiness) (+3 more)
 
-### Community 44 - "mobile-nav.tsx"
-Cohesion: 0.18
-Nodes (6): react-dom, MobileNav(), Phase, ICONS, NavIcon, PortalNav()
+### Community 44 - "portal-shell.tsx"
+Cohesion: 0.16
+Nodes (9): react-dom, Logo(), MobileNav(), Phase, ICONS, NavIcon, PortalNav(), ACCENT (+1 more)
 
 ### Community 45 - "SponsorX Stack Decision — Phase 1"
 Cohesion: 0.22
 Nodes (10): Addendum A — Reconciliation with Blueprint v2.0, SponsorX Stack Decision — Phase 1, No Tax ID Storage in Phase 1, SponsorX Stack Summary PDF (Hosting Section Superseded), Transactional Email Vendor (Undecided), SponsorX Project CLAUDE.md, Phase 1 Open Decisions, A-Gates · Resolve the Open Decisions (+2 more)
 
 ### Community 46 - "login-form.tsx"
-Cohesion: 0.27
-Nodes (5): metadata, LoginForm(), MOCK_ACCOUNTS, MockAccount, resolveMockAccount()
+Cohesion: 0.29
+Nodes (6): metadata, LoginForm(), signIn(), MOCK_ACCOUNTS, MockAccount, resolveMockAccount()
 
-### Community 47 - "SponsorX Stack Decision — Phase 1"
-Cohesion: 0.25
-Nodes (9): Cloudflare R2, Data Residency — US East (Decided), R2 Two Access Patterns, R2 Two-Bucket Presign Pattern, Content Partners Custom Zoho Module (P0-OPS-05), Daily Task Log — 2026-09-11, SponsorX_ID External Field on Five Zoho Modules (P0-OPS-06), Zoho Credentials & Sandbox Spec (P0-OPS-04) (+1 more)
+### Community 47 - "SponsorX Zoho Field Mapping Document (P0-PMO-08)"
+Cohesion: 0.22
+Nodes (10): Cloudflare R2, Data Residency — US East (Decided), R2 Two Access Patterns, R2 Two-Bucket Presign Pattern, Content Partners Custom Zoho Module (P0-OPS-05), Daily Task Log — 2026-09-11, SponsorX_ID External Field on Five Zoho Modules (P0-OPS-06), Zoho Credentials & Sandbox Spec (P0-OPS-04) (+2 more)
 
 ### Community 48 - "P1-FE-04 Edge-State Fixtures Implementation Plan"
 Cohesion: 0.22
@@ -388,14 +403,14 @@ Cohesion: 0.28
 Nodes (4): react, ProgressRing(), Reveal(), UserMenu()
 
 ### Community 53 - "site-chrome.tsx"
-Cohesion: 0.31
-Nodes (5): Logo(), NAV, NavLink, SiteFooter(), SiteHeader()
+Cohesion: 0.38
+Nodes (4): NAV, NavLink, SiteFooter(), SiteHeader()
 
 ### Community 54 - "Clerk Scoped to Identity Only"
 Cohesion: 0.25
 Nodes (8): Clerk, Clerk Scoped to Identity Only, Authorization Is Ours, Authorization Test Matrix (authz.matrix.test.ts), V2 Prisma Schema, Tenant Scoping Pattern (actor.ts / scope.ts), Two Tracking Funnels (RewardEvent vs TrackingLink), Multi-Tenant From Day One
 
-### Community 55 - "SponsorX Implementation Guide"
+### Community 55 - "SponsorX Plain English Explainer"
 Cohesion: 0.36
 Nodes (8): Campaign Order, SponsorX Plain English Explainer, Bundled Athlete Network Model, Do Not Lead With Reach, Five-Step Campaign Flow, Sponsor Objection Handling, Pilot Campaigns as Proof-Building, Redemption as Proof (The Differentiator)
 
@@ -451,9 +466,9 @@ Nodes (6): Caveat, Known false-positive to save the next auditor time, Method, P
 Cohesion: 0.29
 Nodes (7): ⏸ `2S3-BE-01` · Marketplace listing model and lifecycle, ⏸ `2S3-BE-02` · Listing packages and bundles, ⏸ `2S3-BE-03` · Availability, exclusivity and conflict check service, ⏸ `2S3-BE-04` · Marketplace search and filtering, ⏸ `2S3-FE-01` · Build the listing editor, ⏸ `2S3-SEC-01` · Listing visibility and tenant isolation tests, Sprint 3 · Listing engine
 
-### Community 69 - "SponsorX — Phase 2 · Marketplace & Athlete Commerce"
-Cohesion: 0.29
-Nodes (7): Categories, ⚙️ How this project is tracked — read this first, Reading a task, SponsorX — Phase 2 · Marketplace & Athlete Commerce, 🔁 The daily rule, The four phase documents, Where the work happens
+### Community 69 - "The tasks"
+Cohesion: 0.21
+Nodes (8): The tasks, Categories, ⚙️ How this project is tracked — read this first, Reading a task, SponsorX — Phase 2 · Marketplace & Athlete Commerce, 🔁 The daily rule, The four phase documents, Where the work happens
 
 ### Community 70 - "Sprint 0 · Analytics architecture"
 Cohesion: 0.29
@@ -475,9 +490,13 @@ Nodes (7): ⏸ `4S3-INT-01` · INFINEX client manifest consumption, ⏸ `4S3-INT
 Cohesion: 0.29
 Nodes (7): Phase 1 Managed Campaign Workflow (Brief, Eligibility Filter, Manual Matching), Standard NIL Job Catalog SX-01..SX-07, Athlete Code of Conduct, SponsorX Campaign Playbook / SOP (12-Step Operating Procedure), SponsorX Prelaunch Operations Binder (24-Document System), Athlete NIL Rate Card (SX-01..SX-07 Prelaunch), Two-Price Model (Athlete Pay vs Sponsor Price = BTG Margin)
 
-### Community 76 - "SponsorX Stack Decision — Phase 1"
-Cohesion: 0.33
-Nodes (6): One Thing to Operate, PDF Worker (Unconfirmed Requirement), Portability Rules, Postgres Job Queue (Redis Deferred), Railway, Transactional Outbox + pg-boss
+### Community 75 - "campaign-builder.tsx"
+Cohesion: 0.05
+Nodes (40): AdminApplicationsPage(), App, ApplicationsDesk(), ATTENTION_OPTIONS, Decision, inReview(), ReviewDrawer(), SORT_OPTIONS (+32 more)
+
+### Community 76 - "SponsorX Implementation Guide V2"
+Cohesion: 0.20
+Nodes (10): One Thing to Operate, PDF Worker (Unconfirmed Requirement), Portability Rules, Postgres Job Queue (Redis Deferred), Railway, SponsorX Implementation Guide V2, Transactional Outbox + pg-boss, Repo Layout — One Repo, Two Deployables (+2 more)
 
 ### Community 77 - "P1-QA-01 — §39 loop walk on fixtures: pass/fail for all 11 steps"
 Cohesion: 0.33
@@ -539,6 +558,10 @@ Nodes (6): ⏸ `4S8-BE-01` · Emergency pause and kill switch, ⏸ `4S8-BE-02` �
 Cohesion: 0.50
 Nodes (5): SponsorX Full Programme Task Board (xlsx), Google Sheet — SponsorXFullProgrammeTaskBoard, Task Board — Three Artefacts, Three Jobs, Full Programme Task Board Build (All Four Phases), Task-Board Rule (Three Artefacts, One Daily Habit)
 
+### Community 92 - "SponsorX RBAC Matrix"
+Cohesion: 0.04
+Nodes (49): 10 · Tracking, rewards and metrics, 11 · Money, reporting and system, 12 · Decisions taken, 13 · Appendix · test cases, 14 · Known gaps, 1 · How to read this, 2 · Tenancy, which sits above everything, 3 · Identity and tenancy (+41 more)
+
 ### Community 93 - "Sprint 1 · Warehouse & benchmarks"
 Cohesion: 0.40
 Nodes (5): ⏸ `3S1-DATA-01` · Warehouse ingestion pipeline, ⏸ `3S1-DATA-02` · Daily campaign fact and dimension tables, ⏸ `3S1-DATA-03` · Benchmark pipeline, ⏸ `3S1-QA-01` · Warehouse reconciliation tests, Sprint 1 · Warehouse & benchmarks
@@ -571,6 +594,42 @@ Nodes (4): Differentiated Portal Heroes, Command Deck Hero Band, Executive Bento
 Cohesion: 0.67
 Nodes (3): CPM Pricing Formula, NIL Jobs SX-01 – SX-07, Sponsor Packages
 
+### Community 126 - "Sponsor brief-request drawer — design (2026-09-15)"
+Cohesion: 0.04
+Nodes (42): Approach, Component: `BriefRequestDrawer`, Data / fixtures, Goal, Problem, Sponsor brief-request drawer — design (2026-09-15), Testing / verification, Wiring into `marketplace-catalog.tsx` (+34 more)
+
+### Community 127 - "money"
+Cohesion: 0.11
+Nodes (27): AdminFinancePage(), AdminHomePage(), AthleteEarningsPage(), CampaignOrderPage(), PropertyPortalPage(), RoiReportPage(), SponsorCampaignsPage(), MarketplacePage() (+19 more)
+
+### Community 128 - "roster-ops.tsx"
+Cohesion: 0.13
+Nodes (16): actionFor(), ActionSpec, OrderDrawer(), RING_TEXT, RingTone, RosterOps(), STEP_DOT, StepState (+8 more)
+
+### Community 129 - "Who Can See What in SponsorX"
+Cohesion: 0.14
+Nodes (12): 1 · What this is, 2 · Why it matters more than it sounds, 3 · What was actually decided, 4 · The five decisions, 5 · Where this leaves the task, 6 · One thing found along the way, worth fixing separately, D1 · Can a parent accept a Campaign Order for their child, or only view it?, D2 · Can an athlete see the price the sponsor paid for their job? (+4 more)
+
+### Community 130 - "athlete-profile-view.tsx"
+Cohesion: 0.20
+Nodes (7): AthleteProfileView(), ICONS, isTab(), SOURCE_EXPLAINED, STAGGER, TabKey, TABS
+
+### Community 131 - "Athlete Dashboard Redesign — easier learning curve"
+Cohesion: 0.22
+Nodes (8): Athlete Dashboard Redesign — easier learning curve, Implementation, Out of scope, Page staging (top → bottom), Rehousing — nothing new to build, The action queue (left), The rail (right), Verification
+
+### Community 132 - "Task — Complete `/athlete/invitations` frontend functionality (sort, filter, search, pagination)"
+Cohesion: 0.22
+Nodes (8): 2026-09-16 — tasks completed, Card markup, Files, Task — Complete `/athlete/invitations` frontend functionality (sort, filter, search, pagination), The problem, Verification, What stayed server-side, What was built
+
+### Community 133 - "File map"
+Cohesion: 0.25
+Nodes (7): Athlete Dashboard Redesign Implementation Plan, File map, Self-review (done at write time), Task 1: `JourneyStrip` client island, Task 2: Rewrite the dashboard page, Task 3: Demo-state walkthrough, Task 4: Team memory log + task board
+
+### Community 134 - "journey-strip.tsx"
+Cohesion: 0.43
+Nodes (6): JourneyStep, JourneyStrip(), listeners, notify(), readDismissed(), subscribe()
+
 ## Ambiguous Edges - Review These
 - `SponsorX Plain English Explainer (HTML)` → `BTG SponsorX System Overview Plain English (docx)`  [AMBIGUOUS]
   documentation/SponsorX-Plain-English-Explainer.html · relation: conceptually_related_to
@@ -578,9 +637,9 @@ Nodes (3): CPM Pricing Formula, NIL Jobs SX-01 – SX-07, Sponsor Packages
   graphify-out/converted/BTG_SponsorX_Systems_Architecture_d593563b.md · relation: cites
 
 ## Knowledge Gaps
-- **702 isolated node(s):** `Portal`, `Screen`, `Props`, `Phase`, `NavIcon` (+697 more)
-  These have ≤1 connection - possible missing edges or undocumented components. (Counts symbols only; 805 node(s) total have ≤1 connection when file, concept and rationale nodes are included.)
-- **27 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
+- **855 isolated node(s):** `eslintConfig`, `nextConfig`, `name`, `version`, `private` (+850 more)
+  These have ≤1 connection - possible missing edges or undocumented components. (Counts symbols only; 983 node(s) total have ≤1 connection when file, concept and rationale nodes are included.)
+- **26 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
@@ -589,13 +648,13 @@ _Questions this graph is uniquely positioned to answer:_
   _Edge tagged AMBIGUOUS (relation: conceptually_related_to) - confidence is low._
 - **What is the exact relationship between `BTG SponsorX Systems Architecture (Draft 0.1, Phase 1)` and `My View - Founder Strategy Note (Platform Vision, Athletiverse Analysis)`?**
   _Edge tagged AMBIGUOUS (relation: cites) - confidence is low._
+- **Why does `SponsorX Implementation Guide V2` connect `SponsorX Implementation Guide V2` to `Who Can See What in SponsorX`, `The tasks`, `SponsorX Stack Decision — Phase 1`, `SponsorX Zoho Field Mapping Document (P0-PMO-08)`, `§39 Protected Core Loop`?**
+  _High betweenness centrality (0.052) - this node is a cross-community bridge._
 - **Why does `The tasks` connect `The tasks` to `Stage 0 · Foundation & Decisions`, `Stage 2 · Platform Foundations`, `Stage 8 · Integration, Hardening & Launch`, `Stage 3 · Athlete Network`, `Stage 7 · Money & Reporting`, `Stage 5 · Campaign Execution`, `Stage 1 · UI Scaffold on Fixtures`, `Stage 4 · Sponsor Demand & Matching`, `Stage 6 · Measurement & Reward`?**
-  _High betweenness centrality (0.079) - this node is a cross-community bridge._
-- **Why does `The tasks` connect `The tasks` to `Sprint 3 · Listing engine`, `Sprint 5 · Payments, ledger & payouts`, `Sprint 7 · Analytics & governance`, `Sprint 0 · Architecture & design`, `Sprint 2 · Athlete & team portals`, `Sprint 1 · External property onboarding`, `Sprint 4 · Cart, reservations & orders`, `Sprint 8 · QA, security & rollout`, `The tasks`?**
-  _High betweenness centrality (0.030) - this node is a cross-community bridge._
-- **Why does `The tasks` connect `The tasks` to `Sprint 9 · Pilot world launch`, `Sprint 2 · Manifest & creative deployment`, `Sprint 1 · World & placement registry`, `Sprint 0 · Contract & taxonomy`, `Sprint 4 · Telemetry ingestion`, `Sprint 5 · Viewability & aggregates`, `Sprint 6 · Activations & rewards`, `Sprint 7 · Cross-channel reporting`, `Sprint 8 · Operations & load`, `The tasks`?**
-  _High betweenness centrality (0.029) - this node is a cross-community bridge._
-- **What connects `Portal`, `Screen`, `Props` to the rest of the system?**
-  _702 weakly-connected nodes found - possible documentation gaps or missing edges._
-- **Should `athlete/page.tsx` be split into smaller, more focused modules?**
-  _Cohesion score 0.054098360655737705 - nodes in this community are weakly interconnected._
+  _High betweenness centrality (0.052) - this node is a cross-community bridge._
+- **Why does `react` connect `react` to `activity-explorer.tsx`, `roster-ops.tsx`, `athlete-profile-view.tsx`, `package.json`, `athlete/page.tsx`, `profile-editor.tsx`, `admin/page.tsx`, `marketplace-catalog.tsx`, `journey-strip.tsx`, `admin/campaigns/[id]/page.tsx`, `states.tsx`, `invitations-inbox.tsx`, `(public)/page.tsx`, `portal-shell.tsx`, `login-form.tsx`, `InsightCarousel`, `theme-toggle.tsx`, `campaign-builder.tsx`, `money`?**
+  _High betweenness centrality (0.035) - this node is a cross-community bridge._
+- **What connects `eslintConfig`, `nextConfig`, `name` to the rest of the system?**
+  _855 weakly-connected nodes found - possible documentation gaps or missing edges._
+- **Should `activity-explorer.tsx` be split into smaller, more focused modules?**
+  _Cohesion score 0.06429070580013976 - nodes in this community are weakly interconnected._

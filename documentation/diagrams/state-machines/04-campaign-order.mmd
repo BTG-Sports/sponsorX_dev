@@ -1,0 +1,28 @@
+stateDiagram-v2
+%% §21 machine 4 of 8 — Campaign Order  (Prisma enum: OrderState)
+%% §21: DRAFT -> SENT -> ACCEPTED / REJECTED -> ACTIVE -> COMPLETED / CANCELLED
+%% One of the two machines §38 names explicitly. The commercial record, per athlete.
+    direction TB
+    [*] --> DRAFT : terms drafted from the accepted invite
+    DRAFT --> SENT : sent to the athlete
+    SENT --> ACCEPTED : athlete accepts the terms
+    SENT --> REJECTED : athlete rejects the terms
+    SENT --> CANCELLED : withdrawn before response (derived)
+    ACCEPTED --> ACTIVE : work may begin
+    ACTIVE --> COMPLETED : all deliverables VERIFIED
+    ACTIVE --> CANCELLED : campaign or order cancelled
+    COMPLETED --> [*]
+    REJECTED --> [*]
+    CANCELLED --> [*]
+
+    note right of ACCEPTED
+      Acceptance writes an AgreementAcceptance row
+      carrying a hash of the exact text shown.
+      Compensation and usage rights are snapshotted
+      onto the order — later rate changes do not
+      alter a signed order.
+    end note
+    note right of COMPLETED
+      COMPLETED is what makes the athlete's Earning
+      ELIGIBLE. See machine 7.
+    end note

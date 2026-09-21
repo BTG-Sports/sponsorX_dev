@@ -1,0 +1,20 @@
+stateDiagram-v2
+%% §21 machine 8 of 8 — Reward  (Prisma enum: RewardState)
+%% §21: DRAFT -> ACTIVE -> PAUSED -> EXPIRED / ARCHIVED
+    direction TB
+    [*] --> DRAFT : reward drafted against a campaign
+    DRAFT --> ACTIVE : tokens minted, QR codes live
+    ACTIVE --> PAUSED : temporarily withdrawn
+    PAUSED --> ACTIVE : resumed (derived)
+    ACTIVE --> EXPIRED : expiresAt passes
+    PAUSED --> EXPIRED : expiresAt passes
+    EXPIRED --> ARCHIVED : retired from reporting
+    ARCHIVED --> [*]
+
+    note right of ACTIVE
+      The reward's state gates the fan page. A token's
+      own history is a separate audit trail of
+      SCAN / LANDING / CLAIM / REDEEM events, and
+      REDEEM is enforced once-forever by a partial
+      unique index — not by application logic.
+    end note

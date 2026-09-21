@@ -1,0 +1,32 @@
+flowchart TD
+%% Page 3 of 11 — Stage 2. Review and approval. §21 AthleteState, §4 guardian, §37 gate.
+    IN[/"FROM PAGE 2"/]:::conn
+    B1["Network Manager opens the applications desk"]:::btg
+    ST1["AthleteState · UNDER_REVIEW"]:::state
+    B2["Checks identity, sport and social claims"]:::btg
+    MINOR{"Minor?"}
+    B3["Guardian verification recorded"]:::btg
+    DEC{"Decision"}
+    STC["AthleteState · CHANGES_REQUESTED"]:::state
+    BACK[/"BACK TO PAGE 2 · resubmits"/]:::conn
+    STR["AthleteState · REJECTED"]:::state
+    ENDR(["END · not admitted"]):::term
+    STA["AthleteState · APPROVED"]:::state
+    B4["Profile published, portal access granted"]:::system
+    STV["AthleteState · ACTIVE"]:::state
+    OUT[/"CONTINUES ON PAGE 4"/]:::conn
+
+    IN --> B1 --> ST1 --> B2 --> MINOR
+    MINOR -- "yes" --> B3 --> DEC
+    MINOR -- "no" --> DEC
+    DEC -- "more info needed" --> STC --> BACK
+    DEC -- "declined" --> STR --> ENDR
+    DEC -- "accepted" --> STA --> B4 --> STV --> OUT
+    classDef athlete fill:#E3EEFB,stroke:#1F4E9C,stroke-width:1.5px,color:#0A0C10
+    classDef btg fill:#FFF1E0,stroke:#C97A16,stroke-width:1.5px,color:#0A0C10
+    classDef sponsor fill:#E4F4EC,stroke:#1E7A52,stroke-width:1.5px,color:#0A0C10
+    classDef fan fill:#F0E8FA,stroke:#6B3FA0,stroke-width:1.5px,color:#0A0C10
+    classDef system fill:#EFF2F6,stroke:#5A6676,stroke-width:1.5px,color:#0A0C10
+    classDef state fill:#FFFFFF,stroke:#3A4759,stroke-width:1.5px,stroke-dasharray:4 3,color:#0A0C10
+    classDef conn fill:#0A0C10,stroke:#0A0C10,color:#FFFFFF
+    classDef term fill:#1F4E9C,stroke:#1F4E9C,color:#FFFFFF,stroke-width:2px

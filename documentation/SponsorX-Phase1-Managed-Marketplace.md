@@ -5,7 +5,7 @@
 | | |
 |---|---|
 | **Goal** | Launch real micro-NIL campaigns while building the data foundation. BTG staff run matching, pricing, conflict checks and invoicing; the software standardises and records every step. |
-| **Tasks** | 186 · 446 person-days |
+| **Tasks** | 189 · 451 person-days |
 | **Blueprint timeline** | 14–18 weeks |
 | **Balanced budget** | $75K–$105K |
 | **Depends on** | Nothing — this is the start |
@@ -137,7 +137,7 @@ DECISION GATE G-02 · Data residency — which region do Railway and R2 run in? 
 
 ### ▶ `P0-OPS-01` · Create Railway account, project and billing
 
-**Order** 1 · **OPS** · **Where:** Vendor console · **1d** · **Ready** · **Unblocks** 115
+**Order** 1 · **OPS** · **Where:** Vendor console · **1d** · **In progress** · **Unblocks** 115
 
 Open the Railway account and project in the region chosen above. Set a spend alert — usage-based hosting surprises people.
 
@@ -157,9 +157,21 @@ A table of authorization rules: each of the 12 user roles against every Phase 1 
 - **Done when:** All 12 roles × every Phase 1 resource × ownership × action, in a table, agreed — this becomes the authz test suite
 - **Reference:** §8 (the twelve roles, as a table in the original document — note that the copy converted into `graphify-out/` has lost it), §38, and §09 of [`SponsorX-Implementation-Guide-V2.md`](./SponsorX-Implementation-Guide-V2.md) for the twenty starter rows and the target test format
 
+### ▶ `P0-OPS-06` · Register the SponsorX domain and hold the DNS
+
+**Order** 2.5 · **OPS** · **Where:** Vendor console · **1d** · **In progress** · **Unblocks** 3
+
+Buy the domain the whole product is addressed at, and keep control of its DNS. Nothing in the programme registers one, yet three separate threads assume it exists — a Clerk production instance, a publicly reachable `web`, and the short-link domain the fan QR and tracking routes need.
+
+`sponsorx.com` is **already registered to someone else**, as are `.io`, `.app`, `.co` and `.pro`. The Implementation Guide assumes `sponsorx.com` and `app.sponsorx.com` throughout; that assumption has to be corrected once a name is chosen.
+
+- **Depends on:** nothing — startable now
+- **Done when:** Domain registered to a BTG-controlled account with auto-renew and registrar lock on; DNS managed somewhere the team can add records; the chosen name recorded in `.claude/stack-decision.md`
+- **Reference:** §38, Guide §10
+
 ### ▶ `P0-OPS-03` · Create Clerk application (dev + production instances)
 
-**Order** 3 · **OPS** · **Where:** Vendor console · **1d** · **Ready** · **Unblocks** 55
+**Order** 3 · **OPS** · **Where:** Vendor console · **1d** · **In progress** · **Unblocks** 55
 
 Create the Clerk account with separate dev and production instances. Clerk handles login, passwords and MFA only — it never stores who belongs to which tenant or what they can do.
 
@@ -171,6 +183,8 @@ Create the Clerk account with separate dev and production instances. Clerk handl
 
 **Order** 4 · **LEG** · **Where:** External · counsel · **3d** · **Ready** · **Unblocks** 32
 
+> **Tracked on the Legal sheet of the task board, not in the delivery queue** (moved 2026-09-15). No development task depends on this; counsel lead times must never sit on the build's critical path.
+
 DECISION GATE G-05 · Counsel-approved templates — both agreements signed off before any acceptance code is built.  —  Get a lawyer to draft the agreement athletes sign to join the network. Longest lead time in the project — start it on day one, everything else can proceed while you wait.
 
 - **Depends on:** nothing — startable now
@@ -181,6 +195,8 @@ DECISION GATE G-05 · Counsel-approved templates — both agreements signed off 
 
 **Order** 5 · **LEG** · **Where:** External · counsel · **1d** · **Blocked** · **Unblocks** 31
 
+> **Tracked on the Legal sheet of the task board, not in the delivery queue** (moved 2026-09-15). No development task depends on this; counsel lead times must never sit on the build's critical path.
+
 DECISION GATE G-03 · Guardian e-signature — is click-to-accept enough for a parent authorising a minor?  —  Ask counsel whether a click-to-accept checkbox is enough for a parent authorising a minor, or whether you need real e-signature. If they say e-signature, that is a new vendor and more work.
 
 - **Depends on:** P0-LEG-01
@@ -190,6 +206,8 @@ DECISION GATE G-03 · Guardian e-signature — is click-to-accept enough for a p
 ### ▶ `P0-LEG-02` · Commission Campaign Order template from counsel
 
 **Order** 6 · **LEG** · **Where:** External · counsel · **3d** · **Ready** · **Unblocks** 30
+
+> **Tracked on the Legal sheet of the task board, not in the delivery queue** (moved 2026-09-15). No development task depends on this; counsel lead times must never sit on the build's critical path.
 
 DECISION GATE G-05 · Counsel-approved templates — both agreements signed off before any acceptance code is built.  —  Get a lawyer to draft the per-campaign contract an athlete accepts: what they deliver, what they are paid, usage rights, exclusivity, deadlines, disclosure.
 
@@ -219,7 +237,7 @@ Map every SponsorX record to its Zoho equivalent, field by field, and say which 
 
 ### ▶ `P0-OPS-02` · Create Cloudflare R2 account and two buckets
 
-**Order** 9 · **OPS** · **Where:** Vendor console · **1d** · **Ready** · **Unblocks** 8
+**Order** 9 · **OPS** · **Where:** Vendor console · **1d** · **In progress** · **Unblocks** 8
 
 Set up Cloudflare R2 with two buckets: one private for contracts and draft creative, one public for published video. Different security rules — they must not share a policy.
 
@@ -240,6 +258,8 @@ DECISION GATE G-01 · Phase 1 payment policy — do we track payment status only
 ### ▶ `P0-LEG-04` · Privacy review of the fan reward funnel
 
 **Order** 11 · **LEG** · **Where:** External · counsel · **3d** · **Ready** · **Unblocks** 5
+
+> **Tracked on the Legal sheet of the task board, not in the delivery queue** (moved 2026-09-15). No development task depends on this; counsel lead times must never sit on the build's critical path.
 
 Have counsel approve the consent wording fans see when they scan a QR code and hand over their details. This is the most legally sensitive flow in the product, often at youth sports events.
 
@@ -297,6 +317,16 @@ Confirm the six sponsor packages — Test Drive through Season Partner — with 
 - **Done when:** Name, price band, athlete count and inventory JSON confirmed per package
 - **Reference:** §7
 
+### ✅ `P0-PMO-13` · Decide the margin floor rule and tier-derived sell floors
+
+**Order** 16.5 · **PMO** · **Where:** Document · **1d** · **Done** · **Unblocks** 1
+
+Answer the commercial question `P0-PMO-09` and `P0-PMO-10` documented but could not close. The §6 tier multiplier scales athlete pay while nothing scales the §5 sell floor, so a Premium athlete at the top of the base band costs more than the job's cheapest sell price on all seven jobs. Decide the rule that prevents it and the floors that follow from it.
+
+- **Depends on:** nothing — startable now
+- **Done when:** Floor multiple, per-tier derived sell floors, the SX-07 band correction and the six packages' job-code line items all recorded in a decision document
+- **Reference:** §5, §6, §7 · `documentation/SponsorX-Pricing-Floor-Decision.md`
+
 ### ▶ `P0-DATA-03` · Define Content Value Score v1 factors and weights
 
 **Order** 17 · **DATA** · **Where:** Document · **1d** · **Ready** · **Unblocks** 1
@@ -310,6 +340,8 @@ Agree the seven things that make up an athlete's score and how much each counts.
 ### ▶ `P0-LEG-06` · NIL eligibility + athletic-association review for high-school athletes
 
 **Order** 18 · **LEG** · **Where:** External · counsel · **3d** · **Ready** · **Unblocks** 1
+
+> **Tracked on the Legal sheet of the task board, not in the delivery queue** (moved 2026-09-15). No development task depends on this; counsel lead times must never sit on the build's critical path.
 
 Find out what state NIL law and high-school athletic associations actually forbid, so the product can enforce it rather than discovering it later.
 
@@ -343,13 +375,15 @@ Draw the eight lifecycle diagrams — how an application, an invitation, a campa
 
 Define exactly what counts as a scan, a landing, a claim and a redemption. If these are fuzzy, the whole reward funnel measures nothing.
 
-- **Depends on:** P0-LEG-04
+- **Depends on:** nothing — startable now *(Legal dependency removed 2026-09-15 — counsel approvals no longer gate development; see the Legal sheet in the task board.)*
 - **Done when:** SCAN / LANDING / CLAIM / REDEEM defined with the exact trigger for each
 - **Reference:** §16, §38
 
 ### ▶ `P0-LEG-05` · Reward terms review (sweepstakes / coupon legality)
 
 **Order** 22 · **LEG** · **Where:** External · counsel · **1d** · **Ready** · **Unblocks** 0
+
+> **Tracked on the Legal sheet of the task board, not in the delivery queue** (moved 2026-09-15). No development task depends on this; counsel lead times must never sit on the build's critical path.
 
 Check which reward types are legal in your states — coupons are easy, sweepstakes are heavily regulated.
 
@@ -359,7 +393,7 @@ Check which reward types are legal in your states — coupons are easy, sweepsta
 
 ### ▶ `P0-OPS-04` · Provision Zoho API credentials and sandbox
 
-**Order** 23 · **OPS** · **Where:** Zoho dashboard · **1d** · **Ready** · **Unblocks** 0
+**Order** 23 · **OPS** · **Where:** Zoho dashboard · **1d** · **In progress** · **Unblocks** 0
 
 Get Zoho API credentials and a sandbox org, so sync can be built without touching real sales data.
 
@@ -367,9 +401,9 @@ Get Zoho API credentials and a sandbox org, so sync can be built without touchin
 - **Done when:** Client ID, secret and refresh token issued; a sandbox or test org available for sync development
 - **Reference:** §18, Addendum A9, [`SponsorX-Zoho-Credentials-and-Sandbox.md`](./SponsorX-Zoho-Credentials-and-Sandbox.md) — the scope list, env contract and both console runbooks
 
-### ✅ `P0-OPS-05` · Create the Athlete / Content Partner custom module in Zoho
+### ▶ `P0-OPS-05` · Create the Athlete / Content Partner custom module in Zoho
 
-**Order** 24 · **OPS** · **Where:** Zoho dashboard · **3d** · **Done** · **Unblocks** 0
+**Order** 24 · **OPS** · **Where:** Zoho dashboard · **3d** · **In progress** · **Unblocks** 0
 
 Click-work in the Zoho CRM admin UI: Setup → Modules and Fields → Create Module, then add the fields the mapping document specifies. This is the only object in §18 with no home in your CRM — Accounts, Contacts, Leads, Deals, Tasks and Campaigns all exist as stock modules already. It must come AFTER P0-PMO-08, because the mapping document is what says which fields the module needs; building it first means building it twice. rcfworks@gmail.com holds the Administrator profile, so no one else's permission is required.
 
@@ -492,9 +526,9 @@ The mock data currently shows happy paths. Add the awkward cases — a minor wit
 - **Done when:** A minor athlete with unverified guardian, an expired invite, an under-delivering campaign, a held earning, a declined order and a rejected application are all representable and rendered
 - **Reference:** Roadmap A3
 
-### ⏸ `P1-ART-04` · Design the sponsor ROI report layout for print/PDF
+### ✅ `P1-ART-04` · Design the sponsor ROI report layout for print/PDF
 
-**Order** 29 · **ART** · **Where:** Design tool · **3d** · **Blocked** · **Unblocks** 0
+**Order** 29 · **ART** · **Where:** Design tool · **3d** · **Done** · **Unblocks** 0
 
 Design the sponsor's results report at print width, so it survives being turned into a PDF rather than looking broken.
 
@@ -508,7 +542,7 @@ Design the sponsor's results report at print width, so it survives being turned 
 
 Design what a fan sees after scanning: the offer, the consent text, and the 'already used' and 'expired' states.
 
-- **Depends on:** P0-LEG-04
+- **Depends on:** nothing — startable now *(Legal dependency removed 2026-09-15 — counsel approvals no longer gate development; see the Legal sheet in the task board.)*
 - **Done when:** Consent language placed, offer presentation designed, single-use and expired states designed
 - **Reference:** §16
 
@@ -522,9 +556,9 @@ Produce the imagery for the public marketing site — hero, case-study slots, pa
 - **Done when:** Hero, proof/case-study slots and package presentation art ready for the public homepage
 - **Reference:** §9 screen 1
 
-### ▶ `P1-ART-07` · Design the athlete onboarding flow visuals (§11 ten sections)
+### ✅ `P1-ART-07` · Design the athlete onboarding flow visuals (§11 ten sections)
 
-**Order** 32 · **ART** · **Where:** Design tool · **3d** · **Ready** · **Unblocks** 0
+**Order** 32 · **ART** · **Where:** Design tool · **3d** · **Done** · **Unblocks** 0
 
 Design the athlete sign-up as a progressive flow across its ten sections, including the branch where a parent has to be involved.
 
@@ -592,9 +626,9 @@ Check every screen on a phone. The athlete portal and redeem page are phone-firs
 
 *27 tasks · 0 person-days*
 
-### ⏸ `P2-OPS-01` · Create the Railway project with three services
+### ▶ `P2-OPS-01` · Create the Railway project with three services
 
-**Order** 38 · **OPS** · **Where:** Vendor console · **3d** · **Blocked** · **Unblocks** 114
+**Order** 38 · **OPS** · **Where:** Vendor console · **3d** · **In progress** · **Unblocks** 114
 
 Create three services in one Railway project — the web app, the background worker, and Postgres — talking privately to each other with the database never exposed to the internet.
 
@@ -602,9 +636,9 @@ Create three services in one Railway project — the web app, the background wor
 - **Done when:** web, worker and postgres exist in one project; web and worker reach Postgres over the internal hostname; the database has no public exposure
 - **Reference:** Guide §10
 
-### ⏸ `P2-BE-02` · Author the full Prisma schema + initial migration
+### ▶ `P2-BE-02` · Author the full Prisma schema + initial migration
 
-**Order** 39 · **BE** · **Where:** Code · **5d** · **Blocked** · **Unblocks** 104
+**Order** 39 · **BE** · **Where:** Code · **5d** · **In progress** · **Unblocks** 104
 
 Write the entire database structure in one go: every table, every lifecycle state, a tenant marker on everything. The single largest task in the project and almost everything depends on it.
 
@@ -612,9 +646,9 @@ Write the entire database structure in one go: every table, every lifecycle stat
 - **Done when:** Every §20 table modelled; tenantId on everything; all eight §21 state machines as enums; external IDs + lastSyncOrigin + lastSyncHash on every Zoho-touched model
 - **Reference:** §20, §21, Guide §03
 
-### ⏸ `P2-INT-01` · Replace mock-auth with Clerk
+### ▶ `P2-INT-01` · Replace mock-auth with Clerk
 
-**Order** 40 · **INT** · **Where:** Code + console · **3d** · **Blocked** · **Unblocks** 53
+**Order** 40 · **INT** · **Where:** Code + console · **3d** · **In progress** · **Unblocks** 53
 
 Swap the fake sign-in for real Clerk authentication. Clerk proves who you are; your own database decides what you can do.
 
@@ -622,9 +656,9 @@ Swap the fake sign-in for real Clerk authentication. Clerk proves who you are; y
 - **Done when:** Real sign-in works; User.clerkId mirrors the Clerk identity; no tenant or role data lives in Clerk Organizations or session claims
 - **Reference:** Addendum A4
 
-### ⏸ `P2-BE-04` · Build actor.ts and scope.ts
+### ▶ `P2-BE-04` · Build actor.ts and scope.ts
 
-**Order** 41 · **BE** · **Where:** Code · **3d** · **Blocked** · **Unblocks** 51
+**Order** 41 · **BE** · **Where:** Code · **3d** · **In progress** · **Unblocks** 51
 
 Two files that answer 'who is asking' and 'what are they allowed to see'. Every database query in the codebase goes through them. Retrofitting this later is the most expensive mistake available.
 
@@ -632,9 +666,9 @@ Two files that answer 'who is asking' and 'what are they allowed to see'. Every 
 - **Done when:** requireActor() resolves a Clerk user to a Postgres tenant + roles; every scope function defaults to DENY; no query in the codebase bypasses them
 - **Reference:** Addendum A4, Guide §04
 
-### ⏸ `P2-BE-05` · Build the outbox + pg-boss drain
+### ✅ `P2-BE-05` · Build the outbox + pg-boss drain
 
-**Order** 42 · **BE** · **Where:** Code · **3d** · **Blocked** · **Unblocks** 23
+**Order** 42 · **BE** · **Where:** Code · **3d** · **Done** · **Unblocks** 23
 
 Background jobs stored in Postgres rather than Redis. The key property: a job is saved in the same transaction as the thing that caused it, so neither can exist without the other.
 
@@ -642,9 +676,9 @@ Background jobs stored in Postgres rather than Redis. The key property: a job is
 - **Done when:** enqueue() writes an outbox row in the caller's transaction; the worker drains with FOR UPDATE SKIP LOCKED; two worker instances never double-process a row
 - **Reference:** Addendum A3, Guide §05
 
-### ⏸ `P2-BE-03` · Add the partial indexes Prisma will not create
+### ▶ `P2-BE-03` · Add the partial indexes Prisma will not create
 
-**Order** 43 · **BE** · **Where:** Code · **1d** · **Blocked** · **Unblocks** 6
+**Order** 43 · **BE** · **Where:** Code · **1d** · **In progress** · **Unblocks** 6
 
 A handful of database indexes Prisma cannot generate — including the one that makes a reward physically impossible to redeem twice.
 
@@ -652,9 +686,9 @@ A handful of database indexes Prisma cannot generate — including the one that 
 - **Done when:** prisma/sql/ holds them; critically the partial unique index that makes single-use reward redemption race-safe
 - **Reference:** Guide §03
 
-### ⏸ `P2-BE-08` · Build the R2 presign module
+### ▶ `P2-BE-08` · Build the R2 presign module
 
-**Order** 44 · **BE** · **Where:** Code · **3d** · **Blocked** · **Unblocks** 6
+**Order** 44 · **BE** · **Where:** Code · **3d** · **In progress** · **Unblocks** 6
 
 Generate temporary upload links so a phone can send video straight to Cloudflare rather than through your server. Large uploads through a Node server is how a busy content day becomes an outage.
 
@@ -662,9 +696,9 @@ Generate temporary upload links so a phone can send video straight to Cloudflare
 - **Done when:** presignUpload() issues short-TTL signed PUTs against the private bucket; public-bucket reads need no signing; every private grant is audited
 - **Reference:** Addendum A8, Guide §11
 
-### ⏸ `P2-OPS-03` · Wire migrations as a pre-deploy release step
+### ▶ `P2-OPS-03` · Wire migrations as a pre-deploy release step
 
-**Order** 45 · **OPS** · **Where:** Vendor console · **1d** · **Blocked** · **Unblocks** 5
+**Order** 45 · **OPS** · **Where:** Vendor console · **1d** · **In progress** · **Unblocks** 5
 
 Database migrations run as a release step just before new code goes live — never during the build, which runs far more often.
 
@@ -672,9 +706,9 @@ Database migrations run as a release step just before new code goes live — nev
 - **Done when:** prisma migrate deploy runs as Railway's pre-deploy command before the new version takes traffic — never in the build step
 - **Reference:** Guide §10
 
-### ⏸ `P2-BE-01` · Install and pin the dependency set
+### ▶ `P2-BE-01` · Install and pin the dependency set
 
-**Order** 46 · **BE** · **Where:** Code · **1d** · **Blocked** · **Unblocks** 4
+**Order** 46 · **BE** · **Where:** Code · **1d** · **In progress** · **Unblocks** 4
 
 Install every library at its pinned version and set up the Prisma config.
 
@@ -682,9 +716,9 @@ Install every library at its pinned version and set up the Prisma config.
 - **Done when:** Every package from Guide §01 installed at an exact version; prisma.config.ts present with the explicit client output path
 - **Reference:** Guide §01
 
-### ⏸ `P2-OPS-09` · Establish staging + production environments
+### ▶ `P2-OPS-09` · Establish staging + production environments
 
-**Order** 47 · **OPS** · **Where:** Vendor console · **3d** · **Blocked** · **Unblocks** 4
+**Order** 47 · **OPS** · **Where:** Vendor console · **3d** · **In progress** · **Unblocks** 4
 
 Stand up staging and production, each with its own database. Turn on backups and confirm you can actually restore to a point in time.
 
@@ -692,9 +726,9 @@ Stand up staging and production, each with its own database. Turn on backups and
 - **Done when:** Both exist with their own Postgres; scheduled backups on for production; point-in-time restore confirmed available on the plan
 - **Reference:** Guide §10
 
-### ⏸ `P2-OPS-05` · Write the environment seed job
+### ▶ `P2-OPS-05` · Write the environment seed job
 
-**Order** 48 · **OPS** · **Where:** Code · **3d** · **Blocked** · **Unblocks** 3
+**Order** 48 · **OPS** · **Where:** Code · **3d** · **In progress** · **Unblocks** 3
 
 A script that fills an empty database with realistic demo data. Because preview environments start empty on Railway, this is infrastructure — if it rots, every preview becomes useless.
 
@@ -702,9 +736,9 @@ A script that fills an empty database with realistic demo data. Because preview 
 - **Done when:** worker/jobs/seed-environment.ts builds a usable demo tenant from scratch; a fresh PR environment is immediately usable
 - **Reference:** Guide §10
 
-### ⏸ `P2-OPS-11` · Configure monitoring and alerting
+### ▶ `P2-OPS-11` · Configure monitoring and alerting
 
-**Order** 49 · **OPS** · **Where:** Vendor console · **3d** · **Blocked** · **Unblocks** 2
+**Order** 49 · **OPS** · **Where:** Vendor console · **3d** · **In progress** · **Unblocks** 2
 
 Make service health, queue depth and failed jobs visible, and make sure somebody gets woken up if the worker stops processing.
 
@@ -712,9 +746,9 @@ Make service health, queue depth and failed jobs visible, and make sure somebody
 - **Done when:** Service health, queue depth, failed jobs and error rate all visible; someone is paged when the worker stops draining
 - **Reference:** §38
 
-### ⏸ `P2-SEC-01` · Author the authorisation matrix test suite
+### ▶ `P2-SEC-01` · Author the authorisation matrix test suite
 
-**Order** 50 · **SEC** · **Where:** Code · **3d** · **Blocked** · **Unblocks** 2
+**Order** 50 · **SEC** · **Where:** Code · **3d** · **In progress** · **Unblocks** 2
 
 Turn the RBAC matrix into an automated test that runs on every commit. When someone widens a permission to fix a bug, this tells them what else they just widened.
 
@@ -722,9 +756,9 @@ Turn the RBAC matrix into an automated test that runs on every commit. When some
 - **Done when:** tests/authz.matrix.test.ts seeds two tenants, two sponsors, two athletes, a guardian and a property, and asserts every role against every resource
 - **Reference:** §30, Guide §09
 
-### ⏸ `P2-BE-06` · Build the audit helper
+### ▶ `P2-BE-06` · Build the audit helper
 
-**Order** 51 · **BE** · **Where:** Code · **1d** · **Blocked** · **Unblocks** 1
+**Order** 51 · **BE** · **Where:** Code · **1d** · **In progress** · **Unblocks** 1
 
 A single helper that records who changed what and when, for pricing, agreements, campaigns, payouts and permissions.
 
@@ -732,9 +766,9 @@ A single helper that records who changed what and when, for pricing, agreements,
 - **Done when:** audit(tx, actor, action, entity, id) writes inside the caller's transaction; pricing, agreement, campaign, payout and permission changes are all covered
 - **Reference:** §26
 
-### ⏸ `P2-BE-07` · Build the contracts registry and OpenAPI generation
+### ▶ `P2-BE-07` · Build the contracts registry and OpenAPI generation
 
-**Order** 52 · **BE** · **Where:** Code · **3d** · **Blocked** · **Unblocks** 1
+**Order** 52 · **BE** · **Where:** Code · **3d** · **In progress** · **Unblocks** 1
 
 Define API shapes once in code and generate the API specification from them, rather than hand-writing a spec that drifts from reality.
 
@@ -742,9 +776,9 @@ Define API shapes once in code and generate the API specification from them, rat
 - **Done when:** src/contracts/registry.ts emits openapi.json at /api/v1/openapi.json; the spec is generated from Zod, never hand-written
 - **Reference:** §38, Addendum A2, Guide §02
 
-### ⏸ `P2-QA-01` · Stand up the test harness
+### ▶ `P2-QA-01` · Stand up the test harness
 
-**Order** 53 · **QA** · **Where:** Code · **3d** · **Blocked** · **Unblocks** 1
+**Order** 53 · **QA** · **Where:** Code · **3d** · **In progress** · **Unblocks** 1
 
 Set up the testing tools so tests can run locally and automatically on every commit.
 
@@ -752,9 +786,9 @@ Set up the testing tools so tests can run locally and automatically on every com
 - **Done when:** Vitest for unit + matrix, Playwright for E2E; both runnable locally and in CI against a seeded database
 - **Reference:** Guide §01
 
-### ⏸ `P2-BE-09` · Establish the repo layout
+### ▶ `P2-BE-09` · Establish the repo layout
 
-**Order** 54 · **BE** · **Where:** Code · **1d** · **Blocked** · **Unblocks** 0
+**Order** 54 · **BE** · **Where:** Code · **1d** · **In progress** · **Unblocks** 0
 
 Create the folder structure: one repository, two deployable things (app and worker), sharing the same business logic so they can never disagree.
 
@@ -762,9 +796,9 @@ Create the folder structure: one repository, two deployable things (app and work
 - **Done when:** src/server/, src/contracts/, worker/jobs/, prisma/sql/, tests/ all exist per Guide §02; one repo, two deployables, one lockfile
 - **Reference:** Guide §02
 
-### ⏸ `P2-FE-01` · Swap fixture reads for real queries behind a flag
+### ▶ `P2-FE-01` · Swap fixture reads for real queries behind a flag
 
-**Order** 55 · **FE** · **Where:** Code · **3d** · **Blocked** · **Unblocks** 0
+**Order** 55 · **FE** · **Where:** Code · **3d** · **In progress** · **Unblocks** 0
 
 Point the finished screens at the real database instead of mock data, keeping mocks available for demos.
 
@@ -772,9 +806,9 @@ Point the finished screens at the real database instead of mock data, keeping mo
 - **Done when:** An authenticated user loads an empty portal from Postgres; fixtures remain available for demo mode
 - **Reference:** Roadmap B0
 
-### ⏸ `P2-INT-02` · Enable MFA for privileged roles
+### ▶ `P2-INT-02` · Enable MFA for privileged roles
 
-**Order** 56 · **INT** · **Where:** Vendor console · **1d** · **Blocked** · **Unblocks** 0
+**Order** 56 · **INT** · **Where:** Vendor console · **1d** · **In progress** · **Unblocks** 0
 
 Require two-factor authentication for admin and finance accounts in production.
 
@@ -782,9 +816,9 @@ Require two-factor authentication for admin and finance accounts in production.
 - **Done when:** Admin and finance roles require MFA in the production instance
 - **Reference:** §26
 
-### ⏸ `P2-OPS-02` · Configure web for standalone output
+### ▶ `P2-OPS-02` · Configure web for standalone output
 
-**Order** 57 · **OPS** · **Where:** Code · **1d** · **Blocked** · **Unblocks** 0
+**Order** 57 · **OPS** · **Where:** Code · **1d** · **In progress** · **Unblocks** 0
 
 Configure the app to build as a plain Node server, so it can move to another host without a rewrite.
 
@@ -792,9 +826,9 @@ Configure the app to build as a plain Node server, so it can move to another hos
 - **Done when:** next.config.ts sets output: 'standalone'; web runs next start; worker runs node worker/index.js with no public domain
 - **Reference:** Guide §10
 
-### ⏸ `P2-OPS-04` · Configure the environment variable set
+### ▶ `P2-OPS-04` · Configure the environment variable set
 
-**Order** 58 · **OPS** · **Where:** Vendor console · **1d** · **Blocked** · **Unblocks** 0
+**Order** 58 · **OPS** · **Where:** Vendor console · **1d** · **In progress** · **Unblocks** 0
 
 Set the environment variables, carefully: Zoho credentials belong only on the worker, never on the public web app.
 
@@ -802,9 +836,9 @@ Set the environment variables, carefully: Zoho credentials belong only on the wo
 - **Done when:** Every variable in Guide §10 present and scoped correctly — critically, ZOHO_CLIENT_ID/SECRET/REFRESH_TOKEN on worker only, ZOHO_WEBHOOK_SECRET on web
 - **Reference:** Guide §10
 
-### ⏸ `P2-OPS-06` · Add the bare-findMany() lint rule
+### ▶ `P2-OPS-06` · Add the bare-findMany() lint rule
 
-**Order** 59 · **OPS** · **Where:** Code · **1d** · **Blocked** · **Unblocks** 0
+**Order** 59 · **OPS** · **Where:** Code · **1d** · **In progress** · **Unblocks** 0
 
 A lint rule that fails the build if a database query does not explicitly list the fields it wants. This is what stops accidental data leaks at scale.
 
@@ -812,9 +846,9 @@ A lint rule that fails the build if a database query does not explicitly list th
 - **Done when:** The build fails on any Prisma read without an explicit select
 - **Reference:** Guide §04
 
-### ⏸ `P2-OPS-07` · Set up CI: typecheck, lint, unit, authz matrix
+### ▶ `P2-OPS-07` · Set up CI: typecheck, lint, unit, authz matrix
 
-**Order** 60 · **OPS** · **Where:** Code · **3d** · **Blocked** · **Unblocks** 0
+**Order** 60 · **OPS** · **Where:** Code · **3d** · **In progress** · **Unblocks** 0
 
 Wire up continuous integration so every commit is type-checked, linted, unit-tested and permission-tested.
 
@@ -822,9 +856,9 @@ Wire up continuous integration so every commit is type-checked, linted, unit-tes
 - **Done when:** Every commit runs all four; the authz matrix is a required check, not an advisory one
 - **Reference:** §30, Guide §09
 
-### ⏸ `P2-OPS-08` · Configure PR environments
+### ▶ `P2-OPS-08` · Configure PR environments
 
-**Order** 61 · **OPS** · **Where:** Vendor console · **1d** · **Blocked** · **Unblocks** 0
+**Order** 61 · **OPS** · **Where:** Vendor console · **1d** · **In progress** · **Unblocks** 0
 
 Give every pull request its own throwaway environment with a fresh seeded database — never a copy of production data.
 
@@ -832,9 +866,9 @@ Give every pull request its own throwaway environment with a fresh seeded databa
 - **Done when:** Each pull request gets its own environment with a fresh Postgres, seeded by the job — never a copy of production
 - **Reference:** Guide §10
 
-### ⏸ `P2-OPS-10` · Define the deploy ordering rule
+### ▶ `P2-OPS-10` · Define the deploy ordering rule
 
-**Order** 62 · **OPS** · **Where:** Document · **1d** · **Blocked** · **Unblocks** 0
+**Order** 62 · **OPS** · **Where:** Document · **1d** · **In progress** · **Unblocks** 0
 
 Write down and enforce the rule that the worker deploys before the web app, so a new job type always has a handler waiting.
 
@@ -842,9 +876,9 @@ Write down and enforce the rule that the worker deploys before the web app, so a
 - **Done when:** Documented and enforced: worker deploys before web on any release adding a job type; pg-boss migrations run on worker boot only
 - **Reference:** Guide §10
 
-### ⏸ `P2-PMO-01` · Write the deployment runbook (§38 deliverable)
+### ▶ `P2-PMO-01` · Write the deployment runbook (§38 deliverable)
 
-**Order** 63 · **PMO** · **Where:** Document · **3d** · **Blocked** · **Unblocks** 0
+**Order** 63 · **PMO** · **Where:** Document · **3d** · **In progress** · **Unblocks** 0
 
 Document how to deploy, how to roll back, and what to do when a migration fails. Then test it once, for real.
 
@@ -852,9 +886,9 @@ Document how to deploy, how to roll back, and what to do when a migration fails.
 - **Done when:** Deploy, rollback, migration-failure and restore procedures written down and tested once
 - **Reference:** §38
 
-### ⏸ `P2-SEC-02` · Add field-level denial cases to the matrix
+### ▶ `P2-SEC-02` · Add field-level denial cases to the matrix
 
-**Order** 64 · **SEC** · **Where:** Code · **1d** · **Blocked** · **Unblocks** 0
+**Order** 64 · **SEC** · **Where:** Code · **1d** · **In progress** · **Unblocks** 0
 
 Add the specific tests proving a sponsor cannot read athlete pay and an athlete cannot read a campaign budget.
 
@@ -898,7 +932,7 @@ Store what content an athlete can make, which brands they like, and crucially wh
 
 When someone accepts an agreement, record a fingerprint of the exact text they were shown, plus who, when and from where. That is what makes it hold up, not a signature image.
 
-- **Depends on:** P0-LEG-01, P0-LEG-03
+- **Depends on:** nothing — startable now *(Legal dependency removed 2026-09-15 — counsel approvals no longer gate development; see the Legal sheet in the task board.)*
 - **Done when:** Acceptance records agreement version, body hash, signer, timestamp, IP, user agent and guardian where applicable
 - **Reference:** §12, Guide §08
 
@@ -928,8 +962,8 @@ One function for sending email, with the chosen vendor hidden behind it, so swit
 
 Load the seven standard job types into the database with their pay and price bands.
 
-- **Depends on:** P0-PMO-09, P2-BE-02
-- **Done when:** All seven jobs seeded with base pay and sell price bands from §5
+- **Depends on:** P0-PMO-09, P2-BE-02, P0-PMO-13
+- **Done when:** All seven jobs seeded with base pay and sell price bands from §5, SX-07's corrected sell band ($1,050–$2,000), and each job's derived minimum sell price at Emerging, Creator and Premium
 - **Reference:** §5
 
 ### ⏸ `P3-BE-03` · Guardian model, linkage and verification
@@ -959,7 +993,7 @@ Record social handles and follower counts, tagged with where the number came fro
 Set each athlete's individual rate per job type, with a manual tier multiplier. These numbers must never be visible to sponsors.
 
 - **Depends on:** P3-BE-08
-- **Done when:** Network manager sets tier and per-job rate manually; rates are versioned; AthleteRate.amount is never exposed to a sponsor-scoped query
+- **Done when:** Network manager sets tier and per-job rate manually; rates are versioned; AthleteRate.amount is never exposed to a sponsor-scoped query; setting a rate surfaces the minimum sell price it implies (rate × 1.4)
 - **Reference:** §6, Guide §04
 
 ### ⏸ `P3-BE-11` · Seed the sponsor package catalogue
@@ -968,9 +1002,19 @@ Set each athlete's individual rate per job type, with a manual tier multiplier. 
 
 Load the six sponsor packages into the database.
 
-- **Depends on:** P0-PMO-10
-- **Done when:** All six §7 packages seeded with price band, athlete count and inventory
+- **Depends on:** P0-PMO-10, P0-PMO-13
+- **Done when:** All six §7 packages seeded with price band, athlete count and the job-code line items confirmed in `P0-PMO-13` — including Local Blitz narrowed to $1,500–$2,400 / 5–9 athletes and "iMC/BTG feature" as a non-NIL inventory line
 - **Reference:** §7
+
+### ⏸ `P3-BE-12` · Enforce the margin floor at quote and Campaign Order creation
+
+**Order** 74.5 · **BE** · **Where:** Code · **3d** · **Blocked** · **Unblocks** 0
+
+Refuse to save a campaign order line whose sponsor price is below athlete cost × 1.4, at the moment the price is set rather than at month end. A hard block, not a warning — the rule exists because a network manager can otherwise assign a strong athlete to a discounted job in good faith and lose money on the campaign with nothing in the system objecting.
+
+- **Depends on:** P0-PMO-13, P3-BE-11
+- **Done when:** A line below the floor cannot be saved; the error names the job, the athlete tier, the computed floor and the shortfall; tests cover all seven jobs at all three tiers
+- **Reference:** §5, §6, §7, §19 · `documentation/SponsorX-Pricing-Floor-Decision.md`
 
 ### ⏸ `P3-DATA-01` · Pilot cohort import job
 
@@ -1049,7 +1093,7 @@ Let an athlete see their own rates — and nobody else's.
 Show the real packages publicly, with sponsor prices only. Athlete pay must never appear on a public page.
 
 - **Depends on:** P3-BE-11
-- **Done when:** Real packages render with sponsor prices only — athlete base pay never appears on a public surface
+- **Done when:** Real packages render with sponsor prices only — athlete base pay never appears on a public surface — and each package shows the job-code line items it contains
 - **Reference:** §7
 
 ### ⏸ `P3-INT-02` · Application and approval notification jobs
@@ -1078,7 +1122,7 @@ An automated test covering the whole path from application to active athlete, in
 
 Check that the legal constraints around minors are enforced in the code, not just written in a document.
 
-- **Depends on:** P3-BE-03, P0-LEG-06
+- **Depends on:** P3-BE-03 *(Legal dependency removed 2026-09-15 — counsel approvals no longer gate development; see the Legal sheet in the task board.)*
 - **Done when:** Date of birth handling, guardian PII and the constraints from P0-LEG-06 are enforced in code, not just documented
 - **Reference:** §4, §26
 
@@ -1162,9 +1206,9 @@ The athlete's invitation inbox — opening one marks it viewed; accept and decli
 - **Done when:** Real invitations render in all five states; viewing transitions INVITED→VIEWED; accept and decline both work
 - **Reference:** §24
 
-### ▶ `P4-ART-01` · Design the matching and roster-review experience
+### ✅ `P4-ART-01` · Design the matching and roster-review experience
 
-**Order** 93 · **ART** · **Where:** Design tool · **3d** · **Ready** · **Unblocks** 0
+**Order** 93 · **ART** · **Where:** Design tool · **3d** · **Done** · **Unblocks** 0
 
 Design the matching screen before it is built. It is the densest screen in the product: filters, roster comparison, scores side by side.
 
@@ -1268,7 +1312,7 @@ Re-check every sponsor-facing query lists its fields explicitly and never includ
 
 Accepting a campaign contract: record the exact text shown, who accepted, when and from where. An unverified guardian blocks acceptance. Do not build this until counsel has approved the template.
 
-- **Depends on:** P0-LEG-02, P3-BE-06, P4-BE-04
+- **Depends on:** P3-BE-06, P4-BE-04 *(Legal dependency removed 2026-09-15 — counsel approvals no longer gate development; see the Legal sheet in the task board.)*
 - **Done when:** Acceptance records agreement version, body hash, signer, timestamp, IP and user agent; an unverified guardian blocks acceptance; state must be SENT to accept
 - **Reference:** §12, Guide §08
 
@@ -1332,9 +1376,9 @@ The content approval board where BTG staff work: review drafts, request changes,
 - **Done when:** The full review board works — draft review, revision request, sponsor routing, approval, publication proof
 - **Reference:** §10, §23
 
-### ▶ `P5-ART-01` · Design the deliverable and approval states
+### ✅ `P5-ART-01` · Design the deliverable and approval states
 
-**Order** 109 · **ART** · **Where:** Design tool · **3d** · **Ready** · **Unblocks** 0
+**Order** 109 · **ART** · **Where:** Design tool · **3d** · **Done** · **Unblocks** 0
 
 Design how each deliverable state looks to the athlete, to BTG and to the sponsor — three different audiences, same record.
 
@@ -1498,7 +1542,7 @@ Short links that redirect instantly and record the click after the visitor has a
 
 Record consent with its version at the moment a fan claims. No fan's details leave the system without it.
 
-- **Depends on:** P0-LEG-04, P6-BE-03
+- **Depends on:** P6-BE-03 *(Legal dependency removed 2026-09-15 — counsel approvals no longer gate development; see the Legal sheet in the task board.)*
 - **Done when:** Consent is recorded with its version at claim time; no fan PII leaves the system without it
 - **Reference:** §26
 
@@ -1659,7 +1703,7 @@ Assemble the sponsor's results report: what was promised, who delivered, what it
 Work out gross pay, adjustments and BTG's margin from the job's pay and price.
 
 - **Depends on:** P7-BE-01
-- **Done when:** Gross compensation, adjustments and BTG margin computed from the job's base pay and sell price
+- **Done when:** Gross compensation, adjustments and BTG margin computed from the agreed athlete rate and the sponsor price; a line below athlete cost × 1.4 cannot exist, because `P3-BE-12` blocks it at creation
 - **Reference:** §5, §10
 
 ### ⏸ `P7-FE-03` · Wire the sponsor ROI report screen
@@ -1692,9 +1736,9 @@ Closing an approved deliverable makes the athlete's earning eligible, automatica
 - **Done when:** Closing an accepted deliverable makes the associated earning ELIGIBLE; the transition is audited
 - **Reference:** §13 step 11
 
-### ⏸ `P7-BE-04` · Invoice / payment reference ingestion from Zoho
+### ▶ `P7-BE-04` · Invoice / payment reference ingestion from Zoho
 
-**Order** 143 · **BE** · **Where:** Code · **3d** · **Blocked** · **Unblocks** 0
+**Order** 143 · **BE** · **Where:** Code · **3d** · **Ready** · **Unblocks** 0
 
 Pull invoice and payment status in from Zoho. SponsorX never becomes the invoicing system.
 
@@ -1822,9 +1866,9 @@ Search the whole codebase to confirm no tax ID, bank or card field exists anywhe
 
 *24 tasks · 0 person-days*
 
-### ⏸ `P8-INT-01` · Zoho outbound push jobs for all four bi-directional objects
+### ▶ `P8-INT-01` · Zoho outbound push jobs for all four bi-directional objects
 
-**Order** 155 · **INT** · **Where:** Code · **5d** · **Blocked** · **Unblocks** 8
+**Order** 155 · **INT** · **Where:** Code · **5d** · **Ready** · **Unblocks** 8
 
 Push accounts, contacts, deals and tasks to Zoho from the background worker, using a shared ID so records never duplicate.
 
