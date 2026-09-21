@@ -566,6 +566,16 @@ Design the athlete sign-up as a progressive flow across its ten sections, includ
 - **Done when:** All ten §11 sections designed as a progressive flow, including the guardian branch
 - **Reference:** §11
 
+### 🔍 `P1-ART-08` · 3D immersive landing (follow-the-ball scrollytelling)
+
+**Order** 32.5 · **ART** · **Where:** Code · **3d** · **Code review** · **Unblocks** 0
+
+Rebuild the public home as an immersive scroll experience: a centered three.js ball spins-and-swaps through four sports (soccer → basketball → baseball → football) while per-sport environments cross-fade behind it and 2D chapter content frames it, ending as the SponsorX "X". Poster-first for LCP; graceful fallbacks throughout.
+
+- **Depends on:** builds on `P1-ART-06` marketing art (uses Tripo-authored ball/X models)
+- **Done when:** the home page renders all §9.1 content over a static poster (LCP-safe, SEO-safe); with WebGL + motion the ball follows the scroll and morphs soccer→basketball→baseball→football→X with per-sport environments and a progress rail; `prefers-reduced-motion`, no-WebGL and mobile-low-perf all fall back to the static readable page
+- **Reference:** §9 screen 1; `docs/superpowers/specs/2026-09-22-landing-3d-scrollytelling-design.md`
+
 ### ⏸ `P1-FE-05` · Field-level authz audit of every fixture-backed screen
 
 **Order** 33 · **FE** · **Where:** Code · **1d** · **Blocked** · **Unblocks** 0
