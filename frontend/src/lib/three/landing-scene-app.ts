@@ -40,6 +40,7 @@ export class LandingSceneApp {
   private targetProgress = 0;
   private smoothProgress = 0;
   private lastChapter = -1;
+  private time = 0;
 
   private onReady?: () => void;
   private onChapter?: (index: number) => void;
@@ -88,6 +89,7 @@ export class LandingSceneApp {
     const loop = () => {
       this.raf = requestAnimationFrame(loop);
       const dt = this.clock.getDelta();
+      this.time += dt;
 
       // Frame-rate-independent ease toward the scroll target (the scrub feel).
       this.smoothProgress += (this.targetProgress - this.smoothProgress) * Math.min(1, dt * 4);
@@ -96,7 +98,7 @@ export class LandingSceneApp {
       const by = ballWorldY(this.smoothProgress);
       this.rig.setWorldY(by);
       this.rig.update(this.smoothProgress, dt);
-      this.world.update(this.smoothProgress);
+      this.world.update(this.smoothProgress, this.time);
 
       // Camera follows the ball; during the between-stadium drop it pulls in
       // close and over-centre so it dives *through the hole* with the ball

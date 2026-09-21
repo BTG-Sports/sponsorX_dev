@@ -136,6 +136,40 @@ export function footballGround(): THREE.Texture {
   return tex(c, 1);
 }
 
+/** Soft round dot for crowd / particle Points and sprites. */
+export function dotSprite(): THREE.Texture {
+  const S = 64;
+  const [c, x] = canvas(S);
+  const g = x.createRadialGradient(S / 2, S / 2, 0, S / 2, S / 2, S / 2);
+  g.addColorStop(0, "rgba(255,255,255,1)");
+  g.addColorStop(0.35, "rgba(255,255,255,0.8)");
+  g.addColorStop(1, "rgba(255,255,255,0)");
+  x.fillStyle = g;
+  x.fillRect(0, 0, S, S);
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  return t;
+}
+
+/** Segmented luminance strip for the scrolling LED ribbon (tinted per accent). */
+export function ribbonTexture(): THREE.Texture {
+  const W = 512;
+  const H = 32;
+  const [c, x] = canvas(W);
+  c.height = H;
+  x.clearRect(0, 0, W, H);
+  for (let i = 0; i < 32; i++) {
+    const on = i % 3 !== 0;
+    x.fillStyle = on ? `rgba(255,255,255,${0.5 + Math.random() * 0.5})` : "rgba(255,255,255,0.08)";
+    x.fillRect((i * W) / 32 + 2, 6, W / 32 - 4, H - 12);
+  }
+  const t = new THREE.CanvasTexture(c);
+  t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  t.repeat.set(6, 1);
+  t.colorSpace = THREE.SRGBColorSpace;
+  return t;
+}
+
 /** Dark rock/earth strata for the underground shaft walls. */
 export function rockWall(): THREE.Texture {
   const S = 512;
