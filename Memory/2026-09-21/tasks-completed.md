@@ -163,3 +163,71 @@ extended autofilter, Status validation, 3 CF ranges and all 15 Dashboard
 formulas from row 199 → 200. Also reset `P1-ART-07` to `Done` (see branch-sync
 note). Backup in the session scratchpad. Google Sheet mirror is the human's
 end-of-day step.
+
+## Task — `P4-FE-06` · Build the matching & roster-review workspace in-app (P4-ART-01 in-app)
+
+**Trigger:** user asked to put the P4-ART-01 matching / roster-review design
+inside the web app with awwwards-level polish, designed for desktop, tablet
+**and** mobile (rcfworks' brief was deliberately 1440-only — the user
+overrode that).
+
+**Spec:** [docs/superpowers/specs/2026-09-21-matching-studio-design.md](../../docs/superpowers/specs/2026-09-21-matching-studio-design.md)
+**Design source:** `documentation/Design/matching-roster-review/` (BRIEF.md is
+the real contract; the `.dc.html` is reference, not pixel law)
+
+### What was built
+
+The **Matching Studio** at `/admin/campaigns/match` — §13 step 3 for a new
+STAFFING campaign (*Southwest Hydration Push — Rally Sports Drink*,
+`CMP-2026-0418`) whose card now leads the `/admin/campaigns` list. All five
+design states live in one island:
+
+- [matching.ts](../../src/lib/matching.ts) — pure, 27 vitest tests: the
+  brief (cents, `money()`), the 14-athlete Texas roster (each composite =
+  round(mean(six factors)) — asserted, so "explainable score" stays true),
+  `MARGIN_FLOOR = 1.4` band math, filter/sort with **conflicts never
+  hidden** (blocked athletes bypass every filter except search), computed
+  relax suggestions (each count is a genuine re-run), slot assignment with
+  visible overflow, send summary/steps, conflict-detail records for Lena +
+  Sasha.
+- [matching-studio.tsx](../../src/components/matching-studio.tsx) —
+  orchestrator: URL-synced filters + `?view=`, ordered shortlist, brief HUD
+  with live slot meter, roster table/cards, dock, bottom bar, sheets,
+  drawer plumbing (roster-ops discipline). Plus
+  [matching-bits](../../src/components/matching-bits.tsx) (tier mark,
+  provenance mark, margin value, score cell, tween number — one source so
+  views can't drift), [matching-compare](../../src/components/matching-compare.tsx)
+  (compares the *actual* shortlist, sticky label column, snap strip on
+  phones), [matching-review](../../src/components/matching-review.tsx)
+  (send gated on a recorded-exception checkbox; demo send with Undo),
+  [matching-conflict](../../src/components/matching-conflict.tsx) (drawer:
+  declaration facts, why-it-blocks, three actions).
+- Motion rides the existing `sx-join-*`/`sx-viz-*` systems; the only new CSS
+  is the bottom sheet (`sx-match-sheet`, globals.css), reduced-motion 1ms so
+  the animationend unmount still fires.
+
+### Lessons that cost a cycle (browser-verified via Playwright)
+
+- **The mock's 1440 doesn't survive the portal sidebar.** Filter rail +
+  table + dock at `xl` left ~570px for a 9-column grid — rows overflowed
+  *under* the dock (found because a Playwright click on "Why" was
+  intercepted). Zones now earn their place a breakpoint late: cards < `lg`
+  (2-up from `sm`), 8-col table `lg+`, dock rail `xl+`, filter rail `2xl+`,
+  and **cost is never a column** — it's the permanent subline under Sell.
+- **A mount-flag focus guard refires under StrictMode's double effect** and
+  yanked the page down on load. Guard on the previous *value* instead.
+
+**Verified:** vitest 46/46 (27 new), tsc, eslint, `next build` clean;
+Playwright drove all five states at 1440/1920/834/390 — send-gate →
+send → undo, conflict drawer from a real click, dock CTAs, computed
+empty-state suggestions ("Drop minimum score to 85 · 1 match").
+Screenshots in the session scratchpad (`mx-*.png`).
+
+### Task board
+
+Added **P4-FE-06** (row 117, Order 93.5, `Code review`, started 2026-09-21,
+depends on P4-ART-01); extended autofilter, Status validation, 3 CF ranges
+and all 15 Dashboard formulas from row 201 → 202. Also restored
+**P4-ART-01 → Done / 2026-09-17 / rcfworks** — the 09-21 merge had reverted
+it to `Ready`, same failure as P1-ART-07. Backup in the session scratchpad.
+Google Sheet mirror remains the human end-of-day step.
