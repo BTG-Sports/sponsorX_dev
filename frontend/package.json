@@ -10,7 +10,6 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@asteasolutions/zod-to-openapi": "9.1.0",
     "@aws-sdk/client-s3": "3.1132.0",
     "@aws-sdk/s3-request-presigner": "3.1132.0",
     "@clerk/nextjs": "7.9.2",

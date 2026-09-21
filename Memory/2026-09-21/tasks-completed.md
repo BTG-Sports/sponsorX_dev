@@ -808,3 +808,50 @@ the ones §7.1 and §7.2 of the RBAC matrix protect.
 exactly three errors and failed the lint; the two reads carrying a `select`
 produced none; removing the probe returned it to clean. The frontend rule was
 probed the same way after being repointed at the shared file.
+
+## `P2-BE-07` — the API now publishes its own contract
+
+`GET /api/v1/openapi.json` is served by the Express API and generated from the
+Zod registry on every request. Verified against a booted server: 200,
+`openapi: 3.1.0`, servers `[/api/v1]`, components `ProblemDetails`,
+`PageQuery`, `PageMeta`, `Provenance`, security scheme `bearerAuth`.
+
+**This was the third instance of one pattern in a single day.** The registry,
+the generator dependency and the route all already existed — in `frontend/`.
+After Addendum B moved the API to Express, the published description of the
+API was being produced and served by a process that is no longer the API. The
+row's acceptance was *technically satisfied* by a route describing the wrong
+service, which is worse than having no spec at all, because §8's service
+account and INFINEX would read it as authoritative.
+
+The three together, worth stating as one lesson:
+
+- `allowImportingTsExtensions` followed a rename into the workspace that
+  didn't need it, while the workspace that did failed to build.
+- The Prisma `select` rule guarded the workspace that no longer queries
+  Prisma.
+- The OpenAPI spec was emitted by the workspace that is no longer the API.
+
+**When code moves between workspaces, ask what was describing it or watching
+it.** Those things never fail loudly — a compiler flag in the wrong place, a
+lint rule with nothing to match, a spec generated from an empty registry: all
+of them pass, and all of them silently stop being true. Only the thing that
+moved gets tested.
+
+What moved: `src/contracts/{zod,common,registry}.ts` into
+`backend/src/contracts` with history preserved; the Next route deleted, so the
+frontend now ships **no** `/api` routes at all; `@asteasolutions/zod-to-openapi`
+declared in the backend and removed from the frontend.
+
+Also verified while the server was up: `/health` 200, `/api/v1` 200,
+`/api/v1/me` **401** both with no credential and with a bogus bearer token. A
+500 on the first attempt was my own fake probe key — Clerk rejects a
+publishable key that isn't in `pk_test`/`pk_live` format before it looks at the
+request at all.
+
+**Found and deliberately not fixed:** the published spec declares
+`ProblemDetails` (RFC 9457) as the error envelope for every endpoint, but
+`app.ts` returns `{error:{code,message}}` and labels a 401 as `bad_request`. So
+the spec and the API disagree *today* — exactly the drift this row exists to
+prevent — but the error handler belongs to the backend scaffold rather than to
+this task, so it is raised rather than changed unilaterally.
