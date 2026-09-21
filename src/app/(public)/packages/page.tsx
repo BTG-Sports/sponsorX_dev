@@ -131,13 +131,12 @@ export default function PackagesPage() {
               {p.includes}
             </p>
 
-            <button
-              type="button"
-              title="Creates a CampaignBrief in DRAFT — not wired (B3)"
-              className="mt-5 w-full rounded-lg bg-primary py-2.5 text-xs font-medium text-cta-ink transition-colors hover:bg-primary-soft"
+            <Link
+              href={`/brief?package=${p.id}`}
+              className="mt-5 block w-full rounded-lg bg-primary py-2.5 text-center text-xs font-medium text-cta-ink transition-colors hover:bg-primary-soft"
             >
               Request a brief
-            </button>
+            </Link>
           </div>
         ))}
       </div>

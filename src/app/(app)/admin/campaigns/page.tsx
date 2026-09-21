@@ -9,8 +9,10 @@ import {
   campaignDetailX,
   eligibleAthletes,
   mediaInv,
+  money,
   rewardDraft,
 } from "@/lib/fixtures";
+import { JOBS, MATCH_BRIEF } from "@/lib/matching";
 
 /* --------------------------------------------------------------------------
    Campaigns list — the admin "Campaigns" workspace (2026-09-15).
@@ -35,8 +37,9 @@ export default function CampaignsListPage() {
         <div>
           <h1 className="text-xl font-semibold tracking-tight">Campaigns</h1>
           <p className="mt-1 text-xs text-muted">
-            {campaigns.length} campaign{campaigns.length === 1 ? "" : "s"} · pick
-            one to manage delivery, roster and rewards — §9.9.
+            {campaigns.length + 1} campaigns · one staffing, {campaigns.length}{" "}
+            delivering — pick one to manage matching, delivery, roster and
+            rewards.
           </p>
         </div>
         <CampaignLauncher
@@ -50,6 +53,67 @@ export default function CampaignsListPage() {
       </div>
 
       <ul className="grid gap-4 lg:grid-cols-2">
+        {/* The campaign currently in STAFFING — its card opens the Matching
+            Studio (P4-ART-01), not the delivery dashboard: there is nothing
+            to deliver until the roster is staffed and invitations go out. */}
+        <li>
+          <Link
+            href="/admin/campaigns/match"
+            className="group block rounded-xl border border-line bg-surface p-5 transition-all hover:border-admin/30 hover:bg-surface-2/40"
+          >
+            <div className="flex items-start gap-3">
+              <Monogram
+                text={initials(MATCH_BRIEF.sponsor)}
+                tone="accent"
+                className="size-10 text-[11px]"
+              />
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-center gap-2">
+                  <h2 className="truncate text-sm font-semibold tracking-tight">
+                    {MATCH_BRIEF.campaign}
+                  </h2>
+                  <Badge tone="warn">STAFFING</Badge>
+                </div>
+                <p className="mt-0.5 truncate text-[11px] text-muted">
+                  Presented by {MATCH_BRIEF.sponsor} · step 3 of 12 — matching
+                  &amp; roster review
+                </p>
+              </div>
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="size-4 shrink-0 text-faint transition-transform group-hover:translate-x-0.5"
+                aria-hidden="true"
+              >
+                <path d="m9 5 7 7-7 7" />
+              </svg>
+            </div>
+
+            <div className="mt-4 flex flex-wrap items-center gap-1.5">
+              {JOBS.map((j) => (
+                <span
+                  key={j.id}
+                  className="inline-flex items-center gap-1 rounded-full border border-line bg-surface-2/60 px-2 py-0.5 text-[10px] font-medium text-muted"
+                >
+                  <span className="tabular-nums text-text">{j.id}</span>
+                  {j.label}
+                  <span className="tabular-nums text-faint">×{j.slots}</span>
+                </span>
+              ))}
+            </div>
+
+            <dl className="mt-4 grid grid-cols-3 gap-3 border-t border-line-soft pt-4">
+              <Stat label="Budget" value={money(MATCH_BRIEF.budget)} />
+              <Stat label="Needed" value={`${MATCH_BRIEF.needed} athletes`} />
+              <Stat label="Market" value={MATCH_BRIEF.market} />
+            </dl>
+          </Link>
+        </li>
+
         {campaigns.map(({ id, c, needsAttention }) => {
           const pct = c.viewsTarget
             ? Math.min(100, Math.round((c.viewsDelivered / c.viewsTarget) * 100))

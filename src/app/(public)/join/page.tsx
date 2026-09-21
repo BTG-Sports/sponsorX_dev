@@ -1,166 +1,106 @@
-import Link from "next/link";
-import { BackLink } from "@/components/back-link";
-import { Badge, BlockedNotice, Card } from "@/components/ui";
-import { resolveBack } from "@/lib/back";
-import { applicationSections } from "@/lib/fixtures";
+import { NEVER_ASKED } from "@/lib/join-flow";
+import { JoinWizard } from "@/components/join-wizard";
 
 /* --------------------------------------------------------------------------
-   Athlete Application — §11, and §39's front door.
+   Athlete Application — §11, and §39's front door. P1-ART-07 built in-app:
+   the phone-first progressive wizard (one section per screen, the §4 guardian
+   branch, localStorage drafts, v0.4 click-wrap, after-submit state).
 
-   Absent from mockup v1.0 entirely: the mockup starts at an already-onboarded
-   athlete. §39 makes this the first step of the protected loop, so it is built
-   here against §11's ten onboarding sections.
+   Desktop (lg+) is a split stage: a sticky brand panel beside the wizard
+   column, so the 430px flow reads as designed-for rather than a mobile site
+   on a big screen. The form column never widens — long input rows hurt
+   completion. Below lg the panel disappears and the phone-first view is
+   exactly the P1-ART-07 comps.
 
-   The application funnel is DRAFT → SUBMITTED (§11). This screen collects; it
-   does not submit for real. Two things stay deliberately un-wired:
-
-   - Agreement acceptance is blocked until counsel approves the Content
-     Collaboration Agreement template (guide §08 / §12) — accepting unapproved
-     text would hash an unenforceable agreement.
-   - The guardian section only matters for minors (§4); shown here as a
-     conditional section rather than a separate flow.
-
-   No client JS: inputs are native and uncontrolled, the submit is disabled.
-   The real form is B1, behind a Zod contract (src/contracts/athlete.ts).
+   Fixtures-only: submit transitions state, no POST — P3-FE-01 wires the API.
+   ?demo=minor lands on section 1 with an under-18 DOB; ?demo=submitted lands
+   on the after-submit state with the guardian card.
    -------------------------------------------------------------------------- */
 
-function TextField({
-  label,
-  placeholder,
-}: {
-  label: string;
-  placeholder: string;
-}) {
-  return (
-    <div>
-      <label className="block text-[11px] font-medium text-muted">{label}</label>
-      <input
-        type="text"
-        placeholder={placeholder}
-        className="mt-1.5 w-full rounded-lg border border-line bg-surface-2 px-3 py-2.5 text-xs text-text placeholder:text-faint focus:border-primary/60 focus:outline-none"
-      />
-    </div>
-  );
-}
+const TRUST = [
+  {
+    title: "Reviewed by hand",
+    body: "A person at BTG reads every application — usually within 3 business days.",
+  },
+  {
+    title: "Nothing sensitive is collected",
+    body: NEVER_ASKED,
+  },
+  {
+    title: "Leave and come back",
+    body: "Progress is saved after every section. The whole thing takes about 8 minutes.",
+  },
+] as const;
 
 export default async function JoinPage({
   searchParams,
 }: {
-  searchParams: Promise<{ from?: string }>;
+  searchParams: Promise<{ demo?: string }>;
 }) {
-  const { from } = await searchParams;
-  const back = resolveBack(from, "home");
-  const total = applicationSections.length;
+  const { demo } = await searchParams;
+  const d = demo === "submitted" ? "submitted" : demo === "minor" ? "minor" : null;
 
   return (
-    <div className="mx-auto w-full max-w-2xl px-6 py-10">
-      <BackLink target={back} />
+    <div className="sx-join-stage">
+      <div className="mx-auto w-full max-w-6xl px-0 lg:grid lg:grid-cols-[minmax(0,1fr)_460px] lg:items-start lg:gap-20 lg:px-8 lg:py-14">
+        {/* ------------------------------------------ brand panel (lg+ only) */}
+        <aside className="hidden lg:sticky lg:top-28 lg:block lg:self-start">
+          <p className="sx-join-rise text-[11px] font-semibold uppercase tracking-[0.2em] text-muted">
+            BTG SponsorX · Athlete Network
+          </p>
+          <h2
+            className="sx-join-rise mt-4 max-w-md text-5xl font-semibold leading-[1.05] tracking-tight"
+            style={{ "--sx-d": "0.08s" } as React.CSSProperties}
+          >
+            Everything in SponsorX starts with this application.
+          </h2>
+          <p
+            className="sx-join-rise mt-5 max-w-md text-base leading-relaxed text-muted"
+            style={{ "--sx-d": "0.16s" } as React.CSSProperties}
+          >
+            Sponsors, campaigns, rewards and earnings all begin with an athlete
+            joining the network. Ten sections, one branch, no surprises.
+          </p>
 
-      {/* --------------------------------------------------------- header */}
-      <div className="mt-4">
-        <div className="flex flex-wrap items-baseline gap-3">
-          <h1 className="text-2xl font-semibold tracking-tight">
-            Join the Athlete Network
-          </h1>
-          <Badge tone="primary">§11</Badge>
-        </div>
-        <p className="mt-2 text-sm text-muted">
-          Apply to the SponsorX athlete network. Your application is reviewed by
-          the BTG Athlete Network Manager, who confirms your rate card and
-          approves you into the network before any sponsor sees you.
-        </p>
-      </div>
-
-      {/* ------------------------------------------------------ status bar */}
-      <div className="mt-6 flex items-center gap-3 rounded-xl border border-line bg-surface px-4 py-3">
-        <Badge tone="neutral">Draft</Badge>
-        <span className="text-[11px] text-muted">
-          Saved as you go · {total} sections · submits to review when complete
-        </span>
-      </div>
-
-      {/* -------------------------------------------------------- sections */}
-      <div className="mt-6 space-y-4">
-        {applicationSections.map((section, i) => (
-          <Card key={section.id}>
-            <div className="flex items-baseline gap-3">
-              <span className="grid size-6 shrink-0 place-items-center rounded-full bg-surface-2 text-[11px] font-semibold text-muted">
-                {i + 1}
-              </span>
-              <div className="min-w-0 flex-1">
-                <div className="flex flex-wrap items-center gap-2">
-                  <h2 className="text-sm font-semibold tracking-tight">
-                    {section.title}
-                  </h2>
-                  {"minorOnly" in section && section.minorOnly && (
-                    <Badge tone="warn">Minors only · §4</Badge>
-                  )}
-                  {"blocked" in section && section.blocked && (
-                    <Badge tone="warn">Blocked · §08</Badge>
-                  )}
+          <ul className="mt-10 max-w-md space-y-6">
+            {TRUST.map((t, i) => (
+              <li
+                key={t.title}
+                className="sx-join-rise flex gap-4"
+                style={{ "--sx-d": `${0.28 + i * 0.1}s` } as React.CSSProperties}
+              >
+                <span className="mt-0.5 grid size-7 shrink-0 place-items-center rounded-full border border-success/40">
+                  <svg
+                    viewBox="0 0 12 12"
+                    className="size-3"
+                    fill="none"
+                    stroke="var(--sx-success)"
+                    strokeWidth="1.8"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <path
+                      d="M2.5 6.5l2.5 2.5 4.5-5.5"
+                      pathLength={1}
+                      className="sx-join-draw"
+                      style={{ "--sx-d": `${0.5 + i * 0.1}s` } as React.CSSProperties}
+                    />
+                  </svg>
+                </span>
+                <div>
+                  <p className="text-sm font-semibold text-text">{t.title}</p>
+                  <p className="mt-1 text-sm leading-relaxed text-muted">{t.body}</p>
                 </div>
-                <p className="mt-0.5 text-[11px] leading-relaxed text-faint">
-                  {section.blurb}
-                </p>
-              </div>
-            </div>
+              </li>
+            ))}
+          </ul>
+        </aside>
 
-            {section.fields.length > 0 && (
-              <div className="mt-4 grid gap-4 pl-9 sm:grid-cols-2">
-                {section.fields.map((f) => (
-                  <TextField
-                    key={f.label}
-                    label={f.label}
-                    placeholder={f.placeholder}
-                  />
-                ))}
-              </div>
-            )}
-
-            {"blocked" in section && section.blocked && (
-              <div className="mt-4 pl-9">
-                <BlockedNotice>
-                  The Content Collaboration Agreement cannot be accepted until
-                  counsel approves the template (guide §08). This section stores
-                  a hash of the rendered agreement body at acceptance — so it
-                  must show approved text first. Wiring lands in B1.
-                </BlockedNotice>
-              </div>
-            )}
-          </Card>
-        ))}
+        {/* -------------------------------------------------- wizard column */}
+        <div className="mx-auto w-full max-w-[430px] lg:mx-0 lg:rounded-2xl lg:border lg:border-line lg:bg-surface/60 lg:shadow-[0_24px_80px_-32px_rgba(0,0,0,0.55)] lg:backdrop-blur">
+          <JoinWizard demo={d} />
+        </div>
       </div>
-
-      {/* ---------------------------------------------------------- submit */}
-      <div className="mt-6 flex flex-wrap items-center gap-3">
-        <button
-          type="button"
-          disabled
-          title="Blocked: submission needs the Zod contract and the counsel-approved agreement (B1). UI only."
-          className="rounded-lg bg-primary px-5 py-2.5 text-xs font-medium text-cta-ink transition-colors hover:bg-primary-soft disabled:cursor-not-allowed disabled:opacity-40"
-        >
-          Submit application
-        </button>
-        <button
-          type="button"
-          title="Draft autosave — not wired"
-          className="rounded-lg border border-line px-5 py-2.5 text-xs font-medium text-text transition-colors hover:bg-surface-2"
-        >
-          Save draft
-        </button>
-        <Link
-          href="/"
-          className="text-[11px] text-muted transition-colors hover:text-text"
-        >
-          Cancel
-        </Link>
-      </div>
-
-      <p className="mt-6 border-t border-line pt-4 text-[10px] leading-relaxed text-faint">
-        Guardian authorization for minors and true e-signature are open A-gate
-        decisions (Roadmap A-gates). SponsorX collects no bank details and no
-        tax ID at any point (§26, Addendum A6).
-      </p>
     </div>
   );
 }
