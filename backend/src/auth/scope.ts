@@ -169,6 +169,12 @@ const BUILDERS: Partial<Record<Resource, Builder>> = {
      and B1's guardian path. Leaving them to fall through to MATCHES_NOTHING
      means a sponsor currently sees no athletes at all, which is the safe
      direction to be wrong in. */
+  /* Guardians are tenant data with no cross-tenant case at all — even
+     SUPER_ADMIN's `any` is the only scope that leaves the tenant, and the
+     matrix gives athletes and guardians only `own`/`ward`, which need the
+     Athlete join that arrives with B1's wiring. */
+  guardian: tenantScoped,
+
   athlete: (actor, scope) => {
     switch (scope) {
       case "any":

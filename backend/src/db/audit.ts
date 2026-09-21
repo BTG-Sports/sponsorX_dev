@@ -85,6 +85,17 @@ export const AUDIT_ACTIONS = {
     tenantAccessGrant: "tenant.accessGrant",
   },
   /**
+   * The guardian workflow for minors (P3-BE-03, §26, §37). Verification is an
+   * attestation by a named BTG staff member, so "who confirmed this adult,
+   * and when" must survive in the log — it is the evidence if a minor's
+   * participation is ever challenged.
+   */
+  guardian: {
+    link: "guardian.link",
+    verify: "guardian.verify",
+    unlink: "guardian.unlink",
+  },
+  /**
    * Private-object grants (P2-BE-08). Not one of §26's five areas, but the
    * same reasoning applies: a presigned URL is a bearer credential handed to
    * a browser, and "who was given access to this agreement, and when" is a

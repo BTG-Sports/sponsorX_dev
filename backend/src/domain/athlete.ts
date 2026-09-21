@@ -24,15 +24,7 @@ import { AUDIT_ACTIONS, audit } from "../db/audit";
 import type { Actor } from "../auth/actor";
 import { assertAllowed } from "../auth/scope";
 import { ForbiddenError } from "../auth/errors";
-
-/** Under 18 at the moment of asking. §26 ties the guardian workflow to age,
- *  and an athlete who turns 18 mid-application stops needing one. */
-function isMinor(birthDate: Date | null): boolean {
-  if (!birthDate) return false;
-  const eighteenth = new Date(birthDate);
-  eighteenth.setFullYear(eighteenth.getFullYear() + 18);
-  return eighteenth > new Date();
-}
+import { guardianReadiness } from "./guardian-rules";
 
 /**
  * Move an application to a new state, or refuse.
@@ -56,7 +48,14 @@ export async function transitionAthlete(
   return prisma.$transaction(async (tx) => {
     const athlete = await tx.athlete.findFirst({
       where: { id: athleteId, tenantId: actor.tenantId },
-      select: { id: true, state: true, birthDate: true, guardianId: true },
+      select: {
+        id: true,
+        state: true,
+        birthDate: true,
+        ageBand: true,
+        guardianId: true,
+        guardian: { select: { verifiedAt: true } },
+      },
     });
 
     /* Not found and not-yours are answered identically on purpose: telling a
@@ -66,14 +65,20 @@ export async function transitionAthlete(
     const from = athlete.state as AthleteState;
     if (!canTransition(from, to)) throw new IllegalTransitionError(from, to);
 
-    if (to === "ACTIVE" && isMinor(athlete.birthDate)) {
-      const guardian = athlete.guardianId
-        ? await tx.guardian.findFirst({
-            where: { id: athlete.guardianId, tenantId: actor.tenantId },
-            select: { verifiedAt: true },
-          })
-        : null;
-      if (!guardian?.verifiedAt) throw new GuardianRequiredError(athleteId);
+    /* The §37 gate, asked through the shared rule rather than re-derived
+       here. B4's Campaign Order acceptance asks the same question of the same
+       function, which is what stops a minor being blocked from activation yet
+       able to accept paid work. */
+    if (to === "ACTIVE") {
+      const readiness = guardianReadiness({
+        birthDate: athlete.birthDate,
+        ageBand: athlete.ageBand,
+        guardianId: athlete.guardianId,
+        guardianVerifiedAt: athlete.guardian?.verifiedAt ?? null,
+      });
+      if (readiness.status === "missing" || readiness.status === "unverified") {
+        throw new GuardianRequiredError(athleteId);
+      }
     }
 
     const updated = await tx.athlete.update({
