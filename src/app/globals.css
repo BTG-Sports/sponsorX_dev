@@ -598,6 +598,33 @@ body {
 .sx-join-sheen:hover::after { animation: sx-join-sweep 0.9s ease both; }
 .sx-join-sheen[data-armed="true"]::after { animation: sx-join-sweep 0.9s ease 0.15s both; }
 
+/* --------------------------------------------------------------------------
+   Matching Studio motion (P4-ART-01, 2026-09-21). The studio rides the join
+   and chart systems above (sx-join-rise/-step/-seg/-draw/-sheen, sx-expand,
+   sx-viz-grow-x, sx-drawer, sx-pop); only what they lack lives here — the
+   bottom sheet the tablet/phone shortlist and filters open in. Exit is
+   faster than entrance (house rule); reduced motion shortens to 1ms so the
+   animationend unmount still fires (drawer precedent).
+   -------------------------------------------------------------------------- */
+
+@keyframes sx-match-sheet {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+
+@keyframes sx-match-sheet-out {
+  from { transform: translateY(0); }
+  to { transform: translateY(100%); }
+}
+
+.sx-match-sheet { animation: sx-match-sheet 0.42s var(--sx-ease) both; }
+.sx-match-sheet-out { animation: sx-match-sheet-out 0.24s var(--sx-ease) both; }
+
+@media (prefers-reduced-motion: reduce) {
+  .sx-match-sheet,
+  .sx-match-sheet-out { animation-duration: 1ms; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .sx-join-rise,
   .sx-join-step,
