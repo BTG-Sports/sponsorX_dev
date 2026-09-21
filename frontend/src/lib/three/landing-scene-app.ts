@@ -19,6 +19,8 @@ export interface LandingSceneOpts {
   onReady?: () => void;
   /** Called (only on change) with the active chapter index — drives the rail. */
   onChapter?: (index: number) => void;
+  /** Called once if sustained FPS is too low — caller tears down to the poster. */
+  onDegrade?: () => void;
 }
 
 export class LandingSceneApp {
@@ -37,10 +39,15 @@ export class LandingSceneApp {
 
   private onReady?: () => void;
   private onChapter?: (index: number) => void;
+  private onDegrade?: () => void;
+  private fpsEma = 60;
+  private lowFpsFor = 0;
+  private degraded = false;
 
   constructor(canvas: HTMLCanvasElement, opts: LandingSceneOpts = {}) {
     this.onReady = opts.onReady;
     this.onChapter = opts.onChapter;
+    this.onDegrade = opts.onDegrade;
 
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, opts.dprCap ?? 2));
@@ -106,6 +113,14 @@ export class LandingSceneApp {
       if (first) {
         first = false;
         this.onReady?.();
+      } else if (dt > 0) {
+        // FPS watchdog: if we can't hold ~40fps for ~2s, degrade to the poster.
+        this.fpsEma = this.fpsEma * 0.9 + (1 / dt) * 0.1;
+        this.lowFpsFor = this.fpsEma < 40 ? this.lowFpsFor + dt : 0;
+        if (this.lowFpsFor > 2 && !this.degraded) {
+          this.degraded = true;
+          this.onDegrade?.();
+        }
       }
     };
     loop();

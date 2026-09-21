@@ -21,11 +21,16 @@ export function LandingSceneMount() {
   const [render, setRender] = useState(false);
   const [visible, setVisible] = useState(false);
   const [active, setActive] = useState(0);
+  const [dprCap, setDprCap] = useState(2);
 
   useEffect(() => {
     // Decide after first paint (keeps 3D off the critical path — spec §9).
     const id = requestAnimationFrame(() => {
-      if (shouldRenderScene(detectCapability())) setRender(true);
+      const cap = detectCapability();
+      if (shouldRenderScene(cap)) {
+        setDprCap(cap.coarse ? 1.5 : 2); // lighter render on touch devices
+        setRender(true);
+      }
     });
     return () => cancelAnimationFrame(id);
   }, []);
@@ -39,8 +44,16 @@ export function LandingSceneMount() {
         className="pointer-events-none fixed inset-0 -z-[5] transition-opacity duration-700"
         style={{ opacity: visible ? 1 : 0 }}
       >
-        <LandingScene onReady={() => setVisible(true)} onChapter={setActive} />
+        <LandingScene
+          dprCap={dprCap}
+          onReady={() => setVisible(true)}
+          onChapter={setActive}
+          onDegrade={() => setRender(false)} // low FPS → fall back to poster
+        />
       </div>
+      {/* Mobile: content stacks over the centered ball — darken the scene behind
+          it for text contrast. Desktop flanks the ball, so no scrim there. */}
+      <div aria-hidden="true" className="pointer-events-none fixed inset-0 -z-[4] bg-bg/45 lg:hidden" />
       <LandingProgressRail active={active} />
     </>
   );

@@ -9,6 +9,8 @@ export interface Capability {
   reducedMotion: boolean;
   /** touch device with low hardware concurrency — take the light/no-scene path. */
   coarseLowPerf: boolean;
+  /** any coarse-pointer (touch) device — used to cap DPR even when it renders. */
+  coarse?: boolean;
 }
 
 /** Pure decision — unit tested. */
@@ -31,5 +33,5 @@ export function detectCapability(): Capability {
   }
   const coarse = window.matchMedia("(pointer: coarse)").matches;
   const cores = navigator.hardwareConcurrency ?? 4;
-  return { webgl, reducedMotion, coarseLowPerf: coarse && cores <= 4 };
+  return { webgl, reducedMotion, coarse, coarseLowPerf: coarse && cores <= 4 };
 }
