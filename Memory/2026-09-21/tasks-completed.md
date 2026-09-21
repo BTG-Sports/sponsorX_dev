@@ -92,6 +92,34 @@ worth a human pass.
   an elevated 430px card (`lg:` border/shadow, action bar `lg:rounded-b-2xl`).
   The form column never widens; below `lg` nothing changed.
 
+## Late-day follow-ups on both wizards (all verified in a real browser)
+
+- **Login gets both front doors.** The single sign-up line became a
+  "New to SponsorX?" block: "Apply as an athlete" (blue, `/join`) ·
+  "Request a sponsor brief" (orange, `/brief`). Deliberately not "Sign up
+  as a sponsor" — sponsors get no self-service account in Phase 1 (§17).
+- **Package select redesigned.** The native `<select>` popup is OS-rendered
+  and unstylable; replaced by a custom listbox — pop-in panel, drawn accent
+  check, price meta right-aligned, ↑/↓ roving, Escape/outside-click
+  (export-report dropdown discipline).
+- **Stacking bug (user-found, browser).** The listbox panel painted *under*
+  the later-DOM timing field and the backdrop-blur action bar. Root cause
+  worth remembering: **`sx-join-rise`/`sx-join-step` fill-mode animations
+  keep every animated sibling a permanent stacking context**, so a panel's
+  own z-index can never beat a later sibling from inside. Fix: open state
+  lifted to the wizard (`openSelect`); while open, the select wrapper takes
+  `z-30`, the step body `z-20`, the action bar an explicit `z-10`.
+- **Audience → designed dropdown** (values grounded in §4/§16 reach:
+  HS/college followings, event crowds); the package listbox generalized to
+  `WizardSelect` and reused. **Market → free text by user decision** (it
+  was briefly a MARKETS dropdown from athleteInv geos, then reverted):
+  an out-of-network market is a lead BTG wants to see, not an input error.
+  Step copy sets coverage expectations instead ("strongest in the DMV,
+  hub in Kigali").
+
+Board: **P1-FE-16 and P1-FE-17 both closed Done, 2026-09-21**, acceptance
+notes updated. Google Sheet mirror remains the human end-of-day step.
+
 ## Task — `P1-FE-17` · Build the /brief sponsor brief-request wizard (B3 public intake)
 
 **Trigger:** user asked for the sponsor counterpart of /join.
