@@ -772,3 +772,39 @@ device-flow refreshes did not add it, and the push was rejected each time with
 `workflow` scope". The file reached GitHub by the user's own hand in the end.
 Assume any future workflow change needs them, and say so at the start rather
 than after two failed attempts.
+
+## `P2-OPS-06` — the bare-`findMany()` rule, and a task that looked done but guarded nothing
+
+The rule already existed. It was written for this task in
+`frontend/eslint.config.mjs` before the repo split, and it is a good rule.
+
+**Then Addendum B moved Prisma, the API, the worker and the whole
+authorisation layer into `backend/`** — and the backend had *no linting at
+all*: no eslint config, no lint script, and the root `lint` script forwarding
+only to the frontend. So the guard sat on the workspace that no longer touches
+the database, while the one that does was unchecked. Anyone reading the board
+would have seen a rule that existed and assumed it was working.
+
+That is the shape worth remembering: **a safeguard does not fail loudly when
+the code it guards moves out from under it.** Tests fail, builds fail, but a
+lint rule with nothing left to match simply passes. Whenever code moves
+between workspaces, ask what was watching it.
+
+What was done: the rule moved to `eslint.prisma-select.mjs` at the repo root
+and both configs import it, so one definition cannot drift from itself.
+`backend/eslint.config.mjs` written from scratch — `js.configs.recommended`
+plus `typescript-eslint`, no Next presets since it is a plain Node service —
+ignoring `src/generated/**`, because Prisma's machine-written client calls
+`find*()` without a `select` by definition and would bury the rule in false
+positives. The root `lint` script now runs both workspaces, which is what makes
+CI enforce it across the whole repo instead of half.
+
+Coverage is `findMany`, `findFirst`, `findFirstOrThrow`, `findUnique` and
+`findUniqueOrThrow`. The task title names `findMany` alone, but a `findUnique`
+without a `select` leaks exactly the same columns, and the fields at stake are
+the ones §7.1 and §7.2 of the RBAC matrix protect.
+
+**Proven rather than assumed:** a probe file with three bare reads produced
+exactly three errors and failed the lint; the two reads carrying a `select`
+produced none; removing the probe returned it to clean. The frontend rule was
+probed the same way after being repointed at the shared file.
