@@ -77,6 +77,20 @@ reduced-motion keep content fully visible. Sections restructured in
 [landing-content.tsx](../../frontend/src/components/landing/landing-content.tsx)
 (`h-[200vh]` + sticky). Chosen by user: hero-on-load + pinned-hold.
 
+### Follow-up (same session) — stacked vertical world + procedural stadiums
+
+Reworked environments from the (procedural fog/floor + lazy Tripo-env) approach
+into a **stacked vertical world** (user chose primitives + procedural textures +
+"stacked world" camera pass). Six stadiums built from three.js primitives with
+**procedural CanvasTextures** (grass/hardwood/dirt/turf/rock — no downloads),
+stacked down Y with dark rock strata between. The **ball falls down the shaft**,
+lands in each stadium (content reveals), and **morphs in the dark earth** between;
+the **camera follows it down**.
+- New: [landing-textures.ts](../../frontend/src/lib/three/landing-textures.ts) (CanvasTexture generators), [landing-world.ts](../../frontend/src/lib/three/landing-world.ts) (metrics, `ballWorldY` fall curve, stadium/earth builder, per-level lights + fog).
+- Changed: [landing-ball-rig.ts](../../frontend/src/lib/three/landing-ball-rig.ts) `setWorldY`; [landing-scene-app.ts](../../frontend/src/lib/three/landing-scene-app.ts) camera-follow + world; removed `landing-environment-rig.ts` and unused `tryLoad`.
+- **Tunable constants** (expect visual iteration): `GAP`, `REST_ABOVE`, `SKY`, `GROUND`, `STAND_R`, fog near/far in landing-world.ts; `CAM_UP`, `CAM_DIST` in landing-scene-app.ts.
+- **Not visually verified** here (no headless WebGL) — needs the user's browser to tune positions/framing/fog. Tripo **env** models are no longer needed (balls + X still used).
+
 ### Verified
 
 `npm run build` (frontend) compiles (26 pages); `npm test -w @sponsorx/frontend`

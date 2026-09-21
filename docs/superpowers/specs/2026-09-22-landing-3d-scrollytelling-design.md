@@ -196,3 +196,11 @@ Content components stay server-rendered; only the canvas layer is client.
   load; mid sections fade both ways; finale fades in only). Driven by `landing-reveal.tsx`
   from scroll position; progressive enhancement — no-JS / reduced-motion keep content fully
   visible (`scripting: enabled` gate + reduced-motion override in globals.css). **✓**
+- Environments → **stacked vertical world** (added 2026-09-22, supersedes §8's "Tripo env
+  models, option B"): six stadiums built from **three.js primitives + procedural CanvasTextures**
+  (grass/hardwood/dirt/turf/rock — no downloads), stacked down the Y axis with dark rock strata
+  between them. The **ball falls down the shaft**, landing in each stadium (content reveals) and
+  **morphing in the dark earth** between; the **camera follows it down**. Constants
+  (`GAP`/`REST_ABOVE`/`SKY`/`CAM_UP`/`CAM_DIST`/fog) are tunable in `landing-world.ts` /
+  `landing-scene-app.ts`. Tripo **balls + X** still used; Tripo **environment** sets no longer
+  needed. `landing-environment-rig.ts` removed. **✓**
