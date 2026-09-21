@@ -49,16 +49,15 @@ generator client {
   output = "../src/generated/prisma"
 }
 
-// Second client for the Next.js frontend. The repo is split into backend/ and
-// frontend/ workspaces but keeps ONE schema (this file). `prisma generate`
-// runs every generator block, so a single generate — from either workspace —
-// materialises both clients. Frontend code imports @/generated/prisma exactly
-// as before; only the file's origin changed. Gitignored, same as the backend
-// client (see .gitignore).
-generator frontend {
-  provider = "prisma-client"
-  output   = "../../frontend/src/generated/prisma"
-}
+// REMOVED 2026-09-21 — there was a second generator here emitting a client into
+// frontend/src/generated/prisma. It existed because, at the split, the frontend
+// still queried Postgres directly.
+//
+// It does not any more: authorisation and every database read moved to this
+// workspace (Addendum B), and the frontend reaches them over /api/v1. A second
+// generated client would be a second way into the database from a workspace
+// that must not have one — precisely the hazard that move removed — so the
+// generator is gone rather than merely unused.
 
 // Prisma 7: `url` is NOT permitted here any more. The connection string for
 // Migrate lives in prisma.config.ts, and PrismaClient itself is constructed

@@ -49,7 +49,7 @@ next-env.d.ts
 documentation/*.xlsx
 documentation/*.xls
 
-# Prisma 7 generated clients — one schema (backend/prisma), two outputs.
+# Prisma 7 generated client — one schema (backend/prisma), one output. The
+# frontend's copy was removed on 2026-09-21 with the generator that made it.
 # Generated, never committed (Guide §02).
 backend/src/generated/prisma
-frontend/src/generated/prisma

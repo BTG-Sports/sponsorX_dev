@@ -16,7 +16,7 @@
  * worker's drain is what bridges the outbox to pg-boss — see worker/index.ts.
  */
 
-import type { Prisma } from "@/generated/prisma/client";
+import type { Prisma } from "../generated/prisma/client";
 
 /**
  * A queued job's name. Kept as a string union so a typo is a compile error

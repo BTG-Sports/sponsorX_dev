@@ -18,7 +18,7 @@
  * that changed. `changedFields()` below exists to make that the easy option.
  */
 
-import type { Prisma } from "@/generated/prisma/client";
+import type { Prisma } from "../generated/prisma/client";
 
 /**
  * The part of an `Actor` this helper needs.
