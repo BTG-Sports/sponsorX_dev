@@ -2,7 +2,8 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { SignOutButton } from "@clerk/nextjs";
 import { Logo } from "@/components/logo";
-import { mirrorCurrentUser, portalFor } from "@/server/identity";
+import { mirrorCurrentUser } from "@/server/identity";
+import { portalFor } from "@/server/portal";
 
 /* --------------------------------------------------------------------------
    Where sign-in lands — P2-INT-01, §9.2.

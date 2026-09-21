@@ -73,29 +73,3 @@ export async function mirrorCurrentUser(): Promise<MirrorResult> {
 
   return { status: "linked", user: { ...claimed, roles: claimed.roles } };
 }
-
-/**
- * Role-aware routing — §9.2. The destination follows the actor's role, not the
- * page they signed in from. Order matters: a BTG staffer who also holds a
- * portal role lands in the workspace that carries the most authority.
- */
-export function portalFor(roles: readonly string[]): string | null {
-  const has = (r: string) => roles.includes(r);
-
-  if (
-    has("SUPER_ADMIN") ||
-    has("BTG_ADMIN") ||
-    has("SALES") ||
-    has("CAMPAIGN_MGR") ||
-    has("NETWORK_MGR") ||
-    has("FINANCE")
-  ) {
-    return "/admin";
-  }
-  if (has("SPONSOR_ADMIN") || has("SPONSOR_ANALYST")) return "/sponsor";
-  if (has("PROPERTY_MGR")) return "/property";
-  if (has("ATHLETE") || has("GUARDIAN")) return "/athlete";
-
-  /* SERVICE is the §8 API service account — it has no portal, by design. */
-  return null;
-}
