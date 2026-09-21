@@ -677,3 +677,52 @@ not merely unproven, it is unrunnable until `P2-OPS-07` creates a workflow
 *with a Postgres service container*. Annotated on that row so whoever builds
 it knows a plain node runner is not enough. The seeded half was deliberately
 not faked: asserting `where` fragments against a mock would test the mock.
+
+## Authorisation moved to the backend, and why that was the better answer
+
+The question was where `requireActor()` and the scope functions belong after
+the repo split. The deciding argument was not tidiness: **`/api/v1` is reached
+by the portals, by §8's API service account and by INFINEX on equal terms**, so
+a check enforced in the Next app would have covered exactly one caller of
+three. A rule one caller of three obeys is not a rule.
+
+The second argument was quieter and would have bitten later: after the split
+there were **two Prisma clients**, one per workspace, either of which could
+open the database. Two enforcement points means the forgotten one is the leak,
+and it will not be the one under test.
+
+The shape that came out of it is worth keeping. `resolveActor()` is pure
+domain logic over Postgres — no HTTP, no Clerk — so it is testable directly;
+`requireActor()` is the Express middleware that feeds it; and
+`backend/src/auth/clerk.ts` is the **only** file in the backend that knows
+Clerk exists, because `stack-decision.md` keeps a live revisit trigger on Clerk
+and a swap should touch one file. `portalFor()` stayed in the frontend: which
+workspace to render is routing, not authorisation.
+
+`GET /api/v1/me` returns tenant and roles and *also completes a first sign-in*,
+because claiming a provisioned row happens inside `resolveActor()`.
+
+The 1,152-pair matrix suite moved with the policy and cost nothing to move,
+which is the dividend of having kept the matrix as data in the first place.
+
+**Left open on purpose:** `frontend/src/server/{db,audit,outbox}.ts` are now
+orphaned but still constitute a second Prisma client in the frontend — the
+exact hazard this move removes. They belong to `P2-BE-05`/`P2-BE-06`, so they
+should follow in their own change rather than be swept into an authorisation
+refactor.
+
+## A correction worth recording: restricting Clerk sign-up would break onboarding
+
+I had listed "switch Clerk sign-up to Restricted" as a one-toggle safety
+improvement. Checking it against the provisioning flow before advising it
+again: **it would break onboarding.** Access is granted by an admin creating a
+`User` row against an email, which the person then claims by signing up at
+Clerk with that address. Restricted mode permits sign-up only for allowlisted
+addresses or holders of a Clerk invitation, so a properly provisioned person
+could no longer create the identity that claims their row.
+
+Leaving sign-up open is safe *because* authorisation now sits at the API: a
+stranger who registers gets an identity, no `User` row, and therefore nothing.
+The real fix is to issue a Clerk invitation at the moment BTG provisions a
+user, which belongs with the admin provisioning work in B1 rather than being a
+console toggle today.
