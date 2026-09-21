@@ -4,9 +4,9 @@
 
 **Goal:** Rebuild the public marketing home as an immersive scroll experience — a ball pinned center that spins-and-swaps through four sports while per-sport 3D environments cross-fade behind it and 2D content frames it — with a fast, accessible, degradable fallback.
 
-**Architecture:** The page stays a server component rendering all real content + a static poster (LCP-safe, SEO-safe). A `'use client'`, `ssr:false`, dynamically-imported react-three-fiber `<Canvas>` mounts *after* first paint and cross-fades over the poster. One scroll-driven `scrollProgress` value scrubs camera, ball spin, spin-and-swap morph, and environment cross-fade — all reversible. Pure logic (chapter math, morph state, capability gating) lives in `@/lib` and is unit-tested with Vitest; the visual layer is verified via `npm run build` + manual run.
+**Architecture:** The page stays a server component rendering all real content + a static poster (LCP-safe, SEO-safe). A `'use client'`, `ssr:false`, dynamically-imported **vanilla three.js** scene mounts *after* first paint and cross-fades over the poster. One scroll-driven `scrollProgress` value scrubs camera, ball spin, spin-and-swap morph, and environment cross-fade — all reversible. Pure logic (chapter math, morph state, capability gating) lives in `@/lib` and is unit-tested with Vitest; the visual layer is verified via `npm run build` + manual run.
 
-**Tech Stack:** Next 16 (App Router, React 19), TypeScript, Tailwind v4 (existing design tokens), `three` + `@react-three/fiber` + `@react-three/drei`, Vitest, Tripo-authored glTF assets.
+**Tech Stack:** Next 16 (App Router, React 19.3), TypeScript, Tailwind v4 (existing design tokens), **`three`** (vanilla — no react-three-fiber/drei; see spec §7 for why), Vitest, Tripo-authored glTF assets.
 
 ---
 
@@ -29,11 +29,14 @@ frontend/src/lib/
 frontend/src/components/landing/
   landing-poster.tsx           # static background poster (server); reduced-motion/no-JS/no-WebGL path
   landing-content.tsx          # the 2D chapter panels (server component; real DOM)
-  landing-progress-rail.tsx    # left rail marking the 6 sections (client; reads scroll)
+  landing-progress-rail.tsx    # left rail marking the 6 sections (client; reads active chapter)
   landing-scene-mount.tsx      # client wrapper: capability gate + next/dynamic(ssr:false) loader + poster crossfade
-  landing-scene.tsx            # 'use client' r3f <Canvas> + ScrollControls orchestration
-  landing-ball.tsx             # ball model(s) + spin + spin-and-swap morph
-  landing-environment.tsx      # per-chapter env models + lighting rig
+  landing-scene.tsx            # 'use client' React shell: <canvas> ref + lifecycle → drives LandingSceneApp
+frontend/src/lib/three/
+  landing-scene-app.ts         # vanilla three.js app: renderer/scene/camera/RAF loop/scroll (framework-free, class)
+  landing-ball-rig.ts          # ball meshes + spin + spin-and-swap morph (+ football prolate)
+  landing-environment-rig.ts   # per-chapter env models + lighting rig + crossfade
+  landing-assets.ts            # GLTFLoader/DRACO setup + per-chapter load/preload/dispose + placeholders
 frontend/public/models/landing/  # Tripo glTF assets (or R2 — see spec §10)
 frontend/public/img/landing/      # baked poster(s)
 frontend/tests/
@@ -46,19 +49,21 @@ frontend/tests/
 
 ## Phase 0 — Dependencies & guardrail build
 
-### Task 0: Install 3D deps and confirm the build is green
+### Task 0: Install three.js and confirm the build is green
 
 **Files:**
 - Modify: `frontend/package.json` (via npm)
 
-- [ ] **Step 1: Install runtime + types**
+- [ ] **Step 1: Install runtime + types (vanilla three only)**
 
 Run (from `frontend/`):
 ```bash
-npm install three@^0.171.0 @react-three/fiber@^9.0.0 @react-three/drei@^10.0.0
-npm install -D @types/three@^0.171.0
+npm install three@0.186.0
+npm install -D @types/three@0.186.0
 ```
-> Pin to versions compatible with **React 19** — verify `@react-three/fiber` v9+ (React 19 support) on the registry before installing; adjust the caret if a newer major exists. Record the resolved versions in the commit message.
+> No react-three-fiber / drei (see spec §7 — r3f peer excludes React 19.3.0). `three` has no
+> React peer, so no conflict and a single three version. Keep runtime and `@types/three` on the
+> **same** version. Record the resolved version in the commit.
 
 - [ ] **Step 2: Confirm the tree still builds**
 
@@ -69,7 +74,7 @@ Expected: PASS (both workspaces build; no new type errors).
 
 ```bash
 git add frontend/package.json frontend/package-lock.json ../package-lock.json
-git commit -m "chore(landing): add three.js + react-three-fiber + drei (P?-ART-XX)"
+git commit -m "chore(landing): add three.js (vanilla) for the 3D landing (P1-ART-08)"
 ```
 
 ---
@@ -568,32 +573,94 @@ export default function HomePage() {
 }
 ```
 
-- [ ] **Step 3: Implement a minimal scene (centered lit sphere, no scroll yet)**
+- [ ] **Step 3a: Implement the vanilla three.js app (framework-free class)**
+
+```ts
+// frontend/src/lib/three/landing-scene-app.ts
+import * as THREE from "three";
+
+/** Framework-free three.js scene. React only creates the canvas and calls
+ *  start()/dispose(); everything WebGL lives here so it's easy to reason about
+ *  and never couples to React internals. */
+export class LandingSceneApp {
+  private renderer: THREE.WebGLRenderer;
+  private scene = new THREE.Scene();
+  private camera: THREE.PerspectiveCamera;
+  private ball: THREE.Mesh;
+  private raf = 0;
+  private onReady?: () => void;
+
+  constructor(canvas: HTMLCanvasElement, opts: { dprCap?: number; onReady?: () => void } = {}) {
+    this.onReady = opts.onReady;
+    this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, opts.dprCap ?? 2));
+    this.camera = new THREE.PerspectiveCamera(45, 1, 0.1, 100);
+    this.camera.position.set(0, 0, 5);
+
+    this.scene.add(new THREE.AmbientLight(0xffffff, 0.4));
+    const blue = new THREE.DirectionalLight(0x63b4f8, 2.0); blue.position.set(-4, 5, 5);
+    const orange = new THREE.DirectionalLight(0xf97a1f, 2.5); orange.position.set(5, -3, 3);
+    this.scene.add(blue, orange);
+
+    this.ball = new THREE.Mesh(
+      new THREE.SphereGeometry(1, 64, 64),
+      new THREE.MeshStandardMaterial({ color: 0xf97a1f, roughness: 0.6, metalness: 0.1 }),
+    );
+    this.scene.add(this.ball);
+
+    this.resize();
+    window.addEventListener("resize", this.resize);
+  }
+
+  private resize = () => {
+    const w = window.innerWidth, h = window.innerHeight;
+    this.renderer.setSize(w, h, false);
+    this.camera.aspect = w / h;
+    this.camera.updateProjectionMatrix();
+  };
+
+  start() {
+    let first = true;
+    const loop = () => {
+      this.raf = requestAnimationFrame(loop);
+      this.ball.rotation.y += 0.005;
+      this.renderer.render(this.scene, this.camera);
+      if (first) { first = false; this.onReady?.(); }
+    };
+    loop();
+  }
+
+  dispose() {
+    cancelAnimationFrame(this.raf);
+    window.removeEventListener("resize", this.resize);
+    this.scene.traverse((o) => {
+      const m = o as THREE.Mesh;
+      m.geometry?.dispose?.();
+      const mat = m.material as THREE.Material | THREE.Material[] | undefined;
+      if (Array.isArray(mat)) mat.forEach((x) => x.dispose()); else mat?.dispose();
+    });
+    this.renderer.dispose();
+  }
+}
+```
+
+- [ ] **Step 3b: Implement the React shell that owns the canvas element**
 
 ```tsx
 // frontend/src/components/landing/landing-scene.tsx
 "use client";
-import { Canvas } from "@react-three/fiber";
-import { useEffect } from "react";
-
-function Ready({ onReady }: { onReady?: () => void }) {
-  useEffect(() => { onReady?.(); }, [onReady]);
-  return null;
-}
+import { useEffect, useRef } from "react";
+import { LandingSceneApp } from "@/lib/three/landing-scene-app";
 
 export function LandingScene({ onReady }: { onReady?: () => void }) {
-  return (
-    <Canvas camera={{ position: [0, 0, 5], fov: 45 }} dpr={[1, 2]}>
-      <Ready onReady={onReady} />
-      <ambientLight intensity={0.4} />
-      <directionalLight position={[-4, 5, 5]} intensity={2} color="#63b4f8" />
-      <directionalLight position={[5, -3, 3]} intensity={2.5} color="#f97a1f" />
-      <mesh>
-        <sphereGeometry args={[1, 64, 64]} />
-        <meshStandardMaterial color="#f97a1f" roughness={0.6} metalness={0.1} />
-      </mesh>
-    </Canvas>
-  );
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  useEffect(() => {
+    if (!canvasRef.current) return;
+    const app = new LandingSceneApp(canvasRef.current, { onReady });
+    app.start();
+    return () => app.dispose();
+  }, [onReady]);
+  return <canvas ref={canvasRef} className="block h-full w-full" />;
 }
 ```
 
@@ -616,63 +683,42 @@ git commit -m "feat(landing): mount r3f canvas with poster crossfade + capabilit
 ### Task 7: Drive the scene from scroll progress
 
 **Files:**
-- Modify: `frontend/src/components/landing/landing-scene.tsx`
-- Create: `frontend/src/components/landing/landing-ball.tsx`
+- Modify: `frontend/src/lib/three/landing-scene-app.ts`
 
-- [ ] **Step 1: Implement a scroll-progress hook (whole-page scroll → 0..1)**
+- [ ] **Step 1: Track whole-page scroll → target progress 0..1**
 
-Add to `landing-scene.tsx` a listener that maps `window.scrollY / (scrollHeight - innerHeight)` to a ref, read inside `useFrame`. (Or use drei `<ScrollControls>` if you render content inside the canvas; here content is DOM, so track `window` scroll.) Smooth with a lerp toward the target each frame for the scrubbed feel.
+In the app constructor, add a passive `scroll` listener that sets `this.targetProgress = scrollY / (scrollHeight - innerHeight)` (guard divide-by-zero). Store `this.smoothProgress = 0`. Remove the listener in `dispose()`.
 
-```tsx
-// inside landing-scene.tsx
-import { useRef } from "react";
-import { useFrame } from "@react-three/fiber";
+```ts
+// additions in landing-scene-app.ts
+private targetProgress = 0;
+private smoothProgress = 0;
+private onScroll = () => {
+  const max = document.documentElement.scrollHeight - window.innerHeight;
+  this.targetProgress = max > 0 ? window.scrollY / max : 0;
+};
+// in constructor: this.onScroll(); window.addEventListener("scroll", this.onScroll, { passive: true });
+// in dispose():   window.removeEventListener("scroll", this.onScroll);
+```
+
+- [ ] **Step 2: Lerp toward target each frame; drive ball spin + camera; expose active chapter**
+
+In the RAF loop, ease `smoothProgress += (targetProgress - smoothProgress) * Math.min(1, dt*4)` (compute `dt` from a `THREE.Clock`). Spin the ball by `0.004 + smoothProgress*0.02` per frame; apply a subtle camera parallax from `chapterAt(smoothProgress)`. Call an injected `onChapter(index)` callback when the active index changes (throttled) so the progress rail (Task 9) can react.
+
+```ts
 import { chapterAt } from "@/lib/landing-scene-math";
-
-function useScrollProgress() {
-  const target = useRef(0);
-  const smooth = useRef(0);
-  useEffect(() => {
-    const onScroll = () => {
-      const max = document.documentElement.scrollHeight - window.innerHeight;
-      target.current = max > 0 ? window.scrollY / max : 0;
-    };
-    onScroll();
-    window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
-  }, []);
-  return { target, smooth };
-}
+// constructor opts gains: onChapter?: (index: number) => void
+// loop (using this.clock.getDelta()):
+//   this.smoothProgress += (this.targetProgress - this.smoothProgress) * Math.min(1, dt*4);
+//   this.ball.rotation.y += 0.004 + this.smoothProgress * 0.02;
+//   const { index } = chapterAt(this.smoothProgress);
+//   this.camera.position.x = Math.sin(this.smoothProgress * Math.PI * 2) * 0.15;
+//   if (index !== this.lastChapter) { this.lastChapter = index; this.onChapter?.(index); }
 ```
 
-- [ ] **Step 2: Implement the ball component (spin keyed to scroll)**
+- [ ] **Step 3: Pass an `onChapter` callback from the React shell**
 
-```tsx
-// frontend/src/components/landing/landing-ball.tsx
-"use client";
-import { useRef } from "react";
-import { useFrame } from "@react-three/fiber";
-import type { Mesh } from "three";
-
-export function Ball({ progressRef }: { progressRef: React.MutableRefObject<number> }) {
-  const ref = useRef<Mesh>(null);
-  useFrame((_, dt) => {
-    if (!ref.current) return;
-    // idle spin + extra spin proportional to scroll velocity feel
-    ref.current.rotation.y += dt * 0.4 + progressRef.current * dt * 2;
-  });
-  return (
-    <mesh ref={ref}>
-      <sphereGeometry args={[1, 64, 64]} />
-      <meshStandardMaterial color="#f97a1f" roughness={0.6} metalness={0.1} />
-    </mesh>
-  );
-}
-```
-
-- [ ] **Step 3: Lerp smooth→target each frame and drive camera/ball; expose active chapter**
-
-In `landing-scene.tsx`, each `useFrame`: `smooth += (target - smooth) * min(1, dt*4)`, pass `smooth` ref to `<Ball>`, and set a subtle camera dolly/parallax from `chapterAt(smooth)`. Store active chapter index in a ref and (throttled) in React state to drive the progress rail (Task 9).
+In `landing-scene.tsx`, accept `onChapter?: (i: number) => void` and forward it into `new LandingSceneApp(canvas, { onReady, onChapter })`.
 
 - [ ] **Step 4: Verify run**
 
@@ -682,8 +728,8 @@ Expected: ball spin responds to scroll and eases (scrub feel); scrolling up rewi
 - [ ] **Step 5: Commit**
 
 ```bash
-git add frontend/src/components/landing/landing-scene.tsx frontend/src/components/landing/landing-ball.tsx
-git commit -m "feat(landing): scroll-scrubbed camera + ball spin (P?-ART-XX)"
+git add frontend/src/lib/three/landing-scene-app.ts frontend/src/components/landing/landing-scene.tsx
+git commit -m "feat(landing): scroll-scrubbed camera + ball spin (P1-ART-08)"
 ```
 
 ---
@@ -693,25 +739,26 @@ git commit -m "feat(landing): scroll-scrubbed camera + ball spin (P?-ART-XX)"
 ### Task 8: Ball swap with flash + football squash, keyed to morphState
 
 **Files:**
-- Modify: `frontend/src/components/landing/landing-ball.tsx`
+- Create: `frontend/src/lib/three/landing-assets.ts` (GLTFLoader + DRACO setup, load/preload/dispose, placeholders)
+- Create: `frontend/src/lib/three/landing-ball-rig.ts`
+- Modify: `frontend/src/lib/three/landing-scene-app.ts` (own a `LandingBallRig`, update it each frame)
 - Depends on: Task 4 `morphState`, Task 1 `CHAPTERS`, Tripo assets (falls back to tinted spheres if absent)
 
-- [ ] **Step 1: Load ball models with graceful fallback**
+- [ ] **Step 1: Asset loader with graceful fallback**
 
-Use drei `useGLTF` per `CHAPTERS[i].ball`; if a file is missing, catch and render a tinted sphere placeholder so the plan runs before art lands. Preload the next chapter's ball.
+In `landing-assets.ts`, configure `GLTFLoader` with a `DRACOLoader` (decoder path in `public/draco/`). `loadBall(chapter)` returns the glTF scene, or on any load error returns a **tinted sphere `THREE.Mesh`** placeholder (color from the chapter accent) so the scene runs before art lands. Add `preload(filename)` and cache/`dispose` by filename.
 
-```tsx
-// sketch — landing-ball.tsx
-import { useGLTF } from "@react-three/drei";
-import { CHAPTERS } from "@/lib/landing-chapters";
-import { morphState } from "@/lib/landing-scene-math";
-// Attempt useGLTF for CHAPTERS[i].ball; wrap in an error boundary / try pattern
-// with a <mesh><sphereGeometry/> fallback tinted by accent.
+```ts
+// sketch — landing-assets.ts
+import * as THREE from "three";
+import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
+import { DRACOLoader } from "three/examples/jsm/loaders/DRACOLoader.js";
+// loader.setDRACOLoader(draco); loadBall(): Promise<THREE.Object3D> with try/catch → placeholder
 ```
 
-- [ ] **Step 2: Implement the swap**
+- [ ] **Step 2: Ball rig — swap, flash, prolate**
 
-In `useFrame`, read `morphState(smooth)`. Render the `from` ball scaled/spun out and the `to` ball scaled/spun in as `t` goes 0→1 (spin speed ramps with `t`, scale dips at the midpoint), and drive a flash sprite/point-light whose intensity peaks at `t≈0.5` in blended blue+orange. For `CHAPTERS[to].squash`, interpolate the mesh `scale.x` toward a prolate ratio (≈1.6× long axis, ≈0.75× cross) as `t`→1.
+In `landing-ball-rig.ts`, expose `update(smoothProgress)`: read `morphState(smoothProgress)`; keep the `from` object scaled/spun out and the `to` object scaled/spun in as `t`:0→1 (spin ramps with `t`, scale dips at mid), and drive a `THREE.PointLight` (or emissive sprite) whose intensity peaks at `t≈0.5` in a blended blue+orange. For `CHAPTERS[to].squash` (football), lerp `mesh.scale` toward a prolate ratio (x≈1.6, y,z≈0.75) as `t`→1. Preload the `to` ball as soon as a chapter becomes active. The scene app calls `rig.update(this.smoothProgress)` in the loop instead of spinning a lone sphere.
 
 - [ ] **Step 3: Finale — ball → brand X**
 
@@ -725,8 +772,8 @@ Expected: each boundary shows spin-blur + blue/orange flash + clean swap; footba
 - [ ] **Step 5: Commit**
 
 ```bash
-git add frontend/src/components/landing/landing-ball.tsx
-git commit -m "feat(landing): spin-and-swap morph incl. football prolate + finale X (P?-ART-XX)"
+git add frontend/src/lib/three/landing-ball-rig.ts frontend/src/lib/three/landing-assets.ts frontend/src/lib/three/landing-scene-app.ts
+git commit -m "feat(landing): spin-and-swap morph incl. football prolate + finale X (P1-ART-08)"
 ```
 
 ---
@@ -755,20 +802,12 @@ git commit -m "feat(landing): chapter progress rail (P?-ART-XX)"
 ### Task 10: Per-chapter environments + lighting cross-fade
 
 **Files:**
-- Create: `frontend/src/components/landing/landing-environment.tsx`
-- Modify: `frontend/src/components/landing/landing-scene.tsx`
+- Create: `frontend/src/lib/three/landing-environment-rig.ts`
+- Modify: `frontend/src/lib/three/landing-scene-app.ts` (own an env rig; update each frame)
 
-- [ ] **Step 1: Implement environment loader + cross-fade**
+- [ ] **Step 1: Implement environment rig + cross-fade**
 
-For `chapterAt(smooth)`, render the current chapter's env model (drei `useGLTF`, missing-file → procedural fallback: a fog-faded floor `<gridHelper>`/plane + accent lights) and cross-fade opacity/lights toward the next during the morph band. Add a subtle floor, `<fog>` on the scene, and an accent light rig whose color lerps between chapter accents. Keep draw calls low; dispose GLTFs you scroll far from.
-
-```tsx
-// sketch — landing-environment.tsx
-import { useGLTF } from "@react-three/drei";
-import { CHAPTERS } from "@/lib/landing-chapters";
-// Given {index, local}, mount CHAPTERS[index].env (+ next during morph band),
-// fade materials via a shared uniform / material.opacity, tint lights by accent.
-```
+In `landing-environment-rig.ts`, expose `update({index, local})`: load `CHAPTERS[index].env` via `landing-assets.ts` (missing-file → procedural fallback: a fog-faded floor `THREE.GridHelper`/plane + accent lights), and cross-fade `material.opacity` + light color toward the next chapter during the morph band. Add a scene `THREE.Fog`, a subtle floor, and an accent light rig whose color lerps between chapter accents (blue↔orange). Keep draw calls low; call `landing-assets` `dispose` for env models two chapters away. The scene app calls `envRig.update(chapterAt(this.smoothProgress))` in the loop.
 
 - [ ] **Step 2: Preload strategy** — preload current + next env; drop the one two chapters back.
 
@@ -780,8 +819,8 @@ Expected: each chapter shows its recognizable environment (goal/hoop/plate/goalp
 - [ ] **Step 4: Commit**
 
 ```bash
-git add frontend/src/components/landing/landing-environment.tsx frontend/src/components/landing/landing-scene.tsx
-git commit -m "feat(landing): per-sport Tripo environments + lighting crossfade (P?-ART-XX)"
+git add frontend/src/lib/three/landing-environment-rig.ts frontend/src/lib/three/landing-scene-app.ts frontend/public/draco/
+git commit -m "feat(landing): per-sport Tripo environments + lighting crossfade (P1-ART-08)"
 ```
 
 ---
@@ -793,7 +832,7 @@ git commit -m "feat(landing): per-sport Tripo environments + lighting crossfade 
 **Files:**
 - Modify: `frontend/src/components/landing/landing-scene.tsx`, `landing-scene-mount.tsx`, `landing-content.tsx`
 
-- [ ] **Step 1:** On coarse/low-perf (from `detectCapability`), when the scene *does* mount (motion allowed, webgl ok, but coarse): reduce `dpr` cap to 1.5, drop set-piece env models (hero prop only), reduce lights/particles, and if a running FPS sample (EMA over `useFrame` dt) stays below ~40fps for ~2s, unmount the canvas and reveal the poster.
+- [ ] **Step 1:** On coarse/low-perf (from `detectCapability`), when the scene *does* mount (motion allowed, webgl ok, but coarse): pass `dprCap: 1.5` into `LandingSceneApp` (used in `renderer.setPixelRatio`), drop set-piece env models (hero prop only), reduce lights/particles, and if a running FPS sample (EMA over the RAF `dt`) stays below ~40fps for ~2s, tear down the app (`dispose()`) and reveal the poster via the mount wrapper's `onDegrade` callback.
 - [ ] **Step 2:** In `landing-content.tsx`, at `<lg` the middle ball column collapses and content stacks; ensure the ball (smaller) sits above each chapter's stacked content, not behind text.
 - [ ] **Step 3: Verify run** — DevTools device emulation (mobile): content readable stacked, ball smaller/centered, no horizontal scroll, acceptable FPS; forced low-FPS falls back to poster.
 - [ ] **Step 4: Commit**
@@ -837,5 +876,9 @@ git commit -am "polish(landing): a11y + verification pass (P?-ART-XX)"
 - **Spec coverage:** concept & narrative → Tasks 1,3; layout/composition → Task 3; scene system → Tasks 6–7; morph → Task 8; rendering tech → Task 0,6; environments (option B) → Task 10 + Tripo prompts doc; perf/LCP/reduced-motion/no-JS/mobile fallbacks → Tasks 2,5,6,11,12; asset pipeline → Tripo prompts doc + Task 8/10 loaders. No uncovered section.
 - **Placeholder scan:** logic tasks (1,4,5) carry full test + impl code. Visual tasks (3,7,8,9,10,11) give real scaffolds + precise verification; the `…`-marked content spots are explicit "port existing approved copy from `page.tsx`/mockup," which is concrete, not invented — flagged deliberately so no claims are fabricated.
 - **Type consistency:** `Chapter`/`Accent`/`ChapterKind`, `chapterById`, `SECTION_COUNT`, `chapterAt`, `morphState`/`MORPH_BAND`, `Capability`/`shouldRenderScene`/`detectCapability` names match across all tasks and tests.
-- **Known adaptation:** exact `@react-three/fiber`/`@react-three/drei` and `next/dynamic` API calls must be checked against the *installed* versions and in-repo Next 16 docs at execution time (noted in Pre-flight and Tasks 0,6). This is a version-verification step, not a placeholder.
+- **Known adaptation:** rendering is **vanilla three.js** (revised 2026-09-22 — r3f 9.7.0 peer
+  `react >=19 <19.3` excludes the repo's React 19.3.0; see spec §7). `three/examples/jsm`
+  loader import paths and `next/dynamic` `ssr:false` usage must be checked against the
+  *installed* three version and in-repo Next 16 docs at execution time (Pre-flight, Tasks 0,6).
+  This is a version-verification step, not a placeholder.
 ```

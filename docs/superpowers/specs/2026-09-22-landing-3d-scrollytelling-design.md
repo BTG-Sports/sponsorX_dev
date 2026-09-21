@@ -81,14 +81,19 @@ fully-textured Tripo model (no fragile vertex morphing). **Football is the one t
 beat** — it squashes from sphere toward a real prolate as it forms. The morph is scrubbed to
 scroll, so it plays forward/backward with the user's motion.
 
-## 7. Rendering tech — react-three-fiber + drei
+## 7. Rendering tech — vanilla three.js
 
-- **`@react-three/fiber`** (declarative three.js in React) + **`@react-three/drei`** helpers:
-  `useGLTF` (Tripo balls + environment sets), `<ScrollControls>` / scroll scrubbing,
-  lighting/environment helpers.
-- Component is `'use client'`, **dynamic-imported with `ssr: false`**, mounted only after
-  first paint (see §9). This is the one place we deliberately adopt a heavy client dep; it is
-  isolated to the home route and justified by build/maintenance velocity for a two-person team.
+- **`three`** only (with `@types/three`) — no react-three-fiber / drei. Reason: r3f 9.7.0
+  (latest) declares peer `react >=19 <19.3`, which excludes this repo's pinned **React
+  19.3.0**, and r3f ships a version-coupled React reconciler (compat risk), and its tree
+  pulls two `three` copies. Vanilla three.js has no React peer and a single, chosen `three`
+  version. (Decision revised 2026-09-22 during execution; supersedes the earlier r3f pick.)
+- The scene is an **imperative three.js app** inside one `'use client'` component:
+  `WebGLRenderer`, `Scene`, `PerspectiveCamera`, a `requestAnimationFrame` loop, `GLTFLoader`
+  (+ `DRACOLoader`/`meshopt` decoder) for Tripo assets, and a `scroll` listener feeding the
+  §5 `scrollProgress`.
+- Component is **dynamic-imported with `ssr: false`**, mounted only after first paint (§9),
+  isolated to the home route.
 - Verify the current Next 16 dynamic-import / client-boundary conventions against
   `node_modules/next/dist/docs/` before writing code (per CLAUDE.md).
 
@@ -184,4 +189,5 @@ Content components stay server-rendered; only the canvas layer is client.
 - Morph: spin & swap (+ football prolate). **✓**
 - Scroll: scroll-scrubbed & reversible, pinned chapters. **✓**
 - Environment build: **Tripo environment models per sport (option B).** **✓**
-- Rendering library: **react-three-fiber + drei (option A).** **✓**
+- Rendering library: ~~react-three-fiber + drei~~ → **vanilla three.js** (revised 2026-09-22:
+  r3f peer excludes React 19.3.0). **✓**
