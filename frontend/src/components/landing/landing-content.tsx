@@ -41,21 +41,32 @@ const JOBS: [string, string, string][] = [
 
 /* ---- small presentational helpers -------------------------------------- */
 
+/**
+ * A pinned chapter: a tall wrapper gives scroll length for the "hold"; the inner
+ * content sticks centered in the viewport while `landing-reveal.tsx` fades it in
+ * → holds → fades out (by `reveal` type). No-JS/reduced-motion keep it visible.
+ */
 function Section({
   id,
+  reveal,
   children,
   className = "",
 }: {
   id: string;
+  reveal: "hero" | "mid" | "end";
   children: React.ReactNode;
   className?: string;
 }) {
   return (
-    <section
-      id={id}
-      className={`relative flex min-h-screen scroll-mt-16 items-center py-24 ${className}`}
-    >
-      <div className="mx-auto w-full max-w-6xl px-6">{children}</div>
+    <section id={id} data-lreveal-wrap className="relative h-[200vh] scroll-mt-16">
+      <div className="sticky top-0 flex h-screen items-center">
+        <div
+          data-lreveal={reveal}
+          className={`mx-auto w-full max-w-6xl px-6 py-24 ${className}`}
+        >
+          {children}
+        </div>
+      </div>
     </section>
   );
 }
@@ -109,7 +120,7 @@ export function LandingContent() {
   return (
     <div className="relative z-10">
       {/* ===== 0 · Hero — orb ================================================= */}
-      <Section id="hero" className="text-center">
+      <Section id="hero" reveal="hero" className="text-center">
         <div className="mx-auto max-w-2xl">
           <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-muted">
             Connecting brands. Athletes. Fans. Results.
@@ -147,7 +158,7 @@ export function LandingContent() {
       </Section>
 
       {/* ===== 1 · Soccer — the Athlete Network + live stats ================= */}
-      <Section id="soccer">
+      <Section id="soccer" reveal="mid">
         <Framed
           left={
             <>
@@ -222,7 +233,7 @@ export function LandingContent() {
       </Section>
 
       {/* ===== 2 · Basketball — how matching works ========================== */}
-      <Section id="basketball">
+      <Section id="basketball" reveal="mid">
         <Framed
           left={
             <>
@@ -257,7 +268,7 @@ export function LandingContent() {
       </Section>
 
       {/* ===== 3 · Baseball — packages ====================================== */}
-      <Section id="baseball">
+      <Section id="baseball" reveal="mid">
         <Framed
           left={
             <>
@@ -302,7 +313,7 @@ export function LandingContent() {
       </Section>
 
       {/* ===== 4 · Football — results & fan rewards ========================= */}
-      <Section id="football">
+      <Section id="football" reveal="mid">
         <Framed
           left={
             <>
@@ -345,7 +356,7 @@ export function LandingContent() {
       </Section>
 
       {/* ===== 5 · Finale — closing CTA (SiteFooter follows) ================ */}
-      <Section id="finale" className="text-center">
+      <Section id="finale" reveal="end" className="text-center">
         <div className="mx-auto max-w-xl">
           <Eyebrow tone="orange">
             <span className="mx-auto">The SponsorX loop</span>

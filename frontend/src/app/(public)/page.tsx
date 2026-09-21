@@ -1,5 +1,6 @@
 import { LandingPoster } from "@/components/landing/landing-poster";
 import { LandingSceneMount } from "@/components/landing/landing-scene-mount";
+import { LandingReveal } from "@/components/landing/landing-reveal";
 import { LandingContent } from "@/components/landing/landing-content";
 
 /* --------------------------------------------------------------------------
@@ -18,6 +19,7 @@ export default function HomePage() {
     <>
       <LandingPoster />
       <LandingSceneMount />
+      <LandingReveal />
       <LandingContent />
     </>
   );

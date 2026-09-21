@@ -636,3 +636,22 @@ body {
   .sx-expand { transition: none; }
   .sx-join-stage { transition: none; }
 }
+
+/* --------------------------------------------------------------------------
+   Landing cinematic per-section reveal (P1-ART-08). Each chapter's 2D content
+   fades in as it pins, holds while read, then fades out as the next arrives —
+   driven by landing-reveal.tsx from scroll position. Progressive enhancement:
+   only the JS-driven path pre-hides content (scripting: enabled), so no-JS
+   users always see it; reduced motion forces it fully visible. The hero starts
+   visible ("hero on load") — only mid/end sections pre-hide.
+   -------------------------------------------------------------------------- */
+[data-lreveal] { will-change: opacity, transform; }
+
+@media (scripting: enabled) {
+  [data-lreveal="mid"],
+  [data-lreveal="end"] { opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-lreveal] { opacity: 1 !important; transform: none !important; }
+}
