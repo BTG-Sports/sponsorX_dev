@@ -39,41 +39,43 @@ export class LandingBallRig {
     this.ensure(1);
   }
 
-  /** Make sure chapter `index` has an object (placeholder now, model when loaded). */
+  /** Make sure chapter `index` has an object (placeholder now, model when loaded).
+   *  The display object is a WRAPPER group the morph scales — the inner model
+   *  keeps its own normalization scale, so scaling for the swap never resets it. */
   private ensure(index: number): void {
     if (index < 0 || index >= CHAPTERS.length || this.objects[index]) return;
     const ch = CHAPTERS[index];
     const accent = ACCENT_HEX[ch.accent];
 
+    const wrapper = new THREE.Group();
+    wrapper.visible = false;
+    this.objects[index] = wrapper;
+    this.group.add(wrapper);
+
     if (!ch.ball) {
       // Hero: procedural glowing brand orb.
-      const orb = new THREE.Mesh(
-        new THREE.SphereGeometry(1, 48, 48),
-        new THREE.MeshStandardMaterial({
-          color: 0x0a0c10,
-          emissive: accent,
-          emissiveIntensity: 0.9,
-          roughness: 0.3,
-          metalness: 0.0,
-        }),
+      wrapper.add(
+        new THREE.Mesh(
+          new THREE.SphereGeometry(1, 48, 48),
+          new THREE.MeshStandardMaterial({
+            color: 0x0a0c10,
+            emissive: accent,
+            emissiveIntensity: 0.9,
+            roughness: 0.3,
+            metalness: 0.0,
+          }),
+        ),
       );
-      orb.visible = false;
-      this.objects[index] = orb;
-      this.group.add(orb);
       return;
     }
 
-    // Sport / finale: show a placeholder immediately, swap to the model on load.
+    // Sport / finale: placeholder immediately, swap to the model inside the wrapper.
     const ph = this.assets.placeholder(accent);
-    ph.visible = false;
-    this.objects[index] = ph;
-    this.group.add(ph);
+    wrapper.add(ph);
     this.assets.load(ch.ball, accent).then((model) => {
-      if (this.objects[index] !== ph) return; // superseded
-      this.group.remove(ph);
-      model.visible = false;
-      this.objects[index] = model;
-      this.group.add(model);
+      if (this.objects[index] !== wrapper) return; // superseded
+      wrapper.remove(ph);
+      wrapper.add(model);
     });
   }
 

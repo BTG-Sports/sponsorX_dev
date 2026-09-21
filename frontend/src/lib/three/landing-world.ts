@@ -6,7 +6,6 @@ import {
   basketballGround,
   baseballGround,
   footballGround,
-  rockWall,
 } from "./landing-textures";
 
 /* --------------------------------------------------------------------------
@@ -68,18 +67,29 @@ export function ballWorldY(p: number): number {
 export class LandingWorld {
   private group = new THREE.Group();
   private disposables: { dispose: () => void }[] = [];
+  /** Per-level fade targets: materials + lights fade out as you leave a stadium
+   *  and in as you arrive, so the previous world vanishes during the transition. */
+  private levels: { mats: THREE.Material[]; lights: { light: THREE.PointLight; base: number }[] }[] =
+    CHAPTERS.map(() => ({ mats: [], lights: [] }));
 
   constructor(private scene: THREE.Scene) {
     scene.fog = new THREE.Fog(0x05070a, 10, 34);
     scene.add(this.group);
-    scene.add(new THREE.AmbientLight(0xffffff, 0.28));
+    scene.add(new THREE.AmbientLight(0xffffff, 0.34));
     CHAPTERS.forEach((ch, i) => this.buildLevel(ch, i));
-    this.buildEarth();
   }
 
   private track<T extends THREE.BufferGeometry | THREE.Material | THREE.Texture>(x: T): T {
     this.disposables.push(x);
     return x;
+  }
+
+  /** Track a material for disposal AND register it to fade with level i. */
+  private levelMat(i: number, m: THREE.MeshStandardMaterial): THREE.MeshStandardMaterial {
+    m.transparent = true;
+    this.track(m);
+    this.levels[i].mats.push(m);
+    return m;
   }
 
   private groundTexture(ch: Chapter): THREE.Texture | null {
@@ -96,18 +106,19 @@ export class LandingWorld {
     const y = groundY(i);
     const accent = accentHex(ch);
 
-    // ground / court — a solid textured floor (the seam is hidden by the fog
-    // void during transitions, so no hole is needed)
+    // ground / court — a solid textured floor. The previous floor is hidden
+    // during transitions by fading this whole level out (see update()).
     const map = this.groundTexture(ch);
     const floor = new THREE.Mesh(
       this.track(new THREE.PlaneGeometry(GROUND, GROUND)),
-      this.track(
+      this.levelMat(
+        i,
         new THREE.MeshStandardMaterial({
           map: map ?? undefined,
           color: map ? 0xffffff : ch.kind === "finale" ? 0x14151d : 0x0a0c10,
           roughness: 0.92,
           metalness: 0,
-          side: THREE.DoubleSide, // acts as a ceiling once the camera is below it
+          side: THREE.DoubleSide,
           emissive: ch.kind === "finale" ? accent : 0x000000,
           emissiveIntensity: ch.kind === "finale" ? 0.25 : 0,
         }),
@@ -120,26 +131,29 @@ export class LandingWorld {
     // stand ring (open cylinder bowl)
     const stands = new THREE.Mesh(
       this.track(new THREE.CylinderGeometry(STAND_R, STAND_R * 0.86, 7, 48, 1, true)),
-      this.track(new THREE.MeshStandardMaterial({ color: 0x11141c, roughness: 1, side: THREE.BackSide })),
+      this.levelMat(i, new THREE.MeshStandardMaterial({ color: 0x11141c, roughness: 1, side: THREE.BackSide })),
     );
     stands.position.y = y + 3.5;
     this.group.add(stands);
 
     // sport props
-    this.addProps(ch, y, accent);
+    this.addProps(ch, i, y, accent);
 
-    // per-level accent light so stadiums glow and the gaps stay dark
+    // per-level accent light so stadiums glow and the gaps stay dark; the light
+    // fades with the level so a departed stadium doesn't illuminate the void.
     const key = new THREE.PointLight(accent, 90, 34, 2);
     key.position.set(6, y + 9, 6);
     this.group.add(key);
+    this.levels[i].lights.push({ light: key, base: 90 });
     const fill = new THREE.PointLight(0xbfd4ff, 30, 30, 2);
     fill.position.set(-7, y + 7, -4);
     this.group.add(fill);
+    this.levels[i].lights.push({ light: fill, base: 30 });
   }
 
-  private addProps(ch: Chapter, y: number, accent: number): void {
+  private addProps(ch: Chapter, i: number, y: number, accent: number): void {
     const mat = (color: number, rough = 0.7) =>
-      this.track(new THREE.MeshStandardMaterial({ color, roughness: rough }));
+      this.levelMat(i, new THREE.MeshStandardMaterial({ color, roughness: rough }));
     const box = (w: number, h: number, d: number) => this.track(new THREE.BoxGeometry(w, h, d));
     const add = (m: THREE.Object3D) => this.group.add(m);
 
@@ -180,34 +194,38 @@ export class LandingWorld {
     }
   }
 
-  /** Dark rock walls filling the gaps between stadiums — the underground. */
-  private buildEarth(): void {
-    const rock = this.track(rockWall());
-    for (let i = 0; i < SECTION_COUNT - 1; i++) {
-      const top = groundY(i) - 0.5;
-      const bottom = groundY(i + 1) + 7;
-      const h = top - bottom;
-      const wall = new THREE.Mesh(
-        this.track(new THREE.CylinderGeometry(16, 16, h, 40, 1, true)),
-        this.track(new THREE.MeshStandardMaterial({ map: rock, color: 0x3a2f1c, roughness: 1, side: THREE.BackSide })),
-      );
-      wall.position.y = (top + bottom) / 2;
-      this.group.add(wall);
-    }
+  /** A level's visibility 0..1: full during its own chapter, fading out into the
+   *  gap after it and in from the gap before it. Hero never fades in (visible on
+   *  load); finale never fades out. At a chapter boundary both neighbours reach 0
+   *  → a genuine dark void, so the previous floor is gone before the next appears. */
+  private levelOpacity(progress: number, i: number): number {
+    const f = clamp01(progress) * SECTION_COUNT;
+    const x = f - i;
+    if (x <= 0 || x >= 1) return 0;
+    let o = 1;
+    if (i > 0 && x < 0.2) o = x / 0.2;
+    if (i < SECTION_COUNT - 1 && x > 0.8) o = 1 - (x - 0.8) / 0.2;
+    return clamp01(o);
   }
 
-  /** Drive the fog: open at a stadium, collapsing to a near-black void during
-   *  the between-stadium drop so the swap is invisible ("travel through darkness"). */
+  /** Fade levels in/out and collapse the fog to a void between stadiums, so the
+   *  transition is a genuine "travel through darkness" with no previous floor. */
   update(progress: number): void {
+    for (let i = 0; i < this.levels.length; i++) {
+      const o = this.levelOpacity(progress, i);
+      for (const m of this.levels[i].mats) m.opacity = o;
+      for (const l of this.levels[i].lights) l.light.intensity = l.base * o;
+    }
     const fog = this.scene.fog as THREE.Fog | null;
-    if (!fog) return;
-    const { index, local } = chapterAt(progress);
-    let gap = 0;
-    if (local < 0.2 && index > 0) gap = 1 - local / 0.2;
-    else if (local > 0.8 && index < SECTION_COUNT - 1) gap = (local - 0.8) / 0.2;
-    const g = gap * gap * (3 - 2 * gap); // smoothstep
-    fog.near = FOG_OPEN_NEAR + (FOG_VOID_NEAR - FOG_OPEN_NEAR) * g;
-    fog.far = FOG_OPEN_FAR + (FOG_VOID_FAR - FOG_OPEN_FAR) * g;
+    if (fog) {
+      const { index, local } = chapterAt(progress);
+      let gap = 0;
+      if (local < 0.2 && index > 0) gap = 1 - local / 0.2;
+      else if (local > 0.8 && index < SECTION_COUNT - 1) gap = (local - 0.8) / 0.2;
+      const g = gap * gap * (3 - 2 * gap);
+      fog.near = FOG_OPEN_NEAR + (FOG_VOID_NEAR - FOG_OPEN_NEAR) * g;
+      fog.far = FOG_OPEN_FAR + (FOG_VOID_FAR - FOG_OPEN_FAR) * g;
+    }
   }
 
   dispose(): void {
