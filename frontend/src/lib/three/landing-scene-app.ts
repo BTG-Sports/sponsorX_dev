@@ -1,5 +1,7 @@
 import * as THREE from "three";
 import { chapterAt } from "@/lib/landing-scene-math";
+import { LandingAssets } from "./landing-assets";
+import { LandingBallRig } from "./landing-ball-rig";
 
 /* --------------------------------------------------------------------------
    Landing 3D scene — framework-free three.js app (P1-ART-08).
@@ -22,7 +24,8 @@ export class LandingSceneApp {
   private renderer: THREE.WebGLRenderer;
   private scene = new THREE.Scene();
   private camera: THREE.PerspectiveCamera;
-  private ball: THREE.Mesh;
+  private assets = new LandingAssets();
+  private rig: LandingBallRig;
   private clock = new THREE.Clock();
   private raf = 0;
 
@@ -50,11 +53,7 @@ export class LandingSceneApp {
     orange.position.set(5, -3, 3);
     this.scene.add(blue, orange);
 
-    this.ball = new THREE.Mesh(
-      new THREE.SphereGeometry(1, 64, 64),
-      new THREE.MeshStandardMaterial({ color: 0xf97a1f, roughness: 0.6, metalness: 0.1 }),
-    );
-    this.scene.add(this.ball);
+    this.rig = new LandingBallRig(this.scene, this.assets);
 
     this.onScroll();
     this.resize();
@@ -84,8 +83,8 @@ export class LandingSceneApp {
       // Frame-rate-independent ease toward the scroll target (the scrub feel).
       this.smoothProgress += (this.targetProgress - this.smoothProgress) * Math.min(1, dt * 4);
 
-      // Idle spin + a touch more the further you are (reads as momentum).
-      this.ball.rotation.y += 0.004 + this.smoothProgress * 0.02;
+      // Ball spin + spin-and-swap morph, keyed to the smoothed scroll.
+      this.rig.update(this.smoothProgress, dt);
 
       // Subtle camera parallax so the ball feels seated in space.
       this.camera.position.x = Math.sin(this.smoothProgress * Math.PI * 2) * 0.15;
@@ -110,6 +109,7 @@ export class LandingSceneApp {
     cancelAnimationFrame(this.raf);
     window.removeEventListener("resize", this.resize);
     window.removeEventListener("scroll", this.onScroll);
+    this.rig.dispose();
     this.scene.traverse((o) => {
       const m = o as THREE.Mesh;
       m.geometry?.dispose?.();
