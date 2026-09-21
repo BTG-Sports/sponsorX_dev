@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { BackLink } from "@/components/back-link";
+import { ExportReport } from "@/components/export-report";
 import { Card, SectionHeading } from "@/components/ui";
 import {
   AreaChart,
@@ -13,6 +14,7 @@ import { HeroBand, MiniChip, Monogram } from "@/components/hero";
 import { EmptyState, SkeletonPage } from "@/components/states";
 import { demoState } from "@/lib/demo";
 import { resolveBack } from "@/lib/back";
+import { buildCampaignRoiReport } from "@/lib/campaign-report-data";
 import {
   efficiency,
   formatInsight,
@@ -37,8 +39,9 @@ import {
    (§22). Media Value stays estimated and Revenue Attributed stays attributed
    — merchant-validated coupons, not payment-network data (§16).
 
-   "Download PDF" renders THIS layout on the worker via Playwright (B7); the
-   bento cells stack into print pages cleanly.
+   "Export report" ships this screen as a client-rendered PDF or XLSX from
+   the same CampaignRoiReport model; the §19 worker (Playwright render, B7)
+   takes over the generation step when it lands.
    -------------------------------------------------------------------------- */
 
 export default async function RoiReportPage({
@@ -114,16 +117,11 @@ export default async function RoiReportPage({
               <path d="m6 9 6 6 6-6" />
             </svg>
           </button>
-          <button
-            type="button"
-            title="Queues render-report on the worker (Playwright) — not wired"
-            className="flex items-center gap-2 rounded-lg bg-primary px-3.5 py-2 text-[11px] font-medium text-cta-ink transition-colors hover:bg-primary-soft"
-          >
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="size-3.5" aria-hidden="true">
-              <path d="M12 3v12m0 0-4-4m4 4 4-4M4 19h16" />
-            </svg>
-            Download PDF
-          </button>
+          {/* Client-side export of this screen's report model; §19's worker
+              (Playwright render, B7) replaces the generation step later. */}
+          <ExportReport
+            payload={{ kind: "campaign-roi", report: buildCampaignRoiReport(id) }}
+          />
         </div>
       </div>
 

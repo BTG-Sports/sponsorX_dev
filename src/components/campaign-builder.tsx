@@ -1145,7 +1145,7 @@ function StepRewards({
                 </div>
               </Labelled>
               <Link
-                href="/admin/rewards/new"
+                href="/admin/rewards?new=1"
                 className="inline-flex items-center gap-1.5 text-[11px] font-medium text-accent transition-colors hover:text-accent-soft"
               >
                 Design the full reward in Reward Creator ↗

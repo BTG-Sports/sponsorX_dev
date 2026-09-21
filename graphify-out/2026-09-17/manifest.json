@@ -1164,10 +1164,10 @@
     "semantic_hash": ""
   },
   "src/components/analytics-story.tsx": {
-    "mtime": 1789626620.049354,
-    "seen": 1789627118.6903908,
-    "ast_hash": "b4aabc2bee13ada59e6577999669e4a0",
-    "semantic_hash": "b4aabc2bee13ada59e6577999669e4a0"
+    "mtime": 1789624298.1016178,
+    "seen": 1789625118.3968556,
+    "ast_hash": "2588afb579b9aaa98b067fc41c2fdb50",
+    "semantic_hash": "2588afb579b9aaa98b067fc41c2fdb50"
   },
   "src/components/insight-banner.tsx": {
     "mtime": 1789624173.1916425,
@@ -1182,10 +1182,10 @@
     "semantic_hash": "ac5c582dd397b441bf9798abf8d002a2"
   },
   "Memory/2026-09-17/tasks-completed.md": {
-    "mtime": 1789626744.4804301,
-    "seen": 1789627118.6903908,
-    "ast_hash": "f412d4cd200b0740d513999ff63a9834",
-    "semantic_hash": "f412d4cd200b0740d513999ff63a9834"
+    "mtime": 1789624699.1827986,
+    "seen": 1789625118.3968556,
+    "ast_hash": "6cde9f0481c91c1b00e4884d8440cafe",
+    "semantic_hash": "6cde9f0481c91c1b00e4884d8440cafe"
   },
   "docs/superpowers/plans/2026-09-17-admin-analytics-guided-story.md": {
     "mtime": 1789623900.9127653,
@@ -1198,41 +1198,5 @@
     "seen": 1789625118.3968556,
     "ast_hash": "67bc38b29fd61e2dfd7fa89ed8ec997f",
     "semantic_hash": "67bc38b29fd61e2dfd7fa89ed8ec997f"
-  },
-  "src/components/export-report.tsx": {
-    "mtime": 1789626607.2075944,
-    "seen": 1789627118.6903908,
-    "ast_hash": "06470fbcb8b3a48277c8431298115ef1",
-    "semantic_hash": "06470fbcb8b3a48277c8431298115ef1"
-  },
-  "src/lib/analytics-report-data.ts": {
-    "mtime": 1789626474.6659474,
-    "seen": 1789627118.6903908,
-    "ast_hash": "22672b63edbd776bb7ef9d7de241b140",
-    "semantic_hash": "22672b63edbd776bb7ef9d7de241b140"
-  },
-  "src/lib/analytics-report-pdf.ts": {
-    "mtime": 1789626525.8915424,
-    "seen": 1789627118.6903908,
-    "ast_hash": "e7a8afa5f8a9b07e096f393802ec60fb",
-    "semantic_hash": "e7a8afa5f8a9b07e096f393802ec60fb"
-  },
-  "src/lib/analytics-report-xlsx.ts": {
-    "mtime": 1789626578.3404894,
-    "seen": 1789627118.6903908,
-    "ast_hash": "72accc333bee4e53ec47c0d2b6f68bba",
-    "semantic_hash": "72accc333bee4e53ec47c0d2b6f68bba"
-  },
-  "docs/superpowers/plans/2026-09-17-admin-analytics-export-report.md": {
-    "mtime": 1789626426.6701877,
-    "seen": 1789627118.6903908,
-    "ast_hash": "644f0c7bbf03928043f91ac7c8ab969a",
-    "semantic_hash": "644f0c7bbf03928043f91ac7c8ab969a"
-  },
-  "docs/superpowers/specs/2026-09-17-admin-analytics-export-report-design.md": {
-    "mtime": 1789626256.7213204,
-    "seen": 1789627118.6903908,
-    "ast_hash": "786d812d5265c15bf879d398b5d99640",
-    "semantic_hash": "786d812d5265c15bf879d398b5d99640"
   }
 }
