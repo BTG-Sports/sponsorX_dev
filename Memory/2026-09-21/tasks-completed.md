@@ -239,21 +239,17 @@ into `frontend/` and `backend/` folders, use Docker to initialise Postgres,
 MinIO, Redis, Prisma and the worker, and stand up a backend file structure.
 User explicitly directed the backend stack: **Node.js + Express.js**.
 
-**⚠️ This diverges from documented architecture — flag for decision, not yet on the board.**
-- `.claude/stack-decision.md` and CLAUDE.md say the Phase 1 API is **Next.js
-  route handlers under `/api/v1`** ("one language, one service"), not a
-  separate Express service.
-- `SponsorX-Baseline-Memory-Reconciliation.md` lists **Express + Redis + MinIO**
-  as the *old, rejected* stack; the confirmed stack is Railway Postgres as the
-  job queue (no Redis), Cloudflare R2 (no MinIO).
-- The Docker stack here uses MinIO (R2's S3 API locally) and Redis (added for
-  cache/rate-limit only — **jobs stay on pg-boss/Postgres**, Addendum A3
-  unchanged; the worker still drains the Postgres outbox).
-- No pre-existing task ID matches this work. Per CLAUDE.md ("fix a task's
-  definition in the Markdown by PR, never by quietly reinterpreting it in the
-  tracker"; "do not code around open decisions silently") **the xlsx row and
-  the stack-decision docs are deliberately left for a human decision.** Code is
-  done and verified; the board/docs are the open question.
+**Architecture change — raised, then user-confirmed the same day; docs + board reconciled.**
+The scaffold diverged from the documented stack (Next.js route handlers, "one
+service"; the reconciliation doc listed Express/Redis/MinIO as the *rejected*
+stack). Raised it for decision; user confirmed — *"we're gonna go with this… make
+the API more versatile than just existing inside Next.js."* So it is now official:
+- **`.claude/stack-decision.md`** — added **Addendum B** (repo split + standalone
+  Express API); marked A2 (route handlers) superseded and A3 (Redis) amended
+  (Redis is cache/rate-limit only; **queue stays in Postgres**).
+- **CLAUDE.md** — stack table, "one language, two workspaces" rule, Postgres/Redis
+  rule and Status line all updated.
+- **Task board** — added **P0-OPS-06** (below).
 
 ### What was done
 
@@ -315,3 +311,15 @@ User explicitly directed the backend stack: **Node.js + Express.js**.
 - worker booted: pg-boss started, outbox drain loop running ✓
 - Docker infra torn down after (volumes retained). Branch:
   `development/Jan/backend-scaffold`.
+
+### Task board
+
+Added **P0-OPS-06** — "Repo split + Docker local stack + standalone Express API
+scaffold" (Phase 1 sheet, appended at row 203, Order 24.5 so it sits after
+P0-OPS-05 in Foundation & Decisions; Stage 0, Cat OPS, `Code review`, started
+2026-09-21, owner infinex). Appended rather than inserted so no existing row
+moved; extended the autofilter (`A4:R203`), the Status data-validation
+(`I5:I203`), the three conditional-formatting ranges and all **15 Dashboard
+formulas** from row 202 → 203. Backup in the session scratchpad
+(`board-backup-pre-P0-OPS-06.xlsx`). Google Sheet mirror remains the human
+end-of-day step.
