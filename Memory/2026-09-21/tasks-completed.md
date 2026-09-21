@@ -92,7 +92,43 @@ worth a human pass.
   an elevated 430px card (`lg:` border/shadow, action bar `lg:rounded-b-2xl`).
   The form column never widens; below `lg` nothing changed.
 
+## Task — `P1-FE-17` · Build the /brief sponsor brief-request wizard (B3 public intake)
+
+**Trigger:** user asked for the sponsor counterpart of /join.
+
+**Spec:** [docs/superpowers/specs/2026-09-21-brief-wizard-design.md](../../docs/superpowers/specs/2026-09-21-brief-wizard-design.md)
+
+Sponsors don't self-signup in Phase 1 (managed marketplace, §17) — their
+front door is "brief BTG, get a matched shortlist back". That journey
+dead-ended at `/packages`' inert "Request a brief" buttons (`not wired (B3)`).
+Now they link `/brief?package=<id>`:
+
+- [brief-flow.ts](../../src/lib/brief-flow.ts) — pure module: four steps
+  (goal chips → budget bands + package select → market → contact), §7-bracketed
+  budget bands, `packageOption` (unknown/missing ids → "Not sure yet", so a
+  bad URL can't break the intake), validation, `sx-brief-draft-v1` draft.
+- [brief-wizard.tsx](../../src/components/brief-wizard.tsx) — island in
+  **sponsor orange** (`--sx-accent`), reusing the whole `sx-join-*` motion
+  system (zero new CSS) and the `useSyncExternalStore` hydration discipline.
+  No intro (the /packages catalog is the intro), no agreement step (nothing
+  is signed — it's a request). Received-state timeline: Received → Matching
+  (§13/§26) → Proposal, "no card, no checkout, no commitment" said twice.
+- [brief/page.tsx](../../src/app/(public)/brief/page.tsx) — split-stage frame
+  like /join; **`pkg` passed only when `?package=` present** so a bare visit
+  resumes the stored draft instead of resetting it.
+- No design deliverable existed (2S0-ART-01 is Phase 2 self-service), so the
+  design follows the P1-ART-07 wizard language.
+
+**Verified:** vitest 18/18 (brief-flow: step validation, email rule, package
+fallback, draft round-trip), tsc/lint/build clean, `/brief` + `?demo=submitted`
++ all six `/packages` links driven via dev server. Human pass: chips motion,
+select styling on a real phone.
+
 ### Task board
+
+Added **P1-FE-17** (row 56, Order 33.998, `Code review`, started 2026-09-21,
+depends on P1-FE-16); extended autofilter, Status validation, CF ranges and
+the 15 Dashboard formulas from row 200 → 201.
 
 Added **P1-FE-16** (row 55, Order 33.997, `Code review`, started 2026-09-21);
 extended autofilter, Status validation, 3 CF ranges and all 15 Dashboard
