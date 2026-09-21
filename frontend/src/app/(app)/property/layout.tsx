@@ -1,3 +1,4 @@
+import { requirePortalAccess } from "@/server/portal";
 import { PortalShell, type NavItem } from "@/components/portal-shell";
 import { property } from "@/lib/fixtures";
 
@@ -13,7 +14,15 @@ const NAV: NavItem[] = [
   { href: "/property/analytics", label: "Analytics", icon: "chart", pending: true },
 ];
 
-export default function PropertyLayout({ children }: LayoutProps<"/property">) {
+/* Authorisation, not merely authentication (P2-BE-04). requirePortalAccess()
+   resolves the Clerk identity to its Postgres tenant and roles and admits only
+   the roles this portal is for — P2-INT-01 checked that you were signed in as
+   *somebody*, which let any signed-in identity open any workspace.
+
+   Which rows this portal may then read is scope.ts, applied per query. */
+export default async function PropertyLayout({ children }: LayoutProps<"/property">) {
+  await requirePortalAccess("property");
+
   return (
     <PortalShell
       portal="property"

@@ -33,6 +33,7 @@
 
 import { PgBoss } from "pg-boss";
 import pg from "pg";
+import { seedEnvironment } from "./jobs/seed-environment.mts";
 
 const connectionString = process.env.DATABASE_URL;
 
@@ -142,7 +143,36 @@ async function tick(): Promise<void> {
   }
 }
 
+/**
+ * Seed the environment before anything else (P2-OPS-05).
+ *
+ * Here rather than in a command someone runs, because Railway preview
+ * environments start empty and an empty preview is a useless one. It is
+ * idempotent and refuses to run in production, so booting repeatedly is
+ * harmless. A failure is logged and swallowed: a worker that cannot seed demo
+ * data must still drain the outbox, and turning a seed problem into a dead
+ * queue would be the worse outcome by far.
+ */
+async function seedOnBoot(): Promise<void> {
+  try {
+    const outcome = await seedEnvironment(pool);
+    if (outcome.skipped) {
+      console.log(`[worker] seed skipped — ${outcome.reason}`);
+    } else {
+      console.log(
+        `[worker] seed complete — ${outcome.tenantsCreated} tenant(s) and ` +
+          `${outcome.usersCreated} user(s) created ` +
+          `(0 means they already existed, which is the normal case)`,
+      );
+    }
+  } catch (error) {
+    console.error("[worker] seed failed, continuing to drain anyway:", error);
+  }
+}
+
 async function main(): Promise<void> {
+  await seedOnBoot();
+
   await boss.start(); // installs pg-boss's own schema — worker only
   console.log("[worker] pg-boss started; outbox drain every " + DRAIN_INTERVAL_MS + "ms");
 
