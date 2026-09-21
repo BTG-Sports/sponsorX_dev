@@ -855,3 +855,39 @@ request at all.
 the spec and the API disagree *today* — exactly the drift this row exists to
 prevent — but the error handler belongs to the backend scaffold rather than to
 this task, so it is raised rather than changed unilaterally.
+
+## `P2-BE-08` — private grants are audited because the unaudited path is gone
+
+The acceptance said "every private grant is audited". The way to make that
+true is not to remember to call the audit — it is to delete the path that
+skips it. The raw presigners are no longer exported; the private bucket is
+reachable only through `presignPrivateUpload` and `presignPrivateDownload`,
+which demand an actor and write the audit row first.
+
+**The grant is the auditable event, not the upload.** The browser uploads
+straight to R2, so the server never sees the PUT. The last moment anything can
+be recorded is when the credential is handed over, and a presigned URL is
+exactly that — a bearer token in a query string, good for fifteen minutes to
+whoever holds it.
+
+**The audit row does not contain the signed URL**, and that is the point most
+likely to be undone by someone later trying to make the log more useful. The
+URL *is* the credential; storing it would turn an audit table every
+`BTG_ADMIN` can read into a set of live keys to the private bucket. There is a
+test asserting the signature never appears in the audit payload.
+
+It fails closed: the audit runs in a transaction before the URL is returned,
+so a failed audit write means no credential is issued.
+
+**The tests were mutation-checked.** Removing the audit call from the upload
+path makes two of the seven fail. A test that has never failed proves nothing
+about the regression it was written for, and this one now has.
+
+CORS on the private bucket was verified by real preflight: 204 echoing the
+origin for all three allowed hosts, 403 for an unlisted one. No wildcard,
+for the same reason the URL stays out of the log.
+
+Left for other rows: the R2 credentials still need to reach Railway
+(`P2-OPS-04`), and the `r2.dev` public hostname should become a custom domain
+such as `cdn.sponsorx.net` before launch — Cloudflare rate-limits `r2.dev` and
+says plainly it is not for production.
