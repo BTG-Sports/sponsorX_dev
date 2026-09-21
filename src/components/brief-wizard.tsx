@@ -76,6 +76,10 @@ export function BriefWizard({
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [save, setSave] = useState<"idle" | "saving" | "saved">("idle");
   const [reviewing, setReviewing] = useState(false);
+  /* Lifted so the ancestor chain can out-stack the later-DOM siblings while
+     the listbox is open — the sx-join-* fill animations keep every sibling a
+     stacking context, so the panel's own z-index can't win from inside. */
+  const [pkgOpen, setPkgOpen] = useState(false);
   const headingRef = useRef<HTMLHeadingElement>(null);
   const stepRef = useRef<HTMLDivElement>(null);
 
@@ -294,7 +298,7 @@ export function BriefWizard({
       <div
         key={`${def.id}-${dir}`}
         ref={stepRef}
-        className="sx-join-step flex-1 px-6 py-7"
+        className={`sx-join-step flex-1 px-6 py-7 ${pkgOpen ? "relative z-20" : ""}`}
         style={{ "--sx-from": dir === 1 ? "24px" : "-24px" } as React.CSSProperties}
       >
         <h1 ref={headingRef} tabIndex={-1} className="text-3xl font-semibold tracking-tight outline-none">
@@ -358,10 +362,15 @@ export function BriefWizard({
                 </div>
                 {errors.budget && <p className="mt-1.5 text-[11px] text-danger">{errors.budget}</p>}
               </div>
-              <div className="sx-join-rise" style={{ "--sx-d": "0.05s" } as React.CSSProperties}>
+              <div
+                className={`sx-join-rise ${pkgOpen ? "relative z-30" : ""}`}
+                style={{ "--sx-d": "0.05s" } as React.CSSProperties}
+              >
                 <PackageSelect
                   value={chosen.id}
                   onChange={(id) => setTouched({ ...draft, package: id })}
+                  open={pkgOpen}
+                  onOpenChange={setPkgOpen}
                 />
                 <p className="mt-1 text-[11px] text-faint">
                   A starting point, not a commitment — BTG shapes the final scope.
@@ -384,7 +393,7 @@ export function BriefWizard({
       </div>
 
       {/* action bar */}
-      <div className="sticky bottom-0 border-t border-line bg-bg/95 px-6 py-4 backdrop-blur lg:rounded-b-2xl">
+      <div className="sticky bottom-0 z-10 border-t border-line bg-bg/95 px-6 py-4 backdrop-blur lg:rounded-b-2xl">
         <button
           type="button"
           onClick={goNext}
@@ -407,11 +416,16 @@ export function BriefWizard({
 function PackageSelect({
   value,
   onChange,
+  open,
+  onOpenChange,
 }: {
   value: string;
   onChange: (id: string) => void;
+  /** Controlled by the wizard: ancestors raise their z-index while open. */
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
 }) {
-  const [open, setOpen] = useState(false);
+  const setOpen = onOpenChange;
   const rootRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const chosen = PACKAGE_OPTIONS.find((p) => p.id === value) ?? PACKAGE_OPTIONS[0];
@@ -446,7 +460,7 @@ function PackageSelect({
       document.removeEventListener("pointerdown", onPointerDown);
       document.removeEventListener("keydown", onKeyDown);
     };
-  }, [open]);
+  }, [open, setOpen]);
 
   return (
     <div ref={rootRef} className="relative">
@@ -456,7 +470,7 @@ function PackageSelect({
         type="button"
         aria-haspopup="listbox"
         aria-expanded={open}
-        onClick={() => setOpen((v) => !v)}
+        onClick={() => setOpen(!open)}
         className={`mt-1.5 flex min-h-11 w-full items-center justify-between gap-3 rounded-xl border bg-surface-2 px-3.5 py-3 text-left text-base text-text transition-colors focus:outline-none ${
           open ? "border-accent/60" : "border-line hover:border-line/80 focus:border-accent/60"
         }`}
