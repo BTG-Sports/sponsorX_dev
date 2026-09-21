@@ -142,15 +142,26 @@ export function LoginForm() {
         {pending ? "Signing in…" : "Sign In"}
       </button>
 
-      <p className="mt-5 text-center text-[11px] text-muted">
-        Don&rsquo;t have an account?{" "}
-        <Link
-          href="/join"
-          className="font-medium text-primary-soft hover:underline"
-        >
-          Apply as an athlete
-        </Link>
-      </p>
+      {/* New-to-SponsorX paths — one per audience. Sponsors don't register
+          in Phase 1 (§17 managed marketplace): their front door is the
+          /brief request, so that's what the button says. */}
+      <div className="mt-5">
+        <p className="text-center text-[11px] text-muted">New to SponsorX?</p>
+        <div className="mt-2.5 grid grid-cols-2 gap-2.5">
+          <Link
+            href="/join"
+            className="rounded-lg border border-primary/40 px-3 py-2.5 text-center text-[11px] font-medium text-primary-soft transition-colors hover:bg-primary/10"
+          >
+            Apply as an athlete
+          </Link>
+          <Link
+            href="/brief"
+            className="rounded-lg border border-accent/40 px-3 py-2.5 text-center text-[11px] font-medium text-accent transition-colors hover:bg-accent/10"
+          >
+            Request a sponsor brief
+          </Link>
+        </div>
+      </div>
 
       {/* ------------------------------------------------- mock accounts */}
       <div className="mt-7 border-t border-line pt-4">
