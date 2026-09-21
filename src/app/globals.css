@@ -491,3 +491,121 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .sx-shimmer { animation: none; }
 }
+
+/* --------------------------------------------------------------------------
+   /join wizard motion (P1-ART-07, 2026-09-21). Same rules as the chart
+   system above: final state lives in the DOM, every animation settles onto
+   it, reduced motion kills all of it. One signature moment per screen; the
+   only loop is the active progress segment's recessive breathe.
+   -------------------------------------------------------------------------- */
+
+/* Stage glow behind the phone column — primary up top, accent low-right.
+   --sx-join-glow-b crossfades the accent in as the athlete passes the
+   enforced section. Registered so the number itself transitions (gradients
+   don't interpolate); the wizard writes the var onto .sx-join-stage
+   directly (reveal.tsx precedent — DOM state React never owns). */
+@property --sx-join-glow-b {
+  syntax: "<number>";
+  inherits: true;
+  initial-value: 0;
+}
+.sx-join-stage {
+  position: relative;
+  isolation: isolate;
+  transition: --sx-join-glow-b 0.9s ease;
+}
+.sx-join-stage::before {
+  content: "";
+  position: absolute;
+  top: -48px;
+  left: 50%;
+  width: min(620px, 100vw);
+  height: 560px;
+  transform: translateX(-50%);
+  background:
+    radial-gradient(58% 52% at 50% 0%, color-mix(in srgb, var(--sx-primary) 13%, transparent), transparent 72%),
+    radial-gradient(46% 40% at 74% 82%, color-mix(in srgb, var(--sx-accent) calc(7% + var(--sx-join-glow-b, 0) * 8%), transparent), transparent 72%);
+  filter: blur(10px);
+  pointer-events: none;
+  z-index: -1;
+}
+
+/* Cascade entrance — rows/fields ride --sx-d for stagger. */
+@keyframes sx-join-rise {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: none; }
+}
+.sx-join-rise { animation: sx-join-rise 0.5s var(--sx-ease) var(--sx-d, 0s) both; }
+
+/* Directional step entrance — the wizard sets --sx-from per direction. */
+@keyframes sx-join-step {
+  from { opacity: 0; transform: translateX(var(--sx-from, 24px)); }
+  to { opacity: 1; transform: none; }
+}
+.sx-join-step { animation: sx-join-step 0.38s var(--sx-ease) both; }
+
+/* Intro rail draws top-to-bottom. */
+@keyframes sx-join-rail { from { transform: scaleY(0); } to { transform: scaleY(1); } }
+.sx-join-rail { transform-origin: top; animation: sx-join-rail 0.9s var(--sx-ease) 0.15s both; }
+
+/* Progress segments: fill wipes left→right; active breathes (recessive);
+   inserting the guardian segment re-layouts via the flex transition. */
+.sx-join-seg { position: relative; overflow: hidden; transition: background-color 0.3s ease; }
+@keyframes sx-join-wipe { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+.sx-join-seg--fill::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: currentColor;
+  transform-origin: left;
+  animation: sx-join-wipe 0.45s var(--sx-ease) both;
+}
+@keyframes sx-join-breathe { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+.sx-join-seg--active::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: currentColor;
+  animation: sx-join-breathe 2.4s ease-in-out 0.5s infinite;
+}
+
+/* Height-expand for the minor notice and the add-deal form (grid-rows trick). */
+.sx-expand { display: grid; grid-template-rows: 0fr; transition: grid-template-rows 0.45s var(--sx-ease); }
+.sx-expand > * { overflow: hidden; min-height: 0; }
+.sx-expand[data-open="true"] { grid-template-rows: 1fr; }
+
+/* Stroke draw for checks/ticks — paths use pathLength=1. */
+@keyframes sx-join-draw { from { stroke-dashoffset: 1; } to { stroke-dashoffset: 0; } }
+.sx-join-draw {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: sx-join-draw 0.7s var(--sx-ease) var(--sx-d, 0.1s) forwards;
+}
+
+/* CTA sheen — one sweep on hover, and once when the submit button arms. */
+.sx-join-sheen { position: relative; overflow: hidden; }
+.sx-join-sheen::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(105deg, transparent 35%, rgba(255, 255, 255, 0.35) 50%, transparent 65%);
+  transform: translateX(-130%);
+  pointer-events: none;
+}
+@keyframes sx-join-sweep { to { transform: translateX(130%); } }
+.sx-join-sheen:hover::after { animation: sx-join-sweep 0.9s ease both; }
+.sx-join-sheen[data-armed="true"]::after { animation: sx-join-sweep 0.9s ease 0.15s both; }
+
+@media (prefers-reduced-motion: reduce) {
+  .sx-join-rise,
+  .sx-join-step,
+  .sx-join-rail { animation: none; opacity: 1; transform: none; }
+  .sx-join-seg--fill::after { animation: none; transform: none; }
+  .sx-join-seg--active::after { animation: none; }
+  .sx-join-draw { animation: none; stroke-dashoffset: 0; }
+  .sx-join-sheen::after { display: none; }
+  .sx-expand { transition: none; }
+  .sx-join-stage { transition: none; }
+}
