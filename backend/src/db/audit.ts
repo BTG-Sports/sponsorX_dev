@@ -18,7 +18,7 @@
  * that changed. `changedFields()` below exists to make that the easy option.
  */
 
-import type { Prisma } from "@/generated/prisma/client";
+import type { Prisma } from "../generated/prisma/client";
 
 /**
  * The part of an `Actor` this helper needs.
@@ -83,6 +83,29 @@ export const AUDIT_ACTIONS = {
     roleGrant: "role.grant",
     roleRevoke: "role.revoke",
     tenantAccessGrant: "tenant.accessGrant",
+  },
+  /**
+   * The guardian workflow for minors (P3-BE-03, §26, §37). Verification is an
+   * attestation by a named BTG staff member, so "who confirmed this adult,
+   * and when" must survive in the log — it is the evidence if a minor's
+   * participation is ever challenged.
+   */
+  guardian: {
+    link: "guardian.link",
+    verify: "guardian.verify",
+    unlink: "guardian.unlink",
+  },
+  /**
+   * Private-object grants (P2-BE-08). Not one of §26's five areas, but the
+   * same reasoning applies: a presigned URL is a bearer credential handed to
+   * a browser, and "who was given access to this agreement, and when" is a
+   * question that has to be answerable afterwards. The grant is the auditable
+   * event — the upload itself happens directly against R2 and the server
+   * never sees it.
+   */
+  storage: {
+    privateUploadGrant: "storage.privateUploadGrant",
+    privateDownloadGrant: "storage.privateDownloadGrant",
   },
 } as const;
 

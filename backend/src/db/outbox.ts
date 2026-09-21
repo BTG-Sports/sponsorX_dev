@@ -16,7 +16,7 @@
  * worker's drain is what bridges the outbox to pg-boss — see worker/index.ts.
  */
 
-import type { Prisma } from "@/generated/prisma/client";
+import type { Prisma } from "../generated/prisma/client";
 
 /**
  * A queued job's name. Kept as a string union so a typo is a compile error
@@ -28,6 +28,10 @@ import type { Prisma } from "@/generated/prisma/client";
 export type JobName =
   | "zoho.pushCampaign"
   | "zoho.pushAthlete"
+  /* Every transactional email, one job name (P3-INT-01). The template lives
+     in the payload rather than the name so that adding a message does not
+     mean touching the worker's handler registration. */
+  | "notify.email"
   | "notify.campaignLive"
   | "notify.invitationSent"
   | "notify.deliverableDue"

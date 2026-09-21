@@ -20,6 +20,21 @@ const schema = z.object({
 
   REDIS_URL: z.string().default("redis://localhost:6379"),
 
+  /* Clerk authenticates; Postgres authorises (Addendum A4). No default: an
+     API that silently starts without the ability to verify a caller would
+     answer every request as anonymous, which looks like a permissions bug
+     rather than a missing variable. */
+  /* Email (G-04 chose Resend, P3-INT-01). Optional on purpose, unlike the
+     Clerk keys: a developer machine and CI must be able to boot the worker,
+     drain the outbox and run every other job with no email credentials at
+     all. A send attempted without a key fails that one job loudly and
+     retries, rather than preventing the process from starting. */
+  RESEND_API_KEY: z.string().optional(),
+  EMAIL_FROM: z.string().default("SponsorX <noreply@sponsorx.net>"),
+
+  CLERK_SECRET_KEY: z.string().min(1, "CLERK_SECRET_KEY is not set"),
+  CLERK_PUBLISHABLE_KEY: z.string().min(1, "CLERK_PUBLISHABLE_KEY is not set"),
+
   // Local dev talks to MinIO (docker-compose.yml); staging/production talk to
   // Cloudflare R2 with the same S3 API. Only the endpoint and credentials
   // change — code paths stay identical (.claude/stack-decision.md).

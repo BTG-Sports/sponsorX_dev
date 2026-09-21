@@ -1,0 +1,97 @@
+# Continuous integration — P2-OPS-07, §30, Guide §09.
+#
+# Every push and every pull request is type-checked, linted, unit-tested and
+# permission-tested. Nothing here is a new kind of check: each step is a
+# command that already runs locally. What changes is that it now runs whether
+# anyone remembers or not, on a clean machine, where both people working in
+# this repo can see the result.
+#
+# The permission suite is the one that matters most. It asserts all 1,152
+# role × resource × action pairs against the agreed RBAC matrix, so widening a
+# sponsor's access to fix a bug turns this red and names what else moved. B0's
+# stated exit criterion is "authz matrix passes in CI" — this file is what
+# makes that sentence mean anything.
+
+name: CI
+
+on:
+  push:
+  pull_request:
+
+# A second push to the same branch makes the first run pointless — cancel it
+# rather than queueing behind work nobody is waiting for. Never cancels a run
+# on the default branch, where the history of what passed is worth keeping.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+jobs:
+  ci:
+    name: typecheck · lint · unit · authz matrix
+    runs-on: ubuntu-latest
+
+    services:
+      # Nothing uses this yet, and it is here on purpose.
+      #
+      # P2-SEC-01's seeded half — two tenants, two sponsors, two athletes, a
+      # guardian and a property — proves the scope *filters* return the right
+      # rows, and it cannot run without a real database. Adding the service
+      # now means whoever writes that suite finds it waiting instead of
+      # rediscovering why a plain Node runner is not enough.
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: sponsorx
+          POSTGRES_PASSWORD: sponsorx
+          POSTGRES_DB: sponsorx_test
+        ports:
+          - 5432:5432
+        # Without this the job races the database and fails intermittently,
+        # which is worse than failing consistently.
+        options: >-
+          --health-cmd "pg_isready -U sponsorx"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DATABASE_URL: postgresql://sponsorx:sponsorx@localhost:5432/sponsorx_test
+      # Clerk is not needed to build or to run these tests — verified by
+      # building with the environment file removed. Should a future test need
+      # a real key, it goes in repository secrets, never here.
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          # Pinned to the version CLAUDE.md pins locally. A CI Node that
+          # drifts from the developer Node produces failures nobody can
+          # reproduce.
+          node-version: 24.21.0
+          cache: npm
+
+      # `npm ci` rather than `npm install`: it installs exactly the lockfile
+      # and fails if package.json and the lockfile disagree, which is the
+      # point of running it here.
+      - name: Install
+        run: npm ci
+
+      # Both build scripts run `prisma generate` first, so the generated
+      # client exists before anything type-checks against it. The backend
+      # build is `tsc --noEmit` over src and worker; the frontend build
+      # type-checks and compiles every route.
+      - name: Build the API and worker
+        run: npm run build -w @sponsorx/backend
+
+      - name: Build the web app
+        run: npm run build -w @sponsorx/frontend
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Test the API — includes the authorisation matrix
+        run: npm run test -w @sponsorx/backend
+
+      - name: Test the web app
+        run: npm run test -w @sponsorx/frontend

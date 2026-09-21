@@ -33,6 +33,8 @@
 
 import { PgBoss } from "pg-boss";
 import pg from "pg";
+import { seedEnvironment } from "./jobs/seed-environment.mts";
+import { handleSendEmail, type EmailJob } from "./jobs/send-email.mts";
 
 const connectionString = process.env.DATABASE_URL;
 
@@ -142,34 +144,105 @@ async function tick(): Promise<void> {
   }
 }
 
+/**
+ * Seed the environment before anything else (P2-OPS-05).
+ *
+ * Here rather than in a command someone runs, because Railway preview
+ * environments start empty and an empty preview is a useless one. It is
+ * idempotent and refuses to run in production, so booting repeatedly is
+ * harmless. A failure is logged and swallowed: a worker that cannot seed demo
+ * data must still drain the outbox, and turning a seed problem into a dead
+ * queue would be the worse outcome by far.
+ */
+async function seedOnBoot(): Promise<void> {
+  try {
+    const outcome = await seedEnvironment(pool);
+    if (outcome.skipped) {
+      console.log(`[worker] seed skipped — ${outcome.reason}`);
+    } else {
+      console.log(
+        `[worker] seed complete — ${outcome.tenantsCreated} tenant(s) and ` +
+          `${outcome.usersCreated} user(s) created ` +
+          `(0 means they already existed, which is the normal case)`,
+      );
+    }
+  } catch (error) {
+    console.error("[worker] seed failed, continuing to drain anyway:", error);
+  }
+}
+
 async function main(): Promise<void> {
+  await seedOnBoot();
+
   await boss.start(); // installs pg-boss's own schema — worker only
   console.log("[worker] pg-boss started; outbox drain every " + DRAIN_INTERVAL_MS + "ms");
 
   boss.on("error", (error) => console.error("[worker] pg-boss error:", error));
 
-  /* No job handlers are registered yet. Each handler lands with the feature
-     that needs it — zoho.pushCampaign with the Zoho integration, reward.
-     generateQr with the QR task. Until then jobs queue and wait, which is
-     visible as queue depth rather than hidden as a silent drop. */
+  /* Handlers land with the feature that needs them. The first is email
+     (P3-INT-01); zoho.pushCampaign arrives with the Zoho integration and
+     reward.generateQr with the QR task. A job with no handler queues and
+     waits, which shows up as queue depth rather than a silent drop. */
+  /* The queue must exist before anything can consume from it. pg-boss 10+
+     requires createQueue for BOTH sides, and `ensureQueue` above only covers
+     the send path — which runs when a job is dispatched, i.e. after this
+     registration. On a database that has never had an email queued, work()
+     therefore failed on a loop with "Queue notify.email does not exist"
+     until this line was added. Idempotent, so it costs nothing on restart. */
+  await ensureQueue("notify.email");
+
+  await boss.work<EmailJob>("notify.email", async ([job]) => {
+    const outcome = await handleSendEmail(pool, job.data);
+    /* Logged because a duplicate is not a failure — it means the message had
+       already gone once, which is what was asked for. Silence here would
+       make an at-least-once delivery look like a lost email. */
+    console.log(`[worker] notify.email ${outcome}: ${job.data.template} -> ${job.data.to}`);
+  });
 
   timer = setInterval(tick, DRAIN_INTERVAL_MS);
   await tick(); // sweep once at boot rather than waiting a full interval
 }
 
-async function shutdown(signal: string): Promise<void> {
-  console.log(`[worker] ${signal} received — shutting down.`);
+/**
+ * Stop draining and release the pool. Exported without calling `process.exit`
+ * so a host process can shut the worker down and then close its own server —
+ * see `src/combined.mts`. The standalone entry below still exits, because
+ * when the worker *is* the process there is nothing else to wait for.
+ */
+export async function stopWorker(): Promise<void> {
   if (timer) clearInterval(timer);
+  timer = undefined;
   await boss.stop({ graceful: true }).catch(() => {});
   await pool.end().catch(() => {});
-  process.exit(0);
 }
 
-for (const signal of ["SIGTERM", "SIGINT"] as const) {
-  process.on(signal, () => void shutdown(signal));
+/** Boot the worker. Exported so it can run inside another process. */
+export const startWorker = main;
+
+/**
+ * Only self-start when this file IS the process.
+ *
+ * Without this guard, importing the module to run it alongside the API would
+ * start it twice — once on import and once when the host calls startWorker()
+ * — giving two drains competing for the same rows. SKIP LOCKED would keep
+ * that correct but it would still be two of everything for no reason.
+ */
+const isEntrypoint =
+  process.argv[1] !== undefined &&
+  import.meta.url === new URL(`file://${process.argv[1]}`).href;
+
+if (isEntrypoint) {
+  for (const signal of ["SIGTERM", "SIGINT"] as const) {
+    process.on(signal, () => {
+      console.log(`[worker] ${signal} received — shutting down.`);
+      void stopWorker().then(() => process.exit(0));
+    });
+  }
 }
 
-main().catch((error) => {
-  console.error("[worker] failed to start:", error);
-  process.exit(1);
-});
+if (isEntrypoint) {
+  main().catch((error) => {
+    console.error("[worker] failed to start:", error);
+    process.exit(1);
+  });
+}
