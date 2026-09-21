@@ -1,4 +1,5 @@
 import { LandingPoster } from "@/components/landing/landing-poster";
+import { LandingSceneMount } from "@/components/landing/landing-scene-mount";
 import { LandingContent } from "@/components/landing/landing-content";
 
 /* --------------------------------------------------------------------------
@@ -16,6 +17,7 @@ export default function HomePage() {
   return (
     <>
       <LandingPoster />
+      <LandingSceneMount />
       <LandingContent />
     </>
   );
