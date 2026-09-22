@@ -199,6 +199,48 @@ const BUILDERS: Partial<Record<Resource, Builder>> = {
      never see an application at all. Sharing the filter while keeping the
      policy rows apart is the honest shape: same rows, different reach. */
   athleteApplication: (actor, scope) => BUILDERS.athlete!(actor, scope),
+
+  /* Added with P4-BE-01, the first task to query sponsors.
+
+     `own` and `own-sponsor` are the same rows here and different rows on
+     `sponsorContact`: a SPONSOR_ADMIN's "own" sponsor is one organisation,
+     and their "own-sponsor" contacts are that organisation's people. Both
+     need `actor.sponsorId`, which is why the actor now carries it — a builder
+     has no second query to find out who the caller works for.
+
+     A sponsor user with no sponsorId matches nothing rather than everything.
+     That state should not exist, and if it ever does, the safe reading of a
+     broken row is that it reaches nothing. */
+  sponsor: (actor, scope) => {
+    switch (scope) {
+      case "any":
+        return {};
+      case "own-tenant":
+        return { tenantId: actor.tenantId };
+      case "own":
+      case "own-sponsor":
+        return actor.sponsorId
+          ? { tenantId: actor.tenantId, id: actor.sponsorId }
+          : MATCHES_NOTHING;
+      default:
+        return MATCHES_NOTHING;
+    }
+  },
+
+  sponsorContact: (actor, scope) => {
+    switch (scope) {
+      case "any":
+        return {};
+      case "own-tenant":
+        return { tenantId: actor.tenantId };
+      case "own-sponsor":
+        return actor.sponsorId
+          ? { tenantId: actor.tenantId, sponsorId: actor.sponsorId }
+          : MATCHES_NOTHING;
+      default:
+        return MATCHES_NOTHING;
+    }
+  },
 };
 
 /**

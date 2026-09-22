@@ -32,6 +32,16 @@ export type Actor = {
   userId: string;
   tenantId: string;
   roles: Role[];
+  /**
+   * The sponsor org this user belongs to, or `null` for BTG staff and
+   * athletes (P4-BE-01).
+   *
+   * Carried on the actor because the matrix's `own` and `own-sponsor` scopes
+   * on `sponsor` and `sponsorContact` cannot be expressed without it — a
+   * SPONSOR_ADMIN reaches their own organisation's records and no other's,
+   * and a scope builder has no second query to find out which that is.
+   */
+  sponsorId: string | null;
 };
 
 const ROLE_SET = new Set<string>(ROLES);
@@ -61,10 +71,15 @@ export async function resolveActor(
 ): Promise<Actor> {
   const linked = await prisma.user.findUnique({
     where: { clerkId },
-    select: { id: true, tenantId: true, roles: true },
+    select: { id: true, tenantId: true, roles: true, sponsorId: true },
   });
   if (linked) {
-    return { userId: linked.id, tenantId: linked.tenantId, roles: knownRoles(linked.roles) };
+    return {
+      userId: linked.id,
+      tenantId: linked.tenantId,
+      roles: knownRoles(linked.roles),
+      sponsorId: linked.sponsorId,
+    };
   }
 
   if (!email) throw new UnprovisionedError(null);
@@ -80,10 +95,15 @@ export async function resolveActor(
   const claimed = await prisma.user.update({
     where: { id: provisioned.id },
     data: { clerkId },
-    select: { id: true, tenantId: true, roles: true },
+    select: { id: true, tenantId: true, roles: true, sponsorId: true },
   });
 
-  return { userId: claimed.id, tenantId: claimed.tenantId, roles: knownRoles(claimed.roles) };
+  return {
+    userId: claimed.id,
+    tenantId: claimed.tenantId,
+    roles: knownRoles(claimed.roles),
+    sponsorId: claimed.sponsorId,
+  };
 }
 
 declare module "express-serve-static-core" {
