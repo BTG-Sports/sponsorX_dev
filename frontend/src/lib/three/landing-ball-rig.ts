@@ -63,6 +63,7 @@ export class LandingBallRig {
             emissiveIntensity: 0.9,
             roughness: 0.3,
             metalness: 0.0,
+            fog: false,
           }),
         ),
       );

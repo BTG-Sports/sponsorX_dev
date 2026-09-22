@@ -28,6 +28,12 @@ export class LandingAssets {
 
   /** Wrap in a group, recenter, and scale to the target size. */
   private normalize(obj: THREE.Object3D): THREE.Object3D {
+    // The ball is never fogged — it must stay crisp while the world around it
+    // collapses to the dark void during transitions.
+    obj.traverse((o) => {
+      const m = (o as THREE.Mesh).material as THREE.Material | THREE.Material[] | undefined;
+      if (m) (Array.isArray(m) ? m : [m]).forEach((x) => (x.fog = false));
+    });
     const box = new THREE.Box3().setFromObject(obj);
     const size = box.getSize(new THREE.Vector3());
     const center = box.getCenter(new THREE.Vector3());
@@ -43,7 +49,7 @@ export class LandingAssets {
   placeholder(color: number): THREE.Object3D {
     return new THREE.Mesh(
       new THREE.SphereGeometry(TARGET_RADIUS, 48, 48),
-      new THREE.MeshStandardMaterial({ color, roughness: 0.6, metalness: 0.1 }),
+      new THREE.MeshStandardMaterial({ color, roughness: 0.6, metalness: 0.1, fog: false }),
     );
   }
 
