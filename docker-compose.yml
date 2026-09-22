@@ -142,8 +142,18 @@ services:
       # Where a notification tells someone to go.
       APP_URL: http://localhost:3000
       EMAIL_FROM: SponsorX <noreply@localhost>
-      # RESEND_API_KEY is deliberately unset: the worker boots, drains and
-      # runs every other job without it, and an email send fails that one job.
+      # Passed through from the host if set, empty otherwise. Empty is not a
+      # default: env.ts requires these and the api refuses to boot without
+      # them, which is the intended failure — an API that starts unable to
+      # verify a caller answers every request as anonymous, and that looks
+      # like a permissions bug rather than a missing variable.
+      # Interpolated with :- rather than :? so `npm run docker:up` (infra
+      # only) still works for someone who has no Clerk keys at all.
+      CLERK_SECRET_KEY: ${CLERK_SECRET_KEY:-}
+      CLERK_PUBLISHABLE_KEY: ${CLERK_PUBLISHABLE_KEY:-}
+      # Optional by design: the worker boots, drains and runs every other job
+      # without it, and an email send fails that one job loudly and retries.
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
       S3_REGION: us-east-1
       S3_ENDPOINT: http://minio:9000
       S3_ACCESS_KEY_ID: sponsorx
