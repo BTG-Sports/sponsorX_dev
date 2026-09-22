@@ -34,6 +34,7 @@ export class LandingSceneApp {
   private assets = new LandingAssets();
   private rig: LandingBallRig;
   private world: LandingWorld;
+  private ballLight = new THREE.PointLight(0xffffff, 40, 16, 2);
   private clock = new THREE.Clock();
   private raf = 0;
 
@@ -64,6 +65,10 @@ export class LandingSceneApp {
     // stadium glows and the earth gaps stay dark.
     this.rig = new LandingBallRig(this.scene, this.assets);
     this.world = new LandingWorld(this.scene);
+
+    // A key light that follows the ball and never fades, so the ball stays lit
+    // through transitions (when stadium lights dim) instead of going murky.
+    this.scene.add(this.ballLight);
 
     this.onScroll();
     this.resize();
@@ -97,6 +102,7 @@ export class LandingSceneApp {
       // Ball falls down the vertical shaft; spin + spin-and-swap morph ride on top.
       const by = ballWorldY(this.smoothProgress);
       this.rig.setWorldY(by);
+      this.ballLight.position.set(2.2, by + 2.4, 3.2);
       this.rig.update(this.smoothProgress, dt);
       this.world.update(this.smoothProgress, this.time);
 

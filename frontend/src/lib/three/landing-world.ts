@@ -79,7 +79,7 @@ export class LandingWorld {
   constructor(private scene: THREE.Scene) {
     scene.fog = new THREE.Fog(0x05070a, FOG_OPEN_NEAR, FOG_OPEN_FAR);
     scene.add(this.group);
-    scene.add(new THREE.AmbientLight(0xffffff, 0.34));
+    scene.add(new THREE.AmbientLight(0xffffff, 0.42));
     CHAPTERS.forEach((ch, i) => this.buildLevel(ch, i));
     this.buildParticles();
   }
