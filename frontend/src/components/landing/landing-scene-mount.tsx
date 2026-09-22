@@ -61,8 +61,7 @@ export function LandingSceneMount() {
       <div
         ref={overlayRef}
         aria-hidden="true"
-        className="pointer-events-none fixed inset-0 z-[5] bg-black"
-        style={{ opacity: 0 }}
+        className="pointer-events-none fixed inset-0 z-[5] bg-black opacity-0"
       />
       {/* Mobile: content stacks over the centered ball — darken the scene behind
           it for text contrast. Desktop flanks the ball, so no scrim there. */}
