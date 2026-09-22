@@ -225,7 +225,9 @@ async function seedOnBoot(): Promise<void> {
       console.log(`[worker] seed skipped — ${outcome.reason}`);
     } else {
       console.log(
-        `[worker] seed complete — ${outcome.tenantsCreated} tenant(s) and ` +
+        `[worker] seed complete — ${outcome.athletesCreated ?? 0} athlete(s), ` +
+          `${outcome.sponsorsCreated ?? 0} sponsor(s), ` +
+          `${outcome.tenantsCreated} tenant(s) and ` +
           `${outcome.usersCreated} user(s) created ` +
           `(0 means they already existed, which is the normal case)`,
       );
