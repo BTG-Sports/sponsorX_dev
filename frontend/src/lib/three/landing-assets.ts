@@ -32,7 +32,7 @@ export class LandingAssets {
     // collapses to the dark void during transitions.
     obj.traverse((o) => {
       const m = (o as THREE.Mesh).material as THREE.Material | THREE.Material[] | undefined;
-      if (m) (Array.isArray(m) ? m : [m]).forEach((x) => (x.fog = false));
+      if (m) (Array.isArray(m) ? m : [m]).forEach((x) => ((x as THREE.Material & { fog: boolean }).fog = false));
     });
     const box = new THREE.Box3().setFromObject(obj);
     const size = box.getSize(new THREE.Vector3());
