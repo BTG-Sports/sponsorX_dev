@@ -90,7 +90,23 @@ jobs:
       - name: Lint
         run: npm run lint
 
-      - name: Test the API — includes the authorisation matrix
+      # The seeded half of P2-SEC-01 needs a MIGRATED database, not merely a
+      # running one. Without this step the suite skips silently and CI reports
+      # green for tests that never ran — which is worse than failing, because
+      # it reads as coverage.
+      - name: Migrate the test database
+        run: npm run prisma:deploy -w @sponsorx/backend
+
+      # The partial indexes Prisma cannot express live in prisma/sql/ and are
+      # NOT applied by migrate deploy. Nothing in the matrix suite depends on
+      # them today; applied here so a future suite that does finds them.
+      - name: Apply the partial indexes
+        run: |
+          for f in backend/prisma/sql/*.sql; do
+            psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f "$f"
+          done
+
+      - name: Test the API — includes the authorisation matrix, seeded
         run: npm run test -w @sponsorx/backend
 
       - name: Test the web app
