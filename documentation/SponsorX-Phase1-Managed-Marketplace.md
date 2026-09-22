@@ -720,6 +720,52 @@ Per edition, the four payees, their share and their computed amount. Must not re
 - **Done when:** An administrator can read what the school commits to and receives, and forward the page
 - **Reference:** Spec §8, §9.5
 
+#### Added by NEXT spec v2.0 *(2026-09-22)*
+
+Four surfaces version 1.0 either deferred or never named. The free digital edition is the largest correction: principle 10 makes it the V1 reader product, where 1.0 had it as a Stage 2 nicety.
+
+### ⏸ `P1-FE-27` · Build the free digital edition reader on fixtures
+
+**Order** 37.11 · **FE** · **Where:** Code · **5d** · **Blocked** · **Unblocks** 1
+
+Principle 10 makes free digital the V1 reader product, not a deferred nicety — v1.0 had this as Stage 2 and it was wrong. (public)/next/[school]/[edition]. Article pages run on the existing type scale: V1 does not get a long-form editorial scale, and inventing one here is the scope error that sinks the programme.
+
+- **Depends on:** P1-FE-18, P1-ART-08
+- **Done when:** An edition reads end to end from fixtures on a phone and a desktop; no new type scale is introduced; no route reads the backend
+- **Reference:** Spec v2.0 §8, §9, principle 10
+- **Note:** Design/frontEndVersion2 is being rebuilt as of 2026-09-22 — treat the screens there as direction, not a specification, and re-check them before building.
+
+### ⏸ `P1-FE-28` · Add Claim this profile and the FEATURED state to the athlete page
+
+**Order** 37.12 · **FE** · **Where:** Code · **3d** · **Blocked** · **Unblocks** 1
+
+(public)/athletes/[slug] already exists and is the QR destination. It gains the claim entry point and a FEATURED treatment. Featured does not mean represented and claiming does not equal commercial activation (principles 1 and 2) — the screen has to make that difference legible, because a featured athlete who believes they are signed is the misunderstanding this whole consent model exists to prevent.
+
+- **Depends on:** P1-FE-18
+- **Done when:** A FEATURED athlete renders distinctly from an ACTIVE one; the claim entry point is present and visibly does not grant representation; the existing page's behaviour for ACTIVE athletes is unchanged
+- **Reference:** Spec v2.0 §5.4, §8, principles 1-3
+
+### ⏸ `P1-FE-29` · Build the rights ledger and clearance queue on fixtures
+
+**Order** 37.13 · **FE** · **Where:** Code · **5d** · **Blocked** · **Unblocks** 1
+
+(app)/admin/next/rights. One ledger, three population paths (§6.1) — a guardian ticking a box, a negotiated media licence and a student agreement all land in one record even though the capture differs. Rights are checked before publication (principle 4), so the queue's job is to make an uncleared item impossible to miss.
+
+- **Depends on:** P1-FE-18, P1-ART-08
+- **Done when:** Cleared, pending and blocked are distinguishable at a glance; an item that would publish without clearance is visually unmissable; filter-kit reused
+- **Reference:** Spec v2.0 §5.3, §6.1, §8
+
+### ⏸ `P1-FE-30` · Build the points balance on fixtures, deliberately unlike earnings
+
+**Order** 37.14 · **FE** · **Where:** Code · **3d** · **Blocked** · **Unblocks** 1
+
+Must look nothing like athlete/earnings. A student or a parent reading a points balance as a dollar balance is a legal problem before it is a usability one — different card, different treatment, no currency glyph anywhere on the screen. Designs exist in Design/frontEndVersion2 (02-06), which is being rebuilt, so treat them as direction rather than a spec.
+
+- **Depends on:** P1-FE-18, P1-ART-08
+- **Done when:** No currency glyph, no earnings-derived component and no dollar-shaped number anywhere on the screen; accrual reasons are readable in plain words
+- **Reference:** Spec v2.0 §5.5, §9
+- **Note:** Design/frontEndVersion2 is being rebuilt as of 2026-09-22 — treat the screens there as direction, not a specification, and re-check them before building.
+
 ## Stage 2 · Platform Foundations
 
 **Objective.** the heaviest phase, and the one that unblocks everything. At the
@@ -2478,6 +2524,52 @@ Regional revenue is allocated by predefined rules, not negotiated after publicat
 - **Depends on:** P9-BE-06, P9-BE-13
 - **Done when:** A DMV edition draws from several schools and both pools resolve by formula with no manual adjudication
 - **Reference:** Spec v2.0 §5.7
+
+### Added by NEXT spec v2.0 *(2026-09-22)*
+
+The points ledger is `DECIDED` in v2.0 §5.5 and had no row at all. The four wiring rows pair with the Stage 1 scaffold rows above.
+
+### ⏸ `P9-BE-15` · StudentPointAccrual — the points ledger
+
+**Order** 211 · **BE** · **Where:** Code · **3d** · **Blocked** · **Unblocks** 1
+
+Accruals are recorded; converting them to anything is a separate, gated act. ARTICLE 50, INTERVIEW 25, APPOINTMENT 25, SALES_500 100, VIEWS_BONUS. No EarningState, no cents column, no relation to Earning — if points and money share a table, a finance reconciliation of athlete payouts starts returning minors' scholarship balances. The shape holds whichever way open gate 2 is answered; only the redemption record changes.
+
+- **Depends on:** P9-BE-04
+- **Done when:** Accruals record against a student and optionally an edition; no cents column and no Earning relation exists; redemption is absent by design and is its own gated task
+- **Reference:** Spec v2.0 §5.5, §14 gate 2
+
+### ⏸ `P9-FE-07` · Wire the digital edition reader to real editions
+
+**Order** 212 · **FE** · **Where:** Code · **2d** · **Blocked**
+
+- **Depends on:** P9-BE-02, P1-FE-27
+- **Done when:** A published edition reads from the API; an unpublished one is unreachable
+- **Reference:** Spec v2.0 §8
+
+### ⏸ `P9-FE-08` · Wire Claim this profile to the claim flow
+
+**Order** 213 · **FE** · **Where:** Code · **3d** · **Blocked**
+
+- **Depends on:** P9-BE-11, P1-FE-28
+- **Done when:** A real claim runs the three-part consent and does not grant representation; guardian authorisation gates commercial activation on the existing Guardian.verifiedAt rule
+- **Reference:** Spec v2.0 §5.4
+
+### ⏸ `P9-FE-09` · Wire the rights ledger and clearance queue
+
+**Order** 214 · **FE** · **Where:** Code · **2d** · **Blocked**
+
+- **Depends on:** P9-BE-10, P1-FE-29
+- **Done when:** The queue reflects real ContentRight records; publication is refused for an uncleared item
+- **Reference:** Spec v2.0 §5.3
+
+### ⏸ `P9-FE-10` · Wire the points balance to real accruals
+
+**Order** 215 · **FE** · **Where:** Code · **2d** · **Blocked**
+
+- **Depends on:** P9-BE-15, P1-FE-30
+- **Done when:** Balances come from StudentPointAccrual; no read touches Earning
+- **Reference:** Spec v2.0 §5.5
 
 ---
 

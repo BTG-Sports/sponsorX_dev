@@ -379,9 +379,19 @@ fifth `Portal` member and `ACCENT` entry, the student portal (designed at 390px
 first, unlike every other portal), the advisor desk, the edition page map and
 the two public audiences are all fixture work: no schema, no roles, reversible,
 and exactly the substitution-behind-finished-screens argument Block A rests on.
-They are `P1-ART-08` and `P1-FE-18`…`P1-FE-26`, and the first two are startable
+They are `P1-ART-08` and `P1-FE-18`…`P1-FE-30`, and the first two are startable
 now. What stays gated here is the wiring — `P9-FE-01`…`P9-FE-06`, each behind
 its own backend task as well as its scaffold row.
+
+**Spec v2.0 (2026-09-22) widened this.** Free digital is the V1 reader product,
+not a deferred nicety, so `(public)/next/[school]/[edition]` is a Stage 1 screen
+(`P1-FE-27`). The athlete page gains *Claim this profile* and a `FEATURED`
+treatment (`P1-FE-28`), the rights ledger gets a clearance queue (`P1-FE-29`),
+and the points balance is its own screen (`P1-FE-30`) — which must look nothing
+like `athlete/earnings`, because a parent reading points as dollars is a legal
+problem before a usability one. `P9-BE-08` is **void**: a NEXT package carries
+no NIL line items, so `P3-BE-12`'s per-line margin floor has nothing to evaluate
+and must not be touched.
 
 **Exit:** a school is a `Property`, an edition sells a back cover exactly once,
 a student's sale is attributed immutably and survives their graduation, no asset
