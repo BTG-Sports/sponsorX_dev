@@ -875,3 +875,64 @@ changes it when Stage 9 runs.
 `CLAUDE.md` now records where NEXT sits — screens Stage 1 and startable, models
 and roles Stage 9 and gated — so nobody has to reconstruct that split from
 three documents.
+
+## Alignment audit — four findings, two of them mine from the same day
+
+Asked to check that everything was aligned, including enums. **The enums were
+fine** — `Role`, `AthleteState`, `BriefState`, `CampaignState` and
+`InviteState` all match `schema.prisma` exactly, in order. Four other things
+were not, and the method that found them is worth keeping: read
+`schema.prisma`, the SQL index and the worker **as text** and compare, because
+these are the pairs with no compiler keeping them honest.
+
+### The outbox was dispatching into a void
+
+The drain called `boss.send()` for any outbox row, then marked `dispatchedAt`.
+Only `notify.email` has a worker. `zoho.pushCampaign` and
+`notify.invitationSent` — both enqueued by B3 domain code written hours
+earlier — went into queues nobody works, were recorded as delivered, and would
+expire unread. **The outbox exists so that work survives; dispatching into a
+void defeats the entire mechanism.**
+
+The drain now selects only names in `HANDLED_JOBS`, so an unhandled row keeps
+`dispatchedAt` null and goes the moment its handler ships.
+
+**The first version of that fix was wrong in an instructive way.** Filtering in
+JavaScript *after* the `LIMIT` looks equivalent and is worse than the bug:
+undeliverable rows are the oldest, so they would fill every batch forever and
+starve everything behind them. The filter has to be in the SQL. Head-of-line
+blocking is easy to introduce while fixing something else.
+
+### I repeated the pattern I had flagged that morning
+
+Nine B3 domain functions across brief, campaign, matching and invitation had
+**no endpoints** — the same "closed against its acceptance, unreachable in the
+product" defect I found three times in B1 earlier the same day and wrote up as
+"a pattern, not a coincidence".
+
+Knowing about a failure mode does not prevent it. The acceptance criteria for
+those rows named domain functions, I built domain functions, and the rows
+closed honestly. **The fix that actually holds is the test**, not the
+resolution: `alignment.test.ts` now asserts every domain function is called by
+a route, and it fails the moment one is not.
+
+### Two configuration couplings
+
+The tenant id existed as **two literals** that happened to match — the API's
+`PUBLIC_INTAKE_TENANT_ID` and the worker's `TENANT_ID`. The first environment
+to set one of them would have sent every application to a tenant with no
+catalogue and no users: a data bug in appearance, a configuration bug in fact.
+The worker reads the API's variable now.
+
+`docker-compose.yml` passed none of the variables added today. Defaults made
+that invisible locally, which is exactly why it would have surfaced first in
+staging.
+
+### What the audit deliberately did not change
+
+`MetricSource` is five values in Prisma and the contract accepts three — the
+two verified-by-machine labels that nothing in Phase 1 can produce are left
+out on purpose. `AthleteTier` has four values and only three are priced;
+`ANCHOR`'s multiplier is negotiated, so a derived floor would invent a policy.
+Both subsets are now asserted as deliberate rather than left to look like
+oversights.
