@@ -346,11 +346,18 @@ has no column for. `Student` + `StudentState`, reusing `Guardian` unchanged.
 `RevenueSplit` on the edition; **`Earning` untouched** and still meaning athlete
 NIL compensation. `StudentCode` + `SaleAttribution` at `/s/[code]` — a third
 namespace, never a fourth use of `TrackingLink`. `STUDENT` and `ADVISOR` in
-`authz-policy.ts` with isolation tests. Student portal (designed at 390px first,
-unlike every other portal) and advisor desk. Fifth `Portal` union member and
-`ACCENT` entry. Two open questions settled first: whether an ad-only sale is a
-`Campaign` at all, and whether `P3-BE-12` checks the margin floor line-by-line
-or against a package total.
+`authz-policy.ts` with isolation tests. Two open questions settled first:
+whether an ad-only sale is a `Campaign` at all, and whether `P3-BE-12` checks
+the margin floor line-by-line or against a package total.
+
+**The NEXT screens are not here — they moved into Block A on 2026-09-22.** The
+fifth `Portal` member and `ACCENT` entry, the student portal (designed at 390px
+first, unlike every other portal), the advisor desk, the edition page map and
+the two public audiences are all fixture work: no schema, no roles, reversible,
+and exactly the substitution-behind-finished-screens argument Block A rests on.
+They are `P1-ART-08` and `P1-FE-18`…`P1-FE-26`, and the first two are startable
+now. What stays gated here is the wiring — `P9-FE-01`…`P9-FE-06`, each behind
+its own backend task as well as its scaffold row.
 
 **Exit:** a school is a `Property`, an edition sells a back cover exactly once,
 a student's code attributes a sale, artwork clears the approval board, the
