@@ -1096,6 +1096,17 @@ The admin actions: approve, request changes, reject. Every decision recorded and
 - **Done when:** Admin can approve, request changes or reject; every transition is audited and notifies the applicant
 - **Reference:** §13, §23
 
+### ◑ `P3-BE-13` · Athlete application submission — the public intake
+
+**Order** 65.5 · **BE** · **Where:** Code · **3d** · **Code review**
+
+The half of B1's exit that had no task. P3-BE-01 delivered the contract and the state machine and nothing consumed AthleteApplicationInput: no domain function, no route, and the seed creates users but no athletes, so the review surface could only decide applications that had no way to exist. /join is public, so this is the only write path in the API with no actor behind it — the tenant is configuration rather than input, an existing application is reachable only by a signed token that names it, and editing is refused unless the state allows it. Guardian capture stays with P3-BE-03; §37's gate sits between APPROVED and ACTIVE, not between an applicant and the form.
+
+- **Depends on:** P3-BE-01
+- **Done when:** An applicant submits at /join with no account and receives a signed link back to their own application; a CHANGES_REQUESTED application can be edited and is resubmitted by the same act; editing is refused once a decision is taken; the athlete, socials, audit row and receipt email commit together or not at all; a path with no actor cannot move anyone to ACTIVE
+- **Reference:** §11, §21, §39, Addendum A3
+- **Note:** Introduces SystemActor so the one bypass of the role check is greppable, and the Redis rate limiter the stack decision reserved Redis for. P3-FE-01 wires /join to these endpoints.
+
 ### ⏸ `P3-INT-01` · Build the transactional email send interface
 
 **Order** 69 · **INT** · **Where:** Code · **3d** · **Blocked** · **Unblocks** 3

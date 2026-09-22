@@ -328,3 +328,96 @@ rather than specification and must be re-checked before building.
 
 Phase 1 is now **247 tasks · 595 person-days**, Stage 1 at 42 rows and Stage 9
 at 32. 494 days remain.
+
+## `P3-BE-13` — an athlete can actually apply
+
+*Code review. Raised and built the same day, because it did not exist.*
+
+Asked what backend work came next, the answer was not on the board. **None of
+the sixteen new NEXT backend rows are startable** — they all sit behind
+`P9-PMO-03`, which needs B8 closed and an edition sold. So the next work was
+still B1, and checking B1 turned up a hole.
+
+`AthleteApplicationInput` was written by `P3-BE-01` and published in
+`openapi.json`, **and nothing consumed it.** No domain function, no route, and
+the seed job creates users and roles but no `Athlete` rows. The four decision
+endpoints built earlier today could only review applications that had no way
+of being created. B1's exit is *"a real athlete applies → admin approves →
+ACTIVE"*; the approve half was done and the apply half had never been built.
+
+**No task covered it**, and that is the pattern worth remembering: `P3-BE-01`
+delivered exactly what its acceptance asked for, and `P3-FE-01` says "wire
+`/join` to the real application API" on the assumption that the API exists.
+A dependency column records dependencies between tasks; it cannot record a
+thing nobody wrote a task for.
+
+### The only write path in the API with no actor
+
+Every other domain function takes an `Actor` and asks `scope.ts` what they may
+reach. An applicant at `/join` has no session and no `User` row, so three
+things stand in for the role check:
+
+1. **The tenant is configuration, never input.** A public form cannot be
+   allowed to nominate the tenant it lands in.
+2. **An existing application is reachable only by a signed token that names
+   it** — the token returns the id rather than a boolean, so a caller cannot
+   verify one application and then read another.
+3. **Editing is refused unless the state allows it.** An applicant cannot edit
+   their way around a decision already taken about them.
+
+### `SystemActor`, and the trap it avoids
+
+`transitionAthleteIn` calls `assertAllowed`, so the intake needed *something*
+to present. The first attempt passed an actor with no roles, which simply
+fails the check. `SERVICE` was the tempting fix and is wrong twice over: §8
+deliberately gives it read-only reach on athletes, and it would file an
+applicant's own act under the API service account.
+
+So the absence of an actor became explicit in the type. `SystemActor` is the
+one thing that skips the role check, which makes every bypass one `grep` away
+— and **it cannot reach ACTIVE at all**. §37's gate is a decision with a person
+behind it; a path with nobody behind it must never be what grants someone the
+ability to take paid work. The state table still governs it exactly as it
+governs a human transition.
+
+### Three smaller decisions
+
+**A patch from CHANGES_REQUESTED resubmits in the same act.** An applicant who
+has edited in response to a request has answered it, and should not also have
+to find a second button. §21 draws that edge explicitly for the same reason.
+
+**The slug is never repatched.** It is a public URL that may already have been
+shared, and §11 gives no rule for changing one. Renaming it silently breaks a
+link nobody knows they are holding.
+
+**The rate limiter fails open.** Redis's first real use in the codebase, and
+the one the stack decision reserved it for. If Redis is unreachable the
+application still goes through — a limiter that takes the intake form down when
+the cache blinks has caused a worse outage than the one it prevented. Same
+reasoning that keeps Zoho off the request path.
+
+### Two things that cost a cycle
+
+**Zod refuses `.partial()` on a refined object**, and it fails at *module load*,
+so two unrelated suites went red with an error pointing at a file they only
+import transitively. `AthleteApplicationInput` carries a refinement — one of
+`birthDate` or `ageBand` is required — so the shape had to be split from the
+refinement. That is the correct pattern anyway: "one of these two" cannot
+survive every field becoming optional.
+
+**A rollback test that asserted the wrong thing.** The first version passed an
+empty `displayName` and expected a throw; validation lives at the route, so the
+domain happily fell back to a default slug. Rewritten to fail the *last* write
+in the transaction — the receipt email — and assert that the athlete, the
+socials and the audit row are all absent. An applicant who was told nothing
+must also not exist, or the review queue holds someone who never heard from us.
+
+### Verification
+
+30 new cases. Backend 143 passed, frontend 46 passed, `npm run build` clean,
+`eslint` clean. Phase 1 is now 248 tasks · 598 person-days.
+
+**Clerk needs no change for this.** The applicant has no identity at all.
+Clerk matters one step later, at approval, and the setting that governs it was
+already settled on 2026-09-21: sign-up stays open, because restricted mode
+would stop a provisioned athlete creating the identity that claims their row.
