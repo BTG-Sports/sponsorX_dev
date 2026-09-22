@@ -496,3 +496,80 @@ agreement is accepted against the text actually shown, and the athlete is
 activated — with §37 refusing a minor whose guardian is unverified at every
 door. What remains in B1 is wiring (`P3-FE-01`, `P3-FE-02`), the notification
 jobs (`P3-INT-02`) and the E2E (`P3-QA-01`).
+
+## Three closed in one run — `P3-BE-04`, `P3-BE-08`, `P3-BE-11`
+
+*All three Code review. Chosen because none needs a migration, so all three
+were closeable without a database, and two of them unblock B2.*
+
+### The catalogue seeds outside the production guard, on purpose
+
+`seed-environment.mts` refuses to run in production, and it is right to: what
+it seeds is fake people, and a demo athlete in a production tenant is
+indistinguishable from a real one. The seven NIL jobs and six sponsor packages
+are the opposite — they are the **real price list**, identical in every
+environment, and production needs them most of all. So they went into a new
+`seed-catalogue.mts` that runs everywhere.
+
+It **upserts** rather than inserting-if-absent. The bands will change when the
+business revises them, and a run after a revision has to correct the rows
+rather than leave them stale. That is safe here precisely because a `NilJob`
+is a price list, not a record of something that happened — nothing anyone
+could lose.
+
+### The floors are derived, and the test is the real safeguard
+
+Each job's minimum sell price per tier comes from `minimumSellPrice()` —
+**base-band top × tier multiplier × 1.4** — rather than a transcribed number,
+so the catalogue cannot drift from the rule that produced it.
+
+The test then transcribes `P0-PMO-13`'s published table **independently** and
+asserts the two agree. All 21 values match. This is the part worth keeping:
+the derivation and the document were written by different people at different
+times, either could have been wrong, and "two hand-copied lists stay equal" is
+not something to hope for.
+
+Two details inside the formula that are easy to get wrong:
+
+- **Base-band top, not the midpoint.** The floor has to hold for the most
+  expensive athlete who could be staffed on the job, or it is not a floor.
+- **Rounded up.** Rounding down publishes a price a cent under the rule it was
+  derived from — the kind of defect nobody finds until an auditor does.
+
+`SX-07` carries its corrected band (`$1,050–$2,000`, pay band unchanged); it
+was the one job the rule could not rescue alone, because its base-band top
+equalled its old sell floor. Local Blitz is narrowed to `$1,500–$2,400` across
+5–9 athletes so it stops below 10-Athlete Blitz — otherwise one product is a
+point inside another's range. The iMC/BTG feature is an `includes` line with a
+record rather than a phrase in a description, so §26's conflict checks and
+delivery tracking can see it at all.
+
+A test also asserts every package clears the 1.4× floor **at its most
+expensive athlete count**, which is the check whose absence produced the
+negative margins in the first place.
+
+### `P3-BE-04` — the caller does not choose the provenance
+
+The columns have existed since `P2-BE-02` and the intake writes them, but
+nothing could change a social account once the application closed. That is the
+point of the task: a follower count an athlete typed in March is not a
+follower count in September.
+
+The rule that matters is not the columns, it is who may label them. **An
+athlete's own edit is `SELF_REPORTED` however the body is filled in; only BTG
+records `VERIFIED_MANUAL`.** §22 calls the provenance label the project's
+biggest credibility risk, and a caller who can set their own has removed its
+meaning entirely — every downstream screen would repeat "verified" because
+the person being measured said so. `VERIFIED_API` is not offered at all, since
+nothing in Phase 1 can perform it and offering it invites a claim the system
+cannot back.
+
+One subtlety worth keeping: the self-scoped check reads **roles**, not scopes.
+`scopeFor` returns the *widest* of an actor's roles, so a BTG staffer who is
+also an athlete in the network would read as self-scoped under a naive scope
+comparison and quietly lose the ability to verify anything.
+
+### Verification
+
+38 new cases. Backend 200 passed, frontend 46 passed, `npm run build` clean,
+`eslint` clean. Closing these also unblocked `P4-BE-01`.
