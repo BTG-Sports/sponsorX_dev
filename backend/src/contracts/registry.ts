@@ -8,8 +8,12 @@ import {
 import "./zod";
 import { PageMeta, PageQuery, ProblemDetails, Provenance } from "./common";
 import {
+  ApplicationDecisionNotes,
+  ApplicationReviewDecision,
+  ApproveApplicationInput,
   AthleteApplicationInput,
   AthleteApplicationReview,
+  AthleteApplicationSummary,
   AthleteState,
   SocialAccount,
 } from "./athlete";
@@ -42,6 +46,13 @@ registry.register("AthleteState", AthleteState);
 registry.register("SocialAccount", SocialAccount);
 registry.register("AthleteApplicationInput", AthleteApplicationInput);
 registry.register("AthleteApplicationReview", AthleteApplicationReview);
+
+// --- application review (P3-BE-07, §13, §23) -----------------------------
+
+registry.register("ApplicationReviewDecision", ApplicationReviewDecision);
+registry.register("ApproveApplicationInput", ApproveApplicationInput);
+registry.register("ApplicationDecisionNotes", ApplicationDecisionNotes);
+registry.register("AthleteApplicationSummary", AthleteApplicationSummary);
 
 /**
  * Bearer auth for §8's API Service Account. Clerk issues the session for human

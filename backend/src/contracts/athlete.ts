@@ -127,3 +127,91 @@ export type AthleteApplicationInput = z.infer<typeof AthleteApplicationInput>;
 export type AthleteApplicationReview = z.infer<typeof AthleteApplicationReview>;
 export type SocialAccount = z.infer<typeof SocialAccount>;
 export type AthleteState = z.infer<typeof AthleteState>;
+
+/* --------------------------------------------------------------------------
+   Review decisions — P3-BE-07, §13, §23.
+
+   Three admin actions, and the contracts differ in exactly one way: whether
+   reviewer notes are required. That difference is the whole reason these are
+   three schemas rather than one with an optional string.
+
+   An approval needs no explanation — the applicant is in, and the email says
+   so. A request for changes with no notes is unactionable: the applicant is
+   told to fix something and not told what, and the only way back is a support
+   conversation. A rejection with no reason is worse, because §23's review
+   checklist is also the record BTG would rely on if a refusal were ever
+   questioned.
+
+   So `min(1)` on those two is not input hygiene. It is the acceptance
+   criterion "every decision recorded" expressed where it cannot be skipped.
+   -------------------------------------------------------------------------- */
+
+/** The three destinations §21 allows out of UNDER_REVIEW. */
+export const ApplicationReviewDecision = z
+  .enum(["APPROVED", "CHANGES_REQUESTED", "REJECTED"])
+  .meta({
+    id: "ApplicationReviewDecision",
+    description:
+      "An admin's decision on an athlete application. The legal transitions out of UNDER_REVIEW (§21).",
+  });
+
+/** Approve. Notes are optional — an approval explains itself. */
+export const ApproveApplicationInput = z
+  .object({
+    reviewerNotes: z
+      .string()
+      .max(4000)
+      .optional()
+      .describe("Internal note. Not shown to the applicant on approval."),
+  })
+  .meta({
+    id: "ApproveApplicationInput",
+    description: "Body for POST /applications/{id}/approve.",
+  });
+
+/**
+ * Request changes, or reject. Notes are required and reach the applicant.
+ *
+ * The same shape serves both because the constraint is the same one; the
+ * difference is what the templates do with it, which is the worker's business
+ * rather than the contract's.
+ */
+export const ApplicationDecisionNotes = z
+  .object({
+    reviewerNotes: z
+      .string()
+      .min(1, "A reason is required: it is sent to the applicant and kept as the record of the decision.")
+      .max(4000)
+      .describe("Sent to the applicant verbatim, and stored on the application."),
+  })
+  .meta({
+    id: "ApplicationDecisionNotes",
+    description:
+      "Body for POST /applications/{id}/request-changes and /reject. The note reaches the applicant.",
+  });
+
+/** One row of the admin review queue (§23's applications desk). */
+export const AthleteApplicationSummary = z
+  .object({
+    id: z.string(),
+    displayName: z.string(),
+    legalName: z.string(),
+    sport: z.string(),
+    stateCode: z.string().nullable(),
+    state: AthleteState,
+    /** §37's gate, surfaced on the queue row so a reviewer can see before
+     *  opening an application that it cannot be activated yet. */
+    guardianStatus: z.enum(["not-required", "missing", "unverified", "ready"]),
+    reviewerNotes: z.string().nullable(),
+    reviewedAt: z.iso.datetime().nullable(),
+    createdAt: z.iso.datetime(),
+  })
+  .meta({
+    id: "AthleteApplicationSummary",
+    description: "An application as the review queue lists it.",
+  });
+
+export type ApplicationReviewDecision = z.infer<typeof ApplicationReviewDecision>;
+export type ApproveApplicationInput = z.infer<typeof ApproveApplicationInput>;
+export type ApplicationDecisionNotes = z.infer<typeof ApplicationDecisionNotes>;
+export type AthleteApplicationSummary = z.infer<typeof AthleteApplicationSummary>;

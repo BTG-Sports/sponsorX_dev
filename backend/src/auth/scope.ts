@@ -188,6 +188,17 @@ const BUILDERS: Partial<Record<Resource, Builder>> = {
         return MATCHES_NOTHING;
     }
   },
+
+  /* Added with P3-BE-07, the first task to query the review queue.
+
+     The application and the athlete are the same row: §21's lifecycle lives
+     in `Athlete.state`, and there is no separate Application model to filter.
+     They are still two resources in the matrix, because they are two
+     different permissions — NETWORK_MGR may *approve* an application, and
+     SPONSOR_ADMIN may *read* an athlete assigned to their campaign but must
+     never see an application at all. Sharing the filter while keeping the
+     policy rows apart is the honest shape: same rows, different reach. */
+  athleteApplication: (actor, scope) => BUILDERS.athlete!(actor, scope),
 };
 
 /**

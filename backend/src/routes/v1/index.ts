@@ -7,6 +7,7 @@
  */
 import { Router } from "express";
 
+import { applicationsRouter } from "./applications";
 import { meRouter } from "./me";
 import { openapiRouter } from "./openapi";
 
@@ -18,6 +19,10 @@ v1Router.get("/", (_req, res) => {
 
 /* Identity first: every portal asks who it is talking to before it renders. */
 v1Router.use("/me", meRouter);
+
+/* B1 — athlete onboarding. The review queue and the three admin decisions
+   (P3-BE-07). */
+v1Router.use("/applications", applicationsRouter);
 
 /* The published contract, generated from the Zod registry (§38). Public: a
    consumer has to be able to read how to authenticate before it can. */

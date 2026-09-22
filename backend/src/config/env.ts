@@ -32,6 +32,13 @@ const schema = z.object({
   RESEND_API_KEY: z.string().optional(),
   EMAIL_FROM: z.string().default("SponsorX <noreply@sponsorx.net>"),
 
+  /* Where a notification tells someone to go. It has to be configuration
+     rather than a constant because the same email is sent from a developer
+     machine, from staging and from production, and a link to the wrong one is
+     how an applicant ends up staring at a sign-in page that does not know
+     them (P3-BE-07). */
+  APP_URL: z.string().default("http://localhost:3000"),
+
   CLERK_SECRET_KEY: z.string().min(1, "CLERK_SECRET_KEY is not set"),
   CLERK_PUBLISHABLE_KEY: z.string().min(1, "CLERK_PUBLISHABLE_KEY is not set"),
 
