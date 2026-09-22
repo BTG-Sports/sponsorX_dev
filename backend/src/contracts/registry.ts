@@ -19,6 +19,12 @@ import {
   InvitationInput,
   InvitationResponseInput,
   InviteState,
+  OrderState,
+  AthleteRateInput,
+  AthleteTierInput,
+  CampaignOrderInput,
+  OrderTransitionInput,
+  OrderAcceptanceInput,
 } from "./campaign";
 import {
   AgreementAcceptanceInput,
@@ -102,6 +108,15 @@ registry.register("CampaignTransitionInput", CampaignTransitionInput);
 registry.register("InvitationInput", InvitationInput);
 registry.register("InvitationResponseInput", InvitationResponseInput);
 registry.register("EligibleAthlete", EligibleAthlete);
+
+// --- rate cards and campaign orders (P3-BE-09, P5-BE-01, P5-BE-02) ------
+
+registry.register("OrderState", OrderState);
+registry.register("AthleteTierInput", AthleteTierInput);
+registry.register("AthleteRateInput", AthleteRateInput);
+registry.register("CampaignOrderInput", CampaignOrderInput);
+registry.register("OrderTransitionInput", OrderTransitionInput);
+registry.register("OrderAcceptanceInput", OrderAcceptanceInput);
 
 /**
  * Bearer auth for §8's API Service Account. Clerk issues the session for human

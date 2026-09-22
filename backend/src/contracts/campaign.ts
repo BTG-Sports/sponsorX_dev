@@ -4,6 +4,7 @@ import { BRAND_CATEGORIES } from "../domain/brand-categories";
 import { BRIEF_STATES } from "../domain/brief-state";
 import { CAMPAIGN_STATES } from "../domain/campaign-state";
 import { INVITE_STATES } from "../domain/invite-state";
+import { ORDER_STATES } from "../domain/order-state";
 
 /* --------------------------------------------------------------------------
    Briefs, campaigns and invitations on the wire — P4-BE-02…06, §21, §26.
@@ -86,3 +87,45 @@ export const EligibleAthlete = z
 export type CampaignBriefInput = z.infer<typeof CampaignBriefInput>;
 export type InvitationInput = z.infer<typeof InvitationInput>;
 export type EligibleAthlete = z.infer<typeof EligibleAthlete>;
+
+/* --- rate cards and orders — P3-BE-09, P5-BE-01, P5-BE-02 -------------- */
+
+export const OrderState = z.enum(ORDER_STATES).meta({ id: "OrderState" });
+
+export const AthleteRateInput = z
+  .object({
+    jobId: z.string().min(1),
+    /** Cents paid to the athlete. Never the sponsor price. */
+    amount: z.int().min(0).describe("Athlete compensation in cents"),
+  })
+  .meta({ id: "AthleteRateInput", description: "Set manually by a network manager — §6 does not compute it." });
+
+export const AthleteTierInput = z
+  .object({ tier: z.enum(["EMERGING", "CREATOR", "PREMIUM", "ANCHOR"]) })
+  .meta({ id: "AthleteTierInput" });
+
+export const CampaignOrderInput = z
+  .object({
+    athleteId: z.string().min(1),
+    jobId: z.string().min(1),
+    compensation: z.int().min(0).describe("Athlete compensation in cents"),
+    usageRights: z.string().min(1).max(2000),
+    exclusivity: z.string().max(2000).nullable().optional(),
+    dueDate: z.iso.date(),
+  })
+  .meta({
+    id: "CampaignOrderInput",
+    description: "Terms are frozen on this record when it is sent, never read live from the rate card.",
+  });
+
+export const OrderTransitionInput = z.object({ to: OrderState }).meta({ id: "OrderTransitionInput" });
+
+export const OrderAcceptanceInput = z
+  .object({
+    agreementId: z.string().min(1),
+    bodyHashShown: z.string().min(1).describe("Hash of the contract text as rendered to the signer"),
+  })
+  .meta({
+    id: "OrderAcceptanceInput",
+    description: "The signer, IP and user agent come from the request, never the body (§12).",
+  });

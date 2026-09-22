@@ -107,6 +107,24 @@ describe("every job that is enqueued has somewhere to go", () => {
   });
 });
 
+describe("a job with a handler is actually dispatched", () => {
+  it("now drains notify.invitationSent, which was waiting", () => {
+    /* P4-BE-04 enqueued this from the day it was written and nothing
+       consumed it; the drain held the rows rather than losing them. P4-INT-01
+       is the handler they were waiting for. */
+    const worker = readFileSync(new URL("../worker/index.mts", import.meta.url), "utf8");
+    expect(worker).toContain('HANDLED_JOBS = new Set<string>(["notify.email", "notify.invitationSent"])');
+    expect(worker).toContain('boss.work<InvitationJob>("notify.invitationSent"');
+  });
+
+  it("still has no handler for zoho.pushCampaign, so those rows keep waiting", () => {
+    /* Asserted rather than assumed: P8-INT-01 owns it, and until then the
+       rows must accumulate in the outbox rather than expire in pg-boss. */
+    const worker = readFileSync(new URL("../worker/index.mts", import.meta.url), "utf8");
+    expect(worker).not.toContain('boss.work<unknown>("zoho.pushCampaign"');
+  });
+});
+
 describe("one tenant, two processes", () => {
   it("makes the worker read the same variable the API does", () => {
     /* These were two literals that happened to match. The first environment
@@ -140,6 +158,8 @@ describe("the domain is reachable", () => {
     "createBrief", "transitionBrief", "eligibleForBrief",
     "createCampaignFromBrief", "transitionCampaign",
     "inviteAthlete", "transitionInvite",
+    "setAthleteTier", "setAthleteRate", "readRateCard",
+    "createOrder", "transitionOrder", "acceptOrder",
   ])("%s is called by a route", (fn) => {
     expect(routes).toContain(fn);
   });

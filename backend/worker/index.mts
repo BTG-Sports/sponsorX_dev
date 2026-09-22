@@ -36,6 +36,7 @@ import pg from "pg";
 import { seedEnvironment, TENANT_ID } from "./jobs/seed-environment.mts";
 import { seedCatalogue } from "./jobs/seed-catalogue.mts";
 import { expireInvitations } from "./jobs/expire-invitations.mts";
+import { handleInvitationSent, type InvitationJob } from "./jobs/notify-invitation.mts";
 
 /**
  * The job names this worker can actually consume.
@@ -45,7 +46,7 @@ import { expireInvitations } from "./jobs/expire-invitations.mts";
  * handler is two edits in one file and forgetting one of them is visible in
  * the log rather than silent.
  */
-const HANDLED_JOBS = new Set<string>(["notify.email"]);
+const HANDLED_JOBS = new Set<string>(["notify.email", "notify.invitationSent"]);
 import { handleSendEmail, type EmailJob } from "./jobs/send-email.mts";
 
 const connectionString = process.env.DATABASE_URL;
@@ -260,6 +261,19 @@ async function main(): Promise<void> {
        already gone once, which is what was asked for. Silence here would
        make an at-least-once delivery look like a lost email. */
     console.log(`[worker] notify.email ${outcome}: ${job.data.template} -> ${job.data.to}`);
+  });
+
+  /* P4-INT-01. It resolves the invitation at send time and enqueues a
+     notify.email row, so the vendor call still happens in exactly one place. */
+  await ensureQueue("notify.invitationSent");
+  await boss.work<InvitationJob>("notify.invitationSent", async ([job]) => {
+    const outcome = await handleInvitationSent(
+      pool, job.data, process.env.APP_URL ?? "http://localhost:3000");
+    console.log(
+      outcome.sent
+        ? `[worker] notify.invitationSent queued mail to ${outcome.to}`
+        : `[worker] notify.invitationSent skipped: ${outcome.reason}`,
+    );
   });
 
   timer = setInterval(tick, DRAIN_INTERVAL_MS);
