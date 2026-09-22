@@ -2238,14 +2238,14 @@ What a school signs to run an edition: who owns the masthead, who holds editoria
 - **Done when:** A school can sign one document and start; editorial approval authority named explicitly
 - **Reference:** Spec §7, §12
 
-### ⏸ `P9-BE-01` · Seed the NEXT ad and hybrid packages
+### ⏸ `P9-BE-01` · Seed the NEXT ad and bundle packages
 
 **Order** 181 · **BE** · **Where:** Code · **2d** · **Blocked** · **Unblocks** 1
 
-The $1,500 Local Business Package as an ordinary SponsorPackage: NIL jobs in lineItems, the print page and feature in includes. No schema change — this is the integration.
+The $1,500 Local Business Package as an ordinary SponsorPackage. Its social posts are STUDENT-created, so `lineItems` is EMPTY and every element sits in `includes` — the field P0-PMO-13 §5 defines as non-NIL inventory sold alongside the jobs. No schema change, and no NIL job anywhere in it.
 
 - **Depends on:** P3-BE-11, P9-PMO-01
-- **Done when:** NEXT-LOCAL-1500 and the ad-only slots exist as SponsorPackage rows and flow through the marketplace, the margin floor and the Zoho Deal sync untouched
+- **Done when:** NEXT-LOCAL-1500 and the ad-only slots exist as SponsorPackage rows with empty lineItems, flow through the marketplace and the Zoho Deal sync, and are never evaluated by the margin floor because they carry no athlete cost
 - **Reference:** Spec §4
 
 ### ⏸ `P9-OPS-01` · Onboard the pilot school as a Property
@@ -2262,17 +2262,17 @@ A participating school is a Property with kind = SCHOOL. No new model — this i
 
 **Order** 183 · **DATA** · **Where:** Document + code · **5d** · **Blocked** · **Unblocks** 1
 
-STAGE 0 EXIT · Sell and ship the first edition with zero new models: inventory watched by a person, splits on a spreadsheet, student codes approximated by TrackingLink. What this proves is commercial, and all of it can fail — which is the argument for finding out before cutting seven models into the schema.
+STAGE 0 EXIT · Sell and ship the first edition with zero new models: inventory watched by a person, splits on a spreadsheet, student codes approximated by TrackingLink. What this proves is commercial, and all of it can fail — which is the argument for finding out before cutting nine models into the schema.
 
 - **Depends on:** P9-BE-01, P9-OPS-01
-- **Done when:** One edition sold, printed and distributed; a local business bought the hybrid package; a student sold at least one slot; the school signed
+- **Done when:** One edition sold and published as a FREE digital edition (V3 principle 10 — print is an optional layer, never the foundation); at least 20 local advertisers bought, which is the pilot's one real measurement; a student sold at least one slot; the school signed
 - **Reference:** Spec §10
 
 ### ⏸ `P9-PMO-03` · NEXT Stage 1 entry gate
 
 **Order** 184 · **PMO** · **Where:** Document · **1d** · **Blocked** · **Unblocks** 2
 
-DECISION GATE · Stage 1 cuts seven models and two roles into the schema. It is earned by B8 closing the §39 loop and by an edition having actually sold — not by a specification. The legal questions (money to minors, the Sales Challenge as a contest) are tracked on the Legal sheet and do not gate this row.
+DECISION GATE · Stage 1 cuts nine models and two roles into the schema. It is earned by B8 closing the §39 loop and by an edition having actually sold — not by a specification. The legal questions (money to minors, the Sales Challenge as a contest) are tracked on the Legal sheet and do not gate this row.
 
 - **Depends on:** P8-PMO-06, P9-DATA-01
 - **Done when:** Both gates evidenced in writing: the §39 loop runs end to end, and edition one sold
@@ -2338,21 +2338,21 @@ A third attribution namespace. TrackingLink measures an athlete's deliverable, R
 - **Done when:** A student's code attributes a sale at /s/[code]; the code belongs to a person across many sales; no TrackingLink or RewardToken column is relaxed to fit
 - **Reference:** Spec §6
 
-### ⏸ `P9-BE-08` · Evaluate the margin floor per NIL line, not per package total
+### ✖ `P9-BE-08` · ~~Evaluate the margin floor per NIL line~~ — **VOID, do not build**
 
-**Order** 191 · **BE** · **Where:** Code · **2d** · **Blocked**
+**Order** 191 · **BE** · **Where:** Code · **0d** · **Dropped**
 
-Amends P3-BE-12. A hybrid package's ad revenue would inflate the apparent margin and hide a losing NIL line behind a profitable page. The floor is per campaign-order line, so a pure ad sale is correct by construction — no order line, nothing to evaluate.
+VOID 2026-09-22. Raised against version 1.0 of the spec, which read the $1,500 package as containing four SX-02 NIL jobs. It does not — the social posts are student-created, so a NEXT package has no NIL line items, no CampaignOrder and therefore no athlete cost for a margin floor to clear. **`P3-BE-12` is correct as built and must not be touched.** The ID is kept rather than reused so nothing dangles.
 
-- **Depends on:** P3-BE-12
-- **Done when:** The 1.4x floor is evaluated line by line; a hybrid package with a losing NIL line is refused even when the package total is profitable
-- **Reference:** Spec §5.2, P0-PMO-13 §2
+- **Depends on:** —
+- **Done when:** Nothing. Do not build this.
+- **Reference:** Spec v2.0 §0, §13
 
 ### ⏸ `P9-BE-09` · Settle the ad-only sale: no CampaignOrder, and the campaign state
 
 **Order** 192 · **BE** · **Where:** Code · **3d** · **Blocked**
 
-OPEN QUESTION · CampaignOrder.athleteId and .jobId are both non-null — an order is an athlete doing a job. A business buying only a quarter page involves no athlete, so that campaign carries zero orders and would sit in STAFFING with nothing to staff. Either ad-only campaigns skip to APPROVAL, or an ad sale attaches to the Edition and is not a Campaign at all.
+SETTLED 2026-09-22 — build it. A NEXT sale IS an ordinary Campaign: V3 defines a SponsorX Campaign as a paid package with defined placements, content, distribution and measurable deliverables, which is Campaign + Deliverable + MetricDaily + a SalesAttribution row, and it gets a Zoho Deal like any other. It carries NO CampaignOrder, because an order requires an athlete and a job. A campaign with zero orders must therefore skip STAFFING — there is nobody to staff.
 
 - **Depends on:** P9-BE-03
 - **Done when:** The decision is written down and implemented; an ad-only sale reaches a terminal state without a fake athlete or a fake job anywhere in the record
@@ -2425,8 +2425,59 @@ Nearly every student is a minor, and the student pool is money-adjacent. Field-l
 The Stage 1 exit, run as a test rather than asserted in a document.
 
 - **Depends on:** P9-FE-03, P9-BE-07
-- **Done when:** A school is a Property, an edition sells a back cover exactly once, a student's code attributes a sale, artwork clears the approval board, print circulation carries ESTIMATED, and a split resolves to four payees without touching Earning
+- **Done when:** A school is a Property, an edition sells a back cover exactly once, a student's code attributes a sale, artwork clears the approval board with a ContentRight covering its use, QR_SCAN and LINK_CLICK report separately, and a split resolves to four payees without touching Earning
 - **Reference:** Spec §11
+
+### ⏸ `P9-BE-10` · ContentRight — one rights ledger, three population paths
+
+**Order** 193 · **BE** · **Where:** Code · **4d** · **Blocked**
+
+The publication gate asks one question — *may we publish this asset, in this format, on this date?* — and it must answer it in ONE query. Student consent, athlete/guardian consent and a negotiated BTG licence populate the same table via `grantorKind`; three separate rights systems would mean the gate reconciles three shapes of answer per asset and that is exactly where uncleared material slips through. BTG content defaults `mayReuseCommercially = false`: editorial use is not a licence to resell journalism inside a sponsor's campaign.
+
+- **Depends on:** P9-BE-02
+- **Done when:** Every asset in an edition carries a ContentRight covering the intended use; print and digital are separate permissions so a digital-first edition clears while print is outstanding; a BTG asset cannot enter a sponsor campaign without an explicit commercial grant
+- **Reference:** Spec v2.0 §5.3, §6.1
+
+### ⏸ `P9-BE-11` · FEATURED athletes, three-part consent and the claim flow
+
+**Order** 194 · **BE** · **Where:** Code · **4d** · **Blocked**
+
+The correction that makes NEXT safe: being featured is not being represented. `AthleteState` gains FEATURED — created by editorial, never applied for, read-only, invisible to matching, holds no rates. Claiming requires three assertions: athlete initiates, school roster plus advisor verifies, guardian authorises. **`AgreementAcceptance` must gain typed subjects with a nullable `userId` first** — today a featured athlete has no login and a guardian has no account, so there is nowhere to record feature consent at all. `Agreement.kind` extends by FEATURE, PROFILE and COMMERCIAL as data.
+
+- **Depends on:** P9-BE-04, P0-LEG-01
+- **Blocked also by:** the school roster, which does not exist — `Athlete.school` is free text (Spec §14 gate 1)
+- **Done when:** A featured athlete has a public profile and can receive no invitation; consent is recorded for a subject with no login; commercial activation is impossible without guardian authorisation; GPA is absent unless separately decided
+- **Reference:** Spec v2.0 §5.4, §6.2
+
+### ⏸ `P9-BE-12` · EditionEvent — QR_SCAN and LINK_CLICK kept apart
+
+**Order** 195 · **BE** · **Where:** Code · **2d** · **Blocked**
+
+V1 is digital-first, and a QR is a print affordance — in a digital edition nobody scans, they tap. Pooling the two makes the first sponsor report say something untrue. A new stream, NOT an extension of `RewardEventType`: a fan's reward journey and an article engagement are different subjects, and the schema already carries a scar from collapsing two subjects into one table. Reward tokens keep their four events unchanged.
+
+- **Depends on:** P9-BE-02
+- **Done when:** QR_SCAN, LINK_CLICK, PROFILE_VIEW, CAMPAIGN_VIEW and CTA_CLICK record as separate rows; the sponsor report shows print and digital acquisition separately; RewardEventType is untouched
+- **Reference:** Spec v2.0 §6.4
+
+### ⏸ `P9-BE-13` · Sponsor ownership, immutable attribution, and the two conflict checks
+
+**Order** 196 · **BE** · **Where:** Code · **3d** · **Blocked**
+
+Students own attribution, never the customer relationship. A `SalesAttribution` row is never updated and never deleted — including when the student graduates, is suspended, or the sponsor churns — because a student's portfolio depends on it. `Sponsor` gains `ownership` (SCHOOL | SPONSORX | STUDENT_ORIGINATED), `schoolPropertyId` and `assignedStudentId`, the last being current representation and not ownership. Separately, the two conflict checks are distinct workflows with distinct owners: a Content Conflict holds content for edit; a Sponsor Acceptance rejection carries a reason code, notifies the student and **costs them no sales credit**.
+
+- **Depends on:** P9-BE-07
+- **Done when:** Graduating a student changes no attribution row; reassigning an account touches only `assignedStudentId`; a rejected prospect leaves the student's standing intact and offers a redirect where a category is open
+- **Reference:** Spec v2.0 §5.1, §5.6, §6.3
+
+### ⏸ `P9-BE-14` · ContentContribution and the DMV regional pool
+
+**Order** 197 · **BE** · **Where:** Code · **2d** · **Blocked**
+
+Regional revenue is allocated by predefined rules, not negotiated after publication. Sales credit and content contribution are different things: the first is an ordinary SalesAttribution row, the second is units (FEATURE 5 · PHOTO_PACKAGE 3 · INTERVIEW 3 · VIDEO 5) resolved as `units ÷ total eligible units × pool`. A school contributing no selected content receives nothing from the content-based pool.
+
+- **Depends on:** P9-BE-06, P9-BE-13
+- **Done when:** A DMV edition draws from several schools and both pools resolve by formula with no manual adjudication
+- **Reference:** Spec v2.0 §5.7
 
 ---
 

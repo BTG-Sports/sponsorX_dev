@@ -164,8 +164,12 @@ for (const b of blocks.slice(firstSection)) {   // front matter lives on the cov
 }
 
 /* ── cover + static contents ───────────────────────────────────────────── */
-const meta = blocks.find((b) => b.t === "p" && b.text.includes("P0-PMO-14"));
-const lede = blocks.filter((b) => b.t === "p").slice(1, 3);
+// Front matter is EVERY block before the first ## heading — a fixed slice()
+// silently dropped any intro paragraph past the third, which is content loss
+// the generator must never cause.
+const frontBlocks = blocks.slice(0, firstSection).filter((b) => b.t === "p");
+const meta = frontBlocks.find((b) => b.text.includes("P0-PMO-14"));
+const lede = frontBlocks.filter((b) => b !== meta);
 
 const front = [
   new Paragraph({ spacing: { before: 2500, after: 0 },

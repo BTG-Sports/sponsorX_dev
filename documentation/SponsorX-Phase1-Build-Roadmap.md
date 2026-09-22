@@ -326,29 +326,53 @@ cohort onboarded in staging → production go/no-go. *(L)*
 
 Specified in
 [`SponsorX-NEXT-Integration-Spec.md`](SponsorX-NEXT-Integration-Spec.md)
-(`P0-PMO-14`). Listed here so the sequencing is visible, **not** so it can be
-pulled forward. Three gates stand in front of it:
+(`P0-PMO-14`, **version 2.0** — written against the concept's V3 revision and
+superseding 1.0 in full). Listed here so the sequencing is visible, **not** so
+it can be pulled forward. Three gates stand in front of it:
 
 1. **B8 is done** — the §39 loop runs end-to-end. NEXT is a second loop and §37
    does not let a second loop start before the first one is reliable.
 2. **An edition has actually sold**, run on existing primitives with no new
-   models (Spec §10, "Stage 0"). What Stage 0 proves is commercial: that a
-   local business buys the hybrid package, that students can sell, that a school
-   signs. All of it can fail, and finding out costs no schema.
-3. **Legal has cleared money to minors** — the student pool, the scholarship
-   prizes and the Sales Challenge as a contest (`P0-LEG-*`, Blueprint §26, §37).
+   models (Spec §11, "Stage 0"). What Stage 0 proves is entirely commercial:
+   that **20 local businesses per edition** will buy, that students will sell,
+   that a school will sign. All of it can fail, and finding out costs no schema.
+3. **Legal has cleared student compensation** — whether a departed student's
+   credit is "payable" at all, plus the scholarship prizes and the Sales
+   Challenge as a contest (`P0-LEG-*`, Blueprint §26, §37).
 
-## C1 · SponsorX NEXT — publication, students, splits
+**V1 needs no Phase 2 payment work.** The concept's V3 revision makes the digital
+edition free and sponsor-funded, so every NEXT transaction is a local business
+buying a package — which the platform already does. Print becomes an optional
+monetisation layer once demand is proven, never the foundation.
+
+## C1 · SponsorX NEXT — publication, students, rights
 
 `Publication` / `Edition` / `AdSlot` with the inventory ledger and close-date
 enforcement — the back cover is quantity **one**, which is the thing `NilJob`
-has no column for. `Student` + `StudentState`, reusing `Guardian` unchanged.
-`RevenueSplit` on the edition; **`Earning` untouched** and still meaning athlete
-NIL compensation. `StudentCode` + `SaleAttribution` at `/s/[code]` — a third
-namespace, never a fourth use of `TrackingLink`. `STUDENT` and `ADVISOR` in
-`authz-policy.ts` with isolation tests. Two open questions settled first:
-whether an ad-only sale is a `Campaign` at all, and whether `P3-BE-12` checks
-the margin floor line-by-line or against a package total.
+has no column for — plus the three-condition production gate (content ready ·
+rights cleared · revenue threshold met), owned by SponsorX, not the school.
+`Student` + `StudentState`, reusing `Guardian.verifiedAt` unchanged.
+`SalesAttribution` as an **immutable** ledger row at `/s/[code]`, with
+`Sponsor.assignedStudentId` as the separate, mutable representation —
+attribution survives graduation, the customer relationship was never the
+student's. `ContentRight`: one rights ledger, three population paths (student
+consent, athlete/guardian consent, BTG licence), because the publication gate
+must answer "may we publish this?" in one query. `AthleteState.FEATURED` plus
+the claim flow — featured is not represented, and commercial activation needs
+the guardian. `EditionEvent` with `QR_SCAN` and `LINK_CLICK` kept apart;
+`RewardEventType` is untouched. `RevenueSplit` on the edition and
+`ContentContribution` for the DMV pool; **`Earning` untouched** and still
+meaning athlete NIL compensation. `STUDENT` and `ADVISOR` in `authz-policy.ts`
+with isolation tests.
+
+**Five touches to built code, and no more:** `AthleteState` gains `FEATURED`;
+`AgreementAcceptance` gains typed subjects with a nullable `userId` (a featured
+athlete has no login and a guardian has no account, so today there is nowhere to
+record their consent); `Agreement.kind` extends by three values as data;
+`Sponsor` gains three columns; `Role` gains two. **`P3-BE-12`, `Earning`,
+`RewardEventType` and `SponsorPackage` are not touched** — 1.0 wrongly said the
+margin floor needed amending, which followed from its wrong reading that the
+package contains NIL line items. It does not.
 
 **The NEXT screens are not here — they moved into Block A on 2026-09-22.** The
 fifth `Portal` member and `ACCENT` entry, the student portal (designed at 390px
@@ -360,17 +384,20 @@ now. What stays gated here is the wiring — `P9-FE-01`…`P9-FE-06`, each behin
 its own backend task as well as its scaffold row.
 
 **Exit:** a school is a `Property`, an edition sells a back cover exactly once,
-a student's code attributes a sale, artwork clears the approval board, the
-sponsor report carries print circulation as `ESTIMATED`, and a split resolves to
-four payees without touching `Earning`. *(L)*
+a student's sale is attributed immutably and survives their graduation, no asset
+publishes without a `ContentRight` covering the intended use, a featured athlete
+can claim their profile through school and guardian verification without ever
+being enrolled into representation, scans and clicks report separately, and a
+split resolves to four payees without touching `Earning`. *(L)*
 
-## C2 · Points, leaderboard, digital edition *(deferred)*
+## C2 · Points, leaderboard, print layer *(deferred)*
 
-`StudentPoints` — no `EarningState`, no cents column, no relation to `Earning`,
-and a screen that must not look like `athlete/earnings`. Sales Challenge
-leaderboard. Digital edition reader, which needs an editorial type scale this
-dashboard product does not have. Nothing here starts before C1 has shipped an
-edition.
+`StudentPointAccrual` — no `EarningState`, no cents column, no relation to
+`Earning`, and a screen that must not look like `athlete/earnings`. Redemption
+written against whatever gate 3 decides. Sales Challenge leaderboard across
+schools. The print layer: print rights are a separate permission on
+`ContentRight`, so a digital-first edition clears while print is outstanding.
+Nothing here starts before C1 has shipped an edition.
 
 ---
 
