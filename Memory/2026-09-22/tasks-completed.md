@@ -136,3 +136,44 @@ all routers, not something to do for one of them.
 `graphify-out/graph.json` still maps the pre-split `src/…` tree, so a query
 about `backend/src` returns frontend files and documentation. It needs
 re-ingesting after the 2026-09-21 repo split before it is useful again.
+
+## `P3-BE-07` review follow-ups — B7 and B8, fixed the same day
+
+Two items came out of the code-review pass and were fixed rather than raised
+as separate rows.
+
+**B7 — one condition should have one status.** `GET /applications/:id`
+answered 404 on a miss while the four decision endpoints answered 403 for the
+same id. Neither disclosed anything: both already answer "not found" and "not
+yours" identically, which is the property that matters, and which is
+`P3-BE-01`'s deliberate convention — telling a caller that an id exists in
+another tenant is itself a disclosure. But a client had to code around two
+statuses for one condition. The read now throws `ForbiddenError` like the
+domain layer does. The convention was not re-decided; it was applied
+consistently.
+
+**B8 — the queue is now cursor-paginated.** It took a flat 200 rows with no
+way to reach the next ones, while `PageQuery` had existed unused since
+`P2-BE-07`. That contract is cursor-based by design and this is precisely the
+collection that needs it: a work queue changes under the caller, because the
+rows being decided are the rows being listed, and an offset would skip an
+applicant or show one twice exactly when the desk is busy.
+
+Two details worth keeping:
+
+- It fetches `limit + 1` and slices, so `hasMore` is answered without a second
+  `COUNT` against a table that is being written to.
+- It orders by `createdAt` **then `id`**. `createdAt` alone is not unique — an
+  import job writes a whole cohort in the same millisecond — and a cursor over
+  a non-deterministic order drops rows silently. That tiebreaker is
+  load-bearing, not tidiness.
+
+The two read handlers became named exports so a test can drive them directly.
+`supertest` is still not a dependency; what is under test is the handler's own
+logic, not Express's routing.
+
+12 new cases. Backend 113 passed, frontend 46 passed, build and lint clean.
+
+The other eight judgement calls (B1–B6, B9, B10) were reviewed and kept as
+built — each is settled by a source (§21, §37, §23, the RBAC matrix) rather
+than open.
