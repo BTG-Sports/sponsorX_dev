@@ -8,6 +8,12 @@ import {
 import "./zod";
 import { PageMeta, PageQuery, ProblemDetails, Provenance } from "./common";
 import {
+  AgreementAcceptanceInput,
+  GuardianInput,
+  GuardianReadiness,
+  GuardianRelationship,
+} from "./guardian";
+import {
   ApplicantView,
   ApplicationDecisionNotes,
   ApplicationSubmissionReceipt,
@@ -62,6 +68,13 @@ registry.register("AthleteApplicationSummary", AthleteApplicationSummary);
 registry.register("AthleteApplicationPatch", AthleteApplicationPatch);
 registry.register("ApplicationSubmissionReceipt", ApplicationSubmissionReceipt);
 registry.register("ApplicantView", ApplicantView);
+
+// --- guardians and agreements (P3-BE-14, §4, §12, §37) -------------------
+
+registry.register("GuardianRelationship", GuardianRelationship);
+registry.register("GuardianInput", GuardianInput);
+registry.register("GuardianReadiness", GuardianReadiness);
+registry.register("AgreementAcceptanceInput", AgreementAcceptanceInput);
 
 /**
  * Bearer auth for §8's API Service Account. Clerk issues the session for human

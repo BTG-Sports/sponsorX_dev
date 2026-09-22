@@ -36,6 +36,7 @@ import {
   rejectApplication,
   requestChanges,
 } from "../../domain/application-review";
+import { transitionAthlete } from "../../domain/athlete";
 import { guardianReadiness } from "../../domain/guardian-rules";
 import {
   ApplicationNotFoundError,
@@ -264,6 +265,23 @@ applicationsRouter.post<{ id: string }>("/:id/approve", requireActor, async (req
 applicationsRouter.post<{ id: string }>("/:id/request-changes", requireActor, async (req, res) => {
   const body = ApplicationDecisionNotes.parse(req.body ?? {});
   res.json(await requestChanges(req.actor!, req.params.id, body.reviewerNotes));
+});
+
+/**
+ * POST /applications/:id/activate — APPROVED → ACTIVE.
+ *
+ * The last step of B1, and the only one in this file that needs `approve` on
+ * `athlete` rather than on `athleteApplication`. That distinction is real and
+ * worth preserving: BTG_ADMIN may approve an *application* and deliberately
+ * may not activate an *athlete* — the matrix gives athlete.approve to
+ * NETWORK_MGR and SUPER_ADMIN only.
+ *
+ * It goes through `transitionAthlete` rather than doing the update here, so
+ * §37's gate fires: a minor with no verified guardian is refused, for the API
+ * and §8's service account exactly as for someone clicking a button.
+ */
+applicationsRouter.post<{ id: string }>("/:id/activate", requireActor, async (req, res) => {
+  res.json(await transitionAthlete(req.actor!, req.params.id, "ACTIVE"));
 });
 
 /** POST /applications/:id/reject — terminal. Notes are required and are sent. */
