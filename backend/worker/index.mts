@@ -36,6 +36,16 @@ import pg from "pg";
 import { seedEnvironment, TENANT_ID } from "./jobs/seed-environment.mts";
 import { seedCatalogue } from "./jobs/seed-catalogue.mts";
 import { expireInvitations } from "./jobs/expire-invitations.mts";
+
+/**
+ * The job names this worker can actually consume.
+ *
+ * Every name here must have a matching `boss.work()` registration below. The
+ * drain refuses to dispatch anything absent from this set, so adding a
+ * handler is two edits in one file and forgetting one of them is visible in
+ * the log rather than silent.
+ */
+const HANDLED_JOBS = new Set<string>(["notify.email"]);
 import { handleSendEmail, type EmailJob } from "./jobs/send-email.mts";
 
 const connectionString = process.env.DATABASE_URL;
@@ -84,19 +94,53 @@ async function ensureQueue(name: string): Promise<void> {
  * gets added the first time report generation blocks the queue — starts
  * double-sending sponsor email.
  */
+/**
+ * Outbox rows nobody can consume yet, reported so they are visible rather
+ * than merely absent from the drain. Cheap: one count, no lock, and only
+ * logged when it is non-zero.
+ */
+async function reportWaiting(): Promise<void> {
+  const { rows } = await pool.query<{ name: string; n: string }>(
+    `SELECT name, count(*)::text AS n
+       FROM "OutboxJob"
+      WHERE "dispatchedAt" IS NULL AND name <> ALL($1::text[])
+      GROUP BY name`,
+    [[...HANDLED_JOBS]],
+  );
+  if (rows.length > 0) {
+    const summary = rows.map((r) => `${r.name} x${r.n}`).join(", ");
+    console.log(`[worker] outbox waiting for a handler: ${summary}`);
+  }
+}
+
 async function drainOnce(): Promise<number> {
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
 
+    /* A job type with no consumer is LEFT IN THE OUTBOX, and the filter is in
+       the SQL rather than applied after LIMIT. pg-boss accepts a send() for a
+       queue nobody works, the row would be marked dispatched, and the event
+       would expire unread — the outbox exists so that work survives, and
+       dispatching into a void defeats it.
+
+       Filtering after the LIMIT would be worse than not filtering at all:
+       undeliverable rows are the OLDEST, so they would fill every batch and
+       starve everything behind them. `name = ANY(...)` keeps the batch full
+       of work that can actually go.
+
+       Two names sit here today — zoho.pushCampaign and notify.invitationSent,
+       both enqueued by B3 domain code whose handlers are still to come
+       (P8-INT-01, P4-INT-01). They wait, and go the moment a handler ships. */
     const { rows } = await client.query<OutboxRow>(
       `SELECT id, name, payload
          FROM "OutboxJob"
         WHERE "dispatchedAt" IS NULL
+          AND name = ANY($2::text[])
         ORDER BY "createdAt"
         LIMIT $1
           FOR UPDATE SKIP LOCKED`,
-      [DRAIN_BATCH],
+      [DRAIN_BATCH, [...HANDLED_JOBS]],
     );
 
     if (rows.length === 0) {
@@ -220,6 +264,7 @@ async function main(): Promise<void> {
 
   timer = setInterval(tick, DRAIN_INTERVAL_MS);
   await tick(); // sweep once at boot rather than waiting a full interval
+  await reportWaiting().catch(() => {});
 
   /* Invitation expiry (P4-BE-05). A sweep rather than a timer per invitation:
      the comparison is one statement, and a per-invite job that is lost leaves

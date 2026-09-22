@@ -8,6 +8,19 @@ import {
 import "./zod";
 import { PageMeta, PageQuery, ProblemDetails, Provenance } from "./common";
 import {
+  BrandCategory,
+  BriefState,
+  BriefTransitionInput,
+  CampaignBriefInput,
+  CampaignFromBriefInput,
+  CampaignState,
+  CampaignTransitionInput,
+  EligibleAthlete,
+  InvitationInput,
+  InvitationResponseInput,
+  InviteState,
+} from "./campaign";
+import {
   AgreementAcceptanceInput,
   GuardianInput,
   GuardianReadiness,
@@ -75,6 +88,20 @@ registry.register("GuardianRelationship", GuardianRelationship);
 registry.register("GuardianInput", GuardianInput);
 registry.register("GuardianReadiness", GuardianReadiness);
 registry.register("AgreementAcceptanceInput", AgreementAcceptanceInput);
+
+// --- briefs, campaigns and invitations (P4-BE-02..06, §21, §26) ----------
+
+registry.register("BrandCategory", BrandCategory);
+registry.register("BriefState", BriefState);
+registry.register("CampaignState", CampaignState);
+registry.register("InviteState", InviteState);
+registry.register("CampaignBriefInput", CampaignBriefInput);
+registry.register("BriefTransitionInput", BriefTransitionInput);
+registry.register("CampaignFromBriefInput", CampaignFromBriefInput);
+registry.register("CampaignTransitionInput", CampaignTransitionInput);
+registry.register("InvitationInput", InvitationInput);
+registry.register("InvitationResponseInput", InvitationResponseInput);
+registry.register("EligibleAthlete", EligibleAthlete);
 
 /**
  * Bearer auth for §8's API Service Account. Clerk issues the session for human

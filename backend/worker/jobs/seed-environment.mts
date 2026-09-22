@@ -37,10 +37,20 @@ import type pg from "pg";
  *  accumulating duplicates. The `seed_` prefix also makes demo rows obvious in
  *  a database browser. */
 /* Phase 1 is a single managed marketplace, so this is *the* tenant — not just
-   the demo one. The catalogue seed needs the same value and imports it from
-   here rather than keeping a second copy (P3-BE-08, P3-BE-11). It must agree
-   with the API's PUBLIC_INTAKE_TENANT_ID. */
-export const TENANT_ID = "seed_tenant_btg";
+   the demo one. The catalogue seed imports it from here rather than keeping a
+   second copy (P3-BE-08, P3-BE-11).
+
+   IT IS READ FROM THE SAME VARIABLE THE API USES. `PUBLIC_INTAKE_TENANT_ID`
+   decides which tenant a public application lands in; this decides which
+   tenant gets seeded. They were two literals that happened to match, which
+   would have held until the first environment set one of them — and then
+   every application would have arrived in a tenant with no catalogue and no
+   users, looking like a data bug rather than a configuration one.
+
+   process.env directly, not src/config/env: that module requires the Clerk
+   keys, and the worker must boot without them. The default is repeated here
+   for the same reason, and the test asserts the two agree. */
+export const TENANT_ID = process.env.PUBLIC_INTAKE_TENANT_ID ?? "seed_tenant_btg";
 const TENANT_NAME = "BTG Sports Group";
 
 type SeedUser = {

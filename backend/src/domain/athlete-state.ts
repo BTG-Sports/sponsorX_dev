@@ -79,3 +79,15 @@ export function canTransition(from: AthleteState, to: AthleteState): boolean {
 export function legalTransitions(from: AthleteState): readonly AthleteState[] {
   return TRANSITIONS[from] ?? [];
 }
+
+/**
+ * The states, as data, in the Prisma enum's order.
+ *
+ * Exported so the alignment test can compare this file against
+ * `schema.prisma` — the union above is a type and vanishes at runtime, so
+ * nothing could otherwise check that the two lists still match.
+ */
+export const ATHLETE_STATES_FOR_TEST: readonly AthleteState[] = [
+  "DRAFT", "SUBMITTED", "UNDER_REVIEW", "APPROVED",
+  "CHANGES_REQUESTED", "REJECTED", "ACTIVE", "SUSPENDED",
+] as const;

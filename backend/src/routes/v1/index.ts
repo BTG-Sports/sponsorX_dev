@@ -8,6 +8,7 @@
 import { Router } from "express";
 
 import { applicationsRouter } from "./applications";
+import { campaignsRouter } from "./campaigns";
 import { guardiansRouter } from "./guardians";
 import { meRouter } from "./me";
 import { openapiRouter } from "./openapi";
@@ -29,6 +30,11 @@ v1Router.use("/applications", applicationsRouter);
    root of /v1 rather than under a prefix, because these hang off athletes,
    guardians and agreements rather than off one noun. */
 v1Router.use("/", guardiansRouter);
+
+/* B3 — brief, matching, campaign and invitations (P4-BE-02..06). Mounted at
+   the root for the same reason as guardians: these hang off several nouns
+   rather than one. */
+v1Router.use("/", campaignsRouter);
 
 /* The published contract, generated from the Zod registry (§38). Public: a
    consumer has to be able to read how to authenticate before it can. */

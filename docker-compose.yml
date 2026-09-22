@@ -109,6 +109,8 @@ services:
     environment:
       NODE_ENV: development
       DATABASE_URL: postgresql://sponsorx:sponsorx@postgres:5432/sponsorx
+      # Must match the api service's value — one tenant, two processes.
+      PUBLIC_INTAKE_TENANT_ID: seed_tenant_btg
 
   api:
     build:
@@ -131,6 +133,18 @@ services:
       PORT: "4000"
       DATABASE_URL: postgresql://sponsorx:sponsorx@postgres:5432/sponsorx
       REDIS_URL: redis://redis:6379
+      # The tenant a public /join application lands in, and the tenant the
+      # worker seeds. One variable on purpose — see seed-environment.mts.
+      PUBLIC_INTAKE_TENANT_ID: seed_tenant_btg
+      # Signs the link an applicant uses to return to their own application.
+      # Dev value; the API refuses to boot in production with this one.
+      INTAKE_TOKEN_SECRET: dev-intake-secret-not-for-production
+      # Where a notification tells someone to go.
+      APP_URL: http://localhost:3000
+      EMAIL_FROM: SponsorX <noreply@localhost>
+      # RESEND_API_KEY is deliberately unset: the worker boots, drains and
+      # runs every other job without it, and an email send fails that one job.
+      S3_REGION: us-east-1
       S3_ENDPOINT: http://minio:9000
       S3_ACCESS_KEY_ID: sponsorx
       S3_SECRET_ACCESS_KEY: sponsorx-dev-secret
