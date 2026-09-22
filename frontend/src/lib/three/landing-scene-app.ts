@@ -10,8 +10,12 @@ const CAM_DIST = 4.2; // camera distance back from the ball (closer = bigger bal
 // Transition blackout window (chapters from a boundary): fully black within
 // DARK_IN, easing out by DARK_OUT. Driven by the scene's own eased progress so
 // the overlay stays perfectly synced with the stadium fade + fog void.
-const DARK_IN = 0.07;
-const DARK_OUT = 0.14;
+// The between-stadium drop spans ~0.2 of a chapter each side of a boundary
+// (leave-hold at 0.8 → land at 0.2 of the next). Black covers that whole gap
+// (fully black within DARK_IN) and clears right at the holds (DARK_OUT), so the
+// ball is hidden from the moment it dips below the floor until it lands.
+const DARK_IN = 0.15;
+const DARK_OUT = 0.2;
 
 /* --------------------------------------------------------------------------
    Landing 3D scene — framework-free three.js app (P1-ART-08).
