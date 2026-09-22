@@ -1066,3 +1066,42 @@ way and the code says so**: a campaign with room can absorb one underwater
 line behind several cheap ones. Closing that gap needs a sponsor price per
 line — a schema change and a pricing decision, not something to invent while
 fixing a defect.
+
+## Asked "did all seven meet the acceptance criteria?" — the answer was no
+
+Four clauses across three tasks were still false after the defect fixes, and
+**two of them were in the task I had just finished fixing**. Checking them
+took one pass, clause by clause, against the call path — which is the check
+that should have happened before any of these rows moved to Code review.
+
+- **`P3-BE-09`** — *"surfaces the minimum sell price it implies (rate × 1.4)"*.
+  It returned `baseHigh × tierMultiplier × 1.4`: the **catalogue's** floor for
+  the job, a different number — and the catalogue is in whole dollars while a
+  rate is in cents, so a $120 rate returned `210`. Wrong formula and wrong
+  unit in one line.
+- **`P3-BE-12`** — *"the error names the job, **the athlete tier**, the floor
+  and the shortfall"*. The error actually thrown carried every one but the
+  tier. `MarginFloorError` had it; the one on the enforced path did not.
+- **`P4-INT-01`** — *"invitation, reminder and expiry-warning emails **all**
+  send as queued jobs"*. One of three. The other two had templates and nothing
+  sent them.
+- **`P5-BE-02`** — *"terms snapshotted at send time"*. Nothing read them live
+  and nothing froze them either: the property held only because no update path
+  existed, which is **not the same as being enforced**.
+
+### The lesson underneath
+
+Every one of these is the same reading error: **I checked that the mechanism
+existed and not that the sentence was true.** A template exists ≠ an email
+sends. An error class names the tier ≠ the thrown error names the tier. No
+update path ≠ terms are frozen. A number is returned ≠ it is the number the
+acceptance asked for.
+
+The acceptance sentences are short and precise, and each clause is a separate
+claim. Reading them as a description of the area to work in rather than as a
+list of assertions to verify is what produced eleven defects in five tasks.
+
+A unit conversion hid inside one of them for the same reason: `NilJob` is in
+whole dollars and `AthleteRate.amount` is in cents, and nothing in the type
+system says so. **When two integer columns mean money in one file, check which
+unit each is in before combining them** — the compiler will never ask.
