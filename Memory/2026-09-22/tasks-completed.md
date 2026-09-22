@@ -421,3 +421,78 @@ must also not exist, or the review queue holds someone who never heard from us.
 Clerk matters one step later, at approval, and the setting that governs it was
 already settled on 2026-09-21: sign-up stays open, because restricted mode
 would stop a provisioned athlete creating the identity that claims their row.
+
+## `P3-BE-14` — the rest of B1, reachable
+
+*Code review. Raised and built the same day, for the same reason as
+`P3-BE-13`.*
+
+Three tasks were **Done whose domain functions no endpoint called**:
+`acceptAgreement` (`P3-BE-06`), `linkGuardian` / `verifyGuardian` /
+`readGuardianReadiness` (`P3-BE-03`), and the APPROVED → ACTIVE move
+(`P3-BE-01`). B1's exit asks for an athlete ACTIVE *"with agreements and (if
+minor) verified-guardian captured"*. Apply worked as of an hour earlier,
+approve worked, and then it stopped.
+
+**This is now a pattern, not a coincidence.** Each of those rows delivered
+exactly its own acceptance, and each acceptance was written in terms of a
+domain function. Nothing in the plan said "and it must be callable", so three
+tasks closed honestly while the capability they describe remained unreachable.
+Worth checking the rest of Block B for the same shape before trusting a Done.
+
+### The finding that mattered
+
+**Activation is a narrower permission than approval.** `POST
+/applications/:id/activate` needs `approve` on `athlete`, not on
+`athleteApplication` — and the RBAC matrix's `athlete` table gives Approve to
+**`NETWORK_MGR` alone**, a dash to everyone else including `SUPER_ADMIN`.
+
+My first test assumed `SUPER_ADMIN` could activate. It failed, and the right
+move was to read the document rather than widen the policy: `authz-policy.ts`
+says in its own header that it is a transcription and that the document wins
+if they disagree. They did not disagree — the test was wrong. Both actions sit
+on the same admin screen, so widening one to match the other is a
+one-character mistake, which is why it is now pinned by an assertion that
+`athlete.approve` has exactly one holder.
+
+**A contradiction inside the matrix document, recorded not resolved.** Its
+`athlete` table gives `BTG_ADMIN` no Approve cell, while its §12 says
+`BTG_ADMIN` sets athlete status *"as the superset role"*. `policy.ts` follows
+the table. This will surface as a 403 on an activate button the first time a
+BTG_ADMIN uses the admin UI. It needs a pull request to the document — the
+plan owns task and policy definitions, and reinterpreting it in code is
+exactly the drift `CLAUDE.md` forbids. Noted on the row.
+
+### A contract that would have lied
+
+`GuardianRelationship` was first written by hand as five values, including
+`GRANDPARENT` and `SIBLING`. The domain's `GUARDIAN_RELATIONSHIPS` has three —
+`PARENT`, `LEGAL_GUARDIAN`, `AUTHORIZED_REP` — and `linkGuardian` validates
+against it. The published `openapi.json` would have advertised two options the
+API refuses, to §8's service account among others. The contract now derives
+its enum from the domain's own list, so the two cannot drift.
+
+The same rule applied to the acceptance endpoint: the signer, IP and user
+agent come from the request and never from the body. Evidence a caller
+supplies about itself is not evidence.
+
+### Left out deliberately
+
+The **applicant-facing half of guardian capture** — a minor's parent
+submitting their details at `/join` — has no home. `linkGuardian` takes an
+`Actor`, and a guardian at sign-up has no account, which is precisely the
+problem `P3-BE-13` had to solve for the applicant. Rather than invent a second
+public path before `/join`'s guardian step is settled, this task kept to the
+BTG-side endpoints and the gap is recorded on the row.
+
+### Verification
+
+19 new cases. Backend 162 passed, frontend 46 passed, `npm run build` clean,
+`eslint` clean. Phase 1 is 249 tasks · 601 person-days.
+
+**B1's backend is now complete end to end**: an athlete applies with no
+account, BTG reviews and decides, a guardian is linked and verified, an
+agreement is accepted against the text actually shown, and the athlete is
+activated — with §37 refusing a minor whose guardian is unverified at every
+door. What remains in B1 is wiring (`P3-FE-01`, `P3-FE-02`), the notification
+jobs (`P3-INT-02`) and the E2E (`P3-QA-01`).

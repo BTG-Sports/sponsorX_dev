@@ -1107,6 +1107,17 @@ The half of B1's exit that had no task. P3-BE-01 delivered the contract and the 
 - **Reference:** §11, §21, §39, Addendum A3
 - **Note:** Introduces SystemActor so the one bypass of the role check is greppable, and the Redis rate limiter the stack decision reserved Redis for. P3-FE-01 wires /join to these endpoints.
 
+### ◑ `P3-BE-14` · Expose the rest of B1 over the API
+
+**Order** 65.6 · **BE** · **Where:** Code · **3d** · **Code review**
+
+Three tasks were Done whose domain functions no endpoint called: acceptAgreement (P3-BE-06), linkGuardian / verifyGuardian / readGuardianReadiness (P3-BE-03), and the APPROVED to ACTIVE move (P3-BE-01). B1's exit asks for an athlete ACTIVE with agreements and, if a minor, a verified guardian captured — apply and approve worked and then it stopped. Activation needs approve on athlete rather than on athleteApplication, which the matrix gives to NETWORK_MGR alone: BTG_ADMIN may approve an application and deliberately may not activate an athlete.
+
+- **Depends on:** P3-BE-03, P3-BE-06, P3-BE-13
+- **Done when:** An athlete can be activated over the API and §37's gate refuses a minor without a verified guardian; a guardian can be linked and verified with the attestation audited; an agreement can be accepted against the body hash actually shown and is refused when the text has moved on; the published relationship vocabulary is exactly the one linkGuardian accepts
+- **Reference:** §4, §11, §12, §37, RBAC Matrix §5
+- **Note:** The applicant-facing half of guardian capture — a minor's parent submitting details at /join — is NOT here. linkGuardian takes an Actor and a guardian at sign-up has no account, the same problem P3-BE-13 solved for the applicant. Raise it once /join's guardian step is settled. OPEN: the RBAC matrix contradicts itself — its athlete table gives BTG_ADMIN no Approve cell, while its §12 says BTG_ADMIN sets athlete status 'as the superset role'. policy.ts follows the table. Needs a pull request to the document, not a code change.
+
 ### ⏸ `P3-INT-01` · Build the transactional email send interface
 
 **Order** 69 · **INT** · **Where:** Code · **3d** · **Blocked** · **Unblocks** 3
