@@ -265,3 +265,66 @@ went.
 Every hardcoded range was extended to row 237 — Dashboard formulas, three
 conditional-formatting ranges, the Status validation list and the autofilter —
 and `Stage Progress` was rebuilt for ten stages.
+
+## NEXT spec v2.0 — reconciling the tasks with a rewritten specification
+
+A parallel session replaced the spec with v2.0 (`e909cb9`) and raised five
+backend rows. Reviewing it against the board found two gaps and one rule
+violation.
+
+### What v2.0 changed, and why it matters
+
+Version 1.0 read the $1,500 package as containing four SX-02 NIL jobs performed
+by paid athletes. **The social posts are student-created** — the concept note
+says so twice. Everything downstream of that misreading was wrong:
+
+- `P3-BE-12` needs no amendment. A NEXT package has no NIL line items, so no
+  athlete cost, so the per-line margin floor has nothing to evaluate. `P9-BE-08`
+  existed only to amend it and is now **void**. This is the second time today
+  that a finding about `P3-BE-12` cost nothing because it is still unwritten.
+- The ad-only-sale question is settled: a NEXT sale **is** an ordinary
+  `Campaign`, carries no `CampaignOrder`, and must skip `STAFFING`.
+- "Roughly 70% already exists" became 35–40% by build effort — 1.0 counted *"a
+  school is a Property"* as equal in weight to *"build a dated inventory
+  ledger"*.
+
+### The two gaps
+
+**The points ledger had no row anywhere.** `StudentPointAccrual` is `DECIDED` in
+v2.0 §5.5 and appeared neither on the board nor in the phase document. Raised as
+`P9-BE-15`.
+
+**None of v2.0's new frontend surfaces had rows.** Four raised in Stage 1 on
+fixtures — `P1-FE-27` the free digital edition reader, `P1-FE-28` *Claim this
+profile* and the `FEATURED` state, `P1-FE-29` the rights ledger and clearance
+queue, `P1-FE-30` the points balance — with `P9-FE-07`…`P9-FE-10` wiring them.
+
+The reader is the largest correction. Principle 10 makes **free digital the V1
+reader product**, where 1.0 had it deferred to Stage 2 as a nicety needing an
+editorial type scale. It still does not get one: article pages run on the
+existing scale, and inventing a long-form scale here is the scope error the spec
+itself warns sinks the programme.
+
+### The rule violation
+
+`P9-BE-11` shipped depending on `P0-LEG-01`. **Removed.** Legal work is tracked
+separately on this project and gates no build row — the three-part consent model
+is `DECIDED` in v2.0 §5.4 and buildable today. What counsel answers is the
+payout, not the record. The spec's own §12 repeats the legal gate in prose; the
+board does not have to inherit it.
+
+### Two judgement calls worth keeping
+
+**The accent was un-decided.** `P1-FE-18` previously asserted NEXT violet as
+settled, on the strength of `01-accent-decision.png`. v2.0 §14 lists the fifth
+accent as an open **brand** gate. The row now builds against the proposed violet
+**as a token pair rather than a literal**, so a different brand answer later is
+a two-line change instead of a rework. That is the right shape for any open
+brand decision blocking build work: implement behind a token, not behind a wait.
+
+**The design set is in flux.** The user said `Design/frontEndVersion2` is being
+rebuilt, so every design-led row carries a note that those screens are direction
+rather than specification and must be re-checked before building.
+
+Phase 1 is now **247 tasks · 595 person-days**, Stage 1 at 42 rows and Stage 9
+at 32. 494 days remain.
