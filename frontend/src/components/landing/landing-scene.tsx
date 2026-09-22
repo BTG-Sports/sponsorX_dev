@@ -15,29 +15,29 @@ import { LandingSceneApp } from "@/lib/three/landing-scene-app";
 export function LandingScene({
   onReady,
   onChapter,
-  onDark,
+  onTransition,
   onDegrade,
   dprCap,
 }: {
   onReady?: () => void;
   onChapter?: (index: number) => void;
-  onDark?: (opacity: number) => void;
+  onTransition?: (s: { dark: number; phase: number; from: number; to: number; active: boolean }) => void;
   onDegrade?: () => void;
   dprCap?: number;
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const onReadyRef = useRef(onReady);
   const onChapterRef = useRef(onChapter);
-  const onDarkRef = useRef(onDark);
+  const onTransitionRef = useRef(onTransition);
   const onDegradeRef = useRef(onDegrade);
 
   // Keep the refs current without re-initializing the WebGL app.
   useEffect(() => {
     onReadyRef.current = onReady;
     onChapterRef.current = onChapter;
-    onDarkRef.current = onDark;
+    onTransitionRef.current = onTransition;
     onDegradeRef.current = onDegrade;
-  }, [onReady, onChapter, onDark, onDegrade]);
+  }, [onReady, onChapter, onTransition, onDegrade]);
 
   useEffect(() => {
     if (!canvasRef.current) return;
@@ -45,7 +45,7 @@ export function LandingScene({
       dprCap,
       onReady: () => onReadyRef.current?.(),
       onChapter: (i) => onChapterRef.current?.(i),
-      onDark: (v) => onDarkRef.current?.(v),
+      onTransition: (s) => onTransitionRef.current?.(s),
       onDegrade: () => onDegradeRef.current?.(),
     });
     app.start();

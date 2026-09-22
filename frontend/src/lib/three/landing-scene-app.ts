@@ -32,9 +32,10 @@ export interface LandingSceneOpts {
   onReady?: () => void;
   /** Called (only on change) with the active chapter index — drives the rail. */
   onChapter?: (index: number) => void;
-  /** Called each frame with the transition blackout opacity 0..1 — the caller
-   *  applies it to a DOM overlay so black stays synced to the (eased) scene. */
-  onDark?: (opacity: number) => void;
+  /** Called each frame with the transition state — the caller renders the beat
+   *  (black backdrop + title card + ball-comet + warp streaks) synced to the
+   *  (eased) scene, so the passage between stadiums is never dead air. */
+  onTransition?: (s: { dark: number; phase: number; from: number; to: number; active: boolean }) => void;
   /** Called once if sustained FPS is too low — caller tears down to the poster. */
   onDegrade?: () => void;
 }
@@ -57,7 +58,7 @@ export class LandingSceneApp {
 
   private onReady?: () => void;
   private onChapter?: (index: number) => void;
-  private onDark?: (opacity: number) => void;
+  private onTransition?: (s: { dark: number; phase: number; from: number; to: number; active: boolean }) => void;
   private onDegrade?: () => void;
   private fpsEma = 60;
   private lowFpsFor = 0;
@@ -66,7 +67,7 @@ export class LandingSceneApp {
   constructor(canvas: HTMLCanvasElement, opts: LandingSceneOpts = {}) {
     this.onReady = opts.onReady;
     this.onChapter = opts.onChapter;
-    this.onDark = opts.onDark;
+    this.onTransition = opts.onTransition;
     this.onDegrade = opts.onDegrade;
 
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
@@ -142,17 +143,27 @@ export class LandingSceneApp {
         this.onChapter?.(at.index);
       }
 
-      // Transition blackout, synced to this same eased progress.
+      // Transition beat, synced to this same eased progress. Black backdrop
+      // over the drop (DARK_IN/OUT), plus a wider beat window (W) that also
+      // drives the title card + comet + streaks on each side of the boundary.
       const fB = this.smoothProgress * SECTION_COUNT;
+      const bnd = Math.round(fB);
       let dark = 0;
-      for (let b = 1; b < SECTION_COUNT; b++) {
-        const dd = Math.abs(fB - b);
-        if (dd < DARK_OUT) {
-          const d = dd <= DARK_IN ? 1 : (DARK_OUT - dd) / (DARK_OUT - DARK_IN);
-          if (d > dark) dark = d;
-        }
+      let phase = 0;
+      let from = 0;
+      let to = 0;
+      let active = false;
+      if (bnd >= 1 && bnd <= SECTION_COUNT - 1) {
+        const dd = Math.abs(fB - bnd);
+        const dRaw = dd <= DARK_IN ? 1 : dd < DARK_OUT ? (DARK_OUT - dd) / (DARK_OUT - DARK_IN) : 0;
+        dark = dRaw * dRaw * (3 - 2 * dRaw);
+        const W = 0.22; // beat window each side of the boundary
+        active = dd < W;
+        phase = Math.min(1, Math.max(0, (fB - (bnd - W)) / (2 * W)));
+        from = bnd - 1;
+        to = bnd;
       }
-      this.onDark?.(dark * dark * (3 - 2 * dark));
+      this.onTransition?.({ dark, phase, from, to, active });
 
       this.renderer.render(this.scene, this.camera);
       if (first) {
