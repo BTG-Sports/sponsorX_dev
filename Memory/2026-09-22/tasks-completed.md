@@ -741,3 +741,77 @@ apart. A test asserts the two lists agree.
 
 40 new cases. Backend 285 passed, frontend 46 passed, `npm run build` clean,
 `eslint` clean. Phase 1: Done 58 · **Code review 25** · Ready 15 · Blocked 128.
+
+## Authorization fixes — the row-scope bypass, and a document that argued with itself
+
+Reviewing the day's gotchas turned one listed item into three, and the middle
+one was the serious one.
+
+### Sixteen lookups ignored the scope filter
+
+Every domain write checked `assertAllowed`, then fetched its row with
+`{ id, tenantId: actor.tenantId }`. `scope.ts` exists precisely to turn a
+matrix scope into a `where` fragment, and **the queries never called it**. So
+any role holding the action at *any* scope reached *every row in the tenant*.
+
+The matrix was right the whole time. This was not a policy mistake; it was a
+policy nobody asked. Live consequences before the fix:
+
+- an athlete could accept or decline **another athlete's** invitation
+- an athlete could rewrite another athlete's `restrictedCategories` — the
+  input to §26's conflict check
+- an athlete could rewrite another athlete's follower numbers
+- a sponsor admin could close **any** brief in the tenant
+
+The fix is `whereFor()` in the lookup, which `createBrief` was already doing —
+the mechanism was there and unused elsewhere. It needed real builders for
+`athleteSocialAccount`, `athleteScore`, `campaignBrief`, `campaign` and
+`invitation`, plus `own`/`ward` on `athlete` and `guardian`. `Actor` therefore
+carries `athleteId` and `guardianId` now, alongside `sponsorId`, for the same
+reason: the matrix's `own` and `ward` name a row, and a scope builder has no
+second query to find out which.
+
+### Scoping the row does not fix a self-signed act
+
+The one a filter cannot catch. A guardian holds `guardian.write` at `own` so
+they can maintain their own details — which also let them **verify
+themselves**. Guardian verification is §26's attestation by a named BTG staff
+member, and it is the evidence if a minor's participation is ever challenged.
+The row genuinely belongs to them, so no `where` fragment refuses it.
+
+`assertTenantWide()` checks the **width** of the reach instead. It now guards
+`verifyGuardian`, `scoreAthlete` and `inviteAthlete` — the acts performed
+*about* someone rather than *by* them. An athlete answering their own
+invitation is deliberately untouched: `own` there is the matrix working.
+
+**The general rule worth carrying forward: when one action name covers two
+different acts, the scope is what separates them, and `assertAllowed` alone
+cannot.** The first instance of this was found by a test the same day
+(`inviteAthlete`); these two were found by going looking.
+
+### The matrix document contradicted itself
+
+Its `athlete` table gave `SUPER_ADMIN` and `BTG_ADMIN` a dash under Approve,
+while its own §12 states that `NETWORK_MGR` sets athlete status *"and
+BTG_ADMIN can too, as the superset role"*. `athlete` was also the only approve
+column in the entire matrix without `SUPER_ADMIN`, which holds `any` on
+`athleteApplication`, `campaignBrief`, `campaign`, `deliverable` and
+`earning`.
+
+So: a transcription slip in the table, not a policy — and it would have
+surfaced as a 403 on the activate button for a BTG_ADMIN. **The document was
+corrected first, then `policy.ts` followed it**, per that file's own header
+rule that the document wins. Doing it the other way round would have been
+exactly the drift `CLAUDE.md` forbids.
+
+The matrix digest moved deliberately, `438e87a9a4d2fa80` →
+`bc4ddbf83a1e7538`. That pin exists so a matrix change cannot happen quietly,
+and it did its job.
+
+### Verification
+
+18 new cases, including one that sweeps every self-scoped role against every
+row-scoped resource and fails if any of them gets an unrestricted filter — the
+dangerous answer being `{}`, which in Prisma means every row.
+
+Backend 305 passed, frontend 46 passed, `npm run build` clean, `eslint` clean.
