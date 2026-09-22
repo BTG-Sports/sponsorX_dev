@@ -741,6 +741,146 @@ const CASES = [
 
 ---
 
+## 15 · Appendix · SponsorX NEXT *(provisional — not yet in code)*
+
+**Read this section differently from the rest of the document.** Everything
+above is transcribed into `backend/src/auth/policy.ts`, and where the two
+disagree the document wins. This section is **not transcribed and must not
+be** until `P9-BE-05` runs: adding `STUDENT` and `ADVISOR` to the `Role` enum
+is a migration, and Stage 9 is gated behind `P9-PMO-03` — B8 complete and an
+edition actually sold. It is recorded here because the roles and models were
+specified in `SponsorX-NEXT-Integration-Spec.md` v2.0 §5 and §7, and policy
+living in a feature spec rather than in the matrix is how the two drift.
+
+Source: NEXT spec v2.0, §5 (models), §7 (roles). Where this section and that
+document disagree, **that document wins until `P9-BE-05` transcribes this one**.
+
+### 15.1 · Two new roles
+
+| Role | Scope | Why not an existing role |
+|---|---|---|
+| `STUDENT` | Own masthead assignments, own sales and code, own points. | Not an `ATHLETE`: no sport, no tier, no rate card, and compensation that is deliberately not cash. |
+| `ADVISOR` | Faculty advisor for **one school**. Reviews student applications and approves school content. | Not `PROPERTY_MGR`: that scopes to a property's inventory and analytics, where an advisor's authority is editorial and custodial over minors. Two roles with clear permissions beat one with a comment. |
+
+`ADVISOR` is deliberately **not** given publishing economics or rights
+decisions (NEXT spec §7, V3 §3). An advisor approves what students publish;
+they do not price inventory or grant a licence.
+
+### 15.2 · Student domain
+
+#### `student`
+| Role | Read | Write | Approve |
+|---|---|---|---|
+| `SUPER_ADMIN` | any | any | any |
+| `BTG_ADMIN` | own-tenant | own-tenant | own-tenant |
+| `ADVISOR` | own-property | own-property | own-property |
+| `STUDENT` | own | own (profile) | — |
+| `GUARDIAN` | ward | ward | — |
+
+`GUARDIAN` reuses the existing ward machinery unchanged — nearly every student
+is a minor, and `Guardian.verifiedAt` already gates participation.
+
+#### `studentCode` · `saleAttribution` · `studentPoints`
+| Role | Read | Write | Approve |
+|---|---|---|---|
+| `SUPER_ADMIN` | any | any | — |
+| `BTG_ADMIN` | own-tenant | own-tenant | — |
+| `ADVISOR` | own-property | — | — |
+| `STUDENT` | own | — | — |
+| `GUARDIAN` | ward | — | — |
+
+**A student reads their own sales and never another's** — the single most
+likely leak inside a school, and the direct analogue of `PROPERTY_MGR` seeing
+only their own roster. Attribution and points are written by the system, not
+by the person they credit; that is what keeps a sales figure evidence rather
+than a claim.
+
+### 15.3 · Publication domain
+
+#### `publication` · `edition`
+| Role | Read | Write | Approve |
+|---|---|---|---|
+| `SUPER_ADMIN` | any | any | any |
+| `BTG_ADMIN` | own-tenant | own-tenant | own-tenant |
+| `ADVISOR` | own-property | — | — |
+| `STUDENT` | own-property | — | — |
+
+Publishing an edition is gated on its production conditions (NEXT spec
+principle 12), which is a BTG act.
+
+#### `adSlot`
+| Role | Read | Write | Approve |
+|---|---|---|---|
+| `SUPER_ADMIN` | any | any | any |
+| `BTG_ADMIN` | own-tenant | own-tenant | own-tenant |
+| `SALES` | own-tenant | own-tenant | — |
+| `ADVISOR` | own-property | — | — |
+| `STUDENT` | own-property | — | — |
+
+A student **sells** against this inventory and must see what is open, sold and
+reserved; they do not set a price or mark a slot sold. The sale is a
+`Campaign`, and creating one is already `CAMPAIGN_MGR`'s.
+
+#### `contentRight`
+| Role | Read | Write | Approve |
+|---|---|---|---|
+| `SUPER_ADMIN` | any | any | any |
+| `BTG_ADMIN` | own-tenant | own-tenant | own-tenant |
+| `ADVISOR` | own-property | — | — |
+| `STUDENT` | own | — | — |
+
+**Rights are explicit and checked before publication** (principle 4), and an
+advisor explicitly does not make rights decisions. Read-only for both.
+
+#### `revenueSplit`
+| Role | Read | Write | Approve |
+|---|---|---|---|
+| `SUPER_ADMIN` | any | any | any |
+| `BTG_ADMIN` | own-tenant | own-tenant | — |
+| `FINANCE` | own-tenant | own-tenant | own-tenant |
+
+Neither `ADVISOR` nor `STUDENT` appears. Publishing economics is not an
+advisor's authority, and a student seeing the school's cut of an edition is a
+conversation for the school to have, not a column to expose.
+
+#### `editionEvent`
+| Role | Read | Write | Approve |
+|---|---|---|---|
+| `SUPER_ADMIN` | any | any | — |
+| `BTG_ADMIN` | own-tenant | — | — |
+| `SPONSOR_ADMIN` · `SPONSOR_ANALYST` | own-campaign (aggregate) | — | — |
+| `ADVISOR` | own-property (aggregate) | — | — |
+| `STUDENT` | own-property (aggregate) | — | — |
+
+Aggregate-only, like `rewardEvent`. Digital and print engagement are tracked
+separately (principle 8) and neither is fan-identifiable here.
+
+### 15.4 · The two denials that matter most
+
+Both belong in §7 when this section is transcribed:
+
+- **`athleteRate.amount` is invisible to `STUDENT` and `ADVISOR`**, as firmly
+  as it is to a sponsor. A student correspondent who is also an athlete reads
+  their own rate through `ATHLETE`, never through `STUDENT`.
+- **`revenueSplit.amount` is invisible to `STUDENT`.** The student pool is
+  money-adjacent and its handling is an open legal gate (NEXT spec §14 gate 2);
+  exposing a balance before that is answered pre-empts the answer.
+
+### 15.5 · What this section does not settle
+
+`ADVISOR` reaches **one school**, and `own-property` is the existing token —
+`User.propertyId` already exists, so that scope has a column to filter on the
+day it is transcribed.
+
+`STUDENT`'s `own` does **not**. `User` carries `athleteId`, `sponsorId`,
+`propertyId` and `guardianId`, and `P9-BE-05` must add `studentId` alongside
+them — otherwise the scope builder has nothing to filter by and every
+student-scoped row falls through to matching nothing. That is the safe
+direction to fail in, but it is a silent one: the portal would render empty
+rather than error.
+
+---
+
 ## 14 · Known gaps
 
 - **D1 and D3 are subject to legal confirmation** (§12). Both were adopted at

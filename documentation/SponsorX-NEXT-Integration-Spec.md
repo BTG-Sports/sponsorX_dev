@@ -522,6 +522,14 @@ comment.
 Both need `authz-policy.ts` extended and the tenant-isolation tests grown.
 `AthleteRate.amount` must be invisible to a `STUDENT` as firmly as to a sponsor.
 
+**The full cell-by-cell policy lives in
+[`SponsorX-RBAC-Matrix.md`](SponsorX-RBAC-Matrix.md) §15**, added 2026-09-22 —
+every NEXT model with its read, write and approve scopes per role, plus the two
+field denials. It is marked provisional there and is deliberately *not* yet
+transcribed into `authz-policy.ts`: adding the roles to the `Role` enum is a
+migration, and Stage 9 is gated. Until `P9-BE-05` runs, **this section wins if
+the two disagree**; afterwards the matrix does, like every other resource.
+
 ---
 
 ## 8 · Routes

@@ -2384,7 +2384,8 @@ Two roles, not one reused. PROPERTY_MGR scopes to a property's inventory and ana
 
 - **Depends on:** P9-BE-04
 - **Done when:** Both roles in the matrix document and authz-policy.ts; AthleteRate.amount invisible to STUDENT as firmly as to a sponsor; the catalogued-resource assertion and the money-boundary tests updated rather than deleted
-- **Reference:** Spec §7, §26
+- **Reference:** Spec §7, §26 · [RBAC Matrix §15](SponsorX-RBAC-Matrix.md) — the cell-by-cell policy, written 2026-09-22 and marked provisional until this task transcribes it
+- **Watch for:** `User` has no `studentId`; without it every student-scoped row matches nothing and the portal renders empty rather than failing
 
 ### ⏸ `P9-BE-06` · RevenueSplit on the edition, Earning untouched
 
