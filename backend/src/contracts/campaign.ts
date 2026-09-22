@@ -109,6 +109,9 @@ export const CampaignOrderInput = z
     athleteId: z.string().min(1),
     jobId: z.string().min(1),
     compensation: z.int().min(0).describe("Athlete compensation in cents"),
+    /** What the sponsor pays for this line, in cents. Refused below
+     *  compensation x 1.4 (P3-BE-12). */
+    sellPrice: z.int().min(0).describe("Sponsor price for this line, in cents"),
     usageRights: z.string().min(1).max(2000),
     exclusivity: z.string().max(2000).nullable().optional(),
     dueDate: z.iso.date(),

@@ -31,7 +31,7 @@ import {
 } from "./order-state";
 import { guardianReadiness } from "./guardian-rules";
 import { acceptAgreementIn } from "./agreement";
-import { assertBudgetCarriesLine } from "./margin-floor";
+import { assertBudgetCarriesLine, assertLineClearsFloor } from "./margin-floor";
 
 export class TermsFrozenError extends Error {
   readonly status = 409;
@@ -83,6 +83,8 @@ export class GuardianRequiredForOrderError extends Error {
 export type OrderTerms = {
   /** Cents — the athlete's compensation, never the sponsor price. */
   compensation: number;
+  /** Cents — what the sponsor pays for this line. Must clear the floor. */
+  sellPrice: number;
   usageRights: string;
   exclusivity?: string | null;
   dueDate: Date;
@@ -120,6 +122,13 @@ export async function createOrder(
       select: { tier: true },
     });
 
+    /* P3-BE-12, per line and in its literal form: this line's sponsor price
+       against this line's athlete cost. */
+    assertLineClearsFloor(
+      input.jobId, athlete?.tier ?? null, input.compensation, input.sellPrice);
+
+    /* And the campaign must be able to pay for all of them together — a
+       different way to be wrong, and the only one the budget can catch. */
     assertBudgetCarriesLine(
       input.jobId,
       athlete?.tier ?? null,
@@ -135,6 +144,7 @@ export async function createOrder(
         athleteId: input.athleteId,
         jobId: input.jobId,
         compensation: input.compensation,
+        sellPrice: input.sellPrice,
         usageRights: input.usageRights,
         exclusivity: input.exclusivity ?? null,
         dueDate: input.dueDate,
@@ -175,7 +185,7 @@ export async function updateOrderTerms(
   return prisma.$transaction(async (tx) => {
     const order = await tx.campaignOrder.findFirst({
       where: { ...whereFor(actor, "campaignOrder", "write"), id: orderId },
-      select: { id: true, state: true, compensation: true },
+      select: { id: true, state: true, compensation: true, sellPrice: true },
     });
     if (!order) throw new ForbiddenError("campaignOrder", "write");
 
@@ -186,6 +196,7 @@ export async function updateOrderTerms(
       where: { id: orderId },
       data: {
         ...(terms.compensation !== undefined ? { compensation: terms.compensation } : {}),
+        ...(terms.sellPrice !== undefined ? { sellPrice: terms.sellPrice } : {}),
         ...(terms.usageRights !== undefined ? { usageRights: terms.usageRights } : {}),
         ...(terms.exclusivity !== undefined ? { exclusivity: terms.exclusivity } : {}),
         ...(terms.dueDate !== undefined ? { dueDate: terms.dueDate } : {}),
@@ -194,7 +205,7 @@ export async function updateOrderTerms(
     });
 
     await audit(tx, actor, "order.termsUpdate", "CampaignOrder", orderId, {
-      before: { compensation: order.compensation },
+      before: { compensation: order.compensation, sellPrice: order.sellPrice },
       after: { fields: Object.keys(terms) },
     });
 

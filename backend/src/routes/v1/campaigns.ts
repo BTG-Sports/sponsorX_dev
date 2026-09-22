@@ -130,6 +130,7 @@ const addOrder: RequestHandler<{ id: string }> = async (req, res) => {
       athleteId: body.athleteId,
       jobId: body.jobId,
       compensation: body.compensation,
+      sellPrice: body.sellPrice,
       usageRights: body.usageRights,
       exclusivity: body.exclusivity ?? null,
       dueDate: new Date(body.dueDate),
@@ -143,6 +144,7 @@ const editOrder: RequestHandler<{ id: string }> = async (req, res) => {
   res.json(
     await updateOrderTerms(req.actor!, req.params.id, {
       ...(body.compensation !== undefined ? { compensation: body.compensation } : {}),
+      ...(body.sellPrice !== undefined ? { sellPrice: body.sellPrice } : {}),
       ...(body.usageRights !== undefined ? { usageRights: body.usageRights } : {}),
       ...(body.exclusivity !== undefined ? { exclusivity: body.exclusivity } : {}),
       ...(body.dueDate !== undefined ? { dueDate: new Date(body.dueDate) } : {}),

@@ -3,8 +3,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Actor } from "../src/auth/actor";
 import type { Role } from "../src/auth/policy";
 import {
-  assertBudgetCarriesLine, lineFloor, CampaignBudgetFloorError,
- } from "../src/domain/margin-floor";
+  assertBudgetCarriesLine, lineFloor, CampaignBudgetFloorError, LineFloorError,
+} from "../src/domain/margin-floor";
+import { NIL_JOBS } from "../src/domain/nil-jobs";
+import { PRICED_TIERS } from "../src/domain/pricing";
 
 /* --------------------------------------------------------------------------
    The six defects found reviewing P3-BE-09…P5-BE-01, each pinned so it
@@ -21,6 +23,7 @@ vi.mock("../src/config/env", () => ({ env: { APP_URL: "https://x" } }));
 let order: Record<string, unknown> | null = null;
 let campaign: Record<string, unknown> | null = null;
 let committed = 0;
+let athleteTier = "PREMIUM";
 let created: Record<string, unknown> | null = null;
 let acceptCalls = 0;
 let acceptThrows: Error | null = null;
@@ -47,7 +50,7 @@ vi.mock("../src/db/client", () => ({
       const writes: string[] = [];
       const tx = {
         campaign: { findFirst: () => Promise.resolve(campaign) },
-        athlete: { findFirst: () => Promise.resolve({ tier: "PREMIUM" }) },
+        athlete: { findFirst: () => Promise.resolve({ tier: athleteTier }) },
         campaignOrder: {
           findFirst: () => Promise.resolve(order),
           aggregate: () => Promise.resolve({ _sum: { compensation: committed } }),
@@ -94,13 +97,16 @@ const minorUnverified = {
 };
 const terms = {
   athleteId: "ath_1", jobId: "SX-02", compensation: 10000,
+  /* Clears the floor: 10000 x 1.4 = 14000. */
+  sellPrice: 20000,
   usageRights: "Organic social, 90 days", dueDate: new Date("2026-11-01"),
 };
 
 beforeEach(() => {
   campaign = { id: "cmp_1", budget: 100000 };
   order = { id: "ord_1", state: "SENT", athlete: { ...adult } };
-  committed = 0; created = null; acceptCalls = 0; acceptThrows = null;
+  committed = 0; athleteTier = "PREMIUM";
+  created = null; acceptCalls = 0; acceptThrows = null;
   committedWrites = [];
 });
 
@@ -233,5 +239,51 @@ describe("acceptance clauses that were still unmet after the first fix", () => {
       await expect(updateOrderTerms(actor(), "ord_1", { compensation: 12000 }))
         .rejects.toBeInstanceOf(TermsFrozenError);
     }
+  });
+});
+
+describe("P3-BE-12 · the floor is per LINE, as the acceptance words it", () => {
+  /* The acceptance asks for all seven jobs at all three tiers, checked at the
+     moment a line is saved. These go through createOrder — the rule tested in
+     isolation passes whether or not anything calls it. */
+  const cases = NIL_JOBS.flatMap((job) =>
+    PRICED_TIERS.map((tier) => [job.id, tier] as const));
+
+  it.each(cases)("%s at %s refuses a line a cent under its own floor", async (jobId, tier) => {
+    athleteTier = tier;
+    const compensation = 25000;
+    const floor = lineFloor(compensation);
+
+    await expect(createOrder(actor(), {
+      ...terms, jobId, compensation, sellPrice: floor,
+    })).resolves.toMatchObject({ state: "DRAFT" });
+
+    await expect(createOrder(actor(), {
+      ...terms, jobId, compensation, sellPrice: floor - 1,
+    })).rejects.toBeInstanceOf(LineFloorError);
+  });
+
+  it("names the job, the tier, the floor and the shortfall", async () => {
+    athleteTier = "PREMIUM";
+    try {
+      await createOrder(actor(), { ...terms, compensation: 10000, sellPrice: 12000 });
+      throw new Error("should have refused");
+    } catch (e) {
+      const err = e as LineFloorError;
+      expect(err).toBeInstanceOf(LineFloorError);
+      expect(err.jobId).toBe("SX-02");
+      expect(err.tier).toBe("PREMIUM");
+      expect(err.floor).toBe(14000);
+      expect(err.shortfall).toBe(2000);
+    }
+  });
+
+  it("catches an underwater line the campaign budget could have hidden", async () => {
+    /* The gap the budget-only check left: plenty of room overall, one line
+       sold below its own cost. */
+    campaign = { id: "cmp_1", budget: 10_000_000 };
+    await expect(createOrder(actor(), {
+      ...terms, compensation: 50000, sellPrice: 10000,
+    })).rejects.toBeInstanceOf(LineFloorError);
   });
 });

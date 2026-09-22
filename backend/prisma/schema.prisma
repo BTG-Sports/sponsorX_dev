@@ -607,6 +607,15 @@ model CampaignOrder {
   jobId        String
   /// cents — the agreed athlete compensation, not the sponsor price.
   compensation Int
+  /// cents — what the sponsor pays for THIS line.
+  ///
+  /// Added 2026-09-22 for P3-BE-12. Its acceptance is "refuse a line whose
+  /// sponsor price is below athlete cost x 1.4", and there was no per-line
+  /// sponsor price to refuse against — only the campaign budget, which lets a
+  /// campaign with room hide one underwater line behind several cheap ones.
+  /// The 1.4x rule itself was settled by P0-PMO-13; this is the column it
+  /// needed.
+  sellPrice    Int
   usageRights  String
   exclusivity  String?
   dueDate      DateTime

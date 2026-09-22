@@ -72,25 +72,60 @@ export function floorFor(baseHigh: number, tier: PricedTier): number {
 }
 
 /**
- * Refuse an order line the campaign's budget cannot carry at the floor.
+ * Refuse a line whose sponsor price does not clear its own athlete cost.
  *
- * WHY THIS SHAPE AND NOT THE ACCEPTANCE'S LITERAL WORDS. P3-BE-12 says
- * "refuse a line whose SPONSOR PRICE is below athlete cost x 1.4", and
- * `CampaignOrder` has no per-line sponsor price — it carries `compensation`,
- * the athlete's side. There is nothing to compare a line against on its own.
- *
- * What the model does carry is the campaign's budget, so the enforceable form
- * of the same rule is: the sum of every line's minimum sell price must fit
- * inside it. That still refuses at the moment a line is added rather than in
- * a report afterwards, which is the property the rule exists for, and it
- * still catches the case P0-PMO-13 found — an expensive athlete on a job
- * whose price cannot carry them.
- *
- * It is weaker than per-line in one way worth stating: a campaign with room
- * can absorb one underwater line behind several cheap ones. Closing that gap
- * needs a sponsor price per line, which is a schema change and a pricing
- * decision, not something to invent here.
+ * This is P3-BE-12's acceptance in its literal form — "a line below the floor
+ * cannot be saved" — and it is per LINE, not per campaign. `CampaignOrder`
+ * gained `sellPrice` for it (migration 20260922190000); before that the rule
+ * could only be checked against the campaign budget, which lets a campaign
+ * with room absorb one underwater line behind several cheap ones. The budget
+ * check below is kept as well, because a campaign that cannot pay for all its
+ * lines is also wrong, just differently.
  */
+/** The minimum a sponsor must pay for a line costing `compensation`. */
+export function lineFloor(compensation: number): number {
+  return Math.ceil(compensation * MARGIN_FLOOR);
+}
+
+export class LineFloorError extends Error {
+  readonly status = 422;
+  readonly jobId: string;
+  readonly tier: string;
+  readonly floor: number;
+  readonly shortfall: number;
+
+  constructor(jobId: string, tier: string, compensation: number, sellPrice: number) {
+    const floor = lineFloor(compensation);
+    super(
+      `${jobId} for a ${tier} athlete costs ${compensation} cents, so the ` +
+        `sponsor price may not be below ${floor} (x ${MARGIN_FLOOR}). ` +
+        `${sellPrice} is ${floor - sellPrice} short.`,
+    );
+    this.name = "LineFloorError";
+    this.jobId = jobId;
+    this.tier = tier;
+    this.floor = floor;
+    this.shortfall = floor - sellPrice;
+  }
+}
+
+/**
+ * The rule, per line: sponsor price >= athlete cost x 1.4.
+ *
+ * At the moment the line is saved, not in a report afterwards — which is the
+ * entire difference between a floor and a metric.
+ */
+export function assertLineClearsFloor(
+  jobId: string,
+  tier: string | null,
+  compensation: number,
+  sellPrice: number,
+): void {
+  if (sellPrice < lineFloor(compensation)) {
+    throw new LineFloorError(jobId, tier ?? "untiered", compensation, sellPrice);
+  }
+}
+
 export class CampaignBudgetFloorError extends Error {
   readonly status = 422;
   readonly jobId: string;
@@ -123,11 +158,6 @@ export class CampaignBudgetFloorError extends Error {
     this.budget = budget;
     this.shortfall = committed + lineFloor - budget;
   }
-}
-
-/** The minimum a sponsor must pay for a line costing `compensation`. */
-export function lineFloor(compensation: number): number {
-  return Math.ceil(compensation * MARGIN_FLOOR);
 }
 
 export function assertBudgetCarriesLine(
