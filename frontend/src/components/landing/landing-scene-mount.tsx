@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import { detectCapability, shouldRenderScene } from "@/lib/landing-capability";
 import { LandingProgressRail } from "./landing-progress-rail";
@@ -22,6 +22,7 @@ export function LandingSceneMount() {
   const [visible, setVisible] = useState(false);
   const [active, setActive] = useState(0);
   const [dprCap, setDprCap] = useState(2);
+  const overlayRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     // Decide after first paint (keeps 3D off the critical path — spec §9).
@@ -48,9 +49,21 @@ export function LandingSceneMount() {
           dprCap={dprCap}
           onReady={() => setVisible(true)}
           onChapter={setActive}
+          onDark={(v) => {
+            if (overlayRef.current) overlayRef.current.style.opacity = String(v);
+          }}
           onDegrade={() => setRender(false)} // low FPS → fall back to poster
         />
       </div>
+      {/* Transition blackout — driven by the scene's own eased progress (onDark),
+          so black stays perfectly synced to the stadium fade. Above the canvas,
+          below the content (z-10) and header (z-20). */}
+      <div
+        ref={overlayRef}
+        aria-hidden="true"
+        className="pointer-events-none fixed inset-0 z-[5] bg-black"
+        style={{ opacity: 0 }}
+      />
       {/* Mobile: content stacks over the centered ball — darken the scene behind
           it for text contrast. Desktop flanks the ball, so no scrim there. */}
       <div aria-hidden="true" className="pointer-events-none fixed inset-0 -z-[4] bg-bg/45 lg:hidden" />

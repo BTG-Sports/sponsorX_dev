@@ -1,47 +1,32 @@
 "use client";
-import { useEffect, useRef } from "react";
-import { SECTION_COUNT } from "@/lib/landing-chapters";
+import { useEffect } from "react";
 
 /* --------------------------------------------------------------------------
-   Cinematic reveal + transition blackout (P1-ART-08).
+   Cinematic per-section content reveal (P1-ART-08). Each chapter's 2D content
+   fades in → holds → fades out on scroll (hero visible on load; mid both ways;
+   finale in only), keyed to its pinned section's scroll position.
 
-   1. Per-chapter content fade: each section's 2D content fades in → holds →
-      fades out on scroll (hero visible on load; mid both ways; finale in only).
-   2. Transition blackout: a full-screen black overlay (below the header, above
-      the 3D canvas) ramps to opaque at every chapter boundary and back — a true
-      "travel through darkness" dip that guarantees the previous stadium's floor
-      is never visible during a transition, whatever the 3D is doing.
+   The transition blackout lives in landing-scene-mount.tsx instead — it's driven
+   by the 3D scene's own eased progress (onDark) so black stays perfectly synced
+   to the stadium fade, which raw scroll position could not guarantee.
 
-   Progressive enhancement: reduced-motion / no-JS leave content visible and the
-   overlay transparent (see globals.css).
+   Progressive enhancement: reduced-motion / no-JS leave content visible
+   (see globals.css).
    -------------------------------------------------------------------------- */
 
 const clamp01 = (x: number) => (x < 0 ? 0 : x > 1 ? 1 : x);
-const smooth = (x: number) => {
-  const c = clamp01(x);
-  return c * c * (3 - 2 * c);
-};
-
-/** Blackout window around each boundary: fully opaque within DARK_IN, ramping
- *  out to transparent by DARK_OUT — a black plateau that hides the whole drop
- *  (ball fall + stadium fade), not just the exact boundary frame. */
-const DARK_IN = 0.07;
-const DARK_OUT = 0.14;
 
 export function LandingReveal() {
-  const overlayRef = useRef<HTMLDivElement>(null);
-
   useEffect(() => {
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
 
     const els = Array.from(document.querySelectorAll<HTMLElement>("[data-lreveal]"));
+    if (els.length === 0) return;
     let raf = 0;
 
     const apply = () => {
       raf = 0;
       const vh = window.innerHeight;
-
-      // 1. per-section content fade
       for (const el of els) {
         const type = el.dataset.lreveal;
         const wrap = (el.closest("[data-lreveal-wrap]") ?? el.parentElement) as HTMLElement | null;
@@ -59,20 +44,6 @@ export function LandingReveal() {
         el.style.opacity = String(o);
         el.style.transform = `translateY(${ty}px)`;
       }
-
-      // 2. transition blackout — opaque at each chapter boundary (1..n-1)
-      const max = document.documentElement.scrollHeight - vh;
-      const prog = max > 0 ? clamp01(window.scrollY / max) : 0;
-      const f = prog * SECTION_COUNT;
-      let dark = 0;
-      for (let b = 1; b < SECTION_COUNT; b++) {
-        const dd = Math.abs(f - b);
-        if (dd < DARK_OUT) {
-          const d = dd <= DARK_IN ? 1 : (DARK_OUT - dd) / (DARK_OUT - DARK_IN);
-          dark = Math.max(dark, d);
-        }
-      }
-      if (overlayRef.current) overlayRef.current.style.opacity = String(smooth(dark));
     };
 
     const onScroll = () => {
@@ -89,13 +60,5 @@ export function LandingReveal() {
     };
   }, []);
 
-  // Below the header (z-20) and content (z-10), above the 3D canvas.
-  return (
-    <div
-      ref={overlayRef}
-      aria-hidden="true"
-      className="pointer-events-none fixed inset-0 z-[5] bg-black"
-      style={{ opacity: 0 }}
-    />
-  );
+  return null;
 }

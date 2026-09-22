@@ -7,6 +7,11 @@ import { LandingWorld, ballWorldY } from "./landing-world";
 
 const CAM_UP = 1.3; // camera height above the ball
 const CAM_DIST = 4.2; // camera distance back from the ball (closer = bigger ball)
+// Transition blackout window (chapters from a boundary): fully black within
+// DARK_IN, easing out by DARK_OUT. Driven by the scene's own eased progress so
+// the overlay stays perfectly synced with the stadium fade + fog void.
+const DARK_IN = 0.07;
+const DARK_OUT = 0.14;
 
 /* --------------------------------------------------------------------------
    Landing 3D scene — framework-free three.js app (P1-ART-08).
@@ -23,6 +28,9 @@ export interface LandingSceneOpts {
   onReady?: () => void;
   /** Called (only on change) with the active chapter index — drives the rail. */
   onChapter?: (index: number) => void;
+  /** Called each frame with the transition blackout opacity 0..1 — the caller
+   *  applies it to a DOM overlay so black stays synced to the (eased) scene. */
+  onDark?: (opacity: number) => void;
   /** Called once if sustained FPS is too low — caller tears down to the poster. */
   onDegrade?: () => void;
 }
@@ -45,6 +53,7 @@ export class LandingSceneApp {
 
   private onReady?: () => void;
   private onChapter?: (index: number) => void;
+  private onDark?: (opacity: number) => void;
   private onDegrade?: () => void;
   private fpsEma = 60;
   private lowFpsFor = 0;
@@ -53,6 +62,7 @@ export class LandingSceneApp {
   constructor(canvas: HTMLCanvasElement, opts: LandingSceneOpts = {}) {
     this.onReady = opts.onReady;
     this.onChapter = opts.onChapter;
+    this.onDark = opts.onDark;
     this.onDegrade = opts.onDegrade;
 
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
@@ -127,6 +137,18 @@ export class LandingSceneApp {
         this.lastChapter = at.index;
         this.onChapter?.(at.index);
       }
+
+      // Transition blackout, synced to this same eased progress.
+      const fB = this.smoothProgress * SECTION_COUNT;
+      let dark = 0;
+      for (let b = 1; b < SECTION_COUNT; b++) {
+        const dd = Math.abs(fB - b);
+        if (dd < DARK_OUT) {
+          const d = dd <= DARK_IN ? 1 : (DARK_OUT - dd) / (DARK_OUT - DARK_IN);
+          if (d > dark) dark = d;
+        }
+      }
+      this.onDark?.(dark * dark * (3 - 2 * dark));
 
       this.renderer.render(this.scene, this.camera);
       if (first) {
