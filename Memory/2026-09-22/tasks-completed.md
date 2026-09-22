@@ -815,3 +815,63 @@ row-scoped resource and fails if any of them gets an unrestricted filter — the
 dangerous answer being `{}`, which in Prisma means every row.
 
 Backend 305 passed, frontend 46 passed, `npm run build` clean, `eslint` clean.
+
+## SponsorX NEXT aligned into the authorisation model
+
+The NEXT spec specified two roles and ten models; the RBAC matrix knew about
+none of them. Policy living in a feature document rather than in the matrix is
+how the two drift, so the matrix gained **§15**, a full cell-by-cell appendix.
+
+### The rule that had to be inverted, and said out loud
+
+Everywhere else in that document: *the document wins, `policy.ts` follows*.
+§15 inverts it — **it is marked provisional and must not be transcribed** until
+`P9-BE-05` runs, because adding `STUDENT` and `ADVISOR` to the `Role` enum is a
+migration and Stage 9 is gated behind B8 and a sold edition. The NEXT spec now
+states the same thing from its side, so neither document can be read alone and
+come to the wrong conclusion. `policy.ts` is untouched and the matrix digest
+has not moved.
+
+This is the general shape for recording policy for gated work: **write it in
+the authoritative document, mark which way the authority runs until the gate
+opens, and say so in both places.**
+
+### Three decisions the appendix records rather than invents
+
+- **`ADVISOR` is not `PROPERTY_MGR`.** That role scopes to a property's
+  inventory and analytics; an advisor's authority is editorial and custodial
+  over minors. Same row scope, different permissions.
+- **`ADVISOR` gets no publishing economics and no rights decisions** (V3 §3).
+  They approve what students publish; they do not price inventory or grant a
+  licence. So `revenueSplit` has no advisor row at all, and `contentRight` is
+  read-only for them.
+- **A `STUDENT` reads their own sales and never another's** — the likeliest
+  leak inside a school, and the direct analogue of `PROPERTY_MGR` seeing only
+  their own roster.
+
+### Two prerequisites found by writing it down
+
+`User.propertyId` already exists, so `ADVISOR`'s `own-property` has a column
+to filter on the day it is transcribed.
+
+`User` has **no `studentId`**, so `STUDENT`'s `own` has nothing to filter by.
+Every student-scoped row would fall through to `MATCHES_NOTHING` — which fails
+safe but **silently**: the portal renders empty rather than erroring, and an
+empty portal reads as a data problem, not a permissions one. Recorded on
+`P9-BE-05`.
+
+### The state-machine edge deliberately not added
+
+`P4-BE-06` built the campaign state machine earlier the same day with
+`DRAFT → STAFFING → APPROVAL` and no `DRAFT → APPROVAL`. v2.0 settled that a
+NEXT sale **is** an ordinary `Campaign`, carries no `CampaignOrder`, and must
+therefore skip `STAFFING`.
+
+The edge was **not** added in advance, and `P9-BE-09`'s row now says why:
+bending a shipped state table to accommodate unbuilt gated work is how a state
+table stops meaning anything. The machine says what Phase 1 does; Stage 9
+changes it when Stage 9 runs.
+
+`CLAUDE.md` now records where NEXT sits — screens Stage 1 and startable, models
+and roles Stage 9 and gated — so nobody has to reconstruct that split from
+three documents.
