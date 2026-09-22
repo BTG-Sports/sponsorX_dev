@@ -35,6 +35,7 @@ import { PgBoss } from "pg-boss";
 import pg from "pg";
 import { seedEnvironment, TENANT_ID } from "./jobs/seed-environment.mts";
 import { seedCatalogue } from "./jobs/seed-catalogue.mts";
+import { expireInvitations } from "./jobs/expire-invitations.mts";
 import { handleSendEmail, type EmailJob } from "./jobs/send-email.mts";
 
 const connectionString = process.env.DATABASE_URL;
@@ -125,6 +126,9 @@ async function drainOnce(): Promise<number> {
 
 let draining = false;
 let timer: NodeJS.Timeout | undefined;
+/** Invitation expiry runs on its own, much slower, timer (P4-BE-05). */
+let expiryTimer: ReturnType<typeof setInterval> | undefined;
+const EXPIRY_INTERVAL_MS = 60 * 60 * 1000;
 
 /** Never let two sweeps overlap in one process. Overlap would not corrupt
  *  anything — SKIP LOCKED handles that — but it would stack connections
@@ -216,6 +220,20 @@ async function main(): Promise<void> {
 
   timer = setInterval(tick, DRAIN_INTERVAL_MS);
   await tick(); // sweep once at boot rather than waiting a full interval
+
+  /* Invitation expiry (P4-BE-05). A sweep rather than a timer per invitation:
+     the comparison is one statement, and a per-invite job that is lost leaves
+     that offer open forever where a missed sweep catches everything next run.
+     Hourly is well inside the precision a multi-day window needs. */
+  expiryTimer = setInterval(() => {
+    void expireInvitations(pool)
+      .then(({ expired }) => {
+        if (expired) console.log(`[worker] expired ${expired} invitation(s)`);
+      })
+      .catch((error: unknown) => {
+        console.error("[worker] invitation expiry failed, will retry next hour:", error);
+      });
+  }, EXPIRY_INTERVAL_MS);
 }
 
 /**
@@ -226,7 +244,9 @@ async function main(): Promise<void> {
  */
 export async function stopWorker(): Promise<void> {
   if (timer) clearInterval(timer);
+  if (expiryTimer) clearInterval(expiryTimer);
   timer = undefined;
+  expiryTimer = undefined;
   await boss.stop({ graceful: true }).catch(() => {});
   await pool.end().catch(() => {});
 }
