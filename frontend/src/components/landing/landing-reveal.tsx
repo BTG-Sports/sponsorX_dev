@@ -22,8 +22,11 @@ const smooth = (x: number) => {
   return c * c * (3 - 2 * c);
 };
 
-/** Half-width (in chapters) of the blackout around each boundary. */
-const DARK_W = 0.14;
+/** Blackout window around each boundary: fully opaque within DARK_IN, ramping
+ *  out to transparent by DARK_OUT — a black plateau that hides the whole drop
+ *  (ball fall + stadium fade), not just the exact boundary frame. */
+const DARK_IN = 0.15;
+const DARK_OUT = 0.26;
 
 export function LandingReveal() {
   const overlayRef = useRef<HTMLDivElement>(null);
@@ -64,7 +67,10 @@ export function LandingReveal() {
       let dark = 0;
       for (let b = 1; b < SECTION_COUNT; b++) {
         const dd = Math.abs(f - b);
-        if (dd < DARK_W) dark = Math.max(dark, 1 - dd / DARK_W);
+        if (dd < DARK_OUT) {
+          const d = dd <= DARK_IN ? 1 : (DARK_OUT - dd) / (DARK_OUT - DARK_IN);
+          dark = Math.max(dark, d);
+        }
       }
       if (overlayRef.current) overlayRef.current.style.opacity = String(smooth(dark));
     };
