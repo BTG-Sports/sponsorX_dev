@@ -177,3 +177,91 @@ logic, not Express's routing.
 The other eight judgement calls (B1–B6, B9, B10) were reviewed and kept as
 built — each is settled by a source (§21, §37, §23, the RBAC matrix) rather
 than open.
+
+## SponsorX NEXT raised — 32 tasks, and the split that matters
+
+The NEXT programme (`P0-PMO-14`'s spec, written earlier the same day) was
+raised onto the board. Phase 1 goes 201 → 233 tasks, 464 → 554 person-days.
+
+### The impact assessment that came first
+
+The user asked for the damage before the tasks, which was the right order. The
+answer was **low, and almost entirely additive**: seven new models, two `Role`
+values, no existing table altered, no existing route changed. Default-deny in
+`authz-policy.ts` means the 32 existing resource rows need no edit — two new
+roles are denied everywhere until written in.
+
+Three things do break, all of them the good kind:
+
+- `ACCENT` is `Record<Portal, …>`, so adding a fifth portal **fails the build**
+  until the accent entry exists. That is the type system doing its job.
+- `Portal` is declared **twice** — `portal-shell.tsx` and `server/portal.ts`.
+  Pre-existing duplication; the fifth portal is when it bites.
+- Two assertions in `authz.matrix.test.ts` are pinned to today's answers: the
+  catalogued-resource list, and the hardcoded role lists in the money-boundary
+  tests. `STUDENT` has to be added to the latter, which is desirable.
+
+The accent itself is already decided in
+`Design/frontEndVersion2/01-accent-decision.png` — NEXT violet `#a479ff`, every
+pair AA or better, 52° clear of athlete blue. §9.1's "open decision" is closed.
+
+### The split: screens are Block A work, models are gated
+
+The user asked whether the frontend could integrate now — buttons, layouts,
+even disabled. **Yes, and the board should say so.** This repo already works
+that way: `P1-FE-16` *builds* the `/join` wizard on fixtures, `P3-FE-01`
+*wires* it. So NEXT's screens went into **Stage 1** as `P1-ART-08` and
+`P1-FE-18`…`P1-FE-26`, and only the wiring (`P9-FE-01`…`P9-FE-06`) stayed
+behind the gate.
+
+The reasoning is worth keeping: **the gate exists to stop seven models and two
+roles being cut into a schema whose first loop is still open. It does not
+protect pixels.** Fixture UI costs no schema and is reversible, so gating it
+was over-applying the rule. `P1-ART-08` and `P1-FE-18` are Ready today.
+
+Each wiring row depends on **both** its backend task and its Stage 1 scaffold
+row, so no screen is wired before it exists or before its API does.
+
+### Three decisions the user made
+
+Placement: **new Stage 9 in Phase 1**, not a fifth phase sheet — the Stage
+Progress sheet picks it up for free and it stays visibly behind the §39 loop.
+Scope: **Stage 0 and Stage 1**, with Stage 2 (points, leaderboard, digital
+reader) left unraised because nobody could act on it for months. Gates: **B8
+and edition-sold block; legal does not.** The legal questions are real and sit
+on the Legal sheet, but they gate no build row — the standing rule on this
+project.
+
+`P9-PMO-03` is a single gate row depending on `P8-PMO-06` and `P9-DATA-01`, so
+Stage 1 rows hang off one dependency instead of repeating two.
+
+### Two findings to carry forward
+
+`P9-BE-08` amends `P3-BE-12`: the margin floor must be evaluated **per NIL line
+item, not per package total**, or a hybrid package's ad revenue inflates the
+apparent margin and hides a losing NIL line behind a profitable page.
+`P3-BE-12` is still unwritten, so this costs nothing now — the cheapest
+possible outcome, and the reason the assessment was worth doing before the code.
+
+`P9-BE-09` carries the genuinely unresolved one: `CampaignOrder.athleteId` and
+`.jobId` are both non-null, so **a pure ad sale has no order at all** and its
+campaign would sit in `STAFFING` with nothing to staff.
+
+### Board mechanics
+
+The ID prefix maps strictly to the stage on this board (`P3-*` is Stage 3, and
+so on), so restaging the scaffold rows meant renaming them — done in two passes
+so an intermediate collision could not clobber a row, with every `Depends On`
+rewritten to follow. New Stage 1 rows carry **fractional Orders** (37.01…37.10)
+so nothing else renumbered in anyone else's copy.
+
+All 32 definitions were written into
+`documentation/SponsorX-Phase1-Managed-Marketplace.md`, generated from the board
+so the two cannot disagree. The phase document owns definitions; a board row the
+plan has never heard of is the drift flagged on 2026-09-21 about the `P1-FE-09`
+…`P1-FE-15` rows. The roadmap's Block C was amended to say where the screens
+went.
+
+Every hardcoded range was extended to row 237 — Dashboard formulas, three
+conditional-formatting ranges, the Status validation list and the autofilter —
+and `Stage Progress` was rebuilt for ten stages.
