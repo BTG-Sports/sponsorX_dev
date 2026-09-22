@@ -73,8 +73,7 @@ export const SocialAccount = z
  * through the domain functions, and accepting them here would let the form
  * argue with the review process.
  */
-export const AthleteApplicationInput = z
-  .object({
+const AthleteApplicationFields = z.object({
     // §11 §1 — Identity
     legalName: z.string().min(1).max(120),
     displayName: z.string().min(1).max(120).describe("Athlete or brand name"),
@@ -95,9 +94,18 @@ export const AthleteApplicationInput = z
     gradYear: z.int().min(1900).max(2100).optional(),
     achievements: z.string().max(2000).optional(),
 
-    // §11 §3 — Social
-    socials: z.array(SocialAccount).max(4).default([]),
-  })
+  // §11 §3 — Social
+  socials: z.array(SocialAccount).max(4).default([]),
+});
+
+/**
+ * The refinement lives here and not on the shape above, because
+ * `AthleteApplicationPatch` needs `.partial()` and Zod refuses that on a
+ * refined object — for a good reason: "one of these two is required" cannot
+ * survive every field becoming optional. The patch re-checks nothing, since a
+ * patch that omits both dates is not asserting the applicant has neither.
+ */
+export const AthleteApplicationInput = AthleteApplicationFields
   .refine((v) => v.birthDate !== undefined || v.ageBand !== undefined, {
     message:
       "Either birthDate or ageBand is required: the guardian workflow (§26) cannot be decided without knowing whether the applicant is a minor.",
@@ -215,3 +223,70 @@ export type ApplicationReviewDecision = z.infer<typeof ApplicationReviewDecision
 export type ApproveApplicationInput = z.infer<typeof ApproveApplicationInput>;
 export type ApplicationDecisionNotes = z.infer<typeof ApplicationDecisionNotes>;
 export type AthleteApplicationSummary = z.infer<typeof AthleteApplicationSummary>;
+
+/* --------------------------------------------------------------------------
+   Public intake — P3-BE-13, §11, §21.
+
+   `AthleteApplicationInput` above has existed since P3-BE-01 and, until this
+   task, nothing consumed it: the contract was published in `openapi.json`
+   while no endpoint would accept it. These are the shapes that close that.
+   -------------------------------------------------------------------------- */
+
+/**
+ * An edit to an application already submitted once.
+ *
+ * Every field optional, and `socials` deliberately replaces rather than
+ * merges — a partial merge on an array keyed by platform has no obvious
+ * meaning, and "remove the TikTok account I listed by mistake" has to be
+ * expressible. Omitting the key leaves the existing accounts alone.
+ */
+export const AthleteApplicationPatch = AthleteApplicationFields.partial().meta({
+  id: "AthleteApplicationPatch",
+  description:
+    "Fields an applicant may change while their application is DRAFT or CHANGES_REQUESTED. Sending `socials` replaces the whole set.",
+});
+
+/**
+ * What comes back from a submission.
+ *
+ * The token is the applicant's only way back to their own application — they
+ * have no account, and will not have one unless they are approved. It is
+ * returned once, on creation, and never listed anywhere.
+ */
+export const ApplicationSubmissionReceipt = z
+  .object({
+    id: z.string(),
+    state: AthleteState,
+    /** Signed, scoped to this one application, and not a credential for
+     *  anything else. See src/lib/intake-token.ts. */
+    continuationToken: z.string(),
+  })
+  .meta({
+    id: "ApplicationSubmissionReceipt",
+    description: "Returned to an applicant after they submit. Carries the link back to their own application.",
+  });
+
+/** What an applicant may see of their own application — not the reviewer's
+ *  view. `reviewerNotes` is included only because §11 §10 says it is shown to
+ *  the applicant when the state is CHANGES_REQUESTED, and it is nulled
+ *  otherwise rather than filtered by the client. */
+export const ApplicantView = z
+  .object({
+    id: z.string(),
+    state: AthleteState,
+    displayName: z.string(),
+    legalName: z.string(),
+    email: z.email(),
+    sport: z.string(),
+    stateCode: z.string().nullable(),
+    reviewerNotes: z.string().nullable(),
+    socials: z.array(SocialAccount),
+  })
+  .meta({
+    id: "ApplicantView",
+    description: "An application as its own applicant sees it.",
+  });
+
+export type AthleteApplicationPatch = z.infer<typeof AthleteApplicationPatch>;
+export type ApplicationSubmissionReceipt = z.infer<typeof ApplicationSubmissionReceipt>;
+export type ApplicantView = z.infer<typeof ApplicantView>;

@@ -49,6 +49,23 @@ export async function transitionAthlete(
 }
 
 /**
+ * An act the platform performs with nobody behind it.
+ *
+ * Exactly one thing in Phase 1 needs this: a public application at `/join`,
+ * where the applicant has no session and no `User` row (P3-BE-13). Rather
+ * than inventing a service identity and quietly granting it write access to
+ * athletes — which §8 deliberately withholds from `SERVICE` — the absence of
+ * an actor is made explicit in the type, so every bypass of the role check is
+ * one `grep` away.
+ */
+export type SystemActor = { readonly system: true; tenantId: string; userId: null };
+export type TransitionActor = Actor | SystemActor;
+
+function isSystemActor(actor: TransitionActor): actor is SystemActor {
+  return "system" in actor;
+}
+
+/**
  * The same move, inside a transaction the caller already opened.
  *
  * P3-BE-07 needs the state change, the reviewer's note and the applicant's
@@ -62,12 +79,29 @@ export async function transitionAthlete(
  */
 export async function transitionAthleteIn(
   tx: Prisma.TransactionClient,
-  actor: Actor,
+  actor: TransitionActor,
   athleteId: string,
   to: AthleteState,
   reviewerNotes?: string,
 ): Promise<{ id: string; state: AthleteState }> {
-  assertAllowed(actor, "athlete", to === "ACTIVE" ? "approve" : "write");
+  if (isSystemActor(actor)) {
+    /* No role check, because there is no role and no person — see the type's
+       own note. The state table still governs: a system transition is refused
+       exactly as a human one is if §21 does not draw the edge.
+
+       ACTIVE is refused outright. §37's gate says a minor may not be
+       activated without a verified guardian, and the whole point of that gate
+       is that a human being decided. A path with no actor must never be the
+       thing that grants someone the ability to take paid work. */
+    if (to === "ACTIVE") {
+      throw new Error(
+        "A system transition may not activate an athlete. Activation is a " +
+          "decision with a person behind it (§37) — use an Actor.",
+      );
+    }
+  } else {
+    assertAllowed(actor, "athlete", to === "ACTIVE" ? "approve" : "write");
+  }
 
   const athlete = await tx.athlete.findFirst({
     where: { id: athleteId, tenantId: actor.tenantId },

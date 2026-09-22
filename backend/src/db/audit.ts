@@ -29,7 +29,17 @@ import type { Prisma } from "../generated/prisma/client";
  * this task wait for Clerk.
  */
 export type AuditActor = {
-  userId: string;
+  /**
+   * `null` for an act with no signed-in actor behind it.
+   *
+   * `AuditLog.actorId` has always been nullable and this is the case it was
+   * nullable for: a public application arrives from someone who has no `User`
+   * row and, by design, never will until they are approved (P3-BE-13). The
+   * alternative — inventing a system user to satisfy the type — would file
+   * every anonymous act under an actor who did not perform it, which is worse
+   * than an honest null.
+   */
+  userId: string | null;
   tenantId: string;
 };
 
