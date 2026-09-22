@@ -657,3 +657,87 @@ mock.**
 
 45 new cases. Backend 245 passed, frontend 46 passed, `npm run build` clean,
 `eslint` clean. Phase 1: Done 58 · Code review 20 · Ready 15 · Blocked 133.
+
+## Five more — the whole B3 backend spine (`P4-BE-02`…`P4-BE-06`)
+
+*All Code review. §39's "sponsor brief → matching → invitation" segment, end
+to end. No migration: `P2-BE-02` had already authored `CampaignBrief`,
+`Campaign` and `CampaignInvite` with their enums.*
+
+Worth noting how they were chosen. Only four backend rows were Ready and all
+four sat in Stages 6-8 — far ahead of the roadmap's block order. Stage 4 is a
+strict chain (`P4-BE-01` → `02` → `03` → `04` → `05`, and `02` → `06`) with
+everything downstream blocked behind it, so working the chain **is** the
+in-order choice even though the rows read as Blocked. They were blocked only
+by rows at Code review, all of them written earlier the same day.
+
+### The conflict check runs twice, deliberately
+
+`matching.ts` shortlists and a shortlist is **advisory**. A desk that filters
+correctly and then invites from a tab opened an hour ago has still put an
+athlete in front of a brand they refused. §26 is a rule about the invitation,
+so `inviteAthlete` re-asks it at the moment of the offer — and §37's guardian
+gate with it, because an invitation *is* the offer of paid work and catching
+it later at acceptance would mean telling a sixteen-year-old about a campaign
+they were never able to accept.
+
+The exclusion is `NOT hasSome`, never a negated `hasEvery`: an athlete barring
+**any** of the brief's categories is a conflict. A brief for an alcohol brand
+with a restaurant category attached must still exclude the athlete who refuses
+alcohol.
+
+**Conflict is a rule; sport and geography are targeting.** A brief naming
+Maryland basketball describes who it wants, not who is forbidden, so an empty
+list means "no preference" rather than "nobody". Conflating the two is the
+failure worth guarding against — a targeting miss costs a good match, a
+conflict miss is what §26 exists to prevent.
+
+### A test caught a real authorisation gap
+
+`ATHLETE` holds `invitation.write` in the matrix — for *their own*
+invitation, so they can accept or decline. `inviteAthlete` checked only
+`assertAllowed(actor, "invitation", "write")`, which an athlete passes, so an
+athlete could have invited themselves to a campaign.
+
+The matrix already distinguishes the two acts and does it **by scope**: BTG
+roles hold `own-tenant`, an athlete holds `own`. So creating an invitation now
+requires a tenant-wide reach. The rule came out of the matrix rather than a
+hardcoded role list, which is the difference between a fix and a patch.
+
+**The general lesson: when one action name covers two different acts, the
+scope is usually what separates them.** A coarse `isAllowed` check is not
+enough wherever a role holds the same verb on its own row.
+
+### Three state-machine edges worth remembering
+
+Each table is asserted exhaustively over all ordered pairs, transcribed
+independently of the implementation — a happy-path test passes just as well
+against a machine that permits everything.
+
+- **A campaign cannot be cancelled once REPORTING.** The athletes did the work
+  and the sponsor owes for it; cancelling there is a billing decision dressed
+  as a state change.
+- **An invitation cannot be ACCEPTED without being VIEWED, but can be DECLINED
+  unopened.** The accept path runs through the screen that shows the terms; a
+  decline can be a link in an email. "They accepted without ever seeing it"
+  must not be representable.
+- **A brief closes from any pre-campaign state.** "They went quiet" and "they
+  said no" both end there and neither is a qualification.
+
+### `P4-BE-05` is a sweep, not a timer per invitation
+
+A per-invite job that is lost leaves that offer open forever; a missed sweep
+catches everything on its next run. It expires and writes the audit rows in
+**one statement**, so the log cannot lag the data. Hourly, and it sends no
+email — an athlete who ignored an invitation for a week does not need telling,
+and BTG sees it on the roster.
+
+One coupling made explicit: `OPEN_INVITE_STATES` is used in the query rather
+than a hand-typed literal, because `prisma/sql/invite_one_open.sql` indexes
+exactly those states and a second copy is how the guard and the index drift
+apart. A test asserts the two lists agree.
+
+### Verification
+
+40 new cases. Backend 285 passed, frontend 46 passed, `npm run build` clean,
+`eslint` clean. Phase 1: Done 58 · **Code review 25** · Ready 15 · Blocked 128.
