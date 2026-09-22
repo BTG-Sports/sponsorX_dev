@@ -322,6 +322,51 @@ cohort onboarded in staging → production go/no-go. *(L)*
 
 ---
 
+# Block C — SponsorX NEXT *(proposed · gated · not part of Phase 1 scope)*
+
+Specified in
+[`SponsorX-NEXT-Integration-Spec.md`](SponsorX-NEXT-Integration-Spec.md)
+(`P0-PMO-14`). Listed here so the sequencing is visible, **not** so it can be
+pulled forward. Three gates stand in front of it:
+
+1. **B8 is done** — the §39 loop runs end-to-end. NEXT is a second loop and §37
+   does not let a second loop start before the first one is reliable.
+2. **An edition has actually sold**, run on existing primitives with no new
+   models (Spec §10, "Stage 0"). What Stage 0 proves is commercial: that a
+   local business buys the hybrid package, that students can sell, that a school
+   signs. All of it can fail, and finding out costs no schema.
+3. **Legal has cleared money to minors** — the student pool, the scholarship
+   prizes and the Sales Challenge as a contest (`P0-LEG-*`, Blueprint §26, §37).
+
+## C1 · SponsorX NEXT — publication, students, splits
+
+`Publication` / `Edition` / `AdSlot` with the inventory ledger and close-date
+enforcement — the back cover is quantity **one**, which is the thing `NilJob`
+has no column for. `Student` + `StudentState`, reusing `Guardian` unchanged.
+`RevenueSplit` on the edition; **`Earning` untouched** and still meaning athlete
+NIL compensation. `StudentCode` + `SaleAttribution` at `/s/[code]` — a third
+namespace, never a fourth use of `TrackingLink`. `STUDENT` and `ADVISOR` in
+`authz-policy.ts` with isolation tests. Student portal (designed at 390px first,
+unlike every other portal) and advisor desk. Fifth `Portal` union member and
+`ACCENT` entry. Two open questions settled first: whether an ad-only sale is a
+`Campaign` at all, and whether `P3-BE-12` checks the margin floor line-by-line
+or against a package total.
+
+**Exit:** a school is a `Property`, an edition sells a back cover exactly once,
+a student's code attributes a sale, artwork clears the approval board, the
+sponsor report carries print circulation as `ESTIMATED`, and a split resolves to
+four payees without touching `Earning`. *(L)*
+
+## C2 · Points, leaderboard, digital edition *(deferred)*
+
+`StudentPoints` — no `EarningState`, no cents column, no relation to `Earning`,
+and a screen that must not look like `athlete/earnings`. Sales Challenge
+leaderboard. Digital edition reader, which needs an editorial type scale this
+dashboard product does not have. Nothing here starts before C1 has shipped an
+edition.
+
+---
+
 ## Guardrails
 
 - **Protect the loop.** Everything above serves §39. If time runs short, ship
