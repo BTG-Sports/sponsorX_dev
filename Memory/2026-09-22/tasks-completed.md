@@ -1105,3 +1105,39 @@ A unit conversion hid inside one of them for the same reason: `NilJob` is in
 whole dollars and `AthleteRate.amount` is in cents, and nothing in the type
 system says so. **When two integer columns mean money in one file, check which
 unit each is in before combining them** — the compiler will never ask.
+
+## The five tasks closed properly — and the excuse that was hiding in them
+
+`P3-BE-12`'s acceptance says *"refuse a line whose **sponsor price** is below
+athlete cost × 1.4"*. I had implemented it against the campaign budget instead
+and written, in the code and on the row, that the literal form was *"not
+expressible against this schema"* and that closing the gap *"needs a schema
+change and a pricing decision, not something to invent here."*
+
+**That was declining the work in the language of diligence.** There was no
+pricing decision outstanding — `P0-PMO-13` settled the 1.4× rule months ago.
+There was a missing column. `CampaignOrder.sellPrice`, one migration, and the
+acceptance is met in its literal form.
+
+The tell, for next time: *"this would need a schema change"* is a statement of
+cost, not of impossibility, and it is only a reason to stop if the decision
+behind the schema is genuinely open. **Check whether the decision is open
+before treating the schema as fixed.** A task whose acceptance requires a
+field is a task that includes adding the field.
+
+The budget check was kept alongside the per-line one, because a campaign that
+cannot pay for all its lines is also wrong — just differently. A test proves
+the per-line rule catches what the budget-only version let through: plenty of
+room overall, one line sold below its own cost.
+
+### All nineteen clauses, verified by call path
+
+`P3-BE-09` (5), `P3-BE-12` (3), `P4-INT-01` (3), `P5-BE-01` (4), `P5-BE-02`
+(3) — each one traced to the code path a real request takes, not to the
+function that implements it. That check took one pass and should have happened
+before any of these rows first moved to Code review; doing it afterwards cost
+eleven defects and four rounds.
+
+All five are **Done**. Four rows unblocked behind them: `P3-FE-04`,
+`P5-BE-03`, `P5-BE-04`, `P5-FE-01`. Phase 1: Done 78 · Ready 27 · 452 days
+left. Backend 424 tests passing.
