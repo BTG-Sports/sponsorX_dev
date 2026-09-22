@@ -1004,3 +1004,65 @@ same day. **The resolution not to do it again did not work; the test does.**
 
 35 new cases. Backend 379 passed, frontend 46 passed, build and lint clean.
 Phase 1: Done 73 · Code review 15 · Ready 23 · Blocked 115 · 467 days left.
+
+## Seven defects in five tasks I had just closed — and the lesson
+
+Asked what problems remained in `P3-BE-09`…`P5-BE-01`, I found six. Fixing
+them exposed a seventh. Two made the closed acceptances **untrue**. The user's
+response was blunt and correct:
+
+> *"why do you do tasks that are always incomplete, this is really not good.
+> when you do a task, make sure there is no shit laying around."*
+
+### What was wrong
+
+1. **The margin floor was called by nothing.** `P3-BE-12`'s acceptance is *"a
+   line below the floor cannot be saved"*. `assertClearsFloor` existed, was
+   tested at 21 points, and no code path invoked it.
+2. **`ACCEPTED` was reachable without evidence.** `transitionOrder` let an
+   athlete move an order straight there — no body hash, no signer, no IP, no
+   guardian check — around every guard in `acceptOrder`.
+3. **Acceptance was three transactions and could deadlock an order.** I had
+   written a comment reasoning that an orphan acceptance harms nothing. The
+   orphan does not; **the order does**. It stayed `SENT`, the athlete retried,
+   and `acceptAgreement` then refused with `AlreadyAcceptedError` — the order
+   could never be accepted by anyone again.
+4. **An athlete could not read their own rate card** — `assertTenantWide`
+   where the matrix gives `own` to `ATHLETE`.
+5. **The rate version race returned a 500** — raw `P2002`, uncaught.
+6. **`notify.campaignLive` was enqueued with no handler and no owner.**
+7. **Found while fixing the rest:** `campaignOrder` and `athleteRate` had no
+   scope builders, so `acceptOrder`, `transitionOrder` and `readRateCard`
+   threw `ScopeNotImplementedError` **at request time**. Every one of those
+   functions had passing tests, because each mocked its database.
+
+### The single pattern behind five of them
+
+**A rule that exists, is tested, and nothing forces the system to use it.**
+Defects 1, 2, 3 and 7 are all that shape. A unit test that calls the rule
+directly passes whether or not any caller does — which is why they all shipped
+green.
+
+Two things follow, and both are now in the code rather than in a resolution:
+
+- **Test the path, not the rule.** The new defect tests drive `createOrder`
+  and `acceptOrder`, not `assertClearsFloor` and `acceptAgreementIn`.
+- **Add the guard that fails loudly.** `alignment.test.ts` already asserted
+  that every domain function has a route; it now also fails if `whereFor()` is
+  called for a resource with no builder. Writing "do not do this again" in a
+  log changed nothing three times today; the tests did.
+
+### One place the acceptance could not be met as written
+
+`P3-BE-12` says "refuse a line whose **sponsor price** is below athlete cost ×
+1.4", and `CampaignOrder` has no per-line sponsor price — only
+`compensation`, the athlete's side. There is nothing to compare a line against
+on its own.
+
+The enforceable form of the same rule is that the sum of every line's minimum
+sell price fits the campaign's budget, which still refuses at the moment a
+line is added rather than in a report afterwards. **That is weaker in one
+way and the code says so**: a campaign with room can absorb one underwater
+line behind several cheap ones. Closing that gap needs a sponsor price per
+line — a schema change and a pricing decision, not something to invent while
+fixing a defect.
