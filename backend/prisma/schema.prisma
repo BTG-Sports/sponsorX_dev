@@ -308,6 +308,21 @@ model Athlete {
   reviewerNotes       String?
   reviewedAt          DateTime?
   complianceExpiresAt DateTime?
+  /// §11 §4 — what this athlete can actually make. A queryable set rather
+  /// than prose, because matching asks "who can shoot video" and a paragraph
+  /// cannot answer it.
+  contentCapabilities String[]
+  /// §11 §5 — categories they want to work with. Preference, not a rule.
+  brandInterests      String[]
+  /// §11 §6 — categories they will NOT promote. This one is a rule, and §26's
+  /// conflict check reads it: Phase 4 asks "which athletes exclude alcohol?"
+  /// and must get an answer from an index, not from someone reading notes.
+  restrictedCategories String[]
+  /// Anything that does not reduce to a category. Deliberately separate from
+  /// the list above so nobody mistakes unenforceable text for an enforceable
+  /// restriction — a conflict check cannot read this and must not appear to.
+  restrictionNotes    String?
+
   /// §6 — set by a network manager in Phase 1, never computed.
   tier                AthleteTier?
   guardianId          String?
@@ -461,8 +476,42 @@ model Sponsor {
 
   briefs    CampaignBrief[]
   campaigns Campaign[]
+  contacts  SponsorContact[]
 
   @@index([tenantId])
+}
+
+/// The people at a sponsor — P4-BE-01, §18, §20.
+///
+/// Separate from `User`: a sponsor contact is someone BTG sells to and Zoho
+/// knows about, and most of them never sign in. Folding them into `User`
+/// would mean every Zoho Contact arriving as a login-capable account.
+model SponsorContact {
+  id        String  @id @default(cuid())
+  tenantId  String
+  sponsorId String
+  name      String
+  email     String
+  phone     String?
+  /// Job title as the sponsor gives it. Free text — normalising it would be
+  /// inventing a taxonomy nobody asked for.
+  title     String?
+  /// Who to write to by default. Not unique at the database: a sponsor
+  /// mid-handover legitimately has two for a while, and refusing that would
+  /// block a sync Zoho has already accepted.
+  isPrimary Boolean @default(false)
+
+  // Zoho (§18 — Contacts are bi-directional)
+  zohoContactId  String?     @unique
+  lastSyncOrigin SyncOrigin?
+  lastSyncHash   String?
+
+  createdAt DateTime @default(now())
+
+  sponsor Sponsor @relation(fields: [sponsorId], references: [id])
+
+  @@index([tenantId, sponsorId])
+  @@index([tenantId, email])
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -558,6 +607,15 @@ model CampaignOrder {
   jobId        String
   /// cents — the agreed athlete compensation, not the sponsor price.
   compensation Int
+  /// cents — what the sponsor pays for THIS line.
+  ///
+  /// Added 2026-09-22 for P3-BE-12. Its acceptance is "refuse a line whose
+  /// sponsor price is below athlete cost x 1.4", and there was no per-line
+  /// sponsor price to refuse against — only the campaign budget, which lets a
+  /// campaign with room hide one underwater line behind several cheap ones.
+  /// The 1.4x rule itself was settled by P0-PMO-13; this is the column it
+  /// needed.
+  sellPrice    Int
   usageRights  String
   exclusivity  String?
   dueDate      DateTime

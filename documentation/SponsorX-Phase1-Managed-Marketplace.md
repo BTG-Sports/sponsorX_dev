@@ -452,6 +452,49 @@ The baseline notes in the repo still describe an older stack (Express, Redis, Mi
 - **Done when:** Initial Memory/02-confirmed-tech-stack.md either corrected to the Railway stack or explicitly marked superseded
 - **Reference:** Memory 04
 
+### ✓ `P0-OPS-07` · Repo split + Docker local stack + standalone Express API scaffold
+
+**Order** 7.5 · **OPS** · **Where:** Code · **5d** · **Done**
+
+Split the repo into npm workspaces — `frontend/` for the Next.js app,
+`backend/` for the Express API, the pg-boss worker and Prisma. Stand up a
+one-command local environment (Postgres, Redis, MinIO with its buckets, a
+one-shot Prisma migrate, the worker). Scaffold the Express service —
+`config/env`, `db`, `redis`, `storage`, `health`, `/api/v1` — run with tsx.
+One Prisma schema. Confirmed architecture: stack-decision Addendum B.
+
+- **Depends on:** nothing — this is the split everything after it assumes
+- **Done when:** `npm install` (workspaces) clean; the local stack starts with
+  one command and every service it defines reports healthy with both buckets
+  created; backend `tsc` and Express `/health` + `/health/ready`
+  (db/redis/storage) green; frontend `next build`; tests pass; one Prisma
+  schema generates the backend client, and the frontend reaches the API rather
+  than the database
+- **Reference:** Addendum B, Guide §02, §10
+
+**This entry was written on 2026-09-22**, after the row had been sitting on the
+board with no definition here — the same plan/board drift recorded against the
+`P1-FE-09`…`P1-FE-15` rows a day earlier. Two clauses of the original
+acceptance were amended in writing it, and both were wrong rather than merely
+inconvenient:
+
+- *"`prisma generate` produces backend **and frontend** clients from one
+  schema"* contradicts the architecture as built. `P2-BE-08` removed the
+  frontend's database access on purpose, so that authorisation lives with the
+  data and `/api/v1` serves the portals, §8's service account and INFINEX on
+  equal terms. `frontend/package.json` carries no Prisma dependency and there
+  is no generated client there to produce.
+- *"`docker compose up` brings … healthy"* named a **runtime** where the
+  clause means a **property**. Docker appears in no production path — Railway
+  builds from source, Postgres and Redis are managed, storage is Cloudflare R2
+  — and in no CI path, where GitHub Actions supplies its own service
+  containers. It is a local-development convenience, and the acceptance now
+  asks for what it was actually protecting: that the stack starts with one
+  command and reports healthy.
+
+The compose file itself is unchanged and still defines that stack.
+
+
 ## Stage 1 · UI Scaffold on Fixtures
 
 **Objective.** a complete, on-brand, clickable demo of the entire §39 loop
@@ -2384,7 +2427,8 @@ Two roles, not one reused. PROPERTY_MGR scopes to a property's inventory and ana
 
 - **Depends on:** P9-BE-04
 - **Done when:** Both roles in the matrix document and authz-policy.ts; AthleteRate.amount invisible to STUDENT as firmly as to a sponsor; the catalogued-resource assertion and the money-boundary tests updated rather than deleted
-- **Reference:** Spec §7, §26
+- **Reference:** Spec §7, §26 · [RBAC Matrix §15](SponsorX-RBAC-Matrix.md) — the cell-by-cell policy, written 2026-09-22 and marked provisional until this task transcribes it
+- **Watch for:** `User` has no `studentId`; without it every student-scoped row matches nothing and the portal renders empty rather than failing
 
 ### ⏸ `P9-BE-06` · RevenueSplit on the edition, Earning untouched
 

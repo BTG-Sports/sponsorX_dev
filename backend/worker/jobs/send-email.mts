@@ -60,6 +60,18 @@ const TEMPLATES: Record<string, (d: Record<string, string>) => { subject: string
     subject: "About your SponsorX application",
     text: `Hi ${d.firstName ?? "there"},\n\nWe are not able to approve your application at this time.\n\n${d.reviewerNotes ?? ""}\n\nThis is not necessarily permanent — the network grows, and sponsor demand changes by sport and region.\n\n— BTG SponsorX`,
   }),
+  "invitation.sent": (d) => ({
+    subject: `${d.sponsorName ?? "A sponsor"} wants to work with you`,
+    text: `Hi ${d.firstName ?? "there"},\n\nYou have a new campaign invitation${d.sponsorName ? ` from ${d.sponsorName}` : ""}.\n\n${d.jobName ?? "The work"}${d.offered ? ` — ${d.offered}` : ""}\n\nOpen it to see the full terms and decide:\n\n${d.portalUrl ?? ""}\n\nIt expires on ${d.expiresOn ?? "the date shown in your portal"}.\n\n— BTG SponsorX`,
+  }),
+  "invitation.reminder": (d) => ({
+    subject: "You have an open SponsorX invitation",
+    text: `Hi ${d.firstName ?? "there"},\n\nYou still have an invitation waiting${d.sponsorName ? ` from ${d.sponsorName}` : ""}. There is nothing wrong — we just did not want it to get lost.\n\n${d.portalUrl ?? ""}\n\n— BTG SponsorX`,
+  }),
+  "invitation.expiring": (d) => ({
+    subject: "Your SponsorX invitation expires soon",
+    text: `Hi ${d.firstName ?? "there"},\n\nYour invitation${d.sponsorName ? ` from ${d.sponsorName}` : ""} expires on ${d.expiresOn ?? "shortly"}. After that the sponsor may offer the work to someone else.\n\nIf you are not interested, declining is genuinely helpful — it lets us fill the slot.\n\n${d.portalUrl ?? ""}\n\n— BTG SponsorX`,
+  }),
   "guardian.verificationRequested": (d) => ({
     subject: `Please confirm you authorise ${d.athleteName ?? "an athlete"} to join SponsorX`,
     text: `Hi ${d.guardianName ?? "there"},\n\n${d.athleteName ?? "An athlete"} has listed you as their parent or guardian on a SponsorX application. Because they are under 18, we need your authorisation before they can take part in any paid campaign.\n\nA member of the BTG team will contact you to confirm.\n\n— BTG SponsorX`,

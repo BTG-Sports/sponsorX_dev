@@ -53,3 +53,7 @@ documentation/*.xls
 # frontend's copy was removed on 2026-09-21 with the generator that made it.
 # Generated, never committed (Guide §02).
 backend/src/generated/prisma
+
+# Playwright (P2-QA-01)
+playwright-report/
+test-results/

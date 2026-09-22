@@ -573,3 +573,571 @@ comparison and quietly lose the ability to verify anything.
 
 38 new cases. Backend 200 passed, frontend 46 passed, `npm run build` clean,
 `eslint` clean. Closing these also unblocked `P4-BE-01`.
+
+## Five closed in one run — `P3-BE-05`, `P3-BE-10`, `P3-INT-02`, `P3-SEC-01`, `P4-BE-01`
+
+Four remaining B1 rows plus the first B3 model row. One migration
+(`20260922140000`), generated offline with `prisma migrate diff` as the repo
+already does — no machine here has Postgres.
+
+### `P3-BE-05` — the columns are `TEXT[]` because the acceptance says *queryable*
+
+The acceptance reads "restrictions are queryable for the conflict check in
+Phase 4", and that single word decides the shape. §26's check asks *"which
+athletes exclude alcohol?"* — a question an index answers against a `TEXT[]`
+and cannot answer against a JSON blob or a paragraph of notes.
+
+`restrictionNotes` is a **separate nullable column** for what does not reduce
+to a category, and the conflict check deliberately cannot read it.
+Unenforceable text sitting in the enforceable column is exactly how a
+restriction silently stops being one.
+
+The category vocabulary is **closed and shared** with sponsor categories. Free
+text cannot be conflict-checked: *"no booze"*, *"No Alcohol"* and
+*"alcohol/bars"* are three strings and one intention, and a query that has to
+guess is a query that misses.
+
+### `P3-BE-10` — a missing factor is not zero, and it changes the answer
+
+The rule most likely to be got wrong. A zero is an assessment — *we looked,
+and it is bad*. An absence is *we have not looked*. A new athlete with no
+sponsor-performance history scored as zero is punished for having no history,
+which is backwards for a network trying to recruit.
+
+So an absent factor's weight is redistributed across the rest, and the
+unassessed share is reported alongside the number so a weak score says so out
+loud. The same athlete scores **80** with `sponsorPerformance` absent and
+**76** with it recorded as zero. That gap is why it is tested rather than
+assumed.
+
+Worth noting: the score document's own confirmation block is still blank —
+factors and weights are settled by §14, but new-athlete handling and score
+visibility have no recorded answer.
+
+### `P3-INT-02` and `P3-SEC-01` — asserting what must already hold
+
+Neither builds much, and that is the point of each. "Notifications exist" and
+"the rules about minors are enforced in code, not just documented" are claims,
+and a claim nobody checks is a document.
+
+The templates now have a test that they **survive an empty payload**. An
+outbox row can outlive a code change that renamed a data key, and a greeting
+reading *"Hi undefined,"* is worse than a generic one.
+
+For minors: minority is evaluated against today's date and never stored, so an
+athlete who applies at 17 and activates at 18 is an adult. "No guardian" and
+"an unverified guardian" stay distinct, because collapsing them would let an
+athlete self-declare a parent. And **the `SERVICE` account cannot reach a
+guardian at all** — §18 syncs Contacts with Zoho, and a minor's parent must
+never be pushed to a CRM as a sales contact.
+
+### `P4-BE-01` — `SponsorContact` is its own table
+
+Not a use of `User`. Most sponsor contacts never sign in, and folding them in
+would make every inbound Zoho Contact a login-capable account.
+
+`Actor` now carries **`sponsorId`**, because the matrix's `own` and
+`own-sponsor` scopes on `sponsor` and `sponsorContact` cannot be expressed
+without it — a scope builder has no second query to find out who the caller
+works for. A sponsor user with no `sponsorId` matches **nothing** rather than
+everything; the dangerous failure in Prisma is `{}`, which means every row.
+
+### A structural note
+
+Two modules were split so their rules import nothing, matching
+`athlete-state.ts` and `guardian-rules.ts`: `content-value-rules.ts` and
+`brand-categories.ts`. The immediate reason was that a test could not load a
+module reaching `db/client` and therefore `env`, but the better reason is that
+B3's sponsor and brief models need the category vocabulary without pulling in
+a database client. **When a test cannot import a rule without a database, that
+is usually the rule being in the wrong file rather than the test needing a
+mock.**
+
+### Verification
+
+45 new cases. Backend 245 passed, frontend 46 passed, `npm run build` clean,
+`eslint` clean. Phase 1: Done 58 · Code review 20 · Ready 15 · Blocked 133.
+
+## Five more — the whole B3 backend spine (`P4-BE-02`…`P4-BE-06`)
+
+*All Code review. §39's "sponsor brief → matching → invitation" segment, end
+to end. No migration: `P2-BE-02` had already authored `CampaignBrief`,
+`Campaign` and `CampaignInvite` with their enums.*
+
+Worth noting how they were chosen. Only four backend rows were Ready and all
+four sat in Stages 6-8 — far ahead of the roadmap's block order. Stage 4 is a
+strict chain (`P4-BE-01` → `02` → `03` → `04` → `05`, and `02` → `06`) with
+everything downstream blocked behind it, so working the chain **is** the
+in-order choice even though the rows read as Blocked. They were blocked only
+by rows at Code review, all of them written earlier the same day.
+
+### The conflict check runs twice, deliberately
+
+`matching.ts` shortlists and a shortlist is **advisory**. A desk that filters
+correctly and then invites from a tab opened an hour ago has still put an
+athlete in front of a brand they refused. §26 is a rule about the invitation,
+so `inviteAthlete` re-asks it at the moment of the offer — and §37's guardian
+gate with it, because an invitation *is* the offer of paid work and catching
+it later at acceptance would mean telling a sixteen-year-old about a campaign
+they were never able to accept.
+
+The exclusion is `NOT hasSome`, never a negated `hasEvery`: an athlete barring
+**any** of the brief's categories is a conflict. A brief for an alcohol brand
+with a restaurant category attached must still exclude the athlete who refuses
+alcohol.
+
+**Conflict is a rule; sport and geography are targeting.** A brief naming
+Maryland basketball describes who it wants, not who is forbidden, so an empty
+list means "no preference" rather than "nobody". Conflating the two is the
+failure worth guarding against — a targeting miss costs a good match, a
+conflict miss is what §26 exists to prevent.
+
+### A test caught a real authorisation gap
+
+`ATHLETE` holds `invitation.write` in the matrix — for *their own*
+invitation, so they can accept or decline. `inviteAthlete` checked only
+`assertAllowed(actor, "invitation", "write")`, which an athlete passes, so an
+athlete could have invited themselves to a campaign.
+
+The matrix already distinguishes the two acts and does it **by scope**: BTG
+roles hold `own-tenant`, an athlete holds `own`. So creating an invitation now
+requires a tenant-wide reach. The rule came out of the matrix rather than a
+hardcoded role list, which is the difference between a fix and a patch.
+
+**The general lesson: when one action name covers two different acts, the
+scope is usually what separates them.** A coarse `isAllowed` check is not
+enough wherever a role holds the same verb on its own row.
+
+### Three state-machine edges worth remembering
+
+Each table is asserted exhaustively over all ordered pairs, transcribed
+independently of the implementation — a happy-path test passes just as well
+against a machine that permits everything.
+
+- **A campaign cannot be cancelled once REPORTING.** The athletes did the work
+  and the sponsor owes for it; cancelling there is a billing decision dressed
+  as a state change.
+- **An invitation cannot be ACCEPTED without being VIEWED, but can be DECLINED
+  unopened.** The accept path runs through the screen that shows the terms; a
+  decline can be a link in an email. "They accepted without ever seeing it"
+  must not be representable.
+- **A brief closes from any pre-campaign state.** "They went quiet" and "they
+  said no" both end there and neither is a qualification.
+
+### `P4-BE-05` is a sweep, not a timer per invitation
+
+A per-invite job that is lost leaves that offer open forever; a missed sweep
+catches everything on its next run. It expires and writes the audit rows in
+**one statement**, so the log cannot lag the data. Hourly, and it sends no
+email — an athlete who ignored an invitation for a week does not need telling,
+and BTG sees it on the roster.
+
+One coupling made explicit: `OPEN_INVITE_STATES` is used in the query rather
+than a hand-typed literal, because `prisma/sql/invite_one_open.sql` indexes
+exactly those states and a second copy is how the guard and the index drift
+apart. A test asserts the two lists agree.
+
+### Verification
+
+40 new cases. Backend 285 passed, frontend 46 passed, `npm run build` clean,
+`eslint` clean. Phase 1: Done 58 · **Code review 25** · Ready 15 · Blocked 128.
+
+## Authorization fixes — the row-scope bypass, and a document that argued with itself
+
+Reviewing the day's gotchas turned one listed item into three, and the middle
+one was the serious one.
+
+### Sixteen lookups ignored the scope filter
+
+Every domain write checked `assertAllowed`, then fetched its row with
+`{ id, tenantId: actor.tenantId }`. `scope.ts` exists precisely to turn a
+matrix scope into a `where` fragment, and **the queries never called it**. So
+any role holding the action at *any* scope reached *every row in the tenant*.
+
+The matrix was right the whole time. This was not a policy mistake; it was a
+policy nobody asked. Live consequences before the fix:
+
+- an athlete could accept or decline **another athlete's** invitation
+- an athlete could rewrite another athlete's `restrictedCategories` — the
+  input to §26's conflict check
+- an athlete could rewrite another athlete's follower numbers
+- a sponsor admin could close **any** brief in the tenant
+
+The fix is `whereFor()` in the lookup, which `createBrief` was already doing —
+the mechanism was there and unused elsewhere. It needed real builders for
+`athleteSocialAccount`, `athleteScore`, `campaignBrief`, `campaign` and
+`invitation`, plus `own`/`ward` on `athlete` and `guardian`. `Actor` therefore
+carries `athleteId` and `guardianId` now, alongside `sponsorId`, for the same
+reason: the matrix's `own` and `ward` name a row, and a scope builder has no
+second query to find out which.
+
+### Scoping the row does not fix a self-signed act
+
+The one a filter cannot catch. A guardian holds `guardian.write` at `own` so
+they can maintain their own details — which also let them **verify
+themselves**. Guardian verification is §26's attestation by a named BTG staff
+member, and it is the evidence if a minor's participation is ever challenged.
+The row genuinely belongs to them, so no `where` fragment refuses it.
+
+`assertTenantWide()` checks the **width** of the reach instead. It now guards
+`verifyGuardian`, `scoreAthlete` and `inviteAthlete` — the acts performed
+*about* someone rather than *by* them. An athlete answering their own
+invitation is deliberately untouched: `own` there is the matrix working.
+
+**The general rule worth carrying forward: when one action name covers two
+different acts, the scope is what separates them, and `assertAllowed` alone
+cannot.** The first instance of this was found by a test the same day
+(`inviteAthlete`); these two were found by going looking.
+
+### The matrix document contradicted itself
+
+Its `athlete` table gave `SUPER_ADMIN` and `BTG_ADMIN` a dash under Approve,
+while its own §12 states that `NETWORK_MGR` sets athlete status *"and
+BTG_ADMIN can too, as the superset role"*. `athlete` was also the only approve
+column in the entire matrix without `SUPER_ADMIN`, which holds `any` on
+`athleteApplication`, `campaignBrief`, `campaign`, `deliverable` and
+`earning`.
+
+So: a transcription slip in the table, not a policy — and it would have
+surfaced as a 403 on the activate button for a BTG_ADMIN. **The document was
+corrected first, then `policy.ts` followed it**, per that file's own header
+rule that the document wins. Doing it the other way round would have been
+exactly the drift `CLAUDE.md` forbids.
+
+The matrix digest moved deliberately, `438e87a9a4d2fa80` →
+`bc4ddbf83a1e7538`. That pin exists so a matrix change cannot happen quietly,
+and it did its job.
+
+### Verification
+
+18 new cases, including one that sweeps every self-scoped role against every
+row-scoped resource and fails if any of them gets an unrestricted filter — the
+dangerous answer being `{}`, which in Prisma means every row.
+
+Backend 305 passed, frontend 46 passed, `npm run build` clean, `eslint` clean.
+
+## SponsorX NEXT aligned into the authorisation model
+
+The NEXT spec specified two roles and ten models; the RBAC matrix knew about
+none of them. Policy living in a feature document rather than in the matrix is
+how the two drift, so the matrix gained **§15**, a full cell-by-cell appendix.
+
+### The rule that had to be inverted, and said out loud
+
+Everywhere else in that document: *the document wins, `policy.ts` follows*.
+§15 inverts it — **it is marked provisional and must not be transcribed** until
+`P9-BE-05` runs, because adding `STUDENT` and `ADVISOR` to the `Role` enum is a
+migration and Stage 9 is gated behind B8 and a sold edition. The NEXT spec now
+states the same thing from its side, so neither document can be read alone and
+come to the wrong conclusion. `policy.ts` is untouched and the matrix digest
+has not moved.
+
+This is the general shape for recording policy for gated work: **write it in
+the authoritative document, mark which way the authority runs until the gate
+opens, and say so in both places.**
+
+### Three decisions the appendix records rather than invents
+
+- **`ADVISOR` is not `PROPERTY_MGR`.** That role scopes to a property's
+  inventory and analytics; an advisor's authority is editorial and custodial
+  over minors. Same row scope, different permissions.
+- **`ADVISOR` gets no publishing economics and no rights decisions** (V3 §3).
+  They approve what students publish; they do not price inventory or grant a
+  licence. So `revenueSplit` has no advisor row at all, and `contentRight` is
+  read-only for them.
+- **A `STUDENT` reads their own sales and never another's** — the likeliest
+  leak inside a school, and the direct analogue of `PROPERTY_MGR` seeing only
+  their own roster.
+
+### Two prerequisites found by writing it down
+
+`User.propertyId` already exists, so `ADVISOR`'s `own-property` has a column
+to filter on the day it is transcribed.
+
+`User` has **no `studentId`**, so `STUDENT`'s `own` has nothing to filter by.
+Every student-scoped row would fall through to `MATCHES_NOTHING` — which fails
+safe but **silently**: the portal renders empty rather than erroring, and an
+empty portal reads as a data problem, not a permissions one. Recorded on
+`P9-BE-05`.
+
+### The state-machine edge deliberately not added
+
+`P4-BE-06` built the campaign state machine earlier the same day with
+`DRAFT → STAFFING → APPROVAL` and no `DRAFT → APPROVAL`. v2.0 settled that a
+NEXT sale **is** an ordinary `Campaign`, carries no `CampaignOrder`, and must
+therefore skip `STAFFING`.
+
+The edge was **not** added in advance, and `P9-BE-09`'s row now says why:
+bending a shipped state table to accommodate unbuilt gated work is how a state
+table stops meaning anything. The machine says what Phase 1 does; Stage 9
+changes it when Stage 9 runs.
+
+`CLAUDE.md` now records where NEXT sits — screens Stage 1 and startable, models
+and roles Stage 9 and gated — so nobody has to reconstruct that split from
+three documents.
+
+## Alignment audit — four findings, two of them mine from the same day
+
+Asked to check that everything was aligned, including enums. **The enums were
+fine** — `Role`, `AthleteState`, `BriefState`, `CampaignState` and
+`InviteState` all match `schema.prisma` exactly, in order. Four other things
+were not, and the method that found them is worth keeping: read
+`schema.prisma`, the SQL index and the worker **as text** and compare, because
+these are the pairs with no compiler keeping them honest.
+
+### The outbox was dispatching into a void
+
+The drain called `boss.send()` for any outbox row, then marked `dispatchedAt`.
+Only `notify.email` has a worker. `zoho.pushCampaign` and
+`notify.invitationSent` — both enqueued by B3 domain code written hours
+earlier — went into queues nobody works, were recorded as delivered, and would
+expire unread. **The outbox exists so that work survives; dispatching into a
+void defeats the entire mechanism.**
+
+The drain now selects only names in `HANDLED_JOBS`, so an unhandled row keeps
+`dispatchedAt` null and goes the moment its handler ships.
+
+**The first version of that fix was wrong in an instructive way.** Filtering in
+JavaScript *after* the `LIMIT` looks equivalent and is worse than the bug:
+undeliverable rows are the oldest, so they would fill every batch forever and
+starve everything behind them. The filter has to be in the SQL. Head-of-line
+blocking is easy to introduce while fixing something else.
+
+### I repeated the pattern I had flagged that morning
+
+Nine B3 domain functions across brief, campaign, matching and invitation had
+**no endpoints** — the same "closed against its acceptance, unreachable in the
+product" defect I found three times in B1 earlier the same day and wrote up as
+"a pattern, not a coincidence".
+
+Knowing about a failure mode does not prevent it. The acceptance criteria for
+those rows named domain functions, I built domain functions, and the rows
+closed honestly. **The fix that actually holds is the test**, not the
+resolution: `alignment.test.ts` now asserts every domain function is called by
+a route, and it fails the moment one is not.
+
+### Two configuration couplings
+
+The tenant id existed as **two literals** that happened to match — the API's
+`PUBLIC_INTAKE_TENANT_ID` and the worker's `TENANT_ID`. The first environment
+to set one of them would have sent every application to a tenant with no
+catalogue and no users: a data bug in appearance, a configuration bug in fact.
+The worker reads the API's variable now.
+
+`docker-compose.yml` passed none of the variables added today. Defaults made
+that invisible locally, which is exactly why it would have surfaced first in
+staging.
+
+### What the audit deliberately did not change
+
+`MetricSource` is five values in Prisma and the contract accepts three — the
+two verified-by-machine labels that nothing in Phase 1 can produce are left
+out on purpose. `AthleteTier` has four values and only three are priced;
+`ANCHOR`'s multiplier is negotiated, so a derived floor would invent a policy.
+Both subsets are now asserted as deliberate rather than left to look like
+oversights.
+
+## Five more — B2 closed, B4 opened (`P3-BE-09`, `P3-BE-12`, `P4-INT-01`, `P5-BE-01`, `P5-BE-02`)
+
+### The two rules that are really one rule
+
+**Rates are versioned, never updated**, and the unique index on
+`(athleteId, jobId, version)` makes that structural rather than a convention.
+A rate is the basis of an offer that may already have been made; overwriting
+it silently rewrites the terms of orders that quoted it and leaves nobody able
+to say what an athlete was promised in March.
+
+**An order's terms are frozen at send, never read live.** Same reasoning from
+the other end: an order reading the rate card live would pay an athlete who
+accepted $150 in March whatever the card says in September, and neither party
+could prove what was agreed.
+
+### The floor refuses; it does not report
+
+`P3-BE-12`'s whole point. A margin report tells you which campaigns lost
+money — which is the state `P0-PMO-13` found us in. A floor means they cannot
+be saved.
+
+Two details that decide whether it works:
+
+- **Line by line, never against a package total.** A package's cheaper lines
+  would hide a losing one behind a profitable average.
+- **Against `baseHigh`, not the agreed rate.** Staffing happens after pricing,
+  so the floor has to hold for the most expensive athlete who could take the
+  line — otherwise it moves every time the roster changes.
+
+The error names the job, the tier, the floor and the shortfall. *"Below the
+margin floor"* sends someone to a spreadsheet; four numbers let them fix it in
+one step, which is what the acceptance asked for.
+
+Tested at **all seven jobs × all three tiers** — 21 cases rather than a
+sample, because the collision `P0-PMO-13` found existed on *every* job and a
+sampled test would have missed that. One case reconstructs the original
+defect: SX-07 at its old $750 floor, underwater before any multiplier.
+
+### The outbox rows that were waiting got their handler
+
+`P4-INT-01` is the consumer for `notify.invitationSent`, which `P4-BE-04` had
+been enqueuing since it was written. The drain had been **holding** those rows
+rather than dispatching them into a queue nobody worked — so nothing was lost
+and they flow the moment the worker restarts.
+
+The handler **resolves the invitation at send time**, not at enqueue time, and
+skips one that has been accepted, declined or expired since. The payload
+carries an id and the world moves between enqueue and drain; telling someone
+about an invitation they already declined is worse than telling them nothing.
+Embedding the details in the payload instead would make every retry send a
+snapshot of a world that has moved on.
+
+`zoho.pushCampaign` still has no handler and its rows still accumulate — a
+test now asserts that, so it is a recorded state rather than an assumption.
+`P8-INT-01` owns it.
+
+### The guard that stops the recurring defect
+
+The reachability test now covers the six new domain functions. That defect —
+a task closing against an acceptance that names a domain function, leaving the
+capability unreachable — happened three times in B1 and once more in B3 on the
+same day. **The resolution not to do it again did not work; the test does.**
+
+### Verification
+
+35 new cases. Backend 379 passed, frontend 46 passed, build and lint clean.
+Phase 1: Done 73 · Code review 15 · Ready 23 · Blocked 115 · 467 days left.
+
+## Seven defects in five tasks I had just closed — and the lesson
+
+Asked what problems remained in `P3-BE-09`…`P5-BE-01`, I found six. Fixing
+them exposed a seventh. Two made the closed acceptances **untrue**. The user's
+response was blunt and correct:
+
+> *"why do you do tasks that are always incomplete, this is really not good.
+> when you do a task, make sure there is no shit laying around."*
+
+### What was wrong
+
+1. **The margin floor was called by nothing.** `P3-BE-12`'s acceptance is *"a
+   line below the floor cannot be saved"*. `assertClearsFloor` existed, was
+   tested at 21 points, and no code path invoked it.
+2. **`ACCEPTED` was reachable without evidence.** `transitionOrder` let an
+   athlete move an order straight there — no body hash, no signer, no IP, no
+   guardian check — around every guard in `acceptOrder`.
+3. **Acceptance was three transactions and could deadlock an order.** I had
+   written a comment reasoning that an orphan acceptance harms nothing. The
+   orphan does not; **the order does**. It stayed `SENT`, the athlete retried,
+   and `acceptAgreement` then refused with `AlreadyAcceptedError` — the order
+   could never be accepted by anyone again.
+4. **An athlete could not read their own rate card** — `assertTenantWide`
+   where the matrix gives `own` to `ATHLETE`.
+5. **The rate version race returned a 500** — raw `P2002`, uncaught.
+6. **`notify.campaignLive` was enqueued with no handler and no owner.**
+7. **Found while fixing the rest:** `campaignOrder` and `athleteRate` had no
+   scope builders, so `acceptOrder`, `transitionOrder` and `readRateCard`
+   threw `ScopeNotImplementedError` **at request time**. Every one of those
+   functions had passing tests, because each mocked its database.
+
+### The single pattern behind five of them
+
+**A rule that exists, is tested, and nothing forces the system to use it.**
+Defects 1, 2, 3 and 7 are all that shape. A unit test that calls the rule
+directly passes whether or not any caller does — which is why they all shipped
+green.
+
+Two things follow, and both are now in the code rather than in a resolution:
+
+- **Test the path, not the rule.** The new defect tests drive `createOrder`
+  and `acceptOrder`, not `assertClearsFloor` and `acceptAgreementIn`.
+- **Add the guard that fails loudly.** `alignment.test.ts` already asserted
+  that every domain function has a route; it now also fails if `whereFor()` is
+  called for a resource with no builder. Writing "do not do this again" in a
+  log changed nothing three times today; the tests did.
+
+### One place the acceptance could not be met as written
+
+`P3-BE-12` says "refuse a line whose **sponsor price** is below athlete cost ×
+1.4", and `CampaignOrder` has no per-line sponsor price — only
+`compensation`, the athlete's side. There is nothing to compare a line against
+on its own.
+
+The enforceable form of the same rule is that the sum of every line's minimum
+sell price fits the campaign's budget, which still refuses at the moment a
+line is added rather than in a report afterwards. **That is weaker in one
+way and the code says so**: a campaign with room can absorb one underwater
+line behind several cheap ones. Closing that gap needs a sponsor price per
+line — a schema change and a pricing decision, not something to invent while
+fixing a defect.
+
+## Asked "did all seven meet the acceptance criteria?" — the answer was no
+
+Four clauses across three tasks were still false after the defect fixes, and
+**two of them were in the task I had just finished fixing**. Checking them
+took one pass, clause by clause, against the call path — which is the check
+that should have happened before any of these rows moved to Code review.
+
+- **`P3-BE-09`** — *"surfaces the minimum sell price it implies (rate × 1.4)"*.
+  It returned `baseHigh × tierMultiplier × 1.4`: the **catalogue's** floor for
+  the job, a different number — and the catalogue is in whole dollars while a
+  rate is in cents, so a $120 rate returned `210`. Wrong formula and wrong
+  unit in one line.
+- **`P3-BE-12`** — *"the error names the job, **the athlete tier**, the floor
+  and the shortfall"*. The error actually thrown carried every one but the
+  tier. `MarginFloorError` had it; the one on the enforced path did not.
+- **`P4-INT-01`** — *"invitation, reminder and expiry-warning emails **all**
+  send as queued jobs"*. One of three. The other two had templates and nothing
+  sent them.
+- **`P5-BE-02`** — *"terms snapshotted at send time"*. Nothing read them live
+  and nothing froze them either: the property held only because no update path
+  existed, which is **not the same as being enforced**.
+
+### The lesson underneath
+
+Every one of these is the same reading error: **I checked that the mechanism
+existed and not that the sentence was true.** A template exists ≠ an email
+sends. An error class names the tier ≠ the thrown error names the tier. No
+update path ≠ terms are frozen. A number is returned ≠ it is the number the
+acceptance asked for.
+
+The acceptance sentences are short and precise, and each clause is a separate
+claim. Reading them as a description of the area to work in rather than as a
+list of assertions to verify is what produced eleven defects in five tasks.
+
+A unit conversion hid inside one of them for the same reason: `NilJob` is in
+whole dollars and `AthleteRate.amount` is in cents, and nothing in the type
+system says so. **When two integer columns mean money in one file, check which
+unit each is in before combining them** — the compiler will never ask.
+
+## The five tasks closed properly — and the excuse that was hiding in them
+
+`P3-BE-12`'s acceptance says *"refuse a line whose **sponsor price** is below
+athlete cost × 1.4"*. I had implemented it against the campaign budget instead
+and written, in the code and on the row, that the literal form was *"not
+expressible against this schema"* and that closing the gap *"needs a schema
+change and a pricing decision, not something to invent here."*
+
+**That was declining the work in the language of diligence.** There was no
+pricing decision outstanding — `P0-PMO-13` settled the 1.4× rule months ago.
+There was a missing column. `CampaignOrder.sellPrice`, one migration, and the
+acceptance is met in its literal form.
+
+The tell, for next time: *"this would need a schema change"* is a statement of
+cost, not of impossibility, and it is only a reason to stop if the decision
+behind the schema is genuinely open. **Check whether the decision is open
+before treating the schema as fixed.** A task whose acceptance requires a
+field is a task that includes adding the field.
+
+The budget check was kept alongside the per-line one, because a campaign that
+cannot pay for all its lines is also wrong — just differently. A test proves
+the per-line rule catches what the budget-only version let through: plenty of
+room overall, one line sold below its own cost.
+
+### All nineteen clauses, verified by call path
+
+`P3-BE-09` (5), `P3-BE-12` (3), `P4-INT-01` (3), `P5-BE-01` (4), `P5-BE-02`
+(3) — each one traced to the code path a real request takes, not to the
+function that implements it. That check took one pass and should have happened
+before any of these rows first moved to Code review; doing it afterwards cost
+eleven defects and four rounds.
+
+All five are **Done**. Four rows unblocked behind them: `P3-FE-04`,
+`P5-BE-03`, `P5-BE-04`, `P5-FE-01`. Phase 1: Done 78 · Ready 27 · 452 days
+left. Backend 424 tests passing.

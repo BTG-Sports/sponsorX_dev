@@ -10,6 +10,7 @@
  * The hashing rule lives in `agreement-hash.ts`, which imports nothing.
  */
 
+import type { Prisma } from "../generated/prisma/client";
 import { prisma } from "../db/client";
 import { audit, AUDIT_ACTIONS } from "../db/audit";
 import type { Actor } from "../auth/actor";
@@ -72,100 +73,119 @@ export async function acceptAgreement(
   actor: Actor,
   request: AcceptanceRequest,
 ): Promise<{ acceptanceId: string; acceptedAt: Date; guardianId: string | null }> {
+  return prisma.$transaction((tx) => acceptAgreementIn(tx, actor, request));
+}
+
+/**
+ * The same acceptance, inside a transaction the caller already opened.
+ *
+ * `acceptOrder` (P5-BE-01) needs the acceptance and the order's state change
+ * to commit together. Running them in two transactions looked harmless — an
+ * orphan acceptance records a real event — but it is not: if the second fails,
+ * the order stays SENT, the athlete retries, and this function then refuses
+ * with AlreadyAcceptedError because that signer already accepted that
+ * version. The order could never be accepted by anyone again.
+ *
+ * Same shape as `transitionAthleteIn`: one function still records an
+ * acceptance, it just takes the transaction as an argument.
+ */
+export async function acceptAgreementIn(
+  tx: Prisma.TransactionClient,
+  actor: Actor,
+  request: AcceptanceRequest,
+): Promise<{ acceptanceId: string; acceptedAt: Date; guardianId: string | null }> {
   assertAllowed(actor, "agreement", "write");
 
-  return prisma.$transaction(async (tx) => {
-    const agreement = await tx.agreement.findFirst({
-      where: { id: request.agreementId, tenantId: actor.tenantId },
-      select: { id: true, kind: true, version: true, bodyHash: true },
-    });
-    if (!agreement) throw new ForbiddenError("agreement", "write");
+  const agreement = await tx.agreement.findFirst({
+    where: { id: request.agreementId, tenantId: actor.tenantId },
+    select: { id: true, kind: true, version: true, bodyHash: true },
+  });
+  if (!agreement) throw new ForbiddenError("agreement", "write");
 
-    if (!bodyHashMatches(agreement.bodyHash, request.bodyHashShown)) {
-      throw new AgreementTextChangedError();
-    }
+  if (!bodyHashMatches(agreement.bodyHash, request.bodyHashShown)) {
+    throw new AgreementTextChangedError();
+  }
 
-    const existing = await tx.agreementAcceptance.findFirst({
-      where: {
-        tenantId: actor.tenantId,
-        agreementId: agreement.id,
-        userId: actor.userId,
-      },
-      select: { id: true },
-    });
-    if (existing) throw new AlreadyAcceptedError(agreement.id);
+  const existing = await tx.agreementAcceptance.findFirst({
+    where: {
+      tenantId: actor.tenantId,
+      agreementId: agreement.id,
+      userId: actor.userId,
+    },
+    select: { id: true },
+  });
+  if (existing) throw new AlreadyAcceptedError(agreement.id);
 
-    /* If the signer is an athlete and a minor, the guardian must already be
-       linked and verified. Asked through the same rule the ACTIVE transition
-       and (in B4) Campaign Order acceptance use — one definition of "may
-       participate", so a minor cannot be blocked from activation yet able to
-       sign. */
-    const signer = await tx.user.findFirst({
-      where: { id: actor.userId, tenantId: actor.tenantId },
-      select: {
-        athlete: {
-          select: {
-            birthDate: true,
-            ageBand: true,
-            guardianId: true,
-            guardian: { select: { verifiedAt: true } },
-          },
+  /* If the signer is an athlete and a minor, the guardian must already be
+     linked and verified. Asked through the same rule the ACTIVE transition
+     and (in B4) Campaign Order acceptance use — one definition of "may
+     participate", so a minor cannot be blocked from activation yet able to
+     sign. */
+  const signer = await tx.user.findFirst({
+    where: { id: actor.userId, tenantId: actor.tenantId },
+    select: {
+      athlete: {
+        select: {
+          birthDate: true,
+          ageBand: true,
+          guardianId: true,
+          guardian: { select: { verifiedAt: true } },
         },
       },
-    });
-
-    let guardianId: string | null = null;
-    if (signer?.athlete) {
-      const readiness = guardianReadiness({
-        birthDate: signer.athlete.birthDate,
-        ageBand: signer.athlete.ageBand,
-        guardianId: signer.athlete.guardianId,
-        guardianVerifiedAt: signer.athlete.guardian?.verifiedAt ?? null,
-      });
-      if (readiness.status === "missing" || readiness.status === "unverified") {
-        throw new GuardianAuthorisationRequiredError(readiness.reason);
-      }
-      /* Recorded on the acceptance only when one was actually required —
-         §12's "guardian authorization when applicable". An adult's
-         acceptance carries null, not a spurious reference. */
-      if (readiness.status === "ready") guardianId = signer.athlete.guardianId ?? null;
-    }
-
-    const acceptance = await tx.agreementAcceptance.create({
-      data: {
-        tenantId: actor.tenantId,
-        agreementId: agreement.id,
-        userId: actor.userId,
-        /* Copied, not referenced. If the template is later corrected, this
-           row still says what this person actually agreed to — which is the
-           entire evidential point (schema comment on the column). */
-        bodyHash: agreement.bodyHash,
-        ip: request.ip,
-        userAgent: request.userAgent,
-        guardianId,
-      },
-      select: { id: true, acceptedAt: true },
-    });
-
-    await audit(tx, actor, AUDIT_ACTIONS.agreement.accept, "Agreement", agreement.id, {
-      after: {
-        acceptanceId: acceptance.id,
-        kind: agreement.kind,
-        version: agreement.version,
-        bodyHash: agreement.bodyHash,
-        guardianId,
-        /* IP and user agent are on the acceptance row itself; repeating them
-           in the audit payload would duplicate personal data across two
-           tables for no gain (§26). */
-      },
-    });
-
-    return {
-      acceptanceId: acceptance.id,
-      acceptedAt: acceptance.acceptedAt,
-      guardianId,
-    };
+    },
   });
+
+  let guardianId: string | null = null;
+  if (signer?.athlete) {
+    const readiness = guardianReadiness({
+      birthDate: signer.athlete.birthDate,
+      ageBand: signer.athlete.ageBand,
+      guardianId: signer.athlete.guardianId,
+      guardianVerifiedAt: signer.athlete.guardian?.verifiedAt ?? null,
+    });
+    if (readiness.status === "missing" || readiness.status === "unverified") {
+      throw new GuardianAuthorisationRequiredError(readiness.reason);
+    }
+    /* Recorded on the acceptance only when one was actually required —
+       §12's "guardian authorization when applicable". An adult's
+       acceptance carries null, not a spurious reference. */
+    if (readiness.status === "ready") guardianId = signer.athlete.guardianId ?? null;
+  }
+
+  const acceptance = await tx.agreementAcceptance.create({
+    data: {
+      tenantId: actor.tenantId,
+      agreementId: agreement.id,
+      userId: actor.userId,
+      /* Copied, not referenced. If the template is later corrected, this
+         row still says what this person actually agreed to — which is the
+         entire evidential point (schema comment on the column). */
+      bodyHash: agreement.bodyHash,
+      ip: request.ip,
+      userAgent: request.userAgent,
+      guardianId,
+    },
+    select: { id: true, acceptedAt: true },
+  });
+
+  await audit(tx, actor, AUDIT_ACTIONS.agreement.accept, "Agreement", agreement.id, {
+    after: {
+      acceptanceId: acceptance.id,
+      kind: agreement.kind,
+      version: agreement.version,
+      bodyHash: agreement.bodyHash,
+      guardianId,
+      /* IP and user agent are on the acceptance row itself; repeating them
+         in the audit payload would duplicate personal data across two
+         tables for no gain (§26). */
+    },
+  });
+
+  return {
+    acceptanceId: acceptance.id,
+    acceptedAt: acceptance.acceptedAt,
+    guardianId,
+  };
 }
 
 export * from "./agreement-hash";

@@ -52,6 +52,38 @@ export function assertAllowed(
   return scope;
 }
 
+/**
+ * Throw unless the actor reaches this resource across the tenant.
+ *
+ * SOME ACTIONS ARE NOT DISTINGUISHED BY THEIR VERB. An athlete holds
+ * `invitation.write` — for their own invitation, so they can accept or
+ * decline — and BTG holds it across the tenant to *make* offers. Both are
+ * "write", so `assertAllowed` alone cannot tell the two acts apart, and an
+ * athlete passed the check that was supposed to stop them inviting
+ * themselves (found in review, P4-BE-04).
+ *
+ * The matrix already separates them, and it does it by **scope**: a
+ * self-scoped role holds `own` or `ward`, a BTG role holds `own-tenant` or
+ * `any`. So where one verb covers two different acts, this is what the
+ * BTG-side one asks for.
+ *
+ * Use it for an act performed *about* someone rather than *by* them:
+ * inviting an athlete, verifying a guardian, scoring an athlete. Not for
+ * accepting your own invitation or editing your own profile — those are the
+ * `own` scope working as intended.
+ */
+export function assertTenantWide(
+  actor: Actor,
+  resource: Resource,
+  action: Action,
+): Scope {
+  const scope = assertAllowed(actor, resource, action);
+  if (scope !== "any" && scope !== "own-tenant") {
+    throw new ForbiddenError(resource, action);
+  }
+  return scope;
+}
+
 /** Non-throwing form, for deciding whether to render a link or a tab. */
 export function can(
   actor: Actor,
@@ -173,7 +205,23 @@ const BUILDERS: Partial<Record<Resource, Builder>> = {
      SUPER_ADMIN's `any` is the only scope that leaves the tenant, and the
      matrix gives athletes and guardians only `own`/`ward`, which need the
      Athlete join that arrives with B1's wiring. */
-  guardian: tenantScoped,
+  guardian: (actor, scope) => {
+    switch (scope) {
+      case "any":
+        return {};
+      case "own-tenant":
+        return { tenantId: actor.tenantId };
+      case "own":
+        /* A guardian reads their own record. Note this is NOT enough to
+           verify it — verification is BTG's attestation and goes through
+           assertTenantWide (P3-BE-14). */
+        return actor.guardianId
+          ? { tenantId: actor.tenantId, id: actor.guardianId }
+          : MATCHES_NOTHING;
+      default:
+        return MATCHES_NOTHING;
+    }
+  },
 
   athlete: (actor, scope) => {
     switch (scope) {
@@ -182,8 +230,106 @@ const BUILDERS: Partial<Record<Resource, Builder>> = {
       case "own-tenant":
         return { tenantId: actor.tenantId };
       case "own":
-        /* The athlete's own record, reached through the User mirror. */
-        return { tenantId: actor.tenantId, user: { is: { id: actor.userId } } };
+        /* The athlete's own record. `User.athleteId` rather than a join back
+           through the mirror: one column, one index, same answer. */
+        return actor.athleteId
+          ? { tenantId: actor.tenantId, id: actor.athleteId }
+          : MATCHES_NOTHING;
+      case "ward":
+        /* A guardian reaches the minors they are responsible for, and no
+           others. Implemented now because P3-BE-14 exposed the guardian
+           endpoints; before that it fell through to MATCHES_NOTHING. */
+        return actor.guardianId
+          ? { tenantId: actor.tenantId, guardianId: actor.guardianId }
+          : MATCHES_NOTHING;
+      default:
+        return MATCHES_NOTHING;
+    }
+  },
+
+  /* Rows hanging off an athlete reuse the athlete's own reach: if you may
+     not see the athlete, you may not see their numbers or their score. */
+  athleteSocialAccount: (actor, scope) => nestedUnderAthlete(actor, scope),
+  athleteScore: (actor, scope) => nestedUnderAthlete(actor, scope),
+
+  /* Rates hang off an athlete exactly as socials and scores do. */
+  athleteRate: (actor, scope) => nestedUnderAthlete(actor, scope),
+
+  campaignOrder: (actor, scope) => {
+    switch (scope) {
+      case "any":
+        return {};
+      case "own-tenant":
+        return { tenantId: actor.tenantId };
+      case "own":
+        return actor.athleteId
+          ? { tenantId: actor.tenantId, athleteId: actor.athleteId }
+          : MATCHES_NOTHING;
+      case "ward":
+        return actor.guardianId
+          ? { tenantId: actor.tenantId, athlete: { is: { guardianId: actor.guardianId } } }
+          : MATCHES_NOTHING;
+      case "own-campaign":
+        /* A sponsor reads the orders on their own campaigns. The field half —
+           hiding `compensation` from them — is §7.1's and belongs to
+           P2-SEC-02; this is the row half. */
+        return actor.sponsorId
+          ? { tenantId: actor.tenantId, campaign: { is: { sponsorId: actor.sponsorId } } }
+          : MATCHES_NOTHING;
+      default:
+        return MATCHES_NOTHING;
+    }
+  },
+
+  campaignBrief: (actor, scope) => {
+    switch (scope) {
+      case "any":
+        return {};
+      case "own-tenant":
+        return { tenantId: actor.tenantId };
+      case "own":
+        /* A sponsor's own briefs — "own" on a brief means the sponsor org's,
+           not the individual user's. */
+        return actor.sponsorId
+          ? { tenantId: actor.tenantId, sponsorId: actor.sponsorId }
+          : MATCHES_NOTHING;
+      default:
+        return MATCHES_NOTHING;
+    }
+  },
+
+  campaign: (actor, scope) => {
+    switch (scope) {
+      case "any":
+        return {};
+      case "own-tenant":
+        return { tenantId: actor.tenantId };
+      case "own":
+        return actor.sponsorId
+          ? { tenantId: actor.tenantId, sponsorId: actor.sponsorId }
+          : MATCHES_NOTHING;
+      /* `assigned` and `ward-assigned` need the invite join and arrive with
+         the screens that ask for them. Falling through is the safe
+         direction: an athlete currently sees no campaign rather than all. */
+      default:
+        return MATCHES_NOTHING;
+    }
+  },
+
+  invitation: (actor, scope) => {
+    switch (scope) {
+      case "any":
+        return {};
+      case "own-tenant":
+        return { tenantId: actor.tenantId };
+      case "own":
+        return actor.athleteId
+          ? { tenantId: actor.tenantId, athleteId: actor.athleteId }
+          : MATCHES_NOTHING;
+      case "ward":
+        return actor.guardianId
+          ? { tenantId: actor.tenantId, athlete: { is: { guardianId: actor.guardianId } } }
+          : MATCHES_NOTHING;
       default:
         return MATCHES_NOTHING;
     }
@@ -199,7 +345,69 @@ const BUILDERS: Partial<Record<Resource, Builder>> = {
      never see an application at all. Sharing the filter while keeping the
      policy rows apart is the honest shape: same rows, different reach. */
   athleteApplication: (actor, scope) => BUILDERS.athlete!(actor, scope),
+
+  /* Added with P4-BE-01, the first task to query sponsors.
+
+     `own` and `own-sponsor` are the same rows here and different rows on
+     `sponsorContact`: a SPONSOR_ADMIN's "own" sponsor is one organisation,
+     and their "own-sponsor" contacts are that organisation's people. Both
+     need `actor.sponsorId`, which is why the actor now carries it — a builder
+     has no second query to find out who the caller works for.
+
+     A sponsor user with no sponsorId matches nothing rather than everything.
+     That state should not exist, and if it ever does, the safe reading of a
+     broken row is that it reaches nothing. */
+  sponsor: (actor, scope) => {
+    switch (scope) {
+      case "any":
+        return {};
+      case "own-tenant":
+        return { tenantId: actor.tenantId };
+      case "own":
+      case "own-sponsor":
+        return actor.sponsorId
+          ? { tenantId: actor.tenantId, id: actor.sponsorId }
+          : MATCHES_NOTHING;
+      default:
+        return MATCHES_NOTHING;
+    }
+  },
+
+  sponsorContact: (actor, scope) => {
+    switch (scope) {
+      case "any":
+        return {};
+      case "own-tenant":
+        return { tenantId: actor.tenantId };
+      case "own-sponsor":
+        return actor.sponsorId
+          ? { tenantId: actor.tenantId, sponsorId: actor.sponsorId }
+          : MATCHES_NOTHING;
+      default:
+        return MATCHES_NOTHING;
+    }
+  },
 };
+
+/** Shared by the rows that belong to an athlete rather than being one. */
+function nestedUnderAthlete(actor: Actor, scope: Scope): Where {
+  switch (scope) {
+    case "any":
+      return {};
+    case "own-tenant":
+      return { tenantId: actor.tenantId };
+    case "own":
+      return actor.athleteId
+        ? { tenantId: actor.tenantId, athleteId: actor.athleteId }
+        : MATCHES_NOTHING;
+    case "ward":
+      return actor.guardianId
+        ? { tenantId: actor.tenantId, athlete: { is: { guardianId: actor.guardianId } } }
+        : MATCHES_NOTHING;
+    default:
+      return MATCHES_NOTHING;
+  }
+}
 
 /**
  * The `where` fragment this actor may read for this resource, having first

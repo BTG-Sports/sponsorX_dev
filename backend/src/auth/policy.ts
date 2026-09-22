@@ -223,9 +223,14 @@ export const POLICY: Record<Resource, RolePolicy> = {
     GUARDIAN: rwa("ward", "ward"),
   },
 
+  /* Approve on `athlete` is "sets athlete status", which is what activation
+     is. NETWORK_MGR does it day to day; BTG_ADMIN and SUPER_ADMIN hold it as
+     superset roles, per §12 of the matrix document. The table there carried a
+     dash for both until 2026-09-22 — a transcription slip that showed up as a
+     403 on the activate button. */
   athlete: {
-    SUPER_ADMIN: rwa("any", "any"),
-    BTG_ADMIN: rwa("own-tenant", "own-tenant"),
+    SUPER_ADMIN: rwa("any", "any", "any"),
+    BTG_ADMIN: rwa("own-tenant", "own-tenant", "own-tenant"),
     NETWORK_MGR: rwa("own-tenant", "own-tenant", "own-tenant"),
     CAMPAIGN_MGR: rwa("own-tenant"),
     SALES: rwa("own-tenant"),

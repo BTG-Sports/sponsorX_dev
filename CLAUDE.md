@@ -12,6 +12,14 @@ athlete and property (§8); four BTG admin workspaces — Admin, Athlete Network
 Manager, Finance, Content Approval (§10, §23); guardian / authorized-rep access
 for minors (§4); and a public fan QR page with no login (§16).
 
+**SponsorX NEXT** adds a fifth portal and four public routes
+([spec](documentation/SponsorX-NEXT-Integration-Spec.md), policy in
+[RBAC Matrix §15](documentation/SponsorX-RBAC-Matrix.md)). Its **screens are
+Stage 1 work and startable now** — fixtures only, `P1-ART-08` and
+`P1-FE-18`…`P1-FE-30`. Its **models, roles and wiring are Stage 9 and gated**
+behind B8 and an edition actually selling. Do not cut `STUDENT`, `ADVISOR` or
+the seven NEXT models into the schema before that gate.
+
 **Status:** in build. The repo is npm workspaces — `frontend/` (Next.js app,
 Stage 1 UI on fixtures largely shipped) and `backend/` (Express API + pg-boss
 worker + Prisma, scaffolded 2026-09-21, Addendum B). `npm run build` /

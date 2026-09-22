@@ -28,7 +28,7 @@
  */
 
 import type { Actor } from "../auth/actor";
-import { assertAllowed } from "../auth/scope";
+import { assertAllowed, whereFor } from "../auth/scope";
 import { ForbiddenError } from "../auth/errors";
 import { prisma } from "../db/client";
 import { athleteNotificationKey, send, type EmailTemplate } from "../lib/email";
@@ -119,7 +119,7 @@ export async function reviewApplication(
        transaction so a concurrent change cannot slip between the address we
        write to and the decision we are recording. */
     const applicant = await tx.athlete.findFirst({
-      where: { id: athleteId, tenantId: actor.tenantId },
+      where: { ...whereFor(actor, "athleteApplication", "approve"), id: athleteId },
       select: { id: true, email: true, legalName: true, displayName: true },
     });
     /* Not found and not-yours answer identically, as everywhere else: telling

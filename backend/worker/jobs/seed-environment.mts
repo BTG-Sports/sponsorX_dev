@@ -37,10 +37,20 @@ import type pg from "pg";
  *  accumulating duplicates. The `seed_` prefix also makes demo rows obvious in
  *  a database browser. */
 /* Phase 1 is a single managed marketplace, so this is *the* tenant — not just
-   the demo one. The catalogue seed needs the same value and imports it from
-   here rather than keeping a second copy (P3-BE-08, P3-BE-11). It must agree
-   with the API's PUBLIC_INTAKE_TENANT_ID. */
-export const TENANT_ID = "seed_tenant_btg";
+   the demo one. The catalogue seed imports it from here rather than keeping a
+   second copy (P3-BE-08, P3-BE-11).
+
+   IT IS READ FROM THE SAME VARIABLE THE API USES. `PUBLIC_INTAKE_TENANT_ID`
+   decides which tenant a public application lands in; this decides which
+   tenant gets seeded. They were two literals that happened to match, which
+   would have held until the first environment set one of them — and then
+   every application would have arrived in a tenant with no catalogue and no
+   users, looking like a data bug rather than a configuration one.
+
+   process.env directly, not src/config/env: that module requires the Clerk
+   keys, and the worker must boot without them. The default is repeated here
+   for the same reason, and the test asserts the two agree. */
+export const TENANT_ID = process.env.PUBLIC_INTAKE_TENANT_ID ?? "seed_tenant_btg";
 const TENANT_NAME = "BTG Sports Group";
 
 type SeedUser = {
@@ -100,7 +110,39 @@ export type SeedOutcome = {
   reason?: string;
   tenantsCreated: number;
   usersCreated: number;
+  guardiansCreated?: number;
+  athletesCreated?: number;
+  sponsorsCreated?: number;
 };
+
+/**
+ * Three athletes, chosen because they take three different paths through
+ * §37 rather than because three looks like a demo.
+ *
+ * ACTIVE adult, ACTIVE minor with a verified guardian, and SUBMITTED minor
+ * with none — so the review queue has something in it, the matching desk has
+ * someone to match, and the guardian gate has a case that fails.
+ */
+const DEMO_ATHLETES = [
+  {
+    id: "seed_ath_adult", slug: "jordan-reed", legalName: "Jordan Reed",
+    displayName: "JORDAN.REED", email: "jordan.reed@example.com",
+    sport: "Basketball", stateCode: "MD", birthDate: "2003-04-02",
+    ageBand: "18_PLUS", state: "ACTIVE", guardianId: null, tier: "CREATOR",
+  },
+  {
+    id: "seed_ath_minor_ok", slug: "sam-ellis", legalName: "Sam Ellis",
+    displayName: "SAM.ELLIS", email: "sam.ellis@example.com",
+    sport: "Soccer", stateCode: "MD", birthDate: "2010-09-14",
+    ageBand: "16_17", state: "ACTIVE", guardianId: "seed_grd_1", tier: "EMERGING",
+  },
+  {
+    id: "seed_ath_minor_pending", slug: "alex-nwosu", legalName: "Alex Nwosu",
+    displayName: "ALEX.NWOSU", email: "alex.nwosu@example.com",
+    sport: "Track", stateCode: "DC", birthDate: "2011-01-20",
+    ageBand: "UNDER_16", state: "SUBMITTED", guardianId: null, tier: null,
+  },
+] as const;
 
 export async function seedEnvironment(pool: pg.Pool): Promise<SeedOutcome> {
   const environment = process.env.RAILWAY_ENVIRONMENT_NAME ?? "local";
@@ -139,12 +181,54 @@ export async function seedEnvironment(pool: pg.Pool): Promise<SeedOutcome> {
       usersCreated += result.rowCount ?? 0;
     }
 
+    /* The demo data — P2-OPS-05's "usable demo tenant from scratch".
+       A tenant with five logins and no athletes is not a demo: every portal
+       renders an empty state, and a PR environment that shows nothing cannot
+       be reviewed. These are three athletes covering the cases that actually
+       differ — an adult, a minor with a verified guardian, and a minor
+       without — because those three take different paths through §37 and a
+       reviewer needs to see all of them.
+
+       Guarded by NOT EXISTS on the id, so a redeploy does not multiply them
+       and an edited demo athlete is not reverted under whoever is using it. */
+    const guardian = await client.query(
+      `INSERT INTO "Guardian" (id, "tenantId", "legalName", email, relationship, "verifiedAt")
+       VALUES ('seed_grd_1', $1, 'Dana Reed', 'dana.reed@example.com', 'PARENT', now())
+           ON CONFLICT (id) DO NOTHING`,
+      [TENANT_ID],
+    );
+
+    let athletesCreated = 0;
+    for (const athlete of DEMO_ATHLETES) {
+      const result = await client.query(
+        `INSERT INTO "Athlete" (id, "tenantId", slug, "legalName", "displayName", email,
+                                sport, "stateCode", "birthDate", "ageBand", state,
+                                "guardianId", tier)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9::timestamp,$10,$11::"AthleteState",$12,$13::"AthleteTier")
+             ON CONFLICT (id) DO NOTHING`,
+        [athlete.id, TENANT_ID, athlete.slug, athlete.legalName, athlete.displayName,
+         athlete.email, athlete.sport, athlete.stateCode, athlete.birthDate,
+         athlete.ageBand, athlete.state, athlete.guardianId, athlete.tier],
+      );
+      athletesCreated += result.rowCount ?? 0;
+    }
+
+    const sponsor = await client.query(
+      `INSERT INTO "Sponsor" (id, "tenantId", name)
+       VALUES ('seed_spn_1', $1, 'Bowie Auto Group')
+           ON CONFLICT (id) DO NOTHING`,
+      [TENANT_ID],
+    );
+
     await client.query("COMMIT");
 
     return {
       skipped: false,
       tenantsCreated: tenant.rowCount ?? 0,
       usersCreated,
+      guardiansCreated: guardian.rowCount ?? 0,
+      athletesCreated,
+      sponsorsCreated: sponsor.rowCount ?? 0,
     };
   } catch (error) {
     await client.query("ROLLBACK").catch(() => {});
