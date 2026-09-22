@@ -573,3 +573,87 @@ comparison and quietly lose the ability to verify anything.
 
 38 new cases. Backend 200 passed, frontend 46 passed, `npm run build` clean,
 `eslint` clean. Closing these also unblocked `P4-BE-01`.
+
+## Five closed in one run — `P3-BE-05`, `P3-BE-10`, `P3-INT-02`, `P3-SEC-01`, `P4-BE-01`
+
+Four remaining B1 rows plus the first B3 model row. One migration
+(`20260922140000`), generated offline with `prisma migrate diff` as the repo
+already does — no machine here has Postgres.
+
+### `P3-BE-05` — the columns are `TEXT[]` because the acceptance says *queryable*
+
+The acceptance reads "restrictions are queryable for the conflict check in
+Phase 4", and that single word decides the shape. §26's check asks *"which
+athletes exclude alcohol?"* — a question an index answers against a `TEXT[]`
+and cannot answer against a JSON blob or a paragraph of notes.
+
+`restrictionNotes` is a **separate nullable column** for what does not reduce
+to a category, and the conflict check deliberately cannot read it.
+Unenforceable text sitting in the enforceable column is exactly how a
+restriction silently stops being one.
+
+The category vocabulary is **closed and shared** with sponsor categories. Free
+text cannot be conflict-checked: *"no booze"*, *"No Alcohol"* and
+*"alcohol/bars"* are three strings and one intention, and a query that has to
+guess is a query that misses.
+
+### `P3-BE-10` — a missing factor is not zero, and it changes the answer
+
+The rule most likely to be got wrong. A zero is an assessment — *we looked,
+and it is bad*. An absence is *we have not looked*. A new athlete with no
+sponsor-performance history scored as zero is punished for having no history,
+which is backwards for a network trying to recruit.
+
+So an absent factor's weight is redistributed across the rest, and the
+unassessed share is reported alongside the number so a weak score says so out
+loud. The same athlete scores **80** with `sponsorPerformance` absent and
+**76** with it recorded as zero. That gap is why it is tested rather than
+assumed.
+
+Worth noting: the score document's own confirmation block is still blank —
+factors and weights are settled by §14, but new-athlete handling and score
+visibility have no recorded answer.
+
+### `P3-INT-02` and `P3-SEC-01` — asserting what must already hold
+
+Neither builds much, and that is the point of each. "Notifications exist" and
+"the rules about minors are enforced in code, not just documented" are claims,
+and a claim nobody checks is a document.
+
+The templates now have a test that they **survive an empty payload**. An
+outbox row can outlive a code change that renamed a data key, and a greeting
+reading *"Hi undefined,"* is worse than a generic one.
+
+For minors: minority is evaluated against today's date and never stored, so an
+athlete who applies at 17 and activates at 18 is an adult. "No guardian" and
+"an unverified guardian" stay distinct, because collapsing them would let an
+athlete self-declare a parent. And **the `SERVICE` account cannot reach a
+guardian at all** — §18 syncs Contacts with Zoho, and a minor's parent must
+never be pushed to a CRM as a sales contact.
+
+### `P4-BE-01` — `SponsorContact` is its own table
+
+Not a use of `User`. Most sponsor contacts never sign in, and folding them in
+would make every inbound Zoho Contact a login-capable account.
+
+`Actor` now carries **`sponsorId`**, because the matrix's `own` and
+`own-sponsor` scopes on `sponsor` and `sponsorContact` cannot be expressed
+without it — a scope builder has no second query to find out who the caller
+works for. A sponsor user with no `sponsorId` matches **nothing** rather than
+everything; the dangerous failure in Prisma is `{}`, which means every row.
+
+### A structural note
+
+Two modules were split so their rules import nothing, matching
+`athlete-state.ts` and `guardian-rules.ts`: `content-value-rules.ts` and
+`brand-categories.ts`. The immediate reason was that a test could not load a
+module reaching `db/client` and therefore `env`, but the better reason is that
+B3's sponsor and brief models need the category vocabulary without pulling in
+a database client. **When a test cannot import a rule without a database, that
+is usually the rule being in the wrong file rather than the test needing a
+mock.**
+
+### Verification
+
+45 new cases. Backend 245 passed, frontend 46 passed, `npm run build` clean,
+`eslint` clean. Phase 1: Done 58 · Code review 20 · Ready 15 · Blocked 133.
