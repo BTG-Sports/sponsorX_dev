@@ -14,11 +14,13 @@
  * ForbiddenError is 403, IllegalTransitionError 409, ReviewNotesRequiredError
  * 422 — each one set where the rule lives.
  */
-import { Router } from "express";
+import { Router, type RequestHandler } from "express";
 
 import { requireActor } from "../../auth/actor";
+import { ForbiddenError } from "../../auth/errors";
 import { whereFor } from "../../auth/scope";
 import { prisma } from "../../db/client";
+import { PageQuery } from "../../contracts/common";
 import {
   ApplicationDecisionNotes,
   ApproveApplicationInput,
@@ -105,24 +107,61 @@ function toSummary(row: SummaryRow) {
  * than a hard-coded SUBMITTED, because §23's desk also shows what was decided
  * this week. Oldest first: a review queue worked newest-first starves the
  * applicant who has waited longest.
+ *
+ * PAGINATED BY CURSOR, NOT OFFSET — the reason `PageQuery` was written that
+ * way (P2-BE-07). This collection changes under the caller by definition: it
+ * is a work queue, and the rows being decided are the rows being listed. An
+ * offset would skip an applicant or show one twice precisely when the desk is
+ * busy.
+ *
+ * The tiebreaker on `id` is load-bearing. `createdAt` alone is not unique —
+ * an import job can write a whole cohort in the same millisecond — and a
+ * cursor over a non-deterministic order drops rows silently.
  */
-applicationsRouter.get("/", async (req, res) => {
+export const listApplications: RequestHandler = async (req, res) => {
   const actor = req.actor!;
   const where = whereFor(actor, "athleteApplication", "read");
 
+  /* Query strings are text; the contract describes the decoded shape. */
+  const page = PageQuery.parse({
+    cursor: typeof req.query.cursor === "string" ? req.query.cursor : undefined,
+    ...(req.query.limit === undefined ? {} : { limit: Number(req.query.limit) }),
+  });
+
   const parsed = AthleteState.safeParse(req.query.state);
+  /* One more than asked for: whether a next page exists is a fact about the
+     data, and answering it with a second COUNT query would be a second read
+     of a table that is being written to. */
   const rows = await prisma.athlete.findMany({
     where: { ...where, ...(parsed.success ? { state: parsed.data } : {}) },
     select: SUMMARY_SELECT,
-    orderBy: { createdAt: "asc" },
-    take: 200,
+    orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+    take: page.limit + 1,
+    ...(page.cursor ? { cursor: { id: page.cursor }, skip: 1 } : {}),
   });
 
-  res.json({ applications: rows.map((row) => toSummary(row as SummaryRow)) });
-});
+  const hasMore = rows.length > page.limit;
+  const items = (hasMore ? rows.slice(0, page.limit) : rows) as SummaryRow[];
 
-/** GET /applications/:id — one application, as the review drawer shows it. */
-applicationsRouter.get("/:id", async (req, res) => {
+  res.json({
+    applications: items.map(toSummary),
+    page: { nextCursor: hasMore ? (items.at(-1)?.id ?? null) : null, hasMore },
+  });
+};
+
+/**
+ * GET /applications/:id — one application, as the review drawer shows it.
+ *
+ * A miss answers 403, not 404, because that is what the decision endpoints
+ * below already answer through the domain layer — and the same id returning
+ * 404 here and 403 there is an inconsistency a client has to code around.
+ *
+ * The convention itself is P3-BE-01's and is deliberate: **not found and not
+ * yours are answered identically**, because telling a caller that an id
+ * exists in another tenant is itself a disclosure. Both endpoints held that
+ * property on their own; this makes them hold it as a pair.
+ */
+export const getApplication: RequestHandler<{ id: string }> = async (req, res) => {
   const actor = req.actor!;
   const where = whereFor(actor, "athleteApplication", "read");
 
@@ -130,13 +169,13 @@ applicationsRouter.get("/:id", async (req, res) => {
     where: { ...where, id: req.params.id },
     select: SUMMARY_SELECT,
   });
-  if (!row) {
-    res.status(404).json({ error: { code: "not_found" } });
-    return;
-  }
+  if (!row) throw new ForbiddenError("athleteApplication", "read");
 
   res.json(toSummary(row as SummaryRow));
-});
+};
+
+applicationsRouter.get("/", listApplications);
+applicationsRouter.get("/:id", getApplication);
 
 /** POST /applications/:id/begin-review — claim it. SUBMITTED → UNDER_REVIEW. */
 applicationsRouter.post("/:id/begin-review", async (req, res) => {
