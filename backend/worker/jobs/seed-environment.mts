@@ -36,7 +36,11 @@ import type pg from "pg";
 /** Deterministic ids, so re-running conflicts with itself rather than
  *  accumulating duplicates. The `seed_` prefix also makes demo rows obvious in
  *  a database browser. */
-const TENANT_ID = "seed_tenant_btg";
+/* Phase 1 is a single managed marketplace, so this is *the* tenant — not just
+   the demo one. The catalogue seed needs the same value and imports it from
+   here rather than keeping a second copy (P3-BE-08, P3-BE-11). It must agree
+   with the API's PUBLIC_INTAKE_TENANT_ID. */
+export const TENANT_ID = "seed_tenant_btg";
 const TENANT_NAME = "BTG Sports Group";
 
 type SeedUser = {

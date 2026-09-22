@@ -27,6 +27,9 @@ import {
   verifyGuardian,
 } from "../../domain/guardian";
 import { acceptAgreement } from "../../domain/agreement";
+import { recordSocials } from "../../domain/athlete-social";
+import { SocialAccount } from "../../contracts/athlete";
+import { z } from "../../contracts/zod";
 
 export const guardiansRouter = Router();
 
@@ -78,9 +81,22 @@ const accept: RequestHandler = async (req, res) => {
   );
 };
 
+/**
+ * PUT /athletes/:id/socials — replace the set, and label the numbers.
+ *
+ * The provenance is decided by who is asking, not by what they send: an
+ * athlete's own edit is SELF_REPORTED however the body is filled in, and only
+ * BTG can record that a count was actually checked (§22).
+ */
+const socials: RequestHandler<{ id: string }> = async (req, res) => {
+  const body = z.object({ socials: z.array(SocialAccount).max(4) }).parse(req.body ?? {});
+  res.json(await recordSocials(req.actor!, req.params.id, body.socials));
+};
+
 guardiansRouter.post("/athletes/:id/guardian", requireActor, link);
+guardiansRouter.put("/athletes/:id/socials", requireActor, socials);
 guardiansRouter.get("/athletes/:id/guardian-readiness", requireActor, readiness);
 guardiansRouter.post("/guardians/:id/verify", requireActor, verify);
 guardiansRouter.post("/agreements/accept", requireActor, accept);
 
-export { link, verify, readiness, accept };
+export { link, verify, readiness, accept, socials };
