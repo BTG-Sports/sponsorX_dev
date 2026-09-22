@@ -19,6 +19,12 @@
     "infra:up": "docker compose up -d postgres redis minio minio-setup",
     "infra:down": "docker compose down",
     "docker:up": "docker compose up -d",
-    "docker:down": "docker compose down"
+    "docker:down": "docker compose down",
+    "e2e": "playwright test",
+    "e2e:ui": "playwright test --ui",
+    "e2e:install": "playwright install --with-deps chromium"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.56.1"
   }
 }
