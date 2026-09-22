@@ -33,7 +33,8 @@
 
 import { PgBoss } from "pg-boss";
 import pg from "pg";
-import { seedEnvironment } from "./jobs/seed-environment.mts";
+import { seedEnvironment, TENANT_ID } from "./jobs/seed-environment.mts";
+import { seedCatalogue } from "./jobs/seed-catalogue.mts";
 import { handleSendEmail, type EmailJob } from "./jobs/send-email.mts";
 
 const connectionString = process.env.DATABASE_URL;
@@ -155,6 +156,20 @@ async function tick(): Promise<void> {
  * queue would be the worse outcome by far.
  */
 async function seedOnBoot(): Promise<void> {
+  /* The catalogue first, and outside the demo-data guard: the seven NIL jobs
+     and six packages are the real price list, needed in production more than
+     anywhere (P3-BE-08, P3-BE-11). A failure here is logged like any other —
+     a worker that cannot seed must still drain. */
+  try {
+    const catalogue = await seedCatalogue(pool, TENANT_ID);
+    console.log(
+      `[worker] catalogue seeded — ${catalogue.nilJobs} NIL jobs, ` +
+        `${catalogue.sponsorPackages} sponsor packages`,
+    );
+  } catch (error) {
+    console.error("[worker] catalogue seed failed, continuing to drain anyway:", error);
+  }
+
   try {
     const outcome = await seedEnvironment(pool);
     if (outcome.skipped) {

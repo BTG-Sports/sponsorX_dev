@@ -616,6 +616,156 @@ Check every screen on a phone. The athlete portal and redeem page are phone-firs
 - **Done when:** No horizontal scroll at 360px; portal navigation usable on phone
 - **Reference:** §9
 
+### SponsorX NEXT — UI scaffold *(added 2026-09-22)*
+
+The NEXT programme's screens are built here, on fixtures, for the same reason every other screen was: Block B is pure substitution behind finished work. None of these rows reads the backend, none of them needs a new table, and controls whose action is not real yet ship disabled with a reason rather than hidden. The wiring lives in Stage 9 and is gated.
+
+### ▶ `P1-ART-08` · Design the two new public audiences
+
+**Order** 37.01 · **ART** · **Where:** Design tool · **5d** · **Ready** · **Unblocks** 6
+
+(public) speaks to athletes and sponsors today. NEXT adds teenagers and school administrators — different voice, different proof, different CTA, and a page that has to survive being forwarded to a principal. Most of the design hours in this programme sit here, not in the portals.
+
+- **Depends on:** nothing — startable now
+- **Done when:** Both audiences designed in dark and light; the administrator page reads as a programme proposal, not a product page
+- **Reference:** Spec §9.5
+
+### ▶ `P1-FE-18` · Apply the SponsorX NEXT UI requirement across the existing pages
+
+**Order** 37.02 · **FE** · **Where:** Code · **2d** · **Ready** · **Unblocks** 5
+
+The fifth portal accent and everything that follows from it. NEXT violet is already chosen in Design/frontEndVersion2/01-accent-decision.png: --sx-next #a479ff / --sx-next-soft #c3a6ff dark, #6d31d9 / #7c3aed Frost, every pair AA or better and 52 degrees clear of athlete blue. Portal is declared twice — portal-shell.tsx and server/portal.ts — and both need the member; ACCENT is Record<Portal,...>, so the build fails until the entry exists. Four nav glyphs join ICONS. Fixtures only: no route reads the backend.
+
+- **Depends on:** nothing — startable now
+- **Done when:** A fifth portal renders with its own accent, bloom, hairlines and watermark; both Portal declarations agree; contrast re-run in both themes with the real Frost values
+- **Reference:** Spec §9.1, §9.2
+
+### ⏸ `P1-FE-19` · Build the student portal on fixtures, mobile-first
+
+**Order** 37.03 · **FE** · **Where:** Code · **5d** · **Blocked** · **Unblocks** 1
+
+The first surface in the app that is not a desk. A sixteen-year-old selling an ad in a parking lot on a phone — designed at 390px and widened, which is the reverse of how everything else was built. Assignments, sales and codes render from fixtures; actions that need the backend ship disabled with a reason, not hidden.
+
+- **Depends on:** P1-FE-18, P1-ART-08
+- **Done when:** Usable one-handed at 390px with no horizontal scroll; every disabled control says why; the desktop view is the widened one, not the designed one
+- **Reference:** Spec §9.4, §8
+
+### ⏸ `P1-FE-20` · Build the advisor desk on fixtures
+
+**Order** 37.04 · **FE** · **Where:** Code · **3d** · **Blocked** · **Unblocks** 1
+
+Reuses approvals-desk unchanged — DeliverableState is already an editorial workflow: drafted, read by the advisor, seen by the sponsor where one paid for a feature, approved, printed, confirmed.
+
+- **Depends on:** P1-FE-18, P1-ART-08
+- **Done when:** Applications and content review render for one school from fixtures; approvals-desk reused rather than rebuilt
+- **Reference:** Spec §3, §7, §8
+
+### ⏸ `P1-FE-21` · Build the edition page map on fixtures
+
+**Order** 37.05 · **FE** · **Where:** Code · **5d** · **Blocked** · **Unblocks** 1
+
+The one genuinely new interaction. A page grid showing sold, reserved and open against a layout, the back cover as a singleton, the close date counting down. marketplace-catalog lists packages; nothing in the app renders scarcity against a position.
+
+- **Depends on:** P1-FE-18, P1-ART-08
+- **Done when:** Sold, reserved and open distinguishable at a glance; the back cover renders as a singleton; the close date is visible without hovering
+- **Reference:** Spec §9.3, Design/frontEndVersion2
+
+### ⏸ `P1-FE-22` · Build the ad slot inventory ledger on fixtures
+
+**Order** 37.06 · **FE** · **Where:** Code · **3d** · **Blocked** · **Unblocks** 1
+
+The admin list behind the page map: every slot across editions, filterable by state, with the campaign that took it.
+
+- **Depends on:** P1-FE-18
+- **Done when:** Every slot's state and buyer readable in one list; filter-kit reused rather than rebuilt
+- **Reference:** Spec §8
+
+### ⏸ `P1-FE-23` · Build the revenue splits screen on fixtures
+
+**Order** 37.07 · **FE** · **Where:** Code · **3d** · **Blocked** · **Unblocks** 1
+
+Per edition, the four payees, their share and their computed amount. Must not reuse the finance workspace's earnings treatment — these are not athlete payouts, and a screen that looks like one invites the confusion the model separation exists to prevent.
+
+- **Depends on:** P1-FE-18
+- **Done when:** A split reads per edition and is visibly distinct from the athlete earnings surface
+- **Reference:** Spec §5.3, §8
+
+### ⏸ `P1-FE-24` · Build the public NEXT programme landing
+
+**Order** 37.08 · **FE** · **Where:** Code · **3d** · **Blocked**
+
+(public)/next — the two audiences in one page without either feeling like an afterthought. Static: nothing here needs a backend at all.
+
+- **Depends on:** P1-ART-08
+- **Done when:** Both audiences have a clear next step; works at 390px
+- **Reference:** Spec §8, §9.5
+
+### ⏸ `P1-FE-25` · Build the Become the Media application wizard on fixtures
+
+**Order** 37.09 · **FE** · **Where:** Code · **3d** · **Blocked** · **Unblocks** 1
+
+(public)/next/apply. Reuses join-wizard's machinery, including the guardian step, which already handles minors.
+
+- **Depends on:** P1-ART-08
+- **Done when:** A student completes the wizard on a phone against fixtures; the guardian step appears on the existing minor rule
+- **Reference:** Spec §8, §5.1
+
+### ⏸ `P1-FE-26` · Build the school adoption page
+
+**Order** 37.1 · **FE** · **Where:** Code · **2d** · **Blocked**
+
+(public)/next/schools — administrator-facing, and it has to survive being forwarded to a principal. Static.
+
+- **Depends on:** P1-ART-08
+- **Done when:** An administrator can read what the school commits to and receives, and forward the page
+- **Reference:** Spec §8, §9.5
+
+#### Added by NEXT spec v2.0 *(2026-09-22)*
+
+Four surfaces version 1.0 either deferred or never named. The free digital edition is the largest correction: principle 10 makes it the V1 reader product, where 1.0 had it as a Stage 2 nicety.
+
+### ⏸ `P1-FE-27` · Build the free digital edition reader on fixtures
+
+**Order** 37.11 · **FE** · **Where:** Code · **5d** · **Blocked** · **Unblocks** 1
+
+Principle 10 makes free digital the V1 reader product, not a deferred nicety — v1.0 had this as Stage 2 and it was wrong. (public)/next/[school]/[edition]. Article pages run on the existing type scale: V1 does not get a long-form editorial scale, and inventing one here is the scope error that sinks the programme.
+
+- **Depends on:** P1-FE-18, P1-ART-08
+- **Done when:** An edition reads end to end from fixtures on a phone and a desktop; no new type scale is introduced; no route reads the backend
+- **Reference:** Spec v2.0 §8, §9, principle 10
+- **Note:** Design/frontEndVersion2 is being rebuilt as of 2026-09-22 — treat the screens there as direction, not a specification, and re-check them before building.
+
+### ⏸ `P1-FE-28` · Add Claim this profile and the FEATURED state to the athlete page
+
+**Order** 37.12 · **FE** · **Where:** Code · **3d** · **Blocked** · **Unblocks** 1
+
+(public)/athletes/[slug] already exists and is the QR destination. It gains the claim entry point and a FEATURED treatment. Featured does not mean represented and claiming does not equal commercial activation (principles 1 and 2) — the screen has to make that difference legible, because a featured athlete who believes they are signed is the misunderstanding this whole consent model exists to prevent.
+
+- **Depends on:** P1-FE-18
+- **Done when:** A FEATURED athlete renders distinctly from an ACTIVE one; the claim entry point is present and visibly does not grant representation; the existing page's behaviour for ACTIVE athletes is unchanged
+- **Reference:** Spec v2.0 §5.4, §8, principles 1-3
+
+### ⏸ `P1-FE-29` · Build the rights ledger and clearance queue on fixtures
+
+**Order** 37.13 · **FE** · **Where:** Code · **5d** · **Blocked** · **Unblocks** 1
+
+(app)/admin/next/rights. One ledger, three population paths (§6.1) — a guardian ticking a box, a negotiated media licence and a student agreement all land in one record even though the capture differs. Rights are checked before publication (principle 4), so the queue's job is to make an uncleared item impossible to miss.
+
+- **Depends on:** P1-FE-18, P1-ART-08
+- **Done when:** Cleared, pending and blocked are distinguishable at a glance; an item that would publish without clearance is visually unmissable; filter-kit reused
+- **Reference:** Spec v2.0 §5.3, §6.1, §8
+
+### ⏸ `P1-FE-30` · Build the points balance on fixtures, deliberately unlike earnings
+
+**Order** 37.14 · **FE** · **Where:** Code · **3d** · **Blocked** · **Unblocks** 1
+
+Must look nothing like athlete/earnings. A student or a parent reading a points balance as a dollar balance is a legal problem before it is a usability one — different card, different treatment, no currency glyph anywhere on the screen. Designs exist in Design/frontEndVersion2 (02-06), which is being rebuilt, so treat them as direction rather than a spec.
+
+- **Depends on:** P1-FE-18, P1-ART-08
+- **Done when:** No currency glyph, no earnings-derived component and no dollar-shaped number anywhere on the screen; accrual reasons are readable in plain words
+- **Reference:** Spec v2.0 §5.5, §9
+- **Note:** Design/frontEndVersion2 is being rebuilt as of 2026-09-22 — treat the screens there as direction, not a specification, and re-check them before building.
+
 ## Stage 2 · Platform Foundations
 
 **Objective.** the heaviest phase, and the one that unblocks everything. At the
@@ -945,6 +1095,28 @@ The admin actions: approve, request changes, reject. Every decision recorded and
 - **Depends on:** P3-BE-01
 - **Done when:** Admin can approve, request changes or reject; every transition is audited and notifies the applicant
 - **Reference:** §13, §23
+
+### ◑ `P3-BE-13` · Athlete application submission — the public intake
+
+**Order** 65.5 · **BE** · **Where:** Code · **3d** · **Code review**
+
+The half of B1's exit that had no task. P3-BE-01 delivered the contract and the state machine and nothing consumed AthleteApplicationInput: no domain function, no route, and the seed creates users but no athletes, so the review surface could only decide applications that had no way to exist. /join is public, so this is the only write path in the API with no actor behind it — the tenant is configuration rather than input, an existing application is reachable only by a signed token that names it, and editing is refused unless the state allows it. Guardian capture stays with P3-BE-03; §37's gate sits between APPROVED and ACTIVE, not between an applicant and the form.
+
+- **Depends on:** P3-BE-01
+- **Done when:** An applicant submits at /join with no account and receives a signed link back to their own application; a CHANGES_REQUESTED application can be edited and is resubmitted by the same act; editing is refused once a decision is taken; the athlete, socials, audit row and receipt email commit together or not at all; a path with no actor cannot move anyone to ACTIVE
+- **Reference:** §11, §21, §39, Addendum A3
+- **Note:** Introduces SystemActor so the one bypass of the role check is greppable, and the Redis rate limiter the stack decision reserved Redis for. P3-FE-01 wires /join to these endpoints.
+
+### ◑ `P3-BE-14` · Expose the rest of B1 over the API
+
+**Order** 65.6 · **BE** · **Where:** Code · **3d** · **Code review**
+
+Three tasks were Done whose domain functions no endpoint called: acceptAgreement (P3-BE-06), linkGuardian / verifyGuardian / readGuardianReadiness (P3-BE-03), and the APPROVED to ACTIVE move (P3-BE-01). B1's exit asks for an athlete ACTIVE with agreements and, if a minor, a verified guardian captured — apply and approve worked and then it stopped. Activation needs approve on athlete rather than on athleteApplication, which the matrix gives to NETWORK_MGR alone: BTG_ADMIN may approve an application and deliberately may not activate an athlete.
+
+- **Depends on:** P3-BE-03, P3-BE-06, P3-BE-13
+- **Done when:** An athlete can be activated over the API and §37's gate refuses a minor without a verified guardian; a guardian can be linked and verified with the attestation audited; an agreement can be accepted against the body hash actually shown and is refused when the text has moved on; the published relationship vocabulary is exactly the one linkGuardian accepts
+- **Reference:** §4, §11, §12, §37, RBAC Matrix §5
+- **Note:** The applicant-facing half of guardian capture — a minor's parent submitting details at /join — is NOT here. linkGuardian takes an Actor and a guardian at sign-up has no account, the same problem P3-BE-13 solved for the applicant. Raise it once /join's guardian step is settled. OPEN: the RBAC matrix contradicts itself — its athlete table gives BTG_ADMIN no Approve cell, while its §12 says BTG_ADMIN sets athlete status 'as the superset role'. policy.ts follows the table. Needs a pull request to the document, not a code change.
 
 ### ⏸ `P3-INT-01` · Build the transactional email send interface
 
@@ -2105,6 +2277,321 @@ Review the public-facing pages for injection, enumeration and rate-limit weaknes
 - **Depends on:** P6-FE-02
 - **Done when:** Redeem page, tracking redirect, join form and public profiles reviewed for injection, enumeration and rate-limit exposure
 - **Reference:** §26
+
+## Stage 9 · SponsorX NEXT
+
+Specified in [`SponsorX-NEXT-Integration-Spec.md`](SponsorX-NEXT-Integration-Spec.md) (`P0-PMO-14`). **Gated, not queued.** Roughly 70% of NEXT already exists in the Phase 1 models under different nouns; what is genuinely absent is seven models and two roles, and those are earned by B8 closing the §39 loop and by an edition having actually sold — not by a specification. Stage 0 below ships the first edition with zero new models.
+
+The UI scaffold is **not** here. It sits in Stage 1 with the rest of the fixture work, because a disabled button costs no schema and is reversible.
+
+The legal questions — money to minors, the Sales Challenge as a contest — are tracked on the Legal sheet and gate no build row here.
+
+### ▶ `P9-PMO-01` · Confirm the NEXT rate card and revenue split
+
+**Order** 179 · **PMO** · **Where:** Document · **2d** · **Ready** · **Unblocks** 2
+
+DECISION GATE · The 35/25/25/15 split and the slot prices are the source document's illustration, explicitly adjustable. Needs a commercial decision of the kind P0-PMO-13 was for NIL pricing.
+
+- **Depends on:** nothing — startable now
+- **Done when:** Slot prices and the four-way split signed off as numbers, not ranges; the back cover and presenting sponsor recorded as quantity one
+- **Reference:** Spec §5.2, §5.3, §12
+
+### ▶ `P9-PMO-02` · School partnership agreement and programme terms
+
+**Order** 180 · **PMO** · **Where:** Document · **3d** · **Ready** · **Unblocks** 1
+
+What a school signs to run an edition: who owns the masthead, who holds editorial approval, what happens to unsold inventory, and how student work is licensed.
+
+- **Depends on:** nothing — startable now
+- **Done when:** A school can sign one document and start; editorial approval authority named explicitly
+- **Reference:** Spec §7, §12
+
+### ⏸ `P9-BE-01` · Seed the NEXT ad and bundle packages
+
+**Order** 181 · **BE** · **Where:** Code · **2d** · **Blocked** · **Unblocks** 1
+
+The $1,500 Local Business Package as an ordinary SponsorPackage. Its social posts are STUDENT-created, so `lineItems` is EMPTY and every element sits in `includes` — the field P0-PMO-13 §5 defines as non-NIL inventory sold alongside the jobs. No schema change, and no NIL job anywhere in it.
+
+- **Depends on:** P3-BE-11, P9-PMO-01
+- **Done when:** NEXT-LOCAL-1500 and the ad-only slots exist as SponsorPackage rows with empty lineItems, flow through the marketplace and the Zoho Deal sync, and are never evaluated by the margin floor because they carry no athlete cost
+- **Reference:** Spec §4
+
+### ⏸ `P9-OPS-01` · Onboard the pilot school as a Property
+
+**Order** 182 · **OPS** · **Where:** Code + console · **1d** · **Blocked** · **Unblocks** 1
+
+A participating school is a Property with kind = SCHOOL. No new model — this is a seed and a Zoho Account.
+
+- **Depends on:** P9-PMO-02
+- **Done when:** The pilot school exists as a Property, its advisor has a login, and it appears in the property portal
+- **Reference:** Spec §3
+
+### ⏸ `P9-DATA-01` · Run edition one on existing primitives
+
+**Order** 183 · **DATA** · **Where:** Document + code · **5d** · **Blocked** · **Unblocks** 1
+
+STAGE 0 EXIT · Sell and ship the first edition with zero new models: inventory watched by a person, splits on a spreadsheet, student codes approximated by TrackingLink. What this proves is commercial, and all of it can fail — which is the argument for finding out before cutting nine models into the schema.
+
+- **Depends on:** P9-BE-01, P9-OPS-01
+- **Done when:** One edition sold and published as a FREE digital edition (V3 principle 10 — print is an optional layer, never the foundation); at least 20 local advertisers bought, which is the pilot's one real measurement; a student sold at least one slot; the school signed
+- **Reference:** Spec §10
+
+### ⏸ `P9-PMO-03` · NEXT Stage 1 entry gate
+
+**Order** 184 · **PMO** · **Where:** Document · **1d** · **Blocked** · **Unblocks** 2
+
+DECISION GATE · Stage 1 cuts nine models and two roles into the schema. It is earned by B8 closing the §39 loop and by an edition having actually sold — not by a specification. The legal questions (money to minors, the Sales Challenge as a contest) are tracked on the Legal sheet and do not gate this row.
+
+- **Depends on:** P8-PMO-06, P9-DATA-01
+- **Done when:** Both gates evidenced in writing: the §39 loop runs end to end, and edition one sold
+- **Reference:** Spec §10, §11, §37
+
+### ⏸ `P9-BE-02` · Publication and Edition models with the edition state machine
+
+**Order** 185 · **BE** · **Where:** Code · **3d** · **Blocked** · **Unblocks** 2
+
+The masthead per school or region, and its Fall/Winter/Spring/Year-End editions carrying closeDate, printDate and pageCount. PLANNING → SELLING → CLOSED → IN_PRODUCTION → PRINTED → DISTRIBUTED.
+
+- **Depends on:** P9-PMO-03
+- **Done when:** Publication belongs to a Property or to none for a regional edition; the state machine is enforced in the domain layer and refuses a sale after closeDate
+- **Reference:** Spec §5.2
+
+### ⏸ `P9-BE-03` · AdSlot inventory ledger with scarcity and close-date enforcement
+
+**Order** 186 · **BE** · **Where:** Code · **5d** · **Blocked** · **Unblocks** 3
+
+One row per sellable position per edition — price in integer cents, quantity, and a nullable campaignId once sold. It points at the Campaign, not a CampaignOrder, because an order requires an athlete and a job and an ad slot has neither.
+
+- **Depends on:** P9-BE-02
+- **Done when:** The back cover sells exactly once, enforced by the database and not by a query; a slot cannot be sold after the edition's closeDate; the includes entry from P9-BE-01 becomes enforceable
+- **Reference:** Spec §4, §5.2
+
+### ⏸ `P9-BE-04` · Student model, state machine and advisor review
+
+**Order** 187 · **BE** · **Where:** Code · **5d** · **Blocked** · **Unblocks** 4
+
+A student is not an athlete — no sport, no tier, no rate card, and compensation that is deliberately not cash. Carries an optional athleteId because a correspondent is both. Reuses Guardian unchanged, since nearly every student is a minor.
+
+- **Depends on:** P9-PMO-03
+- **Done when:** StudentState mirrors AthleteState and is advisor-reviewed; a minor student requires a verified Guardian on the same rule as an athlete; no nullable half of Athlete anywhere
+- **Reference:** Spec §5.1
+
+### ⏸ `P9-BE-05` · STUDENT and ADVISOR roles in the authorisation matrix
+
+**Order** 188 · **BE** · **Where:** Code · **3d** · **Blocked** · **Unblocks** 2
+
+Two roles, not one reused. PROPERTY_MGR scopes to a property's inventory and analytics; an advisor's permissions are editorial and custodial over minors. Update the RBAC matrix document first — authz-policy.ts is a transcription of it.
+
+- **Depends on:** P9-BE-04
+- **Done when:** Both roles in the matrix document and authz-policy.ts; AthleteRate.amount invisible to STUDENT as firmly as to a sponsor; the catalogued-resource assertion and the money-boundary tests updated rather than deleted
+- **Reference:** Spec §7, §26
+
+### ⏸ `P9-BE-06` · RevenueSplit on the edition, Earning untouched
+
+**Order** 189 · **BE** · **Where:** Code · **3d** · **Blocked** · **Unblocks** 1
+
+Four payees per edition with a basis-points share and a computed amount in cents. Earning stays one order → one athlete → one gross: making it polymorphic would put schools and minors' scholarship pools into the table finance reconciles athlete payouts from.
+
+- **Depends on:** P9-BE-02, P9-PMO-01
+- **Done when:** A split resolves to four payees without a single write to Earning; athlete NIL work inside a NEXT campaign is still an ordinary Earning
+- **Reference:** Spec §5.3
+
+### ⏸ `P9-BE-07` · StudentCode, SaleAttribution and the /s/[code] resolver
+
+**Order** 190 · **BE** · **Where:** Code · **3d** · **Blocked** · **Unblocks** 2
+
+A third attribution namespace. TrackingLink measures an athlete's deliverable, RewardToken a fan's journey, StudentCode a student's sales across many campaigns. TrackingLink.deliverableId is unique and non-null by design; relaxing it would repeat the exact bug the schema already carries a scar from.
+
+- **Depends on:** P9-BE-04
+- **Done when:** A student's code attributes a sale at /s/[code]; the code belongs to a person across many sales; no TrackingLink or RewardToken column is relaxed to fit
+- **Reference:** Spec §6
+
+### ✖ `P9-BE-08` · ~~Evaluate the margin floor per NIL line~~ — **VOID, do not build**
+
+**Order** 191 · **BE** · **Where:** Code · **0d** · **Dropped**
+
+VOID 2026-09-22. Raised against version 1.0 of the spec, which read the $1,500 package as containing four SX-02 NIL jobs. It does not — the social posts are student-created, so a NEXT package has no NIL line items, no CampaignOrder and therefore no athlete cost for a margin floor to clear. **`P3-BE-12` is correct as built and must not be touched.** The ID is kept rather than reused so nothing dangles.
+
+- **Depends on:** —
+- **Done when:** Nothing. Do not build this.
+- **Reference:** Spec v2.0 §0, §13
+
+### ⏸ `P9-BE-09` · Settle the ad-only sale: no CampaignOrder, and the campaign state
+
+**Order** 192 · **BE** · **Where:** Code · **3d** · **Blocked**
+
+SETTLED 2026-09-22 — build it. A NEXT sale IS an ordinary Campaign: V3 defines a SponsorX Campaign as a paid package with defined placements, content, distribution and measurable deliverables, which is Campaign + Deliverable + MetricDaily + a SalesAttribution row, and it gets a Zoho Deal like any other. It carries NO CampaignOrder, because an order requires an athlete and a job. A campaign with zero orders must therefore skip STAFFING — there is nobody to staff.
+
+- **Depends on:** P9-BE-03
+- **Done when:** The decision is written down and implemented; an ad-only sale reaches a terminal state without a fake athlete or a fake job anywhere in the record
+- **Reference:** Spec §5.2, §12
+
+### ⏸ `P9-FE-01` · Wire the student portal to real assignments, sales and codes
+
+**Order** 203 · **FE** · **Where:** Code · **3d** · **Blocked**
+
+Substitution behind a finished screen: fixtures out, API in, disabled controls become live.
+
+- **Depends on:** P9-BE-04, P9-BE-07, P1-FE-19
+- **Done when:** Assignments, sales and codes come from the API; no fixture import remains in the student routes
+- **Reference:** Spec §8
+
+### ⏸ `P9-FE-02` · Wire the advisor desk to student applications and content
+
+**Order** 204 · **FE** · **Where:** Code · **2d** · **Blocked**
+
+- **Depends on:** P9-BE-05, P1-FE-20
+- **Done when:** An advisor reviews and approves real records, scoped to one school and refused for any other
+- **Reference:** Spec §7, §8
+
+### ⏸ `P9-FE-03` · Wire the edition page map to the AdSlot ledger
+
+**Order** 205 · **FE** · **Where:** Code · **3d** · **Blocked** · **Unblocks** 1
+
+- **Depends on:** P9-BE-03, P1-FE-21
+- **Done when:** The map reflects real slot state; the back cover cannot be added to a second campaign from the UI
+- **Reference:** Spec §5.2, §9.3
+
+### ⏸ `P9-FE-04` · Wire the ad slot inventory ledger
+
+**Order** 206 · **FE** · **Where:** Code · **2d** · **Blocked**
+
+- **Depends on:** P9-BE-03, P1-FE-22
+- **Done when:** Every slot's state and buyer come from the ledger
+- **Reference:** Spec §8
+
+### ⏸ `P9-FE-05` · Wire the revenue splits screen
+
+**Order** 207 · **FE** · **Where:** Code · **2d** · **Blocked**
+
+- **Depends on:** P9-BE-06, P1-FE-23
+- **Done when:** A real split resolves to four payees on screen with no read of Earning
+- **Reference:** Spec §5.3
+
+### ⏸ `P9-FE-06` · Wire the student application wizard to the real API
+
+**Order** 208 · **FE** · **Where:** Code · **2d** · **Blocked**
+
+- **Depends on:** P9-BE-04, P1-FE-25
+- **Done when:** A real student application is created and reaches the advisor desk; a minor's guardian is captured on the existing rule
+- **Reference:** Spec §5.1, §8
+
+### ⏸ `P9-SEC-01` · Minor-student data handling and field-level authz
+
+**Order** 209 · **SEC** · **Where:** Code · **3d** · **Blocked**
+
+Nearly every student is a minor, and the student pool is money-adjacent. Field-level authz is the real leak, and a STUDENT must never reach an athlete rate or another student's sales.
+
+- **Depends on:** P9-BE-05
+- **Done when:** Cross-student and cross-school isolation tested; AthleteRate.amount denied to STUDENT and ADVISOR; no fan or student PII beyond what the programme needs
+- **Reference:** Spec §7, §26, §37
+
+### ⏸ `P9-QA-01` · E2E: edition sells once, a student code attributes the sale
+
+**Order** 210 · **QA** · **Where:** Code · **3d** · **Blocked**
+
+The Stage 1 exit, run as a test rather than asserted in a document.
+
+- **Depends on:** P9-FE-03, P9-BE-07
+- **Done when:** A school is a Property, an edition sells a back cover exactly once, a student's code attributes a sale, artwork clears the approval board with a ContentRight covering its use, QR_SCAN and LINK_CLICK report separately, and a split resolves to four payees without touching Earning
+- **Reference:** Spec §11
+
+### ⏸ `P9-BE-10` · ContentRight — one rights ledger, three population paths
+
+**Order** 193 · **BE** · **Where:** Code · **4d** · **Blocked**
+
+The publication gate asks one question — *may we publish this asset, in this format, on this date?* — and it must answer it in ONE query. Student consent, athlete/guardian consent and a negotiated BTG licence populate the same table via `grantorKind`; three separate rights systems would mean the gate reconciles three shapes of answer per asset and that is exactly where uncleared material slips through. BTG content defaults `mayReuseCommercially = false`: editorial use is not a licence to resell journalism inside a sponsor's campaign.
+
+- **Depends on:** P9-BE-02
+- **Done when:** Every asset in an edition carries a ContentRight covering the intended use; print and digital are separate permissions so a digital-first edition clears while print is outstanding; a BTG asset cannot enter a sponsor campaign without an explicit commercial grant
+- **Reference:** Spec v2.0 §5.3, §6.1
+
+### ⏸ `P9-BE-11` · FEATURED athletes, three-part consent and the claim flow
+
+**Order** 194 · **BE** · **Where:** Code · **4d** · **Blocked**
+
+The correction that makes NEXT safe: being featured is not being represented. `AthleteState` gains FEATURED — created by editorial, never applied for, read-only, invisible to matching, holds no rates. Claiming requires three assertions: athlete initiates, school roster plus advisor verifies, guardian authorises. **`AgreementAcceptance` must gain typed subjects with a nullable `userId` first** — today a featured athlete has no login and a guardian has no account, so there is nowhere to record feature consent at all. `Agreement.kind` extends by FEATURE, PROFILE and COMMERCIAL as data.
+
+- **Depends on:** P9-BE-04, P0-LEG-01
+- **Blocked also by:** the school roster, which does not exist — `Athlete.school` is free text (Spec §14 gate 1)
+- **Done when:** A featured athlete has a public profile and can receive no invitation; consent is recorded for a subject with no login; commercial activation is impossible without guardian authorisation; GPA is absent unless separately decided
+- **Reference:** Spec v2.0 §5.4, §6.2
+
+### ⏸ `P9-BE-12` · EditionEvent — QR_SCAN and LINK_CLICK kept apart
+
+**Order** 195 · **BE** · **Where:** Code · **2d** · **Blocked**
+
+V1 is digital-first, and a QR is a print affordance — in a digital edition nobody scans, they tap. Pooling the two makes the first sponsor report say something untrue. A new stream, NOT an extension of `RewardEventType`: a fan's reward journey and an article engagement are different subjects, and the schema already carries a scar from collapsing two subjects into one table. Reward tokens keep their four events unchanged.
+
+- **Depends on:** P9-BE-02
+- **Done when:** QR_SCAN, LINK_CLICK, PROFILE_VIEW, CAMPAIGN_VIEW and CTA_CLICK record as separate rows; the sponsor report shows print and digital acquisition separately; RewardEventType is untouched
+- **Reference:** Spec v2.0 §6.4
+
+### ⏸ `P9-BE-13` · Sponsor ownership, immutable attribution, and the two conflict checks
+
+**Order** 196 · **BE** · **Where:** Code · **3d** · **Blocked**
+
+Students own attribution, never the customer relationship. A `SalesAttribution` row is never updated and never deleted — including when the student graduates, is suspended, or the sponsor churns — because a student's portfolio depends on it. `Sponsor` gains `ownership` (SCHOOL | SPONSORX | STUDENT_ORIGINATED), `schoolPropertyId` and `assignedStudentId`, the last being current representation and not ownership. Separately, the two conflict checks are distinct workflows with distinct owners: a Content Conflict holds content for edit; a Sponsor Acceptance rejection carries a reason code, notifies the student and **costs them no sales credit**.
+
+- **Depends on:** P9-BE-07
+- **Done when:** Graduating a student changes no attribution row; reassigning an account touches only `assignedStudentId`; a rejected prospect leaves the student's standing intact and offers a redirect where a category is open
+- **Reference:** Spec v2.0 §5.1, §5.6, §6.3
+
+### ⏸ `P9-BE-14` · ContentContribution and the DMV regional pool
+
+**Order** 197 · **BE** · **Where:** Code · **2d** · **Blocked**
+
+Regional revenue is allocated by predefined rules, not negotiated after publication. Sales credit and content contribution are different things: the first is an ordinary SalesAttribution row, the second is units (FEATURE 5 · PHOTO_PACKAGE 3 · INTERVIEW 3 · VIDEO 5) resolved as `units ÷ total eligible units × pool`. A school contributing no selected content receives nothing from the content-based pool.
+
+- **Depends on:** P9-BE-06, P9-BE-13
+- **Done when:** A DMV edition draws from several schools and both pools resolve by formula with no manual adjudication
+- **Reference:** Spec v2.0 §5.7
+
+### Added by NEXT spec v2.0 *(2026-09-22)*
+
+The points ledger is `DECIDED` in v2.0 §5.5 and had no row at all. The four wiring rows pair with the Stage 1 scaffold rows above.
+
+### ⏸ `P9-BE-15` · StudentPointAccrual — the points ledger
+
+**Order** 211 · **BE** · **Where:** Code · **3d** · **Blocked** · **Unblocks** 1
+
+Accruals are recorded; converting them to anything is a separate, gated act. ARTICLE 50, INTERVIEW 25, APPOINTMENT 25, SALES_500 100, VIEWS_BONUS. No EarningState, no cents column, no relation to Earning — if points and money share a table, a finance reconciliation of athlete payouts starts returning minors' scholarship balances. The shape holds whichever way open gate 2 is answered; only the redemption record changes.
+
+- **Depends on:** P9-BE-04
+- **Done when:** Accruals record against a student and optionally an edition; no cents column and no Earning relation exists; redemption is absent by design and is its own gated task
+- **Reference:** Spec v2.0 §5.5, §14 gate 2
+
+### ⏸ `P9-FE-07` · Wire the digital edition reader to real editions
+
+**Order** 212 · **FE** · **Where:** Code · **2d** · **Blocked**
+
+- **Depends on:** P9-BE-02, P1-FE-27
+- **Done when:** A published edition reads from the API; an unpublished one is unreachable
+- **Reference:** Spec v2.0 §8
+
+### ⏸ `P9-FE-08` · Wire Claim this profile to the claim flow
+
+**Order** 213 · **FE** · **Where:** Code · **3d** · **Blocked**
+
+- **Depends on:** P9-BE-11, P1-FE-28
+- **Done when:** A real claim runs the three-part consent and does not grant representation; guardian authorisation gates commercial activation on the existing Guardian.verifiedAt rule
+- **Reference:** Spec v2.0 §5.4
+
+### ⏸ `P9-FE-09` · Wire the rights ledger and clearance queue
+
+**Order** 214 · **FE** · **Where:** Code · **2d** · **Blocked**
+
+- **Depends on:** P9-BE-10, P1-FE-29
+- **Done when:** The queue reflects real ContentRight records; publication is refused for an uncleared item
+- **Reference:** Spec v2.0 §5.3
+
+### ⏸ `P9-FE-10` · Wire the points balance to real accruals
+
+**Order** 215 · **FE** · **Where:** Code · **2d** · **Blocked**
+
+- **Depends on:** P9-BE-15, P1-FE-30
+- **Done when:** Balances come from StudentPointAccrual; no read touches Earning
+- **Reference:** Spec v2.0 §5.5
 
 ---
 

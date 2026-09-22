@@ -8,8 +8,21 @@ import {
 import "./zod";
 import { PageMeta, PageQuery, ProblemDetails, Provenance } from "./common";
 import {
+  AgreementAcceptanceInput,
+  GuardianInput,
+  GuardianReadiness,
+  GuardianRelationship,
+} from "./guardian";
+import {
+  ApplicantView,
+  ApplicationDecisionNotes,
+  ApplicationSubmissionReceipt,
+  AthleteApplicationPatch,
+  ApplicationReviewDecision,
+  ApproveApplicationInput,
   AthleteApplicationInput,
   AthleteApplicationReview,
+  AthleteApplicationSummary,
   AthleteState,
   SocialAccount,
 } from "./athlete";
@@ -42,6 +55,26 @@ registry.register("AthleteState", AthleteState);
 registry.register("SocialAccount", SocialAccount);
 registry.register("AthleteApplicationInput", AthleteApplicationInput);
 registry.register("AthleteApplicationReview", AthleteApplicationReview);
+
+// --- application review (P3-BE-07, §13, §23) -----------------------------
+
+registry.register("ApplicationReviewDecision", ApplicationReviewDecision);
+registry.register("ApproveApplicationInput", ApproveApplicationInput);
+registry.register("ApplicationDecisionNotes", ApplicationDecisionNotes);
+registry.register("AthleteApplicationSummary", AthleteApplicationSummary);
+
+// --- public intake (P3-BE-13, §11) ---------------------------------------
+
+registry.register("AthleteApplicationPatch", AthleteApplicationPatch);
+registry.register("ApplicationSubmissionReceipt", ApplicationSubmissionReceipt);
+registry.register("ApplicantView", ApplicantView);
+
+// --- guardians and agreements (P3-BE-14, §4, §12, §37) -------------------
+
+registry.register("GuardianRelationship", GuardianRelationship);
+registry.register("GuardianInput", GuardianInput);
+registry.register("GuardianReadiness", GuardianReadiness);
+registry.register("AgreementAcceptanceInput", AgreementAcceptanceInput);
 
 /**
  * Bearer auth for §8's API Service Account. Clerk issues the session for human

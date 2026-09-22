@@ -953,3 +953,45 @@ is configuration we believe in rather than a path we have watched work. The
 same is true of email: the queue, the worker, the ledger and the templates all
 exist, but nothing calls `send()` until `P3-BE-07` notifies an applicant, so
 the outbox → worker → Resend path has never been exercised.
+
+## Late-day backfill — the last four tasks of 2026-09-21
+
+This log stopped at the staging deployment; four tasks landed after it and
+were recorded on the board but never here. Added 2026-09-22 from the commits.
+
+**`P3-BE-01` · Athlete application contract, fields and state machine**
+(`9928ab1`). `Athlete.state` is an ordinary column, so "enforced in the domain
+layer" means exactly one function changes it, consulting a table of legal
+moves and refusing everything else. The table lives in `athlete-state.ts`,
+which imports nothing, so the rule is testable without a database — asserted
+exhaustively over all 8 × 8 ordered pairs, because a happy-path test would
+pass just as well against a function that permits everything. The contract
+owns four of §11's ten sections and deliberately leaves capabilities,
+interests, restrictions, rates and agreements to the sibling tasks that own
+them.
+
+**`P3-BE-03` · Guardian linkage and verification for minors** (`0c51b23`).
+Three states that get conflated in conversation and must not be in code: an
+adult needs no guardian; a minor with none linked cannot participate; a minor
+with an unverified one cannot either. Collapsing the last two would let an
+athlete self-declare a parent and proceed. Minority is evaluated against the
+current date on every check rather than stored — an athlete who applies at 17
+and activates at 18 is an adult, and a stored flag would keep them a minor
+forever.
+
+**`P3-BE-06` · Agreement acceptance with body hash** (`3c30789`). The hash is
+of the text actually shown, so "which wording did they accept" survives a
+later edit to the template.
+
+**`P3-INT-01` · Transactional email behind one `send()`, queued and
+idempotent** (`3075f5b`, fixed in `3197211`). One function, vendor hidden
+behind it, every send an outbox row rather than a vendor call — Addendum A1
+forbids a vendor on the request path, and BTG must be able to work the review
+queue while Resend is down. The templates are a closed union because a
+template name with a typo silently never sends and nobody notices until an
+athlete says they were never told. `3197211` fixed the queue being consumed
+before it was created — pg-boss 10+ requires the explicit create, and it
+could not reproduce locally.
+
+**`P2-OPS-09` · API and worker in one process, reversibly** (`44750ee`), and
+**`P0-OPS-08`** raised for the Resend account and sending domain (`a3de0c8`).

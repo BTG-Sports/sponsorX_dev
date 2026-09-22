@@ -97,6 +97,15 @@ jobs** — keep them straight or they drift:
 > actually finished it is a teammate idle tomorrow for no reason. Put the task ID
 > (e.g. `2S5-BE-04`) in the branch name and commit message.
 
+> **Also append the day's row to `Stage Progress`.** That sheet in the same
+> workbook answers "how far are we, and which stage is the wall?" — the
+> Dashboard only counts by phase. Its top block is live formulas and needs no
+> maintenance; the **snapshot block below it is appended by hand, one row per
+> day, as literal numbers**. A formula there would recalculate and the history
+> would quietly rewrite itself, which is the one thing a snapshot must not do.
+> Claude appends this row as part of closing out the day, like the xlsx and
+> the `Memory/` log.
+
 > **Claude updates the xlsx too — it is part of finishing a task, not a handoff.**
 > When you complete a task, edit `Claude outputs/SponsorX-Full-Programme-Task-Board.xlsx`
 > yourself in the same pass as the code, the docs and the `memory/` log: set `Status`,
