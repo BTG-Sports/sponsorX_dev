@@ -25,8 +25,8 @@ const smooth = (x: number) => {
 /** Blackout window around each boundary: fully opaque within DARK_IN, ramping
  *  out to transparent by DARK_OUT — a black plateau that hides the whole drop
  *  (ball fall + stadium fade), not just the exact boundary frame. */
-const DARK_IN = 0.15;
-const DARK_OUT = 0.26;
+const DARK_IN = 0.07;
+const DARK_OUT = 0.14;
 
 export function LandingReveal() {
   const overlayRef = useRef<HTMLDivElement>(null);
