@@ -21,7 +21,7 @@
 import { prisma } from "../db/client";
 import { audit, AUDIT_ACTIONS } from "../db/audit";
 import type { Actor } from "../auth/actor";
-import { assertTenantWide, whereFor } from "../auth/scope";
+import { assertAllowed, assertTenantWide, whereFor } from "../auth/scope";
 import { ForbiddenError } from "../auth/errors";
 import { minimumSellPrice, TIER_MULTIPLIERS, type PricedTier } from "./pricing";
 
@@ -31,6 +31,27 @@ export class UnknownJobError extends Error {
     super(`No NIL job ${jobId}. Rates are set against the SX catalogue (§5).`);
     this.name = "UnknownJobError";
   }
+}
+
+export class ConcurrentRateEditError extends Error {
+  readonly status = 409;
+  constructor(jobId: string, version: number) {
+    super(
+      `Version ${version} of the ${jobId} rate was created by someone else ` +
+        `just now. Reload the rate card and set it again — rates are versioned, ` +
+        `so nothing was overwritten.`,
+    );
+    this.name = "ConcurrentRateEditError";
+  }
+}
+
+/** Prisma's unique-constraint code. Checked structurally rather than by
+ *  message, which changes between versions. */
+function isUniqueViolation(error: unknown): boolean {
+  return (
+    typeof error === "object" && error !== null && "code" in error &&
+    (error as { code: unknown }).code === "P2002"
+  );
 }
 
 export class TierRequiredError extends Error {
@@ -123,10 +144,20 @@ export async function setAthleteRate(
     });
     const version = (latest?.version ?? 0) + 1;
 
-    const rate = await tx.athleteRate.create({
-      data: { tenantId: actor.tenantId, athleteId, jobId, amount, version },
-      select: { id: true, version: true },
-    });
+    /* The unique index is what actually decides the race; this turns its
+       refusal into an answer. Two managers setting a rate at the same moment
+       previously got a raw P2002 and a 500, which reads as a broken system
+       rather than "someone else just did that — look again". */
+    let rate;
+    try {
+      rate = await tx.athleteRate.create({
+        data: { tenantId: actor.tenantId, athleteId, jobId, amount, version },
+        select: { id: true, version: true },
+      });
+    } catch (error) {
+      if (isUniqueViolation(error)) throw new ConcurrentRateEditError(jobId, version);
+      throw error;
+    }
 
     await audit(tx, actor, AUDIT_ACTIONS.pricing.rateSet, "AthleteRate", rate.id, {
       after: { athleteId, jobId, amount, version, tier: athlete.tier },
@@ -147,10 +178,15 @@ export async function setAthleteRate(
 
 /** The current rate card — the newest version per job, not every version. */
 export async function readRateCard(actor: Actor, athleteId: string) {
-  assertTenantWide(actor, "athleteRate", "read");
+  /* NOT assertTenantWide. The matrix gives athleteRate read at `own` to
+     ATHLETE and `ward` to GUARDIAN — an athlete seeing their own rate card is
+     the point of P3-FE-04, and over-restricting it here would have 403'd that
+     screen the day someone built it. Setting a rate is the BTG act; reading
+     one is not. The row scope keeps everyone to their own. */
+  assertAllowed(actor, "athleteRate", "read");
 
   const rates = await prisma.athleteRate.findMany({
-    where: { athleteId, tenantId: actor.tenantId },
+    where: { ...whereFor(actor, "athleteRate", "read"), athleteId },
     select: { jobId: true, amount: true, version: true },
     orderBy: [{ jobId: "asc" }, { version: "desc" }],
   });

@@ -70,3 +70,65 @@ export function assertClearsFloor(
 export function floorFor(baseHigh: number, tier: PricedTier): number {
   return minimumSellPrice(baseHigh, tier);
 }
+
+/**
+ * Refuse an order line the campaign's budget cannot carry at the floor.
+ *
+ * WHY THIS SHAPE AND NOT THE ACCEPTANCE'S LITERAL WORDS. P3-BE-12 says
+ * "refuse a line whose SPONSOR PRICE is below athlete cost x 1.4", and
+ * `CampaignOrder` has no per-line sponsor price — it carries `compensation`,
+ * the athlete's side. There is nothing to compare a line against on its own.
+ *
+ * What the model does carry is the campaign's budget, so the enforceable form
+ * of the same rule is: the sum of every line's minimum sell price must fit
+ * inside it. That still refuses at the moment a line is added rather than in
+ * a report afterwards, which is the property the rule exists for, and it
+ * still catches the case P0-PMO-13 found — an expensive athlete on a job
+ * whose price cannot carry them.
+ *
+ * It is weaker than per-line in one way worth stating: a campaign with room
+ * can absorb one underwater line behind several cheap ones. Closing that gap
+ * needs a sponsor price per line, which is a schema change and a pricing
+ * decision, not something to invent here.
+ */
+export class CampaignBudgetFloorError extends Error {
+  readonly status = 422;
+  readonly jobId: string;
+  readonly lineFloor: number;
+  readonly committed: number;
+  readonly budget: number;
+  readonly shortfall: number;
+
+  constructor(jobId: string, lineFloor: number, committed: number, budget: number) {
+    super(
+      `Adding ${jobId} needs a sponsor price of at least ${lineFloor} cents ` +
+        `(athlete cost x ${MARGIN_FLOOR}). The campaign already commits ` +
+        `${committed} of its ${budget} cent budget, so it is ` +
+        `${committed + lineFloor - budget} short.`,
+    );
+    this.name = "CampaignBudgetFloorError";
+    this.jobId = jobId;
+    this.lineFloor = lineFloor;
+    this.committed = committed;
+    this.budget = budget;
+    this.shortfall = committed + lineFloor - budget;
+  }
+}
+
+/** The minimum a sponsor must pay for a line costing `compensation`. */
+export function lineFloor(compensation: number): number {
+  return Math.ceil(compensation * MARGIN_FLOOR);
+}
+
+export function assertBudgetCarriesLine(
+  jobId: string,
+  compensation: number,
+  committedCompensation: number,
+  budget: number,
+): void {
+  const needed = lineFloor(compensation);
+  const committed = lineFloor(committedCompensation);
+  if (committed + needed > budget) {
+    throw new CampaignBudgetFloorError(jobId, needed, committed, budget);
+  }
+}

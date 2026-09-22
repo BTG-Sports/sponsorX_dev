@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
+import { execSync } from "node:child_process";
 
 import { ROLES } from "../src/auth/policy";
 import { ATHLETE_STATES_FOR_TEST } from "../src/domain/athlete-state";
@@ -122,6 +123,33 @@ describe("a job with a handler is actually dispatched", () => {
        rows must accumulate in the outbox rather than expire in pg-boss. */
     const worker = readFileSync(new URL("../worker/index.mts", import.meta.url), "utf8");
     expect(worker).not.toContain('boss.work<unknown>("zoho.pushCampaign"');
+  });
+});
+
+describe("every resource the domain scopes on has a builder", () => {
+  /* whereFor() throws ScopeNotImplementedError for a resource with no
+     builder, and it throws at REQUEST TIME, not compile time. Three functions
+     shipped calling it for campaignOrder and athleteRate, which had none — so
+     accepting an order 500'd and no test noticed, because each function was
+     tested with its database mocked.
+
+     This reads the domain as text and checks the two lists against each
+     other, which is the only thing that can catch it without a database. */
+  it("has a builder for each one", () => {
+    const domain = execSync("cat src/domain/*.ts").toString();
+    const used = new Set(
+      [...domain.matchAll(/whereFor\(\s*actor,\s*"([a-zA-Z]+)"/g)].map((m) => m[1]!),
+    );
+    expect(used.size).toBeGreaterThan(0);
+
+    const scope = readFileSync(new URL("../src/auth/scope.ts", import.meta.url), "utf8");
+    const builders = scope.slice(scope.indexOf("const BUILDERS"));
+    for (const resource of [...used].sort()) {
+      expect(
+        new RegExp(`\\b${resource}: \\(actor, scope\\)|\\b${resource}: tenantScoped`).test(builders),
+        `whereFor() is called for "${resource}" but scope.ts has no builder — it will throw at request time`,
+      ).toBe(true);
+    }
   });
 });
 

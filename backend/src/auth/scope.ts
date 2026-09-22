@@ -252,6 +252,35 @@ const BUILDERS: Partial<Record<Resource, Builder>> = {
   athleteSocialAccount: (actor, scope) => nestedUnderAthlete(actor, scope),
   athleteScore: (actor, scope) => nestedUnderAthlete(actor, scope),
 
+  /* Rates hang off an athlete exactly as socials and scores do. */
+  athleteRate: (actor, scope) => nestedUnderAthlete(actor, scope),
+
+  campaignOrder: (actor, scope) => {
+    switch (scope) {
+      case "any":
+        return {};
+      case "own-tenant":
+        return { tenantId: actor.tenantId };
+      case "own":
+        return actor.athleteId
+          ? { tenantId: actor.tenantId, athleteId: actor.athleteId }
+          : MATCHES_NOTHING;
+      case "ward":
+        return actor.guardianId
+          ? { tenantId: actor.tenantId, athlete: { is: { guardianId: actor.guardianId } } }
+          : MATCHES_NOTHING;
+      case "own-campaign":
+        /* A sponsor reads the orders on their own campaigns. The field half —
+           hiding `compensation` from them — is §7.1's and belongs to
+           P2-SEC-02; this is the row half. */
+        return actor.sponsorId
+          ? { tenantId: actor.tenantId, campaign: { is: { sponsorId: actor.sponsorId } } }
+          : MATCHES_NOTHING;
+      default:
+        return MATCHES_NOTHING;
+    }
+  },
+
   campaignBrief: (actor, scope) => {
     switch (scope) {
       case "any":

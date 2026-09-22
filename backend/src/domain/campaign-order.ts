@@ -21,7 +21,6 @@
 import type { Prisma } from "../generated/prisma/client";
 import { prisma } from "../db/client";
 import { audit, AUDIT_ACTIONS } from "../db/audit";
-import { enqueue } from "../db/outbox";
 import type { Actor } from "../auth/actor";
 import { assertAllowed, assertTenantWide, whereFor } from "../auth/scope";
 import { ForbiddenError } from "../auth/errors";
@@ -31,7 +30,21 @@ import {
   type OrderState,
 } from "./order-state";
 import { guardianReadiness } from "./guardian-rules";
-import { acceptAgreement } from "./agreement";
+import { acceptAgreementIn } from "./agreement";
+import { assertBudgetCarriesLine } from "./margin-floor";
+
+export class AcceptanceNeedsEvidenceError extends Error {
+  readonly status = 400;
+  constructor() {
+    super(
+      "An order is accepted through its own endpoint, which records the body " +
+        "hash of the text shown, the signer, the IP and the user agent, and " +
+        "refuses a minor without a verified guardian (§12, §37). A bare state " +
+        "change cannot carry any of that.",
+    );
+    this.name = "AcceptanceNeedsEvidenceError";
+  }
+}
 
 export class OrderNotSentError extends Error {
   readonly status = 409;
@@ -79,9 +92,23 @@ export async function createOrder(
   return prisma.$transaction(async (tx) => {
     const campaign = await tx.campaign.findFirst({
       where: { ...whereFor(actor, "campaign", "write"), id: input.campaignId },
-      select: { id: true },
+      select: { id: true, budget: true },
     });
     if (!campaign) throw new ForbiddenError("campaignOrder", "write");
+
+    /* P3-BE-12, enforced HERE rather than reported later. Built and tested as
+       a rule, it was called by nothing until this line — which made its
+       acceptance ("a line below the floor cannot be saved") untrue. */
+    const existing = await tx.campaignOrder.aggregate({
+      where: { campaignId: input.campaignId, state: { not: "CANCELLED" } },
+      _sum: { compensation: true },
+    });
+    assertBudgetCarriesLine(
+      input.jobId,
+      input.compensation,
+      existing._sum.compensation ?? 0,
+      campaign.budget,
+    );
 
     const order = await tx.campaignOrder.create({
       data: {
@@ -114,13 +141,20 @@ export async function transitionOrder(
   orderId: string,
   to: OrderState,
 ): Promise<{ id: string; state: OrderState }> {
-  /* ACCEPTED and REJECTED are the athlete's to make and go through
-     `acceptOrder` / this function with an `own` reach; everything else is
-     BTG's. */
-  if (to !== "ACCEPTED" && to !== "REJECTED") {
-    assertTenantWide(actor, "campaignOrder", "write");
-  } else {
+  /* ACCEPTED IS NOT REACHABLE HERE, AT ALL.
+     It was, and that made P5-BE-01's acceptance untrue: this path has no body
+     hash, no signer, no IP and no guardian check, so an athlete could bind
+     themselves to an order with none of the evidence §12 requires and a minor
+     could do it without a verified guardian. A guard on one route means
+     nothing while a second route reaches the same state around it. */
+  if (to === "ACCEPTED") throw new AcceptanceNeedsEvidenceError();
+
+  /* Declining is the athlete's and needs no evidence — there is nothing to
+     prove about a refusal. Everything else is BTG's. */
+  if (to === "REJECTED") {
     assertAllowed(actor, "campaignOrder", "write");
+  } else {
+    assertTenantWide(actor, "campaignOrder", "write");
   }
 
   return prisma.$transaction(async (tx) => {
@@ -167,42 +201,44 @@ export async function acceptOrder(
 ): Promise<{ id: string; state: OrderState; acceptanceId: string }> {
   assertAllowed(actor, "campaignOrder", "write");
 
-  /* The acceptance is recorded first and in its own transaction, because
-     `acceptAgreement` owns the body-hash comparison and the
-     already-accepted check (P3-BE-06). If the order update below fails, the
-     acceptance is an orphan row that records a real event and harms nothing;
-     the reverse — an accepted order with no evidence — is the state §12
-     cannot tolerate. */
-  const order = await prisma.campaignOrder.findFirst({
-    where: { ...whereFor(actor, "campaignOrder", "write"), id: orderId },
-    select: {
-      id: true, state: true,
-      athlete: {
-        select: {
-          birthDate: true, ageBand: true, guardianId: true,
-          guardian: { select: { verifiedAt: true } },
+  /* ONE TRANSACTION. This was three, and the failure mode was not the orphan
+     acceptance I talked myself into accepting — it was the order. If the
+     process died after the acceptance was written, the order stayed SENT, the
+     athlete retried, and acceptAgreement then refused with
+     AlreadyAcceptedError because that signer had already accepted that
+     version. The order could never be accepted by anyone again. */
+  return prisma.$transaction(async (tx) => {
+    const order = await tx.campaignOrder.findFirst({
+      where: { ...whereFor(actor, "campaignOrder", "write"), id: orderId },
+      select: {
+        id: true, state: true,
+        athlete: {
+          select: {
+            birthDate: true, ageBand: true, guardianId: true,
+            guardian: { select: { verifiedAt: true } },
+          },
         },
       },
-    },
-  });
-  if (!order) throw new ForbiddenError("campaignOrder", "write");
+    });
+    if (!order) throw new ForbiddenError("campaignOrder", "write");
 
-  const from = order.state as OrderState;
-  if (from !== "SENT") throw new OrderNotSentError(from);
+    const from = order.state as OrderState;
+    if (from !== "SENT") throw new OrderNotSentError(from);
 
-  const readiness = guardianReadiness({
-    birthDate: order.athlete.birthDate,
-    ageBand: order.athlete.ageBand,
-    guardianId: order.athlete.guardianId,
-    guardianVerifiedAt: order.athlete.guardian?.verifiedAt ?? null,
-  });
-  if (readiness.status === "missing" || readiness.status === "unverified") {
-    throw new GuardianRequiredForOrderError();
-  }
+    /* Read inside the transaction, so the state cannot move between the check
+       and the write. */
+    const readiness = guardianReadiness({
+      birthDate: order.athlete.birthDate,
+      ageBand: order.athlete.ageBand,
+      guardianId: order.athlete.guardianId,
+      guardianVerifiedAt: order.athlete.guardian?.verifiedAt ?? null,
+    });
+    if (readiness.status === "missing" || readiness.status === "unverified") {
+      throw new GuardianRequiredForOrderError();
+    }
 
-  const acceptance = await acceptAgreement(actor, evidence);
+    const acceptance = await acceptAgreementIn(tx, actor, evidence);
 
-  return prisma.$transaction(async (tx) => {
     const updated = await tx.campaignOrder.update({
       where: { id: orderId },
       data: {
@@ -222,7 +258,10 @@ export async function acceptOrder(
       },
     });
 
-    await enqueue(tx, actor.tenantId, "notify.campaignLive", { orderId });
+    /* No notification enqueued here. "campaign live" is not what happened —
+       one order was accepted — and inventing a job name whose handler nobody
+       owns just adds rows to the outbox that wait forever. P5-INT-01 owns
+       deliverable and order notifications (fix 6). */
 
     return {
       id: updated.id,
