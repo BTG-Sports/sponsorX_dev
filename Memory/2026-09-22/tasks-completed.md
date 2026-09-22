@@ -936,3 +936,71 @@ out on purpose. `AthleteTier` has four values and only three are priced;
 `ANCHOR`'s multiplier is negotiated, so a derived floor would invent a policy.
 Both subsets are now asserted as deliberate rather than left to look like
 oversights.
+
+## Five more — B2 closed, B4 opened (`P3-BE-09`, `P3-BE-12`, `P4-INT-01`, `P5-BE-01`, `P5-BE-02`)
+
+### The two rules that are really one rule
+
+**Rates are versioned, never updated**, and the unique index on
+`(athleteId, jobId, version)` makes that structural rather than a convention.
+A rate is the basis of an offer that may already have been made; overwriting
+it silently rewrites the terms of orders that quoted it and leaves nobody able
+to say what an athlete was promised in March.
+
+**An order's terms are frozen at send, never read live.** Same reasoning from
+the other end: an order reading the rate card live would pay an athlete who
+accepted $150 in March whatever the card says in September, and neither party
+could prove what was agreed.
+
+### The floor refuses; it does not report
+
+`P3-BE-12`'s whole point. A margin report tells you which campaigns lost
+money — which is the state `P0-PMO-13` found us in. A floor means they cannot
+be saved.
+
+Two details that decide whether it works:
+
+- **Line by line, never against a package total.** A package's cheaper lines
+  would hide a losing one behind a profitable average.
+- **Against `baseHigh`, not the agreed rate.** Staffing happens after pricing,
+  so the floor has to hold for the most expensive athlete who could take the
+  line — otherwise it moves every time the roster changes.
+
+The error names the job, the tier, the floor and the shortfall. *"Below the
+margin floor"* sends someone to a spreadsheet; four numbers let them fix it in
+one step, which is what the acceptance asked for.
+
+Tested at **all seven jobs × all three tiers** — 21 cases rather than a
+sample, because the collision `P0-PMO-13` found existed on *every* job and a
+sampled test would have missed that. One case reconstructs the original
+defect: SX-07 at its old $750 floor, underwater before any multiplier.
+
+### The outbox rows that were waiting got their handler
+
+`P4-INT-01` is the consumer for `notify.invitationSent`, which `P4-BE-04` had
+been enqueuing since it was written. The drain had been **holding** those rows
+rather than dispatching them into a queue nobody worked — so nothing was lost
+and they flow the moment the worker restarts.
+
+The handler **resolves the invitation at send time**, not at enqueue time, and
+skips one that has been accepted, declined or expired since. The payload
+carries an id and the world moves between enqueue and drain; telling someone
+about an invitation they already declined is worse than telling them nothing.
+Embedding the details in the payload instead would make every retry send a
+snapshot of a world that has moved on.
+
+`zoho.pushCampaign` still has no handler and its rows still accumulate — a
+test now asserts that, so it is a recorded state rather than an assumption.
+`P8-INT-01` owns it.
+
+### The guard that stops the recurring defect
+
+The reachability test now covers the six new domain functions. That defect —
+a task closing against an acceptance that names a domain function, leaving the
+capability unreachable — happened three times in B1 and once more in B3 on the
+same day. **The resolution not to do it again did not work; the test does.**
+
+### Verification
+
+35 new cases. Backend 379 passed, frontend 46 passed, build and lint clean.
+Phase 1: Done 73 · Code review 15 · Ready 23 · Blocked 115 · 467 days left.
