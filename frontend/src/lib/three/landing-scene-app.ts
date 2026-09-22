@@ -15,7 +15,7 @@ const CAM_DIST = 4.2; // camera distance back from the ball (closer = bigger bal
 // (fully black within DARK_IN) and clears right at the holds (DARK_OUT), so the
 // ball is hidden from the moment it dips below the floor until it lands.
 const DARK_IN = 0.15;
-const DARK_OUT = 0.2;
+const DARK_OUT = 0.165;
 
 /* --------------------------------------------------------------------------
    Landing 3D scene — framework-free three.js app (P1-ART-08).
