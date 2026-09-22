@@ -285,9 +285,14 @@ async function main(): Promise<void> {
      that offer open forever where a missed sweep catches everything next run.
      Hourly is well inside the precision a multi-day window needs. */
   expiryTimer = setInterval(() => {
-    void expireInvitations(pool)
-      .then(({ expired }) => {
-        if (expired) console.log(`[worker] expired ${expired} invitation(s)`);
+    void expireInvitations(pool, process.env.APP_URL ?? "http://localhost:3000")
+      .then(({ expired, reminded, warned }) => {
+        if (expired || reminded || warned) {
+          console.log(
+            `[worker] invitations — expired ${expired}, reminded ${reminded}, ` +
+              `expiry-warned ${warned}`,
+          );
+        }
       })
       .catch((error: unknown) => {
         console.error("[worker] invitation expiry failed, will retry next hour:", error);

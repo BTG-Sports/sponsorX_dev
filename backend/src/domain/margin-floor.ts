@@ -94,20 +94,30 @@ export function floorFor(baseHigh: number, tier: PricedTier): number {
 export class CampaignBudgetFloorError extends Error {
   readonly status = 422;
   readonly jobId: string;
+  /** The acceptance asks for the athlete's tier by name. Without it the
+   *  message says a price is too low and not why this athlete makes it so. */
+  readonly tier: string;
   readonly lineFloor: number;
   readonly committed: number;
   readonly budget: number;
   readonly shortfall: number;
 
-  constructor(jobId: string, lineFloor: number, committed: number, budget: number) {
+  constructor(
+    jobId: string,
+    tier: string,
+    lineFloor: number,
+    committed: number,
+    budget: number,
+  ) {
     super(
-      `Adding ${jobId} needs a sponsor price of at least ${lineFloor} cents ` +
-        `(athlete cost x ${MARGIN_FLOOR}). The campaign already commits ` +
-        `${committed} of its ${budget} cent budget, so it is ` +
-        `${committed + lineFloor - budget} short.`,
+      `Adding ${jobId} for a ${tier} athlete needs a sponsor price of at ` +
+        `least ${lineFloor} cents (athlete cost x ${MARGIN_FLOOR}). The ` +
+        `campaign already commits ${committed} of its ${budget} cent budget, ` +
+        `so it is ${committed + lineFloor - budget} short.`,
     );
     this.name = "CampaignBudgetFloorError";
     this.jobId = jobId;
+    this.tier = tier;
     this.lineFloor = lineFloor;
     this.committed = committed;
     this.budget = budget;
@@ -122,6 +132,7 @@ export function lineFloor(compensation: number): number {
 
 export function assertBudgetCarriesLine(
   jobId: string,
+  tier: string | null,
   compensation: number,
   committedCompensation: number,
   budget: number,
@@ -129,6 +140,7 @@ export function assertBudgetCarriesLine(
   const needed = lineFloor(compensation);
   const committed = lineFloor(committedCompensation);
   if (committed + needed > budget) {
-    throw new CampaignBudgetFloorError(jobId, needed, committed, budget);
+    throw new CampaignBudgetFloorError(
+      jobId, tier ?? "untiered", needed, committed, budget);
   }
 }

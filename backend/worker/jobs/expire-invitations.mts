@@ -12,15 +12,25 @@
  * leaves that invitation open forever, where a missed sweep simply catches
  * everything on its next run. The sweep is idempotent by construction.
  *
- * IT DOES NOT NOTIFY. An athlete who ignored an invitation for a week does
- * not need an email telling them so, and BTG sees it on the roster. If that
- * turns out to be wrong it is a template and an enqueue, not a redesign.
+ * IT ALSO SENDS P4-INT-01's OTHER TWO EMAILS — the reminder and the expiry
+ * warning — because the same sweep already has the rows in front of it and a
+ * second timer over the same table would be two things to keep in step. The
+ * expiry itself still sends nothing: an athlete who let an offer lapse does
+ * not need telling, and BTG sees it on the roster.
  */
 import type pg from "pg";
 
-export type ExpiryOutcome = { expired: number };
+export type ExpiryOutcome = { expired: number; reminded: number; warned: number };
 
-export async function expireInvitations(pool: pg.Pool): Promise<ExpiryOutcome> {
+/** Days after sending with no response before a nudge. */
+const REMINDER_AFTER_DAYS = 3;
+/** Days before expiry that the warning goes out. */
+const WARN_WITHIN_DAYS = 2;
+
+export async function expireInvitations(
+  pool: pg.Pool,
+  appUrl: string,
+): Promise<ExpiryOutcome> {
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
@@ -50,8 +60,65 @@ export async function expireInvitations(pool: pg.Pool): Promise<ExpiryOutcome> {
       );
     }
 
+    /* P4-INT-01's other two emails. The acceptance asks for invitation,
+       reminder AND expiry-warning "all send as queued jobs" — the first was
+       enqueued by inviteAthlete and these two had templates nobody sent.
+
+       Both are enqueued straight onto the outbox as notify.email rows, with
+       an idempotency key per invitation per kind. The sweep runs hourly, so
+       without the key an athlete would be reminded once an hour for three
+       days; EmailSendLog's unique key is what actually stops that, and the
+       key is what makes it stop at one. */
+    const reminded = await client.query(
+      `INSERT INTO "OutboxJob" (id, "tenantId", name, payload)
+       SELECT gen_random_uuid()::text, i."tenantId", 'notify.email',
+              jsonb_build_object(
+                'template', 'invitation.reminder',
+                'to', a.email,
+                'data', jsonb_build_object(
+                  'firstName', split_part(a."legalName", ' ', 1),
+                  'sponsorName', s.name,
+                  'portalUrl', $1::text || '/athlete/invitations'),
+                'idempotencyKey', 'invitation.reminder:' || i.id)
+         FROM "CampaignInvite" i
+         JOIN "Athlete" a  ON a.id = i."athleteId"
+         JOIN "Campaign" c ON c.id = i."campaignId"
+         JOIN "Sponsor" s  ON s.id = c."sponsorId"
+        WHERE i.state = 'INVITED'
+          AND i."viewedAt" IS NULL
+          AND i."sentAt" <= now() - ($2 || ' days')::interval
+          AND i."expiresAt" > now()`,
+      [appUrl, REMINDER_AFTER_DAYS],
+    );
+
+    const warned = await client.query(
+      `INSERT INTO "OutboxJob" (id, "tenantId", name, payload)
+       SELECT gen_random_uuid()::text, i."tenantId", 'notify.email',
+              jsonb_build_object(
+                'template', 'invitation.expiring',
+                'to', a.email,
+                'data', jsonb_build_object(
+                  'firstName', split_part(a."legalName", ' ', 1),
+                  'sponsorName', s.name,
+                  'expiresOn', to_char(i."expiresAt", 'YYYY-MM-DD'),
+                  'portalUrl', $1::text || '/athlete/invitations'),
+                'idempotencyKey', 'invitation.expiring:' || i.id)
+         FROM "CampaignInvite" i
+         JOIN "Athlete" a  ON a.id = i."athleteId"
+         JOIN "Campaign" c ON c.id = i."campaignId"
+         JOIN "Sponsor" s  ON s.id = c."sponsorId"
+        WHERE i.state IN ('INVITED', 'VIEWED')
+          AND i."expiresAt" > now()
+          AND i."expiresAt" <= now() + ($2 || ' days')::interval`,
+      [appUrl, WARN_WITHIN_DAYS],
+    );
+
     await client.query("COMMIT");
-    return { expired: expired.rowCount ?? 0 };
+    return {
+      expired: expired.rowCount ?? 0,
+      reminded: reminded.rowCount ?? 0,
+      warned: warned.rowCount ?? 0,
+    };
   } catch (error) {
     await client.query("ROLLBACK").catch(() => {});
     throw error;

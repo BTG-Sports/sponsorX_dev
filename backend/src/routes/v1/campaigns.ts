@@ -26,7 +26,7 @@ import { createCampaignFromBrief, transitionCampaign } from "../../domain/campai
 import { eligibleForBrief } from "../../domain/matching";
 import { inviteAthlete, transitionInvite } from "../../domain/invitation";
 import { setAthleteRate, setAthleteTier, readRateCard } from "../../domain/athlete-rate";
-import { acceptOrder, createOrder, transitionOrder } from "../../domain/campaign-order";
+import { acceptOrder, createOrder, transitionOrder, updateOrderTerms } from "../../domain/campaign-order";
 import {
   AthleteRateInput, AthleteTierInput, CampaignOrderInput,
   OrderAcceptanceInput, OrderTransitionInput,
@@ -137,6 +137,19 @@ const addOrder: RequestHandler<{ id: string }> = async (req, res) => {
   );
 };
 
+/** PATCH /orders/:id — change the terms, refused once the order is sent. */
+const editOrder: RequestHandler<{ id: string }> = async (req, res) => {
+  const body = CampaignOrderInput.partial().parse(req.body ?? {});
+  res.json(
+    await updateOrderTerms(req.actor!, req.params.id, {
+      ...(body.compensation !== undefined ? { compensation: body.compensation } : {}),
+      ...(body.usageRights !== undefined ? { usageRights: body.usageRights } : {}),
+      ...(body.exclusivity !== undefined ? { exclusivity: body.exclusivity } : {}),
+      ...(body.dueDate !== undefined ? { dueDate: new Date(body.dueDate) } : {}),
+    }),
+  );
+};
+
 /** POST /orders/:id/transition — send, activate, complete, cancel. */
 const moveOrder: RequestHandler<{ id: string }> = async (req, res) => {
   const { to } = OrderTransitionInput.parse(req.body ?? {});
@@ -165,6 +178,7 @@ campaignsRouter.put("/athletes/:id/tier", requireActor, setTier);
 campaignsRouter.post("/athletes/:id/rates", requireActor, setRate);
 campaignsRouter.get("/athletes/:id/rates", requireActor, rateCard);
 campaignsRouter.post("/campaigns/:id/orders", requireActor, addOrder);
+campaignsRouter.patch("/orders/:id", requireActor, editOrder);
 campaignsRouter.post("/orders/:id/transition", requireActor, moveOrder);
 campaignsRouter.post("/orders/:id/accept", requireActor, accept);
 
@@ -178,5 +192,5 @@ campaignsRouter.post("/invitations/:id/respond", requireActor, respond);
 
 export {
   submitBrief, moveBrief, shortlist, createCampaign, moveCampaign, invite, respond,
-  setTier, setRate, rateCard, addOrder, moveOrder, accept,
+  setTier, setRate, rateCard, addOrder, editOrder, moveOrder, accept,
 };

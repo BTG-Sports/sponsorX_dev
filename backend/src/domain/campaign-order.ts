@@ -33,6 +33,18 @@ import { guardianReadiness } from "./guardian-rules";
 import { acceptAgreementIn } from "./agreement";
 import { assertBudgetCarriesLine } from "./margin-floor";
 
+export class TermsFrozenError extends Error {
+  readonly status = 409;
+  constructor(state: OrderState) {
+    super(
+      `This order is ${state}; its terms were fixed when it was sent. An ` +
+        `athlete decides on the terms in front of them, so changing them now ` +
+        `means a new order, not an edit of this one.`,
+    );
+    this.name = "TermsFrozenError";
+  }
+}
+
 export class AcceptanceNeedsEvidenceError extends Error {
   readonly status = 400;
   constructor() {
@@ -103,8 +115,14 @@ export async function createOrder(
       where: { campaignId: input.campaignId, state: { not: "CANCELLED" } },
       _sum: { compensation: true },
     });
+    const athlete = await tx.athlete.findFirst({
+      where: { id: input.athleteId, tenantId: actor.tenantId },
+      select: { tier: true },
+    });
+
     assertBudgetCarriesLine(
       input.jobId,
+      athlete?.tier ?? null,
       input.compensation,
       existing._sum.compensation ?? 0,
       campaign.budget,
@@ -132,6 +150,55 @@ export async function createOrder(
     });
 
     return { id: order.id, state: order.state as OrderState };
+  });
+}
+
+/**
+ * Change the commercial terms — only while the order is a DRAFT.
+ *
+ * P5-BE-02's acceptance says terms are "snapshotted at send time, not read
+ * live". Nothing read them live, but nothing froze them either: the property
+ * held only because no update path existed, which is not the same as being
+ * enforced. The moment anyone added one, an order's terms could change under
+ * an athlete who had already been sent them.
+ *
+ * So the update path exists here, and it refuses past DRAFT. SENT is the
+ * snapshot: after it, the row is what the athlete was shown.
+ */
+export async function updateOrderTerms(
+  actor: Actor,
+  orderId: string,
+  terms: Partial<OrderTerms>,
+): Promise<{ id: string; state: OrderState }> {
+  assertTenantWide(actor, "campaignOrder", "write");
+
+  return prisma.$transaction(async (tx) => {
+    const order = await tx.campaignOrder.findFirst({
+      where: { ...whereFor(actor, "campaignOrder", "write"), id: orderId },
+      select: { id: true, state: true, compensation: true },
+    });
+    if (!order) throw new ForbiddenError("campaignOrder", "write");
+
+    const from = order.state as OrderState;
+    if (from !== "DRAFT") throw new TermsFrozenError(from);
+
+    const updated = await tx.campaignOrder.update({
+      where: { id: orderId },
+      data: {
+        ...(terms.compensation !== undefined ? { compensation: terms.compensation } : {}),
+        ...(terms.usageRights !== undefined ? { usageRights: terms.usageRights } : {}),
+        ...(terms.exclusivity !== undefined ? { exclusivity: terms.exclusivity } : {}),
+        ...(terms.dueDate !== undefined ? { dueDate: terms.dueDate } : {}),
+      },
+      select: { id: true, state: true },
+    });
+
+    await audit(tx, actor, "order.termsUpdate", "CampaignOrder", orderId, {
+      before: { compensation: order.compensation },
+      after: { fields: Object.keys(terms) },
+    });
+
+    return { id: updated.id, state: updated.state as OrderState };
   });
 }
 

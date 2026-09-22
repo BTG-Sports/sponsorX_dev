@@ -2,7 +2,8 @@ import { describe, expect, it } from "vitest";
 
 import { NIL_JOBS } from "../src/domain/nil-jobs";
 import { PRICED_TIERS, minimumSellPrice } from "../src/domain/pricing";
-import { assertClearsFloor, floorFor, MarginFloorError } from "../src/domain/margin-floor";
+import { assertClearsFloor, floorFor, lineFloor, MarginFloorError } from "../src/domain/margin-floor";
+import { readFileSync } from "node:fs";
 import {
   ORDER_STATES, canTransitionOrder, legalOrderTransitions, type OrderState,
 } from "../src/domain/order-state";
@@ -144,5 +145,52 @@ describe("P4-INT-01 · the invitation notification", () => {
       expect(built.subject).not.toContain("undefined");
       expect(built.text).not.toContain("undefined");
     }
+  });
+});
+
+describe("P3-BE-09 · the implied floor is rate x 1.4, in the rate's own unit", () => {
+  it("is the acceptance's formula, not the catalogue's", () => {
+    /* It returned baseHigh x tierMultiplier x 1.4 — the CATALOGUE's floor for
+       the job, a different number — and the catalogue is in whole dollars
+       while a rate is in cents, so the answer was out by a hundred as well as
+       by a formula. A $120 rate returned 210. */
+    expect(lineFloor(12000)).toBe(16800);
+    expect(lineFloor(12000)).not.toBe(minimumSellPrice(100, "PREMIUM"));
+  });
+
+  it("rounds up, so the answer never sits under the rule", () => {
+    expect(lineFloor(1)).toBe(2);
+    expect(lineFloor(10001)).toBe(14002);
+  });
+
+  it("needs no tier — a rate already carries the athlete's price", () => {
+    /* Which is why an ANCHOR athlete has an implied floor like everyone else,
+       where the catalogue floor genuinely has none. */
+    expect(lineFloor(50000)).toBe(70000);
+  });
+});
+
+describe("P4-INT-01 · all three emails are enqueued by something", () => {
+  const sweep = readFileSync(
+    new URL("../worker/jobs/expire-invitations.mts", import.meta.url), "utf8");
+
+  it.each(["invitation.reminder", "invitation.expiring"])("%s is sent by the sweep", (t) => {
+    /* Both had templates and nothing sent them: one of three, where the
+       acceptance says "invitation, reminder and expiry-warning emails ALL
+       send as queued jobs". */
+    expect(sweep).toContain(t);
+  });
+
+  it("keys each one per invitation, so an hourly sweep does not nag", () => {
+    expect(sweep).toContain("'invitation.reminder:' || i.id");
+    expect(sweep).toContain("'invitation.expiring:' || i.id");
+  });
+
+  it("only reminds an athlete who has not opened it", () => {
+    expect(sweep).toContain('i."viewedAt" IS NULL');
+  });
+
+  it("does not warn about an invitation that already expired", () => {
+    expect(sweep).toContain('i."expiresAt" > now()');
   });
 });

@@ -4,7 +4,7 @@ import type { Actor } from "../src/auth/actor";
 import type { Role } from "../src/auth/policy";
 import {
   assertBudgetCarriesLine, lineFloor, CampaignBudgetFloorError,
-} from "../src/domain/margin-floor";
+ } from "../src/domain/margin-floor";
 
 /* --------------------------------------------------------------------------
    The six defects found reviewing P3-BE-09…P5-BE-01, each pinned so it
@@ -47,6 +47,7 @@ vi.mock("../src/db/client", () => ({
       const writes: string[] = [];
       const tx = {
         campaign: { findFirst: () => Promise.resolve(campaign) },
+        athlete: { findFirst: () => Promise.resolve({ tier: "PREMIUM" }) },
         campaignOrder: {
           findFirst: () => Promise.resolve(order),
           aggregate: () => Promise.resolve({ _sum: { compensation: committed } }),
@@ -56,7 +57,12 @@ vi.mock("../src/db/client", () => ({
           },
           update: ({ data }: { data: Record<string, unknown> }) => {
             writes.push("order.update");
-            return Promise.resolve({ id: "ord_1", state: data.state });
+            /* A terms update does not touch state, so fall back to the row's
+               current one rather than returning undefined. */
+            return Promise.resolve({
+              id: "ord_1",
+              state: data.state ?? (order as { state: string } | null)?.state,
+            });
           },
         },
         auditLog: { create: () => { writes.push("audit"); return Promise.resolve({ id: "a" }); } },
@@ -70,8 +76,9 @@ vi.mock("../src/db/client", () => ({
 }));
 
 const {
-  createOrder, acceptOrder, transitionOrder, AcceptanceNeedsEvidenceError,
-  GuardianRequiredForOrderError, OrderNotSentError,
+  createOrder, acceptOrder, transitionOrder, updateOrderTerms,
+  AcceptanceNeedsEvidenceError, GuardianRequiredForOrderError,
+  OrderNotSentError, TermsFrozenError,
 } = await import("../src/domain/campaign-order");
 
 const actor = (roles: Role[] = ["CAMPAIGN_MGR"]): Actor =>
@@ -117,7 +124,7 @@ describe("1 · the margin floor is actually invoked", () => {
 
   it("names the job, the floor, what is committed and the gap", () => {
     try {
-      assertBudgetCarriesLine("SX-07", 50000, 60000, 100000);
+      assertBudgetCarriesLine("SX-07", "PREMIUM", 50000, 60000, 100000);
       throw new Error("should have refused");
     } catch (e) {
       const err = e as CampaignBudgetFloorError;
@@ -194,5 +201,37 @@ describe("6 · no job is enqueued that nothing owns", () => {
       agreementId: "agr_1", bodyHashShown: "h", ip: "1", userAgent: "ua",
     });
     expect(committedWrites).not.toContain("outbox");
+  });
+});
+
+describe("acceptance clauses that were still unmet after the first fix", () => {
+  it("P3-BE-12 · the refusal names the athlete's tier", async () => {
+    /* The acceptance asks for job, TIER, floor and shortfall. The error that
+       is actually thrown carried every one but the tier — so the message said
+       a price was too low without saying why this athlete made it so. */
+    campaign = { id: "cmp_1", budget: 1000 };
+    try {
+      await createOrder(actor(), terms);
+      throw new Error("should have refused");
+    } catch (e) {
+      const err = e as CampaignBudgetFloorError;
+      expect(err).toBeInstanceOf(CampaignBudgetFloorError);
+      expect(err.tier).toBe("PREMIUM");
+      expect(err.message).toContain("PREMIUM");
+      expect(err.jobId).toBe("SX-02");
+      expect(err.shortfall).toBeGreaterThan(0);
+    }
+  });
+
+  it("P5-BE-02 · terms cannot be changed once the order is sent", async () => {
+    order = { id: "ord_1", state: "DRAFT", compensation: 10000, athlete: { ...adult } };
+    await expect(updateOrderTerms(actor(), "ord_1", { compensation: 12000 }))
+      .resolves.toMatchObject({ state: "DRAFT" });
+
+    for (const state of ["SENT", "ACCEPTED", "ACTIVE", "COMPLETED"]) {
+      order = { id: "ord_1", state, compensation: 10000, athlete: { ...adult } };
+      await expect(updateOrderTerms(actor(), "ord_1", { compensation: 12000 }))
+        .rejects.toBeInstanceOf(TermsFrozenError);
+    }
   });
 });

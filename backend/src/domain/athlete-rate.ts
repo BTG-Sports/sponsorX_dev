@@ -23,7 +23,8 @@ import { audit, AUDIT_ACTIONS } from "../db/audit";
 import type { Actor } from "../auth/actor";
 import { assertAllowed, assertTenantWide, whereFor } from "../auth/scope";
 import { ForbiddenError } from "../auth/errors";
-import { minimumSellPrice, TIER_MULTIPLIERS, type PricedTier } from "./pricing";
+import { TIER_MULTIPLIERS, type PricedTier } from "./pricing";
+import { lineFloor } from "./margin-floor";
 
 export class UnknownJobError extends Error {
   readonly status = 404;
@@ -115,8 +116,20 @@ export async function setAthleteRate(
   amount: number;
   version: number;
   tier: PricedTier | "ANCHOR";
-  /** null for ANCHOR — a negotiated multiplier has no derived floor. */
-  impliedMinimumSellPrice: number | null;
+  /**
+   * The lowest a sponsor may be charged for this rate, IN CENTS — `rate x
+   * 1.4`, exactly as the acceptance words it.
+   *
+   * It was derived from the job's base band and the tier multiplier, which is
+   * the *catalogue's* floor for the job and a different number. Worse, the
+   * catalogue is in whole dollars and `amount` is in cents, so the answer was
+   * out by a hundred as well as by a formula.
+   *
+   * Not nullable any more either: `rate x 1.4` needs no multiplier, so an
+   * ANCHOR athlete has an implied floor like everyone else. The tier still
+   * decides what a *catalogue* price may be; it does not decide this.
+   */
+  impliedMinimumSellPrice: number;
 }> {
   assertTenantWide(actor, "athleteRate", "write");
 
@@ -170,8 +183,7 @@ export async function setAthleteRate(
       amount,
       version: rate.version,
       tier,
-      impliedMinimumSellPrice:
-        tier === "ANCHOR" ? null : minimumSellPrice(job.baseHigh, tier),
+      impliedMinimumSellPrice: lineFloor(amount),
     };
   });
 }
