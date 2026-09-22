@@ -107,7 +107,7 @@ export async function transitionBrief(
 
   return prisma.$transaction(async (tx) => {
     const brief = await tx.campaignBrief.findFirst({
-      where: { id: briefId, tenantId: actor.tenantId },
+      where: { ...whereFor(actor, "campaignBrief", to === "CLOSED" ? "write" : "approve"), id: briefId },
       select: { id: true, state: true },
     });
     if (!brief) throw new ForbiddenError("campaignBrief", "write");

@@ -240,7 +240,13 @@ describe("the whole matrix is pinned", () => {
       "The authorisation matrix changed. Diff the grid against " +
         "documentation/SponsorX-RBAC-Matrix.md, confirm every moved pair is " +
         "intended, then update this digest.",
-    ).toBe("438e87a9a4d2fa80");
+      // Updated 2026-09-22: `athlete.approve` gained SUPER_ADMIN ("any") and
+      // BTG_ADMIN ("own-tenant"). The matrix document's table carried a dash
+      // for both, contradicting its own §12 — "BTG_ADMIN can too, as the
+      // superset role" — and `athlete` was the only approve column in the
+      // matrix without SUPER_ADMIN. The document was corrected first; this
+      // digest follows it.
+    ).toBe("bc4ddbf83a1e7538");
   });
 
   it("covers every pair the §30 acceptance asks for", () => {

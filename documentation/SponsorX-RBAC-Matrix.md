@@ -141,8 +141,8 @@ back with them; once `SUBMITTED`, it is read-only to them.
 ### `athlete`
 | Role | Read | Write | Approve |
 |---|---|---|---|
-| `SUPER_ADMIN` | any | any | — |
-| `BTG_ADMIN` | own-tenant | own-tenant | — |
+| `SUPER_ADMIN` | any | any | any (status) |
+| `BTG_ADMIN` | own-tenant | own-tenant | own-tenant (status) |
 | `NETWORK_MGR` | own-tenant | own-tenant | own-tenant (status) |
 | `CAMPAIGN_MGR` | own-tenant | — | — |
 | `SALES` | own-tenant | — | — |
@@ -160,6 +160,16 @@ at large; the browsable marketplace is a separate, curated surface.
 `SERVICE` cannot write athletes — the existing rule
 `["SERVICE","athlete.write","any","deny"]`. Athletes are SponsorX's
 system-of-record; Zoho must never overwrite one.
+
+**Corrected 2026-09-22.** The Approve column previously held a dash for
+`SUPER_ADMIN` and `BTG_ADMIN`, which contradicted §12 of this document — it
+states that `NETWORK_MGR` sets athlete status "and `BTG_ADMIN` can too, as the
+superset role". It was also the only `approve` column in the matrix where
+`SUPER_ADMIN` was absent; it holds `any` on `athleteApplication`,
+`campaignBrief`, `campaign`, `deliverable` and `earning`. The dashes were a
+transcription slip in the table, not a policy, and they surfaced as a 403 on
+the activate button for a BTG_ADMIN (`P3-BE-14`). Activation remains
+`NETWORK_MGR`'s day-to-day job; this records who else may do it.
 
 ### `athleteSocialAccount` · `athleteScore`
 | Role | Read | Write | Approve |

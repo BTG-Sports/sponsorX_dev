@@ -10,7 +10,7 @@ import { prisma } from "../db/client";
 import { audit } from "../db/audit";
 import { enqueue } from "../db/outbox";
 import type { Actor } from "../auth/actor";
-import { assertAllowed } from "../auth/scope";
+import { assertAllowed, whereFor } from "../auth/scope";
 import { ForbiddenError } from "../auth/errors";
 import {
   canTransitionCampaign,
@@ -49,7 +49,7 @@ export async function createCampaignFromBrief(
 
   return prisma.$transaction(async (tx) => {
     const brief = await tx.campaignBrief.findFirst({
-      where: { id: briefId, tenantId: actor.tenantId },
+      where: { ...whereFor(actor, "campaignBrief", "read"), id: briefId },
       select: {
         id: true, state: true, sponsorId: true, budget: true,
         startDate: true, endDate: true, campaign: { select: { id: true } },
@@ -102,7 +102,7 @@ export async function transitionCampaign(
 
   return prisma.$transaction(async (tx) => {
     const campaign = await tx.campaign.findFirst({
-      where: { id: campaignId, tenantId: actor.tenantId },
+      where: { ...whereFor(actor, "campaign", "write"), id: campaignId },
       select: { id: true, state: true },
     });
     if (!campaign) throw new ForbiddenError("campaign", "write");

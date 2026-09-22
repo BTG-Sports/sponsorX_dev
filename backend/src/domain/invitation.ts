@@ -25,7 +25,7 @@ import { prisma } from "../db/client";
 import { audit } from "../db/audit";
 import { enqueue } from "../db/outbox";
 import type { Actor } from "../auth/actor";
-import { assertAllowed } from "../auth/scope";
+import { assertAllowed, whereFor } from "../auth/scope";
 import { ForbiddenError } from "../auth/errors";
 import {
   canTransitionInvite,
@@ -196,7 +196,9 @@ export async function transitionInvite(
 
   return prisma.$transaction(async (tx) => {
     const invite = await tx.campaignInvite.findFirst({
-      where: { id: inviteId, tenantId: actor.tenantId },
+      /* An athlete answers their OWN invitation. Unscoped, they could
+         accept or decline another athlete's. */
+      where: { ...whereFor(actor, "invitation", "write"), id: inviteId },
       select: { id: true, state: true },
     });
     if (!invite) throw new ForbiddenError("invitation", "write");

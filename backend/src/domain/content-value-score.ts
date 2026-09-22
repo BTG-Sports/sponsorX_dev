@@ -10,7 +10,7 @@ import type { Prisma } from "../generated/prisma/client";
 import { prisma } from "../db/client";
 import { audit } from "../db/audit";
 import type { Actor } from "../auth/actor";
-import { assertAllowed } from "../auth/scope";
+import { assertAllowed, assertTenantWide, whereFor } from "../auth/scope";
 import { ForbiddenError } from "../auth/errors";
 import {
   computeScore,
@@ -31,13 +31,16 @@ export async function scoreAthlete(
   athleteId: string,
   assessment: FactorAssessment,
 ): Promise<ScoreBreakdown & { scoreId: string }> {
-  assertAllowed(actor, "athleteScore", "write");
+  /* An assessment ABOUT an athlete, made by BTG. An athlete holds
+     `athleteScore.write` at `own` so their score can be shown to them;
+     unguarded, that let them score themselves 100. */
+  assertTenantWide(actor, "athleteScore", "write");
 
   const breakdown = computeScore(assessment);
 
   return prisma.$transaction(async (tx) => {
     const athlete = await tx.athlete.findFirst({
-      where: { id: athleteId, tenantId: actor.tenantId },
+      where: { ...whereFor(actor, "athlete", "read"), id: athleteId },
       select: { id: true },
     });
     if (!athlete) throw new ForbiddenError("athleteScore", "write");

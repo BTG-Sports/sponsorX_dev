@@ -69,32 +69,30 @@ describe("activation is a narrower permission than approval", () => {
   /* The trap this guards: BTG_ADMIN may approve an application and must not
      activate an athlete. Both actions live on the same screen, so widening
      one to match the other is a one-character mistake. */
-  /* NETWORK_MGR alone. The RBAC matrix's `athlete` table gives Approve to
-     NETWORK_MGR as "own-tenant (status)" and a dash to everyone else,
-     SUPER_ADMIN included — §8 gives them "athlete status" explicitly, and
-     nobody else. */
-  it("NETWORK_MGR may activate", async () => {
-    await expect(transitionAthlete(actor(["NETWORK_MGR"]), "ath_1", "ACTIVE"))
-      .resolves.toMatchObject({ state: "ACTIVE" });
-  });
+  /* `athlete.approve` is "sets athlete status", which is what activation is.
+     NETWORK_MGR does it day to day; BTG_ADMIN and SUPER_ADMIN hold it as
+     superset roles, per §12 of the matrix document. The table there carried a
+     dash for the latter two until 2026-09-22 — a transcription slip that
+     surfaced as a 403 on the activate button. */
+  it.each(["NETWORK_MGR", "BTG_ADMIN", "SUPER_ADMIN"] as const)(
+    "%s may activate", async (role) => {
+      await expect(transitionAthlete(actor([role]), "ath_1", "ACTIVE"))
+        .resolves.toMatchObject({ state: "ACTIVE" });
+    });
 
-  it("not even SUPER_ADMIN, which reads and writes everything", async () => {
-    expect(isAllowed(["SUPER_ADMIN"], "athlete", "read")).toBe(true);
-    expect(isAllowed(["SUPER_ADMIN"], "athlete", "write")).toBe(true);
-    expect(isAllowed(["SUPER_ADMIN"], "athlete", "approve")).toBe(false);
-  });
-
-  it("BTG_ADMIN may not activate, though it may approve the application", () => {
-    expect(isAllowed(["BTG_ADMIN"], "athleteApplication", "approve")).toBe(true);
-    expect(isAllowed(["BTG_ADMIN"], "athlete", "approve")).toBe(false);
-  });
-
-  it("exactly one role holds athlete.approve", () => {
+  it("holds athlete.approve for exactly the three BTG roles", () => {
     const holders = ROLES.filter((r) => isAllowed([r], "athlete", "approve"));
-    expect(holders).toEqual(["NETWORK_MGR"]);
+    expect(holders.sort()).toEqual(["BTG_ADMIN", "NETWORK_MGR", "SUPER_ADMIN"]);
   });
 
-  it.each(["SUPER_ADMIN", "BTG_ADMIN", "CAMPAIGN_MGR", "ATHLETE", "GUARDIAN", "SERVICE"] as const)(
+  it("still keeps approving an application separate from activating an athlete", () => {
+    /* Two resources, and CAMPAIGN_MGR is the case that proves they are not
+       the same permission. */
+    expect(isAllowed(["CAMPAIGN_MGR"], "athlete", "approve")).toBe(false);
+    expect(isAllowed(["NETWORK_MGR"], "athleteApplication", "approve")).toBe(true);
+  });
+
+  it.each(["CAMPAIGN_MGR", "SALES", "FINANCE", "ATHLETE", "GUARDIAN", "SERVICE", "SPONSOR_ADMIN"] as const)(
     "%s is refused at the endpoint's own gate", async (role) => {
       await expect(transitionAthlete(actor([role]), "ath_1", "ACTIVE"))
         .rejects.toBeInstanceOf(ForbiddenError);

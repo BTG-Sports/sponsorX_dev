@@ -22,7 +22,7 @@ import type { Prisma } from "../generated/prisma/client";
 import { prisma } from "../db/client";
 import { audit } from "../db/audit";
 import type { Actor } from "../auth/actor";
-import { assertAllowed, can } from "../auth/scope";
+import { assertAllowed, can, whereFor } from "../auth/scope";
 import { ForbiddenError } from "../auth/errors";
 import type { SocialAccount } from "../contracts/athlete";
 
@@ -52,7 +52,10 @@ export async function recordSocials(
 
   return prisma.$transaction(async (tx) => {
     const athlete = await tx.athlete.findFirst({
-      where: { id: athleteId, tenantId: actor.tenantId },
+      /* The athlete's own reach, not the tenant's: an ATHLETE holds
+         `athleteSocialAccount.write` at `own`, and without this they could
+         rewrite any athlete's numbers in the tenant. */
+      where: { ...whereFor(actor, "athlete", "write"), id: athleteId },
       select: { id: true },
     });
     if (!athlete) throw new ForbiddenError("athleteSocialAccount", "write");

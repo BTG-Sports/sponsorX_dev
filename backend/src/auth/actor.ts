@@ -42,6 +42,15 @@ export type Actor = {
    * and a scope builder has no second query to find out which that is.
    */
   sponsorId: string | null;
+  /**
+   * The athlete and guardian rows this user *is*, or null.
+   *
+   * Same reasoning as `sponsorId`: the matrix's `own` and `ward` scopes name
+   * a row, and a scope builder has no second query to find out which. Both
+   * columns already exist on `User`.
+   */
+  athleteId: string | null;
+  guardianId: string | null;
 };
 
 const ROLE_SET = new Set<string>(ROLES);
@@ -71,7 +80,7 @@ export async function resolveActor(
 ): Promise<Actor> {
   const linked = await prisma.user.findUnique({
     where: { clerkId },
-    select: { id: true, tenantId: true, roles: true, sponsorId: true },
+    select: { id: true, tenantId: true, roles: true, sponsorId: true, athleteId: true, guardianId: true },
   });
   if (linked) {
     return {
@@ -79,6 +88,8 @@ export async function resolveActor(
       tenantId: linked.tenantId,
       roles: knownRoles(linked.roles),
       sponsorId: linked.sponsorId,
+      athleteId: linked.athleteId,
+      guardianId: linked.guardianId,
     };
   }
 
@@ -95,7 +106,7 @@ export async function resolveActor(
   const claimed = await prisma.user.update({
     where: { id: provisioned.id },
     data: { clerkId },
-    select: { id: true, tenantId: true, roles: true, sponsorId: true },
+    select: { id: true, tenantId: true, roles: true, sponsorId: true, athleteId: true, guardianId: true },
   });
 
   return {
@@ -103,6 +114,8 @@ export async function resolveActor(
     tenantId: claimed.tenantId,
     roles: knownRoles(claimed.roles),
     sponsorId: claimed.sponsorId,
+    athleteId: claimed.athleteId,
+    guardianId: claimed.guardianId,
   };
 }
 

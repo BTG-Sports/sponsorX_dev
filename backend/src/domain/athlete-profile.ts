@@ -17,7 +17,7 @@
 import { prisma } from "../db/client";
 import { audit } from "../db/audit";
 import type { Actor } from "../auth/actor";
-import { assertAllowed } from "../auth/scope";
+import { assertAllowed, whereFor } from "../auth/scope";
 import { ForbiddenError } from "../auth/errors";
 import type { BrandCategory, ContentCapability } from "./brand-categories";
 
@@ -45,7 +45,10 @@ export async function setAthleteProfile(
 
   return prisma.$transaction(async (tx) => {
     const existing = await tx.athlete.findFirst({
-      where: { id: athleteId, tenantId: actor.tenantId },
+      /* Scoped, because restrictions drive §26's conflict check and an
+         ATHLETE holds `athlete.write` at `own` — unscoped, they could clear
+         someone else's restrictions. */
+      where: { ...whereFor(actor, "athlete", "write"), id: athleteId },
       select: {
         id: true,
         contentCapabilities: true,
