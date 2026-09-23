@@ -1650,8 +1650,10 @@ export const studentEdition = {
   publishTarget: "Nov 3",
   /** Edition.thresholdCents — minimum viable edition (spec §5.2) */
   thresholdCents: 650_000,
-  /** Σ AdSlot sold, whole edition, all students — Postgres (Stage 9) */
-  committedCents: 412_500,
+  /** Σ AdSlot sold, whole edition, all students — Postgres (Stage 9).
+   *  Derived: equals the sum of SOLD slot values in `editionPages` below;
+   *  the edition-fixtures test pins the two together. */
+  committedCents: 530_000,
   /** AdSlot counts — Postgres (Stage 9) */
   slotsTotal: 24,
   slotsSold: 11,
@@ -1832,6 +1834,160 @@ export const studentProspects = [
     lastTouch: "Sep 15",
   },
 ];
+
+/* --------------------------------------------------------------------------
+   The edition flatplan — P1-FE-21, spec §5.2. One source for the page map:
+   the admin screen renders it, and studentEdition's committed/slot numbers
+   are pinned to it by tests so the two surfaces cannot drift.
+
+   AdSlot truths worth keeping when Stage 9 substitutes the real table:
+   - a slot's sale value is frozen at close and may differ from rack (Rosa's
+     quarter carried a coupon add-on: $450 against a $250 rack);
+   - RESERVED names who it is held for, because a hold without a name is
+     just an open slot someone is afraid to sell;
+   - the back cover is quantity one, on one edition, unsellable after close.
+   -------------------------------------------------------------------------- */
+
+export type AdSlotState = "SOLD" | "RESERVED" | "OPEN";
+export type AdSlotKind = "FULL" | "HALF" | "QUARTER" | "BACK_COVER";
+
+/** Rack prices per position kind — cents. Sale values may differ. */
+export const SLOT_RACK_CENTS: Record<AdSlotKind, number> = {
+  QUARTER: 25_000,
+  HALF: 50_000,
+  FULL: 80_000,
+  BACK_COVER: 100_000,
+};
+
+export type EditionSlot = {
+  code: string;
+  kind: AdSlotKind;
+  state: AdSlotState;
+  /** Value at close, cents — SOLD only. */
+  soldCents?: number;
+  sponsor?: string;
+  /** Who a RESERVED slot is held for, and why. */
+  holdFor?: string;
+};
+
+export type EditionPage = {
+  page: number;
+  /** Editorial working title — shown on the plan. */
+  title: string;
+  editorial?: boolean;
+  slots: EditionSlot[];
+};
+
+export const editionPages: EditionPage[] = [
+  { page: 1, title: "Cover", editorial: true, slots: [] },
+  {
+    page: 2,
+    title: "Inside front",
+    slots: [
+      { code: "P02-FULL", kind: "FULL", state: "SOLD", soldCents: 80_000, sponsor: "Northside Pediatrics" },
+    ],
+  },
+  { page: 3, title: "Season openers", editorial: true, slots: [] },
+  {
+    page: 4,
+    title: "Fall sports calendar",
+    slots: [
+      { code: "P04-HALF", kind: "HALF", state: "RESERVED", holdFor: "Iron Path Gym · acceptance check running" },
+      { code: "P04-QTR", kind: "QUARTER", state: "SOLD", soldCents: 45_000, sponsor: "Rosa's Bakery" },
+      { code: "P04-QTRB", kind: "QUARTER", state: "OPEN" },
+    ],
+  },
+  {
+    page: 5,
+    title: "Coach Q&A",
+    slots: [
+      { code: "P05-HALF", kind: "HALF", state: "SOLD", soldCents: 50_000, sponsor: "Maple Hardware" },
+      { code: "P05-HALFB", kind: "HALF", state: "OPEN" },
+    ],
+  },
+  { page: 6, title: "Feature — Under the Friday lights", editorial: true, slots: [] },
+  {
+    page: 7,
+    title: "Feature continued",
+    slots: [
+      { code: "P07-HALF", kind: "HALF", state: "SOLD", soldCents: 50_000, sponsor: "Kim's Auto Care" },
+      { code: "P07-HALFB", kind: "HALF", state: "OPEN" },
+    ],
+  },
+  {
+    page: 8,
+    title: "Girls' soccer",
+    slots: [
+      { code: "P08-HALF", kind: "HALF", state: "RESERVED", holdFor: "Delgado's Pizzeria · meeting Thu 4:30" },
+      { code: "P08-HALFB", kind: "HALF", state: "SOLD", soldCents: 50_000, sponsor: "Silver Spring Smiles Dental" },
+    ],
+  },
+  {
+    page: 9,
+    title: "Cross country",
+    slots: [
+      { code: "P09-HALF", kind: "HALF", state: "OPEN" },
+      { code: "P09-QTRA", kind: "QUARTER", state: "SOLD", soldCents: 25_000, sponsor: "Corner Smoothie Co." },
+      { code: "P09-QTRB", kind: "QUARTER", state: "SOLD", soldCents: 25_000, sponsor: "Pitchside Barbers" },
+    ],
+  },
+  {
+    page: 10,
+    title: "Homecoming preview",
+    slots: [
+      { code: "P10-FULL", kind: "FULL", state: "SOLD", soldCents: 80_000, sponsor: "First Ridge Credit Union" },
+    ],
+  },
+  {
+    page: 11,
+    title: "Marching band",
+    slots: [
+      { code: "P11-HALF", kind: "HALF", state: "SOLD", soldCents: 50_000, sponsor: "Summit Physical Therapy" },
+      { code: "P11-HALFB", kind: "HALF", state: "RESERVED", holdFor: "Booster Club co-op ad" },
+    ],
+  },
+  { page: 12, title: "Photo essay — build week", editorial: true, slots: [] },
+  { page: 13, title: "Photo essay continued", editorial: true, slots: [] },
+  {
+    page: 14,
+    title: "Student voices",
+    slots: [
+      { code: "P14-HALF", kind: "HALF", state: "OPEN" },
+      { code: "P14-QTRA", kind: "QUARTER", state: "SOLD", soldCents: 25_000, sponsor: "The Study Spot Café" },
+    ],
+  },
+  {
+    page: 15,
+    title: "Winter sports lookahead",
+    slots: [{ code: "P15-FULL", kind: "FULL", state: "OPEN" }],
+  },
+  {
+    page: 16,
+    title: "Concessions & program",
+    slots: [
+      { code: "P16-HALF", kind: "HALF", state: "SOLD", soldCents: 50_000, sponsor: "GreenLine Landscaping" },
+      { code: "P16-HALFB", kind: "HALF", state: "OPEN" },
+    ],
+  },
+  { page: 17, title: "Records & standings", editorial: true, slots: [] },
+  { page: 18, title: "Alumni corner", editorial: true, slots: [] },
+  { page: 19, title: "Masthead & credits", editorial: true, slots: [] },
+  {
+    page: 20,
+    title: "Inside back",
+    slots: [
+      { code: "P20-HALF", kind: "HALF", state: "RESERVED", holdFor: "Northside PTA" },
+      { code: "P20-QTR", kind: "QUARTER", state: "OPEN" },
+    ],
+  },
+];
+
+/** The singleton. Rendered apart from the spreads, framed. */
+export const editionBackCover: EditionSlot = {
+  code: "BACK-01",
+  kind: "BACK_COVER",
+  state: "OPEN",
+};
 
 /** StudentPointAccrual rows — reasons from the spec §5.5 vocabulary.
  *  Integers. Not cents. Nothing here may render with a currency sign. */

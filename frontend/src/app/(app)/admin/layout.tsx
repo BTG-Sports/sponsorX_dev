@@ -10,6 +10,9 @@ const NAV: NavItem[] = [
   { href: "/admin/rewards", label: "Rewards", icon: "gift" },
   { href: "/admin/analytics", label: "Analytics", icon: "chart" },
   { href: "/admin/finance", label: "Finance", icon: "wallet" },
+  /* SponsorX NEXT workspaces (spec §8) — editions first (P1-FE-21); the
+     inventory ledger, rights queue and splits screens join as they're built. */
+  { href: "/admin/next/editions", label: "NEXT editions", icon: "book" },
 ];
 
 /* Authorisation, not merely authentication (P2-BE-04). requirePortalAccess()
