@@ -220,3 +220,93 @@ The **graphify knowledge graph is stale** — built 21 September, before the
 
 No read endpoint lists deliverables yet. None of the five acceptances required
 one, but the portal screens will — it belongs with the `P5-FE-*` rows now open.
+
+---
+
+# Late afternoon — Slack deploy alerts, and B6 (tracking & reward)
+
+## Slack notifications on every deployment
+
+Railway posts to `#deployment` in the SponsorX Slack workspace on every
+deployment status change, across both environments.
+
+**How it actually works, because two wrong turns cost an hour:**
+
+- Railway needs **no Slack app install**. It detects a `hooks.slack.com` URL
+  and transforms the payload itself — Railway calls this a *Muxer*. The
+  `upsertSlackChannel` mutation in its API is for the Railway **Agent** in
+  Slack (chatting with `@Railway`), not for deploy notifications.
+- **Event Types are required.** I advised leaving the selection empty on the
+  reading that empty meant "all". It does not — `Create Webhook` stays
+  disabled, so the webhook is never created at all. All 14 Deployment events
+  are now selected.
+- **`Test Webhook` proves nothing about the webhook.** It posts from the
+  browser directly to the URL, bypassing both the event filter and the saved
+  record. A successful test alongside silent deploys is exactly the signature
+  of "never created".
+
+**Railway's public API cannot see project webhooks.** The entire GraphQL
+schema contains one webhook field, `webhookTest` — no query, no create, no
+update, and they are not stored as an `Integration` either. So this is
+UI-only, like adding `api` to the production environment. Do not promise to
+configure it from here.
+
+Volume warning: with all 14 events selected, one deploy posts about four times
+(Queued → Building → Deploying → Deployed). If that gets noisy, the set worth
+keeping is Crashed, Oom Killed, Failed, Deployed, Restarted.
+
+## B6 · Tracking & reward — five backend tasks closed
+
+`P6-BE-02`, `P6-BE-03`, `P6-BE-04`, `P6-BE-01`, `P6-BE-07` — §39's
+*tracking/reward* segment.
+
+| New file | Purpose |
+|---|---|
+| `domain/reward-state.ts` | DRAFT→ACTIVE→PAUSED→EXPIRED/ARCHIVED, plus the four event types |
+| `domain/reward.ts` | Rewards, tokens, the four-event funnel, race-safe redemption |
+| `domain/tracking.ts` | Tracking links, resolve/record split, per-athlete codes |
+| `contracts/reward.ts` + `routes/v1/rewards.ts` | 7 staff endpoints + **6 public ones** |
+
+### Decisions worth remembering
+
+- **The public surface is real now.** Six endpoints under `/api/v1/public/`
+  carry no auth, because §16's fan scans a QR at a stall and is never asked to
+  log in. They are grouped under one path prefix so the unauthenticated set is
+  visible at a glance rather than discovered by noticing a missing middleware.
+- **Redemption is public too.** There is no MERCHANT role in §15 and there
+  should not be — the person at the till is not a SponsorX user. Possession of
+  the token IS the entitlement, like a paper voucher, which is why tokens are
+  160 bits of randomness and never the record id.
+- **The single-use rule is the index, not an `if`.** `redeemToken` attempts
+  the insert and catches P2002 from `reward_single_redeem`. A read-then-write
+  check is the obvious implementation and it loses the race every time two
+  merchants scan the same code in the same second. The test drives ten
+  concurrent redemptions and asserts exactly one REDEEM row.
+- **`resolveCode` performs no write, ever.** That is what makes P6-BE-01's
+  "the fan never waits on our write" true, and it is the half that could
+  silently regress — so the test counts writes during resolution and requires
+  zero. Resolve and record are two exports precisely so no single call could
+  be awaited before the redirect.
+- **P6-BE-07 falls out of the schema rather than needing a mechanism.**
+  `TrackingLink.deliverableId` is unique, a deliverable belongs to one order,
+  an order to one athlete — so one link per deliverable already is one code
+  per athlete. `codesForCampaign` is the read that proves it.
+
+### A subtlety in the redirect
+
+The Next route calls the API from `after()`, so the API sees **the Next server**
+as its caller and `req.ip` would geo-resolve every click to Railway. The fan's
+address is forwarded on `x-sponsorx-client-ip` — deliberately not
+`x-forwarded-for`, so it reads as our convention rather than something
+infrastructure set. That header is **analytics-grade, not trust-grade**: the
+endpoint is public, anyone can set it, and the cost is a wrong city on a chart,
+never a crossed permission boundary. `P6-BE-05` owns geo and can tighten it.
+
+Verified `after()` against the vendored Next 16.3.5 docs rather than memory —
+note `next` hoists to the **repo root** `node_modules`, not `frontend/`.
+
+**677 backend + 46 frontend tests pass; full root build green.**
+
+Phase 1: **96 → 101 Done**, Blocked 97 → 87. Seven rows moved Blocked → Ready
+(`P6-BE-05`, `P6-BE-06`, `P6-FE-01`…`P6-FE-03`, `P6-INT-02`, `P6-SEC-01`).
+Stage 6 went 0 → 5.

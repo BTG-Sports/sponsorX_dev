@@ -136,6 +136,23 @@ export const AUDIT_ACTIONS = {
     verify: "deliverable.verify",
     assetRegister: "deliverable.assetRegister",
   },
+  /**
+   * The fan funnel (P6-BE-02, P6-BE-07, §16).
+   *
+   * Only the staff-side actions are audited. The fan-side events — SCAN,
+   * LANDING, CLAIM, REDEEM — are NOT written here: they are already rows in
+   * `RewardEvent`, which is the funnel itself, and duplicating them into the
+   * audit log would double every fan interaction at event scale while adding
+   * nothing an auditor could not read from the funnel.
+   */
+  reward: {
+    create: "reward.create",
+    transition: "reward.transition",
+    tokenIssue: "reward.tokenIssue",
+  },
+  tracking: {
+    linkCreate: "tracking.linkCreate",
+  },
 } as const;
 
 type Change = {

@@ -1,0 +1,87 @@
+import { z } from "./zod";
+
+import { REWARD_EVENT_TYPES, REWARD_STATES } from "../domain/reward-state";
+
+/* --------------------------------------------------------------------------
+   The fan funnel and tracking links on the wire — P6-BE-01…04, P6-BE-07.
+
+   Enums are built from the domain's own lists rather than retyped, as
+   everywhere else here: a published schema naming a state the machine has
+   never heard of is a lie that only surfaces at runtime.
+   -------------------------------------------------------------------------- */
+
+export const RewardState = z.enum(REWARD_STATES).meta({
+  id: "RewardState",
+  description:
+    "DRAFT → ACTIVE → PAUSED → EXPIRED / ARCHIVED. Only an ACTIVE reward can be scanned, claimed or redeemed (§21).",
+});
+
+export const RewardEventType = z.enum(REWARD_EVENT_TYPES).meta({
+  id: "RewardEventType",
+  description:
+    "The four moments of §16's fan funnel — SCAN, LANDING, CLAIM, REDEEM. Four separate rows, never one counter: the drop-off between them is the number the feature exists to produce.",
+});
+
+export const RewardInput = z
+  .object({
+    offerText: z.string().min(1).max(500),
+    terms: z.string().min(1).max(4000),
+    expiresAt: z.iso.datetime(),
+    /** A single-use reward is redeemable exactly once, enforced by a partial
+     *  unique index rather than by application code (P6-BE-04). */
+    singleUse: z.boolean().default(true),
+  })
+  .meta({ id: "RewardInput" });
+
+export const RewardTransitionInput = z
+  .object({ to: RewardState })
+  .meta({ id: "RewardTransitionInput" });
+
+export const RewardTokenInput = z
+  .object({
+    /** Which athlete's QR this is, so the funnel can answer "who drove it?" */
+    athleteId: z.string().min(1).nullable().optional(),
+  })
+  .meta({ id: "RewardTokenInput" });
+
+export const RewardClaimInput = z
+  .object({
+    /** Optional. §16's fan page has no login, and asking for an email as a
+     *  condition of claiming would be a barrier at a stall. */
+    fanEmail: z.email().max(320).nullable().optional(),
+  })
+  .meta({ id: "RewardClaimInput" });
+
+export const RewardFunnel = z
+  .object({
+    SCAN: z.int().min(0),
+    LANDING: z.int().min(0),
+    CLAIM: z.int().min(0),
+    REDEEM: z.int().min(0),
+  })
+  .meta({
+    id: "RewardFunnel",
+    description:
+      "All four counts or none — the shape makes it impossible to read one number without the others it is only meaningful against.",
+  });
+
+export const TrackingLinkInput = z
+  .object({ destinationUrl: z.url().max(2000) })
+  .meta({ id: "TrackingLinkInput" });
+
+export const TrackingDestination = z
+  .object({ destinationUrl: z.url() })
+  .meta({
+    id: "TrackingDestination",
+    description:
+      "Carries the destination and nothing else — no link id, no tenant id. The redirect is public, so the response is the minimum a browser needs.",
+  });
+
+export const TrackingCode = z
+  .object({
+    athleteId: z.string(),
+    deliverableId: z.string(),
+    code: z.string(),
+    clicks: z.int().min(0),
+  })
+  .meta({ id: "TrackingCode" });

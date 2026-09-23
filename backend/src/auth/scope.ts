@@ -334,6 +334,48 @@ const BUILDERS: Partial<Record<Resource, Builder>> = {
     return { deliverable: { is: inner } };
   },
 
+  /* A tracking link hangs off a deliverable, which hangs off an order — so
+     every scope is the deliverable's, one level further out. Same reasoning
+     as creativeAsset: if you may not see the work, you may not see what it
+     earned. */
+  trackingLink: (actor, scope) => {
+    const inner = BUILDERS.deliverable!(actor, scope);
+    if (inner === MATCHES_NOTHING) return MATCHES_NOTHING;
+    if (Object.keys(inner).length === 0) return {};
+    return { deliverable: { is: inner } };
+  },
+
+  /* A reward belongs to a campaign, not to an athlete — it is the sponsor's
+     offer, promoted by many athletes at once. `own` is therefore NOT the
+     athlete's own rows here: an athlete reads a reward because they are
+     promoting its campaign, which is own-tenant reach on a campaign they are
+     already on. Anything narrower would hide the offer from the people
+     handing out its QR codes. */
+  reward: (actor, scope) => {
+    switch (scope) {
+      case "any":
+        return {};
+      case "own-tenant":
+      case "own":
+      case "ward":
+        return { tenantId: actor.tenantId };
+      case "own-campaign":
+        return actor.sponsorId
+          ? { tenantId: actor.tenantId, campaign: { is: { sponsorId: actor.sponsorId } } }
+          : MATCHES_NOTHING;
+      default:
+        return MATCHES_NOTHING;
+    }
+  },
+
+  /* Events are read through their token's reward. */
+  rewardEvent: (actor, scope) => {
+    const inner = BUILDERS.reward!(actor, scope);
+    if (inner === MATCHES_NOTHING) return MATCHES_NOTHING;
+    if (Object.keys(inner).length === 0) return {};
+    return { token: { is: { reward: { is: inner } } } };
+  },
+
   campaignBrief: (actor, scope) => {
     switch (scope) {
       case "any":

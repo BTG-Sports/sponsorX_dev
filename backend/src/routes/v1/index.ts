@@ -11,6 +11,7 @@ import { applicationsRouter } from "./applications";
 import { campaignsRouter } from "./campaigns";
 import { deliverablesRouter } from "./deliverables";
 import { guardiansRouter } from "./guardians";
+import { rewardsRouter } from "./rewards";
 import { meRouter } from "./me";
 import { openapiRouter } from "./openapi";
 
@@ -41,6 +42,11 @@ v1Router.use("/", campaignsRouter);
    (P5-BE-05, P5-BE-06, P5-BE-08). Mounted at the root like the routers above:
    these hang off deliverables and their assets rather than one noun. */
 v1Router.use("/", deliverablesRouter);
+
+/* B6 — the fan funnel and tracking links (P6-BE-01..04, P6-BE-07). Carries
+   BOTH the staff routes and the six unauthenticated /public ones §16 needs,
+   which is why that file groups them explicitly. */
+v1Router.use("/", rewardsRouter);
 
 /* The published contract, generated from the Zod registry (§38). Public: a
    consumer has to be able to read how to authenticate before it can. */
