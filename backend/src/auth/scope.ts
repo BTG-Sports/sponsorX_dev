@@ -281,6 +281,59 @@ const BUILDERS: Partial<Record<Resource, Builder>> = {
     }
   },
 
+  /* A deliverable has no athlete, sponsor or campaign column of its own — it
+     hangs off the order, and the order carries all three. So every scope here
+     is the matching `campaignOrder` scope expressed through `order`, which
+     keeps the two from drifting: if a sponsor may not reach an order, they
+     cannot reach its deliverables either.
+
+     `own-property` is deliberately absent, exactly as it is on every other
+     builder in this file. PROPERTY_MGR holds the scope in §15, but no builder
+     implements it yet and `Actor` carries no propertyId; falling through to
+     MATCHES_NOTHING is the safe reading until the property milestone wires
+     it, and inventing a join here would be the only place in the codebase
+     where that scope means something. */
+  deliverable: (actor, scope) => {
+    switch (scope) {
+      case "any":
+        return {};
+      case "own-tenant":
+        return { tenantId: actor.tenantId };
+      case "own":
+        return actor.athleteId
+          ? { tenantId: actor.tenantId, order: { is: { athleteId: actor.athleteId } } }
+          : MATCHES_NOTHING;
+      case "ward":
+        return actor.guardianId
+          ? {
+              tenantId: actor.tenantId,
+              order: { is: { athlete: { is: { guardianId: actor.guardianId } } } },
+            }
+          : MATCHES_NOTHING;
+      case "own-campaign":
+        return actor.sponsorId
+          ? {
+              tenantId: actor.tenantId,
+              order: { is: { campaign: { is: { sponsorId: actor.sponsorId } } } },
+            }
+          : MATCHES_NOTHING;
+      default:
+        return MATCHES_NOTHING;
+    }
+  },
+
+  /* Assets reuse their deliverable's reach, for the same reason rows hanging
+     off an athlete reuse the athlete's: if you may not see the work, you may
+     not see the files that are the work. */
+  creativeAsset: (actor, scope) => {
+    const inner = BUILDERS.deliverable!(actor, scope);
+    if (inner === MATCHES_NOTHING) return MATCHES_NOTHING;
+    /* `any` is an empty filter; nesting it under `deliverable` would still be
+       correct but pointlessly joins, so hand it back as-is. */
+    if (Object.keys(inner).length === 0) return {};
+    return { deliverable: { is: inner } };
+  },
+
   campaignBrief: (actor, scope) => {
     switch (scope) {
       case "any":

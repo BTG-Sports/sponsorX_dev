@@ -174,7 +174,7 @@ describe("the domain is reachable", () => {
   /* Three B1 tasks closed with no endpoint, and B3 repeated it. A domain
      function nothing can call is a capability the board claims and the
      product does not have. */
-  const routes = ["applications", "guardians", "campaigns"]
+  const routes = ["applications", "guardians", "campaigns", "deliverables"]
     .map((f) => readFileSync(new URL(`../src/routes/v1/${f}.ts`, import.meta.url), "utf8"))
     .join("\n");
 
@@ -188,6 +188,11 @@ describe("the domain is reachable", () => {
     "inviteAthlete", "transitionInvite",
     "setAthleteTier", "setAthleteRate", "readRateCard",
     "createOrder", "transitionOrder", "acceptOrder",
+    /* B5 — deliverables, the approval chain and creative assets. */
+    "launchCampaign",
+    "submitDraft", "startBtgReview", "sendToSponsorReview", "requestRevision",
+    "approveDeliverable", "markPublished", "verifyPublished",
+    "presignCreativeUpload", "registerCreativeAsset",
   ])("%s is called by a route", (fn) => {
     expect(routes).toContain(fn);
   });

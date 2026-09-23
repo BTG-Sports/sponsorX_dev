@@ -9,6 +9,7 @@ import { Router } from "express";
 
 import { applicationsRouter } from "./applications";
 import { campaignsRouter } from "./campaigns";
+import { deliverablesRouter } from "./deliverables";
 import { guardiansRouter } from "./guardians";
 import { meRouter } from "./me";
 import { openapiRouter } from "./openapi";
@@ -35,6 +36,11 @@ v1Router.use("/", guardiansRouter);
    the root for the same reason as guardians: these hang off several nouns
    rather than one. */
 v1Router.use("/", campaignsRouter);
+
+/* B5 — deliverables, the approval chain and creative assets
+   (P5-BE-05, P5-BE-06, P5-BE-08). Mounted at the root like the routers above:
+   these hang off deliverables and their assets rather than one noun. */
+v1Router.use("/", deliverablesRouter);
 
 /* The published contract, generated from the Zod registry (§38). Public: a
    consumer has to be able to read how to authenticate before it can. */
