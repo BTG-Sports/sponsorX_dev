@@ -1141,3 +1141,78 @@ eleven defects and four rounds.
 All five are **Done**. Four rows unblocked behind them: `P3-FE-04`,
 `P5-BE-03`, `P5-BE-04`, `P5-FE-01`. Phase 1: Done 78 · Ready 27 · 452 days
 left. Backend 424 tests passing.
+
+---
+
+## Next session — the vendor-console block
+
+**Agreed 2026-09-22: tomorrow is all console work.** Thirteen rows, 21 days,
+four vendors. None of it is code; all of it needs a browser, an account and,
+in two cases, a payment method.
+
+### Do this one first — everything queues behind it
+
+| Task | Owner | Why it is first |
+|---|---|---|
+| **`P0-OPS-06`** · Register the domain and hold the DNS | **management**, not rcfworks | Resend's sending domain and Clerk's production instance both need it. One day's work that unblocks two other rows. |
+
+Done when: registered to a BTG-controlled account, auto-renew **and** registrar
+lock on, DNS somewhere the team can add records, and the chosen name written
+into `.claude/stack-decision.md`.
+
+### Railway — one strict chain
+
+`P0-OPS-01` → `P2-OPS-01` → `P2-OPS-04`, then `P2-OPS-08` and `P2-OPS-11` in
+either order.
+
+| Task | Days | The thing not to get wrong |
+|---|---|---|
+| `P0-OPS-01` | 1 | The region must match the data-residency decision, not the default |
+| `P2-OPS-01` | 3 | The database must have **no public exposure**; web and worker reach it over the internal hostname |
+| `P2-OPS-04` | 1 | `ZOHO_CLIENT_ID`/`SECRET`/`REFRESH_TOKEN` on **worker only**; `ZOHO_WEBHOOK_SECRET` on **web** |
+| `P2-OPS-08` | 1 | A fresh Postgres per PR, seeded by the job — never a copy of production |
+| `P2-OPS-11` | 3 | Someone is **paged** when the worker stops draining, not merely a dashboard |
+
+**`P2-OPS-04` has grown since it was written.** Three variables were added to
+the stack on 2026-09-22 and must go into Railway too: `PUBLIC_INTAKE_TENANT_ID`,
+`INTAKE_TOKEN_SECRET` and `APP_URL`. `INTAKE_TOKEN_SECRET` **must not be the
+development default** — it signs the links applicants use to return to their
+own application, and the API refuses to boot in production if it is left at
+`dev-intake-secret-not-for-production`. That refusal is deliberate.
+
+### Clerk — two rows
+
+`P0-OPS-03` (dev + production instances, MFA available) then `P2-INT-02` (MFA
+**required** for admin and finance in production). Production needs the domain,
+so this follows `P0-OPS-06`.
+
+**Sign-up stays open.** Restricted mode permits sign-up only for allowlisted
+addresses or invitation holders, which would stop a properly provisioned
+athlete creating the identity that claims their `User` row. This was checked
+on 2026-09-21 and is not a setting to "tighten" on sight.
+
+### Zoho — two rows, independent of the rest
+
+`P0-OPS-04` (client id, secret, refresh token, sandbox org) and `P0-OPS-05`
+(the Athlete / Content Partner custom module). For `P0-OPS-05`, **record the
+module's API name** — the sync code needs it and it is not the display name.
+
+### Resend — one row, blocked on the domain
+
+`P0-OPS-08`: account on a BTG address, `sponsorx.net` verified with DKIM and
+SPF in Cloudflare, API key into the Railway variable set, and a test send that
+lands in an inbox rather than spam. The last clause is the one that actually
+fails — a domain can verify and still land in spam without the SPF record.
+
+### Not startable tomorrow
+
+`P8-OPS-01` (production readiness — backups proven by a real restore, alerts
+tested, rollback exercised) waits on `P2-OPS-11`. `P9-OPS-01` is Stage 9 and
+gated.
+
+### How to run these
+
+Claude writes **literal click-by-click steps** for whichever console is being
+worked, one at a time — not a condensed menu path. Ask for the one you are
+about to start rather than all four at once, because the screens change and
+instructions written a week early are wrong by the time they are used.
