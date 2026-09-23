@@ -24,6 +24,12 @@ vi.mock("../src/config/env", () => ({ env: { APP_URL: "https://sponsorx.example"
 vi.mock("../src/db/client", () => {
   const tx = {
     rewardToken: { findUnique: () => Promise.resolve(token) },
+    outboxJob: {
+      create: ({ data }: { data: Record<string, unknown> }) => {
+        writes.push({ model: "outbox", data });
+        return Promise.resolve({ id: "j" });
+      },
+    },
     rewardEvent: {
       create: ({ data }: { data: Record<string, unknown> }) => {
         /* THE MOCK IS THE INDEX. `reward_single_redeem` is a partial unique
@@ -43,8 +49,8 @@ vi.mock("../src/db/client", () => {
         writes.push({ model: "rewardEvent", data });
         return Promise.resolve({ id: `ev_${writes.length}`, type: data.type });
       },
-      /* Present so that a mistaken counter-style implementation would have
-         something to call — and the assertions below would then catch it. */
+      /* P6-INT-02 enqueues the fan's voucher email inside the same
+         transaction, so the fake tx carries an outbox. */
       update: ({ data }: { data: Record<string, unknown> }) => {
         writes.push({ model: "rewardEvent.update", data });
         return Promise.resolve({});
@@ -92,9 +98,18 @@ describe("P6-BE-03 · four rows, never one counter", () => {
     expect(writes.map((w) => w.data.type)).toEqual(["SCAN", "LANDING"]);
   });
 
-  it("CLAIM carries the fan's email when given", async () => {
-    await recordClaim("tk", "fan@example.com", NOW);
-    expect(writes[0]!.data).toMatchObject({ type: "CLAIM", fanEmail: "fan@example.com" });
+  /* P6-SEC-01 — an address may only be stored WITH consent, so the consent
+     travels with it here. The refusal path is in fan-consent.test.ts. */
+  it("CLAIM carries the fan's email when given with consent", async () => {
+    await recordClaim("tk", "fan@example.com", NOW, {
+      version: "2026-09-01", purpose: "reward-delivery",
+    });
+    expect(writes[0]!.data).toMatchObject({
+      type: "CLAIM",
+      fanEmail: "fan@example.com",
+      consentVersion: "2026-09-01",
+      consentPurpose: "reward-delivery",
+    });
   });
 
   it("CLAIM works without an email — §16's page has no login", async () => {

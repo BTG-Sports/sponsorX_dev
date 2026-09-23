@@ -62,6 +62,7 @@ import {
   cityReaderToLookup, handleResolveGeo, type GeoJob, type GeoLookup,
 } from "./jobs/resolve-geo.mts";
 import { handleRollupMetrics } from "./jobs/rollup-metrics.mts";
+import { remindDueDeliverables } from "./jobs/deliverable-reminders.mts";
 import { handleIngestInvoice, type IngestInvoiceJob } from "./jobs/ingest-invoice.mts";
 import { prisma } from "../src/db/client.ts";
 import { ingestZohoInvoice, type ZohoInvoicePayload } from "../src/domain/invoice.ts";
@@ -87,6 +88,11 @@ const DRAIN_INTERVAL_MS = 1_000;
 /* P7-DATA-02's sweep. Hourly: the cache spares a report page a GROUP BY, it
    does not make a number current — every read still computes from the rows. */
 const ROLLUP_INTERVAL_MS = 60 * 60 * 1_000;
+
+/* P5-INT-01's sweep. Hourly: the reminder windows are whole days, so this is
+   far finer than it needs to be, and the idempotency key makes the extra
+   passes free. */
+const REMINDER_INTERVAL_MS = 60 * 60 * 1_000;
 
 /** Rows claimed per sweep. Bounded so one enormous backlog cannot hold a
  *  transaction open long enough to matter. */
@@ -221,6 +227,7 @@ let timer: NodeJS.Timeout | undefined;
 /** Invitation expiry runs on its own, much slower, timer (P4-BE-05). */
 let expiryTimer: ReturnType<typeof setInterval> | undefined;
 let rollupTimer: ReturnType<typeof setInterval> | undefined;
+let reminderTimer: ReturnType<typeof setInterval> | undefined;
 const EXPIRY_INTERVAL_MS = 60 * 60 * 1000;
 
 /** Never let two sweeps overlap in one process. Overlap would not corrupt
@@ -418,6 +425,25 @@ async function main(): Promise<void> {
   
      Hourly. The cache exists to spare a report page a GROUP BY, not to make
      a number current: every read still computes from the rows. */
+  /* P5-INT-01 — deadline reminders. A sweep for the same reason invitation
+     expiry is one: a per-deliverable timer that is lost leaves that athlete
+     never reminded. Hourly; the send log's idempotency key carries the
+     window, so twelve sweeps a day do not make twelve emails. */
+  reminderTimer = setInterval(() => {
+    void remindDueDeliverables(pool, process.env.APP_URL ?? "http://localhost:3000")
+      .then(({ queued, windows }) => {
+        if (queued > 0) {
+          console.log(
+            `[worker] deliverable reminders — queued ${queued} ` +
+              `(${Object.entries(windows).map(([d, n]) => `${d}d x${n}`).join(", ")})`,
+          );
+        }
+      })
+      .catch((error: unknown) => {
+        console.error("[worker] deliverable reminders failed:", error);
+      });
+  }, REMINDER_INTERVAL_MS);
+
   rollupTimer = setInterval(() => {
     void handleRollupMetrics(pool, {
       cache: {
@@ -473,6 +499,7 @@ export async function stopWorker(): Promise<void> {
   if (timer) clearInterval(timer);
   if (expiryTimer) clearInterval(expiryTimer);
   if (rollupTimer) clearInterval(rollupTimer);
+  if (reminderTimer) clearInterval(reminderTimer);
   timer = undefined;
   expiryTimer = undefined;
   await boss.stop({ graceful: true }).catch(() => {});

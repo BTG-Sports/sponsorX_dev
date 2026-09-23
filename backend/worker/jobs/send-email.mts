@@ -64,6 +64,35 @@ const TEMPLATES: Record<string, (d: Record<string, string>) => { subject: string
     subject: `${d.sponsorName ?? "A sponsor"} wants to work with you`,
     text: `Hi ${d.firstName ?? "there"},\n\nYou have a new campaign invitation${d.sponsorName ? ` from ${d.sponsorName}` : ""}.\n\n${d.jobName ?? "The work"}${d.offered ? ` — ${d.offered}` : ""}\n\nOpen it to see the full terms and decide:\n\n${d.portalUrl ?? ""}\n\nIt expires on ${d.expiresOn ?? "the date shown in your portal"}.\n\n— BTG SponsorX`,
   }),
+  /* P6-INT-02 — the fan's voucher. The ONLY template addressed to a member
+     of the public rather than to an athlete or staff, which is why the
+     consent gate in `recordClaim` stands in front of it. It carries the code,
+     the offer, where to use it and when it runs out, because a fan who has to
+     log in to find any of those has been sent a useless email — and there is
+     no login for them to use. */
+  "reward.claimed": (d) => ({
+    subject: `Your ${d.offerText ?? "reward"} — code ${d.code ?? ""}`,
+    text: `Here is your reward.\n\n${d.offerText ?? ""}\n\nCode: ${d.code ?? ""}\n\nShow this code to claim it. Valid until ${d.expiresOn ?? "the date on the offer"}.\n\n${d.terms ?? ""}\n\n— BTG SponsorX`,
+  }),
+
+  /* P5-INT-01 — the three deliverable messages. All to the athlete: BTG sees
+     the queue in their own workspace and does not need mail about it. */
+  "deliverable.dueSoon": (d) => ({
+    subject: `Due ${d.dueOn ?? "soon"}: ${d.title ?? "your deliverable"}`,
+    text: `Hi ${d.firstName ?? "there"},\n\n${d.title ?? "A deliverable"} for ${d.campaignName ?? "your campaign"} is due on ${d.dueOn ?? "its due date"}.\n\nUpload it here:\n\n${d.portalUrl ?? ""}\n\n— BTG SponsorX`,
+  }),
+  "deliverable.revisionRequested": (d) => ({
+    subject: `A change is needed: ${d.title ?? "your deliverable"}`,
+    /* The reason is mandatory upstream (RevisionReasonRequiredError), so it
+       is quoted rather than defaulted — an email saying "changes requested"
+       with no reason is an instruction the athlete cannot follow. */
+    text: `Hi ${d.firstName ?? "there"},\n\nWe need a change to ${d.title ?? "your deliverable"} before it can be approved:\n\n${d.reason ?? ""}\n\nYou do not need to start again — update and resubmit here:\n\n${d.portalUrl ?? ""}\n\n— BTG SponsorX`,
+  }),
+  "deliverable.approved": (d) => ({
+    subject: `Approved: ${d.title ?? "your deliverable"}`,
+    text: `Hi ${d.firstName ?? "there"},\n\n${d.title ?? "Your deliverable"} has been approved${d.campaignName ? ` for ${d.campaignName}` : ""}.\n\nOnce it is live, mark it published in your portal and add the link — that is what lets us verify it and release your earnings.\n\n${d.portalUrl ?? ""}\n\n— BTG SponsorX`,
+  }),
+
   "invitation.reminder": (d) => ({
     subject: "You have an open SponsorX invitation",
     text: `Hi ${d.firstName ?? "there"},\n\nYou still have an invitation waiting${d.sponsorName ? ` from ${d.sponsorName}` : ""}. There is nothing wrong — we just did not want it to get lost.\n\n${d.portalUrl ?? ""}\n\n— BTG SponsorX`,
