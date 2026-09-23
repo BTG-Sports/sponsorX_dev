@@ -95,6 +95,38 @@ The point of these is to keep the hosting decision reversible.
 - All Zoho exchanges go through the worker, queued. Never call Zoho inline from
   a request path.
 
+## The domain — `sponsorx.net`
+
+**Registered 2026-09-18 through Cloudflare** (`P0-OPS-06`). Cloudflare is both
+registrar and DNS, which is deliberate: the zone is where Clerk, Resend and
+eventually the app all need records, and splitting registrar from DNS across
+two vendors buys nothing for a two-person team.
+
+Verified 2026-09-23 from outside the dashboard, because a registrar's own UI is
+the one place that cannot independently confirm itself:
+
+| | |
+|---|---|
+| Registrar | Cloudflare, Inc. |
+| Created / expires | 2026-09-18 → 2027-09-18 |
+| Auto-renew | On, scheduled 2027-08-19 (30 days ahead) |
+| Registrar lock | On — whois reports `clientTransferProhibited` |
+| Nameservers | `garrett.ns.cloudflare.com`, `raegan.ns.cloudflare.com` |
+| Renewal | $11.86/yr |
+
+**`.net`, not `.com`.** The Implementation Guide's directory tree still writes
+`sponsorx.com` and `app.sponsorx.com` in its comments, and those are wrong —
+they were written before a domain existed. Anything reading that file for the
+hostname will be misled; this section is the authority.
+
+Live on the zone today: the five Clerk CNAMEs written by Cloudflare Domain
+Connect, **DNS-only rather than proxied**, which is the setting that breaks
+Clerk verification when it is wrong. `clerk.sponsorx.net` and
+`accounts.sponsorx.net` hold issued certificates from Google Trust Services.
+
+Still to add when their tasks run: Resend's DKIM and SPF records
+(`P0-OPS-08`), and the app hostnames once Railway has services (`P2-OPS-01`).
+
 ## Open items
 
 Revised by Addendum A. Bank details are stored nowhere — forbidden by §26 of
