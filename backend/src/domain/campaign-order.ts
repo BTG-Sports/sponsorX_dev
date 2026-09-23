@@ -34,6 +34,7 @@ import { acceptAgreementIn } from "./agreement";
 import { assertBudgetCarriesLine, assertLineClearsFloor } from "./margin-floor";
 import { createDeliverablesFromJob } from "./deliverable";
 import { createEarningForOrder } from "./earning";
+import { projectLine } from "./pricing-learning";
 
 export class TermsFrozenError extends Error {
   readonly status = 409;
@@ -121,7 +122,12 @@ export async function createOrder(
     });
     const athlete = await tx.athlete.findFirst({
       where: { id: input.athleteId, tenantId: actor.tenantId },
-      select: { tier: true },
+      select: {
+        tier: true,
+        /* P7-DATA-03 — the audience figures the projection rests on, read
+           here so the implied CPM is frozen onto the line at creation. */
+        socials: { select: { followers: true, avgViews: true, source: true } },
+      },
     });
 
     /* P3-BE-12, per line and in its literal form: this line's sponsor price
@@ -139,6 +145,13 @@ export async function createOrder(
       campaign.budget,
     );
 
+    /* P7-DATA-03 — frozen here, at creation, for the same reason the price
+       is: the athlete's follower and view figures move, and recomputing later
+       answers "what would we project today" rather than "what did we think
+       this was worth when we sold it". Fixed-price jobs get one too — they
+       are exactly the lines with no price signal of their own. */
+    const projection = projectLine(input.sellPrice, athlete?.socials ?? []);
+
     const order = await tx.campaignOrder.create({
       data: {
         tenantId: actor.tenantId,
@@ -150,6 +163,9 @@ export async function createOrder(
         usageRights: input.usageRights,
         exclusivity: input.exclusivity ?? null,
         dueDate: input.dueDate,
+        projectedImpressions: projection.projectedImpressions,
+        impliedCpm: projection.impliedCpm,
+        projectionSource: projection.projectionSource as Prisma.CampaignOrderCreateInput["projectionSource"],
       },
       select: { id: true, state: true },
     });
