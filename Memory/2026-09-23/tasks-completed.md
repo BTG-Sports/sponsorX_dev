@@ -685,3 +685,37 @@ definition is fixed in the Markdown rather than reinterpreted in the tracker.
 migrations verified by applying all nine from scratch to an embedded Postgres.
 
 Phase 1: **116 → 121 Done**.
+
+---
+
+# ► TOMORROW'S QUEUE — leftovers from 2026-09-23
+
+Start here. Each item says what is needed and who can do it.
+
+## Needs a decision from the business (nobody can code around these)
+
+| Item | The decision |
+|---|---|
+| **`P7-BE-06`** | G-07 recommends a **print stylesheet over a PDF worker**, and `P0-PMO-06` finds no Phase 1 requirement for server-side rendering. But **G-07's confirmation block is blank** — no Yes/No, no signatory, no date — while `P0-PMO-05` is marked Done. The row should almost certainly be **Dropped as not-required**. Fill in the confirmation table in `documentation/SponsorX-G07-Sponsor-Report-Format.md`. |
+| **`P8-INT-01` and all of stage 8** | Blocked on `documentation/SponsorX-Zoho-Field-Mapping.md` §10: **O-5 UNRESOLVED** (Zoho user mapping / who owns records the service account creates — "otherwise CRM records land ownerless and nobody is notified"), **O-2** needs sign-off (Campaign as Deal), **O-6** no sandbox org exists so any push writes to the live CRM. |
+| **`P7-BE-02` wording** | Implemented to release the earning when the **last** deliverable is verified, not the first — an Earning is per order and SX-07 owes four posts. If accepted, amend the phase document by PR. |
+| **§15 has no `invoice` resource** | `invoicesForCampaign` is gated on `campaign` read instead. The RBAC matrix should gain an invoice row; then that line changes to match. |
+| **`External_Id` vs `SponsorX_ID`** | `P8-INT-01`'s acceptance says one, the field-mapping document (v0.2, revised against the live org) says the other. Reconcile before writing the push jobs. |
+
+## Needs something obtained or clicked
+
+- **`P6-BE-05`** — at **Code review**, not Done. Needs a `GeoLite2-City.mmdb`: free MaxMind account, licence key, download, then set `GEOLITE2_CITY_PATH`. The worker logs that it has none on every boot. Close the row once a real click resolves to a city.
+- **`api` has no PRODUCTION instance.** Variables, a `main` deployment trigger and the Dockerfile path are all configured and waiting; `serviceInstanceDeployV2` and `environmentUnskipService` both return *Service Instance not found*. **UI only** — switch the Railway environment selector to production and add `api` to it.
+- **Production `web` is frozen** on a pre-21-September commit. Its only deployment trigger is on *staging*, so merges to `main` never reach it. Needs a production trigger.
+
+## Housekeeping
+
+- **Four stale remote branches**, all fully merged: `b5_deliverables`, `b6_tracking_reward`, `b7_earnings`, `b6_geo_worker`. Safe to delete.
+- **8 rows at Code review are `HeckerCreatives`'** — Jan closes those, not us.
+- **The graphify knowledge graph is stale.** Built 21 September, before the `frontend/` / `backend/` split; it still indexes `src/server/` and `src/app/(app)/`. Re-run ingestion before trusting it.
+- **The Google Sheet needs its end-of-day hand-mirror.** Cannot be automated: the Drive connector is metadata-only for content.
+
+## Two traps worth remembering
+
+- **Staging runs `NODE_ENV=production`.** Any new production-only boot guard takes staging down. That is how the first deploy tonight failed: the API refused to boot without `ZOHO_WEBHOOK_SECRET`, exactly as designed. Both environments now have one.
+- **A green `/health` does not mean the new code is live.** When a deploy fails, the previous container keeps serving. Verify against `/api/v1/openapi.json` — the published schema count is the honest check.
