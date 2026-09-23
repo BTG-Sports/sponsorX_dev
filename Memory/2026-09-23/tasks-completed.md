@@ -525,3 +525,80 @@ suspended.
 **887 backend + 46 frontend tests pass; full root build green.**
 
 Phase 1: **106 → 111 Done**, Blocked 80 → 72. Stage 7 went 3 → 7.
+
+---
+
+# Night — stage 7's data and security layer
+
+`P7-DATA-03`, `P7-DATA-04`, `P7-DATA-05`, `P7-SEC-01`, `P7-SEC-02`. One
+branch. Stage 7 is now 12 of 20, with only `P7-BE-06` (the PDF worker, which
+G-07 argues against) and frontend rows left.
+
+## A deliberate exception to "never store a derived number"
+
+`P7-DATA-02` established that aggregates are always recomputed and never
+stored, because a stored total drifts from its rows. **`P7-DATA-03` stores
+one anyway**, and the distinction matters:
+
+- An **aggregate over rows** must be recomputed — it has a current truth.
+- A **historical belief** must be frozen — `projectedImpressions`,
+  `impliedCpm` and `projectionSource` record what we thought a line was worth
+  *when we sold it*. The athlete's follower count moves constantly, so
+  recomputing later answers "what would we project today" and destroys the
+  only signal worth having: whether our pricing was right.
+
+Same reasoning that freezes `compensation` and `sellPrice` at send.
+
+All three columns are nullable. An athlete with no audience figure gets no
+projection, and **null says so — a zero would be a claim** that the line
+reaches nobody, and would make the CPM a division by zero.
+
+## Judgements inside the projection
+
+- **Average views beats follower count.** Followers are an audience that
+  *might* see something; avgViews is roughly how many did. Followers are the
+  fallback, discounted by `FOLLOWER_TO_IMPRESSION_RATE` (0.1) — treating every
+  follower as an impression overstates reach by an order of magnitude.
+- **The strongest single account, never the sum.** Posting one deliverable to
+  two platforms does not reach the combined audience.
+- **`projectionSource` travels with the number.** It is almost always
+  SELF_REPORTED, and an implied CPM quoted without that label reads as though
+  it rested on verified reach.
+
+## Two kinds of under-delivery, kept apart
+
+`P7-DATA-04` reports work-not-delivered and reach-below-projection
+**separately**. Overdue deliverables are unambiguous and actionable — someone
+chases the athlete. A reach shortfall is softer, because the projection was
+built from self-reported figures, so it may mean the athlete overstated their
+audience rather than that anything went wrong. **They need different phone
+calls**, so a single "health score" would have hidden which was happening.
+
+Threshold is 0.7, not 1.0: a dashboard that fires at 99% is ignored inside a
+week.
+
+## The two SEC tasks are structural, not behavioural
+
+- **`P7-SEC-01`** discovers every exported function in the money modules **by
+  reading the source** and asserts each one audits. A behavioural test only
+  proves the functions it happens to call are covered; this covers the one
+  somebody writes next month. Escaping it requires naming the function in an
+  explicit `READ_ONLY` list — a visible act, not an omission.
+- **`P7-SEC-02`** scans the whole schema and every source file for a narrow,
+  literal list of forbidden fields, plus the dependency list for payment SDKs.
+  **The point is the day somebody adds `taxId` so a 1099 can be generated** —
+  it looks reasonable in isolation and would pass review. Deliberately not a
+  fuzzy regex on "tax": `taxYear` is legitimate, and a check that cries wolf
+  gets disabled.
+
+## Process notes
+
+- **Ran `npm run lint` this time**, which caught two unused imports before
+  CI did. Build and test alone are not enough — CI runs lint.
+- The `order_implied_cpm` migration was verified by applying **all eight
+  migrations from scratch** to an embedded Postgres in the scratchpad, as with
+  `CampaignInvoice`.
+
+**975 backend + 46 frontend tests pass; build green; lint clean.**
+
+Phase 1: **111 → 116 Done**. Stage 7: 7 → 12.
