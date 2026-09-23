@@ -153,6 +153,15 @@ export const AUDIT_ACTIONS = {
   tracking: {
     linkCreate: "tracking.linkCreate",
   },
+  /**
+   * Earnings (P7-BE-01, P7-BE-03). The state moves live under `payout`
+   * above, which §26 already names as one of its five areas; these two are
+   * the record's own lifecycle rather than a money decision.
+   */
+  earning: {
+    create: "earning.create",
+    adjust: "earning.adjust",
+  },
 } as const;
 
 type Change = {

@@ -33,6 +33,7 @@ import { guardianReadiness } from "./guardian-rules";
 import { acceptAgreementIn } from "./agreement";
 import { assertBudgetCarriesLine, assertLineClearsFloor } from "./margin-floor";
 import { createDeliverablesFromJob } from "./deliverable";
+import { createEarningForOrder } from "./earning";
 
 export class TermsFrozenError extends Error {
   readonly status = 409;
@@ -294,6 +295,8 @@ export async function acceptOrder(
         /* Needed by createDeliverablesFromJob below — read here, inside the
            transaction, rather than re-read after the update. */
         tenantId: true, jobId: true, dueDate: true,
+        /* P7-BE-01 — the earning is raised in this same transaction. */
+        athleteId: true, compensation: true,
         athlete: {
           select: {
             birthDate: true, ageBand: true, guardianId: true,
@@ -342,6 +345,18 @@ export async function acceptOrder(
       id: order.id,
       tenantId: order.tenantId,
       jobId: order.jobId,
+      dueDate: order.dueDate,
+    });
+
+    /* P7-BE-01 — the earning exists from the moment the contract does, at
+       PENDING. Raising it later, on completion, would mean the period between
+       acceptance and delivery shows an athlete owed nothing for work they are
+       already contractually committed to. */
+    await createEarningForOrder(tx, actor, {
+      id: order.id,
+      tenantId: order.tenantId,
+      athleteId: order.athleteId,
+      compensation: order.compensation,
       dueDate: order.dueDate,
     });
 

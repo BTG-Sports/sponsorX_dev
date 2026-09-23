@@ -77,6 +77,14 @@ vi.mock("../src/db/client", () => ({
             return Promise.resolve({ count: data.length });
           },
         },
+        /* P7-BE-01 raises the earning inside the acceptance transaction. */
+        earning: {
+          findUnique: () => Promise.resolve(null),
+          create: ({ data }: { data: Record<string, unknown> }) => {
+            writes.push("earning.create");
+            return Promise.resolve({ id: "ern_1", state: data.state });
+          },
+        },
         auditLog: { create: () => { writes.push("audit"); return Promise.resolve({ id: "a" }); } },
         outboxJob: { create: () => { writes.push("outbox"); return Promise.resolve({ id: "j" }); } },
       };
@@ -115,8 +123,10 @@ beforeEach(() => {
   campaign = { id: "cmp_1", budget: 100000 };
   order = {
     id: "ord_1", state: "SENT", athlete: { ...adult },
-    /* Read inside acceptOrder for P5-BE-03's deliverable creation. */
+    /* Read inside acceptOrder for P5-BE-03's deliverables and P7-BE-01's
+       earning, both created in the same transaction. */
     tenantId: "t1", jobId: "SX-02", dueDate: new Date("2026-11-01"),
+    athleteId: "ath_1", compensation: 10000,
   };
   committed = 0; athleteTier = "PREMIUM";
   created = null; acceptCalls = 0; acceptThrows = null;

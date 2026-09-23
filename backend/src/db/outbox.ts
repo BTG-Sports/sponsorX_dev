@@ -36,6 +36,9 @@ export type JobName =
   | "notify.invitationSent"
   | "notify.deliverableDue"
   | "reward.generateQr"
+  /* P5-BE-07. Enqueued when a creative asset is registered; the worker
+     resizes it to 320/640/1280 webp. */
+  | "image.derive"
   | "tracking.resolveGeo";
 
 /**

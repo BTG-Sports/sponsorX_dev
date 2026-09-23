@@ -24,6 +24,7 @@ import { randomBytes } from "node:crypto";
 import type { Prisma } from "../generated/prisma/client";
 import { prisma } from "../db/client";
 import { audit, AUDIT_ACTIONS } from "../db/audit";
+import { enqueue } from "../db/outbox";
 import type { Actor } from "../auth/actor";
 import { assertAllowed, assertTenantWide, whereFor } from "../auth/scope";
 import { ForbiddenError } from "../auth/errors";
@@ -213,6 +214,11 @@ export async function issueRewardToken(
     await audit(tx, actor, AUDIT_ACTIONS.reward.tokenIssue, "RewardToken", created.id, {
       after: { rewardId: reward.id, athleteId: athleteId ?? null },
     });
+
+    /* P6-BE-06 — the image is generated off the request path. Issuing tokens
+       is a bulk operation; a campaign hands out hundreds at once and the desk
+       must not wait on object storage several hundred times. */
+    await enqueue(tx, reward.tenantId, "reward.generateQr", { tokenId: created.id });
 
     return created;
   });
