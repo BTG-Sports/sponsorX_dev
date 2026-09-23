@@ -208,7 +208,7 @@ export function PortalShell({
             portalLabel={accent.label}
           />
           <div className="min-w-0 flex-1">
-            <p className="text-[10px] uppercase leading-tight tracking-[0.2em] text-faint">
+            <p className="whitespace-nowrap text-[10px] uppercase leading-tight tracking-[0.2em] text-faint">
               Welcome back
             </p>
             <p className="truncate text-base font-semibold leading-tight tracking-tight">
@@ -222,14 +222,18 @@ export function PortalShell({
 
           <div className="flex items-center gap-3">
             <ThemeToggle />
-            <TopIcon
-              path="M6 16V10a6 6 0 1 1 12 0v6l2 3H4l2-3Zm4 3a2 2 0 0 0 4 0"
-              label="Notifications — not wired"
-            />
-            <TopIcon
-              path="M12 17h.01M12 13.5c0-1.5 2-1.8 2-3.5a2 2 0 1 0-4 0M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Z"
-              label="Help — not wired"
-            />
+            {/* Both inert until their features ship — on a phone they only
+               crowd the actor's name out of the header, so they wait for sm. */}
+            <div className="hidden items-center gap-3 sm:flex">
+              <TopIcon
+                path="M6 16V10a6 6 0 1 1 12 0v6l2 3H4l2-3Zm4 3a2 2 0 0 0 4 0"
+                label="Notifications — not wired"
+              />
+              <TopIcon
+                path="M12 17h.01M12 13.5c0-1.5 2-1.8 2-3.5a2 2 0 1 0-4 0M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Z"
+                label="Help — not wired"
+              />
+            </div>
             <span className="hidden h-6 w-px bg-gradient-to-b from-transparent via-line to-transparent sm:block" />
             <UserMenu
               userName={userName}
