@@ -66,12 +66,35 @@ const schema = z.object({
   S3_SECRET_ACCESS_KEY: z.string().default("sponsorx-dev-secret"),
   S3_BUCKET_PUBLIC: z.string().default("sponsorx-public"),
   S3_BUCKET_PRIVATE: z.string().default("sponsorx-private"),
+
+  /* The GeoLite2 City database, for P6-BE-05.
+     
+     Optional on purpose. The file is a licensed MaxMind download that cannot
+     be committed, so a checkout without it must still boot — the geo job
+     then reports that it has no database and leaves city/region null, which
+     is a missing dimension on a chart rather than a broken deploy. */
+  GEOLITE2_CITY_PATH: z.string().optional(),
+
+  /* Shared secret for inbound Zoho webhooks (P7-BE-04, §18).
+  
+     Optional in the schema so a local checkout runs, but the production guard
+     below refuses to boot without it: the invoice webhook is a public route,
+     and an unsigned one is an unauthenticated write into the finance mirror. */
+  ZOHO_WEBHOOK_SECRET: z.string().optional(),
 });
 
 /* A development default that reached production would make every continuation
    link forgeable by anyone who has read this repository. Refusing to boot is
    the only safe failure: a warning gets missed, and the damage is silent. */
 const parsed = schema.parse(process.env);
+if (parsed.NODE_ENV === "production" && !parsed.ZOHO_WEBHOOK_SECRET) {
+  throw new Error(
+    "ZOHO_WEBHOOK_SECRET is not set. The Zoho invoice webhook is a public " +
+      "route, so without a shared secret anyone who finds the URL can write " +
+      "into the invoice mirror. Refusing to boot rather than accepting " +
+      "unsigned payloads.",
+  );
+}
 if (
   parsed.NODE_ENV === "production" &&
   parsed.INTAKE_TOKEN_SECRET === "dev-intake-secret-not-for-production"

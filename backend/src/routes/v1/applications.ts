@@ -17,7 +17,7 @@
 import { Router, type RequestHandler } from "express";
 
 import { requireActor } from "../../auth/actor";
-import { rateLimit, RateLimitedError } from "../../lib/rate-limit";
+import { limit } from "../../lib/rate-limit";
 import { readIntakeToken } from "../../lib/intake-token";
 import { ForbiddenError } from "../../auth/errors";
 import { whereFor } from "../../auth/scope";
@@ -69,14 +69,6 @@ function applicationFromToken(req: { query: Record<string, unknown> }): string {
   const id = readIntakeToken(typeof raw === "string" ? raw : null);
   if (!id) throw new ApplicationNotFoundError();
   return id;
-}
-
-/** The caller, for rate-limiting purposes. `trust proxy` is not set, so this
- *  is the socket peer — correct locally, and correct on Railway where the
- *  edge terminates before the container. */
-async function limit(key: string, ip: string | undefined, max: number, windowSeconds: number) {
-  const result = await rateLimit(`${key}:${ip ?? "unknown"}`, max, windowSeconds);
-  if (!result.allowed) throw new RateLimitedError(result.retryAfter);
 }
 
 /**

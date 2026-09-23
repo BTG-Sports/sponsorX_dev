@@ -27,6 +27,36 @@ import {
   OrderAcceptanceInput,
 } from "./campaign";
 import {
+  CreativeAssetInput,
+  CreativeUploadInput,
+  DeliverableState,
+  MarkPublishedInput,
+  RevisionRequestInput,
+} from "./deliverable";
+import {
+  RewardClaimInput,
+  RewardEventType,
+  RewardFunnel,
+  RewardInput,
+  RewardState,
+  RewardTokenInput,
+  RewardTransitionInput,
+  TrackingCode,
+  TrackingDestination,
+  TrackingLinkInput,
+} from "./reward";
+import {
+  EarningAdjustmentInput,
+  EarningBreakdown,
+  EarningState,
+  EarningTransitionInput,
+} from "./earning";
+import {
+  MediaValue, MetricBreakdown, MetricEntryInput, MetricSource,
+  SourcedTotals, SponsorReport,
+} from "./metric";
+import { Invoice, PaymentStatus, ZohoInvoiceWebhook } from "./invoice";
+import {
   AgreementAcceptanceInput,
   GuardianInput,
   GuardianReadiness,
@@ -117,6 +147,49 @@ registry.register("AthleteRateInput", AthleteRateInput);
 registry.register("CampaignOrderInput", CampaignOrderInput);
 registry.register("OrderTransitionInput", OrderTransitionInput);
 registry.register("OrderAcceptanceInput", OrderAcceptanceInput);
+
+// --- deliverables and creative assets (P5-BE-05, P5-BE-06, P5-BE-08) ----
+
+registry.register("DeliverableState", DeliverableState);
+registry.register("RevisionRequestInput", RevisionRequestInput);
+registry.register("MarkPublishedInput", MarkPublishedInput);
+registry.register("CreativeUploadInput", CreativeUploadInput);
+registry.register("CreativeAssetInput", CreativeAssetInput);
+
+// --- the fan funnel and tracking links (P6-BE-01..04, P6-BE-07) ---------
+
+registry.register("RewardState", RewardState);
+registry.register("RewardEventType", RewardEventType);
+registry.register("RewardInput", RewardInput);
+registry.register("RewardTransitionInput", RewardTransitionInput);
+registry.register("RewardTokenInput", RewardTokenInput);
+registry.register("RewardClaimInput", RewardClaimInput);
+registry.register("RewardFunnel", RewardFunnel);
+registry.register("TrackingLinkInput", TrackingLinkInput);
+registry.register("TrackingDestination", TrackingDestination);
+registry.register("TrackingCode", TrackingCode);
+
+// --- earnings (P7-BE-01, P7-BE-03) -------------------------------------
+
+registry.register("EarningState", EarningState);
+registry.register("EarningTransitionInput", EarningTransitionInput);
+registry.register("EarningAdjustmentInput", EarningAdjustmentInput);
+registry.register("EarningBreakdown", EarningBreakdown);
+
+// --- metrics and the sponsor report (P7-DATA-01, P7-BE-05, §22) --------
+
+registry.register("MetricSource", MetricSource);
+registry.register("SourcedTotals", SourcedTotals);
+registry.register("MetricBreakdown", MetricBreakdown);
+registry.register("MetricEntryInput", MetricEntryInput);
+registry.register("MediaValue", MediaValue);
+registry.register("SponsorReport", SponsorReport);
+
+// --- invoices mirrored from Zoho (P7-BE-04, §18) -----------------------
+
+registry.register("ZohoInvoiceWebhook", ZohoInvoiceWebhook);
+registry.register("Invoice", Invoice);
+registry.register("PaymentStatus", PaymentStatus);
 
 /**
  * Bearer auth for §8's API Service Account. Clerk issues the session for human

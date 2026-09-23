@@ -20,6 +20,19 @@ import {
 import { transitionBrief } from "./brief";
 import type { BriefState } from "./brief-state";
 
+export class LaunchNeedsFullTransitionError extends Error {
+  readonly status = 409;
+  constructor() {
+    super(
+      "A campaign cannot be moved to ACTIVE through the generic transition. " +
+        "Going live also activates every accepted order and queues the Zoho " +
+        "push and the launch notification — use launchCampaign, which does " +
+        "all of it in one transaction.",
+    );
+    this.name = "LaunchNeedsFullTransitionError";
+  }
+}
+
 export class BriefNotApprovedError extends Error {
   readonly status = 409;
   constructor(state: BriefState) {
@@ -98,7 +111,15 @@ export async function transitionCampaign(
   campaignId: string,
   to: CampaignState,
 ): Promise<{ id: string; state: CampaignState }> {
-  assertAllowed(actor, "campaign", to === "ACTIVE" ? "approve" : "write");
+  /* ACTIVE IS NOT REACHABLE HERE. Going live is four writes that must commit
+     together — the campaign, its accepted orders, the Zoho push and the
+     notification — and this path did only two of them. A campaign that
+     reached ACTIVE through here left its orders sitting at ACCEPTED, so the
+     athletes were live on paper and had nothing to deliver against, and
+     nobody was told. `launchCampaign` is the only door (P5-BE-04). */
+  if (to === "ACTIVE") throw new LaunchNeedsFullTransitionError();
+
+  assertAllowed(actor, "campaign", "write");
 
   return prisma.$transaction(async (tx) => {
     const campaign = await tx.campaign.findFirst({
@@ -121,11 +142,75 @@ export async function transitionCampaign(
       after: { state: to },
     });
 
-    if (to === "ACTIVE") {
-      await enqueue(tx, actor.tenantId, "zoho.pushCampaign", { campaignId });
+    return { id: updated.id, state: updated.state as CampaignState };
+  });
+}
+
+/**
+ * Take a campaign live — P5-BE-04, Guide §05.
+ *
+ * Five things happen together or none do: the campaign moves to ACTIVE, every
+ * ACCEPTED order on it moves to ACTIVE, the Zoho push is queued, the
+ * "campaign live" notification is queued, and the audit row is written.
+ *
+ * WHY THE ORDERS MOVE HERE AND NOT ON A TIMER. An ACCEPTED order is a signed
+ * contract that has not started; an ACTIVE one is work in progress, and the
+ * deliverables hanging off it are now genuinely owed. Launching the campaign
+ * is the event that makes that true for every athlete at once, so one
+ * transaction is also the only way they all agree about when work began.
+ *
+ * WHY ONLY ACCEPTED ORDERS. A DRAFT or SENT order is an offer nobody has
+ * signed, and a REJECTED or CANCELLED one is settled. Sweeping those to
+ * ACTIVE would manufacture contracts out of offers. The filter is on state,
+ * not on "everything attached to this campaign".
+ *
+ * BOTH JOBS ARE QUEUED, NEVER CALLED. §18 keeps Zoho off the request path:
+ * if Zoho is down the campaign still goes live and the sync waits.
+ */
+export async function launchCampaign(
+  actor: Actor,
+  campaignId: string,
+): Promise<{ id: string; state: CampaignState; ordersActivated: number }> {
+  /* Launching is an approval, not an edit — §15 gives CAMPAIGN_MGR and above
+     `campaign.approve`, and that is the gate the old path used too. */
+  assertAllowed(actor, "campaign", "approve");
+
+  return prisma.$transaction(async (tx) => {
+    const campaign = await tx.campaign.findFirst({
+      where: { ...whereFor(actor, "campaign", "approve"), id: campaignId },
+      select: { id: true, state: true },
+    });
+    if (!campaign) throw new ForbiddenError("campaign", "approve");
+
+    const from = campaign.state as CampaignState;
+    if (!canTransitionCampaign(from, "ACTIVE")) {
+      throw new IllegalCampaignTransitionError(from, "ACTIVE");
     }
 
-    return { id: updated.id, state: updated.state as CampaignState };
+    const updated = await tx.campaign.update({
+      where: { id: campaignId },
+      data: { state: "ACTIVE" as Prisma.CampaignUpdateInput["state"] },
+      select: { id: true, state: true },
+    });
+
+    const activated = await tx.campaignOrder.updateMany({
+      where: { campaignId, state: "ACCEPTED" },
+      data: { state: "ACTIVE" },
+    });
+
+    await audit(tx, actor, CAMPAIGN_AUDIT_ACTIONS.ACTIVE, "Campaign", campaignId, {
+      before: { state: from },
+      after: { state: "ACTIVE", ordersActivated: activated.count },
+    });
+
+    await enqueue(tx, actor.tenantId, "zoho.pushCampaign", { campaignId });
+    await enqueue(tx, actor.tenantId, "notify.campaignLive", { campaignId });
+
+    return {
+      id: updated.id,
+      state: updated.state as CampaignState,
+      ordersActivated: activated.count,
+    };
   });
 }
 

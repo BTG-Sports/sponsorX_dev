@@ -564,8 +564,9 @@ model Campaign {
   sponsor Sponsor          @relation(fields: [sponsorId], references: [id])
   brief   CampaignBrief?   @relation(fields: [briefId], references: [id])
   invites CampaignInvite[]
-  orders  CampaignOrder[]
-  rewards Reward[]
+  orders   CampaignOrder[]
+  rewards  Reward[]
+  invoices CampaignInvoice[]
 
   @@index([tenantId, state])
 }
@@ -619,6 +620,29 @@ model CampaignOrder {
   usageRights  String
   exclusivity  String?
   dueDate      DateTime
+
+  /// What we expected this line to reach, FROZEN AT CREATION — P7-DATA-03.
+  ///
+  /// Frozen for the same reason `compensation` and `sellPrice` are: the
+  /// projection comes from the athlete's own follower and view figures, which
+  /// move. Recomputing later answers "what would we project today", and the
+  /// question worth learning from is "what did we think this was worth when
+  /// we sold it". A derived number is normally not stored in this codebase
+  /// (see the metric rollup); this one is an exception because it is a
+  /// historical fact about a sale rather than an aggregate over rows.
+  ///
+  /// Null where the athlete had no usable audience figure. An absent
+  /// projection is honest; a zero would be a claim.
+  projectedImpressions Int?
+  /// cents per thousand projected impressions. Derived from `sellPrice` and
+  /// `projectedImpressions`, stored alongside them so the arithmetic that
+  /// produced it can be checked later.
+  impliedCpm           Int?
+  /// The provenance of the PROJECTION — usually SELF_REPORTED in Phase 1,
+  /// because that is what an athlete's follower count is. Carried so no
+  /// report can present an implied CPM as though it rested on verified
+  /// reach (§22).
+  projectionSource     MetricSource?
   state        OrderState @default(DRAFT)
   acceptedAt   DateTime?
   acceptanceId String?    @unique
@@ -775,7 +799,28 @@ model RewardEvent {
   at       DateTime        @default(now())
   city     String?
   region   String?
+  /// The ONLY fan PII this system holds, and it is optional — §16's page has
+  /// no login and asking for an address as a condition of claiming would be a
+  /// barrier at a stall. It may only be set together with the three consent
+  /// columns below (P6-SEC-01); `recordClaim` refuses otherwise.
   fanEmail String?
+
+  /// Consent, captured at the moment of the claim — P6-SEC-01, §26.
+  ///
+  /// THE VERSION IS THE POINT. "They consented" is not a defensible record
+  /// three months later when the wording has been edited twice; "they
+  /// consented to version 2026-09-01 at this timestamp" is. The version
+  /// string is the identity of the text that was actually on screen.
+  ///
+  /// All three are null where no email was given — there is nothing to
+  /// consent to holding.
+  consentVersion  String?
+  consentAt       DateTime?
+  /// What the fan was told the address would be used for, as a short code
+  /// (e.g. "reward-delivery"). Consent is scoped: agreeing to be sent a
+  /// voucher is not agreeing to marketing, and a single boolean would lose
+  /// that distinction the first time someone exported the list.
+  consentPurpose  String?
 
   token RewardToken @relation(fields: [tokenId], references: [id])
 
@@ -860,6 +905,51 @@ model OutboxJob {
 
   @@index([dispatchedAt, createdAt])
   @@index([tenantId])
+}
+
+/// Invoices and payment status, MIRRORED from Zoho — P7-BE-04, §18.
+///
+/// SPONSORX IS NOT THE INVOICE SYSTEM OF RECORD, and this model is shaped to
+/// make that hard to forget. Every row is a copy of something Zoho Books owns:
+/// there is no line-item table, no tax field, no totalling logic and no way to
+/// issue or amend an invoice here. `zohoInvoiceId` is unique because the Zoho
+/// record is the identity — this table has no identity of its own to defend.
+///
+/// It exists so that "has this campaign been paid?" can be answered without a
+/// request to Zoho on a page load (§18 keeps Zoho off every request path).
+/// When the two disagree, Zoho is right and the next sync corrects this.
+model CampaignInvoice {
+  id         String @id @default(cuid())
+  tenantId   String
+  campaignId String
+
+  /// The Zoho Books invoice. Unique: it is the real identity of this row.
+  zohoInvoiceId String  @unique
+  /// Human-facing number as Zoho issued it, e.g. "INV-000042".
+  number        String?
+  /// Zoho's own status string, copied verbatim rather than re-modelled —
+  /// draft | sent | overdue | paid | void. Mapping it onto an enum of ours
+  /// would mean maintaining a translation that silently drops any status
+  /// Zoho adds later.
+  status        String
+  /// cents
+  amount        Int
+  currency      String  @default("USD")
+
+  issuedAt DateTime?
+  dueAt    DateTime?
+  paidAt   DateTime?
+
+  /// §18 loop prevention — which side wrote last, and a hash of what was
+  /// written, so an echo of our own update is recognised and dropped.
+  lastSyncOrigin SyncOrigin?
+  lastSyncHash   String?
+  syncedAt       DateTime    @default(now())
+
+  campaign Campaign @relation(fields: [campaignId], references: [id])
+
+  @@index([tenantId, status])
+  @@index([campaignId])
 }
 
 /// §20 — inbound Zoho attempts, recorded whether or not they were accepted.

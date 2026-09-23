@@ -242,6 +242,29 @@ const BUILDERS: Partial<Record<Resource, Builder>> = {
         return actor.guardianId
           ? { tenantId: actor.tenantId, guardianId: actor.guardianId }
           : MATCHES_NOTHING;
+      case "own-property":
+        /* A property manager reaches the athletes attached to their own
+           property. P3-BE-02. */
+        return actor.propertyId
+          ? { tenantId: actor.tenantId, propertyId: actor.propertyId }
+          : MATCHES_NOTHING;
+      case "assigned":
+        /* A SPONSOR sees ONLY ACTIVE ATHLETES ON THEIR OWN CAMPAIGNS —
+           P3-BE-02's acceptance, and both halves matter.
+
+           "Their own campaigns" keeps one sponsor out of another's roster.
+           "ACTIVE" keeps them out of the pipeline: an athlete who is
+           SUBMITTED, UNDER_REVIEW, REJECTED or SUSPENDED is a BTG matter, and
+           a sponsor learning that a named person was rejected — or suspended
+           mid-campaign — is a disclosure nobody agreed to. The state filter
+           is not a tidiness nicety; it is the confidential half. */
+        return actor.sponsorId
+          ? {
+              tenantId: actor.tenantId,
+              state: "ACTIVE",
+              orders: { some: { campaign: { is: { sponsorId: actor.sponsorId } } } },
+            }
+          : MATCHES_NOTHING;
       default:
         return MATCHES_NOTHING;
     }
@@ -280,6 +303,139 @@ const BUILDERS: Partial<Record<Resource, Builder>> = {
         return MATCHES_NOTHING;
     }
   },
+
+  /* A deliverable has no athlete, sponsor or campaign column of its own — it
+     hangs off the order, and the order carries all three. So every scope here
+     is the matching `campaignOrder` scope expressed through `order`, which
+     keeps the two from drifting: if a sponsor may not reach an order, they
+     cannot reach its deliverables either.
+
+     `own-property` is deliberately absent, exactly as it is on every other
+     builder in this file. PROPERTY_MGR holds the scope in §15, but no builder
+     implements it yet and `Actor` carries no propertyId; falling through to
+     MATCHES_NOTHING is the safe reading until the property milestone wires
+     it, and inventing a join here would be the only place in the codebase
+     where that scope means something. */
+  deliverable: (actor, scope) => {
+    switch (scope) {
+      case "any":
+        return {};
+      case "own-tenant":
+        return { tenantId: actor.tenantId };
+      case "own":
+        return actor.athleteId
+          ? { tenantId: actor.tenantId, order: { is: { athleteId: actor.athleteId } } }
+          : MATCHES_NOTHING;
+      case "ward":
+        return actor.guardianId
+          ? {
+              tenantId: actor.tenantId,
+              order: { is: { athlete: { is: { guardianId: actor.guardianId } } } },
+            }
+          : MATCHES_NOTHING;
+      case "own-campaign":
+        return actor.sponsorId
+          ? {
+              tenantId: actor.tenantId,
+              order: { is: { campaign: { is: { sponsorId: actor.sponsorId } } } },
+            }
+          : MATCHES_NOTHING;
+      default:
+        return MATCHES_NOTHING;
+    }
+  },
+
+  /* Assets reuse their deliverable's reach, for the same reason rows hanging
+     off an athlete reuse the athlete's: if you may not see the work, you may
+     not see the files that are the work. */
+  creativeAsset: (actor, scope) => {
+    const inner = BUILDERS.deliverable!(actor, scope);
+    if (inner === MATCHES_NOTHING) return MATCHES_NOTHING;
+    /* `any` is an empty filter; nesting it under `deliverable` would still be
+       correct but pointlessly joins, so hand it back as-is. */
+    if (Object.keys(inner).length === 0) return {};
+    return { deliverable: { is: inner } };
+  },
+
+  /* A tracking link hangs off a deliverable, which hangs off an order — so
+     every scope is the deliverable's, one level further out. Same reasoning
+     as creativeAsset: if you may not see the work, you may not see what it
+     earned. */
+  trackingLink: (actor, scope) => {
+    const inner = BUILDERS.deliverable!(actor, scope);
+    if (inner === MATCHES_NOTHING) return MATCHES_NOTHING;
+    if (Object.keys(inner).length === 0) return {};
+    return { deliverable: { is: inner } };
+  },
+
+  /* A reward belongs to a campaign, not to an athlete — it is the sponsor's
+     offer, promoted by many athletes at once. `own` is therefore NOT the
+     athlete's own rows here: an athlete reads a reward because they are
+     promoting its campaign, which is own-tenant reach on a campaign they are
+     already on. Anything narrower would hide the offer from the people
+     handing out its QR codes. */
+  reward: (actor, scope) => {
+    switch (scope) {
+      case "any":
+        return {};
+      case "own-tenant":
+      case "own":
+      case "ward":
+        return { tenantId: actor.tenantId };
+      case "own-campaign":
+        return actor.sponsorId
+          ? { tenantId: actor.tenantId, campaign: { is: { sponsorId: actor.sponsorId } } }
+          : MATCHES_NOTHING;
+      default:
+        return MATCHES_NOTHING;
+    }
+  },
+
+  /* Events are read through their token's reward. */
+  rewardEvent: (actor, scope) => {
+    const inner = BUILDERS.reward!(actor, scope);
+    if (inner === MATCHES_NOTHING) return MATCHES_NOTHING;
+    if (Object.keys(inner).length === 0) return {};
+    return { token: { is: { reward: { is: inner } } } };
+  },
+
+  /* An earning carries athleteId directly, so it scopes like the athlete it
+     belongs to rather than through the order. FINANCE reaches the tenant;
+     an athlete reaches their own money and a guardian their wards'. */
+  earning: (actor, scope) => {
+    switch (scope) {
+      case "any":
+        return {};
+      case "own-tenant":
+        return { tenantId: actor.tenantId };
+      case "own":
+        return actor.athleteId
+          ? { tenantId: actor.tenantId, athleteId: actor.athleteId }
+          : MATCHES_NOTHING;
+      case "ward":
+        return actor.guardianId
+          ? {
+              tenantId: actor.tenantId,
+              athlete: { is: { guardianId: actor.guardianId } },
+            }
+          : MATCHES_NOTHING;
+      default:
+        return MATCHES_NOTHING;
+    }
+  },
+
+  /* A metric row hangs off a deliverable, exactly as a tracking link does. */
+  metricEvent: (actor, scope) => {
+    const inner = BUILDERS.deliverable!(actor, scope);
+    if (inner === MATCHES_NOTHING) return MATCHES_NOTHING;
+    if (Object.keys(inner).length === 0) return {};
+    return { deliverable: { is: inner } };
+  },
+
+  /* Aggregates are read over the same rows; §15 marks them aggregate-only,
+     which is a shape constraint the reporting layer honours rather than a
+     different set of rows. */
+  metricAggregate: (actor, scope) => BUILDERS.metricEvent!(actor, scope),
 
   campaignBrief: (actor, scope) => {
     switch (scope) {

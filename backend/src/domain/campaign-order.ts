@@ -32,6 +32,9 @@ import {
 import { guardianReadiness } from "./guardian-rules";
 import { acceptAgreementIn } from "./agreement";
 import { assertBudgetCarriesLine, assertLineClearsFloor } from "./margin-floor";
+import { createDeliverablesFromJob } from "./deliverable";
+import { createEarningForOrder } from "./earning";
+import { projectLine } from "./pricing-learning";
 
 export class TermsFrozenError extends Error {
   readonly status = 409;
@@ -119,7 +122,12 @@ export async function createOrder(
     });
     const athlete = await tx.athlete.findFirst({
       where: { id: input.athleteId, tenantId: actor.tenantId },
-      select: { tier: true },
+      select: {
+        tier: true,
+        /* P7-DATA-03 — the audience figures the projection rests on, read
+           here so the implied CPM is frozen onto the line at creation. */
+        socials: { select: { followers: true, avgViews: true, source: true } },
+      },
     });
 
     /* P3-BE-12, per line and in its literal form: this line's sponsor price
@@ -137,6 +145,13 @@ export async function createOrder(
       campaign.budget,
     );
 
+    /* P7-DATA-03 — frozen here, at creation, for the same reason the price
+       is: the athlete's follower and view figures move, and recomputing later
+       answers "what would we project today" rather than "what did we think
+       this was worth when we sold it". Fixed-price jobs get one too — they
+       are exactly the lines with no price signal of their own. */
+    const projection = projectLine(input.sellPrice, athlete?.socials ?? []);
+
     const order = await tx.campaignOrder.create({
       data: {
         tenantId: actor.tenantId,
@@ -148,6 +163,9 @@ export async function createOrder(
         usageRights: input.usageRights,
         exclusivity: input.exclusivity ?? null,
         dueDate: input.dueDate,
+        projectedImpressions: projection.projectedImpressions,
+        impliedCpm: projection.impliedCpm,
+        projectionSource: projection.projectionSource as Prisma.CampaignOrderCreateInput["projectionSource"],
       },
       select: { id: true, state: true },
     });
@@ -290,6 +308,11 @@ export async function acceptOrder(
       where: { ...whereFor(actor, "campaignOrder", "write"), id: orderId },
       select: {
         id: true, state: true,
+        /* Needed by createDeliverablesFromJob below — read here, inside the
+           transaction, rather than re-read after the update. */
+        tenantId: true, jobId: true, dueDate: true,
+        /* P7-BE-01 — the earning is raised in this same transaction. */
+        athleteId: true, compensation: true,
         athlete: {
           select: {
             birthDate: true, ageBand: true, guardianId: true,
@@ -325,6 +348,32 @@ export async function acceptOrder(
         acceptanceId: acceptance.acceptanceId,
       },
       select: { id: true, state: true },
+    });
+
+    /* P5-BE-03 — the deliverable set is created HERE, in the acceptance
+       transaction, not by a follow-up call. An accepted order whose
+       deliverables failed to write is an athlete who owes nothing and a
+       sponsor who paid for something; the two facts have to commit together
+       or not at all. `acceptOrder` is the only path to ACCEPTED
+       (`transitionOrder` refuses it outright), so this is the only place the
+       set can come into existence. */
+    await createDeliverablesFromJob(tx, actor, {
+      id: order.id,
+      tenantId: order.tenantId,
+      jobId: order.jobId,
+      dueDate: order.dueDate,
+    });
+
+    /* P7-BE-01 — the earning exists from the moment the contract does, at
+       PENDING. Raising it later, on completion, would mean the period between
+       acceptance and delivery shows an athlete owed nothing for work they are
+       already contractually committed to. */
+    await createEarningForOrder(tx, actor, {
+      id: order.id,
+      tenantId: order.tenantId,
+      athleteId: order.athleteId,
+      compensation: order.compensation,
+      dueDate: order.dueDate,
     });
 
     await audit(tx, actor, AUDIT_ACTIONS.campaign.orderAccept, "CampaignOrder", orderId, {

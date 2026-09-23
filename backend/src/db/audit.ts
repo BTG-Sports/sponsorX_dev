@@ -117,6 +117,62 @@ export const AUDIT_ACTIONS = {
     privateUploadGrant: "storage.privateUploadGrant",
     privateDownloadGrant: "storage.privateDownloadGrant",
   },
+  /**
+   * The delivery chain (P5-BE-03, P5-BE-05, P5-BE-08, §13 steps 7–9).
+   *
+   * Every move is recorded because this is the chain that decides whether an
+   * athlete is owed money: VERIFIED is what `P7-BE-02` turns into an earning.
+   * A revision request carries the reason in `after`, so "why was this sent
+   * back three times" is answerable from the log rather than from memory.
+   */
+  deliverable: {
+    create: "deliverable.create",
+    submitDraft: "deliverable.submitDraft",
+    btgReview: "deliverable.btgReview",
+    sponsorReview: "deliverable.sponsorReview",
+    requestRevision: "deliverable.requestRevision",
+    approve: "deliverable.approve",
+    markPublished: "deliverable.markPublished",
+    verify: "deliverable.verify",
+    assetRegister: "deliverable.assetRegister",
+  },
+  /**
+   * The fan funnel (P6-BE-02, P6-BE-07, §16).
+   *
+   * Only the staff-side actions are audited. The fan-side events — SCAN,
+   * LANDING, CLAIM, REDEEM — are NOT written here: they are already rows in
+   * `RewardEvent`, which is the funnel itself, and duplicating them into the
+   * audit log would double every fan interaction at event scale while adding
+   * nothing an auditor could not read from the funnel.
+   */
+  reward: {
+    create: "reward.create",
+    transition: "reward.transition",
+    tokenIssue: "reward.tokenIssue",
+  },
+  tracking: {
+    linkCreate: "tracking.linkCreate",
+  },
+  /**
+   * Earnings (P7-BE-01, P7-BE-03). The state moves live under `payout`
+   * above, which §26 already names as one of its five areas; these two are
+   * the record's own lifecycle rather than a money decision.
+   */
+  earning: {
+    create: "earning.create",
+    adjust: "earning.adjust",
+  },
+  /**
+   * Metric entry (P7-DATA-01, §22).
+   *
+   * Audited because a figure's PROVENANCE is the claim, not just its value:
+   * "who recorded this as verified, and when" is the question asked when a
+   * sponsor disputes a number. The rollup is not audited — it recomputes from
+   * these rows and stores nothing.
+   */
+  metric: {
+    record: "metric.record",
+  },
 } as const;
 
 type Change = {
