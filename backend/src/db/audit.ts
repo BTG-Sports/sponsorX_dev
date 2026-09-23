@@ -117,6 +117,25 @@ export const AUDIT_ACTIONS = {
     privateUploadGrant: "storage.privateUploadGrant",
     privateDownloadGrant: "storage.privateDownloadGrant",
   },
+  /**
+   * The delivery chain (P5-BE-03, P5-BE-05, P5-BE-08, §13 steps 7–9).
+   *
+   * Every move is recorded because this is the chain that decides whether an
+   * athlete is owed money: VERIFIED is what `P7-BE-02` turns into an earning.
+   * A revision request carries the reason in `after`, so "why was this sent
+   * back three times" is answerable from the log rather than from memory.
+   */
+  deliverable: {
+    create: "deliverable.create",
+    submitDraft: "deliverable.submitDraft",
+    btgReview: "deliverable.btgReview",
+    sponsorReview: "deliverable.sponsorReview",
+    requestRevision: "deliverable.requestRevision",
+    approve: "deliverable.approve",
+    markPublished: "deliverable.markPublished",
+    verify: "deliverable.verify",
+    assetRegister: "deliverable.assetRegister",
+  },
 } as const;
 
 type Change = {

@@ -32,6 +32,7 @@ import {
 import { guardianReadiness } from "./guardian-rules";
 import { acceptAgreementIn } from "./agreement";
 import { assertBudgetCarriesLine, assertLineClearsFloor } from "./margin-floor";
+import { createDeliverablesFromJob } from "./deliverable";
 
 export class TermsFrozenError extends Error {
   readonly status = 409;
@@ -290,6 +291,9 @@ export async function acceptOrder(
       where: { ...whereFor(actor, "campaignOrder", "write"), id: orderId },
       select: {
         id: true, state: true,
+        /* Needed by createDeliverablesFromJob below — read here, inside the
+           transaction, rather than re-read after the update. */
+        tenantId: true, jobId: true, dueDate: true,
         athlete: {
           select: {
             birthDate: true, ageBand: true, guardianId: true,
@@ -325,6 +329,20 @@ export async function acceptOrder(
         acceptanceId: acceptance.acceptanceId,
       },
       select: { id: true, state: true },
+    });
+
+    /* P5-BE-03 — the deliverable set is created HERE, in the acceptance
+       transaction, not by a follow-up call. An accepted order whose
+       deliverables failed to write is an athlete who owes nothing and a
+       sponsor who paid for something; the two facts have to commit together
+       or not at all. `acceptOrder` is the only path to ACCEPTED
+       (`transitionOrder` refuses it outright), so this is the only place the
+       set can come into existence. */
+    await createDeliverablesFromJob(tx, actor, {
+      id: order.id,
+      tenantId: order.tenantId,
+      jobId: order.jobId,
+      dueDate: order.dueDate,
     });
 
     await audit(tx, actor, AUDIT_ACTIONS.campaign.orderAccept, "CampaignOrder", orderId, {

@@ -22,7 +22,7 @@ import {
   InvitationResponseInput,
 } from "../../contracts/campaign";
 import { createBrief, transitionBrief } from "../../domain/brief";
-import { createCampaignFromBrief, transitionCampaign } from "../../domain/campaign";
+import { createCampaignFromBrief, launchCampaign, transitionCampaign } from "../../domain/campaign";
 import { eligibleForBrief } from "../../domain/matching";
 import { inviteAthlete, transitionInvite } from "../../domain/invitation";
 import { setAthleteRate, setAthleteTier, readRateCard } from "../../domain/athlete-rate";
@@ -76,6 +76,17 @@ const createCampaign: RequestHandler<{ id: string }> = async (req, res) => {
 const moveCampaign: RequestHandler<{ id: string }> = async (req, res) => {
   const { to } = CampaignTransitionInput.parse(req.body ?? {});
   res.json(await transitionCampaign(req.actor!, req.params.id, to));
+};
+
+/**
+ * POST /campaigns/:id/launch — go live (P5-BE-04).
+ *
+ * Separate from /transition because ACTIVE is not reachable there: launching
+ * also activates every accepted order and queues the Zoho push and the launch
+ * notification, all in one transaction.
+ */
+const launch: RequestHandler<{ id: string }> = async (req, res) => {
+  res.json(await launchCampaign(req.actor!, req.params.id));
 };
 
 /** POST /campaigns/:id/invitations — offer one job to one athlete. */
@@ -189,10 +200,11 @@ campaignsRouter.post("/briefs/:id/transition", requireActor, moveBrief);
 campaignsRouter.get("/briefs/:id/eligible-athletes", requireActor, shortlist);
 campaignsRouter.post("/briefs/:id/campaign", requireActor, createCampaign);
 campaignsRouter.post("/campaigns/:id/transition", requireActor, moveCampaign);
+campaignsRouter.post("/campaigns/:id/launch", requireActor, launch);
 campaignsRouter.post("/campaigns/:id/invitations", requireActor, invite);
 campaignsRouter.post("/invitations/:id/respond", requireActor, respond);
 
 export {
-  submitBrief, moveBrief, shortlist, createCampaign, moveCampaign, invite, respond,
+  submitBrief, moveBrief, shortlist, createCampaign, moveCampaign, launch, invite, respond,
   setTier, setRate, rateCard, addOrder, editOrder, moveOrder, accept,
 };

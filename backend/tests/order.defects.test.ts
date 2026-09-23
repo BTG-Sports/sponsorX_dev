@@ -68,6 +68,15 @@ vi.mock("../src/db/client", () => ({
             });
           },
         },
+        /* P5-BE-03 puts deliverable creation inside the acceptance
+           transaction, so the fake tx has to carry the model too. */
+        deliverable: {
+          count: () => Promise.resolve(0),
+          createMany: ({ data }: { data: unknown[] }) => {
+            writes.push("deliverable.createMany");
+            return Promise.resolve({ count: data.length });
+          },
+        },
         auditLog: { create: () => { writes.push("audit"); return Promise.resolve({ id: "a" }); } },
         outboxJob: { create: () => { writes.push("outbox"); return Promise.resolve({ id: "j" }); } },
       };
@@ -104,7 +113,11 @@ const terms = {
 
 beforeEach(() => {
   campaign = { id: "cmp_1", budget: 100000 };
-  order = { id: "ord_1", state: "SENT", athlete: { ...adult } };
+  order = {
+    id: "ord_1", state: "SENT", athlete: { ...adult },
+    /* Read inside acceptOrder for P5-BE-03's deliverable creation. */
+    tenantId: "t1", jobId: "SX-02", dueDate: new Date("2026-11-01"),
+  };
   committed = 0; athleteTier = "PREMIUM";
   created = null; acceptCalls = 0; acceptThrows = null;
   committedWrites = [];

@@ -27,6 +27,13 @@ import {
   OrderAcceptanceInput,
 } from "./campaign";
 import {
+  CreativeAssetInput,
+  CreativeUploadInput,
+  DeliverableState,
+  MarkPublishedInput,
+  RevisionRequestInput,
+} from "./deliverable";
+import {
   AgreementAcceptanceInput,
   GuardianInput,
   GuardianReadiness,
@@ -117,6 +124,14 @@ registry.register("AthleteRateInput", AthleteRateInput);
 registry.register("CampaignOrderInput", CampaignOrderInput);
 registry.register("OrderTransitionInput", OrderTransitionInput);
 registry.register("OrderAcceptanceInput", OrderAcceptanceInput);
+
+// --- deliverables and creative assets (P5-BE-05, P5-BE-06, P5-BE-08) ----
+
+registry.register("DeliverableState", DeliverableState);
+registry.register("RevisionRequestInput", RevisionRequestInput);
+registry.register("MarkPublishedInput", MarkPublishedInput);
+registry.register("CreativeUploadInput", CreativeUploadInput);
+registry.register("CreativeAssetInput", CreativeAssetInput);
 
 /**
  * Bearer auth for §8's API Service Account. Clerk issues the session for human

@@ -1,0 +1,49 @@
+import { z } from "./zod";
+
+import { DELIVERABLE_STATES } from "../domain/deliverable-state";
+
+/* --------------------------------------------------------------------------
+   Deliverables on the wire — P5-BE-05, P5-BE-06, P5-BE-08, §13 steps 7–9.
+
+   The state enum is built from the domain's list rather than retyped, for the
+   same reason as every other contract here: a published schema that names a
+   state the machine has never heard of is a lie that only shows up at
+   runtime.
+   -------------------------------------------------------------------------- */
+
+export const DeliverableState = z.enum(DELIVERABLE_STATES).meta({
+  id: "DeliverableState",
+  description:
+    "NOT_STARTED → DRAFT_SUBMITTED → BTG_REVIEW → SPONSOR_REVIEW → APPROVED → PUBLISHED → VERIFIED. A revision request from either review returns the deliverable to DRAFT_SUBMITTED (§21).",
+});
+
+export const RevisionRequestInput = z
+  .object({
+    /** Mandatory. The athlete is being asked to redo paid work. */
+    reason: z.string().min(1).max(2000),
+  })
+  .meta({ id: "RevisionRequestInput" });
+
+export const MarkPublishedInput = z
+  .object({
+    /** Where the work went live. VERIFIED means BTG checked this link. */
+    publishedUrl: z.url().max(2000),
+  })
+  .meta({ id: "MarkPublishedInput" });
+
+export const CreativeUploadInput = z
+  .object({
+    contentType: z.string().min(1).max(255),
+  })
+  .meta({
+    id: "CreativeUploadInput",
+    description:
+      "Requests a presigned PUT against the private R2 bucket. The key is chosen by the server — a client-chosen key is a client-chosen path (§11, Addendum A8).",
+  });
+
+export const CreativeAssetInput = z
+  .object({
+    /** The key returned by the presign call, not one the client invented. */
+    r2Key: z.string().min(1).max(1024),
+  })
+  .meta({ id: "CreativeAssetInput" });
