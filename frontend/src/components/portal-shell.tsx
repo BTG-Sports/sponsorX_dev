@@ -14,7 +14,7 @@ import { UserMenu } from "./user-menu";
    Athlete = blue, Sponsor = orange, Admin = steel, Property = soft blue.
    -------------------------------------------------------------------------- */
 
-export type Portal = "sponsor" | "athlete" | "admin" | "property";
+export type Portal = "sponsor" | "athlete" | "admin" | "property" | "next";
 export type { NavItem };
 
 const ACCENT: Record<
@@ -61,6 +61,17 @@ const ACCENT: Record<
     wash: "from-property/15",
     edge: "from-property/60",
     label: "Property Portal",
+  },
+  /* SponsorX NEXT (P1-FE-18) — violet via the --sx-next token pair, which NEXT
+     spec §14 keeps a proposed value behind the brand gate. The label's first
+     word feeds the sidebar watermark, so it reads NEXT, not STUDENT. */
+  next: {
+    text: "text-next",
+    bg: "bg-next/15",
+    dot: "bg-next",
+    wash: "from-next/15",
+    edge: "from-next/60",
+    label: "NEXT Student",
   },
 };
 

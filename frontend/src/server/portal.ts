@@ -21,7 +21,7 @@ import { redirect } from "next/navigation";
 
 import { fetchActor, type Actor } from "@/server/api";
 
-export type Portal = "admin" | "athlete" | "sponsor" | "property";
+export type Portal = "admin" | "athlete" | "sponsor" | "property" | "next";
 
 /**
  * Roles admitted to each portal, in the order the post-sign-in router tries
@@ -44,6 +44,13 @@ const PORTAL_ROLES: ReadonlyArray<readonly [Portal, readonly string[]]> = [
   ["sponsor", ["SPONSOR_ADMIN", "SPONSOR_ANALYST"]],
   ["property", ["PROPERTY_MGR"]],
   ["athlete", ["ATHLETE", "GUARDIAN"]],
+  /* SponsorX NEXT student portal (P1-FE-19). STUDENT is the Stage 9 role — it
+     is not in the Role enum yet, so today it matches nobody, which is exactly
+     right: roles here are routing strings, not authorisation (see below). The
+     two BTG admin roles may *open* it meanwhile so the fixtures-only screens
+     stay demoable; they still route to /admin (their entry is tried first).
+     P9-FE-01 narrows this list when the portal is wired to real data. */
+  ["next", ["STUDENT", "SUPER_ADMIN", "BTG_ADMIN"]],
   /* SERVICE is §8's API service account. It appears in no list on purpose —
      it has credentials and no workspace, and must never be routed anywhere. */
 ];

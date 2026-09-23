@@ -63,6 +63,12 @@
   --sx-sponsor: #f97a1f;
   --sx-admin: #cbd5e1;
   --sx-property: #63b4f8;
+  /* SponsorX NEXT (P1-FE-18). The violet is PROPOSED — NEXT spec §14 keeps the
+     fifth accent an open brand gate, so screens consume the token pair, never
+     the literal; a different brand answer later is a two-line change here.
+     Contrast (P1-QA-02 bar): 5.87 surface / 6.30 bg / 4.78 on own /15 chip. */
+  --sx-next: #a479ff;
+  --sx-next-soft: #c3a6ff;
 
   --background: var(--sx-bg);
   --foreground: var(--sx-text);
@@ -111,6 +117,10 @@
   --sx-sponsor: #ac4a09; /* 4.52:1 on sponsor/15 nav chip; darker than accent */
   --sx-admin: #475569; /* 6.03:1 on admin/15 nav chip — passes unchanged */
   --sx-property: #1869b2; /* 4.58:1 on property/15 nav chip */
+  --sx-next: #6d31d9; /* 5.34:1 on next/15 nav chip; 6.79 on white */
+  /* Fills and gradients only, never text — 4.48:1 as chip text, under AA.
+     Same rule the other light -soft variants follow. */
+  --sx-next-soft: #7c3aed;
 }
 
 /* Frost ground: blue cast top-left, faint orange horizon bottom-right. */
@@ -149,6 +159,8 @@
   --color-athlete: var(--sx-athlete);
   --color-admin: var(--sx-admin);
   --color-property: var(--sx-property);
+  --color-next: var(--sx-next);
+  --color-next-soft: var(--sx-next-soft);
 
   --font-sans: var(--font-poppins);
 }
