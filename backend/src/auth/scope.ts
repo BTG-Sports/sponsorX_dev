@@ -242,6 +242,29 @@ const BUILDERS: Partial<Record<Resource, Builder>> = {
         return actor.guardianId
           ? { tenantId: actor.tenantId, guardianId: actor.guardianId }
           : MATCHES_NOTHING;
+      case "own-property":
+        /* A property manager reaches the athletes attached to their own
+           property. P3-BE-02. */
+        return actor.propertyId
+          ? { tenantId: actor.tenantId, propertyId: actor.propertyId }
+          : MATCHES_NOTHING;
+      case "assigned":
+        /* A SPONSOR sees ONLY ACTIVE ATHLETES ON THEIR OWN CAMPAIGNS —
+           P3-BE-02's acceptance, and both halves matter.
+
+           "Their own campaigns" keeps one sponsor out of another's roster.
+           "ACTIVE" keeps them out of the pipeline: an athlete who is
+           SUBMITTED, UNDER_REVIEW, REJECTED or SUSPENDED is a BTG matter, and
+           a sponsor learning that a named person was rejected — or suspended
+           mid-campaign — is a disclosure nobody agreed to. The state filter
+           is not a tidiness nicety; it is the confidential half. */
+        return actor.sponsorId
+          ? {
+              tenantId: actor.tenantId,
+              state: "ACTIVE",
+              orders: { some: { campaign: { is: { sponsorId: actor.sponsorId } } } },
+            }
+          : MATCHES_NOTHING;
       default:
         return MATCHES_NOTHING;
     }
@@ -400,6 +423,19 @@ const BUILDERS: Partial<Record<Resource, Builder>> = {
         return MATCHES_NOTHING;
     }
   },
+
+  /* A metric row hangs off a deliverable, exactly as a tracking link does. */
+  metricEvent: (actor, scope) => {
+    const inner = BUILDERS.deliverable!(actor, scope);
+    if (inner === MATCHES_NOTHING) return MATCHES_NOTHING;
+    if (Object.keys(inner).length === 0) return {};
+    return { deliverable: { is: inner } };
+  },
+
+  /* Aggregates are read over the same rows; §15 marks them aggregate-only,
+     which is a shape constraint the reporting layer honours rather than a
+     different set of rows. */
+  metricAggregate: (actor, scope) => BUILDERS.metricEvent!(actor, scope),
 
   campaignBrief: (actor, scope) => {
     switch (scope) {
