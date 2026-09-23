@@ -66,6 +66,14 @@ const schema = z.object({
   S3_SECRET_ACCESS_KEY: z.string().default("sponsorx-dev-secret"),
   S3_BUCKET_PUBLIC: z.string().default("sponsorx-public"),
   S3_BUCKET_PRIVATE: z.string().default("sponsorx-private"),
+
+  /* The GeoLite2 City database, for P6-BE-05.
+     
+     Optional on purpose. The file is a licensed MaxMind download that cannot
+     be committed, so a checkout without it must still boot — the geo job
+     then reports that it has no database and leaves city/region null, which
+     is a missing dimension on a chart rather than a broken deploy. */
+  GEOLITE2_CITY_PATH: z.string().optional(),
 });
 
 /* A development default that reached production would make every continuation
