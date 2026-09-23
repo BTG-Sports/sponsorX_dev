@@ -23,6 +23,14 @@ COPY backend/package.json ./backend/package.json
 COPY backend/prisma.config.ts ./backend/prisma.config.ts
 COPY backend/prisma ./backend/prisma
 COPY frontend ./frontend
+# Next inlines NEXT_PUBLIC_* into the client bundle at build time, and the
+# build runs inside this image — so the key has to arrive as a build arg.
+# Railway passes service variables to the builder, but a Dockerfile only sees
+# them once declared. Without this the image builds green and Clerk then fails
+# in the browser with "Missing publishable key" (P2-OPS-04).
+# The publishable key is not a secret: it ships to every browser by design.
+ARG NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY
+ENV NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=$NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY
 RUN npm run build -w @sponsorx/frontend
 
 FROM node:24.21.0-alpine AS runner
