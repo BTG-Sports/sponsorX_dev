@@ -130,9 +130,10 @@ async function drainOnce(): Promise<number> {
        starve everything behind them. `name = ANY(...)` keeps the batch full
        of work that can actually go.
 
-       Two names sit here today — zoho.pushCampaign and notify.invitationSent,
-       both enqueued by B3 domain code whose handlers are still to come
-       (P8-INT-01, P4-INT-01). They wait, and go the moment a handler ships. */
+       Three names sit here today — zoho.pushCampaign, notify.invitationSent
+       and tracking.resolveGeo, enqueued by B3 and B6 domain code whose
+       handlers are still to come (P8-INT-01, P4-INT-01, P6-BE-05). They
+       wait, and go the moment a handler ships. */
     const { rows } = await client.query<OutboxRow>(
       `SELECT id, name, payload
          FROM "OutboxJob"

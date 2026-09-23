@@ -34,6 +34,18 @@ import {
   RevisionRequestInput,
 } from "./deliverable";
 import {
+  RewardClaimInput,
+  RewardEventType,
+  RewardFunnel,
+  RewardInput,
+  RewardState,
+  RewardTokenInput,
+  RewardTransitionInput,
+  TrackingCode,
+  TrackingDestination,
+  TrackingLinkInput,
+} from "./reward";
+import {
   AgreementAcceptanceInput,
   GuardianInput,
   GuardianReadiness,
@@ -132,6 +144,19 @@ registry.register("RevisionRequestInput", RevisionRequestInput);
 registry.register("MarkPublishedInput", MarkPublishedInput);
 registry.register("CreativeUploadInput", CreativeUploadInput);
 registry.register("CreativeAssetInput", CreativeAssetInput);
+
+// --- the fan funnel and tracking links (P6-BE-01..04, P6-BE-07) ---------
+
+registry.register("RewardState", RewardState);
+registry.register("RewardEventType", RewardEventType);
+registry.register("RewardInput", RewardInput);
+registry.register("RewardTransitionInput", RewardTransitionInput);
+registry.register("RewardTokenInput", RewardTokenInput);
+registry.register("RewardClaimInput", RewardClaimInput);
+registry.register("RewardFunnel", RewardFunnel);
+registry.register("TrackingLinkInput", TrackingLinkInput);
+registry.register("TrackingDestination", TrackingDestination);
+registry.register("TrackingCode", TrackingCode);
 
 /**
  * Bearer auth for §8's API Service Account. Clerk issues the session for human

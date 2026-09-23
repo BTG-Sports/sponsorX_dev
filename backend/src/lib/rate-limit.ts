@@ -67,3 +67,24 @@ export class RateLimitedError extends Error {
     this.retryAfter = retryAfter;
   }
 }
+
+/**
+ * Throw unless this caller is within the limit.
+ *
+ * The caller is identified by IP. `trust proxy` is not set, so `req.ip` is the
+ * socket peer — correct locally, and correct on Railway where the edge
+ * terminates before the container.
+ *
+ * Lives here rather than in a route file because two unauthenticated surfaces
+ * now need it: the application intake (P3-BE-01) and the fan funnel
+ * (P6-BE-03/04). A second private copy would be a second thing to forget.
+ */
+export async function limit(
+  key: string,
+  ip: string | undefined,
+  max: number,
+  windowSeconds: number,
+): Promise<void> {
+  const result = await rateLimit(`${key}:${ip ?? "unknown"}`, max, windowSeconds);
+  if (!result.allowed) throw new RateLimitedError(result.retryAfter);
+}
