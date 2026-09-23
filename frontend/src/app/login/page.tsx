@@ -54,6 +54,28 @@ export default function LoginPage() {
             routing="hash"
             forceRedirectUrl="/portal"
             appearance={{
+              /* Clerk defaults to its light theme — dark ink — which is
+                 unreadable on the night scene. These variables re-express the
+                 house tokens (globals.css :root) inside the widget; values are
+                 literals because this page is fixed-dark in both themes.
+                 colorTextOnPrimaryBackground is the --sx-cta-ink rule: white
+                 on brand blue is 2.95:1 (P1-QA-02), dark ink is 6.64. */
+              variables: {
+                colorPrimary: "#2e9bf5",
+                colorPrimaryForeground: "#0a0c10",
+                colorBackground: "#12151d",
+                colorForeground: "#f4f5f7",
+                colorMutedForeground: "#8a90a2",
+                colorNeutral: "#f4f5f7",
+                colorBorder: "#242a38",
+                colorInput: "#1a1f2b",
+                colorInputForeground: "#f4f5f7",
+                colorDanger: "#ff4d4f",
+                colorSuccess: "#22c98d",
+                colorWarning: "#facc15",
+                borderRadius: "0.5rem",
+                fontFamily: "var(--font-poppins), system-ui, sans-serif",
+              },
               elements: {
                 /* The glass card already provides the chrome, so Clerk's own
                    card would double it up. */
