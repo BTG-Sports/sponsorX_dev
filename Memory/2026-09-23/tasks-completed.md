@@ -383,3 +383,60 @@ asserting `null` — it proved nothing.
 Phase 1: **101 → 106 Done**, Blocked 87 → 80. Five rows moved Blocked → Ready
 (`P6-ART-01`, `P7-FE-01`, `P7-FE-02`, `P7-SEC-01`, `P7-SEC-02`). Stage 5 → 9,
 stage 6 → 6, stage 7 → 3.
+
+---
+
+# `P6-BE-05` · Geo resolution — built, at Code review, not Done
+
+Built on request after I flagged it as blocked. Everything in our control is
+done and tested; one acceptance clause cannot be verified here, so the row is
+at **Code review** with the reason in its Notes rather than at Done.
+
+## The §26 problem the task's own wording hides
+
+The acceptance says the raw IP "**lives only in the job payload**". That is
+only true if a payload is transient — and **ours is not**. The drain marks
+`OutboxJob` rows `dispatchedAt` and **never deletes them**, so without
+intervention the address of every fan who ever tapped a link would sit in
+Postgres indefinitely.
+
+So the drain now strips it, in the same transaction that marks the row
+dispatched and *after* `boss.send` has already carried the full payload to the
+queue:
+
+```sql
+UPDATE "OutboxJob" SET payload = payload::jsonb - 'clientIp'
+ WHERE id = ANY($1::text[]) AND name = 'tracking.resolveGeo'
+```
+
+The `::jsonb` cast is belt and braces: `-` is a jsonb operator, and on a plain
+`json` column it would abort the **whole drain transaction**, not just that
+statement. The column is jsonb (verified in the init migration), but the cast
+makes it correct either way. **It could not be checked against a live
+database** — Railway's Postgres is private-network-only with no TCP proxy, so
+`psql` from this machine cannot reach it.
+
+## Other decisions
+
+- **The reader is opened once, at worker boot**, not per job — GeoLite2 is
+  ~100 MB and memory-mapped. `GEOLITE2_CITY_PATH` is **optional**: a checkout
+  without the file starts normally, logs that it has none, and records clicks
+  with no location. A missing dimension on a chart beats a worker that will
+  not boot.
+- **`x-forwarded-for` is a divergence.** The task says the job reads that
+  header; it cannot, because by the time the job runs the request is over. The
+  address is captured at the redirect route, forwarded to the API on
+  `x-sponsorx-client-ip`, and arrives in the payload.
+- **Private ranges are skipped before the lookup**, so a dev machine does not
+  log a miss per click. The test pins 172.15 and 172.32 as *public* — an
+  off-by-one on the 172.16–172.31 block would silently drop real traffic.
+- **The lookup is injected**, like the storage functions in the QR and image
+  jobs, so the rules are testable without the licensed file.
+
+## What is still needed to close it
+
+A `GeoLite2-City.mmdb`: free MaxMind account → licence key → download → set
+`GEOLITE2_CITY_PATH`. Then watch one real click resolve to a city and move the
+row to Done.
+
+**808 backend + 46 frontend tests pass; full root build green.**
