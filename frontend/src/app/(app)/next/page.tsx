@@ -330,7 +330,10 @@ export default async function StudentHomePage({
         </section>
 
         {/* ======================================================= rail */}
-        <div className="space-y-6">
+        {/* min-w-0: below xl the grid track is implicit `auto`, whose minimum
+           is this item's min-content — and the truncate rows inside are
+           nowrap, so a long title would widen the page (found at 390px). */}
+        <div className="min-w-0 space-y-6">
           <section className="sx-animate sx-delay-2">
             <SectionHeading title="Points" hint="recognition, never pay" />
             <Card>
