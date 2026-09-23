@@ -93,3 +93,32 @@ dev` before the P2-BE-07 route deletion.
 Board: `P1-FE-18`, `P1-FE-19` → Code review (HeckerCreatives, 2026-09-23).
 Stage Progress snapshot appended: Done 88 · 433 days left (unchanged — Code
 review is not Done). Google Sheet still needs its hand mirror at end of day.
+
+## Login redesigned — Stadium Night
+
+*Polish on `P1-FE-17`, no new row. Spec:
+`docs/superpowers/specs/2026-09-23-login-stadium-night-design.md`, chosen
+through three visual rounds (direction → composition → entrance).*
+
+`/login` is now a full-bleed CSS night stadium — floodlight beams (two blue,
+one orange, slow sweeps), a bokeh crowd band, badge and glass card center
+stage — with a ~1.2s "lights up" entrance: beams flick on at 0/.3/.6s, crowd
+fades, card rises into the beam. The placeholder right panel and its "venue
+photography pending" note are gone.
+
+Worth keeping:
+
+- **The page is fixed-dark in both themes** — the media-panel rule
+  (`--sx-on-media`) applied to a whole route. A night match has no Frost
+  variant.
+- **Zero client JS added.** The page stays a server component; the entrance
+  is the sx-login-* block in globals.css under the house motion rules (final
+  state in the DOM, reduced motion gets the still, phones drop beam 3 and the
+  flicker).
+- Clerk untouched: hash routing, /portal landing, stripped chrome. The two
+  managed-marketplace doors stay under the form.
+- Proof line reads from `networkStats` (provenance-sourced). Contrast pass:
+  ink at /70 is 8.67 on the crowd band, 5.37 worst-case over a lit dot.
+
+Build clean, eslint clean, 54 frontend tests green, live page probed: all
+five scene layers and both entry paths render, HTTP 200.
