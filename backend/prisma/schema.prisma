@@ -799,7 +799,28 @@ model RewardEvent {
   at       DateTime        @default(now())
   city     String?
   region   String?
+  /// The ONLY fan PII this system holds, and it is optional — §16's page has
+  /// no login and asking for an address as a condition of claiming would be a
+  /// barrier at a stall. It may only be set together with the three consent
+  /// columns below (P6-SEC-01); `recordClaim` refuses otherwise.
   fanEmail String?
+
+  /// Consent, captured at the moment of the claim — P6-SEC-01, §26.
+  ///
+  /// THE VERSION IS THE POINT. "They consented" is not a defensible record
+  /// three months later when the wording has been edited twice; "they
+  /// consented to version 2026-09-01 at this timestamp" is. The version
+  /// string is the identity of the text that was actually on screen.
+  ///
+  /// All three are null where no email was given — there is nothing to
+  /// consent to holding.
+  consentVersion  String?
+  consentAt       DateTime?
+  /// What the fan was told the address would be used for, as a short code
+  /// (e.g. "reward-delivery"). Consent is scoped: agreeing to be sent a
+  /// voucher is not agreeing to marketing, and a single boolean would lose
+  /// that distinction the first time someone exported the list.
+  consentPurpose  String?
 
   token RewardToken @relation(fields: [tokenId], references: [id])
 

@@ -145,6 +145,17 @@ async function move(
       tx: Prisma.TransactionClient,
       context: { orderId: string },
     ) => Promise<unknown>;
+    /**
+     * P5-INT-01 — the athlete-facing message for this step, if there is one.
+     *
+     * Enqueued in the same transaction as the move, so a state change and the
+     * message announcing it commit together: an athlete is never told their
+     * work was approved by a transaction that then rolled back.
+     */
+    notify?: {
+      template: string;
+      data?: Record<string, string>;
+    };
   },
 ): Promise<Moved> {
   if (opts.tenantWide) {
@@ -156,7 +167,17 @@ async function move(
   return prisma.$transaction(async (tx) => {
     const found = await tx.deliverable.findFirst({
       where: { ...whereFor(actor, "deliverable", opts.action), id: deliverableId },
-      select: { id: true, state: true, orderId: true },
+      select: {
+        id: true, state: true, orderId: true, title: true, tenantId: true,
+        /* P5-INT-01 — who to write to, and what to call the campaign. Read
+           in the same query rather than a second one after the move. */
+        order: {
+          select: {
+            campaign: { select: { name: true } },
+            athlete: { select: { displayName: true, user: { select: { email: true } } } },
+          },
+        },
+      },
     });
     if (!found) throw new ForbiddenError("deliverable", opts.action);
 
@@ -175,6 +196,32 @@ async function move(
       before: { state: from },
       after: { state: to, ...opts.after },
     });
+
+    /* P5-INT-01 — queued inside the transaction, for the same reason the
+       outbox exists at all: the message and the fact it announces must
+       commit together or not at all.
+
+       Silently skipped where the athlete has no linked user, which is a real
+       state during onboarding. A missing address is not a reason to refuse a
+       BTG reviewer's approval. */
+    const email = found.order.athlete.user?.email;
+    if (opts.notify && email) {
+      await enqueue(tx, found.tenantId, "notify.email", {
+        tenantId: found.tenantId,
+        template: opts.notify.template,
+        to: email,
+        /* Keyed on the deliverable AND the state, so re-entering a state
+           after a revision sends again — which is correct, it is a new
+           request — while a retry of one transition does not. */
+        idempotencyKey: `${opts.notify.template}:${deliverableId}:${to}`,
+        data: {
+          firstName: found.order.athlete.displayName,
+          title: found.title,
+          campaignName: found.order.campaign.name,
+          ...opts.notify.data,
+        },
+      });
+    }
 
     /* Same transaction, deliberately — see verifyPublished. */
     if (opts.afterMove) await opts.afterMove(tx, { orderId: found.orderId });
@@ -232,6 +279,7 @@ export async function requestRevision(
     tenantWide: false,
     auditAction: AUDIT_ACTIONS.deliverable.requestRevision,
     after: { reason: trimmed },
+    notify: { template: "deliverable.revisionRequested", data: { reason: trimmed } },
   });
 }
 
@@ -241,6 +289,7 @@ export function approveDeliverable(actor: Actor, deliverableId: string): Promise
     action: "approve",
     tenantWide: false,
     auditAction: AUDIT_ACTIONS.deliverable.approve,
+    notify: { template: "deliverable.approved" },
   });
 }
 

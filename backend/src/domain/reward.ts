@@ -28,6 +28,7 @@ import { enqueue } from "../db/outbox";
 import type { Actor } from "../auth/actor";
 import { assertAllowed, assertTenantWide, whereFor } from "../auth/scope";
 import { ForbiddenError } from "../auth/errors";
+import { consentFor, mayContact, type ConsentPurpose } from "./fan-consent";
 import {
   canTransitionReward,
   IllegalRewardTransitionError,
@@ -231,6 +232,12 @@ export async function issueRewardToken(
 type TokenContext = {
   tokenId: string;
   tenantId: string;
+  /* The opaque token itself, and the offer wording — both needed by
+     P6-INT-02's email, and read in the same lookup rather than a second
+     query on the path of a fan standing at a stall. */
+  token: string;
+  offerText: string;
+  terms: string;
   rewardState: RewardState;
   expiresAt: Date;
   singleUse: boolean;
@@ -251,7 +258,13 @@ async function contextFor(
     select: {
       id: true,
       tenantId: true,
-      reward: { select: { state: true, expiresAt: true, singleUse: true } },
+      token: true,
+      reward: {
+        select: {
+          state: true, expiresAt: true, singleUse: true,
+          offerText: true, terms: true,
+        },
+      },
     },
   });
   if (!row) throw new UnknownTokenError();
@@ -259,6 +272,9 @@ async function contextFor(
   return {
     tokenId: row.id,
     tenantId: row.tenantId,
+    token: row.token,
+    offerText: row.reward.offerText,
+    terms: row.reward.terms,
     rewardState: row.reward.state as RewardState,
     expiresAt: row.reward.expiresAt,
     singleUse: row.reward.singleUse,
@@ -283,7 +299,14 @@ async function writeEvent(
   tx: Prisma.TransactionClient,
   ctx: TokenContext,
   type: RewardEventType,
-  extra: { fanEmail?: string | null; city?: string | null; region?: string | null } = {},
+  extra: {
+    fanEmail?: string | null;
+    city?: string | null;
+    region?: string | null;
+    consentVersion?: string | null;
+    consentAt?: Date | null;
+    consentPurpose?: string | null;
+  } = {},
 ): Promise<{ id: string; type: RewardEventType }> {
   const created = await tx.rewardEvent.create({
     data: {
@@ -293,6 +316,9 @@ async function writeEvent(
       fanEmail: extra.fanEmail ?? null,
       city: extra.city ?? null,
       region: extra.region ?? null,
+      consentVersion: extra.consentVersion ?? null,
+      consentAt: extra.consentAt ?? null,
+      consentPurpose: extra.consentPurpose ?? null,
     },
     select: { id: true, type: true },
   });
@@ -318,16 +344,63 @@ export async function recordLanding(token: string, now = new Date()) {
   });
 }
 
-/** The fan accepted the offer. */
+/**
+ * The fan accepted the offer.
+ *
+ * P6-SEC-01 — AN ADDRESS CANNOT BE STORED WITHOUT CONSENT, and the consent
+ * cannot be stored without the version of the text the fan actually saw.
+ * `consentFor` refuses an address that arrives without one, so there is no
+ * path through this function that writes fan PII unevidenced.
+ *
+ * P6-INT-02 — a claim that carries a contactable address enqueues exactly one
+ * send. The email goes out from the worker, so a fan standing at a stall is
+ * not waiting on an SMTP call.
+ */
 export async function recordClaim(
   token: string,
   fanEmail?: string | null,
   now = new Date(),
+  consent?: { version?: string | null; purpose?: string | null } | null,
 ) {
+  /* Validated BEFORE the transaction opens: a refusal here is about the
+     request, not about the reward, and it should not hold a transaction
+     open to say so. */
+  const agreed = consentFor(fanEmail, consent, now);
+  const email = agreed ? fanEmail!.trim() : null;
+
   return prisma.$transaction(async (tx) => {
     const ctx = await contextFor(tx, token);
     assertUsable(ctx, now);
-    return writeEvent(tx, ctx, "CLAIM", { fanEmail: fanEmail ?? null });
+
+    const event = await writeEvent(tx, ctx, "CLAIM", {
+      fanEmail: email,
+      consentVersion: agreed?.version ?? null,
+      consentAt: agreed?.at ?? null,
+      consentPurpose: agreed?.purpose ?? null,
+    });
+
+    /* P6-INT-02. Idempotent through EmailSendLog's unique idempotencyKey:
+       the key is the TOKEN, not the event, so a fan who claims twice on one
+       token gets one email rather than two. */
+    if (agreed && mayContact(
+      { fanEmail: email, consentVersion: agreed.version, consentPurpose: agreed.purpose },
+      "reward-delivery" as ConsentPurpose,
+    )) {
+      await enqueue(tx, ctx.tenantId, "notify.email", {
+        tenantId: ctx.tenantId,
+        template: "reward.claimed",
+        to: email,
+        idempotencyKey: `reward.claimed:${ctx.tokenId}`,
+        data: {
+          code: ctx.token,
+          offerText: ctx.offerText,
+          terms: ctx.terms,
+          expiresOn: ctx.expiresAt.toISOString().slice(0, 10),
+        },
+      });
+    }
+
+    return event;
   });
 }
 

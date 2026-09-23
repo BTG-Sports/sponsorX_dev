@@ -602,3 +602,86 @@ week.
 **975 backend + 46 frontend tests pass; build green; lint clean.**
 
 Phase 1: **111 → 116 Done**. Stage 7: 7 → 12.
+
+---
+
+# Late — notifications, fan consent, and three security proofs
+
+`P5-INT-01`, `P6-INT-02`, `P6-SEC-01`, `P4-SEC-01`, `P5-SEC-01`. One branch.
+
+## B8 was the obvious next milestone and is NOT startable
+
+`P8-INT-01` (Zoho outbound push) is Ready on the board but **blocked in
+reality**, and the field-mapping document says so itself — its status line
+reads *"Two items carry an explicit OPEN marker and must be closed before the
+code that depends on them is written."*
+
+- **O-5 · UNRESOLVED** — Zoho user ↔ BTG staff mapping and who owns records
+  the service account creates. Its own note: *"Otherwise CRM records land
+  ownerless and nobody is notified."*
+- **O-2 · needs sign-off** — Campaign represented as a Deal.
+- **O-6** — **there is no sandbox org.** Any push writes to the live iCARRe
+  Foundation CRM, against the standing sandbox-first preference.
+
+The row is now **Blocked** with those reasons in its Notes. Read
+`documentation/SponsorX-Zoho-Field-Mapping.md` §10 before picking it up.
+
+Also worth knowing: that document says the dedupe key is **`SponsorX_ID`**,
+while `P8-INT-01`'s acceptance says `External_Id`. The document is v0.2,
+revised against the live org, and is the later artefact — but the two should
+be reconciled before the code is written.
+
+## Consent is three columns, not a boolean
+
+`RewardEvent.fanEmail` is the only fan PII this system holds, and it could
+previously be written with nothing recording that the fan agreed.
+
+- **The version is the point.** "They consented" stops being evidence the
+  first time the wording is edited — and it always gets edited. The version
+  string identifies the text that was on screen.
+- **Purpose is scoped.** Agreeing to be sent a voucher is not agreeing to
+  marketing, and one flag loses that the first time somebody exports the
+  claims for a campaign.
+- `consentFor()` refuses an address arriving without a **known** version and a
+  **known** purpose, so there is no path that writes fan PII unevidenced. The
+  test asserts that a refusal writes **nothing at all** — not the claim, not
+  the address.
+
+## Notifications commit with the thing they announce
+
+Deliverable messages are enqueued **inside the same transaction as the state
+change**, so an athlete is never told their work was approved by a
+transaction that then rolled back. Idempotency keys carry the state, so
+re-entering DRAFT_SUBMITTED after a second revision sends again — correct,
+it is a new request — while a retried transition does not.
+
+Deadline reminders are a **sweep**, like invitation expiry: a per-deliverable
+timer that is lost leaves that athlete never reminded. The window is in the
+idempotency key, so hourly sweeps do not produce twelve emails, and 3-day and
+1-day are distinct sends.
+
+## The security suites are structural
+
+- **`P4-SEC-01`** — the task says inspection is not enough, and it is right:
+  the rule lives in two places. Matching excludes via `NOT hasSome`; the
+  invitation re-checks and throws. **The second is the one that matters** —
+  a shortlist built this morning must not let a desk make a forbidden offer
+  this afternoon. Also pins `hasSome` over a negated `hasEvery`: an athlete
+  barring *any* listed category is a conflict.
+- **`P5-SEC-01`** — proves no presigner can be exported without an audit in
+  front of it, that the raw presigner stays unexported, and that the TTL
+  constant is used everywhere rather than a literal. Checked the QR and
+  derivative jobs at the **wiring** in `worker/index.mts`, not in the jobs'
+  own text — grepping a job for "public" only found the comment explaining
+  why it is not used.
+
+## A missing artefact fixed
+
+`P6-INT-02` was on the board at fractional order 131.5 with a full acceptance
+but **no section in the phase document**. Written in, per the rule that a
+definition is fixed in the Markdown rather than reinterpreted in the tracker.
+
+**1015 backend + 46 frontend tests pass; build green; lint clean.** Both
+migrations verified by applying all nine from scratch to an embedded Postgres.
+
+Phase 1: **116 → 121 Done**.

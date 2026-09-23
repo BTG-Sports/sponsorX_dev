@@ -1751,6 +1751,16 @@ Short links that redirect instantly and record the click after the visitor has a
 - **Done when:** A 302 redirect fires immediately; the LinkEvent write happens after the response — the fan never waits on our write
 - **Reference:** Guide §06
 
+### ⏸ `P6-INT-02` · Email the reward code to the fan at CLAIM
+
+**Order** 131.5 · **INT** · **Where:** Code · **1d** · **Ready** · **Unblocks** 0
+
+Send the fan their voucher when they claim it, so the code survives the walk away from the stall.
+
+- **Depends on:** P3-INT-01, P6-BE-03
+- **Done when:** A CLAIM enqueues one send carrying the code, offer, pickup point and expiry; the send is idempotent so a repeat claim on an existing token does not send twice
+- **Reference:** §16, §39
+
 ### ⏸ `P6-SEC-01` · Fan consent capture and version tracking
 
 **Order** 124 · **SEC** · **Where:** Code · **3d** · **Blocked** · **Unblocks** 2

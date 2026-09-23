@@ -161,7 +161,14 @@ const landing: RequestHandler<{ token: string }> = async (req, res) => {
 const claim: RequestHandler<{ token: string }> = async (req, res) => {
   await limit("reward:claim", req.ip, 20, 60);
   const body = RewardClaimInput.parse(req.body ?? {});
-  res.status(201).json(await recordClaim(req.params.token, body.fanEmail ?? null));
+  res.status(201).json(
+    await recordClaim(
+      req.params.token,
+      body.fanEmail ?? null,
+      new Date(),
+      body.consent ?? null,
+    ),
+  );
 };
 
 /**
