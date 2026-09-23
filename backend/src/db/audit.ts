@@ -162,6 +162,17 @@ export const AUDIT_ACTIONS = {
     create: "earning.create",
     adjust: "earning.adjust",
   },
+  /**
+   * Metric entry (P7-DATA-01, §22).
+   *
+   * Audited because a figure's PROVENANCE is the claim, not just its value:
+   * "who recorded this as verified, and when" is the question asked when a
+   * sponsor disputes a number. The rollup is not audited — it recomputes from
+   * these rows and stores nothing.
+   */
+  metric: {
+    record: "metric.record",
+  },
 } as const;
 
 type Change = {

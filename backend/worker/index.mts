@@ -52,6 +52,7 @@ const HANDLED_JOBS = new Set<string>([
   "reward.generateQr",
   "image.derive",
   "tracking.resolveGeo",
+  "zoho.ingestInvoice",
 ]);
 import { handleSendEmail, type EmailJob } from "./jobs/send-email.mts";
 import { handleGenerateQr, type QrJob } from "./jobs/generate-qr.mts";
@@ -60,6 +61,11 @@ import { getPrivateObject, putPrivateObject } from "../src/lib/storage.ts";
 import {
   cityReaderToLookup, handleResolveGeo, type GeoJob, type GeoLookup,
 } from "./jobs/resolve-geo.mts";
+import { handleRollupMetrics } from "./jobs/rollup-metrics.mts";
+import { handleIngestInvoice, type IngestInvoiceJob } from "./jobs/ingest-invoice.mts";
+import { prisma } from "../src/db/client.ts";
+import { ingestZohoInvoice, type ZohoInvoicePayload } from "../src/domain/invoice.ts";
+import { redis } from "../src/lib/redis.ts";
 
 const connectionString = process.env.DATABASE_URL;
 
@@ -77,6 +83,10 @@ if (!connectionString) {
  *  the partial index `outbox_pending` keeps the query proportional to the
  *  backlog rather than to all history. */
 const DRAIN_INTERVAL_MS = 1_000;
+
+/* P7-DATA-02's sweep. Hourly: the cache spares a report page a GROUP BY, it
+   does not make a number current — every read still computes from the rows. */
+const ROLLUP_INTERVAL_MS = 60 * 60 * 1_000;
 
 /** Rows claimed per sweep. Bounded so one enormous backlog cannot hold a
  *  transaction open long enough to matter. */
@@ -210,6 +220,7 @@ let draining = false;
 let timer: NodeJS.Timeout | undefined;
 /** Invitation expiry runs on its own, much slower, timer (P4-BE-05). */
 let expiryTimer: ReturnType<typeof setInterval> | undefined;
+let rollupTimer: ReturnType<typeof setInterval> | undefined;
 const EXPIRY_INTERVAL_MS = 60 * 60 * 1000;
 
 /** Never let two sweeps overlap in one process. Overlap would not corrupt
@@ -315,6 +326,23 @@ async function main(): Promise<void> {
     );
   });
 
+  /* P7-BE-04 — the inbound half of §18. The webhook route recorded the
+     payload and queued this; applying it happens here, off the request path,
+     so a slow apply cannot turn into a Zoho retry storm. */
+  await ensureQueue("zoho.ingestInvoice");
+  await boss.work<IngestInvoiceJob>("zoho.ingestInvoice", async ([job]) => {
+    const outcome = await handleIngestInvoice(pool, job.data, {
+      apply: async (payload) =>
+        prisma.$transaction(async (tx) => {
+          const result = await ingestZohoInvoice(tx, payload as ZohoInvoicePayload);
+          return result.applied
+            ? { applied: true, invoiceId: result.invoiceId }
+            : { applied: false, reason: result.reason };
+        }),
+    });
+    console.log(`[worker] zoho.ingestInvoice ${outcome.status}`);
+  });
+
   /* P6-BE-05. The GeoLite2 file is opened ONCE, at boot, not per job: it is
      a hundred megabytes and the reader memory-maps it. A checkout without the
      file — it is a licensed MaxMind download and cannot be committed — starts
@@ -381,6 +409,36 @@ async function main(): Promise<void> {
     );
   });
 
+  /* P7-DATA-02 — a SWEEP ON A TIMER, not a queued job per subject.
+  
+     Nothing enqueues this: totals are derived from MetricDaily, so there is
+     no event that "makes" an aggregate stale, and a per-campaign job would
+     mean inventing one. A sweep also self-heals — a missed run changes
+     nothing, because the next one recomputes everything from the rows.
+  
+     Hourly. The cache exists to spare a report page a GROUP BY, not to make
+     a number current: every read still computes from the rows. */
+  rollupTimer = setInterval(() => {
+    void handleRollupMetrics(pool, {
+      cache: {
+        set: async (key, value, ttlSeconds) => {
+          await redis.set(key, value, "EX", ttlSeconds);
+        },
+      },
+    })
+      .then(({ campaigns, athletes, cached }) => {
+        if (cached > 0) {
+          console.log(
+            `[worker] rollup-metrics — ${campaigns} campaigns, ${athletes} athletes cached`,
+          );
+        }
+      })
+      .catch((error: unknown) => {
+        /* A failed rollup costs a cache miss, nothing more. */
+        console.error("[worker] rollup-metrics failed:", error);
+      });
+  }, ROLLUP_INTERVAL_MS);
+
   timer = setInterval(tick, DRAIN_INTERVAL_MS);
   await tick(); // sweep once at boot rather than waiting a full interval
   await reportWaiting().catch(() => {});
@@ -414,6 +472,7 @@ async function main(): Promise<void> {
 export async function stopWorker(): Promise<void> {
   if (timer) clearInterval(timer);
   if (expiryTimer) clearInterval(expiryTimer);
+  if (rollupTimer) clearInterval(rollupTimer);
   timer = undefined;
   expiryTimer = undefined;
   await boss.stop({ graceful: true }).catch(() => {});

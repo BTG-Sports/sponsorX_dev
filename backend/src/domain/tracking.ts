@@ -26,7 +26,6 @@
 
 import { randomBytes } from "node:crypto";
 
-import type { Prisma } from "../generated/prisma/client";
 import { prisma } from "../db/client";
 import { audit, AUDIT_ACTIONS } from "../db/audit";
 import { enqueue } from "../db/outbox";
