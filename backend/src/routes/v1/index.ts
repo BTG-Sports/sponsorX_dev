@@ -10,6 +10,7 @@ import { Router } from "express";
 import { applicationsRouter } from "./applications";
 import { campaignsRouter } from "./campaigns";
 import { deliverablesRouter } from "./deliverables";
+import { earningsRouter } from "./earnings";
 import { guardiansRouter } from "./guardians";
 import { rewardsRouter } from "./rewards";
 import { meRouter } from "./me";
@@ -47,6 +48,11 @@ v1Router.use("/", deliverablesRouter);
    BOTH the staff routes and the six unauthenticated /public ones §16 needs,
    which is why that file groups them explicitly. */
 v1Router.use("/", rewardsRouter);
+
+/* B7 — earnings (P7-BE-01, P7-BE-03). Finance only; no public surface, and
+   no create endpoint — an earning is raised by acceptOrder inside the
+   transaction that creates the contract it belongs to. */
+v1Router.use("/", earningsRouter);
 
 /* The published contract, generated from the Zod registry (§38). Public: a
    consumer has to be able to read how to authenticate before it can. */

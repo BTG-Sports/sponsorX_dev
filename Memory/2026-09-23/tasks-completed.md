@@ -310,3 +310,76 @@ note `next` hoists to the **repo root** `node_modules`, not `frontend/`.
 Phase 1: **96 → 101 Done**, Blocked 97 → 87. Seven rows moved Blocked → Ready
 (`P6-BE-05`, `P6-BE-06`, `P6-FE-01`…`P6-FE-03`, `P6-INT-02`, `P6-SEC-01`).
 Stage 6 went 0 → 5.
+
+---
+
+# Evening — B7 earnings spine, plus B6/B5's two worker jobs
+
+`P7-BE-01`, `P7-BE-02`, `P7-BE-03`, `P6-BE-06`, `P5-BE-07`.
+
+## A blocker found before starting, not after
+
+**`P6-BE-05` (geo worker) cannot be finished yet.** `maxmind` is already a
+declared dependency, but there is **no GeoLite2 `.mmdb` in the repo** and the
+package ships no test database. That file needs a **MaxMind account and
+licence key**. Its acceptance is "resolves against local GeoLite2", which
+cannot be verified without it — so it was left open rather than closed on a
+promise. Same shape as `P0-OPS-03` needing a domain: a real-world prerequisite
+that no task covers and that `Depends On` cannot show.
+
+## What was built
+
+| File | Purpose |
+|---|---|
+| `domain/earning-state.ts` | PENDING→ELIGIBLE→APPROVED_FOR_PAYOUT→PAID, HELD/DISPUTED aside |
+| `domain/earning.ts` | The record, the money split, automatic eligibility |
+| `contracts/earning.ts` + `routes/v1/earnings.ts` | Finance surface — 3 endpoints, no public one |
+| `worker/jobs/generate-qr.mts` | QR PNG → **private** bucket (P6-BE-06) |
+| `worker/jobs/derive-image.mts` | 320/640/1280 webp via sharp (P5-BE-07) |
+
+New dependencies: `qrcode` + `@types/qrcode`; `sharp` was already resolved in
+the tree and is now declared. B0 is long done, so the dependency freeze no
+longer applies.
+
+## Decisions worth remembering
+
+- **A deliberate divergence from `P7-BE-02`'s wording.** The task says
+  "closing an accepted deliverable makes the associated earning ELIGIBLE".
+  Read literally that fires on the FIRST deliverable — but an Earning is per
+  ORDER and SX-07 owes four weekly posts, so it would owe an athlete the whole
+  fee for a quarter of the work. It fires when the LAST one is verified.
+  Recorded in the code, tested, and raised on the PR rather than quietly
+  reinterpreted.
+- **The earning is raised at acceptance, not completion.** Otherwise the
+  period between signing and delivering shows an athlete owed nothing for work
+  they are already contractually committed to.
+- **ELIGIBLE and APPROVED_FOR_PAYOUT are kept apart.** ELIGIBLE is a fact
+  about the work; APPROVED_FOR_PAYOUT is a person in Finance deciding. Merging
+  them would let completing a deliverable authorise money with nobody looking.
+- **`maybeMakeEligible` only ever promotes from PENDING.** An earning a human
+  put on HOLD or into DISPUTE must not be quietly released by the last
+  deliverable landing.
+- **The QR goes in the PRIVATE bucket.** It is a picture of a bearer
+  credential, and the public bucket is a CDN with no access control by design.
+- **"No tax ID, no bank details" is tested as a shape**, not trusted as an
+  intention — assertions run against `schema.prisma` and the published
+  contract. The whole schema greps clean for `taxId`, `bankAccount`,
+  `routingNumber`, `iban`, `sortCode`.
+
+## A test guard improved rather than patched
+
+`alignment.test.ts` asserted the literal contents of `HANDLED_JOBS`, so it
+broke every time a handler shipped — a chore, not a guard. It now asserts the
+invariant the worker's own comment states: every handled name has a matching
+`boss.work()` registration. The failure that actually matters is a name in the
+set with no consumer, which would mark rows dispatched and let the work expire
+unread.
+
+Also removed a test of my own that passed by catching its own error and
+asserting `null` — it proved nothing.
+
+**780 backend + 46 frontend tests pass; full root build green.**
+
+Phase 1: **101 → 106 Done**, Blocked 87 → 80. Five rows moved Blocked → Ready
+(`P6-ART-01`, `P7-FE-01`, `P7-FE-02`, `P7-SEC-01`, `P7-SEC-02`). Stage 5 → 9,
+stage 6 → 6, stage 7 → 3.

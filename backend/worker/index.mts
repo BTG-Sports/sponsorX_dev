@@ -46,8 +46,16 @@ import { handleInvitationSent, type InvitationJob } from "./jobs/notify-invitati
  * handler is two edits in one file and forgetting one of them is visible in
  * the log rather than silent.
  */
-const HANDLED_JOBS = new Set<string>(["notify.email", "notify.invitationSent"]);
+const HANDLED_JOBS = new Set<string>([
+  "notify.email",
+  "notify.invitationSent",
+  "reward.generateQr",
+  "image.derive",
+]);
 import { handleSendEmail, type EmailJob } from "./jobs/send-email.mts";
+import { handleGenerateQr, type QrJob } from "./jobs/generate-qr.mts";
+import { handleDeriveImage, type DeriveImageJob } from "./jobs/derive-image.mts";
+import { getPrivateObject, putPrivateObject } from "../src/lib/storage.ts";
 
 const connectionString = process.env.DATABASE_URL;
 
@@ -276,6 +284,36 @@ async function main(): Promise<void> {
       outcome.sent
         ? `[worker] notify.invitationSent queued mail to ${outcome.to}`
         : `[worker] notify.invitationSent skipped: ${outcome.reason}`,
+    );
+  });
+
+  /* P6-BE-06. The PNG goes to the PRIVATE bucket: a QR is a picture of a
+     bearer credential, and the public bucket is a CDN with no access control
+     by design. */
+  await ensureQueue("reward.generateQr");
+  await boss.work<QrJob>("reward.generateQr", async ([job]) => {
+    const outcome = await handleGenerateQr(pool, job.data, {
+      appUrl: process.env.APP_URL ?? "http://localhost:3000",
+      putObject: putPrivateObject,
+    });
+    console.log(
+      outcome.generated
+        ? `[worker] reward.generateQr wrote ${outcome.key} (${outcome.bytes}b)`
+        : `[worker] reward.generateQr skipped: ${outcome.reason}`,
+    );
+  });
+
+  /* P5-BE-07. Three webp widths beside the original, never replacing it. */
+  await ensureQueue("image.derive");
+  await boss.work<DeriveImageJob>("image.derive", async ([job]) => {
+    const outcome = await handleDeriveImage(pool, job.data, {
+      getObject: getPrivateObject,
+      putObject: putPrivateObject,
+    });
+    console.log(
+      outcome.derived
+        ? `[worker] image.derive wrote ${Object.keys(outcome.keys).join("/")}`
+        : `[worker] image.derive skipped: ${outcome.reason}`,
     );
   });
 
