@@ -44,7 +44,14 @@ export type EmailTemplate =
   | "athlete.approved"
   | "athlete.changesRequested"
   | "athlete.rejected"
-  | "guardian.verificationRequested";
+  | "guardian.verificationRequested"
+  /* P4-INT-01 — the invitation's three moments. A reminder and an expiry
+     warning are separate templates rather than one with a flag, because the
+     wording differs in what it asks for: one nudges, the other says the offer
+     is about to disappear. */
+  | "invitation.sent"
+  | "invitation.reminder"
+  | "invitation.expiring";
 
 export type EmailMessage = {
   template: EmailTemplate;

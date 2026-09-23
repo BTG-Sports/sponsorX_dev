@@ -322,6 +322,95 @@ cohort onboarded in staging → production go/no-go. *(L)*
 
 ---
 
+# Block C — SponsorX NEXT *(proposed · gated · not part of Phase 1 scope)*
+
+Specified in
+[`SponsorX-NEXT-Integration-Spec.md`](SponsorX-NEXT-Integration-Spec.md)
+(`P0-PMO-14`, **version 2.0** — written against the concept's V3 revision and
+superseding 1.0 in full). Listed here so the sequencing is visible, **not** so
+it can be pulled forward. Three gates stand in front of it:
+
+1. **B8 is done** — the §39 loop runs end-to-end. NEXT is a second loop and §37
+   does not let a second loop start before the first one is reliable.
+2. **An edition has actually sold**, run on existing primitives with no new
+   models (Spec §11, "Stage 0"). What Stage 0 proves is entirely commercial:
+   that **20 local businesses per edition** will buy, that students will sell,
+   that a school will sign. All of it can fail, and finding out costs no schema.
+3. **Legal has cleared student compensation** — whether a departed student's
+   credit is "payable" at all, plus the scholarship prizes and the Sales
+   Challenge as a contest (`P0-LEG-*`, Blueprint §26, §37).
+
+**V1 needs no Phase 2 payment work.** The concept's V3 revision makes the digital
+edition free and sponsor-funded, so every NEXT transaction is a local business
+buying a package — which the platform already does. Print becomes an optional
+monetisation layer once demand is proven, never the foundation.
+
+## C1 · SponsorX NEXT — publication, students, rights
+
+`Publication` / `Edition` / `AdSlot` with the inventory ledger and close-date
+enforcement — the back cover is quantity **one**, which is the thing `NilJob`
+has no column for — plus the three-condition production gate (content ready ·
+rights cleared · revenue threshold met), owned by SponsorX, not the school.
+`Student` + `StudentState`, reusing `Guardian.verifiedAt` unchanged.
+`SalesAttribution` as an **immutable** ledger row at `/s/[code]`, with
+`Sponsor.assignedStudentId` as the separate, mutable representation —
+attribution survives graduation, the customer relationship was never the
+student's. `ContentRight`: one rights ledger, three population paths (student
+consent, athlete/guardian consent, BTG licence), because the publication gate
+must answer "may we publish this?" in one query. `AthleteState.FEATURED` plus
+the claim flow — featured is not represented, and commercial activation needs
+the guardian. `EditionEvent` with `QR_SCAN` and `LINK_CLICK` kept apart;
+`RewardEventType` is untouched. `RevenueSplit` on the edition and
+`ContentContribution` for the DMV pool; **`Earning` untouched** and still
+meaning athlete NIL compensation. `STUDENT` and `ADVISOR` in `authz-policy.ts`
+with isolation tests.
+
+**Five touches to built code, and no more:** `AthleteState` gains `FEATURED`;
+`AgreementAcceptance` gains typed subjects with a nullable `userId` (a featured
+athlete has no login and a guardian has no account, so today there is nowhere to
+record their consent); `Agreement.kind` extends by three values as data;
+`Sponsor` gains three columns; `Role` gains two. **`P3-BE-12`, `Earning`,
+`RewardEventType` and `SponsorPackage` are not touched** — 1.0 wrongly said the
+margin floor needed amending, which followed from its wrong reading that the
+package contains NIL line items. It does not.
+
+**The NEXT screens are not here — they moved into Block A on 2026-09-22.** The
+fifth `Portal` member and `ACCENT` entry, the student portal (designed at 390px
+first, unlike every other portal), the advisor desk, the edition page map and
+the two public audiences are all fixture work: no schema, no roles, reversible,
+and exactly the substitution-behind-finished-screens argument Block A rests on.
+They are `P1-ART-08` and `P1-FE-18`…`P1-FE-30`, and the first two are startable
+now. What stays gated here is the wiring — `P9-FE-01`…`P9-FE-06`, each behind
+its own backend task as well as its scaffold row.
+
+**Spec v2.0 (2026-09-22) widened this.** Free digital is the V1 reader product,
+not a deferred nicety, so `(public)/next/[school]/[edition]` is a Stage 1 screen
+(`P1-FE-27`). The athlete page gains *Claim this profile* and a `FEATURED`
+treatment (`P1-FE-28`), the rights ledger gets a clearance queue (`P1-FE-29`),
+and the points balance is its own screen (`P1-FE-30`) — which must look nothing
+like `athlete/earnings`, because a parent reading points as dollars is a legal
+problem before a usability one. `P9-BE-08` is **void**: a NEXT package carries
+no NIL line items, so `P3-BE-12`'s per-line margin floor has nothing to evaluate
+and must not be touched.
+
+**Exit:** a school is a `Property`, an edition sells a back cover exactly once,
+a student's sale is attributed immutably and survives their graduation, no asset
+publishes without a `ContentRight` covering the intended use, a featured athlete
+can claim their profile through school and guardian verification without ever
+being enrolled into representation, scans and clicks report separately, and a
+split resolves to four payees without touching `Earning`. *(L)*
+
+## C2 · Points, leaderboard, print layer *(deferred)*
+
+`StudentPointAccrual` — no `EarningState`, no cents column, no relation to
+`Earning`, and a screen that must not look like `athlete/earnings`. Redemption
+written against whatever gate 3 decides. Sales Challenge leaderboard across
+schools. The print layer: print rights are a separate permission on
+`ContentRight`, so a digital-first edition clears while print is outstanding.
+Nothing here starts before C1 has shipped an edition.
+
+---
+
 ## Guardrails
 
 - **Protect the loop.** Everything above serves §39. If time runs short, ship

@@ -32,6 +32,28 @@ const schema = z.object({
   RESEND_API_KEY: z.string().optional(),
   EMAIL_FROM: z.string().default("SponsorX <noreply@sponsorx.net>"),
 
+  /* Where a notification tells someone to go. It has to be configuration
+     rather than a constant because the same email is sent from a developer
+     machine, from staging and from production, and a link to the wrong one is
+     how an applicant ends up staring at a sign-in page that does not know
+     them (P3-BE-07). */
+  APP_URL: z.string().default("http://localhost:3000"),
+
+  /* Public application intake (P3-BE-13).
+
+     THE TENANT. /join is a public form: the applicant has no session, so
+     nothing about the request says which tenant they are applying to. Phase 1
+     is a single managed marketplace, so the answer is configuration rather
+     than inference — and making it explicit is what keeps a second tenant a
+     config change instead of a rewrite.
+
+     THE SECRET. An applicant returns to their own application through a
+     signed link, not a login. The signature is all that stands between a
+     stranger and someone else's application, so a default is development-only
+     and production must set it — see the refinement below. */
+  PUBLIC_INTAKE_TENANT_ID: z.string().default("seed_tenant_btg"),
+  INTAKE_TOKEN_SECRET: z.string().default("dev-intake-secret-not-for-production"),
+
   CLERK_SECRET_KEY: z.string().min(1, "CLERK_SECRET_KEY is not set"),
   CLERK_PUBLISHABLE_KEY: z.string().min(1, "CLERK_PUBLISHABLE_KEY is not set"),
 
@@ -46,4 +68,19 @@ const schema = z.object({
   S3_BUCKET_PRIVATE: z.string().default("sponsorx-private"),
 });
 
-export const env = schema.parse(process.env);
+/* A development default that reached production would make every continuation
+   link forgeable by anyone who has read this repository. Refusing to boot is
+   the only safe failure: a warning gets missed, and the damage is silent. */
+const parsed = schema.parse(process.env);
+if (
+  parsed.NODE_ENV === "production" &&
+  parsed.INTAKE_TOKEN_SECRET === "dev-intake-secret-not-for-production"
+) {
+  throw new Error(
+    "INTAKE_TOKEN_SECRET is still the development default. It signs the links " +
+      "applicants use to return to their own application, so in production it " +
+      "must be a real secret.",
+  );
+}
+
+export const env = parsed;

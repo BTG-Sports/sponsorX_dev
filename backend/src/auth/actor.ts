@@ -32,6 +32,25 @@ export type Actor = {
   userId: string;
   tenantId: string;
   roles: Role[];
+  /**
+   * The sponsor org this user belongs to, or `null` for BTG staff and
+   * athletes (P4-BE-01).
+   *
+   * Carried on the actor because the matrix's `own` and `own-sponsor` scopes
+   * on `sponsor` and `sponsorContact` cannot be expressed without it — a
+   * SPONSOR_ADMIN reaches their own organisation's records and no other's,
+   * and a scope builder has no second query to find out which that is.
+   */
+  sponsorId: string | null;
+  /**
+   * The athlete and guardian rows this user *is*, or null.
+   *
+   * Same reasoning as `sponsorId`: the matrix's `own` and `ward` scopes name
+   * a row, and a scope builder has no second query to find out which. Both
+   * columns already exist on `User`.
+   */
+  athleteId: string | null;
+  guardianId: string | null;
 };
 
 const ROLE_SET = new Set<string>(ROLES);
@@ -61,10 +80,17 @@ export async function resolveActor(
 ): Promise<Actor> {
   const linked = await prisma.user.findUnique({
     where: { clerkId },
-    select: { id: true, tenantId: true, roles: true },
+    select: { id: true, tenantId: true, roles: true, sponsorId: true, athleteId: true, guardianId: true },
   });
   if (linked) {
-    return { userId: linked.id, tenantId: linked.tenantId, roles: knownRoles(linked.roles) };
+    return {
+      userId: linked.id,
+      tenantId: linked.tenantId,
+      roles: knownRoles(linked.roles),
+      sponsorId: linked.sponsorId,
+      athleteId: linked.athleteId,
+      guardianId: linked.guardianId,
+    };
   }
 
   if (!email) throw new UnprovisionedError(null);
@@ -80,10 +106,17 @@ export async function resolveActor(
   const claimed = await prisma.user.update({
     where: { id: provisioned.id },
     data: { clerkId },
-    select: { id: true, tenantId: true, roles: true },
+    select: { id: true, tenantId: true, roles: true, sponsorId: true, athleteId: true, guardianId: true },
   });
 
-  return { userId: claimed.id, tenantId: claimed.tenantId, roles: knownRoles(claimed.roles) };
+  return {
+    userId: claimed.id,
+    tenantId: claimed.tenantId,
+    roles: knownRoles(claimed.roles),
+    sponsorId: claimed.sponsorId,
+    athleteId: claimed.athleteId,
+    guardianId: claimed.guardianId,
+  };
 }
 
 declare module "express-serve-static-core" {

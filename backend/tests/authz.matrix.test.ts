@@ -1,6 +1,8 @@
 import { createHash } from "node:crypto";
-import { describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
+import { whereFor } from "../src/auth/scope";
+import type { Actor } from "../src/auth/actor";
 import {
   ACTIONS,
   isAllowed,
@@ -240,12 +242,187 @@ describe("the whole matrix is pinned", () => {
       "The authorisation matrix changed. Diff the grid against " +
         "documentation/SponsorX-RBAC-Matrix.md, confirm every moved pair is " +
         "intended, then update this digest.",
-    ).toBe("438e87a9a4d2fa80");
+      // Updated 2026-09-22: `athlete.approve` gained SUPER_ADMIN ("any") and
+      // BTG_ADMIN ("own-tenant"). The matrix document's table carried a dash
+      // for both, contradicting its own §12 — "BTG_ADMIN can too, as the
+      // superset role" — and `athlete` was the only approve column in the
+      // matrix without SUPER_ADMIN. The document was corrected first; this
+      // digest follows it.
+    ).toBe("bc4ddbf83a1e7538");
   });
 
   it("covers every pair the §30 acceptance asks for", () => {
     expect(grid().split("\n")).toHaveLength(
       RESOURCES.length * ROLES.length * ACTIONS.length,
     );
+  });
+});
+
+/* ==========================================================================
+   THE SEEDED HALF — P2-SEC-01, §30.
+
+   Everything above asserts the policy: 1,152 role × resource × action pairs
+   read against the matrix document, with no database. It proves the
+   transcription. It cannot prove the *filters*, because a scope token only
+   becomes a `where` fragment when Prisma runs it — and the failure worth
+   catching is a filter that returns rows from the wrong tenant while the
+   policy above it reads perfectly.
+
+   Two tenants, two sponsors inside one of them, two athletes, a guardian and
+   a property. The second sponsor is in the SAME tenant on purpose:
+   `own-sponsor` is a boundary tenant scoping does not draw, and a filter
+   matching only on `tenantId` would pass a single-sponsor fixture and hand
+   one sponsor another's contacts in production.
+
+   Skipped without a database, with a reason. CI has one.
+   ========================================================================== */
+
+const seededDb = await import("./support/seeded-db");
+const hasDatabase = await seededDb.databaseAvailable();
+
+describe.skipIf(!hasDatabase)("the scope filters, against real rows", () => {
+  const { prismaForTests, seed, clean, disconnect, T } = seededDb;
+  const db = prismaForTests();
+
+  const actor = (roles: Role[], over: Partial<Actor> = {}): Actor => ({
+    userId: "u_authz",
+    tenantId: T.tenantA,
+    roles,
+    sponsorId: null,
+    athleteId: null,
+    guardianId: null,
+    ...over,
+  });
+
+  beforeAll(async () => { await seed(); });
+  afterAll(async () => { await clean(); await disconnect(); });
+
+  async function athletesVisibleTo(a: Actor): Promise<string[]> {
+    const rows = await db.athlete.findMany({
+      where: whereFor(a, "athlete", "read"),
+      select: { id: true },
+      orderBy: { id: "asc" },
+    });
+    return rows.map((r) => r.id);
+  }
+
+  describe("the tenant boundary", () => {
+    it("shows BTG only its own tenant's athletes", async () => {
+      expect(await athletesVisibleTo(actor(["BTG_ADMIN"]))).toEqual([T.athleteA]);
+      expect(await athletesVisibleTo(actor(["NETWORK_MGR"]))).toEqual([T.athleteA]);
+    });
+
+    it("shows SUPER_ADMIN both tenants, and nobody else", async () => {
+      expect(await athletesVisibleTo(actor(["SUPER_ADMIN"]))).toEqual(
+        [T.athleteA, T.athleteB].sort());
+    });
+
+    it("shows a BTG admin of tenant B only tenant B", async () => {
+      /* The assertion that would have caught a filter dropping tenantId: it
+         passes trivially while only one tenant exists. */
+      const other = actor(["BTG_ADMIN"], { tenantId: T.tenantB });
+      expect(await athletesVisibleTo(other)).toEqual([T.athleteB]);
+    });
+  });
+
+  describe("own and ward reach one row, not a tenant", () => {
+    it("shows an athlete themselves and no one else", async () => {
+      const self = actor(["ATHLETE"], { athleteId: T.athleteA });
+      expect(await athletesVisibleTo(self)).toEqual([T.athleteA]);
+    });
+
+    it("shows a guardian their ward and no one else", async () => {
+      const guardian = actor(["GUARDIAN"], { guardianId: T.guardian });
+      expect(await athletesVisibleTo(guardian)).toEqual([T.athleteA]);
+    });
+
+    it("shows an athlete with no athleteId nothing at all", async () => {
+      /* MATCHES_NOTHING, never `{}` — which in Prisma means every row. */
+      expect(await athletesVisibleTo(actor(["ATHLETE"]))).toEqual([]);
+    });
+
+    it("shows a guardian of no one nothing at all", async () => {
+      expect(await athletesVisibleTo(actor(["GUARDIAN"]))).toEqual([]);
+    });
+  });
+
+  describe("own-sponsor is a boundary inside a tenant", () => {
+    it("shows a sponsor admin only their own organisation", async () => {
+      const rows = await db.sponsor.findMany({
+        where: whereFor(actor(["SPONSOR_ADMIN"], { sponsorId: T.sponsorA }), "sponsor", "read"),
+        select: { id: true },
+      });
+      expect(rows.map((r) => r.id)).toEqual([T.sponsorA]);
+    });
+
+    it("shows them only their own organisation's contacts", async () => {
+      /* Both contacts are in tenant A. A filter that only matched tenantId
+         would return two and nothing above it would notice. */
+      const rows = await db.sponsorContact.findMany({
+        where: whereFor(
+          actor(["SPONSOR_ADMIN"], { sponsorId: T.sponsorA }), "sponsorContact", "read"),
+        select: { sponsorId: true },
+      });
+      expect(rows.map((r) => r.sponsorId)).toEqual([T.sponsorA]);
+    });
+
+    it("shows BTG every sponsor in the tenant", async () => {
+      const rows = await db.sponsor.findMany({
+        where: whereFor(actor(["BTG_ADMIN"]), "sponsor", "read"),
+        select: { id: true },
+        orderBy: { id: "asc" },
+      });
+      expect(rows.map((r) => r.id)).toEqual([T.sponsorA, T.sponsorB]);
+    });
+  });
+
+  describe("rows nested under an athlete inherit the athlete's reach", () => {
+    it("shows an athlete only their own socials", async () => {
+      const rows = await db.athleteSocial.findMany({
+        where: whereFor(actor(["ATHLETE"], { athleteId: T.athleteA }),
+          "athleteSocialAccount", "read"),
+        select: { athleteId: true },
+      });
+      expect(rows.map((r) => r.athleteId)).toEqual([T.athleteA]);
+    });
+
+    it("shows BTG only its tenant's socials", async () => {
+      const rows = await db.athleteSocial.findMany({
+        where: whereFor(actor(["NETWORK_MGR"]), "athleteSocialAccount", "read"),
+        select: { athleteId: true },
+      });
+      expect(rows.map((r) => r.athleteId)).toEqual([T.athleteA]);
+    });
+  });
+
+  describe("every builder refuses to return an unrestricted filter", () => {
+    /* The dangerous answer in Prisma is `{}`, which means every row in the
+       table. This sweeps every role against every resource that has a
+       builder and fails if a non-SUPER_ADMIN ever gets one. */
+    it("gives an open filter to SUPER_ADMIN and to nobody else", () => {
+      const scoped = [
+        "athlete", "athleteApplication", "athleteSocialAccount", "athleteScore",
+        "athleteRate", "guardian", "sponsor", "sponsorContact", "campaign",
+        "campaignBrief", "campaignOrder", "invitation", "user", "tenant", "auditLog",
+      ] as const;
+
+      for (const resource of scoped) {
+        for (const role of ROLES) {
+          let where: Record<string, unknown>;
+          try {
+            where = whereFor(
+              actor([role], { sponsorId: T.sponsorA, athleteId: T.athleteA, guardianId: T.guardian }),
+              resource, "read");
+          } catch {
+            continue; // denied outright, which is also correct
+          }
+          if (role === "SUPER_ADMIN") continue;
+          expect(
+            Object.keys(where).length,
+            `${role} got an unrestricted filter for ${resource}`,
+          ).toBeGreaterThan(0);
+        }
+      }
+    });
   });
 });

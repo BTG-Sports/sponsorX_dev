@@ -21,7 +21,7 @@
 import { prisma } from "../db/client";
 import { audit, AUDIT_ACTIONS } from "../db/audit";
 import type { Actor } from "../auth/actor";
-import { assertAllowed } from "../auth/scope";
+import { assertAllowed, assertTenantWide, whereFor } from "../auth/scope";
 import { ForbiddenError } from "../auth/errors";
 import {
   GUARDIAN_RELATIONSHIPS,
@@ -85,7 +85,7 @@ export async function linkGuardian(
 
   return prisma.$transaction(async (tx) => {
     const athlete = await tx.athlete.findFirst({
-      where: { id: athleteId, tenantId: actor.tenantId },
+      where: { ...whereFor(actor, "athlete", "read"), id: athleteId },
       select: { id: true, birthDate: true, ageBand: true, guardianId: true },
     });
     if (!athlete) throw new ForbiddenError("athlete", "write");
@@ -132,11 +132,16 @@ export async function verifyGuardian(
   actor: Actor,
   guardianId: string,
 ): Promise<{ guardianId: string; verifiedAt: Date }> {
-  assertAllowed(actor, "guardian", "write");
+  /* An attestation ABOUT someone, not BY them. A guardian holds
+     `guardian.write` at `own` so they can maintain their own details — which
+     also let them verify themselves until this check was added. The evidence
+     §26 wants is BTG confirming the adult, and a self-signed confirmation is
+     not evidence. */
+  assertTenantWide(actor, "guardian", "write");
 
   return prisma.$transaction(async (tx) => {
     const guardian = await tx.guardian.findFirst({
-      where: { id: guardianId, tenantId: actor.tenantId },
+      where: { ...whereFor(actor, "guardian", "write"), id: guardianId },
       select: { id: true, verifiedAt: true },
     });
     if (!guardian) throw new ForbiddenError("guardian", "write");
@@ -167,7 +172,7 @@ export async function verifyGuardian(
  */
 export async function readGuardianReadiness(actor: Actor, athleteId: string) {
   const athlete = await prisma.athlete.findFirst({
-    where: { id: athleteId, tenantId: actor.tenantId },
+    where: { ...whereFor(actor, "athlete", "read"), id: athleteId },
     select: {
       birthDate: true,
       ageBand: true,

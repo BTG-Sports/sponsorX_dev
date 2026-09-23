@@ -12,6 +12,14 @@ athlete and property (§8); four BTG admin workspaces — Admin, Athlete Network
 Manager, Finance, Content Approval (§10, §23); guardian / authorized-rep access
 for minors (§4); and a public fan QR page with no login (§16).
 
+**SponsorX NEXT** adds a fifth portal and four public routes
+([spec](documentation/SponsorX-NEXT-Integration-Spec.md), policy in
+[RBAC Matrix §15](documentation/SponsorX-RBAC-Matrix.md)). Its **screens are
+Stage 1 work and startable now** — fixtures only, `P1-ART-08` and
+`P1-FE-18`…`P1-FE-30`. Its **models, roles and wiring are Stage 9 and gated**
+behind B8 and an edition actually selling. Do not cut `STUDENT`, `ADVISOR` or
+the seven NEXT models into the schema before that gate.
+
 **Status:** in build. The repo is npm workspaces — `frontend/` (Next.js app,
 Stage 1 UI on fixtures largely shipped) and `backend/` (Express API + pg-boss
 worker + Prisma, scaffolded 2026-09-21, Addendum B). `npm run build` /
@@ -96,6 +104,15 @@ jobs** — keep them straight or they drift:
 > match.** That is the copy other people read; a task left `Blocked` there when you have
 > actually finished it is a teammate idle tomorrow for no reason. Put the task ID
 > (e.g. `2S5-BE-04`) in the branch name and commit message.
+
+> **Also append the day's row to `Stage Progress`.** That sheet in the same
+> workbook answers "how far are we, and which stage is the wall?" — the
+> Dashboard only counts by phase. Its top block is live formulas and needs no
+> maintenance; the **snapshot block below it is appended by hand, one row per
+> day, as literal numbers**. A formula there would recalculate and the history
+> would quietly rewrite itself, which is the one thing a snapshot must not do.
+> Claude appends this row as part of closing out the day, like the xlsx and
+> the `Memory/` log.
 
 > **Claude updates the xlsx too — it is part of finishing a task, not a handoff.**
 > When you complete a task, edit `Claude outputs/SponsorX-Full-Programme-Task-Board.xlsx`
