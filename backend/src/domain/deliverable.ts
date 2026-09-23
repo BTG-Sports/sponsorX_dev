@@ -24,6 +24,7 @@
 import type { Prisma } from "../generated/prisma/client";
 import { prisma } from "../db/client";
 import { audit, AUDIT_ACTIONS } from "../db/audit";
+import { enqueue } from "../db/outbox";
 import type { Actor } from "../auth/actor";
 import { assertAllowed, assertTenantWide, whereFor } from "../auth/scope";
 import { ForbiddenError } from "../auth/errors";
@@ -34,6 +35,7 @@ import {
   type DeliverableState,
 } from "./deliverable-state";
 import { deliverablesForOrder } from "./deliverable-template";
+import { maybeMakeEligible } from "./earning";
 
 export class PublishedUrlRequiredError extends Error {
   readonly status = 400;
@@ -137,6 +139,12 @@ async function move(
     auditAction: Parameters<typeof audit>[2];
     data?: Prisma.DeliverableUpdateInput;
     after?: Record<string, unknown>;
+    /** Runs inside the same transaction, once the move is written and
+     *  audited. Used by P7-BE-02 to release the order's earning. */
+    afterMove?: (
+      tx: Prisma.TransactionClient,
+      context: { orderId: string },
+    ) => Promise<unknown>;
   },
 ): Promise<Moved> {
   if (opts.tenantWide) {
@@ -148,7 +156,7 @@ async function move(
   return prisma.$transaction(async (tx) => {
     const found = await tx.deliverable.findFirst({
       where: { ...whereFor(actor, "deliverable", opts.action), id: deliverableId },
-      select: { id: true, state: true },
+      select: { id: true, state: true, orderId: true },
     });
     if (!found) throw new ForbiddenError("deliverable", opts.action);
 
@@ -167,6 +175,9 @@ async function move(
       before: { state: from },
       after: { state: to, ...opts.after },
     });
+
+    /* Same transaction, deliberately — see verifyPublished. */
+    if (opts.afterMove) await opts.afterMove(tx, { orderId: found.orderId });
 
     return { id: updated.id, state: updated.state as DeliverableState };
   });
@@ -262,11 +273,20 @@ export async function markPublished(
  * the athlete who claims the work is live must not also be the one who
  * confirms it.
  */
-export function verifyPublished(actor: Actor, deliverableId: string): Promise<Moved> {
+export async function verifyPublished(
+  actor: Actor,
+  deliverableId: string,
+): Promise<Moved> {
   return move(actor, deliverableId, "VERIFIED", {
     action: "write",
     tenantWide: true,
     auditAction: AUDIT_ACTIONS.deliverable.verify,
+    /* P7-BE-02 — verifying the LAST deliverable on an order releases its
+       earning to ELIGIBLE, in this same transaction. Work verified and money
+       owed have to become true together: a crash between them would leave an
+       athlete who finished everything permanently at PENDING, with nothing in
+       the system to notice. */
+    afterMove: (tx, order) => maybeMakeEligible(tx, actor, order.orderId),
   });
 }
 
@@ -357,6 +377,10 @@ export async function registerCreativeAsset(
       deliverableId,
       { after: { assetId: asset.id, version, r2Key } },
     );
+
+    /* P5-BE-07 — resizing happens on the worker. An athlete uploading from a
+       phone at an event must not wait on three webp encodes. */
+    await enqueue(tx, deliverable.tenantId, "image.derive", { assetId: asset.id });
 
     return asset;
   });

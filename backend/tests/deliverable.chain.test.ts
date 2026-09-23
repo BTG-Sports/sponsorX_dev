@@ -22,6 +22,9 @@ let auditRows: Record<string, unknown>[] = [];
 let updates: Record<string, unknown>[] = [];
 let committedWrites: string[] = [];
 let maxVersion: number | null = null;
+let outstandingDeliverables = 0;
+let earningRow: Record<string, unknown> | null = null;
+let enqueued: string[] = [];
 let presignCalls: { key: string; contentType: string }[] = [];
 
 vi.mock("../src/config/env", () => ({
@@ -54,6 +57,8 @@ vi.mock("../src/lib/storage", () => ({
 vi.mock("../src/db/client", () => {
   const model = {
     findFirst: () => Promise.resolve(deliverable),
+    /* P7-BE-02 counts outstanding deliverables when one is verified. */
+    count: () => Promise.resolve(outstandingDeliverables),
     update: ({ data }: { data: Record<string, unknown> }) => {
       committedWrites.push("deliverable.update");
       updates.push(data);
@@ -67,6 +72,22 @@ vi.mock("../src/db/client", () => {
       create: ({ data }: { data: Record<string, unknown> }) => {
         committedWrites.push("asset.create");
         return Promise.resolve({ id: "ast_1", version: data.version });
+      },
+    },
+    /* P7-BE-02 — releasing the order's earning to ELIGIBLE. */
+    earning: {
+      findUnique: () => Promise.resolve(earningRow),
+      update: ({ data }: { data: Record<string, unknown> }) => {
+        committedWrites.push("earning.update");
+        return Promise.resolve({ id: "ern_1", state: data.state });
+      },
+    },
+    /* P5-BE-07 — registering an asset queues its derivatives. */
+    outboxJob: {
+      create: ({ data }: { data: Record<string, unknown> }) => {
+        committedWrites.push("outbox");
+        enqueued.push(data.name as string);
+        return Promise.resolve({ id: "j" });
       },
     },
     auditLog: {
@@ -104,7 +125,7 @@ const btg = () => actor(["CAMPAIGN_MGR"], { athleteId: null });
 const sponsor = () => actor(["SPONSOR_ADMIN"], { athleteId: null, sponsorId: "spn_1" });
 
 const at = (state: string) => {
-  deliverable = { id: "dlv_1", state, tenantId: "t1" };
+  deliverable = { id: "dlv_1", state, tenantId: "t1", orderId: "ord_1" };
 };
 
 beforeEach(() => {
@@ -114,6 +135,9 @@ beforeEach(() => {
   committedWrites = [];
   maxVersion = null;
   presignCalls = [];
+  outstandingDeliverables = 0;
+  earningRow = { id: "ern_1", state: "PENDING" };
+  enqueued = [];
 });
 
 describe("P5-BE-08 · every step of the chain works and is audited", () => {

@@ -310,3 +310,133 @@ note `next` hoists to the **repo root** `node_modules`, not `frontend/`.
 Phase 1: **96 → 101 Done**, Blocked 97 → 87. Seven rows moved Blocked → Ready
 (`P6-BE-05`, `P6-BE-06`, `P6-FE-01`…`P6-FE-03`, `P6-INT-02`, `P6-SEC-01`).
 Stage 6 went 0 → 5.
+
+---
+
+# Evening — B7 earnings spine, plus B6/B5's two worker jobs
+
+`P7-BE-01`, `P7-BE-02`, `P7-BE-03`, `P6-BE-06`, `P5-BE-07`.
+
+## A blocker found before starting, not after
+
+**`P6-BE-05` (geo worker) cannot be finished yet.** `maxmind` is already a
+declared dependency, but there is **no GeoLite2 `.mmdb` in the repo** and the
+package ships no test database. That file needs a **MaxMind account and
+licence key**. Its acceptance is "resolves against local GeoLite2", which
+cannot be verified without it — so it was left open rather than closed on a
+promise. Same shape as `P0-OPS-03` needing a domain: a real-world prerequisite
+that no task covers and that `Depends On` cannot show.
+
+## What was built
+
+| File | Purpose |
+|---|---|
+| `domain/earning-state.ts` | PENDING→ELIGIBLE→APPROVED_FOR_PAYOUT→PAID, HELD/DISPUTED aside |
+| `domain/earning.ts` | The record, the money split, automatic eligibility |
+| `contracts/earning.ts` + `routes/v1/earnings.ts` | Finance surface — 3 endpoints, no public one |
+| `worker/jobs/generate-qr.mts` | QR PNG → **private** bucket (P6-BE-06) |
+| `worker/jobs/derive-image.mts` | 320/640/1280 webp via sharp (P5-BE-07) |
+
+New dependencies: `qrcode` + `@types/qrcode`; `sharp` was already resolved in
+the tree and is now declared. B0 is long done, so the dependency freeze no
+longer applies.
+
+## Decisions worth remembering
+
+- **A deliberate divergence from `P7-BE-02`'s wording.** The task says
+  "closing an accepted deliverable makes the associated earning ELIGIBLE".
+  Read literally that fires on the FIRST deliverable — but an Earning is per
+  ORDER and SX-07 owes four weekly posts, so it would owe an athlete the whole
+  fee for a quarter of the work. It fires when the LAST one is verified.
+  Recorded in the code, tested, and raised on the PR rather than quietly
+  reinterpreted.
+- **The earning is raised at acceptance, not completion.** Otherwise the
+  period between signing and delivering shows an athlete owed nothing for work
+  they are already contractually committed to.
+- **ELIGIBLE and APPROVED_FOR_PAYOUT are kept apart.** ELIGIBLE is a fact
+  about the work; APPROVED_FOR_PAYOUT is a person in Finance deciding. Merging
+  them would let completing a deliverable authorise money with nobody looking.
+- **`maybeMakeEligible` only ever promotes from PENDING.** An earning a human
+  put on HOLD or into DISPUTE must not be quietly released by the last
+  deliverable landing.
+- **The QR goes in the PRIVATE bucket.** It is a picture of a bearer
+  credential, and the public bucket is a CDN with no access control by design.
+- **"No tax ID, no bank details" is tested as a shape**, not trusted as an
+  intention — assertions run against `schema.prisma` and the published
+  contract. The whole schema greps clean for `taxId`, `bankAccount`,
+  `routingNumber`, `iban`, `sortCode`.
+
+## A test guard improved rather than patched
+
+`alignment.test.ts` asserted the literal contents of `HANDLED_JOBS`, so it
+broke every time a handler shipped — a chore, not a guard. It now asserts the
+invariant the worker's own comment states: every handled name has a matching
+`boss.work()` registration. The failure that actually matters is a name in the
+set with no consumer, which would mark rows dispatched and let the work expire
+unread.
+
+Also removed a test of my own that passed by catching its own error and
+asserting `null` — it proved nothing.
+
+**780 backend + 46 frontend tests pass; full root build green.**
+
+Phase 1: **101 → 106 Done**, Blocked 87 → 80. Five rows moved Blocked → Ready
+(`P6-ART-01`, `P7-FE-01`, `P7-FE-02`, `P7-SEC-01`, `P7-SEC-02`). Stage 5 → 9,
+stage 6 → 6, stage 7 → 3.
+
+---
+
+# `P6-BE-05` · Geo resolution — built, at Code review, not Done
+
+Built on request after I flagged it as blocked. Everything in our control is
+done and tested; one acceptance clause cannot be verified here, so the row is
+at **Code review** with the reason in its Notes rather than at Done.
+
+## The §26 problem the task's own wording hides
+
+The acceptance says the raw IP "**lives only in the job payload**". That is
+only true if a payload is transient — and **ours is not**. The drain marks
+`OutboxJob` rows `dispatchedAt` and **never deletes them**, so without
+intervention the address of every fan who ever tapped a link would sit in
+Postgres indefinitely.
+
+So the drain now strips it, in the same transaction that marks the row
+dispatched and *after* `boss.send` has already carried the full payload to the
+queue:
+
+```sql
+UPDATE "OutboxJob" SET payload = payload::jsonb - 'clientIp'
+ WHERE id = ANY($1::text[]) AND name = 'tracking.resolveGeo'
+```
+
+The `::jsonb` cast is belt and braces: `-` is a jsonb operator, and on a plain
+`json` column it would abort the **whole drain transaction**, not just that
+statement. The column is jsonb (verified in the init migration), but the cast
+makes it correct either way. **It could not be checked against a live
+database** — Railway's Postgres is private-network-only with no TCP proxy, so
+`psql` from this machine cannot reach it.
+
+## Other decisions
+
+- **The reader is opened once, at worker boot**, not per job — GeoLite2 is
+  ~100 MB and memory-mapped. `GEOLITE2_CITY_PATH` is **optional**: a checkout
+  without the file starts normally, logs that it has none, and records clicks
+  with no location. A missing dimension on a chart beats a worker that will
+  not boot.
+- **`x-forwarded-for` is a divergence.** The task says the job reads that
+  header; it cannot, because by the time the job runs the request is over. The
+  address is captured at the redirect route, forwarded to the API on
+  `x-sponsorx-client-ip`, and arrives in the payload.
+- **Private ranges are skipped before the lookup**, so a dev machine does not
+  log a miss per click. The test pins 172.15 and 172.32 as *public* — an
+  off-by-one on the 172.16–172.31 block would silently drop real traffic.
+- **The lookup is injected**, like the storage functions in the QR and image
+  jobs, so the rules are testable without the licensed file.
+
+## What is still needed to close it
+
+A `GeoLite2-City.mmdb`: free MaxMind account → licence key → download → set
+`GEOLITE2_CITY_PATH`. Then watch one real click resolve to a city and move the
+row to Done.
+
+**808 backend + 46 frontend tests pass; full root build green.**

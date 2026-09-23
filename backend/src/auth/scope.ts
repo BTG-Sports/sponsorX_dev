@@ -376,6 +376,31 @@ const BUILDERS: Partial<Record<Resource, Builder>> = {
     return { token: { is: { reward: { is: inner } } } };
   },
 
+  /* An earning carries athleteId directly, so it scopes like the athlete it
+     belongs to rather than through the order. FINANCE reaches the tenant;
+     an athlete reaches their own money and a guardian their wards'. */
+  earning: (actor, scope) => {
+    switch (scope) {
+      case "any":
+        return {};
+      case "own-tenant":
+        return { tenantId: actor.tenantId };
+      case "own":
+        return actor.athleteId
+          ? { tenantId: actor.tenantId, athleteId: actor.athleteId }
+          : MATCHES_NOTHING;
+      case "ward":
+        return actor.guardianId
+          ? {
+              tenantId: actor.tenantId,
+              athlete: { is: { guardianId: actor.guardianId } },
+            }
+          : MATCHES_NOTHING;
+      default:
+        return MATCHES_NOTHING;
+    }
+  },
+
   campaignBrief: (actor, scope) => {
     switch (scope) {
       case "any":

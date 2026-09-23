@@ -184,3 +184,42 @@ export async function storageReachable(): Promise<boolean> {
     return false;
   }
 }
+
+/**
+ * Put an object into the private bucket.
+ *
+ * Used by the worker, never by a request path — the jobs that call this
+ * (`reward.generateQr`, `image.derive`) exist precisely so that generating
+ * and storing bytes never blocks someone's HTTP response.
+ *
+ * No audit row: unlike a presigned grant, nothing here hands a credential to
+ * a person. The auditable event is the grant that later reads the object.
+ */
+export async function putPrivateObject(
+  key: string,
+  body: Buffer,
+  contentType: string,
+): Promise<void> {
+  assertSafeKey(key);
+  await s3.send(
+    new PutObjectCommand({
+      Bucket: BUCKETS.private,
+      Key: key,
+      Body: body,
+      ContentType: contentType,
+    }),
+  );
+}
+
+/** Read an object back out of the private bucket. Worker-side only. */
+export async function getPrivateObject(key: string): Promise<Buffer> {
+  assertSafeKey(key);
+  const result = await s3.send(
+    new GetObjectCommand({ Bucket: BUCKETS.private, Key: key }),
+  );
+  const body = result.Body as { transformToByteArray?: () => Promise<Uint8Array> } | undefined;
+  if (!body?.transformToByteArray) {
+    throw new Error(`Object ${key} returned no readable body.`);
+  }
+  return Buffer.from(await body.transformToByteArray());
+}
