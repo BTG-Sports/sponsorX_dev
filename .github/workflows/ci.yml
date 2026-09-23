@@ -126,6 +126,15 @@ jobs:
     name: e2e · playwright
     runs-on: ubuntu-latest
 
+    env:
+      # Clerk's DEVELOPMENT instance. ClerkProvider wraps the whole app, so
+      # without a publishable key every page throws and Playwright times out
+      # waiting for a server that never serves a 200 — which is what had been
+      # happening since Clerk replaced mock-auth (P2-INT-01). The keys live in
+      # frontend/.env.local locally, which is gitignored and so invisible to CI.
+      NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ${{ vars.CLERK_PUBLISHABLE_KEY_TEST }}
+      CLERK_SECRET_KEY: ${{ secrets.CLERK_SECRET_KEY_TEST }}
+
     steps:
       - uses: actions/checkout@v4
 
