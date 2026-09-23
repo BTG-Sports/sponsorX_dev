@@ -24,6 +24,8 @@ import {
 } from "../../domain/metric";
 import { assembleSponsorReport } from "../../domain/sponsor-report";
 import { invoicesForCampaign, paymentStatusForCampaign } from "../../domain/invoice";
+import { deliveryHealth, underDeliveringCampaigns } from "../../domain/delivery-health";
+import { jobEconomics, networkMetrics } from "../../domain/network-metrics";
 
 export const metricsRouter = Router();
 
@@ -70,6 +72,35 @@ const invoices: RequestHandler<{ id: string }> = async (req, res) => {
 const paymentStatus: RequestHandler<{ id: string }> = async (req, res) => {
   res.json(await paymentStatusForCampaign(req.actor!, req.params.id));
 };
+
+/**
+ * GET /operations/delivery-health — §9 screen 9.
+ *
+ * `?under=true` narrows to the campaigns in trouble, which is what the
+ * dashboard shows; the full list is there for a desk that wants to see
+ * everything rather than only the exceptions.
+ */
+const delivery: RequestHandler = async (req, res) => {
+  const onlyUnder = req.query.under === "true";
+  const rows = onlyUnder
+    ? await underDeliveringCampaigns(req.actor!)
+    : await deliveryHealth(req.actor!);
+  res.json({ campaigns: rows });
+};
+
+/** GET /operations/network-metrics — BTG's own numbers (P7-DATA-05). */
+const network: RequestHandler = async (req, res) => {
+  res.json(await networkMetrics(req.actor!));
+};
+
+/** GET /operations/job-economics — average price and margin per SX job. */
+const economics: RequestHandler = async (req, res) => {
+  res.json({ jobs: await jobEconomics(req.actor!) });
+};
+
+metricsRouter.get("/operations/delivery-health", requireActor, delivery);
+metricsRouter.get("/operations/network-metrics", requireActor, network);
+metricsRouter.get("/operations/job-economics", requireActor, economics);
 
 metricsRouter.get("/campaigns/:id/invoices", requireActor, invoices);
 metricsRouter.get("/campaigns/:id/payment-status", requireActor, paymentStatus);

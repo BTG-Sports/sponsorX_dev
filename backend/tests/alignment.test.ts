@@ -227,6 +227,8 @@ describe("the domain is reachable", () => {
     /* P7-BE-04 — the Zoho invoice mirror. `ingestZohoInvoice` is absent
        deliberately: it is called by the worker job, not by a route. */
     "invoicesForCampaign", "paymentStatusForCampaign",
+    /* B7 — operations dashboard reads (P7-DATA-04, P7-DATA-05). */
+    "deliveryHealth", "underDeliveringCampaigns", "networkMetrics", "jobEconomics",
   ])("%s is called by a route", (fn) => {
     expect(routes).toContain(fn);
   });
