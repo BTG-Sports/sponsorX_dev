@@ -18,6 +18,7 @@
  */
 import { execSync } from "node:child_process";
 import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 
 import { describe, expect, it } from "vitest";
 
@@ -72,9 +73,12 @@ describe("P7-SEC-02 · no tax, bank or card field anywhere in the schema", () =>
 describe("nor anywhere else in the source", () => {
   /* The schema is the authority, but a forbidden field could equally arrive
      in a Zod contract, a DTO or a route body and reach a JSON column. */
+  /* fileURLToPath, not URL.pathname — the latter yields "/D:/…%20…" on
+     Windows (leading slash, percent-encoded spaces), which spawnSync rejects
+     with ENOENT before grep ever runs. */
   const sources = execSync(
     "grep -rl '' src --include='*.ts' | grep -v generated",
-    { cwd: new URL("..", import.meta.url).pathname, encoding: "utf8" },
+    { cwd: fileURLToPath(new URL("..", import.meta.url)), encoding: "utf8" },
   )
     .split("\n")
     .filter(Boolean);
