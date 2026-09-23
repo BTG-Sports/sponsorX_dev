@@ -19,9 +19,26 @@
 import { Redis } from "ioredis";
 import { env } from "../config/env";
 
+/**
+ * Railway's private network resolves `*.railway.internal` over AAAA records
+ * ONLY. ioredis defaults its socket lookup to IPv4, so an internal Redis URL
+ * that is perfectly correct still fails to connect, and `/health/ready`
+ * reports `redis: false` while Postgres on the same network is fine (node-postgres
+ * resolves both families). Select IPv6 for internal hosts and leave everything
+ * else — docker-compose, localhost, an external provider — on the default.
+ */
+const isRailwayInternal = (() => {
+  try {
+    return new URL(env.REDIS_URL).hostname.endsWith(".railway.internal");
+  } catch {
+    return false;
+  }
+})();
+
 export const redis = new Redis(env.REDIS_URL, {
   lazyConnect: true,
   maxRetriesPerRequest: 1,
+  ...(isRailwayInternal ? { family: 6 as const } : {}),
 });
 
 redis.on("error", () => {
