@@ -49,8 +49,29 @@ export const RewardClaimInput = z
     /** Optional. §16's fan page has no login, and asking for an email as a
      *  condition of claiming would be a barrier at a stall. */
     fanEmail: z.email().max(320).nullable().optional(),
+    /**
+     * Required WHENEVER `fanEmail` is present — P6-SEC-01.
+     *
+     * Not enforced by the schema, because a Zod refinement would return a
+     * validation error and this is a §26 rule, not a shape problem: the
+     * domain raises ConsentRequiredError so the refusal reads the same
+     * whether it arrives from this route, §8's service account or a test.
+     */
+    consent: z
+      .object({
+        /** The version of the text the fan actually saw. */
+        version: z.string().min(1).max(40),
+        /** What they agreed the address would be used for. */
+        purpose: z.string().min(1).max(60),
+      })
+      .nullable()
+      .optional(),
   })
-  .meta({ id: "RewardClaimInput" });
+  .meta({
+    id: "RewardClaimInput",
+    description:
+      "An email address may only be recorded together with consent carrying the VERSION of the text shown (§26). Claiming without an address needs no consent and is the ordinary case.",
+  });
 
 export const RewardFunnel = z
   .object({

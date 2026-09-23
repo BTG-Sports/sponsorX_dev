@@ -125,7 +125,14 @@ const btg = () => actor(["CAMPAIGN_MGR"], { athleteId: null });
 const sponsor = () => actor(["SPONSOR_ADMIN"], { athleteId: null, sponsorId: "spn_1" });
 
 const at = (state: string) => {
-  deliverable = { id: "dlv_1", state, tenantId: "t1", orderId: "ord_1" };
+  deliverable = {
+    id: "dlv_1", state, tenantId: "t1", orderId: "ord_1", title: "Story drop",
+    /* P5-INT-01 widened move()'s read so a notification can be addressed. */
+    order: {
+      campaign: { name: "Autumn" },
+      athlete: { displayName: "Alex", user: { email: "alex@example.com" } },
+    },
+  };
 };
 
 beforeEach(() => {
