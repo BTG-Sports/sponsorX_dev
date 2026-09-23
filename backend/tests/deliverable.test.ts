@@ -63,6 +63,15 @@ vi.mock("../src/db/client", () => ({
             return Promise.resolve({ count: data.length });
           },
         },
+        /* P7-BE-01 puts earning creation inside the same acceptance
+           transaction, so the fake tx carries the model too. */
+        earning: {
+          findUnique: () => Promise.resolve(null),
+          create: ({ data }: { data: Record<string, unknown> }) => {
+            writes.push("earning.create");
+            return Promise.resolve({ id: "ern_1", state: data.state });
+          },
+        },
         auditLog: {
           create: () => { writes.push("audit"); return Promise.resolve({ id: "a" }); },
         },
@@ -91,6 +100,8 @@ const evidence = {
 beforeEach(() => {
   order = {
     id: "ord_1", state: "SENT",
+    /* Read by createEarningForOrder in the same transaction. */
+    athleteId: "ath_1", compensation: 10000,
     tenantId: "t1", jobId: "SX-07", dueDate: new Date("2026-11-01T00:00:00.000Z"),
     athlete: {
       birthDate: new Date("1999-01-01"), ageBand: "18_PLUS",

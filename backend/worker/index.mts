@@ -46,8 +46,20 @@ import { handleInvitationSent, type InvitationJob } from "./jobs/notify-invitati
  * handler is two edits in one file and forgetting one of them is visible in
  * the log rather than silent.
  */
-const HANDLED_JOBS = new Set<string>(["notify.email", "notify.invitationSent"]);
+const HANDLED_JOBS = new Set<string>([
+  "notify.email",
+  "notify.invitationSent",
+  "reward.generateQr",
+  "image.derive",
+  "tracking.resolveGeo",
+]);
 import { handleSendEmail, type EmailJob } from "./jobs/send-email.mts";
+import { handleGenerateQr, type QrJob } from "./jobs/generate-qr.mts";
+import { handleDeriveImage, type DeriveImageJob } from "./jobs/derive-image.mts";
+import { getPrivateObject, putPrivateObject } from "../src/lib/storage.ts";
+import {
+  cityReaderToLookup, handleResolveGeo, type GeoJob, type GeoLookup,
+} from "./jobs/resolve-geo.mts";
 
 const connectionString = process.env.DATABASE_URL;
 
@@ -130,10 +142,8 @@ async function drainOnce(): Promise<number> {
        starve everything behind them. `name = ANY(...)` keeps the batch full
        of work that can actually go.
 
-       Three names sit here today — zoho.pushCampaign, notify.invitationSent
-       and tracking.resolveGeo, enqueued by B3 and B6 domain code whose
-       handlers are still to come (P8-INT-01, P4-INT-01, P6-BE-05). They
-       wait, and go the moment a handler ships. */
+       zoho.pushCampaign still sits here, enqueued by B3 domain code whose
+       handler is P8-INT-01's. It waits, and goes the moment that ships. */
     const { rows } = await client.query<OutboxRow>(
       `SELECT id, name, payload
          FROM "OutboxJob"
@@ -157,6 +167,32 @@ async function drainOnce(): Promise<number> {
 
     await client.query(
       `UPDATE "OutboxJob" SET "dispatchedAt" = now() WHERE id = ANY($1::text[])`,
+      [rows.map((r) => r.id)],
+    );
+
+    /* §26 — THE ADDRESS DOES NOT STAY HERE.
+    
+       P6-BE-05's acceptance says the raw IP "lives only in the job payload",
+       which is only true if a payload is transient. Ours is not: rows are
+       marked dispatched and never deleted, so without this the address of
+       every fan who ever tapped a link would sit in Postgres indefinitely.
+    
+       It is stripped in the same transaction that marks the row dispatched,
+       AFTER boss.send has already carried the full payload to the queue. So
+       the worker still resolves the location and the database keeps no
+       address — and a crash between the two rolls back both.
+
+       The explicit ::jsonb cast is belt and braces. The column IS jsonb (see
+       the init migration), and `-` is a jsonb operator a plain `json` column
+       would reject — which would abort the WHOLE drain transaction, not just
+       this statement. The cast makes it correct either way. It could not be
+       checked against a live database: Railway's Postgres is reachable only
+       over the private network and has no TCP proxy. */
+    await client.query(
+      `UPDATE "OutboxJob"
+          SET payload = payload::jsonb - 'clientIp'
+        WHERE id = ANY($1::text[])
+          AND name = 'tracking.resolveGeo'`,
       [rows.map((r) => r.id)],
     );
 
@@ -276,6 +312,72 @@ async function main(): Promise<void> {
       outcome.sent
         ? `[worker] notify.invitationSent queued mail to ${outcome.to}`
         : `[worker] notify.invitationSent skipped: ${outcome.reason}`,
+    );
+  });
+
+  /* P6-BE-05. The GeoLite2 file is opened ONCE, at boot, not per job: it is
+     a hundred megabytes and the reader memory-maps it. A checkout without the
+     file — it is a licensed MaxMind download and cannot be committed — starts
+     normally and resolves nothing, because a missing dimension on a chart is
+     better than a worker that will not boot. */
+  let geoLookup: GeoLookup | null = null;
+  const geoPath = process.env.GEOLITE2_CITY_PATH;
+  if (geoPath) {
+    try {
+      const { open } = await import("maxmind");
+      geoLookup = cityReaderToLookup(await open(geoPath));
+      console.log(`[worker] GeoLite2 loaded from ${geoPath}`);
+    } catch (error) {
+      console.error(
+        `[worker] GEOLITE2_CITY_PATH is set to ${geoPath} but the database ` +
+          `could not be opened — clicks will record without a location. ` +
+          `${(error as Error).message}`,
+      );
+    }
+  } else {
+    console.log(
+      "[worker] GEOLITE2_CITY_PATH is not set — clicks record without a " +
+        "location. Set it to a GeoLite2-City.mmdb to enable geo resolution.",
+    );
+  }
+
+  await ensureQueue("tracking.resolveGeo");
+  await boss.work<GeoJob>("tracking.resolveGeo", async ([job]) => {
+    const outcome = await handleResolveGeo(pool, job.data, { lookup: geoLookup });
+    console.log(
+      outcome.resolved
+        ? `[worker] tracking.resolveGeo ${outcome.region ?? "?"}/${outcome.city ?? "?"}`
+        : `[worker] tracking.resolveGeo skipped: ${outcome.reason}`,
+    );
+  });
+
+  /* P6-BE-06. The PNG goes to the PRIVATE bucket: a QR is a picture of a
+     bearer credential, and the public bucket is a CDN with no access control
+     by design. */
+  await ensureQueue("reward.generateQr");
+  await boss.work<QrJob>("reward.generateQr", async ([job]) => {
+    const outcome = await handleGenerateQr(pool, job.data, {
+      appUrl: process.env.APP_URL ?? "http://localhost:3000",
+      putObject: putPrivateObject,
+    });
+    console.log(
+      outcome.generated
+        ? `[worker] reward.generateQr wrote ${outcome.key} (${outcome.bytes}b)`
+        : `[worker] reward.generateQr skipped: ${outcome.reason}`,
+    );
+  });
+
+  /* P5-BE-07. Three webp widths beside the original, never replacing it. */
+  await ensureQueue("image.derive");
+  await boss.work<DeriveImageJob>("image.derive", async ([job]) => {
+    const outcome = await handleDeriveImage(pool, job.data, {
+      getObject: getPrivateObject,
+      putObject: putPrivateObject,
+    });
+    console.log(
+      outcome.derived
+        ? `[worker] image.derive wrote ${Object.keys(outcome.keys).join("/")}`
+        : `[worker] image.derive skipped: ${outcome.reason}`,
     );
   });
 

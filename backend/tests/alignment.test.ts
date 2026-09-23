@@ -109,12 +109,31 @@ describe("every job that is enqueued has somewhere to go", () => {
 });
 
 describe("a job with a handler is actually dispatched", () => {
-  it("now drains notify.invitationSent, which was waiting", () => {
-    /* P4-BE-04 enqueued this from the day it was written and nothing
-       consumed it; the drain held the rows rather than losing them. P4-INT-01
-       is the handler they were waiting for. */
+  /* The invariant the worker's own comment states: "Every name here must
+     have a matching boss.work() registration below." Asserting THAT, rather
+     than the literal contents of the set, is what actually protects the
+     drain — the previous version pinned the exact string and so had to be
+     edited every time a handler shipped, which makes it a chore rather than
+     a guard. The failure it exists to catch is a name added to HANDLED_JOBS
+     with no consumer: the drain would then mark those rows dispatched and
+     the work would expire unread. */
+  it("every handled job name has a boss.work registration", () => {
     const worker = readFileSync(new URL("../worker/index.mts", import.meta.url), "utf8");
-    expect(worker).toContain('HANDLED_JOBS = new Set<string>(["notify.email", "notify.invitationSent"])');
+    const block = worker.match(/HANDLED_JOBS = new Set<string>\(\[([\s\S]*?)\]\)/);
+    expect(block).not.toBeNull();
+
+    const handled = [...block![1]!.matchAll(/"([^"]+)"/g)].map((m) => m[1]!);
+    expect(handled.length).toBeGreaterThan(0);
+
+    for (const name of handled) {
+      expect(worker).toContain(`boss.work<`);
+      expect(worker).toContain(`("${name}"`);
+    }
+  });
+
+  it("still drains notify.invitationSent, which was waiting on P4-INT-01", () => {
+    const worker = readFileSync(new URL("../worker/index.mts", import.meta.url), "utf8");
+    expect(worker).toContain('"notify.invitationSent"');
     expect(worker).toContain('boss.work<InvitationJob>("notify.invitationSent"');
   });
 
@@ -174,7 +193,7 @@ describe("the domain is reachable", () => {
   /* Three B1 tasks closed with no endpoint, and B3 repeated it. A domain
      function nothing can call is a capability the board claims and the
      product does not have. */
-  const routes = ["applications", "guardians", "campaigns", "deliverables", "rewards"]
+  const routes = ["applications", "guardians", "campaigns", "deliverables", "rewards", "earnings"]
     .map((f) => readFileSync(new URL(`../src/routes/v1/${f}.ts`, import.meta.url), "utf8"))
     .join("\n");
 
@@ -198,6 +217,10 @@ describe("the domain is reachable", () => {
     "recordScan", "recordLanding", "recordClaim", "redeemToken",
     "createTrackingLink", "codesForCampaign", "clicksForLink",
     "resolveCode", "recordClick",
+    /* B7 — earnings. createEarningForOrder and maybeMakeEligible are
+       deliberately absent: they are called from inside acceptOrder and
+       verifyPublished respectively, not from a route of their own. */
+    "readEarning", "transitionEarning", "adjustEarning",
   ])("%s is called by a route", (fn) => {
     expect(routes).toContain(fn);
   });

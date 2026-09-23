@@ -46,6 +46,12 @@ import {
   TrackingLinkInput,
 } from "./reward";
 import {
+  EarningAdjustmentInput,
+  EarningBreakdown,
+  EarningState,
+  EarningTransitionInput,
+} from "./earning";
+import {
   AgreementAcceptanceInput,
   GuardianInput,
   GuardianReadiness,
@@ -157,6 +163,13 @@ registry.register("RewardFunnel", RewardFunnel);
 registry.register("TrackingLinkInput", TrackingLinkInput);
 registry.register("TrackingDestination", TrackingDestination);
 registry.register("TrackingCode", TrackingCode);
+
+// --- earnings (P7-BE-01, P7-BE-03) -------------------------------------
+
+registry.register("EarningState", EarningState);
+registry.register("EarningTransitionInput", EarningTransitionInput);
+registry.register("EarningAdjustmentInput", EarningAdjustmentInput);
+registry.register("EarningBreakdown", EarningBreakdown);
 
 /**
  * Bearer auth for §8's API Service Account. Clerk issues the session for human
