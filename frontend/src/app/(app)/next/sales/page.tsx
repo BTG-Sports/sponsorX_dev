@@ -128,7 +128,7 @@ export default async function StudentSalesPage({
             </span>
           </p>
           <div className="mt-2">
-            <Meter value={milestonePct} tone="primary" />
+            <Meter value={milestonePct} tone="next" />
           </div>
         </Card>
       </div>

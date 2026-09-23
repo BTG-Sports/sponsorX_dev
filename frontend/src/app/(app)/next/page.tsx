@@ -154,7 +154,7 @@ export default async function StudentHomePage({
               <span className="tabular-nums text-faint">{editionPct}%</span>
             </div>
             <div className="mt-1.5">
-              <Meter value={editionPct} tone="primary" />
+              <Meter value={editionPct} tone="next" />
             </div>
             <p className="mt-1.5 flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-faint">
               <span>

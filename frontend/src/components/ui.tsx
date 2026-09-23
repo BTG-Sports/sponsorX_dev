@@ -209,18 +209,15 @@ export function Meter({
   tone = "primary",
 }: {
   value: number;
-  tone?: "primary" | "accent";
+  tone?: "primary" | "accent" | "next";
 }) {
   const pct = Math.max(0, Math.min(100, value));
+  const fill = { primary: "bg-primary", accent: "bg-accent", next: "bg-next" }[
+    tone
+  ];
   return (
     <div className="h-1.5 w-full overflow-hidden rounded-full bg-surface-2">
-      <div
-        className={cx(
-          "h-full rounded-full",
-          tone === "primary" ? "bg-primary" : "bg-accent",
-        )}
-        style={{ width: `${pct}%` }}
-      />
+      <div className={cx("h-full rounded-full", fill)} style={{ width: `${pct}%` }} />
     </div>
   );
 }
