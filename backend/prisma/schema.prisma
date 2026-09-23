@@ -564,8 +564,9 @@ model Campaign {
   sponsor Sponsor          @relation(fields: [sponsorId], references: [id])
   brief   CampaignBrief?   @relation(fields: [briefId], references: [id])
   invites CampaignInvite[]
-  orders  CampaignOrder[]
-  rewards Reward[]
+  orders   CampaignOrder[]
+  rewards  Reward[]
+  invoices CampaignInvoice[]
 
   @@index([tenantId, state])
 }
@@ -860,6 +861,51 @@ model OutboxJob {
 
   @@index([dispatchedAt, createdAt])
   @@index([tenantId])
+}
+
+/// Invoices and payment status, MIRRORED from Zoho — P7-BE-04, §18.
+///
+/// SPONSORX IS NOT THE INVOICE SYSTEM OF RECORD, and this model is shaped to
+/// make that hard to forget. Every row is a copy of something Zoho Books owns:
+/// there is no line-item table, no tax field, no totalling logic and no way to
+/// issue or amend an invoice here. `zohoInvoiceId` is unique because the Zoho
+/// record is the identity — this table has no identity of its own to defend.
+///
+/// It exists so that "has this campaign been paid?" can be answered without a
+/// request to Zoho on a page load (§18 keeps Zoho off every request path).
+/// When the two disagree, Zoho is right and the next sync corrects this.
+model CampaignInvoice {
+  id         String @id @default(cuid())
+  tenantId   String
+  campaignId String
+
+  /// The Zoho Books invoice. Unique: it is the real identity of this row.
+  zohoInvoiceId String  @unique
+  /// Human-facing number as Zoho issued it, e.g. "INV-000042".
+  number        String?
+  /// Zoho's own status string, copied verbatim rather than re-modelled —
+  /// draft | sent | overdue | paid | void. Mapping it onto an enum of ours
+  /// would mean maintaining a translation that silently drops any status
+  /// Zoho adds later.
+  status        String
+  /// cents
+  amount        Int
+  currency      String  @default("USD")
+
+  issuedAt DateTime?
+  dueAt    DateTime?
+  paidAt   DateTime?
+
+  /// §18 loop prevention — which side wrote last, and a hash of what was
+  /// written, so an echo of our own update is recognised and dropped.
+  lastSyncOrigin SyncOrigin?
+  lastSyncHash   String?
+  syncedAt       DateTime    @default(now())
+
+  campaign Campaign @relation(fields: [campaignId], references: [id])
+
+  @@index([tenantId, status])
+  @@index([campaignId])
 }
 
 /// §20 — inbound Zoho attempts, recorded whether or not they were accepted.

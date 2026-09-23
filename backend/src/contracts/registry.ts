@@ -52,6 +52,11 @@ import {
   EarningTransitionInput,
 } from "./earning";
 import {
+  MediaValue, MetricBreakdown, MetricEntryInput, MetricSource,
+  SourcedTotals, SponsorReport,
+} from "./metric";
+import { Invoice, PaymentStatus, ZohoInvoiceWebhook } from "./invoice";
+import {
   AgreementAcceptanceInput,
   GuardianInput,
   GuardianReadiness,
@@ -170,6 +175,21 @@ registry.register("EarningState", EarningState);
 registry.register("EarningTransitionInput", EarningTransitionInput);
 registry.register("EarningAdjustmentInput", EarningAdjustmentInput);
 registry.register("EarningBreakdown", EarningBreakdown);
+
+// --- metrics and the sponsor report (P7-DATA-01, P7-BE-05, §22) --------
+
+registry.register("MetricSource", MetricSource);
+registry.register("SourcedTotals", SourcedTotals);
+registry.register("MetricBreakdown", MetricBreakdown);
+registry.register("MetricEntryInput", MetricEntryInput);
+registry.register("MediaValue", MediaValue);
+registry.register("SponsorReport", SponsorReport);
+
+// --- invoices mirrored from Zoho (P7-BE-04, §18) -----------------------
+
+registry.register("ZohoInvoiceWebhook", ZohoInvoiceWebhook);
+registry.register("Invoice", Invoice);
+registry.register("PaymentStatus", PaymentStatus);
 
 /**
  * Bearer auth for §8's API Service Account. Clerk issues the session for human

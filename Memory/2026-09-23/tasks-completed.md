@@ -440,3 +440,88 @@ A `GeoLite2-City.mmdb`: free MaxMind account → licence key → download → se
 row to Done.
 
 **808 backend + 46 frontend tests pass; full root build green.**
+
+---
+
+# Evening (2) — metrics, the sponsor report, and the Zoho invoice mirror
+
+`P7-DATA-01`, `P7-DATA-02`, `P7-BE-05`, `P7-BE-04`, `P3-BE-02`. **One branch
+this time**, after the stacking mistake earlier today.
+
+## A decision found before building: G-07 says NO PDF worker
+
+`P7-BE-06`'s acceptance is conditional — *"If G-07 requires a PDF... If not,
+this task is closed as not-required."* **G-07 recommends a print stylesheet,
+not a server-rendered PDF**, and `P0-PMO-06` concludes no Phase 1 requirement
+for server-side rendering exists.
+
+But **G-07's confirmation block is blank** — no Yes/No, no signatory, no date
+— even though `P0-PMO-05` is marked Done. So the decision is written but not
+confirmed, and closing `P7-BE-06` as not-required is a business call, not
+mine. Left open and raised. *(It has since moved to Ready as its dependencies
+closed, which is the board being literal — it should probably be Dropped.)*
+
+## Provenance is enforced by SHAPE, not by discipline
+
+§22 names conflated provenance as the product's biggest credibility risk, so
+nothing in this area returns a single number:
+
+- `SourcedTotals` has five required keys. The published contract types it that
+  way, so §8's service account and INFINEX literally cannot receive a blended
+  figure from these endpoints.
+- The blended total exists — "total reach" is a real question — but only as
+  `blendedTotalRequiringDisclosure()`, named so no reader mistakes it.
+- **The rollup groups BY SOURCE.** A rollup that summed the labels away would
+  destroy the distinction one layer below where anyone would look for it.
+- `VERIFIED_API` rows record **no `enteredBy`** — stamping a staff id on an
+  automated read would make it look like a human attestation.
+
+## The rollup stores nothing authoritative
+
+There is no aggregate table. Totals are a `GROUP BY` over `MetricDaily`, and
+the job writes only to Redis (cache-only per Addendum A3). That is what makes
+"aggregates are reproducible from events" true *by construction* — a stored
+total can drift from its rows after a backdated correction or a missed run,
+and nothing would compare them.
+
+## The report invents nothing
+
+Media value is a CPM against **verified impressions only**, and always carries
+a `basis` string saying so. Self-reported reach is usually the largest figure
+available; including it would inflate the most-quoted box on the page. There
+is a test asserting the ABSENCE of demographics, sentiment, benchmarks and
+brand lift — Phase 1 collects none of them.
+
+## Migration verified against a real Postgres
+
+`CampaignInvoice` needed a migration and there is no local database, so an
+embedded Postgres was spun up in the session scratchpad and **all seven
+migrations applied from scratch**. Confirmed the table, its four indexes —
+and two things from earlier PRs that had been unverifiable:
+
+- **The geo scrub works**: `payload::jsonb - 'clientIp'` → `{"linkEventId":"lev_1"}`.
+  That was the one untested line in PR #25.
+- `reward_single_redeem` exists as a partial unique index on REDEEM.
+
+**Worth repeating: `npm i embedded-postgres` in the scratchpad gives a real
+database in about a minute.** Use it whenever a migration is written.
+
+## §15 has no `invoice` resource
+
+`invoicesForCampaign` is gated on **`campaign` read**, not an invented
+`invoice` resource — `policy.ts` is a transcription of the RBAC matrix, and
+adding a resource the document does not contain would put an unreviewed
+permission in the code. An invoice is a fact about a campaign, so the gate is
+honest. Raised on the PR: §15 should gain an invoice row.
+
+## Also
+
+`Actor` now carries `propertyId` — the column was already on `User` but never
+carried, which is why every `own-property` scope silently matched nothing.
+`P3-BE-02`'s sponsor scope has two halves and the second is the confidential
+one: **ACTIVE only**, so a sponsor never learns an athlete was rejected or
+suspended.
+
+**887 backend + 46 frontend tests pass; full root build green.**
+
+Phase 1: **106 → 111 Done**, Blocked 80 → 72. Stage 7 went 3 → 7.

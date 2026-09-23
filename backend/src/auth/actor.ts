@@ -51,6 +51,17 @@ export type Actor = {
    */
   athleteId: string | null;
   guardianId: string | null;
+  /**
+   * The property this user manages, or null.
+   *
+   * Added for P3-BE-02: §15 gives PROPERTY_MGR an `own-property` scope on
+   * athletes and several other resources, and until now every builder fell
+   * through to MATCHES_NOTHING because the actor could not say WHICH
+   * property. The column already existed on `User`; it simply was not
+   * carried. Same reasoning as `sponsorId` — a scope builder has no second
+   * query to find out.
+   */
+  propertyId: string | null;
 };
 
 const ROLE_SET = new Set<string>(ROLES);
@@ -80,7 +91,7 @@ export async function resolveActor(
 ): Promise<Actor> {
   const linked = await prisma.user.findUnique({
     where: { clerkId },
-    select: { id: true, tenantId: true, roles: true, sponsorId: true, athleteId: true, guardianId: true },
+    select: { id: true, tenantId: true, roles: true, sponsorId: true, athleteId: true, guardianId: true, propertyId: true },
   });
   if (linked) {
     return {
@@ -90,6 +101,7 @@ export async function resolveActor(
       sponsorId: linked.sponsorId,
       athleteId: linked.athleteId,
       guardianId: linked.guardianId,
+      propertyId: linked.propertyId,
     };
   }
 
@@ -106,7 +118,7 @@ export async function resolveActor(
   const claimed = await prisma.user.update({
     where: { id: provisioned.id },
     data: { clerkId },
-    select: { id: true, tenantId: true, roles: true, sponsorId: true, athleteId: true, guardianId: true },
+    select: { id: true, tenantId: true, roles: true, sponsorId: true, athleteId: true, guardianId: true, propertyId: true },
   });
 
   return {
@@ -114,6 +126,7 @@ export async function resolveActor(
     tenantId: claimed.tenantId,
     roles: knownRoles(claimed.roles),
     sponsorId: claimed.sponsorId,
+    propertyId: claimed.propertyId,
     athleteId: claimed.athleteId,
     guardianId: claimed.guardianId,
   };

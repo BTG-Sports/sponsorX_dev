@@ -193,7 +193,7 @@ describe("the domain is reachable", () => {
   /* Three B1 tasks closed with no endpoint, and B3 repeated it. A domain
      function nothing can call is a capability the board claims and the
      product does not have. */
-  const routes = ["applications", "guardians", "campaigns", "deliverables", "rewards", "earnings"]
+  const routes = ["applications", "guardians", "campaigns", "deliverables", "rewards", "earnings", "metrics", "zoho-webhooks"]
     .map((f) => readFileSync(new URL(`../src/routes/v1/${f}.ts`, import.meta.url), "utf8"))
     .join("\n");
 
@@ -221,6 +221,12 @@ describe("the domain is reachable", () => {
        deliberately absent: they are called from inside acceptOrder and
        verifyPublished respectively, not from a route of their own. */
     "readEarning", "transitionEarning", "adjustEarning",
+    /* B7 — metrics and the sponsor report. */
+    "recordMetric", "metricsForDeliverable", "metricsForCampaign",
+    "metricsForAthlete", "assembleSponsorReport",
+    /* P7-BE-04 — the Zoho invoice mirror. `ingestZohoInvoice` is absent
+       deliberately: it is called by the worker job, not by a route. */
+    "invoicesForCampaign", "paymentStatusForCampaign",
   ])("%s is called by a route", (fn) => {
     expect(routes).toContain(fn);
   });
