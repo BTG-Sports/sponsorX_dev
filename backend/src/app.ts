@@ -7,6 +7,7 @@
  * middleware automatically, so handlers throw instead of calling next(err).
  */
 import express, { type ErrorRequestHandler } from "express";
+import { errorBody } from "./lib/error-body";
 import { healthRouter } from "./routes/health";
 import { v1Router } from "./routes/v1";
 
@@ -28,17 +29,9 @@ export function createApp() {
   });
 
   const onError: ErrorRequestHandler = (err, _req, res, _next) => {
-    const status =
-      typeof err === "object" && err && "status" in err
-        ? Number((err as { status: unknown }).status) || 500
-        : 500;
+    const { status, body } = errorBody(err);
     if (status >= 500) console.error(err);
-    res.status(status).json({
-      error: {
-        code: status >= 500 ? "internal_error" : "bad_request",
-        message: err instanceof Error ? err.message : "Unknown error",
-      },
-    });
+    res.status(status).json(body);
   };
   app.use(onError);
 

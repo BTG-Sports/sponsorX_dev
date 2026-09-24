@@ -5,6 +5,7 @@ import {
   DRAFT_KEY,
   NEVER_ASKED,
   SECTIONS,
+  draftToApplication,
   emptyDraft,
   isMinor,
   parseDraft,
@@ -13,16 +14,18 @@ import {
   type FieldDef,
   type JoinDraft,
 } from "@/lib/join-flow";
+import { submitJoinApplication } from "@/app/(public)/join/actions";
 import { JoinAgreementStep } from "./join-agreement-step";
 import { JoinRestrictionsStep } from "./join-restrictions-step";
 import { JoinSubmitted } from "./join-submitted";
 
 /* --------------------------------------------------------------------------
-   The /join wizard island (P1-ART-07). intro → steps → submitted, one §11
-   section per screen, the §4 guardian branch inserted live by the DOB on
-   section 1, drafts in localStorage after every commit ("saved after every
-   section" — actually true). Fixtures-only: submit transitions state, no
-   POST — P3-FE-01 wires the API and replaces only where answers go.
+   The /join wizard island (P1-ART-07, wired by P3-FE-01). intro → steps →
+   submitted, one §11 section per screen, the §4 guardian branch inserted live
+   by the DOB on section 1, drafts in localStorage after every commit ("saved
+   after every section" — actually true). Submit POSTs the real application
+   through the server action in app/(public)/join/actions.ts; only where the
+   answers go changed, exactly as this header always promised.
 
    Motion rides the sx-join-* system in globals.css; direction is a CSS var;
    focus moves to the step heading on every transition so screen readers
@@ -120,6 +123,42 @@ export function JoinWizard({ demo }: { demo: Demo }) {
   const setAnswer = (key: string, value: string) =>
     setDraft({ ...draft, answers: { ...draft.answers, [key]: value } });
 
+  /* P3-FE-01 — the real submission. The action runs on the server (API_URL
+     never reaches the browser); success carries the reference and intake
+     token into the draft, failure lands field messages on the inputs they
+     mean and jumps back to the earliest offending step. The draft survives
+     every failure — nothing typed is ever lost to a network blip. */
+  const [submitting, setSubmitting] = useState(false);
+  const [submitMsgs, setSubmitMsgs] = useState<string[]>([]);
+
+  const submit = async () => {
+    setSubmitting(true);
+    setSubmitMsgs([]);
+    const result = await submitJoinApplication(draftToApplication(draft));
+    setSubmitting(false);
+    if (result.ok) {
+      persist({
+        ...draft,
+        phase: "submitted",
+        submittedAt: new Date().toISOString(),
+        refId: result.id,
+        intakeToken: result.token,
+      });
+      return;
+    }
+    setSubmitMsgs(result.messages);
+    if (Object.keys(result.fields).length > 0) {
+      setErrors(result.fields);
+      const idx = sections.findIndex((s) =>
+        s.fields.some((f) => result.fields[f.key]),
+      );
+      if (idx >= 0 && idx !== draft.step) {
+        setDir(-1);
+        persist({ ...draft, step: idx });
+      }
+    }
+  };
+
   const goNext = () => {
     const errs = validateSection(section, draft.answers);
     setErrors(errs);
@@ -133,7 +172,7 @@ export function JoinWizard({ demo }: { demo: Demo }) {
     }
     setDir(1);
     if (section.kind === "agreement") {
-      persist({ ...draft, phase: "submitted", submittedAt: new Date().toISOString() });
+      void submit();
     } else {
       persist({ ...draft, step: draft.step + 1 });
     }
@@ -217,6 +256,7 @@ export function JoinWizard({ demo }: { demo: Demo }) {
         minor={minor}
         guardianName={draft.answers.guardianName ?? ""}
         submittedAt={draft.submittedAt ?? ""}
+        refId={draft.refId}
         onReviewAnswers={() => setReviewing(true)}
         onUpdateRestrictions={() => {
           setDir(1);
@@ -450,14 +490,28 @@ export function JoinWizard({ demo }: { demo: Demo }) {
 
       {/* action bar */}
       <div className="sticky bottom-0 border-t border-line bg-bg/95 px-6 py-4 backdrop-blur lg:rounded-b-2xl">
+        {submitMsgs.length > 0 && (
+          <div
+            role="alert"
+            className="mb-3 rounded-lg border border-danger/30 bg-danger/8 px-3 py-2 text-xs leading-relaxed text-danger"
+          >
+            {submitMsgs.map((m) => (
+              <p key={m}>{m}</p>
+            ))}
+          </div>
+        )}
         <button
           type="button"
           onClick={goNext}
-          disabled={!armed}
+          disabled={!armed || submitting}
           data-armed={section.kind === "agreement" && draft.accepted}
           className="sx-join-sheen min-h-12 w-full rounded-xl bg-primary px-5 py-3.5 text-base font-semibold text-cta-ink transition-all hover:bg-primary-soft disabled:cursor-not-allowed disabled:opacity-40"
         >
-          {section.kind === "agreement" ? "Submit application" : "Save and continue"}
+          {section.kind === "agreement"
+            ? submitting
+              ? "Submitting…"
+              : "Submit application"
+            : "Save and continue"}
         </button>
         {section.kind !== "agreement" && (
           <button

@@ -17,12 +17,15 @@ export function JoinSubmitted({
   minor,
   guardianName,
   submittedAt,
+  refId,
   onReviewAnswers,
   onUpdateRestrictions,
 }: {
   minor: boolean;
   guardianName: string;
   submittedAt: string;
+  /** The real application id (P3-FE-01) — absent on demo renders. */
+  refId?: string;
   onReviewAnswers: () => void;
   onUpdateRestrictions: () => void;
 }) {
@@ -46,6 +49,15 @@ export function JoinSubmitted({
         Submitting isn&apos;t approval. A person at BTG reads every application —
         usually within 3 business days.
       </p>
+      {refId && (
+        <p
+          className="sx-join-rise mt-2 text-xs text-faint"
+          style={{ "--sx-d": "0.22s" } as React.CSSProperties}
+        >
+          Reference: <span className="font-medium tabular-nums text-muted">{refId}</span>{" "}
+          — also in the confirmation email.
+        </p>
+      )}
 
       <div className="mt-8 border-t border-line pt-8">
         <ol className="space-y-7">

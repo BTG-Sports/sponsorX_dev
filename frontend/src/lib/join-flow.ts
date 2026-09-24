@@ -238,6 +238,13 @@ export function validateSection(
     const email = (answers.guardianEmail ?? "").trim();
     if (email && !email.includes("@")) errs.guardianEmail = "Enter a valid email";
   }
+  if (section.id === "location") {
+    /* The API's stateCode is a strict two-letter US code (NIL is US law);
+       catching it here beats a validation round-trip on the final step. */
+    const region = (answers.region ?? "").trim();
+    if (region && !/^[A-Za-z]{2}$/.test(region))
+      errs.region = "Two-letter state code — e.g. MD";
+  }
   if (section.id === "social") {
     const any = ["instagram", "tiktok", "youtube"].some((k) => (answers[k] ?? "").trim());
     if (!any) errs.instagram = "Add at least one handle";
@@ -259,7 +266,94 @@ export type JoinDraft = {
   accepted: boolean;
   /** ISO timestamp, set at submit. */
   submittedAt?: string;
+  /** P3-FE-01 — set by a successful real submission. The reference is shown
+   *  to the applicant; the token reaches their own application later
+   *  (GET/PATCH /applications/intake/mine). parseDraft tolerates absence. */
+  refId?: string;
+  intakeToken?: string;
 };
+
+/* --------------------------------------------------------------------------
+   P3-FE-01 — where answers go on submit (the seam this file promised).
+   draftToApplication is pure so the mapping is testable without a browser or
+   an API: wizard keys on the left, AthleteApplicationInput fields on the
+   right. Wizard sections the contract deliberately does not take yet
+   (capabilities, interests, restrictions, payment recipient, guardian
+   details) stay in the draft — the contract's own description says those are
+   attached by sibling tasks, and the applicant-side guardian capture is a
+   recorded gap on P3-BE-14.
+   -------------------------------------------------------------------------- */
+
+export type IntakeSocial = {
+  platform: "INSTAGRAM" | "TIKTOK" | "YOUTUBE";
+  handle: string;
+};
+
+export type IntakePayload = {
+  legalName: string;
+  displayName: string;
+  email: string;
+  phone?: string;
+  birthDate?: string;
+  city?: string;
+  stateCode: string;
+  sport: string;
+  position?: string;
+  school?: string;
+  level?: "HIGH_SCHOOL" | "COLLEGE" | "SEMI_PRO" | "PRO" | "AMATEUR";
+  socials: IntakeSocial[];
+};
+
+/** The wizard's free-text level → the contract's enum, or nothing — the enum
+ *  is optional in the contract, and guessing wrong is worse than omitting. */
+export function levelToEnum(raw: string): IntakePayload["level"] {
+  const s = raw.toLowerCase();
+  if (/semi/.test(s)) return "SEMI_PRO";
+  if (/high/.test(s)) return "HIGH_SCHOOL";
+  if (/college|ncaa|univ/.test(s)) return "COLLEGE";
+  if (/\bpro\b|professional/.test(s)) return "PRO";
+  if (/amateur|club/.test(s)) return "AMATEUR";
+  return undefined;
+}
+
+export function draftToApplication(draft: JoinDraft): IntakePayload {
+  const a = draft.answers;
+  const val = (k: string) => (a[k] ?? "").trim();
+  const opt = (k: string) => (val(k) ? val(k) : undefined);
+
+  const legalName = `${val("firstName")} ${val("lastName")}`.trim();
+
+  /* The wizard collects one self-reported follower total across platforms;
+     the contract wants per-account numbers. Splitting a total by guesswork
+     would be fabricated provenance (§22), so counts wait for the profile
+     editor and only the handles travel. */
+  const socials: IntakeSocial[] = (
+    [
+      ["INSTAGRAM", "instagram"],
+      ["TIKTOK", "tiktok"],
+      ["YOUTUBE", "youtube"],
+    ] as const
+  )
+    .filter(([, key]) => val(key))
+    .map(([platform, key]) => ({ platform, handle: val(key) }));
+
+  return {
+    legalName,
+    /* The wizard asks for no separate brand name; the legal name is the
+       display name until the athlete edits their profile (§11 §1). */
+    displayName: legalName,
+    email: val("email"),
+    phone: opt("phone"),
+    birthDate: opt("dob"),
+    city: opt("city"),
+    stateCode: val("region").toUpperCase(),
+    sport: val("sport"),
+    position: opt("position"),
+    school: opt("team"),
+    level: levelToEnum(val("level")),
+    socials,
+  };
+}
 
 export const DRAFT_KEY = "sx-join-draft-v1";
 
