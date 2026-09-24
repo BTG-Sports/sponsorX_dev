@@ -30,7 +30,11 @@ function requestPathFiles(): string[] {
     for (const m of readFileSync(file, "utf8").matchAll(/^\s*(?:import|export)\s+(?!type\b)[^;]*?from\s+"(\.[^"]+)"/gm)) {
       const base = resolve(dirname(file), m[1]!);
       const next = [base, `${base}.ts`, `${base}/index.ts`].find((c) => existsSync(c) && c.endsWith(".ts"));
-      if (next && !next.includes("/generated/")) stack.push(next);
+      /* normalize separators first — on Windows resolve() yields backslashes
+         and a "/generated/" check waves the whole generated client through
+         (the payment-policy scan hit the same class of bug, 360743a) */
+      if (next && !next.replaceAll("\\", "/").includes("/generated/"))
+        stack.push(next);
     }
   }
   return [...seen];

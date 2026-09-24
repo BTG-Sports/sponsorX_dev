@@ -17,6 +17,9 @@
  * no query exists that would fetch one.
  */
 import { execSync } from "node:child_process";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 
 import { describe, expect, it } from "vitest";
 
@@ -27,8 +30,11 @@ const files = execSync("git ls-files src worker scripts", { cwd: new URL("..", i
   .toString()
   .split("\n")
   .filter((f) => /\.(m?ts)$/.test(f) && !f.startsWith("src/generated/"));
-const read = (f: string) =>
-  execSync(`cat "${f}"`, { cwd: new URL("..", import.meta.url) }).toString();
+/* readFileSync, not a `cat` process per file — the per-spawn cost on Windows
+   pushed this suite past the 5s test timeout (and `cat` assumes a POSIX
+   shell). fileURLToPath, not URL.pathname: the repo path has a space (360743a). */
+const repoRoot = fileURLToPath(new URL("..", import.meta.url));
+const read = (f: string) => readFileSync(join(repoRoot, f), "utf8");
 
 /** The argument block of each `rewardEvent.<method>(` call. */
 function rewardEventCalls(): { file: string; method: string; args: string }[] {
