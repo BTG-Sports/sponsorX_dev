@@ -11,7 +11,7 @@ import { QrPattern } from "./reward-creator";
 
    Copy and the overlay are client-side only; nothing here touches the
    backend. The QR is the decorative stand-in the reward creator uses — the
-   real one is generated when Stage 9 wires /s/[code] (P9-FE-04).
+   real one is generated when Stage 9 wires /s/[code] (P9-FE-01).
    -------------------------------------------------------------------------- */
 
 export function StudentCodeCard({
@@ -112,24 +112,32 @@ export function StudentCodeCard({
 
       {/* ------------------------------------- presentation mode overlay */}
       {presenting && (
-        <button
-          ref={overlayRef}
-          type="button"
+        /* div[role=dialog] wrapping the close button — role="dialog" is not a
+           permitted override on <button> (ARIA in HTML), and the override
+           suppressed the control semantic for screen readers. */
+        <div
           role="dialog"
           aria-modal="true"
-          onClick={() => setPresenting(false)}
-          aria-label="Your sales code, full screen — activate to close"
-          className="sx-backdrop fixed inset-0 z-50 flex w-full cursor-pointer flex-col items-center justify-center gap-6 bg-bg px-6"
+          aria-label="Your sales code, full screen"
+          className="sx-backdrop fixed inset-0 z-50 bg-bg"
         >
-          <QrPattern seed={code} className="size-56 sm:size-64" />
-          <span className="bg-[linear-gradient(90deg,var(--sx-next-soft),var(--sx-next))] bg-clip-text text-4xl font-bold tracking-tight text-transparent sm:text-5xl">
-            {code}
-          </span>
-          <span className="text-sm text-muted">{link}</span>
-          <span className="text-[11px] uppercase tracking-[0.2em] text-faint">
-            tap anywhere to close
-          </span>
-        </button>
+          <button
+            ref={overlayRef}
+            type="button"
+            onClick={() => setPresenting(false)}
+            aria-label="Close full-screen code"
+            className="flex h-full w-full cursor-pointer flex-col items-center justify-center gap-6 px-6"
+          >
+            <QrPattern seed={code} className="size-56 sm:size-64" />
+            <span className="bg-[linear-gradient(90deg,var(--sx-next-soft),var(--sx-next))] bg-clip-text text-4xl font-bold tracking-tight text-transparent sm:text-5xl">
+              {code}
+            </span>
+            <span className="text-sm text-muted">{link}</span>
+            <span className="text-[11px] uppercase tracking-[0.2em] text-faint">
+              tap anywhere to close
+            </span>
+          </button>
+        </div>
       )}
     </>
   );

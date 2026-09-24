@@ -352,7 +352,7 @@ model StudentPointAccrual {
   id        String   @id @default(cuid())
   tenantId  String
   studentId String
-  /// ARTICLE 50 | INTERVIEW 25 | APPOINTMENT 25 | SALES_500 100 | VIEWS_BONUS
+  /// ARTICLE 50 | INTERVIEW 25 | PHOTO 25 | APPOINTMENT 25 | SALES_500 100 | VIEWS_BONUS
   reason    String
   points    Int
   editionId String?
@@ -365,6 +365,13 @@ model StudentPointAccrual {
 **No `EarningState`. No cents column. No relation to `Earning`.** Points and
 money must not share a table, or a finance reconciliation of athlete payouts
 starts returning minors' scholarship balances.
+
+> *Amended 2026-09-25:* `PHOTO 25` added to the reason vocabulary. The
+> assignment model in this same spec includes photo deliverables, and a
+> published photo set is a content unit like an interview — the original list
+> simply omitted it, which left published photo work unable to accrue at all.
+> Raised by the QA conformance pass; flag to the spec owner if this should be
+> folded under an existing reason instead.
 
 This shape holds whether the programme ends up paying points, scholarships or
 commission (§14) — only the redemption record changes, and it is written

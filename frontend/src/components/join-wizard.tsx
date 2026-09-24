@@ -446,7 +446,8 @@ export function JoinWizard({ demo }: { demo: Demo }) {
             type="button"
             onClick={goBack}
             aria-label="Back"
-            className="grid size-11 -ml-2.5 place-items-center rounded-lg text-muted transition-colors hover:bg-surface-2 hover:text-text"
+            disabled={submitting}
+            className="grid size-11 -ml-2.5 place-items-center rounded-lg text-muted transition-colors hover:bg-surface-2 hover:text-text disabled:cursor-not-allowed disabled:opacity-40"
           >
             <svg viewBox="0 0 16 16" className="size-4.5" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
               <path d="M10 3.5L5.5 8l4.5 4.5" />

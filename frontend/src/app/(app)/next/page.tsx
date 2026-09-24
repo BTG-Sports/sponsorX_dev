@@ -176,6 +176,9 @@ export default async function StudentHomePage({
                 <span className="mr-1 inline-block size-1.5 rounded-full bg-surface-2 align-middle" />
                 {slotsOpen} open
               </span>
+              {/* provenance (§22): the personal figure beside this carries
+                  "recorded by SponsorX"; the edition number names its source too */}
+              <span className="uppercase tracking-wide">· AdSlot ledger</span>
             </p>
           </div>
         </div>
@@ -405,7 +408,7 @@ export default async function StudentHomePage({
             <Card>
               <p className="text-xs">{student.advisor}</p>
               <p className="mt-1 text-[11px] text-muted">
-                Reviews drafts, approves what prints, and signs off school
+                Reviews drafts, approves what publishes, and signs off school
                 content before SponsorX does.
               </p>
               <div className="mt-3">

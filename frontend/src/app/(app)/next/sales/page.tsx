@@ -52,7 +52,7 @@ export default async function StudentSalesPage({
       </div>
       <Button
         disabled
-        title="Prospects are logged by SponsorX when your code is used — self-serve logging arrives with Stage 9 (P9-FE-03)"
+        title="Prospects are logged by SponsorX when your code is used — self-serve logging arrives with Stage 9 (P9-FE-01)"
       >
         Add a prospect
       </Button>

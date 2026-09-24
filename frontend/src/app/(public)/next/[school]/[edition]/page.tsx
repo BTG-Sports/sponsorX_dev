@@ -65,7 +65,7 @@ function OpenSlotCard({ slot }: { slot: EditionSlot }) {
       </p>
       <p className="mt-1.5 text-sm">
         A {slot.kind === "FULL" ? "full page" : slot.kind === "HALF" ? "half page" : "quarter page"}{" "}
-        in the next print run — {money(SLOT_RACK_CENTS[slot.kind])}.
+        in the planned print run — {money(SLOT_RACK_CENTS[slot.kind])}.
       </p>
       <p className="mt-1 text-[11px] leading-relaxed text-muted">
         Every ad in this magazine was sold by a {student.school} student. Ask
@@ -120,7 +120,9 @@ export default async function EditionReaderPage({
           </p>
           <div className="mt-4 flex flex-wrap gap-2">
             <Badge tone="primary">free to read</Badge>
-            <Badge tone="neutral">print edition {studentEdition.publishTarget}</Badge>
+            {/* "planned", not asserted — the edition is SELLING, its gates
+                unmet; the reader must not promise a print run (principle 11) */}
+            <Badge tone="neutral">print planned {studentEdition.publishTarget}</Badge>
             <Badge tone="neutral">
               written, shot and sold by students
             </Badge>
@@ -196,7 +198,7 @@ export default async function EditionReaderPage({
                         ))}
                       </div>
                       <p className="mt-2 text-[11px] text-faint">
-                        Photos arrive with the print files —{" "}
+                        Photos arrive with the print files — planned for{" "}
                         {studentEdition.publishTarget}.
                       </p>
                     </>

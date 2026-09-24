@@ -48,8 +48,8 @@ const STATE_COPY: Record<DeliverableState, string> = {
   DRAFT_SUBMITTED: "Draft submitted",
   BTG_REVIEW: "Advisor review",
   SPONSOR_REVIEW: "Sponsor preview",
-  APPROVED: "Approved for print",
-  PUBLISHED: "Printed",
+  APPROVED: "Approved",
+  PUBLISHED: "Published",
   VERIFIED: "Confirmed",
 };
 
@@ -79,8 +79,8 @@ const ORDER: DeliverableState[] = [
 const MILESTONES: Array<{ label: string; at: DeliverableState }> = [
   { label: "Draft submitted", at: "DRAFT_SUBMITTED" },
   { label: "Advisor review", at: "BTG_REVIEW" },
-  { label: "Approved for print", at: "APPROVED" },
-  { label: "Printed", at: "PUBLISHED" },
+  { label: "Approved", at: "APPROVED" },
+  { label: "Published", at: "PUBLISHED" },
 ];
 
 type Filter = "all" | "todo" | "review" | "done";
@@ -371,7 +371,7 @@ export function StudentAssignments({
               <Button
                 full
                 disabled
-                title="Uploads arrive when Stage 9 wires the portal (P9-FE-02)"
+                title="Uploads arrive when Stage 9 wires the portal (P9-FE-01)"
               >
                 Submit draft
               </Button>

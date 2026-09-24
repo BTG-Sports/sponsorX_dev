@@ -1667,8 +1667,10 @@ export const STUDENT_ASSIGNMENT_COPY: Record<DeliverableState, string> = {
   DRAFT_SUBMITTED: "Draft submitted",
   BTG_REVIEW: "Advisor review",
   SPONSOR_REVIEW: "Sponsor preview",
-  APPROVED: "Approved for print",
-  PUBLISHED: "Printed",
+  /* "Approved"/"Published", not print language — free digital is the V1
+     product (spec principle 10) and asg-06 publishes digitally first. */
+  APPROVED: "Approved",
+  PUBLISHED: "Published",
   VERIFIED: "Confirmed",
 };
 
@@ -2454,7 +2456,8 @@ export const POINT_RULES: Array<{
   { reason: "VIEWS_BONUS", points: null, label: "Views bonus", how: "Editor's call when a digital piece travels — value set per piece." },
 ];
 
-/** StudentPointAccrual rows — reasons from the spec §5.5 vocabulary.
+/** StudentPointAccrual rows — reasons from the spec §5.5 vocabulary
+ *  (PHOTO added to the spec 2026-09-25; see the amendment note in §5.5).
  *  Integers. Not cents. Nothing here may render with a currency sign. */
 export const studentPoints = {
   balance: 325,

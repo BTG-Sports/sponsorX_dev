@@ -542,7 +542,10 @@ export function ApprovalsDesk({
               const aging =
                 inQueue(s) && s !== "REVISION" && it.waitingHours > AGING_HOURS;
               return (
-                <li key={it.id}>
+                /* min-w-0: a grid item's min-width:auto lets a long title's
+                   min-content push the implicit track past the viewport at
+                   320px (the rail-card bug pattern, P1-QA sweep 3) */
+                <li key={it.id} className="min-w-0">
                   <button
                     type="button"
                     onClick={() => openItem(it.id)}

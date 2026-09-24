@@ -94,8 +94,8 @@ function PageCard({
   }
 
   /* Slots stack top-to-bottom; quarters pair into a row; whatever fraction
-     of the page is unsold inventory nor a hold is editorial filler, drawn
-     as such — because that is literally what it is. */
+     of the page is neither unsold inventory nor a hold is editorial filler,
+     drawn as such — because that is literally what it is. */
   const rows: EditionSlot[][] = [];
   let quarters: EditionSlot[] = [];
   for (const s of page.slots) {
