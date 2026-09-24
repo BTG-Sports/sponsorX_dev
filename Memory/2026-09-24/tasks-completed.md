@@ -156,3 +156,14 @@ CI runs them too); frontend 69 passed. Stage Progress snapshot unchanged
 enforced on this account. Follow-up #46 (CRM jobs wait in the outbox on a
 worker without credentials) merged into `main_development`. Today's Stage
 Progress snapshot updated: S8 7, Done 128, days left 333.
+
+**`P8-INT-07` → Code review (after #45 deployed staging).** Migration
+`20260924160000_zoho_sync` applied; the worker subscribed the Notifications
+channel and ran a clean reconciliation on boot. `railway ssh … -- npm run
+zoho:backfill -w @sponsorx/backend` against the sandbox: 10 accounts and 10
+contacts imported with `SponsorX_ID` written back; a second run created 0.
+Live inbound confirmed: an account renamed in the sandbox arrived at
+`/webhooks/zoho/crm`, recorded `APPLIED`, and the staging sponsor took the new
+name (origin ZOHO); the name was then restored. Staging now holds 10 sandbox
+sample sponsors ("… (Sample)") — test data. #48 (`main_development` → `main`,
+tracker only) is open so the two branches match.
