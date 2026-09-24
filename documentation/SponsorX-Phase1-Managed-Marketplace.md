@@ -2197,10 +2197,11 @@ Add permission test rows for every resource built across the whole project, and 
 
 **Order** 164 · **DATA** · **Where:** Code · **3d** · **Blocked** · **Unblocks** 0
 
-Load the real first-25 athletes and first sponsors into staging so user testing is realistic.
+Load a 25-athlete pilot cohort and first sponsors into staging so user testing is realistic.
 
 - **Depends on:** P3-DATA-01
-- **Done when:** The real first-25 athlete cohort and first sponsors exist in staging for UAT
+- **Done when:** A representative, **simulated** 25-athlete cohort and first sponsors exist in staging for UAT; the real cohort replaces it at launch through the same `cohort:import` path
+- **Amended 2026-09-24:** was "the real first-25". User decision: with a two-person team, whatever can be simulated is simulated. The simulated file is `backend/scripts/pilot-cohort-simulated.csv` (`@example.com` addresses, 555 numbers, fictional schools); the sponsors are fictional businesses in the Zoho sandbox, brought in by the backfill
 - **Reference:** §36
 
 ### ▶ `P8-FE-02` · Wire the audit log view
