@@ -40,6 +40,7 @@ import {
   redeemToken,
   rewardFunnel,
   transitionReward,
+  withdrawFanConsent,
 } from "../../domain/reward";
 import {
   clicksForLink,
@@ -183,6 +184,18 @@ const redeem: RequestHandler<{ token: string }> = async (req, res) => {
   res.status(201).json(await redeemToken(req.params.token));
 };
 
+/**
+ * POST /public/unsubscribe/:token — the fan withdraws consent (P6-SEC-03).
+ *
+ * No login, by design: the signed token IS the authorisation. Reached from
+ * the web app's /u/:token page and from mail clients' one-click
+ * List-Unsubscribe POST, both of which land here through the web server.
+ */
+const unsubscribe: RequestHandler<{ token: string }> = async (req, res) => {
+  await limit("fan:unsubscribe", req.ip, 30, 60);
+  res.status(200).json(await withdrawFanConsent(req.params.token));
+};
+
 /* Staff — authenticated. */
 rewardsRouter.post("/campaigns/:id/rewards", requireActor, addReward);
 rewardsRouter.post("/rewards/:id/transition", requireActor, moveReward);
@@ -200,3 +213,4 @@ rewardsRouter.post("/public/rewards/:token/scan", scan);
 rewardsRouter.post("/public/rewards/:token/landing", landing);
 rewardsRouter.post("/public/rewards/:token/claim", claim);
 rewardsRouter.post("/public/rewards/:token/redeem", redeem);
+rewardsRouter.post("/public/unsubscribe/:token", unsubscribe);

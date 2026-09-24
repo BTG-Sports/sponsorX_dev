@@ -217,6 +217,8 @@ describe("the domain is reachable", () => {
     "recordScan", "recordLanding", "recordClaim", "redeemToken",
     "createTrackingLink", "codesForCampaign", "clicksForLink",
     "resolveCode", "recordClick",
+    /* P6-SEC-03 — the fan's one-tap unsubscribe. */
+    "withdrawFanConsent",
     /* B7 — earnings. createEarningForOrder and maybeMakeEligible are
        deliberately absent: they are called from inside acceptOrder and
        verifyPublished respectively, not from a route of their own. */

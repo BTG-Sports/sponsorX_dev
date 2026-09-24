@@ -29,6 +29,7 @@ import type { Actor } from "../auth/actor";
 import { assertAllowed, assertTenantWide, whereFor } from "../auth/scope";
 import { ForbiddenError } from "../auth/errors";
 import { consentFor, mayContact, type ConsentPurpose } from "./fan-consent";
+import { readUnsubscribeToken, unsubscribeUrl } from "../lib/unsubscribe-token";
 import {
   canTransitionReward,
   IllegalRewardTransitionError,
@@ -391,16 +392,63 @@ export async function recordClaim(
         template: "reward.claimed",
         to: email,
         idempotencyKey: `reward.claimed:${ctx.tokenId}`,
+        /* P6-SEC-03. The consent record this email relies on — the worker
+           re-checks it for a withdrawal immediately before sending — and the
+           link that withdraws it, printed in the body and sent as the
+           List-Unsubscribe header. */
+        fanEventId: event.id,
         data: {
           code: ctx.token,
           offerText: ctx.offerText,
           terms: ctx.terms,
           expiresOn: ctx.expiresAt.toISOString().slice(0, 10),
+          unsubscribeUrl: unsubscribeUrl(event.id),
         },
       });
     }
 
     return event;
+  });
+}
+
+/**
+ * The fan taps "unsubscribe" — P6-SEC-03.
+ *
+ * "Withdrawal is recorded against the same consent record with a timestamp."
+ * The token names the CLAIM event whose consent is withdrawn; the timestamp
+ * goes on that row. Idempotent: a second tap (or a mail client's one-click
+ * POST after the fan already tapped) keeps the FIRST timestamp, because that
+ * is when they withdrew.
+ *
+ * An invalid or unknown token answers exactly like a valid one that has
+ * nothing to withdraw — `{ withdrawn: false }` — so the endpoint cannot be
+ * used to test which claim ids exist.
+ */
+export async function withdrawFanConsent(
+  token: string,
+  now = new Date(),
+): Promise<{ withdrawn: boolean }> {
+  const eventId = readUnsubscribeToken(token);
+  if (!eventId) return { withdrawn: false };
+
+  return prisma.$transaction(async (tx) => {
+    const row = await tx.rewardEvent.findFirst({
+      where: { id: eventId, type: "CLAIM", fanEmail: { not: null } },
+      select: { id: true, tenantId: true, consentWithdrawnAt: true },
+    });
+    if (!row) return { withdrawn: false };
+    if (row.consentWithdrawnAt) return { withdrawn: true };
+
+    await tx.rewardEvent.update({
+      where: { id: row.id },
+      data: { consentWithdrawnAt: now },
+    });
+    /* The fan has no user id; the audit row says so honestly rather than
+       borrowing one. */
+    await audit(tx, { userId: null, tenantId: row.tenantId }, "fan.consentWithdraw", "RewardEvent", row.id, {
+      after: { consentWithdrawnAt: now.toISOString() },
+    });
+    return { withdrawn: true };
   });
 }
 

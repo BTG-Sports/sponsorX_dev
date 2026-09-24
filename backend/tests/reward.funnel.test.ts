@@ -19,7 +19,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 let token: Record<string, unknown> | null;
 let writes: { model: string; data: Record<string, unknown> }[] = [];
 
-vi.mock("../src/config/env", () => ({ env: { APP_URL: "https://sponsorx.example" } }));
+vi.mock("../src/config/env", () => ({ env: { APP_URL: "https://sponsorx.example", INTAKE_TOKEN_SECRET: "test-secret" } }));
 
 vi.mock("../src/db/client", () => {
   const tx = {

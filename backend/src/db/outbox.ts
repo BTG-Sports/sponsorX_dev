@@ -42,7 +42,9 @@ export type JobName =
   /* P7-BE-04 — inbound. §18 makes Zoho bi-directional, and the inbound half
      lands in the queue exactly as the outbound half does. */
   | "zoho.ingestInvoice"
-  | "tracking.resolveGeo";
+  | "tracking.resolveGeo"
+  /* P3-DATA-01 — the pilot cohort, imported as a job rather than hand-seeded. */
+  | "athlete.importCohort";
 
 /**
  * Write a job into the outbox, inside the caller's transaction.

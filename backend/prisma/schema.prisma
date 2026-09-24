@@ -821,6 +821,12 @@ model RewardEvent {
   /// voucher is not agreeing to marketing, and a single boolean would lose
   /// that distinction the first time someone exported the list.
   consentPurpose  String?
+  /// When the fan withdrew that consent (P6-SEC-03) — the one-tap unsubscribe
+  /// link in every fan email. Recorded on THIS row, beside the consent it
+  /// withdraws, so the record reads "agreed to 2026-09-01 at T1, withdrew at
+  /// T2" in one place. Every query that contacts a fan filters on it being
+  /// null (`CONTACTABLE` in domain/fan-consent.ts).
+  consentWithdrawnAt DateTime?
 
   token RewardToken @relation(fields: [tokenId], references: [id])
 
