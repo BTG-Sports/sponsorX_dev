@@ -189,7 +189,33 @@ points tile now links.
 390/470/768, screenshots eyeballed. Board: `P1-FE-30` → Code review
 (HeckerCreatives, 2026-09-24).
 
-Five NEXT screens shipped today (flatplan, inventory ledger, advisor desk,
-revenue splits, points); Stage 1's remaining queue is P1-FE-29 (rights
-ledger), then the design-gated public four and P1-FE-28. Google Sheet still
-needs its hand mirror at end of day.
+## `P1-FE-29` — the rights ledger, and the gate it feeds
+
+*Code review. The last NEXT screen with no design dependency.*
+
+`/admin/next/rights`: one table answering the production gate's one question —
+*what may we do with this asset?* The hero shows **coverage per use**, because
+print and digital are separate permissions (spec §5.3): Fall 2026 stands at
+digital 6/9, print 5/9, which is precisely the digital-first-can-clear-while-
+print-waits posture the spec designed for. The clearance queue names what is
+missing and **who can grant it** (a guardian's print initials, an applicant's
+enrolment-pending consent, a fresh acceptance for a use the original never
+covered). The ledger renders per-permission marks, grant windows, and evidence
+chips — consent acceptance vs negotiated licence, visually distinct.
+
+Invariants added: **exactly one of acceptanceId/licenseRef per right** (the
+spec's own rule — a right with both or neither is not evidence); **BTG content
+pins `mayReuseCommercially` false** (V3 §6); every queue row names its gap and
+its grantor. And the editions page's rights gate now **derives from the
+clearanceQueue fixture** instead of a hardcoded "3" — one source, like
+everything else on this edition.
+
+69 frontend tests green, build and eslint clean, no page overflow at
+390/470/768, screenshots eyeballed. Board: `P1-FE-29` → Code review
+(HeckerCreatives, 2026-09-24).
+
+**Six NEXT screens shipped today** (flatplan, inventory ledger, advisor desk,
+revenue splits, points, rights). Stage 1's UI scaffold is now built except the
+design-gated set: the public four (P1-FE-24…27) and P1-FE-28, all waiting on
+P1-ART-08 / the frontEndVersion2 rebuild. Google Sheet still needs its hand
+mirror at end of day.
