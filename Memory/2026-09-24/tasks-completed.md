@@ -253,5 +253,42 @@ screenshots eyeballed. Board: `P1-FE-27` → Code review (HeckerCreatives,
 **Seven NEXT screens shipped today.** Stage 1's UI scaffold is now built
 except the true audience-voice set — P1-FE-24, 25, 26 (public landing, apply
 wizard, school adoption) and P1-FE-28 (claim flow) — which genuinely need
-P1-ART-08 / the frontEndVersion2 rebuild before they're worth pixels. Google
-Sheet still needs its hand mirror at end of day.
+P1-ART-08 / the frontEndVersion2 rebuild before they're worth pixels.
+
+## `P3-FE-01` — /join wired to the real API, the first Block B substitution
+
+*Code review. With the NEXT scaffold done, the day pivoted from fixtures to
+wiring — and the join wizard's own header had promised this seam from the
+start: "P3-FE-01 wires the API and replaces only where answers go."*
+
+The submit now POSTs through a **server action** — `API_URL` stays
+server-side, per the api.ts rule that the browser has no business knowing the
+address — to `POST /applications/intake`. Success carries the reference id
+and continuation token into the localStorage draft and onto the submitted
+screen; failure lands the API's field errors on the inputs they mean and
+jumps back to the earliest offending step. The draft survives every failure.
+
+**`draftToApplication` is pure and tested** (5 new cases): names join,
+`stateCode` uppercases — with a new location-step check so "Maryland" fails
+at the step instead of a round-trip — free-text level maps to the contract
+enum or omits (guessing is worse), and the wizard's single follower total is
+deliberately **not** split into per-account counts, because fabricated
+provenance is worse than none (§22).
+
+**A backend defect surfaced and fixed:** a `ZodError` carries no `status`, so
+the error middleware answered a typo'd email with **500 internal_error** —
+telling the caller we broke when they did. New `lib/error-body.ts` (pure,
+"rules import nothing" pattern, 2 tests) maps validation to **400 with named
+issues** for every contract route — the portals and §8's service account
+alike.
+
+**Verified end to end, not just by tests:** headless Chrome filled the real
+wizard as a minor — the §4 guardian branch appeared (ten sections traversed;
+an adult path is nine) — and the row landed in Postgres: SUBMITTED,
+birthDate 2009-03-14, stateCode MD, school mapped from "team", the Instagram
+handle stored SELF_REPORTED. Backend 1017 tests, frontend 76, build and lint
+clean.
+
+Board: `P3-FE-01` → Code review (HeckerCreatives, 2026-09-24). Eight rows now
+sit at Code review from today. Google Sheet still needs its hand mirror at
+end of day.
