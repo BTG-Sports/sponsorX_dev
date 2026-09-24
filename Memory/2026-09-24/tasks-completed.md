@@ -55,3 +55,17 @@ route map lists the screen.
 Board: `P1-FE-21` → Code review (HeckerCreatives, 2026-09-24), snapshot row
 appended (Done 91 · 428 days — unchanged; Code review is not Done). Google
 Sheet still needs its hand mirror at end of day.
+
+---
+
+## Leftovers from 2026-09-23 — worked through (rcfworks)
+
+| Item | State |
+|---|---|
+| Leftovers queue (PR #35) | Merged into `main_development`. PR **#36** `main_development` → `main` open; `b278323` builds clean, 1077 tests pass. |
+| **`External_Id` vs `SponsorX_ID`** | **Resolved: `SponsorX_ID`.** Live Zoho `Accounts` field read 2026-09-24: `SponsorX_ID` is an org-level external field; no `External_Id` exists. `P8-INT-01`'s acceptance fixed in the Phase 1 doc and the tracker (Phase 1 `P164`), plus the code sample in Implementation Guide V2. |
+| graphify graph | Rebuilt (`graphify update . --force`, AST only): 3965 nodes, 287 communities, indexes `frontend/` + `backend/`, zero `src/server` nodes left. The labels for the new communities are hub names; doc changes since 21 Sep are not re-extracted semantically. |
+| Four stale remote branches | Verified fully on `main` (`b6_tracking_reward`'s only extra commit is the PR #24 merge). **Not deleted** — branch deletion needs the user's permission. |
+| Railway production | Read-only check: production `web` still at `59827ee7` (18 Sep), no production trigger for `web`; production `api` has a `main` trigger but no instance. Mutations and reading production variables are blocked for Claude, so this stays a console step for the user. |
+| `P7-BE-06`, `P7-BE-02` wording, §15 `invoice` row, stage 8 (O-2/O-5/O-6) | Still business decisions — unchanged. |
+| `P6-BE-05` GeoLite licence, Google Sheet mirror | Still the user's. |

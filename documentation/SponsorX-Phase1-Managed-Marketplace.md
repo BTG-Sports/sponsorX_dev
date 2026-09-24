@@ -2098,7 +2098,7 @@ Search the whole codebase to confirm no tax ID, bank or card field exists anywhe
 Push accounts, contacts, deals and tasks to Zoho from the background worker, using a shared ID so records never duplicate.
 
 - **Depends on:** P0-PMO-08, P2-BE-05
-- **Done when:** Accounts, Contacts, Deals and Tasks push from the worker with External_Id as the dedupe key
+- **Done when:** Accounts, Contacts, Deals and Tasks push from the worker with `SponsorX_ID` as the dedupe key (`duplicate_check_fields=SponsorX_ID`; field-mapping §5.1, confirmed on the live org 2026-09-24)
 - **Reference:** §18
 
 ### ⏸ `P8-INT-03` · Inbound Zoho webhook route with signature verification
