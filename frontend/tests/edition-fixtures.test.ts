@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 
 import {
   SLOT_RACK_CENTS,
+  clearanceQueue,
+  contentRights,
   editionBackCover,
   editionPages,
   editionSplits,
@@ -88,6 +90,29 @@ describe("edition flatplan fixtures (P1-FE-21)", () => {
   it("every kind has a rack price", () => {
     for (const s of allSlots) {
       expect(SLOT_RACK_CENTS[s.kind], s.code).toBeGreaterThan(0);
+    }
+  });
+});
+
+describe("rights ledger (P1-FE-29, spec §5.3)", () => {
+  it("every right carries exactly one piece of evidence", () => {
+    for (const r of contentRights) {
+      const evidence = [r.acceptanceId, r.licenseRef].filter(Boolean).length;
+      expect(evidence, `${r.id} (${r.asset})`).toBe(1);
+    }
+  });
+
+  it("BTG's own content is never commercially reusable by default (V3 §6)", () => {
+    for (const r of contentRights.filter((x) => x.grantorKind === "BTG")) {
+      expect(r.mayReuseCommercially, r.id).toBe(false);
+    }
+  });
+
+  it("every clearance-queue row names what is missing and who grants it", () => {
+    expect(clearanceQueue.length).toBeGreaterThan(0);
+    for (const q of clearanceQueue) {
+      expect(q.missing, q.id).toBeTruthy();
+      expect(q.grantor, q.id).toBeTruthy();
     }
   });
 });

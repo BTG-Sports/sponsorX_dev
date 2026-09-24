@@ -5,6 +5,7 @@ import { EmptyState, SkeletonPage } from "@/components/states";
 import { demoState } from "@/lib/demo";
 import {
   SLOT_RACK_CENTS,
+  clearanceQueue,
   editionBackCover,
   editionPages,
   money,
@@ -39,8 +40,8 @@ const GATES: Array<{ key: string; label: string; sub: string; pass: boolean }> =
   {
     key: "rights",
     label: "Rights cleared",
-    sub: "3 assets awaiting consent",
-    pass: false,
+    sub: `${clearanceQueue.length} assets awaiting consent`,
+    pass: clearanceQueue.length === 0,
   },
   {
     key: "revenue",

@@ -2046,6 +2046,165 @@ export const editionSplits: Array<{
   },
 ];
 
+/* --------------------------------------------------------------------------
+   Rights ledger — P1-FE-29, spec §5.3. One table answers the one question the
+   production gate asks: what may we do with this asset? Shapes worth keeping
+   when P9-FE-09 substitutes ContentRight:
+
+   - Print and digital are SEPARATE permissions — a digital-first edition can
+     clear while print rights are still outstanding.
+   - BTG's own editorial content defaults mayReuseCommercially FALSE (V3 §6):
+     editorial use is not a licence to resell journalism inside a campaign.
+   - Evidence is exactly one of acceptanceId (consent-based) or licenseRef
+     (negotiated) — a right with both or neither is not evidence (tested).
+   -------------------------------------------------------------------------- */
+
+export type RightsGrantorKind =
+  | "STUDENT"
+  | "ATHLETE"
+  | "GUARDIAN"
+  | "BTG"
+  | "THIRD_PARTY";
+
+export type ContentRightRow = {
+  id: string;
+  asset: string;
+  assetKind: "photo" | "video" | "article" | "artwork";
+  grantorKind: RightsGrantorKind;
+  grantor: string;
+  mayPublishDigital: boolean;
+  mayPublishPrint: boolean;
+  mayPromote: boolean;
+  mayReuseCommercially: boolean;
+  startsAt: string;
+  endsAt: string | null;
+  acceptanceId?: string;
+  licenseRef?: string;
+};
+
+export const contentRights: ContentRightRow[] = [
+  {
+    id: "cr-01",
+    asset: "Under the Friday lights — feature text",
+    assetKind: "article",
+    grantorKind: "STUDENT",
+    grantor: "Jordan Reyes",
+    mayPublishDigital: true,
+    mayPublishPrint: true,
+    mayPromote: true,
+    mayReuseCommercially: false,
+    startsAt: "Sep 23",
+    endsAt: null,
+    acceptanceId: "acc_7f31d",
+  },
+  {
+    id: "cr-02",
+    asset: "Amara Whitfield — feature portrait set",
+    assetKind: "photo",
+    grantorKind: "GUARDIAN",
+    grantor: "R. Whitfield (guardian)",
+    mayPublishDigital: true,
+    mayPublishPrint: true,
+    mayPromote: true,
+    mayReuseCommercially: false,
+    startsAt: "Sep 18",
+    endsAt: "Jun 30, 2027",
+    acceptanceId: "acc_2ba90",
+  },
+  {
+    id: "cr-03",
+    asset: "Season opener gallery (12 frames)",
+    assetKind: "photo",
+    grantorKind: "STUDENT",
+    grantor: "Jordan Reyes",
+    mayPublishDigital: true,
+    mayPublishPrint: false,
+    mayPromote: true,
+    mayReuseCommercially: false,
+    startsAt: "Sep 11",
+    endsAt: null,
+    acceptanceId: "acc_91c44",
+  },
+  {
+    id: "cr-04",
+    asset: "Drumline profile photos",
+    assetKind: "photo",
+    grantorKind: "STUDENT",
+    grantor: "Omar Diallo",
+    mayPublishDigital: true,
+    mayPublishPrint: true,
+    mayPromote: false,
+    mayReuseCommercially: false,
+    startsAt: "Sep 22",
+    endsAt: null,
+    acceptanceId: "acc_c1d02",
+  },
+  {
+    id: "cr-05",
+    asset: "Edition masthead artwork",
+    assetKind: "artwork",
+    grantorKind: "BTG",
+    grantor: "SponsorX editorial",
+    mayPublishDigital: true,
+    mayPublishPrint: true,
+    mayPromote: true,
+    /* V3 §6 — BTG content defaults FALSE here, deliberately. */
+    mayReuseCommercially: false,
+    startsAt: "Sep 1",
+    endsAt: null,
+    licenseRef: "BTG-ED-2026-03",
+  },
+  {
+    id: "cr-06",
+    asset: "Stadium aerial (cover background)",
+    assetKind: "photo",
+    grantorKind: "THIRD_PARTY",
+    grantor: "K. Osei Photography",
+    mayPublishDigital: true,
+    mayPublishPrint: true,
+    mayPromote: false,
+    mayReuseCommercially: false,
+    startsAt: "Sep 15",
+    endsAt: "Dec 31",
+    licenseRef: "LIC-2026-0142",
+  },
+];
+
+/** Assets the gate is waiting on — each names what is missing and who can
+ *  grant it. The editions page derives its rightsCleared gate from this. */
+export const clearanceQueue = [
+  {
+    id: "cq-01",
+    asset: "Amara Whitfield — highlight reel (1:48)",
+    assetKind: "video" as const,
+    missing: "Print + promotion consent",
+    grantor: "R. Whitfield (guardian)",
+    grantorKind: "GUARDIAN" as RightsGrantorKind,
+    requestedOn: "Sep 20",
+    note: "Digital consent recorded; the print/promo clause needs the guardian's separate initials.",
+  },
+  {
+    id: "cq-02",
+    asset: "Homecoming build week candids",
+    assetKind: "photo" as const,
+    missing: "Creator consent — photographer not yet enrolled",
+    grantor: "Maya Chen (applicant)",
+    grantorKind: "STUDENT" as RightsGrantorKind,
+    requestedOn: "Sep 22",
+    note: "Shot before her application was approved; consent lands with her enrolment.",
+  },
+  {
+    id: "cq-03",
+    asset: "Season opener gallery — print use",
+    assetKind: "photo" as const,
+    missing: "Print permission",
+    grantor: "Jordan Reyes",
+    grantorKind: "STUDENT" as RightsGrantorKind,
+    requestedOn: "Sep 23",
+    note: "Digital cleared (cr-03); print was not in the original acceptance and needs a fresh one.",
+  },
+];
+
 /** SUBMITTED | UNDER_REVIEW | APPROVED — the slice an advisor works daily.
  *  Full StudentState adds DRAFT/ACTIVE/INACTIVE/SUSPENDED (Stage 9). */
 export type StudentApplicationState = "SUBMITTED" | "UNDER_REVIEW" | "APPROVED";
