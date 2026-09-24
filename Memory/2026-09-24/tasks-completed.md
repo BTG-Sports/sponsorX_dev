@@ -55,3 +55,58 @@ route map lists the screen.
 Board: `P1-FE-21` → Code review (HeckerCreatives, 2026-09-24), snapshot row
 appended (Done 91 · 428 days — unchanged; Code review is not Done). Google
 Sheet still needs its hand mirror at end of day.
+
+## Merged and pushed — both developers' day, one branch
+
+The second binary-board merge in two days, resolved the same way: took the
+other side's xlsx, re-applied our three FE rows by hand, re-extended the
+validation and conditional-formatting ranges (**third time the 237 trap has
+fired** — his side had re-extended only the Dashboard, to a safe $400), and
+appended the day's snapshot computed from the *merged* sheet: **Done 121 ·
+354 days**, which is the first snapshot to count his Stage 5–7 closures.
+The 2026-09-23 memory log conflicted add/add both times; both sides kept in
+day order, nothing dropped.
+
+Two merged-tree findings worth keeping:
+
+- **His new `qrcode` dependency needs `npm install` after pulling** — the
+  build fails with a missing-declaration error that looks like a types
+  problem and is actually a stale node_modules.
+- **`payment-policy-compliance.test.ts` broke on Windows paths with spaces:**
+  `new URL(..).pathname` yields `/D:/iCARRe%20Solutions/…`, which spawnSync
+  rejects with ENOENT before grep runs. Fixed with `fileURLToPath` — the
+  cross-platform way to turn `import.meta.url` into a cwd. His test logic
+  untouched; 1015 backend tests green on this machine after the fix.
+
+Pushed `main_development` at `360743a` — flatplan, student portal, login
+redesign and the board fixes all published.
+
+## `P1-FE-22` — the ad slot inventory ledger
+
+*Code review. The list behind the page map, per its own definition.*
+
+`/admin/next/inventory`: every sellable position in one filterable table —
+state as the flatplan's shape+color mark plus a badge, buyer or **named hold**
+per row, rack price and frozen sale value side by side (Rosa's $450 against a
+$250 rack renders the SalesAttribution frozen-value rule as a visible fact).
+Totals strip: committed $5,300 (violet), $4,800 still on the rack, 46%
+sell-through, $11,900 full rack value.
+
+- **filter-kit reused, not rebuilt** — the acceptance's second clause.
+  SearchInput + two Dropdowns + dismissible FilterChips, admin tone for desk
+  chrome, violet only on data marks; filters instant, URL-synced via
+  `replaceState`.
+- **The two NEXT admin screens now cross-navigate:** every ledger row's
+  "Map →" deep-links to its page's drawer on the flatplan (`?open=N`, back
+  cover = 0) — `EditionFlatplan` gained `initialOpenPage` for it.
+- **Contained scroll, not page scroll:** the table scrolls inside its own
+  `overflow-x-auto` container; page-level `scrollWidth === clientWidth`
+  verified at 390/470/768. The measurement script flags the table cells —
+  correctly, they are wider than the viewport — but the page never moves.
+- No new fixtures and no new invariants needed: the ledger is a projection of
+  `editionPages`, so the existing suite already guarantees it cannot disagree
+  with the map or the student portal.
+
+62 frontend tests green, build and eslint clean, screenshots eyeballed at 390
+and 1280. Board: `P1-FE-22` → Code review (HeckerCreatives, 2026-09-24).
+Google Sheet still needs its hand mirror at end of day.
