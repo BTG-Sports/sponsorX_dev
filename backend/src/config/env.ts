@@ -81,6 +81,17 @@ const schema = z.object({
      below refuses to boot without it: the invoice webhook is a public route,
      and an unsigned one is an unauthenticated write into the finance mirror. */
   ZOHO_WEBHOOK_SECRET: z.string().optional(),
+
+  /* Which Railway environment this is (P3-DATA-01). Railway injects it; a
+     developer machine has none. Needed because NODE_ENV cannot tell staging
+     from production — both run "production". */
+  RAILWAY_ENVIRONMENT_NAME: z.string().optional(),
+
+  /* The pilot cohort import's production gate (P3-DATA-01): a comma-separated
+     list of cohort file fingerprints (sha256) allowed to run in production.
+     A fingerprint is added here by a person after that exact file has run
+     cleanly on staging — which is what "staging first" means in practice. */
+  COHORT_IMPORT_APPROVED_SHA256: z.string().default(""),
 });
 
 /* A development default that reached production would make every continuation

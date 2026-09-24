@@ -5,7 +5,7 @@ import {
 
 // Importing ./zod first is load-bearing: it applies the `.openapi()` extension
 // that registry.register() depends on. See src/contracts/zod.ts.
-import "./zod";
+import { z } from "./zod";
 import { PageMeta, PageQuery, ProblemDetails, Provenance } from "./common";
 import {
   BrandCategory,
@@ -190,6 +190,153 @@ registry.register("SponsorReport", SponsorReport);
 registry.register("ZohoInvoiceWebhook", ZohoInvoiceWebhook);
 registry.register("Invoice", Invoice);
 registry.register("PaymentStatus", PaymentStatus);
+
+// --- paths — P8-PMO-01 ----------------------------------------------------
+//
+// "openapi.json is complete, generated from Zod contracts, and covers every
+// /api/v1 endpoint." One row per mounted route. The request body is the SAME
+// Zod schema the handler parses, so the spec cannot describe a body the code
+// would refuse. A response references a contract where one exists; where a
+// handler returns a domain shape with no contract yet, it is documented as a
+// JSON object rather than invented.
+//
+// `tests/openapi.coverage.test.ts` walks the live Express app and fails if a
+// mounted route is missing here, or if a row here has no route behind it —
+// so adding an endpoint without documenting it breaks the build.
+
+type Method = "get" | "post" | "put" | "patch" | "delete";
+type Row = {
+  method: Method;
+  path: string;
+  tag: string;
+  summary: string;
+  /** false for the public routes (fan funnel, intake, webhook, discovery). */
+  auth?: boolean;
+  body?: z.ZodType;
+  query?: z.ZodObject;
+  status?: 200 | 201 | 202;
+  response?: z.ZodType;
+};
+
+const json = (schema: z.ZodType) => ({ content: { "application/json": { schema } } });
+const anyObject = z.object({}).catchall(z.unknown()).describe("A JSON object — this endpoint has no response contract yet.");
+const list = (key: string, item: z.ZodType) => z.object({ [key]: z.array(item) });
+const problem = { description: "Problem details (RFC 9457).", ...json(ProblemDetails) };
+
+const PATHS: Row[] = [
+  // discovery
+  { method: "get", path: "/", tag: "Meta", summary: "API root — service name and version.", auth: false },
+  { method: "get", path: "/openapi.json", tag: "Meta", summary: "This specification, generated from the Zod contracts.", auth: false },
+  { method: "get", path: "/me", tag: "Identity", summary: "The caller's resolved actor: tenant, roles and linked records." },
+
+  // applications — public intake (P3-BE-13)
+  { method: "post", path: "/applications/intake", tag: "Applications", summary: "Apply to the Athlete Network.", auth: false, body: AthleteApplicationInput, status: 201, response: ApplicationSubmissionReceipt },
+  { method: "get", path: "/applications/intake/mine", tag: "Applications", summary: "An applicant reads their own application by signed link.", auth: false, query: z.object({ token: z.string() }), response: ApplicantView },
+  { method: "patch", path: "/applications/intake/mine", tag: "Applications", summary: "An applicant edits their own application by signed link.", auth: false, query: z.object({ token: z.string() }), body: AthleteApplicationPatch, response: ApplicantView },
+  // applications — review (P3-BE-07)
+  { method: "get", path: "/applications", tag: "Applications", summary: "The review queue.", query: z.object({ cursor: z.string().optional(), limit: z.coerce.number().int().optional(), state: AthleteState.optional() }) },
+  { method: "get", path: "/applications/{id}", tag: "Applications", summary: "One application, as the review queue shows it.", response: AthleteApplicationSummary },
+  { method: "post", path: "/applications/{id}/begin-review", tag: "Applications", summary: "Move an application into review." },
+  { method: "post", path: "/applications/{id}/approve", tag: "Applications", summary: "Approve an application.", body: ApproveApplicationInput },
+  { method: "post", path: "/applications/{id}/request-changes", tag: "Applications", summary: "Send an application back with required changes.", body: ApplicationDecisionNotes },
+  { method: "post", path: "/applications/{id}/activate", tag: "Applications", summary: "Activate an approved athlete." },
+  { method: "post", path: "/applications/{id}/reject", tag: "Applications", summary: "Reject an application, with reasons.", body: ApplicationDecisionNotes },
+
+  // athletes, guardians, agreements (P3-BE-03, P3-BE-14)
+  { method: "put", path: "/athletes/{id}/tier", tag: "Athletes", summary: "Set an athlete's pricing tier.", body: AthleteTierInput },
+  { method: "post", path: "/athletes/{id}/rates", tag: "Athletes", summary: "Set an athlete's rate for a NIL job.", body: AthleteRateInput, status: 201 },
+  { method: "get", path: "/athletes/{id}/rates", tag: "Athletes", summary: "An athlete's rate card." },
+  { method: "post", path: "/athletes/{id}/guardian", tag: "Athletes", summary: "Link a guardian to a minor athlete.", body: GuardianInput, status: 201 },
+  { method: "put", path: "/athletes/{id}/socials", tag: "Athletes", summary: "Replace an athlete's social accounts.", body: z.object({ socials: z.array(SocialAccount).max(4) }) },
+  { method: "get", path: "/athletes/{id}/guardian-readiness", tag: "Athletes", summary: "Whether the guardian gate is satisfied today.", response: GuardianReadiness },
+  { method: "get", path: "/athletes/{id}/metrics", tag: "Metrics", summary: "An athlete's metrics, by provenance label.", response: MetricBreakdown },
+  { method: "post", path: "/guardians/{id}/verify", tag: "Athletes", summary: "BTG attests a guardian's identity." },
+  { method: "post", path: "/agreements/accept", tag: "Athletes", summary: "Accept an agreement version (click-wrap).", body: AgreementAcceptanceInput, status: 201 },
+
+  // briefs, campaigns, invitations, orders (B3, B4)
+  { method: "post", path: "/briefs", tag: "Campaigns", summary: "A sponsor submits a brief.", body: CampaignBriefInput, status: 201 },
+  { method: "post", path: "/briefs/{id}/transition", tag: "Campaigns", summary: "Move a brief through its states.", body: BriefTransitionInput },
+  { method: "get", path: "/briefs/{id}/eligible-athletes", tag: "Campaigns", summary: "The matching shortlist for a brief.", query: z.object({ limit: z.coerce.number().int().optional() }), response: list("athletes", EligibleAthlete) },
+  { method: "post", path: "/briefs/{id}/campaign", tag: "Campaigns", summary: "Create a campaign from a qualified brief.", body: CampaignFromBriefInput, status: 201 },
+  { method: "post", path: "/campaigns/{id}/transition", tag: "Campaigns", summary: "Move a campaign through its states.", body: CampaignTransitionInput },
+  { method: "post", path: "/campaigns/{id}/launch", tag: "Campaigns", summary: "Launch a campaign." },
+  { method: "post", path: "/campaigns/{id}/invitations", tag: "Campaigns", summary: "Invite an athlete to a campaign.", body: InvitationInput, status: 201 },
+  { method: "post", path: "/invitations/{id}/respond", tag: "Campaigns", summary: "An athlete accepts or declines an invitation.", body: InvitationResponseInput },
+  { method: "post", path: "/campaigns/{id}/orders", tag: "Orders", summary: "Create a Campaign Order.", body: CampaignOrderInput, status: 201 },
+  { method: "patch", path: "/orders/{id}", tag: "Orders", summary: "Edit a draft Campaign Order.", body: CampaignOrderInput.partial() },
+  { method: "post", path: "/orders/{id}/transition", tag: "Orders", summary: "Move a Campaign Order through its states.", body: OrderTransitionInput },
+  { method: "post", path: "/orders/{id}/accept", tag: "Orders", summary: "An athlete (or guardian) accepts a Campaign Order.", body: OrderAcceptanceInput, status: 201 },
+
+  // deliverables and creative (B5)
+  { method: "post", path: "/deliverables/{id}/submit", tag: "Deliverables", summary: "Submit a draft." },
+  { method: "post", path: "/deliverables/{id}/btg-review", tag: "Deliverables", summary: "BTG starts content review." },
+  { method: "post", path: "/deliverables/{id}/sponsor-review", tag: "Deliverables", summary: "Send to the sponsor for approval." },
+  { method: "post", path: "/deliverables/{id}/revision", tag: "Deliverables", summary: "Request a revision, with a reason.", body: RevisionRequestInput },
+  { method: "post", path: "/deliverables/{id}/approve", tag: "Deliverables", summary: "Approve a deliverable." },
+  { method: "post", path: "/deliverables/{id}/published", tag: "Deliverables", summary: "Mark published, with the live URL.", body: MarkPublishedInput },
+  { method: "post", path: "/deliverables/{id}/verify", tag: "Deliverables", summary: "BTG verifies the published post." },
+  { method: "post", path: "/deliverables/{id}/uploads", tag: "Deliverables", summary: "Presign a direct-to-R2 upload.", body: CreativeUploadInput, status: 201 },
+  { method: "post", path: "/deliverables/{id}/assets", tag: "Deliverables", summary: "Register an uploaded creative asset.", body: CreativeAssetInput, status: 201 },
+  { method: "post", path: "/deliverables/{id}/metrics", tag: "Metrics", summary: "Record a metric entry, with its provenance.", body: MetricEntryInput, status: 201 },
+  { method: "get", path: "/deliverables/{id}/metrics", tag: "Metrics", summary: "A deliverable's metrics, by provenance label.", response: MetricBreakdown },
+  { method: "post", path: "/deliverables/{id}/tracking-link", tag: "Tracking", summary: "Create the deliverable's tracking link.", body: TrackingLinkInput, status: 201 },
+
+  // rewards and tracking (B6)
+  { method: "post", path: "/campaigns/{id}/rewards", tag: "Rewards", summary: "Create a reward.", body: RewardInput, status: 201 },
+  { method: "post", path: "/rewards/{id}/transition", tag: "Rewards", summary: "Move a reward through its states.", body: RewardTransitionInput },
+  { method: "post", path: "/rewards/{id}/tokens", tag: "Rewards", summary: "Issue reward tokens (QR codes).", body: RewardTokenInput, status: 201 },
+  { method: "get", path: "/rewards/{id}/funnel", tag: "Rewards", summary: "Scan / landing / claim / redeem counts — aggregate only.", response: RewardFunnel },
+  { method: "get", path: "/campaigns/{id}/tracking-codes", tag: "Tracking", summary: "A campaign's tracking codes.", response: list("codes", TrackingCode) },
+  { method: "get", path: "/tracking-links/{id}/clicks", tag: "Tracking", summary: "Click counts for a tracking link." },
+  { method: "get", path: "/public/tracking/{code}", tag: "Public", summary: "Resolve a tracking code to its destination.", auth: false, response: TrackingDestination },
+  { method: "post", path: "/public/tracking/{code}/click", tag: "Public", summary: "Record a click.", auth: false, status: 202 },
+  { method: "post", path: "/public/rewards/{token}/scan", tag: "Public", summary: "A fan scanned the QR.", auth: false, status: 201 },
+  { method: "post", path: "/public/rewards/{token}/landing", tag: "Public", summary: "The fan's reward page rendered.", auth: false, status: 201 },
+  { method: "post", path: "/public/rewards/{token}/claim", tag: "Public", summary: "A fan claims the reward (email optional, consent versioned).", auth: false, body: RewardClaimInput, status: 201 },
+  { method: "post", path: "/public/rewards/{token}/redeem", tag: "Public", summary: "Redeem at the till — single use.", auth: false, status: 201 },
+  { method: "post", path: "/public/unsubscribe/{token}", tag: "Public", summary: "A fan withdraws consent — one tap, no login (P6-SEC-03).", auth: false, response: z.object({ withdrawn: z.boolean() }) },
+
+  // money, metrics, reporting (B7)
+  { method: "get", path: "/earnings/{id}", tag: "Earnings", summary: "One earning, with its adjustments.", response: EarningBreakdown },
+  { method: "post", path: "/earnings/{id}/transition", tag: "Earnings", summary: "Move an earning through its states.", body: EarningTransitionInput },
+  { method: "post", path: "/earnings/{id}/adjustment", tag: "Earnings", summary: "Adjust an earning, with a mandatory reason.", body: EarningAdjustmentInput },
+  { method: "get", path: "/campaigns/{id}/metrics", tag: "Metrics", summary: "A campaign's metrics, by provenance label.", response: MetricBreakdown },
+  { method: "get", path: "/campaigns/{id}/report", tag: "Metrics", summary: "The sponsor report (screen 12) — every number labelled.", response: SponsorReport },
+  { method: "get", path: "/campaigns/{id}/invoices", tag: "Invoices", summary: "The Zoho invoice mirror — BTG admin and the invoiced sponsor only.", response: list("invoices", Invoice) },
+  { method: "get", path: "/campaigns/{id}/payment-status", tag: "Invoices", summary: "Paid, invoiced and outstanding.", response: PaymentStatus },
+  { method: "get", path: "/operations/delivery-health", tag: "Operations", summary: "Delivery health across live campaigns.", query: z.object({ under: z.enum(["true", "false"]).optional() }) },
+  { method: "get", path: "/operations/network-metrics", tag: "Operations", summary: "Network-wide metrics." },
+  { method: "get", path: "/operations/job-economics", tag: "Operations", summary: "Economics by NIL job." },
+
+  // Zoho inbound (P7-BE-04)
+  { method: "post", path: "/webhooks/zoho/invoice", tag: "Webhooks", summary: "Zoho Books invoice webhook — shared-secret signed, queued.", auth: false, body: ZohoInvoiceWebhook, status: 202 },
+];
+
+for (const row of PATHS) {
+  const names = [...row.path.matchAll(/\{(\w+)\}/g)].map((m) => m[1]!);
+  const status = row.status ?? 200;
+  registry.registerPath({
+    method: row.method,
+    path: row.path,
+    tags: [row.tag],
+    summary: row.summary,
+    ...(row.auth === false ? { security: [] } : { security: [{ bearerAuth: [] }] }),
+    request: {
+      ...(names.length ? { params: z.object(Object.fromEntries(names.map((n) => [n, z.string()]))) } : {}),
+      ...(row.query ? { query: row.query } : {}),
+      ...(row.body ? { body: { required: true, ...json(row.body) } } : {}),
+    },
+    responses: {
+      [status]: { description: "Success.", ...json(row.response ?? anyObject) },
+      ...(row.auth === false ? {} : { 401: problem, 403: problem }),
+      ...(row.body || row.query ? { 400: problem } : {}),
+      404: problem,
+    },
+  });
+}
+
+/** The documented routes, for the coverage test. */
+export const DOCUMENTED_PATHS = PATHS.map((r) => `${r.method.toUpperCase()} ${r.path}`);
 
 /**
  * Bearer auth for §8's API Service Account. Clerk issues the session for human

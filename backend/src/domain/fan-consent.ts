@@ -44,6 +44,7 @@ export const KNOWN_CONSENT_VERSIONS: readonly string[] = ["2026-09-01"] as const
 export const CONSENT_PURPOSES = ["reward-delivery"] as const;
 export type ConsentPurpose = (typeof CONSENT_PURPOSES)[number];
 
+
 export type FanConsent = {
   version: string;
   purpose: ConsentPurpose;
@@ -123,8 +124,19 @@ export function consentFor(
  * correct — those fans agreed to nothing we can prove.
  */
 export function mayContact(
-  row: { fanEmail: string | null; consentVersion: string | null; consentPurpose: string | null },
+  row: {
+    fanEmail: string | null;
+    consentVersion: string | null;
+    consentPurpose: string | null;
+    consentWithdrawnAt?: Date | null;
+  },
   purpose: ConsentPurpose,
 ): boolean {
-  return Boolean(row.fanEmail) && row.consentVersion !== null && row.consentPurpose === purpose;
+  return (
+    Boolean(row.fanEmail) &&
+    row.consentVersion !== null &&
+    row.consentPurpose === purpose &&
+    !row.consentWithdrawnAt
+  );
 }
+

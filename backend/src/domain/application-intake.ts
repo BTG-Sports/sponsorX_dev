@@ -84,33 +84,7 @@ export async function submitApplication(
   const actor = intakeActor();
 
   const id = await prisma.$transaction(async (tx) => {
-    const athlete = await tx.athlete.create({
-      data: {
-        tenantId,
-        slug: await uniqueSlug(tx, input.displayName),
-        legalName: input.legalName,
-        displayName: input.displayName,
-        email: input.email.toLowerCase(),
-        phone: input.phone ?? null,
-        birthDate: input.birthDate ? new Date(input.birthDate) : null,
-        ageBand: input.ageBand ?? null,
-        city: input.city ?? null,
-        stateCode: input.stateCode,
-        sport: input.sport,
-        position: input.position ?? null,
-        school: input.school ?? null,
-        level: input.level ?? null,
-        gradYear: input.gradYear ?? null,
-        achievements: input.achievements ?? null,
-      },
-      select: { id: true },
-    });
-
-    await writeSocials(tx, tenantId, athlete.id, input.socials);
-
-    await audit(tx, actor, "athlete.apply", "Athlete", athlete.id, {
-      after: { state: "DRAFT", sport: input.sport, stateCode: input.stateCode },
-    });
+    const athlete = await createApplicantIn(tx, tenantId, actor, input);
 
     /* Through the state machine, not a direct write — P3-BE-01's invariant is
        that exactly one function changes `Athlete.state`, and "the applicant
@@ -132,6 +106,52 @@ export async function submitApplication(
   });
 
   return { id, state: "SUBMITTED", continuationToken: issueIntakeToken(id) };
+}
+
+/**
+ * The athlete row, its socials and the "apply" audit entry — as DRAFT.
+ *
+ * Shared by `/join` and the pilot cohort import (P3-DATA-01) so an imported
+ * athlete is created by exactly the code an applicant is: same slug rule,
+ * same lower-cased email, same socials. The caller moves it on through the
+ * state machine; this never touches `state`.
+ */
+export async function createApplicantIn(
+  tx: Prisma.TransactionClient,
+  tenantId: string,
+  actor: AuditActor,
+  input: AthleteApplicationInput,
+  auditExtra: Record<string, unknown> = {},
+): Promise<{ id: string }> {
+  const athlete = await tx.athlete.create({
+    data: {
+      tenantId,
+      slug: await uniqueSlug(tx, input.displayName),
+      legalName: input.legalName,
+      displayName: input.displayName,
+      email: input.email.toLowerCase(),
+      phone: input.phone ?? null,
+      birthDate: input.birthDate ? new Date(input.birthDate) : null,
+      ageBand: input.ageBand ?? null,
+      city: input.city ?? null,
+      stateCode: input.stateCode,
+      sport: input.sport,
+      position: input.position ?? null,
+      school: input.school ?? null,
+      level: input.level ?? null,
+      gradYear: input.gradYear ?? null,
+      achievements: input.achievements ?? null,
+    },
+    select: { id: true },
+  });
+
+  await writeSocials(tx, tenantId, athlete.id, input.socials);
+
+  await audit(tx, actor, "athlete.apply", "Athlete", athlete.id, {
+    after: { state: "DRAFT", sport: input.sport, stateCode: input.stateCode, ...auditExtra },
+  });
+
+  return athlete;
 }
 
 /** An applicant's own view of their application, reached by token. */
@@ -294,7 +314,7 @@ async function uniqueSlug(tx: Prisma.TransactionClient, displayName: string): Pr
  * moved this, nobody signed it — and the state machine refuses to let that
  * path reach ACTIVE at all.
  */
-function asSystem(actor: AuditActor): SystemActor {
+export function asSystem(actor: AuditActor): SystemActor {
   return { system: true, tenantId: actor.tenantId, userId: null };
 }
 

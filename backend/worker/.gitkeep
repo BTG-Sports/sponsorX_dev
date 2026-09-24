@@ -1,4 +1,0 @@
-The second deployable (Guide §02). One repo, two deployables, one lockfile.
-  index.ts   pg-boss boot + outbox drain            P2-BE-05
-  jobs/      zoho-push, notify, rollup-metrics, render-report,
-             resolve-geo, derive-image, seed-environment, expire-holds

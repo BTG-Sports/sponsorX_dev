@@ -16,7 +16,7 @@
 | Phase | File | Tasks | Timeline |
 |---|---|---|---|
 | 1 | [`SponsorX-Phase1-Managed-Marketplace.md`](./SponsorX-Phase1-Managed-Marketplace.md) **← you are here** | 186 | 14–18 weeks |
-| 2 | [`SponsorX-Phase2-Marketplace-Commerce.md`](./SponsorX-Phase2-Marketplace-Commerce.md)  | 64 | 16–20 weeks |
+| 2 | [`SponsorX-Phase2-Marketplace-Commerce.md`](./SponsorX-Phase2-Marketplace-Commerce.md)  | 66 | 16–20 weeks |
 | 3 | [`SponsorX-Phase3-Intelligence-Attribution.md`](./SponsorX-Phase3-Intelligence-Attribution.md)  | 44 | 18–22 weeks |
 | 4 | [`SponsorX-Phase4-INFINEX-Integration.md`](./SponsorX-Phase4-INFINEX-Integration.md)  | 51 | 18–22 weeks |
 
@@ -986,7 +986,7 @@ Set up the testing tools so tests can run locally and automatically on every com
 Create the folder structure: one repository, two deployable things (app and worker), sharing the same business logic so they can never disagree.
 
 - **Depends on:** P2-BE-01
-- **Done when:** src/server/, src/contracts/, worker/jobs/, prisma/sql/, tests/ all exist per Guide §02; one repo, two deployables, one lockfile
+- **Done when:** The Addendum B workspace layout exists — `backend/src/contracts/`, `backend/src/domain/`, `backend/worker/jobs/`, `backend/prisma/sql/`, `backend/tests/`, and `frontend/src/server/` for the web app's server-only API client; one repo, two deployables (web, api), one lockfile. *(Amended 2026-09-24: the Guide §02 paths predate the 2026-09-21 split into `frontend/` + `backend/`. Pinned by `backend/tests/layout.test.ts`.)*
 - **Reference:** Guide §02
 
 ### ▶ `P2-FE-01` · Swap fixture reads for real queries behind a flag
@@ -1840,6 +1840,7 @@ Send fan leads to Zoho only where consent was given. No consent, no push — enf
 - **Depends on:** P6-SEC-01, P2-BE-05
 - **Done when:** Claims with consent enqueue zoho.pushLead; claims without consent never do
 - **Reference:** §18
+- **Moved to Phase 2 (2026-09-24, business decision)** as `2S6-INT-03`. A lead push uses a fan's address beyond voucher delivery, which needs the "sponsor may contact me about offers" consent option — itself deferred to Phase 2 as `2S6-BE-03`. Phase 1's only consent purpose, `reward-delivery`, permits no lead push, so this task cannot meet its acceptance in Phase 1.
 
 ### ⏸ `P6-QA-01` · E2E: scan → landing → claim → redeem
 
@@ -1870,6 +1871,16 @@ Sponsors receive only the fan fields consent allows — enforced in the database
 - **Depends on:** P6-SEC-01
 - **Done when:** Sponsors receive only the fields consent permits; the restriction is enforced in select, not in the UI
 - **Reference:** §26, Memory 04
+
+### ⏸ `P6-SEC-03` · Fan unsubscribe and consent withdrawal
+
+**Order** 134.5 · **SEC** · **Where:** Code · **1d** · **Ready** · **Unblocks** 0
+
+Every email to a fan carries a one-tap unsubscribe link that needs no login, and a withdrawal stops any further contact.
+
+- **Depends on:** P6-SEC-01, P3-INT-01
+- **Done when:** An unsubscribe link in every fan email works without login and in one tap; withdrawal is recorded against the same consent record with a timestamp; a withdrawn fan is excluded from any further contact at query level, not in the UI *(amended 2026-09-24: the original named P6-INT-01's lead push, which moved to Phase 2 — the Phase 2 push must use the same exclusion)*
+- **Reference:** §26; raised 2026-09-16 from the P1-ART-05 fan landing design
 
 ## Stage 7 · Money & Reporting
 

@@ -33,6 +33,8 @@ export type EmailJob = {
   to: string;
   data: Record<string, string>;
   idempotencyKey: string;
+  /** Fan emails only (P6-SEC-03): the claim whose consent this send relies on. */
+  fanEventId?: string;
 };
 
 /**
@@ -72,7 +74,7 @@ const TEMPLATES: Record<string, (d: Record<string, string>) => { subject: string
      no login for them to use. */
   "reward.claimed": (d) => ({
     subject: `Your ${d.offerText ?? "reward"} — code ${d.code ?? ""}`,
-    text: `Here is your reward.\n\n${d.offerText ?? ""}\n\nCode: ${d.code ?? ""}\n\nShow this code to claim it. Valid until ${d.expiresOn ?? "the date on the offer"}.\n\n${d.terms ?? ""}\n\n— BTG SponsorX`,
+    text: `Here is your reward.\n\n${d.offerText ?? ""}\n\nCode: ${d.code ?? ""}\n\nShow this code to claim it. Valid until ${d.expiresOn ?? "the date on the offer"}.\n\n${d.terms ?? ""}\n\n— BTG SponsorX\n\nDon't want emails from us? Unsubscribe in one tap: ${d.unsubscribeUrl ?? ""}`,
   }),
 
   /* P5-INT-01 — the three deliverable messages. All to the athlete: BTG sees
@@ -107,6 +109,16 @@ const TEMPLATES: Record<string, (d: Record<string, string>) => { subject: string
   }),
 };
 
+/**
+ * Templates addressed to a member of the public — P6-SEC-03.
+ *
+ * "An unsubscribe link in every fan email." Every template here must print
+ * `unsubscribeUrl`, and the handler refuses to send one without it and
+ * without the consent record it relies on. A template added for fans but
+ * left out of this set is caught by the test that reads the enqueue sites.
+ */
+export const FAN_TEMPLATES: ReadonlySet<string> = new Set(["reward.claimed"]);
+
 /** From address. A verified sending domain is required before any of this
  *  leaves the building — see the note in the task board for P3-INT-01. */
 const FROM = process.env.EMAIL_FROM ?? "SponsorX <noreply@sponsorx.net>";
@@ -121,13 +133,32 @@ const FROM = process.env.EMAIL_FROM ?? "SponsorX <noreply@sponsorx.net>";
 export async function handleSendEmail(
   pool: pg.Pool,
   job: EmailJob,
-): Promise<"sent" | "duplicate"> {
+): Promise<"sent" | "duplicate" | "withdrawn"> {
   const build = TEMPLATES[job.template];
   if (!build) {
     /* Unknown template. Throwing lets pg-boss retry and then park it, which
        is right: the alternative — swallowing it — is an email nobody ever
        learns was never sent. */
     throw new Error(`No email template named ${JSON.stringify(job.template)}.`);
+  }
+
+  const fan = FAN_TEMPLATES.has(job.template);
+  if (fan) {
+    if (!job.fanEventId || !job.data.unsubscribeUrl) {
+      throw new Error(
+        `${job.template} is a fan email and must carry fanEventId and unsubscribeUrl (P6-SEC-03).`,
+      );
+    }
+    /* Re-checked at send time, in SQL: a fan who unsubscribed between the
+       claim and this job running is not emailed. Same rule as `mayContact()`
+       on the API side, expressed in the WHERE clause. */
+    const ok = await pool.query(
+      `SELECT 1 FROM "RewardEvent"
+        WHERE id = $1 AND "fanEmail" IS NOT NULL
+          AND "consentVersion" IS NOT NULL AND "consentWithdrawnAt" IS NULL`,
+      [job.fanEventId],
+    );
+    if (ok.rowCount === 0) return "withdrawn";
   }
 
   const claimed = await pool.query(
@@ -150,7 +181,22 @@ export async function handleSendEmail(
     if (!apiKey) throw new Error("RESEND_API_KEY is not set.");
 
     const resend = new Resend(apiKey);
-    const result = await resend.emails.send({ from: FROM, to: job.to, subject, text });
+    const result = await resend.emails.send({
+      from: FROM,
+      to: job.to,
+      subject,
+      text,
+      /* RFC 8058 one-click: mail clients show their own "Unsubscribe" button
+         and POST to this URL, which the web app forwards to the API. */
+      ...(fan
+        ? {
+            headers: {
+              "List-Unsubscribe": `<${job.data.unsubscribeUrl}>`,
+              "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
+            },
+          }
+        : {}),
+    });
     if (result.error) throw new Error(`Resend rejected the message: ${result.error.message}`);
   } catch (error) {
     /* Release the claim so a retry can genuinely try again. Without this a
