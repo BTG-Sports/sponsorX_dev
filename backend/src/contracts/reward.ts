@@ -86,12 +86,19 @@ export const RewardFunnel = z
       "All four counts or none — the shape makes it impossible to read one number without the others it is only meaningful against.",
   });
 
+/* http and https only (P8-SEC-03). z.url() accepts any scheme the URL
+   parser does — `javascript:`, `data:`, `file:` — and this value becomes a
+   public redirect's Location. */
+const WebUrl = z.url().max(2000).refine((u) => /^https?:\/\//i.test(u), {
+  message: "Destination must be an http or https URL.",
+});
+
 export const TrackingLinkInput = z
-  .object({ destinationUrl: z.url().max(2000) })
+  .object({ destinationUrl: WebUrl })
   .meta({ id: "TrackingLinkInput" });
 
 export const TrackingDestination = z
-  .object({ destinationUrl: z.url() })
+  .object({ destinationUrl: WebUrl })
   .meta({
     id: "TrackingDestination",
     description:

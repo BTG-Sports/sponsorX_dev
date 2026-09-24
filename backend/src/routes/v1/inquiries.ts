@@ -16,12 +16,13 @@ import { prisma } from "../../db/client";
 import { enqueue } from "../../db/outbox";
 import { env } from "../../config/env";
 import { limit } from "../../lib/rate-limit";
+import { clientIp } from "../../lib/client-ip";
 import { InquiryInput } from "../../contracts/zoho";
 
 export const inquiriesRouter = Router();
 
 export const submitInquiry: RequestHandler = async (req, res) => {
-  await limit("inquiry", req.ip, 10, 60 * 60);
+  await limit("inquiry", clientIp(req), 10, 60 * 60);
   const input = InquiryInput.parse(req.body ?? {});
   const tenantId = env.PUBLIC_INTAKE_TENANT_ID;
 

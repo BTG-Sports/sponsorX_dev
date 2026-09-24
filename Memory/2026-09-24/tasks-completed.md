@@ -183,3 +183,26 @@ first; and **5 simulated sponsors** (Harborline Coffee Co., Bayside Fitness
 Studio, Chesapeake Auto Group, Rowhouse Pizza, Capital Sports Physio) with a
 contact each, created in the Zoho sandbox and brought in by the backfill,
 beside the sandbox's 10 "(Sample)" accounts. Board: `P8-DATA-01` → Code review.
+
+## Batch 3 — five tasks + P7-BE-06 moved (rcfworks)
+
+| Task | State | Proof |
+|---|---|---|
+| `P6-FE-02` fan redeem page on real tokens | Code review | `/r/<token>` is a script-free route handler over the new read-only `GET /public/rewards/:token`; claim/redeem are plain form POSTs; LANDING is an image beacon. `tests/redeem-page.test.ts` + a live curl run (real API + Next + DB): every state, a real claim with consent version, one redeem then "Already used", exactly one event of each type. |
+| `P4-FE-01` marketplace + brief | Code review | New `GET /catalogue/packages|jobs` (sponsor prices). A signed-in sponsor sees them and files a real DRAFT brief via `submitBrief`; demo unchanged. `tests/brief-contract.test.ts` files the frontend's own body through the API. `/me` returns `sponsorId`. |
+| `P4-SEC-02` field-level authz | Code review | `tests/sponsor-field-authz.test.ts`: pay markers in every pay column, every GET as sponsor, none leak (mutation-checked). |
+| `P8-SEC-03` public surface review | Code review | `documentation/SponsorX-Public-Surface-Security-Review.md`. Fixed: rate limits counted the web server (edge key, set on staging), `javascript:` tracking destinations, validation 500 → 400. |
+| `P8-OPS-02` load test | In progress | Runs on staging after this deploys. |
+
+`P7-BE-06` → Phase 2 `2S7-BE-02` (Phase 1 row Dropped/MOVED; Phase 2 row 69,
+all Phase 2 ranges and 15 Dashboard formulas extended 68 → 69; Phase 2 = 65).
+
+**Correction to `P8-SEC-02`:** the write half of this morning's sweep was
+weaker than reported — invalid bodies returned 500 and 500 counted as a
+refusal. Now validation is 400, bodies are valid, and the sweep fails on
+400/500; every write route is proven refused. Row stays Done, note added.
+
+Also found: `stateCodesFor("Kigali, RW")` would have targeted "RW" as a US
+state — limited to the 50 states + DC.
+
+Verification: root build clean, lint clean, backend 1230 passed, frontend 94.

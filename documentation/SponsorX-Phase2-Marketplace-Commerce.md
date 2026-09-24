@@ -731,6 +731,16 @@ Tenant logo, colours and report branding, plus readiness for custom subdomain ma
 - **Done when:** A tenant's branding renders in their portal and on their reports
 - **Reference:** Spec §9
 
+### ⏸ `2S7-BE-02` · Report render worker job (was `P7-BE-06`)
+
+**Order** 57.1 · **BE** · **Where:** Code · **3d** · **Blocked**
+
+Produce the sponsor report as a file on the worker, unattended — for when a report must exist without anyone opening a browser (for example, scheduled delivery to a renewal signer who never logs in). Moved from Phase 1 on 2026-09-24: Phase 1's print stylesheet covers the interactive case.
+
+- **Depends on:** P7-BE-05
+- **Done when:** When a server-rendered report is required, Playwright renders it on the worker from the same data as screen 12, stores it in the private bucket, and keeps every provenance label; the browser print (`report-pdf.ts`) remains the interactive path
+- **Reference:** §9 screen 12, Addendum A10
+
 ## Sprint 8 · QA, security & rollout
 
 *End-to-end, payment-failure and reward-failure testing, security review, UAT, production.*

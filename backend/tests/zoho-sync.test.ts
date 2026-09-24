@@ -310,7 +310,7 @@ describe.skipIf(!hasDatabase)("the Zoho sync, on the path a request takes", asyn
       let body: Record<string, unknown> = {};
       const res = { status: (s: number) => ((status = s), res), json: (b: Record<string, unknown>) => void (body = b) };
       await submitInquiry(
-        { ip: "127.0.0.1", body: { companyName: "Iron Path Gym", firstName: "Dee", lastName: "Marsh", email: "dee@ironpath.test", message: "Fall sponsorship?" } } as never,
+        { ip: "127.0.0.1", get: () => undefined, body: { companyName: "Iron Path Gym", firstName: "Dee", lastName: "Marsh", email: "dee@ironpath.test", message: "Fall sponsorship?" } } as never,
         res as never,
         (() => {}) as never,
       );

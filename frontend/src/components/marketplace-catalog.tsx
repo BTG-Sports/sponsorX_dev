@@ -7,7 +7,7 @@ import { MiniChip, Monogram, initials } from "@/components/hero";
 import { compact } from "@/components/charts";
 import { Dropdown, FilterChip, SearchInput } from "@/components/filter-kit";
 import { Pagination } from "@/components/pagination";
-import { BriefRequestDrawer, type BriefSeed } from "@/components/brief-request-drawer";
+import { BriefRequestDrawer, type BriefSeed, type BriefSubmit } from "@/components/brief-request-drawer";
 import {
   INVENTORY_COPY,
   athleteInv,
@@ -430,7 +430,7 @@ function cardWrap(i: number, node: React.ReactNode, key: string) {
 
 /* ============================================================== Packages */
 
-type Pkg = (typeof marketplacePackages)[number];
+export type Pkg = (typeof marketplacePackages)[number];
 
 const PKG_FILTERS: CatalogFilter<Pkg>[] = [
   {
@@ -464,13 +464,19 @@ const PKG_SORTERS: Record<string, (a: Pkg, b: Pkg) => number> = {
 export function PackagesCatalog({
   initial,
   demoParam,
+  items,
+  submit,
 }: {
   initial?: CatalogInitial;
   demoParam?: string;
+  /** Real packages from GET /catalogue/packages (P4-FE-01); fixtures when absent. */
+  items?: Pkg[];
+  /** Live brief submission; absent in demo mode. */
+  submit?: BriefSubmit;
 }) {
   const [seed, setSeed] = useState<BriefSeed | null>(null);
   const ctl = useCatalog<Pkg>({
-    items: marketplacePackages,
+    items: items ?? marketplacePackages,
     initial,
     demoParam,
     tab: "packages",
@@ -540,7 +546,7 @@ export function PackagesCatalog({
                   <button
                     type="button"
                     onClick={() =>
-                      setSeed({ kind: "package", name: p.name, price: p.price })
+                      setSeed({ kind: "package", name: p.name, price: p.price, packageId: p.id })
                     }
                     className="mt-3 w-full rounded-lg bg-primary py-2 text-[11px] font-medium text-cta-ink transition-colors hover:bg-primary-soft"
                   >
@@ -554,7 +560,7 @@ export function PackagesCatalog({
         </div>
       )}
     </CatalogShell>
-    <BriefRequestDrawer seed={seed} onClose={() => setSeed(null)} />
+    <BriefRequestDrawer seed={seed} onClose={() => setSeed(null)} submit={submit} />
     </>
   );
 }
@@ -913,5 +919,44 @@ export function MediaCatalog({
         </div>
       )}
     </CatalogShell>
+  );
+}
+
+/** A NIL job as the sponsor sees it — sell band only (P4-FE-01, P4-SEC-02). */
+export type LiveJob = { id: string; name: string; price: string };
+
+/**
+ * The live NIL job catalogue — P4-FE-01.
+ *
+ * What a signed-in sponsor browses in place of the fixture athlete inventory:
+ * the matrix does not let a sponsor list athletes before they are on the
+ * sponsor's own campaign, so the real inventory is the job catalogue at
+ * sponsor prices. Requesting one opens the same brief drawer.
+ */
+export function JobsCatalog({ jobs, submit }: { jobs: LiveJob[]; submit?: BriefSubmit }) {
+  const [seed, setSeed] = useState<BriefSeed | null>(null);
+  if (jobs.length === 0) {
+    return <p className="text-xs text-muted">BTG hasn&rsquo;t published any NIL jobs yet.</p>;
+  }
+  return (
+    <>
+      <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        {jobs.map((j) => (
+          <li key={j.id} className="rounded-xl border border-line bg-surface p-4">
+            <p className="text-[10px] font-medium uppercase tracking-wider text-faint">{j.id}</p>
+            <p className="mt-1 text-sm font-semibold tracking-tight">{j.name}</p>
+            <p className="mt-1 text-xs tabular-nums text-accent">{j.price} per athlete</p>
+            <button
+              type="button"
+              onClick={() => setSeed({ kind: "job", name: j.name, jobId: j.id, price: j.price })}
+              className="mt-3 w-full rounded-lg bg-primary py-2 text-[11px] font-medium text-cta-ink transition-colors hover:bg-primary-soft"
+            >
+              Request a brief
+            </button>
+          </li>
+        ))}
+      </ul>
+      <BriefRequestDrawer seed={seed} onClose={() => setSeed(null)} submit={submit} />
+    </>
   );
 }

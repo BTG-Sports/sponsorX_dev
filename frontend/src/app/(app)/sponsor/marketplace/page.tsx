@@ -4,10 +4,16 @@ import { EmptyState, SkeletonPage } from "@/components/states";
 import { demoState } from "@/lib/demo";
 import {
   AthleteCatalog,
+  JobsCatalog,
   MediaCatalog,
   PackagesCatalog,
   type CatalogInitial,
+  type LiveJob,
+  type Pkg,
 } from "@/components/marketplace-catalog";
+import { apiFetch, fetchActor } from "@/server/api";
+import { toJob, toPkg, type ApiJob, type ApiPackage } from "@/lib/marketplace-live";
+import { submitBrief } from "./actions";
 import {
   athleteInv,
   marketplacePackages,
@@ -26,7 +32,29 @@ import {
 
    Sponsor prices only. AthleteRate.amount never reaches this page — the
    field-level rule in guide §04, a §30 acceptance test.
+
+   LIVE vs DEMO (P4-FE-01). A signed-in sponsor sees the REAL catalogue —
+   GET /catalogue/packages and /catalogue/jobs, sponsor prices only — and the
+   drawer files a REAL brief through the submitBrief server function (DRAFT,
+   request-not-checkout, §17). Anyone else, or any ?demo= state, keeps the
+   fixture demo exactly as it was. In live mode the media tab is not shown:
+   BTG's media properties have no Phase 1 model, and a real sponsor must not
+   be shown fixture numbers as if they were inventory.
    -------------------------------------------------------------------------- */
+
+/** Real catalogue for a signed-in sponsor, or null for the fixture demo. */
+async function liveCatalogue(): Promise<{ packages: Pkg[]; jobs: LiveJob[] } | null> {
+  const who = await fetchActor().catch(() => null);
+  if (!who || who.status !== "linked") return null;
+  if (!who.actor.roles.some((r) => r === "SPONSOR_ADMIN" || r === "SPONSOR_ANALYST")) return null;
+  /* A signed-in sponsor gets the truth or an error page — never fixtures
+     presented as their marketplace. */
+  const [p, j] = await Promise.all([apiFetch("/catalogue/packages"), apiFetch("/catalogue/jobs")]);
+  if (!p.ok || !j.ok) throw new Error(`Catalogue unavailable (${p.status}/${j.status}).`);
+  const { packages } = (await p.json()) as { packages: ApiPackage[] };
+  const { jobs } = (await j.json()) as { jobs: ApiJob[] };
+  return { packages: packages.map(toPkg), jobs: jobs.map(toJob) };
+}
 
 const TABS = [
   { key: "packages", label: "Packages", count: marketplacePackages.length },
@@ -44,6 +72,9 @@ export default async function MarketplacePage({
   const demo = await demoState(searchParams);
   if (demo === "loading") return <SkeletonPage />;
   if (demo === "error") throw new Error("Demo error state");
+
+  const live = demo === null ? await liveCatalogue() : null;
+  if (live) return <LiveMarketplace live={live} />;
 
   const heading = (
     <div>
@@ -161,6 +192,32 @@ export default async function MarketplacePage({
           </Card>
         </>
       )}
+    </div>
+  );
+}
+
+/** The signed-in sponsor's marketplace — real packages, real jobs, real briefs. */
+function LiveMarketplace({ live }: { live: { packages: Pkg[]; jobs: LiveJob[] } }) {
+  return (
+    <div className="space-y-5">
+      <div>
+        <h1 className="text-xl font-semibold tracking-tight">Marketplace</h1>
+        <p className="mt-1 text-xs text-muted">
+          {live.packages.length} packages · {live.jobs.length} NIL jobs · curated by BTG
+        </p>
+      </div>
+      <section className="space-y-3">
+        <h2 className="text-sm font-semibold tracking-tight">Packages</h2>
+        <PackagesCatalog items={live.packages} submit={submitBrief} />
+      </section>
+      <section className="space-y-3">
+        <h2 className="text-sm font-semibold tracking-tight">NIL jobs</h2>
+        <JobsCatalog jobs={live.jobs} submit={submitBrief} />
+      </section>
+      <p className="text-[10px] leading-relaxed text-faint">
+        Sponsor prices. A request, not a purchase — BTG matches athletes, checks
+        category conflicts and prices the campaign, then follows up (§17).
+      </p>
     </div>
   );
 }

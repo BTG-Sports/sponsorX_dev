@@ -35,6 +35,21 @@ export const CURRENT_CONSENT_VERSION = "2026-09-01" as const;
 export const KNOWN_CONSENT_VERSIONS: readonly string[] = ["2026-09-01"] as const;
 
 /**
+ * The words each version stands for — what the fan actually reads.
+ *
+ * Written down 2026-09-24 with the first page that shows it (P6-FE-02):
+ * until then no screen had rendered a consent line, so no fan had seen any
+ * text under this version. The redeem page takes the wording from the API,
+ * never from its own copy, so the words on screen and the version stored
+ * with the claim cannot drift apart.
+ */
+export const CONSENT_TEXT: Record<string, string> = {
+  "2026-09-01":
+    "Email me my reward code. SponsorX uses this address only to send this " +
+    "reward — not for marketing — and does not share it with the sponsor.",
+};
+
+/**
  * What an address may be used for.
  *
  * Only one purpose exists in Phase 1, and that is deliberate: the fan gave
