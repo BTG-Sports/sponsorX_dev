@@ -176,12 +176,20 @@ export function EditionFlatplan({
   pages,
   backCover,
   closeDate,
+  initialOpenPage,
 }: {
   pages: EditionPage[];
   backCover: EditionSlot;
   closeDate: string;
+  /** Deep-link (?open=N from the inventory ledger); 0 opens the back cover. */
+  initialOpenPage?: number;
 }) {
-  const [open, setOpen] = useState<EditionPage | null>(null);
+  const [open, setOpen] = useState<EditionPage | null>(() => {
+    if (initialOpenPage === undefined) return null;
+    if (initialOpenPage === 0)
+      return { page: 0, title: "Back cover", slots: [backCover] };
+    return pages.find((p) => p.page === initialOpenPage) ?? null;
+  });
   const [closing, setClosing] = useState(false);
 
   /* Cover stands alone; the rest read as facing pairs, like the magazine. */

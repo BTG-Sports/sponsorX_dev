@@ -29,6 +29,7 @@ const ROUTES = [
   { href: "/admin/analytics", title: 'Analytics / Athlete Performance', ref: '§9 screen 11 · §22', surface: 'admin' },
   { href: "/admin/finance", title: 'Finance Workspace', ref: '§10', surface: 'admin' },
   { href: "/admin/next/editions", title: 'Edition Planning + Page Map (NEXT)', ref: 'NEXT spec §5.2 · P1-FE-21', surface: 'admin' },
+  { href: "/admin/next/inventory", title: 'Ad Slot Inventory Ledger (NEXT)', ref: 'NEXT spec §8 · P1-FE-22', surface: 'admin' },
   { href: "/r/DEMO_TOKEN", title: "Fan Redeem", ref: "§16", surface: "fan (no login)" },
 ];
 

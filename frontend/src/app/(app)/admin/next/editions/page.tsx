@@ -59,6 +59,11 @@ export default async function EditionPlanningPage({
   if (demo === "loading") return <SkeletonPage />;
   if (demo === "error") throw new Error("Demo error state");
 
+  /* ?open=N — the inventory ledger's "Map →" lands on the right page drawer. */
+  const sp = await searchParams;
+  const openParam = typeof sp.open === "string" ? Number(sp.open) : NaN;
+  const initialOpenPage = Number.isInteger(openParam) ? openParam : undefined;
+
   const heading = (
     <div className="flex flex-wrap items-end justify-between gap-4">
       <div>
@@ -203,6 +208,7 @@ export default async function EditionPlanningPage({
             pages={editionPages}
             backCover={editionBackCover}
             closeDate={studentEdition.closeDate}
+            initialOpenPage={initialOpenPage}
           />
         </section>
 
