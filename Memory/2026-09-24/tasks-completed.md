@@ -214,8 +214,44 @@ everything else on this edition.
 390/470/768, screenshots eyeballed. Board: `P1-FE-29` → Code review
 (HeckerCreatives, 2026-09-24).
 
-**Six NEXT screens shipped today** (flatplan, inventory ledger, advisor desk,
-revenue splits, points, rights). Stage 1's UI scaffold is now built except the
-design-gated set: the public four (P1-FE-24…27) and P1-FE-28, all waiting on
-P1-ART-08 / the frontEndVersion2 rebuild. Google Sheet still needs its hand
-mirror at end of day.
+## `P1-FE-27` — the free digital edition, readable
+
+*Code review. Built despite the P1-ART-08 gate, deliberately: this is the one
+design-gated screen the spec constrains hard enough that the rebuild risk is
+minimal — principle 10 makes it a V1 product, and the acceptance forbids the
+one thing a designer would add (a long-form type scale). Re-check against
+ART-08 when it lands; noted on the row.*
+
+`(public)/next/northside-high/fall-2026`: cover with a plain-anchor contents
+(sections + minutes), then **the flatplan walked in page order** — articles on
+the editorial pages, sold slots as sponsor cards, open slots as the house ad
+that names the student sales model ("every ad in this magazine was sold by a
+student — ask any of them for their code": the funnel, live from day one),
+the 1-of-1 back cover pitch, and a masthead footer carrying the consent line.
+Bylines carry class years, because a student's public portfolio is this page
+existing.
+
+Decisions worth keeping:
+
+- **Reserved slots do not render.** A hold is not public information — the
+  reader shows sold and open only.
+- **Unknown editions 404.** One fixture edition exists; everything else is
+  unreachable, which is the exact unpublished-is-unreachable behavior
+  `P9-FE-07` later enforces against `EditionState`. The fixture behavior and
+  the wired behavior agree by construction.
+- **No new type scale** — prose is the house base/leading inside a measure.
+  The named scope error, not committed.
+- Two new invariants: every article opens on an *editorial* flatplan page,
+  and **no byline belongs to an unapproved applicant** (caught live: the
+  season-openers piece was first bylined to Maya Chen's fellow applicant
+  Priya Nair, who isn't enrolled yet).
+
+71 frontend tests green, build and eslint clean, no page overflow at 390/470,
+screenshots eyeballed. Board: `P1-FE-27` → Code review (HeckerCreatives,
+2026-09-24).
+
+**Seven NEXT screens shipped today.** Stage 1's UI scaffold is now built
+except the true audience-voice set — P1-FE-24, 25, 26 (public landing, apply
+wizard, school adoption) and P1-FE-28 (claim flow) — which genuinely need
+P1-ART-08 / the frontEndVersion2 rebuild before they're worth pixels. Google
+Sheet still needs its hand mirror at end of day.
