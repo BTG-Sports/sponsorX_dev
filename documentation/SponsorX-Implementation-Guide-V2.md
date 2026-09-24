@@ -932,7 +932,7 @@ export async function zohoPushSponsor({ data }: Job<{ sponsorId: string }>) {
   if (s.lastSyncOrigin === "ZOHO" && s.lastSyncHash === hash) return   // echo, drop it
 
   const zohoId = await zoho.upsertAccount({
-    ...payload, External_Id: s.id,          // dedupe key, per §18
+    ...payload, SponsorX_ID: s.id,          // dedupe key, per §18 (field-mapping §5.1)
   })
   await db.sponsor.update({ where: { id: s.id }, data: {
     zohoAccountId: zohoId, lastSyncOrigin: "SPONSORX", lastSyncHash: hash,
