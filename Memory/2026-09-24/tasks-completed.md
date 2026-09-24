@@ -206,3 +206,9 @@ Also found: `stateCodesFor("Kigali, RW")` would have targeted "RW" as a US
 state — limited to the 50 states + DC.
 
 Verification: root build clean, lint clean, backend 1230 passed, frontend 94.
+
+**Closed to Done (user's instruction, acceptance met):** `P2-BE-09`,
+`P6-BE-05`, `P3-DATA-01`, `P8-DATA-01`, `P8-INT-07`, `P8-PMO-01`, `P4-SEC-02`,
+`P6-SEC-02`, `P6-SEC-03`, `P8-SEC-01`, `P8-SEC-03`. Frontend Code review rows
+left as they are (including `P4-FE-01`, `P6-FE-02`, and HeckerCreatives'
+eleven). Stage Progress snapshot for today refreshed.
