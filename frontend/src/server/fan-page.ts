@@ -116,6 +116,13 @@ export function renderFanPage(token: string, v: TokenView, flash: Flash): { html
       <h1 class="bad">This reward isn't active right now</h1>${offer(v)}
       <p>The sponsor has paused or ended this offer.</p>`) };
   }
+  /* A state this page doesn't know must fail SAFE — falling through used to
+     render the LIVE claim forms for it (or throw on a missing consent block,
+     a bare 500 on the most public surface). Contract drift renders the retry
+     page instead. (QA pass 4.) */
+  if (v.state !== "LIVE" || !v.consent) {
+    return { status: 503, html: renderUnavailable() };
+  }
 
   /* LIVE */
   const msg =

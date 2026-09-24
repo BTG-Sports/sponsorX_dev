@@ -38,9 +38,9 @@ export function StudentCodeCard({
   };
 
   /* Presentation mode is modal in fact, so make it modal in behavior: focus
-     moves onto the overlay (it IS the close button, so Tab has nowhere to
-     wander), the page behind cannot scroll, and focus returns to the trigger
-     on close. */
+     moves onto the dialog's single control (the full-surface close button),
+     Tab is pinned, the page behind cannot scroll, and focus returns to the
+     trigger on close. */
   const overlayRef = useRef<HTMLButtonElement>(null);
   useEffect(() => {
     if (!presenting) return;

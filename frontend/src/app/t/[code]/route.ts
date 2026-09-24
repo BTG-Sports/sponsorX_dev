@@ -50,6 +50,9 @@ export async function GET(
          destination the campaign has already changed. */
       cache: "no-store",
       headers: edgeHeaders(req),
+      /* A HUNG API must not hang the fan (venue wifi is the normal case);
+         the catch below already handles the abort as "not counted". */
+      signal: AbortSignal.timeout(4000),
     });
     if (response.ok) {
       const body = (await response.json()) as { destinationUrl?: string };
@@ -94,5 +97,12 @@ export async function GET(
     }
   });
 
-  return Response.redirect(destinationUrl, 302);
+  /* Defense in depth: the API's WebUrl refine should make this impossible,
+     but Response.redirect throws a TypeError on anything new URL() rejects —
+     and this route's contract is that nothing strands the fan. */
+  try {
+    return Response.redirect(destinationUrl, 302);
+  } catch {
+    return new Response(null, { status: 302, headers: { Location: FALLBACK_URL } });
+  }
 }

@@ -240,7 +240,7 @@ export default async function EditionReaderPage({
               The back cover — 1 of 1
             </p>
             <p className="mt-1.5 text-sm">
-              The most-seen page of the print run is still open for{" "}
+              The most-seen page of the planned print run is still open for{" "}
               {studentEdition.label} — {money(SLOT_RACK_CENTS.BACK_COVER)},
               until {studentEdition.closeDate}.
             </p>

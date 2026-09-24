@@ -166,11 +166,26 @@ describe("P6-FE-02 · real claim and redemption through the API", () => {
 describe("P8-SEC-03 · the fan's address is forwarded only with the edge key", () => {
   it("adds both headers when SPONSORX_EDGE_KEY is set, none when it is not", async () => {
     const { edgeHeaders } = await import("@/server/edge");
-    const req = new Request("https://x/r/t", { headers: { "x-forwarded-for": "203.0.113.7, 10.0.0.1" } });
+    /* The LAST hop is the one the trusted proxy saw; the first is whatever
+       the client typed into its own X-Forwarded-For. This test used to pin
+       [0] — which let `curl -H "X-Forwarded-For: 8.8.8.8"` mint a fresh
+       rate-limit bucket per request (QA pass 4). */
+    const req = new Request("https://x/r/t", { headers: { "x-forwarded-for": "8.8.8.8, 203.0.113.7" } });
     delete process.env.SPONSORX_EDGE_KEY;
     expect(edgeHeaders(req)).toEqual({});
     process.env.SPONSORX_EDGE_KEY = "k".repeat(32);
     expect(edgeHeaders(req)).toEqual({ "x-sponsorx-client-ip": "203.0.113.7", "x-sponsorx-edge-key": "k".repeat(32) });
+    delete process.env.SPONSORX_EDGE_KEY;
+  });
+
+  it("a client-forged single-entry header still resolves to what the proxy saw", async () => {
+    const { edgeHeaders } = await import("@/server/edge");
+    process.env.SPONSORX_EDGE_KEY = "k".repeat(32);
+    /* Behind the proxy there is always at least the real socket address as
+       the final entry; a lone forged value only exists when the proxy chain
+       appends after it — covered above. Single entry = direct connection. */
+    const req = new Request("https://x/r/t", { headers: { "x-forwarded-for": "198.51.100.4" } });
+    expect(edgeHeaders(req)).toEqual({ "x-sponsorx-client-ip": "198.51.100.4", "x-sponsorx-edge-key": "k".repeat(32) });
     delete process.env.SPONSORX_EDGE_KEY;
   });
 });
