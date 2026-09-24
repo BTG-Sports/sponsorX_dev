@@ -78,9 +78,13 @@ export default function LoginPage() {
               },
               elements: {
                 /* The glass card already provides the chrome, so Clerk's own
-                   card would double it up. */
-                cardBox: "shadow-none border-0 bg-transparent w-full",
-                card: "shadow-none border-0 bg-transparent px-0 py-0",
+                   card would double it up. The width overrides matter at
+                   390px: .cl-card is 25rem wide by default, which bursts out
+                   of the glass frame on phones (found in the 2026-09-24 QA
+                   sweep). */
+                rootBox: "w-full",
+                cardBox: "shadow-none border-0 bg-transparent w-full max-w-full",
+                card: "shadow-none border-0 bg-transparent px-0 py-0 w-full max-w-full",
                 footer: "bg-transparent",
               },
             }}

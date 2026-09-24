@@ -1,7 +1,10 @@
 import { Badge, Button, Card, Meter, SectionHeading } from "@/components/ui";
 import { CountUp } from "@/components/count-up";
 import { EmptyState, SkeletonPage } from "@/components/states";
-import { ICONS } from "@/components/portal-nav";
+/* icons.ts, not portal-nav: this is a server component, and imports from a
+   "use client" module arrive as opaque references — the trophy came through
+   as undefined and the hero square rendered empty (QA sweep 2026-09-24). */
+import { ICONS } from "@/components/icons";
 import { demoState } from "@/lib/demo";
 import {
   POINT_RULES,
@@ -131,7 +134,11 @@ export default async function StudentPointsPage({
                     +{a.points}
                   </span>
                   <span className="min-w-0 flex-1">
-                    <span className="block truncate text-sm">{a.label}</span>
+                    {/* a ledger is a record — wrap to two lines rather than
+                        truncating the label into gibberish at 390px */}
+                    <span className="line-clamp-2 text-sm leading-snug">
+                      {a.label}
+                    </span>
                     <span className="mt-0.5 block text-[10px] text-faint">
                       {a.on}
                     </span>

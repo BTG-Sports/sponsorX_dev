@@ -634,6 +634,34 @@ body {
 
 .sx-login {
   background: #0a0c10;
+  /* "Fixed-dark in BOTH themes" enforced, not just claimed: [data-theme="light"]
+     re-points these on <html>, and the card interior reads them (bg-surface/70,
+     border-line/60, text-muted, text-primary-soft, text-accent). Without this
+     re-pin a Frost user got Clerk's night-scene ink over white/70 glass —
+     found in the 2026-09-24 QA sweep. Values are the :root dark literals. */
+  --sx-surface: #12151d;
+  --sx-surface-2: #1a1f2b;
+  --sx-line: #242a38;
+  --sx-line-soft: #191d29;
+  --sx-text: #f4f5f7;
+  --sx-text-muted: #8a90a2;
+  --sx-text-faint: #7e88a0;
+  --sx-cta-ink: #0a0c10;
+  --sx-primary: #2e9bf5;
+  --sx-primary-soft: #63b4f8;
+  --sx-accent: #f97a1f;
+  --sx-accent-soft: #fb923c;
+}
+
+/* Clerk's card is 25rem wide by its own runtime-injected styles, which land
+   after the Tailwind sheet and out-rank the appearance classes — at 390px the
+   widget burst out of the glass frame (QA sweep 2026-09-24). Two-class
+   specificity wins without !important. */
+.sx-login-card .cl-rootBox,
+.sx-login-card .cl-cardBox,
+.sx-login-card .cl-card {
+  width: 100%;
+  max-width: 100%;
 }
 
 /* stands silhouette up top, pitch glow at the horizon */

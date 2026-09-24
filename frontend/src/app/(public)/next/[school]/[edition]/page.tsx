@@ -179,14 +179,27 @@ export default async function EditionReaderPage({
                   </p>
 
                   {article.gallery && (
-                    <div className="mt-5 grid grid-cols-3 gap-2" aria-hidden="true">
-                      {Array.from({ length: 6 }, (_, i) => (
-                        <div
-                          key={i}
-                          className="aspect-[4/3] rounded-lg bg-[repeating-linear-gradient(135deg,var(--sx-surface-2),var(--sx-surface-2)_6px,color-mix(in_srgb,var(--sx-line)_50%,transparent)_6px,color-mix(in_srgb,var(--sx-line)_50%,transparent)_7px)]"
-                        />
-                      ))}
-                    </div>
+                    <>
+                      {/* Twelve frames because the headline says twelve — and
+                          each placeholder names itself, so "pending" reads as
+                          intent rather than a broken image grid. */}
+                      <div className="mt-5 grid grid-cols-3 gap-2" aria-hidden="true">
+                        {Array.from({ length: 12 }, (_, i) => (
+                          <div
+                            key={i}
+                            className="grid aspect-[4/3] place-items-center rounded-lg bg-[repeating-linear-gradient(135deg,var(--sx-surface-2),var(--sx-surface-2)_6px,color-mix(in_srgb,var(--sx-line)_50%,transparent)_6px,color-mix(in_srgb,var(--sx-line)_50%,transparent)_7px)]"
+                          >
+                            <span className="text-[10px] font-semibold tabular-nums text-faint">
+                              {String(i + 1).padStart(2, "0")}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                      <p className="mt-2 text-[11px] text-faint">
+                        Photos arrive with the print files —{" "}
+                        {studentEdition.publishTarget}.
+                      </p>
+                    </>
                   )}
 
                   <div className="mt-5 space-y-4 text-base leading-relaxed text-text/90">

@@ -1740,7 +1740,8 @@ export const studentAssignments = [
     due: "Sep 12",
     state: "PUBLISHED" as DeliverableState,
     points: 25,
-    brief: "Ran across pages 6–7 of the digital preview edition.",
+    brief:
+      "Published in the digital preview edition; print placement lands with the final flatplan.",
   },
 ];
 
@@ -1969,7 +1970,11 @@ export const editionPages: EditionPage[] = [
       { code: "P16-HALFB", kind: "HALF", state: "OPEN" },
     ],
   },
-  { page: 17, title: "Records & standings", editorial: true, slots: [] },
+  /* Titled for what the reader actually runs there — the concession-stand
+     money feature. The flatplan and the public reader must tell one story
+     about page 17 (the invariant suite pins articles to editorial pages, so
+     the feature cannot live on slotted p16 "Concessions & program"). */
+  { page: 17, title: "Money & program", editorial: true, slots: [] },
   { page: 18, title: "Alumni corner", editorial: true, slots: [] },
   { page: 19, title: "Masthead & credits", editorial: true, slots: [] },
   {
@@ -2442,6 +2447,7 @@ export const POINT_RULES: Array<{
   how: string;
 }> = [
   { reason: "ARTICLE", points: 50, label: "Article approved", how: "A written piece clears advisor review for the edition." },
+  { reason: "PHOTO", points: 25, label: "Photo set published", how: "A photo assignment clears review and runs in the edition." },
   { reason: "INTERVIEW", points: 25, label: "Interview delivered", how: "A recorded interview lands and is used by a piece." },
   { reason: "APPOINTMENT", points: 25, label: "Sales meeting held", how: "You sit down with a business — whether or not it closes." },
   { reason: "SALES_500", points: 100, label: "Every $500 closed", how: "Recorded by SponsorX when your closed sales cross each $500 mark." },
@@ -2451,11 +2457,16 @@ export const POINT_RULES: Array<{
 /** StudentPointAccrual rows — reasons from the spec §5.5 vocabulary.
  *  Integers. Not cents. Nothing here may render with a currency sign. */
 export const studentPoints = {
-  balance: 300,
+  balance: 325,
   accruals: [
+    /* pt-05's date is the advisor queue's clearedAt for the same piece
+       (adv-05) — the two screens must tell one story about one approval. */
+    { id: "pt-05", reason: "ARTICLE", label: "Concession stand feature approved", points: 50, on: "Sep 23" },
     { id: "pt-06", reason: "SALES_500", label: "Second $500 in closed sales", points: 100, on: "Sep 18" },
-    { id: "pt-05", reason: "ARTICLE", label: "Concession stand feature approved", points: 50, on: "Sep 14" },
     { id: "pt-04", reason: "SALES_500", label: "First $500 in closed sales", points: 100, on: "Sep 12" },
+    /* asg-06 is PUBLISHED, so its 25 pts have accrued — the assignments
+       screen promises them and the ledger must agree. */
+    { id: "pt-01", reason: "PHOTO", label: "Season opener gallery published", points: 25, on: "Sep 12" },
     { id: "pt-03", reason: "INTERVIEW", label: "Coach Alvarez pre-season interview", points: 25, on: "Sep 8" },
     { id: "pt-02", reason: "APPOINTMENT", label: "Sales meeting held — Rosa's Bakery", points: 25, on: "Sep 1" },
   ],

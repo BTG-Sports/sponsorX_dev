@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Badge, Button, Card } from "./ui";
 import { ICONS, type NavIcon } from "./portal-nav";
+import { useDrawerFocus } from "./use-drawer-focus";
 import type { DeliverableState } from "@/lib/fixtures";
 
 /* --------------------------------------------------------------------------
@@ -143,6 +144,7 @@ export function StudentAssignments({
   const [closing, setClosing] = useState(false);
 
   const open = rows.find((r) => r.id === openId) ?? null;
+  const { panelRef, onKeyDown } = useDrawerFocus<HTMLElement>(Boolean(open));
 
   const shown = useMemo(
     () => (filter === "all" ? rows : rows.filter((r) => bucket(r.state) === filter)),
@@ -239,7 +241,9 @@ export function StudentAssignments({
                 <Glyph icon={KIND_ICON[a.kind]} />
               </span>
               <span className="min-w-0 flex-1">
-                <span className="block truncate text-sm font-medium">
+                {/* two lines, not a truncate — at 390px the badge column left
+                    titles ~15 characters, which reads as gibberish */}
+                <span className="line-clamp-2 text-sm font-medium leading-snug">
                   {a.title}
                 </span>
                 <span className="mt-0.5 block text-xs text-muted">
@@ -264,6 +268,7 @@ export function StudentAssignments({
           role="dialog"
           aria-modal="true"
           aria-label={open.title}
+          onKeyDown={onKeyDown}
         >
           <div
             onClick={dismiss}
@@ -273,6 +278,8 @@ export function StudentAssignments({
             ].join(" ")}
           />
           <aside
+            ref={panelRef}
+            tabIndex={-1}
             onAnimationEnd={(e) => {
               if (closing && e.animationName === "sx-drawer-out") closed();
             }}

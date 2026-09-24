@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Badge, Button } from "./ui";
 import { initials } from "./hero";
+import { useDrawerFocus } from "./use-drawer-focus";
 import {
   SLOT_RACK_CENTS,
   money,
@@ -191,6 +192,7 @@ export function EditionFlatplan({
     return pages.find((p) => p.page === initialOpenPage) ?? null;
   });
   const [closing, setClosing] = useState(false);
+  const { panelRef, onKeyDown } = useDrawerFocus<HTMLElement>(Boolean(open));
 
   /* Cover stands alone; the rest read as facing pairs, like the magazine. */
   const [cover, ...rest] = pages;
@@ -288,6 +290,7 @@ export function EditionFlatplan({
           role="dialog"
           aria-modal="true"
           aria-label={open.page === 0 ? "Back cover" : `Page ${open.page}`}
+          onKeyDown={onKeyDown}
         >
           <div
             onClick={dismiss}
@@ -297,6 +300,8 @@ export function EditionFlatplan({
             ].join(" ")}
           />
           <aside
+            ref={panelRef}
+            tabIndex={-1}
             onAnimationEnd={(e) => {
               if (closing && e.animationName === "sx-drawer-out") closed();
             }}

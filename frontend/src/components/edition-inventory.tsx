@@ -119,6 +119,9 @@ export function EditionInventory({
     return out.sort((a, b) => (key(a) - key(b)) * dir || a.code.localeCompare(b.code));
   }, [rows, q, state, kind, sort, dir]);
 
+  const ariaSort = (key: SortKey) =>
+    sort === key ? (dir === 1 ? ("ascending" as const) : ("descending" as const)) : undefined;
+
   const header = (label: string, key: SortKey, alignRight = false) => (
     <button
       type="button"
@@ -174,7 +177,7 @@ export function EditionInventory({
             value: k,
             label: KIND_LABEL[k],
           }))}
-          onChange={(v) => apply(q, v, kind)}
+          onChange={(v) => apply(q, state, v)}
           tone="admin"
         />
       </div>
@@ -210,7 +213,7 @@ export function EditionInventory({
         <table className="w-full min-w-[38rem] text-left text-xs">
           <thead>
             <tr className="border-b border-line bg-surface-2/50">
-              <th className="px-4 py-2.5">{header("Slot / page", "page")}</th>
+              <th aria-sort={ariaSort("page")} className="px-4 py-2.5">{header("Slot / page", "page")}</th>
               <th className="px-3 py-2.5">
                 <span className="text-[10px] font-semibold uppercase tracking-wide text-muted">
                   Kind
@@ -226,8 +229,8 @@ export function EditionInventory({
                   Buyer / held for
                 </span>
               </th>
-              <th className="px-3 py-2.5 text-right">{header("Rack", "rack", true)}</th>
-              <th className="px-3 py-2.5 text-right">{header("Value", "value", true)}</th>
+              <th aria-sort={ariaSort("rack")} className="px-3 py-2.5 text-right">{header("Rack", "rack", true)}</th>
+              <th aria-sort={ariaSort("value")} className="px-3 py-2.5 text-right">{header("Value", "value", true)}</th>
               <th className="px-3 py-2.5" />
             </tr>
           </thead>

@@ -106,20 +106,30 @@ export function JoinSubmitted({
             <strong className="font-semibold">not</strong> hold up your review — it only stops
             you accepting a campaign once you&apos;re approved.
           </p>
+          {/* Wired with the application-status screen (P3-FE-02) — until then
+              these are honestly disabled, not silently inert. */}
           <div className="mt-4 flex gap-2.5">
             <button
               type="button"
-              className="min-h-11 rounded-lg border border-warn/60 px-4 py-2.5 text-sm font-semibold text-warn transition-colors hover:bg-warn/10"
+              disabled
+              title="Guardian reminders arrive with the application-status screen (P3-FE-02)"
+              className="min-h-11 cursor-not-allowed rounded-lg border border-warn/60 px-4 py-2.5 text-sm font-semibold text-warn opacity-50"
             >
               Resend email
             </button>
             <button
               type="button"
-              className="min-h-11 rounded-lg border border-line px-4 py-2.5 text-sm font-medium text-text transition-colors hover:bg-surface-2"
+              disabled
+              title="Guardian changes arrive with the application-status screen (P3-FE-02)"
+              className="min-h-11 cursor-not-allowed rounded-lg border border-line px-4 py-2.5 text-sm font-medium text-text opacity-50"
             >
               Change guardian
             </button>
           </div>
+          <p className="mt-2 text-[11px] text-faint">
+            Reminder and guardian-change controls go live with the application
+            status page.
+          </p>
         </div>
       )}
 

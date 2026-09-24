@@ -12,9 +12,10 @@ import { JoinWizard } from "@/components/join-wizard";
    completion. Below lg the panel disappears and the phone-first view is
    exactly the P1-ART-07 comps.
 
-   Fixtures-only: submit transitions state, no POST — P3-FE-01 wires the API.
-   ?demo=minor lands on section 1 with an under-18 DOB; ?demo=submitted lands
-   on the after-submit state with the guardian card.
+   Wired (P3-FE-01): submit POSTs the real application through the server
+   action in ./actions.ts. Demo modes stay simulation — ?demo=minor lands on
+   section 1 with an under-18 DOB, ?demo=submitted on the after-submit state
+   with the guardian card, and neither ever reaches the API.
    -------------------------------------------------------------------------- */
 
 const TRUST = [

@@ -91,8 +91,15 @@ export default async function StudentHomePage({
   const due = [...studentAssignments]
     .filter((a) => a.state === "NOT_STARTED")
     .sort((x, y) => dueKey(x.due) - dueKey(y.due));
+  /* Same buckets as the assignments screen (student-assignments.tsx):
+     APPROVED and beyond is done, not "in review" — the two screens sit one
+     tap apart and must give the same count. */
   const inFlight = studentAssignments.filter(
-    (a) => a.state !== "NOT_STARTED" && a.state !== "PUBLISHED" && a.state !== "VERIFIED",
+    (a) =>
+      a.state !== "NOT_STARTED" &&
+      a.state !== "APPROVED" &&
+      a.state !== "PUBLISHED" &&
+      a.state !== "VERIFIED",
   );
   const pipeline = studentProspects.filter((p) => p.stage !== "REJECTED");
   const meeting = studentProspects.find((p) => p.stage === "MEETING");
@@ -370,11 +377,17 @@ export default async function StudentHomePage({
               ) : (
                 <ul className="space-y-2.5">
                   {inFlight.map((a) => (
-                    <li key={a.id} className="flex items-center justify-between gap-3">
-                      <span className="min-w-0 truncate text-xs">{a.title}</span>
-                      <Badge tone="primary">
-                        {STUDENT_ASSIGNMENT_COPY[a.state]}
-                      </Badge>
+                    <li key={a.id} className="flex items-start justify-between gap-3">
+                      {/* two lines beats a truncate that eats the title while
+                          the badge wraps — the row is a record, not a teaser */}
+                      <span className="line-clamp-2 min-w-0 text-xs leading-snug">
+                        {a.title}
+                      </span>
+                      <span className="shrink-0">
+                        <Badge tone="primary">
+                          {STUDENT_ASSIGNMENT_COPY[a.state]}
+                        </Badge>
+                      </span>
                     </li>
                   ))}
                 </ul>

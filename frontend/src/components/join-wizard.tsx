@@ -79,6 +79,7 @@ export function JoinWizard({ demo }: { demo: Demo }) {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [save, setSave] = useState<"idle" | "saving" | "saved">("idle");
   const [reviewing, setReviewing] = useState(false);
+  const [editingRestrictions, setEditingRestrictions] = useState(false);
   const headingRef = useRef<HTMLHeadingElement>(null);
   const stepRef = useRef<HTMLDivElement>(null);
 
@@ -132,6 +133,13 @@ export function JoinWizard({ demo }: { demo: Demo }) {
   const [submitMsgs, setSubmitMsgs] = useState<string[]>([]);
 
   const submit = async () => {
+    /* Demo renders never reach the API — a shared ?demo=minor link walked to
+       the end would otherwise file a genuine application full of fixture
+       names. Simulate the success path locally instead. */
+    if (demo) {
+      persist({ ...draft, phase: "submitted", submittedAt: new Date().toISOString() });
+      return;
+    }
     setSubmitting(true);
     setSubmitMsgs([]);
     const result = await submitJoinApplication(draftToApplication(draft));
@@ -159,9 +167,22 @@ export function JoinWizard({ demo }: { demo: Demo }) {
     }
   };
 
+  /* Replace only this section's marks; API-reported errors on sections the
+     user hasn't revisited yet must survive navigation, or a failed submit's
+     guidance evaporates one step at a time. */
+  const mergeErrors = (errs: Record<string, string>) =>
+    setErrors((prev) => ({
+      ...Object.fromEntries(
+        Object.entries(prev).filter(
+          ([key]) => !section.fields.some((f) => f.key === key),
+        ),
+      ),
+      ...errs,
+    }));
+
   const goNext = () => {
     const errs = validateSection(section, draft.answers);
-    setErrors(errs);
+    mergeErrors(errs);
     if (Object.keys(errs).length > 0) {
       const first = section.fields.find((f) => errs[f.key]);
       if (first)
@@ -179,7 +200,7 @@ export function JoinWizard({ demo }: { demo: Demo }) {
   };
 
   const goBack = () => {
-    setErrors({});
+    mergeErrors({});
     setDir(-1);
     if (draft.step === 0) persist({ ...draft, phase: "intro" });
     else persist({ ...draft, step: draft.step - 1 });
@@ -199,6 +220,49 @@ export function JoinWizard({ demo }: { demo: Demo }) {
 
   /* ------------------------------------------------------------ submitted */
   if (draft.phase === "submitted") {
+    /* Restrictions edit in place — deliberately NOT re-entering the step flow.
+       That path used to end at "Submit application", which POSTed a second,
+       duplicate application (restrictions aren't even part of the intake
+       payload). Edits persist with the local draft; BTG confirms restrictions
+       during review either way. */
+    if (editingRestrictions) {
+      return (
+        <div className="px-6 py-10">
+          <button
+            type="button"
+            onClick={() => setEditingRestrictions(false)}
+            className="flex min-h-11 items-center gap-1.5 text-sm text-muted transition-colors hover:text-text"
+          >
+            <svg viewBox="0 0 16 16" className="size-4" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M10 3.5L5.5 8l4.5 4.5" />
+            </svg>
+            Back
+          </button>
+          <h1 className="mt-4 text-2xl font-semibold tracking-tight">
+            Restrictions &amp; conflicts
+          </h1>
+          <p className="mt-1 text-sm text-muted">
+            Changes save with your application on this device — nothing is
+            re-submitted. BTG confirms restrictions during review.
+          </p>
+          <div className="mt-6">
+            <JoinRestrictionsStep
+              deals={draft.deals}
+              excluded={draft.excluded}
+              onDealsChange={(deals) => persist({ ...draft, deals })}
+              onExcludedChange={(excluded) => persist({ ...draft, excluded })}
+            />
+          </div>
+          <button
+            type="button"
+            onClick={() => setEditingRestrictions(false)}
+            className="mt-8 min-h-12 w-full rounded-xl bg-primary px-5 py-3.5 text-base font-semibold text-cta-ink transition-colors hover:bg-primary-soft"
+          >
+            Done — back to your application
+          </button>
+        </div>
+      );
+    }
     if (reviewing) {
       return (
         <div className="px-6 py-10">
@@ -258,10 +322,7 @@ export function JoinWizard({ demo }: { demo: Demo }) {
         submittedAt={draft.submittedAt ?? ""}
         refId={draft.refId}
         onReviewAnswers={() => setReviewing(true)}
-        onUpdateRestrictions={() => {
-          setDir(1);
-          persist({ ...draft, phase: "steps", step: restrictionsIdx });
-        }}
+        onUpdateRestrictions={() => setEditingRestrictions(true)}
       />
     );
   }

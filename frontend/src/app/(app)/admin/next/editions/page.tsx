@@ -5,6 +5,7 @@ import { EmptyState, SkeletonPage } from "@/components/states";
 import { demoState } from "@/lib/demo";
 import {
   SLOT_RACK_CENTS,
+  advisorContentQueue,
   clearanceQueue,
   editionBackCover,
   editionPages,
@@ -30,12 +31,16 @@ import {
    real AdSlot ledger.
    -------------------------------------------------------------------------- */
 
+/* Every gate derives from the fixture the rest of the app renders — a number
+   typed here by hand drifts from the advisor desk the moment either changes. */
+const piecesCleared = advisorContentQueue.filter((c) => c.clearedAt).length;
+
 const GATES: Array<{ key: string; label: string; sub: string; pass: boolean }> = [
   {
     key: "content",
     label: "Content ready",
-    sub: "9 of 14 pieces approved",
-    pass: false,
+    sub: `${piecesCleared} of ${advisorContentQueue.length} pieces approved`,
+    pass: piecesCleared === advisorContentQueue.length,
   },
   {
     key: "rights",
