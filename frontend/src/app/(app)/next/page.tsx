@@ -225,12 +225,10 @@ export default async function StudentHomePage({
           </Card>
         </Link>
         {/* Points — deliberately unlike money (spec §5.5): violet, "pts"
-           spelled out, no $ anywhere in this tile. Inert until P1-FE-30. */}
-        <Card className="p-3.5">
-          <p
-            className="text-[11px] font-medium uppercase tracking-wide text-muted"
-            title="Points detail arrives with P1-FE-30"
-          >
+           spelled out, no $ anywhere in this tile. */}
+        <Link href="/next/points" className="group block">
+        <Card className="p-3.5 transition-colors group-hover:bg-surface-2/70">
+          <p className="text-[11px] font-medium uppercase tracking-wide text-muted">
             Points
           </p>
           <p className="mt-1 flex items-baseline gap-1.5">
@@ -243,6 +241,7 @@ export default async function StudentHomePage({
             recognition, not pay — points never convert on this page
           </p>
         </Card>
+        </Link>
       </div>
 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_20rem]">

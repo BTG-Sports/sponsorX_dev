@@ -5,6 +5,7 @@ import {
   student,
   studentAssignments,
   studentEdition,
+  POINT_RULES,
   studentPoints,
   studentProspects,
   studentSales,
@@ -25,17 +26,22 @@ describe("student portal fixtures (P1-FE-19)", () => {
   });
 
   it("points are integers with spec §5.5 reasons — never cents", () => {
-    const reasons = new Set([
-      "ARTICLE",
-      "INTERVIEW",
-      "APPOINTMENT",
-      "SALES_500",
-      "VIEWS_BONUS",
-    ]);
+    const reasons = new Set(POINT_RULES.map((r) => r.reason));
     for (const a of studentPoints.accruals) {
       expect(Number.isInteger(a.points)).toBe(true);
       expect(a.points).toBeLessThan(1000); // a cents value would betray itself
       expect(reasons.has(a.reason)).toBe(true);
+    }
+  });
+
+  it("fixed-value reasons accrue exactly their rule's value (P1-FE-30)", () => {
+    const fixed = new Map(
+      POINT_RULES.filter((r) => r.points !== null).map((r) => [r.reason, r.points]),
+    );
+    for (const a of studentPoints.accruals) {
+      if (fixed.has(a.reason)) {
+        expect(a.points, `${a.id} (${a.reason})`).toBe(fixed.get(a.reason));
+      }
     }
   });
 

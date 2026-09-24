@@ -2188,6 +2188,22 @@ export const advisorContentQueue: ReviewContentItem[] = [
   },
 ];
 
+/** The §5.5 earn vocabulary — StudentPointAccrual.reason with its fixed
+ *  value. VIEWS_BONUS is the editor's call per piece, so its value is null
+ *  here and the accrual row carries whatever was awarded. */
+export const POINT_RULES: Array<{
+  reason: string;
+  points: number | null;
+  label: string;
+  how: string;
+}> = [
+  { reason: "ARTICLE", points: 50, label: "Article approved", how: "A written piece clears advisor review for the edition." },
+  { reason: "INTERVIEW", points: 25, label: "Interview delivered", how: "A recorded interview lands and is used by a piece." },
+  { reason: "APPOINTMENT", points: 25, label: "Sales meeting held", how: "You sit down with a business — whether or not it closes." },
+  { reason: "SALES_500", points: 100, label: "Every $500 closed", how: "Recorded by SponsorX when your closed sales cross each $500 mark." },
+  { reason: "VIEWS_BONUS", points: null, label: "Views bonus", how: "Editor's call when a digital piece travels — value set per piece." },
+];
+
 /** StudentPointAccrual rows — reasons from the spec §5.5 vocabulary.
  *  Integers. Not cents. Nothing here may render with a currency sign. */
 export const studentPoints = {
