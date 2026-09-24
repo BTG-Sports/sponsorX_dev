@@ -167,3 +167,19 @@ Live inbound confirmed: an account renamed in the sandbox arrived at
 name (origin ZOHO); the name was then restored. Staging now holds 10 sandbox
 sample sponsors ("… (Sample)") — test data. #48 (`main_development` → `main`,
 tracker only) is open so the two branches match.
+
+## P8-DATA-01 — simulated pilot cohort (rcfworks)
+
+**User decision:** "whatever we can simulate, we simulate" — a two-person team
+cannot wait on BTG for data. The acceptance was amended from "the real
+first-25" to a representative simulated cohort, replaced by the real one at
+launch through the same `cohort:import` path (Phase 1 doc + tracker).
+
+Staging now holds: **25 simulated athletes** from
+`backend/scripts/pilot-cohort-simulated.csv` (5 minors at `16_17`, DMV states,
+eight sports, fictional schools, `sim.*@example.com`), SUBMITTED in the review
+queue — the 25 `pilot.*` rows from this morning's importer test were removed
+first; and **5 simulated sponsors** (Harborline Coffee Co., Bayside Fitness
+Studio, Chesapeake Auto Group, Rowhouse Pizza, Capital Sports Physio) with a
+contact each, created in the Zoho sandbox and brought in by the backfill,
+beside the sandbox's 10 "(Sample)" accounts. Board: `P8-DATA-01` → Code review.
