@@ -1,0 +1,118 @@
+import { readFileSync } from "node:fs";
+import { describe, expect, it } from "vitest";
+
+import { ACTIONS, POLICY, RESOURCES, ROLES, scopeForRole, type Resource } from "../src/auth/policy";
+
+/* --------------------------------------------------------------------------
+   P8-SEC-01 — the authorisation matrix is complete.
+
+   "Every resource added across Phases 3–7 has its rows." Stated as a test
+   rather than a review: every model in the Prisma schema must either be
+   governed by a matrix resource, or be declared here as system-internal with
+   the reason nothing reaches it through the API. A model added tomorrow with
+   neither fails this file — which is the only way "complete" stays true
+   after the day it was checked.
+
+   It runs in `npm test`, which CI runs on every push and pull request.
+   -------------------------------------------------------------------------- */
+
+const SCHEMA = readFileSync(new URL("../prisma/schema.prisma", import.meta.url), "utf8");
+const MODELS = [...SCHEMA.matchAll(/^model (\w+) \{/gm)].map((m) => m[1]!);
+
+/** Which matrix resource governs each model. */
+const GOVERNED_BY: Record<string, Resource> = {
+  Tenant: "tenant",
+  User: "user",
+  Property: "property",
+  Guardian: "guardian",
+  /* One model, two resources: the application and the approved athlete are
+     the same row at different states (matrix §5). */
+  Athlete: "athlete",
+  AthleteSocial: "athleteSocialAccount",
+  AthleteScore: "athleteScore",
+  NilJob: "nilJob",
+  AthleteRate: "athleteRate",
+  SponsorPackage: "sponsorPackage",
+  Sponsor: "sponsor",
+  SponsorContact: "sponsorContact",
+  CampaignBrief: "campaignBrief",
+  Campaign: "campaign",
+  CampaignInvite: "invitation",
+  CampaignOrder: "campaignOrder",
+  Deliverable: "deliverable",
+  CreativeAsset: "creativeAsset",
+  MetricDaily: "metricAggregate",
+  TrackingLink: "trackingLink",
+  LinkEvent: "metricEvent",
+  Reward: "reward",
+  RewardToken: "qrCode",
+  RewardEvent: "rewardEvent",
+  Earning: "earning",
+  Agreement: "agreement",
+  AgreementAcceptance: "agreement",
+  CampaignInvoice: "invoice",
+  WebhookDelivery: "webhookDelivery",
+  ZohoReconciliation: "integrationConnection",
+  Inquiry: "inquiry",
+  SyncTask: "syncTask",
+  AuditLog: "auditLog",
+};
+
+/** Models no API path reads or writes, and why. */
+const SYSTEM_INTERNAL: Record<string, string> = {
+  OutboxJob: "the job queue — written inside domain transactions, drained by the worker",
+  EmailSendLog: "the worker's idempotency ledger for sent email",
+};
+
+describe("P8-SEC-01 · every model is governed by the matrix", () => {
+  it("reads the schema", () => {
+    expect(MODELS.length).toBeGreaterThan(30);
+  });
+
+  it.each(MODELS)("%s has matrix rows, or is declared internal", (model) => {
+    const resource = GOVERNED_BY[model];
+    const internal = SYSTEM_INTERNAL[model];
+    expect(
+      resource !== undefined || internal !== undefined,
+      `${model} is in the schema but no matrix resource governs it. Add rows to ` +
+        `documentation/SponsorX-RBAC-Matrix.md and src/auth/policy.ts, or declare it internal here.`,
+    ).toBe(true);
+    if (resource) expect(RESOURCES).toContain(resource);
+  });
+
+  it("names no model that no longer exists", () => {
+    for (const model of [...Object.keys(GOVERNED_BY), ...Object.keys(SYSTEM_INTERNAL)]) {
+      expect(MODELS, `${model} is mapped but not in the schema`).toContain(model);
+    }
+  });
+
+  it("gives every governed resource at least one role that can read it", () => {
+    for (const resource of new Set(Object.values(GOVERNED_BY))) {
+      const readers = ROLES.filter((r) => scopeForRole(r, resource, "read") !== "deny");
+      expect(readers.length, `${resource} has rows but nobody may read it`).toBeGreaterThan(0);
+    }
+  });
+
+  it("has a POLICY entry for every resource, and every cell resolves", () => {
+    for (const resource of RESOURCES) {
+      expect(POLICY[resource]).toBeDefined();
+      for (const role of ROLES) for (const action of ACTIONS) {
+        expect(typeof scopeForRole(role, resource, action)).toBe("string");
+      }
+    }
+  });
+
+  it("keeps the new B8 resources BTG-side (matrix §11)", () => {
+    for (const resource of ["inquiry", "syncTask"] as const) {
+      for (const role of ["SPONSOR_ADMIN", "SPONSOR_ANALYST", "ATHLETE", "GUARDIAN", "PROPERTY_MGR", "FINANCE", "NETWORK_MGR"] as const) {
+        for (const action of ACTIONS) expect(scopeForRole(role, resource, action)).toBe("deny");
+      }
+    }
+  });
+
+  it("runs in CI on every push and pull request", () => {
+    const ci = readFileSync(new URL("../../.github/workflows/ci.yml", import.meta.url), "utf8");
+    expect(ci).toMatch(/on:\s*\n\s*push:\s*\n\s*pull_request:/);
+    expect(ci).toContain("npm run test -w @sponsorx/backend");
+  });
+});

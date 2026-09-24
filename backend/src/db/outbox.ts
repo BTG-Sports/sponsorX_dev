@@ -26,8 +26,25 @@ import type { Prisma } from "../generated/prisma/client";
  * any name it finds, so adding one here does not require touching the worker.
  */
 export type JobName =
+  /* P8-INT-01. Legacy name for the Deal push, enqueued by launches before
+     the Zoho sync shipped; handled as an alias of zoho.pushDeal so rows
+     already in the outbox are not stranded. New code enqueues pushDeal. */
   | "zoho.pushCampaign"
   | "zoho.pushAthlete"
+  /* P8-INT-01 — outbound. Accounts and Contacts have no job of their own:
+     nothing in Phase 1 creates a sponsor or a contact on a request path, so
+     they are pushed as the parents of the Deal or Task that needs them. */
+  | "zoho.pushDeal"
+  | "zoho.pushTask"
+  /* P8-INT-06 — a sponsor enquiry becomes a Lead; a completed campaign opens
+     its renewal Deal. */
+  | "zoho.pushLead"
+  | "zoho.pushRenewal"
+  /* P8-INT-03 — a verified CRM notification, recorded and queued by the
+     webhook route; the worker fetches and applies the records. */
+  | "zoho.ingestCrm"
+  /* P8-INT-07 — the kept, re-runnable import of what Zoho already knows. */
+  | "zoho.backfill"
   /* Every transactional email, one job name (P3-INT-01). The template lives
      in the payload rather than the name so that adding a message does not
      mean touching the worker's handler registration. */
@@ -42,7 +59,9 @@ export type JobName =
   /* P7-BE-04 — inbound. §18 makes Zoho bi-directional, and the inbound half
      lands in the queue exactly as the outbound half does. */
   | "zoho.ingestInvoice"
-  | "tracking.resolveGeo";
+  | "tracking.resolveGeo"
+  /* P3-DATA-01 — the pilot cohort, imported as a job rather than hand-seeded. */
+  | "athlete.importCohort";
 
 /**
  * Write a job into the outbox, inside the caller's transaction.

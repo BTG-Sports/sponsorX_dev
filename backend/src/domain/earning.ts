@@ -140,6 +140,7 @@ export async function createEarningForOrder(
   },
 ): Promise<{ id: string; state: EarningState }> {
   const existing = await tx.earning.findUnique({
+    /* tenant-scope: orderId is unique; the order is the one being accepted, already scoped by the caller. */
     where: { orderId: order.id },
     select: { id: true },
   });
@@ -323,11 +324,12 @@ export async function maybeMakeEligible(
   orderId: string,
 ): Promise<{ id: string; state: EarningState } | null> {
   const outstanding = await tx.deliverable.count({
-    where: { orderId, state: { not: "VERIFIED" } },
+    where: { orderId, tenantId: actor.tenantId, state: { not: "VERIFIED" } },
   });
   if (outstanding > 0) return null;
 
   const earning = await tx.earning.findUnique({
+    /* tenant-scope: orderId is unique; the order comes from a deliverable the caller loaded through whereFor. */
     where: { orderId },
     select: { id: true, state: true },
   });

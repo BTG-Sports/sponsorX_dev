@@ -28,7 +28,14 @@ import { enqueue } from "../db/outbox";
 import type { Actor } from "../auth/actor";
 import { assertAllowed, assertTenantWide, whereFor } from "../auth/scope";
 import { ForbiddenError } from "../auth/errors";
-import { consentFor, mayContact, type ConsentPurpose } from "./fan-consent";
+import {
+  CONSENT_TEXT,
+  CURRENT_CONSENT_VERSION,
+  consentFor,
+  mayContact,
+  type ConsentPurpose,
+} from "./fan-consent";
+import { readUnsubscribeToken, unsubscribeUrl } from "../lib/unsubscribe-token";
 import {
   canTransitionReward,
   IllegalRewardTransitionError,
@@ -391,17 +398,119 @@ export async function recordClaim(
         template: "reward.claimed",
         to: email,
         idempotencyKey: `reward.claimed:${ctx.tokenId}`,
+        /* P6-SEC-03. The consent record this email relies on — the worker
+           re-checks it for a withdrawal immediately before sending — and the
+           link that withdraws it, printed in the body and sent as the
+           List-Unsubscribe header. */
+        fanEventId: event.id,
         data: {
           code: ctx.token,
           offerText: ctx.offerText,
           terms: ctx.terms,
           expiresOn: ctx.expiresAt.toISOString().slice(0, 10),
+          unsubscribeUrl: unsubscribeUrl(event.id),
         },
       });
     }
 
     return event;
   });
+}
+
+/**
+ * The fan taps "unsubscribe" — P6-SEC-03.
+ *
+ * "Withdrawal is recorded against the same consent record with a timestamp."
+ * The token names the CLAIM event whose consent is withdrawn; the timestamp
+ * goes on that row. Idempotent: a second tap (or a mail client's one-click
+ * POST after the fan already tapped) keeps the FIRST timestamp, because that
+ * is when they withdrew.
+ *
+ * An invalid or unknown token answers exactly like a valid one that has
+ * nothing to withdraw — `{ withdrawn: false }` — so the endpoint cannot be
+ * used to test which claim ids exist.
+ */
+export async function withdrawFanConsent(
+  token: string,
+  now = new Date(),
+): Promise<{ withdrawn: boolean }> {
+  const eventId = readUnsubscribeToken(token);
+  if (!eventId) return { withdrawn: false };
+
+  return prisma.$transaction(async (tx) => {
+    const row = await tx.rewardEvent.findFirst({
+      where: { id: eventId, type: "CLAIM", fanEmail: { not: null } },
+      select: { id: true, tenantId: true, consentWithdrawnAt: true },
+    });
+    if (!row) return { withdrawn: false };
+    if (row.consentWithdrawnAt) return { withdrawn: true };
+
+    await tx.rewardEvent.update({
+      where: { id: row.id },
+      data: { consentWithdrawnAt: now },
+    });
+    /* The fan has no user id; the audit row says so honestly rather than
+       borrowing one. */
+    await audit(tx, { userId: null, tenantId: row.tenantId }, "fan.consentWithdraw", "RewardEvent", row.id, {
+      after: { consentWithdrawnAt: now.toISOString() },
+    });
+    return { withdrawn: true };
+  });
+}
+
+/**
+ * What the fan's page should show for a token — P6-FE-02.
+ *
+ * READ ONLY: no event is written, so the page can ask as often as it renders
+ * without inventing scans. Every state the page must be able to render has a
+ * name here — unknown, not live, expired, already used, claimable, claimed —
+ * and the consent wording comes with it, so the words next to the checkbox
+ * are the words the stored version stands for.
+ */
+export type TokenView =
+  | { state: "UNKNOWN" }
+  | {
+      state: "LIVE" | "NOT_LIVE" | "EXPIRED" | "REDEEMED";
+      offerText: string;
+      terms: string;
+      expiresAt: string;
+      claimed: boolean;
+      consent: { version: string; purpose: string; text: string };
+    };
+
+export async function viewToken(token: string, now = new Date()): Promise<TokenView> {
+  const row = await prisma.rewardToken.findUnique({
+    /* tenant-scope: a public bearer token, unique across tenants — the
+       ~160-bit token IS the authorisation, as for scan/claim/redeem. */
+    where: { token },
+    select: {
+      id: true,
+      reward: { select: { state: true, expiresAt: true, singleUse: true, offerText: true, terms: true } },
+      /* Types only — never the address (P6-SEC-02). */
+      events: { where: { type: { in: ["CLAIM", "REDEEM"] } }, select: { type: true } },
+    },
+  });
+  if (!row) return { state: "UNKNOWN" };
+  const redeemed = row.reward.singleUse && row.events.some((e) => e.type === "REDEEM");
+  const state = redeemed
+    ? "REDEEMED"
+    : !isRewardLive(row.reward.state as RewardState)
+      ? "NOT_LIVE"
+      : row.reward.expiresAt.getTime() <= now.getTime()
+        ? "EXPIRED"
+        : "LIVE";
+  return {
+    state,
+    offerText: row.reward.offerText,
+    terms: row.reward.terms,
+    expiresAt: row.reward.expiresAt.toISOString(),
+    claimed: row.events.some((e) => e.type === "CLAIM"),
+    consent: {
+      version: CURRENT_CONSENT_VERSION,
+      purpose: "reward-delivery",
+      text: CONSENT_TEXT[CURRENT_CONSENT_VERSION]!,
+    },
+  };
 }
 
 /* ────────────────────────────────────────────────────────────────────────────
@@ -468,6 +577,7 @@ export async function rewardFunnel(
   if (!reward) throw new ForbiddenError("rewardEvent", "read");
 
   const grouped = await prisma.rewardEvent.groupBy({
+    /* tenant-scope: keyed by the reward loaded above through whereFor. */
     by: ["type"],
     where: { token: { is: { rewardId } } },
     _count: { _all: true },

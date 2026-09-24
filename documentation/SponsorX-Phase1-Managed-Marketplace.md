@@ -16,7 +16,7 @@
 | Phase | File | Tasks | Timeline |
 |---|---|---|---|
 | 1 | [`SponsorX-Phase1-Managed-Marketplace.md`](./SponsorX-Phase1-Managed-Marketplace.md) **← you are here** | 186 | 14–18 weeks |
-| 2 | [`SponsorX-Phase2-Marketplace-Commerce.md`](./SponsorX-Phase2-Marketplace-Commerce.md)  | 64 | 16–20 weeks |
+| 2 | [`SponsorX-Phase2-Marketplace-Commerce.md`](./SponsorX-Phase2-Marketplace-Commerce.md)  | 66 | 16–20 weeks |
 | 3 | [`SponsorX-Phase3-Intelligence-Attribution.md`](./SponsorX-Phase3-Intelligence-Attribution.md)  | 44 | 18–22 weeks |
 | 4 | [`SponsorX-Phase4-INFINEX-Integration.md`](./SponsorX-Phase4-INFINEX-Integration.md)  | 51 | 18–22 weeks |
 
@@ -986,7 +986,7 @@ Set up the testing tools so tests can run locally and automatically on every com
 Create the folder structure: one repository, two deployable things (app and worker), sharing the same business logic so they can never disagree.
 
 - **Depends on:** P2-BE-01
-- **Done when:** src/server/, src/contracts/, worker/jobs/, prisma/sql/, tests/ all exist per Guide §02; one repo, two deployables, one lockfile
+- **Done when:** The Addendum B workspace layout exists — `backend/src/contracts/`, `backend/src/domain/`, `backend/worker/jobs/`, `backend/prisma/sql/`, `backend/tests/`, and `frontend/src/server/` for the web app's server-only API client; one repo, two deployables (web, api), one lockfile. *(Amended 2026-09-24: the Guide §02 paths predate the 2026-09-21 split into `frontend/` + `backend/`. Pinned by `backend/tests/layout.test.ts`.)*
 - **Reference:** Guide §02
 
 ### ▶ `P2-FE-01` · Swap fixture reads for real queries behind a flag
@@ -1840,6 +1840,7 @@ Send fan leads to Zoho only where consent was given. No consent, no push — enf
 - **Depends on:** P6-SEC-01, P2-BE-05
 - **Done when:** Claims with consent enqueue zoho.pushLead; claims without consent never do
 - **Reference:** §18
+- **Moved to Phase 2 (2026-09-24, business decision)** as `2S6-INT-03`. A lead push uses a fan's address beyond voucher delivery, which needs the "sponsor may contact me about offers" consent option — itself deferred to Phase 2 as `2S6-BE-03`. Phase 1's only consent purpose, `reward-delivery`, permits no lead push, so this task cannot meet its acceptance in Phase 1.
 
 ### ⏸ `P6-QA-01` · E2E: scan → landing → claim → redeem
 
@@ -1870,6 +1871,16 @@ Sponsors receive only the fan fields consent allows — enforced in the database
 - **Depends on:** P6-SEC-01
 - **Done when:** Sponsors receive only the fields consent permits; the restriction is enforced in select, not in the UI
 - **Reference:** §26, Memory 04
+
+### ⏸ `P6-SEC-03` · Fan unsubscribe and consent withdrawal
+
+**Order** 134.5 · **SEC** · **Where:** Code · **1d** · **Ready** · **Unblocks** 0
+
+Every email to a fan carries a one-tap unsubscribe link that needs no login, and a withdrawal stops any further contact.
+
+- **Depends on:** P6-SEC-01, P3-INT-01
+- **Done when:** An unsubscribe link in every fan email works without login and in one tap; withdrawal is recorded against the same consent record with a timestamp; a withdrawn fan is excluded from any further contact at query level, not in the UI *(amended 2026-09-24: the original named P6-INT-01's lead push, which moved to Phase 2 — the Phase 2 push must use the same exclusion)*
+- **Reference:** §26; raised 2026-09-16 from the P1-ART-05 fan landing design
 
 ## Stage 7 · Money & Reporting
 
@@ -1955,10 +1966,10 @@ Network-level numbers: active athletes, participation, total earnings, average j
 
 **Order** 142 · **BE** · **Where:** Code · **3d** · **Blocked** · **Unblocks** 0
 
-Closing an approved deliverable makes the athlete's earning eligible, automatically and audited.
+Verifying the last of an order's deliverables makes the athlete's earning eligible, automatically and audited.
 
 - **Depends on:** P7-BE-01, P5-BE-08
-- **Done when:** Closing an accepted deliverable makes the associated earning ELIGIBLE; the transition is audited
+- **Done when:** Verifying the **last** of an order's deliverables — each one created from the order's NIL job when the athlete accepts, so every deliverable is tied to the task originally set — makes that order's earning ELIGIBLE, in full; the transition is audited. *(Wording amended 2026-09-24 by business decision: one earning per order, released when all its deliverables are verified. Per-deliverable release is not Phase 1.)*
 - **Reference:** §13 step 11
 
 ### ▶ `P7-BE-04` · Invoice / payment reference ingestion from Zoho
@@ -1971,15 +1982,21 @@ Pull invoice and payment status in from Zoho. SponsorX never becomes the invoici
 - **Done when:** Invoice and payment status flow Zoho → SponsorX and attach to the campaign; SponsorX never becomes the invoice system of record
 - **Reference:** §18
 
-### ⏸ `P7-BE-06` · Report render worker job
+### ✕ `P7-BE-06` · Report render worker job — **MOVED TO PHASE 2 as `2S7-BE-02`**
 
-**Order** 144 · **BE** · **Where:** Code · **3d** · **Blocked** · **Unblocks** 0
+**Order** 144 · **BE** · **Where:** Code · **3d** · **Dropped** · **Unblocks** 0
+
+> **Moved 2026-09-24 (user decision).** By its own acceptance this is not
+> required in Phase 1: G-07 (`P0-PMO-05`) chose a print stylesheet, which the
+> browser PDF (`frontend/src/lib/report-pdf.ts`) delivers. The unattended,
+> server-rendered file lives on as Phase 2 `2S7-BE-02`.
 
 Render the sponsor report as a PDF in the background — only if the earlier decision says a PDF is actually needed.
 
 - **Depends on:** P7-BE-05, P0-PMO-05
 - **Done when:** If G-07 requires a PDF, Playwright renders it on the worker and stores it in the private bucket. If not, this task is closed as not-required
 - **Reference:** Addendum A10, Guide §10
+- **Parked (2026-09-24, business decision):** retained, not dropped. The sponsor report's PDF is currently produced in the browser by the frontend (`frontend/src/lib/report-pdf.ts`), shown as a demo; the worker job stays on the plan and is picked up only if a server-rendered file becomes a requirement. G-07's confirmation is still open.
 
 ### ⏸ `P7-DATA-03` · Implied CPM calculation
 
@@ -2098,7 +2115,7 @@ Search the whole codebase to confirm no tax ID, bank or card field exists anywhe
 Push accounts, contacts, deals and tasks to Zoho from the background worker, using a shared ID so records never duplicate.
 
 - **Depends on:** P0-PMO-08, P2-BE-05
-- **Done when:** Accounts, Contacts, Deals and Tasks push from the worker with External_Id as the dedupe key
+- **Done when:** Accounts, Contacts, Deals and Tasks push from the worker with `SponsorX_ID` as the dedupe key (`duplicate_check_fields=SponsorX_ID`; field-mapping §5.1, confirmed on the live org 2026-09-24)
 - **Reference:** §18
 
 ### ⏸ `P8-INT-03` · Inbound Zoho webhook route with signature verification
@@ -2185,10 +2202,11 @@ Add permission test rows for every resource built across the whole project, and 
 
 **Order** 164 · **DATA** · **Where:** Code · **3d** · **Blocked** · **Unblocks** 0
 
-Load the real first-25 athletes and first sponsors into staging so user testing is realistic.
+Load a 25-athlete pilot cohort and first sponsors into staging so user testing is realistic.
 
 - **Depends on:** P3-DATA-01
-- **Done when:** The real first-25 athlete cohort and first sponsors exist in staging for UAT
+- **Done when:** A representative, **simulated** 25-athlete cohort and first sponsors exist in staging for UAT; the real cohort replaces it at launch through the same `cohort:import` path
+- **Amended 2026-09-24:** was "the real first-25". User decision: with a two-person team, whatever can be simulated is simulated. The simulated file is `backend/scripts/pilot-cohort-simulated.csv` (`@example.com` addresses, 555 numbers, fictional schools); the sponsors are fictional businesses in the Zoho sandbox, brought in by the backfill
 - **Reference:** §36
 
 ### ▶ `P8-FE-02` · Wire the audit log view

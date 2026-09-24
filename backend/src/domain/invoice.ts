@@ -96,6 +96,7 @@ export async function ingestZohoInvoice(
   const hash = payloadHash(payload);
 
   const existing = await tx.campaignInvoice.findUnique({
+    /* tenant-scope: worker-side ingest; resolved from the campaign that owns the Zoho deal, above. */
     where: { zohoInvoiceId: payload.invoiceId },
     select: { id: true, lastSyncHash: true },
   });
@@ -156,21 +157,13 @@ export async function invoicesForCampaign(
   actor: Actor,
   campaignId: string,
 ): Promise<InvoiceView[]> {
-  /* GATED ON `campaign`, NOT ON AN `invoice` RESOURCE — because §15 has no
-     invoice row. The RBAC matrix names `sponsor.billingReference` as a
-     field-level rule and gives FINANCE own-tenant reach across the finance
-     resources, but it has no resource for invoices at all, and `policy.ts` is
-     a transcription of that document: inventing a resource here would put a
-     permission in the code that no reviewed policy authorises.
-
-     An invoice is a fact ABOUT A CAMPAIGN, so campaign read is the honest
-     gate — BTG and FINANCE reach the tenant, a sponsor reaches their own
-     campaigns and therefore their own invoices, which is correct since they
-     are the party being invoiced.
-
-     This is raised on the pull request: §15 should gain an `invoice` row, and
-     when it does this line changes to match it. */
-  assertAllowed(actor, "campaign", "read");
+  /* TWO GATES. `invoice` decides WHO may see invoices at all — BTG admin and
+     the sponsor being invoiced (RBAC matrix §11 `invoice`, decided
+     2026-09-24). Plenty of roles read a campaign without being allowed its
+     invoices: FINANCE, CAMPAIGN_MGR, SALES, athletes. The campaign lookup
+     below then decides WHICH campaign — a sponsor's `own` reach is their own
+     campaigns, so they only ever see the invoices addressed to them. */
+  assertAllowed(actor, "invoice", "read");
 
   const campaign = await prisma.campaign.findFirst({
     where: { ...whereFor(actor, "campaign", "read"), id: campaignId },
@@ -179,6 +172,7 @@ export async function invoicesForCampaign(
   if (!campaign) throw new ForbiddenError("invoice", "read");
 
   return prisma.campaignInvoice.findMany({
+    /* tenant-scope: keyed by the campaign loaded above through whereFor. */
     where: { campaignId },
     orderBy: { issuedAt: "desc" },
     select: {

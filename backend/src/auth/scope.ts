@@ -159,6 +159,11 @@ function tenantScoped(actor: Actor, scope: Scope): Where {
  * it adds its builder here — `athlete` with B1, `campaign` with B3, and so on.
  */
 const BUILDERS: Partial<Record<Resource, Builder>> = {
+  /* The marketplace catalogue (P4-FE-01). Tenant rows like any other; the
+     `catalog` scope resolves through tenantScoped. */
+  sponsorPackage: tenantScoped,
+  nilJob: tenantScoped,
+
   user: (actor, scope) => {
     switch (scope) {
       case "any":
@@ -584,5 +589,20 @@ export function whereFor(
   const build = BUILDERS[resource];
   if (!build) throw new ScopeNotImplementedError(resource, scope);
 
-  return build(actor, scope);
+  /* WRAPPED IN `AND`, AND THAT IS THE SECURITY PROPERTY (P8-SEC-02).
+
+     Every caller spreads this into a where and then adds its own keys:
+     `{ ...whereFor(actor, "campaign", "read"), id: campaignId }`. Returned
+     bare, a fragment keyed on the same field is OVERWRITTEN by the caller's
+     key — and several are: MATCHES_NOTHING is `{ id: { in: [] } }`, and the
+     `own` scopes are `{ tenantId, id: actor.athleteId }` and the like. The
+     spread turned "matches nothing" into "matches this id in any tenant",
+     and "your own athlete row" into "any athlete in your tenant". The
+     cross-tenant sweep (tests/tenant-isolation.test.ts) found it: a tenant-B
+     athlete read tenant A's full sponsor report.
+
+     Inside `AND`, the scope is a separate conjunct no sibling key can
+     replace — `{ AND: [scope], id }` is scope ∧ id, whatever the caller
+     writes beside it. */
+  return { AND: [build(actor, scope)] };
 }

@@ -18,6 +18,7 @@ import {
   type CampaignState,
 } from "./campaign-state";
 import { transitionBrief } from "./brief";
+import { raiseSyncTask } from "./sync-tasks";
 import type { BriefState } from "./brief-state";
 
 export class LaunchNeedsFullTransitionError extends Error {
@@ -95,6 +96,10 @@ export async function createCampaignFromBrief(
       after: { state: "DRAFT", briefId, sponsorId: brief.sponsorId },
     });
 
+    /* The brief's Deal is now won (§7.4: CAMPAIGN_CREATED → Closed Won), and
+       the campaign takes over as the row that owns it. */
+    await enqueue(tx, actor.tenantId, "zoho.pushDeal", { campaignId: campaign.id });
+
     return { id: campaign.id, state: campaign.state as CampaignState };
   });
 }
@@ -124,7 +129,7 @@ export async function transitionCampaign(
   return prisma.$transaction(async (tx) => {
     const campaign = await tx.campaign.findFirst({
       where: { ...whereFor(actor, "campaign", "write"), id: campaignId },
-      select: { id: true, state: true },
+      select: { id: true, state: true, name: true, sponsor: { select: { name: true } } },
     });
     if (!campaign) throw new ForbiddenError("campaign", "write");
 
@@ -141,6 +146,30 @@ export async function transitionCampaign(
       before: { state: from },
       after: { state: to },
     });
+
+    /* §18, P8-INT-01 / P8-INT-06. Each is queued in this transaction. */
+    if (to === "APPROVAL") {
+      await raiseSyncTask(tx, actor, {
+        kind: "APPROVAL",
+        campaignId,
+        subject: `Approve campaign: ${campaign.name}`,
+      });
+    }
+    if (to === "CANCELLED") {
+      /* A cancelled campaign's Deal is Closed Lost — SponsorX asserts it. */
+      await enqueue(tx, actor.tenantId, "zoho.pushDeal", { campaignId });
+    }
+    if (to === "COMPLETED") {
+      /* §18 row 9: campaign closure opens the renewal Deal, and the renewal
+         conversation lands in the CRM as a task on it. */
+      await enqueue(tx, actor.tenantId, "zoho.pushRenewal", { campaignId });
+      await raiseSyncTask(tx, actor, {
+        kind: "RENEWAL",
+        campaignId,
+        subject: `Renewal conversation: ${campaign.sponsor.name}`,
+        body: `${campaign.name} completed. Open the renewal.`,
+      });
+    }
 
     return { id: updated.id, state: updated.state as CampaignState };
   });
@@ -203,7 +232,7 @@ export async function launchCampaign(
       after: { state: "ACTIVE", ordersActivated: activated.count },
     });
 
-    await enqueue(tx, actor.tenantId, "zoho.pushCampaign", { campaignId });
+    await enqueue(tx, actor.tenantId, "zoho.pushDeal", { campaignId });
     await enqueue(tx, actor.tenantId, "notify.campaignLive", { campaignId });
 
     return {

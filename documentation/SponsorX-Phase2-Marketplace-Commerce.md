@@ -5,7 +5,7 @@
 | | |
 |---|---|
 | **Goal** | Turn SponsorX from BTG-only operations into a multi-tenant marketplace. External athletes, teams, programs, events and media properties onboard, publish inventory, fulfil deliverables and get paid. |
-| **Tasks** | 64 · 260 person-days |
+| **Tasks** | 66 · 266 person-days |
 | **Blueprint timeline** | 16–20 weeks |
 | **Balanced budget** | $80K–$120K |
 | **Depends on** | Phase 1 auth/RBAC, sponsor/property/inventory/campaign/reward models, Zoho integration, core analytics |
@@ -16,7 +16,7 @@
 | Phase | File | Tasks | Timeline |
 |---|---|---|---|
 | 1 | [`SponsorX-Phase1-Managed-Marketplace.md`](./SponsorX-Phase1-Managed-Marketplace.md)  | 186 | 14–18 weeks |
-| 2 | [`SponsorX-Phase2-Marketplace-Commerce.md`](./SponsorX-Phase2-Marketplace-Commerce.md) **← you are here** | 64 | 16–20 weeks |
+| 2 | [`SponsorX-Phase2-Marketplace-Commerce.md`](./SponsorX-Phase2-Marketplace-Commerce.md) **← you are here** | 66 | 16–20 weeks |
 | 3 | [`SponsorX-Phase3-Intelligence-Attribution.md`](./SponsorX-Phase3-Intelligence-Attribution.md)  | 44 | 18–22 weeks |
 | 4 | [`SponsorX-Phase4-INFINEX-Integration.md`](./SponsorX-Phase4-INFINEX-Integration.md)  | 51 | 18–22 weeks |
 
@@ -655,6 +655,26 @@ Issue, update and deactivate passes; claim links; provider status.
 - **Done when:** Staff can manage the full pass lifecycle from the console
 - **Reference:** Spec §6 P2-12
 
+### ⏸ `2S6-BE-03` · "Sponsor may contact me about offers" consent option
+
+**Order** 52.1 · **BE** · **Where:** Code · **3d** · **Blocked**
+
+A second, separate, unticked checkbox on the fan claim page. Only fans who tick it may be passed to the sponsor as a lead. Moved from Phase 1 on 2026-09-24 by business decision — Phase 1 fans consent to voucher delivery only.
+
+- **Depends on:** P6-SEC-01, P6-SEC-03
+- **Done when:** A new consent purpose (e.g. `sponsor-contact`) exists with its own dated consent text version; the checkbox is separate from voucher consent and unticked by default; only claims carrying it expose the address to the sponsor (RBAC §7.2 and §10 amended to match), enforced in the query; unsubscribe (P6-SEC-03) withdraws it
+- **Reference:** §26; Phase 1 decision log 2026-09-24
+
+### ⏸ `2S6-INT-03` · Consent-gated lead push to Zoho *(was P6-INT-01)*
+
+**Order** 52.2 · **INT** · **Where:** Code · **3d** · **Blocked**
+
+Send fan leads to Zoho only where the fan ticked the sponsor-contact option. No consent, no push — enforced in code.
+
+- **Depends on:** 2S6-BE-03, P8-INT-01
+- **Done when:** Claims with sponsor-contact consent enqueue zoho.pushLead; claims without it, or withdrawn (P6-SEC-03), never do — excluded at query level
+- **Reference:** §18
+
 ## Sprint 7 · Analytics & governance
 
 *Property dashboards, the operations console and expanded Zoho sync.*
@@ -710,6 +730,16 @@ Tenant logo, colours and report branding, plus readiness for custom subdomain ma
 - **Depends on:** 2S1-BE-04
 - **Done when:** A tenant's branding renders in their portal and on their reports
 - **Reference:** Spec §9
+
+### ⏸ `2S7-BE-02` · Report render worker job (was `P7-BE-06`)
+
+**Order** 57.1 · **BE** · **Where:** Code · **3d** · **Blocked**
+
+Produce the sponsor report as a file on the worker, unattended — for when a report must exist without anyone opening a browser (for example, scheduled delivery to a renewal signer who never logs in). Moved from Phase 1 on 2026-09-24: Phase 1's print stylesheet covers the interactive case.
+
+- **Depends on:** P7-BE-05
+- **Done when:** When a server-rendered report is required, Playwright renders it on the worker from the same data as screen 12, stores it in the private bucket, and keeps every provenance label; the browser print (`report-pdf.ts`) remains the interactive path
+- **Reference:** §9 screen 12, Addendum A10
 
 ## Sprint 8 · QA, security & rollout
 

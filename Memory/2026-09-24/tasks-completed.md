@@ -292,3 +292,159 @@ clean.
 Board: `P3-FE-01` → Code review (HeckerCreatives, 2026-09-24). Eight rows now
 sit at Code review from today. Google Sheet still needs its hand mirror at
 end of day.
+---
+
+## Leftovers from 2026-09-23 — worked through (rcfworks)
+
+| Item | State |
+|---|---|
+| Leftovers queue (PR #35) | Merged into `main_development`. PR **#36** `main_development` → `main` open; `b278323` builds clean, 1077 tests pass. |
+| **`External_Id` vs `SponsorX_ID`** | **Resolved: `SponsorX_ID`.** Live Zoho `Accounts` field read 2026-09-24: `SponsorX_ID` is an org-level external field; no `External_Id` exists. `P8-INT-01`'s acceptance fixed in the Phase 1 doc and the tracker (Phase 1 `P164`), plus the code sample in Implementation Guide V2. |
+| graphify graph | Rebuilt (`graphify update . --force`, AST only): 3965 nodes, 287 communities, indexes `frontend/` + `backend/`, zero `src/server` nodes left. The labels for the new communities are hub names; doc changes since 21 Sep are not re-extracted semantically. |
+| Four stale remote branches | Verified fully on `main` (`b6_tracking_reward`'s only extra commit is the PR #24 merge). **Not deleted** — branch deletion needs the user's permission. |
+| Railway production | **Done (manual approval mode).** Production `api` instance created (Dockerfile build, pre-deploy `prisma migrate deploy`, `/health`, `PORT=4000`) and deployed at `a7bed10` — all 9 migrations applied to Postgres-production, API listening, worker up. Production `web` now builds from the workspace split (`npm run start -w @sponsorx/frontend`) and is deployed at `a7bed10`, replacing the 18 Sep `59827ee7` build. Both services now have a `main` trigger in production. **Follow-up (same day):** production `api` now carries staging's `S3_*`, `R2_PUBLIC_BASE_URL` and `RESEND_API_KEY` (user's call: reuse staging storage until Phase 2 gives production its own buckets) and was redeployed. The API's private hostname was renamed `worker` → `api` in staging (it still carried the pre-rename `worker` endpoint from 21 Sep); verified from inside both `web` containers via `railway ssh`: `api.railway.internal` resolves and `/health` returns 200 in staging and production, `worker.railway.internal` is gone. Still open: no public domain on production — `sponsorx.net` (Cloudflare DNS, no A/MX/www records, so attaching it disturbs nothing) is the recommendation, because production Clerk is a **live** instance on `clerk.sponsorx.net` and sign-in would not work on an `up.railway.app` address. |
+| `P7-BE-06`, `P7-BE-02` wording, §15 `invoice` row, stage 8 (O-2/O-5/O-6) | Still business decisions — unchanged. |
+| `P6-BE-05` GeoLite licence, Google Sheet mirror | Still the user's. |
+
+
+**Bug found and fixed:** `/t/<unknown code>` on staging redirected to `https://localhost:8080/` — `frontend/src/app/t/[code]/route.ts` builds the fallback with `new URL("/", req.url)`, and behind Railway's proxy `req.url` is the container's own address. Fixed by returning a relative `Location: /`; `frontend/tests/tracking-redirect.test.ts` reproduces the proxied `req.url` and failed before the change.
+
+**Railway SSH:** an ed25519 key (`~/.ssh/id_ed25519`, registered as `bob-mac`) now lets `railway ssh --environment <env> --service <svc> -- <cmd>` run commands inside containers — the only way to test the private network, since the API does not log requests and httpLogs cover public traffic only.
+
+## Business decisions taken 2026-09-24 (user) — applied
+
+| Item | Decision | Applied |
+|---|---|---|
+| **`P7-BE-06`** report render worker | **Retained and parked**, not dropped. The frontend's browser PDF (`frontend/src/lib/report-pdf.ts`) is the demo for now. | Board → Blocked with a PARKED note; Phase 1 doc gains a *Parked* line. G-07's confirmation box stays blank — nothing was decided about requiring a file. |
+| **`P7-BE-02`** earning release | **Option A:** one earning per order, released in full when the **last** deliverable is verified. Deliverables are already created from the order's NIL job at acceptance (`createDeliverablesFromJob`), so each is tied to the task originally set. | Wording amended in the Phase 1 doc and the tracker to match the code. No code change. |
+| **Invoice visibility** | **BTG admin and the invoiced sponsor only.** Athletes never see invoices — they see their `earning`; the invoice would expose the margin (§7.1). | New RBAC resource `invoice` (matrix §11 + `policy.ts`): SUPER_ADMIN any · BTG_ADMIN own-tenant · SPONSOR_ADMIN/ANALYST own · everyone else denied, including FINANCE, CAMPAIGN_MGR and SALES. `invoicesForCampaign` / `paymentStatusForCampaign` gate on it, with the campaign lookup still narrowing a sponsor to their own campaigns. 13 new tests; matrix digest `bc4ddbf83a1e7538` → `441c358e69d81f98`, verified that only the four `invoice` cells moved. Tracker note on `P7-BE-04`. |
+
+Verification: `npm run build` clean; backend 1027 passed / 13 skipped, frontend 65 passed.
+
+## Backend batch — P3-DATA-01, P6-SEC-02, P6-SEC-03, P8-PMO-01, P2-BE-09 (rcfworks)
+
+**Scope decision first (user, 2026-09-24):** no "sponsor may contact me about offers" consent option in Phase 1. It is now Phase 2 `2S6-BE-03`, and `P6-INT-01` (consent-gated Zoho lead push) moved with it as `2S6-INT-03` — it cannot meet its acceptance without that consent. Phase 1 board row set to *Dropped* with a MOVED note; Phase 2 sheet gained the two rows (Order 52.1, 52.2 — inside the existing ranges, no formula edits). Phase 2 now 66 tasks.
+
+| Task | State | What enforces the acceptance |
+|---|---|---|
+| **`P3-DATA-01`** pilot cohort import | **In progress** — built, not yet run on staging | `npm run cohort:import -w @sponsorx/backend -- file.csv` validates the whole file against `AthleteApplicationInput` and queues ONE `athlete.importCohort` job; the worker creates each athlete through `createApplicantIn` (extracted from `/join`'s `submitApplication`) → SUBMITTED, skipping existing emails. Production refuses unless the file's sha256 is in `COHORT_IMPORT_APPROVED_SHA256` (Railway's `RAILWAY_ENVIRONMENT_NAME` tells staging from production — both run NODE_ENV=production). Example file: `backend/scripts/cohort-import.example.csv`. **Next step:** after merge + staging deploy, run it on staging via `railway ssh` with 25 rows, then Code review. |
+| **`P6-SEC-02`** fan PII purpose limitation | Code review | The RBAC matrix already made reward events aggregate-only for every role (§10) and fan contact BTG-only (§7.2). A first cut that listed claim rows was **withdrawn** for breaking that. Enforcement is structural: `backend/tests/fan-pii.test.ts` fails the build if any query selects `fanEmail`, reads a RewardEvent without a column list, or puts the address in a raw SQL SELECT (mutation-checked). |
+| **`P6-SEC-03`** fan unsubscribe | Code review | Signed `<claimId>.<hmac>` link (`lib/unsubscribe-token.ts`, own HMAC purpose) in the `reward.claimed` body and as RFC 8058 `List-Unsubscribe` headers → web `/u/[token]` (GET = one button, never withdraws — link scanners; POST = withdraw) → `POST /api/v1/public/unsubscribe/:token` → `withdrawFanConsent` stamps `RewardEvent.consentWithdrawnAt` (migration `20260924120000`), first tap wins, audited. The email worker refuses a fan template without the link and re-checks withdrawal in SQL before sending. Fan addresses no longer appear in the worker log. AC clause 3 amended (lead push → Phase 2). |
+| **`P8-PMO-01`** OpenAPI | Code review | The spec had components but **zero paths**. All 70 operations now registered in `contracts/registry.ts` with the handlers' own Zod body schemas; `tests/openapi.coverage.test.ts` walks the live Express routers and fails on an undocumented route or a phantom path. |
+| **`P2-BE-09`** repo layout | Code review | AC amended to the Addendum B layout; six stale pre-split `.gitkeep` placeholders removed (they pointed at `frontend/` for things that live in `backend/`); `tests/layout.test.ts` pins it. |
+
+Verification: `npm run build` clean; backend 1083 passed / 13 skipped; frontend 69 passed; eslint clean.
+
+**`P3-DATA-01` → Code review (same day).** After #42/#43 deployed (`ef90f10`, all four services green), the import ran on staging via `railway ssh --environment staging --service api -- npm run cohort:import -w @sponsorx/backend -- /tmp/pilot-cohort-staging.csv`: worker logged `25 created, 0 skipped`; the staging DB holds 25 `pilot.*@example.com` athletes in SUBMITTED. These are synthetic test athletes sitting in the staging review queue — reject or leave them; the real cohort is `P8-DATA-01`. A live re-run and a live production-refusal check were blocked by the permission classifier (production shell); both behaviours are covered by `tests/cohort-import.test.ts`.
+
+## B8 batch — Zoho sync + hardening (rcfworks)
+
+Ten tasks asked for; nine buildable. **`P8-DATA-01` needs the real first-25
+cohort file** — it cannot be invented; the tool (`cohort:import`) is ready.
+
+**Decisions taken (approved with the plan):** O-2 adopted — a campaign is a
+Zoho Deal (keyed `brief:<id>`, renewal `renewal:<id>`). O-5 — `User.zohoUserId`,
+filled by the backfill's Users step by email; a task's CRM owner is the staff
+member who raised it, unmapped → API account. O-6 closed — the `SponsorX-Dev`
+sandbox refresh token was minted today (user clicked the Self Client code;
+exchanged here, Keychain `sponsorx-zoho-sandbox-refresh-token`). Staging `api`
+now holds it with `ZOHO_EXPECTED_ORG_ID=7554807000000020005` and the
+Notifications channel (`ZOHO_NOTIFY_*`), set with `--skip-deploys`.
+
+| Task | State | What enforces the acceptance |
+|---|---|---|
+| `P8-INT-01` outbound push | Code review | Worker-only `src/lib/zoho.ts` + `src/domain/zoho-sync.ts`. Brief/campaign transitions ENQUEUE `zoho.pushDeal` / `zoho.pushTask` in their own transaction; the worker pushes parents first (account → contact → deal → task), every create an upsert on `SponsorX_ID`. |
+| `P8-INT-02` loop prevention | Code review | One shared projection per object, hashed identically both ways; echoes dropped outbound and inbound; a push asserts Stage only when our row changed since the last sync; both-sides conflicts audited as `sync.conflict`. |
+| `P8-INT-03` inbound route | Code review | `POST /api/v1/webhooks/zoho/crm` — channel token + id verified, delivery row + `zoho.ingestCrm` in one transaction. `tests/zoho-boundary.test.ts` proves nothing reachable from `src/app.ts` imports the Zoho client. |
+| `P8-INT-04` delivery recording | Code review | RECEIVED / REJECTED at the route (both webhooks — the invoice route used to 401 unrecorded), APPLIED / REJECTED / FAILED by the worker. |
+| `P8-INT-05` reconciliation | Code review | Nightly, report-only, one `ZohoReconciliation` row per module. |
+| `P8-INT-06` leads + renewal | Code review | `Inquiry` + `POST /api/v1/public/inquiries` → Lead; campaign COMPLETED → renewal Deal + renewal task. |
+| `P8-INT-07` backfill | **In progress** | Built and tested (idempotent). **Runs on staging after this merges** — `railway ssh … -- npm run zoho:backfill -w @sponsorx/backend`, then Code review. |
+| `P8-SEC-01` matrix complete | Code review | `inquiry`, `syncTask` rows (doc + policy; digest moved only by them). `tests/authz.coverage.test.ts`: every Prisma model governed or declared internal. "Required CI check" cannot be enforced by GitHub on this Free account — it runs in CI on every push/PR. |
+| `P8-SEC-02` isolation | Code review | **Found a real cross-tenant leak and fixed it** — see below. |
+
+**The leak.** `whereFor()` returned a bare fragment that callers spread and
+then overrode: `{ ...whereFor(...), id }`. `MATCHES_NOTHING` is `{ id: { in: [] } }`
+and the `own` scopes key on `id`, so "matches nothing" became "this id in any
+tenant" and "your own athlete" became "any athlete in the tenant". A tenant-B
+athlete read tenant A's full sponsor report. Fixed at the source — `whereFor`
+returns `{ AND: [scope] }`. `tests/tenant-isolation.test.ts` (every route × four
+tenant-B actors, real API + DB, tenant-A fingerprint unchanged) and
+`tests/tenant-scope.static.test.ts` both go red with the fix reverted.
+
+**Found only against the live sandbox** (the fake org could not have):
+Tasks cannot be upserted (Zoho: "module is not supported for this api") →
+find-then-write on `SponsorX_ID`; COQL accepts only `=`/`!=` on the external
+field → reconciliation pages the records API. Recorded in field-mapping §12.1.
+Also fixed from tests: `Closing_Date` / Deal-name month were shifted a day by
+the timezone. A full live run against `SponsorX-Dev` (all four objects, Lead,
+renewal, dedupe, echo, zero-drift reconcile) passed; every test record deleted.
+The worker's watch subscription was accepted live and then removed.
+
+Verification: `npm run build` clean; lint clean; backend **1204 passed, 0
+skipped** (local Postgres from a scratchpad binary, so the DB suites ran —
+CI runs them too); frontend 69 passed. Stage Progress snapshot unchanged
+(nothing moved to Done).
+
+**Closed to Done (user's instruction, acceptance confirmed met):** `P8-INT-01`,
+`P8-INT-02`, `P8-INT-03`, `P8-INT-04`, `P8-INT-05`, `P8-INT-06`, `P8-SEC-02`.
+`P8-SEC-01` stays at Code review — its "required CI check" clause cannot be
+enforced on this account. Follow-up #46 (CRM jobs wait in the outbox on a
+worker without credentials) merged into `main_development`. Today's Stage
+Progress snapshot updated: S8 7, Done 128, days left 333.
+
+**`P8-INT-07` → Code review (after #45 deployed staging).** Migration
+`20260924160000_zoho_sync` applied; the worker subscribed the Notifications
+channel and ran a clean reconciliation on boot. `railway ssh … -- npm run
+zoho:backfill -w @sponsorx/backend` against the sandbox: 10 accounts and 10
+contacts imported with `SponsorX_ID` written back; a second run created 0.
+Live inbound confirmed: an account renamed in the sandbox arrived at
+`/webhooks/zoho/crm`, recorded `APPLIED`, and the staging sponsor took the new
+name (origin ZOHO); the name was then restored. Staging now holds 10 sandbox
+sample sponsors ("… (Sample)") — test data. #48 (`main_development` → `main`,
+tracker only) is open so the two branches match.
+
+## P8-DATA-01 — simulated pilot cohort (rcfworks)
+
+**User decision:** "whatever we can simulate, we simulate" — a two-person team
+cannot wait on BTG for data. The acceptance was amended from "the real
+first-25" to a representative simulated cohort, replaced by the real one at
+launch through the same `cohort:import` path (Phase 1 doc + tracker).
+
+Staging now holds: **25 simulated athletes** from
+`backend/scripts/pilot-cohort-simulated.csv` (5 minors at `16_17`, DMV states,
+eight sports, fictional schools, `sim.*@example.com`), SUBMITTED in the review
+queue — the 25 `pilot.*` rows from this morning's importer test were removed
+first; and **5 simulated sponsors** (Harborline Coffee Co., Bayside Fitness
+Studio, Chesapeake Auto Group, Rowhouse Pizza, Capital Sports Physio) with a
+contact each, created in the Zoho sandbox and brought in by the backfill,
+beside the sandbox's 10 "(Sample)" accounts. Board: `P8-DATA-01` → Code review.
+
+## Batch 3 — five tasks + P7-BE-06 moved (rcfworks)
+
+| Task | State | Proof |
+|---|---|---|
+| `P6-FE-02` fan redeem page on real tokens | Code review | `/r/<token>` is a script-free route handler over the new read-only `GET /public/rewards/:token`; claim/redeem are plain form POSTs; LANDING is an image beacon. `tests/redeem-page.test.ts` + a live curl run (real API + Next + DB): every state, a real claim with consent version, one redeem then "Already used", exactly one event of each type. |
+| `P4-FE-01` marketplace + brief | Code review | New `GET /catalogue/packages|jobs` (sponsor prices). A signed-in sponsor sees them and files a real DRAFT brief via `submitBrief`; demo unchanged. `tests/brief-contract.test.ts` files the frontend's own body through the API. `/me` returns `sponsorId`. |
+| `P4-SEC-02` field-level authz | Code review | `tests/sponsor-field-authz.test.ts`: pay markers in every pay column, every GET as sponsor, none leak (mutation-checked). |
+| `P8-SEC-03` public surface review | Code review | `documentation/SponsorX-Public-Surface-Security-Review.md`. Fixed: rate limits counted the web server (edge key, set on staging), `javascript:` tracking destinations, validation 500 → 400. |
+| `P8-OPS-02` load test | In progress | Runs on staging after this deploys. |
+
+`P7-BE-06` → Phase 2 `2S7-BE-02` (Phase 1 row Dropped/MOVED; Phase 2 row 69,
+all Phase 2 ranges and 15 Dashboard formulas extended 68 → 69; Phase 2 = 65).
+
+**Correction to `P8-SEC-02`:** the write half of this morning's sweep was
+weaker than reported — invalid bodies returned 500 and 500 counted as a
+refusal. Now validation is 400, bodies are valid, and the sweep fails on
+400/500; every write route is proven refused. Row stays Done, note added.
+
+Also found: `stateCodesFor("Kigali, RW")` would have targeted "RW" as a US
+state — limited to the 50 states + DC.
+
+Verification: root build clean, lint clean, backend 1230 passed, frontend 94.
+
+**Closed to Done (user's instruction, acceptance met):** `P2-BE-09`,
+`P6-BE-05`, `P3-DATA-01`, `P8-DATA-01`, `P8-INT-07`, `P8-PMO-01`, `P4-SEC-02`,
+`P6-SEC-02`, `P6-SEC-03`, `P8-SEC-01`, `P8-SEC-03`. Frontend Code review rows
+left as they are (including `P4-FE-01`, `P6-FE-02`, and HeckerCreatives'
+eleven). Stage Progress snapshot for today refreshed.

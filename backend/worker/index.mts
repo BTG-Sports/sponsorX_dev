@@ -53,6 +53,17 @@ const HANDLED_JOBS = new Set<string>([
   "image.derive",
   "tracking.resolveGeo",
   "zoho.ingestInvoice",
+  "athlete.importCohort",
+  /* P8-INT-01..07 — the Zoho CRM sync. zoho.pushCampaign is the legacy
+     name of the Deal push; rows queued under it before the sync shipped
+     are consumed by the same handler. */
+  "zoho.pushDeal",
+  "zoho.pushCampaign",
+  "zoho.pushTask",
+  "zoho.pushLead",
+  "zoho.pushRenewal",
+  "zoho.ingestCrm",
+  "zoho.backfill",
 ]);
 import { handleSendEmail, type EmailJob } from "./jobs/send-email.mts";
 import { handleGenerateQr, type QrJob } from "./jobs/generate-qr.mts";
@@ -66,7 +77,14 @@ import { remindDueDeliverables } from "./jobs/deliverable-reminders.mts";
 import { handleIngestInvoice, type IngestInvoiceJob } from "./jobs/ingest-invoice.mts";
 import { prisma } from "../src/db/client.ts";
 import { ingestZohoInvoice, type ZohoInvoicePayload } from "../src/domain/invoice.ts";
+import { importCohort, type CohortImportJob } from "../src/domain/cohort-import.ts";
 import { redis } from "../src/lib/redis.ts";
+import { zohoConfigFromEnv, zohoFromEnv } from "../src/lib/zoho.ts";
+import {
+  handleBackfill, handleIngestCrm, handlePushDeal, handlePushLead, handlePushRenewal,
+  handlePushTask, renewWatch, runReconciliation, dispatchableJobs,
+  type BackfillJob, type DealJob, type IngestCrmJob, type LeadJob, type RenewalJob, type TaskJob,
+} from "./jobs/zoho-sync.mts";
 
 const connectionString = process.env.DATABASE_URL;
 
@@ -98,7 +116,7 @@ const REMINDER_INTERVAL_MS = 60 * 60 * 1_000;
  *  transaction open long enough to matter. */
 const DRAIN_BATCH = 100;
 
-type OutboxRow = { id: string; name: string; payload: unknown };
+type OutboxRow = { id: string; tenantId: string; name: string; payload: unknown };
 
 const pool = new pg.Pool({ connectionString });
 const boss = new PgBoss({ connectionString });
@@ -158,17 +176,19 @@ async function drainOnce(): Promise<number> {
        starve everything behind them. `name = ANY(...)` keeps the batch full
        of work that can actually go.
 
-       zoho.pushCampaign still sits here, enqueued by B3 domain code whose
-       handler is P8-INT-01's. It waits, and goes the moment that ships. */
+       zoho.pushAthlete still sits here: pushing athletes to the custom
+       module is outside P8-INT-01's four objects, so it waits. */
     const { rows } = await client.query<OutboxRow>(
-      `SELECT id, name, payload
+      `SELECT id, "tenantId", name, payload
          FROM "OutboxJob"
         WHERE "dispatchedAt" IS NULL
           AND name = ANY($2::text[])
         ORDER BY "createdAt"
         LIMIT $1
           FOR UPDATE SKIP LOCKED`,
-      [DRAIN_BATCH, [...HANDLED_JOBS]],
+      /* Zoho CRM jobs stay in the outbox on a worker with no credentials
+         (production today) instead of failing into pg-boss's archive. */
+      [DRAIN_BATCH, dispatchableJobs(HANDLED_JOBS, zohoConfigFromEnv() !== null)],
     );
 
     if (rows.length === 0) {
@@ -178,7 +198,11 @@ async function drainOnce(): Promise<number> {
 
     for (const row of rows) {
       await ensureQueue(row.name);
-      await boss.send(row.name, (row.payload ?? {}) as object);
+      /* Every job learns the tenant it was enqueued under (P8-SEC-02). The
+         row has always carried it; the payload did not, so a handler had to
+         look records up by id alone. Spread first so a payload can never
+         override the tenant its own row records. */
+      await boss.send(row.name, { ...((row.payload ?? {}) as object), tenantId: row.tenantId });
     }
 
     await client.query(
@@ -228,6 +252,12 @@ let timer: NodeJS.Timeout | undefined;
 let expiryTimer: ReturnType<typeof setInterval> | undefined;
 let rollupTimer: ReturnType<typeof setInterval> | undefined;
 let reminderTimer: ReturnType<typeof setInterval> | undefined;
+let zohoTimer: ReturnType<typeof setInterval> | undefined;
+/* P8-INT-05 checks hourly and runs at most once a day per tenant; P8-INT-03's
+   channel is renewed every 12 hours against a 24-hour expiry. */
+const ZOHO_SWEEP_INTERVAL_MS = 60 * 60 * 1000;
+const WATCH_RENEW_EVERY_MS = 12 * 60 * 60 * 1000;
+let lastWatchRenewal = 0;
 const EXPIRY_INTERVAL_MS = 60 * 60 * 1000;
 
 /** Never let two sweeps overlap in one process. Overlap would not corrupt
@@ -317,7 +347,11 @@ async function main(): Promise<void> {
     /* Logged because a duplicate is not a failure — it means the message had
        already gone once, which is what was asked for. Silence here would
        make an at-least-once delivery look like a lost email. */
-    console.log(`[worker] notify.email ${outcome}: ${job.data.template} -> ${job.data.to}`);
+    /* A fan's address stays out of the log (P6-SEC-02/03): their consent
+       covers the voucher email, not our log retention. Staff and athletes
+       have accounts and are logged as before. */
+    const to = job.data.fanEventId ? `fan claim ${job.data.fanEventId}` : job.data.to;
+    console.log(`[worker] notify.email ${outcome}: ${job.data.template} -> ${to}`);
   });
 
   /* P4-INT-01. It resolves the invitation at send time and enqueues a
@@ -349,6 +383,75 @@ async function main(): Promise<void> {
     });
     console.log(`[worker] zoho.ingestInvoice ${outcome.status}`);
   });
+
+  /* P3-DATA-01 — the pilot cohort. Queued by `npm run cohort:import`, which
+     has already validated every row and applied the production gate; this
+     only creates. Skips by email, so a retry resumes rather than duplicates. */
+  await ensureQueue("athlete.importCohort");
+  await boss.work<CohortImportJob>("athlete.importCohort", async ([job]) => {
+    const outcome = await importCohort(job.data);
+    console.log(
+      `[worker] athlete.importCohort ${job.data.source} (${job.data.sha256.slice(0, 12)}): ` +
+        `${outcome.created} created, ${outcome.skipped.length} skipped`,
+    );
+  });
+
+  /* P8-INT-01..07 — the Zoho CRM sync. Each handler is a thin call into
+     src/domain/zoho-sync.ts; see worker/jobs/zoho-sync.mts for which errors
+     are retried and which are recorded. The client is resolved per job, so a
+     worker booted without credentials fails those jobs (and retries them)
+     instead of refusing to start. */
+  const zohoDeps = { db: prisma, zoho: zohoFromEnv };
+  const zohoLog = (name: string, outcome: unknown) =>
+    console.log(`[worker] ${name} ${JSON.stringify(outcome)}`);
+  await ensureQueue("zoho.pushDeal");
+  await boss.work<DealJob>("zoho.pushDeal", async ([job]) =>
+    zohoLog("zoho.pushDeal", await handlePushDeal(zohoDeps, job.data)));
+  await ensureQueue("zoho.pushCampaign");
+  await boss.work<DealJob>("zoho.pushCampaign", async ([job]) =>
+    zohoLog("zoho.pushCampaign", await handlePushDeal(zohoDeps, job.data)));
+  await ensureQueue("zoho.pushTask");
+  await boss.work<TaskJob>("zoho.pushTask", async ([job]) =>
+    zohoLog("zoho.pushTask", await handlePushTask(zohoDeps, job.data)));
+  await ensureQueue("zoho.pushLead");
+  await boss.work<LeadJob>("zoho.pushLead", async ([job]) =>
+    zohoLog("zoho.pushLead", await handlePushLead(zohoDeps, job.data)));
+  await ensureQueue("zoho.pushRenewal");
+  await boss.work<RenewalJob>("zoho.pushRenewal", async ([job]) =>
+    zohoLog("zoho.pushRenewal", await handlePushRenewal(zohoDeps, job.data)));
+  await ensureQueue("zoho.ingestCrm");
+  await boss.work<IngestCrmJob>("zoho.ingestCrm", async ([job]) => {
+    const out = await handleIngestCrm(zohoDeps, job.data);
+    zohoLog("zoho.ingestCrm", { status: out.status, outcomes: out.outcomes.map((o) => o.status) });
+  });
+  await ensureQueue("zoho.backfill");
+  await boss.work<BackfillJob>("zoho.backfill", async ([job]) =>
+    zohoLog("zoho.backfill", (await handleBackfill(zohoDeps, job.data)).map((r) => ({
+      module: r.module, seen: r.seen, created: r.created, linked: r.linked, skipped: r.skipped.length,
+    }))));
+
+  /* The sweeps. Both are no-ops without credentials — and say so once. */
+  const zohoSweep = async () => {
+    let zoho;
+    try { zoho = zohoFromEnv(); } catch { return; }
+    if (Date.now() - lastWatchRenewal > WATCH_RENEW_EVERY_MS) {
+      await renewWatch(zoho)
+        .then((r) => { lastWatchRenewal = Date.now(); zohoLog("zoho.watch", r); })
+        .catch((error: unknown) => console.error("[worker] zoho.watch renewal failed:", error));
+    }
+    await runReconciliation(zohoDeps)
+      .then((runs) => runs.forEach((run) => run.reports.forEach((r) => zohoLog("zoho.reconcile", {
+        tenant: run.tenantId, module: r.module, checked: r.checked,
+        missingInZoho: r.missingInZoho.length, unknownInSponsorX: r.unknownInSponsorX.length,
+        diverged: r.diverged.length,
+      }))))
+      .catch((error: unknown) => console.error("[worker] zoho.reconcile failed:", error));
+  };
+  if (!process.env.ZOHO_CLIENT_ID) {
+    console.log("[worker] Zoho is not configured — CRM sync jobs wait in the outbox; no reconcile or watch.");
+  }
+  zohoTimer = setInterval(() => void zohoSweep(), ZOHO_SWEEP_INTERVAL_MS);
+  setTimeout(() => void zohoSweep(), 60_000).unref();
 
   /* P6-BE-05. The GeoLite2 file is opened ONCE, at boot, not per job: it is
      a hundred megabytes and the reader memory-maps it. A checkout without the
@@ -500,6 +603,7 @@ export async function stopWorker(): Promise<void> {
   if (expiryTimer) clearInterval(expiryTimer);
   if (rollupTimer) clearInterval(rollupTimer);
   if (reminderTimer) clearInterval(reminderTimer);
+  if (zohoTimer) clearInterval(zohoTimer);
   timer = undefined;
   expiryTimer = undefined;
   await boss.stop({ graceful: true }).catch(() => {});

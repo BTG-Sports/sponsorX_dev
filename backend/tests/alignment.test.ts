@@ -137,11 +137,18 @@ describe("a job with a handler is actually dispatched", () => {
     expect(worker).toContain('boss.work<InvitationJob>("notify.invitationSent"');
   });
 
-  it("still has no handler for zoho.pushCampaign, so those rows keep waiting", () => {
-    /* Asserted rather than assumed: P8-INT-01 owns it, and until then the
-       rows must accumulate in the outbox rather than expire in pg-boss. */
+  it("drains zoho.pushCampaign — rows queued before P8-INT-01 are not stranded", () => {
+    /* Launches enqueued the Deal push under this name for weeks before the
+       sync shipped. It is consumed by the same handler as zoho.pushDeal. */
     const worker = readFileSync(new URL("../worker/index.mts", import.meta.url), "utf8");
-    expect(worker).not.toContain('boss.work<unknown>("zoho.pushCampaign"');
+    expect(worker).toContain('boss.work<DealJob>("zoho.pushCampaign"');
+  });
+
+  it("still has no handler for zoho.pushAthlete, so those rows keep waiting", () => {
+    /* The athlete custom module is outside P8-INT-01's four objects. Until
+       it is built the rows must accumulate in the outbox, not expire. */
+    const worker = readFileSync(new URL("../worker/index.mts", import.meta.url), "utf8");
+    expect(worker).not.toContain('("zoho.pushAthlete"');
   });
 });
 
@@ -217,6 +224,8 @@ describe("the domain is reachable", () => {
     "recordScan", "recordLanding", "recordClaim", "redeemToken",
     "createTrackingLink", "codesForCampaign", "clicksForLink",
     "resolveCode", "recordClick",
+    /* P6-SEC-03 — the fan's one-tap unsubscribe. */
+    "withdrawFanConsent",
     /* B7 — earnings. createEarningForOrder and maybeMakeEligible are
        deliberately absent: they are called from inside acceptOrder and
        verifyPublished respectively, not from a route of their own. */

@@ -496,6 +496,24 @@ earnings and can never alter them.
 Phase 1 tracks payout **status**, not money movement. No bank details exist
 anywhere in SponsorX (§26), so there is nothing here to protect beyond status.
 
+### `invoice` *(added 2026-09-24)*
+| Role | Read | Write | Approve |
+|---|---|---|---|
+| `SUPER_ADMIN` | any | — | — |
+| `BTG_ADMIN` | own-tenant | — | — |
+| `SPONSOR_ADMIN` · `SPONSOR_ANALYST` | own (their own campaigns' invoices) | — | — |
+| all others | — | — | — |
+
+An invoice is BTG's bill to a sponsor, issued in Zoho Books; SponsorX holds a
+read-only mirror (`CampaignInvoice`). **Nobody writes it through this matrix**
+— rows arrive only from the Zoho webhook, like the audit log's system writes.
+Business decision 2026-09-24: invoices are seen by BTG admin and the sponsor
+being invoiced, and no one else. `FINANCE`, `CAMPAIGN_MGR`, `SALES` and
+`NETWORK_MGR` do not read them, even though they read the campaign. Athletes
+and guardians never do: the invoice shows what the sponsor paid, and against
+the athlete's own earning that exposes the margin §7.1 protects. What an
+athlete sees for their work is their `earning`.
+
 ### `sponsorReport`
 | Role | Read | Write | Approve |
 |---|---|---|---|
@@ -527,6 +545,38 @@ audit rows can erase its own tracks.
 | `BTG_ADMIN` | own-tenant | own-tenant | — |
 | `SERVICE` | own-tenant | own-tenant (own state) | — |
 | all others | — | — | — |
+
+The nightly Zoho drift report (`ZohoReconciliation`, P8-INT-05) is part of
+the integration's own state and is read under `integrationConnection`.
+
+### `inquiry` *(added 2026-09-24)*
+| Role | Read | Write | Approve |
+|---|---|---|---|
+| `SUPER_ADMIN` | any | any | — |
+| `BTG_ADMIN` | own-tenant | own-tenant | — |
+| `SALES` | own-tenant | — | — |
+| `SERVICE` | own-tenant | own-tenant (Zoho Lead id) | — |
+| all others | — | — | — |
+
+A prospective sponsor's enquiry (§18 row 3, P8-INT-06). It is **created by the
+public enquiry form**, which has no signed-in actor — the same shape as `/join`
+— so no role's write cell is what creates one. It becomes a Zoho Lead and is
+qualified there; SponsorX keeps the row and the Lead's id. It holds a person's
+contact details, so it is BTG-only: sponsors, athletes and properties never
+see another company's enquiry.
+
+### `syncTask` *(added 2026-09-24)*
+| Role | Read | Write | Approve |
+|---|---|---|---|
+| `SUPER_ADMIN` | any | any | — |
+| `BTG_ADMIN` | own-tenant | own-tenant | — |
+| `SALES` · `CAMPAIGN_MGR` | own-tenant | — | — |
+| `SERVICE` | own-tenant | own-tenant (Zoho id, status) | — |
+| all others | — | — | — |
+
+A CRM task SponsorX raises — follow-up on a qualified brief, approval of a
+campaign, the renewal conversation (§18 row 7, P8-INT-01). It is raised inside
+the transition that causes it and worked in Zoho, where sales already lives.
 
 ---
 

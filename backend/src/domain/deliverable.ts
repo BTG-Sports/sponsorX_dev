@@ -81,7 +81,7 @@ export async function createDeliverablesFromJob(
   actor: Pick<Actor, "tenantId" | "userId">,
   order: { id: string; tenantId: string; jobId: string; dueDate: Date },
 ): Promise<{ count: number }> {
-  const existing = await tx.deliverable.count({ where: { orderId: order.id } });
+  const existing = await tx.deliverable.count({ where: { orderId: order.id, tenantId: order.tenantId } });
   if (existing > 0) {
     throw new Error(
       `Order ${order.id} already has ${existing} deliverables. Creating them ` +
@@ -402,6 +402,7 @@ export async function registerCreativeAsset(
     if (!deliverable) throw new ForbiddenError("creativeAsset", "write");
 
     const highest = await tx.creativeAsset.aggregate({
+      /* tenant-scope: keyed by the deliverable loaded above through whereFor. */
       where: { deliverableId },
       _max: { version: true },
     });
