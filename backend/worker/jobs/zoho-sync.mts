@@ -166,6 +166,24 @@ export async function runReconciliation(deps: Deps, opts: { force?: boolean; ten
   return out;
 }
 
+/**
+ * Jobs that cannot run without CRM credentials. On a worker without them
+ * (production, until real records move) the drain leaves these IN THE
+ * OUTBOX rather than dispatching them into pg-boss, where each would fail
+ * against the retry limit and be archived — lost. Waiting in the outbox,
+ * they go the moment credentials are set, which is what "syncs wait" means.
+ * `zoho.ingestInvoice` is not here: it applies a Books payload already on
+ * disk and never calls the CRM.
+ */
+export const NEEDS_ZOHO_CRM = new Set([
+  "zoho.pushDeal", "zoho.pushCampaign", "zoho.pushTask", "zoho.pushLead",
+  "zoho.pushRenewal", "zoho.ingestCrm", "zoho.backfill",
+]);
+
+export function dispatchableJobs(handled: Iterable<string>, zohoConfigured: boolean): string[] {
+  return [...handled].filter((name) => zohoConfigured || !NEEDS_ZOHO_CRM.has(name));
+}
+
 /** The four modules §18 makes bi-directional. */
 export const WATCH_EVENTS = ["Accounts.all", "Contacts.all", "Deals.all", "Tasks.all"] as const;
 
