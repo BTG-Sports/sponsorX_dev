@@ -1608,3 +1608,396 @@ export const networkStats = [
   { label: "Attributed fan value", value: 2_300_000, prefix: "$", source: "MetricDaily rollup" },
   { label: "Fan rewards redeemed", value: 41_280, prefix: "", source: "RewardEvent · REDEEM" },
 ];
+
+/* --------------------------------------------------------------------------
+   SponsorX NEXT — student portal fixtures (P1-FE-19, NEXT spec §5, §8).
+
+   Models these will substitute for are Stage 9 (gated): Student,
+   SalesAttribution, StudentPointAccrual, Publication, Edition, AdSlot.
+   Deliberate shapes, worth keeping when Block B arrives:
+
+   - Sales rows are the immutable SalesAttribution ledger — value frozen at
+     close, never edited, survives graduation (spec §5.1).
+   - Points are integers with reasons, never cents, never near an $ sign — a
+     parent reading points as dollars is a legal problem (spec §5.5, §9).
+   - Assignment states reuse DeliverableState: it is already the editorial
+     workflow (P1-FE-20), and a second enum would drift from the first.
+   -------------------------------------------------------------------------- */
+
+export const student = {
+  displayName: "Jordan Reyes",
+  firstName: "Jordan",
+  school: "Northside High",
+  region: "Silver Spring, MD",
+  /** Publication.name for the student's propertyId — Postgres (Stage 9) */
+  publication: "The Northside Current",
+  /** Student.masthead — Postgres (Stage 9) */
+  masthead: ["SALES", "WRITER"],
+  gradYear: 2027,
+  state: "ACTIVE" as const,
+  advisor: "Ms. D. Okafor",
+  /** The /s/[code] resolver slug — Postgres (Stage 9) */
+  salesCode: "JORDAN-NHS",
+};
+
+export const studentEdition = {
+  /** Edition.label — Postgres (Stage 9) */
+  label: "Fall 2026",
+  state: "SELLING" as const,
+  /** Edition.closeDate — the ad deadline, not the print date */
+  closeDate: "Oct 9",
+  daysToClose: 16,
+  publishTarget: "Nov 3",
+  /** Edition.thresholdCents — minimum viable edition (spec §5.2) */
+  thresholdCents: 650_000,
+  /** Σ AdSlot sold, whole edition, all students — Postgres (Stage 9).
+   *  Derived: equals the sum of SOLD slot values in `editionPages` below;
+   *  the edition-fixtures test pins the two together. */
+  committedCents: 530_000,
+  /** AdSlot counts — Postgres (Stage 9) */
+  slotsTotal: 24,
+  slotsSold: 11,
+  slotsReserved: 4,
+};
+
+/** Editorial-language copy for DeliverableState in the student's own view.
+ *  Same machine as everywhere else; the advisor is the reviewer here. */
+export const STUDENT_ASSIGNMENT_COPY: Record<DeliverableState, string> = {
+  NOT_STARTED: "Not started",
+  DRAFT_SUBMITTED: "Draft submitted",
+  BTG_REVIEW: "Advisor review",
+  SPONSOR_REVIEW: "Sponsor preview",
+  APPROVED: "Approved for print",
+  PUBLISHED: "Printed",
+  VERIFIED: "Confirmed",
+};
+
+export type AssignmentKind = "ARTICLE" | "INTERVIEW" | "PHOTO" | "DESIGN";
+
+export const studentAssignments = [
+  {
+    id: "asg-01",
+    kind: "ARTICLE" as AssignmentKind,
+    title: "Under the Friday lights — girls' soccer's unbeaten run",
+    section: "Sports feature",
+    due: "Sep 26",
+    state: "DRAFT_SUBMITTED" as DeliverableState,
+    /** StudentPointAccrual.reason ARTICLE → 50 (spec §5.5) */
+    points: 50,
+    brief:
+      "1,200 words on the unbeaten streak. Lead with the captain; the athletic director quote is confirmed for Thursday.",
+  },
+  {
+    id: "asg-02",
+    kind: "INTERVIEW" as AssignmentKind,
+    title: "Q&A: the new athletic director's first season",
+    section: "People",
+    due: "Sep 30",
+    state: "NOT_STARTED" as DeliverableState,
+    /** StudentPointAccrual.reason INTERVIEW → 25 */
+    points: 25,
+    brief:
+      "Twenty minutes, recorded. Ask about the field renovation and what changes for winter sports.",
+  },
+  {
+    id: "asg-03",
+    kind: "PHOTO" as AssignmentKind,
+    title: "Homecoming build week — candids from the shop hall",
+    section: "Photo essay",
+    due: "Oct 2",
+    state: "NOT_STARTED" as DeliverableState,
+    points: 25,
+    brief:
+      "Eight to twelve frames, horizontal preferred. Float builders, banner painting, the parade line-up rehearsal.",
+  },
+  {
+    id: "asg-04",
+    kind: "INTERVIEW" as AssignmentKind,
+    title: "Sit-down: Amara Whitfield, the Issue 03 feature",
+    section: "Feature support",
+    due: "Oct 3",
+    state: "SPONSOR_REVIEW" as DeliverableState,
+    points: 25,
+    brief:
+      "Supporting quotes for the magazine feature. Her guardian consent covers the feature; the sponsor previews placement only, never edits copy.",
+  },
+  {
+    id: "asg-05",
+    kind: "ARTICLE" as AssignmentKind,
+    title: "How the concession stand funds the season",
+    section: "Money & program",
+    due: "Sep 24",
+    state: "APPROVED" as DeliverableState,
+    points: 50,
+    brief:
+      "Follow one Friday's takings from the till to the equipment order. Numbers confirmed by the booster treasurer.",
+  },
+  {
+    id: "asg-06",
+    kind: "PHOTO" as AssignmentKind,
+    title: "Season opener gallery — varsity football vs. Eastbrook",
+    section: "Photo essay",
+    due: "Sep 12",
+    state: "PUBLISHED" as DeliverableState,
+    points: 25,
+    brief: "Ran across pages 6–7 of the digital preview edition.",
+  },
+];
+
+/** Immutable SalesAttribution rows — value frozen at close (spec §5.1).
+ *  Recorded by SponsorX when the sponsor pays, never self-reported. */
+export const studentSales = [
+  {
+    id: "sale-03",
+    business: "Summit Physical Therapy",
+    slot: "Half page",
+    slotCode: "P11-HALF",
+    valueCents: 50_000,
+    closedOn: "Sep 18",
+  },
+  {
+    id: "sale-02",
+    business: "Kim's Auto Care",
+    slot: "Half page",
+    slotCode: "P07-HALF",
+    valueCents: 50_000,
+    closedOn: "Sep 12",
+  },
+  {
+    id: "sale-01",
+    business: "Rosa's Bakery",
+    slot: "Quarter page + coupon",
+    slotCode: "P04-QTR",
+    valueCents: 45_000,
+    closedOn: "Sep 3",
+  },
+];
+
+/** Weekly closed-sales cents, season to date — Σ SalesAttribution by week */
+export const studentSalesTrend = [0, 45_000, 45_000, 95_000, 95_000, 145_000];
+
+export type ProspectStage = "CONTACTED" | "MEETING" | "SUBMITTED" | "REJECTED";
+
+export const PROSPECT_COPY: Record<ProspectStage, string> = {
+  CONTACTED: "Contacted",
+  MEETING: "Meeting set",
+  SUBMITTED: "With SponsorX",
+  REJECTED: "Not accepted",
+};
+
+/** The student's own pipeline. SUBMITTED means the Sponsor Acceptance Check
+ *  (spec §5.6) is running — commercial ops decides, not the student. */
+export const studentProspects = [
+  {
+    id: "pro-01",
+    business: "Delgado's Pizzeria",
+    contact: "Mr. Delgado",
+    stage: "MEETING" as ProspectStage,
+    slot: "Half page",
+    askCents: 50_000,
+    note: "Thursday 4:30pm at the shop. Bring the Fall rate card and the coupon example.",
+    lastTouch: "yesterday",
+  },
+  {
+    id: "pro-02",
+    business: "Iron Path Gym",
+    contact: "Dana (front desk)",
+    stage: "SUBMITTED" as ProspectStage,
+    slot: "Half page",
+    askCents: 50_000,
+    note: "Owner said yes verbally; acceptance check running.",
+    lastTouch: "2 days ago",
+  },
+  {
+    id: "pro-03",
+    business: "Maple Cleaners",
+    contact: "voicemail left",
+    stage: "CONTACTED" as ProspectStage,
+    slot: "Quarter page",
+    askCents: 25_000,
+    note: "Call back after 3pm — owner picks up then.",
+    lastTouch: "4 days ago",
+  },
+  {
+    id: "pro-04",
+    business: "Peak Energy Drinks",
+    contact: "regional rep",
+    stage: "REJECTED" as ProspectStage,
+    slot: "Full page",
+    askCents: 100_000,
+    /** Spec §5.6 — a reason code, and no loss of eligible sales credit */
+    reasonCode: "CATEGORY_EXCLUSIVE",
+    reason:
+      "The school holds a beverage exclusivity you couldn't have known about. Your sales credit is unaffected.",
+    redirect: "Open category nearby: fitness & recreation.",
+    note: "",
+    lastTouch: "Sep 15",
+  },
+];
+
+/* --------------------------------------------------------------------------
+   The edition flatplan — P1-FE-21, spec §5.2. One source for the page map:
+   the admin screen renders it, and studentEdition's committed/slot numbers
+   are pinned to it by tests so the two surfaces cannot drift.
+
+   AdSlot truths worth keeping when Stage 9 substitutes the real table:
+   - a slot's sale value is frozen at close and may differ from rack (Rosa's
+     quarter carried a coupon add-on: $450 against a $250 rack);
+   - RESERVED names who it is held for, because a hold without a name is
+     just an open slot someone is afraid to sell;
+   - the back cover is quantity one, on one edition, unsellable after close.
+   -------------------------------------------------------------------------- */
+
+export type AdSlotState = "SOLD" | "RESERVED" | "OPEN";
+export type AdSlotKind = "FULL" | "HALF" | "QUARTER" | "BACK_COVER";
+
+/** Rack prices per position kind — cents. Sale values may differ. */
+export const SLOT_RACK_CENTS: Record<AdSlotKind, number> = {
+  QUARTER: 25_000,
+  HALF: 50_000,
+  FULL: 80_000,
+  BACK_COVER: 100_000,
+};
+
+export type EditionSlot = {
+  code: string;
+  kind: AdSlotKind;
+  state: AdSlotState;
+  /** Value at close, cents — SOLD only. */
+  soldCents?: number;
+  sponsor?: string;
+  /** Who a RESERVED slot is held for, and why. */
+  holdFor?: string;
+};
+
+export type EditionPage = {
+  page: number;
+  /** Editorial working title — shown on the plan. */
+  title: string;
+  editorial?: boolean;
+  slots: EditionSlot[];
+};
+
+export const editionPages: EditionPage[] = [
+  { page: 1, title: "Cover", editorial: true, slots: [] },
+  {
+    page: 2,
+    title: "Inside front",
+    slots: [
+      { code: "P02-FULL", kind: "FULL", state: "SOLD", soldCents: 80_000, sponsor: "Northside Pediatrics" },
+    ],
+  },
+  { page: 3, title: "Season openers", editorial: true, slots: [] },
+  {
+    page: 4,
+    title: "Fall sports calendar",
+    slots: [
+      { code: "P04-HALF", kind: "HALF", state: "RESERVED", holdFor: "Iron Path Gym · acceptance check running" },
+      { code: "P04-QTR", kind: "QUARTER", state: "SOLD", soldCents: 45_000, sponsor: "Rosa's Bakery" },
+      { code: "P04-QTRB", kind: "QUARTER", state: "OPEN" },
+    ],
+  },
+  {
+    page: 5,
+    title: "Coach Q&A",
+    slots: [
+      { code: "P05-HALF", kind: "HALF", state: "SOLD", soldCents: 50_000, sponsor: "Maple Hardware" },
+      { code: "P05-HALFB", kind: "HALF", state: "OPEN" },
+    ],
+  },
+  { page: 6, title: "Feature — Under the Friday lights", editorial: true, slots: [] },
+  {
+    page: 7,
+    title: "Feature continued",
+    slots: [
+      { code: "P07-HALF", kind: "HALF", state: "SOLD", soldCents: 50_000, sponsor: "Kim's Auto Care" },
+      { code: "P07-HALFB", kind: "HALF", state: "OPEN" },
+    ],
+  },
+  {
+    page: 8,
+    title: "Girls' soccer",
+    slots: [
+      { code: "P08-HALF", kind: "HALF", state: "RESERVED", holdFor: "Delgado's Pizzeria · meeting Thu 4:30" },
+      { code: "P08-HALFB", kind: "HALF", state: "SOLD", soldCents: 50_000, sponsor: "Silver Spring Smiles Dental" },
+    ],
+  },
+  {
+    page: 9,
+    title: "Cross country",
+    slots: [
+      { code: "P09-HALF", kind: "HALF", state: "OPEN" },
+      { code: "P09-QTRA", kind: "QUARTER", state: "SOLD", soldCents: 25_000, sponsor: "Corner Smoothie Co." },
+      { code: "P09-QTRB", kind: "QUARTER", state: "SOLD", soldCents: 25_000, sponsor: "Pitchside Barbers" },
+    ],
+  },
+  {
+    page: 10,
+    title: "Homecoming preview",
+    slots: [
+      { code: "P10-FULL", kind: "FULL", state: "SOLD", soldCents: 80_000, sponsor: "First Ridge Credit Union" },
+    ],
+  },
+  {
+    page: 11,
+    title: "Marching band",
+    slots: [
+      { code: "P11-HALF", kind: "HALF", state: "SOLD", soldCents: 50_000, sponsor: "Summit Physical Therapy" },
+      { code: "P11-HALFB", kind: "HALF", state: "RESERVED", holdFor: "Booster Club co-op ad" },
+    ],
+  },
+  { page: 12, title: "Photo essay — build week", editorial: true, slots: [] },
+  { page: 13, title: "Photo essay continued", editorial: true, slots: [] },
+  {
+    page: 14,
+    title: "Student voices",
+    slots: [
+      { code: "P14-HALF", kind: "HALF", state: "OPEN" },
+      { code: "P14-QTRA", kind: "QUARTER", state: "SOLD", soldCents: 25_000, sponsor: "The Study Spot Café" },
+    ],
+  },
+  {
+    page: 15,
+    title: "Winter sports lookahead",
+    slots: [{ code: "P15-FULL", kind: "FULL", state: "OPEN" }],
+  },
+  {
+    page: 16,
+    title: "Concessions & program",
+    slots: [
+      { code: "P16-HALF", kind: "HALF", state: "SOLD", soldCents: 50_000, sponsor: "GreenLine Landscaping" },
+      { code: "P16-HALFB", kind: "HALF", state: "OPEN" },
+    ],
+  },
+  { page: 17, title: "Records & standings", editorial: true, slots: [] },
+  { page: 18, title: "Alumni corner", editorial: true, slots: [] },
+  { page: 19, title: "Masthead & credits", editorial: true, slots: [] },
+  {
+    page: 20,
+    title: "Inside back",
+    slots: [
+      { code: "P20-HALF", kind: "HALF", state: "RESERVED", holdFor: "Northside PTA" },
+      { code: "P20-QTR", kind: "QUARTER", state: "OPEN" },
+    ],
+  },
+];
+
+/** The singleton. Rendered apart from the spreads, framed. */
+export const editionBackCover: EditionSlot = {
+  code: "BACK-01",
+  kind: "BACK_COVER",
+  state: "OPEN",
+};
+
+/** StudentPointAccrual rows — reasons from the spec §5.5 vocabulary.
+ *  Integers. Not cents. Nothing here may render with a currency sign. */
+export const studentPoints = {
+  balance: 300,
+  accruals: [
+    { id: "pt-06", reason: "SALES_500", label: "Second $500 in closed sales", points: 100, on: "Sep 18" },
+    { id: "pt-05", reason: "ARTICLE", label: "Concession stand feature approved", points: 50, on: "Sep 14" },
+    { id: "pt-04", reason: "SALES_500", label: "First $500 in closed sales", points: 100, on: "Sep 12" },
+    { id: "pt-03", reason: "INTERVIEW", label: "Coach Alvarez pre-season interview", points: 25, on: "Sep 8" },
+    { id: "pt-02", reason: "APPOINTMENT", label: "Sales meeting held — Rosa's Bakery", points: 25, on: "Sep 1" },
+  ],
+};

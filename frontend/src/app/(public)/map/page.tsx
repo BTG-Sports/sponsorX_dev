@@ -16,6 +16,10 @@ const ROUTES = [
   { href: "/athlete/orders/demo-order", title: 'Campaign Order Acceptance', ref: '§12 · guide §08', surface: 'athlete portal' },
   { href: "/athlete/earnings", title: 'Athlete Earnings', ref: '§24 · §21', surface: 'athlete portal' },
   { href: "/property", title: 'Property Portal', ref: '§8 PROPERTY_MGR', surface: 'property portal' },
+  { href: "/next", title: 'Student Home (SponsorX NEXT)', ref: 'NEXT spec §8 · P1-FE-19', surface: 'student portal (NEXT)' },
+  { href: "/next/assignments", title: 'Assignments', ref: 'NEXT spec §5.2 · P1-FE-19', surface: 'student portal (NEXT)' },
+  { href: "/next/sales", title: 'My Sales & Attribution Ledger', ref: 'NEXT spec §5.1 · §5.6', surface: 'student portal (NEXT)' },
+  { href: "/next/code", title: 'My Sales Code', ref: 'NEXT spec §8 /s/[code]', surface: 'student portal (NEXT)' },
   { href: "/admin", title: 'BTG Admin Command Center', ref: '§10 · §23', surface: 'admin' },
   { href: "/admin/applications", title: 'Athlete Network Manager Workspace', ref: '§10 · §23', surface: 'admin' },
   { href: "/admin/campaigns", title: 'Campaigns + Builder (Athlete Matching)', ref: '§9 screen 8', surface: 'admin' },
@@ -24,6 +28,7 @@ const ROUTES = [
   { href: "/admin/rewards/new", title: 'QR / Reward Creator', ref: '§9 screen 10 · §16', surface: 'admin' },
   { href: "/admin/analytics", title: 'Analytics / Athlete Performance', ref: '§9 screen 11 · §22', surface: 'admin' },
   { href: "/admin/finance", title: 'Finance Workspace', ref: '§10', surface: 'admin' },
+  { href: "/admin/next/editions", title: 'Edition Planning + Page Map (NEXT)', ref: 'NEXT spec §5.2 · P1-FE-21', surface: 'admin' },
   { href: "/r/DEMO_TOKEN", title: "Fan Redeem", ref: "§16", surface: "fan (no login)" },
 ];
 

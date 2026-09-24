@@ -14,7 +14,7 @@ import { UserMenu } from "./user-menu";
    Athlete = blue, Sponsor = orange, Admin = steel, Property = soft blue.
    -------------------------------------------------------------------------- */
 
-export type Portal = "sponsor" | "athlete" | "admin" | "property";
+export type Portal = "sponsor" | "athlete" | "admin" | "property" | "next";
 export type { NavItem };
 
 const ACCENT: Record<
@@ -61,6 +61,17 @@ const ACCENT: Record<
     wash: "from-property/15",
     edge: "from-property/60",
     label: "Property Portal",
+  },
+  /* SponsorX NEXT (P1-FE-18) — violet via the --sx-next token pair, which NEXT
+     spec §14 keeps a proposed value behind the brand gate. The label's first
+     word feeds the sidebar watermark, so it reads NEXT, not STUDENT. */
+  next: {
+    text: "text-next",
+    bg: "bg-next/15",
+    dot: "bg-next",
+    wash: "from-next/15",
+    edge: "from-next/60",
+    label: "NEXT Student",
   },
 };
 
@@ -197,7 +208,7 @@ export function PortalShell({
             portalLabel={accent.label}
           />
           <div className="min-w-0 flex-1">
-            <p className="text-[10px] uppercase leading-tight tracking-[0.2em] text-faint">
+            <p className="whitespace-nowrap text-[10px] uppercase leading-tight tracking-[0.2em] text-faint">
               Welcome back
             </p>
             <p className="truncate text-base font-semibold leading-tight tracking-tight">
@@ -211,14 +222,18 @@ export function PortalShell({
 
           <div className="flex items-center gap-3">
             <ThemeToggle />
-            <TopIcon
-              path="M6 16V10a6 6 0 1 1 12 0v6l2 3H4l2-3Zm4 3a2 2 0 0 0 4 0"
-              label="Notifications — not wired"
-            />
-            <TopIcon
-              path="M12 17h.01M12 13.5c0-1.5 2-1.8 2-3.5a2 2 0 1 0-4 0M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Z"
-              label="Help — not wired"
-            />
+            {/* Both inert until their features ship — on a phone they only
+               crowd the actor's name out of the header, so they wait for sm. */}
+            <div className="hidden items-center gap-3 sm:flex">
+              <TopIcon
+                path="M6 16V10a6 6 0 1 1 12 0v6l2 3H4l2-3Zm4 3a2 2 0 0 0 4 0"
+                label="Notifications — not wired"
+              />
+              <TopIcon
+                path="M12 17h.01M12 13.5c0-1.5 2-1.8 2-3.5a2 2 0 1 0-4 0M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Z"
+                label="Help — not wired"
+              />
+            </div>
             <span className="hidden h-6 w-px bg-gradient-to-b from-transparent via-line to-transparent sm:block" />
             <UserMenu
               userName={userName}

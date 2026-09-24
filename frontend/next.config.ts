@@ -13,6 +13,10 @@ const nextConfig: NextConfig = {
   // VERCEL env var during builds — skip standalone there, keep it for
   // Railway/Render.
   ...(process.env.VERCEL ? {} : { output: "standalone" as const }),
+
+  // The dev-tools badge defaults to bottom-left, where it sits on top of the
+  // student portal's bottom tab bar (P1-FE-19) at phone widths. Dev-only.
+  devIndicators: { position: "top-right" },
 };
 
 export default nextConfig;

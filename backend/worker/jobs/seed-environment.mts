@@ -103,6 +103,14 @@ const USERS: SeedUser[] = [
     roles: ["BTG_ADMIN"],
     note: "BTG operator — claimable by real sign-in",
   },
+  {
+    /* Second operator, same reasoning — a BTG_ADMIN can also preview the
+       fixtures-only student portal (/next) until P9-BE-05 mints STUDENT. */
+    id: "seed_user_operator2",
+    email: "infinex2@icarrefound.org",
+    roles: ["BTG_ADMIN"],
+    note: "BTG operator — claimable by real sign-in",
+  },
 ];
 
 export type SeedOutcome = {
