@@ -248,7 +248,12 @@ describe("the whole matrix is pinned", () => {
       // superset role" — and `athlete` was the only approve column in the
       // matrix without SUPER_ADMIN. The document was corrected first; this
       // digest follows it.
-    ).toBe("bc4ddbf83a1e7538");
+      // Updated 2026-09-24: new `invoice` resource — read only, for
+      // SUPER_ADMIN ("any"), BTG_ADMIN ("own-tenant") and SPONSOR_ADMIN /
+      // SPONSOR_ANALYST ("own"); every other cell deny. With the invoice rows
+      // removed the grid still hashes to the previous bc4ddbf83a1e7538, so
+      // nothing else moved. Document row added first (§11 `invoice`).
+    ).toBe("441c358e69d81f98");
   });
 
   it("covers every pair the §30 acceptance asks for", () => {

@@ -496,6 +496,24 @@ earnings and can never alter them.
 Phase 1 tracks payout **status**, not money movement. No bank details exist
 anywhere in SponsorX (§26), so there is nothing here to protect beyond status.
 
+### `invoice` *(added 2026-09-24)*
+| Role | Read | Write | Approve |
+|---|---|---|---|
+| `SUPER_ADMIN` | any | — | — |
+| `BTG_ADMIN` | own-tenant | — | — |
+| `SPONSOR_ADMIN` · `SPONSOR_ANALYST` | own (their own campaigns' invoices) | — | — |
+| all others | — | — | — |
+
+An invoice is BTG's bill to a sponsor, issued in Zoho Books; SponsorX holds a
+read-only mirror (`CampaignInvoice`). **Nobody writes it through this matrix**
+— rows arrive only from the Zoho webhook, like the audit log's system writes.
+Business decision 2026-09-24: invoices are seen by BTG admin and the sponsor
+being invoiced, and no one else. `FINANCE`, `CAMPAIGN_MGR`, `SALES` and
+`NETWORK_MGR` do not read them, even though they read the campaign. Athletes
+and guardians never do: the invoice shows what the sponsor paid, and against
+the athlete's own earning that exposes the margin §7.1 protects. What an
+athlete sees for their work is their `earning`.
+
 ### `sponsorReport`
 | Role | Read | Write | Approve |
 |---|---|---|---|

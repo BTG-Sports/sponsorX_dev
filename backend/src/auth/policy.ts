@@ -113,6 +113,7 @@ export type Resource =
   | "metricAggregate"
   | "earning"
   | "payout"
+  | "invoice"
   | "sponsorReport"
   | "auditLog"
   | "integrationConnection"
@@ -147,6 +148,7 @@ export const RESOURCES: readonly Resource[] = [
   "metricAggregate",
   "earning",
   "payout",
+  "invoice",
   "sponsorReport",
   "auditLog",
   "integrationConnection",
@@ -480,6 +482,17 @@ export const POLICY: Record<Resource, RolePolicy> = {
     FINANCE: rwa("own-tenant", "own-tenant"),
     ATHLETE: rwa("own"),
     GUARDIAN: rwa("ward"),
+  },
+
+  /* Read-only mirror of Zoho Books — rows arrive from the webhook, never
+     through this matrix. BTG admin and the invoiced sponsor only (decision
+     2026-09-24): FINANCE, CAMPAIGN_MGR and SALES read the campaign but not
+     its invoices, and an athlete never sees what the sponsor paid. */
+  invoice: {
+    SUPER_ADMIN: rwa("any"),
+    BTG_ADMIN: rwa("own-tenant"),
+    SPONSOR_ADMIN: rwa("own"),
+    SPONSOR_ANALYST: rwa("own"),
   },
 
   sponsorReport: {
