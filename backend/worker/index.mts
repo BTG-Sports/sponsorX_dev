@@ -53,6 +53,7 @@ const HANDLED_JOBS = new Set<string>([
   "image.derive",
   "tracking.resolveGeo",
   "zoho.ingestInvoice",
+  "athlete.importCohort",
 ]);
 import { handleSendEmail, type EmailJob } from "./jobs/send-email.mts";
 import { handleGenerateQr, type QrJob } from "./jobs/generate-qr.mts";
@@ -66,6 +67,7 @@ import { remindDueDeliverables } from "./jobs/deliverable-reminders.mts";
 import { handleIngestInvoice, type IngestInvoiceJob } from "./jobs/ingest-invoice.mts";
 import { prisma } from "../src/db/client.ts";
 import { ingestZohoInvoice, type ZohoInvoicePayload } from "../src/domain/invoice.ts";
+import { importCohort, type CohortImportJob } from "../src/domain/cohort-import.ts";
 import { redis } from "../src/lib/redis.ts";
 
 const connectionString = process.env.DATABASE_URL;
@@ -317,7 +319,11 @@ async function main(): Promise<void> {
     /* Logged because a duplicate is not a failure — it means the message had
        already gone once, which is what was asked for. Silence here would
        make an at-least-once delivery look like a lost email. */
-    console.log(`[worker] notify.email ${outcome}: ${job.data.template} -> ${job.data.to}`);
+    /* A fan's address stays out of the log (P6-SEC-02/03): their consent
+       covers the voucher email, not our log retention. Staff and athletes
+       have accounts and are logged as before. */
+    const to = job.data.fanEventId ? `fan claim ${job.data.fanEventId}` : job.data.to;
+    console.log(`[worker] notify.email ${outcome}: ${job.data.template} -> ${to}`);
   });
 
   /* P4-INT-01. It resolves the invitation at send time and enqueues a
@@ -348,6 +354,18 @@ async function main(): Promise<void> {
         }),
     });
     console.log(`[worker] zoho.ingestInvoice ${outcome.status}`);
+  });
+
+  /* P3-DATA-01 — the pilot cohort. Queued by `npm run cohort:import`, which
+     has already validated every row and applied the production gate; this
+     only creates. Skips by email, so a retry resumes rather than duplicates. */
+  await ensureQueue("athlete.importCohort");
+  await boss.work<CohortImportJob>("athlete.importCohort", async ([job]) => {
+    const outcome = await importCohort(job.data);
+    console.log(
+      `[worker] athlete.importCohort ${job.data.source} (${job.data.sha256.slice(0, 12)}): ` +
+        `${outcome.created} created, ${outcome.skipped.length} skipped`,
+    );
   });
 
   /* P6-BE-05. The GeoLite2 file is opened ONCE, at boot, not per job: it is

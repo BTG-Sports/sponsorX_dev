@@ -14,7 +14,8 @@
     "test": "vitest run",
     "lint": "eslint",
     "start:api": "node --env-file-if-exists=../.env --import tsx src/index.ts",
-    "start:worker": "node --env-file-if-exists=../.env --import tsx worker/index.mts"
+    "start:worker": "node --env-file-if-exists=../.env --import tsx worker/index.mts",
+    "cohort:import": "node --env-file-if-exists=../.env --import tsx scripts/cohort-import.mts"
   },
   "dependencies": {
     "@asteasolutions/zod-to-openapi": "9.1.0",
