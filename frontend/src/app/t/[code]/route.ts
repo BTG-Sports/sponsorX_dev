@@ -59,7 +59,12 @@ export async function GET(
   }
 
   if (!destinationUrl) {
-    return Response.redirect(new URL(FALLBACK_URL, req.url), 302);
+    /* A relative Location, not `new URL(FALLBACK_URL, req.url)`: behind
+       Railway's proxy `req.url` is the container's own address
+       (https://localhost:8080), so an absolute URL built from it sent fans to
+       localhost. The browser resolves a relative Location against the host
+       the fan actually used. */
+    return new Response(null, { status: 302, headers: { Location: FALLBACK_URL } });
   }
 
   /* AFTER the response. Next runs this once the 302 has gone out, so a slow
