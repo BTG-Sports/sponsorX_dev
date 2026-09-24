@@ -1996,6 +1996,56 @@ export const editionBackCover: EditionSlot = {
    ApprovalsDesk's own vocabulary — reused unchanged, per the acceptance.
    -------------------------------------------------------------------------- */
 
+/* --------------------------------------------------------------------------
+   Revenue splits — P1-FE-23, spec §5.7. RevenueSplit attaches to the Edition:
+   a payeeKind, a basis-points share, a computed amount. Deliberately NOT the
+   Earning shape — Earning means athlete NIL compensation and finance
+   reconciles payouts from it; these are allocations of edition revenue, and
+   the two must not look alike (the P1-FE-23 acceptance) or share a table
+   (§5.7). Amounts are always derived from bps at render time, never stored
+   here — a transcribed amount is how a split drifts from its own rule.
+   -------------------------------------------------------------------------- */
+
+export type SplitPayeeKind =
+  | "SPONSORX"
+  | "SCHOOL"
+  | "STUDENT_POOL"
+  | "EDITORIAL_FUND";
+
+export const editionSplits: Array<{
+  payeeKind: SplitPayeeKind;
+  /** Basis points of edition revenue — Σ must be 10,000 (tested). */
+  bps: number;
+  payee: string;
+  blurb: string;
+}> = [
+  {
+    payeeKind: "SPONSORX",
+    bps: 4_000,
+    payee: "SponsorX operations",
+    blurb: "Production, print, sales operations and the platform.",
+  },
+  {
+    payeeKind: "SCHOOL",
+    bps: 3_000,
+    payee: "Northside High",
+    blurb: "The school's share — paid to the program, not a person.",
+  },
+  {
+    payeeKind: "STUDENT_POOL",
+    bps: 2_000,
+    payee: "Student pool",
+    blurb:
+      "Funds the points program. Never paid to a student directly — points are recognition, not wages (§5.5).",
+  },
+  {
+    payeeKind: "EDITORIAL_FUND",
+    bps: 1_000,
+    payee: "Editorial fund",
+    blurb: "Cameras, recorders, section budgets — the newsroom's gear money.",
+  },
+];
+
 /** SUBMITTED | UNDER_REVIEW | APPROVED — the slice an advisor works daily.
  *  Full StudentState adds DRAFT/ACTIVE/INACTIVE/SUSPENDED (Stage 9). */
 export type StudentApplicationState = "SUBMITTED" | "UNDER_REVIEW" | "APPROVED";

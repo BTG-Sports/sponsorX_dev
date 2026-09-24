@@ -14,6 +14,7 @@ const NAV: NavItem[] = [
      inventory ledger, rights queue and splits screens join as they're built. */
   { href: "/admin/next/editions", label: "NEXT editions", icon: "book" },
   { href: "/admin/next/inventory", label: "NEXT inventory", icon: "card" },
+  { href: "/admin/next/splits", label: "NEXT splits", icon: "file" },
 ];
 
 /* Authorisation, not merely authentication (P2-BE-04). requirePortalAccess()

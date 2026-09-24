@@ -4,6 +4,7 @@ import {
   SLOT_RACK_CENTS,
   editionBackCover,
   editionPages,
+  editionSplits,
   studentEdition,
   studentProspects,
   studentSales,
@@ -88,5 +89,29 @@ describe("edition flatplan fixtures (P1-FE-21)", () => {
     for (const s of allSlots) {
       expect(SLOT_RACK_CENTS[s.kind], s.code).toBeGreaterThan(0);
     }
+  });
+});
+
+describe("revenue splits (P1-FE-23, spec §5.7)", () => {
+  it("shares sum to exactly 10,000 basis points", () => {
+    expect(editionSplits.reduce((s, x) => s + x.bps, 0)).toBe(10_000);
+  });
+
+  it("derived amounts allocate the committed revenue without remainder", () => {
+    const amounts = editionSplits.map((x) =>
+      Math.floor((studentEdition.committedCents * x.bps) / 10_000),
+    );
+    expect(amounts.reduce((s, a) => s + a, 0)).toBe(
+      studentEdition.committedCents,
+    );
+  });
+
+  it("the four payee kinds are the spec's, each exactly once", () => {
+    expect(editionSplits.map((x) => x.payeeKind).sort()).toEqual([
+      "EDITORIAL_FUND",
+      "SCHOOL",
+      "SPONSORX",
+      "STUDENT_POOL",
+    ]);
   });
 });
