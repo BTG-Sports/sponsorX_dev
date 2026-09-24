@@ -74,3 +74,13 @@ Sheet still needs its hand mirror at end of day.
 **Bug found and fixed:** `/t/<unknown code>` on staging redirected to `https://localhost:8080/` — `frontend/src/app/t/[code]/route.ts` builds the fallback with `new URL("/", req.url)`, and behind Railway's proxy `req.url` is the container's own address. Fixed by returning a relative `Location: /`; `frontend/tests/tracking-redirect.test.ts` reproduces the proxied `req.url` and failed before the change.
 
 **Railway SSH:** an ed25519 key (`~/.ssh/id_ed25519`, registered as `bob-mac`) now lets `railway ssh --environment <env> --service <svc> -- <cmd>` run commands inside containers — the only way to test the private network, since the API does not log requests and httpLogs cover public traffic only.
+
+## Business decisions taken 2026-09-24 (user) — applied
+
+| Item | Decision | Applied |
+|---|---|---|
+| **`P7-BE-06`** report render worker | **Retained and parked**, not dropped. The frontend's browser PDF (`frontend/src/lib/report-pdf.ts`) is the demo for now. | Board → Blocked with a PARKED note; Phase 1 doc gains a *Parked* line. G-07's confirmation box stays blank — nothing was decided about requiring a file. |
+| **`P7-BE-02`** earning release | **Option A:** one earning per order, released in full when the **last** deliverable is verified. Deliverables are already created from the order's NIL job at acceptance (`createDeliverablesFromJob`), so each is tied to the task originally set. | Wording amended in the Phase 1 doc and the tracker to match the code. No code change. |
+| **Invoice visibility** | **BTG admin and the invoiced sponsor only.** Athletes never see invoices — they see their `earning`; the invoice would expose the margin (§7.1). | New RBAC resource `invoice` (matrix §11 + `policy.ts`): SUPER_ADMIN any · BTG_ADMIN own-tenant · SPONSOR_ADMIN/ANALYST own · everyone else denied, including FINANCE, CAMPAIGN_MGR and SALES. `invoicesForCampaign` / `paymentStatusForCampaign` gate on it, with the campaign lookup still narrowing a sponsor to their own campaigns. 13 new tests; matrix digest `bc4ddbf83a1e7538` → `441c358e69d81f98`, verified that only the four `invoice` cells moved. Tracker note on `P7-BE-04`. |
+
+Verification: `npm run build` clean; backend 1027 passed / 13 skipped, frontend 65 passed.

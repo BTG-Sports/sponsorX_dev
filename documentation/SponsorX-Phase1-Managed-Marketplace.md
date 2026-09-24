@@ -1955,10 +1955,10 @@ Network-level numbers: active athletes, participation, total earnings, average j
 
 **Order** 142 · **BE** · **Where:** Code · **3d** · **Blocked** · **Unblocks** 0
 
-Closing an approved deliverable makes the athlete's earning eligible, automatically and audited.
+Verifying the last of an order's deliverables makes the athlete's earning eligible, automatically and audited.
 
 - **Depends on:** P7-BE-01, P5-BE-08
-- **Done when:** Closing an accepted deliverable makes the associated earning ELIGIBLE; the transition is audited
+- **Done when:** Verifying the **last** of an order's deliverables — each one created from the order's NIL job when the athlete accepts, so every deliverable is tied to the task originally set — makes that order's earning ELIGIBLE, in full; the transition is audited. *(Wording amended 2026-09-24 by business decision: one earning per order, released when all its deliverables are verified. Per-deliverable release is not Phase 1.)*
 - **Reference:** §13 step 11
 
 ### ▶ `P7-BE-04` · Invoice / payment reference ingestion from Zoho
@@ -1980,6 +1980,7 @@ Render the sponsor report as a PDF in the background — only if the earlier dec
 - **Depends on:** P7-BE-05, P0-PMO-05
 - **Done when:** If G-07 requires a PDF, Playwright renders it on the worker and stores it in the private bucket. If not, this task is closed as not-required
 - **Reference:** Addendum A10, Guide §10
+- **Parked (2026-09-24, business decision):** retained, not dropped. The sponsor report's PDF is currently produced in the browser by the frontend (`frontend/src/lib/report-pdf.ts`), shown as a demo; the worker job stays on the plan and is picked up only if a server-rendered file becomes a requirement. G-07's confirmation is still open.
 
 ### ⏸ `P7-DATA-03` · Implied CPM calculation
 

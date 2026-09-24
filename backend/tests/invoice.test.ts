@@ -36,11 +36,11 @@ vi.mock("../src/db/client", () => {
 
 let invoiceRows: Record<string, unknown>[] = [];
 
-const { ingestZohoInvoice, payloadHash, paymentStatusForCampaign, UnknownDealError } =
+const { ingestZohoInvoice, invoicesForCampaign, payloadHash, paymentStatusForCampaign, UnknownDealError } =
   await import("../src/domain/invoice");
 
 const actor = () =>
-  ({ userId: "u", tenantId: "t1", roles: ["FINANCE"], sponsorId: null,
+  ({ userId: "u", tenantId: "t1", roles: ["BTG_ADMIN"], sponsorId: null,
      athleteId: null, guardianId: null, propertyId: null }) as never;
 
 /* ingestZohoInvoice takes the CALLER'S transaction — it is invoked from
@@ -156,6 +156,43 @@ describe("payment status is strict", () => {
   it("compares status case-insensitively — Zoho's casing is not ours to rely on", async () => {
     invoiceRows = [inv("PAID")];
     await expect(paymentStatusForCampaign(actor(), "cmp_1")).resolves.toMatchObject({ paid: true });
+  });
+});
+
+/**
+ * WHO SEES AN INVOICE — RBAC matrix §11 `invoice`, decided 2026-09-24: BTG
+ * admin and the sponsor being invoiced. Every role below reads the campaign,
+ * so each denial proves the invoice gate is not the campaign gate.
+ */
+describe("only BTG admin and the sponsor see invoices", () => {
+  const as = (role: string, sponsorId: string | null = null) =>
+    ({ userId: "u", tenantId: "t1", roles: [role], sponsorId,
+       athleteId: role === "ATHLETE" ? "ath_1" : null, guardianId: null,
+       propertyId: null }) as never;
+
+  beforeEach(() => {
+    invoiceRows = [{ id: "inv_1", status: "sent", amount: 100 }];
+  });
+
+  it.each([["BTG_ADMIN"], ["SUPER_ADMIN"]])("%s reads them", async (role) => {
+    await expect(invoicesForCampaign(as(role), "cmp_1")).resolves.toHaveLength(1);
+  });
+
+  it.each([["SPONSOR_ADMIN"], ["SPONSOR_ANALYST"]])("%s reads their own", async (role) => {
+    await expect(invoicesForCampaign(as(role, "sp_1"), "cmp_1")).resolves.toHaveLength(1);
+  });
+
+  it.each([["FINANCE"], ["CAMPAIGN_MGR"], ["SALES"], ["NETWORK_MGR"], ["ATHLETE"], ["GUARDIAN"], ["PROPERTY_MGR"]])(
+    "%s is refused, though it may read the campaign",
+    async (role) => {
+      await expect(invoicesForCampaign(as(role), "cmp_1")).rejects.toThrow();
+      await expect(paymentStatusForCampaign(as(role), "cmp_1")).rejects.toThrow();
+    },
+  );
+
+  it("refuses a sponsor whose campaign lookup finds nothing — not theirs", async () => {
+    campaign = null;
+    await expect(invoicesForCampaign(as("SPONSOR_ADMIN", "sp_other"), "cmp_1")).rejects.toThrow();
   });
 });
 
