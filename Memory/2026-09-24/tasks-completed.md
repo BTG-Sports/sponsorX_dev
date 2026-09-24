@@ -167,7 +167,29 @@ line: never paid to a student directly. Adjust-shares ships disabled naming
 390/470/768, screenshots eyeballed (one literal-backtick typo caught and
 fixed). Board: `P1-FE-23` → Code review (HeckerCreatives, 2026-09-24).
 
-Four NEXT screens shipped today (flatplan, inventory ledger, advisor desk,
-revenue splits); Stage 1's remaining queue is P1-FE-30 (points), P1-FE-29
-(rights), then the design-gated public four and P1-FE-28. Google Sheet still
+## `P1-FE-30` — the points balance, and the tab goes live
+
+*Code review. The student portal is now complete: all five tabs real.*
+
+`/next/points`: violet balance hero (trophy, `pts`, CountUp) with the
+next-SALES_500 meter; the accrual timeline ("written once, never edited" —
+the §5.5 append-only shape rendered as fact); the earn vocabulary as a rules
+card from a new `POINT_RULES` fixture (ARTICLE 50 · INTERVIEW 25 ·
+APPOINTMENT 25 · SALES_500 100 · VIEWS_BONUS varies, the editor's call); and
+a "what points are not" card. **No currency sign appears anywhere on the
+page** — the same negative-space acceptance as splits, aimed at a parent.
+"Redeem" ships disabled naming the genuinely open §14 question rather than a
+wiring row: redemption is a business/legal decision, not a missing endpoint.
+
+A new test pins fixed-value reasons to their rule's value, joining balance =
+Σ accruals. The inert nav item and tab-bar slot went live; the dashboard's
+points tile now links.
+
+66 frontend tests green, build and eslint clean, no page overflow at
+390/470/768, screenshots eyeballed. Board: `P1-FE-30` → Code review
+(HeckerCreatives, 2026-09-24).
+
+Five NEXT screens shipped today (flatplan, inventory ledger, advisor desk,
+revenue splits, points); Stage 1's remaining queue is P1-FE-29 (rights
+ledger), then the design-gated public four and P1-FE-28. Google Sheet still
 needs its hand mirror at end of day.
