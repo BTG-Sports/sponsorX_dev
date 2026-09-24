@@ -160,12 +160,14 @@ function Legend() {
         <span className="size-3 rounded-[2px] border-[1.5px] border-dashed border-next/60 bg-next/10" />{" "}
         Reserved
       </span>
+      {/* border-muted/60 + muted hatch, not line tones: on Frost the line
+          color sits on white and these two legend keys vanished (QA pass 2) */}
       <span className="flex items-center gap-1.5">
-        <span className="size-3 rounded-[2px] border border-line bg-surface-2" />{" "}
+        <span className="size-3 rounded-[2px] border border-muted/60 bg-surface-2" />{" "}
         Open
       </span>
       <span className="flex items-center gap-1.5">
-        <span className="size-3 rounded-[2px] bg-[repeating-linear-gradient(135deg,transparent,transparent_3px,color-mix(in_srgb,var(--sx-line)_50%,transparent)_3px,color-mix(in_srgb,var(--sx-line)_50%,transparent)_4px)]" />{" "}
+        <span className="size-3 rounded-[2px] bg-[repeating-linear-gradient(135deg,transparent,transparent_3px,color-mix(in_srgb,var(--sx-text-muted)_45%,transparent)_3px,color-mix(in_srgb,var(--sx-text-muted)_45%,transparent)_4px)]" />{" "}
         Editorial
       </span>
     </div>
@@ -199,14 +201,26 @@ export function EditionFlatplan({
   const spreads: EditionPage[][] = [[cover]];
   for (let i = 0; i < rest.length; i += 2) spreads.push(rest.slice(i, i + 2));
 
+  /* The URL follows the drawer both ways (the student-assignments contract):
+     read-only ?open= meant closing the drawer left a URL that reopened it on
+     refresh, and clicking a different page left the URL claiming the old one. */
+  const syncUrl = (page: number | null) => {
+    const url = new URL(window.location.href);
+    if (page === null) url.searchParams.delete("open");
+    else url.searchParams.set("open", String(page));
+    window.history.replaceState(null, "", url.toString());
+  };
+
   const show = (p: EditionPage) => {
     setClosing(false);
     setOpen(p);
+    syncUrl(p.page);
   };
   const dismiss = () => setClosing(true);
   const closed = () => {
     setOpen(null);
     setClosing(false);
+    syncUrl(null);
   };
 
   useEffect(() => {
@@ -218,10 +232,14 @@ export function EditionFlatplan({
     return () => window.removeEventListener("keydown", onKey);
   }, [open]);
 
+  /* Unmount rides animationend; the timer covers reduced-motion's 1ms run.
+     `closed` is deliberately not a dep — re-arming the timer on every render
+     it changes would defeat the fallback (student-assignments precedent). */
   useEffect(() => {
     if (!closing) return;
     const t = setTimeout(closed, 400);
     return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [closing]);
 
   const backAsPage: EditionPage = {

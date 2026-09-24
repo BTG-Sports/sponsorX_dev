@@ -61,8 +61,10 @@ function StateDot({ state }: { state: AdSlotState }) {
       />
     );
   return (
+    /* border-muted/60, not border-line — the line tone vanishes on Frost and
+       OPEN is the majority state in the table (QA pass 2) */
     <span
-      className="size-2.5 shrink-0 rounded-[2px] border border-line bg-surface-2"
+      className="size-2.5 shrink-0 rounded-[2px] border border-muted/60 bg-surface-2"
       aria-hidden="true"
     />
   );
@@ -88,8 +90,15 @@ export function EditionInventory({
   initial?: { q?: string; state?: string; kind?: string };
 }) {
   const [q, setQ] = useState(initial?.q ?? "");
-  const [state, setState] = useState(initial?.state ?? "");
-  const [kind, setKind] = useState(initial?.kind ?? "");
+  /* URL values are untrusted: ?state=BOGUS used to empty the table while the
+     dropdown claimed "All states" and the chip rendered blank. Unknown values
+     mean no filter (the student-assignments contract). */
+  const [state, setState] = useState(
+    initial?.state && initial.state in STATE_LABEL ? initial.state : "",
+  );
+  const [kind, setKind] = useState(
+    initial?.kind && initial.kind in KIND_LABEL ? initial.kind : "",
+  );
   const [sort, setSort] = useState<SortKey>("page");
   const [dir, setDir] = useState<1 | -1>(1);
 

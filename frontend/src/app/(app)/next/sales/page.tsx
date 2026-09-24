@@ -169,10 +169,13 @@ export default async function StudentSalesPage({
                   <p className="text-sm font-medium">{p.business}</p>
                   <div className="flex items-center gap-1.5">
                     <Badge tone="danger">{PROSPECT_COPY[p.stage]}</Badge>
-                    {/* the enum is an API constant, not UI copy */}
-                    <Badge tone="neutral">
-                      {p.reasonCode.replace(/_/g, " ").toLowerCase()}
-                    </Badge>
+                    {/* the enum is an API constant, not UI copy; optional —
+                        only some rejected rows carry a code */}
+                    {p.reasonCode && (
+                      <Badge tone="neutral">
+                        {p.reasonCode.replace(/_/g, " ").toLowerCase()}
+                      </Badge>
+                    )}
                   </div>
                 </div>
                 <p className="mt-2 text-xs leading-relaxed text-muted">

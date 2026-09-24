@@ -206,7 +206,14 @@ export function JoinWizard({ demo }: { demo: Demo }) {
     else persist({ ...draft, step: draft.step - 1 });
   };
 
-  const finishLater = () => persist({ ...draft, phase: "intro" });
+  /* Leaving the steps clears the marks — otherwise a failed submit's red
+     errors and banner survive "finish later"/"start over" and decorate a
+     pristine section 1. */
+  const finishLater = () => {
+    setErrors({});
+    setSubmitMsgs([]);
+    persist({ ...draft, phase: "intro" });
+  };
 
   const startOrResume = () => {
     setDir(1);
@@ -215,6 +222,8 @@ export function JoinWizard({ demo }: { demo: Demo }) {
 
   const startOver = () => {
     setDir(1);
+    setErrors({});
+    setSubmitMsgs([]);
     persist({ ...emptyDraft(), phase: "steps" });
   };
 
@@ -299,8 +308,8 @@ export function JoinWizard({ demo }: { demo: Demo }) {
             {(draft.deals.length > 0 || draft.excluded.length > 0) && (
               <div className="rounded-xl border border-line bg-surface-2 p-4">
                 <h2 className="text-sm font-semibold">Restrictions &amp; conflicts</h2>
-                {draft.deals.map((deal) => (
-                  <p key={deal.name} className="mt-2 text-sm text-muted">
+                {draft.deals.map((deal, i) => (
+                  <p key={`${deal.name}-${i}`} className="mt-2 text-sm text-muted">
                     {deal.name} — {deal.category} · {deal.terms}
                   </p>
                 ))}

@@ -189,7 +189,7 @@ export default async function EditionReaderPage({
                             key={i}
                             className="grid aspect-[4/3] place-items-center rounded-lg bg-[repeating-linear-gradient(135deg,var(--sx-surface-2),var(--sx-surface-2)_6px,color-mix(in_srgb,var(--sx-line)_50%,transparent)_6px,color-mix(in_srgb,var(--sx-line)_50%,transparent)_7px)]"
                           >
-                            <span className="text-[10px] font-semibold tabular-nums text-faint">
+                            <span className="text-[10px] font-semibold tabular-nums text-muted">
                               {String(i + 1).padStart(2, "0")}
                             </span>
                           </div>
@@ -228,7 +228,10 @@ export default async function EditionReaderPage({
           );
         })}
 
-        {/* ------------------------------------------------ back cover */}
+        {/* ------------------------------------------------ back cover.
+            OPEN sells itself; SOLD credits its sponsor (the buyer of the
+            most-seen page must not vanish from the reader when the fixture
+            flips); RESERVED stays private like every reserved slot. */}
         {editionBackCover.state === "OPEN" && (
           <aside className="my-8 rounded-xl border border-next/40 bg-surface p-5 shadow-[0_0_30px_-14px_var(--sx-next)]">
             <p className="text-[9px] font-semibold uppercase tracking-[0.2em] text-next">
@@ -240,6 +243,9 @@ export default async function EditionReaderPage({
               until {studentEdition.closeDate}.
             </p>
           </aside>
+        )}
+        {editionBackCover.state === "SOLD" && (
+          <SponsorCard slot={editionBackCover} />
         )}
 
         {/* -------------------------------------------------- masthead */}

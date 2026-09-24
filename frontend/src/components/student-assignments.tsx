@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Badge, Button, Card } from "./ui";
 import { ICONS, type NavIcon } from "./portal-nav";
 import { useDrawerFocus } from "./use-drawer-focus";
@@ -143,6 +143,15 @@ export function StudentAssignments({
   );
   const [closing, setClosing] = useState(false);
 
+  /* The 400ms fallback timer below captures `closed` from the render where
+     `closing` flipped — a chip clicked during the exit animation would have
+     its filter overwritten in the URL by the stale closure. The ref always
+     reads the current filter. */
+  const filterRef = useRef(filter);
+  useEffect(() => {
+    filterRef.current = filter;
+  }, [filter]);
+
   const open = rows.find((r) => r.id === openId) ?? null;
   const { panelRef, onKeyDown } = useDrawerFocus<HTMLElement>(Boolean(open));
 
@@ -170,7 +179,7 @@ export function StudentAssignments({
   const closed = () => {
     setOpenId(null);
     setClosing(false);
-    syncUrl(filter, null);
+    syncUrl(filterRef.current, null);
   };
 
   /* Escape closes the drawer; the exit animation still runs. */
@@ -188,7 +197,6 @@ export function StudentAssignments({
     if (!closing) return;
     const t = setTimeout(closed, 400);
     return () => clearTimeout(t);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [closing]);
 
   return (

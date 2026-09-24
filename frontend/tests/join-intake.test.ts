@@ -79,6 +79,20 @@ describe("draftToApplication (P3-FE-01)", () => {
     expect(levelToEnum("varsity")).toBeUndefined(); // guessing is worse
   });
 
+  it("the identity step refuses impossible birth dates the API would accept", () => {
+    const section = SECTIONS.find((s) => s.id === "identity")!;
+    const base = {
+      firstName: "M",
+      lastName: "O",
+      email: "m@example.com",
+      dob: "2009-03-14",
+    };
+    expect(validateSection(section, base)).toEqual({});
+    // future DOB would file as a minor and summon the guardian branch
+    expect(validateSection(section, { ...base, dob: "2040-01-01" }).dob).toMatch(/real/i);
+    expect(validateSection(section, { ...base, dob: "1902-01-01" }).dob).toMatch(/real/i);
+  });
+
   it("the location step refuses a non-two-letter state before the API has to", () => {
     const section = SECTIONS.find((s) => s.id === "location")!;
     const errs = validateSection(section, {

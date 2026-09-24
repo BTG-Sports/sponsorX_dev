@@ -37,13 +37,30 @@ export function StudentCodeCard({
     }
   };
 
+  /* Presentation mode is modal in fact, so make it modal in behavior: focus
+     moves onto the overlay (it IS the close button, so Tab has nowhere to
+     wander), the page behind cannot scroll, and focus returns to the trigger
+     on close. */
+  const overlayRef = useRef<HTMLButtonElement>(null);
   useEffect(() => {
     if (!presenting) return;
+    const before =
+      document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : null;
+    overlayRef.current?.focus({ preventScroll: true });
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") setPresenting(false);
+      if (e.key === "Tab") e.preventDefault(); // single-control dialog
     };
     window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      document.body.style.overflow = prevOverflow;
+      before?.focus({ preventScroll: true });
+    };
   }, [presenting]);
 
   useEffect(() => () => window.clearTimeout(timer.current), []);
@@ -96,9 +113,12 @@ export function StudentCodeCard({
       {/* ------------------------------------- presentation mode overlay */}
       {presenting && (
         <button
+          ref={overlayRef}
           type="button"
+          role="dialog"
+          aria-modal="true"
           onClick={() => setPresenting(false)}
-          aria-label="Close full-screen code"
+          aria-label="Your sales code, full screen — activate to close"
           className="sx-backdrop fixed inset-0 z-50 flex w-full cursor-pointer flex-col items-center justify-center gap-6 bg-bg px-6"
         >
           <QrPattern seed={code} className="size-56 sm:size-64" />

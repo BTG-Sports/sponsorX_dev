@@ -65,9 +65,12 @@ export default async function EditionPlanningPage({
   if (demo === "loading") return <SkeletonPage />;
   if (demo === "error") throw new Error("Demo error state");
 
-  /* ?open=N — the inventory ledger's "Map →" lands on the right page drawer. */
+  /* ?open=N — the inventory ledger's "Map →" lands on the right page drawer.
+     The empty-string guard matters: Number("") is 0, and 0 is the back-cover
+     sentinel, so a bare "?open=" would silently open the back cover. */
   const sp = await searchParams;
-  const openParam = typeof sp.open === "string" ? Number(sp.open) : NaN;
+  const openParam =
+    typeof sp.open === "string" && sp.open !== "" ? Number(sp.open) : NaN;
   const initialOpenPage = Number.isInteger(openParam) ? openParam : undefined;
 
   const heading = (

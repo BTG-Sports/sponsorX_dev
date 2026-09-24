@@ -39,6 +39,24 @@ const FIELD_MAP: Record<string, string> = {
   socials: "instagram",
 };
 
+/* A "socials.N.…" issue names an array index; the wizard has one input per
+   platform, so route by the platform actually sent at that index instead of
+   dumping every social error on the Instagram field. */
+const PLATFORM_FIELD: Record<string, string> = {
+  INSTAGRAM: "instagram",
+  TIKTOK: "tiktok",
+  YOUTUBE: "youtube",
+};
+
+function fieldFor(path: string, payload: IntakePayload): string | undefined {
+  const [head, index] = path.split(".");
+  if (head === "socials" && index !== undefined) {
+    const platform = payload.socials[Number(index)]?.platform;
+    if (platform && PLATFORM_FIELD[platform]) return PLATFORM_FIELD[platform];
+  }
+  return FIELD_MAP[head];
+}
+
 export async function submitJoinApplication(
   payload: IntakePayload,
 ): Promise<IntakeResult> {
@@ -92,7 +110,7 @@ export async function submitJoinApplication(
     if (body.error?.issues?.length) {
       messages = [];
       for (const issue of body.error.issues) {
-        const key = FIELD_MAP[issue.path.split(".")[0]];
+        const key = fieldFor(issue.path, payload);
         if (key && !fields[key]) fields[key] = issue.message;
         else messages.push(`${issue.path || "form"}: ${issue.message}`);
       }

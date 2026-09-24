@@ -230,7 +230,15 @@ export function validateSection(
   }
   if (section.id === "identity") {
     const dob = (answers.dob ?? "").trim();
-    if (dob && !/^\d{4}-\d{2}-\d{2}$/.test(dob)) errs.dob = "Enter a full date";
+    if (dob && !/^\d{4}-\d{2}-\d{2}$/.test(dob)) {
+      errs.dob = "Enter a full date";
+    } else if (dob) {
+      /* Sanity bounds the API doesn't enforce (z.iso.date() takes any date):
+         a future DOB would file as a minor and summon the guardian branch. */
+      const d = new Date(`${dob}T00:00:00Z`);
+      if (Number.isNaN(d.getTime()) || d > new Date() || d.getUTCFullYear() < 1920)
+        errs.dob = "Enter a real date of birth";
+    }
     const email = (answers.email ?? "").trim();
     if (email && !email.includes("@")) errs.email = "Enter a valid email";
   }
@@ -279,9 +287,10 @@ export type JoinDraft = {
    an API: wizard keys on the left, AthleteApplicationInput fields on the
    right. Wizard sections the contract deliberately does not take yet
    (capabilities, interests, restrictions, payment recipient, guardian
-   details) stay in the draft — the contract's own description says those are
-   attached by sibling tasks, and the applicant-side guardian capture is a
-   recorded gap on P3-BE-14.
+   details — and `country`, which the location step asks but the US-only
+   Phase 1 contract has no field for) stay in the draft — the contract's own
+   description says those are attached by sibling tasks, and the
+   applicant-side guardian capture is a recorded gap on P3-BE-14.
    -------------------------------------------------------------------------- */
 
 export type IntakeSocial = {
