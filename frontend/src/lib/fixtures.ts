@@ -2047,6 +2047,91 @@ export const editionSplits: Array<{
 ];
 
 /* --------------------------------------------------------------------------
+   The free digital edition reader — P1-FE-27, spec principle 10: free digital
+   is the V1 reader product. Articles attach to the flatplan's editorial pages
+   by page number (tested), so the reader, the page map and the ledgers all
+   describe one edition. Bylines are the point: a student's public portfolio
+   is this page existing.
+   -------------------------------------------------------------------------- */
+
+export const editionReaderSlugs = {
+  school: "northside-high",
+  edition: "fall-2026",
+};
+
+export type ReaderArticle = {
+  /** The editorial page (editionPages.page) this piece opens on. */
+  page: number;
+  section: string;
+  headline: string;
+  byline: string;
+  bylineClass: number;
+  /** Reading minutes — shown in the contents. */
+  minutes: number;
+  paras: string[];
+  pullQuote?: string;
+  /** Photo-essay stub — renders as a frame grid, not text. */
+  gallery?: boolean;
+};
+
+export const editionReaderArticles: ReaderArticle[] = [
+  {
+    page: 3,
+    section: "Season openers",
+    headline: "Five programs, one opening weekend — where every Northside season stands",
+    byline: "Tessa Bloom",
+    bylineClass: 2028,
+    minutes: 4,
+    paras: [
+      "The fall season opened the way Northside likes it: loudly. Varsity football took the opener against Eastbrook 24–17 behind a defense that forced three turnovers, girls' soccer extended a streak nobody wants to jinx by naming it, and cross country sent both squads home with top-three finishes at the Rockville Invitational.",
+      "The numbers only tell half of it. Athletic director season previews used to live on a corkboard outside the gym; this year they live here, written by the people in the hallways. Every result in this issue was reported by a student who was standing on the sideline when it happened.",
+      "What to watch by November: whether the soccer streak survives the county schedule, and whether the freshman class keeps supplying varsity rosters at the rate it has since August.",
+    ],
+  },
+  {
+    page: 6,
+    section: "Feature",
+    headline: "Under the Friday lights — inside girls' soccer's unbeaten run",
+    byline: "Jordan Reyes",
+    bylineClass: 2027,
+    minutes: 7,
+    pullQuote:
+      "Nobody on that bench knew our names in August. They know them now.",
+    paras: [
+      "The streak started before anyone was counting. Four games in, the team stopped talking about it; eight games in, everyone else started. Northside's girls' soccer team has not lost since the season opened, and the run has changed the sound of Friday nights on the east field.",
+      "Captain Dani Osei plays like the scoreboard is a rumor. Against Wheaton she kept the ball through a fourth quarter that never seemed to end, killing minutes the way seniors are supposed to and freshmen aren't — except Northside's freshmen do, because Osei makes them practice it.",
+      "Coach Alvarez won't name the streak either. What he will name is the work: the 6 a.m. sessions that started in July, the film reviews in a classroom that smells like disinfectant, the freshman keeper who took notes standing up because sitting felt too casual.",
+      "The county schedule gets harder from here. The streak will end someday — streaks do. What it has already done is permanent: it filled a sideline, it put this masthead on the map, and it taught a locker room what their own names sound like in a crowd.",
+    ],
+  },
+  {
+    page: 12,
+    section: "Photo essay",
+    headline: "Build week — homecoming in twelve frames",
+    byline: "Jordan Reyes",
+    bylineClass: 2027,
+    minutes: 3,
+    gallery: true,
+    paras: [
+      "Float builders, banner paint, the parade line-up rehearsal nobody takes seriously until the director raises her voice. Homecoming happens twice: once on the night, and once in the week before, in the shop hall, where it actually gets made.",
+    ],
+  },
+  {
+    page: 17,
+    section: "Money & program",
+    headline: "How the concession stand funds the season",
+    byline: "Jordan Reyes",
+    bylineClass: 2027,
+    minutes: 5,
+    paras: [
+      "Follow one Friday's takings from the till to the equipment order and the athletic budget stops being abstract. The stand cleared $1,140 on opening night — hot dogs and hot chocolate mostly, plus a run on hand warmers nobody predicted in September.",
+      "Booster treasurer Gail Munroe walked us through where it goes: roughly a third to restocking, a third to officials' fees the district doesn't cover, and the rest banked toward the winter equipment order. The javelin mats every track parent has been promised for three seasons? Two more good Fridays away.",
+      "Numbers in this piece were confirmed against the booster ledger. That is new for this masthead — and it is the standard from here.",
+    ],
+  },
+];
+
+/* --------------------------------------------------------------------------
    Rights ledger — P1-FE-29, spec §5.3. One table answers the one question the
    production gate asks: what may we do with this asset? Shapes worth keeping
    when P9-FE-09 substitutes ContentRight:

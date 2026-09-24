@@ -5,6 +5,8 @@ import {
   clearanceQueue,
   contentRights,
   editionBackCover,
+  editionReaderArticles,
+  studentApplications,
   editionPages,
   editionSplits,
   studentEdition,
@@ -113,6 +115,27 @@ describe("rights ledger (P1-FE-29, spec §5.3)", () => {
     for (const q of clearanceQueue) {
       expect(q.missing, q.id).toBeTruthy();
       expect(q.grantor, q.id).toBeTruthy();
+    }
+  });
+});
+
+describe("edition reader (P1-FE-27, principle 10)", () => {
+  it("every article opens on an editorial page of the flatplan", () => {
+    for (const a of editionReaderArticles) {
+      const page = editionPages.find((p) => p.page === a.page);
+      expect(page, `article "${a.headline}" → page ${a.page}`).toBeTruthy();
+      expect(page!.editorial, `page ${a.page} must be editorial`).toBe(true);
+    }
+  });
+
+  it("no byline belongs to a student who is not yet approved", () => {
+    const notApproved = new Set(
+      studentApplications
+        .filter((s) => s.state !== "APPROVED")
+        .map((s) => s.name),
+    );
+    for (const a of editionReaderArticles) {
+      expect(notApproved.has(a.byline), a.byline).toBe(false);
     }
   });
 });
