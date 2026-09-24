@@ -110,3 +110,39 @@ sell-through, $11,900 full rack value.
 62 frontend tests green, build and eslint clean, screenshots eyeballed at 390
 and 1280. Board: `P1-FE-22` → Code review (HeckerCreatives, 2026-09-24).
 Google Sheet still needs its hand mirror at end of day.
+
+## `P1-FE-20` — the advisor desk
+
+*Code review. The third NEXT surface of the day, and the cheapest by design:
+its acceptance is mostly reuse.*
+
+`/advisor` (applications) and `/advisor/review` (content) for one school.
+The `Portal` union gained its **sixth member** — `advisor` shares the NEXT
+violet with its own label ("NEXT Advisor"), because it is the same programme;
+`PORTAL_ROLES` admits the Stage 9 `ADVISOR` string (matches nobody yet) plus
+the two BTG admin roles for preview, exactly the `/next` precedent.
+
+- **ApprovalsDesk reused unchanged** — the acceptance's second clause, and
+  the P1-FE-20 definition's whole thesis: `DeliverableState` *is* an
+  editorial workflow. The school's queue feeds it `ReviewContentItem` rows
+  where campaign = section, athlete = student, sponsor = "Editorial" unless a
+  paid feature previews placement. Jordan's rows mirror `studentAssignments`
+  states one for one, so the student portal and the advisor desk tell one
+  story about the same drafts.
+- **Applications render note-first** — the advisor's real review is knowing
+  the kid; the note is the biggest thing on the card. `StudentApplicationState`
+  is the SUBMITTED/UNDER_REVIEW/APPROVED slice of spec §5.1's `StudentState`
+  (which mirrors `AthleteState` deliberately). Approve / Request changes ship
+  disabled naming `P9-FE-02`.
+- **The boundary is stated on the desk itself:** the hero copy says publishing
+  economics and rights stay with SponsorX — V3 §3's rule, put where the person
+  it governs will read it.
+
+62 frontend tests green, build and eslint clean, page-level no-horizontal-
+scroll verified at 390/470/768, screenshots eyeballed. Board: `P1-FE-20` →
+Code review (HeckerCreatives, 2026-09-24).
+
+Three NEXT screens shipped today (flatplan, inventory ledger, advisor desk);
+Stage 1's remaining queue is P1-FE-23 (splits), P1-FE-30 (points), P1-FE-29
+(rights), then the design-gated public four and P1-FE-28. Google Sheet still
+needs its hand mirror at end of day.
