@@ -546,6 +546,38 @@ audit rows can erase its own tracks.
 | `SERVICE` | own-tenant | own-tenant (own state) | — |
 | all others | — | — | — |
 
+The nightly Zoho drift report (`ZohoReconciliation`, P8-INT-05) is part of
+the integration's own state and is read under `integrationConnection`.
+
+### `inquiry` *(added 2026-09-24)*
+| Role | Read | Write | Approve |
+|---|---|---|---|
+| `SUPER_ADMIN` | any | any | — |
+| `BTG_ADMIN` | own-tenant | own-tenant | — |
+| `SALES` | own-tenant | — | — |
+| `SERVICE` | own-tenant | own-tenant (Zoho Lead id) | — |
+| all others | — | — | — |
+
+A prospective sponsor's enquiry (§18 row 3, P8-INT-06). It is **created by the
+public enquiry form**, which has no signed-in actor — the same shape as `/join`
+— so no role's write cell is what creates one. It becomes a Zoho Lead and is
+qualified there; SponsorX keeps the row and the Lead's id. It holds a person's
+contact details, so it is BTG-only: sponsors, athletes and properties never
+see another company's enquiry.
+
+### `syncTask` *(added 2026-09-24)*
+| Role | Read | Write | Approve |
+|---|---|---|---|
+| `SUPER_ADMIN` | any | any | — |
+| `BTG_ADMIN` | own-tenant | own-tenant | — |
+| `SALES` · `CAMPAIGN_MGR` | own-tenant | — | — |
+| `SERVICE` | own-tenant | own-tenant (Zoho id, status) | — |
+| all others | — | — | — |
+
+A CRM task SponsorX raises — follow-up on a qualified brief, approval of a
+campaign, the renewal conversation (§18 row 7, P8-INT-01). It is raised inside
+the transition that causes it and worked in Zoho, where sales already lives.
+
 ---
 
 ## 12 · Decisions taken

@@ -117,7 +117,9 @@ export type Resource =
   | "sponsorReport"
   | "auditLog"
   | "integrationConnection"
-  | "webhookDelivery";
+  | "webhookDelivery"
+  | "inquiry"
+  | "syncTask";
 
 export const RESOURCES: readonly Resource[] = [
   "tenant",
@@ -153,6 +155,8 @@ export const RESOURCES: readonly Resource[] = [
   "auditLog",
   "integrationConnection",
   "webhookDelivery",
+  "inquiry",
+  "syncTask",
 ] as const;
 
 type RolePolicy = Partial<Record<Role, Partial<Record<Action, Scope>>>>;
@@ -522,6 +526,29 @@ export const POLICY: Record<Resource, RolePolicy> = {
   webhookDelivery: {
     SUPER_ADMIN: rwa("any", "any"),
     BTG_ADMIN: rwa("own-tenant", "own-tenant"),
+    SERVICE: rwa("own-tenant", "own-tenant"),
+  },
+
+  /* §11, added 2026-09-24 (P8-INT-06, P8-SEC-01). A prospective sponsor's
+     enquiry. It is CREATED by the public /public/inquiries route, which has
+     no actor — like /join — so the write cells here are staff and the sync
+     account only. Sales reads; qualifying the lead is done in Zoho. */
+  inquiry: {
+    SUPER_ADMIN: rwa("any", "any"),
+    BTG_ADMIN: rwa("own-tenant", "own-tenant"),
+    SALES: rwa("own-tenant"),
+    SERVICE: rwa("own-tenant", "own-tenant"),
+  },
+
+  /* §11, added 2026-09-24 (P8-INT-01, P8-SEC-01). A CRM task SponsorX
+     raised — follow-up, approval, renewal. Raised by the domain inside the
+     transition that causes it; worked in Zoho. Staff who act on the loop read
+     it; the sync account writes its Zoho id and status back. */
+  syncTask: {
+    SUPER_ADMIN: rwa("any", "any"),
+    BTG_ADMIN: rwa("own-tenant", "own-tenant"),
+    SALES: rwa("own-tenant"),
+    CAMPAIGN_MGR: rwa("own-tenant"),
     SERVICE: rwa("own-tenant", "own-tenant"),
   },
 };

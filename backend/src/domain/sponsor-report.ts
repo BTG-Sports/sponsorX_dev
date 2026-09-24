@@ -231,6 +231,7 @@ export async function assembleSponsorReport(
   );
 
   const metricRows = await prisma.metricDaily.findMany({
+    /* tenant-scope: keyed by the campaign loaded above through whereFor. */
     where: { deliverable: { is: { order: { is: { campaignId } } } } },
     select: { source: true, views: true, engagements: true },
   });

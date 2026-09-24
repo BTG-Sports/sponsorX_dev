@@ -15,6 +15,8 @@
 import type { Prisma } from "../generated/prisma/client";
 import { prisma } from "../db/client";
 import { audit } from "../db/audit";
+import { enqueue } from "../db/outbox";
+import { raiseSyncTask } from "./sync-tasks";
 import type { Actor } from "../auth/actor";
 import { assertAllowed, whereFor } from "../auth/scope";
 import { ForbiddenError } from "../auth/errors";
@@ -108,7 +110,7 @@ export async function transitionBrief(
   return prisma.$transaction(async (tx) => {
     const brief = await tx.campaignBrief.findFirst({
       where: { ...whereFor(actor, "campaignBrief", to === "CLOSED" ? "write" : "approve"), id: briefId },
-      select: { id: true, state: true },
+      select: { id: true, state: true, objective: true, sponsor: { select: { name: true } } },
     });
     if (!brief) throw new ForbiddenError("campaignBrief", "write");
 
@@ -125,6 +127,23 @@ export async function transitionBrief(
       before: { state: from },
       after: { state: to },
     });
+
+    /* §18 rows 4–5 (P8-INT-01). Qualifying a brief opens its Zoho Deal;
+       approval and closing are the two later stages SponsorX asserts
+       (field-mapping §7.4). A brief closed straight from DRAFT never had a
+       Deal, and does not get a Closed Lost one invented for it. Queued in
+       this transaction — never called — so Zoho being down cannot stop a
+       brief moving. */
+    const assertsStage = to === "QUALIFIED" || to === "APPROVED" || (to === "CLOSED" && from !== "DRAFT");
+    if (assertsStage) await enqueue(tx, actor.tenantId, "zoho.pushDeal", { briefId });
+    if (to === "QUALIFIED") {
+      await raiseSyncTask(tx, actor, {
+        kind: "FOLLOW_UP",
+        briefId,
+        subject: `Follow up with ${brief.sponsor.name} on their brief`,
+        body: brief.objective,
+      });
+    }
 
     return { id: updated.id, state: updated.state as BriefState };
   });

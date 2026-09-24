@@ -744,11 +744,11 @@ Nothing in this list goes to Zoho in Phase 1, in any object.
 | # | Decision | Status | Blocks | Recommendation |
 |---|---|---|---|---|
 | **O-1** | Invoice / payment reference: Zoho **Books** or the CRM **`Invoices`** module? | **OPEN** — flagged at the team's direction | `P7-BE-04` | Books as SoR, CRM `Invoices` unused — consistent with the stack decision. Needs confirming; it selects the API. |
-| **O-2** | Campaign represented as a **Deal**, CRM `Campaigns` module unused. | Recommended, needs sign-off | `P8-INT-01` | Adopt. Rationale in §4.1: the stock module is an email-marketing object wired to two Zoho extensions. |
+| **O-2** | Campaign represented as a **Deal**, CRM `Campaigns` module unused. | **Decided 2026-09-24 — adopted** (approved with the B8 batch plan) | `P8-INT-01` | Built as §4.1 describes: one Deal keyed `brief:<id>` (or `campaign:<id>`), the renewal a second Deal keyed `renewal:<id>`. |
 | **O-3** | Breadth of athlete data in the CRM. | **Decided for this revision** — conservative set (§6.2), expansion path in §6.5 | `P0-OPS-05` | Build the eleven fields. Widen later by decision, never by default. |
 | **O-4** | Read lead-conversion fields back from Zoho (`Converted__s`, `Converted_Account`)? | Proposed | `P8-INT-06` | Small, read-only, and it closes the inquiry loop — but §18 marks Lead one-way, so it is a scope addition and needs a yes. |
-| **O-5** | Zoho user ↔ BTG staff mapping, and who owns records the service account creates. | Unresolved | `P8-INT-01`, task sync | Add `User.zohoUserId` (S-5) and nominate a default owner for service-account records. Otherwise CRM records land ownerless and nobody is notified. |
-| **O-6** | No sandbox org exists; this is production. | Known | `P8-INT-07` | `P0-OPS-04` must deliver one before any backfill runs. |
+| **O-5** | Zoho user ↔ BTG staff mapping, and who owns records the service account creates. | **Decided 2026-09-24** | `P8-INT-01`, task sync | `User.zohoUserId` added (S-5), filled by the backfill's `Users` step matching on email. A task's CRM `Owner` is the staff member whose action raised it; unmapped, the API account owns it and nobody is notified — accepted and visible rather than guessed. Accounts, Contacts and Deals keep Zoho's default owner. |
+| **O-6** | No sandbox org exists; this is production. | **Closed 2026-09-24** | `P8-INT-07` | `SponsorX-Dev` (org `7554807000000020005`, type sandbox) exists; its refresh token was minted 2026-09-24 and staging holds it. `ZOHO_EXPECTED_ORG_ID` pins each environment to its org, so a production token in staging is refused on the first call. |
 
 ---
 
@@ -769,7 +769,7 @@ model"* — this list is what that sentence resolves to.
 | **S-6** | Add `Campaign.invoiceReference`, `.paymentStatus`, `.paidAt` | §18 row 8 — **hold until O-1 closes** |
 | **S-7** | Add `updatedAt` to every Zoho-touched model (`Sponsor`, `Athlete`, `Campaign`, `CampaignBrief`, and the new models) | Conflict detection, §8.1 step 3 |
 | **S-8** | Add `lastSyncOrigin` / `lastSyncHash` to `Campaign` and `CampaignBrief` | They are Zoho-touched but carry no sync markers today |
-| **S-9** | Decide `Property.zohoId` | It exists in the schema, but **§18 maps no Property object** and §6.2 field 10 deliberately sends the property as plain text. Either delete the column or document it as reserved — an unused external-ID column will eventually get populated by someone who assumes it is wired up. |
+| **S-9** | ~~Decide `Property.zohoId`~~ — **decided 2026-09-24: reserved, not wired**, documented on the column | It exists in the schema, but **§18 maps no Property object** and §6.2 field 10 deliberately sends the property as plain text. Either delete the column or document it as reserved — an unused external-ID column will eventually get populated by someone who assumes it is wired up. |
 | **G-1** | ~~**Add the `SponsorX_ID` external field to `Accounts`, `Contacts`, `Leads`, `Deals`, `Tasks`** (§5.1)~~ — **CLOSED 2026-09-11.** | Every sync task. Raised as **`P0-OPS-06`** rather than folded into `P0-OPS-05`, so that the sponsor-side sync tasks do not inherit a dependency on athlete-module work. Built and verified the same day; the field ids are recorded in §5.1. |
 | **G-2** | Audit the org's Zoho workflow rules against the SoR columns (§5.3) | Before go-live |
 
@@ -803,8 +803,37 @@ module is `P0-OPS-05`, and the external-ID fields became `P0-OPS-06` (G-1, now c
 
 ---
 
+## 12.1 · As built — B8, 2026-09-24
+
+The sync (`P8-INT-01`…`07`) is built against this document. Schema items
+**S-1…S-5, S-7 and S-8 are in** (migration `20260924160000_zoho_sync`); S-6
+stays held on O-1; S-9 is decided (reserved). Three things were learned from
+the live sandbox that this document did not say, and the code follows them:
+
+1. **Tasks cannot be upserted.** `POST /crm/v8/Tasks/upsert` answers
+   `INVALID_DATA — the given module is not supported for this api`: Tasks are
+   Activities. The dedupe on `SponsorX_ID` is therefore done by hand for
+   Tasks — find the record carrying the key, update it, else insert. Same
+   key, same guarantee; Accounts, Contacts, Deals and Leads use the upsert
+   endpoint as §3 says.
+2. **COQL takes only `=` and `!=` on `SponsorX_ID`.** `is not null` and
+   `like` are refused (`invalid operator found`). Reconciliation (§8.3)
+   therefore pages the records API and filters on `SponsorX_ID` in code.
+3. **Inbound is the Notifications API, verified by channel token.** Zoho CRM
+   notifications are not HMAC-signed; the channel's `token` and `channel_id`,
+   echoed on every callback, are what `POST /webhooks/zoho/crm` verifies
+   (§8.1 step 1). The worker subscribes and renews the channel itself — no
+   console configuration. Callbacks name ids only; the worker fetches them.
+
+Two refinements to §7.4 fell out of the tests. A push asserts `Stage` only
+when our own row changed since the last sync — so a redelivered job cannot
+revert a stage sales has moved the deal to since. And `Closing_Date` is the
+brief's calendar date as entered, not that date shifted into the business
+timezone (a brief ending 30 November closes on the 30th, not the 29th).
+
 ## 13 · Revision history
 
 | Version | Date | Change |
 |---|---|---|
 | 0.1 | 2026-09-11 | First issue. `P0-PMO-08`. O-1 left open by decision; conservative athlete field set adopted (O-3). |
+| 0.2 | 2026-09-24 | O-2 adopted, O-5 decided, O-6 closed, S-9 decided. §12.1 records the sync as built and three live-org findings (Tasks not upsertable; COQL operators on the external field; inbound via Notifications API channel token). |

@@ -98,3 +98,54 @@ Verification: `npm run build` clean; backend 1027 passed / 13 skipped, frontend 
 | **`P2-BE-09`** repo layout | Code review | AC amended to the Addendum B layout; six stale pre-split `.gitkeep` placeholders removed (they pointed at `frontend/` for things that live in `backend/`); `tests/layout.test.ts` pins it. |
 
 Verification: `npm run build` clean; backend 1083 passed / 13 skipped; frontend 69 passed; eslint clean.
+
+**`P3-DATA-01` → Code review (same day).** After #42/#43 deployed (`ef90f10`, all four services green), the import ran on staging via `railway ssh --environment staging --service api -- npm run cohort:import -w @sponsorx/backend -- /tmp/pilot-cohort-staging.csv`: worker logged `25 created, 0 skipped`; the staging DB holds 25 `pilot.*@example.com` athletes in SUBMITTED. These are synthetic test athletes sitting in the staging review queue — reject or leave them; the real cohort is `P8-DATA-01`. A live re-run and a live production-refusal check were blocked by the permission classifier (production shell); both behaviours are covered by `tests/cohort-import.test.ts`.
+
+## B8 batch — Zoho sync + hardening (rcfworks)
+
+Ten tasks asked for; nine buildable. **`P8-DATA-01` needs the real first-25
+cohort file** — it cannot be invented; the tool (`cohort:import`) is ready.
+
+**Decisions taken (approved with the plan):** O-2 adopted — a campaign is a
+Zoho Deal (keyed `brief:<id>`, renewal `renewal:<id>`). O-5 — `User.zohoUserId`,
+filled by the backfill's Users step by email; a task's CRM owner is the staff
+member who raised it, unmapped → API account. O-6 closed — the `SponsorX-Dev`
+sandbox refresh token was minted today (user clicked the Self Client code;
+exchanged here, Keychain `sponsorx-zoho-sandbox-refresh-token`). Staging `api`
+now holds it with `ZOHO_EXPECTED_ORG_ID=7554807000000020005` and the
+Notifications channel (`ZOHO_NOTIFY_*`), set with `--skip-deploys`.
+
+| Task | State | What enforces the acceptance |
+|---|---|---|
+| `P8-INT-01` outbound push | Code review | Worker-only `src/lib/zoho.ts` + `src/domain/zoho-sync.ts`. Brief/campaign transitions ENQUEUE `zoho.pushDeal` / `zoho.pushTask` in their own transaction; the worker pushes parents first (account → contact → deal → task), every create an upsert on `SponsorX_ID`. |
+| `P8-INT-02` loop prevention | Code review | One shared projection per object, hashed identically both ways; echoes dropped outbound and inbound; a push asserts Stage only when our row changed since the last sync; both-sides conflicts audited as `sync.conflict`. |
+| `P8-INT-03` inbound route | Code review | `POST /api/v1/webhooks/zoho/crm` — channel token + id verified, delivery row + `zoho.ingestCrm` in one transaction. `tests/zoho-boundary.test.ts` proves nothing reachable from `src/app.ts` imports the Zoho client. |
+| `P8-INT-04` delivery recording | Code review | RECEIVED / REJECTED at the route (both webhooks — the invoice route used to 401 unrecorded), APPLIED / REJECTED / FAILED by the worker. |
+| `P8-INT-05` reconciliation | Code review | Nightly, report-only, one `ZohoReconciliation` row per module. |
+| `P8-INT-06` leads + renewal | Code review | `Inquiry` + `POST /api/v1/public/inquiries` → Lead; campaign COMPLETED → renewal Deal + renewal task. |
+| `P8-INT-07` backfill | **In progress** | Built and tested (idempotent). **Runs on staging after this merges** — `railway ssh … -- npm run zoho:backfill -w @sponsorx/backend`, then Code review. |
+| `P8-SEC-01` matrix complete | Code review | `inquiry`, `syncTask` rows (doc + policy; digest moved only by them). `tests/authz.coverage.test.ts`: every Prisma model governed or declared internal. "Required CI check" cannot be enforced by GitHub on this Free account — it runs in CI on every push/PR. |
+| `P8-SEC-02` isolation | Code review | **Found a real cross-tenant leak and fixed it** — see below. |
+
+**The leak.** `whereFor()` returned a bare fragment that callers spread and
+then overrode: `{ ...whereFor(...), id }`. `MATCHES_NOTHING` is `{ id: { in: [] } }`
+and the `own` scopes key on `id`, so "matches nothing" became "this id in any
+tenant" and "your own athlete" became "any athlete in the tenant". A tenant-B
+athlete read tenant A's full sponsor report. Fixed at the source — `whereFor`
+returns `{ AND: [scope] }`. `tests/tenant-isolation.test.ts` (every route × four
+tenant-B actors, real API + DB, tenant-A fingerprint unchanged) and
+`tests/tenant-scope.static.test.ts` both go red with the fix reverted.
+
+**Found only against the live sandbox** (the fake org could not have):
+Tasks cannot be upserted (Zoho: "module is not supported for this api") →
+find-then-write on `SponsorX_ID`; COQL accepts only `=`/`!=` on the external
+field → reconciliation pages the records API. Recorded in field-mapping §12.1.
+Also fixed from tests: `Closing_Date` / Deal-name month were shifted a day by
+the timezone. A full live run against `SponsorX-Dev` (all four objects, Lead,
+renewal, dedupe, echo, zero-drift reconcile) passed; every test record deleted.
+The worker's watch subscription was accepted live and then removed.
+
+Verification: `npm run build` clean; lint clean; backend **1204 passed, 0
+skipped** (local Postgres from a scratchpad binary, so the DB suites ran —
+CI runs them too); frontend 69 passed. Stage Progress snapshot unchanged
+(nothing moved to Done).
