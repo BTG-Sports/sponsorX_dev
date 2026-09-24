@@ -24,5 +24,9 @@ meRouter.get("/", requireActor, (req, res) => {
     userId: actor.userId,
     tenantId: actor.tenantId,
     roles: actor.roles,
+    /* The portal needs the sponsor a sponsor user acts for — a brief is
+       filed against it (P4-FE-01). Never another sponsor's: it is the
+       actor's own link, read from Postgres. */
+    sponsorId: actor.sponsorId,
   });
 });

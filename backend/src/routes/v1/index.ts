@@ -15,6 +15,7 @@ import { guardiansRouter } from "./guardians";
 import { metricsRouter } from "./metrics";
 import { zohoWebhooksRouter } from "./zoho-webhooks";
 import { inquiriesRouter } from "./inquiries";
+import { catalogueRouter } from "./catalogue";
 import { rewardsRouter } from "./rewards";
 import { meRouter } from "./me";
 import { openapiRouter } from "./openapi";
@@ -69,6 +70,10 @@ v1Router.use("/", zohoWebhooksRouter);
 /* B8 — a prospective sponsor's enquiry (P8-INT-06). PUBLIC and rate-limited;
    writes one row and queues the Zoho Lead push. */
 v1Router.use("/", inquiriesRouter);
+
+/* B3 — the sponsor marketplace's catalogue reads (P4-FE-01). Sponsor prices
+   only; athlete pay is not selected (P4-SEC-02). */
+v1Router.use("/", catalogueRouter);
 
 /* The published contract, generated from the Zod registry (§38). Public: a
    consumer has to be able to read how to authenticate before it can. */

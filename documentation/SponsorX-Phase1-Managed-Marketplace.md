@@ -1982,9 +1982,14 @@ Pull invoice and payment status in from Zoho. SponsorX never becomes the invoici
 - **Done when:** Invoice and payment status flow Zoho → SponsorX and attach to the campaign; SponsorX never becomes the invoice system of record
 - **Reference:** §18
 
-### ⏸ `P7-BE-06` · Report render worker job
+### ✕ `P7-BE-06` · Report render worker job — **MOVED TO PHASE 2 as `2S7-BE-02`**
 
-**Order** 144 · **BE** · **Where:** Code · **3d** · **Blocked** · **Unblocks** 0
+**Order** 144 · **BE** · **Where:** Code · **3d** · **Dropped** · **Unblocks** 0
+
+> **Moved 2026-09-24 (user decision).** By its own acceptance this is not
+> required in Phase 1: G-07 (`P0-PMO-05`) chose a print stylesheet, which the
+> browser PDF (`frontend/src/lib/report-pdf.ts`) delivers. The unattended,
+> server-rendered file lives on as Phase 2 `2S7-BE-02`.
 
 Render the sponsor report as a PDF in the background — only if the earlier decision says a PDF is actually needed.
 

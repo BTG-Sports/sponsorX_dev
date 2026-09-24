@@ -24,6 +24,7 @@ import { Router, type RequestHandler } from "express";
 
 import { requireActor } from "../../auth/actor";
 import { limit } from "../../lib/rate-limit";
+import { clientIp } from "../../lib/client-ip";
 import {
   RewardClaimInput,
   RewardInput,
@@ -40,6 +41,7 @@ import {
   redeemToken,
   rewardFunnel,
   transitionReward,
+  viewToken,
   withdrawFanConsent,
 } from "../../domain/reward";
 import {
@@ -115,8 +117,15 @@ const linkClicks: RequestHandler<{ id: string }> = async (req, res) => {
  * The response deliberately carries the destination and nothing else.
  */
 const resolveTracking: RequestHandler<{ code: string }> = async (req, res) => {
-  await limit("track:resolve", req.ip, 120, 60);
+  await limit("track:resolve", clientIp(req), 120, 60);
   const link = await resolveCode(req.params.code);
+  /* Belt and braces for rows written before the input was restricted to
+     http(s): a stored `javascript:` or `data:` destination is never handed
+     to a public redirect (P8-SEC-03). */
+  if (!/^https?:\/\//i.test(link.destinationUrl)) {
+    res.status(404).json({ error: { code: "not_found" } });
+    return;
+  }
   res.json({ destinationUrl: link.destinationUrl });
 };
 
@@ -139,28 +148,42 @@ const resolveTracking: RequestHandler<{ code: string }> = async (req, res) => {
  * worker turns it into city and region and discards it (§26).
  */
 const trackClick: RequestHandler<{ code: string }> = async (req, res) => {
-  await limit("track:click", req.ip, 120, 60);
-  const forwarded = req.get("x-sponsorx-client-ip");
+  await limit("track:click", clientIp(req), 120, 60);
   const link = await resolveCode(req.params.code);
-  await recordClick(link.linkId, link.tenantId, forwarded || req.ip || null);
+  /* The fan's address only when the web server vouches for it with the edge
+     key (P8-SEC-03) — anyone can SET the header, so on its own it no longer
+     decides anything, not even a city on a chart. */
+  await recordClick(link.linkId, link.tenantId, clientIp(req) ?? null);
   res.status(202).json({ recorded: true });
+};
+
+/**
+ * GET /public/rewards/:token — what the fan's page shows (P6-FE-02).
+ *
+ * Read only: writes no event. An unknown token answers 404 with a state the
+ * page can render, rather than an error body it would have to interpret.
+ */
+const view: RequestHandler<{ token: string }> = async (req, res) => {
+  await limit("reward:view", clientIp(req), 120, 60);
+  const out = await viewToken(req.params.token);
+  res.status(out.state === "UNKNOWN" ? 404 : 200).json(out);
 };
 
 /** POST /public/rewards/:token/scan — the QR resolved. */
 const scan: RequestHandler<{ token: string }> = async (req, res) => {
-  await limit("reward:scan", req.ip, 60, 60);
+  await limit("reward:scan", clientIp(req), 60, 60);
   res.status(201).json(await recordScan(req.params.token));
 };
 
 /** POST /public/rewards/:token/landing — the page rendered. */
 const landing: RequestHandler<{ token: string }> = async (req, res) => {
-  await limit("reward:landing", req.ip, 60, 60);
+  await limit("reward:landing", clientIp(req), 60, 60);
   res.status(201).json(await recordLanding(req.params.token));
 };
 
 /** POST /public/rewards/:token/claim — the fan accepted the offer. */
 const claim: RequestHandler<{ token: string }> = async (req, res) => {
-  await limit("reward:claim", req.ip, 20, 60);
+  await limit("reward:claim", clientIp(req), 20, 60);
   const body = RewardClaimInput.parse(req.body ?? {});
   res.status(201).json(
     await recordClaim(
@@ -180,7 +203,7 @@ const claim: RequestHandler<{ token: string }> = async (req, res) => {
  * an error path to smooth over.
  */
 const redeem: RequestHandler<{ token: string }> = async (req, res) => {
-  await limit("reward:redeem", req.ip, 20, 60);
+  await limit("reward:redeem", clientIp(req), 20, 60);
   res.status(201).json(await redeemToken(req.params.token));
 };
 
@@ -192,7 +215,7 @@ const redeem: RequestHandler<{ token: string }> = async (req, res) => {
  * List-Unsubscribe POST, both of which land here through the web server.
  */
 const unsubscribe: RequestHandler<{ token: string }> = async (req, res) => {
-  await limit("fan:unsubscribe", req.ip, 30, 60);
+  await limit("fan:unsubscribe", clientIp(req), 30, 60);
   res.status(200).json(await withdrawFanConsent(req.params.token));
 };
 
@@ -209,6 +232,7 @@ rewardsRouter.get("/tracking-links/:id/clicks", requireActor, linkClicks);
    unauthenticated surface is visible in one glance at the path. */
 rewardsRouter.get("/public/tracking/:code", resolveTracking);
 rewardsRouter.post("/public/tracking/:code/click", trackClick);
+rewardsRouter.get("/public/rewards/:token", view);
 rewardsRouter.post("/public/rewards/:token/scan", scan);
 rewardsRouter.post("/public/rewards/:token/landing", landing);
 rewardsRouter.post("/public/rewards/:token/claim", claim);

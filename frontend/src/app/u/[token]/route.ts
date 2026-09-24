@@ -18,6 +18,8 @@
    API, which this server reaches over the private network.
    -------------------------------------------------------------------------- */
 
+import { edgeHeaders } from "@/server/edge";
+
 /** Server-side only, as in src/server/api.ts. */
 const API_URL = process.env.API_URL ?? "http://localhost:4000";
 
@@ -34,7 +36,7 @@ export async function GET(_req: Request, { params }: Params) {
   );
 }
 
-export async function POST(_req: Request, { params }: Params) {
+export async function POST(req: Request, { params }: Params) {
   const { token } = await params;
 
   let withdrawn = false;
@@ -42,6 +44,7 @@ export async function POST(_req: Request, { params }: Params) {
     const res = await fetch(`${API_URL}/api/v1/public/unsubscribe/${encodeURIComponent(token)}`, {
       method: "POST",
       cache: "no-store",
+      headers: edgeHeaders(req),
     });
     withdrawn = res.ok && ((await res.json()) as { withdrawn?: boolean }).withdrawn === true;
   } catch {

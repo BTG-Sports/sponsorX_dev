@@ -18,6 +18,7 @@ import { Router, type RequestHandler } from "express";
 
 import { requireActor } from "../../auth/actor";
 import { limit } from "../../lib/rate-limit";
+import { clientIp } from "../../lib/client-ip";
 import { readIntakeToken } from "../../lib/intake-token";
 import { ForbiddenError } from "../../auth/errors";
 import { whereFor } from "../../auth/scope";
@@ -79,14 +80,14 @@ function applicationFromToken(req: { query: Record<string, unknown> }): string {
  * sending a thousand receipt emails.
  */
 applicationsRouter.post("/intake", async (req, res) => {
-  await limit("intake:create", req.ip, 5, 3600);
+  await limit("intake:create", clientIp(req), 5, 3600);
   const input = AthleteApplicationInput.parse(req.body ?? {});
   res.status(201).json(await submitApplication(input));
 });
 
 /** GET /applications/intake/mine?token= — the applicant's own view. */
 applicationsRouter.get("/intake/mine", async (req, res) => {
-  await limit("intake:read", req.ip, 60, 3600);
+  await limit("intake:read", clientIp(req), 60, 3600);
   res.json(await readOwnApplication(applicationFromToken(req)));
 });
 
@@ -94,7 +95,7 @@ applicationsRouter.get("/intake/mine", async (req, res) => {
  *  From CHANGES_REQUESTED this also resubmits: an applicant who has answered
  *  the request should not have to find a second button. */
 applicationsRouter.patch("/intake/mine", async (req, res) => {
-  await limit("intake:patch", req.ip, 30, 3600);
+  await limit("intake:patch", clientIp(req), 30, 3600);
   const patch = AthleteApplicationPatch.parse(req.body ?? {});
   res.json(await patchApplication(applicationFromToken(req), patch));
 });

@@ -6,6 +6,16 @@ import { Badge } from "@/components/ui";
 import { Monogram, initials } from "@/components/hero";
 import { CloseIcon, Dropdown } from "@/components/filter-kit";
 import { athleteInv, money } from "@/lib/fixtures";
+import { BRAND_CATEGORIES, categoryLabel } from "@/lib/brand-categories";
+import type { BriefRequest } from "@/lib/brief-request";
+
+/** A live submit (P4-FE-01). Absent in demo mode, where the drawer only
+ *  shows its success state — nothing is sent. */
+export type BriefSubmit = (
+  r: Omit<BriefRequest, "sponsorId">,
+) => Promise<{ ok: true; id: string } | { ok: false; error: string }>;
+
+const CATEGORY_OPTIONS = BRAND_CATEGORIES.map((c) => ({ value: c, label: categoryLabel(c) }));
 
 /* --------------------------------------------------------------------------
    BriefRequestDrawer — the sponsor marketplace's "Request a brief" / "Add to
@@ -26,7 +36,8 @@ import { athleteInv, money } from "@/lib/fixtures";
    -------------------------------------------------------------------------- */
 
 export type BriefSeed =
-  | { kind: "package"; name: string; price: string }
+  | { kind: "package"; name: string; price: string; packageId?: string }
+  | { kind: "job"; name: string; jobId: string; price: string }
   | {
       kind: "athlete";
       name: string;
@@ -102,9 +113,11 @@ const inputCls =
 export function BriefRequestDrawer({
   seed,
   onClose,
+  submit,
 }: {
   seed: BriefSeed | null;
   onClose: () => void;
+  submit?: BriefSubmit;
 }) {
   /* `seed` opens the drawer; a local `closing` flag keeps it mounted through
      the slide-out. `onClose` is called once the exit animation lands. */
@@ -174,6 +187,7 @@ export function BriefRequestDrawer({
           seed={seed}
           closeBtnRef={closeBtnRef}
           onRequestClose={requestClose}
+          submit={submit}
         />
       </div>
     </div>,
@@ -185,14 +199,16 @@ function BriefForm({
   seed,
   closeBtnRef,
   onRequestClose,
+  submit,
 }: {
   seed: BriefSeed;
   closeBtnRef: React.RefObject<HTMLButtonElement | null>;
   onRequestClose: () => void;
+  submit?: BriefSubmit;
 }) {
   const [objective, setObjective] = useState("");
   const [budget, setBudget] = useState(
-    seed.kind === "package" ? seed.price : money(seed.sellPrice),
+    seed.kind === "athlete" ? money(seed.sellPrice) : seed.price,
   );
   const [start, setStart] = useState("");
   const [duration, setDuration] = useState("4");
@@ -202,8 +218,28 @@ function BriefForm({
   const [category, setCategory] = useState("");
   const [message, setMessage] = useState("");
   const [submitted, setSubmitted] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const canSubmit = objective.trim() !== "" && budget.trim() !== "";
+  const canSubmit = objective.trim() !== "" && budget.trim() !== "" && !sending;
+
+  async function send() {
+    if (!submit) {
+      setSubmitted(true); // demo mode: nothing is sent
+      return;
+    }
+    setSending(true);
+    setError(null);
+    const out = await submit({
+      objective, budget, start, durationWeeks: Number(duration), sport, geo, tier,
+      category, message,
+      packageId: seed.kind === "package" ? (seed.packageId ?? null) : null,
+      jobName: seed.kind === "job" ? `${seed.name} (${seed.jobId})` : seed.kind === "athlete" ? seed.jobName : null,
+    }).catch(() => ({ ok: false as const, error: "Couldn't reach BTG — please try again." }));
+    setSending(false);
+    if (out.ok) setSubmitted(true);
+    else setError(out.error);
+  }
 
   if (submitted) {
     return (
@@ -236,7 +272,7 @@ function BriefForm({
       className="flex min-h-0 flex-1 flex-col"
       onSubmit={(e) => {
         e.preventDefault();
-        if (canSubmit) setSubmitted(true);
+        if (canSubmit) void send();
       }}
     >
       <DrawerHeader seed={seed} closeBtnRef={closeBtnRef} onClose={onRequestClose} />
@@ -331,15 +367,16 @@ function BriefForm({
 
         <Field
           label="Your category"
-          htmlFor="brief-category"
           hint="So BTG can screen out competitor conflicts (§26)."
         >
-          <input
-            id="brief-category"
+          <Dropdown
+            label="Your brand category"
+            allLabel="Select a category"
             value={category}
-            onChange={(e) => setCategory(e.target.value)}
-            placeholder="e.g. Quick-service restaurant"
-            className={inputCls}
+            options={CATEGORY_OPTIONS}
+            onChange={setCategory}
+            tone="sponsor"
+            block
           />
         </Field>
 
@@ -357,12 +394,17 @@ function BriefForm({
 
       {/* pinned footer — submit stays in reach without scrolling the form */}
       <div className="shrink-0 border-t border-line-soft bg-surface p-4">
+        {error && (
+          <p role="alert" className="mb-2 text-[11px] text-danger">
+            {error}
+          </p>
+        )}
         <button
           type="submit"
           disabled={!canSubmit}
           className="w-full rounded-lg bg-sponsor py-2.5 text-xs font-medium text-cta-ink transition-colors hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
         >
-          Submit brief to BTG
+          {sending ? "Sending…" : "Submit brief to BTG"}
         </button>
         <p className="mt-2 text-center text-[10px] text-faint">
           A request, not a purchase — BTG matches and prices it, then follows up.
@@ -398,14 +440,14 @@ function DrawerHeader({
           <span className="truncate text-sm font-semibold tracking-tight">
             {seed.name}
           </span>
-          <Badge tone={seed.kind === "package" ? "primary" : "accent"}>
-            {seed.kind === "package" ? "Package" : "Requested athlete"}
+          <Badge tone={seed.kind === "athlete" ? "accent" : "primary"}>
+            {seed.kind === "package" ? "Package" : seed.kind === "job" ? "NIL job" : "Requested athlete"}
           </Badge>
         </p>
         <p className="mt-0.5 truncate text-[11px] text-muted">
-          {seed.kind === "package"
-            ? `${seed.price} · request a brief`
-            : `${seed.jobName} · ${money(seed.sellPrice)}`}
+          {seed.kind === "athlete"
+            ? `${seed.jobName} · ${money(seed.sellPrice)}`
+            : `${seed.price} · request a brief`}
         </p>
       </div>
       <button

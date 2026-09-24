@@ -1,5 +1,7 @@
 import { after } from "next/server";
 
+import { edgeHeaders } from "@/server/edge";
+
 /* --------------------------------------------------------------------------
    Per-athlete tracking redirect — P6-BE-01, Guide §06.
 
@@ -47,6 +49,7 @@ export async function GET(
       /* A redirect target that was cached would keep sending fans to a
          destination the campaign has already changed. */
       cache: "no-store",
+      headers: edgeHeaders(req),
     });
     if (response.ok) {
       const body = (await response.json()) as { destinationUrl?: string };
@@ -75,15 +78,16 @@ export async function GET(
      explicitly on a named internal header. Deliberately not `x-forwarded-for`:
      a custom name makes it obvious this is our convention between two of our
      own services rather than something infrastructure set. */
-  const clientIp =
-    req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "";
+  /* P8-SEC-03: the API believes the forwarded address only with the edge
+     key, which edgeHeaders adds when SPONSORX_EDGE_KEY is set. */
+  const forward = edgeHeaders(req);
 
   after(async () => {
     try {
       await fetch(`${API_URL}/api/v1/public/tracking/${encoded}/click`, {
         method: "POST",
         cache: "no-store",
-        ...(clientIp ? { headers: { "x-sponsorx-client-ip": clientIp } } : {}),
+        headers: forward,
       });
     } catch {
       /* Intentionally silent — see above. */

@@ -19,6 +19,8 @@ export type Actor = {
   userId: string;
   tenantId: string;
   roles: string[];
+  /** The sponsor org this user belongs to, or null (P4-FE-01). */
+  sponsorId?: string | null;
 };
 
 /** Why there is no actor, when there isn't one. Three states, because
@@ -69,4 +71,26 @@ export async function fetchActor(): Promise<ActorResult> {
   }
 
   return { status: "linked", actor: (await response.json()) as Actor };
+}
+
+/**
+ * An authenticated call to the API, as the signed-in user — P4-FE-01.
+ *
+ * Server-side only, like `fetchActor`: the Clerk session token is forwarded
+ * server-to-server and never reaches the browser. Authorisation is the API's
+ * (whereFor, the matrix); this only carries identity.
+ */
+export async function apiFetch(path: string, init: RequestInit = {}): Promise<Response> {
+  const { getToken } = await auth();
+  const token = await getToken();
+  if (!token) throw new Error("Not signed in.");
+  return fetch(`${API_URL}/api/v1${path}`, {
+    ...init,
+    cache: "no-store",
+    headers: {
+      ...(init.body ? { "content-type": "application/json" } : {}),
+      ...(init.headers as Record<string, string> | undefined),
+      Authorization: `Bearer ${token}`,
+    },
+  });
 }
