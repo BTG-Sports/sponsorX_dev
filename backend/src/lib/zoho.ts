@@ -59,8 +59,9 @@ export class ZohoNotConfiguredError extends Error {
   constructor() {
     super(
       "Zoho is not configured on this worker (ZOHO_CLIENT_ID / _SECRET / " +
-        "_REFRESH_TOKEN). The job fails and retries rather than being dropped, " +
-        "so the sync resumes the moment credentials are set.",
+        "_REFRESH_TOKEN). The drain leaves CRM jobs in the outbox on such a " +
+        "worker, so reaching this means one was dispatched anyway; it fails " +
+        "and retries rather than being dropped.",
     );
     this.name = "ZohoNotConfiguredError";
   }

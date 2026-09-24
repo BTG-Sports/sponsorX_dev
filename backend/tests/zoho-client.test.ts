@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -123,5 +124,26 @@ describe("configuration", () => {
     expect(zohoConfigFromEnv({ ZOHO_CLIENT_ID: "c", ZOHO_CLIENT_SECRET: "s" })).toBeNull();
     expect(zohoConfigFromEnv({ ZOHO_CLIENT_ID: "c", ZOHO_CLIENT_SECRET: "s", ZOHO_REFRESH_TOKEN: "r" }))
       .toMatchObject({ apiDomain: "https://www.zohoapis.com", accountsUrl: "https://accounts.zoho.com" });
+  });
+});
+
+describe("a worker without CRM credentials leaves CRM jobs waiting", async () => {
+  const { dispatchableJobs, NEEDS_ZOHO_CRM } = await import("../worker/jobs/zoho-sync.mts");
+  const handled = ["notify.email", "zoho.ingestInvoice", ...NEEDS_ZOHO_CRM];
+
+  it("does not dispatch them — they would fail into pg-boss's archive and be lost", () => {
+    const out = dispatchableJobs(handled, false);
+    expect(out).toEqual(["notify.email", "zoho.ingestInvoice"]);
+  });
+
+  it("dispatches everything once credentials exist", () => {
+    expect(dispatchableJobs(handled, true)).toEqual(handled);
+  });
+
+  it("covers every CRM job the worker handles", () => {
+    const worker = readFileSync(new URL("../worker/index.mts", import.meta.url), "utf8");
+    const block = worker.match(/HANDLED_JOBS = new Set<string>\(\[([\s\S]*?)\]\)/)![1]!;
+    const zoho = [...block.matchAll(/"(zoho\.[^"]+)"/g)].map((m) => m[1]!).filter((n) => n !== "zoho.ingestInvoice");
+    expect(zoho.sort()).toEqual([...NEEDS_ZOHO_CRM].sort());
   });
 });

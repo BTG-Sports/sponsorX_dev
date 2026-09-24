@@ -79,10 +79,10 @@ import { prisma } from "../src/db/client.ts";
 import { ingestZohoInvoice, type ZohoInvoicePayload } from "../src/domain/invoice.ts";
 import { importCohort, type CohortImportJob } from "../src/domain/cohort-import.ts";
 import { redis } from "../src/lib/redis.ts";
-import { zohoFromEnv } from "../src/lib/zoho.ts";
+import { zohoConfigFromEnv, zohoFromEnv } from "../src/lib/zoho.ts";
 import {
   handleBackfill, handleIngestCrm, handlePushDeal, handlePushLead, handlePushRenewal,
-  handlePushTask, renewWatch, runReconciliation,
+  handlePushTask, renewWatch, runReconciliation, dispatchableJobs,
   type BackfillJob, type DealJob, type IngestCrmJob, type LeadJob, type RenewalJob, type TaskJob,
 } from "./jobs/zoho-sync.mts";
 
@@ -186,7 +186,9 @@ async function drainOnce(): Promise<number> {
         ORDER BY "createdAt"
         LIMIT $1
           FOR UPDATE SKIP LOCKED`,
-      [DRAIN_BATCH, [...HANDLED_JOBS]],
+      /* Zoho CRM jobs stay in the outbox on a worker with no credentials
+         (production today) instead of failing into pg-boss's archive. */
+      [DRAIN_BATCH, dispatchableJobs(HANDLED_JOBS, zohoConfigFromEnv() !== null)],
     );
 
     if (rows.length === 0) {
@@ -446,7 +448,7 @@ async function main(): Promise<void> {
       .catch((error: unknown) => console.error("[worker] zoho.reconcile failed:", error));
   };
   if (!process.env.ZOHO_CLIENT_ID) {
-    console.log("[worker] Zoho is not configured — sync jobs will wait and retry; no reconcile or watch.");
+    console.log("[worker] Zoho is not configured — CRM sync jobs wait in the outbox; no reconcile or watch.");
   }
   zohoTimer = setInterval(() => void zohoSweep(), ZOHO_SWEEP_INTERVAL_MS);
   setTimeout(() => void zohoSweep(), 60_000).unref();
