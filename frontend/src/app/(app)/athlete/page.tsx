@@ -412,7 +412,10 @@ export default async function AthletePortalPage({
         </section>
 
         {/* ==================================================== rail */}
-        <div className="space-y-6">
+        {/* min-w-0: below xl the grid track is implicit `auto` — without it
+           any nowrap content in the rail widens the page (P1-FE-19 found
+           this on the student portal's twin of this layout). */}
+        <div className="min-w-0 space-y-6">
           <section className="sx-animate sx-delay-2">
             <SectionHeading title="Earnings" />
             <Card>
