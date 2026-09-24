@@ -149,3 +149,10 @@ Verification: `npm run build` clean; lint clean; backend **1204 passed, 0
 skipped** (local Postgres from a scratchpad binary, so the DB suites ran —
 CI runs them too); frontend 69 passed. Stage Progress snapshot unchanged
 (nothing moved to Done).
+
+**Closed to Done (user's instruction, acceptance confirmed met):** `P8-INT-01`,
+`P8-INT-02`, `P8-INT-03`, `P8-INT-04`, `P8-INT-05`, `P8-INT-06`, `P8-SEC-02`.
+`P8-SEC-01` stays at Code review — its "required CI check" clause cannot be
+enforced on this account. Follow-up #46 (CRM jobs wait in the outbox on a
+worker without credentials) merged into `main_development`. Today's Stage
+Progress snapshot updated: S8 7, Done 128, days left 333.
