@@ -14,7 +14,13 @@ import { UserMenu } from "./user-menu";
    Athlete = blue, Sponsor = orange, Admin = steel, Property = soft blue.
    -------------------------------------------------------------------------- */
 
-export type Portal = "sponsor" | "athlete" | "admin" | "property" | "next";
+export type Portal =
+  | "sponsor"
+  | "athlete"
+  | "admin"
+  | "property"
+  | "next"
+  | "advisor";
 export type { NavItem };
 
 const ACCENT: Record<
@@ -72,6 +78,16 @@ const ACCENT: Record<
     wash: "from-next/15",
     edge: "from-next/60",
     label: "NEXT Student",
+  },
+  /* The advisor desk (P1-FE-20) shares NEXT's violet — one programme, one
+     colour — and differs only in label. Same token pair, same brand gate. */
+  advisor: {
+    text: "text-next",
+    bg: "bg-next/15",
+    dot: "bg-next",
+    wash: "from-next/15",
+    edge: "from-next/60",
+    label: "NEXT Advisor",
   },
 };
 

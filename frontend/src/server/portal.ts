@@ -21,7 +21,13 @@ import { redirect } from "next/navigation";
 
 import { fetchActor, type Actor } from "@/server/api";
 
-export type Portal = "admin" | "athlete" | "sponsor" | "property" | "next";
+export type Portal =
+  | "admin"
+  | "athlete"
+  | "sponsor"
+  | "property"
+  | "next"
+  | "advisor";
 
 /**
  * Roles admitted to each portal, in the order the post-sign-in router tries
@@ -51,6 +57,10 @@ const PORTAL_ROLES: ReadonlyArray<readonly [Portal, readonly string[]]> = [
      stay demoable; they still route to /admin (their entry is tried first).
      P9-FE-01 narrows this list when the portal is wired to real data. */
   ["next", ["STUDENT", "SUPER_ADMIN", "BTG_ADMIN"]],
+  /* The advisor desk (P1-FE-20) — same reasoning as "next" above: ADVISOR is
+     the Stage 9 role (matches nobody until P9-BE-05), the two BTG admin roles
+     preview the fixtures-only screens meanwhile. */
+  ["advisor", ["ADVISOR", "SUPER_ADMIN", "BTG_ADMIN"]],
   /* SERVICE is §8's API service account. It appears in no list on purpose —
      it has credentials and no workspace, and must never be routed anywhere. */
 ];

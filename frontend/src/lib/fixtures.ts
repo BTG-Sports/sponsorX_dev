@@ -1989,6 +1989,155 @@ export const editionBackCover: EditionSlot = {
   state: "OPEN",
 };
 
+/* --------------------------------------------------------------------------
+   Advisor desk — P1-FE-20, NEXT spec §3, §7. One school's view: student
+   applications reviewed exactly as a network manager reviews athlete ones
+   (StudentState mirrors AthleteState, spec §5.1), and the content queue in
+   ApprovalsDesk's own vocabulary — reused unchanged, per the acceptance.
+   -------------------------------------------------------------------------- */
+
+/** SUBMITTED | UNDER_REVIEW | APPROVED — the slice an advisor works daily.
+ *  Full StudentState adds DRAFT/ACTIVE/INACTIVE/SUSPENDED (Stage 9). */
+export type StudentApplicationState = "SUBMITTED" | "UNDER_REVIEW" | "APPROVED";
+
+export const STUDENT_APPLICATION_COPY: Record<StudentApplicationState, string> = {
+  SUBMITTED: "New — awaiting review",
+  UNDER_REVIEW: "Under review",
+  APPROVED: "Approved",
+};
+
+export const studentApplications = [
+  {
+    id: "sapp-01",
+    name: "Maya Chen",
+    gradYear: 2028,
+    masthead: ["PHOTOGRAPHER"],
+    state: "SUBMITTED" as StudentApplicationState,
+    submitted: "Sep 22",
+    note: "Already shoots JV games on her own camera; portfolio link attached.",
+  },
+  {
+    id: "sapp-02",
+    name: "DeShawn Carter",
+    gradYear: 2027,
+    masthead: ["SALES"],
+    state: "UNDER_REVIEW" as StudentApplicationState,
+    submitted: "Sep 20",
+    note: "Recommended by Coach Alvarez. Wants the winter season; asked about the sales code on day one.",
+  },
+  {
+    id: "sapp-03",
+    name: "Priya Nair",
+    gradYear: 2029,
+    masthead: ["WRITER", "VIDEO"],
+    state: "SUBMITTED" as StudentApplicationState,
+    submitted: "Sep 23",
+    note: "Freshman — strong writing sample on the girls' soccer run.",
+  },
+  {
+    id: "sapp-04",
+    name: "Leo Martinez",
+    gradYear: 2028,
+    masthead: ["DESIGNER"],
+    state: "APPROVED" as StudentApplicationState,
+    submitted: "Sep 15",
+    note: "Approved Sep 18 — onboarding with the Fall layout team.",
+  },
+];
+
+/** The school's content queue in ReviewContentItem shape so ApprovalsDesk is
+ *  reused unchanged: campaign carries the section, athlete carries the
+ *  student, sponsor is "Editorial" unless a paid feature previews placement.
+ *  Jordan's rows mirror studentAssignments states one for one. */
+export const advisorContentQueue: ReviewContentItem[] = [
+  {
+    id: "adv-01",
+    campaign: "Sports feature",
+    sponsor: "Editorial",
+    title: "Under the Friday lights — girls' soccer's unbeaten run",
+    dueDate: "Sep 26",
+    state: "DRAFT_SUBMITTED",
+    revisionRequested: false,
+    athlete: "Jordan Reyes",
+    assetKind: "image",
+    version: 1,
+    submittedAt: "Sep 23, 9:12 AM",
+    waitingHours: 30,
+  },
+  {
+    id: "adv-02",
+    campaign: "Photo essay",
+    sponsor: "Editorial",
+    title: "Cross country season gallery — dawn practice",
+    dueDate: "Sep 28",
+    state: "DRAFT_SUBMITTED",
+    revisionRequested: true,
+    athlete: "Tessa Bloom",
+    assetKind: "image",
+    version: 2,
+    submittedAt: "Sep 21, 4:40 PM",
+    waitingHours: 62,
+  },
+  {
+    id: "adv-03",
+    campaign: "Feature support",
+    sponsor: "First Ridge Credit Union",
+    title: "Sit-down: Amara Whitfield, the Issue 03 feature",
+    dueDate: "Oct 3",
+    state: "SPONSOR_REVIEW",
+    revisionRequested: false,
+    athlete: "Jordan Reyes",
+    assetKind: "video",
+    version: 2,
+    submittedAt: "Sep 22, 1:05 PM",
+    waitingHours: 18,
+  },
+  {
+    id: "adv-04",
+    campaign: "People",
+    sponsor: "Editorial",
+    title: "Marching band profile: the drumline's summer",
+    dueDate: "Sep 30",
+    state: "BTG_REVIEW",
+    revisionRequested: false,
+    athlete: "Omar Diallo",
+    assetKind: "image",
+    version: 1,
+    submittedAt: "Sep 22, 8:30 AM",
+    waitingHours: 26,
+  },
+  {
+    id: "adv-05",
+    campaign: "Money & program",
+    sponsor: "Editorial",
+    title: "How the concession stand funds the season",
+    dueDate: "Sep 24",
+    state: "APPROVED",
+    revisionRequested: false,
+    athlete: "Jordan Reyes",
+    assetKind: "image",
+    version: 3,
+    submittedAt: "Sep 20, 11:00 AM",
+    waitingHours: 0,
+    clearedAt: "Sep 23",
+  },
+  {
+    id: "adv-06",
+    campaign: "Photo essay",
+    sponsor: "Editorial",
+    title: "Season opener gallery — varsity football vs. Eastbrook",
+    dueDate: "Sep 12",
+    state: "PUBLISHED",
+    revisionRequested: false,
+    athlete: "Jordan Reyes",
+    assetKind: "image",
+    version: 1,
+    submittedAt: "Sep 10, 3:20 PM",
+    waitingHours: 0,
+    clearedAt: "Sep 11",
+  },
+];
+
 /** StudentPointAccrual rows — reasons from the spec §5.5 vocabulary.
  *  Integers. Not cents. Nothing here may render with a currency sign. */
 export const studentPoints = {

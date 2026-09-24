@@ -16,6 +16,8 @@ const ROUTES = [
   { href: "/athlete/orders/demo-order", title: 'Campaign Order Acceptance', ref: '§12 · guide §08', surface: 'athlete portal' },
   { href: "/athlete/earnings", title: 'Athlete Earnings', ref: '§24 · §21', surface: 'athlete portal' },
   { href: "/property", title: 'Property Portal', ref: '§8 PROPERTY_MGR', surface: 'property portal' },
+  { href: "/advisor", title: 'Advisor Desk — Applications (NEXT)', ref: 'NEXT spec §3 · P1-FE-20', surface: 'advisor portal (NEXT)' },
+  { href: "/advisor/review", title: 'Advisor Content Review (NEXT)', ref: 'NEXT spec §7 · P1-FE-20', surface: 'advisor portal (NEXT)' },
   { href: "/next", title: 'Student Home (SponsorX NEXT)', ref: 'NEXT spec §8 · P1-FE-19', surface: 'student portal (NEXT)' },
   { href: "/next/assignments", title: 'Assignments', ref: 'NEXT spec §5.2 · P1-FE-19', surface: 'student portal (NEXT)' },
   { href: "/next/sales", title: 'My Sales & Attribution Ledger', ref: 'NEXT spec §5.1 · §5.6', surface: 'student portal (NEXT)' },
