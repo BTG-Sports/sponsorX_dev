@@ -142,7 +142,32 @@ the two BTG admin roles for preview, exactly the `/next` precedent.
 scroll verified at 390/470/768, screenshots eyeballed. Board: `P1-FE-20` →
 Code review (HeckerCreatives, 2026-09-24).
 
-Three NEXT screens shipped today (flatplan, inventory ledger, advisor desk);
-Stage 1's remaining queue is P1-FE-23 (splits), P1-FE-30 (points), P1-FE-29
+## `P1-FE-23` — revenue splits, deliberately unlike earnings
+
+*Code review. The acceptance is negative space: "visibly distinct from the
+athlete earnings surface." The design answers with structure, not styling.*
+
+`/admin/next/splits`: the four §5.7 payees per edition — SponsorX 4,000 bps ·
+school 3,000 · student pool 2,000 · editorial fund 1,000 — with amounts
+**derived from committed revenue at render time, never transcribed**. Tests
+pin bps summing to exactly 10,000, remainder-free allocation, and the four
+kinds appearing exactly once each.
+
+What makes it un-earnings, on purpose: the hero is a single 100% **allocation
+bar** (four fixed categorical hues, labeled segments) where earnings has
+payout tables and trend lines; shares speak **basis points**, which finance
+never does; and a boundary card states the §5.7 rule where the reader is —
+an Earning is one athlete's NIL compensation, a split is an edition
+allocation, and keeping them apart is what stops a finance reconciliation
+returning a minor's scholarship pool. The student-pool card repeats the §5.5
+line: never paid to a student directly. Adjust-shares ships disabled naming
+`P9-FE-05`.
+
+65 frontend tests green (3 new), build and eslint clean, no page overflow at
+390/470/768, screenshots eyeballed (one literal-backtick typo caught and
+fixed). Board: `P1-FE-23` → Code review (HeckerCreatives, 2026-09-24).
+
+Four NEXT screens shipped today (flatplan, inventory ledger, advisor desk,
+revenue splits); Stage 1's remaining queue is P1-FE-30 (points), P1-FE-29
 (rights), then the design-gated public four and P1-FE-28. Google Sheet still
 needs its hand mirror at end of day.
