@@ -167,6 +167,7 @@ export async function metricsForDeliverable(
   if (!deliverable) throw new ForbiddenError("metricEvent", "read");
 
   const rows = await prisma.metricDaily.findMany({
+    /* tenant-scope: keyed by the deliverable loaded above through whereFor. */
     where: { deliverableId },
     select: { source: true, views: true, engagements: true },
   });
@@ -195,6 +196,7 @@ export async function metricsForCampaign(
   if (!campaign) throw new ForbiddenError("metricAggregate", "read");
 
   const rows = await prisma.metricDaily.findMany({
+    /* tenant-scope: keyed by the campaign loaded above through whereFor. */
     where: { deliverable: { is: { order: { is: { campaignId } } } } },
     select: { source: true, views: true, engagements: true },
   });
@@ -215,6 +217,7 @@ export async function metricsForAthlete(
   if (!athlete) throw new ForbiddenError("metricAggregate", "read");
 
   const rows = await prisma.metricDaily.findMany({
+    /* tenant-scope: keyed by the athlete loaded above through whereFor. */
     where: { deliverable: { is: { order: { is: { athleteId } } } } },
     select: { source: true, views: true, engagements: true },
   });

@@ -14,6 +14,7 @@ import { earningsRouter } from "./earnings";
 import { guardiansRouter } from "./guardians";
 import { metricsRouter } from "./metrics";
 import { zohoWebhooksRouter } from "./zoho-webhooks";
+import { inquiriesRouter } from "./inquiries";
 import { rewardsRouter } from "./rewards";
 import { meRouter } from "./me";
 import { openapiRouter } from "./openapi";
@@ -64,6 +65,10 @@ v1Router.use("/", metricsRouter);
    necessity: Zoho cannot log in. Guarded by an HMAC shared secret instead,
    which the production env guard refuses to boot without. */
 v1Router.use("/", zohoWebhooksRouter);
+
+/* B8 — a prospective sponsor's enquiry (P8-INT-06). PUBLIC and rate-limited;
+   writes one row and queues the Zoho Lead push. */
+v1Router.use("/", inquiriesRouter);
 
 /* The published contract, generated from the Zod registry (§38). Public: a
    consumer has to be able to read how to authenticate before it can. */

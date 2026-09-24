@@ -516,6 +516,7 @@ export async function rewardFunnel(
   if (!reward) throw new ForbiddenError("rewardEvent", "read");
 
   const grouped = await prisma.rewardEvent.groupBy({
+    /* tenant-scope: keyed by the reward loaded above through whereFor. */
     by: ["type"],
     where: { token: { is: { rewardId } } },
     _count: { _all: true },

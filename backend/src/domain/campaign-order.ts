@@ -117,6 +117,7 @@ export async function createOrder(
        a rule, it was called by nothing until this line — which made its
        acceptance ("a line below the floor cannot be saved") untrue. */
     const existing = await tx.campaignOrder.aggregate({
+      /* tenant-scope: keyed by the campaign loaded above through whereFor. */
       where: { campaignId: input.campaignId, state: { not: "CANCELLED" } },
       _sum: { compensation: true },
     });

@@ -56,6 +56,7 @@ import {
   SourcedTotals, SponsorReport,
 } from "./metric";
 import { Invoice, PaymentStatus, ZohoInvoiceWebhook } from "./invoice";
+import { InquiryInput, ZohoCrmNotification } from "./zoho";
 import {
   AgreementAcceptanceInput,
   GuardianInput,
@@ -310,6 +311,10 @@ const PATHS: Row[] = [
 
   // Zoho inbound (P7-BE-04)
   { method: "post", path: "/webhooks/zoho/invoice", tag: "Webhooks", summary: "Zoho Books invoice webhook — shared-secret signed, queued.", auth: false, body: ZohoInvoiceWebhook, status: 202 },
+  { method: "post", path: "/webhooks/zoho/crm", tag: "Webhooks", summary: "Zoho CRM Notifications API callback — channel-token verified, recorded, queued; never calls Zoho (P8-INT-03).", auth: false, body: ZohoCrmNotification, status: 202 },
+
+  // Sponsor enquiries (P8-INT-06)
+  { method: "post", path: "/public/inquiries", tag: "Public", summary: "A prospective sponsor asks to talk — becomes a Zoho Lead.", auth: false, body: InquiryInput, status: 201, response: z.object({ id: z.string(), received: z.boolean() }) },
 ];
 
 for (const row of PATHS) {

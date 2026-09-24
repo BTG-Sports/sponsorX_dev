@@ -61,6 +61,7 @@ export async function recordSocials(
     if (!athlete) throw new ForbiddenError("athleteSocialAccount", "write");
 
     const before = await tx.athleteSocial.findMany({
+      /* tenant-scope: athleteId is the athlete loaded above through whereFor. */
       where: { athleteId },
       select: { platform: true, handle: true, followers: true, source: true },
     });

@@ -35,41 +35,41 @@ const actor = (roles: Role[], ids: Partial<Actor> = {}): Actor => ({
 describe("1 · an actor reaches their own row and no one else's", () => {
   it("scopes an athlete to themselves", () => {
     expect(whereFor(actor(["ATHLETE"], { athleteId: "ath_me" }), "athlete", "write"))
-      .toEqual({ tenantId: "t1", id: "ath_me" });
+      .toEqual({ AND: [{ tenantId: "t1", id: "ath_me" }] });
   });
 
   it("scopes an athlete's invitations to their own", () => {
     expect(whereFor(actor(["ATHLETE"], { athleteId: "ath_me" }), "invitation", "write"))
-      .toEqual({ tenantId: "t1", athleteId: "ath_me" });
+      .toEqual({ AND: [{ tenantId: "t1", athleteId: "ath_me" }] });
   });
 
   it("scopes an athlete's socials and score to their own athlete row", () => {
     const a = actor(["ATHLETE"], { athleteId: "ath_me" });
     expect(whereFor(a, "athleteSocialAccount", "write"))
-      .toEqual({ tenantId: "t1", athleteId: "ath_me" });
+      .toEqual({ AND: [{ tenantId: "t1", athleteId: "ath_me" }] });
     expect(whereFor(a, "athleteScore", "read"))
-      .toEqual({ tenantId: "t1", athleteId: "ath_me" });
+      .toEqual({ AND: [{ tenantId: "t1", athleteId: "ath_me" }] });
   });
 
   it("scopes a guardian to their wards, not to every minor in the tenant", () => {
     expect(whereFor(actor(["GUARDIAN"], { guardianId: "grd_me" }), "athlete", "read"))
-      .toEqual({ tenantId: "t1", guardianId: "grd_me" });
+      .toEqual({ AND: [{ tenantId: "t1", guardianId: "grd_me" }] });
   });
 
   it("scopes a guardian's own record to itself", () => {
     expect(whereFor(actor(["GUARDIAN"], { guardianId: "grd_me" }), "guardian", "write"))
-      .toEqual({ tenantId: "t1", id: "grd_me" });
+      .toEqual({ AND: [{ tenantId: "t1", id: "grd_me" }] });
   });
 
   it("scopes a sponsor's briefs and campaigns to their organisation", () => {
     const a = actor(["SPONSOR_ADMIN"], { sponsorId: "sp_1" });
-    expect(whereFor(a, "campaignBrief", "write")).toEqual({ tenantId: "t1", sponsorId: "sp_1" });
-    expect(whereFor(a, "campaign", "read")).toEqual({ tenantId: "t1", sponsorId: "sp_1" });
+    expect(whereFor(a, "campaignBrief", "write")).toEqual({ AND: [{ tenantId: "t1", sponsorId: "sp_1" }] });
+    expect(whereFor(a, "campaign", "read")).toEqual({ AND: [{ tenantId: "t1", sponsorId: "sp_1" }] });
   });
 
   it("gives BTG the whole tenant and SUPER_ADMIN everything", () => {
-    expect(whereFor(actor(["NETWORK_MGR"]), "athlete", "write")).toEqual({ tenantId: "t1" });
-    expect(whereFor(actor(["SUPER_ADMIN"]), "athlete", "write")).toEqual({});
+    expect(whereFor(actor(["NETWORK_MGR"]), "athlete", "write")).toEqual({ AND: [{ tenantId: "t1" }] });
+    expect(whereFor(actor(["SUPER_ADMIN"]), "athlete", "write")).toEqual({ AND: [{}] });
   });
 
   it.each([
@@ -81,7 +81,7 @@ describe("1 · an actor reaches their own row and no one else's", () => {
     /* A row that should not exist. The dangerous answer is `{}`, which in
        Prisma means every row in the table — so a broken actor must reach
        nothing rather than everything. */
-    expect(whereFor(actor([role]), resource, "read")).toEqual(MATCHES_NOTHING);
+    expect(whereFor(actor([role]), resource, "read")).toEqual({ AND: [MATCHES_NOTHING] });
   });
 
   it("never returns an unrestricted filter for a self-scoped role", () => {
