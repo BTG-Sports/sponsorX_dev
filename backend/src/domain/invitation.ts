@@ -139,6 +139,7 @@ export async function inviteAthlete(
     if (conflicting.length > 0) throw new CategoryConflictError(conflicting);
 
     const open = await tx.campaignInvite.findFirst({
+      /* tenant-scope: campaign and athlete were both loaded above through whereFor. */
       where: {
         campaignId: input.campaignId,
         athleteId: input.athleteId,

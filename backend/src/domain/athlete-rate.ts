@@ -151,6 +151,7 @@ export async function setAthleteRate(
        what actually prevents two managers creating version 2 at once; this
        just picks the number. */
     const latest = await tx.athleteRate.findFirst({
+      /* tenant-scope: athleteId is the athlete loaded above through whereFor. */
       where: { athleteId, jobId },
       select: { version: true },
       orderBy: { version: "desc" },
@@ -195,7 +196,17 @@ export async function readRateCard(actor: Actor, athleteId: string) {
      the point of P3-FE-04, and over-restricting it here would have 403'd that
      screen the day someone built it. Setting a rate is the BTG act; reading
      one is not. The row scope keeps everyone to their own. */
-  assertAllowed(actor, "athleteRate", "read");
+  const scope = assertAllowed(actor, "athleteRate", "read");
+
+  /* The athlete must exist inside the caller's reach before we answer at
+     all (P8-SEC-02). Without this, another tenant's athlete id answered
+     200 with an empty card — no rates leaked, but "this id is not yours"
+     and "this athlete has no rates" were indistinguishable, and every other
+     by-id read here refuses instead. */
+  const reachable = await prisma.athlete.count({
+    where: { id: athleteId, ...(scope === "any" ? {} : { tenantId: actor.tenantId }) },
+  });
+  if (reachable === 0) throw new ForbiddenError("athleteRate", "read");
 
   const rates = await prisma.athleteRate.findMany({
     where: { ...whereFor(actor, "athleteRate", "read"), athleteId },

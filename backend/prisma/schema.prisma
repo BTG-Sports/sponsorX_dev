@@ -213,6 +213,10 @@ model User {
   sponsorId  String?
   propertyId String?
   guardianId String?
+  /// The same person's Zoho CRM user id (P8-INT-01, field-mapping O-5). Set
+  /// by matching on email; a Task this user originates is owned by them in
+  /// the CRM. Null means the API account owns it and nobody is notified.
+  zohoUserId String?  @unique
   createdAt  DateTime @default(now())
 
   athlete     Athlete?              @relation(fields: [athleteId], references: [id])
@@ -238,7 +242,10 @@ model Property {
   /// US state code, e.g. "MD".
   stateCode String?
 
-  // Zoho (§18 — Accounts are bi-directional)
+  // RESERVED, NOT WIRED (field-mapping S-9, decided 2026-09-24). §18 maps no
+  // Property object and §6.2 sends the property to Zoho as plain text, so no
+  // sync job reads or writes this column. Do not populate it by assuming it
+  // is wired up; adopting it is a mapping change first.
   zohoId         String?     @unique
   lastSyncOrigin SyncOrigin?
   lastSyncHash   String?
@@ -473,6 +480,10 @@ model Sponsor {
   zohoAccountId  String?     @unique
   lastSyncOrigin SyncOrigin?
   lastSyncHash   String?
+  /// When the last sync in either direction succeeded. With `updatedAt` this
+  /// is the concurrent-change test (field-mapping §8.1 step 3).
+  lastSyncAt     DateTime?
+  updatedAt      DateTime    @default(now()) @updatedAt
 
   briefs    CampaignBrief[]
   campaigns Campaign[]
@@ -505,8 +516,10 @@ model SponsorContact {
   zohoContactId  String?     @unique
   lastSyncOrigin SyncOrigin?
   lastSyncHash   String?
+  lastSyncAt     DateTime?
 
   createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
 
   sponsor Sponsor @relation(fields: [sponsorId], references: [id])
 
@@ -536,6 +549,15 @@ model CampaignBrief {
   categories String[]
   state      BriefState @default(DRAFT)
   createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @default(now()) @updatedAt
+
+  // Zoho (§18 rows 4–5). The Deal is created when the brief qualifies, before
+  // any Campaign exists, so the brief holds it; the campaign copies it on
+  // creation and owns it from then on (field-mapping §4.1, S-3, S-8).
+  zohoDealId     String?     @unique
+  lastSyncOrigin SyncOrigin?
+  lastSyncHash   String?
+  lastSyncAt     DateTime?
 
   sponsor  Sponsor         @relation(fields: [sponsorId], references: [id])
   package  SponsorPackage? @relation(fields: [packageId], references: [id])
@@ -560,6 +582,10 @@ model Campaign {
   zohoDealId     String?     @unique
   lastSyncOrigin SyncOrigin?
   lastSyncHash   String?
+  lastSyncAt     DateTime?
+  /// §18 row 9 — the renewal is a second Deal, pushed once, never read back.
+  zohoRenewalDealId String?  @unique
+  updatedAt      DateTime    @default(now()) @updatedAt
 
   sponsor Sponsor          @relation(fields: [sponsorId], references: [id])
   brief   CampaignBrief?   @relation(fields: [briefId], references: [id])
@@ -975,6 +1001,79 @@ model WebhookDelivery {
   receivedAt  DateTime @default(now())
 
   @@index([source, receivedAt])
+}
+
+/// An inbound sponsor enquiry — §18 row 3, P8-INT-06, field-mapping §7.3/S-2.
+/// Pushed one-way to Zoho Leads; qualification happens in the CRM. A sponsor
+/// enquiry, not a fan: fan-consent lead capture is Phase 2 (2S6-INT-03).
+model Inquiry {
+  id          String   @id @default(cuid())
+  tenantId    String
+  companyName String?
+  firstName   String?
+  lastName    String
+  email       String
+  phone       String?
+  message     String?
+  /// "web-form" | "outbound" | "event"
+  source      String
+  zohoLeadId  String?  @unique
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @default(now()) @updatedAt
+
+  @@index([tenantId, createdAt])
+}
+
+/// A CRM task SponsorX originates — §18 row 7, field-mapping §7.5/S-4.
+/// Follow-ups, approvals and renewals. Tasks staff create in Zoho stay there.
+/// Deal and contact links are held as OUR ids and resolved to Zoho ids at
+/// push time, because the task is usually created before its deal reaches
+/// Zoho — a stored Zoho id would be null exactly when it is needed.
+model SyncTask {
+  id             String      @id @default(cuid())
+  tenantId       String
+  /// FOLLOW_UP | APPROVAL | RENEWAL
+  kind           String
+  subject        String
+  body           String?
+  dueDate        DateTime
+  completedAt    DateTime?
+  /// → User.zohoUserId as the CRM Owner.
+  assigneeUserId String?
+  briefId        String?
+  campaignId     String?
+  zohoTaskId     String?     @unique
+  lastSyncOrigin SyncOrigin?
+  lastSyncHash   String?
+  lastSyncAt     DateTime?
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @default(now()) @updatedAt
+
+  /// `<kind>:<brief or campaign id>`, e.g. `approval:c_123`. One task per
+  /// event: a retried transition must not raise a second CRM task.
+  dedupeKey      String      @unique
+
+  @@index([tenantId, dueDate])
+}
+
+/// The nightly drift report — P8-INT-05, field-mapping §8.3. One row per
+/// module per run. Reported, never auto-repaired: repairing a mapping this
+/// new would paper over the bug that caused the drift.
+model ZohoReconciliation {
+  id                String   @id @default(cuid())
+  tenantId          String
+  /// Accounts | Contacts | Deals | Tasks
+  module            String
+  ranAt             DateTime @default(now())
+  checked           Int
+  /// Our ids with no Zoho record — a lost push.
+  missingInZoho     Json
+  /// Zoho ids carrying a SponsorX_ID we do not recognise.
+  unknownInSponsorX Json
+  /// Present on both sides, shared fields disagree — a missed webhook.
+  diverged          Json
+
+  @@index([tenantId, ranAt])
 }
 
 /// Sent-email ledger (P3-INT-01). Not a copy of the message — the key, the

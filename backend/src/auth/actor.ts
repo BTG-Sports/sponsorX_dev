@@ -108,6 +108,7 @@ export async function resolveActor(
   if (!email) throw new UnprovisionedError(null);
 
   const provisioned = await prisma.user.findFirst({
+    /* tenant-scope: identity resolution — there is no actor, and so no tenant, until this finds one. */
     where: { email: email.toLowerCase() },
     select: { id: true },
   });

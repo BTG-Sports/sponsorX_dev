@@ -125,27 +125,27 @@ describe("restrictions are a closed vocabulary", () => {
 describe("a sponsor reaches its own records and no other's", () => {
   it("scopes a sponsor admin to their own organisation", () => {
     expect(whereFor(actor(["SPONSOR_ADMIN"], "sp_1"), "sponsor", "read"))
-      .toEqual({ tenantId: "t1", id: "sp_1" });
+      .toEqual({ AND: [{ tenantId: "t1", id: "sp_1" }] });
   });
 
   it("scopes their contacts to that organisation's people", () => {
     expect(whereFor(actor(["SPONSOR_ADMIN"], "sp_1"), "sponsorContact", "read"))
-      .toEqual({ tenantId: "t1", sponsorId: "sp_1" });
+      .toEqual({ AND: [{ tenantId: "t1", sponsorId: "sp_1" }] });
   });
 
   it("matches nothing for a sponsor user with no sponsor, never everything", () => {
     /* A broken row must reach nothing. The dangerous failure is `{}`, which
        in Prisma means every row in the table. */
     expect(whereFor(actor(["SPONSOR_ADMIN"], null), "sponsor", "read"))
-      .toEqual(MATCHES_NOTHING);
+      .toEqual({ AND: [MATCHES_NOTHING] });
   });
 
   it("lets BTG staff see the tenant's sponsors", () => {
-    expect(whereFor(actor(["SALES"]), "sponsor", "read")).toEqual({ tenantId: "t1" });
+    expect(whereFor(actor(["SALES"]), "sponsor", "read")).toEqual({ AND: [{ tenantId: "t1" }] });
   });
 
   it("lets only SUPER_ADMIN cross the tenant", () => {
-    expect(whereFor(actor(["SUPER_ADMIN"]), "sponsor", "read")).toEqual({});
+    expect(whereFor(actor(["SUPER_ADMIN"]), "sponsor", "read")).toEqual({ AND: [{}] });
   });
 
   it.each(["ATHLETE", "GUARDIAN", "PROPERTY_MGR"] as const)(

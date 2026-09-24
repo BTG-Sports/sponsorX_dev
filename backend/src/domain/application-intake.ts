@@ -290,6 +290,7 @@ async function uniqueSlug(tx: Prisma.TransactionClient, displayName: string): Pr
       .slice(0, 48) || "athlete";
 
   const taken = await tx.athlete.findMany({
+    /* tenant-scope: slugs are unique across tenants by design (@unique); reads slug strings only, returns none. */
     where: { slug: { startsWith: base } },
     select: { slug: true },
   });

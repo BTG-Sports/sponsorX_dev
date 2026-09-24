@@ -253,7 +253,10 @@ describe("the whole matrix is pinned", () => {
       // SPONSOR_ANALYST ("own"); every other cell deny. With the invoice rows
       // removed the grid still hashes to the previous bc4ddbf83a1e7538, so
       // nothing else moved. Document row added first (§11 `invoice`).
-    ).toBe("441c358e69d81f98");
+      // Updated 2026-09-24 (P8-SEC-01): two new resources, `inquiry` and
+      // `syncTask`, BTG-side only (matrix §11). With both removed the grid
+      // still hashes to the previous 441c358e69d81f98, so nothing else moved.
+    ).toBe("f6af9e4293912f8b");
   });
 
   it("covers every pair the §30 acceptance asks for", () => {

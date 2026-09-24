@@ -82,6 +82,28 @@ const schema = z.object({
      and an unsigned one is an unauthenticated write into the finance mirror. */
   ZOHO_WEBHOOK_SECRET: z.string().optional(),
 
+  /* The Zoho CRM sync — P8-INT-01..07, field-mapping §8.2.
+
+     Worker credentials. Optional so every other job runs without them; a
+     Zoho job on a worker without them fails and retries rather than being
+     dropped. EXPECTED_ORG_ID pins which org the token may reach: staging
+     holds the SponsorX-Dev sandbox's token and its id, so a production
+     token pasted into staging by mistake is refused on the first call. */
+  ZOHO_CLIENT_ID: z.string().optional(),
+  ZOHO_CLIENT_SECRET: z.string().optional(),
+  ZOHO_REFRESH_TOKEN: z.string().optional(),
+  ZOHO_API_DOMAIN: z.string().default("https://www.zohoapis.com"),
+  ZOHO_ACCOUNTS_URL: z.string().default("https://accounts.zoho.com"),
+  ZOHO_EXPECTED_ORG_ID: z.string().optional(),
+
+  /* Inbound (P8-INT-03). The Notifications API channel: Zoho echoes the
+     token and channel id back on every callback, and the route refuses any
+     callback where either is wrong — or where they are not configured. The
+     worker keeps the channel subscribed when NOTIFY_URL is set. */
+  ZOHO_NOTIFY_TOKEN: z.string().min(16).optional(),
+  ZOHO_NOTIFY_CHANNEL_ID: z.string().regex(/^\d+$/).optional(),
+  ZOHO_NOTIFY_URL: z.string().url().optional(),
+
   /* Which Railway environment this is (P3-DATA-01). Railway injects it; a
      developer machine has none. Needed because NODE_ENV cannot tell staging
      from production — both run "production". */

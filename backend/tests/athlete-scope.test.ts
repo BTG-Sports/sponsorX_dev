@@ -30,33 +30,37 @@ const MATCHES_NOTHING = { id: { in: [] as string[] } };
 
 describe("P3-BE-02 · who sees which athletes", () => {
   it("BTG admin sees the whole tenant", () => {
-    expect(whereFor(actor(["BTG_ADMIN"]), "athlete", "read")).toEqual({ tenantId: "t1" });
+    expect(whereFor(actor(["BTG_ADMIN"]), "athlete", "read")).toEqual({ AND: [{ tenantId: "t1" }] });
   });
 
   it("the network manager sees the whole tenant too", () => {
-    expect(whereFor(actor(["NETWORK_MGR"]), "athlete", "read")).toEqual({ tenantId: "t1" });
+    expect(whereFor(actor(["NETWORK_MGR"]), "athlete", "read")).toEqual({ AND: [{ tenantId: "t1" }] });
   });
 
   it("an athlete sees exactly themselves", () => {
     expect(whereFor(actor(["ATHLETE"], { athleteId: "ath_1" }), "athlete", "read"))
-      .toEqual({ tenantId: "t1", id: "ath_1" });
+      .toEqual({ AND: [{ tenantId: "t1", id: "ath_1" }] });
   });
 
   it("a guardian sees their wards", () => {
     expect(whereFor(actor(["GUARDIAN"], { guardianId: "g_1" }), "athlete", "read"))
-      .toEqual({ tenantId: "t1", guardianId: "g_1" });
+      .toEqual({ AND: [{ tenantId: "t1", guardianId: "g_1" }] });
   });
 
   it("a property manager sees their own property's athletes", () => {
     expect(whereFor(actor(["PROPERTY_MGR"], { propertyId: "prop_1" }), "athlete", "read"))
-      .toEqual({ tenantId: "t1", propertyId: "prop_1" });
+      .toEqual({ AND: [{ tenantId: "t1", propertyId: "prop_1" }] });
   });
 
   describe("a sponsor sees only ACTIVE athletes on their own campaigns", () => {
     const sponsor = actor(["SPONSOR_ADMIN"], { sponsorId: "spn_1" });
 
+    /* whereFor wraps the scope in AND so a caller's key cannot overwrite it
+       (P8-SEC-02); the scope itself is the one conjunct. */
+    const scopeOf = (w: unknown) => (w as { AND: Record<string, unknown>[] }).AND[0]!;
+
     it("restricts to their own campaigns", () => {
-      expect(whereFor(sponsor, "athlete", "read")).toMatchObject({
+      expect(scopeOf(whereFor(sponsor, "athlete", "read"))).toMatchObject({
         tenantId: "t1",
         orders: { some: { campaign: { is: { sponsorId: "spn_1" } } } },
       });
@@ -65,11 +69,11 @@ describe("P3-BE-02 · who sees which athletes", () => {
     /* THE HALF THAT IS EASY TO DROP. Without this the sponsor sees athletes
        who were rejected or suspended — the pipeline, not the roster. */
     it("restricts to ACTIVE athletes", () => {
-      expect(whereFor(sponsor, "athlete", "read")).toMatchObject({ state: "ACTIVE" });
+      expect(scopeOf(whereFor(sponsor, "athlete", "read"))).toMatchObject({ state: "ACTIVE" });
     });
 
     it("applies both halves together, not either one alone", () => {
-      const where = whereFor(sponsor, "athlete", "read") as Record<string, unknown>;
+      const where = scopeOf(whereFor(sponsor, "athlete", "read"));
       expect(Object.keys(where).sort()).toEqual(["orders", "state", "tenantId"]);
     });
 
@@ -93,7 +97,7 @@ describe("a missing link matches nothing, never everything", () => {
     [["SPONSOR_ADMIN"], {}],
   ])("%s with no linked id", (roles) => {
     const where = whereFor(actor(roles as Role[]), "athlete", "read");
-    expect(where).toEqual(MATCHES_NOTHING);
+    expect(where).toEqual({ AND: [MATCHES_NOTHING] });
   });
 
   it("matches nothing rather than returning an empty filter", () => {

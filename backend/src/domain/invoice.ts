@@ -96,6 +96,7 @@ export async function ingestZohoInvoice(
   const hash = payloadHash(payload);
 
   const existing = await tx.campaignInvoice.findUnique({
+    /* tenant-scope: worker-side ingest; resolved from the campaign that owns the Zoho deal, above. */
     where: { zohoInvoiceId: payload.invoiceId },
     select: { id: true, lastSyncHash: true },
   });
@@ -171,6 +172,7 @@ export async function invoicesForCampaign(
   if (!campaign) throw new ForbiddenError("invoice", "read");
 
   return prisma.campaignInvoice.findMany({
+    /* tenant-scope: keyed by the campaign loaded above through whereFor. */
     where: { campaignId },
     orderBy: { issuedAt: "desc" },
     select: {

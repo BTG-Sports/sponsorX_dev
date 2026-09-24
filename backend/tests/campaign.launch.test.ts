@@ -58,6 +58,13 @@ vi.mock("../src/db/client", () => ({
             return Promise.resolve({ id: "a" });
           },
         },
+        syncTask: {
+          findUnique: () => Promise.resolve(null),
+          create: ({ data }: { data: Record<string, unknown> }) => {
+            writes.push("syncTask.create");
+            return Promise.resolve({ id: `task_${String(data.kind)}` });
+          },
+        },
         outboxJob: {
           create: ({ data }: { data: Record<string, unknown> }) => {
             writes.push("outbox");
@@ -118,7 +125,7 @@ describe("P5-BE-04 · launching a campaign does all five things", () => {
   it("queues both jobs — the Zoho push and the launch notification", async () => {
     await launchCampaign(actor(), "cmp_1");
     expect(enqueued.map((j) => j.name).sort()).toEqual([
-      "notify.campaignLive", "zoho.pushCampaign",
+      "notify.campaignLive", "zoho.pushDeal",
     ]);
     expect(enqueued.every((j) => j.payload.campaignId === "cmp_1")).toBe(true);
   });
@@ -171,9 +178,12 @@ describe("the generic transition cannot reach ACTIVE around the launch", () => {
   });
 
   it("still moves a campaign to a state that is not ACTIVE", async () => {
-    campaign = { id: "cmp_1", state: "STAFFING" };
+    campaign = { id: "cmp_1", state: "STAFFING", name: "Fall Push", sponsor: { name: "Rosa's" } };
     const out = await transitionCampaign(actor(), "cmp_1", "APPROVAL");
     expect(out.state).toBe("APPROVAL");
-    expect(enqueued).toEqual([]);
+    /* P8-INT-01: submitting for approval raises the CRM approval task, in
+       the same transaction. Nothing else is queued. */
+    expect(enqueued.map((j) => j.name)).toEqual(["zoho.pushTask"]);
+    expect(enqueued[0]!.payload).toEqual({ taskId: "task_APPROVAL" });
   });
 });

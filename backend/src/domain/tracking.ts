@@ -94,6 +94,7 @@ export async function createTrackingLink(
     if (!deliverable) throw new ForbiddenError("trackingLink", "write");
 
     const existing = await tx.trackingLink.findUnique({
+      /* tenant-scope: keyed by the deliverable loaded above through whereFor. */
       where: { deliverableId },
       select: { id: true },
     });
@@ -136,6 +137,7 @@ export async function codesForCampaign(
   if (!campaign) throw new ForbiddenError("trackingLink", "read");
 
   const links = await prisma.trackingLink.findMany({
+    /* tenant-scope: keyed by the campaign loaded above through whereFor. */
     where: { deliverable: { is: { order: { is: { campaignId } } } } },
     select: {
       code: true,
