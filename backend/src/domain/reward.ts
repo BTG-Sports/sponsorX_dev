@@ -28,7 +28,13 @@ import { enqueue } from "../db/outbox";
 import type { Actor } from "../auth/actor";
 import { assertAllowed, assertTenantWide, whereFor } from "../auth/scope";
 import { ForbiddenError } from "../auth/errors";
-import { consentFor, mayContact, type ConsentPurpose } from "./fan-consent";
+import {
+  CONSENT_TEXT,
+  CURRENT_CONSENT_VERSION,
+  consentFor,
+  mayContact,
+  type ConsentPurpose,
+} from "./fan-consent";
 import { readUnsubscribeToken, unsubscribeUrl } from "../lib/unsubscribe-token";
 import {
   canTransitionReward,
@@ -450,6 +456,61 @@ export async function withdrawFanConsent(
     });
     return { withdrawn: true };
   });
+}
+
+/**
+ * What the fan's page should show for a token — P6-FE-02.
+ *
+ * READ ONLY: no event is written, so the page can ask as often as it renders
+ * without inventing scans. Every state the page must be able to render has a
+ * name here — unknown, not live, expired, already used, claimable, claimed —
+ * and the consent wording comes with it, so the words next to the checkbox
+ * are the words the stored version stands for.
+ */
+export type TokenView =
+  | { state: "UNKNOWN" }
+  | {
+      state: "LIVE" | "NOT_LIVE" | "EXPIRED" | "REDEEMED";
+      offerText: string;
+      terms: string;
+      expiresAt: string;
+      claimed: boolean;
+      consent: { version: string; purpose: string; text: string };
+    };
+
+export async function viewToken(token: string, now = new Date()): Promise<TokenView> {
+  const row = await prisma.rewardToken.findUnique({
+    /* tenant-scope: a public bearer token, unique across tenants — the
+       ~160-bit token IS the authorisation, as for scan/claim/redeem. */
+    where: { token },
+    select: {
+      id: true,
+      reward: { select: { state: true, expiresAt: true, singleUse: true, offerText: true, terms: true } },
+      /* Types only — never the address (P6-SEC-02). */
+      events: { where: { type: { in: ["CLAIM", "REDEEM"] } }, select: { type: true } },
+    },
+  });
+  if (!row) return { state: "UNKNOWN" };
+  const redeemed = row.reward.singleUse && row.events.some((e) => e.type === "REDEEM");
+  const state = redeemed
+    ? "REDEEMED"
+    : !isRewardLive(row.reward.state as RewardState)
+      ? "NOT_LIVE"
+      : row.reward.expiresAt.getTime() <= now.getTime()
+        ? "EXPIRED"
+        : "LIVE";
+  return {
+    state,
+    offerText: row.reward.offerText,
+    terms: row.reward.terms,
+    expiresAt: row.reward.expiresAt.toISOString(),
+    claimed: row.events.some((e) => e.type === "CLAIM"),
+    consent: {
+      version: CURRENT_CONSENT_VERSION,
+      purpose: "reward-delivery",
+      text: CONSENT_TEXT[CURRENT_CONSENT_VERSION]!,
+    },
+  };
 }
 
 /* ────────────────────────────────────────────────────────────────────────────

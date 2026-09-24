@@ -86,38 +86,40 @@ const BODY: Record<string, unknown> = {
   "POST /athletes/{id}/rates": { jobId: A.job, amount: 20000 },
   "POST /campaigns/{id}/orders": {
     athleteId: A.athlete, jobId: A.job, compensation: 20000, sellPrice: 40000,
-    usageRights: "Organic social, 90 days", dueDate: "2026-12-01T00:00:00.000Z",
+    usageRights: "Organic social, 90 days", dueDate: "2026-12-01",
   },
   "PATCH /orders/{id}": { compensation: 21000 },
   "POST /orders/{id}/transition": { to: "CANCELLED" },
-  "POST /orders/{id}/accept": { agreementId: A.agreement, bodyHash: "x".repeat(64) },
+  "POST /orders/{id}/accept": { agreementId: A.agreement, bodyHashShown: "x".repeat(64) },
   "POST /briefs": {
     sponsorId: A.sponsor, objective: "Cross-tenant brief", budget: 100000,
-    startDate: "2026-10-01T00:00:00.000Z", endDate: "2026-11-01T00:00:00.000Z",
-    sports: [], stateCodes: [], categories: [],
+    startDate: "2026-10-01", endDate: "2026-11-01", sports: [], stateCodes: [], categories: [],
   },
   "POST /briefs/{id}/transition": { to: "CLOSED" },
   "POST /briefs/{id}/campaign": { name: "Stolen campaign" },
   "POST /campaigns/{id}/transition": { to: "CANCELLED" },
   "POST /campaigns/{id}/invitations": { athleteId: A.athlete, jobId: A.job, offered: 20000 },
-  "POST /invitations/{id}/respond": { decision: "DECLINED" },
+  "POST /invitations/{id}/respond": { to: "DECLINED" },
+  "POST /applications/{id}/approve": {},
+  "POST /applications/{id}/request-changes": { reviewerNotes: "Please add a photo." },
+  "POST /applications/{id}/reject": { reviewerNotes: "Not eligible." },
   "POST /deliverables/{id}/submit": {},
   "POST /deliverables/{id}/btg-review": { decision: "APPROVE" },
   "POST /deliverables/{id}/sponsor-review": { decision: "APPROVE" },
-  "POST /deliverables/{id}/revision": { note: "again" },
+  "POST /deliverables/{id}/revision": { reason: "Again, please." },
   "POST /deliverables/{id}/approve": {},
-  "POST /deliverables/{id}/published": { url: "https://example.com/p" },
+  "POST /deliverables/{id}/published": { publishedUrl: "https://example.com/p" },
   "POST /deliverables/{id}/verify": {},
   "POST /deliverables/{id}/uploads": { filename: "a.jpg", contentType: "image/jpeg", bytes: 1000 },
-  "POST /deliverables/{id}/assets": { key: `deliverables/${A.deliverable}/a.jpg`, contentType: "image/jpeg", bytes: 1000 },
+  "POST /deliverables/{id}/assets": { r2Key: `deliverables/${A.deliverable}/a.jpg` },
   "POST /deliverables/{id}/metrics": { day: "2026-10-02", source: "SELF_REPORTED", views: 10, engagements: 1 },
   "POST /deliverables/{id}/tracking-link": { destinationUrl: "https://example.com" },
-  "POST /earnings/{id}/transition": { to: "APPROVED" },
-  "POST /earnings/{id}/adjustment": { amount: -100, reason: "cross-tenant" },
+  "POST /earnings/{id}/transition": { to: "ELIGIBLE" },
+  "POST /earnings/{id}/adjustment": { adjustment: -100, reason: "cross-tenant" },
   "POST /athletes/{id}/guardian": { legalName: "X", email: "x@x.invalid", relationship: "PARENT" },
   "PUT /athletes/{id}/socials": { socials: [{ platform: "INSTAGRAM", handle: "stolen" }] },
   "POST /guardians/{id}/verify": { method: "DOCUMENT" },
-  "POST /agreements/accept": { agreementId: A.agreement, athleteId: A.athlete, bodyHash: "x".repeat(64) },
+  "POST /agreements/accept": { agreementId: A.agreement, bodyHashShown: "x".repeat(64) },
   "POST /campaigns/{id}/rewards": { offerText: "Free taco", terms: "One per fan", expiresAt: "2026-12-01T00:00:00.000Z" },
   "POST /rewards/{id}/transition": { to: "PAUSED" },
   "POST /rewards/{id}/tokens": { athleteId: A.athlete },
@@ -265,6 +267,9 @@ describe.skipIf(!hasDatabase)("P8-SEC-02 · tenant B cannot reach tenant A throu
         const aimsAtA = r.path.includes("{") || JSON.stringify(BODY[key] ?? {}).includes("ti_");
         if (aimsAtA && status < 400) failures.push(`${actor.id} ${key} → ${status}: ${text.slice(0, 160)}`);
         if (aimsAtA && status === 400) failures.push(`${actor.id} ${key} → 400 (stopped at validation; needs a valid BODY): ${text.slice(0, 200)}`);
+        /* A 500 is not a refusal: the call crashed before or instead of the
+           scope check, so it proves nothing about isolation. */
+        if (status >= 500) failures.push(`${actor.id} ${key} → ${status} (crashed, not refused): ${text.slice(0, 200)}`);
         const leaked = secrets.filter((s) => text.includes(s));
         if (leaked.length) failures.push(`${actor.id} ${key} → leaked ${leaked.join(", ")}`);
       }

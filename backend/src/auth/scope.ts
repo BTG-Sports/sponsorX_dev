@@ -159,6 +159,11 @@ function tenantScoped(actor: Actor, scope: Scope): Where {
  * it adds its builder here — `athlete` with B1, `campaign` with B3, and so on.
  */
 const BUILDERS: Partial<Record<Resource, Builder>> = {
+  /* The marketplace catalogue (P4-FE-01). Tenant rows like any other; the
+     `catalog` scope resolves through tenantScoped. */
+  sponsorPackage: tenantScoped,
+  nilJob: tenantScoped,
+
   user: (actor, scope) => {
     switch (scope) {
       case "any":

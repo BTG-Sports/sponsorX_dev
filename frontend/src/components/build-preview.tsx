@@ -39,7 +39,7 @@ const EXTRA: Screen[] = [
   { n: "—", label: "Athlete Application", href: "/join", status: "stub", surface: "public" },
   { n: "—", label: "Package Catalog", href: "/packages", status: "stub", surface: "public" },
   { n: "—", label: "Admin Command Center", href: "/admin", status: "stub", surface: "admin" },
-  { n: "—", label: "Fan Redeem (no login)", href: "/r/tok123", status: "stub", surface: "fan" },
+  { n: "—", label: "Fan Redeem (no login)", href: "/r/tok123", status: "built", surface: "fan" },
 ];
 
 function Row({ s }: { s: Screen }) {

@@ -104,6 +104,11 @@ const schema = z.object({
   ZOHO_NOTIFY_CHANNEL_ID: z.string().regex(/^\d+$/).optional(),
   ZOHO_NOTIFY_URL: z.string().url().optional(),
 
+  /* The secret the web server presents when it forwards a fan's address
+     (P8-SEC-03, lib/client-ip.ts). Unset: forwarded addresses are ignored
+     and the socket address is used. Set the same value on web and api. */
+  SPONSORX_EDGE_KEY: z.string().min(24).optional(),
+
   /* Which Railway environment this is (P3-DATA-01). Railway injects it; a
      developer machine has none. Needed because NODE_ENV cannot tell staging
      from production — both run "production". */
