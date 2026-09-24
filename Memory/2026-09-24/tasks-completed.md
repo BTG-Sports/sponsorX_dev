@@ -98,3 +98,5 @@ Verification: `npm run build` clean; backend 1027 passed / 13 skipped, frontend 
 | **`P2-BE-09`** repo layout | Code review | AC amended to the Addendum B layout; six stale pre-split `.gitkeep` placeholders removed (they pointed at `frontend/` for things that live in `backend/`); `tests/layout.test.ts` pins it. |
 
 Verification: `npm run build` clean; backend 1083 passed / 13 skipped; frontend 69 passed; eslint clean.
+
+**`P3-DATA-01` → Code review (same day).** After #42/#43 deployed (`ef90f10`, all four services green), the import ran on staging via `railway ssh --environment staging --service api -- npm run cohort:import -w @sponsorx/backend -- /tmp/pilot-cohort-staging.csv`: worker logged `25 created, 0 skipped`; the staging DB holds 25 `pilot.*@example.com` athletes in SUBMITTED. These are synthetic test athletes sitting in the staging review queue — reject or leave them; the real cohort is `P8-DATA-01`. A live re-run and a live production-refusal check were blocked by the permission classifier (production shell); both behaviours are covered by `tests/cohort-import.test.ts`.
