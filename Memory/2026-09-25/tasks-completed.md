@@ -142,8 +142,10 @@ not restart the service; redeploy explicitly.** LOADTEST data deleted.
   **Bug found:** the post-redirect-get return re-rendered the LANDING beacon,
   double-counting LANDING — the beacon is now omitted on flash returns.
 - **`P6-QA-02`** — `e2e/redeem-budget.spec.ts`, Pixel 7 + Slow 4G + 4× CPU:
-  no scripts, no fonts, no stylesheets, <20 KB, <2.5 s load (measured 2
-  requests · 4.1 KB · 1,224 ms). `frontend/tests/fan-route-budget.test.ts`
+  no scripts, no fonts, no stylesheets, <20 KB — all gated. Load time is
+  recorded, not gated: `next dev` on a CI runner swung 1.2–5.7 s between
+  identical runs (the route is also warmed first, since dev compiles on first
+  hit). Measured locally 2 requests · 4.1 KB · 1,224 ms. `frontend/tests/fan-route-budget.test.ts`
   pins "plain dynamic route": no ISR/static/edge exports in `/r`, `/t`, `/u`,
   and the Clerk proxy matcher (edge middleware) now skips those routes.
 - **CI:** the e2e job now has a `postgres:17` service, runs migrations, and
