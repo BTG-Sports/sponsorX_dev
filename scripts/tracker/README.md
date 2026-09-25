@@ -16,9 +16,7 @@ It never writes to the repository.
 web app (`sheet-endpoint.gs`), used because the organisation policy disables
 service-account keys.
 
-**Workflows**: `workflows/*.yml` here are the files that live in
-`.github/workflows/` — kept here because they are added through the GitHub
-website.
+**Workflows**: `.github/workflows/tracker-notify.yml` and `tracker-digest.yml`.
 
 **Try it locally** (prints instead of sending):
 
