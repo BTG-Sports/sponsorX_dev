@@ -60,6 +60,7 @@ const A = {
   invoice: "ti_invoice_a", guardian: "ti_guardian_a", agreement: "ti_agreement_a", admin: "ti_admin_a",
   publication: "ti_pub_a", edition: "ti_edition_a", slot: "ti_slot_a",
   school: "ti_school_a", student: "ti_student_a", code: "ti_code_a", prospect: "ti_prospect_a",
+  asset: "ti_asset_ed_a", claim: "ti_claim_a",
 } as const;
 const B = {
   tenant: "ti_tenant_b", sponsor: "ti_sponsor_b", athlete: "ti_athlete_b",
@@ -84,6 +85,7 @@ const PARAM_FOR: Record<string, string> = {
   guardians: A.guardian, rewards: A.reward, "tracking-links": A.link,
   publications: A.publication, editions: A.edition,
   students: A.student, prospects: A.prospect, sponsors: A.sponsor,
+  "edition-assets": A.asset, claims: A.claim, properties: A.school,
 };
 
 /**
@@ -153,6 +155,15 @@ const BODY: Record<string, unknown> = {
   "POST /students/{id}/prospects": { businessName: "Stolen Deli", category: "RESTAURANT" },
   "POST /prospects/{id}/decision": { decision: "REJECT", reasonCode: "OTHER" },
   "POST /sponsors/{id}/assigned-student": { studentId: null },
+  "POST /editions/{id}/assets": { kind: "ARTICLE", title: "Stolen", sourceKind: "BTG" },
+  "POST /edition-assets/{id}/rights": { grantorKind: "BTG", grantorRef: "x", licenseRef: "L-1", startsAt: "2026-01-01T00:00:00.000Z" },
+  "POST /edition-assets/{id}/campaign": { campaignId: A.campaign },
+  "POST /consents": { agreementId: A.agreement, subjectKind: "ATHLETE", subjectId: A.athlete, bodyHashShown: "x".repeat(64) },
+  "POST /featured-athletes": { displayName: "Stolen", sport: "Soccer", propertyId: A.school },
+  "POST /claims/{id}/verify": {},
+  "POST /claims/{id}/reject": {},
+  "POST /properties/{id}/roster": { entries: [{ legalName: "Stolen Name" }] },
+  "POST /editions/{id}/contributions": { studentId: A.student, kind: "FEATURE" },
 };
 
 describe.skipIf(!hasDatabase)("P8-SEC-02 · tenant B cannot reach tenant A through any route", async () => {
@@ -239,6 +250,9 @@ describe.skipIf(!hasDatabase)("P8-SEC-02 · tenant B cannot reach tenant A throu
     ] });
     await prisma.studentCode.create({ data: { id: A.code, tenantId: t, studentId: A.student, code: "ti-secret-code-a" } });
     await prisma.studentProspect.create({ data: { id: A.prospect, tenantId: t, studentId: A.student, businessName: "TI Secret Deli", category: "RESTAURANT" } });
+    /* Batch C — an edition asset and a claim on a profile. */
+    await prisma.editionAsset.create({ data: { id: A.asset, tenantId: t, editionId: A.edition, kind: "ARTICLE", title: "TI Secret Article", sourceKind: "BTG" } });
+    await prisma.athleteClaim.create({ data: { id: A.claim, tenantId: t, athleteId: A.athlete, claimantName: "TI Secret Claimant", claimantEmail: "secret@a.invalid", rosterMatched: true } });
     for (const u of B_ACTORS) {
       await prisma.user.create({ data: {
         id: u.id, tenantId: B.tenant, clerkId: u.id, email: `${u.id}@b.invalid`, roles: [...u.roles],

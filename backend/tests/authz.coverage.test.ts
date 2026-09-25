@@ -66,6 +66,12 @@ const GOVERNED_BY: Record<string, Resource> = {
   SalesAttribution: "saleAttribution",
   StudentPointAccrual: "studentPoints",
   StudentProspect: "studentProspect",
+  EditionAsset: "editionAsset",
+  ContentRight: "contentRight",
+  RosterEntry: "rosterEntry",
+  AthleteClaim: "athleteClaim",
+  ContentContribution: "contentContribution",
+  SchoolPoolAllocation: "schoolPoolAllocation",
 };
 
 /** Models no API path reads or writes, and why. */

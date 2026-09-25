@@ -268,7 +268,12 @@ describe("the whole matrix is pinned", () => {
       // and editionEvent (§15.3). With both roles and the five resources
       // removed the grid still hashes to the previous 6d06c354364aef24, so
       // no existing role's access moved.
-    ).toBe("feb23b6d311d2be3");
+      // Updated 2026-09-25 (P9-BE-10/11/14): six Batch C resources —
+      // editionAsset, contentRight (§15.3), rosterEntry, athleteClaim,
+      // contentContribution, schoolPoolAllocation (added to the matrix doc
+      // with this change). With all six removed the grid still hashes to the
+      // previous feb23b6d311d2be3, so nothing else moved.
+    ).toBe("0e32b0f006ddf674");
   });
 
   it("covers every pair the §30 acceptance asks for", () => {

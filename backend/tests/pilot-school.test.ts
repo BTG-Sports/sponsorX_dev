@@ -50,6 +50,7 @@ describe.skipIf(!hasDatabase)("P9-OPS-01 · the pilot school and its advisor", a
     await prisma.user.deleteMany({
       where: { id: { in: [PILOT_SCHOOL.advisorUserId, "ps_admin", "ps_forged", "ps_unlinked"] } },
     });
+    await prisma.rosterEntry.deleteMany({ where: { propertyId: PILOT_SCHOOL.propertyId } });
     await prisma.property.deleteMany({ where: { id: PILOT_SCHOOL.propertyId } });
     await prisma.tenant.deleteMany({ where: { id: OTHER } });
     if (createdTenant) await prisma.tenant.deleteMany({ where: { id: TENANT_ID } });

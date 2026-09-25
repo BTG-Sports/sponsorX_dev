@@ -43,6 +43,9 @@ export const AthleteState = z
     "REJECTED",
     "ACTIVE",
     "SUSPENDED",
+    /* SponsorX NEXT (P9-BE-11) — editorial's read-only profile; never a
+       target of a transition request (the claim flow is the only way out). */
+    "FEATURED",
   ])
   .meta({
     id: "AthleteState",

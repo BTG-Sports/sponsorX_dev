@@ -333,7 +333,7 @@ describe.skipIf(!hasDatabase)("SponsorX NEXT editions, on the path a request tak
       expect((await post({ type: "QR_SCAN", targetKind: "AD_SLOT", targetRef: slot.id })).status).toBe(404);
 
       await ed.transitionEdition(staff, id, "CLOSED");
-      await ed.setEditionConditions(staff, id, { contentReady: true, rightsCleared: true });
+      await ed.setEditionConditions(staff, id, { contentReady: true }); /* no assets → nothing to clear (P9-BE-10) */
       await ed.transitionEdition(staff, id, "IN_PRODUCTION");
       await ed.transitionEdition(staff, id, "PUBLISHED_DIGITAL");
 

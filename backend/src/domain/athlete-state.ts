@@ -20,7 +20,11 @@ export type AthleteState =
   | "CHANGES_REQUESTED"
   | "REJECTED"
   | "ACTIVE"
-  | "SUSPENDED";
+  | "SUSPENDED"
+  /** SponsorX NEXT (P9-BE-11, spec §5.4) — created by editorial, never applied
+   *  for, read-only. Being featured is not being represented: no rates, no
+   *  invitations, no matching. Leaves only through a verified claim. */
+  | "FEATURED";
 
 /**
  * §21, read literally:
@@ -47,6 +51,10 @@ const TRANSITIONS: Readonly<Record<AthleteState, readonly AthleteState[]>> = {
   ACTIVE: ["SUSPENDED"],
   SUSPENDED: ["ACTIVE"],
   REJECTED: [],
+  /* The claim path is FEATURED → UNDER_REVIEW → ACTIVE (spec §5.4): the
+     school's verification of the athlete's own claim takes it into review,
+     and from there it is an ordinary application. */
+  FEATURED: ["UNDER_REVIEW"],
 };
 
 export class IllegalTransitionError extends Error {
@@ -89,5 +97,5 @@ export function legalTransitions(from: AthleteState): readonly AthleteState[] {
  */
 export const ATHLETE_STATES_FOR_TEST: readonly AthleteState[] = [
   "DRAFT", "SUBMITTED", "UNDER_REVIEW", "APPROVED",
-  "CHANGES_REQUESTED", "REJECTED", "ACTIVE", "SUSPENDED",
+  "CHANGES_REQUESTED", "REJECTED", "ACTIVE", "SUSPENDED", "FEATURED",
 ] as const;

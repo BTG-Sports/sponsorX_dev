@@ -251,3 +251,36 @@ RevenueSplit and EditionEvent, plus the enums.
   include a student and an advisor now.
 - **Tests:** `tests/next-students.test.ts` has 21 tests, mutation-checked on
   the guardian gate and the student scope.
+
+## SponsorX NEXT Batch C (rights, featured athletes, DMV pool) → Code review
+
+`P9-BE-10`, `-11` and `-14`. Migration `20260925160000_next_rights`.
+
+- **Rights ledger:** EditionAsset and ContentRight form one ledger. Postgres
+  CHECKs require each right to be either consent or a licence, matching its
+  grantor. The gate is one query. `rightsCleared` is now **computed**:
+  digital rights at production and digital publication, print rights at
+  printing. It can no longer be set by hand.
+- **Commercial reuse:** BTG content never allows it by default, and content
+  can't join a campaign without an explicit commercial grant.
+- **Featured athletes:** a new FEATURED state with a public profile. No
+  rates, no invitations, no matching.
+- **Consent:** AgreementAcceptance can now record a subject with no login
+  (`userId` nullable, plus `athleteId` / `studentId`; Postgres CHECK exactly
+  one).
+- **Claim flow:** "that's me" → the school verifies (roster plus that school's
+  advisor) → review → the guardian's COMMERCIAL consent is required before a
+  minor can be activated.
+- **Roster is SIMULATED** (`RosterEntry`, seeded for the pilot school). The
+  real roster remains spec §14 gate 1.
+- **DMV pools:** the school share splits 50/50 (simulated) into SALES and
+  CONTENT pools, resolved by formula when the edition publishes.
+- **Permissions:** `contentRight` plus five new resources, added to the
+  matrix doc. The digest is re-pinned and nothing else moved. The tenant
+  sweep is grown to cover Batch C.
+- **Tests:** `tests/next-rights.test.ts` has 13 tests, mutation-checked three
+  ways.
+
+**All NEXT backend tasks are now built** (Batches A, B and C). `P9-DATA-01`
+(selling a real first edition) and the `P9-PMO-03` record remain open by
+nature.

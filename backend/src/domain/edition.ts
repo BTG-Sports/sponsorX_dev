@@ -30,6 +30,8 @@ import {
 } from "./edition-state";
 import { allocateSplit } from "./revenue-split";
 import { attributeSale } from "./student";
+import { rightsGap } from "./content-rights";
+import { resolveSchoolPools } from "./dmv-pools";
 
 export type AdSlotKind = "QUARTER" | "HALF" | "FULL" | "BACK_COVER" | "PRESENTING";
 export type EngagementType = "QR_SCAN" | "LINK_CLICK" | "PROFILE_VIEW" | "CAMPAIGN_VIEW" | "CTA_CLICK";
@@ -52,6 +54,16 @@ export class NoAdInventoryError extends Error {
   constructor() {
     super("This campaign's package includes no ad placement, so there is nothing to sell it in an edition.");
     this.name = "NoAdInventoryError";
+  }
+}
+
+export class RightsNotClearedError extends Error {
+  readonly status = 409;
+  readonly uncleared: string[];
+  constructor(format: "digital" | "print", titles: string[]) {
+    super(`No ${format} right covers: ${titles.join(", ")}.`);
+    this.name = "RightsNotClearedError";
+    this.uncleared = titles;
   }
 }
 
@@ -145,31 +157,29 @@ export async function getEdition(actor: Actor, editionId: string) {
   return edition;
 }
 
-/** The two production conditions a person decides. Revenue is not one of
- *  them: `revenueMet` is computed from what sold, at close. */
+/** The one production condition a person decides. The other two are
+ *  computed, never typed in: `revenueMet` from what sold, at close, and
+ *  `rightsCleared` from the rights ledger, at the transition (P9-BE-10). */
 export async function setEditionConditions(
   actor: Actor,
   editionId: string,
-  input: { contentReady?: boolean; rightsCleared?: boolean },
+  input: { contentReady?: boolean },
 ): Promise<{ contentReady: boolean; rightsCleared: boolean; revenueMet: boolean }> {
   assertAllowed(actor, "edition", "approve");
   return prisma.$transaction(async (tx) => {
     const edition = await tx.edition.findFirst({
       where: { ...whereFor(actor, "edition", "approve"), id: editionId },
-      select: { id: true, contentReady: true, rightsCleared: true },
+      select: { id: true, contentReady: true },
     });
     if (!edition) throw new ForbiddenError("edition", "approve");
     const updated = await tx.edition.update({
       where: { id: editionId },
-      data: {
-        ...(input.contentReady === undefined ? {} : { contentReady: input.contentReady }),
-        ...(input.rightsCleared === undefined ? {} : { rightsCleared: input.rightsCleared }),
-      },
+      data: { ...(input.contentReady === undefined ? {} : { contentReady: input.contentReady }) },
       select: { contentReady: true, rightsCleared: true, revenueMet: true },
     });
     await audit(tx, actor, "edition.conditions", "Edition", editionId, {
-      before: { contentReady: edition.contentReady, rightsCleared: edition.rightsCleared },
-      after: { contentReady: updated.contentReady, rightsCleared: updated.rightsCleared },
+      before: { contentReady: edition.contentReady },
+      after: { contentReady: updated.contentReady },
     });
     return updated;
   });
@@ -189,18 +199,41 @@ export async function transitionEdition(
   return prisma.$transaction(async (tx) => {
     const edition = await tx.edition.findFirst({
       where: { ...whereFor(actor, "edition", "approve"), id: editionId },
-      select: { id: true, state: true, contentReady: true, rightsCleared: true, revenueMet: true, thresholdCents: true },
+      select: {
+        id: true, state: true, contentReady: true, rightsCleared: true, revenueMet: true,
+        thresholdCents: true, publishTarget: true, printDate: true,
+      },
     });
     if (!edition) throw new ForbiddenError("edition", "approve");
     const from = edition.state as EditionState;
-    assertEditionTransition(from, to, edition);
+
+    /* P9-BE-10 — the gate asks the ledger, in one query, which assets have no
+       right for this format on this date. Digital clears production and the
+       digital edition; print is asked only when it is printed, so a
+       digital-first edition clears while print rights are still outstanding. */
+    let rightsCleared = edition.rightsCleared;
+    if (to === "IN_PRODUCTION" || to === "PUBLISHED_DIGITAL") {
+      rightsCleared = (await rightsGap(tx, actor.tenantId, editionId, "DIGITAL", edition.publishTarget)).length === 0;
+    }
+    if (to === "PRINTED") {
+      const gap = await rightsGap(tx, actor.tenantId, editionId, "PRINT", edition.printDate ?? new Date());
+      if (gap.length) throw new RightsNotClearedError("print", gap.map((a) => a.title));
+    }
+    if (to === "PUBLISHED_DIGITAL" && !rightsCleared) {
+      const gap = await rightsGap(tx, actor.tenantId, editionId, "DIGITAL", edition.publishTarget);
+      throw new RightsNotClearedError("digital", gap.map((a) => a.title));
+    }
+    assertEditionTransition(from, to, { ...edition, rightsCleared });
 
     let revenueMet = edition.revenueMet;
     if (to === "CLOSED") revenueMet = (await resolveSplit(tx, actor.tenantId, editionId)) >= edition.thresholdCents;
+    /* P9-BE-14 — a regional edition's school pools resolve by formula when
+       it publishes, from its frozen revenue and final content. */
+    if (to === "PUBLISHED_DIGITAL") await resolveSchoolPools(tx, actor.tenantId, editionId);
 
     const updated = await tx.edition.update({
       where: { id: editionId },
-      data: { state: to as Prisma.EditionUpdateInput["state"], revenueMet },
+      data: { state: to as Prisma.EditionUpdateInput["state"], revenueMet, rightsCleared },
       select: { id: true, state: true },
     });
     await audit(tx, actor, "edition.transition", "Edition", editionId, { before: { state: from }, after: { state: to } });

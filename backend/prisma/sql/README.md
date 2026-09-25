@@ -17,3 +17,4 @@ migration and update the copy here.
 | `invite_one_open.sql` | One *open* invitation per athlete per job |
 | `adslot_inventory.sql` | A NEXT ad slot sells once, never after its edition closes, and each edition has one back cover and one presenting sponsor (P9-BE-03) |
 | `sales_attribution_immutable.sql` | A student's sale attribution is never updated or deleted (P9-BE-13) |
+| `next_rights_checks.sql` | A consent has exactly one subject; a content right is consent or a licence, matching its grantor (P9-BE-10, -11) |
