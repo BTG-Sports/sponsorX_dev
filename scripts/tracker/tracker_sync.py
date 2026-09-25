@@ -217,6 +217,9 @@ def render_digest(now_board, day_ago_board, today: str) -> str:
     ])
 
 
+SNAPSHOT_HEADER = ["Date", "S0", "S1", "S2", "S3", "S4", "S5", "S6", "S7", "S8", "S9", "Done", "Days left"]
+
+
 def stage_snapshot(board, today: str) -> list:
     """The Stage Progress snapshot row: Date, S0..S9 done, Done, Days left."""
     rows = list(board["Phase 1"].values())
@@ -250,7 +253,7 @@ class AppsScriptSheet:
     def _post(self, payload: dict) -> dict:
         req = urllib.request.Request(self.url, data=json.dumps({"secret": self.secret, **payload}).encode(),
                                      headers={"Content-Type": "application/json"})
-        with urllib.request.urlopen(req, timeout=60) as r:  # Apps Script answers via a redirect
+        with urllib.request.urlopen(req, timeout=300) as r:  # Apps Script answers via a redirect
             out = json.loads(r.read() or b"{}")
         if "error" in out:
             raise RuntimeError(f"Sheet endpoint refused: {out['error']}")
@@ -260,12 +263,14 @@ class AppsScriptSheet:
         return self._post({"op": "column", "tab": tab, "letter": letter}).get("values", [])
 
     def batch_update(self, data: list[dict]) -> None:
-        if data:
-            self._post({"op": "update", "data": data})
+        # Apps Script writes cell by cell; chunks keep each request well inside
+        # its execution limit.
+        for i in range(0, len(data), 250):
+            self._post({"op": "update", "data": data[i:i + 250]})
 
-    def append(self, tab: str, rows: list[list]) -> None:
+    def append(self, tab: str, rows: list[list], header: list | None = None) -> None:
         if rows:
-            self._post({"op": "append", "tab": tab, "rows": rows})
+            self._post({"op": "append", "tab": tab, "rows": rows, **({"header": header} if header else {})})
 
 
 def open_sheet():
@@ -309,7 +314,7 @@ class Sheet:
         if data:
             self._call("POST", "/values:batchUpdate", {"valueInputOption": "USER_ENTERED", "data": data})
 
-    def append(self, tab: str, rows: list[list]) -> None:
+    def append(self, tab: str, rows: list[list], header: list | None = None) -> None:
         if rows:
             rng = urllib.parse.quote(f"'{tab}'!A1")
             self._call("POST", f"/values/{rng}:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS",
@@ -376,12 +381,24 @@ def cmd_digest(a) -> int:
     if sheet is None:
         print("---- Stage Progress row (not written) ----\n", row)
     else:
-        dates = sheet.column("Stage Progress", "A")
+        try:
+            dates = sheet.column("Stage Progress", "A")
+        except RuntimeError:
+            dates = []  # the tab does not exist yet; the append creates it
         if today in dates:
             print("Stage Progress already has a row for", today)
         else:
-            sheet.append("Stage Progress", [row])
+            sheet.append("Stage Progress", [row], header=SNAPSHOT_HEADER)
             print("Stage Progress row appended:", row)
+    return 0
+
+
+def cmd_sync_all(a) -> int:
+    """One-off: bring the Sheet level with the tracker — every task's synced
+    cells rewritten, missing tasks appended. Afterwards `notify` keeps it level."""
+    board = board_at(a.ref)
+    changes = [Change("status", t, t.status, t.status) for p in PHASES for t in board[p].values()]
+    sync_sheet(changes, a.dry_run)
     return 0
 
 
@@ -398,8 +415,11 @@ def main(argv=None) -> int:
     d.add_argument("--since", default="24 hours ago")
     d.add_argument("--date", default="")
     d.add_argument("--dry-run", action="store_true")
+    f = sub.add_parser("sync-all", help="one-off: bring the Sheet level with the tracker")
+    f.add_argument("--ref", default="HEAD")
+    f.add_argument("--dry-run", action="store_true")
     a = ap.parse_args(argv)
-    return cmd_notify(a) if a.cmd == "notify" else cmd_digest(a)
+    return {"notify": cmd_notify, "digest": cmd_digest, "sync-all": cmd_sync_all}[a.cmd](a)
 
 
 if __name__ == "__main__":

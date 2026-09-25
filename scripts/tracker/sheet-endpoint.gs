@@ -15,21 +15,36 @@ function doPost(e) {
   if (!secret || body.secret !== secret) return out({ error: "unauthorized" });
 
   var ss = SpreadsheetApp.getActiveSpreadsheet();
+  if (body.op === "tabs") return out({ tabs: ss.getSheets().map(function (s) { return s.getName(); }) });
   var sheet = body.tab ? ss.getSheetByName(body.tab) : null;
+  if (body.op === "append" && !sheet && body.header) {
+    // First write to a tab the Sheet does not have yet (Stage Progress).
+    sheet = ss.insertSheet(body.tab);
+    sheet.appendRow(body.header);
+  }
   if (body.op !== "update" && !sheet) return out({ error: "no tab " + body.tab });
 
+  if (body.op === "formulas") {
+    // Every formula on a tab, as [a1, formula] — so range limits can be checked.
+    var rng = sheet.getDataRange(), f = rng.getFormulas(), cells = [];
+    for (var r = 0; r < f.length; r++) for (var c = 0; c < f[r].length; c++)
+      if (f[r][c]) cells.push([rng.getCell(r + 1, c + 1).getA1Notation(), f[r][c]]);
+    return out({ formulas: cells });
+  }
   if (body.op === "column") {
     var last = Math.max(sheet.getLastRow(), 1);
     var col = sheet.getRange(body.letter + "1:" + body.letter + last).getDisplayValues();
     return out({ values: col.map(function (r) { return r[0]; }) });
   }
   if (body.op === "update") {
+    var n = 0;
     (body.data || []).forEach(function (d) {
       // range like 'Phase 1'!I5
       var m = d.range.match(/^'(.+)'!([A-Z]+\d+)$/);
-      if (m) ss.getSheetByName(m[1]).getRange(m[2]).setValue(d.values[0][0]);
+      var tab = m && ss.getSheetByName(m[1]);
+      if (tab) { tab.getRange(m[2]).setValue(d.values[0][0]); n++; }
     });
-    return out({ updated: (body.data || []).length });
+    return out({ updated: n });
   }
   if (body.op === "append") {
     (body.rows || []).forEach(function (r) { sheet.appendRow(r); });
