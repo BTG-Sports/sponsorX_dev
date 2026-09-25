@@ -169,3 +169,5 @@ not restart the service; redeploy explicitly.** LOADTEST data deleted.
   its own tenant without touching the global NIL job ids.
 - Only these two NEXT tasks were startable; `P9-BE-02`+ stay behind the
   `P9-PMO-03` entry gate.
+
+**`P9-PMO-01`, `P9-BE-01` → Done** (user's instruction; acceptance met, CI green).
