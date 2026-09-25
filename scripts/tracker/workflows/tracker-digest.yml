@@ -1,0 +1,32 @@
+# The weekday evening digest: phase progress, what finished today, what waits
+# in Code review, what is newly blocked — and the day's Stage Progress row
+# appended to the published Sheet. Reads the repo only — never commits.
+name: Tracker digest
+
+on:
+  schedule:
+    - cron: "0 13 * * 1-5" # 13:00 UTC = 9:00 pm Manila, Monday–Friday
+  workflow_dispatch:
+
+jobs:
+  digest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install
+        run: pip install openpyxl==3.1.5 google-auth==2.35.0 requests==2.32.3
+
+      - name: Post the digest and append the snapshot row
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          GOOGLE_SA_JSON: ${{ secrets.GOOGLE_SA_JSON }}
+          TZ: Asia/Manila
+        run: python scripts/tracker/tracker_sync.py digest --since "24 hours ago"
