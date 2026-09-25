@@ -15,9 +15,16 @@
  *
  * STAFFING ASSUMES ATHLETES TO STAFF. A campaign with no athlete work — an
  * advertisement bought on its own — has nothing to do in this state and would
- * sit there indefinitely. That case is real but is not Phase 1's: it belongs
- * to SponsorX NEXT and is tracked as `P9-BE-09`. Nothing here should be bent
- * to accommodate it in advance.
+ * sit there indefinitely.
+ *
+ * DECIDED (P9-BE-09, spec §5.2): a SponsorX NEXT sale IS an ordinary Campaign
+ * — placements, dates, a Zoho Deal — with NO CampaignOrder, because an order
+ * needs an athlete and a job and an ad has neither. So an AD-ONLY campaign
+ * (zero orders, at least one sold ad slot) skips STAFFING: DRAFT → APPROVAL.
+ * That one extra edge exists only for ad-only campaigns; a campaign with
+ * athlete work still has to be staffed, and an empty campaign with neither
+ * cannot skip anything. From APPROVAL the path is the ordinary one, to a
+ * terminal COMPLETED, with no fake athlete or job anywhere in the record.
  */
 
 export type CampaignState =
@@ -57,10 +64,26 @@ export class IllegalCampaignTransitionError extends Error {
   }
 }
 
-export function canTransitionCampaign(from: CampaignState, to: CampaignState): boolean {
-  return TRANSITIONS[from].includes(to);
+/** What the campaign holds, for the one rule that depends on it. */
+export type CampaignShape = { orders: number; adSlots: number };
+
+/** An ad bought on its own: nothing to staff, something sold (P9-BE-09). */
+export function isAdOnly(shape: CampaignShape): boolean {
+  return shape.orders === 0 && shape.adSlots > 0;
 }
 
-export function legalCampaignTransitions(from: CampaignState): readonly CampaignState[] {
+export function canTransitionCampaign(
+  from: CampaignState,
+  to: CampaignState,
+  shape: CampaignShape = { orders: 0, adSlots: 0 },
+): boolean {
+  return legalCampaignTransitions(from, shape).includes(to);
+}
+
+export function legalCampaignTransitions(
+  from: CampaignState,
+  shape: CampaignShape = { orders: 0, adSlots: 0 },
+): readonly CampaignState[] {
+  if (from === "DRAFT" && isAdOnly(shape)) return [...TRANSITIONS.DRAFT, "APPROVAL"];
   return TRANSITIONS[from];
 }

@@ -119,7 +119,12 @@ export type Resource =
   | "integrationConnection"
   | "webhookDelivery"
   | "inquiry"
-  | "syncTask";
+  | "syncTask"
+  | "publication"
+  | "edition"
+  | "adSlot"
+  | "revenueSplit"
+  | "editionEvent";
 
 export const RESOURCES: readonly Resource[] = [
   "tenant",
@@ -157,6 +162,11 @@ export const RESOURCES: readonly Resource[] = [
   "webhookDelivery",
   "inquiry",
   "syncTask",
+  "publication",
+  "edition",
+  "adSlot",
+  "revenueSplit",
+  "editionEvent",
 ] as const;
 
 type RolePolicy = Partial<Record<Role, Partial<Record<Action, Scope>>>>;
@@ -550,6 +560,40 @@ export const POLICY: Record<Resource, RolePolicy> = {
     SALES: rwa("own-tenant"),
     CAMPAIGN_MGR: rwa("own-tenant"),
     SERVICE: rwa("own-tenant", "own-tenant"),
+  },
+
+  /* §15.3 SponsorX NEXT — publication domain (P9-BE-02/03/06/12, 2026-09-25).
+     Transcribed for the roles that exist today. The ADVISOR and STUDENT rows
+     arrive with those roles in P9-BE-05; until then neither exists to hold
+     them, and the default is deny. */
+  publication: {
+    SUPER_ADMIN: rwa("any", "any", "any"),
+    BTG_ADMIN: rwa("own-tenant", "own-tenant", "own-tenant"),
+  },
+  edition: {
+    SUPER_ADMIN: rwa("any", "any", "any"),
+    BTG_ADMIN: rwa("own-tenant", "own-tenant", "own-tenant"),
+  },
+  /* SALES sells against the inventory; setting a price or a slot's sold
+     state is the sale itself, which runs through the domain. */
+  adSlot: {
+    SUPER_ADMIN: rwa("any", "any", "any"),
+    BTG_ADMIN: rwa("own-tenant", "own-tenant", "own-tenant"),
+    SALES: rwa("own-tenant", "own-tenant"),
+  },
+  /* Publishing economics: finance's, never an advisor's or a student's. */
+  revenueSplit: {
+    SUPER_ADMIN: rwa("any", "any", "any"),
+    BTG_ADMIN: rwa("own-tenant", "own-tenant"),
+    FINANCE: rwa("own-tenant", "own-tenant", "own-tenant"),
+  },
+  /* Written by the public edition pages, never by a user. A sponsor's view
+     is the aggregate in their campaign report (metricAggregate), which is
+     how §15.3's "own-campaign (aggregate)" is honoured — an EditionEvent
+     row names a slot by string, so there is no join to scope it by. */
+  editionEvent: {
+    SUPER_ADMIN: rwa("any", "any"),
+    BTG_ADMIN: rwa("own-tenant"),
   },
 };
 

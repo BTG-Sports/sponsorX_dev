@@ -19,6 +19,7 @@ import { catalogueRouter } from "./catalogue";
 import { rewardsRouter } from "./rewards";
 import { meRouter } from "./me";
 import { propertiesRouter } from "./properties";
+import { editionsRouter } from "./editions";
 import { openapiRouter } from "./openapi";
 
 export const v1Router = Router();
@@ -79,6 +80,10 @@ v1Router.use("/", catalogueRouter);
 /* Stage 9 — the property portal's own property (P9-OPS-01). A NEXT school
    is a Property with kind SCHOOL; its advisor is that property's manager. */
 v1Router.use("/", propertiesRouter);
+
+/* Stage 9 Batch A — SponsorX NEXT editions and ad inventory (P9-BE-02/03/06/12).
+   One public route: a reader's engagement with a published edition. */
+v1Router.use("/", editionsRouter);
 
 /* The published contract, generated from the Zod registry (§38). Public: a
    consumer has to be able to read how to authenticate before it can. */

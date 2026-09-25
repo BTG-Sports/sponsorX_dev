@@ -212,6 +212,14 @@ const BUILDERS: Partial<Record<Resource, Builder>> = {
 
   auditLog: tenantScoped,
 
+  /* SponsorX NEXT (P9-BE-02/03/06/12) — every row carries tenantId, and the
+     roles that hold these today hold any / own-tenant only. */
+  publication: tenantScoped,
+  edition: tenantScoped,
+  adSlot: tenantScoped,
+  revenueSplit: tenantScoped,
+  editionEvent: tenantScoped,
+
   /* Added with P3-BE-01, the first task to query athletes. This is the
      pattern the file was designed for: the policy already allowed these
      scopes, only the filter was missing, and it is written now with the

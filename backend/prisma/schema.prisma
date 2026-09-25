@@ -250,7 +250,8 @@ model Property {
   lastSyncOrigin SyncOrigin?
   lastSyncHash   String?
 
-  athletes Athlete[]
+  athletes     Athlete[]
+  publications Publication[]
 
   @@index([tenantId])
 }
@@ -312,15 +313,15 @@ model Athlete {
   /// the applicant only when the state is CHANGES_REQUESTED. The expiry
   /// exists because §11 asks for it: a clearance that never expires is one
   /// nobody revisits.
-  reviewerNotes       String?
-  reviewedAt          DateTime?
-  complianceExpiresAt DateTime?
+  reviewerNotes        String?
+  reviewedAt           DateTime?
+  complianceExpiresAt  DateTime?
   /// §11 §4 — what this athlete can actually make. A queryable set rather
   /// than prose, because matching asks "who can shoot video" and a paragraph
   /// cannot answer it.
-  contentCapabilities String[]
+  contentCapabilities  String[]
   /// §11 §5 — categories they want to work with. Preference, not a rule.
-  brandInterests      String[]
+  brandInterests       String[]
   /// §11 §6 — categories they will NOT promote. This one is a rule, and §26's
   /// conflict check reads it: Phase 4 asks "which athletes exclude alcohol?"
   /// and must get an answer from an index, not from someone reading notes.
@@ -328,12 +329,12 @@ model Athlete {
   /// Anything that does not reduce to a category. Deliberately separate from
   /// the list above so nobody mistakes unenforceable text for an enforceable
   /// restriction — a conflict check cannot read this and must not appear to.
-  restrictionNotes    String?
+  restrictionNotes     String?
 
   /// §6 — set by a network manager in Phase 1, never computed.
-  tier                AthleteTier?
-  guardianId          String?
-  propertyId          String?
+  tier       AthleteTier?
+  guardianId String?
+  propertyId String?
 
   // Zoho (§18 — Contacts are bi-directional)
   zohoId         String?     @unique
@@ -579,20 +580,22 @@ model Campaign {
   state     CampaignState @default(DRAFT)
 
   // Zoho (§18 — Deals are bi-directional)
-  zohoDealId     String?     @unique
-  lastSyncOrigin SyncOrigin?
-  lastSyncHash   String?
-  lastSyncAt     DateTime?
+  zohoDealId        String?     @unique
+  lastSyncOrigin    SyncOrigin?
+  lastSyncHash      String?
+  lastSyncAt        DateTime?
   /// §18 row 9 — the renewal is a second Deal, pushed once, never read back.
-  zohoRenewalDealId String?  @unique
-  updatedAt      DateTime    @default(now()) @updatedAt
+  zohoRenewalDealId String?     @unique
+  updatedAt         DateTime    @default(now()) @updatedAt
 
-  sponsor Sponsor          @relation(fields: [sponsorId], references: [id])
-  brief   CampaignBrief?   @relation(fields: [briefId], references: [id])
-  invites CampaignInvite[]
+  sponsor  Sponsor           @relation(fields: [sponsorId], references: [id])
+  brief    CampaignBrief?    @relation(fields: [briefId], references: [id])
+  invites  CampaignInvite[]
   orders   CampaignOrder[]
   rewards  Reward[]
   invoices CampaignInvoice[]
+  /// SponsorX NEXT — the ad positions this campaign bought (P9-BE-03).
+  adSlots  AdSlot[]
 
   @@index([tenantId, state])
 }
@@ -627,7 +630,7 @@ model CampaignInvite {
 
 /// The commercial record, one per athlete per job.
 model CampaignOrder {
-  id           String     @id @default(cuid())
+  id           String   @id @default(cuid())
   tenantId     String
   campaignId   String
   athleteId    String
@@ -669,9 +672,9 @@ model CampaignOrder {
   /// report can present an implied CPM as though it rested on verified
   /// reach (§22).
   projectionSource     MetricSource?
-  state        OrderState @default(DRAFT)
-  acceptedAt   DateTime?
-  acceptanceId String?    @unique
+  state                OrderState    @default(DRAFT)
+  acceptedAt           DateTime?
+  acceptanceId         String?       @unique
 
   campaign     Campaign             @relation(fields: [campaignId], references: [id])
   athlete      Athlete              @relation(fields: [athleteId], references: [id])
@@ -840,13 +843,13 @@ model RewardEvent {
   ///
   /// All three are null where no email was given — there is nothing to
   /// consent to holding.
-  consentVersion  String?
-  consentAt       DateTime?
+  consentVersion     String?
+  consentAt          DateTime?
   /// What the fan was told the address would be used for, as a short code
   /// (e.g. "reward-delivery"). Consent is scoped: agreeing to be sent a
   /// voucher is not agreeing to marketing, and a single boolean would lose
   /// that distinction the first time someone exported the list.
-  consentPurpose  String?
+  consentPurpose     String?
   /// When the fan withdrew that consent (P6-SEC-03) — the one-tap unsubscribe
   /// link in every fan email. Recorded on THIS row, beside the consent it
   /// withdraws, so the record reads "agreed to 2026-09-01 at T1, withdrew at
@@ -1051,7 +1054,7 @@ model SyncTask {
 
   /// `<kind>:<brief or campaign id>`, e.g. `approval:c_123`. One task per
   /// event: a retried transition must not raise a second CRM task.
-  dedupeKey      String      @unique
+  dedupeKey String @unique
 
   @@index([tenantId, dueDate])
 }
@@ -1107,4 +1110,160 @@ model AuditLog {
 
   @@index([tenantId, entity, entityId])
   @@index([tenantId, at])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SponsorX NEXT — publications, editions and their inventory (Stage 9 Batch A:
+// P9-BE-02, -03, -06, -12). Spec v2.0 §5.2, §5.7, §6.4. The Stage 9 schema
+// gate (P9-PMO-03) was lifted by the programme owner on 2026-09-25.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// The masthead. Per school (`propertyId`), or regional with `propertyId`
+/// null for the DMV edition (§5.2).
+model Publication {
+  id         String   @id @default(cuid())
+  tenantId   String
+  propertyId String?
+  name       String
+  createdAt  DateTime @default(now())
+
+  property Property? @relation(fields: [propertyId], references: [id])
+  editions Edition[]
+
+  @@index([tenantId])
+}
+
+/// Fall / Winter / Spring / Year-End. The three V3 §3 production conditions
+/// are explicit columns, not a computed opinion.
+model Edition {
+  id             String       @id @default(cuid())
+  tenantId       String
+  publicationId  String
+  label          String
+  /// Ad deadline — no slot sells on or after it (database-enforced).
+  closeDate      DateTime
+  publishTarget  DateTime
+  printDate      DateTime?
+  pageCount      Int?
+  contentReady   Boolean      @default(false)
+  rightsCleared  Boolean      @default(false)
+  revenueMet     Boolean      @default(false)
+  /// cents — the minimum viable edition threshold
+  thresholdCents Int
+  state          EditionState @default(PLANNING)
+
+  publication Publication    @relation(fields: [publicationId], references: [id])
+  slots       AdSlot[]
+  splits      RevenueSplit[]
+  events      EditionEvent[]
+
+  @@index([tenantId, state])
+}
+
+/// P9-BE-02. V1 is a free digital edition; print is an optional layer.
+enum EditionState {
+  PLANNING
+  SELLING
+  CLOSED
+  IN_PRODUCTION
+  PUBLISHED_DIGITAL
+  PRINTED
+  DISTRIBUTED
+  CANCELLED
+}
+
+/// The inventory ledger — one row per sellable position (P9-BE-03). It points
+/// at the Campaign, not a CampaignOrder: an order needs an athlete and a job,
+/// and an ad has neither. Selling twice, selling after close, and a second
+/// back cover are all refused by Postgres (migration 20260925120000).
+model AdSlot {
+  id         String     @id @default(cuid())
+  tenantId   String
+  editionId  String
+  /// "P04-QTR" — the position on the flatplan.
+  slotCode   String
+  kind       AdSlotKind
+  /// cents — rack price
+  priceCents Int
+  /// Positions this row represents. Always 1: several identical positions
+  /// are several rows, so each can be sold on its own (CHECK in migration).
+  quantity   Int        @default(1)
+  campaignId String?
+  /// cents — frozen at sale; may differ from rack (an add-on sold with it).
+  soldCents  Int?
+  soldAt     DateTime?
+
+  edition  Edition   @relation(fields: [editionId], references: [id])
+  campaign Campaign? @relation(fields: [campaignId], references: [id])
+
+  @@unique([editionId, slotCode])
+  @@index([tenantId, editionId])
+  @@index([campaignId])
+}
+
+/// Matches the AD_SLOT / PRESENTING codes in the NEXT packages' `includes`.
+enum AdSlotKind {
+  QUARTER
+  HALF
+  FULL
+  BACK_COVER
+  PRESENTING
+}
+
+/// P9-BE-06, §5.7. Attached to the edition. NOT Earning — Earning is athlete
+/// NIL pay that finance reconciles payouts from, and schools and pools must
+/// never land in it.
+model RevenueSplit {
+  id          String         @id @default(cuid())
+  tenantId    String
+  editionId   String
+  payeeKind   SplitPayeeKind
+  /// basis points of the edition's sold revenue; the four sum to 10,000
+  bps         Int
+  /// cents — computed at close, never typed in
+  amountCents Int
+  computedAt  DateTime       @default(now())
+
+  edition Edition @relation(fields: [editionId], references: [id])
+
+  @@unique([editionId, payeeKind])
+  @@index([tenantId])
+}
+
+enum SplitPayeeKind {
+  SPONSORX
+  SCHOOL
+  STUDENT_POOL
+  EDITORIAL_FUND
+}
+
+/// P9-BE-12, §6.4. Its own stream — NOT RewardEventType, which is a fan's
+/// journey through a reward token. Aggregate-only: no fan identity here.
+model EditionEvent {
+  id         String         @id @default(cuid())
+  tenantId   String
+  editionId  String
+  /// AD_SLOT | ARTICLE | ATHLETE_PROFILE
+  targetKind String
+  targetRef  String
+  type       EngagementType
+  at         DateTime       @default(now())
+  city       String?
+  region     String?
+
+  edition Edition @relation(fields: [editionId], references: [id])
+
+  @@index([tenantId, editionId, type, at])
+  @@index([targetKind, targetRef])
+}
+
+/// Print and digital acquisition stay distinct — principle 8. QR_SCAN is
+/// print; the rest are digital. Pooling them makes the first sponsor report
+/// say something untrue.
+enum EngagementType {
+  QR_SCAN
+  LINK_CLICK
+  PROFILE_VIEW
+  CAMPAIGN_VIEW
+  CTA_CLICK
 }

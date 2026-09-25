@@ -58,6 +58,15 @@ import {
 import { Invoice, PaymentStatus, ZohoInvoiceWebhook } from "./invoice";
 import { InquiryInput, ZohoCrmNotification } from "./zoho";
 import {
+  AdSaleInput,
+  AdSlotInput,
+  EditionConditionsInput,
+  EditionEventInput,
+  EditionInput,
+  EditionTransitionInput,
+  PublicationInput,
+} from "./edition";
+import {
   AgreementAcceptanceInput,
   GuardianInput,
   GuardianReadiness,
@@ -293,6 +302,17 @@ const PATHS: Row[] = [
   { method: "post", path: "/public/tracking/{code}/click", tag: "Public", summary: "Record a click.", auth: false, status: 202 },
   { method: "get", path: "/public/rewards/{token}", tag: "Public", summary: "What the fan's page shows — state, offer, consent wording. Writes nothing (P6-FE-02).", auth: false },
   { method: "get", path: "/catalogue/packages", tag: "Catalogue", summary: "The §7 packages at sponsor prices — never athlete pay (P4-FE-01)." },
+  // SponsorX NEXT — editions and ad inventory (Stage 9 Batch A)
+  { method: "post", path: "/publications", tag: "Editions", summary: "Create a masthead — a school's (propertyId) or the regional one (null) (P9-BE-02).", body: PublicationInput, status: 201 },
+  { method: "post", path: "/publications/{id}/editions", tag: "Editions", summary: "Create an edition in PLANNING (P9-BE-02).", body: EditionInput, status: 201 },
+  { method: "get", path: "/editions/{id}", tag: "Editions", summary: "An edition, with its production conditions and state." },
+  { method: "post", path: "/editions/{id}/conditions", tag: "Editions", summary: "Set contentReady / rightsCleared. revenueMet is computed at close, never set." , body: EditionConditionsInput },
+  { method: "post", path: "/editions/{id}/transition", tag: "Editions", summary: "Move an edition through its states; closing freezes revenue and computes the split (P9-BE-02, -06).", body: EditionTransitionInput },
+  { method: "post", path: "/editions/{id}/slots", tag: "Editions", summary: "Add a sellable position. One back cover and one presenting sponsor per edition, enforced by Postgres (P9-BE-03).", body: AdSlotInput, status: 201 },
+  { method: "get", path: "/editions/{id}/slots", tag: "Editions", summary: "The edition's inventory — open and sold (P9-BE-03)." },
+  { method: "post", path: "/editions/{id}/sales", tag: "Editions", summary: "Sell a campaign the positions its package includes — all or nothing; never after close (P9-BE-03, -09).", body: AdSaleInput, status: 201 },
+  { method: "get", path: "/editions/{id}/splits", tag: "Editions", summary: "The four-way revenue split, computed at close. Never Earning (P9-BE-06)." },
+  { method: "post", path: "/public/editions/{id}/events", tag: "Public", summary: "A reader scanned (print) or tapped (digital) in a published edition (P9-BE-12).", auth: false, body: EditionEventInput, status: 201 },
   { method: "get", path: "/properties/mine", tag: "Properties", summary: "The property this account manages — a NEXT school is kind SCHOOL (P9-OPS-01). 404 when not linked." },
   { method: "get", path: "/catalogue/jobs", tag: "Catalogue", summary: "The NIL job catalogue at sponsor price bands — never base pay (P4-FE-01)." },
   { method: "post", path: "/public/rewards/{token}/scan", tag: "Public", summary: "A fan scanned the QR.", auth: false, status: 201 },

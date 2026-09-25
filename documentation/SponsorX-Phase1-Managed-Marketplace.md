@@ -2416,6 +2416,7 @@ DECISION GATE · Stage 1 cuts nine models and two roles into the schema. It is e
 - **Depends on:** P8-PMO-06, P9-DATA-01
 - **Done when:** Both gates evidenced in writing: the §39 loop runs end to end, and edition one sold
 - **Reference:** Spec §10, §11, §37
+- **2026-09-25:** the programme owner lifted this gate **for the build** — all NEXT backend work proceeds now. This row stays open as the record that edition one has not yet sold (`P9-DATA-01`).
 
 ### ⏸ `P9-BE-02` · Publication and Edition models with the edition state machine
 

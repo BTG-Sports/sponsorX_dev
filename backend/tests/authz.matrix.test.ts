@@ -256,7 +256,12 @@ describe("the whole matrix is pinned", () => {
       // Updated 2026-09-24 (P8-SEC-01): two new resources, `inquiry` and
       // `syncTask`, BTG-side only (matrix §11). With both removed the grid
       // still hashes to the previous 441c358e69d81f98, so nothing else moved.
-    ).toBe("f6af9e4293912f8b");
+      // Updated 2026-09-25 (P9-BE-02/03/06/12): five SponsorX NEXT resources
+      // — publication, edition, adSlot, revenueSplit, editionEvent — from
+      // matrix §15.3, for the roles that exist today (ADVISOR / STUDENT rows
+      // follow in P9-BE-05). With all five removed the grid still hashes to
+      // the previous f6af9e4293912f8b, so nothing else moved.
+    ).toBe("6d06c354364aef24");
   });
 
   it("covers every pair the §30 acceptance asks for", () => {

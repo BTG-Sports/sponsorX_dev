@@ -1,7 +1,7 @@
 # Indexes Prisma cannot express
 
-Prisma has no syntax for a **partial** index — one with a `WHERE` clause. The
-three below are not optimisations; each enforces a rule the application cannot
+Prisma has no syntax for a **partial** index — one with a `WHERE` clause — or
+for a trigger. The files below are not optimisations; each enforces a rule the application cannot
 enforce correctly on its own, and each is applied by a migration under
 `prisma/migrations/`.
 
@@ -15,3 +15,4 @@ migration and update the copy here.
 | `reward_single_redeem.sql` | A single-use reward can be redeemed exactly once |
 | `outbox_pending.sql` | The outbox drain only ever scans undispatched rows |
 | `invite_one_open.sql` | One *open* invitation per athlete per job |
+| `adslot_inventory.sql` | A NEXT ad slot sells once, never after its edition closes, and each edition has one back cover and one presenting sponsor (P9-BE-03) |

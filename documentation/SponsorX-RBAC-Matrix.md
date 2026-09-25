@@ -791,7 +791,19 @@ const CASES = [
 
 ---
 
-## 15 · Appendix · SponsorX NEXT *(provisional — not yet in code)*
+## 15 · Appendix · SponsorX NEXT *(being transcribed — see the note)*
+
+> **2026-09-25 — §15.3 transcribed for today's roles.** The programme owner
+> lifted the Stage 9 gate for the build. `publication`, `edition`, `adSlot`,
+> `revenueSplit` and `editionEvent` are now in `backend/src/auth/policy.ts`
+> for SUPER_ADMIN, BTG_ADMIN, SALES (`adSlot`) and FINANCE (`revenueSplit`),
+> exactly as the tables below say. The ADVISOR and STUDENT rows, and all of
+> §15.1–15.2, arrive with `P9-BE-05`. One deliberate difference:
+> `editionEvent` gives SPONSOR_ADMIN / SPONSOR_ANALYST no direct rows — an
+> event names its slot by string, so there is nothing to scope a row by; the
+> sponsor's "own-campaign (aggregate)" view is the print/digital breakdown in
+> their campaign report (`metricAggregate`), which is aggregate by
+> construction. The text below is otherwise unchanged.
 
 **Read this section differently from the rest of the document.** Everything
 above is transcribed into `backend/src/auth/policy.ts`, and where the two
