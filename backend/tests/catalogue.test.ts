@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { NIL_JOBS } from "../src/domain/nil-jobs";
-import { SPONSOR_PACKAGES } from "../src/domain/sponsor-packages";
+import { ATHLETE_PACKAGES, SPONSOR_PACKAGES } from "../src/domain/sponsor-packages";
 import {
   MARGIN_FLOOR, PRICED_TIERS, TIER_MULTIPLIERS, clearsMarginFloor, minimumSellPrice,
 } from "../src/domain/pricing";
@@ -93,8 +93,9 @@ describe("the pricing rule", () => {
 });
 
 describe("the sponsor packages", () => {
-  it("has all six", () => {
-    expect(SPONSOR_PACKAGES).toHaveLength(6);
+  it("has all six athlete packages, plus the NEXT products (P9-BE-01)", () => {
+    expect(ATHLETE_PACKAGES).toHaveLength(6);
+    expect(SPONSOR_PACKAGES.length).toBeGreaterThan(6);
   });
 
   it("stops Local Blitz below 10-Athlete Blitz, so neither sits inside the other", () => {
@@ -106,7 +107,9 @@ describe("the sponsor packages", () => {
 
   it("clears the margin floor at every package's most expensive athlete count", () => {
     const jobs = new Map(NIL_JOBS.map((j) => [j.id, j]));
-    for (const pkg of SPONSOR_PACKAGES) {
+    /* ATHLETE_PACKAGES, not all of them: a NEXT package has no job line and
+       so no athlete cost to clear (P9-BE-01; tests/next-packages.test.ts). */
+    for (const pkg of ATHLETE_PACKAGES) {
       if (pkg.code === "SEASON_PARTNER") continue; // negotiated, by §7
       const cost = pkg.lineItems.reduce((sum, li) => {
         const job = jobs.get(li.jobCode)!;
