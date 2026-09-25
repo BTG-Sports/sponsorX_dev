@@ -129,3 +129,5 @@ verified forged headers ignored, one visitor gets exactly 120 then refusals.
 `RATE_LIMIT_MULTIPLIER` (default 1, loosen-only) was set ×1000 on staging for
 the test, then removed and the API redeployed — **a variable removal alone does
 not restart the service; redeploy explicitly.** LOADTEST data deleted.
+
+**`P8-OPS-02` → Done** (user's instruction; both acceptance clauses met). Stage Progress row for 2026-09-25 recorded.
