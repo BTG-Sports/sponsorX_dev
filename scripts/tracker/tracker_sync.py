@@ -239,6 +239,46 @@ def post_slack(text: str, webhook: str | None, dry_run: bool) -> None:
             raise RuntimeError(f"Slack answered {r.status}")
 
 
+class AppsScriptSheet:
+    """The published Sheet through its own Apps Script endpoint
+    (scripts/tracker/sheet-endpoint.gs) — no service-account key, which the
+    organisation policy disables. Same three operations as `Sheet`."""
+
+    def __init__(self, url: str, secret: str):
+        self.url, self.secret = url, secret
+
+    def _post(self, payload: dict) -> dict:
+        req = urllib.request.Request(self.url, data=json.dumps({"secret": self.secret, **payload}).encode(),
+                                     headers={"Content-Type": "application/json"})
+        with urllib.request.urlopen(req, timeout=60) as r:  # Apps Script answers via a redirect
+            out = json.loads(r.read() or b"{}")
+        if "error" in out:
+            raise RuntimeError(f"Sheet endpoint refused: {out['error']}")
+        return out
+
+    def column(self, tab: str, letter: str) -> list[str]:
+        return self._post({"op": "column", "tab": tab, "letter": letter}).get("values", [])
+
+    def batch_update(self, data: list[dict]) -> None:
+        if data:
+            self._post({"op": "update", "data": data})
+
+    def append(self, tab: str, rows: list[list]) -> None:
+        if rows:
+            self._post({"op": "append", "tab": tab, "rows": rows})
+
+
+def open_sheet():
+    """The Sheet writer this environment is configured for, or None."""
+    url, secret = os.environ.get("SHEET_ENDPOINT_URL"), os.environ.get("SHEET_ENDPOINT_SECRET")
+    if url and secret:
+        return AppsScriptSheet(url, secret)
+    sa = os.environ.get("GOOGLE_SA_JSON")
+    if sa:
+        return Sheet(sa, os.environ.get("TRACKER_SHEET_ID") or DEFAULT_SHEET_ID)
+    return None
+
+
 class Sheet:
     """The published Google Sheet, through the Sheets REST API."""
 
@@ -291,13 +331,13 @@ def sheet_updates(changes: list[Change], ids_by_tab: dict[str, list[str]]):
     return updates, appends
 
 
-def sync_sheet(changes: list[Change], sa_json: str | None, sheet_id: str, dry_run: bool) -> None:
+def sync_sheet(changes: list[Change], dry_run: bool) -> None:
     # Every changed task gets its synced columns rewritten — a status move often
     # comes with a date and a note, and rewriting the five cells is idempotent.
-    if dry_run or not sa_json:
+    sheet = None if dry_run else open_sheet()
+    if sheet is None:
         print(f"---- Sheet sync (not written): {len(changes)} task(s) would be updated ----")
         return
-    sheet = Sheet(sa_json, sheet_id)
     ids = {p: sheet.column(p, LETTER["id"]) for p in {c.task.phase for c in changes}}
     updates, appends = sheet_updates(changes, ids)
     sheet.batch_update(updates)
@@ -320,7 +360,7 @@ def cmd_notify(a) -> int:
         return 0
     text = render_progress(new) + "\n\n" + render_changes(changes, a.author)
     post_slack(text, os.environ.get("SLACK_WEBHOOK_URL"), a.dry_run)
-    sync_sheet(changes, os.environ.get("GOOGLE_SA_JSON"), os.environ.get("TRACKER_SHEET_ID") or DEFAULT_SHEET_ID, a.dry_run)
+    sync_sheet(changes, a.dry_run)
     return 0
 
 
@@ -332,11 +372,10 @@ def cmd_digest(a) -> int:
     day_ago = board_at(since) if since else None
     post_slack(render_digest(now, day_ago, today), os.environ.get("SLACK_WEBHOOK_URL"), a.dry_run)
     row = stage_snapshot(now, today)
-    sa = os.environ.get("GOOGLE_SA_JSON")
-    if a.dry_run or not sa:
+    sheet = None if a.dry_run else open_sheet()
+    if sheet is None:
         print("---- Stage Progress row (not written) ----\n", row)
     else:
-        sheet = Sheet(sa, os.environ.get("TRACKER_SHEET_ID") or DEFAULT_SHEET_ID)
         dates = sheet.column("Stage Progress", "A")
         if today in dates:
             print("Stage Progress already has a row for", today)

@@ -22,11 +22,12 @@ jobs:
           python-version: "3.12"
 
       - name: Install
-        run: pip install openpyxl==3.1.5 google-auth==2.35.0 requests==2.32.3
+        run: pip install openpyxl==3.1.5
 
       - name: Post the digest and append the snapshot row
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
-          GOOGLE_SA_JSON: ${{ secrets.GOOGLE_SA_JSON }}
+          SHEET_ENDPOINT_URL: ${{ secrets.SHEET_ENDPOINT_URL }}
+          SHEET_ENDPOINT_SECRET: ${{ secrets.SHEET_ENDPOINT_SECRET }}
           TZ: Asia/Manila
         run: python scripts/tracker/tracker_sync.py digest --since "24 hours ago"

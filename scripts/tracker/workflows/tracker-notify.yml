@@ -27,7 +27,7 @@ jobs:
           python-version: "3.12"
 
       - name: Install
-        run: pip install openpyxl==3.1.5 google-auth==2.35.0 requests==2.32.3
+        run: pip install openpyxl==3.1.5
 
       - name: Test the script
         run: python -m unittest discover scripts/tracker/tests
@@ -35,7 +35,8 @@ jobs:
       - name: Post changes and update the Sheet
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
-          GOOGLE_SA_JSON: ${{ secrets.GOOGLE_SA_JSON }}
+          SHEET_ENDPOINT_URL: ${{ secrets.SHEET_ENDPOINT_URL }}
+          SHEET_ENDPOINT_SECRET: ${{ secrets.SHEET_ENDPOINT_SECRET }}
         run: |
           python scripts/tracker/tracker_sync.py notify \
             --before "${{ github.event.before }}" \

@@ -12,8 +12,9 @@ Phase 1's figure always includes SponsorX NEXT; Dropped tasks are excluded.
 It never writes to the repository.
 
 **Secrets** (GitHub → Settings → Secrets → Actions): `SLACK_WEBHOOK_URL`,
-`GOOGLE_SA_JSON` (service-account key JSON; the account must be an Editor on
-the Sheet).
+`SHEET_ENDPOINT_URL` and `SHEET_ENDPOINT_SECRET` — the Sheet's own Apps Script
+web app (`sheet-endpoint.gs`), used because the organisation policy disables
+service-account keys.
 
 **Workflows**: `workflows/*.yml` here are the files that live in
 `.github/workflows/` — kept here because they are added through the GitHub
