@@ -291,7 +291,7 @@ async function tick(): Promise<void> {
  */
 async function seedOnBoot(): Promise<void> {
   /* The catalogue first, and outside the demo-data guard: the seven NIL jobs
-     and six packages are the real price list, needed in production more than
+     and the sponsor packages (with NEXT's, P9-BE-01) are the real price list, needed in production more than
      anywhere (P3-BE-08, P3-BE-11). A failure here is logged like any other —
      a worker that cannot seed must still drain. */
   try {
