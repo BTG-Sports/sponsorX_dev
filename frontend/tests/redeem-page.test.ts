@@ -188,4 +188,17 @@ describe("P8-SEC-03 · the fan's address is forwarded only with the edge key", (
     expect(edgeHeaders(req)).toEqual({ "x-sponsorx-client-ip": "198.51.100.4", "x-sponsorx-edge-key": "k".repeat(32) });
     delete process.env.SPONSORX_EDGE_KEY;
   });
+
+  it("on Railway, the fan is X-Real-IP — not either end of X-Forwarded-For", async () => {
+    const { edgeHeaders } = await import("@/server/edge");
+    process.env.SPONSORX_EDGE_KEY = "k".repeat(32);
+    /* The shape measured on staging (P8-OPS-02): a client-typed first entry,
+       Railway's edge node as the last, the fan's real address in X-Real-IP.
+       Keying on the last hop put every fan through one edge in one bucket. */
+    const req = new Request("https://x/r/t", {
+      headers: { "x-forwarded-for": "8.8.8.8, 152.233.33.164", "x-real-ip": "112.207.217.10" },
+    });
+    expect(edgeHeaders(req)["x-sponsorx-client-ip"]).toBe("112.207.217.10");
+    delete process.env.SPONSORX_EDGE_KEY;
+  });
 });
