@@ -88,3 +88,26 @@ Flag for the lead alongside the §5.5 amendment: `npm test` in backend/ now
 requires DATABASE_URL in the shell (his env.ts validates at import; the
 dev/start scripts load ../.env but the test script doesn't) — worked around
 locally by exporting from ../.env; consider `--env-file` on the test script.
+
+## Tracker notifications — Slack + published Sheet (rcfworks)
+
+`scripts/tracker/tracker_sync.py` (12 tests) reads the committed tracker and:
+- **on every push to `main` that changes it** (`.github/workflows/tracker-notify.yml`)
+  posts to Slack the phase progress table (Phase 1 **includes SponsorX NEXT** —
+  user decision) plus exactly the tasks that changed, and writes those changes
+  into the published Google Sheet (Status, dates, Owner, Notes by task ID; new
+  tasks appended);
+- **weekdays 9 pm Manila** (`tracker-digest.yml`) posts the digest and appends
+  the day's Stage Progress row to the Sheet (creating that tab the first time).
+
+The Sheet is written through an Apps Script web app bound to it
+(`sheet-endpoint.gs`, deployed with clasp) because the icarrefound.org Google
+organisation blocks service-account keys. Secrets on the repo:
+`SLACK_WEBHOOK_URL`, `SHEET_ENDPOINT_URL`, `SHEET_ENDPOINT_SECRET`.
+
+A one-off `sync-all` brought the Sheet level with the tracker (1,675 cells,
+73 rows added, 0 status mismatches after) and its Dashboard formulas were widened
+to row 400 (they stopped at the old last row: showed 125 done instead of 139).
+Nine legal rows (`*-LEG-*`) stay on the Sheet's phase tabs by user decision —
+reviewed when Phase 1 finishes. **The end-of-day manual Sheet mirror is no
+longer needed** once both workflows are live.
