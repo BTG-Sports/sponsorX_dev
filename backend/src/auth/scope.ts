@@ -181,6 +181,23 @@ const BUILDERS: Partial<Record<Resource, Builder>> = {
     }
   },
 
+  /* P9-OPS-01 — a school (or any property) and the manager who runs it.
+     `own` is the property the actor's User row is linked to, and nothing
+     else: a PROPERTY_MGR with no link reaches no property at all. Tenant
+     stays in the conjunct, so a link forged across tenants still misses. */
+  property: (actor, scope) => {
+    switch (scope) {
+      case "any":
+        return {};
+      case "own-tenant":
+        return { tenantId: actor.tenantId };
+      case "own":
+        return actor.propertyId ? { tenantId: actor.tenantId, id: actor.propertyId } : MATCHES_NOTHING;
+      default:
+        return MATCHES_NOTHING;
+    }
+  },
+
   /* Tenant itself has no tenantId column — it *is* the tenant. */
   tenant: (actor, scope) => {
     switch (scope) {
