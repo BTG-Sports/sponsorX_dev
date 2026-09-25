@@ -62,6 +62,12 @@ export type Actor = {
    * query to find out.
    */
   propertyId: string | null;
+  /**
+   * SponsorX NEXT (P9-BE-05): a STUDENT's own Student row. Optional so the
+   * many actors built before students existed still type-check; absent reads
+   * as null, and a STUDENT without it reaches nothing (the safe direction).
+   */
+  studentId?: string | null;
 };
 
 const ROLE_SET = new Set<string>(ROLES);
@@ -91,7 +97,7 @@ export async function resolveActor(
 ): Promise<Actor> {
   const linked = await prisma.user.findUnique({
     where: { clerkId },
-    select: { id: true, tenantId: true, roles: true, sponsorId: true, athleteId: true, guardianId: true, propertyId: true },
+    select: { id: true, tenantId: true, roles: true, sponsorId: true, athleteId: true, guardianId: true, propertyId: true, studentId: true },
   });
   if (linked) {
     return {
@@ -102,6 +108,7 @@ export async function resolveActor(
       athleteId: linked.athleteId,
       guardianId: linked.guardianId,
       propertyId: linked.propertyId,
+      studentId: linked.studentId,
     };
   }
 
@@ -119,7 +126,7 @@ export async function resolveActor(
   const claimed = await prisma.user.update({
     where: { id: provisioned.id },
     data: { clerkId },
-    select: { id: true, tenantId: true, roles: true, sponsorId: true, athleteId: true, guardianId: true, propertyId: true },
+    select: { id: true, tenantId: true, roles: true, sponsorId: true, athleteId: true, guardianId: true, propertyId: true, studentId: true },
   });
 
   return {
@@ -130,6 +137,7 @@ export async function resolveActor(
     propertyId: claimed.propertyId,
     athleteId: claimed.athleteId,
     guardianId: claimed.guardianId,
+    studentId: claimed.studentId,
   };
 }
 

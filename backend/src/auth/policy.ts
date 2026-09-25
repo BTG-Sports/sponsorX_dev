@@ -29,7 +29,8 @@
    where the real leak is.
    -------------------------------------------------------------------------- */
 
-/** §8's twelve roles, matching the Prisma `Role` enum exactly. */
+/** §8's twelve roles plus SponsorX NEXT's two (P9-BE-05, matrix §15.1),
+ *  matching the Prisma `Role` enum exactly. */
 export type Role =
   | "SUPER_ADMIN"
   | "BTG_ADMIN"
@@ -42,7 +43,9 @@ export type Role =
   | "PROPERTY_MGR"
   | "SPONSOR_ADMIN"
   | "SPONSOR_ANALYST"
-  | "SERVICE";
+  | "SERVICE"
+  | "STUDENT"
+  | "ADVISOR";
 
 export const ROLES: readonly Role[] = [
   "SUPER_ADMIN",
@@ -57,6 +60,8 @@ export const ROLES: readonly Role[] = [
   "SPONSOR_ADMIN",
   "SPONSOR_ANALYST",
   "SERVICE",
+  "STUDENT",
+  "ADVISOR",
 ] as const;
 
 export type Action = "read" | "write" | "approve";
@@ -124,7 +129,12 @@ export type Resource =
   | "edition"
   | "adSlot"
   | "revenueSplit"
-  | "editionEvent";
+  | "editionEvent"
+  | "student"
+  | "studentCode"
+  | "saleAttribution"
+  | "studentPoints"
+  | "studentProspect";
 
 export const RESOURCES: readonly Resource[] = [
   "tenant",
@@ -167,6 +177,11 @@ export const RESOURCES: readonly Resource[] = [
   "adSlot",
   "revenueSplit",
   "editionEvent",
+  "student",
+  "studentCode",
+  "saleAttribution",
+  "studentPoints",
+  "studentProspect",
 ] as const;
 
 type RolePolicy = Partial<Record<Role, Partial<Record<Action, Scope>>>>;
@@ -569,10 +584,14 @@ export const POLICY: Record<Resource, RolePolicy> = {
   publication: {
     SUPER_ADMIN: rwa("any", "any", "any"),
     BTG_ADMIN: rwa("own-tenant", "own-tenant", "own-tenant"),
+    ADVISOR: rwa("own-property"),
+    STUDENT: rwa("own-property"),
   },
   edition: {
     SUPER_ADMIN: rwa("any", "any", "any"),
     BTG_ADMIN: rwa("own-tenant", "own-tenant", "own-tenant"),
+    ADVISOR: rwa("own-property"),
+    STUDENT: rwa("own-property"),
   },
   /* SALES sells against the inventory; setting a price or a slot's sold
      state is the sale itself, which runs through the domain. */
@@ -580,6 +599,10 @@ export const POLICY: Record<Resource, RolePolicy> = {
     SUPER_ADMIN: rwa("any", "any", "any"),
     BTG_ADMIN: rwa("own-tenant", "own-tenant", "own-tenant"),
     SALES: rwa("own-tenant", "own-tenant"),
+    /* A student sells against this inventory and must see what is open; they
+       never set a price or mark a slot sold. */
+    ADVISOR: rwa("own-property"),
+    STUDENT: rwa("own-property"),
   },
   /* Publishing economics: finance's, never an advisor's or a student's. */
   revenueSplit: {
@@ -594,6 +617,54 @@ export const POLICY: Record<Resource, RolePolicy> = {
   editionEvent: {
     SUPER_ADMIN: rwa("any", "any"),
     BTG_ADMIN: rwa("own-tenant"),
+    ADVISOR: rwa("own-property"),
+    STUDENT: rwa("own-property"),
+  },
+
+  /* §15.2 SponsorX NEXT — student domain (P9-BE-05, 2026-09-25). */
+  student: {
+    SUPER_ADMIN: rwa("any", "any", "any"),
+    BTG_ADMIN: rwa("own-tenant", "own-tenant", "own-tenant"),
+    /* The school's advisor reviews its students — editorial and custodial,
+       one school only. */
+    ADVISOR: rwa("own-property", "own-property", "own-property"),
+    /* Own profile; the review (approve) is never the applicant's. */
+    STUDENT: rwa("own", "own"),
+    GUARDIAN: rwa("ward", "ward"),
+  },
+  /* Attribution and points are WRITTEN BY THE SYSTEM, not by the person
+     they credit — that is what keeps a sales figure evidence rather than a
+     claim. A student reads their own and never another's. */
+  studentCode: {
+    SUPER_ADMIN: rwa("any", "any"),
+    BTG_ADMIN: rwa("own-tenant", "own-tenant"),
+    ADVISOR: rwa("own-property"),
+    STUDENT: rwa("own"),
+    GUARDIAN: rwa("ward"),
+  },
+  saleAttribution: {
+    SUPER_ADMIN: rwa("any", "any"),
+    BTG_ADMIN: rwa("own-tenant", "own-tenant"),
+    ADVISOR: rwa("own-property"),
+    STUDENT: rwa("own"),
+    GUARDIAN: rwa("ward"),
+  },
+  studentPoints: {
+    SUPER_ADMIN: rwa("any", "any"),
+    BTG_ADMIN: rwa("own-tenant", "own-tenant"),
+    ADVISOR: rwa("own-property"),
+    STUDENT: rwa("own"),
+    GUARDIAN: rwa("ward"),
+  },
+  /* A business a student brings in (§5.6 Sponsor Acceptance Check). The
+     student submits it; commercial operations — BTG, SALES — decide it. Not
+     in the matrix text before 2026-09-25; added there with this row. */
+  studentProspect: {
+    SUPER_ADMIN: rwa("any", "any", "any"),
+    BTG_ADMIN: rwa("own-tenant", "own-tenant", "own-tenant"),
+    SALES: rwa("own-tenant", "own-tenant", "own-tenant"),
+    ADVISOR: rwa("own-property"),
+    STUDENT: rwa("own", "own"),
   },
 };
 

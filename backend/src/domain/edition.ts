@@ -20,6 +20,7 @@ import { prisma } from "../db/client";
 import { audit } from "../db/audit";
 import type { Actor } from "../auth/actor";
 import { assertAllowed, whereFor } from "../auth/scope";
+import { canReadField } from "../auth/fields";
 import { ForbiddenError } from "../auth/errors";
 import {
   assertCanSell,
@@ -28,6 +29,7 @@ import {
   type EditionState,
 } from "./edition-state";
 import { allocateSplit } from "./revenue-split";
+import { attributeSale } from "./student";
 
 export type AdSlotKind = "QUARTER" | "HALF" | "FULL" | "BACK_COVER" | "PRESENTING";
 export type EngagementType = "QR_SCAN" | "LINK_CLICK" | "PROFILE_VIEW" | "CAMPAIGN_VIEW" | "CTA_CLICK";
@@ -230,11 +232,13 @@ export async function editionSplits(actor: Actor, editionId: string) {
     select: { id: true },
   });
   if (!edition) throw new ForbiddenError("revenueSplit", "read");
-  return prisma.revenueSplit.findMany({
+  const rows = await prisma.revenueSplit.findMany({
     where: { ...whereFor(actor, "revenueSplit", "read"), editionId },
     select: { payeeKind: true, bps: true, amountCents: true, computedAt: true },
     orderBy: { bps: "desc" },
   });
+  /* matrix §15.4 — the amount is a protected field on top of the row scope. */
+  return canReadField(actor.roles, "revenueSplit.amount") ? rows : rows.map(({ amountCents: _a, ...r }) => r);
 }
 
 /* ── ad inventory (P9-BE-03) ────────────────────────────────────────────── */
@@ -339,8 +343,8 @@ export async function sellCampaignSlots(
       const campaign = await tx.campaign.findFirst({
         where: { ...whereFor(actor, "campaign", "read"), id: campaignId },
         select: {
-          id: true, state: true,
-          brief: { select: { package: { select: { code: true, priceLow: true, includes: true } } } },
+          id: true, state: true, sponsorId: true,
+          brief: { select: { studentCodeId: true, package: { select: { code: true, priceLow: true, includes: true } } } },
         },
       });
       if (!campaign) throw new ForbiddenError("campaign", "read");
@@ -382,6 +386,14 @@ export async function sellCampaignSlots(
       await audit(tx, actor, "adSlot.sell", "Campaign", campaignId, {
         after: { editionId, package: pkg.code, slots: picked.map((p) => p.slotCode) },
       });
+      /* P9-BE-07 — a sponsor who arrived on a student's code: the sale is
+         credited to that student in the same transaction as the sale. */
+      if (campaign.brief?.studentCodeId) {
+        await attributeSale(tx, actor, {
+          studentCodeId: campaign.brief.studentCodeId, sponsorId: campaign.sponsorId,
+          campaignId, editionId, valueCents: values.reduce((sum, v) => sum + v, 0),
+        });
+      }
       return {
         slots: picked.map((p, i) => ({ id: p.id, slotCode: p.slotCode, kind: p.kind, soldCents: values[i]! })),
       };

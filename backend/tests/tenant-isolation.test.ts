@@ -59,8 +59,12 @@ const A = {
   link: "ti_link_a", reward: "ti_reward_a", token: "ti_token_a", earning: "ti_earning_a",
   invoice: "ti_invoice_a", guardian: "ti_guardian_a", agreement: "ti_agreement_a", admin: "ti_admin_a",
   publication: "ti_pub_a", edition: "ti_edition_a", slot: "ti_slot_a",
+  school: "ti_school_a", student: "ti_student_a", code: "ti_code_a", prospect: "ti_prospect_a",
 } as const;
-const B = { tenant: "ti_tenant_b", sponsor: "ti_sponsor_b", athlete: "ti_athlete_b" } as const;
+const B = {
+  tenant: "ti_tenant_b", sponsor: "ti_sponsor_b", athlete: "ti_athlete_b",
+  school: "ti_school_b", student: "ti_student_b",
+} as const;
 
 /** Tenant B's users: every kind of actor who could try to reach across. */
 const B_ACTORS = [
@@ -68,6 +72,9 @@ const B_ACTORS = [
   { id: "ti_b_super_like", roles: ["CAMPAIGN_MGR", "NETWORK_MGR", "FINANCE", "SALES"] },
   { id: "ti_b_sponsor", roles: ["SPONSOR_ADMIN"], sponsorId: B.sponsor },
   { id: "ti_b_athlete", roles: ["ATHLETE"], athleteId: B.athlete },
+  /* SponsorX NEXT (P9-BE-05) — "the tenant-isolation tests grown" (spec §7). */
+  { id: "ti_b_student", roles: ["STUDENT"], studentId: B.student, propertyId: B.school },
+  { id: "ti_b_advisor", roles: ["ADVISOR"], propertyId: B.school },
 ] as const;
 
 /** Which tenant-A id a path parameter takes, by the noun in front of it. */
@@ -76,6 +83,7 @@ const PARAM_FOR: Record<string, string> = {
   briefs: A.brief, invitations: A.invite, deliverables: A.deliverable, earnings: A.earning,
   guardians: A.guardian, rewards: A.reward, "tracking-links": A.link,
   publications: A.publication, editions: A.edition,
+  students: A.student, prospects: A.prospect, sponsors: A.sponsor,
 };
 
 /**
@@ -135,6 +143,16 @@ const BODY: Record<string, unknown> = {
   "POST /editions/{id}/transition": { to: "CANCELLED" },
   "POST /editions/{id}/slots": { slotCode: "STOLEN", kind: "HALF", priceCents: 100 },
   "POST /editions/{id}/sales": { campaignId: A.campaign },
+  "POST /students": {
+    propertyId: A.school, legalName: "Stolen", displayName: "Stolen", masthead: ["WRITER"],
+  },
+  "POST /students/{id}/transition": { to: "SUSPENDED" },
+  "POST /students/{id}/guardian": { legalName: "X", email: "x@x.invalid", relationship: "PARENT" },
+  "POST /students/{id}/code": {},
+  "POST /students/{id}/points": { reason: "ARTICLE" },
+  "POST /students/{id}/prospects": { businessName: "Stolen Deli", category: "RESTAURANT" },
+  "POST /prospects/{id}/decision": { decision: "REJECT", reasonCode: "OTHER" },
+  "POST /sponsors/{id}/assigned-student": { studentId: null },
 };
 
 describe.skipIf(!hasDatabase)("P8-SEC-02 · tenant B cannot reach tenant A through any route", async () => {
@@ -210,10 +228,22 @@ describe.skipIf(!hasDatabase)("P8-SEC-02 · tenant B cannot reach tenant A throu
     await prisma.publication.create({ data: { id: A.publication, tenantId: t, name: "TI Secret Masthead" } });
     await prisma.edition.create({ data: { id: A.edition, tenantId: t, publicationId: A.publication, label: "TI Secret Edition", closeDate: new Date(Date.now() + 30 * 864e5), publishTarget: new Date(Date.now() + 45 * 864e5), thresholdCents: 100000, state: "SELLING" } });
     await prisma.adSlot.create({ data: { id: A.slot, tenantId: t, editionId: A.edition, slotCode: "TI-SECRET-HALF", kind: "HALF", priceCents: 50000 } });
+    /* SponsorX NEXT students (Batch B) — a school, an ACTIVE student with a code, a prospect; and tenant B's own. */
+    await prisma.property.createMany({ data: [
+      { id: A.school, tenantId: t, slug: "ti-school-a", name: "TI Secret School", kind: "SCHOOL" },
+      { id: B.school, tenantId: B.tenant, slug: "ti-school-b", name: "TI School B", kind: "SCHOOL" },
+    ] });
+    await prisma.student.createMany({ data: [
+      { id: A.student, tenantId: t, propertyId: A.school, legalName: "TI Secret Student", displayName: "TISS", masthead: ["WRITER"], state: "ACTIVE" },
+      { id: B.student, tenantId: B.tenant, propertyId: B.school, legalName: "TI Student B", displayName: "TISB", masthead: ["WRITER"], state: "ACTIVE" },
+    ] });
+    await prisma.studentCode.create({ data: { id: A.code, tenantId: t, studentId: A.student, code: "ti-secret-code-a" } });
+    await prisma.studentProspect.create({ data: { id: A.prospect, tenantId: t, studentId: A.student, businessName: "TI Secret Deli", category: "RESTAURANT" } });
     for (const u of B_ACTORS) {
       await prisma.user.create({ data: {
         id: u.id, tenantId: B.tenant, clerkId: u.id, email: `${u.id}@b.invalid`, roles: [...u.roles],
         sponsorId: "sponsorId" in u ? u.sponsorId : null, athleteId: "athleteId" in u ? u.athleteId : null,
+        studentId: "studentId" in u ? u.studentId : null, propertyId: "propertyId" in u ? u.propertyId : null,
       } });
     }
   }

@@ -16,3 +16,4 @@ migration and update the copy here.
 | `outbox_pending.sql` | The outbox drain only ever scans undispatched rows |
 | `invite_one_open.sql` | One *open* invitation per athlete per job |
 | `adslot_inventory.sql` | A NEXT ad slot sells once, never after its edition closes, and each edition has one back cover and one presenting sponsor (P9-BE-03) |
+| `sales_attribution_immutable.sql` | A student's sale attribution is never updated or deleted (P9-BE-13) |

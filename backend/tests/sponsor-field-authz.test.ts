@@ -74,6 +74,7 @@ const PARAM_FOR: Record<string, string> = {
   applications: ID.athlete, athletes: ID.athlete, campaigns: ID.campaign, orders: ID.order,
   briefs: ID.brief, invitations: "fa_none", deliverables: ID.deliverable, earnings: ID.earning,
   guardians: "fa_none", rewards: ID.reward, "tracking-links": ID.link,
+  students: "fa_student_row",
 };
 
 describe("P4-SEC-02 · explicit select is enforced by the build", () => {
@@ -143,6 +144,12 @@ describe.skipIf(!hasDatabase)("P4-SEC-02 · athlete pay never reaches a sponsor"
     for (const u of SPONSORS) {
       await prisma.user.create({ data: { id: u.id, tenantId: T, clerkId: u.id, email: `${u.id}@x.invalid`, roles: [...u.roles], sponsorId: ID.sponsor } });
     }
+    /* SponsorX NEXT (P9-BE-05, P9-SEC-01) — a student and their school's
+       advisor in the same tenant, held to the same boundary. */
+    await prisma.property.create({ data: { id: "fa_school", tenantId: T, slug: "fa-school", name: "FA School", kind: "SCHOOL" } });
+    await prisma.student.create({ data: { id: "fa_student_row", tenantId: T, propertyId: "fa_school", legalName: "FA Student", displayName: "FAS", masthead: ["WRITER"], state: "ACTIVE" } });
+    await prisma.user.create({ data: { id: "fa_student", tenantId: T, clerkId: "fa_student", email: "fa_student@x.invalid", roles: ["STUDENT"], studentId: "fa_student_row", propertyId: "fa_school" } });
+    await prisma.user.create({ data: { id: "fa_advisor", tenantId: T, clerkId: "fa_advisor", email: "fa_advisor@x.invalid", roles: ["ADVISOR"], propertyId: "fa_school" } });
     server = createApp().listen(0);
     base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
   });
@@ -196,6 +203,24 @@ describe.skipIf(!hasDatabase)("P4-SEC-02 · athlete pay never reaches a sponsor"
       }
     }
     expect(leaks).toEqual([]);
+  }, 60_000);
+
+  it("no athlete-pay value appears in any response for a STUDENT or ADVISOR either (P9-SEC-01)", async () => {
+    const leaks: string[] = [];
+    for (const who of ["fa_student", "fa_advisor"]) {
+      for (const path of reads()) {
+        const { status, text } = await get(path, who);
+        for (const [column, marker] of Object.entries(PAY)) {
+          if (text.includes(String(marker))) leaks.push(`${who} GET ${path} (${status}) → ${column}`);
+        }
+        for (const field of ['"baseLow"', '"baseHigh"', '"compensation"', '"sellFloor', '"amount"', '"gross"']) {
+          if (status < 400 && text.includes(field)) leaks.push(`${who} GET ${path} → field ${field}`);
+        }
+      }
+    }
+    expect(leaks).toEqual([]);
+    /* Positive control: the student does reach their own record. */
+    expect((await get("/students/{id}", "fa_student")).status).toBe(200);
   }, 60_000);
 
   it("a sponsor cannot read an athlete's rate card at all", async () => {
