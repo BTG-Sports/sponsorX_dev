@@ -358,7 +358,10 @@ def cmd_notify(a) -> int:
     if new is None:
         print("No tracker at", a.after)
         return 0
-    old = board_at(a.before) if a.before and set(a.before) != {"0"} else None
+    # A manual run, or the very first push, has no usable "before": compare
+    # with the previous commit rather than announcing every task as new.
+    before = a.before if a.before and set(a.before) != {"0"} else f"{a.after}~1"
+    old = board_at(before)
     changes = diff(old, new)
     if not changes:
         print("No task changes in this push — nothing to post.")
