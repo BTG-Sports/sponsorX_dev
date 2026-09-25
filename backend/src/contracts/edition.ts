@@ -46,8 +46,11 @@ export const EditionInput = z
 
 export const EditionTransitionInput = z.object({ to: EditionState }).meta({ id: "EditionTransitionInput" });
 
+/* rightsCleared is not here: it is computed from the rights ledger at the
+   transition (P9-BE-10), never typed in. */
 export const EditionConditionsInput = z
-  .object({ contentReady: z.boolean().optional(), rightsCleared: z.boolean().optional() })
+  .object({ contentReady: z.boolean().optional() })
+  .strict()
   .meta({ id: "EditionConditionsInput" });
 
 export const AdSlotInput = z

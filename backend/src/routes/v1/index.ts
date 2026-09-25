@@ -21,6 +21,7 @@ import { meRouter } from "./me";
 import { propertiesRouter } from "./properties";
 import { editionsRouter } from "./editions";
 import { studentsRouter } from "./students";
+import { rightsRouter } from "./rights";
 import { openapiRouter } from "./openapi";
 
 export const v1Router = Router();
@@ -90,6 +91,11 @@ v1Router.use("/", editionsRouter);
    prospects (P9-BE-04/05/07/13/15, P9-SEC-01). Two public routes: the
    student application and the /s/[code] resolver. */
 v1Router.use("/", studentsRouter);
+
+/* Stage 9 Batch C — rights ledger, featured athletes and the claim flow, the
+   DMV school pools (P9-BE-10/11/14). Two public routes: a featured athlete's
+   profile and the claim. */
+v1Router.use("/", rightsRouter);
 
 /* The published contract, generated from the Zod registry (§38). Public: a
    consumer has to be able to read how to authenticate before it can. */

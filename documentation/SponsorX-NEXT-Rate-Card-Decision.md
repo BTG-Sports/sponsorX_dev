@@ -54,8 +54,23 @@ matches the split the revenue-splits screen (`P1-FE-23`) already shows. It
 also gives SponsorX the larger share, because SponsorX carries production and
 print cost (spec §5.2 makes production SponsorX's decision).
 
+## The regional (DMV) edition's school share — also SIMULATED
+
+A regional edition draws from several schools. Its **school share** (the
+30% above) is divided **50 / 50** into two pools, resolved by formula when
+the edition publishes (`P9-BE-14`):
+
+| Pool | Split between schools by |
+|---|---|
+| **Sales** (50%) | Each school's students' attributed sales in that edition |
+| **Content** (50%) | Content units: feature 5, photo package 3, interview 3, video 5 |
+
+A school with no content in the edition gets nothing from the content pool.
+Nobody adjusts the result after publication.
+
 ## Where this is used
 
 - **`P9-BE-01`**: the six NEXT products above are seeded as catalogue packages.
 - **`P9-BE-03`**: the inventory ledger enforces quantity one and the close date.
 - **`P9-BE-06`**: the revenue split is attached to each edition.
+- **`P9-BE-14`**: the DMV school pools above.

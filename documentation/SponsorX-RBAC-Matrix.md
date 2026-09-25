@@ -805,6 +805,24 @@ const CASES = [
 > `studentProspect` (§5.6's Sponsor Acceptance Check) — SUPER_ADMIN any;
 > BTG_ADMIN and SALES own-tenant read/write/approve; ADVISOR own-property
 > read; STUDENT own read/write. `contentRight` (§15.3) arrives with Batch C.
+>
+> **2026-09-25 — Batch C transcribed (P9-BE-10, -11, -14).** `contentRight`
+> exactly as §15.3 tabulates it. Five resources added with it, none in the text
+> below:
+>
+> - `editionAsset` (an edition's content item): SUPER_ADMIN any; BTG_ADMIN
+>   own-tenant read/write/approve; ADVISOR and STUDENT own-property read.
+> - `rosterEntry` (a school's roster, the claim flow's match source):
+>   SUPER_ADMIN any; BTG_ADMIN own-tenant read/write; ADVISOR own-property
+>   read/write. Nobody else reads it.
+> - `athleteClaim` ("that's me" on a featured profile): SUPER_ADMIN any;
+>   BTG_ADMIN own-tenant read/write/approve; NETWORK_MGR own-tenant
+>   read/approve; ADVISOR own-property read/approve. The advisor's approve is
+>   the school's verification.
+> - `contentContribution` (DMV units): SUPER_ADMIN any; BTG_ADMIN own-tenant
+>   read/write; ADVISOR own-property read; STUDENT own read.
+> - `schoolPoolAllocation` (the DMV pools, computed): SUPER_ADMIN, BTG_ADMIN
+>   and FINANCE read only. No role writes it; the formula does.
 
 > **2026-09-25 — §15.3 transcribed for today's roles.** The programme owner
 > lifted the Stage 9 gate for the build. `publication`, `edition`, `adSlot`,

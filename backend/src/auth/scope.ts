@@ -271,6 +271,27 @@ const BUILDERS: Partial<Record<Resource, Builder>> = {
   studentPoints: (actor, scope) => throughStudent(actor, scope),
   studentProspect: (actor, scope) => throughStudent(actor, scope),
 
+  /* SponsorX NEXT rights and claims (P9-BE-10, -11, -14). */
+  editionAsset: (actor, scope) =>
+    nextByProperty(actor, scope, (p) => ({ edition: { is: { publication: { is: { propertyId: p } } } } })),
+  contentRight: (actor, scope) => {
+    /* A student reads the rights on their OWN work — the asset they made. */
+    if (scope === "own") {
+      return actor.studentId ? { tenantId: actor.tenantId, asset: { is: { studentId: actor.studentId } } } : MATCHES_NOTHING;
+    }
+    return nextByProperty(actor, scope, (p) => ({ asset: { is: { edition: { is: { publication: { is: { propertyId: p } } } } } } }));
+  },
+  rosterEntry: (actor, scope) => nextByProperty(actor, scope, (p) => ({ propertyId: p })),
+  /* A claim is on an athlete at a school — the advisor of THAT school. */
+  athleteClaim: (actor, scope) => nextByProperty(actor, scope, (p) => ({ athlete: { is: { propertyId: p } } })),
+  contentContribution: (actor, scope) => {
+    if (scope === "own") {
+      return actor.studentId ? { tenantId: actor.tenantId, studentId: actor.studentId } : MATCHES_NOTHING;
+    }
+    return nextByProperty(actor, scope, (p) => ({ propertyId: p }));
+  },
+  schoolPoolAllocation: tenantScoped,
+
   /* Added with P3-BE-01, the first task to query athletes. This is the
      pattern the file was designed for: the policy already allowed these
      scopes, only the filter was missing, and it is written now with the

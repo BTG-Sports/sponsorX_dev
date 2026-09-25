@@ -43,6 +43,11 @@ vi.mock("../src/db/client", () => ({
         },
         auditLog: { create: () => Promise.resolve({ id: "a" }) },
         outboxJob: { create: () => Promise.resolve({ id: "j" }) },
+        /* P9-BE-11 — activation now asks whether a minor claimed a featured
+           profile (then their guardian's COMMERCIAL consent is also needed).
+           These athletes applied normally: no claim. The claimed path runs
+           against a real database in tests/next-rights.test.ts. */
+        athleteClaim: { count: () => Promise.resolve(0) },
       };
       return fn(tx);
     },

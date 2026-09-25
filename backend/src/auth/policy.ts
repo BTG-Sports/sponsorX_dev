@@ -134,7 +134,13 @@ export type Resource =
   | "studentCode"
   | "saleAttribution"
   | "studentPoints"
-  | "studentProspect";
+  | "studentProspect"
+  | "editionAsset"
+  | "contentRight"
+  | "rosterEntry"
+  | "athleteClaim"
+  | "contentContribution"
+  | "schoolPoolAllocation";
 
 export const RESOURCES: readonly Resource[] = [
   "tenant",
@@ -182,6 +188,12 @@ export const RESOURCES: readonly Resource[] = [
   "saleAttribution",
   "studentPoints",
   "studentProspect",
+  "editionAsset",
+  "contentRight",
+  "rosterEntry",
+  "athleteClaim",
+  "contentContribution",
+  "schoolPoolAllocation",
 ] as const;
 
 type RolePolicy = Partial<Record<Role, Partial<Record<Action, Scope>>>>;
@@ -665,6 +677,52 @@ export const POLICY: Record<Resource, RolePolicy> = {
     SALES: rwa("own-tenant", "own-tenant", "own-tenant"),
     ADVISOR: rwa("own-property"),
     STUDENT: rwa("own", "own"),
+  },
+
+  /* §15.3 SponsorX NEXT — rights (P9-BE-10, 2026-09-25). An edition's content
+     items and the one ledger that says what may be done with each. Rights
+     are explicit and checked before publication; an advisor approves what
+     students publish but does not make rights decisions — read-only here. */
+  editionAsset: {
+    SUPER_ADMIN: rwa("any", "any", "any"),
+    BTG_ADMIN: rwa("own-tenant", "own-tenant", "own-tenant"),
+    ADVISOR: rwa("own-property"),
+    STUDENT: rwa("own-property"),
+  },
+  contentRight: {
+    SUPER_ADMIN: rwa("any", "any", "any"),
+    BTG_ADMIN: rwa("own-tenant", "own-tenant", "own-tenant"),
+    ADVISOR: rwa("own-property"),
+    STUDENT: rwa("own"),
+  },
+  /* P9-BE-11 — the claim flow. The school supplies its roster and its
+     advisor verifies a claim (`approve`); BTG can do either. The roster is
+     a list of the school's students — nobody else reads it. */
+  rosterEntry: {
+    SUPER_ADMIN: rwa("any", "any"),
+    BTG_ADMIN: rwa("own-tenant", "own-tenant"),
+    ADVISOR: rwa("own-property", "own-property"),
+  },
+  athleteClaim: {
+    SUPER_ADMIN: rwa("any", "any", "any"),
+    BTG_ADMIN: rwa("own-tenant", "own-tenant", "own-tenant"),
+    NETWORK_MGR: rwa("own-tenant", undefined, "own-tenant"),
+    ADVISOR: rwa("own-property", undefined, "own-property"),
+  },
+  /* P9-BE-14 — content contribution units and the school pools they
+     resolve. Written by BTG (the formula computes the pools); publishing
+     economics stay off a student's and an advisor's screen except their own
+     school's contribution record. */
+  contentContribution: {
+    SUPER_ADMIN: rwa("any", "any"),
+    BTG_ADMIN: rwa("own-tenant", "own-tenant"),
+    ADVISOR: rwa("own-property"),
+    STUDENT: rwa("own"),
+  },
+  schoolPoolAllocation: {
+    SUPER_ADMIN: rwa("any"),
+    BTG_ADMIN: rwa("own-tenant"),
+    FINANCE: rwa("own-tenant"),
   },
 };
 

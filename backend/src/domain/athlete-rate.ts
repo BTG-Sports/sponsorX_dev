@@ -67,6 +67,14 @@ export class TierRequiredError extends Error {
   }
 }
 
+export class FeaturedAthleteError extends Error {
+  readonly status = 409;
+  constructor() {
+    super("A featured athlete holds no rates until they claim the profile and are activated.");
+    this.name = "FeaturedAthleteError";
+  }
+}
+
 /** Set the tier. A network manager's judgement, recorded — never computed. */
 export async function setAthleteTier(
   actor: Actor,
@@ -136,9 +144,12 @@ export async function setAthleteRate(
   return prisma.$transaction(async (tx) => {
     const athlete = await tx.athlete.findFirst({
       where: { ...whereFor(actor, "athlete", "read"), id: athleteId },
-      select: { id: true, tier: true },
+      select: { id: true, tier: true, state: true },
     });
     if (!athlete) throw new ForbiddenError("athleteRate", "write");
+    /* P9-BE-11 — a FEATURED athlete holds no rates. Being featured is not
+       being represented; a rate is the first thing representation needs. */
+    if (athlete.state === "FEATURED") throw new FeaturedAthleteError();
     if (!athlete.tier) throw new TierRequiredError();
 
     const job = await tx.nilJob.findFirst({
