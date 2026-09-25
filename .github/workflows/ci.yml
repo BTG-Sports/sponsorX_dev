@@ -183,8 +183,17 @@ jobs:
         if: steps.playwright-cache.outputs.cache-hit != 'true'
         run: npm run e2e:install
 
+      # The API runs from source under tsx (no build step here), so the
+      # Prisma client must be generated explicitly.
+      - name: Generate the Prisma client
+        run: npm run prisma:generate -w @sponsorx/backend
+
       - name: Migrate the E2E database
-        run: npm run prisma:deploy -w @sponsorx/backend
+        run: |
+          npm run prisma:deploy -w @sponsorx/backend
+          for f in backend/prisma/sql/*.sql; do
+            psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f "$f"
+          done
 
       - name: Run the E2E suite
         run: npm run e2e
