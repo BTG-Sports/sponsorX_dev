@@ -55,7 +55,22 @@ export default defineConfig({
   ...(process.env.E2E_BASE_URL
     ? {}
     : {
-        webServer: {
+        webServer: [
+          /* The API, when there is a database for it (CI's e2e job, or a
+             local run with DATABASE_URL set). The fan-flow specs drive the
+             real stack — web → API → Postgres — and skip without it. */
+          ...(process.env.DATABASE_URL
+            ? [{
+                command: "npm run start:api -w @sponsorx/backend",
+                url: "http://127.0.0.1:4000/health",
+                reuseExistingServer: !process.env.CI,
+                timeout: 120_000,
+                stdout: "pipe" as const,
+                stderr: "pipe" as const,
+                env: { PORT: "4000" },
+              }]
+            : []),
+          {
           /* `next dev`, not `next start`.
              The web app builds with output: 'standalone', and Next says
              plainly that `next start` does not serve that — it wants
@@ -73,6 +88,8 @@ export default defineConfig({
           timeout: 120_000,
           stdout: "pipe",
           stderr: "pipe",
-        },
+          env: { API_URL: "http://127.0.0.1:4000" },
+          },
+        ],
       }),
 });

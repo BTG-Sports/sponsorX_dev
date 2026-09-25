@@ -131,3 +131,21 @@ the test, then removed and the API redeployed — **a variable removal alone doe
 not restart the service; redeploy explicitly.** LOADTEST data deleted.
 
 **`P8-OPS-02` → Done** (user's instruction; both acceptance clauses met). Stage Progress row for 2026-09-25 recorded.
+
+## P6-QA-01 · P6-QA-02 — fan redeem page E2E and performance budget → Code review
+
+- **`P6-QA-01`** — `e2e/redeem-flow.spec.ts` runs the real stack (web → API →
+  Postgres) with JavaScript off: scan, LANDING beacon, claim (email + consent),
+  staff redeem, then a second redeem → 303 "Already used". The database must
+  hold exactly SCAN 1 · LANDING 1 · CLAIM 1 · REDEEM 1. Seeds/cleans its own
+  rows via `e2e/support/fan-db.ts` (skips when `DATABASE_URL` is unset).
+  **Bug found:** the post-redirect-get return re-rendered the LANDING beacon,
+  double-counting LANDING — the beacon is now omitted on flash returns.
+- **`P6-QA-02`** — `e2e/redeem-budget.spec.ts`, Pixel 7 + Slow 4G + 4× CPU:
+  no scripts, no fonts, no stylesheets, <20 KB, <2.5 s load (measured 2
+  requests · 4.1 KB · 1,224 ms). `frontend/tests/fan-route-budget.test.ts`
+  pins "plain dynamic route": no ISR/static/edge exports in `/r`, `/t`, `/u`,
+  and the Clerk proxy matcher (edge middleware) now skips those routes.
+- **CI:** the e2e job now has a `postgres:17` service, runs migrations, and
+  Playwright starts the API beside the web app (`playwright.config.ts`
+  `webServer` array), so both specs run on every push.

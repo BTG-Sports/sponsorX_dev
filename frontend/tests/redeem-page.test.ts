@@ -108,6 +108,8 @@ describe("P6-FE-02 · every state renders, with no JavaScript anywhere", () => {
     await Promise.all(afterCalls.map((f) => f()));
     expect(back.calls.some((c) => c.url.endsWith("/scan"))).toBe(false);
     expect(back.html).toContain("Claimed.");
+    /* …and no second LANDING beacon either (P6-QA-01 found this). */
+    expect(back.html).not.toContain("/landing");
   });
 });
 

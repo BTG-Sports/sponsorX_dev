@@ -126,7 +126,30 @@ jobs:
     name: e2e · playwright
     runs-on: ubuntu-latest
 
+    # The fan-flow specs (P6-QA-01/02) drive the real stack — web → API →
+    # Postgres — so this job has its own database and Playwright starts the
+    # API beside the web app (playwright.config.ts). Without DATABASE_URL
+    # those specs skip; here they must run.
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: sponsorx
+          POSTGRES_PASSWORD: sponsorx
+          POSTGRES_DB: sponsorx_e2e
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U sponsorx"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
     env:
+      DATABASE_URL: postgresql://sponsorx:sponsorx@localhost:5432/sponsorx_e2e
+      # The API validates both Clerk keys at boot; the fan routes never call
+      # Clerk, so the test instance's keys are enough.
+      CLERK_PUBLISHABLE_KEY: ${{ vars.CLERK_PUBLISHABLE_KEY_TEST }}
       # Clerk's DEVELOPMENT instance. ClerkProvider wraps the whole app, so
       # without a publishable key every page throws and Playwright times out
       # waiting for a server that never serves a 200 — which is what had been
@@ -159,6 +182,9 @@ jobs:
       - name: Install Chromium
         if: steps.playwright-cache.outputs.cache-hit != 'true'
         run: npm run e2e:install
+
+      - name: Migrate the E2E database
+        run: npm run prisma:deploy -w @sponsorx/backend
 
       - name: Run the E2E suite
         run: npm run e2e
