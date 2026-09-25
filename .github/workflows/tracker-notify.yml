@@ -1,0 +1,79 @@
+# Tracker → Slack and the published Google Sheet, on every change to main.
+# Posts the phase progress table plus exactly the tasks that changed, and
+# writes those changes into the Sheet (changed cells only, by task ID).
+# Reads the repo only — never commits. Script: scripts/tracker/tracker_sync.py
+name: Tracker notify
+
+on:
+  push:
+    branches: [main]
+    paths: ["Claude outputs/SponsorX-Full-Programme-Task-Board.xlsx"]
+  workflow_dispatch:
+
+concurrency:
+  group: tracker-sync
+  cancel-in-progress: false
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # the previous tracker is read from history
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install
+        run: pip install openpyxl==3.1.5
+
+      - name: Test the script
+        run: python -m unittest discover scripts/tracker/tests
+
+      - name: Post changes and update the Sheet
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          SHEET_ENDPOINT_URL: ${{ secrets.SHEET_ENDPOINT_URL }}
+          SHEET_ENDPOINT_SECRET: ${{ secrets.SHEET_ENDPOINT_SECRET }}
+        run: |
+          python scripts/tracker/tracker_sync.py notify \
+            --before "${{ github.event.before }}" \
+            --after "${{ github.sha }}" \
+            --author "${{ github.event.head_commit.author.name || github.actor }}"
+
+
+# The weekday evening digest: phase progress, what finished today, what waits
+# in Code review, what is newly blocked — and the day's Stage Progress row
+# appended to the published Sheet. Reads the repo only — never commits.
+name: Tracker digest
+
+on:
+  schedule:
+    - cron: "0 13 * * 1-5" # 13:00 UTC = 9:00 pm Manila, Monday–Friday
+  workflow_dispatch:
+
+jobs:
+  digest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install
+        run: pip install openpyxl==3.1.5
+
+      - name: Post the digest and append the snapshot row
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          SHEET_ENDPOINT_URL: ${{ secrets.SHEET_ENDPOINT_URL }}
+          SHEET_ENDPOINT_SECRET: ${{ secrets.SHEET_ENDPOINT_SECRET }}
+          TZ: Asia/Manila
+        run: python scripts/tracker/tracker_sync.py digest --since "24 hours ago"
