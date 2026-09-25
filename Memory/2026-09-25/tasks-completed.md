@@ -153,3 +153,19 @@ not restart the service; redeploy explicitly.** LOADTEST data deleted.
   `webServer` array), so both specs run on every push.
 
 **`P6-QA-01`, `P6-QA-02` → Done** (user's instruction; acceptance met, both specs green in CI).
+
+## P9-PMO-01 · P9-BE-01 — NEXT rate card (simulated) and NEXT packages → Code review
+
+- **`P9-PMO-01`** (SIMULATED): `documentation/SponsorX-NEXT-Rate-Card-Decision.md`.
+  Quarter $250 · half $500 · full $800 · back cover $1,000 (qty 1) ·
+  presenting sponsor $3,000 (qty 1) · Local Business Package $1,500. Split
+  40/30/20/10, matching the revenue-splits screen. BTG swaps in real numbers
+  when pricing edition one — the doc and `sponsor-packages.ts` change together.
+- **`P9-BE-01`**: `NEXT_PACKAGES` joins the catalogue the worker seeds on boot.
+  Empty `lineItems`, zero athletes, inventory in `includes`, no schema change.
+  `tests/next-packages.test.ts` proves the seed → marketplace listing → Zoho
+  Deal path, and that the margin floor is reachable only from CampaignOrder
+  creation. The seed's package loop is now `seedPackages()` so a test can seed
+  its own tenant without touching the global NIL job ids.
+- Only these two NEXT tasks were startable; `P9-BE-02`+ stay behind the
+  `P9-PMO-03` entry gate.
