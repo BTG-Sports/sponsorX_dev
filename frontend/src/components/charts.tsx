@@ -657,7 +657,7 @@ export function FunnelSteps({
                 ].join(" ")}
                 style={vizDelay(i * 0.1 + 0.15)}
               >
-                {s.value.toLocaleString()}
+                {s.value.toLocaleString("en-US")}
               </span>
             </li>
           ))}
@@ -691,7 +691,7 @@ export function FunnelSteps({
                 style={{ width: `${pct}%`, ...vizDelay(i * 0.11) }}
               >
                 <span className="truncate">
-                  {s.label} · {s.value.toLocaleString()}
+                  {s.label} · {s.value.toLocaleString("en-US")}
                 </span>
               </div>
             </div>

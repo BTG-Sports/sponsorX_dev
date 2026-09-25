@@ -784,11 +784,11 @@ function StepDetails({
             className="mt-2 w-full accent-[var(--sx-primary)]"
           />
           <div className="mt-1 flex items-center justify-between text-[10px] text-faint">
-            <span>${minD.toLocaleString()}</span>
+            <span>${minD.toLocaleString("en-US")}</span>
             <span className="text-muted">
               ≈ {fmtCompact(reach)} views at ${inv.cpm} CPM
             </span>
-            <span>${maxD.toLocaleString()}</span>
+            <span>${maxD.toLocaleString("en-US")}</span>
           </div>
         </div>
 

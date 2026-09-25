@@ -52,7 +52,7 @@ export default async function StudentSalesPage({
       </div>
       <Button
         disabled
-        title="Prospects are logged by SponsorX when your code is used — self-serve logging arrives with Stage 9 (P9-FE-03)"
+        title="Prospects are logged by SponsorX when your code is used — self-serve logging arrives with Stage 9 (P9-FE-01)"
       >
         Add a prospect
       </Button>
@@ -169,7 +169,13 @@ export default async function StudentSalesPage({
                   <p className="text-sm font-medium">{p.business}</p>
                   <div className="flex items-center gap-1.5">
                     <Badge tone="danger">{PROSPECT_COPY[p.stage]}</Badge>
-                    <Badge tone="neutral">{p.reasonCode}</Badge>
+                    {/* the enum is an API constant, not UI copy; optional —
+                        only some rejected rows carry a code */}
+                    {p.reasonCode && (
+                      <Badge tone="neutral">
+                        {p.reasonCode.replace(/_/g, " ").toLowerCase()}
+                      </Badge>
+                    )}
                   </div>
                 </div>
                 <p className="mt-2 text-xs leading-relaxed text-muted">

@@ -7,6 +7,7 @@
  * middleware automatically, so handlers throw instead of calling next(err).
  */
 import express, { type ErrorRequestHandler } from "express";
+import { errorBody } from "./lib/error-body";
 import { healthRouter } from "./routes/health";
 import { v1Router } from "./routes/v1";
 
@@ -32,20 +33,13 @@ export function createApp() {
        400, as the published spec says. It used to fall through to 500
        (ZodError carries no status), which logged every bad request as an
        outage and hid, from the cross-tenant sweep, which routes never
-       reached their scope check (P8-SEC-02 follow-up). */
-    const isValidation = typeof err === "object" && err !== null && (err as { name?: string }).name === "ZodError";
-    const status = isValidation
-      ? 400
-      : typeof err === "object" && err && "status" in err
-        ? Number((err as { status: unknown }).status) || 500
-        : 500;
+       reached their scope check (P8-SEC-02 follow-up). Both sides of the
+       2026-09-25 merge fixed this independently; errorBody() is the kept
+       version because it also names the failing paths (issues[]), which
+       the /join wizard's field mapping consumes (P3-FE-01). */
+    const { status, body } = errorBody(err);
     if (status >= 500) console.error(err);
-    res.status(status).json({
-      error: {
-        code: status >= 500 ? "internal_error" : "bad_request",
-        message: err instanceof Error ? err.message : "Unknown error",
-      },
-    });
+    res.status(status).json(body);
   };
   app.use(onError);
 

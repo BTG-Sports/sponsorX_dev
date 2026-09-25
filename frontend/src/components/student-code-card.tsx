@@ -11,7 +11,7 @@ import { QrPattern } from "./reward-creator";
 
    Copy and the overlay are client-side only; nothing here touches the
    backend. The QR is the decorative stand-in the reward creator uses — the
-   real one is generated when Stage 9 wires /s/[code] (P9-FE-04).
+   real one is generated when Stage 9 wires /s/[code] (P9-FE-01).
    -------------------------------------------------------------------------- */
 
 export function StudentCodeCard({
@@ -37,13 +37,30 @@ export function StudentCodeCard({
     }
   };
 
+  /* Presentation mode is modal in fact, so make it modal in behavior: focus
+     moves onto the dialog's single control (the full-surface close button),
+     Tab is pinned, the page behind cannot scroll, and focus returns to the
+     trigger on close. */
+  const overlayRef = useRef<HTMLButtonElement>(null);
   useEffect(() => {
     if (!presenting) return;
+    const before =
+      document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : null;
+    overlayRef.current?.focus({ preventScroll: true });
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") setPresenting(false);
+      if (e.key === "Tab") e.preventDefault(); // single-control dialog
     };
     window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      document.body.style.overflow = prevOverflow;
+      before?.focus({ preventScroll: true });
+    };
   }, [presenting]);
 
   useEffect(() => () => window.clearTimeout(timer.current), []);
@@ -95,21 +112,32 @@ export function StudentCodeCard({
 
       {/* ------------------------------------- presentation mode overlay */}
       {presenting && (
-        <button
-          type="button"
-          onClick={() => setPresenting(false)}
-          aria-label="Close full-screen code"
-          className="sx-backdrop fixed inset-0 z-50 flex w-full cursor-pointer flex-col items-center justify-center gap-6 bg-bg px-6"
+        /* div[role=dialog] wrapping the close button — role="dialog" is not a
+           permitted override on <button> (ARIA in HTML), and the override
+           suppressed the control semantic for screen readers. */
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="Your sales code, full screen"
+          className="sx-backdrop fixed inset-0 z-50 bg-bg"
         >
-          <QrPattern seed={code} className="size-56 sm:size-64" />
-          <span className="bg-[linear-gradient(90deg,var(--sx-next-soft),var(--sx-next))] bg-clip-text text-4xl font-bold tracking-tight text-transparent sm:text-5xl">
-            {code}
-          </span>
-          <span className="text-sm text-muted">{link}</span>
-          <span className="text-[11px] uppercase tracking-[0.2em] text-faint">
-            tap anywhere to close
-          </span>
-        </button>
+          <button
+            ref={overlayRef}
+            type="button"
+            onClick={() => setPresenting(false)}
+            aria-label="Close full-screen code"
+            className="flex h-full w-full cursor-pointer flex-col items-center justify-center gap-6 px-6"
+          >
+            <QrPattern seed={code} className="size-56 sm:size-64" />
+            <span className="bg-[linear-gradient(90deg,var(--sx-next-soft),var(--sx-next))] bg-clip-text text-4xl font-bold tracking-tight text-transparent sm:text-5xl">
+              {code}
+            </span>
+            <span className="text-sm text-muted">{link}</span>
+            <span className="text-[11px] uppercase tracking-[0.2em] text-faint">
+              tap anywhere to close
+            </span>
+          </button>
+        </div>
       )}
     </>
   );

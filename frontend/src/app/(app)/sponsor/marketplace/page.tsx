@@ -44,7 +44,13 @@ import {
 
 /** Real catalogue for a signed-in sponsor, or null for the fixture demo. */
 async function liveCatalogue(): Promise<{ packages: Pkg[]; jobs: LiveJob[] } | null> {
-  const who = await fetchActor().catch(() => null);
+  /* No catch: fetchActor answers anonymous/unprovisioned as VALUES and throws
+     only when the API itself is broken. Swallowing that throw dropped a real
+     signed-in sponsor into the fixture demo on any API blip — and the demo
+     drawer then faked "Brief received" while sending nothing (QA pass 4).
+     An outage must land on the error boundary, same as the catalogue fetch
+     below; anonymous visitors never hit the API and still get the demo. */
+  const who = await fetchActor();
   if (!who || who.status !== "linked") return null;
   if (!who.actor.roles.some((r) => r === "SPONSOR_ADMIN" || r === "SPONSOR_ANALYST")) return null;
   /* A signed-in sponsor gets the truth or an error page — never fixtures

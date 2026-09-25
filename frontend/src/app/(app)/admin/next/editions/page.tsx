@@ -5,6 +5,8 @@ import { EmptyState, SkeletonPage } from "@/components/states";
 import { demoState } from "@/lib/demo";
 import {
   SLOT_RACK_CENTS,
+  advisorContentQueue,
+  clearanceQueue,
   editionBackCover,
   editionPages,
   money,
@@ -29,18 +31,22 @@ import {
    real AdSlot ledger.
    -------------------------------------------------------------------------- */
 
+/* Every gate derives from the fixture the rest of the app renders — a number
+   typed here by hand drifts from the advisor desk the moment either changes. */
+const piecesCleared = advisorContentQueue.filter((c) => c.clearedAt).length;
+
 const GATES: Array<{ key: string; label: string; sub: string; pass: boolean }> = [
   {
     key: "content",
     label: "Content ready",
-    sub: "9 of 14 pieces approved",
-    pass: false,
+    sub: `${piecesCleared} of ${advisorContentQueue.length} pieces approved`,
+    pass: piecesCleared === advisorContentQueue.length,
   },
   {
     key: "rights",
     label: "Rights cleared",
-    sub: "3 assets awaiting consent",
-    pass: false,
+    sub: `${clearanceQueue.length} assets awaiting consent`,
+    pass: clearanceQueue.length === 0,
   },
   {
     key: "revenue",
@@ -58,6 +64,16 @@ export default async function EditionPlanningPage({
   const demo = await demoState(searchParams);
   if (demo === "loading") return <SkeletonPage />;
   if (demo === "error") throw new Error("Demo error state");
+
+  /* ?open=N — the inventory ledger's "Map →" lands on the right page drawer.
+     The empty-string guard matters: Number("") is 0, and 0 is the back-cover
+     sentinel, so a bare "?open=" would silently open the back cover. */
+  const sp = await searchParams;
+  const openParam =
+    typeof sp.open === "string" && sp.open.trim() !== ""
+      ? Number(sp.open)
+      : NaN;
+  const initialOpenPage = Number.isInteger(openParam) ? openParam : undefined;
 
   const heading = (
     <div className="flex flex-wrap items-end justify-between gap-4">
@@ -143,7 +159,7 @@ export default async function EditionPlanningPage({
               closes {studentEdition.closeDate} · {studentEdition.daysToClose}{" "}
               days
             </Badge>
-            <Badge tone="neutral">prints {studentEdition.publishTarget}</Badge>
+            <Badge tone="neutral">publish target {studentEdition.publishTarget}</Badge>
           </div>
 
           {/* §5.2 — all three must hold for the planned format */}
@@ -203,6 +219,7 @@ export default async function EditionPlanningPage({
             pages={editionPages}
             backCover={editionBackCover}
             closeDate={studentEdition.closeDate}
+            initialOpenPage={initialOpenPage}
           />
         </section>
 
@@ -302,7 +319,7 @@ export default async function EditionPlanningPage({
               </ul>
               <p className="border-t border-line-soft px-4 py-3 text-[10px] leading-relaxed text-faint">
                 Rack prices; a sale&rsquo;s value is frozen at close and may
-                differ (add-ons, co-ops). Repricing arrives with P9-FE-03.
+                differ (add-ons, co-ops). Repricing is wired in Stage 9.
               </p>
             </Card>
           </section>

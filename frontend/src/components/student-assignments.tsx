@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Badge, Button, Card } from "./ui";
 import { ICONS, type NavIcon } from "./portal-nav";
+import { useDrawerFocus } from "./use-drawer-focus";
 import type { DeliverableState } from "@/lib/fixtures";
 
 /* --------------------------------------------------------------------------
@@ -47,8 +48,8 @@ const STATE_COPY: Record<DeliverableState, string> = {
   DRAFT_SUBMITTED: "Draft submitted",
   BTG_REVIEW: "Advisor review",
   SPONSOR_REVIEW: "Sponsor preview",
-  APPROVED: "Approved for print",
-  PUBLISHED: "Printed",
+  APPROVED: "Approved",
+  PUBLISHED: "Published",
   VERIFIED: "Confirmed",
 };
 
@@ -78,8 +79,8 @@ const ORDER: DeliverableState[] = [
 const MILESTONES: Array<{ label: string; at: DeliverableState }> = [
   { label: "Draft submitted", at: "DRAFT_SUBMITTED" },
   { label: "Advisor review", at: "BTG_REVIEW" },
-  { label: "Approved for print", at: "APPROVED" },
-  { label: "Printed", at: "PUBLISHED" },
+  { label: "Approved", at: "APPROVED" },
+  { label: "Published", at: "PUBLISHED" },
 ];
 
 type Filter = "all" | "todo" | "review" | "done";
@@ -142,7 +143,17 @@ export function StudentAssignments({
   );
   const [closing, setClosing] = useState(false);
 
+  /* The 400ms fallback timer below captures `closed` from the render where
+     `closing` flipped — a chip clicked during the exit animation would have
+     its filter overwritten in the URL by the stale closure. The ref always
+     reads the current filter. */
+  const filterRef = useRef(filter);
+  useEffect(() => {
+    filterRef.current = filter;
+  }, [filter]);
+
   const open = rows.find((r) => r.id === openId) ?? null;
+  const { panelRef, onKeyDown } = useDrawerFocus<HTMLElement>(Boolean(open));
 
   const shown = useMemo(
     () => (filter === "all" ? rows : rows.filter((r) => bucket(r.state) === filter)),
@@ -168,7 +179,7 @@ export function StudentAssignments({
   const closed = () => {
     setOpenId(null);
     setClosing(false);
-    syncUrl(filter, null);
+    syncUrl(filterRef.current, null);
   };
 
   /* Escape closes the drawer; the exit animation still runs. */
@@ -186,7 +197,6 @@ export function StudentAssignments({
     if (!closing) return;
     const t = setTimeout(closed, 400);
     return () => clearTimeout(t);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [closing]);
 
   return (
@@ -239,7 +249,9 @@ export function StudentAssignments({
                 <Glyph icon={KIND_ICON[a.kind]} />
               </span>
               <span className="min-w-0 flex-1">
-                <span className="block truncate text-sm font-medium">
+                {/* two lines, not a truncate — at 390px the badge column left
+                    titles ~15 characters, which reads as gibberish */}
+                <span className="line-clamp-2 text-sm font-medium leading-snug">
                   {a.title}
                 </span>
                 <span className="mt-0.5 block text-xs text-muted">
@@ -264,6 +276,7 @@ export function StudentAssignments({
           role="dialog"
           aria-modal="true"
           aria-label={open.title}
+          onKeyDown={onKeyDown}
         >
           <div
             onClick={dismiss}
@@ -273,6 +286,8 @@ export function StudentAssignments({
             ].join(" ")}
           />
           <aside
+            ref={panelRef}
+            tabIndex={-1}
             onAnimationEnd={(e) => {
               if (closing && e.animationName === "sx-drawer-out") closed();
             }}
@@ -356,7 +371,7 @@ export function StudentAssignments({
               <Button
                 full
                 disabled
-                title="Uploads arrive when Stage 9 wires the portal (P9-FE-02)"
+                title="Uploads arrive when Stage 9 wires the portal (P9-FE-01)"
               >
                 Submit draft
               </Button>

@@ -16,6 +16,7 @@ const TABS: ReadonlyArray<{ href: string; label: string; icon: NavIcon }> = [
   { href: "/next/assignments", label: "Work", icon: "pen" },
   { href: "/next/sales", label: "Sales", icon: "store" },
   { href: "/next/code", label: "My code", icon: "card" },
+  { href: "/next/points", label: "Points", icon: "trophy" },
 ];
 
 function TabGlyph({ icon }: { icon: NavIcon }) {
@@ -77,14 +78,6 @@ export function StudentTabBar() {
             </Link>
           );
         })}
-        {/* Points ships with P1-FE-30 — visible and inert, not hidden. */}
-        <span
-          title="Points — arrives with P1-FE-30"
-          className="flex cursor-not-allowed flex-col items-center gap-0.5 py-2 text-[10px] font-medium text-faint/60"
-        >
-          <TabGlyph icon="trophy" />
-          Points
-        </span>
       </div>
     </nav>
   );

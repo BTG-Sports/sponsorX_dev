@@ -1667,8 +1667,10 @@ export const STUDENT_ASSIGNMENT_COPY: Record<DeliverableState, string> = {
   DRAFT_SUBMITTED: "Draft submitted",
   BTG_REVIEW: "Advisor review",
   SPONSOR_REVIEW: "Sponsor preview",
-  APPROVED: "Approved for print",
-  PUBLISHED: "Printed",
+  /* "Approved"/"Published", not print language — free digital is the V1
+     product (spec principle 10) and asg-06 publishes digitally first. */
+  APPROVED: "Approved",
+  PUBLISHED: "Published",
   VERIFIED: "Confirmed",
 };
 
@@ -1740,7 +1742,8 @@ export const studentAssignments = [
     due: "Sep 12",
     state: "PUBLISHED" as DeliverableState,
     points: 25,
-    brief: "Ran across pages 6–7 of the digital preview edition.",
+    brief:
+      "Published in the digital preview edition; print placement lands with the final flatplan.",
   },
 ];
 
@@ -1969,7 +1972,11 @@ export const editionPages: EditionPage[] = [
       { code: "P16-HALFB", kind: "HALF", state: "OPEN" },
     ],
   },
-  { page: 17, title: "Records & standings", editorial: true, slots: [] },
+  /* Titled for what the reader actually runs there — the concession-stand
+     money feature. The flatplan and the public reader must tell one story
+     about page 17 (the invariant suite pins articles to editorial pages, so
+     the feature cannot live on slotted p16 "Concessions & program"). */
+  { page: 17, title: "Money & program", editorial: true, slots: [] },
   { page: 18, title: "Alumni corner", editorial: true, slots: [] },
   { page: 19, title: "Masthead & credits", editorial: true, slots: [] },
   {
@@ -1989,14 +1996,480 @@ export const editionBackCover: EditionSlot = {
   state: "OPEN",
 };
 
-/** StudentPointAccrual rows — reasons from the spec §5.5 vocabulary.
+/* --------------------------------------------------------------------------
+   Advisor desk — P1-FE-20, NEXT spec §3, §7. One school's view: student
+   applications reviewed exactly as a network manager reviews athlete ones
+   (StudentState mirrors AthleteState, spec §5.1), and the content queue in
+   ApprovalsDesk's own vocabulary — reused unchanged, per the acceptance.
+   -------------------------------------------------------------------------- */
+
+/* --------------------------------------------------------------------------
+   Revenue splits — P1-FE-23, spec §5.7. RevenueSplit attaches to the Edition:
+   a payeeKind, a basis-points share, a computed amount. Deliberately NOT the
+   Earning shape — Earning means athlete NIL compensation and finance
+   reconciles payouts from it; these are allocations of edition revenue, and
+   the two must not look alike (the P1-FE-23 acceptance) or share a table
+   (§5.7). Amounts are always derived from bps at render time, never stored
+   here — a transcribed amount is how a split drifts from its own rule.
+   -------------------------------------------------------------------------- */
+
+export type SplitPayeeKind =
+  | "SPONSORX"
+  | "SCHOOL"
+  | "STUDENT_POOL"
+  | "EDITORIAL_FUND";
+
+export const editionSplits: Array<{
+  payeeKind: SplitPayeeKind;
+  /** Basis points of edition revenue — Σ must be 10,000 (tested). */
+  bps: number;
+  payee: string;
+  blurb: string;
+}> = [
+  {
+    payeeKind: "SPONSORX",
+    bps: 4_000,
+    payee: "SponsorX operations",
+    blurb: "Production, print, sales operations and the platform.",
+  },
+  {
+    payeeKind: "SCHOOL",
+    bps: 3_000,
+    payee: "Northside High",
+    blurb: "The school's share — paid to the program, not a person.",
+  },
+  {
+    payeeKind: "STUDENT_POOL",
+    bps: 2_000,
+    payee: "Student pool",
+    blurb:
+      "Funds the points program. Never paid to a student directly — points are recognition, not wages (§5.5).",
+  },
+  {
+    payeeKind: "EDITORIAL_FUND",
+    bps: 1_000,
+    payee: "Editorial fund",
+    blurb: "Cameras, recorders, section budgets — the newsroom's gear money.",
+  },
+];
+
+/* --------------------------------------------------------------------------
+   The free digital edition reader — P1-FE-27, spec principle 10: free digital
+   is the V1 reader product. Articles attach to the flatplan's editorial pages
+   by page number (tested), so the reader, the page map and the ledgers all
+   describe one edition. Bylines are the point: a student's public portfolio
+   is this page existing.
+   -------------------------------------------------------------------------- */
+
+export const editionReaderSlugs = {
+  school: "northside-high",
+  edition: "fall-2026",
+};
+
+export type ReaderArticle = {
+  /** The editorial page (editionPages.page) this piece opens on. */
+  page: number;
+  section: string;
+  headline: string;
+  byline: string;
+  bylineClass: number;
+  /** Reading minutes — shown in the contents. */
+  minutes: number;
+  paras: string[];
+  pullQuote?: string;
+  /** Photo-essay stub — renders as a frame grid, not text. */
+  gallery?: boolean;
+};
+
+export const editionReaderArticles: ReaderArticle[] = [
+  {
+    page: 3,
+    section: "Season openers",
+    headline: "Five programs, one opening weekend — where every Northside season stands",
+    byline: "Tessa Bloom",
+    bylineClass: 2028,
+    minutes: 4,
+    paras: [
+      "The fall season opened the way Northside likes it: loudly. Varsity football took the opener against Eastbrook 24–17 behind a defense that forced three turnovers, girls' soccer extended a streak nobody wants to jinx by naming it, and cross country sent both squads home with top-three finishes at the Rockville Invitational.",
+      "The numbers only tell half of it. Athletic director season previews used to live on a corkboard outside the gym; this year they live here, written by the people in the hallways. Every result in this issue was reported by a student who was standing on the sideline when it happened.",
+      "What to watch by November: whether the soccer streak survives the county schedule, and whether the freshman class keeps supplying varsity rosters at the rate it has since August.",
+    ],
+  },
+  {
+    page: 6,
+    section: "Feature",
+    headline: "Under the Friday lights — inside girls' soccer's unbeaten run",
+    byline: "Jordan Reyes",
+    bylineClass: 2027,
+    minutes: 7,
+    pullQuote:
+      "Nobody on that bench knew our names in August. They know them now.",
+    paras: [
+      "The streak started before anyone was counting. Four games in, the team stopped talking about it; eight games in, everyone else started. Northside's girls' soccer team has not lost since the season opened, and the run has changed the sound of Friday nights on the east field.",
+      "Captain Dani Osei plays like the scoreboard is a rumor. Against Wheaton she kept the ball through a fourth quarter that never seemed to end, killing minutes the way seniors are supposed to and freshmen aren't — except Northside's freshmen do, because Osei makes them practice it.",
+      "Coach Alvarez won't name the streak either. What he will name is the work: the 6 a.m. sessions that started in July, the film reviews in a classroom that smells like disinfectant, the freshman keeper who took notes standing up because sitting felt too casual.",
+      "The county schedule gets harder from here. The streak will end someday — streaks do. What it has already done is permanent: it filled a sideline, it put this masthead on the map, and it taught a locker room what their own names sound like in a crowd.",
+    ],
+  },
+  {
+    page: 12,
+    section: "Photo essay",
+    headline: "Build week — homecoming in twelve frames",
+    byline: "Jordan Reyes",
+    bylineClass: 2027,
+    minutes: 3,
+    gallery: true,
+    paras: [
+      "Float builders, banner paint, the parade line-up rehearsal nobody takes seriously until the director raises her voice. Homecoming happens twice: once on the night, and once in the week before, in the shop hall, where it actually gets made.",
+    ],
+  },
+  {
+    page: 17,
+    section: "Money & program",
+    headline: "How the concession stand funds the season",
+    byline: "Jordan Reyes",
+    bylineClass: 2027,
+    minutes: 5,
+    paras: [
+      "Follow one Friday's takings from the till to the equipment order and the athletic budget stops being abstract. The stand cleared $1,140 on opening night — hot dogs and hot chocolate mostly, plus a run on hand warmers nobody predicted in September.",
+      "Booster treasurer Gail Munroe walked us through where it goes: roughly a third to restocking, a third to officials' fees the district doesn't cover, and the rest banked toward the winter equipment order. The javelin mats every track parent has been promised for three seasons? Two more good Fridays away.",
+      "Numbers in this piece were confirmed against the booster ledger. That is new for this masthead — and it is the standard from here.",
+    ],
+  },
+];
+
+/* --------------------------------------------------------------------------
+   Rights ledger — P1-FE-29, spec §5.3. One table answers the one question the
+   production gate asks: what may we do with this asset? Shapes worth keeping
+   when P9-FE-09 substitutes ContentRight:
+
+   - Print and digital are SEPARATE permissions — a digital-first edition can
+     clear while print rights are still outstanding.
+   - BTG's own editorial content defaults mayReuseCommercially FALSE (V3 §6):
+     editorial use is not a licence to resell journalism inside a campaign.
+   - Evidence is exactly one of acceptanceId (consent-based) or licenseRef
+     (negotiated) — a right with both or neither is not evidence (tested).
+   -------------------------------------------------------------------------- */
+
+export type RightsGrantorKind =
+  | "STUDENT"
+  | "ATHLETE"
+  | "GUARDIAN"
+  | "BTG"
+  | "THIRD_PARTY";
+
+export type ContentRightRow = {
+  id: string;
+  asset: string;
+  assetKind: "photo" | "video" | "article" | "artwork";
+  grantorKind: RightsGrantorKind;
+  grantor: string;
+  mayPublishDigital: boolean;
+  mayPublishPrint: boolean;
+  mayPromote: boolean;
+  mayReuseCommercially: boolean;
+  startsAt: string;
+  endsAt: string | null;
+  acceptanceId?: string;
+  licenseRef?: string;
+};
+
+export const contentRights: ContentRightRow[] = [
+  {
+    id: "cr-01",
+    asset: "Under the Friday lights — feature text",
+    assetKind: "article",
+    grantorKind: "STUDENT",
+    grantor: "Jordan Reyes",
+    mayPublishDigital: true,
+    mayPublishPrint: true,
+    mayPromote: true,
+    mayReuseCommercially: false,
+    startsAt: "Sep 23",
+    endsAt: null,
+    acceptanceId: "acc_7f31d",
+  },
+  {
+    id: "cr-02",
+    asset: "Amara Whitfield — feature portrait set",
+    assetKind: "photo",
+    grantorKind: "GUARDIAN",
+    grantor: "R. Whitfield (guardian)",
+    mayPublishDigital: true,
+    mayPublishPrint: true,
+    mayPromote: true,
+    mayReuseCommercially: false,
+    startsAt: "Sep 18",
+    endsAt: "Jun 30, 2027",
+    acceptanceId: "acc_2ba90",
+  },
+  {
+    id: "cr-03",
+    asset: "Season opener gallery (12 frames)",
+    assetKind: "photo",
+    grantorKind: "STUDENT",
+    grantor: "Jordan Reyes",
+    mayPublishDigital: true,
+    mayPublishPrint: false,
+    mayPromote: true,
+    mayReuseCommercially: false,
+    startsAt: "Sep 11",
+    endsAt: null,
+    acceptanceId: "acc_91c44",
+  },
+  {
+    id: "cr-04",
+    asset: "Drumline profile photos",
+    assetKind: "photo",
+    grantorKind: "STUDENT",
+    grantor: "Omar Diallo",
+    mayPublishDigital: true,
+    mayPublishPrint: true,
+    mayPromote: false,
+    mayReuseCommercially: false,
+    startsAt: "Sep 22",
+    endsAt: null,
+    acceptanceId: "acc_c1d02",
+  },
+  {
+    id: "cr-05",
+    asset: "Edition masthead artwork",
+    assetKind: "artwork",
+    grantorKind: "BTG",
+    grantor: "SponsorX editorial",
+    mayPublishDigital: true,
+    mayPublishPrint: true,
+    mayPromote: true,
+    /* V3 §6 — BTG content defaults FALSE here, deliberately. */
+    mayReuseCommercially: false,
+    startsAt: "Sep 1",
+    endsAt: null,
+    licenseRef: "BTG-ED-2026-03",
+  },
+  {
+    id: "cr-06",
+    asset: "Stadium aerial (cover background)",
+    assetKind: "photo",
+    grantorKind: "THIRD_PARTY",
+    grantor: "K. Osei Photography",
+    mayPublishDigital: true,
+    mayPublishPrint: true,
+    mayPromote: false,
+    mayReuseCommercially: false,
+    startsAt: "Sep 15",
+    endsAt: "Dec 31",
+    licenseRef: "LIC-2026-0142",
+  },
+];
+
+/** Assets the gate is waiting on — each names what is missing and who can
+ *  grant it. The editions page derives its rightsCleared gate from this. */
+export const clearanceQueue = [
+  {
+    id: "cq-01",
+    asset: "Amara Whitfield — highlight reel (1:48)",
+    assetKind: "video" as const,
+    missing: "Print + promotion consent",
+    grantor: "R. Whitfield (guardian)",
+    grantorKind: "GUARDIAN" as RightsGrantorKind,
+    requestedOn: "Sep 20",
+    note: "Digital consent recorded; the print/promo clause needs the guardian's separate initials.",
+  },
+  {
+    id: "cq-02",
+    asset: "Homecoming build week candids",
+    assetKind: "photo" as const,
+    missing: "Creator consent — photographer not yet enrolled",
+    grantor: "Maya Chen (applicant)",
+    grantorKind: "STUDENT" as RightsGrantorKind,
+    requestedOn: "Sep 22",
+    note: "Shot before her application was approved; consent lands with her enrolment.",
+  },
+  {
+    id: "cq-03",
+    asset: "Season opener gallery — print use",
+    assetKind: "photo" as const,
+    missing: "Print permission",
+    grantor: "Jordan Reyes",
+    grantorKind: "STUDENT" as RightsGrantorKind,
+    requestedOn: "Sep 23",
+    note: "Digital cleared (cr-03); print was not in the original acceptance and needs a fresh one.",
+  },
+];
+
+/** SUBMITTED | UNDER_REVIEW | APPROVED — the slice an advisor works daily.
+ *  Full StudentState adds DRAFT/ACTIVE/INACTIVE/SUSPENDED (Stage 9). */
+export type StudentApplicationState = "SUBMITTED" | "UNDER_REVIEW" | "APPROVED";
+
+export const STUDENT_APPLICATION_COPY: Record<StudentApplicationState, string> = {
+  SUBMITTED: "New — awaiting review",
+  UNDER_REVIEW: "Under review",
+  APPROVED: "Approved",
+};
+
+export const studentApplications = [
+  {
+    id: "sapp-01",
+    name: "Maya Chen",
+    gradYear: 2028,
+    masthead: ["PHOTOGRAPHER"],
+    state: "SUBMITTED" as StudentApplicationState,
+    submitted: "Sep 22",
+    note: "Already shoots JV games on her own camera; portfolio link attached.",
+  },
+  {
+    id: "sapp-02",
+    name: "DeShawn Carter",
+    gradYear: 2027,
+    masthead: ["SALES"],
+    state: "UNDER_REVIEW" as StudentApplicationState,
+    submitted: "Sep 20",
+    note: "Recommended by Coach Alvarez. Wants the winter season; asked about the sales code on day one.",
+  },
+  {
+    id: "sapp-03",
+    name: "Priya Nair",
+    gradYear: 2029,
+    masthead: ["WRITER", "VIDEO"],
+    state: "SUBMITTED" as StudentApplicationState,
+    submitted: "Sep 23",
+    note: "Freshman — strong writing sample on the girls' soccer run.",
+  },
+  {
+    id: "sapp-04",
+    name: "Leo Martinez",
+    gradYear: 2028,
+    masthead: ["DESIGNER"],
+    state: "APPROVED" as StudentApplicationState,
+    submitted: "Sep 15",
+    note: "Approved Sep 18 — onboarding with the Fall layout team.",
+  },
+];
+
+/** The school's content queue in ReviewContentItem shape so ApprovalsDesk is
+ *  reused unchanged: campaign carries the section, athlete carries the
+ *  student, sponsor is "Editorial" unless a paid feature previews placement.
+ *  Jordan's rows mirror studentAssignments states one for one. */
+export const advisorContentQueue: ReviewContentItem[] = [
+  {
+    id: "adv-01",
+    campaign: "Sports feature",
+    sponsor: "Editorial",
+    title: "Under the Friday lights — girls' soccer's unbeaten run",
+    dueDate: "Sep 26",
+    state: "DRAFT_SUBMITTED",
+    revisionRequested: false,
+    athlete: "Jordan Reyes",
+    assetKind: "image",
+    version: 1,
+    submittedAt: "Sep 23, 9:12 AM",
+    waitingHours: 30,
+  },
+  {
+    id: "adv-02",
+    campaign: "Photo essay",
+    sponsor: "Editorial",
+    title: "Cross country season gallery — dawn practice",
+    dueDate: "Sep 28",
+    state: "DRAFT_SUBMITTED",
+    revisionRequested: true,
+    athlete: "Tessa Bloom",
+    assetKind: "image",
+    version: 2,
+    submittedAt: "Sep 21, 4:40 PM",
+    waitingHours: 62,
+  },
+  {
+    id: "adv-03",
+    campaign: "Feature support",
+    sponsor: "First Ridge Credit Union",
+    title: "Sit-down: Amara Whitfield, the Issue 03 feature",
+    dueDate: "Oct 3",
+    state: "SPONSOR_REVIEW",
+    revisionRequested: false,
+    athlete: "Jordan Reyes",
+    assetKind: "video",
+    version: 2,
+    submittedAt: "Sep 22, 1:05 PM",
+    waitingHours: 18,
+  },
+  {
+    id: "adv-04",
+    campaign: "People",
+    sponsor: "Editorial",
+    title: "Marching band profile: the drumline's summer",
+    dueDate: "Sep 30",
+    state: "BTG_REVIEW",
+    revisionRequested: false,
+    athlete: "Omar Diallo",
+    assetKind: "image",
+    version: 1,
+    submittedAt: "Sep 22, 8:30 AM",
+    waitingHours: 26,
+  },
+  {
+    id: "adv-05",
+    campaign: "Money & program",
+    sponsor: "Editorial",
+    title: "How the concession stand funds the season",
+    dueDate: "Sep 24",
+    state: "APPROVED",
+    revisionRequested: false,
+    athlete: "Jordan Reyes",
+    assetKind: "image",
+    version: 3,
+    submittedAt: "Sep 20, 11:00 AM",
+    waitingHours: 0,
+    clearedAt: "Sep 23",
+  },
+  {
+    id: "adv-06",
+    campaign: "Photo essay",
+    sponsor: "Editorial",
+    title: "Season opener gallery — varsity football vs. Eastbrook",
+    dueDate: "Sep 12",
+    state: "PUBLISHED",
+    revisionRequested: false,
+    athlete: "Jordan Reyes",
+    assetKind: "image",
+    version: 1,
+    submittedAt: "Sep 10, 3:20 PM",
+    waitingHours: 0,
+    clearedAt: "Sep 11",
+  },
+];
+
+/** The §5.5 earn vocabulary — StudentPointAccrual.reason with its fixed
+ *  value. VIEWS_BONUS is the editor's call per piece, so its value is null
+ *  here and the accrual row carries whatever was awarded. */
+export const POINT_RULES: Array<{
+  reason: string;
+  points: number | null;
+  label: string;
+  how: string;
+}> = [
+  { reason: "ARTICLE", points: 50, label: "Article approved", how: "A written piece clears advisor review for the edition." },
+  { reason: "PHOTO", points: 25, label: "Photo set published", how: "A photo assignment clears review and runs in the edition." },
+  { reason: "INTERVIEW", points: 25, label: "Interview delivered", how: "A recorded interview lands and is used by a piece." },
+  { reason: "APPOINTMENT", points: 25, label: "Sales meeting held", how: "You sit down with a business — whether or not it closes." },
+  { reason: "SALES_500", points: 100, label: "Every $500 closed", how: "Recorded by SponsorX when your closed sales cross each $500 mark." },
+  { reason: "VIEWS_BONUS", points: null, label: "Views bonus", how: "Editor's call when a digital piece travels — value set per piece." },
+];
+
+/** StudentPointAccrual rows — reasons from the spec §5.5 vocabulary
+ *  (PHOTO added to the spec 2026-09-25; see the amendment note in §5.5).
  *  Integers. Not cents. Nothing here may render with a currency sign. */
 export const studentPoints = {
-  balance: 300,
+  balance: 325,
   accruals: [
+    /* pt-05's date is the advisor queue's clearedAt for the same piece
+       (adv-05) — the two screens must tell one story about one approval. */
+    { id: "pt-05", reason: "ARTICLE", label: "Concession stand feature approved", points: 50, on: "Sep 23" },
     { id: "pt-06", reason: "SALES_500", label: "Second $500 in closed sales", points: 100, on: "Sep 18" },
-    { id: "pt-05", reason: "ARTICLE", label: "Concession stand feature approved", points: 50, on: "Sep 14" },
     { id: "pt-04", reason: "SALES_500", label: "First $500 in closed sales", points: 100, on: "Sep 12" },
+    /* asg-06 is PUBLISHED, so its 25 pts have accrued — the assignments
+       screen promises them and the ledger must agree. */
+    { id: "pt-01", reason: "PHOTO", label: "Season opener gallery published", points: 25, on: "Sep 12" },
     { id: "pt-03", reason: "INTERVIEW", label: "Coach Alvarez pre-season interview", points: 25, on: "Sep 8" },
     { id: "pt-02", reason: "APPOINTMENT", label: "Sales meeting held — Rosa's Bakery", points: 25, on: "Sep 1" },
   ],

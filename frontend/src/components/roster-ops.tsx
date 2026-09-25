@@ -451,7 +451,7 @@ export function RosterOps({
                       </span>
                       <span className="mt-0.5 block truncate text-[11px] text-faint">
                         {r.delivered} of {r.planned} deliverables ·{" "}
-                        {r.views ? `${r.views.toLocaleString()} views` : "no views yet"}
+                        {r.views ? `${r.views.toLocaleString("en-US")} views` : "no views yet"}
                       </span>
                     </span>
                     <DeliveryRing
@@ -631,7 +631,7 @@ function OrderDrawer({
                 </p>
                 <p className="mt-1 flex flex-wrap items-center gap-1.5 text-[11px] text-muted">
                   {r.views
-                    ? `${r.views.toLocaleString()} verified views so far`
+                    ? `${r.views.toLocaleString("en-US")} verified views so far`
                     : "No views yet — nothing has published"}
                   <MiniChip kind="manual">VERIFIED · MANUAL</MiniChip>
                 </p>

@@ -441,7 +441,7 @@ export function ApplicationsDesk({
                       </span>
                       <span className="mt-0.5 block truncate text-[11px] text-faint">
                         {a.sport} · {a.region} ·{" "}
-                        {a.followers.toLocaleString()} followers · submitted{" "}
+                        {a.followers.toLocaleString("en-US")} followers · submitted{" "}
                         {a.submittedAt}
                       </span>
                     </span>
@@ -673,7 +673,7 @@ function ReviewDrawer({
               <CheckRow status="ok">No conflicts declared.</CheckRow>
             )}
             <CheckRow status="neutral">
-              {a.followers.toLocaleString()} followers — self-reported by the
+              {a.followers.toLocaleString("en-US")} followers — self-reported by the
               athlete; platform verification comes in a later phase.
             </CheckRow>
           </ul>

@@ -34,14 +34,19 @@ function reachable(entry: string): Set<string> {
     /* Type-only imports are erased at runtime and cannot call anything. */
     for (const m of text.matchAll(/^\s*(?:import|export)\s+(?!type\b)[^;]*?from\s+"(\.[^"]+)"/gm)) {
       const next = resolveImport(file, m[1]!);
-      if (next && !next.includes("/generated/")) stack.push(next);
+      /* separator-normalized — Windows resolve() emits backslashes and the
+         "/generated/" check let the generated client into the walk (360743a) */
+      if (next && !next.replaceAll("\\", "/").includes("/generated/"))
+        stack.push(next);
     }
     for (const m of text.matchAll(/import\(\s*"(\.[^"]+)"\s*\)/g)) {
       const next = resolveImport(file, m[1]!);
       if (next) stack.push(next);
     }
   }
-  return seen;
+  /* forward slashes for the callers' endsWith("routes/v1/…") checks —
+     Windows walks emit backslashes (360743a bug class) */
+  return new Set([...seen].map((f) => f.replaceAll("\\", "/")));
 }
 
 describe("the API cannot reach Zoho", () => {
@@ -54,14 +59,19 @@ describe("the API cannot reach Zoho", () => {
     expect([...graph].some((f) => f.endsWith("domain/sync-tasks.ts"))).toBe(true);
   });
 
+  /* The graph holds forward-slash paths; resolve() emits backslashes on
+     Windows. Without this, the negative assertions below pass vacuously
+     there — a silently toothless boundary check. */
+  const norm = (f: string) => f.replaceAll("\\", "/");
+
   it.each(["src/lib/zoho.ts", "src/domain/zoho-sync.ts"])("never imports %s", (file) => {
-    const hit = [...graph].find((f) => f === resolve(root, file));
+    const hit = [...graph].find((f) => f === norm(resolve(root, file)));
     expect(hit, `${file} is reachable from src/app.ts — a request path could call Zoho`).toBeUndefined();
   });
 
   it("the worker is where the sync lives", () => {
     const worker = reachable(resolve(root, "worker/index.mts"));
-    expect(worker.has(resolve(root, "src/lib/zoho.ts"))).toBe(true);
-    expect(worker.has(resolve(root, "src/domain/zoho-sync.ts"))).toBe(true);
+    expect(worker.has(norm(resolve(root, "src/lib/zoho.ts")))).toBe(true);
+    expect(worker.has(norm(resolve(root, "src/domain/zoho-sync.ts")))).toBe(true);
   });
 });

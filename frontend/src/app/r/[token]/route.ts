@@ -34,7 +34,13 @@ export async function GET(req: Request, { params }: Params) {
 
   let view: TokenView;
   try {
-    const res = await fetch(`${API_URL}/api/v1/public/rewards/${t}`, { cache: "no-store", headers: forward });
+    /* Timeout: a hung (not down) API otherwise hangs the QR page exactly
+       where fans stand — the catch renders the 503 retry page either way. */
+    const res = await fetch(`${API_URL}/api/v1/public/rewards/${t}`, {
+      cache: "no-store",
+      headers: forward,
+      signal: AbortSignal.timeout(5000),
+    });
     if (!res.ok && res.status !== 404) throw new Error(`view ${res.status}`);
     view = res.status === 404 ? { state: "UNKNOWN" } : ((await res.json()) as TokenView);
   } catch {

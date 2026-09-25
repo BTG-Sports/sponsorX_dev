@@ -8,8 +8,7 @@ const NAV: NavItem[] = [
   { href: "/next/assignments", label: "Assignments", icon: "pen" },
   { href: "/next/sales", label: "My sales", icon: "store" },
   { href: "/next/code", label: "My code", icon: "card" },
-  /* P1-FE-30 builds the points balance — visible in the nav, inert until then. */
-  { href: "/next/points", label: "Points", icon: "trophy", pending: true },
+  { href: "/next/points", label: "Points", icon: "trophy" },
 ];
 
 /* The student portal — SponsorX NEXT (P1-FE-19, spec §8, §9). Fixtures only:

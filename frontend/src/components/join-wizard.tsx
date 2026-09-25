@@ -5,6 +5,7 @@ import {
   DRAFT_KEY,
   NEVER_ASKED,
   SECTIONS,
+  draftToApplication,
   emptyDraft,
   isMinor,
   parseDraft,
@@ -13,16 +14,18 @@ import {
   type FieldDef,
   type JoinDraft,
 } from "@/lib/join-flow";
+import { submitJoinApplication } from "@/app/(public)/join/actions";
 import { JoinAgreementStep } from "./join-agreement-step";
 import { JoinRestrictionsStep } from "./join-restrictions-step";
 import { JoinSubmitted } from "./join-submitted";
 
 /* --------------------------------------------------------------------------
-   The /join wizard island (P1-ART-07). intro → steps → submitted, one §11
-   section per screen, the §4 guardian branch inserted live by the DOB on
-   section 1, drafts in localStorage after every commit ("saved after every
-   section" — actually true). Fixtures-only: submit transitions state, no
-   POST — P3-FE-01 wires the API and replaces only where answers go.
+   The /join wizard island (P1-ART-07, wired by P3-FE-01). intro → steps →
+   submitted, one §11 section per screen, the §4 guardian branch inserted live
+   by the DOB on section 1, drafts in localStorage after every commit ("saved
+   after every section" — actually true). Submit POSTs the real application
+   through the server action in app/(public)/join/actions.ts; only where the
+   answers go changed, exactly as this header always promised.
 
    Motion rides the sx-join-* system in globals.css; direction is a CSS var;
    focus moves to the step heading on every transition so screen readers
@@ -76,6 +79,7 @@ export function JoinWizard({ demo }: { demo: Demo }) {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [save, setSave] = useState<"idle" | "saving" | "saved">("idle");
   const [reviewing, setReviewing] = useState(false);
+  const [editingRestrictions, setEditingRestrictions] = useState(false);
   const headingRef = useRef<HTMLHeadingElement>(null);
   const stepRef = useRef<HTMLDivElement>(null);
 
@@ -120,9 +124,65 @@ export function JoinWizard({ demo }: { demo: Demo }) {
   const setAnswer = (key: string, value: string) =>
     setDraft({ ...draft, answers: { ...draft.answers, [key]: value } });
 
+  /* P3-FE-01 — the real submission. The action runs on the server (API_URL
+     never reaches the browser); success carries the reference and intake
+     token into the draft, failure lands field messages on the inputs they
+     mean and jumps back to the earliest offending step. The draft survives
+     every failure — nothing typed is ever lost to a network blip. */
+  const [submitting, setSubmitting] = useState(false);
+  const [submitMsgs, setSubmitMsgs] = useState<string[]>([]);
+
+  const submit = async () => {
+    /* Demo renders never reach the API — a shared ?demo=minor link walked to
+       the end would otherwise file a genuine application full of fixture
+       names. Simulate the success path locally instead. */
+    if (demo) {
+      persist({ ...draft, phase: "submitted", submittedAt: new Date().toISOString() });
+      return;
+    }
+    setSubmitting(true);
+    setSubmitMsgs([]);
+    const result = await submitJoinApplication(draftToApplication(draft));
+    setSubmitting(false);
+    if (result.ok) {
+      persist({
+        ...draft,
+        phase: "submitted",
+        submittedAt: new Date().toISOString(),
+        refId: result.id,
+        intakeToken: result.token,
+      });
+      return;
+    }
+    setSubmitMsgs(result.messages);
+    if (Object.keys(result.fields).length > 0) {
+      setErrors(result.fields);
+      const idx = sections.findIndex((s) =>
+        s.fields.some((f) => result.fields[f.key]),
+      );
+      if (idx >= 0 && idx !== draft.step) {
+        setDir(-1);
+        persist({ ...draft, step: idx });
+      }
+    }
+  };
+
+  /* Replace only this section's marks; API-reported errors on sections the
+     user hasn't revisited yet must survive navigation, or a failed submit's
+     guidance evaporates one step at a time. */
+  const mergeErrors = (errs: Record<string, string>) =>
+    setErrors((prev) => ({
+      ...Object.fromEntries(
+        Object.entries(prev).filter(
+          ([key]) => !section.fields.some((f) => f.key === key),
+        ),
+      ),
+      ...errs,
+    }));
+
   const goNext = () => {
     const errs = validateSection(section, draft.answers);
-    setErrors(errs);
+    mergeErrors(errs);
     if (Object.keys(errs).length > 0) {
       const first = section.fields.find((f) => errs[f.key]);
       if (first)
@@ -133,20 +193,27 @@ export function JoinWizard({ demo }: { demo: Demo }) {
     }
     setDir(1);
     if (section.kind === "agreement") {
-      persist({ ...draft, phase: "submitted", submittedAt: new Date().toISOString() });
+      void submit();
     } else {
       persist({ ...draft, step: draft.step + 1 });
     }
   };
 
   const goBack = () => {
-    setErrors({});
+    mergeErrors({});
     setDir(-1);
     if (draft.step === 0) persist({ ...draft, phase: "intro" });
     else persist({ ...draft, step: draft.step - 1 });
   };
 
-  const finishLater = () => persist({ ...draft, phase: "intro" });
+  /* Leaving the steps clears the marks — otherwise a failed submit's red
+     errors and banner survive "finish later"/"start over" and decorate a
+     pristine section 1. */
+  const finishLater = () => {
+    setErrors({});
+    setSubmitMsgs([]);
+    persist({ ...draft, phase: "intro" });
+  };
 
   const startOrResume = () => {
     setDir(1);
@@ -155,11 +222,56 @@ export function JoinWizard({ demo }: { demo: Demo }) {
 
   const startOver = () => {
     setDir(1);
+    setErrors({});
+    setSubmitMsgs([]);
     persist({ ...emptyDraft(), phase: "steps" });
   };
 
   /* ------------------------------------------------------------ submitted */
   if (draft.phase === "submitted") {
+    /* Restrictions edit in place — deliberately NOT re-entering the step flow.
+       That path used to end at "Submit application", which POSTed a second,
+       duplicate application (restrictions aren't even part of the intake
+       payload). Edits persist with the local draft; BTG confirms restrictions
+       during review either way. */
+    if (editingRestrictions) {
+      return (
+        <div className="px-6 py-10">
+          <button
+            type="button"
+            onClick={() => setEditingRestrictions(false)}
+            className="flex min-h-11 items-center gap-1.5 text-sm text-muted transition-colors hover:text-text"
+          >
+            <svg viewBox="0 0 16 16" className="size-4" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M10 3.5L5.5 8l4.5 4.5" />
+            </svg>
+            Back
+          </button>
+          <h1 className="mt-4 text-2xl font-semibold tracking-tight">
+            Restrictions &amp; conflicts
+          </h1>
+          <p className="mt-1 text-sm text-muted">
+            Changes save with your application on this device — nothing is
+            re-submitted. BTG confirms restrictions during review.
+          </p>
+          <div className="mt-6">
+            <JoinRestrictionsStep
+              deals={draft.deals}
+              excluded={draft.excluded}
+              onDealsChange={(deals) => persist({ ...draft, deals })}
+              onExcludedChange={(excluded) => persist({ ...draft, excluded })}
+            />
+          </div>
+          <button
+            type="button"
+            onClick={() => setEditingRestrictions(false)}
+            className="mt-8 min-h-12 w-full rounded-xl bg-primary px-5 py-3.5 text-base font-semibold text-cta-ink transition-colors hover:bg-primary-soft"
+          >
+            Done — back to your application
+          </button>
+        </div>
+      );
+    }
     if (reviewing) {
       return (
         <div className="px-6 py-10">
@@ -196,8 +308,8 @@ export function JoinWizard({ demo }: { demo: Demo }) {
             {(draft.deals.length > 0 || draft.excluded.length > 0) && (
               <div className="rounded-xl border border-line bg-surface-2 p-4">
                 <h2 className="text-sm font-semibold">Restrictions &amp; conflicts</h2>
-                {draft.deals.map((deal) => (
-                  <p key={deal.name} className="mt-2 text-sm text-muted">
+                {draft.deals.map((deal, i) => (
+                  <p key={`${deal.name}-${i}`} className="mt-2 text-sm text-muted">
                     {deal.name} — {deal.category} · {deal.terms}
                   </p>
                 ))}
@@ -217,11 +329,9 @@ export function JoinWizard({ demo }: { demo: Demo }) {
         minor={minor}
         guardianName={draft.answers.guardianName ?? ""}
         submittedAt={draft.submittedAt ?? ""}
+        refId={draft.refId}
         onReviewAnswers={() => setReviewing(true)}
-        onUpdateRestrictions={() => {
-          setDir(1);
-          persist({ ...draft, phase: "steps", step: restrictionsIdx });
-        }}
+        onUpdateRestrictions={() => setEditingRestrictions(true)}
       />
     );
   }
@@ -336,7 +446,8 @@ export function JoinWizard({ demo }: { demo: Demo }) {
             type="button"
             onClick={goBack}
             aria-label="Back"
-            className="grid size-11 -ml-2.5 place-items-center rounded-lg text-muted transition-colors hover:bg-surface-2 hover:text-text"
+            disabled={submitting}
+            className="grid size-11 -ml-2.5 place-items-center rounded-lg text-muted transition-colors hover:bg-surface-2 hover:text-text disabled:cursor-not-allowed disabled:opacity-40"
           >
             <svg viewBox="0 0 16 16" className="size-4.5" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
               <path d="M10 3.5L5.5 8l4.5 4.5" />
@@ -450,14 +561,28 @@ export function JoinWizard({ demo }: { demo: Demo }) {
 
       {/* action bar */}
       <div className="sticky bottom-0 border-t border-line bg-bg/95 px-6 py-4 backdrop-blur lg:rounded-b-2xl">
+        {submitMsgs.length > 0 && (
+          <div
+            role="alert"
+            className="mb-3 rounded-lg border border-danger/30 bg-danger/8 px-3 py-2 text-xs leading-relaxed text-danger"
+          >
+            {submitMsgs.map((m) => (
+              <p key={m}>{m}</p>
+            ))}
+          </div>
+        )}
         <button
           type="button"
           onClick={goNext}
-          disabled={!armed}
+          disabled={!armed || submitting}
           data-armed={section.kind === "agreement" && draft.accepted}
           className="sx-join-sheen min-h-12 w-full rounded-xl bg-primary px-5 py-3.5 text-base font-semibold text-cta-ink transition-all hover:bg-primary-soft disabled:cursor-not-allowed disabled:opacity-40"
         >
-          {section.kind === "agreement" ? "Submit application" : "Save and continue"}
+          {section.kind === "agreement"
+            ? submitting
+              ? "Submitting…"
+              : "Submit application"
+            : "Save and continue"}
         </button>
         {section.kind !== "agreement" && (
           <button

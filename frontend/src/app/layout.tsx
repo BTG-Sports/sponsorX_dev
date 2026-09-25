@@ -36,6 +36,22 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           borderRadius: "0.5rem",
         },
       }}
+      /* The widget's headline defaults to the Clerk *application name* —
+         "My Application" on an unclaimed dev instance — on the most-seen
+         screen of the product. Brand it here rather than trusting every
+         environment's dashboard setting. */
+      localization={{
+        signIn: {
+          start: {
+            title: "Sign in to SponsorX",
+            subtitle: "Welcome back — pick up where you left off",
+            /* the combined sign-in/sign-up flow (new instances' default)
+               renders these, not title/subtitle */
+            titleCombined: "Sign in to SponsorX",
+            subtitleCombined: "Welcome back — pick up where you left off",
+          },
+        },
+      }}
     >
       {/* suppressHydrationWarning: the pre-paint script below may set
           data-theme on <html> before React hydrates, and the JSX never

@@ -17,12 +17,15 @@ export function JoinSubmitted({
   minor,
   guardianName,
   submittedAt,
+  refId,
   onReviewAnswers,
   onUpdateRestrictions,
 }: {
   minor: boolean;
   guardianName: string;
   submittedAt: string;
+  /** The real application id (P3-FE-01) — absent on demo renders. */
+  refId?: string;
   onReviewAnswers: () => void;
   onUpdateRestrictions: () => void;
 }) {
@@ -46,6 +49,15 @@ export function JoinSubmitted({
         Submitting isn&apos;t approval. A person at BTG reads every application —
         usually within 3 business days.
       </p>
+      {refId && (
+        <p
+          className="sx-join-rise mt-2 text-xs text-faint"
+          style={{ "--sx-d": "0.22s" } as React.CSSProperties}
+        >
+          Reference: <span className="font-medium tabular-nums text-muted">{refId}</span>{" "}
+          — also in the confirmation email.
+        </p>
+      )}
 
       <div className="mt-8 border-t border-line pt-8">
         <ol className="space-y-7">
@@ -94,20 +106,30 @@ export function JoinSubmitted({
             <strong className="font-semibold">not</strong> hold up your review — it only stops
             you accepting a campaign once you&apos;re approved.
           </p>
+          {/* Wired with the application-status screen (P3-FE-02) — until then
+              these are honestly disabled, not silently inert. */}
           <div className="mt-4 flex gap-2.5">
             <button
               type="button"
-              className="min-h-11 rounded-lg border border-warn/60 px-4 py-2.5 text-sm font-semibold text-warn transition-colors hover:bg-warn/10"
+              disabled
+              title="Guardian reminders arrive with the application-status screen (P3-FE-02)"
+              className="min-h-11 cursor-not-allowed rounded-lg border border-warn/60 px-4 py-2.5 text-sm font-semibold text-warn opacity-50"
             >
               Resend email
             </button>
             <button
               type="button"
-              className="min-h-11 rounded-lg border border-line px-4 py-2.5 text-sm font-medium text-text transition-colors hover:bg-surface-2"
+              disabled
+              title="Guardian changes arrive with the application-status screen (P3-FE-02)"
+              className="min-h-11 cursor-not-allowed rounded-lg border border-line px-4 py-2.5 text-sm font-medium text-text opacity-50"
             >
               Change guardian
             </button>
           </div>
+          <p className="mt-2 text-[11px] text-faint">
+            Reminder and guardian-change controls go live with the application
+            status page.
+          </p>
         </div>
       )}
 

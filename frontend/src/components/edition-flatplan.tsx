@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Badge, Button } from "./ui";
 import { initials } from "./hero";
+import { useDrawerFocus } from "./use-drawer-focus";
 import {
   SLOT_RACK_CENTS,
   money,
@@ -93,8 +94,8 @@ function PageCard({
   }
 
   /* Slots stack top-to-bottom; quarters pair into a row; whatever fraction
-     of the page is unsold inventory nor a hold is editorial filler, drawn
-     as such — because that is literally what it is. */
+     of the page is neither unsold inventory nor a hold is editorial filler,
+     drawn as such — because that is literally what it is. */
   const rows: EditionSlot[][] = [];
   let quarters: EditionSlot[] = [];
   for (const s of page.slots) {
@@ -159,12 +160,14 @@ function Legend() {
         <span className="size-3 rounded-[2px] border-[1.5px] border-dashed border-next/60 bg-next/10" />{" "}
         Reserved
       </span>
+      {/* border-muted/60 + muted hatch, not line tones: on Frost the line
+          color sits on white and these two legend keys vanished (QA pass 2) */}
       <span className="flex items-center gap-1.5">
-        <span className="size-3 rounded-[2px] border border-line bg-surface-2" />{" "}
+        <span className="size-3 rounded-[2px] border border-muted/60 bg-surface-2" />{" "}
         Open
       </span>
       <span className="flex items-center gap-1.5">
-        <span className="size-3 rounded-[2px] bg-[repeating-linear-gradient(135deg,transparent,transparent_3px,color-mix(in_srgb,var(--sx-line)_50%,transparent)_3px,color-mix(in_srgb,var(--sx-line)_50%,transparent)_4px)]" />{" "}
+        <span className="size-3 rounded-[2px] bg-[repeating-linear-gradient(135deg,transparent,transparent_3px,color-mix(in_srgb,var(--sx-text-muted)_45%,transparent)_3px,color-mix(in_srgb,var(--sx-text-muted)_45%,transparent)_4px)]" />{" "}
         Editorial
       </span>
     </div>
@@ -176,27 +179,48 @@ export function EditionFlatplan({
   pages,
   backCover,
   closeDate,
+  initialOpenPage,
 }: {
   pages: EditionPage[];
   backCover: EditionSlot;
   closeDate: string;
+  /** Deep-link (?open=N from the inventory ledger); 0 opens the back cover. */
+  initialOpenPage?: number;
 }) {
-  const [open, setOpen] = useState<EditionPage | null>(null);
+  const [open, setOpen] = useState<EditionPage | null>(() => {
+    if (initialOpenPage === undefined) return null;
+    if (initialOpenPage === 0)
+      return { page: 0, title: "Back cover", slots: [backCover] };
+    return pages.find((p) => p.page === initialOpenPage) ?? null;
+  });
   const [closing, setClosing] = useState(false);
+  const { panelRef, onKeyDown } = useDrawerFocus<HTMLElement>(Boolean(open));
 
   /* Cover stands alone; the rest read as facing pairs, like the magazine. */
   const [cover, ...rest] = pages;
   const spreads: EditionPage[][] = [[cover]];
   for (let i = 0; i < rest.length; i += 2) spreads.push(rest.slice(i, i + 2));
 
+  /* The URL follows the drawer both ways (the student-assignments contract):
+     read-only ?open= meant closing the drawer left a URL that reopened it on
+     refresh, and clicking a different page left the URL claiming the old one. */
+  const syncUrl = (page: number | null) => {
+    const url = new URL(window.location.href);
+    if (page === null) url.searchParams.delete("open");
+    else url.searchParams.set("open", String(page));
+    window.history.replaceState(null, "", url.toString());
+  };
+
   const show = (p: EditionPage) => {
     setClosing(false);
     setOpen(p);
+    syncUrl(p.page);
   };
   const dismiss = () => setClosing(true);
   const closed = () => {
     setOpen(null);
     setClosing(false);
+    syncUrl(null);
   };
 
   useEffect(() => {
@@ -208,10 +232,14 @@ export function EditionFlatplan({
     return () => window.removeEventListener("keydown", onKey);
   }, [open]);
 
+  /* Unmount rides animationend; the timer covers reduced-motion's 1ms run.
+     `closed` is deliberately not a dep — re-arming the timer on every render
+     it changes would defeat the fallback (student-assignments precedent). */
   useEffect(() => {
     if (!closing) return;
     const t = setTimeout(closed, 400);
     return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [closing]);
 
   const backAsPage: EditionPage = {
@@ -280,6 +308,7 @@ export function EditionFlatplan({
           role="dialog"
           aria-modal="true"
           aria-label={open.page === 0 ? "Back cover" : `Page ${open.page}`}
+          onKeyDown={onKeyDown}
         >
           <div
             onClick={dismiss}
@@ -289,6 +318,8 @@ export function EditionFlatplan({
             ].join(" ")}
           />
           <aside
+            ref={panelRef}
+            tabIndex={-1}
             onAnimationEnd={(e) => {
               if (closing && e.animationName === "sx-drawer-out") closed();
             }}

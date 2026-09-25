@@ -321,8 +321,13 @@ describe.skipIf(!hasDatabase)("the scope filters, against real rows", () => {
     });
 
     it("shows SUPER_ADMIN both tenants, and nobody else", async () => {
-      expect(await athletesVisibleTo(actor(["SUPER_ADMIN"]))).toEqual(
-        [T.athleteA, T.athleteB].sort());
+      /* SUPER_ADMIN is unscoped by design, so on a dev database the raw list
+         also contains seed and E2E rows — assert over this suite's fixtures
+         only, which still proves both tenants are visible. */
+      const ours = (await athletesVisibleTo(actor(["SUPER_ADMIN"]))).filter(
+        (id) => id.startsWith("a_authz_"),
+      );
+      expect(ours).toEqual([T.athleteA, T.athleteB].sort());
     });
 
     it("shows a BTG admin of tenant B only tenant B", async () => {
