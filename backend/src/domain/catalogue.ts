@@ -43,21 +43,49 @@ export type CatalogueJob = {
   sellHigh: number;
 };
 
-export async function listPackages(actor: Actor): Promise<CataloguePackage[]> {
-  const rows = await prisma.sponsorPackage.findMany({
-    where: { ...whereFor(actor, "sponsorPackage", "read"), tenantId: actor.tenantId, active: true },
-    select: {
-      id: true, code: true, name: true, priceLow: true, priceHigh: true,
-      athleteCountMin: true, athleteCountMax: true, lineItems: true, includes: true,
-      exclusivity: true, durationWeeks: true,
-    },
-    orderBy: { priceLow: "asc" },
-  });
-  return rows.map((r) => ({
+/** The one select both package reads share — pay columns are absent by
+ *  construction, so the public and sponsor views cannot drift apart. */
+const PACKAGE_SELECT = {
+  id: true, code: true, name: true, priceLow: true, priceHigh: true,
+  athleteCountMin: true, athleteCountMax: true, lineItems: true, includes: true,
+  exclusivity: true, durationWeeks: true,
+} as const;
+
+function toPackage(
+  r: { lineItems: unknown; includes: unknown } & Omit<CataloguePackage, "lineItems" | "includes">,
+): CataloguePackage {
+  return {
     ...r,
     lineItems: (r.lineItems as CataloguePackage["lineItems"]) ?? [],
     includes: (r.includes as CataloguePackage["includes"] | null) ?? [],
-  }));
+  };
+}
+
+export async function listPackages(actor: Actor): Promise<CataloguePackage[]> {
+  const rows = await prisma.sponsorPackage.findMany({
+    where: { ...whereFor(actor, "sponsorPackage", "read"), tenantId: actor.tenantId, active: true },
+    select: PACKAGE_SELECT,
+    orderBy: { priceLow: "asc" },
+  });
+  return rows.map(toPackage);
+}
+
+/**
+ * The §7 price list with no caller at all — P3-FE-05, the public /packages
+ * page. The same select as the sponsor read, on purpose: sponsor prices are
+ * marketing information, athlete pay is not, and one shared PACKAGE_SELECT
+ * means there is no second field list to get wrong. The tenant is BTG's own
+ * (the PUBLIC_INTAKE_TENANT_ID the public intake also writes to), because a
+ * visitor has none.
+ */
+export async function listPublicPackages(tenantId: string): Promise<CataloguePackage[]> {
+  const rows = await prisma.sponsorPackage.findMany({
+    /* tenant-scope: public read, pinned to the configured public tenant. */
+    where: { tenantId, active: true },
+    select: PACKAGE_SELECT,
+    orderBy: { priceLow: "asc" },
+  });
+  return rows.map(toPackage);
 }
 
 export async function listJobs(actor: Actor): Promise<CatalogueJob[]> {

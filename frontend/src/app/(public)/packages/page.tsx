@@ -30,7 +30,52 @@ const STAGGER = [
 
    The mockup led with media inventory priced at $16–20 CPM. Phase 1 sells
    packages; implied CPM is stored for learning only (§15).
+
+   LIVE vs FALLBACK (P3-FE-05). The grid prefers the REAL price list —
+   GET /public/catalogue/packages, sponsor prices only, each package with its
+   job-code line items — and keeps the fixture grid only when the API cannot
+   answer (a marketing page must not 500 on a blip, and its footer already
+   declares every price indicative). Athlete pay cannot appear here: the
+   public read shares the sponsor read's field list, which never selects it.
    -------------------------------------------------------------------------- */
+
+const API_URL = process.env.API_URL ?? "http://localhost:4000";
+
+type LivePackage = {
+  id: string;
+  code: string;
+  name: string;
+  priceLow: number;
+  priceHigh: number;
+  athleteCountMin: number;
+  athleteCountMax: number;
+  lineItems: { jobCode: string; quantityPerAthlete: number }[];
+  exclusivity: boolean;
+  durationWeeks: number | null;
+};
+
+/** Whole dollars, as §7 stores them. */
+const usd = (d: number) => `$${d.toLocaleString("en-US")}`;
+const priceRange = (p: LivePackage) =>
+  p.priceLow === p.priceHigh ? usd(p.priceLow) : `${usd(p.priceLow)}–${usd(p.priceHigh)}`;
+const athleteRange = (p: LivePackage) =>
+  p.athleteCountMin === p.athleteCountMax
+    ? `${p.athleteCountMin}`
+    : `${p.athleteCountMin}–${p.athleteCountMax}`;
+
+async function livePackages(): Promise<LivePackage[] | null> {
+  try {
+    const res = await fetch(`${API_URL}/api/v1/public/catalogue/packages`, {
+      cache: "no-store",
+      signal: AbortSignal.timeout(4000),
+    });
+    if (!res.ok) return null;
+    const { packages } = (await res.json()) as { packages: LivePackage[] };
+    return packages.length > 0 ? packages : null;
+  } catch {
+    return null;
+  }
+}
 
 const STATE_TONE: Record<InventoryState, "accent" | "warn" | "primary" | "neutral"> = {
   ACTIVE: "accent",
@@ -57,12 +102,14 @@ function Chevron() {
   );
 }
 
-export default function PackagesPage() {
+export default async function PackagesPage() {
+  const live = await livePackages();
+
   return (
     <div className="mx-auto w-full max-w-6xl px-6 py-12">
       {/* ------------------------------------------------------------ hero */}
       <div className="max-w-2xl">
-        <Badge tone="primary">§7 · Phase 1</Badge>
+        <Badge tone="primary">Phase 1</Badge>
         <h1 className="mt-3 text-3xl font-bold tracking-tight">
           Sponsorship packages
         </h1>
@@ -89,6 +136,59 @@ export default function PackagesPage() {
       </div>
 
       {/* ---------------------------------------------------------- grid */}
+      {live ? (
+        <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          {live.map((p, i) => (
+            <div
+              key={p.id}
+              className={[
+                "flex flex-col rounded-xl border border-line bg-surface p-5 sx-animate",
+                STAGGER[Math.min(i, 4)],
+              ].join(" ")}
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex min-w-0 items-start gap-3">
+                  <Monogram text={initials(p.name)} tone="accent" className="size-9 text-[11px]" />
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold tracking-tight">{p.name}</p>
+                    <p className="mt-0.5 text-[11px] text-muted">
+                      {p.durationWeeks
+                        ? `${p.durationWeeks}-week campaign`
+                        : "Flexible duration"}
+                      {p.exclusivity && " · category exclusivity"}
+                    </p>
+                  </div>
+                </div>
+                <Badge tone="neutral">{p.code}</Badge>
+              </div>
+
+              <div className="mt-4 flex items-baseline gap-2">
+                <span className="text-2xl font-semibold tracking-tight">{priceRange(p)}</span>
+                <span className="text-[11px] text-faint">
+                  {athleteRange(p)} {p.athleteCountMax === 1 ? "athlete" : "athletes"}
+                </span>
+              </div>
+
+              {/* The job-code line items the package contains — the §7 list
+                  itself, not a marketing paraphrase of it. */}
+              <p className="mt-3 flex flex-1 flex-wrap content-start gap-1.5">
+                {p.lineItems.map((li) => (
+                  <Badge key={li.jobCode} tone="neutral">
+                    {li.quantityPerAthlete}× {li.jobCode}
+                  </Badge>
+                ))}
+              </p>
+
+              <Link
+                href={`/brief?package=${p.code}`}
+                className="mt-5 block w-full rounded-lg bg-primary py-2.5 text-center text-xs font-medium text-cta-ink transition-colors hover:bg-primary-soft"
+              >
+                Request a brief
+              </Link>
+            </div>
+          ))}
+        </div>
+      ) : (
       <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         {marketplacePackages.map((p, i) => (
           <div
@@ -140,12 +240,13 @@ export default function PackagesPage() {
           </div>
         ))}
       </div>
+      )}
 
       {/* ------------------------------------------------------- explainer */}
       <div className="mt-8 grid gap-4 sm:grid-cols-3">
         {[
           ["1 · Request a brief", "Tell BTG the goal, budget and market. No card, no checkout."],
-          ["2 · BTG matches athletes", "Eligibility, conflicts and rates are handled by BTG staff (§13)."],
+          ["2 · BTG matches athletes", "Eligibility, conflicts and rates are handled by BTG staff."],
           ["3 · Campaign goes live", "You approve content; fans redeem rewards; you get an ROI report."],
         ].map(([title, body]) => (
           <div key={title} className="rounded-xl border border-line bg-surface p-4">
@@ -157,7 +258,7 @@ export default function PackagesPage() {
 
       <p className="mt-6 text-[10px] leading-relaxed text-faint">
         Phase 1 sponsors request or reserve — there is no self-service checkout
-        until Phase 2 (§17). Prices are indicative; the final quote comes from
+        until Phase 2. Prices are indicative; the final quote comes from
         BTG after matching. Already know what you want?{" "}
         <Link href="/sponsor/marketplace" className="text-accent hover:underline">
           Browse the full marketplace

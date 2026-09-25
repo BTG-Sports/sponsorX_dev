@@ -293,6 +293,7 @@ const PATHS: Row[] = [
   { method: "get", path: "/public/tracking/{code}", tag: "Public", summary: "Resolve a tracking code to its destination.", auth: false, response: TrackingDestination },
   { method: "post", path: "/public/tracking/{code}/click", tag: "Public", summary: "Record a click.", auth: false, status: 202 },
   { method: "get", path: "/public/rewards/{token}", tag: "Public", summary: "What the fan's page shows — state, offer, consent wording. Writes nothing (P6-FE-02).", auth: false },
+  { method: "get", path: "/public/catalogue/packages", tag: "Catalogue", summary: "The §7 package price list for the public marketing site — sponsor prices only, never athlete pay (P3-FE-05).", auth: false },
   { method: "get", path: "/catalogue/packages", tag: "Catalogue", summary: "The §7 packages at sponsor prices — never athlete pay (P4-FE-01)." },
   { method: "get", path: "/catalogue/jobs", tag: "Catalogue", summary: "The NIL job catalogue at sponsor price bands — never base pay (P4-FE-01)." },
   { method: "post", path: "/public/rewards/{token}/scan", tag: "Public", summary: "A fan scanned the QR.", auth: false, status: 201 },
