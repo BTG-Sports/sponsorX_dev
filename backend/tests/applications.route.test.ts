@@ -59,6 +59,8 @@ function row(id: string) {
     reviewerNotes: null,
     reviewedAt: null,
     createdAt: new Date("2026-09-01"),
+    /* What the select's `take: 1` relation returns: newest snapshot or none. */
+    scores: [] as Array<{ score: number; factors: unknown; method: string; scoredAt: Date }>,
   };
 }
 
@@ -168,5 +170,43 @@ describe("B8 · cursor pagination", () => {
     const { done } = call(listApplications, { query: { state: "BANANA" } });
     await done;
     expect(lastArgs.where).not.toHaveProperty("state");
+  });
+});
+
+describe("P3-FE-02 · the score rides the queue row, snapshot and all", () => {
+  const breakdown = {
+    score: 62,
+    method: "rules-v1",
+    factors: [{ factor: "engagement", value: 70, weight: 25, effectiveWeight: 25, contribution: 17.5 }],
+    assessedGapPercent: 0,
+  };
+
+  it("answers the latest snapshot with its factors, not just the number", async () => {
+    found = [{ ...row("ath_1"), scores: [{ score: 62, factors: breakdown, method: "rules-v1", scoredAt: new Date("2026-09-20T10:00:00Z") }] }];
+    const { done, body } = call(listApplications, {});
+    await done;
+    const [first] = body()?.applications as Array<Record<string, unknown>>;
+    expect(first.score).toEqual({
+      total: 62,
+      method: "rules-v1",
+      scoredAt: "2026-09-20T10:00:00.000Z",
+      factors: breakdown,
+    });
+  });
+
+  it("asks the database for the newest snapshot only", async () => {
+    found = [row("ath_1")];
+    const { done } = call(listApplications, {});
+    await done;
+    const select = lastArgs.select as { scores: { orderBy: unknown; take: number } };
+    expect(select.scores.orderBy).toEqual({ scoredAt: "desc" });
+    expect(select.scores.take).toBe(1);
+  });
+
+  it("answers null for an unscored athlete — not zero, which would be an assessment", async () => {
+    found = [row("ath_1")];
+    const { done, body } = call(getApplication, { params: { id: "ath_1" } });
+    await done;
+    expect(body()?.score).toBeNull();
   });
 });

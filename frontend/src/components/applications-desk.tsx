@@ -10,18 +10,21 @@ import {
   FilterChip,
   SearchInput,
 } from "@/components/filter-kit";
-import {
-  APPLICATION_COPY,
-  applications,
-  type ApplicationState,
-} from "@/lib/fixtures";
+import type {
+  DeskApp,
+  ReviewActionKind,
+  ReviewActionResult,
+} from "@/lib/applications-live";
 import {
   AGING_HOURS,
   FACTOR_HINTS,
+  STATE_COPY,
   STATE_DETAIL,
   STATE_TONE,
+  stateBucket,
   scoreBand,
   waitHours,
+  type LiveApplicationState,
 } from "@/lib/applications-ui";
 import { RING_TEXT, ScoreRing } from "@/components/score-ring";
 
@@ -47,8 +50,18 @@ import { RING_TEXT, ScoreRing } from "@/components/score-ring";
      blocks Approve with the reason spelled out (§4), not a dead button.
    -------------------------------------------------------------------------- */
 
-type App = (typeof applications)[number];
+type App = DeskApp;
 type Decision = "APPROVED" | "REJECTED" | "INFO";
+
+/** Live mode's wiring — the P3-FE-02 server action plus nothing else. Its
+ *  absence IS demo mode, so the fixture behaviour cannot half-apply. */
+export type LiveReview = {
+  act: (
+    id: string,
+    kind: ReviewActionKind,
+    notes?: string,
+  ) => Promise<ReviewActionResult>;
+};
 
 const TABS = [
   { key: "review", label: "Needs review" },
@@ -70,7 +83,7 @@ const SORT_OPTIONS = [
   { value: "score", label: "Score · high to low" },
 ];
 
-const inReview = (s: ApplicationState) =>
+const inReview = (s: LiveApplicationState) =>
   s === "SUBMITTED" || s === "UNDER_REVIEW";
 
 /* -------------------------------------------------------- checklist pieces */
@@ -104,16 +117,33 @@ function CheckRow({
   );
 }
 
+/** The honest ring for "not scored yet" — a dash, not a zero (§14: an
+ *  absence is not an assessment). Same footprint as ScoreRing so rows align. */
+function NoScoreRing({ size = 38 }: { size?: number }) {
+  return (
+    <span
+      role="img"
+      aria-label="Not scored yet"
+      className="grid shrink-0 place-items-center rounded-full border border-dashed border-line text-[11px] font-semibold text-faint"
+      style={{ width: size, height: size }}
+    >
+      <span aria-hidden="true">—</span>
+    </span>
+  );
+}
+
 /* -------------------------------------------------------- ApplicationsDesk */
 
 export function ApplicationsDesk({
   items,
   demoParam,
   initial,
+  live,
 }: {
   items: App[];
   demoParam?: string;
   initial?: Partial<Record<"tab" | "q" | "sport" | "flag" | "sort", string>>;
+  live?: LiveReview;
 }) {
   const sportOptions = useMemo(
     () => [...new Set(items.map((a) => a.sport))].sort(),
@@ -143,12 +173,19 @@ export function ApplicationsDesk({
 
   /* Demo decisions — local to this visit, undoable, never persisted. */
   const [decisions, setDecisions] = useState<Record<string, Decision>>({});
+  /* Live states — what the API answered after a real decision. Separate from
+     `decisions` on purpose: a live transition is not undoable, and mixing the
+     two is how a demo Undo would appear to reverse a recorded rejection. */
+  const [liveStates, setLiveStates] = useState<
+    Record<string, LiveApplicationState>
+  >({});
   const eff = useCallback(
-    (a: App): ApplicationState => {
+    (a: App): LiveApplicationState => {
+      if (live) return liveStates[a.id] ?? a.state;
       const d = decisions[a.id];
       return d === "APPROVED" || d === "REJECTED" ? d : a.state;
     },
-    [decisions],
+    [decisions, live, liveStates],
   );
 
   const [openId, setOpenId] = useState<string | null>(null);
@@ -212,12 +249,11 @@ export function ApplicationsDesk({
   }, [openId]);
 
   const counts = useMemo(() => {
+    /* DRAFT and SUSPENDED bucket to "other": not review work, All-tab only. */
     const c = { review: 0, approved: 0, rejected: 0, all: items.length };
     for (const a of items) {
-      const s = eff(a);
-      if (inReview(s)) c.review += 1;
-      else if (s === "APPROVED") c.approved += 1;
-      else c.rejected += 1;
+      const b = stateBucket(eff(a));
+      if (b !== "other") c[b] += 1;
     }
     return c;
   }, [items, eff]);
@@ -226,14 +262,7 @@ export function ApplicationsDesk({
   const shown = useMemo(() => {
     const list = items.filter((a) => {
       const s = eff(a);
-      const tabOk =
-        tab === "all"
-          ? true
-          : tab === "review"
-            ? inReview(s)
-            : tab === "approved"
-              ? s === "APPROVED"
-              : s === "REJECTED";
+      const tabOk = tab === "all" ? true : stateBucket(s) === tab;
       const flagOk =
         !flag ||
         (flag === "minor"
@@ -256,7 +285,8 @@ export function ApplicationsDesk({
       sort === "newest"
         ? (wait.get(a.id) ?? 0) - (wait.get(b.id) ?? 0)
         : sort === "score"
-          ? b.score.total - a.score.total
+          ? /* Unscored sorts below every scored row — absence is not zero. */
+            (b.score?.total ?? -1) - (a.score?.total ?? -1)
           : (wait.get(b.id) ?? 0) - (wait.get(a.id) ?? 0);
     return [...list].sort(by);
   }, [items, tab, needle, sport, flag, sort, wait, eff]);
@@ -440,15 +470,21 @@ export function ApplicationsDesk({
                         )}
                       </span>
                       <span className="mt-0.5 block truncate text-[11px] text-faint">
-                        {a.sport} · {a.region} ·{" "}
-                        {a.followers.toLocaleString("en-US")} followers · submitted{" "}
-                        {a.submittedAt}
+                        {a.sport} · {a.region}
+                        {a.followers !== null && (
+                          <> · {a.followers.toLocaleString("en-US")} followers</>
+                        )}{" "}
+                        · submitted {a.submittedAt}
                       </span>
                     </span>
                     {aging && <Badge tone="warn">waiting {Math.round(w / 24)}d</Badge>}
-                    <ScoreRing value={a.score.total} />
+                    {a.score ? (
+                      <ScoreRing value={a.score.total} />
+                    ) : (
+                      <NoScoreRing />
+                    )}
                     <span className="hidden sm:block">
-                      <Badge tone={STATE_TONE[s]}>{APPLICATION_COPY[s]}</Badge>
+                      <Badge tone={STATE_TONE[s]}>{STATE_COPY[s]}</Badge>
                     </span>
                     <svg
                       viewBox="0 0 24 24"
@@ -476,6 +512,9 @@ export function ApplicationsDesk({
       {sel &&
         createPortal(
           <ReviewDrawer
+            /* Keyed per application: notes, errors and the reject-confirm arm
+               belong to one review and must not leak into the next row's. */
+            key={sel.id}
             app={sel}
             state={eff(sel)}
             decision={decisions[sel.id]}
@@ -488,6 +527,10 @@ export function ApplicationsDesk({
                 delete next[sel.id];
                 return next;
               })
+            }
+            live={live}
+            onLiveState={(state) =>
+              setLiveStates((prev) => ({ ...prev, [sel.id]: state }))
             }
             closing={closing}
             onRequestClose={requestClose}
@@ -508,28 +551,58 @@ function ReviewDrawer({
   decision,
   onDecide,
   onUndo,
+  live,
+  onLiveState,
   closing,
   onRequestClose,
   onClosed,
   closeBtnRef,
 }: {
   app: App;
-  state: ApplicationState;
+  state: LiveApplicationState;
   decision: Decision | undefined;
   onDecide: (d: Decision) => void;
   onUndo: () => void;
+  live?: LiveReview;
+  onLiveState: (state: LiveApplicationState) => void;
   closing: boolean;
   onRequestClose: () => void;
   onClosed: () => void;
   closeBtnRef: React.RefObject<HTMLButtonElement | null>;
 }) {
-  const band = scoreBand(a.score.total);
+  const band = a.score ? scoreBand(a.score.total) : null;
   const blocked = a.isMinor && !a.guardianVerified;
   /* Conflicts panel lists non-guardian flags — the guardian has its own row.
      Spec refs like "(§26)" are stripped from user-facing copy. */
   const conflicts = a.flags
     .filter((f) => !/guardian/i.test(f))
     .map((f) => f.replace(/\s*\(§\d+\)/g, ""));
+
+  /* ---- live decisions: the real §21 transitions, one at a time ---- */
+  const [notes, setNotes] = useState("");
+  const [busy, setBusy] = useState<ReviewActionKind | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+  const [done, setDone] = useState<ReviewActionKind | null>(null);
+  const [armReject, setArmReject] = useState(false);
+
+  const decide = async (kind: ReviewActionKind) => {
+    if (!live || busy) return;
+    setBusy(kind);
+    setErr(null);
+    const result = await live.act(a.id, kind, notes);
+    setBusy(null);
+    if (result.ok) {
+      onLiveState(result.state);
+      setArmReject(false);
+      if (kind !== "begin") setDone(kind);
+    } else {
+      setErr(result.message);
+    }
+  };
+
+  /* Notes reach the athlete verbatim on these two — the API refuses them
+     empty (§23), so the buttons say why before it has to. */
+  const needsNotes = notes.trim().length === 0;
 
   /* Unmount normally rides the slide-out's animationend, but that event is
      lost if the animation never runs (stale-CSS HMR). A fallback timer
@@ -588,12 +661,17 @@ function ReviewDrawer({
               <span className="truncate text-sm font-semibold tracking-tight">
                 {a.name}
               </span>
-              <Badge tone={STATE_TONE[s]}>{APPLICATION_COPY[s]}</Badge>
+              <Badge tone={STATE_TONE[s]}>{STATE_COPY[s]}</Badge>
               {a.isMinor && <Badge tone="warn">Minor</Badge>}
             </p>
             <p className="mt-0.5 truncate text-[11px] text-muted">
               {a.sport} · {a.region} · submitted {a.submittedAt}
             </p>
+            {a.legalName && a.legalName !== a.name && (
+              <p className="mt-0.5 truncate text-[11px] text-faint">
+                Legal name: {a.legalName}
+              </p>
+            )}
           </div>
           <button
             ref={closeBtnRef}
@@ -609,38 +687,67 @@ function ReviewDrawer({
         <div className="min-h-0 flex-1 overflow-y-auto">
         {/* score */}
         <div className="sx-animate sx-delay-2 border-b border-line-soft p-5">
-          <div className="flex items-center gap-4">
-            <ScoreRing value={a.score.total} size={72} strokeWidth={6} textCls="text-lg" />
-            <div className="min-w-0 flex-1">
-              <p className={`text-sm font-semibold tracking-tight ${RING_TEXT[band.tone]}`}>
-                {band.label}
+          {a.score && band ? (
+            <>
+              <div className="flex items-center gap-4">
+                <ScoreRing value={a.score.total} size={72} strokeWidth={6} textCls="text-lg" />
+                <div className="min-w-0 flex-1">
+                  <p className={`text-sm font-semibold tracking-tight ${RING_TEXT[band.tone]}`}>
+                    {band.label}
+                  </p>
+                  <p className="mt-0.5 text-[11px] leading-relaxed text-muted">
+                    {band.blurb}
+                  </p>
+                </div>
+              </div>
+              <ul className="mt-4 space-y-2.5">
+                {a.score.factors.map((f) => (
+                  <li key={f.label}>
+                    <div className="flex items-baseline justify-between gap-3 text-[11px]">
+                      <span className="font-medium text-muted">{f.label}</span>
+                      <span className="tabular-nums text-faint">
+                        {f.value === null ? "not assessed" : f.value}
+                      </span>
+                    </div>
+                    {FACTOR_HINTS[f.label] && (
+                      <p className="text-[10px] text-faint">{FACTOR_HINTS[f.label]}</p>
+                    )}
+                    {f.value !== null && (
+                      <div className="mt-1">
+                        <Meter value={f.value} />
+                      </div>
+                    )}
+                  </li>
+                ))}
+              </ul>
+              {(a.score.gapPercent ?? 0) > 0 && (
+                <p className="mt-3 rounded-lg border border-warn/30 bg-warn/8 px-3 py-2 text-[10px] leading-relaxed text-warn">
+                  {a.score.gapPercent}% of the score&rsquo;s weight hasn&rsquo;t
+                  been assessed yet — the number is computed from the factors
+                  that have.
+                </p>
+              )}
+              <p className="mt-3 flex flex-wrap items-center gap-1.5 text-[10px] leading-relaxed text-faint">
+                Scored by fixed rules — every factor is stored with the score, so a
+                decision can be explained later.
+                <MiniChip kind="neutral">{a.score.method} · POSTGRES</MiniChip>
               </p>
-              <p className="mt-0.5 text-[11px] leading-relaxed text-muted">
-                {band.blurb}
-              </p>
+            </>
+          ) : (
+            <div className="flex items-center gap-4">
+              <NoScoreRing size={72} />
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-semibold tracking-tight">
+                  Not scored yet
+                </p>
+                <p className="mt-0.5 text-[11px] leading-relaxed text-muted">
+                  The network manager records the factor assessment during
+                  review — a missing score is an unassessed athlete, never a
+                  zero.
+                </p>
+              </div>
             </div>
-          </div>
-          <ul className="mt-4 space-y-2.5">
-            {a.score.factors.map((f) => (
-              <li key={f.label}>
-                <div className="flex items-baseline justify-between gap-3 text-[11px]">
-                  <span className="font-medium text-muted">{f.label}</span>
-                  <span className="tabular-nums text-faint">{f.value}</span>
-                </div>
-                {FACTOR_HINTS[f.label] && (
-                  <p className="text-[10px] text-faint">{FACTOR_HINTS[f.label]}</p>
-                )}
-                <div className="mt-1">
-                  <Meter value={f.value} />
-                </div>
-              </li>
-            ))}
-          </ul>
-          <p className="mt-3 flex flex-wrap items-center gap-1.5 text-[10px] leading-relaxed text-faint">
-            Scored by fixed rules — every factor is stored with the score, so a
-            decision can be explained later.
-            <MiniChip kind="neutral">rules-v1 · POSTGRES</MiniChip>
-          </p>
+          )}
         </div>
 
         {/* safeguards */}
@@ -652,18 +759,30 @@ function ReviewDrawer({
             {a.isMinor ? (
               a.guardianVerified ? (
                 <CheckRow status="ok">
-                  Guardian verified — a minor can be approved.
+                  Guardian verified — this minor can go live once approved.
+                </CheckRow>
+              ) : a.guardianStatus === "missing" ? (
+                <CheckRow status="danger">
+                  Minor with no guardian linked — someone must collect a
+                  guardian&rsquo;s details before this athlete can go live.
                 </CheckRow>
               ) : (
                 <CheckRow status="warn">
-                  Guardian verification pending — a minor cannot be approved
-                  until their guardian is verified.
+                  Guardian linked but not verified — a minor cannot go live
+                  until the guardian is verified.
                 </CheckRow>
               )
             ) : (
               <CheckRow status="ok">Adult athlete — no guardian needed.</CheckRow>
             )}
-            {conflicts.length > 0 ? (
+            {live ? (
+              /* The queue API answers no conflict data yet — an honest gap,
+                 not a clean bill (§22). */
+              <CheckRow status="neutral">
+                Conflict checks run at matching — nothing is checked at this
+                stage yet.
+              </CheckRow>
+            ) : conflicts.length > 0 ? (
               conflicts.map((f) => (
                 <CheckRow key={f} status="danger">
                   {f}
@@ -672,20 +791,29 @@ function ReviewDrawer({
             ) : (
               <CheckRow status="ok">No conflicts declared.</CheckRow>
             )}
-            <CheckRow status="neutral">
-              {a.followers.toLocaleString("en-US")} followers — self-reported by the
-              athlete; platform verification comes in a later phase.
-            </CheckRow>
+            {a.followers !== null && (
+              <CheckRow status="neutral">
+                {a.followers.toLocaleString("en-US")} followers — self-reported by the
+                athlete; platform verification comes in a later phase.
+              </CheckRow>
+            )}
+            {a.reviewerNotes && (
+              <CheckRow status="neutral">
+                Last reviewer note: &ldquo;{a.reviewerNotes}&rdquo;
+              </CheckRow>
+            )}
           </ul>
-          <a
-            href={`/athletes/${a.slug}?from=applications`}
-            target="_blank"
-            rel="noopener"
-            className="mt-4 inline-flex items-center gap-1.5 rounded-lg border border-line px-3 py-2 text-xs font-medium text-muted transition-colors hover:bg-surface-2 hover:text-text"
-          >
-            View public profile
-            <span aria-hidden="true">↗</span>
-          </a>
+          {a.slug && (
+            <a
+              href={`/athletes/${a.slug}?from=applications`}
+              target="_blank"
+              rel="noopener"
+              className="mt-4 inline-flex items-center gap-1.5 rounded-lg border border-line px-3 py-2 text-xs font-medium text-muted transition-colors hover:bg-surface-2 hover:text-text"
+            >
+              View public profile
+              <span aria-hidden="true">↗</span>
+            </a>
+          )}
         </div>
 
         {/* what this state means */}
@@ -696,63 +824,189 @@ function ReviewDrawer({
 
         {/* decision bar — pinned */}
         <div className="sx-animate sx-delay-4 shrink-0 border-t border-line-soft p-5">
-          <div aria-live="polite">
-            {decision === "APPROVED" && (
-              <DecisionBanner tone="accent" onUndo={onUndo}>
-                {a.name} approved into the network.
-              </DecisionBanner>
-            )}
-            {decision === "REJECTED" && (
-              <DecisionBanner tone="danger" onUndo={onUndo}>
-                Application rejected — the athlete will be notified.
-              </DecisionBanner>
-            )}
-            {decision === "INFO" && (
-              <DecisionBanner tone="neutral" onUndo={onUndo}>
-                Information requested — the athlete will be asked to update
-                their application.
-              </DecisionBanner>
-            )}
-          </div>
-
-          {inReview(s) && !decided && (
+          {live ? (
             <>
-              {blocked && (
-                <p className="mb-3 rounded-lg border border-warn/30 bg-warn/8 px-3 py-2 text-[11px] leading-relaxed text-warn">
-                  Approve is locked until this athlete&rsquo;s guardian is
-                  verified — required for minors.
-                </p>
-              )}
-              <div className="flex flex-wrap items-center gap-2">
-                <button
-                  type="button"
-                  disabled={blocked}
-                  onClick={() => onDecide("APPROVED")}
-                  className="inline-flex flex-1 items-center justify-center rounded-lg bg-primary px-3.5 py-2 text-xs font-medium text-cta-ink transition-colors hover:bg-primary-soft disabled:cursor-not-allowed disabled:opacity-40"
-                >
-                  Approve
-                </button>
-                <button
-                  type="button"
-                  onClick={() => onDecide("INFO")}
-                  className="inline-flex items-center justify-center rounded-lg border border-line px-3.5 py-2 text-xs font-medium text-text transition-colors hover:bg-surface-2"
-                >
-                  Request info
-                </button>
-                <button
-                  type="button"
-                  onClick={() => onDecide("REJECTED")}
-                  className="inline-flex items-center justify-center rounded-lg px-3.5 py-2 text-xs font-medium text-danger transition-colors hover:bg-danger/10"
-                >
-                  Reject
-                </button>
+              <div aria-live="polite">
+                {err && (
+                  <p className="sx-pop mb-3 rounded-lg border border-danger/25 bg-danger/8 px-3 py-2.5 text-xs leading-relaxed text-text">
+                    {err}
+                  </p>
+                )}
+                {done === "approve" && (
+                  <p className="sx-pop mb-3 rounded-lg border border-accent/25 bg-accent/8 px-3 py-2.5 text-xs leading-relaxed text-text">
+                    {a.name} approved — they&rsquo;re being notified by email.
+                    Going live for paid work is a separate activation step.
+                  </p>
+                )}
+                {done === "changes" && (
+                  <p className="sx-pop mb-3 rounded-lg border border-line bg-surface-2/60 px-3 py-2.5 text-xs leading-relaxed text-text">
+                    Sent back — the athlete receives your notes and can update
+                    and resubmit.
+                  </p>
+                )}
+                {done === "reject" && (
+                  <p className="sx-pop mb-3 rounded-lg border border-danger/25 bg-danger/8 px-3 py-2.5 text-xs leading-relaxed text-text">
+                    Rejected — the athlete receives your notes. This is final;
+                    re-applying starts a new application.
+                  </p>
+                )}
               </div>
+
+              {s === "SUBMITTED" && !done && (
+                <>
+                  <p className="mb-3 text-[11px] leading-relaxed text-muted">
+                    Claim this application to review it — decisions unlock once
+                    it&rsquo;s in review, so two reviewers can&rsquo;t decide it
+                    twice.
+                  </p>
+                  <button
+                    type="button"
+                    disabled={busy !== null}
+                    onClick={() => decide("begin")}
+                    className="inline-flex w-full items-center justify-center rounded-lg bg-primary px-3.5 py-2 text-xs font-medium text-cta-ink transition-colors hover:bg-primary-soft disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    {busy === "begin" ? "Starting review…" : "Start review"}
+                  </button>
+                </>
+              )}
+
+              {s === "UNDER_REVIEW" && !done && (
+                <>
+                  {blocked && (
+                    <p className="mb-3 rounded-lg border border-warn/30 bg-warn/8 px-3 py-2 text-[11px] leading-relaxed text-warn">
+                      Minor without a verified guardian — approving is allowed,
+                      but activation stays locked until the guardian is
+                      verified.
+                    </p>
+                  )}
+                  <label
+                    htmlFor="review-notes"
+                    className="mb-1 block text-[11px] font-medium text-muted"
+                  >
+                    Notes to the athlete{" "}
+                    <span className="text-faint">
+                      — required to request info or reject; sent to them
+                      verbatim
+                    </span>
+                  </label>
+                  <textarea
+                    id="review-notes"
+                    value={notes}
+                    onChange={(e) => {
+                      setNotes(e.target.value);
+                      setArmReject(false);
+                    }}
+                    rows={3}
+                    disabled={busy !== null}
+                    placeholder="What should the athlete hear about this decision?"
+                    className="mb-3 w-full rounded-lg border border-line bg-surface-2/60 px-3 py-2 text-xs leading-relaxed text-text placeholder:text-faint focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
+                  />
+                  <div className="flex flex-wrap items-center gap-2">
+                    <button
+                      type="button"
+                      disabled={busy !== null}
+                      onClick={() => decide("approve")}
+                      className="inline-flex flex-1 items-center justify-center rounded-lg bg-primary px-3.5 py-2 text-xs font-medium text-cta-ink transition-colors hover:bg-primary-soft disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      {busy === "approve" ? "Approving…" : "Approve"}
+                    </button>
+                    <button
+                      type="button"
+                      disabled={busy !== null || needsNotes}
+                      title={needsNotes ? "Write the athlete a note first — it's what they receive." : undefined}
+                      onClick={() => decide("changes")}
+                      className="inline-flex items-center justify-center rounded-lg border border-line px-3.5 py-2 text-xs font-medium text-text transition-colors hover:bg-surface-2 disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      {busy === "changes" ? "Sending…" : "Request info"}
+                    </button>
+                    <button
+                      type="button"
+                      disabled={busy !== null || needsNotes}
+                      title={needsNotes ? "Write the athlete a note first — it's what they receive." : undefined}
+                      onClick={() => (armReject ? decide("reject") : setArmReject(true))}
+                      className={[
+                        "inline-flex items-center justify-center rounded-lg px-3.5 py-2 text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-40",
+                        armReject
+                          ? "bg-danger text-white hover:bg-danger/90"
+                          : "text-danger hover:bg-danger/10",
+                      ].join(" ")}
+                    >
+                      {busy === "reject"
+                        ? "Rejecting…"
+                        : armReject
+                          ? "Confirm reject — final"
+                          : "Reject"}
+                    </button>
+                  </div>
+                </>
+              )}
+
+              <p className="mt-3 text-[10px] leading-relaxed text-faint">
+                Decisions are recorded and audited, and the athlete is emailed
+                the outcome.
+              </p>
+            </>
+          ) : (
+            <>
+              <div aria-live="polite">
+                {decision === "APPROVED" && (
+                  <DecisionBanner tone="accent" onUndo={onUndo}>
+                    {a.name} approved into the network.
+                  </DecisionBanner>
+                )}
+                {decision === "REJECTED" && (
+                  <DecisionBanner tone="danger" onUndo={onUndo}>
+                    Application rejected — the athlete will be notified.
+                  </DecisionBanner>
+                )}
+                {decision === "INFO" && (
+                  <DecisionBanner tone="neutral" onUndo={onUndo}>
+                    Information requested — the athlete will be asked to update
+                    their application.
+                  </DecisionBanner>
+                )}
+              </div>
+
+              {inReview(s) && !decided && (
+                <>
+                  {blocked && (
+                    <p className="mb-3 rounded-lg border border-warn/30 bg-warn/8 px-3 py-2 text-[11px] leading-relaxed text-warn">
+                      Approve is locked until this athlete&rsquo;s guardian is
+                      verified — required for minors.
+                    </p>
+                  )}
+                  <div className="flex flex-wrap items-center gap-2">
+                    <button
+                      type="button"
+                      disabled={blocked}
+                      onClick={() => onDecide("APPROVED")}
+                      className="inline-flex flex-1 items-center justify-center rounded-lg bg-primary px-3.5 py-2 text-xs font-medium text-cta-ink transition-colors hover:bg-primary-soft disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      Approve
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => onDecide("INFO")}
+                      className="inline-flex items-center justify-center rounded-lg border border-line px-3.5 py-2 text-xs font-medium text-text transition-colors hover:bg-surface-2"
+                    >
+                      Request info
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => onDecide("REJECTED")}
+                      className="inline-flex items-center justify-center rounded-lg px-3.5 py-2 text-xs font-medium text-danger transition-colors hover:bg-danger/10"
+                    >
+                      Reject
+                    </button>
+                  </div>
+                </>
+              )}
+
+              <p className="mt-3 text-[10px] leading-relaxed text-faint">
+                Demo decisions last for this visit only — nothing is saved.
+              </p>
             </>
           )}
-
-          <p className="mt-3 text-[10px] leading-relaxed text-faint">
-            Demo decisions last for this visit only — nothing is saved.
-          </p>
         </div>
       </div>
     </div>
