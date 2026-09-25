@@ -91,7 +91,13 @@ export type Flash = "claimed" | "redeemed" | "used" | "consent" | "failed" | nul
 /** One page, every state §16 needs — rendered from the API's own view. */
 export function renderFanPage(token: string, v: TokenView, flash: Flash): { html: string; status: number } {
   const t = encodeURIComponent(token);
-  const beacon = `<img src="/r/${t}/landing" alt="" width="1" height="1" style="position:absolute;opacity:0">`;
+  /* The LANDING beacon only on a first visit — never on a post/redirect/get
+     return (?flash=…), exactly as the route records SCAN. Without this, the
+     page a fan sees after claiming fired a second LANDING, and every claim
+     inflated the funnel (found by e2e/redeem-flow.spec.ts, P6-QA-01). */
+  const beacon = flash
+    ? ""
+    : `<img src="/r/${t}/landing" alt="" width="1" height="1" style="position:absolute;opacity:0">`;
 
   if (v.state === "UNKNOWN") {
     return { status: 404, html: shell("Code not recognised", `
