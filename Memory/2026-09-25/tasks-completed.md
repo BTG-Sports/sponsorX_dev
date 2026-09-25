@@ -151,3 +151,5 @@ not restart the service; redeploy explicitly.** LOADTEST data deleted.
 - **CI:** the e2e job now has a `postgres:17` service, runs migrations, and
   Playwright starts the API beside the web app (`playwright.config.ts`
   `webServer` array), so both specs run on every push.
+
+**`P6-QA-01`, `P6-QA-02` → Done** (user's instruction; acceptance met, both specs green in CI).
