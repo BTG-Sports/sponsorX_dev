@@ -284,3 +284,5 @@ RevenueSplit and EditionEvent, plus the enums.
 **All NEXT backend tasks are now built** (Batches A, B and C). `P9-DATA-01`
 (selling a real first edition) and the `P9-PMO-03` record remain open by
 nature.
+
+**SponsorX NEXT Batches A, B, C → Done** (user's instruction; acceptance met, CI green): P9-BE-02/03/04/05/06/07/09/10/11/12/13/14/15, P9-SEC-01.
