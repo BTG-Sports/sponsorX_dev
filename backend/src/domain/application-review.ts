@@ -128,7 +128,10 @@ export async function reviewApplication(
 
     const result = await transitionAthleteIn(tx, actor, athleteId, decision, notes);
 
-    await send(tx, actor.tenantId, {
+    /* A claimed FEATURED athlete's email is set at verification, so every
+       applicant reaching a decision has one; the guard is for the type, and a
+       decision is never lost for want of an address. */
+    if (applicant.email) await send(tx, actor.tenantId, {
       template: DECISION_TEMPLATE[decision],
       to: applicant.email,
       data: {

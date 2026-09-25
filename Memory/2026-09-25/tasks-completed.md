@@ -195,3 +195,94 @@ rerun posted that Slack update twice. Fix: the Sheet client retries reads and
 cell updates twice (5 s, 20 s) on a non-JSON reply or network error. Appends
 (Stage Progress rows) are never retried, so a lost reply cannot add a row
 twice. Tests in `scripts/tracker/tests`.
+
+## SponsorX NEXT — Stage 9 gate lifted; Batch A → Code review
+
+**Decision (programme owner, 2026-09-25):** finish *all* backend work, NEXT
+included. The `P9-PMO-03` gate is lifted for the build and recorded in
+`CLAUDE.md`, the RBAC matrix §15 and the Phase 1 plan. `P9-PMO-03` stays open
+because edition one hasn't sold yet (`P9-DATA-01`).
+
+**Batch A: `P9-BE-02`, `-03`, `-06`, `-09`, `-12`.** Migration
+`20260925120000_next_editions` adds Publication, Edition, AdSlot,
+RevenueSplit and EditionEvent, plus the enums.
+
+- **Postgres enforces the inventory** (`prisma/sql/adslot_inventory.sql`): one
+  back cover and one presenting sponsor per edition, no re-sale, no sale after
+  close, no cross-tenant sale.
+- **Selling** takes exactly the positions the package's `includes` lists, all
+  or nothing.
+- **Closing** an edition computes the 40/30/20/10 split in the same
+  transaction. It never writes to `Earning`.
+- **Ad-only campaigns** skip STAFFING (DRAFT → APPROVAL).
+- **Engagement events** are their own stream. The sponsor report shows print
+  and digital separately.
+- **Permissions:** five new policy resources, with the digest re-pinned
+  (nothing else moved). The cross-tenant sweep covers the new routes.
+- **Tests:** `tests/next-editions.test.ts` has 17 tests, mutation-checked on
+  the trigger and the domain close-date guard.
+- **Also fixed:** seeded package ids are now tenant-scoped
+  (`pkg_<tenant>_<code>`). The old global id meant only one tenant could ever
+  be seeded, and two test tenants collided.
+
+## SponsorX NEXT Batch B (students) → Code review
+
+`P9-BE-04`, `-05`, `-07`, `-13`, `-15` and `P9-SEC-01`. Migration
+`20260925140000_next_students`.
+
+- **Model and roles:** Student, StudentCode, SalesAttribution,
+  StudentPointAccrual and StudentProspect, plus the roles STUDENT and ADVISOR,
+  `User.studentId`, the three new Sponsor fields and `CampaignBrief.studentCodeId`.
+- **Postgres keeps sale credit permanent** (trigger
+  `sales_attribution_immutable`). Test teardown deletes with
+  `SET LOCAL sponsorx.attribution_purge = 'on'`, and nothing else can.
+- **Students:** StudentState mirrors AthleteState edge for edge, plus
+  INACTIVE. The advisor reviews, and a minor needs a verified guardian (the
+  athlete's rule).
+- **Sales credit:** the code travels on the brief, and the ad sale writes the
+  credit in the same transaction. One code per student across all their sales.
+- **Prospects:** a rejection carries a reason code, emails the student, costs
+  no credit, and redirects to open categories. Categories unsuitable for
+  minors are blocked.
+- **Permissions:** matrix §15.1–15.2 transcribed, with `studentProspect`
+  added. Every protected field is denied to STUDENT and ADVISOR.
+  `revenueSplit.amount` is a new protected field. The digest is re-pinned and
+  no existing role moved. The tenant sweep and the money-leak sweep both
+  include a student and an advisor now.
+- **Tests:** `tests/next-students.test.ts` has 21 tests, mutation-checked on
+  the guardian gate and the student scope.
+
+## SponsorX NEXT Batch C (rights, featured athletes, DMV pool) → Code review
+
+`P9-BE-10`, `-11` and `-14`. Migration `20260925160000_next_rights`.
+
+- **Rights ledger:** EditionAsset and ContentRight form one ledger. Postgres
+  CHECKs require each right to be either consent or a licence, matching its
+  grantor. The gate is one query. `rightsCleared` is now **computed**:
+  digital rights at production and digital publication, print rights at
+  printing. It can no longer be set by hand.
+- **Commercial reuse:** BTG content never allows it by default, and content
+  can't join a campaign without an explicit commercial grant.
+- **Featured athletes:** a new FEATURED state with a public profile. No
+  rates, no invitations, no matching.
+- **Consent:** AgreementAcceptance can now record a subject with no login
+  (`userId` nullable, plus `athleteId` / `studentId`; Postgres CHECK exactly
+  one).
+- **Claim flow:** "that's me" → the school verifies (roster plus that school's
+  advisor) → review → the guardian's COMMERCIAL consent is required before a
+  minor can be activated.
+- **Roster is SIMULATED** (`RosterEntry`, seeded for the pilot school). The
+  real roster remains spec §14 gate 1.
+- **DMV pools:** the school share splits 50/50 (simulated) into SALES and
+  CONTENT pools, resolved by formula when the edition publishes.
+- **Permissions:** `contentRight` plus five new resources, added to the
+  matrix doc. The digest is re-pinned and nothing else moved. The tenant
+  sweep is grown to cover Batch C.
+- **Tests:** `tests/next-rights.test.ts` has 13 tests, mutation-checked three
+  ways.
+
+**All NEXT backend tasks are now built** (Batches A, B and C). `P9-DATA-01`
+(selling a real first edition) and the `P9-PMO-03` record remain open by
+nature.
+
+**SponsorX NEXT Batches A, B, C → Done** (user's instruction; acceptance met, CI green): P9-BE-02/03/04/05/06/07/09/10/11/12/13/14/15, P9-SEC-01.

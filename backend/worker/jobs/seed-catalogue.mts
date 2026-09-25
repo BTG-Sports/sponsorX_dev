@@ -78,8 +78,12 @@ export async function seedPackages(client: pg.PoolClient, tenantId: string): Pro
          exclusivity = EXCLUDED.exclusivity, "durationWeeks" = EXCLUDED."durationWeeks",
          active = true`,
       /* A deterministic id so a re-run cannot create a second row for the
-         same code if the unique index is ever rebuilt. */
-      [`pkg_${pkg.code.toLowerCase()}`, tenantId, pkg.code, pkg.name,
+         same code if the unique index is ever rebuilt. Tenant in it, because
+         the id is a global primary key: `pkg_<code>` alone let exactly one
+         tenant ever be seeded (found 2026-09-25 when two test tenants
+         collided). Rows seeded before keep their old ids — the conflict path
+         updates by (tenantId, code) and never rewrites an id. */
+      [`pkg_${tenantId}_${pkg.code.toLowerCase()}`, tenantId, pkg.code, pkg.name,
        pkg.priceLow, pkg.priceHigh, pkg.athleteCountMin, pkg.athleteCountMax,
        JSON.stringify(pkg.lineItems), JSON.stringify(pkg.includes),
        pkg.exclusivity, pkg.durationWeeks],

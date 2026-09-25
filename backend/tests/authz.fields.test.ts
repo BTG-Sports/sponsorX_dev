@@ -153,8 +153,38 @@ describe("the table is complete", () => {
       "athlete.restrictions", "athleteRate.amount", "athleteScore.value",
       "campaign.budget", "campaign.guarantee", "campaign.value",
       "campaignOrder.compensation", "campaignOrder.sellPrice", "earning.amount",
-      "nilJob.athleteBasePay", "nilJob.sponsorPrice", "rewardClaim.fanContact",
-      "sponsor.billingReference",
+      "nilJob.athleteBasePay", "nilJob.sponsorPrice", "revenueSplit.amount",
+      "rewardClaim.fanContact", "sponsor.billingReference",
     ]);
+  });
+});
+
+/* P9-BE-05 / P9-SEC-01 — the money boundary, grown for SponsorX NEXT rather
+   than replaced (matrix §15.4). */
+describe("a STUDENT or ADVISOR never reads money or an athlete's personal data", () => {
+  it("AthleteRate.amount is invisible to STUDENT as firmly as to a sponsor", () => {
+    for (const role of ["STUDENT", "ADVISOR", "SPONSOR_ADMIN"] as const) {
+      expect(canReadField([role], "athleteRate.amount"), role).toBe(false);
+    }
+  });
+
+  it("holding STUDENT alongside ATHLETE does not open the rate through STUDENT", () => {
+    /* A correspondent who is also an athlete reads their own rate as ATHLETE —
+       and a denial is not widened by a second role, so as STUDENT+ATHLETE the
+       field stays closed here; the athlete surface reads it row-scoped. */
+    expect(canReadField(["STUDENT", "ATHLETE"], "athleteRate.amount")).toBe(false);
+  });
+
+  it("every protected field is denied to both", () => {
+    for (const field of Object.keys(FIELD_DENIALS) as (keyof typeof FIELD_DENIALS)[]) {
+      expect(canReadField(["STUDENT"], field), `STUDENT ${field}`).toBe(false);
+      expect(canReadField(["ADVISOR"], field), `ADVISOR ${field}`).toBe(false);
+    }
+  });
+
+  it("revenueSplit.amount is FINANCE's and BTG's, never a student's", () => {
+    expect(canReadField(["FINANCE"], "revenueSplit.amount")).toBe(true);
+    expect(canReadField(["BTG_ADMIN"], "revenueSplit.amount")).toBe(true);
+    expect(canReadField(["STUDENT"], "revenueSplit.amount")).toBe(false);
   });
 });

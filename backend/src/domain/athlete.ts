@@ -136,6 +136,24 @@ export async function transitionAthleteIn(
     if (readiness.status === "missing" || readiness.status === "unverified") {
       throw new GuardianRequiredError(athleteId);
     }
+    /* P9-BE-11, spec §5.4 — a CLAIMED featured athlete who is a minor needs
+       more than a verified guardian on file: the guardian's own COMMERCIAL
+       authorisation, recorded as consent for this athlete as the subject.
+       "Commercial activation cannot complete without it." */
+    if (readiness.status === "ready") {
+      const claimed = await tx.athleteClaim.count({
+        where: { tenantId: actor.tenantId, athleteId, state: "VERIFIED" },
+      });
+      if (claimed > 0) {
+        const authorised = await tx.agreementAcceptance.count({
+          where: {
+            tenantId: actor.tenantId, athleteId, guardianId: athlete.guardianId,
+            agreement: { is: { kind: "COMMERCIAL" } },
+          },
+        });
+        if (authorised === 0) throw new CommercialAuthorisationRequiredError(athleteId);
+      }
+    }
   }
 
   /* A review decision is not only a state change: §11 §10 keeps the note
@@ -166,6 +184,17 @@ export async function transitionAthleteIn(
   return { id: updated.id, state: updated.state as AthleteState };
 }
 
+export class CommercialAuthorisationRequiredError extends Error {
+  readonly status = 409;
+  constructor(athleteId: string) {
+    super(
+      `Athlete ${athleteId} claimed a featured profile and is a minor: activation needs ` +
+        `their guardian's COMMERCIAL authorisation on record (P9-BE-11).`,
+    );
+    this.name = "CommercialAuthorisationRequiredError";
+  }
+}
+
 /**
  * One audit action per destination state, rather than a single
  * "athlete.stateChange".
@@ -183,6 +212,9 @@ const ATHLETE_AUDIT_ACTIONS: Record<AthleteState, `${string}.${string}`> = {
   REJECTED: "athlete.reject",
   ACTIVE: "athlete.activate",
   SUSPENDED: "athlete.suspend",
+  /* Never a transition's destination — a featured profile is created that
+     way (P9-BE-11) — but the record type demands a name for every state. */
+  FEATURED: "athlete.feature",
 };
 
 export { ATHLETE_AUDIT_ACTIONS, AUDIT_ACTIONS };

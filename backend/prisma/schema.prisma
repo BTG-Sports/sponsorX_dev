@@ -71,6 +71,9 @@ datasource db {
 // ─────────────────────────────────────────────────────────────────────────────
 
 /// Authorization lives here and in user_roles, never in Clerk (§04, Addendum A4).
+/// STUDENT and ADVISOR are SponsorX NEXT's (P9-BE-05, matrix §15.1): a
+/// student correspondent is not an ATHLETE, and a faculty advisor is not a
+/// PROPERTY_MGR.
 enum Role {
   SUPER_ADMIN
   BTG_ADMIN
@@ -84,6 +87,8 @@ enum Role {
   SPONSOR_ADMIN
   SPONSOR_ANALYST
   SERVICE
+  STUDENT
+  ADVISOR
 }
 
 enum AthleteState {
@@ -95,6 +100,7 @@ enum AthleteState {
   REJECTED
   ACTIVE
   SUSPENDED
+  FEATURED
 }
 
 enum BriefState {
@@ -213,6 +219,9 @@ model User {
   sponsorId  String?
   propertyId String?
   guardianId String?
+  /// SponsorX NEXT (P9-BE-05): a STUDENT's own record — without it every
+  /// student-scoped row matches nothing. A STUDENT's propertyId is their school.
+  studentId  String?  @unique
   /// The same person's Zoho CRM user id (P8-INT-01, field-mapping O-5). Set
   /// by matching on email; a Task this user originates is owned by them in
   /// the CRM. Null means the API account owns it and nobody is notified.
@@ -250,7 +259,10 @@ model Property {
   lastSyncOrigin SyncOrigin?
   lastSyncHash   String?
 
-  athletes Athlete[]
+  athletes     Athlete[]
+  publications Publication[]
+  students     Student[]
+  roster       RosterEntry[]
 
   @@index([tenantId])
 }
@@ -266,7 +278,10 @@ model Guardian {
   /// §37 pre-pilot gate — a minor cannot go ACTIVE without this set.
   verifiedAt   DateTime?
 
-  wards Athlete[]
+  wards    Athlete[]
+  /// SponsorX NEXT — reused unchanged: a minor student needs a verified
+  /// guardian on the same rule as an athlete (P9-BE-04).
+  students Student[]
 
   @@index([tenantId])
 }
@@ -298,7 +313,9 @@ model Athlete {
   /// which belongs to the Clerk identity: an athlete may be onboarded by BTG
   /// long before they ever sign in, and a guardian-managed minor may never
   /// hold a login at all.
-  email   String
+  /// NULL only for a FEATURED athlete (P9-BE-11): editorial created them and
+  /// has no contact for them until they claim the profile.
+  email   String?
   phone   String?
   /// §11 permits an age band instead of a date of birth. Both are optional in
   /// the column sense and the contract requires one of the two, because §26's
@@ -312,15 +329,15 @@ model Athlete {
   /// the applicant only when the state is CHANGES_REQUESTED. The expiry
   /// exists because §11 asks for it: a clearance that never expires is one
   /// nobody revisits.
-  reviewerNotes       String?
-  reviewedAt          DateTime?
-  complianceExpiresAt DateTime?
+  reviewerNotes        String?
+  reviewedAt           DateTime?
+  complianceExpiresAt  DateTime?
   /// §11 §4 — what this athlete can actually make. A queryable set rather
   /// than prose, because matching asks "who can shoot video" and a paragraph
   /// cannot answer it.
-  contentCapabilities String[]
+  contentCapabilities  String[]
   /// §11 §5 — categories they want to work with. Preference, not a rule.
-  brandInterests      String[]
+  brandInterests       String[]
   /// §11 §6 — categories they will NOT promote. This one is a rule, and §26's
   /// conflict check reads it: Phase 4 asks "which athletes exclude alcohol?"
   /// and must get an answer from an index, not from someone reading notes.
@@ -328,12 +345,12 @@ model Athlete {
   /// Anything that does not reduce to a category. Deliberately separate from
   /// the list above so nobody mistakes unenforceable text for an enforceable
   /// restriction — a conflict check cannot read this and must not appear to.
-  restrictionNotes    String?
+  restrictionNotes     String?
 
   /// §6 — set by a network manager in Phase 1, never computed.
-  tier                AthleteTier?
-  guardianId          String?
-  propertyId          String?
+  tier       AthleteTier?
+  guardianId String?
+  propertyId String?
 
   // Zoho (§18 — Contacts are bi-directional)
   zohoId         String?     @unique
@@ -342,8 +359,8 @@ model Athlete {
 
   createdAt DateTime @default(now())
 
-  guardian Guardian?        @relation(fields: [guardianId], references: [id])
-  property Property?        @relation(fields: [propertyId], references: [id])
+  guardian Guardian?             @relation(fields: [guardianId], references: [id])
+  property Property?             @relation(fields: [propertyId], references: [id])
   socials  AthleteSocial[]
   rates    AthleteRate[]
   scores   AthleteScore[]
@@ -352,6 +369,12 @@ model Athlete {
   earnings Earning[]
   tokens   RewardToken[]
   user     User?
+  /// An athlete correspondent is also a Student (P9-BE-04).
+  student  Student?
+  /// SponsorX NEXT (P9-BE-11) — consent recorded for this athlete as a
+  /// subject, and claims made on a FEATURED profile.
+  consents AgreementAcceptance[]
+  claims   AthleteClaim[]
 
   @@index([tenantId, state])
   @@index([tenantId, sport, stateCode])
@@ -485,6 +508,15 @@ model Sponsor {
   lastSyncAt     DateTime?
   updatedAt      DateTime    @default(now()) @updatedAt
 
+  /// SponsorX NEXT (P9-BE-13, spec §5.1) — SCHOOL | SPONSORX | STUDENT_ORIGINATED.
+  /// Who holds the customer relationship. Set when the account is first sold
+  /// and never moved: students own attribution, not customers.
+  ownership         String  @default("SPONSORX")
+  schoolPropertyId  String?
+  /// The student currently working this account. NOT ownership and NOT
+  /// attribution — reassigning it changes nothing about who originated a sale.
+  assignedStudentId String?
+
   briefs    CampaignBrief[]
   campaigns Campaign[]
   contacts  SponsorContact[]
@@ -533,23 +565,26 @@ model SponsorContact {
 
 /// §13 step 2.
 model CampaignBrief {
-  id         String     @id @default(cuid())
-  tenantId   String
-  sponsorId  String
-  objective  String
+  id            String     @id @default(cuid())
+  tenantId      String
+  sponsorId     String
+  objective     String
   /// cents
-  budget     Int
-  packageId  String?
-  startDate  DateTime
-  endDate    DateTime
-  sports     String[]
+  budget        Int
+  packageId     String?
+  /// SponsorX NEXT (P9-BE-07): the student code the sponsor arrived with
+  /// (/s/[code]). A sale on this brief is attributed to that student.
+  studentCodeId String?
+  startDate     DateTime
+  endDate       DateTime
+  sports        String[]
   /// US state codes targeted by the brief.
-  stateCodes String[]
+  stateCodes    String[]
   /// Conflict-check input — §26.
-  categories String[]
-  state      BriefState @default(DRAFT)
-  createdAt  DateTime   @default(now())
-  updatedAt  DateTime   @default(now()) @updatedAt
+  categories    String[]
+  state         BriefState @default(DRAFT)
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @default(now()) @updatedAt
 
   // Zoho (§18 rows 4–5). The Deal is created when the brief qualifies, before
   // any Campaign exists, so the brief holds it; the campaign copies it on
@@ -559,9 +594,10 @@ model CampaignBrief {
   lastSyncHash   String?
   lastSyncAt     DateTime?
 
-  sponsor  Sponsor         @relation(fields: [sponsorId], references: [id])
-  package  SponsorPackage? @relation(fields: [packageId], references: [id])
-  campaign Campaign?
+  sponsor     Sponsor         @relation(fields: [sponsorId], references: [id])
+  package     SponsorPackage? @relation(fields: [packageId], references: [id])
+  studentCode StudentCode?    @relation(fields: [studentCodeId], references: [id])
+  campaign    Campaign?
 
   @@index([tenantId, state])
 }
@@ -579,20 +615,25 @@ model Campaign {
   state     CampaignState @default(DRAFT)
 
   // Zoho (§18 — Deals are bi-directional)
-  zohoDealId     String?     @unique
-  lastSyncOrigin SyncOrigin?
-  lastSyncHash   String?
-  lastSyncAt     DateTime?
+  zohoDealId        String?     @unique
+  lastSyncOrigin    SyncOrigin?
+  lastSyncHash      String?
+  lastSyncAt        DateTime?
   /// §18 row 9 — the renewal is a second Deal, pushed once, never read back.
-  zohoRenewalDealId String?  @unique
-  updatedAt      DateTime    @default(now()) @updatedAt
+  zohoRenewalDealId String?     @unique
+  updatedAt         DateTime    @default(now()) @updatedAt
 
-  sponsor Sponsor          @relation(fields: [sponsorId], references: [id])
-  brief   CampaignBrief?   @relation(fields: [briefId], references: [id])
-  invites CampaignInvite[]
-  orders   CampaignOrder[]
-  rewards  Reward[]
-  invoices CampaignInvoice[]
+  sponsor       Sponsor           @relation(fields: [sponsorId], references: [id])
+  brief         CampaignBrief?    @relation(fields: [briefId], references: [id])
+  invites       CampaignInvite[]
+  orders        CampaignOrder[]
+  rewards       Reward[]
+  invoices      CampaignInvoice[]
+  /// SponsorX NEXT — the ad positions this campaign bought (P9-BE-03).
+  adSlots       AdSlot[]
+  /// Edition content sponsored by this campaign — only with a commercial
+  /// grant (P9-BE-10).
+  editionAssets EditionAsset[]
 
   @@index([tenantId, state])
 }
@@ -627,7 +668,7 @@ model CampaignInvite {
 
 /// The commercial record, one per athlete per job.
 model CampaignOrder {
-  id           String     @id @default(cuid())
+  id           String   @id @default(cuid())
   tenantId     String
   campaignId   String
   athleteId    String
@@ -669,9 +710,9 @@ model CampaignOrder {
   /// report can present an implied CPM as though it rested on verified
   /// reach (§22).
   projectionSource     MetricSource?
-  state        OrderState @default(DRAFT)
-  acceptedAt   DateTime?
-  acceptanceId String?    @unique
+  state                OrderState    @default(DRAFT)
+  acceptedAt           DateTime?
+  acceptanceId         String?       @unique
 
   campaign     Campaign             @relation(fields: [campaignId], references: [id])
   athlete      Athlete              @relation(fields: [athleteId], references: [id])
@@ -840,13 +881,13 @@ model RewardEvent {
   ///
   /// All three are null where no email was given — there is nothing to
   /// consent to holding.
-  consentVersion  String?
-  consentAt       DateTime?
+  consentVersion     String?
+  consentAt          DateTime?
   /// What the fan was told the address would be used for, as a short code
   /// (e.g. "reward-delivery"). Consent is scoped: agreeing to be sent a
   /// voucher is not agreeing to marketing, and a single boolean would lose
   /// that distinction the first time someone exported the list.
-  consentPurpose  String?
+  consentPurpose     String?
   /// When the fan withdrew that consent (P6-SEC-03) — the one-tap unsubscribe
   /// link in every fan email. Recorded on THIS row, beside the consent it
   /// withdraws, so the record reads "agreed to 2026-09-01 at T1, withdrew at
@@ -893,7 +934,9 @@ model Earning {
 model Agreement {
   id          String   @id @default(cuid())
   tenantId    String
-  /// COLLAB | CAMPAIGN_ORDER | GUARDIAN | RELEASE
+  /// COLLAB | CAMPAIGN_ORDER | GUARDIAN | RELEASE, and for SponsorX NEXT
+  /// (P9-BE-11, spec §5.4 — three agreements, not one): FEATURE | PROFILE |
+  /// COMMERCIAL. Data, not schema.
   kind        String
   version     Int
   bodyHash    String
@@ -908,18 +951,28 @@ model AgreementAcceptance {
   id          String   @id @default(cuid())
   tenantId    String
   agreementId String
-  userId      String
+  /// SponsorX NEXT (P9-BE-11, spec §6.2) — TYPED SUBJECTS. Exactly one of
+  /// userId / athleteId / studentId is set (CHECK in migration
+  /// 20260925160000): a featured athlete has no login and a guardian has no
+  /// account, so consent must be recordable for a subject with no User.
+  userId      String?
+  athleteId   String?
+  studentId   String?
   /// Copied at accept time, not read back through the template.
   bodyHash    String
   ip          String
   userAgent   String
   acceptedAt  DateTime @default(now())
-  /// Set when the athlete is a minor — §4.
+  /// Set when the athlete is a minor — §4. UNCHANGED meaning: the guardian
+  /// who authorised on behalf of a minor subject.
   guardianId  String?
 
   agreement Agreement      @relation(fields: [agreementId], references: [id])
-  user      User           @relation(fields: [userId], references: [id])
+  user      User?          @relation(fields: [userId], references: [id], onDelete: Restrict)
+  athlete   Athlete?       @relation(fields: [athleteId], references: [id], onDelete: Restrict)
+  student   Student?       @relation(fields: [studentId], references: [id], onDelete: Restrict)
   order     CampaignOrder?
+  rights    ContentRight[]
 
   @@index([tenantId, agreementId])
 }
@@ -1051,7 +1104,7 @@ model SyncTask {
 
   /// `<kind>:<brief or campaign id>`, e.g. `approval:c_123`. One task per
   /// event: a retried transition must not raise a second CRM task.
-  dedupeKey      String      @unique
+  dedupeKey String @unique
 
   @@index([tenantId, dueDate])
 }
@@ -1107,4 +1160,464 @@ model AuditLog {
 
   @@index([tenantId, entity, entityId])
   @@index([tenantId, at])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SponsorX NEXT — publications, editions and their inventory (Stage 9 Batch A:
+// P9-BE-02, -03, -06, -12). Spec v2.0 §5.2, §5.7, §6.4. The Stage 9 schema
+// gate (P9-PMO-03) was lifted by the programme owner on 2026-09-25.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// The masthead. Per school (`propertyId`), or regional with `propertyId`
+/// null for the DMV edition (§5.2).
+model Publication {
+  id         String   @id @default(cuid())
+  tenantId   String
+  propertyId String?
+  name       String
+  createdAt  DateTime @default(now())
+
+  property Property? @relation(fields: [propertyId], references: [id])
+  editions Edition[]
+
+  @@index([tenantId])
+}
+
+/// Fall / Winter / Spring / Year-End. The three V3 §3 production conditions
+/// are explicit columns, not a computed opinion.
+model Edition {
+  id             String       @id @default(cuid())
+  tenantId       String
+  publicationId  String
+  label          String
+  /// Ad deadline — no slot sells on or after it (database-enforced).
+  closeDate      DateTime
+  publishTarget  DateTime
+  printDate      DateTime?
+  pageCount      Int?
+  contentReady   Boolean      @default(false)
+  rightsCleared  Boolean      @default(false)
+  revenueMet     Boolean      @default(false)
+  /// cents — the minimum viable edition threshold
+  thresholdCents Int
+  state          EditionState @default(PLANNING)
+
+  publication   Publication            @relation(fields: [publicationId], references: [id])
+  slots         AdSlot[]
+  splits        RevenueSplit[]
+  events        EditionEvent[]
+  assets        EditionAsset[]
+  contributions ContentContribution[]
+  schoolPools   SchoolPoolAllocation[]
+
+  @@index([tenantId, state])
+}
+
+/// P9-BE-02. V1 is a free digital edition; print is an optional layer.
+enum EditionState {
+  PLANNING
+  SELLING
+  CLOSED
+  IN_PRODUCTION
+  PUBLISHED_DIGITAL
+  PRINTED
+  DISTRIBUTED
+  CANCELLED
+}
+
+/// The inventory ledger — one row per sellable position (P9-BE-03). It points
+/// at the Campaign, not a CampaignOrder: an order needs an athlete and a job,
+/// and an ad has neither. Selling twice, selling after close, and a second
+/// back cover are all refused by Postgres (migration 20260925120000).
+model AdSlot {
+  id         String     @id @default(cuid())
+  tenantId   String
+  editionId  String
+  /// "P04-QTR" — the position on the flatplan.
+  slotCode   String
+  kind       AdSlotKind
+  /// cents — rack price
+  priceCents Int
+  /// Positions this row represents. Always 1: several identical positions
+  /// are several rows, so each can be sold on its own (CHECK in migration).
+  quantity   Int        @default(1)
+  campaignId String?
+  /// cents — frozen at sale; may differ from rack (an add-on sold with it).
+  soldCents  Int?
+  soldAt     DateTime?
+
+  edition  Edition   @relation(fields: [editionId], references: [id])
+  campaign Campaign? @relation(fields: [campaignId], references: [id])
+
+  @@unique([editionId, slotCode])
+  @@index([tenantId, editionId])
+  @@index([campaignId])
+}
+
+/// Matches the AD_SLOT / PRESENTING codes in the NEXT packages' `includes`.
+enum AdSlotKind {
+  QUARTER
+  HALF
+  FULL
+  BACK_COVER
+  PRESENTING
+}
+
+/// P9-BE-06, §5.7. Attached to the edition. NOT Earning — Earning is athlete
+/// NIL pay that finance reconciles payouts from, and schools and pools must
+/// never land in it.
+model RevenueSplit {
+  id          String         @id @default(cuid())
+  tenantId    String
+  editionId   String
+  payeeKind   SplitPayeeKind
+  /// basis points of the edition's sold revenue; the four sum to 10,000
+  bps         Int
+  /// cents — computed at close, never typed in
+  amountCents Int
+  computedAt  DateTime       @default(now())
+
+  edition Edition @relation(fields: [editionId], references: [id])
+
+  @@unique([editionId, payeeKind])
+  @@index([tenantId])
+}
+
+enum SplitPayeeKind {
+  SPONSORX
+  SCHOOL
+  STUDENT_POOL
+  EDITORIAL_FUND
+}
+
+/// P9-BE-12, §6.4. Its own stream — NOT RewardEventType, which is a fan's
+/// journey through a reward token. Aggregate-only: no fan identity here.
+model EditionEvent {
+  id         String         @id @default(cuid())
+  tenantId   String
+  editionId  String
+  /// AD_SLOT | ARTICLE | ATHLETE_PROFILE
+  targetKind String
+  targetRef  String
+  type       EngagementType
+  at         DateTime       @default(now())
+  city       String?
+  region     String?
+
+  edition Edition @relation(fields: [editionId], references: [id])
+
+  @@index([tenantId, editionId, type, at])
+  @@index([targetKind, targetRef])
+}
+
+/// Print and digital acquisition stay distinct — principle 8. QR_SCAN is
+/// print; the rest are digital. Pooling them makes the first sponsor report
+/// say something untrue.
+enum EngagementType {
+  QR_SCAN
+  LINK_CLICK
+  PROFILE_VIEW
+  CAMPAIGN_VIEW
+  CTA_CLICK
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SponsorX NEXT — students (Stage 9 Batch B: P9-BE-04, -05, -07, -13, -15,
+// P9-SEC-01). Spec v2.0 §5.1, §5.5, §5.6, §6.3, §7.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// A student correspondent (P9-BE-04). NOT an Athlete: no sport, no tier, no
+/// rate card, and compensation that is deliberately not cash (§5.5). An
+/// athlete correspondent is both, which is why `athleteId` is here and not a
+/// nullable half of Athlete.
+model Student {
+  id            String       @id @default(cuid())
+  tenantId      String
+  /// The school.
+  propertyId    String
+  athleteId     String?      @unique
+  guardianId    String?
+  legalName     String
+  displayName   String
+  /// Optional on purpose — V3 §2: school email must not be a hard requirement.
+  email         String?
+  gradYear      Int?
+  /// Minor status, on the athlete's rule: a date, or a band where no date is
+  /// given (§11). The only age data the programme needs (P9-SEC-01).
+  birthDate     DateTime?
+  ageBand       String?
+  /// EDITOR | WRITER | PHOTOGRAPHER | VIDEO | DESIGNER | SALES | CORRESPONDENT
+  masthead      String[]
+  state         StudentState @default(DRAFT)
+  reviewerNotes String?
+  /// Graduated, transferred or withdrew. Access ends; attribution does not.
+  leftAt        DateTime?
+  createdAt     DateTime     @default(now())
+
+  property      Property              @relation(fields: [propertyId], references: [id])
+  athlete       Athlete?              @relation(fields: [athleteId], references: [id])
+  guardian      Guardian?             @relation(fields: [guardianId], references: [id])
+  code          StudentCode?
+  attributions  SalesAttribution[]
+  points        StudentPointAccrual[]
+  prospects     StudentProspect[]
+  consents      AgreementAcceptance[]
+  contributions ContentContribution[]
+
+  @@index([tenantId, propertyId, state])
+}
+
+/// Mirrors AthleteState — a student application is reviewed by an advisor
+/// exactly as an athlete's is by a network manager — plus INACTIVE, V3 §1's
+/// "left the programme".
+enum StudentState {
+  DRAFT
+  SUBMITTED
+  UNDER_REVIEW
+  APPROVED
+  CHANGES_REQUESTED
+  REJECTED
+  ACTIVE
+  SUSPENDED
+  INACTIVE
+}
+
+/// P9-BE-07 — the third attribution namespace. TrackingLink measures an
+/// athlete's deliverable and RewardToken a fan's journey; a StudentCode is a
+/// PERSON's, across every sale they originate. Neither of the other two is
+/// relaxed to fit it.
+model StudentCode {
+  id        String   @id @default(cuid())
+  tenantId  String
+  studentId String   @unique
+  /// What /s/[code] resolves. Unguessable, like a reward token.
+  code      String   @unique
+  createdAt DateTime @default(now())
+
+  student Student         @relation(fields: [studentId], references: [id])
+  briefs  CampaignBrief[]
+}
+
+/// P9-BE-13, §5.1, §6.3 — NEVER UPDATED, NEVER DELETED (trigger in migration
+/// 20260925140000). One row per originated sale. A student's portfolio
+/// depends on it, including after they graduate.
+model SalesAttribution {
+  id           String   @id @default(cuid())
+  tenantId     String
+  studentId    String
+  sponsorId    String
+  campaignId   String?
+  editionId    String?
+  /// cents, at close
+  value        Int
+  originatedAt DateTime @default(now())
+
+  student Student @relation(fields: [studentId], references: [id], onDelete: Restrict)
+
+  @@index([tenantId, studentId])
+  @@index([sponsorId])
+}
+
+/// P9-BE-15, §5.5 — accruals only. NO cents column, NO EarningState, NO
+/// relation to Earning: if points and money shared a table, an athlete
+/// payout reconciliation would start returning minors' scholarship balances.
+/// Redemption is absent by design — its own gated task (§14 gate 2).
+model StudentPointAccrual {
+  id        String   @id @default(cuid())
+  tenantId  String
+  studentId String
+  /// ARTICLE 50 | INTERVIEW 25 | PHOTO 25 | APPOINTMENT 25 | SALES_500 100 | VIEWS_BONUS
+  reason    String
+  points    Int
+  editionId String?
+  accruedAt DateTime @default(now())
+
+  student Student @relation(fields: [studentId], references: [id])
+
+  @@index([tenantId, studentId])
+}
+
+/// A business a student has brought to SponsorX (P9-BE-13, §5.6 Sponsor
+/// Acceptance Check). Rejection carries a reason code, notifies the student,
+/// and costs them no sales credit.
+model StudentProspect {
+  id                 String        @id @default(cuid())
+  tenantId           String
+  studentId          String
+  businessName       String
+  /// A brand category (brand-categories.ts).
+  category           String
+  state              ProspectState @default(SUBMITTED)
+  reasonCode         String?
+  /// Open categories offered when the refusal was a category exclusivity.
+  redirectCategories String[]
+  decidedAt          DateTime?
+  createdAt          DateTime      @default(now())
+
+  student Student @relation(fields: [studentId], references: [id])
+
+  @@index([tenantId, studentId])
+}
+
+enum ProspectState {
+  SUBMITTED
+  ACCEPTED
+  REJECTED
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SponsorX NEXT — rights, featured athletes, the DMV pool (Stage 9 Batch C:
+// P9-BE-10, -11, -14). Spec v2.0 §5.3, §5.4, §5.7, §6.1, §6.2.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// A piece of edition content (P9-BE-10) — an article, photo set, interview,
+/// video or ad creative. NOT CreativeAsset: that row belongs to an athlete's
+/// Deliverable (deliverableId is required), and a student's article is not a
+/// deliverable. Relaxing it would repeat the scar TrackingLink carries.
+model EditionAsset {
+  id         String   @id @default(cuid())
+  tenantId   String
+  editionId  String
+  /// ARTICLE | PHOTO | PHOTO_PACKAGE | INTERVIEW | VIDEO | AD_CREATIVE
+  kind       String
+  title      String
+  /// STUDENT | ATHLETE | BTG | THIRD_PARTY — who made it
+  sourceKind String
+  studentId  String?
+  athleteId  String?
+  /// Private bucket key, when a file exists.
+  r2Key      String?
+  /// Set when a sponsor's campaign uses this asset — refused without a
+  /// ContentRight granting commercial reuse.
+  campaignId String?
+  createdAt  DateTime @default(now())
+
+  edition  Edition        @relation(fields: [editionId], references: [id])
+  campaign Campaign?      @relation(fields: [campaignId], references: [id])
+  rights   ContentRight[]
+
+  @@index([tenantId, editionId])
+}
+
+/// ONE rights ledger, three population paths (spec §6.1): student consent,
+/// athlete / guardian consent, and a negotiated BTG or third-party licence.
+/// The publication gate asks it one question, in one query.
+model ContentRight {
+  id          String @id @default(cuid())
+  tenantId    String
+  assetId     String
+  /// STUDENT | ATHLETE | GUARDIAN | BTG | THIRD_PARTY
+  grantorKind String
+  grantorRef  String
+
+  mayPublishDigital    Boolean @default(false)
+  mayPublishPrint      Boolean @default(false)
+  mayPromote           Boolean @default(false)
+  /// V3 §6 — BTG content defaults FALSE. Editorial use is not a licence to
+  /// resell journalism inside a sponsor's campaign.
+  mayReuseCommercially Boolean @default(false)
+
+  territory   String?
+  startsAt    DateTime
+  endsAt      DateTime?
+  attribution String?
+
+  /// Consent-based grants point at the acceptance; negotiated licences at a
+  /// contract reference. Exactly one is set (CHECK in migration).
+  acceptanceId String?
+  licenseRef   String?
+  createdAt    DateTime @default(now())
+
+  asset      EditionAsset         @relation(fields: [assetId], references: [id])
+  acceptance AgreementAcceptance? @relation(fields: [acceptanceId], references: [id])
+
+  @@index([tenantId, assetId])
+}
+
+/// A school's roster — what a claim is matched against (P9-BE-11). SIMULATED
+/// for the pilot: the real roster is open gate 1 (spec §14 — who supplies it,
+/// and a school sharing a list of minors is its own data question). Name and
+/// graduation year only: the least a match needs.
+model RosterEntry {
+  id         String   @id @default(cuid())
+  tenantId   String
+  propertyId String
+  legalName  String
+  gradYear   Int?
+  createdAt  DateTime @default(now())
+
+  property Property @relation(fields: [propertyId], references: [id])
+
+  @@index([tenantId, propertyId])
+}
+
+/// "That's me" — the athlete's claim on a FEATURED profile (P9-BE-11). The
+/// first of the three assertions; the school (roster + advisor) verifies it,
+/// and a guardian authorises a minor's commercial activation.
+model AthleteClaim {
+  id            String     @id @default(cuid())
+  tenantId      String
+  athleteId     String
+  claimantName  String
+  claimantEmail String
+  birthDate     DateTime?
+  ageBand       String?
+  rosterMatched Boolean    @default(false)
+  state         ClaimState @default(SUBMITTED)
+  verifiedBy    String?
+  verifiedAt    DateTime?
+  createdAt     DateTime   @default(now())
+
+  athlete Athlete @relation(fields: [athleteId], references: [id])
+
+  @@index([tenantId, athleteId])
+}
+
+enum ClaimState {
+  SUBMITTED
+  VERIFIED
+  REJECTED
+}
+
+/// P9-BE-14, §5.7 — content a school's student contributed to an edition,
+/// in units (FEATURE 5 · PHOTO_PACKAGE 3 · INTERVIEW 3 · VIDEO 5). Distinct
+/// from sales credit, which is SalesAttribution.
+model ContentContribution {
+  id         String   @id @default(cuid())
+  tenantId   String
+  editionId  String
+  studentId  String
+  /// The contributing school — the student's, at the time.
+  propertyId String
+  kind       String
+  units      Int
+  createdAt  DateTime @default(now())
+
+  edition Edition @relation(fields: [editionId], references: [id])
+  student Student @relation(fields: [studentId], references: [id])
+
+  @@index([tenantId, editionId])
+}
+
+/// The regional edition's school pools, resolved by formula (P9-BE-14):
+/// SALES by attributed sales, CONTENT by units ÷ total units. Computed when
+/// the edition publishes, never typed in.
+model SchoolPoolAllocation {
+  id          String     @id @default(cuid())
+  tenantId    String
+  editionId   String
+  propertyId  String
+  pool        SchoolPool
+  amountCents Int
+  computedAt  DateTime   @default(now())
+
+  edition Edition @relation(fields: [editionId], references: [id])
+
+  @@unique([editionId, propertyId, pool])
+  @@index([tenantId])
+}
+
+enum SchoolPool {
+  SALES
+  CONTENT
 }

@@ -56,6 +56,22 @@ const GOVERNED_BY: Record<string, Resource> = {
   Inquiry: "inquiry",
   SyncTask: "syncTask",
   AuditLog: "auditLog",
+  Publication: "publication",
+  Edition: "edition",
+  AdSlot: "adSlot",
+  RevenueSplit: "revenueSplit",
+  EditionEvent: "editionEvent",
+  Student: "student",
+  StudentCode: "studentCode",
+  SalesAttribution: "saleAttribution",
+  StudentPointAccrual: "studentPoints",
+  StudentProspect: "studentProspect",
+  EditionAsset: "editionAsset",
+  ContentRight: "contentRight",
+  RosterEntry: "rosterEntry",
+  AthleteClaim: "athleteClaim",
+  ContentContribution: "contentContribution",
+  SchoolPoolAllocation: "schoolPoolAllocation",
 };
 
 /** Models no API path reads or writes, and why. */

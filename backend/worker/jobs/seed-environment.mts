@@ -300,5 +300,20 @@ export async function seedPilotSchool(
         ON CONFLICT (id) DO NOTHING`,
     [p.advisorUserId, tenantId, `seed:${p.advisorEmail}`, p.advisorEmail, p.propertyId],
   );
+  /* P9-BE-11 — a SIMULATED roster for the claim flow to match against (the
+     real one is open gate 1, spec §14). Names and graduation years only. */
+  for (const [i, [legalName, gradYear]] of PILOT_ROSTER.entries()) {
+    await client.query(
+      `INSERT INTO "RosterEntry" (id, "tenantId", "propertyId", "legalName", "gradYear")
+       VALUES ($1, $2, $3, $4, $5) ON CONFLICT (id) DO NOTHING`,
+      [`seed_roster_northside_${i + 1}`, tenantId, p.propertyId, legalName, gradYear],
+    );
+  }
   return { created: (property.rowCount ?? 0) > 0 };
 }
+
+/** Simulated Northside High roster (P9-BE-11). */
+export const PILOT_ROSTER: ReadonlyArray<readonly [string, number]> = [
+  ["Jordan Reyes", 2027], ["Maya Thompson", 2028], ["Andre Wallace", 2027],
+  ["Sofia Nguyen", 2029], ["Elijah Brooks", 2028], ["Priya Raman", 2027],
+];

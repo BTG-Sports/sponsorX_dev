@@ -103,6 +103,13 @@ const TEMPLATES: Record<string, (d: Record<string, string>) => { subject: string
     subject: "Your SponsorX invitation expires soon",
     text: `Hi ${d.firstName ?? "there"},\n\nYour invitation${d.sponsorName ? ` from ${d.sponsorName}` : ""} expires on ${d.expiresOn ?? "shortly"}. After that the sponsor may offer the work to someone else.\n\nIf you are not interested, declining is genuinely helpful — it lets us fill the slot.\n\n${d.portalUrl ?? ""}\n\n— BTG SponsorX`,
   }),
+  /* P9-BE-13, §5.6 — SponsorX declined a business a student brought in.
+     It says plainly that their sales credit is untouched, because that is a
+     requirement and not a courtesy, and offers the categories still open. */
+  "student.prospectDeclined": (d) => ({
+    subject: `About ${d.businessName ?? "your prospect"}`,
+    text: `Hi ${d.studentName ?? "there"},\n\nSponsorX can't take on ${d.businessName ?? "this business"} right now (reason: ${(d.reason ?? "OTHER").replace(/_/g, " ").toLowerCase()}).\n\nThis doesn't count against you — your sales credit and points are unchanged.${d.openCategories ? `\n\nCategories still open at your school: ${d.openCategories}.` : ""}\n\n— SponsorX NEXT`,
+  }),
   "guardian.verificationRequested": (d) => ({
     subject: `Please confirm you authorise ${d.athleteName ?? "an athlete"} to join SponsorX`,
     text: `Hi ${d.guardianName ?? "there"},\n\n${d.athleteName ?? "An athlete"} has listed you as their parent or guardian on a SponsorX application. Because they are under 18, we need your authorisation before they can take part in any paid campaign.\n\nA member of the BTG team will contact you to confirm.\n\n— BTG SponsorX`,
