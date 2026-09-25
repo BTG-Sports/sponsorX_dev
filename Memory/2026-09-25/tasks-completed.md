@@ -224,3 +224,30 @@ RevenueSplit and EditionEvent, plus the enums.
 - **Also fixed:** seeded package ids are now tenant-scoped
   (`pkg_<tenant>_<code>`). The old global id meant only one tenant could ever
   be seeded, and two test tenants collided.
+
+## SponsorX NEXT Batch B (students) → Code review
+
+`P9-BE-04`, `-05`, `-07`, `-13`, `-15` and `P9-SEC-01`. Migration
+`20260925140000_next_students`.
+
+- **Model and roles:** Student, StudentCode, SalesAttribution,
+  StudentPointAccrual and StudentProspect, plus the roles STUDENT and ADVISOR,
+  `User.studentId`, the three new Sponsor fields and `CampaignBrief.studentCodeId`.
+- **Postgres keeps sale credit permanent** (trigger
+  `sales_attribution_immutable`). Test teardown deletes with
+  `SET LOCAL sponsorx.attribution_purge = 'on'`, and nothing else can.
+- **Students:** StudentState mirrors AthleteState edge for edge, plus
+  INACTIVE. The advisor reviews, and a minor needs a verified guardian (the
+  athlete's rule).
+- **Sales credit:** the code travels on the brief, and the ad sale writes the
+  credit in the same transaction. One code per student across all their sales.
+- **Prospects:** a rejection carries a reason code, emails the student, costs
+  no credit, and redirects to open categories. Categories unsuitable for
+  minors are blocked.
+- **Permissions:** matrix §15.1–15.2 transcribed, with `studentProspect`
+  added. Every protected field is denied to STUDENT and ADVISOR.
+  `revenueSplit.amount` is a new protected field. The digest is re-pinned and
+  no existing role moved. The tenant sweep and the money-leak sweep both
+  include a student and an advisor now.
+- **Tests:** `tests/next-students.test.ts` has 21 tests, mutation-checked on
+  the guardian gate and the student scope.

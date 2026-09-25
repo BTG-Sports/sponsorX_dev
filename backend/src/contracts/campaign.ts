@@ -35,6 +35,9 @@ export const CampaignBriefInput = z
      *  invoicing. */
     budget: z.int().min(0).describe("Budget in cents"),
     packageId: z.string().nullable().optional(),
+    /** SponsorX NEXT (P9-BE-07): the student code the sponsor arrived with at
+     *  /s/[code]. A sale on this brief is credited to that student. */
+    studentCode: z.string().min(1).max(64).nullable().optional(),
     startDate: z.iso.date(),
     endDate: z.iso.date(),
     sports: z.array(z.string().min(1).max(60)).max(20).default([]),

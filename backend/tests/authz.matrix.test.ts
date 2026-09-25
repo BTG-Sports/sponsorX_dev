@@ -261,7 +261,14 @@ describe("the whole matrix is pinned", () => {
       // matrix §15.3, for the roles that exist today (ADVISOR / STUDENT rows
       // follow in P9-BE-05). With all five removed the grid still hashes to
       // the previous f6af9e4293912f8b, so nothing else moved.
-    ).toBe("6d06c354364aef24");
+      // Updated 2026-09-25 (P9-BE-05): roles STUDENT and ADVISOR, and five
+      // student-domain resources — student, studentCode, saleAttribution,
+      // studentPoints, studentProspect — from matrix §15.1–15.2, plus the
+      // ADVISOR / STUDENT `own-property` rows on publication, edition, adSlot
+      // and editionEvent (§15.3). With both roles and the five resources
+      // removed the grid still hashes to the previous 6d06c354364aef24, so
+      // no existing role's access moved.
+    ).toBe("feb23b6d311d2be3");
   });
 
   it("covers every pair the §30 acceptance asks for", () => {

@@ -35,12 +35,22 @@ export type BriefInput = {
    *  invoicing. */
   budget: number;
   packageId?: string | null;
+  /** P9-BE-07 — the student code from /s/[code], if the sponsor came that way. */
+  studentCode?: string | null;
   startDate: Date;
   endDate: Date;
   sports: readonly string[];
   stateCodes: readonly string[];
   categories: readonly BrandCategory[];
 };
+
+export class UnknownStudentCodeError extends Error {
+  readonly status = 422;
+  constructor() {
+    super("That student code is not active.");
+    this.name = "UnknownStudentCodeError";
+  }
+}
 
 export class InvalidBriefWindowError extends Error {
   readonly status = 422;
@@ -69,6 +79,18 @@ export async function createBrief(
     });
     if (!sponsor) throw new ForbiddenError("campaignBrief", "write");
 
+    /* A code only credits a student who is still in the programme, in this
+       tenant — a departed student's code attributes nothing new. */
+    let studentCodeId: string | null = null;
+    if (input.studentCode) {
+      const code = await tx.studentCode.findFirst({
+        where: { tenantId: actor.tenantId, code: input.studentCode, student: { is: { state: "ACTIVE" } } },
+        select: { id: true },
+      });
+      if (!code) throw new UnknownStudentCodeError();
+      studentCodeId = code.id;
+    }
+
     const brief = await tx.campaignBrief.create({
       data: {
         tenantId: actor.tenantId,
@@ -76,6 +98,7 @@ export async function createBrief(
         objective: input.objective,
         budget: input.budget,
         packageId: input.packageId ?? null,
+        studentCodeId,
         startDate: input.startDate,
         endDate: input.endDate,
         sports: [...input.sports],

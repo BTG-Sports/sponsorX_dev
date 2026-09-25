@@ -20,6 +20,7 @@ import { rewardsRouter } from "./rewards";
 import { meRouter } from "./me";
 import { propertiesRouter } from "./properties";
 import { editionsRouter } from "./editions";
+import { studentsRouter } from "./students";
 import { openapiRouter } from "./openapi";
 
 export const v1Router = Router();
@@ -84,6 +85,11 @@ v1Router.use("/", propertiesRouter);
 /* Stage 9 Batch A — SponsorX NEXT editions and ad inventory (P9-BE-02/03/06/12).
    One public route: a reader's engagement with a published edition. */
 v1Router.use("/", editionsRouter);
+
+/* Stage 9 Batch B — SponsorX NEXT students, codes, sales credit, points and
+   prospects (P9-BE-04/05/07/13/15, P9-SEC-01). Two public routes: the
+   student application and the /s/[code] resolver. */
+v1Router.use("/", studentsRouter);
 
 /* The published contract, generated from the Zod registry (§38). Public: a
    consumer has to be able to read how to authenticate before it can. */

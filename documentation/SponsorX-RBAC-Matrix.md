@@ -791,7 +791,20 @@ const CASES = [
 
 ---
 
-## 15 · Appendix · SponsorX NEXT *(being transcribed — see the note)*
+## 15 · Appendix · SponsorX NEXT *(transcribed — see the notes)*
+
+> **2026-09-25 — §15.1–15.2 transcribed (P9-BE-05).** `STUDENT` and `ADVISOR`
+> are in the `Role` enum and `backend/src/auth/policy.ts`, with the student
+> domain (`student`, `studentCode`, `saleAttribution`, `studentPoints`) exactly
+> as §15.2 tabulates it, and the ADVISOR / STUDENT `own-property` rows on
+> §15.3's publication domain. `User.studentId` exists, so `STUDENT`'s `own`
+> has a column to filter on (§15.5). §15.4's two denials are field rules in
+> `backend/src/auth/fields.ts`: every protected field, `athleteRate.amount`
+> included, is denied to both roles, and `revenueSplit.amount` is a new field
+> denied to them and to every non-finance role. **One addition:**
+> `studentProspect` (§5.6's Sponsor Acceptance Check) — SUPER_ADMIN any;
+> BTG_ADMIN and SALES own-tenant read/write/approve; ADVISOR own-property
+> read; STUDENT own read/write. `contentRight` (§15.3) arrives with Batch C.
 
 > **2026-09-25 — §15.3 transcribed for today's roles.** The programme owner
 > lifted the Stage 9 gate for the build. `publication`, `edition`, `adSlot`,
