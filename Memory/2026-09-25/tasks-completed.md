@@ -171,3 +171,18 @@ not restart the service; redeploy explicitly.** LOADTEST data deleted.
   `P9-PMO-03` entry gate.
 
 **`P9-PMO-01`, `P9-BE-01` → Done** (user's instruction; acceptance met, CI green).
+
+## P9-PMO-02 → Code review · P9-OPS-01 → In progress (backend done)
+
+- **`P9-PMO-02`** (SIMULATED): `documentation/SponsorX-NEXT-School-Programme-Terms.md`.
+  One agreement; the **faculty advisor holds editorial approval**, SponsorX
+  decides production. Legal review is separate and does not gate the build.
+- **`P9-OPS-01`**: the pilot school (simulated Northside High, Bowie MD) is
+  seeded as a `Property` of kind SCHOOL. Its advisor is a PROPERTY_MGR, not
+  the gated ADVISOR role, at `northside.advisor+clerk_test@example.com`: a
+  Clerk test address, so on staging you sign in with code **424242**. New
+  property scope builder, `GET /api/v1/properties/mine`, and `propertyId` on
+  `/me`. **Left:** the `/property` portal pages still read fixtures and need
+  wiring to `/properties/mine` (frontend). The row stays In progress for that.
+
+**`P9-PMO-02` → Done** (user's instruction; acceptance met). `P9-OPS-01` stays In progress — the property-portal clause is not met until the portal is wired.

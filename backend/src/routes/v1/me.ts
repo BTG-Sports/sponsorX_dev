@@ -28,5 +28,8 @@ meRouter.get("/", requireActor, (req, res) => {
        filed against it (P4-FE-01). Never another sponsor's: it is the
        actor's own link, read from Postgres. */
     sponsorId: actor.sponsorId,
+    /* Likewise the property a property manager runs (P9-OPS-01) — the
+       school, for a NEXT advisor. Their own link, nobody else's. */
+    propertyId: actor.propertyId,
   });
 });

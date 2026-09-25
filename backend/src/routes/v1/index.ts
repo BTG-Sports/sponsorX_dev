@@ -18,6 +18,7 @@ import { inquiriesRouter } from "./inquiries";
 import { catalogueRouter } from "./catalogue";
 import { rewardsRouter } from "./rewards";
 import { meRouter } from "./me";
+import { propertiesRouter } from "./properties";
 import { openapiRouter } from "./openapi";
 
 export const v1Router = Router();
@@ -74,6 +75,10 @@ v1Router.use("/", inquiriesRouter);
 /* B3 — the sponsor marketplace's catalogue reads (P4-FE-01). Sponsor prices
    only; athlete pay is not selected (P4-SEC-02). */
 v1Router.use("/", catalogueRouter);
+
+/* Stage 9 — the property portal's own property (P9-OPS-01). A NEXT school
+   is a Property with kind SCHOOL; its advisor is that property's manager. */
+v1Router.use("/", propertiesRouter);
 
 /* The published contract, generated from the Zod registry (§38). Public: a
    consumer has to be able to read how to authenticate before it can. */
