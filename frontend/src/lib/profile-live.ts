@@ -48,6 +48,15 @@ export type ApiMyProfile = {
   agreementsSigned: number;
 };
 
+/** One row of GET /athletes/{id}/rates — the athlete's own pay, in cents
+ *  (P3-FE-04). Never shown to sponsors; §7.1 denies them the whole column. */
+export type ApiRate = {
+  jobId: string;
+  jobName: string;
+  amount: number;
+  version: number;
+};
+
 export type SectionState = "done" | "missing" | "not-collected";
 
 /** §11, answered from data — each rule says what "done" means for a section. */

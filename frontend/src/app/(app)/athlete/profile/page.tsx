@@ -7,8 +7,10 @@ import {
   completion,
   sectionStates,
   type ApiMyProfile,
+  type ApiRate,
   type SectionState,
 } from "@/lib/profile-live";
+import { money } from "@/lib/fixtures";
 import { apiFetch, fetchActor } from "@/server/api";
 
 /* --------------------------------------------------------------------------
@@ -34,7 +36,7 @@ import { apiFetch, fetchActor } from "@/server/api";
    -------------------------------------------------------------------------- */
 
 /** The real profile for a signed-in athlete, or null for the fixture demo. */
-async function liveProfile(): Promise<ApiMyProfile | null> {
+async function liveProfile(): Promise<{ p: ApiMyProfile; rates: ApiRate[] } | null> {
   /* No catch: an API outage lands on the error boundary, never on fixtures
      presented as the athlete's own profile (QA pass 4 rule). */
   const who = await fetchActor();
@@ -45,7 +47,14 @@ async function liveProfile(): Promise<ApiMyProfile | null> {
   /* A 403 here is an athlete role with no athlete row — a provisioning gap,
      not an outage. The demo would be a lie either way; say so. */
   if (!res.ok) throw new Error(`Profile unavailable (${res.status}).`);
-  return (await res.json()) as ApiMyProfile;
+  const p = (await res.json()) as ApiMyProfile;
+
+  /* The athlete's own card (P3-FE-04) — own-scoped at the API, so this is
+     exactly one athlete's pay and can be nobody else's. */
+  const ratesRes = await apiFetch(`/athletes/${encodeURIComponent(p.id)}/rates`);
+  if (!ratesRes.ok) throw new Error(`Rate card unavailable (${ratesRes.status}).`);
+  const { rates } = (await ratesRes.json()) as { rates: ApiRate[] };
+  return { p, rates };
 }
 
 const STATE_BADGE: Record<SectionState, { tone: "accent" | "warn" | "neutral"; label: string }> = {
@@ -59,7 +68,7 @@ function words(s: string): string {
   return (s.charAt(0) + s.slice(1).toLowerCase()).replaceAll("_", " ");
 }
 
-function SectionContent({ p, k }: { p: ApiMyProfile; k: SectionKey }) {
+function SectionContent({ p, k, rates }: { p: ApiMyProfile; k: SectionKey; rates: ApiRate[] }) {
   const dash = <span className="text-faint">—</span>;
   switch (k) {
     case "identity":
@@ -144,18 +153,29 @@ function SectionContent({ p, k }: { p: ApiMyProfile; k: SectionKey }) {
         </div>
       );
     case "rates":
-      return (
-        <p className="text-xs text-muted">
-          {p.ratesConfirmed > 0 ? (
-            <>
-              <span className="font-medium text-text">{p.ratesConfirmed}</span>{" "}
-              {p.ratesConfirmed === 1 ? "rate" : "rates"} confirmed with BTG
-              {p.tier && <> · {words(p.tier)} tier</>}.
-            </>
-          ) : (
-            <>No rates confirmed yet — BTG sets these with you.</>
-          )}
-        </p>
+      /* The athlete's own pay per job — what P3-FE-04 exists to show. These
+         are NOT what sponsors pay (catalogue prices are higher and live on
+         the sponsor side); §7.1 keeps the two apart in both directions. */
+      return rates.length === 0 ? (
+        <p className="text-xs text-muted">No rates confirmed yet — BTG sets these with you.</p>
+      ) : (
+        <div>
+          <ul className="space-y-1.5">
+            {rates.map((r) => (
+              <li key={r.jobId} className="flex items-baseline justify-between gap-3 text-xs">
+                <span className="font-medium">{r.jobName}</span>
+                <span className="tabular-nums text-muted">
+                  {money(r.amount)}
+                  {r.version > 1 && <span className="text-faint"> · v{r.version}</span>}
+                </span>
+              </li>
+            ))}
+          </ul>
+          <p className="mt-2 text-[10px] leading-relaxed text-faint">
+            Your pay per deliverable{p.tier && <> · {words(p.tier)} tier</>}.
+            Sponsors see catalogue prices, never these.
+          </p>
+        </div>
       );
     case "payment":
       return (
@@ -181,7 +201,7 @@ function SectionContent({ p, k }: { p: ApiMyProfile; k: SectionKey }) {
   }
 }
 
-function LiveProfile({ p }: { p: ApiMyProfile }) {
+function LiveProfile({ p, rates }: { p: ApiMyProfile; rates: ApiRate[] }) {
   const states = sectionStates(p);
   const { percent, missing } = completion(states);
   const labelOf = (k: SectionKey) => SECTIONS.find((s) => s.key === k)?.label ?? k;
@@ -238,7 +258,7 @@ function LiveProfile({ p }: { p: ApiMyProfile }) {
             </div>
             <p className="mt-1 text-[11px] leading-relaxed text-faint">{s.blurb}</p>
             <div className="mt-3">
-              <SectionContent p={p} k={s.key} />
+              <SectionContent p={p} k={s.key} rates={rates} />
             </div>
           </Card>
         ))}
@@ -261,7 +281,7 @@ export default async function ProfilePage({
   const { tab } = await searchParams;
 
   const live = await liveProfile();
-  if (live) return <LiveProfile p={live} />;
+  if (live) return <LiveProfile p={live.p} rates={live.rates} />;
 
   const missing = profileChecklist.filter((c) => !c.done);
 
