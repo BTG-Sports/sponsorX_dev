@@ -184,3 +184,5 @@ not restart the service; redeploy explicitly.** LOADTEST data deleted.
   property scope builder, `GET /api/v1/properties/mine`, and `propertyId` on
   `/me`. **Left:** the `/property` portal pages still read fixtures and need
   wiring to `/properties/mine` (frontend). The row stays In progress for that.
+
+**`P9-PMO-02` → Done** (user's instruction; acceptance met). `P9-OPS-01` stays In progress — the property-portal clause is not met until the portal is wired.
