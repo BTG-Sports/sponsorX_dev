@@ -111,3 +111,23 @@ to row 400 (they stopped at the old last row: showed 125 done instead of 139).
 Nine legal rows (`*-LEG-*`) stay on the Sheet's phase tabs by user decision —
 reviewed when Phase 1 finishes. **The end-of-day manual Sheet mirror is no
 longer needed** once both workflows are live.
+
+## P8-OPS-02 — fan QR page load test (rcfworks) → Code review
+
+`documentation/SponsorX-Fan-QR-Load-Test.md`. On staging (edge sin1 → origin
+us-east4), autocannon bursts of 1/25/50/100/200 simultaneous fans on
+`/r/<token>`: up to **537 loads/s, 0 errors of 16,116**, median ~355 ms (that is
+the round trip from Manila, not server time), slowest 2.5% 480 ms. **Cloudflare
+Workers trigger deferred with data** — threshold now written: slowest 2.5% >
+800 ms or >1% errors at the expected event peak (~25 loads/s); tested >20× it.
+
+**Bug found and fixed first (#64/#65):** the fan-IP forwarding keyed rate
+limits on the last `X-Forwarded-For` hop, which on Railway is Railway's edge
+node (152.233.33.x) — every fan through one edge shared 120 views/min; a
+50-fan burst had 75% refused. Now `X-Real-IP` (set by Railway, unspoofable):
+verified forged headers ignored, one visitor gets exactly 120 then refusals.
+`RATE_LIMIT_MULTIPLIER` (default 1, loosen-only) was set ×1000 on staging for
+the test, then removed and the API redeployed — **a variable removal alone does
+not restart the service; redeploy explicitly.** LOADTEST data deleted.
+
+**`P8-OPS-02` → Done** (user's instruction; both acceptance clauses met). Stage Progress row for 2026-09-25 recorded.
