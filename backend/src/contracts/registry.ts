@@ -244,6 +244,7 @@ const PATHS: Row[] = [
   { method: "post", path: "/applications/{id}/reject", tag: "Applications", summary: "Reject an application, with reasons.", body: ApplicationDecisionNotes },
 
   // athletes, guardians, agreements (P3-BE-03, P3-BE-14)
+  { method: "get", path: "/athletes/me", tag: "Athletes", summary: "The signed-in athlete's own profile — §11 fields, socials with provenance, and the section counts the §24 completion meter derives from." },
   { method: "put", path: "/athletes/{id}/tier", tag: "Athletes", summary: "Set an athlete's pricing tier.", body: AthleteTierInput },
   { method: "post", path: "/athletes/{id}/rates", tag: "Athletes", summary: "Set an athlete's rate for a NIL job.", body: AthleteRateInput, status: 201 },
   { method: "get", path: "/athletes/{id}/rates", tag: "Athletes", summary: "An athlete's rate card." },
