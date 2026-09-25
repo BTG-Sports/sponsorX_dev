@@ -129,12 +129,18 @@ export async function transitionCampaign(
   return prisma.$transaction(async (tx) => {
     const campaign = await tx.campaign.findFirst({
       where: { ...whereFor(actor, "campaign", "write"), id: campaignId },
-      select: { id: true, state: true, name: true, sponsor: { select: { name: true } } },
+      select: {
+        id: true, state: true, name: true, sponsor: { select: { name: true } },
+        /* P9-BE-09 — an ad-only campaign may skip STAFFING. */
+        _count: { select: { orders: true, adSlots: true } },
+      },
     });
     if (!campaign) throw new ForbiddenError("campaign", "write");
 
     const from = campaign.state as CampaignState;
-    if (!canTransitionCampaign(from, to)) throw new IllegalCampaignTransitionError(from, to);
+    if (!canTransitionCampaign(from, to, campaign._count)) {
+      throw new IllegalCampaignTransitionError(from, to);
+    }
 
     const updated = await tx.campaign.update({
       where: { id: campaignId },

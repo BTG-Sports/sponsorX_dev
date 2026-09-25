@@ -34,6 +34,7 @@ import { ForbiddenError } from "../auth/errors";
 import { foldRows, type MetricBreakdown } from "./metric";
 import { type RewardEventType } from "./reward-state";
 import { breakdown as moneyBreakdown } from "./earning";
+import { foldEngagement, type EditionEngagement } from "./edition";
 
 export class ReportNotAvailableError extends Error {
   readonly status = 409;
@@ -89,6 +90,12 @@ export type SponsorReport = {
   deliveredAssets: DeliveredAsset[];
   performance: MetricBreakdown;
   funnel: Record<RewardEventType, number>;
+  /** SponsorX NEXT (P9-BE-12): the edition positions this campaign bought,
+   *  and readers' engagement with them — print and digital kept apart,
+   *  because pooling them makes the report say something untrue. Empty and
+   *  null for a campaign with no ad placements. */
+  adPlacements: Array<{ slotCode: string; kind: string; editionId: string; soldCents: number }>;
+  editionEngagement: EditionEngagement | null;
   redemption: { issued: number; redeemed: number; rate: number };
   mediaValue: MediaValue;
   observations: string[];
@@ -199,6 +206,7 @@ export async function assembleSponsorReport(
           },
         },
       },
+      adSlots: { select: { id: true, slotCode: true, kind: true, editionId: true, soldCents: true } },
       rewards: {
         select: {
           tokens: {
@@ -248,12 +256,24 @@ export async function assembleSponsorReport(
     }
   }
 
-  /* Spend is what the SPONSOR paid — the sell price of every line, not what
+  const slotIds = campaign.adSlots.map((s) => s.id);
+  const engagementRows = slotIds.length
+    ? await prisma.editionEvent.groupBy({
+        /* tenant-scope: keyed by the campaign loaded above through whereFor; its slots are its own. */
+        where: { targetKind: "AD_SLOT", targetRef: { in: slotIds } },
+        by: ["type"],
+        _count: true,
+      })
+    : [];
+  const adSpend = campaign.adSlots.reduce((sum, s) => sum + (s.soldCents ?? 0), 0);
+
+  /* Spend is what the SPONSOR paid — including any NEXT ad placements, at
+     their frozen sale value (P9-BE-12) — the sell price of every line, not what
      the athletes were paid. A media value computed against athlete cost would
      flatter the number by exactly BTG's margin. */
   const spend = campaign.orders.reduce(
     (sum, o) => sum + moneyBreakdown({ compensation: o.compensation, sellPrice: o.sellPrice }).sellPrice,
-    0,
+    adSpend,
   );
 
   const withoutObservations: Omit<SponsorReport, "observations"> = {
@@ -270,6 +290,10 @@ export async function assembleSponsorReport(
     deliveredAssets,
     performance,
     funnel,
+    adPlacements: campaign.adSlots.map((s) => ({
+      slotCode: s.slotCode, kind: s.kind, editionId: s.editionId, soldCents: s.soldCents ?? 0,
+    })),
+    editionEngagement: slotIds.length ? foldEngagement(engagementRows) : null,
     redemption: {
       issued,
       redeemed: funnel.REDEEM,

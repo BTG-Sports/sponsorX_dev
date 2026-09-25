@@ -195,3 +195,32 @@ rerun posted that Slack update twice. Fix: the Sheet client retries reads and
 cell updates twice (5 s, 20 s) on a non-JSON reply or network error. Appends
 (Stage Progress rows) are never retried, so a lost reply cannot add a row
 twice. Tests in `scripts/tracker/tests`.
+
+## SponsorX NEXT — Stage 9 gate lifted; Batch A → Code review
+
+**Decision (programme owner, 2026-09-25):** finish *all* backend work, NEXT
+included. The `P9-PMO-03` gate is lifted for the build and recorded in
+`CLAUDE.md`, the RBAC matrix §15 and the Phase 1 plan. `P9-PMO-03` stays open
+because edition one hasn't sold yet (`P9-DATA-01`).
+
+**Batch A: `P9-BE-02`, `-03`, `-06`, `-09`, `-12`.** Migration
+`20260925120000_next_editions` adds Publication, Edition, AdSlot,
+RevenueSplit and EditionEvent, plus the enums.
+
+- **Postgres enforces the inventory** (`prisma/sql/adslot_inventory.sql`): one
+  back cover and one presenting sponsor per edition, no re-sale, no sale after
+  close, no cross-tenant sale.
+- **Selling** takes exactly the positions the package's `includes` lists, all
+  or nothing.
+- **Closing** an edition computes the 40/30/20/10 split in the same
+  transaction. It never writes to `Earning`.
+- **Ad-only campaigns** skip STAFFING (DRAFT → APPROVAL).
+- **Engagement events** are their own stream. The sponsor report shows print
+  and digital separately.
+- **Permissions:** five new policy resources, with the digest re-pinned
+  (nothing else moved). The cross-tenant sweep covers the new routes.
+- **Tests:** `tests/next-editions.test.ts` has 17 tests, mutation-checked on
+  the trigger and the domain close-date guard.
+- **Also fixed:** seeded package ids are now tenant-scoped
+  (`pkg_<tenant>_<code>`). The old global id meant only one tenant could ever
+  be seeded, and two test tenants collided.
