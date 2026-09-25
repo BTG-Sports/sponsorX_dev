@@ -30,6 +30,8 @@ import os
 import subprocess
 import sys
 import tempfile
+import time
+import urllib.error
 import urllib.parse
 import urllib.request
 from dataclasses import dataclass, field
@@ -250,11 +252,26 @@ class AppsScriptSheet:
     def __init__(self, url: str, secret: str):
         self.url, self.secret = url, secret
 
-    def _post(self, payload: dict) -> dict:
+    # Seconds to wait before each retry. Apps Script now and then answers with
+    # an HTML error page instead of JSON — seen 2026-09-25, gone on rerun —
+    # and a rerun re-posts the Slack message, so the job retries by itself.
+    RETRY_DELAYS = (5, 20)
+
+    def _post(self, payload: dict, retry: bool = True) -> dict:
         req = urllib.request.Request(self.url, data=json.dumps({"secret": self.secret, **payload}).encode(),
                                      headers={"Content-Type": "application/json"})
-        with urllib.request.urlopen(req, timeout=300) as r:  # Apps Script answers via a redirect
-            out = json.loads(r.read() or b"{}")
+        delays = self.RETRY_DELAYS if retry else ()
+        for attempt in range(len(delays) + 1):
+            try:
+                with urllib.request.urlopen(req, timeout=300) as r:  # Apps Script answers via a redirect
+                    body = r.read()
+                out = json.loads(body or b"{}")
+                break
+            except (json.JSONDecodeError, urllib.error.URLError, TimeoutError) as e:
+                if attempt == len(delays):
+                    raise RuntimeError(f"Sheet endpoint unavailable after {attempt + 1} attempt(s): {e}") from e
+                print(f"Sheet endpoint hiccup ({e}); retrying in {delays[attempt]}s")
+                time.sleep(delays[attempt])
         if "error" in out:
             raise RuntimeError(f"Sheet endpoint refused: {out['error']}")
         return out
@@ -270,7 +287,11 @@ class AppsScriptSheet:
 
     def append(self, tab: str, rows: list[list], header: list | None = None) -> None:
         if rows:
-            self._post({"op": "append", "tab": tab, "rows": rows, **({"header": header} if header else {})})
+            # Not retried: an append whose reply was lost may already have
+            # landed, and a retry would add the rows twice. Reads and cell
+            # updates are safe to repeat.
+            self._post({"op": "append", "tab": tab, "rows": rows, **({"header": header} if header else {})},
+                       retry=False)
 
 
 def open_sheet():

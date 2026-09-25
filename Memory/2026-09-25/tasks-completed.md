@@ -186,3 +186,12 @@ not restart the service; redeploy explicitly.** LOADTEST data deleted.
   wiring to `/properties/mine` (frontend). The row stays In progress for that.
 
 **`P9-PMO-02` → Done** (user's instruction; acceptance met). `P9-OPS-01` stays In progress — the property-portal clause is not met until the portal is wired.
+
+## Tracker notify — transient Sheet endpoint failure
+
+The notify run for PR #78's merge failed: Apps Script answered with a non-JSON
+error page. A rerun passed, but Slack is posted before the Sheet sync, so the
+rerun posted that Slack update twice. Fix: the Sheet client retries reads and
+cell updates twice (5 s, 20 s) on a non-JSON reply or network error. Appends
+(Stage Progress rows) are never retried, so a lost reply cannot add a row
+twice. Tests in `scripts/tracker/tests`.

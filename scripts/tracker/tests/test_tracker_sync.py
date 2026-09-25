@@ -105,5 +105,49 @@ class RealHistory(unittest.TestCase):
         self.assertTrue(all(c.before == "Code review" for c in changes))
 
 
+
+class SheetEndpointRetry(unittest.TestCase):
+    """Apps Script sometimes answers with an HTML error page (2026-09-25)."""
+
+    def setUp(self):
+        self.calls = 0
+        self.replies = []
+        test = self
+
+        class Reply:
+            def __init__(self, body): self.body = body
+            def read(self): return self.body
+            def __enter__(self): return self
+            def __exit__(self, *a): return False
+
+        def fake_urlopen(req, timeout=0):
+            test.calls += 1
+            return Reply(test.replies.pop(0))
+
+        self._real, ts.urllib.request.urlopen = ts.urllib.request.urlopen, fake_urlopen
+        self._delays, ts.AppsScriptSheet.RETRY_DELAYS = ts.AppsScriptSheet.RETRY_DELAYS, (0, 0)
+        self.sheet = ts.AppsScriptSheet("https://example.invalid", "s")
+
+    def tearDown(self):
+        ts.urllib.request.urlopen = self._real
+        ts.AppsScriptSheet.RETRY_DELAYS = self._delays
+
+    def test_a_non_json_reply_is_retried_and_then_succeeds(self):
+        self.replies = [b"<html>Service error</html>", b'{"values": ["P1-BE-01"]}']
+        self.assertEqual(self.sheet.column("Phase 1", "B"), ["P1-BE-01"])
+        self.assertEqual(self.calls, 2)
+
+    def test_it_gives_up_after_the_last_retry_with_a_clear_error(self):
+        self.replies = [b"<html>1</html>", b"<html>2</html>", b"<html>3</html>"]
+        with self.assertRaisesRegex(RuntimeError, "unavailable after 3 attempt"):
+            self.sheet.column("Phase 1", "B")
+
+    def test_an_append_is_never_retried_so_rows_cannot_land_twice(self):
+        self.replies = [b"<html>lost reply</html>", b"{}"]
+        with self.assertRaises(RuntimeError):
+            self.sheet.append("Stage Progress", [["2026-09-25"]])
+        self.assertEqual(self.calls, 1)
+
+
 if __name__ == "__main__":
     unittest.main()
