@@ -11,7 +11,7 @@ import { AthleteApplicationInput } from "../src/contracts/athlete";
 /* --------------------------------------------------------------------------
    The athlete application lifecycle — P3-BE-01, §21, §26.
 
-   The transition table is asserted **exhaustively**: all 8 × 8 ordered pairs,
+   The transition table is asserted **exhaustively**: all 9 × 9 ordered pairs (8 §21 states + FEATURED),
    with the legal ones enumerated from §21 and everything else required to be
    refused. A test that only checks the happy path would pass just as happily
    against a function that permits everything, which is the failure mode that
@@ -30,6 +30,7 @@ const STATES: AthleteState[] = [
   "REJECTED",
   "ACTIVE",
   "SUSPENDED",
+  "FEATURED",
 ];
 
 /** §21, transcribed independently of the implementation — if this and the
@@ -44,10 +45,12 @@ const LEGAL: ReadonlyArray<[AthleteState, AthleteState]> = [
   ["APPROVED", "ACTIVE"],
   ["ACTIVE", "SUSPENDED"],
   ["SUSPENDED", "ACTIVE"],
+  /* SponsorX NEXT (P9-BE-11): a featured profile leaves only by a verified claim. */
+  ["FEATURED", "UNDER_REVIEW"],
 ];
 
 describe("the §21 transition table", () => {
-  it("permits exactly the nine transitions §21 describes, and no others", () => {
+  it("permits exactly the nine transitions §21 describes, plus the NEXT claim edge, and no others", () => {
     const legal = new Set(LEGAL.map(([f, t]) => `${f}->${t}`));
     const wrong: string[] = [];
 
@@ -60,7 +63,7 @@ describe("the §21 transition table", () => {
       }
     }
 
-    expect(wrong, `64 pairs checked`).toEqual([]);
+    expect(wrong, `81 pairs checked`).toEqual([]);
   });
 
   it("treats REJECTED as terminal", () => {

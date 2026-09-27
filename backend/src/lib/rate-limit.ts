@@ -79,12 +79,25 @@ export class RateLimitedError extends Error {
  * now need it: the application intake (P3-BE-01) and the fan funnel
  * (P6-BE-03/04). A second private copy would be a second thing to forget.
  */
+/**
+ * Staging-only relief valve for load tests (P8-OPS-02). A load test runs from
+ * one machine, which is — correctly — one visitor, so the per-visitor limits
+ * would cap the test itself. RATE_LIMIT_MULTIPLIER (default 1) scales every
+ * limit up for the duration of a test; it is set on staging for the test and
+ * removed after, and never set in production. Values below 1 are ignored:
+ * it can only loosen a limit for a test, never tighten one by accident.
+ */
+export function limitMultiplier(raw = process.env.RATE_LIMIT_MULTIPLIER): number {
+  const n = Number(raw);
+  return Number.isFinite(n) && n >= 1 ? Math.floor(n) : 1;
+}
+
 export async function limit(
   key: string,
   ip: string | undefined,
   max: number,
   windowSeconds: number,
 ): Promise<void> {
-  const result = await rateLimit(`${key}:${ip ?? "unknown"}`, max, windowSeconds);
+  const result = await rateLimit(`${key}:${ip ?? "unknown"}`, max * limitMultiplier(), windowSeconds);
   if (!result.allowed) throw new RateLimitedError(result.retryAfter);
 }

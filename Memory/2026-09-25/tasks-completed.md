@@ -88,3 +88,201 @@ Flag for the lead alongside the §5.5 amendment: `npm test` in backend/ now
 requires DATABASE_URL in the shell (his env.ts validates at import; the
 dev/start scripts load ../.env but the test script doesn't) — worked around
 locally by exporting from ../.env; consider `--env-file` on the test script.
+
+## Tracker notifications — Slack + published Sheet (rcfworks)
+
+`scripts/tracker/tracker_sync.py` (12 tests) reads the committed tracker and:
+- **on every push to `main` that changes it** (`.github/workflows/tracker-notify.yml`)
+  posts to Slack the phase progress table (Phase 1 **includes SponsorX NEXT** —
+  user decision) plus exactly the tasks that changed, and writes those changes
+  into the published Google Sheet (Status, dates, Owner, Notes by task ID; new
+  tasks appended);
+- **weekdays 9 pm Manila** (`tracker-digest.yml`) posts the digest and appends
+  the day's Stage Progress row to the Sheet (creating that tab the first time).
+
+The Sheet is written through an Apps Script web app bound to it
+(`sheet-endpoint.gs`, deployed with clasp) because the icarrefound.org Google
+organisation blocks service-account keys. Secrets on the repo:
+`SLACK_WEBHOOK_URL`, `SHEET_ENDPOINT_URL`, `SHEET_ENDPOINT_SECRET`.
+
+A one-off `sync-all` brought the Sheet level with the tracker (1,675 cells,
+73 rows added, 0 status mismatches after) and its Dashboard formulas were widened
+to row 400 (they stopped at the old last row: showed 125 done instead of 139).
+Nine legal rows (`*-LEG-*`) stay on the Sheet's phase tabs by user decision —
+reviewed when Phase 1 finishes. **The end-of-day manual Sheet mirror is no
+longer needed** once both workflows are live.
+
+## P8-OPS-02 — fan QR page load test (rcfworks) → Code review
+
+`documentation/SponsorX-Fan-QR-Load-Test.md`. On staging (edge sin1 → origin
+us-east4), autocannon bursts of 1/25/50/100/200 simultaneous fans on
+`/r/<token>`: up to **537 loads/s, 0 errors of 16,116**, median ~355 ms (that is
+the round trip from Manila, not server time), slowest 2.5% 480 ms. **Cloudflare
+Workers trigger deferred with data** — threshold now written: slowest 2.5% >
+800 ms or >1% errors at the expected event peak (~25 loads/s); tested >20× it.
+
+**Bug found and fixed first (#64/#65):** the fan-IP forwarding keyed rate
+limits on the last `X-Forwarded-For` hop, which on Railway is Railway's edge
+node (152.233.33.x) — every fan through one edge shared 120 views/min; a
+50-fan burst had 75% refused. Now `X-Real-IP` (set by Railway, unspoofable):
+verified forged headers ignored, one visitor gets exactly 120 then refusals.
+`RATE_LIMIT_MULTIPLIER` (default 1, loosen-only) was set ×1000 on staging for
+the test, then removed and the API redeployed — **a variable removal alone does
+not restart the service; redeploy explicitly.** LOADTEST data deleted.
+
+**`P8-OPS-02` → Done** (user's instruction; both acceptance clauses met). Stage Progress row for 2026-09-25 recorded.
+
+## P6-QA-01 · P6-QA-02 — fan redeem page E2E and performance budget → Code review
+
+- **`P6-QA-01`** — `e2e/redeem-flow.spec.ts` runs the real stack (web → API →
+  Postgres) with JavaScript off: scan, LANDING beacon, claim (email + consent),
+  staff redeem, then a second redeem → 303 "Already used". The database must
+  hold exactly SCAN 1 · LANDING 1 · CLAIM 1 · REDEEM 1. Seeds/cleans its own
+  rows via `e2e/support/fan-db.ts` (skips when `DATABASE_URL` is unset).
+  **Bug found:** the post-redirect-get return re-rendered the LANDING beacon,
+  double-counting LANDING — the beacon is now omitted on flash returns.
+- **`P6-QA-02`** — `e2e/redeem-budget.spec.ts`, Pixel 7 + Slow 4G + 4× CPU:
+  no scripts, no fonts, no stylesheets, <20 KB — all gated. Load time is
+  recorded, not gated: `next dev` on a CI runner swung 1.2–5.7 s between
+  identical runs (the route is also warmed first, since dev compiles on first
+  hit). Measured locally 2 requests · 4.1 KB · 1,224 ms. `frontend/tests/fan-route-budget.test.ts`
+  pins "plain dynamic route": no ISR/static/edge exports in `/r`, `/t`, `/u`,
+  and the Clerk proxy matcher (edge middleware) now skips those routes.
+- **CI:** the e2e job now has a `postgres:17` service, runs migrations, and
+  Playwright starts the API beside the web app (`playwright.config.ts`
+  `webServer` array), so both specs run on every push.
+
+**`P6-QA-01`, `P6-QA-02` → Done** (user's instruction; acceptance met, both specs green in CI).
+
+## P9-PMO-01 · P9-BE-01 — NEXT rate card (simulated) and NEXT packages → Code review
+
+- **`P9-PMO-01`** (SIMULATED): `documentation/SponsorX-NEXT-Rate-Card-Decision.md`.
+  Quarter $250 · half $500 · full $800 · back cover $1,000 (qty 1) ·
+  presenting sponsor $3,000 (qty 1) · Local Business Package $1,500. Split
+  40/30/20/10, matching the revenue-splits screen. BTG swaps in real numbers
+  when pricing edition one — the doc and `sponsor-packages.ts` change together.
+- **`P9-BE-01`**: `NEXT_PACKAGES` joins the catalogue the worker seeds on boot.
+  Empty `lineItems`, zero athletes, inventory in `includes`, no schema change.
+  `tests/next-packages.test.ts` proves the seed → marketplace listing → Zoho
+  Deal path, and that the margin floor is reachable only from CampaignOrder
+  creation. The seed's package loop is now `seedPackages()` so a test can seed
+  its own tenant without touching the global NIL job ids.
+- Only these two NEXT tasks were startable; `P9-BE-02`+ stay behind the
+  `P9-PMO-03` entry gate.
+
+**`P9-PMO-01`, `P9-BE-01` → Done** (user's instruction; acceptance met, CI green).
+
+## P9-PMO-02 → Code review · P9-OPS-01 → In progress (backend done)
+
+- **`P9-PMO-02`** (SIMULATED): `documentation/SponsorX-NEXT-School-Programme-Terms.md`.
+  One agreement; the **faculty advisor holds editorial approval**, SponsorX
+  decides production. Legal review is separate and does not gate the build.
+- **`P9-OPS-01`**: the pilot school (simulated Northside High, Bowie MD) is
+  seeded as a `Property` of kind SCHOOL. Its advisor is a PROPERTY_MGR, not
+  the gated ADVISOR role, at `northside.advisor+clerk_test@example.com`: a
+  Clerk test address, so on staging you sign in with code **424242**. New
+  property scope builder, `GET /api/v1/properties/mine`, and `propertyId` on
+  `/me`. **Left:** the `/property` portal pages still read fixtures and need
+  wiring to `/properties/mine` (frontend). The row stays In progress for that.
+
+**`P9-PMO-02` → Done** (user's instruction; acceptance met). `P9-OPS-01` stays In progress — the property-portal clause is not met until the portal is wired.
+
+## Tracker notify — transient Sheet endpoint failure
+
+The notify run for PR #78's merge failed: Apps Script answered with a non-JSON
+error page. A rerun passed, but Slack is posted before the Sheet sync, so the
+rerun posted that Slack update twice. Fix: the Sheet client retries reads and
+cell updates twice (5 s, 20 s) on a non-JSON reply or network error. Appends
+(Stage Progress rows) are never retried, so a lost reply cannot add a row
+twice. Tests in `scripts/tracker/tests`.
+
+## SponsorX NEXT — Stage 9 gate lifted; Batch A → Code review
+
+**Decision (programme owner, 2026-09-25):** finish *all* backend work, NEXT
+included. The `P9-PMO-03` gate is lifted for the build and recorded in
+`CLAUDE.md`, the RBAC matrix §15 and the Phase 1 plan. `P9-PMO-03` stays open
+because edition one hasn't sold yet (`P9-DATA-01`).
+
+**Batch A: `P9-BE-02`, `-03`, `-06`, `-09`, `-12`.** Migration
+`20260925120000_next_editions` adds Publication, Edition, AdSlot,
+RevenueSplit and EditionEvent, plus the enums.
+
+- **Postgres enforces the inventory** (`prisma/sql/adslot_inventory.sql`): one
+  back cover and one presenting sponsor per edition, no re-sale, no sale after
+  close, no cross-tenant sale.
+- **Selling** takes exactly the positions the package's `includes` lists, all
+  or nothing.
+- **Closing** an edition computes the 40/30/20/10 split in the same
+  transaction. It never writes to `Earning`.
+- **Ad-only campaigns** skip STAFFING (DRAFT → APPROVAL).
+- **Engagement events** are their own stream. The sponsor report shows print
+  and digital separately.
+- **Permissions:** five new policy resources, with the digest re-pinned
+  (nothing else moved). The cross-tenant sweep covers the new routes.
+- **Tests:** `tests/next-editions.test.ts` has 17 tests, mutation-checked on
+  the trigger and the domain close-date guard.
+- **Also fixed:** seeded package ids are now tenant-scoped
+  (`pkg_<tenant>_<code>`). The old global id meant only one tenant could ever
+  be seeded, and two test tenants collided.
+
+## SponsorX NEXT Batch B (students) → Code review
+
+`P9-BE-04`, `-05`, `-07`, `-13`, `-15` and `P9-SEC-01`. Migration
+`20260925140000_next_students`.
+
+- **Model and roles:** Student, StudentCode, SalesAttribution,
+  StudentPointAccrual and StudentProspect, plus the roles STUDENT and ADVISOR,
+  `User.studentId`, the three new Sponsor fields and `CampaignBrief.studentCodeId`.
+- **Postgres keeps sale credit permanent** (trigger
+  `sales_attribution_immutable`). Test teardown deletes with
+  `SET LOCAL sponsorx.attribution_purge = 'on'`, and nothing else can.
+- **Students:** StudentState mirrors AthleteState edge for edge, plus
+  INACTIVE. The advisor reviews, and a minor needs a verified guardian (the
+  athlete's rule).
+- **Sales credit:** the code travels on the brief, and the ad sale writes the
+  credit in the same transaction. One code per student across all their sales.
+- **Prospects:** a rejection carries a reason code, emails the student, costs
+  no credit, and redirects to open categories. Categories unsuitable for
+  minors are blocked.
+- **Permissions:** matrix §15.1–15.2 transcribed, with `studentProspect`
+  added. Every protected field is denied to STUDENT and ADVISOR.
+  `revenueSplit.amount` is a new protected field. The digest is re-pinned and
+  no existing role moved. The tenant sweep and the money-leak sweep both
+  include a student and an advisor now.
+- **Tests:** `tests/next-students.test.ts` has 21 tests, mutation-checked on
+  the guardian gate and the student scope.
+
+## SponsorX NEXT Batch C (rights, featured athletes, DMV pool) → Code review
+
+`P9-BE-10`, `-11` and `-14`. Migration `20260925160000_next_rights`.
+
+- **Rights ledger:** EditionAsset and ContentRight form one ledger. Postgres
+  CHECKs require each right to be either consent or a licence, matching its
+  grantor. The gate is one query. `rightsCleared` is now **computed**:
+  digital rights at production and digital publication, print rights at
+  printing. It can no longer be set by hand.
+- **Commercial reuse:** BTG content never allows it by default, and content
+  can't join a campaign without an explicit commercial grant.
+- **Featured athletes:** a new FEATURED state with a public profile. No
+  rates, no invitations, no matching.
+- **Consent:** AgreementAcceptance can now record a subject with no login
+  (`userId` nullable, plus `athleteId` / `studentId`; Postgres CHECK exactly
+  one).
+- **Claim flow:** "that's me" → the school verifies (roster plus that school's
+  advisor) → review → the guardian's COMMERCIAL consent is required before a
+  minor can be activated.
+- **Roster is SIMULATED** (`RosterEntry`, seeded for the pilot school). The
+  real roster remains spec §14 gate 1.
+- **DMV pools:** the school share splits 50/50 (simulated) into SALES and
+  CONTENT pools, resolved by formula when the edition publishes.
+- **Permissions:** `contentRight` plus five new resources, added to the
+  matrix doc. The digest is re-pinned and nothing else moved. The tenant
+  sweep is grown to cover Batch C.
+- **Tests:** `tests/next-rights.test.ts` has 13 tests, mutation-checked three
+  ways.
+
+**All NEXT backend tasks are now built** (Batches A, B and C). `P9-DATA-01`
+(selling a real first edition) and the `P9-PMO-03` record remain open by
+nature.
+
+**SponsorX NEXT Batches A, B, C → Done** (user's instruction; acceptance met, CI green): P9-BE-02/03/04/05/06/07/09/10/11/12/13/14/15, P9-SEC-01.

@@ -2416,6 +2416,7 @@ DECISION GATE · Stage 1 cuts nine models and two roles into the schema. It is e
 - **Depends on:** P8-PMO-06, P9-DATA-01
 - **Done when:** Both gates evidenced in writing: the §39 loop runs end to end, and edition one sold
 - **Reference:** Spec §10, §11, §37
+- **2026-09-25:** the programme owner lifted this gate **for the build** — all NEXT backend work proceeds now. This row stays open as the record that edition one has not yet sold (`P9-DATA-01`).
 
 ### ⏸ `P9-BE-02` · Publication and Edition models with the edition state machine
 
@@ -2586,6 +2587,7 @@ The correction that makes NEXT safe: being featured is not being represented. `A
 
 - **Depends on:** P9-BE-04, P0-LEG-01
 - **Blocked also by:** the school roster, which does not exist — `Athlete.school` is free text (Spec §14 gate 1)
+- **2026-09-25:** built against a **simulated** roster (`RosterEntry`, names and graduation years only; seeded for the pilot school). The real roster — who supplies it, and a school sharing a list of minors — stays open as Spec §14 gate 1; P0-LEG-01 is tracked on the Legal sheet and does not gate the build.
 - **Done when:** A featured athlete has a public profile and can receive no invitation; consent is recorded for a subject with no login; commercial activation is impossible without guardian authorisation; GPA is absent unless separately decided
 - **Reference:** Spec v2.0 §5.4, §6.2
 

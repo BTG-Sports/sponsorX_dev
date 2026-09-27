@@ -121,6 +121,7 @@ export type SeedOutcome = {
   guardiansCreated?: number;
   athletesCreated?: number;
   sponsorsCreated?: number;
+  pilotSchoolCreated?: boolean;
 };
 
 /**
@@ -228,6 +229,8 @@ export async function seedEnvironment(pool: pg.Pool): Promise<SeedOutcome> {
       [TENANT_ID],
     );
 
+    const school = await seedPilotSchool(client, TENANT_ID);
+
     await client.query("COMMIT");
 
     return {
@@ -237,6 +240,7 @@ export async function seedEnvironment(pool: pg.Pool): Promise<SeedOutcome> {
       guardiansCreated: guardian.rowCount ?? 0,
       athletesCreated,
       sponsorsCreated: sponsor.rowCount ?? 0,
+      pilotSchoolCreated: school.created,
     };
   } catch (error) {
     await client.query("ROLLBACK").catch(() => {});
@@ -245,3 +249,71 @@ export async function seedEnvironment(pool: pg.Pool): Promise<SeedOutcome> {
     client.release();
   }
 }
+
+/**
+ * The SponsorX NEXT pilot school — P9-OPS-01, spec §3. SIMULATED: Northside
+ * High is the school the NEXT screens already show, standing in until BTG
+ * signs a real one (terms: documentation/SponsorX-NEXT-School-Programme-Terms.md,
+ * P9-PMO-02). A real school is onboarded the same way, by a BTG admin.
+ *
+ * A school is a `Property` with kind SCHOOL — no new model. Its faculty
+ * advisor signs in as that property's PROPERTY_MGR, the role the property
+ * portal already has. NOT the ADVISOR role: that is Stage 9 schema work
+ * behind the NEXT entry gate (P9-BE-05), and this deliberately needs none.
+ *
+ * The advisor's address is a Clerk TEST address (`+clerk_test`), so on the
+ * development Clerk instance anyone on the team can sign in with it using
+ * verification code 424242 — a login that actually works, where the
+ * `@example.com` demo rows above are look-only. Production Clerk rejects
+ * test addresses, and this seed never runs there anyway.
+ *
+ * No Zoho Account: field-mapping S-9 (2026-09-24) sends a property to Zoho as
+ * plain text, not as an object, so there is nothing to sync.
+ */
+export const PILOT_SCHOOL = {
+  propertyId: "seed_prop_northside",
+  slug: "northside-high",
+  name: "Northside High School",
+  city: "Bowie",
+  stateCode: "MD",
+  advisorUserId: "seed_user_northside_advisor",
+  advisorEmail: "northside.advisor+clerk_test@example.com",
+} as const;
+
+export async function seedPilotSchool(
+  client: pg.PoolClient,
+  tenantId: string,
+): Promise<{ created: boolean }> {
+  const p = PILOT_SCHOOL;
+  const property = await client.query(
+    `INSERT INTO "Property" (id, "tenantId", slug, name, kind, city, "stateCode")
+     VALUES ($1, $2, $3, $4, 'SCHOOL', $5, $6)
+         ON CONFLICT (id) DO NOTHING`,
+    [p.propertyId, tenantId, p.slug, p.name, p.city, p.stateCode],
+  );
+  /* Same email guard as the users above: a row a real sign-in has already
+     claimed is never reset to a placeholder. */
+  await client.query(
+    `INSERT INTO "User" (id, "tenantId", "clerkId", email, roles, "propertyId")
+     SELECT $1, $2, $3, $4, ARRAY['PROPERTY_MGR']::"Role"[], $5
+      WHERE NOT EXISTS (SELECT 1 FROM "User" WHERE email = $4)
+        ON CONFLICT (id) DO NOTHING`,
+    [p.advisorUserId, tenantId, `seed:${p.advisorEmail}`, p.advisorEmail, p.propertyId],
+  );
+  /* P9-BE-11 — a SIMULATED roster for the claim flow to match against (the
+     real one is open gate 1, spec §14). Names and graduation years only. */
+  for (const [i, [legalName, gradYear]] of PILOT_ROSTER.entries()) {
+    await client.query(
+      `INSERT INTO "RosterEntry" (id, "tenantId", "propertyId", "legalName", "gradYear")
+       VALUES ($1, $2, $3, $4, $5) ON CONFLICT (id) DO NOTHING`,
+      [`seed_roster_northside_${i + 1}`, tenantId, p.propertyId, legalName, gradYear],
+    );
+  }
+  return { created: (property.rowCount ?? 0) > 0 };
+}
+
+/** Simulated Northside High roster (P9-BE-11). */
+export const PILOT_ROSTER: ReadonlyArray<readonly [string, number]> = [
+  ["Jordan Reyes", 2027], ["Maya Thompson", 2028], ["Andre Wallace", 2027],
+  ["Sofia Nguyen", 2029], ["Elijah Brooks", 2028], ["Priya Raman", 2027],
+];

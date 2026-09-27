@@ -256,7 +256,24 @@ describe("the whole matrix is pinned", () => {
       // Updated 2026-09-24 (P8-SEC-01): two new resources, `inquiry` and
       // `syncTask`, BTG-side only (matrix §11). With both removed the grid
       // still hashes to the previous 441c358e69d81f98, so nothing else moved.
-    ).toBe("f6af9e4293912f8b");
+      // Updated 2026-09-25 (P9-BE-02/03/06/12): five SponsorX NEXT resources
+      // — publication, edition, adSlot, revenueSplit, editionEvent — from
+      // matrix §15.3, for the roles that exist today (ADVISOR / STUDENT rows
+      // follow in P9-BE-05). With all five removed the grid still hashes to
+      // the previous f6af9e4293912f8b, so nothing else moved.
+      // Updated 2026-09-25 (P9-BE-05): roles STUDENT and ADVISOR, and five
+      // student-domain resources — student, studentCode, saleAttribution,
+      // studentPoints, studentProspect — from matrix §15.1–15.2, plus the
+      // ADVISOR / STUDENT `own-property` rows on publication, edition, adSlot
+      // and editionEvent (§15.3). With both roles and the five resources
+      // removed the grid still hashes to the previous 6d06c354364aef24, so
+      // no existing role's access moved.
+      // Updated 2026-09-25 (P9-BE-10/11/14): six Batch C resources —
+      // editionAsset, contentRight (§15.3), rosterEntry, athleteClaim,
+      // contentContribution, schoolPoolAllocation (added to the matrix doc
+      // with this change). With all six removed the grid still hashes to the
+      // previous feb23b6d311d2be3, so nothing else moved.
+    ).toBe("0e32b0f006ddf674");
   });
 
   it("covers every pair the §30 acceptance asks for", () => {

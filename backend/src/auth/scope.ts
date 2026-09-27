@@ -151,6 +151,40 @@ function tenantScoped(actor: Actor, scope: Scope): Where {
   }
 }
 
+/** NEXT publication-domain rows: tenant-wide for staff, the actor's school
+ *  for `own-property` (an ADVISOR's, or a STUDENT's own school). */
+function nextByProperty(actor: Actor, scope: Scope, bySchool: (propertyId: string) => Where): Where {
+  if (scope === "own-property") {
+    return actor.propertyId ? { tenantId: actor.tenantId, ...bySchool(actor.propertyId) } : MATCHES_NOTHING;
+  }
+  return tenantScoped(actor, scope);
+}
+
+function studentScope(actor: Actor, scope: Scope): Where {
+  switch (scope) {
+    case "any":
+      return {};
+    case "own-tenant":
+      return { tenantId: actor.tenantId };
+    case "own":
+      return actor.studentId ? { tenantId: actor.tenantId, id: actor.studentId } : MATCHES_NOTHING;
+    case "own-property":
+      return actor.propertyId ? { tenantId: actor.tenantId, propertyId: actor.propertyId } : MATCHES_NOTHING;
+    case "ward":
+      return actor.guardianId ? { tenantId: actor.tenantId, guardianId: actor.guardianId } : MATCHES_NOTHING;
+    default:
+      return MATCHES_NOTHING;
+  }
+}
+
+function throughStudent(actor: Actor, scope: Scope): Where {
+  if (scope === "any") return {};
+  if (scope === "own-tenant") return { tenantId: actor.tenantId };
+  const inner = studentScope(actor, scope);
+  if (inner === MATCHES_NOTHING) return MATCHES_NOTHING;
+  return { tenantId: actor.tenantId, student: { is: inner } };
+}
+
 /**
  * Builders for the resources that are queried today.
  *
@@ -181,6 +215,23 @@ const BUILDERS: Partial<Record<Resource, Builder>> = {
     }
   },
 
+  /* P9-OPS-01 — a school (or any property) and the manager who runs it.
+     `own` is the property the actor's User row is linked to, and nothing
+     else: a PROPERTY_MGR with no link reaches no property at all. Tenant
+     stays in the conjunct, so a link forged across tenants still misses. */
+  property: (actor, scope) => {
+    switch (scope) {
+      case "any":
+        return {};
+      case "own-tenant":
+        return { tenantId: actor.tenantId };
+      case "own":
+        return actor.propertyId ? { tenantId: actor.tenantId, id: actor.propertyId } : MATCHES_NOTHING;
+      default:
+        return MATCHES_NOTHING;
+    }
+  },
+
   /* Tenant itself has no tenantId column — it *is* the tenant. */
   tenant: (actor, scope) => {
     switch (scope) {
@@ -194,6 +245,52 @@ const BUILDERS: Partial<Record<Resource, Builder>> = {
   },
 
   auditLog: tenantScoped,
+
+  /* SponsorX NEXT (P9-BE-02/03/06/12). Staff scopes are tenant-wide; an
+     ADVISOR or STUDENT reaches their own school's mastheads and everything
+     under them (`own-property`, matrix §15.3) — through the publication,
+     because only the publication names the school. A regional (DMV)
+     publication has no school, so no advisor or student reaches it this way. */
+  publication: (actor, scope) => nextByProperty(actor, scope, (p) => ({ propertyId: p })),
+  edition: (actor, scope) => nextByProperty(actor, scope, (p) => ({ publication: { is: { propertyId: p } } })),
+  adSlot: (actor, scope) =>
+    nextByProperty(actor, scope, (p) => ({ edition: { is: { publication: { is: { propertyId: p } } } } })),
+  revenueSplit: tenantScoped,
+  editionEvent: (actor, scope) =>
+    nextByProperty(actor, scope, (p) => ({ edition: { is: { publication: { is: { propertyId: p } } } } })),
+
+  /* SponsorX NEXT students (P9-BE-05, matrix §15.2). `own` is the actor's
+     own Student row (User.studentId); `own-property` the advisor's school;
+     `ward` a guardian's children — the same three shapes as the athlete. */
+  student: (actor, scope) => studentScope(actor, scope),
+  /* Everything a student owns scopes through the student, so the four can
+     never drift from `student`: whoever may not reach a student cannot
+     reach their code, sales, points or prospects either. */
+  studentCode: (actor, scope) => throughStudent(actor, scope),
+  saleAttribution: (actor, scope) => throughStudent(actor, scope),
+  studentPoints: (actor, scope) => throughStudent(actor, scope),
+  studentProspect: (actor, scope) => throughStudent(actor, scope),
+
+  /* SponsorX NEXT rights and claims (P9-BE-10, -11, -14). */
+  editionAsset: (actor, scope) =>
+    nextByProperty(actor, scope, (p) => ({ edition: { is: { publication: { is: { propertyId: p } } } } })),
+  contentRight: (actor, scope) => {
+    /* A student reads the rights on their OWN work — the asset they made. */
+    if (scope === "own") {
+      return actor.studentId ? { tenantId: actor.tenantId, asset: { is: { studentId: actor.studentId } } } : MATCHES_NOTHING;
+    }
+    return nextByProperty(actor, scope, (p) => ({ asset: { is: { edition: { is: { publication: { is: { propertyId: p } } } } } } }));
+  },
+  rosterEntry: (actor, scope) => nextByProperty(actor, scope, (p) => ({ propertyId: p })),
+  /* A claim is on an athlete at a school — the advisor of THAT school. */
+  athleteClaim: (actor, scope) => nextByProperty(actor, scope, (p) => ({ athlete: { is: { propertyId: p } } })),
+  contentContribution: (actor, scope) => {
+    if (scope === "own") {
+      return actor.studentId ? { tenantId: actor.tenantId, studentId: actor.studentId } : MATCHES_NOTHING;
+    }
+    return nextByProperty(actor, scope, (p) => ({ propertyId: p }));
+  },
+  schoolPoolAllocation: tenantScoped,
 
   /* Added with P3-BE-01, the first task to query athletes. This is the
      pattern the file was designed for: the policy already allowed these

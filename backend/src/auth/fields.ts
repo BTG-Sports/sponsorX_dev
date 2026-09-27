@@ -41,10 +41,17 @@ export type ProtectedField =
   | "athlete.phone"
   | "athlete.restrictions"
   | "rewardClaim.fanContact"
-  | "athleteScore.value";
+  | "athleteScore.value"
+  | "revenueSplit.amount";
 
 const SPONSOR_ROLES = ["SPONSOR_ADMIN", "SPONSOR_ANALYST"] as const;
 const ATHLETE_SIDE = ["ATHLETE", "GUARDIAN"] as const;
+/** SponsorX NEXT (P9-BE-05, P9-SEC-01, matrix §15.4). Students are nearly all
+ *  minors and the student pool is money-adjacent: neither a STUDENT nor an
+ *  ADVISOR reads any money or any athlete's personal data — "AthleteRate.amount
+ *  invisible to a STUDENT as firmly as to a sponsor". A student correspondent
+ *  who is also an athlete reads their own rate through ATHLETE, never here. */
+const NEXT_SIDE = ["STUDENT", "ADVISOR"] as const;
 
 /**
  * §7.1 and §7.2, denial side. A role absent from a field's list may read it —
@@ -52,44 +59,45 @@ const ATHLETE_SIDE = ["ATHLETE", "GUARDIAN"] as const;
  */
 export const FIELD_DENIALS: Record<ProtectedField, readonly Role[]> = {
   /* §7.1 — the margin, protected from both sides. */
-  "campaign.budget": [...ATHLETE_SIDE, "PROPERTY_MGR"],
-  "campaign.guarantee": [...ATHLETE_SIDE, "PROPERTY_MGR"],
-  "campaign.value": [...ATHLETE_SIDE, "PROPERTY_MGR"],
-  "nilJob.sponsorPrice": [...ATHLETE_SIDE, "PROPERTY_MGR"],
-  "nilJob.athleteBasePay": [...SPONSOR_ROLES],
-  "athleteRate.amount": [...SPONSOR_ROLES, "PROPERTY_MGR"],
+  "campaign.budget": [...ATHLETE_SIDE, "PROPERTY_MGR", ...NEXT_SIDE],
+  "campaign.guarantee": [...ATHLETE_SIDE, "PROPERTY_MGR", ...NEXT_SIDE],
+  "campaign.value": [...ATHLETE_SIDE, "PROPERTY_MGR", ...NEXT_SIDE],
+  "nilJob.sponsorPrice": [...ATHLETE_SIDE, "PROPERTY_MGR", ...NEXT_SIDE],
+  "nilJob.athleteBasePay": [...SPONSOR_ROLES, ...NEXT_SIDE],
+  "athleteRate.amount": [...SPONSOR_ROLES, "PROPERTY_MGR", ...NEXT_SIDE],
   /* §12 puts compensation INSIDE the order, which a sponsor can otherwise
      read. Denying athleteRate while leaving this open defeats the rule. */
-  "campaignOrder.compensation": [...SPONSOR_ROLES, "PROPERTY_MGR"],
+  "campaignOrder.compensation": [...SPONSOR_ROLES, "PROPERTY_MGR", ...NEXT_SIDE],
   /* Added with the column (P3-BE-12). It is the other half of the same
      margin: compensation and sellPrice together ARE the margin, so a role
      denied one and shown the other can still compute it. */
-  "campaignOrder.sellPrice": [...ATHLETE_SIDE, "PROPERTY_MGR"],
-  "earning.amount": [...SPONSOR_ROLES, "CAMPAIGN_MGR", "SALES"],
+  "campaignOrder.sellPrice": [...ATHLETE_SIDE, "PROPERTY_MGR", ...NEXT_SIDE],
+  "earning.amount": [...SPONSOR_ROLES, "CAMPAIGN_MGR", "SALES", ...NEXT_SIDE],
   "sponsor.billingReference": [
     "SALES", "CAMPAIGN_MGR", "NETWORK_MGR", "SPONSOR_ANALYST",
-    "ATHLETE", "GUARDIAN", "PROPERTY_MGR", "SERVICE",
-  ],
+    "ATHLETE", "GUARDIAN", "PROPERTY_MGR", "SERVICE", ...NEXT_SIDE],
 
   /* §7.2 — personal data. */
   "athlete.dateOfBirth": [
     "SALES", "CAMPAIGN_MGR", "FINANCE", "PROPERTY_MGR",
-    ...SPONSOR_ROLES, "SERVICE",
-  ],
-  "athlete.legalName": [...SPONSOR_ROLES, "PROPERTY_MGR"],
-  "athlete.email": [...SPONSOR_ROLES, "PROPERTY_MGR"],
-  "athlete.phone": [...SPONSOR_ROLES, "PROPERTY_MGR"],
+    ...SPONSOR_ROLES, "SERVICE", ...NEXT_SIDE],
+  "athlete.legalName": [...SPONSOR_ROLES, "PROPERTY_MGR", ...NEXT_SIDE],
+  "athlete.email": [...SPONSOR_ROLES, "PROPERTY_MGR", ...NEXT_SIDE],
+  "athlete.phone": [...SPONSOR_ROLES, "PROPERTY_MGR", ...NEXT_SIDE],
   /* A sponsor sees a conflict yes/no, never the list. "Already works with
      Nike" is competitively valuable and not theirs to have. */
-  "athlete.restrictions": [...SPONSOR_ROLES],
+  "athlete.restrictions": [...SPONSOR_ROLES, ...NEXT_SIDE],
   /* The only personal data belonging to someone who never logged in. Denied
      even to the sponsor who funded the reward: a fan consented to a coupon,
      not to being handed to a brand. */
   "rewardClaim.fanContact": [
     "SALES", "CAMPAIGN_MGR", "NETWORK_MGR", "FINANCE",
-    ...SPONSOR_ROLES, ...ATHLETE_SIDE, "PROPERTY_MGR", "SERVICE",
-  ],
-  "athleteScore.value": [...SPONSOR_ROLES, "PROPERTY_MGR"],
+    ...SPONSOR_ROLES, ...ATHLETE_SIDE, "PROPERTY_MGR", "SERVICE", ...NEXT_SIDE],
+  "athleteScore.value": [...SPONSOR_ROLES, "PROPERTY_MGR", ...NEXT_SIDE],
+  /* §15.4 — the school's cut and the student pool are publishing economics:
+     finance's and BTG's, never a student's or an advisor's (open legal gate 2
+     is exactly about money near minors). */
+  "revenueSplit.amount": [...SPONSOR_ROLES, ...ATHLETE_SIDE, "PROPERTY_MGR", "SALES", "CAMPAIGN_MGR", "NETWORK_MGR", ...NEXT_SIDE],
 };
 
 /** May any of this actor's roles read this field? Denied if ANY role is

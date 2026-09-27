@@ -7,6 +7,8 @@ import { ATHLETE_STATES_FOR_TEST } from "../src/domain/athlete-state";
 import { BRIEF_STATES } from "../src/domain/brief-state";
 import { CAMPAIGN_STATES } from "../src/domain/campaign-state";
 import { INVITE_STATES, OPEN_INVITE_STATES } from "../src/domain/invite-state";
+import { EDITION_STATES } from "../src/domain/edition-state";
+import { STUDENT_STATES } from "../src/domain/student-state";
 import { PRICED_TIERS } from "../src/domain/pricing";
 import { EMAIL_TEMPLATES } from "../worker/jobs/send-email.mts";
 
@@ -38,6 +40,8 @@ describe("Prisma enums and their TypeScript copies", () => {
     ["BriefState", () => [...BRIEF_STATES]],
     ["CampaignState", () => [...CAMPAIGN_STATES]],
     ["InviteState", () => [...INVITE_STATES]],
+    ["EditionState", () => [...EDITION_STATES]],
+    ["StudentState", () => [...STUDENT_STATES]],
   ])("%s matches, in order", (name, get) => {
     expect(get()).toEqual(prismaEnum(name));
   });

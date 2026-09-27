@@ -37,8 +37,14 @@ export const config = {
   /* Skip Next internals and static assets, then run on everything else. Without
      a matcher the proxy would run on `_next/static` and `public/` too, which is
      how auth logic ends up blocking its own CSS. */
+  /* The fan surfaces are excluded too — /r (redeem), /t (tracking redirect),
+     /u (unsubscribe). They never use sign-in, and Addendum A10 keeps the fan
+     QR page free of middleware of any kind so it stays a plain dynamic route
+     (P6-QA-02): no Clerk check stands between a scan and the page, and the
+     Cloudflare Workers option stays open. Pinned by
+     frontend/tests/fan-route-budget.test.ts. */
   matcher: [
-    "/((?!_next|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest)).*)",
+    "/((?!_next|r/|t/|u/|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest)).*)",
     "/(api|trpc)(.*)",
   ],
 };
