@@ -36,7 +36,7 @@ import { acceptAgreementIn, type AcceptanceRequest } from "./agreement";
 import { assertBudgetCarriesLine, assertLineClearsFloor } from "./margin-floor";
 import { createEarningForOrder } from "./earning";
 import { assertNoRestriction, writeExclusivity } from "./restrictions";
-import { checkInventoryItem, UnavailableError } from "./availability";
+import { checkInventoryItem, UnavailableError, unitsTaken } from "./availability";
 
 export type OfferState = "DRAFT" | "SENT" | "ACCEPTED" | "DECLINED" | "WITHDRAWN";
 export type OfferDeliverable = { title: string; dueDate: Date };
@@ -311,13 +311,14 @@ export async function respondToOffer(
     await createEarningForOrder(tx, actor, { id: order.id, tenantId: actor.tenantId, athleteId: row.athleteId, compensation: row.compensation, dueDate });
     /* 2S3-BE-03 — the item is now spoken for; 2S2-BE-02 — the exclusivity starts. */
     if (row.inventoryItemId) {
-      await tx.inventoryCommitment.create({
-        data: {
-          tenantId: actor.tenantId, inventoryItemId: row.inventoryItemId, quantity: 1, source: "OFFER", sourceId: row.id,
-          startsOn: new Date(Math.min(...lines.map((d) => d.dueDate.getTime()))), endsOn: dueDate,
-        },
-        select: { id: true },
-      });
+      /* A package takes its parts with it (2S3-BE-02). Contracted: this is an accepted contract. */
+      const startsOn = new Date(Math.min(...lines.map((d) => d.dueDate.getTime())));
+      for (const u of await unitsTaken(tx, row.inventoryItemId, actor.tenantId, 1)) {
+        await tx.inventoryCommitment.create({
+          data: { ...u, source: "OFFER", sourceId: row.id, startsOn, endsOn: dueDate, contracted: true },
+          select: { id: true },
+        });
+      }
     }
     await writeExclusivity(tx, { id: row.id, tenantId: actor.tenantId, athleteId: row.athleteId, exclusivityDays: row.exclusivityDays }, campaign.sponsor.categories, now, campaign.sponsor.name);
 

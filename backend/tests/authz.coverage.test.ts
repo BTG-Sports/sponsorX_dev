@@ -88,6 +88,11 @@ const GOVERNED_BY: Record<string, Resource> = {
   InventoryCommitment: "inventoryItem",
   Cart: "cart",
   CartLine: "cart",
+  /* A package's contents are part of the item. */
+  BundleComponent: "inventoryItem",
+  Reservation: "reservation",
+  MarketplaceOrder: "marketplaceOrder",
+  MarketplaceOrderLine: "marketplaceOrder",
 };
 
 /** Models no API path reads or writes, and why. */

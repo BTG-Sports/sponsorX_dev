@@ -90,6 +90,7 @@ import {
   BrandingInput, InventoryItemInput, InventoryItemPatch, ListingDecisionInput, ListingInput, ListingPatch,
   ListingTransitionInput, LogoUploadInput, OfferInput, OfferResponseInput, RosterAthleteInput, TeamShareInput,
   CartLineInput, CartLinePatch, RestrictionInput, SponsorCategoriesInput,
+  MarketplaceOrderDecisionInput, MarketplaceOrderTransitionInput, PlaceOrderInput,
 } from "./marketplace";
 import { NotificationPreferenceInput } from "./notification-preferences";
 import { OnboardingDecisionInput, OnboardingDocumentInput, OnboardingStartInput, OnboardingStepInput } from "./onboarding";
@@ -444,6 +445,15 @@ const PATHS: Row[] = [
   { method: "post", path: "/cart/lines", tag: "Marketplace", summary: "Add a listing — refused with reasons unless available, unconflicted and at its price (2S3-BE-03).", body: CartLineInput, status: 201 },
   { method: "patch", path: "/cart/lines/{id}", tag: "Marketplace", summary: "Change a line's quantity or dates — checked again.", body: CartLinePatch },
   { method: "delete", path: "/cart/lines/{id}", tag: "Marketplace", summary: "Remove a line." },
+  // Phase 2 batch 5 — reservations and marketplace orders
+  { method: "post", path: "/cart/reserve", tag: "Marketplace", summary: "Hold every line of the cart for 15 minutes, all or nothing — the stock drops until it is placed, released or lapses (2S4-BE-02).", status: 201 },
+  { method: "get", path: "/reservations/{id}", tag: "Marketplace", summary: "One hold — EXPIRED as soon as its time is up." },
+  { method: "post", path: "/reservations/{id}/release", tag: "Marketplace", summary: "Let go of a hold; the stock returns at once." },
+  { method: "get", path: "/marketplace-orders", tag: "Marketplace", summary: "Marketplace orders in scope — the sponsor's own, or (BTG) the approval queue (2S4-BE-03)." },
+  { method: "post", path: "/marketplace-orders", tag: "Marketplace", summary: "Turn a live hold into an order; policy approves it or holds it for BTG (2S4-BE-05).", body: PlaceOrderInput, status: 201 },
+  { method: "get", path: "/marketplace-orders/{id}", tag: "Marketplace", summary: "One order, its lines and figures." },
+  { method: "post", path: "/marketplace-orders/{id}/decision", tag: "Marketplace", summary: "BTG approves (contracts the stock) or rejects (cancels, releases it).", body: MarketplaceOrderDecisionInput },
+  { method: "post", path: "/marketplace-orders/{id}/transition", tag: "Marketplace", summary: "Payment and delivery states, or a cancellation before payment — by the state machine.", body: MarketplaceOrderTransitionInput },
   { method: "get", path: "/properties/mine", tag: "Properties", summary: "The property this account manages — a NEXT school is kind SCHOOL (P9-OPS-01). 404 when not linked." },
   { method: "get", path: "/catalogue/jobs", tag: "Catalogue", summary: "The NIL job catalogue at sponsor price bands — never base pay (P4-FE-01)." },
   { method: "post", path: "/public/rewards/{token}/scan", tag: "Public", summary: "A fan scanned the QR.", auth: false, status: 201 },

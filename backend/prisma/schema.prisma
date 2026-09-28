@@ -262,13 +262,17 @@ model Property {
   /// US state code, e.g. "MD".
   stateCode String?
 
-  // RESERVED, NOT WIRED (field-mapping S-9, decided 2026-09-24). §18 maps no
-  // Property object and §6.2 sends the property to Zoho as plain text, so no
-  // sync job reads or writes this column. Do not populate it by assuming it
-  // is wired up; adopting it is a mapping change first.
+  // WIRED BY 2S7-INT-01 (2026-09-28). Was reserved (field-mapping S-9,
+  // 2026-09-24): §18 mapped no Property object. Phase 2's outside properties
+  // are Accounts in their own right, so the mapping change was made first
+  // (field-mapping §13) and zoho.pushMarketplaceOrder now writes this — the
+  // property's Zoho Account id. SponsorX pushes it; nothing reads it back.
   zohoId         String?     @unique
   lastSyncOrigin SyncOrigin?
   lastSyncHash   String?
+  /// 2S7-INT-01 — the property manager's Contact in Zoho, under the Account
+  /// `zohoId` (adopted by 2S7-INT-01; field-mapping §13).
+  zohoContactId  String?     @unique
 
   athletes        Athlete[]
   publications    Publication[]
@@ -1826,6 +1830,9 @@ model InventoryItem {
   property    Property?             @relation(fields: [propertyId], references: [id])
   listings    Listing[]
   commitments InventoryCommitment[]
+  /// 2S3-BE-02 — a PACKAGE item's contents, and the packages an item is in.
+  components  BundleComponent[]     @relation("bundle")
+  inBundles   BundleComponent[]     @relation("component")
 
   @@index([tenantId, athleteId])
   @@index([tenantId, propertyId])
@@ -1993,6 +2000,12 @@ model InventoryCommitment {
   source          String
   sourceId        String
   releasedAt      DateTime?
+  /// 2S4-BE-02 — a hold stops counting the moment this passes, whether or
+  /// not the sweep has run yet. Null for commitments that do not lapse.
+  expiresAt       DateTime?
+  /// 2S4-BE-05 — an order's stock is HELD while it awaits approval and
+  /// CONTRACTED only once BTG (or policy) approves it.
+  contracted      Boolean   @default(false)
   createdAt       DateTime  @default(now())
 
   item InventoryItem @relation(fields: [inventoryItemId], references: [id])
@@ -2046,4 +2059,121 @@ model CartLine {
 
   @@unique([cartId, listingId])
   @@index([tenantId])
+}
+
+/**
+ * ── Phase 2 batch 5 · packages, reservations, marketplace orders ───────
+ */
+
+/// 2S3-BE-02 — one item inside a PACKAGE: the package sells as one unit, and
+/// each unit of it takes `quantity` of this component.
+model BundleComponent {
+  id              String @id @default(cuid())
+  tenantId        String
+  bundleItemId    String
+  componentItemId String
+  quantity        Int
+
+  bundle    InventoryItem @relation("bundle", fields: [bundleItemId], references: [id])
+  component InventoryItem @relation("component", fields: [componentItemId], references: [id])
+
+  @@unique([bundleItemId, componentItemId])
+  @@index([tenantId])
+}
+
+enum ReservationState {
+  HELD
+  CONVERTED
+  EXPIRED
+  RELEASED
+}
+
+/// 2S4-BE-02 — a cart's stock, held for 15 minutes (state machines §3). The
+/// hold itself is the InventoryCommitment rows it wrote (source RESERVATION),
+/// which stop counting at `expiresAt` even before the sweep marks them.
+model Reservation {
+  id          String           @id @default(cuid())
+  tenantId    String
+  sponsorId   String
+  cartId      String
+  state       ReservationState @default(HELD)
+  expiresAt   DateTime
+  releasedAt  DateTime?
+  convertedAt DateTime?
+  createdBy   String?
+  createdAt   DateTime         @default(now())
+
+  order MarketplaceOrder?
+
+  @@index([tenantId, sponsorId, state])
+  @@index([state, expiresAt])
+}
+
+enum MarketplaceOrderState {
+  PENDING_APPROVAL
+  APPROVED
+  AWAITING_PAYMENT
+  PAID
+  IN_DELIVERY
+  FULFILLED
+  CLOSED
+  CANCELLED
+  REFUNDED
+}
+
+/// 2S4-BE-03 — the commercial order a reservation becomes (state machines
+/// §4). Lives in the sponsor's tenant; its lines name the items it buys in
+/// the tenants that tenant operates. Its figures are fixed from APPROVED on
+/// (prisma/sql/marketplace_order_immutable.sql).
+model MarketplaceOrder {
+  id               String                @id @default(cuid())
+  tenantId         String
+  sponsorId        String
+  reservationId    String                @unique
+  state            MarketplaceOrderState @default(PENDING_APPROVAL)
+  currency         String                @default("USD")
+  subtotalCents    Int
+  feesCents        Int
+  totalCents       Int
+  /// 2S4-BE-05 — whether policy sends it to BTG, and why.
+  requiresApproval Boolean
+  approvalReasons  String[]
+  decidedAt        DateTime?
+  /// A user id, or "system" when policy approved it.
+  decidedBy        String?
+  decisionNotes    String?
+  contractedAt     DateTime?
+  createdBy        String?
+  /// 2S7-INT-01 — the Deal this order is in Zoho.
+  zohoDealId       String?               @unique
+  createdAt        DateTime              @default(now())
+  updatedAt        DateTime              @default(now()) @updatedAt
+
+  reservation Reservation            @relation(fields: [reservationId], references: [id])
+  lines       MarketplaceOrderLine[]
+
+  @@index([tenantId, sponsorId, state])
+  @@index([tenantId, state])
+}
+
+model MarketplaceOrderLine {
+  id              String   @id @default(cuid())
+  tenantId        String
+  orderId         String
+  listingId       String
+  inventoryItemId String
+  /// The outside tenant and property the line buys from.
+  itemTenantId    String
+  propertyId      String
+  title           String
+  quantity        Int
+  startsOn        DateTime
+  endsOn          DateTime
+  unitPriceCents  Int
+  lineTotalCents  Int
+
+  order MarketplaceOrder @relation(fields: [orderId], references: [id])
+
+  @@index([tenantId, orderId])
+  @@index([propertyId])
 }

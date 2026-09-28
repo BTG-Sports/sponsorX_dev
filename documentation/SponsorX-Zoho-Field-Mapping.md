@@ -769,7 +769,7 @@ model"* — this list is what that sentence resolves to.
 | **S-6** | Add `Campaign.invoiceReference`, `.paymentStatus`, `.paidAt` | §18 row 8 — **hold until O-1 closes** |
 | **S-7** | Add `updatedAt` to every Zoho-touched model (`Sponsor`, `Athlete`, `Campaign`, `CampaignBrief`, and the new models) | Conflict detection, §8.1 step 3 |
 | **S-8** | Add `lastSyncOrigin` / `lastSyncHash` to `Campaign` and `CampaignBrief` | They are Zoho-touched but carry no sync markers today |
-| **S-9** | ~~Decide `Property.zohoId`~~ — **decided 2026-09-24: reserved, not wired**, documented on the column | It exists in the schema, but **§18 maps no Property object** and §6.2 field 10 deliberately sends the property as plain text. Either delete the column or document it as reserved — an unused external-ID column will eventually get populated by someone who assumes it is wired up. |
+| **S-9** | ~~Decide `Property.zohoId`~~ — **decided 2026-09-24: reserved, not wired**; **wired 2026-09-28 by 2S7-INT-01** (§12.2) — an outside property is an Account | It exists in the schema, but **§18 maps no Property object** and §6.2 field 10 deliberately sends the property as plain text. Either delete the column or document it as reserved — an unused external-ID column will eventually get populated by someone who assumes it is wired up. |
 | **G-1** | ~~**Add the `SponsorX_ID` external field to `Accounts`, `Contacts`, `Leads`, `Deals`, `Tasks`** (§5.1)~~ — **CLOSED 2026-09-11.** | Every sync task. Raised as **`P0-OPS-06`** rather than folded into `P0-OPS-05`, so that the sponsor-side sync tasks do not inherit a dependency on athlete-module work. Built and verified the same day; the field ids are recorded in §5.1. |
 | **G-2** | Audit the org's Zoho workflow rules against the SoR columns (§5.3) | Before go-live |
 
@@ -830,6 +830,26 @@ when our own row changed since the last sync — so a redelivered job cannot
 revert a stage sales has moved the deal to since. And `Closing_Date` is the
 brief's calendar date as entered, not that date shifted into the business
 timezone (a brief ending 30 November closes on the 30th, not the 29th).
+
+## 12.2 · Phase 2 — marketplace orders (2S7-INT-01, 2026-09-28)
+
+**This is the mapping change S-9 said must come first.** `Property.zohoId` is
+now wired. An outside property that BTG approved (2S1-BE-04) is a Zoho
+Account of its own.
+
+| SponsorX | Zoho | Direction | Notes |
+|---|---|---|---|
+| `Property` (outside tenant) | **Accounts**, `SponsorX_ID = property:<id>`, `Account_Type = Partner` | SponsorX → Zoho, once | `Account_Name` = the property's name, `Billing_State` = its state. The id is stored in `Property.zohoId`. |
+| The property's `PROPERTY_MGR` | **Contacts**, `SponsorX_ID = user:<userId>`, under that Account | SponsorX → Zoho, once | Name, phone and role come from the onboarding's contact record, and email from the account. The id is stored in `Property.zohoContactId`. |
+| `MarketplaceOrder` (contracted) | **Deals**, `SponsorX_ID = mkt-order:<id>` | SponsorX → Zoho | Linked to the sponsor's Account and primary Contact (§7.1, §7.2). The property Accounts it buys from are named, with their ids, in `Description`. `Amount` is the order total. `Stage` is Closed Won from approval on, and Closed Lost on cancel or refund. `Type` is New or Existing Business. After the first push only `Stage` is sent. |
+
+- An order reaches Zoho only once it is contracted (`APPROVED`). An order
+  still `PENDING_APPROVAL` has no Deal.
+- The push is `zoho.pushMarketplaceOrder`, queued in the approval's
+  transaction. It is idempotent by `SponsorX_ID` and retried like every
+  other push.
+- Payment and invoice references follow with 2S5.
+- Nothing is read back. A property is not bi-directional.
 
 ## 13 · Revision history
 

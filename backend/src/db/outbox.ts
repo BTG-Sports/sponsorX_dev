@@ -40,6 +40,9 @@ export type JobName =
      its renewal Deal. */
   | "zoho.pushLead"
   | "zoho.pushRenewal"
+  /* 2S7-INT-01 — a contracted marketplace order, its sponsor, and the
+     outside properties it buys from. */
+  | "zoho.pushMarketplaceOrder"
   /* P8-INT-03 — a verified CRM notification, recorded and queued by the
      webhook route; the worker fetches and applies the records. */
   | "zoho.ingestCrm"

@@ -71,6 +71,13 @@ const schema = z.object({
      are linked, never signed (storage.ts). */
   R2_PUBLIC_BASE_URL: z.string().default("http://localhost:9000/sponsorx-public"),
 
+  /* 2S4-BE-05 — a marketplace order at or above this total waits for BTG's
+     approval. $1,000, set by the programme owner on 2026-09-28. */
+  MARKETPLACE_APPROVAL_THRESHOLD_CENTS: z.coerce.number().int().min(0).default(100_000),
+  /* 2S4-BE-03 — a buyer fee on marketplace orders, in basis points. 0 until
+     BTG sets one: no fee is invented here (commission is 2S5-BE-01). */
+  MARKETPLACE_BUYER_FEE_BPS: z.coerce.number().int().min(0).max(5_000).default(0),
+
   /* The GeoLite2 City database, for P6-BE-05.
      
      Optional on purpose. The file is a licensed MaxMind download that cannot

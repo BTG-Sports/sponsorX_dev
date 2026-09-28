@@ -949,3 +949,43 @@ the grid still hashes to the old value.
 
 The full backend suite passes (1526 tests), and 11 of 11 mutations were
 caught.
+
+## Phase 2 batch 5: five backend tasks moved to Done (acceptance met)
+
+- **Approval threshold:** $1,000, set by the programme owner. It is the
+  `MARKETPLACE_APPROVAL_THRESHOLD_CENTS` setting.
+- **`2S3-BE-02` · packages:** a new `PACKAGE` kind, with `BundleComponent`
+  rows for its contents.
+  - A package sells as one line at its own price.
+  - The availability check covers every part, and every commitment writer
+    (reservation, order, offer) expands through `unitsTaken`.
+- **`2S4-BE-02` · reservations:** `POST /cart/reserve` holds the whole cart
+  for 15 minutes, all or nothing.
+  - Postgres advisory locks per item stop two sponsors buying the last unit.
+    The race was proven in a test: exactly one wins.
+  - A hold lapses at `expiresAt` without waiting for any job. A sweep every
+    minute then marks it expired.
+- **`2S4-BE-03` / `2S4-BE-05` · orders and the approval gate:**
+  `/marketplace-orders`.
+  - The state machine is transcribed from the state-machines doc.
+  - An order's stock is held while it waits, and contracted only when it is
+    approved.
+  - An order needs approval if it is $1,000 or more, the sponsor's first, or
+    from a listing that asks. Otherwise policy approves it, recorded as
+    "system".
+  - Rejecting an order releases its stock.
+  - Postgres keeps the figures and lines fixed from approval on.
+  - The buyer fee defaults to 0.
+- **`2S7-INT-01` · Zoho:** the `zoho.pushMarketplaceOrder` job.
+  - Each outside property becomes a Partner Account, with its manager as a
+    Contact. That is the S-9 mapping change, recorded in field-mapping §12.2.
+  - The Deal is linked to the sponsor's Account and Contact.
+  - This was tested against the fake Zoho org. A live sandbox check is still
+    open.
+- **Matrix §20:** the digest is now `f970f155612606e9`. With this batch
+  removed, the grid still hashes to the old value.
+
+The full backend suite passes (1544 tests). Ten out of ten mutations were
+caught, and one survivor surfaced a missing test for a package whose part runs
+out. Two real bugs were found and fixed: the Deal `Type` counted later orders,
+and holds had been compared to the millisecond (fixed in batch 4).

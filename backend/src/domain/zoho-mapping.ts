@@ -407,3 +407,51 @@ export function toZohoLead(i: {
     ...(LEAD_SOURCE[i.source] ? { Lead_Source: LEAD_SOURCE[i.source] } : {}),
   };
 }
+
+/* ── Phase 2 marketplace (2S7-INT-01, field-mapping §13) ─────────────────── */
+
+/**
+ * The Stage SponsorX asserts for a marketplace order. An order only reaches
+ * Zoho once it is contracted (APPROVED), which is a won deal; it stays won
+ * through payment and delivery, and a cancellation or refund after that is
+ * lost. PENDING_APPROVAL never reaches Zoho.
+ */
+export function marketplaceOrderStage(state: string): string {
+  return state === "CANCELLED" || state === "REFUNDED" ? "Closed Lost" : "Closed Won";
+}
+
+/** An outside property is an Account of its own — a Partner, not a Customer. */
+export function toZohoPropertyAccountCreate(p: { id: string; name: string; kind: string; stateCode: string | null }) {
+  return {
+    SponsorX_ID: `property:${p.id}`,
+    ...accountShared(p.name),
+    Account_Type: "Partner",
+    ...(p.stateCode ? { Billing_State: p.stateCode } : {}),
+    Description: `SponsorX marketplace property (${p.kind.toLowerCase()}).`,
+  };
+}
+
+/** Its manager, as a Contact under that Account. */
+export function toZohoPropertyContactCreate(c: { userId: string; name: string; email: string; phone: string | null; title: string | null }, zohoAccountId: string) {
+  return { ...toZohoContactCreate({ id: `user:${c.userId}`, name: c.name, email: c.email, phone: c.phone, title: c.title }, zohoAccountId) };
+}
+
+export function toZohoMarketplaceDeal(d: {
+  orderId: string; sponsorName: string; totalCents: number; stage: string; placedAt: Date; closingDate: Date;
+  zohoAccountId: string; zohoContactId: string | null; existingBusiness: boolean;
+  lines: Array<{ title: string; propertyName: string; zohoPropertyAccountId: string | null; quantity: number; lineTotalCents: number }>;
+}) {
+  const body = d.lines
+    .map((l) => `• ${l.title} ×${l.quantity} — ${l.propertyName}${l.zohoPropertyAccountId ? ` (Account ${l.zohoPropertyAccountId})` : ""} — $${(l.lineTotalCents / 100).toFixed(2)}`)
+    .join("\n");
+  return {
+    SponsorX_ID: `mkt-order:${d.orderId}`,
+    Deal_Name: dealName(d.sponsorName, "marketplace order", d.placedAt),
+    ...dealShared(d.totalCents, d.stage),
+    Closing_Date: calendarDate(d.closingDate),
+    Account_Name: { id: d.zohoAccountId },
+    ...(d.zohoContactId ? { Contact_Name: { id: d.zohoContactId } } : {}),
+    Description: truncate(`SponsorX marketplace order ${d.orderId}\n${body}`, 32_000),
+    Type: d.existingBusiness ? "Existing Business" : "New Business",
+  };
+}
