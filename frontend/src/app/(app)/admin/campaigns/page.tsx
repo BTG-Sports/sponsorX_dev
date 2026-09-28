@@ -13,6 +13,8 @@ import {
   rewardDraft,
 } from "@/lib/fixtures";
 import { JOBS, MATCH_BRIEF } from "@/lib/matching";
+import type { ApiCampaign } from "@/lib/sponsor-live";
+import { apiFetch, fetchActor } from "@/server/api";
 
 /* --------------------------------------------------------------------------
    Campaigns list — the admin "Campaigns" workspace (2026-09-15).
@@ -24,7 +26,129 @@ import { JOBS, MATCH_BRIEF } from "@/lib/matching";
    its nav item are gone.
    -------------------------------------------------------------------------- */
 
-export default function CampaignsListPage() {
+/* LIVE vs DEMO (P5-FE-05). A signed-in BTG desk sees the tenant's REAL
+   campaigns — GET /campaigns for state, package, athletes and delivery,
+   joined with GET /operations/delivery-health for the under-delivery flags
+   (the same rule the ops board uses). Staffing campaigns open their brief's
+   Matching Studio; delivering ones their operations board. Nobody else sees
+   anything but the fixture list. */
+
+type Health = {
+  campaignId: string;
+  deliverablesOverdue: number;
+  underDeliveringWork: boolean;
+  underDeliveringReach: boolean;
+};
+
+const DESK_ROLES = ["SUPER_ADMIN", "BTG_ADMIN", "CAMPAIGN_MGR", "NETWORK_MGR", "SALES", "FINANCE"];
+
+async function liveCampaigns(): Promise<{ campaigns: ApiCampaign[]; health: Health[] } | null> {
+  const who = await fetchActor();
+  if (who.status !== "linked") return null;
+  if (!who.actor.roles.some((r) => DESK_ROLES.includes(r))) return null;
+  const [cRes, hRes] = await Promise.all([apiFetch("/campaigns"), apiFetch("/operations/delivery-health")]);
+  if (!cRes.ok) throw new Error(`Campaigns unavailable (${cRes.status}).`);
+  if (!hRes.ok) throw new Error(`Delivery health unavailable (${hRes.status}).`);
+  return {
+    campaigns: ((await cRes.json()) as { campaigns: ApiCampaign[] }).campaigns,
+    health: ((await hRes.json()) as { campaigns: Health[] }).campaigns,
+  };
+}
+
+const STAFFING = new Set(["DRAFT", "STAFFING", "APPROVAL"]);
+const DELIVERING = new Set(["ACTIVE", "REPORTING"]);
+
+function LiveCampaignsList({ campaigns, health }: { campaigns: ApiCampaign[]; health: Health[] }) {
+  const byId = new Map(health.map((h) => [h.campaignId, h]));
+  const groups = [
+    { key: "attention", title: "Needs attention", items: campaigns.filter((c) => { const h = byId.get(c.id); return h && (h.underDeliveringWork || h.underDeliveringReach); }) },
+    { key: "delivering", title: "Delivering", items: campaigns.filter((c) => DELIVERING.has(c.state) && !(byId.get(c.id)?.underDeliveringWork || byId.get(c.id)?.underDeliveringReach)) },
+    { key: "staffing", title: "Staffing", items: campaigns.filter((c) => STAFFING.has(c.state)) },
+    { key: "closed", title: "Closed", items: campaigns.filter((c) => c.state === "COMPLETED" || c.state === "CANCELLED") },
+  ].filter((g) => g.items.length > 0);
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-xl font-semibold tracking-tight">Campaigns</h1>
+        <p className="mt-1 text-xs text-muted">
+          {campaigns.length} {campaigns.length === 1 ? "campaign" : "campaigns"} — staffing ones open their
+          Matching Studio, delivering ones their operations board.
+        </p>
+      </div>
+      {campaigns.length === 0 && (
+        <p className="rounded-xl border border-line bg-surface px-5 py-10 text-center text-xs text-muted">
+          No campaigns yet — an approved brief becomes one when its first invitations go out.
+        </p>
+      )}
+      {groups.map((g) => (
+        <section key={g.key} className="space-y-3">
+          <h2 className="text-[11px] font-medium uppercase tracking-wide text-muted">
+            {g.title} <span className="text-faint">· {g.items.length}</span>
+          </h2>
+          <ul className="grid gap-4 lg:grid-cols-2">
+            {g.items.map((c) => {
+              const h = byId.get(c.id);
+              const href = STAFFING.has(c.state)
+                ? `/admin/campaigns/match${c.briefId ? `?brief=${encodeURIComponent(c.briefId)}` : ""}`
+                : `/admin/campaigns/${encodeURIComponent(c.id)}`;
+              const pct = c.deliverables.total ? Math.round((100 * c.deliverables.done) / c.deliverables.total) : 0;
+              return (
+                /* min-w-0: a long campaign name must truncate, not widen
+                   the grid track past a phone's width. */
+                <li key={c.id} className="min-w-0">
+                  <Link
+                    href={href}
+                    className="group block rounded-xl border border-line bg-surface p-5 transition-all hover:border-admin/30 hover:bg-surface-2/40"
+                  >
+                    <div className="flex items-start gap-3">
+                      <Monogram text={initials(c.sponsorName)} tone="primary" className="size-10 text-[11px]" />
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <h3 className="truncate text-sm font-semibold tracking-tight">{c.name}</h3>
+                          <Badge tone={c.state === "ACTIVE" ? "accent" : STAFFING.has(c.state) ? "warn" : "neutral"}>
+                            {c.state}
+                          </Badge>
+                          {h?.underDeliveringWork && <Badge tone="danger">{h.deliverablesOverdue} overdue</Badge>}
+                          {h?.underDeliveringReach && <Badge tone="warn">Reach short</Badge>}
+                        </div>
+                        <p className="mt-0.5 truncate text-[11px] text-muted">
+                          Presented by {c.sponsorName} · {c.package?.name ?? "custom"}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="mt-4">
+                      <div className="mb-1.5 flex items-baseline justify-between text-[11px]">
+                        <span className="text-muted">Deliverables published</span>
+                        <span className="font-medium tabular-nums text-text">
+                          {c.deliverables.done} <span className="text-faint">/ {c.deliverables.total}</span>
+                        </span>
+                      </div>
+                      <Meter value={pct} tone={h?.underDeliveringWork ? "primary" : "accent"} />
+                    </div>
+                    <dl className="mt-4 grid grid-cols-3 gap-3 border-t border-line-soft pt-4">
+                      <Stat label="Athletes" value={String(c.athletes)} />
+                      <Stat label="Contracted" value={typeof c.contracted === "number" ? money(c.contracted) : "—"} />
+                      <Stat
+                        label="Ends"
+                        value={new Date(c.endDate).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" })}
+                      />
+                    </dl>
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+      ))}
+    </div>
+  );
+}
+
+export default async function CampaignsListPage() {
+  const live = await liveCampaigns();
+  if (live) return <LiveCampaignsList campaigns={live.campaigns} health={live.health} />;
+
   const campaigns = Object.entries(campaignDetailX).map(([id, d]) => ({
     id,
     c: d.campaign,

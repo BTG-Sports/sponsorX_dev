@@ -1,7 +1,15 @@
 import Link from "next/link";
 import { BackLink } from "@/components/back-link";
 import { ExportReport } from "@/components/export-report";
-import { Card, SectionHeading } from "@/components/ui";
+import { Badge, Card, SectionHeading, SourceLabel } from "@/components/ui";
+import { notFound } from "next/navigation";
+import {
+  deliveredShare,
+  engagementRate,
+  reachLayers,
+  type ApiSponsorReport,
+} from "@/lib/report-live";
+import { apiFetch, fetchActor } from "@/server/api";
 import {
   AreaChart,
   Donut,
@@ -42,7 +50,193 @@ import {
    "Export report" ships this screen as a client-rendered PDF or XLSX from
    the same CampaignRoiReport model; the §19 worker (Playwright render, B7)
    takes over the generation step when it lands.
+
+   LIVE vs DEMO (P7-FE-03, the P3-FE-02 precedent). For a signed-in sponsor
+   (their own campaign) or BTG, the id is a REAL campaign and the page renders
+   GET /campaigns/{id}/report — with §22's layers kept apart: reach per
+   provenance side by side and never summed, media value ESTIMATED with its
+   stated basis, tracked clicks ATTRIBUTED, the fan funnel measured from our
+   own event rows. The fixture composition charts (format / platform / geo
+   splits, benchmarks, timeline) have no source in the report yet and are not
+   drawn; the export is hidden on live numbers (its model is fixture-built).
    -------------------------------------------------------------------------- */
+
+const REPORT_ROLES = ["SUPER_ADMIN", "BTG_ADMIN", "CAMPAIGN_MGR", "SALES", "SPONSOR_ADMIN", "SPONSOR_ANALYST"];
+
+async function liveReport(id: string): Promise<ApiSponsorReport | "missing" | null> {
+  /* No catch — an outage is an error page, never fixtures dressed as the
+     sponsor's real results (QA pass 4 rule). */
+  const who = await fetchActor();
+  if (who.status !== "linked") return null;
+  if (!who.actor.roles.some((r) => REPORT_ROLES.includes(r))) return null;
+  const res = await apiFetch(`/campaigns/${encodeURIComponent(id)}/report`);
+  if (res.status === 403) return "missing";
+  if (!res.ok) throw new Error(`Report unavailable (${res.status}).`);
+  return (await res.json()) as ApiSponsorReport;
+}
+
+const fmtDay = (iso: string) =>
+  new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" });
+
+function LiveReport({ r, back }: { r: ApiSponsorReport; back: { href: string; label: string } }) {
+  const layers = reachLayers(r.performance);
+  const d = deliveredShare(r.roster);
+  const f = r.funnel;
+  const clicks = r.deliveredAssets.reduce((n, a) => n + a.trackedClicks, 0);
+  return (
+    <div className="space-y-5">
+      <BackLink target={back} />
+      <div>
+        <h1 className="text-xl font-semibold tracking-tight">Campaign ROI Report</h1>
+        <p className="mt-1 text-xs text-muted">
+          {r.campaign.name} · {fmtDay(r.campaign.startDate)} – {fmtDay(r.campaign.endDate)} ·{" "}
+          <Badge tone={r.campaign.state === "ACTIVE" ? "accent" : "neutral"}>{r.campaign.state.toLowerCase()}</Badge>
+        </p>
+        {r.objective && <p className="mt-1 text-[11px] text-faint">Objective: {r.objective}</p>}
+      </div>
+
+      <HeroBand className="sx-animate">
+        <p className="text-[10px] font-medium uppercase tracking-[0.2em] text-muted">Reach, by how we know it</p>
+        <div className="mt-3 grid gap-4 sm:grid-cols-3">
+          {layers.map((l) => (
+            <div key={l.key}>
+              <p className="flex items-center gap-2 text-[11px] text-muted">
+                {l.label} views <SourceLabel source={l.chip} />
+              </p>
+              <p className="mt-1 text-3xl font-bold tabular-nums tracking-tight">{l.views.toLocaleString("en-US")}</p>
+              <p className="mt-0.5 text-[11px] text-faint">
+                {l.engagements.toLocaleString("en-US")} engagements
+                {engagementRate(l.views, l.engagements) !== null && ` · ${engagementRate(l.views, l.engagements)}% rate`}
+              </p>
+            </div>
+          ))}
+        </div>
+        <p className="mt-3 text-[10px] leading-relaxed text-faint">
+          Each layer stands alone — a self-reported or estimated view is never added to a verified one (§22).
+        </p>
+      </HeroBand>
+
+      <div className="grid gap-4 md:grid-cols-3">
+        <Card className="p-4">
+          <p className="flex items-center gap-2 text-[11px] font-medium uppercase tracking-wide text-muted">
+            Media value <SourceLabel source="ESTIMATED" />
+          </p>
+          <p className="mt-1.5 text-2xl font-semibold tabular-nums tracking-tight">{money(r.mediaValue.amount)}</p>
+          <p className="mt-1.5 text-[10px] leading-relaxed text-faint">{r.mediaValue.basis}</p>
+        </Card>
+        <Card className="p-4">
+          <p className="text-[11px] font-medium uppercase tracking-wide text-muted">Delivery</p>
+          <p className="mt-1.5 text-2xl font-semibold tabular-nums tracking-tight">
+            {d.verified} <span className="text-sm font-medium text-muted">of {d.total} verified</span>
+          </p>
+          <p className="mt-1.5 text-[10px] text-faint">deliverables confirmed live by BTG</p>
+        </Card>
+        <Card className="p-4">
+          <p className="flex items-center gap-2 text-[11px] font-medium uppercase tracking-wide text-muted">
+            Link clicks <SourceLabel source="ATTRIBUTED" />
+          </p>
+          <p className="mt-1.5 text-2xl font-semibold tabular-nums tracking-tight">{clicks.toLocaleString("en-US")}</p>
+          <p className="mt-1.5 text-[10px] text-faint">counted on our own tracking links, not a platform figure</p>
+        </Card>
+      </div>
+
+      <section>
+        <SectionHeading title="Reward funnel" hint="Four separate events from the fan page — measured by SponsorX (§16)." />
+        <Card>
+          <FunnelSteps
+            stages={[
+              { label: "Scan", value: f.SCAN },
+              { label: "Landing", value: f.LANDING },
+              { label: "Claim", value: f.CLAIM },
+              { label: "Redeem", value: f.REDEEM },
+            ]}
+          />
+          <p className="mt-3 flex flex-wrap items-center gap-1.5 border-t border-line-soft pt-3 text-[11px] text-muted">
+            {r.redemption.redeemed.toLocaleString("en-US")} redeemed of {r.redemption.issued.toLocaleString("en-US")} issued
+            {r.redemption.issued ? ` · ${Math.round(r.redemption.rate * 1000) / 10}%` : ""} <SourceLabel source="VERIFIED_SYSTEM" />
+          </p>
+        </Card>
+      </section>
+
+      {r.observations.length > 0 && (
+        <section>
+          <SectionHeading title="What stands out" hint="Computed from the figures above." />
+          <Card>
+            <ul className="space-y-1.5 text-xs leading-relaxed text-muted">
+              {r.observations.map((o) => (
+                <li key={o}>· {o}</li>
+              ))}
+            </ul>
+          </Card>
+        </section>
+      )}
+
+      <section>
+        <SectionHeading title="Roster delivery" />
+        <Card className="p-0">
+          {r.roster.length === 0 ? (
+            <p className="px-4 py-6 text-center text-xs text-muted">No athletes on this campaign yet.</p>
+          ) : (
+            <ul className="divide-y divide-line-soft">
+              {r.roster.map((l) => (
+                <li key={`${l.athleteId}-${l.jobId}`} className="flex items-center justify-between gap-3 px-4 py-3 text-xs">
+                  <span className="min-w-0">
+                    <span className="font-medium">{l.athleteName}</span>
+                    <span className="ml-2 text-faint">{l.jobId} · {l.orderState.toLowerCase()}</span>
+                  </span>
+                  <span className="shrink-0 tabular-nums text-muted">
+                    {l.deliverablesVerified}/{l.deliverablesTotal} verified
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </Card>
+      </section>
+
+      <section>
+        <SectionHeading title="Published content" />
+        <Card className="p-0">
+          {r.deliveredAssets.length === 0 ? (
+            <p className="px-4 py-6 text-center text-xs text-muted">Nothing published yet.</p>
+          ) : (
+            <ul className="divide-y divide-line-soft">
+              {r.deliveredAssets.map((a) => (
+                <li key={a.deliverableId} className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 text-xs">
+                  <span className="min-w-0">
+                    <span className="font-medium">{a.title}</span>
+                    {a.publishedAt && <span className="ml-2 text-faint">{fmtDay(a.publishedAt)}</span>}
+                    {a.publishedUrl && (
+                      <a href={a.publishedUrl} target="_blank" rel="noopener noreferrer" className="ml-2 text-primary underline underline-offset-2">
+                        view post
+                      </a>
+                    )}
+                  </span>
+                  <span className="shrink-0 text-[11px] text-muted">
+                    {a.trackedClicks.toLocaleString("en-US")} clicks <SourceLabel source="ATTRIBUTED" />
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </Card>
+      </section>
+
+      {r.adPlacements.length > 0 && r.editionEngagement && (
+        <section>
+          <SectionHeading title="Edition placements" hint="Print and digital kept apart — pooling them would say something untrue." />
+          <Card>
+            <p className="text-xs text-muted">
+              {r.adPlacements.length} position{r.adPlacements.length === 1 ? "" : "s"} ·{" "}
+              {r.editionEngagement.print.QR_SCAN.toLocaleString("en-US")} print QR scans ·{" "}
+              {r.editionEngagement.digital.LINK_CLICK.toLocaleString("en-US")} digital link clicks
+            </p>
+          </Card>
+        </section>
+      )}
+    </div>
+  );
+}
 
 export default async function RoiReportPage({
   params,
@@ -80,6 +274,10 @@ export default async function RoiReportPage({
       )}
     </div>
   );
+
+  const live = demo === null ? await liveReport(id) : null;
+  if (live === "missing") notFound();
+  if (live) return <LiveReport r={live} back={back} />;
 
   /* Report builds from verified deliverables and rolled-up metrics — nothing
      to gauge or chart until the first ones land. */

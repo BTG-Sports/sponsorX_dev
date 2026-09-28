@@ -1,0 +1,93 @@
+import { describe, expect, it } from "vitest";
+
+import { delta, toLiveStory, type ApiAnalytics } from "../src/lib/analytics-live";
+import { funnelInsight, headlineInsight, locationInsight, offerInsight, athleteInsight } from "../src/lib/analytics-insights";
+
+/* --------------------------------------------------------------------------
+   P6-FE-03 / P7-FE-04 — the live analytics story, pinned. Deltas never
+   invent a percentage without a previous period; series are cumulative;
+   reach uses one provenance per athlete and engagement is computed inside
+   it; empty data reads as words, never NaN.
+   -------------------------------------------------------------------------- */
+
+function api(over: Partial<ApiAnalytics> = {}): ApiAnalytics {
+  return {
+    days: 30, from: "2026-10-01T00:00:00.000Z", to: "2026-10-31T00:00:00.000Z",
+    funnel: { SCAN: 100, LANDING: 80, CLAIM: 20, REDEEM: 10 },
+    previous: { SCAN: 50, LANDING: 0, CLAIM: 0, REDEEM: 12 },
+    series: [
+      { day: "2026-10-29", CLAIM: 2, REDEEM: 1 },
+      { day: "2026-10-30", CLAIM: 3, REDEEM: 0 },
+    ],
+    locations: [{ place: "Laurel, MD", scans: 60 }, { place: "Bowie, MD", scans: 30 }],
+    offers: [
+      { rewardId: "r1", offer: "Free drink", sponsor: "Bowie", redeemed: 9, claims: 15 },
+      { rewardId: "r2", offer: "Dead offer", sponsor: "Bowie", redeemed: 0, claims: 0 },
+    ],
+    athletes: [
+      {
+        athleteId: "a1", name: "JORDAN", sport: "Basketball", school: "Bowie HS",
+        scans: 70, claims: 15, redeemed: 9,
+        views: { verified: 1000, selfReported: 9999, estimated: 0 },
+        engagements: { verified: 50, selfReported: 999, estimated: 0 },
+        clicks: 4, reliability: { onTime: 1, due: 2 }, revisionRate: { revisions: 3, submitted: 2 }, score: 84,
+      },
+      {
+        athleteId: "a2", name: "SAM", sport: "Soccer", school: null,
+        scans: 0, claims: 0, redeemed: 0,
+        views: { verified: 0, selfReported: 200, estimated: 0 },
+        engagements: { verified: 0, selfReported: 10, estimated: 0 },
+        clicks: 0, reliability: null, revisionRate: null, score: null,
+      },
+    ],
+    ...over,
+  };
+}
+
+describe("delta", () => {
+  it("compares to the previous window, never inventing one", () => {
+    expect(delta(100, 50)).toBe("100%");
+    expect(delta(10, 12)).toBe("−16.7%");
+    expect(delta(20, 0)).toBe("new");
+    expect(delta(0, 0)).toBe("0%");
+  });
+});
+
+describe("toLiveStory", () => {
+  const s = toLiveStory(api());
+  it("builds the funnel and an honest revenue gap", () => {
+    expect(s.dataset.funnel.map((f) => f.value)).toEqual([100, 80, 20, 10]);
+    expect(s.dataset.revenue).toBeNull();
+    expect(s.dataset.unredeemed).toBe(10);
+    expect(s.dataset.deltas).toMatchObject({ scans: "100%", claims: "new", redeemed: "−16.7%" });
+  });
+  it("makes the series cumulative", () => {
+    expect(s.dataset.series.map((p) => [p.a, p.b])).toEqual([[1, 2], [1, 5]]);
+  });
+  it("turns scans into location shares", () => {
+    expect(s.locations).toEqual([{ place: "Laurel, MD", pct: 67 }, { place: "Bowie, MD", pct: 33 }]);
+  });
+  it("drops offers nobody touched", () => {
+    expect(s.dataset.offers).toEqual([{ offer: "Free drink · Bowie", count: 9 }]);
+  });
+  it("reads one provenance per athlete, engagement inside it", () => {
+    const [j, sam] = s.athletes;
+    expect(j).toMatchObject({ views: 1000, source: "VERIFIED_API", engagement: 5, reliability: 50, revisionRate: 1.5, clicks: 4, score: 84 });
+    expect(sam).toMatchObject({ views: 200, source: "SELF_REPORTED", engagement: 5, reliability: null, revisionRate: null, score: null });
+  });
+});
+
+describe("insights on empty data read as words", () => {
+  const empty = toLiveStory(api({
+    funnel: { SCAN: 0, LANDING: 0, CLAIM: 0, REDEEM: 0 }, previous: { SCAN: 0, LANDING: 0, CLAIM: 0, REDEEM: 0 },
+    series: [], locations: [], offers: [], athletes: [],
+  }));
+  it("never prints NaN", () => {
+    const all = [
+      headlineInsight(empty.dataset), funnelInsight(empty.dataset), locationInsight(empty.locations),
+      offerInsight(empty.dataset), athleteInsight(empty.athletes),
+    ];
+    for (const i of all) expect(`${i.pre}${i.hot}${i.post}`).not.toMatch(/NaN|Infinity|undefined/);
+    expect(headlineInsight(empty.dataset).hot).toMatch(/Nothing has been scanned/);
+  });
+});

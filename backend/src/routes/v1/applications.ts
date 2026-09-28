@@ -105,7 +105,16 @@ applicationsRouter.patch("/intake/mine", async (req, res) => {
    -------------------------------------------------------------------------- */
 
 /** The columns the queue needs, and no more — the §26 habit of selecting
- *  explicitly rather than handing back whole rows (enforced by P2-OPS-06). */
+ *  explicitly rather than handing back whole rows (enforced by P2-OPS-06).
+ *
+ *  The latest score rides along WITH its factor snapshot (P3-FE-02): §23's
+ *  desk renders the breakdown in the review drawer, and a second request per
+ *  opened row would read the same table again for no reason. Safe for every
+ *  role that can reach this router — §7's `athleteScore.value` denial names
+ *  only sponsor and property roles, and they have no `athleteApplication`
+ *  cell at all. Latest only, not the history: a queue decision is made
+ *  against the current assessment, and §14's append-only trail stays a
+ *  domain-layer concern (`readLatestScore` / `scoreAthlete`). */
 const SUMMARY_SELECT = {
   id: true,
   displayName: true,
@@ -120,7 +129,19 @@ const SUMMARY_SELECT = {
   reviewedAt: true,
   createdAt: true,
   guardian: { select: { verifiedAt: true } },
+  scores: {
+    select: { score: true, factors: true, method: true, scoredAt: true },
+    orderBy: { scoredAt: "desc" },
+    take: 1,
+  },
 } as const;
+
+type ScoreRow = {
+  score: number;
+  factors: unknown;
+  method: string;
+  scoredAt: Date;
+};
 
 type SummaryRow = {
   id: string;
@@ -136,6 +157,7 @@ type SummaryRow = {
   reviewedAt: Date | null;
   createdAt: Date;
   guardian: { verifiedAt: Date | null } | null;
+  scores: ScoreRow[];
 };
 
 /**
@@ -147,6 +169,7 @@ type SummaryRow = {
  * lead anywhere until a guardian is verified.
  */
 function toSummary(row: SummaryRow) {
+  const latest = row.scores[0];
   return {
     id: row.id,
     displayName: row.displayName,
@@ -163,6 +186,17 @@ function toSummary(row: SummaryRow) {
     reviewerNotes: row.reviewerNotes,
     reviewedAt: row.reviewedAt?.toISOString() ?? null,
     createdAt: row.createdAt.toISOString(),
+    /* null means "not scored yet", which is an honest state the desk must
+       show — not zero, per §14's missing-factor rule writ large. `factors`
+       is the whole ScoreBreakdown recorded by scoreAthlete. */
+    score: latest
+      ? {
+          total: latest.score,
+          method: latest.method,
+          scoredAt: latest.scoredAt.toISOString(),
+          factors: latest.factors,
+        }
+      : null,
   };
 }
 

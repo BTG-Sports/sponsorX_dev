@@ -84,6 +84,18 @@ export const EligibleAthlete = z
     /** Why this athlete is on the list, so the desk sees the match rather
      *  than trusting it. */
     matched: z.object({ sport: z.boolean(), geography: z.boolean() }),
+    /* P4-FE-02 — present only for callers the matrix lets read them. */
+    city: z.string().nullable().optional(),
+    score: z
+      .object({ value: z.int(), factors: z.unknown(), method: z.string(), scoredAt: z.string() })
+      .nullable()
+      .optional()
+      .describe("Latest §14 snapshot; null when unscored. Absent when §7 denies athleteScore.value."),
+    reach: z.object({ followers: z.int().nullable(), verified: z.boolean() }).optional(),
+    rates: z
+      .array(z.object({ jobId: z.string(), amount: z.int() }))
+      .optional()
+      .describe("Current athlete rate per job, cents. Absent when §7 denies athleteRate.amount."),
   })
   .meta({ id: "EligibleAthlete", description: "A shortlisted athlete. Phase 1 shortlists; a person chooses." });
 

@@ -103,7 +103,7 @@ export function ConflictDrawer({
               <TierMark tier={athlete.tier} className="h-3.5" />
               <span className="truncate">
                 {athlete.sport} · {athlete.market} · {athlete.tier} tier · score{" "}
-                {athlete.score}
+                {athlete.score ?? "—"}
               </span>
             </p>
           </div>

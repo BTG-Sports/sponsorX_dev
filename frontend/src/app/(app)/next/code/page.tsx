@@ -2,6 +2,8 @@ import { Card, SectionHeading } from "@/components/ui";
 import { StudentCodeCard } from "@/components/student-code-card";
 import { SkeletonPage } from "@/components/states";
 import { demoState } from "@/lib/demo";
+import { liveStudent, requestOrigin } from "../live";
+import { LiveStudentCode, StudentUnlinked } from "../live-views";
 import { student } from "@/lib/fixtures";
 
 /* --------------------------------------------------------------------------
@@ -34,6 +36,14 @@ export default async function StudentCodePage({
   const demo = await demoState(searchParams);
   if (demo === "loading") return <SkeletonPage />;
   if (demo === "error") throw new Error("Demo error state");
+
+  /* P9-FE-01 — a signed-in student reads their own records; ?demo= and BTG
+     previews keep the fixture screen below. */
+  if (!demo) {
+    const live = await liveStudent(["code"]);
+    if (live?.kind === "unlinked") return <StudentUnlinked title="My code" />;
+    if (live) return <LiveStudentCode live={live} origin={await requestOrigin()} />;
+  }
 
   return (
     <div className="mx-auto max-w-2xl space-y-6">

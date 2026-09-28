@@ -3,6 +3,8 @@ import { HeroBand } from "@/components/hero";
 import { EditionFlatplan } from "@/components/edition-flatplan";
 import { EmptyState, SkeletonPage } from "@/components/states";
 import { demoState } from "@/lib/demo";
+import { liveEditions, requestTime } from "../live";
+import { LiveEditionPlanning } from "./live-editions";
 import {
   SLOT_RACK_CENTS,
   advisorContentQueue,
@@ -74,6 +76,13 @@ export default async function EditionPlanningPage({
       ? Number(sp.open)
       : NaN;
   const initialOpenPage = Number.isInteger(openParam) ? openParam : undefined;
+
+  /* P9-FE-03 — a signed-in NEXT desk reads the AdSlot ledger; ?demo= states
+     and everyone else keep the fixture plan below. */
+  if (!demo) {
+    const live = await liveEditions(typeof sp.edition === "string" ? sp.edition : undefined);
+    if (live) return <LiveEditionPlanning live={live} initialOpenPage={initialOpenPage} now={requestTime()} />;
+  }
 
   const heading = (
     <div className="flex flex-wrap items-end justify-between gap-4">

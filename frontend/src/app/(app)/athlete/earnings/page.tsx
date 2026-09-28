@@ -8,6 +8,14 @@ import { demoState } from "@/lib/demo";
 import { buildAthleteEarningsReport } from "@/lib/earnings-report-data";
 import { JOURNEY, when } from "@/lib/earnings-ui";
 import {
+  buckets,
+  career,
+  paidByMonth,
+  toActivityItem,
+  type ApiEarning,
+} from "@/lib/earnings-live";
+import { apiFetch, fetchActor } from "@/server/api";
+import {
   athlete,
   athleteCareer,
   athleteEarningsTrend,
@@ -45,7 +53,28 @@ import {
    Canonical career totals come from `athleteCareer` (Postgres); the per-state
    `earnings` buckets and `earningItems` rows are the in-cycle sample and are
    framed as such.
+
+   LIVE vs DEMO (P7-FE-01, the P3-FE-02 precedent). A signed-in athlete (or
+   guardian, read only) sees their REAL earnings — GET /earnings, own scope:
+   one per accepted Campaign Order, in its §21 state, net of any adjustment.
+   Career = what their signed orders are worth (disputed excluded) with the
+   paid part stated beside it; the trend is payouts by the month they were
+   PAID; activity is every earning. The fixture on-time rate and payout date
+   have no source here and are not shown; the PDF/XLSX export is hidden on
+   live numbers (its model is fixture-built). Still status only — no bank or
+   tax field exists in what the API sends.
    -------------------------------------------------------------------------- */
+
+async function liveEarnings(): Promise<ApiEarning[] | null> {
+  /* No catch — an outage is an error page, never fixtures dressed as the
+     athlete's own money (QA pass 4 rule). */
+  const who = await fetchActor();
+  if (who.status !== "linked") return null;
+  if (!who.actor.roles.some((r) => r === "ATHLETE" || r === "GUARDIAN")) return null;
+  const res = await apiFetch("/earnings");
+  if (!res.ok) throw new Error(`Earnings unavailable (${res.status}).`);
+  return ((await res.json()) as { earnings: ApiEarning[] }).earnings;
+}
 
 /** Axis ticks in dollars ($2.8K), not the raw-cents "283K" `compact` gives. */
 const fmtUsd = (c: number) => {
@@ -74,7 +103,9 @@ export default async function AthleteEarningsPage({
     </div>
   );
 
-  if (demo === "empty") {
+  const live = demo === null ? await liveEarnings() : null;
+
+  if (demo === "empty" || (live && live.length === 0)) {
     return (
       <div className="space-y-6">
         {heading}
@@ -89,9 +120,17 @@ export default async function AthleteEarningsPage({
 
   // This portal is scoped to the signed-in athlete; fixtures use one demo
   // athlete, so filter earning rows to them (the real query is tenant-scoped).
-  const mine = earningItems
-    .filter((e) => e.athlete === athlete.displayName)
+  const mine = (live ? live.map(toActivityItem) : earningItems.filter((e) => e.athlete === athlete.displayName))
     .sort((a, b) => when(b.updatedAt) - when(a.updatedAt));
+  const liveCareer = live ? career(live) : null;
+  const liveBuckets = live ? buckets(live) : null;
+  const year = new Date().getUTCFullYear();
+  const verifiedDeliverables = live
+    ? live.reduce((n, e) => n + e.order.deliverables.verified, 0)
+    : 0;
+  const totalDeliverables = live
+    ? live.reduce((n, e) => n + e.order.deliverables.total, 0)
+    : 0;
 
   // Seed the explorer's filters from the URL so filtered links stay
   // shareable; the island clamps stale values and keeps the URL in sync.
@@ -99,17 +138,19 @@ export default async function AthleteEarningsPage({
   const one = (v: string | string[] | undefined) =>
     typeof v === "string" ? v : "";
 
-  const byState = Object.fromEntries(earnings.map((e) => [e.state, e]));
-  const held = byState.HELD;
+  const byState: Record<string, { amount: number; count: number } | undefined> = liveBuckets
+    ? liveBuckets
+    : Object.fromEntries(earnings.map((e) => [e.state, e]));
+  const held = byState.HELD && byState.HELD.count > 0 ? byState.HELD : undefined;
 
-  // Monthly earnings trend (Σ Earning by month — Postgres).
-  const trendPoints = athleteEarningsTrend.map((a, i) => ({
+  // Monthly earnings trend (Σ Earning by month — Postgres). Live: payouts
+  // by the month they were PAID, this year, through this month.
+  const series = live ? paidByMonth(live, year).slice(0, new Date().getUTCMonth() + 1) : athleteEarningsTrend;
+  const trendPoints = series.map((a, i) => ({
     label: MONTH_LABELS[i] ?? "",
     a,
   }));
-  const trendAvgCents = Math.round(
-    athleteEarningsTrend.reduce((s, v) => s + v, 0) / athleteEarningsTrend.length,
-  );
+  const trendAvgCents = Math.round(series.reduce((s, v) => s + v, 0) / Math.max(1, series.length));
 
   return (
     <div className="space-y-6">
@@ -118,12 +159,14 @@ export default async function AthleteEarningsPage({
         {heading}
         {/* Client-side export of the athlete's own statement — same model
             the page draws; §19's render worker takes over generation later. */}
-        <ExportReport
-          payload={{
-            kind: "athlete-earnings",
-            report: buildAthleteEarningsReport(),
-          }}
-        />
+        {!live && (
+          <ExportReport
+            payload={{
+              kind: "athlete-earnings",
+              report: buildAthleteEarningsReport(),
+            }}
+          />
+        )}
       </div>
 
       {/* -------------------------------------------------- career hero */}
@@ -135,12 +178,14 @@ export default async function AthleteEarningsPage({
             </p>
             <p className="mt-1 flex flex-wrap items-baseline gap-2">
               <span className="bg-[linear-gradient(90deg,var(--sx-primary),var(--sx-accent))] bg-clip-text text-4xl font-bold tabular-nums tracking-tight text-transparent sm:text-5xl">
-                {money(athleteCareer.careerEarningsCents)}
+                {money(liveCareer ? liveCareer.raised : athleteCareer.careerEarningsCents)}
               </span>
               <MiniChip kind="ver">POSTGRES</MiniChip>
             </p>
             <p className="mt-1 text-[11px] text-faint">
-              everything you&rsquo;ve earned across campaigns, to date
+              {liveCareer
+                ? `what your signed orders are worth — ${money(liveCareer.paid)} already paid`
+                : "everything you’ve earned across campaigns, to date"}
             </p>
 
             <div className="mt-5 space-y-2.5 text-xs text-muted">
@@ -151,9 +196,9 @@ export default async function AthleteEarningsPage({
                 </span>
                 <span>
                   <strong className="font-semibold text-text">
-                    {money(athleteCareer.approvedCents)}
+                    {money(liveCareer ? liveCareer.onTheWay : athleteCareer.approvedCents)}
                   </strong>{" "}
-                  on the way — payout {athleteCareer.nextPayout}
+                  {liveCareer ? "approved and on the way with BTG’s next payout run" : `on the way — payout ${athleteCareer.nextPayout}`}
                 </span>
               </p>
               <p className="flex items-center gap-2">
@@ -162,10 +207,21 @@ export default async function AthleteEarningsPage({
                   aria-hidden="true"
                 />
                 <span>
-                  <strong className="font-semibold text-text">
-                    {athleteCareer.onTimeRatePct}%
-                  </strong>{" "}
-                  on-time delivery — sponsors notice
+                  {liveCareer ? (
+                    <>
+                      <strong className="font-semibold text-text">
+                        {verifiedDeliverables} of {totalDeliverables}
+                      </strong>{" "}
+                      deliverables verified across your orders
+                    </>
+                  ) : (
+                    <>
+                      <strong className="font-semibold text-text">
+                        {athleteCareer.onTimeRatePct}%
+                      </strong>{" "}
+                      on-time delivery — sponsors notice
+                    </>
+                  )}
                 </span>
               </p>
             </div>
@@ -181,8 +237,8 @@ export default async function AthleteEarningsPage({
             />
             <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-[10px] text-muted">
               <span className="flex items-center gap-1.5">
-                <span className="h-0.5 w-3 rounded bg-primary" /> Monthly
-                earnings, 2026
+                <span className="h-0.5 w-3 rounded bg-primary" />{" "}
+                {live ? `Paid, by month, ${year}` : "Monthly earnings, 2026"}
               </span>
               <span>
                 avg{" "}
@@ -263,7 +319,9 @@ export default async function AthleteEarningsPage({
                     {(bucket?.count ?? 0) === 1 ? "order" : "orders"}
                   </p>
                   <p className="mt-2 text-[11px] leading-relaxed text-muted">
-                    {stage.blurb}
+                    {live && stage.state === "APPROVED_FOR_PAYOUT"
+                      ? "Lands with BTG’s next payout run."
+                      : stage.blurb}
                   </p>
                 </div>
               );
@@ -278,7 +336,9 @@ export default async function AthleteEarningsPage({
               {money(held.amount)}
             </span>
             <span className="min-w-0 flex-1 text-xs leading-relaxed text-muted">
-              {heldNote.replace(" (§21)", "")}
+              {live
+                ? `${held.count === 1 ? "One earning is" : `${held.count} earnings are`} on hold while BTG Finance checks the work behind ${held.count === 1 ? "it" : "them"} — nothing is lost; it moves again once cleared.`
+                : heldNote.replace(" (§21)", "")}
             </span>
           </div>
         )}
@@ -288,7 +348,11 @@ export default async function AthleteEarningsPage({
       <section id="activity" className="sx-animate sx-delay-2">
         <SectionHeading
           title="Recent activity"
-          hint="Search or filter your orders — click one for the full story. A sample of the cycle, not the career total."
+          hint={
+            live
+              ? "Every earning, newest first — search or filter, click one for the full story."
+              : "Search or filter your orders — click one for the full story. A sample of the cycle, not the career total."
+          }
         />
         <ActivityExplorer
           items={mine}

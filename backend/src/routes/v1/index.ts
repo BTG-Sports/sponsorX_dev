@@ -6,8 +6,10 @@
  * shape is in place and the first feature has somewhere to land.
  */
 import { Router } from "express";
+import { auditRouter } from "./audit";
 
 import { applicationsRouter } from "./applications";
+import { athletesRouter } from "./athletes";
 import { campaignsRouter } from "./campaigns";
 import { deliverablesRouter } from "./deliverables";
 import { earningsRouter } from "./earnings";
@@ -36,6 +38,10 @@ v1Router.use("/me", meRouter);
 /* B1 — athlete onboarding. The review queue and the three admin decisions
    (P3-BE-07). */
 v1Router.use("/applications", applicationsRouter);
+
+/* The athlete's own profile — what the portal's §24 profile page and its §11
+   completion meter render (P3-FE-03). */
+v1Router.use("/athletes", athletesRouter);
 
 /* B1 — the guardian gate and agreement acceptance (P3-BE-14). Mounted at the
    root of /v1 rather than under a prefix, because these hang off athletes,
@@ -96,6 +102,7 @@ v1Router.use("/", studentsRouter);
    DMV school pools (P9-BE-10/11/14). Two public routes: a featured athlete's
    profile and the claim. */
 v1Router.use("/", rightsRouter);
+v1Router.use("/", auditRouter);
 
 /* The published contract, generated from the Zod registry (§38). Public: a
    consumer has to be able to read how to authenticate before it can. */

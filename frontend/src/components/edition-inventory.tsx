@@ -8,7 +8,10 @@ import {
   FilterChip,
   SearchInput,
 } from "./filter-kit";
-import { money, type AdSlotKind, type AdSlotState } from "@/lib/fixtures";
+import { money, type AdSlotState } from "@/lib/fixtures";
+import type { ApiSlotKind } from "@/lib/editions-live";
+
+type AdSlotKind = ApiSlotKind;
 
 /* --------------------------------------------------------------------------
    Ad slot inventory ledger (P1-FE-22). The list behind the page map: every
@@ -23,7 +26,7 @@ import { money, type AdSlotKind, type AdSlotState } from "@/lib/fixtures";
 
 export type InventoryRow = {
   code: string;
-  /** 0 = the back cover (rendered as "Back"). */
+  /** 0 = the back cover; -1 = off the page map (presenting sponsor). */
   page: number;
   pageTitle: string;
   kind: AdSlotKind;
@@ -39,6 +42,7 @@ const KIND_LABEL: Record<AdSlotKind, string> = {
   HALF: "Half page",
   QUARTER: "Quarter",
   BACK_COVER: "Back cover",
+  PRESENTING: "Presenting",
 };
 
 const STATE_LABEL: Record<AdSlotState, string> = {
@@ -85,9 +89,15 @@ function syncUrl(q: string, state: string, kind: string) {
 export function EditionInventory({
   rows,
   initial,
+  editionId,
+  live = false,
 }: {
   rows: InventoryRow[];
   initial?: { q?: string; state?: string; kind?: string };
+  /** Live: the edition the "Map →" links open on. */
+  editionId?: string;
+  /** Live ledger — a slot is sold or open; there is no hold state. */
+  live?: boolean;
 }) {
   const [q, setQ] = useState(initial?.q ?? "");
   /* URL values are untrusted: ?state=BOGUS used to empty the table while the
@@ -171,7 +181,7 @@ export function EditionInventory({
           label="Filter by state"
           allLabel="All states"
           value={state}
-          options={(Object.keys(STATE_LABEL) as AdSlotState[]).map((s) => ({
+          options={(Object.keys(STATE_LABEL) as AdSlotState[]).filter((s) => !live || s !== "RESERVED").map((s) => ({
             value: s,
             label: STATE_LABEL[s],
           }))}
@@ -182,7 +192,7 @@ export function EditionInventory({
           label="Filter by position kind"
           allLabel="All kinds"
           value={kind}
-          options={(Object.keys(KIND_LABEL) as AdSlotKind[]).map((k) => ({
+          options={(Object.keys(KIND_LABEL) as AdSlotKind[]).filter((k) => rows.some((r) => r.kind === k)).map((k) => ({
             value: k,
             label: KIND_LABEL[k],
           }))}
@@ -249,7 +259,7 @@ export function EditionInventory({
                 <td className="px-4 py-2.5">
                   <span className="font-semibold tabular-nums">{r.code}</span>
                   <span className="mt-0.5 block text-[10px] text-faint">
-                    {r.page === 0 ? "Back cover" : `p${r.page} · ${r.pageTitle}`}
+                    {r.page === 0 ? "Back cover" : r.page < 0 || !r.pageTitle ? (r.page < 0 ? r.pageTitle : `Page ${r.page}`) : `p${r.page} · ${r.pageTitle}`}
                   </span>
                 </td>
                 <td className="px-3 py-2.5 text-muted">{KIND_LABEL[r.kind]}</td>
@@ -281,12 +291,14 @@ export function EditionInventory({
                   )}
                 </td>
                 <td className="px-3 py-2.5 text-right">
-                  <Link
-                    href={`/admin/next/editions?open=${r.page}`}
-                    className="text-[11px] font-medium text-next transition-colors hover:text-next-soft"
-                  >
-                    Map →
-                  </Link>
+                  {r.page >= 0 && (
+                    <Link
+                      href={`/admin/next/editions?${editionId ? `edition=${encodeURIComponent(editionId)}&` : ""}open=${r.page}`}
+                      className="text-[11px] font-medium text-next transition-colors hover:text-next-soft"
+                    >
+                      Map →
+                    </Link>
+                  )}
                 </td>
               </tr>
             ))}

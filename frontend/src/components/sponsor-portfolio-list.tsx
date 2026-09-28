@@ -26,20 +26,26 @@ export type PortfolioRow = {
   athletes: number;
   endsIn: string;
   monogram: string;
-  views: number;
-  spend: number;
+  /** null on live rows — views are the report's (P7-FE-03), not guessed. */
+  views: number | null;
+  /** Contracted sell total; null when the API withholds it. */
+  spend: number | null;
   done: number;
   total: number;
   behind: boolean;
-  state: "ACTIVE" | "REPORTING" | "STAFFING" | "COMPLETED";
+  /** Any §21 campaign state; live rows add DRAFT, APPROVAL, CANCELLED. */
+  state: string;
 };
 
-const CAMPAIGN_TONE = {
+const CAMPAIGN_TONE: Record<string, "accent" | "primary" | "warn" | "neutral" | "danger"> = {
   ACTIVE: "accent",
   REPORTING: "primary",
   STAFFING: "warn",
+  APPROVAL: "warn",
+  DRAFT: "neutral",
   COMPLETED: "neutral",
-} as const;
+  CANCELLED: "danger",
+};
 
 const PAGE_SIZE = 5;
 
@@ -76,23 +82,36 @@ export function SponsorPortfolioList({ rows }: { rows: PortfolioRow[] }) {
                   {c.behind ? (
                     <Badge tone="warn">Pacing behind</Badge>
                   ) : (
-                    <Badge tone={CAMPAIGN_TONE[c.state]}>
+                    <Badge tone={CAMPAIGN_TONE[c.state] ?? "neutral"}>
                       {c.state.toLowerCase()}
                     </Badge>
                   )}
                 </div>
                 <p className="mt-0.5 truncate text-[11px] text-faint">
-                  {c.pkg} · {c.athletes} athletes · {c.endsIn}
+                  {c.pkg} · {c.athletes} {c.athletes === 1 ? "athlete" : "athletes"} · {c.endsIn}
                 </p>
               </div>
               <div className="shrink-0 text-right">
-                <p className="text-xs font-semibold tabular-nums">
-                  {compact(c.views)}{" "}
-                  <span className="font-normal text-faint">views</span>
-                </p>
-                <p className="mt-0.5 text-[11px] tabular-nums text-muted">
-                  {money(c.spend)}
-                </p>
+                {c.views !== null && (
+                  <p className="text-xs font-semibold tabular-nums">
+                    {compact(c.views)}{" "}
+                    <span className="font-normal text-faint">views</span>
+                  </p>
+                )}
+                {c.spend !== null && (
+                  <p
+                    className={
+                      c.views === null
+                        ? "text-xs font-semibold tabular-nums"
+                        : "mt-0.5 text-[11px] tabular-nums text-muted"
+                    }
+                  >
+                    {money(c.spend)}
+                    {c.views === null && (
+                      <span className="block text-[10px] font-normal text-faint">contracted</span>
+                    )}
+                  </p>
+                )}
               </div>
             </div>
             <div className="mt-2.5 flex items-center gap-3 pl-11">
@@ -103,11 +122,11 @@ export function SponsorPortfolioList({ rows }: { rows: PortfolioRow[] }) {
                       ? "h-full rounded-full bg-warn"
                       : "h-full rounded-full bg-gradient-to-r from-primary to-primary-soft"
                   }
-                  style={{ width: `${(c.done / c.total) * 100}%` }}
+                  style={{ width: `${c.total ? (c.done / c.total) * 100 : 0}%` }}
                 />
               </div>
               <span className="shrink-0 text-[10px] tabular-nums text-faint">
-                {c.done}/{c.total} deliverables
+                {c.total ? `${c.done}/${c.total} deliverables` : "no deliverables yet"}
               </span>
             </div>
           </li>

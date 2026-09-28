@@ -1,6 +1,8 @@
 import { Button, Card, SectionHeading } from "@/components/ui";
 import { EmptyState, SkeletonPage } from "@/components/states";
 import { demoState } from "@/lib/demo";
+import { liveEditions } from "../live";
+import { LiveSplits } from "./live-splits";
 import {
   editionSplits,
   money,
@@ -40,6 +42,13 @@ export default async function RevenueSplitsPage({
   const demo = await demoState(searchParams);
   if (demo === "loading") return <SkeletonPage />;
   if (demo === "error") throw new Error("Demo error state");
+
+  /* P9-FE-05 — a signed-in NEXT desk reads RevenueSplit; ?demo= keeps fixtures. */
+  if (!demo) {
+    const sp = await searchParams;
+    const live = await liveEditions(typeof sp.edition === "string" ? sp.edition : undefined);
+    if (live) return <LiveSplits live={live} />;
+  }
 
   const heading = (
     <div className="flex flex-wrap items-end justify-between gap-4">

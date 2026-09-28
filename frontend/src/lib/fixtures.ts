@@ -1871,6 +1871,9 @@ export type EditionSlot = {
   sponsor?: string;
   /** Who a RESERVED slot is held for, and why. */
   holdFor?: string;
+  /** The slot's own rack price, cents — live ledger rows carry it (P9-FE-03);
+   *  fixtures fall back to SLOT_RACK_CENTS by kind. */
+  rackCents?: number;
 };
 
 export type EditionPage = {

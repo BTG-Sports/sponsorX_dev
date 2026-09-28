@@ -1,34 +1,34 @@
-# Graph Report - sponsorX_dev  (2026-09-24)
+# Graph Report - sponsorX_dev  (2026-09-25)
 
 ## Corpus Check
-- 445 files · ~2,025,947 words
+- 721 files · ~2,334,562 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 4253 nodes · 8105 edges · 288 communities (252 shown, 30 thin omitted)
-- Extraction: 98% EXTRACTED · 2% INFERRED · 0% AMBIGUOUS · INFERRED: 162 edges (avg confidence: 0.86)
+- 7195 nodes · 11253 edges · 509 communities (457 shown, 43 thin omitted)
+- Extraction: 98% EXTRACTED · 2% INFERRED · 0% AMBIGUOUS · INFERRED: 170 edges (avg confidence: 0.86)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `d4d30671`
+- Built from commit: `9d7301c5`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
 ## Community Hubs (Navigation)
-- actor.ts
+- money
 - matching-studio.tsx
 - Per-Range Datasets (analyticsRanges: Record<RangeKey, AnalyticsDataset>)
-- states.tsx
+- BTG_SponsorX_Phases_2_4_Detailed_Developer_Specifications_978a9117.md
 - SponsorX ↔ Zoho — Module and Field Mapping
 - Sponsor brief-request drawer — design (2026-09-15)
 - frontend/package.json
-- admin/campaigns/[id]/page.tsx
+- hero.tsx
 - Stage 0 · Foundation & Decisions
-- Actor
+- BTG_SponsorX_Master_Development_Blueprint_Integrated_Athlete_Network_f5776aa7.md
 - ForbiddenError
 - Stage 2 · Platform Foundations
 - SponsorX ↔ Zoho — API credentials and sandbox
-- zoho-sync.ts
+- zoho-backfill.mts
 - Stage 8 · Integration, Hardening & Launch
 - ApplicationsDesk client island (src/components/applications-desk.tsx)
 - marketplace-catalog.tsx
@@ -38,24 +38,24 @@
 - Block A — Finish the UI Scaffold (Fixtures Only)
 - Stage 3 · Athlete Network
 - Stage 7 · Money & Reporting
-- campaign-builder.tsx
-- alignment.test.ts
+- applications-desk.tsx
+- domain/campaign.ts
 - BTG SponsorX UI/UX Mockups v1.0
 - Stage 5 · Campaign Execution
 - order.defects.test.ts
-- react
+- rewards-desk.tsx
 - Stage 1 · UI Scaffold on Fixtures
 - Stage 4 · Sponsor Demand & Matching
 - Stage 6 · Measurement & Reward
-- client.ts
+- metrics.ts
 - BTG SponsorX UI/UX Mockups v1.0 (12-screen sheet)
 - The SponsorX Flow (6-Step Pipeline Diagram)
 - SponsorX — Phase 1 Design Record (§38 deliverable)
 - activity-explorer.tsx
-- scope.ts
-- §39 Protected Core Loop
+- actor.ts
+- Updated_BTG_SponsorX_Master_Development_Blueprint_Integrated_Athlete_Network_487b6b12.md
 - SponsorX — Stage 1 QA Verification Report & Checklist
-- zoho-mapping.ts
+- zoho-sync.ts
 - Design
 - support.js
 - registry.ts
@@ -64,12 +64,12 @@
 - Sprint 5 · Payments, ledger & payouts
 - Stage 9 · SponsorX NEXT
 - join-wizard.tsx
-- export-report.tsx
-- profile-editor.tsx
+- report-pdf-kit.ts
+- Card
 - approvals-desk.tsx
 - SponsorX Metric Provenance Taxonomy
 - Zoho Boundary
-- env.ts
+- v1/index.ts
 - SponsorX NEXT — Integration Specification
 - worker.images.test.ts
 - SponsorX Stack Decision — Phase 1
@@ -84,7 +84,7 @@
 - Sprint 2 · Athlete & team portals
 - Task — Complete `/athlete/invitations` frontend functionality (sort, filter, search, pagination)
 - Clerk Scoped to Identity Only
-- Railway
+- §39 Protected Core Loop
 - File map
 - SponsorX Plain English Explainer
 - Sprint 1 · External property onboarding
@@ -93,10 +93,10 @@
 - Sprint 8 · QA, security & rollout
 - Sprint 1 · World & placement registry
 - SponsorX — Phase 4 · INFINEX World Integration
-- domain/deliverable.ts
-- policy.ts
+- deliverables.ts
+- Model Queries
 - brief-wizard.tsx
-- analytics-story.tsx
+- react
 - Design brief — Sponsor ROI report, print layout (`P1-ART-04`)
 - P1-FE-05 — Field-level authorization audit of every fixture-backed screen
 - Sprint 3 · Listing engine
@@ -127,7 +127,7 @@
 - Part 1 — Needed now (Phase 1)
 - Design brief — Athlete onboarding flow (`P1-ART-07`)
 - Task Board — Three Artefacts, Three Jobs
-- zoho-sync.mts
+- Driver Adapters
 - Sprint 1 · Warehouse & benchmarks
 - Sprint 2 · Dynamic CPM engine
 - Sprint 3 · Sponsor matching
@@ -139,21 +139,21 @@
 - Command Deck Hero Band
 - `/join` Athlete Onboarding Wizard Implementation Plan
 - Mock Data Register — everything that must be replaced before staging is real
-- invitations-inbox.tsx
-- rewards.ts
+- Model Queries
+- domain/reward.ts
 - storage.ts
 - rcfworks — tracker, decisions and diagrams
 - Sponsor campaigns path — List → Detail → Report
 - SponsorX — Phase 1 Payment Policy
 - NIL Jobs SX-01 – SX-07
-- campaign-order.ts
+- domain/guardian.ts
 - compilerOptions
 - Click-Wrap Electronic Signature
-- money
+- ui.tsx
 - Always Use Graphify Rule
 - Memory Folder Team Sync Rule
 - dependencies
-- domain/reward.ts
+- fan-consent.ts
 - athlete-dashboard-redesign.md
 - Athlete Tiers
 - QR Reward Funnel
@@ -161,10 +161,10 @@
 - build-docx.js
 - FakeZoho
 - portal-shell.tsx
-- lib/zoho.ts
 - ZohoClient
-- contactShared
-- domain/earning.ts
+- Driver Adapters
+- BTG_SponsorX_Sponsor_Campaign_Agreement_and_Brief_4e631412.md
+- SponsorX-NEXT-Integration-Spec_4368ca7b.md
 - Master Development Blueprint v2.0
 - SponsorX BTG Logo
 - SponsorX Full Logo
@@ -199,7 +199,7 @@
 - Task — Redesign `/admin/campaigns/new` (Create Campaign) UX
 - app/layout.tsx
 - applications.ts
-- deliverable-state.ts
+- Upgrade to Prisma ORM 7
 - BTG SponsorX — logo files (flat redraw, P1-ART-06)
 - Deploy Ordering and the Release Step
 - Monitoring and Alerting Plan
@@ -208,7 +208,7 @@
 - Task — `P1-FE-12` · `/admin/approvals` redesign — Approvals desk (cards, drawer, pipeline hero)
 - Task — `P1-FE-13` · `/admin/rewards` desk + Reward Creator as a modal wizard
 - scripts
-- pushDeal
+- Upgrade to Prisma ORM 7
 - Task — Wire the sponsor "Request a brief" / "Add to brief" flow (frontend)
 - Task — `P1-FE-10` · Campaign ROI report "Export report" — client-side PDF + XLSX
 - `P2-BE-02` — the full Prisma schema and initial migration
@@ -218,12 +218,12 @@
 - Task — `P1-FE-16` · Build the /join athlete onboarding wizard (P1-ART-07 in-app)
 - `P0-OPS-01` — Railway account, project and billing · Done
 - devDependencies
-- Role
+- SponsorX_Youth_Content_Media_Academy_BRANDED_Workbook_76628cab.md
 - resolve-geo.mts
 - 2026-09-23/tasks-completed.md
-- tenant-isolation.test.ts
-- b1.endpoints.test.ts
-- tracking.test.ts
+- campaign-builder.tsx
+- Relation Queries
+- Removed Features
 - 2026-09-22 — tasks completed
 - A2 State & Polish + Portal Wow — Design Spec
 - Login redesign — Stadium Night
@@ -240,7 +240,7 @@
 - 11 · Money, reporting and system
 - 15.3 · Publication domain
 - 5 · Athlete network
-- scripts
+- Relation Queries
 - Five more — the whole B3 backend spine (`P4-BE-02`…`P4-BE-06`)
 - SponsorX NEXT raised — 32 tasks, and the split that matters
 - Five more — B2 closed, B4 opened (`P3-BE-09`, `P3-BE-12`, `P4-INT-01`, `P5-BE-01`, `P5-BE-02`)
@@ -252,7 +252,7 @@
 - 4 · Sponsor domain
 - 7 · Sensitive fields
 - 8 · Campaigns
-- login/page.tsx
+- Removed Features
 - InsightCarousel
 - SponsorX Zoho Field Mapping Document (P0-PMO-08)
 - Repo restructure — frontend/ + backend/ workspaces, Docker local stack, Express backend scaffold
@@ -266,17 +266,21 @@
 - `P1-FE-19` — the student portal, and the `P1-FE-18` slice it stood on
 - ► TOMORROW'S QUEUE — leftovers from 2026-09-23
 - 2026-09-24 — tasks completed
-- ingestZohoInvoice
+- SponsorX Pre-Launch Campaign Series
+- SPONSORX ATHLETE CONTENT COLLABORATION AGREEMENT
 - earning.test.ts
 - payment-policy-compliance.test.ts
+- Troubleshooting Prisma Compute
 - 6 · Catalog and rates
 - 9 · Delivery
-- [token]/page.tsx
+- Troubleshooting Prisma Compute
 - The spine was built in the wrong environment, and rebuilt in staging
 - Task — `P4-FE-06` · Build the matching & roster-review workspace in-app (P4-ART-01 in-app)
 - Seven defects in five tasks I had just closed — and the lesson
 - `P6-BE-05` · Geo resolution — built, at Code review, not Done
 - private-bucket-audit.test.ts
+- Prisma CLI Reference
+- Raw Queries
 - new/page.tsx
 - map/page.tsx
 - screen-stub.tsx
@@ -287,28 +291,242 @@
 - Motion Wow Layer (Reveal fade-rise, CountUp, funnel stagger, insight shimmer; reduced-motion disabled)
 - AGENTS.md
 - postcss.config.mjs
+- Prisma CLI Reference
 - CountUp Remount Requirement (key={range} on chapters wrapper)
 - One Client Island Architecture (analytics-story.tsx owns all interactivity)
 - replaceState URL-Sync Convention (from sponsor-campaigns-list.tsx)
 - Athlete Performance Chapter (replaces §9 screen 11 stub)
 - Provenance & Honesty Rules (every stat carries a source chip)
-- [token]/route.ts
+- edgeHeaders
+- Raw Queries
+- Client Methods
 - cohort-import.test.ts
-- send-email.mts
+- Filter Conditions and Operators
+- Query Options
+- Client Methods
 - layout.test.ts
 - 12 · Decisions taken
+- Filter Conditions and Operators
+- Query Options
+- report-xlsx.ts
+- prisma db push
+- prisma dev
+- prisma generate
+- prisma studio
+- Prisma Client API Reference
+- Prisma Config
+- brief-request.ts
+- prisma db push
+- prisma dev
+- prisma generate
+- prisma studio
+- Prisma Client API Reference
+- Prisma Config
+- My View_be097e72.md
+- prisma migrate dev
+- prisma migrate dev
+- prisma db seed
+- Environment Variables
+- prisma db seed
+- Environment Variables
+- BTG_SponsorX_Prelaunch_Operations_Binder_8b3b39f1.md
+- BTG_SponsorX_System_Overview_Plain_English_bb7f7598.md
+- prisma db pull
+- prisma init
+- prisma migrate deploy
+- Constructor Options
+- Prisma Database Setup
+- Prisma Accelerate Users
+- ESM and CommonJS Support
+- prisma db pull
+- prisma init
+- prisma migrate deploy
+- Constructor Options
+- Prisma Database Setup
+- Prisma Accelerate Users
+- ESM and CommonJS Support
+- portal.ts
+- Schema Changes
+- export-report.tsx
+- Schema Changes
+- marketplace/page.tsx
+- BTG_SponsorX_Master_Development_Blueprint_609a437c.md
+- My View_05a7ce54.md
+- Transactions
+- Workflow
+- Transactions
+- Workflow
+- theme-toggle.tsx
+- MongoDB Setup
+- Prisma SQL Driver Adapter Implementation
+- Core Workflows
+- Prisma Compute Framework Readiness
+- MongoDB Setup
+- Prisma SQL Driver Adapter Implementation
+- Core Workflows
+- Prisma Compute Framework Readiness
+- 4. Core 12-Screen Product Specification
+- prisma db execute
+- MySQL Setup
+- management-api
+- prisma db execute
+- Prisma Platform CLI App Deploy
+- MySQL Setup
+- management-api
+- Prisma Platform CLI App Deploy
+- 9. The 12 Core Phase 1 Screens
+- BTG_SponsorX_Systems_Architecture_d593563b.md
+- 9. Content Collaboration Agreement
+- 9. The 12 Core Phase 1 Screens
+- prisma migrate diff
+- prisma migrate reset
+- PostgreSQL Setup
+- Prisma Postgres Setup
+- SQLite Setup
+- prisma migrate diff
+- prisma migrate reset
+- PostgreSQL Setup
+- Prisma Postgres Setup
+- SQLite Setup
+- SQL Server Setup
+- create-db-cli
+- api-basics
+- SQL Server Setup
+- create-db-cli
+- api-basics
+- (public)/page.tsx
+- BTG_SponsorX_Partner_School_Execution_Plan_bcd30e3c.md
+- prisma format
+- prisma migrate resolve
+- prisma validate
+- CockroachDB Setup
+- decision-stay-or-migrate
+- console-and-connections
+- management-api-sdk
+- prisma format
+- prisma migrate resolve
+- prisma validate
+- CockroachDB Setup
+- decision-stay-or-migrate
+- console-and-connections
+- management-api-sdk
+- portal-nav.tsx
+- 4. Service-by-Service Execution Playbooks
+- SponsorX-Full-Programme-Task-Board_45c6ec3d.md
+- prisma migrate status
+- migrations-mapping
+- schema-contract-mapping
+- Prisma MongoDB Upgrade Path
+- endpoints
+- prisma migrate status
+- Prisma Compute Config
+- create-prisma Compute Flow
+- Quick Rules
+- Prisma Compute
+- migrations-mapping
+- schema-contract-mapping
+- Prisma MongoDB Upgrade Path
+- endpoints
+- Prisma Compute Config
+- create-prisma Compute Flow
+- Quick Rules
+- Prisma Compute
+- 5. Workshop Curriculum
+- 8. Athlete Onboarding Form
+- prisma mcp
+- client-api-mapping
+- Service Tokens
+- prisma mcp
+- SDK and API Automation
+- client-api-mapping
+- Service Tokens
+- SDK and API Automation
+- SponsorX — Public surface security review (P8-SEC-03)
+- 13. Sponsor ROI Dashboard
+- 22. The strategic structure I'd use
+- Under Armour × BTG
+- 4. Seven Standard SponsorX NIL Jobs
+- SponsorX-Full-Programme-Task-Board_caf1eea8.md
+- prisma debug
+- Prisma Client Setup
+- verify-cutover-checklist
+- Prisma 7 Client Instantiation
+- prisma debug
+- Prisma Client Setup
+- verify-cutover-checklist
+- Prisma 7 Client Instantiation
+- BTG_SponsorX_Athlete_Campaign_Order_c630d187.md
+- 13. Appendices: Checklists, Forms and Templates
+- QA second pass — the sweep swept again (2026-09-24, night)
+- QA pass 4 — the merged tree, including the lead's new surfaces (2026-09-25)
+- combined.mts
+- react-dom
+- 6. Sponsor Packages
+- QA sweep over the day's frontend work — found and fixed (2026-09-24, evening)
+- `P3-FE-02` — the admin review queue, wired (HeckerCreatives)
+- 2026-09-25 — QA third pass, and the merge that followed it (HeckerCreatives)
+- reward.funnel.test.ts
+- 7. Sponsor Outreach and Campaign Activation
+- 17. Phase 3 Intelligence Workflows
+- 27. Phase 4 Core Workflows
+- 7. Phase 2 Primary Workflows
+- 1. Introduction & Scope
+- 20. Appendices
+- 7. Data Architecture
+- 5. SponsorX Athlete Rate Card
+- SponsorX-Pricing-Collision_cfb39217.md
+- AI safety checkpoint for destructive commands
+- conflict-enforcement.test.ts
+- tenant-scope.static.test.ts
+- AI safety checkpoint for destructive commands
+- 8. QR Reward & Fan Commerce Engine
+- 10. Measurement, Reporting and Quality Control
+- 15. Infrastructure, Environments & Deployment
+- 5. Application Architecture
+- 9. Core Workflows & State Machines
+- prisma complete
+- prisma complete
+- 12. Analytics & Measurement
+- 16. INFINEX World API Architecture
+- 1. Executive Summary
+- 20. Estimated Development Budget
+- 5. End-to-End Business Workflows
+- 6. Sponsor Marketplace Specification
+- 2. Governance, Roles and Communication
+- 6. Athlete Readiness and Safeguards
+- 8. Media and Content Operations
+- How to Use This Plan
+- 10. Integration Architecture
+- 19. Key Architectural Decisions & Risks
+- 3. System Context (Who & What Connects)
+- 6. Multi-Tenancy & Role-Based Access
+- 18. Eventually sell SponsorX to other organizations
+- 2. Build the BTG Sponsorship Marketplace
+- 7. CPM pricing engine
+- 1. Program Concept
+- 10. API Architecture
+- 19. Phase 1–4 Development Roadmap
+- 7. CPM & Pricing Algorithm
+- 9. Zoho CRM Integration
+- 11. CRM architecture
+- 15. Virtual sponsorship inventory
+- 19. Example economics
+- 20. Don't build everything in Phase 1
+- 5. Athlete / Team Inventory System
+- DAYS 16–30 — REACH 25
+- SponsorX-Provisioning-Sequence_e42d819e.md
 
 ## God Nodes (most connected - your core abstractions)
 1. `ForbiddenError` - 77 edges
-2. `whereFor()` - 74 edges
-3. `money()` - 68 edges
+2. `whereFor()` - 77 edges
+3. `money()` - 77 edges
 4. `audit()` - 60 edges
 5. `assertAllowed()` - 57 edges
-6. `demoState` - 45 edges
-7. `react` - 44 edges
-8. `Actor` - 38 edges
-9. `Card()` - 37 edges
-10. `Badge()` - 36 edges
+6. `demoState` - 57 edges
+7. `react` - 46 edges
+8. `Card()` - 42 edges
+9. `Badge()` - 41 edges
+10. `Actor` - 39 edges
 
 ## Surprising Connections (you probably didn't know these)
 - `SponsorX Project CLAUDE.md` --cites--> `Master Development Blueprint v2.0`  [EXTRACTED]
@@ -339,19 +557,19 @@
 - **Server-safe shared copy/data modules preventing drift** — memory_2026_09_14_tasks_completed_earnings_ui, memory_2026_09_14_tasks_completed_applications_ui, memory_2026_09_14_tasks_completed_profile_sections [INFERRED 0.85]
 - **Zoho Sync Pipeline (Queued, Worker-Mediated, Loop-Safe)** — documentation_sponsorx_implementation_guide_transactional_outbox, documentation_sponsorx_implementation_guide_zoho_loop_prevention, _claude_stack_decision_zoho_boundary, documentation_sponsorx_stack_summary_railway_worker [INFERRED 0.85]
 
-## Communities (288 total, 30 thin omitted)
+## Communities (509 total, 43 thin omitted)
 
-### Community 0 - "actor.ts"
-Cohesion: 0.06
-Nodes (37): express-serve-static-core, knownRoles(), Request, requireActor(), resolveActor(), ROLE_SET, authenticateClerkRequest(), UnauthenticatedError (+29 more)
+### Community 0 - "money"
+Cohesion: 0.05
+Nodes (45): InventoryLedgerPage(), StudentSalesPage(), EditionReaderPage(), metadata, OpenSlotCard(), SponsorCard(), EditionFlatplan(), FRACTION (+37 more)
 
 ### Community 1 - "matching-studio.tsx"
 Cohesion: 0.06
 Nodes (84): CloseIcon(), cx(), FactorBar(), MARGIN_TEXT, MarginValue(), ProvenanceMark(), ScoreCell(), STATUS_DOT (+76 more)
 
-### Community 3 - "states.tsx"
-Cohesion: 0.09
-Nodes (5): ErrorPanel(), MARKS, SkeletonBlock(), SkeletonPage(), SkeletonRows()
+### Community 3 - "BTG_SponsorX_Phases_2_4_Detailed_Developer_Specifications_978a9117.md"
+Cohesion: 0.05
+Nodes (40): 10. Phase 2 Integrations, 11. Phase 2 Sprint Plan, 12. Phase 2 Acceptance Criteria, 13. Phase 2 Staffing, Timeline & Budget, 14. Phase 3 Business Goal, 15. Phase 3 Feature Modules, 16. Phase 3 New Screens, 18. Phase 3 API Additions (+32 more)
 
 ### Community 4 - "SponsorX ↔ Zoho — Module and Field Mapping"
 Cohesion: 0.05
@@ -362,24 +580,24 @@ Cohesion: 0.18
 Nodes (8): Approach, Component: `BriefRequestDrawer`, Data / fixtures, Goal, Problem, Sponsor brief-request drawer — design (2026-09-15), Testing / verification, Wiring into `marketplace-catalog.tsx`
 
 ### Community 6 - "frontend/package.json"
-Cohesion: 0.10
-Nodes (19): eslint, @types/node, typescript, vite, vitest, zod, name, private (+11 more)
+Cohesion: 0.08
+Nodes (24): eslint, @types/node, typescript, vite, vitest, zod, name, private (+16 more)
 
-### Community 7 - "admin/campaigns/[id]/page.tsx"
+### Community 7 - "hero.tsx"
 Cohesion: 0.07
-Nodes (44): AdminAnalyticsPage(), CampaignDashboardPage(), PACE_DOT, CampaignsListPage(), AdminRewardsPage(), PropertyPortalPage(), SponsorCampaignDetailPage(), STATE_TONE (+36 more)
+Nodes (41): CampaignDashboardPage(), PACE_DOT, CampaignsListPage(), SponsorCampaignDetailPage(), STATE_TONE, BuilderProps, CampaignLauncher(), compact() (+33 more)
 
 ### Community 8 - "Stage 0 · Foundation & Decisions"
 Cohesion: 0.06
 Nodes (33): ⏸ `P0-ART-01` · Produce the ERD as a distributable diagram (§38 deliverable), ▶ `P0-ART-02` · Produce the state-machine diagrams (§38 deliverable), ▶ `P0-DATA-01` · Define the metric provenance taxonomy, ⏸ `P0-DATA-02` · Define the reward event taxonomy (§38 deliverable), ▶ `P0-DATA-03` · Define Content Value Score v1 factors and weights, ▶ `P0-LEG-01` · Commission Content Collaboration Agreement from counsel, ▶ `P0-LEG-02` · Commission Campaign Order template from counsel, ⏸ `P0-LEG-03` · Resolve guardian authorisation method for minors (G-03) (+25 more)
 
-### Community 9 - "Actor"
-Cohesion: 0.11
-Nodes (22): Actor, enqueue(), JobName, BRIEF_AUDIT_ACTIONS, BriefInput, InvalidBriefWindowError, transitionBrief(), BriefNotApprovedError (+14 more)
+### Community 9 - "BTG_SponsorX_Master_Development_Blueprint_Integrated_Athlete_Network_f5776aa7.md"
+Cohesion: 0.05
+Nodes (38): 10. Administrative Portals Beyond the 12 Screens, 11. Athlete Onboarding Form / Data Capture, 12. Content Collaboration Agreement Workflow, 13. Phase 1 Managed Campaign Workflow, 14. Athlete Content Value Score, 15. CPM & Sponsorship Pricing Algorithm, 16. QR / Reward Workflow, 17. Sponsor Marketplace Behavior by Phase (+30 more)
 
 ### Community 10 - "ForbiddenError"
-Cohesion: 0.06
-Nodes (62): ForbiddenError, assertAllowed(), assertTenantWide(), whereFor(), audit(), athletesWithoutConflict(), ProfileInput, setAthleteProfile() (+54 more)
+Cohesion: 0.05
+Nodes (86): ForbiddenError, assertAllowed(), assertTenantWide(), whereFor(), audit(), AUDIT_ACTIONS, AuditAction, Change (+78 more)
 
 ### Community 11 - "Stage 2 · Platform Foundations"
 Cohesion: 0.07
@@ -389,9 +607,9 @@ Nodes (28): ▶ `P2-BE-01` · Install and pin the dependency set, ▶ `P2-BE-02`
 Cohesion: 0.08
 Nodes (24): In plain terms, Still outstanding, ⚠️ This is for development, Why it matters, Zoho API Access for SponsorX, 1 · What this task is actually for, 2.1 · Request exactly these, 2.1a · The same list, paste-ready (+16 more)
 
-### Community 13 - "zoho-sync.ts"
-Cohesion: 0.09
-Nodes (24): allowed, args, modules, toZohoLead(), allZoho(), BackfillModule, BackfillNeedsConfirmationError, BackfillOutcome (+16 more)
+### Community 13 - "zoho-backfill.mts"
+Cohesion: 0.29
+Nodes (6): allowed, args, modules, BackfillModule, BackfillNeedsConfirmationError, requestBackfill()
 
 ### Community 14 - "Stage 8 · Integration, Hardening & Launch"
 Cohesion: 0.08
@@ -403,11 +621,11 @@ Nodes (25): ActivityExplorer client island (src/components/activity-explorer.tsx
 
 ### Community 16 - "marketplace-catalog.tsx"
 Cohesion: 0.05
-Nodes (43): MarketplacePage(), TabKey, TABS, FILTERS, PackagesPage(), STAGGER, STATE_TONE, Drawer() (+35 more)
+Nodes (41): FILTERS, PackagesPage(), STAGGER, STATE_TONE, Drawer(), BriefForm(), BriefRequestDrawer(), BriefSeed (+33 more)
 
 ### Community 17 - "fixtures.ts"
-Cohesion: 0.04
-Nodes (82): AdminApprovalsPage(), PIPELINE_HINTS, AdminFinancePage(), EARNING_TONE, INVOICE_TONE, AdminHomePage(), HEALTH_CHIP, RoiReportPage() (+74 more)
+Cohesion: 0.05
+Nodes (76): AdminFinancePage(), EARNING_TONE, INVOICE_TONE, AdminHomePage(), HEALTH_CHIP, RoiReportPage(), spentPct, SponsorDashboardPage() (+68 more)
 
 ### Community 18 - "AdminAnalyticsReport Model"
 Cohesion: 0.11
@@ -427,15 +645,15 @@ Nodes (25): ▶ `P3-BE-01` · Athlete application contract + model + migration, 
 
 ### Community 22 - "Stage 7 · Money & Reporting"
 Cohesion: 0.10
-Nodes (21): ⏸ `P7-BE-01` · Earnings model and state machine, ⏸ `P7-BE-02` · Earnings eligibility from deliverable completion, ⏸ `P7-BE-03` · Commission and management fee calculation, ▶ `P7-BE-04` · Invoice / payment reference ingestion from Zoho, ⏸ `P7-BE-05` · Sponsor ROI report data assembly, ⏸ `P7-BE-06` · Report render worker job, ⏸ `P7-DATA-01` · Metric entry with provenance labels, ⏸ `P7-DATA-02` · Metric rollup worker job (+13 more)
+Nodes (21): ⏸ `P7-BE-01` · Earnings model and state machine, ⏸ `P7-BE-02` · Earnings eligibility from deliverable completion, ⏸ `P7-BE-03` · Commission and management fee calculation, ▶ `P7-BE-04` · Invoice / payment reference ingestion from Zoho, ⏸ `P7-BE-05` · Sponsor ROI report data assembly, ✕ `P7-BE-06` · Report render worker job — **MOVED TO PHASE 2 as `2S7-BE-02`**, ⏸ `P7-DATA-01` · Metric entry with provenance labels, ⏸ `P7-DATA-02` · Metric rollup worker job (+13 more)
 
-### Community 23 - "campaign-builder.tsx"
+### Community 23 - "applications-desk.tsx"
+Cohesion: 0.08
+Nodes (42): PATHS, reviewAction(), AdminApplicationsPage(), App, ApplicationsDesk(), ATTENTION_OPTIONS, Decision, inReview() (+34 more)
+
+### Community 24 - "domain/campaign.ts"
 Cohesion: 0.06
-Nodes (40): AdminApplicationsPage(), App, ApplicationsDesk(), ATTENTION_OPTIONS, Decision, inReview(), ReviewDrawer(), SORT_OPTIONS (+32 more)
-
-### Community 24 - "alignment.test.ts"
-Cohesion: 0.11
-Nodes (18): ATHLETE_STATES_FOR_TEST, BRIEF_STATES, BriefState, canTransitionBrief(), IllegalBriefTransitionError, legalBriefTransitions(), TRANSITIONS, CAMPAIGN_STATES (+10 more)
+Nodes (45): enqueue(), JobName, BRIEF_STATES, BriefState, canTransitionBrief(), IllegalBriefTransitionError, legalBriefTransitions(), TRANSITIONS (+37 more)
 
 ### Community 25 - "BTG SponsorX UI/UX Mockups v1.0"
 Cohesion: 0.16
@@ -446,12 +664,12 @@ Cohesion: 0.11
 Nodes (18): ✅ `P5-ART-01` · Design the deliverable and approval states, ⏸ `P5-BE-01` · Campaign Order acceptance with body-hash capture, ⏸ `P5-BE-02` · Campaign Order model and state machine, ⏸ `P5-BE-03` · Auto-create deliverables from the job/package template, ⏸ `P5-BE-04` · launchCampaign transactional domain function, ⏸ `P5-BE-05` · Deliverable state machine, ⏸ `P5-BE-06` · Creative asset model + direct R2 upload, ⏸ `P5-BE-07` · Image derivative worker job (+10 more)
 
 ### Community 27 - "order.defects.test.ts"
-Cohesion: 0.07
-Nodes (35): DELIVERABLE_TEMPLATES, deliverablesForOrder(), DeliverableTemplateItem, NoDeliverableTemplateError, templateForJob(), assertClearsFloor(), assertLineClearsFloor(), CampaignBudgetFloorError (+27 more)
+Cohesion: 0.09
+Nodes (32): DELIVERABLE_TEMPLATES, deliverablesForOrder(), DeliverableTemplateItem, NoDeliverableTemplateError, templateForJob(), assertBudgetCarriesLine(), assertClearsFloor(), assertLineClearsFloor() (+24 more)
 
-### Community 28 - "react"
-Cohesion: 0.05
-Nodes (43): STEPS, StudentCodePage(), FilterChip(), FilterTone, CHIP_TONES, InsightStrip(), MONO_TONES, Monogram() (+35 more)
+### Community 28 - "rewards-desk.tsx"
+Cohesion: 0.07
+Nodes (25): AdminRewardsPage(), CreatedReward, EXPIRATIONS, OFFER_IDEAS, qrCells(), QrPattern(), RewardAthlete, RewardCreator() (+17 more)
 
 ### Community 29 - "Stage 1 · UI Scaffold on Fixtures"
 Cohesion: 0.06
@@ -465,9 +683,9 @@ Nodes (17): ✅ `P4-ART-01` · Design the matching and roster-review experience,
 Cohesion: 0.11
 Nodes (19): ⏸ `P6-ART-01` · Produce the printable QR asset formats, ⏸ `P6-BE-01` · Tracking link model and t/[code] redirect route, ▶ `P6-BE-02` · Reward, reward token and reward event models, ⏸ `P6-BE-03` · Four-event separation across the fan journey, ⏸ `P6-BE-04` · Race-safe single-use redemption, ⏸ `P6-BE-05` · Geo resolution worker job, ⏸ `P6-BE-06` · QR code generation into R2, ⏸ `P6-BE-07` · Unique per-athlete tracking codes (+11 more)
 
-### Community 32 - "client.ts"
-Cohesion: 0.12
-Nodes (22): globalForPrisma, assessDelivery(), deliveryHealth, REACH_SHORTFALL_THRESHOLD, underDeliveringCampaigns(), IngestOutcome, invoicesForCampaign(), InvoiceView (+14 more)
+### Community 32 - "metrics.ts"
+Cohesion: 0.09
+Nodes (27): underDeliveringCampaigns(), invoicesForCampaign(), paymentStatusForCampaign(), MetricBreakdown, jobEconomics, LIVE_ORDER, networkMetrics, rate() (+19 more)
 
 ### Community 33 - "BTG SponsorX UI/UX Mockups v1.0 (12-screen sheet)"
 Cohesion: 0.20
@@ -482,24 +700,24 @@ Cohesion: 0.12
 Nodes (15): Regenerating the captures, Screen 10 · QR / Reward Creator — `/admin/rewards/new`, Screen 11 · Analytics / Athlete Performance — `/admin/analytics`, Screen 12 · Sponsor ROI / Campaign Report — `/sponsor/campaigns/[id]/report`, Screen 1 · SponsorX Network Landing — `/`, Screen 2 · Login — `/login`, Screen 3 · Sponsor Dashboard — `/sponsor`, Screen 4 · Sponsor Marketplace — `/sponsor/marketplace` (public catalog: `/packages`) (+7 more)
 
 ### Community 36 - "activity-explorer.tsx"
-Cohesion: 0.09
-Nodes (36): AthleteEarningsPage(), MONTH_LABELS, ActivityExplorer(), DateRangePicker(), DOW, fmtCode(), Item, MONTH_NAMES (+28 more)
-
-### Community 37 - "scope.ts"
 Cohesion: 0.06
-Nodes (25): Builder, BUILDERS, MATCHES_NOTHING, ScopeNotImplementedError, Where, BRAND_CATEGORIES, BrandCategory, CONTENT_CAPABILITIES (+17 more)
+Nodes (48): AthleteEarningsPage(), MONTH_LABELS, ActivityExplorer(), DateRangePicker(), DOW, fmtCode(), Item, MONTH_NAMES (+40 more)
 
-### Community 38 - "§39 Protected Core Loop"
-Cohesion: 0.17
-Nodes (12): §39 Protected Core Loop, SponsorX Phase 1 — Managed Marketplace, SponsorX Plain English Explainer (HTML), How It Works in Five Steps, Daily Task Log — 2026-09-10, SponsorX Core Loop, Four-Phase Product Roadmap, Three User Portals (+4 more)
+### Community 37 - "actor.ts"
+Cohesion: 0.03
+Nodes (85): Actor, express-serve-static-core, knownRoles(), Request, requireActor(), resolveActor(), ROLE_SET, authenticateClerkRequest() (+77 more)
+
+### Community 38 - "Updated_BTG_SponsorX_Master_Development_Blueprint_Integrated_Athlete_Network_487b6b12.md"
+Cohesion: 0.05
+Nodes (38): 10. Administrative Portals Beyond the 12 Screens, 11. Athlete Onboarding Form / Data Capture, 12. Content Collaboration Agreement Workflow, 13. Phase 1 Managed Campaign Workflow, 14. Athlete Content Value Score, 15. CPM & Sponsorship Pricing Algorithm, 16. QR / Reward Workflow, 17. Sponsor Marketplace Behavior by Phase (+30 more)
 
 ### Community 39 - "SponsorX — Stage 1 QA Verification Report & Checklist"
 Cohesion: 0.14
 Nodes (13): 1 · Scope, 2 · Environment & tooling, 3 · Test execution summary — final consolidated run, 4.1 · P1-QA-01 — §39 loop walk (group A), 4.2 · P1-QA-03 — responsive, 360px (group B), 4.3 · P1-QA-02 — accessibility (group C), 4 · Test cases and results, 5 · Defect log — product defects found and fixed (+5 more)
 
-### Community 40 - "zoho-mapping.ts"
-Cohesion: 0.15
-Nodes (25): calendarDate(), centsToZoho(), changedOnBothSides(), ContactFields, dealName(), dealShared(), inboundDecision(), LEAD_SOURCE (+17 more)
+### Community 40 - "zoho-sync.ts"
+Cohesion: 0.08
+Nodes (67): accountShared(), assertedStage(), calendarDate(), centsToZoho(), changedOnBothSides(), ContactFields, contactShared(), dealKey (+59 more)
 
 ### Community 41 - "Design"
 Cohesion: 0.15
@@ -511,15 +729,15 @@ Nodes (75): boot(), bundledBlob(), cdnScriptFor(), collectProps(), compileAttr()
 
 ### Community 43 - "registry.ts"
 Cohesion: 0.05
-Nodes (64): AthleteRateInput, AthleteTierInput, BrandCategory, BriefState, BriefTransitionInput, CampaignBriefInput, CampaignFromBriefInput, CampaignOrderInput (+56 more)
+Nodes (59): AthleteRateInput, AthleteTierInput, BrandCategory, BriefState, BriefTransitionInput, CampaignBriefInput, CampaignFromBriefInput, CampaignOrderInput (+51 more)
 
 ### Community 44 - "Stage 1 close-out batch: `P1-QA-01` · `P1-QA-03` · `P1-QA-02` · `P1-PMO-01`"
 Cohesion: 0.15
 Nodes (12): Formal QA report (user request, post-batch), Iteration 2 — sparkline regression + funnel readability (user screenshots), Iteration 3 — compact funnel → labeled stage rows (user chose from 4 options), Iteration 4 — engagements sparkline → BarStrip (user chose from 4 options), `P1-FE-06` — chart entrance + idle motion, all dashboards (newly raised), `P1-PMO-01` — §38 design record (commit `f174249`), `P1-QA-01` — §39 loop walk (commit `b07267d`), `P1-QA-02` — accessibility audit (commit `76df208`, 26 files) (+4 more)
 
 ### Community 45 - "metric-source.ts"
-Cohesion: 0.10
-Nodes (29): assertMetricSource(), blendedTotalRequiringDisclosure(), displayLabel(), emptyTotals(), isVerified(), METRIC_SOURCES, MetricSource, SourcedTotals (+21 more)
+Cohesion: 0.09
+Nodes (31): assessDelivery(), deliveryHealth, REACH_SHORTFALL_THRESHOLD, assertMetricSource(), blendedTotalRequiringDisclosure(), displayLabel(), emptyTotals(), isVerified() (+23 more)
 
 ### Community 46 - "Sprint 5 · Payments, ledger & payouts"
 Cohesion: 0.17
@@ -530,20 +748,20 @@ Cohesion: 0.06
 Nodes (34): Added by NEXT spec v2.0 *(2026-09-22)*, ⏸ `P9-BE-01` · Seed the NEXT ad and bundle packages, ⏸ `P9-BE-02` · Publication and Edition models with the edition state machine, ⏸ `P9-BE-03` · AdSlot inventory ledger with scarcity and close-date enforcement, ⏸ `P9-BE-04` · Student model, state machine and advisor review, ⏸ `P9-BE-05` · STUDENT and ADVISOR roles in the authorisation matrix, ⏸ `P9-BE-06` · RevenueSplit on the edition, Earning untouched, ⏸ `P9-BE-07` · StudentCode, SaleAttribution and the /s/[code] resolver (+26 more)
 
 ### Community 48 - "join-wizard.tsx"
-Cohesion: 0.12
-Nodes (25): TRUST, JoinAgreementStep(), JoinRestrictionsStep(), JoinSubmitted(), TIMELINE, Demo, emptySubscribe(), JoinWizard() (+17 more)
+Cohesion: 0.09
+Nodes (36): FIELD_MAP, fieldFor(), IntakeResult, PLATFORM_FIELD, submitJoinApplication(), TRUST, JoinAgreementStep(), JoinRestrictionsStep() (+28 more)
 
-### Community 49 - "export-report.tsx"
-Cohesion: 0.10
-Nodes (51): invoiceRows, payload(), upserts, download(), ExportPayload, exportAs(), Format, FORMATS (+43 more)
+### Community 49 - "report-pdf-kit.ts"
+Cohesion: 0.27
+Nodes (24): generateAnalyticsReportPdf(), generateCampaignReportPdf(), generateEarningsReportPdf(), generateReportPdf(), footers(), headerBand(), heading(), INK (+16 more)
 
-### Community 50 - "profile-editor.tsx"
-Cohesion: 0.07
-Nodes (29): InventoryDetailPage(), AthleteProfilePage(), PropertyProfilePage(), STAGGER, AthleteProfileView(), ICONS, isTab(), SOURCE_EXPLAINED (+21 more)
+### Community 50 - "Card"
+Cohesion: 0.06
+Nodes (38): CampaignOrderPage(), STATE_TONE, InventoryDetailPage(), AthleteProfilePage(), PropertyProfilePage(), STAGGER, AthleteProfileView(), ICONS (+30 more)
 
 ### Community 51 - "approvals-desk.tsx"
-Cohesion: 0.12
-Nodes (23): ApprovalsDesk(), decidedLine(), Item, KIND_OPTIONS, ReviewDrawer(), SIZE_OPTIONS, SORT_OPTIONS, TAB_KEYS (+15 more)
+Cohesion: 0.09
+Nodes (30): AdminApprovalsPage(), PIPELINE_HINTS, ApprovalsDesk(), decidedLine(), Item, KIND_OPTIONS, ReviewDrawer(), SIZE_OPTIONS (+22 more)
 
 ### Community 52 - "SponsorX Metric Provenance Taxonomy"
 Cohesion: 0.07
@@ -553,9 +771,9 @@ Nodes (27): 1 · Why this document exists, 2 · The five labels, 3 · The streng
 Cohesion: 0.27
 Nodes (11): Zoho (CRM + Books), Zoho Bi-directional Sync (Four Objects), Zoho Boundary, Zoho Boundary (Architecture Rule), Environments and Deploy Pipeline, Transactional Job Enqueue (Outbox Pattern), Zoho Sync Loop Prevention, SponsorX Stack Summary (+3 more)
 
-### Community 54 - "env.ts"
-Cohesion: 0.10
-Nodes (21): createApp(), clerk, ClerkIdentity, app, server, shutdown(), env, parsed (+13 more)
+### Community 54 - "v1/index.ts"
+Cohesion: 0.06
+Nodes (34): createApp(), buildOpenApiDocument(), CatalogueJob, CataloguePackage, listJobs(), listPackages(), app, server (+26 more)
 
 ### Community 55 - "SponsorX NEXT — Integration Specification"
 Cohesion: 0.07
@@ -563,7 +781,7 @@ Nodes (28): 0 · What version 1.0 got wrong, 10 · The economics V1 rests on, 11
 
 ### Community 56 - "worker.images.test.ts"
 Cohesion: 0.12
-Nodes (20): queries, rows, sourceImage(), stored, DERIVATIVE_WIDTHS, derivativeKeyFor(), DeriveImageJob, DeriveOutcome (+12 more)
+Nodes (21): queries, rows, sourceImage(), stored, DERIVATIVE_WIDTHS, derivativeKeyFor(), DeriveImageJob, DeriveOutcome (+13 more)
 
 ### Community 57 - "SponsorX Stack Decision — Phase 1"
 Cohesion: 0.22
@@ -613,9 +831,9 @@ Nodes (7): Card markup, Files, Task — Complete `/athlete/invitations` frontend
 Cohesion: 0.25
 Nodes (8): Clerk, Clerk Scoped to Identity Only, Authorization Is Ours, Authorization Test Matrix (authz.matrix.test.ts), V2 Prisma Schema, Tenant Scoping Pattern (actor.ts / scope.ts), Two Tracking Funnels (RewardEvent vs TrackingLink), Multi-Tenant From Day One
 
-### Community 69 - "Railway"
-Cohesion: 0.15
-Nodes (13): Cloudflare R2, Data Residency — US East (Decided), One Thing to Operate, PDF Worker (Unconfirmed Requirement), Portability Rules, Postgres Job Queue (Redis Deferred), R2 Two Access Patterns, Railway (+5 more)
+### Community 69 - "§39 Protected Core Loop"
+Cohesion: 0.08
+Nodes (25): Cloudflare R2, Data Residency — US East (Decided), One Thing to Operate, PDF Worker (Unconfirmed Requirement), Portability Rules, Postgres Job Queue (Redis Deferred), R2 Two Access Patterns, Railway (+17 more)
 
 ### Community 70 - "File map"
 Cohesion: 0.25
@@ -649,21 +867,21 @@ Nodes (8): ⏸ `4S1-BE-01` · World and zone registry, ⏸ `4S1-BE-02` · Virtua
 Cohesion: 0.25
 Nodes (8): Categories, Do not overlap these phases carelessly, ⚙️ How this project is tracked — read this first, Reading a task, SponsorX — Phase 4 · INFINEX World Integration, 🔁 The daily rule, The four phase documents, Where the work happens
 
-### Community 78 - "domain/deliverable.ts"
-Cohesion: 0.12
-Nodes (26): CreativeAssetInput, CreativeUploadInput, DeliverableState, MarkPublishedInput, RevisionRequestInput, approveDeliverable(), markPublished(), move() (+18 more)
+### Community 78 - "deliverables.ts"
+Cohesion: 0.10
+Nodes (27): CreativeAssetInput, CreativeUploadInput, DeliverableState, MarkPublishedInput, RevisionRequestInput, approveDeliverable(), sendToSponsorReview(), startBtgReview() (+19 more)
 
-### Community 79 - "policy.ts"
-Cohesion: 0.16
-Nodes (18): Action, ACTIONS, BREADTH, isAllowed(), POLICY, Resource, RESOURCES, RolePolicy (+10 more)
+### Community 79 - "Model Queries"
+Cohesion: 0.07
+Nodes (27): aggregate, Aggregation Operations, Atomic operations, count, create, Create Operations, createMany, createManyAndReturn (+19 more)
 
 ### Community 80 - "brief-wizard.tsx"
 Cohesion: 0.16
 Nodes (20): BriefPage(), TRUST, BriefWizard(), emptySubscribe(), SelectOption, TIMELINE, AUDIENCES, BRIEF_DRAFT_KEY (+12 more)
 
-### Community 81 - "analytics-story.tsx"
-Cohesion: 0.08
-Nodes (34): DELAYS, PACKAGES, STEPS, AnalyticsStory(), ChapterId, CHAPTERS, RANGES, BuildPreview() (+26 more)
+### Community 81 - "react"
+Cohesion: 0.12
+Nodes (27): AnalyticsStory(), ChapterId, CHAPTERS, RANGES, ChartLegend(), ExportReport(), HOT_TONE, InsightBanner() (+19 more)
 
 ### Community 82 - "Design brief — Sponsor ROI report, print layout (`P1-ART-04`)"
 Cohesion: 0.12
@@ -698,12 +916,12 @@ Cohesion: 0.29
 Nodes (7): ⏸ `4S3-INT-01` · INFINEX client manifest consumption, ⏸ `4S3-INT-02` · Client registry and heartbeat, ⏸ `4S3-INT-03` · Client configuration endpoint, ⏸ `4S3-QA-01` · Staging world placement test, Phase acceptance criteria, Sprint 3 · INFINEX client integration, The tasks
 
 ### Community 90 - "fields.ts"
-Cohesion: 0.24
-Nodes (11): assertCanReadField(), ATHLETE_SIDE, canReadField(), FIELD_DENIALS, FieldForbiddenError, ProtectedField, redactFields(), SPONSOR_ROLES (+3 more)
+Cohesion: 0.22
+Nodes (12): assertCanReadField(), ATHLETE_SIDE, canReadField(), FIELD_DENIALS, FieldForbiddenError, ProtectedField, redactFields(), SPONSOR_ROLES (+4 more)
 
 ### Community 91 - "backend/package.json"
 Cohesion: 0.07
-Nodes (27): allowScripts, prisma@7.10.0, @prisma/engines@7.10.0, eslint, @types/node, typescript, vite, vitest (+19 more)
+Nodes (26): allowScripts, prisma@7.10.0, @prisma/engines@7.10.0, eslint, @types/node, typescript, vite, vitest (+18 more)
 
 ### Community 92 - "Design brief — Deliverable and approval states (`P5-ART-01`)"
 Cohesion: 0.12
@@ -722,8 +940,8 @@ Cohesion: 0.33
 Nodes (5): Failures found → fixed (4), Method, Note for future layouts, P1-QA-03 — Responsive audit: 360px, no horizontal scroll, phone nav, Verified after fixes
 
 ### Community 96 - "The tasks"
-Cohesion: 0.25
-Nodes (8): ⏸ `2S7-BE-01` · White-label tenant branding, ⏸ `2S7-DATA-01` · Property analytics aggregates, ⏸ `2S7-FE-01` · Build the property analytics dashboard, ⏸ `2S7-FE-02` · Build the marketplace operations console, ⏸ `2S7-INT-01` · Expand Zoho sync for marketplace orders, Phase acceptance criteria, Sprint 7 · Analytics & governance, The tasks
+Cohesion: 0.22
+Nodes (9): ⏸ `2S7-BE-01` · White-label tenant branding, ⏸ `2S7-BE-02` · Report render worker job (was `P7-BE-06`), ⏸ `2S7-DATA-01` · Property analytics aggregates, ⏸ `2S7-FE-01` · Build the property analytics dashboard, ⏸ `2S7-FE-02` · Build the marketplace operations console, ⏸ `2S7-INT-01` · Expand Zoho sync for marketplace orders, Phase acceptance criteria, Sprint 7 · Analytics & governance (+1 more)
 
 ### Community 97 - "The tasks"
 Cohesion: 0.33
@@ -785,9 +1003,9 @@ Nodes (12): Brand, Constraints, Design brief — Athlete onboarding flow (`P1-AR
 Cohesion: 0.50
 Nodes (5): SponsorX Full Programme Task Board (xlsx), Google Sheet — SponsorXFullProgrammeTaskBoard, Task Board — Three Artefacts, Three Jobs, Full Programme Task Board Build (All Four Phases), Task-Board Rule (Three Artefacts, One Daily Habit)
 
-### Community 112 - "zoho-sync.mts"
-Cohesion: 0.15
-Nodes (23): ApplyOutcome, SyncCtx, main(), reportWaiting(), BackfillJob, ctxFor(), DealJob, Deps (+15 more)
+### Community 112 - "Driver Adapters"
+Cohesion: 0.07
+Nodes (27): Accept self-signed certificates, After (v7), Available Adapters, Before (v6), Configuration, Connection Pool Configuration, Driver Adapters, Installation (+19 more)
 
 ### Community 113 - "Sprint 1 · Warehouse & benchmarks"
 Cohesion: 0.40
@@ -818,8 +1036,8 @@ Cohesion: 0.17
 Nodes (11): Color, Components, Direction, Do, Don't, Files, How to use this, Icons (+3 more)
 
 ### Community 120 - "index.mts"
-Cohesion: 0.07
-Nodes (33): ZohoInvoicePayload, boss, drainOnce(), ensureQueue(), HANDLED_JOBS, knownQueues, OutboxRow, pool (+25 more)
+Cohesion: 0.05
+Nodes (67): ingestZohoInvoice(), payloadHash(), UnknownDealError, ZohoInvoicePayload, ApplyOutcome, pushLead(), SyncCtx, boss (+59 more)
 
 ### Community 121 - "Command Deck Hero Band"
 Cohesion: 0.50
@@ -833,17 +1051,17 @@ Nodes (11): `/join` Athlete Onboarding Wizard Implementation Plan, Task 10: Task
 Cohesion: 0.18
 Nodes (9): Mock Data, 1 · The three files, 2 · What replaces what, 3 · Six exports nothing reads, 4 · The one that cannot be replaced, 5 · Order of retirement, 6 · Inline data the swap will miss, Mock Data Register — everything that must be replaced before staging is real (+1 more)
 
-### Community 124 - "invitations-inbox.tsx"
-Cohesion: 0.13
-Nodes (23): InvitationsPage(), CampaignOrderPage(), STATE_TONE, InboxInitial, InvitationsInbox(), Invite, JOB_OPTIONS, SIZE_OPTIONS (+15 more)
+### Community 124 - "Model Queries"
+Cohesion: 0.07
+Nodes (27): aggregate, Aggregation Operations, Atomic operations, count, create, Create Operations, createMany, createManyAndReturn (+19 more)
 
-### Community 125 - "rewards.ts"
-Cohesion: 0.05
-Nodes (54): buildOpenApiDocument(), InquiryInput, ZohoCrmNotification, withdrawFanConsent(), codesForCampaign(), createTrackingLink(), DeliverableAlreadyLinkedError, generateCode() (+46 more)
+### Community 125 - "domain/reward.ts"
+Cohesion: 0.04
+Nodes (77): RewardClaimInput, RewardEventType, RewardFunnel, RewardInput, RewardState, RewardTokenInput, RewardTransitionInput, TrackingCode (+69 more)
 
 ### Community 126 - "storage.ts"
 Cohesion: 0.15
-Nodes (17): AuditActor, assertSafeKey(), BUCKETS, getPrivateObject(), GrantContext, presignDownload(), presignPrivateDownload(), presignPrivateUpload() (+9 more)
+Nodes (16): AuditActor, assertSafeKey(), BUCKETS, getPrivateObject(), GrantContext, presignDownload(), presignPrivateDownload(), presignPublicUpload() (+8 more)
 
 ### Community 127 - "rcfworks — tracker, decisions and diagrams"
 Cohesion: 0.18
@@ -861,25 +1079,25 @@ Nodes (9): 1 · The decision, 2 · What SponsorX stores, 3 · What SponsorX does
 Cohesion: 0.67
 Nodes (3): CPM Pricing Formula, NIL Jobs SX-01 – SX-07, Sponsor Packages
 
-### Community 131 - "campaign-order.ts"
-Cohesion: 0.08
-Nodes (31): AUDIT_ACTIONS, AuditAction, Change, acceptAgreementIn(), AcceptanceRequest, AgreementTextChangedError, AlreadyAcceptedError, GuardianAuthorisationRequiredError (+23 more)
+### Community 131 - "domain/guardian.ts"
+Cohesion: 0.07
+Nodes (34): AgreementAcceptanceInput, GuardianInput, GuardianReadiness, GuardianRelationship, acceptAgreement(), acceptAgreementIn(), AcceptanceRequest, AgreementTextChangedError (+26 more)
 
 ### Community 132 - "compilerOptions"
 Cohesion: 0.11
 Nodes (18): compilerOptions, allowJs, esModuleInterop, incremental, isolatedModules, jsx, lib, module (+10 more)
 
-### Community 134 - "money"
-Cohesion: 0.06
-Nodes (55): EditionPlanningPage(), GATES, StudentAssignmentsPage(), dueKey(), MONTHS, StudentHomePage(), STAGE_TONE, StudentSalesPage() (+47 more)
+### Community 134 - "ui.tsx"
+Cohesion: 0.04
+Nodes (74): AdminAnalyticsPage(), EditionPlanningPage(), GATES, GRANTOR_COPY, PERMS, RightsLedgerPage(), PAYEE_FILL, RevenueSplitsPage() (+66 more)
 
 ### Community 137 - "dependencies"
 Cohesion: 0.12
 Nodes (17): dependencies, @asteasolutions/zod-to-openapi, @aws-sdk/client-s3, @aws-sdk/s3-request-presigner, @clerk/backend, express, ioredis, maxmind (+9 more)
 
-### Community 138 - "domain/reward.ts"
-Cohesion: 0.06
-Nodes (51): CONSENT_PURPOSES, consentFor(), ConsentPurpose, ConsentRequiredError, CURRENT_CONSENT_VERSION, FanConsent, KNOWN_CONSENT_VERSIONS, mayContact() (+43 more)
+### Community 138 - "fan-consent.ts"
+Cohesion: 0.11
+Nodes (19): CONSENT_PURPOSES, CONSENT_TEXT, consentFor(), ConsentPurpose, ConsentRequiredError, CURRENT_CONSENT_VERSION, FanConsent, KNOWN_CONSENT_VERSIONS (+11 more)
 
 ### Community 142 - "compilerOptions"
 Cohesion: 0.12
@@ -894,20 +1112,24 @@ Cohesion: 0.25
 Nodes (5): ZohoApi, ZohoRecord, ZohoUser, FakeZoho, Write
 
 ### Community 145 - "portal-shell.tsx"
-Cohesion: 0.05
-Nodes (46): AdminLayout(), NAV, AthleteLayout(), NAV, NAV, NextPortalLayout(), NAV, PropertyLayout() (+38 more)
-
-### Community 146 - "lib/zoho.ts"
-Cohesion: 0.15
-Nodes (10): FetchLike, UPSERT_UNSUPPORTED, ZohoConfig, zohoConfigFromEnv(), zohoFromEnv(), ZohoNotConfiguredError, ZohoRecordError, ZohoWrongOrgError (+2 more)
-
-### Community 148 - "contactShared"
-Cohesion: 0.28
-Nodes (13): accountShared(), contactShared(), outboundDecision(), toZohoAccountCreate(), toZohoContactCreate(), zohoAccountShared(), zohoContactShared(), backfill() (+5 more)
-
-### Community 149 - "domain/earning.ts"
 Cohesion: 0.12
-Nodes (25): EarningAdjustmentInput, EarningBreakdown, EarningState, EarningTransitionInput, adjustEarning(), breakdown(), clearsFloor(), EARNING_AUDIT_ACTIONS (+17 more)
+Nodes (19): AdminLayout(), NAV, AdvisorLayout(), NAV, AthleteLayout(), NAV, NAV, NextPortalLayout() (+11 more)
+
+### Community 146 - "ZohoClient"
+Cohesion: 0.11
+Nodes (12): FetchLike, UPSERT_UNSUPPORTED, ZohoClient, ZohoConfig, zohoConfigFromEnv(), zohoFromEnv(), ZohoNotConfiguredError, ZohoRecordError (+4 more)
+
+### Community 147 - "Driver Adapters"
+Cohesion: 0.07
+Nodes (27): Accept self-signed certificates, After (v7), Available Adapters, Before (v6), Configuration, Connection Pool Configuration, Driver Adapters, Installation (+19 more)
+
+### Community 148 - "BTG_SponsorX_Sponsor_Campaign_Agreement_and_Brief_4e631412.md"
+Cohesion: 0.07
+Nodes (27): 10. Performance & Reporting, 11. No Sales Guarantee, 12. Rewards / Offers, 13. Advertising Disclosures & Compliance, 14. Cancellation / Rescheduling, 15. Intellectual Property, 16. Confidentiality, 17. Indemnification (+19 more)
+
+### Community 149 - "SponsorX-NEXT-Integration-Spec_4368ca7b.md"
+Cohesion: 0.07
+Nodes (27): 0 · What version 1.0 got wrong, 10 · The economics V1 rests on, 11 · Sequencing, 12 · Roadmap slot, 13 · What this costs the existing system, 14 · Open gates, 1 · The thirteen principles this is built on, 2 · The verdict (+19 more)
 
 ### Community 150 - "Master Development Blueprint v2.0"
 Cohesion: 0.28
@@ -1026,16 +1248,16 @@ Cohesion: 0.29
 Nodes (7): Follow-up 2 — route removed, list page added, popup relocated (user request), Follow-up — builder now opens in a modal (user request), Refactor, Task — Redesign `/admin/campaigns/new` (Create Campaign) UX, The problem, Verification, What was built
 
 ### Community 182 - "app/layout.tsx"
-Cohesion: 0.29
-Nodes (4): nextConfig, metadata, poppins, next
+Cohesion: 0.17
+Nodes (7): nextConfig, metadata, poppins, metadata, networkStats, @clerk/nextjs, next
 
 ### Community 183 - "applications.ts"
-Cohesion: 0.04
-Nodes (81): ApplicantView, ApplicationDecisionNotes, ApplicationReviewDecision, ApplicationSubmissionReceipt, ApproveApplicationInput, AthleteApplicationFields, AthleteApplicationInput, AthleteApplicationPatch (+73 more)
+Cohesion: 0.03
+Nodes (97): clerk, ClerkIdentity, env, parsed, schema, ApplicantView, ApplicationDecisionNotes, ApplicationReviewDecision (+89 more)
 
-### Community 184 - "deliverable-state.ts"
-Cohesion: 0.30
-Nodes (9): canRequestRevision(), canTransitionDeliverable(), DELIVERABLE_STATES, DeliverableState, IllegalDeliverableTransitionError, legalDeliverableTransitions(), REVIEW_STATES, TRANSITIONS (+1 more)
+### Community 184 - "Upgrade to Prisma ORM 7"
+Cohesion: 0.08
+Nodes (25): 1. Update package.json for ESM-first projects, 2. Update tsconfig.json, 3. Update schema.prisma, 4. Create prisma.config.ts, 5. Install a driver adapter (SQL providers only), 6. Update client instantiation, 7. Replace Prisma.validator with satisfies, 8. Run migrations and generate (+17 more)
 
 ### Community 185 - "BTG SponsorX — logo files (flat redraw, P1-ART-06)"
 Cohesion: 0.33
@@ -1069,9 +1291,9 @@ Nodes (6): Files, Task board, Task — `P1-FE-13` · `/admin/rewards` desk + Rew
 Cohesion: 0.07
 Nodes (25): devDependencies, @playwright/test, name, private, scripts, build, dev:api, dev:web (+17 more)
 
-### Community 194 - "pushDeal"
-Cohesion: 0.26
-Nodes (12): assertedStage(), dealKey, taskShared(), toZohoTaskCreate(), toZohoTaskUpdate(), zohoDate(), changedLocally(), ensureAccount() (+4 more)
+### Community 194 - "Upgrade to Prisma ORM 7"
+Cohesion: 0.08
+Nodes (25): 1. Update package.json for ESM-first projects, 2. Update tsconfig.json, 3. Update schema.prisma, 4. Create prisma.config.ts, 5. Install a driver adapter (SQL providers only), 6. Update client instantiation, 7. Replace Prisma.validator with satisfies, 8. Run migrations and generate (+17 more)
 
 ### Community 195 - "Task — Wire the sponsor "Request a brief" / "Add to brief" flow (frontend)"
 Cohesion: 0.40
@@ -1090,8 +1312,8 @@ Cohesion: 0.17
 Nodes (12): dependencies, @clerk/nextjs, exceljs, @hookform/resolvers, jspdf, jspdf-autotable, next, react (+4 more)
 
 ### Community 199 - "seeded-db.ts"
-Cohesion: 0.23
-Nodes (7): clean(), databaseAvailable(), prismaForTests(), seed(), T, TEST_DATABASE_URL, @prisma/adapter-pg
+Cohesion: 0.08
+Nodes (18): ID, PARAM_FOR, PAY, SPONSORS, clean(), databaseAvailable(), prismaForTests(), seed() (+10 more)
 
 ### Community 200 - "`P0-ART-03` — paginated process flowchart (new task, raised today)"
 Cohesion: 0.50
@@ -1109,9 +1331,9 @@ Nodes (3): Board after, Cascade, `P0-OPS-01` — Railway account, project and bi
 Cohesion: 0.17
 Nodes (12): devDependencies, eslint, eslint-config-next, playwright, tailwindcss, @tailwindcss/postcss, @types/node, @types/react (+4 more)
 
-### Community 204 - "Role"
-Cohesion: 0.18
-Nodes (7): Role, auditRows, committedWrites, enqueued, committedWrites, createdDeliverables, evidence
+### Community 204 - "SponsorX_Youth_Content_Media_Academy_BRANDED_Workbook_76628cab.md"
+Cohesion: 0.08
+Nodes (25): 30-Second Reel Planner, B-Roll Shot List, Career Pathways, Difficult Questions, Digital Footprint Check, Interview Structure, Learning Objective, Learning Objective (+17 more)
 
 ### Community 205 - "resolve-geo.mts"
 Cohesion: 0.27
@@ -1121,17 +1343,17 @@ Nodes (7): queries, cityReaderToLookup(), GeoJob, GeoLookup, GeoOutcome, handleR
 Cohesion: 0.18
 Nodes (10): A blocker found before starting, not after, A subtlety in the redirect, A test guard improved rather than patched, B6 · Tracking & reward — five backend tasks closed, Decisions worth remembering, Decisions worth remembering, Evening — B7 earnings spine, plus B6/B5's two worker jobs, Late afternoon — Slack deploy alerts, and B6 (tracking & reward) (+2 more)
 
-### Community 208 - "tenant-isolation.test.ts"
-Cohesion: 0.22
-Nodes (7): A, B, B_ACTORS, BODY, PARAM_FOR, seed(), wipe()
+### Community 208 - "campaign-builder.tsx"
+Cohesion: 0.10
+Nodes (14): Athlete, CampaignBuilder(), compact, dollars(), Draft, EXPIRATIONS, fmtCompact(), Inventory (+6 more)
 
-### Community 209 - "b1.endpoints.test.ts"
-Cohesion: 0.33
-Nodes (4): adult, athlete, minorUnverified, minorVerified
+### Community 209 - "Relation Queries"
+Cohesion: 0.08
+Nodes (23): Connect existing, Count Relations, Create or connect, Create with relations, Delete related, Disconnect, every, Filter counted relations (+15 more)
 
-### Community 210 - "tracking.test.ts"
-Cohesion: 0.40
-Nodes (3): enqueued, links, writes
+### Community 210 - "Removed Features"
+Cohesion: 0.08
+Nodes (23): Alternatives, Auto-generate after migrate, Auto-seed after migrate, Automatic Behaviors Removed, CLI Flags Removed, Client Middleware, Common Middleware Patterns, Custom counter with extensions (+15 more)
 
 ### Community 211 - "2026-09-22 — tasks completed"
 Cohesion: 0.20
@@ -1197,9 +1419,9 @@ Nodes (6): 15.3 · Publication domain, `adSlot`, `contentRight`, `editionEvent`,
 Cohesion: 0.33
 Nodes (6): 5 · Athlete network, `athlete`, `athleteApplication`, `athleteSocialAccount` · `athleteScore`, `guardian`, `property`
 
-### Community 227 - "scripts"
-Cohesion: 0.33
-Nodes (6): scripts, build, dev, lint, start, test
+### Community 227 - "Relation Queries"
+Cohesion: 0.08
+Nodes (23): Connect existing, Count Relations, Create or connect, Create with relations, Delete related, Disconnect, every, Filter counted relations (+15 more)
 
 ### Community 228 - "Five more — the whole B3 backend spine (`P4-BE-02`…`P4-BE-06`)"
 Cohesion: 0.33
@@ -1241,9 +1463,9 @@ Nodes (5): 7.1 · Commercial — the margin, protected from both sides, 7.2 · P
 Cohesion: 0.40
 Nodes (5): 8 · Campaigns, `campaign`, `campaignBrief`, `campaignOrder`, `invitation`
 
-### Community 239 - "login/page.tsx"
-Cohesion: 0.40
-Nodes (3): metadata, networkStats, @clerk/nextjs
+### Community 239 - "Removed Features"
+Cohesion: 0.08
+Nodes (23): Alternatives, Auto-generate after migrate, Auto-seed after migrate, Automatic Behaviors Removed, CLI Flags Removed, Client Middleware, Common Middleware Patterns, Custom counter with extensions (+15 more)
 
 ### Community 240 - "InsightCarousel"
 Cohesion: 0.80
@@ -1294,16 +1516,24 @@ Cohesion: 0.40
 Nodes (5): Housekeeping, Needs a decision from the business (nobody can code around these), Needs something obtained or clicked, ► TOMORROW'S QUEUE — leftovers from 2026-09-23, Two traps worth remembering
 
 ### Community 252 - "2026-09-24 — tasks completed"
-Cohesion: 0.22
-Nodes (8): 2026-09-24 — tasks completed, B8 batch — Zoho sync + hardening (rcfworks), Backend batch — P3-DATA-01, P6-SEC-02, P6-SEC-03, P8-PMO-01, P2-BE-09 (rcfworks), Business decisions taken 2026-09-24 (user) — applied, Decisions worth recording, Leftovers from 2026-09-23 — worked through (rcfworks), `P1-FE-21` — the edition page map, as a live flatplan, Verification
+Cohesion: 0.11
+Nodes (18): 2026-09-24 — tasks completed, B8 batch — Zoho sync + hardening (rcfworks), Backend batch — P3-DATA-01, P6-SEC-02, P6-SEC-03, P8-PMO-01, P2-BE-09 (rcfworks), Batch 3 — five tasks + P7-BE-06 moved (rcfworks), Business decisions taken 2026-09-24 (user) — applied, Decisions worth recording, Leftovers from 2026-09-23 — worked through (rcfworks), Merged and pushed — both developers' day, one branch (+10 more)
 
-### Community 253 - "ingestZohoInvoice"
-Cohesion: 0.50
-Nodes (3): ingestZohoInvoice(), payloadHash(), UnknownDealError
+### Community 253 - "SponsorX Pre-Launch Campaign Series"
+Cohesion: 0.08
+Nodes (23): ATHLETES, ATHLETES ARE MEDIA., BUSINESSES, Campaign 10 — “LOCAL BUSINESSES × LOCAL ATHLETES”, Campaign 1 — “WHAT’S YOUR PREGAME MEAL?”, Campaign 2 — “WHAT’S IN YOUR GAME-DAY BAG?”, Campaign 3 — “WHAT’S ON YOUR PREGAME PLAYLIST?”, Campaign 4 — “GAME-DAY FIT” (+15 more)
+
+### Community 254 - "SPONSORX ATHLETE CONTENT COLLABORATION AGREEMENT"
+Cohesion: 0.08
+Nodes (23): 10. CONTENT REVIEW & APPROVAL, 11. CAMPAIGN PERFORMANCE INFORMATION, 12. INDEPENDENT CONTRACTOR, 13. TERM & TERMINATION, 14. NO GUARANTEE OF OPPORTUNITIES, 15. GOVERNING LAW & DISPUTES, 16. ENTIRE AGREEMENT, 1. PURPOSE (+15 more)
 
 ### Community 255 - "earning.test.ts"
 Cohesion: 0.50
 Nodes (3): actor, auditRows, updates
+
+### Community 257 - "Troubleshooting Prisma Compute"
+Cohesion: 0.09
+Nodes (23): Accidental Prisma Postgres Provisioning, Auth Fails, Bun Entrypoint Missing, Compute Config Invalid, `create-prisma --yes` Did Not Deploy, Database Wiring or Schema Did Not Apply, Env Changes Did Not Apply, First Checks (+15 more)
 
 ### Community 258 - "6 · Catalog and rates"
 Cohesion: 0.50
@@ -1312,6 +1542,10 @@ Nodes (4): 6 · Catalog and rates, `athleteRate`, `nilJob` (SX-01 … SX-07), `s
 ### Community 259 - "9 · Delivery"
 Cohesion: 0.50
 Nodes (4): 9 · Delivery, `agreement`, `creativeAsset`, `deliverable`
+
+### Community 260 - "Troubleshooting Prisma Compute"
+Cohesion: 0.09
+Nodes (23): Accidental Prisma Postgres Provisioning, Auth Fails, Bun Entrypoint Missing, Compute Config Invalid, `create-prisma --yes` Did Not Deploy, Database Wiring or Schema Did Not Apply, Env Changes Did Not Apply, First Checks (+15 more)
 
 ### Community 261 - "The spine was built in the wrong environment, and rebuilt in staging"
 Cohesion: 0.50
@@ -1329,49 +1563,853 @@ Nodes (4): One place the acceptance could not be met as written, Seven defects i
 Cohesion: 0.50
 Nodes (4): Other decisions, `P6-BE-05` · Geo resolution — built, at Code review, not Done, The §26 problem the task's own wording hides, What is still needed to close it
 
+### Community 266 - "Prisma CLI Reference"
+Cohesion: 0.09
+Nodes (21): AI Safety Checkpoint, Boundary: Platform and Compute, Bun Runtime, Client Generation, Command Categories, Current Command Behavior, Current Prisma CLI Setup, Database Operations (+13 more)
+
+### Community 267 - "Raw Queries"
+Cohesion: 0.09
+Nodes (21): BigInt handling, Database-Specific Features, Date handling, Delete example, Dynamic table/column names, $executeRaw, Handling Results, Insert example (+13 more)
+
 ### Community 272 - "`P2-BE-05` — the transactional outbox and pg-boss drain · Done"
 Cohesion: 0.67
 Nodes (3): Dependencies added, all pinned exactly, `P2-BE-05` — the transactional outbox and pg-boss drain · Done, Three things worth carrying forward
 
-### Community 287 - "[token]/route.ts"
-Cohesion: 0.36
-Nodes (5): escape(), GET(), page(), Params, POST()
+### Community 278 - "Prisma CLI Reference"
+Cohesion: 0.09
+Nodes (21): AI Safety Checkpoint, Boundary: Platform and Compute, Bun Runtime, Client Generation, Command Categories, Current Command Behavior, Current Prisma CLI Setup, Database Operations (+13 more)
+
+### Community 287 - "edgeHeaders"
+Cohesion: 0.08
+Nodes (29): back(), POST(), GET(), PIXEL, POST(), FLASHES, GET(), Params (+21 more)
+
+### Community 288 - "Raw Queries"
+Cohesion: 0.09
+Nodes (21): BigInt handling, Database-Specific Features, Date handling, Delete example, Dynamic table/column names, $executeRaw, Handling Results, Insert example (+13 more)
+
+### Community 289 - "Client Methods"
+Cohesion: 0.10
+Nodes (18): Add custom methods, Add model methods, Chain extensions, Client Methods, $connect(), $disconnect(), $extends(), Graceful shutdown (+10 more)
 
 ### Community 290 - "cohort-import.test.ts"
 Cohesion: 0.29
 Nodes (7): audits, cohort(), created, existingEmails, outbox, row(), transitions
 
-### Community 291 - "send-email.mts"
-Cohesion: 0.18
-Nodes (8): EmailMessage, message, EmailJob, FAN_TEMPLATES, handleSendEmail(), TEMPLATES, RFC-8058, resend
+### Community 291 - "Filter Conditions and Operators"
+Cohesion: 0.10
+Nodes (20): AND (explicit), AND (implicit), Array Field Filters, Combined, Comparison, Equality, every, Filter Conditions and Operators (+12 more)
+
+### Community 292 - "Query Options"
+Cohesion: 0.10
+Nodes (20): cursor, distinct, Filtered include, include, Include relation count, Multiple distinct fields, Negative take (reverse), Nested include (+12 more)
+
+### Community 293 - "Client Methods"
+Cohesion: 0.10
+Nodes (18): Add custom methods, Add model methods, Chain extensions, Client Methods, $connect(), $disconnect(), $extends(), Graceful shutdown (+10 more)
 
 ### Community 295 - "12 · Decisions taken"
 Cohesion: 0.67
 Nodes (3): 12 · Decisions taken, On the reverse of D2, which was never in question, Settled from §8 — recorded, not asked
+
+### Community 296 - "Filter Conditions and Operators"
+Cohesion: 0.10
+Nodes (20): AND (explicit), AND (implicit), Array Field Filters, Combined, Comparison, Equality, every, Filter Conditions and Operators (+12 more)
+
+### Community 297 - "Query Options"
+Cohesion: 0.10
+Nodes (20): cursor, distinct, Filtered include, include, Include relation count, Multiple distinct fields, Negative take (reverse), Nested include (+12 more)
+
+### Community 298 - "report-xlsx.ts"
+Cohesion: 0.35
+Nodes (16): generate(), generateAnalyticsReportXlsx(), generateCampaignReportXlsx(), generateEarningsReportXlsx(), generateReportXlsx(), BRAND, FMT_INT, FMT_MONEY (+8 more)
+
+### Community 299 - "prisma db push"
+Cohesion: 0.10
+Nodes (19): Accept data loss, Basic push, Command, Common Patterns, Comparison with migrate dev, Examples, Follow-up Command, Force reset (+11 more)
+
+### Community 300 - "prisma dev"
+Cohesion: 0.10
+Nodes (19): Background mode, Command, Configuration, Custom ports, Examples, Force remove (stops first), Instance Management, List all instances (+11 more)
+
+### Community 301 - "prisma generate"
+Cohesion: 0.10
+Nodes (19): After schema changes, Basic generation, Bun Runtime, CI/CD pipeline, Command, Common Patterns, Compiler Build Tuning, Current Generator Behavior (+11 more)
+
+### Community 302 - "prisma studio"
+Cohesion: 0.10
+Nodes (19): Command, Common Workflow, Custom port, Don't open browser, Edit Records, Examples, Features, Filter Data (+11 more)
+
+### Community 303 - "Prisma Client API Reference"
+Cohesion: 0.10
+Nodes (19): Client Instantiation, Client Methods, Create records, Delete records, Filter Operators, Find records, How to Use, Model Query Methods (+11 more)
+
+### Community 304 - "Prisma Config"
+Cohesion: 0.10
+Nodes (19): After (v7) - prisma.config.ts, Basic Configuration, Before (v6) - schema.prisma, Configuration Options, Custom Config Path, datasource.directUrl, datasource.shadowDatabaseUrl, datasource.url (+11 more)
+
+### Community 305 - "brief-request.ts"
+Cohesion: 0.18
+Nodes (14): request, BriefResult, BRAND_CATEGORIES, BrandCategory, BriefBody, BriefRequest, BriefRequestInvalid, budgetCents() (+6 more)
+
+### Community 306 - "prisma db push"
+Cohesion: 0.10
+Nodes (19): Accept data loss, Basic push, Command, Common Patterns, Comparison with migrate dev, Examples, Follow-up Command, Force reset (+11 more)
+
+### Community 307 - "prisma dev"
+Cohesion: 0.10
+Nodes (19): Background mode, Command, Configuration, Custom ports, Examples, Force remove (stops first), Instance Management, List all instances (+11 more)
+
+### Community 308 - "prisma generate"
+Cohesion: 0.10
+Nodes (19): After schema changes, Basic generation, Bun Runtime, CI/CD pipeline, Command, Common Patterns, Compiler Build Tuning, Current Generator Behavior (+11 more)
+
+### Community 309 - "prisma studio"
+Cohesion: 0.10
+Nodes (19): Command, Common Workflow, Custom port, Don't open browser, Edit Records, Examples, Features, Filter Data (+11 more)
+
+### Community 310 - "Prisma Client API Reference"
+Cohesion: 0.10
+Nodes (19): Client Instantiation, Client Methods, Create records, Delete records, Filter Operators, Find records, How to Use, Model Query Methods (+11 more)
+
+### Community 311 - "Prisma Config"
+Cohesion: 0.10
+Nodes (19): After (v7) - prisma.config.ts, Basic Configuration, Before (v6) - schema.prisma, Configuration Options, Custom Config Path, datasource.directUrl, datasource.shadowDatabaseUrl, datasource.url (+11 more)
+
+### Community 312 - "My View_be097e72.md"
+Cohesion: 0.10
+Nodes (19): 10. Campaign Workflow, 11. Campaign Brief, 12. Make Each Athlete Trackable, 13. First Businesses to Target, 14. 90-Day Launch Plan, 15. SponsorX's Early Flywheel, 2. Athlete Recruitment Structure, 3. Athlete Qualification (+11 more)
+
+### Community 313 - "prisma migrate dev"
+Cohesion: 0.11
+Nodes (18): After schema changes, Command, Common Patterns, Create and apply migration, Create without applying, Examples, Follow-up Commands, Full workflow (+10 more)
+
+### Community 314 - "prisma migrate dev"
+Cohesion: 0.11
+Nodes (18): After schema changes, Command, Common Patterns, Create and apply migration, Create without applying, Examples, Follow-up Commands, Full workflow (+10 more)
+
+### Community 315 - "prisma db seed"
+Cohesion: 0.11
+Nodes (17): Best Practices, Command, Common Patterns, Common seed commands, Conditional seeding, Configuration, Current Workflow, Development reset (+9 more)
+
+### Community 316 - "Environment Variables"
+Cohesion: 0.11
+Nodes (17): 1. Install dotenv, 2. Import in prisma.config.ts, Application Code, Bun Users, CI/CD Considerations, Entry point, Environment Variables, Multiple .env Files (+9 more)
+
+### Community 317 - "prisma db seed"
+Cohesion: 0.11
+Nodes (17): Best Practices, Command, Common Patterns, Common seed commands, Conditional seeding, Configuration, Current Workflow, Development reset (+9 more)
+
+### Community 318 - "Environment Variables"
+Cohesion: 0.11
+Nodes (17): 1. Install dotenv, 2. Import in prisma.config.ts, Application Code, Bun Users, CI/CD Considerations, Entry point, Environment Variables, Multiple .env Files (+9 more)
+
+### Community 319 - "BTG_SponsorX_Prelaunch_Operations_Binder_8b3b39f1.md"
+Cohesion: 0.11
+Nodes (17): Athlete NIL Rate Card, Athlete Recruitment Flyer, DOCUMENT 10: Sponsor Package Rate Card, DOCUMENT 14: Athlete Creative Brief, DOCUMENT 15: Content Approval Form, DOCUMENT 16: Campaign Tracking Sheet, DOCUMENT 17: Sponsor Campaign Results Report, DOCUMENT 18: Athlete Payment / Earnings Statement (+9 more)
+
+### Community 320 - "BTG_SponsorX_System_Overview_Plain_English_bb7f7598.md"
+Cohesion: 0.11
+Nodes (17): 1. Tiers (a price level), 2. A quality score (who to recommend first), Every job has two prices, How Athletes Are Priced and Chosen, How It Works in Real Life — A Complete Story, How the Money Works (Simple Version), Let's clear up the biggest confusion, Packages are bundles that make buying easy (+9 more)
+
+### Community 321 - "prisma db pull"
+Cohesion: 0.12
+Nodes (16): Basic introspection, Command, Examples, Force overwrite, Generated Schema Example, MongoDB Introspection, Options, Post-Introspection Cleanup (+8 more)
+
+### Community 322 - "prisma init"
+Cohesion: 0.12
+Nodes (16): Add an example model, Basic initialization, Bun Runtime, Command, Examples, Generated Config (Bun), Generated Config (Node.js default), Generated Schema (+8 more)
+
+### Community 323 - "prisma migrate deploy"
+Cohesion: 0.12
+Nodes (16): Basic deployment, Best Practices, Check status first, Command, Comparison with migrate dev, Configuration, Docker deployment, Error Handling (+8 more)
+
+### Community 324 - "Constructor Options"
+Cohesion: 0.12
+Nodes (16): accelerateUrl (For Accelerate users), adapter (Required for the SQL provider workflow), Basic Instantiation, comments, Constructor Options, errorFormat, log, Log Events (+8 more)
+
+### Community 325 - "Prisma Database Setup"
+Cohesion: 0.12
+Nodes (16): Bun Runtime, Configuration Files, Driver Adapters, How to Use, MongoDB, MySQL, PostgreSQL, Prisma Client Setup (Required) (+8 more)
+
+### Community 326 - "Prisma Accelerate Users"
+Cohesion: 0.12
+Nodes (16): 1. Keep your Accelerate URL, 2. Install Accelerate extension, 3. Configure prisma.config.ts, 4. Instantiate client with accelerateUrl, Caching with Accelerate, Correct v7 Setup for Accelerate, Edge Runtime, Important (+8 more)
+
+### Community 327 - "ESM and CommonJS Support"
+Cohesion: 0.12
+Nodes (16): Browser-Safe Types, Bun, "Cannot use import statement outside a module", CommonJS Projects, "ERR_REQUIRE_ESM", ESM and CommonJS Support, ESM Projects, File Extensions (+8 more)
+
+### Community 328 - "prisma db pull"
+Cohesion: 0.12
+Nodes (16): Basic introspection, Command, Examples, Force overwrite, Generated Schema Example, MongoDB Introspection, Options, Post-Introspection Cleanup (+8 more)
+
+### Community 329 - "prisma init"
+Cohesion: 0.12
+Nodes (16): Add an example model, Basic initialization, Bun Runtime, Command, Examples, Generated Config (Bun), Generated Config (Node.js default), Generated Schema (+8 more)
+
+### Community 330 - "prisma migrate deploy"
+Cohesion: 0.12
+Nodes (16): Basic deployment, Best Practices, Check status first, Command, Comparison with migrate dev, Configuration, Docker deployment, Error Handling (+8 more)
+
+### Community 331 - "Constructor Options"
+Cohesion: 0.12
+Nodes (16): accelerateUrl (For Accelerate users), adapter (Required for the SQL provider workflow), Basic Instantiation, comments, Constructor Options, errorFormat, log, Log Events (+8 more)
+
+### Community 332 - "Prisma Database Setup"
+Cohesion: 0.12
+Nodes (16): Bun Runtime, Configuration Files, Driver Adapters, How to Use, MongoDB, MySQL, PostgreSQL, Prisma Client Setup (Required) (+8 more)
+
+### Community 333 - "Prisma Accelerate Users"
+Cohesion: 0.12
+Nodes (16): 1. Keep your Accelerate URL, 2. Install Accelerate extension, 3. Configure prisma.config.ts, 4. Instantiate client with accelerateUrl, Caching with Accelerate, Correct v7 Setup for Accelerate, Edge Runtime, Important (+8 more)
+
+### Community 334 - "ESM and CommonJS Support"
+Cohesion: 0.12
+Nodes (16): Browser-Safe Types, Bun, "Cannot use import statement outside a module", CommonJS Projects, "ERR_REQUIRE_ESM", ESM and CommonJS Support, ESM Projects, File Extensions (+8 more)
+
+### Community 335 - "portal.ts"
+Cohesion: 0.19
+Nodes (13): liveQueue(), submitBrief(), dynamic, metadata, PortalPage(), Logo(), Actor, ActorResult (+5 more)
+
+### Community 336 - "Schema Changes"
+Cohesion: 0.12
+Nodes (15): 1. Provider name, 2. Output is required, 3. engineType changed, 4. moduleFormat is explicit when needed, After Schema Changes, Datasource Block, Example Output Paths, Generated Entrypoints (+7 more)
+
+### Community 337 - "export-report.tsx"
+Cohesion: 0.12
+Nodes (12): invoiceRows, payload(), upserts, download(), ExportPayload, exportAs(), Format, FORMATS (+4 more)
+
+### Community 338 - "Schema Changes"
+Cohesion: 0.12
+Nodes (15): 1. Provider name, 2. Output is required, 3. engineType changed, 4. moduleFormat is explicit when needed, After Schema Changes, Datasource Block, Example Output Paths, Generated Entrypoints (+7 more)
+
+### Community 339 - "marketplace/page.tsx"
+Cohesion: 0.22
+Nodes (13): liveCatalogue(), MarketplacePage(), TabKey, TABS, CatalogInitial, JobsCatalog(), LiveJob, Pkg (+5 more)
+
+### Community 340 - "BTG_SponsorX_Master_Development_Blueprint_609a437c.md"
+Cohesion: 0.12
+Nodes (15): 11. Database Schema, 13. BTG Admin Portal, 14. Athlete Portal, 15. Payments & Marketplace Financial Architecture, 17. Security, Privacy & Compliance Requirements, 18. Recommended Technical Stack, 21. MVP Acceptance Criteria, 22. Developer Handoff Checklist (+7 more)
+
+### Community 341 - "My View_05a7ce54.md"
+Cohesion: 0.12
+Nodes (15): 10. Fan Wallet, 12. Sponsor Intelligence, 14. INFINEX World integration, 16. INFINEX QR → physical commerce, 17. Revenue model, 1. The overall BTG ecosystem, 21. The MVP screens, 3. Sponsor Portal (+7 more)
+
+### Community 342 - "Transactions"
+Cohesion: 0.13
+Nodes (14): All or nothing, Best Practices, Handle errors, Interactive Transactions, Isolation levels, Keep transactions short, Nested Writes, OrThrow in Transactions (+6 more)
+
+### Community 343 - "Workflow"
+Cohesion: 0.13
+Nodes (14): Error Handling, Prerequisites, Prisma Postgres Setup, Reference Files, Step 1: Authenticate, Step 2: List available regions, Step 3: Create a project with a database, Step 4: Create a named connection (optional) (+6 more)
+
+### Community 344 - "Transactions"
+Cohesion: 0.13
+Nodes (14): All or nothing, Best Practices, Handle errors, Interactive Transactions, Isolation levels, Keep transactions short, Nested Writes, OrThrow in Transactions (+6 more)
+
+### Community 345 - "Workflow"
+Cohesion: 0.13
+Nodes (14): Error Handling, Prerequisites, Prisma Postgres Setup, Reference Files, Step 1: Authenticate, Step 2: List available regions, Step 3: Create a project with a database, Step 4: Create a named connection (optional) (+6 more)
+
+### Community 346 - "theme-toggle.tsx"
+Cohesion: 0.20
+Nodes (11): NAV, NavLink, SiteFooter(), SiteHeader(), applyTheme(), getServerSnapshot(), getSnapshot(), listeners (+3 more)
+
+### Community 347 - "MongoDB Setup"
+Cohesion: 0.14
+Nodes (13): 1. Schema Configuration, 2. Environment Variable, Common Issues, Current Verification Notes, Driver Adapters, ID Field Requirement, "Invalid ObjectID", Migrations vs Introspection (+5 more)
+
+### Community 348 - "Prisma SQL Driver Adapter Implementation"
+Cohesion: 0.14
+Nodes (13): Commit and rollback, Contract snapshot, Error mapping, Factory, ownership, and shadow database, Priority rules, Prisma SQL Driver Adapter Implementation, Query implementation, Result mapping (+5 more)
+
+### Community 349 - "Core Workflows"
+Cohesion: 0.14
+Nodes (13): 1. Console-first workflow, 2. Quick provisioning with create-db, 2b. Persistent databases with the Platform CLI, 3. Link an existing local project, 4. Programmatic provisioning with Management API, 5. Type-safe integration with Management API SDK, Core Workflows, How to Use (+5 more)
+
+### Community 350 - "Prisma Compute Framework Readiness"
+Cohesion: 0.14
+Nodes (14): Astro, Bun, Elysia, and Plain Source Servers, CLI-First Model, CLI Matrix, Custom Build Artifacts, Hono, NestJS, Next.js (+6 more)
+
+### Community 351 - "MongoDB Setup"
+Cohesion: 0.14
+Nodes (13): 1. Schema Configuration, 2. Environment Variable, Common Issues, Current Verification Notes, Driver Adapters, ID Field Requirement, "Invalid ObjectID", Migrations vs Introspection (+5 more)
+
+### Community 352 - "Prisma SQL Driver Adapter Implementation"
+Cohesion: 0.14
+Nodes (13): Commit and rollback, Contract snapshot, Error mapping, Factory, ownership, and shadow database, Priority rules, Prisma SQL Driver Adapter Implementation, Query implementation, Result mapping (+5 more)
+
+### Community 353 - "Core Workflows"
+Cohesion: 0.14
+Nodes (13): 1. Console-first workflow, 2. Quick provisioning with create-db, 2b. Persistent databases with the Platform CLI, 3. Link an existing local project, 4. Programmatic provisioning with Management API, 5. Type-safe integration with Management API SDK, Core Workflows, How to Use (+5 more)
+
+### Community 354 - "Prisma Compute Framework Readiness"
+Cohesion: 0.14
+Nodes (14): Astro, Bun, Elysia, and Plain Source Servers, CLI-First Model, CLI Matrix, Custom Build Artifacts, Hono, NestJS, Next.js (+6 more)
+
+### Community 355 - "4. Core 12-Screen Product Specification"
+Cohesion: 0.14
+Nodes (14): 10. QR / Reward Creator, 11. Fan / Reward Analytics, 12. Sponsor ROI Report, 1. SponsorX Public Homepage, 2. Authentication / Sponsor Login, 3. Sponsor Dashboard, 4. Core 12-Screen Product Specification, 4. Sponsorship Marketplace (+6 more)
+
+### Community 356 - "prisma db execute"
+Cohesion: 0.15
+Nodes (12): Command, Configuration, Current Option Surface, Examples, Execute from file, Execute from stdin, Execute `migrate diff` output, Limitations (+4 more)
+
+### Community 357 - "MySQL Setup"
+Cohesion: 0.15
+Nodes (12): 1. Schema Configuration, 2. Config Configuration, 3. Environment Variable, Common Issues, Connection String Format, Driver Adapter, JSON Support, MySQL Setup (+4 more)
+
+### Community 358 - "management-api"
+Cohesion: 0.15
+Nodes (12): API exploration, Authentication methods, Base URL, Current resource inventory, management-api, Notes, OAuth flow summary, Priority (+4 more)
+
+### Community 359 - "prisma db execute"
+Cohesion: 0.15
+Nodes (12): Command, Configuration, Current Option Surface, Examples, Execute from file, Execute from stdin, Execute `migrate diff` output, Limitations (+4 more)
+
+### Community 360 - "Prisma Platform CLI App Deploy"
+Cohesion: 0.15
+Nodes (13): Agent Skill Installation, Auth and Project Binding, Build and Run Locally, Database and Env, Deploy, Deployment Story: GitHub vs CLI, Operations, Output Handling (+5 more)
+
+### Community 361 - "MySQL Setup"
+Cohesion: 0.15
+Nodes (12): 1. Schema Configuration, 2. Config Configuration, 3. Environment Variable, Common Issues, Connection String Format, Driver Adapter, JSON Support, MySQL Setup (+4 more)
+
+### Community 362 - "management-api"
+Cohesion: 0.15
+Nodes (12): API exploration, Authentication methods, Base URL, Current resource inventory, management-api, Notes, OAuth flow summary, Priority (+4 more)
+
+### Community 363 - "Prisma Platform CLI App Deploy"
+Cohesion: 0.15
+Nodes (13): Agent Skill Installation, Auth and Project Binding, Build and Run Locally, Database and Env, Deploy, Deployment Story: GitHub vs CLI, Operations, Output Handling (+5 more)
+
+### Community 364 - "9. The 12 Core Phase 1 Screens"
+Cohesion: 0.15
+Nodes (13): 10. QR / Reward Creator, 11. Analytics / Athlete Performance Dashboard, 12. Sponsor ROI / Campaign Report, 1. SponsorX Public Homepage / Network Landing Page, 2. Authentication / Role-Aware Login, 3. Sponsor Dashboard, 4. Sponsor Marketplace / Package Catalog, 5. Athlete / Property Profile (+5 more)
+
+### Community 365 - "BTG_SponsorX_Systems_Architecture_d593563b.md"
+Cohesion: 0.15
+Nodes (12): 11. Analytics & Reporting Architecture, 12.1 Representative Phase 1 Endpoints, 12. API Architecture, 13. Security & Compliance Architecture, 14. Marketing / Landing Page Architecture, 16. Observability & Operations, 17. Non-Functional Requirements, 18. Phase-Forward Compatibility (Phases 2-4) (+4 more)
+
+### Community 366 - "9. Content Collaboration Agreement"
+Cohesion: 0.15
+Nodes (13): 9. Content Collaboration Agreement, Athlete Responsibilities, BTG Responsibilities, Campaign Order, Compensation, Content Rights, Core structure, Exclusivity (+5 more)
+
+### Community 367 - "9. The 12 Core Phase 1 Screens"
+Cohesion: 0.15
+Nodes (13): 10. QR / Reward Creator, 11. Analytics / Athlete Performance Dashboard, 12. Sponsor ROI / Campaign Report, 1. SponsorX Public Homepage / Network Landing Page, 2. Authentication / Role-Aware Login, 3. Sponsor Dashboard, 4. Sponsor Marketplace / Package Catalog, 5. Athlete / Property Profile (+5 more)
+
+### Community 368 - "prisma migrate diff"
+Cohesion: 0.17
+Nodes (11): Check for drift (CI), Command, Create baseline migration, Examples, Generate SQL for a schema change, Options, prisma migrate diff, Review pending migrations (+3 more)
+
+### Community 369 - "prisma migrate reset"
+Cohesion: 0.17
+Nodes (11): Basic reset, Command, Configuration, Examples, Follow-up Steps, Force reset (CI/Automation), Options, prisma migrate reset (+3 more)
+
+### Community 370 - "PostgreSQL Setup"
+Cohesion: 0.17
+Nodes (11): 1. Schema Configuration, 2. Config Configuration, 3. Environment Variable, "Authentication failed", "Can't reach database server", Common Issues, Connection String Format, Driver Adapter (+3 more)
+
+### Community 371 - "Prisma Postgres Setup"
+Cohesion: 0.17
+Nodes (11): 1. Schema Configuration, 2. Config Configuration, Connection String, Driver Adapter, Edge/serverless option, Features, Overview, Prisma Postgres Setup (+3 more)
+
+### Community 372 - "SQLite Setup"
+Cohesion: 0.17
+Nodes (11): 1. Schema Configuration, 2. Config Configuration, 3. Environment Variable, Common Issues, Connection String Format, "Database file not found", Driver Adapter, Limitations (+3 more)
+
+### Community 373 - "prisma migrate diff"
+Cohesion: 0.17
+Nodes (11): Check for drift (CI), Command, Create baseline migration, Examples, Generate SQL for a schema change, Options, prisma migrate diff, Review pending migrations (+3 more)
+
+### Community 374 - "prisma migrate reset"
+Cohesion: 0.17
+Nodes (11): Basic reset, Command, Configuration, Examples, Follow-up Steps, Force reset (CI/Automation), Options, prisma migrate reset (+3 more)
+
+### Community 375 - "PostgreSQL Setup"
+Cohesion: 0.17
+Nodes (11): 1. Schema Configuration, 2. Config Configuration, 3. Environment Variable, "Authentication failed", "Can't reach database server", Common Issues, Connection String Format, Driver Adapter (+3 more)
+
+### Community 376 - "Prisma Postgres Setup"
+Cohesion: 0.17
+Nodes (11): 1. Schema Configuration, 2. Config Configuration, Connection String, Driver Adapter, Edge/serverless option, Features, Overview, Prisma Postgres Setup (+3 more)
+
+### Community 377 - "SQLite Setup"
+Cohesion: 0.17
+Nodes (11): 1. Schema Configuration, 2. Config Configuration, 3. Environment Variable, Common Issues, Connection String Format, "Database file not found", Driver Adapter, Limitations (+3 more)
+
+### Community 378 - "SQL Server Setup"
+Cohesion: 0.18
+Nodes (10): 1. Schema Configuration, 2. Config Configuration, 3. Environment Variable, Common Issues, Connection String Format, Driver Adapter, "Login failed for user", Prerequisites (+2 more)
+
+### Community 379 - "create-db-cli"
+Cohesion: 0.18
+Nodes (10): Command discovery (`--help`), Commands, Common patterns, create-db-cli, `create` options, Lifecycle and claim flow, Priority, Programmatic usage (library API) (+2 more)
+
+### Community 380 - "api-basics"
+Cohesion: 0.18
+Nodes (10): api-basics, Base URL, Collection, Error codes by HTTP status, Error Responses, Pagination, Resource ID Prefixes, Response Envelope (+2 more)
+
+### Community 381 - "SQL Server Setup"
+Cohesion: 0.18
+Nodes (10): 1. Schema Configuration, 2. Config Configuration, 3. Environment Variable, Common Issues, Connection String Format, Driver Adapter, "Login failed for user", Prerequisites (+2 more)
+
+### Community 382 - "create-db-cli"
+Cohesion: 0.18
+Nodes (10): Command discovery (`--help`), Commands, Common patterns, create-db-cli, `create` options, Lifecycle and claim flow, Priority, Programmatic usage (library API) (+2 more)
+
+### Community 383 - "api-basics"
+Cohesion: 0.18
+Nodes (10): api-basics, Base URL, Collection, Error codes by HTTP status, Error Responses, Pagination, Resource ID Prefixes, Response Envelope (+2 more)
+
+### Community 384 - "(public)/page.tsx"
+Cohesion: 0.20
+Nodes (7): DELAYS, PACKAGES, STEPS, BuildPreview(), EXTRA, Screen, SCREENS
+
+### Community 385 - "BTG_SponsorX_Partner_School_Execution_Plan_bcd30e3c.md"
+Cohesion: 0.18
+Nodes (10): 11. Risk Management and Issue Escalation, 12. 90-Day Launch Plan, 1. Program Outcomes and Success Measures, 3. 12-Month Implementation Roadmap, 9. Budget and Resource Plan, Balanced Scorecard, Escalation Levels, First 30-Day Checklist (+2 more)
+
+### Community 386 - "prisma format"
+Cohesion: 0.20
+Nodes (9): Behavior, Command, Examples, Format default schema, Format specific schema, Options, prisma format, Use in Editor (+1 more)
+
+### Community 387 - "prisma migrate resolve"
+Cohesion: 0.20
+Nodes (9): Command, Examples, Mark as Applied (Baselining), Mark as Rolled Back (Fixing Failures), Options, prisma migrate resolve, References, Use Cases (+1 more)
+
+### Community 388 - "prisma validate"
+Cohesion: 0.20
+Nodes (9): Command, Common Errors, Examples, Options, prisma validate, Use in CI, Validate default schema, Validate specific schema (+1 more)
+
+### Community 389 - "CockroachDB Setup"
+Cohesion: 0.20
+Nodes (9): 1. Schema Configuration, 2. Config Configuration, 3. Environment Variable, CockroachDB Setup, Common Issues, Driver Adapter, ID Generation, Prerequisites (+1 more)
+
+### Community 390 - "decision-stay-or-migrate"
+Cohesion: 0.20
+Nodes (9): Bad, Blocker checks before migrating, decision-stay-or-migrate, Good, Priority, References, Stay-on-v6 hygiene, The facts the decision rests on (+1 more)
+
+### Community 391 - "console-and-connections"
+Cohesion: 0.20
+Nodes (9): Adapter choices, Connection setup, console-and-connections, Console workflow, Linking an existing project, Local Studio, Priority, References (+1 more)
+
+### Community 392 - "management-api-sdk"
+Cohesion: 0.20
+Nodes (9): Full SDK (OAuth + refresh), Install, management-api-sdk, OAuth SDK flow, Priority, References, Simple client (existing token), Why It Matters (+1 more)
+
+### Community 393 - "prisma format"
+Cohesion: 0.20
+Nodes (9): Behavior, Command, Examples, Format default schema, Format specific schema, Options, prisma format, Use in Editor (+1 more)
+
+### Community 394 - "prisma migrate resolve"
+Cohesion: 0.20
+Nodes (9): Command, Examples, Mark as Applied (Baselining), Mark as Rolled Back (Fixing Failures), Options, prisma migrate resolve, References, Use Cases (+1 more)
+
+### Community 395 - "prisma validate"
+Cohesion: 0.20
+Nodes (9): Command, Common Errors, Examples, Options, prisma validate, Use in CI, Validate default schema, Validate specific schema (+1 more)
+
+### Community 396 - "CockroachDB Setup"
+Cohesion: 0.20
+Nodes (9): 1. Schema Configuration, 2. Config Configuration, 3. Environment Variable, CockroachDB Setup, Common Issues, Driver Adapter, ID Generation, Prerequisites (+1 more)
+
+### Community 397 - "decision-stay-or-migrate"
+Cohesion: 0.20
+Nodes (9): Bad, Blocker checks before migrating, decision-stay-or-migrate, Good, Priority, References, Stay-on-v6 hygiene, The facts the decision rests on (+1 more)
+
+### Community 398 - "console-and-connections"
+Cohesion: 0.20
+Nodes (9): Adapter choices, Connection setup, console-and-connections, Console workflow, Linking an existing project, Local Studio, Priority, References (+1 more)
+
+### Community 399 - "management-api-sdk"
+Cohesion: 0.20
+Nodes (9): Full SDK (OAuth + refresh), Install, management-api-sdk, OAuth SDK flow, Priority, References, Simple client (existing token), Why It Matters (+1 more)
+
+### Community 400 - "portal-nav.tsx"
+Cohesion: 0.29
+Nodes (5): ICONS, NavIcon, PortalNav(), StudentTabBar(), TABS
+
+### Community 401 - "4. Service-by-Service Execution Playbooks"
+Cohesion: 0.20
+Nodes (10): 4.1 School Onboarding and Program Planning, 4.2 Four Athlete-Development Workshops, 4.3 Parent and Coach Information Session, 4.4 Athlete Profiles and Readiness Assessment, 4.5 Athlete Media/Content Day, 4.6 Local Business Sponsor Outreach, 4.7 One School/Community Campaign, 4.8 BTG Sports Talk / iMC Network Exposure (+2 more)
+
+### Community 402 - "SponsorX-Full-Programme-Task-Board_45c6ec3d.md"
+Cohesion: 0.20
+Nodes (9): Sheet: Dashboard, Sheet: Legal, Sheet: Legend, Sheet: Phase 1, Sheet: Phase 2, Sheet: Phase 3, Sheet: Phase 4, Sheet: Roadmap (+1 more)
+
+### Community 403 - "prisma migrate status"
+Cohesion: 0.22
+Nodes (8): Check status, Command, Examples, Exit Codes, Options, prisma migrate status, What It Does, When to Use
+
+### Community 404 - "migrations-mapping"
+Cohesion: 0.22
+Nodes (8): Bad, Good, migrations-mapping, Priority, Prisma Next: first-class, contract-driven migrations (Mongo included), References, v6: `db push` only, Why It Matters
+
+### Community 405 - "schema-contract-mapping"
+Cohesion: 0.22
+Nodes (8): Bad, Environment requirements, Good, Priority, References, schema-contract-mapping, The mapping, Why It Matters
+
+### Community 406 - "Prisma MongoDB Upgrade Path"
+Cohesion: 0.22
+Nodes (8): Decision table, Hand-off rule, If staying on v6: hygiene (a deliberate stay, not neglect), Prisma MongoDB Upgrade Path, Reference files, The decision, up front, The version landscape, Verified against
+
+### Community 407 - "endpoints"
+Cohesion: 0.22
+Nodes (8): Create connection, Create project (with database), Delete database, Delete project, endpoints, Get database, List projects, List regions
+
+### Community 408 - "prisma migrate status"
+Cohesion: 0.22
+Nodes (8): Check status, Command, Examples, Exit Codes, Options, prisma migrate status, What It Does, When to Use
+
+### Community 409 - "Prisma Compute Config"
+Cohesion: 0.22
+Nodes (9): App Fields, Basic Shape, Database Scope, File Names and Discovery, Generating a Config with `init`, Monorepos and Multi-App Repos, Precedence, Prisma Compute Config (+1 more)
+
+### Community 410 - "create-prisma Compute Flow"
+Cohesion: 0.22
+Nodes (9): Addon Notes, Basic Commands, create-prisma Compute Flow, Failure Handling, Generated Deploy Script, Generated Files to Preserve, PostgreSQL and Database Behavior, Reference (+1 more)
+
+### Community 411 - "Quick Rules"
+Cohesion: 0.22
+Nodes (9): 1. Command Verification, 2. Auth and Workspace Selection, 3. Framework Readiness, 4. Runtime Host and Port Binding, 5. Typed Compute Config, 6. Branch, Environment, and Database, 7. Deploy Operations, 8. SDK and API (+1 more)
+
+### Community 412 - "Prisma Compute"
+Cohesion: 0.22
+Nodes (9): Avoid, Decision Tree, Preferred Workflow, Prisma Compute, Prisma Compute CLI Surface, Rules by Priority, Send Feedback and Report CLI Issues, Source-of-Truth Order (+1 more)
+
+### Community 413 - "migrations-mapping"
+Cohesion: 0.22
+Nodes (8): Bad, Good, migrations-mapping, Priority, Prisma Next: first-class, contract-driven migrations (Mongo included), References, v6: `db push` only, Why It Matters
+
+### Community 414 - "schema-contract-mapping"
+Cohesion: 0.22
+Nodes (8): Bad, Environment requirements, Good, Priority, References, schema-contract-mapping, The mapping, Why It Matters
+
+### Community 415 - "Prisma MongoDB Upgrade Path"
+Cohesion: 0.22
+Nodes (8): Decision table, Hand-off rule, If staying on v6: hygiene (a deliberate stay, not neglect), Prisma MongoDB Upgrade Path, Reference files, The decision, up front, The version landscape, Verified against
+
+### Community 416 - "endpoints"
+Cohesion: 0.22
+Nodes (8): Create connection, Create project (with database), Delete database, Delete project, endpoints, Get database, List projects, List regions
+
+### Community 417 - "Prisma Compute Config"
+Cohesion: 0.22
+Nodes (9): App Fields, Basic Shape, Database Scope, File Names and Discovery, Generating a Config with `init`, Monorepos and Multi-App Repos, Precedence, Prisma Compute Config (+1 more)
+
+### Community 418 - "create-prisma Compute Flow"
+Cohesion: 0.22
+Nodes (9): Addon Notes, Basic Commands, create-prisma Compute Flow, Failure Handling, Generated Deploy Script, Generated Files to Preserve, PostgreSQL and Database Behavior, Reference (+1 more)
+
+### Community 419 - "Quick Rules"
+Cohesion: 0.22
+Nodes (9): 1. Command Verification, 2. Auth and Workspace Selection, 3. Framework Readiness, 4. Runtime Host and Port Binding, 5. Typed Compute Config, 6. Branch, Environment, and Database, 7. Deploy Operations, 8. SDK and API (+1 more)
+
+### Community 420 - "Prisma Compute"
+Cohesion: 0.22
+Nodes (9): Avoid, Decision Tree, Preferred Workflow, Prisma Compute, Prisma Compute CLI Surface, Rules by Priority, Send Feedback and Report CLI Issues, Source-of-Truth Order (+1 more)
+
+### Community 421 - "5. Workshop Curriculum"
+Cohesion: 0.22
+Nodes (9): 5. Workshop Curriculum, Core topics, Core topics, Core topics, Core topics, Workshop 1 — NIL Awareness and Athlete Responsibility, Workshop 2 — Financial Literacy, Workshop 3 — Personal Branding (+1 more)
+
+### Community 422 - "8. Athlete Onboarding Form"
+Cohesion: 0.22
+Nodes (9): 8. Athlete Onboarding Form, AGREEMENTS, ATHLETE, BRAND INTERESTS, CONTENT, PAYMENT, RESTRICTIONS, SOCIAL MEDIA (+1 more)
+
+### Community 423 - "prisma mcp"
+Cohesion: 0.25
+Nodes (7): Command, Notes, prisma mcp, References, Typical Use Cases, Usage, What It Does
+
+### Community 424 - "client-api-mapping"
+Cohesion: 0.25
+Nodes (7): Bad, client-api-mapping, Good, Priority, References, The mapping, Why It Matters
+
+### Community 425 - "Service Tokens"
+Cohesion: 0.25
+Nodes (7): auth, Creating a service token, OAuth 2.0 (for user-scoped access), Security practices, Service Tokens, Token scope, Using a service token
+
+### Community 426 - "prisma mcp"
+Cohesion: 0.25
+Nodes (7): Command, Notes, prisma mcp, References, Typical Use Cases, Usage, What It Does
+
+### Community 427 - "SDK and API Automation"
+Cohesion: 0.25
+Nodes (8): Compute SDK, Management API Concepts, Prefer the CLI for App Workflows, Regions, Repository-snapshot detection, SDK and API Automation, SDK Build Strategies, Secrets and Redaction
+
+### Community 428 - "client-api-mapping"
+Cohesion: 0.25
+Nodes (7): Bad, client-api-mapping, Good, Priority, References, The mapping, Why It Matters
+
+### Community 429 - "Service Tokens"
+Cohesion: 0.25
+Nodes (7): auth, Creating a service token, OAuth 2.0 (for user-scoped access), Security practices, Service Tokens, Token scope, Using a service token
+
+### Community 430 - "SDK and API Automation"
+Cohesion: 0.25
+Nodes (8): Compute SDK, Management API Concepts, Prefer the CLI for App Workflows, Regions, Repository-snapshot detection, SDK and API Automation, SDK Build Strategies, Secrets and Redaction
+
+### Community 431 - "SponsorX — Public surface security review (P8-SEC-03)"
+Cohesion: 0.25
+Nodes (7): Accepted, recorded, Configuration to finish the fix, Findings — fixed in this task, Not yet a live surface — review again when wired, Reviewed — no finding, Scope, SponsorX — Public surface security review (P8-SEC-03)
+
+### Community 432 - "13. Sponsor ROI Dashboard"
+Cohesion: 0.25
+Nodes (8): 13. Sponsor ROI Dashboard, Campaign investment, Engagement, Leads, Media delivered, QR scans, Redemptions, Tracked revenue
+
+### Community 433 - "22. The strategic structure I'd use"
+Cohesion: 0.25
+Nodes (8): 22. The strategic structure I'd use, ATHLETE → CONTENT → FAN → SPONSOR → REWARD → PURCHASE → DATA → RENEWAL, BTG SPORTS GROUP, Fan Commerce, iMC NETWORK, INFINEX WORLD, SponsorX, What I would build next
+
+### Community 434 - "Under Armour × BTG"
+Cohesion: 0.25
+Nodes (8): Fan reward, iMC, INFINEX, NIL, Real World, Social, Under Armour × BTG, Virtual activation
+
+### Community 435 - "4. Seven Standard SponsorX NIL Jobs"
+Cohesion: 0.25
+Nodes (8): 4. Seven Standard SponsorX NIL Jobs, SX-01 — Story Drop, SX-02 — Sponsored Post, SX-03 — Athlete Reel, SX-04 — Product Experience, SX-05 — Local Appearance, SX-06 — Content Day, SX-07 — Monthly Brand Ambassador
+
+### Community 436 - "SponsorX-Full-Programme-Task-Board_caf1eea8.md"
+Cohesion: 0.25
+Nodes (7): Sheet: Dashboard, Sheet: Legend, Sheet: Phase 1, Sheet: Phase 2, Sheet: Phase 3, Sheet: Phase 4, Sheet: Roadmap
+
+### Community 437 - "prisma debug"
+Cohesion: 0.29
+Nodes (6): Command, Example Output, Options, prisma debug, What It Does, When to Use
+
+### Community 439 - "Prisma Client Setup"
+Cohesion: 0.29
+Nodes (6): 1. Install dependencies, 2. Add generator block, 3. Generate Prisma Client, 4. Instantiate Prisma Client, 5. Use a single instance, Prisma Client Setup
+
+### Community 440 - "verify-cutover-checklist"
+Cohesion: 0.29
+Nodes (6): Checklist, Ground rules, Priority, References, verify-cutover-checklist, Why It Matters
+
+### Community 441 - "Prisma 7 Client Instantiation"
+Cohesion: 0.29
+Nodes (6): Basic instantiation, Common mistakes, Key rules, Prisma 7 Client Instantiation, Required packages, Usage in application code
+
+### Community 442 - "prisma debug"
+Cohesion: 0.29
+Nodes (6): Command, Example Output, Options, prisma debug, What It Does, When to Use
+
+### Community 444 - "Prisma Client Setup"
+Cohesion: 0.29
+Nodes (6): 1. Install dependencies, 2. Add generator block, 3. Generate Prisma Client, 4. Instantiate Prisma Client, 5. Use a single instance, Prisma Client Setup
+
+### Community 445 - "verify-cutover-checklist"
+Cohesion: 0.29
+Nodes (6): Checklist, Ground rules, Priority, References, verify-cutover-checklist, Why It Matters
+
+### Community 446 - "Prisma 7 Client Instantiation"
+Cohesion: 0.29
+Nodes (6): Basic instantiation, Common mistakes, Key rules, Prisma 7 Client Instantiation, Required packages, Usage in application code
+
+### Community 447 - "BTG_SponsorX_Athlete_Campaign_Order_c630d187.md"
+Cohesion: 0.29
+Nodes (6): 1. Athlete Deliverable Requirements, 2. Content & Usage Rights, 3. Paid Media, 4. Exclusivity / Conflicts, 5. Compensation & Payment, 6. Athlete Acceptance
+
+### Community 448 - "13. Appendices: Checklists, Forms and Templates"
+Cohesion: 0.29
+Nodes (7): 13. Appendices: Checklists, Forms and Templates, Appendix A — Kickoff Agenda, Appendix B — Athlete Intake Fields, Appendix C — Campaign Brief Fields, Appendix D — Monthly Status Report, Appendix E — Change Control, Appendix F — Closeout Checklist
+
+### Community 449 - "QA second pass — the sweep swept again (2026-09-24, night)"
+Cohesion: 0.29
+Nodes (6): Deliberate non-changes (flagged, not fixed), New defects found and fixed (fresh lens), Process lessons (also in private memory), QA second pass — the sweep swept again (2026-09-24, night), The pass-1 fix commit had bugs of its own, Where it stands
+
+### Community 450 - "QA pass 4 — the merged tree, including the lead's new surfaces (2026-09-25)"
+Cohesion: 0.29
+Nodes (6): My own commits audited (fourth-order review), QA pass 4 — the merged tree, including the lead's new surfaces (2026-09-25), rcfworks — found in 6ede48c and fixed here (review these, Bob), State, Sweep + walks on the merged tree, The strongest proof of the day
+
+### Community 451 - "combined.mts"
+Cohesion: 0.40
+Nodes (5): app, server, shutdown(), startWorker, stopWorker()
+
+### Community 452 - "react-dom"
+Cohesion: 0.33
+Nodes (3): MobileNav(), Phase, react-dom
+
+### Community 453 - "6. Sponsor Packages"
+Cohesion: 0.33
+Nodes (6): 6. Sponsor Packages, GROWTH — $2,500, IMPACT — $5,000, PREMIER — $10,000, SEASON PARTNER — $15K–$30K+, STARTER — $1,500
+
+### Community 454 - "QA sweep over the day's frontend work — found and fixed (2026-09-24, evening)"
+Cohesion: 0.33
+Nodes (5): Flagged, not code-fixable here, QA sweep over the day's frontend work — found and fixed (2026-09-24, evening), Real defects found and fixed, Verified NOT bugs (screenshot-agent false alarms), Where the tests stand
+
+### Community 455 - "`P3-FE-02` — the admin review queue, wired (HeckerCreatives)"
+Cohesion: 0.33
+Nodes (5): Live decisions are the real §21 machine, `P3-FE-02` — the admin review queue, wired (HeckerCreatives), Proof — a signed-in headless walk, 24 checks, State, The backend half: the snapshot rides the queue row
+
+### Community 456 - "2026-09-25 — QA third pass, and the merge that followed it (HeckerCreatives)"
+Cohesion: 0.33
+Nodes (5): 2026-09-25 — QA third pass, and the merge that followed it (HeckerCreatives), fix(tests) 60b29ff — his new static scans break on Windows (360743a class), Merge: origin/main_development (507c041), nothing lost, QA pass 3 — new lenses on the NEXT screens (commit 51661ef), Where everything stands
+
+### Community 457 - "reward.funnel.test.ts"
+Cohesion: 0.40
+Nodes (3): FUTURE, NOW, writes
+
+### Community 458 - "7. Sponsor Outreach and Campaign Activation"
+Cohesion: 0.40
+Nodes (5): 7. Sponsor Outreach and Campaign Activation, Campaign Development Workflow, Recommended Campaign Formats, Sponsor Qualification Score, Three-Touch Outreach Sequence
+
+### Community 459 - "17. Phase 3 Intelligence Workflows"
+Cohesion: 0.40
+Nodes (5): 17.1 Dynamic Pricing Workflow, 17.2 Sponsor Matching Workflow, 17.3 Campaign Risk Forecasting, 17.4 Commerce Attribution, 17. Phase 3 Intelligence Workflows
+
+### Community 460 - "27. Phase 4 Core Workflows"
+Cohesion: 0.40
+Nodes (5): 27.1 Virtual Placement Setup, 27.2 Campaign Creative Deployment, 27.3 Virtual Impression / Interaction Measurement, 27.4 Activation → Reward Workflow, 27. Phase 4 Core Workflows
+
+### Community 461 - "7. Phase 2 Primary Workflows"
+Cohesion: 0.40
+Nodes (5): 7.1 External Property Onboarding, 7.2 Marketplace Purchase / Reservation, 7.3 Athlete Campaign Offer and Fulfillment, 7.4 Commission & Payout Calculation, 7. Phase 2 Primary Workflows
+
+### Community 462 - "1. Introduction & Scope"
+Cohesion: 0.40
+Nodes (5): 1.1 Purpose, 1.2 In Scope, 1.3 Out of Scope (Deferred to Later Phases), 1.4 Reference Documents, 1. Introduction & Scope
+
+### Community 463 - "20. Appendices"
+Cohesion: 0.40
+Nodes (5): 20. Appendices, Appendix A — Confirmed Technology Stack, Appendix B — Full Phase 1 Table Catalogue, Appendix C — NIL Jobs & Sponsor Packages (economic reference), Appendix D — Glossary
+
+### Community 464 - "7. Data Architecture"
+Cohesion: 0.40
+Nodes (5): 7.1 Core Entities by Domain, 7.2 Key Relationships (simplified ERD), 7.3 Data Classification & Handling, 7.4 Metric Provenance, 7. Data Architecture
+
+### Community 465 - "5. SponsorX Athlete Rate Card"
+Cohesion: 0.40
+Nodes (5): 5. SponsorX Athlete Rate Card, Anchor, Creator, Emerging, Premium
+
+### Community 466 - "SponsorX-Pricing-Collision_cfb39217.md"
+Cohesion: 0.40
+Nodes (4): Sheet: Catalogue and tiers, Sheet: Decision, Sheet: Job margin collision, Sheet: Package cost swing
+
+### Community 467 - "AI safety checkpoint for destructive commands"
+Cohesion: 0.50
+Nodes (3): AI safety checkpoint for destructive commands, Reference, Required workflow
+
+### Community 470 - "AI safety checkpoint for destructive commands"
+Cohesion: 0.50
+Nodes (3): AI safety checkpoint for destructive commands, Reference, Required workflow
+
+### Community 471 - "8. QR Reward & Fan Commerce Engine"
+Cohesion: 0.50
+Nodes (4): 8. QR Reward & Fan Commerce Engine, Phase 1 Reward Flow, Required Reward Types, Reward Rules
+
+### Community 472 - "10. Measurement, Reporting and Quality Control"
+Cohesion: 0.50
+Nodes (4): 10. Measurement, Reporting and Quality Control, Monthly Dashboard Fields, Quality Review Before Every Major Activity, Year-End Report Structure
+
+### Community 473 - "15. Infrastructure, Environments & Deployment"
+Cohesion: 0.50
+Nodes (4): 15.1 Environments, 15.2 Deployment Topology (recommended), 15.3 CI/CD & Infrastructure-as-Code, 15. Infrastructure, Environments & Deployment
+
+### Community 474 - "5. Application Architecture"
+Cohesion: 0.50
+Nodes (4): 5.1 Frontend, 5.2 Backend Domain Modules, 5.3 Layering Inside a Module, 5. Application Architecture
+
+### Community 475 - "9. Core Workflows & State Machines"
+Cohesion: 0.50
+Nodes (4): 9.1 The Campaign Operating Loop (the heart of Phase 1), 9.2 State Machines, 9.3 QR / Reward Funnel, 9. Core Workflows & State Machines
+
+### Community 478 - "12. Analytics & Measurement"
+Cohesion: 0.67
+Nodes (3): 12. Analytics & Measurement, Core Metrics, Data Quality Flags
+
+### Community 479 - "16. INFINEX World API Architecture"
+Cohesion: 0.67
+Nodes (3): 16. INFINEX World API Architecture, INFINEX Endpoint Contract, Virtual Measurement Rules
+
+### Community 480 - "1. Executive Summary"
+Cohesion: 0.67
+Nodes (3): 1. Executive Summary, Primary Business Objectives, Success Definition for Phase 1
+
+### Community 481 - "20. Estimated Development Budget"
+Cohesion: 0.67
+Nodes (3): 20. Estimated Development Budget, Ongoing Operating Costs After MVP, Suggested Phase 1 Cost Breakdown
+
+### Community 482 - "5. End-to-End Business Workflows"
+Cohesion: 0.67
+Nodes (3): 5. End-to-End Business Workflows, Athlete NIL Workflow, Sponsor Purchase Workflow
+
+### Community 483 - "6. Sponsor Marketplace Specification"
+Cohesion: 0.67
+Nodes (3): 6. Sponsor Marketplace Specification, Inventory Required Fields, Marketplace States
+
+### Community 484 - "2. Governance, Roles and Communication"
+Cohesion: 0.67
+Nodes (3): 2. Governance, Roles and Communication, Decision Rights, Meeting Cadence
+
+### Community 485 - "6. Athlete Readiness and Safeguards"
+Cohesion: 0.67
+Nodes (3): 6. Athlete Readiness and Safeguards, Readiness Scoring Rubric, Required Safeguards
+
+### Community 486 - "8. Media and Content Operations"
+Cohesion: 0.67
+Nodes (3): 8. Media and Content Operations, Content Naming Convention, Media-Day Station Plan
+
+### Community 487 - "How to Use This Plan"
+Cohesion: 0.67
+Nodes (3): How to Use This Plan, Operating Principles, Table of Contents
+
+### Community 488 - "10. Integration Architecture"
+Cohesion: 0.67
+Nodes (3): 10.1 Zoho CRM, 10.2 Integration Patterns, 10. Integration Architecture
+
+### Community 489 - "19. Key Architectural Decisions & Risks"
+Cohesion: 0.67
+Nodes (3): 19.1 Decisions, 19.2 Risks the architecture must keep visible, 19. Key Architectural Decisions & Risks
+
+### Community 490 - "3. System Context (Who & What Connects)"
+Cohesion: 0.67
+Nodes (3): 3.1 Human Actors, 3.2 External Systems, 3. System Context (Who & What Connects)
+
+### Community 491 - "6. Multi-Tenancy & Role-Based Access"
+Cohesion: 0.67
+Nodes (3): 6.1 Tenancy Model, 6.2 Role Catalogue, 6. Multi-Tenancy & Role-Based Access
+
+### Community 492 - "18. Eventually sell SponsorX to other organizations"
+Cohesion: 0.67
+Nodes (3): 18. Eventually sell SponsorX to other organizations, SponsorX Enterprise, SponsorX Pro
+
+### Community 493 - "2. Build the BTG Sponsorship Marketplace"
+Cohesion: 0.67
+Nodes (3): 2. Build the BTG Sponsorship Marketplace, BTG Athlete of the Week, Inventory categories
+
+### Community 494 - "7. CPM pricing engine"
+Cohesion: 0.67
+Nodes (3): 7. CPM pricing engine, Pricing formula, Starting framework
+
+### Community 495 - "1. Program Concept"
+Cohesion: 0.67
+Nodes (3): 1. Program Concept, BTG SponsorX Athlete Network Program, Initial 90-Day Goal
 
 ## Ambiguous Edges - Review These
 - `SponsorX Plain English Explainer (HTML)` → `BTG SponsorX System Overview Plain English (docx)`  [AMBIGUOUS]
   documentation/SponsorX-Plain-English-Explainer.html · relation: conceptually_related_to
 
 ## Knowledge Gaps
-- **1930 isolated node(s):** `name`, `version`, `private`, `type`, `dev` (+1925 more)
-  These have ≤1 connection - possible missing edges or undocumented components. (Counts symbols only; 2221 node(s) total have ≤1 connection when file, concept and rationale nodes are included.)
-- **30 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
+- **4071 isolated node(s):** `name`, `version`, `private`, `type`, `dev` (+4066 more)
+  These have ≤1 connection - possible missing edges or undocumented components. (Counts symbols only; 4512 node(s) total have ≤1 connection when file, concept and rationale nodes are included.)
+- **43 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
 - **What is the exact relationship between `SponsorX Plain English Explainer (HTML)` and `BTG SponsorX System Overview Plain English (docx)`?**
   _Edge tagged AMBIGUOUS (relation: conceptually_related_to) - confidence is low._
-- **Why does `exportAs()` connect `export-report.tsx` to `activity-explorer.tsx`?**
-  _High betweenness centrality (0.163) - this node is a cross-community bridge._
-- **Why does `ExportReport()` connect `activity-explorer.tsx` to `analytics-story.tsx`, `fixtures.ts`, `export-report.tsx`?**
-  _High betweenness centrality (0.134) - this node is a cross-community bridge._
+- **Why does `react` connect `react` to `money`, `matching-studio.tsx`, `frontend/package.json`, `hero.tsx`, `ui.tsx`, `marketplace-catalog.tsx`, `fixtures.ts`, `portal-shell.tsx`, `athlete/page.tsx`, `applications-desk.tsx`, `rewards-desk.tsx`, `activity-explorer.tsx`, `join-wizard.tsx`, `Card`, `approvals-desk.tsx`, `react-dom`, `brief-wizard.tsx`, `campaign-builder.tsx`, `export-report.tsx`, `theme-toggle.tsx`?**
+  _High betweenness centrality (0.016) - this node is a cross-community bridge._
+- **Why does `ZohoClient` connect `ZohoClient` to `zoho-sync.ts`, `index.mts`?**
+  _High betweenness centrality (0.007) - this node is a cross-community bridge._
+- **Why does `The tasks` connect `The tasks` to `Stage 0 · Foundation & Decisions`, `Stage 2 · Platform Foundations`, `Stage 8 · Integration, Hardening & Launch`, `Stage 9 · SponsorX NEXT`, `Stage 3 · Athlete Network`, `Stage 7 · Money & Reporting`, `Stage 5 · Campaign Execution`, `Stage 1 · UI Scaffold on Fixtures`, `Stage 4 · Sponsor Demand & Matching`, `Stage 6 · Measurement & Reward`?**
+  _High betweenness centrality (0.006) - this node is a cross-community bridge._
 - **What connects `name`, `version`, `private` to the rest of the system?**
-  _1930 weakly-connected nodes found - possible documentation gaps or missing edges._
-- **Should `actor.ts` be split into smaller, more focused modules?**
-  _Cohesion score 0.05505279034690799 - nodes in this community are weakly interconnected._
+  _4071 weakly-connected nodes found - possible documentation gaps or missing edges._
+- **Should `money` be split into smaller, more focused modules?**
+  _Cohesion score 0.052597402597402594 - nodes in this community are weakly interconnected._
 - **Should `matching-studio.tsx` be split into smaller, more focused modules?**
   _Cohesion score 0.060087719298245613 - nodes in this community are weakly interconnected._
-- **Should `states.tsx` be split into smaller, more focused modules?**
-  _Cohesion score 0.09032258064516129 - nodes in this community are weakly interconnected._

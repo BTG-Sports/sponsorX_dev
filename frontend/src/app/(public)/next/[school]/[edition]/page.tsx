@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { LiveReader, fetchPublicEdition } from "./live-reader";
 import { Badge } from "@/components/ui";
 import { initials } from "@/components/hero";
 import {
@@ -30,9 +31,6 @@ import {
    that names the student sales model — the funnel, live from day one.
    -------------------------------------------------------------------------- */
 
-export const metadata = {
-  title: "The Northside Current — Fall 2026 · SponsorX NEXT",
-};
 
 /* ------------------------------------------------- inline ad treatments */
 
@@ -77,12 +75,25 @@ function OpenSlotCard({ slot }: { slot: EditionSlot }) {
 
 /* --------------------------------------------------------------- reader */
 
+export async function generateMetadata({ params }: { params: Promise<{ school: string; edition: string }> }) {
+  const { school, edition } = await params;
+  const live = await fetchPublicEdition(school, edition).catch(() => null);
+  const showcase = school === editionReaderSlugs.school && edition === editionReaderSlugs.edition;
+  return { title: live ? `${live.publication} — ${live.label} · SponsorX NEXT` : showcase ? "The Northside Current — Fall 2026 · SponsorX NEXT" : "SponsorX NEXT" };
+}
+
 export default async function EditionReaderPage({
   params,
 }: {
   params: Promise<{ school: string; edition: string }>;
 }) {
   const { school, edition } = await params;
+
+  /* P9-FE-07 — a published edition reads from the API; the API answers
+     404 for every unpublished state, so those stay unreachable. The one
+     fixture address below remains the design showcase (P1-FE-27). */
+  const live = await fetchPublicEdition(school, edition);
+  if (live) return <LiveReader e={live} />;
   if (
     school !== editionReaderSlugs.school ||
     edition !== editionReaderSlugs.edition

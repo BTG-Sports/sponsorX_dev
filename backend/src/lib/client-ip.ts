@@ -35,3 +35,20 @@ export function clientIp(req: Pick<Request, "ip" | "get">): string | undefined {
   }
   return req.ip;
 }
+
+/**
+ * The signer's browser, for §12 acceptance evidence (P5-FE-01).
+ *
+ * Same problem as the address, sharper consequence: an acceptance is made in
+ * the browser but sent by the web server, so `user-agent` here is Node's and
+ * `req.ip` is the web server's — evidence that proves nothing about who
+ * accepted. The web server forwards the signer's agent on
+ * `x-sponsorx-client-ua`, believed only with the same edge key.
+ */
+export function clientUserAgent(req: Pick<Request, "get">): string | undefined {
+  const forwarded = req.get("x-sponsorx-client-ua")?.trim();
+  if (forwarded && keyMatches(req.get("x-sponsorx-edge-key"), env.SPONSORX_EDGE_KEY)) {
+    return forwarded.slice(0, 512);
+  }
+  return req.get("user-agent");
+}

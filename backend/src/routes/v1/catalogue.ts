@@ -7,9 +7,23 @@
 import { Router, type RequestHandler } from "express";
 
 import { requireActor } from "../../auth/actor";
-import { listJobs, listPackages } from "../../domain/catalogue";
+import { limit } from "../../lib/rate-limit";
+import { clientIp } from "../../lib/client-ip";
+import { env } from "../../config/env";
+import { listJobs, listPackages, listPublicPackages } from "../../domain/catalogue";
 
 export const catalogueRouter = Router();
+
+/**
+ * GET /public/catalogue/packages — the §7 price list for the public
+ * /packages page (P3-FE-05). No actor: a visitor browses before they exist
+ * to us, exactly like /applications/intake. Generous limit — a price list is
+ * cheap to serve and the point of a marketing page is being read.
+ */
+catalogueRouter.get("/public/catalogue/packages", async (req, res) => {
+  await limit("catalogue:public", clientIp(req), 120, 3600);
+  res.json({ packages: await listPublicPackages(env.PUBLIC_INTAKE_TENANT_ID) });
+});
 
 /** GET /catalogue/packages — the §7 packages, sponsor prices. */
 const packages: RequestHandler = async (req, res) => {

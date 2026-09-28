@@ -11,7 +11,8 @@ import {
   Sparkline,
 } from "@/components/charts";
 import { CountUp } from "@/components/count-up";
-import { ScoreRing } from "@/components/score-ring";
+import { NoScoreRing, ScoreRing } from "@/components/score-ring";
+import type { LiveStory } from "@/lib/analytics-live";
 import { InsightBanner } from "@/components/insight-banner";
 import { ExportReport } from "@/components/export-report";
 import { buildAnalyticsReport } from "@/lib/analytics-report-data";
@@ -110,9 +111,13 @@ function Kpi({
         <span className="text-2xl font-semibold tracking-tight">
           <CountUp value={value} prefix={prefix} />
         </span>
-        <span className="text-[11px] font-medium tabular-nums text-success">
-          +{delta}
-        </span>
+        {delta !== "" && (
+          <span
+            className={`text-[11px] font-medium tabular-nums ${/^[−-]/.test(delta) ? "text-danger" : delta === "new" || delta === "0%" ? "text-muted" : "text-success"}`}
+          >
+            {/^[−-]/.test(delta) || delta === "new" || delta === "0%" ? delta : `+${delta}`}
+          </span>
+        )}
       </div>
       {spark ? (
         <div className="mt-2">
@@ -126,7 +131,14 @@ function Kpi({
   );
 }
 
-export function AnalyticsStory({ initialRange }: { initialRange: RangeKey }) {
+export function AnalyticsStory({
+  initialRange,
+  live,
+}: {
+  initialRange: RangeKey;
+  /** P6-FE-03 / P7-FE-04 — real numbers per range, from Postgres. */
+  live?: Record<RangeKey, LiveStory>;
+}) {
   const [range, setRange] = useState<RangeKey>(initialRange);
   const [active, setActive] = useState<ChapterId[]>(["what-happened"]);
 
@@ -212,17 +224,21 @@ export function AnalyticsStory({ initialRange }: { initialRange: RangeKey }) {
       .getElementById(id)
       ?.scrollIntoView({ behavior: "smooth", block: "start" });
 
-  const d = analyticsRanges[range];
+  const L = live?.[range];
+  const d = L ? L.dataset : analyticsRanges[range];
   const scans = d.funnel[0].value;
   const claims = d.funnel[2].value;
   const redeemed = d.funnel[3].value;
+  const locations = L ? L.locations : topLocations;
 
-  const athletes = athleteLeaderboard.map((a) => ({
-    ...a,
-    views: Math.round(a.views * d.athleteFactor),
-    claims: Math.round(a.claims * d.athleteFactor),
-    redeemed: Math.round(a.redeemed * d.athleteFactor),
-  }));
+  const athletes = L
+    ? L.athletes
+    : athleteLeaderboard.map((a) => ({
+        ...a,
+        views: Math.round(a.views * d.athleteFactor),
+        claims: Math.round(a.claims * d.athleteFactor),
+        redeemed: Math.round(a.redeemed * d.athleteFactor),
+      }));
 
   return (
     <div className="grid gap-6 xl:grid-cols-[10.5rem_minmax(0,1fr)]">
@@ -282,12 +298,17 @@ export function AnalyticsStory({ initialRange }: { initialRange: RangeKey }) {
             ))}
           </div>
           <div className="ml-auto flex items-center gap-2">
-            <ExportReport
-              payload={{
-                kind: "admin-analytics",
-                report: buildAnalyticsReport(range),
-              }}
-            />
+            {/* The export model is built from the fixture dataset; on live
+                numbers it would print figures that aren't these — so it
+                waits for a live report model rather than lie on paper. */}
+            {!L && (
+              <ExportReport
+                payload={{
+                  kind: "admin-analytics",
+                  report: buildAnalyticsReport(range),
+                }}
+              />
+            )}
             <div
               className="flex gap-1.5"
               role="group"
@@ -299,7 +320,7 @@ export function AnalyticsStory({ initialRange }: { initialRange: RangeKey }) {
                   type="button"
                   onClick={() => setRange(r)}
                   aria-pressed={r === range}
-                  title={analyticsRanges[r].label}
+                  title={(live?.[r]?.dataset ?? analyticsRanges[r]).label}
                   className={[
                     "rounded-lg border px-3 py-1.5 text-[11px] font-medium transition-colors",
                     r === range
@@ -350,13 +371,24 @@ export function AnalyticsStory({ initialRange }: { initialRange: RangeKey }) {
                 spark={d.series.map((p) => p.a)}
                 chip={<MiniChip kind="ver">POSTGRES</MiniChip>}
               />
-              <Kpi
-                label="Revenue Attributed"
-                value={d.revenue}
-                prefix="$"
-                delta={d.deltas.revenue}
-                chip={<SourceLabel source="ATTRIBUTED" />}
-              />
+              {L ? (
+                /* No attribution source in Phase 1 — the real number that
+                   answers "what are we leaving on the table" is this one. */
+                <Kpi
+                  label="Claimed, not yet used"
+                  value={L.dataset.unredeemed}
+                  delta=""
+                  chip={<MiniChip kind="ver">POSTGRES</MiniChip>}
+                />
+              ) : (
+                <Kpi
+                  label="Revenue Attributed"
+                  value={d.revenue ?? 0}
+                  prefix="$"
+                  delta={d.deltas.revenue}
+                  chip={<SourceLabel source="ATTRIBUTED" />}
+                />
+              )}
             </div>
             <div className="mt-3">
               <Card>
@@ -408,11 +440,11 @@ export function AnalyticsStory({ initialRange }: { initialRange: RangeKey }) {
           {/* --------------------------------------- ch 3 + 4, side by side */}
           <div className="grid gap-6 gap-y-10 lg:grid-cols-2">
             <Chapter id="where" no={3} title="Where" fill>
-              <InsightBanner insight={locationInsight(topLocations)} />
+              <InsightBanner insight={locationInsight(locations)} />
               <Card className="flex flex-1 flex-col">
                 <div className="flex-1">
                   <HBarList
-                    rows={topLocations.map((l) => ({
+                    rows={locations.map((l) => ({
                       label: l.place,
                       value: l.pct,
                       display: `${l.pct}%`,
@@ -457,7 +489,7 @@ export function AnalyticsStory({ initialRange }: { initialRange: RangeKey }) {
             <InsightBanner insight={athleteInsight(athletes)} />
             <Card className="p-0">
               <div className="overflow-x-auto">
-                <table className="w-full min-w-[38rem] text-left text-[11px]">
+                <table className={`w-full text-left text-[11px] ${L ? "min-w-[52rem]" : "min-w-[38rem]"}`}>
                   <thead>
                     <tr className="border-b border-line-soft text-[10px] uppercase tracking-wide text-faint">
                       <th className="px-4 py-2.5 font-medium">Athlete</th>
@@ -465,6 +497,13 @@ export function AnalyticsStory({ initialRange }: { initialRange: RangeKey }) {
                       <th className="px-3 py-2.5 font-medium">Engagement</th>
                       <th className="px-3 py-2.5 font-medium">Claims</th>
                       <th className="px-3 py-2.5 font-medium">Redemptions</th>
+                      {L && (
+                        <>
+                          <th className="px-3 py-2.5 font-medium" title="Tracking-link clicks in this range">Clicks</th>
+                          <th className="px-3 py-2.5 font-medium" title="Deliverables due in this range that were published on or before their due day">On time</th>
+                          <th className="px-3 py-2.5 font-medium" title="Revision requests per deliverable with submitted work">Revisions</th>
+                        </>
+                      )}
                       <th className="px-4 py-2.5 text-right font-medium">
                         Score
                       </th>
@@ -476,7 +515,8 @@ export function AnalyticsStory({ initialRange }: { initialRange: RangeKey }) {
                         <td className="px-4 py-2.5">
                           <div className="font-medium">{a.name}</div>
                           <div className="mt-0.5 flex items-center gap-1.5 text-[10px] text-faint">
-                            {a.sport} <SourceLabel source={a.source} />
+                            {a.sport}{" "}
+                            {a.source ? <SourceLabel source={a.source} /> : <span>no reach yet</span>}
                           </div>
                         </td>
                         <td className="px-3 py-2.5 tabular-nums text-muted">
@@ -491,9 +531,20 @@ export function AnalyticsStory({ initialRange }: { initialRange: RangeKey }) {
                         <td className="px-3 py-2.5 tabular-nums">
                           <CountUp value={a.redeemed} />
                         </td>
+                        {L && "clicks" in a && (
+                          <>
+                            <td className="px-3 py-2.5 tabular-nums text-muted">{a.clicks.toLocaleString("en-US")}</td>
+                            <td className="px-3 py-2.5 tabular-nums text-muted">
+                              {a.reliability === null ? "—" : `${a.reliability}%`}
+                            </td>
+                            <td className="px-3 py-2.5 tabular-nums text-muted">
+                              {a.revisionRate === null ? "—" : a.revisionRate}
+                            </td>
+                          </>
+                        )}
                         <td className="px-4 py-2.5">
                           <span className="flex justify-end">
-                            <ScoreRing value={a.score} size={34} />
+                            {a.score === null ? <NoScoreRing size={34} /> : <ScoreRing value={a.score} size={34} />}
                           </span>
                         </td>
                       </tr>

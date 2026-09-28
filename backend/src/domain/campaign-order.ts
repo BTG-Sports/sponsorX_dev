@@ -339,7 +339,10 @@ export async function acceptOrder(
       throw new GuardianRequiredForOrderError();
     }
 
-    const acceptance = await acceptAgreementIn(tx, actor, evidence);
+    /* One acceptance per ORDER, not per signer — see acceptAgreementIn's
+       `oncePerSigner`. The `from !== "SENT"` guard above is the double-accept
+       protection, and it runs inside this transaction. */
+    const acceptance = await acceptAgreementIn(tx, actor, evidence, { oncePerSigner: false });
 
     const updated = await tx.campaignOrder.update({
       where: { id: orderId },

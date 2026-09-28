@@ -221,12 +221,20 @@ export async function readRateCard(actor: Actor, athleteId: string) {
 
   const rates = await prisma.athleteRate.findMany({
     where: { ...whereFor(actor, "athleteRate", "read"), athleteId },
-    select: { jobId: true, amount: true, version: true },
+    /* The job's NAME rides along for the athlete's own card (P3-FE-04) —
+       "Story Drop" is readable, a cuid is not. Only the name: the job's
+       sponsorPrice is §7.1-denied to the athlete side and stays unselected. */
+    select: { jobId: true, amount: true, version: true, job: { select: { name: true } } },
     orderBy: [{ jobId: "asc" }, { version: "desc" }],
   });
 
-  const current = new Map<string, { jobId: string; amount: number; version: number }>();
-  for (const rate of rates) if (!current.has(rate.jobId)) current.set(rate.jobId, rate);
+  const current = new Map<string, { jobId: string; jobName: string; amount: number; version: number }>();
+  for (const rate of rates) {
+    if (!current.has(rate.jobId)) {
+      const { job, ...rest } = rate;
+      current.set(rate.jobId, { ...rest, jobName: job.name });
+    }
+  }
   return [...current.values()];
 }
 

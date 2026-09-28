@@ -26,6 +26,7 @@ let committed = 0;
 let athleteTier = "PREMIUM";
 let created: Record<string, unknown> | null = null;
 let acceptCalls = 0;
+let acceptOpts: unknown = undefined;
 let acceptThrows: Error | null = null;
 let committedWrites: string[] = [];
 
@@ -34,8 +35,9 @@ vi.mock("../src/domain/agreement", async () => {
     "../src/domain/agreement");
   return {
     ...actual,
-    acceptAgreementIn: () => {
+    acceptAgreementIn: (_tx: unknown, _actor: unknown, _req: unknown, opts?: unknown) => {
       acceptCalls += 1;
+      acceptOpts = opts;
       if (acceptThrows) return Promise.reject(acceptThrows);
       return Promise.resolve({
         acceptanceId: "acc_1", acceptedAt: new Date(), guardianId: null,
@@ -129,7 +131,7 @@ beforeEach(() => {
     athleteId: "ath_1", compensation: 10000,
   };
   committed = 0; athleteTier = "PREMIUM";
-  created = null; acceptCalls = 0; acceptThrows = null;
+  created = null; acceptCalls = 0; acceptThrows = null; acceptOpts = undefined;
   committedWrites = [];
 });
 
@@ -190,6 +192,15 @@ describe("3 · acceptance and the order commit together", () => {
       agreementId: "agr_1", bodyHashShown: "h", ip: "1.2.3.4", userAgent: "ua",
     })).resolves.toMatchObject({ state: "ACCEPTED", acceptanceId: "acc_1" });
     expect(committedWrites).toContain("order.update");
+  });
+
+  it("asks for a PER-ORDER acceptance, so a second order under the same version can be signed", async () => {
+    /* Found by the P5-FE-01 walk: once-per-signer made an athlete's second
+       Campaign Order under v1 unacceptable forever (AlreadyAccepted). */
+    await acceptOrder(actor(["ATHLETE"]), "ord_1", {
+      agreementId: "agr_1", bodyHashShown: "h", ip: "1", userAgent: "ua",
+    });
+    expect(acceptOpts).toEqual({ oncePerSigner: false });
   });
 
   it("writes NOTHING when the acceptance fails", async () => {

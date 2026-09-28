@@ -26,8 +26,9 @@
 
 import { prisma } from "../db/client";
 import type { Actor } from "../auth/actor";
-import { assertAllowed, whereFor } from "../auth/scope";
+import { assertAllowed, can, whereFor } from "../auth/scope";
 import { ForbiddenError } from "../auth/errors";
+import { canReadField } from "../auth/fields";
 import type { BrandCategory } from "./brand-categories";
 
 export type EligibleAthlete = {
@@ -39,6 +40,19 @@ export type EligibleAthlete = {
   /** Why this athlete is on the list, so the desk can see the match rather
    *  than trust it. §14's score is a separate concern and is read per row. */
   matched: { sport: boolean; geography: boolean };
+  /* --- what the matching desk weighs (P4-FE-02). Each is present only for
+     a caller who may read it; for anyone else it is ABSENT, not null, so
+     "denied" and "not scored yet" can never be confused. --------------- */
+  city?: string | null;
+  /** Latest §14 snapshot, or null when unscored — never zero. Denied to the
+   *  sponsor/property side by §7's `athleteScore.value`. */
+  score?: { value: number; factors: unknown; method: string; scoredAt: string } | null;
+  /** Summed followers, and whether every account behind the sum is
+   *  platform-verified (§22) — self-reported reach must look different. */
+  reach?: { followers: number | null; verified: boolean };
+  /** Current rate per NIL job, cents. BTG-internal — §7.1 denies
+   *  `athleteRate.amount` to every sponsor-side role. */
+  rates?: { jobId: string; amount: number }[];
 };
 
 export type EligibilityCriteria = {
@@ -68,6 +82,13 @@ export async function eligibleAthletes(
   const stateCodes = criteria.stateCodes?.filter(Boolean) ?? [];
   const categories = criteria.categories?.filter(Boolean) ?? [];
 
+  /* Column rights, decided once per call from the matrix — never from who
+     the route thinks is asking. */
+  const seeScore =
+    canReadField(actor.roles, "athleteScore.value") && can(actor, "athleteScore", "read");
+  const seeRates =
+    canReadField(actor.roles, "athleteRate.amount") && can(actor, "athleteRate", "read");
+
   const rows = await prisma.athlete.findMany({
     where: {
       ...whereFor(actor, "athlete", "read"),
@@ -79,23 +100,74 @@ export async function eligibleAthletes(
         : {}),
     },
     select: {
-      id: true, displayName: true, sport: true, stateCode: true, tier: true,
+      id: true, displayName: true, sport: true, stateCode: true, tier: true, city: true,
+      ...(seeScore
+        ? {
+            scores: {
+              select: { score: true, factors: true, method: true, scoredAt: true },
+              orderBy: { scoredAt: "desc" as const },
+              take: 1,
+            },
+          }
+        : {}),
+      socials: { select: { followers: true, source: true } },
+      ...(seeRates
+        ? { rates: { select: { jobId: true, amount: true, version: true } } }
+        : {}),
     },
     orderBy: [{ displayName: "asc" }],
     take: Math.min(criteria.limit ?? 100, 200),
   });
 
-  return rows.map((row) => ({
-    id: row.id,
-    displayName: row.displayName,
-    sport: row.sport,
-    stateCode: row.stateCode,
-    tier: row.tier,
-    matched: {
-      sport: sports.length === 0 || sports.includes(row.sport),
-      geography: stateCodes.length === 0 || (!!row.stateCode && stateCodes.includes(row.stateCode)),
-    },
-  }));
+  return rows.map((row) => {
+    const r = row as typeof row & {
+      scores?: { score: number; factors: unknown; method: string; scoredAt: Date }[];
+      rates?: { jobId: string; amount: number; version: number }[];
+    };
+    const counted = row.socials.filter((s) => s.followers !== null);
+    return {
+      id: row.id,
+      displayName: row.displayName,
+      sport: row.sport,
+      stateCode: row.stateCode,
+      tier: row.tier,
+      matched: {
+        sport: sports.length === 0 || sports.includes(row.sport),
+        geography: stateCodes.length === 0 || (!!row.stateCode && stateCodes.includes(row.stateCode)),
+      },
+      city: row.city,
+      ...(seeScore
+        ? {
+            score: r.scores?.[0]
+              ? {
+                  value: r.scores[0].score,
+                  factors: r.scores[0].factors,
+                  method: r.scores[0].method,
+                  scoredAt: r.scores[0].scoredAt.toISOString(),
+                }
+              : null,
+          }
+        : {}),
+      reach: {
+        followers: counted.length ? counted.reduce((n, s) => n + (s.followers ?? 0), 0) : null,
+        verified: counted.length > 0 && counted.every((s) => s.source !== "SELF_REPORTED"),
+      },
+      ...(seeRates ? { rates: currentRates(r.rates ?? []) } : {}),
+    };
+  });
+}
+
+/** The live rate per job is the highest version — older versions are kept
+ *  as history (P3-BE-09) and must not be read as a second rate. */
+function currentRates(
+  rows: readonly { jobId: string; amount: number; version: number }[],
+): { jobId: string; amount: number }[] {
+  const best = new Map<string, { amount: number; version: number }>();
+  for (const r of rows) {
+    const had = best.get(r.jobId);
+    if (!had || r.version > had.version) best.set(r.jobId, { amount: r.amount, version: r.version });
+  }
+  return [...best].map(([jobId, v]) => ({ jobId, amount: v.amount })).sort((a, b) => a.jobId.localeCompare(b.jobId));
 }
 
 /** Shortlist straight from a brief, so the desk cannot mistype its criteria. */

@@ -125,6 +125,7 @@ export function Button({
   full,
   disabled,
   title,
+  onClick,
 }: {
   children: ReactNode;
   variant?: "primary" | "secondary" | "ghost";
@@ -132,6 +133,8 @@ export function Button({
   full?: boolean;
   disabled?: boolean;
   title?: string;
+  /** Only from a client component — a server-rendered Button stays inert. */
+  onClick?: () => void;
 }) {
   const base =
     "inline-flex items-center justify-center gap-1.5 rounded-lg px-3.5 py-2 text-xs font-medium transition-colors outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-bg";
@@ -150,7 +153,7 @@ export function Button({
     );
   }
   return (
-    <button type="button" className={cls} disabled={disabled} title={title}>
+    <button type="button" className={cls} disabled={disabled} title={title} onClick={onClick}>
       {children}
     </button>
   );

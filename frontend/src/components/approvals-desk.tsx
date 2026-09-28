@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { useRouter } from "next/navigation";
 import { Badge, Card } from "@/components/ui";
 import { MiniChip } from "@/components/hero";
 import {
@@ -12,6 +13,14 @@ import {
 } from "@/components/filter-kit";
 import { Pagination } from "@/components/pagination";
 import type { ReviewContentItem } from "@/lib/fixtures";
+import {
+  isLiveItem,
+  liveMoves,
+  MOVE_LABEL,
+  type ApprovalActionKind,
+  type ApprovalResult,
+  type AssetLinkResult,
+} from "@/lib/approvals-live";
 import {
   ADVANCE,
   AGING_HOURS,
@@ -200,13 +209,25 @@ function StageTracker({ current }: { current: number }) {
 
 /* ------------------------------------------------------------ ApprovalsDesk */
 
+/** Present only for a signed-in BTG desk on real deliverables (P5-FE-04). */
+export type LiveDesk = {
+  act: (id: string, kind: ApprovalActionKind, note?: string) => Promise<ApprovalResult>;
+  link: (id: string, version: number) => Promise<AssetLinkResult>;
+};
+
+/** A live item whose revision is still open sits on the athlete's desk. */
+const baseState = (it: Item): EffectiveState =>
+  isLiveItem(it) && it.live.revisionReason && it.state === "DRAFT_SUBMITTED" ? "REVISION" : it.state;
+
 export function ApprovalsDesk({
   items,
   demoParam,
   initial,
+  live,
 }: {
   items: Item[];
   demoParam?: string;
+  live?: LiveDesk;
   initial?: Partial<
     Record<"tab" | "q" | "camp" | "kind" | "sort" | "page" | "size", string>
   >;
@@ -263,7 +284,7 @@ export function ApprovalsDesk({
   /* Demo decisions — local to this visit, undoable, never persisted. The
      value is where the deliverable moved to; Undo restores how it arrived. */
   const [moves, setMoves] = useState<Record<string, EffectiveState>>({});
-  const eff = (it: Item): EffectiveState => moves[it.id] ?? it.state;
+  const eff = (it: Item): EffectiveState => moves[it.id] ?? baseState(it);
 
   const [openId, setOpenId] = useState<string | null>(null);
   /* Closing keeps the drawer mounted while the -out animation plays;
@@ -292,7 +313,7 @@ export function ApprovalsDesk({
   const needle = q.trim().toLowerCase();
   const shown = useMemo(() => {
     const list = items.filter((it) => {
-      const s = moves[it.id] ?? it.state;
+      const s = moves[it.id] ?? baseState(it);
       const tabOk =
         tab === "all" ? true : tab === "review" ? inQueue(s) : !inQueue(s);
       return (
@@ -368,7 +389,7 @@ export function ApprovalsDesk({
   const counts = useMemo(() => {
     const c = { review: 0, cleared: 0, all: items.length };
     for (const it of items) {
-      if (inQueue(moves[it.id] ?? it.state)) c.review += 1;
+      if (inQueue(moves[it.id] ?? baseState(it))) c.review += 1;
       else c.cleared += 1;
     }
     return c;
@@ -578,7 +599,7 @@ export function ApprovalsDesk({
                       </span>
                       {moves[it.id] && (
                         <span className="text-[10px] font-medium text-muted">
-                          moved this visit
+                          {live ? "updated" : "moved this visit"}
                         </span>
                       )}
                     </span>
@@ -633,6 +654,8 @@ export function ApprovalsDesk({
             item={sel}
             state={eff(sel)}
             moved={Boolean(moves[sel.id])}
+            live={live}
+            onLiveMoved={(to) => setMoves((prev) => ({ ...prev, [sel.id]: to as EffectiveState }))}
             onMove={(to) => setMoves((prev) => ({ ...prev, [sel.id]: to }))}
             onUndo={() =>
               setMoves((prev) => {
@@ -658,6 +681,8 @@ function ReviewDrawer({
   item: it,
   state: s,
   moved,
+  live,
+  onLiveMoved,
   onMove,
   onUndo,
   closing,
@@ -668,6 +693,8 @@ function ReviewDrawer({
   item: Item;
   state: EffectiveState;
   moved: boolean;
+  live?: LiveDesk;
+  onLiveMoved: (to: string) => void;
   onMove: (to: EffectiveState) => void;
   onUndo: () => void;
   closing: boolean;
@@ -764,20 +791,27 @@ function ReviewDrawer({
                   iconCls="size-5"
                 />
                 <p className="mt-2 text-[11px] font-medium text-muted">
-                  {it.assetKind === "video" ? "Video draft" : "Image draft"} ·
-                  v{it.version}
+                  {live && isLiveItem(it)
+                    ? it.live.latestVersion
+                      ? `${it.assetKind === "video" ? "Video" : "Image"} job · v${it.live.latestVersion}`
+                      : "Nothing uploaded yet"
+                    : `${it.assetKind === "video" ? "Video draft" : "Image draft"} · v${it.version}`}
                 </p>
               </div>
             </div>
             <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1.5">
-              <button
-                type="button"
-                title="Open the signed asset URL — not wired"
-                className="inline-flex items-center gap-1.5 rounded-lg border border-line px-3 py-2 text-xs font-medium text-muted transition-colors hover:bg-surface-2 hover:text-text"
-              >
-                Open full asset
-                <span aria-hidden="true">↗</span>
-              </button>
+              {live && isLiveItem(it) ? (
+                <OpenAsset id={it.id} version={it.live.latestVersion} link={live.link} />
+              ) : (
+                <button
+                  type="button"
+                  title="Open the signed asset URL — not wired"
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-line px-3 py-2 text-xs font-medium text-muted transition-colors hover:bg-surface-2 hover:text-text"
+                >
+                  Open full asset
+                  <span aria-hidden="true">↗</span>
+                </button>
+              )}
               <p className="min-w-0 flex-1 text-[10px] leading-relaxed text-faint">
                 Creative lives in the private bucket — opened only through
                 short-lived signed links, never public.
@@ -796,6 +830,19 @@ function ReviewDrawer({
             <p className="mt-3 text-xs leading-relaxed text-muted">
               {STATE_DETAIL[s]}
             </p>
+            {live && isLiveItem(it) && it.live.revisionReason && s === "REVISION" && (
+              <p className="mt-2 whitespace-pre-wrap rounded-lg bg-warn/10 px-3 py-2 text-[11px] leading-relaxed text-text">
+                {it.live.revisionReason}
+              </p>
+            )}
+            {live && isLiveItem(it) && it.live.publishedUrl && (
+              <p className="mt-2 truncate text-[11px] text-muted">
+                Live at{" "}
+                <a href={it.live.publishedUrl} target="_blank" rel="noopener noreferrer" className="font-medium text-admin underline underline-offset-2">
+                  {it.live.publishedUrl}
+                </a>
+              </p>
+            )}
             {s === "PUBLISHED" && (
               <p className="mt-2 text-[10px] leading-relaxed text-faint">
                 Usage-rights expiry is tracked from publication — if the window
@@ -828,6 +875,9 @@ function ReviewDrawer({
         </div>
 
         {/* decision bar — pinned */}
+        {live && isLiveItem(it) ? (
+          <LiveDecisionBar item={it} state={s} act={live.act} onMoved={onLiveMoved} />
+        ) : (
         <div className="sx-animate sx-delay-4 shrink-0 border-t border-line-soft p-5">
           <div aria-live="polite">
             {line && (
@@ -878,7 +928,192 @@ function ReviewDrawer({
             Demo decisions last for this visit only — nothing is saved.
           </p>
         </div>
+        )}
       </div>
+    </div>
+  );
+}
+
+/* --------------------------------------------------------- live decisions */
+
+/** Opens a short-lived signed link to the latest version (API-audited). */
+function OpenAsset({
+  id,
+  version,
+  link,
+}: {
+  id: string;
+  version: number | null;
+  link: LiveDesk["link"];
+}) {
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  if (!version) return <span className="text-[11px] text-faint">No upload to open yet.</span>;
+  return (
+    <span className="inline-flex flex-col">
+      <button
+        type="button"
+        disabled={busy}
+        onClick={async () => {
+          setBusy(true);
+          setErr(null);
+          /* Open synchronously so the browser doesn't treat it as a popup,
+             then point it at the signed URL once it arrives. */
+          const w = window.open("about:blank", "_blank");
+          const r = await link(id, version);
+          setBusy(false);
+          if (r.ok && w) w.location.href = r.url;
+          else {
+            w?.close();
+            setErr(r.ok ? "Your browser blocked the new tab." : r.message);
+          }
+        }}
+        className="inline-flex items-center gap-1.5 rounded-lg border border-line px-3 py-2 text-xs font-medium text-text transition-colors hover:bg-surface-2 disabled:opacity-50"
+      >
+        {busy ? "Signing…" : `Open v${version}`}
+        <span aria-hidden="true">↗</span>
+      </button>
+      {err && <span className="mt-1 text-[10px] text-danger">{err}</span>}
+    </span>
+  );
+}
+
+/**
+ * The real §21 decision bar (P5-FE-04). Offers exactly the moves the state
+ * machine allows from here; a revision needs its reason, which goes to the
+ * athlete verbatim. No Undo — a real decision is already audited and the
+ * athlete may already have been told.
+ */
+function LiveDecisionBar({
+  item: it,
+  state: s,
+  act,
+  onMoved,
+}: {
+  item: Item & { live: { revisionReason: string | null } };
+  state: EffectiveState;
+  act: LiveDesk["act"];
+  onMoved: (to: string) => void;
+}) {
+  const router = useRouter();
+  const moves = liveMoves(s === "REVISION" ? "DRAFT_SUBMITTED" : s, s === "REVISION");
+  const [writing, setWriting] = useState(false);
+  const [note, setNote] = useState("");
+  const [busy, setBusy] = useState<ApprovalActionKind | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [done, setDone] = useState<string | null>(null);
+
+  const go = async (kind: ApprovalActionKind) => {
+    setBusy(kind);
+    setError(null);
+    const r = await act(it.id, kind, kind === "revision" ? note : undefined);
+    setBusy(null);
+    if (!r.ok) return setError(r.message);
+    setWriting(false);
+    setNote("");
+    setDone(
+      kind === "revision"
+        ? `Sent back to ${it.athlete} with your notes.`
+        : kind === "verify"
+          ? "Verified — it now counts toward the athlete's earning."
+          : kind === "approve"
+            ? "Approved — the athlete has been told to publish."
+            : kind === "sponsor-review"
+              ? `Sent to ${it.sponsor} for their sign-off.`
+              : "Review started — it's on the BTG desk now.",
+    );
+    onMoved(kind === "revision" ? "REVISION" : r.state);
+    router.refresh();
+  };
+
+  const primary = moves.filter((m) => m !== "revision");
+  return (
+    <div className="sx-animate sx-delay-4 shrink-0 border-t border-line-soft p-5">
+      <div aria-live="polite">
+        {done && (
+          <p className="sx-pop mb-3 rounded-lg border border-accent/25 bg-accent/8 px-3 py-2.5 text-xs leading-relaxed text-text">
+            {done}
+          </p>
+        )}
+        {error && (
+          <p role="alert" className="mb-3 rounded-lg bg-danger/10 px-3 py-2 text-[11px] leading-relaxed text-danger">
+            {error}
+          </p>
+        )}
+      </div>
+
+      {writing ? (
+        <div className="space-y-2">
+          <label className="block">
+            <span className="text-[11px] font-medium text-muted">What needs to change?</span>
+            <textarea
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              rows={3}
+              placeholder="The athlete gets these words exactly."
+              className="mt-1 w-full resize-none rounded-lg border border-line bg-surface px-3 py-2 text-xs outline-none focus:border-admin/60"
+            />
+          </label>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              disabled={!note.trim() || busy !== null}
+              onClick={() => go("revision")}
+              className="flex-1 rounded-lg bg-primary px-3.5 py-2 text-xs font-medium text-cta-ink transition-colors hover:bg-primary-soft disabled:opacity-40"
+            >
+              {busy === "revision" ? "Sending…" : "Send revision request"}
+            </button>
+            <button
+              type="button"
+              onClick={() => setWriting(false)}
+              className="rounded-lg border border-line px-3.5 py-2 text-xs font-medium text-text transition-colors hover:bg-surface-2"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      ) : moves.length > 0 ? (
+        <div className="flex flex-wrap items-center gap-2">
+          {primary.map((m, i) => (
+            <button
+              key={m}
+              type="button"
+              disabled={busy !== null}
+              onClick={() => go(m)}
+              className={
+                i === 0
+                  ? "inline-flex flex-1 items-center justify-center rounded-lg bg-primary px-3.5 py-2 text-xs font-medium text-cta-ink transition-colors hover:bg-primary-soft disabled:opacity-40"
+                  : "inline-flex items-center justify-center rounded-lg border border-line px-3.5 py-2 text-xs font-medium text-text transition-colors hover:bg-surface-2 disabled:opacity-40"
+              }
+            >
+              {busy === m ? "Working…" : m === "approve" && s === "SPONSOR_REVIEW" ? "Approve (sponsor signed off)" : MOVE_LABEL[m]}
+            </button>
+          ))}
+          {moves.includes("revision") && (
+            <button
+              type="button"
+              disabled={busy !== null}
+              onClick={() => setWriting(true)}
+              className="inline-flex items-center justify-center rounded-lg border border-line px-3.5 py-2 text-xs font-medium text-text transition-colors hover:bg-surface-2 disabled:opacity-40"
+            >
+              {MOVE_LABEL.revision}
+            </button>
+          )}
+        </div>
+      ) : (
+        <p className="text-[11px] leading-relaxed text-muted">
+          {s === "REVISION"
+            ? "Waiting on the athlete's next version."
+            : s === "APPROVED"
+              ? "Waiting on the athlete to publish and send the link."
+              : s === "VERIFIED"
+                ? "Verified — nothing left to decide."
+                : "Nothing to decide here yet."}
+        </p>
+      )}
+      <p className="mt-3 text-[10px] leading-relaxed text-faint">
+        Decisions are saved, audited and the athlete is notified — there is no undo.
+      </p>
     </div>
   );
 }
