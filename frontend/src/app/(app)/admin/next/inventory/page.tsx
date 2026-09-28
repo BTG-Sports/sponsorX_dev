@@ -5,6 +5,8 @@ import {
 } from "@/components/edition-inventory";
 import { EmptyState, SkeletonPage } from "@/components/states";
 import { demoState } from "@/lib/demo";
+import { liveEditions } from "../live";
+import { LiveInventory } from "./live-inventory";
 import {
   SLOT_RACK_CENTS,
   editionBackCover,
@@ -36,6 +38,12 @@ export default async function InventoryLedgerPage({
     state: typeof sp.state === "string" ? sp.state : undefined,
     kind: typeof sp.kind === "string" ? sp.kind : undefined,
   };
+
+  /* P9-FE-04 — a signed-in NEXT desk reads the real ledger. */
+  if (!demo) {
+    const live = await liveEditions(typeof sp.edition === "string" ? sp.edition : undefined);
+    if (live) return <LiveInventory live={live} initial={initial} />;
+  }
 
   const heading = (
     <div className="flex flex-wrap items-end justify-between gap-4">

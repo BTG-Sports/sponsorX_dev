@@ -6,6 +6,8 @@ import { HeroBand, MiniChip } from "@/components/hero";
 import { JourneyStrip, type JourneyStep } from "@/components/journey-strip";
 import { EmptyState, SkeletonPage } from "@/components/states";
 import { demoState } from "@/lib/demo";
+import { liveStudent } from "./live";
+import { LiveStudentHome, StudentUnlinked } from "./live-views";
 import {
   PROSPECT_COPY,
   STUDENT_ASSIGNMENT_COPY,
@@ -50,6 +52,14 @@ export default async function StudentHomePage({
   const demo = await demoState(searchParams);
   if (demo === "loading") return <SkeletonPage />;
   if (demo === "error") throw new Error("Demo error state");
+
+  /* P9-FE-01 — a signed-in student reads their own records; ?demo= and BTG
+     previews keep the fixture screen below. */
+  if (!demo) {
+    const live = await liveStudent(["code", "sales", "points", "prospects"]);
+    if (live?.kind === "unlinked") return <StudentUnlinked title="Home" />;
+    if (live) return <LiveStudentHome live={live} />;
+  }
 
   const heading = (
     <div className="flex flex-wrap items-end justify-between gap-4">

@@ -21,6 +21,9 @@ export type Actor = {
   roles: string[];
   /** The sponsor org this user belongs to, or null (P4-FE-01). */
   sponsorId?: string | null;
+  /** The school (NEXT advisor / student) and the student record (P9-FE-01). */
+  propertyId?: string | null;
+  studentId?: string | null;
 };
 
 /** Why there is no actor, when there isn't one. Three states, because

@@ -5,6 +5,8 @@ import {
   type AssignmentRow,
 } from "@/components/student-assignments";
 import { demoState } from "@/lib/demo";
+import { liveStudent } from "../live";
+import { LiveAssignmentsNotice, StudentUnlinked } from "../live-views";
 import { student, studentAssignments, studentEdition } from "@/lib/fixtures";
 
 /* --------------------------------------------------------------------------
@@ -22,6 +24,14 @@ export default async function StudentAssignmentsPage({
   const demo = await demoState(searchParams);
   if (demo === "loading") return <SkeletonPage />;
   if (demo === "error") throw new Error("Demo error state");
+
+  /* P9-FE-01 — no editorial-assignment model exists in the backend yet; a
+     signed-in student is told so instead of seeing fixture assignments. */
+  if (!demo) {
+    const live = await liveStudent();
+    if (live?.kind === "unlinked") return <StudentUnlinked title="Assignments" />;
+    if (live) return <LiveAssignmentsNotice />;
+  }
 
   const sp = await searchParams;
   const initialFilter = typeof sp.f === "string" ? sp.f : undefined;

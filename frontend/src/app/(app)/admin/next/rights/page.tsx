@@ -2,6 +2,8 @@ import { Badge, Button, Card, Meter, SectionHeading } from "@/components/ui";
 import { HeroBand } from "@/components/hero";
 import { EmptyState, SkeletonPage } from "@/components/states";
 import { demoState } from "@/lib/demo";
+import { liveEditions, requestTime } from "../live";
+import { LiveRights } from "./live-rights";
 import {
   clearanceQueue,
   contentRights,
@@ -67,6 +69,13 @@ export default async function RightsLedgerPage({
   const demo = await demoState(searchParams);
   if (demo === "loading") return <SkeletonPage />;
   if (demo === "error") throw new Error("Demo error state");
+
+  /* P9-FE-09 — a signed-in NEXT desk reads the real ContentRight ledger. */
+  if (!demo) {
+    const sp = await searchParams;
+    const live = await liveEditions(typeof sp.edition === "string" ? sp.edition : undefined);
+    if (live) return <LiveRights live={live} today={new Date(requestTime()).toISOString().slice(0, 10)} />;
+  }
 
   const heading = (
     <div className="flex flex-wrap items-end justify-between gap-4">

@@ -3,6 +3,11 @@ import { Badge, Button, Card, SectionHeading } from "@/components/ui";
 import { HeroBand } from "@/components/hero";
 import { EmptyState, SkeletonPage } from "@/components/states";
 import { demoState } from "@/lib/demo";
+import { apiFetch, fetchActor } from "@/server/api";
+import type { ApiStudent } from "@/lib/students-live";
+import { LiveAdvisorDesk, type ApiClaim } from "./live-advisor";
+
+const DESK_ROLES = ["ADVISOR", "SUPER_ADMIN", "BTG_ADMIN"];
 import {
   STUDENT_APPLICATION_COPY,
   advisorContentQueue,
@@ -38,6 +43,22 @@ export default async function AdvisorHomePage({
   const demo = await demoState(searchParams);
   if (demo === "loading") return <SkeletonPage />;
   if (demo === "error") throw new Error("Demo error state");
+
+  /* P9-FE-02 — a signed-in advisor (or BTG) reviews real Student records. */
+  if (!demo) {
+    const who = await fetchActor();
+    if (who.status === "linked" && who.actor.roles.some((r) => DESK_ROLES.includes(r))) {
+      const res = await apiFetch("/students");
+      if (!res.ok) throw new Error(`Students unavailable (${res.status}).`);
+      const { students } = (await res.json()) as { students: ApiStudent[] };
+      /* P9-FE-08 — claims on featured profiles at this school; a role outside
+         the claim matrix (403) simply has none to show. */
+      const cRes = await apiFetch("/claims");
+      if (!cRes.ok && cRes.status !== 403) throw new Error(`Claims unavailable (${cRes.status}).`);
+      const claims = cRes.ok ? ((await cRes.json()) as { claims: ApiClaim[] }).claims : [];
+      return <LiveAdvisorDesk students={students} claims={claims} />;
+    }
+  }
 
   const heading = (
     <div className="flex flex-wrap items-end justify-between gap-4">

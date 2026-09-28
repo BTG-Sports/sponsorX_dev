@@ -6,6 +6,8 @@ import { EmptyState, SkeletonPage } from "@/components/states";
    as undefined and the hero square rendered empty (QA sweep 2026-09-24). */
 import { ICONS } from "@/components/icons";
 import { demoState } from "@/lib/demo";
+import { liveStudent } from "../live";
+import { LiveStudentPoints, StudentUnlinked } from "../live-views";
 import {
   POINT_RULES,
   student,
@@ -35,6 +37,14 @@ export default async function StudentPointsPage({
   const demo = await demoState(searchParams);
   if (demo === "loading") return <SkeletonPage />;
   if (demo === "error") throw new Error("Demo error state");
+
+  /* P9-FE-01 — a signed-in student reads their own records; ?demo= and BTG
+     previews keep the fixture screen below. */
+  if (!demo) {
+    const live = await liveStudent(["sales", "points"]);
+    if (live?.kind === "unlinked") return <StudentUnlinked title="Points" />;
+    if (live) return <LiveStudentPoints live={live} />;
+  }
 
   const heading = (
     <div>

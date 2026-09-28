@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { AthleteProfileView } from "@/components/athlete-profile-view";
 import { BackLink } from "@/components/back-link";
 import { resolveBack } from "@/lib/back";
+import { FeaturedProfile, fetchPublicAthlete } from "./featured-profile";
 
 /* --------------------------------------------------------------------------
    Athlete Profile — §9 screen 5, mockup screen 6.
@@ -33,6 +34,24 @@ export default async function AthleteProfilePage({
   if (from === "athlete-portal") redirect("/athlete/profile");
 
   const back = resolveBack(from, "mk-athletes");
+
+  /* P1-FE-28 / P9-FE-08 — a FEATURED athlete renders as editorial with the
+     claim as its only action. Every other slug keeps the existing profile
+     view unchanged (the ACTIVE behaviour this task must not move). */
+  const live = await fetchPublicAthlete(slug);
+  if (live?.featured) {
+    return (
+      <div className="mx-auto w-full max-w-5xl px-6 py-8">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <BackLink target={back} />
+          <span className="text-[10px] font-medium uppercase tracking-[0.2em] text-faint">Featured profile · editorial</span>
+        </div>
+        <div className="mt-4">
+          <FeaturedProfile a={live} />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="mx-auto w-full max-w-5xl px-6 py-8">

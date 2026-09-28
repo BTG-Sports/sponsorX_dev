@@ -2,6 +2,8 @@ import { Badge, Button, Card, Meter, SectionHeading } from "@/components/ui";
 import { MiniChip } from "@/components/hero";
 import { EmptyState, SkeletonPage } from "@/components/states";
 import { demoState } from "@/lib/demo";
+import { liveStudent } from "../live";
+import { LiveStudentSales, StudentUnlinked } from "../live-views";
 import {
   PROSPECT_COPY,
   money,
@@ -40,6 +42,14 @@ export default async function StudentSalesPage({
   const demo = await demoState(searchParams);
   if (demo === "loading") return <SkeletonPage />;
   if (demo === "error") throw new Error("Demo error state");
+
+  /* P9-FE-01 — a signed-in student reads their own records; ?demo= and BTG
+     previews keep the fixture screen below. */
+  if (!demo) {
+    const live = await liveStudent(["code", "sales", "prospects"]);
+    if (live?.kind === "unlinked") return <StudentUnlinked title="My sales" />;
+    if (live) return <LiveStudentSales live={live} />;
+  }
 
   const heading = (
     <div className="flex flex-wrap items-end justify-between gap-4">

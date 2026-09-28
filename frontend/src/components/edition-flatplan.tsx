@@ -41,6 +41,9 @@ const STATE_TONE = {
 const WIRING_TITLE =
   "Wired by P9-FE-03 against the AdSlot ledger (Stage 9 — gated behind B8 and a sold edition)";
 
+/** A live slot carries its own rack price; a fixture slot takes the card's. */
+const rackOf = (s: EditionSlot) => s.rackCents ?? SLOT_RACK_CENTS[s.kind];
+
 /** Fraction of a page a slot occupies — drives the drawn heights. */
 const FRACTION: Record<AdSlotKind, number> = {
   FULL: 1,
@@ -67,7 +70,7 @@ function SlotBlock({ slot }: { slot: EditionSlot }) {
   }
   return (
     <span className="grid h-full w-full place-items-center rounded-[3px] border border-line bg-surface-2/80 text-[8px] tabular-nums text-faint">
-      {money(SLOT_RACK_CENTS[slot.kind])}
+      {money(rackOf(slot))}
     </span>
   );
 }
@@ -180,17 +183,22 @@ export function EditionFlatplan({
   backCover,
   closeDate,
   initialOpenPage,
+  live = false,
 }: {
   pages: EditionPage[];
-  backCover: EditionSlot;
+  /** null — a live edition whose inventory has no back cover. */
+  backCover: EditionSlot | null;
   closeDate: string;
   /** Deep-link (?open=N from the inventory ledger); 0 opens the back cover. */
   initialOpenPage?: number;
+  /** Live ledger (P9-FE-03): positions sell with a campaign's package, from
+   *  the sell panel — the drawer states that instead of per-slot buttons. */
+  live?: boolean;
 }) {
   const [open, setOpen] = useState<EditionPage | null>(() => {
     if (initialOpenPage === undefined) return null;
     if (initialOpenPage === 0)
-      return { page: 0, title: "Back cover", slots: [backCover] };
+      return backCover ? { page: 0, title: "Back cover", slots: [backCover] } : null;
     return pages.find((p) => p.page === initialOpenPage) ?? null;
   });
   const [closing, setClosing] = useState(false);
@@ -242,11 +250,9 @@ export function EditionFlatplan({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [closing]);
 
-  const backAsPage: EditionPage = {
-    page: 0,
-    title: "Back cover",
-    slots: [backCover],
-  };
+  const backAsPage: EditionPage | null = backCover
+    ? { page: 0, title: "Back cover", slots: [backCover] }
+    : null;
 
   return (
     <div className="min-w-0">
@@ -278,6 +284,12 @@ export function EditionFlatplan({
       </div>
 
       {/* ------------------------------------------ the singleton, apart */}
+      {!backCover || !backAsPage ? (
+        <p className="mt-6 rounded-xl border border-line bg-surface px-4 py-3 text-xs text-muted">
+          No back cover in this edition&rsquo;s inventory yet — add it from the
+          inventory ledger. An edition has at most one.
+        </p>
+      ) : (
       <div className="mt-6 flex flex-wrap items-center gap-5 rounded-xl border border-next/40 bg-surface p-4 shadow-[0_0_30px_-12px_var(--sx-next)]">
         <div className="w-24 shrink-0">
           <PageCard page={backAsPage} onOpen={show} />
@@ -288,10 +300,12 @@ export function EditionFlatplan({
             <span className="text-next">1 of 1</span>
           </p>
           <p className="mt-1 text-xs text-muted">
-            {money(SLOT_RACK_CENTS.BACK_COVER)} ·{" "}
+            {money(rackOf(backCover))} ·{" "}
             {backCover.state === "OPEN"
               ? "still open"
-              : backCover.state.toLowerCase()}{" "}
+              : backCover.state === "SOLD" && backCover.sponsor
+                ? `sold to ${backCover.sponsor}`
+                : backCover.state.toLowerCase()}{" "}
             · unsellable after {closeDate}
           </p>
           <p className="mt-1 text-[11px] leading-relaxed text-faint">
@@ -300,6 +314,7 @@ export function EditionFlatplan({
           </p>
         </div>
       </div>
+      )}
 
       {/* ------------------------------------------------------- drawer */}
       {open && (
@@ -361,15 +376,15 @@ export function EditionFlatplan({
                   </div>
                   <p className="mt-1 text-[11px] text-muted">
                     {KIND_LABEL[s.kind]} · rack{" "}
-                    {money(SLOT_RACK_CENTS[s.kind])}
+                    {money(rackOf(s))}
                   </p>
                   {s.state === "SOLD" && (
                     <p className="mt-1.5 text-xs">
-                      <span className="font-medium">{s.sponsor}</span>{" "}
+                      <span className="font-medium">{s.sponsor ?? "Taken"}</span>{" "}
                       <span className="tabular-nums text-muted">
                         · closed at {money(s.soldCents ?? 0)}
                       </span>
-                      {s.soldCents !== SLOT_RACK_CENTS[s.kind] && (
+                      {s.soldCents !== rackOf(s) && (
                         <span className="text-[10px] text-faint">
                           {" "}
                           (differs from rack — value frozen at close)
@@ -391,6 +406,14 @@ export function EditionFlatplan({
               )}
             </ul>
 
+            {live ? (
+              <p className="mt-auto pt-5 text-[11px] leading-relaxed text-faint">
+                Positions sell with a campaign&rsquo;s package — all the
+                positions it promises, or none — from &ldquo;Book a
+                campaign&rdquo; on the edition. A sold position is never
+                resold; the ledger refuses it.
+              </p>
+            ) : (
             <div className="mt-auto space-y-2 pt-5">
               <Button full disabled title={WIRING_TITLE}>
                 Reserve a position
@@ -399,6 +422,7 @@ export function EditionFlatplan({
                 Adjust rack price
               </Button>
             </div>
+            )}
           </aside>
         </div>
       )}
