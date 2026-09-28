@@ -11,6 +11,14 @@ import {
   orderTerms,
   type InviteState,
 } from "@/lib/fixtures";
+import { OrderAccept } from "@/components/order-accept";
+import {
+  acceptBlocker,
+  ORDER_STATE_COPY,
+  type ApiOrder,
+} from "@/lib/order-live";
+import { apiFetch, fetchActor } from "@/server/api";
+import { acceptOrderAction } from "./actions";
 
 /* --------------------------------------------------------------------------
    Campaign Order — §12, guide §08. Athlete portal.
@@ -26,7 +34,222 @@ import {
    counsel. Accepting now would hash an unenforceable agreement. For minors,
    §4 additionally requires a verified guardian before any acceptance. UI is
    built; the acceptOrder domain function is B4.
+
+   LIVE vs DEMO (P5-FE-01). For a signed-in athlete (or their guardian, read
+   only) the id is a REAL order: GET /orders/{id} returns the frozen terms,
+   guardian readiness and the issued Campaign Order agreement body, which is
+   rendered verbatim — and the accept action hashes exactly that string, so
+   the fingerprint the API checks is of the words on this screen. The body is
+   DRAFT wording until counsel issues the template (G-05); the draft says so
+   in its first line, and every draft acceptance is void (agreement-hash.ts).
+   Anyone else, or any ?demo= state, keeps the fixture order below.
    -------------------------------------------------------------------------- */
+
+const ORDER_TONE: Record<string, "primary" | "accent" | "neutral" | "danger" | "warn"> = {
+  DRAFT: "neutral",
+  SENT: "primary",
+  ACCEPTED: "accent",
+  ACTIVE: "accent",
+  COMPLETED: "neutral",
+  REJECTED: "neutral",
+  CANCELLED: "danger",
+};
+
+type LiveOrder = { kind: "order"; order: ApiOrder; isAthlete: boolean } | { kind: "missing" };
+
+/** The real order for a signed-in athlete or guardian, or null for the demo. */
+async function liveOrder(id: string): Promise<LiveOrder | null> {
+  /* No catch — an outage is an error page, never a fixture order dressed as
+     the athlete's own contract (QA pass 4 rule). */
+  const who = await fetchActor();
+  if (who.status !== "linked") return null;
+  const isAthlete = who.actor.roles.includes("ATHLETE");
+  if (!isAthlete && !who.actor.roles.includes("GUARDIAN")) return null;
+  const res = await apiFetch(`/orders/${encodeURIComponent(id)}`);
+  /* 403 is the API's answer for "not yours" and "no such order" alike. */
+  if (res.status === 403) return { kind: "missing" };
+  if (!res.ok) throw new Error(`Order unavailable (${res.status}).`);
+  return { kind: "order", order: (await res.json()) as ApiOrder, isAthlete };
+}
+
+const fmtDate = (iso: string) =>
+  new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" });
+
+function LiveOrderView({
+  order: o,
+  isAthlete,
+  back,
+}: {
+  order: ApiOrder;
+  isAthlete: boolean;
+  back: ReturnType<typeof resolveBack>;
+}) {
+  const blocker = acceptBlocker(o, isAthlete);
+  const guardianNeeded = o.guardian.status !== "not-required";
+  return (
+    <div className="space-y-6">
+      <BackLink target={back} />
+
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <h1 className="text-xl font-semibold tracking-tight">{o.campaign.name}</h1>
+            <Badge tone="neutral">{o.jobId}</Badge>
+            <Badge tone={ORDER_TONE[o.state] ?? "neutral"}>
+              {ORDER_STATE_COPY[o.state] ?? o.state}
+            </Badge>
+          </div>
+          <p className="mt-1 text-xs text-muted">
+            Presented by {o.campaign.sponsorName} · {o.jobName}
+          </p>
+        </div>
+        {typeof o.compensation === "number" && (
+          <div className="text-right">
+            <p className="text-[11px] text-muted">You&rsquo;re paid</p>
+            <p className="text-2xl font-semibold tabular-nums leading-tight">
+              {money(o.compensation)}
+            </p>
+            <p className="text-[11px] text-faint">due {fmtDate(o.dueDate)}</p>
+          </div>
+        )}
+      </div>
+
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_20rem] xl:items-start">
+        <div className="min-w-0 space-y-6">
+          <section>
+            <SectionHeading
+              title="Order details"
+              hint="Fixed on the order when BTG sent it — they don't change"
+            />
+            <Card>
+              <dl className="grid gap-x-6 gap-y-3 text-xs sm:grid-cols-2">
+                {[
+                  ["Job", `${o.jobId} · ${o.jobName}`],
+                  ["Compensation", typeof o.compensation === "number" ? money(o.compensation) : "—"],
+                  ["Due", fmtDate(o.dueDate)],
+                  ["Campaign window", `${fmtDate(o.campaign.startDate)} – ${fmtDate(o.campaign.endDate)}`],
+                  ["Usage rights", o.usageRights],
+                  ["Exclusivity", o.exclusivity ?? "None"],
+                ].map(([k, v]) => (
+                  <div key={k}>
+                    <dt className="text-[11px] text-faint">{k}</dt>
+                    <dd className="mt-0.5 font-medium text-text">{v}</dd>
+                  </div>
+                ))}
+              </dl>
+            </Card>
+          </section>
+
+          <section>
+            <SectionHeading
+              title="Campaign Order agreement"
+              hint={o.agreement ? `Version ${o.agreement.version}` : "not issued yet"}
+            />
+            <Card>
+              {o.agreement?.body ? (
+                /* Rendered verbatim — the accept action hashes this exact
+                   string, so nothing here may reflow or trim it. */
+                <pre
+                  data-agreement-body
+                  className="max-h-[32rem] overflow-y-auto whitespace-pre-wrap break-words font-sans text-xs leading-relaxed text-muted"
+                >
+                  {o.agreement.body}
+                </pre>
+              ) : (
+                <p className="text-xs text-muted">
+                  {o.agreement
+                    ? "The agreement text can't be shown right now."
+                    : "BTG hasn't issued the Campaign Order agreement yet."}
+                </p>
+              )}
+            </Card>
+          </section>
+        </div>
+
+        <div className="space-y-4">
+          <Card>
+            {o.state === "SENT" ? (
+              <>
+                <SectionHeading title="Accept this order" />
+                <OrderAccept
+                  orderId={o.id}
+                  agreementId={o.agreement?.id ?? null}
+                  body={o.agreement?.body ?? null}
+                  version={o.agreement?.version ?? null}
+                  blocker={blocker}
+                  accept={acceptOrderAction}
+                />
+              </>
+            ) : (
+              <>
+                <SectionHeading title="Order status" />
+                <Badge tone={ORDER_TONE[o.state] ?? "neutral"}>
+                  {ORDER_STATE_COPY[o.state] ?? o.state}
+                </Badge>
+                {o.acceptance ? (
+                  <dl className="mt-3 space-y-1.5 text-[11px]">
+                    <div className="flex justify-between gap-2">
+                      <dt className="text-faint">Accepted</dt>
+                      <dd className="text-muted">{fmtDate(o.acceptance.acceptedAt)}</dd>
+                    </div>
+                    <div className="flex justify-between gap-2">
+                      <dt className="text-faint">Agreement</dt>
+                      <dd className="text-muted">version {o.acceptance.version}</dd>
+                    </div>
+                    <div className="flex justify-between gap-2">
+                      <dt className="text-faint">Fingerprint</dt>
+                      <dd className="truncate font-mono text-muted" title={o.acceptance.bodyHash}>
+                        {o.acceptance.bodyHash.slice(0, 19)}…
+                      </dd>
+                    </div>
+                  </dl>
+                ) : (
+                  <p className="mt-2 text-[11px] leading-relaxed text-muted">
+                    {blocker ?? "Nothing for you to do on this order right now."}
+                  </p>
+                )}
+                {o.acceptance && (
+                  <p className="mt-3 text-[11px] leading-relaxed text-muted">
+                    Its deliverables are now on your calendar.
+                  </p>
+                )}
+              </>
+            )}
+          </Card>
+
+          {guardianNeeded ? (
+            <Card>
+              <SectionHeading title="Guardian authorization" />
+              <p className="text-[11px] leading-relaxed text-muted">
+                You&rsquo;re under 18, so a verified parent or guardian must
+                authorize this order before it can be accepted (§4). Their
+                authorization is recorded with your acceptance.
+              </p>
+              <div className="mt-2">
+                {o.guardian.status === "ready" ? (
+                  <Badge tone="accent">{o.guardian.name ?? "Guardian"} · verified</Badge>
+                ) : o.guardian.status === "unverified" ? (
+                  <Badge tone="warn">{o.guardian.name ?? "Guardian"} · verification pending</Badge>
+                ) : (
+                  <Badge tone="warn">No guardian linked yet</Badge>
+                )}
+              </div>
+            </Card>
+          ) : (
+            <Card>
+              <p className="text-[11px] font-medium text-muted">Earnings, not payment</p>
+              <p className="mt-1.5 text-[11px] leading-relaxed text-faint">
+                Accepting starts this order&rsquo;s earning at pending. SponsorX
+                holds no bank details and no tax ID; payment happens outside
+                the system in Phase 1 (§26).
+              </p>
+            </Card>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 /** Same state → tone mapping as the invitations inbox. */
 const STATE_TONE: Record<InviteState, "primary" | "accent" | "neutral" | "danger" | "warn"> = {
@@ -52,6 +275,25 @@ export default async function CampaignOrderPage({
      is still unverified; the guardian rail below keys off it. */
   const a = demo === "minor" ? athleteMinor : athlete;
   const back = resolveBack(from, "athlete-invitations");
+
+  const live = demo === null ? await liveOrder(id) : null;
+  if (live?.kind === "order") {
+    return <LiveOrderView order={live.order} isAthlete={live.isAthlete} back={back} />;
+  }
+  if (live?.kind === "missing") {
+    return (
+      <div className="space-y-4">
+        <BackLink target={back} />
+        <Card>
+          <p className="text-sm font-medium">Order not found</p>
+          <p className="mt-1 text-xs text-muted">
+            This order doesn&rsquo;t exist or isn&rsquo;t yours to view.
+          </p>
+        </Card>
+      </div>
+    );
+  }
+
   const inv = invitations.find((i) => i.id === id);
 
   if (!inv) {

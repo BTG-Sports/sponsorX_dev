@@ -3,7 +3,11 @@ import { HeroBand, MiniChip } from "@/components/hero";
 import { ApprovalsDesk } from "@/components/approvals-desk";
 import { EmptyState, SkeletonPage } from "@/components/states";
 import { demoState } from "@/lib/demo";
-import { AGING_HOURS, PIPELINE_STEPS } from "@/lib/approvals-ui";
+import { AGING_HOURS, PIPELINE_STEPS, inQueue } from "@/lib/approvals-ui";
+import { toDeskItem, type LiveDeskItem } from "@/lib/approvals-live";
+import type { ApiDeliverable } from "@/lib/deliverables-live";
+import { apiFetch, fetchActor } from "@/server/api";
+import { approvalAction, assetLink } from "./actions";
 import {
   adminApprovalsX,
   contentCleared,
@@ -26,7 +30,35 @@ import {
    Creative assets live in the PRIVATE R2 bucket and are only ever reached
    through short-lived signed URLs — never public (guide §11). The preview in
    the drawer is a placeholder standing in for that signed fetch.
+
+   LIVE vs DEMO (P5-FE-04, the P3-FE-02 precedent). A signed-in BTG content
+   desk sees the REAL pipeline — GET /deliverables in the tenant scope — and
+   the drawer's decision bar walks the real §21 machine through the
+   approvalAction server function: start BTG review, send to sponsor,
+   approve, request revision (reason required, sent to the athlete), and
+   verify a published post against its link (the publication proof).
+   "Open vN" fetches an audited, short-lived signed URL. In live mode the
+   fixture turnaround and approval-rate figures are NOT shown — no endpoint
+   answers them yet, and invented stats must not sit beside real work (§22).
    -------------------------------------------------------------------------- */
+
+const DESK_ROLES = ["SUPER_ADMIN", "BTG_ADMIN", "CAMPAIGN_MGR"];
+
+/** Every deliverable that has reached the desk (NOT_STARTED hasn't). */
+async function liveQueue(): Promise<LiveDeskItem[] | null> {
+  /* No catch — an outage is an error page, never fixtures dressed as the
+     real queue (QA pass 4 rule). */
+  const who = await fetchActor();
+  if (who.status !== "linked") return null;
+  if (!who.actor.roles.some((r) => DESK_ROLES.includes(r))) return null;
+  const res = await apiFetch(
+    "/deliverables?state=DRAFT_SUBMITTED,BTG_REVIEW,SPONSOR_REVIEW,APPROVED,PUBLISHED,VERIFIED",
+  );
+  if (!res.ok) throw new Error(`Content queue unavailable (${res.status}).`);
+  const { deliverables } = (await res.json()) as { deliverables: ApiDeliverable[] };
+  const now = new Date();
+  return deliverables.map((d) => toDeskItem(d, now));
+}
 
 const PIPELINE_HINTS = [
   "A draft lands from the athlete portal",
@@ -44,6 +76,8 @@ export default async function AdminApprovalsPage({
   if (demo === "loading") return <SkeletonPage />;
   if (demo === "error") throw new Error("Demo error state");
 
+  const live = demo === null ? await liveQueue() : null;
+
   const heading = (
     <div>
       <h1 className="text-xl font-semibold tracking-tight">
@@ -56,7 +90,7 @@ export default async function AdminApprovalsPage({
     </div>
   );
 
-  if (demo === "empty") {
+  if (demo === "empty" || (live && live.length === 0)) {
     return (
       <div className="space-y-6">
         {heading}
@@ -69,17 +103,23 @@ export default async function AdminApprovalsPage({
     );
   }
 
-  const waiting = contentReviewQueue.length;
-  const aging = contentReviewQueue.filter(
-    (d) => d.waitingHours > AGING_HOURS,
-  ).length;
-
-  /* Live count under each desk of the pipeline strip. */
+  const items = live ?? [...contentReviewQueue, ...contentCleared];
+  const queue = live
+    ? live.filter((d) => inQueue(d.live.revisionReason && d.state === "DRAFT_SUBMITTED" ? "REVISION" : d.state))
+    : contentReviewQueue;
+  const waiting = queue.length;
+  const aging = queue.filter((d) => d.waitingHours > AGING_HOURS).length;
+  /* Live count under each desk of the pipeline strip. A live item with an
+     open revision is back with the athlete, not on a review desk. */
+  const onDesk = (d: (typeof items)[number], st: string) =>
+    d.state === st && !(live && (d as LiveDeskItem).live.revisionReason);
   const stageCounts = [
-    contentReviewQueue.filter((d) => d.state === "DRAFT_SUBMITTED").length,
-    contentReviewQueue.filter((d) => d.state === "BTG_REVIEW").length,
-    contentReviewQueue.filter((d) => d.state === "SPONSOR_REVIEW").length,
-    contentCleared.length,
+    items.filter((d) => onDesk(d, "DRAFT_SUBMITTED")).length,
+    items.filter((d) => onDesk(d, "BTG_REVIEW")).length,
+    items.filter((d) => onDesk(d, "SPONSOR_REVIEW")).length,
+    live
+      ? items.filter((d) => ["APPROVED", "PUBLISHED", "VERIFIED"].includes(d.state)).length
+      : contentCleared.length,
   ];
 
   // Seed the desk's tabs and filters from the URL so a filtered queue is
@@ -138,17 +178,19 @@ export default async function AdminApprovalsPage({
                   </span>
                 </p>
               )}
-              <p className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                Median turnaround
-                <strong className="font-semibold text-text">
-                  {adminApprovalsX.medianTurnaroundHours}h
-                </strong>
-                · approval rate
-                <strong className="font-semibold text-text">
-                  {adminApprovalsX.approvalRatePct}%
-                </strong>
-                <MiniChip kind="ver">POSTGRES</MiniChip>
-              </p>
+              {!live && (
+                <p className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                  Median turnaround
+                  <strong className="font-semibold text-text">
+                    {adminApprovalsX.medianTurnaroundHours}h
+                  </strong>
+                  · approval rate
+                  <strong className="font-semibold text-text">
+                    {adminApprovalsX.approvalRatePct}%
+                  </strong>
+                  <MiniChip kind="ver">POSTGRES</MiniChip>
+                </p>
+              )}
             </div>
           </div>
 
@@ -195,7 +237,8 @@ export default async function AdminApprovalsPage({
           hint="Click a deliverable to review it — search and filters apply instantly."
         />
         <ApprovalsDesk
-          items={[...contentReviewQueue, ...contentCleared]}
+          items={items}
+          live={live ? { act: approvalAction, link: assetLink } : undefined}
           demoParam={one(sp.demo) || undefined}
           initial={{
             tab: one(sp.tab),

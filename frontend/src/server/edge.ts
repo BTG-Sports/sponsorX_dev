@@ -10,7 +10,27 @@
    -------------------------------------------------------------------------- */
 
 export function edgeHeaders(req: Request): Record<string, string> {
+  return edgeHeadersFrom(req.headers);
+}
+
+/**
+ * The same forward from a plain Headers — for server actions, which have
+ * `headers()` rather than a Request. With `signer: true` it also forwards
+ * the browser's user-agent: an acceptance records who accepted and from
+ * what (§12, P5-FE-01), and without the forward the API would record this
+ * server's address and Node's agent instead.
+ */
+export function edgeHeadersFrom(
+  h: Pick<Headers, "get">,
+  opts: { signer?: boolean } = {},
+): Record<string, string> {
   const key = process.env.SPONSORX_EDGE_KEY;
+  const out = edgeIp(h, key);
+  const ua = h.get("user-agent")?.trim();
+  return opts.signer && key && ua ? { ...out, "x-sponsorx-client-ua": ua, "x-sponsorx-edge-key": key } : out;
+}
+
+function edgeIp(h: Pick<Headers, "get">, key: string | undefined): Record<string, string> {
   /* X-Real-IP — the visitor's address as Railway's edge saw it (Railway
      docs, "Specs & limits" → Request Headers). The edge sets it itself, so a
      client cannot choose it.
@@ -22,7 +42,7 @@ export function edgeHeaders(req: Request): Record<string, string> {
      fan through one edge shared one limit, and 75% of a 50-fan burst was
      refused. X-Forwarded-For's last hop stays only as the fallback for local
      runs, where there is no Railway edge. */
-  const hops = req.headers.get("x-forwarded-for")?.split(",");
-  const ip = req.headers.get("x-real-ip")?.trim() || hops?.[hops.length - 1]?.trim();
+  const hops = h.get("x-forwarded-for")?.split(",");
+  const ip = h.get("x-real-ip")?.trim() || hops?.[hops.length - 1]?.trim();
   return key && ip ? { "x-sponsorx-client-ip": ip, "x-sponsorx-edge-key": key } : {};
 }

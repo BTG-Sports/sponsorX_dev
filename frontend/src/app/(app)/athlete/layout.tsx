@@ -7,6 +7,7 @@ import { athlete } from "@/lib/fixtures";
 const NAV: NavItem[] = [
   { href: "/athlete", label: "Dashboard", icon: "grid" },
   { href: "/athlete/invitations", label: "Invitations", icon: "inbox" },
+  { href: "/athlete/deliverables", label: "Deliverables", icon: "calendar" },
   { href: "/athlete/earnings", label: "Earnings", icon: "wallet" },
   { href: "/athlete/profile", label: "Public profile", icon: "user" },
 ];

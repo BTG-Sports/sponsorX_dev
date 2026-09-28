@@ -31,6 +31,10 @@ export function cx(...parts: Array<string | false | null | undefined>) {
 /** Premium = brand orange, Creator = admin steel, Emerging = quiet line —
     the design's 3px vertical mark, left of every athlete name. */
 const TIER_MARK: Record<MatchTier, string> = {
+  /* Live-only tiers (P4-FE-02): Anchor sits above Premium; Untiered is a
+     dashed nothing — nobody has set it, which is not "Emerging". */
+  Anchor: "bg-primary",
+  Untiered: "border border-dashed border-line bg-transparent",
   Premium: "bg-accent",
   Creator: "bg-admin",
   Emerging: "bg-line",
@@ -109,6 +113,15 @@ export function MarginValue({
   sell: number;
   align?: "right" | "left";
 }) {
+  /* No cost means no rate on file (P4-FE-02) — there is no margin to show,
+     and a "0.0× below floor" would be an invented verdict. */
+  if (cost <= 0)
+    return (
+      <span className={cx("block text-faint", align === "right" && "text-right")}>
+        <span className="text-xs font-semibold">—</span>
+        <span className="block text-[10px]">no rate</span>
+      </span>
+    );
   const ratio = marginRatio(cost, sell);
   const band = marginBand(ratio);
   return (
@@ -136,6 +149,7 @@ const STATUS_DOT: Record<RowStatus["kind"], string> = {
   guardian: "bg-warn",
   conflict: "bg-danger",
   inactive: "bg-line",
+  invited: "bg-primary",
 };
 
 const STATUS_TEXT: Record<RowStatus["kind"], string> = {
@@ -143,6 +157,7 @@ const STATUS_TEXT: Record<RowStatus["kind"], string> = {
   guardian: "text-warn",
   conflict: "text-danger",
   inactive: "text-muted",
+  invited: "text-primary",
 };
 
 export function StatusPill({
@@ -181,9 +196,17 @@ export function ScoreCell({
   score,
   delay = 0,
 }: {
-  score: number;
+  score: number | null;
   delay?: number;
 }) {
+  /* Unscored reads as a dash with an empty track — absence, not zero. */
+  if (score === null)
+    return (
+      <span className="block" title="Not scored yet">
+        <span className="text-xs font-semibold text-faint">—</span>
+        <span className="mt-1 block h-[3px] w-full rounded-full border border-dashed border-line" />
+      </span>
+    );
   return (
     <span className="block">
       <span className="text-xs font-semibold tabular-nums">{score}</span>

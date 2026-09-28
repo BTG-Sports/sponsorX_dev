@@ -12,6 +12,12 @@ import { HeroBand, InsightStrip, MiniChip, Monogram } from "@/components/hero";
 import { SponsorPortfolioList } from "@/components/sponsor-portfolio-list";
 import { EmptyState, SkeletonPage } from "@/components/states";
 import { demoState } from "@/lib/demo";
+import {
+  portfolioTotals,
+  toPortfolioRow,
+  type ApiCampaign,
+} from "@/lib/sponsor-live";
+import { apiFetch, fetchActor } from "@/server/api";
 import { buildSponsorReport } from "@/lib/report-data";
 import {
   engagementSpark,
@@ -34,8 +40,171 @@ import {
    Every figure traces to MetricDaily, RewardEvent, Deliverable or Zoho Books
    and carries its provenance (§22): the projection is ESTIMATED and dashed,
    the break-even flag is attributed-revenue-vs-spend, and the trust meter is
-   the provenance mix itself. Fixtures only — nothing is wired.
+   the provenance mix itself.
+
+   LIVE vs DEMO (P4-FE-05, the P3-FE-02 precedent). A signed-in sponsor sees
+   their REAL portfolio — GET /campaigns: state, package, window, athletes,
+   delivery, contracted spend and the Zoho Books mirror's invoiced / paid.
+   The results panels (views, engagement, funnel, return, top athletes) are
+   the per-campaign report's (§9 screen 12, P7-FE-03) and are NOT drawn from
+   fixtures beside real campaigns — the live page says where they live.
+   Anyone else, or any ?demo= state, keeps the fixture deck below.
    -------------------------------------------------------------------------- */
+
+const SPONSOR_ROLES = ["SPONSOR_ADMIN", "SPONSOR_ANALYST"];
+
+/** The signed-in sponsor's real campaigns, or null for the demo. */
+async function livePortfolio(): Promise<ApiCampaign[] | null> {
+  /* No catch — an outage is an error page, never fixtures dressed as the
+     sponsor's own spend (QA pass 4 rule). */
+  const who = await fetchActor();
+  if (who.status !== "linked") return null;
+  if (!who.actor.roles.some((r) => SPONSOR_ROLES.includes(r))) return null;
+  const res = await apiFetch("/campaigns");
+  if (!res.ok) throw new Error(`Campaigns unavailable (${res.status}).`);
+  return ((await res.json()) as { campaigns: ApiCampaign[] }).campaigns;
+}
+
+function Kpi({
+  k,
+  v,
+  sub,
+  delay,
+  bar,
+}: {
+  k: string;
+  v: string;
+  sub: string;
+  delay: number;
+  bar?: number | null;
+}) {
+  return (
+    <Card className={`sx-animate sx-delay-${delay} p-4`}>
+      <p className="text-[11px] font-medium uppercase tracking-wide text-muted">{k}</p>
+      <p className="mt-1.5 text-2xl font-semibold tabular-nums tracking-tight">{v}</p>
+      {typeof bar === "number" && (
+        <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-surface-2">
+          <div className="h-full rounded-full bg-primary" style={{ width: `${bar}%` }} />
+        </div>
+      )}
+      <p className="mt-1.5 text-[10px] text-faint">{sub}</p>
+    </Card>
+  );
+}
+
+function LiveDashboard({ campaigns }: { campaigns: ApiCampaign[] }) {
+  const now = new Date();
+  const t = portfolioTotals(campaigns);
+  const rows = campaigns.map((c) => toPortfolioRow(c, now));
+  const sponsorName = campaigns[0]?.sponsorName ?? "Your campaigns";
+  const paidPct =
+    t.invoiced && t.paid !== null ? Math.round((t.paid / t.invoiced) * 100) : null;
+
+  const heading = (
+    <div>
+      <h1 className="text-xl font-semibold tracking-tight">Campaign Overview</h1>
+      <p className="mt-0.5 text-xs text-muted">
+        {sponsorName}
+        {t.campaigns > 0 &&
+          ` · ${t.campaigns} ${t.campaigns === 1 ? "campaign" : "campaigns"}`}
+      </p>
+    </div>
+  );
+
+  if (campaigns.length === 0) {
+    return (
+      <div className="space-y-5">
+        {heading}
+        <EmptyState
+          mark="chart"
+          title="No campaigns yet"
+          hint="Your dashboard fills in once BTG matches your first brief."
+          action={{ label: "Browse the marketplace", href: "/sponsor/marketplace" }}
+        />
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-5">
+      {heading}
+
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <Kpi
+          k="Active campaigns"
+          v={String(t.active)}
+          sub={`of ${t.campaigns} · campaign state in SponsorX`}
+          delay={1}
+        />
+        <Kpi
+          k="Spend"
+          v={t.contracted !== null ? money(t.contracted) : "—"}
+          sub={`contracted across your Campaign Orders${t.budget !== null ? ` · budget ${money(t.budget)}` : ""}`}
+          delay={2}
+        />
+        <Kpi
+          k="Invoiced"
+          v={t.invoiced !== null ? money(t.invoiced) : "—"}
+          bar={paidPct}
+          sub={
+            t.invoiced
+              ? `${t.paid !== null ? money(t.paid) : "—"} paid · Zoho Books`
+              : "no invoices yet · Zoho Books"
+          }
+          delay={3}
+        />
+        <Kpi
+          k="Athletes"
+          v={String(t.athletes)}
+          sub="with a Campaign Order, across all campaigns"
+          delay={4}
+        />
+      </div>
+
+      <section className="min-w-0">
+        <SectionHeading
+          title="Campaign portfolio"
+          hint={
+            t.contracted !== null
+              ? `${money(t.contracted)} contracted across ${t.campaigns} campaigns`
+              : `${t.campaigns} campaigns`
+          }
+        />
+        <Card className="p-0">
+          <SponsorPortfolioList rows={rows} />
+        </Card>
+        <p className="mt-2 text-[10px] text-faint">
+          Pacing compares delivery progress against elapsed campaign time.
+          Flagging under-delivery is the campaign manager&rsquo;s job (§9.9) —
+          shown here so the sponsor never has to discover it.
+        </p>
+      </section>
+
+      <Card className="p-4">
+        <p className="text-xs font-semibold tracking-tight">
+          Results live on each campaign&rsquo;s report
+        </p>
+        <p className="mt-1 text-[11px] leading-relaxed text-muted">
+          Views, engagement, the reward funnel and return are measured per
+          campaign as deliverables publish, each labelled verified, attributed
+          or estimated (§22).
+        </p>
+        <ul className="mt-3 flex flex-wrap gap-2">
+          {campaigns.map((c) => (
+            <li key={c.id}>
+              <Link
+                href={`/sponsor/campaigns/${encodeURIComponent(c.id)}/report`}
+                className="inline-block rounded-lg border border-line px-3 py-1.5 text-[11px] font-medium text-muted transition-colors hover:text-text"
+              >
+                {c.name} →
+              </Link>
+            </li>
+          ))}
+        </ul>
+      </Card>
+    </div>
+  );
+}
 
 const spentPct = Math.round((sponsorBudget.spent / sponsorBudget.contracted) * 100);
 
@@ -47,6 +216,9 @@ export default async function SponsorDashboardPage({
   const demo = await demoState(searchParams);
   if (demo === "loading") return <SkeletonPage />;
   if (demo === "error") throw new Error("Demo error state");
+
+  const live = demo === null ? await livePortfolio() : null;
+  if (live) return <LiveDashboard campaigns={live} />;
 
   const heading = (
     <div>

@@ -9,7 +9,8 @@ import {
   FilterChip,
   SearchInput,
 } from "@/components/filter-kit";
-import { ScoreRing } from "@/components/score-ring";
+import { NoScoreRing, ScoreRing } from "@/components/score-ring";
+import { MatchContext, useMatch } from "@/components/matching-data";
 import {
   cx,
   MarginValue,
@@ -29,18 +30,14 @@ import {
   breachedLines,
   byIds,
   canShortlist,
-  CONFLICT_DETAILS,
   DEFAULT_FILTERS,
-  DEFAULT_SHORTLIST,
   filterRoster,
+  FIXTURE_MATCH,
   fmtRatio,
   fmtReach,
   jobFor,
-  JOBS,
   marginBand,
   MARGIN_FLOOR,
-  MATCH_BRIEF,
-  MATCH_ROSTER,
   MIN_SCORE_CEIL,
   MIN_SCORE_FLOOR,
   relaxSuggestions,
@@ -48,6 +45,7 @@ import {
   SORT_OPTIONS,
   statusFor,
   type MatchAthlete,
+  type MatchData,
   type MatchFilters,
   type MatchSort,
 } from "@/lib/matching";
@@ -82,13 +80,24 @@ const VIEW_ORDER: View[] = ["workspace", "compare", "review"];
 
 type Sheet = "filters" | "shortlist" | null;
 
-const TIERS = ["Premium", "Creator", "Emerging"] as const;
+const TIERS = ["Anchor", "Premium", "Creator", "Emerging", "Untiered"] as const;
+
+/** What a live send reports per athlete — sent, or why not (P4-FE-03). */
+export type SendOutcome = { athleteId: string; ok: boolean; message?: string };
 
 export function MatchingStudio({
   initial,
+  data = FIXTURE_MATCH,
+  onSend,
 }: {
   initial?: Partial<Record<"view" | "q" | "sport" | "tier" | "min", string>>;
+  /** Fixtures unless the page hands it a real brief (P4-FE-02). */
+  data?: MatchData;
+  /** Live only: sends the shortlist's invitations, returns per-athlete
+   *  outcomes. Absent, "Send" is the local, undoable demo. */
+  onSend?: (athletes: MatchAthlete[]) => Promise<SendOutcome[]>;
 }) {
+  const { brief, jobs, roster, conflicts, live } = data;
   /* ------------------------------------------------------------- state */
   const [filters, setFilters] = useState<MatchFilters>(() => ({
     ...DEFAULT_FILTERS,
@@ -100,7 +109,7 @@ export function MatchingStudio({
     minScore: clampScore(Number(initial?.min) || MIN_SCORE_FLOOR),
   }));
   const [sort, setSort] = useState<MatchSort>("score");
-  const [picked, setPicked] = useState<string[]>(DEFAULT_SHORTLIST);
+  const [picked, setPicked] = useState<string[]>(data.defaultShortlist);
   const [view, setViewRaw] = useState<View>(() =>
     initial?.view === "compare" || initial?.view === "review"
       ? initial.view
@@ -109,6 +118,8 @@ export function MatchingStudio({
   const [dir, setDir] = useState(1);
   const [ack, setAck] = useState(false);
   const [sent, setSent] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [outcomes, setOutcomes] = useState<SendOutcome[] | null>(null);
 
   /* Conflict drawer — mounted while closing so the slide-out plays. */
   const [conflictId, setConflictId] = useState<string | null>(null);
@@ -125,31 +136,33 @@ export function MatchingStudio({
 
   /* ----------------------------------------------------------- derived */
   const { matched, blocked } = useMemo(
-    () => filterRoster(MATCH_ROSTER, filters, sort),
-    [filters, sort],
+    () => filterRoster(roster, filters, sort),
+    [roster, filters, sort],
   );
-  const pickedAthletes = useMemo(() => byIds(picked), [picked]);
+  const pickedAthletes = useMemo(() => byIds(picked, roster), [picked, roster]);
   const blended = useMemo(() => blendedMargin(pickedAthletes), [pickedAthletes]);
   const breaches = useMemo(() => breachedLines(pickedAthletes), [pickedAthletes]);
   const { slots, overflow } = useMemo(
-    () => slotFill(pickedAthletes),
-    [pickedAthletes],
+    () => slotFill(pickedAthletes, jobs),
+    [pickedAthletes, jobs],
   );
   const filled = slots.filter((s) => s.athlete).length;
 
   const sportOptions = useMemo(
-    () => [...new Set(MATCH_ROSTER.map((a) => a.sport))].sort(),
-    [],
+    () => [...new Set(roster.map((a) => a.sport))].sort(),
+    [roster],
   );
+  /* Only the tiers this roster actually has — the fixture shows three, a
+     live roster may add Anchor or Untiered. */
   const tierCounts = useMemo(() => {
-    const base = MATCH_ROSTER.filter((a) => !a.conflict && a.active);
-    return {
-      all: base.length,
-      Premium: base.filter((a) => a.tier === "Premium").length,
-      Creator: base.filter((a) => a.tier === "Creator").length,
-      Emerging: base.filter((a) => a.tier === "Emerging").length,
-    };
-  }, []);
+    const base = roster.filter((a) => !a.conflict && a.active);
+    const counts: Record<string, number> = { all: base.length };
+    for (const t of TIERS) {
+      const n = base.filter((a) => a.tier === t).length;
+      if (n > 0 || (!live && t !== "Anchor" && t !== "Untiered")) counts[t] = n;
+    }
+    return counts;
+  }, [roster, live]);
 
   const filterCount = activeFilterCount(filters);
 
@@ -244,8 +257,25 @@ export function MatchingStudio({
     lastFocus.current?.focus();
   };
 
-  const conflictAthlete = conflictId ? athleteById(conflictId) : null;
-  const conflictDetail = conflictId ? CONFLICT_DETAILS[conflictId] : null;
+  const conflictAthlete = conflictId ? athleteById(conflictId, roster) : null;
+  const conflictDetail = conflictId ? conflicts[conflictId] : null;
+
+  /* Live send (P4-FE-03): real, per-athlete, no Undo. Sent picks leave the
+     shortlist once the page refreshes their invite state from Postgres. */
+  const send = async () => {
+    if (!onSend) {
+      setSent(true);
+      return;
+    }
+    setSending(true);
+    try {
+      const out = await onSend(pickedAthletes);
+      setOutcomes(out);
+      setSent(out.some((o) => o.ok));
+    } finally {
+      setSending(false);
+    }
+  };
 
   /* ------------------------------------------------------------ render */
   const dockProps = {
@@ -267,6 +297,7 @@ export function MatchingStudio({
   };
 
   return (
+    <MatchContext.Provider value={data}>
     <div className={cx("space-y-5", view === "workspace" && "pb-20 xl:pb-0")}>
       <BriefBand filled={filled} />
 
@@ -293,8 +324,10 @@ export function MatchingStudio({
             ack={ack}
             onAck={setAck}
             sent={sent}
-            onSend={() => setSent(true)}
-            onUndo={() => setSent(false)}
+            sending={sending}
+            outcomes={outcomes}
+            onSend={send}
+            onUndo={live ? undefined : () => setSent(false)}
             onBack={() => setView("workspace")}
           />
         ) : (
@@ -434,8 +467,10 @@ export function MatchingStudio({
                     {matched.length} athlete{matched.length === 1 ? "" : "s"} match
                   </span>{" "}
                   <span className="text-faint">
-                    · of {MATCH_ROSTER.length} eligible returned · {blocked.length}{" "}
-                    blocked by conflict, kept visible
+                    · of {roster.length} eligible returned
+                    {live
+                      ? " · conflicted athletes are excluded by the query (§26)"
+                      : ` · ${blocked.length} blocked by conflict, kept visible`}
                   </span>
                 </p>
                 <div className="ml-auto flex items-center gap-3">
@@ -508,10 +543,11 @@ export function MatchingStudio({
 
               <p className="text-[10px] leading-relaxed text-faint">
                 Score is the §14 Content Value Score — a stored snapshot
-                ({MATCH_BRIEF.scoreMethod}, {MATCH_BRIEF.scoreSnapshot}), not a live
-                calculation. Reach is platform-verified where connected, otherwise
+                ({brief.scoreMethod}, {brief.scoreSnapshot}), not a live
+                calculation{live ? "; a dash means not scored yet, never zero" : ""}.
+                Reach is platform-verified where connected, otherwise
                 self-reported. Cost comes from the athlete&apos;s rate card; sell
-                price from the package band.
+                price from the package band{live ? " — the job's floor for the athlete's tier" : ""}.
               </p>
             </div>
 
@@ -531,7 +567,7 @@ export function MatchingStudio({
               type="button"
               onClick={() => openSheet("shortlist")}
               className="flex min-w-0 flex-1 items-center gap-3 text-left"
-              aria-label={`Open shortlist — ${filled} of ${MATCH_BRIEF.needed} filled`}
+              aria-label={`Open shortlist — ${filled} of ${brief.needed} filled`}
             >
               <span className="flex w-16 shrink-0 gap-0.5" aria-hidden="true">
                 {slots.map((s, i) => (
@@ -546,7 +582,7 @@ export function MatchingStudio({
               </span>
               <span className="min-w-0">
                 <span className="block text-[11px] font-semibold tabular-nums">
-                  {filled} of {MATCH_BRIEF.needed}
+                  {filled} of {brief.needed}
                   <span className="ml-2 font-medium text-muted">
                     {money(blended.sell)}
                   </span>
@@ -627,6 +663,7 @@ export function MatchingStudio({
           document.body,
         )}
     </div>
+    </MatchContext.Provider>
   );
 }
 
@@ -637,6 +674,7 @@ function clampScore(n: number) {
 /* ============================== brief band ================================ */
 
 function BriefBand({ filled }: { filled: number }) {
+  const { brief: MATCH_BRIEF, jobs: JOBS } = useMatch();
   const toGo = MATCH_BRIEF.needed - filled;
   return (
     <Card className="p-0">
@@ -763,8 +801,9 @@ function FilterControls({
   filters: MatchFilters;
   onChange: React.Dispatch<React.SetStateAction<MatchFilters>>;
   sportOptions: string[];
-  tierCounts: Record<"all" | "Premium" | "Creator" | "Emerging", number>;
+  tierCounts: Record<string, number>;
 }) {
+  const { brief: MATCH_BRIEF } = useMatch();
   const set = (patch: Partial<MatchFilters>) => onChange((f) => ({ ...f, ...patch }));
   return (
     <div className="space-y-5">
@@ -804,7 +843,7 @@ function FilterControls({
       <div>
         <p className="mb-1.5 text-[11px] font-medium text-muted">Tier</p>
         <div className="space-y-1" role="radiogroup" aria-label="Filter by tier">
-          {(["", ...TIERS] as const).map((t) => {
+          {(["", ...TIERS.filter((t) => t in tierCounts)] as const).map((t) => {
             const active = filters.tier === t;
             const count = t === "" ? tierCounts.all : tierCounts[t];
             return (
@@ -1049,7 +1088,11 @@ function AthleteRow({
       {/* athlete */}
       <span className="flex min-w-0 items-center gap-2.5">
         <span className="lg:hidden">
-          <ScoreRing value={a.score} size={44} strokeWidth={4} textCls="text-[11px]" />
+          {a.score === null ? (
+            <NoScoreRing size={44} />
+          ) : (
+            <ScoreRing value={a.score} size={44} strokeWidth={4} textCls="text-[11px]" />
+          )}
         </span>
         <TierMark tier={a.tier} className="hidden h-7 lg:block" />
         <span className="min-w-0 flex-1">
@@ -1084,14 +1127,14 @@ function AthleteRow({
       {/* sell, with cost as its permanent subline — BTG-internal */}
       <span className="mt-1.5 flex items-baseline gap-1.5 text-[11px] lg:mt-0 lg:block lg:text-right">
         <span className="text-[10px] text-faint lg:hidden">
-          cost {money(a.cost)} · sell
+          cost {a.noRate ? "—" : money(a.cost)} · sell
         </span>
         <span className="text-xs font-semibold tabular-nums">{money(a.sell)}</span>
         <span
           className="hidden text-[10px] text-faint lg:block"
           title="Athlete cost — BTG-internal, never sponsor-facing"
         >
-          cost {money(a.cost)}
+          {a.noRate ? "no rate on file" : `cost ${money(a.cost)}`}
         </span>
       </span>
 
@@ -1153,7 +1196,8 @@ function EmptyState({
   onPatch: (patch: Partial<MatchFilters>) => void;
   onClear: () => void;
 }) {
-  const suggestions = relaxSuggestions(MATCH_ROSTER, filters);
+  const { roster } = useMatch();
+  const suggestions = relaxSuggestions(roster, filters);
   const n = activeFilterCount(filters);
   return (
     <Card className="py-10 text-center">
@@ -1234,6 +1278,7 @@ function ShortlistDock({
   /** Sheet variant — no Card chrome, the sheet supplies it. */
   bare?: boolean;
 }) {
+  const { brief: MATCH_BRIEF, jobs } = useMatch();
   const band = marginBand(blended.ratio);
   const body = (
     <>
@@ -1376,7 +1421,7 @@ function ShortlistDock({
                       {a.name}
                     </p>
                     <p className="truncate text-[10px] text-muted">
-                      {a.sport} · {a.tier} · {jobFor(a.jobId).label}
+                      {a.sport} · {a.tier} · {jobFor(a.jobId, jobs).label}
                     </p>
                   </div>
                   <button

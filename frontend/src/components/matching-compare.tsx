@@ -18,11 +18,11 @@ import {
   marginBand,
   marginRatio,
   MARGIN_FLOOR,
-  MATCH_BRIEF,
   statusFor,
   type MatchAthlete,
 } from "@/lib/matching";
 import { money } from "@/lib/fixtures";
+import { useMatch } from "@/components/matching-data";
 
 /* --------------------------------------------------------------------------
    Roster comparison — the shortlist factor by factor (P4-ART-01 screen 2).
@@ -48,6 +48,7 @@ export function MatchingCompare({
   onBack: () => void;
   onContinue: () => void;
 }) {
+  const { brief: MATCH_BRIEF, jobs } = useMatch();
   const n = athletes.length;
   const breached = breachedLines(athletes);
 
@@ -194,7 +195,7 @@ export function MatchingCompare({
                   {money(a.sell)}
                 </span>
                 <span className="mt-0.5 block text-[10px] text-faint">
-                  {jobFor(a.jobId).label} · {a.jobId}
+                  {jobFor(a.jobId, jobs).label} · {a.jobId}
                 </span>
               </ValueCell>
             ))}
@@ -360,15 +361,27 @@ function BarRow({
 }: {
   label: string;
   sub: string;
-  values: number[];
+  values: (number | null)[];
   n: number;
   rowIndex: number;
 }) {
-  const top = Math.max(...values);
+  /* A null was not assessed (§14) — it can't be "strongest" and draws as
+     a dash, never as a zero-length bar. */
+  const scored = values.filter((v): v is number => v !== null);
+  const top = scored.length ? Math.max(...scored) : null;
   return (
     <>
       <LabelCell label={label} sub={sub} />
       {values.map((v, i) => {
+        if (v === null)
+          return (
+            <ValueCell key={i}>
+              <span className="text-xs font-semibold text-faint" title="Not assessed">
+                —
+              </span>
+              <span className="mt-0.5 block text-[10px] text-faint">not assessed</span>
+            </ValueCell>
+          );
         const best = v === top && n > 1;
         return (
           <ValueCell key={i}>

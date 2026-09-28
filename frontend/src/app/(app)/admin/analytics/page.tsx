@@ -2,6 +2,8 @@ import { AnalyticsStory } from "@/components/analytics-story";
 import { EmptyState, SkeletonPage } from "@/components/states";
 import { demoState } from "@/lib/demo";
 import type { RangeKey } from "@/lib/fixtures";
+import { toLiveStory, type ApiAnalytics, type LiveStory } from "@/lib/analytics-live";
+import { apiFetch, fetchActor } from "@/server/api";
 
 /* --------------------------------------------------------------------------
    Analytics — the guided story (spec 2026-09-17). Unifies the mockup's
@@ -9,7 +11,34 @@ import type { RangeKey } from "@/lib/fixtures";
    into five chapters; the old warning stub is chapter 5 now. The server
    page keeps only the demo-state switch and seeds the range from the URL —
    everything else lives in the analytics-story island.
+
+   LIVE vs DEMO (P6-FE-03 / P7-FE-04). A signed-in BTG desk reads the story
+   from Postgres: GET /operations/analytics for 7, 30 and 90 days — the
+   four-event funnel, daily claims and redemptions, scan locations, offers
+   by redemption, and per-athlete performance (reach by provenance, clicks,
+   on-time delivery, revision rate, §14 score). Fetched up front so the
+   range pills stay instant. Anyone else, or any ?demo= state, keeps the
+   fixture story.
    -------------------------------------------------------------------------- */
+
+const DESK_ROLES = ["SUPER_ADMIN", "BTG_ADMIN", "CAMPAIGN_MGR", "NETWORK_MGR", "FINANCE", "SALES"];
+
+async function liveStory(): Promise<Record<RangeKey, LiveStory> | null> {
+  /* No catch — an outage is an error page, never fixtures dressed as real
+     analytics (QA pass 4 rule). */
+  const who = await fetchActor();
+  if (who.status !== "linked") return null;
+  if (!who.actor.roles.some((r) => DESK_ROLES.includes(r))) return null;
+  const ranges: [RangeKey, number][] = [["7d", 7], ["30d", 30], ["90d", 90]];
+  const out = await Promise.all(
+    ranges.map(async ([k, days]) => {
+      const res = await apiFetch(`/operations/analytics?days=${days}`);
+      if (!res.ok) throw new Error(`Analytics unavailable (${res.status}).`);
+      return [k, toLiveStory((await res.json()) as ApiAnalytics)] as const;
+    }),
+  );
+  return Object.fromEntries(out) as Record<RangeKey, LiveStory>;
+}
 
 export default async function AdminAnalyticsPage({
   searchParams,
@@ -35,6 +64,8 @@ export default async function AdminAnalyticsPage({
     </div>
   );
 
+  const live = demo === null ? await liveStory() : null;
+
   if (demo === "empty") {
     return (
       <div className="space-y-6">
@@ -51,7 +82,7 @@ export default async function AdminAnalyticsPage({
   return (
     <div className="space-y-6">
       {heading}
-      <AnalyticsStory initialRange={range} />
+      <AnalyticsStory initialRange={range} live={live ?? undefined} />
     </div>
   );
 }

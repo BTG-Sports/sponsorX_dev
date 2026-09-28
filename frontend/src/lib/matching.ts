@@ -18,8 +18,11 @@
 
 export type ReachSource = "VERIFIED_API" | "SELF_REPORTED";
 export type GuardianState = "na" | "pending";
-export type MatchTier = "Premium" | "Creator" | "Emerging";
-export type JobId = "JOB-A12" | "JOB-B04" | "JOB-C07";
+/** Live rows add ANCHOR (the backend's top tier) and "Untiered" — an
+ *  athlete whose tier nobody has set yet, which is not "Emerging". */
+export type MatchTier = "Anchor" | "Premium" | "Creator" | "Emerging" | "Untiered";
+/** A fixture job ("JOB-A12") or, live, a package id (P4-FE-02). */
+export type JobId = string;
 
 export type MatchAthlete = {
   id: string;
@@ -27,11 +30,15 @@ export type MatchAthlete = {
   sport: string;
   market: string;
   tier: MatchTier;
-  /** §14 composite, stored snapshot — equals round(mean(factors)). */
-  score: number;
-  /** Engagement · Content quality · Audience · Reliability · Geography · Fit */
-  factors: [number, number, number, number, number, number];
-  reach: number;
+  /** §14 composite, stored snapshot — equals round(mean(factors)) on
+   *  fixtures. Live: null when the athlete has never been scored — never
+   *  zero, which would be an assessment (§14). */
+  score: number | null;
+  /** Engagement · Content quality · Audience · Reliability · Geography · Fit.
+   *  A null factor was not assessed. */
+  factors: (number | null)[];
+  /** Summed followers; null when no account reports any. */
+  reach: number | null;
   reachSource: ReachSource;
   /** Athlete cost in cents — BTG-internal, from the rate card. */
   cost: number;
@@ -43,6 +50,15 @@ export type MatchAthlete = {
   active: boolean;
   /** Declared competing deal — blocks the invitation, never hides the row. */
   conflict: string | null;
+  /* ---- live only (P4-FE-02 / -03) ---------------------------------- */
+  /** A package job this athlete has no rate for. Without a rate there is
+   *  no offer to send, so the row is visible but cannot be shortlisted. */
+  noRate?: string | null;
+  /** The invitations this pick becomes: one per package line, `offered`
+   *  = the athlete's rate × quantity, in cents. */
+  lines?: { jobId: string; quantity: number; offered: number }[];
+  /** Already invited on this campaign — the roster's SENT / answered state. */
+  invite?: string | null;
 };
 
 /* ------------------------------------------------------------- the brief */
@@ -169,13 +185,33 @@ export function breachedLines(list: MatchAthlete[]): MatchAthlete[] {
 
 /* --------------------------------------------------------------- status */
 
-export type RowStatusKind = "eligible" | "guardian" | "conflict" | "inactive";
+export type RowStatusKind = "eligible" | "guardian" | "conflict" | "inactive" | "invited";
 
 export type RowStatus = { kind: RowStatusKind; label: string; sub: string | null };
+
+export const INVITE_LABEL: Record<string, string> = {
+  INVITED: "Invited — awaiting",
+  VIEWED: "Viewed — awaiting",
+  ACCEPTED: "Accepted",
+  DECLINED: "Declined",
+  EXPIRED: "Expired",
+};
 
 export function statusFor(a: MatchAthlete): RowStatus {
   if (a.conflict)
     return { kind: "conflict", label: "Conflict — blocked", sub: a.conflict };
+  if (a.invite)
+    return {
+      kind: "invited",
+      label: INVITE_LABEL[a.invite] ?? a.invite,
+      sub: "already on this campaign",
+    };
+  if (a.noRate)
+    return {
+      kind: "inactive",
+      label: "No rate on file",
+      sub: `set a ${a.noRate} rate before inviting`,
+    };
   if (!a.active)
     return {
       kind: "inactive",
@@ -191,9 +227,12 @@ export function statusFor(a: MatchAthlete): RowStatus {
   return { kind: "eligible", label: "Eligible", sub: null };
 }
 
-/** Conflicted and not-yet-active athletes cannot join the shortlist. */
+/** Conflicted, not-yet-active, unpriced and already-invited athletes
+ *  cannot join the shortlist. An EXPIRED or DECLINED invite may be re-sent
+ *  (invite-state.ts: re-inviting is normal), so only live ones block. */
 export function canShortlist(a: MatchAthlete): boolean {
-  return !a.conflict && a.active;
+  const live = a.invite === "INVITED" || a.invite === "VIEWED" || a.invite === "ACCEPTED";
+  return !a.conflict && a.active && !a.noRate && !live;
 }
 
 /* -------------------------------------------------------------- filters */
@@ -240,7 +279,9 @@ function passes(a: MatchAthlete, f: MatchFilters): boolean {
     passesSearch(a, f.q.trim().toLowerCase()) &&
     (!f.sport || a.sport === f.sport) &&
     (!f.tier || a.tier === f.tier) &&
-    a.score >= f.minScore &&
+    /* Unscored passes only while no minimum is set — a floor is a claim
+       about the score, and there is none to compare. */
+    (a.score === null ? f.minScore <= MIN_SCORE_FLOOR : a.score >= f.minScore) &&
     (!f.activeOnly || a.active) &&
     (!f.guardianOnly || a.guardian !== "pending")
   );
@@ -251,7 +292,7 @@ export function sortRoster(list: MatchAthlete[], sort: MatchSort): MatchAthlete[
   if (sort === "margin")
     c.sort((a, b) => marginRatio(a.cost, a.sell) - marginRatio(b.cost, b.sell));
   else if (sort === "cost") c.sort((a, b) => a.cost - b.cost);
-  else c.sort((a, b) => b.score - a.score);
+  else c.sort((a, b) => (b.score ?? -1) - (a.score ?? -1));
   return c;
 }
 
@@ -305,8 +346,9 @@ function scoreRelaxTarget(roster: MatchAthlete[], f: MatchFilters): number | nul
   const others = roster.filter(
     (a) => !a.conflict && passes(a, { ...f, minScore: MIN_SCORE_FLOOR }),
   );
-  if (others.length === 0) return null;
-  const top = Math.max(...others.map((a) => a.score));
+  const scored = others.filter((a) => a.score !== null);
+  if (scored.length === 0) return null;
+  const top = Math.max(...scored.map((a) => a.score as number));
   return Math.max(MIN_SCORE_FLOOR, Math.floor(top / 5) * 5);
 }
 
@@ -383,8 +425,8 @@ export function slotFill(
   return { slots, overflow };
 }
 
-export function jobFor(id: JobId) {
-  const j = JOBS.find((x) => x.id === id);
+export function jobFor(id: JobId, jobs: readonly MatchJob[] = JOBS) {
+  const j = jobs.find((x) => x.id === id);
   if (!j) throw new Error(`Unknown job ${id}`);
   return j;
 }
@@ -398,18 +440,21 @@ export type SendSummary = {
   deadline: string;
 };
 
-export function sendSummary(selected: MatchAthlete[]): SendSummary {
+export function sendSummary(
+  selected: MatchAthlete[],
+  brief: MatchBrief = MATCH_BRIEF,
+): SendSummary {
   return {
     invitations: selected.length,
     guardianCount: selected.filter((a) => a.guardian === "pending").length,
     exceptions: breachedLines(selected),
-    deadline: MATCH_BRIEF.responseDeadline,
+    deadline: brief.responseDeadline,
   };
 }
 
 /** The green-check list on Review & send — derived, so the guardian and
     exception lines appear only when they are true of the roster. */
-export function sendSteps(selected: MatchAthlete[]): string[] {
+export function sendSteps(selected: MatchAthlete[], live = false): string[] {
   const s = sendSummary(selected);
   const steps = [
     "Each athlete receives the job, its deliverables and the offer shown here. The invitation window is 7 days.",
@@ -423,7 +468,9 @@ export function sendSteps(selected: MatchAthlete[]): string[] {
   );
   if (s.exceptions.length > 0)
     steps.push(
-      `The margin exception on ${s.exceptions.length === 1 ? "1 line" : `${s.exceptions.length} lines`} is written to the campaign audit log against M. Reyes.`,
+      live
+        ? `${s.exceptions.length === 1 ? "1 line sits" : `${s.exceptions.length} lines sit`} below the ${MARGIN_FLOOR}× floor. The invitation carries only the athlete's pay; the Campaign Order refuses a below-floor sell price, so reprice before BTG drafts it.`
+        : `The margin exception on ${s.exceptions.length === 1 ? "1 line" : `${s.exceptions.length} lines`} is written to the campaign audit log against M. Reyes.`,
     );
   return steps;
 }
@@ -530,9 +577,53 @@ const compactFmt = new Intl.NumberFormat("en-US", {
   maximumFractionDigits: 1,
 });
 
-export function fmtReach(n: number): string {
-  return compactFmt.format(n);
+export function fmtReach(n: number | null): string {
+  return n === null ? "—" : compactFmt.format(n);
 }
+
+/* --------------------------------------------------------- the data bundle
+
+   Everything the Studio renders, in one value, so the same island runs on
+   fixtures (the demo) or on a real brief (P4-FE-02). The Studio reads it
+   through context rather than the module constants above.                 */
+
+export type MatchJob = (typeof JOBS)[number];
+export type MatchBrief = {
+  campaign: string;
+  sponsor: string;
+  code: string;
+  budget: number;
+  window: string;
+  windowNote: string;
+  market: string;
+  marketNote: string;
+  needed: number;
+  sponsorCategory: string;
+  responseDeadline: string;
+  scoreSnapshot: string;
+  scoreMethod: string;
+};
+
+export type MatchData = {
+  brief: MatchBrief;
+  jobs: MatchJob[];
+  roster: MatchAthlete[];
+  defaultShortlist: string[];
+  conflicts: Record<string, ConflictDetail>;
+  /** True when rows come from Postgres — sends are real, no Undo. */
+  live: boolean;
+  /** Live: why this brief cannot send yet (e.g. not APPROVED), or null. */
+  sendBlocked?: string | null;
+};
+
+export const FIXTURE_MATCH: MatchData = {
+  brief: MATCH_BRIEF,
+  jobs: JOBS,
+  roster: MATCH_ROSTER,
+  defaultShortlist: DEFAULT_SHORTLIST,
+  conflicts: CONFLICT_DETAILS,
+  live: false,
+};
 
 export function athleteById(id: string, roster = MATCH_ROSTER): MatchAthlete | null {
   return roster.find((a) => a.id === id) ?? null;

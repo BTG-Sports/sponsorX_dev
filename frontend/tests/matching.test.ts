@@ -27,7 +27,9 @@ import {
 describe("roster integrity", () => {
   it("every composite score is the rounded mean of its six factors", () => {
     for (const a of MATCH_ROSTER) {
-      const mean = a.factors.reduce((s, f) => s + f, 0) / a.factors.length;
+      /* Fixtures are fully assessed — no null factor, no null score. */
+      const factors = a.factors as number[];
+      const mean = factors.reduce((s, f) => s + f, 0) / factors.length;
       expect(Math.round(mean), a.name).toBe(a.score);
     }
   });

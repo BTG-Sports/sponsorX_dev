@@ -7,13 +7,14 @@ import { MiniChip, Monogram, initials } from "@/components/hero";
 import { EmptyState } from "@/components/states";
 import { Dropdown, FilterChip, SearchInput } from "@/components/filter-kit";
 import { Pagination } from "@/components/pagination";
+import { INVITE_COPY, money, type InviteState } from "@/lib/fixtures";
+import { isOpen } from "@/lib/invitations-ui";
 import {
-  INVITE_COPY,
-  invitations,
-  money,
-  type InviteState,
-} from "@/lib/fixtures";
-import { isOpen, urgencyHours } from "@/lib/invitations-ui";
+  inviteMoves,
+  shortDate,
+  type InboxRow,
+  type InviteActionResult,
+} from "@/lib/invitations-live";
 
 /* --------------------------------------------------------------------------
    InvitationsInbox — the athlete invitations list as a client island
@@ -24,11 +25,18 @@ import { isOpen, urgencyHours } from "@/lib/invitations-ui";
    shareable and survives reload. Tinted with the athlete portal color.
 
    The stat strip and demo/minor notices stay in the server page — headline
-   numbers cover the whole inbox, not the current filter. Acceptance stays
-   blocked (guide §08); viewing/declining are the wireable transitions.
+   numbers cover the whole inbox, not the current filter.
+
+   LIVE vs DEMO (P4-FE-04). The island renders InboxRow either way; the
+   server page decides where the rows came from. With `respond` present the
+   cards are live and walk §21's invite machine for real: "Open offer"
+   records INVITED→VIEWED, then Accept (armed, confirm to fire — ACCEPTED is
+   terminal) and Decline. Without it the fixture demo keeps its inert,
+   explained controls. Live answers land in their own override map; there is
+   no Undo, because a real answer cannot be taken back.
    -------------------------------------------------------------------------- */
 
-type Invite = (typeof invitations)[number];
+type Invite = InboxRow;
 
 export type InboxInitial = Partial<Record<string, string>>;
 
@@ -68,11 +76,11 @@ const STATE_ORDER: Record<InviteState, number> = {
 };
 
 /** One row per NIL job that actually appears in the inbox. */
-const JOB_OPTIONS = (() => {
+const jobOptions = (rows: Invite[]) => {
   const seen = new Map<string, string>();
-  for (const i of invitations) if (!seen.has(i.jobId)) seen.set(i.jobId, i.jobName);
+  for (const i of rows) if (!seen.has(i.jobId)) seen.set(i.jobId, i.jobName);
   return [...seen].map(([value, name]) => ({ value, label: `${value} · ${name}` }));
-})();
+};
 
 const SORT_OPTIONS = [
   { value: "expiry", label: "Expiry · soonest first" },
@@ -86,7 +94,7 @@ const SORTERS: Record<string, (a: Invite, b: Invite) => number> = {
      has nothing left to expire, whatever its fixture string parses to. */
   expiry: (a, b) =>
     Number(isOpen(b.state)) - Number(isOpen(a.state)) ||
-    urgencyHours(a.expiresIn) - urgencyHours(b.expiresIn),
+    a.hoursLeft - b.hoursLeft,
   offerDesc: (a, b) => b.offered - a.offered,
   offerAsc: (a, b) => a.offered - b.offered,
   sponsor: (a, b) => a.sponsor.localeCompare(b.sponsor),
@@ -95,15 +103,52 @@ const SORTERS: Record<string, (a: Invite, b: Invite) => number> = {
 /** Default order when no sort is chosen: urgency first. */
 const urgencyFirst = (a: Invite, b: Invite) =>
   STATE_ORDER[a.state] - STATE_ORDER[b.state] ||
-  urgencyHours(a.expiresIn) - urgencyHours(b.expiresIn);
+  a.hoursLeft - b.hoursLeft;
 
 export function InvitationsInbox({
+  rows: sourceRows,
   initial,
   demoParam,
+  respond,
 }: {
+  rows: InboxRow[];
   initial?: InboxInitial;
   demoParam?: string;
+  /** Present only for a signed-in athlete's real inbox. */
+  respond?: (id: string, to: InviteState) => Promise<InviteActionResult>;
 }) {
+  const live = Boolean(respond);
+
+  /* Real answers, recorded by the API, keyed by invite id. */
+  const [answered, setAnswered] = useState<Record<string, InviteState>>({});
+  const [pending, setPending] = useState<string | null>(null);
+  const [armed, setArmed] = useState<string | null>(null);
+  const [errors, setErrors] = useState<Record<string, string>>({});
+
+  const rows = useMemo(
+    () =>
+      sourceRows.map((r) => (answered[r.id] ? { ...r, state: answered[r.id] } : r)),
+    [sourceRows, answered],
+  );
+  const JOB_OPTIONS = useMemo(() => jobOptions(sourceRows), [sourceRows]);
+
+  const move = async (id: string, to: InviteState) => {
+    if (!respond || pending) return;
+    setPending(id);
+    setArmed(null);
+    setErrors((e) => {
+      const rest = { ...e };
+      delete rest[id];
+      return rest;
+    });
+    try {
+      const r = await respond(id, to);
+      if (r.ok) setAnswered((a) => ({ ...a, [id]: r.state }));
+      else setErrors((e) => ({ ...e, [id]: r.message }));
+    } finally {
+      setPending(null);
+    }
+  };
   const [q, setQ] = useState(initial?.q ?? "");
   const [tab, setTab] = useState<TabKey>(() =>
     TABS.some((t) => t.key === initial?.state) ? (initial!.state as TabKey) : "all",
@@ -153,7 +198,7 @@ export function InvitationsInbox({
   const needle = q.trim().toLowerCase();
   const searched = useMemo(
     () =>
-      invitations.filter((i) => {
+      rows.filter((i) => {
         if (job && i.jobId !== job) return false;
         if (!needle) return true;
         return [i.sponsor, i.campaign, i.jobName, i.jobId]
@@ -161,7 +206,7 @@ export function InvitationsInbox({
           .toLowerCase()
           .includes(needle);
       }),
-    [needle, job],
+    [rows, needle, job],
   );
 
   const matcher = TABS.find((t) => t.key === tab)!.match;
@@ -344,7 +389,9 @@ export function InvitationsInbox({
               const actionable = isOpen(inv.state);
               /* Anything inside a day gets the urgency treatment, not just
                  the single most-urgent invite. */
-              const urgent = actionable && urgencyHours(inv.expiresIn) <= 24;
+              const urgent = actionable && inv.hoursLeft <= 24;
+              const moves = inviteMoves(inv.state);
+              const busy = pending === inv.id;
               return (
                 <div
                   key={inv.id}
@@ -386,12 +433,18 @@ export function InvitationsInbox({
                         </p>
                         <p className="mt-0.5 text-[10px] text-faint">offered</p>
                       </div>
+                      {/* Live rows carry no deliverable count — the order
+                          defines those — so the slot says when it arrived. */}
                       <div className="px-3 py-2.5">
                         <p className="text-sm font-semibold tabular-nums tracking-tight">
-                          {inv.deliverableCount}
+                          {inv.deliverableCount ?? (inv.sentAt ? shortDate(inv.sentAt) : "—")}
                         </p>
                         <p className="mt-0.5 text-[10px] text-faint">
-                          {inv.deliverableCount === 1 ? "deliverable" : "deliverables"}
+                          {inv.deliverableCount === null
+                            ? "received"
+                            : inv.deliverableCount === 1
+                              ? "deliverable"
+                              : "deliverables"}
                         </p>
                       </div>
                       <div className="px-3 py-2.5">
@@ -420,20 +473,30 @@ export function InvitationsInbox({
                       {urgent && <MiniChip kind="warn">URGENT</MiniChip>}
                     </div>
 
-                    <dl className="space-y-1.5 px-4 pt-3 text-[11px]">
-                      <div className="flex gap-2">
-                        <dt className="shrink-0 text-faint">Usage rights</dt>
-                        <dd className="min-w-0 truncate text-muted">
-                          {inv.usageRights}
-                        </dd>
-                      </div>
-                      <div className="flex gap-2">
-                        <dt className="shrink-0 text-faint">Exclusivity</dt>
-                        <dd className="min-w-0 truncate text-muted">
-                          {inv.exclusivity ?? "None"}
-                        </dd>
-                      </div>
-                    </dl>
+                    {inv.usageRights !== null ? (
+                      <dl className="space-y-1.5 px-4 pt-3 text-[11px]">
+                        <div className="flex gap-2">
+                          <dt className="shrink-0 text-faint">Usage rights</dt>
+                          <dd className="min-w-0 truncate text-muted">
+                            {inv.usageRights}
+                          </dd>
+                        </div>
+                        <div className="flex gap-2">
+                          <dt className="shrink-0 text-faint">Exclusivity</dt>
+                          <dd className="min-w-0 truncate text-muted">
+                            {inv.exclusivity ?? "None"}
+                          </dd>
+                        </div>
+                      </dl>
+                    ) : (
+                      actionable && (
+                        <p className="px-4 pt-3 text-[11px] leading-relaxed text-muted">
+                          Usage rights, exclusivity and due dates arrive on the
+                          Campaign Order BTG drafts once you accept — you sign
+                          that, not this.
+                        </p>
+                      )
+                    )}
 
                     {inv.declineReason && (
                       <p className="mx-4 mt-3 rounded-lg bg-surface-2 px-3 py-2 text-[11px] leading-relaxed text-muted">
@@ -443,7 +506,61 @@ export function InvitationsInbox({
 
                     {/* actions pinned to the bottom so every card lines up */}
                     <div className="mt-auto space-y-2 p-4 pt-3">
-                      {actionable && (
+                      {live && errors[inv.id] && (
+                        <p role="alert" className="rounded-lg bg-danger/10 px-3 py-2 text-[11px] leading-relaxed text-danger">
+                          {errors[inv.id]}
+                        </p>
+                      )}
+                      {live && moves.open && (
+                        <Button full disabled={busy} onClick={() => move(inv.id, "VIEWED")}>
+                          {busy ? "Opening…" : "Open offer"}
+                        </Button>
+                      )}
+                      {live && (moves.accept || moves.decline) && !moves.open && (
+                        <div className="flex gap-2">
+                          <div className="min-w-0 flex-1">
+                            <Button
+                              full
+                              disabled={busy || !moves.accept}
+                              onClick={() =>
+                                armed === inv.id
+                                  ? move(inv.id, "ACCEPTED")
+                                  : setArmed(inv.id)
+                              }
+                            >
+                              {busy
+                                ? "Recording…"
+                                : armed === inv.id
+                                  ? "Confirm — accept"
+                                  : "Accept"}
+                            </Button>
+                          </div>
+                          <Button
+                            variant="secondary"
+                            disabled={busy}
+                            onClick={() => move(inv.id, "DECLINED")}
+                          >
+                            Decline
+                          </Button>
+                        </div>
+                      )}
+                      {live && moves.open && (
+                        <button
+                          type="button"
+                          disabled={busy}
+                          onClick={() => move(inv.id, "DECLINED")}
+                          className="block w-full text-center text-[11px] font-medium text-muted transition-colors hover:text-text disabled:opacity-50"
+                        >
+                          Decline without opening
+                        </button>
+                      )}
+                      {live && armed === inv.id && (
+                        <p className="text-[11px] leading-relaxed text-muted">
+                          Accepting is final. BTG then drafts your Campaign Order
+                          with the full terms for you to sign.
+                        </p>
+                      )}
+                      {!live && actionable && (
                         <div className="flex gap-2">
                           <div className="min-w-0 flex-1">
                             <Button
@@ -462,12 +579,35 @@ export function InvitationsInbox({
                           </Button>
                         </div>
                       )}
-                      <Link
-                        href={`/athlete/orders/${inv.id}?from=athlete-invitations`}
-                        className="block text-center text-[11px] font-medium text-muted transition-colors hover:text-text"
-                      >
-                        Full terms →
-                      </Link>
+                      {/* Live: an accepted invite links to the order BTG sent
+                          (P5-FE-01); until then there is nothing to open. */}
+                      {live && inv.order && (
+                        <Link
+                          href={`/athlete/orders/${encodeURIComponent(inv.order.id)}?from=athlete-invitations`}
+                          className={
+                            inv.order.state === "SENT"
+                              ? "block rounded-lg bg-primary px-3 py-2 text-center text-xs font-medium text-cta-ink transition-colors hover:bg-primary-soft"
+                              : "block text-center text-[11px] font-medium text-muted transition-colors hover:text-text"
+                          }
+                        >
+                          {inv.order.state === "SENT" ? "Campaign Order ready to sign →" : "View Campaign Order →"}
+                        </Link>
+                      )}
+                      {live && inv.state === "ACCEPTED" && !inv.order && (
+                        <p className="text-center text-[11px] text-faint">
+                          BTG is drafting your Campaign Order.
+                        </p>
+                      )}
+                      {/* The order view is keyed by fixture invite ids; a live
+                          invite has no order until BTG drafts one. */}
+                      {!live && (
+                        <Link
+                          href={`/athlete/orders/${inv.id}?from=athlete-invitations`}
+                          className="block text-center text-[11px] font-medium text-muted transition-colors hover:text-text"
+                        >
+                          Full terms →
+                        </Link>
+                      )}
                     </div>
                   </Card>
                 </div>

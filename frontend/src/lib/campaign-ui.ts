@@ -35,6 +35,9 @@ export const FLAG_HINTS: Record<string, string> = {
     "The Campaign Order was sent, but the athlete hasn't accepted it yet.",
   "Replacement needed":
     "The athlete declined this order — the slot needs a new match.",
+  /* P5-FE-05 — live only: BTG's move between invite and signature. */
+  "Order not drafted":
+    "The athlete accepted the invitation — BTG drafts and sends the Campaign Order next.",
 };
 
 /* ------------------------------------------------------------- pacing math */

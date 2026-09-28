@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Badge, Card } from "@/components/ui";
 import { MiniChip, Monogram, initials } from "@/components/hero";
 import { CloseIcon, SearchInput } from "@/components/filter-kit";
@@ -11,6 +13,19 @@ import {
   ORDER_TONE,
   type RosterRow,
 } from "@/lib/campaign-ui";
+import { money } from "@/lib/fixtures";
+import {
+  isLiveRow,
+  type DraftOrderInput,
+  type DraftOrderResult,
+  type LiveRosterRow,
+} from "@/lib/ops-live";
+
+/** Present only on a real campaign's board (P5-FE-05). */
+export type LiveOps = {
+  campaignId: string;
+  draftOrder: (campaignId: string, input: DraftOrderInput, existingOrderId?: string) => Promise<DraftOrderResult>;
+};
 
 /* --------------------------------------------------------------------------
    RosterOps — the §9.9 substance of the campaign dashboard as a client
@@ -257,9 +272,11 @@ function Journey({ r }: { r: RosterRow }) {
 export function RosterOps({
   roster,
   initial,
+  live,
 }: {
   roster: RosterRow[];
   initial?: Partial<Record<"q" | "show", string>>;
+  live?: LiveOps;
 }) {
   const [show, setShow] = useState<"all" | "attention">(
     initial?.show === "attention" ? "attention" : "all",
@@ -491,6 +508,7 @@ export function RosterOps({
         createPortal(
           <OrderDrawer
             row={sel}
+            live={live}
             acted={acted[sel.slug]}
             onAct={(a) => setActed((prev) => ({ ...prev, [sel.slug]: a }))}
             onUndo={() =>
@@ -515,6 +533,7 @@ export function RosterOps({
 
 function OrderDrawer({
   row: r,
+  live,
   acted,
   onAct,
   onUndo,
@@ -524,6 +543,7 @@ function OrderDrawer({
   closeBtnRef,
 }: {
   row: RosterRow;
+  live?: LiveOps;
   acted: ActionSpec | undefined;
   onAct: (a: ActionSpec) => void;
   onUndo: () => void;
@@ -668,6 +688,9 @@ function OrderDrawer({
         </div>
 
         {/* action bar — pinned */}
+        {live && isLiveRow(r) ? (
+          <LiveActionBar row={r} live={live} />
+        ) : (
         <div className="sx-animate sx-delay-4 shrink-0 border-t border-line-soft p-5">
           <div aria-live="polite">
             {acted && (
@@ -704,7 +727,186 @@ function OrderDrawer({
             Demo actions last for this visit only — nothing is saved.
           </p>
         </div>
+        )}
       </div>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------ live actions */
+
+const inputCls =
+  "mt-1 w-full rounded-lg border border-line bg-surface px-3 py-2 text-xs outline-none focus:border-admin/60";
+
+/**
+ * What a real row needs next (P5-FE-05). Only one of these ever has a button
+ * that writes: drafting and sending the Campaign Order after an accepted
+ * invitation — the step that had an endpoint and no screen. Everything else
+ * points to the screen where the work actually happens; there are no
+ * demo-only "reminder" buttons on a live board, because nothing would send.
+ */
+function LiveActionBar({ row: r, live }: { row: LiveRosterRow; live: LiveOps }) {
+  const router = useRouter();
+  const needsOrder = !r.live.orderState && r.live.inviteState === "ACCEPTED";
+  const [open, setOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [drafted, setDrafted] = useState<string | undefined>(undefined);
+  const [sent, setSent] = useState(false);
+  const [f, setF] = useState(() => ({
+    compensation: r.live.offered !== null ? String(r.live.offered / 100) : "",
+    sellPrice: "",
+    usageRights: "",
+    exclusivity: "",
+    dueDate: "",
+  }));
+  const set = (k: keyof typeof f) => (e: { target: { value: string } }) => setF((v) => ({ ...v, [k]: e.target.value }));
+
+  const comp = Math.round(Number(f.compensation) * 100);
+  const sell = Math.round(Number(f.sellPrice) * 100);
+  const floor = Math.ceil(comp * 1.4);
+  const ready =
+    comp > 0 && sell > 0 && f.usageRights.trim().length > 0 && /^\d{4}-\d{2}-\d{2}$/.test(f.dueDate);
+
+  const submit = async () => {
+    if (!r.live.inviteJobId) return;
+    setBusy(true);
+    setError(null);
+    const res = await live.draftOrder(
+      live.campaignId,
+      {
+        athleteId: r.live.athleteId,
+        jobId: r.live.inviteJobId,
+        compensation: comp,
+        sellPrice: sell,
+        usageRights: f.usageRights.trim(),
+        exclusivity: f.exclusivity.trim() || null,
+        dueDate: f.dueDate,
+      },
+      drafted,
+    );
+    setBusy(false);
+    if (res.ok) {
+      setSent(true);
+      router.refresh();
+    } else {
+      if (res.orderId) setDrafted(res.orderId);
+      setError(res.message);
+    }
+  };
+
+  let body: React.ReactNode;
+  if (sent) {
+    body = (
+      <p className="rounded-lg border border-accent/25 bg-accent/8 px-3 py-2.5 text-xs leading-relaxed text-text">
+        Campaign Order sent — {r.name} can now read and sign it.
+      </p>
+    );
+  } else if (needsOrder && open) {
+    body = (
+      <div className="space-y-2.5">
+        <div className="grid grid-cols-2 gap-2">
+          <label className="block">
+            <span className="text-[11px] font-medium text-muted">Athlete pay ($)</span>
+            <input inputMode="decimal" value={f.compensation} onChange={set("compensation")} className={inputCls} />
+          </label>
+          <label className="block">
+            <span className="text-[11px] font-medium text-muted">Sponsor price ($)</span>
+            <input inputMode="decimal" value={f.sellPrice} onChange={set("sellPrice")} className={inputCls} />
+          </label>
+        </div>
+        {comp > 0 && (
+          <p className={`text-[10px] ${sell && sell < floor ? "font-medium text-danger" : "text-faint"}`}>
+            The 1.4× floor for {money(comp)} pay is {money(floor)} — the API refuses a lower sponsor price.
+          </p>
+        )}
+        <label className="block">
+          <span className="text-[11px] font-medium text-muted">Usage rights</span>
+          <input value={f.usageRights} onChange={set("usageRights")} placeholder="Organic social, 90 days" className={inputCls} />
+        </label>
+        <label className="block">
+          <span className="text-[11px] font-medium text-muted">Exclusivity (optional)</span>
+          <input value={f.exclusivity} onChange={set("exclusivity")} placeholder="None" className={inputCls} />
+        </label>
+        <label className="block">
+          <span className="text-[11px] font-medium text-muted">Due date</span>
+          <input type="date" value={f.dueDate} onChange={set("dueDate")} className={inputCls} />
+        </label>
+        {error && (
+          <p role="alert" className="rounded-lg bg-danger/10 px-3 py-2 text-[11px] leading-relaxed text-danger">{error}</p>
+        )}
+        <div className="flex gap-2">
+          <button
+            type="button"
+            disabled={!ready || busy}
+            onClick={submit}
+            className="flex-1 rounded-lg bg-primary px-3.5 py-2 text-xs font-medium text-cta-ink transition-colors hover:bg-primary-soft disabled:opacity-40"
+          >
+            {busy ? "Sending…" : drafted ? "Send the drafted order" : "Draft & send order"}
+          </button>
+          <button
+            type="button"
+            onClick={() => setOpen(false)}
+            className="rounded-lg border border-line px-3.5 py-2 text-xs font-medium text-text transition-colors hover:bg-surface-2"
+          >
+            Cancel
+          </button>
+        </div>
+        <p className="text-[10px] leading-relaxed text-faint">
+          Terms are frozen on the order when it&rsquo;s sent. {r.name} sees their pay, never the sponsor price.
+        </p>
+      </div>
+    );
+  } else if (needsOrder) {
+    body = (
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="inline-flex w-full items-center justify-center rounded-lg bg-primary px-3.5 py-2 text-xs font-medium text-cta-ink transition-colors hover:bg-primary-soft"
+      >
+        Draft the Campaign Order
+      </button>
+    );
+  } else if (r.flag === "Replacement needed") {
+    body = (
+      <Link
+        href="/admin/campaigns/match"
+        className="inline-flex w-full items-center justify-center rounded-lg border border-line px-3.5 py-2 text-xs font-medium text-text transition-colors hover:bg-surface-2"
+      >
+        Find a replacement in the Matching Studio →
+      </Link>
+    );
+  } else if (r.flag === "Under-delivering" || r.live.inReview > 0) {
+    body = (
+      <Link
+        href={`/admin/approvals?tab=all&q=${encodeURIComponent(r.name)}`}
+        className="inline-flex w-full items-center justify-center rounded-lg border border-line px-3.5 py-2 text-xs font-medium text-text transition-colors hover:bg-surface-2"
+      >
+        Open {r.name}&rsquo;s work on the content desk →
+      </Link>
+    );
+  } else if (r.flag === "Awaiting acceptance") {
+    body = (
+      <p className="text-xs leading-relaxed text-muted">
+        Waiting on {r.name} — {r.live.orderState ? "the Campaign Order is sent" : "the invitation is open"}.
+      </p>
+    );
+  } else {
+    body = <p className="text-xs leading-relaxed text-muted">Nothing needed — this order is delivering on schedule.</p>;
+  }
+
+  return (
+    <div className="sx-animate sx-delay-4 shrink-0 border-t border-line-soft p-5">
+      {r.live.nextDue && (
+        <p className="mb-3 text-[11px] text-muted">
+          Next due{" "}
+          <strong className="font-semibold text-text">
+            {new Date(r.live.nextDue).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" })}
+          </strong>
+          {r.live.overdue > 0 && <span className="text-danger"> · {r.live.overdue} overdue</span>}
+        </p>
+      )}
+      {body}
     </div>
   );
 }

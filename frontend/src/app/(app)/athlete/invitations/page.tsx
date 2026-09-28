@@ -3,7 +3,15 @@ import { EmptyState, SkeletonPage } from "@/components/states";
 import { InvitationsInbox, type InboxInitial } from "@/components/invitations-inbox";
 import { demoState } from "@/lib/demo";
 import { athleteMinor, invitations, money } from "@/lib/fixtures";
-import { isOpen, urgencyHours } from "@/lib/invitations-ui";
+import { isOpen } from "@/lib/invitations-ui";
+import {
+  fixtureInboxRow,
+  toInboxRow,
+  type ApiInvitation,
+  type InboxRow,
+} from "@/lib/invitations-live";
+import { apiFetch, fetchActor } from "@/server/api";
+import { respondToInvite } from "./actions";
 
 /* --------------------------------------------------------------------------
    Campaign Invitations — §21, §13 step 5. Athlete portal. Reworked
@@ -19,8 +27,31 @@ import { isOpen, urgencyHours } from "@/lib/invitations-ui";
 
    Acceptance is blocked: the Campaign Order acceptance flow hashes the
    rendered agreement body, and that text must clear counsel first (guide
-   §08). Fixtures only (src/lib/fixtures.ts).
+   §08).
+
+   LIVE vs DEMO (P4-FE-04, the P3-FE-02 precedent). A signed-in athlete sees
+   their REAL inbox — GET /invitations, own scope, all five §21 states — and
+   the cards answer through the respondToInvite server action: opening
+   records INVITED→VIEWED, then accept or decline. Accepting an INVITATION is
+   not signing: the Campaign Order BTG drafts afterwards is what gets hashed
+   (P5-FE-01), so the counsel block on order acceptance does not apply here.
+   Anyone else, or any ?demo= state, keeps the fixture demo.
    -------------------------------------------------------------------------- */
+
+/** The signed-in athlete's real inbox, or null for the demo. */
+async function liveInbox(): Promise<InboxRow[] | null> {
+  /* No catch — an outage is an error page, never fixtures dressed as the
+     athlete's own offers (QA pass 4 rule). */
+  const who = await fetchActor();
+  if (who.status !== "linked") return null;
+  if (!who.actor.roles.includes("ATHLETE")) return null;
+
+  const res = await apiFetch("/invitations");
+  if (!res.ok) throw new Error(`Invitations unavailable (${res.status}).`);
+  const { invitations: rows } = (await res.json()) as { invitations: ApiInvitation[] };
+  const now = new Date();
+  return rows.map((r) => toInboxRow(r, now));
+}
 
 export default async function InvitationsPage({
   searchParams,
@@ -31,10 +62,13 @@ export default async function InvitationsPage({
   if (demo === "loading") return <SkeletonPage />;
   if (demo === "error") throw new Error("Demo error state");
 
+  const live = demo === null ? await liveInbox() : null;
+  const rows: InboxRow[] = live ?? invitations.map(fixtureInboxRow);
+
   /* Brand-new athlete: no invites at all — heading plus the single empty
      state, no counts, no tabs and no search pretending there is anything
-     to filter. */
-  if (demo === "empty") {
+     to filter. A live athlete with an empty inbox gets the same page. */
+  if (demo === "empty" || (live && live.length === 0)) {
     return (
       <div className="space-y-6">
         <div>
@@ -68,14 +102,12 @@ export default async function InvitationsPage({
 
   /* Headline numbers cover the whole inbox, not the current filter — they
      answer "what's waiting for me" before any narrowing. */
-  const openInvites = invitations.filter((i) => isOpen(i.state));
+  const openInvites = rows.filter((i) => isOpen(i.state));
   const openValue = openInvites.reduce((s, i) => s + i.offered, 0);
   const mostUrgent = openInvites.length
-    ? openInvites.reduce((a, b) =>
-        urgencyHours(b.expiresIn) < urgencyHours(a.expiresIn) ? b : a,
-      )
+    ? openInvites.reduce((a, b) => (b.hoursLeft < a.hoursLeft ? b : a))
     : null;
-  const resolved = invitations.filter((i) => !isOpen(i.state));
+  const resolved = rows.filter((i) => !isOpen(i.state));
   const accepted = resolved.filter((i) => i.state === "ACCEPTED").length;
 
   return (
@@ -104,7 +136,7 @@ export default async function InvitationsPage({
         <StatTile
           label="Awaiting response"
           value={String(openInvites.length)}
-          sub={`of ${invitations.length} total invitations`}
+          sub={`of ${rows.length} total invitations`}
         />
         <StatTile
           label="Offers on the table"
@@ -124,14 +156,19 @@ export default async function InvitationsPage({
       </div>
 
       {/* --------------------------------------------------- inbox (island) */}
-      <InvitationsInbox initial={initial} demoParam={demoParam} />
+      <InvitationsInbox
+        rows={rows}
+        initial={initial}
+        demoParam={demoParam}
+        respond={live ? respondToInvite : undefined}
+      />
 
-      <BlockedNotice>
+      {!live && <BlockedNotice>
         Accepting an invitation creates a Campaign Order and hashes the rendered
         agreement body (guide §08). Acceptance stays disabled until counsel
         approves the Campaign Order template. Viewing, declining and expiry are
         the wireable transitions; acceptance waits for B4.
-      </BlockedNotice>
+      </BlockedNotice>}
     </div>
   );
 }

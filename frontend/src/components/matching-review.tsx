@@ -8,20 +8,24 @@ import {
   jobFor,
   marginBand,
   MARGIN_FLOOR,
-  MATCH_BRIEF,
   sendSteps,
   sendSummary,
   type MatchAthlete,
 } from "@/lib/matching";
 import { money } from "@/lib/fixtures";
+import { useMatch } from "@/components/matching-data";
+import type { SendOutcome } from "@/components/matching-studio";
 
 /* --------------------------------------------------------------------------
    Review & send — the final roster and what sending does (P4-ART-01 §4).
 
    The floor rule is per-line: a healthy blended margin does not excuse a
    breached line, so the send button stays disabled until the manager
-   acknowledges a *recorded* exception. Sending is a demo action — local to
-   this visit, undoable, never persisted (roster-ops discipline).
+   acknowledges a *recorded* exception. On fixtures, sending is a demo action
+   — local to this visit, undoable, never persisted (roster-ops discipline).
+   Live (P4-FE-03) it is real: one invitation per athlete per package line,
+   per-athlete outcomes reported back, and no Undo — an offer the athlete may
+   already be reading cannot be quietly withdrawn from here.
 
    Desktop renders the offer table; below lg each line becomes a card with
    the same fields — cost, sell and margin never drop out at any width.
@@ -35,6 +39,8 @@ export function MatchingReview({
   ack,
   onAck,
   sent,
+  sending = false,
+  outcomes = null,
   onSend,
   onUndo,
   onBack,
@@ -43,13 +49,25 @@ export function MatchingReview({
   ack: boolean;
   onAck: (v: boolean) => void;
   sent: boolean;
+  sending?: boolean;
+  outcomes?: SendOutcome[] | null;
   onSend: () => void;
-  onUndo: () => void;
+  /** Absent in live mode — a real send has no Undo. */
+  onUndo?: () => void;
   onBack: () => void;
 }) {
-  const s = sendSummary(athletes);
+  const { brief: MATCH_BRIEF, jobs, live, sendBlocked } = useMatch();
+  const s = sendSummary(athletes, MATCH_BRIEF);
   const blended = blendedMargin(athletes);
-  const canSend = athletes.length > 0 && (s.exceptions.length === 0 || ack);
+  /* Live, a pick becomes one invitation per package line. */
+  const invitationCount = athletes.reduce((n, a) => n + (a.lines?.length ?? 1), 0);
+  const failed = (outcomes ?? []).filter((o) => !o.ok);
+  const sentCount = (outcomes ?? []).filter((o) => o.ok).length;
+  const canSend =
+    athletes.length > 0 &&
+    (s.exceptions.length === 0 || ack) &&
+    !sending &&
+    !(live && sendBlocked);
 
   return (
     <div className="space-y-5">
@@ -120,8 +138,10 @@ export function MatchingReview({
                 .join(" ")}{" "}
               The blended roster margin is{" "}
               {marginBand(blended.ratio) === "below" ? "also below floor" : "healthy"},
-              but the floor is a per-line rule. Send anyway and the exception is
-              recorded against your name.
+              but the floor is a per-line rule.{" "}
+              {live
+                ? "The invitation only offers the athlete their pay; the Campaign Order refuses a below-floor sell price, so this line must be repriced before BTG drafts it."
+                : "Send anyway and the exception is recorded against your name."}
             </p>
             <label className="mt-3 flex cursor-pointer items-start gap-2.5">
               <input
@@ -131,7 +151,9 @@ export function MatchingReview({
                 className="mt-0.5 size-3.5 shrink-0 accent-[var(--sx-accent)]"
               />
               <span className="text-[11px] font-medium leading-relaxed text-text">
-                I am sending with a recorded margin exception on{" "}
+                {live
+                  ? "I understand the order will need repricing on "
+                  : "I am sending with a recorded margin exception on "}
                 {s.exceptions.length === 1 ? "1 line" : `${s.exceptions.length} lines`}
               </span>
             </label>
@@ -166,7 +188,7 @@ export function MatchingReview({
             ) : (
               <ul className="divide-y divide-line-soft">
                 {athletes.map((a, i) => {
-                  const job = jobFor(a.jobId);
+                  const job = jobFor(a.jobId, jobs);
                   const pending = a.guardian === "pending";
                   return (
                     <li
@@ -244,7 +266,7 @@ export function MatchingReview({
           <Card className="p-4">
             <p className="text-[11px] font-medium text-muted">What sending does</p>
             <ul className="mt-2.5 space-y-2">
-              {sendSteps(athletes).map((step, i) => (
+              {sendSteps(athletes, live).map((step, i) => (
                 <li
                   key={step}
                   className="sx-join-rise flex items-start gap-2 text-[11px] leading-relaxed text-muted"
@@ -288,25 +310,54 @@ export function MatchingReview({
                 </svg>
               </span>
               <p className="mt-3 text-sm font-semibold tracking-tight">
-                {s.invitations === 1
-                  ? "1 invitation sent"
-                  : `${s.invitations} invitations sent`}
+                {live
+                  ? `${sentCount} of ${athletes.length} athletes invited`
+                  : s.invitations === 1
+                    ? "1 invitation sent"
+                    : `${s.invitations} invitations sent`}
               </p>
               <p className="mt-1.5 text-[11px] leading-relaxed text-muted">
-                Each athlete has 7 days to respond. On a live system the roster
-                would now read SENT per athlete and the campaign would sit in
-                STAFFING until acceptances land.
+                {live
+                  ? "Each athlete has 7 days to respond. The roster now reads their invitation state from the campaign, and it stays in STAFFING until acceptances land."
+                  : "Each athlete has 7 days to respond. On a live system the roster would now read SENT per athlete and the campaign would sit in STAFFING until acceptances land."}
               </p>
-              <button
-                type="button"
-                onClick={onUndo}
-                className="mt-4 w-full rounded-lg border border-line px-4 py-2.5 text-xs font-medium text-text transition-colors hover:bg-surface-2"
-              >
-                Undo
-              </button>
-              <p className="mt-2 text-[10px] text-faint">
-                Demo actions last for this visit only — nothing is saved.
-              </p>
+              {failed.length > 0 && (
+                <ul className="mt-3 space-y-1.5 text-left" role="alert">
+                  {failed.map((f) => (
+                    <li
+                      key={f.athleteId}
+                      className="rounded-lg bg-danger/10 px-3 py-2 text-[11px] leading-relaxed text-danger"
+                    >
+                      <span className="font-semibold">
+                        {athletes.find((a) => a.id === f.athleteId)?.name ?? f.athleteId}
+                      </span>{" "}
+                      — {f.message}
+                    </li>
+                  ))}
+                </ul>
+              )}
+              {onUndo ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={onUndo}
+                    className="mt-4 w-full rounded-lg border border-line px-4 py-2.5 text-xs font-medium text-text transition-colors hover:bg-surface-2"
+                  >
+                    Undo
+                  </button>
+                  <p className="mt-2 text-[10px] text-faint">
+                    Demo actions last for this visit only — nothing is saved.
+                  </p>
+                </>
+              ) : (
+                <button
+                  type="button"
+                  onClick={onBack}
+                  className="mt-4 w-full rounded-lg border border-line px-4 py-2.5 text-xs font-medium text-text transition-colors hover:bg-surface-2"
+                >
+                  Back to the roster
+                </button>
+              )}
             </Card>
           ) : (
             <Card className="p-0">
@@ -322,7 +373,7 @@ export function MatchingReview({
                 </p>
               </div>
               <dl className="space-y-2.5 p-4">
-                <SendRow k="Invitations" v={String(s.invitations)} />
+                <SendRow k="Invitations" v={String(invitationCount)} />
                 <SendRow
                   k="Guardian consent required"
                   v={String(s.guardianCount)}
@@ -343,10 +394,14 @@ export function MatchingReview({
                   data-armed={canSend && s.exceptions.length > 0}
                   className="sx-join-sheen w-full rounded-lg bg-primary px-4 py-2.5 text-xs font-medium text-cta-ink shadow-sm transition-colors hover:bg-primary-soft disabled:cursor-not-allowed disabled:opacity-40"
                 >
-                  Send {s.invitations === 1 ? "1 invitation" : `${s.invitations} invitations`}
+                  {sending
+                    ? "Sending…"
+                    : `Send ${invitationCount === 1 ? "1 invitation" : `${invitationCount} invitations`}`}
                 </button>
                 <p className="mt-2 text-[10px] leading-relaxed text-faint">
-                  {!canSend && s.exceptions.length > 0
+                  {live && sendBlocked
+                    ? sendBlocked
+                    : !canSend && s.exceptions.length > 0 && !ack
                     ? "Acknowledge the margin exception above to send."
                     : athletes.length === 0
                       ? "Add at least one athlete to send."

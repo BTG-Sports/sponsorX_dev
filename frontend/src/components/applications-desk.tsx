@@ -26,7 +26,7 @@ import {
   waitHours,
   type LiveApplicationState,
 } from "@/lib/applications-ui";
-import { RING_TEXT, ScoreRing } from "@/components/score-ring";
+import { NoScoreRing, RING_TEXT, ScoreRing } from "@/components/score-ring";
 
 /* --------------------------------------------------------------------------
    ApplicationsDesk — the admin applications review queue (2026-09-14
@@ -114,21 +114,6 @@ function CheckRow({
         {children}
       </span>
     </li>
-  );
-}
-
-/** The honest ring for "not scored yet" — a dash, not a zero (§14: an
- *  absence is not an assessment). Same footprint as ScoreRing so rows align. */
-function NoScoreRing({ size = 38 }: { size?: number }) {
-  return (
-    <span
-      role="img"
-      aria-label="Not scored yet"
-      className="grid shrink-0 place-items-center rounded-full border border-dashed border-line text-[11px] font-semibold text-faint"
-      style={{ width: size, height: size }}
-    >
-      <span aria-hidden="true">—</span>
-    </span>
   );
 }
 

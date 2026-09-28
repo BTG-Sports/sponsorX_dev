@@ -78,3 +78,19 @@ export function ScoreRing({
     </span>
   );
 }
+
+/** The honest ring for "not scored yet" — a dash, not a zero (§14: an
+ *  absence is not an assessment). Same footprint as ScoreRing so rows align.
+ *  Moved here from applications-desk for the Matching Studio (P4-FE-02). */
+export function NoScoreRing({ size = 38 }: { size?: number }) {
+  return (
+    <span
+      role="img"
+      aria-label="Not scored yet"
+      className="grid shrink-0 place-items-center rounded-full border border-dashed border-line text-[11px] font-semibold text-faint"
+      style={{ width: size, height: size }}
+    >
+      <span aria-hidden="true">—</span>
+    </span>
+  );
+}

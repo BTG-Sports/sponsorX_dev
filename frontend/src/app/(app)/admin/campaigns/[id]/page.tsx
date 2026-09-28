@@ -13,7 +13,17 @@ import { HeroBand, MiniChip, Monogram, initials } from "@/components/hero";
 import { RosterOps } from "@/components/roster-ops";
 import { EmptyState, SkeletonPage } from "@/components/states";
 import { CampaignLauncher } from "@/components/campaign-launcher";
+import { notFound } from "next/navigation";
 import { resolveBack } from "@/lib/back";
+import {
+  daysRemaining,
+  reachPct,
+  toRosterRow,
+  verifiedPct,
+  type ApiOps,
+} from "@/lib/ops-live";
+import { apiFetch, fetchActor } from "@/server/api";
+import { draftAndSendOrder } from "./actions";
 import { PACE_COPY, fmtRate, paceFor, paceProjection } from "@/lib/campaign-ui";
 import { demoState } from "@/lib/demo";
 import {
@@ -39,7 +49,169 @@ import {
    interactive roster: filter pills, instant search, a delivery ring per row,
    and a slide-over drawer that spells out the order lifecycle and offers the
    one action each state calls for.
+
+   LIVE vs DEMO (P5-FE-05, the P3-FE-02 precedent). For a signed-in BTG desk
+   the id is a REAL campaign: GET /campaigns/{id}/ops answers the roster —
+   per-athlete order or invitation state, delivered of planned, overdue by
+   delivery-health's own rule, what's in review, VERIFIED views — and the
+   campaign's health by `assessDelivery`. The hero shows those numbers, not
+   the fixture views series (daily reach is the analytics task's, P7-FE-04);
+   the roster's drawer drafts and sends the Campaign Order after an accepted
+   invitation, the one step that had an endpoint and no screen. Anyone else,
+   or any ?demo= state, keeps the fixture dashboard.
    -------------------------------------------------------------------------- */
+
+const OPS_ROLES = ["SUPER_ADMIN", "BTG_ADMIN", "CAMPAIGN_MGR", "NETWORK_MGR", "SALES", "FINANCE"];
+
+async function liveOps(id: string): Promise<ApiOps | "missing" | null> {
+  /* No catch — an outage is an error page, never fixtures dressed as a real
+     campaign (QA pass 4 rule). */
+  const who = await fetchActor();
+  if (who.status !== "linked") return null;
+  if (!who.actor.roles.some((r) => OPS_ROLES.includes(r))) return null;
+  const res = await apiFetch(`/campaigns/${encodeURIComponent(id)}/ops`);
+  if (res.status === 403) return "missing";
+  if (!res.ok) throw new Error(`Campaign unavailable (${res.status}).`);
+  return (await res.json()) as ApiOps;
+}
+
+const STATE_TONE: Record<string, "accent" | "warn" | "neutral" | "danger" | "primary"> = {
+  ACTIVE: "accent",
+  STAFFING: "warn",
+  APPROVAL: "warn",
+  REPORTING: "primary",
+  DRAFT: "neutral",
+  COMPLETED: "neutral",
+  CANCELLED: "danger",
+};
+
+function LiveOpsView({
+  ops,
+  back,
+  initial,
+}: {
+  ops: ApiOps;
+  back: ReturnType<typeof resolveBack>;
+  initial: { q: string; show: string };
+}) {
+  const now = new Date();
+  const c = ops.campaign;
+  const h = ops.health;
+  const rows = ops.roster.map(toRosterRow);
+  const pct = verifiedPct(h);
+  const reach = reachPct(h);
+  const flagged = rows.filter((r) => r.flag).length;
+  const left = daysRemaining(c.endDate, now);
+
+  return (
+    <div className="space-y-6">
+      <BackLink target={back} />
+
+      <div className="sx-animate flex flex-wrap items-start justify-between gap-3">
+        <div className="flex items-start gap-3">
+          <Monogram text={initials(c.sponsorName)} tone="primary" className="size-11 text-xs" />
+          <div>
+            <div className="flex flex-wrap items-center gap-2">
+              <h1 className="text-xl font-semibold tracking-tight">{c.name}</h1>
+              <Badge tone={STATE_TONE[c.state] ?? "neutral"}>{c.state.toLowerCase()}</Badge>
+            </div>
+            <p className="mt-0.5 text-xs text-muted">
+              Presented by {c.sponsorName} · {left > 0 ? `${left} days remaining` : "window closed"}
+            </p>
+          </div>
+        </div>
+        <Link
+          href={`/sponsor/campaigns/${encodeURIComponent(c.id)}/report?from=campaign`}
+          className="rounded-lg bg-primary px-3.5 py-2 text-[11px] font-medium text-cta-ink transition-colors hover:bg-primary-soft"
+        >
+          Sponsor report
+        </Link>
+      </div>
+
+      <HeroBand border="border-admin/25" className="sx-animate sx-delay-1">
+        <p className="text-[10px] font-medium uppercase tracking-[0.2em] text-muted">Delivery</p>
+        <p className="mt-1 flex flex-wrap items-baseline gap-2">
+          <span className="bg-[linear-gradient(90deg,var(--sx-admin),var(--sx-primary))] bg-clip-text text-4xl font-bold tabular-nums tracking-tight text-transparent sm:text-5xl">
+            {pct === null ? "—" : `${pct}%`}
+          </span>
+          <span className="text-sm text-muted">
+            {h.deliverablesTotal
+              ? `of ${h.deliverablesTotal} deliverables verified (${h.deliverablesVerified})`
+              : "no deliverables yet — they're created when athletes sign their orders"}
+          </span>
+          <MiniChip kind="ver">POSTGRES</MiniChip>
+        </p>
+        <div className="mt-4 space-y-2.5 text-xs text-muted">
+          <p className="flex items-start gap-2">
+            <span className={`mt-1 inline-flex size-2 shrink-0 rounded-full ${h.underDeliveringWork ? "bg-danger" : "bg-success"}`} aria-hidden="true" />
+            <span>
+              {h.deliverablesOverdue > 0 ? (
+                <>
+                  <strong className="font-semibold text-text">{h.deliverablesOverdue} overdue</strong> — past their
+                  due date and not verified.
+                </>
+              ) : (
+                "Nothing overdue."
+              )}
+            </span>
+          </p>
+          <p className="flex items-start gap-2">
+            <span className={`mt-1 inline-flex size-2 shrink-0 rounded-full ${h.underDeliveringReach ? "bg-warn" : "bg-success"}`} aria-hidden="true" />
+            <span>
+              {reach === null ? (
+                "No reach projection on these orders, so there's no reach promise to fall short of."
+              ) : (
+                <>
+                  Verified reach{" "}
+                  <strong className="font-semibold text-text">{compact(h.verifiedImpressions)}</strong> of the{" "}
+                  {compact(h.projectedImpressions ?? 0)} projected ({reach}%)
+                  {h.underDeliveringReach ? " — below the 70% shortfall line." : "."}
+                </>
+              )}{" "}
+              <MiniChip kind="ver">VERIFIED</MiniChip>
+            </span>
+          </p>
+          <p className="flex items-start gap-2">
+            <span className={`mt-1 inline-flex size-2 shrink-0 rounded-full ${flagged > 0 ? "bg-danger" : "bg-success"}`} aria-hidden="true" />
+            <span>
+              {flagged > 0 ? (
+                <>
+                  <strong className="font-semibold text-text">{flagged} of {rows.length}</strong> athletes need
+                  attention — the roster below puts them first.
+                </>
+              ) : rows.length ? (
+                "Every athlete on the roster is on track."
+              ) : (
+                "No athletes on this campaign yet."
+              )}
+            </span>
+          </p>
+        </div>
+      </HeroBand>
+
+      <section className="sx-animate sx-delay-2">
+        <SectionHeading
+          title="Roster"
+          hint="Who accepted, what's due, what's late — click an athlete for their order"
+        />
+        {rows.length ? (
+          <RosterOps
+            roster={rows}
+            initial={initial}
+            live={{ campaignId: c.id, draftOrder: draftAndSendOrder }}
+          />
+        ) : (
+          <EmptyState
+            mark="inbox"
+            title="Nobody on the roster yet"
+            hint="Athletes appear here once invitations go out from the Matching Studio."
+            action={{ label: "Open the Matching Studio", href: "/admin/campaigns/match" }}
+          />
+        )}
+      </section>
+    </div>
+  );
+}
 
 const PACE_DOT: Record<string, string> = {
   accent: "bg-success",
@@ -63,6 +235,12 @@ export default async function CampaignDashboardPage({
   const one = (v: string | string[] | undefined) =>
     typeof v === "string" ? v : "";
   const back = resolveBack(one(sp.from) || undefined, "admin");
+
+  const live = demo === null ? await liveOps(id) : null;
+  if (live === "missing") notFound();
+  if (live) {
+    return <LiveOpsView ops={live} back={back} initial={{ q: one(sp.q), show: one(sp.show) }} />;
+  }
 
   if (demo === "empty") {
     return (
