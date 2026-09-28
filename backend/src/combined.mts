@@ -28,6 +28,13 @@
  *
  * The trigger to revisit: any CPU-bound job, or the API needing to scale
  * independently of the queue. Both are Phase 2 concerns at the earliest.
+ *
+ * DECIDED 2026-09-28, by the programme owner: the first CPU-heavy job has
+ * landed — `report.render` (2S7-BE-02), a headless-Chromium PDF — and the
+ * two stay in ONE service for now. The render runs one at a time
+ * (`localConcurrency: 1` in worker/index.mts), and Chromium is its own
+ * process, so the shared event loop only waits on it. Revisit if renders
+ * queue up behind each other, or if API latency moves while one is running.
  */
 
 import { createApp } from "./app.js";
