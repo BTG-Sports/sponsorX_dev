@@ -292,6 +292,9 @@ const BUILDERS: Partial<Record<Resource, Builder>> = {
   },
   schoolPoolAllocation: tenantScoped,
   propertyOnboarding: tenantScoped,
+  /* 2S6-BE-02 — a user's own notification preferences, and only theirs. */
+  notificationPreference: (actor, scope) =>
+    scope === "own" ? { tenantId: actor.tenantId, userId: actor.userId } : MATCHES_NOTHING,
 
   /* 2S7-BE-02 — a rendered sponsor report (ReportFile). Staff reach the
      tenant's; a sponsor reaches the files for their own campaigns. */

@@ -27,6 +27,7 @@ import type { Actor } from "../auth/actor";
 import { assertTenantWide, whereFor } from "../auth/scope";
 import { ForbiddenError } from "../auth/errors";
 import { issueOnboardingToken, readOnboardingToken } from "../lib/onboarding-token";
+import { send, type EmailTemplate } from "../lib/email";
 import {
   canTransitionOnboarding,
   ContactSchema,
@@ -70,6 +71,12 @@ const SELECT = {
   contacts: true, details: true, payoutAcknowledgedAt: true, termsAgreementId: true, termsAcceptedAt: true,
   submittedAt: true, reviewNotes: true, decidedAt: true, propertyId: true, createdAt: true, updatedAt: true,
   property: { select: { listingAccessAt: true } },
+  /* 2S1-BE-02 — names and status only. No link: a read of a verification
+     document is BTG's, through reviewDocuments' audited grant. */
+  documents: {
+    select: { id: true, kind: true, filename: true, contentType: true, bytes: true, uploadedAt: true, createdAt: true },
+    orderBy: { createdAt: "asc" },
+  },
 } as const;
 
 type Row = Prisma.PropertyOnboardingGetPayload<{ select: typeof SELECT }>;
@@ -84,6 +91,47 @@ async function currentTerms(tx: Prisma.TransactionClient, tenantId: string) {
     where: { tenantId, kind: PROPERTY_TERMS_KIND },
     orderBy: { version: "desc" },
     select: { id: true, version: true, bodyHash: true },
+  });
+}
+
+/* ── notifications — 2S1-INT-01 ────────────────────────────────────────── */
+
+/** The email each moment sends. REINSTATE sends none: it is BTG undoing its
+ *  own pause, and the five messages are the ones the plan names. */
+const NOTICE: Partial<Record<Decision | "SUBMIT", EmailTemplate>> = {
+  SUBMIT: "onboarding.received",
+  REQUEST_CHANGES: "onboarding.changesRequested",
+  APPROVE: "onboarding.approved",
+  REJECT: "onboarding.rejected",
+  SUSPEND: "onboarding.suspended",
+};
+
+/**
+ * Queue the moment's email to the primary contact, inside the transaction
+ * that made the move — so a rolled-back decision is never announced, and the
+ * send is a job that retries (lib/email.ts). The key counts the moment ("the
+ * second request for changes"), never the clock, so a redelivered job is a
+ * duplicate and a genuinely new request is not.
+ */
+async function notify(tx: Prisma.TransactionClient, row: Row, moment: Decision | "SUBMIT", action: string, notes?: string | null) {
+  const template = NOTICE[moment];
+  if (!template) return;
+  const primary = z.array(ContactSchema).safeParse(row.contacts);
+  const to = primary.success ? primary.data.find((c) => c.primary) : undefined;
+  if (!to) return; // submit requires one (missingFor), so only a hand-made row lands here
+  const occurrence = await tx.auditLog.count({ where: { tenantId: row.tenantId, entity: "PropertyOnboarding", entityId: row.id, action } });
+  const app = env.APP_URL.replace(/\/+$/, "");
+  await send(tx, row.tenantId, {
+    template,
+    to: to.email,
+    data: {
+      orgName: row.orgName,
+      contactName: to.name.split(/\s+/)[0] ?? to.name,
+      ...(notes?.trim() ? { notes: notes.trim() } : {}),
+      ...(moment === "REQUEST_CHANGES" ? { resumeUrl: `${app}/onboarding/${issueOnboardingToken(row.id)}` } : {}),
+      ...(moment === "APPROVE" ? { portalUrl: `${app}/property` } : {}),
+    },
+    idempotencyKey: `${template}:${row.id}:${occurrence}`,
   });
 }
 
@@ -197,6 +245,7 @@ export async function submitOnboarding(token: string) {
     await audit(tx, { userId: null, tenantId: row.tenantId }, "onboarding.submit", "PropertyOnboarding", row.id, {
       before: { state: from }, after: { state: "PENDING_REVIEW" },
     });
+    await notify(tx, row, "SUBMIT", "onboarding.submit");
     return view(updated);
   });
 }
@@ -221,6 +270,61 @@ export async function getOnboarding(actor: Actor, id: string) {
   return view(row);
 }
 
+type Provisioned = { tenantId: string; propertyId: string; managerUserId: string };
+
+/**
+ * 2S1-BE-04 — the first approval gives the organisation a tenant of its own.
+ *
+ * "This is where Phase 1's tenant scoping gets its real test — outside
+ * organisations now hold accounts." So the organisation is NOT a row inside
+ * BTG's tenant: it gets a new Tenant, its Property lives there, and its
+ * primary contact becomes that tenant's PROPERTY_MGR, linked to the Property.
+ * Every scope builder is tenant-first, so from the first request that account
+ * reaches its own tenant's rows and nothing of BTG's or anyone else's.
+ *
+ * The onboarding record and its audit trail stay with BTG, who reviewed it.
+ *
+ * The account is a placeholder until the contact signs in: `resolveActor`
+ * claims it by verified email, the same path every provisioned user takes.
+ * An address that already has an account anywhere is refused — the claim is
+ * by email, and a second row would make it ambiguous which tenant a sign-in
+ * lands in.
+ */
+async function provisionTenant(tx: Prisma.TransactionClient, row: Row, now: Date): Promise<Provisioned> {
+  const primary = z.array(ContactSchema).parse(row.contacts).find((c) => c.primary);
+  if (!primary) throw new OnboardingError("The application has no primary contact to give the account to.", 409);
+  const email = primary.email.toLowerCase();
+  const existing = await tx.user.findFirst({
+    /* tenant-scope: identity is global — a sign-in is claimed by email across every tenant, so uniqueness is checked across them. */
+    where: { email: { equals: email, mode: "insensitive" } },
+    select: { id: true },
+  });
+  if (existing) {
+    throw new OnboardingError(`${email} already has a SponsorX account. Ask the organisation to name a different primary contact, then approve.`, 409);
+  }
+
+  const tenant = await tx.tenant.create({ data: { name: row.orgName }, select: { id: true } });
+  const property = await tx.property.create({
+    data: {
+      tenantId: tenant.id, kind: row.orgType, name: row.orgName, stateCode: row.stateCode,
+      slug: `${slugify(row.orgName)}-${randomBytes(3).toString("hex")}`, listingAccessAt: now,
+    },
+    select: { id: true },
+  });
+  const manager = await tx.user.create({
+    data: {
+      tenantId: tenant.id, email, roles: ["PROPERTY_MGR"], propertyId: property.id,
+      /* Placeholder until the first sign-in claims it — never a fabricated Clerk id. */
+      clerkId: `invite:${randomBytes(12).toString("hex")}`,
+    },
+    select: { id: true },
+  });
+  await audit(tx, { userId: null, tenantId: tenant.id }, "tenant.provision", "Tenant", tenant.id, {
+    after: { onboardingId: row.id, propertyId: property.id, managerUserId: manager.id, roles: ["PROPERTY_MGR"] },
+  });
+  return { tenantId: tenant.id, propertyId: property.id, managerUserId: manager.id };
+}
+
 const slugify = (s: string) => s.normalize("NFKD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 60) || "property";
 
 /**
@@ -243,22 +347,19 @@ export async function decideOnboarding(actor: Actor, id: string, decision: Decis
     }
 
     let propertyId = row.propertyId;
+    let provisioned: Provisioned | null = null;
     const now = new Date();
     if (to === "APPROVED") {
       if (!propertyId) {
-        const property = await tx.property.create({
-          data: {
-            tenantId: actor.tenantId, kind: row.orgType, name: row.orgName, stateCode: row.stateCode,
-            slug: `${slugify(row.orgName)}-${randomBytes(3).toString("hex")}`, listingAccessAt: now,
-          },
-          select: { id: true },
-        });
-        propertyId = property.id;
+        provisioned = await provisionTenant(tx, row, now);
+        propertyId = provisioned.propertyId;
       } else {
+        /* tenant-scope: the Property this onboarding provisioned, in the organisation's own tenant (2S1-BE-04). */
         await tx.property.update({ where: { id: propertyId }, data: { listingAccessAt: now }, select: { id: true } });
       }
     }
     if (to === "SUSPENDED" && propertyId) {
+      /* tenant-scope: the Property this onboarding provisioned, in the organisation's own tenant (2S1-BE-04). */
       await tx.property.update({ where: { id: propertyId }, data: { listingAccessAt: null }, select: { id: true } });
     }
 
@@ -271,8 +372,13 @@ export async function decideOnboarding(actor: Actor, id: string, decision: Decis
       select: SELECT,
     });
     await audit(tx, actor, `onboarding.${decision.toLowerCase()}`, "PropertyOnboarding", id, {
-      before: { state: from }, after: { state: to, notes: notes?.trim() || null, propertyId, listingAccess: to === "APPROVED" },
+      before: { state: from },
+      after: {
+        state: to, notes: notes?.trim() || null, propertyId, listingAccess: to === "APPROVED",
+        ...(provisioned ? { tenantId: provisioned.tenantId, managerUserId: provisioned.managerUserId } : {}),
+      },
     });
+    await notify(tx, row, decision, `onboarding.${decision.toLowerCase()}`, notes);
     return view(updated);
   });
 }

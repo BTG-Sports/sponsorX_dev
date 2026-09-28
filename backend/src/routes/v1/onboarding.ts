@@ -11,7 +11,8 @@ import { Router, type RequestHandler } from "express";
 import { requireActor } from "../../auth/actor";
 import { limit } from "../../lib/rate-limit";
 import { clientIp } from "../../lib/client-ip";
-import { OnboardingDecisionInput, OnboardingStartInput, OnboardingState, OnboardingStepInput } from "../../contracts/onboarding";
+import { OnboardingDecisionInput, OnboardingDocumentInput, OnboardingStartInput, OnboardingState, OnboardingStepInput } from "../../contracts/onboarding";
+import { confirmDocumentUpload, requestDocumentUpload, reviewDocuments } from "../../domain/onboarding-documents";
 import {
   decideOnboarding,
   getOnboarding,
@@ -43,6 +44,12 @@ onboardingRouter.get("/onboarding", requireActor, queue);
 onboardingRouter.get("/onboarding/:id", requireActor, one);
 onboardingRouter.post("/onboarding/:id/decision", requireActor, decide);
 
+/* 2S1-BE-02 — the reviewer reads verification documents, each through an audited link. */
+const documents: RequestHandler<{ id: string }> = async (req, res) => {
+  res.json({ documents: await reviewDocuments(req.actor!, req.params.id) });
+};
+onboardingRouter.get("/onboarding/:id/documents", requireActor, documents);
+
 /* ── public: the wizard (2S1-BE-01) ─────────────────────────────────────── */
 
 const start: RequestHandler = async (req, res) => {
@@ -66,3 +73,15 @@ onboardingRouter.post("/public/onboarding", start);
 onboardingRouter.get("/public/onboarding/:token", read);
 onboardingRouter.patch("/public/onboarding/:token", step);
 onboardingRouter.post("/public/onboarding/:token/submit", submit);
+
+/* 2S1-BE-02 — the applicant uploads to the private bucket; it is never given a read. */
+const upload: RequestHandler<{ token: string }> = async (req, res) => {
+  await limit("onboarding:document", clientIp(req), 30, 3600);
+  res.status(201).json(await requestDocumentUpload(req.params.token, OnboardingDocumentInput.parse(req.body) as Parameters<typeof requestDocumentUpload>[1]));
+};
+const confirm: RequestHandler<{ token: string; documentId: string }> = async (req, res) => {
+  await limit("onboarding:document", clientIp(req), 30, 3600);
+  res.json(await confirmDocumentUpload(req.params.token, req.params.documentId));
+};
+onboardingRouter.post("/public/onboarding/:token/documents", upload);
+onboardingRouter.post("/public/onboarding/:token/documents/:documentId/confirm", confirm);

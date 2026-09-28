@@ -1,6 +1,7 @@
 import { z } from "./zod";
 
 import { DECISIONS, ONBOARDING_STATES, ORG_TYPES } from "../domain/onboarding-rules";
+import { DOCUMENT_KINDS, DOCUMENT_TYPES, MAX_DOCUMENT_BYTES } from "../domain/onboarding-documents";
 
 /* --------------------------------------------------------------------------
    External property onboarding on the wire — 2S1-BE-01, 2S1-BE-03.
@@ -36,3 +37,13 @@ export const OnboardingDecisionInput = z
     notes: z.string().max(4000).nullable().optional(),
   })
   .meta({ id: "OnboardingDecisionInput", description: "REQUEST_CHANGES, REJECT and SUSPEND need notes." });
+
+/* 2S1-BE-02 — a verification document, uploaded straight to the private bucket. */
+export const OnboardingDocumentInput = z
+  .object({
+    kind: z.enum(DOCUMENT_KINDS),
+    filename: z.string().trim().min(1).max(200),
+    contentType: z.enum([...DOCUMENT_TYPES] as [string, ...string[]]),
+    bytes: z.number().int().min(1).max(MAX_DOCUMENT_BYTES),
+  })
+  .meta({ id: "OnboardingDocumentInput", description: "Proof of rights, business registration or identity — PDF, JPEG or PNG, up to 20 MB." });

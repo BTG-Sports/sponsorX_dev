@@ -141,7 +141,8 @@ export type Resource =
   | "athleteClaim"
   | "contentContribution"
   | "schoolPoolAllocation"
-  | "propertyOnboarding";
+  | "propertyOnboarding"
+  | "notificationPreference";
 
 export const RESOURCES: readonly Resource[] = [
   "tenant",
@@ -196,6 +197,7 @@ export const RESOURCES: readonly Resource[] = [
   "contentContribution",
   "schoolPoolAllocation",
   "propertyOnboarding",
+  "notificationPreference",
 ] as const;
 
 type RolePolicy = Partial<Record<Role, Partial<Record<Action, Scope>>>>;
@@ -735,6 +737,11 @@ export const POLICY: Record<Resource, RolePolicy> = {
     SUPER_ADMIN: rwa("any", "any", "any"),
     BTG_ADMIN: rwa("own-tenant", "own-tenant", "own-tenant"),
   },
+
+  /* Phase 2 (2S6-BE-02) — which events reach a user, on which channel.
+     Personal to every account and to nobody else: no role, not even
+     SUPER_ADMIN, reads or sets another person's (matrix §17). */
+  notificationPreference: Object.fromEntries(ROLES.map((r) => [r, rwa("own", "own")])) as RolePolicy,
 };
 
 /**

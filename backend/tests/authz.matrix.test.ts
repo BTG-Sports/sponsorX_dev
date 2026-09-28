@@ -277,7 +277,11 @@ describe("the whole matrix is pinned", () => {
       // any and BTG_ADMIN own-tenant read/write/approve, every other cell deny
       // (matrix §16). With it removed the grid still hashes to the previous
       // 0e32b0f006ddf674, so nothing else moved.
-    ).toBe("d326a7de1daee5f0");
+      // Updated 2026-09-28 (2S6-BE-02): new `notificationPreference` resource
+      // — every role "own" read/write, nobody reaches another person's, every
+      // approve cell deny (matrix §17). With it removed the grid still hashes
+      // to the previous d326a7de1daee5f0, so nothing else moved.
+    ).toBe("9335a770498a2530");
   });
 
   it("covers every pair the §30 acceptance asks for", () => {
