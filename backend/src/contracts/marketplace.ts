@@ -17,7 +17,7 @@ const category = z.enum(BRAND_CATEGORIES);
 const when = z.iso.datetime().transform((s) => new Date(s));
 
 const PackageRules = z
-  .object({ minQuantity: z.number().int().min(1).optional(), maxQuantity: z.number().int().min(1).optional(), bundleOnly: z.boolean().optional(), exclusive: z.boolean().optional() })
+  .object({ minQuantity: z.number().int().min(1).optional(), maxQuantity: z.number().int().min(1).optional(), bundleOnly: z.boolean().optional(), exclusive: z.boolean().optional(), requiresApproval: z.boolean().optional() })
   .strict();
 
 const inventoryFields = {
@@ -33,6 +33,8 @@ const inventoryFields = {
   restrictedCategories: z.array(category).max(25).optional(),
   packageRules: PackageRules.optional(),
   active: z.boolean().optional(),
+  /* 2S3-BE-02 — a PACKAGE's contents: the owner's own items, one unit or more of each. */
+  components: z.array(z.object({ itemId: z.string().min(1), quantity: z.number().int().min(1).max(100) }).strict()).max(10).optional(),
 };
 
 export const InventoryItemInput = z.object(inventoryFields).strict().meta({
@@ -138,6 +140,17 @@ export const CartLinePatch = z
   .object({ quantity: z.number().int().min(1).max(1000).optional(), startsOn: when.optional(), endsOn: when.optional() })
   .strict()
   .meta({ id: "CartLinePatch" });
+
+/* ── Phase 2 batch 5 — reservations and marketplace orders ─────────── */
+export const PlaceOrderInput = z
+  .object({ reservationId: z.string().min(1) })
+  .meta({ id: "PlaceOrderInput", description: "The live hold to turn into an order." });
+export const MarketplaceOrderDecisionInput = z
+  .object({ decision: z.enum(["APPROVE", "REJECT"]), notes: z.string().max(4000).nullable().optional() })
+  .meta({ id: "MarketplaceOrderDecisionInput", description: "BTG's decision on an order held for approval; REJECT needs notes and releases the stock." });
+export const MarketplaceOrderTransitionInput = z
+  .object({ to: z.enum(["AWAITING_PAYMENT", "PAID", "IN_DELIVERY", "FULFILLED", "CLOSED", "CANCELLED", "REFUNDED"]) })
+  .meta({ id: "MarketplaceOrderTransitionInput", description: "Payment and delivery states (staff), or CANCELLED before payment (the sponsor). APPROVED is never a transition." });
 
 const hexColour = z.string().regex(/^#[0-9a-fA-F]{6}$/);
 export const BrandingInput = z

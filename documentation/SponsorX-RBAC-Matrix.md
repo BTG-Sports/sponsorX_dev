@@ -1117,6 +1117,32 @@ sponsors see different catalogues.
 | `SPONSOR_ADMIN` | own-sponsor | own-sponsor | — |
 | `SPONSOR_ANALYST` | own-sponsor | — | — |
 
+## 20 · Phase 2 · reservations and marketplace orders *(added 2026-09-28)*
+
+### `reservation` (2S4-BE-02)
+| Role | Read | Write | Approve |
+|---|---|---|---|
+| `SUPER_ADMIN` | any | any | — |
+| `BTG_ADMIN` | own-tenant | — | — |
+| `SPONSOR_ADMIN` | own-sponsor | own-sponsor | — |
+| `SPONSOR_ANALYST` | own-sponsor | — | — |
+
+### `marketplaceOrder` (2S4-BE-03, 2S4-BE-05)
+| Role | Read | Write | Approve |
+|---|---|---|---|
+| `SUPER_ADMIN` | any | any | any |
+| `BTG_ADMIN` | own-tenant | own-tenant | own-tenant |
+| `FINANCE` | own-tenant | own-tenant | — |
+| `SPONSOR_ADMIN` | own-sponsor | own-sponsor (place; cancel before payment) | — |
+| `SPONSOR_ANALYST` | own-sponsor | — | — |
+
+Approve is the gate. An order that policy holds, because it is $1,000 or
+more, the sponsor's first marketplace order, or bought from a listing that
+asks for approval, keeps its stock without contracting it until BTG approves.
+Rejecting it releases the stock. `APPROVED` is reached only by that decision,
+or by policy when there is no reason to hold the order, and never by a
+transition.
+
 ## 14 · Known gaps
 
 - **D1 and D3 are subject to legal confirmation** (§12). Both were adopted at

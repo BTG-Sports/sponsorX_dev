@@ -23,11 +23,19 @@ import { assertAllowed, whereFor } from "../auth/scope";
 import { ForbiddenError } from "../auth/errors";
 import { BRAND_CATEGORIES } from "./brand-categories";
 
-export const INVENTORY_KINDS = ["SOCIAL_POST", "VIDEO", "APPEARANCE", "AUTOGRAPH", "CAMP", "SIGNAGE", "TICKETS", "OTHER"] as const;
+export const INVENTORY_KINDS = ["SOCIAL_POST", "VIDEO", "APPEARANCE", "AUTOGRAPH", "CAMP", "SIGNAGE", "TICKETS", "OTHER", "PACKAGE"] as const;
 export type InventoryKind = (typeof INVENTORY_KINDS)[number];
 
-/** `exclusive`: one buyer per period — a second commitment on overlapping dates is refused (2S3-BE-03). */
-export type PackageRules = { minQuantity?: number; maxQuantity?: number; bundleOnly?: boolean; exclusive?: boolean };
+/**
+ * `exclusive`: one buyer per period — a second commitment on overlapping
+ * dates is refused (2S3-BE-03). `requiresApproval`: an order that buys it
+ * waits for BTG (2S4-BE-05).
+ */
+export type PackageRules = { minQuantity?: number; maxQuantity?: number; bundleOnly?: boolean; exclusive?: boolean; requiresApproval?: boolean };
+
+/** 2S3-BE-02 — what one unit of a PACKAGE contains. */
+export type ComponentInput = { itemId: string; quantity: number };
+export const MAX_COMPONENTS = 10;
 
 export type InventoryInput = {
   title: string;
@@ -42,6 +50,8 @@ export type InventoryInput = {
   restrictedCategories?: string[];
   packageRules?: PackageRules;
   active?: boolean;
+  /** Required for a PACKAGE, refused for anything else. Set once, at creation. */
+  components?: ComponentInput[];
 };
 
 export class InventoryError extends Error {
@@ -57,6 +67,7 @@ const SELECT = {
   id: true, athleteId: true, propertyId: true, jobId: true, title: true, description: true, kind: true,
   priceCents: true, quantity: true, availableFrom: true, availableUntil: true, categories: true,
   restrictedCategories: true, packageRules: true, active: true, version: true, createdAt: true, updatedAt: true,
+  components: { select: { quantity: true, component: { select: { id: true, title: true, kind: true, priceCents: true } } } },
 } as const;
 
 const CATEGORY_SET: ReadonlySet<string> = new Set(BRAND_CATEGORIES);
@@ -126,12 +137,41 @@ export async function getInventoryItem(actor: Actor, id: string) {
   return item;
 }
 
+/**
+ * 2S3-BE-02 — a package is bundled from the owner's own items (a team's: the
+ * team's and its roster athletes'). No package inside a package, no item
+ * twice, at least one unit each.
+ */
+async function assertComponents(
+  tx: Prisma.TransactionClient, actor: Actor, owner: { athleteId: string } | { propertyId: string }, input: InventoryInput,
+): Promise<ComponentInput[]> {
+  const parts = input.components ?? [];
+  if (input.kind !== "PACKAGE") {
+    if (parts.length) throw new InventoryError("Only a PACKAGE has components.");
+    return [];
+  }
+  if (parts.length < 1 || parts.length > MAX_COMPONENTS) throw new InventoryError(`A package bundles 1 to ${MAX_COMPONENTS} items.`);
+  if (new Set(parts.map((p) => p.itemId)).size !== parts.length) throw new InventoryError("A package lists each item once — use its quantity.");
+  if (parts.some((p) => !Number.isInteger(p.quantity) || p.quantity < 1)) throw new InventoryError("Each item in a package takes at least one unit.");
+  const ownerWhere: Prisma.InventoryItemWhereInput = "athleteId" in owner
+    ? { athleteId: owner.athleteId }
+    : { OR: [{ propertyId: owner.propertyId }, { athlete: { propertyId: owner.propertyId } }] };
+  const found = await tx.inventoryItem.findMany({
+    where: { tenantId: actor.tenantId, id: { in: parts.map((p) => p.itemId) }, ...ownerWhere },
+    select: { id: true, kind: true },
+  });
+  if (found.length !== parts.length) throw new ForbiddenError("inventoryItem", "write");
+  if (found.some((f) => f.kind === "PACKAGE")) throw new InventoryError("A package cannot contain another package.");
+  return parts;
+}
+
 export async function createInventoryItem(actor: Actor, input: InventoryInput) {
   assertAllowed(actor, "inventoryItem", "write");
   assertValid(input);
   return prisma.$transaction(async (tx) => {
     const owner = await ownerFor(tx, actor);
     await assertJob(tx, input.jobId);
+    const parts = await assertComponents(tx, actor, owner, input);
     const item = await tx.inventoryItem.create({
       data: {
         tenantId: actor.tenantId, ...owner, title: input.title.trim(), description: input.description?.trim() || null,
@@ -139,17 +179,20 @@ export async function createInventoryItem(actor: Actor, input: InventoryInput) {
         availableFrom: input.availableFrom ?? null, availableUntil: input.availableUntil ?? null,
         categories: input.categories ?? [], restrictedCategories: input.restrictedCategories ?? [],
         packageRules: (input.packageRules ?? {}) as Prisma.InputJsonValue, active: input.active ?? true,
+        components: { create: parts.map((p) => ({ tenantId: actor.tenantId, componentItemId: p.itemId, quantity: p.quantity })) },
       },
       select: SELECT,
     });
     await audit(tx, actor, "inventory.create", "InventoryItem", item.id, {
-      after: { ...owner, priceCents: item.priceCents, quantity: item.quantity, kind: item.kind },
+      after: { ...owner, priceCents: item.priceCents, quantity: item.quantity, kind: item.kind, ...(parts.length ? { components: parts } : {}) },
     });
     return item;
   });
 }
 
 export async function updateInventoryItem(actor: Actor, id: string, patch: Partial<InventoryInput>) {
+  if (patch.components !== undefined) throw new InventoryError("A package's contents are fixed — create a new package to change them.");
+  if (patch.kind !== undefined && patch.kind === "PACKAGE") throw new InventoryError("An item cannot become a package — create one.");
   return prisma.$transaction(async (tx) => {
     const item = await tx.inventoryItem.findFirst({ where: { ...whereFor(actor, "inventoryItem", "write"), id }, select: SELECT });
     if (!item) throw new ForbiddenError("inventoryItem", "write");

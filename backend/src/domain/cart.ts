@@ -66,7 +66,7 @@ function sponsorOf(actor: Actor, action: "read" | "write"): string {
 }
 
 /** The sponsor's live cart, or null. A cart past its expiry is closed on the way. */
-async function liveCart(tx: Prisma.TransactionClient, actor: Actor, action: "read" | "write", now: Date) {
+export async function liveCart(tx: Prisma.TransactionClient, actor: Actor, action: "read" | "write", now: Date) {
   sponsorOf(actor, action);
   const cart = await tx.cart.findFirst({ where: { ...whereFor(actor, "cart", action), state: "ACTIVE" }, select: SELECT });
   if (!cart) return null;
@@ -104,6 +104,11 @@ export async function openCart(actor: Actor, now = new Date()) {
 async function mustHaveCart(tx: Prisma.TransactionClient, actor: Actor, now: Date) {
   const cart = await liveCart(tx, actor, "write", now);
   if (!cart) throw new CartError("There is no open cart — it may have expired. Open a new one.");
+  /* 2S4-BE-02 — a held cart is frozen: the hold is for exactly these lines. */
+  const held = await tx.reservation.findFirst({
+    where: { tenantId: actor.tenantId, cartId: cart.id, state: "HELD", expiresAt: { gt: now } }, select: { id: true },
+  });
+  if (held) throw new CartError("This cart's stock is on hold — release the hold before changing it, or place the order.");
   return cart;
 }
 

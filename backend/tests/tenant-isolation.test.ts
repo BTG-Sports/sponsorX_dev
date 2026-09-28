@@ -65,6 +65,8 @@ const A = {
   item: "ti_item_a", schoolItem: "ti_item_school_a", listing: "ti_listing_a", offer: "ti_offer_a",
   /* Phase 2 batch 4 — a restriction, the sponsor's cart with a line. */
   restriction: "ti_restriction_a", cart: "ti_cart_a", cartLine: "ti_cart_line_a",
+  /* Phase 2 batch 5 — a hold and the order it became. */
+  reservation: "ti_reservation_a", mktOrder: "ti_mkt_order_a",
 } as const;
 const B = {
   tenant: "ti_tenant_b", sponsor: "ti_sponsor_b", athlete: "ti_athlete_b",
@@ -110,6 +112,7 @@ const PARAM_FOR: Record<string, string> = {
   "edition-assets": A.asset, claims: A.claim, properties: A.school, onboarding: A.onboarding,
   inventory: A.item, listings: A.listing, offers: A.offer, roster: A.athlete,
   restrictions: A.restriction, lines: A.cartLine,
+  reservations: A.reservation, "marketplace-orders": A.mktOrder,
   /* GET /deliverables/{id}/assets/{version}/url (P5-FE-04) — a creative
      version number, under tenant A's deliverable. */
   assets: "1",
@@ -215,6 +218,9 @@ const BODY: Record<string, unknown> = {
   "PUT /sponsors/{id}/categories": { categories: ["APPAREL"] },
   "POST /cart/lines": { listingId: A.listing, quantity: 1, startsOn: "2027-01-01T00:00:00.000Z", endsOn: "2027-01-02T00:00:00.000Z" },
   "PATCH /cart/lines/{id}": { quantity: 2 },
+  "POST /marketplace-orders": { reservationId: A.reservation },
+  "POST /marketplace-orders/{id}/decision": { decision: "APPROVE" },
+  "POST /marketplace-orders/{id}/transition": { to: "CANCELLED" },
 };
 
 describe.skipIf(!hasDatabase)("P8-SEC-02 · tenant B cannot reach tenant A through any route", async () => {
@@ -325,6 +331,13 @@ describe.skipIf(!hasDatabase)("P8-SEC-02 · tenant B cannot reach tenant A throu
     /* Far-future expiry: the cart sweep (2S4-BE-01) is platform-wide, and
        another file runs it a day ahead while this sweep is fingerprinting. */
     await prisma.cart.create({ data: { id: A.cart, tenantId: t, sponsorId: A.sponsor, expiresAt: new Date(Date.now() + 3650 * 864e5) } });
+    /* Far-future: the reservation sweep is platform-wide too. */
+    await prisma.reservation.create({ data: { id: A.reservation, tenantId: t, sponsorId: A.sponsor, cartId: A.cart, expiresAt: new Date(Date.now() + 3650 * 864e5) } });
+    await prisma.marketplaceOrder.create({ data: {
+      id: A.mktOrder, tenantId: t, sponsorId: A.sponsor, reservationId: A.reservation, subtotalCents: 9000, feesCents: 0, totalCents: 9000,
+      requiresApproval: true, approvalReasons: ["TI Secret reason"],
+      lines: { create: [{ tenantId: t, listingId: A.listing, inventoryItemId: A.schoolItem, itemTenantId: t, propertyId: A.school, title: "TI Secret line", quantity: 1, startsOn: new Date("2027-01-01"), endsOn: new Date("2027-01-02"), unitPriceCents: 9000, lineTotalCents: 9000 }] },
+    } });
     await prisma.cartLine.create({ data: { id: A.cartLine, tenantId: t, cartId: A.cart, listingId: A.listing, quantity: 1, startsOn: new Date("2027-01-01"), endsOn: new Date("2027-01-02"), unitPriceCents: 9000 } });
     await prisma.athleteClaim.create({ data: { id: A.claim, tenantId: t, athleteId: A.athlete, claimantName: "TI Secret Claimant", claimantEmail: "secret@a.invalid", rosterMatched: true } });
     await prisma.guardian.create({ data: { id: B.guardian, tenantId: B.tenant, legalName: "TI Guardian B", email: "g@b.invalid", relationship: "PARENT" } });

@@ -58,6 +58,7 @@ export type AvailabilityRequest = {
 type Item = {
   id: string; tenantId: string; athleteId: string | null; propertyId: string | null; priceCents: number; quantity: number | null;
   availableFrom: Date | null; availableUntil: Date | null; restrictedCategories: string[]; packageRules: unknown; active: boolean;
+  title?: string; kind?: string;
 };
 type Commitment = { quantity: number; startsOn: Date; endsOn: Date };
 
@@ -93,29 +94,73 @@ export function availabilityReasons(item: Item, commitments: Commitment[], categ
   return out;
 }
 
-/** Load the facts for one inventory item and apply the rules. */
-export async function checkInventoryItem(tx: Prisma.TransactionClient, itemId: string, tenantId: string, r: AvailabilityRequest) {
-  const item = await tx.inventoryItem.findFirst({
-    where: { tenantId, id: itemId },
-    select: {
-      id: true, tenantId: true, athleteId: true, propertyId: true, priceCents: true, quantity: true, availableFrom: true,
-      availableUntil: true, restrictedCategories: true, packageRules: true, active: true,
-    },
-  });
-  if (!item) return { ok: false as const, reasons: [{ code: "NOT_LISTED" as const, message: "no such item" }], item: null };
+const ITEM_FACTS = {
+  id: true, tenantId: true, athleteId: true, propertyId: true, priceCents: true, quantity: true, availableFrom: true,
+  availableUntil: true, restrictedCategories: true, packageRules: true, active: true, title: true, kind: true,
+} as const;
+
+/** Commitments that still count: not released, and not a hold whose time is up. */
+export function liveCommitments(now = new Date()) {
+  return { releasedAt: null, OR: [{ expiresAt: null }, { expiresAt: { gt: now } }] };
+}
+
+async function reasonsForItem(tx: Prisma.TransactionClient, item: Item, r: AvailabilityRequest, now: Date) {
   const commitments = await tx.inventoryCommitment.findMany({
     where: {
       /* tenant-scope: keyed by the item loaded above with its tenantId; a commitment belongs to exactly one item. */
-      inventoryItemId: item.id, releasedAt: null,
-      ...(r.ignore ? { NOT: { source: r.ignore.source, sourceId: r.ignore.sourceId } } : {}),
+      inventoryItemId: item.id, ...liveCommitments(now),
+      ...(r.ignore ? { NOT: { source: r.ignore.source, sourceId: { startsWith: r.ignore.sourceId } } } : {}),
     },
     select: { quantity: true, startsOn: true, endsOn: true },
   });
   const conflicts = await restrictionConflicts(tx, {
     tenantId: item.tenantId, athleteId: item.athleteId, propertyId: item.propertyId, categories: r.categories, startsOn: r.startsOn, endsOn: r.endsOn,
   });
-  const reasons = availabilityReasons(item, commitments, conflicts.map((c) => c.category), r);
+  return availabilityReasons(item, commitments, conflicts.map((c) => c.category), r);
+}
+
+/**
+ * Load the facts for one inventory item and apply the rules. A PACKAGE is
+ * checked as itself AND through every item in it (2S3-BE-02): each unit of
+ * the package takes its components' quantities, so a package cannot sell
+ * stock its parts do not have, dates they are booked, or to a category any
+ * of their owners refuse. The package's price is the floor; its parts are
+ * not priced separately.
+ */
+export async function checkInventoryItem(tx: Prisma.TransactionClient, itemId: string, tenantId: string, r: AvailabilityRequest, now = new Date()) {
+  const item = await tx.inventoryItem.findFirst({
+    where: { tenantId, id: itemId },
+    select: { ...ITEM_FACTS, components: { select: { quantity: true, component: { select: ITEM_FACTS } } } },
+  });
+  if (!item) return { ok: false as const, reasons: [{ code: "NOT_LISTED" as const, message: "no such item" }], item: null };
+  const reasons = await reasonsForItem(tx, item, r, now);
+  for (const { quantity, component } of item.components) {
+    const inner = await reasonsForItem(tx, component, { ...r, quantity: r.quantity * quantity, unitPriceCents: component.priceCents }, now);
+    for (const x of inner) {
+      /* The buyer's own category gap is said once, for the package. */
+      if (x.code === "NO_CATEGORY") continue;
+      reasons.push({ code: x.code, message: `in the package, ${component.title}: ${x.message}` });
+    }
+  }
   return { ok: reasons.length === 0, reasons, item };
+}
+
+/**
+ * The stock a purchase of `quantity` units takes: the item itself and, for a
+ * package, each component times its quantity. Every commitment writer
+ * (reservation, order) expands through here, so a package and its parts can
+ * never be held apart.
+ */
+export async function unitsTaken(tx: Prisma.TransactionClient, itemId: string, tenantId: string, quantity: number) {
+  const item = await tx.inventoryItem.findFirst({
+    where: { tenantId, id: itemId },
+    select: { id: true, tenantId: true, components: { select: { quantity: true, componentItemId: true } } },
+  });
+  if (!item) return [];
+  return [
+    { inventoryItemId: item.id, tenantId: item.tenantId, quantity },
+    ...item.components.map((c) => ({ inventoryItemId: c.componentItemId, tenantId: item.tenantId, quantity: c.quantity * quantity })),
+  ];
 }
 
 /**
@@ -131,8 +176,10 @@ export async function checkListing(tx: Prisma.TransactionClient, listingId: stri
   });
   const live = listing && listing.state === "PUBLISHED" && listing.visibility === "PUBLIC" && listing.property.listingAccessAt
     && (!listing.publishAt || listing.publishAt <= new Date());
-  if (!listing || !live) return { ok: false as const, reasons: [{ code: "NOT_LISTED" as const, message: "the listing is not live" }], unitPriceCents: 0 };
+  if (!listing || !live) {
+    return { ok: false as const, reasons: [{ code: "NOT_LISTED" as const, message: "the listing is not live" }], unitPriceCents: 0, itemId: null, itemTenantId: null };
+  }
   const unitPriceCents = listing.item.priceCents;
   const result = await checkInventoryItem(tx, listing.inventoryItemId, listing.tenantId, { ...r, unitPriceCents });
-  return { ok: result.ok, reasons: result.reasons, unitPriceCents };
+  return { ok: result.ok, reasons: result.reasons, unitPriceCents, itemId: listing.inventoryItemId, itemTenantId: listing.tenantId };
 }
