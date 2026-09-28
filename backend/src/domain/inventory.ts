@@ -26,7 +26,8 @@ import { BRAND_CATEGORIES } from "./brand-categories";
 export const INVENTORY_KINDS = ["SOCIAL_POST", "VIDEO", "APPEARANCE", "AUTOGRAPH", "CAMP", "SIGNAGE", "TICKETS", "OTHER"] as const;
 export type InventoryKind = (typeof INVENTORY_KINDS)[number];
 
-export type PackageRules = { minQuantity?: number; maxQuantity?: number; bundleOnly?: boolean };
+/** `exclusive`: one buyer per period — a second commitment on overlapping dates is refused (2S3-BE-03). */
+export type PackageRules = { minQuantity?: number; maxQuantity?: number; bundleOnly?: boolean; exclusive?: boolean };
 
 export type InventoryInput = {
   title: string;

@@ -82,6 +82,12 @@ const GOVERNED_BY: Record<string, Resource> = {
   Listing: "listing",
   Offer: "offer",
   TenantBranding: "tenantBranding",
+  BrandRestriction: "brandRestriction",
+  /* A commitment is the item's own ledger of what is spoken for — read by
+     the availability check, written by the purchase that commits it. */
+  InventoryCommitment: "inventoryItem",
+  Cart: "cart",
+  CartLine: "cart",
 };
 
 /** Models no API path reads or writes, and why. */

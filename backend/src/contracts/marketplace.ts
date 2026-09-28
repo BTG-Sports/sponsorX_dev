@@ -17,7 +17,7 @@ const category = z.enum(BRAND_CATEGORIES);
 const when = z.iso.datetime().transform((s) => new Date(s));
 
 const PackageRules = z
-  .object({ minQuantity: z.number().int().min(1).optional(), maxQuantity: z.number().int().min(1).optional(), bundleOnly: z.boolean().optional() })
+  .object({ minQuantity: z.number().int().min(1).optional(), maxQuantity: z.number().int().min(1).optional(), bundleOnly: z.boolean().optional(), exclusive: z.boolean().optional() })
   .strict();
 
 const inventoryFields = {
@@ -104,6 +104,40 @@ export const OfferResponseInput = z
     bodyHashShown: z.string().length(64).optional(),
   })
   .meta({ id: "OfferResponseInput", description: "ACCEPT needs the terms hash shown and the agreement shown; it freezes the terms and schedules the deliverables." });
+
+/* ── Phase 2 batch 4 — restrictions, search, cart ─────────────────────── */
+export const RestrictionInput = z
+  .object({
+    athleteId: z.string().min(1).nullable().optional(),
+    propertyId: z.string().min(1).nullable().optional(),
+    category,
+    type: z.enum(["PROHIBITED", "LEAGUE_RULE", "SCHOOL_POLICY"]),
+    startsOn: when.nullable().optional(),
+    endsOn: when.nullable().optional(),
+    reason: z.string().max(500).nullable().optional(),
+  })
+  .strict()
+  .meta({ id: "RestrictionInput", description: "A category an athlete or team will not be sold to, for a date range (open-ended when an end is null). EXCLUSIVITY is written by accepted offers only." });
+export const SponsorCategoriesInput = z
+  .object({ categories: z.array(category).max(10) })
+  .meta({ id: "SponsorCategoriesInput", description: "The brand categories a sponsor sells in — set by BTG." });
+const num = z.coerce.number().int().min(0);
+export const SearchQuery = z
+  .object({
+    q: z.string().max(200).optional(), kind: z.enum(INVENTORY_KINDS).optional(), category: category.optional(),
+    sport: z.string().max(60).optional(), stateCode: z.string().length(2).optional(),
+    minPrice: num.optional(), maxPrice: num.optional(),
+    availableFrom: when.optional(), availableUntil: when.optional(), limit: z.coerce.number().int().min(1).max(100).optional(),
+  })
+  .meta({ id: "SearchQuery" });
+export const CartLineInput = z
+  .object({ listingId: z.string().min(1), quantity: z.number().int().min(1).max(1000), startsOn: when, endsOn: when })
+  .strict()
+  .meta({ id: "CartLineInput", description: "One listing, how many, and for which dates — checked for availability, conflict and price on every write." });
+export const CartLinePatch = z
+  .object({ quantity: z.number().int().min(1).max(1000).optional(), startsOn: when.optional(), endsOn: when.optional() })
+  .strict()
+  .meta({ id: "CartLinePatch" });
 
 const hexColour = z.string().regex(/^#[0-9a-fA-F]{6}$/);
 export const BrandingInput = z

@@ -152,7 +152,9 @@ export type Resource =
   | "teamMember"
   | "listing"
   | "offer"
-  | "tenantBranding";
+  | "tenantBranding"
+  | "brandRestriction"
+  | "cart";
 
 export const RESOURCES: readonly Resource[] = [
   "tenant",
@@ -213,6 +215,8 @@ export const RESOURCES: readonly Resource[] = [
   "listing",
   "offer",
   "tenantBranding",
+  "brandRestriction",
+  "cart",
 ] as const;
 
 type RolePolicy = Partial<Record<Role, Partial<Record<Action, Scope>>>>;
@@ -780,6 +784,10 @@ export const POLICY: Record<Resource, RolePolicy> = {
     BTG_ADMIN: rwa("operated", undefined, "operated"),
     PROPERTY_MGR: rwa("own-property", "own-property"),
     ATHLETE: rwa("own"),
+    /* 2S3-BE-04 — a sponsor's catalogue: PUBLISHED, PUBLIC, live listings of
+       approved properties in the marketplace its tenant operates. */
+    SPONSOR_ADMIN: rwa("catalog"),
+    SPONSOR_ANALYST: rwa("catalog"),
   },
   /* A formal offer is BTG's to make, on a campaign in its tenant, and the
      athlete's to accept or decline. Sponsors see the order it becomes. */
@@ -798,6 +806,24 @@ export const POLICY: Record<Resource, RolePolicy> = {
     BTG_ADMIN: rwa("own-tenant", "own-tenant"),
     PROPERTY_MGR: rwa("own-tenant", "own"),
   } as RolePolicy,
+
+  /* Phase 2 batch 4 (matrix §19). A restriction belongs to an athlete or a
+     team; the owner and BTG manage it. */
+  brandRestriction: {
+    SUPER_ADMIN: rwa("any", "any"),
+    BTG_ADMIN: rwa("operated", "operated"),
+    NETWORK_MGR: rwa("own-tenant", "own-tenant"),
+    CAMPAIGN_MGR: rwa("operated"),
+    ATHLETE: rwa("own", "own"),
+    PROPERTY_MGR: rwa("own-property", "own-property"),
+  },
+  /* A sponsor's cart: its own organisation's, and nobody else's. */
+  cart: {
+    SUPER_ADMIN: rwa("any", "any"),
+    BTG_ADMIN: rwa("own-tenant"),
+    SPONSOR_ADMIN: rwa("own-sponsor", "own-sponsor"),
+    SPONSOR_ANALYST: rwa("own-sponsor"),
+  },
 };
 
 /**

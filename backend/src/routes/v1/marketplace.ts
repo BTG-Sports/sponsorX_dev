@@ -10,7 +10,11 @@ import { clientIp, clientUserAgent } from "../../lib/client-ip";
 import {
   BrandingInput, InventoryItemInput, InventoryItemPatch, ListingDecisionInput, ListingInput, ListingPatch, ListingState,
   ListingTransitionInput, LogoUploadInput, OfferInput, OfferResponseInput, RosterAthleteInput, TeamShareInput,
+  CartLineInput, CartLinePatch, RestrictionInput, SearchQuery, SponsorCategoriesInput,
 } from "../../contracts/marketplace";
+import { createRestriction, deleteRestriction, listRestrictions, setSponsorCategories } from "../../domain/restrictions";
+import { searchMarketplace } from "../../domain/marketplace-search";
+import { addLine, currentCart, openCart, removeLine, updateLine } from "../../domain/cart";
 import { createInventoryItem, getInventoryItem, listInventory, updateInventoryItem } from "../../domain/inventory";
 import { addRosterAthlete, setTeamShare, teamRoster } from "../../domain/team";
 import {
@@ -87,3 +91,29 @@ const logo: RequestHandler = async (req, res) => { res.status(201).json(await re
 marketplaceRouter.get("/branding", requireActor, branding);
 marketplaceRouter.put("/branding", requireActor, setBranding);
 marketplaceRouter.post("/branding/logo", requireActor, logo);
+
+/* ── Phase 2 batch 4 — restrictions (2S2-BE-02), search (2S3-BE-04), cart (2S4-BE-01) ── */
+const restrictions: RequestHandler = async (req, res) => { res.json({ restrictions: await listRestrictions(req.actor!) }); };
+const newRestriction: RequestHandler = async (req, res) => { res.status(201).json(await createRestriction(req.actor!, RestrictionInput.parse(req.body))); };
+const dropRestriction: RequestHandler<Id> = async (req, res) => { res.json(await deleteRestriction(req.actor!, req.params.id)); };
+const sponsorCategories: RequestHandler<Id> = async (req, res) => {
+  res.json(await setSponsorCategories(req.actor!, req.params.id, SponsorCategoriesInput.parse(req.body).categories));
+};
+marketplaceRouter.get("/restrictions", requireActor, restrictions);
+marketplaceRouter.post("/restrictions", requireActor, newRestriction);
+marketplaceRouter.delete("/restrictions/:id", requireActor, dropRestriction);
+marketplaceRouter.put("/sponsors/:id/categories", requireActor, sponsorCategories);
+
+const search: RequestHandler = async (req, res) => { res.json({ results: await searchMarketplace(req.actor!, SearchQuery.parse(req.query)) }); };
+marketplaceRouter.get("/marketplace/search", requireActor, search);
+
+const cart: RequestHandler = async (req, res) => { res.json({ cart: await currentCart(req.actor!) }); };
+const open: RequestHandler = async (req, res) => { res.status(201).json(await openCart(req.actor!)); };
+const addToCart: RequestHandler = async (req, res) => { res.status(201).json(await addLine(req.actor!, CartLineInput.parse(req.body))); };
+const changeLine: RequestHandler<Id> = async (req, res) => { res.json(await updateLine(req.actor!, req.params.id, CartLinePatch.parse(req.body))); };
+const dropLine: RequestHandler<Id> = async (req, res) => { res.json(await removeLine(req.actor!, req.params.id)); };
+marketplaceRouter.get("/cart", requireActor, cart);
+marketplaceRouter.post("/cart", requireActor, open);
+marketplaceRouter.post("/cart/lines", requireActor, addToCart);
+marketplaceRouter.patch("/cart/lines/:id", requireActor, changeLine);
+marketplaceRouter.delete("/cart/lines/:id", requireActor, dropLine);

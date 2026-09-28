@@ -330,6 +330,18 @@ const BUILDERS: Partial<Record<Resource, Builder>> = {
     switch (scope) {
       case "any": return {};
       case "operated": return operated(actor);
+      case "catalog":
+        /* 2S3-BE-04 — what a sponsor may see: live, public listings of
+           approved properties, in its own marketplace (its tenant and the
+           tenants that tenant operates). Never a draft, a pause, a private
+           listing, a suspended property or another marketplace. */
+        return {
+          AND: [
+            operated(actor),
+            { state: "PUBLISHED", visibility: "PUBLIC", property: { listingAccessAt: { not: null } }, item: { active: true } },
+            { OR: [{ publishAt: null }, { publishAt: { lte: new Date() } }] },
+          ],
+        };
       case "own-property":
         return actor.propertyId ? { tenantId: actor.tenantId, propertyId: actor.propertyId } : MATCHES_NOTHING;
       case "own":
@@ -339,6 +351,23 @@ const BUILDERS: Partial<Record<Resource, Builder>> = {
   },
   offer: (actor, scope) => {
     if (scope === "own") return actor.athleteId ? { tenantId: actor.tenantId, athleteId: actor.athleteId } : MATCHES_NOTHING;
+    return tenantScoped(actor, scope);
+  },
+  brandRestriction: (actor, scope) => {
+    switch (scope) {
+      case "any": return {};
+      case "operated": return operated(actor);
+      case "own-tenant": return { tenantId: actor.tenantId };
+      case "own": return actor.athleteId ? { tenantId: actor.tenantId, athleteId: actor.athleteId } : MATCHES_NOTHING;
+      case "own-property":
+        return actor.propertyId
+          ? { tenantId: actor.tenantId, OR: [{ propertyId: actor.propertyId }, { athlete: { propertyId: actor.propertyId } }] }
+          : MATCHES_NOTHING;
+      default: return MATCHES_NOTHING;
+    }
+  },
+  cart: (actor, scope) => {
+    if (scope === "own-sponsor") return actor.sponsorId ? { tenantId: actor.tenantId, sponsorId: actor.sponsorId } : MATCHES_NOTHING;
     return tenantScoped(actor, scope);
   },
   tenantBranding: (actor, scope) => {

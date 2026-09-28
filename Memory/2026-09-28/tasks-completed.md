@@ -915,3 +915,37 @@ Stage Progress is unchanged (it counts Phase 1 only).
 The full backend suite passes (1493 tests), with nine mutations checked. The
 matrix digest is now `ae772ead96f9f479`; with the five new resources removed,
 the grid still hashes to the old value.
+
+## Phase 2 batch 4 — five backend tasks → Done (acceptance met)
+
+- **`2S2-BE-02` · brand restrictions:** a new `BrandRestriction` table, plus
+  `Sponsor.categories`, which only BTG sets.
+  - One shared check, `restrictionConflicts`, covers the athlete, their team
+    and their Phase 1 profile. The cart, the formal offer (on draft and on
+    accept) and the Phase 1 invitation all ask it.
+  - An accepted offer with an exclusivity period writes an `EXCLUSIVITY`
+    restriction, which only `SUPER_ADMIN` can remove.
+- **`2S3-BE-03` · availability check:** `availability.ts` returns coded
+  reasons: `DATE_OVERLAP`, `QUANTITY_OVERRUN`, `CATEGORY_CONFLICT`, `SUB_FLOOR`
+  and others.
+  - A new `InventoryCommitment` table is written by accepted offers.
+    Reservations and orders (`2S4`) will write to it too.
+  - Windows are compared by whole UTC days. Testing found that same-day
+    bookings didn't clash when compared to the millisecond.
+  - Error bodies now carry `reasons`, `conflicts`, `problems` and `missing`.
+- **`2S3-BE-04` · search:** `/marketplace/search`, served by the new `catalog`
+  listing scope for sponsors.
+  - Sponsors see only live, public listings from approved properties in their
+    own marketplace.
+  - Anything restricted against the sponsor's categories is hidden, so two
+    sponsors see different catalogues.
+- **`2S3-SEC-01` · search isolation:** tests across two operators, plus new
+  routes in the cross-tenant sweep.
+- **`2S4-BE-01` · cart:** `/cart` and `/cart/lines`. Every line write runs the
+  availability check. The cart expires 24 hours after its last change, and an
+  hourly worker sweep closes expired carts.
+- **Matrix §19:** the digest is now `4f835eba4e8465d1`. With this batch
+  removed, the grid still hashes to the old value.
+
+The full backend suite passes (1526 tests), and 11 of 11 mutations were
+caught.
