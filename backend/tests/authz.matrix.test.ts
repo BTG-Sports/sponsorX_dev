@@ -303,7 +303,10 @@ describe("the whole matrix is pinned", () => {
       // Updated 2026-09-28 (2S4-BE-02/-03/-05): two new resources,
       // `reservation` and `marketplaceOrder` (matrix §20). With both removed
       // the grid still hashes to the previous 4f835eba4e8465d1.
-    ).toBe("f970f155612606e9");
+      // Updated 2026-09-28 (2S5-BE-01/-02, 2S4-BE-04): three new resources,
+      // commissionRule, orderFinancials and ledgerEntry (matrix §21). With the
+      // three removed the grid still hashes to the previous f970f155612606e9.
+    ).toBe("39e42fab590b7584");
   });
 
   it("covers every pair the §30 acceptance asks for", () => {
