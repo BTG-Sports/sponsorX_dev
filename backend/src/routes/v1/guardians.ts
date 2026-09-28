@@ -18,6 +18,7 @@
  * public path is raised separately once /join's guardian step is settled.
  */
 import { Router, type RequestHandler } from "express";
+import { clientIp, clientUserAgent } from "../../lib/client-ip";
 
 import { requireActor } from "../../auth/actor";
 import { GuardianInput, AgreementAcceptanceInput } from "../../contracts/guardian";
@@ -75,8 +76,8 @@ const accept: RequestHandler = async (req, res) => {
       agreementId: input.agreementId,
       bodyHashShown: input.bodyHashShown,
       /* §12 — captured for evidential weight, from the request. */
-      ip: req.ip ?? "",
-      userAgent: req.get("user-agent") ?? "",
+      ip: clientIp(req) ?? "",
+      userAgent: clientUserAgent(req) ?? "",
     }),
   );
 };

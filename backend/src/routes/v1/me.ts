@@ -31,5 +31,8 @@ meRouter.get("/", requireActor, (req, res) => {
     /* Likewise the property a property manager runs (P9-OPS-01) — the
        school, for a NEXT advisor. Their own link, nobody else's. */
     propertyId: actor.propertyId,
+    /* And the student record a NEXT student is (P9-FE-01) — the portal
+       reads its own code, sales and points by it. Their own, nobody else's. */
+    studentId: actor.studentId ?? null,
   });
 });

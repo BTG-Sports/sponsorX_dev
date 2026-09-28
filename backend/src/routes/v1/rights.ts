@@ -12,6 +12,9 @@
 import { Router, type RequestHandler } from "express";
 
 import { requireActor } from "../../auth/actor";
+import { assertAllowed, can, whereFor } from "../../auth/scope";
+import { ForbiddenError } from "../../auth/errors";
+import { prisma } from "../../db/client";
 import { limit } from "../../lib/rate-limit";
 import { clientIp } from "../../lib/client-ip";
 import {
@@ -28,6 +31,7 @@ import {
   addEditionAsset,
   grantRight,
   listAssets,
+  rightsGap,
   recordSubjectConsent,
   useAssetInCampaign,
 } from "../../domain/content-rights";
@@ -54,6 +58,66 @@ const newAsset: RequestHandler<{ id: string }> = async (req, res) => {
 const assets: RequestHandler<{ id: string }> = async (req, res) => {
   res.json({ assets: await listAssets(req.actor!, req.params.id) });
 };
+/** GET /editions/:id/rights-ledger — P9-FE-09. Every asset with its grants
+ *  and their evidence, and which assets the production gate would refuse:
+ *  the DIGITAL gap on the publish target and the PRINT gap on the print date
+ *  (or today), asked through `rightsGap` — the same query the transition
+ *  runs, so the screen and the gate cannot disagree. */
+const rightsLedger: RequestHandler<{ id: string }> = async (req, res) => {
+  const actor = req.actor!;
+  assertAllowed(actor, "editionAsset", "read");
+  const edition = await prisma.edition.findFirst({
+    where: { ...whereFor(actor, "edition", "read"), id: req.params.id },
+    select: { id: true, label: true, state: true, publishTarget: true, printDate: true },
+  });
+  if (!edition) throw new ForbiddenError("edition", "read");
+  const readsRights = can(actor, "contentRight", "read");
+  const [rows, digital, print] = await Promise.all([
+    prisma.editionAsset.findMany({
+      where: { ...whereFor(actor, "editionAsset", "read"), editionId: edition.id },
+      select: {
+        id: true, kind: true, title: true, sourceKind: true, studentId: true, athleteId: true, campaignId: true, createdAt: true,
+        ...(readsRights
+          ? {
+              rights: {
+                where: whereFor(actor, "contentRight", "read"),
+                select: {
+                  id: true, grantorKind: true, grantorRef: true, mayPublishDigital: true, mayPublishPrint: true,
+                  mayPromote: true, mayReuseCommercially: true, territory: true, startsAt: true, endsAt: true,
+                  attribution: true, acceptanceId: true, licenseRef: true,
+                },
+                orderBy: { startsAt: "asc" as const },
+              },
+            }
+          : {}),
+      },
+      orderBy: { createdAt: "asc" },
+    }),
+    /* tenant-scope: the edition was scoped by whereFor(edition) above */
+    rightsGap(prisma, actor.tenantId, edition.id, "DIGITAL", edition.publishTarget),
+    rightsGap(prisma, actor.tenantId, edition.id, "PRINT", edition.printDate ?? new Date()),
+  ]);
+  const noDigital = new Set(digital.map((a) => a.id));
+  const noPrint = new Set(print.map((a) => a.id));
+  const iso = (d: Date | null) => d?.toISOString() ?? null;
+  res.json({
+    edition: { ...edition, publishTarget: edition.publishTarget.toISOString(), printDate: iso(edition.printDate) },
+    assets: rows.map((a) => ({
+      id: a.id, kind: a.kind, title: a.title, sourceKind: a.sourceKind,
+      studentId: a.studentId, athleteId: a.athleteId, campaignId: a.campaignId,
+      clearedDigital: !noDigital.has(a.id),
+      clearedPrint: !noPrint.has(a.id),
+      ...("rights" in a
+        ? {
+            rights: (a.rights as Array<{ startsAt: Date; endsAt: Date | null } & Record<string, unknown>>).map((r) => ({
+              ...r, startsAt: r.startsAt.toISOString(), endsAt: iso(r.endsAt),
+            })),
+          }
+        : {}),
+    })),
+  });
+};
+
 const grant: RequestHandler<{ id: string }> = async (req, res) => {
   const b = ContentRightInput.parse(req.body);
   res.status(201).json(await grantRight(req.actor!, req.params.id, { ...b, startsAt: new Date(b.startsAt), endsAt: toDate(b.endsAt) }));
@@ -69,8 +133,28 @@ const consent: RequestHandler = async (req, res) => {
 const feature: RequestHandler = async (req, res) => {
   res.status(201).json(await createFeaturedAthlete(req.actor!, FeaturedAthleteInput.parse(req.body)));
 };
+/** GET /claims — the claims in the caller's scope (an advisor: their school's),
+ *  each with the claimed profile's PUBLIC fields — the name, slug and sport
+ *  the public page already shows (P9-FE-08). An advisor holds no athlete
+ *  read; this is not one: nothing private about the athlete is added. */
 const claims: RequestHandler = async (req, res) => {
-  res.json({ claims: await listClaims(req.actor!) });
+  const actor = req.actor!;
+  const rows = await listClaims(actor);
+  const ids = [...new Set(rows.map((c) => c.athleteId))];
+  const profiles = ids.length
+    ? await prisma.athlete.findMany({
+        /* tenant-scope: athletes reached through claims already scoped by whereFor(athleteClaim); public-profile fields only. */
+        where: { tenantId: actor.tenantId, id: { in: ids } },
+        select: { id: true, displayName: true, slug: true, sport: true, state: true },
+      })
+    : [];
+  const by = new Map(profiles.map((p) => [p.id, p]));
+  res.json({
+    claims: rows.map((c) => {
+      const p = by.get(c.athleteId);
+      return { ...c, athlete: p ? { displayName: p.displayName, slug: p.slug, sport: p.sport, state: p.state } : null };
+    }),
+  });
 };
 const verify: RequestHandler<{ id: string }> = async (req, res) => {
   res.json(await verifyClaim(req.actor!, req.params.id));
@@ -91,6 +175,7 @@ const pools: RequestHandler<{ id: string }> = async (req, res) => {
 
 rightsRouter.post("/editions/:id/assets", requireActor, newAsset);
 rightsRouter.get("/editions/:id/assets", requireActor, assets);
+rightsRouter.get("/editions/:id/rights-ledger", requireActor, rightsLedger);
 rightsRouter.post("/edition-assets/:id/rights", requireActor, grant);
 rightsRouter.post("/edition-assets/:id/campaign", requireActor, useInCampaign);
 rightsRouter.post("/consents", requireActor, consent);
@@ -119,3 +204,5 @@ const claim: RequestHandler<{ slug: string }> = async (req, res) => {
 
 rightsRouter.get("/public/athletes/:slug", profile);
 rightsRouter.post("/public/athletes/:slug/claim", claim);
+export { rightsLedger };
+export { claims };

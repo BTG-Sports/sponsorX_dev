@@ -11,6 +11,9 @@
 import { Router, type RequestHandler } from "express";
 
 import { requireActor } from "../../auth/actor";
+import { assertAllowed, can, whereFor } from "../../auth/scope";
+import { prisma } from "../../db/client";
+import { rightsGap } from "../../domain/content-rights";
 import { limit } from "../../lib/rate-limit";
 import { clientIp } from "../../lib/client-ip";
 import {
@@ -29,11 +32,14 @@ import {
   editionSplits,
   getEdition,
   listSlots,
+  positionsFor,
   recordEditionEvent,
   sellCampaignSlots,
   setEditionConditions,
   transitionEdition,
 } from "../../domain/edition";
+import { EditionNotFoundError } from "../../domain/edition";
+import { PUBLISHED_STATES } from "../../domain/edition-state";
 
 export const editionsRouter = Router();
 
@@ -81,9 +87,141 @@ const splits: RequestHandler<{ id: string }> = async (req, res) => {
   res.json({ splits: await editionSplits(req.actor!, req.params.id) });
 };
 
+/* ── screen reads (P9-FE-03, -04, -05) ──────────────────────────────────────
+   Thin and read-only: what the page map, the ledger and the splits screen
+   render. No rule is decided here — the sale itself stays in the domain. */
+
+const PAGE_OF = /^P(\d+)/;
+
+/** GET /editions — every edition in the caller's scope, newest close first,
+ *  with its inventory folded to counts and its rights gap counted. */
+const listEditions: RequestHandler = async (req, res) => {
+  const actor = req.actor!;
+  assertAllowed(actor, "edition", "read");
+  const editions = await prisma.edition.findMany({
+    where: { ...whereFor(actor, "edition", "read") },
+    select: {
+      id: true, label: true, state: true, closeDate: true, publishTarget: true, printDate: true,
+      pageCount: true, thresholdCents: true, contentReady: true, rightsCleared: true, revenueMet: true,
+      publication: { select: { id: true, name: true, propertyId: true } },
+    },
+    orderBy: [{ closeDate: "desc" }, { id: "asc" }],
+    take: 100,
+  });
+  const ids = editions.map((e) => e.id);
+  const slots = ids.length && can(actor, "adSlot", "read")
+    ? await prisma.adSlot.findMany({
+        where: { ...whereFor(actor, "adSlot", "read"), editionId: { in: ids } },
+        select: { editionId: true, campaignId: true, priceCents: true, soldCents: true },
+      })
+    : [];
+  /* The digital gap the production gate asks about (P9-BE-10), counted, so
+     the gates band shows what stands between the edition and the press. */
+  const gaps = can(actor, "editionAsset", "read")
+    ? await Promise.all(editions.map((e) => rightsGap(prisma, actor.tenantId, e.id, "DIGITAL", e.publishTarget)))
+    : null;
+
+  res.json({
+    editions: editions.map((e, i) => {
+      const mine = slots.filter((s) => s.editionId === e.id);
+      const sold = mine.filter((s) => s.campaignId);
+      return {
+        ...e,
+        closeDate: e.closeDate.toISOString(),
+        publishTarget: e.publishTarget.toISOString(),
+        printDate: e.printDate?.toISOString() ?? null,
+        inventory: {
+          total: mine.length,
+          sold: sold.length,
+          committedCents: sold.reduce((n, s) => n + (s.soldCents ?? 0), 0),
+          rackCents: mine.reduce((n, s) => n + s.priceCents, 0),
+        },
+        rightsPending: gaps ? gaps[i]!.length : null,
+      };
+    }),
+  });
+};
+
+/** GET /editions/:id/ledger — the slots with the page each sits on and, where
+ *  the caller may read campaigns, who bought it. A student sees what is open
+ *  and what is taken; a buyer's name is a campaign read (matrix §15.3). */
+const ledger: RequestHandler<{ id: string }> = async (req, res) => {
+  const actor = req.actor!;
+  const rows = await listSlots(actor, req.params.id);
+  const campaignIds = [...new Set(rows.map((r) => r.campaignId).filter((x): x is string => Boolean(x)))];
+  const buyers = campaignIds.length && can(actor, "campaign", "read")
+    ? await prisma.campaign.findMany({
+        where: { ...whereFor(actor, "campaign", "read"), id: { in: campaignIds } },
+        select: { id: true, name: true, sponsor: { select: { name: true } } },
+      })
+    : [];
+  const by = new Map(buyers.map((b) => [b.id, b]));
+  res.json({
+    slots: rows.map((r) => {
+      const page = PAGE_OF.exec(r.slotCode);
+      const buyer = r.campaignId ? by.get(r.campaignId) : undefined;
+      return {
+        id: r.id,
+        slotCode: r.slotCode,
+        kind: r.kind,
+        page: r.kind === "BACK_COVER" || r.kind === "PRESENTING" || !page ? null : Number(page[1]),
+        priceCents: r.priceCents,
+        sold: Boolean(r.campaignId),
+        soldCents: r.soldCents,
+        soldAt: r.soldAt?.toISOString() ?? null,
+        ...(buyer ? { buyer: { campaignId: buyer.id, campaign: buyer.name, sponsor: buyer.sponsor.name } } : {}),
+      };
+    }),
+  });
+};
+
+/** GET /editions/:id/sale-candidates — the DRAFT campaigns whose package
+ *  promises positions, each with whether this edition can still honour it.
+ *  The page map books from this list, so a sold back cover shows as taken
+ *  here instead of failing at the sale (P9-FE-03). The sale re-checks all of
+ *  it inside its own transaction; this is the menu, not the rule. */
+const saleCandidates: RequestHandler<{ id: string }> = async (req, res) => {
+  const actor = req.actor!;
+  assertAllowed(actor, "adSlot", "write");
+  const slots = await listSlots(actor, req.params.id);
+  const campaigns = await prisma.campaign.findMany({
+    where: { ...whereFor(actor, "campaign", "read"), state: "DRAFT", brief: { is: { packageId: { not: null } } } },
+    select: {
+      id: true, name: true, sponsor: { select: { name: true } },
+      brief: { select: { package: { select: { code: true, name: true, priceLow: true, includes: true } } } },
+    },
+    orderBy: [{ startDate: "desc" }, { id: "asc" }],
+    take: 100,
+  });
+  const holding = new Set(slots.map((s) => s.campaignId).filter(Boolean));
+  const free = (kind: string) => slots.filter((s) => s.kind === kind && !s.campaignId).length;
+
+  res.json({
+    candidates: campaigns.flatMap((c) => {
+      const pkg = c.brief?.package;
+      const wanted = positionsFor((pkg?.includes as Array<{ kind: string; code: string; quantity?: number }> | null) ?? null);
+      if (!pkg || wanted.length === 0) return [];
+      const need = wanted.reduce<Record<string, number>>((m, k) => ({ ...m, [k]: (m[k] ?? 0) + 1 }), {});
+      const short = Object.entries(need).filter(([k, n]) => free(k) < n).map(([k]) => k);
+      return [{
+        campaignId: c.id,
+        campaign: c.name,
+        sponsor: c.sponsor.name,
+        package: { code: pkg.code, name: pkg.name, priceCents: pkg.priceLow * 100 },
+        positions: wanted,
+        holdsPlacements: holding.has(c.id),
+        unavailable: short,
+      }];
+    }),
+  });
+};
+
 editionsRouter.post("/publications", requireActor, newPublication);
 editionsRouter.post("/publications/:id/editions", requireActor, newEdition);
+editionsRouter.get("/editions", requireActor, listEditions);
 editionsRouter.get("/editions/:id", requireActor, readEdition);
+editionsRouter.get("/editions/:id/ledger", requireActor, ledger);
+editionsRouter.get("/editions/:id/sale-candidates", requireActor, saleCandidates);
 editionsRouter.post("/editions/:id/conditions", requireActor, conditions);
 editionsRouter.post("/editions/:id/transition", requireActor, transition);
 editionsRouter.post("/editions/:id/slots", requireActor, newSlot);
@@ -100,3 +238,74 @@ const event: RequestHandler<{ id: string }> = async (req, res) => {
 };
 
 editionsRouter.post("/public/editions/:id/events", event);
+
+/**
+ * GET /public/editions/:school/:id — the free digital edition (P9-FE-07,
+ * spec principle 10). PUBLIC and read-only.
+ *
+ * Only a PUBLISHED edition answers; any other state is the same 404 as an
+ * edition that does not exist, so an unpublished issue is unreachable and
+ * the answer is no oracle. `school` must be the publication's school slug
+ * (or `regional` for a publication with no school).
+ *
+ * What is public is what a printed magazine shows anyway: the masthead, the
+ * content that holds a digital right in force today (the gate already
+ * required it to publish — a right that lapsed since drops out), bylines as
+ * display names only (P9-SEC-01), and the sponsors who bought positions.
+ * Never a price, a sale value, a legal name, an email, or an open slot's
+ * rack price.
+ */
+const readPublic: RequestHandler<{ school: string; id: string }> = async (req, res) => {
+  await limit("edition:read", clientIp(req), 120, 60);
+  const now = new Date();
+  const edition = await prisma.edition.findFirst({
+    /* tenant-scope: public route — the edition id is globally unique; only published editions answer. */
+    where: { id: req.params.id, state: { in: [...PUBLISHED_STATES] } },
+    select: {
+      id: true, tenantId: true, label: true, state: true, publishTarget: true, printDate: true,
+      publication: { select: { name: true, property: { select: { slug: true, name: true, city: true, stateCode: true } } } },
+    },
+  });
+  const slug = edition?.publication.property?.slug ?? "regional";
+  if (!edition || slug !== req.params.school) throw new EditionNotFoundError();
+  const [assets, slots] = await Promise.all([
+    prisma.editionAsset.findMany({
+      where: {
+        tenantId: edition.tenantId, editionId: edition.id, kind: { not: "AD_CREATIVE" },
+        rights: { some: { mayPublishDigital: true, startsAt: { lte: now }, OR: [{ endsAt: null }, { endsAt: { gt: now } }] } },
+      },
+      select: { id: true, kind: true, title: true, studentId: true },
+      orderBy: { createdAt: "asc" },
+    }),
+    prisma.adSlot.findMany({
+      where: { tenantId: edition.tenantId, editionId: edition.id, campaignId: { not: null } },
+      select: { id: true, slotCode: true, kind: true, campaign: { select: { sponsor: { select: { name: true } } } } },
+      orderBy: { slotCode: "asc" },
+    }),
+  ]);
+  const studentIds = [...new Set(assets.map((a) => a.studentId).filter((x): x is string => Boolean(x)))];
+  const bylines = studentIds.length
+    ? await prisma.student.findMany({
+        where: { tenantId: edition.tenantId, id: { in: studentIds } },
+        select: { id: true, displayName: true },
+      })
+    : [];
+  const by = new Map(bylines.map((s) => [s.id, s.displayName]));
+  const school = edition.publication.property;
+  res.json({
+    id: edition.id,
+    label: edition.label,
+    state: edition.state,
+    publishTarget: edition.publishTarget.toISOString(),
+    printDate: edition.printDate?.toISOString() ?? null,
+    publication: edition.publication.name,
+    school: school ? { slug: school.slug, name: school.name, city: school.city, stateCode: school.stateCode } : null,
+    contents: assets.map((a) => ({ id: a.id, kind: a.kind, title: a.title, byline: a.studentId ? by.get(a.studentId) ?? null : null })),
+    sponsors: slots.map((s) => ({ id: s.id, slotCode: s.slotCode, kind: s.kind, sponsor: s.campaign?.sponsor.name ?? "A local sponsor" })),
+  });
+};
+
+editionsRouter.get("/public/editions/:school/:id", readPublic);
+
+export { readPublic };
+export { listEditions, ledger, saleCandidates };

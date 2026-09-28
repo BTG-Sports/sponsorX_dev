@@ -23,6 +23,11 @@
 import { Router, type RequestHandler } from "express";
 
 import { requireActor } from "../../auth/actor";
+import { can, whereFor } from "../../auth/scope";
+import { ForbiddenError } from "../../auth/errors";
+import { prisma } from "../../db/client";
+import { presignPrivateDownload } from "../../lib/storage";
+import { CONSENT_TEXT, CURRENT_CONSENT_VERSION } from "../../domain/fan-consent";
 import { limit } from "../../lib/rate-limit";
 import { clientIp } from "../../lib/client-ip";
 import {
@@ -220,6 +225,136 @@ const unsubscribe: RequestHandler<{ token: string }> = async (req, res) => {
 };
 
 /* Staff — authenticated. */
+/* --- reads (P6-FE-01 / P6-FE-03) ------------------------------------------
+
+   The reward desk had create, transition, token and a per-reward funnel —
+   and no way to list what exists. These are the reads, scoped by the matrix.
+
+   Funnel counts come from RewardEvent grouped by token and type: four
+   separate event kinds (P6-BE-03), never one counter. They ride only for a
+   caller who may read reward events. A token's STRING is the fan's link to
+   claim and redeem, so it is returned only to roles that write rewards
+   (BTG) — they print it; nobody else needs it. */
+
+type EventType = "SCAN" | "LANDING" | "CLAIM" | "REDEEM";
+
+async function funnelsFor(actor: Parameters<typeof can>[0], tokenToReward: Map<string, string>) {
+  const out = new Map<string, Record<EventType, number>>();
+  if (!can(actor, "rewardEvent", "read") || tokenToReward.size === 0) return out;
+  const grouped = await prisma.rewardEvent.groupBy({
+    by: ["tokenId", "type"],
+    /* The caller's OWN event scope, not just the reward's: an athlete may
+       read their own token's events, never another athlete's on the same
+       reward. */
+    where: { ...whereFor(actor, "rewardEvent", "read"), tokenId: { in: [...tokenToReward.keys()] } },
+    _count: { _all: true },
+  });
+  for (const g of grouped) {
+    const rewardId = tokenToReward.get(g.tokenId)!;
+    const c = out.get(rewardId) ?? { SCAN: 0, LANDING: 0, CLAIM: 0, REDEEM: 0 };
+    c[g.type as EventType] += g._count._all;
+    out.set(rewardId, c);
+  }
+  return out;
+}
+
+const REWARD_SELECT = {
+  id: true, offerText: true, terms: true, singleUse: true, expiresAt: true, state: true,
+  campaign: { select: { id: true, name: true, endDate: true, sponsor: { select: { name: true } } } },
+  tokens: {
+    select: {
+      id: true, token: true, qrKey: true,
+      athlete: { select: { id: true, displayName: true } },
+    },
+  },
+} as const;
+
+type RewardRow = {
+  id: string; offerText: string; terms: string; singleUse: boolean; expiresAt: Date; state: string;
+  campaign: { id: string; name: string; endDate: Date; sponsor: { name: string } };
+  tokens: { id: string; token: string; qrKey: string | null; athlete: { id: string; displayName: string } | null }[];
+};
+
+function rewardOut(r: RewardRow, funnel: Record<string, number> | undefined, withTokens: boolean, printable: boolean) {
+  return {
+    id: r.id,
+    offerText: r.offerText,
+    terms: r.terms,
+    singleUse: r.singleUse,
+    expiresAt: r.expiresAt.toISOString(),
+    state: r.state,
+    campaign: { id: r.campaign.id, name: r.campaign.name, sponsorName: r.campaign.sponsor.name, endDate: r.campaign.endDate.toISOString() },
+    athletes: new Set(r.tokens.map((t) => t.athlete?.id).filter(Boolean)).size,
+    tokenCount: r.tokens.length,
+    ...(funnel ? { funnel } : {}),
+    ...(withTokens
+      ? {
+          tokens: r.tokens.map((t) => ({
+            id: t.id,
+            athlete: t.athlete,
+            qrReady: t.qrKey !== null,
+            ...(printable ? { token: t.token } : {}),
+          })),
+        }
+      : {}),
+  };
+}
+
+/** GET /rewards — `?campaignId=` narrows; newest expiry last. */
+const listRewards: RequestHandler = async (req, res) => {
+  const actor = req.actor!;
+  const campaignId = typeof req.query.campaignId === "string" ? req.query.campaignId : undefined;
+  const rows = (await prisma.reward.findMany({
+    where: { ...whereFor(actor, "reward", "read"), ...(campaignId ? { campaignId } : {}) },
+    select: REWARD_SELECT,
+    orderBy: { expiresAt: "desc" },
+    take: 200,
+  })) as RewardRow[];
+  const tokenToReward = new Map(rows.flatMap((r) => r.tokens.map((t) => [t.id, r.id] as const)));
+  const funnels = await funnelsFor(actor, tokenToReward);
+  res.json({
+    rewards: rows.map((r) => rewardOut(r, funnels.get(r.id) ?? (can(actor, "rewardEvent", "read") ? { SCAN: 0, LANDING: 0, CLAIM: 0, REDEEM: 0 } : undefined), false, false)),
+    /* The one consent line every fan page shows — versioned centrally
+       (fan-consent.ts, P6-SEC-01), deliberately not per reward. */
+    consent: { version: CURRENT_CONSENT_VERSION, text: CONSENT_TEXT[CURRENT_CONSENT_VERSION] },
+  });
+};
+
+/** GET /rewards/:id — one reward, with its tokens (strings for BTG only). */
+const readReward: RequestHandler<{ id: string }> = async (req, res) => {
+  const actor = req.actor!;
+  const r = (await prisma.reward.findFirst({
+    where: { ...whereFor(actor, "reward", "read"), id: req.params.id },
+    select: REWARD_SELECT,
+  })) as RewardRow | null;
+  if (!r) throw new ForbiddenError("reward", "read");
+  const funnels = await funnelsFor(actor, new Map(r.tokens.map((t) => [t.id, r.id])));
+  res.json({
+    ...rewardOut(r, funnels.get(r.id) ?? { SCAN: 0, LANDING: 0, CLAIM: 0, REDEEM: 0 }, true, can(actor, "reward", "write")),
+    consent: { version: CURRENT_CONSENT_VERSION, text: CONSENT_TEXT[CURRENT_CONSENT_VERSION] },
+  });
+};
+
+/**
+ * GET /reward-tokens/:id/qr-url — a short-lived signed read of the token's
+ * QR PNG (P6-BE-06 wrote it to the private bucket). Audited by
+ * presignPrivateDownload. 404-shaped refusal until the worker has made it.
+ */
+const tokenQrUrl: RequestHandler<{ id: string }> = async (req, res) => {
+  const actor = req.actor!;
+  if (!can(actor, "reward", "write")) throw new ForbiddenError("reward", "write");
+  const t = await prisma.rewardToken.findFirst({
+    where: { id: req.params.id, reward: whereFor(actor, "reward", "write") },
+    select: { id: true, qrKey: true },
+  });
+  if (!t || !t.qrKey) throw new ForbiddenError("reward", "read");
+  const url = await presignPrivateDownload(actor, t.qrKey, { entity: "RewardToken", entityId: t.id });
+  res.json({ url });
+};
+
+rewardsRouter.get("/rewards", requireActor, listRewards);
+rewardsRouter.get("/rewards/:id", requireActor, readReward);
+rewardsRouter.get("/reward-tokens/:id/qr-url", requireActor, tokenQrUrl);
 rewardsRouter.post("/campaigns/:id/rewards", requireActor, addReward);
 rewardsRouter.post("/rewards/:id/transition", requireActor, moveReward);
 rewardsRouter.post("/rewards/:id/tokens", requireActor, addToken);
@@ -238,3 +373,5 @@ rewardsRouter.post("/public/rewards/:token/landing", landing);
 rewardsRouter.post("/public/rewards/:token/claim", claim);
 rewardsRouter.post("/public/rewards/:token/redeem", redeem);
 rewardsRouter.post("/public/unsubscribe/:token", unsubscribe);
+
+export { listRewards, readReward, tokenQrUrl };

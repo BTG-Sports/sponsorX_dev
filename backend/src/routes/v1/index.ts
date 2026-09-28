@@ -6,6 +6,7 @@
  * shape is in place and the first feature has somewhere to land.
  */
 import { Router } from "express";
+import { auditRouter } from "./audit";
 
 import { applicationsRouter } from "./applications";
 import { athletesRouter } from "./athletes";
@@ -101,6 +102,7 @@ v1Router.use("/", studentsRouter);
    DMV school pools (P9-BE-10/11/14). Two public routes: a featured athlete's
    profile and the claim. */
 v1Router.use("/", rightsRouter);
+v1Router.use("/", auditRouter);
 
 /* The published contract, generated from the Zod registry (§38). Public: a
    consumer has to be able to read how to authenticate before it can. */

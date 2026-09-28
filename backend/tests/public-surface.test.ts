@@ -34,6 +34,23 @@ describe("P8-SEC-03 · the rate limit counts the fan, and only on the web server
     expect(clientIp(req({ "x-sponsorx-client-ip": "203.0.113.7", "x-sponsorx-edge-key": "wrong" }) as never)).toBe("10.0.0.9");
   });
 
+  it("P5-FE-01 · an acceptance records the SIGNER's browser, on the same key", async () => {
+    const { clientUserAgent } = await import("../src/lib/client-ip");
+    const key = process.env.SPONSORX_EDGE_KEY!;
+    expect(clientUserAgent(req({ "user-agent": "node", "x-sponsorx-client-ua": "Mozilla/5.0 (iPhone)", "x-sponsorx-edge-key": key }) as never))
+      .toBe("Mozilla/5.0 (iPhone)");
+    expect(clientUserAgent(req({ "user-agent": "node", "x-sponsorx-client-ua": "forged" }) as never)).toBe("node");
+  });
+
+  it("both acceptance routes take their evidence through the forward, not the socket", async () => {
+    const { readFileSync } = await import("node:fs");
+    for (const f of ["campaigns", "guardians"]) {
+      const s = readFileSync(new URL(`../src/routes/v1/${f}.ts`, import.meta.url), "utf8");
+      expect(s, f).not.toMatch(/ip: req\.ip/);
+      expect(s, f).toMatch(/userAgent: clientUserAgent\(req\)/);
+    }
+  });
+
   it("every public limit is keyed through clientIp, not the raw socket", async () => {
     const { readFileSync } = await import("node:fs");
     for (const f of ["rewards", "applications", "inquiries"]) {

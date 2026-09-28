@@ -86,6 +86,11 @@ const PARAM_FOR: Record<string, string> = {
   publications: A.publication, editions: A.edition,
   students: A.student, prospects: A.prospect, sponsors: A.sponsor,
   "edition-assets": A.asset, claims: A.claim, properties: A.school,
+  /* GET /deliverables/{id}/assets/{version}/url (P5-FE-04) — a creative
+     version number, under tenant A's deliverable. */
+  assets: "1",
+  /* GET /reward-tokens/{id}/qr-url (P6-FE-01). */
+  "reward-tokens": A.token,
 };
 
 /**

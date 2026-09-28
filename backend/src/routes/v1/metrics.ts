@@ -13,6 +13,8 @@
  * precisely the impression P7-DATA-02 is built to avoid.
  */
 import { Router, type RequestHandler } from "express";
+import { integrationHealth } from "../../domain/integration-health";
+import { analyticsWindow } from "../../domain/reward-analytics";
 
 import { requireActor } from "../../auth/actor";
 import { MetricEntryInput } from "../../contracts/metric";
@@ -98,6 +100,20 @@ const economics: RequestHandler = async (req, res) => {
   res.json({ jobs: await jobEconomics(req.actor!) });
 };
 
+/** GET /operations/analytics?days=7|30|90 — the analytics story's numbers
+ *  (P6-FE-03 / P7-FE-04), recomputed from event rows; tenant-wide, BTG only. */
+const analytics: RequestHandler = async (req, res) => {
+  const days = Number(req.query.days ?? 30);
+  res.json(await analyticsWindow(req.actor!, Number.isFinite(days) ? days : 30));
+};
+
+/** GET /operations/integration-health — Zoho sync, webhooks, queue (P8-FE-01). */
+const integrations: RequestHandler = async (req, res) => {
+  res.json(await integrationHealth(req.actor!));
+};
+
+metricsRouter.get("/operations/integration-health", requireActor, integrations);
+metricsRouter.get("/operations/analytics", requireActor, analytics);
 metricsRouter.get("/operations/delivery-health", requireActor, delivery);
 metricsRouter.get("/operations/network-metrics", requireActor, network);
 metricsRouter.get("/operations/job-economics", requireActor, economics);
@@ -110,3 +126,5 @@ metricsRouter.get("/deliverables/:id/metrics", requireActor, forDeliverable);
 metricsRouter.get("/campaigns/:id/metrics", requireActor, forCampaign);
 metricsRouter.get("/athletes/:id/metrics", requireActor, forAthlete);
 metricsRouter.get("/campaigns/:id/report", requireActor, report);
+
+export { analytics, integrations };

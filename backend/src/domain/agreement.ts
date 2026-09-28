@@ -93,6 +93,16 @@ export async function acceptAgreementIn(
   tx: Prisma.TransactionClient,
   actor: Actor,
   request: AcceptanceRequest,
+  /**
+   * `oncePerSigner` (default true) is right for terms a person accepts once —
+   * the collaboration agreement, a guardian's authorisation. It is WRONG for
+   * a Campaign Order, which is the same versioned template accepted once per
+   * ORDER: with it, an athlete's second order under v1 was refused with
+   * AlreadyAccepted and could never be accepted by anyone (found by the
+   * P5-FE-01 walk). acceptOrder passes false; its own SENT-only guard, inside
+   * the same transaction, is what stops one order being accepted twice.
+   */
+  opts: { oncePerSigner?: boolean } = {},
 ): Promise<{ acceptanceId: string; acceptedAt: Date; guardianId: string | null }> {
   assertAllowed(actor, "agreement", "write");
 
@@ -106,15 +116,17 @@ export async function acceptAgreementIn(
     throw new AgreementTextChangedError();
   }
 
-  const existing = await tx.agreementAcceptance.findFirst({
-    where: {
-      tenantId: actor.tenantId,
-      agreementId: agreement.id,
-      userId: actor.userId,
-    },
-    select: { id: true },
-  });
-  if (existing) throw new AlreadyAcceptedError(agreement.id);
+  if (opts.oncePerSigner !== false) {
+    const existing = await tx.agreementAcceptance.findFirst({
+      where: {
+        tenantId: actor.tenantId,
+        agreementId: agreement.id,
+        userId: actor.userId,
+      },
+      select: { id: true },
+    });
+    if (existing) throw new AlreadyAcceptedError(agreement.id);
+  }
 
   /* If the signer is an athlete and a minor, the guardian must already be
      linked and verified. Asked through the same rule the ACTIVE transition
