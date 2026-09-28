@@ -786,3 +786,18 @@ Owner HeckerCreatives. Thin reads added under the "thin reads" scope rule
 - The Google Sheet and Slack update themselves from
   `.github/workflows/tracker-notify.yml`, but **only when the xlsx change
   reaches `main`**. A push to `main_development` alone doesn't post it.
+# 2026-09-28
+
+## Production now at https://sponsorx.net (P0-OPS-06, still In progress)
+
+- **Railway:** a custom domain on the production `web` service. It's
+  verified, with a valid TLS certificate.
+- **Cloudflare DNS**, added in the dashboard: `CNAME @ → c0ojxycv.up.railway.app`
+  (DNS only) and `TXT _railway-verify`. The `CLOUDFLARE_API_TOKEN` in `.env`
+  is account-scoped with **no DNS permission** on the zone, so it can't manage
+  records.
+- **Checks:** the public pages return 200. The portals redirect to `/login`,
+  which loads the live Clerk instance (`clerk.sponsorx.net`). Production
+  sign-in only works on sponsorx.net, not on the `*.up.railway.app` address.
+- **Still open for acceptance:** confirm auto-renew and registrar lock, and
+  record the name in `.claude/stack-decision.md`.
