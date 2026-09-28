@@ -857,10 +857,12 @@ export const POLICY: Record<Resource, RolePolicy> = {
      frozen breakdown are the margin: BTG and Finance only. A property reads
      its own ledger entries, an athlete theirs; nobody writes an entry — the
      ledger is written by the order's own transitions. */
+  /* Writing rules is BTG admin's alone (programme owner, 2026-09-28: "only
+     admin"); Finance reads them to reconcile. */
   commissionRule: {
     SUPER_ADMIN: rwa("any", "any"),
     BTG_ADMIN: rwa("own-tenant", "own-tenant"),
-    FINANCE: rwa("own-tenant", "own-tenant"),
+    FINANCE: rwa("own-tenant"),
   },
   orderFinancials: {
     SUPER_ADMIN: rwa("any"),

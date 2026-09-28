@@ -306,7 +306,10 @@ describe("the whole matrix is pinned", () => {
       // Updated 2026-09-28 (2S5-BE-01/-02, 2S4-BE-04): three new resources,
       // commissionRule, orderFinancials and ledgerEntry (matrix §21). With the
       // three removed the grid still hashes to the previous f970f155612606e9.
-    ).toBe("39e42fab590b7584");
+      // Updated 2026-09-28 (2S5-FE-01, "only admin"): commissionRule.write
+      // for FINANCE moved own-tenant → deny; Finance keeps read. That one
+      // cell back, the grid hashes to the previous 39e42fab590b7584.
+    ).toBe("49b852630719d073");
   });
 
   it("covers every pair the §30 acceptance asks for", () => {
