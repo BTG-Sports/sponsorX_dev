@@ -30,6 +30,13 @@ export const RewardInput = z
     /** A single-use reward is redeemable exactly once, enforced by a partial
      *  unique index rather than by application code (P6-BE-04). */
     singleUse: z.boolean().default(true),
+    /** P6-BE-08 — §9 screen 10. Who qualifies, in the fan's words. */
+    eligibility: z.string().trim().max(500).nullable().optional(),
+    /** Redemptions allowed across every token of this reward; null is unlimited. */
+    redemptionCap: z.number().int().min(1).max(1_000_000).nullable().optional(),
+    /** The fan page's own headline and subhead for this reward. */
+    landingHeadline: z.string().trim().max(120).nullable().optional(),
+    landingSubhead: z.string().trim().max(280).nullable().optional(),
   })
   .meta({ id: "RewardInput" });
 

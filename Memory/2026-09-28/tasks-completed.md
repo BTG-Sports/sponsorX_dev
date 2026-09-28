@@ -989,3 +989,23 @@ The full backend suite passes (1544 tests). Ten out of ten mutations were
 caught, and one survivor surfaced a missing test for a package whose part runs
 out. Two real bugs were found and fixed: the Deal `Type` counted later orders,
 and holds had been compared to the millisecond (fixed in batch 4).
+
+## `P6-BE-08` (raised by HeckerCreatives): backend done, row In progress
+
+- **Reward:** new fields `eligibility`, `redemptionCap` (with
+  `redemptionCount`) and `landingHeadline`/`landingSubhead`, all accepted on
+  create.
+- **The cap is race-safe.** One conditional UPDATE inside the redeem
+  transaction takes the last unit, and a DB CHECK keeps the count at or below
+  the cap. In the test, 8 simultaneous redemptions against a cap of 3 gave
+  exactly 3 successes. The other 5 get a 409 with `kind: REDEMPTION_CAP`,
+  which a new `kind` field in error bodies carries.
+- **The public view** now returns `landing`, `eligibility` and `capReached`.
+- **Consent copy stays central**, not per reward, as the row asked me to
+  confirm.
+- **Still open:** "the fan page renders the landing copy" is frontend work in
+  `fan-page.ts` and the redeem route. The user reminded me this session is
+  backend only, so my fan-page edits were reverted.
+
+`P2-OPS-07` is unchanged. Its second clause (the matrix as a required check)
+needs GitHub Pro.
