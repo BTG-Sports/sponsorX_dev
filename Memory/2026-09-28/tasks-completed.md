@@ -1444,3 +1444,56 @@ was added.
   - tsc and eslint clean
   - e2e 15/15
   - `npm run build` green
+
+## `2S5-FE-01` → Done: the commission-rules screen, BTG admin only (at the owner's request)
+
+- **`/admin/commission`** shows the rules in effect, highest priority first,
+  each with its earlier versions.
+  - Admins can add a rule, or revise one. A revision becomes version n+1 from
+    that moment on.
+  - A preview runs a sample order through the rules in effect, and again with
+    an unsaved rule, side by side.
+- **Backend:** new `POST /commission-rules/preview`. It uses the same resolver
+  as a real contract and writes nothing.
+  - Finance can now only read commission rules; only BTG admin writes them
+    (matrix §21, digest `49b852630719d073`).
+- **Admin only:** the page checks the role before fetching anything, and the
+  nav link is hidden from other staff.
+- **Heads-up from the pull:** main_development's CI **e2e job is red**. The
+  teammate's new Clerk sign-in end-to-end tests time out in CI. Also, one of
+  the teammate's lock-timing tests fails only on my local database; it passes
+  in CI.
+
+## Board update (the programme owner's instruction)
+
+- **`2S0-PMO-02` → Done.** The owner signed off the ledger design, and the
+  design document's status now says so. The rates are still placeholders
+  for BTG to set in `/admin/commission`.
+- **Every waiting Phase 2 backend row now has a dated "WAITING ON" note**
+  (15 rows), each naming its real blocker:
+  - **the payment-provider decision (`2S0-PMO-03`):**
+    - the decision row itself;
+    - the payments security review;
+    - checkout, webhooks and payout accounts (`2S5-INT-01/02/03`);
+    - refunds and disputes (`2S5-BE-03`);
+    - payout eligibility and execution (`2S5-BE-04/05`);
+    - the wallet passes (`2S6-INT-01/02`, `2S6-BE-01`);
+  - **Phase 1 completion:** `2S0-OPS-01` and `2S8-OPS-01`;
+  - **Phase 2 QA (`2S8-QA-01`):** `2S8-SEC-02` and `2S8-PMO-01`, which wait
+    on the checkout frontend.
+- **Drive copy:** the Google Doc of the ledger design still says "waiting
+  for sign-off". Drive can't edit a doc's text, so updating it means
+  deleting and recreating it, which needs the owner's go-ahead.
+
+## CI e2e fixed (#114)
+
+The e2e job had been red since the Clerk-signed loop specs landed.
+- **Cause:** Next 16's dev server refuses its dev resources (`/_next/hmr`) to
+  any host except localhost and the host it started on. Playwright opens
+  `127.0.0.1`, so pages rendered but never hydrated. No client code ran, and
+  Clerk never consumed its sign-in ticket.
+- **Fix:** `allowedDevOrigins: ["127.0.0.1"]` in `frontend/next.config.ts`.
+  It is dev-only.
+- **Don't rebind the dev server with `--hostname 127.0.0.1`.** I tried that
+  first. The dev server proxies internally to localhost, so it never came up.
+- **Result:** 15 passed, 7 skipped by design.

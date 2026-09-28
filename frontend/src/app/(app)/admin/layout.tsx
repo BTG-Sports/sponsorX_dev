@@ -1,6 +1,7 @@
 import { requirePortalAccess } from "@/server/portal";
 import { PortalShell, type NavItem } from "@/components/portal-shell";
 import { roleLabel, viewerName } from "@/server/viewer";
+import { isCommissionAdmin } from "@/lib/commission-live";
 
 /* BTG admin surface — §10's four workspaces plus the command center (§23). */
 const NAV: NavItem[] = [
@@ -11,6 +12,8 @@ const NAV: NavItem[] = [
   { href: "/admin/rewards", label: "Rewards", icon: "gift" },
   { href: "/admin/analytics", label: "Analytics", icon: "chart" },
   { href: "/admin/finance", label: "Finance", icon: "wallet" },
+  /* 2S5-FE-01 — BTG admin only; hidden from the other staff roles below. */
+  { href: "/admin/commission", label: "Commission", icon: "card" },
   { href: "/admin/network", label: "Network", icon: "users" },
   { href: "/admin/integrations", label: "Integrations", icon: "gear" },
   { href: "/admin/audit", label: "Audit log", icon: "file" },
@@ -37,7 +40,7 @@ export default async function AdminLayout({ children }: LayoutProps<"/admin">) {
   return (
     <PortalShell
       portal="admin"
-      nav={NAV}
+      nav={isCommissionAdmin(actor.roles) ? NAV : NAV.filter((n) => n.href !== "/admin/commission")}
       rootHref="/admin"
       orgName="BTG Sports Group"
       userName={await viewerName("BTG staff")}

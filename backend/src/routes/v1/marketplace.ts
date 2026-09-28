@@ -12,9 +12,9 @@ import {
   ListingTransitionInput, LogoUploadInput, OfferInput, OfferResponseInput, RosterAthleteInput, TeamShareInput,
   CartLineInput, CartLinePatch, RestrictionInput, SearchQuery, SponsorCategoriesInput,
   MarketplaceOrderDecisionInput, MarketplaceOrderTransitionInput, PlaceOrderInput,
-  CommissionRuleInput, CommissionRuleRevision,
+  CommissionRuleInput, CommissionRuleRevision, CommissionPreviewInput,
 } from "../../contracts/marketplace";
-import { createRule, listRules, reviseRule } from "../../domain/commission";
+import { createRule, listRules, previewSplit, reviseRule } from "../../domain/commission";
 import { orderFinancials, propertyLedger } from "../../domain/ledger";
 import { propertyAnalytics } from "../../domain/property-analytics";
 import { getReservation, releaseReservation, reserveCart } from "../../domain/reservation";
@@ -162,6 +162,8 @@ const revise: RequestHandler<Id> = async (req, res) => { res.status(201).json(aw
 marketplaceRouter.get("/commission-rules", requireActor, rules);
 marketplaceRouter.post("/commission-rules", requireActor, newRule);
 marketplaceRouter.post("/commission-rules/:id/revise", requireActor, revise);
+const preview: RequestHandler = async (req, res) => { res.json(await previewSplit(req.actor!, CommissionPreviewInput.parse(req.body))); };
+marketplaceRouter.post("/commission-rules/preview", requireActor, preview);
 
 const financials: RequestHandler<Id> = async (req, res) => { res.json({ lines: await orderFinancials(req.actor!, req.params.id) }); };
 const ledger: RequestHandler = async (req, res) => { res.json(await propertyLedger(req.actor!)); };
