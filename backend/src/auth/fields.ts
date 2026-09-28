@@ -42,7 +42,8 @@ export type ProtectedField =
   | "athlete.restrictions"
   | "rewardClaim.fanContact"
   | "athleteScore.value"
-  | "revenueSplit.amount";
+  | "revenueSplit.amount"
+  | "rewardClaim.sponsorLead";
 
 const SPONSOR_ROLES = ["SPONSOR_ADMIN", "SPONSOR_ANALYST"] as const;
 const ATHLETE_SIDE = ["ATHLETE", "GUARDIAN"] as const;
@@ -98,6 +99,14 @@ export const FIELD_DENIALS: Record<ProtectedField, readonly Role[]> = {
      finance's and BTG's, never a student's or an advisor's (open legal gate 2
      is exactly about money near minors). */
   "revenueSplit.amount": [...SPONSOR_ROLES, ...ATHLETE_SIDE, "PROPERTY_MGR", "SALES", "CAMPAIGN_MGR", "NETWORK_MGR", ...NEXT_SIDE],
+  /* 2S6-BE-03, §7.2 as amended 2026-09-28 — a fan's address as a SPONSOR
+     LEAD, which exists only where the fan ticked the separate "the sponsor
+     may contact me" box. The funding sponsor may read it (row-scoped to their
+     own campaign, and the query itself carries the consent — fan-leads.ts);
+     `rewardClaim.fanContact`, the address in general, stays denied to them. */
+  "rewardClaim.sponsorLead": [
+    "SALES", "CAMPAIGN_MGR", "NETWORK_MGR", "FINANCE",
+    ...ATHLETE_SIDE, "PROPERTY_MGR", "SERVICE", ...NEXT_SIDE],
 };
 
 /** May any of this actor's roles read this field? Denied if ANY role is

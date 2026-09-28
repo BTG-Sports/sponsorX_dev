@@ -56,10 +56,17 @@ import {
   recordClick,
   resolveCode,
 } from "../../domain/tracking";
+import { campaignLeads } from "../../domain/fan-leads";
 
 export const rewardsRouter = Router();
 
 /* ── staff ──────────────────────────────────────────────────────────────── */
+
+/** GET /campaigns/:id/leads — fans who ticked "the sponsor may contact me"
+ *  (2S6-BE-03). The only route that returns a fan's address, and only those. */
+const leads: RequestHandler<{ id: string }> = async (req, res) => {
+  res.json({ leads: await campaignLeads(req.actor!, req.params.id) });
+};
 
 /** POST /campaigns/:id/rewards — create the offer. Always lands in DRAFT. */
 const addReward: RequestHandler<{ id: string }> = async (req, res) => {
@@ -196,6 +203,7 @@ const claim: RequestHandler<{ token: string }> = async (req, res) => {
       body.fanEmail ?? null,
       new Date(),
       body.consent ?? null,
+      body.sponsorContact ?? null,
     ),
   );
 };
@@ -361,6 +369,7 @@ rewardsRouter.post("/rewards/:id/tokens", requireActor, addToken);
 rewardsRouter.get("/rewards/:id/funnel", requireActor, funnel);
 rewardsRouter.post("/deliverables/:id/tracking-link", requireActor, addTrackingLink);
 rewardsRouter.get("/campaigns/:id/tracking-codes", requireActor, campaignCodes);
+rewardsRouter.get("/campaigns/:id/leads", requireActor, leads);
 rewardsRouter.get("/tracking-links/:id/clicks", requireActor, linkClicks);
 
 /* Public — no requireActor, deliberately, and all under /public so the

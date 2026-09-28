@@ -64,6 +64,8 @@ const HANDLED_JOBS = new Set<string>([
   "zoho.pushRenewal",
   "zoho.ingestCrm",
   "zoho.backfill",
+  /* 2S7-BE-02 — the sponsor report rendered as a file, unattended. */
+  "report.render",
 ]);
 import { handleSendEmail, type EmailJob } from "./jobs/send-email.mts";
 import { handleGenerateQr, type QrJob } from "./jobs/generate-qr.mts";
@@ -75,6 +77,8 @@ import {
 import { handleRollupMetrics } from "./jobs/rollup-metrics.mts";
 import { remindDueDeliverables } from "./jobs/deliverable-reminders.mts";
 import { handleIngestInvoice, type IngestInvoiceJob } from "./jobs/ingest-invoice.mts";
+import { handleRenderReport } from "./jobs/render-report.mts";
+import type { RenderReportJob } from "../src/domain/report-files.ts";
 import { prisma } from "../src/db/client.ts";
 import { ingestZohoInvoice, type ZohoInvoicePayload } from "../src/domain/invoice.ts";
 import { importCohort, type CohortImportJob } from "../src/domain/cohort-import.ts";
@@ -401,6 +405,13 @@ async function main(): Promise<void> {
      are retried and which are recorded. The client is resolved per job, so a
      worker booted without credentials fails those jobs (and retries them)
      instead of refusing to start. */
+  /* 2S7-BE-02 — one render at a time: Chromium is a separate process, but
+     it is the first CPU-heavy job in a worker that shares a process with the
+     API (src/combined.mts names this as the signal to split them). */
+  await ensureQueue("report.render");
+  await boss.work<RenderReportJob & { tenantId: string }>("report.render", { localConcurrency: 1 }, async ([job]) =>
+    console.log(`[worker] report.render ${JSON.stringify(await handleRenderReport({ db: prisma, put: putPrivateObject }, job.data))}`));
+
   const zohoDeps = { db: prisma, zoho: zohoFromEnv };
   const zohoLog = (name: string, outcome: unknown) =>
     console.log(`[worker] ${name} ${JSON.stringify(outcome)}`);

@@ -34,7 +34,11 @@ test("a fan scans, lands, claims and redeems — once", async ({ page, request }
 
   // CLAIM — the form, with an email and the consent box.
   await page.getByLabel(/Email for your code/).fill("fan@example.com");
-  await page.getByRole("checkbox").check();
+  /* Two separate boxes since 2S6-BE-03: the delivery consent (ticked here)
+     and "the sponsor may contact me", which a fan must opt into — it starts
+     unticked. */
+  await expect(page.getByRole("checkbox", { name: /sponsor of this reward contact me/ })).not.toBeChecked();
+  await page.getByRole("checkbox", { name: /Email me my reward code/ }).check();
   await page.getByRole("button", { name: "Claim reward" }).click();
   await expect(page.getByText(/Claimed\./)).toBeVisible();
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Your reward is ready");

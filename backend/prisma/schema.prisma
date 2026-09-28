@@ -259,10 +259,14 @@ model Property {
   lastSyncOrigin SyncOrigin?
   lastSyncHash   String?
 
-  athletes     Athlete[]
-  publications Publication[]
-  students     Student[]
-  roster       RosterEntry[]
+  athletes        Athlete[]
+  publications    Publication[]
+  students        Student[]
+  roster          RosterEntry[]
+  /// Phase 2 (2S1-BE-03) — set when BTG approves the property's onboarding,
+  /// cleared on suspension. Listing creation (2S3-BE-01) requires it.
+  listingAccessAt DateTime?
+  onboarding      PropertyOnboarding?
 
   @@index([tenantId])
 }
@@ -634,6 +638,8 @@ model Campaign {
   /// Edition content sponsored by this campaign — only with a commercial
   /// grant (P9-BE-10).
   editionAssets EditionAsset[]
+  /// Server-rendered sponsor reports (2S7-BE-02).
+  reportFiles   ReportFile[]
 
   @@index([tenantId, state])
 }
@@ -894,6 +900,17 @@ model RewardEvent {
   /// T2" in one place. Every query that contacts a fan filters on it being
   /// null (`CONTACTABLE` in domain/fan-consent.ts).
   consentWithdrawnAt DateTime?
+
+  /// The SECOND, separate consent — "the sponsor may contact me about their
+  /// offers" (2S6-BE-03). Its own box, unticked by default, its own dated
+  /// text version. Only a claim carrying it (and not withdrawn) ever exposes
+  /// the address to the sponsor, and only through domain/fan-leads.ts. The
+  /// one-tap unsubscribe withdraws it together with the delivery consent.
+  sponsorContactVersion     String?
+  sponsorContactAt          DateTime?
+  sponsorContactWithdrawnAt DateTime?
+  /// The Zoho Lead this claim became (2S6-INT-03), once pushed.
+  zohoLeadId                String?   @unique
 
   token RewardToken @relation(fields: [tokenId], references: [id])
 
@@ -1620,4 +1637,78 @@ model SchoolPoolAllocation {
 enum SchoolPool {
   SALES
   CONTENT
+}
+
+/// A sponsor report rendered unattended on the worker (2S7-BE-02) — for when
+/// no one opens a browser, e.g. delivery to a renewal signer who never logs
+/// in. The file is in the PRIVATE bucket; this row is how it is found. Read
+/// through the `sponsorReport` matrix resource.
+model ReportFile {
+  id          String   @id @default(cuid())
+  tenantId    String
+  campaignId  String
+  /// Private bucket key: reports/<campaignId>/<renderedAt>.pdf
+  r2Key       String   @unique
+  bytes       Int
+  /// COMPLETED (the renewal hand-off) or REQUESTED (someone asked)
+  trigger     String
+  requestedBy String?
+  renderedAt  DateTime @default(now())
+
+  campaign Campaign @relation(fields: [campaignId], references: [id])
+
+  @@index([tenantId, campaignId])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Phase 2 · Sprint 1 — external property onboarding (2S1-BE-01, 2S1-BE-03).
+// State machine: documentation/SponsorX-Phase2-State-Machines.md §1.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// An outside organisation's application to sell on the marketplace. Filled
+/// in step by step through the public API with a resume token — no login
+/// exists yet. Holds NO tax id and NO bank details: payout and tax details
+/// are collected by the payment provider (2S0-PMO-03, 2S5-INT-03), and this
+/// row records only that the applicant acknowledged that step.
+model PropertyOnboarding {
+  id                   String          @id @default(cuid())
+  tenantId             String
+  state                OnboardingState @default(DRAFT)
+  /// TEAM | SCHOOL | EVENT | MEDIA | VIRTUAL — becomes Property.kind
+  orgType              String
+  orgName              String
+  /// US state (or DC) the organisation operates in — drives required fields.
+  stateCode            String?
+  /// [{ name, email, phone?, role, primary }]
+  contacts             Json            @default("[]")
+  /// Type-specific business details, validated per orgType (strict: unknown
+  /// keys, and so any tax or bank field, are refused).
+  details              Json            @default("{}")
+  /// The applicant confirmed payout and tax details go to the payment
+  /// provider, not to SponsorX.
+  payoutAcknowledgedAt DateTime?
+  termsAgreementId     String?
+  termsHash            String?
+  termsAcceptedAt      DateTime?
+  submittedAt          DateTime?
+  reviewNotes          String?
+  decidedAt            DateTime?
+  decidedBy            String?
+  /// The Property created on approval.
+  propertyId           String?         @unique
+  createdAt            DateTime        @default(now())
+  updatedAt            DateTime        @default(now()) @updatedAt
+
+  property Property? @relation(fields: [propertyId], references: [id])
+
+  @@index([tenantId, state])
+}
+
+enum OnboardingState {
+  DRAFT
+  PENDING_REVIEW
+  CHANGES_REQUESTED
+  APPROVED
+  REJECTED
+  SUSPENDED
 }

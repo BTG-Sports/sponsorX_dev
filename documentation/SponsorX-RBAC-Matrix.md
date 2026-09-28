@@ -277,6 +277,7 @@ denied even where the containing record is readable.
 | `athlete.email` · `athlete.phone` | `SUPER_ADMIN`, `BTG_ADMIN`, `NETWORK_MGR`, `CAMPAIGN_MGR`, `ATHLETE`(own), `GUARDIAN`(ward) | **all sponsor roles, `PROPERTY_MGR`** | Privacy, and disintermediation — a sponsor with the athlete's mobile number does not need BTG for the next campaign |
 | `athlete.restrictions` | BTG roles, `ATHLETE`(own), `GUARDIAN`(ward) | **all sponsor roles** — they see only a conflict **yes/no** | §11 records existing NIL deals and competitor conflicts. "Already works with Nike" is competitively valuable and not the sponsor's to have |
 | `rewardClaim.fanContact` | `SUPER_ADMIN`, `BTG_ADMIN` | **everyone else, including the sponsor who funded the reward** | The only personal data here belonging to people who never logged in. §26 requires consent tracking; a fan consented to a coupon, not to being handed to a brand |
+| `rewardClaim.sponsorLead` *(added 2026-09-28, 2S6-BE-03)* | `SUPER_ADMIN`, `BTG_ADMIN`, `SPONSOR_ADMIN`, `SPONSOR_ANALYST` (own campaign) | **everyone else** | A fan's address **as a lead**, and it exists only where the fan ticked the separate, unticked-by-default "the sponsor may contact me" box and has not unsubscribed. The funding sponsor may read it for their own campaign. The consent is a condition **in the query** (`SPONSOR_CONTACTABLE`), not a filter afterwards, so a claim without it is never fetched. `rewardClaim.fanContact` above is unchanged |
 | `athleteScore.value` | `SUPER_ADMIN`, `BTG_ADMIN`, `NETWORK_MGR`, `CAMPAIGN_MGR` | **all sponsor roles, `PROPERTY_MGR`**; `ATHLETE` — see §12 · D5 | BTG's internal assessment of a person (§14) |
 
 ### 7.3 · Three rules that stop the field rules being bypassed
@@ -444,6 +445,12 @@ public who never logged in and never consented to being identified to a sponsor.
 Individual event rows carry claim details; nobody in this matrix reads them
 row-by-row. §26 requires consent tracking for fan marketing, and this is where
 that requirement becomes an access rule.
+
+**One exception, amended 2026-09-28 (2S6-BE-03).** A CLAIM row whose fan ticked
+"the sponsor may contact me", and has not withdrawn, may be read row-by-row by
+that campaign's sponsor (and BTG) as a **lead**: `GET /campaigns/{id}/leads`,
+gated by the `rewardClaim.sponsorLead` field (§7.2). No other row, and no
+other field of it, is exposed.
 
 `SERVICE` writes here — this is the metrics ingestion path, and the existing
 rule `["SERVICE","metrics.write","own-tenant","allow"]`.
@@ -973,6 +980,22 @@ direction to fail in, but it is a silent one: the portal would render empty
 rather than error.
 
 ---
+
+## 16 · Phase 2 · external property onboarding *(added 2026-09-28)*
+
+### `propertyOnboarding` (2S1-BE-01, 2S1-BE-03)
+| Role | Read | Write | Approve |
+|---|---|---|---|
+| `SUPER_ADMIN` | any | any | any |
+| `BTG_ADMIN` | own-tenant | own-tenant | own-tenant |
+
+**The applicant is not in this matrix.** An outside organisation onboarding
+has no account yet. It reaches **its own** application, and nothing else,
+through a signed resume token on the public `/public/onboarding/{token}`
+routes. Reviewing (the verification queue, and approve, request changes,
+reject, suspend and reinstate) is BTG's. The row holds no tax id and no bank
+details: its business details are validated by strict per-type schemas that
+refuse any field not asked for.
 
 ## 14 · Known gaps
 

@@ -365,6 +365,27 @@ export const LEAD_SOURCE: Record<string, string> = {
   event: "Trade Show",
 };
 
+/**
+ * A fan who ticked "the sponsor may contact me" (2S6-INT-03). Zoho requires
+ * Last_Name; a fan gave no name, only an address, so the lead says what it
+ * is rather than inventing one. Keyed `fanlead:<claim id>` so a retried job
+ * upserts the same Lead.
+ */
+export function toZohoFanLead(l: {
+  eventId: string; email: string; sponsorName: string; campaignName: string; offerText: string; consentedAt: Date | null;
+}) {
+  return {
+    SponsorX_ID: `fanlead:${l.eventId}`,
+    Last_Name: "Fan (QR reward)",
+    Company: truncate(l.sponsorName, 200),
+    Email: truncate(l.email, 100),
+    Lead_Source: "SponsorX QR reward",
+    Description:
+      `Claimed "${l.offerText}" in ${l.campaignName} and agreed that ${l.sponsorName} may contact them about offers` +
+      (l.consentedAt ? ` (${l.consentedAt.toISOString().slice(0, 10)}).` : "."),
+  };
+}
+
 export function toZohoLead(i: {
   id: string;
   firstName: string | null;

@@ -29,6 +29,7 @@ const live = {
   state: "LIVE", offerText: "Free taco with any drink", terms: "One per fan", claimed: false,
   expiresAt: "2026-12-31T00:00:00.000Z",
   consent: { version: "2026-09-01", purpose: "reward-delivery", text: "Email me my reward code. Only for this reward." },
+  sponsorContact: { version: "2026-09-28", purpose: "sponsor-contact", text: "Also let the sponsor contact me about offers." },
 };
 
 type Call = { url: string; init?: RequestInit };
@@ -113,6 +114,17 @@ describe("P6-FE-02 · every state renders, with no JavaScript anywhere", () => {
   });
 });
 
+describe("2S6-BE-03 · the sponsor-contact box is separate and unticked", () => {
+  it("renders its own checkbox, with its own wording and version, never pre-ticked", async () => {
+    const { html } = await page(live);
+    expect(html).toContain('name="sponsorContact" value="2026-09-28"');
+    expect(html).toContain("Also let the sponsor contact me about offers.");
+    /* Two separate boxes, and neither is ticked for the fan. */
+    expect(html.match(/type="checkbox"/g)).toHaveLength(2);
+    expect(html).not.toMatch(/\bchecked\b/);
+  });
+});
+
 describe("P6-FE-02 · real claim and redemption through the API", () => {
   const form = (fields: Record<string, string>) => {
     const f = new FormData();
@@ -129,6 +141,16 @@ describe("P6-FE-02 · real claim and redemption through the API", () => {
     expect(JSON.parse(String(calls[0]!.init!.body))).toEqual({
       fanEmail: "fan@example.com", consent: { version: "2026-09-01", purpose: "reward-delivery" },
     });
+  });
+
+  it("sends the sponsor-contact version only when that box is ticked, with an email", async () => {
+    const calls = stub(() => Response.json({}, { status: 201 }));
+    await CLAIM(form({ email: "fan@example.com", consent: "2026-09-01", sponsorContact: "2026-09-28" }), ctx());
+    expect(JSON.parse(String(calls[0]!.init!.body)).sponsorContact).toEqual({ version: "2026-09-28" });
+    await CLAIM(form({ email: "fan@example.com", consent: "2026-09-01" }), ctx());
+    expect(JSON.parse(String(calls[1]!.init!.body))).not.toHaveProperty("sponsorContact");
+    await CLAIM(form({ sponsorContact: "2026-09-28" }), ctx()); // ticked, but no address
+    expect(JSON.parse(String(calls[2]!.init!.body))).toEqual({});
   });
 
   it("claims with no email and sends no consent", async () => {

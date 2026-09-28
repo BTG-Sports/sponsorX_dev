@@ -16,6 +16,9 @@ export async function POST(req: Request, { params }: { params: Promise<{ token: 
   const form = await req.formData().catch(() => new FormData());
   const email = String(form.get("email") ?? "").trim();
   const consentVersion = String(form.get("consent") ?? "").trim();
+  /* 2S6-BE-03 — the separate, unticked-by-default second box. It extends the
+     emailed address, so it means nothing (and is not sent) without one. */
+  const sponsorContactVersion = String(form.get("sponsorContact") ?? "").trim();
 
   /* The API refuses an address without consent too (P6-SEC-01); answering
      here first just spares the round trip and gives the fan a clear line. */
@@ -28,7 +31,13 @@ export async function POST(req: Request, { params }: { params: Promise<{ token: 
       cache: "no-store",
       headers: { "content-type": "application/json", ...edgeHeaders(req) },
       body: JSON.stringify(
-        email ? { fanEmail: email, consent: { version: consentVersion, purpose: "reward-delivery" } } : {},
+        email
+          ? {
+              fanEmail: email,
+              consent: { version: consentVersion, purpose: "reward-delivery" },
+              ...(sponsorContactVersion ? { sponsorContact: { version: sponsorContactVersion } } : {}),
+            }
+          : {},
       ),
     });
     flash = res.ok ? "claimed" : "failed";

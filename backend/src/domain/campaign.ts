@@ -169,6 +169,9 @@ export async function transitionCampaign(
       /* §18 row 9: campaign closure opens the renewal Deal, and the renewal
          conversation lands in the CRM as a task on it. */
       await enqueue(tx, actor.tenantId, "zoho.pushRenewal", { campaignId });
+      /* 2S7-BE-02 — the report the renewal signer is sent is rendered on the
+         worker, since that person may never log in to open screen 12. */
+      await enqueue(tx, actor.tenantId, "report.render", { campaignId, trigger: "COMPLETED", requestedBy: actor.userId });
       await raiseSyncTask(tx, actor, {
         kind: "RENEWAL",
         campaignId,
