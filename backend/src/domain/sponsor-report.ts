@@ -27,6 +27,7 @@
  * credibility problem wearing friendlier clothes.
  */
 
+import type { Prisma } from "../generated/prisma/client";
 import { prisma } from "../db/client";
 import type { Actor } from "../auth/actor";
 import { assertAllowed, whereFor } from "../auth/scope";
@@ -194,9 +195,25 @@ export async function assembleSponsorReport(
   campaignId: string,
 ): Promise<SponsorReport> {
   assertAllowed(actor, "metricAggregate", "read");
+  const report = await buildSponsorReport({ ...whereFor(actor, "campaign", "read"), id: campaignId });
+  if (!report) throw new ForbiddenError("metricAggregate", "read");
+  return report;
+}
 
+/**
+ * The report itself, for a campaign the caller has ALREADY scoped — the one
+ * function behind both screen 12 (via `assembleSponsorReport`, which scopes
+ * by the actor) and the worker's unattended render (2S7-BE-02, which scopes
+ * by the job's tenant). One builder, so the rendered file cannot say anything
+ * the screen does not. Null when no campaign matches the scope.
+ */
+export async function buildSponsorReport(
+  campaignWhere: Prisma.CampaignWhereInput & { id: string },
+): Promise<SponsorReport | null> {
+  const campaignId = campaignWhere.id;
   const campaign = await prisma.campaign.findFirst({
-    where: { ...whereFor(actor, "campaign", "read"), id: campaignId },
+    /* tenant-scope: the caller scopes — assembleSponsorReport spreads whereFor(actor), the render job passes its own tenantId. */
+    where: campaignWhere,
     select: {
       id: true, name: true, state: true, startDate: true, endDate: true, budget: true,
       brief: { select: { objective: true } },
@@ -224,7 +241,7 @@ export async function assembleSponsorReport(
       },
     },
   });
-  if (!campaign) throw new ForbiddenError("metricAggregate", "read");
+  if (!campaign) return null;
 
   const roster: RosterLine[] = campaign.orders.map((o) => ({
     athleteId: o.athleteId,

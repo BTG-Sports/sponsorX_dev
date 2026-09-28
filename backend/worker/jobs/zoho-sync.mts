@@ -20,6 +20,7 @@ import {
   backfill,
   pushDeal,
   pushLead,
+  pushFanLead,
   pushRenewal,
   pushTask,
   reconcile,
@@ -60,9 +61,14 @@ export type TaskJob = Tenanted & { taskId: string };
 export const handlePushTask = (deps: Deps, job: TaskJob) =>
   tolerateRecordErrors("zoho.pushTask", () => pushTask(ctxFor(deps), job.tenantId, job.taskId));
 
-export type LeadJob = Tenanted & { inquiryId: string };
+/** `zoho.pushLead` carries either a sponsor enquiry (P8-INT-06) or a fan who
+ *  ticked "the sponsor may contact me" (2S6-INT-03). */
+export type LeadJob = Tenanted & ({ inquiryId: string } | { fanEventId: string });
 export const handlePushLead = (deps: Deps, job: LeadJob) =>
-  tolerateRecordErrors("zoho.pushLead", () => pushLead(ctxFor(deps), job.tenantId, job.inquiryId));
+  tolerateRecordErrors("zoho.pushLead", () =>
+    "fanEventId" in job
+      ? pushFanLead(ctxFor(deps), job.tenantId, job.fanEventId)
+      : pushLead(ctxFor(deps), job.tenantId, job.inquiryId));
 
 export type RenewalJob = Tenanted & { campaignId: string };
 export const handlePushRenewal = (deps: Deps, job: RenewalJob) =>

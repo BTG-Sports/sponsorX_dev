@@ -60,7 +60,7 @@ const A = {
   invoice: "ti_invoice_a", guardian: "ti_guardian_a", agreement: "ti_agreement_a", admin: "ti_admin_a",
   publication: "ti_pub_a", edition: "ti_edition_a", slot: "ti_slot_a",
   school: "ti_school_a", student: "ti_student_a", code: "ti_code_a", prospect: "ti_prospect_a",
-  asset: "ti_asset_ed_a", claim: "ti_claim_a",
+  asset: "ti_asset_ed_a", claim: "ti_claim_a", onboarding: "ti_onboarding_a",
 } as const;
 const B = {
   tenant: "ti_tenant_b", sponsor: "ti_sponsor_b", athlete: "ti_athlete_b",
@@ -85,7 +85,7 @@ const PARAM_FOR: Record<string, string> = {
   guardians: A.guardian, rewards: A.reward, "tracking-links": A.link,
   publications: A.publication, editions: A.edition,
   students: A.student, prospects: A.prospect, sponsors: A.sponsor,
-  "edition-assets": A.asset, claims: A.claim, properties: A.school,
+  "edition-assets": A.asset, claims: A.claim, properties: A.school, onboarding: A.onboarding,
   /* GET /deliverables/{id}/assets/{version}/url (P5-FE-04) — a creative
      version number, under tenant A's deliverable. */
   assets: "1",
@@ -169,6 +169,8 @@ const BODY: Record<string, unknown> = {
   "POST /claims/{id}/reject": {},
   "POST /properties/{id}/roster": { entries: [{ legalName: "Stolen Name" }] },
   "POST /editions/{id}/contributions": { studentId: A.student, kind: "FEATURE" },
+  "POST /onboarding/{id}/decision": { decision: "REJECT", notes: "cross-tenant" },
+  "POST /campaigns/{id}/report/render": {},
 };
 
 describe.skipIf(!hasDatabase)("P8-SEC-02 · tenant B cannot reach tenant A through any route", async () => {
@@ -257,6 +259,7 @@ describe.skipIf(!hasDatabase)("P8-SEC-02 · tenant B cannot reach tenant A throu
     await prisma.studentProspect.create({ data: { id: A.prospect, tenantId: t, studentId: A.student, businessName: "TI Secret Deli", category: "RESTAURANT" } });
     /* Batch C — an edition asset and a claim on a profile. */
     await prisma.editionAsset.create({ data: { id: A.asset, tenantId: t, editionId: A.edition, kind: "ARTICLE", title: "TI Secret Article", sourceKind: "BTG" } });
+    await prisma.propertyOnboarding.create({ data: { id: A.onboarding, tenantId: t, orgType: "TEAM", orgName: "TI Secret Org", state: "PENDING_REVIEW" } });
     await prisma.athleteClaim.create({ data: { id: A.claim, tenantId: t, athleteId: A.athlete, claimantName: "TI Secret Claimant", claimantEmail: "secret@a.invalid", rosterMatched: true } });
     for (const u of B_ACTORS) {
       await prisma.user.create({ data: {

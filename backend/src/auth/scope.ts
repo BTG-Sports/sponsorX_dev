@@ -291,6 +291,18 @@ const BUILDERS: Partial<Record<Resource, Builder>> = {
     return nextByProperty(actor, scope, (p) => ({ propertyId: p }));
   },
   schoolPoolAllocation: tenantScoped,
+  propertyOnboarding: tenantScoped,
+
+  /* 2S7-BE-02 — a rendered sponsor report (ReportFile). Staff reach the
+     tenant's; a sponsor reaches the files for their own campaigns. */
+  sponsorReport: (actor, scope) => {
+    if (scope === "own") {
+      return actor.sponsorId
+        ? { tenantId: actor.tenantId, campaign: { is: { sponsorId: actor.sponsorId } } }
+        : MATCHES_NOTHING;
+    }
+    return tenantScoped(actor, scope);
+  },
 
   /* Added with P3-BE-01, the first task to query athletes. This is the
      pattern the file was designed for: the policy already allowed these

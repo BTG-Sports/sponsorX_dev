@@ -45,6 +45,8 @@ export type JobName =
   | "zoho.ingestCrm"
   /* P8-INT-07 — the kept, re-runnable import of what Zoho already knows. */
   | "zoho.backfill"
+  /* 2S7-BE-02 — a sponsor report rendered as a file on the worker. */
+  | "report.render"
   /* Every transactional email, one job name (P3-INT-01). The template lives
      in the payload rather than the name so that adding a message does not
      mean touching the worker's handler registration. */

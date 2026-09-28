@@ -843,4 +843,50 @@ Owner HeckerCreatives. Thin reads added under the "thin reads" scope rule
 - **Minor copy nit:** an edition with no assets says "every asset has a
   digital right in force".
 - **Tests:** frontend 289/289, backend 1431/1431, eslint and tsc clean.
-  Nothing committed yet.
+  Committed as the ui-audit fix, merged with the Phase 2 backend batch from main_development.
+
+# 2026-09-28
+
+## Production now at https://sponsorx.net (P0-OPS-06, still In progress)
+
+- **Railway:** a custom domain on the production `web` service. It's
+  verified, with a valid TLS certificate.
+- **Cloudflare DNS**, added in the dashboard: `CNAME @ → c0ojxycv.up.railway.app`
+  (DNS only) and `TXT _railway-verify`. The `CLOUDFLARE_API_TOKEN` in `.env`
+  is account-scoped with **no DNS permission** on the zone, so it can't manage
+  records.
+- **Checks:** the public pages return 200. The portals redirect to `/login`,
+  which loads the live Clerk instance (`clerk.sponsorx.net`). Production
+  sign-in only works on sponsorx.net, not on the `*.up.railway.app` address.
+- **Still open for acceptance:** confirm auto-renew and registrar lock, and
+  record the name in `.claude/stack-decision.md`.
+
+## Phase 2: first backend batch → Code review
+
+- **`2S6-BE-03`:** a second fan consent, "the sponsor may contact me", with
+  its own dated text and its own unticked checkbox. Sponsors read an address
+  only through `GET /campaigns/{id}/leads`, behind the new field
+  `rewardClaim.sponsorLead` (matrix §7.2/§10 amended). The consent condition
+  `SPONSOR_CONTACTABLE` is in the query, and the fan-pii guard now allows
+  exactly two address-reading queries, each carrying it. Unsubscribing
+  withdraws it.
+- **`2S6-INT-03`:** a claim with that tick queues `zoho.pushLead`. The worker
+  re-reads the claim through the same condition, so a fan who withdraws is
+  never pushed.
+- **`2S7-BE-02`:** a `report.render` job builds the PDF from the same builder
+  as screen 12, with every provenance label, prints it in Chromium
+  (`playwright-core`), and stores it in the private bucket as a `ReportFile`.
+  It runs when a campaign completes or when BTG asks.
+  - The server image now carries Alpine's Chromium (`CHROMIUM_PATH`), and the
+    CI unit job installs Chromium.
+  - **One render needs checking on staging** after deploy.
+  - The job still shares a process with the API, one render at a time. The
+    split trigger in `combined.mts` is for the user to decide.
+- **`2S0-PMO-01` (simulated):** `documentation/SponsorX-Phase2-State-Machines.md`,
+  covering all seven lifecycles.
+- **`2S1-BE-01`:** a public onboarding wizard API using a resume token.
+  Required fields vary by organisation type and state (the state list is
+  simulated). No tax ids or bank details: the strict schemas refuse them.
+- **`2S1-BE-03`:** the verification queue plus five decisions. Approval
+  creates the Property and grants listing access (`listingAccessAt`), audited.
+  Suspension withdraws it.

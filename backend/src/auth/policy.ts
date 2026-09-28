@@ -140,7 +140,8 @@ export type Resource =
   | "rosterEntry"
   | "athleteClaim"
   | "contentContribution"
-  | "schoolPoolAllocation";
+  | "schoolPoolAllocation"
+  | "propertyOnboarding";
 
 export const RESOURCES: readonly Resource[] = [
   "tenant",
@@ -194,6 +195,7 @@ export const RESOURCES: readonly Resource[] = [
   "athleteClaim",
   "contentContribution",
   "schoolPoolAllocation",
+  "propertyOnboarding",
 ] as const;
 
 type RolePolicy = Partial<Record<Role, Partial<Record<Action, Scope>>>>;
@@ -723,6 +725,15 @@ export const POLICY: Record<Resource, RolePolicy> = {
     SUPER_ADMIN: rwa("any"),
     BTG_ADMIN: rwa("own-tenant"),
     FINANCE: rwa("own-tenant"),
+  },
+
+  /* Phase 2 Sprint 1 (2S1-BE-01, -03) — an outside organisation's onboarding.
+     The applicant has no role at all: it reaches its own application by a
+     signed resume token on the public routes, never through this matrix.
+     Reviewing is BTG's — the verification queue and every decision. */
+  propertyOnboarding: {
+    SUPER_ADMIN: rwa("any", "any", "any"),
+    BTG_ADMIN: rwa("own-tenant", "own-tenant", "own-tenant"),
   },
 };
 

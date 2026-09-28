@@ -16,6 +16,12 @@ RUN npm ci
 FROM node:24.21.0-alpine AS runner
 WORKDIR /app
 RUN apk add --no-cache openssl
+# 2S7-BE-02 — the worker renders sponsor reports to PDF in headless Chromium.
+# Alpine's own package, because Playwright's bundled build does not run on
+# musl; playwright-core drives it through CHROMIUM_PATH. The fonts are what
+# the report's text is set in — without them every glyph prints as a box.
+RUN apk add --no-cache chromium nss freetype harfbuzz ttf-freefont font-noto
+ENV CHROMIUM_PATH=/usr/bin/chromium
 ENV NODE_ENV=production
 COPY --from=deps /app/node_modules ./node_modules
 COPY --from=deps /app/backend/node_modules ./backend/node_modules

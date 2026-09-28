@@ -54,10 +54,26 @@ function rewardEventCalls(): { file: string; method: string; args: string }[] {
   return out;
 }
 
-describe("the address is never selected", () => {
-  it("no Prisma select anywhere names fanEmail", () => {
-    for (const file of files) {
+/* 2S6-BE-03 / 2S6-INT-03 (amended 2026-09-28, not replaced): a fan who
+   ticked the separate "the sponsor may contact me" box may be given to the
+   sponsor as a lead. So the address IS read — in exactly two places, and
+   each read carries SPONSOR_CONTACTABLE in its own WHERE clause, so a claim
+   without the tick, or withdrawn, is never fetched. Everywhere else the rule
+   below still holds absolutely. */
+const LEAD_READERS = ["src/domain/fan-leads.ts", "src/domain/zoho-sync.ts"];
+
+describe("the address is never selected — except as a consented lead", () => {
+  it("no Prisma select outside the two lead readers names fanEmail", () => {
+    for (const file of files.filter((f) => !LEAD_READERS.includes(f))) {
       expect(read(file), file).not.toMatch(/fanEmail\s*:\s*true/);
+    }
+  });
+
+  it("every read that selects the address carries the sponsor-contact condition in its WHERE", () => {
+    const selecting = rewardEventCalls().filter((c) => /fanEmail\s*:\s*true/.test(c.args));
+    expect(selecting.map((c) => c.file).sort()).toEqual([...LEAD_READERS].sort());
+    for (const c of selecting) {
+      expect(c.args, `${c.file}: rewardEvent.${c.method}`).toMatch(/where\s*:\s*\{[^}]*\.\.\.SPONSOR_CONTACTABLE/);
     }
   });
 
@@ -86,10 +102,19 @@ describe("the address is never selected", () => {
   });
 });
 
-describe("what sponsors can reach about fans is counts", () => {
+describe("what sponsors can reach about fans is counts — and consented leads", () => {
   it("§7.2 denies the fan's contact to both sponsor roles", () => {
     expect(canReadField(["SPONSOR_ADMIN"], "rewardClaim.fanContact")).toBe(false);
     expect(canReadField(["SPONSOR_ANALYST"], "rewardClaim.fanContact")).toBe(false);
+  });
+
+  it("§7.2 as amended: a sponsor-contact lead is the funding sponsor's and BTG's, nobody else's", () => {
+    for (const r of ["SPONSOR_ADMIN", "SPONSOR_ANALYST", "BTG_ADMIN", "SUPER_ADMIN"] as const) {
+      expect(canReadField([r], "rewardClaim.sponsorLead"), r).toBe(true);
+    }
+    for (const r of ["SALES", "CAMPAIGN_MGR", "ATHLETE", "GUARDIAN", "PROPERTY_MGR", "STUDENT", "ADVISOR"] as const) {
+      expect(canReadField([r], "rewardClaim.sponsorLead"), r).toBe(false);
+    }
   });
 
   it("the funnel is a groupBy count, and the report folds event types", () => {
