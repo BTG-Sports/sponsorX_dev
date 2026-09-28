@@ -10,6 +10,7 @@ import { MiniChip } from "@/components/hero";
 import { CloseIcon, SearchInput } from "@/components/filter-kit";
 import {
   capLine,
+  holdLabel,
   ELIGIBILITY,
   expiryFor,
   fanPath,
@@ -434,12 +435,6 @@ function QrPanel({ rewardId, actions, onClose }: { rewardId: string; actions: Ac
   );
 }
 
-/** "15 min", "1 h", "24 h", "90 min" — the hold window, short. */
-function holdLabel(minutes: number): string {
-  if (minutes % 60 === 0) return `${minutes / 60} h`;
-  return `${minutes} min`;
-}
-
 /* ---------------------------------------------------------------- creator */
 
 const inputCls =
@@ -503,6 +498,12 @@ function Creator({
   const reserveMinutes = holdPreset(hold, holdCustom);
   const holdBad = typeof cap === "number" && reserveMinutes === "invalid";
   const ready = campaign && offer.trim() && terms.trim() && picked.size > 0 && cap !== "invalid" && !holdBad && !busy;
+  /* QA pass 6 (P6-FE-03): once a part-way failure has saved the reward, its
+     own fields are what they are — a retry issues the missing tokens and
+     goes live, it cannot edit (no edit route). Lock them rather than accept
+     edits that would be silently dropped. The athletes and "go live" stay
+     open: they are what finishing does. */
+  const locked = resumeId !== null;
 
   const create = async () => {
     if (!campaign || cap === "invalid" || holdBad) return;
@@ -527,8 +528,10 @@ function Creator({
     setBusy(false);
     if (!r.ok && r.rewardId) setResumeId(r.rewardId);
     if (r.ok) {
+      /* The saved offer, not the form's — the two can differ only if the
+         form changed after a part-way failure, which `locked` prevents. */
       onCreated(
-        `${offer.trim()} created ${r.activated ? "and live" : "as a draft"} — ${r.tokens} QR token${r.tokens === 1 ? "" : "s"}, one per athlete; the images render in a moment.`,
+        `${r.offerText ?? offer.trim()} created ${r.activated ? "and live" : "as a draft"} — ${r.tokens} QR token${r.tokens === 1 ? "" : "s"}, one per athlete; the images render in a moment.`,
       );
     } else setError(r.message);
   };
@@ -552,6 +555,13 @@ function Creator({
               <p className="text-xs text-muted">No campaign can take a reward yet — rewards belong to a campaign with signed athletes.</p>
             ) : (
               <>
+                {locked && (
+                  <p role="status" className="rounded-lg border border-line bg-surface-2/50 px-3 py-2 text-[11px] text-muted">
+                    This reward already exists — its details below are saved and can&rsquo;t be changed here. Finishing issues the remaining QR codes
+                    {activate ? " and makes it live" : ""}.
+                  </p>
+                )}
+                <fieldset disabled={locked} aria-label="Reward details" className="m-0 min-w-0 space-y-4 border-0 p-0 disabled:opacity-60">
                 <label className="block">
                   <span className="text-[11px] font-medium text-muted">Campaign</span>
                   <select
@@ -669,6 +679,7 @@ function Creator({
                     <span className="text-[11px] font-medium text-muted">Subhead <span className="text-faint">(optional)</span></span>
                     <input value={subhead} onChange={(e) => setSubhead(e.target.value)} maxLength={280} placeholder="Thanks for coming out — this one's on us." className={inputCls} />
                   </label>
+                </fieldset>
                 </fieldset>
 
                 <div>

@@ -14,10 +14,14 @@
    Keeping them apart is what lets the UI tell a new sponsor "ask BTG to set
    you up" instead of bouncing them around a sign-in loop that can never
    succeed.
+
+   Each carries a stable `code` (QA pass 6, P6-BE-05) — a client branches on
+   that, never on the message.
    -------------------------------------------------------------------------- */
 
 export class UnauthenticatedError extends Error {
   readonly status = 401;
+  readonly code = "unauthenticated";
   constructor(message = "Not signed in.") {
     super(message);
     this.name = "UnauthenticatedError";
@@ -26,6 +30,7 @@ export class UnauthenticatedError extends Error {
 
 export class UnprovisionedError extends Error {
   readonly status = 403;
+  readonly code = "unprovisioned";
   readonly email: string | null;
   constructor(email: string | null) {
     super("Signed in, but no SponsorX account exists for this identity.");
@@ -36,6 +41,7 @@ export class UnprovisionedError extends Error {
 
 export class ForbiddenError extends Error {
   readonly status = 403;
+  readonly code = "forbidden";
   /** Named so an audit entry can record exactly what was refused. */
   readonly resource: string;
   readonly action: string;

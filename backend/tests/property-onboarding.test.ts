@@ -361,11 +361,13 @@ describe.skipIf(!hasDatabase)("property onboarding over the API", async () => {
 
     it("refuses an address that already has an account, and provisions nothing", async () => {
       const { id } = await completeTeam("Taken Address FC", "MD", "r@po.invalid"); // the reviewer's own address
-      const tenantsBefore = await prisma.tenant.count();
+      /* Counted by this org's name, not globally: other test files create and
+         remove tenants in parallel, so a global count is not this test's. */
+      const tenantsBefore = await prisma.tenant.count({ where: { name: "Taken Address FC" } });
       const refused = await call("POST", `/onboarding/${id}/decision`, { decision: "APPROVE" }, "po_reviewer");
       expect(refused.status).toBe(409);
       expect(refused.text).toMatch(/already has a SponsorX account/);
-      expect(await prisma.tenant.count()).toBe(tenantsBefore);
+      expect(await prisma.tenant.count({ where: { name: "Taken Address FC" } })).toBe(tenantsBefore);
       expect((await call("GET", `/onboarding/${id}`, undefined, "po_reviewer")).json).toMatchObject({ state: "PENDING_REVIEW", propertyId: null });
     });
   });

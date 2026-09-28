@@ -117,7 +117,7 @@ export function toLiveStory(a: ApiAnalytics): LiveStory {
       revenue: null,
       unredeemed: Math.max(0, f.CLAIM - f.REDEEM),
       series,
-      offers: a.offers.filter((o) => o.redeemed > 0 || o.claims > 0).map((o) => ({ offer: `${o.offer} · ${o.sponsor}`, count: o.redeemed })),
+      offers: a.offers.filter((o) => o.redeemed > 0 || o.claims > 0).map((o) => ({ id: o.rewardId, offer: `${o.offer} · ${o.sponsor}`, count: o.redeemed })),
       athleteFactor: 1,
     },
     locations: a.locations.map((l) => ({

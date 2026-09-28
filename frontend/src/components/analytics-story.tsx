@@ -467,6 +467,7 @@ export function AnalyticsStory({
                 <div className="flex-1">
                   <HBarList
                     rows={d.offers.map((o) => ({
+                      id: o.id,
                       label: o.offer,
                       value: o.count,
                       display: o.count.toLocaleString("en-US"),

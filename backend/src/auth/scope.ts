@@ -578,19 +578,27 @@ const BUILDERS: Partial<Record<Resource, Builder>> = {
   },
 
   /* A reward belongs to a campaign, not to an athlete — it is the sponsor's
-     offer, promoted by many athletes at once. `own` is therefore NOT the
-     athlete's own rows here: an athlete reads a reward because they are
-     promoting its campaign, which is own-tenant reach on a campaign they are
-     already on. Anything narrower would hide the offer from the people
-     handing out its QR codes. */
+     offer, promoted by many athletes at once, each through their OWN token.
+     So an athlete's `own` reach is the rewards on which they hold a token:
+     the offers they are actually handing out. It used to be the whole tenant
+     (QA pass 6, P6-BE-01), which showed every athlete every reward's funnel
+     and redemption counts — other athletes' performance, and sponsors'
+     offers they were never on. A guardian's `ward` is the same, through
+     their wards' tokens. */
   reward: (actor, scope) => {
     switch (scope) {
       case "any":
         return {};
       case "own-tenant":
-      case "own":
-      case "ward":
         return { tenantId: actor.tenantId };
+      case "own":
+        return actor.athleteId
+          ? { tenantId: actor.tenantId, tokens: { some: { athleteId: actor.athleteId } } }
+          : MATCHES_NOTHING;
+      case "ward":
+        return actor.guardianId
+          ? { tenantId: actor.tenantId, tokens: { some: { athlete: { is: { guardianId: actor.guardianId } } } } }
+          : MATCHES_NOTHING;
       case "own-campaign":
         return actor.sponsorId
           ? { tenantId: actor.tenantId, campaign: { is: { sponsorId: actor.sponsorId } } }
@@ -600,8 +608,21 @@ const BUILDERS: Partial<Record<Resource, Builder>> = {
     }
   },
 
-  /* Events are read through their token's reward. */
+  /* Events are read through their token. For BTG and the sponsor that is the
+     token's reward, as above; for an athlete it is their OWN token — never
+     another athlete's on the same reward (§15 matrix §10: ATHLETE reads
+     `rewardEvent` at `own`). A guardian, their wards' tokens. */
   rewardEvent: (actor, scope) => {
+    if (scope === "own") {
+      return actor.athleteId
+        ? { tenantId: actor.tenantId, token: { is: { athleteId: actor.athleteId } } }
+        : MATCHES_NOTHING;
+    }
+    if (scope === "ward") {
+      return actor.guardianId
+        ? { tenantId: actor.tenantId, token: { is: { athlete: { is: { guardianId: actor.guardianId } } } } }
+        : MATCHES_NOTHING;
+    }
     const inner = BUILDERS.reward!(actor, scope);
     if (inner === MATCHES_NOTHING) return MATCHES_NOTHING;
     if (Object.keys(inner).length === 0) return {};

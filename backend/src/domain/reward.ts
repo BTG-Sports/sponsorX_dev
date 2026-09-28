@@ -39,6 +39,7 @@ import {
   type ConsentPurpose,
 } from "./fan-consent";
 import { readUnsubscribeToken, unsubscribeUrl } from "../lib/unsubscribe-token";
+import { isOpaqueToken } from "../lib/opaque-token";
 import {
   canTransitionReward,
   cleanCopy,
@@ -58,8 +59,13 @@ export { REWARD_EVENT_TYPES, type RewardEventType };
    Errors
    ──────────────────────────────────────────────────────────────────────────── */
 
+/* QA pass 6 (P6-BE-05): every refusal a fan-facing client must tell apart
+   carries a stable `code` — the fan page maps by it (never by status alone:
+   409 is "not live", "expired" AND "already used"). */
+
 export class UnknownTokenError extends Error {
   readonly status = 404;
+  readonly code = "unknown_token";
   constructor() {
     /* Deliberately says nothing about whether the token ever existed. A
        fan-facing endpoint with no login is enumerable; "no such token" and
@@ -71,6 +77,7 @@ export class UnknownTokenError extends Error {
 
 export class RewardNotLiveError extends Error {
   readonly status = 409;
+  readonly code = "reward_not_live";
   constructor(state: RewardState) {
     super(
       `This offer is not currently available (${state.toLowerCase()}). ` +
@@ -82,6 +89,7 @@ export class RewardNotLiveError extends Error {
 
 export class RewardExpiredError extends Error {
   readonly status = 409;
+  readonly code = "reward_expired";
   constructor() {
     super("This offer has expired.");
     this.name = "RewardExpiredError";
@@ -90,6 +98,7 @@ export class RewardExpiredError extends Error {
 
 export class AlreadyRedeemedError extends Error {
   readonly status = 409;
+  readonly code = "already_redeemed";
   constructor() {
     super("This code has already been redeemed.");
     this.name = "AlreadyRedeemedError";
@@ -105,6 +114,7 @@ export class AlreadyRedeemedError extends Error {
  */
 export class RewardExhaustedError extends Error {
   readonly status = 410;
+  readonly code = "reward_exhausted";
   /** rcfworks' P6-BE-08 named this refusal; the merged design keeps the name
    *  (a client may branch on `kind`) and the distinct 410 status. */
   readonly kind = "REDEMPTION_CAP";
@@ -113,6 +123,31 @@ export class RewardExhaustedError extends Error {
     this.name = "RewardExhaustedError";
   }
 }
+
+/**
+ * A token may only be attributed to an athlete signed onto the reward's
+ * campaign, in the reward's own tenant — QA pass 6, P6-BE-02. The desk only
+ * ever offers those (the campaign roster's ACCEPTED / ACTIVE / COMPLETED
+ * orders); the API now holds the same line, so a token can no longer carry a
+ * foreign tenant's athlete (whom the reward read would then disclose), and a
+ * made-up id is a 422 instead of a foreign-key 500.
+ *
+ * ONE ANSWER for "another tenant's athlete", "not on this campaign" and "no
+ * such athlete": telling them apart would let staff of one tenant probe for
+ * athlete ids in another.
+ */
+export class AthleteNotOnCampaignError extends Error {
+  readonly status = 422;
+  readonly code = "athlete_not_on_campaign";
+  constructor() {
+    super("That athlete isn't signed onto this reward's campaign, so a code can't be issued for them.");
+    this.name = "AthleteNotOnCampaignError";
+  }
+}
+
+/** Order states in which an athlete is signed onto a campaign — the same set
+ *  the reward creator offers (`campaignAthletesAction`). */
+const SIGNED_ORDER_STATES = ["ACCEPTED", "ACTIVE", "COMPLETED"] as const;
 
 /** F-09 — a reward whose expiry has already passed could never be used. */
 export class RewardExpiryInPastError extends Error {
@@ -333,26 +368,41 @@ export async function issueRewardToken(
   athleteId?: string | null,
 ): Promise<{ id: string; token: string }> {
   assertTenantWide(actor, "reward", "write");
+  /* "" is "no athlete", as the desk sends it — never a foreign key to "". */
+  const who = athleteId || null;
 
   return prisma.$transaction(async (tx) => {
     const reward = await tx.reward.findFirst({
       where: { ...whereFor(actor, "reward", "write"), id: rewardId },
-      select: { id: true, tenantId: true },
+      select: { id: true, tenantId: true, campaignId: true },
     });
     if (!reward) throw new ForbiddenError("reward", "write");
+
+    /* P6-BE-02 — same tenant AND signed onto this campaign, or one 422. */
+    if (who) {
+      const signed = await tx.athlete.findFirst({
+        where: {
+          id: who,
+          tenantId: reward.tenantId,
+          orders: { some: { campaignId: reward.campaignId, state: { in: [...SIGNED_ORDER_STATES] } } },
+        },
+        select: { id: true },
+      });
+      if (!signed) throw new AthleteNotOnCampaignError();
+    }
 
     const created = await tx.rewardToken.create({
       data: {
         tenantId: reward.tenantId,
         rewardId: reward.id,
-        athleteId: athleteId ?? null,
+        athleteId: who,
         token: generateToken(),
       },
       select: { id: true, token: true },
     });
 
     await audit(tx, actor, AUDIT_ACTIONS.reward.tokenIssue, "RewardToken", created.id, {
-      after: { rewardId: reward.id, athleteId: athleteId ?? null },
+      after: { rewardId: reward.id, athleteId: who },
     });
 
     /* P6-BE-06 — the image is generated off the request path. Issuing tokens
@@ -393,6 +443,9 @@ async function contextFor(
   tx: Prisma.TransactionClient,
   token: string,
 ): Promise<TokenContext> {
+  /* P6-BE-03 — a value that cannot be a token is unknown before Postgres is
+     asked (a NUL byte in `text` was a 500). */
+  if (!isOpaqueToken(token)) throw new UnknownTokenError();
   const row = await tx.rewardToken.findUnique({
     where: { token },
     select: {
@@ -449,6 +502,7 @@ function refusal(outcome: string, state: string | null): Error | null {
  * an uncapped reward, which has nothing to hold.
  */
 async function reserveUnit(token: string, now: Date): Promise<{ until: Date; fresh: boolean } | null> {
+  if (!isOpaqueToken(token)) throw new UnknownTokenError();
   const [row] = await prisma.$queryRaw<{ outcome: string; held_until: Date | string | null; reward_state: string | null }[]>`
     SELECT outcome, to_char(held_until, 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') AS held_until, reward_state
     FROM reward_reserve(${token}, ${sqlTs(now)}::timestamp)`;
@@ -561,8 +615,41 @@ export async function recordClaim(
     return await failFast(() => prisma.$transaction(async (tx) => {
       const ctx = await contextFor(tx, token);
       assertUsable(ctx, now);
+      const heldUntil = hold ? hold.until.toISOString() : null;
+
+      /* ONE CLAIM PER TOKEN (QA pass 6). A token is one fan's code: the page
+         shows it "claimed" after the first, the hold is per token, and the
+         voucher email is keyed on the token. So a re-tap — or 20 parallel
+         posts — answers with the claim already made instead of writing
+         another row that inflates the funnel's CLAIM count.
+
+         Serialised on THIS token's row (NO KEY UPDATE, so a REDEEM's
+         foreign-key check on the same row is not blocked) for the few
+         milliseconds of this transaction; the 3 s lock timeout answers 503,
+         as elsewhere. */
+      await tx.$queryRaw`SELECT set_config('lock_timeout', '3s', true)`;
+      await tx.$queryRaw`SELECT id FROM "RewardToken" WHERE id = ${ctx.tokenId} FOR NO KEY UPDATE`;
+
+      /* A used single-use code has nothing left to claim — 409, and no CLAIM
+         row (it used to be 201 and a row). */
+      if (ctx.singleUse) {
+        const used = await tx.rewardEvent.findFirst({
+          /* tenant-scope: the public bearer token resolved above. */
+          where: { tokenId: ctx.tokenId, type: "REDEEM" },
+          select: { id: true },
+        });
+        if (used) throw new AlreadyRedeemedError();
+      }
+      const prior = await tx.rewardEvent.findFirst({
+        /* tenant-scope: the public bearer token resolved above. */
+        where: { tokenId: ctx.tokenId, type: "CLAIM" },
+        orderBy: { at: "asc" },
+        select: { id: true },
+      });
+      if (prior) return { id: prior.id, type: "CLAIM" as RewardEventType, heldUntil };
+
       const event = await claimInTx(tx, ctx, email, agreed, sponsorOk);
-      return { ...event, heldUntil: hold ? hold.until.toISOString() : null };
+      return { ...event, heldUntil };
     }));
   } catch (error) {
     /* A hold this call made, for a claim that was never recorded, is handed
@@ -728,6 +815,7 @@ export type TokenView =
     };
 
 export async function viewToken(token: string, now = new Date()): Promise<TokenView> {
+  if (!isOpaqueToken(token)) return { state: "UNKNOWN" };
   const row = await prisma.rewardToken.findUnique({
     /* tenant-scope: a public bearer token, unique across tenants — the
        ~160-bit token IS the authorisation, as for scan/claim/redeem. */
@@ -841,6 +929,7 @@ export async function redeemToken(
   token: string,
   now = new Date(),
 ): Promise<{ id: string; type: RewardEventType }> {
+  if (!isOpaqueToken(token)) throw new UnknownTokenError();
   type Out = { outcome: string; event_id: string | null; reward_state: string | null };
   let row: Out | undefined;
   try {
@@ -879,9 +968,10 @@ export async function rewardFunnel(
   if (!reward) throw new ForbiddenError("rewardEvent", "read");
 
   const grouped = await prisma.rewardEvent.groupBy({
-    /* tenant-scope: keyed by the reward loaded above through whereFor. */
     by: ["type"],
-    where: { token: { is: { rewardId } } },
+    /* The caller's own EVENT scope too (P6-BE-01): an athlete counts only
+       their own token's events on a reward they share with others. */
+    where: { ...whereFor(actor, "rewardEvent", "read"), token: { is: { rewardId } } },
     _count: { _all: true },
   });
 

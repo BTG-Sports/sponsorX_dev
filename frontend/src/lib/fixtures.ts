@@ -684,7 +684,8 @@ export type AnalyticsDataset = {
   /** Cumulative: a = redemptions, b = claims. Last point matches `funnel`. */
   series: { label: string; a: number; b: number }[];
   /** Ranked by redemptions — what fans used, not what they grabbed. */
-  offers: { offer: string; count: number }[];
+  /** `id` (the reward's) keys the row — two rewards may share offer + sponsor. */
+  offers: { id?: string; offer: string; count: number }[];
   /** Multiplier on athleteLeaderboard base counts for this range. */
   athleteFactor: number;
 };

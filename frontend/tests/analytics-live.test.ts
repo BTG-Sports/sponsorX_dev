@@ -68,7 +68,7 @@ describe("toLiveStory", () => {
     expect(s.locations).toEqual([{ place: "Laurel, MD", pct: 67 }, { place: "Bowie, MD", pct: 33 }]);
   });
   it("drops offers nobody touched", () => {
-    expect(s.dataset.offers).toEqual([{ offer: "Free drink · Bowie", count: 9 }]);
+    expect(s.dataset.offers).toEqual([{ id: "r1", offer: "Free drink · Bowie", count: 9 }]);
   });
   it("reads one provenance per athlete, engagement inside it", () => {
     const [j, sam] = s.athletes;
@@ -121,5 +121,38 @@ describe("the headline's trend words (QA pass 5 leftover)", () => {
   it("no change, and no previous period, read as words", () => {
     expect(headlineInsight(withDelta("0%")).pre).toBe("Redemptions are flat — but ");
     expect(headlineInsight(withDelta("new")).pre).toBe("Redemptions are new this period — but ");
+  });
+});
+
+describe("P6-FE-05 · a funnel step is never a >100% 'conversion'", () => {
+  it("a narrowing step is a percentage; a widening one is '+N' with the reason; an empty one is '—'", async () => {
+    const { stepConversion } = await import("../src/components/charts");
+    expect(stepConversion(100, 80)).toEqual({ text: "80%", hint: null });
+    expect(stepConversion(100, 100)).toEqual({ text: "100%", hint: null });
+    const up = stepConversion(14, 41);
+    expect(up.text).toBe("+27");
+    expect(up.hint).toMatch(/more than the step above/i);
+    expect(stepConversion(0, 5)).toEqual({ text: "—", hint: null });
+  });
+});
+
+describe("P6-FE-06 · offers carry the reward id, so two same-named rewards don't share a key", () => {
+  it("keys each offer row by its reward", () => {
+    const twin = toLiveStory(api({
+      offers: [
+        { rewardId: "r1", offer: "Free drink", sponsor: "Bowie", redeemed: 2, claims: 3 },
+        { rewardId: "r9", offer: "Free drink", sponsor: "Bowie", redeemed: 1, claims: 1 },
+      ],
+    }));
+    expect(twin.dataset.offers.map((o) => o.id)).toEqual(["r1", "r9"]);
+  });
+});
+
+describe("P6-FE-05 · the funnel insight never names a >100% 'weak step'", () => {
+  it("says no step loses fans when every step widens or holds", () => {
+    const up = toLiveStory(api({ funnel: { SCAN: 14, LANDING: 14, CLAIM: 14, REDEEM: 41 } }));
+    const i = funnelInsight(up.dataset);
+    expect(`${i.pre}${i.hot}${i.post}`).not.toMatch(/\d{3,}%/);
+    expect(i.hot).toBe("No step loses fans in this range");
   });
 });

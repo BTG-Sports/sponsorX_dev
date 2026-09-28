@@ -60,6 +60,7 @@ export async function rateLimit(
  *  rather than treating it as a validation failure and rewriting the form. */
 export class RateLimitedError extends Error {
   readonly status = 429;
+  readonly code = "rate_limited";
   readonly retryAfter: number;
   constructor(retryAfter: number) {
     super("Too many requests. Please try again shortly.");

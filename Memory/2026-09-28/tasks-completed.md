@@ -1294,3 +1294,88 @@ user's decision, because a required check needs GitHub Pro.
   - **Not run** (stopped for the merge): the QR drawer's keyboard and axe
     checks, light theme on the degraded pages, long names at 390px, F-12.
 - **Not pushed.**
+
+## QA pass 6 — all findings fixed (HeckerCreatives)
+
+### Backend (TDD, `tests/qa6.fixes.test.ts`, 36 tests; no new migration)
+- **P6-BE-01:** in `auth/scope.ts`, an ATHLETE (and a GUARDIAN, via their
+  wards) reaches only rewards they hold a token on, and only their own
+  token's events. For those roles, `redeemed` / `held` are `null`.
+  `rewardFunnel` applies the event scope. This matches RBAC §10.
+- **P6-BE-02:** `issueRewardToken` requires a same-tenant athlete with an
+  ACCEPTED, ACTIVE or COMPLETED order on the campaign. Foreign, unsigned and
+  unknown athletes all get one identical 422 `athlete_not_on_campaign`, so it
+  is no existence oracle.
+- **P6-BE-03:** `lib/opaque-token.ts` checks public tokens and codes for
+  base64url shape, 1–128 characters, before Postgres. A NUL byte now gives
+  404.
+- **P6-BE-04:** P2003 / 23503 → 422 `invalid_reference`; P2002 / 23505 →
+  409 `conflict`. The message is generic.
+- **P6-BE-05:** stable codes:
+  - `unknown_token`, `reward_not_live`, `reward_expired`
+  - `already_redeemed`, `reward_exhausted` (with kind REDEMPTION_CAP)
+  - `unauthenticated`, `unprovisioned`, `forbidden`, `rate_limited`
+  - consent codes, `illegal_transition`
+
+  The fan-page claim and redeem routes now map by code, adding flashes
+  `notlive` and `expired`.
+- **P6-BE-06:** allowlisted 5xx code `busy`. The message stays generic.
+- **P6-BE-07:** activation and intake use `hasVisibleText`.
+- **P6-BE-08:** intake refuses a birthDate in the future.
+- **Claims:**
+  - A claim on a used single-use code → 409 `already_redeemed`, writing
+    nothing.
+  - **One CLAIM per token:** the token row is locked `FOR NO KEY UPDATE`, so
+    a repeat claim returns the first one. 20 parallel claims → 1 CLAIM row.
+- **Scripts:** `storm.mjs` 24/24 exact with 0 5xx; lockprobe 11/11; resv
+  54/0; authz 29/0.
+
+### Frontend
+- **P6-FE-01:** `fmtEtWhen` adds the date when the hold doesn't end today
+  (ET).
+- **P6-FE-02:** the last unit of a multi-use reward shows "Redeemed ✓ — that
+  was the last one" inside the F-07 window.
+- **P6-FE-03:** the creator's fields are locked once a partial reward
+  exists, and the toast uses the saved offer text.
+- **P6-FE-04:** `capLine` shows "34 of 50 free · 4 held" and "all 1 taken ·
+  1 held".
+- **Hold labels:** "7 days" / "1 day".
+- **P6-FE-05:** `stepConversion` shows "+N · more than the step above" and
+  never a drop over 100%; `funnelInsight` is fixed too.
+- **P6-FE-06:** analytics offer rows are keyed by reward id.
+- **P6-FE-07:** a stale `profile_incomplete` disables the button and shows
+  "Missing: …".
+- **P6-FE-08:** `/property` reads "Views priced at curated CPM" with the
+  chip `EST · curated`.
+- **P6-FE-09:** new `app/portal/error.tsx` retry page. Checked by tsc and
+  eslint only; the failure couldn't be forced live.
+- **Pass 6 checks that hadn't run, all green:**
+  - the QR drawer keyboard test and axe
+  - light-theme axe on the degraded pages
+  - the multi-role header
+  - a long name at 390 px
+  - F-12 "· no data"
+
+### Test-suite flakiness fixed (rcfworks' Phase 2 tests, parallel files)
+- `property-onboarding` counted all tenants globally. It now counts by the
+  org's name.
+- `phase2-purchase`'s far-future `expireCarts` swept `phase2-orders`' live
+  carts. `expireCarts(db, now, only?)` gains an optional narrowing filter;
+  the worker passes none, and the test passes its `pu_` sponsors.
+- **Reminder:** stop `dev:worker` before running backend tests.
+
+### Verified
+- backend **1642/1642 on 5 consecutive parallel runs**, frontend 369/369
+- tsc and eslint clean
+- e2e 15/15
+- `npm run build` green; web and worker restarted
+
+### Still open (by design or needs a product call)
+- An uncapped redeem can wait on the Reward row lock. The counter trigger is
+  kept for every reward, and the 3 s timeout gives 503 `busy`.
+- A lapsed hold can be re-claimed indefinitely: a fan can keep one unit on
+  hold.
+- A repeat claim that adds an email doesn't store it.
+- No age floor at intake (a product question).
+- **Left as Info:** the SUPER_ADMIN cross-tenant inconsistency, and
+  form-encoded claims.

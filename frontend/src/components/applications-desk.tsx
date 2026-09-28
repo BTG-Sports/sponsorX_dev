@@ -165,6 +165,9 @@ export function ApplicationsDesk({
   const [liveStates, setLiveStates] = useState<
     Record<string, LiveApplicationState>
   >({});
+  /* Missing fields the API reported on a refused Activate (P6-FE-07): the
+     row loaded complete, the profile changed since. Adopted like a state. */
+  const [liveMissing, setLiveMissing] = useState<Record<string, string[]>>({});
   const eff = useCallback(
     (a: App): LiveApplicationState => {
       if (live) return liveStates[a.id] ?? a.state;
@@ -501,7 +504,7 @@ export function ApplicationsDesk({
             /* Keyed per application: notes, errors and the reject-confirm arm
                belong to one review and must not leak into the next row's. */
             key={sel.id}
-            app={sel}
+            app={liveMissing[sel.id] ? { ...sel, missingFields: liveMissing[sel.id] } : sel}
             state={eff(sel)}
             decision={decisions[sel.id]}
             onDecide={(d) =>
@@ -517,6 +520,9 @@ export function ApplicationsDesk({
             live={live}
             onLiveState={(state) =>
               setLiveStates((prev) => ({ ...prev, [sel.id]: state }))
+            }
+            onMissing={(missing) =>
+              setLiveMissing((prev) => ({ ...prev, [sel.id]: missing }))
             }
             closing={closing}
             onRequestClose={requestClose}
@@ -539,6 +545,7 @@ function ReviewDrawer({
   onUndo,
   live,
   onLiveState,
+  onMissing,
   closing,
   onRequestClose,
   onClosed,
@@ -551,6 +558,7 @@ function ReviewDrawer({
   onUndo: () => void;
   live?: LiveReview;
   onLiveState: (state: LiveApplicationState) => void;
+  onMissing?: (missing: string[]) => void;
   closing: boolean;
   onRequestClose: () => void;
   onClosed: () => void;
@@ -581,6 +589,11 @@ function ReviewDrawer({
       onLiveState(result.state);
       setArmReject(false);
       if (kind !== "begin") setDone(kind);
+    } else if (result.missing && result.missing.length > 0 && onMissing) {
+      /* A stale Activate on a profile that is now incomplete: adopt the
+         missing fields — the button disables and the line above it names
+         them (announced there), rather than a duplicate error. */
+      onMissing(result.missing);
     } else {
       setErr(result.message);
       /* A stale click (F-10): the API said where the row really is, so adopt
@@ -946,7 +959,7 @@ function ReviewDrawer({
                 const why = activationBlock(a, s);
                 return (
                   <>
-                    <p className="mb-3 text-[11px] leading-relaxed text-muted">
+                    <p className="mb-3 text-[11px] leading-relaxed text-muted" aria-live="polite">
                       {why ??
                         "Approved. Activating puts this athlete live — sponsors can then invite them to paid work."}
                     </p>

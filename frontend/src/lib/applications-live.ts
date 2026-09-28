@@ -160,7 +160,10 @@ export function activationBlock(
  */
 export type ReviewActionResult =
   | { ok: true; state: LiveApplicationState }
-  | { ok: false; message: string; state?: LiveApplicationState };
+  /** `missing` (profile_incomplete): the fields the API says are missing
+   *  NOW — a stale row adopts them, so the desk disables Activate and says
+   *  what to fix (QA pass 6, P6-FE-07). */
+  | { ok: false; message: string; state?: LiveApplicationState; missing?: string[] };
 
 /** The API's one error envelope, as far as the desk reads it. */
 export type ApiErrorBody = {
@@ -187,7 +190,7 @@ export function explainRefusal(
   kind: ReviewActionKind,
   status: number,
   error: ApiErrorBody | undefined,
-): { message: string; state?: LiveApplicationState } {
+): { message: string; state?: LiveApplicationState; missing?: string[] } {
   if (status >= 500) {
     return {
       message:
@@ -217,10 +220,12 @@ export function explainRefusal(
           "This athlete is suspended — activating doesn't lift a suspension. Reinstatement is a separate step.",
         state: "SUSPENDED",
       };
-    case "profile_incomplete":
-      return {
-        message: `The profile is incomplete, so this athlete can't be activated yet. Missing: ${fieldList(error.missing ?? [])}.`,
-      };
+    case "profile_incomplete": {
+      const missing = Array.isArray(error.missing) ? error.missing.filter((m) => typeof m === "string" && m) : [];
+      return missing.length > 0
+        ? { message: `The profile is incomplete, so this athlete can't be activated yet. Missing: ${fieldList(missing)}.`, missing }
+        : { message: "The profile is incomplete, so this athlete can't be activated yet — refresh to see what's missing." };
+    }
     case "guardian_required":
       return { message: "A minor can't go live until a guardian is linked and verified." };
     default:

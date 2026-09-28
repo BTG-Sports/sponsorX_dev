@@ -21,7 +21,10 @@ import { edgeHeaders } from "@/server/edge";
 import { renderFanPage, renderUnavailable, type Flash, type TokenView } from "@/server/fan-page";
 
 const API_URL = process.env.API_URL ?? "http://localhost:4000";
-const FLASHES = new Set(["claimed", "redeemed", "used", "consent", "failed", "soldout"]);
+/* `notlive` / `expired`: a claim or redeem refused because the reward was
+   paused or ran past its expiry between the page load and the tap (QA pass
+   6, P6-BE-05 — they used to come back as "used"). */
+const FLASHES = new Set(["claimed", "redeemed", "used", "consent", "failed", "soldout", "notlive", "expired"]);
 
 type Params = { params: Promise<{ token: string }> };
 

@@ -15,7 +15,7 @@ type Call = { path: string; method: string; body: unknown };
 const vars = {
   calls: [] as Call[],
   failTokenFor: null as string | null,
-  saved: { state: "DRAFT", tokens: [] as { id: string; athlete: { id: string; displayName: string } | null; qrReady: boolean }[] },
+  saved: { state: "DRAFT", offerText: "Free taco" as string | undefined, tokens: [] as { id: string; athlete: { id: string; displayName: string } | null; qrReady: boolean }[] },
 };
 
 vi.mock("@/server/api", () => ({
@@ -49,7 +49,7 @@ const input = {
 beforeEach(() => {
   vars.calls = [];
   vars.failTokenFor = null;
-  vars.saved = { state: "DRAFT", tokens: [] };
+  vars.saved = { state: "DRAFT", offerText: "Free taco", tokens: [] };
 });
 
 describe("createRewardAction · retry after a part-way failure", () => {
@@ -67,7 +67,7 @@ describe("createRewardAction · retry after a part-way failure", () => {
     vars.failTokenFor = null;
     vars.calls = [];
     const retry = await createRewardAction({ ...input, resumeRewardId: "rw_1" });
-    expect(retry).toEqual({ ok: true, rewardId: "rw_1", tokens: 3, activated: true });
+    expect(retry).toEqual({ ok: true, rewardId: "rw_1", tokens: 3, activated: true, offerText: "Free taco" });
     /* No second reward, and a1's token is not issued twice. */
     expect(vars.calls.filter((c) => c.method === "POST" && c.path.endsWith("/rewards"))).toHaveLength(0);
     expect(vars.calls.filter((c) => c.path.endsWith("/tokens")).map((c) => (c.body as { athleteId: string }).athleteId)).toEqual(["a2", "a3"]);
@@ -75,9 +75,22 @@ describe("createRewardAction · retry after a part-way failure", () => {
   });
 
   it("a retry on a reward that already went live does not try to move it again", async () => {
-    vars.saved = { state: "ACTIVE", tokens: ["a1", "a2", "a3"].map((a) => ({ id: `tk_${a}`, athlete: { id: a, displayName: a }, qrReady: true })) };
+    vars.saved = { state: "ACTIVE", offerText: "Free taco", tokens: ["a1", "a2", "a3"].map((a) => ({ id: `tk_${a}`, athlete: { id: a, displayName: a }, qrReady: true })) };
     const retry = await createRewardAction({ ...input, resumeRewardId: "rw_1" });
     expect(retry).toMatchObject({ ok: true, tokens: 3 });
     expect(vars.calls.filter((c) => c.method === "POST")).toHaveLength(0);
+  });
+
+  it("P6-FE-03 · the result names the offer as SAVED, not the form's later edit", async () => {
+    vars.saved = { state: "DRAFT", offerText: "Free taco", tokens: [] };
+    const retry = await createRewardAction({ ...input, offerText: "Free burrito (edited after the failure)", resumeRewardId: "rw_1" });
+    expect(retry).toMatchObject({ ok: true, offerText: "Free taco" });
+    /* and the retry never tries to change the saved reward */
+    expect(vars.calls.filter((c) => c.method !== "GET" && !c.path.endsWith("/tokens") && !c.path.endsWith("/transition"))).toHaveLength(0);
+  });
+
+  it("P6-FE-03 · a fresh create reports the offer it sent", async () => {
+    const r = await createRewardAction({ ...input, offerText: "  Free taco  " });
+    expect(r).toMatchObject({ ok: true, offerText: "Free taco" });
   });
 });

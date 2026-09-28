@@ -27,6 +27,7 @@
 import { randomBytes } from "node:crypto";
 
 import { prisma } from "../db/client";
+import { isOpaqueToken } from "../lib/opaque-token";
 import { audit, AUDIT_ACTIONS } from "../db/audit";
 import { enqueue } from "../db/outbox";
 import type { Actor } from "../auth/actor";
@@ -35,6 +36,7 @@ import { ForbiddenError } from "../auth/errors";
 
 export class UnknownTrackingCodeError extends Error {
   readonly status = 404;
+  readonly code = "unknown_code";
   constructor() {
     super("That link is not valid.");
     this.name = "UnknownTrackingCodeError";
@@ -168,6 +170,9 @@ export async function codesForCampaign(
 export async function resolveCode(
   code: string,
 ): Promise<{ linkId: string; tenantId: string; destinationUrl: string }> {
+  /* QA pass 6 (P6-BE-03): a value that cannot be a code (a NUL byte was a
+     500) is unknown before Postgres is asked. */
+  if (!isOpaqueToken(code)) throw new UnknownTrackingCodeError();
   const link = await prisma.trackingLink.findUnique({
     where: { code },
     select: { id: true, tenantId: true, destinationUrl: true },

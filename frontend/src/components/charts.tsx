@@ -606,6 +606,25 @@ export function Donut({
 /* ----------------------------------------------------------- FunnelSteps */
 
 /**
+ * The step between two funnel stages. A real funnel only narrows, but the
+ * reward funnel does not have to: a code can be redeemed at the booth with no
+ * claim first, and a claim can land in a window whose scan fell in the one
+ * before. Printing that as "↓ 293%" claims a conversion that never happened
+ * (QA pass 6, P6-FE-05) — so a stage larger than the one above it shows how
+ * many MORE, with the reason, the same honesty rule as F-04.
+ */
+export function stepConversion(prev: number, cur: number): { text: string; hint: string | null } {
+  if (prev <= 0) return { text: "—", hint: null };
+  if (cur > prev) {
+    return {
+      text: `+${(cur - prev).toLocaleString("en-US")}`,
+      hint: "More than the step above — some arrived without passing through it (e.g. redeemed at the booth with no claim first), so a conversion rate would overstate it.",
+    };
+  }
+  return { text: `${Math.round((cur / prev) * 100)}%`, hint: null };
+}
+
+/**
  * True stepped funnel. Full mode renders labeled bars with inter-stage
  * conversion rates; compact mode renders labeled mini rows for bento cells.
  *
@@ -676,20 +695,22 @@ export function FunnelSteps({
         const pct = Math.max((s.value / max) * 100, 14);
         /* A conversion from an empty stage is undefined, not a number — a
            live funnel with no scans yet printed "↓ NaN%" (found by P7-QA-01). */
-        const conv =
-          i === 0
-            ? null
-            : stages[i - 1].value > 0
-              ? `${Math.round((s.value / stages[i - 1].value) * 100)}%`
-              : "—";
+        const conv = i === 0 ? null : stepConversion(stages[i - 1].value, s.value);
         return (
           <div key={s.label}>
             {conv !== null && (
               <p
                 className="sx-viz-fade py-0.5 pl-2 text-[10px] text-faint"
                 style={vizDelay(i * 0.11 + 0.15)}
+                title={conv.hint ?? undefined}
               >
-                ↓ {conv}
+                {conv.hint ? (
+                  <>
+                    {conv.text} <span className="text-faint">· more than the step above, not a conversion</span>
+                  </>
+                ) : (
+                  <>↓ {conv.text}</>
+                )}
               </p>
             )}
             <div className="flex items-center gap-2">
@@ -718,6 +739,9 @@ export function HBarList({
   rows,
 }: {
   rows: {
+    /** A stable key when labels can repeat (two rewards with the same
+     *  offer and sponsor — QA pass 6, P6-FE-06). Defaults to the label. */
+    id?: string;
     label: string;
     sub?: string;
     value: number;
@@ -735,7 +759,7 @@ export function HBarList({
     <Reveal>
       <ul className="space-y-2.5">
         {rows.map((r, i) => (
-          <li key={r.label}>
+          <li key={r.id ?? r.label}>
             <div
               className="sx-viz-fade flex items-baseline justify-between gap-2 text-[11px]"
               style={vizDelay(i * 0.09)}

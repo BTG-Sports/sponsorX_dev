@@ -43,6 +43,8 @@ export const LIVE_REWARD_STATES: readonly RewardState[] = ["ACTIVE"] as const;
 
 export class IllegalRewardTransitionError extends Error {
   readonly status = 409;
+  /* Same code as the athlete lifecycle's refusal (QA pass 6, P6-BE-05). */
+  readonly code = "illegal_transition";
   constructor(from: RewardState, to: RewardState) {
     super(
       `A reward cannot go from ${from} to ${to}. Legal moves from ${from}: ` +

@@ -24,7 +24,38 @@ import { ZodError } from "zod";
  * carries server file paths and source lines, and some of these routes are
  * public. The caller gets a generic sentence and a reference; the middleware
  * logs the detail under the same reference, so support can still find it.
+ * The one exception is its `code`, and only from `SAFE_5XX_CODES` — a fixed
+ * word such as `busy`, which lets a client say "try again" rather than
+ * "we broke" (QA pass 6, P6-BE-06). The message is never echoed.
+ *
+ * A DATABASE CONSTRAINT THE DOMAIN DID NOT PRE-EMPT is the caller's input,
+ * not an outage (QA pass 6, P6-BE-04): a foreign-key violation (Prisma P2003,
+ * or Postgres 23503 through a raw query) is a 422 `invalid_reference`, and a
+ * unique violation (P2002 / 23505) a 409 `conflict`. Both are GENERIC — the
+ * Prisma message names the constraint and column, which is schema detail a
+ * public caller has no business reading. Domain code that can say something
+ * better (athlete-rate, offer, listing…) still catches these first.
  */
+
+/** 5xx codes safe to hand back: fixed words that describe no internals. */
+const SAFE_5XX_CODES: ReadonlySet<string> = new Set(["busy"]);
+
+/** Prisma's code, or the SQLSTATE a raw query carries under P2010. */
+function dbConstraint(err: unknown): "fk" | "unique" | null {
+  if (typeof err !== "object" || err === null) return null;
+  const e = err as {
+    status?: unknown;
+    code?: unknown;
+    meta?: { code?: unknown; driverAdapterError?: { cause?: { originalCode?: unknown } } };
+  };
+  /* A domain error that already chose its status is never reinterpreted. */
+  if (e.status !== undefined) return null;
+  const state = e.meta?.driverAdapterError?.cause?.originalCode ?? e.meta?.code;
+  if (e.code === "P2003" || state === "23503") return "fk";
+  if (e.code === "P2002" || state === "23505") return "unique";
+  return null;
+}
+
 export function errorBody(err: unknown): {
   status: number;
   body: { error: Record<string, unknown> };
@@ -46,6 +77,19 @@ export function errorBody(err: unknown): {
             message: i.message,
           })),
         },
+      },
+    };
+  }
+  const constraint = dbConstraint(err);
+  if (constraint) {
+    return {
+      status: constraint === "fk" ? 422 : 409,
+      headers: {},
+      reference: null,
+      body: {
+        error: constraint === "fk"
+          ? { code: "invalid_reference", message: "Something this refers to doesn't exist (or isn't yours to use)." }
+          : { code: "conflict", message: "That already exists — reload and try again." },
       },
     };
   }
@@ -73,7 +117,7 @@ export function errorBody(err: unknown): {
       reference,
       body: {
         error: {
-          code: "internal_error",
+          code: typeof e.code === "string" && SAFE_5XX_CODES.has(e.code) ? e.code : "internal_error",
           message: "Something went wrong on our side. Nothing you did caused this — try again shortly.",
           reference,
         },

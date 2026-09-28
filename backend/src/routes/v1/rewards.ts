@@ -24,6 +24,8 @@ import { Router, type RequestHandler } from "express";
 
 import { requireActor } from "../../auth/actor";
 import { can, whereFor } from "../../auth/scope";
+import { scopeFor } from "../../auth/policy";
+import type { Prisma } from "../../generated/prisma/client";
 import { ForbiddenError } from "../../auth/errors";
 import { prisma } from "../../db/client";
 import { presignPrivateDownload } from "../../lib/storage";
@@ -277,18 +279,38 @@ async function funnelsFor(actor: Parameters<typeof can>[0], tokenToReward: Map<s
   return out;
 }
 
-const REWARD_SELECT = {
-  id: true, offerText: true, terms: true, singleUse: true, expiresAt: true, state: true,
-  eligibility: true, eligibilityNote: true, redemptionCap: true, landingHeadline: true, landingSubhead: true,
-  redemptionCount: true, reserveMinutes: true,
-  campaign: { select: { id: true, name: true, endDate: true, sponsor: { select: { name: true } } } },
-  tokens: {
-    select: {
-      id: true, token: true, qrKey: true,
-      athlete: { select: { id: true, displayName: true } },
-    },
-  },
+const TOKEN_SELECT = {
+  id: true, token: true, qrKey: true,
+  athlete: { select: { id: true, displayName: true } },
 } as const;
+
+/** The reward's columns, with its tokens narrowed to what the caller may see
+ *  (P6-BE-01: an athlete, only their own). */
+function rewardSelect(tokenWhere: Prisma.RewardTokenWhereInput | null) {
+  return {
+    id: true, offerText: true, terms: true, singleUse: true, expiresAt: true, state: true,
+    eligibility: true, eligibilityNote: true, redemptionCap: true, landingHeadline: true, landingSubhead: true,
+    redemptionCount: true, reserveMinutes: true,
+    campaign: { select: { id: true, name: true, endDate: true, sponsor: { select: { name: true } } } },
+    tokens: tokenWhere ? { where: tokenWhere, select: TOKEN_SELECT } : { select: TOKEN_SELECT },
+  } satisfies Prisma.RewardSelect;
+}
+
+/**
+ * P6-BE-01 — does this caller read a reward WHOLE, or only through their own
+ * tokens? BTG and the sponsor read the whole offer: every token, the funnel
+ * across all of them, the redemption counter and the live holds. An athlete
+ * (`own`) reads it through the tokens they hold, and a guardian (`ward`)
+ * through their wards' — never another athlete's token, and never the
+ * reward-wide counter or holds, which are every athlete's performance summed
+ * (matrix §10: an athlete's event reach is `own`). Null = whole.
+ */
+function tokenReach(actor: Parameters<typeof can>[0]): Prisma.RewardTokenWhereInput | null {
+  const scope = scopeFor(actor.roles, "reward", "read");
+  if (scope === "own") return actor.athleteId ? { athleteId: actor.athleteId } : { id: { in: [] } };
+  if (scope === "ward") return actor.guardianId ? { athlete: { is: { guardianId: actor.guardianId } } } : { id: { in: [] } };
+  return null;
+}
 
 type RewardRow = {
   id: string; offerText: string; terms: string; singleUse: boolean; expiresAt: Date; state: string;
@@ -314,7 +336,7 @@ async function heldFor(rewardIds: string[], now = new Date()): Promise<Map<strin
   return new Map(grouped.map((g) => [g.rewardId, g._count._all]));
 }
 
-function rewardOut(r: RewardRow, funnel: Record<string, number> | undefined, withTokens: boolean, printable: boolean, held = 0) {
+function rewardOut(r: RewardRow, funnel: Record<string, number> | undefined, withTokens: boolean, printable: boolean, held: number | null) {
   return {
     id: r.id,
     offerText: r.offerText,
@@ -329,8 +351,10 @@ function rewardOut(r: RewardRow, funnel: Record<string, number> | undefined, wit
     /* QA-09 / QA-01 — on a capped reward: the counter the cap is enforced
        against (so the desk's "left" matches what the till will allow), the
        units claims hold right now, and the hold window. The counter is kept
-       for capped rewards only, so an uncapped one answers null. */
-    redeemed: r.redemptionCap != null ? r.redemptionCount : null,
+       for capped rewards only, so an uncapped one answers null. `held` null:
+       the caller reads the reward only through their own tokens (P6-BE-01),
+       so neither reward-wide number is theirs to see. */
+    redeemed: r.redemptionCap != null && held !== null ? r.redemptionCount : null,
     held,
     reserveMinutes: r.reserveMinutes,
     landing: { headline: r.landingHeadline, subhead: r.landingSubhead },
@@ -355,17 +379,18 @@ function rewardOut(r: RewardRow, funnel: Record<string, number> | undefined, wit
 const listRewards: RequestHandler = async (req, res) => {
   const actor = req.actor!;
   const campaignId = typeof req.query.campaignId === "string" ? req.query.campaignId : undefined;
+  const reach = tokenReach(actor);
   const rows = (await prisma.reward.findMany({
     where: { ...whereFor(actor, "reward", "read"), ...(campaignId ? { campaignId } : {}) },
-    select: REWARD_SELECT,
+    select: rewardSelect(reach),
     orderBy: { expiresAt: "desc" },
     take: 200,
   })) as RewardRow[];
   const tokenToReward = new Map(rows.flatMap((r) => r.tokens.map((t) => [t.id, r.id] as const)));
   const funnels = await funnelsFor(actor, tokenToReward);
-  const held = await heldFor(rows.filter((r) => r.redemptionCap != null).map((r) => r.id));
+  const held = reach ? new Map<string, number>() : await heldFor(rows.filter((r) => r.redemptionCap != null).map((r) => r.id));
   res.json({
-    rewards: rows.map((r) => rewardOut(r, funnels.get(r.id) ?? (can(actor, "rewardEvent", "read") ? { SCAN: 0, LANDING: 0, CLAIM: 0, REDEEM: 0 } : undefined), false, false, held.get(r.id) ?? 0)),
+    rewards: rows.map((r) => rewardOut(r, funnels.get(r.id) ?? (can(actor, "rewardEvent", "read") ? { SCAN: 0, LANDING: 0, CLAIM: 0, REDEEM: 0 } : undefined), false, false, reach ? null : held.get(r.id) ?? 0)),
     /* The one consent line every fan page shows — versioned centrally
        (fan-consent.ts, P6-SEC-01), deliberately not per reward. */
     consent: { version: CURRENT_CONSENT_VERSION, text: CONSENT_TEXT[CURRENT_CONSENT_VERSION] },
@@ -375,13 +400,14 @@ const listRewards: RequestHandler = async (req, res) => {
 /** GET /rewards/:id — one reward, with its tokens (strings for BTG only). */
 const readReward: RequestHandler<{ id: string }> = async (req, res) => {
   const actor = req.actor!;
+  const reach = tokenReach(actor);
   const r = (await prisma.reward.findFirst({
     where: { ...whereFor(actor, "reward", "read"), id: req.params.id },
-    select: REWARD_SELECT,
+    select: rewardSelect(reach),
   })) as RewardRow | null;
   if (!r) throw new ForbiddenError("reward", "read");
   const funnels = await funnelsFor(actor, new Map(r.tokens.map((t) => [t.id, r.id])));
-  const held = r.redemptionCap != null ? (await heldFor([r.id])).get(r.id) ?? 0 : 0;
+  const held = reach ? null : r.redemptionCap != null ? (await heldFor([r.id])).get(r.id) ?? 0 : 0;
   res.json({
     ...rewardOut(r, funnels.get(r.id) ?? { SCAN: 0, LANDING: 0, CLAIM: 0, REDEEM: 0 }, true, can(actor, "reward", "write"), held),
     consent: { version: CURRENT_CONSENT_VERSION, text: CONSENT_TEXT[CURRENT_CONSENT_VERSION] },

@@ -326,18 +326,76 @@ describe("QA pass 5 · the fan page", () => {
 
   it("QA-09: after claiming a capped reward, the fan sees how long it's held for", async () => {
     const { html } = await page({ ...live, claimed: true, hold: { until: "2026-10-01T19:45:00.000Z", active: true } }, "?flash=claimed");
-    expect(html).toContain("Held for you until 3:45 PM ET");
+    /* P6-FE-01 (QA pass 6): not today, so the date is shown too. */
+    expect(html).toMatch(/Held for you until (?:\w{3}, Oct 1, )?3:45 PM ET/);
   });
 
   it("QA-09: a lapsed hold is explained — still redeemable while any are left", async () => {
     const { html } = await page({ ...live, claimed: true, hold: { until: "2026-10-01T19:45:00.000Z", active: false } });
-    expect(html).toMatch(/hold lapsed at 3:45 PM ET/);
+    expect(html).toMatch(/hold lapsed at (?:\w{3}, Oct 1, )?3:45 PM ET/);
     expect(html).toContain('action="/r/tok_abc/redeem"');
   });
 
   it("QA-09: a lapsed hold on a reward that has since run out says both", async () => {
     const { html } = await page({ ...live, state: "EXHAUSTED", claimed: true, hold: { until: "2026-10-01T19:45:00.000Z", active: false } });
     expect(html).toContain("This reward has run out");
-    expect(html).toMatch(/hold lapsed at 3:45 PM ET/);
+    expect(html).toMatch(/hold lapsed at (?:\w{3}, Oct 1, )?3:45 PM ET/);
+  });
+});
+
+describe("QA pass 6 · P6-BE-05 · a refusal is read by the API's code, not its status", () => {
+  const refuse = (status: number, code?: string) =>
+    stub(() => Response.json({ error: { ...(code ? { code } : {}), message: "x" } }, { status }));
+  const redeem = async () =>
+    (await REDEEM(new Request("https://localhost:8080/r/tok_abc/redeem", { method: "POST" }), ctx())).headers.get("location");
+  const claim = async () =>
+    (await CLAIM(new Request("https://localhost:8080/r/tok_abc/claim", { method: "POST", body: new FormData() }), ctx())).headers.get("location");
+
+  it("a redeem on a paused or expired reward is never 'already used'", async () => {
+    refuse(409, "reward_not_live");
+    expect(await redeem()).toBe("/r/tok_abc?flash=notlive");
+    refuse(409, "reward_expired");
+    expect(await redeem()).toBe("/r/tok_abc?flash=expired");
+    refuse(409, "already_redeemed");
+    expect(await redeem()).toBe("/r/tok_abc?flash=used");
+    refuse(410, "reward_exhausted");
+    expect(await redeem()).toBe("/r/tok_abc?flash=soldout");
+    refuse(404, "unknown_token");
+    expect(await redeem()).toBe("/r/tok_abc?flash=failed");
+    refuse(503, "busy");
+    expect(await redeem()).toBe("/r/tok_abc?flash=failed");
+  });
+
+  it("a claim maps the same way — a used code, a paused or expired reward, missing consent", async () => {
+    refuse(409, "already_redeemed");
+    expect(await claim()).toBe("/r/tok_abc?flash=used");
+    refuse(409, "reward_not_live");
+    expect(await claim()).toBe("/r/tok_abc?flash=notlive");
+    refuse(409, "reward_expired");
+    expect(await claim()).toBe("/r/tok_abc?flash=expired");
+    refuse(422, "consent_required");
+    expect(await claim()).toBe("/r/tok_abc?flash=consent");
+    refuse(410, "reward_exhausted");
+    expect(await claim()).toBe("/r/tok_abc?flash=soldout");
+  });
+
+  it("a body with no code (an older API) falls back to the status", async () => {
+    refuse(409);
+    expect(await redeem()).toBe("/r/tok_abc?flash=used");
+    refuse(410);
+    expect(await redeem()).toBe("/r/tok_abc?flash=soldout");
+    refuse(409);
+    expect(await claim()).toBe("/r/tok_abc?flash=failed");
+    stub(() => new Response("not json", { status: 500 }));
+    expect(await redeem()).toBe("/r/tok_abc?flash=failed");
+  });
+
+  it("the page honours the new flashes instead of dropping them", async () => {
+    const { html } = await page({ ...live, state: "NOT_LIVE" }, "?flash=notlive");
+    expect(html).not.toContain("already");
+    expect(html).toMatch(/paused or ended/);
+    const exp = await page({ ...live, state: "EXPIRED" }, "?flash=expired");
+    expect(exp.html).toMatch(/expired/i);
+    expect(exp.html).not.toContain("already been redeemed");
   });
 });

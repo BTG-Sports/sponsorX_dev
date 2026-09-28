@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { capLine, ELIGIBILITY, expiryFor, fanPath, fmtEt, fmtEtTime, holdPreset, parseCap, redeemRate, redemptionRate, rewardMoves } from "../src/lib/rewards-live";
+import { capLine, ELIGIBILITY, expiryFor, fanPath, fmtEt, fmtEtTime, fmtEtWhen, holdLabel, holdPreset, parseCap, redeemRate, redemptionRate, rewardMoves } from "../src/lib/rewards-live";
 
 /* --------------------------------------------------------------------------
    P6-FE-01 — the reward desk's rules. Moves are reward-state.ts's exactly;
@@ -100,10 +100,40 @@ describe("F-04 · redemptionRate — never above 100%", () => {
 });
 
 describe("QA-09 · capLine with held units", () => {
-  it("adds how many units claims are holding", () => {
-    expect(capLine(50, 12, 4)).toBe("38 of 50 left · 4 held");
+  it("a held unit is not free — the desk counts as the fan page does (P6-FE-04)", () => {
+    expect(capLine(50, 12, 4)).toBe("34 of 50 free · 4 held");
     expect(capLine(50, 12, 0)).toBe("38 of 50 left");
     expect(capLine(null, 12, 3)).toBe("unlimited");
+  });
+  it("every unredeemed unit held ⇒ all taken, the same moment non-holders see 'run out'", () => {
+    expect(capLine(1, 0, 1)).toBe("all 1 taken · 1 held");
+    expect(capLine(5, 3, 2)).toBe("all 5 taken · 2 held");
+    expect(capLine(5, 3, 9)).toBe("all 5 taken · 2 held"); // never more held than unredeemed
+    expect(capLine(5, 5, 1)).toBe("all 5 used");
+  });
+});
+
+describe("holdLabel — the hold window, in the unit a person would say", () => {
+  it("minutes, hours, days", () => {
+    expect(holdLabel(15)).toBe("15 min");
+    expect(holdLabel(90)).toBe("90 min");
+    expect(holdLabel(60)).toBe("1 h");
+    expect(holdLabel(120)).toBe("2 h");
+    expect(holdLabel(1440)).toBe("1 day");
+    expect(holdLabel(2880)).toBe("2 days");
+    expect(holdLabel(10_080)).toBe("7 days");
+    expect(holdLabel(1800)).toBe("1 day 6 h");
+  });
+});
+
+describe("P6-FE-01 · fmtEtWhen — the date unless it's today in Eastern", () => {
+  const now = new Date("2026-09-28T14:00:00.000Z");
+  it("today → the time alone; another day → weekday and date; another year → the year", () => {
+    expect(fmtEtWhen("2026-09-28T20:30:00.000Z", now)).toBe("4:30 PM ET");
+    expect(fmtEtWhen("2026-10-05T08:06:00.000Z", now)).toBe("Mon, Oct 5, 4:06 AM ET");
+    expect(fmtEtWhen("2026-09-29T03:59:00.000Z", now)).toBe("11:59 PM ET");
+    expect(fmtEtWhen("2026-09-29T04:00:00.000Z", now)).toBe("Tue, Sep 29, 12:00 AM ET");
+    expect(fmtEtWhen("2027-01-02T17:00:00.000Z", now)).toBe("Sat, Jan 2, 2027, 12:00 PM ET");
   });
 });
 

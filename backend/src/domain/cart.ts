@@ -183,10 +183,16 @@ async function touch(tx: Prisma.TransactionClient, actor: Actor, cartId: string,
  * EXPIRED. Idempotent — a second pass finds nothing — and it touches nothing
  * but the cart's own state.
  */
-export async function expireCarts(db: Pick<Prisma.TransactionClient, "cart">, now = new Date()): Promise<{ expired: number }> {
+export async function expireCarts(
+  db: Pick<Prisma.TransactionClient, "cart">,
+  now = new Date(),
+  /** Narrows the sweep — tests pass their own rows so a far-future `now`
+   *  doesn't expire another test file's carts. The worker passes nothing. */
+  only: Prisma.CartWhereInput = {},
+): Promise<{ expired: number }> {
   const out = await db.cart.updateMany({
     /* tenant-scope: a platform sweep over every tenant's carts, by state and time only; it reads nothing and changes only state. */
-    where: { state: "ACTIVE", expiresAt: { lte: now } },
+    where: { ...only, state: "ACTIVE", expiresAt: { lte: now } },
     data: { state: "EXPIRED", expiredAt: now },
   });
   return { expired: out.count };

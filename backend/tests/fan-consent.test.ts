@@ -29,7 +29,14 @@ vi.mock("../src/db/client", () => {
         writes.push({ model: "event", data });
         return Promise.resolve({ id: "ev_1", type: data.type });
       },
+      /* QA pass 6 — a claim looks for an earlier REDEEM / CLAIM on its token
+         first. None here: every call below is the token's first claim, so
+         what is under test is the write itself (repeat claims are proven
+         against real Postgres in tests/qa6.fixes.test.ts). */
+      findFirst: () => Promise.resolve(null),
     },
+    /* …and serialises on the token's row (lock_timeout, FOR NO KEY UPDATE). */
+    $queryRaw: () => Promise.resolve([]),
     outboxJob: {
       create: ({ data }: { data: Record<string, unknown> }) => {
         writes.push({ model: "outbox", data });

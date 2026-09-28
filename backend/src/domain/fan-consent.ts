@@ -92,6 +92,7 @@ export const SPONSOR_CONTACTABLE = {
 
 export class SponsorContactNeedsAddressError extends Error {
   readonly status = 422;
+  readonly code = "sponsor_contact_needs_address";
   constructor() {
     super(
       "The sponsor-contact option extends an email address given for the " +
@@ -130,6 +131,7 @@ export type FanConsent = {
 
 export class ConsentRequiredError extends Error {
   readonly status = 422;
+  readonly code = "consent_required";
   constructor() {
     super(
       "An email address cannot be recorded without consent. §26 allows this " +
@@ -143,6 +145,7 @@ export class ConsentRequiredError extends Error {
 
 export class UnknownConsentVersionError extends Error {
   readonly status = 422;
+  readonly code = "unknown_consent_version";
   constructor(version: string) {
     super(
       `"${version}" is not a consent version this system has ever shown. ` +
@@ -154,6 +157,7 @@ export class UnknownConsentVersionError extends Error {
 
 export class UnknownConsentPurposeError extends Error {
   readonly status = 422;
+  readonly code = "unknown_consent_purpose";
   constructor(purpose: string) {
     super(
       `"${purpose}" is not a purpose a fan has been asked to agree to. ` +

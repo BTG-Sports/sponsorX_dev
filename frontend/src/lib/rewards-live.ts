@@ -68,7 +68,9 @@ export type NewReward = {
 };
 
 export type CreateRewardResult =
-  | { ok: true; rewardId: string; tokens: number; activated: boolean }
+  /** `offerText` is the SAVED offer — on a finished retry, the reward as it
+   *  was first created, not whatever the form says now (QA pass 6, P6-FE-03). */
+  | { ok: true; rewardId: string; tokens: number; activated: boolean; offerText?: string }
   | { ok: false; message: string; rewardId?: string };
 export type SimpleResult = { ok: true } | { ok: false; message: string };
 export type LinkResult = { ok: true; url: string } | { ok: false; message: string };
@@ -157,6 +159,27 @@ export function fmtEtTime(iso: string): string {
   return `${plain(new Date(iso).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: REWARD_TIME_ZONE }))} ET`;
 }
 
+/** The ET calendar day of an instant, as "2026-10-01". */
+function etDay(d: Date): string {
+  return d.toLocaleDateString("en-CA", { year: "numeric", month: "2-digit", day: "2-digit", timeZone: REWARD_TIME_ZONE });
+}
+
+/**
+ * A time that may not be today — a claim's hold runs up to 7 days (QA pass 6,
+ * P6-FE-01: "until 4:06 AM ET" for a week-long hold read as today). The time
+ * alone when it falls on today's date in Eastern; otherwise the date too —
+ * "Mon, Oct 5, 4:06 AM ET" — and the year when it isn't this year.
+ */
+export function fmtEtWhen(iso: string, now = new Date()): string {
+  const at = new Date(iso);
+  if (etDay(at) === etDay(now)) return fmtEtTime(iso);
+  const sameYear = etDay(at).slice(0, 4) === etDay(now).slice(0, 4);
+  return `${plain(at.toLocaleString("en-US", {
+    weekday: "short", month: "short", day: "numeric", ...(sameYear ? {} : { year: "numeric" }),
+    hour: "numeric", minute: "2-digit", timeZone: REWARD_TIME_ZONE,
+  }))} ET`;
+}
+
 /* --------------------------------------------- QA-09 · the hold window */
 
 export const HOLD_PRESETS = [
@@ -206,10 +229,27 @@ export const ELIGIBILITY: Record<RewardEligibility, { label: string; fan: string
  *  who claimed them. */
 export function capLine(cap: number | null | undefined, redeemed: number | undefined, held = 0): string {
   if (cap == null) return "unlimited";
-  const left = Math.max(0, cap - (redeemed ?? 0));
-  if (left === 0) return `all ${cap.toLocaleString("en-US")} used`;
-  const line = `${left.toLocaleString("en-US")} of ${cap.toLocaleString("en-US")} left`;
-  return held > 0 ? `${line} · ${held.toLocaleString("en-US")} held` : line;
+  const n = (x: number) => x.toLocaleString("en-US");
+  const unredeemed = Math.max(0, cap - (redeemed ?? 0));
+  if (unredeemed === 0) return `all ${n(cap)} used`;
+  if (held <= 0) return `${n(unredeemed)} of ${n(cap)} left`;
+  /* QA pass 6 (P6-FE-04): a held unit is not "left" for anyone else. The fan
+     page's rule is redeemed + live holds ≥ cap ⇒ run out for a non-holder,
+     so the desk counts the same way: only unheld units are free. */
+  const free = Math.max(0, unredeemed - held);
+  if (free === 0) return `all ${n(cap)} taken · ${n(Math.min(held, unredeemed))} held`;
+  return `${n(free)} of ${n(cap)} free · ${n(held)} held`;
+}
+
+/** The hold window, short: "15 min", "90 min", "1 h", "2 h", "1 day",
+ *  "7 days", "1 day 6 h". */
+export function holdLabel(minutes: number): string {
+  if (minutes < 60 || minutes % 60 !== 0) return `${minutes} min`;
+  const hours = minutes / 60;
+  if (hours < 24) return `${hours} h`;
+  const days = Math.floor(hours / 24);
+  const rest = hours % 24;
+  return `${days} day${days === 1 ? "" : "s"}${rest ? ` ${rest} h` : ""}`;
 }
 
 /** The creator's cap field: blank = unlimited (null); otherwise a whole

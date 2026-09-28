@@ -1,4 +1,16 @@
 import { INT4_MAX, z } from "./zod";
+import { hasVisibleText } from "../domain/reward-state";
+
+/* QA pass 6 (P6-BE-07): a required text field must hold something a reader
+   can SEE. `.min(1)` and `.trim()` both pass a string of zero-width
+   characters (U+200B…), which then stored an "athlete" with a blank name
+   that activation counted as complete. The same visible-text rule QA-07 gave
+   reward copy. */
+const required = (max: number, what: string) =>
+  z.string().min(1).max(max).refine(hasVisibleText, { message: `${what} can't be blank.` });
+
+/** Today as an ISO date (UTC) — the latest birthDate that can be true. */
+const todayIso = () => new Date().toISOString().slice(0, 10);
 
 /* --------------------------------------------------------------------------
    The athlete application — P3-BE-01, §11, §21.
@@ -97,21 +109,28 @@ export const SocialAccountIntake = SocialAccount.extend({
  */
 const AthleteApplicationFields = z.object({
     // §11 §1 — Identity
-    legalName: z.string().min(1).max(120),
-    displayName: z.string().min(1).max(120).describe("Athlete or brand name"),
+    legalName: required(120, "Legal name"),
+    displayName: required(120, "Display name").describe("Athlete or brand name"),
     email: z.email(),
     phone: z.string().min(7).max(32).optional(),
     /** Drives the guardian path. Optional because §11 permits an age band
      *  instead, but one of the two must be present — see the refinement. */
     /* Bounded: "0000-01-01" is a valid ISO date that Postgres refuses, which
        reached the column as a 500 (found re-testing QA-03, pass 5). */
-    birthDate: z.iso.date().refine((d) => d >= "1900-01-01", "birthDate must be 1900 or later.").optional(),
+    /* And not in the future (QA pass 6, P6-BE-08): nobody applies before
+       they are born, and a future date makes every age rule meaningless. An
+       age FLOOR (e.g. under 13) is a product question, not enforced here. */
+    birthDate: z.iso
+      .date()
+      .refine((d) => d >= "1900-01-01", "birthDate must be 1900 or later.")
+      .refine((d) => d <= todayIso(), "birthDate can't be in the future.")
+      .optional(),
     ageBand: z.enum(["UNDER_16", "16_17", "18_PLUS"]).optional(),
     city: z.string().max(80).optional(),
-    stateCode: z.string().length(2).describe("US state code — NIL is US law"),
+    stateCode: z.string().length(2).refine(hasVisibleText, { message: "State can't be blank." }).describe("US state code — NIL is US law"),
 
     // §11 §2 — Sports
-    sport: z.string().min(1).max(60),
+    sport: required(60, "Sport"),
     position: z.string().max(60).optional(),
     school: z.string().max(120).optional(),
     level: z.enum(["HIGH_SCHOOL", "COLLEGE", "SEMI_PRO", "PRO", "AMATEUR"]).optional(),
@@ -147,13 +166,14 @@ export const AGE_FIELD = "birthDateOrAgeBand";
 
 /**
  * Which required application fields this record is missing — empty when it
- * is complete. Blank strings count as missing: a `""` legal name is not one.
+ * is complete. Blank strings count as missing: a `""` legal name is not one,
+ * and neither is one made only of invisible characters (QA pass 6, P6-BE-07).
  */
 export function missingApplicationFields(
   record: Record<string, unknown>,
 ): string[] {
   const blank = (v: unknown) =>
-    v === null || v === undefined || (typeof v === "string" && v.trim() === "");
+    v === null || v === undefined || (typeof v === "string" && !hasVisibleText(v));
   const missing = APPLICATION_REQUIRED_FIELDS.filter((k) => blank(record[k]));
   if (blank(record.birthDate) && blank(record.ageBand)) missing.push(AGE_FIELD);
   return missing;

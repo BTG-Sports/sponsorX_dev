@@ -30,7 +30,7 @@ import {
    property; the real query is tenant + property scoped.
 
    The showcase hero answers "what audience value has this property delivered
-   this season?": estimated views, implied media value (curated CPM),
+   this season?": estimated views, views priced at curated CPM,
    inventory sell-through and roster reach — every figure provenance-tagged
    (§22). `propertyShowcase.rosterCount` is the platform-wide count (Postgres);
    the `property.roster` fixture below it is a small in-portal sample, so the
@@ -130,9 +130,11 @@ export default async function PropertyPortalPage({
               <MiniChip kind="est">EST</MiniChip>
             </p>
             <p className="mt-1.5 flex flex-wrap items-center gap-2 text-xs text-muted">
-              ≈ {money(propertyShowcase.impliedMediaValueCents)} implied media
-              value
-              <MiniChip kind="est">EST · curated CPM</MiniChip>
+              {/* F-11 / QA pass 6 (P6-FE-08): an estimate of views priced at a
+                  curated CPM — not "media value" the property earned. Same
+                  words as the sponsor report. */}
+              Views priced at curated CPM ≈ {money(propertyShowcase.impliedMediaValueCents)}
+              <MiniChip kind="est">EST · curated</MiniChip>
             </p>
           </div>
 

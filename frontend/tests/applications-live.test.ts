@@ -255,6 +255,17 @@ describe("a refused decision reads as product copy, never state-machine text (F-
     expect(r.message).toMatch(/sport/);
     expect(r.message).not.toMatch(/profile_incomplete/);
   });
+  it("P6-FE-07 · profile_incomplete hands back the missing fields, so a stale row disables Activate", () => {
+    const r = explainRefusal("activate", 422, { code: "profile_incomplete", message: "…", missing: ["sport", "stateCode"] });
+    expect(r.missing).toEqual(["sport", "stateCode"]);
+    /* adopted into the row, activationBlock now refuses — the button's rule */
+    const why = activationBlock({ isMinor: false, guardianVerified: null, guardianStatus: "not-required", missingFields: r.missing! }, "APPROVED");
+    expect(why).toMatch(/Missing: /);
+    /* no list → no fake one, and nothing to adopt */
+    const bare = explainRefusal("activate", 422, { code: "profile_incomplete", message: "…" });
+    expect(bare.missing).toBeUndefined();
+    expect(bare.message).not.toMatch(/Missing: \./);
+  });
   it("reinstatement_required moves the row to SUSPENDED", () => {
     const r = explainRefusal("activate", 409, { code: "reinstatement_required", message: "…" });
     expect(r.message).toMatch(/reinstat/i);

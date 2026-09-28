@@ -45,12 +45,17 @@ export async function createRewardAction(input: NewReward): Promise<CreateReward
        live if asked, rather than creating a second reward (QA pass 5). */
     let already = new Set<string>();
     let alreadyLive = false;
+    /* The offer as SAVED. A retry does not edit the reward (there is no edit
+       route): the creator locks its fields once one exists, and the result
+       names what was actually saved (QA pass 6, P6-FE-03). */
+    let offerText = input.offerText.trim();
     if (rewardId) {
       const got = await apiFetch(`/rewards/${encodeURIComponent(rewardId)}`);
       if (!got.ok) return { ok: false, rewardId, message: await reason(got, `The saved reward couldn't be read (HTTP ${got.status}).`) };
       const saved = (await got.json()) as ApiRewardDetail;
       already = new Set(saved.tokens.map((t) => t.athlete?.id).filter((id): id is string => Boolean(id)));
       alreadyLive = saved.state === "ACTIVE";
+      if (saved.offerText) offerText = saved.offerText;
     } else {
       const made = await apiFetch(`/campaigns/${encodeURIComponent(input.campaignId)}/rewards`, {
         method: "POST",
@@ -95,7 +100,7 @@ export async function createRewardAction(input: NewReward): Promise<CreateReward
         return { ok: false, rewardId, message: `Created as a draft, but not made live: ${await reason(live, `HTTP ${live.status}`)}` };
       }
     }
-    return { ok: true, rewardId, tokens, activated: input.activate };
+    return { ok: true, rewardId, tokens, activated: input.activate || alreadyLive, offerText };
   } catch {
     return { ok: false, message: unreachable, ...(rewardId ? { rewardId } : {}) };
   }

@@ -14,7 +14,7 @@
    tells staff what to look at — and the EXHAUSTED state once the reward's
    redemption cap is used up.
    -------------------------------------------------------------------------- */
-import { ELIGIBILITY, fmtEt, fmtEtTime, type RewardEligibility } from "@/lib/rewards-live";
+import { ELIGIBILITY, fmtEt, fmtEtWhen, type RewardEligibility } from "@/lib/rewards-live";
 
 export type TokenView =
   | { state: "UNKNOWN" }
@@ -125,7 +125,12 @@ export function renderUnavailable(): string {
     <p>Your code is fine — our system is busy. Wait a few seconds and refresh.</p>`);
 }
 
-export type Flash = "claimed" | "redeemed" | "used" | "consent" | "failed" | "soldout" | null;
+/* `notlive` / `expired` are rendered for the route handlers' stable error
+   codes (`reward_not_live`, `reward_expired`) — a claim or redeem refused
+   because the reward changed state between the page load and the tap. The
+   page renders them whatever state the reload shows; an older route that
+   never sends them loses nothing. */
+export type Flash = "claimed" | "redeemed" | "used" | "consent" | "failed" | "soldout" | "notlive" | "expired" | null;
 
 /**
  * F-07 — how long after a redemption its "Redeemed ✓ Enjoy!" confirmation
@@ -142,10 +147,12 @@ function justRedeemed(v: Known, flash: Flash, now: Date): boolean {
   return age >= -30_000 && age <= REDEEMED_FLASH_MS; // small allowance for clock skew
 }
 
-/** QA-09 — the line about this code's hold on a capped reward, if any. */
-function holdLine(v: Known): string {
+/** QA-09 — the line about this code's hold on a capped reward, if any. The
+ *  date is shown whenever the hold doesn't end (or didn't lapse) today in
+ *  Eastern: a hold runs up to 7 days (QA pass 6, P6-FE-01). */
+function holdLine(v: Known, now: Date): string {
   if (!v.hold || !v.claimed) return "";
-  const at = escapeHtml(fmtEtTime(v.hold.until));
+  const at = escapeHtml(fmtEtWhen(v.hold.until, now));
   return v.hold.active
     ? `<p class="ok">Held for you until ${at}. Show this screen at the booth before then.</p>`
     : `<p class="bad">Your hold lapsed at ${at}.${v.state === "LIVE" ? " You can still redeem while any are left." : ""}</p>`;
@@ -178,17 +185,29 @@ export function renderFanPage(token: string, v: TokenView, flash: Flash, now = n
   if (v.state === "EXPIRED") {
     return { status: 200, html: shell("Expired", `
       <h1 class="bad">This reward has expired</h1>${offer(v)}
-      <p>The offer ended before this scan. Keep an eye out for the next one.</p>`) };
+      <p>${flash === "expired" ? "It ended just before that went through." : "The offer ended before this scan."} Keep an eye out for the next one.</p>`) };
   }
   if (v.state === "EXHAUSTED") {
+    /* QA pass 6 (P6-FE-02): the tap that took the LAST unit of a multi-use
+       reward leaves the code EXHAUSTED at once — but that fan did redeem, and
+       staff are looking at this screen. The fresh confirmation wins, under
+       the same F-07 two-minute rule; a later visit reads "run out". */
+    if (justRedeemed(v, flash, now)) {
+      return { status: 200, html: shell("Redeemed", `
+      <h1 class="ok">Redeemed ✓</h1>
+      ${offer(v)}
+      <p class="ok">Show this screen at the booth. Enjoy!${v.timesRedeemed ? ` Redeemed ${v.timesRedeemed} time${v.timesRedeemed === 1 ? "" : "s"} with this code.` : ""}</p>
+      <p class="note">That was the last one — this reward has now run out.</p>
+      ${steps(3)}`) };
+    }
     return { status: 200, html: shell("All gone", `
-      <h1 class="bad">This reward has run out</h1>${offer(v)}${holdLine(v)}
+      <h1 class="bad">This reward has run out</h1>${offer(v)}${holdLine(v, now)}
       <p>Every one of these has been redeemed or is held for a fan who claimed it. Thanks for scanning — keep an eye out for the next one.</p>`) };
   }
   if (v.state === "NOT_LIVE") {
     return { status: 200, html: shell("Not active", `
       <h1 class="bad">This reward isn't active right now</h1>${offer(v)}
-      <p>The sponsor has paused or ended this offer.</p>`) };
+      <p>${flash === "notlive" ? "That didn't go through — the sponsor paused or ended this offer a moment ago." : "The sponsor has paused or ended this offer."}</p>`) };
   }
   /* A state this page doesn't know must fail SAFE — falling through used to
      render the LIVE claim forms for it (or throw on a missing consent block,
@@ -208,6 +227,10 @@ export function renderFanPage(token: string, v: TokenView, flash: Flash, now = n
     : flash === "consent" ? `<p class="bad">To email your code we need you to tick the box. Or claim without an email.</p>`
     : flash === "failed" ? `<p class="bad">That didn't go through — please try again.</p>`
     : flash === "soldout" ? `<p class="bad">This reward ran out a moment ago.</p>`
+    /* The reward was paused/ended and is live again by the reload — say what
+       happened to the tap rather than nothing. */
+    : flash === "notlive" ? `<p class="bad">That didn't go through — the offer was paused for a moment. Please try again.</p>`
+    : flash === "expired" ? `<p class="bad">That didn't go through — please try again.</p>`
     : "";
 
   const claimForm = v.claimed ? "" : `
@@ -235,6 +258,6 @@ export function renderFanPage(token: string, v: TokenView, flash: Flash, now = n
   const subhead = !v.claimed && !again && v.landing?.subhead?.trim() ? `<p class="lede">${escapeHtml(v.landing.subhead.trim())}</p>` : "";
   return { status: 200, html: shell("Your reward", `
     <h1${again ? ' class="ok"' : ""}>${escapeHtml(headline)}</h1>${subhead}
-    ${offer(v)}${msg}${holdLine(v)}${claimForm}${redeemForm}
+    ${offer(v)}${msg}${holdLine(v, now)}${claimForm}${redeemForm}
     ${steps(v.claimed ? 2 : 1)}${beacon}`) };
 }

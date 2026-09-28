@@ -57,7 +57,13 @@ vi.mock("../src/db/client", () => {
         return Promise.resolve({});
       },
       updateMany: () => Promise.resolve({ count: 0 }),
+      /* QA pass 6 — a claim first looks for an earlier REDEEM (a used code
+         is refused) or CLAIM (a repeat answers with it) on its token. */
+      findFirst: ({ where }: { where: { tokenId: string; type: string } }) =>
+        Promise.resolve(writes.find((w) => w.model === "rewardEvent" && w.data.tokenId === where.tokenId && w.data.type === where.type) ? { id: "ev_prior" } : null),
     },
+    /* …and serialises on the token's row (lock_timeout, FOR NO KEY UPDATE). */
+    $queryRaw: () => Promise.resolve([]),
     /* P6-BE-08 — the redemption cap's conditional UPDATE. These rewards are
        uncapped, so it always takes a unit; the cap itself is proven against
        a real database in tests/reward-eligibility-cap.test.ts. */

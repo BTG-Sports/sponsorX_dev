@@ -75,6 +75,16 @@ export function funnelInsight(d: Pick<AnalyticsDataset, "funnel">): Insight {
   }
   const from = d.funnel[worst - 1];
   const to = d.funnel[worst];
+  /* QA pass 6 (P6-FE-05): if even the weakest step does not narrow (booth
+     redemptions without a claim can outnumber claims), there is no drop-off
+     to name — "only 293% of claims become redeems" is not a sentence. */
+  if (to.value >= from.value)
+    return {
+      pre: "",
+      hot: "No step loses fans in this range",
+      post: " — later steps include people who skipped an earlier one (e.g. redeemed at the booth without claiming).",
+      tone: "success",
+    };
   return {
     pre: "Fans stay in until the weak step — only ",
     hot: `${pct(to.value, from.value)}% of ${from.stage.toLowerCase()}s become ${to.stage.toLowerCase()}s`,

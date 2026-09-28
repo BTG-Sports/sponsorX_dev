@@ -119,6 +119,7 @@ export function canReadField(roles: readonly Role[], field: ProtectedField): boo
 
 export class FieldForbiddenError extends Error {
   readonly status = 403;
+  readonly code = "forbidden";
   readonly field: string;
   constructor(field: ProtectedField) {
     super(`Not permitted to read ${field}.`);

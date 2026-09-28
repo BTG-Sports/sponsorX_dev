@@ -82,6 +82,6 @@ export async function reviewAction(
   } catch {
     /* Non-JSON error body — explainRefusal falls back to the status line. */
   }
-  const { message, state } = explainRefusal(kind, response.status, error);
-  return { ok: false, message, ...(state ? { state } : {}) };
+  const { message, state, missing } = explainRefusal(kind, response.status, error);
+  return { ok: false, message, ...(state ? { state } : {}), ...(missing ? { missing } : {}) };
 }

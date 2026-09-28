@@ -486,11 +486,13 @@ describe.skipIf(!hasDatabase)("Phase 2 purchase path over the API", { timeout: 6
       /* The worker's sweep: the carts past expiry, once, and no others. */
       const live = await prisma.cart.findFirstOrThrow({ where: { sponsorId: "pu_s2", state: "ACTIVE" }, select: { id: true } });
       const later = new Date(Date.now() + 25 * 3600e3);
-      const first = await expireCarts(prisma, later);
+      /* Narrowed to this file's sponsors: other files' carts are live in parallel. */
+      const mine = { sponsorId: { startsWith: "pu_" } };
+      const first = await expireCarts(prisma, later, mine);
       expect(first.expired).toBeGreaterThanOrEqual(2);
       expect((await prisma.cart.findUniqueOrThrow({ where: { id: live.id }, select: { state: true, expiredAt: true } })))
         .toEqual({ state: "EXPIRED", expiredAt: later });
-      expect((await expireCarts(prisma, later)).expired).toBe(0);
+      expect((await expireCarts(prisma, later, mine)).expired).toBe(0);
       expect(await prisma.cartLine.count({ where: { cartId: live.id } })).toBeGreaterThan(0); // history kept, read-only
     });
   });
