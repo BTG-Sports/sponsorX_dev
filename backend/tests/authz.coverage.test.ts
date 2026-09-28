@@ -93,6 +93,9 @@ const GOVERNED_BY: Record<string, Resource> = {
   Reservation: "reservation",
   MarketplaceOrder: "marketplaceOrder",
   MarketplaceOrderLine: "marketplaceOrder",
+  CommissionRule: "commissionRule",
+  OrderLineFinancials: "orderFinancials",
+  LedgerEntry: "ledgerEntry",
 };
 
 /** Models no API path reads or writes, and why. */

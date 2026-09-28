@@ -156,7 +156,10 @@ export type Resource =
   | "brandRestriction"
   | "cart"
   | "reservation"
-  | "marketplaceOrder";
+  | "marketplaceOrder"
+  | "commissionRule"
+  | "orderFinancials"
+  | "ledgerEntry";
 
 export const RESOURCES: readonly Resource[] = [
   "tenant",
@@ -221,6 +224,9 @@ export const RESOURCES: readonly Resource[] = [
   "cart",
   "reservation",
   "marketplaceOrder",
+  "commissionRule",
+  "orderFinancials",
+  "ledgerEntry",
 ] as const;
 
 type RolePolicy = Partial<Record<Role, Partial<Record<Action, Scope>>>>;
@@ -845,6 +851,28 @@ export const POLICY: Record<Resource, RolePolicy> = {
     FINANCE: rwa("own-tenant", "own-tenant"),
     SPONSOR_ADMIN: rwa("own-sponsor", "own-sponsor"),
     SPONSOR_ANALYST: rwa("own-sponsor"),
+  },
+
+  /* Phase 2 batch 6 (matrix §21) — the money side. Commission rules and the
+     frozen breakdown are the margin: BTG and Finance only. A property reads
+     its own ledger entries, an athlete theirs; nobody writes an entry — the
+     ledger is written by the order's own transitions. */
+  commissionRule: {
+    SUPER_ADMIN: rwa("any", "any"),
+    BTG_ADMIN: rwa("own-tenant", "own-tenant"),
+    FINANCE: rwa("own-tenant", "own-tenant"),
+  },
+  orderFinancials: {
+    SUPER_ADMIN: rwa("any"),
+    BTG_ADMIN: rwa("own-tenant"),
+    FINANCE: rwa("own-tenant"),
+  },
+  ledgerEntry: {
+    SUPER_ADMIN: rwa("any"),
+    BTG_ADMIN: rwa("own-tenant"),
+    FINANCE: rwa("own-tenant"),
+    PROPERTY_MGR: rwa("own-property"),
+    ATHLETE: rwa("own"),
   },
 };
 

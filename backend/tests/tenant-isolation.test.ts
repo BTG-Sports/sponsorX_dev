@@ -67,6 +67,8 @@ const A = {
   restriction: "ti_restriction_a", cart: "ti_cart_a", cartLine: "ti_cart_line_a",
   /* Phase 2 batch 5 — a hold and the order it became. */
   reservation: "ti_reservation_a", mktOrder: "ti_mkt_order_a",
+  /* Phase 2 batch 6 — a commission rule. */
+  rule: "ti_rule_a",
 } as const;
 const B = {
   tenant: "ti_tenant_b", sponsor: "ti_sponsor_b", athlete: "ti_athlete_b",
@@ -112,7 +114,7 @@ const PARAM_FOR: Record<string, string> = {
   "edition-assets": A.asset, claims: A.claim, properties: A.school, onboarding: A.onboarding,
   inventory: A.item, listings: A.listing, offers: A.offer, roster: A.athlete,
   restrictions: A.restriction, lines: A.cartLine,
-  reservations: A.reservation, "marketplace-orders": A.mktOrder,
+  reservations: A.reservation, "marketplace-orders": A.mktOrder, "commission-rules": A.rule,
   /* GET /deliverables/{id}/assets/{version}/url (P5-FE-04) — a creative
      version number, under tenant A's deliverable. */
   assets: "1",
@@ -221,6 +223,8 @@ const BODY: Record<string, unknown> = {
   "POST /marketplace-orders": { reservationId: A.reservation },
   "POST /marketplace-orders/{id}/decision": { decision: "APPROVE" },
   "POST /marketplace-orders/{id}/transition": { to: "CANCELLED" },
+  "POST /commission-rules": { kind: "PLATFORM_FEE", scope: "GLOBAL", bps: 100, priority: 0 },
+  "POST /commission-rules/{id}/revise": { bps: 1 },
 };
 
 describe.skipIf(!hasDatabase)("P8-SEC-02 · tenant B cannot reach tenant A through any route", async () => {
@@ -331,6 +335,7 @@ describe.skipIf(!hasDatabase)("P8-SEC-02 · tenant B cannot reach tenant A throu
     /* Far-future expiry: the cart sweep (2S4-BE-01) is platform-wide, and
        another file runs it a day ahead while this sweep is fingerprinting. */
     await prisma.cart.create({ data: { id: A.cart, tenantId: t, sponsorId: A.sponsor, expiresAt: new Date(Date.now() + 3650 * 864e5) } });
+    await prisma.commissionRule.create({ data: { id: A.rule, tenantId: t, ruleKey: "ti_rule_key_a", version: 1, kind: "PLATFORM_FEE", scope: "GLOBAL", bps: 1234, priority: 0, effectiveFrom: new Date("2026-01-01"), note: "TI Secret rule" } });
     /* Far-future: the reservation sweep is platform-wide too. */
     await prisma.reservation.create({ data: { id: A.reservation, tenantId: t, sponsorId: A.sponsor, cartId: A.cart, expiresAt: new Date(Date.now() + 3650 * 864e5) } });
     await prisma.marketplaceOrder.create({ data: {

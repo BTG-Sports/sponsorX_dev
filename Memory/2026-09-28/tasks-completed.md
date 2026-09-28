@@ -1019,3 +1019,37 @@ conditional formatting and validation ranges now run to row 255 (the
 Dashboard's ranges already reach row 400). The Stage Progress row for
 2026-09-28 is now 209 done and 107 days left. `P2-OPS-07` is left open at the
 user's decision, because a required check needs GitHub Pro.
+
+## Phase 2 batch 6: the money side. Five backend tasks → Done; `2S0-PMO-02` In progress
+
+- **`2S0-PMO-02` (SIMULATED, waiting for the owner's sign-off):**
+  `documentation/SponsorX-Phase2-Ledger-Design.md`.
+  - It sets the order deductions come off, the rounding, rule precedence,
+    the double-entry accounts and journals, and a worked example that adds
+    up to the cent.
+  - The row stays In progress until the owner signs off.
+- **`2S5-BE-01` · commission rules:** versioned, prioritised and scoped. An
+  edit creates a new version and never rewrites the old one. The rules are
+  read only at contract time.
+- **`2S4-BE-04` · financial snapshot:** each line's full breakdown is frozen
+  into `OrderLineFinancials` at contract time, recording which rule versions
+  applied.
+- **`2S5-BE-02` · subledger:** balanced double-entry journals for booking,
+  release, reversal and payout.
+  - `/team/ledger` reconciles exactly: booked − reversed − paid = balance =
+    pending.
+- **`2S5-SEC-01` · audit:** the audit log is now append-only in Postgres.
+  - **Test databases must be marked purgeable** (`sponsorx.audit_purge`).
+    CI marks its two; the local test database was marked by hand. The steps
+    are in `prisma/sql/README.md`.
+  - The coverage guard now spans the Phase 2 money modules.
+- **`2S7-DATA-01` · property analytics:** `/team/analytics`, where every figure
+  has a named source. CPM is null because there is no impression data.
+- **Matrix §21:** the digest is now `39e42fab590b7584`. With this batch
+  removed, the grid still hashes to the old value.
+- **Payments** (checkout, webhooks, payouts, refunds) are a separate cycle.
+  It waits on the owner choosing a payment provider (`2S0-PMO-03`).
+
+The full backend suite passes (1599 tests). Nine of nine mutations were
+caught; a survivor showed a missing test for the processing remainder, which
+was added.
