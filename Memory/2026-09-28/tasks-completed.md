@@ -1009,3 +1009,13 @@ and holds had been compared to the millisecond (fixed in batch 4).
 
 `P2-OPS-07` is unchanged. Its second clause (the matrix as a required check)
 needs GitHub Pro.
+
+**`P6-BE-08` → Done; new task `P6-FE-04`** (both at the programme owner's
+instruction). The fan page's rendering of the landing copy, eligibility and
+spent cap is now `P6-FE-04` (frontend, 1 day, Ready). `P6-BE-08`'s acceptance
+now covers the backend only. Both tasks are added to the Phase 1 Markdown,
+which had never listed `P6-BE-08`. On the Phase 1 sheet, the autofilter,
+conditional formatting and validation ranges now run to row 255 (the
+Dashboard's ranges already reach row 400). The Stage Progress row for
+2026-09-28 is now 209 done and 107 days left. `P2-OPS-07` is left open at the
+user's decision, because a required check needs GitHub Pro.
