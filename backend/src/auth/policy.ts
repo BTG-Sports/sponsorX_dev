@@ -154,7 +154,9 @@ export type Resource =
   | "offer"
   | "tenantBranding"
   | "brandRestriction"
-  | "cart";
+  | "cart"
+  | "reservation"
+  | "marketplaceOrder";
 
 export const RESOURCES: readonly Resource[] = [
   "tenant",
@@ -217,6 +219,8 @@ export const RESOURCES: readonly Resource[] = [
   "tenantBranding",
   "brandRestriction",
   "cart",
+  "reservation",
+  "marketplaceOrder",
 ] as const;
 
 type RolePolicy = Partial<Record<Role, Partial<Record<Action, Scope>>>>;
@@ -821,6 +825,24 @@ export const POLICY: Record<Resource, RolePolicy> = {
   cart: {
     SUPER_ADMIN: rwa("any", "any"),
     BTG_ADMIN: rwa("own-tenant"),
+    SPONSOR_ADMIN: rwa("own-sponsor", "own-sponsor"),
+    SPONSOR_ANALYST: rwa("own-sponsor"),
+  },
+
+  /* Phase 2 batch 5 (matrix §20). A hold is the sponsor's own; BTG reads. */
+  reservation: {
+    SUPER_ADMIN: rwa("any", "any"),
+    BTG_ADMIN: rwa("own-tenant"),
+    SPONSOR_ADMIN: rwa("own-sponsor", "own-sponsor"),
+    SPONSOR_ANALYST: rwa("own-sponsor"),
+  },
+  /* The marketplace order: the sponsor places and may cancel it; BTG
+     approves (approve) and moves it through payment and delivery (write);
+     Finance reads and records payment states. */
+  marketplaceOrder: {
+    SUPER_ADMIN: rwa("any", "any", "any"),
+    BTG_ADMIN: rwa("own-tenant", "own-tenant", "own-tenant"),
+    FINANCE: rwa("own-tenant", "own-tenant"),
     SPONSOR_ADMIN: rwa("own-sponsor", "own-sponsor"),
     SPONSOR_ANALYST: rwa("own-sponsor"),
   },

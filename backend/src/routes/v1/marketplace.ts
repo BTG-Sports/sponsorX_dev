@@ -11,7 +11,12 @@ import {
   BrandingInput, InventoryItemInput, InventoryItemPatch, ListingDecisionInput, ListingInput, ListingPatch, ListingState,
   ListingTransitionInput, LogoUploadInput, OfferInput, OfferResponseInput, RosterAthleteInput, TeamShareInput,
   CartLineInput, CartLinePatch, RestrictionInput, SearchQuery, SponsorCategoriesInput,
+  MarketplaceOrderDecisionInput, MarketplaceOrderTransitionInput, PlaceOrderInput,
 } from "../../contracts/marketplace";
+import { getReservation, releaseReservation, reserveCart } from "../../domain/reservation";
+import {
+  decideMarketplaceOrder, getMarketplaceOrder, listMarketplaceOrders, placeOrder, transitionMarketplaceOrder,
+} from "../../domain/marketplace-order";
 import { createRestriction, deleteRestriction, listRestrictions, setSponsorCategories } from "../../domain/restrictions";
 import { searchMarketplace } from "../../domain/marketplace-search";
 import { addLine, currentCart, openCart, removeLine, updateLine } from "../../domain/cart";
@@ -117,3 +122,30 @@ marketplaceRouter.post("/cart", requireActor, open);
 marketplaceRouter.post("/cart/lines", requireActor, addToCart);
 marketplaceRouter.patch("/cart/lines/:id", requireActor, changeLine);
 marketplaceRouter.delete("/cart/lines/:id", requireActor, dropLine);
+
+/* ── Phase 2 batch 5 — reservations (2S4-BE-02), orders (2S4-BE-03/-05) ── */
+const reserve: RequestHandler = async (req, res) => { res.status(201).json(await reserveCart(req.actor!)); };
+const reservation: RequestHandler<Id> = async (req, res) => { res.json(await getReservation(req.actor!, req.params.id)); };
+const release: RequestHandler<Id> = async (req, res) => { res.json(await releaseReservation(req.actor!, req.params.id)); };
+marketplaceRouter.post("/cart/reserve", requireActor, reserve);
+marketplaceRouter.get("/reservations/:id", requireActor, reservation);
+marketplaceRouter.post("/reservations/:id/release", requireActor, release);
+
+const orders: RequestHandler = async (req, res) => {
+  const state = typeof req.query.state === "string" ? (req.query.state as Parameters<typeof listMarketplaceOrders>[1]) : undefined;
+  res.json({ orders: await listMarketplaceOrders(req.actor!, state) });
+};
+const order: RequestHandler<Id> = async (req, res) => { res.json(await getMarketplaceOrder(req.actor!, req.params.id)); };
+const place: RequestHandler = async (req, res) => { res.status(201).json(await placeOrder(req.actor!, PlaceOrderInput.parse(req.body).reservationId)); };
+const decideOrder: RequestHandler<Id> = async (req, res) => {
+  const b = MarketplaceOrderDecisionInput.parse(req.body);
+  res.json(await decideMarketplaceOrder(req.actor!, req.params.id, b.decision, b.notes));
+};
+const moveOrder: RequestHandler<Id> = async (req, res) => {
+  res.json(await transitionMarketplaceOrder(req.actor!, req.params.id, MarketplaceOrderTransitionInput.parse(req.body).to));
+};
+marketplaceRouter.get("/marketplace-orders", requireActor, orders);
+marketplaceRouter.post("/marketplace-orders", requireActor, place);
+marketplaceRouter.get("/marketplace-orders/:id", requireActor, order);
+marketplaceRouter.post("/marketplace-orders/:id/decision", requireActor, decideOrder);
+marketplaceRouter.post("/marketplace-orders/:id/transition", requireActor, moveOrder);

@@ -18,7 +18,7 @@ import { ZohoRecordError, type ZohoClient } from "../../src/lib/zoho.ts";
 import {
   applyZohoRecord,
   backfill,
-  pushDeal,
+  pushDeal, pushMarketplaceOrder,
   pushLead,
   pushFanLead,
   pushRenewal,
@@ -69,6 +69,11 @@ export const handlePushLead = (deps: Deps, job: LeadJob) =>
     "fanEventId" in job
       ? pushFanLead(ctxFor(deps), job.tenantId, job.fanEventId)
       : pushLead(ctxFor(deps), job.tenantId, job.inquiryId));
+
+/** 2S7-INT-01 — a contracted marketplace order, its sponsor and its properties. */
+export type MarketplaceOrderJob = Tenanted & { orderId: string };
+export const handlePushMarketplaceOrder = (deps: Deps, job: MarketplaceOrderJob) =>
+  tolerateRecordErrors("zoho.pushMarketplaceOrder", () => pushMarketplaceOrder(ctxFor(deps), job.tenantId, job.orderId));
 
 export type RenewalJob = Tenanted & { campaignId: string };
 export const handlePushRenewal = (deps: Deps, job: RenewalJob) =>
@@ -183,7 +188,7 @@ export async function runReconciliation(deps: Deps, opts: { force?: boolean; ten
  */
 export const NEEDS_ZOHO_CRM = new Set([
   "zoho.pushDeal", "zoho.pushCampaign", "zoho.pushTask", "zoho.pushLead",
-  "zoho.pushRenewal", "zoho.ingestCrm", "zoho.backfill",
+  "zoho.pushRenewal", "zoho.ingestCrm", "zoho.backfill", "zoho.pushMarketplaceOrder",
 ]);
 
 export function dispatchableJobs(handled: Iterable<string>, zohoConfigured: boolean): string[] {

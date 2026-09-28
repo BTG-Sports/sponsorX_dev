@@ -370,6 +370,14 @@ const BUILDERS: Partial<Record<Resource, Builder>> = {
     if (scope === "own-sponsor") return actor.sponsorId ? { tenantId: actor.tenantId, sponsorId: actor.sponsorId } : MATCHES_NOTHING;
     return tenantScoped(actor, scope);
   },
+  reservation: (actor, scope) => {
+    if (scope === "own-sponsor") return actor.sponsorId ? { tenantId: actor.tenantId, sponsorId: actor.sponsorId } : MATCHES_NOTHING;
+    return tenantScoped(actor, scope);
+  },
+  marketplaceOrder: (actor, scope) => {
+    if (scope === "own-sponsor") return actor.sponsorId ? { tenantId: actor.tenantId, sponsorId: actor.sponsorId } : MATCHES_NOTHING;
+    return tenantScoped(actor, scope);
+  },
   tenantBranding: (actor, scope) => {
     if (scope === "any") return {};
     if (scope === "own-tenant" || scope === "own") return { tenantId: actor.tenantId };

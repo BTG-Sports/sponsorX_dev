@@ -58,6 +58,10 @@ import {
   toZohoLead,
   toZohoFanLead,
   toZohoRenewalCreate,
+  marketplaceOrderStage,
+  toZohoMarketplaceDeal,
+  toZohoPropertyAccountCreate,
+  toZohoPropertyContactCreate,
   toZohoTaskCreate,
   toZohoTaskUpdate,
   zohoAccountShared,
@@ -310,6 +314,90 @@ export async function pushDeal(
     });
   }
   return { status: "pushed", zohoId: result.id, action: result.action };
+}
+
+/**
+ * 2S7-INT-01 — a contracted marketplace order → Zoho (field-mapping §13).
+ *
+ * "Zoho contains linked Account, Contact and Deal data for external
+ * marketplace transactions." So, in this order: the sponsor's Account and
+ * primary Contact (the existing pushes); each outside property it buys from
+ * as an Account of its own, with its manager as a Contact under it; then the
+ * Deal, linked to the sponsor's Account and Contact and naming each property
+ * Account in its description. Every write is an upsert on SponsorX_ID, so a
+ * redelivered job finds what it made. After the first push only the Stage
+ * moves — Zoho owns the rest once sales has it.
+ */
+export async function pushMarketplaceOrder(ctx: SyncCtx, tenantId: string, orderId: string): Promise<PushOutcome> {
+  const order = await ctx.db.marketplaceOrder.findFirst({
+    where: { id: orderId, tenantId },
+    select: {
+      id: true, sponsorId: true, state: true, totalCents: true, contractedAt: true, createdAt: true, zohoDealId: true,
+      lines: { select: { title: true, propertyId: true, quantity: true, lineTotalCents: true, endsOn: true } },
+    },
+  });
+  if (!order) return { status: "skipped", reason: "order not found" };
+  if (!order.contractedAt) return { status: "skipped", reason: "an order reaches Zoho once it is contracted" };
+  const stage = marketplaceOrderStage(order.state);
+
+  if (order.zohoDealId) {
+    const r = await ctx.zoho.update("Deals", order.zohoDealId, { SponsorX_ID: `mkt-order:${order.id}`, Stage: stage });
+    return { status: "pushed", zohoId: r.id, action: r.action };
+  }
+
+  const zohoAccountId = await ensureAccount(ctx, tenantId, order.sponsorId);
+  const zohoContactId = await ensurePrimaryContact(ctx, tenantId, order.sponsorId);
+  const properties = new Map<string, { name: string; zohoId: string | null }>();
+  for (const propertyId of new Set(order.lines.map((l) => l.propertyId))) {
+    properties.set(propertyId, await ensurePropertyAccount(ctx, propertyId));
+  }
+  const sponsor = await ctx.db.sponsor.findFirstOrThrow({ where: { id: order.sponsorId, tenantId }, select: { name: true } });
+  const earlier = await ctx.db.marketplaceOrder.count({
+    /* Only orders placed BEFORE this one make it existing business — a later
+       order, or a redelivery of an old push, must not relabel it. */
+    where: { tenantId, sponsorId: order.sponsorId, id: { not: order.id }, contractedAt: { not: null }, createdAt: { lt: order.createdAt } },
+  });
+  const r = await ctx.zoho.upsert("Deals", toZohoMarketplaceDeal({
+    orderId: order.id, sponsorName: sponsor.name, totalCents: order.totalCents, stage, placedAt: order.createdAt,
+    closingDate: new Date(Math.max(...order.lines.map((l) => l.endsOn.getTime()))),
+    zohoAccountId, zohoContactId, existingBusiness: earlier > 0,
+    lines: order.lines.map((l) => ({
+      title: l.title, quantity: l.quantity, lineTotalCents: l.lineTotalCents,
+      propertyName: properties.get(l.propertyId)?.name ?? "property", zohoPropertyAccountId: properties.get(l.propertyId)?.zohoId ?? null,
+    })),
+  }));
+  await ctx.db.marketplaceOrder.update({ where: { id: order.id }, data: { zohoDealId: r.id } });
+  return { status: "pushed", zohoId: r.id, action: r.action };
+}
+
+/** The outside property's Account, and its manager's Contact under it — pushed once. */
+async function ensurePropertyAccount(ctx: SyncCtx, propertyId: string): Promise<{ name: string; zohoId: string | null }> {
+  const p = await ctx.db.property.findFirst({
+    /* tenant-scope: the property a marketplace order line names; the line was read in the order's own tenant. */
+    where: { id: propertyId },
+    select: { id: true, tenantId: true, name: true, kind: true, stateCode: true, zohoId: true, zohoContactId: true, onboarding: { select: { contacts: true } } },
+  });
+  if (!p) return { name: "property", zohoId: null };
+  let accountId = p.zohoId;
+  if (!accountId) {
+    accountId = (await ctx.zoho.upsert("Accounts", toZohoPropertyAccountCreate(p))).id;
+    await ctx.db.property.update({ where: { id: p.id }, data: { zohoId: accountId, lastSyncOrigin: "SPONSORX" } });
+  }
+  if (!p.zohoContactId) {
+    const manager = await ctx.db.user.findFirst({
+      where: { tenantId: p.tenantId, propertyId: p.id, roles: { has: "PROPERTY_MGR" } },
+      orderBy: { createdAt: "asc" }, select: { id: true, email: true },
+    });
+    if (manager) {
+      const contacts = (p.onboarding?.contacts ?? []) as Array<{ name?: string; email?: string; phone?: string; role?: string; primary?: boolean }>;
+      const named = contacts.find((c) => c.email?.toLowerCase() === manager.email.toLowerCase()) ?? contacts.find((c) => c.primary);
+      const r = await ctx.zoho.upsert("Contacts", toZohoPropertyContactCreate({
+        userId: manager.id, name: named?.name ?? manager.email, email: manager.email, phone: named?.phone ?? null, title: named?.role ?? null,
+      }, accountId));
+      await ctx.db.property.update({ where: { id: p.id }, data: { zohoContactId: r.id } });
+    }
+  }
+  return { name: p.name, zohoId: accountId };
 }
 
 /** §18 row 9 — a campaign that COMPLETED opens a second Deal. One-way. */
