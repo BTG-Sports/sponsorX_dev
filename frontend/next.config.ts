@@ -17,6 +17,14 @@ const nextConfig: NextConfig = {
   // The dev-tools badge defaults to bottom-left, where it sits on top of the
   // student portal's bottom tab bar (P1-FE-19) at phone widths. Dev-only.
   devIndicators: { position: "top-right" },
+
+  // DEV-ONLY. Next's dev server serves its dev resources (/_next/hmr, the
+  // client runtime) only to localhost and the host it started on, and
+  // refuses everything else as cross-origin. The E2E harness opens the app at
+  // 127.0.0.1 (playwright.config.ts), so without this every page rendered but
+  // never hydrated — no client code ran, and Clerk never consumed a sign-in
+  // ticket. Ignored by `next build` / `next start`.
+  allowedDevOrigins: ["127.0.0.1"],
 };
 
 export default nextConfig;
