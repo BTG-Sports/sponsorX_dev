@@ -1216,6 +1216,7 @@ Dashboard's ranges already reach row 400). The Stage Progress row for
 user's decision, because a required check needs GitHub Pro.
 
 
+
 ## Merge with origin/main_development + tracker → Done (HeckerCreatives, end of day)
 
 - **Merged** rcfworks' Phase 2 batches 2–5 and their P6-BE-08. Conflicts
@@ -1226,7 +1227,7 @@ user's decision, because a required check needs GitHub Pro.
     deployed and **untouched**.
   - Our two local migrations (`…130000_reward_limits_landing`,
     `…140000_reward_reservations_atomic_redeem`) are **replaced** by
-    `20260928190000_reward_merge_holds_atomic_redeem`. It moves the deployed
+    `20260928200000_reward_merge_holds_atomic_redeem` (renamed from 190000 — rcfworks' `20260928190000_phase2_ledger` shares that stamp). It moves the deployed
     shape to the merged design:
     - `eligibility` becomes the enum; any free text is moved to
       `eligibilityNote`
@@ -1379,3 +1380,67 @@ user's decision, because a required check needs GitHub Pro.
 - No age floor at intake (a product question).
 - **Left as Info:** the SUPER_ADMIN cross-tenant inconsistency, and
   form-encoded claims.
+
+---
+
+<!-- Merged from origin/main_development (rcfworks, Phase 2 batch 6) — both logs kept. -->
+
+## Phase 2 batch 6: the money side. Five backend tasks → Done; `2S0-PMO-02` In progress
+
+- **`2S0-PMO-02` (SIMULATED, waiting for the owner's sign-off):**
+  `documentation/SponsorX-Phase2-Ledger-Design.md`.
+  - It sets the order deductions come off, the rounding, rule precedence,
+    the double-entry accounts and journals, and a worked example that adds
+    up to the cent.
+  - The row stays In progress until the owner signs off.
+- **`2S5-BE-01` · commission rules:** versioned, prioritised and scoped. An
+  edit creates a new version and never rewrites the old one. The rules are
+  read only at contract time.
+- **`2S4-BE-04` · financial snapshot:** each line's full breakdown is frozen
+  into `OrderLineFinancials` at contract time, recording which rule versions
+  applied.
+- **`2S5-BE-02` · subledger:** balanced double-entry journals for booking,
+  release, reversal and payout.
+  - `/team/ledger` reconciles exactly: booked − reversed − paid = balance =
+    pending.
+- **`2S5-SEC-01` · audit:** the audit log is now append-only in Postgres.
+  - **Test databases must be marked purgeable** (`sponsorx.audit_purge`).
+    CI marks its two; the local test database was marked by hand. The steps
+    are in `prisma/sql/README.md`.
+  - The coverage guard now spans the Phase 2 money modules.
+- **`2S7-DATA-01` · property analytics:** `/team/analytics`, where every figure
+  has a named source. CPM is null because there is no impression data.
+- **Matrix §21:** the digest is now `39e42fab590b7584`. With this batch
+  removed, the grid still hashes to the old value.
+- **Payments** (checkout, webhooks, payouts, refunds) are a separate cycle.
+  It waits on the owner choosing a payment provider (`2S0-PMO-03`).
+
+The full backend suite passes (1599 tests). Nine of nine mutations were
+caught; a survivor showed a missing test for the processing remainder, which
+was added.
+
+
+## Second merge — Phase 2 batch 6 (rcfworks) into the QA pass 6 fixes
+
+- **Conflicts:** the tracker xlsx (took theirs, then re-applied our 10
+  Done rows and recomputed Stage Progress: 219 Done, 77 days left) and this
+  log (both sides kept).
+- **Migration stamp clash:** rcfworks' new `20260928190000_phase2_ledger`
+  shares a timestamp with our reward-merge migration. Ours was never
+  deployed, so it is **renamed to `20260928200000_reward_merge_holds_atomic_redeem`**
+  and the local `_prisma_migrations` row is renamed to match.
+  - Order on a fresh DB: ledger (190000), then reward merge (200000).
+  - `migrate status` is up to date and `migrate diff` is empty.
+- **Local setup, needed from now on:** batch 6 makes `AuditLog`
+  append-only (`prisma/sql/ledger_immutable.sql`). Test cleanups can delete
+  audit rows only on a database marked
+  `ALTER DATABASE <db> SET sponsorx.audit_purge = 'on'`. CI does this for
+  `sponsorx_test` and `sponsorx_e2e`, and it is now set on the local
+  `sponsorx` dev DB. **Never on staging or production.**
+- `tests/phase2-ledger.test.ts` had the same Windows `URL.pathname` bug; it
+  now uses `fileURLToPath`.
+- **Verified:**
+  - backend 1694/1694 ×3 (parallel, worker stopped), frontend 369/369
+  - tsc and eslint clean
+  - e2e 15/15
+  - `npm run build` green

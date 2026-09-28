@@ -900,7 +900,7 @@ export async function viewToken(token: string, now = new Date()): Promise<TokenV
  * Redeem a token at the till.
  *
  * ONE DATABASE CALL DECIDES EVERYTHING — `reward_redeem(token, now)`,
- * migration 20260928190000 (QA pass 5, merged with P6-BE-08). It locks the Reward row, then reads
+ * migration 20260928200000 (QA pass 5, merged with P6-BE-08). It locks the Reward row, then reads
  * the state, the expiry, this code's use, the redemptions and the other codes'
  * holds as they are NOW, and inserts the REDEEM — all inside Postgres.
  *

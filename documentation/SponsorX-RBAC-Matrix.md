@@ -1143,6 +1143,37 @@ Rejecting it releases the stock. `APPROVED` is reached only by that decision,
 or by policy when there is no reason to hold the order, and never by a
 transition.
 
+## 21 · Phase 2 · commission, the frozen breakdown, the ledger *(added 2026-09-28)*
+
+See `documentation/SponsorX-Phase2-Ledger-Design.md` (`2S0-PMO-02`, simulated).
+
+### `commissionRule` (2S5-BE-01)
+| Role | Read | Write | Approve |
+|---|---|---|---|
+| `SUPER_ADMIN` | any | any | — |
+| `BTG_ADMIN`, `FINANCE` | own-tenant | own-tenant | — |
+
+### `orderFinancials` (2S4-BE-04)
+| Role | Read | Write | Approve |
+|---|---|---|---|
+| `SUPER_ADMIN` | any | — | — |
+| `BTG_ADMIN`, `FINANCE` | own-tenant | — | — |
+
+### `ledgerEntry` (2S5-BE-02)
+| Role | Read | Write | Approve |
+|---|---|---|---|
+| `SUPER_ADMIN` | any | — | — |
+| `BTG_ADMIN`, `FINANCE` | own-tenant (the operator's books) | — | — |
+| `PROPERTY_MGR` | own-property (its own party entries) | — | — |
+| `ATHLETE` | own (its own party entries) | — | — |
+
+- **Commission rules and the frozen breakdown are the margin,** so BTG and
+  Finance see them and nobody else does.
+- **The ledger is written only by the order's own transitions.** No role
+  writes an entry directly.
+- **The books live in the operator's tenant.** A party reads its own entries
+  through the party's tenant and id.
+
 ## 14 · Known gaps
 
 - **D1 and D3 are subject to legal confirmation** (§12). Both were adopted at

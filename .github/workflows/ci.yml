@@ -106,6 +106,12 @@ jobs:
             psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f "$f"
           done
 
+      # 2S5-SEC-01 — the audit log is append-only (prisma/sql/ledger_immutable.sql).
+      # A TEST database is the one place its rows may be deleted, so suites can
+      # clean up after themselves; marked here, and never on staging or production.
+      - name: Mark the test database as purgeable
+        run: psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -c "ALTER DATABASE sponsorx_test SET sponsorx.audit_purge = 'on'"
+
       # 2S7-BE-02 — the report-render test prints a real PDF in headless
       # Chromium, so this job needs the browser too (same cache as e2e).
       - name: Cache the browser
@@ -220,6 +226,8 @@ jobs:
           for f in backend/prisma/sql/*.sql; do
             psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f "$f"
           done
+          # 2S5-SEC-01 — a test database: the append-only audit log may be purged here.
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -c "ALTER DATABASE sponsorx_e2e SET sponsorx.audit_purge = 'on'"
 
       - name: Run the E2E suite
         run: npm run e2e

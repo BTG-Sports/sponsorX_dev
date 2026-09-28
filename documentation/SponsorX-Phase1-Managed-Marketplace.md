@@ -1751,7 +1751,7 @@ Raised 2026-09-28 by the `P6-FE-01` wiring. §9 screen 10 asks the reward creato
 - **Done when:** Eligibility, a redemption cap and landing headline/subhead persist on Reward; the cap is enforced race-safely at redeem; the public view serves the landing copy for the fan page to render (the rendering itself is `P6-FE-04`); tenant-isolation sweep still green
 - **Reference:** §9 screen 10, §16
 - **Changed 2026-09-28** by the programme owner: the fan page's rendering was split into `P6-FE-04`, so this task stays backend-only.
-- **Changed 2026-09-28** (merge): this task was built on both branches. The merged design keeps rcfworks' deployed migration and moves it forward in `20260928190000_reward_merge_holds_atomic_redeem`: `eligibility` is the `RewardEligibility` enum with the free text kept as `eligibilityNote`; `redemptionCount` is the one counter, kept by a trigger; a claim on a capped reward holds a unit for `reserveMinutes` (product decision); a spent cap is **410** with `error.kind` `REDEMPTION_CAP`.
+- **Changed 2026-09-28** (merge): this task was built on both branches. The merged design keeps rcfworks' deployed migration and moves it forward in `20260928200000_reward_merge_holds_atomic_redeem`: `eligibility` is the `RewardEligibility` enum with the free text kept as `eligibilityNote`; `redemptionCount` is the one counter, kept by a trigger; a claim on a capped reward holds a unit for `reserveMinutes` (product decision); a spent cap is **410** with `error.kind` `REDEMPTION_CAP`.
 
 ### ✅ `P6-FE-04` · Render reward landing copy, eligibility and cap on the fan page
 

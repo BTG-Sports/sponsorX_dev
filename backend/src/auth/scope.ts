@@ -374,6 +374,19 @@ const BUILDERS: Partial<Record<Resource, Builder>> = {
     if (scope === "own-sponsor") return actor.sponsorId ? { tenantId: actor.tenantId, sponsorId: actor.sponsorId } : MATCHES_NOTHING;
     return tenantScoped(actor, scope);
   },
+  commissionRule: tenantScoped,
+  orderFinancials: tenantScoped,
+  /* The books are the operator's; a party reads its own entries by the
+     party's tenant and id — never another party's, never another tenant's. */
+  ledgerEntry: (actor, scope) => {
+    if (scope === "own-property") {
+      return actor.propertyId ? { partyTenantId: actor.tenantId, partyType: "PROPERTY", partyId: actor.propertyId } : MATCHES_NOTHING;
+    }
+    if (scope === "own") {
+      return actor.athleteId ? { partyTenantId: actor.tenantId, partyType: "ATHLETE", partyId: actor.athleteId } : MATCHES_NOTHING;
+    }
+    return tenantScoped(actor, scope);
+  },
   marketplaceOrder: (actor, scope) => {
     if (scope === "own-sponsor") return actor.sponsorId ? { tenantId: actor.tenantId, sponsorId: actor.sponsorId } : MATCHES_NOTHING;
     return tenantScoped(actor, scope);

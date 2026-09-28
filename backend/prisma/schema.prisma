@@ -889,7 +889,7 @@ model Reward {
   eligibilityNote String?
   /// Most REDEEMs this reward may have across ALL its tokens; null =
   /// unlimited. Enforced inside the `reward_redeem` / `reward_reserve`
-  /// database functions (migration 20260928190000), never by the page;
+  /// database functions (migration 20260928200000), never by the page;
   /// CHECK "Reward_redemption_cap" (rcfworks) keeps count <= cap.
   redemptionCap   Int?
   /// REDEEM rows across every token — what the cap is checked against. Kept
@@ -2226,4 +2226,98 @@ model MarketplaceOrderLine {
 
   @@index([tenantId, orderId])
   @@index([propertyId])
+}
+
+/**
+ * ── Phase 2 batch 6 · commission, the frozen breakdown, the ledger ──────
+ */
+
+/// 2S5-BE-01 — one version of a commission rule (documentation/SponsorX-
+/// Phase2-Ledger-Design.md §3). Versioned, never rewritten: a revision is a
+/// new row with the same `ruleKey`, and the old row's window is closed.
+/// Postgres refuses any other change (prisma/sql/ledger_immutable.sql).
+model CommissionRule {
+  id            String    @id @default(cuid())
+  tenantId      String
+  /// Stable across versions of the same rule.
+  ruleKey       String
+  version       Int
+  /// PLATFORM_FEE | MANAGEMENT_FEE | PROCESSING | REFERRAL | RESERVE | TEAM_SHARE
+  kind          String
+  /// GLOBAL | PROPERTY_KIND | PROPERTY | SPONSOR
+  scope         String
+  /// The property kind, property id or sponsor id the scope names; null for GLOBAL.
+  scopeRef      String?
+  bps           Int
+  fixedCents    Int       @default(0)
+  /// Higher applies first.
+  priority      Int
+  effectiveFrom DateTime
+  effectiveTo   DateTime?
+  note          String?
+  createdBy     String?
+  createdAt     DateTime  @default(now())
+
+  @@unique([ruleKey, version])
+  @@index([tenantId, kind])
+}
+
+/// 2S4-BE-04 — a marketplace order line's full breakdown, frozen at contract
+/// time, with the rule versions that produced it. Never changes.
+model OrderLineFinancials {
+  id                 String   @id @default(cuid())
+  tenantId           String
+  orderId            String
+  lineId             String   @unique
+  grossCents         Int
+  discountCents      Int
+  netCents           Int
+  platformFeeCents   Int
+  managementFeeCents Int
+  processingCents    Int
+  propertyShareCents Int
+  referralCents      Int
+  reserveCents       Int
+  availableCents     Int
+  /// For a roster athlete's item: the team's cut of available and reserve;
+  /// the athlete has the rest. Null for the team's own items.
+  teamShareBps       Int?
+  teamAvailableCents Int?
+  teamReserveCents   Int?
+  athleteId          String?
+  /// { kind: { ruleId, ruleKey, version, bps, fixedCents } } — what applied.
+  rules              Json
+  computedAt         DateTime @default(now())
+
+  @@index([tenantId, orderId])
+}
+
+/// 2S5-BE-02 — the subledger. Double-entry: each journal's debits equal its
+/// credits. Entries live in the operator's tenant (the books are BTG's); each
+/// also names its party's tenant, which is how a property reads only its own.
+/// Never updated or deleted — status only moves forward.
+model LedgerEntry {
+  id            String   @id @default(cuid())
+  tenantId      String
+  journalId     String
+  /// BOOKING | RESERVE_RELEASE | REVERSAL | PAYOUT
+  entryType     String
+  orderId       String?
+  lineId        String?
+  /// SPONSOR_RECEIVABLE | PLATFORM_REVENUE | MANAGEMENT_REVENUE | PROCESSING_PAYABLE
+  /// | REFERRAL_PAYABLE | RESERVE_HELD | PROPERTY_PAYABLE | ATHLETE_PAYABLE
+  account       String
+  /// SPONSOR | PLATFORM | PROCESSOR | REFERRER | PROPERTY | ATHLETE
+  partyType     String
+  partyId       String
+  partyTenantId String
+  debitCents    Int      @default(0)
+  creditCents   Int      @default(0)
+  /// PENDING | AVAILABLE | PAID | REVERSED
+  status        String   @default("PENDING")
+  createdAt     DateTime @default(now())
+
+  @@index([tenantId, orderId])
+  @@index([partyTenantId, partyType, partyId])
+  @@index([journalId])
 }

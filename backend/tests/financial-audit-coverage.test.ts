@@ -24,6 +24,13 @@ import { describe, expect, it } from "vitest";
 const MONEY_MODULES = [
   "athlete-rate.ts",
   "earning.ts",
+  /* 2S5-SEC-01 — Phase 2's money: pricing (inventory), offers, marketplace
+     orders and their approval, commission rules and the ledger. */
+  "inventory.ts",
+  "offer.ts",
+  "marketplace-order.ts",
+  "commission.ts",
+  "ledger.ts",
 ] as const;
 
 /**
@@ -37,6 +44,21 @@ const READ_ONLY = new Set([
   "readEarning",
   "breakdown",
   "clearsFloor",
+  /* 2S5-SEC-01 — reads and pure functions in the Phase 2 money modules. */
+  "listInventory",
+  "getInventoryItem",
+  "inventoryProblems",
+  "listOffers",
+  "getOffer",
+  "canonicalTerms",
+  "termsHashOf",
+  "listMarketplaceOrders",
+  "getMarketplaceOrder",
+  "listRules",
+  "resolveRates",
+  "orderFinancials",
+  "propertyLedger",
+  "summarise",
 ]);
 
 function sourceOf(file: string): string {
@@ -48,10 +70,15 @@ function exportedFunctions(source: string): { name: string; body: string }[] {
   const out: { name: string; body: string }[] = [];
   const re = /^export (?:async )?function (\w+)/gm;
   const hits = [...source.matchAll(re)];
-  hits.forEach((m, i) => {
+  /* A body ends at the next top-level declaration of any kind — not just
+     the next export — so an internal helper that follows is not read as
+     part of the function before it. */
+  const next = /^(?:export |async function |function |const |type |class )/gm;
+  hits.forEach((m) => {
     const start = m.index!;
-    const end = i + 1 < hits.length ? hits[i + 1]!.index! : source.length;
-    out.push({ name: m[1]!, body: source.slice(start, end) });
+    next.lastIndex = start + 1;
+    const n = next.exec(source);
+    out.push({ name: m[1]!, body: source.slice(start, n ? n.index : source.length) });
   });
   return out;
 }
@@ -67,12 +94,40 @@ describe("P7-SEC-01 · every money change is audited", () => {
 
   const mutators = discovered.filter((fn) => !READ_ONLY.has(fn.name));
 
+  /* A mutator may audit through a helper in its own module (the order's
+     decision goes through `contract` / `moveIn`, which audit) — but only a
+     helper that itself audits. */
+  const auditedHelpers = (file: string) =>
+    [...sourceOf(file).matchAll(/^(?:async )?function (\w+)[\s\S]*?\n\}/gm)]
+      .filter((m) => /\baudit\(/.test(m[0]))
+      .map((m) => m[1]!);
+
   it.each(mutators.map((fn) => [`${fn.file}:${fn.name}`, fn] as const))(
     "%s writes an audit entry",
     (_label, fn) => {
-      expect(fn.body).toMatch(/\baudit\(/);
+      const helpers = auditedHelpers(fn.file);
+      const direct = /\baudit\(/.test(fn.body);
+      const delegated = helpers.some((h) => new RegExp(`\\b${h}\\(`).test(fn.body));
+      expect(direct || delegated, `${fn.name} neither audits nor calls an audited helper`).toBe(true);
     },
   );
+
+  it("every module that writes money records is one of the money modules", async () => {
+    const { readdirSync } = await import("node:fs");
+    const writers = readdirSync(new URL("../src/domain/", import.meta.url))
+      .filter((f) => f.endsWith(".ts"))
+      .filter((f) => /\b(ledgerEntry|commissionRule|orderLineFinancials|marketplaceOrder|offer|athleteRate|earning)\.(create|createMany|update|updateMany|upsert|delete)\(/.test(sourceOf(f)));
+    /* Named exceptions, each with its reason: these write a money model's row but never an amount. */
+    const NOT_MONEY: Record<string, string> = {
+      "zoho-sync.ts": "stores only the Zoho link id on an order (zohoDealId) — never an amount",
+    };
+    for (const f of writers) {
+      if (NOT_MONEY[f]) continue;
+      expect(MONEY_MODULES as readonly string[], `${f} writes money records but is not audited as a money module`).toContain(f);
+    }
+    /* And the exception still only writes the link. */
+    expect(sourceOf("zoho-sync.ts")).not.toMatch(/marketplaceOrder\.update\(\{[^}]*data: \{ (?!zohoDealId)/);
+  });
 
   /* The exemption list must not rot. A name left here after the function is
      renamed or deleted would silently exempt nothing, which is harmless —
@@ -81,7 +136,8 @@ describe("P7-SEC-01 · every money change is audited", () => {
   it.each([...READ_ONLY])("the exempt function %s still writes nothing", (name) => {
     const fn = discovered.find((f) => f.name === name);
     if (!fn) return; // renamed or removed; nothing to protect
-    expect(fn.body).not.toMatch(/\.(create|update|upsert|delete|updateMany)\(/);
+    /* A database write is `<client>.<model>.<op>(` — not, say, a hash's `.update(`. */
+    expect(fn.body).not.toMatch(/\.\w+\.(create|createMany|update|upsert|delete|updateMany)\(/);
   });
 });
 

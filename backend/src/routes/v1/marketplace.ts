@@ -12,7 +12,11 @@ import {
   ListingTransitionInput, LogoUploadInput, OfferInput, OfferResponseInput, RosterAthleteInput, TeamShareInput,
   CartLineInput, CartLinePatch, RestrictionInput, SearchQuery, SponsorCategoriesInput,
   MarketplaceOrderDecisionInput, MarketplaceOrderTransitionInput, PlaceOrderInput,
+  CommissionRuleInput, CommissionRuleRevision,
 } from "../../contracts/marketplace";
+import { createRule, listRules, reviseRule } from "../../domain/commission";
+import { orderFinancials, propertyLedger } from "../../domain/ledger";
+import { propertyAnalytics } from "../../domain/property-analytics";
 import { getReservation, releaseReservation, reserveCart } from "../../domain/reservation";
 import {
   decideMarketplaceOrder, getMarketplaceOrder, listMarketplaceOrders, placeOrder, transitionMarketplaceOrder,
@@ -149,3 +153,19 @@ marketplaceRouter.post("/marketplace-orders", requireActor, place);
 marketplaceRouter.get("/marketplace-orders/:id", requireActor, order);
 marketplaceRouter.post("/marketplace-orders/:id/decision", requireActor, decideOrder);
 marketplaceRouter.post("/marketplace-orders/:id/transition", requireActor, moveOrder);
+
+/* ── Phase 2 batch 6 — commission (2S5-BE-01), the breakdown (2S4-BE-04),
+   the ledger (2S5-BE-02), property analytics (2S7-DATA-01) ─────────────── */
+const rules: RequestHandler = async (req, res) => { res.json({ rules: await listRules(req.actor!, { current: req.query.current === "true" }) }); };
+const newRule: RequestHandler = async (req, res) => { res.status(201).json(await createRule(req.actor!, CommissionRuleInput.parse(req.body))); };
+const revise: RequestHandler<Id> = async (req, res) => { res.status(201).json(await reviseRule(req.actor!, req.params.id, CommissionRuleRevision.parse(req.body))); };
+marketplaceRouter.get("/commission-rules", requireActor, rules);
+marketplaceRouter.post("/commission-rules", requireActor, newRule);
+marketplaceRouter.post("/commission-rules/:id/revise", requireActor, revise);
+
+const financials: RequestHandler<Id> = async (req, res) => { res.json({ lines: await orderFinancials(req.actor!, req.params.id) }); };
+const ledger: RequestHandler = async (req, res) => { res.json(await propertyLedger(req.actor!)); };
+const analytics: RequestHandler = async (req, res) => { res.json(await propertyAnalytics(req.actor!)); };
+marketplaceRouter.get("/marketplace-orders/:id/financials", requireActor, financials);
+marketplaceRouter.get("/team/ledger", requireActor, ledger);
+marketplaceRouter.get("/team/analytics", requireActor, analytics);

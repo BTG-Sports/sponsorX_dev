@@ -36,6 +36,7 @@ import { assertAllowed, whereFor } from "../auth/scope";
 import { ForbiddenError } from "../auth/errors";
 import { unitsTaken } from "./availability";
 import { convertReservation, lockItems } from "./reservation";
+import { bookOrder, markOrderPaid, releaseReserve, reverseOrder } from "./ledger";
 import {
   approvalReasons,
   canTransitionMarketplaceOrder,
@@ -93,6 +94,8 @@ async function contract(tx: Prisma.TransactionClient, order: Row, by: string, no
     /* tenant-scope: the row loaded by the caller through whereFor(marketplaceOrder, …). */
     where: { id: order.id }, data: { state: "APPROVED", decidedAt: now, decidedBy: by, decisionNotes: notes, contractedAt: now }, select: SELECT,
   });
+  /* 2S4-BE-04 / 2S5-BE-02 — contract time: the breakdown frozen, the ledger booked, in this transaction. */
+  await bookOrder(tx, order.id, now);
   await audit(tx, auditor, "marketplaceOrder.approve", "MarketplaceOrder", order.id, {
     before: { state: "PENDING_APPROVAL" }, after: { state: "APPROVED", decidedBy: by, contracted: true, totalCents: order.totalCents },
   });
@@ -209,7 +212,12 @@ async function moveIn(tx: Prisma.TransactionClient, actor: Actor, order: Row, to
       /* tenant-scope: the commitments this order wrote, named by its id (unique). */
       where: orderHolds(order.id), data: { releasedAt: now },
     });
+    /* 2S5-BE-02 — a contracted order's books are reversed, never deleted. */
+    if (order.contractedAt) await reverseOrder(tx, order.id);
   }
+  /* 2S5-BE-02 — payment makes the payables available; closing releases the reserve. */
+  if (to === "PAID") await markOrderPaid(tx, order.id);
+  if (to === "CLOSED") await releaseReserve(tx, order.id);
   await audit(tx, actor, `marketplaceOrder.${to.toLowerCase()}` as `${string}.${string}`, "MarketplaceOrder", order.id, { before: { state: from }, after: { state: to } });
   /* Zoho follows the order once it has been contracted (its Deal exists from approval on). */
   if (order.contractedAt) await enqueue(tx, actor.tenantId, "zoho.pushMarketplaceOrder", { orderId: order.id });

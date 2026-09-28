@@ -152,6 +152,25 @@ export const MarketplaceOrderTransitionInput = z
   .object({ to: z.enum(["AWAITING_PAYMENT", "PAID", "IN_DELIVERY", "FULFILLED", "CLOSED", "CANCELLED", "REFUNDED"]) })
   .meta({ id: "MarketplaceOrderTransitionInput", description: "Payment and delivery states (staff), or CANCELLED before payment (the sponsor). APPROVED is never a transition." });
 
+/* ── Phase 2 batch 6 — commission rules ─────────────────────────────── */
+export const CommissionRuleInput = z
+  .object({
+    kind: z.enum(["PLATFORM_FEE", "MANAGEMENT_FEE", "PROCESSING", "REFERRAL", "RESERVE", "TEAM_SHARE"]),
+    scope: z.enum(["GLOBAL", "PROPERTY_KIND", "PROPERTY", "SPONSOR"]),
+    scopeRef: z.string().min(1).max(100).nullable().optional(),
+    bps: z.number().int().min(0).max(10_000),
+    fixedCents: z.number().int().min(0).max(1_000_000).optional(),
+    priority: z.number().int().min(-1000).max(1000),
+    effectiveFrom: when.optional(),
+    note: z.string().max(500).nullable().optional(),
+  })
+  .strict()
+  .meta({ id: "CommissionRuleInput", description: "One commission rule, version 1. The highest-priority matching rule in effect applies (ledger design §3)." });
+export const CommissionRuleRevision = z
+  .object({ bps: z.number().int().min(0).max(10_000).optional(), fixedCents: z.number().int().min(0).max(1_000_000).optional(), priority: z.number().int().min(-1000).max(1000).optional(), note: z.string().max(500).nullable().optional() })
+  .strict()
+  .meta({ id: "CommissionRuleRevision", description: "An edit is a new version from now; the old version's window closes. Contracted orders are untouched." });
+
 const hexColour = z.string().regex(/^#[0-9a-fA-F]{6}$/);
 export const BrandingInput = z
   .object({

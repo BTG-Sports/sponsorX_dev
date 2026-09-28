@@ -92,6 +92,7 @@ import {
   ListingTransitionInput, LogoUploadInput, OfferInput, OfferResponseInput, RosterAthleteInput, TeamShareInput,
   CartLineInput, CartLinePatch, RestrictionInput, SponsorCategoriesInput,
   MarketplaceOrderDecisionInput, MarketplaceOrderTransitionInput, PlaceOrderInput,
+  CommissionRuleInput, CommissionRuleRevision,
 } from "./marketplace";
 import { NotificationPreferenceInput } from "./notification-preferences";
 import { OnboardingDecisionInput, OnboardingDocumentInput, OnboardingStartInput, OnboardingStepInput } from "./onboarding";
@@ -458,6 +459,13 @@ const PATHS: Row[] = [
   { method: "get", path: "/marketplace-orders/{id}", tag: "Marketplace", summary: "One order, its lines and figures." },
   { method: "post", path: "/marketplace-orders/{id}/decision", tag: "Marketplace", summary: "BTG approves (contracts the stock) or rejects (cancels, releases it).", body: MarketplaceOrderDecisionInput },
   { method: "post", path: "/marketplace-orders/{id}/transition", tag: "Marketplace", summary: "Payment and delivery states, or a cancellation before payment — by the state machine.", body: MarketplaceOrderTransitionInput },
+  // Phase 2 batch 6 — commission, the frozen breakdown, the ledger, property analytics
+  { method: "get", path: "/commission-rules", tag: "Marketplace", summary: "Commission rules and every version of them (2S5-BE-01)." },
+  { method: "post", path: "/commission-rules", tag: "Marketplace", summary: "A new commission rule — version 1.", body: CommissionRuleInput, status: 201 },
+  { method: "post", path: "/commission-rules/{id}/revise", tag: "Marketplace", summary: "Edit a rule: a new version from now. Contracted orders are never touched.", body: CommissionRuleRevision, status: 201 },
+  { method: "get", path: "/marketplace-orders/{id}/financials", tag: "Marketplace", summary: "The order's breakdown, frozen at contract time with the rule versions that made it (2S4-BE-04)." },
+  { method: "get", path: "/team/ledger", tag: "Marketplace", summary: "The property's dashboard: booked, reversed, paid and pending — reconciling exactly (2S5-BE-02)." },
+  { method: "get", path: "/team/analytics", tag: "Marketplace", summary: "Revenue, sell-through, completion, sponsor mix and payout trends — from the ledger and order records (2S7-DATA-01)." },
   { method: "get", path: "/properties/mine", tag: "Properties", summary: "The property this account manages — a NEXT school is kind SCHOOL (P9-OPS-01). 404 when not linked." },
   { method: "get", path: "/catalogue/jobs", tag: "Catalogue", summary: "The NIL job catalogue at sponsor price bands — never base pay (P4-FE-01)." },
   { method: "post", path: "/public/rewards/{token}/scan", tag: "Public", summary: "A fan scanned the QR.", auth: false, status: 201 },
