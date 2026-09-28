@@ -82,7 +82,15 @@ export default defineConfig({
              with one command, which is the property the acceptance asks for.
              A spec that must see a production build should set E2E_BASE_URL
              at a deployed environment instead. */
-          command: `npm run dev -w @sponsorx/frontend -- --port ${PORT}`,
+          /* --hostname: the dev server serves its dev-only resources
+             (/_next/hmr, and the client runtime with it) only to localhost
+             and the host it was started on; everything else is refused as
+             cross-origin. The specs open 127.0.0.1, so the server must be
+             started on 127.0.0.1 — started on the default, every page
+             rendered but never hydrated: no client button worked and
+             Clerk never consumed a sign-in ticket, which failed every loop
+             spec in CI while the no-JavaScript fan pages passed. */
+          command: `npm run dev -w @sponsorx/frontend -- --port ${PORT} --hostname 127.0.0.1`,
           url: BASE_URL,
           reuseExistingServer: !process.env.CI,
           timeout: 120_000,
