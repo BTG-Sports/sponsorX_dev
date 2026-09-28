@@ -280,7 +280,7 @@ async function funnelsFor(actor: Parameters<typeof can>[0], tokenToReward: Map<s
 const REWARD_SELECT = {
   id: true, offerText: true, terms: true, singleUse: true, expiresAt: true, state: true,
   eligibility: true, eligibilityNote: true, redemptionCap: true, landingHeadline: true, landingSubhead: true,
-  redeemedCount: true, reserveMinutes: true,
+  redemptionCount: true, reserveMinutes: true,
   campaign: { select: { id: true, name: true, endDate: true, sponsor: { select: { name: true } } } },
   tokens: {
     select: {
@@ -294,7 +294,7 @@ type RewardRow = {
   id: string; offerText: string; terms: string; singleUse: boolean; expiresAt: Date; state: string;
   eligibility: string; eligibilityNote: string | null; redemptionCap: number | null;
   landingHeadline: string | null; landingSubhead: string | null;
-  redeemedCount: number; reserveMinutes: number;
+  redemptionCount: number; reserveMinutes: number;
   campaign: { id: string; name: string; endDate: Date; sponsor: { name: string } };
   tokens: { id: string; token: string; qrKey: string | null; athlete: { id: string; displayName: string } | null }[];
 };
@@ -330,7 +330,7 @@ function rewardOut(r: RewardRow, funnel: Record<string, number> | undefined, wit
        against (so the desk's "left" matches what the till will allow), the
        units claims hold right now, and the hold window. The counter is kept
        for capped rewards only, so an uncapped one answers null. */
-    redeemed: r.redemptionCap != null ? r.redeemedCount : null,
+    redeemed: r.redemptionCap != null ? r.redemptionCount : null,
     held,
     reserveMinutes: r.reserveMinutes,
     landing: { headline: r.landingHeadline, subhead: r.landingSubhead },

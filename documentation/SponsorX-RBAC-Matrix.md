@@ -997,6 +997,152 @@ reject, suspend and reinstate) is BTG's. The row holds no tax id and no bank
 details: its business details are validated by strict per-type schemas that
 refuse any field not asked for.
 
+**Verification documents (2S1-BE-02)** are part of the application and
+governed by the same row. The applicant, by its resume token, is given an
+*upload* grant to the private bucket and never a read — not even of its own
+file. BTG reads each document through an audited, fifteen-minute link.
+
+**Approval provisions a tenant (2S1-BE-04).** The first APPROVE creates a new
+tenant for the organisation, its Property there, and a `PROPERTY_MGR`
+account for the primary contact, linked to that Property. From then on the
+organisation's people are an outside tenant: every scope is tenant-first, so
+they reach their own tenant's rows and none of BTG's or anyone else's. The
+onboarding record and its audit trail stay in BTG's tenant.
+
+## 17 · Phase 2 · notification preferences *(added 2026-09-28)*
+
+### `notificationPreference` (2S6-BE-02)
+| Role | Read | Write | Approve |
+|---|---|---|---|
+| every role | own | own | — |
+
+A preference is personal. Nobody — not `SUPER_ADMIN` — reads or sets another
+person's. The worker reads them at send time to honour a mute. Decision
+notices (application outcomes, guardian and onboarding decisions) are not
+mutable at all.
+
+## 18 · Phase 2 · the marketplace's own records *(added 2026-09-28)*
+
+**A new scope, `operated`.** An organisation BTG approves gets its own tenant
+(§16), and that tenant records who operates it (`Tenant.operatorTenantId` —
+BTG's tenant). `operated` means *the actor's own tenant and every outside
+tenant it operates*. It is used only by marketplace resources, so BTG can
+review an organisation's inventory and listings without reaching anything
+else of theirs.
+
+### `inventoryItem` (2S2-BE-01, 2S2-BE-04)
+| Role | Read | Write | Approve |
+|---|---|---|---|
+| `SUPER_ADMIN` | any | any | — |
+| `BTG_ADMIN`, `CAMPAIGN_MGR` | operated | — | — |
+| `ATHLETE` | own | own | — |
+| `PROPERTY_MGR` | own-property (the team's and its roster's) | own (the team's) | — |
+
+The owner prices an item, and the owner is always the caller — no request
+names one. BTG reads, and does not set an outside party's prices.
+
+### `teamMember` (2S2-BE-04)
+| Role | Read | Write | Approve |
+|---|---|---|---|
+| `SUPER_ADMIN` | any | any | — |
+| `PROPERTY_MGR` | own-property | own-property | — |
+
+The roster: athletes linked to the manager's Property, and the team's revenue
+share on each. Deliberately a separate resource from `athlete`, so a manager
+adding roster athletes does not gain the `athlete` write paths.
+
+### `listing` (2S3-BE-01)
+| Role | Read | Write | Approve |
+|---|---|---|---|
+| `SUPER_ADMIN` | any | any | any |
+| `BTG_ADMIN` | operated | — | operated |
+| `PROPERTY_MGR` | own-property | own-property | — |
+| `ATHLETE` | own (listings of their items) | — | — |
+
+Approve is publishing. It is the only road to `PUBLISHED`.
+
+### `offer` (2S2-BE-03)
+| Role | Read | Write | Approve |
+|---|---|---|---|
+| `SUPER_ADMIN` | any | any | — |
+| `BTG_ADMIN`, `CAMPAIGN_MGR` | own-tenant | own-tenant | — |
+| `SALES` | own-tenant | — | — |
+| `ATHLETE` | own | own (accept or decline) | — |
+
+`sellPrice` is withheld from the athlete side, as `campaignOrder.sellPrice` is.
+
+### `tenantBranding` (2S7-BE-01)
+| Role | Read | Write | Approve |
+|---|---|---|---|
+| every role | own-tenant | — | — |
+| `SUPER_ADMIN` | any | any | — |
+| `BTG_ADMIN` | own-tenant | own-tenant | — |
+| `PROPERTY_MGR` | own-tenant | own (an outside organisation's tenant only) | — |
+
+## 19 · Phase 2 · restrictions, the sponsor's catalogue, the cart *(added 2026-09-28)*
+
+### `brandRestriction` (2S2-BE-02)
+| Role | Read | Write | Approve |
+|---|---|---|---|
+| `SUPER_ADMIN` | any | any | — |
+| `BTG_ADMIN` | operated | operated | — |
+| `NETWORK_MGR` | own-tenant | own-tenant | — |
+| `CAMPAIGN_MGR` | operated | — | — |
+| `ATHLETE` | own | own | — |
+| `PROPERTY_MGR` | own-property (the team and its roster) | own-property | — |
+
+A restriction belongs to an athlete or a team. It covers a brand category for
+a date range. `EXCLUSIVITY` rows are written only by an accepted offer. They
+are contractual, so only `SUPER_ADMIN` can remove one. One shared check
+(`restrictionConflicts`) is used by the formal offer, by the Phase 1
+invitation and by every purchase path.
+
+A sponsor's brand categories are set by BTG (`sponsor` write at tenant-wide
+scope), never by the sponsor itself.
+
+### `listing` — the sponsor's catalogue (2S3-BE-04)
+`SPONSOR_ADMIN` and `SPONSOR_ANALYST` gain `listing.read = catalog`. For a
+listing, `catalog` means a listing that is `PUBLISHED`, `PUBLIC` and past its
+publish time, whose item is on sale and whose property still has listing
+access. It must also sit in the sponsor's own marketplace: the sponsor's
+tenant and the tenants that tenant operates. Search also hides anything whose
+owner will not sell to the sponsor's categories today. That is why two
+sponsors see different catalogues.
+
+### `cart` (2S4-BE-01)
+| Role | Read | Write | Approve |
+|---|---|---|---|
+| `SUPER_ADMIN` | any | any | — |
+| `BTG_ADMIN` | own-tenant | — | — |
+| `SPONSOR_ADMIN` | own-sponsor | own-sponsor | — |
+| `SPONSOR_ANALYST` | own-sponsor | — | — |
+
+## 20 · Phase 2 · reservations and marketplace orders *(added 2026-09-28)*
+
+### `reservation` (2S4-BE-02)
+| Role | Read | Write | Approve |
+|---|---|---|---|
+| `SUPER_ADMIN` | any | any | — |
+| `BTG_ADMIN` | own-tenant | — | — |
+| `SPONSOR_ADMIN` | own-sponsor | own-sponsor | — |
+| `SPONSOR_ANALYST` | own-sponsor | — | — |
+
+### `marketplaceOrder` (2S4-BE-03, 2S4-BE-05)
+| Role | Read | Write | Approve |
+|---|---|---|---|
+| `SUPER_ADMIN` | any | any | any |
+| `BTG_ADMIN` | own-tenant | own-tenant | own-tenant |
+| `FINANCE` | own-tenant | own-tenant | — |
+| `SPONSOR_ADMIN` | own-sponsor | own-sponsor (place; cancel before payment) | — |
+| `SPONSOR_ANALYST` | own-sponsor | — | — |
+
+Approve is the gate. An order that policy holds, because it is $1,000 or
+more, the sponsor's first marketplace order, or bought from a listing that
+asks for approval, keeps its stock without contracting it until BTG approves.
+Rejecting it releases the stock. `APPROVED` is reached only by that decision,
+or by policy when there is no reason to hold the order, and never by a
+transition.
+
 ## 14 · Known gaps
 
 - **D1 and D3 are subject to legal confirmation** (§12). Both were adopted at

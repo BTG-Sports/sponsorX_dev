@@ -58,6 +58,10 @@ vi.mock("../src/db/client", () => {
       },
       updateMany: () => Promise.resolve({ count: 0 }),
     },
+    /* P6-BE-08 — the redemption cap's conditional UPDATE. These rewards are
+       uncapped, so it always takes a unit; the cap itself is proven against
+       a real database in tests/reward-eligibility-cap.test.ts. */
+    $executeRawUnsafe: () => Promise.resolve(1),
   };
   /* Since QA pass 5 a redeem (and a capped claim's reservation) is ONE
      database call — `reward_redeem` / `reward_reserve`. This stands in for

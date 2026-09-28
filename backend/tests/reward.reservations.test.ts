@@ -132,7 +132,7 @@ describe.skipIf(!hasDatabase)("reward redeem and claim · against real Postgres"
     expect(tally(b)).toEqual({ 201: 30 });
     expect(await redeemRows("rv_storm")).toBe(100);
     /* The counter the cap reads agrees with the rows. */
-    expect((await prisma.reward.findUniqueOrThrow({ where: { id: "rv_storm" }, select: { redeemedCount: true } })).redeemedCount).toBe(100);
+    expect((await prisma.reward.findUniqueOrThrow({ where: { id: "rv_storm" }, select: { redemptionCount: true } })).redemptionCount).toBe(100);
   }, 60_000);
 
   /* ── QA-02 ─────────────────────────────────────────────────────────────── */

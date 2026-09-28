@@ -151,6 +151,15 @@ function tenantScoped(actor: Actor, scope: Scope): Where {
   }
 }
 
+/**
+ * Phase 2 (2S3-BE-01) — the actor's own tenant and every outside tenant it
+ * operates. Expressed through the row's `tenant` relation, so it is one
+ * query and needs no list of ids.
+ */
+function operated(actor: Actor): Where {
+  return { OR: [{ tenantId: actor.tenantId }, { tenant: { operatorTenantId: actor.tenantId } }] };
+}
+
 /** NEXT publication-domain rows: tenant-wide for staff, the actor's school
  *  for `own-property` (an ADVISOR's, or a STUDENT's own school). */
 function nextByProperty(actor: Actor, scope: Scope, bySchool: (propertyId: string) => Where): Where {
@@ -292,6 +301,92 @@ const BUILDERS: Partial<Record<Resource, Builder>> = {
   },
   schoolPoolAllocation: tenantScoped,
   propertyOnboarding: tenantScoped,
+  /* Phase 2 Sprint 2–3 — inventory, the team roster, listings, offers,
+     branding (matrix §18). */
+  inventoryItem: (actor, scope) => {
+    switch (scope) {
+      case "any": return {};
+      case "operated": return operated(actor);
+      case "own-property":
+        return actor.propertyId
+          ? { tenantId: actor.tenantId, OR: [{ propertyId: actor.propertyId }, { athlete: { propertyId: actor.propertyId } }] }
+          : MATCHES_NOTHING;
+      case "own":
+        /* The athlete's own items, or — for a team manager — the team's own. */
+        if (actor.athleteId) return { tenantId: actor.tenantId, athleteId: actor.athleteId };
+        return actor.propertyId ? { tenantId: actor.tenantId, propertyId: actor.propertyId } : MATCHES_NOTHING;
+      default: return MATCHES_NOTHING;
+    }
+  },
+  /* The athletes on a team: Athlete rows linked to the manager's property. */
+  teamMember: (actor, scope) => {
+    if (scope === "any") return {};
+    if (scope === "own-property") {
+      return actor.propertyId ? { tenantId: actor.tenantId, propertyId: actor.propertyId } : MATCHES_NOTHING;
+    }
+    return MATCHES_NOTHING;
+  },
+  listing: (actor, scope) => {
+    switch (scope) {
+      case "any": return {};
+      case "operated": return operated(actor);
+      case "catalog":
+        /* 2S3-BE-04 — what a sponsor may see: live, public listings of
+           approved properties, in its own marketplace (its tenant and the
+           tenants that tenant operates). Never a draft, a pause, a private
+           listing, a suspended property or another marketplace. */
+        return {
+          AND: [
+            operated(actor),
+            { state: "PUBLISHED", visibility: "PUBLIC", property: { listingAccessAt: { not: null } }, item: { active: true } },
+            { OR: [{ publishAt: null }, { publishAt: { lte: new Date() } }] },
+          ],
+        };
+      case "own-property":
+        return actor.propertyId ? { tenantId: actor.tenantId, propertyId: actor.propertyId } : MATCHES_NOTHING;
+      case "own":
+        return actor.athleteId ? { tenantId: actor.tenantId, item: { athleteId: actor.athleteId } } : MATCHES_NOTHING;
+      default: return MATCHES_NOTHING;
+    }
+  },
+  offer: (actor, scope) => {
+    if (scope === "own") return actor.athleteId ? { tenantId: actor.tenantId, athleteId: actor.athleteId } : MATCHES_NOTHING;
+    return tenantScoped(actor, scope);
+  },
+  brandRestriction: (actor, scope) => {
+    switch (scope) {
+      case "any": return {};
+      case "operated": return operated(actor);
+      case "own-tenant": return { tenantId: actor.tenantId };
+      case "own": return actor.athleteId ? { tenantId: actor.tenantId, athleteId: actor.athleteId } : MATCHES_NOTHING;
+      case "own-property":
+        return actor.propertyId
+          ? { tenantId: actor.tenantId, OR: [{ propertyId: actor.propertyId }, { athlete: { propertyId: actor.propertyId } }] }
+          : MATCHES_NOTHING;
+      default: return MATCHES_NOTHING;
+    }
+  },
+  cart: (actor, scope) => {
+    if (scope === "own-sponsor") return actor.sponsorId ? { tenantId: actor.tenantId, sponsorId: actor.sponsorId } : MATCHES_NOTHING;
+    return tenantScoped(actor, scope);
+  },
+  reservation: (actor, scope) => {
+    if (scope === "own-sponsor") return actor.sponsorId ? { tenantId: actor.tenantId, sponsorId: actor.sponsorId } : MATCHES_NOTHING;
+    return tenantScoped(actor, scope);
+  },
+  marketplaceOrder: (actor, scope) => {
+    if (scope === "own-sponsor") return actor.sponsorId ? { tenantId: actor.tenantId, sponsorId: actor.sponsorId } : MATCHES_NOTHING;
+    return tenantScoped(actor, scope);
+  },
+  tenantBranding: (actor, scope) => {
+    if (scope === "any") return {};
+    if (scope === "own-tenant" || scope === "own") return { tenantId: actor.tenantId };
+    return MATCHES_NOTHING;
+  },
+
+  /* 2S6-BE-02 — a user's own notification preferences, and only theirs. */
+  notificationPreference: (actor, scope) =>
+    scope === "own" ? { tenantId: actor.tenantId, userId: actor.userId } : MATCHES_NOTHING,
 
   /* 2S7-BE-02 — a rendered sponsor report (ReportFile). Staff reach the
      tenant's; a sponsor reaches the files for their own campaigns. */

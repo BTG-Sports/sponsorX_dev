@@ -37,6 +37,7 @@ vi.mock("../src/db/client", () => {
     },
     campaignBrief: { findFirst: () => Promise.resolve(null) },
     campaign: { findFirst: () => Promise.resolve({ id: "cmp_1", tenantId: "t1", sponsorId: "spn_1" }) },
+    brandRestriction: { findMany: () => Promise.resolve([]) },
     campaignInvite: {
       findFirst: () => Promise.resolve(invite),
       create: () => { writes.push("invite.create"); return Promise.resolve({ id: "inv_1", state: "INVITED" }); },

@@ -224,10 +224,17 @@ export async function seedEnvironment(pool: pg.Pool): Promise<SeedOutcome> {
     }
 
     const sponsor = await client.query(
-      `INSERT INTO "Sponsor" (id, "tenantId", name)
-       VALUES ('seed_spn_1', $1, 'Bowie Auto Group')
+      `INSERT INTO "Sponsor" (id, "tenantId", name, categories)
+       VALUES ('seed_spn_1', $1, 'Bowie Auto Group', ARRAY['AUTOMOTIVE']::TEXT[])
            ON CONFLICT (id) DO NOTHING`,
       [TENANT_ID],
+    );
+    /* 2S2-BE-02 — SIMULATED brand category for the demo sponsor, so the
+       marketplace can be walked end to end on staging. Only fills an empty
+       list: a category BTG has set is never overwritten. */
+    await client.query(
+      `UPDATE "Sponsor" SET categories = ARRAY['AUTOMOTIVE']::TEXT[]
+        WHERE id = 'seed_spn_1' AND cardinality(categories) = 0`,
     );
 
     const school = await seedPilotSchool(client, TENANT_ID);

@@ -38,7 +38,8 @@ vi.mock("../src/db/client", () => ({
       const tx = {
         campaign: { findFirst: () => Promise.resolve(campaign) },
         athlete: { findFirst: () => Promise.resolve(athlete) },
-        campaignInvite: {
+        brandRestriction: { findMany: () => Promise.resolve([]) },
+    campaignInvite: {
           /* Two different lookups share this method: the open-invite guard
              filters on state, the transition fetches the row itself. */
           findFirst: ({ where }: { where: Record<string, unknown> }) =>

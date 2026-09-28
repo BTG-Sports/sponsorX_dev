@@ -1,52 +1,65 @@
--- QA pass 5 (2026-09-28) — the reward redeem / claim path, redesigned.
+-- P6-BE-08 merge (2026-09-28) — reconciles two implementations of the reward
+-- eligibility / cap / landing-copy task into one design.
 --
--- QA-01  A burst of redeems on one capped reward exhausted the Prisma pool:
---        each redeem was an interactive transaction that held a pooled
---        connection while it waited on `SELECT … FOR UPDATE`, and the lock
---        itself was held across several client round trips. The decision now
---        happens in ONE database call — `reward_redeem()` below — so the row
---        lock is held for a few in-server statements only and nothing waits
---        on the network while holding it.
--- QA-02  State and expiry are read from the LOCKED row, so a reward paused or
---        expired while a redeem queued is refused.
--- QA-04  Multi-use rewards (`singleUse = false`) redeem more than once per
---        token: the single-use index now applies only to single-use REDEEMs.
--- QA-06  The per-token "already used" check runs before the cap check.
--- QA-09  A CLAIM on a capped reward reserves one unit for `reserveMinutes`
---        (product decision, 2026-09-28) — `reward_reserve()` below.
+-- 20260928180000_reward_eligibility_cap_copy (rcfworks, already deployed) added
+-- `eligibility` as free text, `redemptionCap`, `redemptionCount` (backfilled for
+-- every reward), the landing copy, and CHECK "Reward_redemption_cap". This
+-- migration keeps all of it and moves it to the merged design:
 --
--- Additive: new columns are defaulted or nullable; existing rows are
--- backfilled. The functions and the trigger are invisible to Prisma (no drift),
--- like the partial indexes before them — see prisma/sql/README.md.
+--   * eligibility becomes the RewardEligibility enum (who qualifies, stated to
+--     the fan and to booth staff); any free text already written is kept in the
+--     new `eligibilityNote`, so nothing a sponsor typed is lost.
+--   * `redemptionCount` stays the one counter, now kept by a trigger on
+--     RewardEvent for every reward, so no write path can let it drift.
+--   * QA pass 5: a claim on a capped reward holds a unit for `reserveMinutes`
+--     (product decision, 2026-09-28); redeem and claim are single database
+--     calls (`reward_redeem`, `reward_reserve`) so a burst cannot exhaust the
+--     pool (QA-01), the locked row is re-checked (QA-02), multi-use rewards
+--     redeem more than once per token (QA-04), and a used code is "already
+--     used" before it is "run out" (QA-06).
+--
+-- The functions and triggers are invisible to Prisma (no drift), like the
+-- partial indexes before them — see prisma/sql/README.md.
+
+-- CreateEnum
+CREATE TYPE "RewardEligibility" AS ENUM ('ANYONE', 'AGE_18_PLUS', 'AGE_21_PLUS', 'TICKET_HOLDERS');
+
+-- Free-text eligibility → the note beside the enum.
+ALTER TABLE "Reward" ADD COLUMN "eligibilityNote" TEXT;
+UPDATE "Reward" SET "eligibilityNote" = btrim("eligibility")
+WHERE "eligibility" IS NOT NULL AND btrim("eligibility") <> '';
+ALTER TABLE "Reward" DROP COLUMN "eligibility";
+ALTER TABLE "Reward" ADD COLUMN "eligibility" "RewardEligibility" NOT NULL DEFAULT 'ANYONE';
 
 -- AlterTable
-ALTER TABLE "Reward" ADD COLUMN     "redeemedCount" INTEGER NOT NULL DEFAULT 0,
-ADD COLUMN     "reserveMinutes" INTEGER NOT NULL DEFAULT 60;
+ALTER TABLE "Reward" ADD COLUMN "reserveMinutes" INTEGER NOT NULL DEFAULT 60;
 
 -- AlterTable
-ALTER TABLE "RewardEvent" ADD COLUMN     "singleUse" BOOLEAN;
+ALTER TABLE "RewardEvent" ADD COLUMN "singleUse" BOOLEAN;
 
 -- AlterTable
-ALTER TABLE "RewardToken" ADD COLUMN     "reservedUntil" TIMESTAMP(3);
+ALTER TABLE "RewardToken" ADD COLUMN "reservedUntil" TIMESTAMP(3);
 
 -- CreateIndex
 CREATE INDEX "RewardToken_rewardId_reservedUntil_idx" ON "RewardToken"("rewardId", "reservedUntil");
 
--- A hold window of minutes-to-a-week; a counter never negative.
+-- A hold window of minutes-to-a-week; a counter never negative. (The cap's
+-- own ">= 1, count <= cap" CHECK is rcfworks' "Reward_redemption_cap".)
 ALTER TABLE "Reward" ADD CONSTRAINT "Reward_reserveMinutes_range" CHECK ("reserveMinutes" BETWEEN 5 AND 10080);
-ALTER TABLE "Reward" ADD CONSTRAINT "Reward_redeemedCount_nonneg" CHECK ("redeemedCount" >= 0);
+ALTER TABLE "Reward" ADD CONSTRAINT "Reward_redemptionCount_nonneg" CHECK ("redemptionCount" >= 0);
 
--- Backfill: the counter from the rows it counts (capped rewards — the only
--- ones it is kept for, see the trigger), and each REDEEM's single-use flag from
--- its reward (a reward's singleUse is never edited after create).
-UPDATE "Reward" r SET "redeemedCount" = c.n
+-- Backfill: recount from the rows (the trigger below keeps it from here on),
+-- and each REDEEM's single-use flag from its reward (a reward's singleUse is
+-- never edited after create).
+UPDATE "Reward" r SET "redemptionCount" = COALESCE(c.n, 0)
 FROM (
-  SELECT t."rewardId", count(*)::int AS n
-  FROM "RewardEvent" e JOIN "RewardToken" t ON t.id = e."tokenId"
-  WHERE e.type = 'REDEEM'
-  GROUP BY t."rewardId"
+  SELECT r2.id, (
+    SELECT count(*)::int FROM "RewardEvent" e JOIN "RewardToken" t ON t.id = e."tokenId"
+    WHERE e.type = 'REDEEM' AND t."rewardId" = r2.id
+  ) AS n
+  FROM "Reward" r2
 ) c
-WHERE c."rewardId" = r.id AND r."redemptionCap" IS NOT NULL;
+WHERE c.id = r.id;
 
 UPDATE "RewardEvent" e SET "singleUse" = r."singleUse"
 FROM "RewardToken" t JOIN "Reward" r ON r.id = t."rewardId"
@@ -62,22 +75,19 @@ CREATE UNIQUE INDEX reward_single_redeem
 
 -- The counter follows the rows, from every write path (the redeem function,
 -- a seed, a test fixture, a cleanup) — so the cap can never read a stale count.
--- CAPPED REWARDS ONLY: an uncapped reward has nothing to enforce, and bumping
--- its counter would take its row lock and serialise every one of its redeems.
--- (`UPDATE … WHERE "redemptionCap" IS NOT NULL` locks no row it filters out.)
--- A future "edit reward" that adds a cap must recount first.
+-- EVERY reward, capped or not (P6-BE-08, rcfworks: "every redemption already
+-- made counts against a cap set later"). The row lock this takes on an
+-- uncapped reward lasts one statement inside reward_redeem's single call.
 CREATE OR REPLACE FUNCTION reward_redeemed_count_sync() RETURNS trigger
 LANGUAGE plpgsql AS $$
 BEGIN
   IF TG_OP = 'INSERT' THEN
-    UPDATE "Reward" SET "redeemedCount" = "redeemedCount" + 1
-    WHERE id = (SELECT "rewardId" FROM "RewardToken" WHERE id = NEW."tokenId")
-      AND "redemptionCap" IS NOT NULL;
+    UPDATE "Reward" SET "redemptionCount" = "redemptionCount" + 1
+    WHERE id = (SELECT "rewardId" FROM "RewardToken" WHERE id = NEW."tokenId");
     RETURN NEW;
   ELSE
-    UPDATE "Reward" SET "redeemedCount" = GREATEST("redeemedCount" - 1, 0)
-    WHERE id = (SELECT "rewardId" FROM "RewardToken" WHERE id = OLD."tokenId")
-      AND "redemptionCap" IS NOT NULL;
+    UPDATE "Reward" SET "redemptionCount" = GREATEST("redemptionCount" - 1, 0)
+    WHERE id = (SELECT "rewardId" FROM "RewardToken" WHERE id = OLD."tokenId");
     RETURN OLD;
   END IF;
 END $$;
@@ -151,7 +161,7 @@ BEGIN
     END IF;
     -- Uncapped: nothing spans tokens, so no lock — the index guards single use.
     EXIT WHEN v_rew."redemptionCap" IS NULL;
-    IF v_rew."redeemedCount" >= v_rew."redemptionCap" THEN
+    IF v_rew."redemptionCount" >= v_rew."redemptionCap" THEN
       RETURN QUERY SELECT 'EXHAUSTED'::text, NULL::text, v_rew.state::text; RETURN;
     END IF;
     EXIT WHEN v_locked;
@@ -166,7 +176,7 @@ BEGIN
     IF v_held IS NULL OR v_held <= p_now THEN
       SELECT count(*) INTO v_others FROM "RewardToken"
       WHERE "rewardId" = v_rew.id AND id <> v_tok.id AND "reservedUntil" > p_now;
-      IF v_rew."redeemedCount" + v_others >= v_rew."redemptionCap" THEN
+      IF v_rew."redemptionCount" + v_others >= v_rew."redemptionCap" THEN
         RETURN QUERY SELECT 'EXHAUSTED'::text, NULL::text, v_rew.state::text; RETURN;
       END IF;
     END IF;
@@ -236,7 +246,7 @@ BEGIN
     ) THEN
       RETURN QUERY SELECT 'NONE'::text, NULL::timestamp(3), v_rew.state::text; RETURN;
     END IF;
-    IF v_rew."redeemedCount" >= v_rew."redemptionCap" THEN
+    IF v_rew."redemptionCount" >= v_rew."redemptionCap" THEN
       RETURN QUERY SELECT 'EXHAUSTED'::text, NULL::timestamp(3), v_rew.state::text; RETURN;
     END IF;
     EXIT WHEN v_locked;
@@ -246,7 +256,7 @@ BEGIN
 
   SELECT count(*) INTO v_live FROM "RewardToken"
   WHERE "rewardId" = v_rew.id AND "reservedUntil" > p_now;
-  IF v_rew."redeemedCount" + v_live >= v_rew."redemptionCap" THEN
+  IF v_rew."redemptionCount" + v_live >= v_rew."redemptionCap" THEN
     RETURN QUERY SELECT 'EXHAUSTED'::text, NULL::timestamp(3), v_rew.state::text; RETURN;
   END IF;
 

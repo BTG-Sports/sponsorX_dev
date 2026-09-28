@@ -891,6 +891,7 @@ Owner HeckerCreatives. Thin reads added under the "thin reads" scope rule
   creates the Property and grants listing access (`listingAccessAt`), audited.
   Suspension withdraws it.
 
+
 ## Phase 1 close-out run (HeckerCreatives) — 10 rows → Code review
 
 Scope: every open Phase 1 task that can be finished in code or docs. Left
@@ -1021,3 +1022,196 @@ P9-DATA-01 (edition one actually selling), and the go/no-go rows.
   2026-09-28)
 - Stage Progress row 2026-09-28 recomputed: 208 Done, 108 days left.
   **Nothing committed.**
+
+---
+
+<!-- Merged from origin/main_development (rcfworks) on 2026-09-28 — both logs kept. -->
+
+**Hosting decision (programme owner, 2026-09-28):** the API and worker stay in
+one Railway service for now, with `report.render` running one at a time.
+Recorded in `backend/src/combined.mts`. Revisit if renders queue up, or if API
+latency moves while one runs.
+
+Stage Progress 2026-09-28 row refreshed to end-of-day counts (it had been written before the day's frontend and Phase 2 work landed).
+
+**Phase 2 batch 1 → Done** (user's instruction; acceptance met): 2S6-BE-03, 2S6-INT-03, 2S7-BE-02, 2S0-PMO-01, 2S1-BE-01, 2S1-BE-03. `2S7-BE-02` was verified on staging first: the deployed Alpine Chromium rendered a valid PDF inside the api container.
+
+## Phase 2 batch 2 — five backend tasks → Done (acceptance met)
+
+- **`2S1-BE-02` · verification documents.** The applicant, by resume token, gets
+  a presigned PUT to the **private** bucket (PDF/JPEG/PNG, ≤20 MB), audited as a
+  grant; confirm attaches it only once the object is found. BTG reads through
+  `GET /onboarding/{id}/documents`, each link an audited 15-minute grant. The
+  applicant never gets a read URL. Model `OnboardingDocument`.
+- **`2S1-BE-04` · tenant provisioning.** The first APPROVE creates a **new
+  tenant** for the organisation, with its Property and a `PROPERTY_MGR` account
+  for the primary contact, claimed at first sign-in by email. An address that
+  already has an account is refused (409). The onboarding record stays in BTG's
+  tenant. BTG admins no longer see the organisation's Property through
+  own-tenant scope.
+- **`2S1-INT-01` · onboarding emails.** Five templates are queued in the
+  decision's own transaction. `worker/queue-policy.mts` gives `notify.email`
+  six retries with 30 s exponential backoff, applied to existing queues too.
+  The retry is proven on a real pg-boss. The wizard link points at
+  `/onboarding/<token>`, which 2S1-FE-01 will build.
+- **`2S8-SEC-01` · isolation for outside parties.** The tenant-isolation sweep
+  now provisions an outside tenant through the real approval, adds the
+  PROPERTY_MGR, SPONSOR_ANALYST and GUARDIAN roles, and attacks the outside
+  tenant in reverse.
+- **`2S6-BE-02` · notification preferences.** `GET`/`PUT
+  /me/notification-preferences` set only the caller's own preferences. The
+  worker checks for a mute at send time (`mutedFor` in `send-email.mts`).
+  Decision notices cannot be muted. A new matrix resource,
+  `notificationPreference` (§17), changes the digest to `9335a770498a2530`;
+  with that resource removed, the grid still hashes to the old value.
+
+The full backend suite passes (1476 tests), and every task was mutation-checked.
+Stage Progress is unchanged (it counts Phase 1 only).
+
+## Phase 2 batch 3: five backend tasks, plus one new frontend task
+
+- **New task `2S7-FE-03` (raised by the programme owner):** "Render tenant
+  branding in the property portal" (Order 57.2, 1 day, depends on
+  `2S7-BE-01`).
+  - `2S7-BE-01`'s acceptance was re-scoped in the plan Markdown. The backend
+    serves the branding and renders it on reports; the portal rendering is
+    `2S7-FE-03`.
+  - Phase 2 now has 67 tasks. The Dashboard, autofilter, conditional
+    formatting and validation ranges were extended to row 70.
+- **New scope `operated` (matrix §18).** An approved organisation's tenant
+  records its operator (`Tenant.operatorTenantId`, which is BTG). BTG staff
+  can read and approve inventory and listings in the tenants they operate, and
+  can reach nothing else of theirs. Existing provisioned tenants were
+  backfilled.
+- **`2S2-BE-01` · inventory:** `/inventory`. The owner is always the caller,
+  and the owner sets the price. Price and quantity cannot change while the
+  item's listing is published.
+- **`2S2-BE-04` · team roster:** `/team/roster`. The manager adds athletes to
+  the team's own tenant, each with an account they claim by email, and sets
+  the team's revenue share (`teamShareBps`).
+- **`2S3-BE-01` · listings:** the lifecycle from the state-machine doc.
+  - Only a property whose onboarding is approved can create a listing.
+  - Governance is checked on submit, on approval and on resume, and BTG
+    approval is the only way to publish.
+  - An item can have only one live listing.
+- **`2S2-BE-03` · formal offer:** the terms are hashed when the offer is sent.
+  - Acceptance writes a snapshot of the terms and creates the order (already
+    accepted), its scheduled deliverables and the earning, all in one
+    transaction.
+  - The Postgres trigger `offer_terms_immutable` refuses changes to the terms.
+  - Offers stay within one tenant until `2S4`.
+- **`2S7-BE-01` · branding:** `/branding` and `/branding/logo` (the logo goes
+  to the public bucket, PNG or JPEG only).
+  - The rendered PDF embeds the logo and uses the colours and footer.
+  - Screen 12's payload carries the branding.
+- **Route note:** the roster lives at `/team/roster`. `/properties/mine/roster`
+  would have been captured by rights' existing `POST /properties/:id/roster`.
+
+The full backend suite passes (1493 tests), with nine mutations checked. The
+matrix digest is now `ae772ead96f9f479`; with the five new resources removed,
+the grid still hashes to the old value.
+
+## Phase 2 batch 4 — five backend tasks → Done (acceptance met)
+
+- **`2S2-BE-02` · brand restrictions:** a new `BrandRestriction` table, plus
+  `Sponsor.categories`, which only BTG sets.
+  - One shared check, `restrictionConflicts`, covers the athlete, their team
+    and their Phase 1 profile. The cart, the formal offer (on draft and on
+    accept) and the Phase 1 invitation all ask it.
+  - An accepted offer with an exclusivity period writes an `EXCLUSIVITY`
+    restriction, which only `SUPER_ADMIN` can remove.
+- **`2S3-BE-03` · availability check:** `availability.ts` returns coded
+  reasons: `DATE_OVERLAP`, `QUANTITY_OVERRUN`, `CATEGORY_CONFLICT`, `SUB_FLOOR`
+  and others.
+  - A new `InventoryCommitment` table is written by accepted offers.
+    Reservations and orders (`2S4`) will write to it too.
+  - Windows are compared by whole UTC days. Testing found that same-day
+    bookings didn't clash when compared to the millisecond.
+  - Error bodies now carry `reasons`, `conflicts`, `problems` and `missing`.
+- **`2S3-BE-04` · search:** `/marketplace/search`, served by the new `catalog`
+  listing scope for sponsors.
+  - Sponsors see only live, public listings from approved properties in their
+    own marketplace.
+  - Anything restricted against the sponsor's categories is hidden, so two
+    sponsors see different catalogues.
+- **`2S3-SEC-01` · search isolation:** tests across two operators, plus new
+  routes in the cross-tenant sweep.
+- **`2S4-BE-01` · cart:** `/cart` and `/cart/lines`. Every line write runs the
+  availability check. The cart expires 24 hours after its last change, and an
+  hourly worker sweep closes expired carts.
+- **Matrix §19:** the digest is now `4f835eba4e8465d1`. With this batch
+  removed, the grid still hashes to the old value.
+
+The full backend suite passes (1526 tests), and 11 of 11 mutations were
+caught.
+
+## Phase 2 batch 5: five backend tasks moved to Done (acceptance met)
+
+- **Approval threshold:** $1,000, set by the programme owner. It is the
+  `MARKETPLACE_APPROVAL_THRESHOLD_CENTS` setting.
+- **`2S3-BE-02` · packages:** a new `PACKAGE` kind, with `BundleComponent`
+  rows for its contents.
+  - A package sells as one line at its own price.
+  - The availability check covers every part, and every commitment writer
+    (reservation, order, offer) expands through `unitsTaken`.
+- **`2S4-BE-02` · reservations:** `POST /cart/reserve` holds the whole cart
+  for 15 minutes, all or nothing.
+  - Postgres advisory locks per item stop two sponsors buying the last unit.
+    The race was proven in a test: exactly one wins.
+  - A hold lapses at `expiresAt` without waiting for any job. A sweep every
+    minute then marks it expired.
+- **`2S4-BE-03` / `2S4-BE-05` · orders and the approval gate:**
+  `/marketplace-orders`.
+  - The state machine is transcribed from the state-machines doc.
+  - An order's stock is held while it waits, and contracted only when it is
+    approved.
+  - An order needs approval if it is $1,000 or more, the sponsor's first, or
+    from a listing that asks. Otherwise policy approves it, recorded as
+    "system".
+  - Rejecting an order releases its stock.
+  - Postgres keeps the figures and lines fixed from approval on.
+  - The buyer fee defaults to 0.
+- **`2S7-INT-01` · Zoho:** the `zoho.pushMarketplaceOrder` job.
+  - Each outside property becomes a Partner Account, with its manager as a
+    Contact. That is the S-9 mapping change, recorded in field-mapping §12.2.
+  - The Deal is linked to the sponsor's Account and Contact.
+  - This was tested against the fake Zoho org. A live sandbox check is still
+    open.
+- **Matrix §20:** the digest is now `f970f155612606e9`. With this batch
+  removed, the grid still hashes to the old value.
+
+The full backend suite passes (1544 tests). Ten out of ten mutations were
+caught, and one survivor surfaced a missing test for a package whose part runs
+out. Two real bugs were found and fixed: the Deal `Type` counted later orders,
+and holds had been compared to the millisecond (fixed in batch 4).
+
+## `P6-BE-08` (raised by HeckerCreatives): backend done, row In progress
+
+- **Reward:** new fields `eligibility`, `redemptionCap` (with
+  `redemptionCount`) and `landingHeadline`/`landingSubhead`, all accepted on
+  create.
+- **The cap is race-safe.** One conditional UPDATE inside the redeem
+  transaction takes the last unit, and a DB CHECK keeps the count at or below
+  the cap. In the test, 8 simultaneous redemptions against a cap of 3 gave
+  exactly 3 successes. The other 5 get a 409 with `kind: REDEMPTION_CAP`,
+  which a new `kind` field in error bodies carries.
+- **The public view** now returns `landing`, `eligibility` and `capReached`.
+- **Consent copy stays central**, not per reward, as the row asked me to
+  confirm.
+- **Still open:** "the fan page renders the landing copy" is frontend work in
+  `fan-page.ts` and the redeem route. The user reminded me this session is
+  backend only, so my fan-page edits were reverted.
+
+`P2-OPS-07` is unchanged. Its second clause (the matrix as a required check)
+needs GitHub Pro.
+
+**`P6-BE-08` → Done; new task `P6-FE-04`** (both at the programme owner's
+instruction). The fan page's rendering of the landing copy, eligibility and
+spent cap is now `P6-FE-04` (frontend, 1 day, Ready). `P6-BE-08`'s acceptance
+now covers the backend only. Both tasks are added to the Phase 1 Markdown,
+which had never listed `P6-BE-08`. On the Phase 1 sheet, the autofilter,
+conditional formatting and validation ranges now run to row 255 (the
+Dashboard's ranges already reach row 400). The Stage Progress row for
+2026-09-28 is now 209 done and 107 days left. `P2-OPS-07` is left open at the
+user's decision, because a required check needs GitHub Pro.
+

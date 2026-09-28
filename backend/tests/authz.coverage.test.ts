@@ -74,6 +74,25 @@ const GOVERNED_BY: Record<string, Resource> = {
   SchoolPoolAllocation: "schoolPoolAllocation",
   ReportFile: "sponsorReport",
   PropertyOnboarding: "propertyOnboarding",
+  /* 2S1-BE-02 — a verification document is part of its onboarding: the
+     applicant reaches it by resume token, BTG through propertyOnboarding. */
+  OnboardingDocument: "propertyOnboarding",
+  NotificationPreference: "notificationPreference",
+  InventoryItem: "inventoryItem",
+  Listing: "listing",
+  Offer: "offer",
+  TenantBranding: "tenantBranding",
+  BrandRestriction: "brandRestriction",
+  /* A commitment is the item's own ledger of what is spoken for — read by
+     the availability check, written by the purchase that commits it. */
+  InventoryCommitment: "inventoryItem",
+  Cart: "cart",
+  CartLine: "cart",
+  /* A package's contents are part of the item. */
+  BundleComponent: "inventoryItem",
+  Reservation: "reservation",
+  MarketplaceOrder: "marketplaceOrder",
+  MarketplaceOrderLine: "marketplaceOrder",
 };
 
 /** Models no API path reads or writes, and why. */

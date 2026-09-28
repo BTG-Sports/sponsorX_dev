@@ -64,13 +64,15 @@ const HANDLED_JOBS = new Set<string>([
   "zoho.pushRenewal",
   "zoho.ingestCrm",
   "zoho.backfill",
+  /* 2S7-INT-01 — marketplace orders, their sponsors and properties. */
+  "zoho.pushMarketplaceOrder",
   /* 2S7-BE-02 — the sponsor report rendered as a file, unattended. */
   "report.render",
 ]);
 import { handleSendEmail, type EmailJob } from "./jobs/send-email.mts";
 import { handleGenerateQr, type QrJob } from "./jobs/generate-qr.mts";
 import { handleDeriveImage, type DeriveImageJob } from "./jobs/derive-image.mts";
-import { getPrivateObject, putPrivateObject } from "../src/lib/storage.ts";
+import { getPrivateObject, getPublicObject, putPrivateObject } from "../src/lib/storage.ts";
 import {
   cityReaderToLookup, handleResolveGeo, type GeoJob, type GeoLookup,
 } from "./jobs/resolve-geo.mts";
@@ -78,6 +80,9 @@ import { handleRollupMetrics } from "./jobs/rollup-metrics.mts";
 import { remindDueDeliverables } from "./jobs/deliverable-reminders.mts";
 import { handleIngestInvoice, type IngestInvoiceJob } from "./jobs/ingest-invoice.mts";
 import { handleRenderReport } from "./jobs/render-report.mts";
+import { applyQueuePolicy } from "./queue-policy.mts";
+import { expireCarts } from "../src/domain/cart.ts";
+import { expireReservations } from "../src/domain/reservation.ts";
 import type { RenderReportJob } from "../src/domain/report-files.ts";
 import { prisma } from "../src/db/client.ts";
 import { ingestZohoInvoice, type ZohoInvoicePayload } from "../src/domain/invoice.ts";
@@ -85,9 +90,9 @@ import { importCohort, type CohortImportJob } from "../src/domain/cohort-import.
 import { redis } from "../src/lib/redis.ts";
 import { zohoConfigFromEnv, zohoFromEnv } from "../src/lib/zoho.ts";
 import {
-  handleBackfill, handleIngestCrm, handlePushDeal, handlePushLead, handlePushRenewal,
+  handleBackfill, handleIngestCrm, handlePushDeal, handlePushLead, handlePushMarketplaceOrder, handlePushRenewal,
   handlePushTask, renewWatch, runReconciliation, dispatchableJobs,
-  type BackfillJob, type DealJob, type IngestCrmJob, type LeadJob, type RenewalJob, type TaskJob,
+  type BackfillJob, type DealJob, type IngestCrmJob, type LeadJob, type MarketplaceOrderJob, type RenewalJob, type TaskJob,
 } from "./jobs/zoho-sync.mts";
 
 const connectionString = process.env.DATABASE_URL;
@@ -132,7 +137,8 @@ const knownQueues = new Set<string>();
 
 async function ensureQueue(name: string): Promise<void> {
   if (knownQueues.has(name)) return;
-  await boss.createQueue(name);
+  /* 2S1-INT-01 — a queue with a retry policy gets it here, on both sides. */
+  await applyQueuePolicy(boss, name);
   knownQueues.add(name);
 }
 
@@ -256,6 +262,10 @@ let timer: NodeJS.Timeout | undefined;
 let expiryTimer: ReturnType<typeof setInterval> | undefined;
 let rollupTimer: ReturnType<typeof setInterval> | undefined;
 let reminderTimer: ReturnType<typeof setInterval> | undefined;
+/* 2S4-BE-01 — the hourly cart expiry sweep. */
+let cartTimer: ReturnType<typeof setInterval> | undefined;
+/* 2S4-BE-02 — the reservation sweep, every minute. */
+let holdTimer: ReturnType<typeof setInterval> | undefined;
 let zohoTimer: ReturnType<typeof setInterval> | undefined;
 /* P8-INT-05 checks hourly and runs at most once a day per tenant; P8-INT-03's
    channel is renewed every 12 hours against a 24-hour expiry. */
@@ -410,7 +420,7 @@ async function main(): Promise<void> {
      API (src/combined.mts names this as the signal to split them). */
   await ensureQueue("report.render");
   await boss.work<RenderReportJob & { tenantId: string }>("report.render", { localConcurrency: 1 }, async ([job]) =>
-    console.log(`[worker] report.render ${JSON.stringify(await handleRenderReport({ db: prisma, put: putPrivateObject }, job.data))}`));
+    console.log(`[worker] report.render ${JSON.stringify(await handleRenderReport({ db: prisma, put: putPrivateObject, logo: getPublicObject }, job.data))}`));
 
   const zohoDeps = { db: prisma, zoho: zohoFromEnv };
   const zohoLog = (name: string, outcome: unknown) =>
@@ -427,6 +437,9 @@ async function main(): Promise<void> {
   await ensureQueue("zoho.pushLead");
   await boss.work<LeadJob>("zoho.pushLead", async ([job]) =>
     zohoLog("zoho.pushLead", await handlePushLead(zohoDeps, job.data)));
+  await ensureQueue("zoho.pushMarketplaceOrder");
+  await boss.work<MarketplaceOrderJob>("zoho.pushMarketplaceOrder", async ([job]) =>
+    zohoLog("zoho.pushMarketplaceOrder", await handlePushMarketplaceOrder(zohoDeps, job.data)));
   await ensureQueue("zoho.pushRenewal");
   await boss.work<RenewalJob>("zoho.pushRenewal", async ([job]) =>
     zohoLog("zoho.pushRenewal", await handlePushRenewal(zohoDeps, job.data)));
@@ -587,6 +600,23 @@ async function main(): Promise<void> {
      the comparison is one statement, and a per-invite job that is lost leaves
      that offer open forever where a missed sweep catches everything next run.
      Hourly is well inside the precision a multi-day window needs. */
+  /* 2S4-BE-01 — close carts a day past their last change. Hourly: a cart
+     past its expiry is already refused on read, so the sweep only tidies. */
+  /* 2S4-BE-02 — mark lapsed holds EXPIRED. The stock already came back the
+     instant each one's time passed (availability counts only live holds);
+     this keeps the record true. Every minute: a hold lasts fifteen. */
+  holdTimer = setInterval(() => {
+    void expireReservations(prisma)
+      .then(({ expired }) => { if (expired) console.log(`[worker] reservations — expired ${expired}`); })
+      .catch((error: unknown) => console.error("[worker] reservation expiry failed, will retry next minute:", error));
+  }, 60_000);
+
+  cartTimer = setInterval(() => {
+    void expireCarts(prisma)
+      .then(({ expired }) => { if (expired) console.log(`[worker] carts — expired ${expired}`); })
+      .catch((error: unknown) => console.error("[worker] cart expiry failed, will retry next hour:", error));
+  }, REMINDER_INTERVAL_MS);
+
   expiryTimer = setInterval(() => {
     void expireInvitations(pool, process.env.APP_URL ?? "http://localhost:3000")
       .then(({ expired, reminded, warned }) => {
@@ -614,6 +644,8 @@ export async function stopWorker(): Promise<void> {
   if (expiryTimer) clearInterval(expiryTimer);
   if (rollupTimer) clearInterval(rollupTimer);
   if (reminderTimer) clearInterval(reminderTimer);
+  if (cartTimer) clearInterval(cartTimer);
+  if (holdTimer) clearInterval(holdTimer);
   if (zohoTimer) clearInterval(zohoTimer);
   timer = undefined;
   expiryTimer = undefined;

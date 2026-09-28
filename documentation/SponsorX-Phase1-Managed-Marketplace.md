@@ -5,7 +5,7 @@
 | | |
 |---|---|
 | **Goal** | Launch real micro-NIL campaigns while building the data foundation. BTG staff run matching, pricing, conflict checks and invoicing; the software standardises and records every step. |
-| **Tasks** | 189 · 451 person-days |
+| **Tasks** | 191 · 454 person-days |
 | **Blueprint timeline** | 14–18 weeks |
 | **Balanced budget** | $75K–$105K |
 | **Depends on** | Nothing — this is the start |
@@ -16,7 +16,7 @@
 | Phase | File | Tasks | Timeline |
 |---|---|---|---|
 | 1 | [`SponsorX-Phase1-Managed-Marketplace.md`](./SponsorX-Phase1-Managed-Marketplace.md) **← you are here** | 186 | 14–18 weeks |
-| 2 | [`SponsorX-Phase2-Marketplace-Commerce.md`](./SponsorX-Phase2-Marketplace-Commerce.md)  | 66 | 16–20 weeks |
+| 2 | [`SponsorX-Phase2-Marketplace-Commerce.md`](./SponsorX-Phase2-Marketplace-Commerce.md)  | 67 | 16–20 weeks |
 | 3 | [`SponsorX-Phase3-Intelligence-Attribution.md`](./SponsorX-Phase3-Intelligence-Attribution.md)  | 44 | 18–22 weeks |
 | 4 | [`SponsorX-Phase4-INFINEX-Integration.md`](./SponsorX-Phase4-INFINEX-Integration.md)  | 51 | 18–22 weeks |
 
@@ -1740,6 +1740,27 @@ The fan-facing redeem page on real data, still working with JavaScript off — i
 - **Depends on:** P6-BE-04
 - **Done when:** Real redemption works; the page still renders without JavaScript; invalid, expired and already-used states all render
 - **Reference:** §16, Guide §06
+
+### ✅ `P6-BE-08` · Reward eligibility, redemption cap and landing copy fields
+
+**Order** 128.5 · **BE** · **Where:** Code · **2d** · **Done**
+
+Raised 2026-09-28 by the `P6-FE-01` wiring. §9 screen 10 asks the reward creator to configure eligibility, redemption limits and the landing page, and the Reward model had no columns for any of them. The migration, the contract and the domain are all added; the cap is enforced in the redeem transaction, not the UI. Consent copy is deliberately not per reward: it is versioned centrally (`fan-consent.ts`, `P6-SEC-01`), so a claim records the words the fan saw.
+
+- **Depends on:** P6-BE-02
+- **Done when:** Eligibility, a redemption cap and landing headline/subhead persist on Reward; the cap is enforced race-safely at redeem; the public view serves the landing copy for the fan page to render (the rendering itself is `P6-FE-04`); tenant-isolation sweep still green
+- **Reference:** §9 screen 10, §16
+- **Changed 2026-09-28** by the programme owner: the fan page's rendering was split into `P6-FE-04`, so this task stays backend-only.
+
+### ⏸ `P6-FE-04` · Render reward landing copy, eligibility and cap on the fan page
+
+**Order** 128.6 · **FE** · **Where:** Code · **1d** · **Ready**
+
+The fan page shows the reward's own landing headline and subhead, and who qualifies, from the public view (`GET /public/rewards/{token}` → `landing`, `eligibility`, `capReached`). A spent cap reads as its own state. Raised 2026-09-28, split out of `P6-BE-08` at the programme owner's instruction.
+
+- **Depends on:** P6-BE-08
+- **Done when:** The fan page renders the reward's landing headline, subhead and eligibility from the public view; a spent cap (`capReached`) shows its own message with no claim or redeem form; the booth's redeem result tells `REDEMPTION_CAP` (409 `error.kind`) apart from an already-used code
+- **Reference:** §9 screen 10, §16
 
 ### ⏸ `P6-BE-01` · Tracking link model and t/[code] redirect route
 

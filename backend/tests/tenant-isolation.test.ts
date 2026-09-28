@@ -61,11 +61,31 @@ const A = {
   publication: "ti_pub_a", edition: "ti_edition_a", slot: "ti_slot_a",
   school: "ti_school_a", student: "ti_student_a", code: "ti_code_a", prospect: "ti_prospect_a",
   asset: "ti_asset_ed_a", claim: "ti_claim_a", onboarding: "ti_onboarding_a",
+  /* Phase 2 batch 3 — an athlete's item, a school's item with a listing awaiting approval, a sent offer. */
+  item: "ti_item_a", schoolItem: "ti_item_school_a", listing: "ti_listing_a", offer: "ti_offer_a",
+  /* Phase 2 batch 4 — a restriction, the sponsor's cart with a line. */
+  restriction: "ti_restriction_a", cart: "ti_cart_a", cartLine: "ti_cart_line_a",
+  /* Phase 2 batch 5 — a hold and the order it became. */
+  reservation: "ti_reservation_a", mktOrder: "ti_mkt_order_a",
 } as const;
 const B = {
   tenant: "ti_tenant_b", sponsor: "ti_sponsor_b", athlete: "ti_athlete_b",
-  school: "ti_school_b", student: "ti_student_b",
+  school: "ti_school_b", student: "ti_student_b", guardian: "ti_guardian_b",
 } as const;
+
+/**
+ * 2S8-SEC-01 — an OUTSIDE organisation. Not seeded by hand: tenant A's BTG
+ * admin approves its onboarding through the production path, which
+ * provisions tenant E, its Property and its PROPERTY_MGR (2S1-BE-04). The ids
+ * are generated, so they are filled in when the approval returns.
+ */
+const E = { tenant: "", property: "", manager: "", onboarding: "ti_onboarding_e", name: "TI External Academy" };
+const E_MANAGER = "ti_e_manager"; // signs in as ti_e_manager@tenant-test.invalid, the primary contact
+/** Tenant A's own non-staff users — they attack the outside tenant too. */
+const A_ACTORS = [
+  { id: "ti_a_sponsor", roles: ["SPONSOR_ADMIN"], sponsorId: "ti_sponsor_a" },
+  { id: "ti_a_athlete", roles: ["ATHLETE"], athleteId: "ti_athlete_a" },
+] as const;
 
 /** Tenant B's users: every kind of actor who could try to reach across. */
 const B_ACTORS = [
@@ -76,6 +96,10 @@ const B_ACTORS = [
   /* SponsorX NEXT (P9-BE-05) — "the tenant-isolation tests grown" (spec §7). */
   { id: "ti_b_student", roles: ["STUDENT"], studentId: B.student, propertyId: B.school },
   { id: "ti_b_advisor", roles: ["ADVISOR"], propertyId: B.school },
+  /* 2S8-SEC-01 — the outside-party roles Phase 2 adds accounts for. */
+  { id: "ti_b_property_mgr", roles: ["PROPERTY_MGR"], propertyId: B.school },
+  { id: "ti_b_analyst", roles: ["SPONSOR_ANALYST"], sponsorId: B.sponsor },
+  { id: "ti_b_guardian", roles: ["GUARDIAN"], guardianId: B.guardian },
 ] as const;
 
 /** Which tenant-A id a path parameter takes, by the noun in front of it. */
@@ -86,6 +110,9 @@ const PARAM_FOR: Record<string, string> = {
   publications: A.publication, editions: A.edition,
   students: A.student, prospects: A.prospect, sponsors: A.sponsor,
   "edition-assets": A.asset, claims: A.claim, properties: A.school, onboarding: A.onboarding,
+  inventory: A.item, listings: A.listing, offers: A.offer, roster: A.athlete,
+  restrictions: A.restriction, lines: A.cartLine,
+  reservations: A.reservation, "marketplace-orders": A.mktOrder,
   /* GET /deliverables/{id}/assets/{version}/url (P5-FE-04) — a creative
      version number, under tenant A's deliverable. */
   assets: "1",
@@ -171,12 +198,36 @@ const BODY: Record<string, unknown> = {
   "POST /editions/{id}/contributions": { studentId: A.student, kind: "FEATURE" },
   "POST /onboarding/{id}/decision": { decision: "REJECT", notes: "cross-tenant" },
   "POST /campaigns/{id}/report/render": {},
+  "PUT /me/notification-preferences": { event: "invitation.sent", channel: "EMAIL", muted: true },
+  "POST /inventory": { title: "Sweep item", kind: "OTHER", priceCents: 500 },
+  "PATCH /inventory/{id}": { priceCents: 999 },
+  "POST /team/roster": { legalName: "Sweep Athlete", displayName: "SWEEP", email: "roster-sweep@b.invalid", sport: "Soccer" },
+  "PATCH /team/roster/{id}": { teamShareBps: 1 },
+  "POST /listings": { inventoryItemId: A.schoolItem, title: "Stolen listing" },
+  "PATCH /listings/{id}": { title: "Renamed" },
+  "POST /listings/{id}/transition": { to: "ARCHIVED" },
+  "POST /listings/{id}/decision": { decision: "APPROVE" },
+  "POST /offers": {
+    campaignId: A.campaign, athleteId: A.athlete, jobId: A.job, brief: "Stolen", compensation: 20000, sellPrice: 40000,
+    deliverables: [{ title: "Post", dueDate: "2027-06-01T00:00:00.000Z" }], usageRights: "90 days", disclosures: [], expiresAt: "2027-05-01T00:00:00.000Z",
+  },
+  "POST /offers/{id}/respond": { decision: "DECLINE" },
+  "PUT /branding": { displayName: "Sweep brand" },
+  "POST /branding/logo": { contentType: "image/png", bytes: 10 },
+  "POST /restrictions": { athleteId: A.athlete, category: "CRYPTO", type: "PROHIBITED" },
+  "PUT /sponsors/{id}/categories": { categories: ["APPAREL"] },
+  "POST /cart/lines": { listingId: A.listing, quantity: 1, startsOn: "2027-01-01T00:00:00.000Z", endsOn: "2027-01-02T00:00:00.000Z" },
+  "PATCH /cart/lines/{id}": { quantity: 2 },
+  "POST /marketplace-orders": { reservationId: A.reservation },
+  "POST /marketplace-orders/{id}/decision": { decision: "APPROVE" },
+  "POST /marketplace-orders/{id}/transition": { to: "CANCELLED" },
 };
 
 describe.skipIf(!hasDatabase)("P8-SEC-02 · tenant B cannot reach tenant A through any route", async () => {
   const { prisma } = await import("../src/db/client");
   const { createApp } = await import("../src/app");
   const { DOCUMENTED_PATHS } = await import("../src/contracts/registry");
+  const { decideOnboarding } = await import("../src/domain/onboarding");
 
   let base = "";
   let server: ReturnType<ReturnType<typeof createApp>["listen"]>;
@@ -184,7 +235,7 @@ describe.skipIf(!hasDatabase)("P8-SEC-02 · tenant B cannot reach tenant A throu
   let before = "";
 
   /** Every row tenant A owns, in every table that has a tenant. */
-  async function fingerprint(): Promise<string> {
+  async function fingerprint(tenant: string = A.tenant): Promise<string> {
     const tables = await prisma.$queryRawUnsafe<{ table_name: string }[]>(
       `SELECT table_name FROM information_schema.columns
         WHERE column_name = 'tenantId' AND table_schema = 'public' ORDER BY table_name`,
@@ -192,7 +243,7 @@ describe.skipIf(!hasDatabase)("P8-SEC-02 · tenant B cannot reach tenant A throu
     const h = createHash("sha256");
     for (const { table_name } of tables) {
       const rows = await prisma.$queryRawUnsafe<unknown[]>(
-        `SELECT * FROM "${table_name}" WHERE "tenantId" = $1 ORDER BY 1`, A.tenant,
+        `SELECT * FROM "${table_name}" WHERE "tenantId" = $1 ORDER BY 1`, tenant,
       );
       h.update(table_name).update(JSON.stringify(rows, (_k, v) => (typeof v === "bigint" ? String(v) : v)));
     }
@@ -203,15 +254,20 @@ describe.skipIf(!hasDatabase)("P8-SEC-02 · tenant B cannot reach tenant A throu
     const tables = await prisma.$queryRawUnsafe<{ table_name: string }[]>(
       `SELECT table_name FROM information_schema.columns WHERE column_name = 'tenantId' AND table_schema = 'public'`,
     );
+    /* The outside tenants tenant A's approvals provisioned, found through their Property. */
+    const outside = (await prisma.$queryRawUnsafe<{ tenantId: string }[]>(
+      `SELECT p."tenantId" FROM "PropertyOnboarding" o JOIN "Property" p ON p.id = o."propertyId" WHERE o."tenantId" = $1 AND p."tenantId" <> $1
+       UNION SELECT "tenantId" FROM "User" WHERE email = $2 AND "tenantId" <> $1`, A.tenant, `${E_MANAGER}@tenant-test.invalid`,
+    )).map((r) => r.tenantId);
     /* Children before parents; a failure just means another pass. */
     for (let pass = 0; pass < 6; pass++) {
       for (const { table_name } of tables) {
         await prisma.$executeRawUnsafe(
-          `DELETE FROM "${table_name}" WHERE "tenantId" IN ($1, $2)`, A.tenant, B.tenant,
+          `DELETE FROM "${table_name}" WHERE "tenantId" = ANY($1::text[])`, [A.tenant, B.tenant, ...outside],
         ).catch(() => {});
       }
     }
-    await prisma.tenant.deleteMany({ where: { id: { in: [A.tenant, B.tenant] } } });
+    await prisma.tenant.deleteMany({ where: { id: { in: [A.tenant, B.tenant, ...outside] } } });
   }
 
   async function seed() {
@@ -260,14 +316,59 @@ describe.skipIf(!hasDatabase)("P8-SEC-02 · tenant B cannot reach tenant A throu
     /* Batch C — an edition asset and a claim on a profile. */
     await prisma.editionAsset.create({ data: { id: A.asset, tenantId: t, editionId: A.edition, kind: "ARTICLE", title: "TI Secret Article", sourceKind: "BTG" } });
     await prisma.propertyOnboarding.create({ data: { id: A.onboarding, tenantId: t, orgType: "TEAM", orgName: "TI Secret Org", state: "PENDING_REVIEW" } });
+    await prisma.inventoryItem.createMany({ data: [
+      { id: A.item, tenantId: t, athleteId: A.athlete, title: "TI Secret Item", kind: "OTHER", priceCents: 5000 },
+      { id: A.schoolItem, tenantId: t, propertyId: A.school, title: "TI Secret Banner", kind: "SIGNAGE", priceCents: 9000 },
+    ] });
+    await prisma.listing.create({ data: { id: A.listing, tenantId: t, propertyId: A.school, inventoryItemId: A.schoolItem, title: "TI Secret Listing", description: "TI secret listing description", state: "PENDING_APPROVAL" } });
+    await prisma.offer.create({ data: {
+      id: A.offer, tenantId: t, campaignId: A.campaign, athleteId: A.athlete, jobId: A.job, brief: "TI Secret brief", compensation: 20000, sellPrice: 40000,
+      deliverables: [{ title: "Post", dueDate: "2027-06-01T00:00:00.000Z" }], usageRights: "90 days", disclosures: [], expiresAt: new Date(Date.now() + 30 * 864e5),
+      state: "SENT", sentAt: new Date(), termsHash: "t".repeat(64),
+    } });
+    await prisma.tenantBranding.create({ data: { tenantId: t, displayName: "TI Secret Brand", primaryColor: "#123456" } });
+    await prisma.brandRestriction.create({ data: { id: A.restriction, tenantId: t, athleteId: A.athlete, category: "GAMBLING", type: "PROHIBITED", reason: "TI Secret reason" } });
+    /* Far-future expiry: the cart sweep (2S4-BE-01) is platform-wide, and
+       another file runs it a day ahead while this sweep is fingerprinting. */
+    await prisma.cart.create({ data: { id: A.cart, tenantId: t, sponsorId: A.sponsor, expiresAt: new Date(Date.now() + 3650 * 864e5) } });
+    /* Far-future: the reservation sweep is platform-wide too. */
+    await prisma.reservation.create({ data: { id: A.reservation, tenantId: t, sponsorId: A.sponsor, cartId: A.cart, expiresAt: new Date(Date.now() + 3650 * 864e5) } });
+    await prisma.marketplaceOrder.create({ data: {
+      id: A.mktOrder, tenantId: t, sponsorId: A.sponsor, reservationId: A.reservation, subtotalCents: 9000, feesCents: 0, totalCents: 9000,
+      requiresApproval: true, approvalReasons: ["TI Secret reason"],
+      lines: { create: [{ tenantId: t, listingId: A.listing, inventoryItemId: A.schoolItem, itemTenantId: t, propertyId: A.school, title: "TI Secret line", quantity: 1, startsOn: new Date("2027-01-01"), endsOn: new Date("2027-01-02"), unitPriceCents: 9000, lineTotalCents: 9000 }] },
+    } });
+    await prisma.cartLine.create({ data: { id: A.cartLine, tenantId: t, cartId: A.cart, listingId: A.listing, quantity: 1, startsOn: new Date("2027-01-01"), endsOn: new Date("2027-01-02"), unitPriceCents: 9000 } });
     await prisma.athleteClaim.create({ data: { id: A.claim, tenantId: t, athleteId: A.athlete, claimantName: "TI Secret Claimant", claimantEmail: "secret@a.invalid", rosterMatched: true } });
+    await prisma.guardian.create({ data: { id: B.guardian, tenantId: B.tenant, legalName: "TI Guardian B", email: "g@b.invalid", relationship: "PARENT" } });
     for (const u of B_ACTORS) {
       await prisma.user.create({ data: {
         id: u.id, tenantId: B.tenant, clerkId: u.id, email: `${u.id}@b.invalid`, roles: [...u.roles],
         sponsorId: "sponsorId" in u ? u.sponsorId : null, athleteId: "athleteId" in u ? u.athleteId : null,
         studentId: "studentId" in u ? u.studentId : null, propertyId: "propertyId" in u ? u.propertyId : null,
+        guardianId: "guardianId" in u ? u.guardianId : null,
       } });
     }
+    for (const u of A_ACTORS) {
+      await prisma.user.create({ data: {
+        id: u.id, tenantId: t, clerkId: u.id, email: `${u.id}@a.invalid`, roles: [...u.roles],
+        sponsorId: "sponsorId" in u ? u.sponsorId : null, athleteId: "athleteId" in u ? u.athleteId : null,
+      } });
+    }
+
+    /* 2S8-SEC-01 — tenant A's admin approves an outside school; approval provisions tenant E. */
+    await prisma.propertyOnboarding.create({ data: {
+      id: E.onboarding, tenantId: t, orgType: "SCHOOL", orgName: E.name, stateCode: "MD", state: "PENDING_REVIEW",
+      contacts: [{ name: "Erin Vale", email: `${E_MANAGER}@tenant-test.invalid`, role: "Athletic director", primary: true }],
+      details: { district: "TI District", athleticDirector: "Erin Vale", sports: ["Soccer"] },
+      payoutAcknowledgedAt: new Date(), termsAcceptedAt: new Date(), submittedAt: new Date(),
+    } });
+    const admin = { userId: A.admin, tenantId: t, roles: ["BTG_ADMIN" as const], sponsorId: null, athleteId: null, guardianId: null, propertyId: null };
+    const approved = await decideOnboarding(admin, E.onboarding, "APPROVE");
+    E.property = approved.propertyId!;
+    const provisioned = await prisma.property.findUniqueOrThrow({ where: { id: E.property }, select: { tenantId: true } });
+    E.tenant = provisioned.tenantId;
+    E.manager = (await prisma.user.findFirstOrThrow({ where: { tenantId: E.tenant }, select: { id: true } })).id;
   }
 
   /** The routes a tenant-bound actor can call: documented, not public. */
@@ -275,12 +376,12 @@ describe.skipIf(!hasDatabase)("P8-SEC-02 · tenant B cannot reach tenant A throu
     DOCUMENTED_PATHS.map((r) => ({ method: r.split(" ")[0]!, path: r.split(" ")[1]! }))
       .filter(({ path }) => !/^\/(public|webhooks|openapi\.json)/.test(path) && path !== "/" && path !== "/me");
 
-  const concrete = (path: string) =>
-    path.replace(/\/([a-z-]+)\/\{(\w+)\}/g, (_m, noun: string) => `/${noun}/${PARAM_FOR[noun] ?? "unknown"}`);
+  const concrete = (path: string, params: Record<string, string> = PARAM_FOR) =>
+    path.replace(/\/([a-z-]+)\/\{(\w+)\}/g, (_m, noun: string) => `/${noun}/${params[noun] ?? "unknown"}`);
 
-  async function hit(method: string, path: string, clerk: string) {
+  async function hit(method: string, path: string, clerk: string, params: Record<string, string> = PARAM_FOR) {
     const key = `${method} ${path}`;
-    const res = await fetch(`${base}/api/v1${concrete(path)}`, {
+    const res = await fetch(`${base}/api/v1${concrete(path, params)}`, {
       method,
       headers: { "x-test-clerk": clerk, "content-type": "application/json" },
       body: method === "GET" ? undefined : JSON.stringify(BODY[key] ?? {}),
@@ -323,7 +424,8 @@ describe.skipIf(!hasDatabase)("P8-SEC-02 · tenant B cannot reach tenant A throu
       "TI Secret", "secret@a.invalid", "ti-secret-token-a", "TI secret",
     ];
     const failures: string[] = [];
-    for (const actor of B_ACTORS) {
+    /* Tenant B's every role, and the outside organisation's own manager. */
+    for (const actor of [...B_ACTORS, { id: E_MANAGER }]) {
       for (const r of routes()) {
         const key = `${r.method} ${r.path}`;
         const { status, text } = await hit(r.method, r.path, actor.id);
@@ -352,6 +454,46 @@ describe.skipIf(!hasDatabase)("P8-SEC-02 · tenant B cannot reach tenant A throu
       expect(text).not.toContain("TI Secret");
     }
   });
+
+  it("2S8-SEC-01 · the outside organisation is its own tenant, and its manager reaches it", async () => {
+    expect(E.tenant).not.toBe(A.tenant);
+    const me = await hit("GET", "/me", E_MANAGER);
+    expect(JSON.parse(me.text)).toMatchObject({ tenantId: E.tenant, roles: ["PROPERTY_MGR"], propertyId: E.property });
+    const mine = await hit("GET", "/properties/mine", E_MANAGER);
+    expect(mine.status).toBe(200);
+    expect(JSON.parse(mine.text).property).toMatchObject({ id: E.property, name: E.name });
+  });
+
+  it("2S8-SEC-01 · and no other tenant's sponsor, athlete, property or admin role reaches the outside tenant", async () => {
+    const beforeE = await fingerprint(E.tenant);
+    /* Aim every path parameter the outside tenant owns at it; the rest stay on tenant A. */
+    const params = { ...PARAM_FOR, properties: E.property, onboarding: E.onboarding };
+    const secrets = [E.tenant, E.property, E.manager, E.name, `${E_MANAGER}@`];
+    const failures: string[] = [];
+    const attackers = [{ id: A.admin }, ...A_ACTORS, ...B_ACTORS];
+    for (const actor of attackers) {
+      for (const r of routes()) {
+        const aimsAtE = r.path.startsWith("/properties/{");
+        /* Reads everywhere, and every write aimed at the outside tenant. Tenant A's
+           own writes are not replayed here — they are its own to make. */
+        if (r.method !== "GET" && !aimsAtE) continue;
+        const { status, text } = await hit(r.method, r.path, actor.id, params);
+        if (aimsAtE && status < 400) failures.push(`${actor.id} ${r.method} ${r.path} → ${status}: ${text.slice(0, 160)}`);
+        if (status >= 500) failures.push(`${actor.id} ${r.method} ${r.path} → ${status} (crashed, not refused)`);
+        /* BTG's own records of its own decision — the onboarding it reviewed and
+           the audit row of the approval, which names what it provisioned — may
+           name the organisation to tenant A's admin. Nobody else, nowhere else. */
+        /* And, as E's OPERATOR, tenant A's admin reads E's marketplace records —
+           inventory and listings — by design (the `operated` scope, matrix §18). */
+        const own = actor.id === A.admin && (r.path.startsWith("/onboarding") || r.path === "/audit-log"
+          || r.path.startsWith("/inventory") || r.path.startsWith("/listings"));
+        const leaked = own ? [] : secrets.filter((x) => text.includes(x));
+        if (leaked.length) failures.push(`${actor.id} ${r.method} ${r.path} → leaked ${leaked.join(", ")}`);
+      }
+    }
+    expect(failures).toEqual([]);
+    expect(await fingerprint(E.tenant)).toBe(beforeE);
+  }, 120_000);
 
   it("and nothing tenant A owns changed, in any table", async () => {
     expect(await fingerprint()).toBe(before);

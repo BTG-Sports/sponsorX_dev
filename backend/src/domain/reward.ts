@@ -105,6 +105,9 @@ export class AlreadyRedeemedError extends Error {
  */
 export class RewardExhaustedError extends Error {
   readonly status = 410;
+  /** rcfworks' P6-BE-08 named this refusal; the merged design keeps the name
+   *  (a client may branch on `kind`) and the distinct 410 status. */
+  readonly kind = "REDEMPTION_CAP";
   constructor() {
     super("This reward has run out — every redemption it offered has been used.");
     this.name = "RewardExhaustedError";
@@ -377,6 +380,7 @@ type TokenContext = {
   rewardState: RewardState;
   expiresAt: Date;
   singleUse: boolean;
+  rewardId: string;
 };
 
 /**
@@ -397,7 +401,7 @@ async function contextFor(
       token: true,
       reward: {
         select: {
-          state: true, expiresAt: true, singleUse: true,
+          id: true, state: true, expiresAt: true, singleUse: true,
           offerText: true, terms: true,
         },
       },
@@ -414,6 +418,7 @@ async function contextFor(
     rewardState: row.reward.state as RewardState,
     expiresAt: row.reward.expiresAt,
     singleUse: row.reward.singleUse,
+    rewardId: row.reward.id,
   };
 }
 
@@ -703,6 +708,9 @@ export type TokenView =
       eligibilityNote: string | null;
       /** P6-BE-08 — the page's own words; null = the page's default copy. */
       landing: { headline: string | null; subhead: string | null };
+      /** P6-BE-08 (rcfworks) — the redemption cap is used up, or every unit
+       *  left is held by another code's claim. */
+      capReached: boolean;
       consent: { version: string; purpose: string; text: string };
       /** 2S6-BE-03 — the optional second box's wording. The page renders it
        *  UNTICKED; the version it sends back is this one. */
@@ -732,7 +740,7 @@ export async function viewToken(token: string, now = new Date()): Promise<TokenV
       reward: {
         select: {
           state: true, expiresAt: true, singleUse: true, offerText: true, terms: true,
-          eligibility: true, eligibilityNote: true, redemptionCap: true, redeemedCount: true,
+          eligibility: true, eligibilityNote: true, redemptionCap: true, redemptionCount: true,
           landingHeadline: true, landingSubhead: true,
         },
       },
@@ -754,7 +762,7 @@ export async function viewToken(token: string, now = new Date()): Promise<TokenV
      that is otherwise live. This fan's own "Redeemed ✓" outranks "run out". */
   const exhausted =
     !redeemed && live && !expired && r.redemptionCap !== null && !held &&
-    r.redeemedCount + (await prisma.rewardToken.count({
+    r.redemptionCount + (await prisma.rewardToken.count({
       /* tenant-scope: the reward of the bearer token read above. */
       where: { rewardId: row.rewardId, id: { not: row.id }, reservedUntil: { gt: now } },
     })) >= r.redemptionCap;
@@ -776,6 +784,7 @@ export async function viewToken(token: string, now = new Date()): Promise<TokenV
     eligibility: r.eligibility as RewardEligibility,
     eligibilityNote: r.eligibilityNote,
     landing: { headline: r.landingHeadline, subhead: r.landingSubhead },
+    capReached: r.redemptionCap !== null && (r.redemptionCount >= r.redemptionCap || exhausted),
     consent: {
       version: CURRENT_CONSENT_VERSION,
       purpose: "reward-delivery",
@@ -803,7 +812,7 @@ export async function viewToken(token: string, now = new Date()): Promise<TokenV
  * Redeem a token at the till.
  *
  * ONE DATABASE CALL DECIDES EVERYTHING — `reward_redeem(token, now)`,
- * migration 20260928140000 (QA pass 5). It locks the Reward row, then reads
+ * migration 20260928190000 (QA pass 5, merged with P6-BE-08). It locks the Reward row, then reads
  * the state, the expiry, this code's use, the redemptions and the other codes'
  * holds as they are NOW, and inserts the REDEEM — all inside Postgres.
  *

@@ -87,7 +87,14 @@ import {
   RosterInput,
   SubjectConsentInput,
 } from "./rights";
-import { OnboardingDecisionInput, OnboardingStartInput, OnboardingStepInput } from "./onboarding";
+import {
+  BrandingInput, InventoryItemInput, InventoryItemPatch, ListingDecisionInput, ListingInput, ListingPatch,
+  ListingTransitionInput, LogoUploadInput, OfferInput, OfferResponseInput, RosterAthleteInput, TeamShareInput,
+  CartLineInput, CartLinePatch, RestrictionInput, SponsorCategoriesInput,
+  MarketplaceOrderDecisionInput, MarketplaceOrderTransitionInput, PlaceOrderInput,
+} from "./marketplace";
+import { NotificationPreferenceInput } from "./notification-preferences";
+import { OnboardingDecisionInput, OnboardingDocumentInput, OnboardingStartInput, OnboardingStepInput } from "./onboarding";
 import {
   AgreementAcceptanceInput,
   GuardianInput,
@@ -263,6 +270,8 @@ const PATHS: Row[] = [
   { method: "get", path: "/", tag: "Meta", summary: "API root — service name and version.", auth: false },
   { method: "get", path: "/openapi.json", tag: "Meta", summary: "This specification, generated from the Zod contracts.", auth: false },
   { method: "get", path: "/me", tag: "Identity", summary: "The caller's resolved actor: tenant, roles and linked records." },
+  { method: "get", path: "/me/notification-preferences", tag: "Identity", summary: "Which events reach the caller, per channel — muted or delivered (2S6-BE-02)." },
+  { method: "put", path: "/me/notification-preferences", tag: "Identity", summary: "Mute or unmute one channel for one event type; the worker honours it at send time.", body: NotificationPreferenceInput },
 
   // applications — public intake (P3-BE-13)
   { method: "post", path: "/applications/intake", tag: "Applications", summary: "Apply to the Athlete Network.", auth: false, body: AthleteApplicationInput, status: 201, response: ApplicationSubmissionReceipt },
@@ -402,6 +411,53 @@ const PATHS: Row[] = [
   { method: "get", path: "/onboarding", tag: "Onboarding", summary: "BTG's verification queue — PENDING_REVIEW by default (2S1-BE-03)." },
   { method: "get", path: "/onboarding/{id}", tag: "Onboarding", summary: "One application, with what is missing." },
   { method: "post", path: "/onboarding/{id}/decision", tag: "Onboarding", summary: "Approve (creates the Property, grants listing access), request changes, reject, suspend, reinstate — audited (2S1-BE-03).", body: OnboardingDecisionInput },
+  { method: "post", path: "/public/onboarding/{token}/documents", tag: "Public", summary: "A private-bucket upload grant for one verification document — never a read (2S1-BE-02).", auth: false, body: OnboardingDocumentInput, status: 201 },
+  { method: "post", path: "/public/onboarding/{token}/documents/{documentId}/confirm", tag: "Public", summary: "Confirm an upload; attached only once the object is found in the private bucket.", auth: false },
+  { method: "get", path: "/onboarding/{id}/documents", tag: "Onboarding", summary: "An application's verification documents, each with an audited 15-minute read (2S1-BE-02)." },
+  // Phase 2 Sprint 2–3 — inventory, team roster, listings, offers, branding
+  { method: "get", path: "/inventory", tag: "Marketplace", summary: "Inventory the caller may see: their own, their team's, or (BTG) the tenants it operates (2S2-BE-01)." },
+  { method: "post", path: "/inventory", tag: "Marketplace", summary: "The caller adds an item they sell, priced by them.", body: InventoryItemInput, status: 201 },
+  { method: "get", path: "/inventory/{id}", tag: "Marketplace", summary: "One inventory item." },
+  { method: "patch", path: "/inventory/{id}", tag: "Marketplace", summary: "Edit or reprice an item — refused while a listing of it is published.", body: InventoryItemPatch },
+  { method: "get", path: "/team/roster", tag: "Marketplace", summary: "The manager's roster, each athlete's inventory, and the team's own (2S2-BE-04)." },
+  { method: "post", path: "/team/roster", tag: "Marketplace", summary: "Add an athlete to the roster, with an account to claim.", body: RosterAthleteInput, status: 201 },
+  { method: "patch", path: "/team/roster/{id}", tag: "Marketplace", summary: "Set the team's revenue share on one roster athlete.", body: TeamShareInput },
+  { method: "get", path: "/listings", tag: "Marketplace", summary: "Listings in scope — the property's own, or (BTG) the approval queue of the tenants it operates (2S3-BE-01)." },
+  { method: "post", path: "/listings", tag: "Marketplace", summary: "A verified property creates a DRAFT listing on one of its items.", body: ListingInput, status: 201 },
+  { method: "get", path: "/listings/{id}", tag: "Marketplace", summary: "One listing, with whatever still blocks publishing it." },
+  { method: "patch", path: "/listings/{id}", tag: "Marketplace", summary: "Edit wording, visibility or schedule — DRAFT or PAUSED only.", body: ListingPatch },
+  { method: "post", path: "/listings/{id}/submit", tag: "Marketplace", summary: "Submit for BTG approval — refused, with the list, while governance fails." },
+  { method: "post", path: "/listings/{id}/transition", tag: "Marketplace", summary: "Pause, resume or archive.", body: ListingTransitionInput },
+  { method: "post", path: "/listings/{id}/decision", tag: "Marketplace", summary: "BTG approves (publishes) or requests changes — the only road to PUBLISHED.", body: ListingDecisionInput },
+  { method: "get", path: "/offers", tag: "Marketplace", summary: "Formal offers in scope — BTG's in its tenant, or the athlete's own (2S2-BE-03)." },
+  { method: "post", path: "/offers", tag: "Marketplace", summary: "BTG drafts an offer on a campaign; it must clear the floor and fit the budget.", body: OfferInput, status: 201 },
+  { method: "get", path: "/offers/{id}", tag: "Marketplace", summary: "One offer." },
+  { method: "post", path: "/offers/{id}/send", tag: "Marketplace", summary: "Send — the terms are hashed and fixed from here." },
+  { method: "post", path: "/offers/{id}/withdraw", tag: "Marketplace", summary: "BTG takes an unanswered offer back." },
+  { method: "post", path: "/offers/{id}/respond", tag: "Marketplace", summary: "The athlete accepts (freezes the terms, creates the order and schedules its deliverables) or declines.", body: OfferResponseInput },
+  { method: "get", path: "/branding", tag: "Marketplace", summary: "The caller's tenant branding — what its portal and reports render (2S7-BE-01)." },
+  { method: "put", path: "/branding", tag: "Marketplace", summary: "Set the tenant's name, logo, colours, report footer and requested domain.", body: BrandingInput },
+  { method: "post", path: "/branding/logo", tag: "Marketplace", summary: "A public-bucket upload grant for a new logo (PNG or JPEG, ≤1 MB).", body: LogoUploadInput, status: 201 },
+  // Phase 2 batch 4 — restrictions, sponsor categories, search, cart
+  { method: "get", path: "/restrictions", tag: "Marketplace", summary: "Brand restrictions in scope — the caller's, their team's, or (staff) the tenants they reach (2S2-BE-02)." },
+  { method: "post", path: "/restrictions", tag: "Marketplace", summary: "A category an athlete or team will not be sold to, for a date range.", body: RestrictionInput, status: 201 },
+  { method: "delete", path: "/restrictions/{id}", tag: "Marketplace", summary: "Remove a restriction — never one an accepted offer's exclusivity wrote." },
+  { method: "put", path: "/sponsors/{id}/categories", tag: "Marketplace", summary: "BTG sets the brand categories a sponsor sells in — what every restriction is checked against.", body: SponsorCategoriesInput },
+  { method: "get", path: "/marketplace/search", tag: "Marketplace", summary: "Live listings visible to this sponsor, filtered — two sponsors see different catalogues (2S3-BE-04)." },
+  { method: "get", path: "/cart", tag: "Marketplace", summary: "The sponsor's open cart, or null once it has expired (2S4-BE-01)." },
+  { method: "post", path: "/cart", tag: "Marketplace", summary: "Open the sponsor's cart, or return the open one.", status: 201 },
+  { method: "post", path: "/cart/lines", tag: "Marketplace", summary: "Add a listing — refused with reasons unless available, unconflicted and at its price (2S3-BE-03).", body: CartLineInput, status: 201 },
+  { method: "patch", path: "/cart/lines/{id}", tag: "Marketplace", summary: "Change a line's quantity or dates — checked again.", body: CartLinePatch },
+  { method: "delete", path: "/cart/lines/{id}", tag: "Marketplace", summary: "Remove a line." },
+  // Phase 2 batch 5 — reservations and marketplace orders
+  { method: "post", path: "/cart/reserve", tag: "Marketplace", summary: "Hold every line of the cart for 15 minutes, all or nothing — the stock drops until it is placed, released or lapses (2S4-BE-02).", status: 201 },
+  { method: "get", path: "/reservations/{id}", tag: "Marketplace", summary: "One hold — EXPIRED as soon as its time is up." },
+  { method: "post", path: "/reservations/{id}/release", tag: "Marketplace", summary: "Let go of a hold; the stock returns at once." },
+  { method: "get", path: "/marketplace-orders", tag: "Marketplace", summary: "Marketplace orders in scope — the sponsor's own, or (BTG) the approval queue (2S4-BE-03)." },
+  { method: "post", path: "/marketplace-orders", tag: "Marketplace", summary: "Turn a live hold into an order; policy approves it or holds it for BTG (2S4-BE-05).", body: PlaceOrderInput, status: 201 },
+  { method: "get", path: "/marketplace-orders/{id}", tag: "Marketplace", summary: "One order, its lines and figures." },
+  { method: "post", path: "/marketplace-orders/{id}/decision", tag: "Marketplace", summary: "BTG approves (contracts the stock) or rejects (cancels, releases it).", body: MarketplaceOrderDecisionInput },
+  { method: "post", path: "/marketplace-orders/{id}/transition", tag: "Marketplace", summary: "Payment and delivery states, or a cancellation before payment — by the state machine.", body: MarketplaceOrderTransitionInput },
   { method: "get", path: "/properties/mine", tag: "Properties", summary: "The property this account manages — a NEXT school is kind SCHOOL (P9-OPS-01). 404 when not linked." },
   { method: "get", path: "/catalogue/jobs", tag: "Catalogue", summary: "The NIL job catalogue at sponsor price bands — never base pay (P4-FE-01)." },
   { method: "post", path: "/public/rewards/{token}/scan", tag: "Public", summary: "A fan scanned the QR.", auth: false, status: 201 },

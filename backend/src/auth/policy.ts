@@ -86,6 +86,11 @@ export type Scope =
   | "ward-assigned"
   | "assigned"
   | "catalog"
+  /* Phase 2 (2S3-BE-01): the actor's own tenant AND every outside tenant it
+     operates (Tenant.operatorTenantId) — how BTG reviews an approved
+     organisation's inventory and listings without reaching anything else of
+     theirs. Only marketplace resources use it. */
+  | "operated"
   | "deferred"
   | "deny";
 
@@ -141,7 +146,17 @@ export type Resource =
   | "athleteClaim"
   | "contentContribution"
   | "schoolPoolAllocation"
-  | "propertyOnboarding";
+  | "propertyOnboarding"
+  | "notificationPreference"
+  | "inventoryItem"
+  | "teamMember"
+  | "listing"
+  | "offer"
+  | "tenantBranding"
+  | "brandRestriction"
+  | "cart"
+  | "reservation"
+  | "marketplaceOrder";
 
 export const RESOURCES: readonly Resource[] = [
   "tenant",
@@ -196,6 +211,16 @@ export const RESOURCES: readonly Resource[] = [
   "contentContribution",
   "schoolPoolAllocation",
   "propertyOnboarding",
+  "notificationPreference",
+  "inventoryItem",
+  "teamMember",
+  "listing",
+  "offer",
+  "tenantBranding",
+  "brandRestriction",
+  "cart",
+  "reservation",
+  "marketplaceOrder",
 ] as const;
 
 type RolePolicy = Partial<Record<Role, Partial<Record<Action, Scope>>>>;
@@ -735,6 +760,92 @@ export const POLICY: Record<Resource, RolePolicy> = {
     SUPER_ADMIN: rwa("any", "any", "any"),
     BTG_ADMIN: rwa("own-tenant", "own-tenant", "own-tenant"),
   },
+
+  /* Phase 2 (2S6-BE-02) — which events reach a user, on which channel.
+     Personal to every account and to nobody else: no role, not even
+     SUPER_ADMIN, reads or sets another person's (matrix §17). */
+  notificationPreference: Object.fromEntries(ROLES.map((r) => [r, rwa("own", "own")])) as RolePolicy,
+
+  /* Phase 2 Sprint 2–3 (matrix §18). Outside parties price their own
+     inventory; BTG reads the tenants it operates and approves their
+     listings, but does not set an outside party's prices. */
+  inventoryItem: {
+    SUPER_ADMIN: rwa("any", "any"),
+    BTG_ADMIN: rwa("operated"),
+    CAMPAIGN_MGR: rwa("operated"),
+    /* An athlete's own items; a team manager reads the team's and its
+       roster's, and writes the team's own. */
+    ATHLETE: rwa("own", "own"),
+    PROPERTY_MGR: rwa("own-property", "own"),
+  },
+  /* A team's roster — the athletes on it and their revenue share. */
+  teamMember: {
+    SUPER_ADMIN: rwa("any", "any"),
+    PROPERTY_MGR: rwa("own-property", "own-property"),
+  },
+  listing: {
+    SUPER_ADMIN: rwa("any", "any", "any"),
+    BTG_ADMIN: rwa("operated", undefined, "operated"),
+    PROPERTY_MGR: rwa("own-property", "own-property"),
+    ATHLETE: rwa("own"),
+    /* 2S3-BE-04 — a sponsor's catalogue: PUBLISHED, PUBLIC, live listings of
+       approved properties in the marketplace its tenant operates. */
+    SPONSOR_ADMIN: rwa("catalog"),
+    SPONSOR_ANALYST: rwa("catalog"),
+  },
+  /* A formal offer is BTG's to make, on a campaign in its tenant, and the
+     athlete's to accept or decline. Sponsors see the order it becomes. */
+  offer: {
+    SUPER_ADMIN: rwa("any", "any"),
+    BTG_ADMIN: rwa("own-tenant", "own-tenant"),
+    CAMPAIGN_MGR: rwa("own-tenant", "own-tenant"),
+    SALES: rwa("own-tenant"),
+    ATHLETE: rwa("own", "own"),
+  },
+  /* Everyone in a tenant sees its branding; BTG sets BTG's, and an outside
+     organisation's manager sets its own tenant's ("own" — never BTG's). */
+  tenantBranding: {
+    ...Object.fromEntries(ROLES.map((r) => [r, rwa("own-tenant")])),
+    SUPER_ADMIN: rwa("any", "any"),
+    BTG_ADMIN: rwa("own-tenant", "own-tenant"),
+    PROPERTY_MGR: rwa("own-tenant", "own"),
+  } as RolePolicy,
+
+  /* Phase 2 batch 4 (matrix §19). A restriction belongs to an athlete or a
+     team; the owner and BTG manage it. */
+  brandRestriction: {
+    SUPER_ADMIN: rwa("any", "any"),
+    BTG_ADMIN: rwa("operated", "operated"),
+    NETWORK_MGR: rwa("own-tenant", "own-tenant"),
+    CAMPAIGN_MGR: rwa("operated"),
+    ATHLETE: rwa("own", "own"),
+    PROPERTY_MGR: rwa("own-property", "own-property"),
+  },
+  /* A sponsor's cart: its own organisation's, and nobody else's. */
+  cart: {
+    SUPER_ADMIN: rwa("any", "any"),
+    BTG_ADMIN: rwa("own-tenant"),
+    SPONSOR_ADMIN: rwa("own-sponsor", "own-sponsor"),
+    SPONSOR_ANALYST: rwa("own-sponsor"),
+  },
+
+  /* Phase 2 batch 5 (matrix §20). A hold is the sponsor's own; BTG reads. */
+  reservation: {
+    SUPER_ADMIN: rwa("any", "any"),
+    BTG_ADMIN: rwa("own-tenant"),
+    SPONSOR_ADMIN: rwa("own-sponsor", "own-sponsor"),
+    SPONSOR_ANALYST: rwa("own-sponsor"),
+  },
+  /* The marketplace order: the sponsor places and may cancel it; BTG
+     approves (approve) and moves it through payment and delivery (write);
+     Finance reads and records payment states. */
+  marketplaceOrder: {
+    SUPER_ADMIN: rwa("any", "any", "any"),
+    BTG_ADMIN: rwa("own-tenant", "own-tenant", "own-tenant"),
+    FINANCE: rwa("own-tenant", "own-tenant"),
+    SPONSOR_ADMIN: rwa("own-sponsor", "own-sponsor"),
+    SPONSOR_ANALYST: rwa("own-sponsor"),
+  },
 };
 
 /**
@@ -753,6 +864,7 @@ export function scopeForRole(
 const BREADTH: Record<Scope, number> = {
   any: 100,
   catalog: 90,
+  operated: 85,
   "own-tenant": 80,
   "own-property": 60,
   "own-campaign": 50,

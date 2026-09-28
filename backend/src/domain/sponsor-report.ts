@@ -36,6 +36,7 @@ import { foldRows, type MetricBreakdown } from "./metric";
 import { type RewardEventType } from "./reward-state";
 import { breakdown as moneyBreakdown } from "./earning";
 import { foldEngagement, type EditionEngagement } from "./edition";
+import { brandingView, type Branding } from "./branding";
 
 export class ReportNotAvailableError extends Error {
   readonly status = 409;
@@ -193,11 +194,19 @@ export function observationsFor(report: Omit<SponsorReport, "observations">): st
 export async function assembleSponsorReport(
   actor: Actor,
   campaignId: string,
-): Promise<SponsorReport> {
+): Promise<SponsorReport & { branding: Branding }> {
   assertAllowed(actor, "metricAggregate", "read");
   const report = await buildSponsorReport({ ...whereFor(actor, "campaign", "read"), id: campaignId });
   if (!report) throw new ForbiddenError("metricAggregate", "read");
-  return report;
+  /* 2S7-BE-01 — the campaign tenant's branding, for screen 12 to render. */
+  const campaign = await prisma.campaign.findFirst({ where: { ...whereFor(actor, "campaign", "read"), id: campaignId }, select: { tenantId: true } });
+  const branding = brandingView(campaign
+    ? await prisma.tenantBranding.findUnique({
+        where: { tenantId: campaign.tenantId },
+        select: { displayName: true, logoKey: true, primaryColor: true, accentColor: true, reportFooter: true, customDomain: true },
+      })
+    : null);
+  return { ...report, branding };
 }
 
 /**

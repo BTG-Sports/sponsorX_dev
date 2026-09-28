@@ -85,6 +85,21 @@ export function errorBody(err: unknown): {
     e.details && typeof e.details === "object" && !Array.isArray(e.details)
       ? (e.details as Record<string, unknown>)
       : {};
+  /* A refusal that says what to change carries it as data too (Phase 2):
+     the availability check's reasons, a restriction's conflicts, a
+     listing's governance problems, an application's missing fields. Only
+     for a 4xx, only these named arrays — never an arbitrary property. */
+  const detail: Record<string, unknown> = {};
+  if (typeof err === "object" && err) {
+    for (const key of ["reasons", "conflicts", "problems", "missing"] as const) {
+      const v = (err as Record<string, unknown>)[key];
+      if (Array.isArray(v)) detail[key] = v;
+    }
+    /* And a named refusal kind, when one needs telling apart (P6-BE-08: a
+       redemption cap is not the same 409 as "already used"). */
+    const kind = (err as Record<string, unknown>).kind;
+    if (typeof kind === "string" && /^[A-Z_]{1,40}$/.test(kind)) detail.kind = kind;
+  }
   return {
     status,
     headers,
@@ -94,6 +109,7 @@ export function errorBody(err: unknown): {
         ...details,
         code: typeof e.code === "string" && e.code ? e.code : "bad_request",
         message: err instanceof Error ? err.message : "Unknown error",
+        ...detail,
       },
     },
   };
