@@ -34,12 +34,24 @@ export function errorBody(err: unknown): {
     typeof err === "object" && err && "status" in err
       ? Number((err as { status: unknown }).status) || 500
       : 500;
+  /* A refusal that says what to change carries it as data too (Phase 2):
+     the availability check's reasons, a restriction's conflicts, a
+     listing's governance problems, an application's missing fields. Only
+     for a 4xx, only these named arrays — never an arbitrary property. */
+  const detail: Record<string, unknown> = {};
+  if (status < 500 && typeof err === "object" && err) {
+    for (const key of ["reasons", "conflicts", "problems", "missing"] as const) {
+      const v = (err as Record<string, unknown>)[key];
+      if (Array.isArray(v)) detail[key] = v;
+    }
+  }
   return {
     status,
     body: {
       error: {
         code: status >= 500 ? "internal_error" : "bad_request",
         message: err instanceof Error ? err.message : "Unknown error",
+        ...detail,
       },
     },
   };

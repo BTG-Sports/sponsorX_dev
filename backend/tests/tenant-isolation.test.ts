@@ -63,6 +63,8 @@ const A = {
   asset: "ti_asset_ed_a", claim: "ti_claim_a", onboarding: "ti_onboarding_a",
   /* Phase 2 batch 3 — an athlete's item, a school's item with a listing awaiting approval, a sent offer. */
   item: "ti_item_a", schoolItem: "ti_item_school_a", listing: "ti_listing_a", offer: "ti_offer_a",
+  /* Phase 2 batch 4 — a restriction, the sponsor's cart with a line. */
+  restriction: "ti_restriction_a", cart: "ti_cart_a", cartLine: "ti_cart_line_a",
 } as const;
 const B = {
   tenant: "ti_tenant_b", sponsor: "ti_sponsor_b", athlete: "ti_athlete_b",
@@ -107,6 +109,7 @@ const PARAM_FOR: Record<string, string> = {
   students: A.student, prospects: A.prospect, sponsors: A.sponsor,
   "edition-assets": A.asset, claims: A.claim, properties: A.school, onboarding: A.onboarding,
   inventory: A.item, listings: A.listing, offers: A.offer, roster: A.athlete,
+  restrictions: A.restriction, lines: A.cartLine,
   /* GET /deliverables/{id}/assets/{version}/url (P5-FE-04) — a creative
      version number, under tenant A's deliverable. */
   assets: "1",
@@ -208,6 +211,10 @@ const BODY: Record<string, unknown> = {
   "POST /offers/{id}/respond": { decision: "DECLINE" },
   "PUT /branding": { displayName: "Sweep brand" },
   "POST /branding/logo": { contentType: "image/png", bytes: 10 },
+  "POST /restrictions": { athleteId: A.athlete, category: "CRYPTO", type: "PROHIBITED" },
+  "PUT /sponsors/{id}/categories": { categories: ["APPAREL"] },
+  "POST /cart/lines": { listingId: A.listing, quantity: 1, startsOn: "2027-01-01T00:00:00.000Z", endsOn: "2027-01-02T00:00:00.000Z" },
+  "PATCH /cart/lines/{id}": { quantity: 2 },
 };
 
 describe.skipIf(!hasDatabase)("P8-SEC-02 · tenant B cannot reach tenant A through any route", async () => {
@@ -314,6 +321,11 @@ describe.skipIf(!hasDatabase)("P8-SEC-02 · tenant B cannot reach tenant A throu
       state: "SENT", sentAt: new Date(), termsHash: "t".repeat(64),
     } });
     await prisma.tenantBranding.create({ data: { tenantId: t, displayName: "TI Secret Brand", primaryColor: "#123456" } });
+    await prisma.brandRestriction.create({ data: { id: A.restriction, tenantId: t, athleteId: A.athlete, category: "GAMBLING", type: "PROHIBITED", reason: "TI Secret reason" } });
+    /* Far-future expiry: the cart sweep (2S4-BE-01) is platform-wide, and
+       another file runs it a day ahead while this sweep is fingerprinting. */
+    await prisma.cart.create({ data: { id: A.cart, tenantId: t, sponsorId: A.sponsor, expiresAt: new Date(Date.now() + 3650 * 864e5) } });
+    await prisma.cartLine.create({ data: { id: A.cartLine, tenantId: t, cartId: A.cart, listingId: A.listing, quantity: 1, startsOn: new Date("2027-01-01"), endsOn: new Date("2027-01-02"), unitPriceCents: 9000 } });
     await prisma.athleteClaim.create({ data: { id: A.claim, tenantId: t, athleteId: A.athlete, claimantName: "TI Secret Claimant", claimantEmail: "secret@a.invalid", rosterMatched: true } });
     await prisma.guardian.create({ data: { id: B.guardian, tenantId: B.tenant, legalName: "TI Guardian B", email: "g@b.invalid", relationship: "PARENT" } });
     for (const u of B_ACTORS) {

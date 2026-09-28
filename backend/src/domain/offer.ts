@@ -35,6 +35,8 @@ import { canReadField } from "../auth/fields";
 import { acceptAgreementIn, type AcceptanceRequest } from "./agreement";
 import { assertBudgetCarriesLine, assertLineClearsFloor } from "./margin-floor";
 import { createEarningForOrder } from "./earning";
+import { assertNoRestriction, writeExclusivity } from "./restrictions";
+import { checkInventoryItem, UnavailableError } from "./availability";
 
 export type OfferState = "DRAFT" | "SENT" | "ACCEPTED" | "DECLINED" | "WITHDRAWN";
 export type OfferDeliverable = { title: string; dueDate: Date };
@@ -67,6 +69,40 @@ const SELECT = {
   campaign: { select: { name: true } },
 } as const;
 type Row = Prisma.OfferGetPayload<{ select: typeof SELECT }>;
+
+const CAMPAIGN_TERMS = {
+  startDate: true, endDate: true,
+  sponsor: { select: { name: true, categories: true } },
+  brief: { select: { categories: true } },
+} as const;
+type CampaignTerms = { startDate: Date; endDate: Date; sponsor: { name: string; categories: string[] }; brief: { categories: string[] } | null };
+
+/** The sponsor's categories and the brief's — what a restriction is asked against. */
+const categoriesOf = (c: CampaignTerms) => [...new Set([...c.sponsor.categories, ...(c.brief?.categories ?? [])])];
+
+/**
+ * A restricted category blocks the offer for the dates it covers — the
+ * campaign's, stretched to the last deliverable — and an offer on an
+ * inventory item is a purchase of it: the availability check applies, with
+ * the athlete's pay as the price paid.
+ */
+async function assertCleared(
+  tx: Prisma.TransactionClient, tenantId: string, athleteId: string, itemId: string | null, campaign: CampaignTerms,
+  deliverables: Array<{ dueDate: Date }>, compensation: number, ignore?: { source: string; sourceId: string },
+) {
+  const dues = deliverables.map((d) => d.dueDate.getTime());
+  const categories = categoriesOf(campaign);
+  await assertNoRestriction(tx, {
+    tenantId, athleteId, categories,
+    startsOn: new Date(Math.min(campaign.startDate.getTime(), ...dues)), endsOn: new Date(Math.max(campaign.endDate.getTime(), ...dues)),
+  });
+  if (itemId) {
+    const check = await checkInventoryItem(tx, itemId, tenantId, {
+      quantity: 1, startsOn: new Date(Math.min(...dues)), endsOn: new Date(Math.max(...dues)), categories, unitPriceCents: compensation, ignore,
+    });
+    if (!check.ok) throw new UnavailableError(check.reasons);
+  }
+}
 
 /** What the athlete accepts, in a canonical order — the thing that is hashed. */
 export function canonicalTerms(o: {
@@ -126,7 +162,8 @@ export async function createOffer(actor: Actor, input: OfferTerms & { campaignId
   assertTerms(input);
   return prisma.$transaction(async (tx) => {
     const campaign = await tx.campaign.findFirst({
-      where: { ...whereFor(actor, "campaign", "write"), id: input.campaignId }, select: { id: true, budget: true },
+      where: { ...whereFor(actor, "campaign", "write"), id: input.campaignId },
+      select: { id: true, budget: true, ...CAMPAIGN_TERMS },
     });
     if (!campaign) throw new ForbiddenError("offer", "write");
     const athlete = await tx.athlete.findFirst({ where: { tenantId: actor.tenantId, id: input.athleteId }, select: { id: true, tier: true } });
@@ -139,6 +176,11 @@ export async function createOffer(actor: Actor, input: OfferTerms & { campaignId
       });
       if (!item) throw new OfferError("That inventory item is not this athlete's.");
     }
+    if (input.exclusivityDays && !campaign.sponsor.categories.length) {
+      throw new OfferError("An exclusive offer needs the sponsor's brand categories — BTG sets them first.");
+    }
+    /* 2S2-BE-02 / 2S3-BE-03 — the same questions a purchase is asked. */
+    await assertCleared(tx, actor.tenantId, athlete.id, input.inventoryItemId ?? null, campaign, input.deliverables, input.compensation);
     assertLineClearsFloor(input.jobId, athlete.tier ?? null, input.compensation, input.sellPrice);
     const committed = await tx.campaignOrder.aggregate({
       /* tenant-scope: keyed by the campaign loaded above through whereFor. */
@@ -231,6 +273,15 @@ export async function respondToOffer(
     if (!response.agreementId || !response.bodyHashShown || !response.ip || !response.userAgent) {
       throw new OfferError("Acceptance needs the agreement shown and the signer's evidence.");
     }
+    /* Re-asked at the moment of commitment: a restriction or a sale since the
+       offer was sent stops it here. */
+    const campaign = await tx.campaign.findFirstOrThrow({
+      /* tenant-scope: the offer's own campaign, in the offer's tenant (loaded above through whereFor). */
+      where: { id: row.campaignId, tenantId: actor.tenantId }, select: CAMPAIGN_TERMS,
+    });
+    const due = (row.deliverables as unknown as Array<{ dueDate: string }>).map((d) => ({ dueDate: new Date(d.dueDate) }));
+    await assertCleared(tx, actor.tenantId, row.athleteId, row.inventoryItemId, campaign, due, row.compensation);
+
     /* Evidence and the guardian gate: the same acceptance a Phase 1 order takes. */
     const acceptance = await acceptAgreementIn(tx, actor, {
       agreementId: response.agreementId, bodyHashShown: response.bodyHashShown, ip: response.ip, userAgent: response.userAgent,
@@ -258,6 +309,17 @@ export async function respondToOffer(
       await tx.deliverable.create({ data: { tenantId: actor.tenantId, orderId: order.id, title: d.title, dueDate: d.dueDate }, select: { id: true } });
     }
     await createEarningForOrder(tx, actor, { id: order.id, tenantId: actor.tenantId, athleteId: row.athleteId, compensation: row.compensation, dueDate });
+    /* 2S3-BE-03 — the item is now spoken for; 2S2-BE-02 — the exclusivity starts. */
+    if (row.inventoryItemId) {
+      await tx.inventoryCommitment.create({
+        data: {
+          tenantId: actor.tenantId, inventoryItemId: row.inventoryItemId, quantity: 1, source: "OFFER", sourceId: row.id,
+          startsOn: new Date(Math.min(...lines.map((d) => d.dueDate.getTime()))), endsOn: dueDate,
+        },
+        select: { id: true },
+      });
+    }
+    await writeExclusivity(tx, { id: row.id, tenantId: actor.tenantId, athleteId: row.athleteId, exclusivityDays: row.exclusivityDays }, campaign.sponsor.categories, now, campaign.sponsor.name);
 
     const snapshot = {
       terms: canonicalTerms({ ...row, deliverables: lines }), termsHash: row.termsHash,

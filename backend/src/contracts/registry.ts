@@ -89,6 +89,7 @@ import {
 import {
   BrandingInput, InventoryItemInput, InventoryItemPatch, ListingDecisionInput, ListingInput, ListingPatch,
   ListingTransitionInput, LogoUploadInput, OfferInput, OfferResponseInput, RosterAthleteInput, TeamShareInput,
+  CartLineInput, CartLinePatch, RestrictionInput, SponsorCategoriesInput,
 } from "./marketplace";
 import { NotificationPreferenceInput } from "./notification-preferences";
 import { OnboardingDecisionInput, OnboardingDocumentInput, OnboardingStartInput, OnboardingStepInput } from "./onboarding";
@@ -432,6 +433,17 @@ const PATHS: Row[] = [
   { method: "get", path: "/branding", tag: "Marketplace", summary: "The caller's tenant branding — what its portal and reports render (2S7-BE-01)." },
   { method: "put", path: "/branding", tag: "Marketplace", summary: "Set the tenant's name, logo, colours, report footer and requested domain.", body: BrandingInput },
   { method: "post", path: "/branding/logo", tag: "Marketplace", summary: "A public-bucket upload grant for a new logo (PNG or JPEG, ≤1 MB).", body: LogoUploadInput, status: 201 },
+  // Phase 2 batch 4 — restrictions, sponsor categories, search, cart
+  { method: "get", path: "/restrictions", tag: "Marketplace", summary: "Brand restrictions in scope — the caller's, their team's, or (staff) the tenants they reach (2S2-BE-02)." },
+  { method: "post", path: "/restrictions", tag: "Marketplace", summary: "A category an athlete or team will not be sold to, for a date range.", body: RestrictionInput, status: 201 },
+  { method: "delete", path: "/restrictions/{id}", tag: "Marketplace", summary: "Remove a restriction — never one an accepted offer's exclusivity wrote." },
+  { method: "put", path: "/sponsors/{id}/categories", tag: "Marketplace", summary: "BTG sets the brand categories a sponsor sells in — what every restriction is checked against.", body: SponsorCategoriesInput },
+  { method: "get", path: "/marketplace/search", tag: "Marketplace", summary: "Live listings visible to this sponsor, filtered — two sponsors see different catalogues (2S3-BE-04)." },
+  { method: "get", path: "/cart", tag: "Marketplace", summary: "The sponsor's open cart, or null once it has expired (2S4-BE-01)." },
+  { method: "post", path: "/cart", tag: "Marketplace", summary: "Open the sponsor's cart, or return the open one.", status: 201 },
+  { method: "post", path: "/cart/lines", tag: "Marketplace", summary: "Add a listing — refused with reasons unless available, unconflicted and at its price (2S3-BE-03).", body: CartLineInput, status: 201 },
+  { method: "patch", path: "/cart/lines/{id}", tag: "Marketplace", summary: "Change a line's quantity or dates — checked again.", body: CartLinePatch },
+  { method: "delete", path: "/cart/lines/{id}", tag: "Marketplace", summary: "Remove a line." },
   { method: "get", path: "/properties/mine", tag: "Properties", summary: "The property this account manages — a NEXT school is kind SCHOOL (P9-OPS-01). 404 when not linked." },
   { method: "get", path: "/catalogue/jobs", tag: "Catalogue", summary: "The NIL job catalogue at sponsor price bands — never base pay (P4-FE-01)." },
   { method: "post", path: "/public/rewards/{token}/scan", tag: "Public", summary: "A fan scanned the QR.", auth: false, status: 201 },

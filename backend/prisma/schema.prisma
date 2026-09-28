@@ -211,8 +211,9 @@ model Tenant {
   /// they operate — the `operated` scope — and nothing else of theirs.
   operatorTenantId String?
 
-  inventoryItems InventoryItem[]
-  listings       Listing[]
+  inventoryItems    InventoryItem[]
+  listings          Listing[]
+  brandRestrictions BrandRestriction[]
 
   @@index([operatorTenantId])
 }
@@ -279,6 +280,7 @@ model Property {
   onboarding      PropertyOnboarding?
   inventory       InventoryItem[]
   listings        Listing[]
+  restrictions    BrandRestriction[]
 
   @@index([tenantId])
 }
@@ -379,24 +381,25 @@ model Athlete {
 
   createdAt DateTime @default(now())
 
-  guardian  Guardian?             @relation(fields: [guardianId], references: [id])
-  property  Property?             @relation(fields: [propertyId], references: [id])
-  socials   AthleteSocial[]
-  rates     AthleteRate[]
-  scores    AthleteScore[]
-  invites   CampaignInvite[]
-  orders    CampaignOrder[]
-  earnings  Earning[]
-  tokens    RewardToken[]
-  user      User?
+  guardian     Guardian?             @relation(fields: [guardianId], references: [id])
+  property     Property?             @relation(fields: [propertyId], references: [id])
+  socials      AthleteSocial[]
+  rates        AthleteRate[]
+  scores       AthleteScore[]
+  invites      CampaignInvite[]
+  orders       CampaignOrder[]
+  earnings     Earning[]
+  tokens       RewardToken[]
+  user         User?
   /// An athlete correspondent is also a Student (P9-BE-04).
-  student   Student?
+  student      Student?
   /// SponsorX NEXT (P9-BE-11) — consent recorded for this athlete as a
   /// subject, and claims made on a FEATURED profile.
-  consents  AgreementAcceptance[]
-  claims    AthleteClaim[]
-  inventory InventoryItem[]
-  offers    Offer[]
+  consents     AgreementAcceptance[]
+  claims       AthleteClaim[]
+  inventory    InventoryItem[]
+  offers       Offer[]
+  restrictions BrandRestriction[]
 
   @@index([tenantId, state])
   @@index([tenantId, sport, stateCode])
@@ -534,11 +537,15 @@ model Sponsor {
   /// SponsorX NEXT (P9-BE-13, spec §5.1) — SCHOOL | SPONSORX | STUDENT_ORIGINATED.
   /// Who holds the customer relationship. Set when the account is first sold
   /// and never moved: students own attribution, not customers.
-  ownership         String  @default("SPONSORX")
+  ownership         String   @default("SPONSORX")
   schoolPropertyId  String?
   /// The student currently working this account. NOT ownership and NOT
   /// attribution — reassigning it changes nothing about who originated a sale.
   assignedStudentId String?
+  /// Phase 2 (2S2-BE-02) — the brand categories this sponsor sells in
+  /// (BRAND_CATEGORIES). Set by BTG. Every restriction and exclusivity check
+  /// asks against these; a sponsor with none cannot buy in the marketplace.
+  categories        String[]
 
   briefs    CampaignBrief[]
   campaigns Campaign[]
@@ -1814,10 +1821,11 @@ model InventoryItem {
   createdAt            DateTime  @default(now())
   updatedAt            DateTime  @default(now()) @updatedAt
 
-  tenant   Tenant    @relation(fields: [tenantId], references: [id])
-  athlete  Athlete?  @relation(fields: [athleteId], references: [id])
-  property Property? @relation(fields: [propertyId], references: [id])
-  listings Listing[]
+  tenant      Tenant                @relation(fields: [tenantId], references: [id])
+  athlete     Athlete?              @relation(fields: [athleteId], references: [id])
+  property    Property?             @relation(fields: [propertyId], references: [id])
+  listings    Listing[]
+  commitments InventoryCommitment[]
 
   @@index([tenantId, athleteId])
   @@index([tenantId, propertyId])
@@ -1856,9 +1864,10 @@ model Listing {
   createdAt       DateTime     @default(now())
   updatedAt       DateTime     @default(now()) @updatedAt
 
-  tenant   Tenant        @relation(fields: [tenantId], references: [id])
-  property Property      @relation(fields: [propertyId], references: [id])
-  item     InventoryItem @relation(fields: [inventoryItemId], references: [id])
+  tenant    Tenant        @relation(fields: [tenantId], references: [id])
+  property  Property      @relation(fields: [propertyId], references: [id])
+  item      InventoryItem @relation(fields: [inventoryItemId], references: [id])
+  cartLines CartLine[]
 
   @@index([tenantId, state])
   @@index([inventoryItemId, state])
@@ -1932,4 +1941,109 @@ model TenantBranding {
   customDomain String?  @unique
   updatedBy    String?
   updatedAt    DateTime @default(now()) @updatedAt
+}
+
+/**
+ * ── Phase 2 batch 4 · restrictions, commitments, carts ────────────────────
+ */
+
+/// 2S2-BE-02 — a brand category an athlete or a team will not be sold to, for
+/// a date range (open-ended when either end is null). Extends Phase 1's
+/// `Athlete.restrictedCategories`, which still counts as an open-ended
+/// PROHIBITED restriction. A team's restriction covers its roster athletes.
+model BrandRestriction {
+  id            String    @id @default(cuid())
+  tenantId      String
+  athleteId     String?
+  propertyId    String?
+  /// A BRAND_CATEGORIES value.
+  category      String
+  /// PROHIBITED | LEAGUE_RULE | SCHOOL_POLICY | EXCLUSIVITY
+  type          String
+  startsOn      DateTime?
+  endsOn        DateTime?
+  reason        String?
+  /// Set when an accepted offer's exclusivity wrote this row — contractual,
+  /// so the athlete cannot delete it.
+  sourceOfferId String?
+  createdBy     String?
+  createdAt     DateTime  @default(now())
+
+  tenant   Tenant    @relation(fields: [tenantId], references: [id])
+  athlete  Athlete?  @relation(fields: [athleteId], references: [id])
+  property Property? @relation(fields: [propertyId], references: [id])
+
+  @@index([tenantId, athleteId])
+  @@index([tenantId, propertyId])
+  @@index([sourceOfferId])
+}
+
+/// 2S3-BE-03 — stock that is spoken for: what the availability check counts
+/// against quantity and, for exclusive items, against dates. Written by an
+/// accepted offer today; reservations (2S4-BE-02) and orders (2S4-BE-03)
+/// write here too. Released rows no longer count.
+model InventoryCommitment {
+  id              String    @id @default(cuid())
+  tenantId        String
+  inventoryItemId String
+  quantity        Int
+  startsOn        DateTime
+  endsOn          DateTime
+  /// OFFER | RESERVATION | ORDER
+  source          String
+  sourceId        String
+  releasedAt      DateTime?
+  createdAt       DateTime  @default(now())
+
+  item InventoryItem @relation(fields: [inventoryItemId], references: [id])
+
+  @@unique([source, sourceId, inventoryItemId])
+  @@index([inventoryItemId, releasedAt])
+}
+
+enum CartState {
+  ACTIVE
+  EXPIRED
+  CHECKED_OUT
+}
+
+/// 2S4-BE-01 — a sponsor's shopping session. Lives in the sponsor's tenant;
+/// its lines point at listings in the tenants that tenant operates. Holds no
+/// stock (reservations do). Expires after a day without activity.
+model Cart {
+  id        String    @id @default(cuid())
+  tenantId  String
+  sponsorId String
+  createdBy String?
+  currency  String    @default("USD")
+  state     CartState @default(ACTIVE)
+  expiresAt DateTime
+  expiredAt DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @default(now()) @updatedAt
+
+  lines CartLine[]
+
+  @@index([tenantId, sponsorId, state])
+  @@index([state, expiresAt])
+}
+
+model CartLine {
+  id             String   @id @default(cuid())
+  tenantId       String
+  cartId         String
+  listingId      String
+  quantity       Int
+  startsOn       DateTime
+  endsOn         DateTime
+  /// The item's price when the line was last checked.
+  unitPriceCents Int
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @default(now()) @updatedAt
+
+  cart    Cart    @relation(fields: [cartId], references: [id])
+  listing Listing @relation(fields: [listingId], references: [id])
+
+  @@unique([cartId, listingId])
+  @@index([tenantId])
 }
