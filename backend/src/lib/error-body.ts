@@ -44,6 +44,10 @@ export function errorBody(err: unknown): {
       const v = (err as Record<string, unknown>)[key];
       if (Array.isArray(v)) detail[key] = v;
     }
+    /* And a named refusal kind, when one needs telling apart (P6-BE-08: a
+       redemption cap is not the same 409 as "already used"). */
+    const kind = (err as Record<string, unknown>).kind;
+    if (typeof kind === "string" && /^[A-Z_]{1,40}$/.test(kind)) detail.kind = kind;
   }
   return {
     status,
