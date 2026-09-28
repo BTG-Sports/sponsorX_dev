@@ -831,3 +831,8 @@ Owner HeckerCreatives. Thin reads added under the "thin reads" scope rule
 - **`2S1-BE-03`:** the verification queue plus five decisions. Approval
   creates the Property and grants listing access (`listingAccessAt`), audited.
   Suspension withdraws it.
+
+**Hosting decision (programme owner, 2026-09-28):** the API and worker stay in
+one Railway service for now, with `report.render` running one at a time.
+Recorded in `backend/src/combined.mts`. Revisit if renders queue up, or if API
+latency moves while one runs.
