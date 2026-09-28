@@ -1215,3 +1215,82 @@ Dashboard's ranges already reach row 400). The Stage Progress row for
 2026-09-28 is now 209 done and 107 days left. `P2-OPS-07` is left open at the
 user's decision, because a required check needs GitHub Pro.
 
+
+## Merge with origin/main_development + tracker → Done (HeckerCreatives, end of day)
+
+- **Merged** rcfworks' Phase 2 batches 2–5 and their P6-BE-08. Conflicts
+  were in 6 files: the schema, reward contract, reward domain, reward
+  routes, error-body and this log. Both sides are kept everywhere.
+- **P6-BE-08 was built twice.**
+  - rcfworks' migration `20260928180000_reward_eligibility_cap_copy` is
+    deployed and **untouched**.
+  - Our two local migrations (`…130000_reward_limits_landing`,
+    `…140000_reward_reservations_atomic_redeem`) are **replaced** by
+    `20260928190000_reward_merge_holds_atomic_redeem`. It moves the deployed
+    shape to the merged design:
+    - `eligibility` becomes the enum; any free text is moved to
+      `eligibilityNote`
+    - `redemptionCount` (rcfworks' name) is the only counter. A trigger now
+      keeps it for **every** reward, which closes QA pass 6's "cap added
+      later" gap. Their CHECK `Reward_redemption_cap` is kept
+    - claim holds, and the `reward_redeem` / `reward_reserve` functions
+  - Note: rcfworks' branch also has `20260928130000_onboarding_documents`
+    and `…140000_notification_preferences`. Our old timestamps would have
+    collided with them.
+  - A spent cap is **410** with rcfworks' `error.kind: REDEMPTION_CAP`. The
+    public view keeps their `capReached`. Their
+    `tests/reward-eligibility-cap.test.ts` was adapted to the merged
+    contract.
+  - error-body keeps both behaviours: sanitised 5xx with `Retry-After`
+    (ours), and 4xx `reasons/conflicts/problems/missing/kind` (theirs).
+- **Local DB:** our old reward objects were reverted by hand, then
+  `migrate deploy` ran 7 migrations and `prisma/sql/*.sql` was re-applied.
+  `migrate status` is up to date, `migrate diff` is empty, and the counter
+  matches its REDEEM rows on 16/16 rewards.
+- **Environment gotchas:**
+  - `tests/tenant-isolation.test.ts` fails when a local **worker** is
+    running: it stamps `OutboxJob.dispatchedAt` mid-sweep. Stop
+    `dev:worker` before running backend tests.
+  - `tests/phase2-purchase.test.ts` used `URL.pathname`, which breaks on
+    Windows. It is now `fileURLToPath` plus normalised separators.
+- **Verified on the merged tree:**
+  - backend 1606/1606, frontend 345/345, tsc and eslint clean
+  - e2e 15/15
+  - `npm run build` green; web, API and worker restarted on the merged code
+- **Tracker → Done (2026-09-28):** P3/P4/P5/P7-QA-01, P6-FE-01, P7-QA-02,
+  P8-PMO-02/03/04, and rcfworks' **P6-FE-04**, which the merged fan-page work
+  meets.
+  - P6-BE-08's owner is now "rcfworks + HeckerCreatives".
+  - The Phase 1 plan file's statuses and the P6-FE-04 note (409 → 410) are
+    updated.
+  - The Stage Progress 2026-09-28 row is recomputed: **219 Done, 77 days
+    left**.
+
+### QA pass 6 — open findings (tested before the merge; not yet fixed)
+- **Backend** (the pass-5 fixes and the new reservation/redeem code all
+  held: 0 5xx, 0 deadlocks):
+  - **P6-BE-01 Medium:** an ATHLETE reads every reward's funnel and counts
+    in the tenant (`auth/scope.ts:491-513`).
+  - **P6-BE-02 Medium:** a token can be issued for another tenant's athlete,
+    and the read then discloses them (`issueRewardToken`).
+  - **P6-BE-03 to P6-BE-07 Low:**
+    - a NUL byte in a public token gives 500
+    - an FK violation (P2003) gives 500
+    - most 4xx carry `code:"bad_request"`
+    - the busy 503 loses its `busy` code
+    - activation counts a zero-width-only field as present
+- **Frontend:**
+  - **P6-FE-01 Medium:** "Held for you until 4:06 AM ET" has no date (a
+    7-day hold reads as today).
+  - **P6-FE-02 Medium:** the last unit of a multi-use reward shows "run
+    out" instead of "Redeemed ✓".
+  - **Low:**
+    - "Finish creating" drops edits made after the failure
+    - the desk's "left" ignores holds
+    - the analytics funnel shows over 100%
+    - duplicate React keys on analytics
+    - a stale incomplete Activate keeps the button enabled
+    - `/property` still says "implied media value"
+  - **Not run** (stopped for the merge): the QR drawer's keyboard and axe
+    checks, light theme on the degraded pages, long names at 390px, F-12.
+- **Not pushed.**

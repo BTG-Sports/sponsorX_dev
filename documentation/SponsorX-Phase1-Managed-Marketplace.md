@@ -1321,9 +1321,9 @@ Automatic emails when an application is received, needs changes, or is approved.
 - **Done when:** Submission acknowledgement, changes-requested and approval emails all send as worker jobs
 - **Reference:** §39
 
-### ⏸ `P3-QA-01` · E2E: application → approval → ACTIVE
+### ✅ `P3-QA-01` · E2E: application → approval → ACTIVE
 
-**Order** 84 · **QA** · **Where:** Code · **3d** · **Blocked** · **Unblocks** 0
+**Order** 84 · **QA** · **Where:** Code · **3d** · **Done** · **Unblocks** 0
 
 An automated test covering the whole path from application to active athlete, including the minor/guardian branch.
 
@@ -1481,9 +1481,9 @@ Invitation, reminder and expiry-warning emails.
 - **Done when:** Invitation, reminder and expiry-warning emails all send as queued jobs
 - **Reference:** §39
 
-### ⏸ `P4-QA-01` · E2E: brief → matching → invitation → response
+### ✅ `P4-QA-01` · E2E: brief → matching → invitation → response
 
-**Order** 99 · **QA** · **Where:** Code · **3d** · **Blocked** · **Unblocks** 0
+**Order** 99 · **QA** · **Where:** Code · **3d** · **Done** · **Unblocks** 0
 
 Automated test of the whole brief-to-response path, including declines and expiry.
 
@@ -1671,9 +1671,9 @@ Deadline reminders, revision requests and approval emails.
 - **Done when:** Deadline reminders, revision requests and approval notifications all send as queued jobs
 - **Reference:** §39
 
-### ⏸ `P5-QA-01` · E2E: acceptance → deliverable → approval → published
+### ✅ `P5-QA-01` · E2E: acceptance → deliverable → approval → published
 
-**Order** 117 · **QA** · **Where:** Code · **3d** · **Blocked** · **Unblocks** 0
+**Order** 117 · **QA** · **Where:** Code · **3d** · **Done** · **Unblocks** 0
 
 Automated test from contract acceptance through to published content, including the revision loop.
 
@@ -1751,16 +1751,18 @@ Raised 2026-09-28 by the `P6-FE-01` wiring. §9 screen 10 asks the reward creato
 - **Done when:** Eligibility, a redemption cap and landing headline/subhead persist on Reward; the cap is enforced race-safely at redeem; the public view serves the landing copy for the fan page to render (the rendering itself is `P6-FE-04`); tenant-isolation sweep still green
 - **Reference:** §9 screen 10, §16
 - **Changed 2026-09-28** by the programme owner: the fan page's rendering was split into `P6-FE-04`, so this task stays backend-only.
+- **Changed 2026-09-28** (merge): this task was built on both branches. The merged design keeps rcfworks' deployed migration and moves it forward in `20260928190000_reward_merge_holds_atomic_redeem`: `eligibility` is the `RewardEligibility` enum with the free text kept as `eligibilityNote`; `redemptionCount` is the one counter, kept by a trigger; a claim on a capped reward holds a unit for `reserveMinutes` (product decision); a spent cap is **410** with `error.kind` `REDEMPTION_CAP`.
 
-### ⏸ `P6-FE-04` · Render reward landing copy, eligibility and cap on the fan page
+### ✅ `P6-FE-04` · Render reward landing copy, eligibility and cap on the fan page
 
-**Order** 128.6 · **FE** · **Where:** Code · **1d** · **Ready**
+**Order** 128.6 · **FE** · **Where:** Code · **1d** · **Done**
 
 The fan page shows the reward's own landing headline and subhead, and who qualifies, from the public view (`GET /public/rewards/{token}` → `landing`, `eligibility`, `capReached`). A spent cap reads as its own state. Raised 2026-09-28, split out of `P6-BE-08` at the programme owner's instruction.
 
 - **Depends on:** P6-BE-08
-- **Done when:** The fan page renders the reward's landing headline, subhead and eligibility from the public view; a spent cap (`capReached`) shows its own message with no claim or redeem form; the booth's redeem result tells `REDEMPTION_CAP` (409 `error.kind`) apart from an already-used code
+- **Done when:** The fan page renders the reward's landing headline, subhead and eligibility from the public view; a spent cap (`capReached`) shows its own message with no claim or redeem form; the booth's redeem result tells `REDEMPTION_CAP` (`error.kind`) apart from an already-used code
 - **Reference:** §9 screen 10, §16
+- **Changed 2026-09-28** (merge): the spent-cap refusal is 410, not 409, so it is distinguishable by status as well as by `error.kind`; 409 stays "already used".
 
 ### ⏸ `P6-BE-01` · Tracking link model and t/[code] redirect route
 
@@ -1832,9 +1834,9 @@ Give each athlete on a campaign their own code so you can tell who actually drov
 - **Done when:** Each athlete on a campaign gets a distinct code, so relative performance is measurable
 - **Reference:** §16, §30
 
-### ⏸ `P6-FE-01` · Wire the QR / reward creator
+### ✅ `P6-FE-01` · Wire the QR / reward creator
 
-**Order** 129 · **FE** · **Where:** Code · **5d** · **Blocked** · **Unblocks** 0
+**Order** 129 · **FE** · **Where:** Code · **5d** · **Done** · **Unblocks** 0
 
 The screen where staff create a reward: the offer, who qualifies, the consent wording, limits and expiry.
 
@@ -2079,9 +2081,9 @@ The network-level analytics view for BTG.
 - **Done when:** Network-level and marketplace-learning metrics render
 - **Reference:** §22, §23
 
-### ⏸ `P7-QA-01` · E2E: deliverable → earnings → sponsor report
+### ✅ `P7-QA-01` · E2E: deliverable → earnings → sponsor report
 
-**Order** 151 · **QA** · **Where:** Code · **3d** · **Blocked** · **Unblocks** 0
+**Order** 151 · **QA** · **Where:** Code · **3d** · **Done** · **Unblocks** 0
 
 Automated test of the final stretch: deliverable through earnings to the sponsor report.
 
@@ -2089,9 +2091,9 @@ Automated test of the final stretch: deliverable through earnings to the sponsor
 - **Done when:** The final loop segment runs green end to end
 - **Reference:** §30
 
-### ⏸ `P7-QA-02` · Metric provenance honesty review
+### ✅ `P7-QA-02` · Metric provenance honesty review
 
-**Order** 152 · **QA** · **Where:** Code · **3d** · **Blocked** · **Unblocks** 0
+**Order** 152 · **QA** · **Where:** Code · **3d** · **Done** · **Unblocks** 0
 
 Trace every number on every dashboard back to where it actually comes from. Anything hand-picked gets labelled as such.
 
@@ -2290,9 +2292,9 @@ Publish the generated API specification covering every endpoint.
 - **Done when:** openapi.json is complete, generated from Zod contracts, and covers every /api/v1 endpoint
 - **Reference:** §38, Addendum A2
 
-### ⏸ `P8-PMO-02` · Write the admin user guide (§38 deliverable)
+### ✅ `P8-PMO-02` · Write the admin user guide (§38 deliverable)
 
-**Order** 171 · **PMO** · **Where:** Document · **3d** · **Blocked** · **Unblocks** 0
+**Order** 171 · **PMO** · **Where:** Document · **3d** · **Done** · **Unblocks** 0
 
 Write the guide BTG staff use to run the admin workspaces day to day.
 
@@ -2300,9 +2302,9 @@ Write the guide BTG staff use to run the admin workspaces day to day.
 - **Done when:** BTG staff can operate every admin workspace from the guide alone
 - **Reference:** §38
 
-### ▶ `P8-PMO-03` · Write the Phase 2–4 module interface and migration plan (§38)
+### ✅ `P8-PMO-03` · Write the Phase 2–4 module interface and migration plan (§38)
 
-**Order** 172 · **PMO** · **Where:** Document · **3d** · **Ready** · **Unblocks** 0
+**Order** 172 · **PMO** · **Where:** Document · **3d** · **Done** · **Unblocks** 0
 
 Document the seams Phase 2 will extend — listings, carts, payments, payouts, wallet — so it is an extension, not a rewrite.
 
@@ -2310,9 +2312,9 @@ Document the seams Phase 2 will extend — listings, carts, payments, payouts, w
 - **Done when:** The seams Phase 2 will extend are documented — listings, carts, payments, payouts, Wallet
 - **Reference:** §32, §38
 
-### ▶ `P8-PMO-04` · Write the INFINEX API and event specification (§38)
+### ✅ `P8-PMO-04` · Write the INFINEX API and event specification (§38)
 
-**Order** 173 · **PMO** · **Where:** Document · **3d** · **Ready** · **Unblocks** 0
+**Order** 173 · **PMO** · **Where:** Document · **3d** · **Done** · **Unblocks** 0
 
 Document the Phase 4 virtual-inventory data contract now, so campaigns and inventory never need redesigning for it.
 
