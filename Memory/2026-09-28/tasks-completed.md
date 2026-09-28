@@ -872,3 +872,46 @@ Stage Progress 2026-09-28 row refreshed to end-of-day counts (it had been writte
 
 The full backend suite passes (1476 tests), and every task was mutation-checked.
 Stage Progress is unchanged (it counts Phase 1 only).
+
+## Phase 2 batch 3: five backend tasks, plus one new frontend task
+
+- **New task `2S7-FE-03` (raised by the programme owner):** "Render tenant
+  branding in the property portal" (Order 57.2, 1 day, depends on
+  `2S7-BE-01`).
+  - `2S7-BE-01`'s acceptance was re-scoped in the plan Markdown. The backend
+    serves the branding and renders it on reports; the portal rendering is
+    `2S7-FE-03`.
+  - Phase 2 now has 67 tasks. The Dashboard, autofilter, conditional
+    formatting and validation ranges were extended to row 70.
+- **New scope `operated` (matrix §18).** An approved organisation's tenant
+  records its operator (`Tenant.operatorTenantId`, which is BTG). BTG staff
+  can read and approve inventory and listings in the tenants they operate, and
+  can reach nothing else of theirs. Existing provisioned tenants were
+  backfilled.
+- **`2S2-BE-01` · inventory:** `/inventory`. The owner is always the caller,
+  and the owner sets the price. Price and quantity cannot change while the
+  item's listing is published.
+- **`2S2-BE-04` · team roster:** `/team/roster`. The manager adds athletes to
+  the team's own tenant, each with an account they claim by email, and sets
+  the team's revenue share (`teamShareBps`).
+- **`2S3-BE-01` · listings:** the lifecycle from the state-machine doc.
+  - Only a property whose onboarding is approved can create a listing.
+  - Governance is checked on submit, on approval and on resume, and BTG
+    approval is the only way to publish.
+  - An item can have only one live listing.
+- **`2S2-BE-03` · formal offer:** the terms are hashed when the offer is sent.
+  - Acceptance writes a snapshot of the terms and creates the order (already
+    accepted), its scheduled deliverables and the earning, all in one
+    transaction.
+  - The Postgres trigger `offer_terms_immutable` refuses changes to the terms.
+  - Offers stay within one tenant until `2S4`.
+- **`2S7-BE-01` · branding:** `/branding` and `/branding/logo` (the logo goes
+  to the public bucket, PNG or JPEG only).
+  - The rendered PDF embeds the logo and uses the colours and footer.
+  - Screen 12's payload carries the branding.
+- **Route note:** the roster lives at `/team/roster`. `/properties/mine/roster`
+  would have been captured by rights' existing `POST /properties/:id/roster`.
+
+The full backend suite passes (1493 tests), with nine mutations checked. The
+matrix digest is now `ae772ead96f9f479`; with the five new resources removed,
+the grid still hashes to the old value.

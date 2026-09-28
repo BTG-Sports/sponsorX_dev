@@ -73,7 +73,10 @@ describe("P9-BE-01 · the margin floor never evaluates a NEXT package", () => {
       .filter((f) => !f.endsWith("margin-floor.ts"))
       .filter((f) => /\bassert(Line)?ClearsFloor\(|\bassertBudgetCarriesLine\(/.test(readFileSync(f, "utf8")))
       .map((f) => relative(src, f).replaceAll("\\", "/"));
-    expect(callers).toEqual(["domain/campaign-order.ts"]);
+    /* 2S2-BE-03 — a formal offer becomes a CampaignOrder line on acceptance,
+       so it prices one too: same athlete, job and pay, and the same rule. */
+    expect(callers.sort()).toEqual(["domain/campaign-order.ts", "domain/offer.ts"]);
+    expect(readFileSync(join(src, "domain/offer.ts"), "utf8")).toMatch(/assertLineClearsFloor\(input\.jobId, athlete\.tier \?\? null, input\.compensation/);
     /* The one path takes an athlete, a job and the athlete's pay — none of
        which a package with empty lineItems can supply. A NEXT sale is a
        Campaign with no CampaignOrder (spec §5.2), so it never gets here. */

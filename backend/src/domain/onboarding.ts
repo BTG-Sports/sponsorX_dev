@@ -303,7 +303,9 @@ async function provisionTenant(tx: Prisma.TransactionClient, row: Row, now: Date
     throw new OnboardingError(`${email} already has a SponsorX account. Ask the organisation to name a different primary contact, then approve.`, 409);
   }
 
-  const tenant = await tx.tenant.create({ data: { name: row.orgName }, select: { id: true } });
+  /* Operated by the tenant that approved it (2S3-BE-01): BTG reviews its
+     inventory and listings, and reaches nothing else of it. */
+  const tenant = await tx.tenant.create({ data: { name: row.orgName, operatorTenantId: row.tenantId }, select: { id: true } });
   const property = await tx.property.create({
     data: {
       tenantId: tenant.id, kind: row.orgType, name: row.orgName, stateCode: row.stateCode,

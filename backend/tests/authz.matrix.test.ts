@@ -281,7 +281,12 @@ describe("the whole matrix is pinned", () => {
       // — every role "own" read/write, nobody reaches another person's, every
       // approve cell deny (matrix §17). With it removed the grid still hashes
       // to the previous d326a7de1daee5f0, so nothing else moved.
-    ).toBe("9335a770498a2530");
+      // Updated 2026-09-28 (2S2-BE-01/-03/-04, 2S3-BE-01, 2S7-BE-01): five new
+      // resources — inventoryItem, teamMember, listing, offer, tenantBranding —
+      // and the new `operated` scope they use (matrix §18). With the five
+      // removed the grid still hashes to the previous 9335a770498a2530, so
+      // nothing else moved.
+    ).toBe("ae772ead96f9f479");
   });
 
   it("covers every pair the §30 acceptance asks for", () => {

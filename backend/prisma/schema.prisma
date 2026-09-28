@@ -202,9 +202,19 @@ enum AthleteTier {
 // ─────────────────────────────────────────────────────────────────────────────
 
 model Tenant {
-  id        String   @id @default(cuid())
-  name      String
-  createdAt DateTime @default(now())
+  id               String   @id @default(cuid())
+  name             String
+  createdAt        DateTime @default(now())
+  /// Phase 2 (2S3-BE-01) — the tenant that runs the marketplace this one sells
+  /// in: BTG's, for an organisation BTG approved (2S1-BE-04). Null for BTG's
+  /// own tenant. BTG staff review the inventory and listings of the tenants
+  /// they operate — the `operated` scope — and nothing else of theirs.
+  operatorTenantId String?
+
+  inventoryItems InventoryItem[]
+  listings       Listing[]
+
+  @@index([operatorTenantId])
 }
 
 model User {
@@ -267,6 +277,8 @@ model Property {
   /// cleared on suspension. Listing creation (2S3-BE-01) requires it.
   listingAccessAt DateTime?
   onboarding      PropertyOnboarding?
+  inventory       InventoryItem[]
+  listings        Listing[]
 
   @@index([tenantId])
 }
@@ -352,9 +364,13 @@ model Athlete {
   restrictionNotes     String?
 
   /// §6 — set by a network manager in Phase 1, never computed.
-  tier       AthleteTier?
-  guardianId String?
-  propertyId String?
+  tier         AthleteTier?
+  guardianId   String?
+  propertyId   String?
+  /// Phase 2 (2S2-BE-04) — the team's share of what this athlete earns through
+  /// it, in basis points (0–10000). Set by the team manager; the ledger
+  /// (2S5-BE-02) applies it. Null for an athlete with no team.
+  teamShareBps Int?
 
   // Zoho (§18 — Contacts are bi-directional)
   zohoId         String?     @unique
@@ -363,22 +379,24 @@ model Athlete {
 
   createdAt DateTime @default(now())
 
-  guardian Guardian?             @relation(fields: [guardianId], references: [id])
-  property Property?             @relation(fields: [propertyId], references: [id])
-  socials  AthleteSocial[]
-  rates    AthleteRate[]
-  scores   AthleteScore[]
-  invites  CampaignInvite[]
-  orders   CampaignOrder[]
-  earnings Earning[]
-  tokens   RewardToken[]
-  user     User?
+  guardian  Guardian?             @relation(fields: [guardianId], references: [id])
+  property  Property?             @relation(fields: [propertyId], references: [id])
+  socials   AthleteSocial[]
+  rates     AthleteRate[]
+  scores    AthleteScore[]
+  invites   CampaignInvite[]
+  orders    CampaignOrder[]
+  earnings  Earning[]
+  tokens    RewardToken[]
+  user      User?
   /// An athlete correspondent is also a Student (P9-BE-04).
-  student  Student?
+  student   Student?
   /// SponsorX NEXT (P9-BE-11) — consent recorded for this athlete as a
   /// subject, and claims made on a FEATURED profile.
-  consents AgreementAcceptance[]
-  claims   AthleteClaim[]
+  consents  AgreementAcceptance[]
+  claims    AthleteClaim[]
+  inventory InventoryItem[]
+  offers    Offer[]
 
   @@index([tenantId, state])
   @@index([tenantId, sport, stateCode])
@@ -450,6 +468,7 @@ model NilJob {
   rates   AthleteRate[]
   invites CampaignInvite[]
   orders  CampaignOrder[]
+  offers  Offer[]
 
   @@index([tenantId])
 }
@@ -631,6 +650,7 @@ model Campaign {
   brief         CampaignBrief?    @relation(fields: [briefId], references: [id])
   invites       CampaignInvite[]
   orders        CampaignOrder[]
+  offers        Offer[]
   rewards       Reward[]
   invoices      CampaignInvoice[]
   /// SponsorX NEXT — the ad positions this campaign bought (P9-BE-03).
@@ -726,6 +746,7 @@ model CampaignOrder {
   acceptance   AgreementAcceptance? @relation(fields: [acceptanceId], references: [id])
   deliverables Deliverable[]
   earning      Earning?
+  offer        Offer?
 
   @@unique([campaignId, athleteId, jobId])
   @@index([tenantId, state])
@@ -1755,4 +1776,160 @@ enum OnboardingState {
   APPROVED
   REJECTED
   SUSPENDED
+}
+
+/**
+ * ── Phase 2 Sprint 2–3 · inventory, listings, offers, branding ──────────
+ */
+
+/// 2S2-BE-01 / 2S2-BE-04 — something an outside party sells: an athlete's own
+/// NIL item, or a team's property inventory (signage, tickets, a camp).
+/// Exactly one owner. Priced by the owner, not by BTG.
+model InventoryItem {
+  id                   String    @id @default(cuid())
+  tenantId             String
+  /// The athlete who sells it — or null when the team (propertyId) does.
+  athleteId            String?
+  propertyId           String?
+  /// The catalogue kind it corresponds to, when there is one (NilJob.id).
+  jobId                String?
+  title                String
+  description          String?
+  /// SOCIAL_POST | VIDEO | APPEARANCE | AUTOGRAPH | CAMP | SIGNAGE | TICKETS | OTHER
+  kind                 String
+  /// Cents, set by the owner.
+  priceCents           Int
+  /// How many can be sold; null means unlimited.
+  quantity             Int?
+  availableFrom        DateTime?
+  availableUntil       DateTime?
+  /// Brand categories it suits, and the ones it will not be sold to.
+  categories           String[]
+  restrictedCategories String[]
+  /// { minQuantity?, maxQuantity?, bundleOnly? } — strict.
+  packageRules         Json      @default("{}")
+  active               Boolean   @default(true)
+  /// Bumped on every price or quantity change.
+  version              Int       @default(1)
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @default(now()) @updatedAt
+
+  tenant   Tenant    @relation(fields: [tenantId], references: [id])
+  athlete  Athlete?  @relation(fields: [athleteId], references: [id])
+  property Property? @relation(fields: [propertyId], references: [id])
+  listings Listing[]
+
+  @@index([tenantId, athleteId])
+  @@index([tenantId, propertyId])
+}
+
+enum ListingState {
+  DRAFT
+  PENDING_APPROVAL
+  PUBLISHED
+  PAUSED
+  ARCHIVED
+}
+
+/// 2S3-BE-01 — the public face of an inventory item. Creating inventory and
+/// publishing a listing are separate steps so governance sits between them
+/// (Phase 2 state machines §2).
+model Listing {
+  id              String       @id @default(cuid())
+  tenantId        String
+  /// The verified property whose listing it is.
+  propertyId      String
+  inventoryItemId String
+  title           String
+  description     String?
+  /// PUBLIC | PRIVATE (offered to invited sponsors only — 2S3-BE-04)
+  visibility      String       @default("PUBLIC")
+  state           ListingState @default(DRAFT)
+  /// When it becomes visible once published; null means at once.
+  publishAt       DateTime?
+  submittedAt     DateTime?
+  reviewNotes     String?
+  decidedAt       DateTime?
+  decidedBy       String?
+  publishedAt     DateTime?
+  createdBy       String?
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @default(now()) @updatedAt
+
+  tenant   Tenant        @relation(fields: [tenantId], references: [id])
+  property Property      @relation(fields: [propertyId], references: [id])
+  item     InventoryItem @relation(fields: [inventoryItemId], references: [id])
+
+  @@index([tenantId, state])
+  @@index([inventoryItemId, state])
+}
+
+enum OfferState {
+  DRAFT
+  SENT
+  ACCEPTED
+  DECLINED
+  WITHDRAWN
+}
+
+/// 2S2-BE-03 — a formal offer to an athlete: a commercial instrument, not an
+/// invitation. Terms freeze when it is sent; acceptance writes an immutable,
+/// hashed snapshot, creates the order and schedules its deliverables.
+/// Postgres refuses any change to the terms once sent (prisma/sql/offer_terms_immutable.sql).
+model Offer {
+  id              String     @id @default(cuid())
+  tenantId        String
+  campaignId      String
+  athleteId       String
+  jobId           String
+  /// The athlete's inventory item this offer buys, when it buys one.
+  inventoryItemId String?
+  brief           String
+  /// Cents — the athlete's pay; and what the sponsor pays for the line.
+  compensation    Int
+  sellPrice       Int
+  /// [{ title, dueDate }] — each becomes a scheduled Deliverable on acceptance.
+  deliverables    Json
+  usageRights     String
+  exclusivityDays Int?
+  /// The disclosures the content must carry, e.g. "#ad", "Paid partnership".
+  disclosures     String[]
+  expiresAt       DateTime
+  state           OfferState @default(DRAFT)
+  sentAt          DateTime?
+  respondedAt     DateTime?
+  /// sha256 of the canonical terms, fixed when sent — what the athlete accepts.
+  termsHash       String?
+  /// The terms exactly as accepted. Never changes.
+  termsSnapshot   Json?
+  orderId         String?    @unique
+  createdBy       String?
+  createdAt       DateTime   @default(now())
+
+  campaign Campaign       @relation(fields: [campaignId], references: [id])
+  athlete  Athlete        @relation(fields: [athleteId], references: [id])
+  job      NilJob         @relation(fields: [jobId], references: [id])
+  order    CampaignOrder? @relation(fields: [orderId], references: [id])
+
+  @@index([tenantId, state])
+  @@index([tenantId, athleteId])
+}
+
+/// 2S7-BE-01 — a tenant's own look: shown in its portal and on its reports.
+/// The logo lives in the PUBLIC bucket (it is shown to anyone who sees the
+/// portal); the report embeds it, since a rendered report fetches nothing.
+model TenantBranding {
+  tenantId     String   @id
+  displayName  String?
+  /// Public bucket key: branding/<tenantId>/logo-<random>.<png|jpg>
+  logoKey      String?
+  /// #RRGGBB
+  primaryColor String?
+  accentColor  String?
+  reportFooter String?
+  /// Readiness for custom subdomain mapping: the host the tenant wants
+  /// (e.g. partners.bowiebulldogs.com). Stored and unique; not yet routed.
+  customDomain String?  @unique
+  updatedBy    String?
+  updatedAt    DateTime @default(now()) @updatedAt
 }

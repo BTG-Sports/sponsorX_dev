@@ -1,0 +1,122 @@
+import { z } from "./zod";
+
+import { BRAND_CATEGORIES } from "../domain/brand-categories";
+import { INVENTORY_KINDS } from "../domain/inventory";
+import { LISTING_STATES } from "../domain/listing-rules";
+import { LOGO_TYPES } from "../domain/branding";
+
+/* --------------------------------------------------------------------------
+   Phase 2 Sprint 2–3 on the wire — inventory (2S2-BE-01), the team roster
+   (2S2-BE-04), listings (2S3-BE-01), formal offers (2S2-BE-03) and tenant
+   branding (2S7-BE-01). Business rules live in the domain; these shapes are
+   what a request may carry. None of them names an owner: the owner is always
+   the caller.
+   -------------------------------------------------------------------------- */
+
+const category = z.enum(BRAND_CATEGORIES);
+const when = z.iso.datetime().transform((s) => new Date(s));
+
+const PackageRules = z
+  .object({ minQuantity: z.number().int().min(1).optional(), maxQuantity: z.number().int().min(1).optional(), bundleOnly: z.boolean().optional() })
+  .strict();
+
+const inventoryFields = {
+  title: z.string().trim().min(1).max(200),
+  description: z.string().max(4000).nullable().optional(),
+  kind: z.enum(INVENTORY_KINDS),
+  jobId: z.string().min(1).nullable().optional(),
+  priceCents: z.number().int().min(100).max(100_000_000),
+  quantity: z.number().int().min(0).nullable().optional(),
+  availableFrom: when.nullable().optional(),
+  availableUntil: when.nullable().optional(),
+  categories: z.array(category).max(25).optional(),
+  restrictedCategories: z.array(category).max(25).optional(),
+  packageRules: PackageRules.optional(),
+  active: z.boolean().optional(),
+};
+
+export const InventoryItemInput = z.object(inventoryFields).strict().meta({
+  id: "InventoryItemInput", description: "An item the caller sells — priced by them. The owner is the caller (athlete, or team manager for the team).",
+});
+export const InventoryItemPatch = z.object(inventoryFields).partial().strict().meta({
+  id: "InventoryItemPatch", description: "Price and quantity cannot change while a listing of the item is published — pause it first.",
+});
+
+export const RosterAthleteInput = z
+  .object({
+    legalName: z.string().trim().min(1).max(200),
+    displayName: z.string().trim().min(1).max(100),
+    email: z.email().max(320),
+    sport: z.string().trim().min(1).max(60),
+    position: z.string().max(60).nullable().optional(),
+    gradYear: z.number().int().min(1990).max(2100).nullable().optional(),
+    birthDate: z.iso.date().transform((s) => new Date(s)).nullable().optional(),
+    ageBand: z.enum(["UNDER_16", "16_17", "18_PLUS"]).nullable().optional(),
+    teamShareBps: z.number().int().min(0).max(10_000).nullable().optional(),
+  })
+  .strict()
+  .meta({ id: "RosterAthleteInput", description: "An athlete joining the manager's roster, with an account to claim by email." });
+export const TeamShareInput = z
+  .object({ teamShareBps: z.number().int().min(0).max(10_000).nullable() })
+  .meta({ id: "TeamShareInput", description: "The team's share of this athlete's earnings, in basis points." });
+
+const listingFields = {
+  title: z.string().trim().min(1).max(200),
+  description: z.string().max(8000).nullable().optional(),
+  visibility: z.enum(["PUBLIC", "PRIVATE"]).optional(),
+  publishAt: when.nullable().optional(),
+};
+export const ListingInput = z
+  .object({ inventoryItemId: z.string().min(1), ...listingFields })
+  .strict()
+  .meta({ id: "ListingInput", description: "A listing on one of the property's items, or a roster athlete's. Starts DRAFT." });
+export const ListingPatch = z.object(listingFields).partial().strict().meta({ id: "ListingPatch", description: "Only while DRAFT or PAUSED." });
+export const ListingTransitionInput = z
+  .object({ to: z.enum(["PAUSED", "PUBLISHED", "ARCHIVED"]) })
+  .meta({ id: "ListingTransitionInput", description: "Pause, resume (re-checks governance) or archive. Publishing a draft is BTG's approval, never this." });
+export const ListingDecisionInput = z
+  .object({ decision: z.enum(["APPROVE", "REQUEST_CHANGES"]), notes: z.string().max(4000).nullable().optional() })
+  .meta({ id: "ListingDecisionInput", description: "BTG's decision on a submitted listing; REQUEST_CHANGES needs notes." });
+export const ListingState = z.enum(LISTING_STATES).meta({ id: "ListingState" });
+
+export const OfferInput = z
+  .object({
+    campaignId: z.string().min(1),
+    athleteId: z.string().min(1),
+    jobId: z.string().min(1),
+    inventoryItemId: z.string().min(1).nullable().optional(),
+    brief: z.string().trim().min(1).max(8000),
+    compensation: z.number().int().min(1),
+    sellPrice: z.number().int().min(1),
+    deliverables: z.array(z.object({ title: z.string().trim().min(1).max(200), dueDate: when }).strict()).min(1).max(20),
+    usageRights: z.string().trim().min(1).max(2000),
+    exclusivityDays: z.number().int().min(0).max(730).nullable().optional(),
+    disclosures: z.array(z.string().trim().min(1).max(100)).max(10),
+    expiresAt: when,
+  })
+  .strict()
+  .meta({ id: "OfferInput", description: "A formal offer: brief, pay, deliverables, usage rights, exclusivity, disclosures (2S2-BE-03)." });
+export const OfferResponseInput = z
+  .object({
+    decision: z.enum(["ACCEPT", "DECLINE"]),
+    termsHashShown: z.string().length(64).optional(),
+    agreementId: z.string().min(1).optional(),
+    bodyHashShown: z.string().length(64).optional(),
+  })
+  .meta({ id: "OfferResponseInput", description: "ACCEPT needs the terms hash shown and the agreement shown; it freezes the terms and schedules the deliverables." });
+
+const hexColour = z.string().regex(/^#[0-9a-fA-F]{6}$/);
+export const BrandingInput = z
+  .object({
+    displayName: z.string().max(120).nullable().optional(),
+    logoKey: z.string().max(300).nullable().optional(),
+    primaryColor: hexColour.nullable().optional(),
+    accentColor: hexColour.nullable().optional(),
+    reportFooter: z.string().max(500).nullable().optional(),
+    customDomain: z.string().max(253).nullable().optional(),
+  })
+  .strict()
+  .meta({ id: "BrandingInput", description: "The tenant's own name, logo, colours, report footer and requested custom domain (2S7-BE-01)." });
+export const LogoUploadInput = z
+  .object({ contentType: z.enum(Object.keys(LOGO_TYPES) as [keyof typeof LOGO_TYPES]), bytes: z.number().int().min(1).max(1024 * 1024) })
+  .meta({ id: "LogoUploadInput", description: "PNG or JPEG, up to 1 MB — to the public bucket." });

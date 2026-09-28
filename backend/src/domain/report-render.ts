@@ -51,7 +51,22 @@ export function labelsFor(r: SponsorReport): Source[] {
   ];
 }
 
-export function renderReportHtml(r: SponsorReport, renderedAt = new Date()): string {
+/**
+ * 2S7-BE-01 — the tenant's own look on its report: name, logo, colours,
+ * footer. The logo arrives as a data URI because a rendered report fetches
+ * nothing (renderPdf aborts every request). Colours are re-checked here as
+ * well as on write: they are interpolated into CSS.
+ */
+export type ReportBrand = {
+  name?: string | null; logoDataUri?: string | null; primaryColor?: string | null; accentColor?: string | null; footer?: string | null;
+};
+const hex = (c?: string | null) => (c && /^#[0-9a-fA-F]{6}$/.test(c) ? c : null);
+const dataUri = (u?: string | null) => (u && /^data:image\/(png|jpeg);base64,[A-Za-z0-9+/=]+$/.test(u) ? u : null);
+
+export function renderReportHtml(r: SponsorReport, renderedAt = new Date(), brand: ReportBrand = {}): string {
+  const primary = hex(brand.primaryColor);
+  const accent = hex(brand.accentColor);
+  const logo = dataUri(brand.logoDataUri);
   const p = r.performance;
   const layers: Array<[string, number, number, Source]> = [
     ["Verified", p.verifiedViews, p.verifiedEngagements, "VERIFIED_API"],
@@ -75,7 +90,10 @@ export function renderReportHtml(r: SponsorReport, renderedAt = new Date()): str
   .chip{display:inline-block;font-size:9px;padding:1px 6px;border-radius:9px;border:1px solid #bbb;margin-left:6px;vertical-align:middle}
   .chip-self_reported{border-color:#c80;color:#8a5a00}.chip-estimated{color:#555}
   table{width:100%;border-collapse:collapse}td{padding:5px 0;border-bottom:1px solid #eee}td.r{text-align:right}
+  .brand{display:flex;align-items:center;gap:10px;margin-bottom:10px}.brand img{max-height:36px;max-width:160px}
+  ${primary ? `h1{color:${primary}}` : ""}${accent ? `h2{color:${accent}}.card{border-color:${accent}}` : ""}
 </style></head><body>
+${logo || brand.name ? `<div class="brand" data-brand="tenant">${logo ? `<img src="${logo}" alt="">` : ""}${brand.name ? `<b>${esc(brand.name)}</b>` : ""}</div>` : ""}
 <h1>Campaign ROI Report</h1>
 <p class="muted">${esc(r.campaign.name)} · ${day(r.campaign.startDate)} – ${day(r.campaign.endDate)} · ${esc(r.campaign.state.toLowerCase())}</p>
 ${r.objective ? `<p class="faint">Objective: ${esc(r.objective)}</p>` : ""}
@@ -112,7 +130,8 @@ ${r.adPlacements.length && r.editionEngagement ? `<h2>Edition placements</h2>
 <p class="faint">Print and digital kept apart — pooling them would say something untrue.</p>
 <p class="muted">${r.adPlacements.length} position${r.adPlacements.length === 1 ? "" : "s"} · ${n(r.editionEngagement.print.QR_SCAN)} print QR scans · ${n(r.editionEngagement.digital.LINK_CLICK)} digital link clicks ${chip("VERIFIED_SYSTEM")}</p>` : ""}
 
-<p class="faint" style="margin-top:28px">Rendered by SponsorX on ${day(renderedAt)} from the same figures as the live report.</p>
+${brand.footer ? `<p class="faint" data-brand="footer" style="margin-top:28px">${esc(brand.footer)}</p>` : ""}
+<p class="faint" style="margin-top:${brand.footer ? "6px" : "28px"}">Rendered by SponsorX on ${day(renderedAt)} from the same figures as the live report.</p>
 </body></html>`;
 }
 
