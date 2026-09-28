@@ -1444,3 +1444,22 @@ was added.
   - tsc and eslint clean
   - e2e 15/15
   - `npm run build` green
+
+## `2S5-FE-01` → Done: the commission-rules screen, BTG admin only (at the owner's request)
+
+- **`/admin/commission`** shows the rules in effect, highest priority first,
+  each with its earlier versions.
+  - Admins can add a rule, or revise one. A revision becomes version n+1 from
+    that moment on.
+  - A preview runs a sample order through the rules in effect, and again with
+    an unsaved rule, side by side.
+- **Backend:** new `POST /commission-rules/preview`. It uses the same resolver
+  as a real contract and writes nothing.
+  - Finance can now only read commission rules; only BTG admin writes them
+    (matrix §21, digest `49b852630719d073`).
+- **Admin only:** the page checks the role before fetching anything, and the
+  nav link is hidden from other staff.
+- **Heads-up from the pull:** main_development's CI **e2e job is red**. The
+  teammate's new Clerk sign-in end-to-end tests time out in CI. Also, one of
+  the teammate's lock-timing tests fails only on my local database; it passes
+  in CI.

@@ -171,6 +171,22 @@ export const CommissionRuleRevision = z
   .strict()
   .meta({ id: "CommissionRuleRevision", description: "An edit is a new version from now; the old version's window closes. Contracted orders are untouched." });
 
+export const CommissionPreviewInput = z
+  .object({
+    sponsorId: z.string().min(1).nullable().optional(),
+    lines: z.array(z.object({
+      label: z.string().max(80).optional(),
+      grossCents: z.number().int().min(1).max(100_000_000),
+      propertyKind: z.enum(["TEAM", "SCHOOL", "EVENT", "MEDIA", "VIRTUAL"]).nullable().optional(),
+      propertyId: z.string().min(1).nullable().optional(),
+      athleteItem: z.boolean().optional(),
+      teamShareBps: z.number().int().min(0).max(10_000).nullable().optional(),
+    }).strict()).min(1).max(20),
+    draft: CommissionRuleInput.omit({ effectiveFrom: true, note: true }).nullable().optional(),
+  })
+  .strict()
+  .meta({ id: "CommissionPreviewInput", description: "A sample order, and optionally an unsaved rule, to preview the split against (2S5-FE-01). Writes nothing." });
+
 const hexColour = z.string().regex(/^#[0-9a-fA-F]{6}$/);
 export const BrandingInput = z
   .object({

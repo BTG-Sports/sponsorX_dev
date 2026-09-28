@@ -1151,7 +1151,12 @@ See `documentation/SponsorX-Phase2-Ledger-Design.md` (`2S0-PMO-02`, simulated).
 | Role | Read | Write | Approve |
 |---|---|---|---|
 | `SUPER_ADMIN` | any | any | — |
-| `BTG_ADMIN`, `FINANCE` | own-tenant | own-tenant | — |
+| `BTG_ADMIN` | own-tenant | own-tenant | — |
+| `FINANCE` | own-tenant | — | — |
+
+Writing rules, and previewing a draft rule against a sample order, is BTG
+admin's alone. This was set by the programme owner on 2026-09-28 ("only
+admin", `2S5-FE-01`). Finance reads the rules so it can reconcile.
 
 ### `orderFinancials` (2S4-BE-04)
 | Role | Read | Write | Approve |

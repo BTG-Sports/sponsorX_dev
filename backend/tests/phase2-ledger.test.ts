@@ -181,8 +181,8 @@ describe.skipIf(!hasDatabase)("the money side over the API", { timeout: 60_000 }
 
   /* ── 2S5-BE-01 ─────────────────────────────────────────────────────────── */
   describe("2S5-BE-01 · commission rules", () => {
-    it("Finance sets the design's simulated rates as versioned rules; nobody else may", async () => {
-      const make = (body: Record<string, unknown>) => call("POST", "/commission-rules", "lg_finance", body);
+    it("BTG admin sets the design's simulated rates as versioned rules; nobody else may", async () => {
+      const make = (body: Record<string, unknown>) => call("POST", "/commission-rules", "lg_admin", body);
       for (const body of [
         { kind: "PLATFORM_FEE", scope: "GLOBAL", bps: 1500, priority: 0, note: "SIMULATED — ledger design §5" },
         { kind: "MANAGEMENT_FEE", scope: "GLOBAL", bps: 500, priority: 0 },
@@ -197,6 +197,9 @@ describe.skipIf(!hasDatabase)("the money side over the API", { timeout: 60_000 }
       expect((await make({ kind: "PLATFORM_FEE", scope: "GLOBAL", scopeRef: "x", bps: 100, priority: 0 })).status).toBe(422);
       expect((await make({ kind: "RESERVE", scope: "GLOBAL", bps: 100, fixedCents: 5, priority: 0 })).status).toBe(422);
       expect((await call("POST", "/commission-rules", "lg_s1_admin", { kind: "PLATFORM_FEE", scope: "GLOBAL", bps: 0, priority: 99 })).status).toBe(403);
+      /* "Only admin" (programme owner, 2026-09-28): Finance reads the rules, and cannot write them. */
+      expect((await call("POST", "/commission-rules", "lg_finance", { kind: "PLATFORM_FEE", scope: "GLOBAL", bps: 0, priority: 99 })).status).toBe(403);
+      expect((await call("GET", "/commission-rules", "lg_finance")).status).toBe(200);
       expect((await call("POST", "/commission-rules", "lg_mgr_e", { kind: "PLATFORM_FEE", scope: "GLOBAL", bps: 0, priority: 99 })).status).toBe(403);
       expect((await call("GET", "/commission-rules", "lg_mgr_e")).status).toBe(403);
     });
@@ -221,6 +224,36 @@ describe.skipIf(!hasDatabase)("the money side over the API", { timeout: 60_000 }
       expect(await rate({ propertyKind: "TEAM", propertyId: "lg_prop_x", sponsorId: "lg_r_s1" })).toBe(1100);
       expect(await rate({ propertyKind: "TEAM", propertyId: "lg_prop_x", sponsorId: "lg_r_s1" }, before)).toBe(1200);
       expect((await call("POST", `/commission-rules/${team.id}/revise`, "lg_r_admin", { bps: 900 })).status).toBe(409); // only the current version
+    });
+  });
+
+  /* ── 2S5-FE-01 · the preview behind the admin screen ─────────────────── */
+  describe("2S5-FE-01 · previewing a sample order, with and without an unsaved rule", () => {
+    it("reproduces the design's example under the rules in effect, and shows what a draft would change — writing nothing", async () => {
+      const sample = {
+        lines: [
+          { label: "Banner", grossCents: 120_000, propertyKind: "TEAM", propertyId: E.property },
+          { label: "Clinic", grossCents: 100_000, propertyKind: "TEAM", propertyId: E.property, athleteItem: true, teamShareBps: 2000 },
+          { label: "Shout-out", grossCents: 59_997, propertyKind: "TEAM", propertyId: E.property },
+        ],
+        draft: { kind: "PLATFORM_FEE", scope: "PROPERTY_KIND", scopeRef: "TEAM", bps: 1000, priority: 5 },
+      };
+      const rulesBefore = await prisma.commissionRule.count({ where: { tenantId: T } });
+      const r = await call("POST", "/commission-rules/preview", "lg_admin", sample);
+      expect(r.status, r.text).toBe(200);
+      expect(r.json.current.lines.map((l: { availableCents: number }) => l.availableCents)).toEqual([81_406, 67_838, 40_701]);
+      expect(r.json.current.lines[1]).toMatchObject({ lineId: "Clinic", teamAvailableCents: 13_568 });
+      expect(r.json.current.totals).toMatchObject({ netCents: 279_997, processingCents: 8_150 });
+      /* The draft outranks the 15% global rule for teams: 10% instead. */
+      expect(r.json.withDraft.lines[0]).toMatchObject({ platformFeeCents: 12_000 });
+      expect(r.json.withDraft.lines[0].rules.PLATFORM_FEE).toMatchObject({ ruleId: "draft", bps: 1000 });
+      /* A draft for schools does not touch this team's order. */
+      const school = await call("POST", "/commission-rules/preview", "lg_admin", { ...sample, draft: { ...sample.draft, scopeRef: "SCHOOL" } });
+      expect(school.json.withDraft.totals).toEqual(school.json.current.totals);
+      expect(await prisma.commissionRule.count({ where: { tenantId: T } })).toBe(rulesBefore);
+      /* Admin only. */
+      expect((await call("POST", "/commission-rules/preview", "lg_finance", sample)).status).toBe(403);
+      expect((await call("POST", "/commission-rules/preview", "lg_mgr_e", sample)).status).toBe(403);
     });
   });
 
@@ -286,7 +319,8 @@ describe.skipIf(!hasDatabase)("the money side over the API", { timeout: 60_000 }
       const entries = await ledgerFingerprint();
       const board = await dashboard();
       const platform = (await call("GET", "/commission-rules?current=true", "lg_finance")).json.rules.find((r: { kind: string }) => r.kind === "PLATFORM_FEE");
-      expect((await call("POST", `/commission-rules/${platform.id}/revise`, "lg_finance", { bps: 2500 })).json).toMatchObject({ version: 2, bps: 2500 });
+      expect((await call("POST", `/commission-rules/${platform.id}/revise`, "lg_finance", { bps: 2500 })).status).toBe(403);
+      expect((await call("POST", `/commission-rules/${platform.id}/revise`, "lg_admin", { bps: 2500 })).json).toMatchObject({ version: 2, bps: 2500 });
       expect(await snapshotOf(orderId)).toBe(snapshot);
       expect(await ledgerFingerprint()).toBe(entries);
       expect(await dashboard()).toEqual(board);
@@ -315,7 +349,7 @@ describe.skipIf(!hasDatabase)("the money side over the API", { timeout: 60_000 }
         expect(actions, a).toContain(a);
       }
       const revise = await prisma.auditLog.findFirstOrThrow({ where: { tenantId: T, action: "commission.revise" }, select: { actorId: true, before: true, after: true } });
-      expect(revise).toMatchObject({ actorId: "lg_finance", before: { bps: 1500, version: 1 }, after: { bps: 2500, version: 2 } });
+      expect(revise).toMatchObject({ actorId: "lg_admin", before: { bps: 1500, version: 1 }, after: { bps: 2500, version: 2 } });
     });
 
     it("the audit log cannot be rewritten or deleted", async () => {

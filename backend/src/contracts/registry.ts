@@ -92,7 +92,7 @@ import {
   ListingTransitionInput, LogoUploadInput, OfferInput, OfferResponseInput, RosterAthleteInput, TeamShareInput,
   CartLineInput, CartLinePatch, RestrictionInput, SponsorCategoriesInput,
   MarketplaceOrderDecisionInput, MarketplaceOrderTransitionInput, PlaceOrderInput,
-  CommissionRuleInput, CommissionRuleRevision,
+  CommissionRuleInput, CommissionRuleRevision, CommissionPreviewInput,
 } from "./marketplace";
 import { NotificationPreferenceInput } from "./notification-preferences";
 import { OnboardingDecisionInput, OnboardingDocumentInput, OnboardingStartInput, OnboardingStepInput } from "./onboarding";
@@ -463,6 +463,7 @@ const PATHS: Row[] = [
   { method: "get", path: "/commission-rules", tag: "Marketplace", summary: "Commission rules and every version of them (2S5-BE-01)." },
   { method: "post", path: "/commission-rules", tag: "Marketplace", summary: "A new commission rule — version 1.", body: CommissionRuleInput, status: 201 },
   { method: "post", path: "/commission-rules/{id}/revise", tag: "Marketplace", summary: "Edit a rule: a new version from now. Contracted orders are never touched.", body: CommissionRuleRevision, status: 201 },
+  { method: "post", path: "/commission-rules/preview", tag: "Marketplace", summary: "Preview the split of a sample order under the rules in effect — and with an unsaved rule (2S5-FE-01). Writes nothing.", body: CommissionPreviewInput },
   { method: "get", path: "/marketplace-orders/{id}/financials", tag: "Marketplace", summary: "The order's breakdown, frozen at contract time with the rule versions that made it (2S4-BE-04)." },
   { method: "get", path: "/team/ledger", tag: "Marketplace", summary: "The property's dashboard: booked, reversed, paid and pending — reconciling exactly (2S5-BE-02)." },
   { method: "get", path: "/team/analytics", tag: "Marketplace", summary: "Revenue, sell-through, completion, sponsor mix and payout trends — from the ledger and order records (2S7-DATA-01)." },

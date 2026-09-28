@@ -27,7 +27,7 @@ import { audit } from "../db/audit";
 import type { Actor } from "../auth/actor";
 import { assertTenantWide, whereFor } from "../auth/scope";
 import { ForbiddenError } from "../auth/errors";
-import { NO_RULE, RULE_KINDS, type AppliedRule, type RuleKind } from "./ledger-math";
+import { breakdownOrder, NO_RULE, RULE_KINDS, type AppliedRule, type RuleKind } from "./ledger-math";
 
 export const RULE_SCOPES = ["GLOBAL", "PROPERTY_KIND", "PROPERTY", "SPONSOR"] as const;
 export type RuleScope = (typeof RULE_SCOPES)[number];
@@ -121,8 +121,21 @@ export type RateContext = { propertyId?: string | null; propertyKind?: string | 
  * latest version on a tie. Called ONLY at contract time (ledger.ts); the
  * answer is frozen, never asked again.
  */
+/** A rule not yet saved, considered beside the saved ones — the preview's "what if". */
+export type DraftRule = Pick<RuleInput, "kind" | "scope" | "scopeRef" | "bps" | "fixedCents" | "priority">;
+
+const DRAFT_ID = "draft";
+
+function draftMatches(d: DraftRule, ctx: RateContext): boolean {
+  if (d.scope === "GLOBAL") return true;
+  if (d.scope === "PROPERTY_KIND") return d.scopeRef === ctx.propertyKind;
+  if (d.scope === "PROPERTY") return d.scopeRef === ctx.propertyId;
+  return d.scopeRef === ctx.sponsorId;
+}
+
 export async function resolveRates(
   tx: Prisma.TransactionClient, operatorTenantId: string, ctx: RateContext, at: Date, kinds: readonly RuleKind[] = RULE_KINDS,
+  draft?: DraftRule | null,
 ): Promise<Record<RuleKind, AppliedRule>> {
   const scopes: Prisma.CommissionRuleWhereInput[] = [{ scope: "GLOBAL" }];
   if (ctx.propertyKind) scopes.push({ scope: "PROPERTY_KIND", scopeRef: ctx.propertyKind });
@@ -136,10 +149,59 @@ export async function resolveRates(
     select: { id: true, ruleKey: true, version: true, kind: true, bps: true, fixedCents: true, priority: true },
     orderBy: [{ priority: "desc" }, { version: "desc" }, { createdAt: "desc" }],
   });
+  /* A draft competes like any rule, and counts as the latest on a tie. */
+  if (draft && kinds.includes(draft.kind) && draftMatches(draft, ctx)) {
+    const at = rows.findIndex((r) => r.priority <= draft.priority);
+    rows.splice(at === -1 ? rows.length : at, 0, {
+      id: DRAFT_ID, ruleKey: DRAFT_ID, version: 0, kind: draft.kind, bps: draft.bps, fixedCents: draft.fixedCents ?? 0, priority: draft.priority,
+    });
+  }
   const out = Object.fromEntries(RULE_KINDS.map((k) => [k, NO_RULE])) as Record<RuleKind, AppliedRule>;
   for (const kind of kinds) {
     const r = rows.find((x) => x.kind === kind);
     if (r) out[kind] = { ruleId: r.id, ruleKey: r.ruleKey, version: r.version, bps: r.bps, fixedCents: r.fixedCents };
   }
   return out;
+}
+
+export type PreviewLine = {
+  label?: string; grossCents: number; propertyKind?: string | null; propertyId?: string | null;
+  /** A roster athlete's item — its available and reserve split with the property. */
+  athleteItem?: boolean; teamShareBps?: number | null;
+};
+
+/**
+ * 2S5-FE-01 — "previewed against a sample order": what the rules in effect
+ * now would do to this order, and — with a draft — what they would do if the
+ * draft were saved. The same resolver and the same arithmetic the contract
+ * uses (ledger.ts); nothing is written.
+ */
+export async function previewSplit(
+  actor: Actor,
+  input: { sponsorId?: string | null; lines: PreviewLine[]; draft?: DraftRule | null },
+  now = new Date(),
+) {
+  assertTenantWide(actor, "commissionRule", "write");
+  if (!input.lines.length || input.lines.length > 20) throw new CommissionRuleError("A sample order has 1 to 20 lines.");
+  if (input.draft) assertShape(input.draft as RuleInput);
+  const run = async (draft: DraftRule | null) => {
+    const processing = (await resolveRates(prisma, actor.tenantId, { sponsorId: input.sponsorId }, now, ["PROCESSING"], draft)).PROCESSING;
+    const lines = [];
+    for (const [i, l] of input.lines.entries()) {
+      const rules = await resolveRates(prisma, actor.tenantId, { propertyKind: l.propertyKind, propertyId: l.propertyId, sponsorId: input.sponsorId }, now, RULE_KINDS, draft);
+      lines.push({ lineId: l.label?.trim() || `Line ${i + 1}`, grossCents: l.grossCents, rules, athleteId: l.athleteItem ? "athlete" : null, teamShareBps: l.teamShareBps ?? null });
+    }
+    const out = breakdownOrder(lines, processing);
+    const sum = (k: "netCents" | "platformFeeCents" | "managementFeeCents" | "processingCents" | "propertyShareCents" | "referralCents" | "reserveCents" | "availableCents") =>
+      out.reduce((s, b) => s + b[k], 0);
+    return {
+      lines: out,
+      totals: {
+        netCents: sum("netCents"), platformFeeCents: sum("platformFeeCents"), managementFeeCents: sum("managementFeeCents"),
+        processingCents: sum("processingCents"), propertyShareCents: sum("propertyShareCents"), referralCents: sum("referralCents"),
+        reserveCents: sum("reserveCents"), availableCents: sum("availableCents"),
+      },
+    };
+  };
+  return { current: await run(null), withDraft: input.draft ? await run(input.draft) : null };
 }

@@ -56,6 +56,7 @@ const READ_ONLY = new Set([
   "getMarketplaceOrder",
   "listRules",
   "resolveRates",
+  "previewSplit",
   "orderFinancials",
   "propertyLedger",
   "summarise",
