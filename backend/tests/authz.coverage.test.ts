@@ -78,6 +78,10 @@ const GOVERNED_BY: Record<string, Resource> = {
      applicant reaches it by resume token, BTG through propertyOnboarding. */
   OnboardingDocument: "propertyOnboarding",
   NotificationPreference: "notificationPreference",
+  InventoryItem: "inventoryItem",
+  Listing: "listing",
+  Offer: "offer",
+  TenantBranding: "tenantBranding",
 };
 
 /** Models no API path reads or writes, and why. */

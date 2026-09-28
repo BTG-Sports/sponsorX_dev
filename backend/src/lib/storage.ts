@@ -241,3 +241,21 @@ export async function privateObjectSize(key: string): Promise<number | null> {
     throw error;
   }
 }
+
+/** The CDN address of a public object — no signature, the bucket is world-readable. */
+export function publicObjectUrl(key: string): string {
+  assertSafeKey(key);
+  return `${env.R2_PUBLIC_BASE_URL.replace(/\/+$/, "")}/${key}`;
+}
+
+/** Read a public object's bytes — worker-side, e.g. to embed a logo in a report that fetches nothing. */
+export async function getPublicObject(key: string): Promise<Buffer | null> {
+  assertSafeKey(key);
+  try {
+    const result = await s3.send(new GetObjectCommand({ Bucket: BUCKETS.public, Key: key }));
+    const body = result.Body as { transformToByteArray?: () => Promise<Uint8Array> } | undefined;
+    return body?.transformToByteArray ? Buffer.from(await body.transformToByteArray()) : null;
+  } catch {
+    return null;
+  }
+}

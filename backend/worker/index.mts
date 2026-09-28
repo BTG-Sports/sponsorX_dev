@@ -70,7 +70,7 @@ const HANDLED_JOBS = new Set<string>([
 import { handleSendEmail, type EmailJob } from "./jobs/send-email.mts";
 import { handleGenerateQr, type QrJob } from "./jobs/generate-qr.mts";
 import { handleDeriveImage, type DeriveImageJob } from "./jobs/derive-image.mts";
-import { getPrivateObject, putPrivateObject } from "../src/lib/storage.ts";
+import { getPrivateObject, getPublicObject, putPrivateObject } from "../src/lib/storage.ts";
 import {
   cityReaderToLookup, handleResolveGeo, type GeoJob, type GeoLookup,
 } from "./jobs/resolve-geo.mts";
@@ -412,7 +412,7 @@ async function main(): Promise<void> {
      API (src/combined.mts names this as the signal to split them). */
   await ensureQueue("report.render");
   await boss.work<RenderReportJob & { tenantId: string }>("report.render", { localConcurrency: 1 }, async ([job]) =>
-    console.log(`[worker] report.render ${JSON.stringify(await handleRenderReport({ db: prisma, put: putPrivateObject }, job.data))}`));
+    console.log(`[worker] report.render ${JSON.stringify(await handleRenderReport({ db: prisma, put: putPrivateObject, logo: getPublicObject }, job.data))}`));
 
   const zohoDeps = { db: prisma, zoho: zohoFromEnv };
   const zohoLog = (name: string, outcome: unknown) =>

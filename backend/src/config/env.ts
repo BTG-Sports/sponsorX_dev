@@ -66,6 +66,10 @@ const schema = z.object({
   S3_SECRET_ACCESS_KEY: z.string().default("sponsorx-dev-secret"),
   S3_BUCKET_PUBLIC: z.string().default("sponsorx-public"),
   S3_BUCKET_PRIVATE: z.string().default("sponsorx-private"),
+  /* Where the PUBLIC bucket is served from (the CDN) — set on Railway since
+     2026-09-21; the local default is MinIO's path-style URL. Public objects
+     are linked, never signed (storage.ts). */
+  R2_PUBLIC_BASE_URL: z.string().default("http://localhost:9000/sponsorx-public"),
 
   /* The GeoLite2 City database, for P6-BE-05.
      

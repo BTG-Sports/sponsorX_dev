@@ -25,6 +25,7 @@ import { editionsRouter } from "./editions";
 import { studentsRouter } from "./students";
 import { rightsRouter } from "./rights";
 import { onboardingRouter } from "./onboarding";
+import { marketplaceRouter } from "./marketplace";
 import { openapiRouter } from "./openapi";
 
 export const v1Router = Router();
@@ -107,6 +108,10 @@ v1Router.use("/", rightsRouter);
 /* Phase 2 Sprint 1 — external property onboarding (2S1-BE-01, -03). Public
    wizard by resume token; BTG's verification queue behind requireActor. */
 v1Router.use("/", onboardingRouter);
+
+/* Phase 2 Sprint 2–3 — inventory, the team roster, listings, formal offers
+   and tenant branding (2S2-BE-01/-03/-04, 2S3-BE-01, 2S7-BE-01). */
+v1Router.use("/", marketplaceRouter);
 v1Router.use("/", auditRouter);
 
 /* The published contract, generated from the Zod registry (§38). Public: a

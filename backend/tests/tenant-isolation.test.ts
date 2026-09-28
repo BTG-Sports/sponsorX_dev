@@ -61,6 +61,8 @@ const A = {
   publication: "ti_pub_a", edition: "ti_edition_a", slot: "ti_slot_a",
   school: "ti_school_a", student: "ti_student_a", code: "ti_code_a", prospect: "ti_prospect_a",
   asset: "ti_asset_ed_a", claim: "ti_claim_a", onboarding: "ti_onboarding_a",
+  /* Phase 2 batch 3 — an athlete's item, a school's item with a listing awaiting approval, a sent offer. */
+  item: "ti_item_a", schoolItem: "ti_item_school_a", listing: "ti_listing_a", offer: "ti_offer_a",
 } as const;
 const B = {
   tenant: "ti_tenant_b", sponsor: "ti_sponsor_b", athlete: "ti_athlete_b",
@@ -104,6 +106,7 @@ const PARAM_FOR: Record<string, string> = {
   publications: A.publication, editions: A.edition,
   students: A.student, prospects: A.prospect, sponsors: A.sponsor,
   "edition-assets": A.asset, claims: A.claim, properties: A.school, onboarding: A.onboarding,
+  inventory: A.item, listings: A.listing, offers: A.offer, roster: A.athlete,
   /* GET /deliverables/{id}/assets/{version}/url (P5-FE-04) — a creative
      version number, under tenant A's deliverable. */
   assets: "1",
@@ -190,6 +193,21 @@ const BODY: Record<string, unknown> = {
   "POST /onboarding/{id}/decision": { decision: "REJECT", notes: "cross-tenant" },
   "POST /campaigns/{id}/report/render": {},
   "PUT /me/notification-preferences": { event: "invitation.sent", channel: "EMAIL", muted: true },
+  "POST /inventory": { title: "Sweep item", kind: "OTHER", priceCents: 500 },
+  "PATCH /inventory/{id}": { priceCents: 999 },
+  "POST /team/roster": { legalName: "Sweep Athlete", displayName: "SWEEP", email: "roster-sweep@b.invalid", sport: "Soccer" },
+  "PATCH /team/roster/{id}": { teamShareBps: 1 },
+  "POST /listings": { inventoryItemId: A.schoolItem, title: "Stolen listing" },
+  "PATCH /listings/{id}": { title: "Renamed" },
+  "POST /listings/{id}/transition": { to: "ARCHIVED" },
+  "POST /listings/{id}/decision": { decision: "APPROVE" },
+  "POST /offers": {
+    campaignId: A.campaign, athleteId: A.athlete, jobId: A.job, brief: "Stolen", compensation: 20000, sellPrice: 40000,
+    deliverables: [{ title: "Post", dueDate: "2027-06-01T00:00:00.000Z" }], usageRights: "90 days", disclosures: [], expiresAt: "2027-05-01T00:00:00.000Z",
+  },
+  "POST /offers/{id}/respond": { decision: "DECLINE" },
+  "PUT /branding": { displayName: "Sweep brand" },
+  "POST /branding/logo": { contentType: "image/png", bytes: 10 },
 };
 
 describe.skipIf(!hasDatabase)("P8-SEC-02 · tenant B cannot reach tenant A through any route", async () => {
@@ -285,6 +303,17 @@ describe.skipIf(!hasDatabase)("P8-SEC-02 · tenant B cannot reach tenant A throu
     /* Batch C — an edition asset and a claim on a profile. */
     await prisma.editionAsset.create({ data: { id: A.asset, tenantId: t, editionId: A.edition, kind: "ARTICLE", title: "TI Secret Article", sourceKind: "BTG" } });
     await prisma.propertyOnboarding.create({ data: { id: A.onboarding, tenantId: t, orgType: "TEAM", orgName: "TI Secret Org", state: "PENDING_REVIEW" } });
+    await prisma.inventoryItem.createMany({ data: [
+      { id: A.item, tenantId: t, athleteId: A.athlete, title: "TI Secret Item", kind: "OTHER", priceCents: 5000 },
+      { id: A.schoolItem, tenantId: t, propertyId: A.school, title: "TI Secret Banner", kind: "SIGNAGE", priceCents: 9000 },
+    ] });
+    await prisma.listing.create({ data: { id: A.listing, tenantId: t, propertyId: A.school, inventoryItemId: A.schoolItem, title: "TI Secret Listing", description: "TI secret listing description", state: "PENDING_APPROVAL" } });
+    await prisma.offer.create({ data: {
+      id: A.offer, tenantId: t, campaignId: A.campaign, athleteId: A.athlete, jobId: A.job, brief: "TI Secret brief", compensation: 20000, sellPrice: 40000,
+      deliverables: [{ title: "Post", dueDate: "2027-06-01T00:00:00.000Z" }], usageRights: "90 days", disclosures: [], expiresAt: new Date(Date.now() + 30 * 864e5),
+      state: "SENT", sentAt: new Date(), termsHash: "t".repeat(64),
+    } });
+    await prisma.tenantBranding.create({ data: { tenantId: t, displayName: "TI Secret Brand", primaryColor: "#123456" } });
     await prisma.athleteClaim.create({ data: { id: A.claim, tenantId: t, athleteId: A.athlete, claimantName: "TI Secret Claimant", claimantEmail: "secret@a.invalid", rosterMatched: true } });
     await prisma.guardian.create({ data: { id: B.guardian, tenantId: B.tenant, legalName: "TI Guardian B", email: "g@b.invalid", relationship: "PARENT" } });
     for (const u of B_ACTORS) {
@@ -429,7 +458,10 @@ describe.skipIf(!hasDatabase)("P8-SEC-02 · tenant B cannot reach tenant A throu
         /* BTG's own records of its own decision — the onboarding it reviewed and
            the audit row of the approval, which names what it provisioned — may
            name the organisation to tenant A's admin. Nobody else, nowhere else. */
-        const own = actor.id === A.admin && (r.path.startsWith("/onboarding") || r.path === "/audit-log");
+        /* And, as E's OPERATOR, tenant A's admin reads E's marketplace records —
+           inventory and listings — by design (the `operated` scope, matrix §18). */
+        const own = actor.id === A.admin && (r.path.startsWith("/onboarding") || r.path === "/audit-log"
+          || r.path.startsWith("/inventory") || r.path.startsWith("/listings"));
         const leaked = own ? [] : secrets.filter((x) => text.includes(x));
         if (leaked.length) failures.push(`${actor.id} ${r.method} ${r.path} → leaked ${leaked.join(", ")}`);
       }
