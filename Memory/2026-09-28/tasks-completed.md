@@ -1463,3 +1463,24 @@ was added.
   teammate's new Clerk sign-in end-to-end tests time out in CI. Also, one of
   the teammate's lock-timing tests fails only on my local database; it passes
   in CI.
+
+## Board update (the programme owner's instruction)
+
+- **`2S0-PMO-02` → Done.** The owner signed off the ledger design, and the
+  design document's status now says so. The rates are still placeholders
+  for BTG to set in `/admin/commission`.
+- **Every waiting Phase 2 backend row now has a dated "WAITING ON" note**
+  (15 rows), each naming its real blocker:
+  - **the payment-provider decision (`2S0-PMO-03`):**
+    - the decision row itself;
+    - the payments security review;
+    - checkout, webhooks and payout accounts (`2S5-INT-01/02/03`);
+    - refunds and disputes (`2S5-BE-03`);
+    - payout eligibility and execution (`2S5-BE-04/05`);
+    - the wallet passes (`2S6-INT-01/02`, `2S6-BE-01`);
+  - **Phase 1 completion:** `2S0-OPS-01` and `2S8-OPS-01`;
+  - **Phase 2 QA (`2S8-QA-01`):** `2S8-SEC-02` and `2S8-PMO-01`, which wait
+    on the checkout frontend.
+- **Drive copy:** the Google Doc of the ledger design still says "waiting
+  for sign-off". Drive can't edit a doc's text, so updating it means
+  deleting and recreating it, which needs the owner's go-ahead.
