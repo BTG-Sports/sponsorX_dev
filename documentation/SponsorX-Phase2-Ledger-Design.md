@@ -4,7 +4,7 @@
 |---|---|
 | **Task** | `2S0-PMO-02` · Design the financial ledger model |
 | **Date** | 2026-09-28 · rcfworks |
-| **Status** | **SIMULATED. Waiting for the programme owner's sign-off.** This lets the money side start: `2S5-BE-01`, `2S4-BE-04`, `2S5-BE-02`, `2S5-SEC-01` and `2S7-DATA-01`. **Every rate below is a placeholder.** They are data (commission rules), not code, so BTG sets the real ones without a deploy. |
+| **Status** | **Signed off by the programme owner, 2026-09-28.** This is the approved design, and it is built (`2S5-BE-01`, `2S4-BE-04`, `2S5-BE-02`, `2S5-SEC-01`, `2S7-DATA-01`). **Every rate below is still a placeholder.** Rates are data (commission rules), not design, so BTG sets the real ones in `/admin/commission` (`2S5-FE-01`) without a deploy. |
 | **Acceptance** | Ledger design reviewed and signed off. The sequential rule order is documented, and a worked example reconciles to the cent. |
 
 ## 1 · The one rule
