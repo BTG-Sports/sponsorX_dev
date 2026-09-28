@@ -1699,9 +1699,53 @@ model PropertyOnboarding {
   createdAt            DateTime        @default(now())
   updatedAt            DateTime        @default(now()) @updatedAt
 
-  property Property? @relation(fields: [propertyId], references: [id])
+  property  Property?            @relation(fields: [propertyId], references: [id])
+  documents OnboardingDocument[]
 
   @@index([tenantId, state])
+}
+
+/// Phase 2 (2S1-BE-02) — a verification document attached to an onboarding:
+/// proof of the rights to sell inventory, business registration, identity.
+/// The bytes live in the PRIVATE bucket only; this row is the index. The
+/// applicant gets an upload grant and never a read; BTG reads through an
+/// audited, time-limited link.
+model OnboardingDocument {
+  id           String    @id @default(cuid())
+  tenantId     String
+  onboardingId String
+  /// RIGHTS_PROOF | BUSINESS_REGISTRATION | IDENTITY | OTHER
+  kind         String
+  filename     String
+  contentType  String
+  /// Declared at grant time; replaced by the stored size on confirm.
+  bytes        Int
+  /// Private bucket key: onboarding/<onboardingId>/<id>-<filename>
+  r2Key        String    @unique
+  /// Set when the applicant confirms and the object is found in the bucket.
+  uploadedAt   DateTime?
+  createdAt    DateTime  @default(now())
+
+  onboarding PropertyOnboarding @relation(fields: [onboardingId], references: [id])
+
+  @@index([tenantId, onboardingId])
+}
+
+/// Phase 2 (2S6-BE-02) — a user muting one channel for one event type. No
+/// row means the default: delivered. The worker reads this at send time.
+model NotificationPreference {
+  id        String   @id @default(cuid())
+  tenantId  String
+  userId    String
+  /// The event — an email template name, e.g. "invitation.reminder".
+  event     String
+  /// EMAIL today; the key has room for SMS and push.
+  channel   String
+  muted     Boolean
+  updatedAt DateTime @default(now()) @updatedAt
+
+  @@unique([userId, event, channel])
+  @@index([tenantId])
 }
 
 enum OnboardingState {

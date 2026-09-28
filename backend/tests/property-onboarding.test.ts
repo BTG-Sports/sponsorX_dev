@@ -19,6 +19,14 @@ process.env.INTAKE_TOKEN_SECRET ??= "test-intake-secret-test-intake-secret";
 process.env.PUBLIC_INTAKE_TENANT_ID = "po_tenant";
 
 vi.mock("../src/lib/rate-limit", () => ({ limit: async () => {} }));
+/* 2S1-BE-02 — the bucket's HEAD is the one network call stubbed: a key is
+   "in the bucket" once the test says the browser uploaded it. Signing the
+   upload and download URLs is real (it is local crypto, no network). */
+const { uploaded } = vi.hoisted(() => ({ uploaded: new Set<string>() }));
+vi.mock("../src/lib/storage", async (importOriginal) => {
+  const real = await importOriginal<typeof import("../src/lib/storage")>();
+  return { ...real, privateObjectSize: async (key: string) => (uploaded.has(key) ? 48_213 : null) };
+});
 vi.mock("../src/auth/clerk", () => ({
   authenticateClerkRequest: async (req: { get: (h: string) => string | undefined }) => {
     const id = req.get("x-test-clerk");
@@ -74,18 +82,33 @@ describe.skipIf(!hasDatabase)("property onboarding over the API", async () => {
   };
 
   async function clean() {
-    for (const t of ["AuditLog", "PropertyOnboarding", "Property", "Agreement", "User"]) {
-      await prisma.$executeRawUnsafe(`DELETE FROM "${t}" WHERE "tenantId" = $1`, T);
+    /* The tenants approval provisioned (2S1-BE-04), found through their Property. */
+    const provisioned = (await prisma.$queryRawUnsafe<{ tenantId: string }[]>(
+      `SELECT p."tenantId" FROM "PropertyOnboarding" o JOIN "Property" p ON p.id = o."propertyId" WHERE o."tenantId" = $1 AND p."tenantId" <> $1
+       UNION SELECT "tenantId" FROM "User" WHERE (email LIKE '%@team.invalid' OR email LIKE 'po\\_mgr\\_%@onboarding-test.invalid') AND "tenantId" <> $1`, T,
+    )).map((r) => r.tenantId);
+    for (const tenant of [T, ...provisioned]) {
+      for (const t of ["AuditLog", "OutboxJob", "OnboardingDocument", "PropertyOnboarding", "User", "Property", "Agreement"]) {
+        await prisma.$executeRawUnsafe(`DELETE FROM "${t}" WHERE "tenantId" = $1`, tenant);
+      }
     }
-    await prisma.tenant.deleteMany({ where: { id: T } });
+    await prisma.tenant.deleteMany({ where: { id: { in: [T, ...provisioned] } } });
   }
 
+  const emails = async (onboardingName: string) =>
+    (await prisma.outboxJob.findMany({ where: { tenantId: T, name: "notify.email" }, select: { payload: true }, orderBy: { createdAt: "asc" } }))
+      .map((j) => j.payload as { template: string; to: string; data: Record<string, string>; idempotencyKey: string })
+      .filter((p) => p.data.orgName === onboardingName);
+
   /** The wizard, end to end, as a browser would drive it. */
-  async function completeTeam(name: string, stateCode = "CA") {
+  async function completeTeam(name: string, stateCode = "CA", contactEmail?: string) {
     const started = await call("POST", "/public/onboarding", { orgType: "TEAM", orgName: name });
     const tok = started.json.resumeToken as string;
     await call("PATCH", `/public/onboarding/${tok}`, { step: "organisation", stateCode });
-    await call("PATCH", `/public/onboarding/${tok}`, { step: "contacts", contacts: [{ name: "Dana Cole", email: "dana@team.invalid", role: "Director", primary: true }] });
+    /* One address per organisation: approval gives the primary contact an
+       account (2S1-BE-04), and an address can hold only one. */
+    const email = contactEmail ?? `${name.toLowerCase().replace(/[^a-z0-9]+/g, "-")}@team.invalid`;
+    await call("PATCH", `/public/onboarding/${tok}`, { step: "contacts", contacts: [{ name: "Dana Cole", email, role: "Director", primary: true }] });
     await call("PATCH", `/public/onboarding/${tok}`, { step: "business", details: { legalEntityName: `${name} LLC`, league: "SoCal Youth", sport: "Soccer", stateRegistrationId: "C1234567" } });
     await call("PATCH", `/public/onboarding/${tok}`, { step: "payout", acknowledged: true });
     const terms = (await call("GET", `/public/onboarding/${tok}`)).json.terms;
@@ -224,6 +247,173 @@ describe.skipIf(!hasDatabase)("property onboarding over the API", async () => {
       const { id } = await completeTeam("Hill Rovers");
       expect((await call("GET", "/onboarding", undefined, "po_sponsor")).status).toBe(403);
       expect((await call("POST", `/onboarding/${id}/decision`, { decision: "APPROVE" }, "po_sponsor")).status).toBe(403);
+    });
+  });
+  describe("2S1-BE-02 · verification documents", () => {
+    it("upload straight to the private bucket — a signed PUT for one key, audited, never a read", async () => {
+      const started = await call("POST", "/public/onboarding", { orgType: "TEAM", orgName: "Docs United" });
+      const tok = started.json.resumeToken as string;
+      const granted = await call("POST", `/public/onboarding/${tok}/documents`, { kind: "RIGHTS_PROOF", filename: "../../etc/Rights letter (signed).pdf", contentType: "application/pdf", bytes: 48_000 });
+      expect(granted.status).toBe(201);
+      const url = new URL(granted.json.uploadUrl);
+      /* The private bucket, a signed PUT, and a key under this application only. */
+      expect(url.pathname.startsWith("/sponsorx-private/onboarding/")).toBe(true);
+      expect(url.pathname).toContain(`/onboarding/${started.json.id}/`);
+      expect(url.pathname).not.toContain("..");
+      expect(url.searchParams.get("X-Amz-Signature")).toBeTruthy();
+      expect(granted.text).not.toContain("sponsorx-public");
+      const doc = granted.json.document;
+      expect(doc).toMatchObject({ kind: "RIGHTS_PROOF", filename: "Rights-letter-signed-.pdf", uploadedAt: null });
+      expect(await prisma.auditLog.count({ where: { tenantId: T, action: "storage.privateUploadGrant", entity: "OnboardingDocument", entityId: doc.id } })).toBe(1);
+
+      /* Only paper: no HTML, nothing over 20 MB. */
+      expect((await call("POST", `/public/onboarding/${tok}/documents`, { kind: "OTHER", filename: "x.html", contentType: "text/html", bytes: 10 })).status).toBe(400);
+      expect((await call("POST", `/public/onboarding/${tok}/documents`, { kind: "OTHER", filename: "x.pdf", contentType: "application/pdf", bytes: 21 * 1024 * 1024 })).status).toBe(400);
+
+      /* Attached only once it is really in the bucket. */
+      expect((await call("POST", `/public/onboarding/${tok}/documents/${doc.id}/confirm`)).status).toBe(409);
+      const row = await prisma.onboardingDocument.findUniqueOrThrow({ where: { id: doc.id }, select: { r2Key: true } });
+      uploaded.add(row.r2Key);
+      const confirmed = await call("POST", `/public/onboarding/${tok}/documents/${doc.id}/confirm`);
+      expect(confirmed.status).toBe(200);
+      expect(confirmed.json).toMatchObject({ id: doc.id, bytes: 48_213 });
+      expect(confirmed.json.uploadedAt).not.toBeNull();
+
+      /* The applicant sees names and status — no link, no key, not even to its own file. */
+      const own = await call("GET", `/public/onboarding/${tok}`);
+      expect(own.json.documents).toEqual([expect.objectContaining({ id: doc.id, kind: "RIGHTS_PROOF" })]);
+      expect(own.text).not.toMatch(/X-Amz-|r2Key|downloadUrl|onboarding\/[a-z0-9]+\/odoc_/);
+      /* A forged token and another application's token reach nothing. */
+      const other = (await call("POST", "/public/onboarding", { orgType: "TEAM", orgName: "Other Org" })).json.resumeToken as string;
+      expect((await call("POST", `/public/onboarding/${other}/documents/${doc.id}/confirm`)).status).toBe(404);
+      expect((await call("POST", `/public/onboarding/not-a-token/documents`, { kind: "OTHER", filename: "x.pdf", contentType: "application/pdf", bytes: 10 })).status).toBe(404);
+    });
+
+    it("are reviewable by an admin through an audited link — and by nobody else", async () => {
+      const started = await call("POST", "/public/onboarding", { orgType: "TEAM", orgName: "Review Docs FC" });
+      const tok = started.json.resumeToken as string;
+      const doc = (await call("POST", `/public/onboarding/${tok}/documents`, { kind: "BUSINESS_REGISTRATION", filename: "reg.png", contentType: "image/png", bytes: 900 })).json.document;
+      const pending = (await call("POST", `/public/onboarding/${tok}/documents`, { kind: "IDENTITY", filename: "id.jpg", contentType: "image/jpeg", bytes: 900 })).json.document;
+      uploaded.add((await prisma.onboardingDocument.findUniqueOrThrow({ where: { id: doc.id }, select: { r2Key: true } })).r2Key);
+      await call("POST", `/public/onboarding/${tok}/documents/${doc.id}/confirm`);
+
+      const review = await call("GET", `/onboarding/${started.json.id}/documents`, undefined, "po_reviewer");
+      expect(review.status).toBe(200);
+      const [reg, id] = review.json.documents;
+      expect(reg).toMatchObject({ id: doc.id, kind: "BUSINESS_REGISTRATION" });
+      const read = new URL(reg.downloadUrl);
+      expect(read.pathname.startsWith("/sponsorx-private/onboarding/")).toBe(true);
+      expect(Number(read.searchParams.get("X-Amz-Expires"))).toBeLessThanOrEqual(900);
+      /* Never confirmed: listed, with nothing to read. */
+      expect(id).toMatchObject({ id: pending.id, downloadUrl: null });
+      const grant = await prisma.auditLog.findFirstOrThrow({ where: { tenantId: T, action: "storage.privateDownloadGrant", entityId: doc.id }, select: { actorId: true, after: true } });
+      expect(grant.actorId).toBe("po_reviewer");
+      expect(JSON.stringify(grant.after)).not.toContain("X-Amz-Signature"); // the credential is never logged
+
+      expect((await call("GET", `/onboarding/${started.json.id}/documents`, undefined, "po_sponsor")).status).toBe(403);
+      expect((await call("GET", `/onboarding/${started.json.id}/documents`)).status).toBe(401);
+    });
+
+    it("are never publicly reachable — no public-bucket path exists in the code", async () => {
+      const { readFileSync } = await import("node:fs");
+      const src = readFileSync(new URL("../src/domain/onboarding-documents.ts", import.meta.url), "utf8");
+      expect(src).not.toMatch(/presignPublicUpload|R2_PUBLIC_BASE_URL|BUCKETS\.public/);
+      /* A submitted application takes no new documents. */
+      const { tok } = await completeTeam("Locked Docs FC");
+      expect((await call("POST", `/public/onboarding/${tok}/documents`, { kind: "OTHER", filename: "late.pdf", contentType: "application/pdf", bytes: 10 })).status).toBe(409);
+    });
+  });
+
+  describe("2S1-BE-04 · approval provisions an outside tenant", () => {
+    it("an approved property's users see only their own tenant's data", async () => {
+      const a = await completeTeam("Tenant A Rovers", "MD", "po_mgr_a@onboarding-test.invalid");
+      const b = await completeTeam("Tenant B Rovers", "MD", "po_mgr_b@onboarding-test.invalid");
+      const pa = (await call("POST", `/onboarding/${a.id}/decision`, { decision: "APPROVE" }, "po_reviewer")).json.propertyId as string;
+      const pb = (await call("POST", `/onboarding/${b.id}/decision`, { decision: "APPROVE" }, "po_reviewer")).json.propertyId as string;
+
+      /* Each is its own tenant — not BTG's, not each other's. */
+      const [propA, propB] = await Promise.all([pa, pb].map((id) => prisma.property.findUniqueOrThrow({ where: { id }, select: { tenantId: true, name: true } })));
+      expect(propA.tenantId).not.toBe(T);
+      expect(propB.tenantId).not.toBe(T);
+      expect(propA.tenantId).not.toBe(propB.tenantId);
+      expect(await prisma.tenant.findUniqueOrThrow({ where: { id: propA.tenantId }, select: { name: true } })).toEqual({ name: "Tenant A Rovers" });
+
+      /* The primary contact signs in and lands in that tenant as its property manager. */
+      const meA = await call("GET", "/me", undefined, "po_mgr_a");
+      expect(meA.status).toBe(200);
+      expect(meA.json).toMatchObject({ tenantId: propA.tenantId, roles: ["PROPERTY_MGR"], propertyId: pa });
+      expect((await call("GET", "/properties/mine", undefined, "po_mgr_a")).json.property).toMatchObject({ id: pa, name: "Tenant A Rovers" });
+      expect((await call("GET", "/properties/mine", undefined, "po_mgr_b")).json.property).toMatchObject({ id: pb, name: "Tenant B Rovers" });
+
+      /* Nothing of BTG's: not the verification queue, not an application, not a document. */
+      for (const path of ["/onboarding", `/onboarding/${a.id}`, `/onboarding/${a.id}/documents`]) {
+        expect((await call("GET", path, undefined, "po_mgr_a")).status, path).toBe(403);
+      }
+      const provisioning = await prisma.auditLog.findFirstOrThrow({ where: { tenantId: propA.tenantId, action: "tenant.provision" }, select: { after: true } });
+      expect(provisioning.after).toMatchObject({ onboardingId: a.id, propertyId: pa, roles: ["PROPERTY_MGR"] });
+      const approval = await prisma.auditLog.findFirstOrThrow({ where: { tenantId: T, action: "onboarding.approve", entityId: a.id }, select: { after: true } });
+      expect(approval.after).toMatchObject({ tenantId: propA.tenantId });
+
+      /* Suspension and reinstatement move listing access on the outside tenant's Property. */
+      await call("POST", `/onboarding/${a.id}/decision`, { decision: "SUSPEND", notes: "Paused." }, "po_reviewer");
+      expect((await prisma.property.findUniqueOrThrow({ where: { id: pa }, select: { listingAccessAt: true } })).listingAccessAt).toBeNull();
+    });
+
+    it("refuses an address that already has an account, and provisions nothing", async () => {
+      const { id } = await completeTeam("Taken Address FC", "MD", "r@po.invalid"); // the reviewer's own address
+      const tenantsBefore = await prisma.tenant.count();
+      const refused = await call("POST", `/onboarding/${id}/decision`, { decision: "APPROVE" }, "po_reviewer");
+      expect(refused.status).toBe(409);
+      expect(refused.text).toMatch(/already has a SponsorX account/);
+      expect(await prisma.tenant.count()).toBe(tenantsBefore);
+      expect((await call("GET", `/onboarding/${id}`, undefined, "po_reviewer")).json).toMatchObject({ state: "PENDING_REVIEW", propertyId: null });
+    });
+  });
+
+  describe("2S1-INT-01 · the five onboarding notifications, as queued jobs", () => {
+    it("received, changes requested, approved, suspended, rejected — each a queued email to the primary contact", async () => {
+      const { EMAIL_TEMPLATES } = await import("../worker/jobs/send-email.mts");
+      const { tok, id } = await completeTeam("Notify City", "MD", "notify@team.invalid");
+      await call("POST", `/onboarding/${id}/decision`, { decision: "REQUEST_CHANGES", notes: "Add your league sanction number." }, "po_reviewer");
+      await call("POST", `/public/onboarding/${tok}/submit`);
+      await call("POST", `/onboarding/${id}/decision`, { decision: "REQUEST_CHANGES", notes: "And the venue." }, "po_reviewer");
+      await call("POST", `/public/onboarding/${tok}/submit`);
+      await call("POST", `/onboarding/${id}/decision`, { decision: "APPROVE" }, "po_reviewer");
+      await call("POST", `/onboarding/${id}/decision`, { decision: "SUSPEND", notes: "Chargeback under review." }, "po_reviewer");
+      const other = await completeTeam("Notify Nowhere", "MD", "nowhere@team.invalid");
+      await call("POST", `/onboarding/${other.id}/decision`, { decision: "REJECT", notes: "Could not verify the rights to sell." }, "po_reviewer");
+
+      const sent = await emails("Notify City");
+      expect(sent.map((e) => e.template)).toEqual([
+        "onboarding.received", "onboarding.changesRequested", "onboarding.received",
+        "onboarding.changesRequested", "onboarding.received", "onboarding.approved", "onboarding.suspended",
+      ]);
+      expect(new Set(sent.map((e) => e.to))).toEqual(new Set(["notify@team.invalid"]));
+      /* Each moment its own key — a second request for changes is a new message, a redelivery is not. */
+      expect(new Set(sent.map((e) => e.idempotencyKey)).size).toBe(sent.length);
+      expect(sent[3]!.idempotencyKey).toBe(`onboarding.changesRequested:${id}:2`);
+      /* The reviewer's words reach the applicant, with a link back into the saved application. */
+      const changes = sent[1]!;
+      expect(changes.data.notes).toBe("Add your league sanction number.");
+      const resume = changes.data.resumeUrl!.split("/onboarding/")[1]!;
+      expect((await call("GET", `/public/onboarding/${resume}`)).json.id).toBe(id);
+      expect(sent[5]!.data.portalUrl).toMatch(/\/property$/);
+
+      const rejected = await emails("Notify Nowhere");
+      expect(rejected.map((e) => e.template)).toEqual(["onboarding.received", "onboarding.rejected"]);
+
+      /* Every one renders, with the organisation's name and the note quoted. */
+      for (const e of [...sent, ...rejected]) {
+        const { subject, text } = EMAIL_TEMPLATES[e.template]!(e.data);
+        expect(subject + text).toContain(e.data.orgName!);
+        if (e.data.notes) expect(text).toContain(e.data.notes);
+      }
+    });
+
+    it("a rolled-back decision announces nothing", async () => {
+      const { id } = await completeTeam("Rollback FC", "MD", "r@po.invalid"); // approval refused: address taken
+      await call("POST", `/onboarding/${id}/decision`, { decision: "APPROVE" }, "po_reviewer");
+      expect((await emails("Rollback FC")).map((e) => e.template)).toEqual(["onboarding.received"]);
     });
   });
 });

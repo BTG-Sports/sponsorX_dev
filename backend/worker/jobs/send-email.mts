@@ -27,6 +27,8 @@
 
 import pg from "pg";
 
+import { MUTABLE_EVENTS } from "../../src/domain/notification-rules.ts";
+
 export type EmailJob = {
   tenantId: string;
   template: string;
@@ -110,6 +112,30 @@ const TEMPLATES: Record<string, (d: Record<string, string>) => { subject: string
     subject: `About ${d.businessName ?? "your prospect"}`,
     text: `Hi ${d.studentName ?? "there"},\n\nSponsorX can't take on ${d.businessName ?? "this business"} right now (reason: ${(d.reason ?? "OTHER").replace(/_/g, " ").toLowerCase()}).\n\nThis doesn't count against you — your sales credit and points are unchanged.${d.openCategories ? `\n\nCategories still open at your school: ${d.openCategories}.` : ""}\n\n— SponsorX NEXT`,
   }),
+  /* 2S1-INT-01 — the five onboarding messages, to the organisation's primary
+     contact. Every refusal quotes the reviewer's note, which is mandatory
+     upstream (NEEDS_NOTE), because "changes requested" with no reason is an
+     instruction nobody can follow. */
+  "onboarding.received": (d) => ({
+    subject: `We have ${d.orgName ?? "your"} application`,
+    text: `Hi ${d.contactName ?? "there"},\n\nThanks for applying to sell on SponsorX. We verify every organisation by hand, so this takes a few days rather than minutes.\n\nWe will email you as soon as there is a decision.\n\n— BTG SponsorX`,
+  }),
+  "onboarding.changesRequested": (d) => ({
+    subject: `One thing to fix on ${d.orgName ?? "your"} application`,
+    text: `Hi ${d.contactName ?? "there"},\n\nWe need a change before we can approve ${d.orgName ?? "your organisation"}:\n\n${d.notes ?? ""}\n\nYour answers are saved. Update them and resubmit here — you do not need to start again:\n\n${d.resumeUrl ?? ""}\n\n— BTG SponsorX`,
+  }),
+  "onboarding.approved": (d) => ({
+    subject: `${d.orgName ?? "Your organisation"} is approved on SponsorX`,
+    text: `Hi ${d.contactName ?? "there"},\n\n${d.orgName ?? "Your organisation"} has been approved. Your account is ready: sign in with this email address to reach your property portal.\n\n${d.portalUrl ?? ""}\n\n— BTG SponsorX`,
+  }),
+  "onboarding.rejected": (d) => ({
+    subject: `About ${d.orgName ?? "your"} application`,
+    text: `Hi ${d.contactName ?? "there"},\n\nWe are not able to approve ${d.orgName ?? "your organisation"} at this time.\n\n${d.notes ?? ""}\n\n— BTG SponsorX`,
+  }),
+  "onboarding.suspended": (d) => ({
+    subject: `${d.orgName ?? "Your organisation"}'s SponsorX listings are paused`,
+    text: `Hi ${d.contactName ?? "there"},\n\nWe have paused ${d.orgName ?? "your organisation"}'s access to list on SponsorX:\n\n${d.notes ?? ""}\n\nNothing has been deleted. Reply to this email and our team will work through it with you.\n\n— BTG SponsorX`,
+  }),
   "guardian.verificationRequested": (d) => ({
     subject: `Please confirm you authorise ${d.athleteName ?? "an athlete"} to join SponsorX`,
     text: `Hi ${d.guardianName ?? "there"},\n\n${d.athleteName ?? "An athlete"} has listed you as their parent or guardian on a SponsorX application. Because they are under 18, we need your authorisation before they can take part in any paid campaign.\n\nA member of the BTG team will contact you to confirm.\n\n— BTG SponsorX`,
@@ -137,10 +163,32 @@ const FROM = process.env.EMAIL_FROM ?? "SponsorX <noreply@sponsorx.net>";
  * for the queue's purposes — the message has been sent once, which is what
  * was asked for.
  */
+/**
+ * 2S6-BE-02 — has the recipient muted this event on email? Read at send time,
+ * so a mute set after the job was queued still holds. The recipient is found
+ * the way the message found them: a user in the job's tenant with that
+ * address, or the user linked to the athlete with that address (athlete mail
+ * goes to the athlete record's email). Only a mutable event can be muted —
+ * a stray row can never silence a decision notice.
+ */
+export async function mutedFor(pool: pg.Pool, job: Pick<EmailJob, "tenantId" | "template" | "to">): Promise<boolean> {
+  if (!(MUTABLE_EVENTS as readonly string[]).includes(job.template)) return false;
+  const { rowCount } = await pool.query(
+    `SELECT 1 FROM "NotificationPreference" np
+       JOIN "User" u ON u.id = np."userId" AND u."tenantId" = np."tenantId"
+      WHERE np."tenantId" = $1 AND np.event = $2 AND np.channel = 'EMAIL' AND np.muted
+        AND (lower(u.email) = lower($3)
+             OR u."athleteId" IN (SELECT a.id FROM "Athlete" a WHERE a."tenantId" = $1 AND lower(a.email) = lower($3)))
+      LIMIT 1`,
+    [job.tenantId, job.template, job.to],
+  );
+  return (rowCount ?? 0) > 0;
+}
+
 export async function handleSendEmail(
   pool: pg.Pool,
   job: EmailJob,
-): Promise<"sent" | "duplicate" | "withdrawn"> {
+): Promise<"sent" | "duplicate" | "withdrawn" | "muted"> {
   const build = TEMPLATES[job.template];
   if (!build) {
     /* Unknown template. Throwing lets pg-boss retry and then park it, which
@@ -167,6 +215,9 @@ export async function handleSendEmail(
     );
     if (ok.rowCount === 0) return "withdrawn";
   }
+
+  /* Before the claim: a muted message is not sent, and not recorded as sent. */
+  if (await mutedFor(pool, job)) return "muted";
 
   const claimed = await pool.query(
     `INSERT INTO "EmailSendLog" ("idempotencyKey", "tenantId", template, "to")

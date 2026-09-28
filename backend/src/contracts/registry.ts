@@ -86,7 +86,8 @@ import {
   RosterInput,
   SubjectConsentInput,
 } from "./rights";
-import { OnboardingDecisionInput, OnboardingStartInput, OnboardingStepInput } from "./onboarding";
+import { NotificationPreferenceInput } from "./notification-preferences";
+import { OnboardingDecisionInput, OnboardingDocumentInput, OnboardingStartInput, OnboardingStepInput } from "./onboarding";
 import {
   AgreementAcceptanceInput,
   GuardianInput,
@@ -259,6 +260,8 @@ const PATHS: Row[] = [
   { method: "get", path: "/", tag: "Meta", summary: "API root — service name and version.", auth: false },
   { method: "get", path: "/openapi.json", tag: "Meta", summary: "This specification, generated from the Zod contracts.", auth: false },
   { method: "get", path: "/me", tag: "Identity", summary: "The caller's resolved actor: tenant, roles and linked records." },
+  { method: "get", path: "/me/notification-preferences", tag: "Identity", summary: "Which events reach the caller, per channel — muted or delivered (2S6-BE-02)." },
+  { method: "put", path: "/me/notification-preferences", tag: "Identity", summary: "Mute or unmute one channel for one event type; the worker honours it at send time.", body: NotificationPreferenceInput },
 
   // applications — public intake (P3-BE-13)
   { method: "post", path: "/applications/intake", tag: "Applications", summary: "Apply to the Athlete Network.", auth: false, body: AthleteApplicationInput, status: 201, response: ApplicationSubmissionReceipt },
@@ -398,6 +401,9 @@ const PATHS: Row[] = [
   { method: "get", path: "/onboarding", tag: "Onboarding", summary: "BTG's verification queue — PENDING_REVIEW by default (2S1-BE-03)." },
   { method: "get", path: "/onboarding/{id}", tag: "Onboarding", summary: "One application, with what is missing." },
   { method: "post", path: "/onboarding/{id}/decision", tag: "Onboarding", summary: "Approve (creates the Property, grants listing access), request changes, reject, suspend, reinstate — audited (2S1-BE-03).", body: OnboardingDecisionInput },
+  { method: "post", path: "/public/onboarding/{token}/documents", tag: "Public", summary: "A private-bucket upload grant for one verification document — never a read (2S1-BE-02).", auth: false, body: OnboardingDocumentInput, status: 201 },
+  { method: "post", path: "/public/onboarding/{token}/documents/{documentId}/confirm", tag: "Public", summary: "Confirm an upload; attached only once the object is found in the private bucket.", auth: false },
+  { method: "get", path: "/onboarding/{id}/documents", tag: "Onboarding", summary: "An application's verification documents, each with an audited 15-minute read (2S1-BE-02)." },
   { method: "get", path: "/properties/mine", tag: "Properties", summary: "The property this account manages — a NEXT school is kind SCHOOL (P9-OPS-01). 404 when not linked." },
   { method: "get", path: "/catalogue/jobs", tag: "Catalogue", summary: "The NIL job catalogue at sponsor price bands — never base pay (P4-FE-01)." },
   { method: "post", path: "/public/rewards/{token}/scan", tag: "Public", summary: "A fan scanned the QR.", auth: false, status: 201 },

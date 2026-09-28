@@ -74,6 +74,10 @@ const GOVERNED_BY: Record<string, Resource> = {
   SchoolPoolAllocation: "schoolPoolAllocation",
   ReportFile: "sponsorReport",
   PropertyOnboarding: "propertyOnboarding",
+  /* 2S1-BE-02 — a verification document is part of its onboarding: the
+     applicant reaches it by resume token, BTG through propertyOnboarding. */
+  OnboardingDocument: "propertyOnboarding",
+  NotificationPreference: "notificationPreference",
 };
 
 /** Models no API path reads or writes, and why. */

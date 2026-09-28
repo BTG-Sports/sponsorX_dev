@@ -78,6 +78,7 @@ import { handleRollupMetrics } from "./jobs/rollup-metrics.mts";
 import { remindDueDeliverables } from "./jobs/deliverable-reminders.mts";
 import { handleIngestInvoice, type IngestInvoiceJob } from "./jobs/ingest-invoice.mts";
 import { handleRenderReport } from "./jobs/render-report.mts";
+import { applyQueuePolicy } from "./queue-policy.mts";
 import type { RenderReportJob } from "../src/domain/report-files.ts";
 import { prisma } from "../src/db/client.ts";
 import { ingestZohoInvoice, type ZohoInvoicePayload } from "../src/domain/invoice.ts";
@@ -132,7 +133,8 @@ const knownQueues = new Set<string>();
 
 async function ensureQueue(name: string): Promise<void> {
   if (knownQueues.has(name)) return;
-  await boss.createQueue(name);
+  /* 2S1-INT-01 — a queue with a retry policy gets it here, on both sides. */
+  await applyQueuePolicy(boss, name);
   knownQueues.add(name);
 }
 

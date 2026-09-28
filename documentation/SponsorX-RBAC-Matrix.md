@@ -997,6 +997,30 @@ reject, suspend and reinstate) is BTG's. The row holds no tax id and no bank
 details: its business details are validated by strict per-type schemas that
 refuse any field not asked for.
 
+**Verification documents (2S1-BE-02)** are part of the application and
+governed by the same row. The applicant, by its resume token, is given an
+*upload* grant to the private bucket and never a read — not even of its own
+file. BTG reads each document through an audited, fifteen-minute link.
+
+**Approval provisions a tenant (2S1-BE-04).** The first APPROVE creates a new
+tenant for the organisation, its Property there, and a `PROPERTY_MGR`
+account for the primary contact, linked to that Property. From then on the
+organisation's people are an outside tenant: every scope is tenant-first, so
+they reach their own tenant's rows and none of BTG's or anyone else's. The
+onboarding record and its audit trail stay in BTG's tenant.
+
+## 17 · Phase 2 · notification preferences *(added 2026-09-28)*
+
+### `notificationPreference` (2S6-BE-02)
+| Role | Read | Write | Approve |
+|---|---|---|---|
+| every role | own | own | — |
+
+A preference is personal. Nobody — not `SUPER_ADMIN` — reads or sets another
+person's. The worker reads them at send time to honour a mute. Decision
+notices (application outcomes, guardian and onboarding decisions) are not
+mutable at all.
+
 ## 14 · Known gaps
 
 - **D1 and D3 are subject to legal confirmation** (§12). Both were adopted at

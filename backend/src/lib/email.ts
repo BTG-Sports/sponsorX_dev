@@ -51,7 +51,14 @@ export type EmailTemplate =
      is about to disappear. */
   | "invitation.sent"
   | "invitation.reminder"
-  | "invitation.expiring";
+  | "invitation.expiring"
+  /* 2S1-INT-01 — an outside organisation's onboarding, to its primary
+     contact: received, changes requested, approved, rejected, suspended. */
+  | "onboarding.received"
+  | "onboarding.changesRequested"
+  | "onboarding.approved"
+  | "onboarding.rejected"
+  | "onboarding.suspended";
 
 export type EmailMessage = {
   template: EmailTemplate;

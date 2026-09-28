@@ -840,3 +840,35 @@ latency moves while one runs.
 Stage Progress 2026-09-28 row refreshed to end-of-day counts (it had been written before the day's frontend and Phase 2 work landed).
 
 **Phase 2 batch 1 → Done** (user's instruction; acceptance met): 2S6-BE-03, 2S6-INT-03, 2S7-BE-02, 2S0-PMO-01, 2S1-BE-01, 2S1-BE-03. `2S7-BE-02` was verified on staging first: the deployed Alpine Chromium rendered a valid PDF inside the api container.
+
+## Phase 2 batch 2 — five backend tasks → Done (acceptance met)
+
+- **`2S1-BE-02` · verification documents.** The applicant, by resume token, gets
+  a presigned PUT to the **private** bucket (PDF/JPEG/PNG, ≤20 MB), audited as a
+  grant; confirm attaches it only once the object is found. BTG reads through
+  `GET /onboarding/{id}/documents`, each link an audited 15-minute grant. The
+  applicant never gets a read URL. Model `OnboardingDocument`.
+- **`2S1-BE-04` · tenant provisioning.** The first APPROVE creates a **new
+  tenant** for the organisation, with its Property and a `PROPERTY_MGR` account
+  for the primary contact, claimed at first sign-in by email. An address that
+  already has an account is refused (409). The onboarding record stays in BTG's
+  tenant. BTG admins no longer see the organisation's Property through
+  own-tenant scope.
+- **`2S1-INT-01` · onboarding emails.** Five templates are queued in the
+  decision's own transaction. `worker/queue-policy.mts` gives `notify.email`
+  six retries with 30 s exponential backoff, applied to existing queues too.
+  The retry is proven on a real pg-boss. The wizard link points at
+  `/onboarding/<token>`, which 2S1-FE-01 will build.
+- **`2S8-SEC-01` · isolation for outside parties.** The tenant-isolation sweep
+  now provisions an outside tenant through the real approval, adds the
+  PROPERTY_MGR, SPONSOR_ANALYST and GUARDIAN roles, and attacks the outside
+  tenant in reverse.
+- **`2S6-BE-02` · notification preferences.** `GET`/`PUT
+  /me/notification-preferences` set only the caller's own preferences. The
+  worker checks for a mute at send time (`mutedFor` in `send-email.mts`).
+  Decision notices cannot be muted. A new matrix resource,
+  `notificationPreference` (§17), changes the digest to `9335a770498a2530`;
+  with that resource removed, the grid still hashes to the old value.
+
+The full backend suite passes (1476 tests), and every task was mutation-checked.
+Stage Progress is unchanged (it counts Phase 1 only).
