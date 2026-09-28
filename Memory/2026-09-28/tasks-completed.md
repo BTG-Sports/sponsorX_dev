@@ -1497,3 +1497,40 @@ The e2e job had been red since the Clerk-signed loop specs landed.
 - **Don't rebind the dev server with `--hostname 127.0.0.1`.** I tried that
   first. The dev server proxies internally to localhost, so it never came up.
 - **Result:** 15 passed, 7 skipped by design.
+
+## End of day, 2026-09-28 (rcfworks)
+
+**Phase 2 backend.** 32 tasks moved to Done across six batches:
+- onboarding and the outside-tenant model;
+- inventory, rosters, listings and offers;
+- restrictions, availability, search and the cart;
+- packages, reservations, marketplace orders, the approval gate and Zoho;
+- commission, the ledger, audit and property analytics.
+
+**Also done today:**
+- `2S0-PMO-02`, the ledger design, is signed off by the owner.
+- `P6-BE-08` is Done, and its frontend half was split out as `P6-FE-04`.
+- New tasks: `2S7-FE-03` and `P6-FE-04`.
+- `2S5-FE-01`, the commission screen, was built for BTG admins only.
+
+**Fixes:**
+- The CI e2e job now works (`allowedDevOrigins`).
+- The Phase 2 sheet's header count is corrected.
+
+**Blocked:**
+- Every waiting Phase 2 backend row names its blocker. Most wait on the
+  payment-provider decision (`2S0-PMO-03`); the rest wait on Phase 1
+  completion or Phase 2 QA.
+- **GitHub Actions minutes are exhausted.** CI jobs are refused until the
+  owner updates billing or the allowance resets on October 1.
+
+**Open, waiting on the owner:**
+- the payment provider (`2S0-PMO-03`);
+- the real commission rates;
+- the staging test accounts (planned, not started);
+- `P2-OPS-07`, which needs GitHub Pro;
+- whether to update the ledger-design copy in Drive.
+
+The Stage Progress row for 2026-09-28 is current: 219 done, 77 days left
+(Phase 1, NEXT included). **The Google Sheet mirror is the owner's end-of-day
+step.**
