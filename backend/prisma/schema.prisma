@@ -868,6 +868,17 @@ model Reward {
   terms      String
   state      RewardState @default(DRAFT)
 
+  /// P6-BE-08 (§9 screen 10) — who qualifies, shown to the fan.
+  eligibility     String?
+  /// How many times this reward may be redeemed across ALL its tokens; null
+  /// is unlimited. Enforced in the redeem transaction by a conditional update
+  /// of `redemptionCount` — atomic, so two booths cannot both take the last.
+  redemptionCap   Int?
+  redemptionCount Int     @default(0)
+  /// The fan page's own copy for this reward.
+  landingHeadline String?
+  landingSubhead  String?
+
   campaign Campaign      @relation(fields: [campaignId], references: [id])
   tokens   RewardToken[]
 

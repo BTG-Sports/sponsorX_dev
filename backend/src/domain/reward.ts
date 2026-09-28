@@ -85,6 +85,17 @@ export class RewardExpiredError extends Error {
   }
 }
 
+/** P6-BE-08 — every redemption this reward allows has been made. */
+export class RedemptionCapReachedError extends Error {
+  readonly status = 409;
+  /** Named so the fan page can say "all redeemed" rather than "already used". */
+  readonly kind = "REDEMPTION_CAP";
+  constructor() {
+    super("Every one of these rewards has been redeemed.");
+    this.name = "RedemptionCapReachedError";
+  }
+}
+
 export class AlreadyRedeemedError extends Error {
   readonly status = 409;
   constructor() {
@@ -125,6 +136,11 @@ export async function createReward(
     terms: string;
     expiresAt: Date;
     singleUse?: boolean;
+    /* P6-BE-08 — §9 screen 10's eligibility, redemption limit and landing copy. */
+    eligibility?: string | null;
+    redemptionCap?: number | null;
+    landingHeadline?: string | null;
+    landingSubhead?: string | null;
   },
 ): Promise<{ id: string; state: RewardState }> {
   assertTenantWide(actor, "reward", "write");
@@ -144,6 +160,10 @@ export async function createReward(
         terms: input.terms,
         expiresAt: input.expiresAt,
         singleUse: input.singleUse ?? true,
+        eligibility: input.eligibility?.trim() || null,
+        redemptionCap: input.redemptionCap ?? null,
+        landingHeadline: input.landingHeadline?.trim() || null,
+        landingSubhead: input.landingSubhead?.trim() || null,
         /* Always DRAFT. A reward that arrived already ACTIVE would be live
            before anyone read the terms it commits a merchant to. */
         state: "DRAFT",
@@ -251,6 +271,7 @@ type TokenContext = {
   rewardState: RewardState;
   expiresAt: Date;
   singleUse: boolean;
+  rewardId: string;
 };
 
 /**
@@ -271,7 +292,7 @@ async function contextFor(
       token: true,
       reward: {
         select: {
-          state: true, expiresAt: true, singleUse: true,
+          id: true, state: true, expiresAt: true, singleUse: true,
           offerText: true, terms: true,
         },
       },
@@ -288,6 +309,7 @@ async function contextFor(
     rewardState: row.reward.state as RewardState,
     expiresAt: row.reward.expiresAt,
     singleUse: row.reward.singleUse,
+    rewardId: row.reward.id,
   };
 }
 
@@ -500,6 +522,14 @@ export type TokenView =
       terms: string;
       expiresAt: string;
       claimed: boolean;
+      /** P6-BE-08 — the reward's own landing copy and who qualifies; and
+       *  whether its redemption cap is used up (the page then says so). */
+      landing: { headline: string | null; subhead: string | null };
+      eligibility: string | null;
+      capReached: boolean;
+      /** Consent wording is NOT per reward: it is versioned centrally
+       *  (fan-consent.ts, P6-SEC-01) so a claim records the exact words
+       *  the fan saw. */
       consent: { version: string; purpose: string; text: string };
       /** 2S6-BE-03 — the optional second box's wording. The page renders it
        *  UNTICKED; the version it sends back is this one. */
@@ -513,7 +543,12 @@ export async function viewToken(token: string, now = new Date()): Promise<TokenV
     where: { token },
     select: {
       id: true,
-      reward: { select: { state: true, expiresAt: true, singleUse: true, offerText: true, terms: true } },
+      reward: {
+        select: {
+          state: true, expiresAt: true, singleUse: true, offerText: true, terms: true,
+          eligibility: true, landingHeadline: true, landingSubhead: true, redemptionCap: true, redemptionCount: true,
+        },
+      },
       /* Types only — never the address (P6-SEC-02). */
       events: { where: { type: { in: ["CLAIM", "REDEEM"] } }, select: { type: true } },
     },
@@ -533,6 +568,9 @@ export async function viewToken(token: string, now = new Date()): Promise<TokenV
     terms: row.reward.terms,
     expiresAt: row.reward.expiresAt.toISOString(),
     claimed: row.events.some((e) => e.type === "CLAIM"),
+    landing: { headline: row.reward.landingHeadline, subhead: row.reward.landingSubhead },
+    eligibility: row.reward.eligibility,
+    capReached: row.reward.redemptionCap !== null && row.reward.redemptionCount >= row.reward.redemptionCap,
     consent: {
       version: CURRENT_CONSENT_VERSION,
       purpose: "reward-delivery",
@@ -579,7 +617,22 @@ export async function redeemToken(
 
       /* A reward explicitly marked multi-use has no single-use rule to
          enforce; the index still guards the single-use ones. */
-      return writeEvent(tx, ctx, "REDEEM");
+      const event = await writeEvent(tx, ctx, "REDEEM");
+
+      /* P6-BE-08 — the reward-wide cap, decided by ONE conditional UPDATE:
+         Postgres row-locks the reward, re-checks the condition against the
+         committed count, and either takes a unit or matches nothing. Two
+         booths redeeming the last one at the same instant cannot both win —
+         the second waits on the lock, then finds the count at the cap. A
+         read-then-write here would be the same bug the index above exists
+         to prevent. */
+      const took = await tx.$executeRawUnsafe(
+        `UPDATE "Reward" SET "redemptionCount" = "redemptionCount" + 1
+          WHERE id = $1 AND ("redemptionCap" IS NULL OR "redemptionCount" < "redemptionCap")`,
+        ctx.rewardId,
+      );
+      if (took === 0) throw new RedemptionCapReachedError();
+      return event;
     });
   } catch (error) {
     if (isUniqueViolation(error)) throw new AlreadyRedeemedError();

@@ -78,6 +78,10 @@ const addReward: RequestHandler<{ id: string }> = async (req, res) => {
       terms: body.terms,
       expiresAt: new Date(body.expiresAt),
       singleUse: body.singleUse,
+      eligibility: body.eligibility,
+      redemptionCap: body.redemptionCap,
+      landingHeadline: body.landingHeadline,
+      landingSubhead: body.landingSubhead,
     }),
   );
 };
