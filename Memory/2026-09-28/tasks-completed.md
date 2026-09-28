@@ -838,3 +838,5 @@ Recorded in `backend/src/combined.mts`. Revisit if renders queue up, or if API
 latency moves while one runs.
 
 Stage Progress 2026-09-28 row refreshed to end-of-day counts (it had been written before the day's frontend and Phase 2 work landed).
+
+**Phase 2 batch 1 → Done** (user's instruction; acceptance met): 2S6-BE-03, 2S6-INT-03, 2S7-BE-02, 2S0-PMO-01, 2S1-BE-01, 2S1-BE-03. `2S7-BE-02` was verified on staging first: the deployed Alpine Chromium rendered a valid PDF inside the api container.
