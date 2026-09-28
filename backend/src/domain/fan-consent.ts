@@ -52,12 +52,74 @@ export const CONSENT_TEXT: Record<string, string> = {
 /**
  * What an address may be used for.
  *
- * Only one purpose exists in Phase 1, and that is deliberate: the fan gave
- * their address to receive a voucher. Adding `marketing` here is a decision
- * with a consent-text change behind it, not a code change.
+ * `reward-delivery` is why a fan gives an address at all: to be sent the
+ * voucher. `sponsor-contact` (2S6-BE-03) is the second, separate, OPTIONAL
+ * agreement — that the sponsor of this reward may contact them about offers.
+ * It has its own box, unticked by default, and its own dated text below;
+ * agreeing to the first never implies the second.
  */
-export const CONSENT_PURPOSES = ["reward-delivery"] as const;
+export const CONSENT_PURPOSES = ["reward-delivery", "sponsor-contact"] as const;
 export type ConsentPurpose = (typeof CONSENT_PURPOSES)[number];
+
+/**
+ * The sponsor-contact wording, versioned on its own clock (2S6-BE-03). Same
+ * rule as the delivery text: a date, never edited in place, every version
+ * ever shown kept so a stored claim always resolves to the words the fan saw.
+ */
+export const CURRENT_SPONSOR_CONTACT_VERSION = "2026-09-28" as const;
+export const SPONSOR_CONTACT_TEXT: Record<string, string> = {
+  "2026-09-28":
+    "Also let the sponsor of this reward contact me about their offers. " +
+    "Optional — you get your reward either way, and every message has a " +
+    "one-tap unsubscribe.",
+};
+export const KNOWN_SPONSOR_CONTACT_VERSIONS: readonly string[] = Object.keys(SPONSOR_CONTACT_TEXT);
+
+/**
+ * THE CONDITION under which a fan's address may be read for the sponsor —
+ * spread into the WHERE of every such query (fan-leads.ts, the Zoho lead job
+ * in zoho-sync.ts), so a claim without the tick, or withdrawn, is never
+ * fetched at all. tests/fan-pii.test.ts fails any read of the address that
+ * does not carry it. Plain data, no imports, so the worker can use it too.
+ */
+export const SPONSOR_CONTACTABLE = {
+  type: "CLAIM",
+  fanEmail: { not: null },
+  sponsorContactVersion: { not: null },
+  sponsorContactWithdrawnAt: null,
+  consentWithdrawnAt: null,
+} as const;
+
+export class SponsorContactNeedsAddressError extends Error {
+  readonly status = 422;
+  constructor() {
+    super(
+      "The sponsor-contact option extends an email address given for the " +
+        "reward, with its consent. Without that address there is nothing the " +
+        "sponsor could be given.",
+    );
+    this.name = "SponsorContactNeedsAddressError";
+  }
+}
+
+/**
+ * Validate the optional second consent. Null when the box was left unticked
+ * — the default, and the ordinary case. It rides on the delivery consent:
+ * refused unless an address was given with that consent (Postgres enforces
+ * the same, `RewardEvent_sponsor_contact_needs_address`).
+ */
+export function sponsorContactFor(
+  delivery: FanConsent | null,
+  sponsorContact: { version?: string | null } | null | undefined,
+  now = new Date(),
+): { version: string; at: Date } | null {
+  if (!sponsorContact?.version) return null;
+  if (!delivery) throw new SponsorContactNeedsAddressError();
+  if (!KNOWN_SPONSOR_CONTACT_VERSIONS.includes(sponsorContact.version)) {
+    throw new UnknownConsentVersionError(sponsorContact.version);
+  }
+  return { version: sponsorContact.version, at: now };
+}
 
 
 export type FanConsent = {
@@ -124,9 +186,9 @@ export function consentFor(
   if (!KNOWN_CONSENT_VERSIONS.includes(consent.version)) {
     throw new UnknownConsentVersionError(consent.version);
   }
-  if (!(CONSENT_PURPOSES as readonly string[]).includes(consent.purpose)) {
-    throw new UnknownConsentPurposeError(consent.purpose);
-  }
+  /* The address is given for delivery. Sponsor contact is never the
+     address's own purpose — it is the separate, optional second consent. */
+  if (consent.purpose !== "reward-delivery") throw new UnknownConsentPurposeError(consent.purpose);
 
   return { version: consent.version, purpose: consent.purpose as ConsentPurpose, at: now };
 }

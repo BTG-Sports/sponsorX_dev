@@ -18,6 +18,8 @@ export type TokenView =
       expiresAt: string;
       claimed: boolean;
       consent: { version: string; purpose: string; text: string };
+      /** 2S6-BE-03 — the optional second box. Absent from an older API. */
+      sponsorContact?: { version: string; purpose: string; text: string };
     };
 
 export function escapeHtml(s: string): string {
@@ -143,7 +145,9 @@ export function renderFanPage(token: string, v: TokenView, flash: Flash): { html
       <label for="email">Email for your code <span class="note">(optional)</span></label>
       <input id="email" name="email" type="email" autocomplete="email" inputmode="email" placeholder="you@example.com">
       <label class="consent"><input type="checkbox" name="consent" value="${escapeHtml(v.consent.version)}">
-        <span>${escapeHtml(v.consent.text)}</span></label>
+        <span>${escapeHtml(v.consent.text)}</span></label>${v.sponsorContact ? `
+      <label class="consent"><input type="checkbox" name="sponsorContact" value="${escapeHtml(v.sponsorContact.version)}">
+        <span>${escapeHtml(v.sponsorContact.text)}</span></label>` : ""}
       <button type="submit">Claim reward</button>
     </form>`;
 

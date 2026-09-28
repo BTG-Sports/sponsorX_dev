@@ -38,6 +38,7 @@ import { audit } from "../db/audit";
 import type { ZohoClient, ZohoRecord } from "../lib/zoho";
 import type { BriefState } from "./brief-state";
 import type { CampaignState } from "./campaign-state";
+import { SPONSOR_CONTACTABLE } from "./fan-consent";
 import {
   accountShared,
   assertedStage,
@@ -55,6 +56,7 @@ import {
   toZohoDealCreate,
   toZohoDealUpdate,
   toZohoLead,
+  toZohoFanLead,
   toZohoRenewalCreate,
   toZohoTaskCreate,
   toZohoTaskUpdate,
@@ -415,6 +417,33 @@ export async function pushLead(ctx: SyncCtx, tenantId: string, inquiryId: string
   if (i.zohoLeadId) return { status: "unchanged", zohoId: i.zohoLeadId };
   const r = await ctx.zoho.upsert("Leads", toZohoLead(i));
   await ctx.db.inquiry.update({ where: { id: i.id }, data: { zohoLeadId: r.id } });
+  return { status: "pushed", zohoId: r.id, action: r.action };
+}
+
+/**
+ * A fan who asked to hear from the sponsor → a Zoho Lead (2S6-INT-03).
+ *
+ * The claim is re-read HERE, at push time, through `SPONSOR_CONTACTABLE`: a
+ * claim without the sponsor-contact tick, or one withdrawn since it was
+ * queued, is simply not found, and nothing is sent. Excluded at query level —
+ * never fetched and then skipped.
+ */
+export async function pushFanLead(ctx: SyncCtx, tenantId: string, fanEventId: string): Promise<PushOutcome> {
+  const claim = await ctx.db.rewardEvent.findFirst({
+    where: { tenantId, id: fanEventId, ...SPONSOR_CONTACTABLE },
+    select: {
+      id: true, fanEmail: true, sponsorContactAt: true, zohoLeadId: true,
+      token: { select: { reward: { select: { offerText: true, campaign: { select: { name: true, sponsor: { select: { name: true } } } } } } } },
+    },
+  });
+  if (!claim) return { status: "skipped", reason: "no sponsor-contact consent on this claim (never given, or withdrawn)" };
+  if (claim.zohoLeadId) return { status: "unchanged", zohoId: claim.zohoLeadId };
+  const reward = claim.token.reward;
+  const r = await ctx.zoho.upsert("Leads", toZohoFanLead({
+    eventId: claim.id, email: claim.fanEmail!, sponsorName: reward.campaign.sponsor.name,
+    campaignName: reward.campaign.name, offerText: reward.offerText, consentedAt: claim.sponsorContactAt,
+  }));
+  await ctx.db.rewardEvent.update({ where: { id: claim.id }, data: { zohoLeadId: r.id } });
   return { status: "pushed", zohoId: r.id, action: r.action };
 }
 

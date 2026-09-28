@@ -72,6 +72,8 @@ const GOVERNED_BY: Record<string, Resource> = {
   AthleteClaim: "athleteClaim",
   ContentContribution: "contentContribution",
   SchoolPoolAllocation: "schoolPoolAllocation",
+  ReportFile: "sponsorReport",
+  PropertyOnboarding: "propertyOnboarding",
 };
 
 /** Models no API path reads or writes, and why. */

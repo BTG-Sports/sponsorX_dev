@@ -32,6 +32,9 @@ import {
   CONSENT_TEXT,
   CURRENT_CONSENT_VERSION,
   consentFor,
+  sponsorContactFor,
+  CURRENT_SPONSOR_CONTACT_VERSION,
+  SPONSOR_CONTACT_TEXT,
   mayContact,
   type ConsentPurpose,
 } from "./fan-consent";
@@ -313,6 +316,8 @@ async function writeEvent(
     consentVersion?: string | null;
     consentAt?: Date | null;
     consentPurpose?: string | null;
+    sponsorContactVersion?: string | null;
+    sponsorContactAt?: Date | null;
   } = {},
 ): Promise<{ id: string; type: RewardEventType }> {
   const created = await tx.rewardEvent.create({
@@ -326,6 +331,8 @@ async function writeEvent(
       consentVersion: extra.consentVersion ?? null,
       consentAt: extra.consentAt ?? null,
       consentPurpose: extra.consentPurpose ?? null,
+      sponsorContactVersion: extra.sponsorContactVersion ?? null,
+      sponsorContactAt: extra.sponsorContactAt ?? null,
     },
     select: { id: true, type: true },
   });
@@ -368,11 +375,14 @@ export async function recordClaim(
   fanEmail?: string | null,
   now = new Date(),
   consent?: { version?: string | null; purpose?: string | null } | null,
+  /** 2S6-BE-03 — the optional second box: the sponsor may contact me. */
+  sponsorContact?: { version?: string | null } | null,
 ) {
   /* Validated BEFORE the transaction opens: a refusal here is about the
      request, not about the reward, and it should not hold a transaction
      open to say so. */
   const agreed = consentFor(fanEmail, consent, now);
+  const sponsorOk = sponsorContactFor(agreed, sponsorContact, now);
   const email = agreed ? fanEmail!.trim() : null;
 
   return prisma.$transaction(async (tx) => {
@@ -384,7 +394,17 @@ export async function recordClaim(
       consentVersion: agreed?.version ?? null,
       consentAt: agreed?.at ?? null,
       consentPurpose: agreed?.purpose ?? null,
+      sponsorContactVersion: sponsorOk?.version ?? null,
+      sponsorContactAt: sponsorOk?.at ?? null,
     });
+
+    /* 2S6-INT-03 — a fan who ticked "the sponsor may contact me" becomes a
+       Zoho Lead, queued in this transaction and pushed by the worker, which
+       re-reads the claim through the consent filter (fan-leads.ts) — so a
+       withdrawal before the push means nothing is sent. No tick, no job. */
+    if (sponsorOk) {
+      await enqueue(tx, ctx.tenantId, "zoho.pushLead", { fanEventId: event.id });
+    }
 
     /* P6-INT-02. Idempotent through EmailSendLog's unique idempotencyKey:
        the key is the TOKEN, not the event, so a fan who claims twice on one
@@ -440,14 +460,19 @@ export async function withdrawFanConsent(
   return prisma.$transaction(async (tx) => {
     const row = await tx.rewardEvent.findFirst({
       where: { id: eventId, type: "CLAIM", fanEmail: { not: null } },
-      select: { id: true, tenantId: true, consentWithdrawnAt: true },
+      select: { id: true, tenantId: true, consentWithdrawnAt: true, sponsorContactVersion: true, sponsorContactWithdrawnAt: true },
     });
     if (!row) return { withdrawn: false };
     if (row.consentWithdrawnAt) return { withdrawn: true };
 
+    /* One tap withdraws BOTH: the fan unsubscribing from the voucher mail has
+       not thereby agreed to keep hearing from the sponsor (2S6-BE-03). */
     await tx.rewardEvent.update({
       where: { id: row.id },
-      data: { consentWithdrawnAt: now },
+      data: {
+        consentWithdrawnAt: now,
+        ...(row.sponsorContactVersion && !row.sponsorContactWithdrawnAt ? { sponsorContactWithdrawnAt: now } : {}),
+      },
     });
     /* The fan has no user id; the audit row says so honestly rather than
        borrowing one. */
@@ -476,6 +501,9 @@ export type TokenView =
       expiresAt: string;
       claimed: boolean;
       consent: { version: string; purpose: string; text: string };
+      /** 2S6-BE-03 — the optional second box's wording. The page renders it
+       *  UNTICKED; the version it sends back is this one. */
+      sponsorContact: { version: string; purpose: "sponsor-contact"; text: string };
     };
 
 export async function viewToken(token: string, now = new Date()): Promise<TokenView> {
@@ -509,6 +537,11 @@ export async function viewToken(token: string, now = new Date()): Promise<TokenV
       version: CURRENT_CONSENT_VERSION,
       purpose: "reward-delivery",
       text: CONSENT_TEXT[CURRENT_CONSENT_VERSION]!,
+    },
+    sponsorContact: {
+      version: CURRENT_SPONSOR_CONTACT_VERSION,
+      purpose: "sponsor-contact",
+      text: SPONSOR_CONTACT_TEXT[CURRENT_SPONSOR_CONTACT_VERSION]!,
     },
   };
 }
