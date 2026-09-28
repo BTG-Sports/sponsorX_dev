@@ -43,7 +43,7 @@ describe("2S7-BE-02 · every provenance label, in the screen's own words (pure)"
   it("keys the file under reports/<campaign>/ in the private bucket", () => {
     expect(reportKey("cmp_1", new Date("2026-09-28T10:00:00.000Z"))).toBe("reports/cmp_1/2026-09-28T10-00-00-000Z.pdf");
     const worker = readFileSync(new URL("../worker/index.mts", import.meta.url), "utf8");
-    expect(worker).toMatch(/handleRenderReport\(\{ db: prisma, put: putPrivateObject \}/);
+    expect(worker).toMatch(/handleRenderReport\(\{ db: prisma, put: putPrivateObject, logo: getPublicObject \}/);
   });
 });
 

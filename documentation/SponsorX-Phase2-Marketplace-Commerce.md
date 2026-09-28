@@ -5,7 +5,7 @@
 | | |
 |---|---|
 | **Goal** | Turn SponsorX from BTG-only operations into a multi-tenant marketplace. External athletes, teams, programs, events and media properties onboard, publish inventory, fulfil deliverables and get paid. |
-| **Tasks** | 66 · 266 person-days |
+| **Tasks** | 67 · 267 person-days |
 | **Blueprint timeline** | 16–20 weeks |
 | **Balanced budget** | $80K–$120K |
 | **Depends on** | Phase 1 auth/RBAC, sponsor/property/inventory/campaign/reward models, Zoho integration, core analytics |
@@ -16,7 +16,7 @@
 | Phase | File | Tasks | Timeline |
 |---|---|---|---|
 | 1 | [`SponsorX-Phase1-Managed-Marketplace.md`](./SponsorX-Phase1-Managed-Marketplace.md)  | 186 | 14–18 weeks |
-| 2 | [`SponsorX-Phase2-Marketplace-Commerce.md`](./SponsorX-Phase2-Marketplace-Commerce.md) **← you are here** | 66 | 16–20 weeks |
+| 2 | [`SponsorX-Phase2-Marketplace-Commerce.md`](./SponsorX-Phase2-Marketplace-Commerce.md) **← you are here** | 67 | 16–20 weeks |
 | 3 | [`SponsorX-Phase3-Intelligence-Attribution.md`](./SponsorX-Phase3-Intelligence-Attribution.md)  | 44 | 18–22 weeks |
 | 4 | [`SponsorX-Phase4-INFINEX-Integration.md`](./SponsorX-Phase4-INFINEX-Integration.md)  | 51 | 18–22 weeks |
 
@@ -728,8 +728,9 @@ External property accounts, marketplace orders, deal stages, invoice and payment
 Tenant logo, colours and report branding, plus readiness for custom subdomain mapping.
 
 - **Depends on:** 2S1-BE-04
-- **Done when:** A tenant's branding renders in their portal and on their reports
+- **Done when:** A tenant's branding is served to its portal and renders on its reports (the portal rendering itself is `2S7-FE-03`)
 - **Reference:** Spec §9
+- **Changed 2026-09-28** by the programme owner: the portal rendering was split into `2S7-FE-03`, so this task stays backend-only.
 
 ### ⏸ `2S7-BE-02` · Report render worker job (was `P7-BE-06`)
 
@@ -740,6 +741,16 @@ Produce the sponsor report as a file on the worker, unattended — for when a re
 - **Depends on:** P7-BE-05
 - **Done when:** When a server-rendered report is required, Playwright renders it on the worker from the same data as screen 12, stores it in the private bucket, and keeps every provenance label; the browser print (`report-pdf.ts`) remains the interactive path
 - **Reference:** §9 screen 12, Addendum A10
+
+### ⏸ `2S7-FE-03` · Render tenant branding in the property portal
+
+**Order** 57.2 · **FE** · **Where:** Code · **1d** · **Blocked**
+
+The property portal's frame shows the signed-in tenant's own logo and colours, read from the branding API that `2S7-BE-01` serves. Raised 2026-09-28, split out of `2S7-BE-01` at the programme owner's instruction.
+
+- **Depends on:** 2S7-BE-01
+- **Done when:** A tenant's logo and colours render in its property portal frame
+- **Reference:** Spec §9
 
 ## Sprint 8 · QA, security & rollout
 

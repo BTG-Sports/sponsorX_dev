@@ -1021,6 +1021,64 @@ person's. The worker reads them at send time to honour a mute. Decision
 notices (application outcomes, guardian and onboarding decisions) are not
 mutable at all.
 
+## 18 · Phase 2 · the marketplace's own records *(added 2026-09-28)*
+
+**A new scope, `operated`.** An organisation BTG approves gets its own tenant
+(§16), and that tenant records who operates it (`Tenant.operatorTenantId` —
+BTG's tenant). `operated` means *the actor's own tenant and every outside
+tenant it operates*. It is used only by marketplace resources, so BTG can
+review an organisation's inventory and listings without reaching anything
+else of theirs.
+
+### `inventoryItem` (2S2-BE-01, 2S2-BE-04)
+| Role | Read | Write | Approve |
+|---|---|---|---|
+| `SUPER_ADMIN` | any | any | — |
+| `BTG_ADMIN`, `CAMPAIGN_MGR` | operated | — | — |
+| `ATHLETE` | own | own | — |
+| `PROPERTY_MGR` | own-property (the team's and its roster's) | own (the team's) | — |
+
+The owner prices an item, and the owner is always the caller — no request
+names one. BTG reads, and does not set an outside party's prices.
+
+### `teamMember` (2S2-BE-04)
+| Role | Read | Write | Approve |
+|---|---|---|---|
+| `SUPER_ADMIN` | any | any | — |
+| `PROPERTY_MGR` | own-property | own-property | — |
+
+The roster: athletes linked to the manager's Property, and the team's revenue
+share on each. Deliberately a separate resource from `athlete`, so a manager
+adding roster athletes does not gain the `athlete` write paths.
+
+### `listing` (2S3-BE-01)
+| Role | Read | Write | Approve |
+|---|---|---|---|
+| `SUPER_ADMIN` | any | any | any |
+| `BTG_ADMIN` | operated | — | operated |
+| `PROPERTY_MGR` | own-property | own-property | — |
+| `ATHLETE` | own (listings of their items) | — | — |
+
+Approve is publishing. It is the only road to `PUBLISHED`.
+
+### `offer` (2S2-BE-03)
+| Role | Read | Write | Approve |
+|---|---|---|---|
+| `SUPER_ADMIN` | any | any | — |
+| `BTG_ADMIN`, `CAMPAIGN_MGR` | own-tenant | own-tenant | — |
+| `SALES` | own-tenant | — | — |
+| `ATHLETE` | own | own (accept or decline) | — |
+
+`sellPrice` is withheld from the athlete side, as `campaignOrder.sellPrice` is.
+
+### `tenantBranding` (2S7-BE-01)
+| Role | Read | Write | Approve |
+|---|---|---|---|
+| every role | own-tenant | — | — |
+| `SUPER_ADMIN` | any | any | — |
+| `BTG_ADMIN` | own-tenant | own-tenant | — |
+| `PROPERTY_MGR` | own-tenant | own (an outside organisation's tenant only) | — |
+
 ## 14 · Known gaps
 
 - **D1 and D3 are subject to legal confirmation** (§12). Both were adopted at
