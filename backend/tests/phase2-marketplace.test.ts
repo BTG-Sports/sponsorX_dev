@@ -118,7 +118,7 @@ describe.skipIf(!hasDatabase)("Phase 2 marketplace over the API", { timeout: 60_
   beforeAll(async () => {
     await clean();
     await prisma.tenant.createMany({ data: [{ id: T, name: "Marketplace BTG" }, { id: X, name: "Unrelated operator" }] });
-    await prisma.sponsor.create({ data: { id: "mkt_sponsor", tenantId: T, name: "Rosa's Tacos" } });
+    await prisma.sponsor.create({ data: { id: "mkt_sponsor", tenantId: T, name: "Rosa's Tacos", categories: ["FAST_FOOD"] } });
     await prisma.athlete.createMany({ data: [
       { id: "mkt_ath", tenantId: T, slug: "mkt-ath", legalName: "Jordan Reed", displayName: "JORDAN", email: "mkt_athlete@mkt-test.invalid", sport: "Basketball", stateCode: "MD", ageBand: "18_PLUS", state: "ACTIVE" },
       { id: "mkt_ath2", tenantId: T, slug: "mkt-ath2", legalName: "Sam Lee", displayName: "SAM", email: "mkt_athlete2@mkt-test.invalid", sport: "Soccer", stateCode: "MD", ageBand: "18_PLUS", state: "ACTIVE" },
@@ -309,13 +309,14 @@ describe.skipIf(!hasDatabase)("Phase 2 marketplace over the API", { timeout: 60_
   describe("2S2-BE-03 · the formal offer", () => {
     const offer = () => ({
       campaignId: "mkt_campaign", athleteId: "mkt_ath", jobId: "mkt_job", inventoryItemId: athleteItem,
-      brief: "Wear the new Rosa's jersey on game day and post twice.", compensation: 20_000, sellPrice: 40_000,
+      /* Pay at the athlete's own item price (repriced to $300 above) — never below it (2S3-BE-03). */
+      brief: "Wear the new Rosa's jersey on game day and post twice.", compensation: 30_000, sellPrice: 60_000,
       deliverables: [{ title: "Game-day feed post", dueDate: inDays(14) }, { title: "Story with link", dueDate: inDays(21) }],
       usageRights: "Organic social, 90 days", exclusivityDays: 30, disclosures: ["#ad", "Paid partnership with Rosa's Tacos"], expiresAt: inDays(7),
     });
 
     it("accepting freezes the terms and schedules the deliverables — and later rate-card edits do not alter it", async () => {
-      expect((await call("POST", "/offers", "mkt_cm", { ...offer(), sellPrice: 20_000 })).status).toBe(422); // below the margin floor
+      expect((await call("POST", "/offers", "mkt_cm", { ...offer(), sellPrice: 30_000 })).status).toBe(422); // below the margin floor
       const made = await call("POST", "/offers", "mkt_cm", offer());
       expect(made.status).toBe(201);
       const id = made.json.id as string;
@@ -325,7 +326,7 @@ describe.skipIf(!hasDatabase)("Phase 2 marketplace over the API", { timeout: 60_
 
       /* The athlete sees the terms, not the margin. */
       const mine = await call("GET", `/offers/${id}`, "mkt_athlete");
-      expect(mine.json.compensation).toBe(20_000);
+      expect(mine.json.compensation).toBe(30_000);
       expect(mine.json).not.toHaveProperty("sellPrice");
       expect((await call("GET", `/offers/${id}`, "mkt_athlete2")).status).toBe(403);
       expect((await call("POST", `/offers/${id}/respond`, "mkt_athlete2", { decision: "ACCEPT" })).status).toBe(403);
@@ -341,21 +342,21 @@ describe.skipIf(!hasDatabase)("Phase 2 marketplace over the API", { timeout: 60_
         where: { id: accepted.json.orderId },
         select: { state: true, compensation: true, sellPrice: true, usageRights: true, exclusivity: true, acceptanceId: true, deliverables: { select: { title: true, dueDate: true, state: true }, orderBy: { dueDate: "asc" } }, earning: { select: { state: true, gross: true } } },
       });
-      expect(order).toMatchObject({ state: "ACCEPTED", compensation: 20_000, sellPrice: 40_000, usageRights: "Organic social, 90 days", exclusivity: "30 days", earning: { state: "PENDING", gross: 20_000 } });
+      expect(order).toMatchObject({ state: "ACCEPTED", compensation: 30_000, sellPrice: 60_000, usageRights: "Organic social, 90 days", exclusivity: "30 days", earning: { state: "PENDING", gross: 30_000 } });
       expect(order.acceptanceId).not.toBeNull();
       expect(order.deliverables.map((d) => [d.title, d.dueDate.toISOString().slice(0, 10), d.state])).toEqual([
         ["Game-day feed post", inDays(14).slice(0, 10), "NOT_STARTED"], ["Story with link", inDays(21).slice(0, 10), "NOT_STARTED"],
       ]);
       const snapshot = accepted.json.termsSnapshot;
-      expect(snapshot).toMatchObject({ termsHash: sent.termsHash, orderId: accepted.json.orderId, terms: { compensation: 20_000, disclosures: ["#ad", "Paid partnership with Rosa's Tacos"] } });
+      expect(snapshot).toMatchObject({ termsHash: sent.termsHash, orderId: accepted.json.orderId, terms: { compensation: 30_000, disclosures: ["#ad", "Paid partnership with Rosa's Tacos"] } });
 
       /* Later: the rate card moves and the athlete reprices the item. The offer and the order do not. */
       await prisma.athleteRate.create({ data: { tenantId: T, athleteId: "mkt_ath", jobId: "mkt_job", amount: 35_000, version: 2 } });
       expect((await call("PATCH", `/inventory/${athleteItem}`, "mkt_athlete", { priceCents: 90_000 })).status).toBe(200);
       const after = (await call("GET", `/offers/${id}`, "mkt_cm")).json;
-      expect(after).toMatchObject({ compensation: 20_000, sellPrice: 40_000, termsHash: sent.termsHash });
+      expect(after).toMatchObject({ compensation: 30_000, sellPrice: 60_000, termsHash: sent.termsHash });
       expect(after.termsSnapshot).toEqual(snapshot);
-      expect((await prisma.campaignOrder.findUniqueOrThrow({ where: { id: accepted.json.orderId }, select: { compensation: true } })).compensation).toBe(20_000);
+      expect((await prisma.campaignOrder.findUniqueOrThrow({ where: { id: accepted.json.orderId }, select: { compensation: true } })).compensation).toBe(30_000);
 
       /* And Postgres refuses a change to accepted terms, whoever tries. */
       await expect(prisma.$executeRawUnsafe(`UPDATE "Offer" SET compensation = 1 WHERE id = $1`, id)).rejects.toThrow(/offer_terms_immutable/);

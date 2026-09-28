@@ -102,7 +102,16 @@ describe("tenancy sits above everything (matrix §2)", () => {
         }
       }
     }
-    expect([...catalogued].sort()).toEqual(["nilJob", "sponsorPackage"]);
+    /* 2S3-BE-04 — a marketplace listing is the shop window by definition: the
+       `catalog` builder admits only PUBLISHED, PUBLIC, live listings of
+       approved properties, in the sponsor's own marketplace (scope.ts), and
+       only sponsors hold it, and only to read. */
+    expect([...catalogued].sort()).toEqual(["listing", "nilJob", "sponsorPackage"]);
+    for (const role of ROLES) {
+      for (const action of ACTIONS) {
+        if (cell(role, "listing", action) === "catalog") expect([role, action]).toEqual([expect.stringMatching(/^SPONSOR_(ADMIN|ANALYST)$/), "read"]);
+      }
+    }
   });
 });
 
@@ -286,7 +295,12 @@ describe("the whole matrix is pinned", () => {
       // and the new `operated` scope they use (matrix §18). With the five
       // removed the grid still hashes to the previous 9335a770498a2530, so
       // nothing else moved.
-    ).toBe("ae772ead96f9f479");
+      // Updated 2026-09-28 (2S2-BE-02, 2S3-BE-04, 2S4-BE-01): two new
+      // resources, `brandRestriction` and `cart`, and `listing.read` for
+      // SPONSOR_ADMIN / SPONSOR_ANALYST moved deny → catalog (matrix §19).
+      // With the two removed and those two cells back to deny, the grid still
+      // hashes to the previous ae772ead96f9f479, so nothing else moved.
+    ).toBe("4f835eba4e8465d1");
   });
 
   it("covers every pair the §30 acceptance asks for", () => {

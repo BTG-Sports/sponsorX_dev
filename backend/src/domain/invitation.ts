@@ -34,6 +34,7 @@ import {
   type InviteState,
 } from "./invite-state";
 import { guardianReadiness } from "./guardian-rules";
+import { restrictionConflicts } from "./restrictions";
 
 /** §21 gives no number, so this is a product default rather than a rule.
  *  Named and exported so the expiry job and the tests share one answer. */
@@ -106,7 +107,7 @@ export async function inviteAthlete(
   return prisma.$transaction(async (tx) => {
     const campaign = await tx.campaign.findFirst({
       where: { id: input.campaignId, tenantId: actor.tenantId },
-      select: { id: true, brief: { select: { categories: true } } },
+      select: { id: true, brief: { select: { categories: true } }, startDate: true, endDate: true, sponsor: { select: { categories: true } } },
     });
     if (!campaign) throw new ForbiddenError("invitation", "write");
 
@@ -137,6 +138,16 @@ export async function inviteAthlete(
     const briefCategories = campaign.brief?.categories ?? [];
     const conflicting = athlete.restrictedCategories.filter((r) => briefCategories.includes(r));
     if (conflicting.length > 0) throw new CategoryConflictError(conflicting);
+
+    /* 2S2-BE-02 — and the first-class restrictions (the athlete's, their
+       team's, exclusivities from accepted offers) for the campaign's dates:
+       the same question every offer and purchase asks. */
+    const dated = await restrictionConflicts(tx, {
+      tenantId: actor.tenantId, athleteId: athlete.id,
+      categories: [...new Set([...briefCategories, ...(campaign.sponsor?.categories ?? [])])],
+      startsOn: campaign.startDate, endsOn: campaign.endDate,
+    });
+    if (dated.length > 0) throw new CategoryConflictError([...new Set(dated.map((c) => c.category))]);
 
     const open = await tx.campaignInvite.findFirst({
       /* tenant-scope: campaign and athlete were both loaded above through whereFor. */

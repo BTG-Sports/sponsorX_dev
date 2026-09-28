@@ -1079,6 +1079,44 @@ Approve is publishing. It is the only road to `PUBLISHED`.
 | `BTG_ADMIN` | own-tenant | own-tenant | — |
 | `PROPERTY_MGR` | own-tenant | own (an outside organisation's tenant only) | — |
 
+## 19 · Phase 2 · restrictions, the sponsor's catalogue, the cart *(added 2026-09-28)*
+
+### `brandRestriction` (2S2-BE-02)
+| Role | Read | Write | Approve |
+|---|---|---|---|
+| `SUPER_ADMIN` | any | any | — |
+| `BTG_ADMIN` | operated | operated | — |
+| `NETWORK_MGR` | own-tenant | own-tenant | — |
+| `CAMPAIGN_MGR` | operated | — | — |
+| `ATHLETE` | own | own | — |
+| `PROPERTY_MGR` | own-property (the team and its roster) | own-property | — |
+
+A restriction belongs to an athlete or a team. It covers a brand category for
+a date range. `EXCLUSIVITY` rows are written only by an accepted offer. They
+are contractual, so only `SUPER_ADMIN` can remove one. One shared check
+(`restrictionConflicts`) is used by the formal offer, by the Phase 1
+invitation and by every purchase path.
+
+A sponsor's brand categories are set by BTG (`sponsor` write at tenant-wide
+scope), never by the sponsor itself.
+
+### `listing` — the sponsor's catalogue (2S3-BE-04)
+`SPONSOR_ADMIN` and `SPONSOR_ANALYST` gain `listing.read = catalog`. For a
+listing, `catalog` means a listing that is `PUBLISHED`, `PUBLIC` and past its
+publish time, whose item is on sale and whose property still has listing
+access. It must also sit in the sponsor's own marketplace: the sponsor's
+tenant and the tenants that tenant operates. Search also hides anything whose
+owner will not sell to the sponsor's categories today. That is why two
+sponsors see different catalogues.
+
+### `cart` (2S4-BE-01)
+| Role | Read | Write | Approve |
+|---|---|---|---|
+| `SUPER_ADMIN` | any | any | — |
+| `BTG_ADMIN` | own-tenant | — | — |
+| `SPONSOR_ADMIN` | own-sponsor | own-sponsor | — |
+| `SPONSOR_ANALYST` | own-sponsor | — | — |
+
 ## 14 · Known gaps
 
 - **D1 and D3 are subject to legal confirmation** (§12). Both were adopted at

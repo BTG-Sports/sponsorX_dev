@@ -79,6 +79,7 @@ import { remindDueDeliverables } from "./jobs/deliverable-reminders.mts";
 import { handleIngestInvoice, type IngestInvoiceJob } from "./jobs/ingest-invoice.mts";
 import { handleRenderReport } from "./jobs/render-report.mts";
 import { applyQueuePolicy } from "./queue-policy.mts";
+import { expireCarts } from "../src/domain/cart.ts";
 import type { RenderReportJob } from "../src/domain/report-files.ts";
 import { prisma } from "../src/db/client.ts";
 import { ingestZohoInvoice, type ZohoInvoicePayload } from "../src/domain/invoice.ts";
@@ -258,6 +259,8 @@ let timer: NodeJS.Timeout | undefined;
 let expiryTimer: ReturnType<typeof setInterval> | undefined;
 let rollupTimer: ReturnType<typeof setInterval> | undefined;
 let reminderTimer: ReturnType<typeof setInterval> | undefined;
+/* 2S4-BE-01 — the hourly cart expiry sweep. */
+let cartTimer: ReturnType<typeof setInterval> | undefined;
 let zohoTimer: ReturnType<typeof setInterval> | undefined;
 /* P8-INT-05 checks hourly and runs at most once a day per tenant; P8-INT-03's
    channel is renewed every 12 hours against a 24-hour expiry. */
@@ -589,6 +592,14 @@ async function main(): Promise<void> {
      the comparison is one statement, and a per-invite job that is lost leaves
      that offer open forever where a missed sweep catches everything next run.
      Hourly is well inside the precision a multi-day window needs. */
+  /* 2S4-BE-01 — close carts a day past their last change. Hourly: a cart
+     past its expiry is already refused on read, so the sweep only tidies. */
+  cartTimer = setInterval(() => {
+    void expireCarts(prisma)
+      .then(({ expired }) => { if (expired) console.log(`[worker] carts — expired ${expired}`); })
+      .catch((error: unknown) => console.error("[worker] cart expiry failed, will retry next hour:", error));
+  }, REMINDER_INTERVAL_MS);
+
   expiryTimer = setInterval(() => {
     void expireInvitations(pool, process.env.APP_URL ?? "http://localhost:3000")
       .then(({ expired, reminded, warned }) => {
@@ -616,6 +627,7 @@ export async function stopWorker(): Promise<void> {
   if (expiryTimer) clearInterval(expiryTimer);
   if (rollupTimer) clearInterval(rollupTimer);
   if (reminderTimer) clearInterval(reminderTimer);
+  if (cartTimer) clearInterval(cartTimer);
   if (zohoTimer) clearInterval(zohoTimer);
   timer = undefined;
   expiryTimer = undefined;
