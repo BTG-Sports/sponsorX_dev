@@ -28,6 +28,7 @@ import { assembleSponsorReport } from "../../domain/sponsor-report";
 import { invoicesForCampaign, paymentStatusForCampaign } from "../../domain/invoice";
 import { deliveryHealth, underDeliveringCampaigns } from "../../domain/delivery-health";
 import { jobEconomics, networkMetrics } from "../../domain/network-metrics";
+import { listReportFiles, requestReportRender } from "../../domain/report-files";
 
 export const metricsRouter = Router();
 
@@ -126,5 +127,15 @@ metricsRouter.get("/deliverables/:id/metrics", requireActor, forDeliverable);
 metricsRouter.get("/campaigns/:id/metrics", requireActor, forCampaign);
 metricsRouter.get("/athletes/:id/metrics", requireActor, forAthlete);
 metricsRouter.get("/campaigns/:id/report", requireActor, report);
+
+/* 2S7-BE-02 — the same report, rendered as a file on the worker. */
+const renderReport: RequestHandler<{ id: string }> = async (req, res) => {
+  res.status(202).json(await requestReportRender(req.actor!, req.params.id));
+};
+const reportFiles: RequestHandler<{ id: string }> = async (req, res) => {
+  res.json({ files: await listReportFiles(req.actor!, req.params.id) });
+};
+metricsRouter.post("/campaigns/:id/report/render", requireActor, renderReport);
+metricsRouter.get("/campaigns/:id/report/files", requireActor, reportFiles);
 
 export { analytics, integrations };

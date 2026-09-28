@@ -66,6 +66,12 @@ export const RewardClaimInput = z
       })
       .nullable()
       .optional(),
+    /**
+     * 2S6-BE-03 — the OPTIONAL second box: "the sponsor may contact me".
+     * Unticked by default; when ticked, the version of its own wording. Only
+     * valid alongside an address given with the delivery consent.
+     */
+    sponsorContact: z.object({ version: z.string().min(1).max(40) }).nullable().optional(),
   })
   .meta({
     id: "RewardClaimInput",

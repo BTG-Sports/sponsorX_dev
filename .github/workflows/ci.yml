@@ -106,6 +106,19 @@ jobs:
             psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f "$f"
           done
 
+      # 2S7-BE-02 — the report-render test prints a real PDF in headless
+      # Chromium, so this job needs the browser too (same cache as e2e).
+      - name: Cache the browser
+        uses: actions/cache@v4
+        id: unit-playwright-cache
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ hashFiles('package-lock.json') }}
+
+      - name: Install Chromium
+        if: steps.unit-playwright-cache.outputs.cache-hit != 'true'
+        run: npm run e2e:install
+
       - name: Test the API — includes the authorisation matrix, seeded
         run: npm run test -w @sponsorx/backend
 

@@ -86,6 +86,7 @@ import {
   RosterInput,
   SubjectConsentInput,
 } from "./rights";
+import { OnboardingDecisionInput, OnboardingStartInput, OnboardingStepInput } from "./onboarding";
 import {
   AgreementAcceptanceInput,
   GuardianInput,
@@ -317,6 +318,7 @@ const PATHS: Row[] = [
   { method: "post", path: "/rewards/{id}/transition", tag: "Rewards", summary: "Move a reward through its states.", body: RewardTransitionInput },
   { method: "post", path: "/rewards/{id}/tokens", tag: "Rewards", summary: "Issue reward tokens (QR codes).", body: RewardTokenInput, status: 201 },
   { method: "get", path: "/rewards/{id}/funnel", tag: "Rewards", summary: "Scan / landing / claim / redeem counts — aggregate only.", response: RewardFunnel },
+  { method: "get", path: "/campaigns/{id}/leads", tag: "Rewards", summary: "Fans who ticked the separate 'the sponsor may contact me' box and have not withdrawn — the only route returning a fan's address (2S6-BE-03)." },
   { method: "get", path: "/campaigns/{id}/tracking-codes", tag: "Tracking", summary: "A campaign's tracking codes.", response: list("codes", TrackingCode) },
   { method: "get", path: "/tracking-links/{id}/clicks", tag: "Tracking", summary: "Click counts for a tracking link." },
   { method: "get", path: "/public/tracking/{code}", tag: "Public", summary: "Resolve a tracking code to its destination.", auth: false, response: TrackingDestination },
@@ -388,6 +390,14 @@ const PATHS: Row[] = [
   { method: "get", path: "/editions/{id}/school-pools", tag: "Rights", summary: "A regional edition's SALES and CONTENT school pools, resolved by formula (P9-BE-14)." },
   { method: "get", path: "/public/athletes/{slug}", tag: "Public", summary: "A featured or active athlete's public profile — no legal name, contact, age or GPA (P9-BE-11).", auth: false },
   { method: "post", path: "/public/athletes/{slug}/claim", tag: "Public", summary: "'That's me' — claim a featured profile (P9-BE-11).", auth: false, body: ClaimInput, status: 201 },
+  // Phase 2 Sprint 1 — external property onboarding
+  { method: "post", path: "/public/onboarding", tag: "Public", summary: "An organisation starts onboarding; returns its resume token (2S1-BE-01).", auth: false, body: OnboardingStartInput, status: 201 },
+  { method: "get", path: "/public/onboarding/{token}", tag: "Public", summary: "The application so far, what is still missing, and the terms to accept.", auth: false },
+  { method: "patch", path: "/public/onboarding/{token}", tag: "Public", summary: "Save one wizard step — organisation, contacts, business, payout, agreements.", auth: false, body: OnboardingStepInput },
+  { method: "post", path: "/public/onboarding/{token}/submit", tag: "Public", summary: "Submit for BTG review — refused with the missing fields while incomplete.", auth: false },
+  { method: "get", path: "/onboarding", tag: "Onboarding", summary: "BTG's verification queue — PENDING_REVIEW by default (2S1-BE-03)." },
+  { method: "get", path: "/onboarding/{id}", tag: "Onboarding", summary: "One application, with what is missing." },
+  { method: "post", path: "/onboarding/{id}/decision", tag: "Onboarding", summary: "Approve (creates the Property, grants listing access), request changes, reject, suspend, reinstate — audited (2S1-BE-03).", body: OnboardingDecisionInput },
   { method: "get", path: "/properties/mine", tag: "Properties", summary: "The property this account manages — a NEXT school is kind SCHOOL (P9-OPS-01). 404 when not linked." },
   { method: "get", path: "/catalogue/jobs", tag: "Catalogue", summary: "The NIL job catalogue at sponsor price bands — never base pay (P4-FE-01)." },
   { method: "post", path: "/public/rewards/{token}/scan", tag: "Public", summary: "A fan scanned the QR.", auth: false, status: 201 },
@@ -401,6 +411,8 @@ const PATHS: Row[] = [
   { method: "post", path: "/earnings/{id}/transition", tag: "Earnings", summary: "Move an earning through its states.", body: EarningTransitionInput },
   { method: "post", path: "/earnings/{id}/adjustment", tag: "Earnings", summary: "Adjust an earning, with a mandatory reason.", body: EarningAdjustmentInput },
   { method: "get", path: "/campaigns/{id}/metrics", tag: "Metrics", summary: "A campaign's metrics, by provenance label.", response: MetricBreakdown },
+  { method: "post", path: "/campaigns/{id}/report/render", tag: "Metrics", summary: "Queue a server-rendered file of the sponsor report on the worker (2S7-BE-02). Also queued automatically when a campaign completes.", status: 202 },
+  { method: "get", path: "/campaigns/{id}/report/files", tag: "Metrics", summary: "Rendered report files, each with an audited, time-limited private download link (2S7-BE-02)." },
   { method: "get", path: "/campaigns/{id}/report", tag: "Metrics", summary: "The sponsor report (screen 12) — every number labelled.", response: SponsorReport },
   { method: "get", path: "/campaigns/{id}/invoices", tag: "Invoices", summary: "The Zoho invoice mirror — BTG admin and the invoiced sponsor only.", response: list("invoices", Invoice) },
   { method: "get", path: "/campaigns/{id}/payment-status", tag: "Invoices", summary: "Paid, invoiced and outstanding.", response: PaymentStatus },

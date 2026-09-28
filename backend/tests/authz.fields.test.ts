@@ -154,7 +154,7 @@ describe("the table is complete", () => {
       "campaign.budget", "campaign.guarantee", "campaign.value",
       "campaignOrder.compensation", "campaignOrder.sellPrice", "earning.amount",
       "nilJob.athleteBasePay", "nilJob.sponsorPrice", "revenueSplit.amount",
-      "rewardClaim.fanContact", "sponsor.billingReference",
+      "rewardClaim.fanContact", "rewardClaim.sponsorLead", "sponsor.billingReference",
     ]);
   });
 });

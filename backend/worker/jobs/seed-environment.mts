@@ -31,6 +31,7 @@
  * here supplies its own id.
  */
 
+import { createHash } from "node:crypto";
 import type pg from "pg";
 
 /** Deterministic ids, so re-running conflicts with itself rather than
@@ -231,6 +232,17 @@ export async function seedEnvironment(pool: pg.Pool): Promise<SeedOutcome> {
 
     const school = await seedPilotSchool(client, TENANT_ID);
 
+    /* 2S1-BE-01 — the property terms an onboarding applicant accepts.
+       SIMULATED text version so the wizard can complete on staging; the real
+       terms are BTG's (and counsel's) to publish as version 2 — the wizard
+       always asks for the latest. The hash is of the placeholder wording. */
+    await client.query(
+      `INSERT INTO "Agreement" (id, "tenantId", kind, version, "bodyHash", "effectiveAt")
+       VALUES ('seed_agreement_property_terms_v1', $1, 'PROPERTY_TERMS', 1, $2, '2026-09-28')
+           ON CONFLICT (id) DO NOTHING`,
+      [TENANT_ID, createHash("sha256").update(PROPERTY_TERMS_PLACEHOLDER).digest("hex")],
+    );
+
     await client.query("COMMIT");
 
     return {
@@ -270,6 +282,10 @@ export async function seedEnvironment(pool: pg.Pool): Promise<SeedOutcome> {
  * No Zoho Account: field-mapping S-9 (2026-09-24) sends a property to Zoho as
  * plain text, not as an object, so there is nothing to sync.
  */
+/** SIMULATED property terms (2S1-BE-01) — placeholder wording, not legal text. */
+export const PROPERTY_TERMS_PLACEHOLDER =
+  "SponsorX Marketplace Property Terms (simulated placeholder, v1): the organisation confirms it has the right to sell the inventory it lists, that BTG reviews every listing before it is published, and that payouts are made through the marketplace's payment provider.";
+
 export const PILOT_SCHOOL = {
   propertyId: "seed_prop_northside",
   slug: "northside-high",

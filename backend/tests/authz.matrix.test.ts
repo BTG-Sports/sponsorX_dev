@@ -273,7 +273,11 @@ describe("the whole matrix is pinned", () => {
       // contentContribution, schoolPoolAllocation (added to the matrix doc
       // with this change). With all six removed the grid still hashes to the
       // previous feb23b6d311d2be3, so nothing else moved.
-    ).toBe("0e32b0f006ddf674");
+      // Updated 2026-09-28 (2S1-BE-01/03): `propertyOnboarding` — SUPER_ADMIN
+      // any and BTG_ADMIN own-tenant read/write/approve, every other cell deny
+      // (matrix §16). With it removed the grid still hashes to the previous
+      // 0e32b0f006ddf674, so nothing else moved.
+    ).toBe("d326a7de1daee5f0");
   });
 
   it("covers every pair the §30 acceptance asks for", () => {
