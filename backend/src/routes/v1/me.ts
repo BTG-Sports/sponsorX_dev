@@ -14,6 +14,8 @@
 import { Router } from "express";
 
 import { requireActor } from "../../auth/actor";
+import { NotificationPreferenceInput } from "../../contracts/notification-preferences";
+import { listPreferences, setPreference } from "../../domain/notification-preferences";
 
 export const meRouter = Router();
 
@@ -35,4 +37,13 @@ meRouter.get("/", requireActor, (req, res) => {
        reads its own code, sales and points by it. Their own, nobody else's. */
     studentId: actor.studentId ?? null,
   });
+});
+
+/* 2S6-BE-02 — the caller's own notification preferences: which events reach
+   them on which channel. Always the caller's; there is no id to aim anywhere. */
+meRouter.get("/notification-preferences", requireActor, async (req, res) => {
+  res.json({ preferences: await listPreferences(req.actor!) });
+});
+meRouter.put("/notification-preferences", requireActor, async (req, res) => {
+  res.json({ preferences: await setPreference(req.actor!, NotificationPreferenceInput.parse(req.body)) });
 });

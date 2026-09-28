@@ -33,6 +33,7 @@
 import {
   GetObjectCommand,
   HeadBucketCommand,
+  HeadObjectCommand,
   PutObjectCommand,
   S3Client,
 } from "@aws-sdk/client-s3";
@@ -222,4 +223,21 @@ export async function getPrivateObject(key: string): Promise<Buffer> {
     throw new Error(`Object ${key} returned no readable body.`);
   }
   return Buffer.from(await body.transformToByteArray());
+}
+
+/**
+ * The stored size of a private object, or null when there is none — how the
+ * server learns that a browser's direct upload actually landed (2S1-BE-02).
+ * Nothing is handed to anyone, so nothing is audited.
+ */
+export async function privateObjectSize(key: string): Promise<number | null> {
+  assertSafeKey(key);
+  try {
+    const head = await s3.send(new HeadObjectCommand({ Bucket: BUCKETS.private, Key: key }));
+    return head.ContentLength ?? 0;
+  } catch (error) {
+    const status = (error as { $metadata?: { httpStatusCode?: number } }).$metadata?.httpStatusCode;
+    if (status === 404 || (error as Error).name === "NotFound") return null;
+    throw error;
+  }
 }
