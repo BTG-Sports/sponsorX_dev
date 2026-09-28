@@ -836,3 +836,5 @@ Owner HeckerCreatives. Thin reads added under the "thin reads" scope rule
 one Railway service for now, with `report.render` running one at a time.
 Recorded in `backend/src/combined.mts`. Revisit if renders queue up, or if API
 latency moves while one runs.
+
+Stage Progress 2026-09-28 row refreshed to end-of-day counts (it had been written before the day's frontend and Phase 2 work landed).
