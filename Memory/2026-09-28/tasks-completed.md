@@ -1484,3 +1484,16 @@ was added.
 - **Drive copy:** the Google Doc of the ledger design still says "waiting
   for sign-off". Drive can't edit a doc's text, so updating it means
   deleting and recreating it, which needs the owner's go-ahead.
+
+## CI e2e fixed (#114)
+
+The e2e job had been red since the Clerk-signed loop specs landed.
+- **Cause:** Next 16's dev server refuses its dev resources (`/_next/hmr`) to
+  any host except localhost and the host it started on. Playwright opens
+  `127.0.0.1`, so pages rendered but never hydrated. No client code ran, and
+  Clerk never consumed its sign-in ticket.
+- **Fix:** `allowedDevOrigins: ["127.0.0.1"]` in `frontend/next.config.ts`.
+  It is dev-only.
+- **Don't rebind the dev server with `--hostname 127.0.0.1`.** I tried that
+  first. The dev server proxies internally to localhost, so it never came up.
+- **Result:** 15 passed, 7 skipped by design.
