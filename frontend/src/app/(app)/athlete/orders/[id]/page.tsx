@@ -151,6 +151,8 @@ function LiveOrderView({
                    string, so nothing here may reflow or trim it. */
                 <pre
                   data-agreement-body
+                  tabIndex={0}
+                  aria-label="Campaign Order agreement text"
                   className="max-h-[32rem] overflow-y-auto whitespace-pre-wrap break-words font-sans text-xs leading-relaxed text-muted"
                 >
                   {o.agreement.body}

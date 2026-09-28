@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { createPortal } from "react-dom";
+import { useMounted } from "./use-mounted";
 import { Badge, Card, Meter } from "@/components/ui";
 import { compact } from "@/components/charts";
 import { CloseIcon, Dropdown, FilterChip, SearchInput } from "@/components/filter-kit";
@@ -135,6 +136,7 @@ export function RewardsDesk({
 
   /* --- creator modal (the campaign-launcher plumbing) --- */
   const [open, setOpen] = useState(initial?.new === "1");
+  const mounted = useMounted();
   const [closing, setClosing] = useState(false);
   const triggerRef = useRef<HTMLButtonElement | null>(null);
   const closeBtnRef = useRef<HTMLButtonElement | null>(null);
@@ -581,7 +583,7 @@ export function RewardsDesk({
       )}
 
       {/* --------------------------------------------------- creator modal */}
-      {open &&
+      {open && mounted &&
         createPortal(
           <div
             className={["fixed inset-0 z-50", closing ? "pointer-events-none" : ""].join(" ")}

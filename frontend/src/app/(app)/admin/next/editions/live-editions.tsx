@@ -66,7 +66,7 @@ export function EditionSwitcher({ editions, current, base }: { editions: ApiEdit
           ].join(" ")}
         >
           {e.label}
-          {many && <span className="text-faint"> · {e.publication.name}</span>}
+          {many && <span className="text-muted"> · {e.publication.name}</span>}
         </Link>
       ))}
     </nav>

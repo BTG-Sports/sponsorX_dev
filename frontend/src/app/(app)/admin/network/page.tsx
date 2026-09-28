@@ -124,7 +124,7 @@ export default async function NetworkPage() {
           {jobs.length === 0 ? (
             <p className="px-4 py-6 text-center text-xs text-muted">No orders yet.</p>
           ) : (
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto" tabIndex={0} role="region" aria-label="Athlete network — scrollable table">
               <table className="w-full min-w-[36rem] text-left text-xs">
                 <thead>
                   <tr className="border-b border-line text-[10px] uppercase tracking-wider text-faint">

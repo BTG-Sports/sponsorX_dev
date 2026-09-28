@@ -188,7 +188,7 @@ export default async function RightsLedgerPage({
           title="Rights ledger"
           hint="One row per grant — evidence is an acceptance or a licence, never both"
         />
-        <div className="overflow-x-auto rounded-xl border border-line bg-surface">
+        <div className="overflow-x-auto rounded-xl border border-line bg-surface" tabIndex={0} role="region" aria-label="Rights ledger — scrollable table">
           <table className="w-full min-w-[44rem] text-left text-xs">
             <thead>
               <tr className="border-b border-line bg-surface-2/50">

@@ -255,7 +255,7 @@ export default async function StudentHomePage({
             <span className="text-lg font-semibold tabular-nums tracking-tight text-next">
               {studentPoints.balance}
             </span>
-            <span className="text-[11px] font-medium text-next/80">pts</span>
+            <span className="text-[11px] font-medium text-next">pts</span>
           </p>
           <p className="mt-1 text-[10px] leading-snug text-faint">
             recognition, not pay — points never convert on this page
@@ -360,7 +360,7 @@ export default async function StudentHomePage({
                 <span className="text-2xl font-semibold tabular-nums tracking-tight text-next">
                   {studentPoints.balance}
                 </span>
-                <span className="text-[11px] font-medium text-next/80">pts</span>
+                <span className="text-[11px] font-medium text-next">pts</span>
               </p>
               <ul className="mt-3 space-y-2 border-t border-line-soft pt-3">
                 {studentPoints.accruals.slice(0, 3).map((p) => (

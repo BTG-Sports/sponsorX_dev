@@ -169,7 +169,7 @@ export function DeliverableCalendar({
                 aria-label={`${c.day}${items.length ? `, ${items.length} due` : ""}`}
                 className={[
                   "flex aspect-square flex-col items-center justify-center gap-0.5 rounded-lg text-[11px] tabular-nums transition-colors",
-                  c.inMonth ? "text-text" : "text-faint/60",
+                  c.inMonth ? "text-text" : "text-faint", /* was text-faint/60: 2.6:1 (frontend audit) */
                   picked ? "bg-athlete/20 font-semibold" : "hover:bg-surface-2",
                   isToday && !picked ? "ring-1 ring-athlete/50" : "",
                 ].join(" ")}

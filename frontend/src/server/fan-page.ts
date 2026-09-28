@@ -56,8 +56,10 @@ function shell(title: string, body: string): string {
   input[type=email]{width:100%;padding:12px;border-radius:10px;border:1px solid rgba(243,245,248,.2);background:#11151c;color:#fff;font-size:16px}
   .consent{display:flex;gap:10px;align-items:flex-start;font-size:13px;line-height:1.4}
   .consent input{margin-top:3px;width:18px;height:18px}
-  button{margin-top:16px;width:100%;padding:14px;border:0;border-radius:12px;background:#2e9bf5;color:#fff;font:600 16px system-ui,sans-serif}
+  button{margin-top:16px;width:100%;padding:14px;border:0;border-radius:12px;background:#2e9bf5;color:#0a0c10;font:600 16px system-ui,sans-serif}
   button.alt{background:#f97a1f}
+  /* dark CTA ink, as the app's own buttons use: white on this blue was 2.9:1 and on
+     the orange 2.7:1, under the 4.5:1 a fan at an event needs (frontend audit) */
   .note{font-size:12px;color:rgba(243,245,248,.5)}
   .bad{color:#ff9c9c}
   .ok{color:#7ee2a8}

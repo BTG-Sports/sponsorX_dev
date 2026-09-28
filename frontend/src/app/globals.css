@@ -103,18 +103,18 @@
      primary, 5.34 on accent). See the dark-theme token for why this exists. */
   --sx-cta-ink: #ffffff;
 
-  --sx-primary: #1669b3; /* 4.57:1 on primary/15 chip */
-  --sx-primary-soft: #0969b9; /* 4.54:1 on primary/15 chip */
-  --sx-accent: #b14d09; /* 4.50:1 on accent/12 chip */
+  --sx-primary: #135d9e; /* 5.2:1 on the primary/15 chip over any surface (was #1669b3, 4.29 on tinted surfaces — frontend audit) */
+  --sx-primary-soft: #0e5a99; /* 5.45:1 on primary/15 chip (was #0969b9) */
+  --sx-accent: #9a4308; /* 5.5:1 on the accent/12 chip over any surface (was #b14d09, 4.43 — frontend audit) */
   /* P1-QA-02: was #f97a1f — 2.68:1 as text on white and as the white-ink CTA
      hover fill. Darkened like the other light brand hues. */
-  --sx-accent-soft: #9c4507;
-  --sx-danger: #cd2121; /* 4.51:1 on danger/12 chip */
-  --sx-warn: #906303; /* 4.50:1 on warn/12 chip */
+  --sx-accent-soft: #873b06; /* hover: a step darker than accent */
+  --sx-danger: #b91c1c; /* 5.3:1 on the danger/12 chip over any surface (was #cd2121, 4.49 on tinted surfaces — frontend audit) */
+  --sx-warn: #805800; /* 5.4:1 on the warn/12 chip over any surface (was #906303, 4.49 on tinted surfaces — frontend audit) */
   --sx-success: #0b7954; /* 4.58:1 on success/12 chip */
 
-  --sx-athlete: #1669b3; /* = primary; 4.57:1 on athlete/15 nav chip */
-  --sx-sponsor: #ac4a09; /* 4.52:1 on sponsor/15 nav chip; darker than accent */
+  --sx-athlete: #135d9e; /* = primary */
+  --sx-sponsor: #963f07; /* 5.8:1 on the sponsor/15 nav chip (was #ac4a09) */
   --sx-admin: #475569; /* 6.03:1 on admin/15 nav chip — passes unchanged */
   --sx-property: #1869b2; /* 4.58:1 on property/15 nav chip */
   --sx-next: #6d31d9; /* 5.34:1 on next/15 nav chip; 6.79 on white */

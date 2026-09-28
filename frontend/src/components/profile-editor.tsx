@@ -304,7 +304,10 @@ export function ProfileEditor({ initialSection }: { initialSection?: string }) {
   return (
     <div className="grid gap-5 lg:grid-cols-[15rem_minmax(0,1fr)] lg:items-start">
       {/* ------------------------------------------------------------ rail */}
-      <aside className="lg:sticky lg:top-20">
+      {/* min-w-0: below lg the implicit grid track grew to the chip row's
+          full width (~950px at 390), so the row's own overflow-x-auto never
+          engaged and the whole editor ran off the phone (frontend audit). */}
+      <aside className="min-w-0 lg:sticky lg:top-20">
         <Card className="p-4">
           <div className="flex items-baseline justify-between">
             <span className="text-xl font-semibold tabular-nums">{completion}%</span>

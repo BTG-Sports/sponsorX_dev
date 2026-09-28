@@ -109,6 +109,12 @@ export type SponsorReport = {
  * industry CPMs — Phase 1 holds no benchmark data, and inventing one would
  * put an unsourceable number in the most-quoted box on the page.
  */
+/** Cents as dollars for sponsor-facing copy: 319000 → "$3,190". */
+function usd(cents: number): string {
+  const whole = cents % 100 === 0;
+  return `$${(cents / 100).toLocaleString("en-US", { minimumFractionDigits: whole ? 0 : 2, maximumFractionDigits: 2 })}`;
+}
+
 export function mediaValueFor(input: {
   spend: number;
   verifiedViews: number;
@@ -128,8 +134,10 @@ export function mediaValueFor(input: {
   return {
     amount: cpm,
     basis:
-      `Cost per thousand VERIFIED impressions: ${input.spend} cents of spend ` +
-      `against ${input.verifiedViews} impressions from platform APIs and ` +
+      /* Dollars and grouped digits: this sentence is shown to the sponsor
+         as-is ("319000 cents of spend" read like a bug — frontend audit). */
+      `Cost per thousand VERIFIED impressions: ${usd(input.spend)} of spend ` +
+      `against ${input.verifiedViews.toLocaleString("en-US")} impressions from platform APIs and ` +
       `BTG-checked counts only. Self-reported, estimated and attributed ` +
       `figures are excluded.`,
     source: "ESTIMATED",

@@ -106,7 +106,7 @@ export default async function StudentPointsPage({
               <span className="text-4xl font-bold tabular-nums tracking-tight text-next">
                 <CountUp value={studentPoints.balance} />
               </span>
-              <span className="text-sm font-medium text-next/80">pts</span>
+              <span className="text-sm font-medium text-next">pts</span>
             </p>
           </div>
           <div className="min-w-0 flex-1 basis-60">
@@ -116,7 +116,7 @@ export default async function StudentPointsPage({
                 <span className="font-semibold text-next">+100 pts</span> at
                 your next $500 closed
               </span>
-              <span className="tabular-nums text-faint">{milestonePct}%</span>
+              <span className="tabular-nums text-muted">{milestonePct}%</span>
             </div>
             <div className="mt-1.5">
               <Meter value={milestonePct} tone="next" />

@@ -158,7 +158,7 @@ export async function LiveRights({ live, today }: { live: LiveEditions; today: s
         ) : rows.length === 0 ? (
           <p className="rounded-xl border border-line bg-surface px-5 py-6 text-center text-xs text-muted">No rights recorded yet.</p>
         ) : (
-          <div className="overflow-x-auto rounded-xl border border-line bg-surface">
+          <div className="overflow-x-auto rounded-xl border border-line bg-surface" tabIndex={0} role="region" aria-label="Rights ledger — scrollable table">
             <table className="w-full min-w-[44rem] text-left text-xs">
               <thead>
                 <tr className="border-b border-line bg-surface-2/50">

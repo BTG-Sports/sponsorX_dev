@@ -786,3 +786,61 @@ Owner HeckerCreatives. Thin reads added under the "thin reads" scope rule
 - The Google Sheet and Slack update themselves from
   `.github/workflows/tracker-notify.yml`, but **only when the xlsx change
   reaches `main`**. A push to `main_development` alone doesn't post it.
+
+## Frontend UI audit (HeckerCreatives)
+
+- **Scope:** every page route (50, plus the `/r/[token]` fan page) as the
+  role that uses it, across 8 roles (added a QA PROPERTY_MGR
+  `qa_u_property`). Each at 390, 768 and 1440 px in dark and light: 324
+  loads.
+- **Per load:** HTTP status, console and page errors, failed requests,
+  horizontal overflow (with the offending element), broken images,
+  axe-core WCAG 2.1 A/AA, and a full-page screenshot. All 187 internal
+  links were resolved in a real browser. Screenshots were reviewed by eye.
+- **Result:**
+  - 0 HTTP errors, 0 error boundaries, 0 overflow, 0 console errors,
+    0 broken images.
+  - axe is clean except one animation artefact (the analytics chart
+    mid-fade; it scores 0 with reduced motion).
+- **Bugs found and fixed:**
+  - `/athlete/profile/edit` ran 558px off a phone: `min-w-0` on the
+    editor's aside.
+  - `/sponsor/campaigns` card 22px off a phone: `min-w-0` on the grid
+    items.
+  - `/admin/rewards/new` crashed server render (`document is not
+    defined`): `createPortal` ran on the server when the drawer opened
+    from `?new=1`. New `useMounted` hook in both reward desks.
+  - Colour contrast failed on 27 pages:
+    - light warn, danger, primary, accent and sponsor tokens were tuned to
+      4.5:1 on a plain chip and failed on tinted surfaces; deepened to
+      5.2–5.8:1
+    - faint text on tinted chips moved to muted or full colour
+    - invitations dimmed settled cards with `opacity-80`; now a quieter
+      surface plus desaturation
+    - out-of-month calendar days were at 2.6:1
+    - the fan QR page's buttons had white on bright blue and orange
+      (2.7–2.9:1); now dark ink
+  - Scroll regions weren't keyboard-reachable (7 pages): tables, the trend
+    chart and the agreement text are now focusable, labelled regions.
+  - Invalid `<dl>` markup on the athlete and property profiles: dt before
+    dd, visual order kept with CSS order.
+  - An in-text link on `/packages` was distinguished by colour only; now
+    underlined.
+  - The sponsor report showed "319000 cents of spend"; now "$3,190"
+    (backend copy, with a test).
+- **Checked, not bugs:**
+  - The light-theme logo is legible at real size (2× crop).
+  - The link-pass 500s were dev-server recompiles.
+- **Flagged — screens still showing fixtures to real signed-in users:**
+  - the admin dashboard (its campaign cards link to fixture ids `c1`…`c5`,
+    which are dead links)
+  - `/sponsor/campaigns`
+  - `/property`
+  - `/athlete/profile/edit`
+  - every portal header's identity ("Under Armour / John Smith")
+  - the home page's build preview, which links to demo token `/r/tok123`
+    (404)
+- **Minor copy nit:** an edition with no assets says "every asset has a
+  digital right in force".
+- **Tests:** frontend 289/289, backend 1431/1431, eslint and tsc clean.
+  Nothing committed yet.

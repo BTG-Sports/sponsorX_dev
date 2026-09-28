@@ -400,7 +400,11 @@ export function InvitationsInbox({
                   <Card
                     className={[
                       "flex h-full flex-col overflow-hidden p-0",
-                      !actionable && "opacity-80",
+                      /* settled invites step back through a quieter surface
+                         and desaturated colour, not opacity: opacity-80 took
+                         every line of text on the card under 4.5:1 (frontend
+                         audit). The state badge still says which it is. */
+                      !actionable && "bg-surface-2/40 saturate-50",
                     ]
                       .filter(Boolean)
                       .join(" ")}

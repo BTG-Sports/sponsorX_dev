@@ -260,7 +260,7 @@ export default async function PackagesPage() {
         Phase 1 sponsors request or reserve — there is no self-service checkout
         until Phase 2. Prices are indicative; the final quote comes from
         BTG after matching. Already know what you want?{" "}
-        <Link href="/sponsor/marketplace" className="text-accent hover:underline">
+        <Link href="/sponsor/marketplace" className="text-accent underline underline-offset-2 hover:no-underline">
           Browse the full marketplace
         </Link>
         .

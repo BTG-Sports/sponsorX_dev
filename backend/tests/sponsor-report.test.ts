@@ -61,6 +61,13 @@ describe("media value is computed only from verified impressions", () => {
     expect(mv.basis).toMatch(/excluded/i);
   });
 
+  /* The basis is shown to the sponsor verbatim — money reads as dollars. */
+  it("states spend in dollars and impressions with digit grouping", () => {
+    expect(mediaValueFor({ spend: 319000, verifiedViews: 7300 }).basis).toMatch(/\$3,190 of spend against 7,300 impressions/);
+    expect(mediaValueFor({ spend: 12345, verifiedViews: 7300 }).basis).toMatch(/\$123\.45 of spend/);
+    expect(mediaValueFor({ spend: 319000, verifiedViews: 7300 }).basis).not.toMatch(/cents/);
+  });
+
   it("claims nothing when nothing was verified", () => {
     const mv = mediaValueFor({ spend: 500000, verifiedViews: 0 });
     expect(mv.amount).toBe(0);

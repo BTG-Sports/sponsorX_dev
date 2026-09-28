@@ -228,7 +228,7 @@ export function EditionInventory({
       {/* -------------------------------------------------------- ledger */}
       {/* Wide table scrolls inside its own container — the page never
          scrolls sideways (the 390px rule). */}
-      <div className="mt-3 overflow-x-auto rounded-xl border border-line bg-surface">
+      <div className="mt-3 overflow-x-auto rounded-xl border border-line bg-surface" tabIndex={0} role="region" aria-label="Ad slot inventory — scrollable table">
         <table className="w-full min-w-[38rem] text-left text-xs">
           <thead>
             <tr className="border-b border-line bg-surface-2/50">

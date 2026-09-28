@@ -221,7 +221,10 @@ export function AreaChart({
   const tickEvery = Math.max(1, Math.round((n - 1) / (xTicks - 1)));
 
   return (
-    <Reveal className="w-full overflow-x-auto">
+    <Reveal className="w-full">
+      {/* focusable: the chart scrolls sideways on a phone (min-w-[30rem]), and a
+          scroll region must be reachable by keyboard (axe, frontend audit) */}
+      <div className="overflow-x-auto" tabIndex={0} role="region" aria-label={`${dual ? `${aName} and ${bName}` : aName} over time — scrollable chart`}>
       <svg
         viewBox={`0 0 ${W} ${height}`}
         className="h-auto w-full min-w-[30rem]"
@@ -394,6 +397,7 @@ export function AreaChart({
           />
         )}
       </svg>
+      </div>
     </Reveal>
   );
 }

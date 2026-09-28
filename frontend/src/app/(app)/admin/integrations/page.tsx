@@ -192,7 +192,7 @@ export default async function IntegrationsPage() {
             {jobNames.length === 0 ? (
               <p className="px-4 py-6 text-center text-xs text-muted">No jobs this week.</p>
             ) : (
-              <div className="overflow-x-auto">
+              <div className="overflow-x-auto" tabIndex={0} role="region" aria-label="Worker jobs — scrollable table">
                 <table className="w-full min-w-[26rem] text-left text-[11px]">
                   <thead>
                     <tr className="border-b border-line-soft text-[10px] uppercase tracking-wide text-faint">

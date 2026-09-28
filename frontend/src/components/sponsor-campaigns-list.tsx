@@ -302,7 +302,9 @@ export function SponsorCampaignsList({
           </div>
           <ul className="grid gap-4 lg:grid-cols-2">
             {paged.map((c) => (
-            <li key={c.id}>
+            /* min-w-0: a grid item otherwise grows to its content and the card ran
+               22px past a 390px phone (frontend audit) */
+            <li key={c.id} className="min-w-0">
               <Link
                 href={`/sponsor/campaigns/${c.id}`}
                 className="group block rounded-xl border border-line bg-surface p-5 transition-all hover:border-sponsor/30 hover:bg-surface-2/40"

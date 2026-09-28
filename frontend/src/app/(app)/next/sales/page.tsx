@@ -132,7 +132,7 @@ export default async function StudentSalesPage({
             <span className="text-2xl font-semibold tabular-nums tracking-tight text-next">
               +100
             </span>
-            <span className="text-[11px] font-medium text-next/80">pts</span>
+            <span className="text-[11px] font-medium text-next">pts</span>
             <span className="text-[11px] text-faint">
               ${toNext} of closed sales away
             </span>

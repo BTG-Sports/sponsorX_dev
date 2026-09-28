@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
+import { useMounted } from "./use-mounted";
 import { useRouter } from "next/navigation";
 import { Badge, Card } from "@/components/ui";
 import { CloseIcon, SearchInput } from "@/components/filter-kit";
@@ -90,6 +91,7 @@ export function LiveRewardsDesk({
   const [tab, setTab] = useState<(typeof TABS)[number]["key"]>("all");
   const [q, setQ] = useState("");
   const [creating, setCreating] = useState(Boolean(openNew));
+  const mounted = useMounted();
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<{ id: string; message: string } | null>(null);
   const [qrFor, setQrFor] = useState<string | null>(null);
@@ -155,7 +157,7 @@ export function LiveRewardsDesk({
               ].join(" ")}
             >
               {t.label}
-              <span className="text-[10px] tabular-nums text-faint">{rewards.filter((r) => t.match(r.state)).length}</span>
+              <span className="text-[10px] tabular-nums text-text/80">{rewards.filter((r) => t.match(r.state)).length}</span>
             </button>
           ))}
         </div>
@@ -268,12 +270,12 @@ export function LiveRewardsDesk({
         </ul>
       )}
 
-      {qrFor &&
+      {qrFor && mounted &&
         createPortal(
           <QrPanel rewardId={qrFor} actions={actions} onClose={() => setQrFor(null)} />,
           document.body,
         )}
-      {creating &&
+      {creating && mounted &&
         createPortal(
           <Creator
             campaigns={campaigns}

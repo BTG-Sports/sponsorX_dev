@@ -95,19 +95,21 @@ export default async function PropertyProfilePage({
       <HeroBand border="border-property/30" className="mt-8 sx-animate">
         <dl className="grid grid-cols-2 gap-x-4 gap-y-5 sm:grid-cols-4">
           {p.stats.map((s, i) => (
+            /* dt before dd in the markup (axe definition-list); the value
+               still reads first via flex order. */
             <div
               key={s.label}
-              className={["sx-animate", STAGGER[Math.min(i, 4)]].join(" ")}
+              className={["sx-animate flex flex-col", STAGGER[Math.min(i, 4)]].join(" ")}
             >
-              <dd className="text-2xl font-bold tabular-nums tracking-tight sm:text-3xl">
-                {s.value}
-              </dd>
-              <dt className="mt-1 text-[10px] leading-tight text-muted">
+              <dt className="order-2 mt-1 text-[10px] leading-tight text-muted">
                 {s.label}
               </dt>
-              <div className="mt-2">
+              <dd className="order-1">
+                <span className="block text-2xl font-bold tabular-nums tracking-tight sm:text-3xl">{s.value}</span>
+              </dd>
+              <dd className="order-3 mt-2">
                 <SourceLabel source={s.source} />
-              </div>
+              </dd>
             </div>
           ))}
         </dl>

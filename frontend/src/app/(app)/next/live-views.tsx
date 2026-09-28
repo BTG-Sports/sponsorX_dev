@@ -148,7 +148,7 @@ export function LiveStudentSales({ live }: { live: Student }) {
           <p className="text-[11px] font-medium uppercase tracking-wide text-muted">Next sales milestone</p>
           <p className="mt-1.5 flex items-baseline gap-1.5">
             <span className="text-2xl font-semibold tabular-nums tracking-tight text-next">+100</span>
-            <span className="text-[11px] font-medium text-next/80">pts</span>
+            <span className="text-[11px] font-medium text-next">pts</span>
             <span className="text-[11px] text-faint">{money(m.toNextCents)} of closed sales away</span>
           </p>
           <div className="mt-2">
@@ -283,7 +283,7 @@ export function LiveStudentPoints({ live }: { live: Student }) {
                   <span className="text-4xl font-bold tabular-nums tracking-tight text-next">
                     <CountUp value={balance} />
                   </span>
-                  <span className="text-sm font-medium text-next/80">pts</span>
+                  <span className="text-sm font-medium text-next">pts</span>
                 </p>
               </div>
               <div className="min-w-0 flex-1 basis-60">
@@ -291,7 +291,7 @@ export function LiveStudentPoints({ live }: { live: Student }) {
                   <span className="text-muted">
                     Next sales milestone — <span className="font-semibold text-next">+100 pts</span> at your next $500 closed
                   </span>
-                  <span className="tabular-nums text-faint">{m.pct}%</span>
+                  <span className="tabular-nums text-muted">{m.pct}%</span>
                 </div>
                 <div className="mt-1.5">
                   <Meter value={m.pct} tone="next" />

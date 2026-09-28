@@ -150,7 +150,7 @@ function LiveFinance({ earnings, campaigns }: { earnings: ApiEarning[]; campaign
             hint="Per campaign: what the orders sold, what Zoho invoiced and collected, and what athletes are owed and paid."
           />
           <Card className="p-0">
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto" tabIndex={0} role="region" aria-label="Finance — scrollable table">
               <table className="w-full min-w-[48rem] text-left">
                 <thead>
                   <tr className="border-b border-line text-[10px] uppercase tracking-wider text-faint">
@@ -205,7 +205,7 @@ function LiveFinance({ earnings, campaigns }: { earnings: ApiEarning[]; campaign
           ) : invoices.length === 0 ? (
             <p className="px-4 py-6 text-center text-xs text-muted">No invoices synced from Zoho yet.</p>
           ) : (
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto" tabIndex={0} role="region" aria-label="Finance — scrollable table">
               <table className="w-full min-w-[36rem] text-left">
                 <thead>
                   <tr className="border-b border-line text-[10px] uppercase tracking-wider text-faint">
@@ -240,7 +240,7 @@ function LiveFinance({ earnings, campaigns }: { earnings: ApiEarning[]; campaign
       <section>
         <SectionHeading title="Athlete earnings" hint="§21 — status only, no tax ID or bank details (§26)" />
         <Card className="p-0">
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto" tabIndex={0} role="region" aria-label="Finance — scrollable table">
             <table className="w-full min-w-[44rem] text-left">
               <thead>
                 <tr className="border-b border-line text-[10px] uppercase tracking-wider text-faint">
@@ -431,7 +431,7 @@ export default async function AdminFinancePage({
           hint={`Latest invoices — most recent ${sponsorInvoices.length} shown, not the quarter total. §18 — from Zoho Books, inbound only; SponsorX never writes an invoice.`}
         />
         <Card className="p-0">
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto" tabIndex={0} role="region" aria-label="Finance — scrollable table">
             <table className="w-full min-w-[36rem] text-left">
               <thead>
                 <tr className="border-b border-line text-[10px] uppercase tracking-wider text-faint">
@@ -473,7 +473,7 @@ export default async function AdminFinancePage({
           hint="§21 state machine — status only, no tax ID or bank details (§26)"
         />
         <Card className="p-0">
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto" tabIndex={0} role="region" aria-label="Finance — scrollable table">
             <table className="w-full min-w-[36rem] text-left">
               <thead>
                 <tr className="border-b border-line text-[10px] uppercase tracking-wider text-faint">

@@ -488,7 +488,7 @@ export function AnalyticsStory({
           >
             <InsightBanner insight={athleteInsight(athletes)} />
             <Card className="p-0">
-              <div className="overflow-x-auto">
+              <div className="overflow-x-auto" tabIndex={0} role="region" aria-label="Athlete performance — scrollable table">
                 <table className={`w-full text-left text-[11px] ${L ? "min-w-[52rem]" : "min-w-[38rem]"}`}>
                   <thead>
                     <tr className="border-b border-line-soft text-[10px] uppercase tracking-wide text-faint">
