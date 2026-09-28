@@ -16,7 +16,7 @@
    never reach a sponsor-facing one (the P1-FE-05 field-level rule).
    -------------------------------------------------------------------------- */
 
-export type ReachSource = "VERIFIED_API" | "SELF_REPORTED";
+export type ReachSource = "VERIFIED_API" | "VERIFIED_MANUAL" | "SELF_REPORTED";
 export type GuardianState = "na" | "pending";
 /** Live rows add ANCHOR (the backend's top tier) and "Untiered" — an
  *  athlete whose tier nobody has set yet, which is not "Emerging". */

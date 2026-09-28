@@ -72,7 +72,7 @@ describe("toLiveStory", () => {
   });
   it("reads one provenance per athlete, engagement inside it", () => {
     const [j, sam] = s.athletes;
-    expect(j).toMatchObject({ views: 1000, source: "VERIFIED_API", engagement: 5, reliability: 50, revisionRate: 1.5, clicks: 4, score: 84 });
+    expect(j).toMatchObject({ views: 1000, source: "VERIFIED_MANUAL", engagement: 5, reliability: 50, revisionRate: 1.5, clicks: 4, score: 84 });
     expect(sam).toMatchObject({ views: 200, source: "SELF_REPORTED", engagement: 5, reliability: null, revisionRate: null, score: null });
   });
 });
@@ -89,5 +89,37 @@ describe("insights on empty data read as words", () => {
     ];
     for (const i of all) expect(`${i.pre}${i.hot}${i.post}`).not.toMatch(/NaN|Infinity|undefined/);
     expect(headlineInsight(empty.dataset).hot).toMatch(/Nothing has been scanned/);
+  });
+});
+
+describe("F-04 (QA pass 5) · redemptions without a claim never read as a negative gap", () => {
+  it("the headline says every claim was used, not '−1 claimed rewards were never used'", () => {
+    const s = toLiveStory(api({ funnel: { SCAN: 10, LANDING: 10, CLAIM: 1, REDEEM: 2 } }));
+    const i = headlineInsight(s.dataset);
+    expect(i.hot).not.toMatch(/-\d|−\d/);
+    expect(i.hot).toBe("every claimed reward was used");
+    expect(i.post).toMatch(/without a claim/);
+    expect(s.dataset.unredeemed).toBe(0);
+  });
+  it("still counts the gap when claims cover the redemptions", () => {
+    const i = headlineInsight(toLiveStory(api()).dataset);
+    expect(i.hot).toBe("10 claimed rewards were never used");
+  });
+});
+
+describe("the headline's trend words (QA pass 5 leftover)", () => {
+  const withDelta = (redeemed: string) => ({
+    funnel: [{ value: 100 }, { value: 80 }, { value: 40 }, { value: 30 }] as never,
+    deltas: { scans: "0%", claims: "0%", redeemed, revenue: "0%" },
+  });
+  it("a fall reads as down, never 'up −83.3%'", () => {
+    expect(headlineInsight(withDelta("−83.3%")).pre).toBe("Redemptions are down 83.3% — but ");
+  });
+  it("a rise reads as up", () => {
+    expect(headlineInsight(withDelta("12.4%")).pre).toBe("Redemptions are up 12.4% — but ");
+  });
+  it("no change, and no previous period, read as words", () => {
+    expect(headlineInsight(withDelta("0%")).pre).toBe("Redemptions are flat — but ");
+    expect(headlineInsight(withDelta("new")).pre).toBe("Redemptions are new this period — but ");
   });
 });

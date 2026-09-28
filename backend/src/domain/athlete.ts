@@ -25,6 +25,7 @@ import type { Actor } from "../auth/actor";
 import { assertAllowed } from "../auth/scope";
 import { ForbiddenError } from "../auth/errors";
 import { guardianReadiness } from "./guardian-rules";
+import { AGE_FIELD, missingApplicationFields } from "../contracts/athlete";
 
 /**
  * Move an application to a new state, or refuse.
@@ -165,16 +166,32 @@ export async function transitionAthleteIn(
   const isReviewDecision =
     to === "APPROVED" || to === "CHANGES_REQUESTED" || to === "REJECTED";
 
-  const updated = await tx.athlete.update({
-    where: { id: athleteId },
-    data: {
-      state: to as Prisma.AthleteUpdateInput["state"],
-      ...(isReviewDecision
-        ? { reviewerNotes: reviewerNotes ?? null, reviewedAt: new Date() }
-        : {}),
-    },
-    select: { id: true, state: true },
-  });
+  /* Conditional on the state we read (QA-05, pass 5). Two parallel
+     requests both read APPROVED; without `state: from` in the WHERE both
+     writes landed and two audit rows claimed the same activation. With it,
+     Postgres makes the second UPDATE wait on the first's row lock, re-checks
+     the predicate, and matches nothing — Prisma answers P2025, and the loser
+     is told the move is no longer legal from where the row now is. */
+  let updated: { id: string; state: string };
+  try {
+    updated = await tx.athlete.update({
+      where: { id: athleteId, state: from },
+      data: {
+        state: to as Prisma.AthleteUpdateInput["state"],
+        ...(isReviewDecision
+          ? { reviewerNotes: reviewerNotes ?? null, reviewedAt: new Date() }
+          : {}),
+      },
+      select: { id: true, state: true },
+    });
+  } catch (err) {
+    if ((err as { code?: unknown }).code !== "P2025") throw err;
+    const now = await tx.athlete.findFirst({
+      where: { id: athleteId, tenantId: actor.tenantId },
+      select: { state: true },
+    });
+    throw new IllegalTransitionError((now?.state as AthleteState | undefined) ?? from, to);
+  }
 
   await audit(tx, actor, ATHLETE_AUDIT_ACTIONS[to], "Athlete", athleteId, {
     before: { state: from },
@@ -182,6 +199,90 @@ export async function transitionAthleteIn(
   });
 
   return { id: updated.id, state: updated.state as AthleteState };
+}
+
+/**
+ * Activate an athlete — `POST /applications/:id/activate`, APPROVED → ACTIVE
+ * and nothing else (product decisions of 2026-09-28, QA pass 5).
+ *
+ * Two refusals the plain transition does not make:
+ *
+ *   - FROM SUSPENDED. §21 draws SUSPENDED → ACTIVE, and the edge stays in the
+ *     table for the reinstatement step — but that is a different decision
+ *     (someone reviewed why they were suspended) with its own audit action,
+ *     and it is not built yet. Activation must not quietly lift a suspension
+ *     under "athlete.activate".
+ *   - AN INCOMPLETE RECORD. The athlete must hold every field the
+ *     application form requires (`missingApplicationFields`, derived from the
+ *     form's contract), including a birthDate or an ageBand. Without either,
+ *     guardianReadiness() has no age to reason about, and "unknown" must not
+ *     pass §37's gate as "adult".
+ *
+ * The role is checked first, so a caller who may not activate learns nothing
+ * about the record's state.
+ */
+export async function activateAthlete(
+  actor: Actor,
+  athleteId: string,
+): Promise<{ id: string; state: AthleteState }> {
+  assertAllowed(actor, "athlete", "approve");
+  return prisma.$transaction(async (tx) => {
+    const athlete = await tx.athlete.findFirst({
+      where: { id: athleteId, tenantId: actor.tenantId },
+      select: {
+        id: true, state: true, legalName: true, displayName: true, email: true,
+        stateCode: true, sport: true, birthDate: true, ageBand: true,
+      },
+    });
+    if (!athlete) throw new ForbiddenError("athlete", "write");
+
+    const from = athlete.state as AthleteState;
+    if (from === "SUSPENDED") throw new ReinstatementRequiredError();
+    if (from !== "APPROVED") throw new IllegalTransitionError(from, "ACTIVE");
+
+    const missing = missingApplicationFields(athlete);
+    if (missing.length > 0) throw new ProfileIncompleteError(missing);
+
+    return transitionAthleteIn(tx, actor, athleteId, "ACTIVE");
+  });
+}
+
+/** 409 — activation does not lift a suspension (decision 2, 2026-09-28). */
+export class ReinstatementRequiredError extends Error {
+  readonly status = 409;
+  readonly code = "reinstatement_required";
+  constructor() {
+    super(
+      "This athlete is suspended. Activating does not lift a suspension — " +
+        "reinstatement is a separate step.",
+    );
+    this.name = "ReinstatementRequiredError";
+  }
+}
+
+/** Human labels for the missing-field keys, for the refusal's sentence. */
+const FIELD_LABELS: Record<string, string> = {
+  legalName: "legal name",
+  displayName: "display name",
+  email: "email",
+  stateCode: "state",
+  sport: "sport",
+  [AGE_FIELD]: "date of birth or age band",
+};
+
+/** 422 — the record lacks fields the application form requires. */
+export class ProfileIncompleteError extends Error {
+  readonly status = 422;
+  readonly code = "profile_incomplete";
+  readonly details: { missing: string[] };
+  constructor(missing: string[]) {
+    super(
+      `This athlete's profile is incomplete, so they can't be activated yet. Missing: ` +
+        `${missing.map((k) => FIELD_LABELS[k] ?? k).join(", ")}.`,
+    );
+    this.name = "ProfileIncompleteError";
+    this.details = { missing };
+  }
 }
 
 export class CommercialAuthorisationRequiredError extends Error {

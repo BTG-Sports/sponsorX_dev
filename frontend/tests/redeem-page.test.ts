@@ -175,7 +175,7 @@ describe("P6-FE-02 · real claim and redemption through the API", () => {
   });
 
   it("the just-redeemed page confirms it", async () => {
-    const { html } = await page({ ...live, state: "REDEEMED" }, "?flash=redeemed");
+    const { html } = await page({ ...live, state: "REDEEMED", lastRedeemedAt: new Date(Date.now() - 5_000).toISOString() }, "?flash=redeemed");
     expect(html).toContain("Redeemed ✓");
   });
 
@@ -184,6 +184,65 @@ describe("P6-FE-02 · real claim and redemption through the API", () => {
     const res = await LANDING(new Request("https://localhost:8080/r/tok_abc/landing"), ctx());
     expect(res.headers.get("content-type")).toBe("image/gif");
     expect(calls[0]!.url).toContain("/tok_abc/landing");
+  });
+});
+
+describe("P6-BE-08 · landing copy, who it's for, and a reward that has run out", () => {
+  it("greets the fan with the reward's own headline and subhead", async () => {
+    const { html } = await page({ ...live, landing: { headline: "Rosa's is buying", subhead: "Your first taco is on us" } });
+    expect(html).toContain("<h1>Rosa&#39;s is buying</h1>");
+    expect(html).toContain('<p class="lede">Your first taco is on us</p>');
+    expect(html).not.toContain("You've got a reward");
+  });
+
+  it("falls back to the default words when the copy is unset, blank, or the API predates it", async () => {
+    for (const view of [live, { ...live, landing: { headline: null, subhead: null } }, { ...live, landing: { headline: "  ", subhead: "" } }]) {
+      const { html } = await page(view);
+      expect(html).toContain("<h1>You&#39;ve got a reward</h1>");
+      expect(html).not.toContain('class="lede"');
+    }
+  });
+
+  it("once claimed, the headline is the booth's — the landing copy has done its job", async () => {
+    const { html } = await page({ ...live, claimed: true, landing: { headline: "Rosa's is buying", subhead: "On us" } });
+    expect(html).toContain("<h1>Your reward is ready</h1>");
+    expect(html).not.toContain("On us");
+  });
+
+  it("escapes the landing copy and the eligibility note", async () => {
+    const { html } = await page({ ...live, landing: { headline: "<b>x</b>", subhead: "<i>y</i>" }, eligibilityNote: "<script>z</script>" });
+    expect(html.toLowerCase()).not.toContain("<script");
+    expect(html).not.toContain("<b>x</b>");
+    expect(html).toContain("&#60;b&#62;x&#60;/b&#62;");
+  });
+
+  it("states who it's for to the fan, and tells booth staff what to check", async () => {
+    const { html } = await page({ ...live, eligibility: "AGE_21_PLUS", eligibilityNote: "One per ID." });
+    expect(html).toContain('<p class="elig">For fans 21 and over. One per ID.</p>');
+    expect(html).toContain("<strong>Check ID — 21+ only.</strong>");
+  });
+
+  it("says nothing extra for a reward open to anyone", async () => {
+    const { html } = await page({ ...live, eligibility: "ANYONE", eligibilityNote: null });
+    expect(html).not.toContain('class="elig"');
+    expect(html).not.toContain("<strong>Check");
+  });
+
+  it("a reward whose cap is used up says it has run out — no forms, no script", async () => {
+    const { res, html } = await page({ ...live, state: "EXHAUSTED" });
+    expect(res.status).toBe(200);
+    expect(html).toContain("This reward has run out");
+    expect(html).not.toContain('action="/r/tok_abc/claim"');
+    expect(html).not.toContain('action="/r/tok_abc/redeem"');
+    expect(html.toLowerCase()).not.toContain("<script");
+  });
+
+  it("a redeem or claim refused because the cap ran out comes back as ?flash=soldout", async () => {
+    stub(() => Response.json({ error: { message: "run out" } }, { status: 410 }));
+    const redeem = await REDEEM(new Request("https://localhost:8080/r/tok_abc/redeem", { method: "POST" }), ctx());
+    expect(redeem.headers.get("location")).toBe("/r/tok_abc?flash=soldout");
+    const claim = await CLAIM(new Request("https://localhost:8080/r/tok_abc/claim", { method: "POST", body: new FormData() }), ctx());
+    expect(claim.headers.get("location")).toBe("/r/tok_abc?flash=soldout");
   });
 });
 
@@ -224,5 +283,61 @@ describe("P8-SEC-03 · the fan's address is forwarded only with the edge key", (
     });
     expect(edgeHeaders(req)["x-sponsorx-client-ip"]).toBe("112.207.217.10");
     delete process.env.SPONSORX_EDGE_KEY;
+  });
+});
+
+/* QA pass 5 (2026-09-28) — F-07, F-03, F-08, QA-04, QA-09. */
+describe("QA pass 5 · the fan page", () => {
+  it("F-07: ?flash=redeemed confirms only a redemption that just happened — never a replayed URL", async () => {
+    const at = (msAgo: number) => new Date(Date.now() - msAgo).toISOString();
+    const fresh = await page({ ...live, state: "REDEEMED", lastRedeemedAt: at(30_000) }, "?flash=redeemed");
+    expect(fresh.html).toContain("Redeemed ✓");
+    for (const view of [
+      { ...live, state: "REDEEMED", lastRedeemedAt: at(10 * 60_000) }, // the URL, replayed later
+      { ...live, state: "REDEEMED" }, // an API that doesn't say when
+    ]) {
+      const { html } = await page(view, "?flash=redeemed");
+      expect(html).not.toContain("Redeemed ✓");
+      expect(html).toContain("Already used");
+    }
+  });
+
+  it("F-03: long unbroken words wrap instead of widening the page", async () => {
+    const { html } = await page({ ...live, offerText: "x".repeat(200) });
+    expect(html).toMatch(/overflow-wrap:anywhere/);
+    expect(html).toMatch(/main\{[^}]*min-width:0/);
+  });
+
+  it("F-08: the expiry is shown in Eastern time, labelled", async () => {
+    const { html } = await page({ ...live, expiresAt: "2026-10-28T00:00:00.000Z" });
+    expect(html).toContain("Valid until Oct 27, 2026, 8:00 PM ET");
+  });
+
+  it("QA-04: a multi-use code stays redeemable after a redemption, and says so", async () => {
+    const view = { ...live, claimed: true, singleUse: false, timesRedeemed: 1, lastRedeemedAt: new Date().toISOString() };
+    const { html } = await page(view, "?flash=redeemed");
+    expect(html).toContain("Redeemed ✓");
+    expect(html).toContain('action="/r/tok_abc/redeem"');
+    expect(html).toMatch(/can be used again/);
+    const later = await page({ ...view, lastRedeemedAt: new Date(Date.now() - 3_600_000).toISOString() });
+    expect(later.html).not.toContain("Redeemed ✓");
+    expect(later.html).toContain('action="/r/tok_abc/redeem"');
+  });
+
+  it("QA-09: after claiming a capped reward, the fan sees how long it's held for", async () => {
+    const { html } = await page({ ...live, claimed: true, hold: { until: "2026-10-01T19:45:00.000Z", active: true } }, "?flash=claimed");
+    expect(html).toContain("Held for you until 3:45 PM ET");
+  });
+
+  it("QA-09: a lapsed hold is explained — still redeemable while any are left", async () => {
+    const { html } = await page({ ...live, claimed: true, hold: { until: "2026-10-01T19:45:00.000Z", active: false } });
+    expect(html).toMatch(/hold lapsed at 3:45 PM ET/);
+    expect(html).toContain('action="/r/tok_abc/redeem"');
+  });
+
+  it("QA-09: a lapsed hold on a reward that has since run out says both", async () => {
+    const { html } = await page({ ...live, state: "EXHAUSTED", claimed: true, hold: { until: "2026-10-01T19:45:00.000Z", active: false } });
+    expect(html).toContain("This reward has run out");
+    expect(html).toMatch(/hold lapsed at 3:45 PM ET/);
   });
 });

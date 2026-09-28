@@ -139,7 +139,7 @@ export default function HomePage() {
             {networkStats.map((s, i) => (
               <div
                 key={s.label}
-                title={s.source}
+                title={`Sample figure — will read ${s.source}`}
                 className={`sx-animate ${DELAYS[i]} bg-surface px-5 py-5 text-center`}
               >
                 <dt className="sr-only">{s.label}</dt>
@@ -155,7 +155,10 @@ export default function HomePage() {
             ))}
           </dl>
           <p className="mt-2 text-[10px] text-faint">
-            Live network counts — Postgres · MetricDaily · RewardEvent
+            {/* P7-QA-02: these are fixtures.networkStats constants — no public
+                metrics read exists yet — so they must not claim to be live. */}
+            Sample figures · fixture data — live counts (Postgres · Athlete,
+            Campaign, RewardEvent) arrive with the public metrics read
           </p>
         </div>
       </section>

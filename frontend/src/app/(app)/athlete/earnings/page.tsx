@@ -257,7 +257,12 @@ export default async function AthleteEarningsPage({
       <section className="sx-animate sx-delay-1">
         <SectionHeading
           title="Where your money is"
-          hint="Every order moves left to right — reviewed, cleared, approved, paid. This cycle, not your career total."
+          hint={
+            /* P7-QA-02: live buckets() spans every earning ever, not a cycle. */
+            live
+              ? "Every order moves left to right — reviewed, cleared, approved, paid. All your orders, by where each one is now."
+              : "Every order moves left to right — reviewed, cleared, approved, paid. This cycle, not your career total."
+          }
         />
         <Card className="overflow-hidden p-0">
           <div

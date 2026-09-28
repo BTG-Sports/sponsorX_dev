@@ -47,7 +47,7 @@ export type ApiAnalytics = {
 
 export type LiveAthleteRow = Omit<AthleteLeaderRow, "score" | "source"> & {
   score: number | null;
-  source: "VERIFIED_API" | "SELF_REPORTED" | "ESTIMATED" | null;
+  source: "VERIFIED_MANUAL" | "SELF_REPORTED" | "ESTIMATED" | null;
   clicks: number;
   /** Whole percent on time, null when nothing was due. */
   reliability: number | null;
@@ -73,7 +73,12 @@ export function delta(now: number, before: number): string {
 }
 
 function reach(v: Sourced): { views: number; source: LiveAthleteRow["source"]; key: keyof Sourced | null } {
-  if (v.verified > 0) return { views: v.verified, source: "VERIFIED_API", key: "verified" };
+  /* The backend's "verified" bucket is VERIFIED_API + VERIFIED_MANUAL summed
+     (reward-analytics.ts bucket()), so one badge must show the weakest part —
+     "verified · manual" — never "verified · platform" (taxonomy §4.2,
+     P7-QA-02). Splitting the bucket server-side would let API-only rows earn
+     the stronger label. */
+  if (v.verified > 0) return { views: v.verified, source: "VERIFIED_MANUAL", key: "verified" };
   if (v.selfReported > 0) return { views: v.selfReported, source: "SELF_REPORTED", key: "selfReported" };
   if (v.estimated > 0) return { views: v.estimated, source: "ESTIMATED", key: "estimated" };
   return { views: 0, source: null, key: null };

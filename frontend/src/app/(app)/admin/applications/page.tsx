@@ -1,4 +1,4 @@
-import { SectionHeading } from "@/components/ui";
+import { BlockedNotice, SectionHeading } from "@/components/ui";
 import { FunnelSteps } from "@/components/charts";
 import { HeroBand, MiniChip } from "@/components/hero";
 import { ApplicationsDesk } from "@/components/applications-desk";
@@ -220,6 +220,16 @@ export default async function AdminApplicationsPage({
     <div className="space-y-6">
       {/* -------------------------------------------------------- headline */}
       {heading}
+
+      {/* P7-QA-02: this fixture branch also reaches signed-in staff who may
+          not review (SALES, CAMPAIGN_MGR, FINANCE) — its POSTGRES-chipped
+          median / approval rate / funnel are sample data. */}
+      {demo === null && (
+        <BlockedNotice>
+          Demo data — the live review queue is read by BTG admin and the
+          Network Manager, so every figure below is sample data.
+        </BlockedNotice>
+      )}
 
       {/* ------------------------------------------------------- hero band */}
       <HeroBand border="border-admin/25" className="sx-animate">

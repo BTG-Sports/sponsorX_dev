@@ -29,6 +29,8 @@ vi.mock("../src/config/env", () => ({
 
 let athlete: Record<string, unknown> = {};
 let updated: Record<string, unknown> | null = null;
+let updateWhere: Record<string, unknown> | null = null;
+let raceLost = false;
 
 vi.mock("../src/db/client", () => ({
   prisma: {
@@ -36,7 +38,14 @@ vi.mock("../src/db/client", () => ({
       const tx = {
         athlete: {
           findFirst: () => Promise.resolve(athlete),
-          update: ({ data }: { data: Record<string, unknown> }) => {
+          update: ({ where, data }: { where: Record<string, unknown>; data: Record<string, unknown> }) => {
+            updateWhere = where;
+            /* The guarded write (QA-05): when a parallel request moved the
+               row first, Postgres matches nothing and Prisma says P2025. */
+            if (raceLost) {
+              athlete = { ...athlete, state: "ACTIVE" };
+              return Promise.reject(Object.assign(new Error("Record to update not found."), { code: "P2025" }));
+            }
             updated = data;
             return Promise.resolve({ id: "ath_1", state: data.state });
           },
@@ -54,10 +63,15 @@ vi.mock("../src/db/client", () => ({
   },
 }));
 
-const { transitionAthlete } = await import("../src/domain/athlete");
+const {
+  transitionAthlete, activateAthlete, ProfileIncompleteError, ReinstatementRequiredError,
+} = await import("../src/domain/athlete");
+const { IllegalTransitionError } = await import("../src/domain/athlete-state");
 
 const adult = {
   id: "ath_1", state: "APPROVED", birthDate: new Date("1999-01-01"),
+  legalName: "Jordan Reed", displayName: "J. Reed", email: "jordan@example.com",
+  stateCode: "MD", sport: "Basketball",
   ageBand: "18_PLUS", guardianId: null, guardian: null,
 };
 const minorUnverified = {
@@ -68,7 +82,7 @@ const minorVerified = { ...minorUnverified, guardian: { verifiedAt: new Date() }
 
 const actor = (roles: Role[]) => ({ userId: "u", tenantId: "tenant_btg", roles });
 
-beforeEach(() => { athlete = { ...adult }; updated = null; });
+beforeEach(() => { athlete = { ...adult }; updated = null; updateWhere = null; raceLost = false; });
 
 describe("activation is a narrower permission than approval", () => {
   /* The trap this guards: BTG_ADMIN may approve an application and must not
@@ -131,6 +145,90 @@ describe("§37's gate survives the trip through an endpoint", () => {
        three that are, and stamping here would overwrite the reviewer's note
        with a null the next time anyone activated a reinstated athlete. */
     expect(updated).toEqual({ state: "ACTIVE" });
+  });
+});
+
+/* --------------------------------------------------------------------------
+   Activation — the product decisions of 2026-09-28 (QA pass 5).
+   -------------------------------------------------------------------------- */
+
+describe("POST /activate is APPROVED → ACTIVE and nothing else", () => {
+  it("activates a complete, approved adult", async () => {
+    await expect(activateAthlete(actor(["NETWORK_MGR"]), "ath_1"))
+      .resolves.toMatchObject({ state: "ACTIVE" });
+  });
+
+  /* Decision 2: reinstatement is its own step, with its own audit action. */
+  it("refuses a SUSPENDED athlete, naming reinstatement as the separate step", async () => {
+    athlete = { ...adult, state: "SUSPENDED" };
+    const err = await activateAthlete(actor(["NETWORK_MGR"]), "ath_1").catch((e) => e);
+    expect(err).toBeInstanceOf(ReinstatementRequiredError);
+    expect(err.status).toBe(409);
+    expect(err.code).toBe("reinstatement_required");
+    expect(err.message).toMatch(/reinstat/i);
+    expect(updated).toBeNull();
+  });
+
+  it.each(["ACTIVE", "UNDER_REVIEW", "REJECTED"])("refuses from %s", async (state) => {
+    athlete = { ...adult, state };
+    await expect(activateAthlete(actor(["NETWORK_MGR"]), "ath_1"))
+      .rejects.toBeInstanceOf(IllegalTransitionError);
+    expect(updated).toBeNull();
+  });
+
+  it("checks the role before saying anything about the record", async () => {
+    athlete = { ...adult, state: "SUSPENDED" };
+    await expect(activateAthlete(actor(["FINANCE"]), "ath_1"))
+      .rejects.toBeInstanceOf(ForbiddenError);
+  });
+});
+
+describe("an athlete must be complete to activate (decision 3)", () => {
+  it.each([
+    ["legalName", { legalName: "" }],
+    ["displayName", { displayName: "  " }],
+    ["email", { email: null }],
+    ["stateCode", { stateCode: null }],
+    ["sport", { sport: "" }],
+  ])("refuses when %s is missing", async (field, patch) => {
+    athlete = { ...adult, ...patch };
+    const err = await activateAthlete(actor(["NETWORK_MGR"]), "ath_1").catch((e) => e);
+    expect(err).toBeInstanceOf(ProfileIncompleteError);
+    expect(err.status).toBe(422);
+    expect(err.code).toBe("profile_incomplete");
+    expect(err.details.missing).toEqual([field]);
+    expect(updated).toBeNull();
+  });
+
+  /* The gap QA-10 found: no birthDate and no ageBand read as "adult" to the
+     guardian rule, so the §37 gate never fired. */
+  it("refuses an athlete with neither birthDate nor ageBand", async () => {
+    athlete = { ...adult, birthDate: null, ageBand: null };
+    const err = await activateAthlete(actor(["NETWORK_MGR"]), "ath_1").catch((e) => e);
+    expect(err).toBeInstanceOf(ProfileIncompleteError);
+    expect(err.details.missing).toEqual(["birthDateOrAgeBand"]);
+    expect(updated).toBeNull();
+  });
+
+  it("accepts an age band alone", async () => {
+    athlete = { ...adult, birthDate: null, ageBand: "18_PLUS" };
+    await expect(activateAthlete(actor(["NETWORK_MGR"]), "ath_1"))
+      .resolves.toMatchObject({ state: "ACTIVE" });
+  });
+});
+
+describe("a transition is conditional on the state it was read in (QA-05)", () => {
+  it("writes WHERE state = the state it read", async () => {
+    await activateAthlete(actor(["NETWORK_MGR"]), "ath_1");
+    expect(updateWhere).toEqual({ id: "ath_1", state: "APPROVED" });
+  });
+
+  it("the loser of a race gets a 409, not a second activation", async () => {
+    raceLost = true;
+    const err = await activateAthlete(actor(["NETWORK_MGR"]), "ath_1").catch((e) => e);
+    expect(err).toBeInstanceOf(IllegalTransitionError);
+    expect(err.status).toBe(409);
+    expect(err.details).toEqual({ from: "ACTIVE", to: "ACTIVE" });
   });
 });
 

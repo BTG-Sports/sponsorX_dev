@@ -1,4 +1,4 @@
-import { z } from "./zod";
+import { INT4_MAX, z } from "./zod";
 
 /* --------------------------------------------------------------------------
    The athlete application — P3-BE-01, §11, §21.
@@ -59,14 +59,33 @@ export const SocialAccount = z
   .object({
     platform: z.enum(["INSTAGRAM", "TIKTOK", "YOUTUBE", "X"]),
     handle: z.string().min(1).max(64),
-    followers: z.int().min(0).optional(),
-    avgViews: z.int().min(0).optional(),
+    followers: z.int().min(0).max(INT4_MAX).optional(),
+    avgViews: z.int().min(0).max(INT4_MAX).optional(),
     source: z
       .enum(["VERIFIED_API", "VERIFIED_MANUAL", "SELF_REPORTED"])
       .default("SELF_REPORTED")
       .describe("How the numbers were obtained — never displayed unlabelled"),
   })
   .meta({ id: "SocialAccount", description: "An athlete's account on one platform." });
+
+/**
+ * The same row as an APPLICANT submits it at `/join`.
+ *
+ * An applicant's numbers are self-reported by definition — a VERIFIED_* label
+ * is something BTG earns by checking, not something a form can claim. The
+ * intake domain already forces SELF_REPORTED whatever arrives; this schema
+ * stops the published contract advertising values the server ignores
+ * (QA pass 5, Info). Staff edits keep the full enum via `SocialAccount`.
+ */
+export const SocialAccountIntake = SocialAccount.extend({
+  source: z
+    .enum(["SELF_REPORTED"])
+    .default("SELF_REPORTED")
+    .describe("Always SELF_REPORTED at intake — verification is BTG's step, not the applicant's"),
+}).meta({
+  id: "SocialAccountIntake",
+  description: "A social account as an applicant submits it. Numbers are self-reported.",
+});
 
 /**
  * What a person fills in at `/join`.
@@ -84,7 +103,9 @@ const AthleteApplicationFields = z.object({
     phone: z.string().min(7).max(32).optional(),
     /** Drives the guardian path. Optional because §11 permits an age band
      *  instead, but one of the two must be present — see the refinement. */
-    birthDate: z.iso.date().optional(),
+    /* Bounded: "0000-01-01" is a valid ISO date that Postgres refuses, which
+       reached the column as a 500 (found re-testing QA-03, pass 5). */
+    birthDate: z.iso.date().refine((d) => d >= "1900-01-01", "birthDate must be 1900 or later.").optional(),
     ageBand: z.enum(["UNDER_16", "16_17", "18_PLUS"]).optional(),
     city: z.string().max(80).optional(),
     stateCode: z.string().length(2).describe("US state code — NIL is US law"),
@@ -98,8 +119,45 @@ const AthleteApplicationFields = z.object({
     achievements: z.string().max(2000).optional(),
 
   // §11 §3 — Social
-  socials: z.array(SocialAccount).max(4).default([]),
+  socials: z.array(SocialAccountIntake).max(4).default([]),
 });
+
+/* --------------------------------------------------------------------------
+   What "complete" means for activation (QA pass 5, product decision 3).
+
+   An athlete may only go ACTIVE when their record holds everything the
+   application form requires. The list is DERIVED from the form's own shape —
+   a field is required when the contract refuses it missing — so adding a
+   required field to `/join` tightens activation too, with no second list to
+   forget. Plus the one-of rule the refinement below states: a birthDate or
+   an ageBand, because without either nobody can say whether a guardian is
+   needed (§26), and an unknown age must never pass as an adult.
+   -------------------------------------------------------------------------- */
+
+/** Required keys of the application form, derived: ["legalName",
+ *  "displayName", "email", "stateCode", "sport"] today. */
+export const APPLICATION_REQUIRED_FIELDS: readonly string[] = Object.entries(
+  AthleteApplicationFields.shape,
+)
+  .filter(([, schema]) => !(schema as z.ZodType).safeParse(undefined).success)
+  .map(([key]) => key);
+
+/** The key reported when neither birthDate nor ageBand is on record. */
+export const AGE_FIELD = "birthDateOrAgeBand";
+
+/**
+ * Which required application fields this record is missing — empty when it
+ * is complete. Blank strings count as missing: a `""` legal name is not one.
+ */
+export function missingApplicationFields(
+  record: Record<string, unknown>,
+): string[] {
+  const blank = (v: unknown) =>
+    v === null || v === undefined || (typeof v === "string" && v.trim() === "");
+  const missing = APPLICATION_REQUIRED_FIELDS.filter((k) => blank(record[k]));
+  if (blank(record.birthDate) && blank(record.ageBand)) missing.push(AGE_FIELD);
+  return missing;
+}
 
 /**
  * The refinement lives here and not on the shape above, because
@@ -213,6 +271,10 @@ export const AthleteApplicationSummary = z
     /** §37's gate, surfaced on the queue row so a reviewer can see before
      *  opening an application that it cannot be activated yet. */
     guardianStatus: z.enum(["not-required", "missing", "unverified", "ready"]),
+    /** Required application fields this record lacks — activation refuses
+     *  with `profile_incomplete` until it is empty. `birthDateOrAgeBand`
+     *  stands for "neither is on record". */
+    missingFields: z.array(z.string()),
     reviewerNotes: z.string().nullable(),
     reviewedAt: z.iso.datetime().nullable(),
     createdAt: z.iso.datetime(),

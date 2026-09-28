@@ -37,7 +37,10 @@ vi.mock("../src/db/client", () => {
       },
     },
   };
-  return { prisma: { ...tx, $transaction: (fn: (t: unknown) => Promise<unknown>) => fn(tx) } };
+  /* A claim first asks `reward_reserve` for a hold (QA-09); these fixtures
+     are uncapped, so there is nothing to hold. */
+  const $queryRaw = async () => [{ outcome: "UNCAPPED", held_until: null, reward_state: "ACTIVE" }];
+  return { prisma: { ...tx, $queryRaw, $transaction: (fn: (t: unknown) => Promise<unknown>) => fn(tx) } };
 });
 
 const { recordClaim } = await import("../src/domain/reward");
@@ -172,7 +175,9 @@ describe("P6-INT-02 · the fan's voucher email", () => {
       code: "OPAQUE",
       offerText: "Free coffee",
       terms: "One per customer",
-      expiresOn: "2027-01-01",
+      /* F-08: the same US Eastern, labelled convention as the fan page —
+         midnight UTC on Jan 1 is still Dec 31 in the fan's evening. */
+      expiresOn: "Dec 31, 2026, 7:00 PM ET",
     });
   });
 

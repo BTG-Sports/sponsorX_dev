@@ -1,4 +1,4 @@
-import { z } from "./zod";
+import { INT4_MAX, z } from "./zod";
 
 import { METRIC_SOURCES } from "../domain/metric-source";
 
@@ -45,8 +45,8 @@ export const MetricEntryInput = z
   .object({
     /** The day being reported, not the day of entry. */
     day: z.iso.date(),
-    views: z.int().min(0),
-    engagements: z.int().min(0),
+    views: z.int().min(0).max(INT4_MAX),
+    engagements: z.int().min(0).max(INT4_MAX),
     source: MetricSource,
   })
   .meta({

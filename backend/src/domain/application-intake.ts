@@ -266,9 +266,12 @@ async function writeSocials(
       followers: s.followers ?? null,
       avgViews: s.avgViews ?? null,
       /* §22: the number and its provenance travel together. An applicant
-         typing their own follower count is SELF_REPORTED, and the contract
-         defaults it there rather than letting the caller claim otherwise. */
-      source: s.source,
+         typing their own follower count is SELF_REPORTED — ALWAYS. The
+         contract only *defaults* `source`, so a public /applications/intake
+         body could send "VERIFIED_API" and have /athlete/profile render it as
+         "verified · platform" (P7-QA-02). Only staff may raise the label, and
+         only through recordSocials (athlete-social.ts). */
+      source: "SELF_REPORTED" as const,
     })),
   });
 }

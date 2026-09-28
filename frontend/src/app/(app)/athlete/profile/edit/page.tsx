@@ -1,5 +1,6 @@
 import { BackLink } from "@/components/back-link";
 import { ProfileEditor } from "@/components/profile-editor";
+import { BlockedNotice } from "@/components/ui";
 
 /* --------------------------------------------------------------------------
    Edit profile — §11 sections as an in-portal hub (2026-09-14).
@@ -49,6 +50,16 @@ export default async function ProfileEditPage({
           usually within a business day. In this prototype, edits live in this
           tab only.
         </p>
+      </div>
+
+      {/* P7-QA-02: the editor is seeded from fixtures (P3-FE-03 wires it) —
+          the follower counts, rate card and completion % are a sample
+          athlete's, and must not read as the signed-in athlete's own. */}
+      <div className="mt-3">
+        <BlockedNotice>
+          Demo data — the values in this editor are a sample profile, not
+          yours. Your real details are on Your profile.
+        </BlockedNotice>
       </div>
 
       <div className="mt-6">

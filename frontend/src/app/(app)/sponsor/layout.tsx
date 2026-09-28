@@ -1,6 +1,7 @@
+import { currentUser } from "@clerk/nextjs/server";
+
 import { requirePortalAccess } from "@/server/portal";
 import { PortalShell, type NavItem } from "@/components/portal-shell";
-import { sponsor } from "@/lib/fixtures";
 
 /* Sidebar matches the mockup's nine items. Those without a route yet are
    flagged `pending` and render as inert text rather than dead links. */
@@ -23,16 +24,28 @@ const NAV: NavItem[] = [
 
    Which rows this portal may then read is scope.ts, applied per query. */
 export default async function SponsorLayout({ children }: LayoutProps<"/sponsor">) {
-  await requirePortalAccess("sponsor");
+  const actor = await requirePortalAccess("sponsor");
+
+  /* P7-QA-02 — the athlete layout's rule (P3-FE-03): the chrome greets the
+     person who signed in, from Clerk, never the fixture "Under Armour / John
+     Smith". The org line is left to the shell (it falls back to the user's
+     name) until the sponsor's own name is resolved here; with no Clerk
+     name set it falls back to the email, never to a fixture. */
+  const user = await currentUser();
+  const clerkName = [user?.firstName, user?.lastName].filter(Boolean).join(" ");
+  const role = actor.roles.includes("SPONSOR_ADMIN")
+    ? "Sponsor Admin"
+    : actor.roles.includes("SPONSOR_ANALYST")
+      ? "Sponsor Analyst"
+      : "BTG preview";
 
   return (
     <PortalShell
       portal="sponsor"
       nav={NAV}
       rootHref="/sponsor"
-      orgName={sponsor.name}
-      userName={sponsor.contactName}
-      userRole={sponsor.role}
+      userName={clerkName || user?.primaryEmailAddress?.emailAddress || "Sponsor"}
+      userRole={role}
     >
       {children}
     </PortalShell>

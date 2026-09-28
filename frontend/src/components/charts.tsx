@@ -674,8 +674,14 @@ export function FunnelSteps({
     <Reveal className="space-y-0.5">
       {stages.map((s, i) => {
         const pct = Math.max((s.value / max) * 100, 14);
+        /* A conversion from an empty stage is undefined, not a number — a
+           live funnel with no scans yet printed "↓ NaN%" (found by P7-QA-01). */
         const conv =
-          i > 0 ? Math.round((s.value / stages[i - 1].value) * 100) : null;
+          i === 0
+            ? null
+            : stages[i - 1].value > 0
+              ? `${Math.round((s.value / stages[i - 1].value) * 100)}%`
+              : "—";
         return (
           <div key={s.label}>
             {conv !== null && (
@@ -683,7 +689,7 @@ export function FunnelSteps({
                 className="sx-viz-fade py-0.5 pl-2 text-[10px] text-faint"
                 style={vizDelay(i * 0.11 + 0.15)}
               >
-                ↓ {conv}%
+                ↓ {conv}
               </p>
             )}
             <div className="flex items-center gap-2">

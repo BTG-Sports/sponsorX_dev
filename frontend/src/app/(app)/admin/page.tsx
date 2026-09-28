@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Badge, Card, SectionHeading } from "@/components/ui";
+import { Badge, BlockedNotice, Card, SectionHeading } from "@/components/ui";
 import { HBarList, Sparkline } from "@/components/charts";
 import { HeroBand, MiniChip } from "@/components/hero";
 import { QueueTicker } from "@/components/queue-ticker";
@@ -145,6 +145,15 @@ export default async function AdminHomePage({
       {/* ---------------------------------------------------------- headline */}
       {heading}
 
+      {/* P7-QA-02: the board has no live read yet (P2-FE-01) — every figure
+          below is fixtures.ts, and the chips name the path each WILL read.
+          The campaign rows link to the live list, not fixture ids c1…c5. */}
+      <BlockedNotice>
+        Demo data — the Operations Board isn&rsquo;t wired to live reads yet, so
+        every figure below is sample data. Live figures: Campaigns, Network,
+        Finance, Analytics and Integrations.
+      </BlockedNotice>
+
       {/* -------------------------------------------------------- hero band */}
       <HeroBand className="sx-animate" border="border-admin/25">
         <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
@@ -222,7 +231,7 @@ export default async function AdminHomePage({
             {sponsorCampaigns.map((c) => (
               <li key={c.id}>
                 <Link
-                  href={`/admin/campaigns/${c.id}`}
+                  href="/admin/campaigns"
                   className="flex items-center justify-between gap-3 rounded-lg px-2 py-1.5 text-[11px] transition-colors hover:bg-surface-2"
                 >
                   <span className="min-w-0 truncate font-medium">{c.name}</span>

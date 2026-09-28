@@ -10,10 +10,11 @@ import {
   FilterChip,
   SearchInput,
 } from "@/components/filter-kit";
-import type {
-  DeskApp,
-  ReviewActionKind,
-  ReviewActionResult,
+import {
+  activationBlock,
+  type DeskApp,
+  type ReviewActionKind,
+  type ReviewActionResult,
 } from "@/lib/applications-live";
 import {
   AGING_HOURS,
@@ -582,6 +583,12 @@ function ReviewDrawer({
       if (kind !== "begin") setDone(kind);
     } else {
       setErr(result.message);
+      /* A stale click (F-10): the API said where the row really is, so adopt
+         it — the buttons for the old state disappear with it. */
+      if (result.state) {
+        onLiveState(result.state);
+        setArmReject(false);
+      }
     }
   };
 
@@ -823,6 +830,12 @@ function ReviewDrawer({
                     Going live for paid work is a separate activation step.
                   </p>
                 )}
+                {done === "activate" && (
+                  <p className="sx-pop mb-3 rounded-lg border border-accent/25 bg-accent/8 px-3 py-2.5 text-xs leading-relaxed text-text">
+                    {a.name} is active — live in the network and able to take
+                    paid work.
+                  </p>
+                )}
                 {done === "changes" && (
                   <p className="sx-pop mb-3 rounded-lg border border-line bg-surface-2/60 px-3 py-2.5 text-xs leading-relaxed text-text">
                     Sent back — the athlete receives your notes and can update
@@ -925,6 +938,30 @@ function ReviewDrawer({
                   </div>
                 </>
               )}
+
+              {s === "APPROVED" && done !== "activate" && (() => {
+                /* B1's last step (§21 APPROVED → ACTIVE). The API refuses a
+                   minor without a verified guardian for every caller; the
+                   desk says so first rather than offering a button that 409s. */
+                const why = activationBlock(a, s);
+                return (
+                  <>
+                    <p className="mb-3 text-[11px] leading-relaxed text-muted">
+                      {why ??
+                        "Approved. Activating puts this athlete live — sponsors can then invite them to paid work."}
+                    </p>
+                    <button
+                      type="button"
+                      disabled={busy !== null || why !== null}
+                      title={why ?? undefined}
+                      onClick={() => decide("activate")}
+                      className="inline-flex w-full items-center justify-center rounded-lg bg-primary px-3.5 py-2 text-xs font-medium text-cta-ink transition-colors hover:bg-primary-soft disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      {busy === "activate" ? "Activating…" : "Activate athlete"}
+                    </button>
+                  </>
+                );
+              })()}
 
               <p className="mt-3 text-[10px] leading-relaxed text-faint">
                 Decisions are recorded and audited, and the athlete is emailed

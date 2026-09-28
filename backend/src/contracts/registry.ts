@@ -35,6 +35,7 @@ import {
 } from "./deliverable";
 import {
   RewardClaimInput,
+  RewardEligibility,
   RewardEventType,
   RewardFunnel,
   RewardInput,
@@ -105,6 +106,7 @@ import {
   AthleteApplicationSummary,
   AthleteState,
   SocialAccount,
+  SocialAccountIntake,
 } from "./athlete";
 
 /**
@@ -133,6 +135,7 @@ registry.register("Provenance", Provenance);
 
 registry.register("AthleteState", AthleteState);
 registry.register("SocialAccount", SocialAccount);
+registry.register("SocialAccountIntake", SocialAccountIntake);
 registry.register("AthleteApplicationInput", AthleteApplicationInput);
 registry.register("AthleteApplicationReview", AthleteApplicationReview);
 
@@ -191,6 +194,7 @@ registry.register("CreativeAssetInput", CreativeAssetInput);
 
 registry.register("RewardState", RewardState);
 registry.register("RewardEventType", RewardEventType);
+registry.register("RewardEligibility", RewardEligibility);
 registry.register("RewardInput", RewardInput);
 registry.register("RewardTransitionInput", RewardTransitionInput);
 registry.register("RewardTokenInput", RewardTokenInput);
@@ -323,7 +327,7 @@ const PATHS: Row[] = [
   { method: "get", path: "/tracking-links/{id}/clicks", tag: "Tracking", summary: "Click counts for a tracking link." },
   { method: "get", path: "/public/tracking/{code}", tag: "Public", summary: "Resolve a tracking code to its destination.", auth: false, response: TrackingDestination },
   { method: "post", path: "/public/tracking/{code}/click", tag: "Public", summary: "Record a click.", auth: false, status: 202 },
-  { method: "get", path: "/public/rewards/{token}", tag: "Public", summary: "What the fan's page shows — state, offer, consent wording. Writes nothing (P6-FE-02).", auth: false },
+  { method: "get", path: "/public/rewards/{token}", tag: "Public", summary: "What the fan's page shows — state (incl. EXHAUSTED once no unit is left for this code), offer, eligibility, landing copy, consent wording, this code's hold (QA-09) and redemptions. Writes nothing (P6-FE-02, P6-BE-08).", auth: false },
   { method: "get", path: "/audit-log", tag: "Audit", summary: "The critical-mutation history, newest first, filterable by entity, record, actor and action; keyset-paged, read-only (P8-FE-02)." },
   { method: "get", path: "/operations/integration-health", tag: "Operations", summary: "Dependencies, Zoho sync state, inbound webhook deliveries (no payloads) and outbox / worker queue health for the caller's tenant (P8-FE-01)." },
   { method: "get", path: "/operations/analytics", tag: "Operations", summary: "The analytics story for the last ?days= (7/30/90): the four-event funnel, daily claims/redemptions, scan locations, offers, and per-athlete performance by provenance — recomputed from rows (P6-FE-03, P7-FE-04)." },
@@ -402,8 +406,8 @@ const PATHS: Row[] = [
   { method: "get", path: "/catalogue/jobs", tag: "Catalogue", summary: "The NIL job catalogue at sponsor price bands — never base pay (P4-FE-01)." },
   { method: "post", path: "/public/rewards/{token}/scan", tag: "Public", summary: "A fan scanned the QR.", auth: false, status: 201 },
   { method: "post", path: "/public/rewards/{token}/landing", tag: "Public", summary: "The fan's reward page rendered.", auth: false, status: 201 },
-  { method: "post", path: "/public/rewards/{token}/claim", tag: "Public", summary: "A fan claims the reward (email optional, consent versioned).", auth: false, body: RewardClaimInput, status: 201 },
-  { method: "post", path: "/public/rewards/{token}/redeem", tag: "Public", summary: "Redeem at the till — single use.", auth: false, status: 201 },
+  { method: "post", path: "/public/rewards/{token}/claim", tag: "Public", summary: "A fan claims the reward (email optional, consent versioned). On a capped reward the claim reserves one unit for the code until `heldUntil` (claim time + the reward's reserveMinutes); 410 when none is left to reserve (QA-09).", auth: false, body: RewardClaimInput, status: 201 },
+  { method: "post", path: "/public/rewards/{token}/redeem", tag: "Public", summary: "Redeem at the till — a used single-use code is 409 (checked first); multi-use codes redeem repeatedly; within the cap (410) a code holding a claim's reservation always redeems. Decided in one database call under a row lock (P6-BE-08, QA pass 5); 503 when saturated.", auth: false, status: 201 },
   { method: "post", path: "/public/unsubscribe/{token}", tag: "Public", summary: "A fan withdraws consent — one tap, no login (P6-SEC-03).", auth: false, response: z.object({ withdrawn: z.boolean() }) },
 
   // money, metrics, reporting (B7)

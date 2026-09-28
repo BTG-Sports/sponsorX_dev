@@ -241,7 +241,7 @@ export function AnalyticsStory({
       }));
 
   return (
-    <div className="grid gap-6 xl:grid-cols-[10.5rem_minmax(0,1fr)]">
+    <div className="grid grid-cols-1 gap-6 xl:grid-cols-[10.5rem_minmax(0,1fr)]">
       {/* ------------------------------------------------- rail (xl and up) */}
       <nav
         aria-label="Chapters"
@@ -336,8 +336,11 @@ export function AnalyticsStory({
         </div>
 
         {/* Keyed by range: CountUp animates once per mount, and the entrance
-            choreography should replay when the data changes under you. */}
-        <div key={range} className="space-y-10">
+            choreography should replay when the data changes under you.
+            overflow-wrap:anywhere (inherited) — the insight sentences quote
+            a sponsor's offer text, and one long unbroken word used to push
+            the page sideways at 390 and 768 px (F-03, QA pass 5). */}
+        <div key={range} className="min-w-0 space-y-10 [overflow-wrap:anywhere]">
           {/* ------------------------------------------ ch 1: what happened */}
           <Chapter id="what-happened" no={1} title="What happened">
             <InsightBanner
@@ -350,7 +353,7 @@ export function AnalyticsStory({
                 </p>
               }
             />
-            <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
               <Kpi
                 label="QR Scans"
                 value={scans}
@@ -438,7 +441,7 @@ export function AnalyticsStory({
           </Chapter>
 
           {/* --------------------------------------- ch 3 + 4, side by side */}
-          <div className="grid gap-6 gap-y-10 lg:grid-cols-2">
+          <div className="grid grid-cols-1 gap-6 gap-y-10 lg:grid-cols-2">
             <Chapter id="where" no={3} title="Where" fill>
               <InsightBanner insight={locationInsight(locations)} />
               <Card className="flex flex-1 flex-col">
@@ -553,9 +556,9 @@ export function AnalyticsStory({
                 </table>
               </div>
               <p className="border-t border-line px-4 py-3 text-[10px] leading-relaxed text-faint">
-                ⓘ §22&rsquo;s layers side by side: views &amp; engagement come
-                from platform APIs and carry their own data-quality label per
-                row; claims &amp; redemptions are our §16 event rows
+                ⓘ §22&rsquo;s layers side by side: views &amp; engagement are
+                verified, self-reported or estimated, and carry their own
+                data-quality label per row; claims &amp; redemptions are our §16 event rows
                 (Postgres); Score is the §14 Content Value Score. No unlabeled
                 numbers.
               </p>

@@ -1,4 +1,4 @@
-import { Badge, Button, Card, Meter, SectionHeading } from "@/components/ui";
+import { BlockedNotice, Badge, Button, Card, Meter, SectionHeading } from "@/components/ui";
 import { HeroBand } from "@/components/hero";
 import { EmptyState, SkeletonPage } from "@/components/states";
 import { demoState } from "@/lib/demo";
@@ -119,6 +119,16 @@ export default async function RightsLedgerPage({
   return (
     <div className="space-y-6">
       {heading}
+
+      {/* P7-QA-02: without ?demo= this fixture render reaches only signed-in
+          staff outside NEXT_DESK_ROLES (CAMPAIGN_MGR, NETWORK_MGR) — the
+          edition, rack and split figures below are sample data. */}
+      {!demo && (
+        <BlockedNotice>
+          Demo data — your role doesn&rsquo;t read the live NEXT edition ledger,
+          so every figure below is a sample edition&rsquo;s.
+        </BlockedNotice>
+      )}
 
       {/* -------------------------------------------- coverage per use */}
       <HeroBand border="border-next/30" className="sx-animate">

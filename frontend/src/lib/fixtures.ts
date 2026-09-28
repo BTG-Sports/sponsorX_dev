@@ -826,7 +826,7 @@ export const roiReport = {
     { label: "Revenue Attributed", value: "$52,500", source: "ATTRIBUTED" as const },
   ],
   right: [
-    { label: "Media Value", value: "$32,936", source: "ESTIMATED" as const },
+    { label: "Views priced at curated CPM", value: "$32,936", source: "ESTIMATED" as const },
     // Derived from Investment ÷ the rollups above, so they take the weakest
     // input — taxonomy §4.1. Verified investment ÷ self-reported views is not
     // a verified cost.
@@ -1561,9 +1561,9 @@ export const athleteCareer = {
   payoutRingPct: 23,
   /** Deliverable due vs submitted timestamps — Postgres */
   onTimeRatePct: 96,
-  /** Σ AthleteSocial.followers — VERIFIED_MANUAL → platform APIs (sync-social-metrics) */
+  /** Σ AthleteSocial.followers — a rollup takes its WEAKEST input (taxonomy §4.2): the socials include SELF_REPORTED rows, so SELF_REPORTED (P7-QA-02) */
   followers: 128_400,
-  followersSource: "VERIFIED_MANUAL" as const,
+  followersSource: "SELF_REPORTED" as const,
   engagementRatePct: 4.8,
   openInvites: 2,
   openInviteValueCents: 1_900_000,

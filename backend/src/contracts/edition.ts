@@ -1,4 +1,4 @@
-import { z } from "./zod";
+import { INT4_MAX, z } from "./zod";
 
 import { EDITION_STATES } from "../domain/edition-state";
 import { ENGAGEMENT_TYPES, TARGET_KINDS } from "../domain/edition";
@@ -40,7 +40,7 @@ export const EditionInput = z
     printDate: z.iso.datetime().nullable().optional(),
     pageCount: z.number().int().positive().max(500).nullable().optional(),
     /** cents — the minimum viable edition */
-    thresholdCents: z.number().int().nonnegative(),
+    thresholdCents: z.number().int().nonnegative().max(INT4_MAX),
   })
   .meta({ id: "EditionInput" });
 
@@ -58,7 +58,7 @@ export const AdSlotInput = z
     slotCode: z.string().min(1).max(40),
     kind: AdSlotKind,
     /** cents — rack price */
-    priceCents: z.number().int().nonnegative(),
+    priceCents: z.number().int().nonnegative().max(INT4_MAX),
   })
   .meta({ id: "AdSlotInput" });
 

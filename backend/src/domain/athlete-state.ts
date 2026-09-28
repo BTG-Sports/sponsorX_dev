@@ -59,17 +59,23 @@ const TRANSITIONS: Readonly<Record<AthleteState, readonly AthleteState[]>> = {
 
 export class IllegalTransitionError extends Error {
   readonly status = 409;
+  /** A client branches on this, never on the sentence — the desk turns a
+   *  stale click into "already decided, refresh" (F-10, QA pass 5). */
+  readonly code = "illegal_transition";
+  readonly details: { from: AthleteState; to: AthleteState };
   constructor(from: AthleteState, to: AthleteState) {
     super(
       `An athlete cannot go from ${from} to ${to}. Legal moves from ${from}: ` +
         `${TRANSITIONS[from].join(", ") || "none — this is a terminal state"} (§21).`,
     );
     this.name = "IllegalTransitionError";
+    this.details = { from, to };
   }
 }
 
 export class GuardianRequiredError extends Error {
   readonly status = 409;
+  readonly code = "guardian_required";
   constructor(athleteId: string) {
     super(
       `Athlete ${athleteId} is a minor and cannot become ACTIVE until a ` +

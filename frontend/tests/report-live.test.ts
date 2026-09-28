@@ -16,12 +16,30 @@ const perf = (over: Partial<Record<"sr" | "est", number>> = {}) => ({
 });
 
 describe("reachLayers", () => {
+  it("wears no chip when no verified row exists (F-12)", () => {
+    const zero = perf();
+    const none = {
+      ...zero, verifiedViews: 0, verifiedEngagements: 0,
+      views: { ...zero.views, VERIFIED_API: 0, VERIFIED_MANUAL: 0 },
+      engagements: { ...zero.engagements, VERIFIED_API: 0, VERIFIED_MANUAL: 0 },
+    };
+    expect(reachLayers(none)[0].chip).toBeNull();
+  });
   it("shows verified alone when that's all there is", () => {
     expect(reachLayers(perf()).map((l) => [l.key, l.views])).toEqual([["verified", 7300]]);
   });
   it("adds self-reported and estimated as their own layers, never into verified", () => {
     const l = reachLayers(perf({ sr: 9999, est: 500 }));
     expect(l.map((x) => [x.key, x.views])).toEqual([["verified", 7300], ["self", 9999], ["estimated", 500]]);
+  });
+  it("labels the verified layer by its weakest part (P7-QA-02)", () => {
+    expect(reachLayers(perf())[0].chip).toBe("VERIFIED_MANUAL");
+    const apiOnly = {
+      ...perf(),
+      views: { ...perf().views, VERIFIED_MANUAL: 0 },
+      engagements: { ...perf().engagements, VERIFIED_MANUAL: 0 },
+    };
+    expect(reachLayers(apiOnly)[0].chip).toBe("VERIFIED_API");
   });
   it("keeps verified visible at zero", () => {
     expect(reachLayers({ ...perf(), verifiedViews: 0, verifiedEngagements: 0 })[0]).toMatchObject({ key: "verified", views: 0 });

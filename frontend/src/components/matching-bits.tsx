@@ -66,14 +66,20 @@ export function ProvenanceMark({
   source: ReachSource;
   withLabel?: boolean;
 }) {
-  const verified = source === "VERIFIED_API";
+  const verified = source !== "SELF_REPORTED";
   return (
     <span
       className={cx(
         "inline-flex items-center gap-1 text-[10px] font-medium",
         verified ? "text-success" : "text-warn",
       )}
-      title={verified ? "Platform-verified reach" : "Self-reported reach — unverified"}
+      title={
+        source === "VERIFIED_API"
+          ? "Platform-verified reach"
+          : source === "VERIFIED_MANUAL"
+            ? "Reach checked by BTG staff against evidence"
+            : "Self-reported reach — unverified"
+      }
     >
       <svg
         viewBox="0 0 24 24"

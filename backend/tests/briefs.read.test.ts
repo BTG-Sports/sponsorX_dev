@@ -156,6 +156,13 @@ describe("eligibleAthletes — the desk's columns", () => {
     expect("rates" in a).toBe(false);
   });
 
+  it("an ESTIMATED account keeps reach unverified; all-verified accounts earn it (P7-QA-02)", async () => {
+    athletes = [{ ...ROW, socials: [{ followers: 10_000, source: "VERIFIED_MANUAL" }, { followers: 5, source: "ESTIMATED" }] }];
+    expect((await eligibleAthletes(admin, {}))[0].reach).toEqual({ followers: 10_005, verified: false });
+    athletes = [{ ...ROW, socials: [{ followers: 10_000, source: "VERIFIED_MANUAL" }, { followers: 5, source: "VERIFIED_API" }] }];
+    expect((await eligibleAthletes(admin, {}))[0].reach).toEqual({ followers: 10_005, verified: true });
+  });
+
   it("reach is null, not zero, when no account reports followers", async () => {
     athletes = [{ ...ROW, socials: [{ followers: null, source: "SELF_REPORTED" }] }];
     const [a] = await eligibleAthletes(admin, {});

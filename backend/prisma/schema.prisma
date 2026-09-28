@@ -166,6 +166,20 @@ enum RewardState {
   ARCHIVED
 }
 
+/// Who a reward is for (§9 screen 10) — P6-BE-08.
+///
+/// The fan page has no login (§16), so the system knows nothing about the
+/// person holding the phone: none of these is checked by the API. They are
+/// what the page STATES and what booth staff are told to check before they
+/// tap redeem. The enum exists so the check is one of a small set a sponsor
+/// and a merchant can both read the same way, not free text.
+enum RewardEligibility {
+  ANYONE
+  AGE_18_PLUS
+  AGE_21_PLUS
+  TICKET_HOLDERS
+}
+
 /// Four distinct events across the fan journey (§16). Never one counter.
 enum RewardEventType {
   SCAN
@@ -836,6 +850,31 @@ model Reward {
   terms      String
   state      RewardState @default(DRAFT)
 
+  /// P6-BE-08 — who qualifies. Stated on the fan page and to booth staff;
+  /// see RewardEligibility for why the API cannot check it.
+  eligibility     RewardEligibility @default(ANYONE)
+  /// Optional detail beside it, e.g. "Show your wristband at the booth".
+  eligibilityNote String?
+  /// Most REDEEMs this reward may have across ALL its tokens; null =
+  /// unlimited. Enforced inside the `reward_redeem` / `reward_reserve`
+  /// database functions (migration 20260928140000), never by the page.
+  redemptionCap   Int?
+  /// REDEEM rows across every token — what the cap is checked against. Kept
+  /// by a trigger on RewardEvent (insert and delete), so no write path can
+  /// let it drift from the rows; never written by application code. CAPPED
+  /// rewards only (0 when uncapped): counting an uncapped reward would lock
+  /// its row on every redeem. An edit that adds a cap must recount first.
+  redeemedCount   Int     @default(0)
+  /// How long a CLAIM on a capped reward holds a unit for that fan (QA-09,
+  /// 2026-09-28): the unit is theirs until claimedAt + this, then it is
+  /// released. 5 min – 7 days, CHECK-constrained. Ignored when uncapped.
+  reserveMinutes  Int     @default(60)
+  /// The fan page's own words; null falls back to the page's default copy.
+  /// Consent wording is deliberately NOT here — it is versioned centrally
+  /// (fan-consent.ts, P6-SEC-01) so the claim records the text the fan saw.
+  landingHeadline String?
+  landingSubhead  String?
+
   campaign Campaign      @relation(fields: [campaignId], references: [id])
   tokens   RewardToken[]
 
@@ -852,16 +891,22 @@ model RewardToken {
   token     String  @unique
   /// R2 object in the private bucket.
   qrKey     String?
+  /// QA-09 — the unit this token's CLAIM reserved on a capped reward is held
+  /// until this instant. Set by `reward_reserve`, cleared by the redeem that
+  /// uses it; a past value is a lapsed hold (kept so the fan page can say so).
+  reservedUntil DateTime?
 
   reward  Reward        @relation(fields: [rewardId], references: [id])
   athlete Athlete?      @relation(fields: [athleteId], references: [id])
   events  RewardEvent[]
 
   @@index([tenantId])
+  @@index([rewardId, reservedUntil])
 }
 
 /// One row per event. The single-use rule is enforced by a partial unique
-/// index on (tokenId) WHERE type = 'REDEEM' — P2-BE-03, not this file. An
+/// index on (tokenId) WHERE type = 'REDEEM' AND "singleUse" IS NOT FALSE —
+/// P2-BE-03, narrowed to single-use rewards by QA-04; not this file. An
 /// application-level "already redeemed?" check loses the race; an index does
 /// not.
 model RewardEvent {
@@ -911,6 +956,11 @@ model RewardEvent {
   sponsorContactWithdrawnAt DateTime?
   /// The Zoho Lead this claim became (2S6-INT-03), once pushed.
   zohoLeadId                String?   @unique
+  /// On REDEEM rows only: the reward's singleUse, copied at the moment of
+  /// redemption so the partial unique index `reward_single_redeem` can see
+  /// it (QA-04). `IS NOT FALSE` is guarded — a REDEEM written without it is
+  /// treated as single-use, the safe default.
+  singleUse                 Boolean?
 
   token RewardToken @relation(fields: [tokenId], references: [id])
 

@@ -1,8 +1,6 @@
-import { currentUser } from "@clerk/nextjs/server";
-
 import { requirePortalAccess } from "@/server/portal";
 import { PortalShell, type NavItem } from "@/components/portal-shell";
-import { athlete } from "@/lib/fixtures";
+import { roleLabel, viewerName } from "@/server/viewer";
 
 const NAV: NavItem[] = [
   { href: "/athlete", label: "Dashboard", icon: "grid" },
@@ -23,11 +21,10 @@ export default async function AthleteLayout({ children }: LayoutProps<"/athlete"
 
   /* The chrome greets the person who signed in, from Clerk — identity is
      Clerk's job, and the fixture athlete greeting a REAL athlete was the one
-     fixture leak left on a wired page (P3-FE-03). The fixture name remains
-     only for identities with no name set (and BTG preview stays honest: an
-     admin previewing this portal is greeted as themselves). */
-  const user = await currentUser();
-  const clerkName = [user?.firstName, user?.lastName].filter(Boolean).join(" ");
+     fixture leak left on a wired page (P3-FE-03). With no name set it falls
+     back to the email, never to the fixture (F-06, QA pass 5), and BTG
+     preview stays honest: an admin previewing this portal is greeted as
+     themselves, with their own roles. */
   const isAthlete = actor.roles.includes("ATHLETE");
 
   return (
@@ -35,8 +32,8 @@ export default async function AthleteLayout({ children }: LayoutProps<"/athlete"
       portal="athlete"
       nav={NAV}
       rootHref="/athlete"
-      userName={clerkName || athlete.displayName}
-      userRole={isAthlete ? "Content Partner" : `${athlete.tier} · Content Partner`}
+      userName={await viewerName("Athlete")}
+      userRole={isAthlete ? "Content Partner" : `${roleLabel(actor.roles)} · preview`}
     >
       {children}
     </PortalShell>

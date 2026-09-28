@@ -41,9 +41,12 @@ import {
 import { readUnsubscribeToken, unsubscribeUrl } from "../lib/unsubscribe-token";
 import {
   canTransitionReward,
+  cleanCopy,
   IllegalRewardTransitionError,
   isRewardLive,
+  RESERVE_MINUTES,
   REWARD_EVENT_TYPES,
+  type RewardEligibility,
   type RewardEventType,
   type RewardState,
 } from "./reward-state";
@@ -93,14 +96,96 @@ export class AlreadyRedeemedError extends Error {
   }
 }
 
-/** Prisma's unique-constraint code. Checked structurally rather than by
+/**
+ * The reward's redemption cap is used up — P6-BE-08.
+ *
+ * 410, not 409: a 409 on redeem already means "this code was used", and the
+ * fan page words the two differently. This one is about the offer, not the
+ * code — every token on the reward is now spent, whoever holds it.
+ */
+export class RewardExhaustedError extends Error {
+  readonly status = 410;
+  constructor() {
+    super("This reward has run out — every redemption it offered has been used.");
+    this.name = "RewardExhaustedError";
+  }
+}
+
+/** F-09 — a reward whose expiry has already passed could never be used. */
+export class RewardExpiryInPastError extends Error {
+  readonly status = 400;
+  readonly code = "expiry_in_past";
+  constructor() {
+    super("The expiry is in the past — pick a date and time that hasn't happened yet.");
+    this.name = "RewardExpiryInPastError";
+  }
+}
+
+/** F-09 — going live after the expiry would put up an offer that is over. */
+export class RewardExpiredCannotGoLiveError extends Error {
+  readonly status = 409;
+  readonly code = "reward_expired";
+  constructor() {
+    super("This reward's expiry has passed, so it can't go live. End it, or create a new reward with a later expiry.");
+    this.name = "RewardExpiredCannotGoLiveError";
+  }
+}
+
+/**
+ * The database is saturated — QA-01's fail-fast. A public fan endpoint that
+ * cannot get a connection answers 503 "try again" (the fan page shows its
+ * retry screen) rather than a bare 500, and never hangs.
+ */
+export class RewardServiceBusyError extends Error {
+  readonly status = 503;
+  readonly code = "busy";
+  readonly retryAfter = 2;
+  constructor() {
+    super("The reward service is busy — try again in a moment.");
+    this.name = "RewardServiceBusyError";
+  }
+}
+
+/** The Postgres SQLSTATE behind a Prisma error, where there is one — a raw
+ *  query through the pg driver adapter reports it as P2010 with the
+ *  original code nested in `meta.driverAdapterError.cause`. */
+function sqlState(error: unknown): string | undefined {
+  const e = error as { meta?: { code?: unknown; driverAdapterError?: { cause?: { originalCode?: unknown } } }; cause?: { code?: unknown } };
+  const c = e?.meta?.driverAdapterError?.cause?.originalCode ?? e?.meta?.code ?? e?.cause?.code;
+  return typeof c === "string" ? c : undefined;
+}
+
+function prismaCode(error: unknown): unknown {
+  return typeof error === "object" && error !== null ? (error as { code?: unknown }).code : undefined;
+}
+
+/** A unique violation — Prisma's P2002 from a model call, or Postgres'
+ *  23505 surfacing through a raw query. Checked structurally rather than by
  *  message, which changes between versions. */
 function isUniqueViolation(error: unknown): boolean {
-  return (
-    typeof error === "object" && error !== null && "code" in error &&
-    (error as { code: unknown }).code === "P2002"
-  );
+  return prismaCode(error) === "P2002" || sqlState(error) === "23505";
 }
+
+/** Busy, not broken: the pool is exhausted (P2024), an interactive
+ *  transaction could not start in time (P2028), or a reward function gave
+ *  up waiting on the row lock (55P03, its `lock_timeout`). */
+function isBusy(error: unknown): boolean {
+  const code = prismaCode(error);
+  return code === "P2024" || code === "P2028" || sqlState(error) === "55P03";
+}
+
+async function failFast<T>(fn: () => Promise<T>): Promise<T> {
+  try {
+    return await fn();
+  } catch (error) {
+    if (isBusy(error)) throw new RewardServiceBusyError();
+    throw error;
+  }
+}
+
+/** A JS instant as the `timestamp(3)` (UTC wall time) Prisma stores — the
+ *  literal's `Z` is ignored by a `timestamp without time zone` cast. */
+const sqlTs = (d: Date) => d.toISOString();
 
 /* ────────────────────────────────────────────────────────────────────────────
    P6-BE-02 · Rewards and tokens
@@ -117,6 +202,11 @@ export function generateToken(): string {
   return randomBytes(20).toString("base64url");
 }
 
+/** Blank optional copy is "not set": stored null, so the page falls back to
+ *  its default wording rather than rendering an empty headline. Blank
+ *  includes invisible-only — zero-width characters survive `.trim()` (QA-07). */
+const copyOrNull = cleanCopy;
+
 export async function createReward(
   actor: Actor,
   input: {
@@ -125,9 +215,28 @@ export async function createReward(
     terms: string;
     expiresAt: Date;
     singleUse?: boolean;
+    /* P6-BE-08 */
+    eligibility?: RewardEligibility;
+    eligibilityNote?: string | null;
+    redemptionCap?: number | null;
+    landingHeadline?: string | null;
+    landingSubhead?: string | null;
+    /* QA-09 */
+    reserveMinutes?: number;
   },
+  now = new Date(),
 ): Promise<{ id: string; state: RewardState }> {
   assertTenantWide(actor, "reward", "write");
+  /* F-09 — refused before anything is written: an offer that is already
+     over could only ever show fans "expired", yet the desk would offer to
+     put it live. */
+  if (input.expiresAt.getTime() <= now.getTime()) throw new RewardExpiryInPastError();
+  const offerText = cleanCopy(input.offerText);
+  const terms = cleanCopy(input.terms);
+  /* The contract refuses these first; this is the rule for every caller. */
+  if (!offerText || !terms) {
+    throw Object.assign(new Error("The offer and the terms can't be blank."), { status: 400, code: "blank_copy" });
+  }
 
   return prisma.$transaction(async (tx) => {
     const campaign = await tx.campaign.findFirst({
@@ -140,10 +249,16 @@ export async function createReward(
       data: {
         tenantId: campaign.tenantId,
         campaignId: campaign.id,
-        offerText: input.offerText,
-        terms: input.terms,
+        offerText,
+        terms,
         expiresAt: input.expiresAt,
+        reserveMinutes: input.reserveMinutes ?? RESERVE_MINUTES.default,
         singleUse: input.singleUse ?? true,
+        eligibility: input.eligibility ?? "ANYONE",
+        eligibilityNote: copyOrNull(input.eligibilityNote),
+        redemptionCap: input.redemptionCap ?? null,
+        landingHeadline: copyOrNull(input.landingHeadline),
+        landingSubhead: copyOrNull(input.landingSubhead),
         /* Always DRAFT. A reward that arrived already ACTIVE would be live
            before anyone read the terms it commits a merchant to. */
         state: "DRAFT",
@@ -152,7 +267,13 @@ export async function createReward(
     });
 
     await audit(tx, actor, AUDIT_ACTIONS.reward.create, "Reward", reward.id, {
-      after: { campaignId: campaign.id, expiresAt: input.expiresAt.toISOString() },
+      after: {
+        campaignId: campaign.id,
+        expiresAt: input.expiresAt.toISOString(),
+        eligibility: input.eligibility ?? "ANYONE",
+        redemptionCap: input.redemptionCap ?? null,
+        reserveMinutes: input.reserveMinutes ?? RESERVE_MINUTES.default,
+      },
     });
 
     return { id: reward.id, state: reward.state as RewardState };
@@ -163,18 +284,23 @@ export async function transitionReward(
   actor: Actor,
   rewardId: string,
   to: RewardState,
+  now = new Date(),
 ): Promise<{ id: string; state: RewardState }> {
   assertTenantWide(actor, "reward", "write");
 
   return prisma.$transaction(async (tx) => {
     const reward = await tx.reward.findFirst({
       where: { ...whereFor(actor, "reward", "write"), id: rewardId },
-      select: { id: true, state: true },
+      select: { id: true, state: true, expiresAt: true },
     });
     if (!reward) throw new ForbiddenError("reward", "write");
 
     const from = reward.state as RewardState;
     if (!canTransitionReward(from, to)) throw new IllegalRewardTransitionError(from, to);
+    /* F-09 — "Go live" / "Resume" on an offer whose date has passed. */
+    if (to === "ACTIVE" && reward.expiresAt.getTime() <= now.getTime()) {
+      throw new RewardExpiredCannotGoLiveError();
+    }
 
     const updated = await tx.reward.update({
       where: { id: rewardId },
@@ -297,6 +423,40 @@ function assertUsable(ctx: TokenContext, now: Date): void {
 }
 
 /**
+ * The shared outcomes of `reward_redeem` / `reward_reserve` that are
+ * refusals, as the domain's errors.
+ */
+function refusal(outcome: string, state: string | null): Error | null {
+  switch (outcome) {
+    case "UNKNOWN": return new UnknownTokenError();
+    case "NOT_LIVE": return new RewardNotLiveError((state ?? "PAUSED") as RewardState);
+    case "EXPIRED": return new RewardExpiredError();
+    case "EXHAUSTED": return new RewardExhaustedError();
+    case "ALREADY_USED": return new AlreadyRedeemedError();
+    default: return null;
+  }
+}
+
+/**
+ * QA-09 — a claim on a capped reward reserves one unit for this token
+ * (`reward_reserve`, one database call, the Reward row lock held only inside
+ * it). Returns the hold's deadline, `fresh` when this call made it; null for
+ * an uncapped reward, which has nothing to hold.
+ */
+async function reserveUnit(token: string, now: Date): Promise<{ until: Date; fresh: boolean } | null> {
+  const [row] = await prisma.$queryRaw<{ outcome: string; held_until: Date | string | null; reward_state: string | null }[]>`
+    SELECT outcome, to_char(held_until, 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') AS held_until, reward_state
+    FROM reward_reserve(${token}, ${sqlTs(now)}::timestamp)`;
+  if (!row) throw new Error("reward_reserve returned no row");
+  const refused = refusal(row.outcome, row.reward_state);
+  if (refused) throw refused;
+  if (row.outcome === "HELD" || row.outcome === "HELD_NEW") {
+    return { until: new Date(String(row.held_until)), fresh: row.outcome === "HELD_NEW" };
+  }
+  return null; /* UNCAPPED, or NONE (a used single-use code) */
+}
+
+/**
  * Write one event of one type.
  *
  * ONE ROW PER MOMENT — never an incremented counter. §16's funnel is
@@ -341,21 +501,21 @@ async function writeEvent(
 
 /** The QR resolved. First moment of the funnel. */
 export async function recordScan(token: string, now = new Date()) {
-  return prisma.$transaction(async (tx) => {
+  return failFast(() => prisma.$transaction(async (tx) => {
     const ctx = await contextFor(tx, token);
     assertUsable(ctx, now);
     return writeEvent(tx, ctx, "SCAN");
-  });
+  }));
 }
 
 /** The fan's page actually rendered. Distinct from SCAN: a scan that never
  *  reaches the page is a broken link, and collapsing the two hides that. */
 export async function recordLanding(token: string, now = new Date()) {
-  return prisma.$transaction(async (tx) => {
+  return failFast(() => prisma.$transaction(async (tx) => {
     const ctx = await contextFor(tx, token);
     assertUsable(ctx, now);
     return writeEvent(tx, ctx, "LANDING");
-  });
+  }));
 }
 
 /**
@@ -385,56 +545,93 @@ export async function recordClaim(
   const sponsorOk = sponsorContactFor(agreed, sponsorContact, now);
   const email = agreed ? fanEmail!.trim() : null;
 
-  return prisma.$transaction(async (tx) => {
-    const ctx = await contextFor(tx, token);
-    assertUsable(ctx, now);
+  /* QA-09 — on a capped reward the claim first RESERVES a unit, in its own
+     single database call, so the Reward row lock is never held across the
+     transaction below (QA-01). A reward with no unit left to set aside takes
+     no new claims (410) — the fan would be promised something the booth can
+     no longer give. */
+  const hold = await failFast(() => reserveUnit(token, now));
 
-    const event = await writeEvent(tx, ctx, "CLAIM", {
-      fanEmail: email,
-      consentVersion: agreed?.version ?? null,
-      consentAt: agreed?.at ?? null,
-      consentPurpose: agreed?.purpose ?? null,
-      sponsorContactVersion: sponsorOk?.version ?? null,
-      sponsorContactAt: sponsorOk?.at ?? null,
-    });
-
-    /* 2S6-INT-03 — a fan who ticked "the sponsor may contact me" becomes a
-       Zoho Lead, queued in this transaction and pushed by the worker, which
-       re-reads the claim through the consent filter (fan-leads.ts) — so a
-       withdrawal before the push means nothing is sent. No tick, no job. */
-    if (sponsorOk) {
-      await enqueue(tx, ctx.tenantId, "zoho.pushLead", { fanEventId: event.id });
+  try {
+    return await failFast(() => prisma.$transaction(async (tx) => {
+      const ctx = await contextFor(tx, token);
+      assertUsable(ctx, now);
+      const event = await claimInTx(tx, ctx, email, agreed, sponsorOk);
+      return { ...event, heldUntil: hold ? hold.until.toISOString() : null };
+    }));
+  } catch (error) {
+    /* A hold this call made, for a claim that was never recorded, is handed
+       back at once rather than blocking a unit until it lapses. */
+    if (hold?.fresh) {
+      await prisma.rewardToken
+        .updateMany({
+          /* tenant-scope: the public bearer token is the key, as above. */
+          where: { token, reservedUntil: hold.until },
+          data: { reservedUntil: null },
+        })
+        .catch(() => {});
     }
+    throw error;
+  }
+}
 
-    /* P6-INT-02. Idempotent through EmailSendLog's unique idempotencyKey:
-       the key is the TOKEN, not the event, so a fan who claims twice on one
-       token gets one email rather than two. */
-    if (agreed && mayContact(
-      { fanEmail: email, consentVersion: agreed.version, consentPurpose: agreed.purpose },
-      "reward-delivery" as ConsentPurpose,
-    )) {
-      await enqueue(tx, ctx.tenantId, "notify.email", {
-        tenantId: ctx.tenantId,
-        template: "reward.claimed",
-        to: email,
-        idempotencyKey: `reward.claimed:${ctx.tokenId}`,
-        /* P6-SEC-03. The consent record this email relies on — the worker
-           re-checks it for a withdrawal immediately before sending — and the
-           link that withdraws it, printed in the body and sent as the
-           List-Unsubscribe header. */
-        fanEventId: event.id,
-        data: {
-          code: ctx.token,
-          offerText: ctx.offerText,
-          terms: ctx.terms,
-          expiresOn: ctx.expiresAt.toISOString().slice(0, 10),
-          unsubscribeUrl: unsubscribeUrl(event.id),
-        },
-      });
-    }
-
-    return event;
+async function claimInTx(
+  tx: Prisma.TransactionClient,
+  ctx: TokenContext,
+  email: string | null,
+  agreed: ReturnType<typeof consentFor>,
+  sponsorOk: ReturnType<typeof sponsorContactFor>,
+): Promise<{ id: string; type: RewardEventType }> {
+  const event = await writeEvent(tx, ctx, "CLAIM", {
+    fanEmail: email,
+    consentVersion: agreed?.version ?? null,
+    consentAt: agreed?.at ?? null,
+    consentPurpose: agreed?.purpose ?? null,
+    sponsorContactVersion: sponsorOk?.version ?? null,
+    sponsorContactAt: sponsorOk?.at ?? null,
   });
+
+  /* 2S6-INT-03 — a fan who ticked "the sponsor may contact me" becomes a
+     Zoho Lead, queued in this transaction and pushed by the worker, which
+     re-reads the claim through the consent filter (fan-leads.ts) — so a
+     withdrawal before the push means nothing is sent. No tick, no job. */
+  if (sponsorOk) {
+    await enqueue(tx, ctx.tenantId, "zoho.pushLead", { fanEventId: event.id });
+  }
+
+  /* P6-INT-02. Idempotent through EmailSendLog's unique idempotencyKey:
+     the key is the TOKEN, not the event, so a fan who claims twice on one
+     token gets one email rather than two. */
+  if (agreed && mayContact(
+    { fanEmail: email, consentVersion: agreed.version, consentPurpose: agreed.purpose },
+    "reward-delivery" as ConsentPurpose,
+  )) {
+    await enqueue(tx, ctx.tenantId, "notify.email", {
+      tenantId: ctx.tenantId,
+      template: "reward.claimed",
+      to: email,
+      idempotencyKey: `reward.claimed:${ctx.tokenId}`,
+      /* P6-SEC-03. The consent record this email relies on — the worker
+         re-checks it for a withdrawal immediately before sending — and the
+         link that withdraws it, printed in the body and sent as the
+         List-Unsubscribe header. */
+      fanEventId: event.id,
+      data: {
+        code: ctx.token,
+        offerText: ctx.offerText,
+        terms: ctx.terms,
+        /* F-08 (QA pass 5): the fan page's convention — US Eastern, labelled —
+           not a bare UTC date that can be a day off in the evening. */
+        expiresOn: `${new Intl.DateTimeFormat("en-US", {
+          timeZone: "America/New_York", month: "short", day: "numeric", year: "numeric",
+          hour: "numeric", minute: "2-digit",
+        }).format(ctx.expiresAt)} ET`,
+        unsubscribeUrl: unsubscribeUrl(event.id),
+      },
+    });
+  }
+
+  return event;
 }
 
 /**
@@ -495,15 +692,31 @@ export async function withdrawFanConsent(
 export type TokenView =
   | { state: "UNKNOWN" }
   | {
-      state: "LIVE" | "NOT_LIVE" | "EXPIRED" | "REDEEMED";
+      /** EXHAUSTED (P6-BE-08): the reward's redemption cap is used up. */
+      state: "LIVE" | "NOT_LIVE" | "EXPIRED" | "EXHAUSTED" | "REDEEMED";
       offerText: string;
       terms: string;
       expiresAt: string;
       claimed: boolean;
+      /** P6-BE-08 — who it is for, stated (never checked: no login, §16). */
+      eligibility: RewardEligibility;
+      eligibilityNote: string | null;
+      /** P6-BE-08 — the page's own words; null = the page's default copy. */
+      landing: { headline: string | null; subhead: string | null };
       consent: { version: string; purpose: string; text: string };
       /** 2S6-BE-03 — the optional second box's wording. The page renders it
        *  UNTICKED; the version it sends back is this one. */
       sponsorContact: { version: string; purpose: "sponsor-contact"; text: string };
+      /** QA-04 — false: the code redeems more than once (up to any cap). */
+      singleUse: boolean;
+      /** How many times THIS code has been redeemed. */
+      timesRedeemed: number;
+      /** When this code was last redeemed — the page honours its one-off
+       *  "Redeemed ✓" confirmation only right after it (F-07). */
+      lastRedeemedAt: string | null;
+      /** QA-09 — the unit this code's claim holds on a capped reward; `active`
+       *  false once it has lapsed. null when nothing is (or was) held. */
+      hold: { until: string; active: boolean } | null;
     };
 
 export async function viewToken(token: string, now = new Date()): Promise<TokenView> {
@@ -513,26 +726,56 @@ export async function viewToken(token: string, now = new Date()): Promise<TokenV
     where: { token },
     select: {
       id: true,
-      reward: { select: { state: true, expiresAt: true, singleUse: true, offerText: true, terms: true } },
-      /* Types only — never the address (P6-SEC-02). */
-      events: { where: { type: { in: ["CLAIM", "REDEEM"] } }, select: { type: true } },
+      tenantId: true,
+      rewardId: true,
+      reservedUntil: true,
+      reward: {
+        select: {
+          state: true, expiresAt: true, singleUse: true, offerText: true, terms: true,
+          eligibility: true, eligibilityNote: true, redemptionCap: true, redeemedCount: true,
+          landingHeadline: true, landingSubhead: true,
+        },
+      },
+      /* Types and times only — never the address (P6-SEC-02). */
+      events: { where: { type: { in: ["CLAIM", "REDEEM"] } }, select: { type: true, at: true } },
     },
   });
   if (!row) return { state: "UNKNOWN" };
-  const redeemed = row.reward.singleUse && row.events.some((e) => e.type === "REDEEM");
+  const r = row.reward;
+  const redemptions = row.events.filter((e) => e.type === "REDEEM");
+  const lastRedeemedAt = redemptions.reduce<Date | null>((m, e) => (!m || e.at > m ? e.at : m), null);
+  const redeemed = r.singleUse && redemptions.length > 0;
+  const live = isRewardLive(r.state as RewardState);
+  const expired = r.expiresAt.getTime() <= now.getTime();
+  const held = row.reservedUntil !== null && row.reservedUntil.getTime() > now.getTime();
+  /* Mirrors `reward_redeem`: a code holding a unit can always use it;
+     otherwise it needs a unit that is neither redeemed nor held by another
+     code. Only counted where it could change the answer — a capped reward
+     that is otherwise live. This fan's own "Redeemed ✓" outranks "run out". */
+  const exhausted =
+    !redeemed && live && !expired && r.redemptionCap !== null && !held &&
+    r.redeemedCount + (await prisma.rewardToken.count({
+      /* tenant-scope: the reward of the bearer token read above. */
+      where: { rewardId: row.rewardId, id: { not: row.id }, reservedUntil: { gt: now } },
+    })) >= r.redemptionCap;
   const state = redeemed
     ? "REDEEMED"
-    : !isRewardLive(row.reward.state as RewardState)
+    : !live
       ? "NOT_LIVE"
-      : row.reward.expiresAt.getTime() <= now.getTime()
+      : expired
         ? "EXPIRED"
-        : "LIVE";
+        : exhausted
+          ? "EXHAUSTED"
+          : "LIVE";
   return {
     state,
-    offerText: row.reward.offerText,
-    terms: row.reward.terms,
-    expiresAt: row.reward.expiresAt.toISOString(),
+    offerText: r.offerText,
+    terms: r.terms,
+    expiresAt: r.expiresAt.toISOString(),
     claimed: row.events.some((e) => e.type === "CLAIM"),
+    eligibility: r.eligibility as RewardEligibility,
+    eligibilityNote: r.eligibilityNote,
+    landing: { headline: r.landingHeadline, subhead: r.landingSubhead },
     consent: {
       version: CURRENT_CONSENT_VERSION,
       purpose: "reward-delivery",
@@ -543,6 +786,12 @@ export async function viewToken(token: string, now = new Date()): Promise<TokenV
       purpose: "sponsor-contact",
       text: SPONSOR_CONTACT_TEXT[CURRENT_SPONSOR_CONTACT_VERSION]!,
     },
+    singleUse: r.singleUse,
+    timesRedeemed: redemptions.length,
+    lastRedeemedAt: lastRedeemedAt?.toISOString() ?? null,
+    hold: r.redemptionCap !== null && row.reservedUntil
+      ? { until: row.reservedUntil.toISOString(), active: held }
+      : null,
   };
 }
 
@@ -553,38 +802,49 @@ export async function viewToken(token: string, now = new Date()): Promise<TokenV
 /**
  * Redeem a token at the till.
  *
- * THE RULE IS AN INDEX, NOT AN `IF`. `reward_single_redeem` is a partial
- * unique index on `RewardEvent (tokenId) WHERE type = 'REDEEM'`
- * (P2-BE-03's migration). This function ATTEMPTS the insert and catches the
- * unique violation — it deliberately does not check first.
+ * ONE DATABASE CALL DECIDES EVERYTHING — `reward_redeem(token, now)`,
+ * migration 20260928140000 (QA pass 5). It locks the Reward row, then reads
+ * the state, the expiry, this code's use, the redemptions and the other codes'
+ * holds as they are NOW, and inserts the REDEEM — all inside Postgres.
  *
- * A read-then-write check is the obvious implementation and it is wrong: two
- * merchants scanning the same code in the same second both read "not yet
- * redeemed", both write, and the offer is honoured twice. That is not a
- * hypothetical at a busy event; it is the normal case for a popular code. The
- * database can decide this atomically and application code cannot.
+ * Why not an interactive transaction (the P6-BE-08 design): a
+ * `SELECT … FOR UPDATE` there holds a pooled connection — and the lock —
+ * across several client round trips, so a burst of redeems on one capped
+ * reward queued every pooled connection on one row and the whole API answered
+ * 500 (QA-01). And it checked state and expiry before the lock, so a redeem
+ * that waited while the reward was paused still went through (QA-02). Inside
+ * the function the lock lasts microseconds and every read follows it.
  *
- * Note the order: usability is checked first so an expired or paused offer
- * gives its own message, but the single-use decision is left entirely to the
- * index.
+ * The rules, in the order they answer:
+ *   - unknown code 404; not ACTIVE 409; expired 409
+ *   - a used single-use code 409 "already used" — per code FIRST, so a
+ *     re-scan says what happened to it even once the cap is spent (QA-06).
+ *     Multi-use codes redeem repeatedly (QA-04)
+ *   - on a capped reward (QA-09): a code whose claim holds an unexpired unit
+ *     always redeems — the unit is its own; any other code needs
+ *     redeemed + other codes' live holds < cap, else 410 "run out"
+ *
+ * THE INDEX STAYS THE LAST WORD on single use: `reward_single_redeem` (now
+ * partial on single-use REDEEMs) rejects a duplicate from any path, and its
+ * violation is translated to 409 here.
  */
 export async function redeemToken(
   token: string,
   now = new Date(),
 ): Promise<{ id: string; type: RewardEventType }> {
+  type Out = { outcome: string; event_id: string | null; reward_state: string | null };
+  let row: Out | undefined;
   try {
-    return await prisma.$transaction(async (tx) => {
-      const ctx = await contextFor(tx, token);
-      assertUsable(ctx, now);
-
-      /* A reward explicitly marked multi-use has no single-use rule to
-         enforce; the index still guards the single-use ones. */
-      return writeEvent(tx, ctx, "REDEEM");
-    });
+    [row] = await failFast(() => prisma.$queryRaw<Out[]>`
+      SELECT outcome, event_id, reward_state FROM reward_redeem(${token}, ${sqlTs(now)}::timestamp)`);
   } catch (error) {
     if (isUniqueViolation(error)) throw new AlreadyRedeemedError();
     throw error;
   }
+  if (!row) throw new Error("reward_redeem returned no row");
+  const refused = refusal(row.outcome, row.reward_state);
+  if (refused) throw refused;
+  return { id: row.event_id!, type: "REDEEM" };
 }
 
 /* ────────────────────────────────────────────────────────────────────────────

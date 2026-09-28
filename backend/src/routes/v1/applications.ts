@@ -30,6 +30,7 @@ import {
   AthleteApplicationInput,
   AthleteApplicationPatch,
   AthleteState,
+  missingApplicationFields,
 } from "../../contracts/athlete";
 import {
   approveApplication,
@@ -37,7 +38,7 @@ import {
   rejectApplication,
   requestChanges,
 } from "../../domain/application-review";
-import { transitionAthlete } from "../../domain/athlete";
+import { activateAthlete } from "../../domain/athlete";
 import { guardianReadiness } from "../../domain/guardian-rules";
 import {
   ApplicationNotFoundError,
@@ -119,6 +120,7 @@ const SUMMARY_SELECT = {
   id: true,
   displayName: true,
   legalName: true,
+  email: true,
   sport: true,
   stateCode: true,
   state: true,
@@ -147,6 +149,7 @@ type SummaryRow = {
   id: string;
   displayName: string;
   legalName: string;
+  email: string | null;
   sport: string;
   stateCode: string | null;
   state: string;
@@ -183,6 +186,11 @@ function toSummary(row: SummaryRow) {
       guardianId: row.guardianId,
       guardianVerifiedAt: row.guardian?.verifiedAt ?? null,
     }).status,
+    /* What activation would refuse for (decision 3, QA pass 5): the same
+       shared definition activateAthlete() checks, so the desk can say why
+       before the API has to. Field NAMES only — the email itself is read to
+       answer "is there one" and is not added to the row. */
+    missingFields: missingApplicationFields(row),
     reviewerNotes: row.reviewerNotes,
     reviewedAt: row.reviewedAt?.toISOString() ?? null,
     createdAt: row.createdAt.toISOString(),
@@ -295,20 +303,23 @@ applicationsRouter.post<{ id: string }>("/:id/request-changes", requireActor, as
 });
 
 /**
- * POST /applications/:id/activate — APPROVED → ACTIVE.
+ * POST /applications/:id/activate — APPROVED → ACTIVE, and only that.
  *
  * The last step of B1, and the only one in this file that needs `approve` on
- * `athlete` rather than on `athleteApplication`. That distinction is real and
- * worth preserving: BTG_ADMIN may approve an *application* and deliberately
- * may not activate an *athlete* — the matrix gives athlete.approve to
- * NETWORK_MGR and SUPER_ADMIN only.
+ * `athlete` rather than on `athleteApplication`. The two permissions are
+ * held by the same three BTG roles today — NETWORK_MGR day to day, BTG_ADMIN
+ * and SUPER_ADMIN as superset roles (RBAC matrix §12; b1.endpoints.test.ts
+ * pins the list) — but they stay distinct cells: CAMPAIGN_MGR is the case
+ * that proves approving an application is not activating an athlete.
  *
- * It goes through `transitionAthlete` rather than doing the update here, so
- * §37's gate fires: a minor with no verified guardian is refused, for the API
- * and §8's service account exactly as for someone clicking a button.
+ * `activateAthlete` refuses a SUSPENDED athlete (reinstatement is a separate
+ * step, not built yet) and an incomplete record (`profile_incomplete`, with
+ * the missing fields named), then goes through the one transition function,
+ * so §37's gate fires: a minor with no verified guardian is refused, for the
+ * API and §8's service account exactly as for someone clicking a button.
  */
 applicationsRouter.post<{ id: string }>("/:id/activate", requireActor, async (req, res) => {
-  res.json(await transitionAthlete(req.actor!, req.params.id, "ACTIVE"));
+  res.json(await activateAthlete(req.actor!, req.params.id));
 });
 
 /** POST /applications/:id/reject — terminal. Notes are required and are sent. */

@@ -348,6 +348,16 @@ export default async function AdminFinancePage({
       {/* -------------------------------------------------------- headline */}
       {heading}
 
+      {/* P7-QA-02: this fixture branch also reaches signed-in staff outside
+          FINANCE_ROLES (SALES, CAMPAIGN_MGR, NETWORK_MGR) — its ZOHO BOOKS /
+          verified chips must not read as the real books. */}
+      {demo === null && (
+        <BlockedNotice>
+          Demo data — the real books are read by BTG admin and Finance only, so
+          every figure below is sample data.
+        </BlockedNotice>
+      )}
+
       {/* -------------------------------------------------------- gate ---- */}
       <BlockedNotice>
         Payout actions are blocked on the written Phase 1 payment policy (§37

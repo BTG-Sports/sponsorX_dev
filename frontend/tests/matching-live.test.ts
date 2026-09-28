@@ -89,6 +89,10 @@ describe("toMatchAthlete", () => {
     expect(toMatchAthlete(athlete({ reach: undefined }), [SX02], "P", null).reach).toBeNull();
   });
 
+  it("verified reach is labelled staff-checked, never platform-read (P7-QA-02)", () => {
+    expect(toMatchAthlete(athlete({ reach: { followers: 5, verified: true } }), [SX02], "P", null).reachSource).toBe("VERIFIED_MANUAL");
+  });
+
   it("an open invite blocks a re-send; an expired one does not", () => {
     const open = toMatchAthlete(athlete(), [SX02], "P", "INVITED");
     expect(canShortlist(open)).toBe(false);

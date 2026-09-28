@@ -1,4 +1,4 @@
-import { Button, Card, SectionHeading } from "@/components/ui";
+import { BlockedNotice, Button, Card, SectionHeading } from "@/components/ui";
 import { EmptyState, SkeletonPage } from "@/components/states";
 import { demoState } from "@/lib/demo";
 import { liveEditions } from "../live";
@@ -102,6 +102,16 @@ export default async function RevenueSplitsPage({
   return (
     <div className="space-y-6">
       {heading}
+
+      {/* P7-QA-02: without ?demo= this fixture render reaches only signed-in
+          staff outside NEXT_DESK_ROLES (CAMPAIGN_MGR, NETWORK_MGR) — the
+          edition, rack and split figures below are sample data. */}
+      {!demo && (
+        <BlockedNotice>
+          Demo data — your role doesn&rsquo;t read the live NEXT edition ledger,
+          so every figure below is a sample edition&rsquo;s.
+        </BlockedNotice>
+      )}
 
       {/* ------------------------------------------- the allocation bar */}
       <Card className="sx-animate p-5 sm:p-6">

@@ -101,7 +101,7 @@ function LiveReport({ r, back }: { r: ApiSponsorReport; back: { href: string; la
           {layers.map((l) => (
             <div key={l.key}>
               <p className="flex items-center gap-2 text-[11px] text-muted">
-                {l.label} views <SourceLabel source={l.chip} />
+                {l.label} views {l.chip ? <SourceLabel source={l.chip} /> : <span className="text-faint">· no data</span>}
               </p>
               <p className="mt-1 text-3xl font-bold tabular-nums tracking-tight">{l.views.toLocaleString("en-US")}</p>
               <p className="mt-0.5 text-[11px] text-faint">
@@ -119,9 +119,15 @@ function LiveReport({ r, back }: { r: ApiSponsorReport; back: { href: string; la
       <div className="grid gap-4 md:grid-cols-3">
         <Card className="p-4">
           <p className="flex items-center gap-2 text-[11px] font-medium uppercase tracking-wide text-muted">
-            Media value <SourceLabel source="ESTIMATED" />
+            {/* P7-QA-02: the API's "mediaValue" is spend ÷ verified views × 1000
+                — a cost per thousand, not the worth of the exposure. Titled for
+                what it is, to the cent (money() rounds a $0.40 CPM to "$0"),
+                and a dash when there were no verified views to divide by. */}
+            Cost per 1,000 verified views <SourceLabel source="ESTIMATED" />
           </p>
-          <p className="mt-1.5 text-2xl font-semibold tabular-nums tracking-tight">{money(r.mediaValue.amount)}</p>
+          <p className="mt-1.5 text-2xl font-semibold tabular-nums tracking-tight">
+            {r.mediaValue.amount > 0 ? `$${(r.mediaValue.amount / 100).toFixed(2)}` : "—"}
+          </p>
           <p className="mt-1.5 text-[10px] leading-relaxed text-faint">{r.mediaValue.basis}</p>
         </Card>
         <Card className="p-4">
@@ -360,11 +366,11 @@ export default async function RoiReportPage({
             </div>
             <div>
               <p className="text-[10px] font-medium uppercase tracking-wider text-muted">
-                Est. media value
+                Views priced at curated CPM
               </p>
               <p className="mt-0.5 flex items-baseline gap-2 text-base font-medium tabular-nums text-muted">
                 {money(roiGauge.mediaValue)}
-                <MiniChip kind="est">EST · CURATED CPM</MiniChip>
+                <MiniChip kind="est">EST · curated CPM</MiniChip>
               </p>
             </div>
           </div>
@@ -476,8 +482,10 @@ export default async function RoiReportPage({
                     {e.value}
                   </span>
                   {e.benchDeltaPct !== null ? (
-                    <span className="text-[10px] font-medium text-success">
+                    <span className="flex items-baseline gap-1 text-[10px] font-medium text-success">
                       {e.benchDeltaPct}% vs bench
+                      {/* Derived from a curated median — inherits its label (P7-QA-02). */}
+                      <MiniChip kind="est">EST · curated</MiniChip>
                     </span>
                   ) : (
                     <MiniChip kind="att" />
@@ -487,7 +495,7 @@ export default async function RoiReportPage({
             ))}
           </ul>
           <p className="mt-3 flex items-center gap-1.5 border-t border-line-soft pt-2.5 text-[10px] text-faint">
-            Benchmarks are BTG-curated category medians <MiniChip kind="est" />
+            Benchmarks are BTG-curated category medians <MiniChip kind="est">EST · curated</MiniChip>
           </p>
         </Card>
 
@@ -497,13 +505,13 @@ export default async function RoiReportPage({
             <li className="flex items-baseline justify-between gap-2">
               <span className="text-[11px] text-muted">Total views</span>
               <span className="flex items-baseline gap-1.5 text-sm font-semibold tabular-nums">
-                {roiDelivery.views.toLocaleString()} <MiniChip kind="ver" />
+                {roiDelivery.views.toLocaleString()} <MiniChip kind="manual" />
               </span>
             </li>
             <li className="flex items-baseline justify-between gap-2">
               <span className="text-[11px] text-muted">Engagements</span>
               <span className="flex items-baseline gap-1.5 text-sm font-semibold tabular-nums">
-                {roiDelivery.engagements.toLocaleString()} <MiniChip kind="ver" />
+                {roiDelivery.engagements.toLocaleString()} <MiniChip kind="manual" />
               </span>
             </li>
             <li className="flex items-baseline justify-between gap-2">
@@ -591,7 +599,7 @@ export default async function RoiReportPage({
             </Link>
           </Card>
           <p className="px-1 text-[10px] leading-relaxed text-faint">
-            Media value is estimated · revenue is attributed via
+            Views priced at curated CPMs are estimated · revenue is attributed via
             merchant-validated coupons, not payment-network data (§16 · §22).
           </p>
         </div>

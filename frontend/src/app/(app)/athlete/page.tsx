@@ -310,6 +310,17 @@ export default async function AthletePortalPage({
       {/* -------------------------------------------------------- headline */}
       {heading}
 
+      {/* P7-QA-02: the dashboard has no live read yet (P2-FE-01) — every
+          figure is fixtures.ts, so a signed-in athlete must not take the
+          sample money, audience or queue for their own. */}
+      {!demo && (
+        <BlockedNotice>
+          Demo data — your dashboard isn&rsquo;t wired to live reads yet, so the
+          figures below are a sample athlete&rsquo;s. Your real invitations,
+          deliverables, earnings and profile are on their own pages.
+        </BlockedNotice>
+      )}
+
       {/* ----------------------------------------------------- money strip */}
       <HeroBand border="border-athlete/30" className="sx-animate">
         <div className="flex flex-col gap-5 sm:flex-row sm:items-center">
@@ -479,7 +490,7 @@ export default async function AthletePortalPage({
                     .map((s) => `${s.platform} ${compact(s.followers)}`)
                     .join(" · ")}
                 </span>
-                <MiniChip kind="manual">VERIFIED · MANUAL</MiniChip>
+                <MiniChip kind="warn">SELF-REPORTED</MiniChip>
               </p>
               <div className="mt-3">
                 <Button

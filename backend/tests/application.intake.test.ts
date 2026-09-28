@@ -163,6 +163,14 @@ describe("applying", () => {
     expect(socials[0]).toMatchObject({ platform: "INSTAGRAM", source: "SELF_REPORTED" });
   });
 
+  it("never lets an applicant claim a verified label for their own numbers (P7-QA-02)", async () => {
+    await submitApplication({
+      ...application,
+      socials: [{ ...application.socials[0]!, source: "VERIFIED_API" as never }],
+    });
+    expect(socials[0]).toMatchObject({ source: "SELF_REPORTED" });
+  });
+
   it("gives two people with the same name different public URLs", async () => {
     await submitApplication(application);
     await submitApplication(application);

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import {
   Badge,
+  BlockedNotice,
   Button,
   Card,
   Meter,
@@ -102,6 +103,18 @@ export default async function PropertyPortalPage({
   return (
     <div className="space-y-6">
       {heading}
+
+      {/* P7-QA-02: no live read on this portal yet (GET /properties/mine
+          exists but isn't called) — every figure below, POSTGRES and
+          VERIFIED chips included, is the BTG Sports Talk fixture, and the
+          curated CPM names no origin or date. */}
+      {!demo && (
+        <BlockedNotice>
+          Demo data — your property&rsquo;s roster, inventory and analytics
+          aren&rsquo;t connected yet, so every figure below is a sample
+          property&rsquo;s.
+        </BlockedNotice>
+      )}
 
       {/* ----------------------------------------------------- showcase hero */}
       <HeroBand border="border-property/30" className="sx-animate">

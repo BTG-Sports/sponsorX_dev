@@ -12,7 +12,7 @@ migration and update the copy here.
 
 | File | Enforces |
 |---|---|
-| `reward_single_redeem.sql` | A single-use reward can be redeemed exactly once |
+| `reward_single_redeem.sql` | A single-use reward's token can be redeemed exactly once (multi-use rewards are free of it, QA-04). The redeem / claim decision itself — the cap, the claim's reservation, state and expiry under one row lock — is the `reward_redeem()` / `reward_reserve()` functions and the `redeemedCount` trigger in migration `20260928140000_reward_reservations_atomic_redeem` |
 | `outbox_pending.sql` | The outbox drain only ever scans undispatched rows |
 | `invite_one_open.sql` | One *open* invitation per athlete per job |
 | `adslot_inventory.sql` | A NEXT ad slot sells once, never after its edition closes, and each edition has one back cover and one presenting sponsor (P9-BE-03) |

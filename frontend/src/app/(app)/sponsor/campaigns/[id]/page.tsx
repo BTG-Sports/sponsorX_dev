@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { BackLink } from "@/components/back-link";
-import { Badge, Card, Meter, SectionHeading } from "@/components/ui";
+import { Badge, BlockedNotice, Card, Meter, SectionHeading } from "@/components/ui";
 import { AreaChart, HBarList, RadialGauge, compact } from "@/components/charts";
 import { HeroBand, MiniChip, Monogram, initials } from "@/components/hero";
 import { EmptyState, SkeletonPage } from "@/components/states";
@@ -72,13 +72,20 @@ export default async function SponsorCampaignDetailPage({
         <BackLink target={back} />
         <EmptyState
           mark="chart"
-          title={base ? "No campaign data yet" : "Campaign not found"}
+          title={base ? "No campaign data yet" : "Not a sample campaign"}
           hint={
             base
               ? "This campaign's dashboard fills in as deliverables publish and metrics roll up."
-              : "That campaign isn't in your portfolio. Head back to your campaigns."
+              : /* P7-QA-02: a real campaign id lands here (this page is
+                   fixture-only), so point at the live ROI report rather than
+                   telling a sponsor their own campaign isn't theirs. */
+                "This page only has sample campaigns so far — your campaign's live figures are in its ROI report."
           }
-          action={{ label: "Back to campaigns", href: "/sponsor/campaigns" }}
+          action={
+            base
+              ? { label: "Back to campaigns", href: "/sponsor/campaigns" }
+              : { label: "Open the ROI report", href: `/sponsor/campaigns/${encodeURIComponent(id)}/report` }
+          }
         />
       </div>
     );
@@ -133,6 +140,16 @@ export default async function SponsorCampaignDetailPage({
         </div>
       </div>
       {reportCta}
+      {/* P7-QA-02: fixture-only page (live read is P2-FE-01) — say so to a
+          signed-in sponsor before any chip below reads as their own data. */}
+      {!demo && (
+        <div className="w-full">
+          <BlockedNotice>
+            Demo data — this is a sample campaign, not yours. Your own
+            campaigns&rsquo; figures are on the Dashboard and in each ROI report.
+          </BlockedNotice>
+        </div>
+      )}
     </div>
   );
 

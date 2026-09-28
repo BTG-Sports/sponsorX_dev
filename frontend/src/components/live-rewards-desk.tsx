@@ -3,21 +3,31 @@
 import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { useMounted } from "./use-mounted";
+import { useDialogFocus } from "./use-dialog-focus";
 import { useRouter } from "next/navigation";
 import { Badge, Card } from "@/components/ui";
+import { MiniChip } from "@/components/hero";
 import { CloseIcon, SearchInput } from "@/components/filter-kit";
 import {
+  capLine,
+  ELIGIBILITY,
   expiryFor,
   fanPath,
-  redeemRate,
+  fmtEt,
+  HOLD_PRESETS,
+  holdPreset,
+  parseCap,
+  redemptionRate,
   rewardMoves,
   STATE_COPY,
   type ApiReward,
   type ApiRewardDetail,
   type ApiRewardState,
   type CreateRewardResult,
+  type HoldPreset,
   type LinkResult,
   type NewReward,
+  type RewardEligibility,
   type SimpleResult,
 } from "@/lib/rewards-live";
 
@@ -33,10 +43,11 @@ import {
      page link and the worker-rendered PNG through an audited signed URL,
      ready to print.
    - "Create reward" persists what the model holds: campaign, offer, terms,
-     expiry, single-use, a token per signed athlete, and optionally live at
-     once. The consent line fans see is shown, not edited (versioned
-     centrally). Eligibility rules, redemption caps and custom landing copy
-     have no columns yet and are not pretended here.
+     expiry, single-use, who it is for, a redemption cap, the fan page's
+     headline and subhead (P6-BE-08), a token per signed athlete, and
+     optionally live at once. The consent line fans see is shown, not edited
+     (versioned centrally, P6-SEC-01): the claim records which words the fan
+     saw, and a per-reward edit would break that record.
    -------------------------------------------------------------------------- */
 
 type Actions = {
@@ -71,8 +82,9 @@ const TABS = [
   { key: "ended", label: "Ended", match: (s: ApiRewardState) => s === "EXPIRED" || s === "ARCHIVED" },
 ] as const;
 
-const fmtDay = (iso: string) =>
-  new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" });
+/* F-08 — one reward time convention everywhere (desk, creator, fan page):
+   US Eastern, labelled "ET". This desk used to print UTC. */
+const fmtDay = fmtEt;
 
 export function LiveRewardsDesk({
   rewards,
@@ -96,6 +108,8 @@ export function LiveRewardsDesk({
   const [error, setError] = useState<{ id: string; message: string } | null>(null);
   const [qrFor, setQrFor] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
+  /* One clock per mount for "has this expired?" — stable across renders. */
+  const [renderedAt] = useState(() => Date.now());
 
   const totals = useMemo(
     () =>
@@ -137,7 +151,11 @@ export function LiveRewardsDesk({
           ["Redeemed", totals.REDEEM],
         ].map(([k, v]) => (
           <div key={k as string} className="px-4 py-3.5">
-            <p className="text-[10px] font-medium uppercase tracking-wide text-faint">{k}</p>
+            <p className="flex items-center gap-1.5 text-[10px] font-medium uppercase tracking-wide text-faint">
+              {k}
+              {/* P7-QA-02: counted from RewardEvent / Reward rows. */}
+              <MiniChip kind="ver">POSTGRES</MiniChip>
+            </p>
             <p className="mt-0.5 text-xl font-semibold tabular-nums tracking-tight">{Number(v).toLocaleString("en-US")}</p>
           </div>
         ))}
@@ -190,7 +208,11 @@ export function LiveRewardsDesk({
         <ul className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {shown.map((r) => {
             const f = r.funnel;
-            const rate = redeemRate(f);
+            /* F-04 — "—" (with the reason) rather than a rate over 100%. */
+            const { rate, hint: rateHint } = redemptionRate(f);
+            /* The database's counter where the API gives it (capped rewards);
+               else the funnel's REDEEM rows. */
+            const redeemed = r.redeemed ?? f?.REDEEM;
             return (
               <li key={r.id} className="min-w-0">
                 <Card className="flex h-full flex-col p-4">
@@ -226,21 +248,51 @@ export function LiveRewardsDesk({
                       <dd className="text-muted">{fmtDay(r.expiresAt)}</dd>
                     </div>
                     <div className="flex justify-between gap-2">
-                      <dt className="text-faint">Redeemed of claimed</dt>
-                      <dd className="text-muted">{rate === null ? "—" : `${rate}%`}</dd>
+                      <dt className="shrink-0 text-faint">Redeemed of claimed</dt>
+                      <dd className="min-w-0 text-right text-muted">
+                        {rate === null ? "—" : `${rate}%`}
+                        {rateHint && <span className="mt-0.5 block text-[10px] leading-snug text-faint">{rateHint}</span>}
+                      </dd>
                     </div>
                     <div className="flex justify-between gap-2">
                       <dt className="text-faint">Per fan</dt>
                       <dd className="text-muted">{r.singleUse ? "single use" : "reusable"}</dd>
                     </div>
+                    <div className="flex justify-between gap-2">
+                      <dt className="text-faint">For</dt>
+                      <dd className="min-w-0 truncate text-muted" title={r.eligibilityNote ?? undefined}>
+                        {ELIGIBILITY[r.eligibility ?? "ANYONE"].label}
+                        {r.eligibilityNote ? ` · ${r.eligibilityNote}` : ""}
+                      </dd>
+                    </div>
+                    <div className="flex justify-between gap-2">
+                      <dt className="text-faint">Redemption cap</dt>
+                      {/* "left" only with a funnel to count from — without one, just the cap. */}
+                      <dd className="text-muted">
+                        {redeemed !== undefined || r.redemptionCap == null
+                          ? capLine(r.redemptionCap, redeemed, r.held ?? 0)
+                          : `${r.redemptionCap.toLocaleString("en-US")} total`}
+                      </dd>
+                    </div>
+                    {r.redemptionCap != null && r.reserveMinutes != null && (
+                      <div className="flex justify-between gap-2">
+                        <dt className="text-faint">A claim holds a unit for</dt>
+                        <dd className="text-muted">{holdLabel(r.reserveMinutes)}</dd>
+                      </div>
+                    )}
                   </dl>
+                  {r.landing?.headline && (
+                    <p className="mt-2 truncate text-[11px] text-faint" title={r.landing.subhead ?? undefined}>
+                      Fan page: &ldquo;{r.landing.headline}&rdquo;
+                    </p>
+                  )}
 
                   {error?.id === r.id && (
                     <p role="alert" className="mt-3 rounded-lg bg-danger/10 px-3 py-2 text-[11px] text-danger">{error.message}</p>
                   )}
 
                   <div className="mt-auto flex flex-wrap gap-2 pt-4">
-                    {rewardMoves(r.state).map((m, i) => (
+                    {rewardMoves(r.state, new Date(r.expiresAt).getTime() <= renderedAt).map((m, i) => (
                       <button
                         key={m.to}
                         type="button"
@@ -298,6 +350,8 @@ export function LiveRewardsDesk({
 
 function QrPanel({ rewardId, actions, onClose }: { rewardId: string; actions: Actions; onClose: () => void }) {
   const [state, setState] = useState<{ reward?: ApiRewardDetail; error?: string }>({});
+  /* F-05: focus in, Tab trapped, Escape closes, focus back to the trigger. */
+  const dialogRef = useDialogFocus<HTMLDivElement>(onClose);
   const [linkErr, setLinkErr] = useState<Record<string, string>>({});
 
   /* Tokens load when the panel opens — they're per reward, and a desk of
@@ -324,15 +378,15 @@ function QrPanel({ rewardId, actions, onClose }: { rewardId: string; actions: Ac
 
   const rw = state?.reward;
   return (
-    <div className="fixed inset-0 z-50" role="dialog" aria-modal="true" aria-label="QR codes">
-      <button type="button" aria-label="Close" onClick={onClose} className="sx-backdrop absolute inset-0 cursor-default bg-black/55" />
+    <div ref={dialogRef} className="fixed inset-0 z-50" role="dialog" aria-modal="true" aria-label="QR codes">
+      <button type="button" tabIndex={-1} aria-label="Close" onClick={onClose} className="sx-backdrop absolute inset-0 cursor-default bg-black/55" />
       <div className="sx-drawer absolute inset-y-0 right-0 flex w-full max-w-md flex-col border-l border-line bg-surface shadow-2xl">
         <div className="flex shrink-0 items-center gap-3 border-b border-line-soft p-5">
           <div className="min-w-0 flex-1">
             <p className="truncate text-sm font-semibold tracking-tight">{rw?.offerText ?? "QR codes"}</p>
             <p className="text-[11px] text-muted">One token per athlete — each QR says who drove the scan.</p>
           </div>
-          <button type="button" onClick={onClose} aria-label="Close QR codes" className="grid size-8 place-items-center rounded-full border border-line text-muted hover:text-text">
+          <button type="button" data-autofocus onClick={onClose} aria-label="Close QR codes" className="grid size-8 place-items-center rounded-full border border-line text-muted hover:text-text">
             <CloseIcon />
           </button>
         </div>
@@ -380,6 +434,12 @@ function QrPanel({ rewardId, actions, onClose }: { rewardId: string; actions: Ac
   );
 }
 
+/** "15 min", "1 h", "24 h", "90 min" — the hold window, short. */
+function holdLabel(minutes: number): string {
+  if (minutes % 60 === 0) return `${minutes / 60} h`;
+  return `${minutes} min`;
+}
+
 /* ---------------------------------------------------------------- creator */
 
 const inputCls =
@@ -403,7 +463,22 @@ function Creator({
   const [terms, setTerms] = useState("");
   const [expiry, setExpiry] = useState<"30" | "60" | "90" | "campaign">("campaign");
   const [singleUse, setSingleUse] = useState(true);
+  /* P6-BE-08 — who it is for, the cap, and the fan page's own words. */
+  const [eligibility, setEligibility] = useState<RewardEligibility>("ANYONE");
+  const [eligibilityNote, setEligibilityNote] = useState("");
+  const [capInput, setCapInput] = useState("");
+  const [headline, setHeadline] = useState("");
+  const [subhead, setSubhead] = useState("");
   const [activate, setActivate] = useState(false);
+  /* QA-09 — how long a claim holds a unit of a capped reward. */
+  const [hold, setHold] = useState<HoldPreset>("60");
+  const [holdCustom, setHoldCustom] = useState("");
+  /* A create that failed part-way leaves a reward behind; the retry
+     finishes THAT one (missing tokens, go-live) instead of making a
+     duplicate (QA pass 5, suspected duplicate on retry). */
+  const [resumeId, setResumeId] = useState<string | null>(null);
+  /* F-05: focus in, Tab trapped, Escape closes, focus back to the trigger. */
+  const dialogRef = useDialogFocus<HTMLDivElement>(onClose);
   /* Signed athletes per campaign, fetched once each as campaigns are picked. */
   const [rosters, setRosters] = useState<Record<string, { athletes?: { id: string; name: string }[]; error?: string }>>({});
   const [picked, setPicked] = useState<Set<string>>(new Set());
@@ -424,10 +499,13 @@ function Creator({
   const roster = rosters[campaignId];
   const campaign = campaigns.find((c) => c.id === campaignId);
   const athletes = roster?.athletes ?? [];
-  const ready = campaign && offer.trim() && terms.trim() && picked.size > 0 && !busy;
+  const cap = parseCap(capInput);
+  const reserveMinutes = holdPreset(hold, holdCustom);
+  const holdBad = typeof cap === "number" && reserveMinutes === "invalid";
+  const ready = campaign && offer.trim() && terms.trim() && picked.size > 0 && cap !== "invalid" && !holdBad && !busy;
 
   const create = async () => {
-    if (!campaign) return;
+    if (!campaign || cap === "invalid" || holdBad) return;
     setBusy(true);
     setError(null);
     const r = await actions.create({
@@ -436,10 +514,18 @@ function Creator({
       terms: terms.trim(),
       expiresAt: expiryFor(expiry, new Date(), campaign.endDate),
       singleUse,
+      eligibility,
+      eligibilityNote: eligibilityNote.trim() || null,
+      redemptionCap: cap,
+      landingHeadline: headline.trim() || null,
+      landingSubhead: subhead.trim() || null,
+      reserveMinutes: reserveMinutes === "invalid" ? 60 : reserveMinutes,
       athleteIds: [...picked],
       activate,
+      ...(resumeId ? { resumeRewardId: resumeId } : {}),
     });
     setBusy(false);
+    if (!r.ok && r.rewardId) setResumeId(r.rewardId);
     if (r.ok) {
       onCreated(
         `${offer.trim()} created ${r.activated ? "and live" : "as a draft"} — ${r.tokens} QR token${r.tokens === 1 ? "" : "s"}, one per athlete; the images render in a moment.`,
@@ -448,8 +534,8 @@ function Creator({
   };
 
   return (
-    <div className="fixed inset-0 z-50" role="dialog" aria-modal="true" aria-label="Create fan reward">
-      <button type="button" aria-label="Close" onClick={onClose} className="sx-backdrop absolute inset-0 cursor-default bg-black/55" />
+    <div ref={dialogRef} className="fixed inset-0 z-50" role="dialog" aria-modal="true" aria-label="Create fan reward">
+      <button type="button" tabIndex={-1} aria-label="Close" onClick={onClose} className="sx-backdrop absolute inset-0 cursor-default bg-black/55" />
       <div className="absolute inset-0 flex items-stretch justify-center sm:items-center sm:p-4">
         <div className="sx-pop relative flex max-h-full w-full max-w-2xl flex-col overflow-hidden bg-bg shadow-2xl sm:max-h-[92vh] sm:rounded-2xl sm:border sm:border-line">
           <div className="flex shrink-0 items-center justify-between gap-3 border-b border-line-soft bg-surface px-5 py-3.5">
@@ -507,6 +593,84 @@ function Creator({
                   </label>
                 </div>
 
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <label className="block">
+                    <span className="text-[11px] font-medium text-muted">Who it&rsquo;s for</span>
+                    <select value={eligibility} onChange={(e) => setEligibility(e.target.value as RewardEligibility)} className={inputCls}>
+                      {(Object.keys(ELIGIBILITY) as RewardEligibility[]).map((k) => (
+                        <option key={k} value={k}>{ELIGIBILITY[k].label}</option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="block">
+                    <span className="text-[11px] font-medium text-muted">Redemption cap <span className="text-faint">(blank = unlimited)</span></span>
+                    <input
+                      value={capInput}
+                      onChange={(e) => setCapInput(e.target.value)}
+                      inputMode="numeric"
+                      placeholder="e.g. 200"
+                      aria-invalid={cap === "invalid"}
+                      aria-describedby="cap-hint"
+                      className={inputCls}
+                    />
+                  </label>
+                </div>
+                <p id="cap-hint" className={`-mt-2 text-[10px] ${cap === "invalid" ? "text-danger" : "text-faint"}`}>
+                  {cap === "invalid"
+                    ? "A whole number from 1 — or leave it blank for no cap."
+                    : "Total redemptions across every athlete's QR. Enforced at the till by the API; once it's used up the fan page says the reward has run out."}
+                </p>
+                {typeof cap === "number" && (
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <label className="block">
+                      <span className="text-[11px] font-medium text-muted">Hold a claimed reward for</span>
+                      <select value={hold} onChange={(e) => setHold(e.target.value as HoldPreset)} aria-describedby="hold-hint" className={inputCls}>
+                        {HOLD_PRESETS.map((p) => (
+                          <option key={p.value} value={p.value}>{p.label}</option>
+                        ))}
+                      </select>
+                    </label>
+                    {hold === "custom" && (
+                      <label className="block">
+                        <span className="text-[11px] font-medium text-muted">Minutes <span className="text-faint">(5 – 10,080)</span></span>
+                        <input
+                          value={holdCustom}
+                          onChange={(e) => setHoldCustom(e.target.value)}
+                          inputMode="numeric"
+                          placeholder="e.g. 90"
+                          aria-invalid={holdBad}
+                          aria-describedby="hold-hint"
+                          className={inputCls}
+                        />
+                      </label>
+                    )}
+                    <p id="hold-hint" className={`-mt-1 text-[10px] sm:col-span-2 ${holdBad ? "text-danger" : "text-faint"}`}>
+                      {holdBad
+                        ? "A whole number of minutes, from 5 up to 7 days (10,080)."
+                        : "A fan who claims gets one unit set aside until then — the till honours it even if the rest run out. After that the unit goes back in the pool."}
+                    </p>
+                  </div>
+                )}
+                <label className="block">
+                  <span className="text-[11px] font-medium text-muted">Eligibility note <span className="text-faint">(optional)</span></span>
+                  <input value={eligibilityNote} onChange={(e) => setEligibilityNote(e.target.value)} maxLength={280} placeholder="Show your wristband at the booth" className={inputCls} />
+                  <span className="mt-1 block text-[10px] text-faint">
+                    Shown to the fan and to booth staff. The page has no login, so eligibility is checked by staff at the till, not by the system.
+                  </span>
+                </label>
+
+                <fieldset className="space-y-3 rounded-lg border border-line-soft p-3">
+                  <legend className="px-1 text-[11px] font-medium text-muted">Landing page — what the fan reads first</legend>
+                  <label className="block">
+                    <span className="text-[11px] font-medium text-muted">Headline <span className="text-faint">(blank = &ldquo;You&rsquo;ve got a reward&rdquo;)</span></span>
+                    <input value={headline} onChange={(e) => setHeadline(e.target.value)} maxLength={120} placeholder="You've got a reward" className={inputCls} />
+                  </label>
+                  <label className="block">
+                    <span className="text-[11px] font-medium text-muted">Subhead <span className="text-faint">(optional)</span></span>
+                    <input value={subhead} onChange={(e) => setSubhead(e.target.value)} maxLength={280} placeholder="Thanks for coming out — this one's on us." className={inputCls} />
+                  </label>
+                </fieldset>
+
                 <div>
                   <p className="text-[11px] font-medium text-muted">Athletes carrying a QR</p>
                   {roster?.error && <p className="mt-1 text-[11px] text-danger">{roster.error}</p>}
@@ -552,11 +716,16 @@ function Creator({
                 </label>
               </>
             )}
-            {error && <p role="alert" className="rounded-lg bg-danger/10 px-3 py-2 text-[11px] text-danger">{error}</p>}
+            {error && (
+              <p role="alert" className="rounded-lg bg-danger/10 px-3 py-2 text-[11px] text-danger">
+                {error}
+                {resumeId && " The reward itself was saved — trying again finishes it rather than creating a second one."}
+              </p>
+            )}
           </div>
           <div className="flex shrink-0 items-center justify-end gap-2 border-t border-line-soft bg-surface px-5 py-3.5">
             <p className="mr-auto text-[10px] text-faint">
-              {!offer.trim() ? "Name the offer." : !terms.trim() ? "Add the terms." : picked.size === 0 ? "Pick at least one athlete." : `${picked.size} token${picked.size === 1 ? "" : "s"} will be issued.`}
+              {!offer.trim() ? "Name the offer." : !terms.trim() ? "Add the terms." : cap === "invalid" ? "Fix the redemption cap." : holdBad ? "Fix the hold window." : picked.size === 0 ? "Pick at least one athlete." : resumeId ? "Finishes the reward already saved." : `${picked.size} token${picked.size === 1 ? "" : "s"} will be issued.`}
             </p>
             <button type="button" onClick={onClose} className="rounded-lg border border-line px-3.5 py-2 text-xs font-medium text-text hover:bg-surface-2">
               Cancel
@@ -567,7 +736,7 @@ function Creator({
               onClick={create}
               className="rounded-lg bg-primary px-3.5 py-2 text-xs font-medium text-cta-ink transition-colors hover:bg-primary-soft disabled:opacity-40"
             >
-              {busy ? "Creating…" : "Create reward"}
+              {busy ? (resumeId ? "Finishing…" : "Creating…") : resumeId ? "Finish creating" : "Create reward"}
             </button>
           </div>
         </div>

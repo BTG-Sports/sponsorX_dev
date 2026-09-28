@@ -164,7 +164,11 @@ export function toMatchAthlete(
     score: a.score ? a.score.value : null,
     factors: a.score ? factorsOf(a.score.factors) : FACTOR_KEYS.map(() => null),
     reach: a.reach?.followers ?? null,
-    reachSource: a.reach?.verified ? "VERIFIED_API" : "SELF_REPORTED",
+    /* `verified` means "no social is self-reported", and AthleteSocial.source
+       is only ever written VERIFIED_MANUAL or SELF_REPORTED today
+       (athlete-social.ts) — so verified reach is staff-checked, never
+       platform-read. Labelled for the weakest thing it can be (P7-QA-02). */
+    reachSource: a.reach?.verified ? "VERIFIED_MANUAL" : "SELF_REPORTED",
     cost,
     sell,
     jobId: pkgId,

@@ -1,4 +1,4 @@
-import { Button, Card } from "@/components/ui";
+import { BlockedNotice, Button, Card } from "@/components/ui";
 import {
   EditionInventory,
   type InventoryRow,
@@ -143,6 +143,16 @@ export default async function InventoryLedgerPage({
   return (
     <div className="space-y-6">
       {heading}
+
+      {/* P7-QA-02: without ?demo= this fixture render reaches only signed-in
+          staff outside NEXT_DESK_ROLES (CAMPAIGN_MGR, NETWORK_MGR) — the
+          edition, rack and split figures below are sample data. */}
+      {!demo && (
+        <BlockedNotice>
+          Demo data — your role doesn&rsquo;t read the live NEXT edition ledger,
+          so every figure below is a sample edition&rsquo;s.
+        </BlockedNotice>
+      )}
 
       <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
         {TILES.map((t) => (

@@ -4,7 +4,7 @@
    GET /r/<token>: the page a fan's QR scan opens. Plain HTML from a route
    handler (see src/server/fan-page.ts for why), rendered from the API's own
    read of the token — GET /api/v1/public/rewards/:token — so every state
-   (invalid, not active, expired, already used, claimable, claimed) is the
+   (invalid, not active, expired, run out, already used, claimable, claimed) is the
    API's verdict, not a guess made here.
 
    The SCAN moment is recorded on a first visit only — not when a form
@@ -21,7 +21,7 @@ import { edgeHeaders } from "@/server/edge";
 import { renderFanPage, renderUnavailable, type Flash, type TokenView } from "@/server/fan-page";
 
 const API_URL = process.env.API_URL ?? "http://localhost:4000";
-const FLASHES = new Set(["claimed", "redeemed", "used", "consent", "failed"]);
+const FLASHES = new Set(["claimed", "redeemed", "used", "consent", "failed", "soldout"]);
 
 type Params = { params: Promise<{ token: string }> };
 

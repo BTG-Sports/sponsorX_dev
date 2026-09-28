@@ -14,10 +14,13 @@ import type {
    P6-FE-01 — the reward desk's writes, as server actions.
 
    Creating a reward is three API calls the desk makes in order: the reward
-   (DRAFT, POST /campaigns/{id}/rewards), one token per athlete (each queues
+   (DRAFT, POST /campaigns/{id}/rewards — with its eligibility, redemption
+   cap and landing copy since P6-BE-08), one token per athlete (each queues
    its QR PNG on the worker, P6-BE-06), and — if asked — the move to ACTIVE.
-   A failure part-way returns the reward id so nothing is created twice. The
-   API's matrix and state machine decide; these add no authority.
+   A failure part-way returns the reward id, and the creator sends it back
+   on the retry (`resumeRewardId`) so the retry finishes that reward instead
+   of creating a second one. The API's matrix and state machine decide;
+   these add no authority.
    -------------------------------------------------------------------------- */
 
 async function reason(res: Response, fallback: string): Promise<string> {
@@ -35,22 +38,44 @@ export async function createRewardAction(input: NewReward): Promise<CreateReward
   if (!input?.campaignId || !input.offerText?.trim() || !input.terms?.trim()) {
     return { ok: false, message: "Name the offer and its terms." };
   }
-  let rewardId: string | undefined;
+  let rewardId: string | undefined = input.resumeRewardId || undefined;
   try {
-    const made = await apiFetch(`/campaigns/${encodeURIComponent(input.campaignId)}/rewards`, {
-      method: "POST",
-      body: JSON.stringify({
-        offerText: input.offerText.trim(),
-        terms: input.terms.trim(),
-        expiresAt: input.expiresAt,
-        singleUse: input.singleUse,
-      }),
-    });
-    if (!made.ok) return { ok: false, message: await reason(made, `The reward was not created (HTTP ${made.status}).`) };
-    rewardId = ((await made.json()) as { id: string }).id;
+    /* A RETRY after a part-way failure finishes the reward already saved:
+       it issues only the tokens that athlete doesn't have yet and makes it
+       live if asked, rather than creating a second reward (QA pass 5). */
+    let already = new Set<string>();
+    let alreadyLive = false;
+    if (rewardId) {
+      const got = await apiFetch(`/rewards/${encodeURIComponent(rewardId)}`);
+      if (!got.ok) return { ok: false, rewardId, message: await reason(got, `The saved reward couldn't be read (HTTP ${got.status}).`) };
+      const saved = (await got.json()) as ApiRewardDetail;
+      already = new Set(saved.tokens.map((t) => t.athlete?.id).filter((id): id is string => Boolean(id)));
+      alreadyLive = saved.state === "ACTIVE";
+    } else {
+      const made = await apiFetch(`/campaigns/${encodeURIComponent(input.campaignId)}/rewards`, {
+        method: "POST",
+        body: JSON.stringify({
+          offerText: input.offerText.trim(),
+          terms: input.terms.trim(),
+          expiresAt: input.expiresAt,
+          singleUse: input.singleUse,
+          /* P6-BE-08 — the API stores blank copy as null and enforces the cap. */
+          eligibility: input.eligibility,
+          eligibilityNote: input.eligibilityNote,
+          redemptionCap: input.redemptionCap,
+          /* QA-09 — how long a claim holds a unit of a capped reward. */
+          reserveMinutes: input.reserveMinutes,
+          landingHeadline: input.landingHeadline,
+          landingSubhead: input.landingSubhead,
+        }),
+      });
+      if (!made.ok) return { ok: false, message: await reason(made, `The reward was not created (HTTP ${made.status}).`) };
+      rewardId = ((await made.json()) as { id: string }).id;
+    }
 
-    let tokens = 0;
+    let tokens = already.size;
     for (const athleteId of input.athleteIds) {
+      if (already.has(athleteId)) continue;
       const t = await apiFetch(`/rewards/${encodeURIComponent(rewardId)}/tokens`, {
         method: "POST",
         body: JSON.stringify({ athleteId }),
@@ -61,7 +86,7 @@ export async function createRewardAction(input: NewReward): Promise<CreateReward
       tokens += 1;
     }
 
-    if (input.activate) {
+    if (input.activate && !alreadyLive) {
       const live = await apiFetch(`/rewards/${encodeURIComponent(rewardId)}/transition`, {
         method: "POST",
         body: JSON.stringify({ to: "ACTIVE" }),

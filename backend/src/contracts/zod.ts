@@ -20,3 +20,11 @@ import { z } from "zod";
 extendZodWithOpenApi(z);
 
 export { z };
+
+/**
+ * Postgres `integer` (int4) upper bound. Every contract field that lands in an
+ * `Int` column caps at this — without it `z.int()` admits any safe integer,
+ * and 2^31 reached the column as a 500 with the driver's message (QA-03,
+ * pass 5) instead of a 400 naming the field.
+ */
+export const INT4_MAX = 2_147_483_647;

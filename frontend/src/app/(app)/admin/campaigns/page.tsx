@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { CampaignLauncher } from "@/components/campaign-launcher";
 import { Badge, Meter } from "@/components/ui";
+import { EmptyState } from "@/components/states";
 import { compact } from "@/components/charts";
 import { Monogram, initials } from "@/components/hero";
 import {
@@ -42,24 +43,35 @@ type Health = {
 
 const DESK_ROLES = ["SUPER_ADMIN", "BTG_ADMIN", "CAMPAIGN_MGR", "NETWORK_MGR", "SALES", "FINANCE"];
 
-async function liveCampaigns(): Promise<{ campaigns: ApiCampaign[]; health: Health[] } | null> {
+/* A 403 is the API's answer for a role, not an outage (F-02, QA pass 5):
+   FINANCE and SALES read campaigns but not delivery health. The page then
+   renders without that part and says so; a 403 on the list itself is the
+   whole page out of scope. Anything else non-OK still throws to the error
+   page — an outage is never fixtures dressed as real data. */
+type LiveResult =
+  | { kind: "ok"; campaigns: ApiCampaign[]; health: Health[] | null }
+  | { kind: "denied" };
+
+async function liveCampaigns(): Promise<LiveResult | null> {
   const who = await fetchActor();
   if (who.status !== "linked") return null;
   if (!who.actor.roles.some((r) => DESK_ROLES.includes(r))) return null;
   const [cRes, hRes] = await Promise.all([apiFetch("/campaigns"), apiFetch("/operations/delivery-health")]);
+  if (cRes.status === 403) return { kind: "denied" };
   if (!cRes.ok) throw new Error(`Campaigns unavailable (${cRes.status}).`);
-  if (!hRes.ok) throw new Error(`Delivery health unavailable (${hRes.status}).`);
+  if (!hRes.ok && hRes.status !== 403) throw new Error(`Delivery health unavailable (${hRes.status}).`);
   return {
+    kind: "ok",
     campaigns: ((await cRes.json()) as { campaigns: ApiCampaign[] }).campaigns,
-    health: ((await hRes.json()) as { campaigns: Health[] }).campaigns,
+    health: hRes.ok ? ((await hRes.json()) as { campaigns: Health[] }).campaigns : null,
   };
 }
 
 const STAFFING = new Set(["DRAFT", "STAFFING", "APPROVAL"]);
 const DELIVERING = new Set(["ACTIVE", "REPORTING"]);
 
-function LiveCampaignsList({ campaigns, health }: { campaigns: ApiCampaign[]; health: Health[] }) {
-  const byId = new Map(health.map((h) => [h.campaignId, h]));
+function LiveCampaignsList({ campaigns, health }: { campaigns: ApiCampaign[]; health: Health[] | null }) {
+  const byId = new Map((health ?? []).map((h) => [h.campaignId, h]));
   const groups = [
     { key: "attention", title: "Needs attention", items: campaigns.filter((c) => { const h = byId.get(c.id); return h && (h.underDeliveringWork || h.underDeliveringReach); }) },
     { key: "delivering", title: "Delivering", items: campaigns.filter((c) => DELIVERING.has(c.state) && !(byId.get(c.id)?.underDeliveringWork || byId.get(c.id)?.underDeliveringReach)) },
@@ -75,6 +87,12 @@ function LiveCampaignsList({ campaigns, health }: { campaigns: ApiCampaign[]; he
           {campaigns.length} {campaigns.length === 1 ? "campaign" : "campaigns"} — staffing ones open their
           Matching Studio, delivering ones their operations board.
         </p>
+        {health === null && (
+          <p className="mt-2 text-[11px] text-faint">
+            Delivery health (overdue work, reach shortfalls) is outside your
+            role, so no campaign is flagged here.
+          </p>
+        )}
       </div>
       {campaigns.length === 0 && (
         <p className="rounded-xl border border-line bg-surface px-5 py-10 text-center text-xs text-muted">
@@ -147,6 +165,18 @@ function LiveCampaignsList({ campaigns, health }: { campaigns: ApiCampaign[]; he
 
 export default async function CampaignsListPage() {
   const live = await liveCampaigns();
+  if (live?.kind === "denied") {
+    return (
+      <div className="space-y-6">
+        <h1 className="text-xl font-semibold tracking-tight">Campaigns</h1>
+        <EmptyState
+          mark="inbox"
+          title="Campaigns are outside your role"
+          hint="The campaign roster is read by BTG's campaign and network desks; your role reads its own slice elsewhere (§15)."
+        />
+      </div>
+    );
+  }
   if (live) return <LiveCampaignsList campaigns={live.campaigns} health={live.health} />;
 
   const campaigns = Object.entries(campaignDetailX).map(([id, d]) => ({

@@ -124,7 +124,7 @@ export function mediaValueFor(input: {
     return {
       amount: 0,
       basis:
-        "No verified impressions were recorded, so no media value is claimed. " +
+        "No verified impressions were recorded, so no cost per 1,000 verified views can be given. " +
         "Self-reported and estimated figures are shown separately above and " +
         "are deliberately not used here.",
       source: "ESTIMATED",

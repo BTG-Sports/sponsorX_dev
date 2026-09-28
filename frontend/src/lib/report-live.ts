@@ -49,13 +49,31 @@ export type ApiSponsorReport = {
   observations: string[];
 };
 
+/**
+ * The one chip the "Verified" layer may wear. That layer is VERIFIED_API +
+ * VERIFIED_MANUAL summed by the backend, so under the taxonomy's §4.2 a single
+ * badge shows the WEAKEST part: any staff-checked row makes the whole layer
+ * "verified · manual" (P7-QA-02 — it used to say "verified · platform" over
+ * figures BTG typed in). Platform-verified only when every row came from one.
+ */
+export function verifiedChip(p: Pick<ApiSponsorReport["performance"], "views" | "engagements">): "VERIFIED_API" | "VERIFIED_MANUAL" | null {
+  /* No verified rows at all → no chip (F-12, QA pass 5): "verified ·
+     platform" over a zero claims a source for figures nobody recorded. */
+  if (
+    p.views.VERIFIED_API + p.views.VERIFIED_MANUAL +
+      p.engagements.VERIFIED_API + p.engagements.VERIFIED_MANUAL === 0
+  ) return null;
+  return p.views.VERIFIED_MANUAL > 0 || p.engagements.VERIFIED_MANUAL > 0 ? "VERIFIED_MANUAL" : "VERIFIED_API";
+}
+
 /** The reach layers a sponsor may see, in trust order — each on its own. */
 export function reachLayers(p: ApiSponsorReport["performance"]): {
   key: "verified" | "self" | "estimated";
   label: string;
   views: number;
   engagements: number;
-  chip: "VERIFIED_API" | "SELF_REPORTED" | "ESTIMATED";
+  /** null = the layer has no rows to label. */
+  chip: "VERIFIED_API" | "VERIFIED_MANUAL" | "SELF_REPORTED" | "ESTIMATED" | null;
 }[] {
   return [
     {
@@ -63,7 +81,7 @@ export function reachLayers(p: ApiSponsorReport["performance"]): {
       label: "Verified",
       views: p.verifiedViews,
       engagements: p.verifiedEngagements,
-      chip: "VERIFIED_API" as const,
+      chip: verifiedChip(p),
     },
     {
       key: "self" as const,

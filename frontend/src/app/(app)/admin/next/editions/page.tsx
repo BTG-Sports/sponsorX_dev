@@ -1,4 +1,4 @@
-import { Badge, Card, Meter, SectionHeading } from "@/components/ui";
+import { BlockedNotice, Badge, Card, Meter, SectionHeading } from "@/components/ui";
 import { HeroBand } from "@/components/hero";
 import { EditionFlatplan } from "@/components/edition-flatplan";
 import { EmptyState, SkeletonPage } from "@/components/states";
@@ -158,6 +158,16 @@ export default async function EditionPlanningPage({
   return (
     <div className="space-y-6">
       {heading}
+
+      {/* P7-QA-02: without ?demo= this fixture render reaches only signed-in
+          staff outside NEXT_DESK_ROLES (CAMPAIGN_MGR, NETWORK_MGR) — the
+          edition, rack and split figures below are sample data. */}
+      {!demo && (
+        <BlockedNotice>
+          Demo data — your role doesn&rsquo;t read the live NEXT edition ledger,
+          so every figure below is a sample edition&rsquo;s.
+        </BlockedNotice>
+      )}
 
       {/* ------------------------------------------------- gates band */}
       <HeroBand border="border-next/30" className="sx-animate">

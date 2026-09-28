@@ -3,8 +3,10 @@
 
    The booth's tap. Single use is the API's partial unique index, not a check
    here: a second tap — or two booths at once — comes back 409, and the page
-   says "already used". Answered with a 303 back to the page, which then shows
-   the API's verdict.
+   says "already used". A reward whose redemption cap is used up (P6-BE-08,
+   enforced by the API under a row lock) comes back 410, and the page says it
+   has run out. Answered with a 303 back to the page, which then shows the
+   API's verdict.
    -------------------------------------------------------------------------- */
 import { edgeHeaders } from "@/server/edge";
 
@@ -20,7 +22,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ token: 
       cache: "no-store",
       headers: edgeHeaders(req),
     });
-    flash = res.ok ? "redeemed" : res.status === 409 ? "used" : "failed";
+    flash = res.ok ? "redeemed" : res.status === 409 ? "used" : res.status === 410 ? "soldout" : "failed";
   } catch {
     flash = "failed";
   }

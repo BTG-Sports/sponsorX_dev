@@ -3,6 +3,7 @@ import { BackLink } from "@/components/back-link";
 import { MatchingStudio } from "@/components/matching-studio";
 import { LiveMatchingStudio } from "@/components/matching-live-studio";
 import { EmptyState } from "@/components/states";
+import { BlockedNotice } from "@/components/ui";
 import { MATCH_BRIEF } from "@/lib/matching";
 import {
   toMatchData,
@@ -36,6 +37,7 @@ const DESK_ROLES = ["SUPER_ADMIN", "BTG_ADMIN", "NETWORK_MGR", "CAMPAIGN_MGR"];
 const MATCHABLE = ["APPROVED", "CAMPAIGN_CREATED", "QUALIFIED"];
 
 type Live =
+  | { kind: "denied" }
   | { kind: "none"; briefs: ApiBrief[] }
   | { kind: "brief"; briefs: ApiBrief[]; brief: ApiBrief; eligible: ApiEligibleAthlete[] };
 
@@ -46,7 +48,10 @@ async function liveDesk(briefParam: string | undefined): Promise<Live | null> {
   if (who.status !== "linked") return null;
   if (!who.actor.roles.some((r) => DESK_ROLES.includes(r))) return null;
 
+  /* A 403 is the API's answer for a role, not an outage (F-02, QA pass 5):
+     the desk renders the out-of-scope message instead of the error page. */
   const listRes = await apiFetch("/briefs");
+  if (listRes.status === 403) return { kind: "denied" };
   if (!listRes.ok) throw new Error(`Briefs unavailable (${listRes.status}).`);
   const { briefs } = (await listRes.json()) as { briefs: ApiBrief[] };
   const matchable = briefs
@@ -60,6 +65,7 @@ async function liveDesk(briefParam: string | undefined): Promise<Live | null> {
     apiFetch(`/briefs/${encodeURIComponent(pick.id)}`),
     apiFetch(`/briefs/${encodeURIComponent(pick.id)}/eligible-athletes?limit=200`),
   ]);
+  if (detailRes.status === 403 || eligibleRes.status === 403) return { kind: "denied" };
   if (!detailRes.ok) throw new Error(`Brief unavailable (${detailRes.status}).`);
   if (!eligibleRes.ok) throw new Error(`Eligible roster unavailable (${eligibleRes.status}).`);
   const brief = (await detailRes.json()) as ApiBrief;
@@ -107,7 +113,7 @@ export default async function MatchingStudioPage({
       </div>
 
       {/* Which brief — a live desk can have several waiting. */}
-      {live && live.briefs.length > 1 && (
+      {live && live.kind !== "denied" && live.briefs.length > 1 && (
         <nav aria-label="Choose a brief" className="flex flex-wrap items-center gap-2">
           <span className="text-[11px] text-faint">Brief:</span>
           {live.briefs.map((b) => {
@@ -131,7 +137,14 @@ export default async function MatchingStudioPage({
         </nav>
       )}
 
-      {live?.kind === "none" ? (
+      {live?.kind === "denied" ? (
+        <EmptyState
+          mark="inbox"
+          title="Matching is outside your role"
+          hint="The matching desk reads sponsor briefs and the eligible roster together; your role doesn't read one of them (§15)."
+          action={{ label: "Back to campaigns", href: "/admin/campaigns" }}
+        />
+      ) : live?.kind === "none" ? (
         <EmptyState
           mark="inbox"
           title="No brief is waiting for matching"
@@ -145,7 +158,19 @@ export default async function MatchingStudioPage({
           send={sendInvitations.bind(null, live.brief.id)}
         />
       ) : (
-        <MatchingStudio initial={initial} />
+        <>
+          {/* P7-QA-02: reached without ?demo= only by staff outside the desk's
+              roles (SALES, FINANCE) — the scores, reach and margins below
+              are the fixture roster. */}
+          {!str(sp.demo) && (
+            <BlockedNotice>
+              Demo data — the live matching desk is BTG admin, Network and
+              Campaign Managers&rsquo;, so every athlete and figure below is
+              sample data.
+            </BlockedNotice>
+          )}
+          <MatchingStudio initial={initial} />
+        </>
       )}
     </div>
   );

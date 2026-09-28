@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  activationBlock,
+  explainRefusal,
   relativeSince,
   toDeskApp,
   type ApiApplication,
@@ -29,6 +31,7 @@ function apiRow(over: Partial<ApiApplication> = {}): ApiApplication {
     stateCode: "MD",
     state: "SUBMITTED",
     guardianStatus: "not-required",
+    missingFields: [],
     reviewerNotes: null,
     reviewedAt: null,
     createdAt: "2026-09-25T09:00:00Z",
@@ -173,5 +176,100 @@ describe("the fixture rows still satisfy the desk's row shape", () => {
       expect(row.score).not.toBeNull();
       expect(stateBucket(row.state)).not.toBe("other");
     }
+  });
+});
+
+describe("activation — B1's last step, gated for minors (§37)", () => {
+  const adult = { isMinor: false, guardianVerified: null, guardianStatus: "not-required" as const };
+  it("offers activation for an approved adult", () => {
+    expect(activationBlock(adult, "APPROVED")).toBeNull();
+  });
+  it("offers it for an approved minor whose guardian is verified", () => {
+    expect(activationBlock({ isMinor: true, guardianVerified: true, guardianStatus: "ready" }, "APPROVED")).toBeNull();
+  });
+  it("says why for a minor with no guardian, and for an unverified one — differently", () => {
+    const none = activationBlock({ isMinor: true, guardianVerified: false, guardianStatus: "missing" }, "APPROVED");
+    const unverified = activationBlock({ isMinor: true, guardianVerified: false, guardianStatus: "unverified" }, "APPROVED");
+    expect(none).toMatch(/no guardian is linked/);
+    expect(unverified).toMatch(/linked but not verified/);
+  });
+  it("never offers it outside APPROVED", () => {
+    for (const s of ["SUBMITTED", "UNDER_REVIEW", "ACTIVE", "REJECTED"] as const) {
+      expect(activationBlock(adult, s)).not.toBeNull();
+    }
+  });
+});
+
+/* --------------------------------------------------------------------------
+   QA pass 5 — decision 3 (complete to activate) and F-10 (stale clicks).
+   -------------------------------------------------------------------------- */
+
+describe("activation says which fields are missing, as the API would", () => {
+  const adult = { isMinor: false, guardianVerified: null, guardianStatus: "not-required" as const };
+  it("carries the API's missingFields onto the desk row", () => {
+    const row = toDeskApp(apiRow({ missingFields: ["stateCode"] }), NOW);
+    expect(row.missingFields).toEqual(["stateCode"]);
+  });
+  it("blocks an incomplete profile and names the fields in words", () => {
+    const why = activationBlock({ ...adult, missingFields: ["stateCode", "birthDateOrAgeBand"] }, "APPROVED");
+    expect(why).toMatch(/incomplete/i);
+    expect(why).toMatch(/state/);
+    expect(why).toMatch(/date of birth or age band/);
+    expect(why).not.toMatch(/birthDateOrAgeBand|stateCode/);
+  });
+  it("an empty list does not block", () => {
+    expect(activationBlock({ ...adult, missingFields: [] }, "APPROVED")).toBeNull();
+  });
+  it("a suspended athlete is told reinstatement is a separate step", () => {
+    expect(activationBlock(adult, "SUSPENDED")).toMatch(/reinstat/i);
+  });
+});
+
+describe("a refused decision reads as product copy, never state-machine text (F-10)", () => {
+  it("a stale Activate says it's already active, and hands back the real state", () => {
+    const r = explainRefusal("activate", 409, {
+      code: "illegal_transition",
+      message: "An athlete cannot go from ACTIVE to ACTIVE. Legal moves from ACTIVE: SUSPENDED (§21).",
+      from: "ACTIVE", to: "ACTIVE",
+    });
+    expect(r.message).toBe("Already active — refresh to see the latest.");
+    expect(r.state).toBe("ACTIVE");
+  });
+  it.each(["approve", "changes", "reject", "begin"] as const)(
+    "a stale %s says someone got there first, with no §21 text", (kind) => {
+      const r = explainRefusal(kind, 409, {
+        code: "illegal_transition", message: "An athlete cannot go from REJECTED to APPROVED (§21).",
+        from: "REJECTED", to: "APPROVED",
+      });
+      expect(r.message).not.toMatch(/cannot go from|§21|REJECTED/);
+      expect(r.message).toMatch(/refresh/i);
+      expect(r.state).toBe("REJECTED");
+    });
+  it("an illegal transition without details still hides the raw text", () => {
+    const r = explainRefusal("approve", 409, { code: "illegal_transition", message: "An athlete cannot go from X to Y" });
+    expect(r.message).not.toMatch(/cannot go from/);
+    expect(r.state).toBeUndefined();
+  });
+  it("profile_incomplete names the fields in words", () => {
+    const r = explainRefusal("activate", 422, { code: "profile_incomplete", message: "…", missing: ["sport"] });
+    expect(r.message).toMatch(/sport/);
+    expect(r.message).not.toMatch(/profile_incomplete/);
+  });
+  it("reinstatement_required moves the row to SUSPENDED", () => {
+    const r = explainRefusal("activate", 409, { code: "reinstatement_required", message: "…" });
+    expect(r.message).toMatch(/reinstat/i);
+    expect(r.state).toBe("SUSPENDED");
+  });
+  it("a 5xx never echoes the body, but keeps the reference", () => {
+    const r = explainRefusal("approve", 500, { code: "internal_error", message: "boom at x.ts:1", reference: "ref-1" });
+    expect(r.message).not.toMatch(/x\.ts/);
+    expect(r.message).toMatch(/ref-1/);
+  });
+  it("other 4xx keep the API's own words, preferring a named issue", () => {
+    expect(explainRefusal("reject", 400, {
+      code: "validation", message: "The submission failed validation.",
+      issues: [{ path: "reviewerNotes", message: "A reason is required." }],
+    }).message).toBe("A reason is required.");
+    expect(explainRefusal("reject", 422, { code: "bad_request", message: "Notes needed." }).message).toBe("Notes needed.");
   });
 });

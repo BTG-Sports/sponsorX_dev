@@ -2,9 +2,11 @@
 
 import { apiFetch } from "@/server/api";
 import type { LiveApplicationState } from "@/lib/applications-ui";
-import type {
-  ReviewActionKind,
-  ReviewActionResult,
+import {
+  explainRefusal,
+  type ApiErrorBody,
+  type ReviewActionKind,
+  type ReviewActionResult,
 } from "@/lib/applications-live";
 
 /* --------------------------------------------------------------------------
@@ -30,6 +32,7 @@ const PATHS: Record<ReviewActionKind, string> = {
   approve: "approve",
   changes: "request-changes",
   reject: "reject",
+  activate: "activate",
 };
 
 export async function reviewAction(
@@ -43,10 +46,11 @@ export async function reviewAction(
   }
 
   /* The API requires notes for changes/reject (they are sent to the athlete
-     verbatim) and accepts them for approve. `begin` takes no body. */
+     verbatim) and accepts them for approve. `begin` and `activate` take no
+     body. */
   const trimmed = notes?.trim();
   const body =
-    kind === "begin"
+    kind === "begin" || kind === "activate"
       ? undefined
       : JSON.stringify(trimmed ? { reviewerNotes: trimmed } : {});
 
@@ -69,16 +73,15 @@ export async function reviewAction(
   }
 
   /* The API can articulate its refusals — 409 illegal transition, 422 notes
-     required, 403 not permitted — through the one error envelope. */
-  let message = `The decision was not accepted (HTTP ${response.status}).`;
+     required or profile incomplete, 403 not permitted — through the one error
+     envelope. explainRefusal turns them into product copy by `code`, and
+     hands back the row's real state on a stale click (F-10). */
+  let error: ApiErrorBody | undefined;
   try {
-    const parsed = (await response.json()) as {
-      error?: { message?: string; issues?: Array<{ path: string; message: string }> };
-    };
-    message =
-      parsed.error?.issues?.[0]?.message ?? parsed.error?.message ?? message;
+    error = ((await response.json()) as { error?: ApiErrorBody }).error;
   } catch {
-    /* Non-JSON error body — keep the status-line message. */
+    /* Non-JSON error body — explainRefusal falls back to the status line. */
   }
-  return { ok: false, message };
+  const { message, state } = explainRefusal(kind, response.status, error);
+  return { ok: false, message, ...(state ? { state } : {}) };
 }

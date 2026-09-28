@@ -78,6 +78,12 @@ const addReward: RequestHandler<{ id: string }> = async (req, res) => {
       terms: body.terms,
       expiresAt: new Date(body.expiresAt),
       singleUse: body.singleUse,
+      eligibility: body.eligibility,
+      eligibilityNote: body.eligibilityNote ?? null,
+      redemptionCap: body.redemptionCap ?? null,
+      landingHeadline: body.landingHeadline ?? null,
+      landingSubhead: body.landingSubhead ?? null,
+      reserveMinutes: body.reserveMinutes,
     }),
   );
 };
@@ -193,7 +199,9 @@ const landing: RequestHandler<{ token: string }> = async (req, res) => {
   res.status(201).json(await recordLanding(req.params.token));
 };
 
-/** POST /public/rewards/:token/claim — the fan accepted the offer. */
+/** POST /public/rewards/:token/claim — the fan accepted the offer. On a
+ *  capped reward this reserves a unit for the code until `heldUntil`
+ *  (QA-09); 410 when none is left to reserve. */
 const claim: RequestHandler<{ token: string }> = async (req, res) => {
   await limit("reward:claim", clientIp(req), 20, 60);
   const body = RewardClaimInput.parse(req.body ?? {});
@@ -211,9 +219,12 @@ const claim: RequestHandler<{ token: string }> = async (req, res) => {
 /**
  * POST /public/rewards/:token/redeem — the merchant redeems at the till.
  *
- * A second concurrent call on the same token loses the unique-index race and
- * comes back 409 `AlreadyRedeemedError`. That is the intended behaviour, not
- * an error path to smooth over.
+ * A used single-use code answers 409 `AlreadyRedeemedError` — a second
+ * concurrent call included. That is the intended behaviour, not an error path
+ * to smooth over. A reward with no unit left for this code answers 410
+ * `RewardExhaustedError` (P6-BE-08) — the offer, not the code; a code whose
+ * claim holds a unit always gets it (QA-09). A saturated database answers
+ * 503 rather than hanging (QA-01).
  */
 const redeem: RequestHandler<{ token: string }> = async (req, res) => {
   await limit("reward:redeem", clientIp(req), 20, 60);
@@ -268,6 +279,8 @@ async function funnelsFor(actor: Parameters<typeof can>[0], tokenToReward: Map<s
 
 const REWARD_SELECT = {
   id: true, offerText: true, terms: true, singleUse: true, expiresAt: true, state: true,
+  eligibility: true, eligibilityNote: true, redemptionCap: true, landingHeadline: true, landingSubhead: true,
+  redeemedCount: true, reserveMinutes: true,
   campaign: { select: { id: true, name: true, endDate: true, sponsor: { select: { name: true } } } },
   tokens: {
     select: {
@@ -279,11 +292,29 @@ const REWARD_SELECT = {
 
 type RewardRow = {
   id: string; offerText: string; terms: string; singleUse: boolean; expiresAt: Date; state: string;
+  eligibility: string; eligibilityNote: string | null; redemptionCap: number | null;
+  landingHeadline: string | null; landingSubhead: string | null;
+  redeemedCount: number; reserveMinutes: number;
   campaign: { id: string; name: string; endDate: Date; sponsor: { name: string } };
   tokens: { id: string; token: string; qrKey: string | null; athlete: { id: string; displayName: string } | null }[];
 };
 
-function rewardOut(r: RewardRow, funnel: Record<string, number> | undefined, withTokens: boolean, printable: boolean) {
+/**
+ * Units a claim currently holds, per reward (QA-09) — tokens whose
+ * `reservedUntil` is still ahead. The desk shows "38 of 50 left · 4 held".
+ */
+async function heldFor(rewardIds: string[], now = new Date()): Promise<Map<string, number>> {
+  if (rewardIds.length === 0) return new Map();
+  const grouped = await prisma.rewardToken.groupBy({
+    /* tenant-scope: keyed by rewards already loaded through whereFor. */
+    by: ["rewardId"],
+    where: { rewardId: { in: rewardIds }, reservedUntil: { gt: now } },
+    _count: { _all: true },
+  });
+  return new Map(grouped.map((g) => [g.rewardId, g._count._all]));
+}
+
+function rewardOut(r: RewardRow, funnel: Record<string, number> | undefined, withTokens: boolean, printable: boolean, held = 0) {
   return {
     id: r.id,
     offerText: r.offerText,
@@ -291,6 +322,18 @@ function rewardOut(r: RewardRow, funnel: Record<string, number> | undefined, wit
     singleUse: r.singleUse,
     expiresAt: r.expiresAt.toISOString(),
     state: r.state,
+    /* P6-BE-08 */
+    eligibility: r.eligibility,
+    eligibilityNote: r.eligibilityNote,
+    redemptionCap: r.redemptionCap,
+    /* QA-09 / QA-01 — on a capped reward: the counter the cap is enforced
+       against (so the desk's "left" matches what the till will allow), the
+       units claims hold right now, and the hold window. The counter is kept
+       for capped rewards only, so an uncapped one answers null. */
+    redeemed: r.redemptionCap != null ? r.redeemedCount : null,
+    held,
+    reserveMinutes: r.reserveMinutes,
+    landing: { headline: r.landingHeadline, subhead: r.landingSubhead },
     campaign: { id: r.campaign.id, name: r.campaign.name, sponsorName: r.campaign.sponsor.name, endDate: r.campaign.endDate.toISOString() },
     athletes: new Set(r.tokens.map((t) => t.athlete?.id).filter(Boolean)).size,
     tokenCount: r.tokens.length,
@@ -320,8 +363,9 @@ const listRewards: RequestHandler = async (req, res) => {
   })) as RewardRow[];
   const tokenToReward = new Map(rows.flatMap((r) => r.tokens.map((t) => [t.id, r.id] as const)));
   const funnels = await funnelsFor(actor, tokenToReward);
+  const held = await heldFor(rows.filter((r) => r.redemptionCap != null).map((r) => r.id));
   res.json({
-    rewards: rows.map((r) => rewardOut(r, funnels.get(r.id) ?? (can(actor, "rewardEvent", "read") ? { SCAN: 0, LANDING: 0, CLAIM: 0, REDEEM: 0 } : undefined), false, false)),
+    rewards: rows.map((r) => rewardOut(r, funnels.get(r.id) ?? (can(actor, "rewardEvent", "read") ? { SCAN: 0, LANDING: 0, CLAIM: 0, REDEEM: 0 } : undefined), false, false, held.get(r.id) ?? 0)),
     /* The one consent line every fan page shows — versioned centrally
        (fan-consent.ts, P6-SEC-01), deliberately not per reward. */
     consent: { version: CURRENT_CONSENT_VERSION, text: CONSENT_TEXT[CURRENT_CONSENT_VERSION] },
@@ -337,8 +381,9 @@ const readReward: RequestHandler<{ id: string }> = async (req, res) => {
   })) as RewardRow | null;
   if (!r) throw new ForbiddenError("reward", "read");
   const funnels = await funnelsFor(actor, new Map(r.tokens.map((t) => [t.id, r.id])));
+  const held = r.redemptionCap != null ? (await heldFor([r.id])).get(r.id) ?? 0 : 0;
   res.json({
-    ...rewardOut(r, funnels.get(r.id) ?? { SCAN: 0, LANDING: 0, CLAIM: 0, REDEEM: 0 }, true, can(actor, "reward", "write")),
+    ...rewardOut(r, funnels.get(r.id) ?? { SCAN: 0, LANDING: 0, CLAIM: 0, REDEEM: 0 }, true, can(actor, "reward", "write"), held),
     consent: { version: CURRENT_CONSENT_VERSION, text: CONSENT_TEXT[CURRENT_CONSENT_VERSION] },
   });
 };

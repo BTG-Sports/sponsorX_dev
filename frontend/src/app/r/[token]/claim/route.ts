@@ -40,7 +40,9 @@ export async function POST(req: Request, { params }: { params: Promise<{ token: 
           : {},
       ),
     });
-    flash = res.ok ? "claimed" : "failed";
+    /* 410: the reward's redemption cap is used up (P6-BE-08) — nothing left
+       to claim; the page re-reads the API and shows "run out". */
+    flash = res.ok ? "claimed" : res.status === 410 ? "soldout" : "failed";
   } catch {
     flash = "failed";
   }

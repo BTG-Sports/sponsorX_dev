@@ -100,7 +100,14 @@ export async function LiveSplits({ live }: { live: LiveEditions }) {
           ))}
         </div>
         <p className="mt-2 text-[10px] text-faint">
-          Computed {shortDate(rows[0]!.computedAt)} by the ledger. Shares are policy in basis points; amounts are whole cents that sum to the revenue exactly.
+          Computed {shortDate(rows[0]!.computedAt)} by the ledger. Amounts are whole cents that sum to the revenue exactly.
+          {/* P7-QA-02: SPLIT_BPS (backend revenue-split.ts) is a curated,
+              SIMULATED constant from the P9-PMO-01 rate-card decision — the
+              shares, and every amount derived from them, say so. */}
+          <span className="mt-1 flex flex-wrap items-center gap-1.5">
+            Shares are working numbers pending BTG sign-off
+            <MiniChip kind="est">EST · curated · simulated split (P9-PMO-01, 2026-09-25)</MiniChip>
+          </span>
         </p>
       </Card>
 
@@ -121,6 +128,7 @@ export async function LiveSplits({ live }: { live: LiveEditions }) {
                   <span className="text-xl font-semibold tabular-nums tracking-tight">{money(r.amountCents)}</span>
                 )}
                 <span className="text-[11px] tabular-nums text-faint">{r.bps.toLocaleString("en-US")} bps</span>
+                <MiniChip kind="est">EST · curated</MiniChip>
               </p>
               <p className="mt-2 text-[11px] leading-relaxed text-muted">{payeeBlurb(r.payeeKind, regional)}</p>
             </Card>

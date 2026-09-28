@@ -1,6 +1,12 @@
 import { z } from "./zod";
 
-import { REWARD_EVENT_TYPES, REWARD_STATES } from "../domain/reward-state";
+import {
+  hasVisibleText,
+  RESERVE_MINUTES,
+  REWARD_ELIGIBILITIES,
+  REWARD_EVENT_TYPES,
+  REWARD_STATES,
+} from "../domain/reward-state";
 
 /* --------------------------------------------------------------------------
    The fan funnel and tracking links on the wire — P6-BE-01…04, P6-BE-07.
@@ -22,16 +28,48 @@ export const RewardEventType = z.enum(REWARD_EVENT_TYPES).meta({
     "The four moments of §16's fan funnel — SCAN, LANDING, CLAIM, REDEEM. Four separate rows, never one counter: the drop-off between them is the number the feature exists to produce.",
 });
 
+export const RewardEligibility = z.enum(REWARD_ELIGIBILITIES).meta({
+  id: "RewardEligibility",
+  description:
+    "Who the reward is for (§9 screen 10). STATED to the fan and to booth staff, not checked by the API — the fan page has no login (§16), so there is nothing to check it against.",
+});
+
+/* Optional copy. Blank means "not set" — the page's default wording — and
+   the domain stores it as null (no transform here: a transform cannot be
+   represented in the published OpenAPI). */
+const optionalCopy = (max: number) => z.string().trim().max(max).nullable().optional();
+
+/* Required copy must have something a reader can see — whitespace and
+   zero-width characters alone are refused as blank (QA-07). */
+const requiredCopy = (max: number, what: string) =>
+  z.string().min(1).max(max).refine(hasVisibleText, { message: `${what} can't be blank.` });
+
 export const RewardInput = z
   .object({
-    offerText: z.string().min(1).max(500),
-    terms: z.string().min(1).max(4000),
+    offerText: requiredCopy(500, "The offer"),
+    terms: requiredCopy(4000, "The terms"),
+    /** Must be in the future (checked by the domain — F-09). */
     expiresAt: z.iso.datetime(),
     /** A single-use reward is redeemable exactly once, enforced by a partial
      *  unique index rather than by application code (P6-BE-04). */
     singleUse: z.boolean().default(true),
+    /* P6-BE-08 — eligibility, the redemption cap and the landing copy. */
+    eligibility: RewardEligibility.default("ANYONE"),
+    eligibilityNote: optionalCopy(280),
+    /** Most redemptions across every token of the reward; null = unlimited.
+     *  Enforced race-safely in the redeem transaction, not by the page. */
+    redemptionCap: z.int().min(1).max(1_000_000).nullable().optional(),
+    /** QA-09 — on a capped reward, a fan's claim holds one unit for them
+     *  this many minutes; after that the unit is released. Default an hour. */
+    reserveMinutes: z.int().min(RESERVE_MINUTES.min).max(RESERVE_MINUTES.max).default(RESERVE_MINUTES.default),
+    landingHeadline: optionalCopy(120),
+    landingSubhead: optionalCopy(280),
   })
-  .meta({ id: "RewardInput" });
+  .meta({
+    id: "RewardInput",
+    description:
+      "Consent wording is deliberately not a reward field: it is versioned centrally (P6-SEC-01) so every claim records the exact text the fan saw.",
+  });
 
 export const RewardTransitionInput = z
   .object({ to: RewardState })

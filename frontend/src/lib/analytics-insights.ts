@@ -23,6 +23,15 @@ const n = (v: number) => v.toLocaleString("en-US");
 const pct = (part: number, whole: number) =>
   Math.round((part / whole) * 100);
 
+/** "Redemptions are …" — a delta as words. `delta()` writes a fall with a
+    leading minus, so "up −83.3%" was possible; "new" means no prior period. */
+function trend(delta: string): string {
+  if (delta === "new") return "new this period";
+  if (delta === "0%") return "flat";
+  if (/^[−-]/.test(delta)) return `down ${delta.slice(1)}`;
+  return `up ${delta}`;
+}
+
 /** Chapter 1 headline: the claimed-but-never-used gap. */
 export function headlineInsight(d: Pick<AnalyticsDataset, "funnel" | "deltas">): Insight {
   const claims = d.funnel[2].value;
@@ -30,10 +39,20 @@ export function headlineInsight(d: Pick<AnalyticsDataset, "funnel" | "deltas">):
   /* Live data can be empty — say so plainly rather than print "NaN". */
   if (d.funnel[0].value === 0)
     return { pre: "", hot: "Nothing has been scanned in this range yet", post: " — the story fills in as fans scan QR rewards.", tone: "primary" };
-  if (claims === 0)
+  if (claims === 0 && redeemed === 0)
     return { pre: "Fans are scanning, but ", hot: "nobody has claimed a reward yet", post: ".", tone: "accent" };
+  /* F-04 (QA pass 5): the booth can redeem a code nobody claimed first, so
+     redemptions can outnumber claims — "−3 claimed rewards were never used"
+     is not a sentence. The gap is only a count when claims cover it. */
+  if (redeemed >= claims)
+    return {
+      pre: `Redemptions are ${trend(d.deltas.redeemed)} — `,
+      hot: "every claimed reward was used",
+      post: redeemed > claims ? ", and some codes were redeemed at the booth without a claim first." : ".",
+      tone: "accent",
+    };
   return {
-    pre: `Redemptions are up ${d.deltas.redeemed} — but `,
+    pre: `Redemptions are ${trend(d.deltas.redeemed)} — but `,
     hot: `${n(claims - redeemed)} claimed rewards were never used`,
     post: ". Closing that gap is the biggest lever on this page.",
     tone: "accent",

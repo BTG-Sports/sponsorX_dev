@@ -37,9 +37,11 @@ export function createApp() {
        2026-09-25 merge fixed this independently; errorBody() is the kept
        version because it also names the failing paths (issues[]), which
        the /join wizard's field mapping consumes (P3-FE-01). */
-    const { status, body } = errorBody(err);
-    if (status >= 500) console.error(err);
-    res.status(status).json(body);
+    const { status, body, headers, reference } = errorBody(err);
+    /* The detail stays server-side (QA-03): the caller sees only the
+       reference, and this line is where that reference leads. */
+    if (status >= 500) console.error(`[error ${reference}]`, err);
+    res.set(headers).status(status).json(body);
   };
   app.use(onError);
 

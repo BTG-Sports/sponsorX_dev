@@ -545,7 +545,7 @@ export function MatchingStudio({
                 Score is the §14 Content Value Score — a stored snapshot
                 ({brief.scoreMethod}, {brief.scoreSnapshot}), not a live
                 calculation{live ? "; a dash means not scored yet, never zero" : ""}.
-                Reach is platform-verified where connected, otherwise
+                Reach is verified (by BTG, or a platform where connected), otherwise
                 self-reported. Cost comes from the athlete&apos;s rate card; sell
                 price from the package band{live ? " — the job's floor for the athlete's tier" : ""}.
               </p>
@@ -927,7 +927,7 @@ function FilterControls({
           </p>
           <p>
             <span className="font-medium text-muted">Reach</span> —
-            platform-verified where connected, otherwise self-reported.
+            verified by BTG or a connected platform, otherwise self-reported.
           </p>
           <p>
             <span className="font-medium text-muted">Cost</span> — the

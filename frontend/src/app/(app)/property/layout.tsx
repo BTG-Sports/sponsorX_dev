@@ -1,6 +1,6 @@
 import { requirePortalAccess } from "@/server/portal";
 import { PortalShell, type NavItem } from "@/components/portal-shell";
-import { property } from "@/lib/fixtures";
+import { roleLabel, viewerName } from "@/server/viewer";
 
 /* Property surface — §8 PROPERTY_MGR. A property manager sees only their own
    property's athletes, inventory and campaigns (scoped in guide §09). Only the
@@ -21,16 +21,17 @@ const NAV: NavItem[] = [
 
    Which rows this portal may then read is scope.ts, applied per query. */
 export default async function PropertyLayout({ children }: LayoutProps<"/property">) {
-  await requirePortalAccess("property");
+  const actor = await requirePortalAccess("property");
 
   return (
     <PortalShell
       portal="property"
       nav={NAV}
       rootHref="/property"
-      orgName={property.name}
-      userName="Property Manager"
-      userRole="PROPERTY_MGR"
+      /* F-06 (QA pass 5): the signed-in person and their real roles, not
+         the fixture property's name over every manager's header. */
+      userName={await viewerName("Property manager")}
+      userRole={roleLabel(actor.roles)}
     >
       {children}
     </PortalShell>

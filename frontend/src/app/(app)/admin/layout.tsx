@@ -1,5 +1,6 @@
 import { requirePortalAccess } from "@/server/portal";
 import { PortalShell, type NavItem } from "@/components/portal-shell";
+import { roleLabel, viewerName } from "@/server/viewer";
 
 /* BTG admin surface — §10's four workspaces plus the command center (§23). */
 const NAV: NavItem[] = [
@@ -28,16 +29,19 @@ const NAV: NavItem[] = [
 
    Which rows this portal may then read is scope.ts, applied per query. */
 export default async function AdminLayout({ children }: LayoutProps<"/admin">) {
-  await requirePortalAccess("admin");
+  const actor = await requirePortalAccess("admin");
 
+  /* F-06 (QA pass 5): the header greets the person who signed in and names
+     the roles they actually hold — it used to say "BTG Operations /
+     BTG_ADMIN" to FINANCE and SALES too. */
   return (
     <PortalShell
       portal="admin"
       nav={NAV}
       rootHref="/admin"
       orgName="BTG Sports Group"
-      userName="BTG Operations"
-      userRole="BTG_ADMIN"
+      userName={await viewerName("BTG staff")}
+      userRole={roleLabel(actor.roles)}
     >
       {children}
     </PortalShell>

@@ -1,3 +1,4 @@
+import { BlockedNotice } from "@/components/ui";
 import { EmptyState, SkeletonPage } from "@/components/states";
 import {
   SponsorCampaignsList,
@@ -87,6 +88,16 @@ export default async function SponsorCampaignsPage({
   return (
     <div className="space-y-6">
       {heading}
+
+      {/* P7-QA-02: no live read here yet (P2-FE-01) — a signed-in sponsor
+          would otherwise take this sample portfolio for their own. */}
+      {!demo && (
+        <BlockedNotice>
+          Demo data — this list is a sample portfolio, not your campaigns. Your
+          real campaigns, spend and invoices are on the{" "}
+          <a href="/sponsor" className="underline">Dashboard</a>.
+        </BlockedNotice>
+      )}
 
       <SponsorCampaignsList
         rows={rows}

@@ -890,3 +890,134 @@ Owner HeckerCreatives. Thin reads added under the "thin reads" scope rule
 - **`2S1-BE-03`:** the verification queue plus five decisions. Approval
   creates the Property and grants listing access (`listingAccessAt`), audited.
   Suspension withdraws it.
+
+## Phase 1 close-out run (HeckerCreatives) — 10 rows → Code review
+
+Scope: every open Phase 1 task that can be finished in code or docs. Left
+alone: rcfworks' vendor-console / CI rows and P2-FE-01, P1-ART-08 and the
+NEXT screens behind it, P6-ART-01 (printable QR artwork, a design task),
+P9-DATA-01 (edition one actually selling), and the go/no-go rows.
+
+### `P6-BE-08` + `P6-FE-01` — reward eligibility, cap, landing copy → Code review
+- Migration `20260928130000_reward_limits_landing` (additive): enum
+  `RewardEligibility` (ANYONE / AGE_18_PLUS / AGE_21_PLUS / TICKET_HOLDERS),
+  `eligibilityNote`, `redemptionCap` (null = unlimited, CHECK > 0),
+  `landingHeadline`, `landingSubhead`.
+- **Eligibility is stated, not enforced**: the fan page has no login, so the
+  server can't check an age or a ticket. It is shown to the fan and, above the
+  redeem button, to booth staff ("Check ID — 21+ only"). The server enforces
+  only the cap and the expiry.
+- **The cap is race-safe**: the redeem transaction takes `SELECT … FOR UPDATE`
+  on the Reward, then counts redemptions across all its tokens. Uncapped
+  rewards skip the lock. A spent cap returns **410**, distinct from 409
+  "already used". Claims are refused once the cap is spent.
+  - Tested against real Postgres: 2 at cap−1 give 1 success; 10 at cap 3
+    give 3.
+- Fan page `/r/[token]`, still JavaScript-off: shows the headline and
+  subhead, falling back to the old copy; shows the eligibility line; new
+  "This reward has run out" state.
+- Creator and desk expose every field. Consent stays central and read-only
+  by design, and a test pins that the contract has no consent field.
+- **Open:** a reward can't be edited after it's created. An edit route would
+  need a tenant-sweep entry.
+
+### `P3/P4/P5/P7-QA-01` — the loop E2E suite → Code review
+- `e2e/support/auth.ts` signs in through Clerk: find-or-create the
+  dev-instance user `e2e.<key>@example.com` → upsert `User` `e2e_u_<key>` →
+  sign-in token → `/login?__clerk_ticket=`. No new dependency.
+- `e2e/support/loop-db.ts`: `ensureBase()` (jobs, packages, Campaign Order
+  v1; fails if the agreement hash drifts), plus per-spec `e2e_pN_` rows that
+  are purged before and after.
+- `e2e/support/object-store.ts`: stubs only the browser's signed upload
+  where there's no MinIO (CI).
+- Specs `e2e/loop-p3-application`, `loop-p4-matching`, `loop-p5-delivery`
+  and `loop-p7-earnings-report`. They run on the chromium project only, and
+  skip with the reason when there's no DB or Clerk key.
+- Steps with no screen are driven via the API, with a comment each:
+  guardian link/verify, brief qualify/approve, metrics, the tracking link,
+  sponsor approval (approved on the sponsor's behalf). Invitation expiry
+  runs the worker's own `expireInvitations()`.
+- **Run:** `npm run e2e` three times, 15 passed / 7 skipped / 0 failed each
+  (one run with `--workers=1` and the stub forced, as CI will run it).
+- **Product fixes it found:**
+  - The **admin applications desk had no Activate button** (the API had
+    `/activate`). It now has "Activate athlete", disabled with a reason for
+    a minor whose guardian isn't verified (`activationBlock()`, 4 tests).
+  - The sponsor report funnel printed "↓ NaN%" after a zero stage; now "—".
+- CI needs nothing new.
+
+### `P7-QA-02` — metric provenance honesty review → Code review
+- Record: `documentation/SponsorX-P7-QA-02-Metric-Provenance-Review.md`.
+  About 500 figures traced, 13 fixed, 17 open with owners.
+- **Fixed labels that overstated their source:** ROI verified reach
+  (includes manual), "Media value" (actually cost per 1,000 views), analytics
+  and matching reach (staff-checked, not platform), NEXT splits
+  (`EST · curated`, simulated), home-page counters (fixtures).
+- **Fixed at the source (backend):** intake can no longer claim
+  platform-verified followers, and an estimated count no longer counts as
+  verified in matching.
+- **Pages still showing sample data to signed-in users** carry the "Demo
+  data" `BlockedNotice`. Also: the admin board no longer links to fixture ids
+  c1…c5, and the sponsor header shows the signed-in person, not "Under Armour
+  / John Smith".
+- **Rewards desk (F-O8), fixed by the coordinator after the P6 batch:** a
+  `POSTGRES` chip on the live summary, and a demo notice on the fixture
+  fallback.
+
+### `P8-PMO-02/03/04` — §38 documents → Code review
+- `documentation/SponsorX-Admin-User-Guide.md` — for BTG staff, task by
+  task, with the real button labels. It says which screens are sample data
+  and which steps have no button.
+- `documentation/SponsorX-Phase2-4-Module-Interface-and-Migration-Plan.md`
+  covers the listings, carts/reservations, payments, payouts and Wallet
+  seams, plus 12 invariants.
+- `documentation/SponsorX-INFINEX-API-and-Event-Spec.md` maps virtual
+  inventory onto existing models. Every endpoint and event is marked as
+  existing or proposed.
+
+### Gaps these runs surfaced (not coded around)
+- **The API Service Account can't authenticate.** The only credential is a
+  Clerk user session; the OpenAPI `bearerAuth` has no implementation. This
+  blocks INFINEX and any partner.
+- **No outbound event or webhook system.** `OutboxJob` has no dedupe key.
+- **The Zoho webhook's HMAC is computed over re-serialised JSON,** not the
+  raw body.
+- **`WebhookDelivery.externalId` isn't unique,** and `Earning` has no
+  currency column.
+- **Job types with no handler:** `notify.campaignLive`,
+  `notify.deliverableDue`, `zoho.pushAthlete`.
+- **No admin UI for:**
+  - brief qualify/approve
+  - campaign launch and state moves
+  - earning transitions (Finance is read-only)
+  - guardian verify
+  - tier and rates
+  - reward edit
+  - the Phase 2 onboarding queue
+- **Role mismatches:**
+  - SALES and FINANCE likely get an error page on Campaigns and Analytics
+    (inferred from the policy, not walked).
+  - FINANCE can't open NEXT splits.
+  - NETWORK_MGR can open Matching but every send is refused.
+  - The admin "Sponsor report" button bounces staff out of the sponsor
+    portal.
+- **Stale or contradictory docs:**
+  - `NilJob` units: the schema comment says cents, the code uses dollars.
+  - `stack-decision.md` Addendum B3 still says the frontend reads Postgres
+    directly.
+  - Initial Memory's stack file still describes Next route handlers and no
+    Redis.
+  - CLAUDE.md says the email provider is undecided, but G-04 records Resend.
+  - The phase-file headers still say "no spreadsheet is committed".
+  - P6-BE-08 isn't defined in the Phase 1 plan file.
+  - RBAC §14 still cites `mock-auth.ts`.
+  - The NEXT spec lists `/admin/next/production`, which doesn't exist.
+
+### Verified
+- backend vitest 1473/1473, frontend 308/308, eslint clean
+- `npm run build` green; the :3000 dev server was stopped first and
+  restarted after
+- Tracker: the 10 rows above → Code review (owner HeckerCreatives, started
+  2026-09-28)
+- Stage Progress row 2026-09-28 recomputed: 208 Done, 108 days left.
+  **Nothing committed.**

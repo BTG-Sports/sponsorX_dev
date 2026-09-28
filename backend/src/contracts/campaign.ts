@@ -1,4 +1,4 @@
-import { z } from "./zod";
+import { INT4_MAX, z } from "./zod";
 
 import { BRAND_CATEGORIES } from "../domain/brand-categories";
 import { BRIEF_STATES } from "../domain/brief-state";
@@ -33,7 +33,7 @@ export const CampaignBriefInput = z
     /** Cents. The column is cents and so is this — a budget in dollars
      *  reaching a cents column is a hundredfold error nobody notices until
      *  invoicing. */
-    budget: z.int().min(0).describe("Budget in cents"),
+    budget: z.int().min(0).max(INT4_MAX).describe("Budget in cents"),
     packageId: z.string().nullable().optional(),
     /** SponsorX NEXT (P9-BE-07): the student code the sponsor arrived with at
      *  /s/[code]. A sale on this brief is credited to that student. */
@@ -65,7 +65,7 @@ export const InvitationInput = z
     athleteId: z.string().min(1),
     jobId: z.string().min(1).describe("NIL job code, e.g. SX-02"),
     /** Cents offered to the athlete. */
-    offered: z.int().min(0).describe("Offer to the athlete, in cents"),
+    offered: z.int().min(0).max(INT4_MAX).describe("Offer to the athlete, in cents"),
     expiresAt: z.iso.datetime().optional(),
   })
   .meta({ id: "InvitationInput", description: "One job on one campaign offered to one athlete." });
@@ -111,7 +111,7 @@ export const AthleteRateInput = z
   .object({
     jobId: z.string().min(1),
     /** Cents paid to the athlete. Never the sponsor price. */
-    amount: z.int().min(0).describe("Athlete compensation in cents"),
+    amount: z.int().min(0).max(INT4_MAX).describe("Athlete compensation in cents"),
   })
   .meta({ id: "AthleteRateInput", description: "Set manually by a network manager — §6 does not compute it." });
 
@@ -123,10 +123,10 @@ export const CampaignOrderInput = z
   .object({
     athleteId: z.string().min(1),
     jobId: z.string().min(1),
-    compensation: z.int().min(0).describe("Athlete compensation in cents"),
+    compensation: z.int().min(0).max(INT4_MAX).describe("Athlete compensation in cents"),
     /** What the sponsor pays for this line, in cents. Refused below
      *  compensation x 1.4 (P3-BE-12). */
-    sellPrice: z.int().min(0).describe("Sponsor price for this line, in cents"),
+    sellPrice: z.int().min(0).max(INT4_MAX).describe("Sponsor price for this line, in cents"),
     usageRights: z.string().min(1).max(2000),
     exclusivity: z.string().max(2000).nullable().optional(),
     dueDate: z.iso.date(),

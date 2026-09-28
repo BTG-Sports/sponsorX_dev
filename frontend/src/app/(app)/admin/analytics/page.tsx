@@ -23,9 +23,14 @@ import { apiFetch, fetchActor } from "@/server/api";
 
 const DESK_ROLES = ["SUPER_ADMIN", "BTG_ADMIN", "CAMPAIGN_MGR", "NETWORK_MGR", "FINANCE", "SALES"];
 
-async function liveStory(): Promise<Record<RangeKey, LiveStory> | null> {
+/** The API refused this role (403) — not an outage (F-02, QA pass 5). */
+const DENIED = "denied" as const;
+
+async function liveStory(): Promise<Record<RangeKey, LiveStory> | typeof DENIED | null> {
   /* No catch — an outage is an error page, never fixtures dressed as real
-     analytics (QA pass 4 rule). */
+     analytics (QA pass 4 rule). A 403 is the one non-OK answer that is not
+     an outage: FINANCE and SALES sit on this sidebar but the tenant-wide
+     story is outside their role, so they get the out-of-scope message. */
   const who = await fetchActor();
   if (who.status !== "linked") return null;
   if (!who.actor.roles.some((r) => DESK_ROLES.includes(r))) return null;
@@ -33,11 +38,13 @@ async function liveStory(): Promise<Record<RangeKey, LiveStory> | null> {
   const out = await Promise.all(
     ranges.map(async ([k, days]) => {
       const res = await apiFetch(`/operations/analytics?days=${days}`);
+      if (res.status === 403) return null;
       if (!res.ok) throw new Error(`Analytics unavailable (${res.status}).`);
       return [k, toLiveStory((await res.json()) as ApiAnalytics)] as const;
     }),
   );
-  return Object.fromEntries(out) as Record<RangeKey, LiveStory>;
+  if (out.some((e) => e === null)) return DENIED;
+  return Object.fromEntries(out as [RangeKey, LiveStory][]) as Record<RangeKey, LiveStory>;
 }
 
 export default async function AdminAnalyticsPage({
@@ -74,6 +81,19 @@ export default async function AdminAnalyticsPage({
           mark="chart"
           title="No reward events yet"
           hint="Scans, claims and redemptions appear once QR rewards go live (B6)."
+        />
+      </div>
+    );
+  }
+
+  if (live === DENIED) {
+    return (
+      <div className="space-y-6">
+        {heading}
+        <EmptyState
+          mark="chart"
+          title="Analytics are BTG's"
+          hint="These are tenant-wide reward and athlete figures; your role reads its own slice elsewhere (§15)."
         />
       </div>
     );

@@ -1,4 +1,4 @@
-import { z } from "./zod";
+import { INT4_MAX, z } from "./zod";
 
 import { EARNING_STATES } from "../domain/earning-state";
 
@@ -29,7 +29,7 @@ export const EarningTransitionInput = z
 export const EarningAdjustmentInput = z
   .object({
     /** cents, positive or negative. */
-    adjustment: z.int(),
+    adjustment: z.int().min(-INT4_MAX).max(INT4_MAX),
     /** Mandatory — an unexplained change to what someone is owed is not
      *  auditable, and §26 requires this one to be. */
     reason: z.string().min(1).max(2000),

@@ -1,6 +1,6 @@
 import { requirePortalAccess } from "@/server/portal";
 import { PortalShell, type NavItem } from "@/components/portal-shell";
-import { student } from "@/lib/fixtures";
+import { roleLabel, viewerName } from "@/server/viewer";
 
 const NAV: NavItem[] = [
   { href: "/advisor", label: "Applications", icon: "users" },
@@ -20,16 +20,17 @@ const NAV: NavItem[] = [
 export default async function AdvisorLayout({
   children,
 }: LayoutProps<"/advisor">) {
-  await requirePortalAccess("advisor");
+  const actor = await requirePortalAccess("advisor");
 
   return (
     <PortalShell
       portal="advisor"
       nav={NAV}
       rootHref="/advisor"
-      orgName={student.publication}
-      userName={student.advisor}
-      userRole={`${student.school} · Advisor`}
+      /* F-06 (QA pass 5): the signed-in person and their real roles — BTG
+         staff previewing this portal were greeted as the fixture advisor. */
+      userName={await viewerName("Advisor")}
+      userRole={roleLabel(actor.roles)}
     >
       {children}
     </PortalShell>

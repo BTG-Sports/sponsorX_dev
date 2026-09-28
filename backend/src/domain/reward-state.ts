@@ -77,3 +77,62 @@ export type RewardEventType = "SCAN" | "LANDING" | "CLAIM" | "REDEEM";
 export const REWARD_EVENT_TYPES: readonly RewardEventType[] = [
   "SCAN", "LANDING", "CLAIM", "REDEEM",
 ] as const;
+
+/**
+ * Who a reward is for — P6-BE-08, §9 screen 10.
+ *
+ * STATED, NOT CHECKED. The fan page has no login (§16), so the API knows
+ * nothing about the person holding the phone and cannot verify an age or a
+ * ticket. Each value is what the page tells the fan and what the redeem step
+ * tells booth staff to check before they tap. A closed list rather than free
+ * text so a sponsor and a merchant read the same rule the same way; the
+ * reward's `eligibilityNote` carries any detail beside it.
+ */
+export type RewardEligibility = "ANYONE" | "AGE_18_PLUS" | "AGE_21_PLUS" | "TICKET_HOLDERS";
+
+export const REWARD_ELIGIBILITIES: readonly RewardEligibility[] = [
+  "ANYONE", "AGE_18_PLUS", "AGE_21_PLUS", "TICKET_HOLDERS",
+] as const;
+
+/**
+ * Redemptions left under a reward's cap — P6-BE-08. `null` cap = unlimited,
+ * answered as `null`. Never negative: a count above the cap (a cap lowered
+ * after redemptions, say) reads as none left, not as a debt.
+ *
+ * Informational only. The cap is ENFORCED by the `reward_redeem` /
+ * `reward_reserve` database functions under a row lock; this is what the
+ * page and the desk display.
+ */
+export function redemptionsLeft(cap: number | null, redeemed: number): number | null {
+  return cap === null ? null : Math.max(0, cap - redeemed);
+}
+
+/**
+ * How long a claim holds a unit of a capped reward — QA-09 (2026-09-28).
+ * Minutes; the CHECK constraint `Reward_reserveMinutes_range` says the same.
+ */
+export const RESERVE_MINUTES = { min: 5, max: 10_080, default: 60 } as const;
+
+/* ------------------------------------------------------------ QA-07 copy */
+
+/* Whitespace plus the invisible format characters (Unicode Cf: zero-width
+   space/joiners U+200B–U+200D, word joiner U+2060, BOM U+FEFF, bidi marks…).
+   `.trim()` strips none of the Cf ones, so a headline of two U+200B passed and
+   rendered blank. */
+const INVISIBLE = /[\s\p{Cf}]/gu;
+const INVISIBLE_EDGES = /^[\s\p{Cf}]+|[\s\p{Cf}]+$/gu;
+
+/** True when the text has at least one character a reader can see. */
+export function hasVisibleText(s: string | null | undefined): boolean {
+  return !!s && s.replace(INVISIBLE, "").length > 0;
+}
+
+/**
+ * Copy as stored: invisible characters trimmed from the EDGES only, and
+ * null when nothing visible remains. Interior format characters stay — a
+ * zero-width joiner inside an emoji sequence (👨‍👩‍👧) is real text.
+ */
+export function cleanCopy(s: string | null | undefined): string | null {
+  if (!hasVisibleText(s)) return null;
+  return s!.replace(INVISIBLE_EDGES, "");
+}

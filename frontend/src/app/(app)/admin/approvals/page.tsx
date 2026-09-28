@@ -1,4 +1,4 @@
-import { SectionHeading } from "@/components/ui";
+import { BlockedNotice, SectionHeading } from "@/components/ui";
 import { HeroBand, MiniChip } from "@/components/hero";
 import { ApprovalsDesk } from "@/components/approvals-desk";
 import { EmptyState, SkeletonPage } from "@/components/states";
@@ -132,6 +132,16 @@ export default async function AdminApprovalsPage({
     <div className="space-y-6">
       {/* -------------------------------------------------------- headline */}
       {heading}
+
+      {/* P7-QA-02: this fixture branch also reaches signed-in staff outside
+          the desk's roles (NETWORK_MGR, SALES, FINANCE) — its POSTGRES-chipped
+          turnaround / approval rate are sample data. */}
+      {demo === null && !live && (
+        <BlockedNotice>
+          Demo data — the live approvals queue is read by BTG admin and the
+          Campaign Manager, so every figure below is sample data.
+        </BlockedNotice>
+      )}
 
       {/* ------------------------------------------------------- hero band */}
       <HeroBand border="border-admin/25" className="sx-animate">

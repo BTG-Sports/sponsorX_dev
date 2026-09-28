@@ -11,6 +11,7 @@ import {
   rewardDetailAction,
 } from "./actions";
 import { SkeletonPage } from "@/components/states";
+import { BlockedNotice } from "@/components/ui";
 import { demoState } from "@/lib/demo";
 import {
   REWARD_COPY,
@@ -116,6 +117,15 @@ export default async function AdminRewardsPage({
           claim → redeem (§16).
         </p>
       </div>
+
+      {/* P7-QA-02: this fixture branch also reaches signed-in staff outside
+          the desk's roles (NETWORK_MGR, SALES, FINANCE). */}
+      {demo === null && (
+        <BlockedNotice>
+          Demo data — the live rewards desk is read by BTG admin and the
+          Campaign Manager, so every reward and count below is sample data.
+        </BlockedNotice>
+      )}
 
       <RewardsDesk
         rows={demo === "empty" ? [] : rewards}

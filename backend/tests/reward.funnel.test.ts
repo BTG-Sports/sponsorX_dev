@@ -18,6 +18,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 let token: Record<string, unknown> | null;
 let writes: { model: string; data: Record<string, unknown> }[] = [];
+let transactions = 0;
 
 vi.mock("../src/config/env", () => ({ env: { APP_URL: "https://sponsorx.example", INTAKE_TOKEN_SECRET: "test-secret" } }));
 
@@ -58,8 +59,29 @@ vi.mock("../src/db/client", () => {
       updateMany: () => Promise.resolve({ count: 0 }),
     },
   };
+  /* Since QA pass 5 a redeem (and a capped claim's reservation) is ONE
+     database call — `reward_redeem` / `reward_reserve`. This stands in for
+     the function the way `rewardEvent.create` above stands in for the index:
+     the usability checks, then an ATTEMPTED insert that the index may
+     reject. Uncapped fixtures only, so reserve answers UNCAPPED. */
+  const $queryRaw = async (strings: TemplateStringsArray, ...values: unknown[]) => {
+    const sql = strings.join("?");
+    const now = new Date(String(values[1]));
+    const r = token?.reward as { state: string; expiresAt: Date } | undefined;
+    const refuse = !token ? "UNKNOWN" : r!.state !== "ACTIVE" ? "NOT_LIVE" : r!.expiresAt <= now ? "EXPIRED" : null;
+    if (sql.includes("reward_reserve")) {
+      return [{ outcome: refuse ?? "UNCAPPED", held_until: null, reward_state: r?.state ?? null }];
+    }
+    if (refuse) return [{ outcome: refuse, event_id: null, reward_state: r?.state ?? null }];
+    const ev = await tx.rewardEvent.create({ data: { tenantId: token!.tenantId, tokenId: token!.id, type: "REDEEM" } });
+    return [{ outcome: "OK", event_id: ev.id, reward_state: "ACTIVE" }];
+  };
   return {
-    prisma: { ...tx, $transaction: (fn: (t: unknown) => Promise<unknown>) => fn(tx) },
+    prisma: {
+      ...tx,
+      $queryRaw,
+      $transaction: (fn: (t: unknown) => Promise<unknown>) => { transactions += 1; return fn(tx); },
+    },
   };
 });
 
@@ -82,6 +104,7 @@ const live = (over: Record<string, unknown> = {}) => {
 beforeEach(() => {
   live();
   writes = [];
+  transactions = 0;
 });
 
 describe("P6-BE-03 · four rows, never one counter", () => {
@@ -207,11 +230,12 @@ describe("P6-BE-04 · exactly one REDEEM", () => {
     }
   });
 
-  it("does not check first — a read-then-write would lose the race", async () => {
-    /* The mocked token lookup is the only read; there is deliberately no
-       "has this been redeemed?" query before the insert. If one were added,
-       this count would rise and the implementation would be racy again. */
+  it("is one database call, not an interactive transaction (QA-01)", async () => {
+    /* An interactive transaction holds a pooled connection across client
+       round trips; under a burst on one capped reward that exhausted the
+       pool. The whole decision is `reward_redeem`, called once. */
     await redeemToken("tk", NOW);
+    expect(transactions).toBe(0);
     expect(writes.filter((w) => w.model === "rewardEvent")).toHaveLength(1);
   });
 

@@ -30,6 +30,7 @@ import { assertAllowed, can, whereFor } from "../auth/scope";
 import { ForbiddenError } from "../auth/errors";
 import { canReadField } from "../auth/fields";
 import type { BrandCategory } from "./brand-categories";
+import { isVerified, type MetricSource } from "./metric-source";
 
 export type EligibleAthlete = {
   id: string;
@@ -150,7 +151,9 @@ export async function eligibleAthletes(
         : {}),
       reach: {
         followers: counted.length ? counted.reduce((n, s) => n + (s.followers ?? 0), 0) : null,
-        verified: counted.length > 0 && counted.every((s) => s.source !== "SELF_REPORTED"),
+        /* Verified only when every counted row carries a verified label —
+           `!== SELF_REPORTED` used to let an ESTIMATED row through (P7-QA-02). */
+        verified: counted.length > 0 && counted.every((s) => isVerified(s.source as MetricSource)),
       },
       ...(seeRates ? { rates: currentRates(r.rates ?? []) } : {}),
     };
