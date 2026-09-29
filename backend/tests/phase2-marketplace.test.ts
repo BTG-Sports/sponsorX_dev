@@ -414,7 +414,10 @@ describe.skipIf(!hasDatabase)("Phase 2 marketplace over the API", { timeout: 60_
       expect(set.json.logoUrl).toBe(`http://localhost:9000/sponsorx-public/${logo.json.logoKey}`);
 
       /* Served to the portal: every signed-in user of that tenant — the manager and a roster athlete. */
-      expect((await call("GET", "/branding", "mkt_riley")).json).toEqual(set.json);
+      expect((await call("GET", "/branding", "mkt_riley")).json).toEqual({ ...set.json, canEdit: false });
+      /* canEdit says up front who gets the form (2S7-FE-03). */
+      expect((await call("GET", "/branding", "mkt_mgr_e")).json.canEdit).toBe(true);
+      expect((await call("GET", "/branding", "mkt_btg_pm")).json.canEdit).toBe(false);
       /* Nobody else's: the other team is served its own (none yet), BTG its own. */
       expect((await call("GET", "/branding", "mkt_mgr_f")).json.displayName).toBeNull();
       expect((await call("GET", "/branding", "mkt_admin")).json.displayName).toBeNull();
