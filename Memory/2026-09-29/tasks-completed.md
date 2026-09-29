@@ -31,3 +31,19 @@ No board task; tooling asked for by the programme owner.
   minutes.** `Tracker notify` failed on the #111 push (13:02 UTC 09-28) and
   `Tracker digest` failed its 13:12 UTC run. Once billing is fixed or minutes
   reset (1 Oct), re-run both from the Actions tab (`Run workflow`).
+
+## Payment-provider board pack (`2S0-PMO-03` groundwork, no status change)
+
+- Reviewed `2S0-PMO-03` for the programme owner: provider requirements,
+  recommendation (Stripe Connect, Express accounts, separate charges and
+  transfers — one payment splits across several properties/athletes and the
+  reserve needs delayed transfers), what BTG must supply, and our side (the
+  `backend/src/lib/payments.ts` adapter interface; raw-body webhook
+  verification).
+- Board pack saved to the owner's Google Drive as a Google Sheet,
+  "SponsorX Payment Flow Board Pack" (id
+  `1Uu_sBQKTatic6_iM1chDcjgN8OxyGJ_U1er4Yx6L2VQ`), 7 tabs: Summary,
+  Flowchart (cell-drawn swimlanes), Flow Steps, Money Split Example (live
+  formulas; reproduces the ledger design's $2,799.97 worked example to the
+  cent), Provider Options, What's Needed, Waiting Tasks.
+- Task stays **Blocked** — waiting on the owner's provider decision.
