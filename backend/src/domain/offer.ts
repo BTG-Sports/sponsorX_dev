@@ -127,7 +127,12 @@ function view(actor: Actor, r: Row) {
   const { campaign, ...rest } = r;
   const out: Record<string, unknown> = { ...rest, campaignName: campaign.name };
   /* The margin is protected from the athlete side (FIELD_DENIALS). */
-  if (!canReadField(actor.roles, "campaignOrder.sellPrice")) delete out.sellPrice;
+  if (!canReadField(actor.roles, "campaignOrder.sellPrice")) {
+    delete out.sellPrice;
+    /* …and from the accepted-terms snapshot, which records the line too. */
+    const snap = out.termsSnapshot as { line?: Record<string, unknown> } | null;
+    if (snap?.line) out.termsSnapshot = { ...snap, line: Object.fromEntries(Object.entries(snap.line).filter(([k]) => k !== "sellPrice")) };
+  }
   return out;
 }
 

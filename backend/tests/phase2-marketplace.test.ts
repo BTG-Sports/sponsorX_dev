@@ -349,13 +349,16 @@ describe.skipIf(!hasDatabase)("Phase 2 marketplace over the API", { timeout: 60_
       ]);
       const snapshot = accepted.json.termsSnapshot;
       expect(snapshot).toMatchObject({ termsHash: sent.termsHash, orderId: accepted.json.orderId, terms: { compensation: 30_000, disclosures: ["#ad", "Paid partnership with Rosa's Tacos"] } });
+      /* The margin stays off the athlete side — the snapshot's line included. */
+      expect(JSON.stringify(accepted.json)).not.toContain("sellPrice");
+      expect((await call("GET", `/offers/${id}`, "mkt_athlete")).json.termsSnapshot.line).toEqual({});
 
       /* Later: the rate card moves and the athlete reprices the item. The offer and the order do not. */
       await prisma.athleteRate.create({ data: { tenantId: T, athleteId: "mkt_ath", jobId: "mkt_job", amount: 35_000, version: 2 } });
       expect((await call("PATCH", `/inventory/${athleteItem}`, "mkt_athlete", { priceCents: 90_000 })).status).toBe(200);
       const after = (await call("GET", `/offers/${id}`, "mkt_cm")).json;
       expect(after).toMatchObject({ compensation: 30_000, sellPrice: 60_000, termsHash: sent.termsHash });
-      expect(after.termsSnapshot).toEqual(snapshot);
+      expect(after.termsSnapshot).toEqual({ ...snapshot, line: { sellPrice: 60_000 } });
       expect((await prisma.campaignOrder.findUniqueOrThrow({ where: { id: accepted.json.orderId }, select: { compensation: true } })).compensation).toBe(30_000);
 
       /* And Postgres refuses a change to accepted terms, whoever tries. */
