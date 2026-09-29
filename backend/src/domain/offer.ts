@@ -32,6 +32,7 @@ import type { Actor } from "../auth/actor";
 import { assertAllowed, assertTenantWide, whereFor } from "../auth/scope";
 import { ForbiddenError } from "../auth/errors";
 import { canReadField } from "../auth/fields";
+import { scopeFor } from "../auth/policy";
 import { acceptAgreementIn, type AcceptanceRequest } from "./agreement";
 import { loadAgreementBody } from "./agreement-text";
 import { assertBudgetCarriesLine, assertLineClearsFloor } from "./margin-floor";
@@ -151,13 +152,20 @@ function assertTerms(t: OfferTerms, now = new Date()) {
   }
 }
 
+/** The athlete side sees an offer once BTG sends it — a DRAFT is staff's
+ *  working copy, still changing (found building 2S2-FE-03). */
+function visibleWhere(actor: Actor) {
+  const where = whereFor(actor, "offer", "read");
+  return scopeFor(actor.roles, "offer", "read") === "own" ? { AND: [where, { state: { not: "DRAFT" as const } }] } : where;
+}
+
 export async function listOffers(actor: Actor) {
-  const rows = await prisma.offer.findMany({ where: whereFor(actor, "offer", "read"), select: SELECT, orderBy: { createdAt: "asc" } });
+  const rows = await prisma.offer.findMany({ where: visibleWhere(actor), select: SELECT, orderBy: { createdAt: "asc" } });
   return rows.map((r) => view(actor, r));
 }
 
 export async function getOffer(actor: Actor, id: string) {
-  const row = await prisma.offer.findFirst({ where: { ...whereFor(actor, "offer", "read"), id }, select: SELECT });
+  const row = await prisma.offer.findFirst({ where: { AND: [visibleWhere(actor), { id }] }, select: SELECT });
   if (!row) throw new ForbiddenError("offer", "read");
   /* 2S2-FE-03 — a SENT offer carries the agreement its acceptance signs (the
      tenant's current CAMPAIGN_ORDER terms, as GET /orders/:id serves them),

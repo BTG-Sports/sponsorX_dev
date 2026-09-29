@@ -108,9 +108,16 @@ export async function reserveCart(actor: Actor, now = new Date()) {
 }
 
 export async function getReservation(actor: Actor, id: string) {
-  const row = await prisma.reservation.findFirst({ where: { ...whereFor(actor, "reservation", "read"), id }, select: SELECT });
+  const row = await prisma.reservation.findFirst({
+    where: { ...whereFor(actor, "reservation", "read"), id },
+    select: { ...SELECT, order: { select: { id: true } } },
+  });
   if (!row) throw new ForbiddenError("reservation", "read");
-  return row.state === "HELD" && row.expiresAt <= new Date() ? { ...row, state: "EXPIRED" as const } : row;
+  /* 2S4-FE-02 — a CONVERTED hold names the order it became, so checkout can
+     go straight to it. */
+  const { order, ...rest } = row;
+  const out = { ...rest, orderId: order?.id ?? null };
+  return out.state === "HELD" && out.expiresAt <= new Date() ? { ...out, state: "EXPIRED" as const } : out;
 }
 
 /** The sponsor lets go of a hold. */

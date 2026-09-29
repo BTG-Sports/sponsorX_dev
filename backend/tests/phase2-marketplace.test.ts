@@ -323,6 +323,9 @@ describe.skipIf(!hasDatabase)("Phase 2 marketplace over the API", { timeout: 60_
       const made = await call("POST", "/offers", "mkt_cm", offer());
       expect(made.status).toBe(201);
       const id = made.json.id as string;
+      /* A DRAFT is staff's working copy — the athlete sees it only once sent. */
+      expect((await call("GET", `/offers/${id}`, "mkt_athlete")).status).toBe(403);
+      expect((await call("GET", "/offers", "mkt_athlete")).json.offers.map((o: { id: string }) => o.id)).not.toContain(id);
       const sent = (await call("POST", `/offers/${id}/send`, "mkt_cm")).json;
       expect(sent.state).toBe("SENT");
       expect(sent.termsHash).toMatch(/^[0-9a-f]{64}$/);
