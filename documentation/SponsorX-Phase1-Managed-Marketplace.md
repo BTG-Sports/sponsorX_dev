@@ -5,7 +5,7 @@
 | | |
 |---|---|
 | **Goal** | Launch real micro-NIL campaigns while building the data foundation. BTG staff run matching, pricing, conflict checks and invoicing; the software standardises and records every step. |
-| **Tasks** | 196 · 465 person-days |
+| **Tasks** | 197 · 469 person-days |
 | **Blueprint timeline** | 14–18 weeks |
 | **Balanced budget** | $75K–$105K |
 | **Depends on** | Nothing — this is the start |
@@ -672,6 +672,16 @@ The NEXT programme's screens are built here, on fixtures, for the same reason ev
 - **Depends on:** nothing — startable now
 - **Done when:** Both audiences designed in dark and light; the administrator page reads as a programme proposal, not a product page
 - **Reference:** Spec §9.5
+
+### ▶ `P1-ART-09` · Landing 3D — cyberpunk city environment behind the public home
+
+**Order** 32.6 · **ART** · **Where:** Code · **4d** · **In progress** · **Unblocks** 0
+
+A full cyberpunk city, built from the Leartes *Modular Stylized Cyberpunk Street* kit, as the fixed 3D background of the public home: one boulevard from a plaza with a pedestal at its centre to a skyscraper, with an open basketball court, an open soccer field and an open baseball field on alternating sides and city blocks on the rest — and no overlapping objects. The kit is converted from the unitypackage to a shared-texture GLB (Blender + gltf-transform; WebP, meshopt) by a repeatable script; the site plan is data, and a test fails on any disallowed overlap. Rendered with React Three Fiber behind the existing page content, capability-gated with a poster fallback. Environment only — no camera or scroll behaviour belongs to this task.
+
+- **Depends on:** nothing — the kit is in `Landing Page 3D Objects/`
+- **Done when:** All six elements present and identifiable at `/?orbit=1`; the layout test proves zero overlaps outside authored kits and every object inside the site; the home renders its full content over the poster with WebGL off, reduced motion or a low-perf device; build, frontend tests, lint and the Playwright smoke green; desktop kit ≤ 14 MB, lite kit ≤ 6 MB
+- **Reference:** §9 screen 1; `docs/superpowers/specs/2026-09-29-landing-cyberpunk-city-design.md`
 
 ### ▶ `P1-FE-18` · Apply the SponsorX NEXT UI requirement across the existing pages
 

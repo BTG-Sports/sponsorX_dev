@@ -402,3 +402,64 @@ yet (the nav link and the desk's own count cover it for now).
 - The FEATURED branch was not re-walked (no FEATURED athlete in this local
   DB — Maya is the persona seed); its page code is unchanged and
   `next-rights.test.ts` covers the API shape.
+
+## `P1-ART-09` · Landing 3D — cyberpunk city environment (HeckerCreatives)
+
+*New task, raised today (xlsx row 264, Order 32.6, ART / Code, 4d, In
+progress; Phase 1 doc block added, header 197 · 469). Brief from the
+programme owner: a cyberpunk environment behind the public home built from the
+Leartes "Modular Stylized Cyberpunk Street" kit with a full city, a plaza with
+a pedestal at its centre, an open basketball court, an open soccer field, an
+open baseball field and a skyscraper — and no overlapping objects. Environment
+only; nothing about motion is in this task.*
+Spec `docs/superpowers/specs/2026-09-29-landing-cyberpunk-city-design.md`,
+plan `docs/superpowers/plans/2026-09-29-landing-cyberpunk-city.md`.
+
+- **The kit ships as a Unity HDRP package** (829 MB, `Landing Page 3D
+  Objects/`, now gitignored). No Unity project exists for SponsorX, so the kit
+  is converted by script: `frontend/scripts/city-kit/` (Node + Blender 4.5
+  headless + gltf-transform; `npm run city:kit -w @sponsorx/frontend`,
+  `CITY_PACKAGE` / `BLENDER` env). extract (tar list file) → resolve (`.mat`
+  → textures, roles from the shader-graph property names, prefab slot order)
+  → export (LOD0 per palette mesh, the pack's own LOD2 as `<id>__lod`,
+  Principled materials from B/N/ORM/E/O) → optimize (dedup, per-mesh texture
+  caps from `palette.ts`, WebP, meshopt, quantize). Outputs committed:
+  `frontend/public/models/city/city-kit.glb` **6.5 MB** (71 nodes, 334k tris,
+  155 WebP), `city-kit-lite.glb` **2.9 MB**, `frontend/public/textures/city/env.hdr`
+  (the pack's blue equirect), `frontend/src/lib/city/kit-manifest.json`
+  (LOD0-only bounds/tris per mesh). Blender step 43 s.
+- **The site plan is data, and "no overlaps" is a test.**
+  `frontend/src/lib/city/layout.ts`: one boulevard north from Pedestal Plaza
+  (56 × 40 m, pedestal at its exact centre) to the skyscraper (the kit tower
+  × 3.4 = 128 m, two 75 m flanks); west: basketball lot (28 × 15 court,
+  neon-orange lines, hoops, 4 m two-row chain-link fence, masts), residential
+  block, baseball lot (home at the street corner, 27.43 m bases, r 50 m
+  outfield fence arc, backstop, foul poles); east: storefront strip with the
+  noodle kiosk, five-a-side soccer cage (40 × 20, goals, masts), commercial
+  block with the 38 m tower; forecourt with a SPONSORX hologram gantry across
+  the road; street lights every 12 m, utility poles with cables across the
+  road, drones, alley clutter; a seeded fill (130 desktop / 50 lite) that
+  never enters a reserved zone. 1,945 authored placements + fill.
+  `collision.ts` boxes every placement from the manifest (scale → yaw → AABB);
+  `tests/city-layout.test.ts` fails on any overlap outside an authored kit
+  (storefront kit parts, the kiosk, curved fence runs, a venue's own boxes),
+  with layers ground (tiles) and surface (courts) allowed under objects.
+  Fence runs are built so posts and panels abut, never interpenetrate.
+- **Rendering:** React Three Fiber 9.8 + drei 10.7 + @react-three/postprocessing
+  3.1 on three 0.186 (Fiber's peer range now includes React 19.3 — the
+  2026-09-22 vanilla-three decision no longer applies). `<CityBackdrop />` is
+  the first child of `(public)/page.tsx`: poster always (server-rendered),
+  capability gate (WebGL, reduced motion, coarse-and-low-core → poster only),
+  `next/dynamic` `ssr:false` inside the client boundary, one InstancedMesh per
+  kit mesh primitive (the GLB is quantized — the node's dequantisation
+  transform is multiplied into every instance matrix), procedural venues
+  (canvas-textured surfaces, hoops, goals, diamond, pedestal, crown ring,
+  gantry, merged cables), five landmark point lights, fog, Bloom/SMAA/Vignette
+  on desktop only, FPS watchdog (< 24 fps over 3 s → poster). Review mode:
+  `/?orbit=1` and `/?orbit=1&cam=x,y,z&at=x,y,z`.
+- **Verified:** frontend vitest 534/534 (new: city-collision, city-layout,
+  city-capability, city-venue-boxes), tsc and eslint clean, Playwright
+  `e2e/landing-city.spec.ts` 2/2 against the dev server, screenshots of every
+  element from the live scene (plaza, court, pitch, diamond, forecourt, tower).
+  Headless Chromium renders WebGL on the CPU and starves the page — screenshot
+  with a headed browser.

@@ -57,3 +57,8 @@ backend/src/generated/prisma
 # Playwright (P2-QA-01)
 playwright-report/
 test-results/
+
+# Landing 3D source kit (P1-ART-09): the Unity package is 829 MB and licensed
+# per seat — it stays on each machine. The converted GLBs under
+# frontend/public/models/city are what the site ships and what is committed.
+Landing Page 3D Objects/*.unitypackage

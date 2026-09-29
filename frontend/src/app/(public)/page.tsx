@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { BuildPreview } from "@/components/build-preview";
+import { CityBackdrop } from "@/components/city/city-backdrop";
 import { CountUp } from "@/components/count-up";
 import { Logo } from "@/components/logo";
 import { networkStats } from "@/lib/fixtures";
@@ -66,6 +67,10 @@ const PACKAGES = [
 export default function HomePage() {
   return (
     <>
+      {/* 3D city behind the page (P1-ART-09) — client boundary; poster-only
+          when the device or the user's motion preference says so. */}
+      <CityBackdrop />
+
       {/* ================================================== hero */}
       <section className="relative overflow-hidden border-b border-line">
         <div

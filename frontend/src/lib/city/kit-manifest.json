@@ -1,0 +1,7113 @@
+{
+ "generatedFrom": "Modular Stylized Cyberpunk Street v.1.0.unitypackage",
+ "units": "meters",
+ "axes": "three.js Y-up",
+ "meshes": {
+  "Coneult": {
+   "file": "Coneult.obj",
+   "dims": [
+    1,
+    1,
+    1
+   ],
+   "min": [
+    -0.5,
+    -0.5,
+    -0.5
+   ],
+   "max": [
+    0.5,
+    0.5,
+    0.5
+   ],
+   "tris": 284,
+   "materials": []
+  },
+  "Cylinder": {
+   "file": "Cylinder.obj",
+   "dims": [
+    1,
+    1,
+    1
+   ],
+   "min": [
+    -0.5,
+    -0.5,
+    -0.5
+   ],
+   "max": [
+    0.5,
+    0.5,
+    0.5
+   ],
+   "tris": 512,
+   "materials": []
+  },
+  "Plane": {
+   "file": "Plane.FBX",
+   "dims": [
+    1,
+    0,
+    1
+   ],
+   "min": [
+    -0.5,
+    0,
+    -0.5
+   ],
+   "max": [
+    0.5,
+    0,
+    0.5
+   ],
+   "tris": 14,
+   "materials": [
+    "WorldGridMaterial"
+   ]
+  },
+  "Planelt": {
+   "file": "Planelt.obj",
+   "dims": [
+    1,
+    0,
+    1
+   ],
+   "min": [
+    -0.5,
+    0,
+    -0.5
+   ],
+   "max": [
+    0.5,
+    0,
+    0.5
+   ],
+   "tris": 2,
+   "materials": []
+  },
+  "SM_AC_Unit_01": {
+   "file": "SM_AC_Unit_01.fbx",
+   "dims": [
+    0.431,
+    0.598,
+    0.675
+   ],
+   "min": [
+    -0.219,
+    0.001,
+    -0.338
+   ],
+   "max": [
+    0.212,
+    0.599,
+    0.338
+   ],
+   "tris": 3373,
+   "materials": [
+    "M_AC_Units"
+   ]
+  },
+  "SM_AC_Unit_02": {
+   "file": "SM_AC_Unit_02.fbx",
+   "dims": [
+    0.485,
+    0.662,
+    0.893
+   ],
+   "min": [
+    -0.217,
+    0.004,
+    -0.447
+   ],
+   "max": [
+    0.268,
+    0.666,
+    0.447
+   ],
+   "tris": 3357,
+   "materials": [
+    "M_AC_Units"
+   ]
+  },
+  "SM_ATM": {
+   "file": "SM_ATM.fbx",
+   "dims": [
+    0.738,
+    1.876,
+    1.191
+   ],
+   "min": [
+    -0.49,
+    -0.011,
+    -0.596
+   ],
+   "max": [
+    0.248,
+    1.865,
+    0.596
+   ],
+   "tris": 8695,
+   "materials": [
+    "M_ATM"
+   ]
+  },
+  "SM_Back_Wall": {
+   "file": "SM_Back_Wall.fbx",
+   "dims": [
+    0.951,
+    3.768,
+    4.422
+   ],
+   "min": [
+    -0.58,
+    -0.106,
+    -4.27
+   ],
+   "max": [
+    0.371,
+    3.662,
+    0.153
+   ],
+   "tris": 31,
+   "materials": [
+    "M_Back_Wall"
+   ]
+  },
+  "SM_Banner_01": {
+   "file": "SM_Banner_01.fbx",
+   "dims": [
+    4.613,
+    3.542,
+    4.223
+   ],
+   "min": [
+    -2.306,
+    -0.097,
+    -2.112
+   ],
+   "max": [
+    2.306,
+    3.444,
+    2.112
+   ],
+   "tris": 3016,
+   "materials": [
+    "M_Props"
+   ]
+  },
+  "SM_Barrel": {
+   "file": "SM_Barrel.fbx",
+   "dims": [
+    0.43,
+    0.706,
+    0.431
+   ],
+   "min": [
+    -0.215,
+    0.001,
+    -0.216
+   ],
+   "max": [
+    0.215,
+    0.707,
+    0.215
+   ],
+   "tris": 2334,
+   "materials": [
+    "M_Barrel_Crate"
+   ]
+  },
+  "SM_Barrier_01": {
+   "file": "SM_Barrier_01.fbx",
+   "dims": [
+    0.753,
+    0.91,
+    2.804
+   ],
+   "min": [
+    -0.389,
+    -0.455,
+    -1.412
+   ],
+   "max": [
+    0.364,
+    0.455,
+    1.392
+   ],
+   "tris": 1928,
+   "materials": [
+    "M_Barriers"
+   ]
+  },
+  "SM_Barrier_02": {
+   "file": "SM_Barrier_02.fbx",
+   "dims": [
+    0.656,
+    0.778,
+    1.644
+   ],
+   "min": [
+    -0.338,
+    -0.389,
+    -0.832
+   ],
+   "max": [
+    0.318,
+    0.389,
+    0.812
+   ],
+   "tris": 1463,
+   "materials": [
+    "M_Barriers"
+   ]
+  },
+  "SM_Barrier_03": {
+   "file": "SM_Barrier_03.fbx",
+   "dims": [
+    0.221,
+    0.991,
+    0.22
+   ],
+   "min": [
+    -0.111,
+    -0.496,
+    -0.11
+   ],
+   "max": [
+    0.11,
+    0.495,
+    0.11
+   ],
+   "tris": 2669,
+   "materials": [
+    "M_Barriers"
+   ]
+  },
+  "SM_Barrier_04": {
+   "file": "SM_Barrier_04.fbx",
+   "dims": [
+    0.41,
+    0.723,
+    0.41
+   ],
+   "min": [
+    -0.204,
+    -0.361,
+    -0.205
+   ],
+   "max": [
+    0.206,
+    0.361,
+    0.205
+   ],
+   "tris": 1616,
+   "materials": [
+    "M_Barriers"
+   ]
+  },
+  "SM_Barrier_05": {
+   "file": "SM_Barrier_05.fbx",
+   "dims": [
+    0.386,
+    0.513,
+    0.355
+   ],
+   "min": [
+    -0.193,
+    -0.257,
+    -0.177
+   ],
+   "max": [
+    0.193,
+    0.257,
+    0.177
+   ],
+   "tris": 1871,
+   "materials": [
+    "M_Barriers"
+   ]
+  },
+  "SM_Barrier_06": {
+   "file": "SM_Barrier_06.fbx",
+   "dims": [
+    0.467,
+    0.558,
+    0.467
+   ],
+   "min": [
+    -0.233,
+    -0.279,
+    -0.234
+   ],
+   "max": [
+    0.235,
+    0.279,
+    0.233
+   ],
+   "tris": 1943,
+   "materials": [
+    "M_Barriers"
+   ]
+  },
+  "SM_Barrier_07": {
+   "file": "SM_Barrier_07.fbx",
+   "dims": [
+    0.261,
+    0.497,
+    0.26
+   ],
+   "min": [
+    -0.131,
+    -0.002,
+    -0.13
+   ],
+   "max": [
+    0.13,
+    0.495,
+    0.13
+   ],
+   "tris": 964,
+   "materials": [
+    "M_Barriers"
+   ]
+  },
+  "SM_Barrier_08": {
+   "file": "SM_Barrier_08.fbx",
+   "dims": [
+    0.226,
+    1.07,
+    0.243
+   ],
+   "min": [
+    -0.113,
+    -0.535,
+    -0.121
+   ],
+   "max": [
+    0.113,
+    0.535,
+    0.121
+   ],
+   "tris": 1710,
+   "materials": [
+    "M_Barriers"
+   ]
+  },
+  "SM_Beer_Bottle": {
+   "file": "SM_Beer_Bottle.fbx",
+   "dims": [
+    0.081,
+    0.277,
+    0.079
+   ],
+   "min": [
+    -0.04,
+    -0.165,
+    -0.019
+   ],
+   "max": [
+    0.04,
+    0.112,
+    0.059
+   ],
+   "tris": 899,
+   "materials": [
+    "M_TrashSet_01"
+   ]
+  },
+  "SM_Bench_01": {
+   "file": "SM_Bench_01.fbx",
+   "dims": [
+    0.598,
+    0.622,
+    2.569
+   ],
+   "min": [
+    -0.299,
+    -0.321,
+    -1.25
+   ],
+   "max": [
+    0.299,
+    0.301,
+    1.318
+   ],
+   "tris": 3140,
+   "materials": [
+    "M_Bench_01"
+   ]
+  },
+  "SM_Bench_02": {
+   "file": "SM_Bench_02.fbx",
+   "dims": [
+    0.507,
+    0.66,
+    2.57
+   ],
+   "min": [
+    -0.254,
+    -0.289,
+    -1.286
+   ],
+   "max": [
+    0.254,
+    0.371,
+    1.285
+   ],
+   "tris": 2592,
+   "materials": [
+    "M_Bench_02"
+   ]
+  },
+  "SM_Big_Gate_01": {
+   "file": "SM_Big_Gate_01.fbx",
+   "dims": [
+    2.798,
+    2.353,
+    0.899
+   ],
+   "min": [
+    -1.399,
+    -0.177,
+    -0.449
+   ],
+   "max": [
+    1.399,
+    2.177,
+    0.449
+   ],
+   "tris": 4981,
+   "materials": [
+    "M_Doors"
+   ]
+  },
+  "SM_Big_Gate_02": {
+   "file": "SM_Big_Gate_02.fbx",
+   "dims": [
+    3.725,
+    2.933,
+    0.853
+   ],
+   "min": [
+    -1.862,
+    -0.184,
+    -0.567
+   ],
+   "max": [
+    1.862,
+    2.749,
+    0.286
+   ],
+   "tris": 4981,
+   "materials": [
+    "M_Doors"
+   ]
+  },
+  "SM_Big_Gate_03": {
+   "file": "SM_Big_Gate_03.fbx",
+   "dims": [
+    1.132,
+    3.483,
+    8.544
+   ],
+   "min": [
+    -0.566,
+    -1.741,
+    -4.272
+   ],
+   "max": [
+    0.566,
+    1.741,
+    4.272
+   ],
+   "tris": 3026,
+   "materials": [
+    "M_Gate"
+   ]
+  },
+  "SM_Bowls": {
+   "file": "SM_Bowls.fbx",
+   "dims": [
+    0.232,
+    0.17,
+    0.233
+   ],
+   "min": [
+    -0.116,
+    -0.107,
+    -0.096
+   ],
+   "max": [
+    0.116,
+    0.063,
+    0.136
+   ],
+   "tris": 1686,
+   "materials": [
+    "M_Noodle_Stand_01"
+   ]
+  },
+  "SM_Box_01": {
+   "file": "SM_Box_01.fbx",
+   "dims": [
+    0.471,
+    0.467,
+    0.654
+   ],
+   "min": [
+    -0.236,
+    -0.174,
+    -0.307
+   ],
+   "max": [
+    0.236,
+    0.293,
+    0.347
+   ],
+   "tris": 60,
+   "materials": [
+    "M_TrashSet_01"
+   ]
+  },
+  "SM_Box_02": {
+   "file": "SM_Box_02.fbx",
+   "dims": [
+    0.719,
+    0.416,
+    0.742
+   ],
+   "min": [
+    -0.388,
+    -0.128,
+    -0.355
+   ],
+   "max": [
+    0.331,
+    0.288,
+    0.388
+   ],
+   "tris": 157,
+   "materials": [
+    "M_TrashSet_01"
+   ]
+  },
+  "SM_Box_03": {
+   "file": "SM_Box_03.fbx",
+   "dims": [
+    0.881,
+    0.252,
+    0.768
+   ],
+   "min": [
+    -0.442,
+    -0.099,
+    -0.364
+   ],
+   "max": [
+    0.44,
+    0.153,
+    0.404
+   ],
+   "tris": 150,
+   "materials": [
+    "M_TrashSet_01"
+   ]
+  },
+  "SM_Building03_Base_01": {
+   "file": "SM_Building03_Base_01.fbx",
+   "dims": [
+    16.337,
+    8.312,
+    9.723
+   ],
+   "min": [
+    -6.052,
+    -0.601,
+    0
+   ],
+   "max": [
+    10.285,
+    7.711,
+    9.723
+   ],
+   "tris": 2872,
+   "materials": [
+    "M_Trim_dark",
+    "M_Dark_Metal",
+    "M_Concrete",
+    "M_Window_Emissive_01",
+    "M_Emissive"
+   ]
+  },
+  "SM_Building03_Base_02": {
+   "file": "SM_Building03_Base_02.fbx",
+   "dims": [
+    16.337,
+    8.312,
+    9.723
+   ],
+   "min": [
+    -6.052,
+    -0.601,
+    -9.711
+   ],
+   "max": [
+    10.285,
+    7.711,
+    0.012
+   ],
+   "tris": 2872,
+   "materials": [
+    "M_Trim_dark",
+    "M_Dark_Metal",
+    "M_Concrete",
+    "M_Window_Emissive_01",
+    "M_Emissive"
+   ]
+  },
+  "SM_Building03_Base_03": {
+   "file": "SM_Building03_Base_03.fbx",
+   "dims": [
+    16.337,
+    8.312,
+    9.723
+   ],
+   "min": [
+    10.285,
+    -0.601,
+    -9.711
+   ],
+   "max": [
+    26.622,
+    7.711,
+    0.012
+   ],
+   "tris": 2872,
+   "materials": [
+    "M_Trim_dark",
+    "M_Dark_Metal",
+    "M_Concrete",
+    "M_Window_Emissive_01",
+    "M_Emissive"
+   ]
+  },
+  "SM_Building03_Base_04": {
+   "file": "SM_Building03_Base_04.fbx",
+   "dims": [
+    16.337,
+    8.312,
+    9.723
+   ],
+   "min": [
+    10.285,
+    -0.601,
+    0
+   ],
+   "max": [
+    26.622,
+    7.711,
+    9.723
+   ],
+   "tris": 2872,
+   "materials": [
+    "M_Trim_dark",
+    "M_Dark_Metal",
+    "M_Concrete",
+    "M_Window_Emissive_01",
+    "M_Emissive"
+   ]
+  },
+  "SM_Building03_Front_00": {
+   "file": "SM_Building03_Front_00.fbx",
+   "dims": [
+    0.8,
+    12.576,
+    9.925
+   ],
+   "min": [
+    21.081,
+    14.903,
+    -4.963
+   ],
+   "max": [
+    21.881,
+    27.48,
+    4.962
+   ],
+   "tris": 1845,
+   "materials": [
+    "M_Dark_Metal",
+    "M_Trim"
+   ]
+  },
+  "SM_Building03_Front_01": {
+   "file": "SM_Building03_Front_01.fbx",
+   "dims": [
+    0.795,
+    12.566,
+    9.91
+   ],
+   "min": [
+    -1.309,
+    14.905,
+    -4.955
+   ],
+   "max": [
+    -0.514,
+    27.471,
+    4.955
+   ],
+   "tris": 1029,
+   "materials": [
+    "M_Trim",
+    "M_Dark_Metal"
+   ]
+  },
+  "SM_Building03_Props": {
+   "file": "SM_Building03_Props.fbx",
+   "dims": [
+    30.345,
+    34.619,
+    13.901
+   ],
+   "min": [
+    -4.818,
+    7.499,
+    -6.888
+   ],
+   "max": [
+    25.527,
+    42.119,
+    7.013
+   ],
+   "tris": 60429,
+   "materials": [
+    "M_Props"
+   ]
+  },
+  "SM_Building03_Top_01": {
+   "file": "SM_Building03_Top_01.fbx",
+   "dims": [
+    11.482,
+    23.694,
+    6.734
+   ],
+   "min": [
+    -1.196,
+    6.466,
+    0
+   ],
+   "max": [
+    10.285,
+    30.16,
+    6.734
+   ],
+   "tris": 4316,
+   "materials": [
+    "M_Concrete",
+    "M_Panels_03",
+    "M_Emissive",
+    "M_Trim",
+    "M_Dark_Metal"
+   ],
+   "lod": true
+  },
+  "SM_Building03_Top_02": {
+   "file": "SM_Building03_Top_02.fbx",
+   "dims": [
+    11.482,
+    23.694,
+    6.734
+   ],
+   "min": [
+    10.285,
+    6.466,
+    0
+   ],
+   "max": [
+    21.767,
+    30.16,
+    6.734
+   ],
+   "tris": 4316,
+   "materials": [
+    "M_Concrete",
+    "M_Panels_03",
+    "M_Emissive",
+    "M_Trim",
+    "M_Dark_Metal"
+   ]
+  },
+  "SM_Building03_Top_03": {
+   "file": "SM_Building03_Top_03.fbx",
+   "dims": [
+    11.482,
+    23.694,
+    6.734
+   ],
+   "min": [
+    10.285,
+    6.466,
+    -6.734
+   ],
+   "max": [
+    21.767,
+    30.16,
+    0
+   ],
+   "tris": 4316,
+   "materials": [
+    "M_Concrete",
+    "M_Panels_03",
+    "M_Emissive",
+    "M_Trim",
+    "M_Dark_Metal"
+   ]
+  },
+  "SM_Building03_Top_04": {
+   "file": "SM_Building03_Top_04.fbx",
+   "dims": [
+    11.482,
+    23.694,
+    6.734
+   ],
+   "min": [
+    -1.196,
+    6.466,
+    -6.734
+   ],
+   "max": [
+    10.285,
+    30.16,
+    0
+   ],
+   "tris": 4316,
+   "materials": [
+    "M_Concrete",
+    "M_Panels_03",
+    "M_Emissive",
+    "M_Trim",
+    "M_Dark_Metal"
+   ]
+  },
+  "SM_Building_02": {
+   "file": "SM_Building_02.fbx",
+   "dims": [
+    11.17,
+    37.662,
+    16.37
+   ],
+   "min": [
+    -5.579,
+    -0.038,
+    -8.227
+   ],
+   "max": [
+    5.591,
+    37.623,
+    8.142
+   ],
+   "tris": 45582,
+   "materials": [
+    "M_Panels_02",
+    "M_Windows",
+    "M_Panels_Borders",
+    "M_Concrete"
+   ],
+   "lod": true
+  },
+  "SM_Building_04": {
+   "file": "SM_Building_04.fbx",
+   "dims": [
+    18.826,
+    7.558,
+    14.547
+   ],
+   "min": [
+    -9.413,
+    0.021,
+    -7.617
+   ],
+   "max": [
+    9.413,
+    7.579,
+    6.93
+   ],
+   "tris": 3426,
+   "materials": [
+    "M_Concrete_Border",
+    "M_Concrete",
+    "M_Windows_02"
+   ],
+   "lod": true
+  },
+  "SM_Camera_01": {
+   "file": "SM_Camera_01.fbx",
+   "dims": [
+    0.393,
+    0.374,
+    0.147
+   ],
+   "min": [
+    -0.197,
+    -0.187,
+    -0.073
+   ],
+   "max": [
+    0.197,
+    0.187,
+    0.073
+   ],
+   "tris": 16923,
+   "materials": [
+    "M_Curtain_Cameras"
+   ]
+  },
+  "SM_Camera_02": {
+   "file": "SM_Camera_02.fbx",
+   "dims": [
+    0.192,
+    0.197,
+    0.2
+   ],
+   "min": [
+    -0.096,
+    -0.099,
+    -0.1
+   ],
+   "max": [
+    0.096,
+    0.099,
+    0.1
+   ],
+   "tris": 5524,
+   "materials": [
+    "M_Curtain_Cameras"
+   ]
+  },
+  "SM_Cereal_Box_01": {
+   "file": "SM_Cereal_Box_01.fbx",
+   "dims": [
+    0.123,
+    0.326,
+    0.254
+   ],
+   "min": [
+    -0.061,
+    -0.161,
+    -0.107
+   ],
+   "max": [
+    0.061,
+    0.165,
+    0.147
+   ],
+   "tris": 194,
+   "materials": [
+    "M_TrashSet_01"
+   ]
+  },
+  "SM_Cereal_Box_02": {
+   "file": "SM_Cereal_Box_02.fbx",
+   "dims": [
+    0.366,
+    0.1,
+    0.361
+   ],
+   "min": [
+    -0.183,
+    -0.008,
+    -0.161
+   ],
+   "max": [
+    0.183,
+    0.092,
+    0.201
+   ],
+   "tris": 11330,
+   "materials": [
+    "M_TrashSet_02"
+   ]
+  },
+  "SM_Chopstick_Holder": {
+   "file": "SM_Chopstick_Holder.fbx",
+   "dims": [
+    0.141,
+    0.285,
+    0.154
+   ],
+   "min": [
+    -0.071,
+    -0.142,
+    -0.057
+   ],
+   "max": [
+    0.071,
+    0.142,
+    0.097
+   ],
+   "tris": 1943,
+   "materials": [
+    "M_Noodle_Stand_01"
+   ]
+  },
+  "SM_Coffe_Cup_Bottom_02": {
+   "file": "SM_Coffe_Cup_Bottom_02.fbx",
+   "dims": [
+    0.151,
+    0.211,
+    0.151
+   ],
+   "min": [
+    -0.075,
+    -0.002,
+    -0.055
+   ],
+   "max": [
+    0.075,
+    0.209,
+    0.095
+   ],
+   "tris": 2956,
+   "materials": [
+    "M_TrashSet_02"
+   ]
+  },
+  "SM_Coffe_Cup_Top_02": {
+   "file": "SM_Coffe_Cup_Top_02.fbx",
+   "dims": [
+    0.126,
+    0.153,
+    0.145
+   ],
+   "min": [
+    -0.063,
+    0.003,
+    -0.053
+   ],
+   "max": [
+    0.063,
+    0.156,
+    0.093
+   ],
+   "tris": 2424,
+   "materials": [
+    "M_TrashSet_02"
+   ]
+  },
+  "SM_Coffee_Cup": {
+   "file": "SM_Coffee_Cup.fbx",
+   "dims": [
+    0.089,
+    0.144,
+    0.089
+   ],
+   "min": [
+    -0.044,
+    -0.03,
+    -0.024
+   ],
+   "max": [
+    0.044,
+    0.114,
+    0.064
+   ],
+   "tris": 340,
+   "materials": [
+    "M_TrashSet_01"
+   ]
+  },
+  "SM_Coffee_Cup_Bottom_01": {
+   "file": "SM_Coffee_Cup_Bottom_01.fbx",
+   "dims": [
+    0.086,
+    0.127,
+    0.082
+   ],
+   "min": [
+    -0.044,
+    -0.03,
+    -0.021
+   ],
+   "max": [
+    0.042,
+    0.096,
+    0.061
+   ],
+   "tris": 316,
+   "materials": [
+    "M_TrashSet_01"
+   ]
+  },
+  "SM_Coffee_Top_01": {
+   "file": "SM_Coffee_Top_01.fbx",
+   "dims": [
+    0.091,
+    0.024,
+    0.089
+   ],
+   "min": [
+    -0.044,
+    -0.01,
+    -0.024
+   ],
+   "max": [
+    0.047,
+    0.015,
+    0.065
+   ],
+   "tris": 540,
+   "materials": [
+    "M_TrashSet_01"
+   ]
+  },
+  "SM_Column_01": {
+   "file": "SM_Column_01.fbx",
+   "dims": [
+    0.285,
+    3.003,
+    2.757
+   ],
+   "min": [
+    -0.284,
+    -0.001,
+    -2.378
+   ],
+   "max": [
+    0.001,
+    3.002,
+    0.378
+   ],
+   "tris": 4614,
+   "materials": [
+    "M_DoorandCollumn"
+   ]
+  },
+  "SM_Column_02": {
+   "file": "SM_Column_02.fbx",
+   "dims": [
+    0.427,
+    2.326,
+    0.308
+   ],
+   "min": [
+    -0.214,
+    -1.163,
+    -0.154
+   ],
+   "max": [
+    0.214,
+    1.163,
+    0.154
+   ],
+   "tris": 520,
+   "materials": [
+    "M_Column"
+   ]
+  },
+  "SM_Cooker": {
+   "file": "SM_Cooker.fbx",
+   "dims": [
+    0.634,
+    0.369,
+    0.551
+   ],
+   "min": [
+    -0.317,
+    -0.185,
+    -0.276
+   ],
+   "max": [
+    0.317,
+    0.185,
+    0.276
+   ],
+   "tris": 4922,
+   "materials": [
+    "M_Cooker"
+   ]
+  },
+  "SM_Crate_01": {
+   "file": "SM_Crate_01.fbx",
+   "dims": [
+    0.682,
+    0.682,
+    0.682
+   ],
+   "min": [
+    -0.341,
+    -0.001,
+    -0.341
+   ],
+   "max": [
+    0.341,
+    0.681,
+    0.341
+   ],
+   "tris": 922,
+   "materials": [
+    "M_Crates"
+   ]
+  },
+  "SM_Crate_02": {
+   "file": "SM_Crate_02.fbx",
+   "dims": [
+    0.512,
+    0.513,
+    0.512
+   ],
+   "min": [
+    -0.256,
+    0.004,
+    -0.256
+   ],
+   "max": [
+    0.256,
+    0.516,
+    0.256
+   ],
+   "tris": 1628,
+   "materials": [
+    "M_Crates"
+   ]
+  },
+  "SM_Crate_03": {
+   "file": "SM_Crate_03.fbx",
+   "dims": [
+    0.355,
+    0.355,
+    0.355
+   ],
+   "min": [
+    -0.177,
+    0.003,
+    -0.177
+   ],
+   "max": [
+    0.177,
+    0.357,
+    0.177
+   ],
+   "tris": 872,
+   "materials": [
+    "M_Crates"
+   ]
+  },
+  "SM_Crate_04": {
+   "file": "SM_Crate_04.fbx",
+   "dims": [
+    0.703,
+    0.722,
+    0.723
+   ],
+   "min": [
+    -0.102,
+    -0.006,
+    -0.119
+   ],
+   "max": [
+    0.601,
+    0.716,
+    0.604
+   ],
+   "tris": 4060,
+   "materials": [
+    "M_Barrel_Crate"
+   ]
+  },
+  "SM_Curtain_01": {
+   "file": "SM_Curtain_01.fbx",
+   "dims": [
+    0.432,
+    1.879,
+    1.012
+   ],
+   "min": [
+    -0.216,
+    -0.94,
+    -0.506
+   ],
+   "max": [
+    0.216,
+    0.94,
+    0.506
+   ],
+   "tris": 2640,
+   "materials": [
+    "M_Curtain_Cameras"
+   ]
+  },
+  "SM_Curtain_02": {
+   "file": "SM_Curtain_02.fbx",
+   "dims": [
+    0.408,
+    1.201,
+    2.49
+   ],
+   "min": [
+    -0.204,
+    1.237,
+    -1.225
+   ],
+   "max": [
+    0.204,
+    2.438,
+    1.265
+   ],
+   "tris": 5808,
+   "materials": [
+    "M_Curtain"
+   ]
+  },
+  "SM_Door": {
+   "file": "SM_Door.fbx",
+   "dims": [
+    1.084,
+    1.982,
+    0.317
+   ],
+   "min": [
+    -0.542,
+    -0.991,
+    -0.159
+   ],
+   "max": [
+    0.542,
+    0.991,
+    0.159
+   ],
+   "tris": 324,
+   "materials": [
+    "M_Door"
+   ]
+  },
+  "SM_Drone": {
+   "file": "SM_Drone.fbx",
+   "dims": [
+    2.91,
+    1.987,
+    3.204
+   ],
+   "min": [
+    -1.231,
+    -1.724,
+    -1.953
+   ],
+   "max": [
+    1.679,
+    0.263,
+    1.251
+   ],
+   "tris": 10012,
+   "materials": [
+    "M_Drone",
+    "M_WindowGlasses",
+    "M_HologramDrone"
+   ]
+  },
+  "SM_Fence": {
+   "file": "SM_Fence.fbx",
+   "dims": [
+    0.114,
+    1.967,
+    2.805
+   ],
+   "min": [
+    -0.057,
+    -0.011,
+    -1.752
+   ],
+   "max": [
+    0.057,
+    1.956,
+    1.053
+   ],
+   "tris": 2380,
+   "materials": [
+    "M_Fence",
+    "M_Fence_02"
+   ]
+  },
+  "SM_Fence_Post": {
+   "file": "SM_Fence_Post.fbx",
+   "dims": [
+    0.123,
+    2.108,
+    0.123
+   ],
+   "min": [
+    -0.061,
+    -1.054,
+    -0.061
+   ],
+   "max": [
+    0.061,
+    1.054,
+    0.061
+   ],
+   "tris": 1463,
+   "materials": [
+    "M_Fence_02"
+   ]
+  },
+  "SM_Fence_Post_Angle": {
+   "file": "SM_Fence_Post_Angle.fbx",
+   "dims": [
+    0.123,
+    2.107,
+    0.123
+   ],
+   "min": [
+    -0.062,
+    -1.053,
+    -0.061
+   ],
+   "max": [
+    0.062,
+    1.053,
+    0.061
+   ],
+   "tris": 1316,
+   "materials": [
+    "M_Fence_02"
+   ]
+  },
+  "SM_Floor": {
+   "file": "SM_Floor.fbx",
+   "dims": [
+    9.938,
+    0.428,
+    6.812
+   ],
+   "min": [
+    -0.079,
+    0,
+    -6.727
+   ],
+   "max": [
+    9.859,
+    0.428,
+    0.086
+   ],
+   "tris": 1752,
+   "materials": [
+    "M_Floor_02",
+    "M_Floor_01"
+   ]
+  },
+  "SM_Flower_Pot_01": {
+   "file": "SM_Flower_Pot_01.fbx",
+   "dims": [
+    0.582,
+    1.335,
+    0.687
+   ],
+   "min": [
+    -0.282,
+    -0.503,
+    -0.373
+   ],
+   "max": [
+    0.3,
+    0.832,
+    0.314
+   ],
+   "tris": 2000,
+   "materials": [
+    "M_Leaf_02",
+    "M_FlowerPot"
+   ]
+  },
+  "SM_Flower_Pot_02": {
+   "file": "SM_Flower_Pot_02.fbx",
+   "dims": [
+    0.523,
+    0.322,
+    0.523
+   ],
+   "min": [
+    -0.261,
+    -0.161,
+    -0.261
+   ],
+   "max": [
+    0.261,
+    0.161,
+    0.261
+   ],
+   "tris": 1120,
+   "materials": [
+    "M_Concrete_Darker"
+   ]
+  },
+  "SM_Fridge": {
+   "file": "SM_Fridge.fbx",
+   "dims": [
+    1.478,
+    2.813,
+    1.556
+   ],
+   "min": [
+    -0.739,
+    -1.401,
+    -0.778
+   ],
+   "max": [
+    0.739,
+    1.412,
+    0.778
+   ],
+   "tris": 1836,
+   "materials": [
+    "M_Fridge"
+   ]
+  },
+  "SM_Garage_Door_01": {
+   "file": "SM_Garage_Door_01.fbx",
+   "dims": [
+    0.745,
+    1.994,
+    3.061
+   ],
+   "min": [
+    -0.504,
+    -1.221,
+    -1.526
+   ],
+   "max": [
+    0.242,
+    0.774,
+    1.535
+   ],
+   "tris": 2527,
+   "materials": [
+    "M_Garage_Door"
+   ]
+  },
+  "SM_Garbage_01": {
+   "file": "SM_Garbage_01.fbx",
+   "dims": [
+    0.534,
+    0.397,
+    0.473
+   ],
+   "min": [
+    -0.175,
+    -0.025,
+    -0.197
+   ],
+   "max": [
+    0.359,
+    0.372,
+    0.276
+   ],
+   "tris": 29675,
+   "materials": [
+    "M_Garbages"
+   ]
+  },
+  "SM_Gravel_Pavement": {
+   "file": "SM_Gravel_Pavement@000001A9A10C8100.fbx",
+   "dims": [
+    4.001,
+    0.14,
+    4
+   ],
+   "min": [
+    -4.001,
+    -0.14,
+    0
+   ],
+   "max": [
+    0,
+    0,
+    4
+   ],
+   "tris": 1174,
+   "materials": [
+    "M_Gravel_Pavement"
+   ]
+  },
+  "SM_Hologram_Burger": {
+   "file": "SM_Hologram_Burger.fbx",
+   "dims": [
+    4.369,
+    3.146,
+    3.44
+   ],
+   "min": [
+    -2.183,
+    -1.57,
+    -1.721
+   ],
+   "max": [
+    2.186,
+    1.576,
+    1.719
+   ],
+   "tris": 2416,
+   "materials": [
+    "M_HologramBurger"
+   ]
+  },
+  "SM_Hologram_Noodle": {
+   "file": "SM_Hologram_Noodle.fbx",
+   "dims": [
+    1.191,
+    1.455,
+    1.042
+   ],
+   "min": [
+    -0.594,
+    -0.726,
+    -0.519
+   ],
+   "max": [
+    0.597,
+    0.729,
+    0.523
+   ],
+   "tris": 1360,
+   "materials": [
+    "M_HologramNoodle"
+   ]
+  },
+  "SM_Hologram_Pizza": {
+   "file": "SM_Hologram_Pizza.fbx",
+   "dims": [
+    5.774,
+    5.172,
+    5.652
+   ],
+   "min": [
+    -2.888,
+    -0.089,
+    -2.744
+   ],
+   "max": [
+    2.886,
+    5.082,
+    2.907
+   ],
+   "tris": 5216,
+   "materials": [
+    "M_HologramPizza"
+   ]
+  },
+  "SM_Hologram_Poster": {
+   "file": "SM_Hologram_Poster.fbx",
+   "dims": [
+    0,
+    1.211,
+    0.675
+   ],
+   "min": [
+    0,
+    -0.605,
+    -0.337
+   ],
+   "max": [
+    0,
+    0.605,
+    0.337
+   ],
+   "tris": 200,
+   "materials": [
+    "M_Holograms_Poster"
+   ]
+  },
+  "SM_Ladle": {
+   "file": "SM_Ladle.fbx",
+   "dims": [
+    0.112,
+    0.283,
+    0.126
+   ],
+   "min": [
+    -0.056,
+    -0.006,
+    -0.044
+   ],
+   "max": [
+    0.056,
+    0.277,
+    0.083
+   ],
+   "tris": 1746,
+   "materials": [
+    "M_Noodle_Stand_02"
+   ]
+  },
+  "SM_Lamp": {
+   "file": "SM_Lamp.fbx",
+   "dims": [
+    0.225,
+    0.513,
+    0.225
+   ],
+   "min": [
+    -0.113,
+    -0.001,
+    -0.093
+   ],
+   "max": [
+    0.113,
+    0.511,
+    0.133
+   ],
+   "tris": 5634,
+   "materials": [
+    "M_Noodle_Stand_02"
+   ]
+  },
+  "SM_Module_4x4_03": {
+   "file": "SM_Module_4x4_03@000001A9A17CD600.fbx",
+   "dims": [
+    4.003,
+    0.141,
+    4.004
+   ],
+   "min": [
+    -4.001,
+    -0.14,
+    -0.003
+   ],
+   "max": [
+    0.002,
+    0.001,
+    4.002
+   ],
+   "tris": 420,
+   "materials": [
+    "M_Asphalt",
+    "M_Gravel_Pavement",
+    "M_Pavement"
+   ]
+  },
+  "SM_Module_4x4_05": {
+   "file": "SM_Module_4x4_05@000001A9A17CB200.fbx",
+   "dims": [
+    4.007,
+    0.141,
+    4.004
+   ],
+   "min": [
+    -4.006,
+    -0.139,
+    -0.001
+   ],
+   "max": [
+    0.001,
+    0.002,
+    4.003
+   ],
+   "tris": 802,
+   "materials": [
+    "M_Asphalt",
+    "M_Gravel_Pavement",
+    "M_Pavement"
+   ]
+  },
+  "SM_Module_4x4_06": {
+   "file": "SM_Module_4x4_06@000001A9A17CE400.fbx",
+   "dims": [
+    4.001,
+    0.139,
+    4
+   ],
+   "min": [
+    -4.001,
+    -0.139,
+    0
+   ],
+   "max": [
+    0,
+    0,
+    4
+   ],
+   "tris": 158,
+   "materials": [
+    "M_Gravel_Pavement03",
+    "M_Pavement",
+    "M_Asphalt"
+   ]
+  },
+  "SM_Module_4x4_07": {
+   "file": "SM_Module_4x4_07@000001A9A1805D00.fbx",
+   "dims": [
+    4.012,
+    0.141,
+    4.01
+   ],
+   "min": [
+    -4.004,
+    -0.14,
+    -0.003
+   ],
+   "max": [
+    0.008,
+    0.001,
+    4.007
+   ],
+   "tris": 749,
+   "materials": [
+    "M_Asphalt",
+    "M_Gravel_Pavement",
+    "M_Pavement"
+   ]
+  },
+  "SM_Motorbike": {
+   "file": "SM_Motorbike.fbx",
+   "dims": [
+    3.431,
+    1.222,
+    0.929
+   ],
+   "min": [
+    -1.716,
+    -0.001,
+    -0.464
+   ],
+   "max": [
+    1.715,
+    1.222,
+    0.466
+   ],
+   "tris": 26776,
+   "materials": [
+    "M_Motorbike_01",
+    "M_Motorbike_02"
+   ]
+  },
+  "SM_Napkin": {
+   "file": "SM_Napkin.fbx",
+   "dims": [
+    0.199,
+    0.006,
+    0.088
+   ],
+   "min": [
+    -0.1,
+    -0.003,
+    -0.024
+   ],
+   "max": [
+    0.1,
+    0.003,
+    0.064
+   ],
+   "tris": 300,
+   "materials": [
+    "M_Noodle_Stand_01"
+   ]
+  },
+  "SM_Noodle_Base": {
+   "file": "SM_Noodle_Base.fbx",
+   "dims": [
+    7.102,
+    2.488,
+    6.528
+   ],
+   "min": [
+    -3.398,
+    -3.657,
+    -4.053
+   ],
+   "max": [
+    3.704,
+    -1.168,
+    2.476
+   ],
+   "tris": 172,
+   "materials": [
+    "M_Panels",
+    "M_Panels_02",
+    "00_Cube",
+    "M_Floor_01"
+   ]
+  },
+  "SM_Noodle_Top": {
+   "file": "SM_Noodle_Top.fbx",
+   "dims": [
+    7.033,
+    4.399,
+    2.211
+   ],
+   "min": [
+    -0.016,
+    0,
+    -2.211
+   ],
+   "max": [
+    7.018,
+    4.399,
+    0
+   ],
+   "tris": 587,
+   "materials": [
+    "M_Panels_03",
+    "M_Panels",
+    "M_Window_Emissive_01"
+   ]
+  },
+  "SM_Outlet": {
+   "file": "SM_Outlet.fbx",
+   "dims": [
+    1.713,
+    0.953,
+    1.713
+   ],
+   "min": [
+    -0.856,
+    -0.102,
+    -0.857
+   ],
+   "max": [
+    0.856,
+    0.851,
+    0.857
+   ],
+   "tris": 688,
+   "materials": [
+    "M_Props"
+   ]
+  },
+  "SM_Paper_01": {
+   "file": "SM_Paper_01.fbx",
+   "dims": [
+    0.248,
+    0.063,
+    0.196
+   ],
+   "min": [
+    -0.124,
+    -0.031,
+    -0.078
+   ],
+   "max": [
+    0.124,
+    0.031,
+    0.118
+   ],
+   "tris": 148,
+   "materials": [
+    "M_TrashSet_01"
+   ]
+  },
+  "SM_Paper_02": {
+   "file": "SM_Paper_02.fbx",
+   "dims": [
+    0.155,
+    0.037,
+    0.209
+   ],
+   "min": [
+    -0.078,
+    -0.022,
+    -0.084
+   ],
+   "max": [
+    0.078,
+    0.014,
+    0.124
+   ],
+   "tris": 143,
+   "materials": [
+    "M_TrashSet_01"
+   ]
+  },
+  "SM_Paper_Box": {
+   "file": "SM_Paper_Box.fbx",
+   "dims": [
+    0.116,
+    0.246,
+    0.203
+   ],
+   "min": [
+    -0.057,
+    -0.123,
+    -0.082
+   ],
+   "max": [
+    0.058,
+    0.123,
+    0.121
+   ],
+   "tris": 144,
+   "materials": [
+    "M_TrashSet_01"
+   ]
+  },
+  "SM_Park_Pavement": {
+   "file": "SM_Park_Pavement@000001A9A108E400.fbx",
+   "dims": [
+    4.001,
+    0.14,
+    4
+   ],
+   "min": [
+    -4.001,
+    -0.14,
+    0
+   ],
+   "max": [
+    0,
+    0,
+    4
+   ],
+   "tris": 1174,
+   "materials": [
+    "M_Park_01"
+   ]
+  },
+  "SM_Pavement": {
+   "file": "SM_Pavement.fbx",
+   "dims": [
+    0.184,
+    0.169,
+    4.043
+   ],
+   "min": [
+    -0.002,
+    -0.14,
+    -0.024
+   ],
+   "max": [
+    0.182,
+    0.03,
+    4.019
+   ],
+   "tris": 88,
+   "materials": [
+    "M_Pavement"
+   ]
+  },
+  "SM_Pipe": {
+   "file": "SM_Pipe.fbx",
+   "dims": [
+    4.662,
+    8.247,
+    1.42
+   ],
+   "min": [
+    -3.952,
+    -0.001,
+    -0.71
+   ],
+   "max": [
+    0.71,
+    8.246,
+    0.71
+   ],
+   "tris": 43458,
+   "materials": [
+    "M_Pipe_Pillar_01",
+    "M_Pipe_Pillar_02"
+   ]
+  },
+  "SM_Pipe01": {
+   "file": "SM_Pipe01.fbx",
+   "dims": [
+    0.203,
+    0.603,
+    0.204
+   ],
+   "min": [
+    -0.101,
+    -0.001,
+    -0.102
+   ],
+   "max": [
+    0.102,
+    0.601,
+    0.101
+   ],
+   "tris": 924,
+   "materials": [
+    "M_Pipes"
+   ]
+  },
+  "SM_Pipe02": {
+   "file": "SM_Pipe02.fbx",
+   "dims": [
+    0.206,
+    1.052,
+    0.206
+   ],
+   "min": [
+    -0.104,
+    -0.001,
+    -0.104
+   ],
+   "max": [
+    0.101,
+    1.051,
+    0.102
+   ],
+   "tris": 1036,
+   "materials": [
+    "M_Pipes"
+   ]
+  },
+  "SM_Pipe03": {
+   "file": "SM_Pipe03.fbx",
+   "dims": [
+    0.205,
+    0.403,
+    0.402
+   ],
+   "min": [
+    -0.102,
+    -0.001,
+    -0.101
+   ],
+   "max": [
+    0.102,
+    0.401,
+    0.301
+   ],
+   "tris": 1939,
+   "materials": [
+    "M_Pipes"
+   ]
+  },
+  "SM_Pipe04": {
+   "file": "SM_Pipe04.fbx",
+   "dims": [
+    0.205,
+    0.372,
+    0.803
+   ],
+   "min": [
+    -0.103,
+    0.029,
+    -0.101
+   ],
+   "max": [
+    0.102,
+    0.401,
+    0.702
+   ],
+   "tris": 3067,
+   "materials": [
+    "M_Pipes"
+   ]
+  },
+  "SM_PipeB_90": {
+   "file": "SM_PipeB_90.fbx",
+   "dims": [
+    0.433,
+    0.268,
+    0.433
+   ],
+   "min": [
+    -0.002,
+    -0.135,
+    -0.131
+   ],
+   "max": [
+    0.431,
+    0.133,
+    0.302
+   ],
+   "tris": 710,
+   "materials": [
+    "M_Pipes"
+   ]
+  },
+  "SM_PipeB_Clamp": {
+   "file": "SM_PipeB_Clamp.fbx",
+   "dims": [
+    0.071,
+    0.336,
+    0.453
+   ],
+   "min": [
+    -0.035,
+    -0.168,
+    -0.227
+   ],
+   "max": [
+    0.036,
+    0.168,
+    0.227
+   ],
+   "tris": 424,
+   "materials": [
+    "M_Dark_Metal"
+   ]
+  },
+  "SM_PipeB_ClampB": {
+   "file": "SM_PipeB_ClampB.fbx",
+   "dims": [
+    0.179,
+    0.429,
+    0.428
+   ],
+   "min": [
+    -0.08,
+    -0.21,
+    -0.213
+   ],
+   "max": [
+    0.1,
+    0.219,
+    0.215
+   ],
+   "tris": 4512,
+   "materials": [
+    "M_Dark_Metal"
+   ]
+  },
+  "SM_PipeB_ClampC": {
+   "file": "SM_PipeB_ClampC.fbx",
+   "dims": [
+    0.093,
+    0.339,
+    0.347
+   ],
+   "min": [
+    -0.047,
+    -0.169,
+    -0.177
+   ],
+   "max": [
+    0.047,
+    0.17,
+    0.17
+   ],
+   "tris": 982,
+   "materials": [
+    "M_Dark_Metal"
+   ]
+  },
+  "SM_PipeB_Corner": {
+   "file": "SM_PipeB_Corner.fbx",
+   "dims": [
+    0.804,
+    0.262,
+    0.433
+   ],
+   "min": [
+    -0.802,
+    -0.131,
+    -0.302
+   ],
+   "max": [
+    0.002,
+    0.131,
+    0.131
+   ],
+   "tris": 447,
+   "materials": [
+    "M_Pipes"
+   ]
+  },
+  "SM_PipeB_Fat": {
+   "file": "SM_PipeB_Fat.fbx",
+   "dims": [
+    0.839,
+    0.293,
+    0.288
+   ],
+   "min": [
+    -0.82,
+    -0.145,
+    -0.144
+   ],
+   "max": [
+    0.019,
+    0.148,
+    0.144
+   ],
+   "tris": 447,
+   "materials": [
+    "M_Pipes"
+   ]
+  },
+  "SM_PipeB_Long": {
+   "file": "SM_PipeB_Long.fbx",
+   "dims": [
+    1.601,
+    0.26,
+    0.26
+   ],
+   "min": [
+    -1.601,
+    -0.13,
+    -0.13
+   ],
+   "max": [
+    0.001,
+    0.13,
+    0.13
+   ],
+   "tris": 48,
+   "materials": [
+    "M_Pipes"
+   ]
+  },
+  "SM_PipeB_Offset": {
+   "file": "SM_PipeB_Offset.fbx",
+   "dims": [
+    1.603,
+    0.263,
+    0.666
+   ],
+   "min": [
+    -1.602,
+    -0.131,
+    -0.133
+   ],
+   "max": [
+    0.002,
+    0.132,
+    0.533
+   ],
+   "tris": 791,
+   "materials": [
+    "M_Pipes"
+   ]
+  },
+  "SM_PipeB_Short": {
+   "file": "SM_PipeB_Short.fbx",
+   "dims": [
+    0.804,
+    0.27,
+    0.27
+   ],
+   "min": [
+    -0.802,
+    -0.139,
+    -0.131
+   ],
+   "max": [
+    0.002,
+    0.131,
+    0.139
+   ],
+   "tris": 112,
+   "materials": [
+    "M_Pipes"
+   ]
+  },
+  "SM_Pizza_Box_01": {
+   "file": "SM_Pizza_Box_01.fbx",
+   "dims": [
+    0.416,
+    0.053,
+    0.387
+   ],
+   "min": [
+    -0.208,
+    -0.026,
+    -0.173
+   ],
+   "max": [
+    0.208,
+    0.027,
+    0.213
+   ],
+   "tris": 363,
+   "materials": [
+    "M_TrashSet_01"
+   ]
+  },
+  "SM_Pizza_Box_02": {
+   "file": "SM_Pizza_Box_02.fbx",
+   "dims": [
+    0.516,
+    0.379,
+    0.418
+   ],
+   "min": [
+    -0.258,
+    0.028,
+    -0.189
+   ],
+   "max": [
+    0.258,
+    0.408,
+    0.229
+   ],
+   "tris": 952,
+   "materials": [
+    "M_TrashSet_02"
+   ]
+  },
+  "SM_Pizza_Slices_01": {
+   "file": "SM_Pizza_Slices_01.fbx",
+   "dims": [
+    0.123,
+    0.014,
+    0.131
+   ],
+   "min": [
+    -0.061,
+    -0.007,
+    -0.066
+   ],
+   "max": [
+    0.061,
+    0.007,
+    0.065
+   ],
+   "tris": 1190,
+   "materials": [
+    "M_Pizza_Slices"
+   ]
+  },
+  "SM_Pizza_Slices_02": {
+   "file": "SM_Pizza_Slices_02.fbx",
+   "dims": [
+    0.106,
+    0.049,
+    0.137
+   ],
+   "min": [
+    -0.053,
+    -0.025,
+    -0.069
+   ],
+   "max": [
+    0.053,
+    0.025,
+    0.069
+   ],
+   "tris": 1188,
+   "materials": [
+    "M_Pizza_Slices"
+   ]
+  },
+  "SM_Plastic_Box": {
+   "file": "SM_Plastic_Box.fbx",
+   "dims": [
+    0.64,
+    0.191,
+    0.379
+   ],
+   "min": [
+    -0.32,
+    -0.001,
+    -0.19
+   ],
+   "max": [
+    0.319,
+    0.19,
+    0.189
+   ],
+   "tris": 2664,
+   "materials": [
+    "M_Box_Barrel"
+   ]
+  },
+  "SM_Pot_01": {
+   "file": "SM_Pot_01.fbx",
+   "dims": [
+    0.417,
+    0.291,
+    0.42
+   ],
+   "min": [
+    -0.208,
+    -0.037,
+    -0.185
+   ],
+   "max": [
+    0.209,
+    0.254,
+    0.234
+   ],
+   "tris": 1109,
+   "materials": [
+    "M_Noodle_Stand_02"
+   ]
+  },
+  "SM_Pot_02": {
+   "file": "SM_Pot_02.fbx",
+   "dims": [
+    0.564,
+    0.559,
+    0.564
+   ],
+   "min": [
+    -0.282,
+    -0.279,
+    -0.282
+   ],
+   "max": [
+    0.282,
+    0.28,
+    0.282
+   ],
+   "tris": 6394,
+   "materials": [
+    "M_Noodle_Stand_02"
+   ]
+  },
+  "SM_PowerUnit_01": {
+   "file": "SM_PowerUnit_01.fbx",
+   "dims": [
+    0.39,
+    1.296,
+    1.811
+   ],
+   "min": [
+    -0.16,
+    -0.648,
+    -0.957
+   ],
+   "max": [
+    0.23,
+    0.648,
+    0.854
+   ],
+   "tris": 5910,
+   "materials": [
+    "M_Power_Unit"
+   ]
+  },
+  "SM_Rack": {
+   "file": "SM_Rack.fbx",
+   "dims": [
+    0.547,
+    2.744,
+    2.204
+   ],
+   "min": [
+    -0.276,
+    -1.372,
+    -1.102
+   ],
+   "max": [
+    0.271,
+    1.372,
+    1.102
+   ],
+   "tris": 3064,
+   "materials": [
+    "M_Rack"
+   ]
+  },
+  "SM_Railing": {
+   "file": "SM_Railing.fbx",
+   "dims": [
+    2.024,
+    0.85,
+    0.092
+   ],
+   "min": [
+    -1.014,
+    -0.049,
+    -0.051
+   ],
+   "max": [
+    1.01,
+    0.802,
+    0.041
+   ],
+   "tris": 210,
+   "materials": [
+    "M_Doors"
+   ]
+  },
+  "SM_Railing_02": {
+   "file": "SM_Railing_02.fbx",
+   "dims": [
+    0.135,
+    1.051,
+    1.616
+   ],
+   "min": [
+    -0.092,
+    -0.526,
+    -0.806
+   ],
+   "max": [
+    0.043,
+    0.526,
+    0.81
+   ],
+   "tris": 814,
+   "materials": [
+    "M_Dark_Metal"
+   ]
+  },
+  "SM_Ramen_Bowl": {
+   "file": "SM_Ramen_Bowl.fbx",
+   "dims": [
+    0.237,
+    0.139,
+    0.246
+   ],
+   "min": [
+    -0.119,
+    -0.069,
+    -0.103
+   ],
+   "max": [
+    0.119,
+    0.07,
+    0.143
+   ],
+   "tris": 11309,
+   "materials": [
+    "M_Noodle_Stand_01"
+   ]
+  },
+  "SM_Roof": {
+   "file": "SM_Roof.fbx",
+   "dims": [
+    6.683,
+    0.669,
+    4.757
+   ],
+   "min": [
+    -6.674,
+    -0.001,
+    -4.743
+   ],
+   "max": [
+    0.009,
+    0.668,
+    0.013
+   ],
+   "tris": 124,
+   "materials": [
+    "M_Concrete_Darker"
+   ]
+  },
+  "SM_Roof_Corner": {
+   "file": "SM_Roof_Corner.fbx",
+   "dims": [
+    3.201,
+    1.211,
+    3.2
+   ],
+   "min": [
+    -0.2,
+    -0.005,
+    0
+   ],
+   "max": [
+    3.001,
+    1.206,
+    3.2
+   ],
+   "tris": 167,
+   "materials": [
+    "M_Concrete_02"
+   ]
+  },
+  "SM_Roof_Corner_L": {
+   "file": "SM_Roof_Corner_L.fbx",
+   "dims": [
+    3.201,
+    1.211,
+    3.2
+   ],
+   "min": [
+    -0.2,
+    -0.005,
+    0
+   ],
+   "max": [
+    3.001,
+    1.206,
+    3.2
+   ],
+   "tris": 167,
+   "materials": [
+    "M_Concrete_Darker"
+   ]
+  },
+  "SM_Roof_Middle": {
+   "file": "SM_Roof_Middle.fbx",
+   "dims": [
+    3.2,
+    1.212,
+    3
+   ],
+   "min": [
+    -0.2,
+    -0.007,
+    0
+   ],
+   "max": [
+    3,
+    1.205,
+    3
+   ],
+   "tris": 42,
+   "materials": [
+    "M_Concrete_02"
+   ]
+  },
+  "SM_Roof_Middle_02": {
+   "file": "SM_Roof_Middle_02.fbx",
+   "dims": [
+    3.491,
+    1.499,
+    3
+   ],
+   "min": [
+    -0.491,
+    -0.012,
+    0
+   ],
+   "max": [
+    3,
+    1.487,
+    3
+   ],
+   "tris": 380,
+   "materials": [
+    "M_Concrete_02"
+   ]
+  },
+  "SM_Roof_Middle_L": {
+   "file": "SM_Roof_Middle_L.fbx",
+   "dims": [
+    3.2,
+    1.212,
+    3
+   ],
+   "min": [
+    -0.2,
+    -0.007,
+    0
+   ],
+   "max": [
+    3,
+    1.205,
+    3
+   ],
+   "tris": 42,
+   "materials": [
+    "M_Concrete_02"
+   ]
+  },
+  "SM_Roof_Top": {
+   "file": "SM_Roof_Top.fbx",
+   "dims": [
+    3,
+    1,
+    3
+   ],
+   "min": [
+    0,
+    0,
+    0
+   ],
+   "max": [
+    3,
+    1,
+    3
+   ],
+   "tris": 6,
+   "materials": [
+    "M_Concrete_02"
+   ]
+  },
+  "SM_Saucer": {
+   "file": "SM_Saucer.fbx",
+   "dims": [
+    0.114,
+    0.136,
+    0.115
+   ],
+   "min": [
+    -0.057,
+    -0.068,
+    -0.038
+   ],
+   "max": [
+    0.057,
+    0.068,
+    0.077
+   ],
+   "tris": 1014,
+   "materials": [
+    "M_Noodle_Stand_01"
+   ]
+  },
+  "SM_Sewer_Cover_01": {
+   "file": "SM_Sewer_Cover_01.fbx",
+   "dims": [
+    0.906,
+    0.023,
+    0.906
+   ],
+   "min": [
+    -0.453,
+    0,
+    -0.453
+   ],
+   "max": [
+    0.453,
+    0.023,
+    0.453
+   ],
+   "tris": 3214,
+   "materials": [
+    "M_Sewer_Covers"
+   ]
+  },
+  "SM_Sewer_Cover_02": {
+   "file": "SM_Sewer_Cover_02.fbx",
+   "dims": [
+    0.289,
+    0.012,
+    2.046
+   ],
+   "min": [
+    -0.144,
+    -0.006,
+    -1.023
+   ],
+   "max": [
+    0.144,
+    0.006,
+    1.023
+   ],
+   "tris": 733,
+   "materials": [
+    "M_Sewer_Covers"
+   ]
+  },
+  "SM_Sign_01": {
+   "file": "SM_Sign_01.fbx",
+   "dims": [
+    0.016,
+    0.346,
+    0.151
+   ],
+   "min": [
+    -0.008,
+    -0.001,
+    -0.095
+   ],
+   "max": [
+    0.008,
+    0.345,
+    0.055
+   ],
+   "tris": 1560,
+   "materials": [
+    "M_Signs_01"
+   ]
+  },
+  "SM_Sign_02": {
+   "file": "SM_Sign_02.fbx",
+   "dims": [
+    0.022,
+    0.236,
+    0.17
+   ],
+   "min": [
+    -0.011,
+    -0.001,
+    -0.08
+   ],
+   "max": [
+    0.011,
+    0.235,
+    0.09
+   ],
+   "tris": 1687,
+   "materials": [
+    "M_Signs_01"
+   ]
+  },
+  "SM_Sign_03": {
+   "file": "SM_Sign_03.fbx",
+   "dims": [
+    0.085,
+    0.144,
+    0.273
+   ],
+   "min": [
+    -0.009,
+    -0.001,
+    -0.155
+   ],
+   "max": [
+    0.076,
+    0.143,
+    0.118
+   ],
+   "tris": 4748,
+   "materials": [
+    "M_Signs_01"
+   ]
+  },
+  "SM_Sign_04": {
+   "file": "SM_Sign_04.fbx",
+   "dims": [
+    0.112,
+    1.828,
+    0.909
+   ],
+   "min": [
+    -0.05,
+    -0.636,
+    -0.55
+   ],
+   "max": [
+    0.061,
+    1.192,
+    0.359
+   ],
+   "tris": 7331,
+   "materials": [
+    "M_Signs_02"
+   ]
+  },
+  "SM_Sink": {
+   "file": "SM_Sink.fbx",
+   "dims": [
+    2.142,
+    1.413,
+    1.087
+   ],
+   "min": [
+    -1.071,
+    -0.706,
+    -0.55
+   ],
+   "max": [
+    1.071,
+    0.706,
+    0.537
+   ],
+   "tris": 9563,
+   "materials": [
+    "M_Sink"
+   ]
+  },
+  "SM_Soda_Can": {
+   "file": "SM_Soda_Can.fbx",
+   "dims": [
+    0.076,
+    0.134,
+    0.076
+   ],
+   "min": [
+    -0.038,
+    -0.052,
+    -0.018
+   ],
+   "max": [
+    0.038,
+    0.082,
+    0.058
+   ],
+   "tris": 616,
+   "materials": [
+    "M_TrashSet_01"
+   ]
+  },
+  "SM_Soda_Can_Crushed": {
+   "file": "SM_Soda_Can_Crushed.fbx",
+   "dims": [
+    0.08,
+    0.056,
+    0.084
+   ],
+   "min": [
+    -0.041,
+    -0.002,
+    -0.021
+   ],
+   "max": [
+    0.039,
+    0.054,
+    0.063
+   ],
+   "tris": 1122,
+   "materials": [
+    "M_TrashSet_01"
+   ]
+  },
+  "SM_Souce_Bottle": {
+   "file": "SM_Souce_Bottle.fbx",
+   "dims": [
+    0.158,
+    0.442,
+    0.153
+   ],
+   "min": [
+    -0.08,
+    -0.025,
+    -0.057
+   ],
+   "max": [
+    0.079,
+    0.417,
+    0.097
+   ],
+   "tris": 1740,
+   "materials": [
+    "M_Noodle_Stand_02"
+   ]
+  },
+  "SM_SpiceBarrel": {
+   "file": "SM_SpiceBarrel.fbx",
+   "dims": [
+    0.345,
+    0.484,
+    0.348
+   ],
+   "min": [
+    -0.173,
+    0.065,
+    -0.175
+   ],
+   "max": [
+    0.173,
+    0.548,
+    0.173
+   ],
+   "tris": 589,
+   "materials": [
+    "M_Box_Barrel"
+   ]
+  },
+  "SM_Spoon": {
+   "file": "SM_Spoon.fbx",
+   "dims": [
+    0.119,
+    0.019,
+    0.131
+   ],
+   "min": [
+    -0.059,
+    -0.01,
+    -0.046
+   ],
+   "max": [
+    0.059,
+    0.01,
+    0.086
+   ],
+   "tris": 1024,
+   "materials": [
+    "M_Noodle_Stand_01"
+   ]
+  },
+  "SM_Spray_Paint_Can": {
+   "file": "SM_Spray_Paint_Can.fbx",
+   "dims": [
+    0.085,
+    0.251,
+    0.085
+   ],
+   "min": [
+    -0.043,
+    -0.156,
+    -0.023
+   ],
+   "max": [
+    0.043,
+    0.094,
+    0.063
+   ],
+   "tris": 1639,
+   "materials": [
+    "M_TrashSet_01"
+   ]
+  },
+  "SM_Staircase_Cover": {
+   "file": "SM_Staircase_Cover.fbx",
+   "dims": [
+    0.9,
+    0.197,
+    0.901
+   ],
+   "min": [
+    -0.45,
+    -0.098,
+    -0.45
+   ],
+   "max": [
+    0.45,
+    0.099,
+    0.45
+   ],
+   "tris": 84,
+   "materials": [
+    "M_Staircase_Cover"
+   ]
+  },
+  "SM_Stairs": {
+   "file": "SM_Stairs.fbx",
+   "dims": [
+    1.291,
+    3.056,
+    3.271
+   ],
+   "min": [
+    -0.646,
+    -1.528,
+    -1.634
+   ],
+   "max": [
+    0.645,
+    1.528,
+    1.637
+   ],
+   "tris": 3146,
+   "materials": [
+    "M_Stairs"
+   ]
+  },
+  "SM_Stand_01": {
+   "file": "SM_Stand_01.fbx",
+   "dims": [
+    0.695,
+    1.243,
+    4.123
+   ],
+   "min": [
+    -0.341,
+    -0.621,
+    -2.06
+   ],
+   "max": [
+    0.354,
+    0.621,
+    2.063
+   ],
+   "tris": 681,
+   "materials": [
+    "M_Stand_01"
+   ]
+  },
+  "SM_Stand_02": {
+   "file": "SM_Stand_02.fbx",
+   "dims": [
+    4.873,
+    1.241,
+    0.673
+   ],
+   "min": [
+    -2.437,
+    -0.62,
+    -0.337
+   ],
+   "max": [
+    2.437,
+    0.62,
+    0.337
+   ],
+   "tris": 649,
+   "materials": [
+    "M_Stand_02"
+   ]
+  },
+  "SM_Standing_Billboard": {
+   "file": "SM_Standing_Billboard.fbx",
+   "dims": [
+    1.259,
+    0.253,
+    1.339
+   ],
+   "min": [
+    -0.629,
+    0.003,
+    -0.65
+   ],
+   "max": [
+    0.629,
+    0.255,
+    0.69
+   ],
+   "tris": 3714,
+   "materials": [
+    "M_Standing_Bilboard"
+   ]
+  },
+  "SM_Steel_Column": {
+   "file": "SM_Steel_Column.fbx",
+   "dims": [
+    0.593,
+    3.512,
+    0.587
+   ],
+   "min": [
+    -0.296,
+    -1.756,
+    -0.293
+   ],
+   "max": [
+    0.296,
+    1.756,
+    0.293
+   ],
+   "tris": 936,
+   "materials": [
+    "M_Floor_02",
+    "M_Brick"
+   ]
+  },
+  "SM_Stool": {
+   "file": "SM_Stool.fbx",
+   "dims": [
+    0.38,
+    0.907,
+    0.38
+   ],
+   "min": [
+    -0.19,
+    0.132,
+    -0.17
+   ],
+   "max": [
+    0.19,
+    1.039,
+    0.21
+   ],
+   "tris": 2356,
+   "materials": [
+    "M_Stool"
+   ]
+  },
+  "SM_Street_Light_01": {
+   "file": "SM_Street_Light_01.fbx",
+   "dims": [
+    0.731,
+    3.75,
+    2.532
+   ],
+   "min": [
+    -0.357,
+    -2.678,
+    -1.854
+   ],
+   "max": [
+    0.375,
+    1.072,
+    0.677
+   ],
+   "tris": 2884,
+   "materials": [
+    "M_Street_Light_01"
+   ]
+  },
+  "SM_Street_Light_02": {
+   "file": "SM_Street_Light_02.fbx",
+   "dims": [
+    0.673,
+    4.169,
+    1.075
+   ],
+   "min": [
+    -0.336,
+    0,
+    -0.192
+   ],
+   "max": [
+    0.336,
+    4.169,
+    0.882
+   ],
+   "tris": 3357,
+   "materials": [
+    "M_Street_Light_02",
+    "M_WindowGlasses"
+   ]
+  },
+  "SM_Sushi_Set": {
+   "file": "SM_Sushi_Set.fbx",
+   "dims": [
+    0.299,
+    0.094,
+    0.485
+   ],
+   "min": [
+    -0.15,
+    -0.047,
+    -0.223
+   ],
+   "max": [
+    0.15,
+    0.047,
+    0.263
+   ],
+   "tris": 6598,
+   "materials": [
+    "M_Noodle_Stand_01"
+   ]
+  },
+  "SM_Table": {
+   "file": "SM_Table.fbx",
+   "dims": [
+    1.713,
+    1.018,
+    1.029
+   ],
+   "min": [
+    -0.857,
+    -0.516,
+    -0.515
+   ],
+   "max": [
+    0.857,
+    0.502,
+    0.515
+   ],
+   "tris": 2353,
+   "materials": [
+    "M_Table"
+   ]
+  },
+  "SM_Tower_01": {
+   "file": "SM_Tower_01.fbx",
+   "dims": [
+    1.375,
+    7.689,
+    1.565
+   ],
+   "min": [
+    -0.688,
+    -0.084,
+    -0.782
+   ],
+   "max": [
+    0.688,
+    7.605,
+    0.782
+   ],
+   "tris": 528,
+   "materials": [
+    "M_Props_Tower"
+   ]
+  },
+  "SM_Tower_02": {
+   "file": "SM_Tower_02.fbx",
+   "dims": [
+    0.507,
+    10.778,
+    0.414
+   ],
+   "min": [
+    -0.253,
+    -0.106,
+    -0.207
+   ],
+   "max": [
+    0.253,
+    10.671,
+    0.207
+   ],
+   "tris": 3504,
+   "materials": [
+    "M_Props_Tower"
+   ]
+  },
+  "SM_Tower_03": {
+   "file": "SM_Tower_03.fbx",
+   "dims": [
+    0.467,
+    12.301,
+    0.644
+   ],
+   "min": [
+    -0.234,
+    -0.033,
+    -0.322
+   ],
+   "max": [
+    0.234,
+    12.268,
+    0.322
+   ],
+   "tris": 1196,
+   "materials": [
+    "M_Props_Tower"
+   ]
+  },
+  "SM_TrashBin_02_Combined": {
+   "file": "SM_TrashBin_02_Combined.fbx",
+   "dims": [
+    0.972,
+    1.414,
+    1.282
+   ],
+   "min": [
+    -0.524,
+    -0.615,
+    -0.641
+   ],
+   "max": [
+    0.447,
+    0.8,
+    0.641
+   ],
+   "tris": 6388,
+   "materials": [
+    "M_Trash_Bin_02"
+   ]
+  },
+  "SM_TrashBin_Body": {
+   "file": "SM_TrashBin_Body.fbx",
+   "dims": [
+    0.965,
+    1.249,
+    1.284
+   ],
+   "min": [
+    -0.525,
+    -0.616,
+    -0.642
+   ],
+   "max": [
+    0.439,
+    0.634,
+    0.642
+   ],
+   "tris": 6563,
+   "materials": [
+    "M_Trash_Bin_02"
+   ]
+  },
+  "SM_TrashBin_Cover": {
+   "file": "SM_TrashBin_Cover.fbx",
+   "dims": [
+    0.91,
+    0.408,
+    1.259
+   ],
+   "min": [
+    -0.462,
+    0.373,
+    -0.629
+   ],
+   "max": [
+    0.448,
+    0.78,
+    0.631
+   ],
+   "tris": 2393,
+   "materials": [
+    "M_Trash_Bin_02"
+   ]
+  },
+  "SM_TrashBin_Cover02": {
+   "file": "SM_TrashBin_Cover02.fbx",
+   "dims": [
+    0.611,
+    0.32,
+    0.7
+   ],
+   "min": [
+    -0.344,
+    0.481,
+    -0.352
+   ],
+   "max": [
+    0.267,
+    0.801,
+    0.348
+   ],
+   "tris": 2364,
+   "materials": [
+    "M_Trash_Bin_02"
+   ]
+  },
+  "SM_Trash_Bag_01": {
+   "file": "SM_Trash_Bag_01.fbx",
+   "dims": [
+    0.474,
+    0.484,
+    0.567
+   ],
+   "min": [
+    -0.236,
+    -0.227,
+    -0.263
+   ],
+   "max": [
+    0.237,
+    0.257,
+    0.303
+   ],
+   "tris": 3328,
+   "materials": [
+    "M_TrashBags"
+   ]
+  },
+  "SM_Trash_Bag_02": {
+   "file": "SM_Trash_Bag_02.fbx",
+   "dims": [
+    0.338,
+    0.384,
+    0.36
+   ],
+   "min": [
+    -0.169,
+    -0.192,
+    -0.16
+   ],
+   "max": [
+    0.169,
+    0.192,
+    0.2
+   ],
+   "tris": 2902,
+   "materials": [
+    "M_TrashBags"
+   ]
+  },
+  "SM_Trash_Bag_03": {
+   "file": "SM_Trash_Bag_03.fbx",
+   "dims": [
+    0.695,
+    0.681,
+    0.932
+   ],
+   "min": [
+    -0.348,
+    -0.293,
+    -0.446
+   ],
+   "max": [
+    0.347,
+    0.388,
+    0.486
+   ],
+   "tris": 3188,
+   "materials": [
+    "M_TrashBags"
+   ]
+  },
+  "SM_Trash_Bin_01": {
+   "file": "SM_Trash_Bin_01.fbx",
+   "dims": [
+    0.914,
+    1.264,
+    0.761
+   ],
+   "min": [
+    -0.475,
+    -0.509,
+    -0.374
+   ],
+   "max": [
+    0.439,
+    0.755,
+    0.387
+   ],
+   "tris": 4674,
+   "materials": [
+    "M_Trash_Bin_01"
+   ]
+  },
+  "SM_Tree1": {
+   "file": "SM_Tree1.fbx",
+   "dims": [
+    11.14,
+    17.364,
+    11.075
+   ],
+   "min": [
+    -5.57,
+    -0.04,
+    -5.484
+   ],
+   "max": [
+    5.57,
+    17.324,
+    5.591
+   ],
+   "tris": 11096,
+   "materials": [
+    "M_TreeBark_01",
+    "M_Leaf_01"
+   ]
+  },
+  "SM_Tree2": {
+   "file": "SM_Tree2.fbx",
+   "dims": [
+    9.152,
+    12.855,
+    9.373
+   ],
+   "min": [
+    -4.282,
+    -0.063,
+    -4.97
+   ],
+   "max": [
+    4.871,
+    12.793,
+    4.404
+   ],
+   "tris": 11555,
+   "materials": [
+    "M_Leaf_01",
+    "M_TreeBark_01"
+   ]
+  },
+  "SM_Tree3": {
+   "file": "SM_Tree3.fbx",
+   "dims": [
+    0.872,
+    1.653,
+    1.132
+   ],
+   "min": [
+    -0.46,
+    -0.006,
+    -0.499
+   ],
+   "max": [
+    0.412,
+    1.647,
+    0.633
+   ],
+   "tris": 842,
+   "materials": [
+    "M_TreeBark_01",
+    "M_Leaf_02"
+   ]
+  },
+  "SM_UnderTrees01": {
+   "file": "SM_UnderTrees01.fbx",
+   "dims": [
+    1.002,
+    0.102,
+    2.502
+   ],
+   "min": [
+    -0.501,
+    -0.051,
+    -1.251
+   ],
+   "max": [
+    0.501,
+    0.051,
+    1.251
+   ],
+   "tris": 306,
+   "materials": [
+    "M_UnderTrees"
+   ]
+  },
+  "SM_Vase": {
+   "file": "SM_Vase.fbx",
+   "dims": [
+    0.12,
+    0.117,
+    0.119
+   ],
+   "min": [
+    -0.062,
+    -0.058,
+    -0.039
+   ],
+   "max": [
+    0.059,
+    0.06,
+    0.081
+   ],
+   "tris": 1291,
+   "materials": [
+    "M_Noodle_Stand_01"
+   ]
+  },
+  "SM_Vending_Machine": {
+   "file": "SM_Vending_Machine.fbx",
+   "dims": [
+    1.146,
+    3.855,
+    2.397
+   ],
+   "min": [
+    -1.379,
+    -0.002,
+    -1.349
+   ],
+   "max": [
+    -0.233,
+    3.853,
+    1.047
+   ],
+   "tris": 9920,
+   "materials": [
+    "M_Vending_Machine_02",
+    "M_Vending_Machine_01",
+    "M_WindowGlasses"
+   ]
+  },
+  "SM_Vents_01": {
+   "file": "SM_Vents_01.fbx",
+   "dims": [
+    8.603,
+    1.902,
+    3.667
+   ],
+   "min": [
+    -4.302,
+    -0.379,
+    -1.833
+   ],
+   "max": [
+    4.302,
+    1.523,
+    1.833
+   ],
+   "tris": 1657,
+   "materials": [
+    "M_Props"
+   ]
+  },
+  "SM_Vents_02": {
+   "file": "SM_Vents_02.fbx",
+   "dims": [
+    10.342,
+    1.129,
+    2.614
+   ],
+   "min": [
+    -5.171,
+    0.008,
+    -1.307
+   ],
+   "max": [
+    5.171,
+    1.137,
+    1.307
+   ],
+   "tris": 582,
+   "materials": [
+    "M_Props"
+   ]
+  },
+  "SM_Vents_03": {
+   "file": "SM_Vents_03.fbx",
+   "dims": [
+    1.98,
+    1.968,
+    8.763
+   ],
+   "min": [
+    -0.99,
+    0.016,
+    -3.598
+   ],
+   "max": [
+    0.99,
+    1.984,
+    5.165
+   ],
+   "tris": 2810,
+   "materials": [
+    "M_Props"
+   ]
+  },
+  "SM_Wall02_01a_500x300": {
+   "file": "SM_Wall02_01a_500x300.fbx",
+   "dims": [
+    0.602,
+    5.002,
+    3.002
+   ],
+   "min": [
+    -0.301,
+    -1.001,
+    -0.001
+   ],
+   "max": [
+    0.301,
+    4.001,
+    3.001
+   ],
+   "tris": 1671,
+   "materials": [
+    "M_Concrete_02",
+    "M_Concrete_Darker",
+    "M_CubeMap_02"
+   ]
+  },
+  "SM_Wall02_01a_Corner": {
+   "file": "SM_Wall02_01a_Corner.fbx",
+   "dims": [
+    3.302,
+    5.005,
+    3.302
+   ],
+   "min": [
+    -0.301,
+    -1.004,
+    -0.001
+   ],
+   "max": [
+    3.001,
+    4.001,
+    3.301
+   ],
+   "tris": 4026,
+   "materials": [
+    "M_Concrete_02",
+    "M_Concrete_Darker",
+    "M_CubeMap_02",
+    "M_Plastic"
+   ]
+  },
+  "SM_Wall02_01c_500x300": {
+   "file": "SM_Wall02_01c_500x300.fbx",
+   "dims": [
+    0.779,
+    5.002,
+    3.002
+   ],
+   "min": [
+    -0.478,
+    -1.001,
+    -0.001
+   ],
+   "max": [
+    0.301,
+    4.001,
+    3.001
+   ],
+   "tris": 2110,
+   "materials": [
+    "M_Concrete_04",
+    "M_Concrete_Border",
+    "M_Concrete_Darker",
+    "M_CubeMap_02",
+    "M_Plastic"
+   ]
+  },
+  "SM_Wall02_02a_300x150": {
+   "file": "SM_Wall02_02a_300x150.fbx",
+   "dims": [
+    0,
+    3,
+    1.5
+   ],
+   "min": [
+    0,
+    0,
+    0
+   ],
+   "max": [
+    0,
+    3,
+    1.5
+   ],
+   "tris": 27,
+   "materials": [
+    "M_Concrete_02"
+   ]
+  },
+  "SM_Wall02_02a_300x300": {
+   "file": "SM_Wall02_02a_300x300.fbx",
+   "dims": [
+    0,
+    3,
+    3
+   ],
+   "min": [
+    0,
+    0,
+    0
+   ],
+   "max": [
+    0,
+    3,
+    3
+   ],
+   "tris": 41,
+   "materials": [
+    "M_Concrete_02"
+   ]
+  },
+  "SM_Wall02_02a_Corner_02": {
+   "file": "SM_Wall02_02a_Corner_02.fbx",
+   "dims": [
+    3.002,
+    3.002,
+    3.002
+   ],
+   "min": [
+    -0.001,
+    -0.001,
+    -0.001
+   ],
+   "max": [
+    3.001,
+    3.001,
+    3.001
+   ],
+   "tris": 59,
+   "materials": [
+    "M_Concrete_02"
+   ]
+  },
+  "SM_Wall02_02b_Corner": {
+   "file": "SM_Wall02_02b_Corner.fbx",
+   "dims": [
+    3.016,
+    3.002,
+    3.016
+   ],
+   "min": [
+    -0.015,
+    -0.001,
+    -0.001
+   ],
+   "max": [
+    3.001,
+    3.001,
+    3.015
+   ],
+   "tris": 711,
+   "materials": [
+    "M_Concrete_02",
+    "M_CubeMap_02",
+    "M_Plastic"
+   ]
+  },
+  "SM_Wall02_03b_Corner": {
+   "file": "SM_Wall02_03b_Corner.fbx",
+   "dims": [
+    3.051,
+    3,
+    3.05
+   ],
+   "min": [
+    -0.051,
+    0,
+    0
+   ],
+   "max": [
+    3,
+    3,
+    3.05
+   ],
+   "tris": 1575,
+   "materials": [
+    "M_Concrete_02",
+    "M_CubeMap_02"
+   ]
+  },
+  "SM_Wall03_01a_500x300": {
+   "file": "SM_Wall03_01a_500x300.fbx",
+   "dims": [
+    0.602,
+    5.002,
+    3.002
+   ],
+   "min": [
+    -0.301,
+    -1.001,
+    -0.001
+   ],
+   "max": [
+    0.301,
+    4.001,
+    3.001
+   ],
+   "tris": 1447,
+   "materials": [
+    "M_Concrete_02",
+    "M_Concrete_Darker",
+    "M_CubeMap_01",
+    "M_Plastic"
+   ]
+  },
+  "SM_Wall03_01a_Corner": {
+   "file": "SM_Wall03_01a_Corner.fbx",
+   "dims": [
+    3.302,
+    5.005,
+    3.302
+   ],
+   "min": [
+    -0.301,
+    -1.004,
+    -0.001
+   ],
+   "max": [
+    3.001,
+    4.001,
+    3.301
+   ],
+   "tris": 3163,
+   "materials": [
+    "M_Concrete_02",
+    "M_Concrete_Darker",
+    "M_CubeMap_01"
+   ]
+  },
+  "SM_Wall03_03b_300x300": {
+   "file": "SM_Wall03_03b_300x300.fbx",
+   "dims": [
+    0.478,
+    3,
+    3.009
+   ],
+   "min": [
+    -0.478,
+    0,
+    -0.004
+   ],
+   "max": [
+    0,
+    3,
+    3.005
+   ],
+   "tris": 426,
+   "materials": [
+    "M_Concrete_02"
+   ]
+  },
+  "SM_Wall04_01a_Corner": {
+   "file": "SM_Wall04_01a_Corner.fbx",
+   "dims": [
+    0.602,
+    5.002,
+    3.002
+   ],
+   "min": [
+    -0.301,
+    -1.001,
+    -0.001
+   ],
+   "max": [
+    0.301,
+    4.001,
+    3.001
+   ],
+   "tris": 1391,
+   "materials": [
+    "M_Concrete_02",
+    "M_Concrete_Darker",
+    "M_CubeMap_01"
+   ]
+  },
+  "SM_Wall_02a_Doors": {
+   "file": "SM_Wall_02a_Doors.fbx",
+   "dims": [
+    0.468,
+    3,
+    3
+   ],
+   "min": [
+    -0.043,
+    0,
+    0
+   ],
+   "max": [
+    0.425,
+    3,
+    3
+   ],
+   "tris": 1572,
+   "materials": [
+    "M_Concrete_02",
+    "M_DoorandCollumn",
+    "M_WindowGlasses"
+   ]
+  },
+  "SM_Wall_Light_01": {
+   "file": "SM_Wall_Light_01.fbx",
+   "dims": [
+    0.27,
+    0.383,
+    0.264
+   ],
+   "min": [
+    -0.134,
+    -0.19,
+    -0.131
+   ],
+   "max": [
+    0.136,
+    0.192,
+    0.133
+   ],
+   "tris": 6923,
+   "materials": [
+    "M_Dark_Metal",
+    "M_Windows_Emissive_01"
+   ]
+  },
+  "SM_Wall_Light_02": {
+   "file": "SM_Wall_Light_02.fbx",
+   "dims": [
+    0.687,
+    0.289,
+    0.256
+   ],
+   "min": [
+    -0.347,
+    -0.153,
+    -0.131
+   ],
+   "max": [
+    0.341,
+    0.136,
+    0.125
+   ],
+   "tris": 3664,
+   "materials": [
+    "M_Dark_Metal",
+    "M_Windows_Emissive_01"
+   ]
+  },
+  "SM_Wall_Light_03": {
+   "file": "SM_Wall_Light_03.fbx",
+   "dims": [
+    0.26,
+    0.378,
+    0.262
+   ],
+   "min": [
+    -0.13,
+    -0.19,
+    -0.131
+   ],
+   "max": [
+    0.13,
+    0.188,
+    0.131
+   ],
+   "tris": 3594,
+   "materials": [
+    "M_Dark_Metal",
+    "M_Windows_Emissive_01"
+   ]
+  },
+  "SM_Water_Bottle_01": {
+   "file": "SM_Water_Bottle_01.fbx",
+   "dims": [
+    0.082,
+    0.251,
+    0.082
+   ],
+   "min": [
+    -0.041,
+    -0.155,
+    -0.021
+   ],
+   "max": [
+    0.041,
+    0.096,
+    0.061
+   ],
+   "tris": 956,
+   "materials": [
+    "M_TrashSet_01"
+   ]
+  },
+  "SM_Wine_Bottle_01": {
+   "file": "SM_Wine_Bottle_01.fbx",
+   "dims": [
+    0.098,
+    0.335,
+    0.098
+   ],
+   "min": [
+    -0.049,
+    -0.19,
+    -0.029
+   ],
+   "max": [
+    0.049,
+    0.145,
+    0.069
+   ],
+   "tris": 1123,
+   "materials": [
+    "M_TrashSet_01"
+   ]
+  },
+  "SM_Wine_Bottle_02": {
+   "file": "SM_Wine_Bottle_02.fbx",
+   "dims": [
+    0.081,
+    0.33,
+    0.079
+   ],
+   "min": [
+    -0.041,
+    -0.126,
+    -0.019
+   ],
+   "max": [
+    0.041,
+    0.204,
+    0.059
+   ],
+   "tris": 1123,
+   "materials": [
+    "M_TrashSet_01"
+   ]
+  },
+  "SM_Wine_Bottle_03": {
+   "file": "SM_Wine_Bottle_03.fbx",
+   "dims": [
+    0.099,
+    0.376,
+    0.099
+   ],
+   "min": [
+    -0.049,
+    0.002,
+    -0.029
+   ],
+   "max": [
+    0.049,
+    0.378,
+    0.069
+   ],
+   "tris": 2915,
+   "materials": [
+    "M_TrashSet_02"
+   ]
+  }
+ },
+ "materials": {
+  "00_Alpha": {
+   "shader": "6e4ae4064600d784cac1e41a9e6f2e59",
+   "textures": {},
+   "emissiveIntensity": 1,
+   "emissiveColor": [
+    0,
+    0,
+    0,
+    1
+   ],
+   "baseColor": [
+    1,
+    1,
+    1,
+    0
+   ]
+  },
+  "00_Cube": {
+   "shader": "S_CubeMap.shadergraph",
+   "textures": {
+    "R": "Art/Textures/T_Glass_03_Grunge.TGA",
+    "N": "Art/Textures/T_Cubemap_N.TGA"
+   },
+   "emissiveIntensity": 1,
+   "emissiveColor": [
+    0,
+    0,
+    0,
+    1
+   ],
+   "baseColor": [
+    1,
+    1,
+    1,
+    1
+   ]
+  },
+  "00_CubeMap_02": {
+   "shader": "S_CubeMap.shadergraph",
+   "textures": {
+    "R": "Art/Textures/T_Glass_03_Grunge.TGA",
+    "N": "Art/Textures/T_Cubemap_N.TGA"
+   },
+   "emissiveIntensity": 1,
+   "emissiveColor": [
+    0,
+    0,
+    0,
+    1
+   ],
+   "baseColor": [
+    1,
+    1,
+    1,
+    1
+   ]
+  },
+  "M_AC_Units": {
+   "shader": "S_PBR_OPAQUE_ORM_LeartesMasterMaterial.shadergraph",
+   "textures": {
+    "B": "Art/Textures/T_AC_Units_B.TGA",
+    "N": "Art/Textures/T_AC_Units_N.TGA",
+    "ORM": "Art/Textures/T_AC_Units_ORM.TGA"
+   },
+   "emissiveIntensity": 1,
+   "emissiveColor": [
+    0,
+    0,
+    0,
+    1
+   ],
+   "baseColor": [
+    1,
+    1,
+    1,
+    1
+   ]
+  },
+  "M_Asphalt": {
+   "shader": "S_WorldAlignedSeperateORM.shadergraph",
+   "textures": {
+    "N": "Art/Textures/T_Road_N.TGA",
+    "OTHER": "Art/Textures/T_Grunge_01.TGA",
+    "B": "Art/Textures/T_Road_B.TGA",
+    "R": "Art/Textures/T_Fill_White.TGA",
+    "M": "Art/Textures/T_Fill_Black.TGA"
+   },
+   "emissiveIntensity": 1,
+   "emissiveColor": [
+    0,
+    0,
+    0,
+    1
+   ],
+   "baseColor": [
+    1,
+    1,
+    1,
+    1
+   ]
+  },
+  "M_ATM": {
+   "shader": "S_PBR_OPAQUE_ORM_LeartesMasterMaterial.shadergraph",
+   "textures": {
+    "B": "Art/Textures/T_ATM_B.TGA",
+    "N": "Art/Textures/T_ATM_N.TGA",
+    "E": "Art/Textures/T_ATM_E.TGA",
+    "ORM": "Art/Textures/T_ATM_ORM.TGA"
+   },
+   "emissiveIntensity": 1,
+   "emissiveColor": [
+    0,
+    0,
+    0,
+    1
+   ],
+   "baseColor": [
+    1,
+    1,
+    1,
+    1
+   ]
+  },
+  "M_Back_Wall": {
+   "shader": "S_PBR_OPAQUE_ORM_LeartesMasterMaterial.shadergraph",
+   "textures": {
+    "B": "Art/Textures/T_Wall_B.TGA",
+    "N": "Art/Textures/T_Wall_N.TGA",
+    "ORM": "Art/Textures/T_Wall_ORM.TGA"
+   },
+   "emissiveIntensity": 1,
+   "emissiveColor": [
+    0,
+    0,
+    0,
+    1
+   ],
+   "baseColor": [
+    1,
+    1,
+    1,
+    1
+   ]
+  },
+  "M_Barrel_Crate": {
+   "shader": "S_PBR_OPAQUE_ORM_LeartesMasterMaterial.shadergraph",
+   "textures": {
+    "B": "Art/Textures/T_Barrel_Crate_B.TGA",
+    "N": "Art/Textures/T_Barrel_Crate_N.TGA",
+    "ORM": "Art/Textures/T_Barrel_Crate_ORM.TGA"
+   },
+   "emissiveIntensity": 1,
+   "emissiveColor": [
+    0,
+    0,
+    0,
+    1
+   ],
+   "baseColor": [
+    1,
+    1,
+    1,
+    1
+   ]
+  },
+  "M_Barriers": {
+   "shader": "S_PBR_OPAQUE_ORM_LeartesMasterMaterial.shadergraph",
+   "textures": {
+    "B": "Art/Textures/T_Barriers_01_B.TGA",
+    "N": "Art/Textures/T_Barriers_01_N.TGA",
+    "ORM": "Art/Textures/T_Barriers_01_ORM.TGA"
+   },
+   "emissiveIntensity": 1,
+   "emissiveColor": [
+    0,
+    0,
+    0,
+    1
+   ],
+   "baseColor": [
+    1,
+    1,
+    1,
+    1
+   ]
+  },
+  "M_Bench_01": {
+   "shader": "S_PBR_OPAQUE_ORM_LeartesMasterMaterial.shadergraph",
+   "textures": {
+    "B": "Art/Textures/T_Bench_01_B.TGA",
+    "N": "Art/Textures/T_Bench_01_N.TGA",
+    "E": "Art/Textures/T_Bench_01_E.TGA",
+    "ORM": "Art/Textures/T_Bench_01_ORM.TGA"
+   },
+   "emissiveIntensity": 1,
+   "emissiveColor": [
+    0,
+    0,
+    0,
+    1
+   ],
+   "baseColor": [
+    1,
+    1,
+    1,
+    1
+   ]
+  },
+  "M_Bench_02": {
+   "shader": "S_PBR_OPAQUE_ORM_LeartesMasterMaterial.shadergraph",
+   "textures": {
+    "B": "Art/Textures/T_Bench_02_B.TGA",
+    "N": "Art/Textures/T_Bench_02_N.TGA",
+    "E": "Art/Textures/T_Bench_02_E.TGA",
+    "ORM": "Art/Textures/T_Bench_02_ORM.TGA"
+   },
+   "emissiveIntensity": 1,
+   "emissiveColor": [
+    0,
+    0,
+    0,
+    1
+   ],
+   "baseColor": [
+    1,
+    1,
+    1,
+    1
+   ]
+  },
+  "M_Box_Barrel": {
+   "shader": "S_PBR_OPAQUE_ORM_LeartesMasterMaterial.shadergraph",
+   "textures": {
+    "B": "Art/Textures/T_Box_Barrel_B.TGA",
+    "N": "Art/Textures/T_Box_Barrel_N.TGA",
+    "ORM": "Art/Textures/T_Box_Barrel_ORM.TGA"
+   },
+   "emissiveIntensity": 1,
+   "emissiveColor": [
+    0,
+    0,
+    0,
+    1
+   ],
+   "baseColor": [
+    1,
+    1,
+    1,
+    1
+   ]
+  },
+  "M_Brick": {
+   "shader": "S_PBR_OPAQUE_ORM_LeartesMasterMaterial.shadergraph",
+   "textures": {
+    "B": "Art/Textures/T_Brick_01_B.TGA",
+    "OTHER": "Art/Textures/T_Brick_01_ORM.TGA",
+    "N": "Art/Textures/T_Brick_01_N.TGA",
+    "ORM": "Art/Textures/T_Brick_01_ORM.TGA"
+   },
+   "emissiveIntensity": 1,
+   "emissiveColor": [
+    0,
+    0,
+    0,
+    1
+   ],
+   "baseColor": [
+    1,
+    1,
+    1,
+    1
+   ]
+  },
+  "M_Brushes": {
+   "shader": "S_Decal_Brush.shadergraph",
+   "textures": {
+    "O": "Art/Textures/T_Brush_Stroke_O.TGA",
+    "B": "Art/Textures/T_Brush_Stroke_B.TGA"
+   },
+   "emissiveIntensity": 1,
+   "emissiveColor": [
+    0,
+    0,
+    0,
+    1
+   ],
+   "baseColor": [
+    1,
+    1,
+    1,
+    1
+   ]
+  },
+  "M_Building_01": {
+   "shader": "S_PBR_OPAQUE_ORM_LeartesMasterMaterial.shadergraph",
+   "textures": {
+    "B": "Art/Textures/T_Building_01_B.TGA",
+    "O": "Art/Textures/T_Building_01_O.TGA",
+    "N": "Art/Textures/T_Fill_N.TGA",
+    "E": "Art/Textures/T_Building_01_E.TGA",
+    "ORM": "Art/Textures/T_Fill_ORM.TGA"
+   },
+   "emissiveIntensity": 1,
+   "emissiveColor": [
+    0,
+    0,
+    0,
+    1
+   ],
+   "baseColor": [
+    1,
+    1,
+    1,
+    1
+   ]
+  },
+  "M_Building_02": {
+   "shader": "S_PBR_OPAQUE_ORM_LeartesMasterMaterial.shadergraph",
+   "textures": {
+    "B": "Art/Textures/T_Building_02_B.TGA",
+    "O": "Art/Textures/T_Building_02_O.TGA",
+    "N": "Art/Textures/T_Fill_N.TGA",
+    "E": "Art/Textures/T_Building_02_E.TGA",
+    "ORM": "Art/Textures/T_Fill_ORM.TGA"
+   },
+   "emissiveIntensity": 1,
+   "emissiveColor": [
+    0,
+    0,
+    0,
+    1
+   ],
+   "baseColor": [
+    1,
+    1,
+    1,
+    1
+   ]
+  },
+  "M_Building_03": {
+   "shader": "S_PBR_OPAQUE_ORM_LeartesMasterMaterial.shadergraph",
+   "textures": {
+    "B": "Art/Textures/T_Building_03_B.TGA",
+    "O": "Art/Textures/T_Building_03_O.TGA",
+    "N": "Art/Textures/T_Fill_N.TGA",
+    "E": "Art/Textures/T_Building_03_E.TGA",
+    "ORM": "Art/Textures/T_Fill_ORM.TGA"
+   },
+   "emissiveIntensity": 1,
+   "emissiveColor": [
+    0,
+    0,
+    0,
+    1
+   ],
+   "baseColor": [
+    1,
+    1,
+    1,
+    1
+   ]
+  },
+  "M_Building_Cars,": {
+   "shader": "S_PBR_OPAQUE_ORM_LeartesMasterMaterial.shadergraph",
+   "textures": {
+    "B": "Art/Textures/T_Building_Cars_B.TGA",
+    "O": "Art/Textures/T_Building_Cars_O.TGA",
+    "N": "Art/Textures/T_Fill_N.TGA",
+    "E": "Art/Textures/T_Building_Cars_E.TGA",
+    "ORM": "Art/Textures/T_Fill_ORM.TGA"
+   },
+   "emissiveIntensity": 1,
+   "emissiveColor": [
+    0,
+    0,
+    0,
+    1
+   ],
+   "baseColor": [
+    1,
+    1,
+    1,
+    1
+   ]
+  },
+  "M_Column": {
+   "shader": "S_PBR_OPAQUE_ORM_LeartesMasterMaterial.shadergraph",
+   "textures": {
+    "B": "Art/Textures/T_Column_B.TGA",
+    "N": "Art/Textures/T_Column_N.TGA",
+    "E": "Art/Textures/T_Column_E.TGA",
+    "ORM": "Art/Textures/T_Column_ORM.TGA"
+   },
+   "emissiveIntensity": 1,
+   "emissiveColor": [
+    0,
+    0,
+    0,
+    1
+   ],
+   "baseColor": [
+    1,
+    1,
+    1,
+    1
+   ]
+  },
+  "M_Concrete": {
+   "shader": "S_BasicMaster.shadergraph",
+   "textures": {
+    "N": "Art/Textures/T_Concrete_01_N.TGA",
+    "M": "Art/Textures/T_M_Cube_T_Concrete_01_M.TGA",
+    "R": "Art/Textures/T_M_Cube_T_Concrete_01_R.TGA",
+    "B": "Art/Textures/T_Concrete_01_B.TGA"
+   },
+   "emissiveIntensity": 1,
+   "emissiveColor": [
+    0,
+    0,
+    0,
+    1
+   ],
+   "baseColor": [
+    1,
+    1,
+    1,
+    1
+   ]
+  },
+  "M_Concrete0101": {
+   "shader": "S_BasicMaster.shadergraph",
+   "textures": {
+    "N": "Art/Textures/T_Concrete_01_N.TGA",
+    "M": "Art/Textures/T_M_Cube_T_Concrete_01_M.TGA",
+    "R": "Art/Textures/T_M_Cube_T_Concrete_01_R.TGA",
+    "B": "Art/Textures/T_Concrete_01_B.TGA"
+   },
+   "emissiveIntensity": 1,
+   "emissiveColor": [
+    0,
+    0,
+    0,
+    1
+   ],
+   "baseColor": [
+    1,
+    1,
+    1,
+    1
+   ]
+  },
+  "M_Concrete_02": {
+   "shader": "S_PBR_OPAQUE_ORM_LeartesMasterMaterial.shadergraph",
+   "textures": {
+    "B": "Art/Textures/T_Concrete_03_B.TGA",
+    "OTHER": "Art/Textures/T_Concrete_03_ORM.TGA",
+    "N": "Art/Textures/T_Concrete_03_N.TGA",
+    "ORM": "Art/Textures/T_Concrete_03_ORM.TGA"
+   },
+   "emissiveIntensity": 1,
+   "emissiveColor": [
+    0,
+    0,
+    0,
+    1
+   ],
+   "baseColor": [
+    1,
+    1,
+    1,
+    1
+   ]
+  },
+  "M_Concrete_04": {
+   "shader": "S_PBR_OPAQUE_ORM_LeartesMasterMaterial.shadergraph",
+   "textures": {
+    "B": "Art/Textures/T_Concrete_04_B.TGA",
+    "OTHER": "Art/Textures/T_Concrete_02_ORM.TGA",
+    "N": "Art/Textures/T_Concrete_04_N.TGA",
+    "ORM": "Art/Textures/T_Concrete_04_ORM.TGA"
+   },
+   "emissiveIntensity": 1,
+   "emissiveColor": [
+    0,
+    0,
+    0,
+    1
+   ],
+   "baseColor": [
+    1,
+    1,
+    1,
+    1
+   ]
+  },
+  "M_Concrete_Border": {
+   "shader": "S_BasicMaster.shadergraph",
+   "textures": {
+    "N": "Art/Textures/T_Concrete_01_N.TGA",
+    "M": "Art/Textures/T_M_Cube_T_Concrete_01_M.TGA",
+    "R": "Art/Textures/T_M_Cube_T_Concrete_01_R.TGA",
+    "B": "Art/Textures/T_Concrete_01_B.TGA"
+   },
+   "emissiveIntensity": 1,
+   "emissiveColor": [
+    0,
+    0,
+    0,
+    1
+   ],
+   "baseColor": [
+    1,
+    1,
+    1,
+    1
+   ]
+  },
+  "M_Concrete_Darker": {
+   "shader": "S_PBR_OPAQUE_ORM_LeartesMasterMaterial.shadergraph",
+   "textures": {
+    "B": "Art/Textures/T_Concrete_03_B.TGA",
+    "OTHER": "Art/Textures/T_Concrete_02_ORM.TGA",
+    "N": "Art/Textures/T_Concrete_03_N.TGA",
+    "ORM": "Art/Textures/T_Concrete_03_ORM.TGA"
+   },
+   "emissiveIntensity": 1,
+   "emissiveColor": [
+    0,
+    0,
+    0,
+    1
+   ],
+   "baseColor": [
+    1,
+    1,
+    1,
+    1
+   ]
+  },
+  "M_Cooker": {
+   "shader": "S_PBR_OPAQUE_ORM_LeartesMasterMaterial.shadergraph",
+   "textures": {
+    "B": "Art/Textures/T_Cooker_B.TGA",
+    "N": "Art/Textures/T_Cooker_N.TGA",
+    "ORM": "Art/Textures/T_Cooker_ORM.TGA"
+   },
+   "emissiveIntensity": 1,
+   "emissiveColor": [
+    0,
+    0,
+    0,
+    1
+   ],
+   "baseColor": [
+    1,
+    1,
+    1,
+    1
+   ]
+  },
+  "M_Crates": {
+   "shader": "S_PBR_OPAQUE_ORM_LeartesMasterMaterial.shadergraph",
+   "textures": {
+    "B": "Art/Textures/T_Crates_B.TGA",
+    "N": "Art/Textures/T_Crates_N.TGA",
+    "ORM": "Art/Textures/T_Crates_ORM.TGA"
+   },
+   "emissiveIntensity": 1,
+   "emissiveColor": [
+    0,
+    0,
+    0,
+    1
+   ],
+   "baseColor": [
+    1,
+    1,
+    1,
+    1
+   ]
+  },
+  "M_Curtain": {
+   "shader": "S_PBR_OPAQUE_ORM_LeartesMasterMaterial.shadergraph",
+   "textures": {
+    "B": "Art/Textures/T_Curtain_Stool_B.TGA",
+    "O": "Art/Textures/T_M_Cube_T_Curtain_Stool_O.TGA",
+    "N": "Art/Textures/T_Curtain_Stool_N.TGA",
+    "E": "Art/Textures/T_Curtain_Stool_E.TGA",
+    "ORM": "Art/Textures/T_Curtain_Stool_ORM.TGA"
+   },
+   "emissiveIntensity": 1,
+   "emissiveColor": [
+    0,
+    0,
+    0,
+    1
+   ],
+   "baseColor": [
+    1,
+    1,
+    1,
+    1
+   ]
+  },
+  "M_Curtain0101": {
+   "shader": "S_PBR_OPAQUE_ORM_LeartesMasterMaterial.shadergraph",
+   "textures": {
+    "B": "Art/Textures/T_Curtain_Stool_B.TGA",
+    "O": "Art/Textures/T_M_Cube_T_Curtain_Stool_O.TGA",
+    "N": "Art/Textures/T_Curtain_Stool_N.TGA",
+    "E": "Art/Textures/T_Curtain_Stool_E.TGA",
+    "ORM": "Art/Textures/T_Curtain_Stool_ORM.TGA"
+   },
+   "emissiveIntensity": 1,
+   "emissiveColor": [
+    0,
+    0,
+    0,
+    1
+   ],
+   "baseColor": [
+    1,
+    1,
+    1,
+    1
+   ]
+  },
+  "M_Curtain_Cameras": {
+   "shader": "S_PBR_OPAQUE_ORM_LeartesMasterMaterial.shadergraph",
+   "textures": {
+    "B": "Art/Textures/T_Curtain_Cameras_B.TGA",
+    "O": "Art/Textures/T_M_Cube_T_Curtain_Cameras_O.TGA",
+    "N": "Art/Textures/T_Curtain_Cameras_N.TGA",
+    "E": "Art/Textures/T_Curtain_Cameras_E.TGA",
+    "ORM": "Art/Textures/T_Curtain_Cameras_ORM.TGA"
+   },
+   "emissiveIntensity": 1,
+   "emissiveColor": [
+    0,
+    0,
+    0,
+    1
+   ],
+   "baseColor": [
+    1,
+    1,
+    1,
+    1
+   ]
+  },
+  "M_Dark_Metal": {
+   "shader": "S_BasicMaster.shadergraph",
+   "textures": {
+    "N": "Art/Textures/T_Dark_Metal_N.TGA",
+    "M": "Art/Textures/T_M_Cube_T_Dark_Metal_R.TGA",
+    "R": "Art/Textures/T_M_Cube_T_Dark_Metal_R.TGA",
+    "B": "Art/Textures/T_Dark_Metal_B.TGA"
+   },
+   "emissiveIntensity": 1,
+   "emissiveColor": [
+    0,
+    0,
+    0,
+    1
+   ],
+   "baseColor": [
+    1,
+    1,
+    1,
+    1
+   ]
+  },
+  "M_Door": {
+   "shader": "S_PBR_OPAQUE_ORM_LeartesMasterMaterial.shadergraph",
+   "textures": {
+    "B": "Art/Textures/T_Door_B.TGA",
+    "N": "Art/Textures/T_Door_N.TGA",
+    "E": "Art/Textures/T_Door_E.TGA",
+    "ORM": "Art/Textures/T_Door_ORM.TGA"
+   },
+   "emissiveIntensity": 1,
+   "emissiveColor": [
+    0,
+    0,
+    0,
+    1
+   ],
+   "baseColor": [
+    1,
+    1,
+    1,
+    1
+   ]
+  },
+  "M_DoorandCollumn": {
+   "shader": "S_PBR_OPAQUE_ORM_LeartesMasterMaterial.shadergraph",
+   "textures": {
+    "B": "Art/Textures/T_DoorsandCollumn_B.TGA",
+    "N": "Art/Textures/T_DoorsandCollumn_N.TGA",
+    "ORM": "Art/Textures/T_DoorsandCollumn_ORM.TGA"
+   },
+   "emissiveIntensity": 1,
+   "emissiveColor": [
+    0,
+    0,
+    0,
+    1
+   ],
+   "baseColor": [
+    1,
+    1,
+    1,
+    1
+   ]
+  },
+  "M_Doors": {
+   "shader": "S_BasicMaster.shadergraph",
+   "textures": {
+    "N": "Art/Textures/T_Panels_N.TGA",
+    "M": "Art/Textures/T_M_Cube_T_Doors_M.TGA",
+    "R": "Art/Textures/T_M_Cube_T_Door_R.TGA",
+    "B": "Art/Textures/T_Doors_B.TGA",
+    "E": "Art/Textures/T_Doors_E.TGA"
+   },
+   "emissiveIntensity": 1,
+   "emissiveColor": [
+    0,
+    0,
+    0,
+    1
+   ],
+   "baseColor": [
+    1,
+    1,
+    1,
+    1
+   ]
+  },
+  "M_Drone": {
+   "shader": "S_PBR_OPAQUE_ORM_LeartesMasterMaterial.shadergraph",
+   "textures": {
+    "B": "Art/Textures/T_Drone_B.TGA",
+    "N": "Art/Textures/T_Drone_N.TGA",
+    "E": "Art/Textures/T_Drone_E.TGA",
+    "ORM": "Art/Textures/T_Drone_ORM.TGA"
+   },
+   "emissiveIntensity": 1,
+   "emissiveColor": [
+    0,
+    0,
+    0,
+    1
+   ],
+   "baseColor": [
+    1,
+    1,
+    1,
+    1
+   ]
+  },
+  "M_Emissive": {
+   "shader": "S_BasicMaster.shadergraph",
+   "textures": {
+    "N": "Art/Textures/T_Dark_Metal_N.TGA",
+    "M": "Art/Textures/T_M_Cube_T_Panels_M.TGA",
+    "R": "Art/Textures/T_M_Cube_T_Concrete_01_R.TGA",
+    "B": "Art/Textures/T_Windows_01_E.TGA",
+    "E": "Art/Textures/T_Windows_01_E.TGA"
+   },
+   "emissiveIntensity": 1,
+   "emissiveColor": [
+    0,
+    0,
+    0,
+    1
+   ],
+   "baseColor": [
+    1,
+    1,
+    1,
+    1
+   ]
+  },
+  "M_Fence": {
+   "shader": "S_PBR_OPAQUE_ORM_LeartesMasterMaterial.shadergraph",
+   "textures": {
+    "B": "Art/Textures/T_Fence_B.TGA",
+    "O": "Art/Textures/T_M_Cube_T_Fence_O.TGA",
+    "N": "Art/Textures/T_Fence_N.TGA",
+    "ORM": "Art/Textures/T_Fence_ORM.TGA"
+   },
+   "emissiveIntensity": 1,
+   "emissiveColor": [
+    0,
+    0,
+    0,
+    1
+   ],
+   "baseColor": [
+    1,
+    1,
+    1,
+    1
+   ]
+  },
+  "M_Fence_02": {
+   "shader": "S_PBR_OPAQUE_ORM_LeartesMasterMaterial.shadergraph",
+   "textures": {
+    "B": "Art/Textures/T_Fence_B.TGA",
+    "O": "Art/Textures/T_M_Cube_T_Fence_O.TGA",
+    "N": "Art/Textures/T_Fence_N.TGA",
+    "ORM": "Art/Textures/T_Fence_ORM.TGA"
+   },
+   "emissiveIntensity": 1,
+   "emissiveColor": [
+    0,
+    0,
+    0,
+    1
+   ],
+   "baseColor": [
+    1,
+    1,
+    1,
+    1
+   ]
+  },
+  "M_Floor_01": {
+   "shader": "S_PBR_OPAQUE_ORM_LeartesMasterMaterial.shadergraph",
+   "textures": {
+    "B": "Art/Textures/T_Floor_01_B.TGA",
+    "N": "Art/Textures/T_Floor_01_N.TGA",
+    "ORM": "Art/Textures/T_Floor_01_ORM.TGA"
+   },
+   "emissiveIntensity": 1,
+   "emissiveColor": [
+    0,
+    0,
+    0,
+    1
+   ],
+   "baseColor": [
+    1,
+    1,
+    1,
+    1
+   ]
+  },
+  "M_Floor_02": {
+   "shader": "S_PBR_OPAQUE_ORM_LeartesMasterMaterial.shadergraph",
+   "textures": {
+    "B": "Art/Textures/T_Floor_02_B.TGA",
+    "N": "Art/Textures/T_Fill_N.TGA",
+    "ORM": "Art/Textures/T_Floor_02_ORM.TGA"
+   },
+   "emissiveIntensity": 1,
+   "emissiveColor": [
+    0,
+    0,
+    0,
+    1
+   ],
+   "baseColor": [
+    1,
+    1,
+    1,
+    1
+   ]
+  },
+  "M_FlowerPot": {
+   "shader": "S_PBR_OPAQUE_ORM_LeartesMasterMaterial.shadergraph",
+   "textures": {
+    "B": "Art/Textures/T_Flower_Pot_B.TGA",
+    "N": "Art/Textures/T_Fill_N.TGA",
+    "ORM": "Art/Textures/T_Flower_Pot_ORM.TGA"
+   },
+   "emissiveIntensity": 1,
+   "emissiveColor": [
+    0,
+    0,
+    0,
+    1
+   ],
+   "baseColor": [
+    1,
+    1,
+    1,
+    1
+   ]
+  },
+  "M_Fluorescent": {
+   "shader": "S_Window.shadergraph",
+   "textures": {},
+   "emissiveIntensity": 1,
+   "emissiveColor": [
+    0,
+    0,
+    0,
+    1
+   ],
+   "baseColor": [
+    1,
+    1,
+    1,
+    1
+   ]
+  },
+  "M_FogSheet": {
+   "shader": "S_FogSheet.shadergraph",
+   "textures": {
+    "OTHER": "Art/Textures/T_TilingNoiseMap.TGA"
+   },
+   "emissiveIntensity": 1,
+   "emissiveColor": [
+    0,
+    0,
+    0,
+    1
+   ],
+   "baseColor": [
+    1,
+    1,
+    1,
+    1
+   ]
+  },
+  "M_Fridge": {
+   "shader": "S_PBR_OPAQUE_ORM_LeartesMasterMaterial.shadergraph",
+   "textures": {
+    "B": "Art/Textures/T_Fridge_B.TGA",
+    "N": "Art/Textures/T_Fridge_N.TGA",
+    "E": "Art/Textures/T_Fridge_E.TGA",
+    "ORM": "Art/Textures/T_Fridge_ORM.TGA"
+   },
+   "emissiveIntensity": 1,
+   "emissiveColor": [
+    0,
+    0,
+    0,
+    1
+   ],
+   "baseColor": [
+    1,
+    1,
+    1,
+    1
+   ]
+  },
+  "M_Garage_Door": {
+   "shader": "S_PBR_OPAQUE_ORM_LeartesMasterMaterial.shadergraph",
+   "textures": {
+    "B": "Art/Textures/T_GarageDoor_01_B.TGA",
+    "N": "Art/Textures/T_GarageDoor_01_N.TGA",
+    "E": "Art/Textures/T_GarageDoor_01_E.TGA",
+    "ORM": "Art/Textures/T_Fill_ORM.TGA"
+   },
+   "emissiveIntensity": 1,
+   "emissiveColor": [
+    0,
+    0,
+    0,
+    1
+   ],
+   "baseColor": [
+    1,
+    1,
+    1,
+    1
+   ]
+  },
+  "M_Garbages": {
+   "shader": "S_PBR_OPAQUE_ORM_LeartesMasterMaterial.shadergraph",
+   "textures": {
+    "B": "Art/Textures/T_Garbages_B.TGA",
+    "N": "Art/Textures/T_Garbages_N.TGA",
+    "ORM": "Art/Textures/T_Garbages_ORM.TGA"
+   },
+   "emissiveIntensity": 1,
+   "emissiveColor": [
+    0,
+    0,
+    0,
+    1
+   ],
+   "baseColor": [
+    1,
+    1,
+    1,
+    1
+   ]
+  },
+  "M_Gate": {
+   "shader": "S_BasicMaster.shadergraph",
+   "textures": {
+    "N": "Art/Textures/T_Gate_N.TGA",
+    "M": "Art/Textures/T_M_Cube_T_Gate_M.TGA",
+    "R": "Art/Textures/T_M_Cube_T_Gate_R.TGA",
+    "B": "Art/Textures/T_Gate_B.TGA",
+    "E": "Art/Textures/T_Gate_E.TGA"
+   },
+   "emissiveIntensity": 1,
+   "emissiveColor": [
+    0,
+    0,
+    0,
+    1
+   ],
+   "baseColor": [
+    1,
+    1,
+    1,
+    1
+   ]
+  },
+  "M_Gravel_Pavement": {
+   "shader": "S_WorldAlignedSeperateORM.shadergraph",
+   "textures": {
+    "N": "Art/Textures/T_Gravel_Pavement_N.TGA",
+    "OTHER": "Art/Textures/T_Grunge_01.TGA",
+    "B": "Art/Textures/T_Gravel_Pavement_B.TGA",
+    "R": "Art/Textures/T_Fill_White.TGA",
+    "M": "Art/Textures/T_Fill_Black.TGA"
+   },
+   "emissiveIntensity": 1,
+   "emissiveColor": [
+    0,
+    0,
+    0,
+    1
+   ],
+   "baseColor": [
+    1,
+    1,
+    1,
+    1
+   ]
+  },
+  "M_Gravel_Pavement02 1": {
+   "shader": "S_WorldAlignedSeperateORM.shadergraph",
+   "textures": {
+    "N": "Art/Textures/T_Gravel_Pavement_N.TGA",
+    "OTHER": "Art/Textures/T_Grunge_01.TGA",
+    "B": "Art/Textures/T_Gravel_Pavement_B.TGA",
+    "R": "Art/Textures/T_Fill_White.TGA",
+    "M": "Art/Textures/T_Fill_Black.TGA"
+   },
+   "emissiveIntensity": 1,
+   "emissiveColor": [
+    0,
+    0,
+    0,
+    1
+   ],
+   "baseColor": [
+    1,
+    1,
+    1,
+    1
+   ]
+  },
+  "M_Gravel_Pavement02": {
+   "shader": "S_WorldAlignedSeperateORM.shadergraph",
+   "textures": {
+    "N": "Art/Textures/T_Gravel_Pavement_N.TGA",
+    "OTHER": "Art/Textures/T_Grunge_01.TGA",
+    "B": "Art/Textures/T_Gravel_Pavement_B.TGA",
+    "R": "Art/Textures/T_Fill_White.TGA",
+    "M": "Art/Textures/T_Fill_Black.TGA"
+   },
+   "emissiveIntensity": 1,
+   "emissiveColor": [
+    0,
+    0,
+    0,
+    1
+   ],
+   "baseColor": [
+    1,
+    1,
+    1,
+    1
+   ]
+  },
+  "M_Gravel_Pavement03": {
+   "shader": "S_WorldAlignedSeperateORM.shadergraph",
+   "textures": {
+    "N": "Art/Textures/T_Gravel_Pavement_N.TGA",
+    "OTHER": "Art/Textures/T_Grunge_01.TGA",
+    "B": "Art/Textures/T_Gravel_Pavement_B.TGA",
+    "R": "Art/Textures/T_Fill_White.TGA",
+    "M": "Art/Textures/T_Fill_Black.TGA"
+   },
+   "emissiveIntensity": 1,
+   "emissiveColor": [
+    0,
+    0,
+    0,
+    1
+   ],
+   "baseColor": [
+    1,
+    1,
+    1,
+    1
+   ]
+  },
+  "M_HologramBurger": {
+   "shader": "S_HologramMaster.shadergraph",
+   "textures": {
+    "B": "Art/Textures/T_Hologram_Burger_B.TGA",
+    "OTHER": "Art/Textures/T_Scanlines.TGA"
+   },
+   "emissiveIntensity": 1,
+   "emissiveColor": [
+    0,
+    0,
+    0,
+    1
+   ],
+   "baseColor": [
+    1,
+    1,
+    1,
+    1
+   ]
+  },
+  "M_HologramDrone": {
+   "shader": "S_HologramMaster.shadergraph",
+   "textures": {
+    "B": "Art/Textures/Drone_Poster.TGA",
+    "OTHER": "Art/Textures/T_Scanlines.TGA"
+   },
+   "emissiveIntensity": 1,
+   "emissiveColor": [
+    0,
+    0,
+    0,
+    1
+   ],
+   "baseColor": [
+    1,
+    1,
+    1,
+    1
+   ]
+  },
+  "M_HologramNoodle 1": {
+   "shader": "S_HologramMaster.shadergraph",
+   "textures": {
+    "B": "Art/Textures/T_Hologram_Noodle_B.TGA",
+    "OTHER": "Art/Textures/T_Scanlines.TGA"
+   },
+   "emissiveIntensity": 1,
+   "emissiveColor": [
+    0,
+    0,
+    0,
+    1
+   ],
+   "baseColor": [
+    1,
+    1,
+    1,
+    1
+   ]
+  },
+  "M_HologramNoodle": {
+   "shader": "S_HologramMaster.shadergraph",
+   "textures": {
+    "B": "Art/Textures/T_Hologram_Noodle_B.TGA",
+    "OTHER": "Art/Textures/T_Scanlines.TGA"
+   },
+   "emissiveIntensity": 1,
+   "emissiveColor": [
+    0,
+    0,
+    0,
+    1
+   ],
+   "baseColor": [
+    1,
+    1,
+    1,
+    1
+   ]
+  },
+  "M_HologramPizza": {
+   "shader": "S_HologramMaster.shadergraph",
+   "textures": {
+    "B": "Art/Textures/T_Hologram_Pizza_B.TGA",
+    "OTHER": "Art/Textures/T_Scanlines.TGA"
+   },
+   "emissiveIntensity": 1,
+   "emissiveColor": [
+    0,
+    0,
+    0,
+    1
+   ],
+   "baseColor": [
+    1,
+    1,
+    1,
+    1
+   ]
+  },
+  "M_Holograms_Poster": {
+   "shader": "S_HologramMaster.shadergraph",
+   "textures": {
+    "B": "Art/Textures/T_Hologram_Poster_B.TGA",
+    "OTHER": "Art/Textures/T_Scanlines.TGA"
+   },
+   "emissiveIntensity": 1,
+   "emissiveColor": [
+    0,
+    0,
+    0,
+    1
+   ],
+   "baseColor": [
+    1,
+    1,
+    1,
+    1
+   ]
+  },
+  "M_Holograms_Poster02": {
+   "shader": "S_HologramMaster.shadergraph",
+   "textures": {
+    "B": "Art/Textures/T_Hologram_02_Poster_B.TGA",
+    "OTHER": "Art/Textures/T_Scanlines.TGA"
+   },
+   "emissiveIntensity": 1,
+   "emissiveColor": [
+    0,
+    0,
+    0,
+    1
+   ],
+   "baseColor": [
+    1,
+    1,
+    1,
+    1
+   ]
+  },
+  "M_Holograms_Poster03": {
+   "shader": "S_HologramMaster.shadergraph",
+   "textures": {
+    "B": "Art/Textures/T_Hologram_03_Poster_B.TGA",
+    "OTHER": "Art/Textures/T_Scanlines.TGA"
+   },
+   "emissiveIntensity": 1,
+   "emissiveColor": [
+    0,
+    0,
+    0,
+    1
+   ],
+   "baseColor": [
+    1,
+    1,
+    1,
+    1
+   ]
+  },
+  "M_Leaf_01": {
+   "shader": "S_PBR_OPAQUE_ORM_LeartesMasterMaterial.shadergraph",
+   "textures": {
+    "B": "Art/Textures/T_Leaf02_B.TGA",
+    "O": "Art/Textures/T_Leaf02_O.TGA",
+    "N": "Art/Textures/T_Fill_N.TGA",
+    "ORM": "Art/Textures/T_Fill_ORM.TGA"
+   },
+   "emissiveIntensity": 1,
+   "emissiveColor": [
+    0,
+    0,
+    0,
+    1
+   ],
+   "baseColor": [
+    1,
+    1,
+    1,
+    1
+   ]
+  },
+  "M_Leaf_02": {
+   "shader": "S_PBR_OPAQUE_ORM_LeartesMasterMaterial.shadergraph",
+   "textures": {
+    "B": "Art/Textures/T_Leaf01_B.TGA",
+    "O": "Art/Textures/T_Leaf01_O.TGA",
+    "N": "Art/Textures/T_Fill_N.TGA",
+    "ORM": "Art/Textures/T_Fill_ORM.TGA"
+   },
+   "emissiveIntensity": 1,
+   "emissiveColor": [
+    0,
+    0,
+    0,
+    1
+   ],
+   "baseColor": [
+    1,
+    1,
+    1,
+    1
+   ]
+  },
+  "M_Motorbike_01": {
+   "shader": "S_PBR_OPAQUE_ORM_LeartesMasterMaterial.shadergraph",
+   "textures": {
+    "B": "Art/Textures/T_Motorbike_01_B.TGA",
+    "N": "Art/Textures/T_Motorbike_01_N.TGA",
+    "E": "Art/Textures/T_Motorbike_01_E.TGA",
+    "ORM": "Art/Textures/T_Motorbike_01_ORM.TGA"
+   },
+   "emissiveIntensity": 1,
+   "emissiveColor": [
+    0,
+    0,
+    0,
+    1
+   ],
+   "baseColor": [
+    1,
+    1,
+    1,
+    1
+   ]
+  },
+  "M_Motorbike_02": {
+   "shader": "S_PBR_OPAQUE_ORM_LeartesMasterMaterial.shadergraph",
+   "textures": {
+    "B": "Art/Textures/T_Motorbike_02_B.TGA",
+    "N": "Art/Textures/T_Motorbike_02_N.TGA",
+    "E": "Art/Textures/T_Motorbike_02_E.TGA",
+    "ORM": "Art/Textures/T_Motorbike_02_ORM.TGA"
+   },
+   "emissiveIntensity": 1,
+   "emissiveColor": [
+    0,
+    0,
+    0,
+    1
+   ],
+   "baseColor": [
+    1,
+    1,
+    1,
+    1
+   ]
+  },
+  "M_Motorbike_02_01": {
+   "shader": "S_PBR_OPAQUE_ORM_LeartesMasterMaterial.shadergraph",
+   "textures": {
+    "B": "Art/Textures/T_Motorbike_02_01_B.TGA",
+    "N": "Art/Textures/T_Motorbike_02_01_N.TGA",
+    "E": "Art/Textures/T_Motorbike_02_01_E.TGA",
+    "ORM": "Art/Textures/T_Motorbike_02_01_ORM.TGA"
+   },
+   "emissiveIntensity": 1,
+   "emissiveColor": [
+    0,
+    0,
+    0,
+    1
+   ],
+   "baseColor": [
+    1,
+    1,
+    1,
+    1
+   ]
+  },
+  "M_Motorbike_02_02": {
+   "shader": "S_PBR_OPAQUE_ORM_LeartesMasterMaterial.shadergraph",
+   "textures": {
+    "B": "Art/Textures/T_Motorbike_02_02_B.TGA",
+    "N": "Art/Textures/T_Motorbike_02_02_N.TGA",
+    "E": "Art/Textures/T_Motorbike_02_02_E.TGA",
+    "ORM": "Art/Textures/T_Motorbike_02_02_ORM.TGA"
+   },
+   "emissiveIntensity": 1,
+   "emissiveColor": [
+    0,
+    0,
+    0,
+    1
+   ],
+   "baseColor": [
+    1,
+    1,
+    1,
+    1
+   ]
+  },
+  "M_Noodle_Stand_01": {
+   "shader": "S_PBR_OPAQUE_ORM_LeartesMasterMaterial.shadergraph",
+   "textures": {
+    "B": "Art/Textures/T_Noodle_Stand_01_B.TGA",
+    "N": "Art/Textures/T_Noodle_Stand_01_N.TGA",
+    "ORM": "Art/Textures/T_Noodle_Stand_01_ORM.TGA"
+   },
+   "emissiveIntensity": 1,
+   "emissiveColor": [
+    0,
+    0,
+    0,
+    1
+   ],
+   "baseColor": [
+    1,
+    1,
+    1,
+    1
+   ]
+  },
+  "M_Noodle_Stand_02": {
+   "shader": "S_PBR_OPAQUE_ORM_LeartesMasterMaterial.shadergraph",
+   "textures": {
+    "B": "Art/Textures/T_Noodle_Stand_02_B.TGA",
+    "N": "Art/Textures/T_Noodle_Stand_02_N.TGA",
+    "E": "Art/Textures/T_Noodle_Stand_02_E.TGA",
+    "ORM": "Art/Textures/T_Noodle_Stand_02_ORM.TGA"
+   },
+   "emissiveIntensity": 1,
+   "emissiveColor": [
+    0,
+    0,
+    0,
+    1
+   ],
+   "baseColor": [
+    1,
+    1,
+    1,
+    1
+   ]
+  },
+  "M_Panels": {
+   "shader": "S_PBR_OPAQUE_ORM_LeartesMasterMaterial.shadergraph",
+   "textures": {
+    "B": "Art/Textures/T_Panels_Colored_B.TGA",
+    "N": "Art/Textures/T_Panels_N.TGA",
+    "ORM": "Art/Textures/T_Fill_ORM.TGA"
+   },
+   "emissiveIntensity": 1,
+   "emissiveColor": [
+    0,
+    0,
+    0,
+    1
+   ],
+   "baseColor": [
+    1,
+    1,
+    1,
+    1
+   ]
+  },
+  "M_Panels_02": {
+   "shader": "S_BasicMaster.shadergraph",
+   "textures": {
+    "N": "Art/Textures/T_Panels_N.TGA",
+    "M": "Art/Textures/T_M_Cube_T_Panels_M.TGA",
+    "R": "Art/Textures/T_M_Cube_T_Panels_R.TGA",
+    "B": "Art/Textures/T_Panels_Painted_B.TGA"
+   },
+   "emissiveIntensity": 1,
+   "emissiveColor": [
+    0,
+    0,
+    0,
+    1
+   ],
+   "baseColor": [
+    1,
+    1,
+    1,
+    1
+   ]
+  },
+  "M_Panels_03": {
+   "shader": "S_BasicMaster.shadergraph",
+   "textures": {
+    "N": "Art/Textures/T_Panels_N.TGA",
+    "M": "Art/Textures/T_M_Cube_T_Panels_M.TGA",
+    "R": "Art/Textures/T_M_Cube_T_Panels_R.TGA",
+    "B": "Art/Textures/T_Panels_B.TGA"
+   },
+   "emissiveIntensity": 1,
+   "emissiveColor": [
+    0,
+    0,
+    0,
+    1
+   ],
+   "baseColor": [
+    1,
+    1,
+    1,
+    1
+   ]
+  },
+  "M_Panels_0303": {
+   "shader": "S_BasicMaster.shadergraph",
+   "textures": {
+    "N": "Art/Textures/T_Panels_N.TGA",
+    "M": "Art/Textures/T_M_Cube_T_Panels_M.TGA",
+    "R": "Art/Textures/T_M_Cube_T_Panels_R.TGA",
+    "B": "Art/Textures/T_Panels_B.TGA"
+   },
+   "emissiveIntensity": 1,
+   "emissiveColor": [
+    0,
+    0,
+    0,
+    1
+   ],
+   "baseColor": [
+    1,
+    1,
+    1,
+    1
+   ]
+  },
+  "M_Panels_Borders": {
+   "shader": "S_BasicMaster.shadergraph",
+   "textures": {
+    "N": "Art/Textures/T_Panels_N.TGA",
+    "M": "Art/Textures/T_M_Cube_T_Panels_M.TGA",
+    "R": "Art/Textures/T_M_Cube_T_Panels_R.TGA",
+    "B": "Art/Textures/T_Panels_Painted_B.TGA"
+   },
+   "emissiveIntensity": 1,
+   "emissiveColor": [
+    0,
+    0,
+    0,
+    1
+   ],
+   "baseColor": [
+    1,
+    1,
+    1,
+    1
+   ]
+  },
+  "M_Parking_Lot": {
+   "shader": "S_Decal_Brush.shadergraph",
+   "textures": {
+    "O": "Art/Textures/T_Parking_Lot_O.TGA",
+    "B": "Art/Textures/T_Parking_Lot_B.TGA"
+   },
+   "emissiveIntensity": 1,
+   "emissiveColor": [
+    0,
+    0,
+    0,
+    1
+   ],
+   "baseColor": [
+    1,
+    1,
+    1,
+    1
+   ]
+  },
+  "M_Park_01": {
+   "shader": "S_WorldAlignedSeperateORM.shadergraph",
+   "textures": {
+    "N": "Art/Textures/T_Park_01_N.TGA",
+    "OTHER": "Art/Textures/T_Grunge_01.TGA",
+    "B": "Art/Textures/T_Park_01_B.TGA",
+    "R": "Art/Textures/T_Fill_White.TGA",
+    "M": "Art/Textures/T_Fill_Black.TGA"
+   },
+   "emissiveIntensity": 1,
+   "emissiveColor": [
+    0,
+    0,
+    0,
+    1
+   ],
+   "baseColor": [
+    1,
+    1,
+    1,
+    1
+   ]
+  },
+  "M_Park_0101": {
+   "shader": "S_WorldAlignedSeperateORM.shadergraph",
+   "textures": {
+    "N": "Art/Textures/T_Park_01_N.TGA",
+    "OTHER": "Art/Textures/T_Grunge_01.TGA",
+    "B": "Art/Textures/T_Park_01_B.TGA",
+    "R": "Art/Textures/T_Fill_White.TGA",
+    "M": "Art/Textures/T_Fill_Black.TGA"
+   },
+   "emissiveIntensity": 1,
+   "emissiveColor": [
+    0,
+    0,
+    0,
+    1
+   ],
+   "baseColor": [
+    1,
+    1,
+    1,
+    1
+   ]
+  },
+  "M_Park_0102": {
+   "shader": "S_WorldAlignedSeperateORM.shadergraph",
+   "textures": {
+    "N": "Art/Textures/T_Park_01_N.TGA",
+    "OTHER": "Art/Textures/T_Grunge_01.TGA",
+    "B": "Art/Textures/T_Park_01_B.TGA",
+    "R": "Art/Textures/T_Fill_White.TGA",
+    "M": "Art/Textures/T_Fill_Black.TGA"
+   },
+   "emissiveIntensity": 1,
+   "emissiveColor": [
+    0,
+    0,
+    0,
+    1
+   ],
+   "baseColor": [
+    1,
+    1,
+    1,
+    1
+   ]
+  },
+  "M_Park_02": {
+   "shader": "S_WorldAlignedSeperateORM.shadergraph",
+   "textures": {
+    "N": "Art/Textures/T_Park_02_N.TGA",
+    "OTHER": "Art/Textures/T_Grunge_01.TGA",
+    "B": "Art/Textures/T_Park_02_B.TGA",
+    "R": "Art/Textures/T_Fill_White.TGA",
+    "M": "Art/Textures/T_Fill_Black.TGA"
+   },
+   "emissiveIntensity": 1,
+   "emissiveColor": [
+    0,
+    0,
+    0,
+    1
+   ],
+   "baseColor": [
+    1,
+    1,
+    1,
+    1
+   ]
+  },
+  "M_Pavement": {
+   "shader": "S_PBR_OPAQUE_ORM_LeartesMasterMaterial.shadergraph",
+   "textures": {
+    "B": "Art/Textures/T_Pavement_B.TGA",
+    "N": "Art/Textures/T_Pavement_N.TGA",
+    "ORM": "Art/Textures/T_Pavement_ORM.TGA"
+   },
+   "emissiveIntensity": 1,
+   "emissiveColor": [
+    0,
+    0,
+    0,
+    1
+   ],
+   "baseColor": [
+    1,
+    1,
+    1,
+    1
+   ]
+  },
+  "M_Pipes": {
+   "shader": "S_PBR_OPAQUE_ORM_LeartesMasterMaterial.shadergraph",
+   "textures": {
+    "B": "Art/Textures/T_Res_Dark_Pipes_B.TGA",
+    "N": "Art/Textures/T_Res_Dark_Pipes_N.TGA",
+    "ORM": "Art/Textures/T_Res_Dark_Pipes_ORM.TGA"
+   },
+   "emissiveIntensity": 1,
+   "emissiveColor": [
+    0,
+    0,
+    0,
+    1
+   ],
+   "baseColor": [
+    1,
+    1,
+    1,
+    1
+   ]
+  },
+  "M_Pipe_Pillar_01": {
+   "shader": "S_PBR_OPAQUE_ORM_LeartesMasterMaterial.shadergraph",
+   "textures": {
+    "B": "Art/Textures/T_Pipe_01_B.TGA",
+    "N": "Art/Textures/T_Pipe_01_N.TGA",
+    "ORM": "Art/Textures/T_Pipe_01_ORM.TGA"
+   },
+   "emissiveIntensity": 1,
+   "emissiveColor": [
+    0,
+    0,
+    0,
+    1
+   ],
+   "baseColor": [
+    1,
+    1,
+    1,
+    1
+   ]
+  },
+  "M_Pipe_Pillar_02": {
+   "shader": "S_PBR_OPAQUE_ORM_LeartesMasterMaterial.shadergraph",
+   "textures": {
+    "B": "Art/Textures/T_Pipe_02_B.TGA",
+    "N": "Art/Textures/T_Pipe_02_N.TGA",
+    "E": "Art/Textures/T_Pipe_02_E.TGA",
+    "ORM": "Art/Textures/T_Pipe_02_ORM.TGA"
+   },
+   "emissiveIntensity": 1,
+   "emissiveColor": [
+    0,
+    0,
+    0,
+    1
+   ],
+   "baseColor": [
+    1,
+    1,
+    1,
+    1
+   ]
+  },
+  "M_Pizza_Slices": {
+   "shader": "S_PBR_OPAQUE_ORM_LeartesMasterMaterial.shadergraph",
+   "textures": {
+    "B": "Art/Textures/T_Hologram_Pizza_B.TGA",
+    "N": "Art/Textures/T_Fill_N.TGA",
+    "ORM": "Art/Textures/T_Fill_ORM.TGA"
+   },
+   "emissiveIntensity": 1,
+   "emissiveColor": [
+    0,
+    0,
+    0,
+    1
+   ],
+   "baseColor": [
+    1,
+    1,
+    1,
+    1
+   ]
+  },
+  "M_Plastic": {
+   "shader": "S_PBR_OPAQUE_ORM_LeartesMasterMaterial.shadergraph",
+   "textures": {
+    "B": "Art/Textures/T_Plastic_B.TGA",
+    "N": "Art/Textures/T_Plastic_N.TGA",
+    "ORM": "Art/Textures/T_Plastic_ORM.TGA"
+   },
+   "emissiveIntensity": 1,
+   "emissiveColor": [
+    0,
+    0,
+    0,
+    1
+   ],
+   "baseColor": [
+    1,
+    1,
+    1,
+    1
+   ]
+  },
+  "M_Poster": {
+   "shader": "S_Decal_Brush.shadergraph",
+   "textures": {
+    "O": "Art/Textures/T_Poster_01_O.TGA",
+    "B": "Art/Textures/T_Poster_01_B.TGA"
+   },
+   "emissiveIntensity": 1,
+   "emissiveColor": [
+    0,
+    0,
+    0,
+    1
+   ],
+   "baseColor": [
+    1,
+    1,
+    1,
+    1
+   ]
+  },
+  "M_Poster_02": {
+   "shader": "S_Decal_Brush.shadergraph",
+   "textures": {
+    "O": "Art/Textures/T_Poster_02_O.TGA",
+    "B": "Art/Textures/T_Poster_02_B.TGA"
+   },
+   "emissiveIntensity": 1,
+   "emissiveColor": [
+    0,
+    0,
+    0,
+    1
+   ],
+   "baseColor": [
+    1,
+    1,
+    1,
+    1
+   ]
+  },
+  "M_Poster_03": {
+   "shader": "S_Decal_Brush.shadergraph",
+   "textures": {
+    "O": "Art/Textures/T_Poster_03_O.TGA",
+    "B": "Art/Textures/T_Poster_03_B.TGA"
+   },
+   "emissiveIntensity": 1,
+   "emissiveColor": [
+    0,
+    0,
+    0,
+    1
+   ],
+   "baseColor": [
+    1,
+    1,
+    1,
+    1
+   ]
+  },
+  "M_Poster_04": {
+   "shader": "S_Decal_Brush.shadergraph",
+   "textures": {
+    "O": "Art/Textures/T_Poster_04_O.TGA",
+    "B": "Art/Textures/T_Poster_04_B.TGA"
+   },
+   "emissiveIntensity": 1,
+   "emissiveColor": [
+    0,
+    0,
+    0,
+    1
+   ],
+   "baseColor": [
+    1,
+    1,
+    1,
+    1
+   ]
+  },
+  "M_Poster_05": {
+   "shader": "S_Decal_Brush.shadergraph",
+   "textures": {
+    "O": "Art/Textures/T_Poster_05_O.TGA",
+    "B": "Art/Textures/T_Poster_05_B.TGA"
+   },
+   "emissiveIntensity": 1,
+   "emissiveColor": [
+    0,
+    0,
+    0,
+    1
+   ],
+   "baseColor": [
+    1,
+    1,
+    1,
+    1
+   ]
+  },
+  "M_Power_Unit": {
+   "shader": "S_PBR_OPAQUE_ORM_LeartesMasterMaterial.shadergraph",
+   "textures": {
+    "B": "Art/Textures/T_PowerUnit_01_B.TGA",
+    "N": "Art/Textures/T_PowerUnit_01_N.TGA",
+    "E": "Art/Textures/T_PowerUnit_01_E.TGA",
+    "ORM": "Art/Textures/T_PowerUnit_01_ORM.TGA"
+   },
+   "emissiveIntensity": 1,
+   "emissiveColor": [
+    0,
+    0,
+    0,
+    1
+   ],
+   "baseColor": [
+    1,
+    1,
+    1,
+    1
+   ]
+  },
+  "M_Props": {
+   "shader": "S_BasicMaster.shadergraph",
+   "textures": {
+    "N": "Art/Textures/T_Props_N.TGA",
+    "M": "Art/Textures/T_M_Cube_T_Props_M.TGA",
+    "R": "Art/Textures/T_M_Cube_T_Props_R.TGA",
+    "B": "Art/Textures/T_Props_B.TGA",
+    "E": "Art/Textures/T_Props_E.TGA"
+   },
+   "emissiveIntensity": 1,
+   "emissiveColor": [
+    0,
+    0,
+    0,
+    1
+   ],
+   "baseColor": [
+    1,
+    1,
+    1,
+    1
+   ]
+  },
+  "M_Props_banner": {
+   "shader": "S_BasicMaster.shadergraph",
+   "textures": {
+    "N": "Art/Textures/T_Props_N.TGA",
+    "M": "Art/Textures/T_M_Cube_T_Props_M.TGA",
+    "R": "Art/Textures/T_M_Cube_T_Props_R.TGA",
+    "B": "Art/Textures/T_Props_B.TGA",
+    "E": "Art/Textures/T_Props_E.TGA"
+   },
+   "emissiveIntensity": 1,
+   "emissiveColor": [
+    0,
+    0,
+    0,
+    1
+   ],
+   "baseColor": [
+    1,
+    1,
+    1,
+    1
+   ]
+  },
+  "M_Props_Tower": {
+   "shader": "S_BasicMaster.shadergraph",
+   "textures": {
+    "N": "Art/Textures/T_Props_N.TGA",
+    "M": "Art/Textures/T_M_Cube_T_Props_M.TGA",
+    "R": "Art/Textures/T_M_Cube_T_Props_R.TGA",
+    "B": "Art/Textures/T_Props_B.TGA",
+    "E": "Art/Textures/T_Props_E.TGA"
+   },
+   "emissiveIntensity": 1,
+   "emissiveColor": [
+    0,
+    0,
+    0,
+    1
+   ],
+   "baseColor": [
+    1,
+    1,
+    1,
+    1
+   ]
+  },
+  "M_Rack": {
+   "shader": "S_PBR_OPAQUE_ORM_LeartesMasterMaterial.shadergraph",
+   "textures": {
+    "B": "Art/Textures/T_Rack_B.TGA",
+    "N": "Art/Textures/T_Rack_N.TGA",
+    "ORM": "Art/Textures/T_Rack_ORM.TGA"
+   },
+   "emissiveIntensity": 1,
+   "emissiveColor": [
+    0,
+    0,
+    0,
+    1
+   ],
+   "baseColor": [
+    1,
+    1,
+    1,
+    1
+   ]
+  },
+  "M_Road": {
+   "shader": "S_Decal_Brush.shadergraph",
+   "textures": {
+    "O": "Art/Textures/T_Road_03_O.TGA",
+    "B": "Art/Textures/T_Fill_White.TGA"
+   },
+   "emissiveIntensity": 1,
+   "emissiveColor": [
+    0,
+    0,
+    0,
+    1
+   ],
+   "baseColor": [
+    1,
+    1,
+    1,
+    1
+   ]
+  },
+  "M_Road1": {
+   "shader": "S_Decal_Brush.shadergraph",
+   "textures": {
+    "O": "Art/Textures/T_Road_01_O.TGA",
+    "B": "Art/Textures/T_Fill_White.TGA"
+   },
+   "emissiveIntensity": 1,
+   "emissiveColor": [
+    0,
+    0,
+    0,
+    1
+   ],
+   "baseColor": [
+    1,
+    1,
+    1,
+    1
+   ]
+  },
+  "M_Road2": {
+   "shader": "S_Decal_Brush.shadergraph",
+   "textures": {
+    "O": "Art/Textures/T_Road_04_O.TGA",
+    "B": "Art/Textures/T_Fill_White.TGA"
+   },
+   "emissiveIntensity": 1,
+   "emissiveColor": [
+    0,
+    0,
+    0,
+    1
+   ],
+   "baseColor": [
+    1,
+    1,
+    1,
+    1
+   ]
+  },
+  "M_Road3": {
+   "shader": "S_Decal_Brush.shadergraph",
+   "textures": {
+    "O": "Art/Textures/T_Road_02_O.TGA",
+    "B": "Art/Textures/T_Fill_White.TGA"
+   },
+   "emissiveIntensity": 1,
+   "emissiveColor": [
+    0,
+    0,
+    0,
+    1
+   ],
+   "baseColor": [
+    1,
+    1,
+    1,
+    1
+   ]
+  },
+  "M_Screens": {
+   "shader": "S_Decal_Emissive.shadergraph",
+   "textures": {
+    "O": "Art/Textures/T_Screen_02_O.TGA"
+   },
+   "emissiveIntensity": 1,
+   "emissiveColor": [
+    0,
+    0,
+    0,
+    1
+   ],
+   "baseColor": [
+    1,
+    1,
+    1,
+    1
+   ]
+  },
+  "M_Screens_02": {
+   "shader": "S_Decal_Emissive.shadergraph",
+   "textures": {
+    "O": "Art/Textures/T_Screen_01_O.TGA"
+   },
+   "emissiveIntensity": 1,
+   "emissiveColor": [
+    0,
+    0,
+    0,
+    1
+   ],
+   "baseColor": [
+    1,
+    1,
+    1,
+    1
+   ]
+  },
+  "M_Sewer_Covers": {
+   "shader": "S_PBR_OPAQUE_ORM_LeartesMasterMaterial.shadergraph",
+   "textures": {
+    "B": "Art/Textures/T_Sewer_B.TGA",
+    "N": "Art/Textures/T_Sewer_N.TGA",
+    "ORM": "Art/Textures/T_Sewer_ORM.TGA"
+   },
+   "emissiveIntensity": 1,
+   "emissiveColor": [
+    0,
+    0,
+    0,
+    1
+   ],
+   "baseColor": [
+    1,
+    1,
+    1,
+    1
+   ]
+  },
+  "M_Sign": {
+   "shader": "S_PBR_OPAQUE_ORM_LeartesMasterMaterial.shadergraph",
+   "textures": {
+    "B": "Art/Textures/T_Sign_B.TGA",
+    "O": "Art/Textures/T_Sign_O.TGA",
+    "N": "Art/Textures/T_Fill_N.TGA",
+    "E": "Art/Textures/T_Sign_B.TGA",
+    "ORM": "Art/Textures/T_Fill_ORM.TGA"
+   },
+   "emissiveIntensity": 1,
+   "emissiveColor": [
+    0,
+    0,
+    0,
+    1
+   ],
+   "baseColor": [
+    1,
+    1,
+    1,
+    1
+   ]
+  },
+  "M_Signs_01": {
+   "shader": "S_PBR_OPAQUE_ORM_LeartesMasterMaterial.shadergraph",
+   "textures": {
+    "B": "Art/Textures/T_Signs_01_B.TGA",
+    "N": "Art/Textures/T_Signs_01_N.TGA",
+    "E": "Art/Textures/T_Signs_01_E.TGA",
+    "ORM": "Art/Textures/T_Signs_01_ORM.TGA"
+   },
+   "emissiveIntensity": 1,
+   "emissiveColor": [
+    0,
+    0,
+    0,
+    1
+   ],
+   "baseColor": [
+    1,
+    1,
+    1,
+    1
+   ]
+  },
+  "M_Signs_02": {
+   "shader": "S_PBR_OPAQUE_ORM_LeartesMasterMaterial.shadergraph",
+   "textures": {
+    "B": "Art/Textures/T_Signs_02_B.TGA",
+    "N": "Art/Textures/T_Fill_N.TGA",
+    "E": "Art/Textures/T_Signs_02_E.TGA",
+    "ORM": "Art/Textures/T_Signs_02_ORM.TGA"
+   },
+   "emissiveIntensity": 1,
+   "emissiveColor": [
+    0,
+    0,
+    0,
+    1
+   ],
+   "baseColor": [
+    1,
+    1,
+    1,
+    1
+   ]
+  },
+  "M_Sink": {
+   "shader": "S_PBR_OPAQUE_ORM_LeartesMasterMaterial.shadergraph",
+   "textures": {
+    "B": "Art/Textures/T_Sink_B.TGA",
+    "N": "Art/Textures/T_Sink_N.TGA",
+    "ORM": "Art/Textures/T_Sink_ORM.TGA"
+   },
+   "emissiveIntensity": 1,
+   "emissiveColor": [
+    0,
+    0,
+    0,
+    1
+   ],
+   "baseColor": [
+    1,
+    1,
+    1,
+    1
+   ]
+  },
+  "M_SphereSky": {
+   "shader": "S_CloudySkyy.shadergraph",
+   "textures": {
+    "OTHER": "Art/Textures/T_Sky_Clouds_M.png"
+   },
+   "emissiveIntensity": 1,
+   "emissiveColor": [
+    0,
+    0,
+    0,
+    1
+   ],
+   "baseColor": [
+    1,
+    1,
+    1,
+    1
+   ]
+  },
+  "M_Staircase_Cover": {
+   "shader": "S_PBR_OPAQUE_ORM_LeartesMasterMaterial.shadergraph",
+   "textures": {
+    "B": "Art/Textures/T_Staircase_Cover_B.TGA",
+    "N": "Art/Textures/T_Staircase_Cover_N.TGA",
+    "ORM": "Art/Textures/T_Staircase_Cover_ORM.TGA"
+   },
+   "emissiveIntensity": 1,
+   "emissiveColor": [
+    0,
+    0,
+    0,
+    1
+   ],
+   "baseColor": [
+    1,
+    1,
+    1,
+    1
+   ]
+  },
+  "M_Stairs": {
+   "shader": "S_PBR_OPAQUE_ORM_LeartesMasterMaterial.shadergraph",
+   "textures": {
+    "B": "Art/Textures/T_Stairs_B.TGA",
+    "N": "Art/Textures/T_Stairs_N.TGA",
+    "E": "Art/Textures/T_Stairs_E.TGA",
+    "ORM": "Art/Textures/T_Stairs_ORM.TGA"
+   },
+   "emissiveIntensity": 1,
+   "emissiveColor": [
+    0,
+    0,
+    0,
+    1
+   ],
+   "baseColor": [
+    1,
+    1,
+    1,
+    1
+   ]
+  },
+  "M_Standing_Bilboard": {
+   "shader": "S_PBR_OPAQUE_ORM_LeartesMasterMaterial.shadergraph",
+   "textures": {
+    "B": "Art/Textures/T_Standing_Billboard_B.TGA",
+    "N": "Art/Textures/T_Standing_Billboard_N.TGA",
+    "E": "Art/Textures/T_Standing_Billboard_E.TGA",
+    "ORM": "Art/Textures/T_Standing_Billboard_ORM.TGA"
+   },
+   "emissiveIntensity": 1,
+   "emissiveColor": [
+    0,
+    0,
+    0,
+    1
+   ],
+   "baseColor": [
+    1,
+    1,
+    1,
+    1
+   ]
+  },
+  "M_Stand_01": {
+   "shader": "S_PBR_OPAQUE_ORM_LeartesMasterMaterial.shadergraph",
+   "textures": {
+    "B": "Art/Textures/T_Stand_01_B.TGA",
+    "N": "Art/Textures/T_Stand_01_N.TGA",
+    "E": "Art/Textures/T_Stand_01_E.TGA",
+    "ORM": "Art/Textures/T_Stand_01_ORM.TGA"
+   },
+   "emissiveIntensity": 1,
+   "emissiveColor": [
+    0,
+    0,
+    0,
+    1
+   ],
+   "baseColor": [
+    1,
+    1,
+    1,
+    1
+   ]
+  },
+  "M_Stand_02": {
+   "shader": "S_PBR_OPAQUE_ORM_LeartesMasterMaterial.shadergraph",
+   "textures": {
+    "B": "Art/Textures/T_Stand_02_B.TGA",
+    "N": "Art/Textures/T_Stand_02_N.TGA",
+    "E": "Art/Textures/T_Stand_02_E.TGA",
+    "ORM": "Art/Textures/T_Stand_02_ORM.TGA"
+   },
+   "emissiveIntensity": 1,
+   "emissiveColor": [
+    0,
+    0,
+    0,
+    1
+   ],
+   "baseColor": [
+    1,
+    1,
+    1,
+    1
+   ]
+  },
+  "M_Stool": {
+   "shader": "S_PBR_OPAQUE_ORM_LeartesMasterMaterial.shadergraph",
+   "textures": {
+    "B": "Art/Textures/T_Curtain_Stool_B.TGA",
+    "N": "Art/Textures/T_Curtain_Stool_N.TGA",
+    "E": "Art/Textures/T_Curtain_Stool_E.TGA",
+    "ORM": "Art/Textures/T_Curtain_Stool_ORM.TGA"
+   },
+   "emissiveIntensity": 1,
+   "emissiveColor": [
+    0,
+    0,
+    0,
+    1
+   ],
+   "baseColor": [
+    1,
+    1,
+    1,
+    1
+   ]
+  },
+  "M_Street_Light_01": {
+   "shader": "S_PBR_OPAQUE_ORM_LeartesMasterMaterial.shadergraph",
+   "textures": {
+    "B": "Art/Textures/T_StreetLight_01_B.TGA",
+    "N": "Art/Textures/T_StreetLight_01_N.TGA",
+    "E": "Art/Textures/T_StreetLight_01_E.TGA",
+    "ORM": "Art/Textures/T_StreetLight_01_ORM.TGA"
+   },
+   "emissiveIntensity": 1,
+   "emissiveColor": [
+    0,
+    0,
+    0,
+    1
+   ],
+   "baseColor": [
+    1,
+    1,
+    1,
+    1
+   ]
+  },
+  "M_Street_Light_02": {
+   "shader": "S_PBR_OPAQUE_ORM_LeartesMasterMaterial.shadergraph",
+   "textures": {
+    "B": "Art/Textures/T_StreetLight_02_B.TGA",
+    "N": "Art/Textures/T_StreetLight_02_N.TGA",
+    "E": "Art/Textures/T_StreetLight_02_E.TGA",
+    "ORM": "Art/Textures/T_StreetLight_02_ORM.TGA"
+   },
+   "emissiveIntensity": 1,
+   "emissiveColor": [
+    0,
+    0,
+    0,
+    1
+   ],
+   "baseColor": [
+    1,
+    1,
+    1,
+    1
+   ]
+  },
+  "M_StylArts": {
+   "shader": "S_Decal_Brush.shadergraph",
+   "textures": {
+    "O": "Art/Textures/T_StylArts_O.TGA",
+    "B": "Art/Textures/T_StylArts_B.TGA"
+   },
+   "emissiveIntensity": 1,
+   "emissiveColor": [
+    0,
+    0,
+    0,
+    1
+   ],
+   "baseColor": [
+    1,
+    1,
+    1,
+    1
+   ]
+  },
+  "M_Table": {
+   "shader": "S_PBR_OPAQUE_ORM_LeartesMasterMaterial.shadergraph",
+   "textures": {
+    "B": "Art/Textures/T_Table_B.TGA",
+    "N": "Art/Textures/T_Table_N.TGA",
+    "ORM": "Art/Textures/T_Table_ORM.TGA"
+   },
+   "emissiveIntensity": 1,
+   "emissiveColor": [
+    0,
+    0,
+    0,
+    1
+   ],
+   "baseColor": [
+    1,
+    1,
+    1,
+    1
+   ]
+  },
+  "M_TrashBags": {
+   "shader": "S_PBR_OPAQUE_ORM_LeartesMasterMaterial.shadergraph",
+   "textures": {
+    "B": "Art/Textures/T_TrashBags_01_B.TGA",
+    "N": "Art/Textures/T_TrashBags_01_N.TGA",
+    "ORM": "Art/Textures/T_TrashBags_01_ORM.TGA"
+   },
+   "emissiveIntensity": 1,
+   "emissiveColor": [
+    0,
+    0,
+    0,
+    1
+   ],
+   "baseColor": [
+    1,
+    1,
+    1,
+    1
+   ]
+  },
+  "M_TrashSet_01": {
+   "shader": "S_PBR_OPAQUE_ORM_LeartesMasterMaterial.shadergraph",
+   "textures": {
+    "B": "Art/Textures/T_TrashSet_01_B.TGA",
+    "N": "Art/Textures/T_TrashSet_01_N.TGA",
+    "ORM": "Art/Textures/T_TrashSet_01_ORM.TGA"
+   },
+   "emissiveIntensity": 1,
+   "emissiveColor": [
+    0,
+    0,
+    0,
+    1
+   ],
+   "baseColor": [
+    1,
+    1,
+    1,
+    1
+   ]
+  },
+  "M_TrashSet_02": {
+   "shader": "S_PBR_OPAQUE_ORM_LeartesMasterMaterial.shadergraph",
+   "textures": {
+    "B": "Art/Textures/T_TrashSet_02_B.TGA",
+    "N": "Art/Textures/T_TrashSet_02_N.TGA",
+    "ORM": "Art/Textures/T_TrashSet_02_ORM.TGA"
+   },
+   "emissiveIntensity": 1,
+   "emissiveColor": [
+    0,
+    0,
+    0,
+    1
+   ],
+   "baseColor": [
+    1,
+    1,
+    1,
+    1
+   ]
+  },
+  "M_Trash_Bin_01": {
+   "shader": "S_PBR_OPAQUE_ORM_LeartesMasterMaterial.shadergraph",
+   "textures": {
+    "B": "Art/Textures/T_TrashBin_01_B.TGA",
+    "N": "Art/Textures/T_TrashBin_01_N.TGA",
+    "E": "Art/Textures/T_TrashBin_01_E.TGA",
+    "ORM": "Art/Textures/T_TrashBin_01_ORM.TGA"
+   },
+   "emissiveIntensity": 1,
+   "emissiveColor": [
+    0,
+    0,
+    0,
+    1
+   ],
+   "baseColor": [
+    1,
+    1,
+    1,
+    1
+   ]
+  },
+  "M_Trash_Bin_02": {
+   "shader": "S_PBR_OPAQUE_ORM_LeartesMasterMaterial.shadergraph",
+   "textures": {
+    "B": "Art/Textures/T_TrashBin_02_B.TGA",
+    "N": "Art/Textures/T_TrashBin_02_N.TGA",
+    "E": "Art/Textures/T_TrashBin_02_E.TGA",
+    "ORM": "Art/Textures/T_TrashBin_02_ORM.TGA"
+   },
+   "emissiveIntensity": 1,
+   "emissiveColor": [
+    0,
+    0,
+    0,
+    1
+   ],
+   "baseColor": [
+    1,
+    1,
+    1,
+    1
+   ]
+  },
+  "M_TreeBark_01": {
+   "shader": "S_PBR_OPAQUE_ORM_LeartesMasterMaterial.shadergraph",
+   "textures": {
+    "B": "Art/Textures/T_WoodTrunk_B.TGA",
+    "N": "Art/Textures/T_WoodTrunk_N.TGA",
+    "ORM": "Art/Textures/T_WoodTrunk_AORM.TGA"
+   },
+   "emissiveIntensity": 1,
+   "emissiveColor": [
+    0,
+    0,
+    0,
+    1
+   ],
+   "baseColor": [
+    1,
+    1,
+    1,
+    1
+   ]
+  },
+  "M_Trim": {
+   "shader": "S_BasicMaster.shadergraph",
+   "textures": {
+    "N": "Art/Textures/T_Trim_N.TGA",
+    "M": "Art/Textures/T_M_Cube_T_Trim_M.TGA",
+    "R": "Art/Textures/T_M_Cube_T_Trim_R.TGA",
+    "B": "Art/Textures/T_Trim_B.TGA"
+   },
+   "emissiveIntensity": 1,
+   "emissiveColor": [
+    0,
+    0,
+    0,
+    1
+   ],
+   "baseColor": [
+    1,
+    1,
+    1,
+    1
+   ]
+  },
+  "M_Trim_dark": {
+   "shader": "S_BasicMaster.shadergraph",
+   "textures": {
+    "N": "Art/Textures/T_Trim_N.TGA",
+    "M": "Art/Textures/T_M_Cube_T_Trim_M.TGA",
+    "R": "Art/Textures/T_M_Cube_T_Trim_R.TGA",
+    "B": "Art/Textures/T_Trim_B.TGA"
+   },
+   "emissiveIntensity": 1,
+   "emissiveColor": [
+    0,
+    0,
+    0,
+    1
+   ],
+   "baseColor": [
+    1,
+    1,
+    1,
+    1
+   ]
+  },
+  "M_UnderTrees": {
+   "shader": "S_PBR_OPAQUE_ORM_LeartesMasterMaterial.shadergraph",
+   "textures": {
+    "B": "Art/Textures/T_UnderT_B.TGA",
+    "N": "Art/Textures/T_UnderT_N.TGA",
+    "ORM": "Art/Textures/T_UnderT_ORM.TGA"
+   },
+   "emissiveIntensity": 1,
+   "emissiveColor": [
+    0,
+    0,
+    0,
+    1
+   ],
+   "baseColor": [
+    1,
+    1,
+    1,
+    1
+   ]
+  },
+  "M_Vending_Machine_01": {
+   "shader": "S_PBR_OPAQUE_ORM_LeartesMasterMaterial.shadergraph",
+   "textures": {
+    "B": "Art/Textures/T_Vending_Machine_01_B.TGA",
+    "N": "Art/Textures/T_Vending_Machine_01_N.TGA",
+    "E": "Art/Textures/T_Vending_Machine_01_E.TGA",
+    "ORM": "Art/Textures/T_Vending_Machine_01_ORM.TGA"
+   },
+   "emissiveIntensity": 1,
+   "emissiveColor": [
+    0,
+    0,
+    0,
+    1
+   ],
+   "baseColor": [
+    1,
+    1,
+    1,
+    1
+   ]
+  },
+  "M_Vending_Machine_02": {
+   "shader": "S_PBR_OPAQUE_ORM_LeartesMasterMaterial.shadergraph",
+   "textures": {
+    "B": "Art/Textures/T_Vending_Machine_02_B.TGA",
+    "N": "Art/Textures/T_Vending_Machine_02_N.TGA",
+    "E": "Art/Textures/T_Vending_Machine_02_E.TGA",
+    "ORM": "Art/Textures/T_Vending_Machine_02_ORM.TGA"
+   },
+   "emissiveIntensity": 1,
+   "emissiveColor": [
+    0,
+    0,
+    0,
+    1
+   ],
+   "baseColor": [
+    1,
+    1,
+    1,
+    1
+   ]
+  },
+  "M_Water_Puddle": {
+   "shader": "S_Decal_Brush.shadergraph",
+   "textures": {
+    "O": "Art/Textures/T_M_Cube_T_Puddle_O.TGA",
+    "B": "Art/Textures/T_Fill_Black.TGA"
+   },
+   "emissiveIntensity": 1,
+   "emissiveColor": [
+    0,
+    0,
+    0,
+    1
+   ],
+   "baseColor": [
+    1,
+    1,
+    1,
+    1
+   ]
+  },
+  "M_WindowGlasses": {
+   "shader": "S_Window.shadergraph",
+   "textures": {},
+   "emissiveIntensity": 1,
+   "emissiveColor": [
+    0,
+    0,
+    0,
+    1
+   ],
+   "baseColor": [
+    1,
+    1,
+    1,
+    1
+   ]
+  },
+  "M_Windows": {
+   "shader": "S_BasicMaster.shadergraph",
+   "textures": {
+    "N": "Art/Textures/T_Dark_Metal_N.TGA",
+    "M": "Art/Textures/T_M_Cube_T_Panels_M.TGA",
+    "R": "Art/Textures/T_M_Cube_T_Concrete_01_R.TGA",
+    "B": "Art/Textures/T_Windows_01_E.TGA",
+    "E": "Art/Textures/T_Windows_01_E.TGA"
+   },
+   "emissiveIntensity": 1,
+   "emissiveColor": [
+    0,
+    0,
+    0,
+    1
+   ],
+   "baseColor": [
+    1,
+    1,
+    1,
+    1
+   ]
+  },
+  "M_Windows_02": {
+   "shader": "S_BasicMaster.shadergraph",
+   "textures": {
+    "N": "Art/Textures/T_Dark_Metal_N.TGA",
+    "M": "Art/Textures/T_M_Cube_T_Panels_M.TGA",
+    "R": "Art/Textures/T_M_Cube_T_Concrete_01_R.TGA",
+    "B": "Art/Textures/T_Windows_01_E.TGA",
+    "E": "Art/Textures/T_Windows_01_E.TGA"
+   },
+   "emissiveIntensity": 1,
+   "emissiveColor": [
+    0,
+    0,
+    0,
+    1
+   ],
+   "baseColor": [
+    1,
+    1,
+    1,
+    1
+   ]
+  },
+  "M_Window_Emissive_01": {
+   "shader": "S_Window.shadergraph",
+   "textures": {},
+   "emissiveIntensity": 1,
+   "emissiveColor": [
+    0,
+    0,
+    0,
+    1
+   ],
+   "baseColor": [
+    1,
+    1,
+    1,
+    1
+   ]
+  },
+  "M_Window_Emissive_02": {
+   "shader": "S_Window.shadergraph",
+   "textures": {},
+   "emissiveIntensity": 1,
+   "emissiveColor": [
+    0,
+    0,
+    0,
+    1
+   ],
+   "baseColor": [
+    1,
+    1,
+    1,
+    1
+   ]
+  },
+  "M_Wine_Puddle": {
+   "shader": "S_Decal_Brush.shadergraph",
+   "textures": {
+    "O": "Art/Textures/T_M_Cube_T_Wine_O.TGA",
+    "B": "Art/Textures/T_Wine_B.TGA"
+   },
+   "emissiveIntensity": 1,
+   "emissiveColor": [
+    0,
+    0,
+    0,
+    1
+   ],
+   "baseColor": [
+    1,
+    1,
+    1,
+    1
+   ]
+  }
+ }
+}
