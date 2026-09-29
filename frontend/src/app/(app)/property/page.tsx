@@ -19,6 +19,8 @@ import {
   propertyShowcase,
   type InventoryState,
 } from "@/lib/fixtures";
+import { liveProperty, type LiveProperty } from "@/server/property";
+import { PropertyInventoryList, PropertyRosterList } from "@/components/property-lists";
 
 /* --------------------------------------------------------------------------
    Property Portal — §8 PROPERTY_MGR. Redesigned 2026-09-11 (A2).
@@ -39,6 +41,11 @@ import {
 
    The public, sponsor-facing version of this property is
    /properties/btg-sports-talk. This portal is the owner's side of it.
+
+   LIVE (P2-FE-01). A signed-in PROPERTY_MGR gets their own property from
+   GET /properties/mine and its roster and inventory from GET /team/roster
+   (own-property scope). The showcase hero's audience figures have no
+   per-property measurement yet, so the live portal doesn't draw them.
    -------------------------------------------------------------------------- */
 
 const STATE_TONE: Record<InventoryState, "accent" | "warn" | "primary" | "neutral"> = {
@@ -56,6 +63,21 @@ export default async function PropertyPortalPage({
   const demo = await demoState(searchParams);
   if (demo === "loading") return <SkeletonPage />;
   if (demo === "error") throw new Error("Demo error state");
+
+  const live = demo === null ? await liveProperty(await searchParams) : null;
+  if (live === "unlinked") {
+    return (
+      <div className="space-y-6">
+        <h1 className="text-xl font-semibold tracking-tight">Property portal</h1>
+        <EmptyState
+          mark="users"
+          title="Your account isn't linked to a property yet"
+          hint="You're signed in as a property manager, but BTG hasn't connected this login to your team, school or event. Ask your BTG contact to link it."
+        />
+      </div>
+    );
+  }
+  if (live) return <LivePortal live={live} />;
 
   const p = property;
 
@@ -290,6 +312,77 @@ export default async function PropertyPortalPage({
           </Card>
         </div>
       </div>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------ live portal */
+
+function LivePortal({ live }: { live: LiveProperty }) {
+  const p = live.property;
+  const place = [p.city, p.stateCode].filter(Boolean).join(", ");
+
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <div className="flex flex-wrap items-center gap-2">
+            <h1 className="text-xl font-semibold tracking-tight">{p.name}</h1>
+            <Badge tone="neutral">{p.kind.toLowerCase()}</Badge>
+          </div>
+          <p className="mt-1 text-xs text-muted">
+            {place ? `${place} · ` : ""}your roster and sponsorship inventory
+          </p>
+        </div>
+        <Link
+          href={`/properties/${encodeURIComponent(p.slug)}?from=property`}
+          className="text-xs font-medium text-property hover:underline"
+        >
+          View public page →
+        </Link>
+      </div>
+
+      {/* Counts are the API's COUNT over the whole property, not the page. */}
+      <div className="sx-animate grid gap-3 sm:grid-cols-3">
+        <Card className="p-4">
+          <p className="text-[11px] font-medium text-muted">Roster athletes</p>
+          <p className="mt-2 text-2xl font-semibold tabular-nums tracking-tight">{live.athleteCounts.athletes}</p>
+          <p className="mt-1 text-[10px] text-faint">{live.athleteCounts.active} active on the platform</p>
+          <p className="mt-2"><MiniChip kind="ver">POSTGRES</MiniChip></p>
+        </Card>
+        <Card className="p-4">
+          <p className="text-[11px] font-medium text-muted">Inventory items</p>
+          <p className="mt-2 text-2xl font-semibold tabular-nums tracking-tight">{live.inventoryCounts.items}</p>
+          <p className="mt-1 text-[10px] text-faint">{live.inventoryCounts.active} active</p>
+          <p className="mt-2"><MiniChip kind="ver">POSTGRES</MiniChip></p>
+        </Card>
+        <Card className="p-4">
+          <p className="text-[11px] font-medium text-muted">Scoped access</p>
+          <p className="mt-2 text-[11px] leading-relaxed text-faint">
+            Limited to {p.name}. You can&rsquo;t see other properties&rsquo;
+            athletes, campaigns or inventory (guide §09, tested per §30).
+          </p>
+        </Card>
+      </div>
+
+      <div className="grid gap-6 xl:grid-cols-2 xl:items-start">
+        <section className="sx-animate sx-delay-1 min-w-0">
+          <SectionHeading title="Sponsorship inventory" hint={`${live.inventoryCounts.active} active · what sponsors can buy against this property`} />
+          <PropertyInventoryList items={live.inventory} page={live.inventoryPage} iq={live.iq} teamName={p.name} />
+        </section>
+
+        <section className="sx-animate sx-delay-2 min-w-0">
+          <SectionHeading title="Your roster" hint={`${live.athleteCounts.athletes} athletes · scoped to this property`} />
+          <PropertyRosterList athletes={live.athletes} page={live.athletePage} q={live.q} />
+        </section>
+      </div>
+
+      <p className="text-[10px] leading-relaxed text-faint">
+        Roster and inventory are from Postgres, one page at a time. Audience
+        figures (views, the CPM-priced value, engagement) are not shown yet:
+        nothing measures them per property today, and this page doesn&rsquo;t
+        estimate them.
+      </p>
     </div>
   );
 }

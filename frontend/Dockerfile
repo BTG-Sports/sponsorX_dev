@@ -37,6 +37,11 @@ FROM node:24.21.0-alpine AS runner
 WORKDIR /app
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
+# The standalone server binds to $HOSTNAME, and Next 16's self-proxy calls
+# back through it. Docker sets HOSTNAME to the container id by default; pin it
+# so the server listens on every interface (Next's Docker guidance; QA pass 8,
+# F-15 — a loopback-only bind made every request hang up).
+ENV HOSTNAME=0.0.0.0
 COPY --from=builder /app/frontend/.next/standalone ./
 COPY --from=builder /app/frontend/.next/static ./frontend/.next/static
 COPY --from=builder /app/frontend/public ./frontend/public

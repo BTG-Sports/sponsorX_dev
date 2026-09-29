@@ -22,6 +22,9 @@ import {
   sponsorCampaigns,
   sponsorCampaignsX,
 } from "@/lib/fixtures";
+import { daysRemaining, reachPct, verifiedPct } from "@/lib/ops-live";
+import { isBehind, monogramOf, windowLabel } from "@/lib/sponsor-live";
+import { liveSponsorCampaign, type LiveCampaignDetail } from "@/server/sponsor";
 
 /* --------------------------------------------------------------------------
    Sponsor Campaign detail — §9, sponsor portal (2026-09-15). The screen that
@@ -38,6 +41,14 @@ import {
    portfolio-summary fixtures (sponsorCampaigns/X), so they render an honest
    lighter detail — different campaign states legitimately carry different
    depth. No campaign is faked with data it doesn't have.
+
+   LIVE (P2-FE-01). A signed-in sponsor gets their own campaign: the portfolio
+   row from GET /campaigns (package, window, contracted spend — column-gated)
+   and the delivery board from GET /campaigns/:id/ops (orders scoped by
+   whereFor; a sponsor gets no invitations and no athlete pay). The views
+   series, engagement and top content are the ROI report's (P7-FE-03), so the
+   live page links there instead of drawing them. Someone else's campaign id
+   is "not found", never a sample.
    -------------------------------------------------------------------------- */
 
 const STATE_TONE = {
@@ -62,6 +73,24 @@ export default async function SponsorCampaignDetailPage({
   const sp = await searchParams;
   const fromParam = Array.isArray(sp.from) ? sp.from[0] : sp.from;
   const back = resolveBack(fromParam, "sponsor-campaigns");
+
+  const live = demo === null ? await liveSponsorCampaign(id) : null;
+  if (live) {
+    if (live.status === "missing") {
+      return (
+        <div className="space-y-5">
+          <BackLink target={back} />
+          <EmptyState
+            mark="chart"
+            title="Campaign not found"
+            hint="This isn't one of your campaigns, or it no longer exists."
+            action={{ label: "Back to campaigns", href: "/sponsor/campaigns" }}
+          />
+        </div>
+      );
+    }
+    return <LiveDetail detail={live} back={back} />;
+  }
 
   const base = sponsorCampaigns.find((c) => c.id === id);
   const x = sponsorCampaignsX[id];
@@ -367,6 +396,211 @@ export default async function SponsorCampaignDetailPage({
       <p className="sx-animate sx-delay-4 text-[10px] leading-relaxed text-faint">
         Campaign <code className="font-mono">{id}</code> · fixture data. Every
         figure traces to MetricDaily, RewardEvent, Deliverable or Zoho Books (§22).
+      </p>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------ live detail */
+
+const LIVE_ORDER_COPY: Record<string, string> = {
+  SENT: "Awaiting acceptance",
+  ACCEPTED: "Accepted",
+  ACTIVE: "Delivering",
+  COMPLETED: "Completed",
+  REJECTED: "Declined",
+  CANCELLED: "Cancelled",
+};
+const LIVE_ORDER_TONE: Record<string, "accent" | "primary" | "warn" | "neutral" | "danger"> = {
+  SENT: "warn",
+  ACCEPTED: "primary",
+  ACTIVE: "accent",
+  COMPLETED: "neutral",
+  REJECTED: "danger",
+  CANCELLED: "danger",
+};
+const LIVE_STATE_TONE: Record<string, "accent" | "primary" | "warn" | "neutral" | "danger"> = {
+  ACTIVE: "accent",
+  REPORTING: "primary",
+  STAFFING: "warn",
+  APPROVAL: "warn",
+  DRAFT: "neutral",
+  COMPLETED: "neutral",
+  CANCELLED: "danger",
+};
+/** No delivery has started before these — the report has nothing to show. */
+const PRE_DELIVERY = new Set(["DRAFT", "STAFFING", "APPROVAL"]);
+
+function LiveDetail({
+  detail,
+  back,
+}: {
+  detail: Extract<LiveCampaignDetail, { status: "found" }>;
+  back: ReturnType<typeof resolveBack>;
+}) {
+  const { campaign: c, ops } = detail;
+  const now = new Date();
+  const h = ops.health;
+  const behind = isBehind(c, now);
+  const vPct = verifiedPct(h);
+  const rPct = reachPct(h);
+  const days = daysRemaining(c.endDate, now);
+  const hasReport = !PRE_DELIVERY.has(c.state);
+  /* Only rows with an order: a sponsor sees who is delivering, not who BTG
+     is still negotiating with (the API sends no invitations here anyway). */
+  const roster = ops.roster.filter((r) => r.order);
+  const attention = roster.filter((r) => r.overdue > 0 || r.order?.state === "SENT");
+
+  return (
+    <div className="space-y-6">
+      <BackLink target={back} />
+
+      <div className="sx-animate flex flex-wrap items-start justify-between gap-3">
+        {/* min-w-0 + break-words: one long unbroken word in a campaign name
+            ran 23px past a 390px phone (QA pass 8, F-11). */}
+        <div className="flex min-w-0 items-start gap-3">
+          <Monogram text={monogramOf(c.name)} tone={behind ? "accent" : "primary"} className="size-11 shrink-0 text-xs" />
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <h1 className="min-w-0 break-words text-xl font-semibold tracking-tight [overflow-wrap:anywhere]">{c.name}</h1>
+              {behind ? (
+                <Badge tone="warn">Pacing behind</Badge>
+              ) : (
+                <Badge tone={LIVE_STATE_TONE[c.state] ?? "neutral"}>{c.state.toLowerCase()}</Badge>
+              )}
+            </div>
+            <p className="mt-0.5 text-xs text-muted">
+              Presented by {c.sponsorName} · {c.package?.name ?? "Custom"} · {windowLabel(c, now)}
+            </p>
+          </div>
+        </div>
+        {hasReport ? (
+          <Link
+            href={`/sponsor/campaigns/${encodeURIComponent(c.id)}/report?from=sponsor-campaign`}
+            className="flex items-center gap-2 rounded-lg bg-primary px-3.5 py-2 text-[11px] font-medium text-cta-ink transition-colors hover:bg-primary-soft"
+          >
+            View ROI report
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="size-3.5" aria-hidden="true">
+              <path d="m9 5 7 7-7 7" />
+            </svg>
+          </Link>
+        ) : (
+          <span className="rounded-lg border border-line bg-surface px-3.5 py-2 text-[11px] font-medium text-faint">
+            ROI report available once delivery begins
+          </span>
+        )}
+      </div>
+
+      {attention.length > 0 && (
+        <div className="sx-animate flex items-start gap-3 rounded-xl border border-warn/30 bg-warn/8 px-4 py-3">
+          <svg viewBox="0 0 24 24" fill="none" stroke="var(--sx-warn)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="mt-0.5 size-4 shrink-0" aria-hidden="true">
+            <path d="M12 9v4m0 4h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z" />
+          </svg>
+          <p className="text-xs leading-relaxed text-muted">
+            {attention.length} athlete{attention.length === 1 ? "" : "s"} on this campaign
+            need{attention.length === 1 ? "s" : ""} attention — your BTG campaign
+            manager is handling the follow-up (§9.9). Nothing for you to action here.
+          </p>
+        </div>
+      )}
+
+      <div className="sx-animate sx-delay-1 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <StatTile
+          label="Deliverables verified"
+          value={`${h.deliverablesVerified}/${h.deliverablesTotal}`}
+          hint={vPct === null ? "nothing scheduled yet" : `${vPct}% verified`}
+          chip={<MiniChip kind="ver">POSTGRES</MiniChip>}
+          meter={vPct ?? undefined}
+        />
+        <StatTile
+          label="Verified impressions"
+          value={h.verifiedImpressions.toLocaleString()}
+          hint={
+            rPct === null
+              ? "no projection on the Campaign Orders"
+              : `${rPct}% of ${compact(h.projectedImpressions ?? 0)} projected`
+          }
+          chip={<MiniChip kind="manual">VERIFIED · MANUAL</MiniChip>}
+          meter={rPct ?? undefined}
+        />
+        <StatTile
+          label="Spend"
+          value={typeof c.contracted === "number" ? money(c.contracted) : "—"}
+          hint="contracted across Campaign Orders"
+          chip={<MiniChip kind="ver">POSTGRES</MiniChip>}
+        />
+        <StatTile
+          label={c.state === "ACTIVE" ? "Days remaining" : "Overdue"}
+          value={c.state === "ACTIVE" ? String(days) : String(h.deliverablesOverdue)}
+          hint={
+            c.state === "ACTIVE"
+              ? `${h.deliverablesOverdue} deliverable${h.deliverablesOverdue === 1 ? "" : "s"} overdue`
+              : "deliverables past due"
+          }
+          chip={<MiniChip kind="est">COMPUTED</MiniChip>}
+        />
+      </div>
+
+      <section className="sx-animate sx-delay-2">
+        <SectionHeading
+          title="Athlete roster"
+          hint="Who's delivering on your campaign. Read-only — your BTG manager runs the orders."
+        />
+        {roster.length === 0 ? (
+          <Card>
+            <p className="text-xs leading-relaxed text-muted">
+              No Campaign Orders yet — BTG is still staffing this campaign.
+              Athletes appear here once their orders go out.
+            </p>
+          </Card>
+        ) : (
+          <Card className="p-0">
+            <ul className="divide-y divide-line-soft">
+              {roster.map((r) => {
+                const rpct = r.planned ? Math.round((r.delivered / r.planned) * 100) : 0;
+                const state = r.order!.state;
+                return (
+                  <li key={r.athleteId} className="px-4 py-3.5">
+                    <div className="flex items-center gap-3">
+                      <Monogram text={initials(r.name)} shape="circle" tone="neutral" />
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="truncate text-xs font-semibold tracking-tight">{r.name}</span>
+                          <Badge tone={LIVE_ORDER_TONE[state] ?? "neutral"}>{LIVE_ORDER_COPY[state] ?? state}</Badge>
+                          {r.overdue > 0 && <Badge tone="warn">{r.overdue} overdue</Badge>}
+                          {r.inReview > 0 && <Badge tone="primary">{r.inReview} in review</Badge>}
+                        </div>
+                        {r.nextDue && (
+                          <p className="mt-0.5 text-[10px] text-faint">
+                            Next due{" "}
+                            {new Date(r.nextDue).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" })}
+                          </p>
+                        )}
+                      </div>
+                      <div className="shrink-0 text-right">
+                        <p className="text-xs font-semibold tabular-nums">
+                          {compact(r.verifiedViews)} <span className="font-normal text-faint">verified views</span>
+                        </p>
+                        <p className="mt-0.5 text-[11px] tabular-nums text-muted">
+                          {r.delivered}/{r.planned} delivered
+                        </p>
+                      </div>
+                    </div>
+                    <div className="mt-2.5 pl-11">
+                      <Meter value={rpct} tone={r.overdue > 0 ? "primary" : "accent"} />
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          </Card>
+        )}
+      </section>
+
+      <p className="sx-animate sx-delay-3 text-[10px] leading-relaxed text-faint">
+        Delivery, roster and spend are from Postgres; verified impressions are
+        staff-checked metrics on published deliverables. The views series,
+        engagement, rewards and top content are in the ROI report.
       </p>
     </div>
   );

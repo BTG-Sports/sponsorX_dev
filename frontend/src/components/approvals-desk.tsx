@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { Badge, Card } from "@/components/ui";
@@ -12,6 +12,15 @@ import {
   SearchInput,
 } from "@/components/filter-kit";
 import { Pagination } from "@/components/pagination";
+import {
+  ListFilter,
+  ListSearch,
+  PagerRow,
+  PendingList,
+  ServerList,
+  useListNav,
+} from "@/components/server-pager";
+import type { PageInfo } from "@/lib/list-query";
 import type { ReviewContentItem } from "@/lib/fixtures";
 import {
   isLiveItem,
@@ -20,6 +29,7 @@ import {
   type ApprovalActionKind,
   type ApprovalResult,
   type AssetLinkResult,
+  type DeskFilters,
 } from "@/lib/approvals-live";
 import {
   ADVANCE,
@@ -39,20 +49,26 @@ import {
    ApprovalsDesk — the content approval queue (2026-09-16 redesign). The
    page's one client island, following the ApplicationsDesk idioms exactly:
 
-   - Tabs (Needs review / Cleared / All) with live counts, instant search and
-     campaign / format / sort dropdowns; active filters render as dismissible
-     chips. The queue renders as a card grid with the shared numbered pager
-     (12/24/60 per page, controls above and below the grid). State syncs to
-     the URL via replaceState (?tab=&q=&camp=&kind=&sort=&page=&size=), seeded
-     back by the server page, so a filtered queue is shareable.
+   - Tabs (Needs review / Cleared / All) with counts, search and campaign /
+     format / sort dropdowns; active filters render as dismissible chips.
+     The queue renders as a card grid with the shared numbered pager
+     (12/24/60 per page, controls above and below the grid).
    - Clicking a row opens the review drawer (portaled to <body> — an
      sx-animate ancestor would trap position:fixed): signed-asset preview
      placeholder, a stage tracker that teaches the §21 pipeline in four desks,
      plain-English "what happens next", and the decision bar.
    - Advance / Request revision work locally ("kept for this visit only" —
-     the ApplicationsDesk precedent) with Undo. Advancing walks the real state
-     machine one step at a time, so approving from SPONSOR_REVIEW visibly
-     moves the row to the Cleared tab.
+     the ApplicationsDesk precedent) with Undo.
+
+   TWO WAYS TO DRIVE IT (2026-09-29, server-paged lists):
+   - <ApprovalsDeskServer> — the live BTG desk. The page asks the API for ONE
+     page (search, filters, sort and paging in the database) plus a summary
+     for the tab counts; every control writes the URL (useListNav) and the
+     server page re-reads it. Nothing here holds more than the visible page.
+   - <ApprovalsDesk> — fixture queues (the demo desk, the advisor's school
+     queue): small, in memory, filtered and paged here, URL-synced by
+     replaceState so a filtered demo queue is still shareable.
+   Both render the same <DeskBody>.
    -------------------------------------------------------------------------- */
 
 type Item = ReviewContentItem;
@@ -219,6 +235,13 @@ export type LiveDesk = {
 const baseState = (it: Item): EffectiveState =>
   isLiveItem(it) && it.live.revisionReason && it.state === "DRAFT_SUBMITTED" ? "REVISION" : it.state;
 
+type Moves = Record<string, EffectiveState>;
+
+/**
+ * The fixture desk — an in-memory queue filtered and paged here. Used by the
+ * demo approvals desk and the advisor's school queue; the live BTG desk is
+ * <ApprovalsDeskServer>.
+ */
 export function ApprovalsDesk({
   items,
   demoParam,
@@ -262,6 +285,7 @@ export function ApprovalsDesk({
       ? Number(initial!.size)
       : DEFAULT_PAGE_SIZE,
   );
+  const [moves, setMoves] = useState<Moves>({});
 
   /* Any tab/filter/sort change resets to the first page — page 2 of "Cleared"
      is meaningless after switching back to the review tab. */
@@ -271,45 +295,11 @@ export function ApprovalsDesk({
       set(v);
       setPage(1);
     };
-  const changeTab = (t: TabKey) => {
-    setTab(t);
-    setPage(1);
-  };
-  /* A larger/smaller page size changes what "this page" means — back to one. */
   const changeSize = (v: string) => {
     setPageSize(Number(v));
     setPage(1);
   };
 
-  /* Demo decisions — local to this visit, undoable, never persisted. The
-     value is where the deliverable moved to; Undo restores how it arrived. */
-  const [moves, setMoves] = useState<Record<string, EffectiveState>>({});
-  const eff = (it: Item): EffectiveState => moves[it.id] ?? baseState(it);
-
-  const [openId, setOpenId] = useState<string | null>(null);
-  /* Closing keeps the drawer mounted while the -out animation plays;
-     unmount happens on its animationend (fallback timer in the drawer). */
-  const [closing, setClosing] = useState(false);
-  const lastFocus = useRef<HTMLElement | null>(null);
-  const closeBtnRef = useRef<HTMLButtonElement | null>(null);
-
-  const openItem = (id: string) => {
-    lastFocus.current =
-      document.activeElement instanceof HTMLElement
-        ? document.activeElement
-        : null;
-    setClosing(false);
-    setOpenId(id);
-  };
-  const requestClose = () => setClosing(true);
-  const finishClose = () => {
-    setClosing(false);
-    setOpenId(null);
-    lastFocus.current?.focus();
-  };
-
-  /* Filters live in the URL (no navigation) so a filtered queue is shareable
-     and survives reload — the server page seeds `initial` back from it. */
   const needle = q.trim().toLowerCase();
   const shown = useMemo(() => {
     const list = items.filter((it) => {
@@ -337,9 +327,7 @@ export function ApprovalsDesk({
   }, [items, tab, needle, camp, kind, sort, moves]);
 
   const totalPages = Math.max(1, Math.ceil(shown.length / pageSize));
-  /* `page` is raw intent; `safePage` is the effective, in-range value used for
-     slicing, the pager and the URL. A seeded ?page= past the end (e.g. after a
-     filter narrows the set) simply clamps here — no write-back needed. */
+  /* `page` is raw intent; `safePage` is the effective, in-range value. */
   const safePage = Math.min(Math.max(page, 1), totalPages);
   const paged = shown.slice((safePage - 1) * pageSize, safePage * pageSize);
   const rangeStart = shown.length === 0 ? 0 : (safePage - 1) * pageSize + 1;
@@ -369,6 +357,264 @@ export function ApprovalsDesk({
     }
   }, [tab, q, camp, kind, sort, safePage, pageSize, demoParam]);
 
+  const counts = useMemo(() => {
+    const c = { review: 0, cleared: 0, all: items.length };
+    for (const it of items) {
+      if (inQueue(moves[it.id] ?? baseState(it))) c.review += 1;
+      else c.cleared += 1;
+    }
+    return c;
+  }, [items, moves]);
+
+  const isFiltered = Boolean(needle || camp || kind);
+  const pager = (up: boolean) => (
+    <div className="flex flex-wrap items-center justify-end gap-3">
+      <p className="mr-auto text-[11px] text-muted" aria-live="polite">
+        {up ? `Showing ${rangeStart}–${rangeEnd} of ${shown.length}${isFiltered ? " matching" : ""}` : ""}
+      </p>
+      <Dropdown
+        label="Deliverables per page"
+        allLabel={`${pageSize} / page`}
+        value={String(pageSize)}
+        options={SIZE_OPTIONS}
+        onChange={changeSize}
+        tone="admin"
+        includeAll={false}
+        {...(up ? {} : { placement: "up" as const })}
+      />
+      <Pagination page={safePage} count={totalPages} onChange={setPage} tone="admin" alwaysShow />
+    </div>
+  );
+
+  return (
+    <DeskBody
+      rows={paged}
+      counts={counts}
+      tab={tab}
+      qShown={q.trim()}
+      camp={camp}
+      campLabel={camp}
+      kind={kind}
+      matched={shown.length}
+      search={
+        <SearchInput
+          value={q}
+          onChange={onFilter(setQ)}
+          placeholder="Search title, athlete, campaign or sponsor…"
+          label="Search deliverables"
+          tone="admin"
+        />
+      }
+      filters={
+        <>
+          <Dropdown
+            label="Filter by campaign"
+            allLabel="All campaigns"
+            value={camp}
+            onChange={onFilter(setCamp)}
+            options={campaignOptions.map((c) => ({ value: c, label: c }))}
+            tone="admin"
+          />
+          <Dropdown
+            label="Filter by format"
+            allLabel="All formats"
+            value={kind}
+            onChange={onFilter(setKind)}
+            options={KIND_OPTIONS}
+            tone="admin"
+          />
+          <Dropdown
+            label="Sort queue"
+            allLabel="Waiting longest"
+            value={sort}
+            onChange={onFilter(setSort)}
+            options={SORT_OPTIONS}
+            tone="admin"
+          />
+        </>
+      }
+      on={{
+        tab: (t) => {
+          setTab(t);
+          setPage(1);
+        },
+        clear: (k) => onFilter(k === "q" ? setQ : k === "camp" ? setCamp : setKind)(""),
+        reset: () => {
+          setQ("");
+          setCamp("");
+          setKind("");
+          setPage(1);
+        },
+      }}
+      pagerTop={pager(true)}
+      pagerBottom={pager(false)}
+      moves={moves}
+      setMoves={setMoves}
+      live={live}
+    />
+  );
+}
+
+/**
+ * The live BTG desk, SERVER-PAGED: `rows` is exactly one page as the API
+ * answered it, `page` its true position, `counts` the summary's tab counts.
+ * Every control writes the URL; the server page fetches the next page.
+ */
+export function ApprovalsDeskServer(props: {
+  rows: Item[];
+  page: PageInfo;
+  counts: Record<TabKey, number>;
+  campaigns: { id: string; name: string }[];
+  filters: DeskFilters;
+  live?: LiveDesk;
+}) {
+  return (
+    <ServerList>
+      <ServerDesk {...props} />
+    </ServerList>
+  );
+}
+
+function ServerDesk({
+  rows,
+  page,
+  counts,
+  campaigns,
+  filters: f,
+  live,
+}: Parameters<typeof ApprovalsDeskServer>[0]) {
+  const { set } = useListNav();
+  const [moves, setMoves] = useState<Moves>({});
+  const isFiltered = Boolean(f.q || f.camp || f.kind);
+  return (
+    <DeskBody
+      rows={rows}
+      counts={counts}
+      tab={f.tab}
+      qShown={f.q}
+      camp={f.camp}
+      campLabel={campaigns.find((c) => c.id === f.camp)?.name ?? f.camp}
+      kind={f.kind}
+      matched={page.total}
+      search={
+        <ListSearch
+          initial={f.q}
+          placeholder="Search title, athlete, campaign or sponsor…"
+          label="Search deliverables"
+          tone="admin"
+        />
+      }
+      filters={
+        <>
+          <ListFilter
+            param="camp"
+            label="Filter by campaign"
+            allLabel="All campaigns"
+            value={f.camp}
+            options={campaigns.map((c) => ({ value: c.id, label: c.name }))}
+            tone="admin"
+          />
+          <ListFilter
+            param="kind"
+            label="Filter by format"
+            allLabel="All formats"
+            value={f.kind}
+            options={KIND_OPTIONS}
+            tone="admin"
+          />
+          <ListFilter
+            param="sort"
+            label="Sort queue"
+            allLabel="Waiting longest"
+            value={f.sort}
+            options={SORT_OPTIONS}
+            tone="admin"
+          />
+        </>
+      }
+      on={{
+        tab: (t) => set({ tab: t === "review" ? null : t }),
+        clear: (k) => set({ [k]: null }),
+        reset: () => set({ q: null, camp: null, kind: null }),
+      }}
+      pagerTop={<PagerRow page={page} noun="Deliverables" tone="admin" position="top" filtered={isFiltered} />}
+      pagerBottom={<PagerRow page={page} noun="Deliverables" tone="admin" position="bottom" filtered={isFiltered} />}
+      wrap={(n) => <PendingList>{n}</PendingList>}
+      moves={moves}
+      setMoves={setMoves}
+      live={live}
+    />
+  );
+}
+
+/** Everything both drivers share: tabs, toolbar, chips, the grid, the drawer. */
+function DeskBody({
+  rows,
+  counts,
+  tab,
+  qShown,
+  camp,
+  campLabel,
+  kind,
+  matched,
+  search,
+  filters,
+  on,
+  pagerTop,
+  pagerBottom,
+  wrap = (n) => n,
+  moves,
+  setMoves,
+  live,
+}: {
+  /** The visible page only. */
+  rows: Item[];
+  counts: Record<TabKey, number>;
+  tab: TabKey;
+  qShown: string;
+  camp: string;
+  campLabel: string;
+  kind: string;
+  /** How many match the current tab + filters, across every page. */
+  matched: number;
+  search: ReactNode;
+  filters: ReactNode;
+  on: { tab: (t: TabKey) => void; clear: (k: "q" | "camp" | "kind") => void; reset: () => void };
+  pagerTop: ReactNode;
+  pagerBottom: ReactNode;
+  wrap?: (n: ReactNode) => ReactNode;
+  moves: Moves;
+  setMoves: React.Dispatch<React.SetStateAction<Moves>>;
+  live?: LiveDesk;
+}) {
+  const eff = (it: Item): EffectiveState => moves[it.id] ?? baseState(it);
+
+  /* The open item is kept as well as its id: after a live decision the page
+     refreshes and the row may leave this page (it changed tab) — the drawer
+     stays on it to show what happened. */
+  const [opened, setOpened] = useState<Item | null>(null);
+  /* Closing keeps the drawer mounted while the -out animation plays;
+     unmount happens on its animationend (fallback timer in the drawer). */
+  const [closing, setClosing] = useState(false);
+  const lastFocus = useRef<HTMLElement | null>(null);
+  const closeBtnRef = useRef<HTMLButtonElement | null>(null);
+  const openId = opened?.id ?? null;
+
+  const openItem = (it: Item) => {
+    lastFocus.current =
+      document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : null;
+    setClosing(false);
+    setOpened(it);
+  };
+  const requestClose = () => setClosing(true);
+  const finishClose = () => {
+    setClosing(false);
+    setOpened(null);
+    lastFocus.current?.focus();
+  };
+
   /* Drawer: Escape closes, page scroll locks behind it, focus lands on the
      close button and returns to the row on close. */
   useEffect(() => {
@@ -386,24 +632,8 @@ export function ApprovalsDesk({
     };
   }, [openId]);
 
-  const counts = useMemo(() => {
-    const c = { review: 0, cleared: 0, all: items.length };
-    for (const it of items) {
-      if (inQueue(moves[it.id] ?? baseState(it))) c.review += 1;
-      else c.cleared += 1;
-    }
-    return c;
-  }, [items, moves]);
-
-  const isFiltered = Boolean(needle || camp || kind);
-  const reset = () => {
-    setQ("");
-    setCamp("");
-    setKind("");
-    setPage(1);
-  };
-
-  const sel = openId ? items.find((it) => it.id === openId) : undefined;
+  const isFiltered = Boolean(qShown || camp || kind);
+  const sel = openId ? (rows.find((it) => it.id === openId) ?? opened ?? undefined) : undefined;
 
   return (
     <div>
@@ -421,7 +651,7 @@ export function ApprovalsDesk({
               type="button"
               role="tab"
               aria-selected={active}
-              onClick={() => changeTab(t.key)}
+              onClick={() => on.tab(t.key)}
               className={[
                 "flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-colors",
                 active ? "bg-admin/15 text-text" : "text-muted hover:text-text",
@@ -443,74 +673,45 @@ export function ApprovalsDesk({
 
       {/* --------------------------------------------------------- toolbar */}
       <div className="mb-3 flex flex-wrap items-center gap-2">
-        <SearchInput
-          value={q}
-          onChange={onFilter(setQ)}
-          placeholder="Search title, athlete, campaign or sponsor…"
-          label="Search deliverables"
-          tone="admin"
-        />
-        <Dropdown
-          label="Filter by campaign"
-          allLabel="All campaigns"
-          value={camp}
-          onChange={onFilter(setCamp)}
-          options={campaignOptions.map((c) => ({ value: c, label: c }))}
-          tone="admin"
-        />
-        <Dropdown
-          label="Filter by format"
-          allLabel="All formats"
-          value={kind}
-          onChange={onFilter(setKind)}
-          options={KIND_OPTIONS}
-          tone="admin"
-        />
-        <Dropdown
-          label="Sort queue"
-          allLabel="Waiting longest"
-          value={sort}
-          onChange={onFilter(setSort)}
-          options={SORT_OPTIONS}
-          tone="admin"
-        />
+        {search}
+        {filters}
       </div>
 
       {/* Active filters as dismissible chips — the row reads as what's
           applied; each ✕ removes one clause, "Clear all" removes them all. */}
       {isFiltered && (
         <div className="mb-3 flex flex-wrap items-center gap-2" aria-live="polite">
-          {needle && (
-            <FilterChip tone="admin" label="Remove search" onClear={() => onFilter(setQ)("")}>
-              &ldquo;{q.trim()}&rdquo;
+          {qShown && (
+            <FilterChip tone="admin" label="Remove search" onClear={() => on.clear("q")}>
+              &ldquo;{qShown}&rdquo;
             </FilterChip>
           )}
           {camp && (
-            <FilterChip tone="admin" label="Remove campaign filter" onClear={() => onFilter(setCamp)("")}>
-              {camp}
+            <FilterChip tone="admin" label="Remove campaign filter" onClear={() => on.clear("camp")}>
+              {campLabel}
             </FilterChip>
           )}
           {kind && (
-            <FilterChip tone="admin" label="Remove format filter" onClear={() => onFilter(setKind)("")}>
+            <FilterChip tone="admin" label="Remove format filter" onClear={() => on.clear("kind")}>
               {KIND_OPTIONS.find((o) => o.value === kind)?.label}
             </FilterChip>
           )}
           <button
             type="button"
-            onClick={reset}
+            onClick={on.reset}
             className="text-[11px] font-medium text-muted transition-colors hover:text-danger"
           >
             Clear all
           </button>
           <p className="ml-auto text-xs text-muted">
-            {shown.length} of {items.length}{" "}
-            {shown.length === 1 ? "deliverable" : "deliverables"}
+            {matched} of {counts[tab]}{" "}
+            {matched === 1 ? "deliverable" : "deliverables"}
           </p>
         </div>
       )}
 
       {/* ------------------------------------------------------------ cards */}
-      {shown.length === 0 ? (
+      {matched === 0 ? (
         <Card className="px-4 py-10 text-center">
           <p className="text-sm font-medium">
             {isFiltered ? "Nothing matches these filters" : "This queue is clear"}
@@ -525,7 +726,7 @@ export function ApprovalsDesk({
           {isFiltered && (
             <button
               type="button"
-              onClick={reset}
+              onClick={on.reset}
               className="mt-3 text-xs font-medium text-accent transition-colors hover:text-accent-soft"
             >
               Clear all filters
@@ -534,31 +735,11 @@ export function ApprovalsDesk({
         </Card>
       ) : (
         <div className="space-y-4">
-          <div className="flex flex-wrap items-center justify-end gap-3">
-            <p className="mr-auto text-[11px] text-muted" aria-live="polite">
-              Showing {rangeStart}–{rangeEnd} of {shown.length}
-              {isFiltered ? " matching" : ""}
-            </p>
-            <Dropdown
-              label="Deliverables per page"
-              allLabel={`${pageSize} / page`}
-              value={String(pageSize)}
-              options={SIZE_OPTIONS}
-              onChange={changeSize}
-              tone="admin"
-              includeAll={false}
-            />
-            <Pagination
-              page={safePage}
-              count={totalPages}
-              onChange={setPage}
-              tone="admin"
-              alwaysShow
-            />
-          </div>
+          {pagerTop}
 
+          {wrap(
           <ul className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-            {paged.map((it) => {
+            {rows.map((it) => {
               const s = eff(it);
               const aging =
                 inQueue(s) && s !== "REVISION" && it.waitingHours > AGING_HOURS;
@@ -569,7 +750,7 @@ export function ApprovalsDesk({
                 <li key={it.id} className="min-w-0">
                   <button
                     type="button"
-                    onClick={() => openItem(it.id)}
+                    onClick={() => openItem(it)}
                     className="group flex h-full w-full flex-col rounded-xl border border-line bg-surface p-3 text-left transition-colors hover:border-admin/40 hover:bg-surface-2/40 focus-visible:border-admin/40 focus-visible:outline-none"
                   >
                     {/* asset banner — stands in for the signed R2 thumbnail */}
@@ -617,31 +798,10 @@ export function ApprovalsDesk({
                 </li>
               );
             })}
-          </ul>
+          </ul>,
+          )}
 
-          <div className="flex flex-wrap items-center justify-end gap-3">
-            <p className="mr-auto text-[11px] text-muted" aria-live="polite">
-              Showing {rangeStart}–{rangeEnd} of {shown.length}
-              {isFiltered ? " matching" : ""}
-            </p>
-            <Dropdown
-              label="Deliverables per page"
-              allLabel={`${pageSize} / page`}
-              value={String(pageSize)}
-              options={SIZE_OPTIONS}
-              onChange={changeSize}
-              tone="admin"
-              includeAll={false}
-              placement="up"
-            />
-            <Pagination
-              page={safePage}
-              count={totalPages}
-              onChange={setPage}
-              tone="admin"
-              alwaysShow
-            />
-          </div>
+          {pagerBottom}
         </div>
       )}
 

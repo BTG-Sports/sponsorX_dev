@@ -1,4 +1,5 @@
 import { STATE_COPY, type LiveApplicationState } from "@/lib/applications-ui";
+import { textParam, type SearchParams } from "@/lib/list-query";
 
 /* --------------------------------------------------------------------------
    P3-FE-02 — the admin review queue's live rows.
@@ -247,6 +248,53 @@ export function relativeSince(iso: string, now: Date): string {
   if (hours < 48) return `${hours} ${hours === 1 ? "hour" : "hours"} ago`;
   const days = Math.floor(hours / 24);
   return `${days} days ago`;
+}
+
+/* ------------------------------------------------- server-paged desk (live) */
+
+/** `GET /applications/summary` — the hero band's and the tabs' numbers,
+ *  counted by the API over the reviewer's whole scope. */
+export type ApplicationsSummary = {
+  total: number;
+  waiting: number;
+  overdue: number;
+  decided: number;
+  tabs: { review: number; approved: number; rejected: number; all: number };
+  sports: string[];
+};
+
+export const DESK_TAB_KEYS = ["review", "approved", "rejected", "all"] as const;
+export type DeskTab = (typeof DESK_TAB_KEYS)[number];
+
+/** Live mode's attention filters. "Flagged" is demo-only: the queue records
+ *  no conflict flags yet, so offering it live would only ever answer empty. */
+export const LIVE_FLAGS = ["minor", "aging"] as const;
+/** Live mode's sorts beyond the default (waiting longest). The score is the
+ *  latest row of a related table and the database can't order by it, so the
+ *  score sort is demo-only. */
+export const LIVE_SORTS = ["newest"] as const;
+
+export type DeskQuery = { tab: DeskTab; q: string; sport: string; flag: string; sort: string };
+
+/**
+ * The live desk's list state from the URL. Unknown values drop to their
+ * defaults (tab → review, the rest → none), so a stale or hand-typed link
+ * degrades instead of asking the API for something it would ignore.
+ */
+export function deskQuery(sp: SearchParams): DeskQuery {
+  return {
+    tab: (textParam(sp, "tab", DESK_TAB_KEYS) || "review") as DeskTab,
+    q: textParam(sp, "q"),
+    sport: textParam(sp, "sport"),
+    flag: textParam(sp, "flag", LIVE_FLAGS),
+    sort: textParam(sp, "sort", LIVE_SORTS),
+  };
+}
+
+/** The desk's list state as `GET /applications` extras (with `apiListQuery`).
+ *  The tab is always sent — review is the desk's default, not the API's. */
+export function deskApiExtras(d: DeskQuery): Record<string, string> {
+  return { tab: d.tab, q: d.q, sport: d.sport, flag: d.flag, sort: d.sort };
 }
 
 /** One API row → one desk row. */

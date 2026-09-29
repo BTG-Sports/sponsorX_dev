@@ -19,6 +19,8 @@ import {
   sponsorInvoices,
   type HealthStatus,
 } from "@/lib/fixtures";
+import { liveBoard, type Count, type LiveBoard } from "@/server/admin-board";
+import { mayUse } from "@/lib/admin-access";
 
 /* --------------------------------------------------------------------------
    BTG Admin Operations Board — §23, surface §10. Redesigned 2026-09-11 (A2).
@@ -31,6 +33,13 @@ import {
    Provenance is on every number (§22, CLAUDE.md): GMV, queues, median match
    and network size are Postgres; invoiced/collected are Zoho Books. Zoho never
    sits on a request path — a queued sync is healthy, not an outage.
+
+   LIVE (P2-FE-01). Signed-in BTG staff get the board from the reads each
+   desk already makes (server/admin-board.ts): booked / invoiced / collected
+   and pacing over GET /campaigns, the four work queues from the desks' own
+   lists, integration health, and the audit log's latest entries. Figures
+   with no source yet — quarter-on-quarter GMV, median brief → match time,
+   the network growth line — are not drawn. Any ?demo= state keeps the deck.
    -------------------------------------------------------------------------- */
 
 const HEALTH_CHIP: Record<HealthStatus, "ver" | "neutral" | "warn"> = {
@@ -88,6 +97,9 @@ export default async function AdminHomePage({
       </p>
     </div>
   );
+
+  const live = demo === null ? await liveBoard() : null;
+  if (live) return <LiveBoardView board={live} heading={heading} />;
 
   /* Brand-new tenant: nothing booked, nothing queued — the board is only the
      next action, not zeros dressed up as insight. */
@@ -320,6 +332,248 @@ export default async function AdminHomePage({
                 </li>
               ))}
             </ul>
+          </Card>
+        </section>
+      </div>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------- live board */
+
+const fmtCount = (c: Count | null) => (c === null ? "—" : `${c.n}${c.more ? "+" : ""}`);
+
+function LiveQueue({
+  href,
+  label,
+  count,
+  hint,
+  roles,
+}: {
+  href: string;
+  label: string;
+  count: Count | null;
+  hint: string;
+  roles: string[];
+}) {
+  /* C-1: a desk this role isn't for is shown, not linked — the count is
+     still true, but the card mustn't lead to "not in your role". */
+  const open = mayUse(href, roles);
+  const body = (
+    <>
+      <span className="grid h-10 min-w-10 shrink-0 place-items-center rounded-lg bg-admin/15 px-1.5 text-base font-semibold tabular-nums text-admin">
+        {fmtCount(count)}
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block text-xs font-medium">{label}</span>
+        <span className="block text-[11px] text-faint">
+          {count === null ? "not in your role's view" : open ? hint : `${hint} · handled by another role`}
+        </span>
+      </span>
+      {open && (
+        <span className="text-muted" aria-hidden="true">
+          →
+        </span>
+      )}
+    </>
+  );
+  if (!open) {
+    return <div className="flex items-center gap-4 rounded-xl border border-line bg-surface px-4 py-3">{body}</div>;
+  }
+  return (
+    <Link
+      href={href}
+      className="flex items-center gap-4 rounded-xl border border-line bg-surface px-4 py-3 transition-colors hover:bg-surface-2"
+    >
+      <span className="grid h-10 min-w-10 shrink-0 place-items-center rounded-lg bg-admin/15 px-1.5 text-base font-semibold tabular-nums text-admin">
+        {fmtCount(count)}
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block text-xs font-medium">{label}</span>
+        <span className="block text-[11px] text-faint">
+          {count === null ? "not in your role's view" : hint}
+        </span>
+      </span>
+      <span className="text-muted" aria-hidden="true">
+        →
+      </span>
+    </Link>
+  );
+}
+
+function LiveBoardView({ board, heading }: { board: LiveBoard; heading: React.ReactNode }) {
+  const cs = board.summary;
+  const totals = cs
+    ? { contracted: cs.contracted ?? null, invoiced: cs.invoiced ?? null, paid: cs.paid ?? null }
+    : null;
+  const running = { length: cs?.active ?? 0 };
+  const behind = { length: cs?.behind ?? 0 };
+  const pacing = cs?.pacing ?? [];
+  const h = board.health;
+  const moneyFlow = totals
+    ? [
+        { label: "Booked", value: totals.contracted ?? 0, display: totals.contracted === null ? "—" : money(totals.contracted), tone: "primary" as const },
+        { label: "Invoiced", value: totals.invoiced ?? 0, display: totals.invoiced === null ? "—" : money(totals.invoiced), tone: "soft" as const },
+        { label: "Collected", value: totals.paid ?? 0, display: totals.paid === null ? "—" : money(totals.paid), tone: "soft" as const },
+      ]
+    : null;
+
+  return (
+    <div className="space-y-6">
+      {heading}
+
+      <HeroBand className="sx-animate" border="border-admin/25">
+        <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <p className="text-[10px] font-medium uppercase tracking-[0.2em] text-muted">
+              Operations board · booked across campaigns
+            </p>
+            <p className="mt-1 bg-[linear-gradient(90deg,var(--sx-admin),var(--sx-primary))] bg-clip-text text-4xl font-bold tabular-nums tracking-tight text-transparent sm:text-5xl">
+              {totals?.contracted != null ? money(totals.contracted) : "—"}
+            </p>
+            <p className="mt-1.5 flex flex-wrap items-center gap-2 text-xs text-muted">
+              {cs ? `${running.length} campaign${running.length === 1 ? "" : "s"} live · ${cs.total} in total` : "Campaigns aren't in your role's view"}
+              <MiniChip kind="ver">POSTGRES</MiniChip>
+            </p>
+          </div>
+          <div className="grid w-full max-w-sm gap-2 text-xs">
+            {[
+              ["Applications to review", board.queues.applications],
+              ["Content awaiting BTG", board.queues.content],
+              ["Approved briefs to staff", board.queues.briefs],
+            ].map(([label, c]) => (
+              <div key={label as string} className="flex items-center justify-between rounded-lg border border-line/70 px-3 py-2">
+                <span className="text-muted">{label as string}</span>
+                <span className="font-semibold tabular-nums">{fmtCount(c as Count | null)}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </HeroBand>
+
+      <div className="grid grid-flow-col auto-cols-[85%] gap-4 overflow-x-auto sx-snap-x md:grid-flow-row md:auto-cols-auto md:grid-cols-3 md:overflow-visible">
+        <Card className="sx-animate sx-delay-1 p-4">
+          <p className="text-[11px] font-medium uppercase tracking-wide text-muted">Money flow · all campaigns</p>
+          {moneyFlow ? (
+            <div className="mt-3">
+              <HBarList rows={moneyFlow} />
+            </div>
+          ) : (
+            <p className="mt-3 text-[11px] text-faint">Not in your role&rsquo;s view.</p>
+          )}
+          <p className="mt-3 flex flex-wrap items-center gap-x-2 gap-y-1 text-[10px] text-faint">
+            booked <MiniChip kind="ver">POSTGRES</MiniChip>
+            <span aria-hidden="true">·</span>
+            invoiced / collected <MiniChip kind="ver">ZOHO BOOKS</MiniChip>
+          </p>
+        </Card>
+
+        <Card className="sx-animate sx-delay-2 p-4">
+          <p className="text-[11px] font-medium uppercase tracking-wide text-muted">Campaign pacing</p>
+          {cs ? (
+            <>
+              <p className="mt-2 flex flex-wrap items-center gap-2 text-sm">
+                <span className="font-semibold tabular-nums text-success">{running.length - behind.length} on track</span>
+                <Badge tone={behind.length ? "warn" : "neutral"}>{behind.length} behind</Badge>
+              </p>
+              {pacing.length === 0 ? (
+                <p className="mt-3 text-[11px] text-faint">No active campaigns.</p>
+              ) : (
+                <ul className="mt-3 space-y-1.5">
+                  {pacing.map((c) => (
+                    <li key={c.id}>
+                      <Link
+                        href={`/admin/campaigns/${encodeURIComponent(c.id)}`}
+                        className="flex items-center justify-between gap-3 rounded-lg px-2 py-1.5 text-[11px] transition-colors hover:bg-surface-2"
+                      >
+                        <span className="min-w-0 truncate font-medium">{c.name}</span>
+                        <span className="shrink-0 tabular-nums text-muted">
+                          {c.behind ? <Badge tone="warn">behind</Badge> : `${c.done}/${c.total}`}
+                        </span>
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </>
+          ) : (
+            <p className="mt-3 text-[11px] text-faint">Not in your role&rsquo;s view.</p>
+          )}
+          <p className="mt-2 flex items-center gap-1.5 text-[10px] text-faint">
+            deliverables vs elapsed time <MiniChip kind="ver">POSTGRES</MiniChip>
+          </p>
+        </Card>
+
+        <Card className="sx-animate sx-delay-3 p-4">
+          <p className="text-[11px] font-medium uppercase tracking-wide text-muted">Integration health · §23</p>
+          {h ? (
+            <ul className="mt-3 space-y-2.5 text-xs">
+              <li className="flex items-center justify-between gap-3">
+                <span>Database, cache, storage</span>
+                <MiniChip kind={h.dependenciesDown.length ? "warn" : "ver"}>
+                  {h.dependenciesDown.length ? `${h.dependenciesDown.join(", ")} down` : "OK"}
+                </MiniChip>
+              </li>
+              <li className="flex items-center justify-between gap-3">
+                <span>Zoho outbox</span>
+                <MiniChip kind="neutral">{h.outboxPending ? `${h.outboxPending} queued` : "drained"}</MiniChip>
+              </li>
+              <li className="flex items-center justify-between gap-3">
+                <span>Webhooks rejected</span>
+                <MiniChip kind={h.webhooksRejected ? "warn" : "ver"}>{h.webhooksRejected}</MiniChip>
+              </li>
+              <li className="flex items-center justify-between gap-3">
+                <span>Recent failed jobs</span>
+                <MiniChip kind={h.jobsFailed ? "warn" : "ver"}>{h.jobsFailed}</MiniChip>
+              </li>
+            </ul>
+          ) : (
+            <p className="mt-3 text-[11px] text-faint">Integration health is BTG admin&rsquo;s.</p>
+          )}
+          <p className="mt-3 border-t border-line-soft pt-3 text-[10px] leading-relaxed text-faint">
+            Zoho never sits on a request path — a queued sync is healthy, not an outage (§18).{" "}
+            <Link href="/admin/integrations" className="underline">Details</Link>
+          </p>
+        </Card>
+      </div>
+
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_20rem] xl:items-start">
+        <section className="sx-animate sx-delay-4 min-w-0">
+          <SectionHeading title="Needs BTG action" hint="The managed-marketplace work — the §39 loop runs through these" />
+          <div className="grid gap-3 sm:grid-cols-2">
+            <LiveQueue href="/admin/applications" label="Athlete applications" count={board.queues.applications} hint="submitted or in review" roles={board.roles} />
+            <LiveQueue href="/admin/approvals" label="Content approvals" count={board.queues.content} hint="submitted or in BTG review" roles={board.roles} />
+            <LiveQueue href="/admin/campaigns/match" label="Briefs to match" count={board.queues.briefs} hint="approved · match athletes · invite" roles={board.roles} />
+            <LiveQueue href="/admin/finance" label="Finance attention" count={board.queues.finance} hint="earnings held or disputed" roles={board.roles} />
+          </div>
+        </section>
+
+        <section className="sx-animate sx-delay-5">
+          <SectionHeading title="Recent activity" hint="from the audit log" />
+          <Card>
+            {board.activity === null ? (
+              <p className="text-[11px] text-faint">The audit log is BTG admin&rsquo;s.</p>
+            ) : board.activity.length === 0 ? (
+              <p className="text-[11px] text-faint">Nothing recorded yet.</p>
+            ) : (
+              <ul className="space-y-3">
+                {board.activity.map((a) => (
+                  <li key={a.id} className="flex gap-3 text-[11px]">
+                    <span className="w-14 shrink-0 text-faint tabular-nums">
+                      {new Date(a.at).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" })}
+                    </span>
+                    <span className="min-w-0 text-muted">
+                      <span className="font-medium text-text">{a.action.toLowerCase().replace(/[._]/g, " ")}</span>{" "}
+                      · {a.entity}
+                      {a.actor ? <span className="block truncate text-faint">{a.actor}</span> : null}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+            <p className="mt-3 border-t border-line-soft pt-3 text-[10px] text-faint">
+              <Link href="/admin/audit" className="underline">Full audit log</Link>
+            </p>
           </Card>
         </section>
       </div>

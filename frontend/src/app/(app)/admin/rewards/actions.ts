@@ -1,13 +1,16 @@
 "use server";
 
 import { apiFetch } from "@/server/api";
-import type {
-  ApiRewardDetail,
-  ApiRewardState,
-  CreateRewardResult,
-  LinkResult,
-  NewReward,
-  SimpleResult,
+import {
+  campaignPickerPath,
+  pickerOptions,
+  type ApiRewardDetail,
+  type ApiRewardState,
+  type CampaignSearch,
+  type CreateRewardResult,
+  type LinkResult,
+  type NewReward,
+  type SimpleResult,
 } from "@/lib/rewards-live";
 
 /* --------------------------------------------------------------------------
@@ -136,6 +139,24 @@ export async function qrLinkAction(tokenId: string): Promise<LinkResult> {
     const res = await apiFetch(`/reward-tokens/${encodeURIComponent(tokenId)}/qr-url`);
     if (!res.ok) return { ok: false, message: res.status === 403 ? "The QR is still being generated — try again shortly." : await reason(res, `HTTP ${res.status}`) };
     return { ok: true, url: ((await res.json()) as { url: string }).url };
+  } catch {
+    return { ok: false, message: unreachable };
+  }
+}
+
+/** The creator's campaign picker (2026-09-29): one page of rewardable
+ *  campaigns matching what was typed, searched by the API — the desk no
+ *  longer loads every campaign to fill a menu. */
+export async function searchCampaignsAction(q: string): Promise<CampaignSearch> {
+  try {
+    const res = await apiFetch(campaignPickerPath(typeof q === "string" ? q : ""));
+    if (!res.ok) return { ok: false, message: await reason(res, `Campaigns unavailable (HTTP ${res.status}).`) };
+    const body = (await res.json()) as {
+      campaigns: { id: string; name: string; sponsorName: string; endDate: string; state: string }[];
+      page?: { total?: number };
+    };
+    const campaigns = pickerOptions(body.campaigns);
+    return { ok: true, campaigns, total: body.page?.total ?? campaigns.length };
   } catch {
     return { ok: false, message: unreachable };
   }

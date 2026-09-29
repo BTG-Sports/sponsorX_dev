@@ -33,6 +33,8 @@ import {
   socials,
   type DeliverableState,
 } from "@/lib/fixtures";
+import { athleteHome, type AthleteHomeInput } from "@/lib/athlete-home-live";
+import { liveAthleteHome } from "@/server/athlete-home";
 
 /* --------------------------------------------------------------------------
    Athlete Portal — §9 screen 6, requirements §24. Redesigned 2026-09-15
@@ -51,6 +53,12 @@ import {
    chip on the career figure, one on the audience card. Acceptance stays
    unwired (guide §08): the queue's invite action is "Review terms", a link,
    so nothing on this page is a dead button.
+
+   LIVE (P2-FE-01). A signed-in athlete gets their own dashboard from their
+   own reads (server/athlete-home.ts → lib/athlete-home-live.ts): the queue,
+   journey counts, money strip, profile meter and socials all derive from
+   Postgres. The §4 guardian gate comes from the API's readiness read, the
+   same one acceptance asks. Any ?demo= state keeps the fixture deck.
    -------------------------------------------------------------------------- */
 
 const DELIVERABLE_TONE: Record<
@@ -139,6 +147,10 @@ export default async function AthletePortalPage({
   const sp = await searchParams;
   const attn = typeof sp.attn === "string" ? sp.attn : undefined;
   const rev = typeof sp.rev === "string" ? sp.rev : undefined;
+
+  const live = demo === null ? await liveAthleteHome() : null;
+  if (live === "unlinked") return <UnlinkedAthlete />;
+  if (live) return <LiveHome input={live} attn={attn} rev={rev} />;
 
   /* §4 — ?demo=minor renders the same athlete as a minor whose guardian is
      still unverified; every action that creates an obligation gates on it. */
@@ -516,6 +528,250 @@ export default async function AthletePortalPage({
                     <Badge tone="warn">Verification pending</Badge>
                   )}
                 </div>
+              </Card>
+            </section>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------- live home */
+
+function UnlinkedAthlete() {
+  return (
+    <div className="space-y-6">
+      <h1 className="text-xl font-semibold tracking-tight">Your dashboard</h1>
+      <EmptyState
+        mark="users"
+        title="Your account isn't linked to an athlete profile yet"
+        hint="You're signed in, but BTG hasn't connected this login to your athlete record. Ask your BTG contact to link it — nothing is lost in the meantime."
+        action={{ label: "How athletes join", href: "/join" }}
+      />
+    </div>
+  );
+}
+
+function LiveHome({
+  input,
+  attn,
+  rev,
+}: {
+  input: AthleteHomeInput;
+  attn?: string;
+  rev?: string;
+}) {
+  const p = input.profile;
+  const h = athleteHome(input, new Date());
+  const firstName = p.displayName.split(" ")[0] || p.displayName;
+  const place = [p.city, p.stateCode].filter(Boolean).join(", ");
+
+  const journeySteps: JourneyStep[] = [
+    { label: "Get invited", sub: `${h.openInvites} waiting`, href: "/athlete/invitations" },
+    { label: "Accept the deal", sub: `${h.activeCampaigns} active` },
+    { label: "Deliver & verify", sub: `${h.due} to do`, href: "#queue" },
+    { label: "Get paid", sub: `${money(h.pending.amount)} pending`, href: "/athlete/earnings" },
+  ];
+  const journeyCurrent = h.due > 0 ? 2 : h.openInvites > 0 ? 0 : 3;
+
+  return (
+    <div className="space-y-6">
+      {h.guardianPending && (
+        <BlockedNotice>
+          Guardian authorization pending — your guardian must be verified
+          before you can accept an invitation or submit a deliverable (§4).
+          Invitations stay open; nothing is lost while verification completes.
+        </BlockedNotice>
+      )}
+
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <h1 className="text-xl font-semibold tracking-tight">{firstName}&rsquo;s dashboard</h1>
+          <p className="mt-1 text-xs text-muted">
+            {[p.sport, p.position, place, p.school].filter(Boolean).join(" · ")}
+          </p>
+        </div>
+        {p.tier && (
+          <div className="flex items-center gap-2">
+            <Badge tone="accent">{p.tier.toLowerCase()} tier</Badge>
+          </div>
+        )}
+      </div>
+
+      <HeroBand border="border-athlete/30" className="sx-animate">
+        <div className="flex flex-col gap-5 sm:flex-row sm:items-center">
+          <ProgressRing pct={h.paidPct ?? 0}>
+            <div>
+              <p className="text-lg font-bold tabular-nums leading-none">
+                {h.paidPct === null ? "—" : `${h.paidPct}%`}
+              </p>
+              <p className="mt-0.5 text-[9px] uppercase tracking-wide text-muted">paid out</p>
+            </div>
+          </ProgressRing>
+          <div className="min-w-0">
+            <p className="text-[10px] font-medium uppercase tracking-[0.2em] text-muted">
+              {firstName} — your NIL career
+            </p>
+            <p className="mt-1 flex flex-wrap items-baseline gap-2">
+              <span className="bg-[linear-gradient(90deg,var(--sx-primary),var(--sx-accent))] bg-clip-text text-4xl font-bold tabular-nums tracking-tight text-transparent sm:text-5xl">
+                {money(h.earned)} earned
+              </span>
+              <MiniChip kind="ver">POSTGRES</MiniChip>
+            </p>
+            <p className="mt-1.5 text-xs text-muted">
+              <span className="font-semibold text-text">{money(h.paid)}</span> paid ·{" "}
+              {money(h.approved.amount)} approved for payout
+            </p>
+          </div>
+        </div>
+      </HeroBand>
+
+      <JourneyStrip steps={journeySteps} current={journeyCurrent} />
+
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <SlimTile label="Open invitations" value={String(h.openInvites)} sub="awaiting your response" href="/athlete/invitations" />
+        <SlimTile label="Deliverables to do" value={String(h.due)} sub={h.nextDue ? `next: ${h.nextDue}` : "nothing due"} href="#queue" />
+        <SlimTile
+          label="Pending earnings"
+          value={money(h.pending.amount)}
+          sub={`${h.pending.count} ${h.pending.count === 1 ? "order" : "orders"} in cycle`}
+          href="/athlete/earnings"
+        />
+        <Link href="/athlete/earnings" className="group block">
+          <Card className="p-3.5 transition-colors group-hover:bg-surface-2/70">
+            <p className="flex items-center justify-between gap-2 text-[11px] font-medium uppercase tracking-wide text-muted">
+              Paid this year
+              <span aria-hidden="true" className="shrink-0 text-faint opacity-0 transition-opacity group-hover:opacity-100">
+                →
+              </span>
+            </p>
+            <div className="mt-1.5 flex items-center gap-3">
+              <div className="min-w-0 flex-1">
+                <Sparkline points={h.paidThisYear} stroke="var(--sx-athlete)" />
+              </div>
+              <span className="shrink-0 text-[11px] font-semibold text-text">{money(h.paidThisYearTotal)}</span>
+            </div>
+          </Card>
+        </Link>
+      </div>
+
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_20rem]">
+        <section id="queue" className="sx-animate sx-delay-1 min-w-0">
+          <SectionHeading
+            title={`Needs your attention · ${h.attentionTotal}`}
+            hint="Everything waiting on you, most urgent first"
+          />
+          {(h.moreInvites || h.moreDue) && (
+            <p className="-mt-1 mb-3 flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-muted">
+              Showing the most urgent.
+              {h.moreInvites && (
+                <Link href="/athlete/invitations?state=open" className="font-medium text-athlete hover:underline">
+                  All {h.openInvites} open invitations →
+                </Link>
+              )}
+              {h.moreDue && (
+                <Link href="/athlete/deliverables?tab=todo" className="font-medium text-athlete hover:underline">
+                  All {h.due} deliverables to do →
+                </Link>
+              )}
+            </p>
+          )}
+          {h.queueRows.length === 0 && h.reviewRows.length === 0 ? (
+            <EmptyState
+              mark="chart"
+              title="You're all caught up"
+              hint="New invitations and deliverables land here."
+              action={{ label: "See invitations", href: "/athlete/invitations" }}
+            />
+          ) : (
+            <AttentionQueue rows={h.queueRows} reviewRows={h.reviewRows} initialPage={attn} initialReviewPage={rev} />
+          )}
+        </section>
+
+        <div className="min-w-0 space-y-6">
+          <section className="sx-animate sx-delay-2">
+            <SectionHeading title="Earnings" />
+            <Card>
+              <p className="flex items-baseline gap-1.5">
+                <span className="text-2xl font-semibold tabular-nums tracking-tight">{money(h.pending.amount)}</span>
+                <span className="text-[11px] text-faint">pending this cycle</span>
+              </p>
+              <p className="mt-1.5 text-[11px] text-muted">
+                {money(h.approved.amount)} approved for payout · payouts are
+                handled by BTG Finance
+              </p>
+              <div className="mt-3">
+                <Button variant="secondary" href="/athlete/earnings" full>
+                  Earnings detail
+                </Button>
+              </div>
+            </Card>
+          </section>
+
+          <section className="sx-animate sx-delay-3">
+            <SectionHeading title="Profile" />
+            <Card>
+              <div className="flex items-baseline justify-between">
+                <span className="text-2xl font-semibold tabular-nums">{h.profilePct}%</span>
+                <span className="text-[11px] text-muted">
+                  {h.profileMissing === 0 ? "complete" : `${h.profileMissing} to finish`}
+                </span>
+              </div>
+              <div className="mt-2">
+                <Meter value={h.profilePct} tone="accent" />
+              </div>
+              <div className="mt-3">
+                <Button variant="secondary" href="/athlete/profile/edit" full>
+                  {h.profileMissing > 0 ? "Finish profile" : "Edit profile"}
+                </Button>
+              </div>
+            </Card>
+          </section>
+
+          <section className="sx-animate sx-delay-4">
+            <SectionHeading title="Audience" />
+            <Card>
+              {p.socials.length === 0 ? (
+                <p className="text-[11px] text-muted">No social accounts added yet.</p>
+              ) : (
+                <ul className="space-y-1.5">
+                  {p.socials.map((s) => (
+                    <li key={`${s.platform}:${s.handle}`} className="flex flex-wrap items-center justify-between gap-2 text-[11px]">
+                      <span className="text-muted">
+                        {s.platform.toLowerCase()} · @{s.handle}
+                      </span>
+                      <span className="flex items-center gap-1.5">
+                        <span className="font-semibold tabular-nums">
+                          {s.followers === null ? "—" : compact(s.followers)}
+                        </span>
+                        <MiniChip kind={s.source === "SELF_REPORTED" ? "warn" : "ver"}>
+                          {s.source.replace(/_/g, " ")}
+                        </MiniChip>
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              <div className="mt-3">
+                <Button variant="secondary" href="/athlete/profile/edit?section=socials" full>
+                  Manage socials
+                </Button>
+              </div>
+            </Card>
+          </section>
+
+          {input.guardian !== "not-required" && (
+            <section className="sx-animate sx-delay-5">
+              <SectionHeading title="Guardian" hint="§4 · §11" />
+              <Card>
+                {input.guardian === "ready" ? (
+                  <Badge tone="accent">Verified</Badge>
+                ) : input.guardian === "unverified" ? (
+                  <Badge tone="warn">Verification pending</Badge>
+                ) : (
+                  <Badge tone="warn">No guardian linked yet</Badge>
+                )}
               </Card>
             </section>
           )}

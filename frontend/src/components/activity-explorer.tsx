@@ -14,6 +14,8 @@ import {
   triggerCls,
   useOutsideClose,
 } from "@/components/filter-kit";
+import { ListSearch, PagerRow, PendingList, ServerList, useListNav } from "@/components/server-pager";
+import type { PageInfo } from "@/lib/list-query";
 import { EARNING_COPY, earningItems, heldNote, money } from "@/lib/fixtures";
 import {
   EARNING_TONE,
@@ -87,18 +89,24 @@ function DateRangePicker({
   to,
   onChange,
   markers,
+  year = YEAR,
 }: {
   from: number | null;
   to: number | null;
   onChange: (from: number | null, to: number | null) => void;
   markers: Set<number>;
+  /** The calendar's year — the fixture world's 2026 unless the live page
+   *  says otherwise. */
+  year?: number;
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   useOutsideClose(ref, () => setOpen(false), open);
 
   /* Open on the month being filtered, else the first month with activity. */
-  const firstMarker = Math.min(...markers, 1231);
+  const firstMarker = markers.size
+    ? Math.min(...markers, 1231)
+    : (new Date().getUTCMonth() + 1) * 100 + 1;
   const [view, setView] = useState(
     Math.floor((from ?? firstMarker) / 100) - 1,
   );
@@ -114,8 +122,8 @@ function DateRangePicker({
     }
   };
 
-  const startDow = new Date(YEAR, view, 1).getDay();
-  const daysInMonth = new Date(YEAR, view + 1, 0).getDate();
+  const startDow = new Date(year, view, 1).getDay();
+  const daysInMonth = new Date(year, view + 1, 0).getDate();
   const end = to ?? from;
 
   return (
@@ -145,7 +153,7 @@ function DateRangePicker({
           <div className="flex items-center justify-between">
             <NavBtn dir={-1} disabled={view === 0} onClick={() => setView((v) => v - 1)} />
             <p className="text-xs font-semibold tracking-tight">
-              {MONTH_NAMES[view]} {YEAR}
+              {MONTH_NAMES[view]} {year}
             </p>
             <NavBtn dir={1} disabled={view === 11} onClick={() => setView((v) => v + 1)} />
           </div>
@@ -207,7 +215,9 @@ function DateRangePicker({
             <p className="text-[10px] text-faint">
               {from !== null && to === null
                 ? "Pick another day to make it a range"
-                : "Dots mark days with activity"}
+                : markers.size
+                  ? "Dots mark days with activity"
+                  : "Pick a day, or two for a range"}
             </p>
             <button
               type="button"
@@ -466,73 +476,7 @@ export function ActivityExplorer({
       )}
 
       {/* ------------------------------------------------------------ list */}
-      <Card className="p-0">
-        {shown.length === 0 ? (
-          <div className="px-4 py-10 text-center">
-            <p className="text-sm font-medium">Nothing matches these filters</p>
-            <p className="mt-1 text-xs text-muted">
-              Try a campaign name, a job like &ldquo;Sponsored Post&rdquo;, or a
-              wider date range.
-            </p>
-            <button
-              type="button"
-              onClick={reset}
-              className="mt-3 text-xs font-medium text-accent transition-colors hover:text-accent-soft"
-            >
-              Clear all filters
-            </button>
-          </div>
-        ) : (
-          <ul className="divide-y divide-line-soft">
-            {shown.map((e) => (
-              <li key={e.id}>
-                <button
-                  type="button"
-                  onClick={() => openItem(e.id)}
-                  className="flex w-full flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3.5 text-left transition-colors hover:bg-surface-2/60 focus-visible:bg-surface-2/60 focus-visible:outline-none"
-                >
-                  <Monogram
-                    text={initials(e.campaign)}
-                    tone={
-                      e.state === "PAID"
-                        ? "accent"
-                        : e.state === "HELD" || e.state === "DISPUTED"
-                          ? "neutral"
-                          : "primary"
-                    }
-                  />
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate text-xs font-semibold tracking-tight">
-                      {e.campaign}
-                    </span>
-                    <span className="mt-0.5 block truncate text-[11px] text-faint">
-                      {e.jobName} · updated {e.updatedAt}
-                    </span>
-                  </span>
-                  <Badge tone={EARNING_TONE[e.state]}>
-                    {EARNING_COPY[e.state]}
-                  </Badge>
-                  <span className="w-16 shrink-0 text-right text-sm font-semibold tabular-nums">
-                    {money(e.amount)}
-                  </span>
-                  <svg
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    className="size-3.5 shrink-0 text-faint"
-                    aria-hidden="true"
-                  >
-                    <path d="m9 5 7 7-7 7" />
-                  </svg>
-                </button>
-              </li>
-            ))}
-          </ul>
-        )}
-      </Card>
+      <ActivityRows shown={shown} onOpen={openItem} onReset={reset} />
 
       {/* Detail drawer — portaled to <body>: the section's sx-animate
           entrance leaves a transform on an ancestor (fill-mode: both), which
@@ -544,6 +488,268 @@ export function ActivityExplorer({
             item={sel}
             closing={closing}
             onRequestClose={requestClose}
+            onClosed={finishClose}
+            closeBtnRef={closeBtnRef}
+          />,
+          document.body,
+        )}
+    </div>
+  );
+}
+
+/* ---------------------------------------------------------- ActivityRows */
+
+function ActivityRows({
+  shown,
+  onOpen,
+  onReset,
+}: {
+  shown: Item[];
+  onOpen: (id: string) => void;
+  onReset: () => void;
+}) {
+  return (
+    <Card className="p-0">
+      {shown.length === 0 ? (
+        <div className="px-4 py-10 text-center">
+          <p className="text-sm font-medium">Nothing matches these filters</p>
+          <p className="mt-1 text-xs text-muted">
+            Try a campaign name, a job like &ldquo;Sponsored Post&rdquo;, or a
+            wider date range.
+          </p>
+          <button
+            type="button"
+            onClick={onReset}
+            className="mt-3 text-xs font-medium text-accent transition-colors hover:text-accent-soft"
+          >
+            Clear all filters
+          </button>
+        </div>
+      ) : (
+        <ul className="divide-y divide-line-soft">
+          {shown.map((e) => (
+            <li key={e.id}>
+              <button
+                type="button"
+                onClick={() => onOpen(e.id)}
+                className="flex w-full flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3.5 text-left transition-colors hover:bg-surface-2/60 focus-visible:bg-surface-2/60 focus-visible:outline-none"
+              >
+                <Monogram
+                  text={initials(e.campaign)}
+                  tone={
+                    e.state === "PAID"
+                      ? "accent"
+                      : e.state === "HELD" || e.state === "DISPUTED"
+                        ? "neutral"
+                        : "primary"
+                  }
+                />
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-xs font-semibold tracking-tight">
+                    {e.campaign}
+                  </span>
+                  <span className="mt-0.5 block truncate text-[11px] text-faint">
+                    {e.jobName} · updated {e.updatedAt}
+                  </span>
+                </span>
+                <Badge tone={EARNING_TONE[e.state]}>
+                  {EARNING_COPY[e.state]}
+                </Badge>
+                <span className="w-16 shrink-0 text-right text-sm font-semibold tabular-nums">
+                  {money(e.amount)}
+                </span>
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="size-3.5 shrink-0 text-faint"
+                  aria-hidden="true"
+                >
+                  <path d="m9 5 7 7-7 7" />
+                </svg>
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </Card>
+  );
+}
+
+/* ------------------------------------------------- ServerActivityExplorer
+
+   The same explorer over a SERVER-PAGED list (2026-09-29, live athlete
+   earnings). `items` is one page the API already filtered and sorted; every
+   control writes the URL (?q ?from ?to ?status ?type, ?page ?size) through
+   <ServerList>, and the server page asks GET /earnings?page= for exactly
+   that page. Options come from GET /earnings/summary (states the athlete
+   has, their job names), so they still can't be empty by construction.
+   The calendar carries no activity dots here — marking every active day
+   would mean fetching every row, which is the thing this replaces. */
+
+export function ServerActivityExplorer(props: {
+  items: Item[];
+  page: PageInfo;
+  statusOptions: string[];
+  typeOptions: string[];
+  year: number;
+  initial: Record<"q" | "from" | "to" | "status" | "type", string>;
+}) {
+  return (
+    <ServerList>
+      <ServerExplorerInner {...props} />
+    </ServerList>
+  );
+}
+
+const NO_MARKERS = new Set<number>();
+
+function ServerExplorerInner({
+  items,
+  page,
+  statusOptions,
+  typeOptions,
+  year,
+  initial,
+}: {
+  items: Item[];
+  page: PageInfo;
+  statusOptions: string[];
+  typeOptions: string[];
+  year: number;
+  initial: Record<"q" | "from" | "to" | "status" | "type", string>;
+}) {
+  const { set } = useListNav();
+  const status = statusOptions.includes(initial.status) ? initial.status : "";
+  const type = typeOptions.includes(initial.type) ? initial.type : "";
+  const from = parseCode(initial.from);
+  const toRaw = parseCode(initial.to);
+  const to = from !== null && toRaw !== null && toRaw >= from ? toRaw : null;
+  const q = initial.q.trim();
+  const isFiltered = Boolean(q || status || type || from !== null);
+  const reset = () => set({ q: null, from: null, to: null, status: null, type: null });
+
+  const [openId, setOpenId] = useState<string | null>(null);
+  const [closing, setClosing] = useState(false);
+  const lastFocus = useRef<HTMLElement | null>(null);
+  const closeBtnRef = useRef<HTMLButtonElement | null>(null);
+  const openItem = (id: string) => {
+    lastFocus.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    setClosing(false);
+    setOpenId(id);
+  };
+  const finishClose = () => {
+    setClosing(false);
+    setOpenId(null);
+    lastFocus.current?.focus();
+  };
+  useEffect(() => {
+    if (!openId) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setClosing(true);
+    };
+    document.addEventListener("keydown", onKey);
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    closeBtnRef.current?.focus();
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      document.body.style.overflow = prev;
+    };
+  }, [openId]);
+  const sel = openId ? items.find((e) => e.id === openId) : undefined;
+
+  return (
+    <div>
+      <div className="mb-3 flex flex-wrap items-center gap-2">
+        <ListSearch
+          initial={initial.q}
+          label="Search activity"
+          placeholder="Search campaign, job or reference…"
+          tone="athlete"
+        />
+        <DateRangePicker
+          from={from}
+          to={to}
+          markers={NO_MARKERS}
+          year={year}
+          onChange={(f, t) =>
+            set({ from: f === null ? null : serializeCode(f), to: t === null ? null : serializeCode(t) })
+          }
+        />
+        <Dropdown
+          label="Filter by status"
+          allLabel="All statuses"
+          value={status}
+          onChange={(v) => set({ status: v || null })}
+          options={statusOptions.map((s) => ({ value: s, label: EARNING_COPY[s as keyof typeof EARNING_COPY] ?? s }))}
+        />
+        <Dropdown
+          label="Filter by job type"
+          allLabel="All types"
+          value={type}
+          onChange={(v) => set({ type: v || null })}
+          options={typeOptions.map((t) => ({ value: t, label: t }))}
+        />
+      </div>
+
+      {isFiltered && (
+        <div className="mb-3 flex flex-wrap items-center gap-2" aria-live="polite">
+          {q && (
+            <FilterChip label="Remove search" onClear={() => set({ q: null })}>
+              &ldquo;{q}&rdquo;
+            </FilterChip>
+          )}
+          {from !== null && (
+            <FilterChip
+              label="Remove date filter"
+              icon={
+                <span className="text-athlete [&>svg]:size-3">
+                  <CalendarIcon />
+                </span>
+              }
+              onClear={() => set({ from: null, to: null })}
+            >
+              {rangeLabel(from, to)}
+            </FilterChip>
+          )}
+          {status && (
+            <FilterChip label="Remove status filter" onClear={() => set({ status: null })}>
+              {EARNING_COPY[status as keyof typeof EARNING_COPY]}
+            </FilterChip>
+          )}
+          {type && (
+            <FilterChip label="Remove type filter" onClear={() => set({ type: null })}>
+              {type}
+            </FilterChip>
+          )}
+          <button
+            type="button"
+            onClick={reset}
+            className="text-[11px] font-medium text-muted transition-colors hover:text-danger"
+          >
+            Clear all
+          </button>
+        </div>
+      )}
+
+      <div className="mb-3">
+        <PagerRow page={page} noun="Orders" tone="athlete" position="top" filtered={isFiltered} />
+      </div>
+      <PendingList>
+        <ActivityRows shown={items} onOpen={openItem} onReset={reset} />
+      </PendingList>
+      <PagerRow page={page} noun="Orders" tone="athlete" position="bottom" filtered={isFiltered} />
+
+      {sel &&
+        createPortal(
+          <Drawer
+            item={sel}
+            closing={closing}
+            onRequestClose={() => setClosing(true)}
             onClosed={finishClose}
             closeBtnRef={closeBtnRef}
           />,

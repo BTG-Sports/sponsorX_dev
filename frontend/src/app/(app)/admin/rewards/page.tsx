@@ -1,7 +1,14 @@
 import { RewardsDesk } from "@/components/rewards-desk";
 import { LiveRewardsDesk } from "@/components/live-rewards-desk";
-import type { ApiReward } from "@/lib/rewards-live";
-import type { ApiCampaign } from "@/lib/sponsor-live";
+import { ServerList } from "@/components/server-pager";
+import {
+  campaignPickerPath,
+  pickerOptions,
+  rewardDeskFilters,
+  type ApiReward,
+  type RewardSummary,
+} from "@/lib/rewards-live";
+import { apiListQuery, type PageInfo, type SearchParams } from "@/lib/list-query";
 import { apiFetch, fetchActor } from "@/server/api";
 import {
   campaignAthletesAction,
@@ -9,6 +16,7 @@ import {
   moveRewardAction,
   qrLinkAction,
   rewardDetailAction,
+  searchCampaignsAction,
 } from "./actions";
 import { SkeletonPage } from "@/components/states";
 import { BlockedNotice } from "@/components/ui";
@@ -21,6 +29,7 @@ import {
   rewardSteps,
   rewards,
 } from "@/lib/fixtures";
+import { NotInRole, staffWithoutAccess } from "@/components/not-in-role";
 
 /* --------------------------------------------------------------------------
    Fan Rewards — /admin/rewards (2026-09-16). The list now leads: every §16
@@ -42,26 +51,43 @@ import {
    -------------------------------------------------------------------------- */
 
 const DESK_ROLES = ["SUPER_ADMIN", "BTG_ADMIN", "CAMPAIGN_MGR"];
-/** A reward needs athletes signed onto the campaign to carry its tokens. */
-const REWARDABLE = new Set(["STAFFING", "APPROVAL", "ACTIVE", "REPORTING"]);
 
-async function liveDesk() {
+/* SERVER-PAGED (2026-09-29). The desk reads ONE page of rewards for the
+   URL's ?page ?size ?q ?tab ?campaignId, plus GET /rewards/summary for the
+   tab counts and the strip — counted in the database over every reward, not
+   over the page. The creator's campaign picker starts from the first page of
+   rewardable campaigns by name and searches the API as you type
+   (searchCampaignsAction); nothing loads every campaign any more. */
+async function liveDesk(sp: SearchParams) {
   /* No catch — an outage is an error page, never fixtures dressed as the
      real rewards (QA pass 4 rule). */
   const who = await fetchActor();
   if (who.status !== "linked") return null;
   if (!who.actor.roles.some((r) => DESK_ROLES.includes(r))) return null;
-  const [rRes, cRes] = await Promise.all([apiFetch("/rewards"), apiFetch("/campaigns")]);
+  const filters = rewardDeskFilters(sp);
+  const scope = filters.campaignId ? `?${new URLSearchParams({ campaignId: filters.campaignId })}` : "";
+  const [rRes, sRes, cRes] = await Promise.all([
+    apiFetch(`/rewards${apiListQuery(sp, { q: filters.q, tab: filters.tab === "all" ? "" : filters.tab, campaignId: filters.campaignId })}`),
+    apiFetch(`/rewards/summary${scope}`),
+    apiFetch(campaignPickerPath("")),
+  ]);
   if (!rRes.ok) throw new Error(`Rewards unavailable (${rRes.status}).`);
+  if (!sRes.ok) throw new Error(`Reward summary unavailable (${sRes.status}).`);
   if (!cRes.ok) throw new Error(`Campaigns unavailable (${cRes.status}).`);
-  const r = (await rRes.json()) as { rewards: ApiReward[]; consent: { version: string; text: string } };
-  const { campaigns } = (await cRes.json()) as { campaigns: ApiCampaign[] };
+  const r = (await rRes.json()) as { rewards: ApiReward[]; page: PageInfo; consent: { version: string; text: string } };
+  const summary = (await sRes.json()) as RewardSummary;
+  const c = (await cRes.json()) as {
+    campaigns: { id: string; name: string; sponsorName: string; endDate: string; state: string }[];
+    page?: { total?: number };
+  };
+  const campaigns = pickerOptions(c.campaigns);
   return {
     rewards: r.rewards,
+    page: r.page,
     consent: r.consent,
-    campaigns: campaigns
-      .filter((c) => REWARDABLE.has(c.state))
-      .map((c) => ({ id: c.id, name: c.name, sponsorName: c.sponsorName, endDate: c.endDate })),
+    summary,
+    filters,
+    campaigns: { campaigns, total: c.page?.total ?? campaigns.length },
   };
 }
 
@@ -73,6 +99,12 @@ export default async function AdminRewardsPage({
   const demo = await demoState(searchParams);
   if (demo === "loading") return <SkeletonPage />;
   if (demo === "error") throw new Error("Demo error state");
+  /* C-1: a staff role this desk isn't for gets "not in your role", not the
+     sample desk. The demo stays for ?demo= and signed-out visitors. */
+  if (demo === null) {
+    const lacking = await staffWithoutAccess("/admin/rewards");
+    if (lacking) return <NotInRole path="/admin/rewards" title="Rewards" roles={lacking} />;
+  }
 
   const sp = await searchParams;
   const pick = (k: string) => {
@@ -80,7 +112,7 @@ export default async function AdminRewardsPage({
     return Array.isArray(v) ? v[0] : v;
   };
 
-  const live = demo === null ? await liveDesk() : null;
+  const live = demo === null ? await liveDesk(sp) : null;
   if (live) {
     return (
       <div className="space-y-6">
@@ -91,19 +123,25 @@ export default async function AdminRewardsPage({
             claim → redeem (§16).
           </p>
         </div>
-        <LiveRewardsDesk
-          rewards={live.rewards}
-          campaigns={live.campaigns}
-          consent={live.consent}
-          openNew={pick("new") === "1"}
-          actions={{
-            create: createRewardAction,
-            move: moveRewardAction,
-            detail: rewardDetailAction,
-            qrLink: qrLinkAction,
-            athletes: campaignAthletesAction,
-          }}
-        />
+        <ServerList>
+          <LiveRewardsDesk
+            rewards={live.rewards}
+            page={live.page}
+            summary={live.summary}
+            filters={live.filters}
+            campaigns={live.campaigns}
+            consent={live.consent}
+            openNew={pick("new") === "1"}
+            actions={{
+              create: createRewardAction,
+              move: moveRewardAction,
+              detail: rewardDetailAction,
+              qrLink: qrLinkAction,
+              athletes: campaignAthletesAction,
+              campaigns: searchCampaignsAction,
+            }}
+          />
+        </ServerList>
       </div>
     );
   }

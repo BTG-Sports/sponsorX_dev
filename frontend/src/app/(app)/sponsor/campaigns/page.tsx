@@ -6,6 +6,11 @@ import {
 } from "@/components/sponsor-campaigns-list";
 import { demoState } from "@/lib/demo";
 import { sponsor, sponsorCampaigns, sponsorCampaignsX } from "@/lib/fixtures";
+import { toCampaignRow } from "@/lib/sponsor-live";
+import { textParam } from "@/lib/list-query";
+import { SponsorCampaignsServer } from "@/components/sponsor-campaigns-server";
+import { CAMPAIGN_SORTS, CAMPAIGN_STATES } from "@/server/campaigns";
+import { liveSponsorCampaignPage } from "@/server/sponsor";
 
 /* --------------------------------------------------------------------------
    Sponsor Campaigns list — §9, sponsor portal (2026-09-15).
@@ -21,6 +26,16 @@ import { sponsor, sponsorCampaigns, sponsorCampaignsX } from "@/lib/fixtures";
    the list agrees with the dashboard's "N campaigns") and hands them to the
    SponsorCampaignsList client island, which owns instant search / status /
    pacing filters / sort, seeded from and synced to the URL.
+
+   LIVE (P2-FE-01). A signed-in sponsor gets their own campaigns from
+   GET /campaigns — the same read, scope and money gating as the dashboard —
+   as the same island. Views stay the ROI report's, so a live card shows "—"
+   rather than a number nobody measured. Anyone else, or any ?demo= state,
+   keeps the fixture portfolio.
+
+   SERVER-PAGED (2026-09-29). The live list is one page from GET /campaigns
+   (?page ?size ?q ?state ?sort, done in the database) plus the summary's
+   unfiltered total for the header — the browser never holds the portfolio.
    -------------------------------------------------------------------------- */
 
 export default async function SponsorCampaignsPage({
@@ -31,6 +46,60 @@ export default async function SponsorCampaignsPage({
   const demo = await demoState(searchParams);
   if (demo === "loading") return <SkeletonPage />;
   if (demo === "error") throw new Error("Demo error state");
+
+  const sp = await searchParams;
+  const one = (v: string | string[] | undefined) =>
+    typeof v === "string" ? v : "";
+  const initial = {
+    q: one(sp.q),
+    status: one(sp.status),
+    pace: one(sp.pace),
+    sort: one(sp.sort),
+    page: one(sp.page),
+    size: one(sp.size),
+  };
+
+  const live = demo === null ? await liveSponsorCampaignPage(sp) : null;
+  if (live) {
+    const now = new Date();
+    const liveRows = live.rows.map((c) => toCampaignRow(c, now));
+    const total = live.summary.total;
+    return (
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-xl font-semibold tracking-tight">Campaigns</h1>
+          <p className="mt-1 text-xs text-muted">
+            {live.rows[0]?.sponsorName ? `${live.rows[0].sponsorName} · ` : ""}
+            {total} {total === 1 ? "campaign" : "campaigns"} · pick
+            one for delivery, roster and its ROI report
+          </p>
+        </div>
+        {total === 0 ? (
+          <EmptyState
+            mark="chart"
+            title="No campaigns yet"
+            hint="Your campaigns appear here once BTG matches your first brief."
+            action={{ label: "Browse the marketplace", href: "/sponsor/marketplace" }}
+          />
+        ) : (
+          <SponsorCampaignsServer
+            rows={liveRows}
+            page={live.page}
+            q={textParam(sp, "q")}
+            state={textParam(sp, "state", CAMPAIGN_STATES)}
+            sort={textParam(sp, "sort", CAMPAIGN_SORTS)}
+          />
+        )}
+        <p className="text-[10px] text-faint">
+          Campaign state, package, athletes and delivery are from Postgres;
+          spend is your contracted Campaign Orders. Views and engagement are in
+          each campaign&rsquo;s ROI report. Pacing compares delivery progress
+          against elapsed campaign time — flagging under-delivery is your BTG
+          campaign manager&rsquo;s job (§9.9).
+        </p>
+      </div>
+    );
+  }
 
   const heading = (
     <div>
@@ -81,10 +150,6 @@ export default async function SponsorCampaignsPage({
     };
   });
 
-  const sp = await searchParams;
-  const one = (v: string | string[] | undefined) =>
-    typeof v === "string" ? v : "";
-
   return (
     <div className="space-y-6">
       {heading}
@@ -102,14 +167,7 @@ export default async function SponsorCampaignsPage({
       <SponsorCampaignsList
         rows={rows}
         demoParam={one(sp.demo) || undefined}
-        initial={{
-          q: one(sp.q),
-          status: one(sp.status),
-          pace: one(sp.pace),
-          sort: one(sp.sort),
-          page: one(sp.page),
-          size: one(sp.size),
-        }}
+        initial={initial}
       />
 
       <p className="text-[10px] text-faint">

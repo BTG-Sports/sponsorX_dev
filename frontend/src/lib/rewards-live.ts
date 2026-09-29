@@ -261,3 +261,74 @@ export function parseCap(input: string): number | null | "invalid" {
   const n = Number(t);
   return n >= 1 && n <= 1_000_000 ? n : "invalid";
 }
+
+/* --------------------------------------------------------------------------
+   Server-paged desk (2026-09-29). The desk's tab, search and campaign filter
+   live in the URL and are answered by the API — GET /rewards?page= for one
+   page, GET /rewards/summary for the tab counts and the strip — instead of
+   fetching 200 rewards to filter them in the browser.
+   -------------------------------------------------------------------------- */
+
+/** The desk's tabs, by reward state — the API maps the same keys (rewards.ts
+ *  REWARD_TABS): "ended" is EXPIRED or ARCHIVED. */
+export const REWARD_TABS = [
+  { key: "all", label: "All" },
+  { key: "live", label: "Live" },
+  { key: "draft", label: "Draft" },
+  { key: "paused", label: "Paused" },
+  { key: "ended", label: "Ended" },
+] as const;
+export type RewardTab = (typeof REWARD_TABS)[number]["key"];
+export const REWARD_TAB_KEYS: readonly string[] = REWARD_TABS.map((t) => t.key);
+
+/** GET /rewards/summary. `funnel` null for a caller who doesn't read events. */
+export type RewardSummary = {
+  tabs: Record<RewardTab, number>;
+  live: number;
+  funnel: { SCAN: number; CLAIM: number; REDEEM: number } | null;
+};
+
+export const EMPTY_SUMMARY: RewardSummary = {
+  tabs: { all: 0, live: 0, draft: 0, paused: 0, ended: 0 },
+  live: 0,
+  funnel: null,
+};
+
+/** The desk's URL filters → the extras the API list is sent. "all" is the
+ *  default tab and is not sent. */
+export function rewardDeskFilters(sp: Record<string, string | string[] | undefined>): { q: string; tab: RewardTab; campaignId: string } {
+  const one = (v: string | string[] | undefined) => ((Array.isArray(v) ? v[0] : v) ?? "").trim();
+  const tab = one(sp.tab);
+  return {
+    q: one(sp.q).slice(0, 100),
+    tab: REWARD_TAB_KEYS.includes(tab) ? (tab as RewardTab) : "all",
+    campaignId: one(sp.campaignId).slice(0, 100),
+  };
+}
+
+/** What a reward can attach to: a campaign with athletes signed onto it. */
+export const REWARDABLE_STATES = ["STAFFING", "APPROVAL", "ACTIVE", "REPORTING"] as const;
+export const PICKER_SIZE = 24;
+
+/** The creator's campaign picker query — one page of rewardable campaigns,
+ *  by name, searched in the database (never every campaign). */
+export function campaignPickerPath(q: string): string {
+  const u = new URLSearchParams({ page: "1", size: String(PICKER_SIZE), sort: "name", state: REWARDABLE_STATES.join(",") });
+  const t = q.trim().slice(0, 100);
+  if (t) u.set("q", t);
+  return `/campaigns?${u}`;
+}
+
+export type CampaignOption = { id: string; name: string; sponsorName: string; endDate: string };
+
+/** A picker result: the options shown and how many matched in all. */
+export type CampaignSearch = { ok: true; campaigns: CampaignOption[]; total: number } | { ok: false; message: string };
+
+/** GET /campaigns?page= rows → picker options, filtered to what can take a
+ *  reward (belt and braces — the query already asks for those states). */
+export function pickerOptions(rows: { id: string; name: string; sponsorName: string; endDate: string; state?: string }[]): CampaignOption[] {
+  const ok = new Set<string>(REWARDABLE_STATES);
+  return rows
+    .filter((c) => c.state === undefined || ok.has(c.state))
+    .map((c) => ({ id: c.id, name: c.name, sponsorName: c.sponsorName, endDate: c.endDate }));
+}

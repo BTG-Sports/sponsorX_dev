@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { AthleteProfileView } from "@/components/athlete-profile-view";
-import { Badge, Card, Meter, SourceLabel } from "@/components/ui";
+import { Badge, BlockedNotice, Card, Meter, SourceLabel } from "@/components/ui";
 import { athlete, athletePublic, profileChecklist } from "@/lib/fixtures";
 import { CHECKLIST_SECTION, SECTIONS, type SectionKey } from "@/lib/profile-sections";
 import {
@@ -287,6 +287,15 @@ export default async function ProfilePage({
 
   return (
     <div className="mx-auto w-full max-w-5xl">
+      {/* C-2 (check pass): only a signed-in non-athlete — a guardian, or
+          staff previewing — reaches this fixture view; it must never read as
+          their own profile. */}
+      <div className="mb-4">
+        <BlockedNotice>
+          Demo data — this is a sample profile, not a real one. A guardian
+          view of the athlete&rsquo;s profile isn&rsquo;t built yet.
+        </BlockedNotice>
+      </div>
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-xl font-semibold tracking-tight">

@@ -1,5 +1,6 @@
 import { BackLink } from "@/components/back-link";
-import { Card, SectionHeading } from "@/components/ui";
+import Link from "next/link";
+import { BlockedNotice, Card, SectionHeading } from "@/components/ui";
 import { HeroBand, MiniChip } from "@/components/hero";
 import { compact } from "@/components/charts";
 import { inventoryItem, money } from "@/lib/fixtures";
@@ -31,6 +32,16 @@ export default async function InventoryDetailPage({
   return (
     <div className="space-y-5">
       <BackLink target={back} />
+
+      {/* C-5 (check pass): this is the demo media-property detail — linked
+          only from the demo "Media properties" tab, but reachable by URL, so
+          it must say what it is to a signed-in sponsor. */}
+      <BlockedNotice>
+        Demo data — a sample media-property listing. BTG&rsquo;s own media
+        properties aren&rsquo;t bookable in Phase 1; browse the packages and
+        NIL jobs on the{" "}
+        <Link href="/sponsor/marketplace" className="underline">marketplace</Link>.
+      </BlockedNotice>
 
       {/* ------------------------------------------------------- hero band */}
       <HeroBand className="sx-animate">

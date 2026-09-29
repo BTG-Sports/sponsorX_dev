@@ -28,6 +28,7 @@ import { assertAllowed, assertTenantWide, whereFor } from "../auth/scope";
 import { scopeFor } from "../auth/policy";
 import { ForbiddenError } from "../auth/errors";
 import { transitionAthleteIn } from "./athlete";
+import { readPage, type PageRequest } from "../lib/paging";
 
 export class FeaturedError extends Error {
   readonly status: number;
@@ -79,6 +80,8 @@ export async function createFeaturedAthlete(
  * birth, age band or anything academic.
  */
 export async function publicProfile(slug: string) {
+  /* A NUL byte can never be a slug, and Postgres refuses it (QA pass 7, F-1). */
+  if (slug.includes("\0")) throw new ProfileNotFoundError();
   const a = await prisma.athlete.findFirst({
     /* tenant-scope: public profile — the slug is globally unique and the page is public by design. */
     where: { slug, state: { in: ["FEATURED", "ACTIVE"] } },
@@ -127,13 +130,40 @@ export async function submitClaim(
   });
 }
 
+const CLAIM_SELECT = { id: true, athleteId: true, claimantName: true, claimantEmail: true, rosterMatched: true, state: true, createdAt: true } as const;
+export const CLAIM_STATES = ["SUBMITTED", "VERIFIED", "REJECTED"] as const;
+export type ClaimStateName = (typeof CLAIM_STATES)[number];
+
 export async function listClaims(actor: Actor) {
   assertAllowed(actor, "athleteClaim", "read");
   return prisma.athleteClaim.findMany({
     where: { ...whereFor(actor, "athleteClaim", "read") },
-    select: { id: true, athleteId: true, claimantName: true, claimantEmail: true, rosterMatched: true, state: true, createdAt: true },
+    select: CLAIM_SELECT,
     orderBy: { createdAt: "desc" },
   });
+}
+
+/**
+ * GET /claims?page= — one page of the caller's claims, optionally narrowed
+ * to states, plus the open (SUBMITTED) and total counts — counted in the
+ * database with the same scope, not folded over every row (2026-09-29).
+ */
+export async function listClaimsPage(actor: Actor, req: PageRequest, opts: { states?: ClaimStateName[] } = {}) {
+  assertAllowed(actor, "athleteClaim", "read");
+  const where = opts.states?.length
+    ? { ...whereFor(actor, "athleteClaim", "read"), state: { in: opts.states } }
+    : { ...whereFor(actor, "athleteClaim", "read") };
+  const [{ rows, page }, open, all] = await Promise.all([
+    readPage(
+      req,
+      () => prisma.athleteClaim.count({ where: { ...where } }),
+      (skip, take) =>
+        prisma.athleteClaim.findMany({ where: { ...where }, select: CLAIM_SELECT, orderBy: [{ createdAt: "desc" }, { id: "desc" }], skip, take }),
+    ),
+    prisma.athleteClaim.count({ where: { ...whereFor(actor, "athleteClaim", "read"), state: "SUBMITTED" } }),
+    prisma.athleteClaim.count({ where: { ...whereFor(actor, "athleteClaim", "read") } }),
+  ]);
+  return { claims: rows, page, summary: { open, all } };
 }
 
 /**

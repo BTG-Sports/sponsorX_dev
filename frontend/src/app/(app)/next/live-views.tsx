@@ -8,14 +8,18 @@ import { StudentCodeCard } from "@/components/student-code-card";
 import { ProspectForm } from "@/components/student-prospect";
 import { ICONS } from "@/components/icons";
 import { money } from "@/lib/fixtures";
+import { ListFilter, PagerRow, PendingList, ServerList } from "@/components/server-pager";
+import type { PageInfo } from "@/lib/list-query";
 import {
+  LEDGER_KEYS,
   POINT_REASON_COPY,
+  PROSPECT_FILTERS,
   PROSPECT_STATE_COPY,
   STUDENT_CATEGORIES,
   STUDENT_STATE_COPY,
   salesMilestone,
 } from "@/lib/students-live";
-import type { LiveStudent } from "./live";
+import type { ApiStudentProspect, LiveStudent } from "./live";
 
 /* --------------------------------------------------------------------------
    P9-FE-01 / -10 — the student portal on the student's own records.
@@ -67,9 +71,9 @@ function ActiveOnly({ s }: { s: Student["student"] }) {
 export function LiveStudentHome({ live }: { live: Student }) {
   const s = live.student;
   const total = live.sales?.totalCents ?? 0;
-  const waiting = (live.prospects ?? []).filter((p) => p.state === "SUBMITTED").length;
+  const waiting = live.prospects?.summary.states.SUBMITTED ?? 0;
   const tiles = [
-    { href: "/next/sales", label: "Closed sales", value: live.sales ? money(total) : "—", sub: live.sales ? `${live.sales.sales.length} recorded by SponsorX` : "not in your scope" },
+    { href: "/next/sales", label: "Closed sales", value: live.sales ? money(total) : "—", sub: live.sales ? `${live.sales.page.total} recorded by SponsorX` : "not in your scope" },
     { href: "/next/points", label: "Points", value: live.points ? `${live.points.balance} pts` : "—", sub: "recognition, never pay" },
     { href: "/next/code", label: "My code", value: live.code ?? "not issued", sub: live.code ? "hand it to a business" : "issued once you're active" },
   ];
@@ -108,15 +112,55 @@ export function LiveStudentHome({ live }: { live: Student }) {
 }
 
 /* --------------------------------------------------------------- sales */
-export function LiveStudentSales({ live }: { live: Student }) {
+const NO_PAGE: PageInfo = { page: 1, size: 12, total: 0, pages: 1 };
+
+function ProspectCard({ p }: { p: ApiStudentProspect }) {
+  if (p.state !== "REJECTED") {
+    return (
+      <Card>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <p className="min-w-0 break-words text-sm font-medium">{p.businessName}</p>
+          <Badge tone={p.state === "ACCEPTED" ? "accent" : "primary"}>{PROSPECT_STATE_COPY[p.state]}</Badge>
+        </div>
+        <p className="mt-1 text-xs text-muted">{label(p.category)} · logged {date(p.createdAt)}</p>
+      </Card>
+    );
+  }
+  return (
+    <Card className="border-danger/25">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="min-w-0 break-words text-sm font-medium">{p.businessName}</p>
+        <div className="flex flex-wrap items-center gap-1.5">
+          <Badge tone="danger">{PROSPECT_STATE_COPY[p.state]}</Badge>
+          {p.reasonCode && <Badge tone="neutral">{p.reasonCode.replace(/_/g, " ").toLowerCase()}</Badge>}
+        </div>
+      </div>
+      <p className="mt-2 flex flex-wrap items-center gap-2 text-xs">
+        <span className="font-medium text-success">✓ Sales credit kept</span>
+        {p.redirectCategories.length > 0 && (
+          <span className="text-faint">Still open at your school: {p.redirectCategories.slice(0, 5).map(label).join(", ")}</span>
+        )}
+      </p>
+    </Card>
+  );
+}
+
+/**
+ * My sales, server-paged (2026-09-29): prospects on ?page / ?size with the
+ * ?pstate filter, the attribution ledger on its own ?lpage / ?lsize. The
+ * all-time total and the per-state counts are the API's aggregates.
+ */
+export function LiveStudentSales({ live, pstate = "" }: { live: Student; pstate?: string }) {
   const s = live.student;
   const sales = live.sales?.sales ?? [];
+  const ledgerPage = live.sales?.page ?? NO_PAGE;
   const total = live.sales?.totalCents ?? 0;
-  const prospects = live.prospects ?? [];
-  const open = prospects.filter((p) => p.state !== "REJECTED");
-  const rejected = prospects.filter((p) => p.state === "REJECTED");
+  const prospects = live.prospects?.prospects ?? [];
+  const prospectPage = live.prospects?.page ?? NO_PAGE;
+  const counts = live.prospects?.summary ?? { states: { SUBMITTED: 0, ACCEPTED: 0, REJECTED: 0 }, all: 0 };
   const m = salesMilestone(total);
   return (
+    <ServerList>
     <div className="space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
@@ -140,7 +184,7 @@ export function LiveStudentSales({ live }: { live: Student }) {
         <Card className="min-w-0 p-4">
           <p className="text-[11px] font-medium uppercase tracking-wide text-muted">With SponsorX</p>
           <p className="mt-1.5 flex items-baseline gap-1.5">
-            <span className="text-2xl font-semibold tabular-nums tracking-tight">{open.filter((p) => p.state === "SUBMITTED").length}</span>
+            <span className="text-2xl font-semibold tabular-nums tracking-tight">{counts.states.SUBMITTED}</span>
             <span className="text-[11px] text-faint">prospects in the acceptance check</span>
           </p>
         </Card>
@@ -159,67 +203,78 @@ export function LiveStudentSales({ live }: { live: Student }) {
 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
         <section className="sx-animate min-w-0">
-          <SectionHeading title={`Prospects · ${prospects.length}`} hint="What you've handed SponsorX — they decide, you hear back" />
-          {prospects.length === 0 ? (
+          <SectionHeading title={`Prospects · ${counts.all}`} hint="What you've handed SponsorX — they decide, you hear back" />
+          {counts.all === 0 ? (
             <p className="rounded-xl border border-line bg-surface px-5 py-6 text-center text-xs text-muted">No prospects yet — log the first business you talk to.</p>
           ) : (
             <div className="space-y-3">
-              {open.map((p) => (
-                <Card key={p.id}>
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <p className="text-sm font-medium">{p.businessName}</p>
-                    <Badge tone={p.state === "ACCEPTED" ? "accent" : "primary"}>{PROSPECT_STATE_COPY[p.state]}</Badge>
-                  </div>
-                  <p className="mt-1 text-xs text-muted">{label(p.category)} · logged {date(p.createdAt)}</p>
-                </Card>
-              ))}
-              {rejected.map((p) => (
-                <Card key={p.id} className="border-danger/25">
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <p className="text-sm font-medium">{p.businessName}</p>
-                    <div className="flex items-center gap-1.5">
-                      <Badge tone="danger">{PROSPECT_STATE_COPY[p.state]}</Badge>
-                      {p.reasonCode && <Badge tone="neutral">{p.reasonCode.replace(/_/g, " ").toLowerCase()}</Badge>}
-                    </div>
-                  </div>
-                  <p className="mt-2 flex flex-wrap items-center gap-2 text-xs">
-                    <span className="font-medium text-success">✓ Sales credit kept</span>
-                    {p.redirectCategories.length > 0 && (
-                      <span className="text-faint">Still open at your school: {p.redirectCategories.slice(0, 5).map(label).join(", ")}</span>
-                    )}
-                  </p>
-                </Card>
-              ))}
+              <ListFilter
+                param="pstate"
+                value={pstate}
+                label="Filter prospects"
+                allLabel={`All prospects · ${counts.all}`}
+                options={PROSPECT_FILTERS.map((f) => ({
+                  value: f.value,
+                  label: `${f.label} · ${f.value === "open" ? counts.states.SUBMITTED + counts.states.ACCEPTED : counts.states.REJECTED}`,
+                }))}
+                tone="next"
+              />
+              {prospectPage.total === 0 ? (
+                <p className="rounded-xl border border-line bg-surface px-5 py-6 text-center text-xs text-muted">None here — pick another filter.</p>
+              ) : (
+                <>
+                  <PagerRow page={prospectPage} noun="Prospects" tone="next" position="top" filtered={Boolean(pstate)} />
+                  <PendingList className="space-y-3">
+                    {prospects.map((p) => (
+                      <ProspectCard key={p.id} p={p} />
+                    ))}
+                  </PendingList>
+                  <PagerRow page={prospectPage} noun="Prospects" tone="next" position="bottom" filtered={Boolean(pstate)} />
+                </>
+              )}
             </div>
           )}
         </section>
 
         <section className="sx-animate sx-delay-1 min-w-0">
-          <SectionHeading title="Attribution ledger" hint="Permanent — recorded at close, kept after graduation" />
+          <SectionHeading title={`Attribution ledger · ${ledgerPage.total}`} hint="Permanent — recorded at close, kept after graduation" />
+          {sales.length > 0 && (
+            <div className="mb-3">
+              <PagerRow page={ledgerPage} noun="Sales" tone="next" position="top" keys={LEDGER_KEYS} />
+            </div>
+          )}
           <Card className="p-0">
             {sales.length === 0 ? (
               <p className="px-4 py-6 text-center text-xs text-muted">No closed sales yet — that&rsquo;s normal. Your first pitch is the hard one.</p>
             ) : (
-              <ul className="divide-y divide-line-soft">
-                {sales.map((r) => (
-                  <li key={r.id} className="flex items-center justify-between gap-3 px-4 py-3">
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-medium">Sale credited to you</p>
-                      <p className="mt-0.5 text-[11px] text-muted">closed {date(r.originatedAt)}</p>
-                    </div>
-                    <span className="shrink-0 text-sm font-semibold tabular-nums">{money(r.value)}</span>
-                  </li>
-                ))}
-              </ul>
+              <PendingList>
+                <ul className="divide-y divide-line-soft">
+                  {sales.map((r) => (
+                    <li key={r.id} className="flex items-center justify-between gap-3 px-4 py-3">
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-medium">Sale credited to you</p>
+                        <p className="mt-0.5 text-[11px] text-muted">closed {date(r.originatedAt)}</p>
+                      </div>
+                      <span className="shrink-0 text-sm font-semibold tabular-nums">{money(r.value)}</span>
+                    </li>
+                  ))}
+                </ul>
+              </PendingList>
             )}
             <p className="border-t border-line-soft px-4 py-3 text-[11px] leading-relaxed text-faint">
               Rows here are written by SponsorX when a sponsor pays — never self-reported, never edited, never deleted.
               The business&rsquo;s name isn&rsquo;t shown: sponsor records aren&rsquo;t part of a student&rsquo;s access.
             </p>
           </Card>
+          {sales.length > 0 && (
+            <div className="mt-3">
+              <PagerRow page={ledgerPage} noun="Sales" tone="next" position="bottom" keys={LEDGER_KEYS} />
+            </div>
+          )}
         </section>
       </div>
     </div>
+    </ServerList>
   );
 }
 
@@ -258,6 +313,7 @@ export function LiveStudentCode({ live, origin }: { live: Student; origin: strin
 /* -------------------------------------------------------------- points */
 export function LiveStudentPoints({ live }: { live: Student }) {
   const accruals = live.points?.accruals ?? [];
+  const accrualPage = live.points?.page ?? NO_PAGE;
   const balance = live.points?.balance ?? 0;
   const m = salesMilestone(live.sales?.totalCents ?? 0);
   return (
@@ -301,24 +357,38 @@ export function LiveStudentPoints({ live }: { live: Student }) {
           </Card>
           <section className="sx-animate sx-delay-1 min-w-0">
             <SectionHeading title="How you earned them" hint="Every accrual, newest first — written once, never edited" />
-            <Card className="p-0">
-              {accruals.length === 0 ? (
-                <p className="px-4 py-6 text-center text-xs text-muted">No points yet — your first approved piece or sales meeting starts the ledger.</p>
-              ) : (
-                <ul className="divide-y divide-line-soft">
-                  {accruals.map((a) => (
-                    <li key={a.id} className="flex items-center gap-3 px-4 py-3">
-                      <span className="shrink-0 rounded-lg bg-next/12 px-2 py-1 text-xs font-bold tabular-nums text-next">+{a.points}</span>
-                      <span className="min-w-0 flex-1">
-                        <span className="line-clamp-2 text-sm leading-snug">{POINT_REASON_COPY[a.reason] ?? a.reason}</span>
-                        <span className="mt-0.5 block text-[10px] text-faint">{date(a.accruedAt)}</span>
-                      </span>
-                      <Badge tone="neutral">{a.reason.replace("_", " ").toLowerCase()}</Badge>
-                    </li>
-                  ))}
-                </ul>
+            <ServerList>
+              {accruals.length > 0 && (
+                <div className="mb-3">
+                  <PagerRow page={accrualPage} noun="Accruals" tone="next" position="top" />
+                </div>
               )}
-            </Card>
+              <Card className="p-0">
+                {accruals.length === 0 ? (
+                  <p className="px-4 py-6 text-center text-xs text-muted">No points yet — your first approved piece or sales meeting starts the ledger.</p>
+                ) : (
+                  <PendingList>
+                    <ul className="divide-y divide-line-soft">
+                      {accruals.map((a) => (
+                        <li key={a.id} className="flex items-center gap-3 px-4 py-3">
+                          <span className="shrink-0 rounded-lg bg-next/12 px-2 py-1 text-xs font-bold tabular-nums text-next">+{a.points}</span>
+                          <span className="min-w-0 flex-1">
+                            <span className="line-clamp-2 text-sm leading-snug">{POINT_REASON_COPY[a.reason] ?? a.reason}</span>
+                            <span className="mt-0.5 block text-[10px] text-faint">{date(a.accruedAt)}</span>
+                          </span>
+                          <Badge tone="neutral">{a.reason.replace("_", " ").toLowerCase()}</Badge>
+                        </li>
+                      ))}
+                    </ul>
+                  </PendingList>
+                )}
+              </Card>
+              {accruals.length > 0 && (
+                <div className="mt-3">
+                  <PagerRow page={accrualPage} noun="Accruals" tone="next" position="bottom" />
+                </div>
+              )}
+            </ServerList>
           </section>
           <Card className="border-next/25">
             <p className="text-sm font-medium">What points are not</p>

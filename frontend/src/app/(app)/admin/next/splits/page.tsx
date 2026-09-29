@@ -9,6 +9,7 @@ import {
   studentEdition,
   type SplitPayeeKind,
 } from "@/lib/fixtures";
+import { NotInRole, staffWithoutAccess } from "@/components/not-in-role";
 
 /* --------------------------------------------------------------------------
    Revenue splits — P1-FE-23, spec §5.7, §8. Per edition: four payees, their
@@ -42,6 +43,12 @@ export default async function RevenueSplitsPage({
   const demo = await demoState(searchParams);
   if (demo === "loading") return <SkeletonPage />;
   if (demo === "error") throw new Error("Demo error state");
+  /* C-1: a staff role this desk isn't for gets "not in your role", not the
+     sample desk. The demo stays for ?demo= and signed-out visitors. */
+  if (demo === null) {
+    const lacking = await staffWithoutAccess("/admin/next/splits");
+    if (lacking) return <NotInRole path="/admin/next/splits" title="NEXT splits" roles={lacking} />;
+  }
 
   /* P9-FE-05 — a signed-in NEXT desk reads RevenueSplit; ?demo= keeps fixtures. */
   if (!demo) {

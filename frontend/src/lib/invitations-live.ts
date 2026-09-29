@@ -1,5 +1,6 @@
 import type { InviteState } from "@/lib/fixtures";
 import { urgencyHours } from "@/lib/invitations-ui";
+import { apiListQuery, textParam, type PageInfo, type SearchParams } from "@/lib/list-query";
 
 /* --------------------------------------------------------------------------
    P4-FE-04 — the athlete invitation inbox's live translation: GET /invitations
@@ -133,6 +134,51 @@ export function fixtureInboxRow(i: {
     hoursLeft: urgencyHours(i.expiresIn),
     sentAt: null,
   };
+}
+
+/* --------------------------------------------------------------------------
+   SERVER-PAGED inbox (2026-09-29). The page reads ?state (a tab) ?job ?q
+   ?sort ?page ?size and asks GET /invitations for that one page; the stat
+   strip is GET /invitations/summary. The API's "open" is answerable AND not
+   past expiry — a lapsed-but-unswept invite sits under Expired.
+   -------------------------------------------------------------------------- */
+
+export const INBOX_TABS = ["open", "accepted", "declined", "expired"] as const;
+export const INBOX_SORTS = ["expiry", "offerDesc", "offerAsc", "sponsor"] as const;
+
+export type InboxCounts = Record<"all" | (typeof INBOX_TABS)[number], number>;
+
+export type ApiInvitationPage = {
+  invitations: ApiInvitation[];
+  page: PageInfo;
+  counts: InboxCounts;
+};
+
+export type ApiInvitationSummary = {
+  total: number;
+  open: number;
+  openValue: number;
+  nextExpiry: { expiresAt: string; offered: number; sponsorName: string | null } | null;
+  accepted: number;
+  resolved: number;
+  jobs: { jobId: string; jobName: string }[];
+};
+
+/** The URL's inbox view → GET /invitations' paged query. */
+export function inboxApiQuery(sp: SearchParams): string {
+  return apiListQuery(sp, {
+    state: textParam(sp, "state", INBOX_TABS),
+    job: textParam(sp, "job"),
+    q: textParam(sp, "q"),
+    sort: textParam(sp, "sort", INBOX_SORTS),
+  });
+}
+
+/** The summary's next expiry, as the stat tile says it ("2 days"). */
+export function nextExpiryLabel(s: ApiInvitationSummary, now: Date): string | null {
+  if (!s.nextExpiry) return null;
+  const hours = (new Date(s.nextExpiry.expiresAt).getTime() - now.getTime()) / 3_600_000;
+  return hours > 0 ? timeLeft(hours) : "expired";
 }
 
 /** What the card offers next, per §21's invite machine. Accept only out of

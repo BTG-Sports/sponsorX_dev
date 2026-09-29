@@ -3,6 +3,8 @@ import { MiniChip } from "@/components/hero";
 import { EmptyState } from "@/components/states";
 import { money } from "@/lib/fixtures";
 import { apiFetch, fetchActor } from "@/server/api";
+import { apiListQuery, type PageInfo, type SearchParams } from "@/lib/list-query";
+import { ReachList, type ReachRow } from "./reach-list";
 
 /* --------------------------------------------------------------------------
    Network analytics — P7-FE-05, §22 §23. BTG's own view of the marketplace.
@@ -17,7 +19,9 @@ import { apiFetch, fetchActor } from "@/server/api";
    - GET /operations/delivery-health — the marketplace-learning read: each
      live campaign's frozen reach PROJECTION (made when the order was sold,
      P7-DATA-03) against the reach actually VERIFIED. That gap is what
-     pricing learns from; it is shown as-is, never smoothed.
+     pricing learns from; it is shown as-is, never smoothed. SERVER-PAGED
+     (2026-09-29): one page (?page / ?size) of the campaigns that carry a
+     projection, `?projected=true` — the API filters and counts them.
 
    Tenant-wide by definition. There is no fixture version of this screen —
    it was never built on fixtures — so a role the API refuses sees why.
@@ -41,23 +45,16 @@ type JobEcon = {
   totalMargin: number;
   marginRate: number;
 };
-type Health = {
-  campaignId: string;
-  campaignName: string;
-  projectedImpressions: number | null;
-  verifiedImpressions: number;
-  underDeliveringReach: boolean;
-};
 
 const pct = (r: number) => `${Math.round(r * 1000) / 10}%`;
 
-async function load() {
+async function load(sp: SearchParams) {
   const who = await fetchActor();
   if (who.status !== "linked") return { kind: "anon" as const };
   const [n, j, h] = await Promise.all([
     apiFetch("/operations/network-metrics"),
     apiFetch("/operations/job-economics"),
-    apiFetch("/operations/delivery-health"),
+    apiFetch(`/operations/delivery-health${apiListQuery(sp, { projected: "true" })}`),
   ]);
   if (n.status === 403 || j.status === 403) return { kind: "denied" as const };
   if (!n.ok || !j.ok || !h.ok) throw new Error(`Network metrics unavailable (${n.status}/${j.status}/${h.status}).`);
@@ -65,12 +62,12 @@ async function load() {
     kind: "ok" as const,
     network: (await n.json()) as Network,
     jobs: ((await j.json()) as { jobs: JobEcon[] }).jobs,
-    health: ((await h.json()) as { campaigns: Health[] }).campaigns,
+    health: (await h.json()) as { campaigns: ReachRow[]; page: PageInfo },
   };
 }
 
-export default async function NetworkPage() {
-  const data = await load();
+export default async function NetworkPage({ searchParams }: { searchParams: Promise<SearchParams> }) {
+  const data = await load(await searchParams);
   const heading = (
     <div>
       <h1 className="text-xl font-semibold tracking-tight">Network</h1>
@@ -95,7 +92,6 @@ export default async function NetworkPage() {
 
   const { network: n, jobs, health } = data;
   const grossMargin = n.averageSellPrice ? 1 - n.averageJobPay / n.averageSellPrice : null;
-  const projected = health.filter((h) => h.projectedImpressions !== null && h.projectedImpressions > 0);
 
   return (
     <div className="space-y-6">
@@ -164,37 +160,15 @@ export default async function NetworkPage() {
           title="How well we price reach"
           hint="Each live campaign's projection — frozen when its orders were sold — against the reach actually verified."
         />
-        <Card className="p-0">
-          {projected.length === 0 ? (
+        {health.page.total === 0 ? (
+          <Card className="p-0">
             <p className="px-4 py-6 text-center text-xs text-muted">
               No live campaign carries a reach projection yet — they are frozen onto orders as they are sold.
             </p>
-          ) : (
-            <ul className="divide-y divide-line-soft">
-              {projected.map((h) => {
-                const ratio = h.verifiedImpressions / (h.projectedImpressions as number);
-                return (
-                  <li key={h.campaignId} className="px-4 py-3">
-                    <div className="flex flex-wrap items-baseline justify-between gap-2 text-xs">
-                      <span className="font-medium">{h.campaignName}</span>
-                      <span className="tabular-nums text-muted">
-                        {h.verifiedImpressions.toLocaleString("en-US")} verified of{" "}
-                        {(h.projectedImpressions as number).toLocaleString("en-US")} projected ·{" "}
-                        <strong className={h.underDeliveringReach ? "text-warn" : "text-text"}>{pct(ratio)}</strong>
-                      </span>
-                    </div>
-                    <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-surface-2">
-                      <div
-                        className={`h-full rounded-full ${h.underDeliveringReach ? "bg-warn" : "bg-primary"}`}
-                        style={{ width: `${Math.min(100, Math.round(ratio * 100))}%` }}
-                      />
-                    </div>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-        </Card>
+          </Card>
+        ) : (
+          <ReachList rows={health.campaigns} page={health.page} />
+        )}
         <p className="mt-2 flex items-center gap-1.5 text-[10px] text-faint">
           projection <MiniChip kind="est">EST</MiniChip> · reach <MiniChip kind="ver">VERIFIED</MiniChip> — below 70% is flagged
         </p>

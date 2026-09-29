@@ -33,6 +33,7 @@ import {
   type StudentState,
 } from "./student-state";
 import { pointsFor, salesMilestonesCrossed, type PointReason } from "./student-points";
+import { readPage, type PageRequest } from "../lib/paging";
 
 export const MASTHEAD_ROLES = ["EDITOR", "WRITER", "PHOTOGRAPHER", "VIDEO", "DESIGNER", "SALES", "CORRESPONDENT"] as const;
 export type MastheadRole = (typeof MASTHEAD_ROLES)[number];
@@ -185,6 +186,59 @@ export async function listStudents(actor: Actor) {
 }
 
 /**
+ * The advisor desk's five groups (2026-09-29, server paging) — the same
+ * split the desk has always drawn, now a WHERE instead of a browser filter.
+ * Every state lands in exactly one group.
+ */
+export const STUDENT_GROUPS = {
+  waiting: ["SUBMITTED", "UNDER_REVIEW"],
+  approved: ["APPROVED"],
+  with: ["CHANGES_REQUESTED", "DRAFT"],
+  roster: ["ACTIVE", "SUSPENDED"],
+  closed: ["REJECTED", "INACTIVE"],
+} as const satisfies Record<string, readonly StudentState[]>;
+export type StudentGroup = keyof typeof STUDENT_GROUPS;
+export const STUDENT_GROUP_KEYS = Object.keys(STUDENT_GROUPS) as StudentGroup[];
+
+const groupOf = (state: string): StudentGroup | undefined =>
+  STUDENT_GROUP_KEYS.find((g) => (STUDENT_GROUPS[g] as readonly string[]).includes(state));
+
+/** `?q=` over the two names — both already in STUDENT_SELECT, so a search
+ *  can only find what the caller would have been shown anyway. */
+const studentSearch = (q?: string): Prisma.StudentWhereInput =>
+  q ? { OR: [{ displayName: { contains: q, mode: "insensitive" } }, { legalName: { contains: q, mode: "insensitive" } }] } : {};
+
+/**
+ * GET /students?page= — one page of the caller's students, optionally one
+ * group and a name search, plus every group's count (groupBy, not a fold):
+ * the counts honour the search but not the group, so the desk's tabs say
+ * what each would hold.
+ */
+export async function listStudentsPage(actor: Actor, req: PageRequest, opts: { group?: StudentGroup; q?: string } = {}) {
+  const scope = { ...whereFor(actor, "student", "read"), ...studentSearch(opts.q) };
+  const where: Prisma.StudentWhereInput = opts.group ? { ...scope, state: { in: [...STUDENT_GROUPS[opts.group]] } } : scope;
+  const [{ rows, page }, counts] = await Promise.all([
+    readPage(
+      req,
+      () => prisma.student.count({ where: { ...where } }),
+      (skip, take) =>
+        prisma.student.findMany({ where: { ...where }, select: STUDENT_SELECT, orderBy: [{ createdAt: "desc" }, { id: "desc" }], skip, take }),
+    ),
+    prisma.student.groupBy({
+      /* tenant-scope: `scope` is whereFor(student, read) plus the name search. */
+      by: ["state"], where: { ...scope }, _count: { _all: true },
+    }),
+  ]);
+  const groups = Object.fromEntries(STUDENT_GROUP_KEYS.map((g) => [g, 0])) as Record<StudentGroup, number>;
+  for (const c of counts) {
+    const g = groupOf(c.state);
+    if (g) groups[g] += c._count._all;
+  }
+  const all = STUDENT_GROUP_KEYS.reduce((n, g) => n + groups[g], 0);
+  return { students: rows, page, summary: { groups, all } };
+}
+
+/**
  * Move a student through the lifecycle. Submitting is the student's own act
  * (`write`); every other move is a review (`approve`) — the school's advisor
  * or BTG. ACTIVE needs a verified guardian for a minor, on the athlete's rule.
@@ -310,6 +364,8 @@ export async function readStudentCode(actor: Actor, studentId: string): Promise<
  * of a (usually minor) student (P9-SEC-01).
  */
 export async function resolveStudentCode(code: string): Promise<{ code: string; studentName: string; school: string }> {
+  /* A NUL byte can never be a code, and Postgres refuses it (QA pass 7, F-1). */
+  if (code.includes("\0")) throw new UnknownCodeError();
   const row = await prisma.studentCode.findFirst({
     /* tenant-scope: public resolver — the code is globally unique and unguessable. */
     where: { code, student: { is: { state: "ACTIVE" } } },
@@ -378,26 +434,63 @@ export async function attributeSale(
   return { attributionId: row.id };
 }
 
-export async function studentSales(actor: Actor, studentId: string) {
+const SALE_SELECT = { id: true, sponsorId: true, campaignId: true, editionId: true, value: true, originatedAt: true } as const;
+const ACCRUAL_SELECT = { id: true, reason: true, points: true, editionId: true, accruedAt: true } as const;
+
+/**
+ * A student's attribution ledger. `totalCents` is the database's `_sum`, not
+ * a fold over the rows — so a paged read (`req`) still answers the all-time
+ * total. Without `req` the response is the legacy one: every row, newest
+ * first.
+ */
+export async function studentSales(actor: Actor, studentId: string, req?: PageRequest | null) {
   assertAllowed(actor, "saleAttribution", "read");
   await getStudent(actor, studentId);
-  const rows = await prisma.salesAttribution.findMany({
-    where: { ...whereFor(actor, "saleAttribution", "read"), studentId },
-    select: { id: true, sponsorId: true, campaignId: true, editionId: true, value: true, originatedAt: true },
-    orderBy: { originatedAt: "desc" },
-  });
-  return { sales: rows, totalCents: rows.reduce((s, r) => s + r.value, 0) };
+  const where = { ...whereFor(actor, "saleAttribution", "read"), studentId };
+  const sum = prisma.salesAttribution.aggregate({ where: { ...where }, _sum: { value: true } });
+  if (!req) {
+    const [rows, agg] = await Promise.all([
+      prisma.salesAttribution.findMany({ where: { ...where }, select: SALE_SELECT, orderBy: { originatedAt: "desc" } }),
+      sum,
+    ]);
+    return { sales: rows, totalCents: agg._sum.value ?? 0 };
+  }
+  const [{ rows, page }, agg] = await Promise.all([
+    readPage(
+      req,
+      () => prisma.salesAttribution.count({ where: { ...where } }),
+      (skip, take) =>
+        prisma.salesAttribution.findMany({ where: { ...where }, select: SALE_SELECT, orderBy: [{ originatedAt: "desc" }, { id: "desc" }], skip, take }),
+    ),
+    sum,
+  ]);
+  return { sales: rows, totalCents: agg._sum.value ?? 0, page };
 }
 
-export async function studentPointsBalance(actor: Actor, studentId: string) {
+/** A student's points. `balance` is `_sum(points)` — never stored, never a
+ *  JS fold; a paged read still answers the whole balance. */
+export async function studentPointsBalance(actor: Actor, studentId: string, req?: PageRequest | null) {
   assertAllowed(actor, "studentPoints", "read");
   await getStudent(actor, studentId);
-  const rows = await prisma.studentPointAccrual.findMany({
-    where: { ...whereFor(actor, "studentPoints", "read"), studentId },
-    select: { id: true, reason: true, points: true, editionId: true, accruedAt: true },
-    orderBy: { accruedAt: "desc" },
-  });
-  return { accruals: rows, balance: rows.reduce((s, r) => s + r.points, 0) };
+  const where = { ...whereFor(actor, "studentPoints", "read"), studentId };
+  const sum = prisma.studentPointAccrual.aggregate({ where: { ...where }, _sum: { points: true } });
+  if (!req) {
+    const [rows, agg] = await Promise.all([
+      prisma.studentPointAccrual.findMany({ where: { ...where }, select: ACCRUAL_SELECT, orderBy: { accruedAt: "desc" } }),
+      sum,
+    ]);
+    return { accruals: rows, balance: agg._sum.points ?? 0 };
+  }
+  const [{ rows, page }, agg] = await Promise.all([
+    readPage(
+      req,
+      () => prisma.studentPointAccrual.count({ where: { ...where } }),
+      (skip, take) =>
+        prisma.studentPointAccrual.findMany({ where: { ...where }, select: ACCRUAL_SELECT, orderBy: [{ accruedAt: "desc" }, { id: "desc" }], skip, take }),
+    ),
+    sum,
+  ]);
+  return { accruals: rows, balance: agg._sum.points ?? 0, page };
 }
 
 /** Record points for published work — ARTICLE, INTERVIEW, PHOTO,
@@ -488,14 +581,47 @@ export async function submitProspect(
   });
 }
 
+const PROSPECT_SELECT = {
+  id: true, businessName: true, category: true, state: true, reasonCode: true, redirectCategories: true, decidedAt: true, createdAt: true,
+} as const;
+export const PROSPECT_STATES = ["SUBMITTED", "ACCEPTED", "REJECTED"] as const;
+export type ProspectState = (typeof PROSPECT_STATES)[number];
+
 export async function listProspects(actor: Actor, studentId: string) {
   assertAllowed(actor, "studentProspect", "read");
   await getStudent(actor, studentId);
   return prisma.studentProspect.findMany({
     where: { ...whereFor(actor, "studentProspect", "read"), studentId },
-    select: { id: true, businessName: true, category: true, state: true, reasonCode: true, redirectCategories: true, decidedAt: true, createdAt: true },
+    select: PROSPECT_SELECT,
     orderBy: { createdAt: "desc" },
   });
+}
+
+/**
+ * GET /students/:id/prospects?page= — one page, optionally narrowed to
+ * states (`?state=SUBMITTED,ACCEPTED`), plus the per-state counts (groupBy)
+ * the portal's "with SponsorX" tile and filter tabs read.
+ */
+export async function listProspectsPage(actor: Actor, studentId: string, req: PageRequest, opts: { states?: ProspectState[] } = {}) {
+  assertAllowed(actor, "studentProspect", "read");
+  await getStudent(actor, studentId);
+  const scope = { ...whereFor(actor, "studentProspect", "read"), studentId };
+  const where: Prisma.StudentProspectWhereInput = opts.states?.length ? { ...scope, state: { in: opts.states } } : scope;
+  const [{ rows, page }, counts] = await Promise.all([
+    readPage(
+      req,
+      () => prisma.studentProspect.count({ where: { ...where } }),
+      (skip, take) =>
+        prisma.studentProspect.findMany({ where: { ...where }, select: PROSPECT_SELECT, orderBy: [{ createdAt: "desc" }, { id: "desc" }], skip, take }),
+    ),
+    prisma.studentProspect.groupBy({
+      /* tenant-scope: `scope` is whereFor(studentProspect, read) and this student. */
+      by: ["state"], where: { ...scope }, _count: { _all: true },
+    }),
+  ]);
+  const states = Object.fromEntries(PROSPECT_STATES.map((s) => [s, 0])) as Record<ProspectState, number>;
+  for (const c of counts) if (c.state in states) states[c.state as ProspectState] += c._count._all;
+  return { prospects: rows, page, summary: { states, all: PROSPECT_STATES.reduce((n, s) => n + states[s], 0) } };
 }
 
 /** Categories someone already holds exclusively at this school: the

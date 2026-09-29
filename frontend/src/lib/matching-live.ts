@@ -1,4 +1,5 @@
 import type { MatchAthlete, MatchData, MatchTier } from "@/lib/matching";
+import { apiListQuery, pageParamsFor, textParam, type PageInfo, type SearchParams } from "@/lib/list-query";
 
 /* --------------------------------------------------------------------------
    P4-FE-02 / P4-FE-03 — the Matching Studio's live translation.
@@ -232,5 +233,83 @@ export function toMatchData(b: ApiBrief, eligible: ApiEligibleAthlete[]): MatchD
     conflicts: {},
     live: true,
     sendBlocked: sendBlockedFor(b),
+    inviteStates: Object.fromEntries(invites),
   };
+}
+
+/* --------------------------------------------------------------------------
+   SERVER-PAGED desk (2026-09-29). The match page holds TWO paged lists: the
+   brief picker (?page / ?size, searched by ?bq) and the eligible roster
+   (?apage / ?asize, filtered by the Studio's own ?q ?sport ?tier ?min and
+   sorted by ?asort). Pure URL → API query builders, and the facet → tier
+   count translation, so both are testable without a page.
+   -------------------------------------------------------------------------- */
+
+export const ATHLETE_KEYS = { page: "apage", size: "asize" } as const;
+
+/** The briefs worth matching, in the API's desk order. */
+export const MATCHABLE_STATES = ["APPROVED", "CAMPAIGN_CREATED", "QUALIFIED"] as const;
+
+export type ApiEligiblePage = {
+  athletes: ApiEligibleAthlete[];
+  page: PageInfo;
+  facets: { total: number; tiers: Record<string, number>; sports: string[] };
+};
+
+const TIER_API: Record<MatchTier, string> = {
+  Anchor: "ANCHOR",
+  Premium: "PREMIUM",
+  Creator: "CREATOR",
+  Emerging: "EMERGING",
+  Untiered: "UNTIERED",
+};
+
+/** GET /briefs, one page of matchable briefs in desk order. */
+export function briefsApiQuery(sp: SearchParams): string {
+  return apiListQuery(sp, {
+    state: MATCHABLE_STATES.join(","),
+    sort: "desk",
+    q: textParam(sp, "bq"),
+  });
+}
+
+/** GET /briefs/{id}/eligible-athletes, one page under the Studio's filters.
+ *  A minimum at the slider's floor is no minimum; the tier is the Studio's
+ *  label, sent as the API's enum. */
+export function eligibleApiQuery(sp: SearchParams, floor: number): string {
+  const { page, size } = pageParamsFor(sp, ATHLETE_KEYS);
+  const tier = textParam(sp, "tier", Object.keys(TIER_API));
+  const min = Number(textParam(sp, "min"));
+  const u = new URLSearchParams({ page: String(page), size: String(size) });
+  const set = (k: string, v: string) => v && u.set(k, v);
+  set("q", textParam(sp, "q"));
+  set("sport", textParam(sp, "sport"));
+  set("tier", tier ? TIER_API[tier as MatchTier] : "");
+  set("min", Number.isInteger(min) && min > floor ? String(min) : "");
+  set("sort", textParam(sp, "asort", ["name"]));
+  return `?${u}`;
+}
+
+/** The API's tier facets → the Studio's tier counts ("all" + per label,
+ *  only tiers the roster actually has). */
+export function tierCountsFromFacets(f: ApiEligiblePage["facets"]): Record<string, number> {
+  const out: Record<string, number> = { all: f.total };
+  for (const [label, key] of Object.entries(TIER_API)) {
+    const n = f.tiers[key] ?? 0;
+    if (n > 0) out[label] = n;
+  }
+  return out;
+}
+
+/** Choosing another brief: keep the picker's own place (?bq ?page ?size),
+ *  drop the roster's filters and page — they were about the other brief. */
+export function briefHref(current: string, id: string): string {
+  const from = new URLSearchParams(current);
+  const u = new URLSearchParams();
+  for (const k of ["bq", "page", "size"]) {
+    const v = from.get(k);
+    if (v) u.set(k, v);
+  }
+  u.set("brief", id);
+  return `/admin/campaigns/match?${u}`;
 }

@@ -1,5 +1,6 @@
 import { apiFetch, fetchActor } from "@/server/api";
-import type { ApiAccrual, ApiSale, ApiStudent } from "@/lib/students-live";
+import type { ApiPointsRead, ApiSalesRead, ApiStudent, ProspectSummary } from "@/lib/students-live";
+import type { PageInfo } from "@/lib/list-query";
 
 /* --------------------------------------------------------------------------
    P9-FE-01 / -10 — the student portal's live read. A signed-in STUDENT reads
@@ -8,6 +9,12 @@ import type { ApiAccrual, ApiSale, ApiStudent } from "@/lib/students-live";
    previewing the portal are not a student, so they keep the fixture screens.
    An outage throws to the error boundary; a refused part is null, shown as
    such.
+
+   Every list part is read SERVER-PAGED (2026-09-29): the caller passes the
+   API query for the page it shows; without one it asks for a single row
+   (`TOTALS_ONLY`) — enough for the home tiles, whose figures are the API's
+   database sums and counts (totalCents, balance, page.total, the prospect
+   state counts), never a fold over every row.
    -------------------------------------------------------------------------- */
 
 export type ApiStudentProspect = {
@@ -27,12 +34,16 @@ export type LiveStudent =
       kind: "student";
       student: ApiStudent;
       code: string | null;
-      sales: { sales: ApiSale[]; totalCents: number } | null;
-      points: { accruals: ApiAccrual[]; balance: number } | null;
-      prospects: ApiStudentProspect[] | null;
+      sales: (ApiSalesRead & { page: PageInfo }) | null;
+      points: (ApiPointsRead & { page: PageInfo }) | null;
+      prospects: { prospects: ApiStudentProspect[]; page: PageInfo; summary: ProspectSummary } | null;
     };
 
 type Part = "code" | "sales" | "points" | "prospects";
+type ListPart = Exclude<Part, "code">;
+
+/** One row: the sums and counts ride along with any page. */
+export const TOTALS_ONLY = "?page=1&size=1";
 
 async function part<T>(path: string): Promise<T | null> {
   const res = await apiFetch(path);
@@ -41,7 +52,7 @@ async function part<T>(path: string): Promise<T | null> {
   return (await res.json()) as T;
 }
 
-export async function liveStudent(parts: Part[] = []): Promise<LiveStudent | null> {
+export async function liveStudent(parts: Part[] = [], queries: Partial<Record<ListPart, string>> = {}): Promise<LiveStudent | null> {
   const who = await fetchActor();
   if (who.status !== "linked" || !who.actor.roles.includes("STUDENT")) return null;
   const id = who.actor.studentId;
@@ -51,9 +62,9 @@ export async function liveStudent(parts: Part[] = []): Promise<LiveStudent | nul
   const [student, code, sales, points, prospects] = await Promise.all([
     part<ApiStudent>(base),
     want("code") ? part<{ code: string | null }>(`${base}/code`) : null,
-    want("sales") ? part<{ sales: ApiSale[]; totalCents: number }>(`${base}/sales`) : null,
-    want("points") ? part<{ accruals: ApiAccrual[]; balance: number }>(`${base}/points`) : null,
-    want("prospects") ? part<{ prospects: ApiStudentProspect[] }>(`${base}/prospects`) : null,
+    want("sales") ? part<Extract<LiveStudent, { kind: "student" }>["sales"]>(`${base}/sales${queries.sales ?? TOTALS_ONLY}`) : null,
+    want("points") ? part<Extract<LiveStudent, { kind: "student" }>["points"]>(`${base}/points${queries.points ?? TOTALS_ONLY}`) : null,
+    want("prospects") ? part<Extract<LiveStudent, { kind: "student" }>["prospects"]>(`${base}/prospects${queries.prospects ?? TOTALS_ONLY}`) : null,
   ]);
   if (!student) return { kind: "unlinked" };
   return {
@@ -62,7 +73,7 @@ export async function liveStudent(parts: Part[] = []): Promise<LiveStudent | nul
     code: code?.code ?? null,
     sales,
     points,
-    prospects: prospects?.prospects ?? null,
+    prospects,
   };
 }
 

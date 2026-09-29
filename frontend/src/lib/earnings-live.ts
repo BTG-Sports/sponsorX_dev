@@ -124,7 +124,6 @@ export function agingBuckets(
   recon: ApiReconciliation[],
   now: Date,
 ): { label: string; value: number; display: string }[] {
-  const labels = ["Not yet due", "1–30 days", "31–60 days", "> 60 days"];
   const sums = [0, 0, 0, 0];
   for (const c of recon) {
     for (const i of c.invoices) {
@@ -134,10 +133,96 @@ export function agingBuckets(
       sums[late <= 0 ? 0 : late <= 30 ? 1 : late <= 60 ? 2 : 3] += i.amount;
     }
   }
+  return agingRows(sums);
+}
+
+/** The aging panel's rows from the four bucket sums (cents) — what
+ *  GET /earnings/reconciliation's `totals.aging` answers. */
+export function agingRows(sums: number[]): { label: string; value: number; display: string }[] {
+  const labels = ["Not yet due", "1–30 days", "31–60 days", "> 60 days"];
   const total = sums.reduce((a, b) => a + b, 0);
   return labels.map((label, k) => ({
     label,
-    value: total ? Math.round((100 * sums[k]) / total) : 0,
-    display: `${(sums[k] / 100).toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 })}`,
+    value: total ? Math.round((100 * (sums[k] ?? 0)) / total) : 0,
+    display: `${((sums[k] ?? 0) / 100).toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 })}`,
   }));
+}
+
+/* --------------------------------------------------------------------------
+   Server-paged reads (2026-09-29). The pages no longer fetch every earning
+   and total it in the browser: the list is one page (GET /earnings?page=),
+   the totals come from GET /earnings/summary, and Finance's reconciliation
+   and invoice tables are their own paged routes. A figure the API withheld
+   is ABSENT from these shapes, never 0.
+   -------------------------------------------------------------------------- */
+
+export type ApiPage = { page: number; size: number; total: number; pages: number };
+
+export type ApiEarningsSummary = {
+  count: number;
+  byState: Record<EarningState, { count: number; amount?: number }>;
+  deliverables: { verified: number; total: number };
+  jobNames: string[];
+  career?: { raised: number; paid: number; onTheWay: number };
+  paidByMonth?: { year: number; months: number[] };
+  sell?: { sellPrice: number; commission: number };
+};
+
+export type ApiReconciliationPage = {
+  campaigns: ApiReconciliation[];
+  page: ApiPage;
+  totals: { invoiced: number; collected: number; rate: number | null; aging: number[] };
+};
+
+export type ApiInvoiceRow = ApiReconciliation["invoices"][number] & {
+  campaignId: string;
+  campaign: string;
+  sponsor: string;
+};
+
+/** The summary's per-state figures in `buckets()`'s shape (a withheld
+ *  amount reads as 0 here — only for drawing, never re-sent). */
+export function summaryBuckets(s: ApiEarningsSummary): Record<EarningState, { amount: number; count: number }> {
+  return Object.fromEntries(
+    STATES.map((st) => [st, { amount: s.byState[st]?.amount ?? 0, count: s.byState[st]?.count ?? 0 }]),
+  ) as Record<EarningState, { amount: number; count: number }>;
+}
+
+/** `?page=&size=` plus every non-empty extra, for a paged API route. */
+export function pagedQuery(p: { page: number; size: number }, extras: Record<string, string> = {}): string {
+  const u = new URLSearchParams({ page: String(p.page), size: String(p.size) });
+  for (const [k, v] of Object.entries(extras)) if (v) u.set(k, v);
+  return `?${u}`;
+}
+
+const MONTH_CODES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+/** The explorer's URL date ("May-10") as the API's day ("2026-05-10") in
+ *  `year`, or "" when it isn't one. */
+export function codeToDay(code: string, year: number): string {
+  const m = /^([A-Za-z]{3})-(\d{1,2})$/.exec(code);
+  if (!m) return "";
+  const mon = MONTH_CODES.indexOf(m[1]!.slice(0, 1).toUpperCase() + m[1]!.slice(1).toLowerCase());
+  const day = Number(m[2]);
+  if (mon < 0 || day < 1 || new Date(Date.UTC(year, mon, day)).getUTCMonth() !== mon) return "";
+  return `${year}-${String(mon + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+}
+
+/** The API extras for the athlete activity list, from the explorer's URL
+ *  (?q ?status ?type ?from ?to). `to` without a valid `from` is dropped, as
+ *  the explorer drops it; a lone `from` is that single day. */
+export function activityExtras(
+  f: { q: string; status: string; type: string; from: string; to: string },
+  year: number,
+): Record<string, string> {
+  const from = codeToDay(f.from, year);
+  let to = from ? codeToDay(f.to, year) : "";
+  if (from && (!to || to < from)) to = from;
+  return {
+    q: f.q.trim(),
+    state: (STATES as string[]).includes(f.status) ? f.status : "",
+    type: f.type.trim(),
+    from,
+    to,
+  };
 }

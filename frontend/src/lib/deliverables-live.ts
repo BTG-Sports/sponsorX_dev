@@ -8,6 +8,8 @@
    due "Oct 14" to Oct 13 for anyone west of UTC.
    -------------------------------------------------------------------------- */
 
+import type { PageInfo } from "@/lib/list-query";
+
 export type DeliverableState =
   | "NOT_STARTED"
   | "DRAFT_SUBMITTED"
@@ -158,6 +160,137 @@ export function byDay<T extends { dueDate: string }>(rows: T[]): Map<string, T[]
   for (const r of rows) {
     const k = dayKey(r.dueDate);
     out.set(k, [...(out.get(k) ?? []), r]);
+  }
+  return out;
+}
+
+/* --------------------------------------------------------------------------
+   Server-paged views (2026-09-29). The calendar fetches ONE grid's worth of
+   rows (?from&to); the agenda under it is a server page (?page&size&tab and
+   a day range); the tiles and tab counts come from GET /deliverables/summary.
+   The fixture (demo) mode runs the same shapes through the pure helpers
+   below, so the island has one path.
+   -------------------------------------------------------------------------- */
+
+/** GET /deliverables/summary. */
+export type ApiDeliverableSummary = {
+  total: number;
+  states: Record<DeliverableState, number>;
+  openRevisions: number;
+  aging: number;
+  overdue: number;
+  campaigns: { id: string; name: string }[];
+};
+
+/** The athlete page's tiles and tab counts, from the summary. */
+export function athleteHeadline(s: ApiDeliverableSummary) {
+  const st = s.states;
+  const draftWithBtg = Math.max(0, st.DRAFT_SUBMITTED - s.openRevisions);
+  const review = draftWithBtg + st.BTG_REVIEW + st.SPONSOR_REVIEW;
+  const yourMove = st.NOT_STARTED + st.APPROVED + s.openRevisions;
+  return {
+    yourMove,
+    overdue: s.overdue,
+    revisions: s.openRevisions,
+    /* nextStep puts PUBLISHED on BTG (verifying), though its tab is Done. */
+    inReview: review + st.PUBLISHED,
+    tabs: { todo: yourMove, review, done: st.PUBLISHED + st.VERIFIED, all: s.total } as Record<TabKey, number>,
+  };
+}
+
+/** The summary of an in-memory set — the fixture mode's stand-in. */
+export function summarizeRows(rows: ApiDeliverable[], today: Date): ApiDeliverableSummary {
+  const states = {
+    NOT_STARTED: 0, DRAFT_SUBMITTED: 0, BTG_REVIEW: 0, SPONSOR_REVIEW: 0, APPROVED: 0, PUBLISHED: 0, VERIFIED: 0,
+  } as Record<DeliverableState, number>;
+  for (const r of rows) states[r.state] += 1;
+  const names = new Map(rows.map((r) => [r.campaign.id, r.campaign.name]));
+  return {
+    total: rows.length,
+    states,
+    openRevisions: rows.filter((r) => r.revision).length,
+    aging: 0,
+    overdue: rows.filter((r) => isOverdue(r, today)).length,
+    campaigns: [...names].map(([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name)),
+  };
+}
+
+/** `?month=YYYY-MM` if valid, else the month containing `today`. */
+export function parseMonth(v: string, today: Date): string {
+  if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(v)) return monthKey(today);
+  return v;
+}
+
+/** `?day=YYYY-MM-DD` if it is a real day, else "". */
+export function parseDay(v: string): string {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(v)) return "";
+  const d = new Date(`${v}T00:00:00Z`);
+  return !Number.isNaN(d.getTime()) && dayKey(d) === v ? v : "";
+}
+
+/** The day after a day key. */
+function nextDay(key: string): string {
+  return dayKey(new Date(Date.parse(`${key}T00:00:00Z`) + 86_400_000));
+}
+
+/** The month grid's whole range (padding days included), `to` exclusive —
+    what the calendar fetches so every visible cell has its dots. */
+export function gridRange(month: string): { from: string; to: string } {
+  const weeks = monthGrid(month);
+  const last = weeks[weeks.length - 1]!;
+  return { from: weeks[0]![0]!.day, to: nextDay(last[last.length - 1]!.day) };
+}
+
+/** One day as a [from, to) range. */
+export function dayRange(day: string): { from: string; to: string } {
+  return { from: day, to: nextDay(day) };
+}
+
+/** The agenda's API query: page + size, the tab, and a day's range. */
+export function agendaQuery(p: { page: number; size: number; tab: TabKey; day: string }): string {
+  const u = new URLSearchParams({ page: String(p.page), size: String(p.size) });
+  if (p.tab !== "all") u.set("tab", p.tab);
+  if (p.day) {
+    const r = dayRange(p.day);
+    u.set("from", r.from);
+    u.set("to", r.to);
+  }
+  return `?${u}`;
+}
+
+/** The agenda over an in-memory set (fixture mode): the API's filter, order
+    and clamp, so demo paging behaves like the real thing. */
+export function pageAgenda(
+  rows: ApiDeliverable[],
+  p: { page: number; size: number; tab: TabKey; day: string },
+): { rows: ApiDeliverable[]; page: PageInfo } {
+  const list = rows
+    .filter((r) => (!p.day || dayKey(r.dueDate) === p.day) && (p.tab === "all" || tabOf(r) === p.tab))
+    .sort((a, b) => a.dueDate.localeCompare(b.dueDate) || a.id.localeCompare(b.id));
+  const pages = Math.max(1, Math.ceil(list.length / p.size));
+  const page = Math.min(Math.max(1, p.page), pages);
+  return {
+    rows: list.slice((page - 1) * p.size, page * p.size),
+    page: { page, size: p.size, total: list.length, pages },
+  };
+}
+
+/** Rows due inside [from, to) — the fixture mode's month fetch. */
+export function inRange<T extends { dueDate: string }>(rows: T[], r: { from: string; to: string }): T[] {
+  return rows.filter((x) => {
+    const k = dayKey(x.dueDate);
+    return k >= r.from && k < r.to;
+  });
+}
+
+/** Consecutive rows grouped under their due day (rows already in due order). */
+export function groupByDay<T extends { dueDate: string }>(rows: T[]): { day: string; items: T[] }[] {
+  const out: { day: string; items: T[] }[] = [];
+  for (const r of rows) {
+    const k = dayKey(r.dueDate);
+    const last = out[out.length - 1];
+    if (last?.day === k) last.items.push(r);
+    else out.push({ day: k, items: [r] });
   }
   return out;
 }

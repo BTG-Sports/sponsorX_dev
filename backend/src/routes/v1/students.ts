@@ -32,17 +32,22 @@ import {
   issueStudentCode,
   linkStudentGuardian,
   listProspects,
+  listProspectsPage,
   listStudents,
+  listStudentsPage,
+  PROSPECT_STATES,
   readStudentCode,
   resolveStudentCode,
   studentPointsBalance,
   studentSales,
+  STUDENT_GROUP_KEYS,
   submitProspect,
   transitionStudent,
   type MastheadRole,
   type ProspectRejectionReason,
 } from "../../domain/student";
 import type { PointReason } from "../../domain/student-points";
+import { allowedList, pageRequest, searchTerm } from "../../lib/paging";
 
 export const studentsRouter = Router();
 
@@ -54,8 +59,18 @@ const create: RequestHandler = async (req, res) => {
   const b = StudentInput.parse(req.body);
   res.status(201).json(await createStudent(req.actor!, { ...b, birthDate: toDate(b.birthDate), masthead: b.masthead as MastheadRole[] }));
 };
-const list: RequestHandler = async (req, res) => {
-  res.json({ students: await listStudents(req.actor!) });
+/** GET /students — unpaged (legacy) without `?page=`; with it, one page,
+ *  `?group=` one of the advisor desk's five groups, `?q=` a name search,
+ *  and the groups' counts (2026-09-29). */
+export const list: RequestHandler = async (req, res) => {
+  const query = (req.query ?? {}) as Record<string, unknown>;
+  const pr = pageRequest(query);
+  if (!pr) {
+    res.json({ students: await listStudents(req.actor!) });
+    return;
+  }
+  const [group] = allowedList(query.group, STUDENT_GROUP_KEYS);
+  res.json(await listStudentsPage(req.actor!, pr, { group, q: searchTerm(query) }));
 };
 const read: RequestHandler<{ id: string }> = async (req, res) => {
   res.json(await getStudent(req.actor!, req.params.id));
@@ -73,11 +88,11 @@ const issueCode: RequestHandler<{ id: string }> = async (req, res) => {
 const readCode: RequestHandler<{ id: string }> = async (req, res) => {
   res.json(await readStudentCode(req.actor!, req.params.id));
 };
-const sales: RequestHandler<{ id: string }> = async (req, res) => {
-  res.json(await studentSales(req.actor!, req.params.id));
+export const sales: RequestHandler<{ id: string }> = async (req, res) => {
+  res.json(await studentSales(req.actor!, req.params.id, pageRequest((req.query ?? {}) as Record<string, unknown>)));
 };
-const points: RequestHandler<{ id: string }> = async (req, res) => {
-  res.json(await studentPointsBalance(req.actor!, req.params.id));
+export const points: RequestHandler<{ id: string }> = async (req, res) => {
+  res.json(await studentPointsBalance(req.actor!, req.params.id, pageRequest((req.query ?? {}) as Record<string, unknown>)));
 };
 const accrue: RequestHandler<{ id: string }> = async (req, res) => {
   const b = PointsInput.parse(req.body);
@@ -86,8 +101,14 @@ const accrue: RequestHandler<{ id: string }> = async (req, res) => {
 const newProspect: RequestHandler<{ id: string }> = async (req, res) => {
   res.status(201).json(await submitProspect(req.actor!, req.params.id, ProspectInput.parse(req.body)));
 };
-const prospects: RequestHandler<{ id: string }> = async (req, res) => {
-  res.json({ prospects: await listProspects(req.actor!, req.params.id) });
+export const prospects: RequestHandler<{ id: string }> = async (req, res) => {
+  const query = (req.query ?? {}) as Record<string, unknown>;
+  const pr = pageRequest(query);
+  if (!pr) {
+    res.json({ prospects: await listProspects(req.actor!, req.params.id) });
+    return;
+  }
+  res.json(await listProspectsPage(req.actor!, req.params.id, pr, { states: allowedList(query.state, PROSPECT_STATES) }));
 };
 const decide: RequestHandler<{ id: string }> = async (req, res) => {
   const b = ProspectDecisionInput.parse(req.body);

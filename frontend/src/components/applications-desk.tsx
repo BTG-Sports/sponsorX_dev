@@ -11,11 +11,24 @@ import {
   SearchInput,
 } from "@/components/filter-kit";
 import {
+  ListFilter,
+  ListSearch,
+  PagerRow,
+  PendingList,
+  ServerList,
+  useListNav,
+} from "@/components/server-pager";
+import {
+  LIVE_FLAGS,
+  LIVE_SORTS,
   activationBlock,
+  type ApplicationsSummary,
   type DeskApp,
+  type DeskQuery,
   type ReviewActionKind,
   type ReviewActionResult,
 } from "@/lib/applications-live";
+import type { PageInfo } from "@/lib/list-query";
 import {
   AGING_HOURS,
   FACTOR_HINTS,
@@ -49,12 +62,20 @@ import { NoScoreRing, RING_TEXT, ScoreRing } from "@/components/score-ring";
      only" — the Follow-button precedent) with Undo, so the queue behaves
      like the real B1 transitions will. A minor with an unverified guardian
      blocks Approve with the reason spelled out (§4), not a dead button.
+
+   LIVE MODE IS SERVER-PAGED (2026-09-29). With `live`, the island holds one
+   page: tabs, search, filters, sort and the pager write the URL through
+   <ServerList> (any change but the page itself resets to page 1), the
+   server page asks the API for exactly that page, and the tab counts are the
+   API's summary. Nothing filters or sorts in the browser. The demo keeps the
+   client-side desk, unchanged.
    -------------------------------------------------------------------------- */
 
 type App = DeskApp;
 type Decision = "APPROVED" | "REJECTED" | "INFO";
 
-/** Live mode's wiring — the P3-FE-02 server action plus nothing else. Its
+/** Live mode's wiring — the P3-FE-02 server action and the server page's
+ *  answer (this page, its totals, the URL state it was asked for). Its
  *  absence IS demo mode, so the fixture behaviour cannot half-apply. */
 export type LiveReview = {
   act: (
@@ -62,7 +83,12 @@ export type LiveReview = {
     kind: ReviewActionKind,
     notes?: string,
   ) => Promise<ReviewActionResult>;
+  page: PageInfo;
+  summary: ApplicationsSummary;
+  query: DeskQuery;
 };
+
+type Nav = ReturnType<typeof useListNav>;
 
 const TABS = [
   { key: "review", label: "Needs review" },
@@ -83,6 +109,13 @@ const SORT_OPTIONS = [
   { value: "newest", label: "Newest first" },
   { value: "score", label: "Score · high to low" },
 ];
+
+const LIVE_ATTENTION_OPTIONS = ATTENTION_OPTIONS.filter((o) =>
+  (LIVE_FLAGS as readonly string[]).includes(o.value),
+);
+const LIVE_SORT_OPTIONS = SORT_OPTIONS.filter((o) =>
+  (LIVE_SORTS as readonly string[]).includes(o.value),
+);
 
 const inReview = (s: LiveApplicationState) =>
   s === "SUBMITTED" || s === "UNDER_REVIEW";
@@ -120,20 +153,43 @@ function CheckRow({
 
 /* -------------------------------------------------------- ApplicationsDesk */
 
-export function ApplicationsDesk({
-  items,
-  demoParam,
-  initial,
-  live,
-}: {
+type DeskProps = {
   items: App[];
   demoParam?: string;
   initial?: Partial<Record<"tab" | "q" | "sport" | "flag" | "sort", string>>;
   live?: LiveReview;
-}) {
+};
+
+export function ApplicationsDesk(props: DeskProps) {
+  if (props.live) {
+    return (
+      <ServerList>
+        <LiveDesk {...props} live={props.live} />
+      </ServerList>
+    );
+  }
+  return <Desk {...props} nav={null} />;
+}
+
+/** Live: the desk bound to <ServerList>'s URL navigation. */
+function LiveDesk(props: DeskProps & { live: LiveReview }) {
+  const nav = useListNav();
+  return <Desk {...props} nav={nav} />;
+}
+
+function Desk({
+  items,
+  demoParam,
+  initial,
+  live,
+  nav,
+}: DeskProps & { nav: Nav | null }) {
+  /* Live + nav = the server-paged desk; everything URL-bound goes through it. */
+  const paged = live && nav ? { ...live, nav } : null;
+  const liveSports = live?.summary.sports;
   const sportOptions = useMemo(
-    () => [...new Set(items.map((a) => a.sport))].sort(),
-    [items],
+    () => liveSports ?? [...new Set(items.map((a) => a.sport))].sort(),
+    [items, liveSports],
   );
   const wait = useMemo(
     () => new Map(items.map((a) => [a.id, waitHours(a.submittedAt)])),
@@ -202,6 +258,8 @@ export function ApplicationsDesk({
   /* Filters live in the URL (no navigation) so a filtered queue is shareable
      and survives reload — the server page seeds `initial` back from it. */
   useEffect(() => {
+    /* Live: <ServerList> owns the URL — replaceState here would fight it. */
+    if (live) return;
     const p = new URLSearchParams();
     if (demoParam) p.set("demo", demoParam);
     if (tab !== "review") p.set("tab", tab);
@@ -218,7 +276,7 @@ export function ApplicationsDesk({
         `${window.location.pathname}${next}${window.location.hash}`,
       );
     }
-  }, [tab, q, sport, flag, sort, demoParam]);
+  }, [tab, q, sport, flag, sort, demoParam, live]);
 
   /* Drawer: Escape closes, page scroll locks behind it, focus lands on the
      close button and returns to the row on close. */
@@ -249,6 +307,8 @@ export function ApplicationsDesk({
 
   const needle = q.trim().toLowerCase();
   const shown = useMemo(() => {
+    /* Live: the API already filtered, sorted and paged — show it as sent. */
+    if (live) return items;
     const list = items.filter((a) => {
       const s = eff(a);
       const tabOk = tab === "all" ? true : stateBucket(s) === tab;
@@ -278,13 +338,30 @@ export function ApplicationsDesk({
             (b.score?.total ?? -1) - (a.score?.total ?? -1)
           : (wait.get(b.id) ?? 0) - (wait.get(a.id) ?? 0);
     return [...list].sort(by);
-  }, [items, tab, needle, sport, flag, sort, wait, eff]);
+  }, [items, tab, needle, sport, flag, sort, wait, eff, live]);
 
-  const isFiltered = Boolean(needle || sport || flag);
+  /* What the controls show and clear — the URL's state when paged, local
+     state in the demo. */
+  const view = paged ? paged.query : { tab, q, sport, flag, sort };
+  const tabCounts = paged ? paged.summary.tabs : counts;
+  const vNeedle = view.q.trim();
+  const isFiltered = Boolean(vNeedle || view.sport || view.flag);
   const reset = () => {
+    if (paged) {
+      paged.nav.set({ q: null, sport: null, flag: null });
+      return;
+    }
     setQ("");
     setSport("");
     setFlag("");
+  };
+  const clearOne = (key: "q" | "sport" | "flag") => {
+    if (paged) paged.nav.set({ [key]: null });
+    else ({ q: setQ, sport: setSport, flag: setFlag })[key]("");
+  };
+  const chooseTab = (key: TabKey) => {
+    if (paged) paged.nav.set({ tab: key === "review" ? null : key });
+    else setTab(key);
   };
 
   const sel = openId ? items.find((a) => a.id === openId) : undefined;
@@ -298,14 +375,14 @@ export function ApplicationsDesk({
         className="mb-3 flex w-fit max-w-full flex-wrap gap-1 rounded-lg border border-line bg-surface p-1"
       >
         {TABS.map((t) => {
-          const active = t.key === tab;
+          const active = t.key === view.tab;
           return (
             <button
               key={t.key}
               type="button"
               role="tab"
               aria-selected={active}
-              onClick={() => setTab(t.key)}
+              onClick={() => chooseTab(t.key)}
               className={[
                 "flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-colors",
                 active
@@ -320,7 +397,7 @@ export function ApplicationsDesk({
                   active ? "text-text" : "text-faint",
                 ].join(" ")}
               >
-                {counts[t.key]}
+                {tabCounts[t.key]}
               </span>
             </button>
           );
@@ -328,6 +405,40 @@ export function ApplicationsDesk({
       </div>
 
       {/* --------------------------------------------------------- toolbar */}
+      {paged ? (
+        <div className="mb-3 flex flex-wrap items-center gap-2">
+          <ListSearch
+            initial={paged.query.q}
+            placeholder="Search name, sport or region…"
+            label="Search applications"
+            tone="admin"
+          />
+          <ListFilter
+            param="sport"
+            label="Filter by sport"
+            allLabel="All sports"
+            value={paged.query.sport}
+            options={sportOptions.map((s) => ({ value: s, label: s }))}
+            tone="admin"
+          />
+          <ListFilter
+            param="flag"
+            label="Filter by attention"
+            allLabel="Anything"
+            value={paged.query.flag}
+            options={LIVE_ATTENTION_OPTIONS}
+            tone="admin"
+          />
+          <ListFilter
+            param="sort"
+            label="Sort queue"
+            allLabel="Waiting longest"
+            value={paged.query.sort}
+            options={LIVE_SORT_OPTIONS}
+            tone="admin"
+          />
+        </div>
+      ) : (
       <div className="mb-3 flex flex-wrap items-center gap-2">
         <SearchInput
           value={q}
@@ -361,24 +472,25 @@ export function ApplicationsDesk({
           tone="admin"
         />
       </div>
+      )}
 
       {/* Active filters as dismissible chips — the row reads as what's
           applied; each ✕ removes one clause, "Clear all" removes them all. */}
       {isFiltered && (
         <div className="mb-3 flex flex-wrap items-center gap-2" aria-live="polite">
-          {needle && (
-            <FilterChip tone="admin" label="Remove search" onClear={() => setQ("")}>
-              &ldquo;{q.trim()}&rdquo;
+          {vNeedle && (
+            <FilterChip tone="admin" label="Remove search" onClear={() => clearOne("q")}>
+              &ldquo;{vNeedle}&rdquo;
             </FilterChip>
           )}
-          {sport && (
-            <FilterChip tone="admin" label="Remove sport filter" onClear={() => setSport("")}>
-              {sport}
+          {view.sport && (
+            <FilterChip tone="admin" label="Remove sport filter" onClear={() => clearOne("sport")}>
+              {view.sport}
             </FilterChip>
           )}
-          {flag && (
-            <FilterChip tone="admin" label="Remove attention filter" onClear={() => setFlag("")}>
-              {ATTENTION_OPTIONS.find((o) => o.value === flag)?.label}
+          {view.flag && (
+            <FilterChip tone="admin" label="Remove attention filter" onClear={() => clearOne("flag")}>
+              {ATTENTION_OPTIONS.find((o) => o.value === view.flag)?.label}
             </FilterChip>
           )}
           <button
@@ -388,14 +500,30 @@ export function ApplicationsDesk({
           >
             Clear all
           </button>
-          <p className="ml-auto text-xs text-muted">
-            {shown.length} of {items.length}{" "}
-            {shown.length === 1 ? "application" : "applications"}
-          </p>
+          {/* Paged: the top pager row says "Showing x–y of N matching". */}
+          {!paged && (
+            <p className="ml-auto text-xs text-muted">
+              {shown.length} of {items.length}{" "}
+              {shown.length === 1 ? "application" : "applications"}
+            </p>
+          )}
+        </div>
+      )}
+
+      {paged && (
+        <div className="mb-3">
+          <PagerRow
+            page={paged.page}
+            noun="Applications"
+            tone="admin"
+            position="top"
+            filtered={isFiltered}
+          />
         </div>
       )}
 
       {/* ------------------------------------------------------------ list */}
+      <MaybePending paged={paged !== null}>
       <Card className="p-0">
         {shown.length === 0 ? (
           <div className="px-4 py-10 text-center">
@@ -494,6 +622,19 @@ export function ApplicationsDesk({
           </ul>
         )}
       </Card>
+      </MaybePending>
+
+      {paged && (
+        <div className="mt-3">
+          <PagerRow
+            page={paged.page}
+            noun="Applications"
+            tone="admin"
+            position="bottom"
+            filtered={isFiltered}
+          />
+        </div>
+      )}
 
       {/* Review drawer — portaled to <body>: the section's sx-animate
           entrance leaves a transform on an ancestor (fill-mode: both), which
@@ -533,6 +674,18 @@ export function ApplicationsDesk({
         )}
     </div>
   );
+}
+
+/** Dims the list while the next page loads — paged only (<PendingList>
+ *  needs <ServerList>, which the demo doesn't have). */
+function MaybePending({
+  paged,
+  children,
+}: {
+  paged: boolean;
+  children: React.ReactNode;
+}) {
+  return paged ? <PendingList>{children}</PendingList> : <>{children}</>;
 }
 
 /* ------------------------------------------------------------ ReviewDrawer */

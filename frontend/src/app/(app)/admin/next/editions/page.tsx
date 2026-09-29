@@ -17,6 +17,7 @@ import {
   type AdSlotKind,
   type EditionSlot,
 } from "@/lib/fixtures";
+import { NotInRole, staffWithoutAccess } from "@/components/not-in-role";
 
 /* --------------------------------------------------------------------------
    Edition planning + the page map — P1-FE-21, spec §5.2, §8
@@ -66,6 +67,12 @@ export default async function EditionPlanningPage({
   const demo = await demoState(searchParams);
   if (demo === "loading") return <SkeletonPage />;
   if (demo === "error") throw new Error("Demo error state");
+  /* C-1: a staff role this desk isn't for gets "not in your role", not the
+     sample desk. The demo stays for ?demo= and signed-out visitors. */
+  if (demo === null) {
+    const lacking = await staffWithoutAccess("/admin/next/editions");
+    if (lacking) return <NotInRole path="/admin/next/editions" title="NEXT editions" roles={lacking} />;
+  }
 
   /* ?open=N — the inventory ledger's "Map →" lands on the right page drawer.
      The empty-string guard matters: Number("") is 0, and 0 is the back-cover

@@ -9,15 +9,16 @@ import {
 } from "@/components/charts";
 import { ExportReport } from "@/components/export-report";
 import { HeroBand, InsightStrip, MiniChip, Monogram } from "@/components/hero";
-import { SponsorPortfolioList } from "@/components/sponsor-portfolio-list";
+import { SponsorPortfolioList, SponsorPortfolioServer } from "@/components/sponsor-portfolio-list";
 import { EmptyState, SkeletonPage } from "@/components/states";
 import { demoState } from "@/lib/demo";
 import {
-  portfolioTotals,
   toPortfolioRow,
   type ApiCampaign,
 } from "@/lib/sponsor-live";
-import { apiFetch, fetchActor } from "@/server/api";
+import { liveSponsorDashboard } from "@/server/sponsor";
+import type { CampaignSummary } from "@/server/campaigns";
+import type { PageInfo } from "@/lib/list-query";
 import { buildSponsorReport } from "@/lib/report-data";
 import {
   engagementSpark,
@@ -51,19 +52,6 @@ import {
    Anyone else, or any ?demo= state, keeps the fixture deck below.
    -------------------------------------------------------------------------- */
 
-const SPONSOR_ROLES = ["SPONSOR_ADMIN", "SPONSOR_ANALYST"];
-
-/** The signed-in sponsor's real campaigns, or null for the demo. */
-async function livePortfolio(): Promise<ApiCampaign[] | null> {
-  /* No catch — an outage is an error page, never fixtures dressed as the
-     sponsor's own spend (QA pass 4 rule). */
-  const who = await fetchActor();
-  if (who.status !== "linked") return null;
-  if (!who.actor.roles.some((r) => SPONSOR_ROLES.includes(r))) return null;
-  const res = await apiFetch("/campaigns");
-  if (!res.ok) throw new Error(`Campaigns unavailable (${res.status}).`);
-  return ((await res.json()) as { campaigns: ApiCampaign[] }).campaigns;
-}
 
 function Kpi({
   k,
@@ -92,9 +80,19 @@ function Kpi({
   );
 }
 
-function LiveDashboard({ campaigns }: { campaigns: ApiCampaign[] }) {
+function LiveDashboard({ summary, campaigns, page }: { summary: CampaignSummary; campaigns: ApiCampaign[]; page: PageInfo }) {
   const now = new Date();
-  const t = portfolioTotals(campaigns);
+  /* Headline numbers are the API's DB aggregate over the WHOLE portfolio
+     (GET /campaigns/summary); the list below is one server page of it. */
+  const t = {
+    campaigns: summary.total,
+    active: summary.active,
+    athletes: summary.athletes,
+    contracted: summary.contracted ?? null,
+    invoiced: summary.invoiced ?? null,
+    paid: summary.paid ?? null,
+    budget: summary.budget ?? null,
+  };
   const rows = campaigns.map((c) => toPortfolioRow(c, now));
   const sponsorName = campaigns[0]?.sponsorName ?? "Your campaigns";
   const paidPct =
@@ -111,7 +109,7 @@ function LiveDashboard({ campaigns }: { campaigns: ApiCampaign[] }) {
     </div>
   );
 
-  if (campaigns.length === 0) {
+  if (t.campaigns === 0) {
     return (
       <div className="space-y-5">
         {heading}
@@ -171,7 +169,7 @@ function LiveDashboard({ campaigns }: { campaigns: ApiCampaign[] }) {
           }
         />
         <Card className="p-0">
-          <SponsorPortfolioList rows={rows} />
+          <SponsorPortfolioServer rows={rows} page={page} />
         </Card>
         <p className="mt-2 text-[10px] text-faint">
           Pacing compares delivery progress against elapsed campaign time.
@@ -217,8 +215,8 @@ export default async function SponsorDashboardPage({
   if (demo === "loading") return <SkeletonPage />;
   if (demo === "error") throw new Error("Demo error state");
 
-  const live = demo === null ? await livePortfolio() : null;
-  if (live) return <LiveDashboard campaigns={live} />;
+  const live = demo === null ? await liveSponsorDashboard(await searchParams) : null;
+  if (live) return <LiveDashboard summary={live.summary} campaigns={live.rows} page={live.page} />;
 
   const heading = (
     <div>

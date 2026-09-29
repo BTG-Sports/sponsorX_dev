@@ -23,6 +23,7 @@ import {
   type ApiOps,
 } from "@/lib/ops-live";
 import { apiFetch, fetchActor } from "@/server/api";
+import { roleLabel } from "@/server/viewer";
 import { draftAndSendOrder } from "./actions";
 import { PACE_COPY, fmtRate, paceFor, paceProjection } from "@/lib/campaign-ui";
 import { demoState } from "@/lib/demo";
@@ -63,14 +64,23 @@ import {
 
 const OPS_ROLES = ["SUPER_ADMIN", "BTG_ADMIN", "CAMPAIGN_MGR", "NETWORK_MGR", "SALES", "FINANCE"];
 
-async function liveOps(id: string): Promise<ApiOps | "missing" | null> {
+/* C-3 (check pass): the ops read answers 403 both for "no such campaign in
+   your scope" and for "your role can't read its orders". Asking the campaign
+   read tells them apart, so a SALES / NETWORK_MGR user who can see the list
+   gets "not in your role" — not "this page doesn't exist". */
+async function liveOps(id: string): Promise<ApiOps | "missing" | { lacking: string; roles: string[] } | null> {
   /* No catch — an outage is an error page, never fixtures dressed as a real
      campaign (QA pass 4 rule). */
   const who = await fetchActor();
   if (who.status !== "linked") return null;
   if (!who.actor.roles.some((r) => OPS_ROLES.includes(r))) return null;
   const res = await apiFetch(`/campaigns/${encodeURIComponent(id)}/ops`);
-  if (res.status === 403) return "missing";
+  if (res.status === 403) {
+    const c = await apiFetch(`/campaigns/${encodeURIComponent(id)}`);
+    if (!c.ok) return "missing";
+    const { campaign } = (await c.json()) as { campaign: { name: string } };
+    return { lacking: campaign.name, roles: who.actor.roles };
+  }
   if (!res.ok) throw new Error(`Campaign unavailable (${res.status}).`);
   return (await res.json()) as ApiOps;
 }
@@ -238,6 +248,20 @@ export default async function CampaignDashboardPage({
 
   const live = demo === null ? await liveOps(id) : null;
   if (live === "missing") notFound();
+  if (live && "lacking" in live) {
+    return (
+      <div className="space-y-5">
+        <BackLink target={back} />
+        <h1 className="text-xl font-semibold tracking-tight">{live.lacking}</h1>
+        <EmptyState
+          mark="users"
+          title="Campaign operations aren't in your role"
+          hint={`The delivery board — orders, deliverables and the roster — is for BTG admins, campaign managers and Finance. You're signed in as ${roleLabel(live.roles)}.`}
+          action={{ label: "Back to campaigns", href: "/admin/campaigns" }}
+        />
+      </div>
+    );
+  }
   if (live) {
     return <LiveOpsView ops={live} back={back} initial={{ q: one(sp.q), show: one(sp.show) }} />;
   }

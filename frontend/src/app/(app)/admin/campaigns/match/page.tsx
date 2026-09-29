@@ -1,17 +1,21 @@
-import Link from "next/link";
 import { BackLink } from "@/components/back-link";
 import { MatchingStudio } from "@/components/matching-studio";
 import { LiveMatchingStudio } from "@/components/matching-live-studio";
 import { EmptyState } from "@/components/states";
 import { BlockedNotice } from "@/components/ui";
-import { MATCH_BRIEF } from "@/lib/matching";
+import { MATCH_BRIEF, MIN_SCORE_FLOOR } from "@/lib/matching";
 import {
+  briefsApiQuery,
+  eligibleApiQuery,
   toMatchData,
   type ApiBrief,
-  type ApiEligibleAthlete,
+  type ApiEligiblePage,
 } from "@/lib/matching-live";
+import { textParam, type PageInfo, type SearchParams } from "@/lib/list-query";
 import { apiFetch, fetchActor } from "@/server/api";
 import { sendInvitations } from "./actions";
+import { BriefPicker } from "./brief-picker";
+import { NotInRole, staffWithoutAccess } from "@/components/not-in-role";
 
 /* --------------------------------------------------------------------------
    /admin/campaigns/match — the Matching Studio (P4-ART-01 in-app).
@@ -33,15 +37,19 @@ import { sendInvitations } from "./actions";
    -------------------------------------------------------------------------- */
 
 const DESK_ROLES = ["SUPER_ADMIN", "BTG_ADMIN", "NETWORK_MGR", "CAMPAIGN_MGR"];
-/** Briefs worth matching, most useful first. */
-const MATCHABLE = ["APPROVED", "CAMPAIGN_CREATED", "QUALIFIED"];
 
+/* SERVER-PAGED (2026-09-29). Two lists, each one page from the API: the
+   brief picker (GET /briefs — matchable states in desk order, ?bq search,
+   ?page / ?size) and the eligible roster (GET /briefs/{id}/eligible-athletes
+   — the Studio's ?q ?sport ?tier ?min ?asort, ?apage / ?asize). Nothing
+   fetches every brief or every athlete to slice in the browser. */
+type BriefList = { briefs: ApiBrief[]; page: PageInfo };
 type Live =
   | { kind: "denied" }
-  | { kind: "none"; briefs: ApiBrief[] }
-  | { kind: "brief"; briefs: ApiBrief[]; brief: ApiBrief; eligible: ApiEligibleAthlete[] };
+  | { kind: "none"; list: BriefList }
+  | { kind: "brief"; list: BriefList; brief: ApiBrief; eligible: ApiEligiblePage };
 
-async function liveDesk(briefParam: string | undefined): Promise<Live | null> {
+async function liveDesk(sp: SearchParams): Promise<Live | null> {
   /* No catch — an outage is an error page, never fixtures dressed as a real
      roster (QA pass 4 rule). */
   const who = await fetchActor();
@@ -50,27 +58,34 @@ async function liveDesk(briefParam: string | undefined): Promise<Live | null> {
 
   /* A 403 is the API's answer for a role, not an outage (F-02, QA pass 5):
      the desk renders the out-of-scope message instead of the error page. */
-  const listRes = await apiFetch("/briefs");
+  const listRes = await apiFetch(`/briefs${briefsApiQuery(sp)}`);
   if (listRes.status === 403) return { kind: "denied" };
   if (!listRes.ok) throw new Error(`Briefs unavailable (${listRes.status}).`);
-  const { briefs } = (await listRes.json()) as { briefs: ApiBrief[] };
-  const matchable = briefs
-    .filter((b) => MATCHABLE.includes(b.state))
-    .sort((a, b) => MATCHABLE.indexOf(a.state) - MATCHABLE.indexOf(b.state));
+  const list = (await listRes.json()) as BriefList;
 
-  const pick = briefs.find((b) => b.id === briefParam) ?? matchable[0];
-  if (!pick) return { kind: "none", briefs: matchable };
-
-  const [detailRes, eligibleRes] = await Promise.all([
-    apiFetch(`/briefs/${encodeURIComponent(pick.id)}`),
-    apiFetch(`/briefs/${encodeURIComponent(pick.id)}/eligible-athletes?limit=200`),
-  ]);
+  /* ?brief= picks one (it needn't be on this picker page); otherwise the
+     page's first — on page one, the desk order's first. */
+  const want = textParam(sp, "brief");
+  const first = list.briefs[0]?.id;
+  const load = async (id: string) =>
+    Promise.all([
+      apiFetch(`/briefs/${encodeURIComponent(id)}`),
+      apiFetch(`/briefs/${encodeURIComponent(id)}/eligible-athletes${eligibleApiQuery(sp, MIN_SCORE_FLOOR)}`),
+    ]);
+  const pickId = want || first;
+  if (!pickId) return { kind: "none", list };
+  let [detailRes, eligibleRes] = await load(pickId);
+  /* A ?brief= that isn't the caller's (or no longer exists) falls back to
+     the picker's first, as the old in-list lookup did. */
+  if (want && first && first !== want && (detailRes.status === 403 || detailRes.status === 404)) {
+    [detailRes, eligibleRes] = await load(first);
+  }
   if (detailRes.status === 403 || eligibleRes.status === 403) return { kind: "denied" };
   if (!detailRes.ok) throw new Error(`Brief unavailable (${detailRes.status}).`);
   if (!eligibleRes.ok) throw new Error(`Eligible roster unavailable (${eligibleRes.status}).`);
   const brief = (await detailRes.json()) as ApiBrief;
-  const { athletes } = (await eligibleRes.json()) as { athletes: ApiEligibleAthlete[] };
-  return { kind: "brief", briefs: matchable, brief, eligible: athletes };
+  const eligible = (await eligibleRes.json()) as ApiEligiblePage;
+  return { kind: "brief", list, brief, eligible };
 }
 
 export default async function MatchingStudioPage({
@@ -89,8 +104,14 @@ export default async function MatchingStudioPage({
     min: str(sp.min),
   };
 
-  const live = str(sp.demo) ? null : await liveDesk(str(sp.brief));
-  const data = live?.kind === "brief" ? toMatchData(live.brief, live.eligible) : null;
+  /* C-1: a staff role this desk isn't for gets "not in your role". */
+  if (!str(sp.demo)) {
+    const lacking = await staffWithoutAccess("/admin/campaigns/match");
+    if (lacking) return <NotInRole path="/admin/campaigns/match" title="Matching Studio" roles={lacking} />;
+  }
+  const live = str(sp.demo) ? null : await liveDesk(sp);
+  const data = live?.kind === "brief" ? toMatchData(live.brief, live.eligible.athletes) : null;
+  const bq = textParam(sp, "bq");
   const campaignName = data ? data.brief.campaign : MATCH_BRIEF.campaign;
 
   return (
@@ -113,28 +134,13 @@ export default async function MatchingStudioPage({
       </div>
 
       {/* Which brief — a live desk can have several waiting. */}
-      {live && live.kind !== "denied" && live.briefs.length > 1 && (
-        <nav aria-label="Choose a brief" className="flex flex-wrap items-center gap-2">
-          <span className="text-[11px] text-faint">Brief:</span>
-          {live.briefs.map((b) => {
-            const current = live.kind === "brief" && live.brief.id === b.id;
-            return (
-              <Link
-                key={b.id}
-                href={`/admin/campaigns/match?brief=${encodeURIComponent(b.id)}`}
-                aria-current={current ? "page" : undefined}
-                className={
-                  current
-                    ? "rounded-full border border-admin/40 bg-admin/10 px-3 py-1 text-[11px] font-medium text-text"
-                    : "rounded-full border border-line px-3 py-1 text-[11px] text-muted transition-colors hover:text-text"
-                }
-              >
-                {b.sponsorName} · {b.objective.slice(0, 40)}
-                <span className="ml-1.5 text-faint">{b.state.toLowerCase().replace(/_/g, " ")}</span>
-              </Link>
-            );
-          })}
-        </nav>
+      {live && live.kind !== "denied" && (live.list.page.total > 1 || bq) && (
+        <BriefPicker
+          briefs={live.list.briefs}
+          page={live.list.page}
+          q={bq}
+          currentId={live.kind === "brief" ? live.brief.id : null}
+        />
       )}
 
       {live?.kind === "denied" ? (
@@ -145,7 +151,7 @@ export default async function MatchingStudioPage({
           action={{ label: "Back to campaigns", href: "/admin/campaigns" }}
         />
       ) : live?.kind === "none" ? (
-        <EmptyState
+        bq ? null : <EmptyState
           mark="inbox"
           title="No brief is waiting for matching"
           hint="A sponsor brief lands here once BTG qualifies it. Approved briefs come first; each becomes its campaign when the first invitations go out."
@@ -153,9 +159,13 @@ export default async function MatchingStudioPage({
         />
       ) : data && live?.kind === "brief" ? (
         <LiveMatchingStudio
+          key={live.brief.id}
           data={data}
           initial={initial}
           send={sendInvitations.bind(null, live.brief.id)}
+          page={live.eligible.page}
+          facets={live.eligible.facets}
+          sort={textParam(sp, "asort") === "name" ? "name" : "score"}
         />
       ) : (
         <>

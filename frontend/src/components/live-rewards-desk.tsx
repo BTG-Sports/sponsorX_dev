@@ -1,14 +1,21 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useMounted } from "./use-mounted";
 import { useDialogFocus } from "./use-dialog-focus";
 import { useRouter } from "next/navigation";
 import { Badge, Card } from "@/components/ui";
 import { MiniChip } from "@/components/hero";
-import { CloseIcon, SearchInput } from "@/components/filter-kit";
+import { CheckIcon, ChevronDown, CloseIcon, FilterChip, SearchInput, triggerCls, useOutsideClose } from "@/components/filter-kit";
+import { ListSearch, PagerRow, PendingList, useListNav } from "@/components/server-pager";
+import type { PageInfo } from "@/lib/list-query";
 import {
+  REWARD_TABS,
+  type CampaignOption,
+  type CampaignSearch,
+  type RewardSummary,
+  type RewardTab,
   capLine,
   holdLabel,
   ELIGIBILITY,
@@ -57,9 +64,9 @@ type Actions = {
   detail: (id: string) => Promise<{ ok: true; reward: ApiRewardDetail } | { ok: false; message: string }>;
   qrLink: (tokenId: string) => Promise<LinkResult>;
   athletes: (campaignId: string) => Promise<{ ok: true; athletes: { id: string; name: string }[] } | { ok: false; message: string }>;
+  /** The creator's picker — one page of rewardable campaigns for a search. */
+  campaigns: (q: string) => Promise<CampaignSearch>;
 };
-
-type CampaignOption = { id: string; name: string; sponsorName: string; endDate: string };
 
 const TONE: Record<ApiRewardState, "neutral" | "primary" | "accent" | "warn" | "danger"> = {
   DRAFT: "neutral",
@@ -75,13 +82,9 @@ const LABEL: Record<ApiRewardState, string> = {
   EXPIRED: "Ended",
   ARCHIVED: "Archived",
 };
-const TABS = [
-  { key: "all", label: "All", match: () => true },
-  { key: "live", label: "Live", match: (s: ApiRewardState) => s === "ACTIVE" },
-  { key: "draft", label: "Draft", match: (s: ApiRewardState) => s === "DRAFT" },
-  { key: "paused", label: "Paused", match: (s: ApiRewardState) => s === "PAUSED" },
-  { key: "ended", label: "Ended", match: (s: ApiRewardState) => s === "EXPIRED" || s === "ARCHIVED" },
-] as const;
+/* The tabs, search and campaign filter are the SERVER's (2026-09-29): the
+   page reads ?tab ?q ?campaignId ?page ?size, the API answers one page, and
+   GET /rewards/summary counts the tabs and the strip over every reward. */
 
 /* F-08 — one reward time convention everywhere (desk, creator, fan page):
    US Eastern, labelled "ET". This desk used to print UTC. */
@@ -89,20 +92,28 @@ const fmtDay = fmtEt;
 
 export function LiveRewardsDesk({
   rewards,
+  page,
+  summary,
+  filters,
   campaigns,
   consent,
   actions,
   openNew,
 }: {
+  /** One page of rewards, as the API answered it. */
   rewards: ApiReward[];
-  campaigns: CampaignOption[];
+  page: PageInfo;
+  summary: RewardSummary;
+  filters: { q: string; tab: RewardTab; campaignId: string };
+  /** The picker's first page (rewardable campaigns by name) and its total. */
+  campaigns: { campaigns: CampaignOption[]; total: number };
   consent: { version: string; text: string };
   actions: Actions;
   openNew?: boolean;
 }) {
   const router = useRouter();
-  const [tab, setTab] = useState<(typeof TABS)[number]["key"]>("all");
-  const [q, setQ] = useState("");
+  const nav = useListNav();
+  const tab = filters.tab;
   const [creating, setCreating] = useState(Boolean(openNew));
   const mounted = useMounted();
   const [busy, setBusy] = useState<string | null>(null);
@@ -112,26 +123,19 @@ export function LiveRewardsDesk({
   /* One clock per mount for "has this expired?" — stable across renders. */
   const [renderedAt] = useState(() => Date.now());
 
-  const totals = useMemo(
-    () =>
-      rewards.reduce(
-        (t, r) => ({
-          live: t.live + (r.state === "ACTIVE" ? 1 : 0),
-          SCAN: t.SCAN + (r.funnel?.SCAN ?? 0),
-          CLAIM: t.CLAIM + (r.funnel?.CLAIM ?? 0),
-          REDEEM: t.REDEEM + (r.funnel?.REDEEM ?? 0),
-        }),
-        { live: 0, SCAN: 0, CLAIM: 0, REDEEM: 0 },
-      ),
-    [rewards],
-  );
-  const needle = q.trim().toLowerCase();
-  const matcher = TABS.find((t) => t.key === tab)!.match;
-  const shown = rewards.filter(
-    (r) =>
-      matcher(r.state) &&
-      (!needle || [r.offerText, r.campaign.name, r.campaign.sponsorName].join(" ").toLowerCase().includes(needle)),
-  );
+  /* Counted by the API over every in-scope reward (GET /rewards/summary) —
+     not summed over whichever page is on screen. */
+  const totals = {
+    live: summary.live,
+    SCAN: summary.funnel?.SCAN ?? 0,
+    CLAIM: summary.funnel?.CLAIM ?? 0,
+    REDEEM: summary.funnel?.REDEEM ?? 0,
+  };
+  const shown = rewards;
+  const filtered = Boolean(filters.q || filters.tab !== "all" || filters.campaignId);
+  /* The campaign filter has no picker on the desk (it arrives by link); its
+     chip names it from the rows when there are any. */
+  const campaignName = filters.campaignId ? rewards.find((r) => r.campaign.id === filters.campaignId)?.campaign.name : undefined;
 
   const move = async (r: ApiReward, to: ApiRewardState) => {
     setBusy(r.id);
@@ -164,23 +168,28 @@ export function LiveRewardsDesk({
 
       <div className="flex flex-wrap items-center gap-2">
         <div className="flex flex-wrap gap-1 rounded-lg border border-line bg-surface p-1">
-          {TABS.map((t) => (
+          {REWARD_TABS.map((t) => (
             <button
               key={t.key}
               type="button"
               aria-pressed={t.key === tab}
-              onClick={() => setTab(t.key)}
+              onClick={() => nav.set({ tab: t.key === "all" ? null : t.key })}
               className={[
                 "flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-colors",
                 t.key === tab ? "bg-admin/15 text-text" : "text-muted hover:text-text",
               ].join(" ")}
             >
               {t.label}
-              <span className="text-[10px] tabular-nums text-text/80">{rewards.filter((r) => t.match(r.state)).length}</span>
+              <span className="text-[10px] tabular-nums text-text/80">{summary.tabs[t.key].toLocaleString("en-US")}</span>
             </button>
           ))}
         </div>
-        <SearchInput value={q} onChange={setQ} placeholder="Offer, campaign or sponsor…" label="Search rewards" tone="admin" />
+        <ListSearch initial={filters.q} placeholder="Offer, campaign or sponsor…" label="Search rewards" tone="admin" />
+        {filters.campaignId && (
+          <FilterChip label="Remove campaign filter" onClear={() => nav.set({ campaignId: null })} tone="admin">
+            Campaign: {campaignName ?? "selected"}
+          </FilterChip>
+        )}
         <button
           type="button"
           onClick={() => setCreating(true)}
@@ -196,11 +205,14 @@ export function LiveRewardsDesk({
         </p>
       )}
 
+      <PagerRow page={page} noun="Rewards" tone="admin" position="top" filtered={filtered} />
+
+      <PendingList>
       {shown.length === 0 ? (
         <div className="rounded-xl border border-line bg-surface px-5 py-12 text-center">
-          <p className="text-sm font-semibold">{rewards.length ? "No rewards match" : "No fan rewards yet"}</p>
+          <p className="text-sm font-semibold">{summary.tabs.all || filtered ? "No rewards match" : "No fan rewards yet"}</p>
           <p className="mx-auto mt-1 max-w-xs text-xs text-muted">
-            {rewards.length
+            {summary.tabs.all || filtered
               ? "Try another tab or search."
               : "Create the first one — every athlete on the campaign gets their own QR token (§16)."}
           </p>
@@ -322,6 +334,9 @@ export function LiveRewardsDesk({
           })}
         </ul>
       )}
+      </PendingList>
+
+      <PagerRow page={page} noun="Rewards" tone="admin" position="bottom" filtered={filtered} />
 
       {qrFor && mounted &&
         createPortal(
@@ -440,6 +455,157 @@ function QrPanel({ rewardId, actions, onClose }: { rewardId: string; actions: Ac
 const inputCls =
   "mt-1 w-full rounded-lg border border-line bg-surface px-3 py-2 text-xs outline-none focus:border-admin/60";
 
+/* ----------------------------------------------------------- campaign picker */
+
+/**
+ * The creator's campaign field (2026-09-29) — a styled, searchable listbox
+ * that asks the API for one page of rewardable campaigns by name as you type
+ * (debounced), instead of a menu of every campaign loaded up front. Opens on
+ * the first page the server page already fetched; a stale answer to an
+ * older keystroke never overwrites a newer one.
+ */
+function CampaignPicker({
+  value,
+  initial,
+  search,
+  onChange,
+}: {
+  value: CampaignOption | null;
+  initial: { campaigns: CampaignOption[]; total: number };
+  search: (q: string) => Promise<CampaignSearch>;
+  onChange: (c: CampaignOption) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [q, setQ] = useState("");
+  const [found, setFound] = useState<{ rows: CampaignOption[]; total: number; error?: string }>({
+    rows: initial.campaigns,
+    total: initial.total,
+  });
+  const [loading, setLoading] = useState(false);
+  const [active, setActive] = useState(0);
+  const ref = useRef<HTMLDivElement>(null);
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const seq = useRef(0);
+  const listId = useId();
+  useOutsideClose(ref, () => setOpen(false), open);
+  useEffect(() => () => {
+    if (timer.current) clearTimeout(timer.current);
+  }, []);
+
+  const type = (v: string) => {
+    setQ(v);
+    setActive(0);
+    if (timer.current) clearTimeout(timer.current);
+    const term = v.trim();
+    if (!term) {
+      seq.current += 1;
+      setLoading(false);
+      setFound({ rows: initial.campaigns, total: initial.total });
+      return;
+    }
+    setLoading(true);
+    timer.current = setTimeout(() => {
+      const mine = ++seq.current;
+      void search(term).then((r) => {
+        if (mine !== seq.current) return;
+        setLoading(false);
+        setFound(r.ok ? { rows: r.campaigns, total: r.total } : { rows: [], total: 0, error: r.message });
+      });
+    }, 300);
+  };
+
+  const pick = (c: CampaignOption) => {
+    onChange(c);
+    setOpen(false);
+  };
+
+  const rows = found.rows;
+  return (
+    <div
+      ref={ref}
+      className="relative block"
+      onKeyDown={(e) => {
+        if (!open) return;
+        if (e.key === "Escape") {
+          /* Close the menu, not the whole creator dialog. */
+          e.stopPropagation();
+          setOpen(false);
+        } else if (e.key === "ArrowDown") {
+          e.preventDefault();
+          setActive((i) => Math.min(rows.length - 1, i + 1));
+        } else if (e.key === "ArrowUp") {
+          e.preventDefault();
+          setActive((i) => Math.max(0, i - 1));
+        } else if (e.key === "Enter" && rows[active]) {
+          e.preventDefault();
+          pick(rows[active]);
+        }
+      }}
+    >
+      <span className="text-[11px] font-medium text-muted">Campaign</span>
+      <button
+        type="button"
+        aria-label="Campaign"
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        onClick={() => setOpen((v) => !v)}
+        className={[triggerCls(Boolean(value), open, "admin"), "mt-1 w-full justify-between disabled:cursor-not-allowed"].join(" ")}
+      >
+        <span className="min-w-0 truncate">{value ? `${value.name} — ${value.sponsorName}` : "Pick a campaign"}</span>
+        <ChevronDown open={open} />
+      </button>
+      {open && (
+        <div className="sx-pop absolute inset-x-0 top-full z-30 mt-1.5 overflow-hidden rounded-xl border border-line bg-surface shadow-xl">
+          <div className="border-b border-line-soft p-2">
+            <SearchInput
+              value={q}
+              onChange={type}
+              placeholder="Search campaigns by name…"
+              label="Search campaigns"
+              tone="admin"
+              className="w-full"
+            />
+          </div>
+          <div id={listId} role="listbox" aria-label="Campaigns" aria-busy={loading} className={`max-h-64 overflow-y-auto py-1 transition-opacity ${loading ? "opacity-60" : ""}`}>
+            {found.error && <p role="alert" className="px-3 py-2 text-[11px] text-danger">{found.error}</p>}
+            {!found.error && rows.length === 0 && (
+              <p className="px-3 py-2 text-[11px] text-faint">{loading ? "Searching…" : "No campaign matches — only campaigns with athletes signing on can take a reward."}</p>
+            )}
+            {rows.map((c, i) => {
+              const selected = c.id === value?.id;
+              return (
+                <button
+                  key={c.id}
+                  type="button"
+                  role="option"
+                  aria-selected={selected}
+                  onMouseEnter={() => setActive(i)}
+                  onClick={() => pick(c)}
+                  className={[
+                    "flex w-full items-center gap-2 px-3 py-2 text-left text-xs transition-colors hover:bg-surface-2",
+                    i === active ? "bg-surface-2" : "",
+                    selected ? "font-medium text-text" : "text-muted",
+                  ].join(" ")}
+                >
+                  <CheckIcon visible={selected} />
+                  <span className="min-w-0 truncate">
+                    {c.name} <span className="text-faint">— {c.sponsorName}</span>
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+          {!found.error && found.total > rows.length && (
+            <p className="border-t border-line-soft px-3 py-1.5 text-[10px] text-faint">
+              Showing {rows.length} of {found.total.toLocaleString("en-US")} — keep typing to narrow.
+            </p>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function Creator({
   campaigns,
   consent,
@@ -447,13 +613,16 @@ function Creator({
   onClose,
   onCreated,
 }: {
-  campaigns: CampaignOption[];
+  campaigns: { campaigns: CampaignOption[]; total: number };
   consent: { version: string; text: string };
   actions: Actions;
   onClose: () => void;
   onCreated: (message: string) => void;
 }) {
-  const [campaignId, setCampaignId] = useState(campaigns[0]?.id ?? "");
+  /* The picked campaign itself, not an id into a list — the picker's list
+     is one page of search results and changes as you type. */
+  const [campaign, setCampaign] = useState<CampaignOption | null>(campaigns.campaigns[0] ?? null);
+  const campaignId = campaign?.id ?? "";
   const [offer, setOffer] = useState("");
   const [terms, setTerms] = useState("");
   const [expiry, setExpiry] = useState<"30" | "60" | "90" | "campaign">("campaign");
@@ -492,7 +661,6 @@ function Creator({
   }, [campaignId, rosters, actions]);
 
   const roster = rosters[campaignId];
-  const campaign = campaigns.find((c) => c.id === campaignId);
   const athletes = roster?.athletes ?? [];
   const cap = parseCap(capInput);
   const reserveMinutes = holdPreset(hold, holdCustom);
@@ -551,7 +719,7 @@ function Creator({
             </button>
           </div>
           <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-5">
-            {campaigns.length === 0 ? (
+            {campaigns.total === 0 && campaigns.campaigns.length === 0 ? (
               <p className="text-xs text-muted">No campaign can take a reward yet — rewards belong to a campaign with signed athletes.</p>
             ) : (
               <>
@@ -562,23 +730,15 @@ function Creator({
                   </p>
                 )}
                 <fieldset disabled={locked} aria-label="Reward details" className="m-0 min-w-0 space-y-4 border-0 p-0 disabled:opacity-60">
-                <label className="block">
-                  <span className="text-[11px] font-medium text-muted">Campaign</span>
-                  <select
-                    value={campaignId}
-                    onChange={(e) => {
-                      setCampaignId(e.target.value);
-                      setPicked(new Set());
-                    }}
-                    className={inputCls}
-                  >
-                    {campaigns.map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.name} — {c.sponsorName}
-                      </option>
-                    ))}
-                  </select>
-                </label>
+                <CampaignPicker
+                  value={campaign}
+                  initial={campaigns}
+                  search={actions.campaigns}
+                  onChange={(c) => {
+                    setCampaign(c);
+                    setPicked(new Set());
+                  }}
+                />
                 <label className="block">
                   <span className="text-[11px] font-medium text-muted">Offer — what the fan gets</span>
                   <input value={offer} onChange={(e) => setOffer(e.target.value)} maxLength={500} placeholder="Free coffee with any service" className={inputCls} />

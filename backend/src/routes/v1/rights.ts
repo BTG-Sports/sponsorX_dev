@@ -17,6 +17,7 @@ import { ForbiddenError } from "../../auth/errors";
 import { prisma } from "../../db/client";
 import { limit } from "../../lib/rate-limit";
 import { clientIp } from "../../lib/client-ip";
+import { allowedList, pageRequest } from "../../lib/paging";
 import {
   AssetCampaignInput,
   ClaimInput,
@@ -37,8 +38,10 @@ import {
 } from "../../domain/content-rights";
 import {
   addRosterEntries,
+  CLAIM_STATES,
   createFeaturedAthlete,
   listClaims,
+  listClaimsPage,
   publicProfile,
   rejectClaim,
   submitClaim,
@@ -139,7 +142,12 @@ const feature: RequestHandler = async (req, res) => {
  *  read; this is not one: nothing private about the athlete is added. */
 const claims: RequestHandler = async (req, res) => {
   const actor = req.actor!;
-  const rows = await listClaims(actor);
+  /* ?page= turns on paged mode (2026-09-29): one page, ?state= narrows it,
+     and `summary` carries the open/all counts. Without it: every claim. */
+  const query = (req.query ?? {}) as Record<string, unknown>;
+  const pr = pageRequest(query);
+  const paged = pr ? await listClaimsPage(actor, pr, { states: allowedList(query.state, CLAIM_STATES) }) : null;
+  const rows = paged ? paged.claims : await listClaims(actor);
   const ids = [...new Set(rows.map((c) => c.athleteId))];
   const profiles = ids.length
     ? await prisma.athlete.findMany({
@@ -149,12 +157,11 @@ const claims: RequestHandler = async (req, res) => {
       })
     : [];
   const by = new Map(profiles.map((p) => [p.id, p]));
-  res.json({
-    claims: rows.map((c) => {
-      const p = by.get(c.athleteId);
-      return { ...c, athlete: p ? { displayName: p.displayName, slug: p.slug, sport: p.sport, state: p.state } : null };
-    }),
+  const joined = rows.map((c) => {
+    const p = by.get(c.athleteId);
+    return { ...c, athlete: p ? { displayName: p.displayName, slug: p.slug, sport: p.sport, state: p.state } : null };
   });
+  res.json(paged ? { claims: joined, page: paged.page, summary: paged.summary } : { claims: joined });
 };
 const verify: RequestHandler<{ id: string }> = async (req, res) => {
   res.json(await verifyClaim(req.actor!, req.params.id));

@@ -26,7 +26,8 @@ import {
 } from "../../domain/metric";
 import { assembleSponsorReport } from "../../domain/sponsor-report";
 import { invoicesForCampaign, paymentStatusForCampaign } from "../../domain/invoice";
-import { deliveryHealth, underDeliveringCampaigns } from "../../domain/delivery-health";
+import { deliveryHealth, deliveryHealthPage, underDeliveringCampaigns } from "../../domain/delivery-health";
+import { pageRequest } from "../../lib/paging";
 import { jobEconomics, networkMetrics } from "../../domain/network-metrics";
 import { listReportFiles, requestReportRender } from "../../domain/report-files";
 
@@ -85,6 +86,16 @@ const paymentStatus: RequestHandler<{ id: string }> = async (req, res) => {
  */
 const delivery: RequestHandler = async (req, res) => {
   const onlyUnder = req.query.under === "true";
+  /* PAGED (`?page=`, 2026-09-29): one page, ending soonest first, plus
+     `page`. `?projected=true` keeps campaigns carrying a reach projection
+     (the network screen's pricing list). Unpaged is unchanged. */
+  const paged = pageRequest(req.query as Record<string, unknown>);
+  if (paged) {
+    res.json(
+      await deliveryHealthPage(req.actor!, paged, { under: onlyUnder, projected: req.query.projected === "true" }),
+    );
+    return;
+  }
   const rows = onlyUnder
     ? await underDeliveringCampaigns(req.actor!)
     : await deliveryHealth(req.actor!);
@@ -138,4 +149,4 @@ const reportFiles: RequestHandler<{ id: string }> = async (req, res) => {
 metricsRouter.post("/campaigns/:id/report/render", requireActor, renderReport);
 metricsRouter.get("/campaigns/:id/report/files", requireActor, reportFiles);
 
-export { analytics, integrations };
+export { analytics, integrations, delivery };

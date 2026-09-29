@@ -4,11 +4,21 @@ import { HeroBand, MiniChip } from "@/components/hero";
 import { ApplicationsDesk } from "@/components/applications-desk";
 import { EmptyState, SkeletonPage } from "@/components/states";
 import { demoState } from "@/lib/demo";
-import { AGING_HOURS, stateBucket, waitHours } from "@/lib/applications-ui";
-import { toDeskApp, type ApiApplication, type DeskApp } from "@/lib/applications-live";
+import { AGING_HOURS, waitHours } from "@/lib/applications-ui";
+import {
+  deskApiExtras,
+  deskQuery,
+  toDeskApp,
+  type ApiApplication,
+  type ApplicationsSummary,
+  type DeskApp,
+  type DeskQuery,
+} from "@/lib/applications-live";
+import { apiListQuery, type PageInfo, type SearchParams } from "@/lib/list-query";
 import { apiFetch, fetchActor } from "@/server/api";
 import { adminPipeline, applications } from "@/lib/fixtures";
 import { reviewAction } from "./actions";
+import { NotInRole, staffWithoutAccess } from "@/components/not-in-role";
 
 /* --------------------------------------------------------------------------
    Athlete Network Manager Workspace — application review, §10 · §23 · §14.
@@ -35,10 +45,25 @@ import { reviewAction } from "./actions";
    the fixture demo. In live mode the fixture funnel and review-pace stats
    are NOT shown: no endpoint answers them yet, and a real reviewer must not
    read invented statistics beside real applicants (§22).
+
+   SERVER-PAGED (2026-09-29). Live mode no longer fetches the queue to filter
+   it in the browser: ?page ?size ?tab ?q ?sport ?flag ?sort are read here,
+   sent to GET /applications?page=, and the API answers exactly one page with
+   its total; the hero band's numbers and the tab counts come from GET
+   /applications/summary, counted in the database. The demo keeps its
+   client-side desk.
    -------------------------------------------------------------------------- */
 
-/** The real queue for a signed-in BTG reviewer, or null for the demo. */
-async function liveQueue(): Promise<{ rows: DeskApp[]; hasMore: boolean } | null> {
+type LiveQueue = {
+  rows: DeskApp[];
+  page: PageInfo;
+  summary: ApplicationsSummary;
+  query: DeskQuery;
+};
+
+/** One page of the real queue for a signed-in BTG reviewer, or null for the
+ *  demo. */
+async function liveQueue(sp: SearchParams): Promise<LiveQueue | null> {
   /* No catch — an API outage lands on the error boundary rather than quietly
      downgrading a reviewer to fixtures (the QA pass 4 rule). Anonymous and
      unprovisioned visitors never hit the queue and keep the demo. */
@@ -49,16 +74,24 @@ async function liveQueue(): Promise<{ rows: DeskApp[]; hasMore: boolean } | null
   );
   if (!mayReview) return null;
 
-  const res = await apiFetch("/applications?limit=100");
+  const query = deskQuery(sp);
+  const [res, sum] = await Promise.all([
+    apiFetch(`/applications${apiListQuery(sp, deskApiExtras(query))}`),
+    apiFetch("/applications/summary"),
+  ]);
   if (!res.ok) throw new Error(`Review queue unavailable (${res.status}).`);
+  if (!sum.ok) throw new Error(`Review queue summary unavailable (${sum.status}).`);
   const data = (await res.json()) as {
     applications: ApiApplication[];
-    page: { hasMore: boolean };
+    page: PageInfo;
   };
+  const { summary } = (await sum.json()) as { summary: ApplicationsSummary };
   const now = new Date();
   return {
     rows: data.applications.map((row) => toDeskApp(row, now)),
-    hasMore: data.page.hasMore,
+    page: data.page,
+    summary,
+    query,
   };
 }
 
@@ -70,8 +103,15 @@ export default async function AdminApplicationsPage({
   const demo = await demoState(searchParams);
   if (demo === "loading") return <SkeletonPage />;
   if (demo === "error") throw new Error("Demo error state");
+  /* C-1: a staff role this desk isn't for gets "not in your role", not the
+     sample desk. The demo stays for ?demo= and signed-out visitors. */
+  if (demo === null) {
+    const lacking = await staffWithoutAccess("/admin/applications");
+    if (lacking) return <NotInRole path="/admin/applications" title="Applications" roles={lacking} />;
+  }
 
-  const live = demo === null ? await liveQueue() : null;
+  const sp = await searchParams;
+  const live = demo === null ? await liveQueue(sp) : null;
 
   const heading = (
     <div>
@@ -99,22 +139,16 @@ export default async function AdminApplicationsPage({
     );
   }
 
-  // Seed the desk's tabs and filters from the URL so a filtered queue is
-  // shareable; the island clamps stale values and keeps the URL in sync.
-  const sp = await searchParams;
+  // Demo: seed the desk's tabs and filters from the URL so a filtered queue
+  // is shareable; the island clamps stale values and keeps the URL in sync.
   const one = (v: string | string[] | undefined) =>
     typeof v === "string" ? v : "";
-  const initial = {
-    tab: one(sp.tab),
-    q: one(sp.q),
-    sport: one(sp.sport),
-    flag: one(sp.flag),
-    sort: one(sp.sort),
-  };
 
   /* ------------------------------------------------------------- live mode */
   if (live) {
-    if (live.rows.length === 0) {
+    /* Empty means the whole scope is empty (the summary's total), not this
+       page — a filtered-to-nothing page keeps the desk and its "Clear all". */
+    if (live.summary.total === 0) {
       return (
         <div className="space-y-6">
           {heading}
@@ -128,15 +162,8 @@ export default async function AdminApplicationsPage({
       );
     }
 
-    const liveWaiting = live.rows.filter(
-      (a) => a.state === "SUBMITTED" || a.state === "UNDER_REVIEW",
-    );
-    const liveOverdue = liveWaiting.filter(
-      (a) => waitHours(a.submittedAt) > AGING_HOURS,
-    );
-    const decidedCount = live.rows.filter(
-      (a) => stateBucket(a.state) !== "review",
-    ).length;
+    const { waiting: liveWaiting, overdue: liveOverdue, decided, total } =
+      live.summary;
 
     return (
       <div className="space-y-6">
@@ -151,15 +178,15 @@ export default async function AdminApplicationsPage({
           </p>
           <p className="mt-1 flex flex-wrap items-baseline gap-2">
             <span className="bg-[linear-gradient(90deg,var(--sx-admin),var(--sx-primary))] bg-clip-text text-4xl font-bold tabular-nums tracking-tight text-transparent sm:text-5xl">
-              {liveWaiting.length}
+              {liveWaiting}
             </span>
             <span className="text-sm text-muted">
-              {liveWaiting.length === 1 ? "athlete" : "athletes"} waiting
+              {liveWaiting === 1 ? "athlete" : "athletes"} waiting
             </span>
             <MiniChip kind="ver">POSTGRES</MiniChip>
           </p>
           <div className="mt-4 space-y-2.5 text-xs text-muted">
-            {liveOverdue.length > 0 ? (
+            {liveOverdue > 0 ? (
               <p className="flex items-center gap-2">
                 <span className="relative inline-flex size-2 shrink-0" aria-hidden="true">
                   <span className="sx-viz-pulse absolute inset-0 rounded-full bg-warn" />
@@ -167,7 +194,7 @@ export default async function AdminApplicationsPage({
                 </span>
                 <span>
                   <strong className="font-semibold text-text">
-                    {liveOverdue.length}
+                    {liveOverdue}
                   </strong>{" "}
                   waiting over 48 hours — the queue below puts them first
                 </span>
@@ -182,9 +209,8 @@ export default async function AdminApplicationsPage({
               </p>
             )}
             <p>
-              {live.rows.length} applications on file · {decidedCount} decided
-              {live.hasMore &&
-                " · showing the first 100 — narrow with search or state"}
+              {total} {total === 1 ? "application" : "applications"} on file
+              · {decided} decided
             </p>
           </div>
         </HeroBand>
@@ -196,8 +222,12 @@ export default async function AdminApplicationsPage({
           />
           <ApplicationsDesk
             items={live.rows}
-            initial={initial}
-            live={{ act: reviewAction }}
+            live={{
+              act: reviewAction,
+              page: live.page,
+              summary: live.summary,
+              query: live.query,
+            }}
           />
         </section>
 

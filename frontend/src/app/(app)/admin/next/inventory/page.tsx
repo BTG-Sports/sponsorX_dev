@@ -14,6 +14,7 @@ import {
   money,
   studentEdition,
 } from "@/lib/fixtures";
+import { NotInRole, staffWithoutAccess } from "@/components/not-in-role";
 
 /* --------------------------------------------------------------------------
    Ad slot inventory ledger — P1-FE-22, spec §8. The list behind the page map:
@@ -31,6 +32,12 @@ export default async function InventoryLedgerPage({
   const demo = await demoState(searchParams);
   if (demo === "loading") return <SkeletonPage />;
   if (demo === "error") throw new Error("Demo error state");
+  /* C-1: a staff role this desk isn't for gets "not in your role", not the
+     sample desk. The demo stays for ?demo= and signed-out visitors. */
+  if (demo === null) {
+    const lacking = await staffWithoutAccess("/admin/next/inventory");
+    if (lacking) return <NotInRole path="/admin/next/inventory" title="NEXT inventory" roles={lacking} />;
+  }
 
   const sp = await searchParams;
   const initial = {
