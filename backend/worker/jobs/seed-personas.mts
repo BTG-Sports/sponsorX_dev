@@ -18,6 +18,8 @@
  *   - Jordan's student application is SUBMITTED, waiting for Ms. Patel.
  *   - Maya is FEATURED (created by editorial), waiting to claim her profile.
  *   - Northside's Fall 2026 edition is SELLING, with its ad slots open.
+ *   - The Hawks can list on the Phase 2 marketplace, with one listing live;
+ *     the Bowie Bay Sox's property application waits for BTG's review.
  */
 
 import type pg from "pg";
@@ -74,6 +76,12 @@ export const PERSONAS: readonly Persona[] = [
   { userId: "seed_user_p_maya_guardian", email: email("maya.guardian"), roles: ["GUARDIAN"], who: "Lena Thompson (Maya's parent)", story: "NEXT", guardianId: MAYA.guardianId },
 ];
 
+/** The Hawks' team inventory — [id, title, kind, priceCents, quantity, categories]. */
+export const MARKETPLACE_ITEMS: ReadonlyArray<readonly [string, string, string, number, number, string[]]> = [
+  ["seed_inv_hawks_signage", "Courtside LED signage", "SIGNAGE", 150_000, 12, ["RESTAURANT", "AUTOMOTIVE"]],
+  ["seed_inv_hawks_tickets", "Season ticket pack (4 seats)", "TICKETS", 60_000, 20, []],
+];
+
 /** Fall 2026 flatplan at the NEXT rate card (SponsorX-NEXT-Rate-Card-Decision.md). */
 export const EDITION_SLOTS: ReadonlyArray<readonly [slotCode: string, kind: string, priceCents: number]> = [
   ["P01-PRES", "PRESENTING", 300_000],
@@ -101,6 +109,52 @@ export async function seedPersonas(client: pg.PoolClient, tenantId: string): Pro
       [s.sponsorId, tenantId, s.name, category],
     );
   }
+
+  /* Phase 2 marketplace (2S1–2S4) — the Hawks are an APPROVED marketplace
+     property with listing access, two team items and one PUBLISHED listing,
+     so a sponsor has something to buy; the Bowie Bay Sox have applied and wait
+     in BTG's verification queue. Their primary contact is a Clerk test
+     address, so approving them on staging creates a login that works.
+     SIMULATED data, per the other personas. */
+  await q(
+    `INSERT INTO "PropertyOnboarding" (id, "tenantId", state, "orgType", "orgName", "stateCode", contacts, details,
+                                       "payoutAcknowledgedAt", "termsAcceptedAt", "submittedAt", "decidedAt", "propertyId")
+     VALUES ('seed_onb_hawks', $1, 'APPROVED', 'TEAM', $2, 'MD', $3::jsonb, $4::jsonb, now(), now(), now(), now(), $5)
+     ON CONFLICT (id) DO NOTHING`,
+    [tenantId, HAWKS.name,
+     JSON.stringify([{ name: "Dana Brooks", email: email("hawks"), role: "General manager", primary: true }]),
+     JSON.stringify({ legalEntityName: "Westfield Hawks Basketball LLC", league: "Mid-Atlantic Amateur League", sport: "Basketball" }),
+     HAWKS.propertyId],
+  );
+  await q(`UPDATE "Property" SET "listingAccessAt" = now() WHERE id = $1 AND "listingAccessAt" IS NULL`, [HAWKS.propertyId]);
+  await q(
+    `INSERT INTO "PropertyOnboarding" (id, "tenantId", state, "orgType", "orgName", "stateCode", contacts, details,
+                                       "payoutAcknowledgedAt", "termsAcceptedAt", "submittedAt")
+     VALUES ('seed_onb_baysox', $1, 'PENDING_REVIEW', 'TEAM', 'Bowie Bay Sox', 'MD', $2::jsonb, $3::jsonb,
+             now(), now(), now() - interval '26 hours')
+     ON CONFLICT (id) DO NOTHING`,
+    [tenantId,
+     JSON.stringify([{ name: "Sam Ortiz", email: email("baysox"), role: "Owner", primary: true }]),
+     JSON.stringify({ legalEntityName: "Bowie Bay Sox Baseball Club Inc.", league: "Atlantic Collegiate Baseball League", sport: "Baseball" })],
+  );
+  for (const [id, title, kind, priceCents, quantity, categories] of MARKETPLACE_ITEMS) {
+    await q(
+      `INSERT INTO "InventoryItem" (id, "tenantId", "propertyId", title, description, kind, "priceCents", quantity,
+                                    "availableFrom", "availableUntil", categories, "restrictedCategories")
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, '2026-10-01'::timestamp, '2027-03-31'::timestamp, $9::TEXT[], ARRAY['ALCOHOL','TOBACCO_VAPE','GAMBLING']::TEXT[])
+       ON CONFLICT (id) DO NOTHING`,
+      [id, tenantId, HAWKS.propertyId, title, `${title} at the Westfield Hawks' 2026–27 home season.`, kind, priceCents, quantity, categories],
+    );
+  }
+  await q(
+    `INSERT INTO "Listing" (id, "tenantId", "propertyId", "inventoryItemId", title, description, state,
+                            "submittedAt", "decidedAt", "publishedAt")
+     VALUES ('seed_lst_hawks_signage', $1, $2, $3, 'Courtside LED signage — Hawks home games',
+             'Rotating courtside LED board, 30 seconds per quarter at every Hawks home game, October through March.',
+             'PUBLISHED', now(), now(), now())
+     ON CONFLICT (id) DO NOTHING`,
+    [tenantId, HAWKS.propertyId, MARKETPLACE_ITEMS[0][0]],
+  );
 
   /* Guardians — Jordan's has already consented (verified); Maya's has not,
      because authorising her claim is a step in the story. */

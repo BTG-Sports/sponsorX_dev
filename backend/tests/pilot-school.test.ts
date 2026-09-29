@@ -148,7 +148,7 @@ describe.skipIf(!hasDatabase)("walkthrough personas · every login works and eve
   const pg = (await import("pg")).default;
   const { prisma } = await import("../src/db/client");
   const { PILOT_SCHOOL, TENANT_ID, seedPilotSchool } = await import("../worker/jobs/seed-environment.mts");
-  const { PERSONAS, HAWKS, HARBOR, BOWIE, RILEY, MAYA, JORDAN, EDITION, EDITION_SLOTS, seedPersonas } =
+  const { PERSONAS, HAWKS, HARBOR, BOWIE, RILEY, MAYA, JORDAN, EDITION, EDITION_SLOTS, MARKETPLACE_ITEMS, seedPersonas } =
     await import("../worker/jobs/seed-personas.mts");
   const { createApp } = await import("../src/app");
 
@@ -170,6 +170,9 @@ describe.skipIf(!hasDatabase)("walkthrough personas · every login works and eve
     await prisma.athlete.deleteMany({ where: { id: { in: [RILEY.athleteId, MAYA.athleteId] } } });
     await prisma.guardian.deleteMany({ where: { id: { in: [JORDAN.guardianId, MAYA.guardianId] } } });
     await prisma.sponsor.deleteMany({ where: { id: { in: [HARBOR.sponsorId, BOWIE.sponsorId] } } });
+    await prisma.listing.deleteMany({ where: { propertyId: HAWKS.propertyId } });
+    await prisma.inventoryItem.deleteMany({ where: { id: { in: MARKETPLACE_ITEMS.map(([id]) => id) } } });
+    await prisma.propertyOnboarding.deleteMany({ where: { id: { in: ["seed_onb_hawks", "seed_onb_baysox"] } } });
     await prisma.property.deleteMany({ where: { id: HAWKS.propertyId } });
     await prisma.rosterEntry.deleteMany({ where: { propertyId: PILOT_SCHOOL.propertyId } });
     await prisma.property.deleteMany({ where: { id: PILOT_SCHOOL.propertyId } });
@@ -243,6 +246,20 @@ describe.skipIf(!hasDatabase)("walkthrough personas · every login works and eve
     for (const [slotCode] of EDITION_SLOTS) expect(body).toContain(slotCode);
     expect(await prisma.adSlot.count({ where: { editionId: EDITION.editionId, campaignId: null } })).toBe(EDITION_SLOTS.length);
     expect((await prisma.edition.findUniqueOrThrow({ where: { id: EDITION.editionId }, select: { state: true } })).state).toBe("SELLING");
+  });
+
+  it("marketplace story: the Hawks' listing is live for Harbor Coffee, and the Bay Sox wait for BTG's review", async () => {
+    const search = await get("/marketplace/search", clerkOf("seed_user_p_harbor"));
+    expect(search.status).toBe(200);
+    expect(await search.text()).toContain("seed_lst_hawks_signage");
+    /* The Hawks may list (approved, with access) — their team inventory is theirs. */
+    const inv = await get("/team/inventory", clerkOf("seed_user_p_hawks"));
+    expect(inv.status).toBe(200);
+    for (const [id] of MARKETPLACE_ITEMS) expect(await inv.clone().text()).toContain(id);
+    const queue = await get("/onboarding", clerkOf("seed_user_p_admin"));
+    expect(queue.status).toBe(200);
+    const q = (await queue.json()) as { onboardings: Array<{ id: string; missing: string[] }> };
+    expect(q.onboardings.find((o) => o.id === "seed_onb_baysox")).toBeDefined();
   });
 
   it("NEXT story: Maya's featured profile is public, ready to be claimed", async () => {
