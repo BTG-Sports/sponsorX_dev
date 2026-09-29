@@ -78,7 +78,16 @@ def _s(v) -> str:
 def load_board(path: str) -> dict[str, dict[str, Task]]:
     import openpyxl  # imported here so the pure helpers test without it
 
+    # read_only keeps the file handle open until close(); Windows then refuses
+    # board_at's unlink of the temp file (WinError 32). Linux never noticed.
     wb = openpyxl.load_workbook(path, read_only=True, data_only=True)
+    try:
+        return _read_board(wb)
+    finally:
+        wb.close()
+
+
+def _read_board(wb) -> dict[str, dict[str, Task]]:
     board: dict[str, dict[str, Task]] = {}
     for phase in PHASES:
         rows: dict[str, Task] = {}
@@ -427,6 +436,11 @@ def cmd_sync_all(a) -> int:
 
 
 def main(argv=None) -> int:
+    # The messages carry emoji; a Windows console defaults to cp1252 and would
+    # crash on the first print. UTF-8 is what CI already uses.
+    for stream in (sys.stdout, sys.stderr):
+        if hasattr(stream, "reconfigure"):
+            stream.reconfigure(encoding="utf-8", errors="replace")
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     sub = ap.add_subparsers(dest="cmd", required=True)
     n = sub.add_parser("notify", help="post the changes between two commits")
