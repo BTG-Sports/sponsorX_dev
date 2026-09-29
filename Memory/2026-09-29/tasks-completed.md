@@ -402,3 +402,37 @@ yet (the nav link and the desk's own count cover it for now).
 - The FEATURED branch was not re-walked (no FEATURED athlete in this local
   DB — Maya is the persona seed); its page code is unchanged and
   `next-rights.test.ts` covers the API shape.
+
+## All remaining design tasks designed; NEXT public pages built and wired (rcfworks)
+
+- **Designs (Claude Design, from the programme owner's one brief)** — all four
+  remaining ART tasks now at Code review with their canvases:
+  `P1-ART-08` NEXT public pages (JJ3fteuVxQM39Ysj7k7GAz), `P6-ART-01`
+  printable QR formats (UmkyjWppiZ2PPDoeJ5RnBU), `2S0-ART-01` the 14 Phase 2
+  screens (RNykbEaHgkiMppTXandrrB, 144 artboards), `4S0-ART-01` the 10
+  INFINEX screens (KBMLqnbXedfz6UiXTRC6Ue; the row says 12, the plan
+  defines 10). Phase 3 has no ART task.
+- **Batch 1 built — `P1-FE-24/25/26`, `P9-FE-06` (Code review).**
+  - `/next/about` landing — at /next/about because `(app)/next` is the
+    student portal (spec §8 put both at /next; one URL, two pages).
+  - `/next/apply` wizard, phone-first; guardian step on the API's own minor
+    rule; progress saved on the device. **Not built (noted):** emailed
+    resume link, guardian consent email, "my school isn't here" waitlist —
+    the copy promises none of them.
+  - `/next/schools` proposal, print-clean; contact `next@sponsorx.net` is
+    SIMULATED (`NEXT_CONTACT_EMAIL`).
+  - Backend: `POST /public/students/applications` now requires and captures
+    a minor's guardian (422 without); `transitionStudent → APPROVED` creates
+    the student's and guardian's logins (`athlete-login.ts`); new
+    `GET /public/next/schools` and `GET /public/next/editions`.
+  - Tests: backend `next-public-apply` (8, mutation-checked twice),
+    `next-students` updated to the guardian rule; frontend `next-apply` (9).
+    Walked locally: a 15-year-old applied on a phone and reached Ms. Patel's
+    advisor queue.
+- **Merged main_development in** (teammate's P2-FE-01/02 live reads and
+  paging, P3-BE-16/P3-FE-08). One import conflict in `student.ts`, both
+  kept. After the merge: backend 1872 pass (the known local QA-02 lock test
+  the one failure), frontend 484 pass, build and lint clean. Tracker: took
+  the teammate's workbook and re-applied my eight rows.
+- **Next batches:** printable QR templates (P6), then the Phase 2 screens
+  whose backend exists. Phase 4 can't be connected — no backend exists.
