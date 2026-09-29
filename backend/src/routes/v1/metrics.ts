@@ -14,6 +14,7 @@
  */
 import { Router, type RequestHandler } from "express";
 import { integrationHealth } from "../../domain/integration-health";
+import { operationsQueues } from "../../domain/operations-board";
 import { analyticsWindow } from "../../domain/reward-analytics";
 
 import { requireActor } from "../../auth/actor";
@@ -125,6 +126,10 @@ const integrations: RequestHandler = async (req, res) => {
 };
 
 metricsRouter.get("/operations/integration-health", requireActor, integrations);
+/** GET /operations/board — the Operations Board's queue counts, each only for a role that reads it tenant-wide (P7-FE-06). */
+metricsRouter.get("/operations/board", requireActor, async (req, res) => {
+  res.json({ queues: await operationsQueues(req.actor!) });
+});
 metricsRouter.get("/operations/analytics", requireActor, analytics);
 metricsRouter.get("/operations/delivery-health", requireActor, delivery);
 metricsRouter.get("/operations/network-metrics", requireActor, network);

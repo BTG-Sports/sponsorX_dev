@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- mock Prisma args are inspected structurally */
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { Actor } from "../src/auth/actor";

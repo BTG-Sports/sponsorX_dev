@@ -1,388 +1,167 @@
-import Link from "next/link";
-import {
-  Badge,
-  BlockedNotice,
-  Button,
-  Card,
-  Meter,
-  SectionHeading,
-  SourceLabel,
-} from "@/components/ui";
-import { compact } from "@/components/charts";
-import { HeroBand, MiniChip, Monogram, initials } from "@/components/hero";
-import { EmptyState, SkeletonPage } from "@/components/states";
-import { demoState } from "@/lib/demo";
-import {
-  INVENTORY_COPY,
-  money,
-  property,
-  propertyShowcase,
-  type InventoryState,
-} from "@/lib/fixtures";
-import { liveProperty, type LiveProperty } from "@/server/property";
-import { PropertyInventoryList, PropertyRosterList } from "@/components/property-lists";
+import { Badge, Card, SectionHeading } from "@/components/ui";
+import { Monogram } from "@/components/hero";
+import { EmptyState } from "@/components/states";
+import { buildPropertyHome, type ApiMyProperty, type ApiRoster } from "@/lib/property-home-live";
+import { apiFetch } from "@/server/api";
+import { PagerRow, ServerList } from "@/components/server-pager";
+import { pageParams, pageParamsFor, type PageInfo, type SearchParams } from "@/lib/list-query";
+import { requirePortalAccess } from "@/server/portal";
 
 /* --------------------------------------------------------------------------
-   Property Portal — §8 PROPERTY_MGR. Redesigned 2026-09-11 (A2).
+   Property portal home — P3-FE-07, §8. The manager's own organisation: its
+   name, kind and place, its roster with the team's share of each athlete's
+   earnings, and the inventory it offers sponsors. It replaced a sample
+   property behind a demo banner (found by the staging walkthrough).
 
-   The dashboard a property manager (here, BTG Sports Talk) works: their own
-   roster, their sponsorship inventory and their analytics. Scoping is the
-   point — a PROPERTY_MGR sees only their own property's athletes and campaigns
-   (guide §09, enforced as a §30 cross-tenant test). On fixtures this is one
-   property; the real query is tenant + property scoped.
-
-   The showcase hero answers "what audience value has this property delivered
-   this season?": estimated views, views priced at curated CPM,
-   inventory sell-through and roster reach — every figure provenance-tagged
-   (§22). `propertyShowcase.rosterCount` is the platform-wide count (Postgres);
-   the `property.roster` fixture below it is a small in-portal sample, so the
-   roster section is framed as a sample against that count rather than
-   contradicting it.
-
-   The public, sponsor-facing version of this property is
-   /properties/btg-sports-talk. This portal is the owner's side of it.
-
-   LIVE (P2-FE-01). A signed-in PROPERTY_MGR gets their own property from
-   GET /properties/mine and its roster and inventory from GET /team/roster
-   (own-property scope). The showcase hero's audience figures have no
-   per-property measurement yet, so the live portal doesn't draw them.
+   Live only: GET /properties/mine (404 = this login has no property yet) and
+   GET /team/roster (own property only; another property's rows are never
+   reachable — scope.ts). Other failures throw to the error page.
    -------------------------------------------------------------------------- */
 
-const STATE_TONE: Record<InventoryState, "accent" | "warn" | "primary" | "neutral"> = {
-  ACTIVE: "accent",
-  LIMITED: "warn",
-  BOOKED: "primary",
-  SOLD_OUT: "neutral",
-};
+export const dynamic = "force-dynamic";
 
-export default async function PropertyPortalPage({
+const INV_KEYS = { page: "ipage", size: "isize" };
+
+export default async function PropertyHomePage({
   searchParams,
 }: {
-  searchParams: Promise<Record<string, string | string[] | undefined>>;
+  searchParams: Promise<SearchParams>;
 }) {
-  const demo = await demoState(searchParams);
-  if (demo === "loading") return <SkeletonPage />;
-  if (demo === "error") throw new Error("Demo error state");
+  await requirePortalAccess("property");
+  const sp = await searchParams;
 
-  const live = demo === null ? await liveProperty(await searchParams) : null;
-  if (live === "unlinked") {
+  /* SERVER-PAGED (P2-FE-02, merged onto P3-FE-07): the roster and the
+     inventory are one page each from GET /team/athletes and GET
+     /team/inventory, with their DB counts — not /team/roster's every athlete
+     with every item nested. The roster pages on ?page/?size, the inventory
+     on ?ipage/?isize, so one never moves the other. */
+  const a = pageParams(sp);
+  const i = pageParamsFor(sp, INV_KEYS);
+  const [mineRes, athRes, invRes] = await Promise.all([
+    apiFetch("/properties/mine"),
+    apiFetch(`/team/athletes?page=${a.page}&size=${a.size}`),
+    apiFetch(`/team/inventory?page=${i.page}&size=${i.size}`),
+  ]);
+  if (mineRes.status === 404) {
     return (
       <div className="space-y-6">
-        <h1 className="text-xl font-semibold tracking-tight">Property portal</h1>
-        <EmptyState
-          mark="users"
-          title="Your account isn't linked to a property yet"
-          hint="You're signed in as a property manager, but BTG hasn't connected this login to your team, school or event. Ask your BTG contact to link it."
-        />
+        <h1 className="text-xl font-semibold tracking-tight">Your property</h1>
+        <EmptyState mark="users" title="No property is linked to this login yet" hint="Ask BTG to link your login to your team or school." />
       </div>
     );
   }
-  if (live) return <LivePortal live={live} />;
-
-  const p = property;
-
-  const heading = (
-    <div className="flex flex-wrap items-end justify-between gap-4">
-      <div>
-        <div className="flex flex-wrap items-center gap-2">
-          <h1 className="text-xl font-semibold tracking-tight">{p.name}</h1>
-          <Badge tone="neutral">{p.kind}</Badge>
-        </div>
-        <p className="mt-1 text-xs text-muted">
-          {p.subtitle} · {p.formats.join(" · ")}
-        </p>
-      </div>
-      <Link
-        href={`/properties/${p.slug}?from=property`}
-        className="text-xs font-medium text-property hover:underline"
-      >
-        View public page →
-      </Link>
-    </div>
-  );
-
-  /* Brand-new property, no athletes approved yet: no roster, no inventory
-     activity worth showcasing — the screen is the next step, not a hero band
-     built on zeros. */
-  if (demo === "empty") {
-    return (
-      <div className="space-y-6">
-        {heading}
-        <EmptyState
-          mark="users"
-          title="No roster on the platform yet"
-          hint="Your athletes appear here once their applications are approved."
-          action={{ label: "How athletes join", href: "/join" }}
-        />
-      </div>
-    );
-  }
-
-  const openOpportunities = p.opportunities.filter(
-    (o) => o.state === "ACTIVE" || o.state === "LIMITED",
-  ).length;
+  if (!mineRes.ok) throw new Error(`Property unavailable (${mineRes.status}).`);
+  for (const r of [athRes, invRes]) if (!r.ok && r.status !== 403) throw new Error(`Roster unavailable (${r.status}).`);
+  const mine = (await mineRes.json()) as ApiMyProperty;
+  type AthPage = { property: ApiRoster["property"]; athletes: Omit<ApiRoster["athletes"][number], "inventory">[]; page: PageInfo; counts: { athletes: number; active: number } };
+  type InvPage = { inventory: ApiRoster["inventory"]; page: PageInfo; counts: { items: number; active: number } };
+  const ath = athRes.ok ? ((await athRes.json()) as AthPage) : null;
+  const inv = invRes.ok ? ((await invRes.json()) as InvPage) : null;
+  /* The builder's input shape, from the two pages (items carry no nesting). */
+  const roster: ApiRoster | null = ath
+    ? { property: ath.property, athletes: ath.athletes.map((x) => ({ ...x, inventory: [] })), inventory: inv?.inventory ?? [] }
+    : null;
+  const p = buildPropertyHome(mine, roster);
+  const athleteTotal = ath?.counts.athletes ?? 0;
+  const itemTotal = inv?.counts.items ?? 0;
 
   return (
     <div className="space-y-6">
-      {heading}
-
-      {/* P7-QA-02: no live read on this portal yet (GET /properties/mine
-          exists but isn't called) — every figure below, POSTGRES and
-          VERIFIED chips included, is the BTG Sports Talk fixture, and the
-          curated CPM names no origin or date. */}
-      {!demo && (
-        <BlockedNotice>
-          Demo data — your property&rsquo;s roster, inventory and analytics
-          aren&rsquo;t connected yet, so every figure below is a sample
-          property&rsquo;s.
-        </BlockedNotice>
-      )}
-
-      {/* ----------------------------------------------------- showcase hero */}
-      <HeroBand border="border-property/30" className="sx-animate">
-        <div className="flex flex-col gap-6 sm:flex-row sm:items-start sm:justify-between">
-          <div className="min-w-0">
-            <p className="text-[10px] font-medium uppercase tracking-[0.2em] text-muted">
-              Audience value delivered · season to date
-            </p>
-            <p className="mt-1 flex flex-wrap items-baseline gap-2">
-              <span className="bg-[linear-gradient(90deg,var(--sx-property),var(--sx-primary))] bg-clip-text text-4xl font-bold tabular-nums tracking-tight text-transparent sm:text-5xl">
-                {compact(propertyShowcase.estSeasonViews)} est. views
-              </span>
-              <MiniChip kind="est">EST</MiniChip>
-            </p>
-            <p className="mt-1.5 flex flex-wrap items-center gap-2 text-xs text-muted">
-              {/* F-11 / QA pass 6 (P6-FE-08): an estimate of views priced at a
-                  curated CPM — not "media value" the property earned. Same
-                  words as the sponsor report. */}
-              Views priced at curated CPM ≈ {money(propertyShowcase.impliedMediaValueCents)}
-              <MiniChip kind="est">EST · curated</MiniChip>
-            </p>
-          </div>
-
-          <div className="w-full shrink-0 sm:w-56">
-            <p className="text-[11px] font-medium text-muted">
-              Inventory sell-through
-            </p>
-            <p className="mt-1 flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
-              <span className="text-lg font-semibold tabular-nums">
-                {propertyShowcase.sellThroughPct}%
-              </span>
-              <span className="text-[11px] text-faint">
-                {propertyShowcase.slotsBooked} of{" "}
-                {propertyShowcase.slotsTotal} slots booked
-              </span>
-            </p>
-            <div className="mt-2">
-              <Meter value={propertyShowcase.sellThroughPct} />
-            </div>
-            <p className="mt-2">
-              <MiniChip kind="ver">POSTGRES</MiniChip>
-            </p>
-            <p className="mt-3 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted">
-              <span className="font-semibold text-text">
-                {propertyShowcase.rosterCount}
-              </span>
-              athletes
-              <MiniChip kind="ver">POSTGRES</MiniChip>
-              · {propertyShowcase.avgEngagementPct}% avg engagement
-              <MiniChip kind="manual">VERIFIED · MANUAL</MiniChip>
-            </p>
-          </div>
-        </div>
-      </HeroBand>
-
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_20rem] xl:items-start">
-        {/* ================================================ inventory */}
-        <div className="min-w-0 space-y-6">
-          <section className="sx-animate sx-delay-1">
-            <SectionHeading
-              title="Sponsorship inventory"
-              hint={`${openOpportunities} open · what sponsors can buy against this property`}
-            />
-            <Card className="p-0">
-              <ul className="divide-y divide-line-soft">
-                {p.opportunities.map((o) => (
-                  <li
-                    key={o.id}
-                    className="flex flex-wrap items-center gap-x-4 gap-y-1 px-4 py-3"
-                  >
-                    <Monogram
-                      text={initials(o.name)}
-                      tone="primary"
-                      className="size-8 text-[10px]"
-                    />
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-xs font-medium">{o.name}</p>
-                      <p className="truncate text-[11px] text-faint">
-                        {o.detail}
-                      </p>
-                    </div>
-                    <span className="text-xs font-semibold tabular-nums">
-                      {money(o.price)}
-                    </span>
-                    <Badge tone={STATE_TONE[o.state]}>
-                      {INVENTORY_COPY[o.state]}
-                    </Badge>
-                  </li>
-                ))}
-              </ul>
-            </Card>
-          </section>
-
-          {/* -------------------------------------------------- roster */}
-          <section className="sx-animate sx-delay-2">
-            <SectionHeading
-              title="Your roster"
-              hint={`${propertyShowcase.rosterCount} athletes on the platform · showing ${p.roster.length} — §09 scoped to this property`}
-            />
-            <Card className="p-0">
-              <ul className="divide-y divide-line-soft">
-                {p.roster.map((a) => (
-                  <li key={a.slug} className="flex items-center gap-3 px-4 py-3">
-                    <Monogram
-                      text={initials(a.name)}
-                      tone="neutral"
-                      shape="circle"
-                      className="size-8 text-[10px]"
-                    />
-                    <div className="min-w-0 flex-1">
-                      <Link
-                        href={`/athletes/${a.slug}?from=property`}
-                        className="block truncate text-xs font-medium hover:text-property"
-                      >
-                        {a.name}
-                      </Link>
-                      <p className="truncate text-[11px] text-faint">
-                        {a.sport}
-                      </p>
-                    </div>
-                    <Button
-                      variant="ghost"
-                      href={`/athletes/${a.slug}?from=property`}
-                    >
-                      Profile
-                    </Button>
-                  </li>
-                ))}
-              </ul>
-            </Card>
-          </section>
-        </div>
-
-        {/* ==================================================== side rail */}
-        <div className="space-y-4">
-          <Card className="sx-animate sx-delay-1">
-            <SectionHeading title="About" />
-            <p className="text-[11px] leading-relaxed text-muted">{p.about}</p>
-          </Card>
-
-          <Card className="sx-animate sx-delay-2">
-            <SectionHeading
-              title="Analytics"
-              hint="§22 — every figure carries its source"
-            />
-            <ul className="space-y-3">
-              {p.stats.map((s) => (
-                <li
-                  key={s.label}
-                  className="flex items-center justify-between gap-2"
-                >
-                  <div className="min-w-0">
-                    <p className="text-[11px] text-muted">{s.label}</p>
-                    <p className="text-sm font-semibold tabular-nums leading-tight">
-                      {s.value}
-                    </p>
-                  </div>
-                  <SourceLabel source={s.source} />
-                </li>
-              ))}
-            </ul>
-          </Card>
-
-          <Card className="sx-animate sx-delay-3">
-            <p className="text-[11px] font-medium text-muted">
-              Scoped access
-            </p>
-            <p className="mt-1.5 text-[11px] leading-relaxed text-faint">
-              This portal is limited to {p.name}. A property manager cannot see
-              other properties&rsquo; athletes, campaigns or inventory — that
-              is the tenant/property scope in guide §09, tested per §30.
-            </p>
-          </Card>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-/* ------------------------------------------------------------ live portal */
-
-function LivePortal({ live }: { live: LiveProperty }) {
-  const p = live.property;
-  const place = [p.city, p.stateCode].filter(Boolean).join(", ");
-
-  return (
-    <div className="space-y-6">
-      <div className="flex flex-wrap items-end justify-between gap-4">
+      <div className="flex flex-wrap items-center gap-4">
+        <Monogram text={p.mono} tone="primary" className="size-12 text-sm" />
         <div>
-          <div className="flex flex-wrap items-center gap-2">
-            <h1 className="text-xl font-semibold tracking-tight">{p.name}</h1>
-            <Badge tone="neutral">{p.kind.toLowerCase()}</Badge>
-          </div>
-          <p className="mt-1 text-xs text-muted">
-            {place ? `${place} · ` : ""}your roster and sponsorship inventory
+          <p className="flex flex-wrap items-center gap-2 text-[11px] text-muted">
+            {p.kind && <Badge tone="primary">{p.kind}</Badge>}
+            {p.place}
           </p>
+          <h1 className="mt-1 text-2xl font-semibold tracking-tight">{p.name}</h1>
+          <p className="mt-0.5 text-xs text-muted">Your organisation on SponsorX. Only you and BTG see this page.</p>
         </div>
-        <Link
-          href={`/properties/${encodeURIComponent(p.slug)}?from=property`}
-          className="text-xs font-medium text-property hover:underline"
-        >
-          View public page →
-        </Link>
       </div>
 
-      {/* Counts are the API's COUNT over the whole property, not the page. */}
-      <div className="sx-animate grid gap-3 sm:grid-cols-3">
-        <Card className="p-4">
-          <p className="text-[11px] font-medium text-muted">Roster athletes</p>
-          <p className="mt-2 text-2xl font-semibold tabular-nums tracking-tight">{live.athleteCounts.athletes}</p>
-          <p className="mt-1 text-[10px] text-faint">{live.athleteCounts.active} active on the platform</p>
-          <p className="mt-2"><MiniChip kind="ver">POSTGRES</MiniChip></p>
-        </Card>
-        <Card className="p-4">
-          <p className="text-[11px] font-medium text-muted">Inventory items</p>
-          <p className="mt-2 text-2xl font-semibold tabular-nums tracking-tight">{live.inventoryCounts.items}</p>
-          <p className="mt-1 text-[10px] text-faint">{live.inventoryCounts.active} active</p>
-          <p className="mt-2"><MiniChip kind="ver">POSTGRES</MiniChip></p>
-        </Card>
-        <Card className="p-4">
-          <p className="text-[11px] font-medium text-muted">Scoped access</p>
-          <p className="mt-2 text-[11px] leading-relaxed text-faint">
-            Limited to {p.name}. You can&rsquo;t see other properties&rsquo;
-            athletes, campaigns or inventory (guide §09, tested per §30).
-          </p>
-        </Card>
-      </div>
+      <ul className="grid grid-cols-2 gap-3 sm:max-w-md">
+        <li className="rounded-xl border border-line bg-surface p-4">
+          <p className="text-[11px] text-muted">Roster</p>
+          <p className="text-xl font-semibold tabular-nums">{athleteTotal}</p>
+          <p className="text-[11px] text-faint">athletes</p>
+        </li>
+        <li className="rounded-xl border border-line bg-surface p-4">
+          <p className="text-[11px] text-muted">Inventory</p>
+          <p className="text-xl font-semibold tabular-nums">{itemTotal}</p>
+          <p className="text-[11px] text-faint">items offered</p>
+        </li>
+      </ul>
 
-      <div className="grid gap-6 xl:grid-cols-2 xl:items-start">
-        <section className="sx-animate sx-delay-1 min-w-0">
-          <SectionHeading title="Sponsorship inventory" hint={`${live.inventoryCounts.active} active · what sponsors can buy against this property`} />
-          <PropertyInventoryList items={live.inventory} page={live.inventoryPage} iq={live.iq} teamName={p.name} />
+      <div className="grid gap-6 lg:grid-cols-2">
+        <section>
+          <SectionHeading title="Roster" hint={`Athletes on ${p.name} and the team’s share of what they earn.`} />
+          {athleteTotal === 0 ? (
+            <Card>
+              <p className="text-sm font-semibold">No athletes on your roster yet</p>
+              <p className="mt-1 text-xs text-muted">Athletes appear here once BTG approves them with {p.name} as their team or school.</p>
+            </Card>
+          ) : (
+            <ServerList>
+            {ath && <PagerRow page={ath.page} noun="Athletes" tone="property" position="top" />}
+            <div className="mt-3" />
+            <Card className="p-0">
+              <div className="grid grid-cols-[1fr_auto_auto] gap-x-4 border-b border-line-soft px-4 py-2 text-[10px] font-medium uppercase tracking-wide text-faint">
+                <span>Athlete</span>
+                <span>Sport</span>
+                <span className="text-right">Team share</span>
+              </div>
+              <ul className="divide-y divide-line-soft">
+                {p.athletes.map((a) => (
+                  <li key={a.id} className="grid grid-cols-[1fr_auto_auto] items-center gap-x-4 px-4 py-3 text-xs">
+                    <span className="flex min-w-0 items-center gap-2">
+                      <Monogram text={a.mono} tone="accent" shape="circle" className="size-7 text-[10px]" />
+                      <span className="truncate font-medium">{a.name}</span>
+                    </span>
+                    <span className="text-muted">{a.sport}</span>
+                    <span className={`text-right tabular-nums ${a.shareSet ? "" : "text-warn"}`}>{a.share}</span>
+                  </li>
+                ))}
+              </ul>
+            </Card>
+            {ath && <PagerRow page={ath.page} noun="Athletes" tone="property" position="bottom" />}
+            </ServerList>
+          )}
         </section>
 
-        <section className="sx-animate sx-delay-2 min-w-0">
-          <SectionHeading title="Your roster" hint={`${live.athleteCounts.athletes} athletes · scoped to this property`} />
-          <PropertyRosterList athletes={live.athletes} page={live.athletePage} q={live.q} />
+        <section>
+          <SectionHeading title="Sponsorship inventory" hint={`What ${p.name} offers sponsors, at your price.`} />
+          {itemTotal === 0 ? (
+            <Card>
+              <p className="text-sm font-semibold">No inventory yet</p>
+              <p className="mt-1 text-xs text-muted">Listing opens once BTG approves your onboarding. Signage, tickets and appearances all go here.</p>
+            </Card>
+          ) : (
+            <ServerList>
+            {inv && <PagerRow page={inv.page} noun="Items" tone="property" position="top" keys={INV_KEYS} />}
+            <div className="mt-3" />
+            <Card className="p-0">
+              <ul className="divide-y divide-line-soft">
+                {p.inventory.map((i) => (
+                  <li key={i.id} className="flex items-center justify-between gap-3 px-4 py-3 text-xs">
+                    <span className="min-w-0">
+                      <span className="block truncate font-medium">{i.title}</span>
+                      <span className="block text-[11px] text-muted">
+                        {i.kind} · {i.qty}
+                      </span>
+                    </span>
+                    <span className="flex items-center gap-2">
+                      <span className="font-semibold tabular-nums">{i.price}</span>
+                      <Badge tone={i.status === "Active" ? "accent" : "neutral"}>{i.status}</Badge>
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </Card>
+            {inv && <PagerRow page={inv.page} noun="Items" tone="property" position="bottom" keys={INV_KEYS} />}
+            </ServerList>
+          )}
         </section>
       </div>
-
-      <p className="text-[10px] leading-relaxed text-faint">
-        Roster and inventory are from Postgres, one page at a time. Audience
-        figures (views, the CPM-priced value, engagement) are not shown yet:
-        nothing measures them per property today, and this page doesn&rsquo;t
-        estimate them.
-      </p>
     </div>
   );
 }

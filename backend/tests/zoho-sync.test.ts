@@ -217,7 +217,7 @@ describe.skipIf(!hasDatabase)("the Zoho sync, on the path a request takes", asyn
     });
 
     it("a brief closed from DRAFT gets no Deal invented for it", async () => {
-      await transitionBrief(actor, "zt_brief", "CLOSED");
+      await transitionBrief(actor, "zt_brief", "CLOSED", "Sponsor went quiet");
       expect(await drain()).toEqual([]);
       expect(zoho.all("Deals")).toHaveLength(0);
     });

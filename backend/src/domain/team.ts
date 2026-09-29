@@ -117,7 +117,8 @@ export async function teamAthletesPage(
         prisma.athlete.findMany({
           /* tenant-scope: `where`/`base`/`mine` are built from whereFor(actor, …, "read") above; only filters are added. */
           where,
-          select: { id: true, displayName: true, sport: true, position: true, gradYear: true, state: true, teamShareBps: true },
+          /* legalName: the manager's own roster shows it (as /team/roster does). */
+          select: { id: true, displayName: true, legalName: true, sport: true, position: true, gradYear: true, state: true, teamShareBps: true },
           orderBy: [{ displayName: "asc" }, { id: "asc" }],
           skip,
           take,

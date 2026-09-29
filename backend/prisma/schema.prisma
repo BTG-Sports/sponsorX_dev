@@ -631,6 +631,8 @@ model CampaignBrief {
   /// Conflict-check input — §26.
   categories    String[]
   state         BriefState @default(DRAFT)
+  /// P4-FE-07 — why BTG closed it; null unless CLOSED.
+  closeReason   String?
   createdAt     DateTime   @default(now())
   updatedAt     DateTime   @default(now()) @updatedAt
 

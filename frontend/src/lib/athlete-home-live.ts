@@ -1,160 +1,154 @@
-import type { QueueRow, ReviewRow } from "@/components/attention-queue";
-import type { SectionKey } from "@/lib/profile-sections";
-import { SECTIONS } from "@/lib/profile-sections";
-import { money } from "@/lib/fixtures";
-import type { ApiEarningsSummary } from "@/lib/earnings-live";
-import { dueLabel, nextStep, type ApiDeliverable } from "@/lib/deliverables-live";
-import { timeLeft, type ApiInvitation } from "@/lib/invitations-live";
-import { completion, sectionStates, type ApiMyProfile } from "@/lib/profile-live";
-
 /* --------------------------------------------------------------------------
-   P2-FE-01 — the athlete dashboard's live translation. Pure: the athlete's
-   own reads and a clock in; the queue, the journey counts and the money
-   strip out.
+   P3-FE-06 — the athlete portal home, from the athlete's own live reads:
 
-   SERVER-PAGED (2026-09-29). The dashboard no longer reads every invitation,
-   deliverable and earning. Every COUNT and every MONEY figure is a database
-   aggregate (the inbox, deliverable and earnings summaries, and the paged
-   lists' `page.total`); the attention queue shows the TOP few of each queue —
-   the soonest-expiring open invites, the athlete's next moves, what's in
-   review — each fetched as one small server page, with the full lists one
-   click away on their own paged screens.
+     GET /athletes/me     profile, state, completion (athlete only; a
+                          guardian has no athlete row and gets none)
+     GET /invitations     open invitations (own, or a guardian's ward)
+     GET /deliverables    work still due
+     GET /earnings        amounts by status
 
-   HONESTY RULES. Nothing here is estimated. An open invite whose expiry has
-   passed is not "open". The profile meter is the §24 meter from profile-live,
-   which excludes what Phase 1 can't collect.
+   It replaced a sample athlete ("Shammah") behind a demo banner. Every figure
+   is one of these reads; nothing is estimated.
    -------------------------------------------------------------------------- */
 
-export type GuardianStatus = "not-required" | "missing" | "unverified" | "ready";
+import { buckets, type ApiEarning, summaryBuckets, type ApiEarningsSummary } from "./earnings-live";
+import { dueLabel, type ApiDeliverable } from "./deliverables-live";
+import { toInboxRow, type ApiInvitation } from "./invitations-live";
+import { isOpen } from "./invitations-ui";
+import { completion, sectionStates, type ApiMyProfile } from "./profile-live";
+import { SECTIONS } from "./profile-sections";
 
-/** How many rows of each queue the dashboard shows; the rest are paged on
- *  their own screens. */
-export const QUEUE_TOP = 10;
+export type HomeStatus = { label: string; line: string; tone: "accent" | "primary" | "warn" | "neutral" };
 
-export type AthleteHomeInput = {
-  profile: ApiMyProfile;
-  /** Open invitations, soonest expiry first (one server page). */
-  invitesTop: ApiInvitation[];
-  /** All open invitations (the inbox summary). */
-  openInvites: number;
-  /** The athlete's moves, soonest due first (one server page, tab=todo). */
-  dueTop: ApiDeliverable[];
-  dueTotal: number;
-  /** Waiting on BTG or the sponsor (one server page, tab=review). */
-  reviewTop: ApiDeliverable[];
-  reviewTotal: number;
-  /** Distinct campaigns with delivery still open (the deliverable summary). */
-  activeCampaigns: number;
-  earnings: ApiEarningsSummary;
-  guardian: GuardianStatus;
+export function statusOf(state: string): HomeStatus {
+  switch (state) {
+    case "ACTIVE":
+      return { label: "Active", line: "Your profile is live and sponsors can be matched to you.", tone: "accent" };
+    case "APPROVED":
+      return { label: "Approved", line: "Finish your profile to go live — BTG activates you once it's complete.", tone: "primary" };
+    case "SUBMITTED":
+    case "UNDER_REVIEW":
+      return { label: "In review", line: "BTG is reviewing your application. You'll get an email with the outcome.", tone: "warn" };
+    case "CHANGES_REQUESTED":
+      return { label: "Changes requested", line: "BTG asked for a change before approving — check your email.", tone: "warn" };
+    case "SUSPENDED":
+      return { label: "Paused", line: "Your profile is paused. Contact BTG for details.", tone: "neutral" };
+    default:
+      return { label: state.charAt(0) + state.slice(1).toLowerCase().replace(/_/g, " "), line: "", tone: "neutral" };
+  }
+}
+
+/** 25000 → "$250"; 25050 → "$250.50". */
+export function usd(cents: number): string {
+  const whole = cents % 100 === 0;
+  return `$${(cents / 100).toLocaleString("en-US", { minimumFractionDigits: whole ? 0 : 2, maximumFractionDigits: 2 })}`;
+}
+
+export type HomeInvite = { id: string; sponsor: string; mono: string; campaign: string; offer: string; expires: string; urgent: boolean };
+export type HomeDeliverable = { id: string; title: string; campaign: string; mon: string; day: string; due: string; review: string; overdue: boolean };
+
+const REVIEW: Record<string, string> = {
+  NOT_STARTED: "Not started",
+  DRAFT_SUBMITTED: "Submitted",
+  BTG_REVIEW: "BTG review",
+  SPONSOR_REVIEW: "Sponsor review",
 };
 
-const SECTION_LABEL = Object.fromEntries(SECTIONS.map((s) => [s.key, s.label])) as Record<SectionKey, string>;
-
-const REVIEW_TONE: Record<string, ReviewRow["badge"]["tone"]> = {
-  btg: "warn",
-  sponsor: "warn",
-  done: "accent",
+export type AthleteHome = {
+  firstName: string | null;
+  subtitle: string | null;
+  status: HomeStatus | null;
+  profile: { percent: number; done: number; total: number; missing: string[] } | null;
+  inviteCount: number;
+  invites: HomeInvite[];
+  dueCount: number;
+  deliverables: HomeDeliverable[];
+  earnings: { label: string; amount: string; hint: string; tone: "neutral" | "primary" | "accent" }[];
+  hasEarnings: boolean;
 };
 
-export function athleteHome(input: AthleteHomeInput, now: Date) {
-  const { profile: p, earnings: e, guardian } = input;
-  const guardianPending = guardian === "missing" || guardian === "unverified";
+const mono = (s: string) => s.split(/\s+/).map((w) => w[0] ?? "").join("").slice(0, 2).toUpperCase();
 
-  /* The page already asked for open invites only; a row that lapsed between
-     the query and now still isn't shown as open. */
-  const invites = input.invitesTop.filter((i) => Date.parse(i.expiresAt) > now.getTime());
-  const due = input.dueTop;
-  const meter = completion(sectionStates(p));
+/** The deliverable states the home lists as "due" — exported so the page asks
+ *  the API for exactly these (server-paged, P2-FE-02). */
+export const DUE_STATES = Object.keys(REVIEW);
 
-  const queueRows: QueueRow[] = [
-    ...invites.map((inv): QueueRow => {
-      const hours = (Date.parse(inv.expiresAt) - now.getTime()) / 3_600_000;
-      return {
-        id: inv.id,
-        kind: "invite",
-        title: `${inv.sponsorName ?? "BTG"} — ${inv.campaignName}`,
-        money: money(inv.offered),
-        sub: `${inv.jobId} · ${inv.jobName}`,
-        badges: [
-          ...(inv.state === "INVITED" ? [{ label: "New", tone: "primary" as const }] : []),
-          { label: `expires in ${timeLeft(hours)}`, tone: hours <= 72 ? "warn" : "neutral" },
-        ],
-        action: { label: inv.state === "INVITED" ? "Open offer" : "Review offer", href: "/athlete/invitations" },
-      };
-    }),
-    ...due.map((d): QueueRow => {
-      const step = nextStep(d);
-      const label = dueLabel(d.dueDate, now);
-      return {
-        id: d.id,
-        kind: "deliverable",
-        title: d.title,
-        sub: `${d.campaign.name} · ${d.campaign.sponsorName}`,
-        badges: [
-          { label, tone: label.includes("overdue") || label === "due today" ? "warn" : "neutral" },
-          ...(d.revision ? [{ label: "revision requested", tone: "warn" as const }] : []),
-        ],
-        action: guardianPending
-          ? { label: step.label, disabled: true, title: "Blocked: a minor needs a verified guardian first (§4)" }
-          : { label: step.label, href: `/athlete/deliverables/${encodeURIComponent(d.id)}` },
-      };
-    }),
-    ...(meter.missing.length > 0
-      ? [
-          {
-            id: "profile-gaps",
-            kind: "profile",
-            title: `Finish your profile — ${meter.missing.length} ${meter.missing.length === 1 ? "item" : "items"} left`,
-            sub: meter.missing.map((k) => SECTION_LABEL[k] ?? k).join(" · "),
-            badges: [],
-            action: { label: "Finish →", variant: "ghost", href: `/athlete/profile/edit?section=${meter.missing[0]}` },
-          } satisfies QueueRow,
-        ]
-      : []),
-  ];
+export function buildHome(input: {
+  profile: ApiMyProfile | null;
+  invitations: ApiInvitation[];
+  deliverables: ApiDeliverable[];
+  earnings: ApiEarning[];
+  now: Date;
+  /* SERVER-PAGED (P2-FE-02, merged onto P3-FE-06): when the page passes the
+     top rows of each list, the true counts come from the API (summary /
+     page.total) and the money from GET /earnings/summary — the lists above
+     are then only the few rows shown, never every row. */
+  counts?: { invites: number; due: number };
+  earningsSummary?: ApiEarningsSummary;
+}): AthleteHome {
+  const { profile, now } = input;
 
-  const reviewRows: ReviewRow[] = input.reviewTop.map((d) => {
-    const step = nextStep(d);
-    return {
-      id: d.id,
-      due: new Date(d.dueDate).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" }),
-      title: d.title,
-      sub: `${d.campaign.name} · ${d.campaign.sponsorName}`,
-      badge: { label: step.label, tone: REVIEW_TONE[step.on] ?? "neutral" },
+  let prof: AthleteHome["profile"] = null;
+  if (profile) {
+    const states = sectionStates(profile);
+    const c = completion(states);
+    const total = Object.values(states).filter((s) => s !== "not-collected").length;
+    prof = {
+      percent: c.percent,
+      done: total - c.missing.length,
+      total,
+      missing: c.missing.map((k) => SECTIONS.find((s) => s.key === k)?.label ?? k),
     };
-  });
+  }
 
-  const bucket = (s: keyof ApiEarningsSummary["byState"]) => ({
-    amount: e.byState[s]?.amount ?? 0,
-    count: e.byState[s]?.count ?? 0,
-  });
-  const earned = e.career?.raised ?? 0;
-  const paid = e.career?.paid ?? 0;
-  const paidThisYear = e.paidByMonth?.months ?? Array.from({ length: 12 }, () => 0);
+  const open = input.invitations
+    .filter((i) => isOpen(i.state))
+    .map((i) => toInboxRow(i, now))
+    .sort((a, b) => a.hoursLeft - b.hoursLeft);
+
+  const due = input.deliverables
+    .filter((d) => d.state in REVIEW)
+    .sort((a, b) => a.dueDate.localeCompare(b.dueDate));
+
+  const b = input.earningsSummary ? summaryBuckets(input.earningsSummary) : buckets(input.earnings);
 
   return {
-    guardianPending,
-    openInvites: input.openInvites,
-    due: input.dueTotal,
-    nextDue: due[0] ? dueLabel(due[0].dueDate, now) : null,
-    activeCampaigns: input.activeCampaigns,
-    pending: bucket("PENDING"),
-    approved: bucket("APPROVED_FOR_PAYOUT"),
-    earned,
-    paid,
-    /** Paid ÷ earned, whole percent; null with nothing earned yet. */
-    paidPct: earned > 0 ? Math.round((100 * paid) / earned) : null,
-    paidThisYear,
-    paidThisYearTotal: paidThisYear.reduce((n, v) => n + v, 0),
-    profilePct: meter.percent,
-    profileMissing: meter.missing.length,
-    /** The TRUE number waiting on the athlete — not the rows shown. */
-    attentionTotal: input.openInvites + input.dueTotal + (meter.missing.length > 0 ? 1 : 0),
-    /** More exist than the dashboard shows — link to the full screens. */
-    moreInvites: input.openInvites > invites.length,
-    moreDue: input.dueTotal > due.length,
-    queueRows,
-    reviewRows,
+    firstName: profile ? (profile.legalName.trim() || profile.displayName).split(/\s+/)[0] ?? null : null,
+    subtitle: profile
+      ? [profile.legalName || profile.displayName, profile.sport, profile.school].filter(Boolean).join(" · ")
+      : null,
+    status: profile ? statusOf(profile.state) : null,
+    profile: prof,
+    inviteCount: input.counts?.invites ?? open.length,
+    invites: open.slice(0, 3).map((i) => ({
+      id: i.id,
+      sponsor: i.sponsor,
+      mono: mono(i.sponsor),
+      campaign: i.campaign,
+      offer: usd(i.offered),
+      expires: Number.isFinite(i.hoursLeft) ? `Expires in ${i.expiresIn}` : "Expired",
+      urgent: i.hoursLeft < 48,
+    })),
+    dueCount: input.counts?.due ?? due.length,
+    deliverables: due.slice(0, 3).map((d) => {
+      const date = new Date(d.dueDate);
+      return {
+        id: d.id,
+        title: d.title,
+        campaign: d.campaign.name,
+        mon: date.toLocaleDateString("en-US", { month: "short", timeZone: "UTC" }).toUpperCase(),
+        day: String(date.getUTCDate()),
+        due: dueLabel(d.dueDate, now),
+        review: REVIEW[d.state] ?? d.state,
+        overdue: dueLabel(d.dueDate, now).includes("overdue"),
+      };
+    }),
+    earnings: [
+      { label: "Pending", amount: usd(b.PENDING.amount), hint: "Work in progress", tone: "neutral" },
+      { label: "Eligible", amount: usd(b.ELIGIBLE.amount), hint: "Deliverable verified", tone: "primary" },
+      { label: "Approved", amount: usd(b.APPROVED_FOR_PAYOUT.amount), hint: "Approved for payout", tone: "primary" },
+      { label: "Paid", amount: usd(b.PAID.amount), hint: "Paid by BTG Finance", tone: "accent" },
+    ],
+    hasEarnings: input.earningsSummary ? input.earningsSummary.count > 0 : input.earnings.length > 0,
   };
 }

@@ -16,7 +16,7 @@ import {
 import { JOBS, MATCH_BRIEF } from "@/lib/matching";
 import { ADMIN_CAMPAIGN_SORTS, groupCounts, groupParam } from "@/lib/admin-campaign-groups";
 import { textParam, type SearchParams } from "@/lib/list-query";
-import { fetchActor } from "@/server/api";
+import { apiFetch, fetchActor } from "@/server/api";
 import { fetchCampaignSummary, type CampaignSummary } from "@/server/campaigns";
 import { fetchAdminCampaignPage, type AdminCampaignPage } from "@/server/admin-campaigns";
 import { CampaignsBoard } from "./campaigns-board";
@@ -52,20 +52,70 @@ const DESK_ROLES = ["SUPER_ADMIN", "BTG_ADMIN", "CAMPAIGN_MGR", "NETWORK_MGR", "
    renders without that part and says so; a 403 on the list itself is the
    whole page out of scope. Anything else non-OK still throws to the error
    page — an outage is never fixtures dressed as real data. */
+type Waiting = { toMatch: number; qualified: number; approved: number; drafts: number } | null;
+
 type LiveResult =
-  | { kind: "ok"; list: AdminCampaignPage; summary: CampaignSummary }
+  | { kind: "ok"; list: AdminCampaignPage; summary: CampaignSummary; waiting: Waiting }
   | { kind: "denied" };
+
+/* P4-FE-07 (rcfworks) — the "briefs waiting on BTG" banner, merged onto the
+   server-paged board: the three counts are `page.total` of a one-row page of
+   GET /briefs per state (never the brief list itself). A role that doesn't
+   read briefs (403) simply gets no banner. */
+async function briefsWaiting(): Promise<Waiting> {
+  const total = async (state: string) => {
+    const res = await apiFetch(`/briefs?page=1&size=1&state=${state}`);
+    if (res.status === 403) return null;
+    if (!res.ok) throw new Error(`Briefs unavailable (${res.status}).`);
+    return ((await res.json()) as { page: { total: number } }).page.total;
+  };
+  const [qualified, approved, drafts] = await Promise.all([total("QUALIFIED"), total("APPROVED"), total("DRAFT")]);
+  if (qualified === null || approved === null || drafts === null) return null;
+  if (qualified + approved + drafts === 0) return null;
+  return { toMatch: qualified + approved, qualified, approved, drafts };
+}
+
+/** P4-FE-07 — the link to briefs waiting on BTG. Hidden when nothing waits. */
+function BriefsWaiting({ waiting }: { waiting: NonNullable<Waiting> }) {
+  const parts = [
+    waiting.qualified ? `${waiting.qualified} qualified` : null,
+    waiting.approved ? `${waiting.approved} approved` : null,
+  ].filter(Boolean);
+  return (
+    <Link
+      href={waiting.toMatch ? "/admin/briefs?tab=QUALIFIED" : "/admin/briefs?tab=DRAFT"}
+      className="flex items-center gap-4 rounded-xl border border-primary/35 bg-gradient-to-r from-primary/15 via-surface to-surface px-4 py-3.5 transition-colors hover:border-primary/60"
+    >
+      <span className="grid size-10 shrink-0 place-items-center rounded-lg bg-primary/15 text-base font-semibold tabular-nums text-primary">
+        {waiting.toMatch || waiting.drafts}
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block text-[13px] font-semibold">
+          {waiting.toMatch
+            ? `${waiting.toMatch} ${waiting.toMatch === 1 ? "brief" : "briefs"} waiting for matching →`
+            : `${waiting.drafts} ${waiting.drafts === 1 ? "brief" : "briefs"} waiting to qualify →`}
+        </span>
+        <span className="mt-0.5 block text-[11px] text-muted">
+          {waiting.toMatch
+            ? `${parts.join(", ")}.${waiting.drafts ? ` Another ${waiting.drafts} ${waiting.drafts === 1 ? "is" : "are"} still in Draft, waiting to qualify.` : ""}`
+            : "Qualify a brief to send it to the Matching Studio."}
+        </span>
+      </span>
+      {waiting.drafts > 0 && <Badge tone="warn">{waiting.drafts} in Draft</Badge>}
+    </Link>
+  );
+}
 
 async function liveCampaigns(sp: SearchParams): Promise<LiveResult | null> {
   const who = await fetchActor();
   if (who.status !== "linked") return null;
   if (!who.actor.roles.some((r) => DESK_ROLES.includes(r))) return null;
-  const [list, summary] = await Promise.all([fetchAdminCampaignPage(sp), fetchCampaignSummary()]);
+  const [list, summary, waiting] = await Promise.all([fetchAdminCampaignPage(sp), fetchCampaignSummary(), briefsWaiting()]);
   if (list === null || summary === null) return { kind: "denied" };
-  return { kind: "ok", list, summary };
+  return { kind: "ok", list, summary, waiting };
 }
 
-function LiveCampaignsList({ list, summary, sp }: { list: AdminCampaignPage; summary: CampaignSummary; sp: SearchParams }) {
+function LiveCampaignsList({ list, summary, waiting, sp }: { list: AdminCampaignPage; summary: CampaignSummary; waiting: Waiting; sp: SearchParams }) {
   const counts = groupCounts(summary.byState, summary.total, list.healthVisible ? list.attention : null);
   return (
     <div className="space-y-6">
@@ -82,6 +132,7 @@ function LiveCampaignsList({ list, summary, sp }: { list: AdminCampaignPage; sum
           </p>
         )}
       </div>
+      {waiting && <BriefsWaiting waiting={waiting} />}
       {summary.total === 0 ? (
         <p className="rounded-xl border border-line bg-surface px-5 py-10 text-center text-xs text-muted">
           No campaigns yet — an approved brief becomes one when its first invitations go out.
@@ -119,7 +170,7 @@ export default async function CampaignsListPage({
       </div>
     );
   }
-  if (live) return <LiveCampaignsList list={live.list} summary={live.summary} sp={sp} />;
+  if (live) return <LiveCampaignsList list={live.list} summary={live.summary} waiting={live.waiting} sp={sp} />;
 
   const campaigns = Object.entries(campaignDetailX).map(([id, d]) => ({
     id,

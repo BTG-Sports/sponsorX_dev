@@ -1,4 +1,150 @@
-# 2026-09-29 — Phase 1 frontend ↔ API close-out (HeckerCreatives)
+# 2026-09-29 — tasks completed
+
+## `npm run deploy` — one command for staging and production (rcfworks)
+
+No board task; tooling asked for by the programme owner.
+
+- **What it does.** `scripts/deploy.mjs`, run as `npm run deploy` from the
+  repo root. It deploys the latest commit on **GitHub `main`** (never the
+  local working tree) to Railway `api` and `web` in **staging**, waits for
+  both to succeed, then asks for a typed `yes` before deploying the **same
+  commit** to **production**. Usage: `npm run deploy production`,
+  `npm run deploy staging` (staging only), `npm run deploy dry run` (show,
+  change nothing). Bare `npm run deploy` prints this usage and does nothing.
+- **How.** The Railway CLI's own login (`railway api`, GraphQL
+  `serviceInstanceDeployV2` with `commitSha`), polling `deployment.status`.
+  A production deploy held at `NEEDS_APPROVAL` is approved by the script,
+  since the typed `yes` is that approval. No new dependency.
+- **It does not wait for GitHub's checks** — they are refused while the
+  Actions quota is exhausted (see 2026-09-28).
+- **Documented** in `documentation/SponsorX-Deployment-Runbook.md` §1, "Deploying by hand".
+- **Verified.** Dry run resolved both environments; a real staging-only run
+  deployed `e73764a` to staging `api` + `web`, both SUCCESS. Production was
+  not deployed by the test — it already ran the same code (`29bda05`; the
+  only later change is this log folder's sibling, the 09-28 summary).
+
+## Also noted
+
+- Everything merged on 2026-09-28 was already live in both environments at
+  `29bda05` (21:02 Manila).
+- **Tracker Slack/Sheet broadcasts are down while GitHub Actions is out of
+  minutes.** `Tracker notify` failed on the #111 push (13:02 UTC 09-28) and
+  `Tracker digest` failed its 13:12 UTC run. Once billing is fixed or minutes
+  reset (1 Oct), re-run both from the Actions tab (`Run workflow`).
+
+## Payment-provider board pack (`2S0-PMO-03` groundwork, no status change)
+
+- Reviewed `2S0-PMO-03` for the programme owner: provider requirements,
+  recommendation (Stripe Connect, Express accounts, separate charges and
+  transfers — one payment splits across several properties/athletes and the
+  reserve needs delayed transfers), what BTG must supply, and our side (the
+  `backend/src/lib/payments.ts` adapter interface; raw-body webhook
+  verification).
+- Board pack saved to the owner's Google Drive as a Google Sheet,
+  "SponsorX Payment Flow Board Pack" (id
+  `1Uu_sBQKTatic6_iM1chDcjgN8OxyGJ_U1er4Yx6L2VQ`), 7 tabs: Summary,
+  Flowchart (cell-drawn swimlanes), Flow Steps, Money Split Example (live
+  formulas; reproduces the ledger design's $2,799.97 worked example to the
+  cent), Provider Options, What's Needed, Waiting Tasks.
+- Task stays **Blocked** — waiting on the owner's provider decision.
+
+## Walkthrough logins on staging (no board task; programme owner's request)
+
+- `backend/worker/jobs/seed-personas.mts`, called from `seedEnvironment`
+  (so it runs at every non-production worker boot, idempotent). Creates the
+  people in the two sign-up-to-payout stories, each at the point the story
+  hands over to them: Riley's athlete application SUBMITTED (Hawks roster,
+  20% team share), Jordan's student application SUBMITTED (Northside, minor,
+  guardian verified), Maya FEATURED and claimable (guardian NOT verified),
+  Northside Sports "Fall 2026" SELLING with a 26-slot rate-card flatplan,
+  Harbor Coffee and Bowie Auto Care as sponsors, the Westfield Hawks as a
+  TEAM property, and five BTG staff logins (admin, network, campaigns,
+  finance, sales).
+- **No passwords.** Every login is a Clerk test address
+  (`<name>+clerk_test@example.com`), code **424242** on staging's development
+  Clerk instance; placeholder `clerkId`s are claimed on first sign-in.
+- Tested in `tests/pilot-school.test.ts` (same file as the pilot school, whose
+  fixed ids it shares): every login claims its row with the right roles and
+  links, Riley is in the review queue, Jordan only in Ms. Patel's queue, the
+  edition is selling with every slot open, Maya's profile is public and
+  claimable. Mutation-checked. Full suite: 1701 pass; the one failure is the
+  known local-only QA-02 lock-timing test.
+- **Gap found:** approving an athlete who applies through `/join` creates no
+  login for them — the seed pre-creates Riley's and Maya's for that reason.
+
+## Walkthrough gaps raised as tasks; `P3-BE-15` built (rcfworks)
+
+- **Five rows added** (Phase 1 sheet rows 256–260, ranges extended to 260;
+  header now 256 tasks · 615 person-days; plan doc 196 · 465), all raised by
+  the programme owner from the staging walkthrough:
+  - `P3-BE-15` (BE, 1d): an approved athlete, and a linked guardian, get a
+    login. **Code review.**
+  - `P4-FE-07` (FE, 1d): qualify / approve / close a sponsor brief from the
+    admin workspace; the Campaigns page links to briefs waiting for matching.
+    Ready.
+  - `P3-FE-06` (FE, 3d): athlete portal home on real data. Ready.
+  - `P3-FE-07` (FE, 3d): property portal on the manager's own property. Ready.
+  - `P7-FE-06` (FE, 3d): admin Operations Board on real data. Ready.
+- **`P3-BE-15`.** `src/domain/athlete-login.ts`. Called inside
+  `reviewApplication`'s transaction on APPROVED — the only path to APPROVED,
+  so `/join`, cohort imports and featured-profile claims are all covered —
+  for the athlete and a linked guardian, and from `linkGuardian` when the
+  athlete is already APPROVED/ACTIVE (the second path). Rows are
+  invitations to claim (placeholder `clerkId`); an address held by any
+  account in any tenant is never taken over, and the decision's response
+  carries `login: { athlete, guardian }` (`created` / `already-linked` /
+  `address-in-use` / `no-email`). Audited as `user.provision`
+  (`AUDIT_ACTIONS.permission.loginProvision`). Approval email: "Sign in with
+  this email address". Tests: `tests/athlete-login.test.ts` (real Postgres,
+  sign-in through the identity path, incl. the late-guardian path) and seven
+  in `application.review.test.ts` (takeover, duplicate, no-email, other
+  decisions, rollback). Mutation-checked three ways. Full suite 1713 pass;
+  the one failure is the known local-only QA-02 lock-timing test.
+- **Frontend follow-up (not built):** the review panel does not yet show the
+  `login` outcome; `address-in-use` would be worth surfacing to reviewers.
+- Claude Design brief for the four FE screens handed to the programme owner.
+
+## The four walkthrough screens, built and wired (rcfworks) — Code review
+
+From the programme owner's Claude Design canvas
+(`claude.ai/artifact/FKsn5RzUa7pU3UNRa65yE3`), frontend built on the owner's
+explicit request, with the backend each needed:
+
+- **`P4-FE-07` Briefs queue.** `/admin/briefs` (new admin nav item):
+  state tabs + counts, search, sport filter, a detail panel (beside the list
+  on desktop, full screen on phone) with Qualify / Approve / Close with a
+  reason / Open in Matching Studio. Campaigns page: "N briefs waiting for
+  matching →", hidden at zero. **Backend:** `CampaignBrief.closeReason`
+  (migration `20260929120000_brief_close_reason`), required when BTG staff
+  close (422 otherwise; a sponsor withdrawing their own owes none), returned
+  by GET /briefs, kept on the `brief.close` audit row; package price added to
+  the brief list.
+- **`P7-FE-06` Operations Board.** `/admin` now reads the new
+  **GET /operations/board** (`src/domain/operations-board.ts`: applications
+  waiting / over 48h, deliverables in BTG review, briefs to qualify / to
+  match, held / disputed earnings — each through `whereFor`, `null` for a
+  role that doesn't read it tenant-wide, 403 for non-staff) plus the existing
+  delivery-health and integration-health reads. Sample GMV / growth / "median
+  brief → match" removed; Clerk dropped from integration health (no source).
+- **`P3-FE-06` Athlete home.** `/athlete` from `/athletes/me`,
+  `/invitations`, `/deliverables`, `/earnings`; a guardian sees their ward's
+  work without a profile block.
+- **`P3-FE-07` Property home.** `/property` from `/properties/mine` and
+  `/team/roster`. Inventory shows active/paused, not listing review status
+  (not on the item row).
+- **Checks.** Backend `tests/operations-board.test.ts` (9, two tenants, per
+  role, card = list; mutation-checked twice); isolation sweep now covers
+  /operations/board and closes with a reason so the tenant check is what
+  refuses; `zoho-sync.test.ts` closes with a reason. Frontend
+  `tests/gap-screens-live.test.ts` (17). Full suites: backend 1721 pass (the
+  one failure is the known local-only QA-02 lock test), frontend 392 pass,
+  build and lint clean. **Walked locally** (own Postgres + API + `next dev`,
+  test logins): every screen desktop and phone; qualify and close-with-reason
+  clicked for real; the qualified brief opens in the Matching Studio.
+- **Noted, not changed:** the Matching Studio titles a brief by its
+  objective text ("Pick who goes on Two basketball clinics…'s roster").
+
+## Phase 1 frontend ↔ API close-out (HeckerCreatives)
 
 Scope: the rest of `P2-FE-01`, taken over from rcfworks at the user's
 instruction. The goal was that no signed-in user sees fixture data presented as
@@ -98,8 +244,8 @@ Every page follows the existing pattern:
 ## Tracker
 
 - `P2-FE-01` → **Code review**, owner HeckerCreatives, with the notes above.
-- Raised **`P3-BE-15`** (Order 65.7): post-approval athlete profile edits.
-- Raised **`P3-FE-06`** (Order 82.5): ACTIVE athlete public profile on real
+- Raised **`P3-BE-16`** (Order 65.7): post-approval athlete profile edits.
+- Raised **`P3-FE-08`** (Order 82.5): ACTIVE athlete public profile on real
   data.
 - Autofilter, Status DV and the three CF ranges extended to row 257. The
   Dashboard and Stage Progress formulas already run to 400.
@@ -153,3 +299,31 @@ Static review + official e2e + scale/a11y probes. Found and fixed: F-16 (HIGH: p
 ## Check-pass fixes C-1..C-5 → [check-pass.md](check-pass.md#fix-pass--c-1-to-c-5-same-day)
 
 Role-aware admin desks + nav (lib/admin-access.ts, "Not in your role"), guardian demo notices, campaign-detail role state, brief-picker contrast, SX-03 notice. Re-walked per role; frontend 458/458, build green, official e2e back to baseline after one transient API-unreachable flake.
+## Merge of `main_development` into `development/P2-FE-01-live-reads` (HeckerCreatives)
+
+rcfworks built the athlete home (`P3-FE-06`), property home (`P3-FE-07`),
+Operations Board (`P7-FE-06`) and the briefs desk (`P4-FE-07`) in parallel with
+`P2-FE-01`/`P2-FE-02`. Resolution: **their screens, our data layer.**
+
+- `/athlete` — their `buildHome`; reads switched to top-3 server pages
+  (`/invitations?state=open&sort=expiry`, `/deliverables?state=<DUE_STATES>&sort=due`)
+  with counts from `/invitations/summary` + `page.total` and money from
+  `/earnings/summary`. Kept the F-3 "not linked to an athlete profile" state.
+- `/property` — their `buildPropertyHome`, fed from paged `/team/athletes`
+  (`?page/size`) and `/team/inventory` (`?ipage/isize`) instead of
+  `/team/roster`; `PagerRow` above and below each list. `teamAthletesPage` now
+  selects `legalName`.
+- `/admin` — their board on `GET /operations/board`; delivery health capped at
+  8 rows (`page.total` in the title); cards filtered by `mayUse` (C-1).
+- `/admin/campaigns` — our server-paged board plus their briefs-waiting banner,
+  counted from `page.total` of one-row `/briefs` pages.
+- Removed my now-orphaned `server/athlete-home.ts`, `server/admin-board.ts`,
+  `server/property.ts`, `components/property-lists.tsx` and
+  `tests/athlete-home-live.test.ts` (their `gap-screens-live.test.ts` covers it).
+- **Tracker:** took theirs, re-applied: `P2-FE-01` Done (owner
+  HeckerCreatives), `P2-FE-02` Done (row 261). My raised rows collided with
+  rcfworks' `P3-BE-15`/`P3-FE-06` and are renumbered **`P3-BE-16`** and
+  **`P3-FE-08`** (Ready). Ranges extended to row 263. Stage Progress
+  2026-09-29: S2 21, Done 221, Days left 89.
+- Not yet in the Phase 1 plan doc: definitions for `P2-FE-02`, `P3-BE-16`,
+  `P3-FE-08`.

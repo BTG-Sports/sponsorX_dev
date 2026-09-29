@@ -34,6 +34,8 @@
 import { createHash } from "node:crypto";
 import type pg from "pg";
 
+import { seedPersonas } from "./seed-personas.mts";
+
 /** Deterministic ids, so re-running conflicts with itself rather than
  *  accumulating duplicates. The `seed_` prefix also makes demo rows obvious in
  *  a database browser. */
@@ -123,6 +125,7 @@ export type SeedOutcome = {
   athletesCreated?: number;
   sponsorsCreated?: number;
   pilotSchoolCreated?: boolean;
+  personaUsersCreated?: number;
 };
 
 /**
@@ -238,6 +241,9 @@ export async function seedEnvironment(pool: pg.Pool): Promise<SeedOutcome> {
     );
 
     const school = await seedPilotSchool(client, TENANT_ID);
+    /* The walkthrough logins for the two sign-up-to-payout stories — after the
+       pilot school, whose property Jordan, Ms. Patel and the edition hang off. */
+    const personas = await seedPersonas(client, TENANT_ID);
 
     /* 2S1-BE-01 — the property terms an onboarding applicant accepts.
        SIMULATED text version so the wizard can complete on staging; the real
@@ -260,6 +266,7 @@ export async function seedEnvironment(pool: pg.Pool): Promise<SeedOutcome> {
       athletesCreated,
       sponsorsCreated: sponsor.rowCount ?? 0,
       pilotSchoolCreated: school.created,
+      personaUsersCreated: personas.usersCreated,
     };
   } catch (error) {
     await client.query("ROLLBACK").catch(() => {});
