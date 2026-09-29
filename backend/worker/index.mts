@@ -327,7 +327,8 @@ async function seedOnBoot(): Promise<void> {
         `[worker] seed complete — ${outcome.athletesCreated ?? 0} athlete(s), ` +
           `${outcome.sponsorsCreated ?? 0} sponsor(s), ` +
           `${outcome.tenantsCreated} tenant(s) and ` +
-          `${outcome.usersCreated} user(s) created ` +
+          `${outcome.usersCreated} user(s) and ` +
+          `${outcome.personaUsersCreated ?? 0} walkthrough login(s) created ` +
           `(0 means they already existed, which is the normal case)`,
       );
     }

@@ -47,3 +47,27 @@ No board task; tooling asked for by the programme owner.
   formulas; reproduces the ledger design's $2,799.97 worked example to the
   cent), Provider Options, What's Needed, Waiting Tasks.
 - Task stays **Blocked** — waiting on the owner's provider decision.
+
+## Walkthrough logins on staging (no board task; programme owner's request)
+
+- `backend/worker/jobs/seed-personas.mts`, called from `seedEnvironment`
+  (so it runs at every non-production worker boot, idempotent). Creates the
+  people in the two sign-up-to-payout stories, each at the point the story
+  hands over to them: Riley's athlete application SUBMITTED (Hawks roster,
+  20% team share), Jordan's student application SUBMITTED (Northside, minor,
+  guardian verified), Maya FEATURED and claimable (guardian NOT verified),
+  Northside Sports "Fall 2026" SELLING with a 26-slot rate-card flatplan,
+  Harbor Coffee and Bowie Auto Care as sponsors, the Westfield Hawks as a
+  TEAM property, and five BTG staff logins (admin, network, campaigns,
+  finance, sales).
+- **No passwords.** Every login is a Clerk test address
+  (`<name>+clerk_test@example.com`), code **424242** on staging's development
+  Clerk instance; placeholder `clerkId`s are claimed on first sign-in.
+- Tested in `tests/pilot-school.test.ts` (same file as the pilot school, whose
+  fixed ids it shares): every login claims its row with the right roles and
+  links, Riley is in the review queue, Jordan only in Ms. Patel's queue, the
+  edition is selling with every slot open, Maya's profile is public and
+  claimable. Mutation-checked. Full suite: 1701 pass; the one failure is the
+  known local-only QA-02 lock-timing test.
+- **Gap found:** approving an athlete who applies through `/join` creates no
+  login for them — the seed pre-creates Riley's and Maya's for that reason.
