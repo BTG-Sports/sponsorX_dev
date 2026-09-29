@@ -15,12 +15,14 @@ const NAV: NavLink[] = [
   { label: "How It Works", href: "#how-it-works" },
   { label: "For Sponsors", href: "#for-sponsors" },
   { label: "For Athletes", href: "/join" },
+  /* P1-FE-24 — the NEXT programme landing (students and schools). */
+  { label: "NEXT", href: "/next/about" },
   { label: "About", href: "#", pending: true },
 ];
 
 export function SiteHeader() {
   return (
-    <header className="sticky top-0 z-20 border-b border-line bg-bg/85 backdrop-blur">
+    <header className="sticky top-0 z-20 border-b border-line bg-bg/85 backdrop-blur print:hidden">
       <div className="mx-auto flex w-full max-w-6xl items-center gap-6 px-6 py-3.5">
         <Link href="/" className="shrink-0 leading-none">
           <Logo className="h-7" />
@@ -70,7 +72,7 @@ export function SiteHeader() {
 
 export function SiteFooter() {
   return (
-    <footer className="mt-24 border-t border-line">
+    <footer className="mt-24 border-t border-line print:hidden">
       <div className="mx-auto w-full max-w-6xl px-6 py-10">
         <div className="flex flex-wrap items-start justify-between gap-8">
           <div>

@@ -307,5 +307,49 @@ const readPublic: RequestHandler<{ school: string; id: string }> = async (req, r
 
 editionsRouter.get("/public/editions/:school/:id", readPublic);
 
+/**
+ * GET /public/next/schools — the schools that have adopted NEXT (a school
+ * property with a publication), for the student application's school picker
+ * (P1-FE-25 / P9-FE-06). Names and places only: no advisor, no student, no
+ * contact detail reaches a public caller.
+ */
+editionsRouter.get("/public/next/schools", async (req, res) => {
+  await limit("next:schools", clientIp(req), 120, 60);
+  const schools = await prisma.property.findMany({
+    /* tenant-scope: public route — every tenant's NEXT schools are public by design; only name and place are selected. */
+    where: { kind: "SCHOOL", publications: { some: {} } },
+    select: { slug: true, name: true, city: true, stateCode: true },
+    orderBy: { name: "asc" },
+    take: 500,
+  });
+  res.json({ schools });
+});
+
+/** GET /public/next/editions — the latest published editions, for the NEXT landing (P1-FE-24). */
+editionsRouter.get("/public/next/editions", async (req, res) => {
+  await limit("next:editions", clientIp(req), 120, 60);
+  const rows = await prisma.edition.findMany({
+    /* tenant-scope: public route — only published editions answer, exactly as the public edition reader. */
+    where: { state: { in: [...PUBLISHED_STATES] } },
+    select: {
+      id: true, label: true, publishTarget: true,
+      publication: { select: { name: true, property: { select: { slug: true, name: true, city: true, stateCode: true } } } },
+    },
+    orderBy: { publishTarget: "desc" },
+    take: 6,
+  });
+  res.json({
+    editions: rows.map((e) => ({
+      id: e.id,
+      label: e.label,
+      publication: e.publication.name,
+      publishedAt: e.publishTarget.toISOString(),
+      school: e.publication.property
+        ? { slug: e.publication.property.slug, name: e.publication.property.name, city: e.publication.property.city, stateCode: e.publication.property.stateCode }
+        : null,
+    })),
+  });
+});
+
 export { readPublic };
 export { listEditions, ledger, saleCandidates };

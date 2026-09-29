@@ -202,9 +202,12 @@ describe.skipIf(!hasDatabase)("SponsorX NEXT students, on the path a request tak
       const r = await call("POST", "/public/students/applications", null, {
         schoolSlug: "nx3-northside", legalName: "Jordan Legal", displayName: "Jordan", email: "jordan@school.invalid",
         gradYear: 2028, birthDate: "2010-05-01", masthead: ["WRITER", "SALES"],
+        /* P9-FE-06 — a minor applies with their guardian (the minor rule). */
+        guardian: { legalName: "Jordan's Parent", email: "parent@school.invalid", relationship: "PARENT" },
       });
       expect(r.status).toBe(201);
-      expect(Object.keys(r.json).sort()).toEqual(["id", "state"]);
+      /* Nothing personal echoes back; guardianRequired is the wizard's own answer. */
+      expect(Object.keys(r.json).sort()).toEqual(["guardianRequired", "id", "state"]);
       expect(r.json.state).toBe("SUBMITTED");
       const row = await prisma.student.findUniqueOrThrow({ where: { id: r.json.id }, select: { tenantId: true, propertyId: true } });
       expect(row).toEqual({ tenantId: T, propertyId: "nx3_school" });
