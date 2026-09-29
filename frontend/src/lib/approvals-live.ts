@@ -108,6 +108,85 @@ export function liveMoves(state: string, revisionOpen: boolean): ApprovalActionK
   }
 }
 
+/* --------------------------------------------------------------------------
+   Server-paged desk (2026-09-29). The page reads the URL (?tab ?q ?camp
+   ?kind ?sort ?page ?size), asks GET /deliverables for exactly one page, and
+   GET /deliverables/summary for the hero's and the tabs' counts — nothing
+   fetches the whole pipeline. `camp` is a campaign id now (it was a name
+   while the desk filtered in the browser).
+   -------------------------------------------------------------------------- */
+
+/** Every state that has reached the desk (NOT_STARTED hasn't). */
+export const DESK_STATES = ["DRAFT_SUBMITTED", "BTG_REVIEW", "SPONSOR_REVIEW", "APPROVED", "PUBLISHED", "VERIFIED"] as const;
+const REVIEW_STATES = ["DRAFT_SUBMITTED", "BTG_REVIEW", "SPONSOR_REVIEW"];
+const CLEARED_STATES = ["APPROVED", "PUBLISHED", "VERIFIED"];
+
+export const DESK_TABS = ["review", "cleared", "all"] as const;
+export type DeskTab = (typeof DESK_TABS)[number];
+export const DESK_KINDS = ["video", "image"] as const;
+/** "" is the desk's default, "Waiting longest". */
+export const DESK_SORTS = ["due", "newest"] as const;
+
+export type DeskFilters = { tab: DeskTab; q: string; camp: string; kind: string; sort: string };
+
+type Params = Record<string, string | string[] | undefined>;
+const one = (v: string | string[] | undefined) => ((Array.isArray(v) ? v[0] : v) ?? "").trim();
+
+/** The desk's filters from the URL, each clamped to what it may be. */
+export function deskFilters(sp: Params): DeskFilters {
+  const tab = one(sp.tab);
+  const kind = one(sp.kind);
+  const sort = one(sp.sort);
+  return {
+    tab: (DESK_TABS as readonly string[]).includes(tab) ? (tab as DeskTab) : "review",
+    q: one(sp.q).slice(0, 100),
+    camp: one(sp.camp).slice(0, 100),
+    kind: (DESK_KINDS as readonly string[]).includes(kind) ? kind : "",
+    sort: (DESK_SORTS as readonly string[]).includes(sort) ? sort : "",
+  };
+}
+
+/** A tab as the API's state list — a revision sent back is still DRAFT_SUBMITTED, so still "review". */
+export function tabStates(tab: DeskTab): readonly string[] {
+  return tab === "review" ? REVIEW_STATES : tab === "cleared" ? CLEARED_STATES : DESK_STATES;
+}
+
+/** The GET /deliverables query for one page of the desk. */
+export function deskListQuery(f: DeskFilters, p: { page: number; size: number }): string {
+  const u = new URLSearchParams({ page: String(p.page), size: String(p.size), state: tabStates(f.tab).join(",") });
+  if (f.q) u.set("q", f.q);
+  if (f.camp) u.set("campaignId", f.camp);
+  if (f.kind) u.set("kind", f.kind);
+  u.set("sort", f.sort === "due" ? "due" : f.sort === "newest" ? "newest" : "waiting");
+  return `?${u}`;
+}
+
+/** The summary query — counted over every state on the desk. */
+export const DESK_SUMMARY_QUERY = `?state=${DESK_STATES.join(",")}`;
+
+/** Only the fields of GET /deliverables/summary the desk reads. */
+export type DeskSummary = {
+  total: number;
+  states: Record<string, number>;
+  openRevisions: number;
+  aging: number;
+  campaigns: { id: string; name: string }[];
+};
+
+/** The hero's figures, the pipeline strip and the tab counts, from the summary. */
+export function deskHeadline(s: DeskSummary) {
+  const n = (k: string) => s.states[k] ?? 0;
+  const waiting = n("DRAFT_SUBMITTED") + n("BTG_REVIEW") + n("SPONSOR_REVIEW");
+  const cleared = n("APPROVED") + n("PUBLISHED") + n("VERIFIED");
+  return {
+    waiting,
+    aging: s.aging,
+    /* A revision sent back is with the athlete, not on the submit desk. */
+    stageCounts: [Math.max(0, n("DRAFT_SUBMITTED") - s.openRevisions), n("BTG_REVIEW"), n("SPONSOR_REVIEW"), cleared],
+    tabs: { review: waiting, cleared, all: waiting + cleared },
+  };
+}
+
 export const MOVE_LABEL: Record<ApprovalActionKind, string> = {
   "btg-review": "Start BTG review",
   "sponsor-review": "Send to sponsor",

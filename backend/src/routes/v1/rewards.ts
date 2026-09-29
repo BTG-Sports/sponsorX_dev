@@ -31,6 +31,7 @@ import { prisma } from "../../db/client";
 import { presignPrivateDownload } from "../../lib/storage";
 import { CONSENT_TEXT, CURRENT_CONSENT_VERSION } from "../../domain/fan-consent";
 import { limit } from "../../lib/rate-limit";
+import { pageRequest, readPage, searchTerm } from "../../lib/paging";
 import { clientIp } from "../../lib/client-ip";
 import {
   RewardClaimInput,
@@ -375,11 +376,89 @@ function rewardOut(r: RewardRow, funnel: Record<string, number> | undefined, wit
   };
 }
 
+/* OFFSET MODE (2026-09-29, server-paged lists). `?page=` turns it on: one
+   page of the desk with its true total, narrowed by tab (`?tab=`), campaign
+   (`?campaignId=`) and search (`?q=` over offer, campaign and sponsor) IN THE
+   DATABASE — the desk no longer fetches 200 rewards to filter them in the
+   browser. Without `?page=` the list answers exactly as before.
+
+   The tabs are the desk's, by reward state — "ended" is EXPIRED or ARCHIVED,
+   as the desk has always counted it. A reward still ACTIVE past its expiry
+   date stays under "live" until the lifecycle moves it: the tab says what
+   the state machine says, and the card offers "End" for it. */
+const REWARD_TABS = {
+  all: null,
+  live: ["ACTIVE"],
+  draft: ["DRAFT"],
+  paused: ["PAUSED"],
+  ended: ["EXPIRED", "ARCHIVED"],
+} as const satisfies Record<string, readonly string[] | null>;
+type RewardTab = keyof typeof REWARD_TABS;
+const TAB_KEYS = Object.keys(REWARD_TABS) as RewardTab[];
+
+const EMPTY_FUNNEL = () => ({ SCAN: 0, LANDING: 0, CLAIM: 0, REDEEM: 0 });
+
+/** The caller's reward scope, then `?campaignId=` — shared by the list, its
+ *  paged mode and the summary so the counts and the page agree. The scope is
+ *  always first: a filter can only narrow it. */
+function rewardScope(actor: Parameters<typeof can>[0], query: Record<string, unknown>): Prisma.RewardWhereInput[] {
+  const campaignId = typeof query.campaignId === "string" && query.campaignId ? query.campaignId : undefined;
+  return [whereFor(actor, "reward", "read") as Prisma.RewardWhereInput, ...(campaignId ? [{ campaignId }] : [])];
+}
+
 /** GET /rewards — `?campaignId=` narrows; newest expiry last. */
 const listRewards: RequestHandler = async (req, res) => {
   const actor = req.actor!;
+  const query = req.query as Record<string, unknown>;
   const campaignId = typeof req.query.campaignId === "string" ? req.query.campaignId : undefined;
   const reach = tokenReach(actor);
+  const zero = can(actor, "rewardEvent", "read") ? EMPTY_FUNNEL : () => undefined;
+
+  const paged = pageRequest(query);
+  if (paged) {
+    const q = searchTerm(query);
+    const tab: RewardTab = typeof query.tab === "string" && (TAB_KEYS as string[]).includes(query.tab) ? (query.tab as RewardTab) : "all";
+    const states = REWARD_TABS[tab];
+    const contains = q ? { contains: q, mode: "insensitive" as const } : null;
+    const where: Prisma.RewardWhereInput = {
+      AND: [
+        ...rewardScope(actor, query),
+        ...(states ? [{ state: { in: [...states] } }] : []),
+        ...(contains
+          ? [{
+              OR: [
+                { offerText: contains },
+                { campaign: { is: { name: contains } } },
+                { campaign: { is: { sponsor: { is: { name: contains } } } } },
+              ],
+            }]
+          : []),
+      ],
+    };
+    const { rows, page } = await readPage(
+      paged,
+      () => prisma.reward.count({ /* tenant-scope: where = whereFor(reward) AND filters, above. */ where }),
+      (skip, take) =>
+        prisma.reward.findMany({
+          /* tenant-scope: where = whereFor(reward) AND filters, above. */
+          where,
+          select: rewardSelect(reach),
+          orderBy: [{ expiresAt: "desc" }, { id: "desc" }],
+          skip,
+          take,
+        }) as unknown as Promise<RewardRow[]>,
+    );
+    const tokenToReward = new Map(rows.flatMap((r) => r.tokens.map((t) => [t.id, r.id] as const)));
+    const funnels = await funnelsFor(actor, tokenToReward);
+    const held = reach ? new Map<string, number>() : await heldFor(rows.filter((r) => r.redemptionCap != null).map((r) => r.id));
+    res.json({
+      rewards: rows.map((r) => rewardOut(r, funnels.get(r.id) ?? zero(), false, false, reach ? null : held.get(r.id) ?? 0)),
+      page,
+      consent: { version: CURRENT_CONSENT_VERSION, text: CONSENT_TEXT[CURRENT_CONSENT_VERSION] },
+    });
+    return;
+  }
+
   const rows = (await prisma.reward.findMany({
     where: { ...whereFor(actor, "reward", "read"), ...(campaignId ? { campaignId } : {}) },
     select: rewardSelect(reach),
@@ -395,6 +474,55 @@ const listRewards: RequestHandler = async (req, res) => {
        (fan-consent.ts, P6-SEC-01), deliberately not per reward. */
     consent: { version: CURRENT_CONSENT_VERSION, text: CONSENT_TEXT[CURRENT_CONSENT_VERSION] },
   });
+};
+
+/**
+ * GET /rewards/summary — the desk's strip and tab counts, counted in the
+ * database under the same scope (and `?campaignId=`) as the paged list, so
+ * they cover every reward rather than whichever page is on screen.
+ *
+ * `tabs` per desk tab; `live` = ACTIVE rewards; `funnel` = SCAN / CLAIM /
+ * REDEEM events summed across every in-scope reward's tokens — the tokens
+ * the caller may see (P6-BE-01) and events in their own event scope — or
+ * null for a caller who does not read reward events, exactly as the list
+ * omits per-reward funnels for them.
+ */
+const rewardSummary: RequestHandler = async (req, res) => {
+  const actor = req.actor!;
+  const where: Prisma.RewardWhereInput = { AND: rewardScope(actor, req.query as Record<string, unknown>) };
+  const byState = await prisma.reward.groupBy({
+    /* tenant-scope: where = whereFor(reward) AND campaignId, above. */
+    by: ["state"],
+    where,
+    _count: { _all: true },
+  });
+  const n = new Map(byState.map((g) => [g.state as string, g._count._all]));
+  const tabs = Object.fromEntries(
+    TAB_KEYS.map((k) => {
+      const states = REWARD_TABS[k];
+      const count = states ? states.reduce((t, s) => t + (n.get(s) ?? 0), 0) : [...n.values()].reduce((t, c) => t + c, 0);
+      return [k, count];
+    }),
+  ) as Record<RewardTab, number>;
+
+  let funnel: { SCAN: number; CLAIM: number; REDEEM: number } | null = null;
+  if (can(actor, "rewardEvent", "read")) {
+    const reach = tokenReach(actor);
+    const grouped = await prisma.rewardEvent.groupBy({
+      by: ["type"],
+      where: {
+        AND: [
+          whereFor(actor, "rewardEvent", "read") as Prisma.RewardEventWhereInput,
+          { type: { in: ["SCAN", "CLAIM", "REDEEM"] } },
+          { token: { is: { AND: [{ reward: { is: where } }, ...(reach ? [reach] : [])] } } },
+        ],
+      },
+      _count: { _all: true },
+    });
+    funnel = { SCAN: 0, CLAIM: 0, REDEEM: 0 };
+    for (const g of grouped) if (g.type in funnel) funnel[g.type as keyof typeof funnel] += g._count._all;
+  }
+  res.json({ tabs, live: tabs.live, funnel });
 };
 
 /** GET /rewards/:id — one reward, with its tokens (strings for BTG only). */
@@ -432,6 +560,8 @@ const tokenQrUrl: RequestHandler<{ id: string }> = async (req, res) => {
 };
 
 rewardsRouter.get("/rewards", requireActor, listRewards);
+/* Before /rewards/:id, or "summary" would be read as a reward id. */
+rewardsRouter.get("/rewards/summary", requireActor, rewardSummary);
 rewardsRouter.get("/rewards/:id", requireActor, readReward);
 rewardsRouter.get("/reward-tokens/:id/qr-url", requireActor, tokenQrUrl);
 rewardsRouter.post("/campaigns/:id/rewards", requireActor, addReward);
@@ -454,4 +584,4 @@ rewardsRouter.post("/public/rewards/:token/claim", claim);
 rewardsRouter.post("/public/rewards/:token/redeem", redeem);
 rewardsRouter.post("/public/unsubscribe/:token", unsubscribe);
 
-export { listRewards, readReward, tokenQrUrl };
+export { listRewards, rewardSummary, readReward, tokenQrUrl };

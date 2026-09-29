@@ -10,6 +10,7 @@ import { auditRouter } from "./audit";
 
 import { applicationsRouter } from "./applications";
 import { athletesRouter } from "./athletes";
+import { profileChangesRouter } from "./profile-changes";
 import { campaignsRouter } from "./campaigns";
 import { deliverablesRouter } from "./deliverables";
 import { earningsRouter } from "./earnings";
@@ -44,6 +45,11 @@ v1Router.use("/applications", applicationsRouter);
 /* The athlete's own profile — what the portal's §24 profile page and its §11
    completion meter render (P3-FE-03). */
 v1Router.use("/athletes", athletesRouter);
+
+/* P3-BE-16 — BTG's review desk for post-approval profile edits, and the
+   decisions on them. The athlete's propose/list-mine routes are under
+   /athletes above. */
+v1Router.use("/profile-changes", profileChangesRouter);
 
 /* B1 — the guardian gate and agreement acceptance (P3-BE-14). Mounted at the
    root of /v1 rather than under a prefix, because these hang off athletes,

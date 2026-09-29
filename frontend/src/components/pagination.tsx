@@ -16,6 +16,8 @@ const ACTIVE_TONE: Record<FilterTone, string> = {
   athlete: "border-athlete/40 bg-athlete/10 text-text",
   admin: "border-admin/40 bg-admin/10 text-text",
   sponsor: "border-sponsor/40 bg-sponsor/10 text-text",
+  property: "border-property/40 bg-property/10 text-text",
+  next: "border-next/40 bg-next/10 text-text",
 };
 
 /**

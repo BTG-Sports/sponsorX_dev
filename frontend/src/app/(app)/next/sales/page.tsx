@@ -3,6 +3,8 @@ import { MiniChip } from "@/components/hero";
 import { EmptyState, SkeletonPage } from "@/components/states";
 import { demoState } from "@/lib/demo";
 import { liveStudent } from "../live";
+import { apiListQuery, textParam } from "@/lib/list-query";
+import { LEDGER_KEYS, PROSPECT_FILTERS, keyedListQuery, prospectStatesFor } from "@/lib/students-live";
 import { LiveStudentSales, StudentUnlinked } from "../live-views";
 import {
   PROSPECT_COPY,
@@ -46,9 +48,16 @@ export default async function StudentSalesPage({
   /* P9-FE-01 — a signed-in student reads their own records; ?demo= and BTG
      previews keep the fixture screen below. */
   if (!demo) {
-    const live = await liveStudent(["code", "sales", "prospects"]);
+    /* Server-paged (2026-09-29): prospects on ?page/?size + ?pstate, the
+       ledger on ?lpage/?lsize — each asks the API for exactly its page. */
+    const sp = await searchParams;
+    const pstate = textParam(sp, "pstate", PROSPECT_FILTERS.map((f) => f.value));
+    const live = await liveStudent(["code", "sales", "prospects"], {
+      prospects: apiListQuery(sp, { state: prospectStatesFor(pstate) }),
+      sales: keyedListQuery(sp, LEDGER_KEYS),
+    });
     if (live?.kind === "unlinked") return <StudentUnlinked title="My sales" />;
-    if (live) return <LiveStudentSales live={live} />;
+    if (live) return <LiveStudentSales live={live} pstate={pstate} />;
   }
 
   const heading = (

@@ -25,3 +25,15 @@ python scripts/tracker/tracker_sync.py notify --before <old-sha> --after <new-sh
 python scripts/tracker/tracker_sync.py digest --dry-run
 python -m unittest discover scripts/tracker/tests
 ```
+
+**Send it for real from your machine** (when Actions can't run — e.g. out of
+minutes). Works on Windows too. Needs `pip install openpyxl==3.1.5` (in a
+throwaway venv) and the three secrets exported. Use the push's real
+`before`/`after` SHAs: a manual `Run workflow` compares against `after~1`, which
+after a merge commit is often the same board and posts nothing.
+
+```bash
+export SLACK_WEBHOOK_URL=… SHEET_ENDPOINT_URL=… SHEET_ENDPOINT_SECRET=…
+python scripts/tracker/tracker_sync.py notify --before <old-sha> --after <new-sha> --author "<you>"
+python scripts/tracker/tracker_sync.py digest
+```

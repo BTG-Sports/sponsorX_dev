@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { Card } from "@/components/ui";
 import {
@@ -41,6 +41,8 @@ import {
   MIN_SCORE_CEIL,
   MIN_SCORE_FLOOR,
   relaxSuggestions,
+  resolvePicks,
+  SERVER_SORT_OPTIONS,
   slotFill,
   SORT_OPTIONS,
   statusFor,
@@ -50,6 +52,8 @@ import {
   type MatchSort,
 } from "@/lib/matching";
 import { money } from "@/lib/fixtures";
+import { tierCountsFromFacets, type ApiEligiblePage } from "@/lib/matching-live";
+import type { PageInfo } from "@/lib/list-query";
 
 /* --------------------------------------------------------------------------
    Matching Studio — P4-ART-01 in-app (2026-09-21). The densest screen in the
@@ -85,10 +89,32 @@ const TIERS = ["Anchor", "Premium", "Creator", "Emerging", "Untiered"] as const;
 /** What a live send reports per athlete — sent, or why not (P4-FE-03). */
 export type SendOutcome = { athleteId: string; ok: boolean; message?: string };
 
+/**
+ * The live desk's roster, SERVER-PAGED (2026-09-29). `data.roster` is then
+ * one page the API already filtered and ordered; the Studio renders it as
+ * given, pushes filter / sort changes to the URL through `onQuery` (the page
+ * re-reads), and takes its counts and options from the facets of the whole
+ * eligible roster. The shortlist is held by id across pages.
+ */
+export type ServerRoster = {
+  page: PageInfo;
+  facets: ApiEligiblePage["facets"];
+  sort: MatchSort;
+  onQuery: (filters: MatchFilters, sort: MatchSort) => void;
+  /** The house pager row for this list (it needs the page's ServerList). */
+  pager: (position: "top" | "bottom", filtered: boolean) => ReactNode;
+};
+
+/** What a filter state asks the server for — equal keys, no re-fetch. */
+function queryKey(f: MatchFilters, sort: MatchSort): string {
+  return JSON.stringify([f.q.trim(), f.sport, f.tier, f.minScore > MIN_SCORE_FLOOR ? f.minScore : 0, sort]);
+}
+
 export function MatchingStudio({
   initial,
   data = FIXTURE_MATCH,
   onSend,
+  server,
 }: {
   initial?: Partial<Record<"view" | "q" | "sport" | "tier" | "min", string>>;
   /** Fixtures unless the page hands it a real brief (P4-FE-02). */
@@ -96,6 +122,9 @@ export function MatchingStudio({
   /** Live only: sends the shortlist's invitations, returns per-athlete
    *  outcomes. Absent, "Send" is the local, undoable demo. */
   onSend?: (athletes: MatchAthlete[]) => Promise<SendOutcome[]>;
+  /** Live, server-paged roster (see ServerRoster). Absent, the Studio
+   *  filters and sorts the roster it was given, as the fixture demo does. */
+  server?: ServerRoster;
 }) {
   const { brief, jobs, roster, conflicts, live } = data;
   /* ------------------------------------------------------------- state */
@@ -108,8 +137,11 @@ export function MatchingStudio({
       : "",
     minScore: clampScore(Number(initial?.min) || MIN_SCORE_FLOOR),
   }));
-  const [sort, setSort] = useState<MatchSort>("score");
+  const [sort, setSort] = useState<MatchSort>(server?.sort ?? "score");
   const [picked, setPicked] = useState<string[]>(data.defaultShortlist);
+  /* Each pick's row as it was when picked — a paged roster carries one page,
+     and a pick made on page 1 must still be on the shortlist on page 2. */
+  const [held, setHeld] = useState<Record<string, MatchAthlete>>({});
   const [view, setViewRaw] = useState<View>(() =>
     initial?.view === "compare" || initial?.view === "review"
       ? initial.view
@@ -136,10 +168,17 @@ export function MatchingStudio({
 
   /* ----------------------------------------------------------- derived */
   const { matched, blocked } = useMemo(
-    () => filterRoster(roster, filters, sort),
-    [roster, filters, sort],
+    () =>
+      server
+        ? /* Already filtered and ordered by the API — rendered as given. */
+          { matched: roster.filter((a) => !a.conflict), blocked: roster.filter((a) => Boolean(a.conflict)) }
+        : filterRoster(roster, filters, sort),
+    [server, roster, filters, sort],
   );
-  const pickedAthletes = useMemo(() => byIds(picked, roster), [picked, roster]);
+  const pickedAthletes = useMemo(
+    () => (server ? resolvePicks(picked, roster, held, data.inviteStates) : byIds(picked, roster)),
+    [server, picked, roster, held, data.inviteStates],
+  );
   const blended = useMemo(() => blendedMargin(pickedAthletes), [pickedAthletes]);
   const breaches = useMemo(() => breachedLines(pickedAthletes), [pickedAthletes]);
   const { slots, overflow } = useMemo(
@@ -147,14 +186,16 @@ export function MatchingStudio({
     [pickedAthletes, jobs],
   );
   const filled = slots.filter((s) => s.athlete).length;
+  const matchCount = server ? server.page.total : matched.length;
 
   const sportOptions = useMemo(
-    () => [...new Set(roster.map((a) => a.sport))].sort(),
-    [roster],
+    () => server?.facets.sports ?? [...new Set(roster.map((a) => a.sport))].sort(),
+    [server, roster],
   );
   /* Only the tiers this roster actually has — the fixture shows three, a
      live roster may add Anchor or Untiered. */
   const tierCounts = useMemo(() => {
+    if (server) return tierCountsFromFacets(server.facets);
     const base = roster.filter((a) => !a.conflict && a.active);
     const counts: Record<string, number> = { all: base.length };
     for (const t of TIERS) {
@@ -162,19 +203,23 @@ export function MatchingStudio({
       if (n > 0 || (!live && t !== "Anchor" && t !== "Untiered")) counts[t] = n;
     }
     return counts;
-  }, [roster, live]);
+  }, [server, roster, live]);
 
   const filterCount = activeFilterCount(filters);
+  const serverMode = Boolean(server);
 
   /* --------------------------------------------------------- url sync */
   useEffect(() => {
     const p = new URLSearchParams(window.location.search);
     const setOrDel = (k: string, v: string) => (v ? p.set(k, v) : p.delete(k));
     setOrDel("view", view === "workspace" ? "" : view);
-    setOrDel("q", filters.q.trim());
-    setOrDel("sport", filters.sport);
-    setOrDel("tier", filters.tier);
-    setOrDel("min", filters.minScore > MIN_SCORE_FLOOR ? String(filters.minScore) : "");
+    /* Server-paged: the filters reach the URL through onQuery instead. */
+    if (!serverMode) {
+      setOrDel("q", filters.q.trim());
+      setOrDel("sport", filters.sport);
+      setOrDel("tier", filters.tier);
+      setOrDel("min", filters.minScore > MIN_SCORE_FLOOR ? String(filters.minScore) : "");
+    }
     const qs = p.toString();
     const next = `${window.location.pathname}${qs ? `?${qs}` : ""}${window.location.hash}`;
     if (
@@ -183,7 +228,23 @@ export function MatchingStudio({
     ) {
       window.history.replaceState(null, "", next);
     }
-  }, [view, filters]);
+  }, [view, filters, serverMode]);
+
+  /* Server-paged: a filter or sort change asks the API for page 1 of the new
+     set (debounced — typing and the score slider settle first). Compared by
+     value, so a re-render or StrictMode's double effect never re-fetches. */
+  const sentKey = useRef(queryKey(filters, sort));
+  const onQuery = server?.onQuery;
+  useEffect(() => {
+    if (!onQuery) return;
+    const key = queryKey(filters, sort);
+    if (key === sentKey.current) return;
+    const t = setTimeout(() => {
+      sentKey.current = key;
+      onQuery(filters, sort);
+    }, 300);
+    return () => clearTimeout(t);
+  }, [onQuery, filters, sort]);
 
   /* View changes move focus to the new view's container (join-wizard
      discipline). Guarded by the previous value, not a mount flag — a mount
@@ -224,6 +285,7 @@ export function MatchingStudio({
   const togglePick = (a: MatchAthlete) => {
     if (!canShortlist(a)) return;
     setSent(false);
+    setHeld((h) => ({ ...h, [a.id]: a }));
     setPicked((prev) =>
       prev.includes(a.id) ? prev.filter((id) => id !== a.id) : [...prev, a.id],
     );
@@ -464,10 +526,10 @@ export function MatchingStudio({
               <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
                 <p className="min-w-0 text-[11px] text-muted">
                   <span className="font-semibold text-text">
-                    {matched.length} athlete{matched.length === 1 ? "" : "s"} match
+                    {matchCount} athlete{matchCount === 1 ? "" : "s"} match
                   </span>{" "}
                   <span className="text-faint">
-                    · of {roster.length} eligible returned
+                    · of {server ? `${server.facets.total} eligible` : `${roster.length} eligible returned`}
                     {live
                       ? " · conflicted athletes are excluded by the query (§26)"
                       : ` · ${blocked.length} blocked by conflict, kept visible`}
@@ -481,11 +543,13 @@ export function MatchingStudio({
                     includeAll={false}
                     value={sort}
                     onChange={(v) => setSort(v as MatchSort)}
-                    options={SORT_OPTIONS}
+                    options={server ? SERVER_SORT_OPTIONS : SORT_OPTIONS}
                     tone="admin"
                   />
                 </div>
               </div>
+
+              {server && matched.length > 0 && server.pager("top", filterCount > 0)}
 
               {/* ------------------------------------------------ the list */}
               {matched.length === 0 ? (
@@ -511,6 +575,8 @@ export function MatchingStudio({
                   </ul>
                 </Card>
               )}
+
+              {server && matched.length > 0 && server.pager("bottom", filterCount > 0)}
 
               {/* blocked — never hidden, whatever the filters say */}
               {blocked.length > 0 && (

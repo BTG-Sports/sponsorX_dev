@@ -27,6 +27,7 @@ import { prisma } from "../db/client";
 import type { Actor } from "../auth/actor";
 import { assertAllowed, whereFor } from "../auth/scope";
 import { isVerified, type MetricSource } from "./metric-source";
+import { clampPage, pageInfo, readPage, type PageInfo, type PageRequest } from "../lib/paging";
 
 export type DeliveryHealth = {
   campaignId: string;
@@ -84,6 +85,29 @@ export function assessDelivery(input: {
  * COMPLETED one is settled, so including either would fill the dashboard with
  * rows nobody can act on.
  */
+const HEALTH_SELECT = {
+  id: true, name: true, endDate: true,
+  orders: {
+    select: {
+      projectedImpressions: true,
+      deliverables: {
+        select: {
+          state: true, dueDate: true,
+          metrics: { select: { source: true, views: true } },
+        },
+      },
+    },
+  },
+} as const;
+
+type HealthRow = {
+  id: string; name: string; endDate: Date;
+  orders: {
+    projectedImpressions: number | null;
+    deliverables: { state: string; dueDate: Date; metrics: { source: string; views: number }[] }[];
+  }[];
+};
+
 export async function deliveryHealth(
   actor: Actor,
   now = new Date(),
@@ -95,64 +119,104 @@ export async function deliveryHealth(
       ...whereFor(actor, "campaign", "read"),
       state: { in: ["ACTIVE", "REPORTING"] },
     },
-    select: {
-      id: true, name: true, endDate: true,
-      orders: {
-        select: {
-          projectedImpressions: true,
-          deliverables: {
-            select: {
-              state: true, dueDate: true,
-              metrics: { select: { source: true, views: true } },
-            },
-          },
-        },
-      },
-    },
+    select: HEALTH_SELECT,
   });
 
-  return campaigns.map((c) => {
-    let total = 0;
-    let verified = 0;
-    let overdue = 0;
-    let projected: number | null = null;
-    let verifiedImpressions = 0;
+  return campaigns.map((c) => healthOf(c, now));
+}
 
-    for (const order of c.orders) {
-      if (order.projectedImpressions !== null) {
-        projected = (projected ?? 0) + order.projectedImpressions;
-      }
-      for (const d of order.deliverables) {
-        total += 1;
-        if (d.state === "VERIFIED") verified += 1;
-        /* Overdue is about the DATE and the STATE together — work that is
-           late and still not signed off. */
-        else if (d.dueDate.getTime() < now.getTime()) overdue += 1;
+/**
+ * One PAGE of delivery health (2026-09-29, `?page=` on the endpoint), ending
+ * soonest first. `projected` keeps only campaigns carrying a reach
+ * projection — "a positive sum of frozen projections", which for
+ * non-negative projections is "some line projected above zero", so it is a
+ * WHERE and the page is the database's. `under` (the flagged ones) is not a
+ * column: the rule reads summed verified views, so it's evaluated over the
+ * live set and the result paged; the total is still exact.
+ */
+export async function deliveryHealthPage(
+  actor: Actor,
+  req: PageRequest,
+  opts: { under?: boolean; projected?: boolean } = {},
+  now = new Date(),
+): Promise<{ campaigns: DeliveryHealth[]; page: PageInfo }> {
+  assertAllowed(actor, "metricAggregate", "read");
+  const where = {
+    AND: [
+      whereFor(actor, "campaign", "read"),
+      { state: { in: ["ACTIVE", "REPORTING"] as ("ACTIVE" | "REPORTING")[] } },
+      ...(opts.projected ? [{ orders: { some: { projectedImpressions: { gt: 0 } } } }] : []),
+    ],
+  };
+  const orderBy = [{ endDate: "asc" as const }, { id: "asc" as const }];
 
-        for (const m of d.metrics) {
-          if (isVerified(m.source as MetricSource)) verifiedImpressions += m.views;
-        }
+  if (opts.under) {
+    const all = (await prisma.campaign.findMany({
+      where /* tenant-scope: AND[whereFor(campaign), …] */,
+      select: HEALTH_SELECT,
+      orderBy,
+    })) as HealthRow[];
+    const flagged = all.map((c) => healthOf(c, now)).filter((h) => h.underDeliveringWork || h.underDeliveringReach);
+    const at = clampPage(req, flagged.length);
+    return { campaigns: flagged.slice(at.skip, at.skip + at.take), page: pageInfo(at, flagged.length) };
+  }
+
+  const { rows, page } = await readPage(
+    req,
+    () => prisma.campaign.count({ where /* tenant-scope: AND[whereFor(campaign), …] */ }),
+    (skip, take) =>
+      prisma.campaign.findMany({
+        where /* tenant-scope: AND[whereFor(campaign), …] */,
+        select: HEALTH_SELECT,
+        orderBy,
+        skip,
+        take,
+      }) as unknown as Promise<HealthRow[]>,
+  );
+  return { campaigns: rows.map((c) => healthOf(c, now)), page };
+}
+
+function healthOf(c: HealthRow, now: Date): DeliveryHealth {
+  let total = 0;
+  let verified = 0;
+  let overdue = 0;
+  let projected: number | null = null;
+  let verifiedImpressions = 0;
+
+  for (const order of c.orders) {
+    if (order.projectedImpressions !== null) {
+      projected = (projected ?? 0) + order.projectedImpressions;
+    }
+    for (const d of order.deliverables) {
+      total += 1;
+      if (d.state === "VERIFIED") verified += 1;
+      /* Overdue is about the DATE and the STATE together — work that is
+         late and still not signed off. */
+      else if (d.dueDate.getTime() < now.getTime()) overdue += 1;
+
+      for (const m of d.metrics) {
+        if (isVerified(m.source as MetricSource)) verifiedImpressions += m.views;
       }
     }
+  }
 
-    return {
-      campaignId: c.id,
-      campaignName: c.name,
-      endDate: c.endDate,
+  return {
+    campaignId: c.id,
+    campaignName: c.name,
+    endDate: c.endDate,
+    deliverablesTotal: total,
+    deliverablesVerified: verified,
+    deliverablesOverdue: overdue,
+    projectedImpressions: projected,
+    verifiedImpressions,
+    ...assessDelivery({
       deliverablesTotal: total,
       deliverablesVerified: verified,
       deliverablesOverdue: overdue,
       projectedImpressions: projected,
       verifiedImpressions,
-      ...assessDelivery({
-        deliverablesTotal: total,
-        deliverablesVerified: verified,
-        deliverablesOverdue: overdue,
-        projectedImpressions: projected,
-        verifiedImpressions,
-      }),
-    };
-  });
+    }),
+  };
 }
 
 /** Just the campaigns in trouble — what the dashboard actually shows. */

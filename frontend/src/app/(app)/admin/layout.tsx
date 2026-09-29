@@ -2,11 +2,14 @@ import { requirePortalAccess } from "@/server/portal";
 import { PortalShell, type NavItem } from "@/components/portal-shell";
 import { roleLabel, viewerName } from "@/server/viewer";
 import { isCommissionAdmin } from "@/lib/commission-live";
+import { mayUse } from "@/lib/admin-access";
 
 /* BTG admin surface — §10's four workspaces plus the command center (§23). */
 const NAV: NavItem[] = [
   { href: "/admin", label: "Dashboard", icon: "grid" },
   { href: "/admin/applications", label: "Applications", icon: "users" },
+  /* P3-BE-16 — approved athletes' proposed profile edits, reviewed here. */
+  { href: "/admin/profile-changes", label: "Profile changes", icon: "file" },
   /* P4-FE-07 — sponsor briefs, qualified here before the Matching Studio. */
   { href: "/admin/briefs", label: "Briefs", icon: "mail" },
   { href: "/admin/campaigns", label: "Campaigns", icon: "megaphone" },
@@ -42,7 +45,9 @@ export default async function AdminLayout({ children }: LayoutProps<"/admin">) {
   return (
     <PortalShell
       portal="admin"
-      nav={isCommissionAdmin(actor.roles) ? NAV : NAV.filter((n) => n.href !== "/admin/commission")}
+      /* C-1: each desk's link only for the roles it's for (lib/admin-access);
+         commission stays BTG-admin only as before. */
+      nav={NAV.filter((n) => mayUse(n.href, actor.roles) && (n.href !== "/admin/commission" || isCommissionAdmin(actor.roles)))}
       rootHref="/admin"
       orgName="BTG Sports Group"
       userName={await viewerName("BTG staff")}

@@ -77,7 +77,9 @@ describe("2S5-FE-01 · the commission editor", () => {
     expect(page.indexOf("isCommissionAdmin(actor.roles)")).toBeGreaterThan(-1);
     expect(page.indexOf("isCommissionAdmin(actor.roles)")).toBeLessThan(page.indexOf('apiFetch("/commission-rules")'));
     const layout = readFileSync(new URL("../src/app/(app)/admin/layout.tsx", import.meta.url), "utf8");
-    expect(layout).toMatch(/isCommissionAdmin\(actor\.roles\) \? NAV : NAV\.filter\(\(n\) => n\.href !== "\/admin\/commission"\)/);
+    /* The nav filter also applies the per-desk access map (check pass C-1);
+       commission stays BTG-admin only inside it. */
+    expect(layout).toMatch(/NAV\.filter\(\(n\) => mayUse\(n\.href, actor\.roles\) && \(n\.href !== "\/admin\/commission" \|\| isCommissionAdmin\(actor\.roles\)\)\)/);
   });
 });
 

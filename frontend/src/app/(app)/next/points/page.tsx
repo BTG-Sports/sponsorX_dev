@@ -7,6 +7,7 @@ import { EmptyState, SkeletonPage } from "@/components/states";
 import { ICONS } from "@/components/icons";
 import { demoState } from "@/lib/demo";
 import { liveStudent } from "../live";
+import { apiListQuery } from "@/lib/list-query";
 import { LiveStudentPoints, StudentUnlinked } from "../live-views";
 import {
   POINT_RULES,
@@ -41,7 +42,9 @@ export default async function StudentPointsPage({
   /* P9-FE-01 — a signed-in student reads their own records; ?demo= and BTG
      previews keep the fixture screen below. */
   if (!demo) {
-    const live = await liveStudent(["sales", "points"]);
+    /* Server-paged accruals (?page/?size); the balance and the sales total
+       for the milestone are the API's sums (2026-09-29). */
+    const live = await liveStudent(["sales", "points"], { points: apiListQuery(await searchParams, {}) });
     if (live?.kind === "unlinked") return <StudentUnlinked title="Points" />;
     if (live) return <LiveStudentPoints live={live} />;
   }

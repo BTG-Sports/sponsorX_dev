@@ -135,3 +135,44 @@ describe("who may touch them at all", () => {
       .rejects.toBeInstanceOf(ForbiddenError);
   });
 });
+
+describe("QA pass 9 · an athlete's save doesn't erase BTG's checked numbers", () => {
+  const checked = { platform: "INSTAGRAM" as const, handle: "jreed", followers: 12000, avgViews: 3400 };
+  const tiktok = { platform: "TIKTOK" as const, handle: "jreedtt", followers: 500 };
+
+  async function seedChecked() {
+    await recordSocials(actor(["NETWORK_MGR"]), "ath_1", [checked, tiktok]);
+    expect(rows.every((r) => r.source === "VERIFIED_MANUAL")).toBe(true);
+  }
+
+  it("an untouched account keeps its source, avgViews and capture date", async () => {
+    await seedChecked();
+    const captured = rows.find((r) => r.platform === "INSTAGRAM")!.capturedAt;
+    /* The editor sends platform, handle and followers — never avgViews. */
+    await recordSocials(actor(["ATHLETE"]), "ath_1", [
+      { platform: "INSTAGRAM", handle: "jreed", followers: 12000 },
+      { ...tiktok, handle: "jreed.new" },
+    ]);
+    const ig = rows.find((r) => r.platform === "INSTAGRAM")!;
+    expect(ig.source).toBe("VERIFIED_MANUAL");
+    expect(ig.avgViews).toBe(3400);
+    expect(ig.capturedAt).toBe(captured);
+    const tt = rows.find((r) => r.platform === "TIKTOK")!;
+    expect(tt.source).toBe("SELF_REPORTED");
+  });
+
+  it("changing the number re-labels it SELF_REPORTED and drops the stale avgViews", async () => {
+    await seedChecked();
+    await recordSocials(actor(["ATHLETE"]), "ath_1", [{ platform: "INSTAGRAM", handle: "jreed", followers: 99999 }]);
+    const ig = rows.find((r) => r.platform === "INSTAGRAM")!;
+    expect(ig.source).toBe("SELF_REPORTED");
+    expect(ig.avgViews).toBeNull();
+  });
+
+  it("an athlete can't mint a verified label for a row BTG never checked", async () => {
+    await recordSocials(actor(["ATHLETE"]), "ath_1", [{ platform: "X", handle: "mine", followers: 10 }]);
+    await recordSocials(actor(["ATHLETE"]), "ath_1", [{ platform: "X", handle: "mine", followers: 10 }]);
+    expect(rows[0].source).toBe("SELF_REPORTED");
+  });
+});
+

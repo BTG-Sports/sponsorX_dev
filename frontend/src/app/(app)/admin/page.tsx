@@ -13,6 +13,7 @@ import {
 } from "@/lib/ops-board-live";
 import { apiFetch } from "@/server/api";
 import { requirePortalAccess } from "@/server/portal";
+import { mayUse } from "@/lib/admin-access";
 
 /* --------------------------------------------------------------------------
    Operations Board — P7-FE-06, §23. What needs BTG's action today, and every
@@ -36,16 +37,25 @@ async function read<T>(path: string): Promise<T | null> {
   return (await res.json()) as T;
 }
 
+/** How many live campaigns the board lists; the rest are one click away on
+ *  the server-paged Campaigns desk (P2-FE-02 — no board renders every row). */
+const BOARD_CAMPAIGNS = 8;
+
 export default async function OperationsBoardPage() {
-  await requirePortalAccess("admin");
+  const actor = await requirePortalAccess("admin");
   const [board, delivery, health] = await Promise.all([
     read<{ queues: ApiQueues }>("/operations/board"),
-    read<{ campaigns: ApiDeliveryHealth[] }>("/operations/delivery-health"),
+    read<{ campaigns: ApiDeliveryHealth[]; page: { total: number } }>(`/operations/delivery-health?page=1&size=${BOARD_CAMPAIGNS}`),
     read<ApiIntegrationHealth>("/operations/integration-health"),
   ]);
 
-  const cards = board ? queueCards(board.queues) : [];
+  /* A queue the role can READ but whose desk isn't theirs (C-1 — e.g. FINANCE
+     reads deliverables, but Approvals is BTG's and campaign managers') isn't
+     a card: "each card opens the page it counts", and that page would say
+     "not in your role". */
+  const cards = board ? queueCards(board.queues).filter((c) => mayUse(c.href, actor.roles)) : [];
   const campaigns = delivery ? campaignLines(delivery.campaigns) : null;
+  const campaignTotal = delivery?.page.total ?? 0;
   const rows = health ? healthRows(health) : null;
   const readAt = new Date().toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
 
@@ -96,7 +106,7 @@ export default async function OperationsBoardPage() {
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,22rem)]">
         <section>
           <SectionHeading
-            title={`Live campaigns${campaigns ? ` · ${campaigns.length}` : ""}`}
+            title={`Live campaigns${campaigns ? ` · ${campaignTotal}` : ""}`}
             action={
               <Link href="/admin/campaigns" className="text-xs text-primary hover:underline">
                 All campaigns →

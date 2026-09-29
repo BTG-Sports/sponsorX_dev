@@ -63,22 +63,41 @@ export async function recordSocials(
     const before = await tx.athleteSocial.findMany({
       /* tenant-scope: athleteId is the athlete loaded above through whereFor. */
       where: { athleteId },
-      select: { platform: true, handle: true, followers: true, source: true },
+      select: { platform: true, handle: true, followers: true, avgViews: true, source: true, capturedAt: true },
     });
+
+    /* QA pass 9: the set is replaced wholesale, so an athlete editing ONE
+       account used to re-stamp EVERY row SELF_REPORTED and drop its avgViews —
+       BTG's VERIFIED_MANUAL numbers on accounts they never touched were lost.
+       A row the caller sends back unchanged (same platform, handle and
+       followers, no new avgViews) keeps what it had: its source, its
+       avgViews and when it was captured. Anything changed takes the caller's
+       own source, as before. */
+    const unchanged = (a: SocialAccount) =>
+      before.find(
+        (b) =>
+          b.platform === a.platform &&
+          b.handle === a.handle &&
+          b.followers === (a.followers ?? null) &&
+          (a.avgViews === undefined || a.avgViews === b.avgViews),
+      );
 
     await tx.athleteSocial.deleteMany({ where: { athleteId } });
     if (accounts.length > 0) {
       await tx.athleteSocial.createMany({
-        data: accounts.map((a) => ({
-          tenantId: actor.tenantId,
-          athleteId,
-          platform: a.platform,
-          handle: a.handle,
-          followers: a.followers ?? null,
-          avgViews: a.avgViews ?? null,
-          source: source as Prisma.AthleteSocialCreateManyInput["source"],
-          capturedAt: new Date(),
-        })),
+        data: accounts.map((a) => {
+          const kept = unchanged(a);
+          return {
+            tenantId: actor.tenantId,
+            athleteId,
+            platform: a.platform,
+            handle: a.handle,
+            followers: a.followers ?? null,
+            avgViews: kept ? kept.avgViews : (a.avgViews ?? null),
+            source: (kept ? kept.source : source) as Prisma.AthleteSocialCreateManyInput["source"],
+            capturedAt: kept ? kept.capturedAt : new Date(),
+          };
+        }),
       });
     }
 

@@ -14,9 +14,12 @@ import {
   rewardDraft,
 } from "@/lib/fixtures";
 import { JOBS, MATCH_BRIEF } from "@/lib/matching";
-import type { ApiCampaign } from "@/lib/sponsor-live";
+import { ADMIN_CAMPAIGN_SORTS, groupCounts, groupParam } from "@/lib/admin-campaign-groups";
+import { textParam, type SearchParams } from "@/lib/list-query";
 import { apiFetch, fetchActor } from "@/server/api";
-import { waitingSummary, type ApiBrief } from "@/lib/briefs-live";
+import { fetchCampaignSummary, type CampaignSummary } from "@/server/campaigns";
+import { fetchAdminCampaignPage, type AdminCampaignPage } from "@/server/admin-campaigns";
+import { CampaignsBoard } from "./campaigns-board";
 
 /* --------------------------------------------------------------------------
    Campaigns list — the admin "Campaigns" workspace (2026-09-15).
@@ -30,17 +33,17 @@ import { waitingSummary, type ApiBrief } from "@/lib/briefs-live";
 
 /* LIVE vs DEMO (P5-FE-05). A signed-in BTG desk sees the tenant's REAL
    campaigns — GET /campaigns for state, package, athletes and delivery,
-   joined with GET /operations/delivery-health for the under-delivery flags
-   (the same rule the ops board uses). Staffing campaigns open their brief's
-   Matching Studio; delivering ones their operations board. Nobody else sees
-   anything but the fixture list. */
+   each row carrying delivery health's under-delivery flags (the same rule
+   the ops board uses). Staffing campaigns open their brief's Matching
+   Studio; delivering ones their operations board. Nobody else sees
+   anything but the fixture list.
 
-type Health = {
-  campaignId: string;
-  deliverablesOverdue: number;
-  underDeliveringWork: boolean;
-  underDeliveringReach: boolean;
-};
+   SERVER-PAGED (2026-09-29). The old grouped list (Needs attention /
+   Delivering / Staffing / Closed) fetched every campaign and every health
+   row to group them in the browser. The groups are now tabs (?group), and
+   the page asks the API for ONE page of the tab (?q ?sort ?page ?size);
+   tab counts come from GET /campaigns/summary's byState and the flagged
+   count GET /campaigns answers with. */
 
 const DESK_ROLES = ["SUPER_ADMIN", "BTG_ADMIN", "CAMPAIGN_MGR", "NETWORK_MGR", "SALES", "FINANCE"];
 
@@ -49,34 +52,31 @@ const DESK_ROLES = ["SUPER_ADMIN", "BTG_ADMIN", "CAMPAIGN_MGR", "NETWORK_MGR", "
    renders without that part and says so; a 403 on the list itself is the
    whole page out of scope. Anything else non-OK still throws to the error
    page — an outage is never fixtures dressed as real data. */
+type Waiting = { toMatch: number; qualified: number; approved: number; drafts: number } | null;
+
 type LiveResult =
-  | { kind: "ok"; campaigns: ApiCampaign[]; health: Health[] | null; waiting: ReturnType<typeof waitingSummary> }
+  | { kind: "ok"; list: AdminCampaignPage; summary: CampaignSummary; waiting: Waiting }
   | { kind: "denied" };
 
-async function liveCampaigns(): Promise<LiveResult | null> {
-  const who = await fetchActor();
-  if (who.status !== "linked") return null;
-  if (!who.actor.roles.some((r) => DESK_ROLES.includes(r))) return null;
-  /* P4-FE-07 — briefs too, for the "waiting for matching" link; a role that
-     doesn't read briefs (403) simply gets no link. */
-  const [cRes, hRes, bRes] = await Promise.all([apiFetch("/campaigns"), apiFetch("/operations/delivery-health"), apiFetch("/briefs")]);
-  if (cRes.status === 403) return { kind: "denied" };
-  if (!cRes.ok) throw new Error(`Campaigns unavailable (${cRes.status}).`);
-  if (!hRes.ok && hRes.status !== 403) throw new Error(`Delivery health unavailable (${hRes.status}).`);
-  if (!bRes.ok && bRes.status !== 403) throw new Error(`Briefs unavailable (${bRes.status}).`);
-  return {
-    kind: "ok",
-    campaigns: ((await cRes.json()) as { campaigns: ApiCampaign[] }).campaigns,
-    health: hRes.ok ? ((await hRes.json()) as { campaigns: Health[] }).campaigns : null,
-    waiting: bRes.ok ? waitingSummary(((await bRes.json()) as { briefs: ApiBrief[] }).briefs) : null,
+/* P4-FE-07 (rcfworks) — the "briefs waiting on BTG" banner, merged onto the
+   server-paged board: the three counts are `page.total` of a one-row page of
+   GET /briefs per state (never the brief list itself). A role that doesn't
+   read briefs (403) simply gets no banner. */
+async function briefsWaiting(): Promise<Waiting> {
+  const total = async (state: string) => {
+    const res = await apiFetch(`/briefs?page=1&size=1&state=${state}`);
+    if (res.status === 403) return null;
+    if (!res.ok) throw new Error(`Briefs unavailable (${res.status}).`);
+    return ((await res.json()) as { page: { total: number } }).page.total;
   };
+  const [qualified, approved, drafts] = await Promise.all([total("QUALIFIED"), total("APPROVED"), total("DRAFT")]);
+  if (qualified === null || approved === null || drafts === null) return null;
+  if (qualified + approved + drafts === 0) return null;
+  return { toMatch: qualified + approved, qualified, approved, drafts };
 }
 
-const STAFFING = new Set(["DRAFT", "STAFFING", "APPROVAL"]);
-const DELIVERING = new Set(["ACTIVE", "REPORTING"]);
-
 /** P4-FE-07 — the link to briefs waiting on BTG. Hidden when nothing waits. */
-function BriefsWaiting({ waiting }: { waiting: NonNullable<ReturnType<typeof waitingSummary>> }) {
+function BriefsWaiting({ waiting }: { waiting: NonNullable<Waiting> }) {
   const parts = [
     waiting.qualified ? `${waiting.qualified} qualified` : null,
     waiting.approved ? `${waiting.approved} approved` : null,
@@ -106,32 +106,26 @@ function BriefsWaiting({ waiting }: { waiting: NonNullable<ReturnType<typeof wai
   );
 }
 
-function LiveCampaignsList({
-  campaigns,
-  health,
-  waiting,
-}: {
-  campaigns: ApiCampaign[];
-  health: Health[] | null;
-  waiting: ReturnType<typeof waitingSummary>;
-}) {
-  const byId = new Map((health ?? []).map((h) => [h.campaignId, h]));
-  const groups = [
-    { key: "attention", title: "Needs attention", items: campaigns.filter((c) => { const h = byId.get(c.id); return h && (h.underDeliveringWork || h.underDeliveringReach); }) },
-    { key: "delivering", title: "Delivering", items: campaigns.filter((c) => DELIVERING.has(c.state) && !(byId.get(c.id)?.underDeliveringWork || byId.get(c.id)?.underDeliveringReach)) },
-    { key: "staffing", title: "Staffing", items: campaigns.filter((c) => STAFFING.has(c.state)) },
-    { key: "closed", title: "Closed", items: campaigns.filter((c) => c.state === "COMPLETED" || c.state === "CANCELLED") },
-  ].filter((g) => g.items.length > 0);
+async function liveCampaigns(sp: SearchParams): Promise<LiveResult | null> {
+  const who = await fetchActor();
+  if (who.status !== "linked") return null;
+  if (!who.actor.roles.some((r) => DESK_ROLES.includes(r))) return null;
+  const [list, summary, waiting] = await Promise.all([fetchAdminCampaignPage(sp), fetchCampaignSummary(), briefsWaiting()]);
+  if (list === null || summary === null) return { kind: "denied" };
+  return { kind: "ok", list, summary, waiting };
+}
 
+function LiveCampaignsList({ list, summary, waiting, sp }: { list: AdminCampaignPage; summary: CampaignSummary; waiting: Waiting; sp: SearchParams }) {
+  const counts = groupCounts(summary.byState, summary.total, list.healthVisible ? list.attention : null);
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-xl font-semibold tracking-tight">Campaigns</h1>
         <p className="mt-1 text-xs text-muted">
-          {campaigns.length} {campaigns.length === 1 ? "campaign" : "campaigns"} — staffing ones open their
+          {summary.total} {summary.total === 1 ? "campaign" : "campaigns"} — staffing ones open their
           Matching Studio, delivering ones their operations board.
         </p>
-        {health === null && (
+        {!list.healthVisible && (
           <p className="mt-2 text-[11px] text-faint">
             Delivery health (overdue work, reach shortfalls) is outside your
             role, so no campaign is flagged here.
@@ -139,77 +133,31 @@ function LiveCampaignsList({
         )}
       </div>
       {waiting && <BriefsWaiting waiting={waiting} />}
-      {campaigns.length === 0 && (
+      {summary.total === 0 ? (
         <p className="rounded-xl border border-line bg-surface px-5 py-10 text-center text-xs text-muted">
           No campaigns yet — an approved brief becomes one when its first invitations go out.
         </p>
+      ) : (
+        <CampaignsBoard
+          rows={list.campaigns}
+          page={list.page}
+          group={groupParam(sp, list.healthVisible)}
+          counts={counts}
+          q={textParam(sp, "q")}
+          sort={textParam(sp, "sort", ADMIN_CAMPAIGN_SORTS)}
+        />
       )}
-      {groups.map((g) => (
-        <section key={g.key} className="space-y-3">
-          <h2 className="text-[11px] font-medium uppercase tracking-wide text-muted">
-            {g.title} <span className="text-faint">· {g.items.length}</span>
-          </h2>
-          <ul className="grid gap-4 lg:grid-cols-2">
-            {g.items.map((c) => {
-              const h = byId.get(c.id);
-              const href = STAFFING.has(c.state)
-                ? `/admin/campaigns/match${c.briefId ? `?brief=${encodeURIComponent(c.briefId)}` : ""}`
-                : `/admin/campaigns/${encodeURIComponent(c.id)}`;
-              const pct = c.deliverables.total ? Math.round((100 * c.deliverables.done) / c.deliverables.total) : 0;
-              return (
-                /* min-w-0: a long campaign name must truncate, not widen
-                   the grid track past a phone's width. */
-                <li key={c.id} className="min-w-0">
-                  <Link
-                    href={href}
-                    className="group block rounded-xl border border-line bg-surface p-5 transition-all hover:border-admin/30 hover:bg-surface-2/40"
-                  >
-                    <div className="flex items-start gap-3">
-                      <Monogram text={initials(c.sponsorName)} tone="primary" className="size-10 text-[11px]" />
-                      <div className="min-w-0 flex-1">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <h3 className="truncate text-sm font-semibold tracking-tight">{c.name}</h3>
-                          <Badge tone={c.state === "ACTIVE" ? "accent" : STAFFING.has(c.state) ? "warn" : "neutral"}>
-                            {c.state}
-                          </Badge>
-                          {h?.underDeliveringWork && <Badge tone="danger">{h.deliverablesOverdue} overdue</Badge>}
-                          {h?.underDeliveringReach && <Badge tone="warn">Reach short</Badge>}
-                        </div>
-                        <p className="mt-0.5 truncate text-[11px] text-muted">
-                          Presented by {c.sponsorName} · {c.package?.name ?? "custom"}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="mt-4">
-                      <div className="mb-1.5 flex items-baseline justify-between text-[11px]">
-                        <span className="text-muted">Deliverables published</span>
-                        <span className="font-medium tabular-nums text-text">
-                          {c.deliverables.done} <span className="text-faint">/ {c.deliverables.total}</span>
-                        </span>
-                      </div>
-                      <Meter value={pct} tone={h?.underDeliveringWork ? "primary" : "accent"} />
-                    </div>
-                    <dl className="mt-4 grid grid-cols-3 gap-3 border-t border-line-soft pt-4">
-                      <Stat label="Athletes" value={String(c.athletes)} />
-                      <Stat label="Contracted" value={typeof c.contracted === "number" ? money(c.contracted) : "—"} />
-                      <Stat
-                        label="Ends"
-                        value={new Date(c.endDate).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" })}
-                      />
-                    </dl>
-                  </Link>
-                </li>
-              );
-            })}
-          </ul>
-        </section>
-      ))}
     </div>
   );
 }
 
-export default async function CampaignsListPage() {
-  const live = await liveCampaigns();
+export default async function CampaignsListPage({
+  searchParams,
+}: {
+  searchParams: Promise<SearchParams>;
+}) {
+  const sp = await searchParams;
+  const live = await liveCampaigns(sp);
   if (live?.kind === "denied") {
     return (
       <div className="space-y-6">
@@ -222,7 +170,7 @@ export default async function CampaignsListPage() {
       </div>
     );
   }
-  if (live) return <LiveCampaignsList campaigns={live.campaigns} health={live.health} waiting={live.waiting} />;
+  if (live) return <LiveCampaignsList list={live.list} summary={live.summary} waiting={live.waiting} sp={sp} />;
 
   const campaigns = Object.entries(campaignDetailX).map(([id, d]) => ({
     id,

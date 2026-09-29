@@ -7,11 +7,14 @@ import { MiniChip, Monogram, initials } from "@/components/hero";
 import { EmptyState } from "@/components/states";
 import { Dropdown, FilterChip, SearchInput } from "@/components/filter-kit";
 import { Pagination } from "@/components/pagination";
+import { ListSearch, PagerRow, PendingList, ServerList, useListNav } from "@/components/server-pager";
+import type { PageInfo } from "@/lib/list-query";
 import { INVITE_COPY, money, type InviteState } from "@/lib/fixtures";
 import { isOpen } from "@/lib/invitations-ui";
 import {
   inviteMoves,
   shortDate,
+  type InboxCounts,
   type InboxRow,
   type InviteActionResult,
 } from "@/lib/invitations-live";
@@ -105,19 +108,48 @@ const urgencyFirst = (a: Invite, b: Invite) =>
   STATE_ORDER[a.state] - STATE_ORDER[b.state] ||
   a.hoursLeft - b.hoursLeft;
 
-export function InvitationsInbox({
-  rows: sourceRows,
-  initial,
-  demoParam,
-  respond,
-}: {
+/**
+ * The live inbox, SERVER-PAGED (2026-09-29): `rows` is then one page the API
+ * already filtered (?state ?job ?q), ordered (?sort) and paged; the tab
+ * counts and job options come from the database too. Controls write the URL
+ * and the page re-reads — nothing here holds more than the visible page.
+ */
+export type ServerInbox = {
+  page: PageInfo;
+  counts: InboxCounts;
+  jobs: { value: string; label: string }[];
+  q: string;
+  tab: TabKey;
+  job: string;
+  sort: string;
+};
+
+type InboxProps = {
   rows: InboxRow[];
   initial?: InboxInitial;
   demoParam?: string;
   /** Present only for a signed-in athlete's real inbox. */
   respond?: (id: string, to: InviteState) => Promise<InviteActionResult>;
-}) {
+  server?: ServerInbox;
+};
+
+export function InvitationsInbox(props: InboxProps) {
+  return (
+    <ServerList>
+      <Inbox {...props} />
+    </ServerList>
+  );
+}
+
+function Inbox({
+  rows: sourceRows,
+  initial,
+  demoParam,
+  respond,
+  server,
+}: InboxProps) {
   const live = Boolean(respond);
+  const { set } = useListNav();
 
   /* Real answers, recorded by the API, keyed by invite id. */
   const [answered, setAnswered] = useState<Record<string, InviteState>>({});
@@ -130,7 +162,7 @@ export function InvitationsInbox({
       sourceRows.map((r) => (answered[r.id] ? { ...r, state: answered[r.id] } : r)),
     [sourceRows, answered],
   );
-  const JOB_OPTIONS = useMemo(() => jobOptions(sourceRows), [sourceRows]);
+  const JOB_OPTIONS = useMemo(() => server?.jobs ?? jobOptions(sourceRows), [server, sourceRows]);
 
   const move = async (id: string, to: InviteState) => {
     if (!respond || pending) return;
@@ -171,19 +203,25 @@ export function InvitationsInbox({
 
   /* Any search/filter/sort change resets to page one — page 3 of a set is
      meaningless once a filter narrows it to one page. */
+  /* Server-paged, each control writes the URL instead (and the API resets
+     nothing — nextQuery drops ?page on any change but the page itself). */
   const onSearch = (v: string) => {
+    if (server) return set({ q: v.trim() || null });
     setQ(v);
     setPage(1);
   };
   const onTab = (k: TabKey) => {
+    if (server) return set({ state: k === "all" ? null : k });
     setTab(k);
     setPage(1);
   };
   const onJob = (v: string) => {
+    if (server) return set({ job: v || null });
     setJob(v);
     setPage(1);
   };
   const onSort = (v: string) => {
+    if (server) return set({ sort: v || null });
     setSort(v);
     setPage(1);
   };
@@ -217,22 +255,32 @@ export function InvitationsInbox({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searched, tab, sort]);
 
-  const filtered = Boolean(needle || job);
+  const filtered = server ? Boolean(server.q || server.job) : Boolean(needle || job);
   const clearAll = () => {
+    if (server) return set({ q: null, job: null });
     setQ("");
     setJob("");
     setPage(1);
   };
+  /* What the controls show: the URL's view (server) or local state (demo). */
+  const view = server
+    ? { q: server.q, tab: server.tab, job: server.job, sort: server.sort }
+    : { q, tab, job, sort };
+  const tabCount = (t: (typeof TABS)[number]) =>
+    server ? server.counts[t.key] : searched.filter((i) => t.match(i.state)).length;
+  const total = server ? server.page.total : shown.length;
 
   const totalPages = Math.max(1, Math.ceil(shown.length / pageSize));
   const safePage = Math.min(Math.max(page, 1), totalPages);
-  const paged = shown.slice((safePage - 1) * pageSize, safePage * pageSize);
+  const paged = server ? rows : shown.slice((safePage - 1) * pageSize, safePage * pageSize);
   const rangeStart = shown.length === 0 ? 0 : (safePage - 1) * pageSize + 1;
   const rangeEnd = Math.min(safePage * pageSize, shown.length);
 
   /* Search, tab, filter, sort, page and size live in the URL (no navigation)
-     so the view is shareable and survives reload; the demo param rides along. */
+     so the view is shareable and survives reload; the demo param rides along.
+     Server-paged, the URL is the source of truth and the page re-reads it. */
   useEffect(() => {
+    if (server) return;
     const p = new URLSearchParams();
     if (demoParam) p.set("demo", demoParam);
     if (tab !== "all") p.set("state", tab);
@@ -250,9 +298,18 @@ export function InvitationsInbox({
         `${window.location.pathname}${next}${window.location.hash}`,
       );
     }
-  }, [q, tab, job, sort, safePage, pageSize, demoParam]);
+  }, [server, q, tab, job, sort, safePage, pageSize, demoParam]);
 
-  const pageBar = (placement: "down" | "up") => (
+  const pageBar = (placement: "down" | "up") =>
+    server ? (
+      <PagerRow
+        page={server.page}
+        noun="Invitations"
+        tone="athlete"
+        position={placement === "down" ? "top" : "bottom"}
+        filtered={filtered || server.tab !== "all"}
+      />
+    ) : (
     <div className="flex flex-wrap items-center justify-end gap-3">
       <p className="mr-auto text-[11px] text-muted" aria-live="polite">
         Showing {rangeStart}–{rangeEnd} of {shown.length}
@@ -283,16 +340,16 @@ export function InvitationsInbox({
       {/* ------------------------------------------------------- state tabs */}
       <div className="flex flex-wrap gap-1 self-start rounded-lg border border-line bg-surface p-1">
         {TABS.map((t) => {
-          const count = searched.filter((i) => t.match(i.state)).length;
+          const count = tabCount(t);
           return (
             <button
               key={t.key}
               type="button"
               onClick={() => onTab(t.key)}
-              aria-pressed={t.key === tab}
+              aria-pressed={t.key === view.tab}
               className={[
                 "flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-colors",
-                t.key === tab
+                t.key === view.tab
                   ? "bg-athlete/15 text-athlete"
                   : "text-muted hover:text-text",
               ].join(" ")}
@@ -306,17 +363,27 @@ export function InvitationsInbox({
 
       {/* ---------------------------------------------------------- toolbar */}
       <div className="flex flex-wrap items-center gap-2">
-        <SearchInput
-          value={q}
-          onChange={onSearch}
-          placeholder="Search sponsor, campaign or job…"
-          label="Search invitations"
-          tone="athlete"
-        />
+        {server ? (
+          /* Debounced, bound to ?q. */
+          <ListSearch
+            initial={server.q}
+            placeholder="Search sponsor, campaign or job…"
+            label="Search invitations"
+            tone="athlete"
+          />
+        ) : (
+          <SearchInput
+            value={q}
+            onChange={onSearch}
+            placeholder="Search sponsor, campaign or job…"
+            label="Search invitations"
+            tone="athlete"
+          />
+        )}
         <Dropdown
           label="Filter by job"
           allLabel="All jobs"
-          value={job}
+          value={view.job}
           options={JOB_OPTIONS}
           onChange={onJob}
           tone="athlete"
@@ -325,7 +392,7 @@ export function InvitationsInbox({
           <Dropdown
             label="Sort invitations"
             allLabel="Sort: urgency first"
-            value={sort}
+            value={view.sort}
             options={SORT_OPTIONS}
             onChange={onSort}
             tone="athlete"
@@ -336,14 +403,14 @@ export function InvitationsInbox({
       {/* ------------------------------------------------------------ chips */}
       {filtered && (
         <div className="flex flex-wrap items-center gap-2">
-          {q.trim() && (
+          {view.q.trim() && (
             <FilterChip label="Clear search" onClear={() => onSearch("")} tone="athlete">
-              “{q.trim()}”
+              “{view.q.trim()}”
             </FilterChip>
           )}
-          {job && (
+          {view.job && (
             <FilterChip label="Clear job filter" onClear={() => onJob("")} tone="athlete">
-              {JOB_OPTIONS.find((o) => o.value === job)?.label ?? job}
+              {JOB_OPTIONS.find((o) => o.value === view.job)?.label ?? view.job}
             </FilterChip>
           )}
           <button
@@ -357,7 +424,7 @@ export function InvitationsInbox({
       )}
 
       {/* ------------------------------------------------------------- list */}
-      {shown.length === 0 ? (
+      {total === 0 ? (
         filtered ? (
           <div className="rounded-xl border border-line bg-surface px-5 py-12 text-center">
             <p className="text-sm font-semibold">No invitations match</p>
@@ -384,6 +451,7 @@ export function InvitationsInbox({
       ) : (
         <>
           {pageBar("down")}
+          <PendingList>
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             {paged.map((inv, idx) => {
               const actionable = isOpen(inv.state);
@@ -618,6 +686,7 @@ export function InvitationsInbox({
               );
             })}
           </div>
+          </PendingList>
           <div className="pt-2">{pageBar("up")}</div>
         </>
       )}

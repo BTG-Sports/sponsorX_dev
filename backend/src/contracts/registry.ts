@@ -57,6 +57,7 @@ import {
   SourcedTotals, SponsorReport,
 } from "./metric";
 import { Invoice, PaymentStatus, ZohoInvoiceWebhook } from "./invoice";
+import { ProfileChangeDecisionInput, ProfileChangeInput, ProfileChangeState } from "./profile-change";
 import { InquiryInput, ZohoCrmNotification } from "./zoho";
 import {
   AdSaleInput,
@@ -157,6 +158,9 @@ registry.register("AthleteApplicationSummary", AthleteApplicationSummary);
 // --- public intake (P3-BE-13, §11) ---------------------------------------
 
 registry.register("AthleteApplicationPatch", AthleteApplicationPatch);
+registry.register("ProfileChangeInput", ProfileChangeInput);
+registry.register("ProfileChangeState", ProfileChangeState);
+registry.register("ProfileChangeDecisionInput", ProfileChangeDecisionInput);
 registry.register("ApplicationSubmissionReceipt", ApplicationSubmissionReceipt);
 registry.register("ApplicantView", ApplicantView);
 
@@ -279,7 +283,8 @@ const PATHS: Row[] = [
   { method: "get", path: "/applications/intake/mine", tag: "Applications", summary: "An applicant reads their own application by signed link.", auth: false, query: z.object({ token: z.string() }), response: ApplicantView },
   { method: "patch", path: "/applications/intake/mine", tag: "Applications", summary: "An applicant edits their own application by signed link.", auth: false, query: z.object({ token: z.string() }), body: AthleteApplicationPatch, response: ApplicantView },
   // applications — review (P3-BE-07)
-  { method: "get", path: "/applications", tag: "Applications", summary: "The review queue.", query: z.object({ cursor: z.string().optional(), limit: z.coerce.number().int().optional(), state: AthleteState.optional() }) },
+  { method: "get", path: "/applications", tag: "Applications", summary: "The review queue. Cursor mode by default (?cursor, ?limit, ?state). Offset mode with ?page (1-based) and ?size (12/24/60, max 100): filtered by ?tab (review|approved|rejected|all), ?sport, ?flag (minor|aging|flagged), ?q (name, sport, region), sorted by ?sort (default oldest first, or newest); answers `page: { page, size, total, pages }` (2026-09-29).", query: z.object({ cursor: z.string().optional(), limit: z.coerce.number().int().optional(), state: AthleteState.optional(), page: z.coerce.number().int().optional(), size: z.coerce.number().int().optional(), tab: z.enum(["review", "approved", "rejected", "all"]).optional(), sport: z.string().optional(), flag: z.enum(["minor", "aging", "flagged"]).optional(), q: z.string().optional(), sort: z.enum(["newest"]).optional() }) },
+  { method: "get", path: "/applications/summary", tag: "Applications", summary: "The review desk's headline counts over the caller's scope — total, waiting, overdue (>48h), decided, per-tab counts and the sports on file (2026-09-29)." },
   { method: "get", path: "/applications/{id}", tag: "Applications", summary: "One application, as the review queue shows it.", response: AthleteApplicationSummary },
   { method: "post", path: "/applications/{id}/begin-review", tag: "Applications", summary: "Move an application into review." },
   { method: "post", path: "/applications/{id}/approve", tag: "Applications", summary: "Approve an application. Creates the athlete's login, and a linked guardian's (P3-BE-15); the response's login field says whether each can now sign in.", body: ApproveApplicationInput },
@@ -289,6 +294,13 @@ const PATHS: Row[] = [
 
   // athletes, guardians, agreements (P3-BE-03, P3-BE-14)
   { method: "get", path: "/athletes/me", tag: "Athletes", summary: "The signed-in athlete's own profile — §11 fields, socials with provenance, and the section counts the §24 completion meter derives from." },
+  // P3-BE-16 — post-approval profile edits, held for BTG review
+  { method: "get", path: "/athletes/me/profile-changes", tag: "Athletes", summary: "The signed-in athlete's own proposed profile edits, newest first (at most 10): the open one and the last decisions (P3-BE-16)." },
+  { method: "post", path: "/athletes/{id}/profile-changes", tag: "Athletes", summary: "Propose a change to the athlete's own profile, by §11 section — identity, sport, capabilities, interests, restrictions. Held PENDING for BTG; only values that differ are recorded, and a new request withdraws an older open one (P3-BE-16).", body: ProfileChangeInput, status: 201 },
+  { method: "get", path: "/profile-changes", tag: "Athletes", summary: "BTG's review desk, SERVER-PAGED: ?page ?size ?state (comma list; default PENDING, oldest first) → one page with each change's proposed `fields`, the athlete's `current` values for them, `page`, and `counts: { pending }` (P3-BE-16).", query: z.object({ page: z.coerce.number().int().optional(), size: z.coerce.number().int().optional(), state: z.string().optional() }) },
+  { method: "post", path: "/profile-changes/{id}/approve", tag: "Athletes", summary: "Approve a proposed profile edit: the fields are written to the Athlete row in the same transaction, audited (restrictions separately), and the athlete is emailed (P3-BE-16).", body: ProfileChangeDecisionInput },
+  { method: "post", path: "/profile-changes/{id}/decline", tag: "Athletes", summary: "Decline a proposed profile edit. Reviewer notes are required and sent to the athlete verbatim; the profile is unchanged (P3-BE-16).", body: ProfileChangeDecisionInput },
+  { method: "post", path: "/profile-changes/{id}/withdraw", tag: "Athletes", summary: "The athlete (or guardian) takes back a pending proposed edit (P3-BE-16)." },
   { method: "put", path: "/athletes/{id}/tier", tag: "Athletes", summary: "Set an athlete's pricing tier.", body: AthleteTierInput },
   { method: "post", path: "/athletes/{id}/rates", tag: "Athletes", summary: "Set an athlete's rate for a NIL job.", body: AthleteRateInput, status: 201 },
   { method: "get", path: "/athletes/{id}/rates", tag: "Athletes", summary: "An athlete's rate card." },
@@ -302,7 +314,7 @@ const PATHS: Row[] = [
   // briefs, campaigns, invitations, orders (B3, B4)
   { method: "post", path: "/briefs", tag: "Campaigns", summary: "A sponsor submits a brief.", body: CampaignBriefInput, status: 201 },
   { method: "post", path: "/briefs/{id}/transition", tag: "Campaigns", summary: "Move a brief through its states.", body: BriefTransitionInput },
-  { method: "get", path: "/briefs/{id}/eligible-athletes", tag: "Campaigns", summary: "The matching shortlist for a brief.", query: z.object({ limit: z.coerce.number().int().optional() }), response: list("athletes", EligibleAthlete) },
+  { method: "get", path: "/briefs/{id}/eligible-athletes", tag: "Campaigns", summary: "The matching shortlist for a brief. Paged with ?page (2026-09-29): ?size ?q (name, sport, city, state code, tier) ?sport ?tier (AthleteTier or UNTIERED) ?min (latest score; score readers only) ?sort=score|name → adds `page` and `facets: { total, tiers, sports }` over the brief's whole eligible roster.", query: z.object({ limit: z.coerce.number().int().optional(), page: z.coerce.number().int().optional(), size: z.coerce.number().int().optional(), q: z.string().optional(), sport: z.string().optional(), tier: z.enum(["EMERGING", "CREATOR", "PREMIUM", "ANCHOR", "UNTIERED"]).optional(), min: z.coerce.number().int().optional(), sort: z.enum(["score", "name"]).optional() }), response: list("athletes", EligibleAthlete) },
   { method: "post", path: "/briefs/{id}/campaign", tag: "Campaigns", summary: "Create a campaign from a qualified brief.", body: CampaignFromBriefInput, status: 201 },
   { method: "post", path: "/campaigns/{id}/transition", tag: "Campaigns", summary: "Move a campaign through its states.", body: CampaignTransitionInput },
   { method: "post", path: "/campaigns/{id}/launch", tag: "Campaigns", summary: "Launch a campaign." },
@@ -344,19 +356,27 @@ const PATHS: Row[] = [
   { method: "get", path: "/operations/board", tag: "Operations", summary: "The Operations Board's \"needs BTG action\" queue counts: applications waiting (and over 48 hours), deliverables awaiting BTG review, briefs to qualify and to match, held and disputed earnings. A queue the caller doesn't read tenant-wide is null (P7-FE-06)." },
   { method: "get", path: "/operations/integration-health", tag: "Operations", summary: "Dependencies, Zoho sync state, inbound webhook deliveries (no payloads) and outbox / worker queue health for the caller's tenant (P8-FE-01)." },
   { method: "get", path: "/operations/analytics", tag: "Operations", summary: "The analytics story for the last ?days= (7/30/90): the four-event funnel, daily claims/redemptions, scan locations, offers, and per-athlete performance by provenance — recomputed from rows (P6-FE-03, P7-FE-04)." },
-  { method: "get", path: "/earnings", tag: "Earnings", summary: "Earnings the caller may read — status only, no bank or tax fields; amounts, sponsor price/commission and the Zoho invoice reconciliation each only where §7.1 allows (P7-FE-01, P7-FE-02)." },
-  { method: "get", path: "/rewards", tag: "Rewards", summary: "Rewards the caller may read, with the four-event funnel per reward and the current fan consent line (P6-FE-01)." },
+  { method: "get", path: "/earnings", tag: "Earnings", summary: "Earnings the caller may read — status only, no bank or tax fields; amounts, sponsor price/commission and the Zoho invoice reconciliation each only where §7.1 allows (P7-FE-01, P7-FE-02). Two modes. Unpaged (legacy): newest 500 plus `campaigns` for invoice readers. Offset (server-paged lists): ?page ?size (default 12, max 100) ?q ?state (comma list) ?type (job name) ?jobId ?from ?to (YYYY-MM-DD, on paidAt else acceptedAt) → `page: { page, size, total, pages }`, no `campaigns`." },
+  { method: "get", path: "/earnings/summary", tag: "Earnings", summary: "Aggregates over every earning the caller may read, computed in Postgres: per-state count (and amount), career raised/paid/onTheWay, paid by month for ?year=, deliverables verified/total, job names; sponsor price/commission totals only where §7.1 allows — a withheld figure is absent, never 0." },
+  { method: "get", path: "/earnings/reconciliation", tag: "Earnings", summary: "Per-campaign reconciliation (contracted vs Zoho invoiced/collected vs earnings raised/paid), computed per campaign from the database, offset-paged (?page ?size); `totals` = invoiced, collected, rate and invoice aging over the whole set. BTG admin only (invoice read) — 403 otherwise." },
+  { method: "get", path: "/earnings/invoices", tag: "Earnings", summary: "Sponsor invoices (Zoho Books mirror) on the reconciliation's campaign set, flat, newest issued first, offset-paged (?page ?size). BTG admin only (invoice read) — 403 otherwise." },
+  { method: "get", path: "/rewards", tag: "Rewards", summary: "Rewards the caller may read, with the four-event funnel per reward and the current fan consent line (P6-FE-01). Offset mode (server-paged lists, 2026-09-29): ?page ?size (default 12, max 100) ?tab=all|live|draft|paused|ended ?campaignId ?q (offer, campaign or sponsor name) → `page: { page, size, total, pages }`, newest expiry first. Without ?page: the newest 200, ?campaignId narrows." },
+  { method: "get", path: "/rewards/summary", tag: "Rewards", summary: "The rewards desk's per-tab counts, live count and SCAN / CLAIM / REDEEM totals over the caller's whole scope (?campaignId narrows), computed in the database; funnel null for callers who do not read reward events (2026-09-29)." },
   { method: "get", path: "/rewards/{id}", tag: "Rewards", summary: "One reward with its per-athlete tokens — token strings only for roles that write rewards (P6-FE-01)." },
   { method: "get", path: "/reward-tokens/{id}/qr-url", tag: "Rewards", summary: "A short-lived, audited signed read of a token's QR PNG (P6-BE-06) for printing." },
-  { method: "get", path: "/deliverables", tag: "Deliverables", summary: "Deliverables the caller may read, soonest due first; ?state= and ?campaignId= narrow. An open revision request is derived from the audit log (P5-FE-02)." },
+  { method: "get", path: "/deliverables", tag: "Deliverables", summary: "Deliverables the caller may read, soonest due first; ?state=, ?campaignId= and ?from=&to= (dueDate range, ISO, to exclusive) narrow. An open revision request is derived from the audit log (P5-FE-02). Offset mode with ?page (1-based) and ?size (12/24/60, max 100): also ?q (title, athlete, campaign, sponsor), ?kind (video|image, the job's format), ?tab (todo|review|done — whose move), ?sort (due|waiting|newest; default due); answers `page: { page, size, total, pages }` (2026-09-29).", query: z.object({ state: z.string().optional(), campaignId: z.string().optional(), from: z.string().optional(), to: z.string().optional(), page: z.coerce.number().int().optional(), size: z.coerce.number().int().optional(), q: z.string().optional(), kind: z.enum(["video", "image"]).optional(), tab: z.enum(["todo", "review", "done"]).optional(), sort: z.enum(["due", "waiting", "newest"]).optional() }) },
+  { method: "get", path: "/deliverables/summary", tag: "Deliverables", summary: "Headline counts under the list's scope (?state=, ?campaignId=, ?from=&to= narrow): total, per-state counts, open revisions, aging (on a review desk, not sent back, latest upload over 24 whole hours ago), overdue (the athlete's move, due before today UTC), and the campaigns involved (2026-09-29).", query: z.object({ state: z.string().optional(), campaignId: z.string().optional(), from: z.string().optional(), to: z.string().optional() }) },
   { method: "get", path: "/deliverables/{id}", tag: "Deliverables", summary: "One deliverable with its creative versions (P5-FE-03)." },
   { method: "get", path: "/deliverables/{id}/assets/{version}/url", tag: "Deliverables", summary: "A short-lived, audited signed read of one creative version from the private bucket (P5-FE-04)." },
   { method: "get", path: "/orders/{id}", tag: "Orders", summary: "One Campaign Order: frozen terms, guardian readiness, and the current agreement body — served only if it still matches its issued hash (P5-FE-01)." },
   { method: "get", path: "/campaigns/{id}/ops", tag: "Operations", summary: "One campaign's operations board (§9 screen 9): per-athlete acceptance, delivery, overdue and verified views; health by the delivery-health rule (P5-FE-05)." },
-  { method: "get", path: "/campaigns", tag: "Campaigns", summary: "The campaign portfolio the caller may read — state, package, athletes, delivery; money only where §7.1 allows (P4-FE-05)." },
-  { method: "get", path: "/briefs", tag: "Campaigns", summary: "Briefs the caller may read, newest first; ?state= narrows (P4-FE-02)." },
+  { method: "get", path: "/campaigns", tag: "Campaigns", summary: "The campaign portfolio the caller may read — state, package, athletes, delivery; money only where §7.1 allows (P4-FE-05). Two modes. Offset (server-paged lists): ?page ?size (default 12, max 100) ?q (name) ?state (comma list) ?sort=newest|name|ending → `page: { page, size, total, pages }`; ?health=true adds each row's delivery-health flags plus `healthVisible` and the flagged count `attention`; ?attention=true|false keeps only / all but the campaigns delivery health flags (403 without metricAggregate read). Keyset (aggregators): ?limit (1–100, default 100) ?cursor (opaque) → `page.hasMore` / `page.nextCursor` (QA passes 8–9)." },
+  { method: "get", path: "/campaigns/summary", tag: "Campaigns", summary: "The portfolio's headline numbers over the caller's whole scope, computed in the database: total, per-state counts, active, distinct athletes, behind-pace count and the worst few; contracted / budget / invoiced / paid only where §7.1 allows (2026-09-29)." },
+  { method: "get", path: "/campaigns/{id}", tag: "Campaigns", summary: "One campaign the caller may read — the portfolio row shape, money gated the same way (QA pass 7, F-5)." },
+  { method: "get", path: "/briefs", tag: "Campaigns", summary: "Briefs the caller may read, newest first; ?state= narrows (P4-FE-02). Paged with ?page (2026-09-29): ?size (default 12, max 100) ?state (comma list) ?q (objective or sponsor name) ?sort=newest|oldest|desk (desk = APPROVED → CAMPAIGN_CREATED → QUALIFIED → DRAFT → CLOSED, newest first within) → `page: { page, size, total, pages }`." },
   { method: "get", path: "/briefs/{id}", tag: "Campaigns", summary: "One brief with its package and campaign; its invitations for a caller who reads them — athlete pay only where §7.1 allows (P4-FE-03)." },
-  { method: "get", path: "/invitations", tag: "Campaigns", summary: "The athlete's invitation inbox — own invitations, all five states, newest first (P4-FE-04)." },
+  { method: "get", path: "/invitations", tag: "Campaigns", summary: "The athlete's invitation inbox — own invitations, all five states, newest first (P4-FE-04). Paged with ?page (2026-09-29): ?size ?state=open|accepted|declined|expired (open = INVITED/VIEWED not past expiry; lapsed counts as expired) ?job ?q (sponsor, campaign, job name / code) ?sort=urgency|expiry|offerDesc|offerAsc|sponsor → adds `page` and per-tab `counts`." },
+  { method: "get", path: "/invitations/summary", tag: "Campaigns", summary: "The inbox's headline numbers over the caller's whole scope, computed in the database: total, open, Σ offered on open, next expiry, accepted, resolved, and the jobs present (2026-09-29)." },
   { method: "get", path: "/public/catalogue/packages", tag: "Catalogue", summary: "The §7 package price list for the public marketing site — sponsor prices only, never athlete pay (P3-FE-05).", auth: false },
   { method: "get", path: "/catalogue/packages", tag: "Catalogue", summary: "The §7 packages at sponsor prices — never athlete pay (P4-FE-01)." },
   // SponsorX NEXT — editions and ad inventory (Stage 9 Batch A)
@@ -376,17 +396,17 @@ const PATHS: Row[] = [
   { method: "post", path: "/public/editions/{id}/events", tag: "Public", summary: "A reader scanned (print) or tapped (digital) in a published edition (P9-BE-12).", auth: false, body: EditionEventInput, status: 201 },
   // SponsorX NEXT — students (Stage 9 Batch B)
   { method: "post", path: "/students", tag: "Students", summary: "Add a student to a school (staff, or that school's advisor). Lands DRAFT (P9-BE-04).", body: StudentInput, status: 201 },
-  { method: "get", path: "/students", tag: "Students", summary: "Students the caller may see — an advisor sees their school's only." },
+  { method: "get", path: "/students", tag: "Students", summary: "Students the caller may see — an advisor sees their school's only. Unpaged without ?page. SERVER-PAGED with ?page ?size (default 12, max 100) ?group=waiting|approved|with|roster|closed ?q (display/legal name) → `page: { page, size, total, pages }` and `summary: { groups, all }` (groupBy; honours ?q, not ?group) (2026-09-29)." },
   { method: "get", path: "/students/{id}", tag: "Students", summary: "One student." },
   { method: "post", path: "/students/{id}/transition", tag: "Students", summary: "Submit (the student) or review (the advisor). A minor reaches ACTIVE only with a verified guardian (P9-BE-04).", body: StudentTransitionInput },
   { method: "post", path: "/students/{id}/guardian", tag: "Students", summary: "Link a guardian to a minor student — the Guardian model, reused, unverified until BTG verifies.", body: StudentGuardianInput, status: 201 },
   { method: "post", path: "/students/{id}/code", tag: "Students", summary: "Issue the student's one sales code (BTG) (P9-BE-07).", status: 201 },
   { method: "get", path: "/students/{id}/code", tag: "Students", summary: "The student's sales code." },
-  { method: "get", path: "/students/{id}/sales", tag: "Students", summary: "The student's attributed sales — immutable rows (P9-BE-13)." },
-  { method: "get", path: "/students/{id}/points", tag: "Students", summary: "Point accruals and balance. No money, no redemption (P9-BE-15)." },
+  { method: "get", path: "/students/{id}/sales", tag: "Students", summary: "The student's attributed sales — immutable rows (P9-BE-13). `totalCents` is the all-time _sum. ?page ?size → one page plus `page: { page, size, total, pages }` (2026-09-29)." },
+  { method: "get", path: "/students/{id}/points", tag: "Students", summary: "Point accruals and balance. No money, no redemption (P9-BE-15). `balance` is the all-time _sum. ?page ?size → one page plus `page` (2026-09-29)." },
   { method: "post", path: "/students/{id}/points", tag: "Students", summary: "Accrue points for published work (BTG) (P9-BE-15).", body: PointsInput, status: 201 },
   { method: "post", path: "/students/{id}/prospects", tag: "Students", summary: "A student brings a business in (§5.6).", body: ProspectInput, status: 201 },
-  { method: "get", path: "/students/{id}/prospects", tag: "Students", summary: "The student's prospects and their decisions." },
+  { method: "get", path: "/students/{id}/prospects", tag: "Students", summary: "The student's prospects and their decisions. ?page ?size ?state (comma list) → one page, `page`, and `summary: { states: { SUBMITTED, ACCEPTED, REJECTED }, all }` (groupBy) (2026-09-29)." },
   { method: "post", path: "/prospects/{id}/decision", tag: "Students", summary: "Sponsor Acceptance Check — a rejection carries a reason, notifies the student, costs no credit (P9-BE-13).", body: ProspectDecisionInput },
   { method: "post", path: "/sponsors/{id}/assigned-student", tag: "Students", summary: "Hand an account to another student. Touches assignedStudentId only (P9-BE-13).", body: AssignStudentInput },
   { method: "post", path: "/public/students/applications", tag: "Public", summary: "The public student application — lands SUBMITTED for the school's advisor.", auth: false, body: StudentApplicationInput, status: 201 },
@@ -399,7 +419,7 @@ const PATHS: Row[] = [
   { method: "post", path: "/edition-assets/{id}/campaign", tag: "Rights", summary: "Use content in a sponsor's campaign — only with a commercial grant (P9-BE-10).", body: AssetCampaignInput },
   { method: "post", path: "/consents", tag: "Rights", summary: "Record consent for a subject with no login — a featured athlete, or a minor via their verified guardian (P9-BE-11).", body: SubjectConsentInput, status: 201 },
   { method: "post", path: "/featured-athletes", tag: "Rights", summary: "Editorial features an athlete: FEATURED, read-only, no rates, no invitations (P9-BE-11).", body: FeaturedAthleteInput, status: 201 },
-  { method: "get", path: "/claims", tag: "Rights", summary: "Claims on featured profiles the caller may review." },
+  { method: "get", path: "/claims", tag: "Rights", summary: "Claims on featured profiles the caller may review. ?page ?size ?state (comma list) → one page, `page`, and `summary: { open, all }` (counts) (2026-09-29)." },
   { method: "post", path: "/claims/{id}/verify", tag: "Rights", summary: "The school verifies a claim (roster match + advisor) — the profile enters review (P9-BE-11)." },
   { method: "post", path: "/claims/{id}/reject", tag: "Rights", summary: "Reject a claim." },
   { method: "post", path: "/properties/{id}/roster", tag: "Rights", summary: "A school supplies its roster: names and graduation years (P9-BE-11).", body: RosterInput, status: 201 },
@@ -424,6 +444,8 @@ const PATHS: Row[] = [
   { method: "get", path: "/inventory/{id}", tag: "Marketplace", summary: "One inventory item." },
   { method: "patch", path: "/inventory/{id}", tag: "Marketplace", summary: "Edit or reprice an item — refused while a listing of it is published.", body: InventoryItemPatch },
   { method: "get", path: "/team/roster", tag: "Marketplace", summary: "The manager's roster, each athlete's inventory, and the team's own (2S2-BE-04)." },
+  { method: "get", path: "/team/athletes", tag: "Marketplace", summary: "The manager's roster, SERVER-PAGED: ?page ?size ?q (name) ?state (comma list) → one page, `page: { page, size, total, pages }` and `counts: { athletes, active }` over the whole roster. No nested inventory (2026-09-29)." },
+  { method: "get", path: "/team/inventory", tag: "Marketplace", summary: "The team's own items and its roster athletes' items, SERVER-PAGED: ?page ?size ?q (title) ?active=true|false → one page with each item's `owner`, `page`, and `counts: { items, active }` (2026-09-29)." },
   { method: "post", path: "/team/roster", tag: "Marketplace", summary: "Add an athlete to the roster, with an account to claim.", body: RosterAthleteInput, status: 201 },
   { method: "patch", path: "/team/roster/{id}", tag: "Marketplace", summary: "Set the team's revenue share on one roster athlete.", body: TeamShareInput },
   { method: "get", path: "/listings", tag: "Marketplace", summary: "Listings in scope — the property's own, or (BTG) the approval queue of the tenants it operates (2S3-BE-01)." },
@@ -471,6 +493,7 @@ const PATHS: Row[] = [
   { method: "get", path: "/team/ledger", tag: "Marketplace", summary: "The property's dashboard: booked, reversed, paid and pending — reconciling exactly (2S5-BE-02)." },
   { method: "get", path: "/team/analytics", tag: "Marketplace", summary: "Revenue, sell-through, completion, sponsor mix and payout trends — from the ledger and order records (2S7-DATA-01)." },
   { method: "get", path: "/properties/mine", tag: "Properties", summary: "The property this account manages — a NEXT school is kind SCHOOL (P9-OPS-01). 404 when not linked." },
+  { method: "get", path: "/public/properties/{slug}", tag: "Public", summary: "A property's public profile — name, kind, place, and its public adult athletes (minors counted, never named). No price, inventory or contact (P2-FE-01).", auth: false },
   { method: "get", path: "/catalogue/jobs", tag: "Catalogue", summary: "The NIL job catalogue at sponsor price bands — never base pay (P4-FE-01)." },
   { method: "post", path: "/public/rewards/{token}/scan", tag: "Public", summary: "A fan scanned the QR.", auth: false, status: 201 },
   { method: "post", path: "/public/rewards/{token}/landing", tag: "Public", summary: "The fan's reward page rendered.", auth: false, status: 201 },
@@ -488,7 +511,7 @@ const PATHS: Row[] = [
   { method: "get", path: "/campaigns/{id}/report", tag: "Metrics", summary: "The sponsor report (screen 12) — every number labelled.", response: SponsorReport },
   { method: "get", path: "/campaigns/{id}/invoices", tag: "Invoices", summary: "The Zoho invoice mirror — BTG admin and the invoiced sponsor only.", response: list("invoices", Invoice) },
   { method: "get", path: "/campaigns/{id}/payment-status", tag: "Invoices", summary: "Paid, invoiced and outstanding.", response: PaymentStatus },
-  { method: "get", path: "/operations/delivery-health", tag: "Operations", summary: "Delivery health across live campaigns.", query: z.object({ under: z.enum(["true", "false"]).optional() }) },
+  { method: "get", path: "/operations/delivery-health", tag: "Operations", summary: "Delivery health across live campaigns. Paged with ?page (2026-09-29): ?size ?projected=true (campaigns carrying a reach projection), ending soonest first → adds `page`.", query: z.object({ under: z.enum(["true", "false"]).optional(), page: z.coerce.number().int().optional(), size: z.coerce.number().int().optional(), projected: z.enum(["true", "false"]).optional() }) },
   { method: "get", path: "/operations/network-metrics", tag: "Operations", summary: "Network-wide metrics." },
   { method: "get", path: "/operations/job-economics", tag: "Operations", summary: "Economics by NIL job." },
 

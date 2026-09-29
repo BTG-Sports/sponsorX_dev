@@ -44,6 +44,8 @@ export type EmailTemplate =
   | "athlete.approved"
   | "athlete.changesRequested"
   | "athlete.rejected"
+  | "athlete.profileChangeApproved"
+  | "athlete.profileChangeDeclined"
   | "guardian.verificationRequested"
   /* P4-INT-01 — the invitation's three moments. A reminder and an expiry
      warning are separate templates rather than one with a flag, because the

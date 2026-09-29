@@ -16,14 +16,17 @@ import {
   type BriefDraft,
   type BriefFieldDef,
 } from "@/lib/brief-flow";
+import { submitBriefRequest } from "@/app/(public)/brief/actions";
 
 /* --------------------------------------------------------------------------
    The /brief island — sponsor twin of join-wizard.tsx, led by sponsor
    orange (--sx-accent). Four steps, no intro (the /packages catalog IS the
    intro) and no agreement (nothing is signed — it's a request). Motion
    rides the same sx-join-* system; drafts and hydration follow the same
-   useSyncExternalStore discipline. Fixtures-only: submit transitions state,
-   no POST — B3 wires the API.
+   useSyncExternalStore discipline. Submit sends the brief to BTG through
+   POST /public/inquiries (brief/actions.ts, P2-FE-01) and only then shows
+   "received"; a failure keeps the draft and says what happened. The
+   ?demo=submitted state never posts.
    -------------------------------------------------------------------------- */
 
 const TIMELINE = [
@@ -33,6 +36,22 @@ const TIMELINE = [
 ];
 
 const emptySubscribe = () => () => {};
+
+/* The WAI-ARIA radio-group keyboard pattern (QA pass 8, F-13): one tab stop
+   per group, arrow keys move AND select, Home/End jump. The options are
+   buttons, so a click still selects. */
+function onRadioKeys(e: React.KeyboardEvent<HTMLDivElement>) {
+  const step = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 }[e.key];
+  if (step === undefined && e.key !== "Home" && e.key !== "End") return;
+  const radios = [...e.currentTarget.querySelectorAll<HTMLButtonElement>('[role="radio"]')];
+  if (radios.length === 0) return;
+  e.preventDefault();
+  const at = radios.indexOf(document.activeElement as HTMLButtonElement);
+  const next =
+    e.key === "Home" ? 0 : e.key === "End" ? radios.length - 1 : (Math.max(at, 0) + (step ?? 0) + radios.length) % radios.length;
+  radios[next].focus();
+  radios[next].click();
+}
 
 export function BriefWizard({
   pkg,
@@ -77,6 +96,8 @@ export function BriefWizard({
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [save, setSave] = useState<"idle" | "saving" | "saved">("idle");
   const [reviewing, setReviewing] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [sendError, setSendError] = useState<string | null>(null);
   /* Lifted so the ancestor chain can out-stack the later-DOM siblings while
      a listbox is open — the sx-join-* fill animations keep every sibling a
      stacking context, so a panel's own z-index can't win from inside. One
@@ -105,8 +126,22 @@ export function BriefWizard({
     if (draft.phase === "steps") headingRef.current?.focus({ preventScroll: true });
   }, [draft.step, draft.phase]);
 
+  /* Every edit is kept on this device as it's made, not only on Continue —
+     "Progress saved" and the send-failure copy both promise it (QA pass 7,
+     F-2: a failed send used to lose the contact step on reload). No save
+     flash here: that belongs to step changes, not keystrokes. */
+  const edit = (next: BriefDraft) => {
+    setTouched(next);
+    if (!demo) {
+      try {
+        localStorage.setItem(BRIEF_DRAFT_KEY, JSON.stringify(next));
+      } catch {
+        /* private mode — in-memory still works this session */
+      }
+    }
+  };
   const setAnswer = (key: string, value: string) =>
-    setTouched({ ...draft, answers: { ...draft.answers, [key]: value } });
+    edit({ ...draft, answers: { ...draft.answers, [key]: value } });
 
   const goNext = () => {
     const errs = validateBriefStep(step, draft);
@@ -119,7 +154,20 @@ export function BriefWizard({
     }
     setDir(1);
     if (step === BRIEF_STEPS.length - 1) {
-      persist({ ...draft, phase: "submitted", submittedAt: new Date().toISOString() });
+      if (demo) {
+        persist({ ...draft, phase: "submitted", submittedAt: new Date().toISOString() });
+        return;
+      }
+      if (sending) return;
+      setSending(true);
+      setSendError(null);
+      void submitBriefRequest(draft)
+        .then((r) => {
+          if (r.ok) persist({ ...draft, phase: "submitted", submittedAt: new Date().toISOString() });
+          else setSendError(r.message);
+        })
+        .catch(() => setSendError("Something went wrong — nothing was sent. Your answers are saved; try again."))
+        .finally(() => setSending(false));
     } else {
       persist({ ...draft, step: step + 1 });
     }
@@ -312,16 +360,18 @@ export function BriefWizard({
           {def.id === "goal" && (
             <div className="sx-join-rise">
               <p className="text-[11px] font-medium text-muted">Campaign goal</p>
-              <div className="mt-2 grid grid-cols-2 gap-3" role="radiogroup" aria-label="Campaign goal">
-                {GOALS.map((g) => {
+              <div className="mt-2 grid grid-cols-2 gap-3" role="radiogroup" aria-label="Campaign goal" onKeyDown={onRadioKeys}>
+                {GOALS.map((g, i) => {
                   const on = draft.goal === g;
+                  const stop = on || (!draft.goal && i === 0);
                   return (
                     <button
                       key={g}
                       type="button"
                       role="radio"
                       aria-checked={on}
-                      onClick={() => setTouched({ ...draft, goal: g })}
+                      tabIndex={stop ? 0 : -1}
+                      onClick={() => edit({ ...draft, goal: g })}
                       className={`min-h-11 rounded-xl border px-3.5 py-3 text-sm font-medium transition-colors ${
                         on
                           ? "sx-pop border-accent/60 bg-accent/12 text-text"
@@ -341,16 +391,18 @@ export function BriefWizard({
             <>
               <div className="sx-join-rise">
                 <p className="text-[11px] font-medium text-muted">Budget band</p>
-                <div className="mt-2 flex flex-wrap gap-2.5" role="radiogroup" aria-label="Budget band">
-                  {BUDGET_BANDS.map((b) => {
+                <div className="mt-2 flex flex-wrap gap-2.5" role="radiogroup" aria-label="Budget band" onKeyDown={onRadioKeys}>
+                  {BUDGET_BANDS.map((b, i) => {
                     const on = draft.budget === b;
+                    const stop = on || (!draft.budget && i === 0);
                     return (
                       <button
                         key={b}
                         type="button"
                         role="radio"
                         aria-checked={on}
-                        onClick={() => setTouched({ ...draft, budget: b })}
+                        tabIndex={stop ? 0 : -1}
+                        onClick={() => edit({ ...draft, budget: b })}
                         className={`min-h-11 rounded-xl border px-4 py-2.5 text-sm font-medium transition-colors ${
                           on
                             ? "sx-pop border-accent/60 bg-accent/12 text-text"
@@ -373,7 +425,7 @@ export function BriefWizard({
                   placeholder="Pick a package"
                   options={PACKAGE_OPTIONS.map((p) => ({ id: p.id, name: p.name, meta: p.price }))}
                   value={chosen.id}
-                  onChange={(id) => setTouched({ ...draft, package: id })}
+                  onChange={(id) => edit({ ...draft, package: id })}
                   open={openSelect === "package"}
                   onOpenChange={(o) => setOpenSelect(o ? "package" : null)}
                 />
@@ -416,12 +468,19 @@ export function BriefWizard({
 
       {/* action bar */}
       <div className="sticky bottom-0 z-10 border-t border-line bg-bg/95 px-6 py-4 backdrop-blur lg:rounded-b-2xl">
+        {sendError && step === BRIEF_STEPS.length - 1 && (
+          <p role="alert" className="mb-3 rounded-lg border border-danger/30 bg-danger/8 px-3 py-2 text-xs text-danger">
+            {sendError}
+          </p>
+        )}
         <button
           type="button"
           onClick={goNext}
-          className="sx-join-sheen min-h-12 w-full rounded-xl bg-accent px-5 py-3.5 text-base font-semibold text-cta-ink transition-colors hover:bg-accent-soft"
+          disabled={sending}
+          aria-busy={sending}
+          className="sx-join-sheen min-h-12 w-full rounded-xl bg-accent px-5 py-3.5 text-base font-semibold text-cta-ink transition-colors hover:bg-accent-soft disabled:opacity-70"
         >
-          {step === BRIEF_STEPS.length - 1 ? "Send to BTG" : "Continue"}
+          {step === BRIEF_STEPS.length - 1 ? (sending ? "Sending…" : "Send to BTG") : "Continue"}
         </button>
         <p className="mt-2.5 text-center text-[11px] text-faint">
           No card, no checkout — BTG replies with a proposal.

@@ -2,9 +2,10 @@ import Link from "next/link";
 
 import { Badge, Card, SectionHeading } from "@/components/ui";
 import { Monogram } from "@/components/hero";
-import { buildHome } from "@/lib/athlete-home-live";
+import { DUE_STATES, buildHome } from "@/lib/athlete-home-live";
+import { EmptyState } from "@/components/states";
 import type { ApiDeliverable } from "@/lib/deliverables-live";
-import type { ApiEarning } from "@/lib/earnings-live";
+import type { ApiEarning, ApiEarningsSummary } from "@/lib/earnings-live";
 import type { ApiInvitation } from "@/lib/invitations-live";
 import type { ApiMyProfile } from "@/lib/profile-live";
 import { apiFetch } from "@/server/api";
@@ -34,13 +35,44 @@ export default async function AthleteHomePage() {
   const actor = await requirePortalAccess("athlete");
   const isAthlete = actor.roles.includes("ATHLETE");
 
-  const [profile, inv, del, earn] = await Promise.all([
-    isAthlete ? read<ApiMyProfile>("/athletes/me") : Promise.resolve(null),
-    read<{ invitations: ApiInvitation[] }>("/invitations"),
-    read<{ deliverables: ApiDeliverable[] }>("/deliverables"),
-    read<{ earnings: ApiEarning[] }>("/earnings"),
+  /* SERVER-PAGED (P2-FE-02): the home shows three of each, so it asks for
+     three — the soonest-expiring open invites and the soonest-due
+     deliverables — with the true counts from the inbox summary and
+     `page.total`, and the money from the earnings summary. Nothing here
+     reads a whole list. */
+  const [me, inv, inbox, del, earnSummary] = await Promise.all([
+    isAthlete ? apiFetch("/athletes/me") : Promise.resolve(null),
+    read<{ invitations: ApiInvitation[] }>("/invitations?page=1&size=3&state=open&sort=expiry"),
+    read<{ summary: { open: number } }>("/invitations/summary"),
+    read<{ deliverables: ApiDeliverable[]; page: { total: number } }>(`/deliverables?page=1&size=3&state=${DUE_STATES.join(",")}&sort=due`),
+    read<ApiEarningsSummary>(`/earnings/summary?year=${new Date().getUTCFullYear()}`),
   ]);
-  const h = buildHome({ profile, invitations: inv.invitations, deliverables: del.deliverables, earnings: earn.earnings, now: new Date() });
+  /* F-3: an ATHLETE role with no athlete record behind it is a provisioning
+     gap BTG fixes, not an outage — say so instead of the error page. */
+  if (me && (me.status === 403 || me.status === 404)) {
+    return (
+      <div className="space-y-6">
+        <h1 className="text-xl font-semibold tracking-tight">Your dashboard</h1>
+        <EmptyState
+          mark="users"
+          title="Your account isn't linked to an athlete profile yet"
+          hint="You're signed in, but BTG hasn't connected this login to your athlete record. Ask your BTG contact to link it — nothing is lost in the meantime."
+          action={{ label: "How athletes join", href: "/join" }}
+        />
+      </div>
+    );
+  }
+  if (me && !me.ok) throw new Error(`/athletes/me unavailable (${me.status}).`);
+  const profile = me ? ((await me.json()) as ApiMyProfile) : null;
+  const h = buildHome({
+    profile,
+    invitations: inv.invitations,
+    deliverables: del.deliverables,
+    earnings: [] as ApiEarning[],
+    now: new Date(),
+    counts: { invites: inbox.summary.open, due: del.page.total },
+    earningsSummary: earnSummary,
+  });
 
   return (
     <div className="space-y-6">

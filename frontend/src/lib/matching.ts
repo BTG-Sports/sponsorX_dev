@@ -237,7 +237,10 @@ export function canShortlist(a: MatchAthlete): boolean {
 
 /* -------------------------------------------------------------- filters */
 
-export type MatchSort = "score" | "margin" | "cost";
+/** "name" is the server-paged live desk's (2026-09-29): the API orders by
+ *  score or name; margin and cost are priced here, per page, so they're
+ *  offered only where the whole roster is in hand (the fixture demo). */
+export type MatchSort = "score" | "margin" | "cost" | "name";
 
 export type MatchFilters = {
   q: string;
@@ -266,6 +269,12 @@ export const SORT_OPTIONS: { value: MatchSort; label: string }[] = [
   { value: "cost", label: "Athlete cost, low to high" },
 ];
 
+/** The sorts the server-paged live desk can ask the API for. */
+export const SERVER_SORT_OPTIONS: { value: MatchSort; label: string }[] = [
+  { value: "score", label: "Score, high to low" },
+  { value: "name", label: "Name, A to Z" },
+];
+
 function passesSearch(a: MatchAthlete, needle: string): boolean {
   if (!needle) return true;
   return [a.name, a.sport, a.market, a.tier]
@@ -292,6 +301,7 @@ export function sortRoster(list: MatchAthlete[], sort: MatchSort): MatchAthlete[
   if (sort === "margin")
     c.sort((a, b) => marginRatio(a.cost, a.sell) - marginRatio(b.cost, b.sell));
   else if (sort === "cost") c.sort((a, b) => a.cost - b.cost);
+  else if (sort === "name") c.sort((a, b) => a.name.localeCompare(b.name));
   else c.sort((a, b) => (b.score ?? -1) - (a.score ?? -1));
   return c;
 }
@@ -614,7 +624,30 @@ export type MatchData = {
   live: boolean;
   /** Live: why this brief cannot send yet (e.g. not APPROVED), or null. */
   sendBlocked?: string | null;
+  /** Live: the latest invite state per athlete on this campaign — for every
+   *  athlete, not only this page's, so a pick held from another page reads
+   *  its SENT state after a refresh (2026-09-29). */
+  inviteStates?: Record<string, string>;
 };
+
+/** The shortlist as athletes: each picked id resolved against the page in
+ *  hand first (fresh), else the copy held when it was picked — a server-paged
+ *  roster only carries one page, and a pick must survive moving to the next.
+ *  A held copy takes the brief's current invite state, when known. */
+export function resolvePicks(
+  ids: string[],
+  roster: MatchAthlete[],
+  held: Record<string, MatchAthlete>,
+  inviteStates?: Record<string, string>,
+): MatchAthlete[] {
+  return ids.flatMap((id) => {
+    const fresh = roster.find((a) => a.id === id);
+    if (fresh) return [fresh];
+    const kept = held[id];
+    if (!kept) return [];
+    return [inviteStates && id in inviteStates ? { ...kept, invite: inviteStates[id] } : kept];
+  });
+}
 
 export const FIXTURE_MATCH: MatchData = {
   brief: MATCH_BRIEF,

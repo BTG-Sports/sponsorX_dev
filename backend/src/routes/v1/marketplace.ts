@@ -25,12 +25,14 @@ import { createRestriction, deleteRestriction, listRestrictions, setSponsorCateg
 import { searchMarketplace } from "../../domain/marketplace-search";
 import { addLine, currentCart, openCart, removeLine, updateLine } from "../../domain/cart";
 import { createInventoryItem, getInventoryItem, listInventory, updateInventoryItem } from "../../domain/inventory";
-import { addRosterAthlete, setTeamShare, teamRoster } from "../../domain/team";
+import { addRosterAthlete, setTeamShare, teamAthletesPage, teamInventoryPage, teamRoster } from "../../domain/team";
 import {
   createListing, decideListing, getListing, listListings, submitListing, transitionListing, updateListing,
 } from "../../domain/listing";
 import { createOffer, getOffer, listOffers, respondToOffer, sendOffer, withdrawOffer } from "../../domain/offer";
 import { readBranding, requestLogoUpload, updateBranding } from "../../domain/branding";
+import { allowedList, pageRequest, searchTerm } from "../../lib/paging";
+const ATHLETE_STATES = ["DRAFT", "SUBMITTED", "UNDER_REVIEW", "APPROVED", "CHANGES_REQUESTED", "REJECTED", "ACTIVE", "SUSPENDED", "FEATURED"] as const;
 
 export const marketplaceRouter = Router();
 type Id = { id: string };
@@ -49,7 +51,27 @@ marketplaceRouter.patch("/inventory/:id", requireActor, editItem);
 const roster: RequestHandler = async (req, res) => { res.json(await teamRoster(req.actor!)); };
 const addAthlete: RequestHandler = async (req, res) => { res.status(201).json(await addRosterAthlete(req.actor!, RosterAthleteInput.parse(req.body))); };
 const share: RequestHandler<Id> = async (req, res) => { res.json(await setTeamShare(req.actor!, req.params.id, TeamShareInput.parse(req.body).teamShareBps)); };
+/* Server-paged property-portal reads (2026-09-29): ?page ?size ?q, plus
+   ?state (athletes, comma list) / ?active=true|false (inventory). */
+const athletesPage: RequestHandler = async (req, res) => {
+  const q = req.query as Record<string, unknown>;
+  const page = pageRequest({ page: 1, ...q }) as NonNullable<ReturnType<typeof pageRequest>>;
+  res.json(await teamAthletesPage(req.actor!, page, {
+    q: searchTerm(q),
+    state: allowedList(q.state, ATHLETE_STATES),
+  }));
+};
+const inventoryPage: RequestHandler = async (req, res) => {
+  const q = req.query as Record<string, unknown>;
+  const page = pageRequest({ page: 1, ...q }) as NonNullable<ReturnType<typeof pageRequest>>;
+  res.json(await teamInventoryPage(req.actor!, page, {
+    q: searchTerm(q),
+    active: q.active === "true" ? true : q.active === "false" ? false : undefined,
+  }));
+};
 marketplaceRouter.get("/team/roster", requireActor, roster);
+marketplaceRouter.get("/team/athletes", requireActor, athletesPage);
+marketplaceRouter.get("/team/inventory", requireActor, inventoryPage);
 marketplaceRouter.post("/team/roster", requireActor, addAthlete);
 marketplaceRouter.patch("/team/roster/:id", requireActor, share);
 

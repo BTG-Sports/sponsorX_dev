@@ -11,6 +11,7 @@ import {
   type ContentRightRow,
   type RightsGrantorKind,
 } from "@/lib/fixtures";
+import { NotInRole, staffWithoutAccess } from "@/components/not-in-role";
 
 /* --------------------------------------------------------------------------
    Rights ledger + clearance queue — P1-FE-29, spec §5.3, §6.1. One table
@@ -69,6 +70,12 @@ export default async function RightsLedgerPage({
   const demo = await demoState(searchParams);
   if (demo === "loading") return <SkeletonPage />;
   if (demo === "error") throw new Error("Demo error state");
+  /* C-1: a staff role this desk isn't for gets "not in your role", not the
+     sample desk. The demo stays for ?demo= and signed-out visitors. */
+  if (demo === null) {
+    const lacking = await staffWithoutAccess("/admin/next/rights");
+    if (lacking) return <NotInRole path="/admin/next/rights" title="NEXT rights" roles={lacking} />;
+  }
 
   /* P9-FE-09 — a signed-in NEXT desk reads the real ContentRight ledger. */
   if (!demo) {

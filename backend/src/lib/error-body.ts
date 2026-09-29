@@ -35,13 +35,18 @@ import { ZodError } from "zod";
  * Prisma message names the constraint and column, which is schema detail a
  * public caller has no business reading. Domain code that can say something
  * better (athlete-rate, offer, listing…) still catches these first.
+ *
+ * INPUT POSTGRES CANNOT STORE is the caller's too (QA pass 7, F-1): a NUL
+ * byte in any string — a URL slug, a query value, a JSON body field — makes
+ * Postgres refuse the query with 22021 ("invalid byte sequence"), which used
+ * to surface as a public 500. It is a 400 `invalid_input`.
  */
 
 /** 5xx codes safe to hand back: fixed words that describe no internals. */
 const SAFE_5XX_CODES: ReadonlySet<string> = new Set(["busy"]);
 
 /** Prisma's code, or the SQLSTATE a raw query carries under P2010. */
-function dbConstraint(err: unknown): "fk" | "unique" | null {
+function dbConstraint(err: unknown): "fk" | "unique" | "encoding" | null {
   if (typeof err !== "object" || err === null) return null;
   const e = err as {
     status?: unknown;
@@ -53,6 +58,7 @@ function dbConstraint(err: unknown): "fk" | "unique" | null {
   const state = e.meta?.driverAdapterError?.cause?.originalCode ?? e.meta?.code;
   if (e.code === "P2003" || state === "23503") return "fk";
   if (e.code === "P2002" || state === "23505") return "unique";
+  if (state === "22021") return "encoding";
   return null;
 }
 
@@ -81,6 +87,14 @@ export function errorBody(err: unknown): {
     };
   }
   const constraint = dbConstraint(err);
+  if (constraint === "encoding") {
+    return {
+      status: 400,
+      headers: {},
+      reference: null,
+      body: { error: { code: "invalid_input", message: "The request contains characters that can't be stored." } },
+    };
+  }
   if (constraint) {
     return {
       status: constraint === "fk" ? 422 : 409,

@@ -37,26 +37,36 @@ export type CampaignRow = {
   done: number;
   total: number;
   pct: number;
-  spend: number;
-  views: number;
+  /** Contracted sell total, cents; null when the API withholds it. */
+  spend: number | null;
+  /** null on live rows — views are the ROI report's (P7-FE-03), not guessed. */
+  views: number | null;
   monogram: string;
   endsIn: string;
-  state: "ACTIVE" | "REPORTING" | "STAFFING" | "COMPLETED";
+  /** Any §21 campaign state; live rows add DRAFT, APPROVAL, CANCELLED. */
+  state: string;
   behind: boolean;
 };
 
-const STATE_TONE = {
+const STATE_TONE: Record<string, "accent" | "primary" | "warn" | "neutral" | "danger"> = {
   ACTIVE: "accent",
   REPORTING: "primary",
   STAFFING: "warn",
+  APPROVAL: "warn",
+  DRAFT: "neutral",
   COMPLETED: "neutral",
-} as const;
+  CANCELLED: "danger",
+};
 
-const STATUS_OPTIONS = [
+/* Every §21 state; the filter offers only the ones the rows actually hold. */
+const ALL_STATUS_OPTIONS = [
   { value: "ACTIVE", label: "Active" },
   { value: "REPORTING", label: "Reporting" },
   { value: "STAFFING", label: "Staffing" },
+  { value: "APPROVAL", label: "Approval" },
+  { value: "DRAFT", label: "Draft" },
   { value: "COMPLETED", label: "Completed" },
+  { value: "CANCELLED", label: "Cancelled" },
 ];
 
 const PACE_OPTIONS = [
@@ -64,7 +74,7 @@ const PACE_OPTIONS = [
   { value: "behind", label: "Behind" },
 ];
 
-const SORT_OPTIONS = [
+const ALL_SORT_OPTIONS = [
   { value: "name", label: "Name · A–Z" },
   { value: "views", label: "Views · high to low" },
   { value: "spend", label: "Spend · high to low" },
@@ -72,7 +82,7 @@ const SORT_OPTIONS = [
 ];
 
 const STATUS_LABEL = Object.fromEntries(
-  STATUS_OPTIONS.map((o) => [o.value, o.label]),
+  ALL_STATUS_OPTIONS.map((o) => [o.value, o.label]),
 );
 
 export function SponsorCampaignsList({
@@ -88,6 +98,10 @@ export function SponsorCampaignsList({
 }) {
   const clamp = (v: string | undefined, ok: readonly string[]) =>
     v && ok.includes(v) ? v : "";
+  const STATUS_OPTIONS = ALL_STATUS_OPTIONS.filter((o) => rows.some((r) => r.state === o.value));
+  /* Live rows carry no views (the report has them) — don't offer a sort on a
+     column that is blank on every card. */
+  const SORT_OPTIONS = ALL_SORT_OPTIONS.filter((o) => o.value !== "views" || rows.some((r) => r.views !== null));
 
   const [q, setQ] = useState(initial?.q ?? "");
   const [status, setStatus] = useState(() =>
@@ -135,10 +149,10 @@ export function SponsorCampaignsList({
         sorted.sort((a, b) => a.name.localeCompare(b.name));
         break;
       case "views":
-        sorted.sort((a, b) => b.views - a.views);
+        sorted.sort((a, b) => (b.views ?? -1) - (a.views ?? -1));
         break;
       case "spend":
-        sorted.sort((a, b) => b.spend - a.spend);
+        sorted.sort((a, b) => (b.spend ?? -1) - (a.spend ?? -1));
         break;
       case "progress":
         sorted.sort((a, b) => b.pct - a.pct);
@@ -304,66 +318,7 @@ export function SponsorCampaignsList({
             {paged.map((c) => (
             /* min-w-0: a grid item otherwise grows to its content and the card ran
                22px past a 390px phone (frontend audit) */
-            <li key={c.id} className="min-w-0">
-              <Link
-                href={`/sponsor/campaigns/${c.id}`}
-                className="group block rounded-xl border border-line bg-surface p-5 transition-all hover:border-sponsor/30 hover:bg-surface-2/40"
-              >
-                <div className="flex items-start gap-3">
-                  <Monogram
-                    text={c.monogram}
-                    tone={c.behind ? "accent" : "primary"}
-                    className="size-10 text-[11px]"
-                  />
-                  <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <h2 className="truncate text-sm font-semibold tracking-tight">
-                        {c.name}
-                      </h2>
-                      {c.behind ? (
-                        <Badge tone="warn">Pacing behind</Badge>
-                      ) : (
-                        <Badge tone={STATE_TONE[c.state]}>
-                          {c.state.toLowerCase()}
-                        </Badge>
-                      )}
-                    </div>
-                    <p className="mt-0.5 truncate text-[11px] text-muted">
-                      {c.pkg} · {c.athletes} athletes · {c.endsIn}
-                    </p>
-                  </div>
-                  <svg
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    className="size-4 shrink-0 text-faint transition-transform group-hover:translate-x-0.5"
-                    aria-hidden="true"
-                  >
-                    <path d="m9 5 7 7-7 7" />
-                  </svg>
-                </div>
-
-                <div className="mt-4">
-                  <div className="mb-1.5 flex items-baseline justify-between text-[11px]">
-                    <span className="text-muted">Deliverables</span>
-                    <span className="font-medium tabular-nums text-text">
-                      {c.done}
-                      <span className="text-faint"> / {c.total}</span>
-                    </span>
-                  </div>
-                  <Meter value={c.pct} tone={c.behind ? "primary" : "accent"} />
-                </div>
-
-                <dl className="mt-4 grid grid-cols-3 gap-3 border-t border-line-soft pt-4">
-                  <Stat label="Views" value={compact(c.views)} />
-                  <Stat label="Spend" value={money(c.spend)} />
-                  <Stat label="Athletes" value={String(c.athletes)} />
-                </dl>
-              </Link>
-            </li>
+              <CampaignCard key={c.id} c={c} />
           ))}
           </ul>
           <div className="flex flex-wrap items-center justify-end gap-3 pt-2">
@@ -403,5 +358,72 @@ function Stat({ label, value }: { label: string; value: string }) {
         {value}
       </dd>
     </div>
+  );
+}
+
+/** One campaign card — shared by the fixture island above and the
+ *  server-paged live list (sponsor-campaigns-server.tsx). */
+export function CampaignCard({ c }: { c: CampaignRow }) {
+  return (
+      <li className="min-w-0">
+        <Link
+          href={`/sponsor/campaigns/${c.id}`}
+          className="group block rounded-xl border border-line bg-surface p-5 transition-all hover:border-sponsor/30 hover:bg-surface-2/40"
+        >
+          <div className="flex items-start gap-3">
+            <Monogram
+              text={c.monogram}
+              tone={c.behind ? "accent" : "primary"}
+              className="size-10 text-[11px]"
+            />
+            <div className="min-w-0 flex-1">
+              <div className="flex flex-wrap items-center gap-2">
+                <h2 className="truncate text-sm font-semibold tracking-tight">
+                  {c.name}
+                </h2>
+                {c.behind ? (
+                  <Badge tone="warn">Pacing behind</Badge>
+                ) : (
+                  <Badge tone={STATE_TONE[c.state] ?? "neutral"}>
+                    {c.state.toLowerCase()}
+                  </Badge>
+                )}
+              </div>
+              <p className="mt-0.5 truncate text-[11px] text-muted">
+                {c.pkg} · {c.athletes} athletes · {c.endsIn}
+              </p>
+            </div>
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className="size-4 shrink-0 text-faint transition-transform group-hover:translate-x-0.5"
+              aria-hidden="true"
+            >
+              <path d="m9 5 7 7-7 7" />
+            </svg>
+          </div>
+    
+          <div className="mt-4">
+            <div className="mb-1.5 flex items-baseline justify-between text-[11px]">
+              <span className="text-muted">Deliverables</span>
+              <span className="font-medium tabular-nums text-text">
+                {c.done}
+                <span className="text-faint"> / {c.total}</span>
+              </span>
+            </div>
+            <Meter value={c.pct} tone={c.behind ? "primary" : "accent"} />
+          </div>
+    
+          <dl className="mt-4 grid grid-cols-3 gap-3 border-t border-line-soft pt-4">
+            <Stat label="Views" value={c.views === null ? "—" : compact(c.views)} />
+            <Stat label="Spend" value={c.spend === null ? "—" : money(c.spend)} />
+            <Stat label="Athletes" value={String(c.athletes)} />
+          </dl>
+        </Link>
+      </li>
   );
 }

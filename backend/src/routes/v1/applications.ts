@@ -23,7 +23,9 @@ import { readIntakeToken } from "../../lib/intake-token";
 import { ForbiddenError } from "../../auth/errors";
 import { whereFor } from "../../auth/scope";
 import { prisma } from "../../db/client";
+import type { Prisma } from "../../generated/prisma/client";
 import { PageQuery } from "../../contracts/common";
+import { pageRequest, readPage, searchTerm } from "../../lib/paging";
 import {
   ApplicationDecisionNotes,
   ApproveApplicationInput,
@@ -208,6 +210,96 @@ function toSummary(row: SummaryRow) {
   };
 }
 
+/* --------------------------------------------------------------------------
+   The desk's paged mode (2026-09-29) — tabs, filters, search and sort done IN
+   THE DATABASE, so the admin desk never fetches the queue to slice it.
+
+   Every rule below is the one the desk applied in the browser before, moved:
+   - tabs are applications-ui.ts `stateBucket` — DRAFT, SUSPENDED and
+     FEATURED are "other", reachable from the All tab only;
+   - "minor" is guardian-rules.ts `requiresGuardian` as a WHERE: a birth date
+     under 18 years ago, or a minor age band — evaluated against now, never
+     stored, for the same reason the rule gives;
+   - "aging" is in review (SUBMITTED / UNDER_REVIEW) and created more than
+     48 hours ago — the desk's AGING_HOURS, as a createdAt threshold;
+   - "flagged" matches nothing: the queue records no conflict flags yet (the
+     live desk has always shown `flags: []`), and an honest empty list beats
+     a filter that quietly ignores itself;
+   - search is case-insensitive contains over what the desk searched —
+     display name, sport, region (stateCode).
+   Sort is createdAt (+ id, the same tiebreaker the cursor mode needs):
+   waiting-longest by default, `?sort=newest` for the reverse. The desk's
+   "score" sort is NOT offered here — the score is the latest row of a related
+   table, which Prisma cannot order a parent by — so it falls back to the
+   default rather than sorting one page in memory and calling it the order.
+   -------------------------------------------------------------------------- */
+
+export const DESK_TABS = {
+  review: ["SUBMITTED", "UNDER_REVIEW", "CHANGES_REQUESTED"],
+  approved: ["APPROVED", "ACTIVE"],
+  rejected: ["REJECTED"],
+} as const satisfies Record<string, readonly AthleteState[]>;
+
+/** In the queue proper — what "waiting" and "aging" count. */
+const WAITING_STATES = ["SUBMITTED", "UNDER_REVIEW"] as const satisfies readonly AthleteState[];
+
+export const AGING_HOURS = 48;
+const MINOR_BANDS = ["UNDER_16", "16_17"];
+
+const DESK_OLDEST = [{ createdAt: "asc" as const }, { id: "asc" as const }];
+const DESK_NEWEST = [{ createdAt: "desc" as const }, { id: "desc" as const }];
+
+/** The date an athlete born after is under 18 on `now` (isMinorOn, inverted). */
+function adultCutoff(now: Date): Date {
+  const d = new Date(now);
+  d.setFullYear(d.getFullYear() - 18);
+  return d;
+}
+
+function agingCutoff(now: Date): Date {
+  return new Date(now.getTime() - AGING_HOURS * 3_600_000);
+}
+
+/**
+ * The paged desk's WHERE. The caller's scope is ALWAYS the first AND clause —
+ * nothing a query string says can widen it, only narrow it.
+ */
+export function deskWhere(
+  scope: Prisma.AthleteWhereInput,
+  query: Record<string, unknown>,
+  now: Date,
+): Prisma.AthleteWhereInput {
+  /* hasOwn, not `in` — `?tab=constructor` must not reach Object.prototype. */
+  const tab =
+    typeof query.tab === "string" && Object.hasOwn(DESK_TABS, query.tab) ? (query.tab as keyof typeof DESK_TABS) : null;
+  const sport = typeof query.sport === "string" && query.sport.trim() ? query.sport.trim().slice(0, 100) : null;
+  const q = searchTerm(query);
+  const clauses: Prisma.AthleteWhereInput[] = [scope];
+  if (tab) clauses.push({ state: { in: [...DESK_TABS[tab]] } });
+  if (sport) clauses.push({ sport });
+  switch (query.flag) {
+    case "minor":
+      clauses.push({ OR: [{ birthDate: { gt: adultCutoff(now) } }, { ageBand: { in: MINOR_BANDS } }] });
+      break;
+    case "aging":
+      clauses.push({ state: { in: [...WAITING_STATES] }, createdAt: { lt: agingCutoff(now) } });
+      break;
+    case "flagged":
+      clauses.push({ id: { in: [] } });
+      break;
+  }
+  if (q) {
+    clauses.push({
+      OR: [
+        { displayName: { contains: q, mode: "insensitive" as const } },
+        { sport: { contains: q, mode: "insensitive" as const } },
+        { stateCode: { contains: q, mode: "insensitive" as const } },
+      ],
+    });
+  }
+  return { AND: clauses };
+}
+
 /**
  * GET /applications — the review queue.
  *
@@ -229,6 +321,33 @@ function toSummary(row: SummaryRow) {
 export const listApplications: RequestHandler = async (req, res) => {
   const actor = req.actor!;
   const where = whereFor(actor, "athleteApplication", "read");
+
+  /* Offset mode (?page=) — the admin desk's pages. The cursor mode below is
+     untouched for every caller that doesn't send ?page. */
+  const paged = pageRequest(req.query as Record<string, unknown>);
+  if (paged) {
+    const pagedWhere = deskWhere(where, req.query as Record<string, unknown>, new Date());
+    const orderBy = req.query.sort === "newest" ? DESK_NEWEST : DESK_OLDEST;
+    const { rows, page: info } = await readPage(
+      paged,
+      () =>
+        prisma.athlete.count({
+          /* tenant-scope: deskWhere puts whereFor(actor, "athleteApplication", "read") first in its AND */
+          where: pagedWhere,
+        }),
+      (skip, take) =>
+        prisma.athlete.findMany({
+          /* tenant-scope: deskWhere puts whereFor(actor, "athleteApplication", "read") first in its AND */
+          where: pagedWhere,
+          select: SUMMARY_SELECT,
+          orderBy,
+          skip,
+          take,
+        }) as unknown as Promise<SummaryRow[]>,
+    );
+    res.json({ applications: rows.map(toSummary), page: info });
+    return;
+  }
 
   /* Query strings are text; the contract describes the decoded shape. */
   const page = PageQuery.parse({
@@ -282,7 +401,60 @@ export const getApplication: RequestHandler<{ id: string }> = async (req, res) =
   res.json(toSummary(row as SummaryRow));
 };
 
+/**
+ * GET /applications/summary — the desk's headline numbers over the caller's
+ * whole scope (2026-09-29): waiting, overdue (> 48h), decided, total, the
+ * per-tab counts and the sports on file (the sport filter's options). Counted
+ * in the database, so the hero band no longer needs every row in hand.
+ * Unfiltered on purpose, like the desk's tab counts always were: they answer
+ * "how is the queue doing", not "how many match my search".
+ *
+ * "decided" keeps the desk's definition — everything outside the review tab,
+ * so DRAFT / SUSPENDED count as decided, exactly as before.
+ */
+export const applicationsSummary: RequestHandler = async (req, res) => {
+  const actor = req.actor!;
+  const scope = whereFor(actor, "athleteApplication", "read");
+
+  const [byState, overdue, sports] = await Promise.all([
+    prisma.athlete.groupBy({
+      by: ["state"],
+      /* tenant-scope: scope = whereFor(actor, "athleteApplication", "read") */
+      where: scope,
+      _count: { _all: true },
+    }),
+    prisma.athlete.count({
+      /* tenant-scope: scope = whereFor(actor, "athleteApplication", "read"), first in the AND */
+      where: { AND: [scope, { state: { in: [...WAITING_STATES] }, createdAt: { lt: agingCutoff(new Date()) } }] },
+    }),
+    prisma.athlete.groupBy({
+      by: ["sport"],
+      /* tenant-scope: scope = whereFor(actor, "athleteApplication", "read") */
+      where: scope,
+      orderBy: { sport: "asc" },
+    }),
+  ]);
+
+  const n = (states: readonly string[]) =>
+    byState.filter((r) => states.includes(r.state)).reduce((sum, r) => sum + r._count._all, 0);
+  const total = byState.reduce((sum, r) => sum + r._count._all, 0);
+  const review = n(DESK_TABS.review);
+
+  res.json({
+    summary: {
+      total,
+      waiting: n(WAITING_STATES),
+      overdue,
+      decided: total - review,
+      tabs: { review, approved: n(DESK_TABS.approved), rejected: n(DESK_TABS.rejected), all: total },
+      sports: sports.map((s) => s.sport),
+    },
+  });
+};
+
 applicationsRouter.get("/", requireActor, listApplications);
+/* Before /:id, which would otherwise read "summary" as an id. */
+applicationsRouter.get("/summary", requireActor, applicationsSummary);
 applicationsRouter.get("/:id", requireActor, getApplication);
 
 /** POST /applications/:id/begin-review — claim it. SUBMITTED → UNDER_REVIEW. */

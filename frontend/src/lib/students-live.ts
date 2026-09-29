@@ -8,6 +8,8 @@
    there until a guardian is verified, and the refusal is shown as said.
    -------------------------------------------------------------------------- */
 
+import { pageParamsFor, type PageInfo } from "@/lib/list-query";
+
 export type ApiStudentState =
   | "DRAFT" | "SUBMITTED" | "UNDER_REVIEW" | "APPROVED" | "CHANGES_REQUESTED"
   | "REJECTED" | "ACTIVE" | "SUSPENDED" | "INACTIVE";
@@ -74,8 +76,56 @@ export function groupStudents(students: ApiStudent[]) {
   return { waiting, withStudent, approved, roster, closed };
 }
 
+/* ── server paging (2026-09-29) ─────────────────────────────────────────
+   The desk's groups are the API's `?group=` (GET /students answers one page
+   of one group, plus every group's count); the claims list and the sales
+   ledger are second lists on their pages, with their own URL keys. */
+
+export type StudentGroup = "waiting" | "approved" | "with" | "roster" | "closed";
+
+export const STUDENT_GROUPS: Array<{ key: StudentGroup; tab: string; title: string; hint: string }> = [
+  { key: "waiting", tab: "Waiting", title: "Waiting on you", hint: "Start a review, then approve, ask for changes or decline" },
+  { key: "approved", tab: "Approved", title: "Approved — not yet on the masthead", hint: "A minor joins once a guardian is verified" },
+  { key: "with", tab: "With the student", title: "With the student", hint: "Changes requested — they resubmit" },
+  { key: "roster", tab: "Masthead", title: "On the masthead", hint: "Active students" },
+  { key: "closed", tab: "Closed", title: "Closed", hint: "Declined or left" },
+];
+export const STUDENT_GROUP_KEYS = STUDENT_GROUPS.map((g) => g.key);
+
+export type StudentGroupCounts = { groups: Record<StudentGroup, number>; all: number };
+
+/** URL keys for the second list on a page. */
+export const CLAIM_KEYS = { page: "cpage", size: "csize" } as const;
+export const LEDGER_KEYS = { page: "lpage", size: "lsize" } as const;
+
+/** The student's prospect filter (`?pstate`) → the API's `?state=`. */
+export const PROSPECT_FILTERS: Array<{ value: string; label: string; states: string }> = [
+  { value: "open", label: "Open", states: "SUBMITTED,ACCEPTED" },
+  { value: "rejected", label: "Not accepted", states: "REJECTED" },
+];
+export const prospectStatesFor = (filter: string) => PROSPECT_FILTERS.find((f) => f.value === filter)?.states ?? "";
+
+/** The API query for a list on its own URL keys: page + size always (paged
+ *  mode on), then every non-empty extra. */
+export function keyedListQuery(
+  sp: Record<string, string | string[] | undefined>,
+  keys: { page: string; size: string },
+  extras: Record<string, string> = {},
+): string {
+  const { page, size } = pageParamsFor(sp, keys);
+  const u = new URLSearchParams({ page: String(page), size: String(size) });
+  for (const [k, v] of Object.entries(extras)) if (v) u.set(k, v);
+  return `?${u}`;
+}
+
 export type ApiSale = { id: string; sponsorId: string; campaignId: string | null; editionId: string | null; value: number; originatedAt: string };
 export type ApiAccrual = { id: string; reason: string; points: number; editionId: string | null; accruedAt: string };
+
+/** GET /students/:id/sales and /points — `page` only in paged mode; the
+ *  total and balance are always the database's all-time sums. */
+export type ApiSalesRead = { sales: ApiSale[]; totalCents: number; page?: PageInfo };
+export type ApiPointsRead = { accruals: ApiAccrual[]; balance: number; page?: PageInfo };
+export type ProspectSummary = { states: Record<"SUBMITTED" | "ACCEPTED" | "REJECTED", number>; all: number };
 
 /** Sum of accruals — the balance is never stored, only folded. */
 export const balanceOf = (rows: ApiAccrual[]) => rows.reduce((n, r) => n + r.points, 0);

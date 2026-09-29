@@ -17,6 +17,7 @@
  * nobody else's": every read is `whereFor(teamMember | inventoryItem)` under
  * the manager's own property, in their own tenant.
  */
+import { readPage, type PageRequest } from "../lib/paging";
 import { randomBytes } from "node:crypto";
 
 import { prisma } from "../db/client";
@@ -82,6 +83,97 @@ export async function teamRoster(actor: Actor) {
   ]);
   if (!property) throw new ForbiddenError("teamMember", "read");
   return { property, athletes, inventory: teamItems };
+}
+
+/* --- the property portal's lists, SERVER-PAGED (2026-09-29) --------------
+
+   The portal used to read /team/roster — every athlete with every item
+   nested — and flatten it in the browser. These answer one page each, with
+   the counts the portal shows computed in the database, own-property scoped
+   exactly like teamRoster. (/team/roster itself is unchanged for Phase 2.) */
+
+const PUBLIC_ATHLETE_STATES = ["ACTIVE", "FEATURED"] as const;
+
+export async function teamAthletesPage(
+  actor: Actor,
+  req: PageRequest,
+  f: { q?: string; state?: string[] },
+) {
+  const propertyId = managedProperty(actor, "read");
+  const where = {
+    AND: [
+      whereFor(actor, "teamMember", "read"),
+      ...(f.q ? [{ displayName: { contains: f.q, mode: "insensitive" as const } }] : []),
+      ...(f.state?.length ? [{ state: { in: f.state as never } }] : []),
+    ],
+  };
+  const base = whereFor(actor, "teamMember", "read");
+  const [property, paged, total, active] = await Promise.all([
+    prisma.property.findFirst({ where: { tenantId: actor.tenantId, id: propertyId }, select: { id: true, name: true, kind: true } }),
+    readPage(
+      req,
+      () => prisma.athlete.count({ /* tenant-scope: `where`/`base`/`mine` are built from whereFor(actor, …, "read") above; only filters are added. */ where }),
+      (skip, take) =>
+        prisma.athlete.findMany({
+          /* tenant-scope: `where`/`base`/`mine` are built from whereFor(actor, …, "read") above; only filters are added. */
+          where,
+          /* legalName: the manager's own roster shows it (as /team/roster does). */
+          select: { id: true, displayName: true, legalName: true, sport: true, position: true, gradYear: true, state: true, teamShareBps: true },
+          orderBy: [{ displayName: "asc" }, { id: "asc" }],
+          skip,
+          take,
+        }),
+    ),
+    prisma.athlete.count({ /* tenant-scope: `where`/`base`/`mine` are built from whereFor(actor, …, "read") above; only filters are added. */ where: base }),
+    prisma.athlete.count({ /* tenant-scope: `where`/`base`/`mine` are built from whereFor(actor, …, "read") above; only filters are added. */ where: { AND: [base, { state: { in: [...PUBLIC_ATHLETE_STATES] } }] } }),
+  ]);
+  if (!property) throw new ForbiddenError("teamMember", "read");
+  return { property, athletes: paged.rows, page: paged.page, counts: { athletes: total, active } };
+}
+
+export async function teamInventoryPage(
+  actor: Actor,
+  req: PageRequest,
+  f: { q?: string; active?: boolean },
+) {
+  const propertyId = managedProperty(actor, "read");
+  /* The team's own items and its roster athletes' items — the list the
+     portal used to flatten client-side. */
+  const mine = {
+    AND: [
+      whereFor(actor, "inventoryItem", "read"),
+      { OR: [{ propertyId }, { athlete: { propertyId } }] },
+    ],
+  };
+  const where = {
+    AND: [
+      mine,
+      ...(f.q ? [{ title: { contains: f.q, mode: "insensitive" as const } }] : []),
+      ...(f.active === undefined ? [] : [{ active: f.active }]),
+    ],
+  };
+  const [paged, total, active] = await Promise.all([
+    readPage(
+      req,
+      () => prisma.inventoryItem.count({ /* tenant-scope: `where`/`base`/`mine` are built from whereFor(actor, …, "read") above; only filters are added. */ where }),
+      (skip, take) =>
+        prisma.inventoryItem.findMany({
+          /* tenant-scope: `where`/`base`/`mine` are built from whereFor(actor, …, "read") above; only filters are added. */
+          where,
+          select: { ...ITEM, athlete: { select: { displayName: true } } },
+          orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+          skip,
+          take,
+        }),
+    ),
+    prisma.inventoryItem.count({ /* tenant-scope: `where`/`base`/`mine` are built from whereFor(actor, …, "read") above; only filters are added. */ where: mine }),
+    prisma.inventoryItem.count({ /* tenant-scope: `where`/`base`/`mine` are built from whereFor(actor, …, "read") above; only filters are added. */ where: { AND: [mine, { active: true }] } }),
+  ]);
+  return {
+    inventory: paged.rows.map(({ athlete, ...i }) => ({ ...i, owner: athlete?.displayName ?? null })),
+    page: paged.page,
+    counts: { items: total, active },
+  };
 }
 
 /** Add an athlete to the roster, with an account to claim. */

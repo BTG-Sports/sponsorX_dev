@@ -11,7 +11,7 @@
    is one of these reads; nothing is estimated.
    -------------------------------------------------------------------------- */
 
-import { buckets, type ApiEarning } from "./earnings-live";
+import { buckets, type ApiEarning, summaryBuckets, type ApiEarningsSummary } from "./earnings-live";
 import { dueLabel, type ApiDeliverable } from "./deliverables-live";
 import { toInboxRow, type ApiInvitation } from "./invitations-live";
 import { isOpen } from "./invitations-ui";
@@ -69,12 +69,22 @@ export type AthleteHome = {
 
 const mono = (s: string) => s.split(/\s+/).map((w) => w[0] ?? "").join("").slice(0, 2).toUpperCase();
 
+/** The deliverable states the home lists as "due" — exported so the page asks
+ *  the API for exactly these (server-paged, P2-FE-02). */
+export const DUE_STATES = Object.keys(REVIEW);
+
 export function buildHome(input: {
   profile: ApiMyProfile | null;
   invitations: ApiInvitation[];
   deliverables: ApiDeliverable[];
   earnings: ApiEarning[];
   now: Date;
+  /* SERVER-PAGED (P2-FE-02, merged onto P3-FE-06): when the page passes the
+     top rows of each list, the true counts come from the API (summary /
+     page.total) and the money from GET /earnings/summary — the lists above
+     are then only the few rows shown, never every row. */
+  counts?: { invites: number; due: number };
+  earningsSummary?: ApiEarningsSummary;
 }): AthleteHome {
   const { profile, now } = input;
 
@@ -100,7 +110,7 @@ export function buildHome(input: {
     .filter((d) => d.state in REVIEW)
     .sort((a, b) => a.dueDate.localeCompare(b.dueDate));
 
-  const b = buckets(input.earnings);
+  const b = input.earningsSummary ? summaryBuckets(input.earningsSummary) : buckets(input.earnings);
 
   return {
     firstName: profile ? (profile.legalName.trim() || profile.displayName).split(/\s+/)[0] ?? null : null,
@@ -109,7 +119,7 @@ export function buildHome(input: {
       : null,
     status: profile ? statusOf(profile.state) : null,
     profile: prof,
-    inviteCount: open.length,
+    inviteCount: input.counts?.invites ?? open.length,
     invites: open.slice(0, 3).map((i) => ({
       id: i.id,
       sponsor: i.sponsor,
@@ -119,7 +129,7 @@ export function buildHome(input: {
       expires: Number.isFinite(i.hoursLeft) ? `Expires in ${i.expiresIn}` : "Expired",
       urgent: i.hoursLeft < 48,
     })),
-    dueCount: due.length,
+    dueCount: input.counts?.due ?? due.length,
     deliverables: due.slice(0, 3).map((d) => {
       const date = new Date(d.dueDate);
       return {
@@ -139,6 +149,6 @@ export function buildHome(input: {
       { label: "Approved", amount: usd(b.APPROVED_FOR_PAYOUT.amount), hint: "Approved for payout", tone: "primary" },
       { label: "Paid", amount: usd(b.PAID.amount), hint: "Paid by BTG Finance", tone: "accent" },
     ],
-    hasEarnings: input.earnings.length > 0,
+    hasEarnings: input.earningsSummary ? input.earningsSummary.count > 0 : input.earnings.length > 0,
   };
 }

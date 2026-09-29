@@ -31,6 +31,7 @@ import { ForbiddenError } from "../auth/errors";
 import { canReadField } from "../auth/fields";
 import type { BrandCategory } from "./brand-categories";
 import { isVerified, type MetricSource } from "./metric-source";
+import { clampPage, pageInfo, readPage, type PageInfo, type PageRequest } from "../lib/paging";
 
 export type EligibleAthlete = {
   id: string;
@@ -193,6 +194,242 @@ export async function eligibleForBrief(
     categories: brief.categories as BrandCategory[],
     limit,
   });
+}
+
+/* --- the shortlist, PAGED (2026-09-29) ----------------------------------
+
+   The desk used to take the first 200 eligible athletes by name and filter
+   and sort them in the browser — past 200, the network simply wasn't there.
+   This answers one page with its true total, and the tier / sport facets of
+   the whole eligible roster (the filter rail's counts).
+
+   IN THE DATABASE: the eligibility rule itself (identical to
+   eligibleAthletes — ACTIVE, the brief's targeting, the §26 conflict
+   exclusion), `q` (name, sport, city, state code, tier name), `sport`,
+   `tier` (UNTIERED = none set) and the name order.
+
+   SCORE is a stored snapshot in its own history table — the LATEST row per
+   athlete, which no Prisma WHERE / ORDER BY can express. So a score sort or
+   a minimum score reads a thin projection (id, name, latest score) of the
+   filtered set, orders / filters that in memory and fetches full rows for
+   one page only. Only for a caller who may read scores (§7
+   `athleteScore.value`): for anyone else `min` is ignored and the order is
+   by name — ordering by a column you may not read would leak it.
+
+   NOT SERVED: the desk's margin and cost sorts. Both are computed from the
+   athlete's current rate version per job × the package's quantities against
+   the tier's sell floor — not a column, and not the domain's to price. The
+   Studio keeps them for the page in hand only. activeOnly / guardianOnly
+   need nothing: this query returns ACTIVE athletes only, and ACTIVE already
+   required a verified guardian (§37). */
+
+export type EligibleFilters = {
+  q?: string;
+  sport?: string;
+  /** An AthleteTier, or "UNTIERED". Anything else is ignored. */
+  tier?: string;
+  minScore?: number;
+  sort: "score" | "name";
+};
+
+export type EligibleFacets = {
+  /** Every athlete eligible for the brief, before the desk's filters. */
+  total: number;
+  /** Per tier over that roster; untiered athletes count as UNTIERED. */
+  tiers: Record<string, number>;
+  sports: string[];
+};
+
+const TIERS = ["EMERGING", "CREATOR", "PREMIUM", "ANCHOR"] as const;
+const TIER_WORDS: Record<(typeof TIERS)[number], string> = {
+  EMERGING: "emerging", CREATOR: "creator", PREMIUM: "premium", ANCHOR: "anchor",
+};
+
+function eligibilityWhere(actor: Actor, sports: string[], stateCodes: string[], categories: string[]) {
+  return {
+    ...whereFor(actor, "athlete", "read"),
+    state: "ACTIVE" as const,
+    ...(sports.length ? { sport: { in: [...sports] } } : {}),
+    ...(stateCodes.length ? { stateCode: { in: [...stateCodes] } } : {}),
+    ...(categories.length
+      ? { NOT: { restrictedCategories: { hasSome: [...categories] } } }
+      : {}),
+  };
+}
+
+export async function eligiblePageForBrief(
+  actor: Actor,
+  briefId: string,
+  req: PageRequest,
+  filters: EligibleFilters,
+): Promise<{ athletes: EligibleAthlete[]; page: PageInfo; facets: EligibleFacets }> {
+  assertAllowed(actor, "campaignBrief", "read");
+  assertAllowed(actor, "athlete", "read");
+
+  const brief = await prisma.campaignBrief.findFirst({
+    where: { ...whereFor(actor, "campaignBrief", "read"), id: briefId },
+    select: { sports: true, stateCodes: true, categories: true },
+  });
+  if (!brief) throw new ForbiddenError("campaignBrief", "read");
+
+  const sports = brief.sports.filter(Boolean);
+  const stateCodes = brief.stateCodes.filter(Boolean);
+  const categories = (brief.categories as BrandCategory[]).filter(Boolean);
+  const seeScore =
+    canReadField(actor.roles, "athleteScore.value") && can(actor, "athleteScore", "read");
+  const seeRates =
+    canReadField(actor.roles, "athleteRate.amount") && can(actor, "athleteRate", "read");
+
+  const base = eligibilityWhere(actor, sports, stateCodes, categories);
+  const q = filters.q?.trim();
+  const needle = q?.toLowerCase() ?? "";
+  const tierHits = needle ? TIERS.filter((t) => TIER_WORDS[t].includes(needle)) : [];
+  const tier = filters.tier === "UNTIERED" ? null : (TIERS as readonly string[]).includes(filters.tier ?? "") ? filters.tier : undefined;
+  const contains = (v: string) => ({ contains: v, mode: "insensitive" as const });
+  const where = {
+    AND: [
+      base,
+      ...(q
+        ? [{
+            OR: [
+              { displayName: contains(q) },
+              { sport: contains(q) },
+              { city: contains(q) },
+              { stateCode: contains(q) },
+              ...(tierHits.length ? [{ tier: { in: [...tierHits] } }] : []),
+              ...("untiered".includes(needle) ? [{ tier: null }] : []),
+            ],
+          }]
+        : []),
+      ...(filters.sport ? [{ sport: filters.sport }] : []),
+      ...(tier !== undefined ? [{ tier: tier as never }] : []),
+    ],
+  };
+  const select = {
+    id: true, displayName: true, sport: true, stateCode: true, tier: true, city: true,
+    ...(seeScore
+      ? {
+          scores: {
+            select: { score: true, factors: true, method: true, scoredAt: true },
+            orderBy: { scoredAt: "desc" as const },
+            take: 1,
+          },
+        }
+      : {}),
+    socials: { select: { followers: true, source: true } },
+    ...(seeRates ? { rates: { select: { jobId: true, amount: true, version: true } } } : {}),
+  };
+  const BY_NAME = [{ displayName: "asc" as const }, { id: "asc" as const }];
+
+  const [tierGroups, sportGroups] = await Promise.all([
+    prisma.athlete.groupBy({ by: ["tier"], where: base /* tenant-scope: eligibilityWhere spreads whereFor(athlete) */, _count: { _all: true } }),
+    prisma.athlete.groupBy({ by: ["sport"], where: base /* tenant-scope: eligibilityWhere spreads whereFor(athlete) */, orderBy: { sport: "asc" } }),
+  ]);
+  const facets: EligibleFacets = {
+    total: tierGroups.reduce((n, g) => n + g._count._all, 0),
+    tiers: Object.fromEntries(tierGroups.map((g) => [g.tier ?? "UNTIERED", g._count._all])),
+    sports: sportGroups.map((g) => g.sport),
+  };
+
+  const byScore = seeScore && (filters.sort === "score" || filters.minScore !== undefined);
+  let rows: unknown[];
+  let page: PageInfo;
+  if (!byScore) {
+    const got = await readPage(
+      req,
+      () => prisma.athlete.count({ where /* tenant-scope: AND[eligibilityWhere(whereFor(athlete)), …] */ }),
+      (skip, take) =>
+        prisma.athlete.findMany({
+          where /* tenant-scope: AND[eligibilityWhere(whereFor(athlete)), …] */,
+          select,
+          orderBy: BY_NAME,
+          skip,
+          take,
+        }) as unknown as Promise<unknown[]>,
+    );
+    rows = got.rows;
+    page = got.page;
+  } else {
+    /* The thin projection: id and the latest snapshot's score, name order —
+       so equal scores (and the unscored, last) keep a stable name order. */
+    const thin = await prisma.athlete.findMany({
+      where /* tenant-scope: AND[eligibilityWhere(whereFor(athlete)), …] */,
+      select: { id: true, scores: { select: { score: true }, orderBy: { scoredAt: "desc" as const }, take: 1 } },
+      orderBy: BY_NAME,
+    });
+    const scored = thin
+      .map((a) => ({ id: a.id, score: a.scores[0]?.score ?? null }))
+      /* A minimum is a claim about the score — the unscored can't meet it. */
+      .filter((a) => filters.minScore === undefined || (a.score !== null && a.score >= filters.minScore));
+    const ordered = filters.sort === "score"
+      ? scored.map((a, i) => ({ ...a, i })).sort((x, y) => (y.score ?? -1) - (x.score ?? -1) || x.i - y.i)
+      : scored;
+    const at = clampPage(req, ordered.length);
+    const ids = ordered.slice(at.skip, at.skip + at.take).map((a) => a.id);
+    const full = ids.length
+      ? ((await prisma.athlete.findMany({
+          where: { AND: [where, { id: { in: ids } }] } /* tenant-scope: AND[eligibilityWhere(whereFor(athlete)), …] */,
+          select,
+        })) as unknown as { id: string }[])
+      : [];
+    const byId = new Map(full.map((r) => [r.id, r]));
+    rows = ids.flatMap((id) => (byId.has(id) ? [byId.get(id)!] : []));
+    page = pageInfo(at, ordered.length);
+  }
+
+  return {
+    athletes: rows.map((row) => toEligible(row as EligibleRow, sports, stateCodes, seeScore, seeRates)),
+    page,
+    facets,
+  };
+}
+
+type EligibleRow = {
+  id: string; displayName: string; sport: string; stateCode: string | null; tier: string | null; city: string | null;
+  scores?: { score: number; factors: unknown; method: string; scoredAt: Date }[];
+  socials: { followers: number | null; source: string }[];
+  rates?: { jobId: string; amount: number; version: number }[];
+};
+
+/** One row → the shortlist's shape. The same mapping as eligibleAthletes,
+ *  field gating included: a denied column is ABSENT. */
+function toEligible(
+  r: EligibleRow,
+  sports: readonly string[],
+  stateCodes: readonly string[],
+  seeScore: boolean,
+  seeRates: boolean,
+): EligibleAthlete {
+  const counted = r.socials.filter((s) => s.followers !== null);
+  return {
+    id: r.id,
+    displayName: r.displayName,
+    sport: r.sport,
+    stateCode: r.stateCode,
+    tier: r.tier,
+    matched: {
+      sport: sports.length === 0 || sports.includes(r.sport),
+      geography: stateCodes.length === 0 || (!!r.stateCode && stateCodes.includes(r.stateCode)),
+    },
+    city: r.city,
+    ...(seeScore
+      ? {
+          score: r.scores?.[0]
+            ? {
+                value: r.scores[0].score,
+                factors: r.scores[0].factors,
+                method: r.scores[0].method,
+                scoredAt: r.scores[0].scoredAt.toISOString(),
+              }
+            : null,
+        }
+      : {}),
+    reach: {
+      followers: counted.length ? counted.reduce((n, s) => n + (s.followers ?? 0), 0) : null,
+      verified: counted.length > 0 && counted.every((s) => isVerified(s.source as MetricSource)),
+    },
+    ...(seeRates ? { rates: currentRates(r.rates ?? []) } : {}),
+  };
 }
 
 /**

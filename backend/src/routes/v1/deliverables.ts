@@ -21,6 +21,7 @@ import { ForbiddenError } from "../../auth/errors";
 import { prisma } from "../../db/client";
 import { AUDIT_ACTIONS } from "../../db/audit";
 import { presignPrivateDownload } from "../../lib/storage";
+import { allowedList, pageRequest, readPage, searchTerm } from "../../lib/paging";
 import {
   CreativeAssetInput,
   CreativeUploadInput,
@@ -129,26 +130,324 @@ function rowOut(d: ListRow, revision: { reason: string; at: Date } | undefined) 
   };
 }
 
-/** GET /deliverables — `?state=A,B` and `?campaignId=` narrow; soonest due first. */
+/* --- server-paged reads (2026-09-29) ---------------------------------------
+
+   `?page=` turns on OFFSET MODE (lib/paging): one page plus its true total,
+   with every filter, the search and the sort done IN THE DATABASE, so the
+   content desk and the athlete's agenda never fetch every deliverable to
+   slice it in the browser. `?from=&to=` (a dueDate range, ISO dates) works
+   in both modes; without `?page=` it is how the athlete's calendar fetches
+   ONE MONTH — bounded by the range and still capped by UNPAGED_CAP.
+
+   Without `?page=` and without a range the list is exactly what it always
+   was — the admin board and athlete home read it that way. */
+
+const UNPAGED_CAP = 300;
+/** Mirrors the frontend's jobFormat (approvals-live.ts): these jobs are
+    video; every other job — and an unknown one — is an image job. */
+const VIDEO_JOBS = ["SX-01", "SX-03", "SX-04"];
+/** On a review desk — where "waiting" is measured. */
+const REVIEW_STATES = ["DRAFT_SUBMITTED", "BTG_REVIEW", "SPONSOR_REVIEW"];
+/** Mirrors the desk's AGING_HOURS (approvals-ui.ts). */
+const AGING_HOURS = 24;
+/** Bound on the DRAFT_SUBMITTED scan that derives open revisions. */
+const DRAFT_SCAN_CAP = 2000;
+const SORTS = ["due", "waiting", "newest"] as const;
+const TABS = ["todo", "review", "done"] as const;
+
+type Where = Record<string, unknown>;
+
+/** A valid ISO date query value, or undefined (a bad one is ignored). */
+function dateParam(v: unknown): Date | undefined {
+  if (typeof v !== "string" || !/^\d{4}-\d{2}-\d{2}/.test(v)) return undefined;
+  const d = new Date(v);
+  return Number.isNaN(d.getTime()) ? undefined : d;
+}
+
+/** The narrowing both modes share: `?state`, `?campaignId`, `?from`/`?to`. */
+function baseFilters(query: Record<string, unknown>): Where[] {
+  const wanted = allowedList(query.state, STATES);
+  const campaignId = typeof query.campaignId === "string" && query.campaignId ? query.campaignId : undefined;
+  const from = dateParam(query.from);
+  const to = dateParam(query.to);
+  return [
+    ...(wanted.length ? [{ state: { in: wanted } }] : []),
+    ...(campaignId ? [{ order: { campaignId } }] : []),
+    ...(from || to ? [{ dueDate: { ...(from ? { gte: from } : {}), ...(to ? { lt: to } : {}) } }] : []),
+  ];
+}
+
+/**
+ * The DRAFT_SUBMITTED deliverables in `where` whose revision is still open
+ * (rowOut's rule: requested after the latest upload). Revisions are derived
+ * from the audit log, so no WHERE can say it — this is the one bounded scan
+ * the tab filter, the waiting sort and the summary share.
+ */
+async function openRevisions(tenantId: string, where: Where) {
+  const drafts = await prisma.deliverable.findMany({
+    /* tenant-scope: `where` is whereFor(actor, "deliverable", "read") ∧ filters */
+    where: { AND: [where, { state: "DRAFT_SUBMITTED" }] },
+    select: {
+      id: true, dueDate: true,
+      assets: { select: { uploadedAt: true }, orderBy: { version: "desc" as const }, take: 1 },
+    },
+    take: DRAFT_SCAN_CAP,
+  });
+  const revisions = await revisionsFor(tenantId, drafts.map((d) => d.id));
+  const open = new Map<string, { dueDate: Date; uploadedAt: Date | null }>();
+  const notOpen: { uploadedAt: Date | null }[] = [];
+  for (const d of drafts) {
+    const r = revisions.get(d.id);
+    const latest = d.assets[0]?.uploadedAt ?? null;
+    if (r && (!latest || latest < r.at)) open.set(d.id, { dueDate: d.dueDate, uploadedAt: latest });
+    else notOpen.push({ uploadedAt: latest });
+  }
+  return { open, notOpen };
+}
+
+/** The athlete's "whose move" tabs as a WHERE (deliverables-live tabOf). */
+function tabWhere(tab: (typeof TABS)[number], openIds: string[]): Where {
+  switch (tab) {
+    case "todo":
+      return { OR: [{ state: { in: ["NOT_STARTED", "APPROVED"] } }, { id: { in: openIds } }] };
+    case "review":
+      return {
+        OR: [
+          { state: { in: ["BTG_REVIEW", "SPONSOR_REVIEW"] } },
+          { state: "DRAFT_SUBMITTED", id: { notIn: openIds } },
+        ],
+      };
+    case "done":
+      return { state: { in: ["PUBLISHED", "VERIFIED"] } };
+  }
+}
+
+/** `?q` over the title, the athlete, the campaign and its sponsor. */
+function searchWhere(q: string): Where {
+  const has = { contains: q, mode: "insensitive" as const };
+  return {
+    OR: [
+      { title: has },
+      { order: { athlete: { displayName: has } } },
+      { order: { campaign: { name: has } } },
+      { order: { campaign: { sponsor: { name: has } } } },
+    ],
+  };
+}
+
+/**
+ * The desk's "waiting longest" / "newest" order: by the LATEST upload,
+ * ranked in the database by grouping the assets (Prisma cannot order a
+ * deliverable by a max over its relation). Only what is actually waiting —
+ * on a review desk, uploaded, not sent back — is ranked; everything else
+ * (cleared, open revision, nothing uploaded) follows by due date, which is
+ * where the desk's zero-hour rows always sat.
+ */
+async function readByWaiting(
+  tenantId: string,
+  where: Where,
+  openIds: string[],
+  dir: "asc" | "desc",
+  skip: number,
+  take: number,
+): Promise<ListRow[]> {
+  const waiting: Where = {
+    AND: [
+      { state: { in: REVIEW_STATES } },
+      { assets: { some: {} } },
+      ...(openIds.length ? [{ id: { notIn: openIds } }] : []),
+    ],
+  };
+  const rankedWhere = { AND: [where, waiting] };
+  const ranked = await prisma.deliverable.count({
+    /* tenant-scope: rankedWhere = whereFor(actor, "deliverable", "read") ∧ filters */
+    where: rankedWhere,
+  });
+  const out: ListRow[] = [];
+  if (skip < ranked) {
+    const groups = await prisma.creativeAsset.groupBy({
+      by: ["deliverableId"],
+      where: { tenantId, deliverable: rankedWhere },
+      _max: { uploadedAt: true },
+      orderBy: [{ _max: { uploadedAt: dir } }, { deliverableId: "asc" }],
+      skip,
+      take,
+    });
+    const ids = groups.map((g) => g.deliverableId);
+    const rows = (await prisma.deliverable.findMany({
+      /* tenant-scope: the scoped `where` again, narrowed to the ranked ids */
+      where: { AND: [where, { id: { in: ids } }] },
+      select: LIST_SELECT,
+    })) as ListRow[];
+    const byId = new Map(rows.map((r) => [r.id, r]));
+    for (const id of ids) {
+      const r = byId.get(id);
+      if (r) out.push(r);
+    }
+  }
+  const room = take - out.length;
+  if (room > 0) {
+    const tail = (await prisma.deliverable.findMany({
+      /* tenant-scope: `where` is whereFor(actor, "deliverable", "read") ∧ filters */
+      where: { AND: [where, { NOT: waiting }] },
+      select: LIST_SELECT,
+      orderBy: [{ dueDate: "asc" }, { id: "asc" }],
+      skip: Math.max(0, skip - ranked),
+      take: room,
+    })) as ListRow[];
+    out.push(...tail);
+  }
+  return out;
+}
+
+/**
+ * GET /deliverables — `?state=A,B`, `?campaignId=`, `?from=&to=` narrow;
+ * soonest due first. With `?page=` (and `?size=`): one page, plus `?q`
+ * (title / athlete / campaign / sponsor), `?kind=video|image` (the job's
+ * format), `?tab=todo|review|done` (whose move) and
+ * `?sort=due|waiting|newest`.
+ */
 const listDeliverables: RequestHandler = async (req, res) => {
   const actor = req.actor!;
-  const wanted =
-    typeof req.query.state === "string"
-      ? req.query.state.split(",").filter((x) => STATES.includes(x))
-      : [];
-  const campaignId = typeof req.query.campaignId === "string" ? req.query.campaignId : undefined;
-  const rows = (await prisma.deliverable.findMany({
-    where: {
-      ...whereFor(actor, "deliverable", "read"),
-      ...(wanted.length ? { state: { in: wanted as never } } : {}),
-      ...(campaignId ? { order: { campaignId } } : {}),
-    },
-    select: LIST_SELECT,
-    orderBy: { dueDate: "asc" },
-    take: 300,
-  })) as ListRow[];
+  const query = req.query as Record<string, unknown>;
+  const paged = pageRequest(query);
+
+  if (!paged) {
+    const wanted =
+      typeof req.query.state === "string"
+        ? req.query.state.split(",").filter((x) => STATES.includes(x))
+        : [];
+    const campaignId = typeof req.query.campaignId === "string" ? req.query.campaignId : undefined;
+    const from = dateParam(query.from);
+    const to = dateParam(query.to);
+    const rows = (await prisma.deliverable.findMany({
+      where: {
+        ...whereFor(actor, "deliverable", "read"),
+        ...(wanted.length ? { state: { in: wanted as never } } : {}),
+        ...(campaignId ? { order: { campaignId } } : {}),
+        /* the calendar's month — only when asked, so the legacy call is unchanged */
+        ...(from || to ? { dueDate: { ...(from ? { gte: from } : {}), ...(to ? { lt: to } : {}) } } : {}),
+      },
+      select: LIST_SELECT,
+      orderBy: { dueDate: "asc" },
+      take: UNPAGED_CAP,
+    })) as ListRow[];
+    const revisions = await revisionsFor(actor.tenantId, rows.map((r) => r.id));
+    res.json({ deliverables: rows.map((d) => rowOut(d, revisions.get(d.id))) });
+    return;
+  }
+
+  const q = searchTerm(query);
+  const kind = query.kind === "video" || query.kind === "image" ? query.kind : undefined;
+  const tab = allowedList(query.tab, TABS)[0];
+  const sort = allowedList(query.sort, SORTS)[0] ?? "due";
+
+  const scoped: Where = {
+    AND: [
+      whereFor(actor, "deliverable", "read"),
+      ...baseFilters(query),
+      ...(kind ? [{ order: { jobId: kind === "video" ? { in: VIDEO_JOBS } : { notIn: VIDEO_JOBS } } }] : []),
+      ...(q ? [searchWhere(q)] : []),
+    ],
+  };
+  const needOpen = Boolean(tab) || sort !== "due";
+  const openIds = needOpen ? [...(await openRevisions(actor.tenantId, scoped)).open.keys()] : [];
+  const where: Where = tab ? { AND: [...(scoped.AND as Where[]), tabWhere(tab, openIds)] } : scoped;
+
+  const { rows, page } = await readPage(
+    paged,
+    () =>
+      prisma.deliverable.count({
+        /* tenant-scope: `where` is whereFor(actor, "deliverable", "read") ∧ filters */
+        where,
+      }),
+    (skip, take) =>
+      sort === "due"
+        ? (prisma.deliverable.findMany({
+            /* tenant-scope: `where` is whereFor(actor, "deliverable", "read") ∧ filters */
+            where,
+            select: LIST_SELECT,
+            orderBy: [{ dueDate: "asc" }, { id: "asc" }],
+            skip,
+            take,
+          }) as unknown as Promise<ListRow[]>)
+        : readByWaiting(actor.tenantId, where, openIds, sort === "waiting" ? "asc" : "desc", skip, take),
+  );
   const revisions = await revisionsFor(actor.tenantId, rows.map((r) => r.id));
-  res.json({ deliverables: rows.map((d) => rowOut(d, revisions.get(d.id))) });
+  res.json({ deliverables: rows.map((d) => rowOut(d, revisions.get(d.id))), page });
+};
+
+/**
+ * GET /deliverables/summary — the headline counts the content desk and the
+ * athlete's deliverables page show, counted in the database under the same
+ * scope as the list (`?state=A,B` / `?campaignId=` narrow it, as they do the
+ * list). Everything a page needs to derive its tiles without the rows:
+ *   states         — per raw state
+ *   openRevisions  — DRAFT_SUBMITTED sent back, still with the athlete
+ *   aging          — on a review desk, not sent back, latest upload more
+ *                    than AGING_HOURS whole hours ago (the desk's flag)
+ *   overdue        — the athlete's move and due before today (UTC day)
+ *   campaigns      — the campaigns those deliverables belong to (the desk's
+ *                    campaign filter), by name
+ */
+const summarizeDeliverables: RequestHandler = async (req, res) => {
+  const actor = req.actor!;
+  const query = req.query as Record<string, unknown>;
+  const where: Where = { AND: [whereFor(actor, "deliverable", "read"), ...baseFilters(query)] };
+  const now = Date.now();
+  /* floor(hours) > 24 ⇔ at least 25 whole hours — the desk's waitingHours rule. */
+  const agingCutoff = new Date(now - (AGING_HOURS + 1) * 3_600_000);
+  const today = new Date(new Date(now).toISOString().slice(0, 10));
+
+  const [grouped, { open, notOpen }, deskAging, lateOwn, orders] = await Promise.all([
+    prisma.deliverable.groupBy({
+      by: ["state"],
+      /* tenant-scope: `where` is whereFor(actor, "deliverable", "read") ∧ filters */
+      where,
+      _count: { _all: true },
+    }),
+    openRevisions(actor.tenantId, where),
+    prisma.deliverable.count({
+      /* tenant-scope: `where` is whereFor(actor, "deliverable", "read") ∧ filters */
+      where: {
+        AND: [
+          where,
+          { state: { in: ["BTG_REVIEW", "SPONSOR_REVIEW"] } },
+          { assets: { some: {} } },
+          { assets: { none: { uploadedAt: { gt: agingCutoff } } } },
+        ],
+      },
+    }),
+    prisma.deliverable.count({
+      /* tenant-scope: `where` is whereFor(actor, "deliverable", "read") ∧ filters */
+      where: { AND: [where, { state: { in: ["NOT_STARTED", "APPROVED"] } }, { dueDate: { lt: today } }] },
+    }),
+    prisma.campaignOrder.findMany({
+      /* tenant-scope: only orders holding a deliverable the caller can read —
+         whose campaign name every list row already carries */
+      where: { tenantId: actor.tenantId, deliverables: { some: where } },
+      distinct: ["campaignId"],
+      select: { campaign: { select: { id: true, name: true } } },
+      take: 500,
+    }),
+  ]);
+
+  const states = Object.fromEntries(STATES.map((s) => [s, 0])) as Record<string, number>;
+  for (const g of grouped as unknown as { state: string; _count: { _all: number } }[]) states[g.state] = g._count._all;
+  const draftAging = notOpen.filter((d) => d.uploadedAt && d.uploadedAt <= agingCutoff).length;
+  const lateRevisions = [...open.values()].filter((d) => d.dueDate < today).length;
+  const campaigns = (orders as { campaign: { id: string; name: string } }[])
+    .map((o) => o.campaign)
+    .sort((a, b) => a.name.localeCompare(b.name));
+
+  res.json({
+    total: Object.values(states).reduce((n, c) => n + c, 0),
+    states,
+    openRevisions: open.size,
+    aging: deskAging + draftAging,
+    overdue: lateOwn + lateRevisions,
+    campaigns,
+  });
 };
 
 /** GET /deliverables/:id — one deliverable, with its asset versions. */
@@ -249,6 +548,8 @@ const registerAsset: RequestHandler<{ id: string }> = async (req, res) => {
 };
 
 deliverablesRouter.get("/deliverables", requireActor, listDeliverables);
+/* before /deliverables/:id, or "summary" would be read as an id */
+deliverablesRouter.get("/deliverables/summary", requireActor, summarizeDeliverables);
 deliverablesRouter.get("/deliverables/:id", requireActor, readDeliverable);
 deliverablesRouter.get("/deliverables/:id/assets/:version/url", requireActor, assetUrl);
 deliverablesRouter.post("/deliverables/:id/submit", requireActor, submit);
@@ -261,4 +562,4 @@ deliverablesRouter.post("/deliverables/:id/verify", requireActor, verify);
 deliverablesRouter.post("/deliverables/:id/uploads", requireActor, upload);
 deliverablesRouter.post("/deliverables/:id/assets", requireActor, registerAsset);
 
-export { listDeliverables, readDeliverable, assetUrl };
+export { listDeliverables, readDeliverable, assetUrl, summarizeDeliverables };

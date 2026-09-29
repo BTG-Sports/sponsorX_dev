@@ -1,4 +1,5 @@
 import type { PortfolioRow } from "@/components/sponsor-portfolio-list";
+import type { CampaignRow } from "@/components/sponsor-campaigns-list";
 
 /* --------------------------------------------------------------------------
    P4-FE-05 — the sponsor dashboard's live translation: GET /campaigns
@@ -35,6 +36,9 @@ export type ApiCampaign = {
   invoiced?: number;
   paid?: number;
 };
+
+/** The roles whose portal is the sponsor's — the gate for every live read. */
+export const SPONSOR_ROLES = ["SPONSOR_ADMIN", "SPONSOR_ANALYST"];
 
 export const BEHIND_SLACK = 0.15;
 const DAY = 86_400_000;
@@ -88,6 +92,26 @@ export function toPortfolioRow(c: ApiCampaign, now: Date): PortfolioRow {
     total: c.deliverables.total,
     behind: isBehind(c, now),
     state: c.state,
+  };
+}
+
+/** The same campaign, as a card on the Campaigns list (P2-FE-01). */
+export function toCampaignRow(c: ApiCampaign, now: Date): CampaignRow {
+  const { done, total } = c.deliverables;
+  return {
+    id: c.id,
+    name: c.name,
+    pkg: c.package?.name ?? "Custom",
+    athletes: c.athletes,
+    done,
+    total,
+    pct: total ? Math.round((done / total) * 100) : 0,
+    spend: c.contracted ?? null,
+    views: null,
+    monogram: monogramOf(c.name),
+    endsIn: windowLabel(c, now),
+    state: c.state,
+    behind: isBehind(c, now),
   };
 }
 

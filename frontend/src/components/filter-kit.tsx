@@ -12,7 +12,8 @@ import { useEffect, useRef, useState } from "react";
    via static class maps so Tailwind sees every utility.
    -------------------------------------------------------------------------- */
 
-export type FilterTone = "athlete" | "admin" | "sponsor";
+/** Portal tints. The advisor desk uses "next" (one programme, one violet). */
+export type FilterTone = "athlete" | "admin" | "sponsor" | "property" | "next";
 
 const TONE = {
   athlete: {
@@ -29,6 +30,16 @@ const TONE = {
     chip: "border-sponsor/30 bg-sponsor/10",
     trigger: "border-sponsor/40",
     search: "focus:border-sponsor/50 focus-visible:ring-sponsor/30",
+  },
+  property: {
+    chip: "border-property/30 bg-property/10",
+    trigger: "border-property/40",
+    search: "focus:border-property/50 focus-visible:ring-property/30",
+  },
+  next: {
+    chip: "border-next/30 bg-next/10",
+    trigger: "border-next/40",
+    search: "focus:border-next/50 focus-visible:ring-next/30",
   },
 } satisfies Record<FilterTone, { chip: string; trigger: string; search: string }>;
 

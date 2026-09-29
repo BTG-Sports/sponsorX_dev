@@ -120,6 +120,9 @@ const PARAM_FOR: Record<string, string> = {
   assets: "1",
   /* GET /reward-tokens/{id}/qr-url (P6-FE-01). */
   "reward-tokens": A.token,
+  /* P3-BE-16 — no tenant-A change is seeded: an unknown id must answer
+     exactly as another tenant's would, so a made-up one is the right probe. */
+  "profile-changes": "pc_not_yours",
 };
 
 /**
@@ -164,6 +167,8 @@ const BODY: Record<string, unknown> = {
   "POST /earnings/{id}/adjustment": { adjustment: -100, reason: "cross-tenant" },
   "POST /athletes/{id}/guardian": { legalName: "X", email: "x@x.invalid", relationship: "PARENT" },
   "PUT /athletes/{id}/socials": { socials: [{ platform: "INSTAGRAM", handle: "stolen" }] },
+  "POST /athletes/{id}/profile-changes": { identity: { displayName: "Stolen Name" } },
+  "POST /profile-changes/{id}/decline": { reviewerNotes: "No." },
   "POST /guardians/{id}/verify": { method: "DOCUMENT" },
   "POST /agreements/accept": { agreementId: A.agreement, bodyHashShown: "x".repeat(64) },
   "POST /campaigns/{id}/rewards": { offerText: "Free taco", terms: "One per fan", expiresAt: "2026-12-01T00:00:00.000Z" },

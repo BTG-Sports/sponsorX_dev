@@ -999,6 +999,19 @@ Point the finished screens at the real database instead of mock data, keeping mo
 - **Done when:** An authenticated user loads an empty portal from Postgres; fixtures remain available for demo mode
 - **Reference:** Roadmap B0
 
+### ✅ `P2-FE-02` · Server-side pagination for every growing list
+
+**Order** 55.1 · **FE** · **Where:** Code · **3d** · **Done** · **Unblocks** 0
+
+Every portal list that can grow — campaigns, applications, deliverables, earnings, invitations, briefs, the roster, inventory, rewards, editions, students — asked the API for everything and sliced it in the browser. One page is now one request: the API answers `?page` / `?size` with `page: { page, size, total, pages }` (default 12, max 100) and the aggregates come from summary endpoints, never from folding the rows. The page controls sit above and below each list, with a 12 / 24 / 60 per-page choice, and the URL carries the state so a filtered page is shareable.
+
+*Raised 2026-09-29 by HeckerCreatives during P2-FE-01.*
+
+- **Depends on:** P2-FE-01
+- **Done when:** No portal list reads more than one page of rows from the API; every count on a list page is computed in the database over the caller's whole scope; the pager is above and below each list with a page-size choice; a stale or out-of-range `?page` clamps rather than errors; the tenant-scope and cross-tenant suites still pass
+- **Reference:** §9, §15, §26
+- **Note:** Keyset cursors (`?limit` / `?cursor`) remain on `/campaigns` for aggregators; offset paging is for screens. The memory note *pagination-pattern* records the convention.
+
 ### ▶ `P2-INT-02` · Enable MFA for privileged roles
 
 **Order** 56 · **INT** · **Where:** Vendor console · **1d** · **In progress** · **Unblocks** 0
@@ -1150,6 +1163,19 @@ Approving an application tells the athlete to sign in, but no SponsorX account e
 - **Depends on:** P3-BE-07
 - **Done when:** An approved applicant signs in with the email they applied with and lands in the athlete portal as that athlete; a linked guardian signs in as that guardian; approving creates no duplicate and never takes over an address another account already uses; it commits in the same transaction as the decision
 - **Reference:** §21, §4
+
+### ✅ `P3-BE-16` · Post-approval athlete profile edits (non-social sections)
+
+**Order** 65.7 · **BE** · **Where:** Code · **3d** · **Done** · **Unblocks** 0
+
+After approval only socials could be written (`PUT /athletes/:id/socials`); every other section of the live editor said "ask your BTG contact". An approved athlete can now propose a change to identity, sport, capabilities, interests and restrictions. The change is a record (`AthleteProfileChange`), not a write: the Athlete row — what the public profile, matching and the §26 conflict check read — moves only when BTG approves, in the same transaction as the audit rows (restrictions audited on their own) and the email to the athlete. One open request per athlete; a new one withdraws the old on the record. Legal name, contact and age facts stay BTG's.
+
+*Raised 2026-09-29 by HeckerCreatives during P2-FE-01.*
+
+- **Depends on:** P3-FE-03
+- **Done when:** An athlete can submit a change to each editable section from the live editor and see where it stands; public-facing changes reach the public profile only after BTG approves from the Profile changes desk; a restrictions change is audited separately and feeds the conflict check; declining requires reviewer notes the athlete is sent; the authorisation matrix pins `athleteProfileChange` and the tenant-isolation sweep refuses every new route across tenants
+- **Reference:** §11, §24, §26, RBAC Matrix §5
+- **Note:** Product decision (2026-09-29): every reviewed section goes through BTG, not only the public ones — restrictions and capabilities feed matching. Socials remain a direct, self-reported write.
 
 ### ◑ `P3-BE-13` · Athlete application submission — the public intake
 
@@ -1326,6 +1352,19 @@ The property portal shows a sample property behind a demo banner. GET /propertie
 - **Depends on:** P9-OPS-01
 - **Done when:** A property manager sees their own property's name, kind and roster; no sample property appears; another property's data is never shown
 - **Reference:** §8
+
+### ✅ `P3-FE-08` · Public athlete profile on real data for ACTIVE athletes
+
+**Order** 82.5 · **FE** · **Where:** Code · **1d** · **Done** · **Unblocks** 0
+
+`/athletes/[slug]` rendered real data only for FEATURED athletes; an ACTIVE athlete — and any unknown slug — got the fixture profile. The page now answers every slug from `GET /public/athletes/:slug`: an ACTIVE athlete renders the §11 public sections (display name, place, sport, socials with their provenance label, capabilities, interests) with "Request a proposal" as the one action; an unknown slug is a not-found; an API outage is an error page, never a stand-in athlete at a real URL.
+
+*Raised 2026-09-29 by HeckerCreatives during P2-FE-01: the live property pages did not link roster names here for this reason.*
+
+- **Depends on:** P9-BE-11
+- **Done when:** An ACTIVE athlete's public page shows their own public fields from Postgres, never a fixture; no legal name, contact, age, graduation year, rates or restrictions appear or are sent; minors follow the same rule as FEATURED; unknown slugs are a not-found
+- **Reference:** §9 screen 5, §22, §26
+- **Note:** The fixture profile view remains only as the in-portal preview's demo (`/athlete/profile`, signed-out).
 
 ### ⏸ `P3-FE-04` · Wire the athlete rate card view
 

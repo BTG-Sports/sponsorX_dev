@@ -1,19 +1,23 @@
 import { Card, SectionHeading, Badge } from "@/components/ui";
 import { AreaChart } from "@/components/charts";
 import { HeroBand, MiniChip } from "@/components/hero";
-import { ActivityExplorer } from "@/components/activity-explorer";
+import { ActivityExplorer, ServerActivityExplorer } from "@/components/activity-explorer";
 import { ExportReport } from "@/components/export-report";
 import { EmptyState, SkeletonPage } from "@/components/states";
 import { demoState } from "@/lib/demo";
 import { buildAthleteEarningsReport } from "@/lib/earnings-report-data";
 import { JOURNEY, when } from "@/lib/earnings-ui";
 import {
-  buckets,
-  career,
-  paidByMonth,
+  STATES,
+  activityExtras,
+  pagedQuery,
+  summaryBuckets,
   toActivityItem,
   type ApiEarning,
+  type ApiEarningsSummary,
+  type ApiPage,
 } from "@/lib/earnings-live";
+import { pageParams, type SearchParams } from "@/lib/list-query";
 import { apiFetch, fetchActor } from "@/server/api";
 import {
   athlete,
@@ -63,17 +67,37 @@ import {
    have no source here and are not shown; the PDF/XLSX export is hidden on
    live numbers (its model is fixture-built). Still status only — no bank or
    tax field exists in what the API sends.
+
+   SERVER-PAGED (2026-09-29). Live, nothing is fetched whole and totalled in
+   the browser: the hero, the journey and the trend come from
+   GET /earnings/summary (aggregated in Postgres over the athlete's whole
+   scope), and Recent activity is one page of GET /earnings?page= with the
+   explorer's search / status / type / date filters applied in the query.
    -------------------------------------------------------------------------- */
 
-async function liveEarnings(): Promise<ApiEarning[] | null> {
+type LiveEarnings = { summary: ApiEarningsSummary; rows: ApiEarning[]; page: ApiPage; year: number };
+
+async function liveEarnings(sp: SearchParams): Promise<LiveEarnings | null> {
   /* No catch — an outage is an error page, never fixtures dressed as the
      athlete's own money (QA pass 4 rule). */
   const who = await fetchActor();
   if (who.status !== "linked") return null;
   if (!who.actor.roles.some((r) => r === "ATHLETE" || r === "GUARDIAN")) return null;
-  const res = await apiFetch("/earnings");
-  if (!res.ok) throw new Error(`Earnings unavailable (${res.status}).`);
-  return ((await res.json()) as { earnings: ApiEarning[] }).earnings;
+  const year = new Date().getUTCFullYear();
+  const one = (v: string | string[] | undefined) => (typeof v === "string" ? v : "");
+  const extras = activityExtras(
+    { q: one(sp.q), status: one(sp.status), type: one(sp.type), from: one(sp.from), to: one(sp.to) },
+    year,
+  );
+  const [sumRes, listRes] = await Promise.all([
+    apiFetch(`/earnings/summary?year=${year}`),
+    apiFetch(`/earnings${pagedQuery(pageParams(sp), extras)}`),
+  ]);
+  if (!sumRes.ok) throw new Error(`Earnings unavailable (${sumRes.status}).`);
+  if (!listRes.ok) throw new Error(`Earnings unavailable (${listRes.status}).`);
+  const summary = (await sumRes.json()) as ApiEarningsSummary;
+  const list = (await listRes.json()) as { earnings: ApiEarning[]; page: ApiPage };
+  return { summary, rows: list.earnings, page: list.page, year };
 }
 
 /** Axis ticks in dollars ($2.8K), not the raw-cents "283K" `compact` gives. */
@@ -103,9 +127,10 @@ export default async function AthleteEarningsPage({
     </div>
   );
 
-  const live = demo === null ? await liveEarnings() : null;
+  const sp = await searchParams;
+  const live = demo === null ? await liveEarnings(sp) : null;
 
-  if (demo === "empty" || (live && live.length === 0)) {
+  if (demo === "empty" || (live && live.summary.count === 0)) {
     return (
       <div className="space-y-6">
         {heading}
@@ -120,21 +145,23 @@ export default async function AthleteEarningsPage({
 
   // This portal is scoped to the signed-in athlete; fixtures use one demo
   // athlete, so filter earning rows to them (the real query is tenant-scoped).
-  const mine = (live ? live.map(toActivityItem) : earningItems.filter((e) => e.athlete === athlete.displayName))
-    .sort((a, b) => when(b.updatedAt) - when(a.updatedAt));
-  const liveCareer = live ? career(live) : null;
-  const liveBuckets = live ? buckets(live) : null;
-  const year = new Date().getUTCFullYear();
-  const verifiedDeliverables = live
-    ? live.reduce((n, e) => n + e.order.deliverables.verified, 0)
-    : 0;
-  const totalDeliverables = live
-    ? live.reduce((n, e) => n + e.order.deliverables.total, 0)
-    : 0;
+  // Fixture mode sorts the sample client-side; live rows arrive one page at
+  // a time, already filtered and sorted by the API.
+  const mine = live
+    ? live.rows.map(toActivityItem)
+    : earningItems
+        .filter((e) => e.athlete === athlete.displayName)
+        .sort((a, b) => when(b.updatedAt) - when(a.updatedAt));
+  const liveCareer = live
+    ? (live.summary.career ?? { raised: 0, paid: 0, onTheWay: 0 })
+    : null;
+  const liveBuckets = live ? summaryBuckets(live.summary) : null;
+  const year = live?.year ?? new Date().getUTCFullYear();
+  const verifiedDeliverables = live?.summary.deliverables.verified ?? 0;
+  const totalDeliverables = live?.summary.deliverables.total ?? 0;
 
   // Seed the explorer's filters from the URL so filtered links stay
   // shareable; the island clamps stale values and keeps the URL in sync.
-  const sp = await searchParams;
   const one = (v: string | string[] | undefined) =>
     typeof v === "string" ? v : "";
 
@@ -145,7 +172,9 @@ export default async function AthleteEarningsPage({
 
   // Monthly earnings trend (Σ Earning by month — Postgres). Live: payouts
   // by the month they were PAID, this year, through this month.
-  const series = live ? paidByMonth(live, year).slice(0, new Date().getUTCMonth() + 1) : athleteEarningsTrend;
+  const series = live
+    ? (live.summary.paidByMonth?.months ?? Array.from({ length: 12 }, () => 0)).slice(0, new Date().getUTCMonth() + 1)
+    : athleteEarningsTrend;
   const trendPoints = series.map((a, i) => ({
     label: MONTH_LABELS[i] ?? "",
     a,
@@ -355,21 +384,38 @@ export default async function AthleteEarningsPage({
           title="Recent activity"
           hint={
             live
-              ? "Every earning, newest first — search or filter, click one for the full story."
+              ? "Every earning, most recent first — search or filter, click one for the full story."
               : "Search or filter your orders — click one for the full story. A sample of the cycle, not the career total."
           }
         />
-        <ActivityExplorer
-          items={mine}
-          demoParam={one(sp.demo) || undefined}
-          initial={{
-            q: one(sp.q),
-            from: one(sp.from),
-            to: one(sp.to),
-            status: one(sp.status),
-            type: one(sp.type),
-          }}
-        />
+        {live ? (
+          <ServerActivityExplorer
+            items={mine}
+            page={live.page}
+            year={year}
+            statusOptions={STATES.filter((s) => live.summary.byState[s]?.count)}
+            typeOptions={live.summary.jobNames}
+            initial={{
+              q: one(sp.q),
+              from: one(sp.from),
+              to: one(sp.to),
+              status: one(sp.status),
+              type: one(sp.type),
+            }}
+          />
+        ) : (
+          <ActivityExplorer
+            items={mine}
+            demoParam={one(sp.demo) || undefined}
+            initial={{
+              q: one(sp.q),
+              from: one(sp.from),
+              to: one(sp.to),
+              status: one(sp.status),
+              type: one(sp.type),
+            }}
+          />
+        )}
       </section>
 
       {/* ---------------------------------------------------------- trust bar */}

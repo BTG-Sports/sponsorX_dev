@@ -15,13 +15,20 @@ import {
   type InvoiceStatus,
 } from "@/lib/fixtures";
 import {
-  agingBuckets,
-  buckets,
+  agingRows,
+  pagedQuery,
+  summaryBuckets,
   STATES,
   type ApiEarning,
-  type ApiReconciliation,
+  type ApiEarningsSummary,
+  type ApiInvoiceRow,
+  type ApiPage,
+  type ApiReconciliationPage,
 } from "@/lib/earnings-live";
+import { pageParams, pageParamsFor, textParam, type ListKeys, type SearchParams } from "@/lib/list-query";
+import { ListFilter, ListSearch, PagerRow, PendingList, ServerList } from "@/components/server-pager";
 import { apiFetch, fetchActor } from "@/server/api";
+import { NotInRole, staffWithoutAccess } from "@/components/not-in-role";
 
 /* --------------------------------------------------------------------------
    Finance Workspace — §10.
@@ -48,19 +55,55 @@ import { apiFetch, fetchActor } from "@/server/api";
    one), and are not coded around. FINANCE does not see invoices — the
    2026-09-24 matrix decision (RBAC Matrix, `invoice`) — so for that role
    the invoice panels say so instead of showing zeros.
+
+   SERVER-PAGED (2026-09-29). Nothing is fetched whole and totalled here:
+   the tiles and the earnings flow come from GET /earnings/summary, and each
+   table is its own paged read with its own URL keys — athlete earnings
+   ?page ?size (plus ?q ?state), reconciliation ?rpage ?rsize, invoices
+   ?ipage ?isize. Reconciliation is computed per campaign in the database
+   (GET /earnings/reconciliation), so no campaign drops out past a cap, and
+   its `totals` carry Invoiced / Collected / aging over every campaign. For
+   FINANCE the two invoice routes answer 403 — the "BTG admin only" note.
    -------------------------------------------------------------------------- */
 
 const FINANCE_ROLES = ["SUPER_ADMIN", "BTG_ADMIN", "FINANCE"];
 
-async function liveBooks(): Promise<{ earnings: ApiEarning[]; campaigns?: ApiReconciliation[] } | null> {
+const RECON_KEYS: ListKeys = { page: "rpage", size: "rsize" };
+const INVOICE_KEYS: ListKeys = { page: "ipage", size: "isize" };
+
+type LiveBooks = {
+  summary: ApiEarningsSummary;
+  earnings: { earnings: ApiEarning[]; page: ApiPage };
+  recon: ApiReconciliationPage | null;
+  invoices: { invoices: ApiInvoiceRow[]; page: ApiPage } | null;
+  q: string;
+  state: string;
+};
+
+/** One API read. `allow403` turns the invoice gate's refusal into null —
+ *  the role simply doesn't see invoices; anything else not-ok is an error. */
+async function readJson<T>(path: string, allow403 = false): Promise<T | null> {
+  const res = await apiFetch(path);
+  if (allow403 && res.status === 403) return null;
+  if (!res.ok) throw new Error(`Earnings unavailable (${res.status}).`);
+  return (await res.json()) as T;
+}
+
+async function liveBooks(sp: SearchParams): Promise<LiveBooks | null> {
   /* No catch — an outage is an error page, never fixtures dressed as the
      real books (QA pass 4 rule). */
   const who = await fetchActor();
   if (who.status !== "linked") return null;
   if (!who.actor.roles.some((r) => FINANCE_ROLES.includes(r))) return null;
-  const res = await apiFetch("/earnings");
-  if (!res.ok) throw new Error(`Earnings unavailable (${res.status}).`);
-  return (await res.json()) as { earnings: ApiEarning[]; campaigns?: ApiReconciliation[] };
+  const q = textParam(sp, "q");
+  const state = textParam(sp, "state", STATES);
+  const [summary, earnings, recon, invoices] = await Promise.all([
+    readJson<ApiEarningsSummary>("/earnings/summary"),
+    readJson<{ earnings: ApiEarning[]; page: ApiPage }>(`/earnings${pagedQuery(pageParams(sp), { q, state })}`),
+    readJson<ApiReconciliationPage>(`/earnings/reconciliation${pagedQuery(pageParamsFor(sp, RECON_KEYS))}`, true),
+    readJson<{ invoices: ApiInvoiceRow[]; page: ApiPage }>(`/earnings/invoices${pagedQuery(pageParamsFor(sp, INVOICE_KEYS))}`, true),
+  ]);
+  return { summary: summary!, earnings: earnings!, recon, invoices, q, state };
 }
 
 const LIVE_INVOICE_TONE: Record<string, "neutral" | "primary" | "accent" | "danger"> = {
@@ -71,15 +114,17 @@ const LIVE_INVOICE_TONE: Record<string, "neutral" | "primary" | "accent" | "dang
   void: "neutral",
 };
 
-function LiveFinance({ earnings, campaigns }: { earnings: ApiEarning[]; campaigns?: ApiReconciliation[] }) {
-  const now = new Date();
-  const b = buckets(earnings);
+function LiveFinance({ books }: { books: LiveBooks }) {
+  const b = summaryBuckets(books.summary);
   const owed = STATES.filter((st) => st !== "PAID" && st !== "DISPUTED").reduce((n, st) => n + b[st].amount, 0);
   const attention = b.HELD.count + b.DISPUTED.count;
-  const invoiced = campaigns?.reduce((n, c) => n + c.invoiced, 0) ?? null;
-  const collected = campaigns?.reduce((n, c) => n + c.invoicePaid, 0) ?? null;
-  const rate = invoiced ? Math.round((100 * (collected ?? 0)) / invoiced) : null;
-  const invoices = (campaigns ?? []).flatMap((c) => c.invoices.map((i) => ({ ...i, campaign: c.name, sponsor: c.sponsorName })));
+  const campaigns = books.recon?.campaigns ?? null;
+  const totals = books.recon?.totals ?? null;
+  const invoiced = totals ? totals.invoiced : null;
+  const collected = totals ? totals.collected : null;
+  const rate = totals ? totals.rate : null;
+  const earnings = books.earnings.earnings;
+  const earningsFiltered = Boolean(books.q || books.state);
   const noInvoices = (
     <p className="text-[11px] leading-relaxed text-muted">
       Invoices are visible to BTG admin only — the 2026-09-24 decision in the RBAC matrix
@@ -88,6 +133,7 @@ function LiveFinance({ earnings, campaigns }: { earnings: ApiEarning[]; campaign
   );
 
   return (
+    <ServerList>
     <div className="space-y-6">
       <div>
         <h1 className="text-xl font-semibold tracking-tight">Finance</h1>
@@ -103,7 +149,7 @@ function LiveFinance({ earnings, campaigns }: { earnings: ApiEarning[]; campaign
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <StatTile label="Invoiced" value={invoiced === null ? "—" : money(invoiced)} sub={invoiced === null ? "BTG admin only" : "all campaigns · Zoho Books"} />
-        <StatTile label="Collected" value={collected === null ? "—" : money(collected)} sub={rate === null ? "BTG admin only" : `${rate}% of invoiced · Zoho Books`} />
+        <StatTile label="Collected" value={collected === null ? "—" : money(collected)} sub={totals === null ? "BTG admin only" : rate === null ? "nothing invoiced yet · Zoho Books" : `${rate}% of invoiced · Zoho Books`} />
         <StatTile label="Owed to athletes" value={money(owed)} sub="raised, not yet paid" />
         <StatTile label="Needs attention" value={String(attention)} sub="held / disputed" />
       </div>
@@ -112,9 +158,9 @@ function LiveFinance({ earnings, campaigns }: { earnings: ApiEarning[]; campaign
         <Card className="p-4">
           <p className="text-[11px] font-medium uppercase tracking-wide text-muted">Invoice aging</p>
           <div className="mt-3">
-            {campaigns ? (
-              invoices.some((i) => !["paid", "void"].includes(i.status.toLowerCase())) ? (
-                <HBarList rows={agingBuckets(campaigns, now).map((r, k) => ({ ...r, tone: k >= 2 ? "warn" : "primary" }))} />
+            {totals ? (
+              totals.aging.some((n) => n > 0) ? (
+                <HBarList rows={agingRows(totals.aging).map((r, k) => ({ ...r, tone: k >= 2 ? "warn" : "primary" }))} />
               ) : (
                 <p className="text-xs text-muted">Nothing outstanding.</p>
               )
@@ -143,12 +189,16 @@ function LiveFinance({ earnings, campaigns }: { earnings: ApiEarning[]; campaign
         </Card>
       </div>
 
-      {campaigns && (
+      {campaigns && books.recon && (
         <section>
           <SectionHeading
             title="Reconciliation"
             hint="Per campaign: what the orders sold, what Zoho invoiced and collected, and what athletes are owed and paid."
           />
+          <div className="mb-3">
+            <PagerRow page={books.recon.page} noun="Campaigns" tone="admin" position="top" keys={RECON_KEYS} />
+          </div>
+          <PendingList>
           <Card className="p-0">
             <div className="overflow-x-auto" tabIndex={0} role="region" aria-label="Finance — scrollable table">
               <table className="w-full min-w-[48rem] text-left">
@@ -164,6 +214,11 @@ function LiveFinance({ earnings, campaigns }: { earnings: ApiEarning[]; campaign
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-line-soft">
+                  {campaigns.length === 0 && (
+                    <tr>
+                      <td colSpan={7} className="px-4 py-6 text-center text-xs text-muted">No campaign has an earning yet.</td>
+                    </tr>
+                  )}
                   {campaigns.map((c) => {
                     const under = c.invoiced < c.contracted;
                     const over = c.invoiced > c.contracted;
@@ -194,15 +249,23 @@ function LiveFinance({ earnings, campaigns }: { earnings: ApiEarning[]; campaign
               </table>
             </div>
           </Card>
+          </PendingList>
+          <PagerRow page={books.recon.page} noun="Campaigns" tone="admin" position="bottom" keys={RECON_KEYS} />
         </section>
       )}
 
       <section>
         <SectionHeading title="Sponsor invoices" hint="§18 — from Zoho Books, inbound only; SponsorX never writes an invoice." />
-        <Card className={campaigns ? "p-0" : "p-4"}>
-          {!campaigns ? (
+        {books.invoices && books.invoices.page.total > 0 && (
+          <div className="mb-3">
+            <PagerRow page={books.invoices.page} noun="Invoices" tone="admin" position="top" keys={INVOICE_KEYS} />
+          </div>
+        )}
+        <PendingList>
+        <Card className={books.invoices ? "p-0" : "p-4"}>
+          {!books.invoices ? (
             noInvoices
-          ) : invoices.length === 0 ? (
+          ) : books.invoices.invoices.length === 0 ? (
             <p className="px-4 py-6 text-center text-xs text-muted">No invoices synced from Zoho yet.</p>
           ) : (
             <div className="overflow-x-auto" tabIndex={0} role="region" aria-label="Finance — scrollable table">
@@ -217,7 +280,7 @@ function LiveFinance({ earnings, campaigns }: { earnings: ApiEarning[]; campaign
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-line-soft">
-                  {invoices.map((i) => (
+                  {books.invoices.invoices.map((i) => (
                     <tr key={i.zohoInvoiceId}>
                       <td className="px-4 py-3 text-xs font-medium">{i.sponsor}</td>
                       <td className="px-4 py-3 text-xs text-muted">{i.campaign}</td>
@@ -235,10 +298,29 @@ function LiveFinance({ earnings, campaigns }: { earnings: ApiEarning[]; campaign
             </div>
           )}
         </Card>
+        </PendingList>
+        {books.invoices && books.invoices.page.total > 0 && (
+          <PagerRow page={books.invoices.page} noun="Invoices" tone="admin" position="bottom" keys={INVOICE_KEYS} />
+        )}
       </section>
 
       <section>
         <SectionHeading title="Athlete earnings" hint="§21 — status only, no tax ID or bank details (§26)" />
+        <div className="mb-3 flex flex-wrap items-center gap-2">
+          <ListSearch initial={books.q} label="Search earnings" placeholder="Athlete, campaign, sponsor, job or reference…" tone="admin" />
+          <ListFilter
+            param="state"
+            value={books.state}
+            label="Filter by status"
+            allLabel="All statuses"
+            options={STATES.map((st) => ({ value: st, label: EARNING_COPY[st] }))}
+            tone="admin"
+          />
+        </div>
+        <div className="mb-3">
+          <PagerRow page={books.earnings.page} noun="Earnings" tone="admin" position="top" filtered={earningsFiltered} />
+        </div>
+        <PendingList>
         <Card className="p-0">
           <div className="overflow-x-auto" tabIndex={0} role="region" aria-label="Finance — scrollable table">
             <table className="w-full min-w-[44rem] text-left">
@@ -254,6 +336,13 @@ function LiveFinance({ earnings, campaigns }: { earnings: ApiEarning[]; campaign
                 </tr>
               </thead>
               <tbody className="divide-y divide-line-soft">
+                {earnings.length === 0 && (
+                  <tr>
+                    <td colSpan={7} className="px-4 py-6 text-center text-xs text-muted">
+                      {earningsFiltered ? "No earning matches this search or status." : "No earnings raised yet."}
+                    </td>
+                  </tr>
+                )}
                 {earnings.map((e) => (
                   <tr key={e.id}>
                     <td className="px-4 py-3 text-xs font-medium">{e.athlete.displayName}</td>
@@ -276,12 +365,15 @@ function LiveFinance({ earnings, campaigns }: { earnings: ApiEarning[]; campaign
             </table>
           </div>
         </Card>
+        </PendingList>
+        <PagerRow page={books.earnings.page} noun="Earnings" tone="admin" position="bottom" filtered={earningsFiltered} />
         <p className="mt-2 text-[10px] leading-relaxed text-faint">
           Commission is BTG&rsquo;s cut: the sponsor price minus the athlete&rsquo;s net earning. The athlete never sees
           the sponsor price (§7.1).
         </p>
       </section>
     </div>
+    </ServerList>
   );
 }
 
@@ -309,6 +401,12 @@ export default async function AdminFinancePage({
   const demo = await demoState(searchParams);
   if (demo === "loading") return <SkeletonPage />;
   if (demo === "error") throw new Error("Demo error state");
+  /* C-1: a staff role this desk isn't for gets "not in your role", not the
+     sample desk. The demo stays for ?demo= and signed-out visitors. */
+  if (demo === null) {
+    const lacking = await staffWithoutAccess("/admin/finance");
+    if (lacking) return <NotInRole path="/admin/finance" title="Finance" roles={lacking} />;
+  }
 
   const heading = (
     <div>
@@ -320,8 +418,8 @@ export default async function AdminFinancePage({
     </div>
   );
 
-  const live = demo === null ? await liveBooks() : null;
-  if (live) return <LiveFinance earnings={live.earnings} campaigns={live.campaigns} />;
+  const live = demo === null ? await liveBooks(await searchParams) : null;
+  if (live) return <LiveFinance books={live} />;
 
   if (demo === "empty") {
     return (

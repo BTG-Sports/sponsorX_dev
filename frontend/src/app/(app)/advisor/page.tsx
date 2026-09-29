@@ -4,8 +4,9 @@ import { HeroBand } from "@/components/hero";
 import { EmptyState, SkeletonPage } from "@/components/states";
 import { demoState } from "@/lib/demo";
 import { apiFetch, fetchActor } from "@/server/api";
-import type { ApiStudent } from "@/lib/students-live";
-import { LiveAdvisorDesk, type ApiClaim } from "./live-advisor";
+import { apiListQuery, textParam } from "@/lib/list-query";
+import { CLAIM_KEYS, STUDENT_GROUP_KEYS, keyedListQuery, type StudentGroup } from "@/lib/students-live";
+import { LiveAdvisorDesk, type ClaimsPage, type StudentsPage } from "./live-advisor";
 
 const DESK_ROLES = ["ADVISOR", "SUPER_ADMIN", "BTG_ADMIN"];
 import {
@@ -48,15 +49,24 @@ export default async function AdvisorHomePage({
   if (!demo) {
     const who = await fetchActor();
     if (who.status === "linked" && who.actor.roles.some((r) => DESK_ROLES.includes(r))) {
-      const res = await apiFetch("/students");
+      /* Server-paged (2026-09-29): one page of one group (?group, ?q,
+         ?page, ?size) with the API's group counts, and the claims as a
+         second paged list (?cstate, ?cpage, ?csize). */
+      const sp = await searchParams;
+      const group = textParam(sp, "group", STUDENT_GROUP_KEYS) as StudentGroup | "";
+      const q = textParam(sp, "q");
+      const cstate = textParam(sp, "cstate", ["open"]) as "" | "open";
+      const [res, cRes] = await Promise.all([
+        apiFetch(`/students${apiListQuery(sp, { group, q })}`),
+        /* P9-FE-08 — claims on featured profiles at this school; a role
+           outside the claim matrix (403) simply has none to show. */
+        apiFetch(`/claims${keyedListQuery(sp, CLAIM_KEYS, { state: cstate === "open" ? "SUBMITTED" : "" })}`),
+      ]);
       if (!res.ok) throw new Error(`Students unavailable (${res.status}).`);
-      const { students } = (await res.json()) as { students: ApiStudent[] };
-      /* P9-FE-08 — claims on featured profiles at this school; a role outside
-         the claim matrix (403) simply has none to show. */
-      const cRes = await apiFetch("/claims");
       if (!cRes.ok && cRes.status !== 403) throw new Error(`Claims unavailable (${cRes.status}).`);
-      const claims = cRes.ok ? ((await cRes.json()) as { claims: ApiClaim[] }).claims : [];
-      return <LiveAdvisorDesk students={students} claims={claims} />;
+      const students = (await res.json()) as StudentsPage;
+      const claims = cRes.ok ? ((await cRes.json()) as ClaimsPage) : null;
+      return <LiveAdvisorDesk students={students} claims={claims} group={group} q={q} cstate={cstate} />;
     }
   }
 

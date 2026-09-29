@@ -19,6 +19,8 @@ import { requireActor } from "../../auth/actor";
 import { ForbiddenError } from "../../auth/errors";
 import { whereFor } from "../../auth/scope";
 import { prisma } from "../../db/client";
+import { ProfileChangeInput } from "../../contracts/profile-change";
+import { myProfileChanges, submitProfileChange } from "../../domain/athlete-profile-change";
 
 export const athletesRouter = Router();
 
@@ -79,4 +81,19 @@ export const getMyProfile: RequestHandler = async (req, res) => {
   });
 };
 
+/* P3-BE-16 — post-approval edits. `me/profile-changes` is the athlete's own
+   history (the editor's pending banner and last decision); the POST is
+   scoped through athlete.write, so the id can only be their own row (or a
+   guardian's ward). */
+export const getMyProfileChanges: RequestHandler = async (req, res) => {
+  res.json({ changes: await myProfileChanges(req.actor!) });
+};
+
+export const postProfileChange: RequestHandler<{ id: string }> = async (req, res) => {
+  const input = ProfileChangeInput.parse(req.body ?? {});
+  res.status(201).json(await submitProfileChange(req.actor!, req.params.id, input));
+};
+
 athletesRouter.get("/me", requireActor, getMyProfile);
+athletesRouter.get("/me/profile-changes", requireActor, getMyProfileChanges);
+athletesRouter.post("/:id/profile-changes", requireActor, postProfileChange);
