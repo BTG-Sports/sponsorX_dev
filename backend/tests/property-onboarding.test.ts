@@ -165,7 +165,8 @@ describe.skipIf(!hasDatabase)("property onboarding over the API", async () => {
 
       await call("PATCH", `/public/onboarding/${tok}`, { step: "payout", acknowledged: true });
       const terms = (await call("GET", `/public/onboarding/${tok}`)).json.terms;
-      expect(terms).toEqual({ agreementId: "po_terms", version: 1, bodyHash: HASH });
+      /* No file hashes to HASH, so the wording is withheld rather than shown mismatched. */
+      expect(terms).toEqual({ agreementId: "po_terms", version: 1, bodyHash: HASH, body: null });
       expect((await call("PATCH", `/public/onboarding/${tok}`, { step: "agreements", agreementId: "po_terms", bodyHashShown: "x".repeat(64) })).status).toBe(409);
       await call("PATCH", `/public/onboarding/${tok}`, { step: "agreements", agreementId: terms.agreementId, bodyHashShown: terms.bodyHash });
 
@@ -417,5 +418,17 @@ describe.skipIf(!hasDatabase)("property onboarding over the API", async () => {
       await call("POST", `/onboarding/${id}/decision`, { decision: "APPROVE" }, "po_reviewer");
       expect((await emails("Rollback FC")).map((e) => e.template)).toEqual(["onboarding.received"]);
     });
+  });
+});
+
+describe("the terms wording (2S1-FE-01)", () => {
+  it("is served from agreements/PROPERTY_TERMS.v1.txt only while it hashes to the stored version", async () => {
+    const { readFile } = await import("node:fs/promises");
+    const { createHash } = await import("node:crypto");
+    const body = await readFile(new URL("../agreements/PROPERTY_TERMS.v1.txt", import.meta.url), "utf8");
+    const { PROPERTY_TERMS_PLACEHOLDER } = await import("../worker/jobs/seed-environment.mts");
+    /* The seeded staging row hashes the placeholder — the file must be those exact words. */
+    expect(body).toBe(PROPERTY_TERMS_PLACEHOLDER);
+    expect(createHash("sha256").update(body).digest("hex")).toMatch(/^[0-9a-f]{64}$/);
   });
 });

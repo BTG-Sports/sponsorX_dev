@@ -74,6 +74,18 @@ export async function readBranding(actor: Actor): Promise<Branding> {
   return brandingView(row);
 }
 
+/** Whether the caller may change its tenant's branding — so the branding
+ *  screen shows a form or a read-only view up front (2S7-FE-03). */
+export async function mayWriteBranding(actor: Actor): Promise<boolean> {
+  try {
+    await assertMayWrite(actor);
+    return true;
+  } catch (error) {
+    if (error instanceof ForbiddenError) return false;
+    throw error;
+  }
+}
+
 /** `own` (a property manager) may brand only an outside organisation's tenant — never the operator's. */
 async function assertMayWrite(actor: Actor) {
   const scope = assertAllowed(actor, "tenantBranding", "write");

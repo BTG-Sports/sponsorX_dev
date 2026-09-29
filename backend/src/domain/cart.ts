@@ -78,8 +78,17 @@ export async function liveCart(tx: Prisma.TransactionClient, actor: Actor, actio
 }
 
 export async function currentCart(actor: Actor, now = new Date()) {
-  const cart = await prisma.$transaction((tx) => liveCart(tx, actor, "read", now));
-  return cart ? view(cart) : null;
+  return prisma.$transaction(async (tx) => {
+    const cart = await liveCart(tx, actor, "read", now);
+    if (!cart) return null;
+    /* 2S4-FE-01 — the live hold on this cart, if any, so the cart screen can
+       show itself frozen and link to checkout without re-reserving. */
+    const held = await tx.reservation.findFirst({
+      where: { tenantId: actor.tenantId, cartId: cart.id, state: "HELD", expiresAt: { gt: now } },
+      select: { id: true, expiresAt: true },
+    });
+    return { ...view(cart), activeReservation: held };
+  });
 }
 
 /** Open the sponsor's cart, or return the one already open. */

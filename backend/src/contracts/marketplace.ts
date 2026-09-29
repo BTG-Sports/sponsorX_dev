@@ -103,7 +103,9 @@ export const OfferResponseInput = z
     decision: z.enum(["ACCEPT", "DECLINE"]),
     termsHashShown: z.string().length(64).optional(),
     agreementId: z.string().min(1).optional(),
-    bodyHashShown: z.string().length(64).optional(),
+    /* The agreement's own fingerprint form ("sha256:<hex>"), as campaign.ts and
+       guardian.ts take it — a 64-char rule refused every real agreement. */
+    bodyHashShown: z.string().min(1).describe("Hash of the agreement text as rendered to the signer").optional(),
   })
   .meta({ id: "OfferResponseInput", description: "ACCEPT needs the terms hash shown and the agreement shown; it freezes the terms and schedules the deliverables." });
 

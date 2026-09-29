@@ -30,7 +30,7 @@ import {
   createListing, decideListing, getListing, listListings, submitListing, transitionListing, updateListing,
 } from "../../domain/listing";
 import { createOffer, getOffer, listOffers, respondToOffer, sendOffer, withdrawOffer } from "../../domain/offer";
-import { readBranding, requestLogoUpload, updateBranding } from "../../domain/branding";
+import { mayWriteBranding, readBranding, requestLogoUpload, updateBranding } from "../../domain/branding";
 import { allowedList, pageRequest, searchTerm } from "../../lib/paging";
 const ATHLETE_STATES = ["DRAFT", "SUBMITTED", "UNDER_REVIEW", "APPROVED", "CHANGES_REQUESTED", "REJECTED", "ACTIVE", "SUSPENDED", "FEATURED"] as const;
 
@@ -116,7 +116,9 @@ marketplaceRouter.post("/offers/:id/withdraw", requireActor, withdraw);
 marketplaceRouter.post("/offers/:id/respond", requireActor, respond);
 
 /* ── tenant branding ────────────────────────────────────────────────────── */
-const branding: RequestHandler = async (req, res) => { res.json(await readBranding(req.actor!)); };
+const branding: RequestHandler = async (req, res) => {
+  res.json({ ...(await readBranding(req.actor!)), canEdit: await mayWriteBranding(req.actor!) });
+};
 const setBranding: RequestHandler = async (req, res) => { res.json(await updateBranding(req.actor!, BrandingInput.parse(req.body))); };
 const logo: RequestHandler = async (req, res) => { res.status(201).json(await requestLogoUpload(req.actor!, LogoUploadInput.parse(req.body))); };
 marketplaceRouter.get("/branding", requireActor, branding);

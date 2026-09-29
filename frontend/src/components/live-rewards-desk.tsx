@@ -417,13 +417,24 @@ function QrPanel({ rewardId, actions, onClose }: { rewardId: string; actions: Ac
                   <div className="flex items-center justify-between gap-2">
                     <p className="min-w-0 truncate text-xs font-medium">{t.athlete?.displayName ?? "No athlete"}</p>
                     {t.qrReady ? (
-                      <button
-                        type="button"
-                        onClick={() => download(t.id)}
-                        className="shrink-0 rounded-lg border border-line px-2.5 py-1 text-[11px] font-medium text-text hover:bg-surface-2"
-                      >
-                        Download QR ↗
-                      </button>
+                      <span className="flex shrink-0 gap-1.5">
+                        {/* P6-ART-01 — poster, table tent and sticker, with this token's real code. */}
+                        <a
+                          href={`/print/reward?reward=${encodeURIComponent(rewardId)}&token=${encodeURIComponent(t.id)}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="rounded-lg border border-line px-2.5 py-1 text-[11px] font-medium text-text hover:bg-surface-2"
+                        >
+                          Print templates ↗
+                        </a>
+                        <button
+                          type="button"
+                          onClick={() => download(t.id)}
+                          className="rounded-lg border border-line px-2.5 py-1 text-[11px] font-medium text-text hover:bg-surface-2"
+                        >
+                          Download QR ↗
+                        </button>
+                      </span>
                     ) : (
                       <span className="shrink-0 text-[11px] text-faint">QR generating…</span>
                     )}
