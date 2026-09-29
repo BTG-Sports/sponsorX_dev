@@ -160,12 +160,18 @@ function visibleWhere(actor: Actor) {
 }
 
 export async function listOffers(actor: Actor) {
-  const rows = await prisma.offer.findMany({ where: visibleWhere(actor), select: SELECT, orderBy: { createdAt: "asc" } });
+  const rows = await prisma.offer.findMany({
+    /* tenant-scope: visibleWhere is whereFor(offer, read), narrowed. */
+    where: visibleWhere(actor), select: SELECT, orderBy: { createdAt: "asc" },
+  });
   return rows.map((r) => view(actor, r));
 }
 
 export async function getOffer(actor: Actor, id: string) {
-  const row = await prisma.offer.findFirst({ where: { AND: [visibleWhere(actor), { id }] }, select: SELECT });
+  const row = await prisma.offer.findFirst({
+    /* tenant-scope: visibleWhere is whereFor(offer, read), narrowed. */
+    where: { AND: [visibleWhere(actor), { id }] }, select: SELECT,
+  });
   if (!row) throw new ForbiddenError("offer", "read");
   /* 2S2-FE-03 — a SENT offer carries the agreement its acceptance signs (the
      tenant's current CAMPAIGN_ORDER terms, as GET /orders/:id serves them),

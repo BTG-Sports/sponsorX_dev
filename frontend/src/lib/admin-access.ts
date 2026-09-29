@@ -21,6 +21,11 @@ export const ADMIN_ACCESS: Record<string, { roles: string[]; who: string }> = {
   "/admin/rewards": { roles: ["SUPER_ADMIN", "BTG_ADMIN", "CAMPAIGN_MGR"], who: "BTG admins and campaign managers" },
   "/admin/finance": { roles: ["SUPER_ADMIN", "BTG_ADMIN", "FINANCE"], who: "BTG admins and Finance" },
   "/admin/commission": { roles: ["SUPER_ADMIN", "BTG_ADMIN"], who: "BTG admins" },
+  /* Phase 2 — property verification (2S1-FE-02) and the marketplace console
+     (2S7-FE-02): the API's propertyOnboarding and listing-approve are BTG_ADMIN
+     own-tenant and SUPER_ADMIN only. */
+  "/admin/onboarding": { roles: ["SUPER_ADMIN", "BTG_ADMIN"], who: "BTG admins" },
+  "/admin/marketplace": { roles: ["SUPER_ADMIN", "BTG_ADMIN"], who: "BTG admins" },
   "/admin/next": { roles: ["SUPER_ADMIN", "BTG_ADMIN", "SALES", "FINANCE"], who: "BTG admins, Sales and Finance" },
 };
 

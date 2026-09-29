@@ -121,6 +121,11 @@ export function SiteFooter() {
                     Athlete portal
                   </Link>
                 </li>
+                <li>
+                  <Link href="/onboarding" className="hover:text-muted">
+                    List your team or venue
+                  </Link>
+                </li>
               </ul>
             </div>
             <div>

@@ -118,6 +118,7 @@ export function PortalShell({
   nav,
   rootHref,
   orgName,
+  orgBrand,
   userName,
   userRole,
   children,
@@ -128,6 +129,9 @@ export function PortalShell({
   rootHref: string;
   /** Tenant / account the actor is acting for, e.g. "Under Armour". */
   orgName?: string;
+  /** 2S7-FE-03 — an outside organisation's own branding (GET /branding):
+   *  its logo beside its name and its colour on the name's dot. */
+  orgBrand?: { logoUrl: string | null; primaryColor: string | null };
   userName: string;
   userRole: string;
   children: ReactNode;
@@ -223,6 +227,12 @@ export function PortalShell({
             accentDot={accent.dot}
             portalLabel={accent.label}
           />
+          {orgBrand?.logoUrl && (
+            /* A plain <img>: the logo is a public-bucket URL, and next/image
+               optimisation is a host-specific primitive (stay host-portable). */
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={orgBrand.logoUrl} alt="" className="size-9 shrink-0 rounded-lg border border-line/70 bg-white object-contain p-0.5" />
+          )}
           <div className="min-w-0 flex-1">
             <p className="whitespace-nowrap text-[10px] uppercase leading-tight tracking-[0.2em] text-faint">
               Welcome back
@@ -231,7 +241,8 @@ export function PortalShell({
               {orgName ?? userName}
               <span
                 aria-hidden="true"
-                className={`ml-1.5 inline-block size-1.5 rounded-full align-middle ${accent.dot}`}
+                className={`ml-1.5 inline-block size-1.5 rounded-full align-middle ${orgBrand?.primaryColor ? "" : accent.dot}`}
+                style={orgBrand?.primaryColor ? { backgroundColor: orgBrand.primaryColor } : undefined}
               />
             </p>
           </div>
