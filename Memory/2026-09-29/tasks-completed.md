@@ -436,3 +436,12 @@ yet (the nav link and the desk's own count cover it for now).
   the teammate's workbook and re-applied my eight rows.
 - **Next batches:** printable QR templates (P6), then the Phase 2 screens
   whose backend exists. Phase 4 can't be connected — no backend exists.
+- **Batch 2 — `P6-ART-01` printable QR, made usable.** `/print/reward`
+  (admin access; "Print templates" beside "Download QR" in a reward's QR
+  panel) fills the poster 11×17, table tent 4×6 folded and sticker 3×3,
+  light or dark brand, with the token's real signed QR image, sized in real
+  inches (`@page`). Measured in the browser: QR 4.00 / 1.75 / 1.25 in. The
+  panel's padding adds 2 modules to the PNG's own 2 (quiet zone ≥ 4,
+  `lib/qr-print.ts`, tested). No sponsor logo is stored, so the sponsor's
+  name is the wordmark. Checked locally with a real QR from the worker's own
+  renderer (a live reward needs R2, which this Mac doesn't run).
