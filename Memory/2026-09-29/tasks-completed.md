@@ -327,3 +327,15 @@ Operations Board (`P7-FE-06`) and the briefs desk (`P4-FE-07`) in parallel with
   2026-09-29: S2 21, Done 221, Days left 89.
 - Not yet in the Phase 1 plan doc: definitions for `P2-FE-02`, `P3-BE-16`,
   `P3-FE-08`.
+
+## Tracker sync script runs on Windows (HeckerCreatives)
+
+- `scripts/tracker/tracker_sync.py`: `load_board` now closes openpyxl's
+  read-only workbook (the open handle made `board_at`'s temp-file unlink fail
+  with WinError 32), and `main()` forces UTF-8 stdout (the Slack emoji crashed
+  a cp1252 console). Tests 15/15; `notify` and `digest` dry-runs clean.
+- Why: the Slack/Sheet post for the `be0dd9a` push (P2-FE-01/P2-FE-02 Done,
+  P3-BE-16/P3-FE-08 raised) didn't go out — Actions is out of minutes. It can
+  now be sent by hand from Windows:
+  `notify --before 5650915 --after be0dd9a`, then `digest` (README has the
+  steps). Don't use `Run workflow` for it: `after~1` is the same board.
