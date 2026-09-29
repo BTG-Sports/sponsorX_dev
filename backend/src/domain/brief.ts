@@ -19,6 +19,7 @@ import { enqueue } from "../db/outbox";
 import { raiseSyncTask } from "./sync-tasks";
 import type { Actor } from "../auth/actor";
 import { assertAllowed, whereFor } from "../auth/scope";
+import { scopeFor } from "../auth/policy";
 import { ForbiddenError } from "../auth/errors";
 import {
   canTransitionBrief,
@@ -127,8 +128,14 @@ export async function transitionBrief(
   actor: Actor,
   briefId: string,
   to: BriefState,
+  reason?: string,
 ): Promise<{ id: string; state: BriefState }> {
   assertAllowed(actor, "campaignBrief", to === "CLOSED" ? "write" : "approve");
+  /* P4-FE-07 — BTG closing a brief says why; the queue shows it back and the
+     audit row keeps it. A sponsor withdrawing their own brief owes no reason. */
+  const closeReason = to === "CLOSED" ? reason?.trim() || null : null;
+  const staffClose = to === "CLOSED" && ["own-tenant", "any"].includes(scopeFor(actor.roles, "campaignBrief", "approve"));
+  if (staffClose && !closeReason) throw new BriefCloseReasonRequiredError();
 
   return prisma.$transaction(async (tx) => {
     const brief = await tx.campaignBrief.findFirst({
@@ -142,13 +149,13 @@ export async function transitionBrief(
 
     const updated = await tx.campaignBrief.update({
       where: { id: briefId },
-      data: { state: to as Prisma.CampaignBriefUpdateInput["state"] },
+      data: { state: to as Prisma.CampaignBriefUpdateInput["state"], ...(to === "CLOSED" ? { closeReason } : {}) },
       select: { id: true, state: true },
     });
 
     await audit(tx, actor, BRIEF_AUDIT_ACTIONS[to], "CampaignBrief", briefId, {
       before: { state: from },
-      after: { state: to },
+      after: { state: to, ...(closeReason ? { reason: closeReason } : {}) },
     });
 
     /* §18 rows 4–5 (P8-INT-01). Qualifying a brief opens its Zoho Deal;
@@ -184,3 +191,12 @@ const BRIEF_AUDIT_ACTIONS: Record<BriefState, `${string}.${string}`> = {
 
 export { BRIEF_AUDIT_ACTIONS };
 export * from "./brief-state";
+
+/** P4-FE-07 — BTG staff closing a brief must say why. */
+export class BriefCloseReasonRequiredError extends Error {
+  readonly status = 422;
+  constructor() {
+    super("Say why this brief is being closed — the reason is kept with it.");
+    this.name = "BriefCloseReasonRequiredError";
+  }
+}

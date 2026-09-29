@@ -58,8 +58,8 @@ const submitBrief: RequestHandler = async (req, res) => {
 
 /** POST /briefs/:id/transition — qualify, approve or close. */
 const moveBrief: RequestHandler<{ id: string }> = async (req, res) => {
-  const { to } = BriefTransitionInput.parse(req.body ?? {});
-  res.json(await transitionBrief(req.actor!, req.params.id, to));
+  const { to, reason } = BriefTransitionInput.parse(req.body ?? {});
+  res.json(await transitionBrief(req.actor!, req.params.id, to, reason));
 };
 
 /* --- brief reads (P4-FE-02) --------------------------------------------
@@ -70,24 +70,26 @@ const moveBrief: RequestHandler<{ id: string }> = async (req, res) => {
    their own briefs, BTG the tenant's. No rule lives here. */
 
 const BRIEF_SELECT = {
-  id: true, objective: true, state: true, budget: true,
+  id: true, objective: true, state: true, budget: true, closeReason: true,
   startDate: true, endDate: true, sports: true, stateCodes: true, categories: true,
   createdAt: true,
   sponsor: { select: { name: true } },
   package: {
-    select: { code: true, name: true, lineItems: true, athleteCountMin: true, athleteCountMax: true },
+    select: { code: true, name: true, lineItems: true, athleteCountMin: true, athleteCountMax: true, priceLow: true, priceHigh: true },
   },
   campaign: { select: { id: true, name: true, state: true } },
 } as const;
 
 type BriefRow = {
-  id: string; objective: string; state: string; budget: number;
+  id: string; objective: string; state: string; budget: number; closeReason: string | null;
   startDate: Date; endDate: Date; sports: string[]; stateCodes: string[]; categories: string[];
   createdAt: Date;
   sponsor: { name: string };
   package: {
     code: string; name: string; lineItems: unknown;
     athleteCountMin: number; athleteCountMax: number;
+    /** Whole dollars, the catalogue's own unit (P4-FE-07 shows it on the queue). */
+    priceLow: number; priceHigh: number;
   } | null;
   campaign: { id: string; name: string; state: string } | null;
 };
@@ -97,6 +99,7 @@ function briefOut(b: BriefRow) {
     id: b.id,
     objective: b.objective,
     state: b.state,
+    closeReason: b.closeReason,
     budget: b.budget,
     startDate: b.startDate.toISOString(),
     endDate: b.endDate.toISOString(),

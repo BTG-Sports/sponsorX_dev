@@ -45,6 +45,10 @@ type AthleteRow = {
 let rows: AthleteRow[] = [];
 let audits: Array<{ action: string; entityId: string; after: unknown }> = [];
 let outbox: Array<{ name: string; payload: Record<string, unknown> }> = [];
+/* P3-BE-15 — approval now provisions the athlete's login, so the fake holds users too. */
+type UserRow = { id: string; tenantId: string; email: string; roles: string[]; athleteId?: string | null; guardianId?: string | null; clerkId: string };
+let users: UserRow[] = [];
+let failOutbox = false;
 
 function freshRow(over: Partial<AthleteRow> = {}): AthleteRow {
   return {
@@ -77,6 +81,7 @@ vi.mock("../src/db/client", () => ({
       const stagedRows = rows.map((r) => ({ ...r }));
       const stagedAudits: typeof audits = [];
       const stagedOutbox: typeof outbox = [];
+      const stagedUsers = users.map((u) => ({ ...u }));
 
       const tx = {
         athlete: {
@@ -95,6 +100,26 @@ vi.mock("../src/db/client", () => ({
             return Promise.resolve(row);
           },
         },
+        user: {
+          findFirst: ({ where }: { where: { tenantId?: string; athleteId?: string; guardianId?: string; email?: { equals: string } } }) =>
+            Promise.resolve(
+              stagedUsers.find(
+                (u) =>
+                  (where.tenantId === undefined || u.tenantId === where.tenantId) &&
+                  (where.athleteId === undefined || u.athleteId === where.athleteId) &&
+                  (where.guardianId === undefined || u.guardianId === where.guardianId) &&
+                  (where.email === undefined || u.email.toLowerCase() === where.email.equals.toLowerCase()),
+              ) ?? null,
+            ),
+          create: ({ data }: { data: Omit<UserRow, "id"> }) => {
+            const row = { id: `user_${stagedUsers.length + 1}`, ...data };
+            stagedUsers.push(row);
+            return Promise.resolve({ id: row.id });
+          },
+        },
+        guardian: {
+          findFirst: () => Promise.resolve(null),
+        },
         auditLog: {
           create: ({ data }: { data: { action: string; entityId: string; after: unknown } }) => {
             stagedAudits.push({ action: data.action, entityId: data.entityId, after: data.after });
@@ -109,8 +134,10 @@ vi.mock("../src/db/client", () => ({
         },
       };
 
+      if (failOutbox) tx.outboxJob.create = () => Promise.reject(new Error("outbox down"));
       const result = await fn(tx); // throws => nothing below runs => rollback
       rows = stagedRows;
+      users = stagedUsers;
       audits = [...audits, ...stagedAudits];
       outbox = [...outbox, ...stagedOutbox];
       return result;
@@ -131,6 +158,8 @@ const admin: Actor = { userId: "user_admin", tenantId: "tenant_1", roles: ["BTG_
 const networkMgr: Actor = { userId: "user_nm", tenantId: "tenant_1", roles: ["NETWORK_MGR"] };
 
 beforeEach(() => {
+  users = [];
+  failOutbox = false;
   rows = [freshRow()];
   audits = [];
   outbox = [];
@@ -174,8 +203,8 @@ describe("the three decisions", () => {
     await approveApplication(admin, "ath_1");
 
     expect(rows[0]?.state).toBe("APPROVED");
-    expect(audits).toHaveLength(1);
-    expect(audits[0]?.action).toBe("athlete.approve");
+    /* The decision, then the login it provisions (P3-BE-15). */
+    expect(audits.map((a) => a.action)).toEqual(["athlete.approve", "user.provision"]);
 
     expect(outbox).toHaveLength(1);
     expect(outbox[0]?.name).toBe("notify.email");
@@ -326,7 +355,8 @@ describe("one decision, one transaction", () => {
        could not hold — this is the positive half of the same property. */
     expect(rows[0]?.state).toBe("APPROVED");
     expect(outbox).toHaveLength(1);
-    expect(audits).toHaveLength(1);
+    expect(audits).toHaveLength(2);
+    expect(users).toHaveLength(1);
   });
 
   it("carries an idempotency key derived from the decision, not the clock", async () => {
@@ -334,5 +364,60 @@ describe("one decision, one transaction", () => {
     expect(outbox[0]?.payload).toMatchObject({
       idempotencyKey: "athlete.approved:ath_1:APPROVED",
     });
+  });
+});
+
+/* --------------------------------------------------------------------------
+   P3-BE-15 — "An approved applicant signs in with the email they applied
+   with and lands in the athlete portal as that athlete; approving creates no
+   duplicate and never takes over an address another account already uses; it
+   commits in the same transaction as the decision."
+   (The sign-in half runs against real Postgres in athlete-login.test.ts.)
+   -------------------------------------------------------------------------- */
+describe("approval provisions the athlete's login (P3-BE-15)", () => {
+  it("creates an ATHLETE login for the applicant's own address, as an invitation to claim", async () => {
+    const out = await approveApplication(admin, "ath_1");
+    expect(out.login).toEqual({ athlete: "created", guardian: null });
+    expect(users).toHaveLength(1);
+    expect(users[0]).toMatchObject({ tenantId: "tenant_1", email: "shammah@example.com", roles: ["ATHLETE"], athleteId: "ath_1" });
+    expect(users[0]?.clerkId).toMatch(/^invite:[0-9a-f]{24}$/);
+  });
+
+  it("never takes over an address any account already holds, in any tenant", async () => {
+    users = [{ id: "u_other", tenantId: "tenant_2", email: "Shammah@Example.com", roles: ["SPONSOR_ADMIN"], clerkId: "clerk_x" }];
+    const out = await approveApplication(admin, "ath_1");
+    expect(out.login?.athlete).toBe("address-in-use");
+    expect(users).toEqual([{ id: "u_other", tenantId: "tenant_2", email: "Shammah@Example.com", roles: ["SPONSOR_ADMIN"], clerkId: "clerk_x" }]);
+    expect(rows[0]?.state).toBe("APPROVED");
+  });
+
+  it("creates no duplicate when the athlete already has their login", async () => {
+    users = [{ id: "u_own", tenantId: "tenant_1", email: "shammah@example.com", roles: ["ATHLETE"], athleteId: "ath_1", clerkId: "clerk_own" }];
+    const out = await approveApplication(admin, "ath_1");
+    expect(out.login?.athlete).toBe("already-linked");
+    expect(users).toHaveLength(1);
+  });
+
+  it("reports an applicant with no address instead of inventing one", async () => {
+    rows = [freshRow({ email: "" })];
+    const out = await approveApplication(admin, "ath_1");
+    expect(out.login?.athlete).toBe("no-email");
+    expect(users).toHaveLength(0);
+  });
+
+  it.each([
+    ["request changes", () => requestChanges(admin, "ath_1", "Add a photo.")],
+    ["reject", () => rejectApplication(admin, "ath_1", "Not eligible.")],
+  ])("%s gives nobody a login", async (_name, decide) => {
+    const out = await decide();
+    expect(users).toHaveLength(0);
+    expect((out as { login?: unknown }).login).toBeUndefined();
+  });
+
+  it("commits with the decision: a failed decision leaves no login behind", async () => {
+    failOutbox = true;
+    await expect(approveApplication(admin, "ath_1")).rejects.toThrow("outbox down");
+    expect(users).toHaveLength(0);
+    expect(rows[0]?.state).toBe("UNDER_REVIEW");
   });
 });

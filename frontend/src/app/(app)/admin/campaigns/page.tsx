@@ -16,6 +16,7 @@ import {
 import { JOBS, MATCH_BRIEF } from "@/lib/matching";
 import type { ApiCampaign } from "@/lib/sponsor-live";
 import { apiFetch, fetchActor } from "@/server/api";
+import { waitingSummary, type ApiBrief } from "@/lib/briefs-live";
 
 /* --------------------------------------------------------------------------
    Campaigns list — the admin "Campaigns" workspace (2026-09-15).
@@ -49,28 +50,71 @@ const DESK_ROLES = ["SUPER_ADMIN", "BTG_ADMIN", "CAMPAIGN_MGR", "NETWORK_MGR", "
    whole page out of scope. Anything else non-OK still throws to the error
    page — an outage is never fixtures dressed as real data. */
 type LiveResult =
-  | { kind: "ok"; campaigns: ApiCampaign[]; health: Health[] | null }
+  | { kind: "ok"; campaigns: ApiCampaign[]; health: Health[] | null; waiting: ReturnType<typeof waitingSummary> }
   | { kind: "denied" };
 
 async function liveCampaigns(): Promise<LiveResult | null> {
   const who = await fetchActor();
   if (who.status !== "linked") return null;
   if (!who.actor.roles.some((r) => DESK_ROLES.includes(r))) return null;
-  const [cRes, hRes] = await Promise.all([apiFetch("/campaigns"), apiFetch("/operations/delivery-health")]);
+  /* P4-FE-07 — briefs too, for the "waiting for matching" link; a role that
+     doesn't read briefs (403) simply gets no link. */
+  const [cRes, hRes, bRes] = await Promise.all([apiFetch("/campaigns"), apiFetch("/operations/delivery-health"), apiFetch("/briefs")]);
   if (cRes.status === 403) return { kind: "denied" };
   if (!cRes.ok) throw new Error(`Campaigns unavailable (${cRes.status}).`);
   if (!hRes.ok && hRes.status !== 403) throw new Error(`Delivery health unavailable (${hRes.status}).`);
+  if (!bRes.ok && bRes.status !== 403) throw new Error(`Briefs unavailable (${bRes.status}).`);
   return {
     kind: "ok",
     campaigns: ((await cRes.json()) as { campaigns: ApiCampaign[] }).campaigns,
     health: hRes.ok ? ((await hRes.json()) as { campaigns: Health[] }).campaigns : null,
+    waiting: bRes.ok ? waitingSummary(((await bRes.json()) as { briefs: ApiBrief[] }).briefs) : null,
   };
 }
 
 const STAFFING = new Set(["DRAFT", "STAFFING", "APPROVAL"]);
 const DELIVERING = new Set(["ACTIVE", "REPORTING"]);
 
-function LiveCampaignsList({ campaigns, health }: { campaigns: ApiCampaign[]; health: Health[] | null }) {
+/** P4-FE-07 — the link to briefs waiting on BTG. Hidden when nothing waits. */
+function BriefsWaiting({ waiting }: { waiting: NonNullable<ReturnType<typeof waitingSummary>> }) {
+  const parts = [
+    waiting.qualified ? `${waiting.qualified} qualified` : null,
+    waiting.approved ? `${waiting.approved} approved` : null,
+  ].filter(Boolean);
+  return (
+    <Link
+      href={waiting.toMatch ? "/admin/briefs?tab=QUALIFIED" : "/admin/briefs?tab=DRAFT"}
+      className="flex items-center gap-4 rounded-xl border border-primary/35 bg-gradient-to-r from-primary/15 via-surface to-surface px-4 py-3.5 transition-colors hover:border-primary/60"
+    >
+      <span className="grid size-10 shrink-0 place-items-center rounded-lg bg-primary/15 text-base font-semibold tabular-nums text-primary">
+        {waiting.toMatch || waiting.drafts}
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block text-[13px] font-semibold">
+          {waiting.toMatch
+            ? `${waiting.toMatch} ${waiting.toMatch === 1 ? "brief" : "briefs"} waiting for matching →`
+            : `${waiting.drafts} ${waiting.drafts === 1 ? "brief" : "briefs"} waiting to qualify →`}
+        </span>
+        <span className="mt-0.5 block text-[11px] text-muted">
+          {waiting.toMatch
+            ? `${parts.join(", ")}.${waiting.drafts ? ` Another ${waiting.drafts} ${waiting.drafts === 1 ? "is" : "are"} still in Draft, waiting to qualify.` : ""}`
+            : "Qualify a brief to send it to the Matching Studio."}
+        </span>
+      </span>
+      {waiting.drafts > 0 && <Badge tone="warn">{waiting.drafts} in Draft</Badge>}
+    </Link>
+  );
+}
+
+function LiveCampaignsList({
+  campaigns,
+  health,
+  waiting,
+}: {
+  campaigns: ApiCampaign[];
+  health: Health[] | null;
+  waiting: ReturnType<typeof waitingSummary>;
+}) {
   const byId = new Map((health ?? []).map((h) => [h.campaignId, h]));
   const groups = [
     { key: "attention", title: "Needs attention", items: campaigns.filter((c) => { const h = byId.get(c.id); return h && (h.underDeliveringWork || h.underDeliveringReach); }) },
@@ -94,6 +138,7 @@ function LiveCampaignsList({ campaigns, health }: { campaigns: ApiCampaign[]; he
           </p>
         )}
       </div>
+      {waiting && <BriefsWaiting waiting={waiting} />}
       {campaigns.length === 0 && (
         <p className="rounded-xl border border-line bg-surface px-5 py-10 text-center text-xs text-muted">
           No campaigns yet — an approved brief becomes one when its first invitations go out.
@@ -177,7 +222,7 @@ export default async function CampaignsListPage() {
       </div>
     );
   }
-  if (live) return <LiveCampaignsList campaigns={live.campaigns} health={live.health} />;
+  if (live) return <LiveCampaignsList campaigns={live.campaigns} health={live.health} waiting={live.waiting} />;
 
   const campaigns = Object.entries(campaignDetailX).map(([id, d]) => ({
     id,

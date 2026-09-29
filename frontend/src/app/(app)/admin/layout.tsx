@@ -7,6 +7,8 @@ import { isCommissionAdmin } from "@/lib/commission-live";
 const NAV: NavItem[] = [
   { href: "/admin", label: "Dashboard", icon: "grid" },
   { href: "/admin/applications", label: "Applications", icon: "users" },
+  /* P4-FE-07 — sponsor briefs, qualified here before the Matching Studio. */
+  { href: "/admin/briefs", label: "Briefs", icon: "mail" },
   { href: "/admin/campaigns", label: "Campaigns", icon: "megaphone" },
   { href: "/admin/approvals", label: "Approvals", icon: "inbox" },
   { href: "/admin/rewards", label: "Rewards", icon: "gift" },

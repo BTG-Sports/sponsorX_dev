@@ -71,3 +71,75 @@ No board task; tooling asked for by the programme owner.
   known local-only QA-02 lock-timing test.
 - **Gap found:** approving an athlete who applies through `/join` creates no
   login for them — the seed pre-creates Riley's and Maya's for that reason.
+
+## Walkthrough gaps raised as tasks; `P3-BE-15` built (rcfworks)
+
+- **Five rows added** (Phase 1 sheet rows 256–260, ranges extended to 260;
+  header now 256 tasks · 615 person-days; plan doc 196 · 465), all raised by
+  the programme owner from the staging walkthrough:
+  - `P3-BE-15` (BE, 1d): an approved athlete, and a linked guardian, get a
+    login. **Code review.**
+  - `P4-FE-07` (FE, 1d): qualify / approve / close a sponsor brief from the
+    admin workspace; the Campaigns page links to briefs waiting for matching.
+    Ready.
+  - `P3-FE-06` (FE, 3d): athlete portal home on real data. Ready.
+  - `P3-FE-07` (FE, 3d): property portal on the manager's own property. Ready.
+  - `P7-FE-06` (FE, 3d): admin Operations Board on real data. Ready.
+- **`P3-BE-15`.** `src/domain/athlete-login.ts`. Called inside
+  `reviewApplication`'s transaction on APPROVED — the only path to APPROVED,
+  so `/join`, cohort imports and featured-profile claims are all covered —
+  for the athlete and a linked guardian, and from `linkGuardian` when the
+  athlete is already APPROVED/ACTIVE (the second path). Rows are
+  invitations to claim (placeholder `clerkId`); an address held by any
+  account in any tenant is never taken over, and the decision's response
+  carries `login: { athlete, guardian }` (`created` / `already-linked` /
+  `address-in-use` / `no-email`). Audited as `user.provision`
+  (`AUDIT_ACTIONS.permission.loginProvision`). Approval email: "Sign in with
+  this email address". Tests: `tests/athlete-login.test.ts` (real Postgres,
+  sign-in through the identity path, incl. the late-guardian path) and seven
+  in `application.review.test.ts` (takeover, duplicate, no-email, other
+  decisions, rollback). Mutation-checked three ways. Full suite 1713 pass;
+  the one failure is the known local-only QA-02 lock-timing test.
+- **Frontend follow-up (not built):** the review panel does not yet show the
+  `login` outcome; `address-in-use` would be worth surfacing to reviewers.
+- Claude Design brief for the four FE screens handed to the programme owner.
+
+## The four walkthrough screens, built and wired (rcfworks) — Code review
+
+From the programme owner's Claude Design canvas
+(`claude.ai/artifact/FKsn5RzUa7pU3UNRa65yE3`), frontend built on the owner's
+explicit request, with the backend each needed:
+
+- **`P4-FE-07` Briefs queue.** `/admin/briefs` (new admin nav item):
+  state tabs + counts, search, sport filter, a detail panel (beside the list
+  on desktop, full screen on phone) with Qualify / Approve / Close with a
+  reason / Open in Matching Studio. Campaigns page: "N briefs waiting for
+  matching →", hidden at zero. **Backend:** `CampaignBrief.closeReason`
+  (migration `20260929120000_brief_close_reason`), required when BTG staff
+  close (422 otherwise; a sponsor withdrawing their own owes none), returned
+  by GET /briefs, kept on the `brief.close` audit row; package price added to
+  the brief list.
+- **`P7-FE-06` Operations Board.** `/admin` now reads the new
+  **GET /operations/board** (`src/domain/operations-board.ts`: applications
+  waiting / over 48h, deliverables in BTG review, briefs to qualify / to
+  match, held / disputed earnings — each through `whereFor`, `null` for a
+  role that doesn't read it tenant-wide, 403 for non-staff) plus the existing
+  delivery-health and integration-health reads. Sample GMV / growth / "median
+  brief → match" removed; Clerk dropped from integration health (no source).
+- **`P3-FE-06` Athlete home.** `/athlete` from `/athletes/me`,
+  `/invitations`, `/deliverables`, `/earnings`; a guardian sees their ward's
+  work without a profile block.
+- **`P3-FE-07` Property home.** `/property` from `/properties/mine` and
+  `/team/roster`. Inventory shows active/paused, not listing review status
+  (not on the item row).
+- **Checks.** Backend `tests/operations-board.test.ts` (9, two tenants, per
+  role, card = list; mutation-checked twice); isolation sweep now covers
+  /operations/board and closes with a reason so the tenant check is what
+  refuses; `zoho-sync.test.ts` closes with a reason. Frontend
+  `tests/gap-screens-live.test.ts` (17). Full suites: backend 1721 pass (the
+  one failure is the known local-only QA-02 lock test), frontend 392 pass,
+  build and lint clean. **Walked locally** (own Postgres + API + `next dev`,
+  test logins): every screen desktop and phone; qualify and close-with-reason
+  clicked for real; the qualified brief opens in the Matching Studio.
+- **Noted, not changed:** the Matching Studio titles a brief by its
+  objective text ("Pick who goes on Two basketball clinics…'s roster").

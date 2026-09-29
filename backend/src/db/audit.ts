@@ -93,6 +93,8 @@ export const AUDIT_ACTIONS = {
     roleGrant: "role.grant",
     roleRevoke: "role.revoke",
     tenantAccessGrant: "tenant.accessGrant",
+    /** P3-BE-15 — an approved athlete's (or linked guardian's) login, with its role. */
+    loginProvision: "user.provision",
   },
   /**
    * The guardian workflow for minors (P3-BE-03, §26, §37). Verification is an
