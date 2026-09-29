@@ -128,8 +128,12 @@ describe.skipIf(!hasDatabase)("Phase 2 orders over the API", { timeout: 60_000 }
     return reserved.json as { id: string; expiresAt: string; state: string };
   }
   const order = async (sponsor: string, lines: Parameters<typeof held>[1]) => {
-    const r = await call("POST", "/marketplace-orders", sponsor, { reservationId: (await held(sponsor, lines)).id });
+    const hold = await held(sponsor, lines);
+    expect((await call("GET", `/reservations/${hold.id}`, sponsor)).json.orderId).toBeNull();
+    const r = await call("POST", "/marketplace-orders", sponsor, { reservationId: hold.id });
     expect(r.status, r.text).toBe(201);
+    /* A converted hold names its order (2S4-FE-02). */
+    expect((await call("GET", `/reservations/${hold.id}`, sponsor)).json).toMatchObject({ state: "CONVERTED", orderId: r.json.id });
     return r.json;
   };
   const walk = async (id: string, states: string[]) => {
@@ -244,6 +248,8 @@ describe.skipIf(!hasDatabase)("Phase 2 orders over the API", { timeout: 60_000 }
       expect((await call("POST", "/cart/lines", "mo_s1_admin", { listingId: L.vip, quantity: 1, startsOn: at(10), endsOn: at(11) })).status).toBe(409);
       /* Reserving again returns the same hold, not a second one. */
       expect((await call("POST", "/cart/reserve", "mo_s1_admin")).json.id).toBe(hold.id);
+      /* The cart names its live hold (2S4-FE-01). */
+      expect((await call("GET", "/cart", "mo_s1_admin")).json.cart.activeReservation).toEqual({ id: hold.id, expiresAt: hold.expiresAt });
 
       /* All or nothing: a cart with one line that cannot be held holds nothing. */
       await call("POST", "/cart/lines", "mo_s2_admin", { listingId: L.sticker, quantity: 1, startsOn: at(10), endsOn: at(11) });

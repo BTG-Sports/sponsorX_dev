@@ -33,6 +33,7 @@ import {
   type StudentState,
 } from "./student-state";
 import { pointsFor, salesMilestonesCrossed, type PointReason } from "./student-points";
+import { provisionStudentLoginsIn } from "./athlete-login";
 import { readPage, type PageRequest } from "../lib/paging";
 
 export const MASTHEAD_ROLES = ["EDITOR", "WRITER", "PHOTOGRAPHER", "VIDEO", "DESIGNER", "SALES", "CORRESPONDENT"] as const;
@@ -151,7 +152,16 @@ export async function createStudent(actor: Actor, input: StudentInput): Promise<
  * the school's tenant, for that school's advisor to review. Returns only the
  * id and state: nothing the applicant sent is echoed back.
  */
-export async function applyAsStudent(input: Omit<StudentInput, "propertyId"> & { schoolSlug: string }): Promise<{ id: string; state: StudentState }> {
+export type StudentApplicationGuardian = { legalName: string; email: string; relationship: string };
+
+export async function applyAsStudent(
+  input: Omit<StudentInput, "propertyId"> & { schoolSlug: string; guardian?: StudentApplicationGuardian | null },
+): Promise<{ id: string; state: StudentState; guardianRequired: boolean }> {
+  /* P9-FE-06 — the minor rule, the athlete's own: a student under 18 applies
+     WITH a guardian, captured here and verified later by BTG before the
+     student can go ACTIVE (transitionStudent). */
+  const minor = requiresGuardian({ birthDate: input.birthDate ?? null, ageBand: input.ageBand ?? null });
+  if (minor && !input.guardian) throw new StudentApplicationGuardianMissingError();
   return prisma.$transaction(async (tx) => {
     const school = await tx.property.findFirst({
       /* tenant-scope: public application — the school's own tenant is the one the student joins. */
@@ -159,13 +169,34 @@ export async function applyAsStudent(input: Omit<StudentInput, "propertyId"> & {
       select: { id: true, tenantId: true },
     });
     if (!school) throw new NotASchoolError();
-    const { schoolSlug: _slug, ...fields } = input;
+    const { schoolSlug: _slug, guardian: g, ...fields } = input;
+    const guardian = minor && g
+      ? await tx.guardian.create({
+          data: { tenantId: school.tenantId, legalName: g.legalName, email: g.email.toLowerCase(), relationship: g.relationship },
+          select: { id: true },
+        })
+      : null;
     const student = await tx.student.create({
-      data: { tenantId: school.tenantId, propertyId: school.id, ...fields, email: fields.email?.toLowerCase() ?? null, state: "SUBMITTED" },
+      data: {
+        tenantId: school.tenantId, propertyId: school.id, ...fields, email: fields.email?.toLowerCase() ?? null,
+        state: "SUBMITTED", guardianId: guardian?.id ?? null,
+      },
       select: { id: true, state: true },
     });
-    return { id: student.id, state: student.state as StudentState };
+    await audit(tx, { tenantId: school.tenantId, userId: null }, "student.apply", "Student", student.id, {
+      after: { propertyId: school.id, guardianId: guardian?.id ?? null },
+    });
+    return { id: student.id, state: student.state as StudentState, guardianRequired: minor };
   });
+}
+
+/** P9-FE-06 — a student under 18 applies with a parent or guardian. */
+export class StudentApplicationGuardianMissingError extends Error {
+  readonly status = 422;
+  constructor() {
+    super("A student under 18 needs a parent or guardian on the application.");
+    this.name = "StudentApplicationGuardianMissingError";
+  }
 }
 
 export async function getStudent(actor: Actor, studentId: string) {
@@ -282,6 +313,10 @@ export async function transitionStudent(
       select: { id: true, state: true },
     });
     await audit(tx, actor, "student.transition", "Student", studentId, { before: { state: from }, after: { state: to } });
+    /* P9-FE-06 — approval is what makes a login worth having, the same rule
+       as athletes (P3-BE-15): the student's, and a linked guardian's, in the
+       decision's own transaction. */
+    if (to === "APPROVED") await provisionStudentLoginsIn(tx, actor, studentId);
     return { id: updated.id, state: updated.state as StudentState };
   });
 }

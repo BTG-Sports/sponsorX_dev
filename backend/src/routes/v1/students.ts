@@ -139,7 +139,7 @@ studentsRouter.post("/sponsors/:id/assigned-student", requireActor, assign);
 const apply: RequestHandler = async (req, res) => {
   await limit("student:apply", clientIp(req), 5, 3600);
   const b = StudentApplicationInput.parse(req.body);
-  res.status(201).json(await applyAsStudent({ ...b, birthDate: toDate(b.birthDate), masthead: b.masthead as MastheadRole[] }));
+  res.status(201).json(await applyAsStudent({ ...b, birthDate: toDate(b.birthDate), masthead: b.masthead as MastheadRole[], guardian: b.guardian ?? null }));
 };
 
 /** GET /public/s/:code — who sent this business, and from which school. */

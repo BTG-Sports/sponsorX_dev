@@ -30,7 +30,19 @@ export const StudentInput = z
   .meta({ id: "StudentInput" });
 
 export const StudentApplicationInput = z
-  .object({ schoolSlug: z.string().min(1).max(120), ...studentFields })
+  .object({
+    schoolSlug: z.string().min(1).max(120),
+    ...studentFields,
+    /** P9-FE-06 — required for a student under 18 (the athlete's minor rule), ignored otherwise. */
+    guardian: z
+      .object({
+        legalName: z.string().min(1).max(200),
+        email: z.email(),
+        relationship: z.enum(["PARENT", "LEGAL_GUARDIAN", "AUTHORIZED_REP"]),
+      })
+      .nullable()
+      .optional(),
+  })
   .meta({ id: "StudentApplicationInput", description: "The public 'Become the Media' application. Lands SUBMITTED for the school's advisor." });
 
 export const StudentTransitionInput = z

@@ -402,3 +402,110 @@ yet (the nav link and the desk's own count cover it for now).
 - The FEATURED branch was not re-walked (no FEATURED athlete in this local
   DB — Maya is the persona seed); its page code is unchanged and
   `next-rights.test.ts` covers the API shape.
+
+## All remaining design tasks designed; NEXT public pages built and wired (rcfworks)
+
+- **Designs (Claude Design, from the programme owner's one brief)** — all four
+  remaining ART tasks now at Code review with their canvases:
+  `P1-ART-08` NEXT public pages (JJ3fteuVxQM39Ysj7k7GAz), `P6-ART-01`
+  printable QR formats (UmkyjWppiZ2PPDoeJ5RnBU), `2S0-ART-01` the 14 Phase 2
+  screens (RNykbEaHgkiMppTXandrrB, 144 artboards), `4S0-ART-01` the 10
+  INFINEX screens (KBMLqnbXedfz6UiXTRC6Ue; the row says 12, the plan
+  defines 10). Phase 3 has no ART task.
+- **Batch 1 built — `P1-FE-24/25/26`, `P9-FE-06` (Code review).**
+  - `/next/about` landing — at /next/about because `(app)/next` is the
+    student portal (spec §8 put both at /next; one URL, two pages).
+  - `/next/apply` wizard, phone-first; guardian step on the API's own minor
+    rule; progress saved on the device. **Not built (noted):** emailed
+    resume link, guardian consent email, "my school isn't here" waitlist —
+    the copy promises none of them.
+  - `/next/schools` proposal, print-clean; contact `next@sponsorx.net` is
+    SIMULATED (`NEXT_CONTACT_EMAIL`).
+  - Backend: `POST /public/students/applications` now requires and captures
+    a minor's guardian (422 without); `transitionStudent → APPROVED` creates
+    the student's and guardian's logins (`athlete-login.ts`); new
+    `GET /public/next/schools` and `GET /public/next/editions`.
+  - Tests: backend `next-public-apply` (8, mutation-checked twice),
+    `next-students` updated to the guardian rule; frontend `next-apply` (9).
+    Walked locally: a 15-year-old applied on a phone and reached Ms. Patel's
+    advisor queue.
+- **Merged main_development in** (teammate's P2-FE-01/02 live reads and
+  paging, P3-BE-16/P3-FE-08). One import conflict in `student.ts`, both
+  kept. After the merge: backend 1872 pass (the known local QA-02 lock test
+  the one failure), frontend 484 pass, build and lint clean. Tracker: took
+  the teammate's workbook and re-applied my eight rows.
+- **Next batches:** printable QR templates (P6), then the Phase 2 screens
+  whose backend exists. Phase 4 can't be connected — no backend exists.
+- **Batch 2 — `P6-ART-01` printable QR, made usable.** `/print/reward`
+  (admin access; "Print templates" beside "Download QR" in a reward's QR
+  panel) fills the poster 11×17, table tent 4×6 folded and sticker 3×3,
+  light or dark brand, with the token's real signed QR image, sized in real
+  inches (`@page`). Measured in the browser: QR 4.00 / 1.75 / 1.25 in. The
+  panel's padding adds 2 modules to the PNG's own 2 (quiet zone ≥ 4,
+  `lib/qr-print.ts`, tested). No sponsor logo is stored, so the sponsor's
+  name is the wordmark. Checked locally with a real QR from the worker's own
+  renderer (a live reward needs R2, which this Mac doesn't run).
+
+## Phase 2 screens, wired (rcfworks, via Claude) — Code review
+
+Twelve Phase 2 screens from the Claude Design canvas (RNykbEaHgkiMppTXandrrB),
+on the live API only, no fixtures:
+
+| Task | Route | Who |
+|---|---|---|
+| 2S1-FE-01 | `/onboarding`, `/onboarding/<token>` (the path the changes-requested email links to) | public |
+| 2S1-FE-02 | `/admin/onboarding`, `/admin/onboarding/[id]` | BTG admin |
+| 2S7-FE-02 | `/admin/marketplace`, `/admin/marketplace/orders/[id]` | BTG admin |
+| 2S2-FE-02 | `/athlete/inventory`, `/property/inventory` | athlete, team manager |
+| 2S2-FE-03 | `/athlete/offers`, `/athlete/offers/[id]` | athlete |
+| 2S2-FE-04 | `/property/roster` | team manager |
+| 2S3-FE-01 | `/property/listings` (+ `/new`, `/[id]`) | team manager |
+| 2S5-FE-02 | `/property/earnings` | team manager |
+| 2S7-FE-01 | `/property/analytics` | team manager |
+| 2S7-FE-03 | `/property/branding` + the portal frame shows the org's name/logo/colour | team manager |
+| 2S4-FE-01 | `/sponsor/shop`, `/sponsor/cart` | sponsor |
+| 2S4-FE-02 | `/sponsor/checkout`, `/sponsor/orders`, `/sponsor/orders/[id]` | sponsor |
+
+Backend closed on the way (all tested):
+- **Leak fixed:** `termsSnapshot.line.sellPrice` reached the athlete after acceptance.
+- **Bug fixed:** `OfferResponseInput.bodyHashShown` took only 64 chars, so no real
+  agreement fingerprint (`sha256:<hex>`) could ever be accepted on an offer.
+- Athletes no longer see DRAFT offers.
+- New reads: property terms text on `GET /public/onboarding/:token`
+  (`agreements/PROPERTY_TERMS.v1.txt`); `sponsorName` + the CAMPAIGN_ORDER
+  agreement on `GET /offers/:id`; `activeReservation` on `GET /cart`; `orderId` on
+  a converted reservation; `canEdit` on `GET /branding`.
+- Seed: the Hawks are an approved marketplace property with two items and one live
+  listing; the Bowie Bay Sox's application waits in BTG's queue (contact
+  `baysox+clerk_test@example.com`, so approving it makes a working login).
+
+Verified locally in the browser, end to end, as the staging personas: apply →
+changes requested → resubmit → approve → new manager signs in and brands the
+portal; list → BTG approves → on sale; shop → cart → 15-min hold → place order →
+BTG approves (split frozen, ledger booked) → the Hawks' earnings show it; offer
+accepted against the real agreement text → Campaign Order; roster add + team share.
+
+Not built (no backend): offer "request a change", team-share/net on an offer,
+fee preview before placing, payment step, payouts, disputes; 2S6-FE-01 wallet stays
+Blocked. Phase 4 (INFINEX) screens have no backend at all.
+
+Pre-existing, not from this work: `tests/reward.reservations.test.ts` QA-02
+("expired" variant) fails on the commit before this batch too.
+
+Staging note: offer acceptance needs a CAMPAIGN_ORDER agreement registered in the
+tenant (`npm run agreement:register -w @sponsorx/backend -- <tenant> CAMPAIGN_ORDER 1`),
+as Phase 1 order acceptance already does.
+
+## Walkthrough re-cut to the agreed sign-up-to-payout story (rcfworks, via Claude)
+
+The walkthrough artifact (claude.ai/artifact/LPLmw7XkLWnutu7fBjM6jq) now follows
+the agreed simple SponsorX flow step by step (Harbor Coffee, Riley, the Hawks).
+Captured on a clean local database with the story's sample rates (platform 15%,
+management 5%, processing 2.9% + 30¢, referral 2%, reserve 10%, team 20%): the
+frozen split reads exactly $200 / $29.30 / $15.41 / Riley $604.24 ($542.58 +
+$61.66 reserve) / Hawks $151.05. 11 of 16 steps are real screens; steps 5, 11,
+14, 15 (Stripe) and Riley's own money view (12) are marked not built.
+
+Screen fixes found doing it (2S7-FE-02): BTG's order split now lists the athlete
+and the team as separate payees, each with available and reserve; BTG and the
+sponsor now quote the same order reference (SX-XXXXXXXX).

@@ -15,7 +15,8 @@
  * NO TAX ID, NO BANK DETAILS. The payout step records only that the
  * applicant acknowledged the payment provider collects them.
  */
-import { randomBytes } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
+import { readFile } from "node:fs/promises";
 
 import { z } from "zod";
 
@@ -25,6 +26,7 @@ import { audit } from "../db/audit";
 import { env } from "../config/env";
 import type { Actor } from "../auth/actor";
 import { assertTenantWide, whereFor } from "../auth/scope";
+import { agreementFile } from "./agreement-text";
 import { ForbiddenError } from "../auth/errors";
 import { issueOnboardingToken, readOnboardingToken } from "../lib/onboarding-token";
 import { send, type EmailTemplate } from "../lib/email";
@@ -165,8 +167,26 @@ export async function readOnboarding(token: string) {
   return prisma.$transaction(async (tx) => {
     const row = await byToken(tx, token);
     const terms = await currentTerms(tx, row.tenantId);
-    return { ...view(row), terms: terms ? { agreementId: terms.id, version: terms.version, bodyHash: terms.bodyHash } : null };
+    return {
+      ...view(row),
+      terms: terms ? { agreementId: terms.id, version: terms.version, bodyHash: terms.bodyHash, body: await termsBody(terms.version, terms.bodyHash) } : null,
+    };
   });
+}
+
+/** The words behind a PROPERTY_TERMS version — `agreements/PROPERTY_TERMS.v<n>.txt`,
+ *  served only while the file still hashes to the stored bodyHash (plain
+ *  sha256 hex, the form this wizard's acceptance compares). Null otherwise:
+ *  the wizard must not show words its acceptance would not match. */
+async function termsBody(version: number, bodyHash: string): Promise<string | null> {
+  const file = agreementFile(PROPERTY_TERMS_KIND, version);
+  if (!file) return null;
+  try {
+    const body = await readFile(file, "utf8");
+    return createHash("sha256").update(body).digest("hex") === bodyHash ? body : null;
+  } catch {
+    return null;
+  }
 }
 
 export type StepInput =
