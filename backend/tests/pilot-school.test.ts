@@ -133,3 +133,121 @@ describe.skipIf(!hasDatabase)("P9-OPS-01 · the pilot school and its advisor", a
     }
   });
 });
+
+/* --------------------------------------------------------------------------
+   Walkthrough personas — worker/jobs/seed-personas.mts.
+
+   Every persona's first sign-in claims its seeded row through the production
+   identity path and lands with the right roles and link, and each story
+   starts with the hand-over it promises: Riley in the review queue, Jordan in
+   the advisor's queue, Maya's featured profile public, the edition selling.
+   Kept in this file because the personas hang off the pilot school, and a
+   second file cleaning the same fixed ids in parallel would race this one.
+   -------------------------------------------------------------------------- */
+describe.skipIf(!hasDatabase)("walkthrough personas · every login works and every story has its hand-over", async () => {
+  const pg = (await import("pg")).default;
+  const { prisma } = await import("../src/db/client");
+  const { PILOT_SCHOOL, TENANT_ID, seedPilotSchool } = await import("../worker/jobs/seed-environment.mts");
+  const { PERSONAS, HAWKS, HARBOR, BOWIE, RILEY, MAYA, JORDAN, EDITION, EDITION_SLOTS, seedPersonas } =
+    await import("../worker/jobs/seed-personas.mts");
+  const { createApp } = await import("../src/app");
+
+  let createdTenant = false;
+  let server: ReturnType<ReturnType<typeof createApp>["listen"]>;
+  let base = "";
+  const get = (path: string, clerk: string, email?: string) =>
+    fetch(`${base}/api/v1${path}`, {
+      headers: { "x-test-clerk": clerk, ...(email ? { "x-test-email": email } : {}) },
+    });
+  const clerkOf = (userId: string) => `clerk_${userId}`;
+
+  async function clean() {
+    await prisma.user.deleteMany({ where: { id: { in: [...PERSONAS.map((p) => p.userId), PILOT_SCHOOL.advisorUserId] } } });
+    await prisma.adSlot.deleteMany({ where: { editionId: EDITION.editionId } });
+    await prisma.edition.deleteMany({ where: { id: EDITION.editionId } });
+    await prisma.publication.deleteMany({ where: { id: EDITION.publicationId } });
+    await prisma.student.deleteMany({ where: { id: JORDAN.studentId } });
+    await prisma.athlete.deleteMany({ where: { id: { in: [RILEY.athleteId, MAYA.athleteId] } } });
+    await prisma.guardian.deleteMany({ where: { id: { in: [JORDAN.guardianId, MAYA.guardianId] } } });
+    await prisma.sponsor.deleteMany({ where: { id: { in: [HARBOR.sponsorId, BOWIE.sponsorId] } } });
+    await prisma.property.deleteMany({ where: { id: HAWKS.propertyId } });
+    await prisma.rosterEntry.deleteMany({ where: { propertyId: PILOT_SCHOOL.propertyId } });
+    await prisma.property.deleteMany({ where: { id: PILOT_SCHOOL.propertyId } });
+    if (createdTenant) await prisma.tenant.deleteMany({ where: { id: TENANT_ID } });
+  }
+
+  beforeAll(async () => {
+    await clean();
+    createdTenant = !(await prisma.tenant.findUnique({ where: { id: TENANT_ID }, select: { id: true } }));
+    if (createdTenant) await prisma.tenant.create({ data: { id: TENANT_ID, name: "BTG Sports Group" } });
+    const pool = new pg.Pool({ connectionString: seededDb.TEST_DATABASE_URL });
+    const client = await pool.connect();
+    try {
+      await seedPilotSchool(client, TENANT_ID);
+      /* Twice: it runs on every worker boot. */
+      expect((await seedPersonas(client, TENANT_ID)).usersCreated).toBe(PERSONAS.length);
+      expect((await seedPersonas(client, TENANT_ID)).usersCreated).toBe(0);
+    } finally {
+      client.release();
+      await pool.end();
+    }
+    server = createApp().listen(0);
+    base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
+  });
+
+  afterAll(async () => {
+    server?.close();
+    await clean();
+  });
+
+  it("uses only Clerk test addresses, and the school id the environment seed uses", () => {
+    for (const p of PERSONAS) expect(p.email, p.who).toMatch(/^[a-z.]+\+clerk_test@example\.com$/);
+    expect(new Set(PERSONAS.map((p) => p.email)).size).toBe(PERSONAS.length);
+    expect(PERSONAS.find((p) => p.userId === "seed_user_p_patel")?.propertyId).toBe(PILOT_SCHOOL.propertyId);
+  });
+
+  it("every persona's first sign-in claims its row, with its roles and its link", async () => {
+    for (const p of PERSONAS) {
+      const res = await get("/me", clerkOf(p.userId), p.email);
+      expect(res.status, p.who).toBe(200);
+      expect(await res.json(), p.who).toMatchObject({
+        userId: p.userId, tenantId: TENANT_ID, roles: p.roles,
+        sponsorId: p.sponsorId ?? null, propertyId: p.propertyId ?? null, studentId: p.studentId ?? null,
+      });
+      /* /me does not echo the athlete and guardian links; the claimed row does. */
+      expect(await prisma.user.findUniqueOrThrow({
+        where: { id: p.userId }, select: { clerkId: true, athleteId: true, guardianId: true },
+      }), p.who).toEqual({ clerkId: clerkOf(p.userId), athleteId: p.athleteId ?? null, guardianId: p.guardianId ?? null });
+    }
+  });
+
+  it("marketplace story: Riley's application waits in the network manager's queue", async () => {
+    const res = await get("/applications?limit=100", clerkOf("seed_user_p_network"));
+    expect(res.status).toBe(200);
+    expect(await res.text()).toContain(RILEY.athleteId);
+  });
+
+  it("NEXT story: Jordan waits in Ms. Patel's queue, and only there", async () => {
+    const mine = await get("/students", clerkOf("seed_user_p_patel"));
+    expect(mine.status).toBe(200);
+    expect(await mine.text()).toContain(JORDAN.studentId);
+    /* The Hawks' manager is not Northside's advisor. */
+    const other = await get("/students", clerkOf("seed_user_p_hawks"));
+    expect(await other.text()).not.toContain(JORDAN.studentId);
+  });
+
+  it("NEXT story: the Fall 2026 edition is selling, every slot open, visible to Northside's student", async () => {
+    const res = await get(`/editions/${EDITION.editionId}/slots`, clerkOf("seed_user_p_jordan"));
+    expect(res.status).toBe(200);
+    const body = await res.text();
+    for (const [slotCode] of EDITION_SLOTS) expect(body).toContain(slotCode);
+    expect(await prisma.adSlot.count({ where: { editionId: EDITION.editionId, campaignId: null } })).toBe(EDITION_SLOTS.length);
+    expect((await prisma.edition.findUniqueOrThrow({ where: { id: EDITION.editionId }, select: { state: true } })).state).toBe("SELLING");
+  });
+
+  it("NEXT story: Maya's featured profile is public, ready to be claimed", async () => {
+    const res = await fetch(`${base}/api/v1/public/athletes/${MAYA.slug}`);
+    expect(res.status).toBe(200);
+    expect(await res.json()).toMatchObject({ slug: MAYA.slug, featured: true, claimable: true });
+  });
+});
