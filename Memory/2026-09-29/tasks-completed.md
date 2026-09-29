@@ -71,3 +71,35 @@ No board task; tooling asked for by the programme owner.
   known local-only QA-02 lock-timing test.
 - **Gap found:** approving an athlete who applies through `/join` creates no
   login for them — the seed pre-creates Riley's and Maya's for that reason.
+
+## Walkthrough gaps raised as tasks; `P3-BE-15` built (rcfworks)
+
+- **Five rows added** (Phase 1 sheet rows 256–260, ranges extended to 260;
+  header now 256 tasks · 615 person-days; plan doc 196 · 465), all raised by
+  the programme owner from the staging walkthrough:
+  - `P3-BE-15` (BE, 1d): an approved athlete, and a linked guardian, get a
+    login. **Code review.**
+  - `P4-FE-07` (FE, 1d): qualify / approve / close a sponsor brief from the
+    admin workspace; the Campaigns page links to briefs waiting for matching.
+    Ready.
+  - `P3-FE-06` (FE, 3d): athlete portal home on real data. Ready.
+  - `P3-FE-07` (FE, 3d): property portal on the manager's own property. Ready.
+  - `P7-FE-06` (FE, 3d): admin Operations Board on real data. Ready.
+- **`P3-BE-15`.** `src/domain/athlete-login.ts`. Called inside
+  `reviewApplication`'s transaction on APPROVED — the only path to APPROVED,
+  so `/join`, cohort imports and featured-profile claims are all covered —
+  for the athlete and a linked guardian, and from `linkGuardian` when the
+  athlete is already APPROVED/ACTIVE (the second path). Rows are
+  invitations to claim (placeholder `clerkId`); an address held by any
+  account in any tenant is never taken over, and the decision's response
+  carries `login: { athlete, guardian }` (`created` / `already-linked` /
+  `address-in-use` / `no-email`). Audited as `user.provision`
+  (`AUDIT_ACTIONS.permission.loginProvision`). Approval email: "Sign in with
+  this email address". Tests: `tests/athlete-login.test.ts` (real Postgres,
+  sign-in through the identity path, incl. the late-guardian path) and seven
+  in `application.review.test.ts` (takeover, duplicate, no-email, other
+  decisions, rollback). Mutation-checked three ways. Full suite 1713 pass;
+  the one failure is the known local-only QA-02 lock-timing test.
+- **Frontend follow-up (not built):** the review panel does not yet show the
+  `login` outcome; `address-in-use` would be worth surfacing to reviewers.
+- Claude Design brief for the four FE screens handed to the programme owner.

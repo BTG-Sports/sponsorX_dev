@@ -34,6 +34,7 @@ import { prisma } from "../db/client";
 import { athleteNotificationKey, send, type EmailTemplate } from "../lib/email";
 import { env } from "../config/env";
 import { transitionAthleteIn } from "./athlete";
+import { provisionAthleteLoginsIn, type LoginOutcome } from "./athlete-login";
 import type { AthleteState } from "./athlete-state";
 
 /** The three decisions §21 allows out of UNDER_REVIEW. */
@@ -104,7 +105,7 @@ export async function reviewApplication(
   athleteId: string,
   decision: ReviewDecision,
   reviewerNotes?: string,
-): Promise<{ id: string; state: AthleteState }> {
+): Promise<{ id: string; state: AthleteState; login?: { athlete: LoginOutcome; guardian: LoginOutcome | null } }> {
   /* The reviewer's own gate. `transitionAthleteIn` separately checks
      `athlete` write, which is the record being changed — this one is about
      the act of reviewing, and it is the cell §5 of the RBAC matrix actually
@@ -127,6 +128,12 @@ export async function reviewApplication(
     if (!applicant) throw new ForbiddenError("athleteApplication", "approve");
 
     const result = await transitionAthleteIn(tx, actor, athleteId, decision, notes);
+
+    /* P3-BE-15 — the approval email says "sign in to your portal", so the
+       login it points at must exist: the athlete's, and a linked guardian's.
+       Same transaction as the decision. The outcome goes back to the
+       reviewer, because "address-in-use" means this athlete cannot sign in. */
+    const login = decision === "APPROVED" ? await provisionAthleteLoginsIn(tx, actor, athleteId) : undefined;
 
     /* A claimed FEATURED athlete's email is set at verification, so every
        applicant reaching a decision has one; the guard is for the type, and a
@@ -152,7 +159,7 @@ export async function reviewApplication(
       ),
     });
 
-    return result;
+    return login ? { ...result, login } : result;
   });
 }
 

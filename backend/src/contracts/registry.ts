@@ -282,7 +282,7 @@ const PATHS: Row[] = [
   { method: "get", path: "/applications", tag: "Applications", summary: "The review queue.", query: z.object({ cursor: z.string().optional(), limit: z.coerce.number().int().optional(), state: AthleteState.optional() }) },
   { method: "get", path: "/applications/{id}", tag: "Applications", summary: "One application, as the review queue shows it.", response: AthleteApplicationSummary },
   { method: "post", path: "/applications/{id}/begin-review", tag: "Applications", summary: "Move an application into review." },
-  { method: "post", path: "/applications/{id}/approve", tag: "Applications", summary: "Approve an application.", body: ApproveApplicationInput },
+  { method: "post", path: "/applications/{id}/approve", tag: "Applications", summary: "Approve an application. Creates the athlete's login, and a linked guardian's (P3-BE-15); the response's login field says whether each can now sign in.", body: ApproveApplicationInput },
   { method: "post", path: "/applications/{id}/request-changes", tag: "Applications", summary: "Send an application back with required changes.", body: ApplicationDecisionNotes },
   { method: "post", path: "/applications/{id}/activate", tag: "Applications", summary: "Activate an approved athlete." },
   { method: "post", path: "/applications/{id}/reject", tag: "Applications", summary: "Reject an application, with reasons.", body: ApplicationDecisionNotes },
