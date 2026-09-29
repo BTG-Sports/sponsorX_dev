@@ -5,7 +5,7 @@
 | | |
 |---|---|
 | **Goal** | Launch real micro-NIL campaigns while building the data foundation. BTG staff run matching, pricing, conflict checks and invoicing; the software standardises and records every step. |
-| **Tasks** | 191 · 454 person-days |
+| **Tasks** | 196 · 465 person-days |
 | **Blueprint timeline** | 14–18 weeks |
 | **Balanced budget** | $75K–$105K |
 | **Depends on** | Nothing — this is the start |
@@ -1139,6 +1139,18 @@ The admin actions: approve, request changes, reject. Every decision recorded and
 - **Done when:** Admin can approve, request changes or reject; every transition is audited and notifies the applicant
 - **Reference:** §13, §23
 
+### ⏸ `P3-BE-15` · Give an approved athlete, and a linked guardian, a login
+
+**Order** 68.5 · **BE** · **Where:** Code · **1d** · **In progress** · **Unblocks** 0
+
+Approving an application tells the athlete to sign in, but no SponsorX account exists for them — the sign-in lands on "no SponsorX account". Approval creates the athlete's login (and a linked guardian's); a guardian linked after approval gets theirs then.
+
+*Raised 2026-09-29 by the programme owner from the staging walkthrough (sign-up to payout, played as each person).*
+
+- **Depends on:** P3-BE-07
+- **Done when:** An approved applicant signs in with the email they applied with and lands in the athlete portal as that athlete; a linked guardian signs in as that guardian; approving creates no duplicate and never takes over an address another account already uses; it commits in the same transaction as the decision
+- **Reference:** §21, §4
+
 ### ◑ `P3-BE-13` · Athlete application submission — the public intake
 
 **Order** 65.5 · **BE** · **Where:** Code · **3d** · **Code review**
@@ -1290,6 +1302,30 @@ Show real profile data and a completion meter that reflects what is actually fil
 - **Depends on:** P3-BE-04
 - **Done when:** Real profile data renders; the completion meter reflects actual §11 section state
 - **Reference:** §24
+
+### ⏸ `P3-FE-06` · Wire the athlete portal home to real data
+
+**Order** 76.5 · **FE** · **Where:** Code · **3d** · **Ready** · **Unblocks** 0
+
+The athlete home still shows a sample athlete behind a demo banner, while invitations, deliverables, earnings and profile are live on their own pages. The home should summarise the signed-in athlete's own figures.
+
+*Raised 2026-09-29 by the programme owner from the staging walkthrough (sign-up to payout, played as each person).*
+
+- **Depends on:** P3-FE-03, P4-FE-04, P7-FE-01
+- **Done when:** The home shows the signed-in athlete's own name, open invitations, deliverables due and earnings from the live reads; the demo banner is gone; a new athlete with nothing yet sees honest empty states
+- **Reference:** §9, §21
+
+### ⏸ `P3-FE-07` · Wire the property portal to the manager's own property
+
+**Order** 76.6 · **FE** · **Where:** Code · **3d** · **Ready** · **Unblocks** 0
+
+The property portal shows a sample property behind a demo banner. GET /properties/mine already returns the manager's property; the portal should render it, its roster and its inventory.
+
+*Raised 2026-09-29 by the programme owner from the staging walkthrough (sign-up to payout, played as each person).*
+
+- **Depends on:** P9-OPS-01
+- **Done when:** A property manager sees their own property's name, kind and roster; no sample property appears; another property's data is never shown
+- **Reference:** §8
 
 ### ⏸ `P3-FE-04` · Wire the athlete rate card view
 
@@ -1450,6 +1486,18 @@ The campaign builder: filter athletes, compare them, pick the roster.
 - **Depends on:** P4-BE-03
 - **Done when:** Campaign manager filters, reviews the eligible roster with score snapshots, and selects athletes
 - **Reference:** §9 screen 8
+
+### ⏸ `P4-FE-07` · Qualify and approve a sponsor brief from the admin workspace
+
+**Order** 94.5 · **FE** · **Where:** Code · **1d** · **Ready** · **Unblocks** 0
+
+A sponsor's brief arrives as DRAFT and the Matching Studio only shows QUALIFIED or APPROVED briefs, but no screen moves a brief on (POST /briefs/:id/transition has no caller). The Campaigns page also doesn't link to the Matching Studio while there are no campaigns.
+
+*Raised 2026-09-29 by the programme owner from the staging walkthrough (sign-up to payout, played as each person).*
+
+- **Depends on:** P4-BE-02, P4-FE-01
+- **Done when:** BTG staff see incoming briefs, can qualify, approve or close each one, and a qualified brief then opens in the Matching Studio; the Campaigns page links to briefs waiting for matching
+- **Reference:** §9 screen 8, §23
 
 ### ⏸ `P4-FE-03` · Wire the invitation send flow
 
@@ -2080,6 +2128,18 @@ The network-level analytics view for BTG.
 - **Depends on:** P7-DATA-05
 - **Done when:** Network-level and marketplace-learning metrics render
 - **Reference:** §22, §23
+
+### ⏸ `P7-FE-06` · Wire the admin Operations Board to real data
+
+**Order** 150.5 · **FE** · **Where:** Code · **3d** · **Ready** · **Unblocks** 0
+
+The admin home (Operations Board) is sample data behind a demo banner, including its queue counts. Its figures should come from the live reads the other admin pages already use.
+
+*Raised 2026-09-29 by the programme owner from the staging walkthrough (sign-up to payout, played as each person).*
+
+- **Depends on:** P7-FE-05
+- **Done when:** Every figure on the Operations Board comes from a live read or is removed; the queue counts match the Applications, Approvals, Campaigns and Finance pages; the demo banner is gone
+- **Reference:** §23
 
 ### ✅ `P7-QA-01` · E2E: deliverable → earnings → sponsor report
 

@@ -54,7 +54,7 @@ const TEMPLATES: Record<string, (d: Record<string, string>) => { subject: string
   }),
   "athlete.approved": (d) => ({
     subject: "You are in — welcome to the SponsorX Athlete Network",
-    text: `Hi ${d.firstName ?? "there"},\n\nYour application has been approved. You can sign in and complete your profile here:\n\n${d.portalUrl ?? ""}\n\nThe more complete your profile, the more campaigns you will be matched with.\n\n— BTG SponsorX`,
+    text: `Hi ${d.firstName ?? "there"},\n\nYour application has been approved. Sign in with this email address and complete your profile here:\n\n${d.portalUrl ?? ""}\n\nThe more complete your profile, the more campaigns you will be matched with.\n\n— BTG SponsorX`,
   }),
   "athlete.changesRequested": (d) => ({
     subject: "One thing to fix on your SponsorX application",

@@ -23,6 +23,7 @@ import { audit, AUDIT_ACTIONS } from "../db/audit";
 import type { Actor } from "../auth/actor";
 import { assertAllowed, assertTenantWide, whereFor } from "../auth/scope";
 import { ForbiddenError } from "../auth/errors";
+import { provisionGuardianLoginIn } from "./athlete-login";
 import {
   GUARDIAN_RELATIONSHIPS,
   guardianReadiness,
@@ -86,7 +87,7 @@ export async function linkGuardian(
   return prisma.$transaction(async (tx) => {
     const athlete = await tx.athlete.findFirst({
       where: { ...whereFor(actor, "athlete", "read"), id: athleteId },
-      select: { id: true, birthDate: true, ageBand: true, guardianId: true },
+      select: { id: true, birthDate: true, ageBand: true, guardianId: true, state: true },
     });
     if (!athlete) throw new ForbiddenError("athlete", "write");
     if (!requiresGuardian(athlete)) throw new GuardianNotRequiredError(athleteId);
@@ -115,6 +116,14 @@ export async function linkGuardian(
       before: { guardianId: athlete.guardianId },
       after: { guardianId: guardian.id, relationship: input.relationship },
     });
+
+    /* P3-BE-15 — the second path to a guardian login. Approval provisions a
+       guardian already linked; one linked AFTER approval would otherwise
+       never get a login, and cannot give the consent a minor's activation
+       waits on. */
+    if (athlete.state === "APPROVED" || athlete.state === "ACTIVE") {
+      await provisionGuardianLoginIn(tx, actor, guardian.id);
+    }
 
     return { guardianId: guardian.id };
   });
