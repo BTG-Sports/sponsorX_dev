@@ -147,24 +147,32 @@ export type ApiLineFinancials = {
   computedAt: string;
 };
 
-/** The split lines shown for each order line, in the order money leaves the gross. */
+/** The split lines shown for each order line: the sale, what comes off it,
+ *  and who is paid — for a roster athlete's item, the athlete and the team
+ *  separately, each with what is available now and what the reserve holds.
+ *  The payees and fees sum back to the sale exactly (the API's remainders). */
 export type SplitRow = { label: string; cents: number; sub?: boolean };
 export function splitRows(f: ApiLineFinancials): SplitRow[] {
-  const rows: SplitRow[] = [
-    { label: "Gross", cents: f.grossCents },
-    { label: "Discount", cents: -f.discountCents },
-    { label: "Net", cents: f.netCents },
-    { label: "Platform fee", cents: -f.platformFeeCents },
-    { label: "Management fee", cents: -f.managementFeeCents },
-    { label: "Processing", cents: -f.processingCents },
-    { label: "Referral", cents: -f.referralCents },
-    { label: "Property share", cents: f.propertyShareCents },
-    { label: "of which reserved", cents: f.reserveCents, sub: true },
-    { label: "of which available", cents: f.availableCents, sub: true },
-  ];
-  if (f.teamAvailableCents !== null || f.teamReserveCents !== null) {
-    rows.push({ label: "Team share available", cents: f.teamAvailableCents ?? 0, sub: true });
-    rows.push({ label: "Team share reserved", cents: f.teamReserveCents ?? 0, sub: true });
+  const rows: SplitRow[] = [{ label: "Sale", cents: f.grossCents }];
+  if (f.discountCents) rows.push({ label: "Discount", cents: -f.discountCents });
+  rows.push(
+    { label: "BTG platform fee", cents: -f.platformFeeCents },
+    { label: "BTG management fee", cents: -f.managementFeeCents },
+    { label: "Card processing", cents: -f.processingCents },
+    { label: "Referral fee", cents: -f.referralCents },
+  );
+  const payee = (label: string, available: number, reserve: number) => {
+    rows.push({ label, cents: available + reserve });
+    rows.push({ label: "available", cents: available, sub: true });
+    rows.push({ label: "held in reserve", cents: reserve, sub: true });
+  };
+  if (f.athleteId && (f.teamAvailableCents !== null || f.teamReserveCents !== null)) {
+    const teamAvailable = f.teamAvailableCents ?? 0;
+    const teamReserve = f.teamReserveCents ?? 0;
+    payee("Athlete", f.availableCents - teamAvailable, f.reserveCents - teamReserve);
+    payee(`Team (${(f.teamShareBps ?? 0) / 100}% of the athlete's share)`, teamAvailable, teamReserve);
+  } else {
+    payee("Property", f.availableCents, f.reserveCents);
   }
   return rows;
 }
@@ -200,7 +208,8 @@ export function isOverdue(fromIso: string | null | undefined, now: number): bool
   return !Number.isNaN(t) && now - t > OVERDUE_HOURS * 3_600_000;
 }
 
-export const shortId = (id: string) => id.slice(-6).toUpperCase();
+/** The order reference the sponsor sees ("SX-1A2B3C4D", lib/shop-live), so BTG and the buyer quote the same one. */
+export const shortId = (id: string) => `SX-${id.slice(-8).toUpperCase()}`;
 
 /** A staff refusal, as copy. */
 export function explainStaffRefusal(status: number, message: string | undefined): string {
