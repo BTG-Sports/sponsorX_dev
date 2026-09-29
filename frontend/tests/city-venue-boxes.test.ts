@@ -215,15 +215,28 @@ describe("baseball field", () => {
 });
 
 describe("pedestal", () => {
-  it("is one box covering the widest tier's ring and the full stack plus dais", () => {
+  it("is a body box covering the widest tier's ring and the full stack plus dais", () => {
     const boxes = venueBoxes(pedestal);
-    expect(boxes).toHaveLength(1);
+    expect(boxes).toHaveLength(2);
     const d = dims(world(boxes[0]));
     const rMax = 3.2 + VENUE_DIMS.pedestal.ringGap + VENUE_DIMS.pedestal.ringTube;
     expect(d[0]).toBeCloseTo(2 * rMax, 6);
     expect(d[2]).toBeCloseTo(2 * rMax, 6);
     expect(d[1]).toBeCloseTo(1.4 + VENUE_DIMS.pedestal.daisHeight, 6);
     expect(world(boxes[0]).min[1]).toBeCloseTo(pedestal.center[1], 6);
+  });
+
+  it("boxes the hologram letter above the dais, clear of the body and wide enough to turn", () => {
+    const [body, holo] = venueBoxes(pedestal);
+    const P = VENUE_DIMS.pedestal;
+    expect(holo.id).toMatch(/:hologram$/);
+    const wb = world(body);
+    const wh = world(holo);
+    expect(wh.min[1]).toBeCloseTo(wb.max[1] + P.hologramLift, 6);
+    expect(wh.max[1] - wh.min[1]).toBeCloseTo(P.hologramSize, 6);
+    const d = dims(wh);
+    expect(d[0]).toBeGreaterThanOrEqual(P.hologramSize);
+    expect(d[2]).toBeGreaterThanOrEqual(P.hologramSize);
   });
 
   it("renders nothing for an empty tier list", () => {

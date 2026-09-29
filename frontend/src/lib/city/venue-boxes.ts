@@ -76,6 +76,11 @@ export const VENUE_DIMS = {
     ringTube: 0.03,
     daisHeight: 0.6,
     daisInset: 0.15,
+    /** The rotating hologram "X" above the dais: overall size (width and
+     *  height of the letter), bar depth, and the gap above the dais top. */
+    hologramSize: 2.6,
+    hologramDepth: 0.4,
+    hologramLift: 0.9,
   },
   skyscraper: {
     crownRadius: 13,
@@ -257,17 +262,14 @@ function pedestal(spec: PedestalSpec): Placement[] {
   const kit = venueKit(spec);
   const rMax = Math.max(...spec.tiers.map((t) => t.radius)) + D.ringGap + D.ringTube;
   const height = spec.tiers.reduce((sum, t) => sum + t.height, 0) + D.daisHeight;
+  // The hologram rotates about +Y, so its footprint is the disc swept by the
+  // letter's half-width, and its box is that disc's square plus a margin.
+  const hr = D.hologramSize / 2 + 0.1;
+  const hy0 = height + D.hologramLift;
+  const base = { kit, position: spec.center, yaw: 0, zone: spec.kind } as const;
   return [
-    box({
-      kit,
-      part: "body",
-      mesh: "pedestal",
-      position: spec.center,
-      yaw: 0,
-      zone: spec.kind,
-      min: [-rMax, 0, -rMax],
-      max: [rMax, height, rMax],
-    }),
+    box({ ...base, part: "body", mesh: "pedestal", min: [-rMax, 0, -rMax], max: [rMax, height, rMax] }),
+    box({ ...base, part: "hologram", mesh: "pedestal-hologram", min: [-hr, hy0, -hr], max: [hr, hy0 + D.hologramSize, hr] }),
   ];
 }
 

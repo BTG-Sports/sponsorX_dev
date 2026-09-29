@@ -463,3 +463,10 @@ plan `docs/superpowers/plans/2026-09-29-landing-cyberpunk-city.md`.
   element from the live scene (plaza, court, pitch, diamond, forecourt, tower).
   Headless Chromium renders WebGL on the CPU and starves the page — screenshot
   with a headed browser.
+- **Header viewpoint + hologram (owner's follow-up, 2026-09-30):** the fixed
+  viewpoint is now low over the plaza paving (4.2, 1.35, 41) looking up at the
+  pedestal; above the dais floats a full 3D letter X hologram (two crossed
+  bars, translucent primary blue, scrolling scan-line alpha map, glowing edge
+  outline, projector cone), turning about +Y and bobbing — `pedestal.tsx`,
+  boxed in `venue-boxes.ts` (`:hologram`). `npm run build` green with the dev
+  server stopped; 534 → 535 frontend tests.

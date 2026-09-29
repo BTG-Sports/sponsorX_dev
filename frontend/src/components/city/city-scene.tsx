@@ -41,8 +41,11 @@ export interface CitySceneProps {
   onFrame?: (ms: number) => void;
 }
 
-const CAMERA_POSITION: [number, number, number] = [6, 7, 52];
-const LOOK_AT: [number, number, number] = [0, 14, -80];
+/** The header viewpoint: low over the plaza paving, a few metres south-east
+ *  of the pedestal, looking up at the hologram above it (the boulevard and
+ *  the skyscraper rise behind it). */
+const CAMERA_POSITION: [number, number, number] = [4.2, 1.35, 41];
+const LOOK_AT: [number, number, number] = [0, 3.4, 28];
 const BACKGROUND = "#070a12";
 const FOG = "#0b1020";
 const FOG_DENSITY: Record<Tier, number> = { desktop: 0.0055, lite: 0.008 };
