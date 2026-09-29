@@ -17,6 +17,7 @@ No board task; tooling asked for by the programme owner.
   since the typed `yes` is that approval. No new dependency.
 - **It does not wait for GitHub's checks** — they are refused while the
   Actions quota is exhausted (see 2026-09-28).
+- **Documented** in `documentation/SponsorX-Deployment-Runbook.md` §1, "Deploying by hand".
 - **Verified.** Dry run resolved both environments; a real staging-only run
   deployed `e73764a` to staging `api` + `web`, both SUCCESS. Production was
   not deployed by the test — it already ran the same code (`29bda05`; the

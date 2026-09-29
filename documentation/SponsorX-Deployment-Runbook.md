@@ -47,6 +47,33 @@ in Postgres, so a flushed Redis loses rate-limit counters and nothing else.
 **Expected duration:** under five minutes. Anything longer usually means the
 migration step is waiting on a lock — see §3.
 
+### Deploying by hand — `npm run deploy` (added 2026-09-29)
+
+Railway normally deploys on its own when `main` changes. When it doesn't, for
+example while GitHub's checks are not running, deploy from the VS Code
+terminal at the repo root:
+
+| Command | What it does |
+|---|---|
+| `npm run deploy staging` | Deploys `api` and `web` to **staging** only |
+| `npm run deploy production` | Deploys to staging first. When both are up, it asks you to type `yes`, then deploys the **same commit** to **production** (sponsorx.net) |
+| `npm run deploy dry run` | Shows which commit and services would deploy. Changes nothing |
+| `npm run deploy` | Prints the three commands above. Does nothing |
+
+- **It deploys what is on GitHub `main`**, never the files on your Mac.
+  Unmerged work cannot reach either environment this way, so merge first.
+- It prints each service's progress (building, deploying, success). If
+  anything fails, it stops before production and names the
+  `railway logs -d <id>` command to read why.
+- It uses your Railway login on this Mac. If it says you are not logged in,
+  run `railway login` once.
+- **It does not wait for GitHub's automatic checks.** Use it for code that
+  already passed them, or when you have decided to ship without them.
+- Steps 2–5 above still apply: migrations run as the pre-deploy step, and the
+  health checks are still worth a look afterwards.
+
+Script: [`scripts/deploy.mjs`](../scripts/deploy.mjs).
+
 ---
 
 ## 2 · Rollback
