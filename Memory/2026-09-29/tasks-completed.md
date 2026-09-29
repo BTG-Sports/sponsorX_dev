@@ -495,3 +495,17 @@ Pre-existing, not from this work: `tests/reward.reservations.test.ts` QA-02
 Staging note: offer acceptance needs a CAMPAIGN_ORDER agreement registered in the
 tenant (`npm run agreement:register -w @sponsorx/backend -- <tenant> CAMPAIGN_ORDER 1`),
 as Phase 1 order acceptance already does.
+
+## Walkthrough re-cut to the agreed sign-up-to-payout story (rcfworks, via Claude)
+
+The walkthrough artifact (claude.ai/artifact/LPLmw7XkLWnutu7fBjM6jq) now follows
+the agreed simple SponsorX flow step by step (Harbor Coffee, Riley, the Hawks).
+Captured on a clean local database with the story's sample rates (platform 15%,
+management 5%, processing 2.9% + 30¢, referral 2%, reserve 10%, team 20%): the
+frozen split reads exactly $200 / $29.30 / $15.41 / Riley $604.24 ($542.58 +
+$61.66 reserve) / Hawks $151.05. 11 of 16 steps are real screens; steps 5, 11,
+14, 15 (Stripe) and Riley's own money view (12) are marked not built.
+
+Screen fixes found doing it (2S7-FE-02): BTG's order split now lists the athlete
+and the team as separate payees, each with available and reserve; BTG and the
+sponsor now quote the same order reference (SX-XXXXXXXX).

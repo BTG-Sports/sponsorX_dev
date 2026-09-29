@@ -143,8 +143,8 @@ export default async function MarketplaceOrderPage({ params }: { params: Promise
                     <div key={l.id}>
                       <p className="text-xs font-medium">{l.title}</p>
                       <dl className="mt-1 divide-y divide-line-soft text-xs">
-                        {splitRows(f).map((r) => (
-                          <div key={r.label} className={`flex justify-between py-1 ${r.sub ? "pl-4 text-muted" : ""}`}>
+                        {splitRows(f).map((r, i) => (
+                          <div key={`${i}-${r.label}`} className={`flex justify-between py-1 ${r.sub ? "pl-4 text-muted" : ""}`}>
                             <dt>{r.label}</dt>
                             <dd className="tabular-nums">{usd(r.cents)}</dd>
                           </div>

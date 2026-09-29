@@ -68,17 +68,31 @@ describe("figures", () => {
     expect(isOverdue("2026-09-28T12:00:00Z", now)).toBe(false);
   });
 
-  it("lays out a line's split from the API's own figures", () => {
+  it("lays out a line's split from the API's own figures — fees and payees sum back to the sale", () => {
     const f: ApiLineFinancials = {
       lineId: "l1", grossCents: 18000, discountCents: 0, netCents: 18000, platformFeeCents: 1800, managementFeeCents: 900,
       processingCents: 552, propertyShareCents: 14748, referralCents: 0, reserveCents: 1475, availableCents: 13273,
       teamShareBps: null, teamAvailableCents: null, teamReserveCents: null, athleteId: null, computedAt: "2026-09-29T00:00:00Z",
     };
     const rows = splitRows(f);
-    expect(rows.find((r) => r.label === "Gross")?.cents).toBe(18000);
-    expect(rows.find((r) => r.label === "Platform fee")?.cents).toBe(-1800);
-    expect(rows.find((r) => r.label === "Property share")?.cents).toBe(14748);
-    expect(rows.some((r) => r.label.startsWith("Team share"))).toBe(false);
-    expect(splitRows({ ...f, teamShareBps: 2000, teamAvailableCents: 100, teamReserveCents: 10 }).filter((r) => r.label.startsWith("Team share"))).toHaveLength(2);
+    const top = (r: ReturnType<typeof splitRows>) => r.filter((x) => !x.sub && x.label !== "Sale").reduce((s, x) => s + Math.abs(x.cents), 0);
+    expect(rows.find((r) => r.label === "Sale")?.cents).toBe(18000);
+    expect(rows.find((r) => r.label === "BTG platform fee")?.cents).toBe(-1800);
+    expect(rows.find((r) => r.label === "Property")?.cents).toBe(14748);
+    expect(top(rows)).toBe(18000);
+
+    /* The walkthrough's order: Riley's $1,000 clinic, the Hawks at 20% (the API's own figures). */
+    const riley: ApiLineFinancials = {
+      ...f, grossCents: 100000, netCents: 100000, platformFeeCents: 15000, managementFeeCents: 5000, processingCents: 2930,
+      propertyShareCents: 77070, referralCents: 1541, reserveCents: 7707, availableCents: 67822,
+      athleteId: "riley", teamShareBps: 2000, teamAvailableCents: 13564, teamReserveCents: 1541,
+    };
+    const r = splitRows(riley);
+    const at = (label: string) => r.findIndex((x) => x.label === label);
+    expect(r[at("Athlete")].cents).toBe(60424);
+    expect(r[at("Athlete") + 1].cents).toBe(54258);
+    expect(r[at("Athlete") + 2].cents).toBe(6166);
+    expect(r.find((x) => x.label.startsWith("Team (20%"))?.cents).toBe(15105);
+    expect(top(r)).toBe(100000);
   });
 });
