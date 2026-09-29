@@ -49,7 +49,11 @@ export const CampaignBriefInput = z
   .meta({ id: "CampaignBriefInput", description: "What a sponsor asks for, before BTG turns it into a campaign." });
 
 export const BriefTransitionInput = z
-  .object({ to: BriefState })
+  .object({
+    to: BriefState,
+    /** P4-FE-07 — required when BTG staff close a brief; shown back on the queue. */
+    reason: z.string().trim().min(1).max(500).optional(),
+  })
   .meta({ id: "BriefTransitionInput" });
 
 export const CampaignFromBriefInput = z

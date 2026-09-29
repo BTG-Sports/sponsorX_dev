@@ -141,7 +141,7 @@ const BODY: Record<string, unknown> = {
     sponsorId: A.sponsor, objective: "Cross-tenant brief", budget: 100000,
     startDate: "2026-10-01", endDate: "2026-11-01", sports: [], stateCodes: [], categories: [],
   },
-  "POST /briefs/{id}/transition": { to: "CLOSED" },
+  "POST /briefs/{id}/transition": { to: "CLOSED", reason: "Isolation sweep" },
   "POST /briefs/{id}/campaign": { name: "Stolen campaign" },
   "POST /campaigns/{id}/transition": { to: "CANCELLED" },
   "POST /campaigns/{id}/invitations": { athleteId: A.athlete, jobId: A.job, offered: 20000 },
@@ -452,7 +452,7 @@ describe.skipIf(!hasDatabase)("P8-SEC-02 · tenant B cannot reach tenant A throu
   }, 120_000);
 
   it("list endpoints answer tenant B with tenant B's rows only", async () => {
-    for (const path of ["/applications", "/operations/delivery-health", "/operations/network-metrics", "/operations/job-economics"]) {
+    for (const path of ["/applications", "/operations/delivery-health", "/operations/network-metrics", "/operations/job-economics", "/operations/board"]) {
       const { status, text } = await hit("GET", path, "ti_b_admin");
       expect(status).toBe(200);
       expect(text).not.toContain("ti_athlete_a");
