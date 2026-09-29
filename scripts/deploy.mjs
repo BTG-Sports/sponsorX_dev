@@ -7,9 +7,9 @@
    It deploys what is on GitHub, never your local working tree — unmerged
    work cannot reach either environment this way.
 
-     npm run deploy                  staging, then production after "yes"
-     npm run deploy -- --staging     staging only
-     npm run deploy -- --dry-run     show what would deploy, change nothing
+     npm run deploy production   staging, then production after "yes"
+     npm run deploy staging      staging only
+     npm run deploy dry run      show what would deploy, change nothing
 
    Auth is the Railway CLI's own login (`railway login`). It does NOT wait
    for GitHub's checks: run it only for commits that already passed them,
@@ -26,9 +26,18 @@ const TIMEOUT_MS = 25 * 60_000;
 const DONE_OK = new Set(["SUCCESS", "SLEEPING"]);
 const DONE_BAD = new Set(["FAILED", "CRASHED", "REMOVED", "SKIPPED"]);
 
-const args = new Set(process.argv.slice(2));
-const dryRun = args.has("--dry-run");
-const stagingOnly = args.has("--staging");
+// "dry run", "dry-run", "--dry-run" and "dryrun" all mean the same thing.
+const mode = process.argv.slice(2).join("").toLowerCase().replace(/[^a-z]/g, "");
+const MODES = { staging: "staging", production: "production", prod: "production", dryrun: "dryrun" };
+if (!MODES[mode]) {
+  console.log(`Usage:
+  npm run deploy staging      deploy GitHub main to staging only
+  npm run deploy production   deploy to staging, then production after you type "yes"
+  npm run deploy dry run      show what would deploy, change nothing`);
+  process.exit(mode ? 1 : 0);
+}
+const dryRun = MODES[mode] === "dryrun";
+const stagingOnly = MODES[mode] === "staging";
 
 function fail(message) {
   console.error(`\n✗ ${message}`);
