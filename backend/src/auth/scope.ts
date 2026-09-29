@@ -499,6 +499,8 @@ const BUILDERS: Partial<Record<Resource, Builder>> = {
 
   /* Rates hang off an athlete exactly as socials and scores do. */
   athleteRate: (actor, scope) => nestedUnderAthlete(actor, scope),
+  /* P3-BE-16 — a proposed edit hangs off the athlete it would change. */
+  athleteProfileChange: (actor, scope) => nestedUnderAthlete(actor, scope),
 
   campaignOrder: (actor, scope) => {
     switch (scope) {

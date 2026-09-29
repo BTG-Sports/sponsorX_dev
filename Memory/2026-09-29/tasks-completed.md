@@ -324,7 +324,8 @@ Operations Board (`P7-FE-06`) and the briefs desk (`P4-FE-07`) in parallel with
   HeckerCreatives), `P2-FE-02` Done (row 261). My raised rows collided with
   rcfworks' `P3-BE-15`/`P3-FE-06` and are renumbered **`P3-BE-16`** and
   **`P3-FE-08`** (Ready). Ranges extended to row 263. Stage Progress
-  2026-09-29: S2 21, Done 221, Days left 89.
+  2026-09-29: S2 21, Done 221, Days left 89 (that figure counted Dropped
+  weight; the end-of-day row below uses the tracker script's definition).
 - Not yet in the Phase 1 plan doc: definitions for `P2-FE-02`, `P3-BE-16`,
   `P3-FE-08`.
 
@@ -339,3 +340,65 @@ Operations Board (`P7-FE-06`) and the briefs desk (`P4-FE-07`) in parallel with
   now be sent by hand from Windows:
   `notify --before 5650915 --after be0dd9a`, then `digest` (README has the
   steps). Don't use `Run workflow` for it: `after~1` is the same board.
+
+## `P3-BE-16` · Post-approval profile edits, and `P3-FE-08` · ACTIVE public profile (HeckerCreatives)
+
+The two tasks I raised this morning, closing my Phase 1 list.
+
+**`P3-BE-16` — change requests, reviewed by BTG.** Product decision: the
+board's acceptance ("public-facing changes reach the public profile only
+after BTG approves") settles the open question — a change-request model, and
+*every* reviewed section goes through BTG (restrictions and capabilities feed
+matching and the §26 conflict check, not only the public page).
+- `AthleteProfileChange` (migration `20260929180000`): `sections`, `fields`
+  Json (column → proposed value, only what differs), `note`, state
+  PENDING/APPROVED/DECLINED/WITHDRAWN, reviewer notes/by/at.
+- Resource `athleteProfileChange` in policy.ts + scope.ts (nested under the
+  athlete: ATHLETE own, GUARDIAN ward, BTG_ADMIN/NETWORK_MGR own-tenant ×3,
+  SUPER_ADMIN any). RBAC doc §5 row added first; matrix digest →
+  `dde2dbbea5dc8018` (grid without the new rows still hashes to the old
+  `49b852630719d073` — nothing else moved).
+- `domain/athlete-profile-change.ts`: submit (post-approval states only,
+  drops unchanged fields → 422 if nothing changes, supersedes an open one on
+  the record), withdraw, my list (cap 10), paged desk list with the
+  athlete's `current` values, decide (approve writes the Athlete row in the
+  same tx, audits `athlete.restrictionsSet` separately; decline needs
+  notes) + emails `athlete.profileChangeApproved/Declined` (worker templates
+  added).
+- Routes: `GET /athletes/me/profile-changes`, `POST /athletes/:id/profile-changes`,
+  `GET /profile-changes?page&size&state`, `POST /profile-changes/:id/approve|decline|withdraw`
+  — registry + openapi coverage list + tenant-isolation PARAM/BODY maps.
+- Frontend: `/admin/profile-changes` desk (NETWORK_MGR/BTG_ADMIN/SUPER_ADMIN via
+  admin-access + nav; server-paged, "now → proposed" table, §26 badge on
+  restriction changes, Approve / Decline-with-notes island); the live editor
+  now has forms for identity (legal name read-only), sport, capabilities,
+  interests, restrictions → "Send to BTG for review", a banner for the open /
+  last-decided request with Withdraw. Pre-approval athletes are told the
+  application is what changes.
+- Tests: `backend/tests/profile-change.test.ts` (16), authz matrix/coverage,
+  tenant-isolation (all six routes refused across tenants),
+  `frontend/tests/profile-changes-live.test.ts` (6).
+
+**`P3-FE-08` — ACTIVE athletes on real data.** `publicProfile` now selects
+the §11 public sections (city, level, achievements, capabilities, interests,
+socials with source) — still no legal name, contact, birth date, band, grad
+year, rates or restrictions. `/athletes/[slug]`: `fetchPublicAthlete` answers
+ok / missing / down; missing → `notFound()`, down → error boundary, ACTIVE →
+new `active-profile.tsx` ("Request a proposal" → `/brief`), FEATURED
+unchanged. The fixture profile is no longer reachable on this route.
+
+**Bookkeeping.** Tracker: both Done (owner HeckerCreatives, 2026-09-29);
+snapshot row for 2026-09-29 replaced with the end-of-day numbers. Phase 1
+doc: definitions added for `P2-FE-02`, `P3-BE-16`, `P3-FE-08` (they had
+none). Not done: the Operations Board has no "profile changes" queue card
+yet (the nav link and the desk's own count cover it for now).
+- Verified: `npm run build` clean; `next start` smoke — `/athletes/jordan-reed`
+  and `/athletes/sam-ellis` (ACTIVE adult / minor) render live with no legal
+  name, age or rates in the HTML; `/athletes/nobody-here` renders the
+  not-found page. NB the response status is 200, not 404: the `(public)`
+  `loading.tsx` streams the shell before `notFound()` can run — the same
+  behaviour as `/properties/[slug]` and the other public pages. A real 404
+  would need that boundary removed for these routes; not done today.
+- The FEATURED branch was not re-walked (no FEATURED athlete in this local
+  DB — Maya is the persona seed); its page code is unchanged and
+  `next-rights.test.ts` covers the API shape.

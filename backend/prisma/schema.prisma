@@ -418,9 +418,49 @@ model Athlete {
   inventory    InventoryItem[]
   offers       Offer[]
   restrictions BrandRestriction[]
+  /// P3-BE-16 — the athlete's own post-approval edits, held for BTG review.
+  profileChanges AthleteProfileChange[]
 
   @@index([tenantId, state])
   @@index([tenantId, sport, stateCode])
+}
+
+/// P3-BE-16, §11, §24 — a change an approved athlete proposes to their own
+/// profile. The Athlete row is what the public profile, matching and the
+/// §26 conflict check read, so it moves only when BTG approves: `fields`
+/// holds the proposed column values (Athlete column → value, at most one
+/// open request per athlete), and approval copies them across in one
+/// transaction with the audit rows. Socials stay direct (PUT /socials) —
+/// they are self-reported by definition and labelled as such.
+model AthleteProfileChange {
+  id        String             @id @default(cuid())
+  tenantId  String
+  athleteId String
+  /// The §11 sections touched, for the desk's summary line.
+  sections  String[]
+  /// { column: proposed value } — only columns that differ from the row at
+  /// submission; a request with nothing to change is refused.
+  fields    Json
+  /// What the athlete said to the reviewer, if anything.
+  note      String?
+  state     ProfileChangeState @default(PENDING)
+  /// Required on DECLINED — shown back to the athlete verbatim.
+  reviewerNotes String?
+  reviewedBy    String?
+  reviewedAt    DateTime?
+  createdAt     DateTime         @default(now())
+
+  athlete Athlete @relation(fields: [athleteId], references: [id])
+
+  @@index([tenantId, state, createdAt])
+  @@index([athleteId, state])
+}
+
+enum ProfileChangeState {
+  PENDING
+  APPROVED
+  DECLINED
+  WITHDRAWN
 }
 
 model AthleteSocial {

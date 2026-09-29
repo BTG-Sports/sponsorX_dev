@@ -20,28 +20,42 @@ export type PublicAthlete = {
   sport: string;
   position: string | null;
   school: string | null;
+  city: string | null;
   stateCode: string | null;
+  level: string | null;
+  achievements: string | null;
+  contentCapabilities: string[];
+  brandInterests: string[];
+  socials: { platform: string; handle: string; followers: number | null; source: string }[];
   featured: boolean;
   claimable: boolean;
 };
 
-/** null = no FEATURED/ACTIVE profile at this slug — or the lookup failed.
- *  This page is a QR destination that renders without the API today, so a
- *  failed lookup degrades to the existing profile view rather than an error
- *  page; the visitor's address is forwarded so the API's rate limit counts
- *  them, not this server (P8-SEC-03). */
-export async function fetchPublicAthlete(slug: string): Promise<PublicAthlete | null> {
-  if (!/^[a-z0-9-]{1,120}$/i.test(slug)) return null;
+export type PublicLookup =
+  | { kind: "ok"; athlete: PublicAthlete }
+  /** No FEATURED/ACTIVE profile at this slug — the page is a not-found. */
+  | { kind: "missing" }
+  /** The API couldn't answer — the page is an error, never a stand-in. */
+  | { kind: "down" };
+
+/** P3-FE-08: the three answers are kept apart. A missing profile and an
+ *  outage used to both be `null` and fall back to a fixture athlete shown at
+ *  a real URL — the exact lie the live-reads rule forbids. The visitor's
+ *  address is forwarded so the API's rate limit counts them, not this
+ *  server (P8-SEC-03). */
+export async function fetchPublicAthlete(slug: string): Promise<PublicLookup> {
+  if (!/^[a-z0-9-]{1,120}$/i.test(slug)) return { kind: "missing" };
   try {
     const res = await fetch(`${API_URL}/api/v1/public/athletes/${encodeURIComponent(slug)}`, {
       cache: "no-store",
       signal: AbortSignal.timeout(4000),
       headers: edgeHeadersFrom(await headers()),
     });
-    if (!res.ok) return null;
-    return (await res.json()) as PublicAthlete;
+    if (res.status === 404) return { kind: "missing" };
+    if (!res.ok) return { kind: "down" };
+    return { kind: "ok", athlete: (await res.json()) as PublicAthlete };
   } catch {
-    return null;
+    return { kind: "down" };
   }
 }
 

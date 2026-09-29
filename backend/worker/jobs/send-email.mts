@@ -60,6 +60,31 @@ const TEMPLATES: Record<string, (d: Record<string, string>) => { subject: string
     subject: "One thing to fix on your SponsorX application",
     text: `Hi ${d.firstName ?? "there"},\n\nWe need a change before we can approve your application:\n\n${d.reviewerNotes ?? "Please check your application for missing details."}\n\nUpdate it here and resubmit — you do not need to start again:\n\n${d.portalUrl ?? ""}\n\n— BTG SponsorX`,
   }),
+  /* P3-BE-16 — the decision on a profile change the athlete proposed. */
+  "athlete.profileChangeApproved": (d) => ({
+    subject: "Your SponsorX profile change is live",
+    text: `Hi ${d.firstName ?? "there"},
+
+The change you sent to your profile (${d.sections ?? "your profile"}) has been approved and is now live.
+
+${d.portalUrl ?? ""}
+
+— BTG SponsorX`,
+  }),
+  "athlete.profileChangeDeclined": (d) => ({
+    subject: "About the change to your SponsorX profile",
+    text: `Hi ${d.firstName ?? "there"},
+
+We couldn't approve the change you sent to your profile (${d.sections ?? "your profile"}):
+
+${d.reviewerNotes ?? ""}
+
+Your profile is unchanged. You can send a new change from your portal:
+
+${d.portalUrl ?? ""}
+
+— BTG SponsorX`,
+  }),
   "athlete.rejected": (d) => ({
     subject: "About your SponsorX application",
     text: `Hi ${d.firstName ?? "there"},\n\nWe are not able to approve your application at this time.\n\n${d.reviewerNotes ?? ""}\n\nThis is not necessarily permanent — the network grows, and sponsor demand changes by sport and region.\n\n— BTG SponsorX`,

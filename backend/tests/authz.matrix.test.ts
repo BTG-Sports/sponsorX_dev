@@ -309,7 +309,12 @@ describe("the whole matrix is pinned", () => {
       // Updated 2026-09-28 (2S5-FE-01, "only admin"): commissionRule.write
       // for FINANCE moved own-tenant → deny; Finance keeps read. That one
       // cell back, the grid hashes to the previous 39e42fab590b7584.
-    ).toBe("49b852630719d073");
+      // Updated 2026-09-29 (P3-BE-16): new `athleteProfileChange` resource —
+      // SUPER_ADMIN any/any/any, BTG_ADMIN and NETWORK_MGR own-tenant ×3,
+      // ATHLETE own/own, GUARDIAN ward/ward; every other cell deny. With its
+      // rows removed the grid still hashes to 49b852630719d073, so nothing
+      // else moved. Document row added first (§5 `athleteProfileChange`).
+    ).toBe("dde2dbbea5dc8018");
   });
 
   it("covers every pair the §30 acceptance asks for", () => {

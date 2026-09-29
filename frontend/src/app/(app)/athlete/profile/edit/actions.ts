@@ -54,3 +54,67 @@ export async function saveSocials(athleteId: string, socials: SocialInput[]): Pr
   if (res.status === 403) return { ok: false, message: "You can only change your own accounts." };
   return { ok: false, message: `Couldn't save (HTTP ${res.status}). Nothing changed — try again.` };
 }
+
+/* --------------------------------------------------------------------------
+   P3-BE-16 — every other section: a change REQUEST, held for BTG.
+
+   POST /athletes/:id/profile-changes records what differs from the profile
+   and answers 201 PENDING; the profile itself moves only when BTG approves.
+   The body is passed through as the section the editor built — the API's
+   contract (ProfileChangeInput) validates it, and a 400 comes back as copy.
+   -------------------------------------------------------------------------- */
+
+export type ChangeBody = Record<string, unknown>;
+export type ChangeResult = { ok: true; id: string } | { ok: false; message: string };
+
+async function apiError(res: Response): Promise<{ code?: string; message?: string }> {
+  try {
+    return ((await res.json()) as { error?: { code?: string; message?: string } }).error ?? {};
+  } catch {
+    return {};
+  }
+}
+
+export async function submitProfileChange(athleteId: string, body: ChangeBody): Promise<ChangeResult> {
+  if (typeof athleteId !== "string" || !athleteId || !body || typeof body !== "object") {
+    return { ok: false, message: "Nothing to send — fill in the section first." };
+  }
+  let res: Response;
+  try {
+    res = await apiFetch(`/athletes/${encodeURIComponent(athleteId)}/profile-changes`, { method: "POST", body: JSON.stringify(body) });
+  } catch (e) {
+    return (e as Error)?.message === "Not signed in."
+      ? { ok: false, message: "Your session ended — sign in again, then send. Nothing changed." }
+      : { ok: false, message: "Couldn't reach SponsorX just now — nothing changed. Try again in a minute." };
+  }
+  if (res.ok) {
+    revalidatePath("/athlete/profile/edit");
+    revalidatePath("/athlete/profile");
+    const d = (await res.json()) as { id: string };
+    return { ok: true, id: d.id };
+  }
+  const err = await apiError(res);
+  if (res.status === 400) return { ok: false, message: "Something here wasn't accepted — check the values and try again." };
+  if (res.status === 401) return { ok: false, message: "Your session ended — sign in again, then send. Nothing changed." };
+  if (res.status === 403) return { ok: false, message: "You can only change your own profile." };
+  if (res.status === 409 || res.status === 422) return { ok: false, message: err.message ?? "This change can't be sent right now." };
+  return { ok: false, message: `Couldn't send (HTTP ${res.status}). Nothing changed — try again.` };
+}
+
+export async function withdrawProfileChange(id: string): Promise<ChangeResult> {
+  if (typeof id !== "string" || !id) return { ok: false, message: "Unknown change." };
+  let res: Response;
+  try {
+    res = await apiFetch(`/profile-changes/${encodeURIComponent(id)}/withdraw`, { method: "POST" });
+  } catch {
+    return { ok: false, message: "Couldn't reach SponsorX just now — the change is still waiting." };
+  }
+  if (res.ok) {
+    revalidatePath("/athlete/profile/edit");
+    return { ok: true, id };
+  }
+  const err = await apiError(res);
+  if (res.status === 409) return { ok: false, message: err.message ?? "BTG has already decided this one — reload to see it." };
+  if (res.status === 403) return { ok: false, message: "That change isn't yours to withdraw." };
+  return { ok: false, message: `Couldn't withdraw (HTTP ${res.status}). Try again.` };
+}

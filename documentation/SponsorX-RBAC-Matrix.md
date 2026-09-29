@@ -185,6 +185,21 @@ the activate button for a BTG_ADMIN (`P3-BE-14`). Activation remains
 **An athlete cannot write their own score.** Content Value Score is BTG's
 assessment of them (§14); self-scoring would make it worthless.
 
+### `athleteProfileChange`
+| Role | Read | Write | Approve |
+|---|---|---|---|
+| `SUPER_ADMIN` | any | any | any |
+| `BTG_ADMIN` · `NETWORK_MGR` | own-tenant | own-tenant | own-tenant |
+| `ATHLETE` | own | own (propose) | — |
+| `GUARDIAN` | ward | ward (propose) | — |
+| all others | — | — | — |
+
+Added 2026-09-29 (`P3-BE-16`). After approval an athlete cannot write their
+own `athlete` row's public sections directly — the public profile, matching
+and the §26 conflict check read that row, so a proposed edit is held here
+until a reviewer approves it, which copies the fields across. Socials are the
+exception and stay a direct write (self-reported, labelled as such).
+
 ### `guardian`
 | Role | Read | Write | Approve |
 |---|---|---|---|

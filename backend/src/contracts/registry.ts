@@ -57,6 +57,7 @@ import {
   SourcedTotals, SponsorReport,
 } from "./metric";
 import { Invoice, PaymentStatus, ZohoInvoiceWebhook } from "./invoice";
+import { ProfileChangeDecisionInput, ProfileChangeInput, ProfileChangeState } from "./profile-change";
 import { InquiryInput, ZohoCrmNotification } from "./zoho";
 import {
   AdSaleInput,
@@ -157,6 +158,9 @@ registry.register("AthleteApplicationSummary", AthleteApplicationSummary);
 // --- public intake (P3-BE-13, §11) ---------------------------------------
 
 registry.register("AthleteApplicationPatch", AthleteApplicationPatch);
+registry.register("ProfileChangeInput", ProfileChangeInput);
+registry.register("ProfileChangeState", ProfileChangeState);
+registry.register("ProfileChangeDecisionInput", ProfileChangeDecisionInput);
 registry.register("ApplicationSubmissionReceipt", ApplicationSubmissionReceipt);
 registry.register("ApplicantView", ApplicantView);
 
@@ -290,6 +294,13 @@ const PATHS: Row[] = [
 
   // athletes, guardians, agreements (P3-BE-03, P3-BE-14)
   { method: "get", path: "/athletes/me", tag: "Athletes", summary: "The signed-in athlete's own profile — §11 fields, socials with provenance, and the section counts the §24 completion meter derives from." },
+  // P3-BE-16 — post-approval profile edits, held for BTG review
+  { method: "get", path: "/athletes/me/profile-changes", tag: "Athletes", summary: "The signed-in athlete's own proposed profile edits, newest first (at most 10): the open one and the last decisions (P3-BE-16)." },
+  { method: "post", path: "/athletes/{id}/profile-changes", tag: "Athletes", summary: "Propose a change to the athlete's own profile, by §11 section — identity, sport, capabilities, interests, restrictions. Held PENDING for BTG; only values that differ are recorded, and a new request withdraws an older open one (P3-BE-16).", body: ProfileChangeInput, status: 201 },
+  { method: "get", path: "/profile-changes", tag: "Athletes", summary: "BTG's review desk, SERVER-PAGED: ?page ?size ?state (comma list; default PENDING, oldest first) → one page with each change's proposed `fields`, the athlete's `current` values for them, `page`, and `counts: { pending }` (P3-BE-16).", query: z.object({ page: z.coerce.number().int().optional(), size: z.coerce.number().int().optional(), state: z.string().optional() }) },
+  { method: "post", path: "/profile-changes/{id}/approve", tag: "Athletes", summary: "Approve a proposed profile edit: the fields are written to the Athlete row in the same transaction, audited (restrictions separately), and the athlete is emailed (P3-BE-16).", body: ProfileChangeDecisionInput },
+  { method: "post", path: "/profile-changes/{id}/decline", tag: "Athletes", summary: "Decline a proposed profile edit. Reviewer notes are required and sent to the athlete verbatim; the profile is unchanged (P3-BE-16).", body: ProfileChangeDecisionInput },
+  { method: "post", path: "/profile-changes/{id}/withdraw", tag: "Athletes", summary: "The athlete (or guardian) takes back a pending proposed edit (P3-BE-16)." },
   { method: "put", path: "/athletes/{id}/tier", tag: "Athletes", summary: "Set an athlete's pricing tier.", body: AthleteTierInput },
   { method: "post", path: "/athletes/{id}/rates", tag: "Athletes", summary: "Set an athlete's rate for a NIL job.", body: AthleteRateInput, status: 201 },
   { method: "get", path: "/athletes/{id}/rates", tag: "Athletes", summary: "An athlete's rate card." },

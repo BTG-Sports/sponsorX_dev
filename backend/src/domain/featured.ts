@@ -85,7 +85,17 @@ export async function publicProfile(slug: string) {
   const a = await prisma.athlete.findFirst({
     /* tenant-scope: public profile — the slug is globally unique and the page is public by design. */
     where: { slug, state: { in: ["FEATURED", "ACTIVE"] } },
-    select: { slug: true, displayName: true, sport: true, position: true, school: true, stateCode: true, state: true },
+    /* P3-FE-08 (2026-09-29): an ACTIVE athlete's page renders from this, so
+       it carries the §11 PUBLIC sections — identity (display name, place),
+       sport, socials with their provenance label, capabilities, interests.
+       Private ones (restrictions, rates, agreements) never leave the tenant,
+       and nothing here says an age: no birth date, band or graduation year.
+       Minors follow the same rule as everyone. */
+    select: {
+      slug: true, displayName: true, sport: true, position: true, school: true, city: true, stateCode: true, level: true,
+      achievements: true, contentCapabilities: true, brandInterests: true, state: true,
+      socials: { select: { platform: true, handle: true, followers: true, source: true }, orderBy: { platform: "asc" } },
+    },
   });
   if (!a) throw new ProfileNotFoundError();
   const { state, ...profile } = a;

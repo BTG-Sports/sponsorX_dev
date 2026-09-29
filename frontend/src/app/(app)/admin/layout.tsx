@@ -8,6 +8,8 @@ import { mayUse } from "@/lib/admin-access";
 const NAV: NavItem[] = [
   { href: "/admin", label: "Dashboard", icon: "grid" },
   { href: "/admin/applications", label: "Applications", icon: "users" },
+  /* P3-BE-16 — approved athletes' proposed profile edits, reviewed here. */
+  { href: "/admin/profile-changes", label: "Profile changes", icon: "file" },
   /* P4-FE-07 — sponsor briefs, qualified here before the Matching Studio. */
   { href: "/admin/briefs", label: "Briefs", icon: "mail" },
   { href: "/admin/campaigns", label: "Campaigns", icon: "megaphone" },

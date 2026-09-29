@@ -14,6 +14,8 @@ export const ADMIN_PORTAL_ROLES = ["SUPER_ADMIN", "BTG_ADMIN", "SALES", "CAMPAIG
 
 export const ADMIN_ACCESS: Record<string, { roles: string[]; who: string }> = {
   "/admin/applications": { roles: ["SUPER_ADMIN", "BTG_ADMIN", "NETWORK_MGR"], who: "BTG admins and athlete network managers" },
+  /* P3-BE-16: the same reviewers as applications. */
+  "/admin/profile-changes": { roles: ["SUPER_ADMIN", "BTG_ADMIN", "NETWORK_MGR"], who: "BTG admins and athlete network managers" },
   "/admin/approvals": { roles: ["SUPER_ADMIN", "BTG_ADMIN", "CAMPAIGN_MGR"], who: "BTG admins and campaign managers" },
   "/admin/campaigns/match": { roles: ["SUPER_ADMIN", "BTG_ADMIN", "NETWORK_MGR", "CAMPAIGN_MGR"], who: "BTG admins, network managers and campaign managers" },
   "/admin/rewards": { roles: ["SUPER_ADMIN", "BTG_ADMIN", "CAMPAIGN_MGR"], who: "BTG admins and campaign managers" },

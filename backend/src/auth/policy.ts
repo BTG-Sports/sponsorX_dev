@@ -102,6 +102,7 @@ export type Resource =
   | "athleteApplication"
   | "athlete"
   | "athleteSocialAccount"
+  | "athleteProfileChange"
   | "athleteScore"
   | "guardian"
   | "property"
@@ -169,6 +170,7 @@ export const RESOURCES: readonly Resource[] = [
   "athleteApplication",
   "athlete",
   "athleteSocialAccount",
+  "athleteProfileChange",
   "athleteScore",
   "guardian",
   "property",
@@ -327,6 +329,19 @@ export const POLICY: Record<Resource, RolePolicy> = {
     ATHLETE: rwa("own", "own"),
     GUARDIAN: rwa("ward", "ward"),
     PROPERTY_MGR: rwa("own-property"),
+  },
+
+  /* P3-BE-16 — an approved athlete's proposed profile edits (matrix §5).
+     Write is "propose" (the athlete, or a guardian for a ward); approve is
+     the reviewer's decision, held by the same roles that approve
+     applications. Nobody else has a reason to read what an athlete wants
+     to change before BTG has agreed to it. */
+  athleteProfileChange: {
+    SUPER_ADMIN: rwa("any", "any", "any"),
+    BTG_ADMIN: rwa("own-tenant", "own-tenant", "own-tenant"),
+    NETWORK_MGR: rwa("own-tenant", "own-tenant", "own-tenant"),
+    ATHLETE: rwa("own", "own"),
+    GUARDIAN: rwa("ward", "ward"),
   },
 
   athleteScore: {

@@ -29,6 +29,8 @@ const GOVERNED_BY: Record<string, Resource> = {
      the same row at different states (matrix §5). */
   Athlete: "athlete",
   AthleteSocial: "athleteSocialAccount",
+  /* P3-BE-16 — a proposed edit, governed like the row it would change. */
+  AthleteProfileChange: "athleteProfileChange",
   AthleteScore: "athleteScore",
   NilJob: "nilJob",
   AthleteRate: "athleteRate",

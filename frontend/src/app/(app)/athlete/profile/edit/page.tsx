@@ -4,8 +4,13 @@ import { BlockedNotice } from "@/components/ui";
 import { EmptyState } from "@/components/states";
 import { LiveProfileEditor } from "@/components/live-profile-editor";
 import { sectionStates, type ApiMyProfile } from "@/lib/profile-live";
+import type { ApiProfileChange } from "@/lib/profile-changes-live";
 import type { SectionKey } from "@/lib/profile-sections";
 import { apiFetch, fetchActor } from "@/server/api";
+
+/** States in which an edit is a change request (P3-BE-16). Before approval
+ *  the application itself is what the athlete edits, at /join. */
+const POST_APPROVAL = ["APPROVED", "ACTIVE", "SUSPENDED"];
 
 /* --------------------------------------------------------------------------
    Edit profile — §11 sections as an in-portal hub (2026-09-14).
@@ -87,6 +92,13 @@ export default async function ProfileEditPage({
     );
   }
   if (me) {
+    /* P3-BE-16 — the athlete's own change requests: the open one (banner,
+       withdraw) and the last decisions. Same rule as the profile: an outage
+       is an error, never a silently empty history. */
+    const chRes = await apiFetch("/athletes/me/profile-changes");
+    if (!chRes.ok) throw new Error(`Profile changes unavailable (${chRes.status}).`);
+    const { changes } = (await chRes.json()) as { changes: ApiProfileChange[] };
+    const editable = POST_APPROVAL.includes(me.state);
     return (
       <div className="mx-auto w-full max-w-5xl">
         <BackLink target={{ href: "/athlete/profile", label: "Back to your profile" }} />
@@ -95,6 +107,7 @@ export default async function ProfileEditPage({
           <p className="mt-1 text-xs text-muted">
             Nine sections make up your profile. Five are public, four stay
             between you and BTG — each one says which.
+            {editable ? " Social accounts save straight away; everything else goes to BTG for a quick review first." : ""}
           </p>
         </div>
         <LiveProfileEditor
@@ -103,6 +116,14 @@ export default async function ProfileEditPage({
           states={sectionStates(me)}
           summary={summaryOf(me)}
           socials={me.socials}
+          profile={{
+            legalName: me.legalName, displayName: me.displayName, city: me.city, stateCode: me.stateCode,
+            sport: me.sport, position: me.position, school: me.school, level: me.level, gradYear: me.gradYear, achievements: me.achievements,
+            contentCapabilities: me.contentCapabilities, brandInterests: me.brandInterests,
+            restrictedCategories: me.restrictedCategories, restrictionNotes: me.restrictionNotes,
+          }}
+          editable={editable}
+          changes={changes}
         />
       </div>
     );
