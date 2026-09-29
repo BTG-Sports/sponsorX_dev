@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import type { AddressInfo } from "node:net";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
@@ -33,6 +34,7 @@ vi.mock("../src/auth/clerk", () => ({
 
 const { governanceProblems, canTransitionListing } = await import("../src/domain/listing-rules");
 const { inventoryProblems } = await import("../src/domain/inventory");
+const { hashAgreementBody } = await import("../src/domain/agreement-hash");
 
 describe("the rules, as written (pure)", () => {
   it("an item is priced by whole cents, with a window that closes after it opens and no category both offered and refused", () => {
@@ -62,7 +64,8 @@ describe.skipIf(!hasDatabase)("Phase 2 marketplace over the API", { timeout: 60_
 
   const T = "mkt_btg";      // BTG's tenant: operates the teams
   const X = "mkt_other";    // an unrelated operator: operates nothing here
-  const HASH = "h".repeat(64);
+  /* The real CAMPAIGN_ORDER v1 wording's fingerprint, so GET /offers/:id serves its text. */
+  const HASH = hashAgreementBody(readFileSync(new URL("../agreements/CAMPAIGN_ORDER.v1.txt", import.meta.url), "utf8"));
   const PNG = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==", "base64");
   const E = { tenant: "", property: "" };
   const F = { tenant: "", property: "" };
@@ -328,6 +331,10 @@ describe.skipIf(!hasDatabase)("Phase 2 marketplace over the API", { timeout: 60_
       const mine = await call("GET", `/offers/${id}`, "mkt_athlete");
       expect(mine.json.compensation).toBe(30_000);
       expect(mine.json).not.toHaveProperty("sellPrice");
+      /* …with the sponsor named and the agreement the acceptance signs (2S2-FE-03). */
+      expect(mine.json.sponsorName).toEqual(expect.any(String));
+      expect(mine.json.agreement).toMatchObject({ id: "mkt_order_terms", version: 1, bodyHash: HASH, body: expect.any(String) });
+      expect(mine.json.agreement.body.length).toBeGreaterThan(100);
       expect((await call("GET", `/offers/${id}`, "mkt_athlete2")).status).toBe(403);
       expect((await call("POST", `/offers/${id}/respond`, "mkt_athlete2", { decision: "ACCEPT" })).status).toBe(403);
 
