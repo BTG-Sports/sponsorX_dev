@@ -60,7 +60,7 @@ const SELECT = {
   totalCents: true, requiresApproval: true, approvalReasons: true, decidedAt: true, decidedBy: true, decisionNotes: true,
   contractedAt: true, createdAt: true,
   lines: {
-    select: { id: true, listingId: true, inventoryItemId: true, propertyId: true, title: true, quantity: true, startsOn: true, endsOn: true, unitPriceCents: true, lineTotalCents: true },
+    select: { id: true, listingId: true, inventoryItemId: true, propertyId: true, sellerAthleteId: true, title: true, quantity: true, startsOn: true, endsOn: true, unitPriceCents: true, lineTotalCents: true },
     orderBy: { startsOn: "asc" },
   },
 } as const;
@@ -121,7 +121,7 @@ export async function placeOrder(actor: Actor, reservationId: string, now = new 
       where: { tenantId: actor.tenantId, cartId: reservation.cartId },
       select: {
         id: true, listingId: true, quantity: true, startsOn: true, endsOn: true, unitPriceCents: true,
-        listing: { select: { title: true, tenantId: true, propertyId: true, inventoryItemId: true, item: { select: { packageRules: true, components: { select: { componentItemId: true } } } } } },
+        listing: { select: { title: true, tenantId: true, propertyId: true, sellerAthleteId: true, inventoryItemId: true, item: { select: { packageRules: true, components: { select: { componentItemId: true } } } } } },
       },
     });
     await lockItems(tx, lines.flatMap((l) => [l.listing.inventoryItemId, ...l.listing.item.components.map((c) => c.componentItemId)]));
@@ -144,7 +144,7 @@ export async function placeOrder(actor: Actor, reservationId: string, now = new 
         lines: {
           create: lines.map((l) => ({
             tenantId: actor.tenantId, listingId: l.listingId, inventoryItemId: l.listing.inventoryItemId, itemTenantId: l.listing.tenantId,
-            propertyId: l.listing.propertyId, title: l.listing.title, quantity: l.quantity, startsOn: l.startsOn, endsOn: l.endsOn,
+            propertyId: l.listing.propertyId, sellerAthleteId: l.listing.sellerAthleteId, title: l.listing.title, quantity: l.quantity, startsOn: l.startsOn, endsOn: l.endsOn,
             unitPriceCents: l.unitPriceCents, lineTotalCents: l.quantity * l.unitPriceCents,
           })),
         },

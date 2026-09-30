@@ -30,6 +30,7 @@
 import type { Actor } from "./actor";
 import { ForbiddenError } from "./errors";
 import { scopeFor, type Action, type Resource, type Scope } from "./policy";
+import { sellerCanSell } from "../domain/listing-rules";
 
 export { type Action, type Resource, type Scope };
 
@@ -128,7 +129,7 @@ export class ScopeNotImplementedError extends Error {
  *  models, and each model's delegate narrows it at the call site. */
 type Where = Record<string, unknown>;
 
-type Builder = (actor: Actor, scope: Scope) => Where;
+type Builder = (actor: Actor, scope: Scope, action?: Action) => Where;
 
 /**
  * Tenant scoping, which sits above everything else (matrix §2).
@@ -326,7 +327,7 @@ const BUILDERS: Partial<Record<Resource, Builder>> = {
     }
     return MATCHES_NOTHING;
   },
-  listing: (actor, scope) => {
+  listing: (actor, scope, action) => {
     switch (scope) {
       case "any": return {};
       case "operated": return operated(actor);
@@ -334,18 +335,27 @@ const BUILDERS: Partial<Record<Resource, Builder>> = {
         /* 2S3-BE-04 — what a sponsor may see: live, public listings of
            approved properties, in its own marketplace (its tenant and the
            tenants that tenant operates). Never a draft, a pause, a private
-           listing, a suspended property or another marketplace. */
+           listing, a suspended property or another marketplace. 2S3-BE-05 —
+           or of an independent athlete who is still approved and still has
+           no team. */
         return {
           AND: [
             operated(actor),
-            { state: "PUBLISHED", visibility: "PUBLIC", property: { listingAccessAt: { not: null } }, item: { active: true } },
+            { state: "PUBLISHED", visibility: "PUBLIC", item: { active: true } },
+            sellerCanSell(),
             { OR: [{ publishAt: null }, { publishAt: { lte: new Date() } }] },
           ],
         };
       case "own-property":
         return actor.propertyId ? { tenantId: actor.tenantId, propertyId: actor.propertyId } : MATCHES_NOTHING;
       case "own":
-        return actor.athleteId ? { tenantId: actor.tenantId, item: { athleteId: actor.athleteId } } : MATCHES_NOTHING;
+        /* Reading: every listing of the athlete's items, their team's
+           included. Writing (2S3-BE-05): only the listings they sell
+           themselves — never their team's listing of their item. */
+        if (!actor.athleteId) return MATCHES_NOTHING;
+        return action === "read"
+          ? { tenantId: actor.tenantId, item: { athleteId: actor.athleteId } }
+          : { tenantId: actor.tenantId, sellerAthleteId: actor.athleteId, item: { athleteId: actor.athleteId } };
       default: return MATCHES_NOTHING;
     }
   },
@@ -857,5 +867,5 @@ export function whereFor(
      Inside `AND`, the scope is a separate conjunct no sibling key can
      replace — `{ AND: [scope], id }` is scope ∧ id, whatever the caller
      writes beside it. */
-  return { AND: [build(actor, scope)] };
+  return { AND: [build(actor, scope, action)] };
 }

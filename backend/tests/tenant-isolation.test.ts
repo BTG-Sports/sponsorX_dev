@@ -71,6 +71,8 @@ const A = {
   rule: "ti_rule_a",
   /* 2S5-BE-04 — a payout request from tenant A's athlete. */
   payout: "ti_payout_a",
+  /* 2S3-BE-05 — a listing tenant A's athlete sells with no team. */
+  athleteListing: "ti_listing_ath_a",
 } as const;
 const B = {
   tenant: "ti_tenant_b", sponsor: "ti_sponsor_b", athlete: "ti_athlete_b",
@@ -339,6 +341,8 @@ describe.skipIf(!hasDatabase)("P8-SEC-02 · tenant B cannot reach tenant A throu
       { id: A.schoolItem, tenantId: t, propertyId: A.school, title: "TI Secret Banner", kind: "SIGNAGE", priceCents: 9000 },
     ] });
     await prisma.listing.create({ data: { id: A.listing, tenantId: t, propertyId: A.school, inventoryItemId: A.schoolItem, title: "TI Secret Listing", description: "TI secret listing description", state: "PENDING_APPROVAL" } });
+    /* 2S3-BE-05 — sold by the athlete with no team, published, so every catalogue and search read is swept against it. */
+    await prisma.listing.create({ data: { id: A.athleteListing, tenantId: t, sellerAthleteId: A.athlete, inventoryItemId: A.item, title: "TI Secret Athlete Listing", description: "TI secret athlete listing description", state: "PUBLISHED", publishedAt: new Date() } });
     await prisma.offer.create({ data: {
       id: A.offer, tenantId: t, campaignId: A.campaign, athleteId: A.athlete, jobId: A.job, brief: "TI Secret brief", compensation: 20000, sellPrice: 40000,
       deliverables: [{ title: "Post", dueDate: "2027-06-01T00:00:00.000Z" }], usageRights: "90 days", disclosures: [], expiresAt: new Date(Date.now() + 30 * 864e5),
@@ -353,9 +357,12 @@ describe.skipIf(!hasDatabase)("P8-SEC-02 · tenant B cannot reach tenant A throu
     /* Far-future: the reservation sweep is platform-wide too. */
     await prisma.reservation.create({ data: { id: A.reservation, tenantId: t, sponsorId: A.sponsor, cartId: A.cart, expiresAt: new Date(Date.now() + 3650 * 864e5) } });
     await prisma.marketplaceOrder.create({ data: {
-      id: A.mktOrder, tenantId: t, sponsorId: A.sponsor, reservationId: A.reservation, subtotalCents: 9000, feesCents: 0, totalCents: 9000,
+      id: A.mktOrder, tenantId: t, sponsorId: A.sponsor, reservationId: A.reservation, subtotalCents: 14000, feesCents: 0, totalCents: 14000,
       requiresApproval: true, approvalReasons: ["TI Secret reason"],
-      lines: { create: [{ tenantId: t, listingId: A.listing, inventoryItemId: A.schoolItem, itemTenantId: t, propertyId: A.school, title: "TI Secret line", quantity: 1, startsOn: new Date("2027-01-01"), endsOn: new Date("2027-01-02"), unitPriceCents: 9000, lineTotalCents: 9000 }] },
+      lines: { create: [
+        { tenantId: t, listingId: A.listing, inventoryItemId: A.schoolItem, itemTenantId: t, propertyId: A.school, title: "TI Secret line", quantity: 1, startsOn: new Date("2027-01-01"), endsOn: new Date("2027-01-02"), unitPriceCents: 9000, lineTotalCents: 9000 },
+        { tenantId: t, listingId: A.athleteListing, inventoryItemId: A.item, itemTenantId: t, sellerAthleteId: A.athlete, title: "TI Secret athlete line", quantity: 1, startsOn: new Date("2027-01-01"), endsOn: new Date("2027-01-02"), unitPriceCents: 5000, lineTotalCents: 5000 },
+      ] },
     } });
     await prisma.payout.create({ data: {
       id: A.payout, tenantId: t, payeeType: "ATHLETE", payeeId: A.athlete, payeeTenantId: t, amountCents: 4321,

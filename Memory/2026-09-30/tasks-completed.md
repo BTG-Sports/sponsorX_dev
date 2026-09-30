@@ -116,6 +116,34 @@ needed: the first run of the payout prompt produced only the sponsor payment).
   - The payout tracker's labels now wrap instead of truncating in narrow columns (the Hawks' "Approved by BTG").
   - Payout emails to athletes now link to `/athlete/money`, not `/athlete/earnings`.
 
+## 2S3-BE-05 — independent athletes list their own items (Code review)
+
+- **Schema.** A listing, and the order line bought from it, now has exactly one seller: a property, or an athlete with no team.
+  - Nullable `propertyId` plus a new `sellerAthleteId` on `Listing` and `MarketplaceOrderLine`.
+  - DB checks `Listing_one_seller` and `MarketplaceOrderLine_one_seller`, in migration `20260930150000_independent_athlete_listings`.
+- **Permissions.** ATHLETE `listing.write`: deny → `own`.
+  - For writes, `own` means only listings the athlete sells themselves. Reads still cover every listing of their items.
+  - `whereFor` now passes the action to builders.
+  - Matrix §18 updated; digest is now `9bfe4e2f8189268c`.
+- **Rules.**
+  - The athlete must be APPROVED or ACTIVE, with no team.
+  - A roster athlete gets 409: "on a team — <team> lists your items".
+  - `sellerProblems` / `sellerCanSell()` in `listing-rules.ts` are applied on submit, BTG approval, resume, the catalogue scope, search and `checkListing`. So an athlete who joins a team stops being sold.
+- **Money.**
+  - `bookOrder` forces team share 0 on an athlete-sold line, even when a TEAM_SHARE rule exists. That rule would otherwise pay a team that doesn't exist.
+  - No PROPERTY ledger rows are posted, and payouts go to the athlete.
+  - The split preview takes `independentAthlete`.
+- **Other surfaces.**
+  - Search, cart, orders and Zoho name the athlete through a `seller` object.
+  - Search's state filter uses the athlete's state.
+- **Tests.**
+  - `tests/phase2-independent-listing.test.ts` (14 tests) covers the whole path, from listing through to payout, plus the refusals.
+    - Worked example: $1,000 → $678.22 available + $77.07 reserve = $755.29 to the athlete, $0 to any team.
+  - Seller-rule unit tests are in `phase2-marketplace`.
+  - The tenant-isolation sweep now seeds an athlete-sold listing and order line.
+  - The alignment test accepts the builder's action argument.
+- **Frontend follow-up raised as 2S3-FE-03** (Ready). The shop, cart, checkout and BTG queue still assume a property; `propertyLine` in `lib/shop-live.ts` would fail on an athlete-sold listing. 2S3-FE-02 moved to Ready.
+
 ## "How it works" stop redrawn 1:1 to the how-it-works mockup (HeckerCreatives, evening)
 
 *Same branch, same rule: rework on the landing, not a tracked task.*

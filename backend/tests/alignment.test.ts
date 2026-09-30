@@ -176,7 +176,7 @@ describe("every resource the domain scopes on has a builder", () => {
     const builders = scope.slice(scope.indexOf("const BUILDERS"));
     for (const resource of [...used].sort()) {
       expect(
-        new RegExp(`\\b${resource}: \\(actor, scope\\)|\\b${resource}: tenantScoped`).test(builders),
+        new RegExp(`\\b${resource}: \\(actor, scope(, action)?\\)|\\b${resource}: tenantScoped`).test(builders),
         `whereFor() is called for "${resource}" but scope.ts has no builder — it will throw at request time`,
       ).toBe(true);
     }

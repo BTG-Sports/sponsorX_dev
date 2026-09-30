@@ -333,7 +333,7 @@ export async function pushMarketplaceOrder(ctx: SyncCtx, tenantId: string, order
     where: { id: orderId, tenantId },
     select: {
       id: true, sponsorId: true, state: true, totalCents: true, contractedAt: true, createdAt: true, zohoDealId: true,
-      lines: { select: { title: true, propertyId: true, quantity: true, lineTotalCents: true, endsOn: true } },
+      lines: { select: { title: true, propertyId: true, sellerAthleteId: true, quantity: true, lineTotalCents: true, endsOn: true } },
     },
   });
   if (!order) return { status: "skipped", reason: "order not found" };
@@ -348,9 +348,16 @@ export async function pushMarketplaceOrder(ctx: SyncCtx, tenantId: string, order
   const zohoAccountId = await ensureAccount(ctx, tenantId, order.sponsorId);
   const zohoContactId = await ensurePrimaryContact(ctx, tenantId, order.sponsorId);
   const properties = new Map<string, { name: string; zohoId: string | null }>();
-  for (const propertyId of new Set(order.lines.map((l) => l.propertyId))) {
+  for (const propertyId of new Set(order.lines.map((l) => l.propertyId).filter((x): x is string => Boolean(x)))) {
     properties.set(propertyId, await ensurePropertyAccount(ctx, propertyId));
   }
+  /* 2S3-BE-05 — a line sold by an athlete with no team names the athlete; an
+     athlete is not a Zoho Account (the Zoho boundary: we sell to sponsors). */
+  const sellerAthletes = new Map((await ctx.db.athlete.findMany({
+    /* tenant-scope: the athletes this order's lines name, read in the order's own tenant. */
+    where: { tenantId, id: { in: order.lines.map((l) => l.sellerAthleteId).filter((x): x is string => Boolean(x)) } },
+    select: { id: true, displayName: true },
+  })).map((a) => [a.id, a.displayName]));
   const sponsor = await ctx.db.sponsor.findFirstOrThrow({ where: { id: order.sponsorId, tenantId }, select: { name: true } });
   const earlier = await ctx.db.marketplaceOrder.count({
     /* Only orders placed BEFORE this one make it existing business — a later
@@ -363,7 +370,8 @@ export async function pushMarketplaceOrder(ctx: SyncCtx, tenantId: string, order
     zohoAccountId, zohoContactId, existingBusiness: earlier > 0,
     lines: order.lines.map((l) => ({
       title: l.title, quantity: l.quantity, lineTotalCents: l.lineTotalCents,
-      propertyName: properties.get(l.propertyId)?.name ?? "property", zohoPropertyAccountId: properties.get(l.propertyId)?.zohoId ?? null,
+      propertyName: l.propertyId ? properties.get(l.propertyId)?.name ?? "property" : sellerAthletes.get(l.sellerAthleteId ?? "") ?? "athlete",
+      zohoPropertyAccountId: l.propertyId ? properties.get(l.propertyId)?.zohoId ?? null : null,
     })),
   }));
   await ctx.db.marketplaceOrder.update({ where: { id: order.id }, data: { zohoDealId: r.id } });

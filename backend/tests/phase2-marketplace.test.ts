@@ -52,6 +52,15 @@ describe("the rules, as written (pure)", () => {
     expect(governanceProblems(ok)).toEqual([]);
     expect(governanceProblems({ ...ok, property: { listingAccessAt: null } })).toEqual([expect.stringMatching(/not approved/)]);
   });
+
+  it("2S3-BE-05 — an independent athlete sells only while approved and without a team", () => {
+    const base = { item: { active: true, priceCents: 5000, quantity: null, availableUntil: null }, listing: { title: "Clinic", description: "A 90-minute clinic at your venue.", publishAt: null }, now: new Date() };
+    expect(governanceProblems({ ...base, sellerAthlete: { state: "APPROVED", propertyId: null } })).toEqual([]);
+    expect(governanceProblems({ ...base, sellerAthlete: { state: "ACTIVE", propertyId: null } })).toEqual([]);
+    expect(governanceProblems({ ...base, sellerAthlete: { state: "SUBMITTED", propertyId: null } })).toEqual(["athlete: not approved by BTG"]);
+    expect(governanceProblems({ ...base, sellerAthlete: { state: "ACTIVE", propertyId: "p1" } })).toEqual([expect.stringMatching(/on a team/)]);
+    expect(governanceProblems(base)).toEqual(["listing: no seller"]);
+  });
 });
 
 const seededDb = await import("./support/seeded-db");
