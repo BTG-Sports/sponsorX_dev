@@ -1,8 +1,9 @@
 /* --------------------------------------------------------------------------
    /next/about stage — the SponsorX NEXT programme landing as a magazine
    (design spec docs/superpowers/specs/2026-09-30-next-about-magazine-design.md).
-   Server components; the one client island is next-about-fx.tsx, and the
-   reveal/arming island is /packages' StageReveal.
+   Server components; the client islands are next-about-fx.tsx and the book
+   (next-about-book.tsx), and the reveal/arming island is /packages'
+   StageReveal.
 
    The page is a fixed-dark `.sx-stage` in both themes (the landing's HUD
    ground) with white paper laid on it. Every ink is `on-media` or a fixed
@@ -16,16 +17,18 @@
                    "Inside:" line linking the sections — tilting with the
                    pointer (TiltSpot) under a scan line and a glow (CoverGlow).
    - InsideBand    /packages' marquee band, "In this issue" (reused).
-   - OpenerSpread  paper spread 1: For students | For schools, each a page.
-   - FeatureSpread spread 2 (#how): Five jobs — the QR pull quote | the list.
-   - BenefitsSpread spread 3 (#students): what you get | under-18 note + QR.
+   - MagazineBook  (#magazine) the interactive magazine: eight faces — the
+                   cover, pages 02–07 (MagPage), a back-cover face — handed
+                   to the client MagBook (next-about-book.tsx), which turns
+                   them as four 3D leaves from lg and one page at a time
+                   below. The hero cover and its "Inside:" links open it.
    - Newsstand     (#editions) live editions as mini covers on a glass rack.
    - BackCover     the closing glass panel with both CTAs.
 
    Entrance: hero pieces rise in (`sx-stage-in` / `sx-stage-line`) once
-   `html[data-sx-loaded]` is set; each spread page-flips up as it scrolls
-   into view (`.sx-mag-spread[data-reveal]`, globals.css). Reduced motion:
-   pieces simply appear.
+   `html[data-sx-loaded]` is set; the book and the blocks below rise in as
+   they scroll into view (`[data-reveal]`). Reduced motion: pieces simply
+   appear.
    -------------------------------------------------------------------------- */
 
 import Image from "next/image";
@@ -35,6 +38,7 @@ import type { CSSProperties, ReactNode } from "react";
 import { Magnetic, ScrambleText, TiltSpot } from "./hero-fx";
 import { ArrowRightIcon } from "./landing-hero";
 import { Glass } from "./landing-sponsors";
+import { MagBook } from "./next-about-book";
 import { CoverGlow } from "./next-about-fx";
 import { Eyebrow, chamfer } from "./packages-stage";
 import { BENEFITS, ISSUE, LOGO, LOGO_ALT, STEPS, editionHref, usesLogo, type EditionCard } from "@/lib/next-about";
@@ -96,7 +100,7 @@ function CTAs({ delay, className = "sm:flex-row sm:items-center sm:gap-5" }: { d
  *  ground vanishes into the navy), corner tags, cover lines, the "Inside:"
  *  contents line, a barcode and the HUD scan. Decorative layers aria-hidden;
  *  the masthead has the magazine's name as alt, the lines are real text. */
-function CoverPlate({ priority = false }: { priority?: boolean }) {
+function CoverPlate({ priority = false, hint = false }: { priority?: boolean; hint?: boolean }) {
   return (
     <div className={`relative aspect-[3/4] w-full overflow-hidden rounded-[4px] ${COVER_BG} shadow-[0_40px_70px_rgba(0,0,0,.65),0_0_0_1px_rgba(255,255,255,.1)]`}>
       <Image src={LOGO} alt={LOGO_ALT} width={800} height={800} unoptimized preload={priority} className="mx-auto -mt-[2%] w-[92%] mix-blend-screen sm:w-full" />
@@ -112,7 +116,7 @@ function CoverPlate({ priority = false }: { priority?: boolean }) {
           <br />
           <span className="text-[#ffd12b]">One magazine.</span>
         </p>
-        <p className="mt-2 text-[9px] leading-[1.4] uppercase tracking-[0.16em] text-on-media/80">
+        <p className="relative z-[2] mt-2 text-[9px] leading-[1.4] uppercase tracking-[0.16em] text-on-media/80">
           Inside:{" "}
           <a href="#how" className="underline-offset-2 hover:underline">how it works</a> ·{" "}
           <a href="#students" className="underline-offset-2 hover:underline">what you get</a> ·{" "}
@@ -124,6 +128,14 @@ function CoverPlate({ priority = false }: { priority?: boolean }) {
         className="absolute bottom-4 right-4 h-5 w-12 opacity-80 [background:repeating-linear-gradient(90deg,#fff_0_1px,transparent_1px_3px,#fff_3px_4px,transparent_4px_6px)]"
       />
       <span aria-hidden="true" className="sx-scan pointer-events-none absolute inset-0" />
+      {hint && (
+        <span
+          aria-hidden="true"
+          className="sx-book-hint pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded border border-[#ffd12b]/70 bg-[#04070e]/70 px-3 py-2 text-[10px] uppercase tracking-[0.24em] text-[#ffd12b]"
+        >
+          Open ▸
+        </span>
+      )}
     </div>
   );
 }
@@ -213,6 +225,8 @@ export function MagCover() {
           <TiltSpot max={8}>
             <CoverGlow>
               <CoverPlate priority />
+              {/* the whole cover opens the book; sits under the "Inside:" links */}
+              <a href="#magazine" aria-label="Open the magazine" className="absolute inset-0 z-[1] rounded-[4px]" />
             </CoverGlow>
           </TiltSpot>
         </div>
@@ -221,25 +235,7 @@ export function MagCover() {
   );
 }
 
-/* ----------------------------------------------------------------- spread */
-
-/** One sheet of paper holding two pages. Carries `data-reveal` so
- *  StageReveal marks it; the `.sx-mag-spread` rules flip the sheet in. */
-export function MagSpread({ id, children, className = "" }: { id?: string; children: ReactNode; className?: string }) {
-  return (
-    <section
-      id={id}
-      data-reveal=""
-      className={`sx-mag-spread relative mx-auto w-full max-w-[1180px] scroll-mt-24 px-5 sm:px-[6vw] ${className}`}
-    >
-      <div className="sx-mag-sheet grid grid-cols-1 lg:grid-cols-2">
-        {children}
-        <span aria-hidden="true" className="sx-mag-spine hidden lg:block" />
-        <span aria-hidden="true" className="sx-mag-curl" />
-      </div>
-    </section>
-  );
-}
+/* ------------------------------------------------------------------- page */
 
 /** One page: folio row (running head, page number), optional display
  *  headline with its accent line in the page's tone, a rule, then the body
@@ -263,14 +259,14 @@ export function MagPage({
 }) {
   const toneVar = tone === "blue" ? "var(--mag-blue)" : "var(--mag-red)";
   return (
-    <div className={`relative px-6 py-7 sm:px-8 lg:px-10 lg:py-10 ${className}`} style={{ "--mag-drop": toneVar } as CSSProperties}>
+    <div className={`relative px-6 py-6 sm:px-8 lg:px-8 lg:py-8 xl:px-10 xl:py-10 ${className}`} style={{ "--mag-drop": toneVar } as CSSProperties}>
       <p className="flex items-center justify-between font-sans text-[10px] font-medium uppercase tracking-[0.2em] text-[#0b1a3a]/55">
         <span>{head}</span>
         <span className="font-mag text-[14px] tracking-[0.1em]">{folio}</span>
       </p>
       {title && (
         <>
-          <h2 className="mt-5 font-mag text-[clamp(40px,9vw,56px)] leading-[0.9] lg:text-[clamp(48px,4.6vw,72px)]">
+          <h2 className="mt-4 font-mag text-[clamp(36px,8vw,52px)] leading-[0.9] lg:text-[clamp(40px,4vw,64px)]">
             {title}
             {accent && (
               <>
@@ -282,106 +278,121 @@ export function MagPage({
           <span aria-hidden="true" className="mt-4 block h-px bg-[#0b1a3a]/25" />
         </>
       )}
-      <div className={`${title ? "mt-4" : "mt-6"} font-mag-serif text-[16px] leading-[1.55]`}>{children}</div>
+      <div className={`${title ? "mt-4" : "mt-5"} font-mag-serif text-[14px] leading-[1.5] lg:text-[15px] lg:leading-[1.55] xl:text-[16px]`}>{children}</div>
     </div>
   );
 }
 
-/** The second page's top rule when the two pages stack below lg. */
-const RIGHT_PAGE = "max-lg:border-t max-lg:border-[#0b1a3a]/15";
+/* ------------------------------------------------------------- the book */
 
-/* ------------------------------------------------------------ the spreads */
-
-/** Spread 1 — the two audiences as facing feature openers. */
-export function OpenerSpread() {
+/** Face 7 — the back cover: navy, the closing line and both CTAs. */
+function BackFace() {
   return (
-    <MagSpread className="pt-16 lg:pt-24">
-      <MagPage head="For students · ages 14–18" folio="02" title="Become" accent="the media.">
-        <p className="sx-mag-dropcap">
-          Join your school’s NEXT team as a writer, photographer, videographer, designer, editor or on the sales desk.
-          No experience needed. Training is part of it.
-        </p>
-        <Link href="/next/apply" className={PAPER_CTA}>
-          Apply to join
-          <ArrowRightIcon className="size-4" />
+    <div className={`flex h-full flex-col justify-end p-6 lg:p-8 xl:p-10 ${COVER_BG}`}>
+      <Eyebrow>Back cover</Eyebrow>
+      <p className="mt-3 font-mag text-[clamp(32px,7vw,44px)] leading-[0.9] lg:text-[clamp(36px,3.4vw,56px)]">
+        Your byline starts <span className="text-[#ffd12b]">here.</span>
+      </p>
+      <p className="mt-3 font-mag-serif text-[14px] leading-[1.5] text-on-media/80 lg:text-[15px]">
+        Students apply. Schools sign one agreement. The first edition is free.
+      </p>
+      <div className="mt-5 flex flex-col gap-3">
+        <Link href="/next/apply" className={CTA_YELLOW}>
+          Apply to join your team
+          <ArrowRightIcon className="size-[18px] transition-transform group-hover:translate-x-0.5" />
         </Link>
-      </MagPage>
-      <MagPage head="For schools & administrators" folio="03" title="Fully" accent="carried." tone="blue" className={RIGHT_PAGE}>
-        <p className="sx-mag-dropcap">
-          One programme agreement and one faculty advisor. SponsorX carries production, printing, sales operations, rights
-          and cost. The first edition is digital and free.
-        </p>
-        <Link href="/next/schools" className={PAPER_CTA_OUTLINE}>
+        <Link href="/next/schools" className={CTA_OUTLINE}>
           Bring NEXT to your school
-          <ArrowRightIcon className="size-4" />
         </Link>
-      </MagPage>
-    </MagSpread>
+      </div>
+    </div>
   );
 }
 
-/** Spread 2 (#how) — the feature: five jobs, with the QR sentence as the pull quote. */
-export function FeatureSpread() {
-  return (
-    <MagSpread id="how" className="pt-12 lg:pt-16">
-      <MagPage head="How it works" folio="04" title="Five jobs." accent="One magazine.">
-        <blockquote className="border-b border-t-[3px] border-b-[#0b1a3a]/20 border-t-[#ffd12b] py-4 text-[20px] italic leading-[1.3] lg:text-[22px]">
-          “Every athlete feature carries a QR code. Readers scan it to open that athlete’s SponsorX profile.”
-        </blockquote>
-      </MagPage>
-      <MagPage head={`BTG Sports Talk · Issue ${ISSUE.number}`} folio="05" className={RIGHT_PAGE}>
-        <ol className="grid grid-cols-1 gap-x-6 gap-y-5 sm:grid-cols-2">
-          {STEPS.map((s) => (
-            <li key={s.n} className={`border-t-2 border-[#0b1a3a] pt-3 ${s.n === "05" ? "sm:col-span-2" : ""}`}>
-              <span aria-hidden="true" className="font-mag text-[32px] leading-none text-[#e0192b]">{s.n}</span>
-              <p className="mt-1 font-sans text-[12px] font-semibold uppercase tracking-[0.1em]">{s.title}</p>
-              <p className="mt-1 text-[15px] leading-[1.5] text-[#0b1a3a]/75">{s.text}</p>
-            </li>
-          ))}
-        </ol>
-      </MagPage>
-    </MagSpread>
-  );
-}
-
-/** Spread 3 (#students) — what you get, the under-18 notice, the QR caption. */
-export function BenefitsSpread() {
-  return (
-    <MagSpread id="students" className="pt-12 lg:pt-16">
-      <MagPage head="What you get out of it" folio="06" title="Work that" accent="follows you.">
-        <div className="sx-mag-cols space-y-4 lg:space-y-0">
-          {BENEFITS.map((b) => (
-            <p key={b.title} className="lg:mb-4">
-              <b className="font-semibold">{b.title}.</b>{" "}
-              {"tag" in b && (
-                <span className="mx-1 inline-block rounded-full border border-[#0b1a3a]/40 px-2 py-px align-middle font-sans text-[10px] font-medium uppercase tracking-[0.1em] text-[#0b1a3a]/70">
-                  {b.tag}
-                </span>
-              )}
-              {b.text}
-            </p>
-          ))}
-        </div>
-      </MagPage>
-      <MagPage head={`BTG Sports Talk · Issue ${ISSUE.number}`} folio="07" className={RIGHT_PAGE}>
-        <aside className="border-[1.5px] border-[#0b1a3a] bg-[#f3f4f6] px-5 py-4">
-          <h3 className="font-sans text-[10px] font-semibold uppercase tracking-[0.2em] text-[#e0192b]">Under 18? Read this.</h3>
-          <p className="mt-2 text-[15px] leading-[1.55]">
-            A parent or guardian consents before you join. No GPA, no school records on anything public. Ever. Your faculty
-            advisor approves what gets published.
+/** The eight faces in reading order, handed to the client book. Pages
+ *  02–07 are the same content the spreads carried. */
+export function MagazineBook() {
+  const faces: ReactNode[] = [
+    <CoverPlate key="cover" hint />,
+    <MagPage key="02" head="For students · ages 14–18" folio="02" title="Become" accent="the media.">
+      <p className="sx-mag-dropcap">
+        Join your school’s NEXT team as a writer, photographer, videographer, designer, editor or on the sales desk. No
+        experience needed. Training is part of it.
+      </p>
+      <Link href="/next/apply" className={PAPER_CTA}>
+        Apply to join
+        <ArrowRightIcon className="size-4" />
+      </Link>
+    </MagPage>,
+    <MagPage key="03" head="For schools & administrators" folio="03" title="Fully" accent="carried." tone="blue">
+      <p className="sx-mag-dropcap">
+        One programme agreement and one faculty advisor. SponsorX carries production, printing, sales operations, rights
+        and cost. The first edition is digital and free.
+      </p>
+      <Link href="/next/schools" className={PAPER_CTA_OUTLINE}>
+        Bring NEXT to your school
+        <ArrowRightIcon className="size-4" />
+      </Link>
+    </MagPage>,
+    <MagPage key="04" head="How it works" folio="04" title="Five jobs." accent="One magazine.">
+      <blockquote className="border-b border-t-[3px] border-b-[#0b1a3a]/20 border-t-[#ffd12b] py-4 text-[18px] italic leading-[1.3] xl:text-[22px]">
+        “Every athlete feature carries a QR code. Readers scan it to open that athlete’s SponsorX profile.”
+      </blockquote>
+    </MagPage>,
+    <MagPage key="05" head={`BTG Sports Talk · Issue ${ISSUE.number}`} folio="05">
+      <ol className="grid grid-cols-1 gap-x-5 gap-y-4 sm:grid-cols-2">
+        {STEPS.map((s) => (
+          <li key={s.n} className={`border-t-2 border-[#0b1a3a] pt-2 ${s.n === "05" ? "sm:col-span-2" : ""}`}>
+            <span aria-hidden="true" className="font-mag text-[28px] leading-none text-[#e0192b]">{s.n}</span>
+            <p className="mt-1 font-sans text-[11px] font-semibold uppercase tracking-[0.1em]">{s.title}</p>
+            <p className="mt-1 text-[14px] leading-[1.45] text-[#0b1a3a]/75 xl:text-[15px]">{s.text}</p>
+          </li>
+        ))}
+      </ol>
+    </MagPage>,
+    <MagPage key="06" head="What you get out of it" folio="06" title="Work that" accent="follows you.">
+      <div className="sx-mag-cols space-y-3 xl:space-y-0">
+        {BENEFITS.map((b) => (
+          <p key={b.title} className="xl:mb-3">
+            <b className="font-semibold">{b.title}.</b>{" "}
+            {"tag" in b && (
+              <span className="mx-1 inline-block rounded-full border border-[#0b1a3a]/40 px-2 py-px align-middle font-sans text-[10px] font-medium uppercase tracking-[0.1em] text-[#0b1a3a]/70">
+                {b.tag}
+              </span>
+            )}
+            {b.text}
           </p>
-        </aside>
-        <figure className="mt-6 flex items-center gap-4">
-          <span
-            aria-hidden="true"
-            className="size-12 shrink-0 border-2 border-[#0b1a3a] [background:repeating-conic-gradient(#0b1a3a_0_25%,#fff_0_50%)_0_0/8px_8px]"
-          />
-          <figcaption className="text-[14px] italic leading-[1.45] text-[#0b1a3a]/75">
-            Every athlete feature carries one of these. Scan it and the athlete’s SponsorX profile opens.
-          </figcaption>
-        </figure>
-      </MagPage>
-    </MagSpread>
+        ))}
+      </div>
+    </MagPage>,
+    <MagPage key="07" head={`BTG Sports Talk · Issue ${ISSUE.number}`} folio="07">
+      <aside className="border-[1.5px] border-[#0b1a3a] bg-[#f3f4f6] px-4 py-3 xl:px-5 xl:py-4">
+        <h3 className="font-sans text-[10px] font-semibold uppercase tracking-[0.2em] text-[#e0192b]">Under 18? Read this.</h3>
+        <p className="mt-2 text-[14px] leading-[1.5] xl:text-[15px]">
+          A parent or guardian consents before you join. No GPA, no school records on anything public. Ever. Your faculty
+          advisor approves what gets published.
+        </p>
+      </aside>
+      <figure className="mt-5 flex items-center gap-4">
+        <span
+          aria-hidden="true"
+          className="size-12 shrink-0 border-2 border-[#0b1a3a] [background:repeating-conic-gradient(#0b1a3a_0_25%,#fff_0_50%)_0_0/8px_8px]"
+        />
+        <figcaption className="text-[13px] italic leading-[1.45] text-[#0b1a3a]/75 xl:text-[14px]">
+          Every athlete feature carries one of these. Scan it and the athlete’s SponsorX profile opens.
+        </figcaption>
+      </figure>
+    </MagPage>,
+    <BackFace key="back" />,
+  ];
+
+  return (
+    <>
+      <noscript>
+        <style>{`.sx-book{aspect-ratio:auto!important;transform:none!important;perspective:none}.sx-leaf{position:static!important;width:100%!important;transform:none!important}.sx-face{position:static!important;display:block!important;transform:none!important;margin-bottom:24px}.sx-book-ctrl,.sx-book-shadow,.sx-book-hint{display:none!important}`}</style>
+      </noscript>
+      <MagBook faces={faces} />
+    </>
   );
 }
 
