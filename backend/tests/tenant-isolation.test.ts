@@ -69,6 +69,8 @@ const A = {
   reservation: "ti_reservation_a", mktOrder: "ti_mkt_order_a",
   /* Phase 2 batch 6 — a commission rule. */
   rule: "ti_rule_a",
+  /* 2S5-BE-04 — a payout request from tenant A's athlete. */
+  payout: "ti_payout_a",
 } as const;
 const B = {
   tenant: "ti_tenant_b", sponsor: "ti_sponsor_b", athlete: "ti_athlete_b",
@@ -115,6 +117,7 @@ const PARAM_FOR: Record<string, string> = {
   inventory: A.item, listings: A.listing, offers: A.offer, roster: A.athlete,
   restrictions: A.restriction, lines: A.cartLine,
   reservations: A.reservation, "marketplace-orders": A.mktOrder, "commission-rules": A.rule,
+  payouts: A.payout,
   /* GET /deliverables/{id}/assets/{version}/url (P5-FE-04) — a creative
      version number, under tenant A's deliverable. */
   assets: "1",
@@ -230,6 +233,8 @@ const BODY: Record<string, unknown> = {
   "POST /marketplace-orders/{id}/transition": { to: "CANCELLED" },
   "POST /commission-rules": { kind: "PLATFORM_FEE", scope: "GLOBAL", bps: 100, priority: 0 },
   "POST /commission-rules/{id}/revise": { bps: 1 },
+  "POST /payouts/{id}/decision": { decision: "APPROVE" },
+  "POST /payouts/account/link": { returnPath: "/athlete" },
 };
 
 describe.skipIf(!hasDatabase)("P8-SEC-02 · tenant B cannot reach tenant A through any route", async () => {
@@ -268,6 +273,10 @@ describe.skipIf(!hasDatabase)("P8-SEC-02 · tenant B cannot reach tenant A throu
       `SELECT p."tenantId" FROM "PropertyOnboarding" o JOIN "Property" p ON p.id = o."propertyId" WHERE o."tenantId" = $1 AND p."tenantId" <> $1
        UNION SELECT "tenantId" FROM "User" WHERE email = $2 AND "tenantId" <> $1`, A.tenant, `${E_MANAGER}@tenant-test.invalid`,
     )).map((r) => r.tenantId);
+    /* PayoutLine carries no tenantId of its own — it goes with its payout. */
+    await prisma.$executeRawUnsafe(
+      `DELETE FROM "PayoutLine" WHERE "payoutId" IN (SELECT id FROM "Payout" WHERE "tenantId" = ANY($1::text[]))`, [A.tenant, B.tenant, ...outside],
+    );
     /* Children before parents; a failure just means another pass. */
     for (let pass = 0; pass < 6; pass++) {
       for (const { table_name } of tables) {
@@ -347,6 +356,10 @@ describe.skipIf(!hasDatabase)("P8-SEC-02 · tenant B cannot reach tenant A throu
       id: A.mktOrder, tenantId: t, sponsorId: A.sponsor, reservationId: A.reservation, subtotalCents: 9000, feesCents: 0, totalCents: 9000,
       requiresApproval: true, approvalReasons: ["TI Secret reason"],
       lines: { create: [{ tenantId: t, listingId: A.listing, inventoryItemId: A.schoolItem, itemTenantId: t, propertyId: A.school, title: "TI Secret line", quantity: 1, startsOn: new Date("2027-01-01"), endsOn: new Date("2027-01-02"), unitPriceCents: 9000, lineTotalCents: 9000 }] },
+    } });
+    await prisma.payout.create({ data: {
+      id: A.payout, tenantId: t, payeeType: "ATHLETE", payeeId: A.athlete, payeeTenantId: t, amountCents: 4321,
+      decisionNote: "TI Secret payout note", lines: { create: [{ orderId: A.mktOrder, amountCents: 4321 }] },
     } });
     await prisma.cartLine.create({ data: { id: A.cartLine, tenantId: t, cartId: A.cart, listingId: A.listing, quantity: 1, startsOn: new Date("2027-01-01"), endsOn: new Date("2027-01-02"), unitPriceCents: 9000 } });
     await prisma.athleteClaim.create({ data: { id: A.claim, tenantId: t, athleteId: A.athlete, claimantName: "TI Secret Claimant", claimantEmail: "secret@a.invalid", rosterMatched: true } });

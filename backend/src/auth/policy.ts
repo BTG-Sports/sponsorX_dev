@@ -160,7 +160,8 @@ export type Resource =
   | "marketplaceOrder"
   | "commissionRule"
   | "orderFinancials"
-  | "ledgerEntry";
+  | "ledgerEntry"
+  | "payoutAccount";
 
 export const RESOURCES: readonly Resource[] = [
   "tenant",
@@ -229,6 +230,7 @@ export const RESOURCES: readonly Resource[] = [
   "commissionRule",
   "orderFinancials",
   "ledgerEntry",
+  "payoutAccount",
 ] as const;
 
 type RolePolicy = Partial<Record<Role, Partial<Record<Action, Scope>>>>;
@@ -565,12 +567,16 @@ export const POLICY: Record<Resource, RolePolicy> = {
     PROPERTY_MGR: rwa("deferred"), // D3
   },
 
+  /* Phase 2 (2S5-BE-04 / 2S5-BE-05, matrix §21): a payee requests its own
+     available balance (write); BTG admin and Finance approve or send it
+     back (approve). Money moves only through the provider adapter. */
   payout: {
-    SUPER_ADMIN: rwa("any", "any"),
-    BTG_ADMIN: rwa("own-tenant", "own-tenant"),
-    FINANCE: rwa("own-tenant", "own-tenant"),
-    ATHLETE: rwa("own"),
+    SUPER_ADMIN: rwa("any", "any", "any"),
+    BTG_ADMIN: rwa("own-tenant", "own-tenant", "own-tenant"),
+    FINANCE: rwa("own-tenant", "own-tenant", "own-tenant"),
+    ATHLETE: rwa("own", "own"),
     GUARDIAN: rwa("ward"),
+    PROPERTY_MGR: rwa("own-property", "own-property"),
   },
 
   /* Read-only mirror of Zoho Books — rows arrive from the webhook, never
@@ -890,6 +896,16 @@ export const POLICY: Record<Resource, RolePolicy> = {
     FINANCE: rwa("own-tenant"),
     PROPERTY_MGR: rwa("own-property"),
     ATHLETE: rwa("own"),
+  },
+
+  /* 2S5-INT-03 — where a payee is paid. The payee sets it up (on the
+     provider's page); BTG and Finance see its status to approve payouts. */
+  payoutAccount: {
+    SUPER_ADMIN: rwa("any", "any"),
+    BTG_ADMIN: rwa("own-tenant"),
+    FINANCE: rwa("own-tenant"),
+    PROPERTY_MGR: rwa("own-property", "own-property"),
+    ATHLETE: rwa("own", "own"),
   },
 };
 

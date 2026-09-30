@@ -314,7 +314,15 @@ describe("the whole matrix is pinned", () => {
       // ATHLETE own/own, GUARDIAN ward/ward; every other cell deny. With its
       // rows removed the grid still hashes to 49b852630719d073, so nothing
       // else moved. Document row added first (§5 `athleteProfileChange`).
-    ).toBe("dde2dbbea5dc8018");
+      // Updated 2026-09-30 (2S5-BE-04/-05, 2S5-INT-03): `payout` moves from
+      // Phase 1's status-only rows to the marketplace payout — ATHLETE own
+      // write (request) added, PROPERTY_MGR own-property read/write added,
+      // approve added for SUPER_ADMIN (any), BTG_ADMIN and FINANCE
+      // (own-tenant); GUARDIAN stays ward read. New `payoutAccount` resource —
+      // SUPER_ADMIN any/any, BTG_ADMIN and FINANCE own-tenant read,
+      // PROPERTY_MGR own-property r/w, ATHLETE own r/w (matrix §22).
+      // Sponsors stay denied both (the money boundary test above).
+    ).toBe("c0d600d731398bb8");
   });
 
   it("covers every pair the §30 acceptance asks for", () => {

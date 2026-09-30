@@ -14,6 +14,7 @@ import {
   type ApiMarketplaceOrder,
 } from "@/lib/marketplace-ops-live";
 import { dateLabel } from "@/lib/onboarding-live";
+import { paymentView, type ApiOrderPayment } from "@/lib/order-payment-live";
 import { apiFetch } from "@/server/api";
 
 /* --------------------------------------------------------------------------
@@ -41,10 +42,13 @@ export default async function MarketplaceOrderPage({ params }: { params: Promise
   if (lacking) return <NotInRole path={PATH} title="Marketplace operations" roles={lacking} />;
 
   const { id } = await params;
-  const [res, finRes] = await Promise.all([
+  const [res, finRes, payRes] = await Promise.all([
     apiFetch(`/marketplace-orders/${encodeURIComponent(id)}`),
     apiFetch(`/marketplace-orders/${encodeURIComponent(id)}/financials`),
+    /* 2S5-INT-01 — how the sponsor's card payment stands (BTG reads it too). */
+    apiFetch(`/marketplace-orders/${encodeURIComponent(id)}/payment`),
   ]);
+  const payment = payRes.ok ? ((await payRes.json()) as ApiOrderPayment) : null;
   if (res.status === 403 || res.status === 404) {
     return (
       <div className="space-y-5">
@@ -175,8 +179,25 @@ export default async function MarketplaceOrderPage({ params }: { params: Promise
             </Card>
           )}
           <Card>
-            <SectionHeading title="Payments" />
-            <p className="text-xs text-muted">Not tracked yet — arrives with the payment provider. Payment states are marked by staff above.</p>
+            <SectionHeading title="Payment" />
+            {(() => {
+              const v = paymentView(order.state, payment);
+              const a = payment?.latest;
+              return (
+                <div className="space-y-1.5 text-xs">
+                  <p><Badge tone={v.tone}>{v.status}</Badge></p>
+                  {a ? (
+                    <p className="text-muted">
+                      Last card payment: {a.state === "SUCCEEDED" ? "confirmed by the payment provider" : a.state === "PROCESSING" ? "being confirmed by the payment provider" : a.state === "FAILED" ? `didn't go through${a.failureReason ? ` — ${a.failureReason}` : ""}` : "started, not finished"}
+                      {a.providerRef ? <> · ref <span className="font-mono">{a.providerRef}</span></> : null}
+                    </p>
+                  ) : (
+                    <p className="text-muted">The sponsor pays by card from their order page once it&rsquo;s approved.</p>
+                  )}
+                  {payment?.testProvider && <p className="text-[11px] text-faint">Test payment provider — staging only, no real money.</p>}
+                </div>
+              );
+            })()}
           </Card>
         </div>
       </div>

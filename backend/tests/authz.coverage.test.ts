@@ -62,6 +62,12 @@ const GOVERNED_BY: Record<string, Resource> = {
   Edition: "edition",
   AdSlot: "adSlot",
   RevenueSplit: "revenueSplit",
+  /* 2S5-INT-01/-03, 2S5-BE-04/-05 — a card payment is the order's; a payout
+     line is its payout's. */
+  PayoutAccount: "payoutAccount",
+  Payout: "payout",
+  PayoutLine: "payout",
+  PaymentAttempt: "marketplaceOrder",
   EditionEvent: "editionEvent",
   Student: "student",
   StudentCode: "studentCode",

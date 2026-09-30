@@ -28,7 +28,7 @@
  */
 import type { Prisma } from "../generated/prisma/client";
 import { prisma } from "../db/client";
-import { audit } from "../db/audit";
+import { audit, type AuditActor } from "../db/audit";
 import { enqueue } from "../db/outbox";
 import { env } from "../config/env";
 import type { Actor } from "../auth/actor";
@@ -200,14 +200,37 @@ export async function transitionMarketplaceOrder(actor: Actor, id: string, to: M
   });
 }
 
-async function moveIn(tx: Prisma.TransactionClient, actor: Actor, order: Row, to: MarketplaceOrderState, now: Date, extra: Prisma.MarketplaceOrderUpdateInput) {
+/**
+ * An order move made by the system on the payment provider's word — the
+ * provider confirming a card payment (2S5-INT-02) — rather than by a person.
+ * Audited with no actor, in the order's own books.
+ */
+export async function moveOrderAsSystem(tx: Prisma.TransactionClient, orderId: string, to: MarketplaceOrderState, now = new Date()) {
+  const order = await tx.marketplaceOrder.findUniqueOrThrow({
+    /* tenant-scope: the order the provider's confirmation names, loaded by the caller from its own payment attempt. */
+    where: { id: orderId }, select: { ...SELECT, tenantId: true },
+  });
+  const { tenantId, ...row } = order;
+  return moveIn(tx, { userId: null, tenantId }, row, to, now, {});
+}
+
+async function moveIn(tx: Prisma.TransactionClient, actor: AuditActor & { tenantId: string }, order: Row, to: MarketplaceOrderState, now: Date, extra: Prisma.MarketplaceOrderUpdateInput) {
   const from = order.state as MarketplaceOrderState;
   if (!canTransitionMarketplaceOrder(from, to)) throw new IllegalMarketplaceOrderTransitionError(from, to);
   const updated = await tx.marketplaceOrder.update({
     /* tenant-scope: the row loaded by the caller through whereFor(marketplaceOrder, …). */
-    where: { id: order.id }, data: { state: to, ...extra }, select: SELECT,
+    where: { id: order.id },
+    /* 2S5-BE-04 — the payout holding period runs from fulfilment. */
+    data: { state: to, ...(to === "FULFILLED" ? { fulfilledAt: now } : {}), ...extra }, select: SELECT,
   });
   if (RELEASES.has(to)) {
+    /* 2S5-BE-05 — a payout in progress claims this order's money: it is sent
+       back (or fails) before the order can be cancelled or refunded. */
+    const claimed = await tx.payoutLine.findFirst({
+      /* tenant-scope: payout lines naming this order, loaded by the caller through its own scope. */
+      where: { orderId: order.id, payout: { state: { in: ["REQUESTED", "APPROVED", "SENDING"] } } }, select: { id: true },
+    });
+    if (claimed) throw new MarketplaceOrderError("A payout covering this order is in progress — it has to be sent back or finish before the order can be cancelled or refunded.");
     await tx.inventoryCommitment.updateMany({
       /* tenant-scope: the commitments this order wrote, named by its id (unique). */
       where: orderHolds(order.id), data: { releasedAt: now },

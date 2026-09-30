@@ -2235,6 +2235,8 @@ model MarketplaceOrder {
   decidedBy        String?
   decisionNotes    String?
   contractedAt     DateTime?
+  /// 2S5-BE-04 — when it reached FULFILLED: the payout holding period runs from here.
+  fulfilledAt      DateTime?
   createdBy        String?
   /// 2S7-INT-01 — the Deal this order is in Zoho.
   zohoDealId       String?               @unique
@@ -2362,4 +2364,94 @@ model LedgerEntry {
   @@index([tenantId, orderId])
   @@index([partyTenantId, partyType, partyId])
   @@index([journalId])
+}
+
+/// 2S5-INT-03 — where a payee (an athlete or a property) is paid. The account
+/// itself lives at the payment provider, which holds the bank and tax
+/// details; SponsorX keeps only the provider's account id and its status.
+model PayoutAccount {
+  id                String   @id @default(cuid())
+  /// The payee's own tenant.
+  tenantId          String
+  /// ATHLETE | PROPERTY
+  payeeType         String
+  payeeId           String
+  /// standin (staging only) | stripe
+  provider          String
+  providerAccountId String?
+  /// NOT_SET_UP | NEEDS_INFO | READY
+  status            String   @default("NOT_SET_UP")
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @default(now()) @updatedAt
+
+  @@unique([payeeType, payeeId])
+  @@index([tenantId])
+}
+
+/// 2S5-INT-01 — a sponsor paying an approved order on the provider's page.
+/// SponsorX never sees the card: only the attempt, its outcome and the
+/// provider's reference.
+model PaymentAttempt {
+  id            String   @id @default(cuid())
+  /// The order's books.
+  tenantId      String
+  orderId       String
+  sponsorId     String
+  amountCents   Int
+  provider      String
+  providerRef   String?
+  /// PENDING (sent to the provider) | PROCESSING (back, awaiting confirmation) | SUCCEEDED | FAILED
+  state         String   @default("PENDING")
+  failureReason String?
+  createdBy     String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @default(now()) @updatedAt
+
+  @@index([tenantId, orderId])
+  @@index([orderId, createdAt])
+}
+
+/// 2S5-BE-04 / 2S5-BE-05 — a payee asks to be paid its available balance; BTG
+/// approves; the provider sends it; confirmation posts the PAYOUT journals.
+model Payout {
+  id             String       @id @default(cuid())
+  /// The books the paid orders are in (the operator's tenant).
+  tenantId       String
+  /// ATHLETE | PROPERTY
+  payeeType      String
+  payeeId        String
+  payeeTenantId  String
+  amountCents    Int
+  /// REQUESTED | APPROVED | SENDING | PAID | REJECTED | FAILED
+  state          String       @default("REQUESTED")
+  requestedBy    String?
+  requestedAt    DateTime     @default(now())
+  decidedBy      String?
+  decidedAt      DateTime?
+  decisionNote   String?
+  provider       String?
+  providerRef    String?
+  sentAt         DateTime?
+  paidAt         DateTime?
+  failureReason  String?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @default(now()) @updatedAt
+
+  lines PayoutLine[]
+
+  @@index([tenantId, state])
+  @@index([payeeTenantId, payeeType, payeeId])
+}
+
+/// Which order's available money a payout covers, and how much of it.
+model PayoutLine {
+  id          String @id @default(cuid())
+  payoutId    String
+  orderId     String
+  amountCents Int
+
+  payout Payout @relation(fields: [payoutId], references: [id])
+
+  @@index([orderId])
+  @@index([payoutId])
 }

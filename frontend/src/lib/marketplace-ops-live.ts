@@ -65,8 +65,8 @@ export const ORDER_STATE_COPY: Record<MarketplaceOrderState, { label: string; to
 export const MOVE_COPY: Record<MarketplaceOrderState, { label: string; hint: string; confirm?: boolean }> = {
   PENDING_APPROVAL: { label: "—", hint: "" },
   APPROVED: { label: "—", hint: "" },
-  AWAITING_PAYMENT: { label: "Mark awaiting payment", hint: "The sponsor owes payment. Set by staff — there is no payment provider yet." },
-  PAID: { label: "Mark paid", hint: "Recorded by staff. Makes the payables available in the ledger.", confirm: true },
+  AWAITING_PAYMENT: { label: "Mark awaiting payment", hint: "The sponsor owes payment. It moves here on its own when they start paying by card." },
+  PAID: { label: "Mark paid", hint: "Only for a payment made another way — card payments are marked paid by the payment provider. Makes the payables available in the ledger.", confirm: true },
   IN_DELIVERY: { label: "Mark in delivery", hint: "Delivery of the order's inventory has started." },
   FULFILLED: { label: "Mark fulfilled", hint: "Everything on the order was delivered." },
   CLOSED: { label: "Close order", hint: "Final. Releases the reserve held against it.", confirm: true },
