@@ -44,7 +44,15 @@ import * as THREE from "three";
  *  can drive it with a fake. */
 export interface CompileRenderer {
   compile(scene: THREE.Object3D, camera: THREE.Camera): Set<THREE.Material>;
-  properties: { get(material: THREE.Material): { currentProgram?: { isReady(): boolean } } };
+  /** three types this as `unknown`; `programOf` narrows it. */
+  properties: { get(material: THREE.Material): unknown };
+}
+
+/** The compiled program three keeps for a material, if any. */
+function programOf(renderer: CompileRenderer, material: THREE.Material): { isReady(): boolean } | undefined {
+  const props = renderer.properties.get(material) as { currentProgram?: { isReady?: unknown } } | undefined;
+  const program = props?.currentProgram;
+  return program && typeof program.isReady === "function" ? (program as { isReady(): boolean }) : undefined;
 }
 
 /** What `warmUp` needs beyond that. */
@@ -77,7 +85,7 @@ export function waitForMaterials(
     let reported = 0;
     const poll = () => {
       for (const material of [...pending]) {
-        const program = renderer.properties.get(material).currentProgram;
+        const program = programOf(renderer, material);
         // No program: the material was disposed or never needed one.
         if (program === undefined || program.isReady()) pending.delete(material);
       }
