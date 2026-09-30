@@ -34,6 +34,15 @@ import { JoinSubmitted } from "./join-submitted";
 
 type Demo = "submitted" | "minor" | null;
 
+/* The stage's primary button (join-stage.tsx / packages-stage.tsx): the
+   brand gradient with its glow. Keeps the dark CTA ink — white on #2e9bf5
+   is 2.95:1 (P1-QA-02), and this is the button the whole form hangs on. */
+const CTA =
+  "sx-join-sheen min-h-12 w-full rounded-xl bg-gradient-to-r from-[#63b4f8] to-[#2e9bf5] px-5 py-3.5 text-base font-semibold text-cta-ink shadow-[0_0_24px_-2px_rgba(46,155,245,.55)] transition-[box-shadow,transform,opacity] hover:-translate-y-0.5 hover:shadow-[0_0_34px_rgba(46,155,245,.75)] disabled:cursor-not-allowed disabled:opacity-40 disabled:shadow-none disabled:hover:translate-y-0";
+
+/* Two-digit HUD numerals: 01, 02 … */
+const pad = (n: number) => String(n).padStart(2, "0");
+
 function seed(demo: Demo): JoinDraft {
   const d = emptyDraft();
   if (demo === "minor") {
@@ -105,9 +114,25 @@ export function JoinWizard({ demo }: { demo: Demo }) {
   const restrictionsIdx = sections.findIndex((s) => s.id === "restrictions");
   const pastEnforced = draft.step > restrictionsIdx;
 
-  /* Focus the heading on step / phase changes. */
+  /* The page stage shows its phone hero on the intro only (globals.css,
+     .sx-join[data-phase]) — DOM state React never owns, like the glow. Declared first:
+     effects run in order, and the scroll below must measure the page
+     without the hero. */
+  useEffect(() => {
+    document.querySelector<HTMLElement>(".sx-join")?.setAttribute("data-phase", draft.phase);
+  }, [draft.phase]);
+
+  /* Focus the heading on step / phase changes. The intro is a long list, so
+     "Start application" sits a screen below the panel's top: bring the
+     panel back up when a change leaves its top above the viewport or under
+     the 72px header (a no-op on first render, where it never is). */
   useEffect(() => {
     if (draft.phase === "steps") headingRef.current?.focus({ preventScroll: true });
+    const panel = document.getElementById("apply");
+    if (panel && panel.getBoundingClientRect().top < 72) {
+      const still = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      panel.scrollIntoView({ block: "start", behavior: still ? "auto" : "smooth" });
+    }
   }, [draft.step, draft.phase]);
 
   /* Glow crossfade: the ::before lives on the page-level .sx-join-stage
@@ -265,7 +290,7 @@ export function JoinWizard({ demo }: { demo: Demo }) {
           <button
             type="button"
             onClick={() => setEditingRestrictions(false)}
-            className="mt-8 min-h-12 w-full rounded-xl bg-primary px-5 py-3.5 text-base font-semibold text-cta-ink transition-colors hover:bg-primary-soft"
+            className={`mt-8 ${CTA}`}
           >
             Done — back to your application
           </button>
@@ -341,20 +366,28 @@ export function JoinWizard({ demo }: { demo: Demo }) {
     const hasDraft =
       Object.values(draft.answers).some((v) => v.trim()) || draft.step > 0;
     return (
-      <div className="px-6 py-10">
-        <p className="sx-join-rise text-[11px] font-semibold uppercase tracking-[0.2em] text-muted">
+      <div className="px-6 py-9 sm:px-8">
+        <p className="sx-join-rise flex items-center gap-3 text-[11px] font-medium uppercase tracking-[0.32em] text-[#7fc4ff]">
+          <span aria-hidden className="h-px w-8 bg-[#7fc4ff]/80" />
           Athlete application
+          <span aria-hidden className="sx-hud-dashes ml-1" />
         </p>
-        <h1 className="sx-join-rise mt-2 text-3xl font-semibold tracking-tight" style={{ "--sx-d": "0.05s" } as React.CSSProperties}>
-          Ten sections
-        </h1>
+        <div className="sx-join-rise mt-3 flex items-end justify-between gap-4" style={{ "--sx-d": "0.05s" } as React.CSSProperties}>
+          <h1 className="text-3xl font-semibold tracking-tight">Ten sections</h1>
+          <span className="mb-1 shrink-0 rounded border border-[#9cc7ff]/30 px-2 py-0.5 font-mono text-[11px] tracking-wider text-on-media/75">
+            ~8 MIN
+          </span>
+        </div>
         <p className="sx-join-rise mt-2 text-sm leading-relaxed text-muted" style={{ "--sx-d": "0.1s" } as React.CSSProperties}>
           About 8 minutes. Progress is saved after every section — leave and
           come back.
         </p>
 
         <div className="relative mt-8">
-          <span aria-hidden className="sx-join-rail absolute bottom-4 left-[15px] top-4 w-px bg-line" />
+          <span
+            aria-hidden
+            className="sx-join-rail absolute bottom-4 left-[15px] top-4 w-[2px] rounded-full bg-gradient-to-b from-[#7fd0ff]/60 via-[#2e9bf5]/50 to-[#fb923c]/60 shadow-[0_0_10px_rgba(46,155,245,.45)]"
+          />
           <ol className="space-y-1">
             {SECTIONS.map((s, i) => {
               const enforced = s.id === "restrictions";
@@ -366,20 +399,21 @@ export function JoinWizard({ demo }: { demo: Demo }) {
                   style={{ "--sx-d": `${0.15 + i * 0.045}s` } as React.CSSProperties}
                 >
                   <span
-                    className={`relative z-10 grid size-8 shrink-0 place-items-center rounded-full text-xs font-semibold ${
+                    className={`relative z-10 grid size-8 shrink-0 place-items-center rounded-full font-mono text-[11px] font-bold ${
                       enforced
-                        ? "border border-accent bg-bg text-accent"
+                        ? "border border-accent bg-[#140b05] text-accent shadow-[0_0_12px_rgba(249,122,31,.55)]"
                         : conditional
-                          ? "border border-dashed border-accent/70 bg-bg text-accent"
+                          ? "border border-dashed border-accent/70 bg-[#140b05] text-accent"
                           : i === 0
-                            ? "border border-primary bg-bg text-primary"
-                            : "bg-surface-2 text-muted"
+                            ? "sx-ping border border-primary bg-[#06101f] text-primary-soft shadow-[0_0_14px_rgba(46,155,245,.7)]"
+                            : "border border-[#9cc7ff]/20 bg-[#06101f] text-muted"
                     }`}
+                    style={i === 0 ? ({ "--ping": "#4fb0ff", "--ping-cycle": "3.2s" } as React.CSSProperties) : undefined}
                   >
-                    {i + 1}
+                    {pad(i + 1)}
                   </span>
                   {conditional ? (
-                    <div className="flex-1 rounded-xl border border-line border-l-2 border-l-accent bg-surface-2 p-3.5">
+                    <div className="flex-1 rounded-xl border border-dashed border-accent/45 bg-accent/[0.06] p-3.5 shadow-[inset_0_0_24px_-10px_rgba(249,122,31,.45)]">
                       <p className="text-base font-medium text-text">{s.title}</p>
                       <p className="mt-1 text-sm leading-relaxed text-accent">
                         The one branch. Appears only if the date of birth on
@@ -400,7 +434,7 @@ export function JoinWizard({ demo }: { demo: Demo }) {
               );
             })}
             <li className="sx-join-rise relative flex items-center gap-4 py-2.5" style={{ "--sx-d": `${0.15 + SECTIONS.length * 0.045}s` } as React.CSSProperties}>
-              <span className="relative z-10 grid size-8 shrink-0 place-items-center rounded-full bg-surface-2">
+              <span className="relative z-10 grid size-8 shrink-0 place-items-center rounded-full border border-success/50 bg-[#06151a] shadow-[0_0_12px_rgba(34,201,141,.4)]">
                 <svg viewBox="0 0 12 12" className="size-3.5" fill="none" stroke="var(--sx-success)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M2.5 6.5l2.5 2.5 4.5-5.5" pathLength={1} className="sx-join-draw" style={{ "--sx-d": "0.9s" } as React.CSSProperties} />
                 </svg>
@@ -414,7 +448,7 @@ export function JoinWizard({ demo }: { demo: Demo }) {
           <button
             type="button"
             onClick={startOrResume}
-            className="sx-join-sheen min-h-12 w-full rounded-xl bg-primary px-5 py-3.5 text-base font-semibold text-cta-ink transition-colors hover:bg-primary-soft"
+            className={CTA}
           >
             {hasDraft ? `Resume — section ${draft.step + 1} of ${sections.length}` : "Start application"}
           </button>
@@ -440,28 +474,35 @@ export function JoinWizard({ demo }: { demo: Demo }) {
   return (
     <div className="flex min-h-[calc(100dvh-8rem)] flex-col">
       {/* chrome */}
-      <div className="border-b border-line px-6 pb-4 pt-5">
+      <div className="border-b border-[#9cc7ff]/15 bg-gradient-to-b from-[#0b1b35]/50 to-transparent px-6 pb-4 pt-5 sm:px-8">
         <div className="flex items-center justify-between">
           <button
             type="button"
             onClick={goBack}
             aria-label="Back"
             disabled={submitting}
-            className="grid size-11 -ml-2.5 place-items-center rounded-lg text-muted transition-colors hover:bg-surface-2 hover:text-text disabled:cursor-not-allowed disabled:opacity-40"
+            className="grid size-11 -ml-2.5 place-items-center rounded-lg text-muted transition-colors hover:bg-[#2e9bf5]/12 hover:text-text disabled:cursor-not-allowed disabled:opacity-40"
           >
             <svg viewBox="0 0 16 16" className="size-4.5" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
               <path d="M10 3.5L5.5 8l4.5 4.5" />
             </svg>
           </button>
-          <p aria-live="polite" className="text-sm text-muted">
-            Section {n} of {total}
+          <p aria-live="polite" className="text-[11px] font-medium uppercase tracking-[0.24em] text-muted">
+            <span className="sr-only">
+              Section {n} of {total}
+            </span>
+            <span aria-hidden>
+              Section <span className="font-mono text-[13px] font-bold tracking-normal text-text">{pad(n)}</span>
+              <span className="mx-1 text-faint">/</span>
+              <span className="font-mono tracking-normal">{pad(total)}</span>
+            </span>
           </p>
-          <p className="flex items-center gap-1.5 text-sm text-success">
-            <span className={`size-1.5 rounded-full bg-success ${save === "saving" ? "sx-pop" : ""}`} />
-            {save === "saving" ? "Saving…" : "Progress saved"}
+          <p className="flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-[0.14em] text-success">
+            <span className={`size-1.5 rounded-full bg-success shadow-[0_0_8px_var(--sx-success)] ${save === "saving" ? "sx-pop" : ""}`} />
+            {save === "saving" ? "Saving…" : "Saved"}
           </p>
         </div>
-        <div className="mt-3.5 flex gap-1.5">
+        <div className="sx-join-segs mt-3.5 flex gap-1.5">
           {sections.map((s, i) => (
             <span
               key={s.id}
@@ -481,9 +522,17 @@ export function JoinWizard({ demo }: { demo: Demo }) {
       <div
         key={`${section.id}-${dir}`}
         ref={stepRef}
-        className="sx-join-step flex-1 px-6 py-7"
+        className="sx-join-step relative flex-1 px-6 py-7 sm:px-8"
         style={{ "--sx-from": dir === 1 ? "24px" : "-24px" } as React.CSSProperties}
       >
+        {/* the section's number, outlined behind the heading (the /packages
+            cards' tier numeral) */}
+        <span
+          aria-hidden
+          className="pointer-events-none absolute right-4 top-1 select-none font-mono text-[104px] font-bold leading-none tracking-tighter text-transparent [-webkit-text-stroke:1px_rgba(158,208,255,.13)]"
+        >
+          {pad(n)}
+        </span>
         {section.kind === "restrictions" && (
           <span className="mb-3 inline-flex items-center gap-1.5 rounded-lg border border-accent/60 bg-accent/12 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-accent">
             <svg viewBox="0 0 16 16" className="size-3.5" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round">
@@ -497,12 +546,12 @@ export function JoinWizard({ demo }: { demo: Demo }) {
             Draft
           </span>
         )}
-        <h1 ref={headingRef} tabIndex={-1} className="text-3xl font-semibold tracking-tight outline-none">
+        <h1 ref={headingRef} tabIndex={-1} className="relative text-3xl font-semibold tracking-tight outline-none">
           {section.heading}
         </h1>
-        <p className="mt-2 text-sm leading-relaxed text-muted">{section.sub}</p>
+        <p className="relative mt-2 text-sm leading-relaxed text-muted">{section.sub}</p>
 
-        <div className="mt-6">
+        <div className="relative mt-6">
           {section.kind === "fields" && (
             <div className="grid grid-cols-2 gap-x-3 gap-y-5">
               {section.fields.map((f, i) => (
@@ -560,7 +609,7 @@ export function JoinWizard({ demo }: { demo: Demo }) {
       </div>
 
       {/* action bar */}
-      <div className="sticky bottom-0 border-t border-line bg-bg/95 px-6 py-4 backdrop-blur lg:rounded-b-2xl">
+      <div className="sticky bottom-0 border-t border-[#9cc7ff]/20 bg-[#040a16]/85 px-6 py-4 shadow-[0_-1px_0_rgba(127,208,255,.12),0_-18px_40px_-20px_rgba(46,155,245,.35)] backdrop-blur-xl sm:px-8">
         {submitMsgs.length > 0 && (
           <div
             role="alert"
@@ -576,7 +625,7 @@ export function JoinWizard({ demo }: { demo: Demo }) {
           onClick={goNext}
           disabled={!armed || submitting}
           data-armed={section.kind === "agreement" && draft.accepted}
-          className="sx-join-sheen min-h-12 w-full rounded-xl bg-primary px-5 py-3.5 text-base font-semibold text-cta-ink transition-all hover:bg-primary-soft disabled:cursor-not-allowed disabled:opacity-40"
+          className={CTA}
         >
           {section.kind === "agreement"
             ? submitting
@@ -616,7 +665,7 @@ function Field({
       className={`sx-join-rise block ${def.half ? "col-span-1" : "col-span-2"}`}
       style={{ "--sx-d": `${index * 0.035}s` } as React.CSSProperties}
     >
-      <span className="text-[11px] font-medium text-muted">{def.label}</span>
+      <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-muted">{def.label}</span>
       <input
         type={def.type}
         name={def.key}
@@ -624,8 +673,10 @@ function Field({
         onChange={(e) => onChange(e.target.value)}
         placeholder={def.placeholder}
         aria-invalid={!!error}
-        className={`mt-1.5 min-h-11 w-full rounded-xl border bg-surface-2 px-3.5 py-3 text-base text-text placeholder:text-faint transition-colors focus:outline-none ${
-          error ? "border-danger" : "border-line focus:border-primary/60"
+        className={`mt-1.5 min-h-11 w-full rounded-xl border bg-[#07132a]/70 px-3.5 py-3 text-base text-text shadow-[inset_0_1px_0_rgba(158,208,255,.06)] placeholder:text-faint transition-[border-color,box-shadow] focus:outline-none ${
+          error
+            ? "border-danger shadow-[0_0_0_3px_rgba(255,77,79,.14)]"
+            : "border-[#9cc7ff]/20 hover:border-[#9cc7ff]/35 focus:border-[#7fd0ff] focus:shadow-[0_0_0_3px_rgba(46,155,245,.18),0_0_20px_-4px_rgba(46,155,245,.6)]"
         }`}
       />
       {def.hint && !error && <span className="mt-1 block text-[11px] text-faint">{def.hint}</span>}

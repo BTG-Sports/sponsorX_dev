@@ -150,8 +150,9 @@ const PACKAGES = [
 /* ----------------------------------------------------------------- parts */
 
 /** Chamfered glass plate with a glowing one-pixel outline — the panel and
- *  the cards share this; `lit` is the featured card's brighter treatment. */
-function Glass({
+ *  the cards share this (and /packages, packages-stage.tsx); `lit` is the
+ *  featured card's brighter treatment. */
+export function Glass({
   plate,
   ringClip,
   lit = false,

@@ -935,3 +935,105 @@ shows a horizontal scrollbar. Gone once scrolled (capsule insets the rule
 `clamp()`ed inside the rule (the glow is box-shadow, which never scrolls).
 Verified scrollWidth == clientWidth at 1440/1280/390, scroll 0/40/240, with
 no element past either edge.
+
+## /packages redesigned to the landing's visual language — rcfworks, via Claude
+
+The public package catalogue (§9 screen 4) looked plain next to the landing
+fly-through. Rebuilt as a fixed-dark stage in the landing's HUD language,
+same fixtures and the same live price list (P3-FE-05 unchanged):
+
+- `frontend/src/components/packages-stage.tsx` (server) — HUD hero with the
+  three-line masked headline and the "THE RANGE" glass card (entry price,
+  ceiling, athlete range, package count, log-scale bar per package — all
+  derived from the list on the page, badge says live vs indicative); the
+  "What's inside" marquee band; the log-scale price ladder (every package
+  as a node linking to its card; vertical rungs below md); the chamfered
+  glass catalogue cards with tier tone, athlete meter and "What's inside";
+  the three managed steps; the closing panel. Reuses the landing's Glass,
+  Magnetic, TiltSpot, ScrambleText, CountUp and `.sx-pkg*` / `.sx-sheen` /
+  `.sx-scan` / `.sx-ping` / `.sx-rule-pulse` rules.
+- `packages-fx.tsx` (client) — StageReveal (arms the stage; scroll reveals
+  via IntersectionObserver) and PackageGrid (pointer spotlight / tilt on
+  the cards, same vars as the landing's package row).
+- `globals.css` — `.sx-stage*` ground, floor grid, outlined word, entrance
+  (released by `html[data-sx-loaded]`), `[data-reveal]`, bar / meter /
+  ladder growth; reduced-motion opt-outs.
+- `page-transition.tsx` — `prepareArrival()`: the loaded flag is now
+  cleared before every public push (was home only), so the stage's
+  entrance plays through the reveal on client-side arrival too.
+- `landing-sponsors.tsx` — `Glass` exported.
+- Live line items now read "2× Athlete Reel" (names from `fixtures.rates`),
+  not "2× SX-03".
+
+Phone fix after the owner's review: the catalogue cards ran off the right
+edge — a `whitespace-nowrap` 34px price on a grid item with `min-width: auto`
+widened every column; items are now `min-w-0`, the price clamps on the
+viewport and may wrap. The filter chips below md are one "Filters · 5"
+button opening a bottom sheet (`PackageFilters`, packages-fx.tsx; `sx-sheet`
+in globals.css — same open/close contract as the brief drawer) that lists the
+five groups and says filtering arrives with matching; the owner chose this
+over a swipe strip and over hiding them. The hero's two CTAs stack full-width
+below sm — both labels are `whitespace-nowrap` and, as `flex-1` items, never
+shrink below their text, so the row overran a 360-390px screen and the second
+button was cut off (the stage's `overflow-x-clip` had hidden it from the first
+check; the QA script now lifts every clip before measuring). The closing
+panel's CTAs drop to `px-5` under sm for the same reason at 320px.
+
+The price ladder's horizontal track now starts at **1240px**, not `md` (owner's
+call). Measured: below ~1200 the 204px labels wrap to different heights (six
+distinct labels rows at 1024) and 01/03 meet at 0px around 1137; at 1240 the
+smallest gap is 26px, growing with width. Below 1240 the vertical ladder takes
+over and is capped at `max-w-2xl` — full-bleed at 1100px stranded each price
+about 900px from its name.
+
+Verified in Chrome via Playwright at 1440×900, 390 and 360 wide and light
+theme: no console errors, no horizontal overflow, entrance and reveals fire; tsc, eslint
+and the page-transition tests pass. Filters stay decorative (§13). No tracker
+row raised — this is a design pass on a shipped screen, not a new task.
+
+## /join redesigned to the landing's and /packages' visual language — via Claude
+
+Owner: "/join looks plain compared to the landing and /packages". Same wizard
+(P1-ART-07 / P3-FE-01 logic untouched), new stage:
+
+- `frontend/src/components/join-stage.tsx` (server) — JoinHero: the fixed-dark
+  `.sx-stage` ground spanning the whole hero (glows, `sx-stage-floor`, horizon,
+  outlined "ATHLETES"), a sticky HUD panel from lg (scrambled eyebrow, masked
+  three-line "Your Name. / Your Game. / Your Sponsors." headline, "THE
+  APPLICATION" glass card: sections / minutes / review days / branch, all from
+  `SECTIONS` + two constants, plus a progress-bar preview), and the wizard in
+  a chamfered glass panel (`#apply`, content clipped to the plate + 1px inset so
+  the sticky action bar never covers the outline). Below lg a compact hero sits
+  above the wizard on the intro only. Then /packages' InsideBand ("Jobs on the
+  network", the seven `fixtures.rates` names), JoinPath (the §39 loop from the
+  athlete side, six hex stops on one track / vertical rail), JoinPromises (the
+  old trust list as glass cards) and JoinClose.
+- `packages-stage.tsx` — `chamfer`, `Eyebrow`, `StepRule`, `SectionHead`
+  exported; InsideBand takes a `label`.
+- `join-wizard.tsx` — HUD internals: mono "SECTION 01 / 09" counter (sr-only
+  full sentence stays aria-live), glowing segments (`.sx-join-segs`), outlined
+  section numeral, glass inputs with focus glow, gradient CTA that keeps the
+  dark cta-ink (white on #2e9bf5 fails P1-QA-02), glass sticky bar. Writes
+  `data-phase` onto `.sx-join` (hides the phone hero off the intro) BEFORE the
+  scroll effect, which brings `#apply` back into view when its top is above /
+  under the header — fixes the pre-existing "Start application leaves the
+  heading off-screen" jump.
+- `globals.css` — `.sx-join` re-pins the themed tokens to dark (the `.sx-login`
+  precedent) so the wizard stays night-stage in the light theme.
+
+Owner bug mid-pass: the ground was capped at one screen tall, so the floor grid
+and orange glow ended in a hard line halfway down the tall intro — now `inset-0`
+on a `min-h-[min(100svh,980px)]` hero, running to the band.
+
+Verified via Playwright at 1920, 1440, 390 and light theme, intro and steps:
+no console errors, no horizontal overflow, reveals fire. tsc, eslint and the
+frontend suite (752) pass. No tracker row — design pass on a shipped screen.
+
+Tablet follow-up (owner at 983px: "this looks ugly"): between sm and lg the
+hero was left-aligned while the wizard panel is a centred 460px column, so
+nothing shared an axis and the right half sat empty. From sm the intro hero
+now centres on the panel's axis (mirrored eyebrow rule, larger headline, the
+stats strip exactly the panel's 460px); phones stay left-aligned over the
+full-bleed form. The ground's left-to-right legibility overlay is lg-only —
+full-width on a tablet it only made the left side heavier. Checked at 983,
+768 and 390: no overflow, no errors; tsc + eslint clean.
