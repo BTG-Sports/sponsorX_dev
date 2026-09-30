@@ -7,7 +7,9 @@ import {
   easeDisplayed,
   INITIAL_TASKS,
   overallProgress,
+  SCENE_COMPILE_DONE,
   SCENE_MODULE_LOADED,
+  sceneCompileProgress,
   TASK_WEIGHT,
 } from "../src/lib/city/loading";
 
@@ -96,5 +98,20 @@ describe("canFinish", () => {
     expect(canFinish({ ...ok, target: 0.99 })).toBe(false);
     expect(canFinish({ ...ok, displayed: 0.99 })).toBe(false);
     expect(canFinish({ ...ok, elapsedMs: 800 })).toBe(false);
+  });
+});
+
+describe("sceneCompileProgress", () => {
+  it("maps shader-compile progress into the scene task between module-loaded and first-frame", () => {
+    expect(sceneCompileProgress(0)).toBeCloseTo(SCENE_MODULE_LOADED, 10);
+    expect(sceneCompileProgress(1)).toBeCloseTo(SCENE_COMPILE_DONE, 10);
+    expect(sceneCompileProgress(1)).toBeLessThan(1);
+    expect(sceneCompileProgress(0.5)).toBeGreaterThan(sceneCompileProgress(0.25));
+  });
+
+  it("clamps garbage fractions", () => {
+    expect(sceneCompileProgress(-3)).toBeCloseTo(SCENE_MODULE_LOADED, 10);
+    expect(sceneCompileProgress(Number.NaN)).toBeCloseTo(SCENE_MODULE_LOADED, 10);
+    expect(sceneCompileProgress(7)).toBeCloseTo(SCENE_COMPILE_DONE, 10);
   });
 });

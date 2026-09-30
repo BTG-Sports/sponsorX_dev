@@ -2,13 +2,17 @@
    City preload (P1-ART-11) — streams the scene's files with byte progress
    and hands them to three.js so the loaders never fetch them again.
 
-   three's FileLoader checks `THREE.Cache` by URL before it fetches; both
-   the GLTFLoader (the kit) and the RGBELoader (the HDR, via
-   DataTextureLoader) go through it with `responseType: "arraybuffer"`. So:
-   fetch each file here with a ReadableStream, report bytes as they arrive,
-   and `Cache.add(url, arrayBuffer)`. When the scene then mounts, drei's
-   `useGLTF` / `<Environment files>` resolve from memory — no second
-   download, and the loader's number was the real download.
+   three's FileLoader checks `THREE.Cache` before it fetches; both the
+   GLTFLoader (the kit) and the RGBELoader (the HDR, via DataTextureLoader)
+   go through it with `responseType: "arraybuffer"`. The cache is keyed by
+   loader kind — the FileLoader looks up `file:` + url (the ImageLoader
+   `image:` + url) — so the bytes must be stored under exactly that key or
+   every file downloads twice. So: fetch each file here with a
+   ReadableStream, report bytes as they arrive, and `Cache.add(key,
+   arrayBuffer)`. When the scene then mounts, drei's `useGLTF` and
+   `useEnvironment` resolve from memory — no second download, and the
+   loader's number was the real download (tests/city-preload.test.ts proves
+   it against three's own FileLoader).
 
    This module imports `three`, so it must only ever be dynamic-imported —
    from city-backdrop.tsx after the capability gate — to keep three out of
@@ -22,6 +26,9 @@ import { Cache } from "three";
 
 import type { PreloadFile } from "@/lib/city/assets";
 import { byteFraction, type ByteItem } from "@/lib/city/loading";
+
+/** The key three's FileLoader reads for `url`. */
+export const fileCacheKey = (url: string) => `file:${url}`;
 
 /** Fetch every file, streaming, and cache the bytes for three's loaders.
  *  `onProgress` receives the combined 0..1 fraction; resolves when all are
@@ -38,8 +45,9 @@ export async function preloadCityFiles(
   await Promise.all(
     files.map(async (file, i) => {
       const item = items[i];
+      const key = fileCacheKey(file.url);
       try {
-        if (Cache.get(file.url) !== undefined) {
+        if (Cache.get(key) !== undefined) {
           item.done = true;
           report();
           return;
@@ -68,7 +76,7 @@ export async function preloadCityFiles(
           buf.set(c, offset);
           offset += c.byteLength;
         }
-        Cache.add(file.url, buf.buffer);
+        Cache.add(key, buf.buffer);
       } catch {
         // Network error mid-stream: the scene's own loader will retry (and
         // asset-guard handles a hard failure). Do not hold the loader up.

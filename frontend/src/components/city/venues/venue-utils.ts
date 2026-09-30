@@ -24,6 +24,8 @@ import { useThree } from "@react-three/fiber";
 import * as THREE from "three";
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 
+import { dotsForCoverage, paintSpeckle, parseHex, type Rgb } from "@/lib/city/speckle";
+
 export const BRAND = {
   blue: "#2e9bf5",
   orange: "#f97a1f",
@@ -66,16 +68,55 @@ export function makeCanvas(w: number, h: number): Canvas2D | null {
   return { canvas, ctx, w: canvas.width, h: canvas.height };
 }
 
+/** One scratch canvas the speckle layers are composed on, reused across
+ *  calls (painting is sequential) and resized to the largest surface seen. */
+let scratch: Canvas2D | null = null;
+
+function scratchLayer(w: number, h: number): Canvas2D | null {
+  if (scratch && scratch.w === w && scratch.h === h) return scratch;
+  if (scratch) {
+    scratch.canvas.width = w;
+    scratch.canvas.height = h;
+    scratch = { ...scratch, w, h };
+    return scratch;
+  }
+  scratch = makeCanvas(w, h);
+  return scratch;
+}
+
 /** Speckle overlay: `density` dots per pixel of `tint` at `alpha`. Respects
- *  the current clip, so callers clip to the region they want grained. */
+ *  the current clip, so callers clip to the region they want grained.
+ *
+ *  The dots are written into pixel data (lib/city/speckle.ts) and composited
+ *  with one drawImage, never drawn one fillRect at a time: a 2048² surface
+ *  at density 0.03 is 126 000 rects, the GPU process took seconds to
+ *  rasterise that for the four venues, and every WebGL command behind them
+ *  on the same channel — the shader links, the first frame — waited. The
+ *  dot is rounded to whole pixels and the count adjusted so the covered
+ *  area is what the caller asked for. */
 export function speckle(c: Canvas2D, density: number, alpha: number, tint: string, rand: () => number, dot = 1.5) {
   const { ctx, w, h } = c;
+  const size = Math.max(1, Math.round(dot));
+  const n = dotsForCoverage(Math.floor(w * h * density), dot, size);
+  if (n === 0) return;
+  const layer = scratchLayer(w, h);
+  if (!layer) return;
+  const image = layer.ctx.createImageData(w, h);
+  paintSpeckle(image.data, w, h, n, parseHex(tint) ?? resolveRgb(ctx, tint), size, rand);
+  layer.ctx.putImageData(image, 0, 0);
   ctx.save();
   ctx.globalAlpha = alpha;
-  ctx.fillStyle = tint;
-  const n = Math.floor(w * h * density);
-  for (let i = 0; i < n; i++) ctx.fillRect(rand() * w, rand() * h, dot, dot);
+  ctx.drawImage(layer.canvas, 0, 0);
   ctx.restore();
+}
+
+/** Any CSS colour → [r, g, b], through the canvas's own normalisation. */
+function resolveRgb(ctx: CanvasRenderingContext2D, color: string): Rgb {
+  const prev = ctx.fillStyle;
+  ctx.fillStyle = color;
+  const normalised = typeof ctx.fillStyle === "string" ? ctx.fillStyle : "#000000";
+  ctx.fillStyle = prev;
+  return parseHex(normalised) ?? [0, 0, 0];
 }
 
 /** Stroke width in canvas px for a line `metres` wide at `k` px/m, never

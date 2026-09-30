@@ -98,3 +98,14 @@ export interface FinishInput {
 export function canFinish({ target, displayed, elapsedMs, minShowMs }: FinishInput): boolean {
   return target >= 1 && displayed >= 1 && elapsedMs >= minShowMs;
 }
+
+/** Scene progress once every shader program is compiled but no frame is
+ *  drawn yet — the last stretch before 1 is the first frame itself. */
+export const SCENE_COMPILE_DONE = 0.95;
+
+/** The scene task for a shader warm-up fraction 0..1: from the chunk-loaded
+ *  mark up to just short of the first frame, so the counter keeps moving
+ *  while the driver compiles (lib/city/compile.ts). */
+export function sceneCompileProgress(fraction: number): number {
+  return SCENE_MODULE_LOADED + clamp01(fraction) * (SCENE_COMPILE_DONE - SCENE_MODULE_LOADED);
+}

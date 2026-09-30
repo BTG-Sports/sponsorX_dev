@@ -19,13 +19,15 @@
 
    Loading screen (P1-ART-11): this is the writer of the `assets` and
    `scene` tasks in lib/city/load-store.ts. Bytes streamed → `assets`; the
-   scene chunk arriving → `scene` 0.4; the first city frame → `scene` 1. On
-   the poster path both are marked complete at once so the loader finishes
-   on the page content alone.
+   scene chunk arriving → `scene` 0.4; the shader warm-up (city-scene.tsx
+   compiles every program before it draws, so the page never freezes on the
+   first frame) → `scene` 0.4..0.95 as programs become ready; the first city
+   frame → `scene` 1. On the poster path both are marked complete at once
+   so the loader finishes on the page content alone.
 
    FPS watchdog: the scene reports each frame's duration through a ref (no
    React render per frame), starting with that first city frame. Frames in
-   the first 2 s are ignored (shader compile, texture upload); the next 3 s
+   the first 2 s are ignored (texture upload, buffer allocation); the next 3 s
    of frames are averaged once; under 24 fps the scene is unmounted for good
    and the poster stays. Frames longer than a second are treated as a pause
    (tab hidden), not a slow frame.
@@ -41,7 +43,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { cityFiles } from "@/lib/city/assets";
 import { detectCapability, pickTier, shouldRenderScene } from "@/lib/city/capability";
 import { useLoad } from "@/lib/city/load-store";
-import { SCENE_MODULE_LOADED } from "@/lib/city/loading";
+import { SCENE_MODULE_LOADED, sceneCompileProgress } from "@/lib/city/loading";
 import type { Tier } from "@/lib/city/palette";
 
 import { CityPoster } from "./city-poster";
@@ -120,6 +122,10 @@ export function CityBackdrop() {
     };
   }, []);
 
+  const onCompileProgress = useCallback((fraction: number) => {
+    useLoad.getState().setTask("scene", sceneCompileProgress(fraction));
+  }, []);
+
   const onReady = useCallback(() => {
     const el = wrapperRef.current;
     if (el) el.style.opacity = "1";
@@ -160,6 +166,7 @@ export function CityBackdrop() {
               orbit={orbit}
               onReady={onReady}
               onFrame={orbit ? undefined : onFrame}
+              onCompileProgress={onCompileProgress}
             />
           </div>
         </>

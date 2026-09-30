@@ -501,3 +501,103 @@ it needed thinking through.
   CSS, so headless renders it) reviewed at 0/45/90° and mid-spin.
   uiverse.io is behind Cloudflare and refused every fetch, so the loader
   is a rebuild from the owner's screenshot, not the original markup.
+
+## Landing 3D — why the page hangs while loading (diagnosis only, HeckerCreatives)
+
+Profiled the public home against the running Turbopack dev server with a
+Playwright CPU profile and a WebGL call tracer (RTX 5060, ANGLE / D3D11,
+`KHR_parallel_shader_compile` available). Two main-thread freezes on every
+entry, cold or warm: ~7.7 s starting ~2.6 s after navigation, then ~6.4 s
+starting ~10.9 s. The loader's counter stops moving during both, which is
+the "hang".
+
+**Root cause — synchronous shader compilation at first draw.** three
+compiles each material's program the first time it is drawn and, with
+`renderer.debug.checkShaderErrors` on (the default), `onFirstUse` calls
+`gl.getProgramInfoLog`, which blocks until the driver's compile finishes.
+48 programs, 13.5 s total inside `getProgramInfoLog`; `linkProgram` itself
+is 1 ms. Breakdown from the tracer:
+
+- the very first `MeshStandardMaterial` program (the ground slab, no maps)
+  alone: ~5.5 s — a driver / compiler warm-up cost; the same variant with
+  an env map compiles in 0.2 s later on;
+- ~12 programs for the procedural venues + ground, no env map: 100–450 ms
+  each (~1.9 s), then the post chain's 8 `ShaderMaterial`s (~0.9 s, one at
+  ~700 ms);
+- 28 `MeshStandardMaterial` programs with `USE_ENVMAP`: ~190–250 ms each
+  (~5.6 s) — the kit's 16 distinct define-sets (56 materials) plus the
+  ground and venue materials **compiled a second time** once drei's
+  `<Environment>` set `scene.environment` after their first frame.
+
+Secondary findings:
+
+- **`city-preload.ts` caches under the wrong key.** three r186's
+  `FileLoader` looks up `` `file:${url}` `` in `THREE.Cache`; the preload
+  does `Cache.add(url, …)`, so `useGLTF` and the `RGBELoader` re-download
+  the GLB and the HDR (seen in the resource timeline at ~10.4 s). Harmless
+  on localhost, a real double download on the CDN, and the loader's
+  "streamed once" promise is currently false.
+- Venue `speckle()` painting is ~200 ms synchronous inside render (baseball
+  ~100, soccer ~50, basketball ~45). Texture uploads ~120–140 ms total.
+  Meshopt decode does not show in the profile's top entries.
+
+Fix direction (not done): `renderer.compileAsync(scene, camera)` (uses the
+parallel-compile extension, polls instead of blocking) before the first
+frame, with the env map already on the scene so there is one pass, and a
+warm-up frame for the post chain while the loader still covers the canvas;
+fix the cache key (`file:` prefix); consider moving the speckle painting
+off the render path. Scratch scripts live in the session scratchpad only.
+
+## Landing 3D — the loading hang, fixed (HeckerCreatives; `P1-ART-11` polish, uncommitted)
+
+Follow-up to the diagnosis above. The freeze at ~60–79 % had **two** root
+causes, both found by measurement (Playwright CPU profile, a WebGL call
+tracer, and finally a Chrome trace), and both are gone:
+
+1. **Synchronous shader compilation on the first frame** (48 programs,
+   13.5 s in `getProgramInfoLog`). Fixed in `frontend/src/lib/city/compile.ts`
+   + `city-scene.tsx`: the canvas starts `frameloop="never"`; once the kit
+   and the environment map have settled (`CityEnvironment` now applies the
+   HDR itself and reports), `Warmup` compiles everything through
+   `KHR_parallel_shader_compile` and polls `program.isReady()`, feeding the
+   loader (`sceneCompileProgress`, scene task 0.4 → 0.95), uploads the
+   textures in 24 MB batches one per frame, draws one frame behind the
+   overlay, then switches the loop on. Three cache rules had to be honoured
+   or the first frame still stalled: the bound render target is in the
+   program key (scene compiled with the post chain's input buffer bound,
+   screen bound only for the final pass); post passes swap materials at
+   render time (walk the pass graph); and the PMREM prefilter runs inside
+   `compile()` — its three shaders are pre-issued from a throwaway
+   `PMREMGenerator` on a mesh with a position attribute (`hasPositionAttribute`
+   is in the key; three's own `compileEquirectangularShader` uses an empty
+   geometry and compiles a variant the prefilter never uses).
+2. **The venues' speckle grain was rasterised by the GPU process for
+   ~5 s.** `speckle()` drew up to 126 000 `fillRect`s per 2048² surface;
+   the Chrome trace showed the renderer main thread in
+   `CommandBufferHelper::Finish` for 5.1 s behind
+   `RasterDecoderImpl::DoRasterCHROMIUM` tasks of 1.4 s / 0.95 s (120 MB of
+   raster commands), and every WebGL command behind them — the shader
+   links, context creation, the first frame — waited on the same channel.
+   That is why the *first* program ever compiled always "took 5 s". Fixed in
+   `lib/city/speckle.ts` (pure, tested) + `venue-utils.ts`: dots written
+   into an RGBA buffer, one `putImageData` on a reused scratch canvas, one
+   `drawImage` under the caller's clip and alpha; dot rounded to whole px
+   with the count adjusted so the covered area is unchanged.
+
+Also fixed: `city-preload.ts` cached under the bare url while three r186's
+FileLoader reads `` `file:${url}` `` — the GLB and HDR downloaded twice
+(`tests/city-preload.test.ts` now proves the cache hit against three's own
+FileLoader).
+
+**Numbers (this machine, dev server, RTX 5060):** shader waits at first use
+13 545 ms → 69 ms; longest main-thread task 8 814 ms → ~520 ms (the scene
+mount: R3F renderer + venue painting, ~220 ms of it the speckle layers —
+next thing to trim); loader gone at ~11–12 s → ~6.6 s; counter now moves
+continuously (0 → 53 → 73 → 79 → 83 → 90 → 96 → 100). Tests: 696 pass
+(6 new files/cases: compile, preload, speckle, loading). Verified with
+`tsc --noEmit` (only the known `.next/dev/types` noise) and eslint; no
+`next build` because the dev server was live.
+
+**Board:** no status change — this is polish inside `P1-ART-11`, which
+stays where it is. Not committed yet; branch
+`feature/P1-ART-09-landing-city`.
