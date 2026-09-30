@@ -1,0 +1,375 @@
+/* --------------------------------------------------------------------------
+   Page transition (P1-ART-12) — see page-transition.tsx for the phases.
+
+   Three full-screen layers stacked orange < blue < ink. Their shapes are
+   clip-paths animated from script (Web Animations API); this file only
+   paints them and choreographs what sits on the ink: a faint blueprint
+   grid, a light sweep, a giant outline X drawing itself, four corner
+   readouts and the destination's name rising letter by letter out of a
+   mask. On reveal the name lifts out upward as the X-shaped hole opens.
+
+   Outside a run the root is `display: none`, so nothing here costs a
+   frame. Between phases with no animation attached (a history move starts
+   in `hold`) every layer is simply full-screen.
+
+   Colour: orange and blue are the logo's, literal on purpose (artwork, as
+   in the boot loader); the ink follows the theme ground like the boot
+   loader's overlay does.
+   -------------------------------------------------------------------------- */
+
+.root {
+  --orange: #f97a1f;
+  --blue: #2e9bf5;
+  --cyan: #9be0ff;
+  --char-delay: 250ms;
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  pointer-events: auto;
+}
+
+.root[data-phase="idle"] {
+  display: none;
+}
+
+.root[data-instant] {
+  --char-delay: 0ms;
+}
+
+.layer {
+  position: absolute;
+  inset: 0;
+  will-change: clip-path;
+}
+
+.orange {
+  background: linear-gradient(135deg, #ffb27a 0%, var(--orange) 55%, #e2610a 100%);
+}
+
+.blue {
+  background: linear-gradient(135deg, #7cc4fb 0%, var(--blue) 50%, #1c64c4 100%);
+}
+
+.ink {
+  overflow: hidden;
+  display: grid;
+  place-items: center;
+  color: var(--sx-text);
+  background:
+    radial-gradient(55% 45% at 50% 58%, rgba(46, 155, 245, 0.18), transparent 70%),
+    radial-gradient(70% 55% at 85% 100%, rgba(249, 122, 31, 0.1), transparent 60%),
+    var(--sx-bg);
+}
+
+/* reduced motion: one fading ink layer, no shapes */
+.root[data-reduced] .orange,
+.root[data-reduced] .blue {
+  display: none;
+}
+
+/* ---- ink dressing -------------------------------------------------------- */
+
+.grid {
+  position: absolute;
+  inset: -2px;
+  background-image:
+    linear-gradient(color-mix(in srgb, var(--sx-text) 5%, transparent) 1px, transparent 1px),
+    linear-gradient(90deg, color-mix(in srgb, var(--sx-text) 5%, transparent) 1px, transparent 1px);
+  background-size: 72px 72px;
+  background-position: center;
+  -webkit-mask-image: radial-gradient(70% 70% at 50% 50%, #000 20%, transparent 80%);
+  mask-image: radial-gradient(70% 70% at 50% 50%, #000 20%, transparent 80%);
+}
+
+/* a pale band of light crossing the ink once per run */
+.sweep {
+  position: absolute;
+  inset: -20% -60%;
+  background: linear-gradient(
+    105deg,
+    transparent 42%,
+    rgba(155, 224, 255, 0.07) 48%,
+    rgba(155, 224, 255, 0.14) 50%,
+    rgba(155, 224, 255, 0.07) 52%,
+    transparent 58%
+  );
+  transform: translateX(-60%);
+  animation: sweep 1.9s cubic-bezier(0.45, 0, 0.2, 1) calc(var(--char-delay) + 120ms) both;
+}
+
+/* the giant outline X, drawing itself and turning slowly */
+.glyph {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: min(118vmin, 1100px);
+  height: min(118vmin, 1100px);
+  margin: calc(min(118vmin, 1100px) / -2) 0 0 calc(min(118vmin, 1100px) / -2);
+  overflow: visible;
+  animation: turn 26s linear infinite;
+}
+
+.glyph polygon {
+  fill: none;
+  stroke: var(--blue);
+  stroke-width: 0.18;
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  opacity: 0.55;
+  filter: drop-shadow(0 0 1.2px rgba(46, 155, 245, 0.9));
+  animation: draw 1.6s cubic-bezier(0.65, 0, 0.35, 1) var(--char-delay) forwards;
+}
+
+/* ---- corners ------------------------------------------------------------- */
+
+.corner {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  color: var(--sx-text-muted);
+  opacity: 0;
+  animation: fade 0.5s ease calc(var(--char-delay) + 200ms) both;
+}
+
+.tl {
+  top: max(24px, 3.2vh);
+  left: max(20px, 3vw);
+  color: var(--sx-text);
+  font-weight: 600;
+}
+.tr {
+  top: max(24px, 3.2vh);
+  right: max(20px, 3vw);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.12em;
+  color: var(--sx-text);
+}
+.tr small {
+  font-size: inherit;
+  color: var(--sx-text-muted);
+  margin-left: -6px;
+}
+.bl {
+  bottom: max(24px, 3.2vh);
+  left: max(20px, 3vw);
+  letter-spacing: 0.14em;
+  text-transform: none;
+}
+.br {
+  bottom: max(24px, 3.2vh);
+  right: max(20px, 3vw);
+}
+/* a phone has room for one bottom readout — the path */
+@media (max-width: 560px) {
+  .br {
+    display: none;
+  }
+}
+
+/* the logo's orange X, as a small mark */
+.mark {
+  position: relative;
+  width: 12px;
+  height: 12px;
+}
+.mark::before,
+.mark::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: -2px;
+  bottom: -2px;
+  width: 3px;
+  margin-left: -1.5px;
+  border-radius: 2px;
+  background: var(--orange);
+  box-shadow: 0 0 8px rgba(249, 122, 31, 0.8);
+  transform: rotate(45deg);
+}
+.mark::after {
+  transform: rotate(-45deg);
+}
+
+/* ---- the name ------------------------------------------------------------ */
+
+.center {
+  position: relative;
+  display: grid;
+  justify-items: center;
+  gap: clamp(14px, 2.4vh, 26px);
+  padding: 0 20px;
+  text-align: center;
+}
+
+.eyebrow {
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.42em;
+  text-transform: uppercase;
+  color: var(--cyan);
+  opacity: 0;
+  animation: fade 0.6s ease var(--char-delay) both;
+}
+
+.title {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  column-gap: 0.26em;
+  margin: 0;
+  font-size: clamp(44px, 10.5vw, 168px);
+  font-weight: 700;
+  line-height: 0.95;
+  letter-spacing: -0.035em;
+}
+
+/* the mask each letter rises out of; the padding keeps descenders */
+.word {
+  display: inline-flex;
+  overflow: hidden;
+  padding: 0.04em 0.02em 0.12em;
+  margin-bottom: -0.08em;
+}
+
+.char {
+  display: inline-block;
+  background: linear-gradient(180deg, var(--sx-text) 30%, color-mix(in srgb, var(--sx-text) 55%, var(--blue)) 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  transform-origin: 0 100%;
+  animation: char-in 0.62s cubic-bezier(0.2, 0.8, 0.2, 1) calc(var(--char-delay) + var(--i) * 22ms) both;
+}
+
+.track {
+  position: relative;
+  width: min(280px, 60vw);
+  height: 2px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--sx-text) 12%, transparent);
+  overflow: hidden;
+  opacity: 0;
+  animation: fade 0.5s ease calc(var(--char-delay) + 260ms) both;
+}
+
+.fill {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--cyan), var(--blue) 70%, var(--orange));
+  box-shadow: 0 0 10px rgba(46, 155, 245, 0.8);
+  transform: scaleX(0);
+  transform-origin: 0 50%;
+}
+
+/* ---- reveal: everything on the ink leaves as the hole opens -------------- */
+
+.root[data-phase="reveal"] .char {
+  animation: char-out 0.42s cubic-bezier(0.7, 0, 0.84, 0) calc(var(--i) * 14ms) both;
+}
+
+.root[data-phase="reveal"] .eyebrow,
+.root[data-phase="reveal"] .track,
+.root[data-phase="reveal"] .corner {
+  animation: fade-out 0.3s ease both;
+}
+
+.root[data-phase="reveal"] .glyph {
+  animation-play-state: paused;
+}
+
+.sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+/* ---- motion -------------------------------------------------------------- */
+
+@keyframes char-in {
+  from {
+    transform: translateY(108%) rotate(9deg);
+  }
+  to {
+    transform: none;
+  }
+}
+
+@keyframes char-out {
+  from {
+    transform: none;
+  }
+  to {
+    transform: translateY(-108%) rotate(-6deg);
+  }
+}
+
+@keyframes fade {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes fade-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes draw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes turn {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes sweep {
+  to {
+    transform: translateX(60%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .char,
+  .root[data-phase="reveal"] .char,
+  .eyebrow,
+  .track,
+  .corner,
+  .sweep,
+  .glyph,
+  .glyph polygon {
+    animation: none;
+  }
+  .eyebrow,
+  .track,
+  .corner {
+    opacity: 1;
+  }
+  .glyph polygon {
+    stroke-dashoffset: 0;
+  }
+  .sweep {
+    display: none;
+  }
+}

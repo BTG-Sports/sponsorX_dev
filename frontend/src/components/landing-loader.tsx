@@ -3,11 +3,21 @@
 /* --------------------------------------------------------------------------
    Landing loading screen (P1-ART-11).
 
-   Shown on every entry to the public home — a hard refresh or a client-side
-   navigation back to it — until the page can actually be shown: the 3D
-   city's files streamed, its chunk loaded and its first frame drawn, the
-   page's fonts in and the window loaded (lib/city/loading.ts weights them;
-   city-backdrop.tsx writes the scene side, this writes `content`). The
+   The boot screen: shown once per document — a hard load or refresh of any
+   public page (the home here, every (public) page from its layout) — until
+   the page can actually be shown. On the home that is the 3D city's files
+   streamed, its chunk loaded and its first frame drawn, plus the page's
+   fonts and the window load (lib/city/loading.ts weights them;
+   city-backdrop.tsx writes the scene side, this writes `content`); on a
+   page without the city (`city={false}`) it is fonts and load alone.
+
+   Client-side moves between public pages never show it again: they get the
+   page transition (page-transition.tsx, P1-ART-12), which covers the home's
+   city load itself. `html[data-sx-booted]` marks that the boot has run —
+   an attribute rather than a module flag so a dev hot-reload does not
+   replay it, and gone on a real reload because <html> is fresh from the
+   server. On the hydrating render it is never set yet, so server and
+   client agree. The
    counter chases the real number, never overshoots it, and 100 is honest.
    A safety timeout marks everything complete so a stalled request can never
    strand the visitor behind the overlay.
@@ -20,7 +30,8 @@
    fades and the rig scales toward the viewer (`leaving`, see the CSS) while
    `html[data-sx-loaded]` releases the hero's staggered entrance (globals
    .css, `.sx-reveal`). The attribute is removed on mount so a return visit
-   plays the entrance again. The overlay unmounts when the exit ends.
+   played by the page transition replays the entrance (it clears and sets
+   the attribute itself). The overlay unmounts when the exit ends.
 
    Nothing here re-renders per frame: the counter and the bar are written
    through refs from one requestAnimationFrame loop; React sees only the
@@ -70,15 +81,30 @@ function slices() {
   );
 }
 
-export function LandingLoader() {
-  const [phase, setPhase] = useState<Phase>("loading");
+/** Has this document's boot screen already run? */
+function booted() {
+  return typeof document !== "undefined" && document.documentElement.dataset.sxBooted === "1";
+}
+
+export function LandingLoader({ city = true }: { city?: boolean }) {
+  // A client-side arrival renders "gone" straight away: no overlay, no
+  // effect, nothing reset under the page transition's feet.
+  const [phase, setPhase] = useState<Phase>(() => (booted() ? "gone" : "loading"));
+  const bootRef = useRef(phase === "loading");
   const pctRef = useRef<HTMLSpanElement>(null);
   const fillRef = useRef<HTMLSpanElement>(null);
 
   useEffect(() => {
+    if (!bootRef.current) return;
     const html = document.documentElement;
+    html.dataset.sxBooted = "1";
     delete html.dataset.sxLoaded;
     useLoad.getState().reset();
+    if (!city) {
+      // No city on this page: only its own content to wait for.
+      useLoad.getState().setTask("assets", 1);
+      useLoad.getState().setTask("scene", 1);
+    }
 
     const prevOverflow = html.style.overflow;
     html.style.overflow = "hidden";
@@ -90,6 +116,10 @@ export function LandingLoader() {
         ? Promise.resolve()
         : new Promise<void>((resolve) => window.addEventListener("load", () => resolve(), { once: true }));
     let live = true;
+    // Once the page is released it is no longer ours: an unmount after that
+    // (leaving a public page) must not touch the scroll lock or the entrance
+    // the page transition is holding for the next page.
+    let released = false;
     void Promise.all([fonts, loaded]).then(() => {
       if (live) useLoad.getState().setTask("content", 1);
     });
@@ -114,6 +144,7 @@ export function LandingLoader() {
         window.setTimeout(() => {
           html.dataset.sxLoaded = "1";
           html.style.overflow = prevOverflow;
+          released = true;
           setPhase("leaving");
         }, HOLD_MS),
       );
@@ -140,17 +171,18 @@ export function LandingLoader() {
       cancelAnimationFrame(raf);
       window.clearTimeout(safety);
       for (const t of timers) window.clearTimeout(t);
+      if (released) return;
       html.style.overflow = prevOverflow;
       html.dataset.sxLoaded = "1";
     };
-  }, []);
+  }, [city]);
 
   if (phase === "gone") return null;
 
   return (
     <div className={`sx-loader ${styles.overlay}`} data-phase={phase} data-testid="landing-loader">
       <p className={styles.sr} role="status">
-        {phase === "loading" ? "Loading the city" : "Loaded"}
+        {phase === "loading" ? (city ? "Loading the city" : "Loading SponsorX") : "Loaded"}
       </p>
 
       <div className={styles.stage} aria-hidden="true">
@@ -195,7 +227,7 @@ export function LandingLoader() {
       </div>
 
       <div className={styles.hud} aria-hidden="true">
-        <p className={styles.label}>Loading the city</p>
+        <p className={styles.label}>{city ? "Loading the city" : "Loading SponsorX"}</p>
         <p className={styles.pct}>
           <span ref={pctRef}>0</span>
           <small>%</small>
