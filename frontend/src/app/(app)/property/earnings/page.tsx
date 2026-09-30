@@ -1,24 +1,36 @@
 import { Badge, Card, SectionHeading } from "@/components/ui";
 import { EmptyState } from "@/components/states";
+import { PayoutAccountPanel } from "@/components/payout-account-panel";
+import { PayoutHistory } from "@/components/payout-history";
+import { PayoutRequest } from "@/components/payout-request";
 import { PAYOUTS_NOTE, buildEarnings, type ApiAnalytics, type ApiLedger } from "@/lib/property-p2-live";
+import {
+  accountPanel, payoutTiles, requestButton, requestOrders, showChecklist, usd, type ApiMyPayouts,
+} from "@/lib/payouts-live";
 import { apiFetch } from "@/server/api";
 import { requirePortalAccess } from "@/server/portal";
+import { payoutAccountLinkAction, requestPayoutAction } from "./actions";
 
 /* --------------------------------------------------------------------------
-   Earnings — 2S5-FE-02 (design Earnings.dc.html). The property's own share,
-   from the ledger, to the cent.
+   Earnings and payouts — 2S5-FE-02, 2S5-FE-03 (team part) (design
+   Earnings.dc.html). The property's own share, from the ledger, to the cent,
+   and the payouts that send it to the property's account on Stripe.
 
-   Reads GET /team/ledger      booked, reversed, paid, balance, the pending
-                               buckets (awaiting payment · available ·
-                               reserve) and whether they reconcile
-         GET /team/analytics   revenue.byMonth for the monthly rows
+   Reads  GET /team/ledger      booked, reversed, paid, balance, the pending
+                                buckets and whether they reconcile
+          GET /team/analytics   revenue.byMonth for the monthly rows
+          GET /payouts/me       the payout account (its `account` is
+                                GET /payouts/account's view), the payout
+                                totals, canRequest + the four checks, the
+                                orders a request would include, history
+   Writes POST /payouts/account/link {returnPath:"/property/earnings"} →
+                                redirect to Stripe (payoutAccountLinkAction)
+          POST /payouts         request the whole requestable balance
+                                (requestPayoutAction; a 409 shows its message)
 
-   PROPERTY_MGR only (ledgerEntry own-property); a 403 is a login with no
-   property. Honest gaps: no PAYOUT entry is ever written yet, so "paid" is
-   always 0 — shown as "payouts start once the payment provider is
-   connected", never as a payout history. No "Request payout", no held /
-   disputed exceptions, no per-athlete split and no fee rates: the API has
-   none of them.
+   PROPERTY_MGR only (ledgerEntry / payout / payoutAccount own-property); a
+   403 is a login with no property. Honest gaps: no held / disputed
+   exceptions, no per-athlete split and no fee rates — the API has none.
    -------------------------------------------------------------------------- */
 
 export const dynamic = "force-dynamic";
@@ -33,8 +45,8 @@ export default async function PropertyEarningsPage() {
     </div>
   );
 
-  const [ledRes, anRes] = await Promise.all([apiFetch("/team/ledger"), apiFetch("/team/analytics")]);
-  if (ledRes.status === 403 || anRes.status === 403) {
+  const [ledRes, anRes, payRes] = await Promise.all([apiFetch("/team/ledger"), apiFetch("/team/analytics"), apiFetch("/payouts/me")]);
+  if (ledRes.status === 403 || anRes.status === 403 || payRes.status === 403) {
     return (
       <div className="space-y-6">
         {heading}
@@ -44,13 +56,23 @@ export default async function PropertyEarningsPage() {
   }
   if (!ledRes.ok) throw new Error(`Ledger unavailable (${ledRes.status}).`);
   if (!anRes.ok) throw new Error(`Monthly revenue unavailable (${anRes.status}).`);
+  if (!payRes.ok) throw new Error(`Payouts unavailable (${payRes.status}).`);
   const ledger = (await ledRes.json()) as ApiLedger;
   const analytics = (await anRes.json()) as ApiAnalytics;
+  const me = (await payRes.json()) as ApiMyPayouts;
   const e = buildEarnings(ledger, analytics.revenue.byMonth);
+  /* The design's three payout tiles, plus the ledger's "awaiting sponsor
+     payment" — the one existing tile they don't already cover. */
+  const tiles = [...payoutTiles(me), ...e.tiles.filter((t) => t.key === "awaiting")];
+  const request = requestButton(me);
+  const linkAction = payoutAccountLinkAction.bind(null, "/property/earnings");
 
   return (
     <div className="space-y-6">
-      {heading}
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        {heading}
+        <PayoutRequest view={request} amount={usd(me.totals.requestableCents)} orders={requestOrders(me.orders)} action={requestPayoutAction} />
+      </div>
 
       {!e.reconciles && (
         <p role="alert" className="rounded-lg border border-warn/30 bg-warn/8 px-3 py-2 text-xs text-warn">
@@ -58,8 +80,10 @@ export default async function PropertyEarningsPage() {
         </p>
       )}
 
+      <PayoutAccountPanel view={accountPanel(me.account, me.payee.name)} action={linkAction} />
+
       <ul className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        {e.tiles.map((t) => (
+        {tiles.map((t) => (
           <li key={t.key} className="rounded-xl border border-line bg-surface p-4">
             <p className="text-[11px] text-muted">{t.label}</p>
             <p className="mt-1 text-xl font-semibold tabular-nums">{t.value}</p>
@@ -67,6 +91,25 @@ export default async function PropertyEarningsPage() {
           </li>
         ))}
       </ul>
+
+      {showChecklist(me) && (
+        <section aria-labelledby="cant-request-title">
+          <Card>
+            <h2 id="cant-request-title" className="text-sm font-semibold tracking-tight">Can&rsquo;t request yet</h2>
+            <p className="mt-1 text-xs text-muted">A payout can be requested once all of these are true for at least one order.</p>
+            <ul className="mt-3 space-y-1.5">
+              {me.checks.map((c) => (
+                <li key={c.key} className={`flex items-start gap-2 text-xs ${c.ok ? "" : "text-warn"}`}>
+                  <span aria-hidden="true" className={c.ok ? "text-accent" : ""}>{c.ok ? "✓" : "●"}</span>
+                  <span>
+                    <span className="font-medium">{c.ok ? "Done" : "Not yet"}</span> · {c.label}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </Card>
+        </section>
+      )}
 
       <div className="grid gap-6 lg:grid-cols-2">
         <section>
@@ -80,7 +123,7 @@ export default async function PropertyEarningsPage() {
                 <li key={b.key} className={`flex items-start justify-between gap-3 px-4 py-3 text-xs ${b.total ? "font-semibold" : ""}`}>
                   <span>
                     {b.label}
-                    {b.note && <span className="block text-[11px] font-normal text-muted">{b.note}</span>}
+                    {b.note && b.note !== PAYOUTS_NOTE && <span className="block text-[11px] font-normal text-muted">{b.note}</span>}
                   </span>
                   <span className="tabular-nums">{b.value}</span>
                 </li>
@@ -91,11 +134,11 @@ export default async function PropertyEarningsPage() {
         </section>
 
         <section>
-          <SectionHeading title="Payouts" />
-          <Card>
-            <p className="text-sm font-semibold">No payouts yet</p>
-            <p className="mt-1 text-xs text-muted">{PAYOUTS_NOTE} Until then, nothing here has been paid out.</p>
-          </Card>
+          <SectionHeading title="Payout history" hint="Each payout, the orders it covers and where it stands." />
+          <PayoutHistory
+            payouts={me.payouts}
+            emptyHint={me.account.status === "READY" ? "Your first payout can be requested once an order is paid, delivered and past its holding period." : "Set up your payout account on Stripe (above) so money can be sent once your first order closes."}
+          />
         </section>
       </div>
 
