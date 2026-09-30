@@ -9,6 +9,13 @@
  * submits it. Only a property BTG approved — onboarding APPROVED, listing
  * access not withdrawn — can create one at all.
  *
+ * AN ATHLETE WITH NO TEAM (2S3-BE-05) is the seller of their own items: an
+ * athlete BTG approved, with no property, creates, edits and submits a
+ * listing of an item they own, under the same governance — "the athlete is
+ * approved and still has no team" in place of "the property is approved to
+ * list". A roster athlete cannot: their items go through their team, and a
+ * listing whose athlete later joins a team stops being publishable.
+ *
  * GOVERNANCE sits between creating and publishing. There is no route from
  * DRAFT to PUBLISHED: a listing reaches PUBLISHED only by BTG approving it
  * (`approve` on `listing`, scope `operated` — the tenants BTG runs the
@@ -26,6 +33,7 @@ import {
   governanceProblems,
   IllegalListingTransitionError,
   LISTING_EDITABLE,
+  SELLING_ATHLETE_STATES,
   type ListingState,
 } from "./listing-rules";
 
@@ -41,23 +49,31 @@ export class ListingError extends Error {
 }
 
 const SELECT = {
-  id: true, propertyId: true, inventoryItemId: true, title: true, description: true, visibility: true, state: true,
+  id: true, propertyId: true, sellerAthleteId: true, inventoryItemId: true, title: true, description: true, visibility: true, state: true,
   publishAt: true, submittedAt: true, reviewNotes: true, decidedAt: true, publishedAt: true, createdAt: true, updatedAt: true,
   property: { select: { name: true, listingAccessAt: true } },
+  sellerAthlete: { select: { displayName: true, state: true, propertyId: true } },
   item: { select: { id: true, title: true, kind: true, priceCents: true, quantity: true, availableUntil: true, active: true, athleteId: true, propertyId: true } },
 } as const;
 type Row = Prisma.ListingGetPayload<{ select: typeof SELECT }>;
 
+/** Who sells it — the property, or the independent athlete (2S3-BE-05). */
+function sellerOf(r: Row) {
+  return r.property
+    ? { type: "PROPERTY" as const, id: r.propertyId!, name: r.property.name }
+    : { type: "ATHLETE" as const, id: r.sellerAthleteId!, name: r.sellerAthlete?.displayName ?? "athlete" };
+}
+
 function view(r: Row, now = new Date()) {
-  const { property, ...rest } = r;
+  const { property, sellerAthlete, ...rest } = r;
   return {
-    ...rest, propertyName: property.name,
-    blockers: governanceProblems({ property, item: r.item, listing: r, now }),
+    ...rest, propertyName: property?.name ?? null, seller: sellerOf(r),
+    blockers: governanceProblems({ property, sellerAthlete, item: r.item, listing: r, now }),
   };
 }
 
 function assertGoverned(r: Row, now = new Date()) {
-  const problems = governanceProblems({ property: r.property, item: r.item, listing: r, now });
+  const problems = governanceProblems({ property: r.property, sellerAthlete: r.sellerAthlete, item: r.item, listing: r, now });
   if (problems.length) throw new ListingError(`Not publishable yet: ${problems.join("; ")}.`, 422, problems);
 }
 
@@ -77,9 +93,13 @@ export async function getListing(actor: Actor, id: string) {
   return view(row);
 }
 
-/** A verified property lists one of its own items, or a roster athlete's. */
+/**
+ * A verified property lists one of its own items, or a roster athlete's; an
+ * approved athlete with no team lists one of their own (2S3-BE-05).
+ */
 export async function createListing(actor: Actor, input: ListingInput & { inventoryItemId: string }) {
   const scope = assertAllowed(actor, "listing", "write");
+  if (scope === "own" && actor.athleteId) return createAthleteListing(actor, actor.athleteId, input);
   if (scope !== "own-property" || !actor.propertyId) throw new ForbiddenError("listing", "write");
   const propertyId = actor.propertyId;
   return prisma.$transaction(async (tx) => {
@@ -98,22 +118,54 @@ export async function createListing(actor: Actor, input: ListingInput & { invent
       select: { id: true },
     });
     if (!item) throw new ForbiddenError("listing", "write");
-    try {
-      const row = await tx.listing.create({
-        data: {
-          tenantId: actor.tenantId, propertyId, inventoryItemId: item.id, title: input.title.trim(),
-          description: input.description?.trim() || null, visibility: input.visibility ?? "PUBLIC",
-          publishAt: input.publishAt ?? null, createdBy: actor.userId,
-        },
-        select: SELECT,
-      });
-      await audit(tx, actor, "listing.create", "Listing", row.id, { after: { inventoryItemId: item.id, state: "DRAFT" } });
-      return view(row);
-    } catch (error) {
-      if ((error as { code?: string }).code === "P2002") throw new ListingError("That item already has a live listing.", 409);
-      throw error;
-    }
+    return insertListing(tx, actor, { propertyId }, item.id, input);
   });
+}
+
+/** 2S3-BE-05 — an approved athlete with no team lists an item they own. */
+async function createAthleteListing(actor: Actor, athleteId: string, input: ListingInput & { inventoryItemId: string }) {
+  return prisma.$transaction(async (tx) => {
+    const athlete = await tx.athlete.findFirst({
+      where: { tenantId: actor.tenantId, id: athleteId },
+      select: { state: true, propertyId: true, property: { select: { name: true } } },
+    });
+    if (!athlete) throw new ForbiddenError("listing", "write");
+    if (!SELLING_ATHLETE_STATES.includes(athlete.state)) {
+      throw new ListingError("Only an athlete BTG has approved can list their items.", 409);
+    }
+    if (athlete.propertyId) {
+      throw new ListingError(`You're on a team — ${athlete.property?.name ?? "your team"} lists your items on the marketplace.`, 409);
+    }
+    const item = await tx.inventoryItem.findFirst({
+      where: { tenantId: actor.tenantId, id: input.inventoryItemId, athleteId },
+      select: { id: true },
+    });
+    if (!item) throw new ForbiddenError("listing", "write");
+    return insertListing(tx, actor, { sellerAthleteId: athleteId }, item.id, input);
+  });
+}
+
+async function insertListing(
+  tx: Prisma.TransactionClient, actor: Actor, seller: { propertyId: string } | { sellerAthleteId: string },
+  inventoryItemId: string, input: ListingInput,
+) {
+  try {
+    const row = await tx.listing.create({
+      data: {
+        tenantId: actor.tenantId, ...seller, inventoryItemId, title: input.title.trim(),
+        description: input.description?.trim() || null, visibility: input.visibility ?? "PUBLIC",
+        publishAt: input.publishAt ?? null, createdBy: actor.userId,
+      },
+      select: SELECT,
+    });
+    await audit(tx, actor, "listing.create", "Listing", row.id, {
+      after: { inventoryItemId, state: "DRAFT", seller: "propertyId" in seller ? "PROPERTY" : "ATHLETE" },
+    });
+    return view(row);
+  } catch (error) {
+    if ((error as { code?: string }).code === "P2002") throw new ListingError("That item already has a live listing.", 409);
+    throw error;
+  }
 }
 
 async function ownListing(tx: Prisma.TransactionClient, actor: Actor, id: string) {
@@ -155,7 +207,7 @@ async function move(tx: Prisma.TransactionClient, actor: Actor, row: Row, to: Li
   return view(updated);
 }
 
-/** The property submits for BTG's approval — refused, with the list, while governance fails. */
+/** The seller submits for BTG's approval — refused, with the list, while governance fails. */
 export async function submitListing(actor: Actor, id: string) {
   return prisma.$transaction(async (tx) => {
     const row = await ownListing(tx, actor, id);
@@ -184,7 +236,7 @@ export async function transitionListing(actor: Actor, id: string, to: "PAUSED" |
 export async function decideListing(actor: Actor, id: string, decision: "APPROVE" | "REQUEST_CHANGES", notes?: string | null) {
   const scope = assertAllowed(actor, "listing", "approve");
   if (scope !== "any" && scope !== "operated") throw new ForbiddenError("listing", "approve");
-  if (decision === "REQUEST_CHANGES" && !notes?.trim()) throw new ListingError("REQUEST_CHANGES needs a note — the property is told why.");
+  if (decision === "REQUEST_CHANGES" && !notes?.trim()) throw new ListingError("REQUEST_CHANGES needs a note — the seller is told why.");
   return prisma.$transaction(async (tx) => {
     const row = await tx.listing.findFirst({ where: { ...whereFor(actor, "listing", "approve"), id }, select: SELECT });
     if (!row) throw new ForbiddenError("listing", "approve");

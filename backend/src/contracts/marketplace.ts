@@ -71,7 +71,7 @@ const listingFields = {
 export const ListingInput = z
   .object({ inventoryItemId: z.string().min(1), ...listingFields })
   .strict()
-  .meta({ id: "ListingInput", description: "A listing on one of the property's items, or a roster athlete's. Starts DRAFT." });
+  .meta({ id: "ListingInput", description: "A listing on one of the property's items, or a roster athlete's — or, from an approved athlete with no team, on one of their own items (2S3-BE-05). Starts DRAFT." });
 export const ListingPatch = z.object(listingFields).partial().strict().meta({ id: "ListingPatch", description: "Only while DRAFT or PAUSED." });
 export const ListingTransitionInput = z
   .object({ to: z.enum(["PAUSED", "PUBLISHED", "ARCHIVED"]) })
@@ -182,6 +182,8 @@ export const CommissionPreviewInput = z
       propertyKind: z.enum(["TEAM", "SCHOOL", "EVENT", "MEDIA", "VIRTUAL"]).nullable().optional(),
       propertyId: z.string().min(1).nullable().optional(),
       athleteItem: z.boolean().optional(),
+      /* 2S3-BE-05 — sold by an athlete with no team: the athlete is the only payee, no team share. */
+      independentAthlete: z.boolean().optional(),
       teamShareBps: z.number().int().min(0).max(10_000).nullable().optional(),
     }).strict()).min(1).max(20),
     draft: CommissionRuleInput.omit({ effectiveFrom: true, note: true }).nullable().optional(),

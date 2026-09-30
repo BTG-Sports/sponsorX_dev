@@ -59,19 +59,26 @@ async function post(tx: Tx, books: string, journalId: string, entryType: string,
 }
 
 /** The booking journal for one line — ledger design §4. */
-function bookingEntries(b: LineBreakdown, p: { books: string; sponsorId: string; propertyId: string; itemTenantId: string; referrer: string | null }): Entry[] {
-  const property = { partyType: "PROPERTY", partyId: p.propertyId, partyTenantId: p.itemTenantId };
+function bookingEntries(b: LineBreakdown, p: { books: string; sponsorId: string; propertyId: string | null; itemTenantId: string; referrer: string | null }): Entry[] {
   const athlete = b.athleteId ? { partyType: "ATHLETE", partyId: b.athleteId, partyTenantId: p.itemTenantId } : null;
   const teamAvailable = athlete ? b.teamAvailableCents! : b.availableCents;
   const teamReserve = athlete ? b.teamReserveCents! : b.reserveCents;
+  /* 2S3-BE-05 — an independent athlete's line has no property: the athlete is
+     the only payee, and a team share there would pay nobody. */
+  if (!p.propertyId && (!athlete || teamAvailable !== 0 || teamReserve !== 0)) {
+    throw new Error(`Line ${b.lineId} has no property but routes money to a team.`);
+  }
+  const property = p.propertyId ? { partyType: "PROPERTY", partyId: p.propertyId, partyTenantId: p.itemTenantId } : null;
   return [
     { account: "SPONSOR_RECEIVABLE", partyType: "SPONSOR", partyId: p.sponsorId, partyTenantId: p.books, debitCents: b.netCents },
     { account: "PLATFORM_REVENUE", partyType: "PLATFORM", partyId: p.books, partyTenantId: p.books, creditCents: b.platformFeeCents },
     { account: "MANAGEMENT_REVENUE", partyType: "PLATFORM", partyId: p.books, partyTenantId: p.books, creditCents: b.managementFeeCents },
     { account: "PROCESSING_PAYABLE", partyType: "PROCESSOR", partyId: "processor", partyTenantId: p.books, creditCents: b.processingCents },
     { account: "REFERRAL_PAYABLE", partyType: "REFERRER", partyId: p.referrer ?? "referral", partyTenantId: p.books, creditCents: b.referralCents },
-    { account: "RESERVE_HELD", ...property, creditCents: teamReserve },
-    { account: "PROPERTY_PAYABLE", ...property, creditCents: teamAvailable },
+    ...(property ? [
+      { account: "RESERVE_HELD", ...property, creditCents: teamReserve },
+      { account: "PROPERTY_PAYABLE", ...property, creditCents: teamAvailable },
+    ] : []),
     ...(athlete ? [
       { account: "RESERVE_HELD", ...athlete, creditCents: b.reserveCents - teamReserve },
       { account: "ATHLETE_PAYABLE", ...athlete, creditCents: b.availableCents - teamAvailable },
@@ -89,7 +96,7 @@ export async function bookOrder(tx: Tx, orderId: string, at: Date) {
     where: { id: orderId },
     select: {
       id: true, tenantId: true, sponsorId: true, feesCents: true,
-      lines: { select: { id: true, inventoryItemId: true, itemTenantId: true, propertyId: true, lineTotalCents: true }, orderBy: { startsOn: "asc" } },
+      lines: { select: { id: true, inventoryItemId: true, itemTenantId: true, propertyId: true, sellerAthleteId: true, lineTotalCents: true }, orderBy: { startsOn: "asc" } },
     },
   });
   const items = await tx.inventoryItem.findMany({
@@ -99,7 +106,7 @@ export async function bookOrder(tx: Tx, orderId: string, at: Date) {
   });
   const properties = await tx.property.findMany({
     /* tenant-scope: the properties this order's lines name. */
-    where: { id: { in: order.lines.map((l) => l.propertyId) } }, select: { id: true, kind: true },
+    where: { id: { in: order.lines.map((l) => l.propertyId).filter((x): x is string => Boolean(x)) } }, select: { id: true, kind: true },
   });
   const byItem = new Map(items.map((i) => [i.id, i]));
   const kindOf = new Map(properties.map((p) => [p.id, p.kind]));
@@ -108,10 +115,13 @@ export async function bookOrder(tx: Tx, orderId: string, at: Date) {
   const inputs = [];
   for (const l of order.lines) {
     const item = byItem.get(l.inventoryItemId);
-    const rates = await resolveRates(tx, order.tenantId, { propertyId: l.propertyId, propertyKind: kindOf.get(l.propertyId) ?? null, sponsorId: order.sponsorId }, at);
+    const rates = await resolveRates(tx, order.tenantId, { propertyId: l.propertyId, propertyKind: l.propertyId ? kindOf.get(l.propertyId) ?? null : null, sponsorId: order.sponsorId }, at);
     inputs.push({
       lineId: l.id, grossCents: l.lineTotalCents, rules: rates,
-      athleteId: item?.athleteId ?? null, teamShareBps: item?.athlete?.teamShareBps ?? null,
+      athleteId: item?.athleteId ?? null,
+      /* 2S3-BE-05 — sold by the athlete with no team: no team share at all,
+         not even the TEAM_SHARE rule's default, so the athlete is the only payee. */
+      teamShareBps: l.sellerAthleteId ? 0 : item?.athlete?.teamShareBps ?? null,
     });
   }
   const breakdown = breakdownOrder(inputs, processing);

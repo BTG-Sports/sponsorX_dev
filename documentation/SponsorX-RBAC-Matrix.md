@@ -1092,9 +1092,19 @@ adding roster athletes does not gain the `athlete` write paths.
 | `SUPER_ADMIN` | any | any | any |
 | `BTG_ADMIN` | operated | — | operated |
 | `PROPERTY_MGR` | own-property | own-property | — |
-| `ATHLETE` | own (listings of their items) | — | — |
+| `ATHLETE` | own (listings of their items) | own (listings they sell themselves) | — |
 
 Approve is publishing. It is the only road to `PUBLISHED`.
+
+**Independent athletes (2S3-BE-05, 2026-09-30).** A listing's seller is a
+property **or** an athlete with no team — exactly one (`Listing.propertyId` /
+`Listing.sellerAthleteId`). `ATHLETE` write `own` covers only the listings
+the athlete sells themselves (`sellerAthleteId` is theirs), never a team's
+listing of their item, which stays the team's. Creating one needs the athlete
+`APPROVED` or `ACTIVE` and **no team**. A roster athlete is refused, because
+their items go through their team, and the rule is re-checked on submit, on
+approval, on resume and in the catalogue. So an athlete who joins a team
+later stops being sold as an independent seller.
 
 ### `offer` (2S2-BE-03)
 | Role | Read | Write | Approve |
@@ -1139,7 +1149,8 @@ scope), never by the sponsor itself.
 `SPONSOR_ADMIN` and `SPONSOR_ANALYST` gain `listing.read = catalog`. For a
 listing, `catalog` means a listing that is `PUBLISHED`, `PUBLIC` and past its
 publish time, whose item is on sale and whose property still has listing
-access. It must also sit in the sponsor's own marketplace: the sponsor's
+access. For an independent athlete's listing (2S3-BE-05), the athlete must
+be still approved and still without a team. It must also sit in the sponsor's own marketplace: the sponsor's
 tenant and the tenants that tenant operates. Search also hides anything whose
 owner will not sell to the sponsor's categories today. That is why two
 sponsors see different catalogues.

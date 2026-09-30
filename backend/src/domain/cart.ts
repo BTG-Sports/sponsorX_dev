@@ -47,7 +47,7 @@ const SELECT = {
   lines: {
     select: {
       id: true, listingId: true, quantity: true, startsOn: true, endsOn: true, unitPriceCents: true,
-      listing: { select: { title: true, property: { select: { name: true } } } },
+      listing: { select: { title: true, property: { select: { name: true } }, sellerAthlete: { select: { displayName: true } } } },
     },
     orderBy: { createdAt: "asc" },
   },
@@ -55,7 +55,7 @@ const SELECT = {
 type Row = Prisma.CartGetPayload<{ select: typeof SELECT }>;
 
 function view(c: Row) {
-  const lines = c.lines.map(({ listing, ...l }) => ({ ...l, title: listing.title, propertyName: listing.property.name, lineTotalCents: l.quantity * l.unitPriceCents }));
+  const lines = c.lines.map(({ listing, ...l }) => ({ ...l, title: listing.title, propertyName: listing.property?.name ?? null, sellerName: listing.property?.name ?? listing.sellerAthlete?.displayName ?? null, lineTotalCents: l.quantity * l.unitPriceCents }));
   return { ...c, lines, totalCents: lines.reduce((s, l) => s + l.lineTotalCents, 0) };
 }
 
