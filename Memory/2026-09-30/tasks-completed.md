@@ -1037,3 +1037,63 @@ stats strip exactly the panel's 460px); phones stay left-aligned over the
 full-bleed form. The ground's left-to-right legibility overlay is lg-only —
 full-width on a tablet it only made the left side heavier. Checked at 983,
 768 and 390: no overflow, no errors; tsc + eslint clean.
+
+## /next/about redesigned as a magazine — via Claude
+
+Owner: "/next/about looks plain … it's all about a magazine, so the page must
+feel like we're in a magazine; wow factor, awwwards". Brainstormed in the
+visual companion (direction A: a real cover then paper spreads; sports-mag
+type with the logo's yellow/red on the landing's HUD ground; motion A: the
+cover tilts with the pointer, spreads page-flip in). Spec:
+`docs/superpowers/specs/2026-09-30-next-about-magazine-design.md`; plan:
+`docs/superpowers/plans/2026-09-30-next-about-magazine.md`. Same route, same
+copy, same live editions fetch and its three states.
+
+- `frontend/public/next/btg-sports-talk-magazine.png` — the client's
+  magazine logo (from the owner), re-exported at 800px with sharp
+  (1.1 MB → 127 KB); drawn with `mix-blend-mode: screen` so its black
+  ground vanishes into the cover.
+- `frontend/src/components/next-about-stage.tsx` (server) — MagCover (HUD
+  eyebrow in short scrambled segments, three-line Bebas headline, serif dek,
+  yellow + outline CTAs, glass stat strip, the tilting cover: logo masthead,
+  Issue 01 / Free digital tags, "Five jobs. One magazine.", an "Inside:"
+  contents line linking the sections, barcode, scan), MagSpread / MagPage
+  (paper, spine, corner curl, folios 02–07, display headline with a red or
+  blue accent line, serif body with a three-line drop cap), the three
+  spreads, Newsstand (live editions as mini covers on a glass rack — the BTG
+  logo only when the publication is Sports Talk, a typographic masthead
+  otherwise; error/empty copy kept), BackCover.
+- `next-about-fx.tsx` (client) — CoverGlow: pointer glow on the cover, one
+  pulse on touch once `html[data-sx-loaded]` is set (`whenLoaded` is now
+  exported from hero-fx.tsx). Tilt is the landing's TiltSpot; reveals are
+  /packages' StageReveal.
+- `lib/next-about.ts` + `tests/next-about.test.ts` — issue constants, copy,
+  `usesLogo`, `editionHref`, `splitNumeral` (7 tests).
+- `app/layout.tsx` — Bebas Neue + Source Serif 4 via next/font
+  (`font-mag`, `font-mag-serif`), `preload: false` so only this page fetches
+  them.
+- `globals.css` — `.sx-mag`: paper tokens (navy ink, red, yellow, blue),
+  sheet / spine / curl, drop cap, two columns from lg, the page-flip
+  entrance (sheet hinges up from its bottom edge, shade fades on the same
+  stagger), cover glow, newsstand shelf; reduced-motion opt-outs.
+- `packages-stage.tsx` — InsideBand items with a leading "NN " render the
+  numeral in yellow display type; `items` is `readonly string[]` now.
+
+Verified via Playwright against the running dev server at 1920, 1440, 1024,
+983, 768, 390, 360, dark and light themes and reduced motion: no console
+errors, no horizontal overflow, hero entrance on hard load and on client-side
+arrival from /packages and /, every spread flips in. (At 1920 the harness's
+fast scroll occasionally outran the IntersectionObserver — a test-timing
+flake, /packages shows it too; a slower scroll step is clean.) QA fixes:
+three-line drop caps, spread bottom padding so the corner curl covers no
+text, phone cover lines clear of the logo's banner, the paper outline CTA on
+one line at 360. `npm run build`, eslint and the frontend suite (759) pass —
+the build ran in a detached worktree (`../sponsorX_build`, node_modules as
+junctions, `turbopack.root` lifted one level) because the owner's `next dev`
+was live on this tree. Open: the hero runs ~1078px tall on a phone (spec
+asked for one screen; a design call, left as is), and the paper outline CTA
+overruns by ~20px at 320px. No tracker row — design pass on a shipped screen.
+
+Owner's follow-up idea, not built: an interactive flipbook — click the cover,
+it opens, and pages turn one by one. Proposed as a reader overlay reusing the
+spread components; awaiting the owner's pick.
