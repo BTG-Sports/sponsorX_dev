@@ -278,3 +278,228 @@ export function MagPage({
 
 /** The second page's top rule when the two pages stack below lg. */
 const RIGHT_PAGE = "max-lg:border-t max-lg:border-[#0b1a3a]/15";
+
+/* ------------------------------------------------------------ the spreads */
+
+/** Spread 1 — the two audiences as facing feature openers. */
+export function OpenerSpread() {
+  return (
+    <MagSpread index={0} className="pt-16 lg:pt-24">
+      <MagPage head="For students · ages 14–18" folio="02" title="Become" accent="the media.">
+        <p className="sx-mag-dropcap">
+          Join your school’s NEXT team as a writer, photographer, videographer, designer, editor or on the sales desk.
+          No experience needed. Training is part of it.
+        </p>
+        <Link href="/next/apply" className={PAPER_CTA}>
+          Apply to join
+          <ArrowRightIcon className="size-4" />
+        </Link>
+      </MagPage>
+      <MagPage head="For schools & administrators" folio="03" title="Fully" accent="carried." tone="blue" className={RIGHT_PAGE}>
+        <p className="sx-mag-dropcap">
+          One programme agreement and one faculty advisor. SponsorX carries production, printing, sales operations, rights
+          and cost. The first edition is digital and free.
+        </p>
+        <Link href="/next/schools" className={PAPER_CTA_OUTLINE}>
+          Bring NEXT to your school
+          <ArrowRightIcon className="size-4" />
+        </Link>
+      </MagPage>
+    </MagSpread>
+  );
+}
+
+/** Spread 2 (#how) — the feature: five jobs, with the QR sentence as the pull quote. */
+export function FeatureSpread() {
+  return (
+    <MagSpread id="how" index={0} className="pt-12 lg:pt-16">
+      <MagPage head="How it works" folio="04" title="Five jobs." accent="One magazine.">
+        <blockquote className="border-b border-t-[3px] border-b-[#0b1a3a]/20 border-t-[#ffd12b] py-4 text-[20px] italic leading-[1.3] lg:text-[22px]">
+          “Every athlete feature carries a QR code. Readers scan it to open that athlete’s SponsorX profile.”
+        </blockquote>
+      </MagPage>
+      <MagPage head={`BTG Sports Talk · Issue ${ISSUE.number}`} folio="05" className={RIGHT_PAGE}>
+        <ol className="grid grid-cols-1 gap-x-6 gap-y-5 sm:grid-cols-2">
+          {STEPS.map((s) => (
+            <li key={s.n} className={`border-t-2 border-[#0b1a3a] pt-3 ${s.n === "05" ? "sm:col-span-2" : ""}`}>
+              <span aria-hidden="true" className="font-mag text-[32px] leading-none text-[#e0192b]">{s.n}</span>
+              <p className="mt-1 font-sans text-[12px] font-semibold uppercase tracking-[0.1em]">{s.title}</p>
+              <p className="mt-1 text-[15px] leading-[1.5] text-[#0b1a3a]/75">{s.text}</p>
+            </li>
+          ))}
+        </ol>
+      </MagPage>
+    </MagSpread>
+  );
+}
+
+/** Spread 3 (#students) — what you get, the under-18 notice, the QR caption. */
+export function BenefitsSpread() {
+  return (
+    <MagSpread id="students" index={0} className="pt-12 lg:pt-16">
+      <MagPage head="What you get out of it" folio="06" title="Work that" accent="follows you.">
+        <div className="sx-mag-cols space-y-4 lg:space-y-0">
+          {BENEFITS.map((b) => (
+            <p key={b.title} className="lg:mb-4">
+              <b className="font-semibold">{b.title}.</b>{" "}
+              {"tag" in b && (
+                <span className="mx-1 inline-block rounded-full border border-[#0b1a3a]/40 px-2 py-px align-middle font-sans text-[10px] font-medium uppercase tracking-[0.1em] text-[#0b1a3a]/70">
+                  {b.tag}
+                </span>
+              )}
+              {b.text}
+            </p>
+          ))}
+        </div>
+      </MagPage>
+      <MagPage head={`BTG Sports Talk · Issue ${ISSUE.number}`} folio="07" className={RIGHT_PAGE}>
+        <aside className="border-[1.5px] border-[#0b1a3a] bg-[#f3f4f6] px-5 py-4">
+          <p className="font-sans text-[10px] font-semibold uppercase tracking-[0.2em] text-[#e0192b]">Under 18? Read this.</p>
+          <p className="mt-2 text-[15px] leading-[1.55]">
+            A parent or guardian consents before you join. No GPA, no school records on anything public. Ever. Your faculty
+            advisor approves what gets published.
+          </p>
+        </aside>
+        <figure className="mt-6 flex items-center gap-4">
+          <span
+            aria-hidden="true"
+            className="size-12 shrink-0 border-2 border-[#0b1a3a] [background:repeating-conic-gradient(#0b1a3a_0_25%,#fff_0_50%)_0_0/8px_8px]"
+          />
+          <figcaption className="text-[14px] italic leading-[1.45] text-[#0b1a3a]/75">
+            Every athlete feature carries one of these. Scan it and the athlete’s SponsorX profile opens.
+          </figcaption>
+        </figure>
+      </MagPage>
+    </MagSpread>
+  );
+}
+
+/* -------------------------------------------------------------- newsstand */
+
+function MiniCover({ e }: { e: EditionCard }) {
+  const place = e.school ? [e.school.city, e.school.stateCode].filter(Boolean).join(", ") : "";
+  return (
+    <Link href={editionHref(e)} className="sx-mag-mini group block">
+      <span
+        className={`relative block aspect-[3/4] w-full overflow-hidden rounded-[3px] ${COVER_BG} shadow-[0_16px_30px_rgba(0,0,0,.6),0_0_0_1px_rgba(255,255,255,.1)] group-hover:-translate-y-1.5 group-hover:shadow-[0_22px_36px_rgba(0,0,0,.7),0_0_0_1px_rgba(191,224,255,.6)]`}
+      >
+        {usesLogo(e.publication) ? (
+          <Image src={LOGO} alt="" width={400} height={400} unoptimized className="-mt-[2%] w-full mix-blend-screen" />
+        ) : (
+          <span className="block px-2 pt-3 font-mag text-[clamp(22px,4vw,30px)] leading-[0.9] text-white">{e.publication}</span>
+        )}
+        <span aria-hidden="true" className="absolute inset-x-2 bottom-2 font-mag text-[18px] leading-none text-[#ffd12b]">
+          {e.label}
+        </span>
+      </span>
+      <span className="mt-3 block text-[13px] font-semibold text-on-media">
+        {e.publication} · {e.label}
+      </span>
+      {e.school && (
+        <span className="mt-0.5 block text-[11px] uppercase tracking-[0.12em] text-on-media/70">
+          {e.school.name}
+          {place && ` · ${place}`}
+        </span>
+      )}
+      <span className="mt-2 block text-[12px] font-semibold text-[#ffd12b]">Read the edition →</span>
+    </Link>
+  );
+}
+
+function RackNote({ title, children }: { title?: string; children: ReactNode }) {
+  return (
+    <div className="max-w-xl">
+      {title && <p className="font-mag text-[28px] leading-none">{title}</p>}
+      <p className={`${title ? "mt-2" : ""} text-[15px] leading-[1.55] text-on-media/80`}>{children}</p>
+    </div>
+  );
+}
+
+/** Live editions as mini covers on a glass rack. `null` is the fetch
+ *  failing, `[]` is nothing published yet — both keep the old page's copy. */
+export function Newsstand({ list }: { list: EditionCard[] | null }) {
+  return (
+    <section id="editions" aria-labelledby="editions-title" className="relative mx-auto w-full max-w-[1320px] scroll-mt-24 px-5 py-20 sm:px-[6vw] lg:py-28 2xl:px-0">
+      <div data-reveal="" className="max-w-2xl">
+        <Eyebrow>Latest editions</Eyebrow>
+        <h2 id="editions-title" className="mt-4 font-mag text-[clamp(40px,9vw,56px)] leading-[0.9] lg:text-[clamp(56px,4.6vw,80px)]">
+          On the stand <span className="text-[#7fd0ff]">now.</span>
+        </h2>
+      </div>
+
+      <div data-reveal="" style={slot(1)} className="relative mt-10">
+        <Glass
+          plate={PANEL.plate}
+          ringClip={PANEL_RING}
+          fill="bg-gradient-to-b from-[#0d1f3d]/60 via-[#07122a]/65 to-[#04091a]/80"
+          outline="bg-gradient-to-br from-[#bfe6ff] via-[#7fd0ff]/70 to-[#7fd0ff]/30"
+        />
+        <div className="relative px-6 py-8 sm:px-10 lg:px-12 lg:py-10">
+          {list === null ? (
+            <RackNote>
+              The editions list didn’t load. Try again in a moment — you can still apply or read about the programme for
+              schools.
+            </RackNote>
+          ) : list.length === 0 ? (
+            <RackNote title="No editions published yet">
+              The first NEXT editions publish this school year. <span className="text-[#ffd12b]">Yours could be one of them.</span>
+            </RackNote>
+          ) : (
+            <>
+              <ul className="grid grid-cols-2 gap-x-5 gap-y-8 sm:grid-cols-3 lg:flex lg:flex-wrap lg:items-end lg:gap-10">
+                {list.map((e, i) => (
+                  <li key={e.id} data-reveal="" style={slot(i + 2)} className="lg:w-[150px]">
+                    <MiniCover e={e} />
+                  </li>
+                ))}
+              </ul>
+              <span aria-hidden="true" className="sx-mag-shelf mt-8 hidden lg:block" />
+            </>
+          )}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/* ------------------------------------------------------------- back cover */
+
+export function BackCover() {
+  return (
+    <section className="relative mx-auto w-full max-w-[1320px] px-5 pb-16 sm:px-[6vw] lg:pb-24 2xl:px-0">
+      <div data-reveal="" className="relative overflow-visible">
+        <TiltSpot max={3}>
+          <Glass
+            plate={PANEL.plate}
+            ringClip={PANEL_RING}
+            lit
+            fill="bg-gradient-to-br from-[#0d1f3d]/80 via-[#07122a]/80 to-[#1a0f08]/80"
+            outline="bg-gradient-to-r from-[#bfe6ff] via-[#7fd0ff]/60 to-[#ffd12b]/70"
+          />
+          <span aria-hidden="true" className="sx-scan pointer-events-none absolute inset-0" style={{ clipPath: PANEL.plate }} />
+          <span
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-0"
+            style={{
+              clipPath: PANEL.plate,
+              background:
+                "radial-gradient(50% 90% at 100% 100%, rgba(255,209,43,.16), transparent 70%), radial-gradient(45% 80% at 0% 0%, rgba(46,155,245,.22), transparent 70%)",
+            }}
+          />
+          <div className="relative grid gap-8 px-5 py-10 sm:px-10 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center lg:gap-14 lg:px-14 lg:py-14">
+            <div>
+              <Eyebrow>Back cover</Eyebrow>
+              <h2 className="mt-4 font-mag text-[clamp(40px,9vw,56px)] leading-[0.9] lg:text-[clamp(56px,4.6vw,80px)]">
+                Your byline starts <span className="text-[#ffd12b]">here.</span>
+              </h2>
+              <p className="mt-4 max-w-[560px] font-mag-serif text-[16px] leading-[1.55] text-on-media/80 lg:text-[18px]">
+                Students apply. Schools sign one agreement. The first edition is free.
+              </p>
+            </div>
+            <CTAs className="sm:flex-row sm:gap-5 lg:flex-col lg:gap-3" />
+          </div>
+        </TiltSpot>
+      </div>
+    </section>
+  );
+}
