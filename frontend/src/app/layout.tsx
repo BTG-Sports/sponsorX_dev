@@ -15,17 +15,21 @@ const poppins = Poppins({
 /* The two magazine faces for /next/about (design spec 2026-09-30 §2):
    Bebas Neue for cover lines and spread headlines, Source Serif 4 for body
    text on paper. Exposed as `font-mag` / `font-mag-serif` (globals.css
-   @theme); nothing outside `.sx-mag` uses them. */
+   @theme); nothing outside `.sx-mag` uses them. `preload: false` because
+   only /next/about draws them; the browser fetches the files when
+   `font-mag` / `font-mag-serif` is first used. */
 const bebas = Bebas_Neue({
   variable: "--font-bebas",
   subsets: ["latin"],
   weight: "400",
+  preload: false,
 });
 const sourceSerif = Source_Serif_4({
   variable: "--font-source-serif",
   subsets: ["latin"],
   weight: ["400", "600"],
   style: ["normal", "italic"],
+  preload: false,
 });
 
 export const metadata: Metadata = {

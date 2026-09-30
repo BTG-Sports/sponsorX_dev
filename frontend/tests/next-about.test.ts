@@ -1,4 +1,3 @@
-// frontend/tests/next-about.test.ts
 import { describe, expect, it } from "vitest";
 
 import { BAND_ITEMS, editionHref, splitNumeral, usesLogo } from "../src/lib/next-about";
@@ -18,6 +17,7 @@ describe("usesLogo — only a Sports Talk publication wears the BTG logo", () =>
   it("leaves any other school's title to a typographic masthead", () => {
     expect(usesLogo("Northside Sideline")).toBe(false);
     expect(usesLogo("")).toBe(false);
+    expect(usesLogo("Esports Talk")).toBe(false);
   });
 });
 

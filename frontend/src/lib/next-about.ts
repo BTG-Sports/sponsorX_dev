@@ -1,5 +1,3 @@
-// frontend/src/lib/next-about.ts
-
 /* --------------------------------------------------------------------------
    /next/about — the SponsorX NEXT programme landing as a magazine
    (design spec docs/superpowers/specs/2026-09-30-next-about-magazine-design.md).
@@ -29,7 +27,7 @@ export type EditionCard = {
 /** Only the client's own title wears the BTG logo on a mini cover; any
  *  other publication gets its name set in the display face instead. */
 export function usesLogo(publication: string): boolean {
-  return /sports\s*talk/i.test(publication);
+  return /\bsports\s*talk/i.test(publication);
 }
 
 /** The reader route — unchanged from the pre-redesign page. */
@@ -69,13 +67,10 @@ export const BENEFITS = [
   },
 ] as const;
 
-/** The marquee band under the cover. Leading "NN " renders as a yellow numeral. */
-export const BAND_ITEMS = [
-  "01 Write",
-  "02 Shoot",
-  "03 Design",
-  "04 Sell",
-  "05 Publish",
+/** The marquee band under the cover: the five jobs (their "NN " numeral
+ *  renders in yellow) then the benefits. */
+export const BAND_ITEMS: readonly string[] = [
+  ...STEPS.map((s) => `${s.n} ${s.title}`),
   "Your byline",
   "Portfolio credit",
   "Sales credit that stays yours",
