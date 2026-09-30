@@ -8,12 +8,15 @@
                 it as `--gx` / `--gy` (percent) plus `--glow` 0|1, one write a
                 frame, fine pointer only; globals.css (`.sx-mag-cover-glow`)
                 draws the radial glow. On touch the glow is fixed at the
-                masthead and `data-pulse` plays it once with the entrance.
+                masthead and `data-pulse` plays it once with the entrance —
+                set only once `html[data-sx-loaded]` is (hero-fx's whenLoaded).
                 Reduced motion: nothing is written, nothing pulses. The tilt
                 itself is the landing's TiltSpot, wrapped outside this.
    -------------------------------------------------------------------------- */
 
 import { useEffect, useRef, type ReactNode } from "react";
+
+import { whenLoaded } from "./hero-fx";
 
 export function CoverGlow({ children, className = "" }: { children: ReactNode; className?: string }) {
   const ref = useRef<HTMLDivElement>(null);
@@ -23,8 +26,9 @@ export function CoverGlow({ children, className = "" }: { children: ReactNode; c
     if (!el) return;
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
     if (!window.matchMedia("(hover: hover) and (pointer: fine)").matches) {
-      el.dataset.pulse = "";
-      return;
+      return whenLoaded(() => {
+        el.dataset.pulse = "";
+      });
     }
     let raf = 0;
     let px = 0;

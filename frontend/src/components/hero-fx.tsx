@@ -36,7 +36,7 @@ function finePointer() {
 }
 
 /** Run `fn` once the landing's loading screen has released the page. */
-function whenLoaded(fn: () => void): () => void {
+export function whenLoaded(fn: () => void): () => void {
   const html = document.documentElement;
   if (html.hasAttribute("data-sx-loaded")) {
     fn();
