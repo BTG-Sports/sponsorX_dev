@@ -302,3 +302,107 @@ export function payoutRefusal(status: number, body: unknown): PayoutWriteFailure
 }
 
 export const UNREACHABLE: PayoutWriteFailure = { ok: false, status: 0, message: "The API is unreachable — nothing changed. Try again in a minute.", reasons: [] };
+
+/* ============================================== the tracker (2S5-FE-03/-04) */
+
+/** "Sep 30, 10:40" — a moment in the payout's life, in UTC so server and browser agree. */
+export function stamp(iso: string | null | undefined): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  return `${d.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" })}, ${d.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: false, timeZone: "UTC" })}`;
+}
+
+export type TrackerStep = { label: string; state: "done" | "current" | "todo"; note: string };
+
+/** Requested → Approved by BTG → Sent → Paid, from the payout's own timestamps.
+ *  Null for a payout that left the road (sent back, failed) — its status says why. */
+export function payoutTracker(p: Pick<ApiPayout, "state" | "requestedAt" | "decidedAt" | "sentAt" | "paidAt">): TrackerStep[] | null {
+  /* How many steps are behind it: requested (1), approved (2), sent (3), paid (4). */
+  const done = ({ REQUESTED: 1, APPROVED: 2, SENDING: 3, PAID: 4 } as Record<string, number>)[p.state];
+  if (done === undefined) return null;
+  const steps = [
+    { label: "Requested", at: p.requestedAt, waiting: "" },
+    { label: "Approved by BTG", at: p.decidedAt, waiting: "Waiting for BTG" },
+    { label: "Sent", at: p.sentAt, waiting: "Sending soon" },
+    { label: "Paid", at: p.paidAt, waiting: "With the payment provider" },
+  ];
+  return steps.map((s, i) =>
+    i < done ? { label: s.label, state: "done", note: stamp(s.at) }
+    : i === done ? { label: s.label, state: "current", note: s.waiting }
+    : { label: s.label, state: "todo", note: "" });
+}
+
+/* ================================================ BTG's queue (2S5-FE-04) */
+
+export type ApprovalTab = "waiting" | "sending" | "paid" | "problems";
+export const APPROVAL_TABS: ReadonlyArray<{ key: ApprovalTab; label: string; states: PayoutState[] }> = [
+  { key: "waiting", label: "Waiting for approval", states: ["REQUESTED"] },
+  { key: "sending", label: "Sending", states: ["APPROVED", "SENDING"] },
+  { key: "paid", label: "Paid", states: ["PAID"] },
+  { key: "problems", label: "Problems", states: ["FAILED"] },
+];
+export const approvalTab = (v: unknown): ApprovalTab =>
+  APPROVAL_TABS.some((t) => t.key === v) ? (v as ApprovalTab) : "waiting";
+/** A tab's count from GET /payouts' per-state counts. */
+export const tabCount = (tab: ApprovalTab, counts: Record<string, number>) =>
+  APPROVAL_TABS.find((t) => t.key === tab)!.states.reduce((s, st) => s + (counts[st] ?? 0), 0);
+
+export const payeeKind = (t: string) => (t === "PROPERTY" ? "Team" : "Athlete");
+
+/** "All checks passed", or the first rule that isn't met. */
+export function checkSummary(checks: PayoutCheck[]): { ok: boolean; label: string } {
+  const failed = checks.find((c) => !c.ok);
+  return failed ? { ok: false, label: `Not met: ${failed.label}` } : { ok: true, label: "All checks passed" };
+}
+
+/** How long a request has waited: "4 min", "3 h", "2 days". */
+export function waitedFor(iso: string, now: Date): string {
+  const mins = Math.max(0, Math.round((now.getTime() - new Date(iso).getTime()) / 60_000));
+  if (mins < 60) return `${mins} min`;
+  const h = Math.round(mins / 60);
+  if (h < 48) return `${h} h`;
+  return `${Math.round(h / 24)} days`;
+}
+
+/** The order's state, in the words the payee reads. */
+export function orderStatusLabel(state: string): string {
+  return ({
+    PAID: "Paid · in delivery soon", IN_DELIVERY: "In delivery", FULFILLED: "Delivered", CLOSED: "Closed",
+    APPROVED: "Awaiting sponsor payment", AWAITING_PAYMENT: "Awaiting sponsor payment", REFUNDED: "Refunded", CANCELLED: "Cancelled",
+  } as Record<string, string>)[state] ?? state;
+}
+
+/* ========================================== BTG's payout reads (2S5-FE-04) */
+
+export type ApiAdminPayout = ApiPayout & { payeeType: string; payeeId: string; payeeName: string };
+export type ApiPayoutList = { payouts: ApiAdminPayout[]; counts: Record<string, number> };
+export type ApiPayoutDetail = ApiAdminPayout & {
+  account: ApiPayoutAccount;
+  orders: Array<{ orderId: string; orderRef: string; state: string; fulfilledAt: string | null; totalCents: number; title: string }>;
+  checks: PayoutCheck[];
+  provider: string;
+};
+
+/** The payee's part of an order's frozen split — an athlete's share (their
+ *  cut after the team's), a team's cut of an athlete item, or a property's. */
+export function payeeShare(
+  f: { grossCents: number; availableCents: number; reserveCents: number; athleteId: string | null; teamAvailableCents: number | null; teamReserveCents: number | null },
+  payeeType: string,
+): { saleCents: number; shareCents: number; availableCents: number; reserveCents: number } {
+  const teamA = f.teamAvailableCents ?? 0;
+  const teamR = f.teamReserveCents ?? 0;
+  const athleteItem = f.athleteId !== null && (f.teamAvailableCents !== null || f.teamReserveCents !== null);
+  const [a, r] = payeeType === "ATHLETE" ? [f.availableCents - teamA, f.reserveCents - teamR] : athleteItem ? [teamA, teamR] : [f.availableCents, f.reserveCents];
+  return { saleCents: f.grossCents, shareCents: a + r, availableCents: a, reserveCents: r };
+}
+
+/** The payout's own history, in order: who did what, when. */
+export function auditTrail(p: Pick<ApiAdminPayout, "state" | "payeeName" | "requestedAt" | "decidedAt" | "sentAt" | "paidAt" | "decisionNote" | "failureReason">) {
+  const out: Array<{ what: string; when: string }> = [{ what: `Requested by ${p.payeeName}`, when: stamp(p.requestedAt) }];
+  if (p.decidedAt) out.push({ what: p.state === "REJECTED" ? `Sent back by BTG${p.decisionNote ? `: “${p.decisionNote}”` : ""}` : "Approved by BTG", when: stamp(p.decidedAt) });
+  if (p.sentAt) out.push({ what: "Handed to the payment provider", when: stamp(p.sentAt) });
+  if (p.paidAt) out.push({ what: "Paid — confirmed by the payment provider", when: stamp(p.paidAt) });
+  if (p.state === "FAILED") out.push({ what: `Couldn't send${p.failureReason ? `: ${p.failureReason}` : ""}`, when: "" });
+  return out;
+}

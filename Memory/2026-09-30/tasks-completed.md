@@ -91,3 +91,18 @@ Frontend (from the Claude Design canvas):
 
 Local note: after a fresh local database, set `ALTER DATABASE sponsorx_test SET
 sponsorx.audit_purge = on` (as CI does), or cleanup-heavy suites fail.
+
+## Built: Riley's "My money" and BTG's payout approvals (2S5-FE-03, 2S5-FE-04) — Code review
+
+From the Claude Design artboards MyMoney and Approvals (the second prompt was
+needed: the first run of the payout prompt produced only the sponsor payment).
+- `/athlete/money` (nav "My money"): tiles, payout account with Stripe ↗, the
+  "before you can request" checklist with the set-up button, per-order shares,
+  Request payout (with "$61.66 stays in reserve…"), history with the
+  Requested → Approved by BTG → Sent → Paid tracker (shared with the team page).
+- `/admin/payouts` (nav "Payouts", BTG admin + Finance): tabs with counts, each
+  waiting request's checks; `/admin/payouts/[id]`: payee + account, the payee's
+  part of the frozen split, checks, audit trail, Approve / Send back (note
+  required), Retry for problems.
+- Verified locally: Riley set up payouts → requested $542.58 → Finance approved
+  → worker paid → all four steps done on Riley's page.

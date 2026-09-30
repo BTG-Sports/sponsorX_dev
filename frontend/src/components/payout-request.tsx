@@ -23,11 +23,14 @@ export function PayoutRequest({
   amount,
   orders,
   action,
+  note,
 }: {
   view: RequestButtonView;
   amount: string;
   orders: Order[];
   action: () => Promise<{ ok: true; count: number } | PayoutWriteFailure>;
+  /** A line under the orders — e.g. what stays in reserve (design MyMoney). */
+  note?: string | null;
 }) {
   const [open, setOpen] = useState(false);
   const [done, setDone] = useState(false);
@@ -52,6 +55,7 @@ export function PayoutRequest({
           amount={amount}
           orders={orders}
           action={action}
+          note={note ?? null}
           onClose={() => setOpen(false)}
           onDone={() => {
             setOpen(false);
@@ -67,11 +71,13 @@ function ConfirmDialog({
   amount,
   orders,
   action,
+  note,
   onClose,
   onDone,
 }: {
   amount: string;
   orders: Order[];
+  note: string | null;
   action: () => Promise<{ ok: true; count: number } | PayoutWriteFailure>;
   onClose: () => void;
   onDone: () => void;
@@ -121,6 +127,7 @@ function ConfirmDialog({
               </ul>
             </div>
           )}
+          {note && <p className="mt-2 text-[11px] text-muted">{note}</p>}
           {error && (
             <p role="alert" className="mt-4 rounded-lg bg-danger/10 px-3 py-2 text-[11px] leading-relaxed text-danger">
               {error.message}

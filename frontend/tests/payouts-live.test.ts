@@ -6,6 +6,7 @@ import {
   requestButton, requestOrders, safeReturnPath, showChecklist, usd,
   type ApiMyPayouts, type ApiPayout, type ApiPayoutAccount, type ApiPayoutOrder,
 } from "../src/lib/payouts-live";
+import * as L from "../src/lib/payouts-live";
 
 /* --------------------------------------------------------------------------
    2S5-FE-02 / 2S5-FE-03 — the payee's payout screens' pure logic: the
@@ -194,5 +195,50 @@ describe("payoutRefusal", () => {
   it("403 in words; no body falls back to the status", () => {
     expect(payoutRefusal(403, null).message).toContain("can't do this");
     expect(payoutRefusal(500, null).message).toBe("The request was refused (HTTP 500).");
+  });
+});
+
+describe("2S5-FE-03 / 2S5-FE-04 · the payout's road and BTG's queue", () => {
+  const base = { requestedAt: "2026-09-30T10:40:00Z", decidedAt: null, sentAt: null, paidAt: null };
+  it("tracks Requested → Approved by BTG → Sent → Paid from the payout's own times", () => {
+    expect(L.payoutTracker({ ...base, state: "REQUESTED" })!.map((s) => [s.label, s.state, s.note])).toEqual([
+      ["Requested", "done", "Sep 30, 10:40"], ["Approved by BTG", "current", "Waiting for BTG"], ["Sent", "todo", ""], ["Paid", "todo", ""],
+    ]);
+    const paid = L.payoutTracker({ ...base, state: "PAID", decidedAt: "2026-09-30T10:42:00Z", sentAt: "2026-09-30T10:42:30Z", paidAt: "2026-09-30T10:44:00Z" })!;
+    expect(paid.every((s) => s.state === "done")).toBe(true);
+    expect(paid[3]!.note).toBe("Sep 30, 10:44");
+    expect(L.payoutTracker({ ...base, state: "SENDING", decidedAt: "2026-09-30T10:42:00Z", sentAt: "2026-09-30T10:42:30Z" })![3]).toMatchObject({ state: "current", note: "With the payment provider" });
+    expect(L.payoutTracker({ ...base, state: "REJECTED" })).toBeNull();
+    expect(L.payoutTracker({ ...base, state: "FAILED" })).toBeNull();
+  });
+  it("maps tabs to states and counts them from the API's per-state counts", () => {
+    const counts = { REQUESTED: 2, APPROVED: 1, SENDING: 1, PAID: 5, FAILED: 1, REJECTED: 3 };
+    expect(L.tabCount("waiting", counts)).toBe(2);
+    expect(L.tabCount("sending", counts)).toBe(2);
+    expect(L.tabCount("paid", counts)).toBe(5);
+    expect(L.tabCount("problems", counts)).toBe(1);
+    expect(L.approvalTab("nope")).toBe("waiting");
+    expect(L.approvalTab("problems")).toBe("problems");
+  });
+  it("sums up the checks and how long a request has waited", () => {
+    expect(L.checkSummary([{ key: "a", label: "Payout account ready", ok: true }])).toEqual({ ok: true, label: "All checks passed" });
+    expect(L.checkSummary([{ key: "a", label: "Holding period passed", ok: false }])).toEqual({ ok: false, label: "Not met: Holding period passed" });
+    const now = new Date("2026-09-30T12:00:00Z");
+    expect(L.waitedFor("2026-09-30T11:56:00Z", now)).toBe("4 min");
+    expect(L.waitedFor("2026-09-30T09:00:00Z", now)).toBe("3 h");
+    expect(L.waitedFor("2026-09-27T12:00:00Z", now)).toBe("3 days");
+  });
+  it("takes the payee's part of the frozen split — the walkthrough's own figures", () => {
+    const f = { grossCents: 100_000, availableCents: 67_822, reserveCents: 7_707, athleteId: "riley", teamAvailableCents: 13_564, teamReserveCents: 1_541 };
+    expect(L.payeeShare(f, "ATHLETE")).toEqual({ saleCents: 100_000, shareCents: 60_424, availableCents: 54_258, reserveCents: 6_166 });
+    expect(L.payeeShare(f, "PROPERTY")).toEqual({ saleCents: 100_000, shareCents: 15_105, availableCents: 13_564, reserveCents: 1_541 });
+    expect(L.payeeShare({ ...f, athleteId: null, teamAvailableCents: null, teamReserveCents: null }, "PROPERTY").shareCents).toBe(75_529);
+  });
+  it("writes the audit trail from the payout's history", () => {
+    const trail = L.auditTrail({ state: "REJECTED", payeeName: "Riley Carter", requestedAt: "2026-09-30T10:40:00Z", decidedAt: "2026-09-30T11:20:00Z", sentAt: null, paidAt: null, decisionNote: "Confirm the clinic date", failureReason: null });
+    expect(trail).toEqual([
+      { what: "Requested by Riley Carter", when: "Sep 30, 10:40" },
+      { what: "Sent back by BTG: “Confirm the clinic date”", when: "Sep 30, 11:20" },
+    ]);
   });
 });

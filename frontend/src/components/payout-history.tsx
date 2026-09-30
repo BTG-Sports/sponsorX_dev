@@ -1,5 +1,5 @@
 import { Badge, Card } from "@/components/ui";
-import { historyRows, type ApiPayout } from "@/lib/payouts-live";
+import { historyRows, payoutTracker, type ApiPayout, type TrackerStep } from "@/lib/payouts-live";
 
 /* --------------------------------------------------------------------------
    Payout history — 2S5-FE-02 (design Earnings.dc.html). Every payout from
@@ -8,8 +8,29 @@ import { historyRows, type ApiPayout } from "@/lib/payouts-live";
    "confirmed by the payment provider" is as far as a status goes.
    -------------------------------------------------------------------------- */
 
+/** Requested → Approved by BTG → Sent → Paid (2S5-FE-03, design MyMoney). */
+export function PayoutTracker({ steps, vertical = false }: { steps: TrackerStep[]; vertical?: boolean }) {
+  return (
+    <ol className={`mt-3 grid gap-2 ${vertical ? "grid-cols-1" : "grid-cols-4"}`} aria-label="Where this payout is">
+      {steps.map((s, i) => (
+        <li key={s.label} aria-current={s.state === "current" ? "step" : undefined} className="min-w-0">
+          <span className={`flex items-center gap-1.5 text-[11px] ${s.state === "todo" ? "text-faint" : "font-medium"}`}>
+            <span aria-hidden="true" className={`grid size-5 shrink-0 place-items-center rounded-full border text-[10px] ${s.state === "done" ? "border-accent/50 bg-accent/15 text-accent" : s.state === "current" ? "border-primary/60 bg-primary/15 text-primary" : "border-line text-faint"}`}>
+              {s.state === "done" ? "✓" : i + 1}
+            </span>
+            <span className="truncate">{s.label}</span>
+            <span className="sr-only">{s.state === "done" ? " — done" : s.state === "current" ? " — current step" : " — not yet"}</span>
+          </span>
+          {s.note && <span className={`mt-0.5 block pl-6 text-[10px] ${s.state === "current" ? "text-primary" : "text-muted"}`}>{s.note}</span>}
+        </li>
+      ))}
+    </ol>
+  );
+}
+
 export function PayoutHistory({ payouts, emptyHint }: { payouts: ApiPayout[]; emptyHint?: string }) {
   const rows = historyRows(payouts);
+  const byId = new Map(payouts.map((p) => [p.id, p]));
   if (rows.length === 0) {
     return (
       <Card>
@@ -34,6 +55,10 @@ export function PayoutHistory({ payouts, emptyHint }: { payouts: ApiPayout[]; em
               <span className="text-sm font-semibold tabular-nums">{r.amount}</span>
               <Badge tone={r.status.tone}>{r.status.label}</Badge>
             </span>
+            {(() => {
+              const steps = payoutTracker(byId.get(r.id)!);
+              return steps ? <div className="w-full"><PayoutTracker steps={steps} /></div> : null;
+            })()}
           </li>
         ))}
       </ul>
