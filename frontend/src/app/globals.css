@@ -2027,6 +2027,7 @@ html[data-sx-loaded] [data-sx-stage][data-armed] .sx-bar { transform: none; }
   perspective: 2200px;
   transition: transform 0.8s var(--sx-ease);
   user-select: none;
+  touch-action: pan-y;
 }
 .sx-book[data-k="0"] { transform: translateX(-25%); }
 .sx-book[data-k="4"] { transform: translateX(25%); }
@@ -2086,8 +2087,8 @@ html[data-sx-loaded] [data-sx-stage][data-armed] .sx-bar { transform: none; }
   .sx-book[data-k] { transform: none; }
   .sx-leaf { left: 0; width: 100%; transform: none !important; transition: none; }
   .sx-face { display: none; transform: none; overflow-y: auto; }
-  .sx-face[data-show] { display: block; animation: sx-page-in 0.4s cubic-bezier(0.2, 0.8, 0.2, 1); transform-origin: var(--sx-page-origin, 100% 50%); }
-  .sx-face[data-leaving] { display: block; animation: sx-page-out 0.4s cubic-bezier(0.4, 0, 0.6, 1) forwards; transform-origin: var(--sx-page-origin, 0 50%); pointer-events: none; }
+  .sx-face[data-show] { display: block; animation: sx-page-in 0.4s cubic-bezier(0.2, 0.8, 0.2, 1); transform-origin: var(--sx-page-in-origin, 100% 50%); }
+  .sx-face[data-leaving] { display: block; animation: sx-page-out 0.4s cubic-bezier(0.4, 0, 0.6, 1) forwards; transform-origin: var(--sx-page-out-origin, 0 50%); pointer-events: none; }
   .sx-leaf-shade { display: none; }
 }
 @keyframes sx-page-in { from { transform: rotateY(var(--sx-page-in-from, 70deg)); opacity: 0.4; } to { transform: none; opacity: 1; } }
@@ -2122,9 +2123,11 @@ html[data-sx-loaded] [data-sx-stage][data-armed] .sx-bar { transform: none; }
   [data-pulse] .sx-mag-cover-glow { animation: none; }
   .sx-mag-mini > span:first-child { transition: none; }
   .sx-book, .sx-leaf { transition: none; }
-  .sx-leaf-shade, .sx-book-hint { animation: none; display: none; }
+  .sx-leaf-shade { display: none; }
+  .sx-book-hint { animation: none; }
+  .sx-face[data-show] { animation: sx-page-fade 0.15s ease; }
   @media (max-width: 63.999rem) {
-    .sx-face[data-show], .sx-face[data-leaving] { animation: sx-page-fade 0.15s ease; transform: none; }
+    .sx-face[data-show], .sx-face[data-leaving] { transform: none; }
     .sx-face[data-leaving] { display: none; }
   }
 }

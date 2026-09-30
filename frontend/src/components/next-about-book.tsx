@@ -22,9 +22,11 @@
    stage lays the faces out flat; the controls never show.
    -------------------------------------------------------------------------- */
 
-import { useCallback, useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type CSSProperties, type MouseEvent as ReactMouseEvent, type ReactNode } from "react";
 
 import { CHIPS, FACE_COUNT, HASH_FACE, LEAF_COUNT, faceLabel, nextFace, prevFace, spreadOf, type BookMode } from "@/lib/next-about";
+
+import { useMounted } from "./use-mounted";
 
 const PAGE_ANIM_MS = 400;
 
@@ -50,10 +52,17 @@ export function MagBook({ faces }: { faces: ReactNode[] }) {
   const [mode, setMode] = useState<BookMode>("spread");
   const [leaving, setLeaving] = useState<{ face: number; dir: 1 | -1 } | null>(null);
   const [turning, setTurning] = useState<number | null>(null);
+  /* before hydration nothing is inert, so the no-JS flat pages stay usable */
+  const ready = useMounted();
   const inView = useRef(false);
   /* `go` writes fRef before setF, so a burst of calls reads the newest face;
-     the effect keeps it in step with `f` (refs are not written in render). */
+     the effect keeps it in step with `f` (refs are not written in render).
+     modeRef keeps `go` and the listeners stable across a breakpoint
+     crossing, so crossing lg never re-runs the hash effect. */
   const fRef = useRef(0);
+  const modeRef = useRef<BookMode>("spread");
+  const leaveTimer = useRef<number | undefined>(undefined);
+  const turnTimer = useRef<number | undefined>(undefined);
   useEffect(() => {
     fRef.current = f;
   }, [f]);
@@ -62,7 +71,11 @@ export function MagBook({ faces }: { faces: ReactNode[] }) {
   /* mode follows the lg breakpoint */
   useEffect(() => {
     const mq = window.matchMedia("(min-width: 64rem)");
-    const apply = () => setMode(mq.matches ? "spread" : "page");
+    const apply = () => {
+      const m: BookMode = mq.matches ? "spread" : "page";
+      modeRef.current = m;
+      setMode(m);
+    };
     apply();
     mq.addEventListener("change", apply);
     return () => mq.removeEventListener("change", apply);
@@ -74,19 +87,30 @@ export function MagBook({ faces }: { faces: ReactNode[] }) {
       const cur = fRef.current;
       if (opts.scroll) section.current?.scrollIntoView({ behavior: "smooth", block: "start" });
       if (next === cur) return;
-      if (mode === "page") {
+      if (modeRef.current === "page") {
         setLeaving({ face: cur, dir: next > cur ? 1 : -1 });
-        window.setTimeout(() => setLeaving(null), PAGE_ANIM_MS);
+        window.clearTimeout(leaveTimer.current);
+        leaveTimer.current = window.setTimeout(() => setLeaving(null), PAGE_ANIM_MS);
       } else {
         const kc = spreadOf(cur);
         const kn = spreadOf(next);
         setTurning(kn > kc ? kc : kn);
-        window.setTimeout(() => setTurning(null), 700);
+        window.clearTimeout(turnTimer.current);
+        turnTimer.current = window.setTimeout(() => setTurning(null), 700);
       }
       fRef.current = next;
       setF(next);
     },
-    [mode],
+    [],
+  );
+
+  /* pending animation timers die with the book */
+  useEffect(
+    () => () => {
+      window.clearTimeout(leaveTimer.current);
+      window.clearTimeout(turnTimer.current);
+    },
+    [],
   );
 
   /* hashes: on load, on change, and on clicks of in-page links */
@@ -98,6 +122,7 @@ export function MagBook({ faces }: { faces: ReactNode[] }) {
     fromHash(window.location.hash, false);
     const onHash = () => fromHash(window.location.hash, true);
     const onClick = (e: MouseEvent) => {
+      if (e.defaultPrevented || e.button !== 0 || e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) return;
       const a = (e.target as HTMLElement).closest?.("a[href^='#']") as HTMLAnchorElement | null;
       if (!a) return;
       const hash = a.getAttribute("href") ?? "";
@@ -118,21 +143,26 @@ export function MagBook({ faces }: { faces: ReactNode[] }) {
   useEffect(() => {
     const el = section.current;
     if (!el) return;
-    const io = new IntersectionObserver(([entry]) => (inView.current = entry.isIntersecting), { threshold: 0.3 });
+    const io = new IntersectionObserver(
+      (entries) => {
+        inView.current = entries[entries.length - 1].isIntersecting;
+      },
+      { threshold: 0.3 },
+    );
     io.observe(el);
     const onKey = (e: KeyboardEvent) => {
-      if (!inView.current) return;
+      if (!inView.current || e.defaultPrevented || e.altKey || e.ctrlKey || e.metaKey) return;
       const t = e.target as HTMLElement;
-      if (t.closest("input, textarea, select, [contenteditable]")) return;
-      if (e.key === "ArrowRight") go(nextFace(f, mode));
-      if (e.key === "ArrowLeft") go(prevFace(f, mode));
+      if (t.closest?.("input, textarea, select, [contenteditable]")) return;
+      if (e.key === "ArrowRight") go(nextFace(fRef.current, modeRef.current));
+      if (e.key === "ArrowLeft") go(prevFace(fRef.current, modeRef.current));
     };
     document.addEventListener("keydown", onKey);
     return () => {
       io.disconnect();
       document.removeEventListener("keydown", onKey);
     };
-  }, [f, mode, go]);
+  }, [go]);
 
   /* swipe */
   useEffect(() => {
@@ -148,17 +178,28 @@ export function MagBook({ faces }: { faces: ReactNode[] }) {
       const dx = e.clientX - x0;
       x0 = null;
       if (Math.abs(dx) < 40) return;
-      go(dx < 0 ? nextFace(f, mode) : prevFace(f, mode));
+      go(dx < 0 ? nextFace(fRef.current, modeRef.current) : prevFace(fRef.current, modeRef.current));
+    };
+    const cancel = () => {
+      x0 = null;
     };
     el.addEventListener("pointerdown", down);
     el.addEventListener("pointerup", up);
+    el.addEventListener("pointercancel", cancel);
     return () => {
       el.removeEventListener("pointerdown", down);
       el.removeEventListener("pointerup", up);
+      el.removeEventListener("pointercancel", cancel);
     };
-  }, [f, mode, go]);
+  }, [go]);
 
-  const onLeafClick = (leaf: number) => go(leaf >= k ? nextFace(f, mode) : prevFace(f, mode));
+  /* a click on a page turns it — unless it landed on a link or a control */
+  const onLeafClick = (e: ReactMouseEvent, leaf: number) => {
+    if (e.button !== 0 || e.altKey || e.ctrlKey || e.metaKey) return;
+    if ((e.target as HTMLElement).closest("a, button, input, select, textarea")) return;
+    if (mode === "page") return go(nextFace(f, mode));
+    go(leaf >= k ? nextFace(f, mode) : prevFace(f, mode));
+  };
 
   /** Which faces can be seen right now. */
   const visible = (face: number) => {
@@ -172,7 +213,8 @@ export function MagBook({ faces }: { faces: ReactNode[] }) {
     leaving == null
       ? undefined
       : ({
-          "--sx-page-origin": leaving.dir > 0 ? "0 50%" : "100% 50%",
+          "--sx-page-in-origin": leaving.dir > 0 ? "100% 50%" : "0 50%",
+          "--sx-page-out-origin": leaving.dir > 0 ? "0 50%" : "100% 50%",
           "--sx-page-in-from": leaving.dir > 0 ? "70deg" : "-70deg",
           "--sx-page-out-to": leaving.dir > 0 ? "-70deg" : "70deg",
         } as CSSProperties);
@@ -191,7 +233,19 @@ export function MagBook({ faces }: { faces: ReactNode[] }) {
 
       <div ref={book} className="sx-book" data-f={f} data-k={k} data-mode={mode} style={pageVars}>
         {Array.from({ length: LEAF_COUNT }, (_, leaf) => {
-          const zIndex = leaf < k ? leaf : LEAF_COUNT - leaf;
+          /* page mode: the leaf holding the current face on top. Spread
+             mode: the turning leaf on top, else turned leaves stack up from
+             the left and unturned ones down to the right. */
+          const zIndex =
+            mode === "page"
+              ? leaf === Math.floor(f / 2)
+                ? LEAF_COUNT + 1
+                : 0
+              : turning === leaf
+                ? LEAF_COUNT + 1
+                : leaf < k
+                  ? leaf
+                  : LEAF_COUNT - leaf;
           return (
             <div
               key={leaf}
@@ -200,7 +254,7 @@ export function MagBook({ faces }: { faces: ReactNode[] }) {
               data-turned={leaf < k ? "" : undefined}
               data-turning={turning === leaf ? "" : undefined}
               style={{ zIndex }}
-              onClick={() => onLeafClick(leaf)}
+              onClick={(e) => onLeafClick(e, leaf)}
             >
               {[2 * leaf, 2 * leaf + 1].map((face) => {
                 const shown = visible(face);
@@ -212,11 +266,17 @@ export function MagBook({ faces }: { faces: ReactNode[] }) {
                     data-face={face}
                     data-show={shown ? "" : undefined}
                     data-leaving={isLeaving ? "" : undefined}
-                    inert={!shown}
-                    aria-hidden={!shown}
-                    role={face === 0 && shown ? "button" : undefined}
-                    aria-label={face === 0 && shown ? "Open the magazine" : undefined}
+                    inert={ready && !shown}
+                    aria-hidden={ready && !shown}
                   >
+                    {face === 0 && (
+                      <button
+                        type="button"
+                        className="absolute inset-0 z-[1] cursor-pointer rounded-[4px] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#ffd12b]"
+                        aria-label="Open the magazine"
+                        onClick={() => go(1)}
+                      />
+                    )}
                     {faces[face]}
                   </div>
                 );

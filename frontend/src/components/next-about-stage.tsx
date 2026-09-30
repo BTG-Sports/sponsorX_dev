@@ -60,9 +60,9 @@ const COVER_BG = "bg-[linear-gradient(180deg,#000_0%,#061027_45%,#0d1a3a_100%)]"
 /** The yellow primary CTA on the stage. Dark ink on yellow (14:1); white on
  *  yellow would fail P1-QA-02, the /join lesson. */
 const CTA_YELLOW =
-  "sx-sheen group relative inline-flex h-12 w-full items-center justify-center gap-3 overflow-hidden whitespace-nowrap rounded-xl bg-[#ffd12b] px-5 text-[14px] font-semibold text-[#0b0b14] shadow-[0_0_30px_rgba(255,209,43,.35)] transition-[box-shadow,transform] hover:-translate-y-0.5 hover:shadow-[0_0_40px_rgba(255,209,43,.55)] sm:h-[52px] sm:px-7 sm:text-[15px] xl:px-9";
+  "sx-sheen group relative inline-flex h-12 w-full items-center justify-center gap-3 overflow-hidden whitespace-nowrap rounded-xl bg-[#ffd12b] px-5 text-[14px] font-semibold text-[#0b0b14] shadow-[0_0_30px_rgba(255,209,43,.35)] transition-[box-shadow,transform] hover:-translate-y-0.5 hover:shadow-[0_0_40px_rgba(255,209,43,.55)] max-[359px]:px-3 max-[359px]:text-[13px] sm:h-[52px] sm:px-7 sm:text-[15px] xl:px-9";
 const CTA_OUTLINE =
-  "sx-sheen group relative inline-flex h-12 w-full items-center justify-center gap-3 overflow-hidden whitespace-nowrap rounded-xl border border-white/45 bg-[#0a1428]/45 px-5 text-[14px] font-medium text-on-media shadow-[0_0_14px_rgba(99,180,248,.25)] backdrop-blur-lg transition-colors hover:border-white hover:bg-white/10 sm:h-[52px] sm:px-7 sm:text-[15px] xl:px-9";
+  "sx-sheen group relative inline-flex h-12 w-full items-center justify-center gap-3 overflow-hidden whitespace-nowrap rounded-xl border border-white/45 bg-[#0a1428]/45 px-5 text-[14px] font-medium text-on-media shadow-[0_0_14px_rgba(99,180,248,.25)] backdrop-blur-lg transition-colors hover:border-white hover:bg-white/10 max-[359px]:px-3 max-[359px]:text-[13px] sm:h-[52px] sm:px-7 sm:text-[15px] xl:px-9";
 
 /** CTAs on paper: navy plate with yellow text, and a navy outline. */
 const PAPER_CTA =
@@ -224,9 +224,14 @@ export function MagCover() {
         <div className="sx-stage-in order-first mx-auto w-full max-w-[220px] sm:max-w-[320px] lg:order-last lg:max-w-none" style={reveal(0.7)}>
           <TiltSpot max={8}>
             <CoverGlow>
+              {/* the whole cover opens the book; sits under the "Inside:" links
+                  (z-[1] vs their z-[2]) and comes first in the tab order */}
+              <a
+                href="#magazine"
+                aria-label="Open the magazine"
+                className="absolute inset-0 z-[1] rounded-[4px] focus-visible:outline-2 focus-visible:outline-[#ffd12b]"
+              />
               <CoverPlate priority />
-              {/* the whole cover opens the book; sits under the "Inside:" links */}
-              <a href="#magazine" aria-label="Open the magazine" className="absolute inset-0 z-[1] rounded-[4px]" />
             </CoverGlow>
           </TiltSpot>
         </div>
@@ -288,7 +293,7 @@ export function MagPage({
 /** Face 7 — the back cover: navy, the closing line and both CTAs. */
 function BackFace() {
   return (
-    <div className={`flex h-full flex-col justify-end p-6 lg:p-8 xl:p-10 ${COVER_BG}`}>
+    <div className={`flex h-full flex-col justify-end p-5 sm:p-6 lg:p-8 xl:p-10 ${COVER_BG}`}>
       <Eyebrow>Back cover</Eyebrow>
       <p className="mt-3 font-mag text-[clamp(32px,7vw,44px)] leading-[0.9] lg:text-[clamp(36px,3.4vw,56px)]">
         Your byline starts <span className="text-[#ffd12b]">here.</span>
@@ -351,9 +356,9 @@ export function MagazineBook() {
       </ol>
     </MagPage>,
     <MagPage key="06" head="What you get out of it" folio="06" title="Work that" accent="follows you.">
-      <div className="sx-mag-cols space-y-3 xl:space-y-0">
+      <div className="space-y-3">
         {BENEFITS.map((b) => (
-          <p key={b.title} className="xl:mb-3">
+          <p key={b.title}>
             <b className="font-semibold">{b.title}.</b>{" "}
             {"tag" in b && (
               <span className="mx-1 inline-block rounded-full border border-[#0b1a3a]/40 px-2 py-px align-middle font-sans text-[10px] font-medium uppercase tracking-[0.1em] text-[#0b1a3a]/70">
@@ -389,7 +394,7 @@ export function MagazineBook() {
   return (
     <>
       <noscript>
-        <style>{`.sx-book{aspect-ratio:auto!important;transform:none!important;perspective:none}.sx-leaf{position:static!important;width:100%!important;transform:none!important}.sx-face{position:static!important;display:block!important;transform:none!important;margin-bottom:24px}.sx-book-ctrl,.sx-book-shadow,.sx-book-hint{display:none!important}`}</style>
+        <style>{`.sx-book{aspect-ratio:auto!important;transform:none!important;perspective:none}.sx-leaf{position:static!important;width:100%!important;transform:none!important}.sx-face{position:static!important;display:block!important;transform:none!important;margin-bottom:24px}.sx-book-ctrl,.sx-book-shadow,.sx-book-hint{display:none!important}.sx-face[data-face="0"]{max-width:520px;margin-inline:auto}`}</style>
       </noscript>
       <MagBook faces={faces} />
     </>
