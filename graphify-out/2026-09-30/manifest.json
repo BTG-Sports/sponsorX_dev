@@ -216,9 +216,9 @@
     "semantic_hash": ""
   },
   "documentation/SponsorX-Phase1-Managed-Marketplace.md": {
-    "mtime": 1790702086.613238,
-    "seen": 1790704780.1070223,
-    "ast_hash": "4889e0566f67e4935a915ae85cc24735",
+    "mtime": 1790709638.1328876,
+    "seen": 1790709953.1967762,
+    "ast_hash": "b08272ebed78041485b2373e36da8206",
     "semantic_hash": ""
   },
   "documentation/SponsorX-Phase2-Marketplace-Commerce.md": {
@@ -3888,9 +3888,9 @@
     "semantic_hash": ""
   },
   "graphify-out/converted/SponsorX-Full-Programme-Task-Board_45c6ec3d.md": {
-    "mtime": 1790704731.177394,
-    "seen": 1790704780.1135697,
-    "ast_hash": "89d3c80dae105e9d45946d071220afa8",
+    "mtime": 1790709894.3453913,
+    "seen": 1790709953.2023487,
+    "ast_hash": "d0259bede2af570ae69869759a9fa82b",
     "semantic_hash": ""
   },
   "graphify-out/converted/SponsorX-Full-Programme-Task-Board_caf1eea8.md": {
@@ -5004,9 +5004,9 @@
     "semantic_hash": ""
   },
   "frontend/src/components/city/city-backdrop.tsx": {
-    "mtime": 1790700929.3099456,
-    "seen": 1790704780.0576503,
-    "ast_hash": "73618f39f8ebcee3975cac15b6761699",
+    "mtime": 1790709134.6198683,
+    "seen": 1790709953.14742,
+    "ast_hash": "5083e0dd03794d838f2905f2a3ad8ec3",
     "semantic_hash": ""
   },
   "frontend/src/components/city/city-poster.tsx": {
@@ -5016,9 +5016,9 @@
     "semantic_hash": ""
   },
   "frontend/src/components/city/city-scene.tsx": {
-    "mtime": 1790700929.3099456,
-    "seen": 1790704780.0576503,
-    "ast_hash": "21a05cbcebc6a97a9e2f0572bf0853c9",
+    "mtime": 1790709112.036199,
+    "seen": 1790709953.14742,
+    "ast_hash": "8b9065fdf89b578d0a2380a9bf97121e",
     "semantic_hash": ""
   },
   "frontend/src/components/city/city-world.tsx": {
@@ -5028,9 +5028,9 @@
     "semantic_hash": ""
   },
   "frontend/src/components/city/kit-instances.tsx": {
-    "mtime": 1790685193.1510606,
-    "seen": 1790699619.5374548,
-    "ast_hash": "436db7270342d488d244a237ab959326",
+    "mtime": 1790709108.2327125,
+    "seen": 1790709953.1484263,
+    "ast_hash": "e7ec4b3cb4c52bc2ce3f2573fd1dc04a",
     "semantic_hash": ""
   },
   "frontend/src/components/city/venues/baseball-field.tsx": {
@@ -5838,9 +5838,9 @@
     "semantic_hash": ""
   },
   "frontend/src/components/landing-hero.tsx": {
-    "mtime": 1790706578.5349877,
-    "seen": 1790707254.0854597,
-    "ast_hash": "94040a9345e084664fcdc46453de5a09",
+    "mtime": 1790709286.3942642,
+    "seen": 1790709953.1534703,
+    "ast_hash": "d728b03e788603aca86fe4fc20f5f3fe",
     "semantic_hash": ""
   },
   "frontend/src/lib/city/flight-store.ts": {
@@ -5862,9 +5862,9 @@
     "semantic_hash": ""
   },
   "Memory/2026-09-30/tasks-completed.md": {
-    "mtime": 1790708307.0397382,
-    "seen": 1790708368.4874275,
-    "ast_hash": "490a33c92d9180d809697dcd9f6d2d89",
+    "mtime": 1790709851.8665729,
+    "seen": 1790709953.1860101,
+    "ast_hash": "a8c18c7d65c2c21ebcdf8a54720b388c",
     "semantic_hash": ""
   },
   "frontend/src/components/site-nav.tsx": {
@@ -5904,9 +5904,9 @@
     "semantic_hash": ""
   },
   "frontend/src/app/(home)/layout.tsx": {
-    "mtime": 1790707916.338776,
-    "seen": 1790708194.1455202,
-    "ast_hash": "ffaa3879c681c2fce2a673490263c409",
+    "mtime": 1790709225.8812804,
+    "seen": 1790709953.1413708,
+    "ast_hash": "ad9e83f0dd1a5bd13f48c0175fb32727",
     "semantic_hash": ""
   },
   "frontend/src/app/(home)/loading.tsx": {
@@ -5916,9 +5916,45 @@
     "semantic_hash": ""
   },
   "frontend/src/app/(home)/page.tsx": {
-    "mtime": 1790708187.807444,
-    "seen": 1790708194.1455202,
-    "ast_hash": "380eb6fe07974596bc063335ccce74dc",
+    "mtime": 1790709261.984773,
+    "seen": 1790709953.1413708,
+    "ast_hash": "6867cd78849d4fff323dd25e8273de6b",
+    "semantic_hash": ""
+  },
+  "frontend/src/components/city/city-preload.ts": {
+    "mtime": 1790709103.4786296,
+    "seen": 1790709953.14742,
+    "ast_hash": "5b9d24832cd1ff58e5e6d3da2e09dae2",
+    "semantic_hash": ""
+  },
+  "frontend/src/components/landing-loader.tsx": {
+    "mtime": 1790709621.90473,
+    "seen": 1790709953.1534703,
+    "ast_hash": "3bbfca9e86fb034eb02baea36713bebd",
+    "semantic_hash": ""
+  },
+  "frontend/src/lib/city/assets.ts": {
+    "mtime": 1790709101.1599703,
+    "seen": 1790709953.1627069,
+    "ast_hash": "b1be97289388f7ef8bbec9ea43553526",
+    "semantic_hash": ""
+  },
+  "frontend/src/lib/city/load-store.ts": {
+    "mtime": 1790708967.1774225,
+    "seen": 1790709953.1642597,
+    "ast_hash": "0769f2e61bf3822b5805bcc2f704f989",
+    "semantic_hash": ""
+  },
+  "frontend/src/lib/city/loading.ts": {
+    "mtime": 1790708943.3563137,
+    "seen": 1790709953.1642597,
+    "ast_hash": "f367e520d21b41801bbbad666a05c637",
+    "semantic_hash": ""
+  },
+  "frontend/tests/city-loading.test.ts": {
+    "mtime": 1790708960.2981925,
+    "seen": 1790709953.1749659,
+    "ast_hash": "4038d5ab67a7eb1deb428082a143f4b8",
     "semantic_hash": ""
   }
 }
