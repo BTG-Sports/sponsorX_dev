@@ -14,6 +14,9 @@
    the first stop visible and the rest hidden, which is also what progress 0
    gives on the client.
 
+   The weight is also written to `--sx-w` on the section, for content that
+   wants to stage its own entrance from it.
+
    `id` is the section anchor the nav links use (`how-it-works`); `stop` is
    the flight stop it belongs to (`basketball`).
    -------------------------------------------------------------------------- */
@@ -56,6 +59,9 @@ export function FlightStop({ stop, id, children, className = "", bleed = false }
       el.style.transform = `translate3d(0, ${((1 - w) * RISE_PX).toFixed(1)}px, 0)`;
       el.style.pointerEvents = w > 0.5 ? "auto" : "none";
       el.inert = w < 0.02;
+      // Exposed so a stop's content can choreograph its own arrival
+      // (the sponsor packages rise in one after another).
+      el.style.setProperty("--sx-w", w.toFixed(3));
     };
     apply(useFlight.getState().progress);
     return useFlight.subscribe((s) => apply(s.progress));
