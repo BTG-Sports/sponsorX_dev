@@ -106,3 +106,12 @@ needed: the first run of the payout prompt produced only the sponsor payment).
   required), Retry for problems.
 - Verified locally: Riley set up payouts → requested $542.58 → Finance approved
   → worker paid → all four steps done on Riley's page.
+
+## Walkthrough deck redone with the payment and payout screens (+ three small fixes)
+
+- The walkthrough artifact (claude.ai/artifact/LPLmw7XkLWnutu7fBjM6jq, v8) now shows all 16 steps on real screens: payout-account set-up (5a–5d), pay by card (11a–11c), payment confirmed plus receipt email (12), Riley's My money (13), payout request (14), BTG's approval queue, detail and paid state plus payout email (15a–15c), and reserve release and final payouts (16). The "not built" gap cards are gone. Stripe steps use the marked staging stand-in.
+- Fixes found while shooting it:
+  - BTG's order page Payments card said "Not tracked yet". It now reads `GET /marketplace-orders/:id/payment` and shows the real status and provider reference (2S5-INT-01).
+  - The "Mark awaiting payment" and "Mark paid" hints no longer say there is no payment provider. Mark paid is for payments made another way.
+  - The payout tracker's labels now wrap instead of truncating in narrow columns (the Hawks' "Approved by BTG").
+  - Payout emails to athletes now link to `/athlete/money`, not `/athlete/earnings`.

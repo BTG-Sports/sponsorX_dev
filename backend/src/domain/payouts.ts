@@ -517,7 +517,7 @@ export async function getPayout(actor: Actor, id: string, now = new Date()) {
 async function notifyPayee(tx: Tx, row: { id: string; tenantId: string; amountCents: number } & Payee, template: string, extra: Record<string, string> = {}) {
   const to = await payeeEmail(tx, row);
   if (!to) return;
-  const path = row.payeeType === "ATHLETE" ? "/athlete/earnings" : "/property/earnings";
+  const path = row.payeeType === "ATHLETE" ? "/athlete/money" : "/property/earnings";
   await enqueue(tx, row.tenantId, "notify.email", {
     tenantId: row.tenantId,
     template,
