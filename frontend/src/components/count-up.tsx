@@ -16,6 +16,14 @@ import { useEffect, useRef } from "react";
    IntersectionObserver/rAF callbacks that mutate textContent run
    asynchronously after the effect returns, same as insight-carousel.tsx's
    scroll/autoplay listeners.
+
+   Inside a landing flight stop (`.sx-flight-stop`, flight-stop.tsx) the
+   viewport test is useless — every stop sits in the one sticky stage, all
+   "in view" from the first frame, so the counters finished before anyone
+   reached them (the hero's behind the loading screen). There it counts
+   when the stop is actually showing (its opacity > 0.5) and the loading
+   screen has released the page (`html[data-sx-loaded]`), and resets to
+   zero once the stop is hidden again, so it counts up on every arrival.
    -------------------------------------------------------------------------- */
 
 const fmt = (n: number) =>
@@ -39,17 +47,44 @@ export function CountUp({ value, prefix = "" }: { value: number; prefix?: string
       return;
     }
 
+    const run = () => {
+      started.current = true;
+      const t0 = performance.now();
+      const tick = (t: number) => {
+        const p = Math.min(1, (t - t0) / 1400);
+        write(Math.round(value * (1 - Math.pow(1 - p, 3))));
+        if (p < 1) frameRef.current = requestAnimationFrame(tick);
+      };
+      frameRef.current = requestAnimationFrame(tick);
+    };
+
+    const stop = el.closest<HTMLElement>(".sx-flight-stop");
+    if (stop) {
+      const html = document.documentElement;
+      const opacity = () => parseFloat(stop.style.opacity || "0");
+      const check = () => {
+        if (!started.current) {
+          if (html.hasAttribute("data-sx-loaded") && opacity() > 0.5) run();
+        } else if (opacity() < 0.02) {
+          cancelAnimationFrame(frameRef.current);
+          started.current = false;
+          write(0);
+        }
+      };
+      const mo = new MutationObserver(check);
+      mo.observe(stop, { attributes: true, attributeFilter: ["style"] });
+      mo.observe(html, { attributes: true, attributeFilter: ["data-sx-loaded"] });
+      check();
+      return () => {
+        mo.disconnect();
+        cancelAnimationFrame(frameRef.current);
+      };
+    }
+
     const io = new IntersectionObserver(
       ([entry]) => {
         if (!entry.isIntersecting || started.current) return;
-        started.current = true;
-        const t0 = performance.now();
-        const tick = (t: number) => {
-          const p = Math.min(1, (t - t0) / 1400);
-          write(Math.round(value * (1 - Math.pow(1 - p, 3))));
-          if (p < 1) frameRef.current = requestAnimationFrame(tick);
-        };
-        frameRef.current = requestAnimationFrame(tick);
+        run();
       },
       { threshold: 0.4 },
     );

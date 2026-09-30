@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { Poppins } from "next/font/google";
 import { ClerkProvider } from "@clerk/nextjs";
+
+import { PageTransition } from "@/components/page-transition";
 import "./globals.css";
 
 // next/font self-hosts at build time, so this carries no host coupling.
@@ -70,6 +72,10 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
             }}
           />
           {children}
+          {/* The public site's page transition (P1-ART-12). Here, above the
+              route groups, so it survives the move between (home) and
+              (public); inert everywhere else. */}
+          <PageTransition />
         </body>
       </html>
     </ClerkProvider>

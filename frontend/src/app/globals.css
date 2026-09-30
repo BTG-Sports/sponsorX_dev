@@ -1,5 +1,9 @@
 @import "tailwindcss";
 
+/* Phones held sideways — short and wide, below lg (the landing stops lay
+   out in two columns there so each stays one view). */
+@custom-variant short-landscape (@media (max-width: 63.999rem) and (max-height: 560px) and (orientation: landscape));
+
 /* --------------------------------------------------------------------------
    SponsorX design tokens
 
@@ -326,6 +330,286 @@ body {
   .sx-holo::after { animation: none; }
 }
 
+/* --------------------------------------------------------------------------
+   Header "wow" pass (2026-09-30) — header-fx.tsx + site-nav.tsx.
+
+   `.sx-bar` is the glass bar. At the top of a page it is the mockup's
+   full-width 72px strip; once the page scrolls (`data-scrolled`, with
+   hysteresis) it morphs into a floating capsule inset from the viewport —
+   the outer <header> keeps its 72px, so nothing below it moves. Its ring
+   is an inset box-shadow, not a border, so the morph never shifts the
+   content by a pixel. With a fine pointer, `--sx-mx/--sx-my` + `data-hot`
+   light a soft spotlight inside and (capsule only) the edge nearest the
+   pointer. The bottom rule fills with `--sx-progress` (flight progress on
+   the landing, page scroll elsewhere) with a glowing head, and on the
+   landing carries a tick per flight stop, lit once the drone has passed.
+   -------------------------------------------------------------------------- */
+.sx-bar {
+  width: 100%;
+  height: 72px;
+  margin-inline: auto;
+  transition:
+    width 0.6s var(--sx-ease),
+    height 0.5s var(--sx-ease),
+    margin-top 0.6s var(--sx-ease),
+    padding 0.6s var(--sx-ease),
+    border-radius 0.6s var(--sx-ease),
+    background-color 0.4s ease,
+    box-shadow 0.6s ease;
+}
+.sx-bar[data-scrolled] {
+  width: calc(100% - 16px);
+  height: 56px;
+  margin-top: 8px;
+  padding-left: 14px;
+  padding-right: 8px;
+  border-radius: 18px;
+  background-color: color-mix(in srgb, var(--sx-bg) 70%, transparent);
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--sx-primary-soft) 24%, transparent),
+    inset 0 1px 0 rgba(255, 255, 255, 0.07),
+    0 18px 50px -14px rgba(0, 0, 0, 0.65),
+    0 0 36px -10px rgba(46, 155, 245, 0.35);
+}
+@media (min-width: 40rem) {
+  .sx-bar[data-scrolled] {
+    width: min(1240px, calc(100% - 32px));
+    margin-top: 10px;
+    padding-left: 24px;
+    padding-right: 12px;
+  }
+}
+
+.sx-bar-spot,
+.sx-bar-edge {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.4s ease;
+}
+.sx-bar-spot {
+  background: radial-gradient(280px circle at var(--sx-mx, 50%) var(--sx-my, 50%), rgba(99, 180, 248, 0.14), transparent 70%);
+}
+.sx-bar-edge {
+  padding: 1px;
+  background: radial-gradient(220px circle at var(--sx-mx, 50%) var(--sx-my, 50%), rgba(127, 208, 255, 0.95), transparent 70%);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
+}
+.sx-bar[data-hot] > .sx-bar-spot,
+.sx-bar[data-scrolled][data-hot] > .sx-bar-edge { opacity: 1; }
+
+.sx-bar-line {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 1px;
+  pointer-events: none;
+  transition: left 0.6s var(--sx-ease), right 0.6s var(--sx-ease);
+}
+.sx-bar[data-scrolled] > .sx-bar-line { left: 22px; right: 22px; }
+.sx-bar-fill {
+  position: absolute;
+  inset: 0;
+  transform-origin: left center;
+  transform: scaleX(var(--sx-progress, 0));
+  background: linear-gradient(90deg, rgba(94, 224, 255, 0), #5ee0ff);
+  box-shadow: 0 0 10px rgba(94, 224, 255, 0.9);
+}
+.sx-bar-head {
+  position: absolute;
+  top: 50%;
+  /* clamped so the centred dot never pokes past the rule's ends: with
+     the bar full-width the rule spans the viewport, and half a box past
+     its right edge widens the page (a 1px horizontal scrollbar). The glow
+     is a box-shadow, which never adds scroll, so it still reaches the end. */
+  left: clamp(2.5px, calc(var(--sx-progress, 0) * 100%), calc(100% - 2.5px));
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #e6f9ff;
+  box-shadow:
+    0 0 8px 2px rgba(94, 224, 255, 0.9),
+    0 0 20px 5px rgba(46, 155, 245, 0.55);
+  transform: translate(-50%, -50%);
+  opacity: clamp(0, var(--sx-progress, 0) * 60, 1);
+}
+.sx-bar-tick {
+  position: absolute;
+  top: 50%;
+  /* clamped like the head: the last stop sits at 100% */
+  left: clamp(0.5px, calc(var(--at) * 100%), calc(100% - 0.5px));
+  width: 1px;
+  height: 7px;
+  background: rgba(191, 224, 255, 0.35);
+  transform: translate(-50%, -50%);
+}
+.sx-bar-tick::after {
+  content: "";
+  position: absolute;
+  inset: -1px 0;
+  background: #9be9ff;
+  box-shadow: 0 0 8px rgba(94, 224, 255, 0.95);
+  opacity: clamp(0, (var(--sx-progress, 0) - var(--at)) * 1000 + 1, 1);
+}
+
+/* The link row: one glass lens (hover / focus only) and one hologram
+   underline (current item, or the hovered one) shared by every link and
+   gliding between them — SiteNav writes the target's box as
+   --sx-ix / --sx-iw. The lens overshoots a little as it lands. `data-snap`
+   is set for one frame when nothing was lit, so the first target fades in
+   where it is instead of sliding in from the row's left edge. */
+.sx-nav-lens,
+.sx-nav-bar {
+  position: absolute;
+  left: 0;
+  pointer-events: none;
+  opacity: 0;
+}
+.sx-nav-lens {
+  top: 0;
+  bottom: 0;
+  width: var(--sx-iw, 0px);
+  border-radius: 999px;
+  background: linear-gradient(180deg, rgba(127, 208, 255, 0.15), rgba(46, 155, 245, 0.05));
+  box-shadow:
+    inset 0 0 0 1px rgba(127, 208, 255, 0.24),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    0 0 24px -4px rgba(46, 155, 245, 0.55);
+  transform: translateX(var(--sx-ix, 0px)) scale(0.86);
+  transition:
+    transform 0.55s cubic-bezier(0.34, 1.45, 0.5, 1),
+    width 0.55s cubic-bezier(0.34, 1.45, 0.5, 1),
+    opacity 0.3s ease;
+}
+.sx-nav[data-hover][data-lit] > .sx-nav-lens {
+  opacity: 1;
+  transform: translateX(var(--sx-ix, 0px)) scale(1);
+}
+.sx-nav-bar {
+  bottom: -1px;
+  height: 1px;
+  width: calc(var(--sx-iw, 32px) - 32px);
+  transform: translateX(calc(var(--sx-ix, 0px) + 16px));
+  background: linear-gradient(90deg, transparent, #7fd0ff 25%, #7fd0ff 75%, transparent);
+  box-shadow:
+    0 0 8px rgba(127, 208, 255, 0.9),
+    0 0 18px rgba(46, 155, 245, 0.6);
+  transition:
+    transform 0.5s var(--sx-ease),
+    width 0.5s var(--sx-ease),
+    opacity 0.3s ease;
+}
+/* a bright glint riding the middle of the underline */
+.sx-nav-bar::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 16px;
+  height: 3px;
+  border-radius: 2px;
+  background: #e8f8ff;
+  box-shadow: 0 0 10px 2px rgba(127, 208, 255, 0.9);
+  transform: translate(-50%, -50%);
+}
+.sx-nav[data-lit] > .sx-nav-bar { opacity: 1; }
+.sx-nav[data-snap] > .sx-nav-lens,
+.sx-nav[data-snap] > .sx-nav-bar { transition-property: opacity; }
+
+/* Links arrive one by one when the header appears. On the landing they
+   wait for the loading screen (held paused until `html[data-sx-loaded]`)
+   and start after the header's own fade; scoped to the landing, so no
+   other page can be left with hidden links. */
+@keyframes sx-nav-in {
+  from { opacity: 0; transform: translateY(-10px); filter: blur(6px); }
+  to { opacity: 1; transform: none; filter: none; }
+}
+.sx-nav-item {
+  animation: sx-nav-in 0.7s var(--sx-ease) both;
+  animation-delay: calc(var(--i, 0) * 60ms + 120ms);
+}
+[data-sx-landing] .sx-nav-item { animation-delay: calc(var(--i, 0) * 70ms + 0.75s); }
+html:not([data-sx-loaded]) [data-sx-landing] .sx-nav-item { animation-play-state: paused; }
+
+/* Letter roll (RollLabel): the label twice, split into letters; on hover
+   (or keyboard focus) of its `.sx-roll-host` the first copy lifts out and
+   the second rises in, letter after letter. Inside an overflow-hidden
+   host (Get Started) that reads as a true roll; elsewhere the fade keeps
+   it clean without clipping the hologram's glow. */
+.sx-roll {
+  position: relative;
+  display: inline-block;
+  white-space: nowrap;
+}
+.sx-roll-a,
+.sx-roll-b { display: inline-block; }
+.sx-roll-b {
+  position: absolute;
+  left: 0;
+  top: 0;
+}
+.sx-roll-a > span,
+.sx-roll-b > span {
+  display: inline-block;
+  transition:
+    transform 0.5s var(--sx-ease),
+    opacity 0.35s ease;
+  transition-delay: calc(var(--i, 0) * 18ms);
+}
+.sx-roll-b > span {
+  opacity: 0;
+  transform: translateY(0.9em);
+}
+@media (hover: hover) and (prefers-reduced-motion: no-preference) {
+  .sx-roll-host:hover .sx-roll-a > span {
+    opacity: 0;
+    transform: translateY(-0.9em);
+  }
+  .sx-roll-host:hover .sx-roll-b > span {
+    opacity: 1;
+    transform: none;
+  }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .sx-roll-host:focus-visible .sx-roll-a > span {
+    opacity: 0;
+    transform: translateY(-0.9em);
+  }
+  .sx-roll-host:focus-visible .sx-roll-b > span {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* Get Started — a light sweeps across it every few seconds. */
+@keyframes sx-shine {
+  0% { transform: translateX(-120%); }
+  22%, 100% { transform: translateX(120%); }
+}
+.sx-shine::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(105deg, transparent 35%, rgba(255, 255, 255, 0.42) 50%, transparent 65%);
+  transform: translateX(-120%);
+  animation: sx-shine 5.5s ease-in-out 2.2s infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sx-bar,
+  .sx-bar-line,
+  .sx-nav-lens,
+  .sx-nav-bar { transition: none; }
+  .sx-nav-item { animation: none; }
+  .sx-shine::after { display: none; }
+}
+
 @keyframes sx-fade-up {
   from { opacity: 0; transform: translateY(10px); }
   to { opacity: 1; transform: translateY(0); }
@@ -349,12 +633,14 @@ body {
   animation: sx-pop 0.16s ease-out both;
 }
 
-/* Full-screen mobile menu: circle reveal from the hamburger corner (top-left).
+/* Full-screen mobile menu: circle reveal from the hamburger corner — top-left
+   by default (portal menu); `--sx-menu-at` moves it (the marketing menu
+   opens from its top-right button).
    Reduced motion shortens these to 1ms instead of removing them so the
    animationend event that unmounts the closing menu still fires. */
 @keyframes sx-menu-in {
-  from { clip-path: circle(0% at 2rem 2rem); }
-  to { clip-path: circle(150% at 2rem 2rem); }
+  from { clip-path: circle(0% at var(--sx-menu-at, 2rem 2rem)); }
+  to { clip-path: circle(150% at var(--sx-menu-at, 2rem 2rem)); }
 }
 
 .sx-menu-in {
@@ -362,8 +648,8 @@ body {
 }
 
 @keyframes sx-menu-out {
-  from { clip-path: circle(150% at 2rem 2rem); }
-  to { clip-path: circle(0% at 2rem 2rem); }
+  from { clip-path: circle(150% at var(--sx-menu-at, 2rem 2rem)); }
+  to { clip-path: circle(0% at var(--sx-menu-at, 2rem 2rem)); }
 }
 
 .sx-menu-out {
@@ -982,4 +1268,479 @@ html[data-sx-loaded] [data-sx-landing] .sx-reveal-fade {
 @media (prefers-reduced-motion: reduce) {
   [data-sx-landing] .sx-reveal,
   [data-sx-landing] .sx-reveal-fade { transition: none; transform: none; }
+}
+
+/* --------------------------------------------------------------------------
+   Brands marquee (landing hero, below lg). The track holds the wordmark list
+   twice; sliding it left by half its width lands copy two exactly where copy
+   one started, so the loop has no seam. Desktop lays the list out statically.
+   Reduced motion: no drift — the strip scrolls sideways by hand instead.
+   -------------------------------------------------------------------------- */
+@keyframes sx-marquee {
+  from { transform: translate3d(0, 0, 0); }
+  to { transform: translate3d(-50%, 0, 0); }
+}
+@media (max-width: 63.999rem) {
+  .sx-marquee { animation: sx-marquee 24s linear infinite; }
+}
+@media (max-width: 63.999rem) and (prefers-reduced-motion: reduce) {
+  .sx-marquee { animation: none; }
+  .sx-marquee-view { overflow-x: auto; scrollbar-width: none; }
+}
+/* The same drift at every width — for a list too long to lay out statically
+   on any desktop (the athletes stop's jobs band). */
+.sx-marquee-all { animation: sx-marquee 42s linear infinite; }
+@media (hover: hover) {
+  .sx-marquee-view:hover .sx-marquee-all { animation-play-state: paused; }
+}
+/* The athletes stop's jobs ribbon (JobsBand) on desktop: it reaches 64px
+   under each end plate, and is cut along the plates' glowing edges —
+   28deg slants through the band's middle, tan(28deg) x 38px ~ 20px either
+   side at the 76px band (17px at 64px; the plate covers the difference). */
+@media (min-width: 64rem) {
+  .sx-jobs-clip {
+    clip-path: polygon(84px 0, calc(100% - 44px) 0, calc(100% - 84px) 100%, 44px 100%);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sx-marquee-all { animation: none; }
+  .sx-marquee-view:has(.sx-marquee-all) { overflow-x: auto; scrollbar-width: none; }
+}
+
+/* --------------------------------------------------------------------------
+   Sponsor packages (soccer stop — package-carousel.tsx, landing-sponsors.tsx).
+
+   Phone carousel (below lg). Each card carries `--d`, its signed distance
+   from the centre in card steps, and `--ad` = |d|, written per scroll
+   frame. From those:
+   - coverflow: cards off-centre turn away in 3D, shrink, fade and tuck in
+     behind the centre card;
+   - `.sx-pkg-sheen`: a holographic band slides across the glass with d;
+   - `.sx-pkg-num`: the outlined tier numeral drifts against the swipe;
+   - `.sx-pkg-sweep`: a light runs round the outline (a conic gradient on a
+     registered angle, clipped to the ring) in the card's `--tone`, only on
+     the centred card — it fades out by |d| = 0.4.
+
+   Desktop row (lg up). The pointer writes `--mx`/`--my` (its position in
+   each card's box) and, on the hovered card, `--rx`/`--ry` (tilt, unitless
+   degrees); the row carries `--spot` (1 while the pointer is over it):
+   - `.sx-pkg-spot`: a tier-coloured spotlight on every card's outline,
+     centred on the pointer — so the rims light up as it passes between;
+   - `.sx-pkg-glare`: a soft highlight on the hovered card's glass;
+   - tilt + lift on the hovered card, the siblings step back;
+   - the sweep runs on the hovered card, or the featured one at rest;
+   - arrival: `--sx-w` (the flight stop's weight) rises each card into
+     place, staggered by its slot `--lgi`, in step with the scroll.
+
+   Reduced motion: the sweep stops turning and the tilt is dropped; the
+   scroll-linked parts stay, since they move only as the reader does.
+   -------------------------------------------------------------------------- */
+@property --sx-sweep {
+  syntax: "<angle>";
+  inherits: false;
+  initial-value: 0deg;
+}
+@keyframes sx-sweep {
+  to { --sx-sweep: 360deg; }
+}
+.sx-pkg-sweep {
+  background: conic-gradient(from var(--sx-sweep), transparent 0turn, transparent 0.58turn, var(--tone) 0.8turn, #fff 0.86turn, var(--tone) 0.9turn, transparent 0.97turn);
+  animation: sx-sweep 3.4s linear infinite;
+}
+
+@media (max-width: 63.999rem) {
+  .sx-pkg-track { scrollbar-width: none; overscroll-behavior-x: contain; }
+  .sx-pkg-track::-webkit-scrollbar { display: none; }
+  .sx-pkg-card {
+    /* No will-change: it would rasterize the card at its pre-centred scale
+       and leave the centred copy soft. */
+    transform: perspective(900px) translate3d(calc(var(--d, 0) * -20%), 0, 0) rotateY(calc(var(--d, 0) * -32deg)) scale(calc(1 - var(--ad, 0) * 0.12));
+    opacity: calc(1 - var(--ad, 0) * 0.45);
+  }
+  .sx-pkg-sheen {
+    background: linear-gradient(115deg, transparent 36%, rgba(127, 208, 255, 0.16) 46%, rgba(251, 146, 60, 0.1) 53%, transparent 63%);
+    background-size: 280% 100%;
+    background-position: calc(50% + var(--d, 0) * 80%) 0;
+    mix-blend-mode: screen;
+  }
+  .sx-pkg-num { transform: translate3d(calc(var(--d, 0) * -40px), 0, 0); }
+  .sx-pkg-sweep { opacity: calc(1 - var(--ad, 0) * 2.5); }
+}
+
+@media (min-width: 64rem) {
+  .sx-pkg-row { --spot: 0; }
+  .sx-pkg { --s: 1; --o: 1; }
+  .sx-pkg-card {
+    opacity: var(--o);
+    transform:
+      perspective(1100px)
+      translate3d(0, calc((1 - var(--sx-w, 1)) * (70px + var(--lgi, 0) * 70px)), 0)
+      rotateX(calc(var(--rx, 0) * 1deg))
+      rotateY(calc(var(--ry, 0) * 1deg))
+      scale(var(--s));
+    transition:
+      transform 0.5s cubic-bezier(0.2, 0.7, 0.2, 1),
+      opacity 0.4s ease;
+  }
+  .sx-pkg:hover { --s: 1.025; z-index: 2; }
+  .sx-pkg:hover .sx-pkg-card { transition-duration: 0.2s, 0.4s; }
+  .sx-pkg-row:has(.sx-pkg:hover) .sx-pkg:not(:hover) { --s: 0.97; --o: 0.6; }
+
+  .sx-pkg-spot {
+    opacity: var(--spot);
+    transition: opacity 0.45s ease;
+    background: radial-gradient(360px circle at var(--mx, -999px) var(--my, -999px), #fff 0%, var(--tone) 20%, transparent 64%);
+  }
+  .sx-pkg-glare {
+    opacity: 0;
+    transition: opacity 0.35s ease;
+    background: radial-gradient(460px circle at var(--mx, 50%) var(--my, 0%), rgba(255, 255, 255, 0.11), rgba(127, 208, 255, 0.05) 32%, transparent 62%);
+    mix-blend-mode: screen;
+  }
+  .sx-pkg:hover .sx-pkg-glare { opacity: 1; }
+
+  .sx-pkg-sweep { opacity: 0; transition: opacity 0.5s ease; }
+  .sx-pkg:hover .sx-pkg-sweep,
+  .sx-pkg-row:not(:has(.sx-pkg:hover)) .sx-pkg[data-featured] .sx-pkg-sweep { opacity: 1; }
+
+  .sx-pkg-num {
+    transform: translate3d(calc(var(--ry, 0) * -1.6px), calc(var(--rx, 0) * 1.6px), 0);
+    transition: transform 0.5s cubic-bezier(0.2, 0.7, 0.2, 1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sx-pkg-sweep { animation: none; }
+}
+@media (min-width: 64rem) and (prefers-reduced-motion: reduce) {
+  .sx-pkg-card {
+    transform: translate3d(0, calc((1 - var(--sx-w, 1)) * (70px + var(--lgi, 0) * 70px)), 0);
+  }
+}
+
+/* --------------------------------------------------------------------------
+   Hero effects (landing plaza stop — page.tsx, landing-hero.tsx, hero-fx.tsx).
+   - `.sx-line`: each headline line wipes up out of a mask once the loader
+     releases the page, staggered by its --sx-reveal-delay.
+   - `.sx-hero-shimmer`: a highlight glides across "Measure Results." every
+     few seconds — a copy of the text (data-text) painted with a bright band,
+     clipped to the glyphs, so the base gradient stays exactly as it was.
+   - `.sx-sheen`: a light sweep across a button on hover.
+   - `.sx-scan`: a slow scan line down the impact card's glass.
+   - `.sx-tilt` / `.sx-impact-spot`: the impact card's pointer tilt and
+     outline spotlight (TiltSpot writes --mx/--my/--rx/--ry/--spot).
+   - `.sx-scroll-cue`: a light travelling down the scroll cue's line.
+   Reduced motion: lines and headline appear without the wipe, the shimmer,
+   scan and cue stop, the card doesn't tilt (the spotlight still follows).
+   -------------------------------------------------------------------------- */
+[data-sx-landing] .sx-line {
+  clip-path: inset(0 -10% 100% -10%);
+  transform: translate3d(0, 0.45em, 0);
+  transition:
+    clip-path 1.05s cubic-bezier(0.2, 0.8, 0.2, 1),
+    transform 1.05s cubic-bezier(0.2, 0.8, 0.2, 1);
+  transition-delay: var(--sx-reveal-delay, 0s);
+}
+html[data-sx-loaded] [data-sx-landing] .sx-line {
+  clip-path: inset(-40% -10% -40% -10%);
+  transform: none;
+}
+
+.sx-hero-shimmer { position: relative; display: inline-block; }
+.sx-hero-shimmer::after {
+  content: attr(data-text);
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(105deg, transparent 40%, rgba(255, 255, 255, 0.95) 50%, transparent 60%);
+  background-size: 260% 100%;
+  background-position: 130% 0;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  pointer-events: none;
+  animation: sx-shimmer-x 7s cubic-bezier(0.45, 0, 0.55, 1) 2.2s infinite;
+}
+@keyframes sx-shimmer-x {
+  0% { background-position: 130% 0; }
+  35%, 100% { background-position: -30% 0; }
+}
+
+.sx-sheen::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(110deg, transparent 30%, rgba(255, 255, 255, 0.32) 50%, transparent 70%);
+  transform: translateX(-120%);
+  transition: transform 0.8s cubic-bezier(0.2, 0.7, 0.2, 1);
+  pointer-events: none;
+}
+.sx-sheen:hover::after { transform: translateX(120%); }
+
+.sx-scan {
+  background: linear-gradient(180deg, transparent 0%, transparent 46%, rgba(127, 208, 255, 0.13) 50%, transparent 54%, transparent 100%);
+  background-size: 100% 250%;
+  animation: sx-scan 6s cubic-bezier(0.45, 0, 0.55, 1) 1.5s infinite;
+}
+@keyframes sx-scan {
+  0% { background-position: 0 100%; }
+  55%, 100% { background-position: 0 0%; }
+}
+
+.sx-tilt { transition: transform 0.55s cubic-bezier(0.2, 0.7, 0.2, 1); }
+.sx-tilt[data-hot] {
+  transform: perspective(900px) rotateX(calc(var(--rx, 0) * 1deg)) rotateY(calc(var(--ry, 0) * 1deg));
+  transition-duration: 0.15s;
+}
+.sx-impact-spot {
+  opacity: var(--spot, 0);
+  transition: opacity 0.4s ease;
+  background: radial-gradient(240px circle at var(--mx, -999px) var(--my, -999px), #fff 0%, #7fd0ff 22%, transparent 62%);
+}
+
+.sx-scroll-cue::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: -45%;
+  width: 100%;
+  height: 45%;
+  background: linear-gradient(transparent, #7fd0ff);
+  box-shadow: 0 0 8px rgba(127, 208, 255, 0.8);
+  animation: sx-cue 2.2s cubic-bezier(0.6, 0, 0.4, 1) infinite;
+}
+@keyframes sx-cue {
+  to { top: 100%; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-sx-landing] .sx-line { transition: none; clip-path: none; transform: none; }
+  .sx-hero-shimmer::after,
+  .sx-scan,
+  .sx-scroll-cue::after { animation: none; }
+  .sx-scan { background: none; }
+  .sx-tilt[data-hot] { transform: none; }
+}
+
+/* --------------------------------------------------------------------------
+   How it works (basketball stop — landing-steps.tsx). Each card carries
+   --i (0‥3); the stop carries --sx-w, its weight (flight-stop.tsx).
+   - `.sx-step`: arrival — the cards rise into place one after another as
+     the drone settles, in step with the scroll (no transition: the weight
+     is already scroll-driven).
+   - `.sx-wipe`: the heading wipes in left to right on the same weight.
+   - The active loop: 8s, a 2s turn per card — `.sx-step-lit` flares the
+     outline, `.sx-step-hex` glows and swells the badge, `.sx-step-tick`
+     stretches the lit tick.
+   - `.sx-orbit`: the dashed ring round each badge turns slowly.
+   - `.sx-step-num`: the big numeral drifts against the pointer tilt (the
+     tilt itself and the spotlight are `.sx-tilt` / `.sx-impact-spot`).
+   Reduced motion: no loop, no orbit, no drift; arrival and wipe stay,
+   since they move only as the reader scrolls.
+   -------------------------------------------------------------------------- */
+.sx-step {
+  transform: translate3d(0, calc((1 - var(--sx-w, 1)) * (46px + var(--i, 0) * 38px)), 0);
+}
+.sx-wipe {
+  clip-path: inset(-25% calc((1 - var(--sx-w, 1)) * 100%) -25% -4%);
+}
+
+.sx-step-lit {
+  opacity: 0;
+  background: linear-gradient(90deg, #ffffff, #7fd0ff 38%, #2e9bf5);
+  animation: sx-step-on 8s ease-in-out infinite;
+  animation-delay: calc(var(--i, 0) * 2s);
+}
+@keyframes sx-step-on {
+  0%, 30%, 100% { opacity: 0; }
+  7%, 22% { opacity: 1; }
+}
+.sx-step-hex {
+  animation: sx-hex-on 8s ease-in-out infinite;
+  animation-delay: calc(var(--i, 0) * 2s);
+}
+@keyframes sx-hex-on {
+  0%, 30%, 100% { transform: none; filter: drop-shadow(0 0 6px rgba(120, 190, 255, 0.55)); }
+  8%, 22% { transform: scale(1.07); filter: drop-shadow(0 0 12px rgba(127, 208, 255, 0.95)) drop-shadow(0 0 26px rgba(46, 155, 245, 0.6)); }
+}
+.sx-step-tick {
+  animation: sx-tick-on 8s ease-in-out infinite;
+  animation-delay: calc(var(--i, 0) * 2s);
+}
+@keyframes sx-tick-on {
+  0%, 30%, 100% { transform: scaleX(1); }
+  8%, 22% { transform: scaleX(2.4); }
+}
+
+.sx-orbit { animation: sx-orbit 18s linear infinite; }
+@keyframes sx-orbit { to { transform: rotate(360deg); } }
+
+.sx-step-num {
+  transform: translate3d(calc(var(--ry, 0) * -1.6px), calc(var(--rx, 0) * 1.6px), 0);
+  transition: transform 0.5s cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sx-step-lit,
+  .sx-step-hex,
+  .sx-step-tick,
+  .sx-orbit { animation: none; }
+  .sx-step-num { transform: none; transition: none; }
+}
+
+/* --------------------------------------------------------------------------
+   For sponsors, copy side (soccer stop — landing-sponsors.tsx). The stop
+   carries --sx-w (its weight); each feature carries --i.
+   - `.sx-wipe-flip`: the heading wipes in on the weight — from the left on
+     a phone (the block is left-aligned there), from the right on desktop
+     (right-aligned).
+   - `.sx-rise`: the features rise in one after another on the weight.
+   - `.sx-ping`: a radar ring pulses out of each feature's icon in turn.
+   - `.sx-rule-pulse`: a light runs along the rule into "All six packages".
+   Reduced motion: no ping, no pulse; wipe and rise stay (scroll-driven).
+   -------------------------------------------------------------------------- */
+.sx-wipe-flip {
+  clip-path: inset(-25% calc((1 - var(--sx-w, 1)) * 100%) -25% -4%);
+}
+@media (min-width: 64rem) {
+  .sx-wipe-flip {
+    clip-path: inset(-25% -4% -25% calc((1 - var(--sx-w, 1)) * 100%));
+  }
+}
+.sx-rise {
+  transform: translate3d(0, calc((1 - var(--sx-w, 1)) * (30px + var(--i, 0) * 26px)), 0);
+}
+
+.sx-ping::after {
+  content: "";
+  position: absolute;
+  inset: -1.5px;
+  border-radius: 9999px;
+  border: 1.5px solid var(--ping, #4fb0ff);
+  opacity: 0;
+  pointer-events: none;
+  animation: sx-ping var(--ping-cycle, 6s) cubic-bezier(0.2, 0.7, 0.3, 1) infinite;
+  animation-delay: calc(var(--i, 0) * 2s);
+}
+@keyframes sx-ping {
+  0% { transform: scale(1); opacity: 0.85; }
+  28%, 100% { transform: scale(2.1); opacity: 0; }
+}
+
+.sx-rule-pulse {
+  background: linear-gradient(90deg, transparent, #bfe6ff, transparent);
+  box-shadow: 0 0 10px rgba(127, 208, 255, 0.9);
+  transform: translateX(-100%);
+  animation: sx-rule 3.6s cubic-bezier(0.55, 0, 0.45, 1) infinite;
+}
+@keyframes sx-rule {
+  0% { left: 0; transform: translateX(-100%); }
+  70%, 100% { left: 100%; transform: translateX(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sx-ping::after,
+  .sx-rule-pulse { animation: none; opacity: 0; }
+}
+
+/* --------------------------------------------------------------------------
+   Athlete marketplace (baseball stop — landing-athletes.tsx). The stop
+   carries --sx-w; each athlete row carries --i. (The heading reuses
+   `.sx-wipe`, the gradient line `.sx-hero-shimmer`, the feature icons
+   `.sx-ping` in cyan, the panel `.sx-scan` + TiltSpot.)
+   - `.sx-slashes`: a light runs through the "////" marks.
+   - `.sx-row`: rows slide in from the right one after another on arrival;
+     on hover a light sweeps across the row.
+   - `.sx-avatar-ring`: the avatar's gradient ring turns slowly.
+   Reduced motion: no slash run, no ring turn; slide-in (scroll-driven)
+   and the hover sweep (user-driven) stay.
+   -------------------------------------------------------------------------- */
+.sx-slashes {
+  background: linear-gradient(90deg, #5ee0ff 0%, #5ee0ff 38%, #ffffff 50%, #5ee0ff 62%, #5ee0ff 100%);
+  background-size: 300% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: sx-slash-run 3s linear infinite;
+}
+@keyframes sx-slash-run {
+  from { background-position: 100% 0; }
+  to { background-position: 0% 0; }
+}
+
+.sx-row {
+  transform: translate3d(calc((1 - var(--sx-w, 1)) * (48px + var(--i, 0) * 34px)), 0, 0);
+}
+.sx-row::before {
+  content: "";
+  position: absolute;
+  inset: 0 -12px;
+  background: linear-gradient(90deg, transparent, rgba(94, 224, 255, 0.1), transparent);
+  opacity: 0;
+  pointer-events: none;
+}
+/* One pass per hover, fading out as it leaves — it never parks outside
+   the row (the row doesn't clip, so the avatar's glow isn't cut). */
+.sx-row:hover::before { animation: sx-row-sweep 0.9s cubic-bezier(0.2, 0.7, 0.2, 1) both; }
+@keyframes sx-row-sweep {
+  0% { transform: translateX(-100%); opacity: 1; }
+  100% { transform: translateX(100%); opacity: 0; }
+}
+
+.sx-avatar-ring {
+  background: conic-gradient(from var(--sx-sweep), #5ee0ff, #2e9bf5 40%, #a479ff 70%, #5ee0ff);
+  animation: sx-sweep 9s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sx-slashes,
+  .sx-avatar-ring { animation: none; }
+}
+
+/* --------------------------------------------------------------------------
+   Closing stop + footer (landing-close.tsx, site-chrome.tsx). Reuses
+   `.sx-wipe`, `.sx-hero-shimmer`, `.sx-slashes`, `.sx-rise`, `.sx-scan`,
+   `.sx-sheen`, `.sx-rule-pulse`, TiltSpot + Magnetic.
+   - `.sx-cta-pulse`: a ring ripples out of the final "Get Started".
+   - `.sx-glow-turn`: the panel's four feature icons glow in turn (--i).
+   - `.sx-underline`: footer links draw an underline from the left on hover.
+   Reduced motion: no ripple, no glow loop; the underline just appears.
+   -------------------------------------------------------------------------- */
+.sx-cta-pulse::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  border: 1.5px solid #5ee0ff;
+  opacity: 0;
+  pointer-events: none;
+  animation: sx-cta-pulse 3.2s cubic-bezier(0.2, 0.7, 0.3, 1) 1s infinite;
+}
+@keyframes sx-cta-pulse {
+  0% { transform: scale(1); opacity: 0.8; }
+  45%, 100% { transform: scale(1.18, 1.5); opacity: 0; }
+}
+
+.sx-glow-turn {
+  animation: sx-glow-turn 8s ease-in-out infinite;
+  animation-delay: calc(var(--i, 0) * 2s);
+}
+@keyframes sx-glow-turn {
+  0%, 30%, 100% { transform: none; filter: drop-shadow(0 0 6px rgba(94, 224, 255, 0.6)); }
+  8%, 22% { transform: scale(1.12); filter: drop-shadow(0 0 12px rgba(94, 224, 255, 1)) drop-shadow(0 0 24px rgba(46, 155, 245, 0.7)); }
+}
+
+.sx-underline {
+  background-image: linear-gradient(currentColor, currentColor);
+  background-size: 0% 1px;
+  background-position: 0 100%;
+  background-repeat: no-repeat;
+  transition: background-size 0.35s cubic-bezier(0.2, 0.7, 0.2, 1), color 0.2s ease;
+}
+.sx-underline:hover,
+.sx-underline:focus-visible { background-size: 100% 1px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .sx-cta-pulse::before,
+  .sx-glow-turn { animation: none; }
+  .sx-underline { transition: none; }
 }

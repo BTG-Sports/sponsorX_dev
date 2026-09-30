@@ -13,9 +13,24 @@
    glows, the step number top-left, a hexagonal badge with a solid blue
    glyph, title + body, an arrow at the right and a short lit tick at the
    bottom-left. Copy is the mockup's.
+
+   Effects (globals.css `.sx-step*`; none changes layout, all stand down for
+   reduced motion):
+   - the steps take turns being "active", 01 → 04 on a loop — outline
+     flare, hex glow + swell, the lit tick stretching — so the four read
+     as one running process;
+   - arrival is staged from the flight stop's weight (`--sx-w`,
+     flight-stop.tsx): the heading wipes in and the cards rise one after
+     another as the drone settles over the court;
+   - a dashed HUD orbit turns slowly round each hex badge;
+   - a large outlined step numeral sits behind each card;
+   - with a fine pointer a card tilts toward it and a spotlight runs round
+     its outline (TiltSpot, hero-fx.tsx), the numeral drifting against it.
    -------------------------------------------------------------------------- */
 
 import type { ReactNode } from "react";
+
+import { TiltSpot } from "./hero-fx";
 
 /** Corner chamfer of the cards, in px. */
 const C = 12;
@@ -41,6 +56,29 @@ const RING = `polygon(${[
   `calc(100% - 1px) ${C + 0.4}px`,
   `calc(100% - ${C + 0.4}px) 1px`,
   `${C + 0.4}px 1px`,
+].join(", ")})`;
+
+/** A 2px ring of the same shape — the active flare and the pointer
+ *  spotlight run on it. */
+const RING2 = `polygon(${[
+  `${C}px 0`,
+  `calc(100% - ${C}px) 0`,
+  `100% ${C}px`,
+  `100% calc(100% - ${C}px)`,
+  `calc(100% - ${C}px) 100%`,
+  `${C}px 100%`,
+  `0 calc(100% - ${C}px)`,
+  `0 ${C}px`,
+  `${C}px 0`,
+  `${C + 0.8}px 2px`,
+  `2px ${C + 0.8}px`,
+  `2px calc(100% - ${C + 0.8}px)`,
+  `${C + 0.8}px calc(100% - 2px)`,
+  `calc(100% - ${C + 0.8}px) calc(100% - 2px)`,
+  `calc(100% - 2px) calc(100% - ${C + 0.8}px)`,
+  `calc(100% - 2px) ${C + 0.8}px`,
+  `calc(100% - ${C + 0.8}px) 2px`,
+  `${C + 0.8}px 2px`,
 ].join(", ")})`;
 
 /** The glass fill, clipped to the chamfered shape. */
@@ -138,7 +176,12 @@ const STEPS: { n: string; title: string; body: string; icon: (p: { className?: s
 /** Hexagonal badge — pointy top, glowing light-blue outline, dark glass fill. */
 function HexBadge({ children }: { children: ReactNode }) {
   return (
-    <span className="relative grid size-[80px] shrink-0 place-items-center text-[#4fb0ff] [filter:drop-shadow(0_0_6px_rgba(120,190,255,.55))]">
+    <span className="sx-step-hex relative grid size-[clamp(44px,min(13vw,7.4svh),72px)] shrink-0 place-items-center text-[#4fb0ff] [filter:drop-shadow(0_0_6px_rgba(120,190,255,.55))] lg:size-[80px]">
+      {/* dashed HUD orbit, turning slowly */}
+      <svg aria-hidden="true" viewBox="0 0 100 100" className="sx-orbit pointer-events-none absolute -inset-[18%] h-[136%] w-[136%]" fill="none">
+        <circle cx="50" cy="50" r="48" stroke="#9ed0ff" strokeOpacity="0.35" strokeWidth="0.8" strokeDasharray="2 5" />
+        <circle cx="50" cy="2" r="1.6" fill="#bfe6ff" />
+      </svg>
       <svg
         aria-hidden="true"
         viewBox="0 0 80 90"
@@ -155,9 +198,12 @@ function HexBadge({ children }: { children: ReactNode }) {
   );
 }
 
-function StepCard({ n, title, body, icon: Icon }: (typeof STEPS)[number]) {
+function StepCard({ n, title, body, icon: Icon, index }: (typeof STEPS)[number] & { index: number }) {
   return (
-    <li className="relative min-h-[167px] text-on-media">
+    // --i: the card's place in the process — staggers its arrival and its
+    // turn in the active loop.
+    <li className="sx-step relative text-on-media lg:min-h-[167px]" style={{ "--i": index } as React.CSSProperties}>
+      <TiltSpot className="h-full">
       {/* glass */}
       <span
         aria-hidden="true"
@@ -173,17 +219,36 @@ function StepCard({ n, title, body, icon: Icon }: (typeof STEPS)[number]) {
           className="absolute inset-0 bg-gradient-to-r from-[#bfe0ff] via-[#8fc8ff]/70 to-[#8fc8ff]/40"
           style={{ clipPath: RING }}
         />
+        {/* active flare (its turn in the loop) and the pointer spotlight */}
+        <span className="sx-step-lit absolute inset-0" style={{ clipPath: RING2 }} />
+        <span className="sx-impact-spot absolute inset-0" style={{ clipPath: RING2 }} />
+      </span>
+      {/* large outlined step numeral behind the copy */}
+      <span aria-hidden="true" className="pointer-events-none absolute inset-0 overflow-hidden" style={{ clipPath: PLATE }}>
+        <span className="sx-step-num absolute -bottom-[0.18em] right-3 font-mono text-[clamp(56px,10svh,96px)] font-bold leading-none tracking-tighter text-transparent [-webkit-text-stroke:1px_rgba(158,208,255,.07)] lg:text-[118px] lg:[-webkit-text-stroke:1px_rgba(158,208,255,.12)]">
+          {n}
+        </span>
       </span>
 
-      <div className="relative flex h-full flex-col px-[22px] pb-[30px] pt-[18px]">
-        <span className="text-[13px] font-medium tracking-[0.1em] text-on-media/90">{n}</span>
-        <div className="mt-[6px] flex items-center gap-7">
+      {/* Below lg the card is one compact row — badge, then number + title
+          and the body — with every size a clamp on the screen's height and
+          width, so it shrinks on a small phone and grows on a tall one or
+          a tablet. The arrow goes; the lit tick moves onto the bottom edge.
+          On the shortest screens (landscape) the body goes too. */}
+      <div className="relative flex h-full flex-col px-[clamp(14px,4vw,22px)] py-[clamp(9px,1.7svh,18px)] lg:px-[22px] lg:pb-[30px] lg:pt-[18px]">
+        <span className="hidden text-[13px] font-medium tracking-[0.1em] text-on-media/90 lg:block">{n}</span>
+        <div className="flex items-center gap-[clamp(12px,3.6vw,24px)] lg:mt-[6px] lg:gap-7">
           <HexBadge>
-            <Icon className="size-9" />
+            <Icon className="size-[clamp(20px,min(5.8vw,3.3svh),32px)] lg:size-9" />
           </HexBadge>
           <div className="min-w-0 flex-1">
-            <h3 className="text-[22px] font-semibold leading-tight tracking-tight text-on-media">{title}</h3>
-            <p className="mt-2 text-[15px] leading-[1.45] text-on-media/80">{body}</p>
+            <h3 className="text-[clamp(15px,min(4.5vw,2.4svh),22px)] font-semibold leading-tight tracking-tight text-on-media lg:text-[22px]">
+              <span className="mr-2 align-[0.1em] text-[0.62em] font-medium tracking-[0.1em] text-[#9ed0ff] lg:hidden">{n}</span>
+              {title}
+            </h3>
+            <p className="mt-[clamp(2px,0.5svh,6px)] text-[clamp(12px,min(3.5vw,1.8svh),16px)] leading-[1.4] text-on-media/80 lg:mt-2 lg:text-[15px] lg:leading-[1.45] max-lg:[@media(max-height:560px)]:hidden">
+              {body}
+            </p>
           </div>
           <svg
             viewBox="0 0 24 24"
@@ -192,7 +257,7 @@ function StepCard({ n, title, body, icon: Icon }: (typeof STEPS)[number]) {
             strokeWidth="2"
             strokeLinecap="round"
             strokeLinejoin="round"
-            className="size-5 shrink-0 self-start text-[#9ed0ff]"
+            className="hidden size-5 shrink-0 self-start text-[#9ed0ff] lg:block"
             aria-hidden="true"
           >
             <path d="M4 12h16M14 6l6 6-6 6" />
@@ -201,9 +266,10 @@ function StepCard({ n, title, body, icon: Icon }: (typeof STEPS)[number]) {
         {/* lit tick, bottom-left */}
         <span
           aria-hidden="true"
-          className="absolute bottom-[19px] left-[26px] h-px w-[65px] bg-[#9ed0ff] shadow-[0_0_8px_rgba(158,208,255,.9),0_0_16px_rgba(46,155,245,.6)]"
+          className="sx-step-tick absolute bottom-0 left-[18px] h-px w-10 origin-left bg-[#9ed0ff] shadow-[0_0_8px_rgba(158,208,255,.9),0_0_16px_rgba(46,155,245,.6)] lg:bottom-[19px] lg:left-[26px] lg:w-[65px]"
         />
       </div>
+      </TiltSpot>
     </li>
   );
 }
@@ -211,29 +277,32 @@ function StepCard({ n, title, body, icon: Icon }: (typeof STEPS)[number]) {
 export function HowItWorks() {
   return (
     <div className="w-full max-w-[1040px] text-on-media">
-      {/* eyebrow: label, solid blue slanted dash, hairline out to the right */}
-      <p className="flex items-center gap-[18px] text-[13px] font-medium uppercase tracking-[0.28em] text-on-media/90">
+      {/* eyebrow: label, solid blue slanted dash, hairline out to the right.
+          It repeats the heading, so short phones (≤700px tall) drop it. */}
+      <p className="flex items-center gap-[clamp(10px,3vw,18px)] text-[clamp(10px,min(3vw,1.5svh),13px)] font-medium uppercase tracking-[0.28em] text-on-media/90 lg:gap-[18px] lg:text-[13px] max-lg:[@media(max-height:700px)]:hidden">
         How it works
-        <span aria-hidden="true" className="h-[7px] w-9 -skew-x-[30deg] bg-[#2e9bf5]" />
+        <span aria-hidden="true" className="h-[7px] w-9 shrink-0 -skew-x-[30deg] bg-[#2e9bf5]" />
         <span
           aria-hidden="true"
-          className="h-px w-[280px] max-w-[30vw] bg-gradient-to-r from-[#bfe0ff]/70 to-transparent"
+          className="h-px w-[280px] min-w-0 max-w-[30vw] bg-gradient-to-r from-[#bfe0ff]/70 to-transparent"
         />
       </p>
 
-      <h2 className="mt-3 text-[clamp(38px,3.2vw,58px)] font-bold leading-[1.05] tracking-tight text-on-media [text-shadow:0_2px_6px_rgba(0,0,0,.7),0_4px_28px_rgba(0,0,0,.6)]">
+      <h2 className="sx-wipe mt-[clamp(4px,1svh,12px)] text-[clamp(28px,min(9vw,5svh),48px)] font-bold leading-[1.05] tracking-tight text-on-media [text-shadow:0_2px_6px_rgba(0,0,0,.7),0_4px_28px_rgba(0,0,0,.6)] lg:mt-3 lg:text-[clamp(38px,3.2vw,58px)] max-lg:[@media(max-height:700px)]:mt-0">
         How it <span className="text-[#4fb0ff]">works</span>
       </h2>
 
-      <p className="mt-3 max-w-[400px] text-[17px] leading-[1.4] text-on-media/85 [text-shadow:0_1px_3px_rgba(0,0,0,.9),0_2px_16px_rgba(0,0,0,.7)]">
+      {/* The intro goes on the shortest screens (≤600px: SE-size, landscape). */}
+      <p className="mt-[clamp(4px,1svh,12px)] max-w-[400px] text-[clamp(13px,min(3.8vw,2svh),17px)] leading-[1.4] text-on-media/85 [text-shadow:0_1px_3px_rgba(0,0,0,.9),0_2px_16px_rgba(0,0,0,.7)] lg:mt-3 lg:text-[17px] max-lg:[@media(max-height:600px)]:hidden">
         A marketplace for athletes, fans, and brands.
         <br className="hidden sm:block" /> Built to create real value, real opportunities,
         <br className="hidden sm:block" /> and real impact.
       </p>
 
-      <ol className="mt-8 grid gap-[30px] md:grid-cols-2">
-        {STEPS.map((s) => (
-          <StepCard key={s.n} {...s} />
+      {/* One column of compact rows below lg (2×2 on a landscape phone); the mockup's 2×2 from lg. */}
+      <ol className="mt-[clamp(12px,2.6svh,32px)] grid gap-[clamp(8px,1.5svh,18px)] lg:mt-8 lg:grid-cols-2 lg:gap-[30px] max-lg:[@media(max-height:560px)_and_(orientation:landscape)]:grid-cols-2">
+        {STEPS.map((s, i) => (
+          <StepCard key={s.n} index={i} {...s} />
         ))}
       </ol>
     </div>

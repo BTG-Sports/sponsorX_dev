@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 
 import { CountUp } from "./count-up";
+import { Magnetic, ScrambleText, TiltSpot } from "./hero-fx";
 import { networkStats, trustedBrands } from "@/lib/fixtures";
 
 /* --------------------------------------------------------------------------
@@ -31,9 +32,6 @@ import { networkStats, trustedBrands } from "@/lib/fixtures";
                     stepped corner plate, blue tab, circle mark and divider
                     were all dropped on the owner's call, 2026-09-30.
    -------------------------------------------------------------------------- */
-
-/** Left gutter of the hero copy and the band labels — 110px of 1825. */
-const GUTTER_L = "pl-[6vw]";
 
 /* ----------------------------------------------------------------- icons */
 
@@ -107,39 +105,46 @@ const STAT_LINKS = ["#for-athletes", "#how-it-works", "#for-sponsors"] as const;
 
 export function HeroEyebrow() {
   return (
-    <p className="flex items-center gap-4 text-[11px] font-medium uppercase tracking-[0.3em] text-on-media/85">
+    <p className="flex items-center gap-4 whitespace-nowrap text-[10px] font-medium uppercase tracking-[0.2em] text-on-media/85 sm:text-[11px] sm:tracking-[0.3em]">
+      {/* each word decodes in from scrambled glyphs after the loader (hero-fx) */}
       <span>
-        Connecting Brands
-        <span className="mx-3 text-on-media/40">/</span>
-        Athletes
-        <span className="mx-3 text-on-media/40">/</span>
-        Fans
+        <ScrambleText text="Connecting Brands" delay={0.1} />
+        <span className="mx-2 text-on-media/40 sm:mx-3">/</span>
+        <ScrambleText text="Athletes" delay={0.35} />
+        <span className="mx-2 text-on-media/40 sm:mx-3">/</span>
+        <ScrambleText text="Fans" delay={0.55} />
       </span>
-      <span aria-hidden="true" className="h-px w-16 bg-on-media/60 sm:w-24" />
+      <span aria-hidden="true" className="h-px w-16 min-w-0 shrink bg-on-media/60 sm:w-24" />
     </p>
   );
 }
 
 /** Mockup buttons: 198×50, 12px radius, 15px labels. White label on the
  *  gradient is the mockup's call (1:1); it is under the P1-QA-02 4.5:1 bar
- *  on the lightest stop of the gradient. */
+ *  on the lightest stop of the gradient. On a phone the two sit side by
+ *  side, sharing the row, 44px tall. With a fine pointer both lean toward
+ *  it as it nears (Magnetic) and a sheen sweeps across on hover (`sx-sheen`). */
 export function HeroActions() {
   return (
-    <div className="flex flex-wrap items-center gap-6">
+    <div className="flex items-center gap-3 sm:flex-wrap sm:gap-6">
+      <Magnetic className="max-sm:flex-1">
       <Link
         href="#start"
-        className="group inline-flex h-[50px] items-center gap-4 rounded-xl bg-gradient-to-r from-[#4fb0ff] to-[#2b8fe9] px-10 text-[15px] font-medium text-white shadow-[0_0_30px_rgba(46,155,245,.55)] transition-[box-shadow,transform] hover:-translate-y-0.5 hover:shadow-[0_0_40px_rgba(46,155,245,.7)]"
+        className="sx-sheen group relative inline-flex h-11 flex-1 overflow-hidden items-center justify-center gap-2 whitespace-nowrap rounded-xl bg-gradient-to-r from-[#4fb0ff] to-[#2b8fe9] px-3 text-[14px] font-medium text-white shadow-[0_0_30px_rgba(46,155,245,.55)] transition-[box-shadow,transform] hover:-translate-y-0.5 hover:shadow-[0_0_40px_rgba(46,155,245,.7)] sm:h-[50px] sm:flex-none sm:gap-4 sm:px-10 sm:text-[15px]"
       >
         Get Started
         <ArrowRightIcon className="size-[18px] transition-transform group-hover:translate-x-0.5" />
       </Link>
+      </Magnetic>
+      <Magnetic className="max-sm:flex-1">
       <Link
         href="#how-it-works"
-        className="inline-flex h-[50px] items-center gap-4 rounded-xl border border-[#bfe0ff]/50 bg-[#0a1428]/40 px-10 text-[15px] font-medium text-on-media shadow-[0_0_14px_rgba(99,180,248,.25)] backdrop-blur-lg transition-colors hover:border-primary-soft hover:bg-primary/15"
+        className="sx-sheen relative inline-flex h-11 flex-1 overflow-hidden items-center justify-center gap-2 whitespace-nowrap rounded-xl border border-[#bfe0ff]/50 bg-[#0a1428]/40 px-3 text-[14px] font-medium text-on-media shadow-[0_0_14px_rgba(99,180,248,.25)] backdrop-blur-lg transition-colors hover:border-primary-soft hover:bg-primary/15 sm:h-[50px] sm:flex-none sm:gap-4 sm:px-10 sm:text-[15px]"
       >
         Learn More
         <PlayCircleIcon className="size-[22px] text-on-media/85" />
       </Link>
+      </Magnetic>
     </div>
   );
 }
@@ -174,6 +179,22 @@ const RING = [
 /** The glass fill, clipped to the chamfered shape. */
 const PLATE = `polygon(0 0, calc(100% - ${CHAMFER}px) 0, 100% ${CHAMFER}px, 100% 100%, 0 100%)`;
 
+/** A 2px ring of the same shape — the pointer spotlight runs on it. */
+const SPOT_RING = [
+  "0 0",
+  `calc(100% - ${CHAMFER}px) 0`,
+  `100% ${CHAMFER}px`,
+  "100% 100%",
+  "0 100%",
+  "0 0",
+  "2px 2px",
+  "2px calc(100% - 2px)",
+  "calc(100% - 2px) calc(100% - 2px)",
+  `calc(100% - 2px) ${CHAMFER + 0.8}px`,
+  `calc(100% - ${CHAMFER + 0.8}px) 2px`,
+  "2px 2px",
+].join(", ");
+
 /** Bright corner accents; the glow comes from the wrapper's drop-shadow. */
 const ACCENT = "absolute bg-[#d6ecff]";
 
@@ -188,6 +209,9 @@ const ACCENT = "absolute bg-[#d6ecff]";
  *      the clipped child, so the glow is not clipped with it);
  *   3. the content: title, the stepped title rule (runs to the right
  *      border), three rows of ring + solid glyph, number, label, arrow.
+ * Over the glass a slow scan line passes every few seconds (`sx-scan`);
+ * with a fine pointer the card tilts toward it and a spotlight runs round
+ * the outline under it (TiltSpot, `sx-impact-spot`).
  */
 export function ImpactCard({ className = "", style }: { className?: string; style?: React.CSSProperties }) {
   return (
@@ -196,19 +220,23 @@ export function ImpactCard({ className = "", style }: { className?: string; styl
       style={style}
       aria-labelledby="impact-title"
     >
+      <TiltSpot>
       {/* 1 · glass */}
       <span
         aria-hidden="true"
         className="absolute inset-0 bg-gradient-to-b from-[#0d1f3d]/45 via-[#07122a]/55 to-[#04091a]/65 backdrop-blur-2xl backdrop-saturate-150"
         style={{ clipPath: PLATE }}
       />
+      {/* scan line over the glass */}
+      <span aria-hidden="true" className="sx-scan pointer-events-none absolute inset-0" style={{ clipPath: PLATE }} />
 
-      {/* 2 · glowing outline */}
+      {/* 2 · glowing outline (+ the pointer spotlight on a 2px ring) */}
       <span
         aria-hidden="true"
         className="pointer-events-none absolute inset-0 [filter:drop-shadow(0_0_3px_rgba(120,190,255,.85))_drop-shadow(0_0_14px_rgba(46,155,245,.45))]"
       >
         <span className="absolute inset-0 bg-[#a9d3ff]/75" style={{ clipPath: `polygon(${RING})` }} />
+        <span className="sx-impact-spot absolute inset-0" style={{ clipPath: `polygon(${SPOT_RING})` }} />
       </span>
       <span
         aria-hidden="true"
@@ -229,18 +257,19 @@ export function ImpactCard({ className = "", style }: { className?: string; styl
         <span className={`${ACCENT} bottom-0 right-0 h-[1.5px] w-[30px] opacity-70`} />
       </span>
 
-      {/* 3 · content */}
-      <div className="relative px-6 pb-5 pt-6">
+      {/* 3 · content — below lg the rows become three columns of number
+          and label (no rings, no arrows) so the card is one short band. */}
+      <div className="relative px-4 pb-3 pt-3.5 lg:px-6 lg:pb-5 lg:pt-6">
         <h2
           id="impact-title"
-          className="text-[15px] font-normal uppercase tracking-[0.2em] text-on-media"
+          className="text-[11px] font-normal uppercase tracking-[0.2em] text-on-media lg:text-[15px]"
         >
           Real Impact
         </h2>
         {/* title rule: runs right, steps up, then continues to the border */}
         <svg
           aria-hidden="true"
-          className="-mr-6 mt-2 block h-5 w-[calc(100%+24px)] text-[#a9d3ff]"
+          className="-mr-4 mt-1 block h-3 w-[calc(100%+16px)] text-[#a9d3ff] lg:-mr-6 lg:mt-2 lg:h-5 lg:w-[calc(100%+24px)]"
           viewBox="0 0 100 20"
           preserveAspectRatio="none"
           fill="none"
@@ -250,7 +279,7 @@ export function ImpactCard({ className = "", style }: { className?: string; styl
           <path d="M0 19.5 H54 L64 6 H100" vectorEffect="non-scaling-stroke" strokeWidth="1" />
         </svg>
 
-        <ul className="mt-1">
+        <ul className="mt-1 grid grid-cols-3 lg:block">
           {IMPACT_ROWS.map((s, i) => {
             const Icon = STAT_ICONS[i];
             return (
@@ -258,27 +287,27 @@ export function ImpactCard({ className = "", style }: { className?: string; styl
                 key={s.label}
                 className={
                   i > 0
-                    ? "border-t border-transparent [border-image:linear-gradient(90deg,rgba(169,211,255,.45),rgba(169,211,255,.08))_1]"
+                    ? "border-l border-[#a9d3ff]/20 lg:border-l-0 lg:border-t lg:border-transparent lg:[border-image:linear-gradient(90deg,rgba(169,211,255,.45),rgba(169,211,255,.08))_1]"
                     : ""
                 }
               >
                 <Link
                   href={STAT_LINKS[i]}
                   title={`Sample figure — will read ${s.source}`}
-                  className="group grid grid-cols-[auto_1fr_auto] items-center gap-5 py-2.5 transition-colors hover:text-primary-soft"
+                  className="group flex flex-col items-center px-1 py-1.5 text-center transition-colors hover:text-primary-soft lg:grid lg:grid-cols-[auto_1fr_auto] lg:items-center lg:gap-5 lg:px-0 lg:py-2.5 lg:text-left"
                 >
-                  <span className="grid size-[52px] place-items-center rounded-full border-[1.5px] border-[#4fb0ff] bg-[#08172f]/55 text-[#4fb0ff] shadow-[0_0_14px_rgba(79,176,255,.55),inset_0_0_10px_rgba(79,176,255,.15)]">
+                  <span className="hidden size-[52px] place-items-center rounded-full border-[1.5px] border-[#4fb0ff] bg-[#08172f]/55 text-[#4fb0ff] shadow-[0_0_14px_rgba(79,176,255,.55),inset_0_0_10px_rgba(79,176,255,.15)] lg:grid">
                     <Icon className="size-[24px]" />
                   </span>
                   <span className="min-w-0">
-                    <span className="block text-[26px] font-bold leading-none tracking-tight text-on-media">
+                    <span className="block text-[22px] font-bold leading-none tracking-tight text-on-media lg:text-[26px]">
                       <CountUp value={s.value} prefix={s.prefix} />
                     </span>
-                    <span className="mt-1.5 block truncate text-[11px] font-normal uppercase tracking-[0.05em] text-on-media/85">
+                    <span className="mt-1 block text-[9px] font-normal uppercase leading-tight tracking-[0.05em] text-on-media/85 lg:mt-1.5 lg:truncate lg:text-[11px]">
                       {s.label}
                     </span>
                   </span>
-                  <ArrowRightIcon className="size-[18px] text-on-media/85 transition-transform group-hover:translate-x-1" />
+                  <ArrowRightIcon className="hidden size-[18px] text-on-media/85 transition-transform group-hover:translate-x-1 lg:block" />
                 </Link>
               </li>
             );
@@ -293,6 +322,7 @@ export function ImpactCard({ className = "", style }: { className?: string; styl
           metrics read.
         </p>
       </div>
+      </TiltSpot>
     </aside>
   );
 }
@@ -300,21 +330,70 @@ export function ImpactCard({ className = "", style }: { className?: string; styl
 /* -------------------------------------------------------- trusted brands */
 
 const WORDMARK = {
-  italic: "text-[22px] font-extrabold italic",
-  lower: "text-[22px] font-extrabold lowercase",
-  upper: "text-[13px] font-extrabold uppercase tracking-[0.22em]",
+  italic: "text-[17px] font-extrabold italic lg:text-[22px]",
+  lower: "text-[17px] font-extrabold lowercase lg:text-[22px]",
+  upper: "text-[11px] font-extrabold uppercase tracking-[0.22em] lg:text-[13px]",
 } as const;
 
-/** Faint, tall, slanted hairline before an item — desktop only. */
+/** Faint, tall, slanted hairline before an item — desktop only, centred in
+ *  the gap (on the item's left edge; the items carry the gap as padding). */
 const DIVIDER =
-  "lg:before:absolute lg:before:-left-6 lg:before:top-1/2 lg:before:h-[60px] lg:before:w-px lg:before:-translate-y-1/2 lg:before:rotate-[22deg] lg:before:bg-[#9cc7ff]/30";
+  "lg:before:absolute lg:before:left-0 lg:before:top-1/2 lg:before:h-[60px] lg:before:w-px lg:before:-translate-y-1/2 lg:before:rotate-[22deg] lg:before:bg-[#9cc7ff]/30";
 
-/** `children` render after "+ More" (the sponsors stop puts its tag there). */
+/**
+ * Desktop fit (owner, 2026-09-30). The band is three columns: two equal
+ * side columns of 6vw + 256px (the label block's width) and the brands
+ * between them, so the group is always centred on the band. The wordmarks
+ * keep the mockup's size and spread evenly across the middle
+ * (`justify-evenly` over an 80px minimum gap), so the spacing grows with
+ * the screen instead of pooling at the sides; "+ More" follows the last
+ * brand at the start of the right column. A brand only shows once, spread
+ * out, it keeps at least 64px from the label and from "+ More" (and so
+ * ≥ 104px between wordmarks); narrower, brands drop from the end rather
+ * than anything shrinking or crowding. Per index, the screen width a brand
+ * needs, from the rendered widths (wordmarks 50 / 79 / 90 / 157 / 139px,
+ * 40px padding each side, middle = 0.88·width − 512px, and the spare
+ * spread over n + 1 slots must give each ≥ 24px): three from 1212px, four
+ * from 1508px, five from 1784px (two always). Re-derive if a brand, the
+ * label or the padding changes. Phones show all five in the marquee.
+ */
+const FIT = ["", "", "lg:max-[1212px]:hidden", "lg:max-[1508px]:hidden", "lg:max-[1784px]:hidden"] as const;
+
+function BrandItems({ from = 0, fit }: { from?: number; fit?: readonly string[] }) {
+  return trustedBrands.map((b, i) => (
+    <li
+      key={b.name}
+      className={[
+        "relative flex shrink-0 items-center whitespace-nowrap px-4 text-on-media lg:px-10",
+        b.logo ? "" : WORDMARK[b.style],
+        i + from > 0 ? DIVIDER : "",
+        fit?.[i] ?? "",
+      ].join(" ")}
+    >
+      {b.logo ? (
+        // eslint-disable-next-line @next/next/no-img-element -- brand artwork, host-portable, no next/image optimizer
+        <img src={b.logo} alt={b.name} className="h-6 w-auto lg:h-7" />
+      ) : (
+        b.name
+      )}
+    </li>
+  ));
+}
+
+/**
+ * `children` render after "+ More" (the sponsors stop puts its tag there).
+ *
+ * Below lg the band is one 56px line: the label as a small two-line tag on
+ * the left and the wordmarks drifting past in a marquee (`sx-marquee`,
+ * globals.css — two copies of the list, the second aria-hidden, so the loop
+ * is seamless); "+ More" and the slanted plates are desktop-only. From lg
+ * it is the three-column grid described at FIT.
+ */
 export function TrustedBrands({ children }: { children?: ReactNode }) {
   return (
     <div
       className={[
-        "relative z-10 flex w-full flex-col gap-3 overflow-hidden py-4 text-on-media lg:h-[76px] lg:flex-row lg:items-center lg:gap-0 lg:py-0 lg:[@media(max-height:800px)]:h-[64px]",
+        "relative z-10 flex h-14 w-full items-center overflow-hidden text-on-media lg:grid lg:h-[76px] lg:grid-cols-[calc(6vw+256px)_minmax(0,1fr)_calc(6vw+256px)] max-lg:[@media(max-height:700px)]:h-12 lg:[@media(max-height:800px)]:h-[64px]",
         // frosted glass: the city shows through, tinted blue-black, lit from the top
         "bg-gradient-to-b from-[#0b1a33]/45 via-[#050b18]/50 to-[#03070f]/60 backdrop-blur-lg backdrop-saturate-150",
         // glowing top and bottom rules
@@ -324,7 +403,7 @@ export function TrustedBrands({ children }: { children?: ReactNode }) {
       title="Sample — mockup brand names, not confirmed partners"
     >
       {/* label sits in its own darker, slanted plate with a lit edge */}
-      <div className={`relative flex shrink-0 items-center ${GUTTER_L} pr-16 lg:h-full`}>
+      <div className="relative flex h-full shrink-0 items-center pl-5 pr-3 lg:justify-self-start lg:pl-[6vw] lg:pr-16">
         <span
           aria-hidden="true"
           className="absolute inset-y-0 -left-24 right-0 hidden -skew-x-[28deg] bg-[#02050b]/55 lg:block"
@@ -333,37 +412,28 @@ export function TrustedBrands({ children }: { children?: ReactNode }) {
           aria-hidden="true"
           className="absolute inset-y-0 right-0 hidden w-px -skew-x-[28deg] bg-[#bfe0ff]/60 shadow-[0_0_8px_rgba(120,190,255,.8)] lg:block"
         />
-        <p className="relative text-[10px] uppercase tracking-[0.2em] text-on-media/75">
+        <p className="relative w-[74px] text-[8px] uppercase leading-snug tracking-[0.15em] text-on-media/75 lg:w-auto lg:whitespace-nowrap lg:text-[10px] lg:tracking-[0.2em]">
           Trusted by leading brands
         </p>
       </div>
 
-      <ul className="flex flex-1 flex-wrap items-center justify-center gap-y-1 px-4 lg:flex-nowrap lg:justify-evenly lg:px-0">
-        {trustedBrands.map((b, i) => (
-          <li
-            key={b.name}
-            className={[
-              "relative flex items-center px-4 text-on-media lg:px-6",
-              b.logo ? "" : WORDMARK[b.style],
-              i > 0 ? DIVIDER : "",
-            ].join(" ")}
-          >
-            {b.logo ? (
-              // eslint-disable-next-line @next/next/no-img-element -- brand artwork, host-portable, no next/image optimizer
-              <img src={b.logo} alt={b.name} className="h-7 w-auto" />
-            ) : (
-              b.name
-            )}
-          </li>
-        ))}
-      </ul>
+      <div className="sx-marquee-view relative flex h-full min-w-0 flex-1 items-center overflow-hidden [mask-image:linear-gradient(90deg,transparent,#000_10%,#000_90%,transparent)] lg:w-full lg:overflow-visible lg:[mask-image:none]">
+        <div className="sx-marquee flex w-max items-center lg:w-full">
+          <ul className="flex shrink-0 items-center lg:w-full lg:justify-evenly">
+            <BrandItems fit={FIT} />
+          </ul>
+          <ul aria-hidden="true" className="flex shrink-0 items-center lg:hidden">
+            <BrandItems from={1} />
+          </ul>
+        </div>
+      </div>
 
-      <span
-        className={`relative shrink-0 ${GUTTER_L} text-[10px] uppercase tracking-[0.25em] text-on-media/70 lg:pl-10 ${children ? "lg:pr-10" : "lg:pr-[12vw]"} ${DIVIDER}`}
-      >
-        + More
-      </span>
-      {children}
+      <div className="hidden h-full items-center lg:flex">
+        <span className={`relative shrink-0 pl-10 text-[10px] uppercase tracking-[0.25em] text-on-media/70 ${DIVIDER}`}>
+          + More
+        </span>
+        {children}
+      </div>
     </div>
   );
 }
