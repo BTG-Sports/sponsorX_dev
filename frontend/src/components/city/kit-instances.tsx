@@ -24,6 +24,7 @@ import { useGLTF } from "@react-three/drei";
 import { useEffect, useMemo } from "react";
 import * as THREE from "three";
 
+import { KIT_URL } from "@/lib/city/assets";
 import type { Tier } from "@/lib/city/palette";
 import type { CityLayout, Placement } from "@/lib/city/types";
 
@@ -33,10 +34,7 @@ import { AssetErrorBoundary, devWarnOnce, useAssetAvailable } from "./asset-guar
  *  maps. Derived from the hook so no direct dependency on three-stdlib. */
 type Kit = ReturnType<typeof useGLTF<string>>;
 
-export const KIT_URL: Record<Tier, string> = {
-  desktop: "/models/city/city-kit.glb",
-  lite: "/models/city/city-kit-lite.glb",
-};
+export { KIT_URL };
 
 const EMISSIVE_BOOST: Record<Tier, number> = { desktop: 2.2, lite: 1.6 };
 const DEG = Math.PI / 180;

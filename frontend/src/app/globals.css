@@ -190,6 +190,142 @@ body {
   color: transparent;
 }
 
+/* --------------------------------------------------------------------------
+   Landing hero HUD (mockup 2026-09-30). The hero sits straight on the 3D
+   city, which is dark in both themes, so these use the dark brand literals
+   on purpose — the same "fixed-dark media" rule as --sx-on-media. Nothing
+   below is used on a themed surface.
+   -------------------------------------------------------------------------- */
+
+/* Headline line 2 — the mockup's cyan-to-blue sweep. The glyphs are
+   transparent (the gradient shows through them), so an inherited
+   text-shadow would paint *behind* them and muddy the blue; it is turned
+   off here and the drop shadow comes from a filter instead. */
+.sx-hero-gradient {
+  background: linear-gradient(90deg, #9be0ff 0%, #4fb6ff 45%, #2e9bf5 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  text-shadow: none;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.7)) drop-shadow(0 4px 18px rgba(0, 0, 0, 0.5));
+}
+
+/* Glass panel with the mockup's bracket corners (top-left, bottom-right). */
+.sx-hud::before,
+.sx-hud::after {
+  content: "";
+  position: absolute;
+  width: 22px;
+  height: 22px;
+  border: 0 solid #63b4f8;
+  pointer-events: none;
+}
+.sx-hud::before { top: -1px; left: -1px; border-width: 2px 0 0 2px; border-radius: 4px 0 0 0; }
+.sx-hud::after { bottom: -1px; right: -1px; border-width: 0 2px 2px 0; border-radius: 0 0 4px 0; }
+
+/* Three fading dashes after an eyebrow. */
+.sx-hud-dashes {
+  width: 44px;
+  height: 6px;
+  background: repeating-linear-gradient(to right, currentColor 0 10px, transparent 10px 14px);
+  -webkit-mask: linear-gradient(to right, #000, transparent);
+  mask: linear-gradient(to right, #000, transparent);
+  transform: skewX(-25deg);
+}
+
+/* Header bottom rule — a glow line that fades out at both ends. */
+.sx-nav-line {
+  background: linear-gradient(90deg, transparent, rgba(99, 180, 248, 0.8) 30%, rgba(99, 180, 248, 0.8) 70%, transparent);
+  box-shadow: 0 0 12px rgba(46, 155, 245, 0.45);
+}
+
+/* --------------------------------------------------------------------------
+   Current nav item as a hologram (site-nav.tsx). The label glows and
+   flickers like a neon tube; two ghost copies of the text (the pseudo
+   elements read `data-text`) are offset a couple of pixels in the two
+   brand hues and cut in for a few frames at a time — the RGB-split
+   glitch — while a glowing hairline underlines it. Reduced motion keeps
+   the glow and the bar, drops the flicker and the glitches.
+   -------------------------------------------------------------------------- */
+.sx-holo {
+  text-shadow:
+    0 0 6px rgba(127, 208, 255, 0.9),
+    0 0 16px rgba(46, 155, 245, 0.7),
+    0 0 30px rgba(46, 155, 245, 0.4);
+  animation: sx-holo-flicker 4.2s linear infinite;
+}
+.sx-holo::before,
+.sx-holo::after {
+  content: attr(data-text);
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  pointer-events: none;
+  text-shadow: none;
+}
+.sx-holo::before {
+  color: #7fd0ff;
+  transform: translate(-2px, -1px);
+  animation: sx-holo-glitch-a 4.2s steps(1, end) infinite;
+}
+.sx-holo::after {
+  color: #fb923c;
+  transform: translate(2px, 1px);
+  animation: sx-holo-glitch-b 4.2s steps(1, end) infinite;
+}
+.sx-holo-bar {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -9px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, #7fd0ff 30%, #7fd0ff 70%, transparent);
+  box-shadow:
+    0 0 8px rgba(127, 208, 255, 0.9),
+    0 0 18px rgba(46, 155, 245, 0.6);
+}
+
+@keyframes sx-holo-flicker {
+  0%, 100% { opacity: 1; }
+  2% { opacity: 0.6; }
+  2.6% { opacity: 1; }
+  7% { opacity: 0.85; }
+  7.4% { opacity: 1; }
+  33% { opacity: 1; }
+  33.4% { opacity: 0.35; }
+  33.8% { opacity: 1; }
+  34.6% { opacity: 0.7; }
+  35% { opacity: 1; }
+  61% { opacity: 0.9; }
+  61.5% { opacity: 1; }
+  80% { opacity: 1; }
+  80.3% { opacity: 0.5; }
+  80.8% { opacity: 1; }
+}
+@keyframes sx-holo-glitch-a {
+  0%, 100% { opacity: 0; }
+  33.4% { opacity: 0.85; clip-path: inset(0 0 55% 0); }
+  34.2% { opacity: 0; }
+  34.6% { opacity: 0.7; clip-path: inset(45% 0 0 0); }
+  35% { opacity: 0; }
+  80.3% { opacity: 0.8; clip-path: inset(20% 0 40% 0); }
+  80.8% { opacity: 0; }
+}
+@keyframes sx-holo-glitch-b {
+  0%, 100% { opacity: 0; }
+  2% { opacity: 0.7; clip-path: inset(50% 0 0 0); }
+  2.6% { opacity: 0; }
+  33.6% { opacity: 0.8; clip-path: inset(40% 0 20% 0); }
+  34.4% { opacity: 0; }
+  80.4% { opacity: 0.7; clip-path: inset(0 0 60% 0); }
+  80.9% { opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sx-holo,
+  .sx-holo::before,
+  .sx-holo::after { animation: none; }
+}
+
 @keyframes sx-fade-up {
   from { opacity: 0; transform: translateY(10px); }
   to { opacity: 1; transform: translateY(0); }
@@ -483,6 +619,22 @@ body {
   .sx-viz-glint::after {
     content: none;
   }
+}
+
+/* Lenis smooth scroll (home fly-through, components/city/scroll-track.tsx) —
+   the rules from lenis/dist/lenis.css, inlined so no component imports a
+   package stylesheet. */
+html.lenis,
+html.lenis body { height: auto; }
+.lenis:not(.lenis-autoToggle).lenis-stopped { overflow: clip; }
+.lenis [data-lenis-prevent],
+.lenis [data-lenis-prevent-wheel],
+.lenis [data-lenis-prevent-touch] { overscroll-behavior: contain; }
+.lenis.lenis-smooth iframe { pointer-events: none; }
+.lenis.lenis-autoToggle {
+  transition-property: overflow;
+  transition-duration: 1ms;
+  transition-behavior: allow-discrete;
 }
 
 /* Horizontal snap strip (mobile insight carousels) */
@@ -798,4 +950,36 @@ body {
   .sx-join-sheen::after { display: none; }
   .sx-expand { transition: none; }
   .sx-join-stage { transition: none; }
+}
+
+/* --------------------------------------------------------------------------
+   Landing entrance (P1-ART-11). Inside the home route (`[data-sx-landing]`,
+   its layout) every `.sx-reveal` piece waits hidden — down 22px and clear —
+   until the loading screen sets `html[data-sx-loaded]`, then rises in after
+   its own `--sx-reveal-delay`. `.sx-reveal-fade` is the opacity-only
+   variant for the sticky header (a transform would pin it to its box).
+   Scoped to the landing so nothing elsewhere can be left hidden; the page's
+   <noscript> rule shows everything without JS; reduced motion snaps.
+   -------------------------------------------------------------------------- */
+[data-sx-landing] .sx-reveal {
+  opacity: 0;
+  transform: translate3d(0, 22px, 0);
+  transition:
+    opacity 0.75s ease,
+    transform 0.85s cubic-bezier(0.2, 0.7, 0.2, 1);
+  transition-delay: var(--sx-reveal-delay, 0s);
+}
+[data-sx-landing] .sx-reveal-fade {
+  opacity: 0;
+  transition: opacity 0.8s ease;
+  transition-delay: var(--sx-reveal-delay, 0s);
+}
+html[data-sx-loaded] [data-sx-landing] .sx-reveal,
+html[data-sx-loaded] [data-sx-landing] .sx-reveal-fade {
+  opacity: 1;
+  transform: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-sx-landing] .sx-reveal,
+  [data-sx-landing] .sx-reveal-fade { transition: none; transform: none; }
 }

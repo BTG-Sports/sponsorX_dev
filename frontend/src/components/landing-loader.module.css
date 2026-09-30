@@ -1,0 +1,523 @@
+/* --------------------------------------------------------------------------
+   Landing loading screen (P1-ART-11) — the isometric "server" loader.
+
+   Rebuilt in CSS 3D from the reference (uiverse.io/Juanes200122/fresh-yak-92,
+   the owner's screenshot of 2026-09-30) in the brand's blues instead of its
+   purple: a cube seen from above-front-left, a glowing pad inset on its
+   top face, a small orange slot on the right face (the logo's X is orange),
+   two outline layers stacked below it, and rising dust above. On the pad
+   stands the hologram: a 3D letter X (two crossed planes so it never
+   vanishes edge-on) turning slowly on a projector beam, with scan lines
+   and a faint flicker — the same object the city's pedestal shows at the
+   header viewpoint, so the exit reads as flying into it.
+
+   Geometry: `.world` carries the isometric view (rotateX −28° · rotateY
+   45°); with that yaw the cube's *front* and *left* faces are the two the
+   viewer sees, front on the right. Faces are positioned the usual way
+   (rotate, then translateZ half the size). Up is −Y in the world's frame,
+   so anything above the cube is `translateY(negative)` before its own
+   rotation. `.dust` counter-rotates (rotateY −45° · rotateX 28°) so it
+   faces the camera.
+
+   Phases (data-phase on the overlay): loading → done (the pad and the X
+   flare) → leaving (the whole rig scales toward the viewer and blurs out
+   while the overlay fades) → unmounted. The hero's own entrance lives in
+   globals.css (`.sx-reveal`), triggered by `html[data-sx-loaded]`.
+
+   Colour literals on purpose: this is artwork on a fixed-dark ground, the
+   same rule as the hero HUD. Only the overlay ground follows the theme.
+   -------------------------------------------------------------------------- */
+
+.overlay {
+  --s: 128px; /* cube edge */
+  --hx: 80px; /* hologram letter box */
+  --lift: 70px; /* pad to letter centre */
+  --blue: #2e9bf5;
+  --cyan: #9be0ff;
+  --ice: #e6f7ff;
+  --orange: #f97a1f;
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 8px;
+  background:
+    radial-gradient(60% 45% at 50% 62%, rgba(46, 155, 245, 0.16), transparent 70%),
+    radial-gradient(80% 60% at 78% 100%, rgba(249, 122, 31, 0.08), transparent 60%),
+    var(--sx-bg);
+  color: var(--sx-text);
+  opacity: 1;
+  transition: opacity 0.7s ease 0.15s;
+}
+
+.overlay[data-phase="leaving"] {
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* ---- rig ------------------------------------------------------------------ */
+
+.stage {
+  perspective: 1200px;
+  width: 340px;
+  height: 340px;
+  display: grid;
+  place-items: center;
+  transform-origin: 50% 46%;
+  transition:
+    transform 0.85s cubic-bezier(0.45, 0, 0.15, 1),
+    opacity 0.6s ease 0.15s,
+    filter 0.85s ease;
+}
+
+.overlay[data-phase="leaving"] .stage {
+  transform: scale(2.4);
+  opacity: 0;
+  filter: blur(6px);
+}
+
+.float {
+  transform-style: preserve-3d;
+  animation: float 4.2s ease-in-out infinite;
+}
+
+.world {
+  position: relative;
+  width: var(--s);
+  height: var(--s);
+  transform-style: preserve-3d;
+  transform: rotateX(-28deg) rotateY(45deg);
+}
+
+.face {
+  position: absolute;
+  inset: 0;
+  transform-style: preserve-3d;
+  backface-visibility: hidden;
+}
+
+.top {
+  transform: rotateX(90deg) translateZ(calc(var(--s) / 2));
+  background: linear-gradient(135deg, #4a78f0 0%, #3358d8 60%, #2c4dc4 100%);
+  box-shadow: inset 0 0 0 1px rgba(155, 224, 255, 0.35);
+}
+
+.front {
+  transform: translateZ(calc(var(--s) / 2));
+  background: linear-gradient(180deg, #2f52cf 0%, #2340ad 100%);
+  box-shadow: inset 0 0 0 1px rgba(155, 224, 255, 0.18);
+}
+
+.left {
+  transform: rotateY(-90deg) translateZ(calc(var(--s) / 2));
+  background: linear-gradient(180deg, #223f9e 0%, #172c78 100%);
+  box-shadow: inset 0 0 0 1px rgba(155, 224, 255, 0.12);
+}
+
+.right {
+  transform: rotateY(90deg) translateZ(calc(var(--s) / 2));
+  background: #1b327f;
+}
+
+.back {
+  transform: rotateY(180deg) translateZ(calc(var(--s) / 2));
+  background: #1a2f78;
+}
+
+.bottom {
+  transform: rotateX(-90deg) translateZ(calc(var(--s) / 2));
+  background: #142561;
+}
+
+/* the glowing pad inset on the top face */
+.pad {
+  position: absolute;
+  inset: 20%;
+  border-radius: 8px;
+  background:
+    radial-gradient(60% 60% at 50% 45%, var(--ice) 0%, var(--cyan) 45%, #5fc3ff 100%);
+  box-shadow:
+    0 0 10px rgba(155, 224, 255, 0.9),
+    0 0 28px rgba(46, 155, 245, 0.75),
+    0 0 60px rgba(46, 155, 245, 0.45),
+    inset 0 0 12px rgba(255, 255, 255, 0.6);
+  animation: pad 2.6s ease-in-out infinite;
+  transition: box-shadow 0.3s ease;
+}
+
+.overlay[data-phase="done"] .pad,
+.overlay[data-phase="leaving"] .pad {
+  box-shadow:
+    0 0 18px rgba(230, 247, 255, 1),
+    0 0 44px rgba(46, 155, 245, 1),
+    0 0 110px rgba(46, 155, 245, 0.7),
+    inset 0 0 12px rgba(255, 255, 255, 0.9);
+}
+
+/* the small slot on the front face — the logo's orange */
+.slot {
+  position: absolute;
+  right: 12%;
+  bottom: 22%;
+  width: 26%;
+  height: 7%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #ffb27a, var(--orange));
+  box-shadow: 0 0 8px rgba(249, 122, 31, 0.9), 0 0 18px rgba(249, 122, 31, 0.5);
+  animation: slot 1.8s ease-in-out infinite;
+}
+
+.slot::before {
+  content: "";
+  position: absolute;
+  left: -34%;
+  top: 50%;
+  width: 22%;
+  height: 100%;
+  margin-top: -50%;
+  border-radius: 999px;
+  background: rgba(155, 224, 255, 0.9);
+  box-shadow: 0 0 6px rgba(155, 224, 255, 0.9);
+}
+
+/* outline layers stacked below the cube */
+.layer {
+  position: absolute;
+  inset: 0;
+  border: 2px solid transparent;
+  border-image: linear-gradient(135deg, rgba(99, 180, 248, 0.95), rgba(46, 155, 245, 0.35)) 1;
+  transform: rotateX(90deg) translateZ(calc(var(--s) / -2 - var(--gap)));
+  filter: drop-shadow(0 0 6px rgba(46, 155, 245, 0.55));
+  animation: layer 2.6s ease-in-out infinite;
+  animation-delay: var(--delay);
+}
+
+.layer1 {
+  --gap: 22px;
+  --delay: -0.3s;
+}
+
+.layer2 {
+  --gap: 44px;
+  --delay: -0.9s;
+  opacity: 0.55;
+}
+
+/* ---- hologram ----------------------------------------------------------- */
+
+.holo {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: var(--hx);
+  height: var(--hx);
+  margin: calc(var(--hx) / -2) 0 0 calc(var(--hx) / -2);
+  transform-style: preserve-3d;
+  /* transform only — an opacity or filter on this group (even animated)
+     makes the browser flatten it, and the letter paints edge-on with it.
+     One X, turning a full circle: the letter has real thickness (each
+     bar is a stack of slices along Z) so it stays a solid when edge-on
+     instead of blinking out like a flat plane would. */
+  transform: translateY(calc(var(--s) / -2 - var(--lift))) rotateY(0deg);
+  animation: spin 8s linear infinite;
+}
+
+/* the two bars of the X — each a 3D group of slices */
+.bar {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  width: 22%;
+  height: 100%;
+  margin-left: -11%;
+  transform-style: preserve-3d;
+}
+
+.bar1 {
+  transform: rotateZ(45deg);
+}
+
+.bar2 {
+  transform: rotateZ(-45deg);
+}
+
+/* one slice of a bar's depth; --z from the component */
+.bar i {
+  position: absolute;
+  inset: 0;
+  border-radius: 5px;
+  transform: translateZ(var(--z));
+  backface-visibility: visible;
+  background: linear-gradient(180deg, rgba(150, 214, 255, 0.85) 0%, rgba(96, 186, 250, 0.8) 45%, rgba(56, 140, 230, 0.78) 100%);
+  opacity: 0.75;
+  -webkit-mask-image: repeating-linear-gradient(180deg, #000 0 4px, rgba(0, 0, 0, 0.8) 4px 6px);
+  mask-image: repeating-linear-gradient(180deg, #000 0 4px, rgba(0, 0, 0, 0.8) 4px 6px);
+  animation: flicker 3.7s steps(1, end) infinite;
+}
+
+/* the bar's two long sides, so the letter keeps a silhouette when the
+   slices are seen edge-on (--depth spans the slice stack) */
+.side {
+  --depth: 15px;
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: var(--depth);
+  left: calc(var(--depth) / -2);
+  transform: rotateY(90deg);
+  backface-visibility: visible;
+  border-radius: 3px;
+  background: linear-gradient(180deg, rgba(120, 196, 250, 0.7), rgba(52, 130, 220, 0.7));
+  -webkit-mask-image: repeating-linear-gradient(180deg, #000 0 4px, rgba(0, 0, 0, 0.8) 4px 6px);
+  mask-image: repeating-linear-gradient(180deg, #000 0 4px, rgba(0, 0, 0, 0.8) 4px 6px);
+}
+
+.side2 {
+  left: auto;
+  right: calc(var(--depth) / -2);
+}
+
+/* the front and back faces glow; the inner slices are the body */
+.bar i:first-child,
+.bar i:last-child {
+  background: linear-gradient(180deg, rgba(200, 238, 255, 0.95) 0%, rgba(125, 208, 255, 0.9) 45%, rgba(72, 160, 240, 0.85) 100%);
+  box-shadow:
+    0 0 6px rgba(125, 208, 255, 0.9),
+    0 0 18px rgba(46, 155, 245, 0.85),
+    0 0 40px rgba(46, 155, 245, 0.55);
+  opacity: 0.85;
+}
+
+/* projector beam from the pad up to the letter — faces the camera (the
+   inverse of .world's view), so it is not part of the spin */
+.beam {
+  --beam-h: calc(var(--lift) - var(--hx) / 2 + 6px);
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 62px;
+  height: var(--beam-h);
+  margin: calc(var(--beam-h) / -2) 0 0 -31px;
+  transform: translateY(calc(var(--s) / -2 - var(--beam-h) / 2)) rotateY(-45deg) rotateX(28deg);
+  background: linear-gradient(to top, rgba(155, 224, 255, 0.7), rgba(155, 224, 255, 0.08));
+  clip-path: polygon(38% 0, 62% 0, 100% 100%, 0 100%);
+  opacity: 0.85;
+  pointer-events: none;
+}
+
+.overlay[data-phase="done"] .bar i,
+.overlay[data-phase="leaving"] .bar i {
+  filter: brightness(1.25) saturate(1.3);
+  opacity: 1;
+}
+
+/* ---- dust --------------------------------------------------------------- */
+
+.dust {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 90px;
+  height: 130px;
+  margin: -65px 0 0 -45px;
+  transform: translateY(calc(var(--s) / -2 - 70px)) rotateY(-45deg) rotateX(28deg);
+  pointer-events: none;
+}
+
+.dust i {
+  position: absolute;
+  bottom: 0;
+  left: var(--x);
+  width: var(--d);
+  height: var(--d);
+  border-radius: 50%;
+  background: var(--cyan);
+  box-shadow: 0 0 6px rgba(155, 224, 255, 0.9), 0 0 12px rgba(46, 155, 245, 0.6);
+  opacity: 0;
+  animation: rise var(--t) ease-out infinite;
+  animation-delay: var(--delay);
+}
+
+/* ---- readout ------------------------------------------------------------ */
+
+.hud {
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+  margin-top: -18px;
+  transition: opacity 0.35s ease, transform 0.35s ease;
+}
+
+.overlay[data-phase="leaving"] .hud {
+  opacity: 0;
+  transform: translateY(8px);
+}
+
+.label {
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.32em;
+  text-transform: uppercase;
+  color: var(--sx-text-muted);
+}
+
+.pct {
+  font-size: 34px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+  color: var(--sx-text);
+  text-shadow: 0 0 18px rgba(46, 155, 245, 0.45);
+}
+
+.pct small {
+  font-size: 16px;
+  font-weight: 500;
+  margin-left: 2px;
+  color: var(--sx-text-muted);
+}
+
+.track {
+  position: relative;
+  width: 220px;
+  height: 2px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--sx-text) 12%, transparent);
+  overflow: hidden;
+}
+
+.fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 0%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--cyan), var(--blue));
+  box-shadow: 0 0 10px rgba(46, 155, 245, 0.8);
+}
+
+.sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+/* ---- motion ------------------------------------------------------------- */
+
+@keyframes float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-7px);
+  }
+}
+
+@keyframes pad {
+  0%,
+  100% {
+    filter: brightness(1);
+  }
+  50% {
+    filter: brightness(1.25);
+  }
+}
+
+@keyframes slot {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.55;
+  }
+}
+
+@keyframes layer {
+  0%,
+  100% {
+    opacity: 0.35;
+    transform: rotateX(90deg) translateZ(calc(var(--s) / -2 - var(--gap))) scale(0.98);
+  }
+  50% {
+    opacity: 1;
+    transform: rotateX(90deg) translateZ(calc(var(--s) / -2 - var(--gap))) scale(1.04);
+  }
+}
+
+@keyframes spin {
+  from {
+    transform: translateY(calc(var(--s) / -2 - var(--lift))) rotateY(0deg);
+  }
+  to {
+    transform: translateY(calc(var(--s) / -2 - var(--lift))) rotateY(360deg);
+  }
+}
+
+@keyframes flicker {
+  0%,
+  91%,
+  93.5%,
+  100% {
+    opacity: 1;
+  }
+  91.5% {
+    opacity: 0.55;
+  }
+  92.5% {
+    opacity: 0.85;
+  }
+  93% {
+    opacity: 0.6;
+  }
+}
+
+@keyframes rise {
+  0% {
+    opacity: 0;
+    transform: translateY(0) scale(0.6);
+  }
+  15% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-110px) scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .float,
+  .pad,
+  .slot,
+  .layer,
+  .holo,
+  .bar i,
+  .dust i {
+    animation: none;
+  }
+  .holo {
+    /* resting pose: three-quarter view so the letter still reads as an X */
+    transform: translateY(calc(var(--s) / -2 - var(--lift))) rotateY(-45deg);
+  }
+  .dust i {
+    opacity: 0.6;
+    transform: translateY(-40px);
+  }
+  .overlay,
+  .stage,
+  .hud {
+    transition-duration: 0.25s;
+    transition-delay: 0s;
+  }
+  .overlay[data-phase="leaving"] .stage {
+    transform: none;
+    filter: none;
+  }
+}

@@ -5,7 +5,7 @@
 | | |
 |---|---|
 | **Goal** | Launch real micro-NIL campaigns while building the data foundation. BTG staff run matching, pricing, conflict checks and invoicing; the software standardises and records every step. |
-| **Tasks** | 197 · 469 person-days |
+| **Tasks** | 199 · 472 person-days |
 | **Blueprint timeline** | 14–18 weeks |
 | **Balanced budget** | $75K–$105K |
 | **Depends on** | Nothing — this is the start |
@@ -682,6 +682,26 @@ A full cyberpunk city, built from the Leartes *Modular Stylized Cyberpunk Street
 - **Depends on:** nothing — the kit is in `Landing Page 3D Objects/`
 - **Done when:** All six elements present and identifiable at `/?orbit=1`; the layout test proves zero overlaps outside authored kits and every object inside the site; the home renders its full content over the poster with WebGL off, reduced motion or a low-perf device; build, frontend tests, lint and the Playwright smoke green; desktop kit ≤ 14 MB, lite kit ≤ 6 MB
 - **Reference:** §9 screen 1; `docs/superpowers/specs/2026-09-29-landing-cyberpunk-city-design.md`
+
+### ▶ `P1-ART-10` · Landing 3D — scroll-driven drone fly-through of the city
+
+**Order** 32.7 · **ART** · **Where:** Code · **2d** · **Code review** · **Unblocks** 0
+
+The public home becomes a cinematic fly-through of the `P1-ART-09` city. One fixed, full-screen React Three Fiber canvas that never scrolls; the page body is a tall empty scroll track (about 600svh) smoothed by Lenis; on every scroll event a single progress number — scrolled distance over the scrollable range, clamped 0..1 — is written to a zustand store, and that one number drives the whole camera. A drone camera flies two Catmull-Rom splines (position and gaze) through five waypoints in order — the plaza (the unchanged header viewpoint), the basketball court, the soccer field, the baseball field, the skyscraper — decelerating into each stop, hovering, and accelerating out, with a little banking into sideways moves and a hover bob. The last leg swoops down to two metres over the boulevard and tilts up at the SPONSORX wordmark on the forecourt screen, the tower rising behind it. Each waypoint owns one 2D overlay (hero and stats bar; how it works; sponsor packages; athletes; closing CTA) that is fully visible only on a small plateau around the waypoint's centre and fades out as the user scrolls on, so the middle of each leg shows only the city. The nav's section anchors scroll to their stop. The route is data (`frontend/src/lib/city/flight.ts`), so its promises are tests.
+
+- **Depends on:** `P1-ART-09` — the city and its collision boxes
+- **Done when:** Progress 0 is exactly the `P1-ART-09` header viewpoint; the camera passes the five waypoints in the brief's order; the flight test proves at least 1.5 m of clearance from every building, prop and venue box and never leaves the site; each overlay is visible only on its stop's plateau and none mid-leg; nav hash links and a hash on load land on the right stop; nothing re-renders per scroll; reduced motion falls back to native scroll over the poster; no-JS shows every section in normal flow; build, tests and lint green
+- **Reference:** §9 screen 1; `frontend/src/lib/city/flight.ts`; `frontend/tests/city-flight.test.ts`
+
+### ▶ `P1-ART-11` · Landing 3D — loading screen and entrance
+
+**Order** 32.8 · **ART** · **Where:** Code · **1d** · **Code review** · **Unblocks** 0
+
+Every entry to the public home — a hard refresh or a navigation back to it — opens on a full-screen loading screen that stays up until the page can actually be shown, then flies out into the hero. The loader is the isometric "server" cube from the owner's reference (uiverse `fresh-yak-92`) rebuilt in CSS 3D in the brand's blues, with a single hologram letter X hovering on a projector beam in the glow of its top face — the same object the `P1-ART-09` pedestal shows at the header viewpoint. Its number is honest: a weighted sum of the city's files streamed by byte (the tier's kit GLB and the environment HDR, which are cached into three.js so the scene never downloads them twice), the scene chunk arriving and the first drawn frame of the city, and the page's fonts and window load. Poster-only devices skip the scene share and finish on the page alone; a safety timeout guarantees the visitor is never stranded. At 100 the rig flares and scales toward the viewer as the overlay fades, while the header, hero copy, impact card and the two bands rise in one after another. Without JS the loader never appears and nothing waits on it; reduced motion keeps the number and drops the choreography.
+
+- **Depends on:** `P1-ART-09` — the files it streams; `P1-ART-10` — the hero it hands over to
+- **Done when:** The loader is the first paint on a hard refresh and on a client-side return to `/`; 100 is reached only after the first city frame is drawn (or at once on the poster path); the counter never overshoots the real progress; the files are downloaded once (three's cache serves the scene); the hero is hidden until the loader leaves and then staggers in; no-JS shows the page with no loader; the weighting, byte maths and finish rule are unit-tested; build, tests and lint green
+- **Reference:** §9 screen 1; `frontend/src/lib/city/loading.ts`; `frontend/src/components/landing-loader.tsx`; `frontend/tests/city-loading.test.ts`
 
 ### ▶ `P1-FE-18` · Apply the SponsorX NEXT UI requirement across the existing pages
 

@@ -1610,6 +1610,29 @@ export const networkStats = [
   { label: "Fan rewards redeemed", value: 41_280, prefix: "", source: "RewardEvent · REDEEM" },
 ];
 
+/**
+ * "Trusted by leading brands" strip on the landing hero (mockup 2026-09-30).
+ * The names are the mockup's and NOT confirmed partners — replace with BTG's
+ * actual sponsors (Zoho CRM · Account, closed-won) before launch; until then
+ * the strip labels itself as sample data (P7-QA-02).
+ *
+ * The mockup shows each brand's white logo. Those are brand artwork the repo
+ * does not hold: drop the files under `public/brands/` and set `logo` (e.g.
+ * "/brands/nike.svg") and the strip renders the image; without it the strip
+ * falls back to a text wordmark styled by `style`.
+ */
+export const trustedBrands: {
+  name: string;
+  style: "upper" | "lower" | "italic";
+  logo?: string;
+}[] = [
+  { name: "Nike", style: "italic" },
+  { name: "adidas", style: "lower" },
+  { name: "Red Bull", style: "italic" },
+  { name: "Monster Energy", style: "upper" },
+  { name: "Under Armour", style: "upper" },
+];
+
 /* --------------------------------------------------------------------------
    SponsorX NEXT — student portal fixtures (P1-FE-19, NEXT spec §5, §8).
 

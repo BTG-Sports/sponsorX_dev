@@ -6,10 +6,11 @@
    Loaded only on the client, only after the capability gate passes
    (city-backdrop.tsx dynamic-imports this with ssr:false), so three.js never
    enters the server bundle or the poster-only path. Owns everything that is
-   *rendering* rather than content: renderer settings, the fixed viewpoint
-   (plaza, looking north up the boulevard at the skyscraper), night lighting,
-   fog, the optional environment map, and — desktop only — the post chain
-   (Bloom → SMAA → Vignette → Noise). Content lives in city-world.tsx.
+   *rendering* rather than content: renderer settings, the camera — flown
+   along the scroll-driven drone route by flight-rig.tsx, starting from the
+   plaza viewpoint (lib/city/flight.ts) — night lighting, fog, the optional
+   environment map, and — desktop only — the post chain (Bloom → SMAA →
+   Vignette → Noise). Content lives in city-world.tsx.
 
    Two callbacks feed the backdrop without any React state changing per frame:
    `onFrame(ms)` from a useFrame subscriber (the FPS watchdog reads it) and
@@ -26,10 +27,14 @@ import { Bloom, EffectComposer, Noise, SMAA, Vignette } from "@react-three/postp
 import { Suspense, useCallback, useLayoutEffect, useRef, type RefObject } from "react";
 import * as THREE from "three";
 
+import { ENV_URL } from "@/lib/city/assets";
 import type { Tier } from "@/lib/city/palette";
+
+import { KNOTS } from "@/lib/city/flight";
 
 import { AssetErrorBoundary, useAssetAvailable } from "./asset-guard";
 import { CityWorld } from "./city-world";
+import { FlightRig } from "./flight-rig";
 
 export interface CitySceneProps {
   tier: Tier;
@@ -41,16 +46,16 @@ export interface CitySceneProps {
   onFrame?: (ms: number) => void;
 }
 
-/** The header viewpoint: low over the plaza paving, a few metres south-east
- *  of the pedestal, looking up at the hologram above it (the boulevard and
- *  the skyscraper rise behind it). */
-const CAMERA_POSITION: [number, number, number] = [4.2, 1.35, 41];
-const LOOK_AT: [number, number, number] = [0, 3.4, 28];
+/** The header viewpoint — the first flight knot: low over the plaza paving,
+ *  a few metres south-east of the pedestal, looking up at the hologram above
+ *  it (the boulevard and the skyscraper rise behind it). The fly-through
+ *  starts from exactly this pose; review mode orbits around its target. */
+const CAMERA_POSITION = KNOTS[0].position;
+const LOOK_AT = KNOTS[0].target;
 const BACKGROUND = "#070a12";
 const FOG = "#0b1020";
 const FOG_DENSITY: Record<Tier, number> = { desktop: 0.0055, lite: 0.008 };
 const DPR_CAP: Record<Tier, number> = { desktop: 1.75, lite: 1.4 };
-const ENV_URL = "/textures/city/env.hdr";
 
 export default function CityScene({ tier, orbit = false, onReady, onFrame }: CitySceneProps) {
   // Flipped by the kit once its meshes are on screen (or there are none);
@@ -78,7 +83,7 @@ export default function CityScene({ tier, orbit = false, onReady, onFrame }: Cit
       <hemisphereLight args={["#1a2340", "#05060a", 0.7]} />
       <directionalLight color="#8fb4ff" intensity={0.35} position={[-60, 120, -40]} />
 
-      <Viewpoint orbit={orbit} />
+      {orbit ? <Viewpoint /> : <FlightRig />}
       <FrameReporter gate={kitSettled} onReady={onReady} onFrame={onFrame} />
 
       <Suspense fallback={null}>
@@ -107,20 +112,20 @@ function vec3Param(name: string): [number, number, number] | null {
   return v.length === 3 && v.every(Number.isFinite) ? [v[0], v[1], v[2]] : null;
 }
 
-/** Aims the camera once at the boulevard; in review mode hands it to
- *  OrbitControls around the same target. Review mode also accepts
- *  `?cam=x,y,z&at=x,y,z` so a specific venue can be inspected directly. */
-function Viewpoint({ orbit }: { orbit: boolean }) {
+/** Review mode (`?orbit=1`): hands the camera to OrbitControls around the
+ *  header target, or around `?at=x,y,z` from `?cam=x,y,z`, so a specific
+ *  venue can be inspected directly. */
+function Viewpoint() {
   const camera = useThree((s) => s.camera);
-  const target = (orbit && vec3Param("at")) || LOOK_AT;
+  const target = vec3Param("at") || LOOK_AT;
 
   useLayoutEffect(() => {
-    const cam = orbit && vec3Param("cam");
+    const cam = vec3Param("cam");
     if (cam) camera.position.set(cam[0], cam[1], cam[2]);
     camera.lookAt(target[0], target[1], target[2]);
-  }, [camera, orbit, target]);
+  }, [camera, target]);
 
-  return orbit ? <OrbitControls target={target} enableDamping /> : null;
+  return <OrbitControls target={target} enableDamping />;
 }
 
 /** Reports frame times and the first drawn frame once `gate` is open (the kit
