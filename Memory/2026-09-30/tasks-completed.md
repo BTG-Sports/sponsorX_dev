@@ -47,3 +47,13 @@ The walkthrough's steps 5, 14 and 15 had no screens. Agreed with the user:
 
 Phase 2 now 71 tasks · 282 person-days (Sprint 5: 13 · 56). Tracker rows 73–74,
 ranges extended to row 74.
+
+## Raised: sponsor pay-by-card button (2S5-FE-05) — rcfworks, via Claude
+
+Rule set by the user today: **every step that involves Stripe gets a call-to-action
+button on our page that takes the user there** (payout account set-up, paying by
+card, retrying a failed payment). `2S5-FE-05` · Sponsor pays for an order (FE, 2d,
+Blocked on 2S5-INT-01 and the designs): "Pay $… by card ↗" on the approved order,
+then confirming → Paid / didn't go through with the button again, plus the sponsor's
+email. Claude Design addendum (section E) given to the user. Phase 2 now 72 · 284;
+tracker row 75.
