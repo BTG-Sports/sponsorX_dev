@@ -76,3 +76,50 @@ export const BAND_ITEMS: readonly string[] = [
   "Sales credit that stays yours",
   "QR on every feature",
 ];
+
+/* ------------------------------------------------------------------- book */
+
+/** The book's eight faces in reading order: cover, pages 02–07, back cover.
+ *  Leaves are face pairs: [0,1] [2,3] [4,5] [6,7]. */
+export const FACE_COUNT = 8;
+export const LEAF_COUNT = FACE_COUNT / 2;
+export type BookMode = "spread" | "page";
+
+/** Leaves turned when face `f` is current: the closed cover is 0, pages
+ *  02–03 are 1 … the back cover alone is 4. */
+export const spreadOf = (f: number) => Math.ceil(f / 2);
+
+export function nextFace(f: number, mode: BookMode): number {
+  if (mode === "page") return Math.min(FACE_COUNT - 1, f + 1);
+  const k = spreadOf(f) + 1;
+  return k >= LEAF_COUNT ? FACE_COUNT - 1 : 2 * k - 1;
+}
+
+export function prevFace(f: number, mode: BookMode): number {
+  if (mode === "page") return Math.max(0, f - 1);
+  const k = spreadOf(f) - 1;
+  return k <= 0 ? 0 : 2 * k - 1;
+}
+
+const folio = (f: number) => String(f + 1).padStart(2, "0");
+
+export function faceLabel(f: number, mode: BookMode): string {
+  if (f === 0) return "Cover";
+  if (f === FACE_COUNT - 1) return "Back cover";
+  if (mode === "page") return folio(f);
+  const k = spreadOf(f);
+  return `${folio(2 * k - 1)}–${folio(2 * k)}`;
+}
+
+/** In-page hashes that open the book. The section itself is #magazine;
+ *  #how and #students keep their old meaning (spreads 2 and 3). */
+export const HASH_FACE: Record<string, number> = { "#magazine": 1, "#how": 3, "#students": 5 };
+
+/** The jump chips under the book. */
+export const CHIPS = [
+  { label: "Cover", face: 0 },
+  { label: "Students · Schools", face: 1 },
+  { label: "How it works", face: 3 },
+  { label: "What you get", face: 5 },
+  { label: "Back cover", face: 7 },
+] as const;

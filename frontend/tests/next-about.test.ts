@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { BAND_ITEMS, editionHref, splitNumeral, usesLogo } from "../src/lib/next-about";
+import { BAND_ITEMS, CHIPS, HASH_FACE, editionHref, faceLabel, nextFace, prevFace, splitNumeral, spreadOf, usesLogo } from "../src/lib/next-about";
 
 /* --------------------------------------------------------------------------
    /next/about magazine page (design spec 2026-09-30) — the pure bits:
@@ -40,5 +40,42 @@ describe("splitNumeral — a leading two-digit token becomes the yellow numeral"
   });
   it("the band list starts with the five numbered jobs", () => {
     expect(BAND_ITEMS.slice(0, 5).map((s) => splitNumeral(s).numeral)).toEqual(["01", "02", "03", "04", "05"]);
+  });
+});
+
+describe("the book — faces, spreads and turns", () => {
+  it("maps a face to its spread (leaves turned)", () => {
+    expect([0, 1, 2, 3, 4, 5, 6, 7].map(spreadOf)).toEqual([0, 1, 1, 2, 2, 3, 3, 4]);
+  });
+  it("turns forward by leaf in spread mode and by face in page mode", () => {
+    expect(nextFace(0, "spread")).toBe(1);
+    expect(nextFace(1, "spread")).toBe(3);
+    expect(nextFace(2, "spread")).toBe(3);
+    expect(nextFace(6, "spread")).toBe(7);
+    expect(nextFace(7, "spread")).toBe(7);
+    expect(nextFace(0, "page")).toBe(1);
+    expect(nextFace(7, "page")).toBe(7);
+  });
+  it("turns back the same way", () => {
+    expect(prevFace(7, "spread")).toBe(5);
+    expect(prevFace(3, "spread")).toBe(1);
+    expect(prevFace(1, "spread")).toBe(0);
+    expect(prevFace(0, "spread")).toBe(0);
+    expect(prevFace(4, "page")).toBe(3);
+    expect(prevFace(0, "page")).toBe(0);
+  });
+  it("labels the counter", () => {
+    expect(faceLabel(0, "spread")).toBe("Cover");
+    expect(faceLabel(2, "spread")).toBe("02–03");
+    expect(faceLabel(5, "spread")).toBe("06–07");
+    expect(faceLabel(7, "spread")).toBe("Back cover");
+    expect(faceLabel(4, "page")).toBe("05");
+    expect(faceLabel(7, "page")).toBe("Back cover");
+  });
+  it("hashes open the right face", () => {
+    expect(HASH_FACE["#magazine"]).toBe(1);
+    expect(HASH_FACE["#how"]).toBe(3);
+    expect(HASH_FACE["#students"]).toBe(5);
+    expect(CHIPS.map((c) => c.face)).toEqual([0, 1, 3, 5, 7]);
   });
 });
