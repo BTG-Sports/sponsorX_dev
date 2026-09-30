@@ -49,6 +49,7 @@ import { ArrowRightIcon } from "./landing-hero";
 import { Glass } from "./landing-sponsors";
 import { PackageFilters, PackageGrid } from "./packages-fx";
 import { INVENTORY_COPY, type InventoryState } from "@/lib/fixtures";
+import { splitNumeral } from "@/lib/next-about";
 
 /* ------------------------------------------------------------------ model */
 
@@ -417,16 +418,28 @@ export function PackagesHero({ pkgs, live }: { pkgs: PackageView[]; live: boolea
 
 /* ------------------------------------------------------------ inside band */
 
-function BandItems({ items }: { items: string[] }) {
-  return items.map((it) => (
-    <li key={it} className="flex shrink-0 items-center gap-5 whitespace-nowrap pl-5 text-[12px] font-semibold uppercase tracking-[0.22em] text-on-media/85 lg:gap-8 lg:pl-8 lg:text-[13px]">
-      <span aria-hidden="true" className="block size-1.5 rotate-45 bg-[#7fd0ff] shadow-[0_0_8px_#7fd0ff]" />
-      {it}
-    </li>
-  ));
+/** A band item. A leading "NN " (the /next/about jobs) renders as a yellow
+ *  display numeral; every other page's items carry none and are unchanged. */
+function BandItems({ items }: { items: readonly string[] }) {
+  return items.map((it) => {
+    const { numeral, text } = splitNumeral(it);
+    return (
+      <li key={it} className="flex shrink-0 items-center gap-5 whitespace-nowrap pl-5 text-[12px] font-semibold uppercase tracking-[0.22em] text-on-media/85 lg:gap-8 lg:pl-8 lg:text-[13px]">
+        <span aria-hidden="true" className="block size-1.5 rotate-45 bg-[#7fd0ff] shadow-[0_0_8px_#7fd0ff]" />
+        {numeral ? (
+          <span className="flex items-baseline gap-2">
+            <span className="font-mag text-[17px] leading-none tracking-[0.06em] text-[#ffd12b] lg:text-[19px]">{numeral}</span>
+            {text}
+          </span>
+        ) : (
+          it
+        )}
+      </li>
+    );
+  });
 }
 
-export function InsideBand({ items, label = "What’s inside" }: { items: string[]; label?: ReactNode }) {
+export function InsideBand({ items, label = "What’s inside" }: { items: readonly string[]; label?: ReactNode }) {
   return (
     <div
       className={[
