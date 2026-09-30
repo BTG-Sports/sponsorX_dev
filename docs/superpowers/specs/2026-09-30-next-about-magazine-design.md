@@ -89,7 +89,7 @@ and no themed token (`primary`, `text`, `muted` …) is used for text.
 ## 3. The cover (block 1)
 
 Hero grid: copy left, cover right from `lg`; below `lg` the cover sits **above** the copy,
-centred, `max-w-[280px]`. The stage ground spans the whole hero (`inset-0`, the `/join` fix),
+centred, `max-w-[220px]` (`320px` from `sm`) so the hero still fits one phone screen. The stage ground spans the whole hero (`inset-0`, the `/join` fix),
 with `.sx-stage-floor` and the outlined word **"NEXT"** in Bebas behind.
 
 Copy column, in order, each a `.sx-stage-in` piece with a staggered `--sx-reveal-delay`:
@@ -226,7 +226,7 @@ and are unaffected).
   `sharp` from the frontend's `node_modules` (Next's own dependency); if `sharp` is not
   installed, the original ships and the memory log says so. The mini covers reuse the
   same file. `priority` on the hero instance only.
-- The hero fits one phone screen height: cover `max-w-[280px]` above the copy, `h1` at the
+- The hero fits one phone screen height: cover `max-w-[220px]` above the copy, `h1` at the
   clamp's floor, stat strip 4-up wrapping to 2×2 below `sm`.
 
 ## 8. Verification
