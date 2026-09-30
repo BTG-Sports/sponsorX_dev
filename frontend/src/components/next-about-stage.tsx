@@ -56,9 +56,9 @@ const COVER_BG = "bg-[linear-gradient(180deg,#000_0%,#061027_45%,#0d1a3a_100%)]"
 /** The yellow primary CTA on the stage. Dark ink on yellow (14:1); white on
  *  yellow would fail P1-QA-02, the /join lesson. */
 const CTA_YELLOW =
-  "sx-sheen group relative inline-flex h-12 w-full items-center justify-center gap-3 overflow-hidden whitespace-nowrap rounded-xl bg-[#ffd12b] px-5 text-[14px] font-semibold text-[#0b0b14] shadow-[0_0_30px_rgba(255,209,43,.35)] transition-[box-shadow,transform] hover:-translate-y-0.5 hover:shadow-[0_0_40px_rgba(255,209,43,.55)] sm:h-[52px] sm:px-9 sm:text-[15px]";
+  "sx-sheen group relative inline-flex h-12 w-full items-center justify-center gap-3 overflow-hidden whitespace-nowrap rounded-xl bg-[#ffd12b] px-5 text-[14px] font-semibold text-[#0b0b14] shadow-[0_0_30px_rgba(255,209,43,.35)] transition-[box-shadow,transform] hover:-translate-y-0.5 hover:shadow-[0_0_40px_rgba(255,209,43,.55)] sm:h-[52px] sm:px-7 sm:text-[15px] xl:px-9";
 const CTA_OUTLINE =
-  "sx-sheen group relative inline-flex h-12 w-full items-center justify-center gap-3 overflow-hidden whitespace-nowrap rounded-xl border border-white/45 bg-[#0a1428]/45 px-5 text-[14px] font-medium text-on-media shadow-[0_0_14px_rgba(99,180,248,.25)] backdrop-blur-lg transition-colors hover:border-white hover:bg-white/10 sm:h-[52px] sm:px-9 sm:text-[15px]";
+  "sx-sheen group relative inline-flex h-12 w-full items-center justify-center gap-3 overflow-hidden whitespace-nowrap rounded-xl border border-white/45 bg-[#0a1428]/45 px-5 text-[14px] font-medium text-on-media shadow-[0_0_14px_rgba(99,180,248,.25)] backdrop-blur-lg transition-colors hover:border-white hover:bg-white/10 sm:h-[52px] sm:px-7 sm:text-[15px] xl:px-9";
 
 /** CTAs on paper: navy plate with yellow text, and a navy outline. */
 const PAPER_CTA =
@@ -99,7 +99,7 @@ function CTAs({ delay, className = "sm:flex-row sm:items-center sm:gap-5" }: { d
 function CoverPlate({ priority = false }: { priority?: boolean }) {
   return (
     <div className={`relative aspect-[3/4] w-full overflow-hidden rounded-[4px] ${COVER_BG} shadow-[0_40px_70px_rgba(0,0,0,.65),0_0_0_1px_rgba(255,255,255,.1)]`}>
-      <Image src={LOGO} alt={LOGO_ALT} width={800} height={800} unoptimized priority={priority} className="-mt-[2%] w-full mix-blend-screen" />
+      <Image src={LOGO} alt={LOGO_ALT} width={800} height={800} unoptimized preload={priority} className="-mt-[2%] w-full mix-blend-screen" />
       <span aria-hidden="true" className="absolute left-3 top-3 border border-white/55 px-1.5 py-0.5 text-[9px] uppercase tracking-[0.2em] text-white">
         Issue {ISSUE.number}
       </span>
@@ -174,9 +174,17 @@ export function MagCover() {
       <div className="relative mx-auto grid w-full max-w-[1320px] flex-1 grid-cols-1 items-center gap-8 px-5 py-8 sm:px-[6vw] lg:grid-cols-[minmax(0,1fr)_min(420px,30vw)] lg:gap-14 lg:py-14 2xl:px-0">
         <div className="max-w-2xl">
           <div className="sx-stage-in" style={reveal(0.05)}>
-            <Eyebrow>
-              <ScrambleText text={`SponsorX NEXT · Issue ${ISSUE.number} · ${ISSUE.season}`} delay={0.1} />
-            </Eyebrow>
+            <p className="flex items-center gap-3 whitespace-nowrap text-[10px] font-medium uppercase tracking-[0.2em] text-[#7fc4ff] sm:text-[11px] sm:tracking-[0.32em]">
+              <span aria-hidden="true" className="h-px w-6 shrink-0 bg-[#7fc4ff]/80 sm:w-8" />
+              <span className="min-w-0">
+                <ScrambleText text="SponsorX NEXT" delay={0.1} />
+                <span className="mx-2 text-on-media/40">/</span>
+                <ScrambleText text={`Issue ${ISSUE.number}`} delay={0.3} />
+                <span className="mx-2 hidden text-on-media/40 sm:inline">/</span>
+                <span className="hidden sm:inline"><ScrambleText text={ISSUE.season} delay={0.5} /></span>
+              </span>
+              <span aria-hidden="true" className="sx-hud-dashes ml-1 hidden sm:block" />
+            </p>
           </div>
 
           <h1 className="mt-5 font-mag text-[clamp(48px,11vw,72px)] leading-[0.88] tracking-[0.01em] [text-shadow:0_2px_6px_rgba(0,0,0,.7),0_4px_28px_rgba(0,0,0,.6)] lg:text-[clamp(72px,7vw,112px)]">
@@ -201,7 +209,7 @@ export function MagCover() {
         </div>
 
         {/* the cover: above the copy below lg, right of it from lg */}
-        <div className="sx-stage-in order-first mx-auto w-full max-w-[220px] sm:max-w-[320px] lg:order-last lg:max-w-none" style={reveal(0.5)}>
+        <div className="sx-stage-in order-first mx-auto w-full max-w-[220px] sm:max-w-[320px] lg:order-last lg:max-w-none" style={reveal(0.7)}>
           <TiltSpot max={8}>
             <CoverGlow>
               <CoverPlate priority />
@@ -217,12 +225,11 @@ export function MagCover() {
 
 /** One sheet of paper holding two pages. Carries `data-reveal` so
  *  StageReveal marks it; the `.sx-mag-spread` rules flip the sheet in. */
-export function MagSpread({ id, index, children, className = "" }: { id?: string; index: number; children: ReactNode; className?: string }) {
+export function MagSpread({ id, children, className = "" }: { id?: string; children: ReactNode; className?: string }) {
   return (
     <section
       id={id}
       data-reveal=""
-      style={slot(index)}
       className={`sx-mag-spread relative mx-auto w-full max-w-[1180px] scroll-mt-24 px-5 sm:px-[6vw] ${className}`}
     >
       <div className="sx-mag-sheet grid grid-cols-1 lg:grid-cols-2">
@@ -265,8 +272,12 @@ export function MagPage({
         <>
           <h2 className="mt-5 font-mag text-[clamp(40px,9vw,56px)] leading-[0.9] lg:text-[clamp(48px,4.6vw,72px)]">
             {title}
-            <br />
-            <span style={{ color: toneVar }}>{accent}</span>
+            {accent && (
+              <>
+                <br />
+                <span style={{ color: toneVar }}>{accent}</span>
+              </>
+            )}
           </h2>
           <span aria-hidden="true" className="mt-4 block h-px bg-[#0b1a3a]/25" />
         </>
@@ -284,7 +295,7 @@ const RIGHT_PAGE = "max-lg:border-t max-lg:border-[#0b1a3a]/15";
 /** Spread 1 — the two audiences as facing feature openers. */
 export function OpenerSpread() {
   return (
-    <MagSpread index={0} className="pt-16 lg:pt-24">
+    <MagSpread className="pt-16 lg:pt-24">
       <MagPage head="For students · ages 14–18" folio="02" title="Become" accent="the media.">
         <p className="sx-mag-dropcap">
           Join your school’s NEXT team as a writer, photographer, videographer, designer, editor or on the sales desk.
@@ -312,7 +323,7 @@ export function OpenerSpread() {
 /** Spread 2 (#how) — the feature: five jobs, with the QR sentence as the pull quote. */
 export function FeatureSpread() {
   return (
-    <MagSpread id="how" index={0} className="pt-12 lg:pt-16">
+    <MagSpread id="how" className="pt-12 lg:pt-16">
       <MagPage head="How it works" folio="04" title="Five jobs." accent="One magazine.">
         <blockquote className="border-b border-t-[3px] border-b-[#0b1a3a]/20 border-t-[#ffd12b] py-4 text-[20px] italic leading-[1.3] lg:text-[22px]">
           “Every athlete feature carries a QR code. Readers scan it to open that athlete’s SponsorX profile.”
@@ -336,7 +347,7 @@ export function FeatureSpread() {
 /** Spread 3 (#students) — what you get, the under-18 notice, the QR caption. */
 export function BenefitsSpread() {
   return (
-    <MagSpread id="students" index={0} className="pt-12 lg:pt-16">
+    <MagSpread id="students" className="pt-12 lg:pt-16">
       <MagPage head="What you get out of it" folio="06" title="Work that" accent="follows you.">
         <div className="sx-mag-cols space-y-4 lg:space-y-0">
           {BENEFITS.map((b) => (
@@ -354,7 +365,7 @@ export function BenefitsSpread() {
       </MagPage>
       <MagPage head={`BTG Sports Talk · Issue ${ISSUE.number}`} folio="07" className={RIGHT_PAGE}>
         <aside className="border-[1.5px] border-[#0b1a3a] bg-[#f3f4f6] px-5 py-4">
-          <p className="font-sans text-[10px] font-semibold uppercase tracking-[0.2em] text-[#e0192b]">Under 18? Read this.</p>
+          <h3 className="font-sans text-[10px] font-semibold uppercase tracking-[0.2em] text-[#e0192b]">Under 18? Read this.</h3>
           <p className="mt-2 text-[15px] leading-[1.55]">
             A parent or guardian consents before you join. No GPA, no school records on anything public. Ever. Your faculty
             advisor approves what gets published.
@@ -386,7 +397,12 @@ function MiniCover({ e }: { e: EditionCard }) {
         {usesLogo(e.publication) ? (
           <Image src={LOGO} alt="" width={400} height={400} unoptimized className="-mt-[2%] w-full mix-blend-screen" />
         ) : (
-          <span className="block px-2 pt-3 font-mag text-[clamp(22px,4vw,30px)] leading-[0.9] text-white">{e.publication}</span>
+          <span
+            aria-hidden="true"
+            className="line-clamp-3 block px-2 pb-8 pt-3 font-mag text-[clamp(22px,4vw,30px)] leading-[0.9] text-white [overflow-wrap:anywhere]"
+          >
+            {e.publication}
+          </span>
         )}
         <span aria-hidden="true" className="absolute inset-x-2 bottom-2 font-mag text-[18px] leading-none text-[#ffd12b]">
           {e.label}
@@ -496,7 +512,7 @@ export function BackCover() {
                 Students apply. Schools sign one agreement. The first edition is free.
               </p>
             </div>
-            <CTAs className="sm:flex-row sm:gap-5 lg:flex-col lg:gap-3" />
+            <CTAs className="md:flex-row md:gap-5 lg:flex-col lg:gap-3" />
           </div>
         </TiltSpot>
       </div>
