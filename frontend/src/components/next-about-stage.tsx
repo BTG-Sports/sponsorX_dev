@@ -64,7 +64,7 @@ const CTA_OUTLINE =
 const PAPER_CTA =
   "mt-6 inline-flex h-11 items-center gap-2 rounded-md bg-[#0b1a3a] px-5 font-sans text-[13px] font-semibold uppercase tracking-[0.08em] text-[#ffd12b] transition-transform hover:-translate-y-0.5";
 const PAPER_CTA_OUTLINE =
-  "mt-6 inline-flex h-11 items-center gap-2 rounded-md border-[1.5px] border-[#0b1a3a] px-5 font-sans text-[13px] font-semibold uppercase tracking-[0.08em] text-[#0b1a3a] transition-colors hover:bg-[#0b1a3a]/5";
+  "mt-6 inline-flex h-11 items-center gap-2 whitespace-nowrap rounded-md border-[1.5px] border-[#0b1a3a] px-5 font-sans max-sm:px-4 max-sm:text-[12px] max-sm:tracking-[0.06em] text-[13px] font-semibold uppercase tracking-[0.08em] text-[#0b1a3a] transition-colors hover:bg-[#0b1a3a]/5";
 
 /** The two CTAs. `delay` makes them a hero entrance piece; `className`
  *  sets the row/column behaviour above `sm` (the hero: a row from sm; the
@@ -99,7 +99,7 @@ function CTAs({ delay, className = "sm:flex-row sm:items-center sm:gap-5" }: { d
 function CoverPlate({ priority = false }: { priority?: boolean }) {
   return (
     <div className={`relative aspect-[3/4] w-full overflow-hidden rounded-[4px] ${COVER_BG} shadow-[0_40px_70px_rgba(0,0,0,.65),0_0_0_1px_rgba(255,255,255,.1)]`}>
-      <Image src={LOGO} alt={LOGO_ALT} width={800} height={800} unoptimized preload={priority} className="-mt-[2%] w-full mix-blend-screen" />
+      <Image src={LOGO} alt={LOGO_ALT} width={800} height={800} unoptimized preload={priority} className="mx-auto -mt-[2%] w-[92%] mix-blend-screen sm:w-full" />
       <span aria-hidden="true" className="absolute left-3 top-3 border border-white/55 px-1.5 py-0.5 text-[9px] uppercase tracking-[0.2em] text-white">
         Issue {ISSUE.number}
       </span>
@@ -107,12 +107,12 @@ function CoverPlate({ priority = false }: { priority?: boolean }) {
         Free digital
       </span>
       <div className="absolute inset-x-4 bottom-4 pr-14">
-        <p className="font-mag text-[clamp(26px,3vw,40px)] leading-[0.9] text-white">
+        <p className="font-mag text-[22px] leading-[0.9] text-white sm:text-[clamp(26px,3vw,40px)]">
           Five jobs.
           <br />
           <span className="text-[#ffd12b]">One magazine.</span>
         </p>
-        <p className="mt-2 text-[9px] uppercase tracking-[0.16em] text-on-media/80">
+        <p className="mt-2 text-[9px] leading-[1.4] uppercase tracking-[0.16em] text-on-media/80">
           Inside:{" "}
           <a href="#how" className="underline-offset-2 hover:underline">how it works</a> ·{" "}
           <a href="#students" className="underline-offset-2 hover:underline">what you get</a> ·{" "}

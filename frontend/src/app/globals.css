@@ -1973,6 +1973,12 @@ html[data-sx-loaded] [data-sx-stage][data-armed] .sx-bar { transform: none; }
   background: var(--mag-paper);
   color: var(--mag-ink);
   box-shadow: 0 30px 60px rgba(0, 0, 0, 0.6);
+  /* bottom margin so the last line / CTA clears the 64px corner curl
+     (page padding 28px, 40px from lg, plus this ≥ 72px) */
+  padding-bottom: 44px;
+}
+@media (min-width: 64rem) {
+  .sx-mag-sheet { padding-bottom: 32px; }
 }
 .sx-mag-sheet::before {
   content: "";
@@ -2008,8 +2014,8 @@ html[data-sx-loaded] [data-sx-stage][data-armed] .sx-bar { transform: none; }
 .sx-mag-dropcap::first-letter {
   float: left;
   font-family: var(--font-mag), Impact, sans-serif;
-  font-size: 3.4em;
-  line-height: 0.8;
+  font-size: 5.3em;
+  line-height: 0.76;
   padding: 0.08em 0.12em 0 0;
   color: var(--mag-drop, var(--mag-red));
 }
