@@ -216,9 +216,9 @@
     "semantic_hash": ""
   },
   "documentation/SponsorX-Phase1-Managed-Marketplace.md": {
-    "mtime": 1790684343.803483,
-    "seen": 1790699619.5562546,
-    "ast_hash": "8cc5bc381e96cece4be977a1c6fb0873",
+    "mtime": 1790709638.1328876,
+    "seen": 1790709953.1967762,
+    "ast_hash": "b08272ebed78041485b2373e36da8206",
     "semantic_hash": ""
   },
   "documentation/SponsorX-Phase2-Marketplace-Commerce.md": {
@@ -2076,9 +2076,9 @@
     "semantic_hash": ""
   },
   "frontend/package.json": {
-    "mtime": 1790684636.1820486,
-    "seen": 1790699619.534951,
-    "ast_hash": "18f48ecc968fa0c8331148ed8307976f",
+    "mtime": 1790700587.6010406,
+    "seen": 1790704780.0365927,
+    "ast_hash": "5933dd011a7c56930d1dd4716500a52a",
     "semantic_hash": ""
   },
   "frontend/postcss.config.mjs": {
@@ -2381,12 +2381,6 @@
     "ast_hash": "8e56d95574a7891471390399a4676394",
     "semantic_hash": ""
   },
-  "frontend/src/app/(public)/page.tsx": {
-    "mtime": 1790683792.5612338,
-    "seen": 1790699619.5374548,
-    "ast_hash": "4565a5d46874ae582a4d5970ac9be32c",
-    "semantic_hash": ""
-  },
   "frontend/src/app/(public)/properties/[slug]/page.tsx": {
     "mtime": 1790654025.0797567,
     "seen": 1790699619.5374548,
@@ -2475,12 +2469,6 @@
     "mtime": 1790651787.3024867,
     "seen": 1790699619.5374548,
     "ast_hash": "09a5be154a5cceb96f5ce40ec17dadbc",
-    "semantic_hash": ""
-  },
-  "frontend/src/components/build-preview.tsx": {
-    "mtime": 1790306343.784508,
-    "seen": 1790699619.5374548,
-    "ast_hash": "4888724aa7aa5a56291dc4e438b7ebc6",
     "semantic_hash": ""
   },
   "frontend/src/components/campaign-builder.tsx": {
@@ -2700,9 +2688,9 @@
     "semantic_hash": ""
   },
   "frontend/src/components/site-chrome.tsx": {
-    "mtime": 1789965909.3056967,
-    "seen": 1790301283.5615644,
-    "ast_hash": "7e48cfefb9697477d72afe00e9e1b87d",
+    "mtime": 1790708250.7943244,
+    "seen": 1790708368.4582434,
+    "ast_hash": "9c303d7ade78321553683ab6e10921b1",
     "semantic_hash": ""
   },
   "frontend/src/components/sponsor-campaigns-list.tsx": {
@@ -2742,8 +2730,8 @@
     "semantic_hash": ""
   },
   "frontend/src/components/theme-toggle.tsx": {
-    "mtime": 1789965909.3082106,
-    "seen": 1790301283.5615644,
+    "mtime": 1790704832.0331223,
+    "seen": 1790705057.7319415,
     "ast_hash": "5656e6aa4b3a93684300b8b45075fb03",
     "semantic_hash": ""
   },
@@ -2862,9 +2850,9 @@
     "semantic_hash": ""
   },
   "frontend/src/lib/fixtures.ts": {
-    "mtime": 1790585197.0548022,
-    "seen": 1790699619.5430348,
-    "ast_hash": "98627e021a0ff9880c929f00f167a6c9",
+    "mtime": 1790703845.899471,
+    "seen": 1790704780.0743434,
+    "ast_hash": "67829a4e9d0edf0b1822fed876a42548",
     "semantic_hash": ""
   },
   "frontend/src/lib/invitations-ui.ts": {
@@ -3900,9 +3888,9 @@
     "semantic_hash": ""
   },
   "graphify-out/converted/SponsorX-Full-Programme-Task-Board_45c6ec3d.md": {
-    "mtime": 1790699554.4524455,
-    "seen": 1790699619.5582538,
-    "ast_hash": "c33cf352827e1f66d5e07acc134bc476",
+    "mtime": 1790709894.3453913,
+    "seen": 1790709953.2023487,
+    "ast_hash": "d0259bede2af570ae69869759a9fa82b",
     "semantic_hash": ""
   },
   "graphify-out/converted/SponsorX-Full-Programme-Task-Board_caf1eea8.md": {
@@ -5016,9 +5004,9 @@
     "semantic_hash": ""
   },
   "frontend/src/components/city/city-backdrop.tsx": {
-    "mtime": 1790683949.7030983,
-    "seen": 1790699619.5374548,
-    "ast_hash": "919686392919323e649891134cffa12a",
+    "mtime": 1790709134.6198683,
+    "seen": 1790709953.14742,
+    "ast_hash": "5083e0dd03794d838f2905f2a3ad8ec3",
     "semantic_hash": ""
   },
   "frontend/src/components/city/city-poster.tsx": {
@@ -5028,9 +5016,9 @@
     "semantic_hash": ""
   },
   "frontend/src/components/city/city-scene.tsx": {
-    "mtime": 1790685651.0684037,
-    "seen": 1790699619.5374548,
-    "ast_hash": "a11dc27aac938af31f3c258c3ae9d541",
+    "mtime": 1790709112.036199,
+    "seen": 1790709953.14742,
+    "ast_hash": "8b9065fdf89b578d0a2380a9bf97121e",
     "semantic_hash": ""
   },
   "frontend/src/components/city/city-world.tsx": {
@@ -5040,9 +5028,9 @@
     "semantic_hash": ""
   },
   "frontend/src/components/city/kit-instances.tsx": {
-    "mtime": 1790685193.1510606,
-    "seen": 1790699619.5374548,
-    "ast_hash": "436db7270342d488d244a237ab959326",
+    "mtime": 1790709108.2327125,
+    "seen": 1790709953.1484263,
+    "ast_hash": "e7ec4b3cb4c52bc2ce3f2573fd1dc04a",
     "semantic_hash": ""
   },
   "frontend/src/components/city/venues/baseball-field.tsx": {
@@ -5070,9 +5058,9 @@
     "semantic_hash": ""
   },
   "frontend/src/components/city/venues/pedestal.tsx": {
-    "mtime": 1790684695.6358514,
-    "seen": 1790699619.5374548,
-    "ast_hash": "42acd7265834f75c32bb71eb08fdb322",
+    "mtime": 1790700076.000764,
+    "seen": 1790704780.0591547,
+    "ast_hash": "a2b2d7192b6bb1289baaf132ce156b4c",
     "semantic_hash": ""
   },
   "frontend/src/components/city/venues/skyscraper.tsx": {
@@ -5298,9 +5286,9 @@
     "semantic_hash": ""
   },
   "frontend/src/lib/city/venue-boxes.ts": {
-    "mtime": 1790686179.009021,
-    "seen": 1790699619.5415304,
-    "ast_hash": "66b27b4c420c011b38caceb636a16664",
+    "mtime": 1790699874.9496896,
+    "seen": 1790704780.0723255,
+    "ast_hash": "c7e0be0bccafb3bb7bb146db73ce9b10",
     "semantic_hash": ""
   },
   "frontend/src/lib/commission-live.ts": {
@@ -5502,9 +5490,9 @@
     "semantic_hash": ""
   },
   "frontend/tests/city-venue-boxes.test.ts": {
-    "mtime": 1790686303.0293133,
-    "seen": 1790699619.5440412,
-    "ast_hash": "190d796e366f0fda352221c4c93ca0f9",
+    "mtime": 1790699928.097545,
+    "seen": 1790704780.0814219,
+    "ast_hash": "9a43800ca587f6b1ab2b58b0a5f8d828",
     "semantic_hash": ""
   },
   "frontend/tests/commission-live.test.ts": {
@@ -5742,9 +5730,9 @@
     "semantic_hash": ""
   },
   "Memory/2026-09-29/tasks-completed.md": {
-    "mtime": 1790686668.7615144,
-    "seen": 1790699619.5461457,
-    "ast_hash": "6086c004d38cc38d582ce9a7f214c9b0",
+    "mtime": 1790700094.30493,
+    "seen": 1790704780.0932808,
+    "ast_hash": "e1b06c0c0bd67cf20b080432c26895b3",
     "semantic_hash": ""
   },
   "backend/agreements/CAMPAIGN_ORDER.v1.txt": {
@@ -5760,9 +5748,9 @@
     "semantic_hash": ""
   },
   "docs/superpowers/specs/2026-09-29-landing-cyberpunk-city-design.md": {
-    "mtime": 1790699381.8322344,
-    "seen": 1790699619.550153,
-    "ast_hash": "ba4ed45cebf639052a5f74b4637cae7b",
+    "mtime": 1790700098.9956176,
+    "seen": 1790704780.0983038,
+    "ast_hash": "057098a46415ad77da1b19d206196b14",
     "semantic_hash": ""
   },
   "documentation/SponsorX-Admin-User-Guide.md": {
@@ -5829,6 +5817,144 @@
     "mtime": 1790673787.3161168,
     "seen": 1790699619.5599823,
     "ast_hash": "9ddbb9ac4d4a4569d8b4b0110fe33e34",
+    "semantic_hash": ""
+  },
+  "frontend/src/components/city/flight-rig.tsx": {
+    "mtime": 1790701077.047807,
+    "seen": 1790704780.0576503,
+    "ast_hash": "8cbc6ed2933dba9b1e9cb2e26e28f529",
+    "semantic_hash": ""
+  },
+  "frontend/src/components/city/flight-stop.tsx": {
+    "mtime": 1790703314.5623984,
+    "seen": 1790704780.0576503,
+    "ast_hash": "6d3cfeba3ab0a5faa40c444f1358ab49",
+    "semantic_hash": ""
+  },
+  "frontend/src/components/city/scroll-track.tsx": {
+    "mtime": 1790701252.3341246,
+    "seen": 1790704780.0576503,
+    "ast_hash": "f45686b4cbe88e0bbb7957d6f7d3f2f1",
+    "semantic_hash": ""
+  },
+  "frontend/src/components/landing-hero.tsx": {
+    "mtime": 1790709286.3942642,
+    "seen": 1790709953.1534703,
+    "ast_hash": "d728b03e788603aca86fe4fc20f5f3fe",
+    "semantic_hash": ""
+  },
+  "frontend/src/lib/city/flight-store.ts": {
+    "mtime": 1790700721.0554726,
+    "seen": 1790704780.0723255,
+    "ast_hash": "a8fc67c9d2909a1198e4496832591cfc",
+    "semantic_hash": ""
+  },
+  "frontend/src/lib/city/flight.ts": {
+    "mtime": 1790702233.2158082,
+    "seen": 1790704780.0723255,
+    "ast_hash": "e5d5949ec42b56d1a0a8ba13db30c7ea",
+    "semantic_hash": ""
+  },
+  "frontend/tests/city-flight.test.ts": {
+    "mtime": 1790700832.1841226,
+    "seen": 1790704780.0814219,
+    "ast_hash": "f354e911cfae87a49546ee8f29a126e8",
+    "semantic_hash": ""
+  },
+  "Memory/2026-09-30/tasks-completed.md": {
+    "mtime": 1790709851.8665729,
+    "seen": 1790709953.1860101,
+    "ast_hash": "a8c18c7d65c2c21ebcdf8a54720b388c",
+    "semantic_hash": ""
+  },
+  "frontend/src/components/site-nav.tsx": {
+    "mtime": 1790704817.5165074,
+    "seen": 1790705057.7314339,
+    "ast_hash": "e0145e5ed07b80e7fdc7045679542c0b",
+    "semantic_hash": ""
+  },
+  "frontend/src/components/landing-steps.tsx": {
+    "mtime": 1790705330.5392792,
+    "seen": 1790705480.674175,
+    "ast_hash": "566ccec912035a7b4f8869bc43c02b2f",
+    "semantic_hash": ""
+  },
+  "frontend/src/components/landing-sponsors.tsx": {
+    "mtime": 1790706771.9574564,
+    "seen": 1790707254.0854597,
+    "ast_hash": "b9060f9df75a1ff3e6f4196b79af2c45",
+    "semantic_hash": ""
+  },
+  "frontend/src/components/landing-athletes.tsx": {
+    "mtime": 1790707225.5490537,
+    "seen": 1790707254.0854597,
+    "ast_hash": "867dc34f112ece505b80e1412ba370d4",
+    "semantic_hash": ""
+  },
+  "frontend/src/components/landing-close.tsx": {
+    "mtime": 1790708187.8064442,
+    "seen": 1790708194.1607974,
+    "ast_hash": "a349c76e4870454fe79fe0f330048a5d",
+    "semantic_hash": ""
+  },
+  "frontend/src/app/(home)/error.tsx": {
+    "mtime": 1790708002.9583526,
+    "seen": 1790708194.1455202,
+    "ast_hash": "799106287d32b1b773640210c9f1c026",
+    "semantic_hash": ""
+  },
+  "frontend/src/app/(home)/layout.tsx": {
+    "mtime": 1790709225.8812804,
+    "seen": 1790709953.1413708,
+    "ast_hash": "ad9e83f0dd1a5bd13f48c0175fb32727",
+    "semantic_hash": ""
+  },
+  "frontend/src/app/(home)/loading.tsx": {
+    "mtime": 1790708002.9654932,
+    "seen": 1790708194.1455202,
+    "ast_hash": "0e0d92e812837a2909e0c2c520ce49ea",
+    "semantic_hash": ""
+  },
+  "frontend/src/app/(home)/page.tsx": {
+    "mtime": 1790709261.984773,
+    "seen": 1790709953.1413708,
+    "ast_hash": "6867cd78849d4fff323dd25e8273de6b",
+    "semantic_hash": ""
+  },
+  "frontend/src/components/city/city-preload.ts": {
+    "mtime": 1790709103.4786296,
+    "seen": 1790709953.14742,
+    "ast_hash": "5b9d24832cd1ff58e5e6d3da2e09dae2",
+    "semantic_hash": ""
+  },
+  "frontend/src/components/landing-loader.tsx": {
+    "mtime": 1790709621.90473,
+    "seen": 1790709953.1534703,
+    "ast_hash": "3bbfca9e86fb034eb02baea36713bebd",
+    "semantic_hash": ""
+  },
+  "frontend/src/lib/city/assets.ts": {
+    "mtime": 1790709101.1599703,
+    "seen": 1790709953.1627069,
+    "ast_hash": "b1be97289388f7ef8bbec9ea43553526",
+    "semantic_hash": ""
+  },
+  "frontend/src/lib/city/load-store.ts": {
+    "mtime": 1790708967.1774225,
+    "seen": 1790709953.1642597,
+    "ast_hash": "0769f2e61bf3822b5805bcc2f704f989",
+    "semantic_hash": ""
+  },
+  "frontend/src/lib/city/loading.ts": {
+    "mtime": 1790708943.3563137,
+    "seen": 1790709953.1642597,
+    "ast_hash": "f367e520d21b41801bbbad666a05c637",
+    "semantic_hash": ""
+  },
+  "frontend/tests/city-loading.test.ts": {
+    "mtime": 1790708960.2981925,
+    "seen": 1790709953.1749659,
+    "ast_hash": "4038d5ab67a7eb1deb428082a143f4b8",
     "semantic_hash": ""
   }
 }
