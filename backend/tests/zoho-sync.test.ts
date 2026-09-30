@@ -324,6 +324,17 @@ describe.skipIf(!hasDatabase)("the Zoho sync, on the path a request takes", asyn
         .toBe(zoho.all("Leads")[0]!.id);
     });
 
+    it("2S1-BE-05 · a sponsor BTG just approved goes to Zoho at once: its Account with our key, and its primary Contact", async () => {
+      expect(await sync.pushSponsor(ctx(), T, "zt_sponsor")).toMatchObject({ status: "pushed" });
+      expect(zoho.bySponsorXId("Accounts", "zt_sponsor")).toMatchObject({ Account_Name: "Rosa's Tacos" });
+      expect(zoho.bySponsorXId("Contacts", "zt_contact")).toMatchObject({ Email: "rosa@rosas.test" });
+      /* Again is a no-op — nothing twice. */
+      await sync.pushSponsor(ctx(), T, "zt_sponsor");
+      expect(zoho.all("Accounts")).toHaveLength(1);
+      expect(zoho.all("Contacts")).toHaveLength(1);
+      expect(await sync.pushSponsor(ctx(), T, "nope")).toMatchObject({ status: "skipped" });
+    });
+
     it("a completed campaign opens a renewal Deal and a renewal task on it", async () => {
       await transitionBrief(actor, "zt_brief", "QUALIFIED");
       await transitionBrief(actor, "zt_brief", "APPROVED");

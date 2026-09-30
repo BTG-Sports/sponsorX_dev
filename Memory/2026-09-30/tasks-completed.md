@@ -935,3 +935,36 @@ shows a horizontal scrollbar. Gone once scrolled (capsule insets the rule
 `clamp()`ed inside the rule (the glow is box-shadow, which never scrolls).
 Verified scrollWidth == clientWidth at 1440/1280/390, scroll 0/40/240, with
 no element past either edge.
+
+## Walkthrough: step 4b and the Hawks' set-up shot; sponsor approval raised
+
+- **The gap.** The user noticed step 4 never shows BTG approving the sponsor. That step doesn't exist in the product:
+  - The public request (P8-INT-06) becomes only a Zoho lead.
+  - A Zoho Account syncs in as a sponsor row, but nothing creates a sponsor login. Only seed data has SPONSOR_ADMIN users.
+- **Deck (v9).**
+  - New step 4b is marked "not built yet" with that explanation, and the "not built" list is updated.
+  - Step 5d now shows the Hawks' Earnings page before set-up (with "Set up payouts with Stripe ↗") and after it.
+- **Raised in the Phase 2 doc and tracker:**
+  - **2S1-BE-05** (4d, Ready): BTG review queue for sponsor requests. Approving creates the sponsor, its contact and a SPONSOR_ADMIN login, links Zoho without duplicating, and emails a sign-in link.
+  - **2S1-FE-03** (3d, Blocked on BE-05): BTG's review screen.
+- Phase 2 is now 75 tasks, 293 days.
+
+## 2S1-BE-05 — BTG approves a new sponsor and opens the account (Code review)
+
+- **Requests.** The public form's request (`Inquiry`) now also waits for BTG in SponsorX, and still goes to Zoho as a lead.
+  - New fields: `state` (NEW / APPROVED / DECLINED), `categoryText` (the business's own words, taken from the brief's "Brand category"), and the decision fields.
+  - Migration `20260930170000_sponsor_requests`.
+- **Routes:**
+  - `GET /sponsor-requests?state=` — one tab at a time, with every tab's count.
+  - `GET /sponsor-requests/:id` — the brief answers, suggested categories, and the checks (email already in use, same-named sponsors, and whether they came from Zoho).
+  - `POST /sponsor-requests/:id/decision`.
+- **Permissions.** `inquiry.approve` goes to BTG_ADMIN and SALES (own tenant) and SUPER_ADMIN (any). Matrix §11 updated; digest is now `77c16c7e171c8dc2`.
+- **Approving** is one transaction:
+  - It creates the sponsor with the categories BTG picked, the primary contact, and a SPONSOR_ADMIN login for the request's email (an `invite:` placeholder that the first sign-in claims).
+  - It queues the `sponsor.accountOpened` email and the new `zoho.pushSponsor` job (the Account with SponsorX_ID, then the primary Contact).
+  - Refusals: an email already in use (409); a same-named sponsor must be linked or confirmed as a new business; a sponsor that already has a login can't be linked.
+- **Declining** needs a note, which is emailed (`sponsor.requestDeclined`). A request is decided once.
+- **Tests.**
+  - `tests/phase2-sponsor-requests.test.ts` (14 tests) walks the form, the queue and approval, then Dana signs in as Harbor Coffee's SPONSOR_ADMIN; it also covers the refusals.
+  - `zoho-sync` now tests `pushSponsor`, and the tenant sweep covers the new routes.
+- **Board.** 2S1-FE-03 moved to Ready; it's waiting on the Claude Design SR-* artboards.

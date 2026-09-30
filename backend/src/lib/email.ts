@@ -60,7 +60,10 @@ export type EmailTemplate =
   | "onboarding.changesRequested"
   | "onboarding.approved"
   | "onboarding.rejected"
-  | "onboarding.suspended";
+  | "onboarding.suspended"
+  /* 2S1-BE-05 — BTG's decision on a business asking to sponsor. */
+  | "sponsor.accountOpened"
+  | "sponsor.requestDeclined";
 
 export type EmailMessage = {
   template: EmailTemplate;

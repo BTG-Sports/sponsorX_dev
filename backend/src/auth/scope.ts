@@ -769,6 +769,8 @@ const BUILDERS: Partial<Record<Resource, Builder>> = {
      never see an application at all. Sharing the filter while keeping the
      policy rows apart is the honest shape: same rows, different reach. */
   athleteApplication: (actor, scope) => BUILDERS.athlete!(actor, scope),
+  /* 2S1-BE-05 — sponsor requests: tenant rows, read and decided by staff. */
+  inquiry: tenantScoped,
 
   /* Added with P4-BE-01, the first task to query sponsors.
 
