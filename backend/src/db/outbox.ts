@@ -66,7 +66,14 @@ export type JobName =
   | "zoho.ingestInvoice"
   | "tracking.resolveGeo"
   /* P3-DATA-01 — the pilot cohort, imported as a job rather than hand-seeded. */
-  | "athlete.importCohort";
+  | "athlete.importCohort"
+  /* 2S5-INT-02 / 2S5-BE-05 — the payment provider's side of a card payment
+     and a payout: confirming a payment, sending an approved payout, and
+     confirming it arrived. The stand-in provider on staging runs these; a
+     real provider's webhooks will land on the same jobs. */
+  | "payments.confirm"
+  | "payouts.send"
+  | "payouts.confirm";
 
 /**
  * Write a job into the outbox, inside the caller's transaction.

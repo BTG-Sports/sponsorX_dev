@@ -1,228 +1,120 @@
-# Tasks completed — 2026-09-30 (HeckerCreatives)
+# 2026-09-30 — tasks completed
 
-## `P1-ART-10` · Landing 3D — scroll-driven drone fly-through (HeckerCreatives)
+## Raised: independent athletes can't sell (2S3-BE-05, 2S3-FE-02) — rcfworks, via Claude
 
-*New task, raised today (xlsx row 265, Order 32.7, ART / Code, 2d, Code
-review; Phase 1 doc block added after `P1-ART-09`, header 198 · 471).
-`P1-ART-09` is environment-only by definition, so the camera work is its own
-task.* Brief from the programme owner, pasted as rules: React Three Fiber +
-three + lenis + zustand; a fixed full-screen canvas that never scrolls; the
-page body a tall empty scroll track (~600vh); on every Lenis scroll event
-`progress = scrollY / (scrollHeight − innerHeight)` clamped 0..1 into a
-zustand store, and that one number drives the whole camera. Waypoints, in
-order: the plaza (the current header viewpoint, not to be changed), the
-basketball court, the soccer field, the baseball field, the skyscraper. It
-must feel like a drone passing them, and the 2D UI shows only when the
-camera reaches a waypoint's centre, then fades out as the user scrolls.
+Found while reviewing the walkthrough: only a property manager can put an item on
+sale, so an athlete with no team can create inventory items that can never reach
+the marketplace, and nothing tells them. The user called this dangerous — not all
+athletes have a team — and chose **Option A**: independent athletes list their own
+items, approved by BTG under the same rules, keeping the whole share.
 
-**What was built** (branch `feature/P1-ART-09-landing-city`, uncommitted at
-the time of writing):
+- `2S3-BE-05` · Independent athletes list their own items (BE, 5d, Ready) —
+  listings stop assuming a property; search, cart, orders, availability and the
+  ledger split handle an athlete-owned listing; roster athletes still go through
+  their team.
+- `2S3-FE-02` · Listing screen for independent athletes (FE, 3d, Blocked on BE-05).
 
-- **`frontend/src/lib/city/flight.ts`** — the route as data. Seven knots
-  (five stops plus two lift-off shaping knots over the plaza); two
-  centripetal Catmull-Rom splines through them, one for the camera position
-  and one for the gaze target. Scroll progress is split evenly between the
-  five stops (0, .25, .5, .75, 1) and each leg is smoothstep-eased so the
-  drone decelerates into a stop, hovers, and accelerates out. `stopWeight`
-  is 1 on a ±0.03 plateau around a stop and eases to 0 by ±0.09, so each
-  overlay is fully visible only at its waypoint and the middle of every leg
-  shows only the city. `SECTION_TO_STOP` maps the page's anchors
-  (`#how-it-works` → basketball, `#for-sponsors` → soccer, `#for-athletes`
-  → baseball, `#start` → skyscraper).
-- **`flight-store.ts`** — the zustand store: `{ progress, setProgress }`.
-- **`components/city/scroll-track.tsx`** — the ~600svh track with a sticky
-  100svh stage; one Lenis instance (`autoRaf`, `allowNestedScroll`, lerp
-  0.09), destroyed on unmount; progress computed over the track (identical
-  to the brief's formula when the track is the whole page — here the footer
-  follows it, so progress holds at 1 while the footer scrolls in). A
-  capture-phase click listener turns hash links that name a stop into a
-  Lenis scroll to that stop's progress (next/link bails when the event is
-  default-prevented); a hash on first load and `hashchange` do the same.
-  `prefers-reduced-motion` skips Lenis and uses native scroll.
-- **`flight-rig.tsx`** — inside the Canvas; every frame reads
-  `useFlight.getState().progress`, damps toward it (rate 7), samples the
-  splines into pre-allocated vectors, writes the camera. Banking: rolls up
-  to 0.14 rad into the sideways component of the path tangent; hover: a
-  5 cm bob, both faded in over the first 2% of the track so the resting
-  header pose is exactly the authored one. Uses the frame state's camera,
-  not the `useThree` value — the React Compiler lint forbids mutating a hook
-  result in the callback.
-- **`flight-stop.tsx`** — one overlay per waypoint; subscribes to the store
-  and writes opacity, a 28px rise, pointer-events (off under weight 0.5)
-  and `inert` (under 0.02) through a ref. No React render per scroll. The
-  server renders the plaza stop visible and the rest hidden; `inert` is set
-  client-side only so a no-JS reader gets live sections.
-- **`city-scene.tsx`** — the fixed `Viewpoint` is now review-mode only
-  (`?orbit=1`); otherwise `FlightRig` owns the camera. `CAMERA_POSITION` /
-  `LOOK_AT` read from `KNOTS[0]`, so the start pose has one source.
-- **`city-backdrop.tsx`** — canvas wrapper is `fixed inset-0 z-0` (was
-  `-z-10`) and the vertical scrim is gone; the track sits at z-10 and each
-  overlay carries its own translucent panel (`bg-bg/75` + blur). The footer
-  got `relative z-10 bg-bg` so it reads over the canvas.
-- **`(public)/page.tsx`** — rewritten as five `FlightStop`s inside a
-  `ScrollTrack`: plaza = hero + stats bar (the "athlete photography
-  pending" placeholder tile is gone — the city is the hero visual);
-  basketball = how it works; soccer = the three package cards (a snap-x
-  strip under `lg`); baseball = for athletes + standard jobs; skyscraper =
-  the closing CTA. Nothing follows the track but the footer. **Two things
-  are gone, both the owner's call mid-session:** the §9.1 "Campaigns on
-  record" proof slots ("we don't need it") and the pre-launch build-preview
-  band — `components/build-preview.tsx` is deleted with it (the home page
-  was its only user; its own header said to delete both before launch). A `<noscript>` style collapses
-  the track and shows every stop.
-- **`globals.css`** — Lenis's stylesheet rules inlined.
-- **Dependencies** added to `frontend/package.json`: `lenis 1.3.26`,
-  `zustand 5.0.15` (zustand was already in the lockfile via R3F; now a
-  direct dependency).
+Added to `documentation/SponsorX-Phase2-Marketplace-Commerce.md` (Sprint 3 now
+8 tasks · 34 person-days; Phase 2 69 · 275) and to the committed tracker (Phase 2
+rows 71–72, Orders 27.5 / 28.5; Dashboard, autofilter, conditional formatting and
+the Status list extended to row 72). Not built yet — the build plan goes to the
+user first. The walkthrough presentation is left as-is for now, at the user's
+request.
 
-**Tests — `frontend/tests/city-flight.test.ts` (10, all green; suite 545 /
-47 files):** stops are the five in order at 0/.25/.5/.75/1; progress 0 is
-exactly the header pose; each stop's progress samples exactly its knot;
-anchors map to stops; progress→param is monotonic and dwells at stops;
-overlay weight is a plateau + monotonic fade, only one stop visible at a
-time and none mid-leg; **clearance:** 800 samples of the path stay ≥1.2 m
-up and ≥1.5 m outside every non-ground, non-surface placement box of the
-desktop layout, and inside the site. That test caught two real clips on
-the first route (through the pedestal hologram on lift-off, and through the
-kit's hovering drone `air:drone0` at y 18 on the basketball→soccer leg) —
-the route now rises past the east side of the hologram and stays under the
-kit drones (y 13–18 along the boulevard). **Skyscraper leg, changed on the
-owner's mid-session note:** it must fly down close above the ground and
-tilt up at the "SponsorX" lettering on the skyscraper. That lettering is
-the gantry screen's SPONSORX wordmark in the tower's forecourt (z −182,
-8–14 m up, facing the plaza), so the drone now swoops from the baseball
-stop down to 2 m over the boulevard at z −160 and looks up at the screen
-with the tower rising behind it; the closing CTA panel sits at the bottom of
-the frame so the wordmark stays clear. Clearance re-proven at 2 m.
+## Also today
+- Branch brought level with main_development (the landing-page P1-ART-09/10/11 work).
+- Staging and production redeployed on `faceeb5` (main had not auto-deployed).
+- Presenter's guide `SponsorX-Presenter-Guide.xlsx` (run of show, script, the
+  money split with live formulas, gaps, Q&A, logins) — in the user's Downloads;
+  the Google Drive connector was disconnected, so the user uploads it.
+- Walkthrough presentation: step 2 as the athlete's step-by-step application,
+  step 6 as how Riley creates his clinic (6a–6c), step 7 split into 7a–7c.
 
-**Verified against the running dev server** with a throwaway Playwright
-script (headless Chromium, 1280×800): `html.lenis` present, track 4800px
-(600vh), stage sticky, the canvas mounted, no console or page errors. At
-progress 0/.25/.5/.75/1 exactly one overlay is at opacity 1 / pointer
-events on / not inert and the other four are 0 / none / inert; at .125
-and .375 all five are hidden. Clicking "Learn More" (`#how-it-works`) from
-the top lands at the basketball stop's scroll offset (1065 = expected) with
-the hash set and no navigation; `location.hash = "#for-athletes"` lands at
-the baseball stop; a fresh load of `/#for-sponsors` lands at the soccer
-stop. `npx tsc --noEmit` clean (apart from the known phantom `LayoutProps`
-errors), eslint clean on every touched file. **Not run:** `npm run build` —
-the dev server was live on port 3000 and a production build into the same
-`.next` corrupts it (see the 2026-09-29 note); build before merging.
+## Raised: payout screens (2S5-FE-03, 2S5-FE-04) — rcfworks, via Claude
 
-**Open / for review:**
+The walkthrough's steps 5, 14 and 15 had no screens. Agreed with the user:
+- `2S5-FE-03` · Athlete and team payout screens (FE, 4d, Blocked on 2S5-BE-04 and
+  the designs) — payout-account set-up first: the page says a Stripe account is
+  needed and links out to Stripe; then available / held / paid out, Request payout,
+  and a history to "Paid, confirmed by the payment provider" plus an email.
+  Stripe is named only for the account set-up; transactions stay hidden.
+- `2S5-FE-04` · BTG payout approval screen (FE, 3d, Blocked on 2S5-BE-05).
+- `2S5-BE-04` corrected to Ready (its prerequisite 2S5-BE-02 is Done).
+- The backend (2S5-BE-04/05) will use a stand-in payment provider on staging only
+  (the user agreed); production moves no money until Stripe is connected.
+- Claude Design prompt for all the payout screens (A–D plus 0a–0c account set-up)
+  given to the user.
 
-- Framing of each stop is authored by coordinates and proven collision-free,
-  but only eyeballed through software-GL screenshots; walk it on a real GPU
-  (`/`, scroll) and tune `KNOTS` in `flight.ts` — the tests re-prove
-  clearance on every change.
-- Lite tier flies the same route. If phones stutter, lower `FOLLOW` in
-  `flight-rig.tsx` or shorten the track (`TRACK_SVH` in `scroll-track.tsx`).
-- The programme owner's earlier instruction to keep camera notes out of the
-  environment task still stands for `P1-ART-09`; `P1-ART-10` is where
-  camera work lives now.
+Phase 2 now 71 tasks · 282 person-days (Sprint 5: 13 · 56). Tracker rows 73–74,
+ranges extended to row 74.
 
-## Landing hero + navbar redrawn to the 2026-09-30 hero mockup (HeckerCreatives, later in the day)
+## Raised: sponsor pay-by-card button (2S5-FE-05) — rcfworks, via Claude
 
-*Rework on the `feature/P1-ART-09-landing-city` branch, not a tracked task —
-no xlsx row changed. The owner supplied a 1825×862 hero mockup and asked for
-a 1:1 copy of its 2D UI over the existing 3D city.*
+Rule set by the user today: **every step that involves Stripe gets a call-to-action
+button on our page that takes the user there** (payout account set-up, paying by
+card, retrying a failed payment). `2S5-FE-05` · Sponsor pays for an order (FE, 2d,
+Blocked on 2S5-INT-01 and the designs): "Pay $… by card ↗" on the approved order,
+then confirming → Paid / didn't go through with the button again, plus the sponsor's
+email. Claude Design addendum (section E) given to the user. Phase 2 now 72 · 284;
+tracker row 75.
 
-**What changed**
+## Built: card payment and payouts, with a staging stand-in provider (rcfworks, via Claude)
 
-- **`components/site-chrome.tsx`** — `SiteHeader` is now a 72px full-width
-  glass bar (`bg-bg/55` + `backdrop-blur-xl`, faint top sheen, glowing
-  bottom rule `.sx-nav-line`): logo 8% from the left, the four nav links
-  centred (15px, regular), then the HUD theme toggle, Login and a gradient
-  "Get Started →" (white label, 12px radius) ending 6% from the right, with
-  the mockup's slanted hairline dividers. No `max-w` container any more —
-  the mockup is edge to edge. The "N" circle at the mockup's far right is
-  the Next.js dev-tools indicator, not UI; nothing was built for it.
-- **`components/theme-toggle.tsx`** — `variant="hud"` (glowing blue ring)
-  for the marketing header; portals keep `default`.
-- **`components/city/flight-stop.tsx`** — new `bleed` prop: no container,
-  no gutters, `pt-[72px]`, so a stop can lay out its own full-width bands.
-- **`(public)/page.tsx`** — the plaza stop is `bleed`: hero copy at 6% from
-  the left (eyebrow, 64px three-line headline with the gradient middle
-  line, 17px paragraph, the two 50px buttons), the "REAL IMPACT" card
-  ending 3.8% from the right, then the trusted-brands band and the "THE
-  PLATFORM" strip across the bottom of the same viewport. **Bug fixed on
-  the way:** the sticky header takes 72px of flow, so at scroll 0 the
-  sticky stage started 72px down and its bottom 72px sat below the fold
-  (the owner saw the strip cut off at the top of the page). The track is
-  now pulled up under the header (`-mt-[72px]`), the stage fills the
-  viewport from scroll 0, and short viewports cap the headline by `svh`
-  and compact the bands (`@media (max-height: 800px)`). Verified with
-  Playwright (system Edge): plaza stop `scrollHeight === clientHeight` at
-  1825×862, 1920×920 and 1366×700; the phone width still scrolls inside
-  the stop (card + bands cannot fit 844px), no horizontal overflow, no
-  console errors. The basketball stop's "How it works" heading is
-  unchanged.
-- **`components/landing-hero.tsx`** (new) — `HeroEyebrow`, `HeroActions`,
-  `ImpactCard`, `TrustedBrands`, `PlatformStrip`. The card is three
-  layers: a clip-path-chamfered frosted plate (`backdrop-blur-2xl`), a
-  one-pixel glowing outline cut with a nonzero-winding `clip-path` ring
-  under a `drop-shadow` wrapper (the shadow is on the wrapper so the clip
-  does not eat the glow), bright top-left bracket / lit top-right chamfer /
-  faint bottom-right bracket, then the stepped title rule that runs to the
-  right border and three rows of ring + solid glyph + number + label +
-  arrow (each row links to the stop that explains it). The brands band is
-  glass (gradient tint + `backdrop-blur-lg`, glowing top and bottom rules,
-  darker slanted label plate with a lit edge, faint tall slanted dividers).
-  `fixtures.trustedBrands` gained an optional `logo` path: drop the brand
-  files under `public/brands/` and set it and the band renders images;
-  until then it falls back to text wordmarks — the mockup's logos are
-  brand artwork the repo does not hold, and the names are not confirmed
-  partners (the band says so in its `title`).
-- **`globals.css`** — `.sx-hero-gradient`, `.sx-hud` corner brackets,
-  `.sx-hud-dashes`, `.sx-nav-line` (all fixed-dark literals on purpose:
-  the hero sits on the city, which is dark in both themes).
+Backend (2S5-BE-04, 2S5-BE-05, 2S5-INT-01, 2S5-INT-03 — all **In progress**,
+honestly: the stand-in is not Stripe):
+- `lib/payment-provider.ts` — the one place the provider is called. `standin` on
+  staging/local (SponsorX's own labelled /test-provider pages, no money moves),
+  `none` in production until Stripe is connected; the API refuses to boot with
+  the stand-in in production. `PAYMENT_PROVIDER`, `STANDIN_PROVIDER_SECRET`,
+  `PAYOUT_HOLD_DAYS` in env.
+- Models PayoutAccount, PaymentAttempt, Payout, PayoutLine (+ order `fulfilledAt`),
+  migration `20260930090000_payouts`. Policy: `payout` gains the payee request
+  and BTG approve rows; new `payoutAccount` (RBAC matrix + digest updated).
+- Sponsor pays an approved order on the provider's page → worker confirms →
+  order PAID + receipt email. Payee requests its requestable balance (paid,
+  delivered, past hold, account ready) → BTG approves / sends back → worker sends
+  and confirms → PAID, PAYOUT journal, email. Refunds refused while a payout
+  covers the order. BE-04's "dispute open" clause waits for 2S5-BE-03.
+- tests/phase2-payouts.test.ts (14) reproduces the walkthrough figures:
+  Riley $542.58 then the $61.66 reserve = $604.24; Hawks $151.05; ledger reconciles.
 
-**Dropped on the owner's call, mid-session, in this order:** the diagonal
-glow streaks I had added across the hero ("remove those blue lines"); the
-bottom-right stepped HUD plate with the blue tab (three attempts, none
-read right over the live city — "broken and ugly"); the circle mark and
-vertical divider on the SponsorX tag. What remains bottom-right is the
-two-line tracked tag only.
+Frontend (from the Claude Design canvas):
+- 2S5-FE-05 **Code review** — sponsor order page E1–E4 (Pay $… by card ↗,
+  confirming, paid, Try again on Stripe ↗) and the stand-in's /test-provider pages.
+- 2S5-FE-03 **In progress** — team Earnings: payout-account panel (Set up /
+  Continue / Manage payouts on Stripe ↗), Request payout, history to "Paid ·
+  confirmed by the payment provider"; athlete-home set-up banner. Riley's own
+  "My money" page and BTG's payout approval screen (2S5-FE-04) wait for their
+  Claude Design screens (prompt given to the user).
+- Verified locally in the browser end to end: decline → retry → paid; delivered
+  → Hawks set up payouts → request $135.64 → approved → Paid.
 
-**Deliberate deviations from the mockup, worth knowing:** the hero
-"Get Started" and the header CTA use a white label on the blue gradient
-(the mockup's call) — under the P1-QA-02 4.5:1 bar on the lightest stop
-of the gradient; the card's stat provenance is no longer a visible
-footnote (the mockup has none) but lives in each row's `title` tooltip and
-an `sr-only` line, so the figures still never claim to be live (P7-QA-02).
+Local note: after a fresh local database, set `ALTER DATABASE sponsorx_test SET
+sponsorx.audit_purge = on` (as CI does), or cleanup-heavy suites fail.
 
-**Checks:** `tsc --noEmit` clean (phantom `LayoutProps` only), eslint clean
-on every touched file, vitest 545/545. **Not run:** `npm run build` — the
-dev server was live on port 3000 (never build into a live `next dev`).
+## Built: Riley's "My money" and BTG's payout approvals (2S5-FE-03, 2S5-FE-04) — Code review
 
-**Later the same evening, on the owner's notes:**
+From the Claude Design artboards MyMoney and Approvals (the second prompt was
+needed: the first run of the payout prompt produced only the sponsor payment).
+- `/athlete/money` (nav "My money"): tiles, payout account with Stripe ↗, the
+  "before you can request" checklist with the set-up button, per-order shares,
+  Request payout (with "$61.66 stays in reserve…"), history with the
+  Requested → Approved by BTG → Sent → Paid tracker (shared with the team page).
+- `/admin/payouts` (nav "Payouts", BTG admin + Finance): tabs with counts, each
+  waiting request's checks; `/admin/payouts/[id]`: payee + account, the payee's
+  part of the frozen split, checks, audit trail, Approve / Send back (note
+  required), Retry for problems.
+- Verified locally: Riley set up payouts → requested $542.58 → Finance approved
+  → worker paid → all four steps done on Riley's page.
 
-- **Navbar** — the slanted dividers and the dark/light toggle are gone from
-  the marketing header (the portals keep theirs; `theme-toggle.tsx` is
-  back to its committed form). A **Home** link was added. The nav row is
-  now a client island, **`components/site-nav.tsx`**, and the current page
-  is lit as a hologram (`.sx-holo` in globals.css: text glow, a neon
-  flicker, two brand-hued ghost copies of the label cut in for a few
-  frames as an RGB-split glitch, and a glowing hairline underneath;
-  reduced motion keeps only the glow and the bar). "Current" follows the
-  route *and* the drone: on `/` the hovering flight stop decides (Home at
-  the plaza, How It Works at the court, For Sponsors at the soccer field,
-  For Athletes at the baseball field, none mid-leg); off `/` the pathname
-  does (For Athletes on `/join`). The store subscription selects the
-  hovering stop id, so the header re-renders on stop change only.
-  Playwright-checked: Home current at the top; clicking How It Works
-  lands on the court with it current; `/join` lights For Athletes.
-- **Hero legibility** — the paragraph sat on the plaza's lit billboards.
-  A left gradient scrim (40% wide, ending before the pedestal, `#04080f` 90% → 60% → transparent) now
-  grounds the copy, and the headline / paragraph shadows are deeper.
-- **Real Impact card** — glass strengthened (`backdrop-blur-2xl`, tint up
-  a notch) so the city behind it is frosted, not see-through.
-- **SponsorX tag** — its circle mark and vertical divider removed; two
-  tracked text lines remain at the strip's right.
-- **"Measure Results." went muddy** — the headline's text-shadow painted
-  behind the gradient-clipped (transparent) glyphs. `.sx-hero-gradient`
-  now sets `text-shadow: none` and takes its shadow from a `drop-shadow`
-  filter; the sweep is brighter (`#9be0ff → #4fb6ff → #2e9bf5`).
+## Walkthrough deck redone with the payment and payout screens (+ three small fixes)
+
+- The walkthrough artifact (claude.ai/artifact/LPLmw7XkLWnutu7fBjM6jq, v8) now shows all 16 steps on real screens: payout-account set-up (5a–5d), pay by card (11a–11c), payment confirmed plus receipt email (12), Riley's My money (13), payout request (14), BTG's approval queue, detail and paid state plus payout email (15a–15c), and reserve release and final payouts (16). The "not built" gap cards are gone. Stripe steps use the marked staging stand-in.
+- Fixes found while shooting it:
+  - BTG's order page Payments card said "Not tracked yet". It now reads `GET /marketplace-orders/:id/payment` and shows the real status and provider reference (2S5-INT-01).
+  - The "Mark awaiting payment" and "Mark paid" hints no longer say there is no payment provider. Mark paid is for payments made another way.
+  - The payout tracker's labels now wrap instead of truncating in narrow columns (the Hawks' "Approved by BTG").
+  - Payout emails to athletes now link to `/athlete/money`, not `/athlete/earnings`.
 
 ## "How it works" stop redrawn 1:1 to the how-it-works mockup (HeckerCreatives, evening)
 

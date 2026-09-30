@@ -5,7 +5,7 @@
 | | |
 |---|---|
 | **Goal** | Turn SponsorX from BTG-only operations into a multi-tenant marketplace. External athletes, teams, programs, events and media properties onboard, publish inventory, fulfil deliverables and get paid. |
-| **Tasks** | 67 · 267 person-days |
+| **Tasks** | 72 · 284 person-days |
 | **Blueprint timeline** | 16–20 weeks |
 | **Balanced budget** | $80K–$120K |
 | **Depends on** | Phase 1 auth/RBAC, sponsor/property/inventory/campaign/reward models, Zoho integration, core analytics |
@@ -16,7 +16,7 @@
 | Phase | File | Tasks | Timeline |
 |---|---|---|---|
 | 1 | [`SponsorX-Phase1-Managed-Marketplace.md`](./SponsorX-Phase1-Managed-Marketplace.md)  | 186 | 14–18 weeks |
-| 2 | [`SponsorX-Phase2-Marketplace-Commerce.md`](./SponsorX-Phase2-Marketplace-Commerce.md) **← you are here** | 67 | 16–20 weeks |
+| 2 | [`SponsorX-Phase2-Marketplace-Commerce.md`](./SponsorX-Phase2-Marketplace-Commerce.md) **← you are here** | 72 | 16–20 weeks |
 | 3 | [`SponsorX-Phase3-Intelligence-Attribution.md`](./SponsorX-Phase3-Intelligence-Attribution.md)  | 44 | 18–22 weeks |
 | 4 | [`SponsorX-Phase4-INFINEX-Integration.md`](./SponsorX-Phase4-INFINEX-Integration.md)  | 51 | 18–22 weeks |
 
@@ -345,7 +345,7 @@ Roster, inventory, campaigns, revenue, tasks and performance for a team or progr
 
 *Public and private listings, packages, search, availability and conflict checking.*
 
-*6 tasks · 26 person-days*
+*8 tasks · 34 person-days*
 
 ### ⏸ `2S3-BE-01` · Marketplace listing model and lifecycle
 
@@ -387,6 +387,16 @@ Sponsors browse what is available to them. Visibility rules mean two sponsors se
 - **Done when:** Search returns only inventory visible to the requesting sponsor and tenant
 - **Reference:** Spec §12
 
+### ⏸ `2S3-BE-05` · Independent athletes list their own items
+
+**Order** 27.5 · **BE** · **Where:** Code · **5d** · **Blocked**
+
+Not every athlete has a team. Today only a property manager can put an item on sale, so an athlete with no team can create items that can never be sold — and nothing tells them. Let an approved athlete with no team be the seller of their own listing: the athlete submits it, BTG approves it by the same rules as a team's (with "the athlete is approved" in place of "the property is approved to list"), and with no team the athlete keeps the whole share. Listings stop assuming a property: search, the cart, orders, the availability check and the ledger split all handle an athlete-owned listing. A roster athlete's items still go through their team. Raised 2026-09-30 from the walkthrough.
+
+- **Depends on:** 2S3-BE-01, 2S2-BE-01
+- **Done when:** An approved athlete with no team can submit their own item, BTG can approve it, a sponsor can find, cart and order it, and the split pays the athlete as the only payee; a roster athlete still cannot list around their team; scope and tenant tests cover the new seller
+- **Reference:** Spec §9, §12; walkthrough 2026-09-30
+
 ### ⏸ `2S3-FE-01` · Build the listing editor
 
 **Order** 28 · **FE** · **Where:** Code · **5d** · **Blocked**
@@ -396,6 +406,16 @@ Listing data, pricing, package builder, preview, approval status and visibility 
 - **Depends on:** 2S0-ART-01
 - **Done when:** A property can build, preview and submit a listing for approval
 - **Reference:** Spec §6 P2-07
+
+### ⏸ `2S3-FE-02` · Listing screen for independent athletes
+
+**Order** 28.5 · **FE** · **Where:** Code · **3d** · **Blocked**
+
+The athlete-side "put it on sale" step: from their inventory, an athlete with no team writes what the sponsor gets, sees the same checklist of what BTG checks, and submits for approval; they can then follow the listing's state, pause it and take it down. An athlete on a team is told their team lists it.
+
+- **Depends on:** 2S3-BE-05
+- **Done when:** An independent athlete can build, submit and follow a listing for approval from their own portal
+- **Reference:** Spec §6 P2-07; walkthrough 2026-09-30
 
 ### ⏸ `2S3-SEC-01` · Listing visibility and tenant isolation tests
 
@@ -487,7 +507,7 @@ Billing details, agreement acceptance, deposit or full payment, and any approval
 
 *The financial core. Money in, money apportioned, money out.*
 
-*11 tasks · 49 person-days*
+*14 tasks · 58 person-days*
 
 ### ⏸ `2S5-INT-01` · Payment provider checkout integration
 
@@ -588,6 +608,36 @@ Gross revenue, fees, available balance, pending balance, payout history and exce
 - **Depends on:** 2S5-BE-02
 - **Done when:** Dashboard reconciles to the ledger to the cent
 - **Reference:** Spec §6 P2-11
+
+### ⏸ `2S5-FE-03` · Athlete and team payout screens
+
+**Order** 46.3 · **FE** · **Where:** Code · **4d** · **Blocked**
+
+Where an athlete (and a team) gets paid. First the payout account: until it is ready the page says plainly that a Stripe account is needed and links out to Stripe to set one up (and back again if Stripe needs more information); SponsorX never sees bank details. Then the money: available, held in reserve and paid out; a Request payout button for the available balance, disabled with the reason when a rule isn't met; and a payout history whose status moves Requested → Approved by BTG → Sent → Paid, confirmed by the payment provider. Stripe itself stays invisible after set-up — the payee sees SponsorX's statuses and an email when it's paid. Raised 2026-09-30 from the walkthrough (steps 5, 14, 15).
+
+- **Depends on:** 2S5-BE-04, 2S0-ART-01
+- **Done when:** An athlete can set up their payout account from SponsorX, request their available balance, and follow it to Paid; the team does the same from its Earnings page; the figures reconcile to the ledger
+- **Reference:** Spec §6 P2-11, §7.4; walkthrough 2026-09-30
+
+### ⏸ `2S5-FE-04` · BTG payout approval screen
+
+**Order** 46.6 · **FE** · **Where:** Code · **3d** · **Blocked**
+
+BTG's queue of payout requests: waiting, sending, paid and problems, each with the payee, amount, orders, how long it has waited and the result of every payout rule. The detail shows the frozen split behind it and lets BTG approve (handing it to the payment provider) or send it back with a note, then follow it to Paid or to a problem it can act on.
+
+- **Depends on:** 2S5-BE-05
+- **Done when:** BTG can approve or send back a payout request and see it confirmed paid by the payment provider, with every decision in the audit log
+- **Reference:** Spec §8; walkthrough 2026-09-30
+
+### ⏸ `2S5-FE-05` · Sponsor pays for an order (pay-by-card button)
+
+**Order** 46.8 · **FE** · **Where:** Code · **2d** · **Blocked**
+
+Once BTG approves an order, the sponsor's order page shows "payment due" and a primary button "Pay $… by card ↗" that takes them to Stripe's secure payment page — SponsorX never sees the card. Back from Stripe the order shows "confirming", then "Paid, confirmed by the payment provider", or "didn't go through" with the button again. Rule agreed 2026-09-30: every step that involves Stripe has a call-to-action button on our page that takes the user there.
+
+- **Depends on:** 2S5-INT-01, 2S0-ART-01
+- **Done when:** A sponsor can pay an approved order from its SponsorX page via Stripe and see it confirmed paid (or retry a failed payment); a sponsor email confirms the payment
+- **Reference:** Spec §8; walkthrough 2026-09-30 (step 11)
 
 ### ⏸ `2S5-SEC-01` · Financial audit coverage
 

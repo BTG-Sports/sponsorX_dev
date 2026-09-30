@@ -20,6 +20,7 @@ const NAV: NavItem[] = [
   /* 2S5-FE-01 — BTG admin only; hidden from the other staff roles below. */
   { href: "/admin/commission", label: "Commission", icon: "card" },
   { href: "/admin/marketplace", label: "Marketplace", icon: "store" },
+  { href: "/admin/payouts", label: "Payouts", icon: "wallet" },
   { href: "/admin/onboarding", label: "Onboarding", icon: "users" },
   { href: "/admin/network", label: "Network", icon: "users" },
   { href: "/admin/integrations", label: "Integrations", icon: "gear" },

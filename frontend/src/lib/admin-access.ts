@@ -26,6 +26,8 @@ export const ADMIN_ACCESS: Record<string, { roles: string[]; who: string }> = {
      own-tenant and SUPER_ADMIN only. */
   "/admin/onboarding": { roles: ["SUPER_ADMIN", "BTG_ADMIN"], who: "BTG admins" },
   "/admin/marketplace": { roles: ["SUPER_ADMIN", "BTG_ADMIN"], who: "BTG admins" },
+  /* 2S5-FE-04 — payout approvals: the API's payout.approve is BTG admin and Finance. */
+  "/admin/payouts": { roles: ["SUPER_ADMIN", "BTG_ADMIN", "FINANCE"], who: "BTG admins and Finance" },
   "/admin/next": { roles: ["SUPER_ADMIN", "BTG_ADMIN", "SALES", "FINANCE"], who: "BTG admins, Sales and Finance" },
 };
 

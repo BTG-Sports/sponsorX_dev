@@ -391,6 +391,19 @@ const BUILDERS: Partial<Record<Resource, Builder>> = {
     if (scope === "own-sponsor") return actor.sponsorId ? { tenantId: actor.tenantId, sponsorId: actor.sponsorId } : MATCHES_NOTHING;
     return tenantScoped(actor, scope);
   },
+  /* 2S5-INT-03 — a payee's own payout account, in the payee's own tenant. */
+  payoutAccount: (actor, scope) => {
+    if (scope === "own") return actor.athleteId ? { tenantId: actor.tenantId, payeeType: "ATHLETE", payeeId: actor.athleteId } : MATCHES_NOTHING;
+    if (scope === "own-property") return actor.propertyId ? { tenantId: actor.tenantId, payeeType: "PROPERTY", payeeId: actor.propertyId } : MATCHES_NOTHING;
+    return tenantScoped(actor, scope);
+  },
+  /* 2S5-BE-04 — a payout is in the operator's books (tenantId) and names its
+     payee's tenant; a payee reads only its own, like its ledger entries. */
+  payout: (actor, scope) => {
+    if (scope === "own") return actor.athleteId ? { payeeTenantId: actor.tenantId, payeeType: "ATHLETE", payeeId: actor.athleteId } : MATCHES_NOTHING;
+    if (scope === "own-property") return actor.propertyId ? { payeeTenantId: actor.tenantId, payeeType: "PROPERTY", payeeId: actor.propertyId } : MATCHES_NOTHING;
+    return tenantScoped(actor, scope);
+  },
   tenantBranding: (actor, scope) => {
     if (scope === "any") return {};
     if (scope === "own-tenant" || scope === "own") return { tenantId: actor.tenantId };

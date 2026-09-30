@@ -130,12 +130,33 @@ const schema = z.object({
      A fingerprint is added here by a person after that exact file has run
      cleanly on staging — which is what "staging first" means in practice. */
   COHORT_IMPORT_APPROVED_SHA256: z.string().default(""),
+
+  /* 2S5 — which payment provider takes card payments and sends payouts.
+     "standin" is a test provider for staging and local only: its pages are
+     SponsorX's own, clearly labelled, and it moves no money. "none" means no
+     provider is connected yet — the buttons say so and nothing is charged or
+     sent. Unset: "none" in Railway production, "standin" everywhere else.
+     Stripe joins this list when 2S0-PMO-03 is decided. */
+  PAYMENT_PROVIDER: z.enum(["standin", "none"]).optional(),
+  /* Signs the stand-in provider's links. Development default is fine: the
+     stand-in is refused in production (below). */
+  STANDIN_PROVIDER_SECRET: z.string().default("dev-standin-provider-secret"),
+  /* Days after an order is fulfilled before its money can be requested as a
+     payout (2S5-BE-04's "configured holding period"). */
+  PAYOUT_HOLD_DAYS: z.coerce.number().int().min(0).max(90).default(0),
 });
 
 /* A development default that reached production would make every continuation
    link forgeable by anyone who has read this repository. Refusing to boot is
    the only safe failure: a warning gets missed, and the damage is silent. */
 const parsed = schema.parse(process.env);
+if (parsed.RAILWAY_ENVIRONMENT_NAME?.toLowerCase() === "production" && parsed.PAYMENT_PROVIDER === "standin") {
+  throw new Error(
+    "PAYMENT_PROVIDER=standin in production. The stand-in provider marks cards " +
+      "paid and payouts sent without moving any money; it exists for staging " +
+      "only. Refusing to boot.",
+  );
+}
 if (parsed.NODE_ENV === "production" && !parsed.ZOHO_WEBHOOK_SECRET) {
   throw new Error(
     "ZOHO_WEBHOOK_SECRET is not set. The Zoho invoice webhook is a public " +

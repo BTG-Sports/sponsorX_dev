@@ -509,14 +509,34 @@ earnings and can never alter them.
 ### `payout`
 | Role | Read | Write | Approve |
 |---|---|---|---|
-| `SUPER_ADMIN` | any | any | — |
-| `BTG_ADMIN` · `FINANCE` | own-tenant | own-tenant | — |
-| `ATHLETE` | own (status only) | — | — |
+| `SUPER_ADMIN` | any | any | any |
+| `BTG_ADMIN` · `FINANCE` | own-tenant | own-tenant | **own-tenant** (approve / send back) |
+| `ATHLETE` | own | **own** (request own balance) | — |
+| `PROPERTY_MGR` | **own-property** | **own-property** (request the property's balance) | — |
 | `GUARDIAN` | ward (status only) | — | — |
 | all others | — | — | — |
 
-Phase 1 tracks payout **status**, not money movement. No bank details exist
-anywhere in SponsorX (§26), so there is nothing here to protect beyond status.
+Updated 2026-09-30 (2S5-BE-04/-05): the marketplace payout. A payee requests
+its whole requestable balance; BTG admin or Finance approves it or sends it
+back with a note; the payment provider sends it. Money moves only through the
+provider — no bank details exist anywhere in SponsorX (§26). A payee reads
+only its own payouts (by payee tenant, type and id, as `ledgerEntry`). The
+GUARDIAN `ward` row is kept from Phase 1; the payout scope does not yet
+resolve a ward, so it matches nothing until it does.
+
+### `payoutAccount` *(added 2026-09-30, 2S5-INT-03)*
+| Role | Read | Write | Approve |
+|---|---|---|---|
+| `SUPER_ADMIN` | any | any | — |
+| `BTG_ADMIN` · `FINANCE` | own-tenant | — | — |
+| `PROPERTY_MGR` | own-property | own-property | — |
+| `ATHLETE` | own | own | — |
+| all others | — | — | — |
+
+Where a payee is paid. The account lives at the payment provider; SponsorX
+holds only the provider's account id and its status (not set up / needs
+information / ready). "Write" is starting or resuming set-up on the provider's
+page. Sponsors are denied both `payout` and `payoutAccount`.
 
 ### `invoice` *(added 2026-09-24)*
 | Role | Read | Write | Approve |

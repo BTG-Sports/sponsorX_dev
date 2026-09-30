@@ -186,7 +186,7 @@ Code review. Committing one file is what makes a shared tracker actually shared.
 
 **Phase files:**
 [Phase 1 · Managed Marketplace](documentation/SponsorX-Phase1-Managed-Marketplace.md) (186 tasks) ·
-[Phase 2 · Marketplace & Commerce](documentation/SponsorX-Phase2-Marketplace-Commerce.md) (67) ·
+[Phase 2 · Marketplace & Commerce](documentation/SponsorX-Phase2-Marketplace-Commerce.md) (72) ·
 [Phase 3 · Intelligence & Attribution](documentation/SponsorX-Phase3-Intelligence-Attribution.md) (44) ·
 [Phase 4 · INFINEX Integration](documentation/SponsorX-Phase4-INFINEX-Integration.md) (51)
 
