@@ -416,6 +416,8 @@ model Athlete {
   consents     AgreementAcceptance[]
   claims       AthleteClaim[]
   inventory    InventoryItem[]
+  /// 2S3-BE-05 — listings this athlete sells without a team.
+  sellingListings Listing[] @relation("ListingSellerAthlete")
   offers       Offer[]
   restrictions BrandRestriction[]
   /// P3-BE-16 — the athlete's own post-approval edits, held for BTG review.
@@ -1944,8 +1946,12 @@ enum ListingState {
 model Listing {
   id              String       @id @default(cuid())
   tenantId        String
-  /// The verified property whose listing it is.
-  propertyId      String
+  /// The verified property whose listing it is — or null when an athlete with
+  /// no team sells their own item (2S3-BE-05); then sellerAthleteId is set.
+  /// Exactly one of the two (marketplace_checks.sql).
+  propertyId      String?
+  /// 2S3-BE-05 — the independent athlete selling their own item.
+  sellerAthleteId String?
   inventoryItemId String
   title           String
   description     String?
@@ -1964,12 +1970,14 @@ model Listing {
   updatedAt       DateTime     @default(now()) @updatedAt
 
   tenant    Tenant        @relation(fields: [tenantId], references: [id])
-  property  Property      @relation(fields: [propertyId], references: [id])
-  item      InventoryItem @relation(fields: [inventoryItemId], references: [id])
-  cartLines CartLine[]
+  property      Property?     @relation(fields: [propertyId], references: [id], onDelete: Restrict)
+  sellerAthlete Athlete?      @relation("ListingSellerAthlete", fields: [sellerAthleteId], references: [id], onDelete: Restrict)
+  item          InventoryItem @relation(fields: [inventoryItemId], references: [id])
+  cartLines     CartLine[]
 
   @@index([tenantId, state])
   @@index([inventoryItemId, state])
+  @@index([sellerAthleteId])
 }
 
 enum OfferState {
@@ -2256,9 +2264,12 @@ model MarketplaceOrderLine {
   orderId         String
   listingId       String
   inventoryItemId String
-  /// The outside tenant and property the line buys from.
+  /// The outside tenant and property the line buys from — or, for an
+  /// independent athlete's listing (2S3-BE-05), no property and the athlete
+  /// as sellerAthleteId. Exactly one of the two (marketplace_checks.sql).
   itemTenantId    String
-  propertyId      String
+  propertyId      String?
+  sellerAthleteId String?
   title           String
   quantity        Int
   startsOn        DateTime
@@ -2270,6 +2281,7 @@ model MarketplaceOrderLine {
 
   @@index([tenantId, orderId])
   @@index([propertyId])
+  @@index([sellerAthleteId])
 }
 
 /**

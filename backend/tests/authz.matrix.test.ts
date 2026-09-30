@@ -322,7 +322,12 @@ describe("the whole matrix is pinned", () => {
       // SUPER_ADMIN any/any, BTG_ADMIN and FINANCE own-tenant read,
       // PROPERTY_MGR own-property r/w, ATHLETE own r/w (matrix §22).
       // Sponsors stay denied both (the money boundary test above).
-    ).toBe("c0d600d731398bb8");
+      // Updated 2026-09-30 (2S3-BE-05): listing.write for ATHLETE moved
+      // deny → own — an approved athlete with no team sells their own item;
+      // the `own` write scope is the listings they sell themselves, never
+      // their team's (matrix §18). That one cell back, the grid hashes to the
+      // previous c0d600d731398bb8, so nothing else moved.
+    ).toBe("9bfe4e2f8189268c");
   });
 
   it("covers every pair the §30 acceptance asks for", () => {

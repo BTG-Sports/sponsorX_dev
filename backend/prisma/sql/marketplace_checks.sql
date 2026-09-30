@@ -15,3 +15,11 @@ CREATE UNIQUE INDEX "Listing_one_live_per_item" ON "Listing" ("inventoryItemId")
 ALTER TABLE "Athlete" DROP CONSTRAINT IF EXISTS "Athlete_team_share_range";
 ALTER TABLE "Athlete" ADD CONSTRAINT "Athlete_team_share_range"
   CHECK ("teamShareBps" IS NULL OR ("teamShareBps" >= 0 AND "teamShareBps" <= 10000));
+-- 2S3-BE-05 — a listing, and an order line bought from it, has exactly one
+-- seller: a property, or the independent athlete selling their own item.
+ALTER TABLE "Listing" DROP CONSTRAINT IF EXISTS "Listing_one_seller";
+ALTER TABLE "Listing" ADD CONSTRAINT "Listing_one_seller"
+  CHECK (("propertyId" IS NULL) <> ("sellerAthleteId" IS NULL));
+ALTER TABLE "MarketplaceOrderLine" DROP CONSTRAINT IF EXISTS "MarketplaceOrderLine_one_seller";
+ALTER TABLE "MarketplaceOrderLine" ADD CONSTRAINT "MarketplaceOrderLine_one_seller"
+  CHECK (("propertyId" IS NULL) <> ("sellerAthleteId" IS NULL));

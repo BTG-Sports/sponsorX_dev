@@ -28,6 +28,7 @@
 import type { Prisma } from "../generated/prisma/client";
 import { overlaps, restrictionConflicts } from "./restrictions";
 import type { PackageRules } from "./inventory";
+import { sellerProblems } from "./listing-rules";
 
 export type AvailabilityCode =
   | "NOT_LISTED" | "NO_CATEGORY" | "OUT_OF_WINDOW" | "DATE_OVERLAP" | "QUANTITY_OVERRUN" | "PACKAGE_RULE" | "CATEGORY_CONFLICT" | "SUB_FLOOR";
@@ -172,9 +173,14 @@ export async function checkListing(tx: Prisma.TransactionClient, listingId: stri
   const listing = await tx.listing.findFirst({
     /* tenant-scope: the caller resolved this listing through whereFor(listing, read) — a sponsor's catalogue spans the tenants its own operates. */
     where: { id: listingId },
-    select: { id: true, tenantId: true, state: true, visibility: true, publishAt: true, inventoryItemId: true, property: { select: { listingAccessAt: true } }, item: { select: { priceCents: true } } },
+    select: {
+      id: true, tenantId: true, state: true, visibility: true, publishAt: true, inventoryItemId: true,
+      property: { select: { listingAccessAt: true } }, sellerAthlete: { select: { state: true, propertyId: true } }, item: { select: { priceCents: true } },
+    },
   });
-  const live = listing && listing.state === "PUBLISHED" && listing.visibility === "PUBLIC" && listing.property.listingAccessAt
+  /* The seller must still be able to sell — a property's listing access, or
+     an independent athlete still approved and still without a team (2S3-BE-05). */
+  const live = listing && listing.state === "PUBLISHED" && listing.visibility === "PUBLIC" && sellerProblems(listing).length === 0
     && (!listing.publishAt || listing.publishAt <= new Date());
   if (!listing || !live) {
     return { ok: false as const, reasons: [{ code: "NOT_LISTED" as const, message: "the listing is not live" }], unitPriceCents: 0, itemId: null, itemTenantId: null };

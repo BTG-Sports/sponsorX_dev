@@ -168,6 +168,8 @@ export type PreviewLine = {
   label?: string; grossCents: number; propertyKind?: string | null; propertyId?: string | null;
   /** A roster athlete's item — its available and reserve split with the property. */
   athleteItem?: boolean; teamShareBps?: number | null;
+  /** 2S3-BE-05 — sold by an athlete with no team: no team share, whatever the TEAM_SHARE rule says. */
+  independentAthlete?: boolean;
 };
 
 /**
@@ -189,7 +191,7 @@ export async function previewSplit(
     const lines = [];
     for (const [i, l] of input.lines.entries()) {
       const rules = await resolveRates(prisma, actor.tenantId, { propertyKind: l.propertyKind, propertyId: l.propertyId, sponsorId: input.sponsorId }, now, RULE_KINDS, draft);
-      lines.push({ lineId: l.label?.trim() || `Line ${i + 1}`, grossCents: l.grossCents, rules, athleteId: l.athleteItem ? "athlete" : null, teamShareBps: l.teamShareBps ?? null });
+      lines.push({ lineId: l.label?.trim() || `Line ${i + 1}`, grossCents: l.grossCents, rules, athleteId: l.athleteItem || l.independentAthlete ? "athlete" : null, teamShareBps: l.independentAthlete ? 0 : l.teamShareBps ?? null });
     }
     const out = breakdownOrder(lines, processing);
     const sum = (k: "netCents" | "platformFeeCents" | "managementFeeCents" | "processingCents" | "propertyShareCents" | "referralCents" | "reserveCents" | "availableCents") =>

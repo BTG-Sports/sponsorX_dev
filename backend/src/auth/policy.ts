@@ -814,7 +814,9 @@ export const POLICY: Record<Resource, RolePolicy> = {
     SUPER_ADMIN: rwa("any", "any", "any"),
     BTG_ADMIN: rwa("operated", undefined, "operated"),
     PROPERTY_MGR: rwa("own-property", "own-property"),
-    ATHLETE: rwa("own"),
+    /* Reads every listing of their items; writes (2S3-BE-05) only the ones
+       they sell themselves, as an approved athlete with no team. */
+    ATHLETE: rwa("own", "own"),
     /* 2S3-BE-04 — a sponsor's catalogue: PUBLISHED, PUBLIC, live listings of
        approved properties in the marketplace its tenant operates. */
     SPONSOR_ADMIN: rwa("catalog"),

@@ -5,7 +5,7 @@
 | | |
 |---|---|
 | **Goal** | Turn SponsorX from BTG-only operations into a multi-tenant marketplace. External athletes, teams, programs, events and media properties onboard, publish inventory, fulfil deliverables and get paid. |
-| **Tasks** | 72 · 284 person-days |
+| **Tasks** | 73 · 286 person-days |
 | **Blueprint timeline** | 16–20 weeks |
 | **Balanced budget** | $80K–$120K |
 | **Depends on** | Phase 1 auth/RBAC, sponsor/property/inventory/campaign/reward models, Zoho integration, core analytics |
@@ -416,6 +416,16 @@ The athlete-side "put it on sale" step: from their inventory, an athlete with no
 - **Depends on:** 2S3-BE-05
 - **Done when:** An independent athlete can build, submit and follow a listing for approval from their own portal
 - **Reference:** Spec §6 P2-07; walkthrough 2026-09-30
+
+### ⏸ `2S3-FE-03` · Show an athlete as the seller in the shop, cart and BTG's queue
+
+**Order** 28.7 · **FE** · **Where:** Code · **2d** · **Blocked**
+
+Since 2S3-BE-05 a listing is sold by a team **or** by an athlete with no team. For an athlete's listing the API sends `property: null` (search), `propertyName: null` (cart, listings) and a `seller: { type: "ATHLETE", id, name }` on every listing and search result. Screens that print the team's name must print the seller instead. Otherwise the sponsor shop's seller line (`propertyLine` in `lib/shop-live.ts`) fails on the first athlete-sold listing. The screens are the sponsor shop and its search, the cart line, the checkout summary, and BTG's marketplace listing queue. The seller filter and the "how many sellers" count in `lineSummary` must count athletes too. Raised 2026-09-30 by 2S3-BE-05.
+
+- **Depends on:** 2S3-BE-05
+- **Done when:** An athlete-sold listing shows the athlete as its seller in the shop, the cart, checkout and BTG's listing queue, with no screen assuming a property; a test renders each with `property: null`
+- **Reference:** Spec §6 P2-07; 2S3-BE-05
 
 ### ⏸ `2S3-SEC-01` · Listing visibility and tenant isolation tests
 
