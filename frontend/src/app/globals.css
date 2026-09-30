@@ -2078,6 +2078,9 @@ html[data-sx-loaded] [data-sx-stage][data-armed] .sx-bar { transform: none; }
   background: radial-gradient(50% 50% at 50% 50%, rgba(0, 0, 0, 0.55), transparent 70%);
   filter: blur(6px);
   pointer-events: none;
+  /* under every leaf: a turned leaf sits at z-index 0 and would otherwise
+     wear the shadow across its lower edge (.sx-book is a stacking context) */
+  z-index: -1;
 }
 
 /* page mode: one face at a time, hinging in and out */
