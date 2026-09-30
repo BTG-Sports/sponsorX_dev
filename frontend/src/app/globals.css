@@ -2123,7 +2123,9 @@ html[data-sx-loaded] [data-sx-stage][data-armed] .sx-bar { transform: none; }
   .sx-mag-mini > span:first-child { transition: none; }
   .sx-book, .sx-leaf { transition: none; }
   .sx-leaf-shade, .sx-book-hint { animation: none; display: none; }
-  .sx-face[data-show], .sx-face[data-leaving] { animation: sx-page-fade 0.15s ease; transform: none; }
-  .sx-face[data-leaving] { display: none; }
+  @media (max-width: 63.999rem) {
+    .sx-face[data-show], .sx-face[data-leaving] { animation: sx-page-fade 0.15s ease; transform: none; }
+    .sx-face[data-leaving] { display: none; }
+  }
 }
 @keyframes sx-page-fade { from { opacity: 0; } to { opacity: 1; } }
