@@ -1,4 +1,4 @@
-import { BackCover, BenefitsSpread, FeatureSpread, MagCover, Newsstand, OpenerSpread } from "@/components/next-about-stage";
+import { BackCover, MagCover, MagazineBook, Newsstand } from "@/components/next-about-stage";
 import { StageReveal } from "@/components/packages-fx";
 import { InsideBand } from "@/components/packages-stage";
 import { BAND_ITEMS, type EditionCard } from "@/lib/next-about";
@@ -15,8 +15,9 @@ import { BAND_ITEMS, type EditionCard } from "@/lib/next-about";
    Redesigned 2026-09-30 as a magazine (design spec
    docs/superpowers/specs/2026-09-30-next-about-magazine-design.md): a
    tilting cover with the BTG Sports Talk Magazine logo as masthead, the
-   content as paper spreads that page-flip in, all on the landing's dark
-   HUD ground. The blocks live in next-about-stage.tsx; this file only
+   content as paper spreads that page-flip in, now one interactive magazine
+   the reader opens and turns (flipbook spec 2026-09-30), all on the
+   landing's dark HUD ground. The blocks live in next-about-stage.tsx; this file only
    fetches and lays them out.
    -------------------------------------------------------------------------- */
 
@@ -41,9 +42,7 @@ export default async function NextLandingPage() {
     <StageReveal className="sx-stage sx-mag relative -mt-[72px] w-full overflow-x-clip text-on-media">
       <MagCover />
       <InsideBand label="In this issue" items={BAND_ITEMS} />
-      <OpenerSpread />
-      <FeatureSpread />
-      <BenefitsSpread />
+      <MagazineBook />
       <Newsstand list={list} />
       <BackCover />
     </StageReveal>
