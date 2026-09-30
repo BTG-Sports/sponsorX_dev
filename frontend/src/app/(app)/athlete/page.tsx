@@ -4,12 +4,15 @@ import { Badge, Card, SectionHeading } from "@/components/ui";
 import { Monogram } from "@/components/hero";
 import { DUE_STATES, buildHome } from "@/lib/athlete-home-live";
 import { EmptyState } from "@/components/states";
+import { StripeLinkButton } from "@/components/payout-account-panel";
+import { athleteBanner, type ApiPayoutAccount } from "@/lib/payouts-live";
 import type { ApiDeliverable } from "@/lib/deliverables-live";
 import type { ApiEarning, ApiEarningsSummary } from "@/lib/earnings-live";
 import type { ApiInvitation } from "@/lib/invitations-live";
 import type { ApiMyProfile } from "@/lib/profile-live";
 import { apiFetch } from "@/server/api";
 import { requirePortalAccess } from "@/server/portal";
+import { athletePayoutLinkAction } from "./payout-actions";
 
 /* --------------------------------------------------------------------------
    Athlete portal home — P3-FE-06, §9 screen 6. The signed-in athlete's own
@@ -21,6 +24,14 @@ import { requirePortalAccess } from "@/server/portal";
    no profile block, but the invitation, deliverable and earning reads are
    ward-scoped for them and show here. A non-OK read throws to the error page;
    it never falls back to sample figures.
+
+   2S5-FE-03 (athlete part, design AthHome.dc.html): GET /payouts/account
+   feeds a payout-account banner while the account isn't READY, with the
+   Stripe CTA (POST /payouts/account/link {returnPath:"/athlete"} →
+   redirect, athletePayoutLinkAction). A 403/404 there — a guardian login,
+   which has no payee — skips the banner silently. The "under 18, a parent
+   or guardian finishes this" line is left out: GET /athletes/me carries no
+   birth date or age band to decide it from.
    -------------------------------------------------------------------------- */
 
 export const dynamic = "force-dynamic";
@@ -40,12 +51,13 @@ export default async function AthleteHomePage() {
      deliverables — with the true counts from the inbox summary and
      `page.total`, and the money from the earnings summary. Nothing here
      reads a whole list. */
-  const [me, inv, inbox, del, earnSummary] = await Promise.all([
+  const [me, inv, inbox, del, earnSummary, acctRes] = await Promise.all([
     isAthlete ? apiFetch("/athletes/me") : Promise.resolve(null),
     read<{ invitations: ApiInvitation[] }>("/invitations?page=1&size=3&state=open&sort=expiry"),
     read<{ summary: { open: number } }>("/invitations/summary"),
     read<{ deliverables: ApiDeliverable[]; page: { total: number } }>(`/deliverables?page=1&size=3&state=${DUE_STATES.join(",")}&sort=due`),
     read<ApiEarningsSummary>(`/earnings/summary?year=${new Date().getUTCFullYear()}`),
+    isAthlete ? apiFetch("/payouts/account") : Promise.resolve(null),
   ]);
   /* F-3: an ATHLETE role with no athlete record behind it is a provisioning
      gap BTG fixes, not an outage — say so instead of the error page. */
@@ -64,6 +76,11 @@ export default async function AthleteHomePage() {
   }
   if (me && !me.ok) throw new Error(`/athletes/me unavailable (${me.status}).`);
   const profile = me ? ((await me.json()) as ApiMyProfile) : null;
+  /* No payee behind this login (403/404) → no banner, silently. */
+  if (acctRes && !acctRes.ok && acctRes.status !== 403 && acctRes.status !== 404) {
+    throw new Error(`/payouts/account unavailable (${acctRes.status}).`);
+  }
+  const payout = acctRes?.ok ? athleteBanner((await acctRes.json()) as ApiPayoutAccount) : null;
   const h = buildHome({
     profile,
     invitations: inv.invitations,
@@ -90,6 +107,21 @@ export default async function AthleteHomePage() {
           </div>
         )}
       </div>
+
+      {payout?.show && (
+        <section
+          aria-label="Payout account"
+          className="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-primary/40 bg-primary/5 px-5 py-4"
+        >
+          <div className="min-w-0 max-w-xl">
+            <p className="text-sm font-semibold">{payout.title}</p>
+            <p className="mt-1 text-xs leading-relaxed text-muted">{payout.body}</p>
+            {payout.minorLine && <p className="mt-1 text-xs leading-relaxed text-muted">{payout.minorLine}</p>}
+          </div>
+          <StripeLinkButton cta={payout.cta} action={athletePayoutLinkAction} testBadge={payout.testBadge} />
+        </section>
+      )}
+      {payout && !payout.show && <p className="text-[11px] text-muted">{payout.readyLine}</p>}
 
       {h.profile && (
         <Card>

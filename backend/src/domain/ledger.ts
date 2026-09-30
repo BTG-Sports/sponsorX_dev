@@ -186,7 +186,9 @@ export async function releaseReserve(tx: Tx, orderId: string) {
 export async function reverseOrder(tx: Tx, orderId: string) {
   const posted = await tx.ledgerEntry.findMany({
     /* tenant-scope: this order's own entries, named by its id. */
-    where: { orderId, entryType: { not: "REVERSAL" }, status: { not: "REVERSED" } },
+    /* Money already paid out stays paid out (2S5-BE-05): a refund after a
+       payout leaves the payee owing it back, which is a separate matter. */
+    where: { orderId, entryType: { notIn: ["REVERSAL", "PAYOUT"] }, status: { not: "REVERSED" } },
     select: { id: true, tenantId: true, journalId: true, lineId: true, account: true, partyType: true, partyId: true, partyTenantId: true, debitCents: true, creditCents: true },
   });
   const journals = new Map<string, typeof posted>();
@@ -202,6 +204,31 @@ export async function reverseOrder(tx: Tx, orderId: string) {
     where: { id: { in: posted.map((e) => e.id) } }, data: { status: "REVERSED" },
   });
   await audit(tx, await booksOf(tx, orderId), "ledger.reverse", "MarketplaceOrder", orderId, { after: { journals: journals.size, entries: posted.length } });
+}
+
+/**
+ * 2S5-BE-05 — the provider has confirmed a payout: one balanced PAYOUT journal
+ * per order it covered. The payee's payable is debited (that money is now
+ * paid out) and the provider's clearing account credited. Posted only on the
+ * provider's confirmation, never on approval.
+ */
+export async function postPayout(
+  tx: Tx,
+  books: string,
+  payoutId: string,
+  payee: { payeeType: "ATHLETE" | "PROPERTY"; payeeId: string; payeeTenantId: string },
+  lines: Array<{ orderId: string; amountCents: number }>,
+) {
+  const account = payee.payeeType === "ATHLETE" ? "ATHLETE_PAYABLE" : "PROPERTY_PAYABLE";
+  for (const l of lines) {
+    await post(tx, books, `${payoutId}:${l.orderId}:payout`, "PAYOUT", { orderId: l.orderId }, [
+      { account, partyType: payee.payeeType, partyId: payee.payeeId, partyTenantId: payee.payeeTenantId, debitCents: l.amountCents, status: "PAID" },
+      { account: "PAYOUT_CLEARING", partyType: "PROCESSOR", partyId: "processor", partyTenantId: books, creditCents: l.amountCents, status: "PAID" },
+    ]);
+  }
+  await audit(tx, { userId: null, tenantId: books }, "ledger.payout", "Payout", payoutId, {
+    after: { orders: lines.length, paidCents: lines.reduce((s, l) => s + l.amountCents, 0) },
+  });
 }
 
 /* ── reading ────────────────────────────────────────────────────────────── */

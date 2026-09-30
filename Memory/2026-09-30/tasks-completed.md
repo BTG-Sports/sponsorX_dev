@@ -57,3 +57,52 @@ Blocked on 2S5-INT-01 and the designs): "Pay $… by card ↗" on the approved o
 then confirming → Paid / didn't go through with the button again, plus the sponsor's
 email. Claude Design addendum (section E) given to the user. Phase 2 now 72 · 284;
 tracker row 75.
+
+## Built: card payment and payouts, with a staging stand-in provider (rcfworks, via Claude)
+
+Backend (2S5-BE-04, 2S5-BE-05, 2S5-INT-01, 2S5-INT-03 — all **In progress**,
+honestly: the stand-in is not Stripe):
+- `lib/payment-provider.ts` — the one place the provider is called. `standin` on
+  staging/local (SponsorX's own labelled /test-provider pages, no money moves),
+  `none` in production until Stripe is connected; the API refuses to boot with
+  the stand-in in production. `PAYMENT_PROVIDER`, `STANDIN_PROVIDER_SECRET`,
+  `PAYOUT_HOLD_DAYS` in env.
+- Models PayoutAccount, PaymentAttempt, Payout, PayoutLine (+ order `fulfilledAt`),
+  migration `20260930090000_payouts`. Policy: `payout` gains the payee request
+  and BTG approve rows; new `payoutAccount` (RBAC matrix + digest updated).
+- Sponsor pays an approved order on the provider's page → worker confirms →
+  order PAID + receipt email. Payee requests its requestable balance (paid,
+  delivered, past hold, account ready) → BTG approves / sends back → worker sends
+  and confirms → PAID, PAYOUT journal, email. Refunds refused while a payout
+  covers the order. BE-04's "dispute open" clause waits for 2S5-BE-03.
+- tests/phase2-payouts.test.ts (14) reproduces the walkthrough figures:
+  Riley $542.58 then the $61.66 reserve = $604.24; Hawks $151.05; ledger reconciles.
+
+Frontend (from the Claude Design canvas):
+- 2S5-FE-05 **Code review** — sponsor order page E1–E4 (Pay $… by card ↗,
+  confirming, paid, Try again on Stripe ↗) and the stand-in's /test-provider pages.
+- 2S5-FE-03 **In progress** — team Earnings: payout-account panel (Set up /
+  Continue / Manage payouts on Stripe ↗), Request payout, history to "Paid ·
+  confirmed by the payment provider"; athlete-home set-up banner. Riley's own
+  "My money" page and BTG's payout approval screen (2S5-FE-04) wait for their
+  Claude Design screens (prompt given to the user).
+- Verified locally in the browser end to end: decline → retry → paid; delivered
+  → Hawks set up payouts → request $135.64 → approved → Paid.
+
+Local note: after a fresh local database, set `ALTER DATABASE sponsorx_test SET
+sponsorx.audit_purge = on` (as CI does), or cleanup-heavy suites fail.
+
+## Built: Riley's "My money" and BTG's payout approvals (2S5-FE-03, 2S5-FE-04) — Code review
+
+From the Claude Design artboards MyMoney and Approvals (the second prompt was
+needed: the first run of the payout prompt produced only the sponsor payment).
+- `/athlete/money` (nav "My money"): tiles, payout account with Stripe ↗, the
+  "before you can request" checklist with the set-up button, per-order shares,
+  Request payout (with "$61.66 stays in reserve…"), history with the
+  Requested → Approved by BTG → Sent → Paid tracker (shared with the team page).
+- `/admin/payouts` (nav "Payouts", BTG admin + Finance): tabs with counts, each
+  waiting request's checks; `/admin/payouts/[id]`: payee + account, the payee's
+  part of the frozen split, checks, audit trail, Approve / Send back (note
+  required), Retry for problems.
+- Verified locally: Riley set up payouts → requested $542.58 → Finance approved
+  → worker paid → all four steps done on Riley's page.
