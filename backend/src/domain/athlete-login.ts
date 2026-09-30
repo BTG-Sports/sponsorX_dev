@@ -30,7 +30,18 @@ type Tx = Prisma.TransactionClient;
  *  person cannot sign in yet, and a reviewer should know. */
 export type LoginOutcome = "created" | "already-linked" | "address-in-use" | "no-email";
 
-type Link = { role: "ATHLETE"; athleteId: string } | { role: "GUARDIAN"; guardianId: string };
+type Link =
+  | { role: "ATHLETE"; athleteId: string }
+  | { role: "GUARDIAN"; guardianId: string }
+  /* P9-FE-06 — a NEXT student approved by their advisor. A STUDENT's
+     propertyId is their school (User.studentId's own comment). */
+  | { role: "STUDENT"; studentId: string; propertyId: string };
+
+function linkFields(link: Link) {
+  if (link.role === "ATHLETE") return { athleteId: link.athleteId };
+  if (link.role === "GUARDIAN") return { guardianId: link.guardianId };
+  return { studentId: link.studentId, propertyId: link.propertyId };
+}
 
 async function ensureLogin(
   tx: Tx,
@@ -46,7 +57,7 @@ async function ensureLogin(
   const own = await tx.user.findFirst({
     where: {
       tenantId: actor.tenantId,
-      ...(link.role === "ATHLETE" ? { athleteId: link.athleteId } : { guardianId: link.guardianId }),
+      ...(link.role === "STUDENT" ? { studentId: link.studentId } : linkFields(link)),
     },
     select: { id: true },
   });
@@ -64,13 +75,13 @@ async function ensureLogin(
       tenantId: actor.tenantId,
       email: address,
       roles: [link.role],
-      ...(link.role === "ATHLETE" ? { athleteId: link.athleteId } : { guardianId: link.guardianId }),
+      ...linkFields(link),
       clerkId: `invite:${randomBytes(12).toString("hex")}`,
     },
     select: { id: true },
   });
   await audit(tx, actor, AUDIT_ACTIONS.permission.loginProvision, "User", user.id, {
-    after: { role: link.role, ...(link.role === "ATHLETE" ? { athleteId: link.athleteId } : { guardianId: link.guardianId }) },
+    after: { role: link.role, ...linkFields(link) },
   });
   return "created";
 }
@@ -103,5 +114,27 @@ export async function provisionAthleteLoginsIn(
   return {
     athlete: await ensureLogin(tx, actor, athlete.email, { role: "ATHLETE", athleteId: athlete.id }),
     guardian: athlete.guardianId ? await provisionGuardianLoginIn(tx, actor, athlete.guardianId) : null,
+  };
+}
+
+/**
+ * P9-FE-06 — a NEXT student approved by their advisor, and their guardian
+ * where one is linked. Called inside the approval's own transaction
+ * (`student.ts` transitionStudent → APPROVED), the same rule as athletes:
+ * the approval is what makes a login worth having.
+ */
+export async function provisionStudentLoginsIn(
+  tx: Tx,
+  actor: Actor,
+  studentId: string,
+): Promise<{ student: LoginOutcome; guardian: LoginOutcome | null }> {
+  const student = await tx.student.findFirst({
+    where: { tenantId: actor.tenantId, id: studentId },
+    select: { id: true, email: true, propertyId: true, guardianId: true },
+  });
+  if (!student) return { student: "no-email", guardian: null };
+  return {
+    student: await ensureLogin(tx, actor, student.email, { role: "STUDENT", studentId: student.id, propertyId: student.propertyId }),
+    guardian: student.guardianId ? await provisionGuardianLoginIn(tx, actor, student.guardianId) : null,
   };
 }

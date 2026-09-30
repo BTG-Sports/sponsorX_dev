@@ -351,6 +351,8 @@ const PATHS: Row[] = [
   { method: "post", path: "/public/tracking/{code}/click", tag: "Public", summary: "Record a click.", auth: false, status: 202 },
   { method: "get", path: "/public/rewards/{token}", tag: "Public", summary: "What the fan's page shows — state (incl. EXHAUSTED once no unit is left for this code), offer, eligibility, landing copy, consent wording, this code's hold (QA-09) and redemptions. Writes nothing (P6-FE-02, P6-BE-08).", auth: false },
   { method: "get", path: "/audit-log", tag: "Audit", summary: "The critical-mutation history, newest first, filterable by entity, record, actor and action; keyset-paged, read-only (P8-FE-02)." },
+  { method: "get", path: "/public/next/schools", tag: "NEXT", summary: "The schools that have adopted SponsorX NEXT — name and place only (P1-FE-25).", auth: false },
+  { method: "get", path: "/public/next/editions", tag: "NEXT", summary: "The latest published NEXT editions, for the programme landing (P1-FE-24).", auth: false },
   { method: "get", path: "/operations/board", tag: "Operations", summary: "The Operations Board's \"needs BTG action\" queue counts: applications waiting (and over 48 hours), deliverables awaiting BTG review, briefs to qualify and to match, held and disputed earnings. A queue the caller doesn't read tenant-wide is null (P7-FE-06)." },
   { method: "get", path: "/operations/integration-health", tag: "Operations", summary: "Dependencies, Zoho sync state, inbound webhook deliveries (no payloads) and outbox / worker queue health for the caller's tenant (P8-FE-01)." },
   { method: "get", path: "/operations/analytics", tag: "Operations", summary: "The analytics story for the last ?days= (7/30/90): the four-event funnel, daily claims/redemptions, scan locations, offers, and per-athlete performance by provenance — recomputed from rows (P6-FE-03, P7-FE-04)." },
@@ -459,7 +461,7 @@ const PATHS: Row[] = [
   { method: "post", path: "/offers/{id}/send", tag: "Marketplace", summary: "Send — the terms are hashed and fixed from here." },
   { method: "post", path: "/offers/{id}/withdraw", tag: "Marketplace", summary: "BTG takes an unanswered offer back." },
   { method: "post", path: "/offers/{id}/respond", tag: "Marketplace", summary: "The athlete accepts (freezes the terms, creates the order and schedules its deliverables) or declines.", body: OfferResponseInput },
-  { method: "get", path: "/branding", tag: "Marketplace", summary: "The caller's tenant branding — what its portal and reports render (2S7-BE-01)." },
+  { method: "get", path: "/branding", tag: "Marketplace", summary: "The caller's tenant branding — what its portal and reports render (2S7-BE-01) — and canEdit, whether the caller may change it." },
   { method: "put", path: "/branding", tag: "Marketplace", summary: "Set the tenant's name, logo, colours, report footer and requested domain.", body: BrandingInput },
   { method: "post", path: "/branding/logo", tag: "Marketplace", summary: "A public-bucket upload grant for a new logo (PNG or JPEG, ≤1 MB).", body: LogoUploadInput, status: 201 },
   // Phase 2 batch 4 — restrictions, sponsor categories, search, cart

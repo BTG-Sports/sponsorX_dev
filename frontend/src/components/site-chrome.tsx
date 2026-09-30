@@ -88,6 +88,7 @@ const FOOTER_COLUMNS: { title: string; links: { label: string; href: string }[] 
     links: [
       { label: "Join the Network", href: "/join" },
       { label: "Athlete Portal", href: "/athlete" },
+      { label: "List your team or venue", href: "/onboarding" },
     ],
   },
   {

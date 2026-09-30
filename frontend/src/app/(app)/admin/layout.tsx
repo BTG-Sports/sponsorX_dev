@@ -19,6 +19,8 @@ const NAV: NavItem[] = [
   { href: "/admin/finance", label: "Finance", icon: "wallet" },
   /* 2S5-FE-01 — BTG admin only; hidden from the other staff roles below. */
   { href: "/admin/commission", label: "Commission", icon: "card" },
+  { href: "/admin/marketplace", label: "Marketplace", icon: "store" },
+  { href: "/admin/onboarding", label: "Onboarding", icon: "users" },
   { href: "/admin/network", label: "Network", icon: "users" },
   { href: "/admin/integrations", label: "Integrations", icon: "gear" },
   { href: "/admin/audit", label: "Audit log", icon: "file" },

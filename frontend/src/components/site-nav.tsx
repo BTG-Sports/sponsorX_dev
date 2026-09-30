@@ -39,6 +39,8 @@ const NAV: NavItem[] = [
   { label: "How It Works", href: "#how-it-works", stop: "basketball" },
   { label: "For Sponsors", href: "#for-sponsors", stop: "soccer" },
   { label: "For Athletes", href: "/join", path: "/join", stop: "baseball" },
+  /* P1-FE-24 — the NEXT programme landing (students and schools). */
+  { label: "NEXT", href: "/next/about", path: "/next" },
   { label: "About", href: "#", pending: true },
 ];
 

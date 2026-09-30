@@ -32,7 +32,9 @@ import type { Actor } from "../auth/actor";
 import { assertAllowed, assertTenantWide, whereFor } from "../auth/scope";
 import { ForbiddenError } from "../auth/errors";
 import { canReadField } from "../auth/fields";
+import { scopeFor } from "../auth/policy";
 import { acceptAgreementIn, type AcceptanceRequest } from "./agreement";
+import { loadAgreementBody } from "./agreement-text";
 import { assertBudgetCarriesLine, assertLineClearsFloor } from "./margin-floor";
 import { createEarningForOrder } from "./earning";
 import { assertNoRestriction, writeExclusivity } from "./restrictions";
@@ -66,7 +68,7 @@ const SELECT = {
   id: true, campaignId: true, athleteId: true, jobId: true, inventoryItemId: true, brief: true, compensation: true,
   sellPrice: true, deliverables: true, usageRights: true, exclusivityDays: true, disclosures: true, expiresAt: true,
   state: true, sentAt: true, respondedAt: true, termsHash: true, termsSnapshot: true, orderId: true, createdAt: true,
-  campaign: { select: { name: true } },
+  campaign: { select: { name: true, sponsor: { select: { name: true } } } },
 } as const;
 type Row = Prisma.OfferGetPayload<{ select: typeof SELECT }>;
 
@@ -125,9 +127,14 @@ export function termsHashOf(terms: ReturnType<typeof canonicalTerms>): string {
 
 function view(actor: Actor, r: Row) {
   const { campaign, ...rest } = r;
-  const out: Record<string, unknown> = { ...rest, campaignName: campaign.name };
+  const out: Record<string, unknown> = { ...rest, campaignName: campaign.name, sponsorName: campaign.sponsor.name };
   /* The margin is protected from the athlete side (FIELD_DENIALS). */
-  if (!canReadField(actor.roles, "campaignOrder.sellPrice")) delete out.sellPrice;
+  if (!canReadField(actor.roles, "campaignOrder.sellPrice")) {
+    delete out.sellPrice;
+    /* …and from the accepted-terms snapshot, which records the line too. */
+    const snap = out.termsSnapshot as { line?: Record<string, unknown> } | null;
+    if (snap?.line) out.termsSnapshot = { ...snap, line: Object.fromEntries(Object.entries(snap.line).filter(([k]) => k !== "sellPrice")) };
+  }
   return out;
 }
 
@@ -145,15 +152,41 @@ function assertTerms(t: OfferTerms, now = new Date()) {
   }
 }
 
+/** The athlete side sees an offer once BTG sends it — a DRAFT is staff's
+ *  working copy, still changing (found building 2S2-FE-03). */
+function visibleWhere(actor: Actor) {
+  const where = whereFor(actor, "offer", "read");
+  return scopeFor(actor.roles, "offer", "read") === "own" ? { AND: [where, { state: { not: "DRAFT" as const } }] } : where;
+}
+
 export async function listOffers(actor: Actor) {
-  const rows = await prisma.offer.findMany({ where: whereFor(actor, "offer", "read"), select: SELECT, orderBy: { createdAt: "asc" } });
+  const rows = await prisma.offer.findMany({
+    /* tenant-scope: visibleWhere is whereFor(offer, read), narrowed. */
+    where: visibleWhere(actor), select: SELECT, orderBy: { createdAt: "asc" },
+  });
   return rows.map((r) => view(actor, r));
 }
 
 export async function getOffer(actor: Actor, id: string) {
-  const row = await prisma.offer.findFirst({ where: { ...whereFor(actor, "offer", "read"), id }, select: SELECT });
+  const row = await prisma.offer.findFirst({
+    /* tenant-scope: visibleWhere is whereFor(offer, read), narrowed. */
+    where: { AND: [visibleWhere(actor), { id }] }, select: SELECT,
+  });
   if (!row) throw new ForbiddenError("offer", "read");
-  return view(actor, row);
+  /* 2S2-FE-03 — a SENT offer carries the agreement its acceptance signs (the
+     tenant's current CAMPAIGN_ORDER terms, as GET /orders/:id serves them),
+     so the offer screen can show the words and send back their hash. */
+  let agreement: { id: string; version: number; bodyHash: string; body: string } | null = null;
+  if (row.state === "SENT") {
+    const a = await prisma.agreement.findFirst({
+      where: { tenantId: actor.tenantId, kind: "CAMPAIGN_ORDER", effectiveAt: { lte: new Date() } },
+      orderBy: { version: "desc" },
+      select: { id: true, kind: true, version: true, bodyHash: true },
+    });
+    const body = a ? await loadAgreementBody(a) : null;
+    if (a && body !== null) agreement = { id: a.id, version: a.version, bodyHash: a.bodyHash, body };
+  }
+  return { ...view(actor, row), agreement };
 }
 
 /** BTG drafts an offer. It must clear the floor and fit the budget, like any line. */

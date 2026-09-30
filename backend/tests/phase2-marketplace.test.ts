@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import type { AddressInfo } from "node:net";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
@@ -33,6 +34,7 @@ vi.mock("../src/auth/clerk", () => ({
 
 const { governanceProblems, canTransitionListing } = await import("../src/domain/listing-rules");
 const { inventoryProblems } = await import("../src/domain/inventory");
+const { hashAgreementBody } = await import("../src/domain/agreement-hash");
 
 describe("the rules, as written (pure)", () => {
   it("an item is priced by whole cents, with a window that closes after it opens and no category both offered and refused", () => {
@@ -62,7 +64,8 @@ describe.skipIf(!hasDatabase)("Phase 2 marketplace over the API", { timeout: 60_
 
   const T = "mkt_btg";      // BTG's tenant: operates the teams
   const X = "mkt_other";    // an unrelated operator: operates nothing here
-  const HASH = "h".repeat(64);
+  /* The real CAMPAIGN_ORDER v1 wording's fingerprint, so GET /offers/:id serves its text. */
+  const HASH = hashAgreementBody(readFileSync(new URL("../agreements/CAMPAIGN_ORDER.v1.txt", import.meta.url), "utf8"));
   const PNG = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==", "base64");
   const E = { tenant: "", property: "" };
   const F = { tenant: "", property: "" };
@@ -320,6 +323,9 @@ describe.skipIf(!hasDatabase)("Phase 2 marketplace over the API", { timeout: 60_
       const made = await call("POST", "/offers", "mkt_cm", offer());
       expect(made.status).toBe(201);
       const id = made.json.id as string;
+      /* A DRAFT is staff's working copy — the athlete sees it only once sent. */
+      expect((await call("GET", `/offers/${id}`, "mkt_athlete")).status).toBe(403);
+      expect((await call("GET", "/offers", "mkt_athlete")).json.offers.map((o: { id: string }) => o.id)).not.toContain(id);
       const sent = (await call("POST", `/offers/${id}/send`, "mkt_cm")).json;
       expect(sent.state).toBe("SENT");
       expect(sent.termsHash).toMatch(/^[0-9a-f]{64}$/);
@@ -328,6 +334,10 @@ describe.skipIf(!hasDatabase)("Phase 2 marketplace over the API", { timeout: 60_
       const mine = await call("GET", `/offers/${id}`, "mkt_athlete");
       expect(mine.json.compensation).toBe(30_000);
       expect(mine.json).not.toHaveProperty("sellPrice");
+      /* …with the sponsor named and the agreement the acceptance signs (2S2-FE-03). */
+      expect(mine.json.sponsorName).toEqual(expect.any(String));
+      expect(mine.json.agreement).toMatchObject({ id: "mkt_order_terms", version: 1, bodyHash: HASH, body: expect.any(String) });
+      expect(mine.json.agreement.body.length).toBeGreaterThan(100);
       expect((await call("GET", `/offers/${id}`, "mkt_athlete2")).status).toBe(403);
       expect((await call("POST", `/offers/${id}/respond`, "mkt_athlete2", { decision: "ACCEPT" })).status).toBe(403);
 
@@ -349,13 +359,16 @@ describe.skipIf(!hasDatabase)("Phase 2 marketplace over the API", { timeout: 60_
       ]);
       const snapshot = accepted.json.termsSnapshot;
       expect(snapshot).toMatchObject({ termsHash: sent.termsHash, orderId: accepted.json.orderId, terms: { compensation: 30_000, disclosures: ["#ad", "Paid partnership with Rosa's Tacos"] } });
+      /* The margin stays off the athlete side — the snapshot's line included. */
+      expect(JSON.stringify(accepted.json)).not.toContain("sellPrice");
+      expect((await call("GET", `/offers/${id}`, "mkt_athlete")).json.termsSnapshot.line).toEqual({});
 
       /* Later: the rate card moves and the athlete reprices the item. The offer and the order do not. */
       await prisma.athleteRate.create({ data: { tenantId: T, athleteId: "mkt_ath", jobId: "mkt_job", amount: 35_000, version: 2 } });
       expect((await call("PATCH", `/inventory/${athleteItem}`, "mkt_athlete", { priceCents: 90_000 })).status).toBe(200);
       const after = (await call("GET", `/offers/${id}`, "mkt_cm")).json;
       expect(after).toMatchObject({ compensation: 30_000, sellPrice: 60_000, termsHash: sent.termsHash });
-      expect(after.termsSnapshot).toEqual(snapshot);
+      expect(after.termsSnapshot).toEqual({ ...snapshot, line: { sellPrice: 60_000 } });
       expect((await prisma.campaignOrder.findUniqueOrThrow({ where: { id: accepted.json.orderId }, select: { compensation: true } })).compensation).toBe(30_000);
 
       /* And Postgres refuses a change to accepted terms, whoever tries. */
@@ -401,7 +414,10 @@ describe.skipIf(!hasDatabase)("Phase 2 marketplace over the API", { timeout: 60_
       expect(set.json.logoUrl).toBe(`http://localhost:9000/sponsorx-public/${logo.json.logoKey}`);
 
       /* Served to the portal: every signed-in user of that tenant — the manager and a roster athlete. */
-      expect((await call("GET", "/branding", "mkt_riley")).json).toEqual(set.json);
+      expect((await call("GET", "/branding", "mkt_riley")).json).toEqual({ ...set.json, canEdit: false });
+      /* canEdit says up front who gets the form (2S7-FE-03). */
+      expect((await call("GET", "/branding", "mkt_mgr_e")).json.canEdit).toBe(true);
+      expect((await call("GET", "/branding", "mkt_btg_pm")).json.canEdit).toBe(false);
       /* Nobody else's: the other team is served its own (none yet), BTG its own. */
       expect((await call("GET", "/branding", "mkt_mgr_f")).json.displayName).toBeNull();
       expect((await call("GET", "/branding", "mkt_admin")).json.displayName).toBeNull();
