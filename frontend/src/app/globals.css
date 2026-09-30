@@ -1938,3 +1938,152 @@ html[data-sx-loaded] [data-sx-stage][data-armed] .sx-bar { transform: none; }
   .sx-sheet,
   .sx-sheet-out { animation-duration: 1ms; }
 }
+
+/* --------------------------------------------------------------------------
+   /next/about magazine stage (next-about-stage.tsx, next-about-fx.tsx;
+   design spec 2026-09-30). Sits inside `.sx-stage` (the landing's dark
+   ground) and adds the paper. Every ink here is a fixed literal on purpose:
+   the page is fixed-dark in both themes, like /packages and /join, and the
+   paper's palette is the BTG Sports Talk Magazine logo's, not the theme's.
+   - `.sx-mag-sheet`: one spread of paper; `::before` is the shade that
+     fades as it flips in. `.sx-mag-spine` / `.sx-mag-curl` are the centre
+     fold and the turned corner.
+   - `.sx-mag-dropcap`: the first letter of a page's first paragraph, in the
+     display face and the page's tone (`--mag-drop`).
+   - `.sx-mag-cols`: two text columns from lg.
+   - `.sx-mag-spread`: the page-flip entrance. The spread carries
+     `data-reveal` so StageReveal marks it `data-in`; the stage's generic
+     rise is cancelled on the spread and the sheet hinges up from its
+     bottom edge instead.
+   - `.sx-mag-cover-glow`: the cover's pointer glow (`--gx/--gy/--glow`
+     from CoverGlow); `[data-pulse]` plays it once on touch.
+   - `.sx-mag-shelf`: the lit shelf line under the newsstand covers.
+   Reduced motion: no flip, no shade, no glow pulse, no hover lift.
+   -------------------------------------------------------------------------- */
+.sx-mag {
+  --mag-paper: #fbfbf9;
+  --mag-ink: #0b1a3a;
+  --mag-red: #e0192b;
+  --mag-yellow: #ffd12b;
+  --mag-blue: #2e9bf5;
+}
+
+.sx-mag-sheet {
+  position: relative;
+  background: var(--mag-paper);
+  color: var(--mag-ink);
+  box-shadow: 0 30px 60px rgba(0, 0, 0, 0.6);
+}
+.sx-mag-sheet::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.45), transparent 60%);
+  opacity: 0;
+  transition: opacity 1.1s var(--sx-ease);
+}
+.sx-mag-spine {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 36px;
+  margin-left: -18px;
+  pointer-events: none;
+  background: linear-gradient(90deg, transparent, rgba(0, 0, 0, 0.22) 50%, transparent);
+}
+.sx-mag-curl {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 64px;
+  height: 64px;
+  pointer-events: none;
+  background: linear-gradient(225deg, var(--sx-stage-bg, #04070e) 50%, #e6e6e2 50%);
+  box-shadow: -6px -6px 14px rgba(0, 0, 0, 0.22);
+}
+
+.sx-mag-dropcap::first-letter {
+  float: left;
+  font-family: var(--font-mag), Impact, sans-serif;
+  font-size: 3.4em;
+  line-height: 0.8;
+  padding: 0.08em 0.12em 0 0;
+  color: var(--mag-drop, var(--mag-red));
+}
+
+@media (min-width: 64rem) {
+  .sx-mag-cols {
+    columns: 2;
+    column-gap: 32px;
+  }
+  .sx-mag-cols > * {
+    break-inside: avoid;
+  }
+}
+
+/* page-flip entrance */
+[data-sx-stage][data-armed] .sx-mag-spread[data-reveal] {
+  opacity: 1;
+  transform: none;
+  transition: none;
+  perspective: 1400px;
+}
+[data-sx-stage][data-armed] .sx-mag-spread > .sx-mag-sheet {
+  transform-origin: 50% 100%;
+  transform: rotateX(62deg) translateY(40px);
+  opacity: 0;
+  transition: transform 1.1s var(--sx-ease), opacity 0.6s var(--sx-ease);
+  transition-delay: calc(var(--i, 0) * 110ms);
+}
+[data-sx-stage][data-armed] .sx-mag-spread > .sx-mag-sheet::before { opacity: 1; }
+[data-sx-stage][data-armed] .sx-mag-spread[data-in] > .sx-mag-sheet {
+  transform: none;
+  opacity: 1;
+}
+[data-sx-stage][data-armed] .sx-mag-spread[data-in] > .sx-mag-sheet::before { opacity: 0; }
+
+/* cover glow */
+.sx-mag-cover-glow {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  mix-blend-mode: screen;
+  opacity: var(--glow, 0);
+  transition: opacity 0.5s ease;
+  background: radial-gradient(
+    240px circle at var(--gx, 50%) var(--gy, 28%),
+    rgba(127, 208, 255, 0.38),
+    rgba(46, 155, 245, 0.14) 40%,
+    transparent 70%
+  );
+}
+[data-pulse] .sx-mag-cover-glow { animation: sx-mag-pulse 2.2s ease 1.2s 1; }
+@keyframes sx-mag-pulse {
+  0% { opacity: 0; }
+  40% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+/* newsstand */
+.sx-mag-shelf {
+  height: 1px;
+  background: rgba(191, 224, 255, 0.7);
+  box-shadow: 0 0 10px rgba(120, 190, 255, 0.9), 0 0 22px rgba(46, 155, 245, 0.55);
+}
+.sx-mag-mini > span:first-child {
+  transition: transform 0.35s var(--sx-ease), box-shadow 0.35s var(--sx-ease);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sx-mag-sheet::before { display: none; }
+  [data-sx-stage][data-armed] .sx-mag-spread > .sx-mag-sheet {
+    transform: none;
+    opacity: 1;
+    transition: none;
+  }
+  [data-pulse] .sx-mag-cover-glow { animation: none; }
+  .sx-mag-mini > span:first-child { transition: none; }
+}
