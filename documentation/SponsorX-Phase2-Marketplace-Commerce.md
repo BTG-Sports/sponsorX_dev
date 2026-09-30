@@ -5,7 +5,7 @@
 | | |
 |---|---|
 | **Goal** | Turn SponsorX from BTG-only operations into a multi-tenant marketplace. External athletes, teams, programs, events and media properties onboard, publish inventory, fulfil deliverables and get paid. |
-| **Tasks** | 71 · 282 person-days |
+| **Tasks** | 72 · 284 person-days |
 | **Blueprint timeline** | 16–20 weeks |
 | **Balanced budget** | $80K–$120K |
 | **Depends on** | Phase 1 auth/RBAC, sponsor/property/inventory/campaign/reward models, Zoho integration, core analytics |
@@ -16,7 +16,7 @@
 | Phase | File | Tasks | Timeline |
 |---|---|---|---|
 | 1 | [`SponsorX-Phase1-Managed-Marketplace.md`](./SponsorX-Phase1-Managed-Marketplace.md)  | 186 | 14–18 weeks |
-| 2 | [`SponsorX-Phase2-Marketplace-Commerce.md`](./SponsorX-Phase2-Marketplace-Commerce.md) **← you are here** | 71 | 16–20 weeks |
+| 2 | [`SponsorX-Phase2-Marketplace-Commerce.md`](./SponsorX-Phase2-Marketplace-Commerce.md) **← you are here** | 72 | 16–20 weeks |
 | 3 | [`SponsorX-Phase3-Intelligence-Attribution.md`](./SponsorX-Phase3-Intelligence-Attribution.md)  | 44 | 18–22 weeks |
 | 4 | [`SponsorX-Phase4-INFINEX-Integration.md`](./SponsorX-Phase4-INFINEX-Integration.md)  | 51 | 18–22 weeks |
 
@@ -507,7 +507,7 @@ Billing details, agreement acceptance, deposit or full payment, and any approval
 
 *The financial core. Money in, money apportioned, money out.*
 
-*13 tasks · 56 person-days*
+*14 tasks · 58 person-days*
 
 ### ⏸ `2S5-INT-01` · Payment provider checkout integration
 
@@ -628,6 +628,16 @@ BTG's queue of payout requests: waiting, sending, paid and problems, each with t
 - **Depends on:** 2S5-BE-05
 - **Done when:** BTG can approve or send back a payout request and see it confirmed paid by the payment provider, with every decision in the audit log
 - **Reference:** Spec §8; walkthrough 2026-09-30
+
+### ⏸ `2S5-FE-05` · Sponsor pays for an order (pay-by-card button)
+
+**Order** 46.8 · **FE** · **Where:** Code · **2d** · **Blocked**
+
+Once BTG approves an order, the sponsor's order page shows "payment due" and a primary button "Pay $… by card ↗" that takes them to Stripe's secure payment page — SponsorX never sees the card. Back from Stripe the order shows "confirming", then "Paid, confirmed by the payment provider", or "didn't go through" with the button again. Rule agreed 2026-09-30: every step that involves Stripe has a call-to-action button on our page that takes the user there.
+
+- **Depends on:** 2S5-INT-01, 2S0-ART-01
+- **Done when:** A sponsor can pay an approved order from its SponsorX page via Stripe and see it confirmed paid (or retry a failed payment); a sponsor email confirms the payment
+- **Reference:** Spec §8; walkthrough 2026-09-30 (step 11)
 
 ### ⏸ `2S5-SEC-01` · Financial audit coverage
 
