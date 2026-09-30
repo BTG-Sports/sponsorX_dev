@@ -29,3 +29,21 @@ request.
   the Google Drive connector was disconnected, so the user uploads it.
 - Walkthrough presentation: step 2 as the athlete's step-by-step application,
   step 6 as how Riley creates his clinic (6a–6c), step 7 split into 7a–7c.
+
+## Raised: payout screens (2S5-FE-03, 2S5-FE-04) — rcfworks, via Claude
+
+The walkthrough's steps 5, 14 and 15 had no screens. Agreed with the user:
+- `2S5-FE-03` · Athlete and team payout screens (FE, 4d, Blocked on 2S5-BE-04 and
+  the designs) — payout-account set-up first: the page says a Stripe account is
+  needed and links out to Stripe; then available / held / paid out, Request payout,
+  and a history to "Paid, confirmed by the payment provider" plus an email.
+  Stripe is named only for the account set-up; transactions stay hidden.
+- `2S5-FE-04` · BTG payout approval screen (FE, 3d, Blocked on 2S5-BE-05).
+- `2S5-BE-04` corrected to Ready (its prerequisite 2S5-BE-02 is Done).
+- The backend (2S5-BE-04/05) will use a stand-in payment provider on staging only
+  (the user agreed); production moves no money until Stripe is connected.
+- Claude Design prompt for all the payout screens (A–D plus 0a–0c account set-up)
+  given to the user.
+
+Phase 2 now 71 tasks · 282 person-days (Sprint 5: 13 · 56). Tracker rows 73–74,
+ranges extended to row 74.

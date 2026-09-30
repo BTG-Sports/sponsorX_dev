@@ -5,7 +5,7 @@
 | | |
 |---|---|
 | **Goal** | Turn SponsorX from BTG-only operations into a multi-tenant marketplace. External athletes, teams, programs, events and media properties onboard, publish inventory, fulfil deliverables and get paid. |
-| **Tasks** | 69 · 275 person-days |
+| **Tasks** | 71 · 282 person-days |
 | **Blueprint timeline** | 16–20 weeks |
 | **Balanced budget** | $80K–$120K |
 | **Depends on** | Phase 1 auth/RBAC, sponsor/property/inventory/campaign/reward models, Zoho integration, core analytics |
@@ -16,7 +16,7 @@
 | Phase | File | Tasks | Timeline |
 |---|---|---|---|
 | 1 | [`SponsorX-Phase1-Managed-Marketplace.md`](./SponsorX-Phase1-Managed-Marketplace.md)  | 186 | 14–18 weeks |
-| 2 | [`SponsorX-Phase2-Marketplace-Commerce.md`](./SponsorX-Phase2-Marketplace-Commerce.md) **← you are here** | 69 | 16–20 weeks |
+| 2 | [`SponsorX-Phase2-Marketplace-Commerce.md`](./SponsorX-Phase2-Marketplace-Commerce.md) **← you are here** | 71 | 16–20 weeks |
 | 3 | [`SponsorX-Phase3-Intelligence-Attribution.md`](./SponsorX-Phase3-Intelligence-Attribution.md)  | 44 | 18–22 weeks |
 | 4 | [`SponsorX-Phase4-INFINEX-Integration.md`](./SponsorX-Phase4-INFINEX-Integration.md)  | 51 | 18–22 weeks |
 
@@ -507,7 +507,7 @@ Billing details, agreement acceptance, deposit or full payment, and any approval
 
 *The financial core. Money in, money apportioned, money out.*
 
-*11 tasks · 49 person-days*
+*13 tasks · 56 person-days*
 
 ### ⏸ `2S5-INT-01` · Payment provider checkout integration
 
@@ -608,6 +608,26 @@ Gross revenue, fees, available balance, pending balance, payout history and exce
 - **Depends on:** 2S5-BE-02
 - **Done when:** Dashboard reconciles to the ledger to the cent
 - **Reference:** Spec §6 P2-11
+
+### ⏸ `2S5-FE-03` · Athlete and team payout screens
+
+**Order** 46.3 · **FE** · **Where:** Code · **4d** · **Blocked**
+
+Where an athlete (and a team) gets paid. First the payout account: until it is ready the page says plainly that a Stripe account is needed and links out to Stripe to set one up (and back again if Stripe needs more information); SponsorX never sees bank details. Then the money: available, held in reserve and paid out; a Request payout button for the available balance, disabled with the reason when a rule isn't met; and a payout history whose status moves Requested → Approved by BTG → Sent → Paid, confirmed by the payment provider. Stripe itself stays invisible after set-up — the payee sees SponsorX's statuses and an email when it's paid. Raised 2026-09-30 from the walkthrough (steps 5, 14, 15).
+
+- **Depends on:** 2S5-BE-04, 2S0-ART-01
+- **Done when:** An athlete can set up their payout account from SponsorX, request their available balance, and follow it to Paid; the team does the same from its Earnings page; the figures reconcile to the ledger
+- **Reference:** Spec §6 P2-11, §7.4; walkthrough 2026-09-30
+
+### ⏸ `2S5-FE-04` · BTG payout approval screen
+
+**Order** 46.6 · **FE** · **Where:** Code · **3d** · **Blocked**
+
+BTG's queue of payout requests: waiting, sending, paid and problems, each with the payee, amount, orders, how long it has waited and the result of every payout rule. The detail shows the frozen split behind it and lets BTG approve (handing it to the payment provider) or send it back with a note, then follow it to Paid or to a problem it can act on.
+
+- **Depends on:** 2S5-BE-05
+- **Done when:** BTG can approve or send back a payout request and see it confirmed paid by the payment provider, with every decision in the audit log
+- **Reference:** Spec §8; walkthrough 2026-09-30
 
 ### ⏸ `2S5-SEC-01` · Financial audit coverage
 
