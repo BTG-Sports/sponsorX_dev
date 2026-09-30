@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Poppins } from "next/font/google";
+import { Bebas_Neue, Poppins, Source_Serif_4 } from "next/font/google";
 import { ClerkProvider } from "@clerk/nextjs";
 
 import { PageTransition } from "@/components/page-transition";
@@ -10,6 +10,22 @@ const poppins = Poppins({
   variable: "--font-poppins",
   subsets: ["latin"],
   weight: ["400", "500", "600", "700"],
+});
+
+/* The two magazine faces for /next/about (design spec 2026-09-30 §2):
+   Bebas Neue for cover lines and spread headlines, Source Serif 4 for body
+   text on paper. Exposed as `font-mag` / `font-mag-serif` (globals.css
+   @theme); nothing outside `.sx-mag` uses them. */
+const bebas = Bebas_Neue({
+  variable: "--font-bebas",
+  subsets: ["latin"],
+  weight: "400",
+});
+const sourceSerif = Source_Serif_4({
+  variable: "--font-source-serif",
+  subsets: ["latin"],
+  weight: ["400", "600"],
+  style: ["normal", "italic"],
 });
 
 export const metadata: Metadata = {
@@ -61,7 +77,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           Themes section). */}
       <html
         lang="en"
-        className={`${poppins.variable} h-full antialiased`}
+        className={`${poppins.variable} ${bebas.variable} ${sourceSerif.variable} h-full antialiased`}
         suppressHydrationWarning
       >
         <body className="min-h-full flex flex-col">

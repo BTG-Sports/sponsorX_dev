@@ -167,6 +167,10 @@
   --color-next-soft: var(--sx-next-soft);
 
   --font-sans: var(--font-poppins);
+
+  /* /next/about magazine faces — `font-mag`, `font-mag-serif` (spec §2) */
+  --font-mag: var(--font-bebas), Impact, "Arial Narrow", sans-serif;
+  --font-mag-serif: var(--font-source-serif), Georgia, "Times New Roman", serif;
 }
 
 body {
