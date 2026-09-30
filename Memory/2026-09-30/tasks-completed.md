@@ -601,3 +601,417 @@ continuously (0 → 53 → 73 → 79 → 83 → 90 → 96 → 100). Tests: 696 p
 **Board:** no status change — this is polish inside `P1-ART-11`, which
 stays where it is. Not committed yet; branch
 `feature/P1-ART-09-landing-city`.
+
+## Landing hero — one phone screen, no scrolling (P1-ART-09 polish)
+
+Owner asked for the mobile landing to be one view per stop with no inner
+scrolling, hero first. Below `lg` the plaza stop overflowed its viewport
+~1.6–2× (1371px of content in 844px at 390×844). Now it fits exactly at
+390×844, 360×740 and 375×667, and nothing runs off the right edge
+(measured with Playwright against the dev server). Desktop is untouched.
+
+- `app/(home)/page.tsx`: phone gutters (`px-5`), headline sized by width
+  (`clamp(28px,min(9.4vw,6.2svh),56px)` so "Measure Results." never wraps or
+  widens the column), `grid-cols-1`, 15px paragraph (hidden below 620px
+  tall), dark ground full-width, **PlatformStrip hidden below lg**.
+- `components/landing-hero.tsx`: eyebrow on one line; the two buttons share
+  one row at 44px; ImpactCard becomes a three-column number + label band
+  (no rings, no arrows); TrustedBrands is one 56px line: a small two-line
+  label plus a wordmark **marquee** (`sx-marquee` in globals.css, list
+  rendered twice with the copy aria-hidden; reduced motion lets you scroll
+  it by hand instead), with "+ More" desktop-only. The sponsors stop reuses
+  the band, so it gets the compact version on phones too.
+
+Seen but not touched: at 768px the header nav wraps and runs off the right
+edge (a header problem, not the hero). Next: the other four stops on mobile.
+Not committed.
+
+## Public header — menu button + full-screen menu below 1280px
+
+Before: below `md` the nav links were just hidden (no way to reach How It
+Works / Sponsors / Athletes / NEXT / Login on a phone), and from `md` to
+~1152px the inline row wrapped and ran into Login / Get Started (measured:
+it only fits from 1280px).
+
+- `components/site-nav.tsx`: the link row now shows from `xl` up. New
+  `SiteMenu` (below `xl`): a menu button in the header opens a full-screen
+  dark menu over the page. Same links, same "current" logic (a shared
+  `useIsCurrent` hook, so the fly-through stop still lights the right item),
+  Login + Get Started at the bottom, one screen with no scrolling at
+  360×740 / 375×667 / 390×844. Built on the portal `mobile-nav.tsx`
+  pattern: portaled to body, circle reveal (opening from the button,
+  measured into `--sx-menu-at`; globals.css keyframes now read that var,
+  and the portal menu keeps its old top-left origin as the default), exit
+  phase, Escape, closes on any link, closes if the viewport grows past
+  `xl`, focus moves to ✕ and back to the button, body scroll locked,
+  `data-lenis-prevent`. Hash links still fly the drone (tested: tapping
+  "How It Works" closes the menu, scrolls to the court stop, and the header
+  marks "How It Works" current).
+- `components/site-chrome.tsx`: phone header = logo, compact Get Started
+  (no arrow below `sm`), menu button; Login moves into the menu below `sm`.
+
+Heads-up: the Next dev badge (`devIndicators: top-right`, moved there in
+758547b for the student tab bar) sits on top of the menu button in dev and
+blocks taps on it. Dev-only; not changed.
+
+## How It Works + For Sponsors — one view on any device; package "wow" on both
+
+Same approach as the hero: below `lg` each stop is one screen, sized with
+`svh`/`vw` clamps so it scales with the device. Measured with Playwright at
+320×568, 360×640, 360×740, 375×667, 390×844, 412×915, 430×932, 844×390,
+667×375, 768×1024 and 820×1180. Every one fits with nothing past the right
+edge. Desktop layouts unchanged (1280/1440/1920 re-measured).
+
+- **How It Works** (`landing-steps.tsx`, page wrapper): steps become compact
+  rows (hex badge · number + title · body), one column below lg (was 2-col
+  from md). Eyebrow hidden ≤700px tall, intro ≤600px, bodies ≤560px; a
+  phone held sideways gets the four rows 2×2. New Tailwind variant
+  `short-landscape` in globals.css (below lg, ≤560px tall, landscape).
+- **For Sponsors** (`landing-sponsors.tsx`, new `package-carousel.tsx`):
+  left-aligned on phones; intro only from 860px tall, feature row as three
+  icon columns (hidden <640px), brands band hidden below lg. Packages are a
+  snap carousel on phones/tablets: 3D coverflow driven by per-frame `--d`
+  / `--ad` (no React render per frame), opens on Growth, tap a side card
+  to centre it, tier tabs with fill bars, tier-coloured glow (Starter ice
+  blue, Growth brand blue, Enterprise orange), a light sweep round the
+  centred card's outline (`@property --sx-sweep` conic), a holographic
+  sheen, and a parallax tier numeral. Landscape: copy and carousel side by
+  side.
+- **Desktop package row "wow"** (owner, same day): a pointer spotlight that
+  lights every card's outline near the cursor (even from the gaps), tilt +
+  glare on the hovered card while its siblings step back, the sweep on the
+  hovered card (the featured one at rest), and a staggered scroll-linked
+  arrival (`flight-stop.tsx` now also writes its weight to `--sx-w`).
+
+Gotchas found:
+- **Chrome measures scroll-snap positions on the *transformed* box.** A
+  coverflow transform on the snap item moved its own snap target
+  mid-scroll and smooth scrolls settled ~47px off-centre. Transform an
+  inner box (`.sx-pkg-card`), never the snap `<li>`.
+- `will-change: transform` rasterized the carousel card at its pre-centred
+  scale → soft text. Dropped it, and d<0.01 snaps to exactly 0.
+- Headless screenshots of the desktop landing: launch Chromium with
+  `--disable-webgl --disable-3d-apis` to force the poster path without
+  also turning on reduced motion.
+
+Lint, `tsc` and vitest (696) pass. Not committed.
+
+Follow-up: the phone feature row packed each column to the bottom
+(`flex-col-reverse`), so "Flexible Packages" (one line) sat its icon a
+line lower than the two-line titles. `justify-end` packs to the top; icons
+now share one row at every size.
+
+## For Athletes (athlete marketplace) — one view on any device
+
+Same approach as the other stops (`landing-athletes.tsx`, page wrapper).
+Before: 1587px of content in 844px, and ~14px past the right edge. Now fits
+at 320×568, 360×640, 375×667, 390×844, 412×915, 430×932, 844×390, 667×375,
+768×1024, 820×1180 with no overflow. Desktop matches the original within
+1–2px at 1280/1440/1920 (compared against HEAD).
+
+- Copy: headline sized by width (never runs off), intro from 860px tall,
+  the four features as icon columns from 700px, the two buttons share a
+  row (play icon from `sm`).
+- Featured Athletes panel: compact rows (avatar, name + verified, sport |
+  tier, round arrow button with an aria-label); tag chips and stats are
+  desktop-only (were shown from `md`). Sheds rows as the screen shortens:
+  4 from 650px tall, 3 from 580px, else 2; the last visible row drops its
+  divider. Name truncation is phone-only (on desktop a long name still
+  wraps as before).
+- Jobs band: one 48px line with the hero's marquee, hidden under 640px
+  tall and in `short-landscape`, where copy and panel sit side by side.
+
+## Closing stop + footer — one view together on any device
+
+`landing-close.tsx`, `site-chrome.tsx`, page wrapper. Before: 1371px in
+844px. Now the closing section and the footer share one screen at 320×568,
+360×640, 375×667, 390×844, 412×915, 430×932, 844×390, 667×375, 768×1024,
+820×1180, with no overflow. Desktop landing (1280/1440/1920) and the normal
+footer on public pages (390 and 1440) measure identical to HEAD.
+
+- Copy: headline sized by width, intro from 800px tall, the two buttons
+  share a row.
+- Panel: the four features become one row of icon + title (sub-lines are
+  desktop-only; the row shows from 650px tall), over a compact 2×2 of the
+  numbers.
+- `SiteFooter compact` (landing only — `(public)` layout keeps the full
+  footer): below lg the logo and social rings share the first line
+  (`SocialRings` extracted), the blurb goes, the three link columns sit
+  side by side in small type and drop under 600px tall. Bottom padding
+  respects `env(safe-area-inset-bottom)`.
+- Landscape (`short-landscape`): copy and panel side by side, footer as
+  one slim row.
+
+With this, every landing stop (hero, how it works, sponsors, athletes,
+closing + footer) is one view below lg. Lint, `tsc`, vitest (696) pass.
+Not committed.
+
+## Desktop bands — brands no longer collide at 1024–1380px; jobs band marquee
+
+Owner reported the hero's "Trusted by leading brands" band broken on a
+~1195px screen ("+ More" into "Under Armour"). Measured all three bands at
+1024–1920: at the mockup sizes the label + five wordmarks + "+ More" need
+~1330px; the sponsors-stop tag collided up to 1280; the athletes-stop jobs
+band (7 long jobs + label + "+ Rates" + tag) overlapped at every width
+below 1920. (Pre-existing, made worse by the phone-marquee wrapper's
+`min-w-0` letting the list overlap instead of pushing.)
+
+- Brands band (`landing-hero.tsx`), on the owner's call: wordmarks keep
+  the mockup size and brands drop from the end as the screen narrows —
+  three below 1180px, four below 1380px, all five from there (`FIT`,
+  `lg:max-[…]:hidden`), spreading out evenly. Phones still marquee all five.
+- Sponsors-stop tag (`SponsorsTag`) from 1360px only.
+- Jobs band (`landing-athletes.tsx`): marquee at every width
+  (`.sx-marquee-all` in globals.css; reduced motion → scrollable strip).
+
+Verified with a Playwright check (≥16px clear between every visible item,
+nothing cut at the band edge) at 1024, 1100, 1179, 1180, 1195, 1280, 1366,
+1379, 1380, 1440, 1536, 1920 on all three bands. Lint, `tsc`, vitest pass.
+
+Follow-up (owner): even without collisions, five brands at ~1430px still
+read as cramped, and the group sat off-centre (it filled the space between
+the label and "+ More"). Reworked the desktop brands band:
+- Three-column grid: label left, "+ More" (+ sponsors tag) right at the
+  same 6vw margin, wordmarks centred on the band's middle at mockup size
+  with a fixed 80px between them (dividers centred in the gaps).
+- A brand shows only when the centred group, gaps intact, clears both
+  sides + 32px. Cut-offs derived from rendered widths (label 6vw + 255,
+  "+ More" 6vw + 92, groups 459/695/914px): 2 brands always, 3 from 1175px,
+  4 from 1445px, 5 from 1695px. Sponsors tag from 1790px (needs +204px on
+  the right; never costs a brand). Derivation is in the FIT comment in
+  `landing-hero.tsx`: re-derive if a brand, the label or the gap changes.
+- Label pinned to one line on desktop (it was wrapping in tight columns).
+Checked at 14 widths (1024–2560, both sides of every cut-off) on both
+bands: group 0px off centre, gaps 80px, ≥73px clear to label and "+ More",
+label one line.
+
+Follow-up 2 (owner: "now too much space" at ~1907px): with a fixed 80px gap
+the centred group left big empty stretches either side. Now:
+- Side columns are fixed and equal (6vw + 256px, the label block's width),
+  the middle column holds the wordmarks with `justify-evenly`, so the
+  spacing grows with the screen and the group stays centred; "+ More"
+  sits at the start of the right column, right after the last brand.
+- A brand is added only once, spread out, it keeps ≥ 64px from the label
+  and "+ More" (so ≥ 104px between wordmarks): 3 from 1212px, 4 from
+  1508px, 5 from 1784px. Sponsors tag from 1784px too (fits in the right
+  column, ≥ 64px from the edge).
+Checked at 1024–2560 incl. both sides of each cut-off on both bands: 0px
+off centre, gaps even (spread 0), ≥ 64px clearances, label one line.
+
+## Hero "wow" pass (owner ask) — effects only, no layout change
+
+New `components/hero-fx.tsx` (client islands: ScrambleText, Magnetic,
+TiltSpot) + `.sx-line`/`.sx-hero-shimmer`/`.sx-sheen`/`.sx-scan`/`.sx-tilt`/
+`.sx-impact-spot`/`.sx-scroll-cue` in globals.css.
+- Headline: each line wipes up out of a clip-path mask after the loader,
+  staggered; "Measure Results." gets a periodic highlight glide (a
+  data-text copy painted with a bright band, clipped to the glyphs, so the
+  shared `.sx-hero-gradient` is untouched).
+- Eyebrow words decode in from random glyphs (real text holds layout and
+  is what screen readers get).
+- Hero buttons: magnetic pull toward a nearby fine pointer + hover sheen.
+- Impact card: slow scan line over the glass; with a fine pointer it tilts
+  and a spotlight runs round its outline. No "live" claims (fixture data).
+- "Scroll to explore" cue bottom-left on desktop (hidden ≤820px tall).
+- Reduced motion: no wipe/decode/shimmer/scan/cue/tilt; noscript shows all.
+Also fixed: hero on a phone held sideways overflowed 70px (never tested
+landscape before) — copy and card side by side, band hidden
+(`short-landscape`). Verified: phones 320×568…932×430 and desktop
+1280/1440/1920 still fit exactly; effects measured firing (lines end at
+full reveal, decode settles on the right text, button pulls 42px toward a
+nearby pointer, card tilts, cue clears the buttons). Lint/tsc/vitest pass.
+
+Bug (owner): with the cursor between the hero buttons, the magnetic pull
+drew both toward it and "Learn More" slid over "Get Started" (reach 90px,
+30% follow, no cap). `Magnetic` now caps the lean (maxX 8px / maxY 5px,
+reach 40px, 18% follow) — under half the buttons' 24px gap, so two
+neighbours drawn together keep ≥ 8px. Verified by sweeping the cursor
+across the whole button row at five heights (1440 and 1024): minimum gap
+8px, max movement 8px.
+
+## How It Works "wow" pass — effects only, no layout change
+
+`landing-steps.tsx` + `.sx-step*`/`.sx-wipe`/`.sx-orbit` in globals.css;
+reuses `TiltSpot` (hero-fx.tsx) and `.sx-impact-spot`.
+- Active loop: the four steps take turns (8s, 2s each, per-card `--i`
+  delay): 2px outline flare, hex glow + 1.07 swell, lit tick stretch — the
+  process reads as running. Sampled: one card lit at a time, 01→04 order.
+- Arrival on the flight weight `--sx-w`: heading wipes in (clip-path),
+  cards rise staggered; settles to zero offset at the stop.
+- Dashed HUD orbit (+ a bead) turning round each hex badge.
+- Big outlined step numeral behind each card (fainter on phones so it
+  doesn't fight the body text); drifts against the pointer tilt.
+- Desktop: TiltSpot tilt + outline spotlight per card.
+- Reduced motion: no loop/orbit/drift; arrival and wipe remain.
+Verified: every device (320×568…1920×1080, landscape incl.) still fits
+exactly with no horizontal overflow; lint/tsc/vitest pass.
+
+## For Sponsors "wow" pass (copy side) — effects only
+
+The packages already had their effects; this adds the rest of the stop
+(`landing-sponsors.tsx`, `.sx-wipe-flip`/`.sx-rise`/`.sx-ping`/
+`.sx-rule-pulse` in globals.css):
+- Heading wipes in on the flight weight — from the right on desktop
+  (right-aligned block), from the left on phones.
+- "Real Measurable Impact." gets the hero's highlight glide
+  (`.sx-hero-shimmer`, data-text copy).
+- Feature icons: a radar ring pings out of each in turn (6s, 2s apart);
+  the features rise in staggered on arrival.
+- A light runs along the rule into "All six packages", which now takes
+  the capped Magnetic lean + hover sheen.
+- Reduced motion: no ping/pulse; wipe and rise stay (scroll-driven).
+Verified at 320×568…1920×1080 incl. landscape: fits exactly, desktop card
+positions unchanged, pings take turns, rule light travels, carousel still
+snaps to 0.000. Lint/tsc/vitest pass.
+
+## Athlete marketplace "wow" pass — effects only
+
+`landing-athletes.tsx` + `.sx-slashes`/`.sx-row`/`.sx-avatar-ring` in
+globals.css; reuses `.sx-wipe`, `.sx-hero-shimmer`, `.sx-ping` (now
+colour/cycle via `--ping`/`--ping-cycle`, cyan 8s here), `.sx-scan`,
+`.sx-sheen`, TiltSpot + Magnetic (hero-fx.tsx).
+- Copy: heading wipe on the flight weight; "Build Lasting Partnerships."
+  highlight glide; a light runs through the "////" slashes; radar pings
+  pass through the four feature icons; buttons get the capped magnetic
+  lean + sheen.
+- Panel: rows slide in from the right, staggered, on arrival; avatar
+  gradient rings turn slowly (conic on the registered `--sx-sweep`); hover
+  sweeps a light across a row (one pass, fades out: rows don't clip, so
+  it must not park outside); slow scan line; gentle tilt (max 3°) +
+  outline spotlight under a fine pointer.
+- Reduced motion: no slash run / ring turn / pings / scan / tilt.
+Verified at 320×568…1920×1080 incl. landscape: fits exactly, desktop
+panel geometry unchanged, rows and wipe settle, loops run; buttons (stacked
+at 1280/1440, side by side at 1920) never closer than 11px under the
+magnetic sweep. Lint/tsc/vitest pass.
+
+## Closing stop + footer "wow" pass — and CountUp fixed on the landing
+
+- **CountUp (`count-up.tsx`, shared):** inside a landing flight stop it now
+  counts when the stop is actually showing (opacity > 0.5) *and* the loader
+  has released the page, and resets to 0 when the stop hides, so it counts
+  up on every arrival. Before, IntersectionObserver fired for every stop at
+  load (they all sit in one sticky stage), so the closing numbers finished
+  unseen and the hero card's finished behind the loading screen. Outside
+  the landing (portals, NEXT pages, analytics) behaviour is unchanged.
+- Closing copy: heading wipe, "Real Partnerships." highlight glide, light
+  through the "///" slashes, a pulse ring rippling out of the final "Get
+  Started" (`.sx-cta-pulse`), both buttons Magnetic (capped 5px: their gap
+  is 16px) + sheen.
+- Panel: rises in on arrival, scan line, gentle tilt + outline spotlight,
+  the four feature icons glow in turn (`.sx-glow-turn`); the numbers roll
+  up on arrival (via the CountUp fix).
+- Footer: a light travels the glowing top rule (all pages); links draw an
+  underline from the left on hover (`.sx-underline`, all pages); a giant
+  faint outlined SPONSORX wordmark behind the landing footer only
+  (`compact`). Social rings get no hover (they aren't linked yet).
+Verified: every device fits exactly; desktop panel/footer geometry
+identical to the earlier baseline; public-page footer unchanged (no
+wordmark); closing numbers read 0 until arrival then roll 0→148; closing
+buttons never closer than 6px under the magnetic sweep. Lint/tsc/vitest
+pass.
+
+## Header / navbar "wow" pass — and the nav now links to pages
+
+- **Nav targets changed (owner):** nav items are separate pages, not
+  landing sections. For Sponsors → `/packages`, For Athletes → `/join`,
+  NEXT → `/next/about`. **How It Works and About have no page yet** — they
+  render inert (`pending`) until someone builds them. "Current" is now the
+  pathname only (Home on `/` exactly); the flight-stop tie in the nav is
+  gone. The landing's own hero/closing buttons still fly the drone by hash.
+- **Capsule morph (`header-fx.tsx`, new):** past 24px of scroll the
+  full-width bar morphs into a floating rounded glass capsule
+  (`data-scrolled`, hysteresis at 8px). `<header>` is fixed at 72px, so
+  nothing below shifts; the ring is an inset box-shadow, not a border.
+- **Progress rule:** the bottom glow line fills with flight progress on the
+  landing (flight store subscription, no re-render) / page scroll
+  elsewhere, with a glowing head; on the landing, a tick per flight stop
+  lights as the drone passes it.
+- **Pointer spotlight** inside the glass, and on the capsule's edge.
+- **Link row (`site-nav.tsx`):** one glass lens (hover/focus) and one
+  holo underline with a glint glide between links (overshoot ease); the
+  underline rests on the current page. Letter-roll hover (`RollLabel`, also
+  on Login + Get Started). Links stagger in on arrival (held on the landing
+  until `data-sx-loaded`).
+- **Get Started:** Magnetic (capped 8px) + periodic shine sweep.
+- All motion stands down for reduced motion. CSS: `.sx-bar*`, `.sx-nav-*`,
+  `.sx-roll*`, `.sx-shine` in globals.css.
+Verified in the running dev server (Playwright): 1280/1440/360 top and
+capsule states, no wrap, no horizontal overflow at 360, landing nav items
+visible after the loader, 5 stop ticks, no console errors. Lint + tsc pass.
+
+## Athletes-stop jobs band — spacing + edge fixed (owner: "the fade is ugly, the spacing is ugly")
+
+- **Spacing:** dividers were anchored 20px left of each item, so every
+  slash hugged the end of the previous word (40px after it, ~0 before).
+  Now each item has equal padding (lg 32px, phone 16px) and a short 22px
+  slash centred on its left edge → exactly midway, 64px label-to-label at
+  every desktop width (measured). Every item carries the slash, so both
+  marquee copies are identical and the loop has no seam.
+- **Edges:** the 8% vertical mask fade never met the band's slanted plate
+  edge, leaving half-dissolved stubs ("MBASSADOR", "MONTHL"). Desktop now
+  has a plate at both ends (label left, "+ Rates" + tag right), each with
+  a glowing 28° edge; the ribbon runs 64px under each and is clipped along
+  both slants (`.sx-jobs-clip`), so jobs slide out exactly under the glow
+  line. All slants share 28° (dividers were 22°). Phone keeps a short
+  20px fade (no plates there).
+- Hovering the ribbon pauses it.
+Verified at 1920/1280/390 on the running dev server. Lint + tsc pass.
+
+## P1-ART-12 — page transition between public pages (owner: "a 2nd loader … wow factor + awwwards")
+
+Raised by the owner: For Sponsors / For Athletes → Home replayed the boot
+loader. Now two separate screens:
+
+- **Boot screen (`P1-ART-11`, rescoped):** once per document. `LandingLoader`
+  renders "gone" when `html[data-sx-booted]` is set (an attribute, not a
+  module flag, so dev HMR does not replay it; a real reload gets a fresh
+  `<html>`). Also mounted in the `(public)` layout with `city={false}`
+  (waits on fonts + load only), so a hard refresh of /packages, /join, /next…
+  shows it too. Fix on the way: its unmount cleanup no longer unlocks scroll
+  / sets `data-sx-loaded` once it has already released the page — leaving a
+  public page used to clobber the transition's lock and the home's held
+  entrance.
+- **Page transition (`components/page-transition.tsx` + `.module.css`, pure
+  maths in `lib/page-transition.ts`):** mounted in the **root layout** so it
+  survives the (home)↔(public) group change. One window capture-phase click
+  listener cancels the default; Next 16 `<Link>` checks `defaultPrevented`
+  and stands down, so no link component was touched. Cover: the brand X grows
+  from the click point in orange → blue → ink (WAAPI `clip-path` polygons, 12
+  points, twisting 30° into place), "Now entering" + the destination name
+  rising per letter, grid, sweep, giant outline X drawing itself, corner
+  readouts (000–100 %, path). Push after cover (prefetched on click). Hold
+  until arrived — for `/` the real load-store number (store reset at push,
+  content = 1); else 2 frames after commit; min hold so the name reads;
+  12 s safety. Reveal: an `evenodd` X-shaped hole opens in ink → blue →
+  orange (coloured rims), `data-sx-loaded` set as it opens so the hero
+  entrance plays through it. Back/forward: caught during render (state
+  adjusted while rendering — the lint forbids setState in effects), starts
+  covered, reveal only. Only public-site ↔ public-site moves
+  (`SITE_PREFIXES`); /login, portals and /r keep plain nav. Reduced motion:
+  plain ink fade.
+- Tests: `tests/page-transition.test.ts` (12) — the X covers every viewport
+  point from any click at `coverRadius` (3 viewports × 5 clicks), constant
+  point counts per keyframe set, route list/labels.
+
+Verified on the running dev server (Playwright, frames frozen via
+`getAnimations()`): hard /packages → boot; nav Home → transition, no boot,
+scroll locked + entrance held during hold, city counter live; home → /join;
+back → instant cover then reveal; hard /join → boot; phone 390 cover/reveal;
+reduced motion ~1.3 s fade; Login link → plain nav. No page errors. Lint,
+tsc and the full frontend suite (708) pass. Phase 1 doc: `P1-ART-11`
+definition rescoped, `P1-ART-12` added; tracker row 267 (Order 32.9, Code
+review) with autofilter / CF / Status validation extended to 267; today's
+Stage Progress snapshot "Days left" 92 → 93 (recomputed from the rows).
+
+## Hero top — 1px horizontal scrollbar fixed (owner: "there's a x-scroll showing")
+
+Cause: with the header bar full-width (top of the page, before the capsule
+morph), its bottom progress rule spans the viewport; the last flight-stop
+tick sits at `left: 100%` centred with `translate(-50%)`, so half its 1px box
+hung past the right edge → document 1441px in a 1440px window → Windows
+shows a horizontal scrollbar. Gone once scrolled (capsule insets the rule
+22px). Fix in globals.css: `.sx-bar-tick` and `.sx-bar-head` positions are
+`clamp()`ed inside the rule (the glow is box-shadow, which never scrolls).
+Verified scrollWidth == clientWidth at 1440/1280/390, scroll 0/40/240, with
+no element past either edge.
