@@ -143,3 +143,16 @@ needed: the first run of the payout prompt produced only the sponsor payment).
   - The tenant-isolation sweep now seeds an athlete-sold listing and order line.
   - The alignment test accepts the builder's action argument.
 - **Frontend follow-up raised as 2S3-FE-03** (Ready). The shop, cart, checkout and BTG queue still assume a property; `propertyLine` in `lib/shop-live.ts` would fail on an athlete-sold listing. 2S3-FE-02 moved to Ready.
+
+## Walkthrough: step 4b and the Hawks' set-up shot; sponsor approval raised
+
+- **The gap.** The user noticed step 4 never shows BTG approving the sponsor. That step doesn't exist in the product:
+  - The public request (P8-INT-06) becomes only a Zoho lead.
+  - A Zoho Account syncs in as a sponsor row, but nothing creates a sponsor login. Only seed data has SPONSOR_ADMIN users.
+- **Deck (v9).**
+  - New step 4b is marked "not built yet" with that explanation, and the "not built" list is updated.
+  - Step 5d now shows the Hawks' Earnings page before set-up (with "Set up payouts with Stripe ↗") and after it.
+- **Raised in the Phase 2 doc and tracker:**
+  - **2S1-BE-05** (4d, Ready): BTG review queue for sponsor requests. Approving creates the sponsor, its contact and a SPONSOR_ADMIN login, links Zoho without duplicating, and emails a sign-in link.
+  - **2S1-FE-03** (3d, Blocked on BE-05): BTG's review screen.
+- Phase 2 is now 75 tasks, 293 days.

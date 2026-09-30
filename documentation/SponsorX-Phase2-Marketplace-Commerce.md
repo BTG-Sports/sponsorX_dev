@@ -5,7 +5,7 @@
 | | |
 |---|---|
 | **Goal** | Turn SponsorX from BTG-only operations into a multi-tenant marketplace. External athletes, teams, programs, events and media properties onboard, publish inventory, fulfil deliverables and get paid. |
-| **Tasks** | 73 · 286 person-days |
+| **Tasks** | 75 · 293 person-days |
 | **Blueprint timeline** | 16–20 weeks |
 | **Balanced budget** | $80K–$120K |
 | **Depends on** | Phase 1 auth/RBAC, sponsor/property/inventory/campaign/reward models, Zoho integration, core analytics |
@@ -225,6 +225,16 @@ Approving a property creates its tenant and role assignments. This is where Phas
 - **Done when:** An approved property's users see only their own tenant's data; cross-tenant tests pass
 - **Reference:** Spec §3, §12
 
+### ⏸ `2S1-BE-05` · BTG approves a new sponsor and opens the account
+
+**Order** 12.5 · **BE** · **Where:** Code · **4d** · **Blocked**
+
+Today a sponsor's request from the public form becomes a Zoho lead and nothing more. BTG cannot approve the sponsor in SponsorX, and nothing gives the sponsor a login, so a real sponsor could never sign in. The request should land in a BTG review queue in SponsorX, as well as going to Zoho. It records the business type as structured categories, since the clash check needs them and today they arrive only inside the message text. BTG approves or declines with a note. Approving creates the sponsor with its categories, its primary contact and a SPONSOR_ADMIN login for the request's email, in one transaction. It links to the Zoho account instead of duplicating it when sales has already converted the lead. It also emails the sponsor a sign-in link, queued through the worker. Declining emails the reason. Every decision is audited. Zoho stays off the request path. Raised 2026-09-30 from the walkthrough (step 4b).
+
+- **Depends on:** 2S1-BE-04, P8-INT-06
+- **Done when:** A sponsor's request appears in BTG's queue with its business type; approving it creates the sponsor, its contact and a login the requester can sign in with, and links the Zoho account without a duplicate; declining tells the requester why; only BTG admin and sales can decide; tenant and role tests cover it
+- **Reference:** Spec §3, §12, §18; walkthrough 2026-09-30
+
 ### ⏸ `2S1-FE-01` · Build the property onboarding wizard
 
 **Order** 13 · **FE** · **Where:** Code · **5d** · **Blocked**
@@ -244,6 +254,16 @@ The BTG admin review screen: submitted profile, documents, brand-safety status, 
 - **Depends on:** 2S1-BE-03
 - **Done when:** Reviewer can work the queue and action decisions with reasons recorded
 - **Reference:** Spec §6 P2-02
+
+### ⏸ `2S1-FE-03` · BTG's sponsor-request review screen
+
+**Order** 14.5 · **FE** · **Where:** Code · **3d** · **Blocked**
+
+BTG's queue of new sponsor requests: who is asking, their business type, their message and when they asked. BTG can approve, which opens the account and emails the sponsor a sign-in link, or decline with a note the sponsor reads. The same screen shows whether the Zoho lead has already been converted, so sales and BTG don't create the sponsor twice. Raised 2026-09-30 from the walkthrough (step 4b).
+
+- **Depends on:** 2S1-BE-05
+- **Done when:** BTG can review a sponsor's request, approve it (the sponsor can then sign in) or decline it with a reason, from the admin portal
+- **Reference:** Spec §10; walkthrough 2026-09-30
 
 ### ⏸ `2S1-INT-01` · Onboarding notification jobs
 
