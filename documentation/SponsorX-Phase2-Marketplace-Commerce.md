@@ -5,7 +5,7 @@
 | | |
 |---|---|
 | **Goal** | Turn SponsorX from BTG-only operations into a multi-tenant marketplace. External athletes, teams, programs, events and media properties onboard, publish inventory, fulfil deliverables and get paid. |
-| **Tasks** | 67 · 267 person-days |
+| **Tasks** | 69 · 275 person-days |
 | **Blueprint timeline** | 16–20 weeks |
 | **Balanced budget** | $80K–$120K |
 | **Depends on** | Phase 1 auth/RBAC, sponsor/property/inventory/campaign/reward models, Zoho integration, core analytics |
@@ -16,7 +16,7 @@
 | Phase | File | Tasks | Timeline |
 |---|---|---|---|
 | 1 | [`SponsorX-Phase1-Managed-Marketplace.md`](./SponsorX-Phase1-Managed-Marketplace.md)  | 186 | 14–18 weeks |
-| 2 | [`SponsorX-Phase2-Marketplace-Commerce.md`](./SponsorX-Phase2-Marketplace-Commerce.md) **← you are here** | 67 | 16–20 weeks |
+| 2 | [`SponsorX-Phase2-Marketplace-Commerce.md`](./SponsorX-Phase2-Marketplace-Commerce.md) **← you are here** | 69 | 16–20 weeks |
 | 3 | [`SponsorX-Phase3-Intelligence-Attribution.md`](./SponsorX-Phase3-Intelligence-Attribution.md)  | 44 | 18–22 weeks |
 | 4 | [`SponsorX-Phase4-INFINEX-Integration.md`](./SponsorX-Phase4-INFINEX-Integration.md)  | 51 | 18–22 weeks |
 
@@ -345,7 +345,7 @@ Roster, inventory, campaigns, revenue, tasks and performance for a team or progr
 
 *Public and private listings, packages, search, availability and conflict checking.*
 
-*6 tasks · 26 person-days*
+*8 tasks · 34 person-days*
 
 ### ⏸ `2S3-BE-01` · Marketplace listing model and lifecycle
 
@@ -387,6 +387,16 @@ Sponsors browse what is available to them. Visibility rules mean two sponsors se
 - **Done when:** Search returns only inventory visible to the requesting sponsor and tenant
 - **Reference:** Spec §12
 
+### ⏸ `2S3-BE-05` · Independent athletes list their own items
+
+**Order** 27.5 · **BE** · **Where:** Code · **5d** · **Blocked**
+
+Not every athlete has a team. Today only a property manager can put an item on sale, so an athlete with no team can create items that can never be sold — and nothing tells them. Let an approved athlete with no team be the seller of their own listing: the athlete submits it, BTG approves it by the same rules as a team's (with "the athlete is approved" in place of "the property is approved to list"), and with no team the athlete keeps the whole share. Listings stop assuming a property: search, the cart, orders, the availability check and the ledger split all handle an athlete-owned listing. A roster athlete's items still go through their team. Raised 2026-09-30 from the walkthrough.
+
+- **Depends on:** 2S3-BE-01, 2S2-BE-01
+- **Done when:** An approved athlete with no team can submit their own item, BTG can approve it, a sponsor can find, cart and order it, and the split pays the athlete as the only payee; a roster athlete still cannot list around their team; scope and tenant tests cover the new seller
+- **Reference:** Spec §9, §12; walkthrough 2026-09-30
+
 ### ⏸ `2S3-FE-01` · Build the listing editor
 
 **Order** 28 · **FE** · **Where:** Code · **5d** · **Blocked**
@@ -396,6 +406,16 @@ Listing data, pricing, package builder, preview, approval status and visibility 
 - **Depends on:** 2S0-ART-01
 - **Done when:** A property can build, preview and submit a listing for approval
 - **Reference:** Spec §6 P2-07
+
+### ⏸ `2S3-FE-02` · Listing screen for independent athletes
+
+**Order** 28.5 · **FE** · **Where:** Code · **3d** · **Blocked**
+
+The athlete-side "put it on sale" step: from their inventory, an athlete with no team writes what the sponsor gets, sees the same checklist of what BTG checks, and submits for approval; they can then follow the listing's state, pause it and take it down. An athlete on a team is told their team lists it.
+
+- **Depends on:** 2S3-BE-05
+- **Done when:** An independent athlete can build, submit and follow a listing for approval from their own portal
+- **Reference:** Spec §6 P2-07; walkthrough 2026-09-30
 
 ### ⏸ `2S3-SEC-01` · Listing visibility and tenant isolation tests
 
