@@ -5730,9 +5730,9 @@
     "semantic_hash": ""
   },
   "Memory/2026-09-30/tasks-completed.md": {
-    "mtime": 1790774496.2111833,
-    "seen": 1790774574.8138723,
-    "ast_hash": "2551cc3f5ffc04cf970ae1f67fbf7ffe",
+    "mtime": 1790779438.2900238,
+    "seen": 1790779503.1946547,
+    "ast_hash": "d65c0626c3f49babdb1390ae521975a4",
     "semantic_hash": ""
   },
   "frontend/src/components/site-nav.tsx": {
@@ -6036,9 +6036,9 @@
     "semantic_hash": ""
   },
   "frontend/src/app/(public)/next/about/page.tsx": {
-    "mtime": 1790771610.4190717,
-    "seen": 1790774574.7344892,
-    "ast_hash": "de996939a42245c69946af79247edc5e",
+    "mtime": 1790777074.6813202,
+    "seen": 1790779503.1241176,
+    "ast_hash": "f40897456e944c045932fbbfb5ef59df",
     "semantic_hash": ""
   },
   "frontend/src/app/(public)/next/apply/actions.ts": {
@@ -6720,9 +6720,9 @@
     "semantic_hash": ""
   },
   "frontend/src/components/next-about-stage.tsx": {
-    "mtime": 1790773970.0917282,
-    "seen": 1790774574.7596798,
-    "ast_hash": "7e606cf0544ced62d240e1e363b6009a",
+    "mtime": 1790777938.1094184,
+    "seen": 1790779503.148476,
+    "ast_hash": "a67c21457e73641397cda3fa5617e21f",
     "semantic_hash": ""
   },
   "frontend/src/components/packages-fx.tsx": {
@@ -6738,15 +6738,15 @@
     "semantic_hash": ""
   },
   "frontend/src/lib/next-about.ts": {
-    "mtime": 1790769846.0784664,
-    "seen": 1790774574.784271,
-    "ast_hash": "ccec4e74fd36de82a96b670e6141fe48",
+    "mtime": 1790776502.2356124,
+    "seen": 1790779503.1697638,
+    "ast_hash": "4e15ef267ca317ce320723730d9e7f90",
     "semantic_hash": ""
   },
   "frontend/tests/next-about.test.ts": {
-    "mtime": 1790769847.69812,
-    "seen": 1790774574.8017807,
-    "ast_hash": "562b195b578a097c780d82ba8d62751d",
+    "mtime": 1790776490.4172885,
+    "seen": 1790779503.1822023,
+    "ast_hash": "901de52ad6bcf77a95f9b0325449d5c0",
     "semantic_hash": ""
   },
   "docs/superpowers/plans/2026-09-30-next-about-magazine.md": {
@@ -6765,6 +6765,24 @@
     "mtime": 1790769566.97,
     "seen": 1790774574.8642464,
     "ast_hash": "7fa3855b18f80803d1d472d14569337d",
+    "semantic_hash": ""
+  },
+  "frontend/src/components/next-about-book.tsx": {
+    "mtime": 1790778026.9216864,
+    "seen": 1790779503.148476,
+    "ast_hash": "1d008b0d0fdacda5b19f4a6af6983845",
+    "semantic_hash": ""
+  },
+  "docs/superpowers/plans/2026-09-30-next-about-flipbook.md": {
+    "mtime": 1790776447.1377985,
+    "seen": 1790779503.1994395,
+    "ast_hash": "d6169270c8a5101ef669d940a1fe27c2",
+    "semantic_hash": ""
+  },
+  "docs/superpowers/specs/2026-09-30-next-about-flipbook-design.md": {
+    "mtime": 1790776240.1373186,
+    "seen": 1790779503.2014887,
+    "ast_hash": "754bb32bfd64aea7acf61b1c1da11629",
     "semantic_hash": ""
   }
 }

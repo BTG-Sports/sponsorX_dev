@@ -1200,8 +1200,8 @@
     "semantic_hash": ""
   },
   "backend/src/app.ts": {
-    "mtime": 1790652011.6638098,
-    "seen": 1790760203.0460467,
+    "mtime": 1790770573.5959578,
+    "seen": 1790774574.6378715,
     "ast_hash": "87924a75417a41040813098b72b4533a",
     "semantic_hash": ""
   },
@@ -2352,9 +2352,9 @@
     "semantic_hash": ""
   },
   "frontend/src/app/(public)/join/page.tsx": {
-    "mtime": 1790306343.6048858,
-    "seen": 1790760203.0465932,
-    "ast_hash": "21b22109764a1d3b990243120f7efcc4",
+    "mtime": 1790766292.8226213,
+    "seen": 1790774574.7344892,
+    "ast_hash": "846dcffd320cc42e2f2b0c54d7889684",
     "semantic_hash": ""
   },
   "frontend/src/app/(public)/layout.tsx": {
@@ -2376,9 +2376,9 @@
     "semantic_hash": ""
   },
   "frontend/src/app/(public)/packages/page.tsx": {
-    "mtime": 1790561975.280682,
-    "seen": 1790760203.0465932,
-    "ast_hash": "8e56d95574a7891471390399a4676394",
+    "mtime": 1790763498.7527888,
+    "seen": 1790774574.7380013,
+    "ast_hash": "0b75210f469b6598b632bf31f7fa8e4e",
     "semantic_hash": ""
   },
   "frontend/src/app/(public)/properties/[slug]/page.tsx": {
@@ -2388,9 +2388,9 @@
     "semantic_hash": ""
   },
   "frontend/src/app/layout.tsx": {
-    "mtime": 1790758500.216158,
-    "seen": 1790760203.0465932,
-    "ast_hash": "e22c560a1928369eae5467ef267ba06e",
+    "mtime": 1790769839.927236,
+    "seen": 1790774574.7380013,
+    "ast_hash": "5a9e1249185373bd108b229ee695d514",
     "semantic_hash": ""
   },
   "frontend/src/app/login/page.tsx": {
@@ -2556,9 +2556,9 @@
     "semantic_hash": ""
   },
   "frontend/src/components/join-wizard.tsx": {
-    "mtime": 1790306343.8821948,
-    "seen": 1790760203.0465932,
-    "ast_hash": "4fc3a50a26fbdea5d5141c3569a52ea0",
+    "mtime": 1790766645.778958,
+    "seen": 1790774574.7536216,
+    "ast_hash": "2d112260e526eaa865cb85ecac12029a",
     "semantic_hash": ""
   },
   "frontend/src/components/journey-strip.tsx": {
@@ -5730,9 +5730,9 @@
     "semantic_hash": ""
   },
   "Memory/2026-09-30/tasks-completed.md": {
-    "mtime": 1790760122.0610254,
-    "seen": 1790760203.0476046,
-    "ast_hash": "12cd147ac772e651b6d16907a2093622",
+    "mtime": 1790774496.2111833,
+    "seen": 1790774574.8138723,
+    "ast_hash": "2551cc3f5ffc04cf970ae1f67fbf7ffe",
     "semantic_hash": ""
   },
   "frontend/src/components/site-nav.tsx": {
@@ -5748,9 +5748,9 @@
     "semantic_hash": ""
   },
   "frontend/src/components/landing-sponsors.tsx": {
-    "mtime": 1790754621.3009129,
-    "seen": 1790760203.0465932,
-    "ast_hash": "db2a747e3988c29cea6a3a7385c2ccb3",
+    "mtime": 1790762988.789901,
+    "seen": 1790774574.7551465,
+    "ast_hash": "a2b909e5199ce60300fe6f07938043a0",
     "semantic_hash": ""
   },
   "frontend/src/components/landing-athletes.tsx": {
@@ -6036,9 +6036,9 @@
     "semantic_hash": ""
   },
   "frontend/src/app/(public)/next/about/page.tsx": {
-    "mtime": 1790728032.8614435,
-    "seen": 1790760203.0465932,
-    "ast_hash": "56726e942181839f14c3bbb9002beb27",
+    "mtime": 1790771610.4190717,
+    "seen": 1790774574.7344892,
+    "ast_hash": "de996939a42245c69946af79247edc5e",
     "semantic_hash": ""
   },
   "frontend/src/app/(public)/next/apply/actions.ts": {
@@ -6546,9 +6546,9 @@
     "semantic_hash": ""
   },
   "frontend/src/components/hero-fx.tsx": {
-    "mtime": 1790744595.5729146,
-    "seen": 1790760203.0465932,
-    "ast_hash": "dcd0ff28e0d73353f419fad78fa6cde8",
+    "mtime": 1790770714.8676457,
+    "seen": 1790774574.7506013,
+    "ast_hash": "fb02b1e02f2c40343c2b4954cfec0748",
     "semantic_hash": ""
   },
   "frontend/src/components/package-carousel.tsx": {
@@ -6558,9 +6558,9 @@
     "semantic_hash": ""
   },
   "frontend/src/components/page-transition.tsx": {
-    "mtime": 1790758860.5977685,
-    "seen": 1790760203.0465932,
-    "ast_hash": "7493222facb91cae251ce985ea796e01",
+    "mtime": 1790763090.4177215,
+    "seen": 1790774574.761678,
+    "ast_hash": "6c0c1e9b4d12387561d45f7f3acb00e2",
     "semantic_hash": ""
   },
   "frontend/src/lib/page-transition.ts": {
@@ -6705,6 +6705,66 @@
     "mtime": 1789357221.9002829,
     "seen": 1790760203.0476046,
     "ast_hash": "bdc149d0c0509ed1a26412bb1f660289",
+    "semantic_hash": ""
+  },
+  "frontend/src/components/join-stage.tsx": {
+    "mtime": 1790766996.7906318,
+    "seen": 1790774574.7536216,
+    "ast_hash": "2a44a4e94eed60d16588006de0479a35",
+    "semantic_hash": ""
+  },
+  "frontend/src/components/next-about-fx.tsx": {
+    "mtime": 1790770719.6205447,
+    "seen": 1790774574.7596798,
+    "ast_hash": "bbda5a15daae14b294a19a0e6ca5e718",
+    "semantic_hash": ""
+  },
+  "frontend/src/components/next-about-stage.tsx": {
+    "mtime": 1790773970.0917282,
+    "seen": 1790774574.7596798,
+    "ast_hash": "7e606cf0544ced62d240e1e363b6009a",
+    "semantic_hash": ""
+  },
+  "frontend/src/components/packages-fx.tsx": {
+    "mtime": 1790765291.2417111,
+    "seen": 1790774574.761678,
+    "ast_hash": "be1543d6013625c79f5d4826df14eb7e",
+    "semantic_hash": ""
+  },
+  "frontend/src/components/packages-stage.tsx": {
+    "mtime": 1790771559.6944797,
+    "seen": 1790774574.761678,
+    "ast_hash": "994574d3daaae5d571545e1f07d32978",
+    "semantic_hash": ""
+  },
+  "frontend/src/lib/next-about.ts": {
+    "mtime": 1790769846.0784664,
+    "seen": 1790774574.784271,
+    "ast_hash": "ccec4e74fd36de82a96b670e6141fe48",
+    "semantic_hash": ""
+  },
+  "frontend/tests/next-about.test.ts": {
+    "mtime": 1790769847.69812,
+    "seen": 1790774574.8017807,
+    "ast_hash": "562b195b578a097c780d82ba8d62751d",
+    "semantic_hash": ""
+  },
+  "docs/superpowers/plans/2026-09-30-next-about-magazine.md": {
+    "mtime": 1790769298.8492393,
+    "seen": 1790774574.8185997,
+    "ast_hash": "58337db0ce12fabccc9762899645b621",
+    "semantic_hash": ""
+  },
+  "docs/superpowers/specs/2026-09-30-next-about-magazine-design.md": {
+    "mtime": 1790769304.1260347,
+    "seen": 1790774574.8221154,
+    "ast_hash": "15bb20f72a23bbaa191da6545479ba37",
+    "semantic_hash": ""
+  },
+  "frontend/public/next/btg-sports-talk-magazine.png": {
+    "mtime": 1790769566.97,
+    "seen": 1790774574.8642464,
+    "ast_hash": "7fa3855b18f80803d1d472d14569337d",
     "semantic_hash": ""
   }
 }

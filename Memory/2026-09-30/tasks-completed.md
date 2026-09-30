@@ -1097,3 +1097,60 @@ overruns by ~20px at 320px. No tracker row — design pass on a shipped screen.
 Owner's follow-up idea, not built: an interactive flipbook — click the cover,
 it opens, and pages turn one by one. Proposed as a reader overlay reusing the
 spread components; awaiting the owner's pick.
+
+## /next/about — the magazine is now an interactive flipbook — via Claude
+
+Owner, after the magazine redesign: "in the magazine section, we can do an
+interactive magazine … show the cover first, click, page opens, next page".
+Companion choice: the book in place (not a full-screen overlay). Spec
+`docs/superpowers/specs/2026-09-30-next-about-flipbook-design.md`, plan
+`docs/superpowers/plans/2026-09-30-next-about-flipbook.md`.
+
+- `next-about-book.tsx` (client, new) — MagBook: the eight server-rendered
+  faces (cover, pages 02–07, back cover) as four 3D leaves; one state, the
+  current face. Spread mode from lg (a leaf turns on the spine, 1.05s, with
+  a shade; the closed or finished book shifts 25% to centre), page mode
+  below (one face, hinging in and out). Inputs: click a page, ◂ ▸, ← →
+  while the book is on screen, a touch swipe (`touch-action: pan-y`), five
+  jump chips, and the hashes #magazine / #how / #students (load, hashchange
+  and in-page link clicks → scroll + open). Clicks on links/buttons inside
+  a page never turn it. Hidden faces are inert + aria-hidden after
+  hydration only (`useMounted`), so the no-JS flat layout stays usable; a
+  real button covers the closed cover ("Open the magazine"); the counter is
+  aria-live. Reduced motion: instant turns with a 150ms crossfade.
+- `next-about-stage.tsx` — the three scrolling spreads are gone; MagazineBook
+  assembles the faces (CoverPlate with an "Open ▸" hint, pages 02–07 with
+  the same copy, BackFace with both CTAs) and carries the `<noscript>` flat
+  style; the hero cover is a link to #magazine under its "Inside:" links;
+  MagPage has a tighter book scale (15px body from lg, 16px from xl); page
+  06 is one column.
+- `globals.css` — `.sx-mag-sheet/spine/curl` and the flip-on-scroll rules
+  removed; `.sx-book*` added (leaves, faces, shade, hint, page-mode hinge
+  keyframes, controls, reduced-motion swaps scoped to page mode).
+- `lib/next-about.ts` — spreadOf / nextFace / prevFace / faceLabel,
+  HASH_FACE, CHIPS (+5 tests, 764 total).
+
+Two review rounds before QA caught: page-mode z-order covering the visible
+page (page 02's CTA untappable), `go()` re-reading the hash on a breakpoint
+change, swipe never firing without `touch-action`, links inside faces
+turning the page, the cover's fake `role=button`, and SSR-time `inert`
+breaking the no-JS fallback. QA fix: the book's floor shadow painted over
+the left page (`z-index: -1`).
+
+Verified via Playwright against the live dev server at 1920, 1440, 1280,
+1024, 983, 768, 390, 360 — dark, light, reduced motion: closed on load,
+opens on cover click, advances on click / ▸ / → / chip / #how, ends on the
+back cover, no visible face overflows in spread mode, hidden faces inert,
+every link on faces 1–7 hit-testable at 390, swipe advances, no console
+errors, no horizontal overflow. tsc, eslint and vitest pass. The production
+build in the detached worktree FAILED on something unrelated: exceljs
+(athlete earnings export) → unzipper → fstream requires `rimraf`, and
+`node_modules/rimraf` on this machine is an empty folder (last written
+21:22 today), so Turbopack cannot resolve it. The same commit that built
+clean earlier today fails the same way once its build cache is gone. Fix is
+an install (`npm ci`), not code — left for the owner because the dev server
+was live. No tracker row — design pass on a shipped screen.
+
+Worth a follow-up: at 1440 the 3:2 spread leaves the lower half of pages
+02–04 blank (the copy is short); a real issue would fill it with a photo or
+a pull quote per page.
