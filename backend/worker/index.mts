@@ -68,6 +68,10 @@ const HANDLED_JOBS = new Set<string>([
   "zoho.pushMarketplaceOrder",
   /* 2S7-BE-02 — the sponsor report rendered as a file, unattended. */
   "report.render",
+  /* 2S5-INT-02 / 2S5-BE-05 — the payment provider's side (stand-in on staging). */
+  "payments.confirm",
+  "payouts.send",
+  "payouts.confirm",
 ]);
 import { handleSendEmail, type EmailJob } from "./jobs/send-email.mts";
 import { handleGenerateQr, type QrJob } from "./jobs/generate-qr.mts";
@@ -87,6 +91,8 @@ import type { RenderReportJob } from "../src/domain/report-files.ts";
 import { prisma } from "../src/db/client.ts";
 import { ingestZohoInvoice, type ZohoInvoicePayload } from "../src/domain/invoice.ts";
 import { importCohort, type CohortImportJob } from "../src/domain/cohort-import.ts";
+import { confirmPayment, confirmPayoutPaid, sendPayout } from "../src/domain/payouts.ts";
+import { providerName } from "../src/lib/payment-provider.ts";
 import { redis } from "../src/lib/redis.ts";
 import { zohoConfigFromEnv, zohoFromEnv } from "../src/lib/zoho.ts";
 import {
@@ -422,6 +428,29 @@ async function main(): Promise<void> {
   await ensureQueue("report.render");
   await boss.work<RenderReportJob & { tenantId: string }>("report.render", { localConcurrency: 1 }, async ([job]) =>
     console.log(`[worker] report.render ${JSON.stringify(await handleRenderReport({ db: prisma, put: putPrivateObject, logo: getPublicObject }, job.data))}`));
+
+  /* 2S5-INT-02 / 2S5-BE-05 — the provider's side of payments and payouts.
+     The stand-in provider answers after a few seconds, the way a real
+     provider's webhook arrives after the customer comes back — so the
+     screens really do show "confirming" and "sending" in between. */
+  const providerDelay = () => new Promise((r) => setTimeout(r, providerName() === "standin" ? 4_000 : 0));
+  await ensureQueue("payments.confirm");
+  await boss.work<{ attemptId: string }>("payments.confirm", async ([job]) => {
+    await providerDelay();
+    console.log(`[worker] payments.confirm ${JSON.stringify(await confirmPayment(job.data.attemptId))}`);
+  });
+  await ensureQueue("payouts.send");
+  await boss.work<{ payoutId: string }>("payouts.send", async ([job]) => {
+    const sent = await sendPayout(job.data.payoutId);
+    console.log(`[worker] payouts.send ${JSON.stringify(sent)}`);
+    if (sent.sent && providerName() === "standin") {
+      await providerDelay();
+      console.log(`[worker] payouts.confirm ${JSON.stringify(await confirmPayoutPaid(job.data.payoutId))}`);
+    }
+  });
+  await ensureQueue("payouts.confirm");
+  await boss.work<{ payoutId: string }>("payouts.confirm", async ([job]) =>
+    console.log(`[worker] payouts.confirm ${JSON.stringify(await confirmPayoutPaid(job.data.payoutId))}`));
 
   const zohoDeps = { db: prisma, zoho: zohoFromEnv };
   const zohoLog = (name: string, outcome: unknown) =>

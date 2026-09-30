@@ -96,6 +96,7 @@ import {
   CommissionRuleInput, CommissionRuleRevision, CommissionPreviewInput,
 } from "./marketplace";
 import { NotificationPreferenceInput } from "./notification-preferences";
+import { PayoutAccountLinkInput, PayoutDecisionInput, StandinAccountInput, StandinCheckoutInput } from "./payouts";
 import { OnboardingDecisionInput, OnboardingDocumentInput, OnboardingStartInput, OnboardingStepInput } from "./onboarding";
 import {
   AgreementAcceptanceInput,
@@ -461,6 +462,20 @@ const PATHS: Row[] = [
   { method: "post", path: "/offers/{id}/send", tag: "Marketplace", summary: "Send — the terms are hashed and fixed from here." },
   { method: "post", path: "/offers/{id}/withdraw", tag: "Marketplace", summary: "BTG takes an unanswered offer back." },
   { method: "post", path: "/offers/{id}/respond", tag: "Marketplace", summary: "The athlete accepts (freezes the terms, creates the order and schedules its deliverables) or declines.", body: OfferResponseInput },
+  // 2S5-INT-01 / -03, 2S5-BE-04 / -05 — payout accounts, card payments and payouts
+  { method: "get", path: "/payouts/account", tag: "Payouts", summary: "The caller's payout account status (athlete or property manager): not set up, needs more information, or ready." },
+  { method: "post", path: "/payouts/account/link", tag: "Payouts", summary: "A link to the payment provider's page to set up (or finish, or manage) the payout account.", body: PayoutAccountLinkInput },
+  { method: "get", path: "/payouts/me", tag: "Payouts", summary: "The payee's money: requestable, held, awaiting payment, paid out; the rules for requesting; per-order detail; every payout." },
+  { method: "post", path: "/payouts", tag: "Payouts", summary: "Request the whole requestable balance as a payout (one per set of books).", status: 201 },
+  { method: "get", path: "/payouts", tag: "Payouts", summary: "BTG admin / Finance: payout requests by state, with counts." },
+  { method: "get", path: "/payouts/{id}", tag: "Payouts", summary: "One payout: payee, orders, the payout rules checked now, the payee's account status." },
+  { method: "post", path: "/payouts/{id}/decision", tag: "Payouts", summary: "Approve (hands it to the payment provider) or send back with a note.", body: PayoutDecisionInput },
+  { method: "post", path: "/payouts/{id}/retry", tag: "Payouts", summary: "Send a payout the provider couldn't send back to the provider." },
+  { method: "get", path: "/marketplace-orders/{id}/payment", tag: "Payouts", summary: "Whether the order can be paid by card now, and how the last attempt went." },
+  { method: "post", path: "/marketplace-orders/{id}/pay", tag: "Payouts", summary: "The sponsor starts a card payment: a link to the payment provider's secure page (SponsorX never sees the card)." },
+  { method: "get", path: "/public/test-provider/details", tag: "Payouts", summary: "Staging only — what the stand-in provider's page shows for a signed link.", auth: false },
+  { method: "post", path: "/public/test-provider/account", tag: "Payouts", summary: "Staging only — finish the stand-in provider's payout-account set-up.", auth: false, body: StandinAccountInput },
+  { method: "post", path: "/public/test-provider/checkout", tag: "Payouts", summary: "Staging only — pay (or decline) on the stand-in provider's payment page.", auth: false, body: StandinCheckoutInput },
   { method: "get", path: "/branding", tag: "Marketplace", summary: "The caller's tenant branding — what its portal and reports render (2S7-BE-01) — and canEdit, whether the caller may change it." },
   { method: "put", path: "/branding", tag: "Marketplace", summary: "Set the tenant's name, logo, colours, report footer and requested domain.", body: BrandingInput },
   { method: "post", path: "/branding/logo", tag: "Marketplace", summary: "A public-bucket upload grant for a new logo (PNG or JPEG, ≤1 MB).", body: LogoUploadInput, status: 201 },

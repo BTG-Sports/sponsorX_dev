@@ -93,6 +93,26 @@ ${d.portalUrl ?? ""}
     subject: `${d.sponsorName ?? "A sponsor"} wants to work with you`,
     text: `Hi ${d.firstName ?? "there"},\n\nYou have a new campaign invitation${d.sponsorName ? ` from ${d.sponsorName}` : ""}.\n\n${d.jobName ?? "The work"}${d.offered ? ` — ${d.offered}` : ""}\n\nOpen it to see the full terms and decide:\n\n${d.portalUrl ?? ""}\n\nIt expires on ${d.expiresOn ?? "the date shown in your portal"}.\n\n— BTG SponsorX`,
   }),
+  /* 2S5-INT-02 — the sponsor's receipt, sent once the payment provider
+     confirms the card payment. No card details: SponsorX never had them. */
+  "payment.received": (d) => ({
+    subject: `Payment received for order ${d.orderRef ?? ""} — ${d.amount ?? ""}`,
+    text: `Your card payment for order ${d.orderRef ?? ""} has been confirmed by our payment provider.\n\n${d.lines ?? ""}\n\nPaid: ${d.amount ?? ""}\n\nYour order is now in delivery. View it here:\n\n${d.orderUrl ?? ""}\n\nYou paid on the payment provider's secure page. SponsorX never sees your card, and this email never includes card details.\n\n— BTG SponsorX`,
+  }),
+  /* 2S5-BE-05 — a payee's payout, from BTG's decision to the money arriving. */
+  "payout.approved": (d) => ({
+    subject: `BTG approved your payout of ${d.amount ?? ""}`,
+    text: `Hi ${d.firstName ?? "there"},\n\nBTG has approved your payout of ${d.amount ?? ""}. It's on its way to your payout account — we'll email you again when it has been paid.\n\n${d.portalUrl ?? ""}\n\n— BTG SponsorX`,
+  }),
+  "payout.paid": (d) => ({
+    subject: `Your payout of ${d.amount ?? ""} has been paid`,
+    text: `Hi ${d.firstName ?? "there"},\n\nYour payout of ${d.amount ?? ""} has been paid, confirmed by our payment provider. It may take a few days to show in your bank.\n\nWhat it covers:\n${d.orders ?? ""}\n\nView it in SponsorX:\n\n${d.portalUrl ?? ""}\n\n— BTG SponsorX`,
+  }),
+  "payout.sentBack": (d) => ({
+    subject: "About your SponsorX payout request",
+    text: `Hi ${d.firstName ?? "there"},\n\nBTG couldn't approve your payout request of ${d.amount ?? ""} yet:\n\n${d.note ?? ""}\n\nThe money is still yours and available to request again from your portal:\n\n${d.portalUrl ?? ""}\n\n— BTG SponsorX`,
+  }),
+
   /* P6-INT-02 — the fan's voucher. The ONLY template addressed to a member
      of the public rather than to an athlete or staff, which is why the
      consent gate in `recordClaim` stands in front of it. It carries the code,
