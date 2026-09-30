@@ -1214,10 +1214,22 @@ model Inquiry {
   /// "web-form" | "outbound" | "event"
   source      String
   zohoLeadId  String?  @unique
+  /// 2S1-BE-05 — BTG's review of the request: NEW | APPROVED | DECLINED.
+  state        String    @default("NEW")
+  /// What the business called itself on the form ("Coffee shop / café") —
+  /// their words; BTG picks the real categories on approval.
+  categoryText String?
+  decidedAt    DateTime?
+  decidedBy    String?
+  /// Why it was declined — the requester reads it.
+  decisionNote String?
+  /// The sponsor approving it opened (or linked to).
+  sponsorId    String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @default(now()) @updatedAt
 
   @@index([tenantId, createdAt])
+  @@index([tenantId, state])
 }
 
 /// A CRM task SponsorX originates — §18 row 7, field-mapping §7.5/S-4.

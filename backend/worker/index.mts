@@ -62,6 +62,7 @@ const HANDLED_JOBS = new Set<string>([
   "zoho.pushTask",
   "zoho.pushLead",
   "zoho.pushRenewal",
+  "zoho.pushSponsor",
   "zoho.ingestCrm",
   "zoho.backfill",
   /* 2S7-INT-01 — marketplace orders, their sponsors and properties. */
@@ -96,9 +97,9 @@ import { providerName } from "../src/lib/payment-provider.ts";
 import { redis } from "../src/lib/redis.ts";
 import { zohoConfigFromEnv, zohoFromEnv } from "../src/lib/zoho.ts";
 import {
-  handleBackfill, handleIngestCrm, handlePushDeal, handlePushLead, handlePushMarketplaceOrder, handlePushRenewal,
+  handleBackfill, handleIngestCrm, handlePushDeal, handlePushLead, handlePushMarketplaceOrder, handlePushRenewal, handlePushSponsor,
   handlePushTask, renewWatch, runReconciliation, dispatchableJobs,
-  type BackfillJob, type DealJob, type IngestCrmJob, type LeadJob, type MarketplaceOrderJob, type RenewalJob, type TaskJob,
+  type BackfillJob, type DealJob, type IngestCrmJob, type LeadJob, type MarketplaceOrderJob, type RenewalJob, type SponsorJob, type TaskJob,
 } from "./jobs/zoho-sync.mts";
 
 const connectionString = process.env.DATABASE_URL;
@@ -467,6 +468,9 @@ async function main(): Promise<void> {
   await ensureQueue("zoho.pushLead");
   await boss.work<LeadJob>("zoho.pushLead", async ([job]) =>
     zohoLog("zoho.pushLead", await handlePushLead(zohoDeps, job.data)));
+  await ensureQueue("zoho.pushSponsor");
+  await boss.work<SponsorJob>("zoho.pushSponsor", async ([job]) =>
+    zohoLog("zoho.pushSponsor", await handlePushSponsor(zohoDeps, job.data)));
   await ensureQueue("zoho.pushMarketplaceOrder");
   await boss.work<MarketplaceOrderJob>("zoho.pushMarketplaceOrder", async ([job]) =>
     zohoLog("zoho.pushMarketplaceOrder", await handlePushMarketplaceOrder(zohoDeps, job.data)));

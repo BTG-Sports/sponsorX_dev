@@ -28,6 +28,7 @@ import { rightsRouter } from "./rights";
 import { onboardingRouter } from "./onboarding";
 import { marketplaceRouter } from "./marketplace";
 import { payoutsRouter } from "./payouts";
+import { sponsorRequestsRouter } from "./sponsor-requests";
 import { openapiRouter } from "./openapi";
 
 export const v1Router = Router();
@@ -120,6 +121,9 @@ v1Router.use("/", onboardingRouter);
    and tenant branding (2S2-BE-01/-03/-04, 2S3-BE-01, 2S7-BE-01). */
 v1Router.use("/", marketplaceRouter);
 v1Router.use("/", payoutsRouter);
+
+/* 2S1-BE-05 — BTG reviews businesses asking to sponsor, and opens their accounts. */
+v1Router.use("/", sponsorRequestsRouter);
 v1Router.use("/", auditRouter);
 
 /* The published contract, generated from the Zod registry (§38). Public: a

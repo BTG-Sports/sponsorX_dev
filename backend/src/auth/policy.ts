@@ -623,11 +623,14 @@ export const POLICY: Record<Resource, RolePolicy> = {
   /* §11, added 2026-09-24 (P8-INT-06, P8-SEC-01). A prospective sponsor's
      enquiry. It is CREATED by the public /public/inquiries route, which has
      no actor — like /join — so the write cells here are staff and the sync
-     account only. Sales reads; qualifying the lead is done in Zoho. */
+     account only. Sales reads; qualifying the lead is done in Zoho.
+     2S1-BE-05 (2026-09-30): it is also the request BTG reviews — `approve`
+     is the decision that opens the sponsor's account (or declines), for
+     BTG_ADMIN and SALES in their own tenant. */
   inquiry: {
-    SUPER_ADMIN: rwa("any", "any"),
-    BTG_ADMIN: rwa("own-tenant", "own-tenant"),
-    SALES: rwa("own-tenant"),
+    SUPER_ADMIN: rwa("any", "any", "any"),
+    BTG_ADMIN: rwa("own-tenant", "own-tenant", "own-tenant"),
+    SALES: rwa("own-tenant", undefined, "own-tenant"),
     SERVICE: rwa("own-tenant", "own-tenant"),
   },
 

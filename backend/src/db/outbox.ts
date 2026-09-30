@@ -40,6 +40,9 @@ export type JobName =
      its renewal Deal. */
   | "zoho.pushLead"
   | "zoho.pushRenewal"
+  /* 2S1-BE-05 — a sponsor BTG just approved: its Account and primary
+     Contact, pushed at once so converting the lead matches it. */
+  | "zoho.pushSponsor"
   /* 2S7-INT-01 — a contracted marketplace order, its sponsor, and the
      outside properties it buys from. */
   | "zoho.pushMarketplaceOrder"
