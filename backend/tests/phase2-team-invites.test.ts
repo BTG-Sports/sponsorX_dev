@@ -151,6 +151,21 @@ describe.skipIf(!hasDatabase)("2S2-BE-05 · a team invites an athlete already on
     for (const who of ["tv_jordan", "tv_buyer", "tv_admin"]) expect((await call("GET", "/team/invitations/candidates?q=jordan", who)).status, who).toBe(403);
   });
 
+  it("only a team (or an agency) invites — a school keeps Add athlete for its own people", async () => {
+    await prisma.propertyOnboarding.create({ data: {
+      id: "tv_onb_school", tenantId: T, orgType: "SCHOOL", orgName: "Westfield High", stateCode: "MD", state: "PENDING_REVIEW",
+      contacts: [{ name: "Erin Vale", email: "tv_school@tv-test.invalid", role: "Athletic director", primary: true }],
+      details: { district: "Westfield District", athleticDirector: "Erin Vale", sports: ["Basketball"] },
+      payoutAcknowledgedAt: new Date(), termsAcceptedAt: new Date(), submittedAt: new Date(),
+    } });
+    await decideOnboarding(adminActor, "tv_onb_school", "APPROVE");
+    await call("GET", "/me", "tv_school");
+    const refused = await call("POST", "/team/invitations", "tv_school", { athleteId: "tv_ath_jordan", teamShareBps: 2000 });
+    expect(refused.status, refused.text).toBe(409);
+    expect(refused.json.error.message).toMatch(/Only a team or an agency/);
+    expect((await call("GET", "/team/invitations/candidates?q=jordan", "tv_school")).status).toBe(409);
+  });
+
   it("invites Jordan at a 20% share — refused for an unapproved athlete, another marketplace's, a bad share or a second open invite", async () => {
     expect((await call("POST", "/team/invitations", "tv_mgr", { athleteId: "tv_ath_pat", teamShareBps: 2000 })).status).toBe(409);
     expect((await call("POST", "/team/invitations", "tv_mgr", { athleteId: "tv_ath_lee", teamShareBps: 2000 })).status).toBe(403);

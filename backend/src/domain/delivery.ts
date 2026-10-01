@@ -233,7 +233,7 @@ async function notifySellers(tx: Tx, orderId: string, template: "sale.approved" 
     for (const r of await sellerRecipients(tx, d)) {
       const k = r.email.toLowerCase();
       const entry = byRecipient.get(k) ?? { r, lines: [], firstLine: d.lineId };
-      entry.lines.push(`${d.line.title} — ${d.line.quantity} × · ${lineDates(d.line.startsOn, d.line.endsOn).join(" to ")}`);
+      entry.lines.push(`${d.line.title} (×${d.line.quantity}) · ${lineDates(d.line.startsOn, d.line.endsOn).join(" to ")}`);
       byRecipient.set(k, entry);
     }
   }
@@ -456,7 +456,9 @@ export async function markDelivered(actor: Actor, lineId: string, input: MarkDel
   if (!found) throw new ForbiddenError("orderDelivery", "write");
   const proofKey = input.proofKey?.trim() || null;
   if (proofKey) {
-    if (!proofKey.startsWith(proofPrefix(found.tenantId, found.lineId))) throw new DeliveryError("That photo wasn't uploaded for this line.", 422);
+    if (!proofKey.startsWith(proofPrefix(found.tenantId, found.lineId)) || proofKey.includes("..") || proofKey.includes("//")) {
+      throw new DeliveryError("That photo wasn't uploaded for this line.", 422);
+    }
     if ((await privateObjectSize(proofKey)) === null) throw new DeliveryError("The photo hasn't arrived in storage yet — upload it again, or mark delivered without it.", 422);
   }
   const proofLink = input.proofLink?.trim() || null;
