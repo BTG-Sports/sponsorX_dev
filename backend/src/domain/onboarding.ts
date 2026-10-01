@@ -793,6 +793,17 @@ export async function decideOnboarding(actor: Actor, id: string, decision: Decis
     let effects: Record<string, number> = {};
     const now = new Date();
     if (to === "APPROVED") {
+      /* One organisation per name, whoever approves (2S1-BE-06): BTG's own approval
+         checks the name too — including a row that predates the name key. */
+      const key = row.nameKey ?? normalizeBusinessName(row.orgName);
+      const taken = await nameHolder(tx, key, { onboardingId: row.id, propertyId });
+      if (taken) throw new OnboardingError(`"${taken}" is already registered on SponsorX — one organisation per name.`, 409);
+      if (!row.nameKey) {
+        await tx.propertyOnboarding.update({
+          /* tenant-scope: the row loaded through whereFor(propertyOnboarding, approve) — it takes the name it was checked free for. */
+          where: { id }, data: { nameKey: key }, select: { id: true },
+        });
+      }
       if (!propertyId) {
         provisioned = await provisionTenant(tx, row, now);
         propertyId = provisioned.propertyId;

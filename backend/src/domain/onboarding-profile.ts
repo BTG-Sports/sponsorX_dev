@@ -121,7 +121,9 @@ export async function getOrganizationProfile(actor: Actor, id: string) {
   const [facts, trail, logins] = await Promise.all([
     approvalFactsFor(prisma, row),
     prisma.auditLog.findMany({
-      where: { tenantId: row.tenantId, entity: "PropertyOnboarding", entityId: row.id },
+      /* tenant-scope: this onboarding's trail lives in two tenants — BTG's decisions in the
+         onboarding's own, the organisation's document changes (2S1-BE-07) in the tenant it provisioned. */
+      where: { tenantId: { in: [row.tenantId, ...(row.property ? [row.property.tenantId] : [])] }, entity: "PropertyOnboarding", entityId: row.id },
       select: { at: true, action: true, after: true, actorId: true },
       orderBy: { at: "asc" },
       take: 200,

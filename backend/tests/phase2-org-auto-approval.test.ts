@@ -463,6 +463,20 @@ describe.skipIf(!hasDatabase)("organisations over the API", async () => {
       expect(fixed.json.flags).toEqual([]);
       expect(fixed.json.documents.find((d: { kind: string }) => d.kind === "RIGHTS_PROOF")).toMatchObject({ state: "ON_FILE", file: expect.objectContaining({ expiresOn: "2027-06-30T00:00:00.000Z" }) });
       expect((await prisma.propertyOnboarding.findUniqueOrThrow({ where: { id: a.id }, select: { flaggedAt: true } })).flaggedAt).toBeNull();
+      /* BTG's profile page shows each change — the organisation's own audit rows, in its own tenant. */
+      const activity = (await call("GET", `/onboarding/${a.id}/profile`, undefined, ADMIN)).json.activity.map((x: { text: string }) => x.text);
+      expect(activity).toEqual(expect.arrayContaining([expect.stringMatching(/^Document replaced:/), expect.stringMatching(/^Document removed:/), expect.stringMatching(/^Document added:/)]));
+    });
+
+    it("BTG's own approval checks the name too, even on a row from before the name key", async () => {
+      const a = await apply("OA Old Row FC");
+      await call("POST", `/public/onboarding/${a.tok}/submit`);
+      /* As if it predated the migration: no name key, and a name a BTG-run property already holds. */
+      await prisma.propertyOnboarding.update({ where: { id: a.id }, data: { nameKey: null, orgName: "OA Harbour Rowing Club, LLC" } });
+      const r = await call("POST", `/onboarding/${a.id}/decision`, { decision: "APPROVE" }, ADMIN);
+      expect(r.status, r.text).toBe(409);
+      expect(r.json.error.message).toMatch(/already registered/);
+      expect((await prisma.propertyOnboarding.findUniqueOrThrow({ where: { id: a.id }, select: { state: true, propertyId: true } }))).toMatchObject({ propertyId: null });
     });
 
     it("only the organisation's own manager changes its documents", async () => {
