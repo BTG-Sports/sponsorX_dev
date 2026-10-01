@@ -9,11 +9,15 @@
    translucent glass "dais" ring inset on the top tier. Octagons are turned
    22.5° so a flat face looks down each axis.
 
-   Above the dais floats the hologram: a full 3D letter "X" (two crossed
-   bars, one merged geometry) in translucent primary blue with horizontal
-   scan lines (an alpha map that scrolls) and a glowing edge outline, turning
-   slowly about +Y and bobbing, with a faint projector cone from the dais up
-   to it. Three more draw calls (letter, outline, cone).
+   Above the dais floats the hologram: the logo's two-part "X" (owner's
+   call, 2026-10-01) — the orange lightning bolt on the left and the white
+   blade on the right, the two polygons of
+   documentation/Design/marketing-visuals/exports/logos/sponsorx-x-dark.svg
+   extruded to a 3D letter with the lockup's 8° italic lean. Each part is
+   translucent with horizontal scan lines (one shared alpha map that
+   scrolls) and a glowing edge outline, the whole turning slowly about +Y
+   and bobbing, with a faint primary-blue projector cone from the dais up
+   to it. Five more draw calls (bolt, blade, two outlines, cone).
 
    Local frame: centre at the origin, no yaw. Collision boxes:
    lib/city/venue-boxes.ts (shares VENUE_DIMS).
@@ -39,23 +43,36 @@ type Built = {
   tiers: THREE.BufferGeometry | null;
   rings: THREE.BufferGeometry | null;
   dais: THREE.BufferGeometry | null;
-  letter: THREE.BufferGeometry | null;
-  outline: THREE.BufferGeometry | null;
+  /** The logo X's orange lightning bolt (left) and white blade (right). */
+  bolt: THREE.BufferGeometry | null;
+  blade: THREE.BufferGeometry | null;
+  boltOutline: THREE.BufferGeometry | null;
+  bladeOutline: THREE.BufferGeometry | null;
   cone: THREE.BufferGeometry | null;
   scan: THREE.CanvasTexture | null;
   /** Height of the dais top above the pedestal's base. */
   stackTop: number;
 };
 
-/** Two bars crossed at ±45° in the XY plane, centred on the origin. */
-function letterX(size: number, depth: number): THREE.BufferGeometry | null {
-  const barW = size * 0.3;
-  // A bar's diagonal reach: its half-length along the 45° axis must land the
-  // bar ends on the letter's bounding square.
-  const barL = size * Math.SQRT2 - barW;
-  const a = new THREE.BoxGeometry(barW, barL, depth).rotateZ(Math.PI / 4);
-  const b = new THREE.BoxGeometry(barW, barL, depth).rotateZ(-Math.PI / 4);
-  return mergeParts([a, b]);
+/* The logo X's two polygons, in the SVG's own units (y down). The master is
+   sponsorx-x-dark.svg: a 124×104 box, the paths inside a skewX(-8) group.
+   Together they span x 2–100 and y 4–100, crossing at (52, 52). */
+const LOGO_X_BOLT: [number, number][] = [[2, 6], [24, 6], [52, 46], [42, 52], [52, 58], [24, 98], [2, 98], [30, 52]];
+const LOGO_X_BLADE: [number, number][] = [[100, 4], [78, 8], [52, 46], [60, 52], [52, 58], [78, 96], [100, 100], [74, 52]];
+const LOGO_X_CENTER: [number, number] = [51, 52];
+const LOGO_X_WIDTH = 98;
+const LOGO_X_LEAN = Math.tan((8 * Math.PI) / 180);
+
+/** One part of the logo X as a 3D solid: `size` wide, `depth` deep, centred
+ *  on the origin in the XY plane, leaning right like the lockup's italic. */
+function logoPart(points: [number, number][], size: number, depth: number): THREE.BufferGeometry {
+  const s = size / LOGO_X_WIDTH;
+  const shape = new THREE.Shape(points.map(([x, y]) => new THREE.Vector2((x - LOGO_X_CENTER[0]) * s, -(y - LOGO_X_CENTER[1]) * s)));
+  const g = new THREE.ExtrudeGeometry(shape, { depth, bevelEnabled: false }).translate(0, 0, -depth / 2);
+  // skewX(-8) in SVG (y down) is "shear X by +Y" once Y points up.
+  g.applyMatrix4(new THREE.Matrix4().makeShear(LOGO_X_LEAN, 0, 0, 0, 0, 0));
+  g.computeVertexNormals();
+  return g;
 }
 
 /** Horizontal scan lines as an alpha map: bright rows, dark gaps. */
@@ -67,7 +84,9 @@ function scanLines(): THREE.CanvasTexture | null {
   ctx.fillRect(0, 0, w, h);
   ctx.fillStyle = "#ffffff";
   for (let y = 0; y < h; y += 8) ctx.fillRect(0, y, w, 5);
-  return toTexture(c, { srgb: false, repeat: [1, 10], anisotropy: 1 });
+  // ExtrudeGeometry's UVs are in metres, so the repeat is per metre: ten
+  // lines over the letter's height, as the box-built letter had.
+  return toTexture(c, { srgb: false, repeat: [1, 10 / P.hologramSize], anisotropy: 1 });
 }
 
 function build(spec: PedestalSpec): Built | null {
@@ -93,12 +112,23 @@ function build(spec: PedestalSpec): Built | null {
       .translate(0, y + P.daisHeight, 0),
   );
   const stackTop = y + P.daisHeight;
-  const letter = letterX(P.hologramSize, P.hologramDepth);
-  const outline = letter ? new THREE.EdgesGeometry(letter, 20) : null;
+  const bolt = logoPart(LOGO_X_BOLT, P.hologramSize, P.hologramDepth);
+  const blade = logoPart(LOGO_X_BLADE, P.hologramSize, P.hologramDepth);
   // Projector cone: from a small disc on the dais up to the letter's underside.
   const coneH = P.hologramLift + 0.15;
   const cone = new THREE.CylinderGeometry(P.hologramSize * 0.42, 0.3, coneH, 24, 1, true).translate(0, stackTop + coneH / 2, 0);
-  return { tiers: mergeParts(tiers), rings: mergeParts(rings), dais, letter, outline, cone, scan: scanLines(), stackTop };
+  return {
+    tiers: mergeParts(tiers),
+    rings: mergeParts(rings),
+    dais,
+    bolt,
+    blade,
+    boltOutline: new THREE.EdgesGeometry(bolt, 20),
+    bladeOutline: new THREE.EdgesGeometry(blade, 20),
+    cone,
+    scan: scanLines(),
+    stackTop,
+  };
 }
 
 /** The floating, turning letter. Refs only — nothing re-renders per frame. */
@@ -111,20 +141,22 @@ function HologramX({ b }: { b: Built }) {
     if (!g) return;
     g.rotation.y += delta * SPIN;
     g.position.y = restY + Math.sin(state.clock.elapsedTime * BOB_RATE) * BOB;
-    // The scan lines scroll: the material's alpha map is the texture built
-    // above, reached through the material ref (never through the props).
+    // The scan lines scroll: the bolt material's alpha map is the texture
+    // built above, reached through the material ref (never through the
+    // props). The blade shares the same texture, so both parts move in step.
     const scan = material.current?.alphaMap;
     if (scan) scan.offset.y = (scan.offset.y - delta * SCAN_SCROLL) % 1;
   });
-  if (!b.letter) return null;
+  if (!b.bolt || !b.blade) return null;
   return (
     <>
       <group ref={group} position={[0, restY, 0]}>
-        <mesh geometry={b.letter}>
+        {/* the orange lightning bolt — the logo's left half */}
+        <mesh geometry={b.bolt}>
           <meshStandardMaterial
             ref={material}
-            color={BRAND.blue}
-            emissive={BRAND.blue}
+            color={BRAND.orange}
+            emissive={BRAND.orange}
             emissiveIntensity={1.9}
             transparent
             opacity={0.72}
@@ -135,9 +167,30 @@ function HologramX({ b }: { b: Built }) {
             metalness={0}
           />
         </mesh>
-        {b.outline && (
-          <lineSegments geometry={b.outline}>
-            <lineBasicMaterial color="#9fd3ff" transparent opacity={0.9} depthWrite={false} />
+        {b.boltOutline && (
+          <lineSegments geometry={b.boltOutline}>
+            <lineBasicMaterial color="#ffc48a" transparent opacity={0.9} depthWrite={false} />
+          </lineSegments>
+        )}
+        {/* the white chrome blade — the logo's right half; a lower emissive
+            keeps white from blowing out to a flat slab */}
+        <mesh geometry={b.blade}>
+          <meshStandardMaterial
+            color={BRAND.white}
+            emissive={BRAND.white}
+            emissiveIntensity={1.1}
+            transparent
+            opacity={0.72}
+            alphaMap={b.scan ?? undefined}
+            side={THREE.DoubleSide}
+            depthWrite={false}
+            roughness={0.25}
+            metalness={0.3}
+          />
+        </mesh>
+        {b.bladeOutline && (
+          <lineSegments geometry={b.bladeOutline}>
+            <lineBasicMaterial color="#ffffff" transparent opacity={0.9} depthWrite={false} />
           </lineSegments>
         )}
       </group>
