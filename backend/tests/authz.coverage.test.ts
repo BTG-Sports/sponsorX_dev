@@ -56,6 +56,8 @@ const GOVERNED_BY: Record<string, Resource> = {
   WebhookDelivery: "webhookDelivery",
   ZohoReconciliation: "integrationConnection",
   Inquiry: "inquiry",
+  /* 2S1-BE-17 — a sponsor's proof of business is its request's. */
+  InquiryDocument: "inquiry",
   SyncTask: "syncTask",
   AuditLog: "auditLog",
   Publication: "publication",

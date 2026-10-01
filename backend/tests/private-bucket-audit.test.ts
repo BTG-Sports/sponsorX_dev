@@ -94,10 +94,18 @@ describe("TTLs are short", () => {
   });
 
   it("uses that constant for every signature rather than a literal", () => {
-    const signCalls = [...storage.matchAll(/expiresIn:\s*([A-Za-z_][\w.]*)/g)]
-      .map((m) => m[1]);
+    /* Either the constant itself, or a caller's shorter ask capped at it
+       (2S1-BE-17: identity documents sign for five minutes). */
+    const signCalls = [...storage.matchAll(/expiresIn:\s*(Math\.min\([^)]*\)|[A-Za-z_][\w.]*)/g)]
+      .map((m) => m[1]!.trim());
     expect(signCalls.length).toBeGreaterThan(0);
-    for (const arg of signCalls) expect(arg).toBe("PRESIGN_TTL_SECONDS");
+    for (const arg of signCalls) expect(arg).toMatch(/^(PRESIGN_TTL_SECONDS|Math\.min\(\w+, PRESIGN_TTL_SECONDS\))$/);
+  });
+
+  it("identity documents sign for five minutes, shorter than the default", () => {
+    const m = /SENSITIVE_DOCUMENT_TTL_SECONDS\s*=\s*([^;]+);/.exec(storage)!;
+    const seconds = m[1]!.split("*").map((p) => Number(p.trim())).reduce((a, b) => a * b, 1);
+    expect(seconds).toBe(5 * 60);
   });
 });
 

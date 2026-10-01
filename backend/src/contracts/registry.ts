@@ -97,7 +97,7 @@ import {
 } from "./marketplace";
 import { NotificationPreferenceInput } from "./notification-preferences";
 import { PayoutAccountLinkInput, PayoutDecisionInput, StandinAccountInput, StandinCheckoutInput } from "./payouts";
-import { SponsorRequestDecisionInput } from "./sponsor-requests";
+import { SponsorDocumentInput, SponsorEmailConfirmInput, SponsorRequestDecisionInput } from "./sponsor-requests";
 import { RestrictedTextInput, RestrictedWordInput } from "./restricted-words";
 import { OnboardingDecisionInput, OnboardingDocumentInput, OnboardingStartInput, OnboardingStepInput } from "./onboarding";
 import {
@@ -473,9 +473,14 @@ const PATHS: Row[] = [
   { method: "post", path: "/restricted-words", tag: "Restricted words", summary: "Add a word or phrase (or bring back a removed one). Audited.", body: RestrictedWordInput, status: 201 },
   { method: "post", path: "/restricted-words/test", tag: "Restricted words", summary: "Test text against the list: what would match, and of what kind. Disguised spellings are caught; whole words only.", body: RestrictedTextInput },
   { method: "delete", path: "/restricted-words/{id}", tag: "Restricted words", summary: "Remove a word (it is deactivated; its history stays). Audited." },
-  { method: "get", path: "/sponsor-requests", tag: "Sponsor requests", summary: "BTG admin / Sales: businesses asking to sponsor, one tab at a time (?state=NEW|APPROVED|DECLINED, default NEW), with every tab's count (2S1-BE-05)." },
-  { method: "get", path: "/sponsor-requests/{id}", tag: "Sponsor requests", summary: "One request: who is asking, what they told us, a suggested business type, and the checks that gate approval — email already in use, same-named sponsors (e.g. synced from Zoho)." },
-  { method: "post", path: "/sponsor-requests/{id}/decision", tag: "Sponsor requests", summary: "APPROVE opens the account — the sponsor, its primary contact and a SPONSOR_ADMIN login for the request's email — and emails a sign-in link; DECLINE emails the note. Once only (409 after).", body: SponsorRequestDecisionInput },
+  { method: "get", path: "/sponsor-requests", tag: "Sponsor requests", summary: "BTG admin / Sales: businesses asking to sponsor, one tab at a time (?state=NEW|APPROVED|DECLINED|REJECTED, default NEW), with every tab's count (2S1-BE-05). NEW holds only what the system could not approve by itself, each with its reviewReasons (2S1-BE-17)." },
+  { method: "get", path: "/sponsor-requests/{id}", tag: "Sponsor requests", summary: "One request: who is asking, what they told us, the business type, the uploaded proof of business, why it is waiting (reviewReasons) or whether it was approved automatically, and the checks that gate approval — email already in use, same-named sponsors." },
+  { method: "post", path: "/sponsor-requests/{id}/decision", tag: "Sponsor requests", summary: "APPROVE opens the account — the sponsor, its primary contact and a SPONSOR_ADMIN login for the request's email — and emails a sign-in link; DECLINE emails the note. Once only (409 after). After approval, REJECT switches the sponsor's logins off and emails the note; REINSTATE switches them back on (2S1-BE-17).", body: SponsorRequestDecisionInput },
+  { method: "get", path: "/sponsor-requests/{id}/documents/{documentId}", tag: "Sponsor requests", summary: "A five-minute, audited link to read one proof of business (2S1-BE-17)." },
+  { method: "get", path: "/public/sponsor-requests/{token}", tag: "Public", summary: "The applicant's view of their request: confirmed email, proof uploaded, what is still missing, and whether it is with BTG (2S1-BE-17).", auth: false },
+  { method: "post", path: "/public/sponsor-requests/{token}/documents", tag: "Public", summary: "Start uploading a proof of business: a presigned PUT to the private bucket (2S1-BE-17).", auth: false, body: SponsorDocumentInput, status: 201 },
+  { method: "post", path: "/public/sponsor-requests/{token}/documents/{documentId}/confirm", tag: "Public", summary: "Say the upload finished. Counted only if the file is there; then the automatic checks run (2S1-BE-17).", auth: false },
+  { method: "post", path: "/public/sponsor-requests/confirm-email", tag: "Public", summary: "The link from the confirmation email. Proves the contact reads that mailbox; then the automatic checks run (2S1-BE-17).", auth: false, body: SponsorEmailConfirmInput },
   { method: "post", path: "/payouts", tag: "Payouts", summary: "Request the whole requestable balance as a payout (one per set of books).", status: 201 },
   { method: "get", path: "/payouts", tag: "Payouts", summary: "BTG admin / Finance: payout requests by state, with counts." },
   { method: "get", path: "/payouts/{id}", tag: "Payouts", summary: "One payout: payee, orders, the payout rules checked now, the payee's account status." },
@@ -545,7 +550,7 @@ const PATHS: Row[] = [
   { method: "post", path: "/webhooks/zoho/crm", tag: "Webhooks", summary: "Zoho CRM Notifications API callback — channel-token verified, recorded, queued; never calls Zoho (P8-INT-03).", auth: false, body: ZohoCrmNotification, status: 202 },
 
   // Sponsor enquiries (P8-INT-06)
-  { method: "post", path: "/public/inquiries", tag: "Public", summary: "A prospective sponsor asks to talk — becomes a Zoho Lead.", auth: false, body: InquiryInput, status: 201, response: z.object({ id: z.string(), received: z.boolean() }) },
+  { method: "post", path: "/public/inquiries", tag: "Public", summary: "A prospective sponsor asks to talk — becomes a Zoho Lead and a request SponsorX can approve by itself; emails a confirmation link and returns requestToken for the proof-of-business upload (2S1-BE-17).", auth: false, body: InquiryInput, status: 201, response: z.object({ id: z.string(), received: z.boolean(), requestToken: z.string() }) },
 ];
 
 for (const row of PATHS) {

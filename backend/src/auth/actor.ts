@@ -24,7 +24,7 @@ import type { NextFunction, Request, Response } from "express";
 
 import { prisma } from "../db/client";
 import { authenticateClerkRequest } from "./clerk";
-import { UnauthenticatedError, UnprovisionedError } from "./errors";
+import { AccountDisabledError, UnauthenticatedError, UnprovisionedError } from "./errors";
 import { ROLES, type Role } from "./policy";
 
 export type Actor = {
@@ -97,9 +97,11 @@ export async function resolveActor(
 ): Promise<Actor> {
   const linked = await prisma.user.findUnique({
     where: { clerkId },
-    select: { id: true, tenantId: true, roles: true, sponsorId: true, athleteId: true, guardianId: true, propertyId: true, studentId: true },
+    select: { id: true, tenantId: true, roles: true, sponsorId: true, athleteId: true, guardianId: true, propertyId: true, studentId: true, disabledAt: true },
   });
   if (linked) {
+    /* 2S1-BE-17 — a login BTG switched off is refused, whoever signs in. */
+    if (linked.disabledAt) throw new AccountDisabledError();
     return {
       userId: linked.id,
       tenantId: linked.tenantId,
@@ -117,16 +119,17 @@ export async function resolveActor(
   const provisioned = await prisma.user.findFirst({
     /* tenant-scope: identity resolution — there is no actor, and so no tenant, until this finds one. */
     where: { email: email.toLowerCase() },
-    select: { id: true },
+    select: { id: true, disabledAt: true },
   });
   if (!provisioned) throw new UnprovisionedError(email);
+  if (provisioned.disabledAt) throw new AccountDisabledError();
 
   /* Claim it. `clerkId` is unique, so a second identity claiming the same
      address fails at the database rather than silently sharing a row. */
   const claimed = await prisma.user.update({
     where: { id: provisioned.id },
     data: { clerkId },
-    select: { id: true, tenantId: true, roles: true, sponsorId: true, athleteId: true, guardianId: true, propertyId: true, studentId: true },
+    select: { id: true, tenantId: true, roles: true, sponsorId: true, athleteId: true, guardianId: true, propertyId: true, studentId: true, disabledAt: true },
   });
 
   return {

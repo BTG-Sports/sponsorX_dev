@@ -251,6 +251,10 @@ model User {
   /// by matching on email; a Task this user originates is owned by them in
   /// the CRM. Null means the API account owns it and nobody is notified.
   zohoUserId String?  @unique
+  /// 2S1-BE-17 — when BTG switched this login off (Reject), and why. A
+  /// disabled login is refused at sign-in; Reinstate clears both.
+  disabledAt     DateTime?
+  disabledReason String?
   createdAt  DateTime @default(now())
 
   athlete     Athlete?              @relation(fields: [athleteId], references: [id])
@@ -1225,11 +1229,45 @@ model Inquiry {
   decisionNote String?
   /// The sponsor approving it opened (or linked to).
   sponsorId    String?
+  /// 2S1-BE-17 — the business type the sponsor picked: a brand category, or
+  /// OTHER with their own description in businessTypeOther.
+  businessType      String?
+  businessTypeOther String?
+  /// When the contact clicked the confirmation link in their email.
+  emailConfirmedAt  DateTime?
+  /// Why it waits for BTG instead of being approved automatically (empty
+  /// when it was, or hasn't been checked yet).
+  reviewReasons     String[] @default([])
+  /// True when the system approved it; false when a person did.
+  autoApproved      Boolean  @default(false)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @default(now()) @updatedAt
 
+  documents InquiryDocument[]
+
   @@index([tenantId, createdAt])
   @@index([tenantId, state])
+}
+
+/// 2S1-BE-17 — a sponsor's proof of business (a registration, permit or
+/// license in the business's name), in the private bucket. Uploaded straight
+/// from the browser; `uploadedAt` is set only once the file is really there.
+model InquiryDocument {
+  id          String    @id
+  tenantId    String
+  inquiryId   String
+  /// PROOF_OF_BUSINESS
+  kind        String
+  filename    String
+  contentType String
+  bytes       Int
+  r2Key       String
+  uploadedAt  DateTime?
+  createdAt   DateTime  @default(now())
+
+  inquiry Inquiry @relation(fields: [inquiryId], references: [id])
+
+  @@index([tenantId, inquiryId])
 }
 
 /// A CRM task SponsorX originates — §18 row 7, field-mapping §7.5/S-4.

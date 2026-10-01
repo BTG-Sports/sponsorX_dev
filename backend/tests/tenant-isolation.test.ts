@@ -77,6 +77,7 @@ const A = {
   restrictedWord: "ti_restricted_word_a",
   /* 2S1-BE-05 — a business asking tenant A's BTG to sponsor. */
   inquiry: "ti_inquiry_a",
+  inquiryDocument: "ti_inquiry_doc_a",
 } as const;
 const B = {
   tenant: "ti_tenant_b", sponsor: "ti_sponsor_b", athlete: "ti_athlete_b",
@@ -124,6 +125,8 @@ const PARAM_FOR: Record<string, string> = {
   restrictions: A.restriction, lines: A.cartLine,
   reservations: A.reservation, "marketplace-orders": A.mktOrder, "commission-rules": A.rule,
   payouts: A.payout, "sponsor-requests": A.inquiry, "restricted-words": A.restrictedWord,
+  /* GET /sponsor-requests/{id}/documents/{documentId} (2S1-BE-17). */
+  documents: A.inquiryDocument,
   /* GET /deliverables/{id}/assets/{version}/url (P5-FE-04) — a creative
      version number, under tenant A's deliverable. */
   assets: "1",
@@ -265,8 +268,12 @@ describe.skipIf(!hasDatabase)("P8-SEC-02 · tenant B cannot reach tenant A throu
     );
     const h = createHash("sha256");
     for (const { table_name } of tables) {
+      /* The positive control's own reads are allowed to leave a trace: a
+         private-file read is audited, and tenant A's admin making it is
+         tenant A acting on itself (2S1-BE-17, the proof-of-business link). */
+      const own = table_name === "AuditLog" ? `AND NOT ("action" = 'storage.privateDownloadGrant' AND "actorId" = '${A.admin}')` : "";
       const rows = await prisma.$queryRawUnsafe<unknown[]>(
-        `SELECT * FROM "${table_name}" WHERE "tenantId" = $1 ORDER BY 1`, tenant,
+        `SELECT * FROM "${table_name}" WHERE "tenantId" = $1 ${own} ORDER BY 1`, tenant,
       );
       h.update(table_name).update(JSON.stringify(rows, (_k, v) => (typeof v === "bigint" ? String(v) : v)));
     }
@@ -379,6 +386,10 @@ describe.skipIf(!hasDatabase)("P8-SEC-02 · tenant B cannot reach tenant A throu
     await prisma.inquiry.create({ data: {
       id: A.inquiry, tenantId: t, companyName: "TI Secret Café", lastName: "TI Secret Requester", email: "ti-secret-requester@a.invalid",
       message: "Sponsor brief\nBrand category: TI Secret coffee", categoryText: "TI Secret coffee", source: "web-form",
+    } });
+    await prisma.inquiryDocument.create({ data: {
+      id: A.inquiryDocument, tenantId: t, inquiryId: A.inquiry, kind: "PROOF_OF_BUSINESS", filename: "ti-secret-license.pdf",
+      contentType: "application/pdf", bytes: 100, r2Key: "sponsor-requests/ti_inquiry_a/ti_inquiry_doc_a/ti-secret-license.pdf", uploadedAt: new Date(),
     } });
     await prisma.restrictedWord.create({ data: { id: A.restrictedWord, tenantId: t, word: "TI Secret word", normalized: "ti secret word", kind: "OTHER_ILLEGAL", addedBy: A.admin } });
     await prisma.athleteClaim.create({ data: { id: A.claim, tenantId: t, athleteId: A.athlete, claimantName: "TI Secret Claimant", claimantEmail: "secret@a.invalid", rosterMatched: true } });

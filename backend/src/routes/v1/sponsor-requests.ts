@@ -6,10 +6,11 @@ import { Router, type RequestHandler } from "express";
 
 import { requireActor } from "../../auth/actor";
 import { SponsorRequestDecisionInput, SponsorRequestListQuery } from "../../contracts/sponsor-requests";
-import { decideSponsorRequest, getSponsorRequest, listSponsorRequests } from "../../domain/sponsor-requests";
+import { decideSponsorRequest, getSponsorRequest, listSponsorRequests, viewSponsorDocument } from "../../domain/sponsor-requests";
 
 export const sponsorRequestsRouter = Router();
 type Id = { id: string };
+type DocId = { id: string; documentId: string };
 
 sponsorRequestsRouter.get("/sponsor-requests", requireActor, (async (req, res) => {
   res.json(await listSponsorRequests(req.actor!, SponsorRequestListQuery.parse(req.query).state));
@@ -20,3 +21,7 @@ sponsorRequestsRouter.get("/sponsor-requests/:id", requireActor, (async (req, re
 sponsorRequestsRouter.post("/sponsor-requests/:id/decision", requireActor, (async (req, res) => {
   res.json(await decideSponsorRequest(req.actor!, req.params.id, SponsorRequestDecisionInput.parse(req.body)));
 }) as RequestHandler<Id>);
+/* 2S1-BE-17 — BTG reads a proof of business through a five-minute, audited link. */
+sponsorRequestsRouter.get("/sponsor-requests/:id/documents/:documentId", requireActor, (async (req, res) => {
+  res.json(await viewSponsorDocument(req.actor!, req.params.id, req.params.documentId));
+}) as RequestHandler<DocId>);

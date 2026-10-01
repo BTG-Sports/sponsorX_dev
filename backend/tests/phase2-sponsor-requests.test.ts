@@ -141,7 +141,7 @@ describe.skipIf(!hasDatabase)("2S1-BE-05 · BTG reviews a sponsor's request and 
       for (const who of ["sr_admin", "sr_sales"]) {
         const q = await call("GET", "/sponsor-requests", who);
         expect(q.status, q.text).toBe(200);
-        expect(q.json.counts).toEqual({ NEW: 4, APPROVED: 0, DECLINED: 0 });
+        expect(q.json.counts).toEqual({ NEW: 4, APPROVED: 0, DECLINED: 0, REJECTED: 0 });
         expect(q.json.requests[0]).toMatchObject({ id: E.harbor, businessName: "Harbor Coffee", contactName: "Dana Brooks", categoryText: "Coffee shop / café", budget: "$1,000–$2,500", state: "NEW" });
       }
       const d = (await call("GET", `/sponsor-requests/${E.harbor}`, "sr_sales")).json;
@@ -157,7 +157,7 @@ describe.skipIf(!hasDatabase)("2S1-BE-05 · BTG reviews a sponsor's request and 
         expect((await call("GET", "/sponsor-requests", who)).status, who).toBe(403);
         expect((await call("GET", `/sponsor-requests/${E.harbor}`, who)).status, who).toBe(403);
       }
-      expect((await call("GET", "/sponsor-requests", "sr_x_admin")).json.counts).toEqual({ NEW: 0, APPROVED: 0, DECLINED: 0 });
+      expect((await call("GET", "/sponsor-requests", "sr_x_admin")).json.counts).toEqual({ NEW: 0, APPROVED: 0, DECLINED: 0, REJECTED: 0 });
       expect((await call("GET", `/sponsor-requests/${E.harbor}`, "sr_x_admin")).status).toBe(403);
       expect((await call("POST", `/sponsor-requests/${E.harbor}/decision`, "sr_x_admin", { decision: "APPROVE", categories: ["RESTAURANT"] })).status).toBe(403);
       expect((await call("GET", "/sponsor-requests")).status).toBe(401);
@@ -208,7 +208,7 @@ describe.skipIf(!hasDatabase)("2S1-BE-05 · BTG reviews a sponsor's request and 
       /* BTG's page now shows the login claimed — read from the login itself. The email
          hasn't gone (no email provider runs in tests), and the page says so rather than guessing. */
       expect((await call("GET", `/sponsor-requests/${E.harbor}`, "sr_admin")).json.progress)
-        .toEqual({ categories: ["RESTAURANT"], decidedBy: { email: "sr_sales@sr-test.invalid", roles: ["SALES"] }, emailSentAt: null, signedIn: true });
+        .toEqual({ categories: ["RESTAURANT"], decidedBy: { email: "sr_sales@sr-test.invalid", roles: ["SALES"] }, emailSentAt: null, signedIn: true, automatic: false, loginSwitchedOff: false });
     });
 
     it("a request is decided once", async () => {
