@@ -178,6 +178,23 @@ ${d.portalUrl ?? ""}
     subject: "About your SponsorX sponsor request",
     text: `Hi ${d.firstName ?? "there"},\n\nThanks for asking to sponsor on SponsorX. BTG can't open an account for ${d.businessName ?? "you"} yet:\n\n${d.note ?? ""}\n\nYou can reply to this email with any questions.\n\n— BTG SponsorX`,
   }),
+  /* 2S1-BE-17 — automatic approval, and BTG's reject / reinstate after it. */
+  "sponsor.confirmEmail": (d) => ({
+    subject: "Confirm your email for SponsorX",
+    text: `Hi ${d.firstName ?? "there"},\n\nThanks for asking to sponsor on SponsorX for ${d.businessName ?? "your business"}. Confirm this is your email address:\n\n${d.confirmUrl ?? ""}\n\nOnce your email is confirmed and your proof of business is uploaded, we open your account — usually straight away.\n\n— BTG SponsorX`,
+  }),
+  "sponsor.newSponsor": (d) => ({
+    subject: `New sponsor: ${d.businessName ?? "a business"} ${d.outcome ?? ""}`.trim(),
+    text: `${d.businessName ?? "A business"} ${d.outcome ?? "asked to sponsor"} on SponsorX.${d.reasons ? `\n\nWhy it is waiting for you:\n${d.reasons}` : ""}\n\nOpen the request:\n\n${d.reviewUrl ?? ""}\n\nIf the submission looks bogus, reject it from that page — the sponsor's sign-in is switched off and they are told why.\n\n— SponsorX`,
+  }),
+  "sponsor.accountRejected": (d) => ({
+    subject: "Your SponsorX sponsor account has been closed",
+    text: `Hi ${d.firstName ?? "there"},\n\nBTG has closed the sponsor account for ${d.businessName ?? "your business"} on SponsorX:\n\n${d.note ?? ""}\n\nIf you think this is a mistake, contact BTG support:\n\n${d.supportUrl ?? ""}\n\n— BTG SponsorX`,
+  }),
+  "sponsor.accountReinstated": (d) => ({
+    subject: "Your SponsorX sponsor account is open again",
+    text: `Hi ${d.firstName ?? "there"},\n\nBTG has reopened the sponsor account for ${d.businessName ?? "your business"}. Sign in with this email address:\n\n${d.portalUrl ?? ""}\n\n— BTG SponsorX`,
+  }),
   "onboarding.approved": (d) => ({
     subject: `${d.orgName ?? "Your organisation"} is approved on SponsorX`,
     text: `Hi ${d.contactName ?? "there"},\n\n${d.orgName ?? "Your organisation"} has been approved. Your account is ready: sign in with this email address to reach your property portal.\n\n${d.portalUrl ?? ""}\n\n— BTG SponsorX`,

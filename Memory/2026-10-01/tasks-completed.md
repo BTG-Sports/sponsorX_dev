@@ -191,3 +191,28 @@ The user set the 90-day rules:
 - **2S1-BE-17** (4d): sponsor auto-approval.
 - **2S1-BE-18** (3d): the restricted-words check. It's hard to get around, matches whole words, only routes to review, and is reusable.
 - **2S1-FE-11** (3d): the form changes and the word-list admin page.
+
+## Built: 2S1-BE-18 and 2S1-BE-17 (both at Code review, rcfworks)
+
+**2S1-BE-18, the restricted-words check** (commit b99df00):
+- Each tenant has its own list, seeded with starter words the first time it's used.
+- Matching is in `domain/restricted-words-rules.ts`. It ignores case and accents, undoes letter swaps, joins spaced-out letters, matches whole words, and matches plurals.
+- BTG admins manage the list at `/restricted-words`: list, add, remove (the word is deactivated, not deleted), `/test`, and `/history` (read from the audit log).
+- Other features call `checkRestricted(tx, tenantId, text)`.
+
+**2S1-BE-17, sponsors approved automatically:**
+- **The form.** `/public/inquiries` takes `businessType`: a brand category, or OTHER with `businessTypeOther`. It emails a confirmation link (`sponsor.confirmEmail`) and returns a `requestToken`. Public routes under `/public/sponsor-requests/…`:
+  - the status;
+  - the proof-of-business upload and confirm;
+  - `confirm-email`.
+- **The tokens.** There are two HMAC tokens with separate purposes. The browser's token can never confirm the email.
+- **The checks.** `evaluateSponsorRequest` runs after each upload and after the email is confirmed. It approves the request (same transaction as a manual approval; the audit row has no actor), sends it to review with `reviewReasons`, or waits. A request goes to review for:
+  - a restricted type;
+  - restricted words in an Other description, or an Other description that sounds like a restricted type;
+  - an email that already has a login;
+  - a same-named sponsor. Names are compared with `normalizeBusinessName`, which ignores case, punctuation, "The" and endings like LLC or Inc.
+- **Email to BTG.** BTG admins and sales get `sponsor.newSponsor` for every new sponsor, with a link to `/admin/sponsor-requests/:id`.
+- **New decisions.** REJECT applies to an approved sponsor: all its logins get `disabledAt`, sign-in returns 403 `account_disabled`, and `sponsor.accountRejected` is emailed. REINSTATE switches the logins back on.
+- **Viewing proofs.** BTG opens a proof through a 5-minute audited link (`SENSITIVE_DOCUMENT_TTL_SECONDS`). Storage caps any TTL at 15 minutes.
+- **Tests.** `tests/phase2-sponsor-auto-approval.test.ts` has 16 tests. The full suite passes 1954 of 1955; the only failure is the old QA-02 reservations test.
+- **Frontend still to do.** The form must send `businessType`. Until it does, requests wait for BTG as before.

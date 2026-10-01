@@ -39,6 +39,16 @@ export class UnprovisionedError extends Error {
   }
 }
 
+/** 2S1-BE-17 — a login BTG switched off (Reject). Refused at sign-in, with the reason. */
+export class AccountDisabledError extends Error {
+  readonly status = 403;
+  readonly code = "account_disabled";
+  constructor() {
+    super("This SponsorX account has been closed by BTG. Contact BTG support if you think this is a mistake.");
+    this.name = "AccountDisabledError";
+  }
+}
+
 export class ForbiddenError extends Error {
   readonly status = 403;
   readonly code = "forbidden";

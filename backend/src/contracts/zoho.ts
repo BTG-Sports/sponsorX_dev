@@ -1,4 +1,5 @@
 import { z } from "./zod";
+import { BUSINESS_TYPES } from "../domain/sponsor-request-rules";
 
 /* --------------------------------------------------------------------------
    Zoho CRM inbound, and the sponsor enquiry — P8-INT-03, P8-INT-06, §18.
@@ -34,8 +35,12 @@ export const InquiryInput = z
     email: z.email().max(100),
     phone: z.string().trim().min(3).max(30).optional(),
     message: z.string().trim().max(4000).optional(),
+    /* 2S1-BE-17 — what the business is: one of the list, or OTHER with its own words. */
+    businessType: z.enum(BUSINESS_TYPES).optional(),
+    businessTypeOther: z.string().trim().min(2).max(200).optional(),
   })
   .strict()
+  .refine((v) => v.businessType !== "OTHER" || Boolean(v.businessTypeOther), { path: ["businessTypeOther"], message: "Say what your business does." })
   .meta({ id: "InquiryInput" });
 
 export type InquiryInput = z.infer<typeof InquiryInput>;

@@ -332,7 +332,11 @@ describe("the whole matrix is pinned", () => {
       // asking to sponsor, which opens the account (matrix §11 `inquiry`).
       // Those three cells back to deny, the grid hashes to the previous
       // 9bfe4e2f8189268c, so nothing else moved.
-    ).toBe("77c16c7e171c8dc2");
+      // Updated 2026-10-01 (2S1-BE-18): new `restrictedWord` resource —
+      // SUPER_ADMIN any/any, BTG_ADMIN own-tenant read/write, every other
+      // cell deny (matrix `restrictedWord`). With its rows removed the grid
+      // hashes to the previous 77c16c7e171c8dc2, so nothing else moved.
+    ).toBe("7fc0161e9b2baa67");
   });
 
   it("covers every pair the §30 acceptance asks for", () => {

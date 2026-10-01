@@ -538,6 +538,20 @@ holds only the provider's account id and its status (not set up / needs
 information / ready). "Write" is starting or resuming set-up on the provider's
 page. Sponsors are denied both `payout` and `payoutAccount`.
 
+### `restrictedWord` *(added 2026-10-01, 2S1-BE-18)*
+| Role | Read | Write | Approve |
+|---|---|---|---|
+| `SUPER_ADMIN` | any | any | — |
+| `BTG_ADMIN` | own-tenant | own-tenant | — |
+| all others | — | — | — |
+
+BTG's list of restricted words and phrases. Free text that matches the list,
+starting with a sponsor's "Other" business description, goes to BTG's review;
+a match never rejects anything by itself. BTG admins add and remove words;
+removing one deactivates it, so its history stays. Every change is audited.
+The check itself runs inside the features that use it, with no actor, because
+the text usually comes from the public before anyone has signed in.
+
 ### `invoice` *(added 2026-09-24)*
 | Role | Read | Write | Approve |
 |---|---|---|---|
@@ -609,6 +623,30 @@ email and the Zoho account push. Declining needs a note, which is emailed.
 Each request is decided once. An email that already has a login is refused,
 and a same-named sponsor must be linked or confirmed as a different business.
 The request's other fields are untouched.
+
+**The system approves most requests itself (2S1-BE-17, 2026-10-01).** It
+opens the account once the contact has confirmed their email and uploaded a
+proof of business, using the same transaction a person would. The system
+acts as no role: the audit row has no actor. A request waits in BTG's queue,
+with its reasons, when any of these hold:
+
+- the business type is restricted;
+- the "Other" description matches the restricted-words list or sounds like a
+  restricted type;
+- the email already has a login;
+- a sponsor with the same name exists.
+
+BTG admins and sales are emailed a link to every new sponsor. **Approve** also
+covers two later actions:
+
+- **Reject** an approved sponsor: every login of that sponsor is switched off
+  (`User.disabledAt`, and sign-in answers 403 `account_disabled`), and the
+  note is emailed.
+- **Reinstate** it: those logins are switched back on.
+
+The proof of business (`InquiryDocument`) is governed by its request. The
+applicant uploads it with a signed request token and is never given a read.
+Staff who can read the request open it through a five-minute, audited link.
 
 A prospective sponsor's enquiry (§18 row 3, P8-INT-06). It is **created by the
 public enquiry form**, which has no signed-in actor — the same shape as `/join`

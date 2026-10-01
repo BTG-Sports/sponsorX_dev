@@ -73,10 +73,18 @@ function presignUpload(bucket: string, key: string, contentType: string) {
   );
 }
 
+/**
+ * 2S1-BE-17 — five minutes, for identity and business documents BTG views:
+ * a person's ID is the most sensitive file SponsorX holds, and a reviewer
+ * reads it at once, so a leaked link should expire fastest.
+ */
+export const SENSITIVE_DOCUMENT_TTL_SECONDS = 5 * 60;
+
 /** Presigned GET. Private-bucket callers must go through the audited wrapper. */
-function presignDownload(bucket: string, key: string) {
+function presignDownload(bucket: string, key: string, ttlSeconds = PRESIGN_TTL_SECONDS) {
+  /* A caller may ask for shorter, never longer. */
   return getSignedUrl(s3, new GetObjectCommand({ Bucket: bucket, Key: key }), {
-    expiresIn: PRESIGN_TTL_SECONDS,
+    expiresIn: Math.min(ttlSeconds, PRESIGN_TTL_SECONDS),
   });
 }
 
@@ -144,6 +152,7 @@ export async function presignPrivateDownload(
   actor: AuditActor,
   key: string,
   context: GrantContext,
+  ttlSeconds: number = PRESIGN_TTL_SECONDS,
 ): Promise<string> {
   assertSafeKey(key);
 
@@ -154,11 +163,11 @@ export async function presignPrivateDownload(
       AUDIT_ACTIONS.storage.privateDownloadGrant,
       context.entity,
       context.entityId,
-      { after: { bucket: BUCKETS.private, key, ttlSeconds: PRESIGN_TTL_SECONDS } },
+      { after: { bucket: BUCKETS.private, key, ttlSeconds: Math.min(ttlSeconds, PRESIGN_TTL_SECONDS) } },
     ),
   );
 
-  return presignDownload(BUCKETS.private, key);
+  return presignDownload(BUCKETS.private, key, ttlSeconds);
 }
 
 /**

@@ -63,7 +63,13 @@ export type EmailTemplate =
   | "onboarding.suspended"
   /* 2S1-BE-05 — BTG's decision on a business asking to sponsor. */
   | "sponsor.accountOpened"
-  | "sponsor.requestDeclined";
+  | "sponsor.requestDeclined"
+  /* 2S1-BE-17 — automatic approval: the applicant confirms their email; BTG
+     hears of every new sponsor; a rejection after approval, and a reinstatement. */
+  | "sponsor.confirmEmail"
+  | "sponsor.newSponsor"
+  | "sponsor.accountRejected"
+  | "sponsor.accountReinstated";
 
 export type EmailMessage = {
   template: EmailTemplate;
