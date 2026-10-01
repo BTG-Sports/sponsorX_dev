@@ -14,6 +14,11 @@
    Auth is the Railway CLI's own login (`railway login`). It does NOT wait
    for GitHub's checks: run it only for commits that already passed them,
    or when you have decided to ship without them.
+
+   This is the MANUAL deploy. The automatic one happens once a day: since
+   2026-10-01 Railway deploys from the `release` branch, and
+   .github/workflows/deploy-daily.yml moves `release` to `main` after the
+   8 pm Manila CI run passes. A manual deploy here does not move `release`.
    -------------------------------------------------------------------------- */
 
 import { execFileSync } from "node:child_process";

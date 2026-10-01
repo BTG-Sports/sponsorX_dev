@@ -219,8 +219,15 @@ def render_digest(now_board, day_ago_board, today: str) -> str:
     def lst(ts, show_owner=True):
         return "\n".join(f"• `{t.id}` {t.title[:56]}" + (f" · {t.owner}" if show_owner and t.owner else "") for t in ts) or "• none"
 
+    # Everything that moved since the last broadcast — the evening post is the
+    # day's only Slack message, so it carries every change, not just the totals.
+    if day_ago_board is None:
+        changes = "*What changed*\n• no earlier tracker to compare with"
+    else:
+        changes = render_changes(diff(day_ago_board, now_board)) or "*What changed*\n• no task changes today"
     return "\n\n".join([
         render_progress(now_board),
+        changes,
         f"*Finished today ({len(finished)})*\n{lst(finished)}",
         f"*Waiting in Code review ({len(review)})*\n{lst(review)}",
         f"*Newly blocked ({len(newly_blocked)})*\n{lst(newly_blocked, False)}",
@@ -396,8 +403,11 @@ def cmd_notify(a) -> int:
     if not changes:
         print("No task changes in this push — nothing to post.")
         return 0
-    text = render_progress(new) + "\n\n" + render_changes(changes, a.author)
-    post_slack(text, os.environ.get("SLACK_WEBHOOK_URL"), a.dry_run)
+    if a.no_slack:
+        print(f"{len(changes)} task change(s) — Sheet only; Slack hears about them in the 8 pm digest.")
+    else:
+        text = render_progress(new) + "\n\n" + render_changes(changes, a.author)
+        post_slack(text, os.environ.get("SLACK_WEBHOOK_URL"), a.dry_run)
     sync_sheet(changes, a.dry_run)
     return 0
 
@@ -448,6 +458,7 @@ def main(argv=None) -> int:
     n.add_argument("--after", default="HEAD")
     n.add_argument("--author", default="")
     n.add_argument("--dry-run", action="store_true")
+    n.add_argument("--no-slack", action="store_true", help="update the Sheet only; the 8 pm digest posts to Slack")
     d = sub.add_parser("digest", help="post the daily recap and append the snapshot row")
     d.add_argument("--ref", default="HEAD")
     d.add_argument("--since", default="24 hours ago")

@@ -1,7 +1,14 @@
 # Continuous integration — P2-OPS-07, §30, Guide §09.
 #
-# Every push and every pull request is type-checked, linted, unit-tested and
-# permission-tested. Nothing here is a new kind of check: each step is a
+# Once a day, at 8 pm Manila, the latest `main` is type-checked, linted,
+# unit-tested and permission-tested — and only if `main` has changed since the
+# last deploy. When it passes, deploy-daily.yml ships that commit.
+#
+# 2026-10-01, at the user's instruction: the account ran out of GitHub Actions
+# minutes (≈10 minutes a run, 40–80 runs a day on every push and pull
+# request), so CI no longer runs on pushes or pull requests at all — not on
+# working branches, not on `main_development`, not on `main`. Run it by hand
+# any time from the Actions tab ("Run workflow"), and locally as before. Nothing here is a new kind of check: each step is a
 # command that already runs locally. What changes is that it now runs whether
 # anyone remembers or not, on a clean machine, where both people working in
 # this repo can see the result.
@@ -15,8 +22,9 @@
 name: CI
 
 on:
-  push:
-  pull_request:
+  schedule:
+    - cron: "0 12 * * *" # 12:00 UTC = 8:00 pm Manila, every day
+  workflow_dispatch:
 
 # A second push to the same branch makes the first run pointless — cancel it
 # rather than queueing behind work nobody is waiting for. Never cancels a run
@@ -26,8 +34,32 @@ concurrency:
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 jobs:
+  # A few seconds' check before the ten-minute ones: on the nightly run, if
+  # `release` (what is deployed) already equals `main`, there is nothing new
+  # to test or deploy, so the heavy jobs are skipped. A hand-started run
+  # always tests.
+  changed:
+    name: anything new on main
+    runs-on: ubuntu-latest
+    outputs:
+      run: ${{ steps.check.outputs.run }}
+    steps:
+      - id: check
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          RELEASE=$(gh api "repos/${{ github.repository }}/branches/release" --jq .commit.sha 2>/dev/null || echo none)
+          if [ "${{ github.event_name }}" = "schedule" ] && [ "$RELEASE" = "${{ github.sha }}" ]; then
+            echo "main (${GITHUB_SHA:0:7}) is already deployed — skipping tonight's checks."
+            echo "run=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          fi
+
   ci:
     name: typecheck · lint · unit · authz matrix
+    needs: changed
+    if: needs.changed.outputs.run == 'true'
     runs-on: ubuntu-latest
 
     services:
@@ -143,6 +175,8 @@ jobs:
   # It runs on the same triggers, so a red E2E is still a red commit.
   e2e:
     name: e2e · playwright
+    needs: changed
+    if: needs.changed.outputs.run == 'true'
     runs-on: ubuntu-latest
 
     # The fan-flow specs (P6-QA-01/02) drive the real stack — web → API →

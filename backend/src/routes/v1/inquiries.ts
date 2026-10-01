@@ -4,6 +4,7 @@
  * PUBLIC: a prospective sponsor has no account yet. So, like /join, the
  * tenant is configuration, the endpoint is rate-limited, and the only thing
  * it does is write one row and queue the Lead push in the same transaction.
+ * The row is also the request BTG reviews in SponsorX (2S1-BE-05).
  * Zoho is never called from here — if it is down, the enquiry is still
  * taken and the Lead follows when it recovers.
  *
@@ -18,6 +19,7 @@ import { env } from "../../config/env";
 import { limit } from "../../lib/rate-limit";
 import { clientIp } from "../../lib/client-ip";
 import { InquiryInput } from "../../contracts/zoho";
+import { categoryText } from "../../domain/sponsor-request-rules";
 
 export const inquiriesRouter = Router();
 
@@ -37,6 +39,8 @@ export const submitInquiry: RequestHandler = async (req, res) => {
         phone: input.phone ?? null,
         message: input.message ?? null,
         source: "web-form",
+        /* 2S1-BE-05 — the business's own words for what it is, for BTG's review. */
+        categoryText: categoryText(input.message ?? null),
       },
       select: { id: true },
     });
