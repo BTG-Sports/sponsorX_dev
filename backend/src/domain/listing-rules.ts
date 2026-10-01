@@ -43,25 +43,57 @@ export const LISTING_EDITABLE: ReadonlySet<ListingState> = new Set(["DRAFT", "PA
 export const SELLING_ATHLETE_STATES: readonly string[] = ["APPROVED", "ACTIVE"];
 
 /**
+ * 2S1-BE-13 — an athlete's account standing: closed (an open AccountClosure,
+ * mirrored on `accountClosedAt`), rejected by BTG after approval
+ * (2S1-BE-09 / -10), or ended by the coming-of-age rule (2S1-BE-12). Any of
+ * them, and nothing of theirs sells — their own listings, or a team's
+ * listing of their item. Optional so a caller that never reads them (an
+ * older select) is not broken; every selling path selects them.
+ */
+export type SellerAccount = { accountClosedAt?: Date | null; signupRejectedAt?: Date | null; comingOfAgeTerminatedAt?: Date | null };
+
+/**
  * 2S3-BE-05 — who sells. A property's listing needs the property's listing
- * access; an independent athlete's needs the athlete approved AND still
- * without a team — a roster athlete's items go through their team.
+ * access (a Reject or a self-closure takes it away); an independent
+ * athlete's needs the athlete approved AND still without a team — a roster
+ * athlete's items go through their team. Either way the athlete whose item
+ * it is must still have an open account (2S1-BE-13).
  */
 export type ListingSeller = {
   property?: { listingAccessAt: Date | null } | null;
-  sellerAthlete?: { state: string; propertyId: string | null } | null;
+  sellerAthlete?: ({ state: string; propertyId: string | null } & SellerAccount) | null;
+  /** The athlete whose item a team lists (2S2-BE-05), when it is an athlete's item. */
+  itemAthlete?: SellerAccount | null;
 };
 
+function accountProblems(who: string, a: SellerAccount | null | undefined): string[] {
+  if (!a) return [];
+  const out: string[] = [];
+  if (a.signupRejectedAt) out.push(`${who}: rejected by BTG`);
+  if (a.comingOfAgeTerminatedAt) out.push(`${who}: account ended (coming of age)`);
+  else if (a.accountClosedAt && !a.signupRejectedAt) out.push(`${who}: account closed`);
+  return out;
+}
+
 export function sellerProblems(s: ListingSeller): string[] {
-  if (s.property) return s.property.listingAccessAt ? [] : ["property: not approved to list (onboarding not approved, or suspended)"];
+  if (s.property) {
+    return [
+      ...(s.property.listingAccessAt ? [] : ["property: not approved to list (onboarding not approved, suspended, rejected or closed)"]),
+      ...accountProblems("item's athlete", s.itemAthlete),
+    ];
+  }
   if (s.sellerAthlete) {
     const out: string[] = [];
     if (!SELLING_ATHLETE_STATES.includes(s.sellerAthlete.state)) out.push("athlete: not approved by BTG");
     if (s.sellerAthlete.propertyId) out.push("athlete: on a team — their team lists their items");
+    out.push(...accountProblems("athlete", s.sellerAthlete));
     return out;
   }
   return ["listing: no seller"];
 }
+
+/** An athlete account that can still sell, as a query fragment (the same rule as `accountProblems`). */
+const ACCOUNT_OPEN = { accountClosedAt: null, signupRejectedAt: null, comingOfAgeTerminatedAt: null } as const;
 
 /**
  * The same rule as a query fragment, for every read that must show only what
@@ -71,8 +103,11 @@ export function sellerProblems(s: ListingSeller): string[] {
 export function sellerCanSell(): Prisma.ListingWhereInput {
   return {
     OR: [
-      { propertyId: { not: null }, property: { listingAccessAt: { not: null } } },
-      { propertyId: null, sellerAthlete: { state: { in: SELLING_ATHLETE_STATES as AthleteState[] }, propertyId: null } },
+      {
+        propertyId: { not: null }, property: { listingAccessAt: { not: null } },
+        item: { is: { OR: [{ athleteId: null }, { athlete: { is: { ...ACCOUNT_OPEN } } }] } },
+      },
+      { propertyId: null, sellerAthlete: { state: { in: SELLING_ATHLETE_STATES as AthleteState[] }, propertyId: null, ...ACCOUNT_OPEN } },
     ],
   };
 }

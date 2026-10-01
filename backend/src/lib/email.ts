@@ -120,6 +120,11 @@ export type EmailTemplate =
   | "handoff.switchedPrevious"
   | "handoff.switchedAthlete"
   | "handoff.btgNotice"
+  /* 2S1-BE-15 — a dispute decided by hand: a BTG admin replaced a guardian
+     (both guardians and the athlete are told, with the reason); and a
+     handoff waiting for BTG because "BTG staff confirm minors" is on. */
+  | "guardian.replacedByBtg"
+  | "handoff.staffConfirm"
   /* 2S1-BE-16 — a contact-form message to the support mailbox, and the
      sender's copy. */
   | "support.message"

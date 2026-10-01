@@ -264,7 +264,7 @@ describe.skipIf(!hasDatabase)("2S1-BE-05 · BTG reviews a sponsor's request and 
       expect(r.status, r.text).toBe(200);
       expect(r.json).toMatchObject({ state: "DECLINED", decisionNote: "We only work with businesses in Maryland for now.", decidedBy: "sr_admin", sponsorId: null });
       expect(await emails()).toContainEqual(expect.objectContaining({
-        template: "sponsor.requestDeclined", to: "sr_nope@sr-test.invalid", data: expect.objectContaining({ note: "We only work with businesses in Maryland for now." }),
+        template: "sponsor.requestDeclined", to: "sr_nope@sr-test.invalid", data: expect.objectContaining({ note: "We only work with businesses in Maryland for now.", supportEmail: expect.any(String) }),
       }));
       expect(await prisma.user.count({ where: { email: "sr_nope@sr-test.invalid" } })).toBe(0);
       /* Once the email job has sent it, the page says so. */

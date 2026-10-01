@@ -49,6 +49,7 @@ import { ForbiddenError } from "../auth/errors";
 import { emailTokenMatches, issueOnboardingEmailToken, issueOnboardingToken, onboardingIdOfEmailToken, readOnboardingToken } from "../lib/onboarding-token";
 import { send, type EmailTemplate } from "../lib/email";
 import { normalizeBusinessName } from "./business-name-rules";
+import { recordClosureIn, reopenClosureIn, REJECT_TAKES_LOGINS } from "./account-closure";
 import {
   approvalVerdict,
   canTransitionOnboarding,
@@ -716,17 +717,29 @@ const managersOf = (property: { id: string; tenantId: string }) => ({ tenantId: 
 /**
  * 2S1-BE-06 — Reject after approval withdraws the organisation: its logins
  * switched off (refused at sign-in, auth/actor.ts), listing access off, its
- * listings ended, its payouts held. Nothing is deleted.
+ * listings ended, its payouts held. Nothing is deleted yet: 2S1-BE-13's
+ * closure keeps its files 30 days (then the retention job deletes them) and
+ * lets it ask BTG to come back. A login the organisation had switched off by
+ * closing itself is taken over too, so it can't reactivate itself.
  */
-async function withdraw(tx: Tx, actor: Actor, row: Row, now: Date) {
+async function withdraw(tx: Tx, actor: Actor, row: Row, now: Date, notes: string | null) {
   const property = row.propertyId && row.property ? { id: row.propertyId, tenantId: row.property.tenantId } : null;
-  if (!property) return { loginsSwitchedOff: 0, listingsEnded: 0 };
+  if (!property) return { loginsSwitchedOff: 0, listingsEnded: 0, closureId: "" };
   /* tenant-scope: the Property this onboarding provisioned, in the organisation's own tenant (2S1-BE-04). */
   await tx.property.update({ where: { id: property.id }, data: { listingAccessAt: null, payoutsHeldAt: now }, select: { id: true } });
-  const off = await tx.user.updateMany({
+  const logins = await tx.user.findMany({
     /* tenant-scope: the organisation's own logins, in its own tenant. */
-    where: { ...managersOf(property), disabledAt: null },
+    where: { ...managersOf(property), ...REJECT_TAKES_LOGINS }, select: { id: true },
+  });
+  const off = await tx.user.updateMany({
+    /* tenant-scope: the logins found just above, in the organisation's own tenant. */
+    where: { ...managersOf(property), id: { in: logins.map((u) => u.id) } },
     data: { disabledAt: now, disabledReason: `onboarding:${row.id}` },
+  });
+  /* 2S1-BE-13 — every Reject records a closure: files on the 30-day purge, and the way to ask BTG to come back. */
+  const closureId = await recordClosureIn(tx, actor, {
+    subjectKind: "PROPERTY", subjectId: property.id, cause: "REJECTED", reason: notes, userIds: logins.map((u) => u.id),
+    contactEmail: primaryEmail(row) ?? "", displayName: row.orgName,
   });
   const live = await tx.listing.findMany({
     where: { tenantId: property.tenantId, propertyId: property.id, state: { not: "ARCHIVED" } },
@@ -745,11 +758,11 @@ async function withdraw(tx: Tx, actor: Actor, row: Row, now: Date) {
       before: { state: l.state }, after: { state: to, reason: "organisation rejected", onboardingId: row.id },
     });
   }
-  return { loginsSwitchedOff: off.count, listingsEnded: live.length };
+  return { loginsSwitchedOff: off.count, listingsEnded: live.length, closureId };
 }
 
-/** Reinstate after a Reject: the logins that Reject switched off come back, payouts are released. */
-async function restore(tx: Tx, row: Row) {
+/** Reinstate after a Reject: the logins that Reject switched off come back, payouts are released, the closure ends. */
+async function restore(tx: Tx, actor: Actor, row: Row) {
   const property = row.propertyId && row.property ? { id: row.propertyId, tenantId: row.property.tenantId } : null;
   if (!property) return { loginsSwitchedOn: 0, payoutsResent: 0 };
   const on = await tx.user.updateMany({
@@ -764,6 +777,8 @@ async function restore(tx: Tx, row: Row) {
     select: { id: true, tenantId: true },
   });
   for (const p of waiting) await enqueue(tx, p.tenantId, "payouts.send", { payoutId: p.id });
+  /* 2S1-BE-13 — back inside the 30 days: the closure ends and nothing is deleted. */
+  await reopenClosureIn(tx, actor, "PROPERTY", property.id);
   return { loginsSwitchedOn: on.count, payoutsResent: waiting.length };
 }
 
@@ -790,7 +805,7 @@ export async function decideOnboarding(actor: Actor, id: string, decision: Decis
 
     let propertyId = row.propertyId;
     let provisioned: Provisioned | null = null;
-    let effects: Record<string, number> = {};
+    let effects: Record<string, number | string> = {};
     const now = new Date();
     if (to === "APPROVED") {
       /* One organisation per name, whoever approves (2S1-BE-06): BTG's own approval
@@ -811,14 +826,14 @@ export async function decideOnboarding(actor: Actor, id: string, decision: Decis
         /* tenant-scope: the Property this onboarding provisioned, in the organisation's own tenant (2S1-BE-04). */
         await tx.property.update({ where: { id: propertyId }, data: { listingAccessAt: now, payoutsHeldAt: null }, select: { id: true } });
       }
-      if (decision === "REINSTATE" && from === "REJECTED") effects = await restore(tx, row);
+      if (decision === "REINSTATE" && from === "REJECTED") effects = await restore(tx, actor, row);
     }
     if (to === "SUSPENDED" && propertyId) {
       /* tenant-scope: the Property this onboarding provisioned, in the organisation's own tenant (2S1-BE-04). */
       await tx.property.update({ where: { id: propertyId }, data: { listingAccessAt: null }, select: { id: true } });
     }
     const afterApproval = decision === "REJECT" && from === "APPROVED";
-    if (afterApproval) effects = await withdraw(tx, actor, row, now);
+    if (afterApproval) effects = await withdraw(tx, actor, row, now, notes?.trim() || null);
 
     const updated = await tx.propertyOnboarding.update({
       where: { id },
@@ -841,7 +856,7 @@ export async function decideOnboarding(actor: Actor, id: string, decision: Decis
       },
     });
     if (afterApproval) {
-      await notify(tx, row, decision, `onboarding.${decision.toLowerCase()}`, notes, { supportUrl: `${appUrl()}/contact` }, "onboarding.accountRejected");
+      await notify(tx, row, decision, `onboarding.${decision.toLowerCase()}`, notes, { supportUrl: `${appUrl()}/contact`, supportEmail: env.SUPPORT_EMAIL }, "onboarding.accountRejected");
     } else if (decision === "REINSTATE" && from === "REJECTED") {
       await notify(tx, row, decision, `onboarding.${decision.toLowerCase()}`, null, { portalUrl: `${appUrl()}/property` }, "onboarding.reinstated");
     } else {

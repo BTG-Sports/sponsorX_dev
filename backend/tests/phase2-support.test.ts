@@ -89,7 +89,11 @@ describe.skipIf(!hasDatabase)("2S1-BE-16 · contacting BTG support", { timeout: 
       expect(EMAIL_TEMPLATES[t]!({}).text, t).toContain("help@btg-support.invalid");
     }
     /* These are sent with the address in their data (asserted where they are sent). */
-    for (const t of ["sponsor.accountRejected", "handoff.declined", "account.reactivationDeclined", "handoff.confirmEmail", "handoff.requested"]) {
+    for (const t of [
+      "sponsor.accountRejected", "handoff.declined", "account.reactivationDeclined", "handoff.confirmEmail", "handoff.requested",
+      /* Added at the merge of Groups A, B1 and B2 (2S1-BE-16): the organisation's Reject, the sponsor's decline, and B1's athlete and guardian Rejects. */
+      "onboarding.accountRejected", "sponsor.requestDeclined", "athlete.accountRejected", "guardian.accountRejected", "guardian.replacedByBtg",
+    ]) {
       expect(EMAIL_TEMPLATES[t]!({ supportEmail: "help@btg-support.invalid" }).text, t).toContain("help@btg-support.invalid");
     }
   });

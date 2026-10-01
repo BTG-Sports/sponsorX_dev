@@ -240,7 +240,7 @@ ${d.portalUrl ?? ""}
   }),
   "onboarding.accountRejected": (d) => ({
     subject: `${d.orgName ?? "Your organisation"}'s SponsorX account has been closed`,
-    text: `Hi ${d.contactName ?? "there"},\n\nBTG has closed ${d.orgName ?? "your organisation"}'s account on SponsorX:\n\n${d.notes ?? ""}\n\nYour sign-in and listings are switched off and payouts are on hold. Orders already placed are not cancelled by this. If you think this is a mistake, contact BTG support:\n\n${d.supportUrl ?? ""}\n\n— BTG SponsorX`,
+    text: `Hi ${d.contactName ?? "there"},\n\nBTG has closed ${d.orgName ?? "your organisation"}'s account on SponsorX:\n\n${d.notes ?? ""}\n\nYour sign-in and listings are switched off and payouts are on hold. Orders already placed are not cancelled by this. If you think this is a mistake, contact BTG support at ${d.supportEmail ?? "the support address"}, or use the contact page:\n\n${d.supportUrl ?? ""}\n\n— BTG SponsorX`,
   }),
   "onboarding.reinstated": (d) => ({
     subject: `${d.orgName ?? "Your organisation"}'s SponsorX account is open again`,
@@ -261,7 +261,7 @@ ${d.portalUrl ?? ""}
   }),
   "sponsor.requestDeclined": (d) => ({
     subject: "About your SponsorX sponsor request",
-    text: `Hi ${d.firstName ?? "there"},\n\nThanks for asking to sponsor on SponsorX. BTG can't open an account for ${d.businessName ?? "you"} yet:\n\n${d.note ?? ""}\n\nYou can reply to this email with any questions.\n\n— BTG SponsorX`,
+    text: `Hi ${d.firstName ?? "there"},\n\nThanks for asking to sponsor on SponsorX. BTG can't open an account for ${d.businessName ?? "you"} yet:\n\n${d.note ?? ""}\n\nQuestions? Write to BTG support at ${d.supportEmail ?? "the support address"}${d.supportUrl ? `, or use the contact page:\n\n${d.supportUrl}` : "."}\n\n— BTG SponsorX`,
   }),
   /* 2S1-BE-17 — automatic approval, and BTG's reject / reinstate after it. */
   "sponsor.confirmEmail": (d) => ({
@@ -295,7 +295,7 @@ ${d.portalUrl ?? ""}
   }),
   "athlete.accountRejected": (d) => ({
     subject: "Your SponsorX athlete account has been closed",
-    text: `Hi ${d.firstName ?? "there"},\n\nBTG has closed this SponsorX athlete account:\n\n${d.note ?? ""}\n\nMoney already earned is still owed and stays on hold until this is resolved. If you think this is a mistake, contact BTG support:\n\n${d.supportUrl ?? ""}\n\n— BTG SponsorX`,
+    text: `Hi ${d.firstName ?? "there"},\n\nBTG has closed this SponsorX athlete account:\n\n${d.note ?? ""}\n\nMoney already earned is still owed and stays on hold until this is resolved. If you think this is a mistake, contact BTG support at ${d.supportEmail ?? "the support address"}, or use the contact page:\n\n${d.supportUrl ?? ""}\n\n— BTG SponsorX`,
   }),
   "athlete.accountReinstated": (d) => ({
     subject: "Your SponsorX athlete account is open again",
@@ -303,7 +303,7 @@ ${d.portalUrl ?? ""}
   }),
   "guardian.accountRejected": (d) => ({
     subject: "Your SponsorX guardian account has been closed",
-    text: `Hi ${d.firstName ?? "there"},\n\nBTG has closed your SponsorX guardian account:\n\n${d.note ?? ""}${d.athletes ? `\n\nThis also closes the accounts of: ${d.athletes}.` : ""}\n\nIf you think this is a mistake, contact BTG support:\n\n${d.supportUrl ?? ""}\n\n— BTG SponsorX`,
+    text: `Hi ${d.firstName ?? "there"},\n\nBTG has closed your SponsorX guardian account:\n\n${d.note ?? ""}${d.athletes ? `\n\nThis also closes the accounts of: ${d.athletes}.` : ""}\n\nIf you think this is a mistake, contact BTG support at ${d.supportEmail ?? "the support address"}, or use the contact page:\n\n${d.supportUrl ?? ""}\n\n— BTG SponsorX`,
   }),
   "guardian.accountReinstated": (d) => ({
     subject: "Your SponsorX guardian account is open again",
@@ -430,6 +430,20 @@ ${d.portalUrl ?? ""}
   "handoff.btgNotice": (d) => ({
     subject: `Guardian changed: ${d.athleteName ?? "an athlete"}`,
     text: `${d.previousName ?? "The previous guardian"} handed ${d.athleteName ?? "an athlete"}'s account to ${d.requesterName ?? "a new guardian"} (${d.relationship ?? ""}), who was approved automatically: email confirmed, ID and proof of guardianship uploaded, guardian agreement accepted.\n\nReview them on New sign-ups — Reject is there if this looks wrong:\n\n${d.reviewUrl ?? ""}\n\n— SponsorX`,
+  }),
+  /* 2S1-BE-15 — "BTG staff confirm minors" is on: the current guardian handed off, and the switch waits for BTG. */
+  "handoff.staffConfirm": (d) => ({
+    subject: `Guardian handoff to confirm: ${d.athleteName ?? "an athlete"}`,
+    text: `${d.previousName ?? "The current guardian"} has handed ${d.athleteName ?? "an athlete"}'s account to ${d.requesterName ?? "a new guardian"} (${d.relationship ?? ""}). Their email is confirmed, their ID and proof of guardianship are uploaded and they accepted the guardian agreement.\n\n"BTG staff confirm minors" is on, so nothing has switched yet: ${d.previousName ?? "the current guardian"} stays in control until you confirm or decline it:\n\n${d.reviewUrl ?? ""}\n\n— SponsorX`,
+  }),
+  /* 2S1-BE-15 — a dispute decided by hand: a BTG admin replaced the guardian. Each of the three reads their own version. */
+  "guardian.replacedByBtg": (d) => ({
+    subject: `${d.athleteFirstName ?? "An athlete"}'s guardian on SponsorX has changed`,
+    text: d.seat === "new"
+      ? `Hi ${d.name ?? "there"},\n\nBTG has made you ${d.athleteFirstName ?? "an athlete"}'s guardian on SponsorX, in place of ${d.previousGuardianName ?? "their previous guardian"}:\n\n${d.reason ?? ""}\n\nWe've emailed you a separate link to finish your guardian page — your ID, proof of guardianship and the guardian agreement. You act for ${d.athleteFirstName ?? "them"} once that is done.\n\nQuestions: ${d.supportEmail ?? "BTG support"}.\n\n— BTG SponsorX`
+      : d.seat === "previous"
+        ? `Hi ${d.name ?? "there"},\n\nBTG has replaced you as ${d.athleteFirstName ?? "an athlete"}'s guardian on SponsorX, after looking at the matter by hand:\n\n${d.reason ?? ""}\n\nMoney already earned and work already agreed stay where they are. If you think this is wrong, write to ${d.supportEmail ?? "BTG support"}.\n\n— BTG SponsorX`
+        : `Hi ${d.name ?? "there"},\n\nBTG has changed your guardian on SponsorX from ${d.previousGuardianName ?? "your previous guardian"} to ${d.newGuardianName ?? "a new guardian"}:\n\n${d.reason ?? ""}\n\nYour orders and campaigns carry on. Questions: ${d.supportEmail ?? "BTG support"}.\n\n— BTG SponsorX`,
   }),
 
   /* 2S1-BE-16 — the contact form. The support mailbox (Zoho Desk or a shared

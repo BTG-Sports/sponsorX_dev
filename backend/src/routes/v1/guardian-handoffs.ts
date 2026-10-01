@@ -14,15 +14,16 @@
  *   GET  /guardian-handoffs
  *   GET  /guardian-handoffs/:id
  *   POST /guardian-handoffs/:id/decision                    HAND_OFF | DECLINE
+ *   POST /guardian-handoffs/:id/staff-decision              BTG: CONFIRM | DECLINE, when staff confirm minors
  */
 import { Router, type RequestHandler } from "express";
 
 import { requireActor } from "../../auth/actor";
 import {
-  HandoffDecisionInput, HandoffDocumentInput, HandoffEmailConfirmInput, HandoffLookupQuery, HandoffStartInput, HandoffSubmitInput,
+  HandoffDecisionInput, HandoffDocumentInput, HandoffStaffDecisionInput, HandoffEmailConfirmInput, HandoffLookupQuery, HandoffStartInput, HandoffSubmitInput,
 } from "../../contracts/guardian-handoff";
 import {
-  confirmHandoffDocumentUpload, confirmHandoffEmail, decideHandoff, getHandoff, handoffStatus, listHandoffs, lookupAthleteForHandoff,
+  confirmHandoffDocumentUpload, confirmHandoffEmail, decideHandoff, decideStaffHandoff, getHandoff, handoffStatus, listHandoffs, lookupAthleteForHandoff,
   requestHandoffDocumentUpload, startHandoff, submitHandoff,
 } from "../../domain/guardian-handoff";
 import { clientIp } from "../../lib/client-ip";
@@ -71,6 +72,9 @@ const one: RequestHandler<{ id: string }> = async (req, res) => {
 const decide: RequestHandler<{ id: string }> = async (req, res) => {
   res.json(await decideHandoff(req.actor!, req.params.id, HandoffDecisionInput.parse(req.body ?? {})));
 };
+const staffDecide: RequestHandler<{ id: string }> = async (req, res) => {
+  res.json(await decideStaffHandoff(req.actor!, req.params.id, HandoffStaffDecisionInput.parse(req.body ?? {})));
+};
 
 guardianHandoffsRouter.get("/public/guardian-handoffs/lookup", lookup);
 guardianHandoffsRouter.post("/public/guardian-handoffs", start);
@@ -83,3 +87,4 @@ guardianHandoffsRouter.post("/public/guardian-handoffs/:token/submit", submit);
 guardianHandoffsRouter.get("/guardian-handoffs", requireActor, list);
 guardianHandoffsRouter.get("/guardian-handoffs/:id", requireActor, one);
 guardianHandoffsRouter.post("/guardian-handoffs/:id/decision", requireActor, decide);
+guardianHandoffsRouter.post("/guardian-handoffs/:id/staff-decision", requireActor, staffDecide);

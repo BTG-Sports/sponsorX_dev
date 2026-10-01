@@ -60,7 +60,7 @@ import { Invoice, PaymentStatus, ZohoInvoiceWebhook } from "./invoice";
 import { ProfileChangeInput, ProfileChangeState } from "./profile-change";
 import { CloseAccountInput, ReactivationActionInput, ReactivationDecisionInput, ReactivationLinkInput } from "./account";
 import {
-  HandoffDecisionInput, HandoffDocumentInput, HandoffEmailConfirmInput, HandoffLookupQuery, HandoffStartInput, HandoffSubmitInput,
+  HandoffDecisionInput, HandoffDocumentInput, HandoffEmailConfirmInput, HandoffLookupQuery, HandoffStaffDecisionInput, HandoffStartInput, HandoffSubmitInput,
 } from "./guardian-handoff";
 import { SupportMessageInput } from "./support";
 import { InquiryInput, ZohoCrmNotification } from "./zoho";
@@ -651,7 +651,8 @@ const PATHS: Row[] = [
   { method: "post", path: "/public/guardian-handoffs/{token}/submit", tag: "Public", summary: "Accept the guardian agreement and send the request to the current guardian — only once the email is confirmed and both documents are in (2S1-BE-15).", auth: false, body: HandoffSubmitInput },
   { method: "get", path: "/guardian-handoffs", tag: "Guardians", summary: "Requests to take over a ward (the current guardian), or about you (the athlete), newest first (2S1-BE-15)." },
   { method: "get", path: "/guardian-handoffs/{id}", tag: "Guardians", summary: "One handoff request and its three steps (2S1-BE-15)." },
-  { method: "post", path: "/guardian-handoffs/{id}/decision", tag: "Guardians", summary: "The current guardian only: HAND_OFF switches the athlete to the new guardian in one transaction (agreed work and earned money stay put; other children unaffected); DECLINE closes it and points the requester to BTG support (2S1-BE-15).", body: HandoffDecisionInput },
+  { method: "post", path: "/guardian-handoffs/{id}/decision", tag: "Guardians", summary: "The current guardian only: HAND_OFF switches the athlete to the new guardian in one transaction (agreed work and earned money stay put; other children unaffected) — refused if the new guardian can't sign in, and held for BTG (HANDED_OFF) when BTG staff confirm minors; DECLINE closes it and points the requester to BTG support (2S1-BE-15).", body: HandoffDecisionInput },
+  { method: "post", path: "/guardian-handoffs/{id}/staff-decision", tag: "Guardians", summary: "BTG admin: a handed-off request waiting for staff confirmation — CONFIRM runs the switch, DECLINE (a reason the requester reads) closes it (2S1-BE-15).", body: HandoffStaffDecisionInput },
 
   // 2S1-BE-16 — contacting BTG support
   { method: "get", path: "/public/support", tag: "Public", summary: "The support address (SUPPORT_EMAIL), whether the mailbox is set up yet, and the topics (2S1-BE-16).", auth: false },

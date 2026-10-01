@@ -51,4 +51,12 @@ export const HandoffDecisionInput = z
     z.object({ decision: z.literal("HAND_OFF") }).strict(),
     z.object({ decision: z.literal("DECLINE"), note: z.string().trim().max(1000).optional() }).strict(),
   ])
-  .meta({ id: "HandoffDecisionInput", description: "The current guardian's answer: HAND_OFF (the switch happens at once) or DECLINE." });
+  .meta({ id: "HandoffDecisionInput", description: "The current guardian's answer: HAND_OFF (the switch happens at once — or, when BTG staff confirm minors, waits for BTG) or DECLINE." });
+
+/** 2S1-BE-15 — BTG's answer to a handoff waiting for staff confirmation (HANDED_OFF). */
+export const HandoffStaffDecisionInput = z
+  .discriminatedUnion("decision", [
+    z.object({ decision: z.literal("CONFIRM") }).strict(),
+    z.object({ decision: z.literal("DECLINE"), note: z.string().trim().min(1).max(1000) }).strict(),
+  ])
+  .meta({ id: "HandoffStaffDecisionInput", description: "BTG's answer to a handed-off request waiting for staff confirmation: CONFIRM (the switch) or DECLINE, with a reason the requester reads." });

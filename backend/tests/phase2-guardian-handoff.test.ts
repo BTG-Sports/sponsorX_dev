@@ -204,7 +204,7 @@ describe.skipIf(!hasDatabase)("2S1-BE-15 · changing a minor's guardian", { time
       ["handoff.switchedPrevious", "gh_carmen@gh-test.invalid"],
     ]);
     expect(sent.find((m) => m.template === "handoff.switchedPrevious")!.data.otherChildren).toBe("yes");
-    expect(sent.find((m) => m.template === "handoff.btgNotice")).toMatchObject({ to: "gh_admin@gh-test.invalid", data: { reviewUrl: expect.stringContaining("/admin/new-signups?guardian=") } });
+    expect(sent.find((m) => m.template === "handoff.btgNotice")).toMatchObject({ to: "gh_admin@gh-test.invalid", data: { reviewUrl: expect.stringContaining("/admin/new-signups/guardians/") } });
   });
 
   it("every step is audited", async () => {

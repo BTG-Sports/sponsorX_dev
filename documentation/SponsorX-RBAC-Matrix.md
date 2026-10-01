@@ -573,8 +573,8 @@ the account on its own page. Every step is audited.
 ### `guardianHandoff` *(added 2026-10-01, 2S1-BE-15 — §23)*
 | Role | Read | Write | Approve |
 |---|---|---|---|
-| `SUPER_ADMIN` | any | any | — |
-| `BTG_ADMIN` | own-tenant | — | — |
+| `SUPER_ADMIN` | any | any | any |
+| `BTG_ADMIN` | own-tenant | — | own-tenant (confirm / decline a handoff held for staff) |
 | `GUARDIAN` | ward (requests made of them) | ward (Hand off / Decline) | — |
 | `ATHLETE` | own (requests about them) | — | — |
 | all others | — | — | — |
@@ -585,6 +585,20 @@ start one. The current guardian answers it, and only while the athlete is
 still theirs. The athlete can read it but never answer it. BTG reads it and
 does not decide it: a disputed handoff goes to BTG support and is settled by
 hand.
+
+*(2026-10-01, merge gap fixes.)* **Approve** is new: when the tenant's
+"BTG staff confirm minors" setting is on (2S1-BE-10), the current guardian's
+Hand off moves the request to HANDED_OFF and a BTG admin confirms (the
+switch) or declines it, with a reason. Until then the current guardian keeps
+control. The switch is refused if the new guardian can't sign in.
+
+**`POST /athletes/:id/guardian` is not a second road around the handoff.** It
+links a guardian only to a minor who has none. For a minor who already has one
+it answers 409 `handoff_required`. Only a `BTG_ADMIN`, deciding a dispute by
+hand, may replace an existing guardian there, with a required `replaceReason`.
+That is audited (`guardian.replace`) and emailed to both guardians and the
+athlete. A `GUARDIAN`, `NETWORK_MGR` or `ATHLETE` never can, whatever their
+`guardian` write cell says.
 
 ### `signupRules` *(added 2026-10-02, 2S1-BE-10 / 2S1-BE-12)*
 | Role | Read | Write | Approve |

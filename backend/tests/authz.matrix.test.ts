@@ -354,7 +354,12 @@ describe("the whole matrix is pinned", () => {
       // teamInvitation, accountClosure, guardianHandoff, signupRules. With
       // signupRules' rows removed the grid hashes to the previous
       // a21c258670dcdb7c.
-    ).toBe("1764feb8e04cc5ea");
+      // Updated 2026-10-01 (2S1-BE-15, the merge's gap fixes): two new cells,
+      // `guardianHandoff.approve` — SUPER_ADMIN any, BTG_ADMIN own-tenant —
+      // BTG confirming or declining a handoff held because "BTG staff confirm
+      // minors" is on. With those two cells back to deny the grid hashes to
+      // the previous 1764feb8e04cc5ea.
+    ).toBe("11bff53b234f5f7c");
   });
 
   it("covers every pair the §30 acceptance asks for", () => {

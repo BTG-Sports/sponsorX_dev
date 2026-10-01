@@ -16,8 +16,16 @@
  *     every athlete they look after with them; rejecting an athlete leaves
  *     the guardian and their other athletes alone.
  *   - REINSTATE undoes exactly what a Reject did — logins back on, ACTIVE
- *     again — and a guardian's Reinstate brings back the athletes their
- *     rejection took. Ended listings stay ended (the seller relists).
+ *     again, payouts BTG approved before it sent — and a guardian's Reinstate
+ *     brings back the athletes their rejection took. Ended listings stay
+ *     ended (the seller relists).
+ *
+ * 2S1-BE-13 — every Reject records an AccountClosure (account-closure.ts
+ * `recordClosureIn`): the files go on the 30-day purge, and the rejected
+ * account can ask BTG to come back from the reactivation page. A login a
+ * self-closure had switched off is taken over (REJECT_TAKES_LOGINS), so a
+ * self-closed account BTG then rejects can no longer reactivate itself.
+ * Reinstate calls `reopenClosureIn`.
  *
  * Organisations (2S1-BE-06) and sponsors (2S1-BE-17) have their own
  * records; this file is athletes and guardians only.
@@ -35,6 +43,9 @@ import { ForbiddenError } from "../auth/errors";
 import { athleteNotificationKey, send } from "../lib/email";
 import { presignPrivateDownload, SENSITIVE_DOCUMENT_TTL_SECONDS } from "../lib/storage";
 import { transitionAthleteIn } from "./athlete";
+import { recordClosureIn, reopenClosureIn, REJECT_TAKES_LOGINS } from "./account-closure";
+import { enqueue } from "../db/outbox";
+import { env } from "../config/env";
 import type { AthleteState } from "./athlete-state";
 import { requiresGuardian } from "./guardian-rules";
 import {
@@ -353,11 +364,16 @@ async function withdrawAthleteIn(tx: Tx, actor: Actor, a: { id: string; tenantId
     /* tenant-scope: loaded by the caller through whereFor. */
     where: { id: a.id }, data: { signupRejectedAt: new Date(), signupRejectNote: note, signupRejectedBy: actor.userId, signupRejectedVia: via }, select: { id: true },
   });
-  const off = await tx.user.updateMany({
+  const logins = await tx.user.findMany({
     /* tenant-scope: the athlete's own logins, in their tenant. */
-    where: { tenantId: a.tenantId, athleteId: a.id, disabledAt: null },
+    where: { tenantId: a.tenantId, athleteId: a.id, ...REJECT_TAKES_LOGINS }, select: { id: true },
+  });
+  const off = await tx.user.updateMany({
+    /* tenant-scope: the logins found just above, in the athlete's tenant. */
+    where: { tenantId: a.tenantId, id: { in: logins.map((u) => u.id) } },
     data: { disabledAt: new Date(), disabledReason: `signupReject:athlete:${a.id}` },
   });
+  await closeRejectedAthleteIn(tx, actor, a, note, logins.map((u) => u.id));
   const ended = await tx.listing.updateMany({
     /* tenant-scope: the athlete's own listings — sold by them, or of their items — in their tenant. */
     where: { tenantId: a.tenantId, state: { in: [...LIVE_LISTING] }, OR: [{ sellerAthleteId: a.id }, { item: { is: { athleteId: a.id } } }] },
@@ -369,9 +385,17 @@ async function withdrawAthleteIn(tx: Tx, actor: Actor, a: { id: string; tenantId
   if (a.email) {
     await send(tx, a.tenantId, {
       template: "athlete.accountRejected", to: a.email, idempotencyKey: `athlete.accountRejected:${a.id}:${Date.now()}`,
-      data: { firstName: firstNameOf(a.legalName, a.displayName), note, supportUrl: `${appUrl()}/contact` },
+      data: { firstName: firstNameOf(a.legalName, a.displayName), note, supportUrl: `${appUrl()}/contact`, supportEmail: env.SUPPORT_EMAIL },
     });
   }
+}
+
+/** 2S1-BE-13 — the rejected athlete's closure: files kept 30 days, then purged; they can ask BTG to come back. */
+async function closeRejectedAthleteIn(tx: Tx, actor: Actor, a: { id: string; email: string | null; legalName: string; displayName: string }, note: string, userIds: string[]) {
+  await recordClosureIn(tx, actor, {
+    subjectKind: "ATHLETE", subjectId: a.id, cause: "REJECTED", reason: note, userIds,
+    contactEmail: a.email ?? "", displayName: firstNameOf(a.legalName, a.displayName),
+  });
 }
 
 /** Reject an athlete. Their guardian, and the guardian's other athletes, are untouched. */
@@ -391,6 +415,8 @@ export async function rejectAthleteSignup(actor: Actor, id: string, rawNote: str
       if (a.state === "SUBMITTED") await transitionAthleteIn(tx, actor, a.id, "UNDER_REVIEW");
       await transitionAthleteIn(tx, actor, a.id, "REJECTED", note);
       await audit(tx, actor, "athlete.signupReject", "Athlete", a.id, { before: { state: a.state }, after: { note, via: "ATHLETE", beforeApproval: true } });
+      /* Their ID documents are on the 30-day purge too. */
+      await closeRejectedAthleteIn(tx, actor, a, note, []);
       if (a.email) {
         await send(tx, a.tenantId, {
           template: "athlete.rejected", to: a.email, idempotencyKey: athleteNotificationKey("athlete.rejected", a.id, "REJECTED"),
@@ -404,7 +430,7 @@ export async function rejectAthleteSignup(actor: Actor, id: string, rawNote: str
     if (a.guardian && requiresGuardian(a)) {
       await send(tx, a.tenantId, {
         template: "athlete.accountRejected", to: a.guardian.email, idempotencyKey: `athlete.accountRejected:${a.id}:guardian:${Date.now()}`,
-        data: { firstName: a.guardian.legalName.split(/\s+/)[0] ?? "", note, supportUrl: `${appUrl()}/contact` },
+        data: { firstName: a.guardian.legalName.split(/\s+/)[0] ?? "", note, supportUrl: `${appUrl()}/contact`, supportEmail: env.SUPPORT_EMAIL },
       });
     }
   });
@@ -428,7 +454,15 @@ async function restoreAthleteIn(tx: Tx, actor: Actor, a: { id: string; tenantId:
     where: { tenantId: a.tenantId, athleteId: a.id, disabledReason: `signupReject:athlete:${a.id}` },
     data: { disabledAt: null, disabledReason: null },
   });
-  await audit(tx, actor, "athlete.signupReinstate", "Athlete", a.id, { before: { state: a.state }, after: { loginsSwitchedOn: on.count, active: wasSuspended } });
+  /* Payouts BTG approved before the Reject waited, held (payouts.ts sendPayout); they go now. */
+  const waiting = await tx.payout.findMany({
+    /* tenant-scope: the athlete's own payouts, named by their payee key (their tenant, type and id). */
+    where: { payeeTenantId: a.tenantId, payeeType: "ATHLETE", payeeId: a.id, state: "APPROVED" }, select: { id: true, tenantId: true },
+  });
+  for (const p of waiting) await enqueue(tx, p.tenantId, "payouts.send", { payoutId: p.id });
+  /* 2S1-BE-13 — back inside the 30 days: the closure ends and nothing is deleted. */
+  await reopenClosureIn(tx, actor, "ATHLETE", a.id);
+  await audit(tx, actor, "athlete.signupReinstate", "Athlete", a.id, { before: { state: a.state }, after: { loginsSwitchedOn: on.count, active: wasSuspended, payoutsResent: waiting.length } });
   if (a.email && APPROVED_STATES.includes(a.state as AthleteState)) {
     await send(tx, a.tenantId, {
       template: "athlete.accountReinstated", to: a.email, idempotencyKey: `athlete.accountReinstated:${a.id}:${Date.now()}`,
@@ -467,10 +501,19 @@ export async function rejectGuardianSignup(actor: Actor, id: string, rawNote: st
       /* tenant-scope: loaded through whereFor(guardian, write). */
       where: { id: g.id }, data: { rejectedAt: new Date(), rejectNote: note, rejectedBy: actor.userId }, select: { id: true },
     });
+    const logins = await tx.user.findMany({
+      /* tenant-scope: the guardian's own logins, in their tenant — never a ward's own. */
+      where: { tenantId: g.tenantId, guardianId: g.id, athleteId: null, ...REJECT_TAKES_LOGINS }, select: { id: true },
+    });
     const off = await tx.user.updateMany({
-      /* tenant-scope: the guardian's own logins, in their tenant. */
-      where: { tenantId: g.tenantId, guardianId: g.id, disabledAt: null },
+      /* tenant-scope: the logins found just above, in the guardian's tenant. */
+      where: { tenantId: g.tenantId, id: { in: logins.map((u) => u.id) } },
       data: { disabledAt: new Date(), disabledReason: `signupReject:guardian:${g.id}` },
+    });
+    /* 2S1-BE-13 — the guardian's closure: their ID and proof go on the 30-day purge; they can ask BTG to come back. */
+    await recordClosureIn(tx, actor, {
+      subjectKind: "GUARDIAN", subjectId: g.id, cause: "REJECTED", reason: note, userIds: logins.map((u) => u.id),
+      contactEmail: g.email, displayName: g.legalName.split(/\s+/)[0] ?? g.legalName,
     });
     const taken: string[] = [];
     for (const w of g.wards) {
@@ -484,13 +527,14 @@ export async function rejectGuardianSignup(actor: Actor, id: string, rawNote: st
           where: { id: w.id }, data: { signupRejectedAt: new Date(), signupRejectNote: note, signupRejectedBy: actor.userId, signupRejectedVia: "GUARDIAN" }, select: { id: true },
         });
         await audit(tx, actor, "athlete.signupReject", "Athlete", w.id, { before: { state: w.state }, after: { note, via: "GUARDIAN", beforeApproval: true } });
+        await closeRejectedAthleteIn(tx, actor, w, `Rejected with their guardian: ${note}`, []);
       }
       taken.push(w.legalName || w.displayName);
     }
     await audit(tx, actor, "guardian.signupReject", "Guardian", g.id, { after: { note, loginsSwitchedOff: off.count, athletesRejected: taken } });
     await send(tx, g.tenantId, {
       template: "guardian.accountRejected", to: g.email, idempotencyKey: `guardian.accountRejected:${g.id}:${Date.now()}`,
-      data: { firstName: g.legalName.split(/\s+/)[0] ?? "", note, athletes: taken.join(", "), supportUrl: `${appUrl()}/contact` },
+      data: { firstName: g.legalName.split(/\s+/)[0] ?? "", note, athletes: taken.join(", "), supportUrl: `${appUrl()}/contact`, supportEmail: env.SUPPORT_EMAIL },
     });
   });
   return getGuardianSignup(actor, id);
@@ -501,7 +545,10 @@ async function guardianForTx(tx: Tx, actor: Actor, id: string) {
     where: { ...whereFor(actor, "guardian", "write"), id },
     select: {
       id: true, tenantId: true, legalName: true, email: true, rejectedAt: true,
-      wards: { select: { id: true, tenantId: true, state: true, email: true, legalName: true, displayName: true, signupRejectedAt: true, signupRejectedVia: true } },
+      wards: {
+        select: { id: true, tenantId: true, state: true, email: true, legalName: true, displayName: true, signupRejectedAt: true, signupRejectedVia: true },
+        orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+      },
     },
   });
   if (!g) throw new ForbiddenError("guardian", "write");
@@ -532,6 +579,7 @@ export async function reinstateGuardianSignup(actor: Actor, id: string) {
       if (w.state === "SUBMITTED") recheck.push(w.id);
       back.push(w.legalName || w.displayName);
     }
+    await reopenClosureIn(tx, actor, "GUARDIAN", g.id);
     await audit(tx, actor, "guardian.signupReinstate", "Guardian", g.id, { after: { loginsSwitchedOn: on.count, athletesReinstated: back } });
     await send(tx, g.tenantId, {
       template: "guardian.accountReinstated", to: g.email, idempotencyKey: `guardian.accountReinstated:${g.id}:${Date.now()}`,

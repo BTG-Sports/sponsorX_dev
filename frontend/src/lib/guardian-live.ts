@@ -189,8 +189,9 @@ export function agreementFromBody(body: string, version: number): GuardianAgreem
 /* -------------------------------------------- guardian handoff (2S1-BE-15) */
 
 /** REQUESTED: the new guardian is still filling it in. WAITING: with the
- *  current guardian. HANDED_OFF: only if a check ever runs after the answer
- *  (today the switch happens at once). CANCELLED: the guardian changed
+ *  current guardian. HANDED_OFF: the current guardian handed off and the
+ *  tenant's "BTG staff confirm minors" setting is on, so a BTG admin confirms
+ *  the switch (otherwise it happens at once). CANCELLED: the guardian changed
  *  another way first. */
 export type HandoffState = "REQUESTED" | "WAITING" | "HANDED_OFF" | "SWITCHED" | "DECLINED" | "CANCELLED";
 
@@ -298,8 +299,8 @@ export function handoffViews(r: ApiHandoffRequest): PersonView[] {
       [`${r.requester.name} asked to become your guardian.`, `${cur} decides. ${cur} still approves your agreements and payments.`],
     ],
     HANDED_OFF: [
-      [`${cur} handed off. Your documents are being checked.`, "You become the guardian as soon as the check is done."],
-      [`You handed off ${a}’s account.`, `You keep approving things for ${a} until ${req}’s documents are checked.`],
+      [`${cur} handed off. BTG is confirming the switch.`, "You become the guardian as soon as BTG confirms."],
+      [`You handed off ${a}’s account.`, `You keep approving things for ${a} until BTG confirms the switch to ${req}.`],
       [`${r.requester.name} will soon be your guardian.`, `${cur} approves your agreements and payments until the switch.`],
     ],
     SWITCHED: [

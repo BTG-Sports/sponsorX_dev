@@ -211,6 +211,7 @@ const BODY: Record<string, unknown> = {
   /* 2S1-BE-13 / 2S1-BE-15. POST /me/close is the actor's own account, so an empty body (refused: confirm is required) keeps the sweep from closing tenant B's logins. */
   "POST /account-closures/{id}/reactivation-decision": { decision: "DECLINE", note: "cross-tenant" },
   "POST /guardian-handoffs/{id}/decision": { decision: "HAND_OFF" },
+  "POST /guardian-handoffs/{id}/staff-decision": { decision: "CONFIRM" },
   "POST /guardians/{id}/verify": { method: "DOCUMENT" },
   "POST /agreements/accept": { agreementId: A.agreement, bodyHashShown: "x".repeat(64) },
   "POST /campaigns/{id}/rewards": { offerText: "Free taco", terms: "One per fan", expiresAt: "2026-12-01T00:00:00.000Z" },

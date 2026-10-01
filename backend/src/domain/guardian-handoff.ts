@@ -25,6 +25,15 @@
  *      under (nothing here reads or writes earnings, the ledger or payout
  *      accounts); the new guardian sets up their own payout account for
  *      anything new. A guardian's other children keep their guardian.
+ *   4a. NEVER A SWITCH TO SOMEONE WHO CAN'T SIGN IN. The new guardian's
+ *      login is provisioned inside the switch; if it can't be (the address
+ *      is another account's sign-in, or their login is switched off), the
+ *      whole switch is refused with a clear message, so the current
+ *      guardian stays in control.
+ *   4b. "BTG STAFF CONFIRM MINORS" (2S1-BE-10's per-tenant setting) applies
+ *      here too: when it is on, Hand off moves the request to HANDED_OFF
+ *      and BTG admins are emailed; the current guardian keeps control until
+ *      a BTG admin confirms (the switch) or declines it.
  *   6. A DISPUTE IS NEVER AUTOMATED. A decline (or a custody question, a
  *      court order, an unreachable guardian) points the new guardian to BTG
  *      support (2S1-BE-16); BTG decides by hand.
@@ -105,7 +114,7 @@ async function view(db: Tx | typeof prisma, r: Row, full: boolean) {
   const athleteName = r.athlete.displayName || r.athlete.legalName;
   return {
     id: r.id,
-    state: r.state as "REQUESTED" | "WAITING" | "SWITCHED" | "DECLINED" | "CANCELLED",
+    state: r.state as "REQUESTED" | "WAITING" | "HANDED_OFF" | "SWITCHED" | "DECLINED" | "CANCELLED",
     athlete: { name: full ? athleteName : firstWord(athleteName), firstName: firstWord(athleteName), sport: r.athlete.sport },
     current: { name: full ? from?.legalName ?? "" : firstWord(from?.legalName), firstName: firstWord(from?.legalName) },
     requester: { name: r.requesterName, firstName: firstWord(r.requesterName), relationship: RELATIONSHIP_WORDS[r.relationship] ?? r.relationship },
@@ -349,17 +358,87 @@ export async function decideHandoff(actor: Actor, id: string, d: { decision: "HA
     if (athlete?.guardianId !== actor.guardianId) {
       throw new HandoffError("You're no longer this athlete's guardian, so this request isn't yours to answer.");
     }
-    return d.decision === "DECLINE" ? decline(tx, actor, r, d.note) : handOff(tx, actor, r);
+    if (d.decision === "DECLINE") return decline(tx, actor, r, d.note);
+    /* 2S1-BE-10's setting applies to the handoff too: when BTG staff confirm minors, the switch waits for them. */
+    const tenant = await tx.tenant.findFirst({
+      /* tenant-scope: the request's own tenant row. */
+      where: { id: r.tenantId }, select: { staffConfirmMinors: true },
+    });
+    return tenant?.staffConfirmMinors ? toStaffReview(tx, actor, r) : handOff(tx, actor, r);
   });
 }
 
-async function decline(tx: Tx, actor: Actor, r: Row, note?: string) {
+/**
+ * The current guardian handed off, and "BTG staff confirm minors" is on:
+ * nothing switches yet. The request waits for a BTG admin (HANDED_OFF);
+ * the current guardian stays in control until then.
+ */
+async function toStaffReview(tx: Tx, actor: Actor, r: Row) {
+  assertComplete(r);
+  const at = new Date();
+  const moved = await tx.guardianHandoff.updateMany({
+    /* tenant-scope: loaded through whereFor(guardianHandoff, write); only while still waiting. */
+    where: { id: r.id, tenantId: r.tenantId, state: "WAITING" }, data: { state: "HANDED_OFF", decidedAt: at, decidedBy: actor.userId },
+  });
+  if (moved.count !== 1) throw new HandoffError("This request changed a moment ago — reload it.");
+  await audit(tx, actor, "guardianHandoff.handOffForReview", "GuardianHandoff", r.id, { before: { state: "WAITING" }, after: { state: "HANDED_OFF" } });
+  const [from, admins] = await Promise.all([
+    tx.guardian.findFirst({ where: { tenantId: r.tenantId, id: r.fromGuardianId }, select: { legalName: true } }),
+    tx.user.findMany({ where: { tenantId: r.tenantId, disabledAt: null, roles: { has: "BTG_ADMIN" } }, select: { id: true, email: true } }),
+  ]);
+  for (const u of admins) {
+    await send(tx, r.tenantId, {
+      template: "handoff.staffConfirm", to: u.email, idempotencyKey: `handoff.staffConfirm:${r.id}:${u.id}`,
+      data: {
+        athleteName: r.athlete.displayName || r.athlete.legalName, previousName: from?.legalName ?? "", requesterName: r.requesterName,
+        relationship: RELATIONSHIP_WORDS[r.relationship] ?? r.relationship, reviewUrl: `${appUrl()}/admin/new-signups/athletes/${r.athleteId}`,
+      },
+    });
+  }
+  return view(tx, await rowById(tx, r.id), true);
+}
+
+/**
+ * POST /guardian-handoffs/:id/staff-decision — a BTG admin answers a
+ * handoff waiting for them (HANDED_OFF): CONFIRM runs the switch, exactly
+ * as Hand off would have; DECLINE (a reason the requester reads) closes it.
+ * `guardianHandoff.approve` is BTG's only (own-tenant).
+ */
+export async function decideStaffHandoff(actor: Actor, id: string, d: { decision: "CONFIRM" } | { decision: "DECLINE"; note: string }) {
+  assertAllowed(actor, "guardianHandoff", "approve");
+  return prisma.$transaction(async (tx) => {
+    const r = await tx.guardianHandoff.findFirst({ where: { ...whereFor(actor, "guardianHandoff", "approve"), id }, select: SELECT });
+    if (!r) throw new ForbiddenError("guardianHandoff", "approve");
+    if (r.state !== "HANDED_OFF") throw new HandoffError(`This request is ${r.state.toLowerCase().replace("_", " ")}, not waiting for BTG.`);
+    const athlete = await tx.athlete.findFirst({ where: { tenantId: r.tenantId, id: r.athleteId }, select: { guardianId: true } });
+    if (athlete?.guardianId !== r.fromGuardianId) {
+      throw new HandoffError("This athlete's guardian changed another way since the handoff, so there is nothing to confirm.");
+    }
+    if (d.decision === "DECLINE") {
+      if (!d.note.trim()) throw new HandoffError("Declining needs a reason — the requester reads it.", 422);
+      return decline(tx, actor, r, d.note, "HANDED_OFF");
+    }
+    return handOff(tx, actor, r);
+  });
+}
+
+function assertComplete(r: Row) {
+  /* The automatic check: email confirmed, both documents arrived, agreement accepted. Submit required all of it; checked again here. */
+  const docs = uploaded(r);
+  if (!r.emailConfirmedAt || !docs.id || !docs.proof || !r.agreementAcceptedAt) {
+    throw new HandoffError("The new guardian's documents aren't complete. Nothing has changed.");
+  }
+}
+
+async function decline(tx: Tx, actor: Actor, r: Row, note?: string, fromState: "WAITING" | "HANDED_OFF" = "WAITING") {
   const at = new Date();
   await tx.guardianHandoff.update({
-    /* tenant-scope: loaded through whereFor(guardianHandoff, write). */
+    /* tenant-scope: loaded through whereFor(guardianHandoff, write / approve). */
     where: { id: r.id }, data: { state: "DECLINED", decidedAt: at, decidedBy: actor.userId, declineNote: note?.trim() || null },
   });
-  await audit(tx, actor, "guardianHandoff.decline", "GuardianHandoff", r.id, { before: { state: "WAITING" }, after: { state: "DECLINED" } });
+  await audit(tx, actor, fromState === "HANDED_OFF" ? "guardianHandoff.staffDecline" : "guardianHandoff.decline", "GuardianHandoff", r.id, {
+    before: { state: fromState }, after: { state: "DECLINED", ...(fromState === "HANDED_OFF" ? { note: note?.trim() ?? null } : {}) },
+  });
   const from = await tx.guardian.findFirst({ where: { tenantId: r.tenantId, id: r.fromGuardianId }, select: { legalName: true } });
   /* Nothing more happens automatically: the decline email points to BTG support, and a person decides. */
   await send(tx, r.tenantId, {
@@ -377,18 +456,17 @@ async function decline(tx: Tx, actor: Actor, r: Row, note?: string) {
  * either all of it lands or none of it does.
  */
 async function handOff(tx: Tx, actor: Actor, r: Row) {
-  /* The automatic check: email confirmed, both documents arrived, agreement accepted. Submit required all of it; checked again here. */
-  const docs = uploaded(r);
-  if (!r.emailConfirmedAt || !docs.id || !docs.proof || !r.agreementAcceptedAt) {
-    throw new HandoffError("The new guardian's documents aren't complete. Nothing has changed.");
-  }
+  assertComplete(r);
   const at = new Date();
 
   /* One guardian, several athletes: a requester who is already a guardian here keeps their one record. */
   const existing = await tx.guardian.findFirst({
     where: { tenantId: r.tenantId, email: { equals: r.requesterEmail, mode: "insensitive" }, id: { not: r.fromGuardianId } },
-    select: { id: true, verifiedAt: true },
+    select: { id: true, verifiedAt: true, rejectedAt: true },
   });
+  if (existing?.rejectedAt) {
+    throw new HandoffError("BTG has closed the new guardian's account, so they can't take over. Nothing has changed — contact BTG support.");
+  }
   const guardianId = existing
     ? existing.id
     : (await tx.guardian.create({
@@ -411,19 +489,36 @@ async function handOff(tx: Tx, actor: Actor, r: Row) {
   });
   if (moved.count !== 1) throw new HandoffError("This athlete's guardian changed a moment ago. Nothing has been switched.");
 
-  const login = await provisionGuardianLoginIn(tx, actor, guardianId);
+  /* No gap in control: the new guardian must be able to sign in the moment
+     they take over. Thrown inside the transaction, so nothing switches. */
+  const login = await provisionGuardianLoginIn(tx, { userId: actor.userId, tenantId: r.tenantId }, guardianId);
+  if (login === "address-in-use" || login === "no-email") {
+    throw new HandoffError(
+      login === "address-in-use"
+        ? `The new guardian's email (${r.requesterEmail}) is already another SponsorX account's sign-in, so they couldn't sign in as ${firstWord(r.requesterName)}'s guardian. Nothing has changed — the current guardian stays in control. Contact BTG support.`
+        : "The new guardian has no email to sign in with. Nothing has changed — contact BTG support.",
+    );
+  }
+  const usable = await tx.user.findFirst({
+    /* tenant-scope: the new guardian's own login, in the request's tenant. */
+    where: { tenantId: r.tenantId, guardianId, disabledAt: null }, select: { id: true },
+  });
+  if (!usable) {
+    throw new HandoffError("The new guardian's SponsorX login is switched off, so they couldn't take over. Nothing has changed — the current guardian stays in control. Contact BTG support.");
+  }
   await tx.guardianHandoff.update({
     /* tenant-scope: loaded through whereFor(guardianHandoff, write). */
     where: { id: r.id },
-    data: { state: "SWITCHED", decidedAt: at, decidedBy: actor.userId, documentsCheckedAt: at, switchedAt: at, newGuardianId: guardianId },
+    /* After a staff review the guardian's Hand off is the decision on record; BTG's confirmation is audited. */
+    data: { state: "SWITCHED", ...(r.state === "HANDED_OFF" ? {} : { decidedAt: at, decidedBy: actor.userId }), documentsCheckedAt: at, switchedAt: at, newGuardianId: guardianId },
   });
   /* Any other open request for this athlete was made of a guardian who no longer is one. */
   const others = await tx.guardianHandoff.updateMany({
-    where: { tenantId: r.tenantId, athleteId: r.athleteId, id: { not: r.id }, state: { in: OPEN_STATES } },
+    where: { tenantId: r.tenantId, athleteId: r.athleteId, id: { not: r.id }, state: { in: [...OPEN_STATES, "HANDED_OFF"] } },
     data: { state: "CANCELLED", decidedAt: at },
   });
   await audit(tx, actor, "guardianHandoff.switch", "Athlete", r.athleteId, {
-    before: { guardianId: r.fromGuardianId }, after: { guardianId, handoffId: r.id, login, othersCancelled: others.count },
+    before: { guardianId: r.fromGuardianId }, after: { guardianId, handoffId: r.id, login, othersCancelled: others.count, ...(r.state === "HANDED_OFF" ? { confirmedByBtg: true } : {}) },
   });
 
   const [from, otherWards, admins] = await Promise.all([
@@ -454,7 +549,7 @@ async function handOff(tx: Tx, actor: Actor, r: Row) {
       template: "handoff.btgNotice", to: u.email, idempotencyKey: `handoff.btgNotice:${r.id}:${u.id}`,
       data: {
         athleteName: r.athlete.displayName || r.athlete.legalName, previousName: from?.legalName ?? "", requesterName: r.requesterName,
-        relationship: RELATIONSHIP_WORDS[r.relationship] ?? r.relationship, reviewUrl: `${appUrl()}/admin/new-signups?guardian=${guardianId}`,
+        relationship: RELATIONSHIP_WORDS[r.relationship] ?? r.relationship, reviewUrl: `${appUrl()}/admin/new-signups/guardians/${guardianId}`,
       },
     });
   }

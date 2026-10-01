@@ -30,6 +30,7 @@ import { audit } from "../db/audit";
 import { env } from "../config/env";
 import type { Actor } from "../auth/actor";
 import { assertAllowed, whereFor } from "../auth/scope";
+import { assertMayCommit } from "./guardian-acts";
 import { ForbiddenError } from "../auth/errors";
 import { send } from "../lib/email";
 import { SELLING_ATHLETE_STATES } from "./listing-rules";
@@ -244,6 +245,10 @@ export async function myTeam(actor: Actor) {
 export async function respondToInvitation(actor: Actor, id: string, decision: "ACCEPT" | "DECLINE", now = new Date()) {
   const athleteId = athleteOf(actor, "write");
   return prisma.$transaction(async (tx) => {
+    /* 2S1-BE-11 / -12 — joining a team at a share is an agreement: a minor's
+       guardian accepts it for them (their login acting for the ward), never
+       the minor's own login, and nobody does during the coming-of-age pause. */
+    if (decision === "ACCEPT") await assertMayCommit(tx, actor, "accept");
     const row = await tx.teamInvitation.findFirst({ where: { ...whereFor(actor, "teamInvitation", "write"), id }, select: { ...INVITE_SELECT, tenantId: true } });
     if (!row) throw new ForbiddenError("teamInvitation", "write");
     if (row.state !== "PENDING") throw new TeamInvitationError(`This invitation was already ${row.state.toLowerCase()}.`);

@@ -970,10 +970,12 @@ export const POLICY: Record<Resource, RolePolicy> = {
      CREATED only by the new guardian on the public request page (no actor).
      The current guardian reads and answers requests for their own ward
      (`ward`); the athlete follows its status (`own`) and can never answer;
-     BTG reads (a dispute is decided by hand, through support). */
+     BTG reads (a dispute is decided by hand, through support), and — when
+     "BTG staff confirm minors" is on — confirms or declines a handed-off
+     request (approve). */
   guardianHandoff: {
-    SUPER_ADMIN: rwa("any", "any"),
-    BTG_ADMIN: rwa("own-tenant"),
+    SUPER_ADMIN: rwa("any", "any", "any"),
+    BTG_ADMIN: rwa("own-tenant", undefined, "own-tenant"),
     GUARDIAN: rwa("ward", "ward"),
     ATHLETE: rwa("own"),
   },

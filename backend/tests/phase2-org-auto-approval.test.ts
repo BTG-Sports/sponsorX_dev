@@ -364,6 +364,8 @@ describe.skipIf(!hasDatabase)("organisations over the API", async () => {
       /* The reason is emailed. */
       const email = (await outbox()).find((e) => e.template === "onboarding.accountRejected" && e.data.orgName === "OA Reject Me FC")!;
       expect(email.data.notes).toBe("The registration was for a different club.");
+      /* 2S1-BE-16 — like every rejection, it names the support address. */
+      expect(email.data.supportEmail).toBeTruthy();
       const trail = await prisma.auditLog.findFirstOrThrow({ where: { tenantId: T, entityId: a.id, action: "onboarding.reject" }, select: { actorId: true, after: true } });
       expect(trail).toMatchObject({ actorId: ADMIN, after: { afterApproval: true, loginsSwitchedOff: 1, listingsEnded: 2 } });
       /* The name stays held while it may come back. */

@@ -453,6 +453,13 @@ model Athlete {
   comingOfAgeCompletedAt  DateTime?
   comingOfAgeTerminatedAt DateTime?
 
+  /// 2S1-BE-13 — the athlete's account has an open AccountClosure (closed by
+  /// them, rejected by BTG, or ended by the coming-of-age rule). Mirrors the
+  /// closure so every "can this seller sell?" query (the catalogue, search,
+  /// the cart, BTG's listing approval) can read it without a join; written
+  /// only by account-closure.ts, cleared when the closure ends.
+  accountClosedAt DateTime?
+
   // Zoho (§18 — Contacts are bi-directional)
   zohoId         String?     @unique
   lastSyncOrigin SyncOrigin?
@@ -2896,7 +2903,9 @@ model GuardianHandoff {
   /// PARENT | LEGAL_GUARDIAN | AUTHORIZED_REP
   relationship   String
   /// REQUESTED (being filled in) | WAITING (with the current guardian) |
-  /// SWITCHED | DECLINED | CANCELLED (the guardian changed another way first)
+  /// HANDED_OFF (handed off; "BTG staff confirm minors" is on, so BTG
+  /// confirms the switch) | SWITCHED | DECLINED | CANCELLED (the guardian
+  /// changed another way first)
   state          String    @default("REQUESTED")
   emailConfirmedAt    DateTime?
   agreementAcceptedAt DateTime?

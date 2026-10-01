@@ -53,12 +53,12 @@ const SELECT = {
   id: true, propertyId: true, sellerAthleteId: true, inventoryItemId: true, title: true, description: true, visibility: true, state: true,
   publishAt: true, submittedAt: true, reviewNotes: true, decidedAt: true, publishedAt: true, createdAt: true, updatedAt: true,
   property: { select: { name: true, listingAccessAt: true } },
-  sellerAthlete: { select: { displayName: true, state: true, propertyId: true } },
+  sellerAthlete: { select: { displayName: true, state: true, propertyId: true, accountClosedAt: true, signupRejectedAt: true, comingOfAgeTerminatedAt: true } },
   item: {
     select: {
       id: true, title: true, kind: true, priceCents: true, quantity: true, availableUntil: true, active: true, athleteId: true, propertyId: true,
       /* 2S2-BE-05 — whether a roster athlete's item is still on this team. */
-      athlete: { select: { propertyId: true } },
+      athlete: { select: { propertyId: true, accountClosedAt: true, signupRejectedAt: true, comingOfAgeTerminatedAt: true } },
     },
   },
 } as const;
@@ -79,12 +79,12 @@ function view(r: Row, now = new Date()) {
   const { athlete: _athlete, ...item } = r.item;
   return {
     ...rest, item, propertyName: property?.name ?? null, seller: sellerOf(r),
-    blockers: governanceProblems({ property, sellerAthlete, item: governedItem(r), listing: r, now }),
+    blockers: governanceProblems({ property, sellerAthlete, itemAthlete: r.item.athlete, item: governedItem(r), listing: r, now }),
   };
 }
 
 function assertGoverned(r: Row, now = new Date()) {
-  const problems = governanceProblems({ property: r.property, sellerAthlete: r.sellerAthlete, item: governedItem(r), listing: r, now });
+  const problems = governanceProblems({ property: r.property, sellerAthlete: r.sellerAthlete, itemAthlete: r.item.athlete, item: governedItem(r), listing: r, now });
   if (problems.length) throw new ListingError(`Not publishable yet: ${problems.join("; ")}.`, 422, problems);
 }
 

@@ -427,7 +427,7 @@ export async function decideSponsorRequest(actor: Actor, id: string, d: SponsorR
       await audit(tx, actor, "sponsorRequest.decline", "Inquiry", row.id, { before: { state: "NEW" }, after: { state: "DECLINED", note } });
       await send(tx, row.tenantId, {
         template: "sponsor.requestDeclined", to: row.email, idempotencyKey: `sponsor.requestDeclined:${row.id}`,
-        data: { firstName: firstNameOf(row), businessName: sponsorNameFor(row), note },
+        data: { firstName: firstNameOf(row), businessName: sponsorNameFor(row), note, supportEmail: env.SUPPORT_EMAIL, supportUrl: `${appUrl()}/contact?topic=account` },
       });
       return getAfter(tx, actor, row.id);
     }

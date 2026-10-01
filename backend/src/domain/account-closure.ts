@@ -11,10 +11,14 @@
  * already earned is untouched: it is still paid out.
  *
  * A REJECTED ACCOUNT is closed by BTG's Reject, in the code that owns that
- * Reject (2S1-BE-17 sponsors today; 2S1-BE-06/-09/-10 organisations,
- * athletes and guardians). That code calls `recordClosureIn` with the logins
- * it switched off, so the same 30-day retention applies, and its Reinstate
- * calls `reopenClosureIn`.
+ * Reject: sponsors (sponsor-requests.ts), organisations (onboarding.ts
+ * `withdraw`), athletes and guardians (signups-desk.ts), and the coming-of-
+ * age termination (coming-of-age.ts, cause TERMINATED). That code switches
+ * the logins off (`REJECT_TAKES_LOGINS` — including any a self-closure had
+ * already switched off) and calls `recordClosureIn`, so the same 30-day
+ * retention applies; its Reinstate calls `reopenClosureIn`. A self-closed
+ * account that is then rejected has its one closure turned into a rejection:
+ * it can no longer reactivate itself, only ask BTG.
  *
  * COMING BACK — WHY A SIGNED, EMAILED LINK. A closed account's login is
  * refused at sign-in (auth/actor.ts, AccountDisabledError), so the person
@@ -111,7 +115,10 @@ async function ownSubject(tx: Tx, actor: Actor, input: CloseInput): Promise<Subj
     return {
       kind: "ATHLETE", id: a.id, contactEmail: (a.email ?? me?.email ?? "").toLowerCase(), displayName: firstWord(a.displayName),
       users: { tenantId: actor.tenantId, athleteId: a.id },
-      listings: { tenantId: actor.tenantId, sellerAthleteId: a.id, state: "PUBLISHED" },
+      /* Their own listings, and the team's listings of their items (a roster
+         athlete's items are listed by the team, 2S2-BE-05) — none sells while
+         the account is closed. */
+      listings: { tenantId: actor.tenantId, state: "PUBLISHED", OR: [{ sellerAthleteId: a.id }, { propertyId: { not: null }, item: { is: { athleteId: a.id } } }] },
     };
   }
   if (pick === "guardian") {
@@ -188,6 +195,7 @@ export async function closeOwnAccount(actor: Actor, input: CloseInput) {
         where: { id: { in: listings.map((l) => l.id) }, state: "PUBLISHED" }, data: { state: "PAUSED" },
       });
     }
+    await markAthleteClosedIn(tx, s.kind, s.id, closedAt);
     let listingAccessWithdrawn = false;
     if (s.kind === "PROPERTY") {
       const p = await tx.property.findFirst({ where: { tenantId: actor.tenantId, id: s.id }, select: { listingAccessAt: true } });
@@ -228,18 +236,61 @@ export type RecordClosure = {
 };
 
 /**
+ * The logins a Reject (or a termination) switches off: every login still on,
+ * AND any a self-closure had already switched off — the Reject takes those
+ * over (its own marker replaces the closure's), so a self-closed account
+ * that BTG then rejects can no longer reactivate itself, and Reinstate
+ * brings every one of them back.
+ */
+export const REJECT_TAKES_LOGINS: Prisma.UserWhereInput = {
+  OR: [{ disabledAt: null }, { disabledReason: { startsWith: closureMarker("") } }],
+};
+
+/** Mirror an athlete's open closure on the row (Athlete.accountClosedAt), for the "can this seller sell?" queries. */
+async function markAthleteClosedIn(tx: Tx, kind: ClosureSubject | string, subjectId: string, at: Date | null) {
+  if (kind !== "ATHLETE") return;
+  await tx.athlete.updateMany({
+    /* tenant-scope: the closure's own athlete, named by its globally unique id. */
+    where: { id: subjectId }, data: { accountClosedAt: at },
+  });
+}
+
+/**
  * Start the 30-day retention for an account BTG rejected (or the
  * coming-of-age rule ended). The caller has already switched the logins
  * off; this records the closure so the files are kept, then deleted, and so
- * the reactivation page can let the person ask BTG. Idempotent: an account
- * already closed keeps its existing closure.
+ * the reactivation page can let the person ask BTG. The closure is filed in
+ * the rejecting actor's tenant (BTG's, which reads and answers it).
+ *
+ * One open closure per account (the unique index): if the account is
+ * already closed, that closure is kept — and if it was closed by its owner,
+ * it BECOMES this rejection: the cause moves to REJECTED / TERMINATED (so it
+ * can no longer reactivate itself), the 30 days restart from now, and the
+ * logins are this Reject's. A rejection never turns back into a self-closure.
  */
 export async function recordClosureIn(tx: Tx, by: AuditActor, r: RecordClosure): Promise<string> {
   const open = await tx.accountClosure.findFirst({
-    where: { tenantId: by.tenantId, subjectKind: r.subjectKind, subjectId: r.subjectId, state: "CLOSED" }, select: { id: true },
+    /* tenant-scope: one open closure per account across every tenant (the unique index) — an organisation's own closure lives in its own tenant. */
+    where: { subjectKind: r.subjectKind, subjectId: r.subjectId, state: "CLOSED" }, select: { id: true, cause: true, userIds: true, tenantId: true },
   });
-  if (open) return open.id;
   const closedAt = new Date();
+  if (open) {
+    if (open.cause === "SELF") {
+      await tx.accountClosure.update({
+        /* tenant-scope: the open closure found just above, by its subject. */
+        where: { id: open.id },
+        data: {
+          tenantId: by.tenantId, cause: r.cause, reason: r.reason, closedBy: by.userId, retainUntil: retainUntilFrom(closedAt),
+          userIds: [...new Set([...open.userIds, ...r.userIds])], contactEmail: r.contactEmail.toLowerCase(), displayName: r.displayName,
+        },
+      });
+      await audit(tx, by, "account.closureCauseChanged", "AccountClosure", open.id, {
+        before: { cause: "SELF", tenantId: open.tenantId }, after: { cause: r.cause, subjectKind: r.subjectKind, subjectId: r.subjectId },
+      });
+    }
+    await markAthleteClosedIn(tx, r.subjectKind, r.subjectId, closedAt);
+    return open.id;
+  }
   const c = await tx.accountClosure.create({
     data: {
       tenantId: by.tenantId, subjectKind: r.subjectKind, subjectId: r.subjectId, cause: r.cause, reason: r.reason, closedAt,
@@ -247,6 +298,7 @@ export async function recordClosureIn(tx: Tx, by: AuditActor, r: RecordClosure):
     },
     select: { id: true },
   });
+  await markAthleteClosedIn(tx, r.subjectKind, r.subjectId, closedAt);
   await audit(tx, by, "account.closureRecorded", "AccountClosure", c.id, { after: { subjectKind: r.subjectKind, subjectId: r.subjectId, cause: r.cause } });
   return c.id;
 }
@@ -254,10 +306,14 @@ export async function recordClosureIn(tx: Tx, by: AuditActor, r: RecordClosure):
 /** A Reinstate brings a rejected account back: its closure ends, and nothing is deleted. */
 export async function reopenClosureIn(tx: Tx, by: AuditActor, subjectKind: ClosureSubject, subjectId: string): Promise<boolean> {
   const moved = await tx.accountClosure.updateMany({
-    where: { tenantId: by.tenantId, subjectKind, subjectId, state: "CLOSED" },
+    /* tenant-scope: the one open closure of this account (unique per subject, across tenants). */
+    where: { subjectKind, subjectId, state: "CLOSED" },
     data: { state: "REACTIVATED", reactivatedAt: new Date(), reactivatedBy: by.userId },
   });
-  if (moved.count) await audit(tx, by, "account.reopen", "AccountClosure", subjectId, { after: { subjectKind, subjectId } });
+  if (moved.count) {
+    await markAthleteClosedIn(tx, subjectKind, subjectId, null);
+    await audit(tx, by, "account.reopen", "AccountClosure", subjectId, { after: { subjectKind, subjectId } });
+  }
   return moved.count > 0;
 }
 
@@ -355,6 +411,7 @@ export async function reactivateByToken(token: string) {
       where: { tenantId: c.tenantId, id: { in: c.userIds }, disabledReason: closureMarker(c.id) },
       data: { disabledAt: null, disabledReason: null },
     });
+    await markAthleteClosedIn(tx, c.subjectKind, c.subjectId, null);
     const notes = await recheck(tx, c);
     await tx.accountClosure.update({
       /* tenant-scope: the closure claimed above. */
@@ -412,9 +469,16 @@ async function recheck(tx: Tx, c: ClosureRow): Promise<{ notes: string[]; listin
   }
   let listingsRestored = 0;
   if (mayList && c.pausedListingIds.length) {
-    const back = await tx.listing.updateMany({
+    const paused = await tx.listing.findMany({
       /* tenant-scope: the listings this closure paused, in its tenant, still paused. */
-      where: { tenantId: c.tenantId, id: { in: c.pausedListingIds }, state: "PAUSED" }, data: { state: "PUBLISHED" },
+      where: { tenantId: c.tenantId, id: { in: c.pausedListingIds }, state: "PAUSED" },
+      select: { id: true, propertyId: true, item: { select: { athlete: { select: { propertyId: true } } } } },
+    });
+    /* A team's listing of the athlete's item comes back only while the athlete is still on that team (2S2-BE-05). */
+    const ids = paused.filter((l) => !l.propertyId || c.subjectKind !== "ATHLETE" || l.item.athlete?.propertyId === l.propertyId).map((l) => l.id);
+    const back = await tx.listing.updateMany({
+      /* tenant-scope: the listings found just above. */
+      where: { tenantId: c.tenantId, id: { in: ids }, state: "PAUSED" }, data: { state: "PUBLISHED" },
     });
     listingsRestored = back.count;
   }
@@ -469,6 +533,16 @@ async function reviewUrlFor(tx: Tx, c: ClosureRow): Promise<string> {
     const inq = await tx.inquiry.findFirst({ where: { tenantId: c.tenantId, sponsorId: c.subjectId }, select: { id: true }, orderBy: { createdAt: "desc" } });
     if (inq) return `${appUrl()}/admin/sponsor-requests/${inq.id}`;
   }
+  /* Where Reinstate is: the athlete's and guardian's profiles on New sign-ups (2S1-BE-09 / -10), the organisation's profile (2S1-BE-06). */
+  if (c.subjectKind === "ATHLETE") return `${appUrl()}/admin/new-signups/athletes/${c.subjectId}`;
+  if (c.subjectKind === "GUARDIAN") return `${appUrl()}/admin/new-signups/guardians/${c.subjectId}`;
+  if (c.subjectKind === "PROPERTY") {
+    const onb = await tx.propertyOnboarding.findFirst({
+      /* tenant-scope: the onboarding that provisioned this closure's own property (it lives in its operator's tenant). */
+      where: { propertyId: c.subjectId }, select: { id: true },
+    });
+    if (onb) return `${appUrl()}/admin/onboarding/${onb.id}`;
+  }
   return `${appUrl()}/admin/new-signups?tab=review`;
 }
 
@@ -519,8 +593,12 @@ export async function declineReactivation(actor: Actor, id: string, note: string
 
 /* ═══════════════════════ the retention job (worker) ═════════════════════ */
 
-/** One kind of ID or verification file an account holds. B1's guardian and
- *  athlete ID documents (2S1-BE-09/-10) register here too. */
+/** One kind of ID or verification file an account holds. EVERY table that
+ *  holds an ID or verification document registers here, so the purge after
+ *  30 days reaches it: AccountDocument (sign-up IDs, 2S1-BE-09/-10),
+ *  AthleteProfileChange's matching ID (2S1-BE-14), GuardianHandoffDocument
+ *  (2S1-BE-15), OnboardingDocument (organisations, 2S1-BE-02/-07) and
+ *  InquiryDocument (sponsors, 2S1-BE-17). */
 export type RetainedDocumentSource = {
   name: string;
   subjects: readonly ClosureSubject[];
@@ -531,6 +609,19 @@ export type RetainedDocumentSource = {
 };
 
 export const RETAINED_DOCUMENT_SOURCES: RetainedDocumentSource[] = [
+  {
+    /* 2S1-BE-09 / -10 — the identity documents sign-up collected: an athlete's
+       GOVERNMENT_ID or SCHOOL_ID (and the government ID a coming-of-age
+       athlete uploads), a guardian's GUARDIAN_ID and GUARDIANSHIP_PROOF. */
+    name: "AccountDocument",
+    subjects: ["ATHLETE", "GUARDIAN"],
+    collect: async (tx, c) =>
+      (await tx.accountDocument.findMany({
+        where: { tenantId: c.tenantId, ...(c.subjectKind === "ATHLETE" ? { athleteId: c.subjectId } : { guardianId: c.subjectId }) },
+        select: { id: true, r2Key: true },
+      })).map((r) => ({ id: r.id, key: r.r2Key })),
+    remove: async (tx, tenantId, ids) => { await tx.accountDocument.deleteMany({ where: { tenantId, id: { in: ids } } }); },
+  },
   {
     /* 2S1-BE-14 — the ID a legal-name change was matched against. */
     name: "AthleteProfileChange.idDocument",
@@ -610,8 +701,8 @@ export async function purgeExpiredClosures(
       for (const f of found) if (f.docs.length) await f.source.remove(tx, c.tenantId, f.docs.map((d) => d.id));
       for (const userId of c.userIds) {
         await tx.user.updateMany({
-          /* tenant-scope: this closure's own logins, in its tenant, still switched off. */
-          where: { tenantId: c.tenantId, id: userId, disabledAt: { not: null } },
+          /* tenant-scope: this closure's own logins by their unique id, still switched off — an organisation's logins live in its own tenant while BTG's Reject files the closure in BTG's. */
+          where: { id: userId, disabledAt: { not: null } },
           data: { email: `closed+${userId}@account-closed.invalid`, clerkId: `closed:${userId}`, roles: [] },
         });
       }

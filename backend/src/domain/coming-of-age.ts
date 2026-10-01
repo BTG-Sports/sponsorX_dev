@@ -40,6 +40,7 @@ import { guardianControls } from "./guardian-rules";
 import { COMING_OF_AGE_DAYS, comingOfAgeOpen, dayOfMajority, dueReminders, isMinorAt } from "./age-of-majority-rules";
 import { finishAccountDocument, startAccountDocument, uploadedKinds } from "./account-documents";
 import { appUrl, firstNameOf, SignupError } from "./athlete-signup";
+import { recordClosureIn, reopenClosureIn, REJECT_TAKES_LOGINS } from "./account-closure";
 
 type Tx = Prisma.TransactionClient;
 const DAY = 86_400_000;
@@ -107,10 +108,19 @@ async function terminateIn(tx: Tx, a: Row, now: Date) {
   });
   if (moved.count !== 1) return false;
   if (a.state === "ACTIVE") await transitionAthleteIn(tx, AUTO(a.tenantId), a.id, "SUSPENDED");
+  const athleteLogins = await tx.user.findMany({
+    /* tenant-scope: the athlete's own logins, in their tenant (a self-closure's included — termination takes them over). */
+    where: { tenantId: a.tenantId, athleteId: a.id, ...REJECT_TAKES_LOGINS }, select: { id: true },
+  });
   const athleteOff = await tx.user.updateMany({
-    /* tenant-scope: the athlete's own logins, in their tenant. */
-    where: { tenantId: a.tenantId, athleteId: a.id, disabledAt: null },
+    /* tenant-scope: the logins found just above. */
+    where: { tenantId: a.tenantId, id: { in: athleteLogins.map((u) => u.id) } },
     data: { disabledAt: now, disabledReason: `comingOfAge:${a.id}` },
+  });
+  /* 2S1-BE-13 — a terminated account falls under the 30-day retention: its files are kept, then purged. */
+  await recordClosureIn(tx, SYSTEM(a.tenantId), {
+    subjectKind: "ATHLETE", subjectId: a.id, cause: "TERMINATED", reason: "The 90-day coming-of-age allowance ended without a government ID.",
+    userIds: athleteLogins.map((u) => u.id), contactEmail: a.email ?? a.guardian?.email ?? "", displayName: firstNameOf(a.legalName, a.displayName),
   });
   let guardianOff = 0;
   let otherWards = 0;
@@ -121,11 +131,19 @@ async function terminateIn(tx: Tx, a: Row, now: Date) {
     });
     otherWards = others.filter((w) => guardianControls(w)).length;
     if (otherWards === 0) {
-      guardianOff = (await tx.user.updateMany({
+      const guardianLogins = await tx.user.findMany({
         /* tenant-scope: the guardian's own logins, in the athlete's tenant. */
-        where: { tenantId: a.tenantId, guardianId: a.guardian.id, disabledAt: null },
+        where: { tenantId: a.tenantId, guardianId: a.guardian.id, athleteId: null, ...REJECT_TAKES_LOGINS }, select: { id: true },
+      });
+      guardianOff = (await tx.user.updateMany({
+        /* tenant-scope: the logins found just above. */
+        where: { tenantId: a.tenantId, id: { in: guardianLogins.map((u) => u.id) } },
         data: { disabledAt: now, disabledReason: `comingOfAge:${a.id}` },
       })).count;
+      await recordClosureIn(tx, SYSTEM(a.tenantId), {
+        subjectKind: "GUARDIAN", subjectId: a.guardian.id, cause: "TERMINATED", reason: `Ended with ${firstNameOf(a.legalName, a.displayName)}'s coming-of-age allowance.`,
+        userIds: guardianLogins.map((u) => u.id), contactEmail: a.guardian.email, displayName: a.guardian.legalName.split(/\s+/)[0] ?? a.guardian.legalName,
+      });
     }
   }
   const listingsEnded = (await tx.listing.updateMany({
@@ -272,6 +290,8 @@ async function completeIn(tx: Tx, a: Row, now: Date) {
       where: { tenantId: a.tenantId, athleteId: a.id, disabledReason: `comingOfAge:${a.id}` },
       data: { disabledAt: null, disabledReason: null },
     });
+    /* 2S1-BE-13 — back inside the 30 days: the athlete's closure ends and nothing is deleted. */
+    await reopenClosureIn(tx, SYSTEM(a.tenantId), "ATHLETE", a.id);
     reactivated = true;
   }
   await audit(tx, SYSTEM(a.tenantId), "comingOfAge.complete", "Athlete", a.id, { after: { previousGuardianId: a.guardianId, reactivated } });
