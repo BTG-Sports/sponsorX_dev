@@ -109,3 +109,16 @@ The user set the 90-day rules:
 - **2S1-BE-16** (2d): the contact form, queued to the support mailbox.
 - **2S1-OPS-01** (1d): set up the support mailbox. Recommended: Zoho Desk at support@sponsorx.net; awaiting the user's choice.
 - **2S1-FE-10** (3d): the handoff and contact screens.
+
+## Sponsors approved automatically, and a restricted-words check (3 tasks; Phase 2 is now 104 tasks, 387 days)
+
+**The user's rules:**
+- Sponsors are automatic except: restricted business types, "Other" descriptions with negative or illegal words (sex, drugs and so on), and name matches. Those go to BTG.
+- The business type comes from a fixed list, or "Other" with a typed description.
+- Proof of business (registration, permit or license) is required of every sponsor, the same everywhere.
+- The word list lives on the server and BTG can edit it.
+
+**Raised:**
+- **2S1-BE-17** (4d): sponsor auto-approval.
+- **2S1-BE-18** (3d): the restricted-words check. It's hard to get around, matches whole words, only routes to review, and is reusable.
+- **2S1-FE-11** (3d): the form changes and the word-list admin page.

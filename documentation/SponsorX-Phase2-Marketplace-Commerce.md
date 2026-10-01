@@ -5,7 +5,7 @@
 | | |
 |---|---|
 | **Goal** | Turn SponsorX from BTG-only operations into a multi-tenant marketplace. External athletes, teams, programs, events and media properties onboard, publish inventory, fulfil deliverables and get paid. |
-| **Tasks** | 101 · 377 person-days |
+| **Tasks** | 104 · 387 person-days |
 | **Blueprint timeline** | 16–20 weeks |
 | **Balanced budget** | $80K–$120K |
 | **Depends on** | Phase 1 auth/RBAC, sponsor/property/inventory/campaign/reward models, Zoho integration, core analytics |
@@ -372,6 +372,49 @@ Create the support address, for example support@sponsorx.net, and where its mail
 - **Done when:** Mail to the support address lands where BTG works on it, and a test message from the staging contact form arrives
 - **Reference:** Spec §4, §26, §37; BTG admin review 2026-10-01
 
+### ⏸ `2S1-BE-17` · Sponsors are approved automatically
+
+**Order** 12.99 · **BE** · **Where:** Code · **4d** · **Ready**
+
+Changes 2S1-BE-05 so BTG reviews only the exceptions. The request form asks the sponsor for:
+- **Their business type**, from the fixed list, or **Other** with a description of what the business does.
+- **Proof of business: one document, required of every sponsor everywhere.** This can be a business registration, a business permit or a business license, in the business's name. The requirement is the same in every state and country.
+- **A confirmed contact email**, by link.
+
+A request is approved automatically, opening the account and login and sending the sign-in email as today, when all of these hold:
+- the email is confirmed and has no SponsorX login yet;
+- the proof of business is uploaded;
+- no other sponsor has the same name, using the same normalised name rule as organizations (2S1-BE-06);
+- the business type isn't restricted;
+- an Other description passes the restricted-words check (2S1-BE-18).
+
+These go to BTG's review instead, each showing why:
+- **Restricted business types:** alcohol, tobacco and vaping, gambling, cannabis, firearms, adult, political and crypto.
+- **An Other description that matches** the restricted-words list.
+- **A name match**, because only a person can tell the same company from a different one.
+
+For every new sponsor, BTG admins and sales are emailed a link to the New sign-ups page, with Reject (login off, reason emailed). The Zoho lead and account push are unchanged. The proof of business is kept in the private bucket under the same 5-minute audited viewing and 30-day retention rules. Raised 2026-10-01 from the BTG admin review.
+
+- **Depends on:** 2S1-BE-05, 2S1-BE-06, 2S1-BE-18
+- **Done when:** A sponsor with a confirmed email, a proof of business, a unique name and an unrestricted business type is approved and can sign in without BTG; a restricted type, a flagged Other description or a name match goes to BTG's review with the reason; every sponsor must upload proof of business, with the same rule everywhere; BTG and sales are emailed for each new sponsor; Reject switches the login off and emails the reason
+- **Reference:** Spec §3, §12, §26; BTG admin review 2026-10-01
+
+### ⏸ `2S1-BE-18` · The restricted-words check
+
+**Order** 12.995 · **BE** · **Where:** Code · **3d** · **Ready**
+
+A server-side list of restricted words and phrases, grouped by kind: sexual or adult, drugs, weapons, gambling, violence or hate, and other illegal or harmful activity. BTG admins can view and edit the list from the admin portal; it is seeded with a starter list. A check function tests any free text against it:
+- **It is hard to get around.** It ignores case and accents, sees through spacing and common letter swaps ("s3x", "d r u g s", "c0caine"), and matches words, so "Essex" or "Sussex" doesn't trip "sex".
+- **A match never rejects anything on its own.** It marks the text as restricted, with the words and kind that matched, and sends the item to BTG's review.
+- **It is used first** for a sponsor's Other business description (2S1-BE-17). It is built to be reused on other free text later, such as listing titles and descriptions or athlete bios.
+- **Every change to the list is audited,** and the check is unit-tested against a set of tricky spellings and innocent words.
+
+Raised 2026-10-01 from the BTG admin review.
+
+- **Depends on:** none
+- **Done when:** Free text containing a listed word, including disguised spellings, is marked restricted with what matched; innocent words that merely contain a listed word are not; BTG admins can edit the list and every change is audited; a match routes the item to BTG's review and never rejects it automatically
+- **Reference:** Spec §3, §12, §26; BTG admin review 2026-10-01
+
 ### ⏸ `2S1-FE-01` · Build the property onboarding wizard
 
 **Order** 13 · **FE** · **Where:** Code · **5d** · **Blocked**
@@ -471,6 +514,21 @@ The new guardian's request page (identify the athlete, and complete their detail
 - **Depends on:** 2S1-BE-15, 2S1-BE-16, 2S0-ART-01
 - **Done when:** A new guardian can request a handoff, the current guardian can hand off or decline from their portal, both can follow its status, and anyone can reach BTG support from the contact page
 - **Reference:** Spec §4, §26, §37; BTG admin review 2026-10-01
+
+### ⏸ `2S1-FE-11` · The sponsor request form, and the word list for BTG
+
+**Order** 14.97 · **FE** · **Where:** Code · **3d** · **Blocked**
+
+In the public "Become a sponsor" form, this adds:
+- the business-type picker, with Other and a description box;
+- the proof-of-business upload, with what counts (registration, permit or license);
+- the email confirmation step.
+
+The applicant is told whether they're approved straight away or under review. BTG's New sign-ups page shows each new sponsor with the review reason (a restricted type, the words that matched, or a name match). An admin page lists and edits the restricted words.
+
+- **Depends on:** 2S1-BE-17, 2S1-BE-18, 2S1-FE-07, 2S0-ART-01
+- **Done when:** A sponsor can complete the form with a business type or Other and their proof of business, and is told whether they're approved or under review; BTG sees the reason for each review; BTG admins can edit the restricted-words list
+- **Reference:** Spec §3, §12, §26; BTG admin review 2026-10-01
 
 ### ⏸ `2S1-INT-01` · Onboarding notification jobs
 
