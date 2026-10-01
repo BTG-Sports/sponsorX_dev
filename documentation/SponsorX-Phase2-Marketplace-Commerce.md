@@ -5,7 +5,7 @@
 | | |
 |---|---|
 | **Goal** | Turn SponsorX from BTG-only operations into a multi-tenant marketplace. External athletes, teams, programs, events and media properties onboard, publish inventory, fulfil deliverables and get paid. |
-| **Tasks** | 95 · 362 person-days |
+| **Tasks** | 95 · 363 person-days |
 | **Blueprint timeline** | 16–20 weeks |
 | **Balanced budget** | $80K–$120K |
 | **Depends on** | Phase 1 auth/RBAC, sponsor/property/inventory/campaign/reward models, Zoho integration, core analytics |
@@ -297,12 +297,17 @@ For a minor, every agreement and every money action comes from the guardian's ac
 
 ### ⏸ `2S1-BE-12` · Age of majority by state and country, and coming of age
 
-**Order** 12.88 · **BE** · **Where:** Code · **3d** · **Ready**
+**Order** 12.88 · **BE** · **Where:** Code · **4d** · **Ready**
 
-The age that makes an athlete an adult is the age of majority of the state or country they live in. It comes from a table BTG can edit: most US states use 18, Alabama and Nebraska 19, and Mississippi 21; countries are added with their own age. A place not in the table counts as 18 and is flagged for BTG. The age is worked out from the date of birth, and again whenever the athlete changes state or country. **Coming of age:** when a minor reaches their place's age, they have a **90-day allowance** to become an adult account by uploading a government ID, after which control moves from the guardian to the athlete and the guardian is told. Throughout those 90 days a reminder stays on the athlete's and guardian's pages until it is done. When the 90 days end, new listings and payout requests pause until it is done; orders already under way continue. Raised 2026-10-01 from the BTG admin review.
+The age that makes an athlete an adult is the age of majority of the state or country they live in. It comes from a table BTG can edit: most US states use 18, Alabama and Nebraska 19, and Mississippi 21; countries are added with their own age. A place not in the table counts as 18 and is flagged for BTG. The age is worked out from the date of birth, and again whenever the athlete changes state or country. **Coming of age:** when a minor reaches their place's age, they have a **90-day allowance** to become an adult account by uploading a government ID. Once they do, control moves from the guardian to the athlete and the guardian is told. Throughout those 90 days:
+  - A reminder stays on the athlete's and guardian's pages until it is done.
+  - **Neither the athlete nor the guardian can add items or start anything new:** no new listings, offers or orders accepted, and no new payout requests. Orders and campaigns already under way continue to the end, including their deliveries and payouts.
+  - Reminder emails go to both the athlete and the guardian when the allowance starts, then 30, 14, 7 and 1 days before it ends.
+
+If the 90 days end without it done, **both accounts are terminated**: the athlete's and the guardian's. When the guardian has other athletes still under age, only the guardian's link to this athlete ends, so their other children aren't cut off. A terminated account falls under the 30-day retention and reactivation rules (2S1-BE-13): uploading the government ID within those 30 days brings it back. Anything still under way at termination goes to BTG to settle, and money already earned stays owed to the payee. Raised 2026-10-01 from the BTG admin review.
 
 - **Depends on:** 2S1-BE-10
-- **Done when:** Adulthood follows the athlete's state or country, from the date of birth, using the editable table; an unknown place counts as 18 and is flagged; a minor who comes of age gets a 90-day allowance with a persistent reminder, after which new listings and payout requests pause until a government ID is uploaded; uploading it moves control from the guardian to the athlete
+- **Done when:** Adulthood follows the athlete's state or country, from the date of birth, using the editable table; an unknown place counts as 18 and is flagged; during the 90-day allowance neither the athlete nor the guardian can add items or start a new transaction while existing orders and campaigns continue, a reminder persists on both portals, and reminder emails go out at the start and 30, 14, 7 and 1 days before the end; uploading a government ID moves control from the guardian to the athlete; if it isn't done in 90 days both accounts are terminated (only the guardian's link ends when they have other minors), under the 30-day retention and reactivation rules
 - **Reference:** Spec §4, §26, §37; BTG admin review 2026-10-01
 
 ### ⏸ `2S1-BE-13` · Closing an account, 30-day retention and coming back
@@ -389,7 +394,7 @@ One page for BTG's single reviewer, with every automatic approval: organizations
 
 **Order** 14.85 · **FE** · **Where:** Code · **4d** · **Blocked**
 
-For a minor: the guardian's portal acts for them (offers, orders, listings, payout account and payouts), and the minor's portal shows those actions as the guardian's. The coming-of-age reminder stays on the athlete's and guardian's pages throughout the 90-day allowance, counting down, with the government-ID upload that completes it. The account settings have Close account and the reactivation page.
+For a minor: the guardian's portal acts for them (offers, orders, listings, payout account and payouts), and the minor's portal shows those actions as the guardian's. The coming-of-age reminder stays on the athlete's and guardian's pages throughout the 90-day allowance, counting down, with the government-ID upload that completes it, and the actions that are paused (adding items, new transactions) are shown as unavailable with the reason. The account settings have Close account and the reactivation page.
 
 - **Depends on:** 2S1-BE-11, 2S1-BE-12, 2S1-BE-13, 2S0-ART-01
 - **Done when:** A guardian can do every agreement and money action for their minor from their own portal; the coming-of-age reminder persists until done; an account can be closed and reactivated within 30 days

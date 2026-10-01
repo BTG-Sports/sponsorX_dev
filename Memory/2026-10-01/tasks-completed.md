@@ -76,3 +76,13 @@ The user agreed the recommendations and set the sponsor's confirmation window to
 **Raised:**
 - Backend: **2S1-BE-09** adults (4d), **2S1-BE-10** minors and guardians (5d), **2S1-BE-11** the guardian acts for the minor (5d), **2S1-BE-12** age of majority and coming of age (3d), **2S1-BE-13** close, retention and reactivation (3d).
 - Frontend: **2S1-FE-06** sign-up screens (4d), **2S1-FE-07** New sign-ups page (3d), **2S1-FE-08** guardian controls, the coming-of-age reminder and close/reactivate (4d).
+
+## Coming-of-age rules set (2S1-BE-12 is now 4 days)
+
+The user set the 90-day rules:
+- During the allowance, neither the athlete nor the guardian can add items or start new transactions. Existing orders and campaigns continue.
+- Reminder emails go out at the start and 30, 14, 7 and 1 days before the end.
+- If the government ID still isn't uploaded after 90 days, both accounts are terminated.
+  - My assumption: if the guardian has other minors, only the guardian's link to this athlete ends.
+  - The 30-day retention and reactivation rules apply.
+  - In-flight items go to BTG, and earned money stays owed.
