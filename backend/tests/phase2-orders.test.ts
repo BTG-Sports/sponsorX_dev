@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import type { AddressInfo } from "node:net";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import { settleDeliveries } from "./support/delivery";
 
 /* --------------------------------------------------------------------------
    Phase 2 batch 5, against the real API and database:
@@ -145,7 +146,10 @@ describe.skipIf(!hasDatabase)("Phase 2 orders over the API", { timeout: 60_000 }
     return r.json;
   };
   const walk = async (id: string, states: string[]) => {
-    for (const to of states) expect((await call("POST", `/marketplace-orders/${id}/transition`, "mo_finance", { to })).json.state).toBe(to);
+    for (const to of states) {
+      if (to === "FULFILLED") await settleDeliveries(prisma, id);
+      expect((await call("POST", `/marketplace-orders/${id}/transition`, "mo_finance", { to })).json.state).toBe(to);
+    }
   };
 
   beforeAll(async () => {

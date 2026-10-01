@@ -12,9 +12,8 @@ import { useDialogFocus } from "./use-dialog-focus";
    view). Live (2S2-BE-05): respondToTeamAction and leaveTeamAction.
 
    The design's first leave bullet ("the team's listings of your items
-   end") is left out: no such rule was agreed (programme owner,
-   2026-10-01). What happens is said instead — the team stops selling the
-   athlete's items, and orders already placed carry on.
+   end") is replaced by what happens (2S2-BE-05): the team's listings of the
+   athlete's items are paused, and orders already placed carry on.
    -------------------------------------------------------------------------- */
 
 const danger =

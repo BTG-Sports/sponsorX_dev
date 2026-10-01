@@ -1,5 +1,6 @@
 import type { AddressInfo } from "node:net";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import { settleDeliveries } from "./support/delivery";
 
 /* --------------------------------------------------------------------------
    Card payment and payouts, against the real API and database — the
@@ -60,6 +61,7 @@ describe.skipIf(!hasDatabase)("card payment and payouts over the API", { timeout
   const jobs = (name: string) => prisma.outboxJob.findMany({ where: { name, tenantId: { in: [T, E.tenant] } }, select: { payload: true } });
   const walk = async (id: string, states: string[]) => {
     for (const to of states) {
+      if (to === "FULFILLED") await settleDeliveries(prisma, id);
       const r = await call("POST", `/marketplace-orders/${id}/transition`, "po_finance", { to });
       expect(r.status, r.text).toBe(200);
     }

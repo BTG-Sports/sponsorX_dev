@@ -1,5 +1,6 @@
 import type { AddressInfo } from "node:net";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import { settleDeliveries } from "./support/delivery";
 
 /* --------------------------------------------------------------------------
    2S3-BE-05 — independent athletes list their own items, against the real
@@ -57,6 +58,7 @@ describe.skipIf(!hasDatabase)("2S3-BE-05 · an athlete with no team sells their 
   const tokenOf = (url: string) => new URL(url).searchParams.get("t")!;
   const walk = async (id: string, states: string[]) => {
     for (const to of states) {
+      if (to === "FULFILLED") await settleDeliveries(prisma, id);
       const r = await call("POST", `/marketplace-orders/${id}/transition`, "ind_admin", { to });
       expect(r.status, r.text).toBe(200);
     }

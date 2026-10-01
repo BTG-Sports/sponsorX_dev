@@ -270,9 +270,18 @@ export async function followOrder(tx: Tx, actor: AuditActor, orderId: string, to
       where: { orderId, state: "PROBLEM" },
     });
     if (problem) throw new DeliveryError("A sponsor reported a problem with a line on this order — resolve it on the Delivery issues desk first.");
+    /* Fulfilled by hand only once every line is settled — the seller marked it
+       delivered and the sponsor's 24 hours are over. Never over a line the
+       seller hasn't marked, or one the sponsor can still answer (2S4-BE-07). */
+    const open = await tx.orderLineDelivery.count({
+      /* tenant-scope: this order's own delivery rows, named by its id. */
+      where: { orderId, OR: [{ state: { in: ["UNPAID", "IN_DELIVERY"] } }, { state: "DELIVERED", confirmDueAt: { gt: now } }] },
+    });
+    if (open) throw new DeliveryError("A line on this order isn't settled yet — the seller marks it delivered, then the sponsor has 24 hours to confirm or report a problem.");
+    /* A delivered line whose 24 hours are over is confirmed by silence — the sweep would do the same. */
     await tx.orderLineDelivery.updateMany({
-      where: { orderId, state: { in: ["IN_DELIVERY", "DELIVERED"] } },
-      data: { state: "CONFIRMED", confirmedAt: now, confirmedBy: actor.userId ?? "system", confirmedHow: "BTG" },
+      where: { orderId, state: "DELIVERED", confirmDueAt: { lte: now } },
+      data: { state: "CONFIRMED", confirmedAt: now, confirmedBy: "system", confirmedHow: "SILENCE" },
     });
   }
 }

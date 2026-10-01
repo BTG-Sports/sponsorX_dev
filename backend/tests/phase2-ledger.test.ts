@@ -2,6 +2,7 @@ import { readdirSync, readFileSync } from "node:fs";
 import type { AddressInfo } from "node:net";
 import { fileURLToPath } from "node:url";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import { settleDeliveries } from "./support/delivery";
 
 /* --------------------------------------------------------------------------
    Phase 2 batch 6, against the real API and database — the money side:
@@ -296,7 +297,10 @@ describe.skipIf(!hasDatabase)("the money side over the API", { timeout: 60_000 }
       });
       for (const to of ["AWAITING_PAYMENT", "PAID"]) await call("POST", `/marketplace-orders/${orderId}/transition`, "lg_finance", { to });
       expect((await dashboard()).pendingEarnings).toEqual({ awaitingSponsorPaymentCents: 0, availableCents: 135_675, reservedCents: 15_418, totalCents: 151_093 });
-      for (const to of ["IN_DELIVERY", "FULFILLED", "CLOSED"]) await call("POST", `/marketplace-orders/${orderId}/transition`, "lg_finance", { to });
+      for (const to of ["IN_DELIVERY", "FULFILLED", "CLOSED"]) {
+        if (to === "FULFILLED") await settleDeliveries(prisma, orderId);
+        await call("POST", `/marketplace-orders/${orderId}/transition`, "lg_finance", { to });
+      }
       const closed = await dashboard();
       expect(closed).toMatchObject({ bookedRevenueCents: 151_093, ledgerBalanceCents: 151_093, reconciles: true });
       expect(closed.pendingEarnings).toEqual({ awaitingSponsorPaymentCents: 0, availableCents: 151_093, reservedCents: 0, totalCents: 151_093 });

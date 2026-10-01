@@ -20,11 +20,10 @@ import { requirePortalAccess } from "@/server/portal";
           POST /me/team/leave                    Leave team (TeamLeave → ./actions.ts)
    ?demo=loading|empty|error renders the branded states.
 
-   Copy changed from the design, on the programme owner's rules
-   (2026-10-01): joining does NOT end the athlete's own listings — that was
-   never agreed. While on the team their own listings don't sell and the
-   team lists their items; orders already placed carry on and pay as
-   before. The split is a labelled example on the invitation's real share.
+   Copy changed from the design to say what happens (2S2-BE-05): joining
+   doesn't delete the athlete's own listings — while on the team they don't
+   sell and the team lists their items, and they sell again after leaving;
+   orders already placed carry on and pay as before. The split is a labelled example on the invitation's real share.
    -------------------------------------------------------------------------- */
 
 export const dynamic = "force-dynamic";

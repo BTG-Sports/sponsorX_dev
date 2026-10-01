@@ -191,7 +191,8 @@ export function orderBanner(o: ApiSellerOrder): null | { tone: "warn" | "accent"
     return {
       tone: "accent",
       title,
-      text: `Your share can now be paid out. The order closes on ${dayOf(closesOn(o.confirmedAt))}, ${CLOSE_DAYS} days after confirmation.`,
+      /* Payable after the payout hold, not at once; the order closes 30 days after its LAST line is confirmed. */
+      text: `Your share becomes payable once the payout hold ends — My money shows when. The order closes ${CLOSE_DAYS} days after its last line is confirmed.`,
       quote: o.resolution?.note ? `BTG: “${o.resolution.note}”` : undefined,
       money: true,
     };

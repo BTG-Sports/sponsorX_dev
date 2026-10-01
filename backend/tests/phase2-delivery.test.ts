@@ -291,6 +291,16 @@ describe.skipIf(!hasDatabase)("sellers' orders and delivery over the API", { tim
       expect((await call("GET", `/deliveries/${E.jordanLine1}/proof`, "dl_buyer")).status).toBe(404);
     });
 
+    it("staff can't mark the order fulfilled by hand while a line is unmarked or the sponsor's 24 hours are still running", async () => {
+      for (const who of ["dl_admin", "dl_finance"]) {
+        const r = await call("POST", `/marketplace-orders/${E.order1}/transition`, who, { to: "FULFILLED" });
+        expect(r.status, `${who} ${r.text}`).toBe(409);
+        expect(r.json.error.message).toMatch(/isn't settled yet/);
+      }
+      const line = await prisma.orderLineDelivery.findUniqueOrThrow({ where: { lineId: E.jordanLine1 }, select: { state: true, confirmedAt: true } });
+      expect(line).toEqual({ state: "DELIVERED", confirmedAt: null });
+    });
+
     it("money waits for confirmation: nothing of Jordan's is requestable until the sponsor confirms", async () => {
       expect((await call("GET", "/payouts/me", "dl_jordan")).json.totals.requestableCents).toBe(0);
       /* Not the analyst, not another sponsor, not the seller. */

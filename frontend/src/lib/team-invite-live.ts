@@ -13,11 +13,10 @@
               POST /team-invitations/:id/withdraw
               POST /team/roster/:athleteId/remove
 
-   The agreed rules (programme owner, 2026-10-01): a team invites an
-   existing athlete, the athlete accepts the share, and either side can
-   leave or remove. Joining does NOT end the athlete's own listings — they
-   stop selling while the athlete is on the team, and the team lists their
-   items. Orders already placed carry on and pay as before.
+   2S2-BE-05: a team invites an existing athlete, the athlete accepts the
+   share, and either side can leave or remove. The athlete's own listings
+   stop selling while they are on the team (the team lists their items) and
+   sell again after leaving. Orders already placed carry on and pay as before.
    -------------------------------------------------------------------------- */
 
 export type ApiTeamPlace = { name: string; city: string };

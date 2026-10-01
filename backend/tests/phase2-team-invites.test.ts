@@ -217,6 +217,17 @@ describe.skipIf(!hasDatabase)("2S2-BE-05 · a team invites an athlete already on
     /* The other team still can't reach him. */
     expect((await call("GET", "/team/athletes", "tv_mgr2")).json.athletes).toEqual([]);
     expect((await call("PATCH", "/team/roster/tv_ath_jordan", "tv_mgr2", { teamShareBps: 1 })).status).toBe(403);
+    /* The share he accepted holds: his team can lower it, never raise it without him. */
+    const raise = await call("PATCH", "/team/roster/tv_ath_jordan", "tv_mgr", { teamShareBps: 5000 });
+    expect(raise.status, raise.text).toBe(409);
+    expect(raise.json.error.message).toMatch(/raising it needs their agreement/);
+    expect((await call("PATCH", "/team/roster/tv_ath_jordan", "tv_mgr", { teamShareBps: null })).status).toBe(409);
+    expect(await jordan()).toEqual({ propertyId: E.hawks, teamShareBps: 2000 });
+    const lower = await call("PATCH", "/team/roster/tv_ath_jordan", "tv_mgr", { teamShareBps: 1500 });
+    expect(lower.status, lower.text).toBe(200);
+    expect(await jordan()).toEqual({ propertyId: E.hawks, teamShareBps: 1500 });
+    expect((await call("PATCH", "/team/roster/tv_ath_jordan", "tv_mgr", { teamShareBps: 2000 })).status).toBe(409);
+    await prisma.athlete.update({ where: { id: "tv_ath_jordan" }, data: { teamShareBps: 2000 } });
   });
 
   it("his own listing is not ended — it stops selling while he is on the team; the team lists his items", async () => {

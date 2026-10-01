@@ -10,8 +10,6 @@ const NAV: NavItem[] = [
   /* 2S1-FE-07 — everything SponsorX approved by itself; BTG steps in only on a problem. */
   { href: "/admin/new-signups", label: "New sign-ups", icon: "user" },
   { href: "/admin/applications", label: "Applications", icon: "users" },
-  /* P3-BE-16 — approved athletes' proposed profile edits, reviewed here. */
-  { href: "/admin/profile-changes", label: "Profile changes", icon: "file" },
   /* P4-FE-07 — sponsor briefs, qualified here before the Matching Studio. */
   { href: "/admin/briefs", label: "Briefs", icon: "mail" },
   { href: "/admin/campaigns", label: "Campaigns", icon: "megaphone" },

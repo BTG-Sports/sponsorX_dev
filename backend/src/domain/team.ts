@@ -224,6 +224,17 @@ export async function setTeamShare(actor: Actor, athleteId: string, teamShareBps
       where: { ...whereFor(actor, "teamMember", "write"), id: athleteId }, select: { id: true, teamShareBps: true },
     });
     if (!athlete) throw new ForbiddenError("teamMember", "write");
+    /* 2S2-BE-05 — an athlete who joined by accepting an invitation agreed to that
+       share. The team may lower its own share; it can't raise it, or clear it,
+       without the athlete's agreement. */
+    const invited = await tx.teamInvitation.findFirst({
+      /* tenant-scope: the invitation this team (actor.propertyId) sent to this athlete, in the team's own tenant. */
+      where: { propertyId: actor.propertyId!, athleteId, state: "ACCEPTED" }, select: { id: true },
+    });
+    const raises = teamShareBps === null || athlete.teamShareBps === null || teamShareBps > athlete.teamShareBps;
+    if (invited && raises) {
+      throw new TeamError("This athlete agreed to their share when they accepted your invitation — you can lower it, but raising it needs their agreement.", 409);
+    }
     const updated = await tx.athlete.update({
       where: { id: athlete.id }, data: { teamShareBps }, select: { id: true, displayName: true, teamShareBps: true },
     });
