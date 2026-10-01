@@ -5,7 +5,7 @@
 | | |
 |---|---|
 | **Goal** | Turn SponsorX from BTG-only operations into a multi-tenant marketplace. External athletes, teams, programs, events and media properties onboard, publish inventory, fulfil deliverables and get paid. |
-| **Tasks** | 95 · 363 person-days |
+| **Tasks** | 97 · 368 person-days |
 | **Blueprint timeline** | 16–20 weeks |
 | **Balanced budget** | $80K–$120K |
 | **Depends on** | Phase 1 auth/RBAC, sponsor/property/inventory/campaign/reward models, Zoho integration, core analytics |
@@ -320,6 +320,21 @@ Athletes, guardians and organizations can close their account. A closed or rejec
 - **Done when:** Closing an account keeps its files for 30 days and then deletes them permanently, with an audit record; returning within 30 days through the reactivation page restores the account and its files (self-closed) or asks BTG (rejected); after 30 days the files are gone and a new sign-up is needed
 - **Reference:** Spec §4, §26, §37; BTG admin review 2026-10-01
 
+### ⏸ `2S1-BE-14` · Profile edits publish straight away; sensitive edits re-run the checks
+
+**Order** 12.9 · **BE** · **Where:** Code · **3d** · **Ready**
+
+Replaces the BTG review of every profile edit an approved athlete makes (P3-BE-16). With BTG down to one reviewer, edits are no longer held for approval. Ordinary edits (bio, photos, sport, position, social links and the like) publish at once. Sensitive edits publish at once too, but re-run the same automatic checks as sign-up:
+- **A new legal name** needs a matching ID upload before it takes effect.
+- **A new date of birth** works out adulthood again (2S1-BE-12). If that makes the athlete a minor, the guardian process starts. If it makes them an adult, the coming-of-age allowance starts.
+- **A new guardian** goes through the guardian's page and documents (2S1-BE-10).
+
+For every sensitive edit, BTG admins are emailed a link to the athlete on the New sign-ups page, with Reject and Reinstate. They are not emailed for ordinary edits. Every edit, ordinary or sensitive, stays in the athlete's audit history. Raised 2026-10-01 from the BTG admin review.
+
+- **Depends on:** P3-BE-16, 2S1-BE-09, 2S1-BE-10, 2S1-BE-12
+- **Done when:** An approved athlete's ordinary edits publish with no BTG step; a legal-name change needs a matching ID upload, a date-of-birth change recomputes adulthood and starts the guardian or coming-of-age process when it changes, and a new guardian goes through the guardian's page; BTG admins are emailed only for sensitive edits, with a link and Reject; every edit is audited
+- **Reference:** Spec §4, §26, §37; BTG admin review 2026-10-01
+
 ### ⏸ `2S1-FE-01` · Build the property onboarding wizard
 
 **Order** 13 · **FE** · **Where:** Code · **5d** · **Blocked**
@@ -399,6 +414,16 @@ For a minor: the guardian's portal acts for them (offers, orders, listings, payo
 - **Depends on:** 2S1-BE-11, 2S1-BE-12, 2S1-BE-13, 2S0-ART-01
 - **Done when:** A guardian can do every agreement and money action for their minor from their own portal; the coming-of-age reminder persists until done; an account can be closed and reactivated within 30 days
 - **Reference:** Spec §4, §26, §37; BTG admin review 2026-10-01
+
+### ⏸ `2S1-FE-09` · Profile editing without BTG review, on screen
+
+**Order** 14.9 · **FE** · **Where:** Code · **2d** · **Blocked**
+
+The athlete's profile editor saves ordinary edits at once, with no more "waiting for BTG" state. For a sensitive field it says what will be needed: "Changing your legal name needs a matching ID", with the upload; a date of birth or a guardian starts the right steps. BTG's Profile changes page is retired, and sensitive edits appear on the New sign-ups page (2S1-FE-07) instead.
+
+- **Depends on:** 2S1-BE-14, 2S1-FE-07
+- **Done when:** An athlete's ordinary edits save at once; a sensitive edit shows and collects what it needs; BTG sees sensitive edits on the New sign-ups page, and the old Profile changes review page is gone
+- **Reference:** Spec §4; BTG admin review 2026-10-01
 
 ### ⏸ `2S1-INT-01` · Onboarding notification jobs
 

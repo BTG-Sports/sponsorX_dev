@@ -86,3 +86,11 @@ The user set the 90-day rules:
   - My assumption: if the guardian has other minors, only the guardian's link to this athlete ends.
   - The 30-day retention and reactivation rules apply.
   - In-flight items go to BTG, and earned money stays owed.
+
+## Profile edits: no more BTG review (2 tasks; Phase 2 is now 97 tasks, 368 days)
+
+- **2S1-BE-14** (3d, Ready) replaces P3-BE-16's review of every edit.
+  - Ordinary edits publish at once.
+  - Sensitive edits also publish at once but re-run the sign-up checks: a legal name needs a matching ID, a date of birth recomputes adulthood, a new guardian goes through the guardian's page.
+  - BTG is emailed only for sensitive edits.
+- **2S1-FE-09** (2d, Blocked): the editor's screens; the Profile changes page is retired.
