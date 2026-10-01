@@ -65,6 +65,7 @@ const GOVERNED_BY: Record<string, Resource> = {
   /* 2S5-INT-01/-03, 2S5-BE-04/-05 — a card payment is the order's; a payout
      line is its payout's. */
   PayoutAccount: "payoutAccount",
+  RestrictedWord: "restrictedWord",
   Payout: "payout",
   PayoutLine: "payout",
   PaymentAttempt: "marketplaceOrder",
@@ -158,9 +159,16 @@ describe("P8-SEC-01 · every model is governed by the matrix", () => {
     }
   });
 
-  it("runs in CI on every push and pull request", () => {
+  /* Since 2026-10-01 CI runs once a day on main (and by hand), not on every
+     push — the account ran out of Actions minutes. The suite must still run
+     there, and the nightly deploy must still wait for it. */
+  it("runs in CI nightly on main, by hand, and before every automatic deploy", () => {
     const ci = readFileSync(new URL("../../.github/workflows/ci.yml", import.meta.url), "utf8");
-    expect(ci).toMatch(/on:\s*\n\s*push:\s*\n\s*pull_request:/);
+    expect(ci).toMatch(/on:\s*\n\s*schedule:\s*\n\s*- cron:/);
+    expect(ci).toContain("workflow_dispatch:");
     expect(ci).toContain("npm run test -w @sponsorx/backend");
+    const deploy = readFileSync(new URL("../../.github/workflows/deploy-daily.yml", import.meta.url), "utf8");
+    expect(deploy).toMatch(/workflow_run:\s*\n\s*workflows: \[CI\]/);
+    expect(deploy).toContain("conclusion == 'success'");
   });
 });

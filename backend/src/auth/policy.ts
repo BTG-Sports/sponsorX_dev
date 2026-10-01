@@ -161,7 +161,8 @@ export type Resource =
   | "commissionRule"
   | "orderFinancials"
   | "ledgerEntry"
-  | "payoutAccount";
+  | "payoutAccount"
+  | "restrictedWord";
 
 export const RESOURCES: readonly Resource[] = [
   "tenant",
@@ -231,6 +232,7 @@ export const RESOURCES: readonly Resource[] = [
   "orderFinancials",
   "ledgerEntry",
   "payoutAccount",
+  "restrictedWord",
 ] as const;
 
 type RolePolicy = Partial<Record<Role, Partial<Record<Action, Scope>>>>;
@@ -911,6 +913,13 @@ export const POLICY: Record<Resource, RolePolicy> = {
     FINANCE: rwa("own-tenant"),
     PROPERTY_MGR: rwa("own-property", "own-property"),
     ATHLETE: rwa("own", "own"),
+  },
+
+  /* 2S1-BE-18 — BTG's restricted-words list: BTG admins keep it. A match
+     only routes an item to review, so nobody else needs to see the list. */
+  restrictedWord: {
+    SUPER_ADMIN: rwa("any", "any"),
+    BTG_ADMIN: rwa("own-tenant", "own-tenant"),
   },
 };
 

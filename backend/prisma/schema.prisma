@@ -2479,3 +2479,26 @@ model PayoutLine {
   @@index([orderId])
   @@index([payoutId])
 }
+
+/// 2S1-BE-18 — the restricted-words list BTG keeps: words and phrases that
+/// send free text (first, a sponsor's "Other" business description) to BTG's
+/// review. A match never rejects anything by itself. Removing a word
+/// deactivates it (the row, and so its history, stays).
+model RestrictedWord {
+  id         String   @id @default(cuid())
+  tenantId   String
+  /// As BTG typed it.
+  word       String
+  /// The matching form (lower case, accents and letter swaps undone).
+  normalized String
+  /// ADULT | DRUGS | WEAPONS | GAMBLING | VIOLENCE_HATE | OTHER_ILLEGAL
+  kind       String
+  active     Boolean  @default(true)
+  /// "starter" for the seeded list, else the user who added it.
+  addedBy    String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @default(now()) @updatedAt
+
+  @@unique([tenantId, normalized])
+  @@index([tenantId, active])
+}

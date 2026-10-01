@@ -771,6 +771,8 @@ const BUILDERS: Partial<Record<Resource, Builder>> = {
   athleteApplication: (actor, scope) => BUILDERS.athlete!(actor, scope),
   /* 2S1-BE-05 — sponsor requests: tenant rows, read and decided by staff. */
   inquiry: tenantScoped,
+  /* 2S1-BE-18 — BTG's restricted-words list: tenant rows, kept by BTG admins. */
+  restrictedWord: tenantScoped,
 
   /* Added with P4-BE-01, the first task to query sponsors.
 

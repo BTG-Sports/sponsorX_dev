@@ -538,6 +538,20 @@ holds only the provider's account id and its status (not set up / needs
 information / ready). "Write" is starting or resuming set-up on the provider's
 page. Sponsors are denied both `payout` and `payoutAccount`.
 
+### `restrictedWord` *(added 2026-10-01, 2S1-BE-18)*
+| Role | Read | Write | Approve |
+|---|---|---|---|
+| `SUPER_ADMIN` | any | any | — |
+| `BTG_ADMIN` | own-tenant | own-tenant | — |
+| all others | — | — | — |
+
+BTG's list of restricted words and phrases. Free text that matches the list,
+starting with a sponsor's "Other" business description, goes to BTG's review;
+a match never rejects anything by itself. BTG admins add and remove words;
+removing one deactivates it, so its history stays. Every change is audited.
+The check itself runs inside the features that use it, with no actor, because
+the text usually comes from the public before anyone has signed in.
+
 ### `invoice` *(added 2026-09-24)*
 | Role | Read | Write | Approve |
 |---|---|---|---|

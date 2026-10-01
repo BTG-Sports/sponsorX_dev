@@ -29,6 +29,7 @@ import { onboardingRouter } from "./onboarding";
 import { marketplaceRouter } from "./marketplace";
 import { payoutsRouter } from "./payouts";
 import { sponsorRequestsRouter } from "./sponsor-requests";
+import { restrictedWordsRouter } from "./restricted-words";
 import { openapiRouter } from "./openapi";
 
 export const v1Router = Router();
@@ -124,6 +125,9 @@ v1Router.use("/", payoutsRouter);
 
 /* 2S1-BE-05 — BTG reviews businesses asking to sponsor, and opens their accounts. */
 v1Router.use("/", sponsorRequestsRouter);
+
+/* 2S1-BE-18 — BTG's restricted-words list. */
+v1Router.use("/", restrictedWordsRouter);
 v1Router.use("/", auditRouter);
 
 /* The published contract, generated from the Zod registry (§38). Public: a
