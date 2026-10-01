@@ -936,6 +936,225 @@ shows a horizontal scrollbar. Gone once scrolled (capsule insets the rule
 Verified scrollWidth == clientWidth at 1440/1280/390, scroll 0/40/240, with
 no element past either edge.
 
+## /packages redesigned to the landing's visual language — rcfworks, via Claude
+
+The public package catalogue (§9 screen 4) looked plain next to the landing
+fly-through. Rebuilt as a fixed-dark stage in the landing's HUD language,
+same fixtures and the same live price list (P3-FE-05 unchanged):
+
+- `frontend/src/components/packages-stage.tsx` (server) — HUD hero with the
+  three-line masked headline and the "THE RANGE" glass card (entry price,
+  ceiling, athlete range, package count, log-scale bar per package — all
+  derived from the list on the page, badge says live vs indicative); the
+  "What's inside" marquee band; the log-scale price ladder (every package
+  as a node linking to its card; vertical rungs below md); the chamfered
+  glass catalogue cards with tier tone, athlete meter and "What's inside";
+  the three managed steps; the closing panel. Reuses the landing's Glass,
+  Magnetic, TiltSpot, ScrambleText, CountUp and `.sx-pkg*` / `.sx-sheen` /
+  `.sx-scan` / `.sx-ping` / `.sx-rule-pulse` rules.
+- `packages-fx.tsx` (client) — StageReveal (arms the stage; scroll reveals
+  via IntersectionObserver) and PackageGrid (pointer spotlight / tilt on
+  the cards, same vars as the landing's package row).
+- `globals.css` — `.sx-stage*` ground, floor grid, outlined word, entrance
+  (released by `html[data-sx-loaded]`), `[data-reveal]`, bar / meter /
+  ladder growth; reduced-motion opt-outs.
+- `page-transition.tsx` — `prepareArrival()`: the loaded flag is now
+  cleared before every public push (was home only), so the stage's
+  entrance plays through the reveal on client-side arrival too.
+- `landing-sponsors.tsx` — `Glass` exported.
+- Live line items now read "2× Athlete Reel" (names from `fixtures.rates`),
+  not "2× SX-03".
+
+Phone fix after the owner's review: the catalogue cards ran off the right
+edge — a `whitespace-nowrap` 34px price on a grid item with `min-width: auto`
+widened every column; items are now `min-w-0`, the price clamps on the
+viewport and may wrap. The filter chips below md are one "Filters · 5"
+button opening a bottom sheet (`PackageFilters`, packages-fx.tsx; `sx-sheet`
+in globals.css — same open/close contract as the brief drawer) that lists the
+five groups and says filtering arrives with matching; the owner chose this
+over a swipe strip and over hiding them. The hero's two CTAs stack full-width
+below sm — both labels are `whitespace-nowrap` and, as `flex-1` items, never
+shrink below their text, so the row overran a 360-390px screen and the second
+button was cut off (the stage's `overflow-x-clip` had hidden it from the first
+check; the QA script now lifts every clip before measuring). The closing
+panel's CTAs drop to `px-5` under sm for the same reason at 320px.
+
+The price ladder's horizontal track now starts at **1240px**, not `md` (owner's
+call). Measured: below ~1200 the 204px labels wrap to different heights (six
+distinct labels rows at 1024) and 01/03 meet at 0px around 1137; at 1240 the
+smallest gap is 26px, growing with width. Below 1240 the vertical ladder takes
+over and is capped at `max-w-2xl` — full-bleed at 1100px stranded each price
+about 900px from its name.
+
+Verified in Chrome via Playwright at 1440×900, 390 and 360 wide and light
+theme: no console errors, no horizontal overflow, entrance and reveals fire; tsc, eslint
+and the page-transition tests pass. Filters stay decorative (§13). No tracker
+row raised — this is a design pass on a shipped screen, not a new task.
+
+## /join redesigned to the landing's and /packages' visual language — via Claude
+
+Owner: "/join looks plain compared to the landing and /packages". Same wizard
+(P1-ART-07 / P3-FE-01 logic untouched), new stage:
+
+- `frontend/src/components/join-stage.tsx` (server) — JoinHero: the fixed-dark
+  `.sx-stage` ground spanning the whole hero (glows, `sx-stage-floor`, horizon,
+  outlined "ATHLETES"), a sticky HUD panel from lg (scrambled eyebrow, masked
+  three-line "Your Name. / Your Game. / Your Sponsors." headline, "THE
+  APPLICATION" glass card: sections / minutes / review days / branch, all from
+  `SECTIONS` + two constants, plus a progress-bar preview), and the wizard in
+  a chamfered glass panel (`#apply`, content clipped to the plate + 1px inset so
+  the sticky action bar never covers the outline). Below lg a compact hero sits
+  above the wizard on the intro only. Then /packages' InsideBand ("Jobs on the
+  network", the seven `fixtures.rates` names), JoinPath (the §39 loop from the
+  athlete side, six hex stops on one track / vertical rail), JoinPromises (the
+  old trust list as glass cards) and JoinClose.
+- `packages-stage.tsx` — `chamfer`, `Eyebrow`, `StepRule`, `SectionHead`
+  exported; InsideBand takes a `label`.
+- `join-wizard.tsx` — HUD internals: mono "SECTION 01 / 09" counter (sr-only
+  full sentence stays aria-live), glowing segments (`.sx-join-segs`), outlined
+  section numeral, glass inputs with focus glow, gradient CTA that keeps the
+  dark cta-ink (white on #2e9bf5 fails P1-QA-02), glass sticky bar. Writes
+  `data-phase` onto `.sx-join` (hides the phone hero off the intro) BEFORE the
+  scroll effect, which brings `#apply` back into view when its top is above /
+  under the header — fixes the pre-existing "Start application leaves the
+  heading off-screen" jump.
+- `globals.css` — `.sx-join` re-pins the themed tokens to dark (the `.sx-login`
+  precedent) so the wizard stays night-stage in the light theme.
+
+Owner bug mid-pass: the ground was capped at one screen tall, so the floor grid
+and orange glow ended in a hard line halfway down the tall intro — now `inset-0`
+on a `min-h-[min(100svh,980px)]` hero, running to the band.
+
+Verified via Playwright at 1920, 1440, 390 and light theme, intro and steps:
+no console errors, no horizontal overflow, reveals fire. tsc, eslint and the
+frontend suite (752) pass. No tracker row — design pass on a shipped screen.
+
+Tablet follow-up (owner at 983px: "this looks ugly"): between sm and lg the
+hero was left-aligned while the wizard panel is a centred 460px column, so
+nothing shared an axis and the right half sat empty. From sm the intro hero
+now centres on the panel's axis (mirrored eyebrow rule, larger headline, the
+stats strip exactly the panel's 460px); phones stay left-aligned over the
+full-bleed form. The ground's left-to-right legibility overlay is lg-only —
+full-width on a tablet it only made the left side heavier. Checked at 983,
+768 and 390: no overflow, no errors; tsc + eslint clean.
+
+## /next/about redesigned as a magazine — via Claude
+
+Owner: "/next/about looks plain … it's all about a magazine, so the page must
+feel like we're in a magazine; wow factor, awwwards". Brainstormed in the
+visual companion (direction A: a real cover then paper spreads; sports-mag
+type with the logo's yellow/red on the landing's HUD ground; motion A: the
+cover tilts with the pointer, spreads page-flip in). Spec:
+`docs/superpowers/specs/2026-09-30-next-about-magazine-design.md`; plan:
+`docs/superpowers/plans/2026-09-30-next-about-magazine.md`. Same route, same
+copy, same live editions fetch and its three states.
+
+- `frontend/public/next/btg-sports-talk-magazine.png` — the client's
+  magazine logo (from the owner), re-exported at 800px with sharp
+  (1.1 MB → 127 KB); drawn with `mix-blend-mode: screen` so its black
+  ground vanishes into the cover.
+- `frontend/src/components/next-about-stage.tsx` (server) — MagCover (HUD
+  eyebrow in short scrambled segments, three-line Bebas headline, serif dek,
+  yellow + outline CTAs, glass stat strip, the tilting cover: logo masthead,
+  Issue 01 / Free digital tags, "Five jobs. One magazine.", an "Inside:"
+  contents line linking the sections, barcode, scan), MagSpread / MagPage
+  (paper, spine, corner curl, folios 02–07, display headline with a red or
+  blue accent line, serif body with a three-line drop cap), the three
+  spreads, Newsstand (live editions as mini covers on a glass rack — the BTG
+  logo only when the publication is Sports Talk, a typographic masthead
+  otherwise; error/empty copy kept), BackCover.
+- `next-about-fx.tsx` (client) — CoverGlow: pointer glow on the cover, one
+  pulse on touch once `html[data-sx-loaded]` is set (`whenLoaded` is now
+  exported from hero-fx.tsx). Tilt is the landing's TiltSpot; reveals are
+  /packages' StageReveal.
+- `lib/next-about.ts` + `tests/next-about.test.ts` — issue constants, copy,
+  `usesLogo`, `editionHref`, `splitNumeral` (7 tests).
+- `app/layout.tsx` — Bebas Neue + Source Serif 4 via next/font
+  (`font-mag`, `font-mag-serif`), `preload: false` so only this page fetches
+  them.
+- `globals.css` — `.sx-mag`: paper tokens (navy ink, red, yellow, blue),
+  sheet / spine / curl, drop cap, two columns from lg, the page-flip
+  entrance (sheet hinges up from its bottom edge, shade fades on the same
+  stagger), cover glow, newsstand shelf; reduced-motion opt-outs.
+- `packages-stage.tsx` — InsideBand items with a leading "NN " render the
+  numeral in yellow display type; `items` is `readonly string[]` now.
+
+Verified via Playwright against the running dev server at 1920, 1440, 1024,
+983, 768, 390, 360, dark and light themes and reduced motion: no console
+errors, no horizontal overflow, hero entrance on hard load and on client-side
+arrival from /packages and /, every spread flips in. (At 1920 the harness's
+fast scroll occasionally outran the IntersectionObserver — a test-timing
+flake, /packages shows it too; a slower scroll step is clean.) QA fixes:
+three-line drop caps, spread bottom padding so the corner curl covers no
+text, phone cover lines clear of the logo's banner, the paper outline CTA on
+one line at 360. `npm run build`, eslint and the frontend suite (759) pass —
+the build ran in a detached worktree (`../sponsorX_build`, node_modules as
+junctions, `turbopack.root` lifted one level) because the owner's `next dev`
+was live on this tree. Open: the hero runs ~1078px tall on a phone (spec
+asked for one screen; a design call, left as is), and the paper outline CTA
+overruns by ~20px at 320px. No tracker row — design pass on a shipped screen.
+
+Owner's follow-up idea, not built: an interactive flipbook — click the cover,
+it opens, and pages turn one by one. Proposed as a reader overlay reusing the
+spread components; awaiting the owner's pick.
+
+## /next/about — the magazine is now an interactive flipbook — via Claude
+
+Owner, after the magazine redesign: "in the magazine section, we can do an
+interactive magazine … show the cover first, click, page opens, next page".
+Companion choice: the book in place (not a full-screen overlay). Spec
+`docs/superpowers/specs/2026-09-30-next-about-flipbook-design.md`, plan
+`docs/superpowers/plans/2026-09-30-next-about-flipbook.md`.
+
+- `next-about-book.tsx` (client, new) — MagBook: the eight server-rendered
+  faces (cover, pages 02–07, back cover) as four 3D leaves; one state, the
+  current face. Spread mode from lg (a leaf turns on the spine, 1.05s, with
+  a shade; the closed or finished book shifts 25% to centre), page mode
+  below (one face, hinging in and out). Inputs: click a page, ◂ ▸, ← →
+  while the book is on screen, a touch swipe (`touch-action: pan-y`), five
+  jump chips, and the hashes #magazine / #how / #students (load, hashchange
+  and in-page link clicks → scroll + open). Clicks on links/buttons inside
+  a page never turn it. Hidden faces are inert + aria-hidden after
+  hydration only (`useMounted`), so the no-JS flat layout stays usable; a
+  real button covers the closed cover ("Open the magazine"); the counter is
+  aria-live. Reduced motion: instant turns with a 150ms crossfade.
+- `next-about-stage.tsx` — the three scrolling spreads are gone; MagazineBook
+  assembles the faces (CoverPlate with an "Open ▸" hint, pages 02–07 with
+  the same copy, BackFace with both CTAs) and carries the `<noscript>` flat
+  style; the hero cover is a link to #magazine under its "Inside:" links;
+  MagPage has a tighter book scale (15px body from lg, 16px from xl); page
+  06 is one column.
+- `globals.css` — `.sx-mag-sheet/spine/curl` and the flip-on-scroll rules
+  removed; `.sx-book*` added (leaves, faces, shade, hint, page-mode hinge
+  keyframes, controls, reduced-motion swaps scoped to page mode).
+- `lib/next-about.ts` — spreadOf / nextFace / prevFace / faceLabel,
+  HASH_FACE, CHIPS (+5 tests, 764 total).
+
+Two review rounds before QA caught: page-mode z-order covering the visible
+page (page 02's CTA untappable), `go()` re-reading the hash on a breakpoint
+change, swipe never firing without `touch-action`, links inside faces
+turning the page, the cover's fake `role=button`, and SSR-time `inert`
+breaking the no-JS fallback. QA fix: the book's floor shadow painted over
+the left page (`z-index: -1`).
+
+Verified via Playwright against the live dev server at 1920, 1440, 1280,
+1024, 983, 768, 390, 360 — dark, light, reduced motion: closed on load,
+opens on cover click, advances on click / ▸ / → / chip / #how, ends on the
+back cover, no visible face overflows in spread mode, hidden faces inert,
+every link on faces 1–7 hit-testable at 390, swipe advances, no console
+errors, no horizontal overflow. tsc, eslint and vitest pass. The production
+build in the detached worktree FAILED on something unrelated: exceljs
+(athlete earnings export) → unzipper → fstream requires `rimraf`, and
+`node_modules/rimraf` on this machine is an empty folder (last written
+21:22 today), so Turbopack cannot resolve it. The same commit that built
+clean earlier today fails the same way once its build cache is gone. Fix is
+an install (`npm ci`), not code — left for the owner because the dev server
+was live. No tracker row — design pass on a shipped screen.
+
+Worth a follow-up: at 1440 the 3:2 spread leaves the lower half of pages
+02–04 blank (the copy is short); a real issue would fill it with a photo or
+a pull quote per page.
+
 ## Walkthrough: step 4b and the Hawks' set-up shot; sponsor approval raised
 
 - **The gap.** The user noticed step 4 never shows BTG approving the sponsor. That step doesn't exist in the product:

@@ -167,6 +167,10 @@
   --color-next-soft: var(--sx-next-soft);
 
   --font-sans: var(--font-poppins);
+
+  /* /next/about magazine faces — `font-mag`, `font-mag-serif` (spec §2) */
+  --font-mag: var(--font-bebas), Impact, "Arial Narrow", sans-serif;
+  --font-mag-serif: var(--font-source-serif), Georgia, "Times New Roman", serif;
 }
 
 body {
@@ -205,13 +209,23 @@ body {
    transparent (the gradient shows through them), so an inherited
    text-shadow would paint *behind* them and muddy the blue; it is turned
    off here and the drop shadow comes from a filter instead. */
-.sx-hero-gradient {
+.sx-hero-gradient,
+.sx-hero-gradient-accent {
   background: linear-gradient(90deg, #9be0ff 0%, #4fb6ff 45%, #2e9bf5 100%);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
   text-shadow: none;
   filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.7)) drop-shadow(0 4px 18px rgba(0, 0, 0, 0.5));
+}
+/* The logo's orange (X bolt / "Brand Impact", #F97A1F) as the second
+   headline hue. The landing's stops follow the lockup's tagline split —
+   blue first, orange second — so each headline's closing phrase takes this
+   and its single highlighted word stays blue (owner's call, 2026-10-01).
+   Dark literals like the blue above: the city under it is dark in both
+   themes. The `.sx-hero-shimmer` band is white and works on either. */
+.sx-hero-gradient-accent {
+  background-image: linear-gradient(90deg, #ffd1a6 0%, #fb923c 45%, #f97a1f 100%);
 }
 
 /* Glass panel with the mockup's bracket corners (top-left, bottom-right). */
@@ -1048,6 +1062,39 @@ html.lenis body { height: auto; }
 .sx-join-sheen:hover::after { animation: sx-join-sweep 0.9s ease both; }
 .sx-join-sheen[data-armed="true"]::after { animation: sx-join-sweep 0.9s ease 0.15s both; }
 
+/* /join stage (redesign 2026-09-30, join-stage.tsx). The page is a fixed-dark
+   .sx-stage in both themes, and the wizard inside it reads themed tokens
+   (bg-surface-2, text-muted, border-line, text-primary ...) - so, like
+   .sx-login, the subtree re-pins them to dark values. Without this a Frost
+   user got dark-theme glass holding light-theme ink. Surface-2 and line are
+   the stage's navy rather than the portal greys, so fields sit in the glass. */
+.sx-join {
+  --sx-bg: #0a0c10;
+  --sx-surface: #12151d;
+  --sx-surface-2: #0b1628;
+  --sx-line: #1f2d44;
+  --sx-line-soft: #16223a;
+  --sx-text: #f4f5f7;
+  --sx-text-muted: #8f9ab0;
+  --sx-text-faint: #7e88a0;
+  --sx-cta-ink: #0a0c10;
+  --sx-primary: #2e9bf5;
+  --sx-primary-soft: #63b4f8;
+  --sx-accent: #f97a1f;
+  --sx-accent-soft: #fb923c;
+  --sx-danger: #ff4d4f;
+  --sx-warn: #facc15;
+  --sx-success: #22c98d;
+  color-scheme: dark;
+}
+/* The phone hero is a poster for the intro only: once the athlete is in a
+   section (or has submitted) the wizard writes data-phase and the form
+   takes the screen. No attribute yet (SSR, no JS) -> the hero shows. */
+.sx-join[data-phase]:not([data-phase="intro"]) .sx-join-mhero { display: none; }
+/* Filled progress segments glow; the row carries the filter because each
+   segment clips its own wipe (overflow: hidden) and would clip a shadow. */
+.sx-join-segs { filter: drop-shadow(0 0 3px rgba(79, 176, 255, 0.55)); }
+
 /* --------------------------------------------------------------------------
    Matching Studio motion (P4-ART-01, 2026-09-21). The studio rides the join
    and chart systems above (sx-join-rise/-step/-seg/-draw/-sheen, sx-expand,
@@ -1744,3 +1791,357 @@ html[data-sx-loaded] [data-sx-landing] .sx-line {
   .sx-glow-turn { animation: none; }
   .sx-underline { transition: none; }
 }
+
+/* --------------------------------------------------------------------------
+   /packages stage (packages-stage.tsx, packages-fx.tsx). The page is a
+   fixed-dark "media" ground in both themes, like the 3D city behind the
+   landing, so the same dark literals as the landing HUD are used on
+   purpose (the --sx-on-media rule) and none of it responds to the theme.
+   - `.sx-stage`: the ground — the brand's night sky on the landing's
+     poster blue-black, plus a faint dot grid.
+   - `.sx-stage-floor`: the hero's receding perspective grid.
+   - `.sx-stage-word`: the giant outlined "PACKAGES" behind the hero.
+   - `.sx-stage-in` / `.sx-stage-line`: the hero's entrance — pieces rise
+     in, headline lines wipe up out of a mask — once the loading screen or
+     the page transition sets `html[data-sx-loaded]`. Before JS arms the
+     stage (`[data-armed]`, StageReveal) nothing is hidden, so no-JS and
+     a hydration hiccup both show the page.
+   - `[data-reveal]`: everything below the hero rises in as it scrolls into
+     view (`data-in`), staggered by `--i`.
+   - `.sx-bar`, `.sx-meter`, `.sx-ladder-range`, `.sx-ladder-node`: the
+     range card's bars, the athlete meters and the ladder's nodes and
+     ranges grow in when their block arrives.
+   Reduced motion: no wipe, no rise, no growth — pieces simply appear; the
+   pointer effects stand down through their own rules.
+   -------------------------------------------------------------------------- */
+.sx-stage {
+  --sx-stage-bg: #04070e;
+  background:
+    radial-gradient(80% 60% at 78% 92%, rgba(249, 122, 31, 0.14), transparent 55%),
+    radial-gradient(70% 55% at 20% 8%, rgba(46, 155, 245, 0.16), transparent 60%),
+    radial-gradient(circle at 1px 1px, rgba(158, 208, 255, 0.07) 1px, transparent 1.5px) 0 0 / 28px 28px,
+    var(--sx-stage-bg);
+}
+
+.sx-stage-floor {
+  position: absolute;
+  inset: 54% -40% -2%;
+  background-image:
+    linear-gradient(90deg, rgba(127, 208, 255, 0.16) 1px, transparent 1px),
+    linear-gradient(0deg, rgba(127, 208, 255, 0.14) 1px, transparent 1px);
+  background-size: 64px 64px, 100% 48px;
+  transform: perspective(520px) rotateX(64deg);
+  transform-origin: 50% 0;
+  -webkit-mask-image: linear-gradient(180deg, transparent, #000 25%, #000 70%, transparent);
+  mask-image: linear-gradient(180deg, transparent, #000 25%, #000 70%, transparent);
+  animation: sx-floor 6s linear infinite;
+}
+@keyframes sx-floor {
+  from { background-position: 0 0, 0 0; }
+  to { background-position: 0 0, 0 48px; }
+}
+
+.sx-stage-word {
+  color: transparent;
+  -webkit-text-stroke: 1px rgba(158, 208, 255, 0.1);
+  -webkit-mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.9), transparent 90%);
+  mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.9), transparent 90%);
+}
+
+/* hero entrance — armed by StageReveal, released by html[data-sx-loaded] */
+[data-sx-stage][data-armed] .sx-stage-in {
+  opacity: 0;
+  transform: translate3d(0, 22px, 0);
+  transition: opacity 0.9s var(--sx-ease), transform 0.9s var(--sx-ease);
+  transition-delay: var(--sx-reveal-delay, 0s);
+}
+[data-sx-stage][data-armed] .sx-stage-line {
+  clip-path: inset(0 -10% 100% -10%);
+  transform: translate3d(0, 0.45em, 0);
+  transition: clip-path 1.05s cubic-bezier(0.2, 0.8, 0.2, 1), transform 1.05s cubic-bezier(0.2, 0.8, 0.2, 1);
+  transition-delay: var(--sx-reveal-delay, 0s);
+}
+html[data-sx-loaded] [data-sx-stage][data-armed] .sx-stage-in {
+  opacity: 1;
+  transform: none;
+}
+html[data-sx-loaded] [data-sx-stage][data-armed] .sx-stage-line {
+  clip-path: inset(-40% -10% -40% -10%);
+  transform: none;
+}
+
+/* scroll reveals */
+[data-sx-stage][data-armed] [data-reveal] {
+  opacity: 0;
+  transform: translate3d(0, 34px, 0);
+  transition: opacity 0.9s var(--sx-ease), transform 0.9s var(--sx-ease);
+  transition-delay: calc(var(--i, 0) * 110ms);
+}
+[data-sx-stage][data-armed] [data-reveal][data-in] {
+  opacity: 1;
+  transform: none;
+}
+/* the catalogue cards also carry the pointer tilt on an inner box, so the
+   reveal's transform on the <li> and the tilt never fight */
+
+/* growth on arrival: bars, meters, ladder */
+[data-sx-stage][data-armed] .sx-bar {
+  transform: scaleY(0);
+  transform-origin: bottom;
+  transition: transform 1s var(--sx-ease);
+  transition-delay: calc(0.6s + var(--i, 0) * 70ms);
+}
+html[data-sx-loaded] [data-sx-stage][data-armed] .sx-bar { transform: none; }
+
+[data-sx-stage][data-armed] .sx-meter {
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  transition-delay: calc(0.35s + var(--s, 0) * 40ms);
+}
+[data-sx-stage][data-armed] [data-in] .sx-meter { opacity: 1; }
+
+[data-sx-stage][data-armed] .sx-ladder-range {
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 0.9s var(--sx-ease);
+  transition-delay: calc(0.3s + var(--i, 0) * 90ms);
+}
+[data-sx-stage][data-armed] .sx-ladder-node {
+  opacity: 0;
+  transform: translate3d(0, 14px, 0);
+  transition: opacity 0.7s var(--sx-ease), transform 0.7s var(--sx-ease);
+  transition-delay: calc(0.25s + var(--i, 0) * 90ms);
+}
+[data-sx-stage][data-armed] [data-in] .sx-ladder-range { transform: none; }
+[data-sx-stage][data-armed] [data-in] .sx-ladder-node { opacity: 1; transform: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  .sx-stage-floor { animation: none; }
+  [data-sx-stage][data-armed] .sx-stage-in,
+  [data-sx-stage][data-armed] .sx-stage-line,
+  [data-sx-stage][data-armed] [data-reveal],
+  [data-sx-stage][data-armed] .sx-bar,
+  [data-sx-stage][data-armed] .sx-meter,
+  [data-sx-stage][data-armed] .sx-ladder-range,
+  [data-sx-stage][data-armed] .sx-ladder-node {
+    opacity: 1;
+    transform: none;
+    clip-path: none;
+    transition: none;
+  }
+}
+
+/* Bottom sheet (the /packages filters on a phone — packages-fx.tsx). Same
+   contract as the slide-over drawer above: slides fully off ↔ on, unmount
+   rides the -out animationend, reduced motion shortens to 1ms. */
+@keyframes sx-sheet-in {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+@keyframes sx-sheet-out {
+  from { transform: translateY(0); }
+  to { transform: translateY(100%); }
+}
+.sx-sheet { animation: sx-sheet-in 0.42s var(--sx-ease) both; }
+.sx-sheet-out { animation: sx-sheet-out 0.22s var(--sx-ease) both; }
+@media (prefers-reduced-motion: reduce) {
+  .sx-sheet,
+  .sx-sheet-out { animation-duration: 1ms; }
+}
+
+/* --------------------------------------------------------------------------
+   /next/about magazine stage (next-about-stage.tsx, next-about-fx.tsx;
+   design spec 2026-09-30). Sits inside `.sx-stage` (the landing's dark
+   ground) and adds the paper. Every ink here is a fixed literal on purpose:
+   the page is fixed-dark in both themes, like /packages and /join, and the
+   paper's palette is the BTG Sports Talk Magazine logo's, not the theme's.
+   - `.sx-book*`: the interactive magazine (next-about-book.tsx). The book
+     is four leaves of two faces; `data-f` (current face) and `data-k`
+     (leaves turned) drive the 3D turn from lg, the single-page hinge
+     below lg, and the 25% shift that centres a closed or finished book.
+     `<noscript>` lays the faces out flat.
+   - `.sx-mag-dropcap`: the first letter of a page's first paragraph, in the
+     display face and the page's tone (`--mag-drop`).
+   - `.sx-mag-cols`: two text columns from xl.
+   - `.sx-mag-cover-glow`: the cover's pointer glow (`--gx/--gy/--glow`
+     from CoverGlow); `[data-pulse]` plays it once on touch.
+   - `.sx-mag-shelf`: the lit shelf line under the newsstand covers.
+   Reduced motion: no flip, no shade, no glow pulse, no hover lift.
+   -------------------------------------------------------------------------- */
+.sx-mag {
+  --mag-paper: #fbfbf9;
+  --mag-ink: #0b1a3a;
+  --mag-red: #e0192b;
+  --mag-yellow: #ffd12b;
+  --mag-blue: #2e9bf5;
+}
+
+.sx-mag-dropcap::first-letter {
+  float: left;
+  font-family: var(--font-mag), Impact, sans-serif;
+  font-size: 5.3em;
+  line-height: 0.76;
+  padding: 0.08em 0.12em 0 0;
+  color: var(--mag-drop, var(--mag-red));
+}
+
+@media (min-width: 80rem) {
+  .sx-mag-cols {
+    columns: 2;
+    column-gap: 32px;
+  }
+  .sx-mag-cols > * {
+    break-inside: avoid;
+  }
+}
+
+/* cover glow */
+.sx-mag-cover-glow {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  mix-blend-mode: screen;
+  opacity: var(--glow, 0);
+  transition: opacity 0.5s ease;
+  background: radial-gradient(
+    240px circle at var(--gx, 50%) var(--gy, 28%),
+    rgba(127, 208, 255, 0.38),
+    rgba(46, 155, 245, 0.14) 40%,
+    transparent 70%
+  );
+}
+[data-pulse] .sx-mag-cover-glow { animation: sx-mag-pulse 2.2s ease 1.2s 1; }
+@keyframes sx-mag-pulse {
+  0% { opacity: 0; }
+  40% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+/* newsstand */
+.sx-mag-shelf {
+  height: 1px;
+  background: rgba(191, 224, 255, 0.7);
+  box-shadow: 0 0 10px rgba(120, 190, 255, 0.9), 0 0 22px rgba(46, 155, 245, 0.55);
+}
+.sx-mag-mini > span:first-child {
+  transition: transform 0.35s var(--sx-ease), box-shadow 0.35s var(--sx-ease);
+}
+
+/* ---------------------------------------------------------------- book */
+.sx-book-wrap { --sx-book-w: min(1180px, 100%); }
+.sx-book {
+  position: relative;
+  width: var(--sx-book-w);
+  aspect-ratio: 3 / 2;
+  margin: 0 auto;
+  perspective: 2200px;
+  transition: transform 0.8s var(--sx-ease);
+  user-select: none;
+  touch-action: pan-y;
+}
+.sx-book[data-k="0"] { transform: translateX(-25%); }
+.sx-book[data-k="4"] { transform: translateX(25%); }
+.sx-leaf {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: 50%;
+  height: 100%;
+  transform-origin: 0 50%;
+  transform-style: preserve-3d;
+  transition: transform 1.05s cubic-bezier(0.35, 0, 0.25, 1);
+  cursor: pointer;
+}
+.sx-leaf[data-turned] { transform: rotateY(-180deg); }
+.sx-face {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  background: var(--mag-paper);
+  color: var(--mag-ink);
+}
+.sx-face-front { border-radius: 0 4px 4px 0; box-shadow: inset 18px 0 24px -18px rgba(0, 0, 0, 0.28); }
+.sx-face-back { transform: rotateY(180deg); border-radius: 4px 0 0 4px; box-shadow: inset -18px 0 24px -18px rgba(0, 0, 0, 0.28); }
+.sx-face-dark { background: transparent; color: var(--sx-on-media, #f4f5f7); }
+.sx-leaf-shade {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(90deg, rgba(0, 0, 0, 0.28), transparent 40%);
+  opacity: 0;
+  transition: opacity 0.55s ease;
+}
+.sx-leaf[data-turning] .sx-leaf-shade { opacity: 1; }
+.sx-book-hint {
+  animation: sx-book-hint 2s ease-in-out infinite;
+}
+@keyframes sx-book-hint {
+  0%, 100% { box-shadow: 0 0 12px rgba(255, 209, 43, 0.25); }
+  50% { box-shadow: 0 0 26px rgba(255, 209, 43, 0.6); }
+}
+.sx-book-shadow {
+  position: absolute;
+  inset: auto 6% -6% 6%;
+  height: 12%;
+  background: radial-gradient(50% 50% at 50% 50%, rgba(0, 0, 0, 0.55), transparent 70%);
+  filter: blur(6px);
+  pointer-events: none;
+  /* under every leaf: a turned leaf sits at z-index 0 and would otherwise
+     wear the shadow across its lower edge (.sx-book is a stacking context) */
+  z-index: -1;
+}
+
+/* page mode: one face at a time, hinging in and out */
+@media (max-width: 63.999rem) {
+  .sx-book-wrap { --sx-book-w: min(100%, 520px); }
+  .sx-book { aspect-ratio: 3 / 4; perspective: 1400px; }
+  .sx-book[data-k] { transform: none; }
+  .sx-leaf { left: 0; width: 100%; transform: none !important; transition: none; }
+  .sx-face { display: none; transform: none; overflow-y: auto; }
+  .sx-face[data-show] { display: block; animation: sx-page-in 0.4s cubic-bezier(0.2, 0.8, 0.2, 1); transform-origin: var(--sx-page-in-origin, 100% 50%); }
+  .sx-face[data-leaving] { display: block; animation: sx-page-out 0.4s cubic-bezier(0.4, 0, 0.6, 1) forwards; transform-origin: var(--sx-page-out-origin, 0 50%); pointer-events: none; }
+  .sx-leaf-shade { display: none; }
+}
+@keyframes sx-page-in { from { transform: rotateY(var(--sx-page-in-from, 70deg)); opacity: 0.4; } to { transform: none; opacity: 1; } }
+@keyframes sx-page-out { from { transform: none; opacity: 1; } to { transform: rotateY(var(--sx-page-out-to, -70deg)); opacity: 0; } }
+
+/* controls */
+.sx-book-btn {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  border: 1px solid rgba(127, 208, 255, 0.5);
+  color: #bfe0ff;
+  transition: border-color 0.2s, color 0.2s;
+}
+.sx-book-btn:hover:not(:disabled) { border-color: #bfe0ff; color: #fff; }
+.sx-book-btn:disabled { opacity: 0.3; }
+.sx-book-chip {
+  border: 1px solid rgba(156, 199, 255, 0.3);
+  background: rgba(7, 19, 42, 0.6);
+  border-radius: 4px;
+  padding: 7px 11px;
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  transition: border-color 0.2s, color 0.2s;
+}
+.sx-book-chip[aria-current="true"] { border-color: #ffd12b; color: #ffd12b; }
+
+@media (prefers-reduced-motion: reduce) {
+  [data-pulse] .sx-mag-cover-glow { animation: none; }
+  .sx-mag-mini > span:first-child { transition: none; }
+  .sx-book, .sx-leaf { transition: none; }
+  .sx-leaf-shade { display: none; }
+  .sx-book-hint { animation: none; }
+  .sx-face[data-show] { animation: sx-page-fade 0.15s ease; }
+  @media (max-width: 63.999rem) {
+    .sx-face[data-show], .sx-face[data-leaving] { transform: none; }
+    .sx-face[data-leaving] { display: none; }
+  }
+}
+@keyframes sx-page-fade { from { opacity: 0; } to { opacity: 1; } }

@@ -5,7 +5,7 @@
 | | |
 |---|---|
 | **Goal** | Turn SponsorX from BTG-only operations into a multi-tenant marketplace. External athletes, teams, programs, events and media properties onboard, publish inventory, fulfil deliverables and get paid. |
-| **Tasks** | 82 · 317 person-days |
+| **Tasks** | 95 · 363 person-days |
 | **Blueprint timeline** | 16–20 weeks |
 | **Balanced budget** | $80K–$120K |
 | **Depends on** | Phase 1 auth/RBAC, sponsor/property/inventory/campaign/reward models, Zoho integration, core analytics |
@@ -235,6 +235,91 @@ Today a sponsor's request from the public form becomes a Zoho lead and nothing m
 - **Done when:** A sponsor's request appears in BTG's queue with its business type; approving it creates the sponsor, its contact and a login the requester can sign in with, and links the Zoho account without a duplicate; declining tells the requester why; only BTG admin and sales can decide; tenant and role tests cover it
 - **Reference:** Spec §3, §12, §18; walkthrough 2026-09-30
 
+### ⏸ `2S1-BE-06` · Organizations are approved automatically; BTG reviews afterwards
+
+**Order** 12.6 · **BE** · **Where:** Code · **5d** · **Ready**
+
+BTG has at most one person reviewing, so the system approves an organization itself and BTG checks it afterwards. The checklist ticks itself from what is uploaded: the documents each organization type and state requires (`missingFor`). The primary contact must also confirm their email by clicking a link. The organization's name must be unique across the whole platform: compared ignoring case, spaces, punctuation, a leading "The" and legal endings such as LLC or Inc, enforced by the database, and counting applications still in progress. When every item is ticked and the name is free, the organization is approved and its manager's login created, as a manual approval does today. Anything else goes to BTG's queue, and the applicant is told why (for example "This name is already registered; add your town or contact BTG"). For every organization added, BTG admins get an email with a link to its profile page. **Reject** on that page, with a reason that is emailed to the organization, withdraws an approved organization: its login and listing access are switched off, its listings end, and any pending payouts are held. BTG can reinstate it. Every automatic approval and every reject is audited. Raised 2026-10-01 from the BTG admin review.
+
+- **Depends on:** 2S1-BE-03, 2S1-BE-04
+- **Done when:** An organization with every required document, a confirmed contact email and a unique name is approved without BTG; a duplicate name (after normalising) is refused, even between two applications at once; anything incomplete goes to BTG's queue with the reason shown to the applicant; BTG admins are emailed for each new organization with a link to its profile; Reject withdraws access, ends listings, holds payouts and emails the reason; tenant and role tests cover it
+- **Reference:** Spec §3, §12; BTG admin review 2026-10-01
+
+### ⏸ `2S1-BE-07` · Organizations update their documents after approval
+
+**Order** 12.7 · **BE** · **Where:** Code · **2d** · **Ready**
+
+An approved organization can replace an uploaded document or add a new one from its portal (for example an expired ID or a renewed registration). Each change re-runs the checklist. BTG admins are emailed with a link to the profile page, and a required document removed without a replacement flags the organization for BTG, without suspending it automatically. The previous file is kept, so the history is visible. Raised 2026-10-01 from the BTG admin review.
+
+- **Depends on:** 2S1-BE-02, 2S1-BE-06
+- **Done when:** An approved organization can replace or add documents; each change re-runs the checklist, keeps the previous file and emails BTG admins a link; a missing required document flags the organization for BTG; only the organization's own manager can change its documents
+- **Reference:** Spec §3, §12; BTG admin review 2026-10-01
+
+### ⏸ `2S1-BE-08` · AGENCY as an organization type
+
+**Order** 12.8 · **BE** · **Where:** Code · **2d** · **Ready**
+
+Add **AGENCY** (an athlete management or talent agency) to the organization types, beside TEAM, SCHOOL, EVENT, MEDIA and VIRTUAL. Its documents: a business registration in every state (an agency is a business wherever it operates), the contact's identity, and proof it represents the athletes it lists (a representation agreement). Like a team, it has a roster and takes an agreed share of its athletes' sales. It works everywhere an organization type is used: onboarding, the property record, commission rules scoped by property kind, and search and filters. Raised 2026-10-01 from the BTG admin review.
+
+- **Depends on:** 2S1-BE-01
+- **Done when:** An agency can apply, is held to its own document list, can hold a roster and an agreed share, and can be targeted by commission rules like any other organization type
+- **Reference:** Spec §3, §12; BTG admin review 2026-10-01
+
+### ⏸ `2S1-BE-09` · Adult athletes are approved automatically
+
+**Order** 12.85 · **BE** · **Where:** Code · **4d** · **Ready**
+
+BTG has at most one reviewer, so an adult athlete is approved by the system and checked afterwards. Approval needs four things: the application complete, with the date of birth now required, a government ID uploaded, the athlete's email confirmed by link, and no likely duplicate (the same email, or the same legal name and date of birth as an existing athlete). A likely duplicate goes to BTG's queue. "Adult" uses the age of majority of the athlete's state or country (2S1-BE-12). For every athlete approved, BTG admins are emailed a link to the New sign-ups page (2S1-FE-07), where **Reject** (reason emailed) withdraws the athlete's access, ends their listings and holds their payouts, and **Reinstate** undoes it. ID files go to the private storage bucket, uploaded directly from the browser. Only BTG admins can view them, through 5-minute links, and every view is audited. Raised 2026-10-01 from the BTG admin review.
+
+- **Depends on:** 2S1-BE-06, P3-BE-15
+- **Done when:** An adult with a complete application, a government ID and a confirmed email who is not a likely duplicate is approved and can sign in without BTG; a likely duplicate goes to BTG's queue; BTG admins are emailed for each; Reject withdraws access, ends listings, holds payouts and emails the reason; ID files are viewable only by BTG admins through short-lived, audited links
+- **Reference:** Spec §4, §26, §37; BTG admin review 2026-10-01
+
+### ⏸ `2S1-BE-10` · Minors: the guardian's page, documents and automatic approval
+
+**Order** 12.86 · **BE** · **Where:** Code · **5d** · **Ready**
+
+An athlete under their state's or country's age of majority names a guardian, who gets an email with a link to their own page. There the guardian enters their name, relationship and phone, uploads a government ID and proof they are the guardian (such as a birth certificate naming them, a court order or a school record), and accepts the guardian agreement. Opening the link confirms the guardian's email; the minor confirms their own email too. The minor uploads a school ID, or another ID that proves who they are, instead of a government ID. When both emails are confirmed and the guardian's and minor's documents are uploaded, both are approved automatically, and BTG admins are emailed as for adults. One guardian can be the guardian of several athletes. **Linked rejection:** rejecting a guardian rejects every athlete they are the guardian of; rejecting one athlete leaves the guardian and their other athletes alone. The guardian evidence recorded is "guardian confirmed by email, with ID and proof, at <time>". Whether that is enough under the law is an open legal question (the guardian e-signature decision), and it does not block this task: BTG gets a setting that also requires a staff confirmation for minors, so a later legal answer needs no rebuild. Raised 2026-10-01 from the BTG admin review.
+
+- **Depends on:** 2S1-BE-09, P3-BE-15
+- **Done when:** A minor and their guardian are approved without BTG once both emails are confirmed, the guardian's ID and proof of guardianship and the minor's ID are uploaded and the guardian agreement is accepted; a guardian can have several athletes; rejecting a guardian rejects all their athletes, and rejecting an athlete does not reject the guardian; the staff-confirmation setting holds minors for BTG when switched on
+- **Reference:** Spec §4, §26, §37; BTG admin review 2026-10-01
+
+### ⏸ `2S1-BE-11` · The guardian acts for the minor
+
+**Order** 12.87 · **BE** · **Where:** Code · **5d** · **Ready**
+
+For a minor, every agreement and every money action comes from the guardian's account: accepting offers and orders, listing items, setting up the payout account on Stripe in the guardian's name, and requesting payouts. The minor's own login can view everything and upload their content (photos, videos, deliverables); each upload emails the guardian. Every route that agrees to something or moves money refuses a minor's own login and accepts their guardian's. Raised 2026-10-01 from the BTG admin review.
+
+- **Depends on:** 2S1-BE-10, 2S5-BE-04
+- **Done when:** For a minor, only the guardian can accept, list, set up payouts or request a payout, and the minor's login is refused for each (tested route by route); the minor can upload content and the guardian is emailed for every upload; an adult's account is unaffected
+- **Reference:** Spec §4, §26, §37; BTG admin review 2026-10-01
+
+### ⏸ `2S1-BE-12` · Age of majority by state and country, and coming of age
+
+**Order** 12.88 · **BE** · **Where:** Code · **4d** · **Ready**
+
+The age that makes an athlete an adult is the age of majority of the state or country they live in. It comes from a table BTG can edit: most US states use 18, Alabama and Nebraska 19, and Mississippi 21; countries are added with their own age. A place not in the table counts as 18 and is flagged for BTG. The age is worked out from the date of birth, and again whenever the athlete changes state or country. **Coming of age:** when a minor reaches their place's age, they have a **90-day allowance** to become an adult account by uploading a government ID. Once they do, control moves from the guardian to the athlete and the guardian is told. Throughout those 90 days:
+  - A reminder stays on the athlete's and guardian's pages until it is done.
+  - **Neither the athlete nor the guardian can add items or start anything new:** no new listings, offers or orders accepted, and no new payout requests. Orders and campaigns already under way continue to the end, including their deliveries and payouts.
+  - Reminder emails go to both the athlete and the guardian when the allowance starts, then 30, 14, 7 and 1 days before it ends.
+
+If the 90 days end without it done, **both accounts are terminated**: the athlete's and the guardian's. When the guardian has other athletes still under age, only the guardian's link to this athlete ends, so their other children aren't cut off. A terminated account falls under the 30-day retention and reactivation rules (2S1-BE-13): uploading the government ID within those 30 days brings it back. Anything still under way at termination goes to BTG to settle, and money already earned stays owed to the payee. Raised 2026-10-01 from the BTG admin review.
+
+- **Depends on:** 2S1-BE-10
+- **Done when:** Adulthood follows the athlete's state or country, from the date of birth, using the editable table; an unknown place counts as 18 and is flagged; during the 90-day allowance neither the athlete nor the guardian can add items or start a new transaction while existing orders and campaigns continue, a reminder persists on both portals, and reminder emails go out at the start and 30, 14, 7 and 1 days before the end; uploading a government ID moves control from the guardian to the athlete; if it isn't done in 90 days both accounts are terminated (only the guardian's link ends when they have other minors), under the 30-day retention and reactivation rules
+- **Reference:** Spec §4, §26, §37; BTG admin review 2026-10-01
+
+### ⏸ `2S1-BE-13` · Closing an account, 30-day retention and coming back
+
+**Order** 12.89 · **BE** · **Where:** Code · **3d** · **Ready**
+
+Athletes, guardians and organizations can close their account. A closed or rejected account's ID and verification files are kept for **30 days**, then deleted permanently by a daily job, with the deletion audited. A person who closed their own account and comes back within those 30 days reactivates it from a reactivation page: their account and files become active again, and the automatic checks run again. A rejected account can only ask to come back, and that request goes to BTG. After 30 days, coming back means signing up again. Raised 2026-10-01 from the BTG admin review.
+
+- **Depends on:** 2S1-BE-09, 2S1-BE-06
+- **Done when:** Closing an account keeps its files for 30 days and then deletes them permanently, with an audit record; returning within 30 days through the reactivation page restores the account and its files (self-closed) or asks BTG (rejected); after 30 days the files are gone and a new sign-up is needed
+- **Reference:** Spec §4, §26, §37; BTG admin review 2026-10-01
+
 ### ⏸ `2S1-FE-01` · Build the property onboarding wizard
 
 **Order** 13 · **FE** · **Where:** Code · **5d** · **Blocked**
@@ -264,6 +349,56 @@ BTG's queue of new sponsor requests: who is asking, their business type, their m
 - **Depends on:** 2S1-BE-05
 - **Done when:** BTG can review a sponsor's request, approve it (the sponsor can then sign in) or decline it with a reason, from the admin portal
 - **Reference:** Spec §10; walkthrough 2026-09-30
+
+### ⏸ `2S1-FE-04` · The applicant's checklist and the documents page
+
+**Order** 14.6 · **FE** · **Where:** Code · **3d** · **Blocked**
+
+In the onboarding wizard: the live checklist of required documents, ticking as each is uploaded; the email confirmation step; the "name already registered" message; and AGENCY as a type. In the property portal after approval: a Documents page to replace or add files, showing each document's status and history.
+
+- **Depends on:** 2S1-BE-06, 2S1-BE-07, 2S1-BE-08, 2S0-ART-01
+- **Done when:** An applicant sees exactly what is still missing and is approved when nothing is; an approved organization can replace or add its documents from its portal
+- **Reference:** Spec §3, §12; BTG admin review 2026-10-01
+
+### ⏸ `2S1-FE-05` · BTG's organization profile page with Reject
+
+**Order** 14.7 · **FE** · **Where:** Code · **2d** · **Blocked**
+
+The page BTG's email links to: the organization's details, its documents, the automatic checklist as it was when approved, and its activity. It has **Reject** (a required reason, emailed to the organization) and Reinstate, plus an "Automatically approved" list in the admin portal for spot checks.
+
+- **Depends on:** 2S1-BE-06, 2S1-BE-07, 2S0-ART-01
+- **Done when:** From the emailed link, a BTG admin can review an automatically approved organization and reject it with a reason, or reinstate it; recent automatic approvals are listed for spot checks
+- **Reference:** Spec §3, §12; BTG admin review 2026-10-01
+
+### ⏸ `2S1-FE-06` · Athlete and guardian sign-up screens
+
+**Order** 14.75 · **FE** · **Where:** Code · **4d** · **Blocked**
+
+In the athlete application: the government ID upload (adults) or school ID upload (minors), the email confirmation step, and the guardian's details. The guardian's own page from their email: their details, government ID, proof of guardianship and the guardian agreement. Each screen shows what is still needed before approval.
+
+- **Depends on:** 2S1-BE-09, 2S1-BE-10, 2S0-ART-01
+- **Done when:** An adult and a minor with their guardian can each complete sign-up, see what is still missing, and are approved when nothing is
+- **Reference:** Spec §4, §26, §37; BTG admin review 2026-10-01
+
+### ⏸ `2S1-FE-07` · BTG's New sign-ups page
+
+**Order** 14.8 · **FE** · **Where:** Code · **3d** · **Blocked**
+
+One page for BTG's single reviewer, with every automatic approval: organizations (2S1-FE-05's profile pages), athletes and guardians. Each email from 2S1-BE-06, -09 and -10 links here. It shows the uploaded documents through the 5-minute viewer, with **Reject** (required reason) and **Reinstate**, and shows the guardian-athlete link: rejecting a guardian lists which athletes it rejects with them. It also holds the likely-duplicate and flagged items (an unknown place, a missing document after an update).
+
+- **Depends on:** 2S1-BE-09, 2S1-BE-10, 2S1-FE-05
+- **Done when:** From the emailed link, BTG can see every new organization, athlete and guardian with their documents, and reject or reinstate each, with a guardian's rejection shown to include their athletes
+- **Reference:** Spec §4, §26, §37; BTG admin review 2026-10-01
+
+### ⏸ `2S1-FE-08` · The guardian's controls, the coming-of-age reminder, and closing or reactivating an account
+
+**Order** 14.85 · **FE** · **Where:** Code · **4d** · **Blocked**
+
+For a minor: the guardian's portal acts for them (offers, orders, listings, payout account and payouts), and the minor's portal shows those actions as the guardian's. The coming-of-age reminder stays on the athlete's and guardian's pages throughout the 90-day allowance, counting down, with the government-ID upload that completes it, and the actions that are paused (adding items, new transactions) are shown as unavailable with the reason. The account settings have Close account and the reactivation page.
+
+- **Depends on:** 2S1-BE-11, 2S1-BE-12, 2S1-BE-13, 2S0-ART-01
+- **Done when:** A guardian can do every agreement and money action for their minor from their own portal; the coming-of-age reminder persists until done; an account can be closed and reactivated within 30 days
+- **Reference:** Spec §4, §26, §37; BTG admin review 2026-10-01
 
 ### ⏸ `2S1-INT-01` · Onboarding notification jobs
 

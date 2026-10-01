@@ -172,7 +172,7 @@ export function ClosingCopy() {
       <h2 className="sx-wipe mt-[clamp(4px,1svh,12px)] text-[clamp(22px,min(7.4vw,4.4svh),44px)] font-bold lg:mt-3 lg:text-[clamp(30px,2.7vw,50px)] leading-[1.08] tracking-tight [text-shadow:0_2px_6px_rgba(0,0,0,.7),0_4px_28px_rgba(0,0,0,.6)]">
         Real Athletes.
         <br />
-        <span className="sx-hero-gradient sx-hero-shimmer" data-text="Real Partnerships.">Real Partnerships.</span>
+        <span className="sx-hero-gradient-accent sx-hero-shimmer" data-text="Real Partnerships.">Real Partnerships.</span>
       </h2>
 
       <p className="mt-[clamp(4px,1svh,12px)] max-w-[440px] text-[clamp(13px,1.9svh,16px)] leading-[1.45] text-on-media/85 [text-shadow:0_1px_3px_rgba(0,0,0,.9),0_2px_16px_rgba(0,0,0,.7)] lg:mt-4 lg:text-[17px] lg:[@media(max-height:800px)]:mt-3 lg:[@media(max-height:800px)]:text-[15px] max-lg:[@media(max-height:800px)]:hidden">

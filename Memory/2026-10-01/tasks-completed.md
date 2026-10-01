@@ -1,4 +1,73 @@
-# 2026-10-01
+# 2026-10-01 — tasks completed
+
+## Landing: the logo's orange joins the type — owner's preference, via Claude
+
+The landing (`/`) was blue throughout. The owner asked for an orange theme in
+the fonts, taken from the logo. The lockup's colours are blue `#2E9BF5` and
+orange `#F97A1F` (the X bolt and "BRAND IMPACT"), per
+`documentation/Design/marketing-visuals/exports/logos/README.md`, and the
+tagline reads blue-then-orange — so that split is the rule on every stop:
+the headline's single highlighted word stays blue (or the athlete stop's cyan)
+and its closing phrase takes the orange. Type only; buttons, HUD frames, icons
+and rings stay blue.
+
+- `globals.css` — `.sx-hero-gradient-accent`, the orange twin of the blue
+  headline gradient (`#ffd1a6 → #fb923c → #f97a1f`, same clip and drop-shadow).
+  The white `.sx-hero-shimmer` band works on it unchanged. Dark literals on
+  purpose: the city under the landing is dark in both themes.
+- Hero — "Reward Fans." in the orange gradient (no shimmer; "Measure Results."
+  keeps the blue one and its shimmer). Platform strip — the "THE PLATFORM"
+  label, its rule and "grow." in `#fb923c`.
+- How it works — `works` in `#fb923c` (the stop has no second line).
+- For sponsors — "Real Measurable Impact." orange; "Partnerships." stays blue.
+- For athletes — "Build Lasting Partnerships." orange; "Athletes." stays cyan.
+- Join the movement — "Real Partnerships." orange.
+
+Verified: `npm run build` (frontend) green, ESLint and `tsc` clean on the
+changed files, and the five stops screenshotted at 1440×900 from a production
+`next start` with Playwright — orange reads on every headline, nothing wraps.
+`/packages` and `/join` still use the blue `.sx-hero-gradient`; they were not
+touched (the ask was the landing) and are the natural next place for the same
+split if the owner wants it.
+
+Not a board task — a polish request — so no tracker row.
+
+## /packages and /join follow the landing's orange — owner's preference, via Claude
+
+Same rule as the landing, same class. `packages-stage.tsx`: hero line three
+"You Measure Impact." in the orange gradient under the blue "We Match
+Athletes."; every section head's accent phrase (`SectionHead`'s `accent`) and
+the CTA band's "We'll build the lineup." take `.sx-hero-gradient-accent`.
+`join-stage.tsx`: "Your Sponsors." orange under the blue "Your Game."; the CTA
+band's "Every campaign after it." orange. Eyebrows stay blue (they come first;
+the orange is the closing phrase). Build, ESLint and `tsc` green; both pages
+screenshotted at top, middle and CTA band. The landing paragraph above no
+longer applies where it says these two pages were untouched.
+
+## Plaza hologram: the 3D X is now the logo's X — owner's preference, via Claude
+
+The hologram above the plaza pedestal was a generic two-bar X in primary blue.
+The owner asked for the logo X's colour style. `pedestal.tsx` now extrudes the
+two polygons of `sponsorx-x-dark.svg` — the orange lightning bolt (left,
+`BRAND.orange`) and the white chrome blade (right, `BRAND.white`, lower
+emissive, a little metalness) — to a 3D letter with the lockup's 8° italic
+lean (a shear on the geometry). Same size, depth, lift, spin, bob, scan lines
+(one shared alpha map, scrolled through the bolt material's ref — the linter
+forbids touching it through the props) and edge outlines (bolt `#ffc48a`,
+blade white). Rings, dais and projector cone stay primary blue, so the plaza
+carries the brand's three colours. Collision boxes and `VENUE_DIMS` unchanged;
+the city layout and venue-box tests pass (34). Build, ESLint and `tsc` green;
+two hero frames screenshotted a couple of seconds apart show the bolt and
+blade from two angles as it turns.
+
+## Fixed in passing: the frontend build was broken locally
+
+`next build` failed with `Module not found: Can't resolve 'rimraf'` from
+exceljs → unzipper → fstream (the athlete earnings export). The root
+`node_modules/rimraf` folder existed but was empty (timestamp 2026-09-30 21:22;
+something had hollowed it out). `npm install` restored rimraf 2.7.1 from the
+lockfile — no lockfile or package.json change. If your build shows the same
+error, run `npm install` at the root.
 
 ## GitHub Actions cut to once a day; deploys at 8 pm Manila
 
@@ -37,3 +106,52 @@ The user agreed the recommendations and set the sponsor's confirmation window to
 - **2S4-BE-08** (2d, Ready): a daily job sends overdue reminders, lists overdue lines for BTG, and closes an order 30 days after its last line is confirmed, which releases the reserve.
 - **2S4-FE-03** (3d, Blocked): the seller's Orders page, in both the athlete and team portals.
 - **2S4-FE-04** (4d, Blocked): the delivery screens for the seller, the sponsor and BTG.
+
+## BTG admin review: organizations approved automatically (5 tasks; Phase 2 is now 87 tasks, 331 days)
+
+- **The decision.** The user listed every BTG intervention; the table is in Google Drive at Process / "BTG Admin Interventions". The user decided that organizations are approved automatically: BTG has at most one reviewer, so we push automation.
+- **The rules:**
+  - Required documents are ticked automatically.
+  - The contact must confirm their email.
+  - The organization name is unique platform-wide, compared ignoring case, spaces, punctuation, a leading "The" and LLC/Inc. The database enforces it, and pending applications count.
+  - BTG admins are emailed for every new organization with a link to its profile page.
+  - **Reject** after approval switches off login and listing access, ends listings, holds payouts and emails the reason. BTG can reinstate.
+  - Approved organizations can update their documents from their portal.
+  - New organization type: **AGENCY**.
+- **Raised:**
+  - **2S1-BE-06** (5d): automatic approval, unique names, email confirmation, the BTG email and Reject.
+  - **2S1-BE-07** (2d): document updates after approval.
+  - **2S1-BE-08** (2d): the AGENCY type.
+  - **2S1-FE-04** (3d): the applicant's checklist and the Documents page.
+  - **2S1-FE-05** (2d): BTG's organization profile page with Reject and an "Automatically approved" list.
+
+## BTG admin review: athletes and guardians approved automatically (8 tasks; Phase 2 is now 95 tasks, 362 days)
+
+**Decided with the user:**
+- **Adults** are approved automatically. Needed: a government ID, a confirmed email, a complete application (date of birth now required) and no likely duplicate.
+- **Minors.** A school ID or similar for the minor. The guardian's own page collects their details, a government ID, proof of guardianship and the guardian agreement. Both emails must be confirmed, then approval is automatic.
+  - **The guardian's account does every agreement and money action.** The minor can upload content, and the guardian is emailed for each upload.
+  - Rejecting a guardian rejects all their athletes, not the reverse.
+- **BTG** is emailed for every automatic approval, with a link to a "New sign-ups" page offering Reject and Reinstate.
+- **Age of majority** follows the athlete's state or country, from an editable table. Unknown places count as 18 and are flagged.
+- **Coming of age:** a 90-day allowance with a persistent reminder; after that, new listings and payouts pause until a government ID is uploaded.
+- **Files** are kept in the private R2 bucket (5-minute audited views for BTG admins), retained 30 days after an account closes, with reactivation within those 30 days.
+
+**Assumptions stated to the user:**
+- The pause after the 90 days.
+- A rejected account can only request reactivation; BTG decides.
+- A staff-confirmation setting for minors, so the open guardian e-signature legal question needs no rebuild and doesn't block the build.
+
+**Raised:**
+- Backend: **2S1-BE-09** adults (4d), **2S1-BE-10** minors and guardians (5d), **2S1-BE-11** the guardian acts for the minor (5d), **2S1-BE-12** age of majority and coming of age (3d), **2S1-BE-13** close, retention and reactivation (3d).
+- Frontend: **2S1-FE-06** sign-up screens (4d), **2S1-FE-07** New sign-ups page (3d), **2S1-FE-08** guardian controls, the coming-of-age reminder and close/reactivate (4d).
+
+## Coming-of-age rules set (2S1-BE-12 is now 4 days)
+
+The user set the 90-day rules:
+- During the allowance, neither the athlete nor the guardian can add items or start new transactions. Existing orders and campaigns continue.
+- Reminder emails go out at the start and 30, 14, 7 and 1 days before the end.
+- If the government ID still isn't uploaded after 90 days, both accounts are terminated.
+  - My assumption: if the guardian has other minors, only the guardian's link to this athlete ends.
+  - The 30-day retention and reactivation rules apply.
+  - In-flight items go to BTG, and earned money stays owed.

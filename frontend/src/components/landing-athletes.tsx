@@ -298,7 +298,7 @@ export function ForAthletes() {
       <h2 className="sx-wipe mt-[clamp(4px,1svh,12px)] text-[clamp(18px,min(5.8vw,4svh),38px)] font-bold lg:mt-3 lg:text-[clamp(30px,2.3vw,42px)] leading-[1.12] tracking-tight [text-shadow:0_2px_6px_rgba(0,0,0,.7),0_4px_28px_rgba(0,0,0,.6)]">
         <span className="block lg:whitespace-nowrap">Find the Right <span className="text-[#5ee0ff]">Athletes.</span></span>
         <span className="block lg:whitespace-nowrap">
-          <span className="sx-hero-gradient sx-hero-shimmer" data-text="Build Lasting Partnerships.">Build Lasting Partnerships.</span>
+          <span className="sx-hero-gradient-accent sx-hero-shimmer" data-text="Build Lasting Partnerships.">Build Lasting Partnerships.</span>
         </span>
       </h2>
 

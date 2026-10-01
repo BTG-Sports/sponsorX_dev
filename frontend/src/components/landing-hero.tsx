@@ -444,15 +444,15 @@ export function PlatformStrip() {
   return (
     <div className="relative z-10 flex w-full flex-wrap items-center justify-between gap-6 bg-gradient-to-b from-[#04080f]/70 to-[#02050a]/85 py-7 pl-[7.5vw] pr-[8vw] text-on-media backdrop-blur-lg [@media(max-height:800px)]:py-4">
       <div>
-        <p className="flex items-center gap-3 text-[10px] font-medium uppercase tracking-[0.32em] text-primary-soft">
-          <span aria-hidden="true" className="h-px w-6 bg-primary-soft" />
+        <p className="flex items-center gap-3 text-[10px] font-medium uppercase tracking-[0.32em] text-[#fb923c]">
+          <span aria-hidden="true" className="h-px w-6 bg-[#fb923c]" />
           The Platform
           <span aria-hidden="true" className="sx-hud-dashes ml-2" />
         </p>
         <h2 className="mt-3 text-[30px] font-bold leading-[1.1] tracking-tight sm:text-[34px]">
           A smarter way to
           <br />
-          sponsor, engage and <span className="text-primary-soft">grow.</span>
+          sponsor, engage and <span className="text-[#fb923c]">grow.</span>
         </h2>
       </div>
 
