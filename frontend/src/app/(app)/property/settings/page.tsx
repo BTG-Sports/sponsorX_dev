@@ -2,7 +2,7 @@ import { AccountSettings } from "@/components/account-settings";
 import { SkeletonPage } from "@/components/states";
 import { demoState } from "@/lib/demo";
 import { requirePortalAccess } from "@/server/portal";
-import { propertySettingsLinkAction } from "./actions";
+import { propertyCloseAccountAction, propertySettingsLinkAction } from "./actions";
 
 /* --------------------------------------------------------------------------
    Settings — 2S1-FE-08, the property portal (Claude Design Account.dc.html,
@@ -13,9 +13,10 @@ import { propertySettingsLinkAction } from "./actions";
    Reads  Clerk currentUser()                the sign-in email (live)
           GET /payouts/account               the payout account (live)
    Writes POST /payouts/account/link         Stripe ↗ (live, propertySettingsLinkAction)
-          close the account                  2S1-BE-13 — not built; disabled
+          POST /me/close                     close the account (live, propertyCloseAccountAction, 2S1-BE-13)
 
-   The reactivation page is a scaffold reached from the notice at the top.
+   Closing ends at the public /reactivate page (2S1-BE-13); its two cases
+   are previews reached from the notice at the top.
    ?demo=loading|error renders the branded states.
    -------------------------------------------------------------------------- */
 
@@ -32,10 +33,11 @@ export default async function PropertySettingsPage({ searchParams }: { searchPar
       seat="property"
       accountWords="property manager account"
       linkAction={propertySettingsLinkAction}
+      closeAction={propertyCloseAccountAction}
       noPayeeLine="There’s no payout account for this login. Ask BTG to link it to your property."
       previews={[
-        { href: "/property/settings/reactivate", label: "reactivate within 30 days" },
-        { href: "/property/settings/reactivate?case=btg", label: "closed by BTG" },
+        { href: "/reactivate?demo=self", label: "reactivate within 30 days" },
+        { href: "/reactivate?demo=btg", label: "closed by BTG" },
       ]}
     />
   );

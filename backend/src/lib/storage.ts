@@ -31,6 +31,7 @@
  * to the private bucket.
  */
 import {
+  DeleteObjectCommand,
   GetObjectCommand,
   HeadBucketCommand,
   HeadObjectCommand,
@@ -232,6 +233,18 @@ export async function getPrivateObject(key: string): Promise<Buffer> {
     throw new Error(`Object ${key} returned no readable body.`);
   }
   return Buffer.from(await body.transformToByteArray());
+}
+
+/**
+ * 2S1-BE-13 — delete a private object for good: a closed account's ID and
+ * verification files once their 30 days are up. Worker-side only (the
+ * retention job). Deleting a key that is already gone succeeds, so a job
+ * that runs twice changes nothing the second time. The caller audits the
+ * deletion; nothing is handed to anyone here.
+ */
+export async function deletePrivateObject(key: string): Promise<void> {
+  assertSafeKey(key);
+  await s3.send(new DeleteObjectCommand({ Bucket: BUCKETS.private, Key: key }));
 }
 
 /**

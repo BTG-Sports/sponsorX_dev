@@ -6,6 +6,8 @@ import { OrderGateRecordCard } from "@/components/order-gate-record";
 import { OrderPayButton, PaymentRefresher } from "@/components/order-payment";
 import { ShopSteps } from "@/components/shop-bits";
 import { ShopCancelOrder } from "@/components/shop-checkout";
+import { SponsorOrderDelivery } from "@/components/sponsor-order-delivery";
+import type { ApiOrderDeliveries } from "@/lib/sponsor-delivery-live";
 import {
   TEST_PROVIDER_BADGE,
   orderTracker,
@@ -35,6 +37,10 @@ import { requirePortalAccess } from "@/server/portal";
           move a sponsor may make, and only before payment.
           (OrderPayButton → payment-actions.ts)
           POST /marketplace-orders/:id/pay → redirect to the provider's page.
+   2S4-FE-04 — delivery (SponsorOrderDelivery → delivery-actions.ts):
+   Reads  GET /marketplace-orders/:id/deliveries  (each line's delivery; no shares)
+   Writes POST /deliveries/:lineId/confirm · POST /deliveries/:lineId/problem
+          — within 24 hours of the seller marking it; silence confirms.
 
    While the provider confirms (latest PROCESSING) the page refreshes itself
    every 3s until the order is PAID. Honest gaps: no receipt or invoice link
@@ -64,9 +70,10 @@ export default async function OrderPage({
     </Link>
   );
 
-  const [res, payRes] = await Promise.all([
+  const [res, payRes, deliveryRes] = await Promise.all([
     apiFetch(`/marketplace-orders/${encodeURIComponent(id)}`),
     apiFetch(`/marketplace-orders/${encodeURIComponent(id)}/payment`).catch(() => null),
+    apiFetch(`/marketplace-orders/${encodeURIComponent(id)}/deliveries`).catch(() => null),
   ]);
   if (res.status === 403 || res.status === 404) {
     return (
@@ -87,6 +94,8 @@ export default async function OrderPage({
   /* A failed payment read degrades the card to "couldn't be loaded", never the page. */
   const payment = payRes?.ok ? ((await payRes.json()) as ApiOrderPayment) : null;
   const pay = paymentView(o.state, payment);
+  /* Delivery rows exist from contract time; a failed read hides the section, never the page. */
+  const deliveries = deliveryRes?.ok ? ((await deliveryRes.json()) as ApiOrderDeliveries) : null;
   const steps = orderTracker(o, pay, payment);
 
   return (
@@ -161,6 +170,11 @@ export default async function OrderPage({
             ))}
           </ul>
           <p className="text-[11px] text-muted">{paymentHint(pay.kind) ?? c.hint}</p>
+          {deliveries && deliveries.lines.length > 0 && (
+            <div className="pt-2">
+              <SponsorOrderDelivery orderId={o.id} lines={deliveries.lines} canWrite={canWrite} now={new Date().toISOString()} />
+            </div>
+          )}
         </section>
 
         <aside className="mt-5 space-y-3 lg:mt-0">

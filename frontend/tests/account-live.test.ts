@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  closeLine, comingOfAgeView, daysLeft, payoutLine, reactivateView, sampleClosedAccount, sampleComingOfAge, signInLine,
+  closeLine, comingOfAgeView, daysLeft, payoutLine, sampleComingOfAge, signInLine,
 } from "@/lib/account-live";
 import { accountPanel } from "@/lib/payouts-live";
 
@@ -35,31 +35,7 @@ describe("closing", () => {
   });
 });
 
-describe("reactivating", () => {
-  it("counts the 30 days from closing", () => {
-    const v = reactivateView(sampleClosedAccount("CLOSED_SELF", "Riley", now), now);
-    expect(v?.kind).toBe("self");
-    if (v?.kind !== "self") return;
-    expect(v.left).toBe("23 days left");
-    expect(v.headline).toBe("Riley, your account closed on Sep 24.");
-    expect(v.body).toMatch(/^Reactivate by Oct 24/);
-    expect(v.canReactivate).toBe(true);
-  });
-  it("after 30 days there's nothing to reactivate", () => {
-    const v = reactivateView({ state: "CLOSED_SELF", greeting: "Riley", closedAt: new Date(now.getTime() - 31 * DAY).toISOString() }, now);
-    expect(v?.kind === "self" && v.canReactivate).toBe(false);
-  });
-  it("an account closed by BTG can't reactivate itself — it asks BTG", () => {
-    const v = reactivateView(sampleClosedAccount("CLOSED_BY_BTG", "Riley", now), now);
-    expect(v?.kind).toBe("btg");
-    if (v?.kind !== "btg") return;
-    expect(v.body).toMatch(/can’t reactivate it yourself/);
-    expect(v.kept).toBe("Your documents are kept until Oct 24, then deleted.");
-  });
-  it("an active account has no reactivation page", () => {
-    expect(reactivateView({ state: "ACTIVE", greeting: "Riley", closedAt: null }, now)).toBeNull();
-  });
-});
+/* Reactivating (2S1-BE-13) is tested in account-closure-live.test.ts. */
 
 describe("coming of age", () => {
   it("counts down the 90 days, from either side", () => {

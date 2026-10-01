@@ -26,10 +26,9 @@ import {
    Public (renders on /athletes/[slug]) or Private (BTG-internal), because
    "who sees this?" is the first question every athlete asks.
 
-   The managed-marketplace model (§10) shapes the save semantics: Save marks
-   the section complete and queues it for BTG review — nothing claims to go
-   live instantly. Edits are client state only (fixtures are static), and the
-   page says so.
+   Save semantics follow 2S1-BE-14 (2026-10-01): an approved athlete's
+   edits publish at once, with no BTG review. In this prototype they are
+   client state only (fixtures are static), and the page says so.
 
    Two §26 rules are load-bearing here: the rate card is confirmed, never
    edited (BTG sets rates; the athlete's rate never renders publicly), and
@@ -293,7 +292,7 @@ export function ProfileEditor({ initialSection }: { initialSection?: string }) {
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="size-3" aria-hidden="true">
             <path d="m5 13 4 4L19 7" />
           </svg>
-          Saved — queued for BTG review
+          Saved (in this tab only — a sample profile)
         </span>
       ) : (
         !valid[key] && <span className="text-[11px] text-faint">{invalidHint}</span>

@@ -37,6 +37,12 @@
  * decision (or policy), never through a transition; payment states will be
  * set by the payment webhooks (2S5) through the same function staff use now.
  * The figures are Postgres's to keep from APPROVED on.
+ *
+ * THE LINES (2S4-BE-06 / -07). Contracting opens a delivery row per line and
+ * tells each seller of the sale (delivery.ts `openDeliveries`); every move
+ * then takes the lines with it (`followOrder`) — paid opens delivery,
+ * cancelling or refunding ends it, and BTG fulfilling by hand confirms what
+ * is left, never over a problem a sponsor reported.
  */
 import type { Prisma } from "../generated/prisma/client";
 import { prisma } from "../db/client";
@@ -51,6 +57,7 @@ import { convertReservation, lockItems } from "./reservation";
 import { acceptAgreementIn, AgreementTextChangedError } from "./agreement";
 import { currentOrderTerms } from "./order-terms";
 import { bookOrder, markOrderPaid, releaseReserve, reverseOrder } from "./ledger";
+import { followOrder, openDeliveries } from "./delivery";
 import {
   approvalReasons,
   billingProblems,
@@ -115,6 +122,8 @@ async function contract(tx: Prisma.TransactionClient, order: Row, by: string, no
   });
   /* 2S4-BE-04 / 2S5-BE-02 — contract time: the breakdown frozen, the ledger booked, in this transaction. */
   await bookOrder(tx, order.id, now);
+  /* 2S4-BE-06 — the sold lines, as their sellers will read them; each seller emailed. */
+  await openDeliveries(tx, order.id);
   await audit(tx, auditor, "marketplaceOrder.approve", "MarketplaceOrder", order.id, {
     before: { state: "PENDING_APPROVAL" }, after: { state: "APPROVED", decidedBy: by, contracted: true, totalCents: order.totalCents },
   });
@@ -271,6 +280,19 @@ export async function moveOrderAsSystem(tx: Prisma.TransactionClient, orderId: s
   return moveIn(tx, { userId: null, tenantId }, row, to, now, {});
 }
 
+/**
+ * 2S4-BE-07 — an order move made inside another domain's transaction on a
+ * person's word (BTG refunding the last line a sponsor reported a problem
+ * with). The caller has already loaded the order's line through its own scope.
+ */
+export async function moveOrderIn(tx: Prisma.TransactionClient, actor: AuditActor & { tenantId: string }, orderId: string, to: MarketplaceOrderState, now = new Date()) {
+  const order = await tx.marketplaceOrder.findUniqueOrThrow({
+    /* tenant-scope: the order of a delivery row the caller loaded through whereFor(orderDelivery, approve). */
+    where: { id: orderId }, select: SELECT,
+  });
+  return moveIn(tx, actor, order, to, now, {});
+}
+
 async function moveIn(tx: Prisma.TransactionClient, actor: AuditActor & { tenantId: string }, order: Row, to: MarketplaceOrderState, now: Date, extra: Prisma.MarketplaceOrderUpdateInput) {
   const from = order.state as MarketplaceOrderState;
   if (!canTransitionMarketplaceOrder(from, to)) throw new IllegalMarketplaceOrderTransitionError(from, to);
@@ -280,6 +302,8 @@ async function moveIn(tx: Prisma.TransactionClient, actor: AuditActor & { tenant
     /* 2S5-BE-04 — the payout holding period runs from fulfilment. */
     data: { state: to, ...(to === "FULFILLED" ? { fulfilledAt: now } : {}), ...extra }, select: SELECT,
   });
+  /* 2S4-BE-06 / -07 — the order's lines follow it (and FULFILLED is refused over a reported problem). */
+  await followOrder(tx, actor, order.id, to, now);
   if (RELEASES.has(to)) {
     /* 2S5-BE-05 — a payout in progress claims this order's money: it is sent
        back (or fails) before the order can be cancelled or refunded. */

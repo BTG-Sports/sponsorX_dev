@@ -35,6 +35,7 @@ import { athleteNotificationKey, send, type EmailTemplate } from "../lib/email";
 import { env } from "../config/env";
 import { transitionAthleteIn } from "./athlete";
 import { provisionAthleteLoginsIn, type LoginOutcome } from "./athlete-login";
+import { recordClosureIn, REJECT_TAKES_LOGINS } from "./account-closure";
 import type { AthleteState } from "./athlete-state";
 
 /** The three decisions §21 allows out of UNDER_REVIEW. */
@@ -134,6 +135,31 @@ export async function reviewApplication(
        Same transaction as the decision. The outcome goes back to the
        reviewer, because "address-in-use" means this athlete cannot sign in. */
     const login = decision === "APPROVED" ? await provisionAthleteLoginsIn(tx, actor, athleteId) : undefined;
+
+    /* 2S1-BE-13 — every Reject records a closure, this desk's too: the ID
+       documents the sign-up collected (2S1-BE-09 / -10) go on the 30-day
+       purge, and the applicant can ask BTG to look again from the
+       reactivation page. An application has no login yet as a rule; any it
+       has is switched off with the Reject, as on New sign-ups. REJECTED is
+       terminal, so there is no Reinstate here — BTG's "yes" is a new
+       application. */
+    if (decision === "REJECTED") {
+      const logins = await tx.user.findMany({
+        /* tenant-scope: the applicant's own logins, in the reviewer's tenant (the applicant was found through whereFor above). */
+        where: { tenantId: actor.tenantId, athleteId, ...REJECT_TAKES_LOGINS }, select: { id: true },
+      });
+      if (logins.length) {
+        await tx.user.updateMany({
+          /* tenant-scope: the logins found just above. */
+          where: { tenantId: actor.tenantId, id: { in: logins.map((u) => u.id) } },
+          data: { disabledAt: new Date(), disabledReason: `applicationReject:athlete:${athleteId}` },
+        });
+      }
+      await recordClosureIn(tx, actor, {
+        subjectKind: "ATHLETE", subjectId: athleteId, cause: "REJECTED", reason: notes ?? null, userIds: logins.map((u) => u.id),
+        contactEmail: applicant.email ?? "", displayName: firstNameOf(applicant.legalName, applicant.displayName),
+      });
+    }
 
     /* A claimed FEATURED athlete's email is set at verification, so every
        applicant reaching a decision has one; the guard is for the type, and a

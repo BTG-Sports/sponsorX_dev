@@ -1,6 +1,8 @@
 import { SellerOrdersList } from "@/components/seller-orders";
+import { EmptyState } from "@/components/states";
 import { demoState } from "@/lib/demo";
-import { sampleOrders } from "@/lib/seller-orders-live";
+import type { ApiSellerOrder } from "@/lib/seller-orders-live";
+import { apiFetch } from "@/server/api";
 import { requirePortalAccess } from "@/server/portal";
 
 /* --------------------------------------------------------------------------
@@ -9,10 +11,8 @@ import { requirePortalAccess } from "@/server/portal";
    sale the team made, with the team's own share only — each athlete's
    share is on their own Orders page.
 
-   SCAFFOLD — sample data. Reads nothing yet: GET /marketplace-orders is
-   BTG's, Finance's and the buying sponsor's (policy.ts `marketplaceOrder`);
-   a PROPERTY_MGR gets 403. The sellers' view is 2S4-BE-06.
-   Will read  GET /marketplace-orders   (seller scope, own share — 2S4-BE-06)
+   Reads  GET /sales   the team's own sold lines and own share; the
+                       sponsor's contact only once paid (2S4-BE-06)
    ?demo=loading|empty|error renders the branded states.
    -------------------------------------------------------------------------- */
 
@@ -20,5 +20,13 @@ export const dynamic = "force-dynamic";
 
 export default async function PropertySalesPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   await requirePortalAccess("property");
-  return <SellerOrdersList kind="team" orders={sampleOrders("team")} demo={await demoState(searchParams)} />;
+  const demo = await demoState(searchParams);
+  if (demo) return <SellerOrdersList kind="team" orders={[]} demo={demo} />;
+  const res = await apiFetch("/sales");
+  if (res.status === 403) {
+    return <EmptyState mark="inbox" title="No property is linked to this login" hint="The team's sales belong to its manager. Ask BTG to link your login to your team." />;
+  }
+  if (!res.ok) return <SellerOrdersList kind="team" orders={[]} demo="error" />;
+  const { sales } = (await res.json()) as { sales: ApiSellerOrder[] };
+  return <SellerOrdersList kind="team" orders={sales} demo={null} />;
 }

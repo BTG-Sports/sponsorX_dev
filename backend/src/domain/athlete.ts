@@ -59,7 +59,20 @@ export async function transitionAthlete(
  * an actor is made explicit in the type, so every bypass of the role check is
  * one `grep` away.
  */
-export type SystemActor = { readonly system: true; tenantId: string; userId: null };
+export type SystemActor = {
+  readonly system: true;
+  tenantId: string;
+  userId: null;
+  /**
+   * 2S1-BE-09 / -10 — the automatic sign-up approval, and only it. BTG has at
+   * most one reviewer, so the programme owner agreed (2026-10-01) that the
+   * system approves and BTG checks afterwards: an athlete whose checks all
+   * passed (signup-rules.ts) is activated with no person behind it. The §37
+   * guardian gate below still runs — a minor's guardian must be verified
+   * first, by the same checks. Every other system path is refused ACTIVE.
+   */
+  readonly signupChecksPassed?: true;
+};
 export type TransitionActor = Actor | SystemActor;
 
 function isSystemActor(actor: TransitionActor): actor is SystemActor {
@@ -94,10 +107,11 @@ export async function transitionAthleteIn(
        activated without a verified guardian, and the whole point of that gate
        is that a human being decided. A path with no actor must never be the
        thing that grants someone the ability to take paid work. */
-    if (to === "ACTIVE") {
+    if (to === "ACTIVE" && !actor.signupChecksPassed) {
       throw new Error(
         "A system transition may not activate an athlete. Activation is a " +
-          "decision with a person behind it (§37) — use an Actor.",
+          "decision with a person behind it (§37) — use an Actor — or the " +
+          "automatic sign-up approval, once every check has passed.",
       );
     }
   } else {
@@ -111,6 +125,7 @@ export async function transitionAthleteIn(
       state: true,
       birthDate: true,
       ageBand: true,
+      majorityAge: true,
       guardianId: true,
       guardian: { select: { verifiedAt: true } },
     },
@@ -131,6 +146,7 @@ export async function transitionAthleteIn(
     const readiness = guardianReadiness({
       birthDate: athlete.birthDate,
       ageBand: athlete.ageBand,
+      majorityAge: athlete.majorityAge,
       guardianId: athlete.guardianId,
       guardianVerifiedAt: athlete.guardian?.verifiedAt ?? null,
     });
@@ -231,7 +247,7 @@ export async function activateAthlete(
       where: { id: athleteId, tenantId: actor.tenantId },
       select: {
         id: true, state: true, legalName: true, displayName: true, email: true,
-        stateCode: true, sport: true, birthDate: true, ageBand: true,
+        stateCode: true, sport: true, birthDate: true, ageBand: true, signupRejectedAt: true,
       },
     });
     if (!athlete) throw new ForbiddenError("athlete", "write");
@@ -239,6 +255,8 @@ export async function activateAthlete(
     const from = athlete.state as AthleteState;
     if (from === "SUSPENDED") throw new ReinstatementRequiredError();
     if (from !== "APPROVED") throw new IllegalTransitionError(from, "ACTIVE");
+    /* 2S1-BE-09 — BTG rejected this sign-up after approval; Reinstate (New sign-ups) is the way back. */
+    if (athlete.signupRejectedAt) throw new ReinstatementRequiredError();
 
     const missing = missingApplicationFields(athlete);
     if (missing.length > 0) throw new ProfileIncompleteError(missing);

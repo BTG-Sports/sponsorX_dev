@@ -61,6 +61,14 @@ export type EmailTemplate =
   | "onboarding.approved"
   | "onboarding.rejected"
   | "onboarding.suspended"
+  /* 2S1-BE-06 — automatic approval: the contact confirms their email; BTG
+     admins hear of every new organisation; a Reject after approval, and a
+     reinstatement. 2S1-BE-07 — BTG admins hear of every document change. */
+  | "onboarding.confirmEmail"
+  | "onboarding.newOrganization"
+  | "onboarding.accountRejected"
+  | "onboarding.reinstated"
+  | "onboarding.documentChanged"
   /* 2S1-BE-05 — BTG's decision on a business asking to sponsor. */
   | "sponsor.accountOpened"
   | "sponsor.requestDeclined"
@@ -72,7 +80,82 @@ export type EmailTemplate =
   | "sponsor.accountReinstated"
   /* 2S2-FE-03 — an athlete asks for a change to a sent offer; to the
      campaign manager(s). */
-  | "offer.changeRequested";
+  | "offer.changeRequested"
+  /* 2S2-FE-03 follow-up — the athlete (and a minor's guardian) hears that an
+     offer was sent; that BTG kept it as it stands, with BTG's reply; or that
+     BTG is revising it and a new one is coming. */
+  | "offer.sent"
+  | "offer.changeKept"
+  | "offer.revising"
+  /* 2S4-BE-06 — a seller (the team's manager, the athlete) hears of each
+     sale: when it is approved, and when the sponsor has paid. */
+  | "sale.approved"
+  | "sale.paid"
+  /* 2S4-BE-07 / -08 — delivery: the sponsor is asked to confirm; the seller
+     hears it was confirmed, or put on hold by a problem; BTG hears of each
+     problem; everyone hears BTG's decision; a late seller is reminded. */
+  | "delivery.marked"
+  | "delivery.confirmed"
+  | "delivery.problem"
+  | "delivery.onHold"
+  | "delivery.resolved"
+  | "delivery.overdue"
+  /* 2S2-BE-05 — a team invites an athlete already on SponsorX; the team
+     hears the answer; either side ending the link tells the other. */
+  | "team.invited"
+  | "team.invitationAnswered"
+  | "team.linkEnded"
+  /* 2S1-BE-13 — closing an account and coming back: the owner is told it
+     closed (with the reactivation link), sent a fresh link on request, and
+     told when it is back; a rejected account's request reaches BTG admins,
+     and BTG's "no" reaches the person. */
+  | "account.closed"
+  | "account.reactivationLink"
+  | "account.reactivated"
+  | "account.reactivationRequested"
+  | "account.reactivationDeclined"
+  /* 2S1-BE-14 — BTG admins are told about sensitive profile edits only. */
+  | "athlete.sensitiveEdit"
+  /* 2S1-BE-15 — the guardian handoff: the new guardian confirms their email;
+     the current guardian is asked; a decline points to BTG support; the
+     switch is told to all three and to BTG admins. */
+  | "handoff.confirmEmail"
+  | "handoff.requested"
+  | "handoff.declined"
+  | "handoff.switchedNew"
+  | "handoff.switchedPrevious"
+  | "handoff.switchedAthlete"
+  | "handoff.btgNotice"
+  /* 2S1-BE-15 — a dispute decided by hand: a BTG admin replaced a guardian
+     (both guardians and the athlete are told, with the reason); and a
+     handoff waiting for BTG because "BTG staff confirm minors" is on. */
+  | "guardian.replacedByBtg"
+  | "handoff.staffConfirm"
+  /* 2S1-BE-16 — a contact-form message to the support mailbox, and the
+     sender's copy. */
+  | "support.message"
+  | "support.copy"
+  /* 2S1-BE-09 / -10 — athletes and guardians approved automatically: the
+     athlete's email confirmation, the guardian's set-up link and approval,
+     BTG told of every new sign-up, and BTG's Reject / Reinstate after it. */
+  | "athlete.confirmEmail"
+  | "guardian.setup"
+  | "guardian.approved"
+  | "signup.newSignup"
+  | "athlete.accountRejected"
+  | "athlete.accountReinstated"
+  | "guardian.accountRejected"
+  | "guardian.accountReinstated"
+  /* 2S1-BE-11 — a minor uploaded content; their guardian hears of each one. */
+  | "guardian.contentUploaded"
+  /* 2S1-BE-12 — coming of age: the start, the reminders, taking over, the
+     end of the allowance, the link the guardian sends, and BTG's settling. */
+  | "comingOfAge.started"
+  | "comingOfAge.reminder"
+  | "comingOfAge.completed"
+  | "comingOfAge.terminated"
+  | "comingOfAge.uploadLink"
+  | "comingOfAge.btgSettle";
 
 export type EmailMessage = {
   template: EmailTemplate;
@@ -89,6 +172,14 @@ export type EmailMessage = {
    * this field exists to prevent.
    */
   idempotencyKey: string;
+  /** 2S1-BE-16 — where a reply goes (a support message replies to its sender). */
+  replyTo?: string;
+  /** 2S1-BE-16 — threading headers (Message-ID, In-Reply-To, References), so a
+   *  reply from the support desk continues the sender's thread. */
+  headers?: Record<string, string>;
+  /** 2S1-BE-16 — private-bucket objects the worker attaches. Keys only: the
+   *  bytes are read by the worker at send time, never stored in the outbox. */
+  attachments?: { filename: string; key: string; contentType: string }[];
 };
 
 /**
@@ -118,6 +209,9 @@ export async function send(
     to: message.to,
     data: message.data,
     idempotencyKey: message.idempotencyKey,
+    ...(message.replyTo ? { replyTo: message.replyTo } : {}),
+    ...(message.headers ? { headers: message.headers } : {}),
+    ...(message.attachments?.length ? { attachments: message.attachments } : {}),
   });
 }
 

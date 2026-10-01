@@ -162,7 +162,12 @@ export type Resource =
   | "orderFinancials"
   | "ledgerEntry"
   | "payoutAccount"
-  | "restrictedWord";
+  | "restrictedWord"
+  | "orderDelivery"
+  | "teamInvitation"
+  | "accountClosure"
+  | "guardianHandoff"
+  | "signupRules";
 
 export const RESOURCES: readonly Resource[] = [
   "tenant",
@@ -233,6 +238,11 @@ export const RESOURCES: readonly Resource[] = [
   "ledgerEntry",
   "payoutAccount",
   "restrictedWord",
+  "orderDelivery",
+  "teamInvitation",
+  "accountClosure",
+  "guardianHandoff",
+  "signupRules",
 ] as const;
 
 type RolePolicy = Partial<Record<Role, Partial<Record<Action, Scope>>>>;
@@ -920,6 +930,64 @@ export const POLICY: Record<Resource, RolePolicy> = {
   restrictedWord: {
     SUPER_ADMIN: rwa("any", "any"),
     BTG_ADMIN: rwa("own-tenant", "own-tenant"),
+  },
+
+  /* 2S4-BE-06 / -07 / -08 (matrix §22) — a contracted order line as its
+     sellers see it, and its delivery. The team (own-property) and the athlete
+     whose item it is (own) read their own sold lines — each with their own
+     share only, never the order's other lines, the other party's share or
+     BTG's commission — and mark them delivered (write). The buying sponsor
+     reads its lines and confirms or reports a problem (write, own-sponsor).
+     BTG admin resolves problems (approve); Finance reads. */
+  orderDelivery: {
+    SUPER_ADMIN: rwa("any", "any", "any"),
+    BTG_ADMIN: rwa("own-tenant", "own-tenant", "own-tenant"),
+    FINANCE: rwa("own-tenant"),
+    PROPERTY_MGR: rwa("own-property", "own-property"),
+    ATHLETE: rwa("own", "own"),
+    SPONSOR_ADMIN: rwa("own-sponsor", "own-sponsor"),
+    SPONSOR_ANALYST: rwa("own-sponsor"),
+  },
+  /* 2S2-BE-05 (matrix §22) — a team invites an athlete already on SponsorX.
+     The team's manager sends and withdraws; the athlete accepts or declines
+     their own. Nobody else reads an invitation. */
+  teamInvitation: {
+    SUPER_ADMIN: rwa("any", "any"),
+    PROPERTY_MGR: rwa("own-property", "own-property"),
+    ATHLETE: rwa("own", "own"),
+  },
+  /* 2S1-BE-13 — closed accounts (matrix §23). Closing your OWN account is
+     authorised through the account's own resource (athlete / guardian /
+     property write at `own`), and coming back is the emailed link; this
+     resource is BTG's view of closures and its answer to a rejected
+     account's request to come back. Nobody else reads it. */
+  accountClosure: {
+    SUPER_ADMIN: rwa("any", "any", "any"),
+    BTG_ADMIN: rwa("own-tenant", "own-tenant", "own-tenant"),
+  },
+
+  /* 2S1-BE-15 — a request to become a minor's guardian (matrix §23). It is
+     CREATED only by the new guardian on the public request page (no actor).
+     The current guardian reads and answers requests for their own ward
+     (`ward`); the athlete follows its status (`own`) and can never answer;
+     BTG reads (a dispute is decided by hand, through support), and — when
+     "BTG staff confirm minors" is on — confirms or declines a handed-off
+     request (approve). */
+  guardianHandoff: {
+    SUPER_ADMIN: rwa("any", "any", "any"),
+    BTG_ADMIN: rwa("own-tenant", undefined, "own-tenant"),
+    GUARDIAN: rwa("ward", "ward"),
+    ATHLETE: rwa("own"),
+  },
+
+  /* 2S1-BE-10 / -12 — the rules automatic sign-up approval reads: the
+     age-of-majority table by place, and "BTG staff confirm minors before
+     approval". BTG admins keep them; the network manager, who works the
+     sign-ups they decide, may read them. */
+  signupRules: {
+    SUPER_ADMIN: rwa("any", "any"),
+    BTG_ADMIN: rwa("own-tenant", "own-tenant"),
+    NETWORK_MGR: rwa("own-tenant"),
   },
 };
 

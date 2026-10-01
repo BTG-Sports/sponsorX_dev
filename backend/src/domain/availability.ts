@@ -175,12 +175,15 @@ export async function checkListing(tx: Prisma.TransactionClient, listingId: stri
     where: { id: listingId },
     select: {
       id: true, tenantId: true, state: true, visibility: true, publishAt: true, inventoryItemId: true,
-      property: { select: { listingAccessAt: true } }, sellerAthlete: { select: { state: true, propertyId: true } }, item: { select: { priceCents: true } },
+      property: { select: { listingAccessAt: true } },
+      sellerAthlete: { select: { state: true, propertyId: true, accountClosedAt: true, signupRejectedAt: true, comingOfAgeTerminatedAt: true } },
+      item: { select: { priceCents: true, athlete: { select: { accountClosedAt: true, signupRejectedAt: true, comingOfAgeTerminatedAt: true } } } },
     },
   });
   /* The seller must still be able to sell — a property's listing access, or
      an independent athlete still approved and still without a team (2S3-BE-05). */
-  const live = listing && listing.state === "PUBLISHED" && listing.visibility === "PUBLIC" && sellerProblems(listing).length === 0
+  /* 2S1-BE-13 — and the athlete whose item it is must still have an open account. */
+  const live = listing && listing.state === "PUBLISHED" && listing.visibility === "PUBLIC" && sellerProblems({ ...listing, itemAthlete: listing.item.athlete }).length === 0
     && (!listing.publishAt || listing.publishAt <= new Date());
   if (!listing || !live) {
     return { ok: false as const, reasons: [{ code: "NOT_LISTED" as const, message: "the listing is not live" }], unitPriceCents: 0, itemId: null, itemTenantId: null };

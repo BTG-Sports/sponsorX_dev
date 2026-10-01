@@ -41,9 +41,12 @@ describe("the onboarding state machine, as the state-machine document states it 
     expect(canTransitionOnboarding("DRAFT", "APPROVED")).toBe(false);
     expect(canTransitionOnboarding("APPROVED", "DRAFT")).toBe(false);
     expect(canTransitionOnboarding("SUSPENDED", "REJECTED")).toBe(false);
-    for (const to of ["DRAFT", "PENDING_REVIEW", "APPROVED", "CHANGES_REQUESTED", "SUSPENDED"] as const) {
+    for (const to of ["DRAFT", "PENDING_REVIEW", "CHANGES_REQUESTED", "SUSPENDED"] as const) {
       expect(canTransitionOnboarding("REJECTED", to)).toBe(false);
     }
+    /* 2S1-BE-06 — Reinstate after a Reject; decideOnboarding allows it only
+       for an organisation that had been approved (phase2-org-auto-approval). */
+    expect(canTransitionOnboarding("REJECTED", "APPROVED")).toBe(true);
     expect(canTransitionOnboarding("CHANGES_REQUESTED", "PENDING_REVIEW")).toBe(true);
   });
 
@@ -98,7 +101,10 @@ describe.skipIf(!hasDatabase)("property onboarding over the API", async () => {
   const emails = async (onboardingName: string) =>
     (await prisma.outboxJob.findMany({ where: { tenantId: T, name: "notify.email" }, select: { payload: true }, orderBy: { createdAt: "asc" } }))
       .map((j) => j.payload as { template: string; to: string; data: Record<string, string>; idempotencyKey: string })
-      .filter((p) => p.data.orgName === onboardingName);
+      /* The five decision moments to the primary contact. 2S1-BE-06's email
+         confirmation and BTG's new-organisation notice are tested in
+         phase2-org-auto-approval.test.ts. */
+      .filter((p) => p.data.orgName === onboardingName && p.template !== "onboarding.confirmEmail" && p.template !== "onboarding.newOrganization");
 
   /** The wizard, end to end, as a browser would drive it. */
   async function completeTeam(name: string, stateCode = "CA", contactEmail?: string) {
@@ -319,9 +325,13 @@ describe.skipIf(!hasDatabase)("property onboarding over the API", async () => {
       const { readFileSync } = await import("node:fs");
       const src = readFileSync(new URL("../src/domain/onboarding-documents.ts", import.meta.url), "utf8");
       expect(src).not.toMatch(/presignPublicUpload|R2_PUBLIC_BASE_URL|BUCKETS\.public/);
-      /* A submitted application takes no new documents. */
-      const { tok } = await completeTeam("Locked Docs FC");
-      expect((await call("POST", `/public/onboarding/${tok}/documents`, { kind: "OTHER", filename: "late.pdf", contentType: "application/pdf", bytes: 10 })).status).toBe(409);
+      /* A submitted application still takes the documents it is missing
+         (2S1-BE-06); an approved one takes none through the public token —
+         its manager changes them from the portal (2S1-BE-07). */
+      const { tok, id } = await completeTeam("Locked Docs FC");
+      expect((await call("POST", `/public/onboarding/${tok}/documents`, { kind: "OTHER", filename: "late.pdf", contentType: "application/pdf", bytes: 10 })).status).toBe(201);
+      await call("POST", `/onboarding/${id}/decision`, { decision: "APPROVE" }, "po_reviewer");
+      expect((await call("POST", `/public/onboarding/${tok}/documents`, { kind: "OTHER", filename: "later.pdf", contentType: "application/pdf", bytes: 10 })).status).toBe(409);
     });
   });
 

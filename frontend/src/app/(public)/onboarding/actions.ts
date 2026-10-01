@@ -22,6 +22,12 @@ import { publicApi } from "./public-api";
      document   POST  /public/onboarding/:token/documents    → a private-bucket PUT URL
      confirm    POST  /public/onboarding/:token/documents/:documentId/confirm
      submit     POST  /public/onboarding/:token/submit       (422 carries error.missing[])
+     resend     POST  /public/onboarding/:token/resend-confirmation   (2S1-BE-06)
+
+   Since 2S1-BE-06 a submitted application (PENDING_REVIEW) still takes the
+   documents it is missing, and the API approves it the moment the last
+   check passes. The confirmation email's link is its own page,
+   /onboarding/confirm.
 
    The API decides everything; these forward and turn refusals into copy.
    -------------------------------------------------------------------------- */
@@ -124,12 +130,17 @@ export type UploadGrant = { ok: true; document: ApiOnboardingDocument; uploadUrl
 /** Step one of a document: the API records it and hands back a PUT URL. */
 export async function requestDocumentAction(
   token: string,
-  input: { kind: string; filename: string; contentType: string; bytes: number },
+  input: { kind: string; filename: string; contentType: string; bytes: number; stateCode?: string | null },
 ): Promise<UploadGrant> {
   if (typeof token !== "string" || !token || !input) return { ok: false, status: 400, message: "Pick a file first." };
+  const stateCode = typeof input.stateCode === "string" && /^[A-Z]{2}$/.test(input.stateCode) ? input.stateCode : null;
   const res = await call(`${tokenPath(token)}/documents`, {
     method: "POST",
-    body: JSON.stringify({ kind: input.kind, filename: input.filename, contentType: input.contentType, bytes: input.bytes }),
+    body: JSON.stringify({
+      kind: input.kind, filename: input.filename, contentType: input.contentType, bytes: input.bytes,
+      /* 2S1-BE-08 — a business registration names its state. */
+      ...(stateCode ? { stateCode } : {}),
+    }),
   });
   if (!res) return UNREACHABLE;
   if (res.status !== 201) return refusal(res);
@@ -150,7 +161,25 @@ export async function confirmDocumentAction(token: string, documentId: string): 
   return { ok: true, document: (await res.json()) as ApiOnboardingDocument };
 }
 
-/** Submit for BTG's review. While incomplete the API answers 422 with the list. */
+/** The application as it stands now — the checklist re-ticked after an upload (2S1-BE-06). */
+export async function readOnboardingAction(token: string): Promise<ViewResult> {
+  if (typeof token !== "string" || !token) return { ok: false, status: 400, message: "Unknown application." };
+  const res = await call(tokenPath(token), { method: "GET" });
+  if (!res) return UNREACHABLE;
+  if (!res.ok) return refusal(res);
+  return { ok: true, view: (await res.json()) as ApiOnboarding };
+}
+
+/** 2S1-BE-06 — send the primary contact's confirmation link again. */
+export async function resendConfirmationAction(token: string): Promise<ViewResult> {
+  if (typeof token !== "string" || !token) return { ok: false, status: 400, message: "Unknown application." };
+  const res = await call(`${tokenPath(token)}/resend-confirmation`, { method: "POST" });
+  if (!res) return UNREACHABLE;
+  if (!res.ok) return refusal(res);
+  return { ok: true, view: (await res.json()) as ApiOnboarding };
+}
+
+/** Submit. The API approves at once when every check passes; otherwise it waits with its reasons. 422 carries the missing answers. */
 export async function submitOnboardingAction(token: string): Promise<ViewResult> {
   if (typeof token !== "string" || !token) return { ok: false, status: 400, message: "Unknown application." };
   const res = await call(`${tokenPath(token)}/submit`, { method: "POST" });

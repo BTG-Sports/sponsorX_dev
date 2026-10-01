@@ -4,11 +4,11 @@ import { BlockedNotice } from "@/components/ui";
 import { EmptyState } from "@/components/states";
 import { LiveProfileEditor } from "@/components/live-profile-editor";
 import { sectionStates, type ApiMyProfile } from "@/lib/profile-live";
-import type { ApiProfileChange } from "@/lib/profile-changes-live";
+import { isMinorNow, type ApiProfileChange } from "@/lib/profile-changes-live";
 import type { SectionKey } from "@/lib/profile-sections";
 import { apiFetch, fetchActor } from "@/server/api";
 
-/** States in which an edit is a change request (P3-BE-16). Before approval
+/** States in which an edit applies (P3-BE-16, 2S1-BE-14). Before approval
  *  the application itself is what the athlete edits, at /join. */
 const POST_APPROVAL = ["APPROVED", "ACTIVE", "SUSPENDED"];
 
@@ -16,14 +16,14 @@ const POST_APPROVAL = ["APPROVED", "ACTIVE", "SUSPENDED"];
    Edit profile — §11 sections as an in-portal hub (2026-09-14).
 
    Prototype ahead of P3-BE-01/05 and P3-FE-03: the forms are real, the
-   persistence isn't — edits live in this tab and the page says so. The
-   managed-marketplace framing (§10) is the important part to get right now:
-   Save queues a change for BTG review, nothing claims to publish instantly.
+   persistence isn't — edits live in this tab and the page says so.
 
-   LIVE (P2-FE-01, scope decision 2026-09-29). A signed-in athlete gets the
-   live editor: every section as GET /athletes/me holds it, social accounts
-   editable (PUT /athletes/:id/socials), the rest changed through BTG until a
-   post-approval edit endpoint exists. Anyone else keeps the prototype.
+   LIVE (P2-FE-01, then 2S1-FE-09). A signed-in athlete gets the live
+   editor: every section as GET /athletes/me holds it, and every edit saves
+   at once — socials (PUT /athletes/:id/socials) and the §11 sections
+   (POST /athletes/:id/profile-changes, 2S1-BE-14). A legal name, date of
+   birth or guardian is sensitive: BTG is told and the checks run again.
+   Anyone else keeps the prototype.
    -------------------------------------------------------------------------- */
 
 /** The athlete's own profile, or null for the prototype. No catch: an
@@ -92,9 +92,9 @@ export default async function ProfileEditPage({
     );
   }
   if (me) {
-    /* P3-BE-16 — the athlete's own change requests: the open one (banner,
-       withdraw) and the last decisions. Same rule as the profile: an outage
-       is an error, never a silently empty history. */
+    /* The athlete's own edits: a legal name waiting for its ID (banner,
+       withdraw) and the last sensitive edits' checks. Same rule as the
+       profile: an outage is an error, never a silently empty history. */
     const chRes = await apiFetch("/athletes/me/profile-changes");
     if (!chRes.ok) throw new Error(`Profile changes unavailable (${chRes.status}).`);
     const { changes } = (await chRes.json()) as { changes: ApiProfileChange[] };
@@ -107,7 +107,7 @@ export default async function ProfileEditPage({
           <p className="mt-1 text-xs text-muted">
             Nine sections make up your profile. Five are public, four stay
             between you and BTG — each one says which.
-            {editable ? " Social accounts save straight away; everything else goes to BTG for a quick review first." : ""}
+            {editable ? " Changes save straight away. A legal name, date of birth or guardian is sensitive: BTG is told and the checks run again." : ""}
           </p>
         </div>
         <LiveProfileEditor
@@ -121,6 +121,9 @@ export default async function ProfileEditPage({
             sport: me.sport, position: me.position, school: me.school, level: me.level, gradYear: me.gradYear, achievements: me.achievements,
             contentCapabilities: me.contentCapabilities, brandInterests: me.brandInterests,
             restrictedCategories: me.restrictedCategories, restrictionNotes: me.restrictionNotes,
+            birthDate: me.birthDate ? me.birthDate.slice(0, 10) : null,
+            minor: isMinorNow(me.birthDate, me.ageBand),
+            guardian: me.guardian ? { legalName: me.guardian.legalName, confirmed: Boolean(me.guardian.verifiedAt) } : null,
           }}
           editable={editable}
           changes={changes}
@@ -157,9 +160,9 @@ export default async function ProfileEditPage({
           <path d="M12 3a9 9 0 1 0 9 9M12 7v5l3 3M21 3l-4 1 1 4" />
         </svg>
         <p className="min-w-0 flex-1 text-[11px] leading-relaxed text-muted">
-          Saved changes are reviewed by BTG before they appear publicly —
-          usually within a business day. In this prototype, edits live in this
-          tab only.
+          Signed-in athletes&rsquo; changes save straight away; a legal name, date
+          of birth or guardian also tells BTG and re-runs the checks. In this
+          prototype, edits live in this tab only.
         </p>
       </div>
 

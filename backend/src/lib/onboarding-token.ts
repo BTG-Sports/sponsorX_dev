@@ -32,3 +32,33 @@ export function readOnboardingToken(token: string | undefined | null): string | 
 function sign(id: string): string {
   return createHmac("sha256", env.INTAKE_TOKEN_SECRET).update(PURPOSE + id).digest("base64url");
 }
+
+/* 2S1-BE-06 — the EMAIL token travels only inside the confirmation email,
+   so using it proves the primary contact reads that mailbox. It is signed
+   over the application AND the address: a link sent to an earlier contact
+   confirms nothing once the primary contact changes. The resume token can
+   never confirm an email, and this one never resumes an application. */
+const EMAIL_PURPOSE = "property-onboarding-email:";
+
+const signEmail = (id: string, email: string) =>
+  createHmac("sha256", env.INTAKE_TOKEN_SECRET).update(`${EMAIL_PURPOSE}${id}:${email.trim().toLowerCase()}`).digest("base64url");
+
+export function issueOnboardingEmailToken(onboardingId: string, email: string): string {
+  return `${onboardingId}.${signEmail(onboardingId, email)}`;
+}
+
+/** The application an email token names — not yet checked against an address. */
+export function onboardingIdOfEmailToken(token: string | undefined | null): string | null {
+  if (!token) return null;
+  const cut = token.lastIndexOf(".");
+  return cut > 0 ? token.slice(0, cut) : null;
+}
+
+/** Was this token issued for this application and this address? */
+export function emailTokenMatches(token: string, onboardingId: string, email: string): boolean {
+  const cut = token.lastIndexOf(".");
+  if (cut <= 0 || token.slice(0, cut) !== onboardingId) return false;
+  const provided = Buffer.from(token.slice(cut + 1), "utf8");
+  const expected = Buffer.from(signEmail(onboardingId, email), "utf8");
+  return provided.length === expected.length && timingSafeEqual(provided, expected);
+}

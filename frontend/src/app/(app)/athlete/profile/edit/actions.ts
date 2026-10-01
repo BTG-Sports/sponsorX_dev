@@ -9,9 +9,7 @@ import { apiFetch } from "@/server/api";
    PUT /athletes/:id/socials replaces the athlete's accounts (max 4). The API
    scopes it to the athlete's own row and labels an athlete's own numbers
    SELF_REPORTED whatever the body says, so nothing here can claim a verified
-   count. Every other §11 section changes through BTG for now — there is no
-   post-approval edit endpoint, and the page says so rather than pretending
-   to save.
+   count.
    -------------------------------------------------------------------------- */
 
 export type SocialInput = { platform: "INSTAGRAM" | "TIKTOK" | "YOUTUBE" | "X"; handle: string; followers?: number };
@@ -56,16 +54,24 @@ export async function saveSocials(athleteId: string, socials: SocialInput[]): Pr
 }
 
 /* --------------------------------------------------------------------------
-   P3-BE-16 — every other section: a change REQUEST, held for BTG.
+   2S1-BE-14 / 2S1-FE-09 — every other section saves AT ONCE.
 
-   POST /athletes/:id/profile-changes records what differs from the profile
-   and answers 201 PENDING; the profile itself moves only when BTG approves.
-   The body is passed through as the section the editor built — the API's
-   contract (ProfileChangeInput) validates it, and a 400 comes back as copy.
+   POST /athletes/:id/profile-changes applies what differs and answers 201
+   with the change records: APPROVED (live now) and, for a new legal name,
+   one PENDING with `idUpload` — a presigned PUT for the matching ID, which
+   the browser sends straight to the private bucket before
+   confirmLegalNameIdAction tells the API it arrived. A sensitive edit (legal
+   name, date of birth, guardian) re-runs the checks; their words come back
+   in `checkNotes`. The body is passed through as the section the editor
+   built — the API's contract (ProfileChangeInput) validates it, and a 400
+   comes back as copy.
    -------------------------------------------------------------------------- */
 
 export type ChangeBody = Record<string, unknown>;
-export type ChangeResult = { ok: true; id: string } | { ok: false; message: string };
+export type ChangeResult =
+  | { ok: true; id: string; checkNotes: string[]; idUpload: { changeId: string; uploadUrl: string; contentType: string } | null }
+  | { ok: false; message: string };
+export type SimpleResult = { ok: true } | { ok: false; message: string };
 
 async function apiError(res: Response): Promise<{ code?: string; message?: string }> {
   try {
@@ -84,21 +90,39 @@ export async function submitProfileChange(athleteId: string, body: ChangeBody): 
     res = await apiFetch(`/athletes/${encodeURIComponent(athleteId)}/profile-changes`, { method: "POST", body: JSON.stringify(body) });
   } catch (e) {
     return (e as Error)?.message === "Not signed in."
-      ? { ok: false, message: "Your session ended — sign in again, then send. Nothing changed." }
+      ? { ok: false, message: "Your session ended — sign in again, then save. Nothing changed." }
       : { ok: false, message: "Couldn't reach SponsorX just now — nothing changed. Try again in a minute." };
   }
   if (res.ok) {
     revalidatePath("/athlete/profile/edit");
     revalidatePath("/athlete/profile");
-    const d = (await res.json()) as { id: string };
-    return { ok: true, id: d.id };
+    const d = (await res.json()) as { id: string; checkNotes?: string[]; idUpload?: { changeId: string; uploadUrl: string; contentType: string } | null };
+    return { ok: true, id: d.id, checkNotes: d.checkNotes ?? [], idUpload: d.idUpload ?? null };
   }
   const err = await apiError(res);
   if (res.status === 400) return { ok: false, message: "Something here wasn't accepted — check the values and try again." };
-  if (res.status === 401) return { ok: false, message: "Your session ended — sign in again, then send. Nothing changed." };
+  if (res.status === 401) return { ok: false, message: "Your session ended — sign in again, then save. Nothing changed." };
   if (res.status === 403) return { ok: false, message: "You can only change your own profile." };
-  if (res.status === 409 || res.status === 422) return { ok: false, message: err.message ?? "This change can't be sent right now." };
-  return { ok: false, message: `Couldn't send (HTTP ${res.status}). Nothing changed — try again.` };
+  if (res.status === 409 || res.status === 422) return { ok: false, message: err.message ?? "This change can't be saved right now." };
+  return { ok: false, message: `Couldn't save (HTTP ${res.status}). Nothing changed — try again.` };
+}
+
+/** The matching ID for a new legal name has been uploaded: the API checks it is there, then the name goes live. */
+export async function confirmLegalNameIdAction(changeId: string): Promise<SimpleResult> {
+  if (typeof changeId !== "string" || !changeId) return { ok: false, message: "Unknown change." };
+  let res: Response;
+  try {
+    res = await apiFetch(`/profile-changes/${encodeURIComponent(changeId)}/id-document/confirm`, { method: "POST" });
+  } catch {
+    return { ok: false, message: "Couldn't reach SponsorX just now. Use Check again in a moment." };
+  }
+  if (res.ok) {
+    revalidatePath("/athlete/profile/edit");
+    revalidatePath("/athlete/profile");
+    return { ok: true };
+  }
+  const err = await apiError(res);
+  return { ok: false, message: err.message ?? `Couldn't confirm the upload (HTTP ${res.status}).` };
 }
 
 export async function withdrawProfileChange(id: string): Promise<ChangeResult> {
@@ -107,14 +131,14 @@ export async function withdrawProfileChange(id: string): Promise<ChangeResult> {
   try {
     res = await apiFetch(`/profile-changes/${encodeURIComponent(id)}/withdraw`, { method: "POST" });
   } catch {
-    return { ok: false, message: "Couldn't reach SponsorX just now — the change is still waiting." };
+    return { ok: false, message: "Couldn't reach SponsorX just now — the new name is still waiting for its ID." };
   }
   if (res.ok) {
     revalidatePath("/athlete/profile/edit");
-    return { ok: true, id };
+    return { ok: true, id, checkNotes: [], idUpload: null };
   }
   const err = await apiError(res);
-  if (res.status === 409) return { ok: false, message: err.message ?? "BTG has already decided this one — reload to see it." };
+  if (res.status === 409) return { ok: false, message: err.message ?? "This one is already live — reload to see it." };
   if (res.status === 403) return { ok: false, message: "That change isn't yours to withdraw." };
   return { ok: false, message: `Couldn't withdraw (HTTP ${res.status}). Try again.` };
 }

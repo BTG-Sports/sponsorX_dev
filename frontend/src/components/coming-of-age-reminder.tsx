@@ -1,35 +1,41 @@
+import Link from "next/link";
+
 import { Badge } from "@/components/ui";
-import { AGE_NOT_LIVE, type AgeView } from "@/lib/account-live";
+import { SendComingOfAgeLink } from "@/components/coming-of-age-cta";
+import type { AgeView } from "@/lib/account-live";
 
 /* --------------------------------------------------------------------------
    The coming-of-age reminder — 2S1-FE-08 (design Account.dc.html, views
-   ageAthlete + ageGuardian). Server components, no client JS.
+   ageAthlete + ageGuardian). Server components; the guardian's CTA is the
+   one client island.
 
    ComingOfAgeReminder is the banner that stays on the athlete's and the
-   guardian's pages for the whole 90-day allowance (2S1-BE-12): who can take
-   over, the countdown, and the one action that completes it. PausedActions
-   is the pair of cards showing what is paused meanwhile — adding items and
-   new deals — with the reason, and what carries on.
+   guardian's pages for the whole 90-day allowance (2S1-BE-12) — on /athlete
+   and on the coming-of-age settings page: who can take over, the countdown,
+   and the one action that completes it. The athlete's CTA opens their
+   coming-of-age page (`uploadPath`, a signed link) to upload a government
+   ID; the guardian's sends the athlete that link. PausedActions is the pair
+   of cards showing what is paused meanwhile — adding items and new deals —
+   with the reason, and what carries on.
 
-   Both take an `AgeView` (lib/account-live comingOfAgeView). Until
-   2S1-BE-12 lands the CTA is disabled with the reason under it; drop the
-   banner onto /athlete then, fed from the real allowance.
+   Both take an `AgeView` (lib/account-live comingOfAgeView), from
+   GET /coming-of-age/mine.
    -------------------------------------------------------------------------- */
 
-export function ComingOfAgeReminder({ view }: { view: AgeView }) {
+const ctaClass = "inline-flex min-h-12 items-center rounded-lg bg-primary px-5 text-sm font-bold text-cta-ink hover:bg-primary-soft";
+
+export function ComingOfAgeReminder({ view, seat, uploadPath }: { view: AgeView; seat: "athlete" | "guardian"; uploadPath: string | null }) {
   return (
     <section role="alert" aria-label="Coming of age" className="flex flex-wrap items-center gap-3.5 rounded-xl border border-warn/50 bg-warn/8 px-4.5 py-4">
       <span className="min-w-0 grow basis-60">
         <strong className="block text-sm text-warn">{view.title}</strong>
         <span className="mt-1 block text-sm leading-relaxed">{view.line}</span>
       </span>
-      <span className="space-y-1.5">
-        <button type="button" disabled title={AGE_NOT_LIVE} aria-describedby="age-cta-why"
-          className="min-h-12 cursor-not-allowed rounded-lg bg-primary px-5 text-sm font-bold text-cta-ink opacity-40">
-          {view.cta}
-        </button>
-        <span id="age-cta-why" className="block max-w-60 text-[11px] text-warn">{AGE_NOT_LIVE}</span>
-      </span>
+      {seat === "guardian" ? (
+        <SendComingOfAgeLink label={view.cta} />
+      ) : uploadPath ? (
+        <Link href={uploadPath} className={ctaClass}>{view.cta}</Link>
+      ) : null}
     </section>
   );
 }

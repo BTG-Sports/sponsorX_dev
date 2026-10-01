@@ -151,8 +151,8 @@ describe.skipIf(!hasDatabase)("Phase 2 marketplace over the API", { timeout: 60_
     await prisma.athleteRate.create({ data: { tenantId: T, athleteId: "mkt_ath", jobId: "mkt_job", amount: 20_000 } });
     await prisma.campaign.create({ data: { id: "mkt_campaign", tenantId: T, sponsorId: "mkt_sponsor", name: "Fall tacos", budget: 500_000, startDate: new Date(), endDate: new Date(Date.now() + 90 * 864e5), state: "STAFFING" } });
     await prisma.agreement.create({ data: { id: "mkt_order_terms", tenantId: T, kind: "CAMPAIGN_ORDER", version: 1, bodyHash: HASH, effectiveAt: new Date("2026-01-01") } });
-    Object.assign(E, await approveTeam("mkt_onb_e", "Bowie Bulldogs", "mkt_mgr_e"));
-    Object.assign(F, await approveTeam("mkt_onb_f", "Laurel Lions", "mkt_mgr_f"));
+    Object.assign(E, await approveTeam("mkt_onb_e", "Bowie Bulldogs MK", "mkt_mgr_e"));
+    Object.assign(F, await approveTeam("mkt_onb_f", "Laurel Lions MK", "mkt_mgr_f"));
     server = createApp().listen(0);
     base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
   });
@@ -224,7 +224,7 @@ describe.skipIf(!hasDatabase)("Phase 2 marketplace over the API", { timeout: 60_
       teamItem = made.json.id;
 
       const roster = (await call("GET", "/team/roster", "mkt_mgr_e")).json;
-      expect(roster.property).toMatchObject({ id: E.property, name: "Bowie Bulldogs" });
+      expect(roster.property).toMatchObject({ id: E.property, name: "Bowie Bulldogs MK" });
       expect(roster.athletes).toEqual([expect.objectContaining({ id: rileyId, teamShareBps: 1500, inventory: [expect.objectContaining({ id: rileyItem })] })]);
       expect(roster.inventory.map((i: { id: string }) => i.id)).toEqual([teamItem]);
       expect((await call("PATCH", `/team/roster/${rileyId}`, "mkt_mgr_e", { teamShareBps: 2000 })).json.teamShareBps).toBe(2000);
@@ -415,11 +415,11 @@ describe.skipIf(!hasDatabase)("Phase 2 marketplace over the API", { timeout: 60_
       expect((await call("POST", "/branding/logo", "mkt_mgr_e", { contentType: "image/svg+xml", bytes: 10 })).status).toBe(400);
 
       const set = await call("PUT", "/branding", "mkt_mgr_e", {
-        displayName: "Bowie Bulldogs", logoKey: logo.json.logoKey, primaryColor: "#7A0019", accentColor: "#FFCC33",
-        reportFooter: "Bowie Bulldogs Basketball · partners@bowiebulldogs.example", customDomain: "Partners.BowieBulldogs.example",
+        displayName: "Bowie Bulldogs MK", logoKey: logo.json.logoKey, primaryColor: "#7A0019", accentColor: "#FFCC33",
+        reportFooter: "Bowie Bulldogs MK Basketball · partners@bowiebulldogs.example", customDomain: "Partners.BowieBulldogs.example",
       });
       expect(set.status).toBe(200);
-      expect(set.json).toMatchObject({ displayName: "Bowie Bulldogs", primaryColor: "#7A0019", customDomain: "partners.bowiebulldogs.example" });
+      expect(set.json).toMatchObject({ displayName: "Bowie Bulldogs MK", primaryColor: "#7A0019", customDomain: "partners.bowiebulldogs.example" });
       expect(set.json.logoUrl).toBe(`http://localhost:9000/sponsorx-public/${logo.json.logoKey}`);
 
       /* Served to the portal: every signed-in user of that tenant — the manager and a roster athlete. */

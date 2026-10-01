@@ -3,6 +3,7 @@ import { z } from "./zod";
 import { BRAND_CATEGORIES } from "../domain/brand-categories";
 import { INVENTORY_KINDS } from "../domain/inventory";
 import { LISTING_STATES } from "../domain/listing-rules";
+import { ORG_TYPES } from "../domain/onboarding-rules";
 import { LOGO_TYPES } from "../domain/branding";
 
 /* --------------------------------------------------------------------------
@@ -98,6 +99,16 @@ export const OfferInput = z
   })
   .strict()
   .meta({ id: "OfferInput", description: "A formal offer: brief, pay, deliverables, usage rights, exclusivity, disclosures (2S2-BE-03)." });
+/* 2S2-FE-03 — editing a DRAFT: any term but whose offer it is (campaign,
+   athlete). Merged over the row; the domain asks the whole draft again. */
+export const OfferPatch = OfferInput.omit({ campaignId: true, athleteId: true })
+  .partial()
+  .strict()
+  .meta({ id: "OfferPatch", description: "Edit a DRAFT offer: any of its terms except the campaign and the athlete. The merged draft must clear every check drafting does (terms, item, exclusivity, restrictions, floor, budget)." });
+export const OfferKeepInput = z
+  .object({ note: z.string().trim().min(1).max(2000).describe("BTG's reply to the athlete — why the offer stands") })
+  .strict()
+  .meta({ id: "OfferKeepInput", description: "Answer a change request by keeping the offer as it is, with a reply to the athlete (2S2-FE-03)." });
 export const OfferResponseInput = z
   .object({
     /* 2S2-FE-03 — REQUEST_CHANGE neither accepts nor declines: the offer
@@ -200,7 +211,8 @@ export const CommissionPreviewInput = z
     lines: z.array(z.object({
       label: z.string().max(80).optional(),
       grossCents: z.number().int().min(1).max(100_000_000),
-      propertyKind: z.enum(["TEAM", "SCHOOL", "EVENT", "MEDIA", "VIRTUAL"]).nullable().optional(),
+      /* Every organisation type, AGENCY included (2S1-BE-08). */
+      propertyKind: z.enum(ORG_TYPES).nullable().optional(),
       propertyId: z.string().min(1).nullable().optional(),
       athleteItem: z.boolean().optional(),
       /* 2S3-BE-05 — sold by an athlete with no team: the athlete is the only payee, no team share. */

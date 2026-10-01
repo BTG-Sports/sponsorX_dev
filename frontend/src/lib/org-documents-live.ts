@@ -2,85 +2,75 @@
    2S1-FE-04 (the documents half) — an approved organization's Documents
    page (Claude Design OrgDocuments.dc.html, views list / replace).
 
-   SCAFFOLD. The read and the writes are 2S1-BE-07 (organizations update
-   their documents after approval), which is not built. Today the only
-   document read is BTG's reviewer route, GET /onboarding/:id/documents
-   (2S1-BE-02), and `propertyOnboarding` grants PROPERTY_MGR nothing — so a
-   property manager cannot read their own files yet. The page renders the
-   sample below, typed like the future API:
+   LIVE on 2S1-BE-07 (organizations update their documents after approval):
 
-     GET  /property/documents                  (2S1-BE-07) the list + history
-     POST /property/documents/:kind            (2S1-BE-07) replace or add one
+     GET    /property/documents                    the list, what's missing, the history
+     POST   /property/documents                    a private-bucket PUT for a new or replacement file
+     POST   /property/documents/:documentId/confirm   counted once it has arrived; the old file moves to history
+     DELETE /property/documents/:documentId        off the list, kept in the history
 
-   Pure: shapes, the sample, and every word the page derives. The upload
-   limits are 2S1-BE-02's real ones (PDF, JPEG or PNG; 20 MB —
-   backend/src/domain/onboarding-documents.ts MAX_DOCUMENT_BYTES).
+   Only the organization's own manager reaches these (the API scopes them to
+   the signed-in PROPERTY_MGR's own property). Every change re-runs the
+   checklist and emails BTG; a required document removed without a
+   replacement flags the organization for BTG and suspends nothing.
+
+   Pure: the API's shapes and every word the page derives. The kinds and
+   their words mirror backend/src/domain/onboarding-rules.ts DOCUMENT_LABEL.
    -------------------------------------------------------------------------- */
 
-/** 2S1-BE-02's document kinds, so the future rows slot onto the same table. */
-export type OrgDocumentKind = "RIGHTS_PROOF" | "BUSINESS_REGISTRATION" | "IDENTITY" | "OTHER";
+export type OrgDocumentKind = "RIGHTS_PROOF" | "BUSINESS_REGISTRATION" | "IDENTITY" | "REPRESENTATION_AGREEMENT" | "OTHER";
 
 export type OrgDocumentState = "ON_FILE" | "EXPIRED" | "MISSING";
 
+/** One row of GET /property/documents — a requirement (or an extra paper), what's on file, its history. */
 export type ApiOrgDocument = {
-  id: string;
-  kind: OrgDocumentKind;
-  /** "Authorization letter" — what BTG asks for. */
-  name: string;
-  /** One word for the file itself, for "Add the new letter". */
-  noun: string;
-  /** What it is, in a sentence — the dialog's first line. */
-  why: string;
-  /** What it's needed for, shown while it's missing. */
-  neededFor: string | null;
-  /** "League registration" — the sort of proof on file, when there is one. */
-  label: string | null;
+  /** "IDENTITY", "BUSINESS_REGISTRATION:VA", or "doc:<id>" for an extra paper. */
+  key: string;
+  kind: OrgDocumentKind | string;
+  stateCode: string | null;
   required: boolean;
+  /** The API's label, e.g. "Business registration (VA)". */
+  label: string;
   state: OrgDocumentState;
-  file: { filename: string; uploadedAt: string } | null;
-  expiresAt: string | null;
-  /** Earlier files — never deleted by a replacement (2S1-BE-07). */
-  history: { filename: string; replacedAt: string }[];
+  file: { documentId: string; filename: string; uploadedAt: string; expiresOn: string | null } | null;
+  /** Earlier files — never deleted by a replacement or a removal (2S1-BE-07). */
+  history: { documentId: string; filename: string; uploadedAt: string; endedAt: string; ended: "REPLACED" | "REMOVED" }[];
 };
 
 export type ApiOrgDocuments = {
   organizationName: string;
+  orgType: string;
+  state: string;
+  /** Set by the API when a required document is missing after a change — BTG has been told. */
+  flags: string[];
   documents: ApiOrgDocument[];
-  upload: { types: string[]; maxBytes: number };
-};
-
-/* ---------------------------------------------------------------- sample */
-
-/** 2S1-BE-02's limits (MAX_DOCUMENT_BYTES, DOCUMENT_TYPES). */
-const UPLOAD = { types: ["application/pdf", "image/jpeg", "image/png"], maxBytes: 20 * 1024 * 1024 };
-
-export const SAMPLE_ORG_DOCUMENTS: ApiOrgDocuments = {
-  organizationName: "Westfield Hawks",
-  upload: UPLOAD,
-  documents: [
-    {
-      id: "doc-registration", kind: "BUSINESS_REGISTRATION", name: "Proof of organization", noun: "registration",
-      why: "A registration that shows Westfield Hawks is a real organization.", neededFor: null, label: "League registration",
-      required: true, state: "ON_FILE", file: { filename: "hawks-league-registration.pdf", uploadedAt: "2026-09-18T15:00:00.000Z" },
-      expiresAt: null, history: [{ filename: "hawks-league-registration-2025.pdf", replacedAt: "2026-09-18T15:00:00.000Z" }],
-    },
-    {
-      id: "doc-authorization", kind: "RIGHTS_PROOF", name: "Authorization letter", noun: "letter",
-      why: "A letter showing you can sign for Westfield Hawks.", neededFor: null, label: null,
-      required: true, state: "EXPIRED", file: { filename: "hawks-authorization.pdf", uploadedAt: "2025-09-30T15:00:00.000Z" },
-      expiresAt: "2026-09-30T00:00:00.000Z", history: [],
-    },
-    {
-      id: "doc-insurance", kind: "OTHER", name: "Certificate of insurance", noun: "certificate",
-      why: "Your organization's liability insurance certificate.", neededFor: "Needed to keep selling event items", label: null,
-      required: true, state: "MISSING", file: null, expiresAt: null, history: [],
-    },
-  ],
+  /** Grants not yet confirmed — a half-finished upload can be checked again. */
+  pending: { documentId: string; kind: string; stateCode: string | null; filename: string; replacesId: string | null }[];
+  upload: { types: string[]; maxBytes: number; maxIdBytes: number };
 };
 
 /* ---------------------------------------------------------------- words */
 
 type Tone = "neutral" | "primary" | "accent" | "danger" | "warn";
+
+const WORDS: Record<string, { noun: string; why: string; neededFor: string }> = {
+  IDENTITY: { noun: "ID", why: "A government ID for the person who signs for your organization.", neededFor: "Needed to keep selling" },
+  RIGHTS_PROOF: { noun: "proof", why: "Proof you have the rights to sell your organization's inventory.", neededFor: "Needed to keep selling" },
+  BUSINESS_REGISTRATION: { noun: "registration", why: "A business registration in your organization's name.", neededFor: "Needed to keep selling" },
+  REPRESENTATION_AGREEMENT: { noun: "agreement", why: "An agreement showing your agency represents the athletes it lists.", neededFor: "Needed to keep selling" },
+  OTHER: { noun: "document", why: "Anything else that helps BTG.", neededFor: "Not required" },
+};
+
+/** The kinds a manager can add from "Add a document". */
+export const ADDABLE_KINDS: readonly { kind: OrgDocumentKind; label: string }[] = [
+  { kind: "IDENTITY", label: "Government ID of the person signing" },
+  { kind: "RIGHTS_PROOF", label: "Proof of the rights to sell your inventory" },
+  { kind: "BUSINESS_REGISTRATION", label: "Business registration" },
+  { kind: "REPRESENTATION_AGREEMENT", label: "Representation agreement with your athletes" },
+  { kind: "OTHER", label: "Other document" },
+];
+
+export const wordsFor = (kind: string) => WORDS[kind] ?? WORDS.OTHER!;
 
 /** "Sep 18" (UTC, so server and test agree). */
 export function dayOf(iso: string | null | undefined): string {
@@ -99,10 +89,16 @@ export function documentBadge(s: OrgDocumentState): { label: string; mark: strin
 
 /** The line under the name: what's on file and when, or why it's needed. */
 export function documentLine(d: ApiOrgDocument): string {
-  if (!d.file) return d.neededFor ?? "Not uploaded yet";
-  const parts = [d.label, d.file.filename];
-  parts.push(d.state === "EXPIRED" && d.expiresAt ? `expired ${dayOf(d.expiresAt)}` : `added ${dayOf(d.file.uploadedAt)}`);
-  return parts.filter(Boolean).join(" · ");
+  if (!d.file) return d.required ? wordsFor(d.kind).neededFor : "Not uploaded yet";
+  const parts = [d.file.filename];
+  if (d.state === "EXPIRED" && d.file.expiresOn) parts.push(`expired ${dayOf(d.file.expiresOn)}`);
+  else parts.push(`added ${dayOf(d.file.uploadedAt)}`, ...(d.file.expiresOn ? [`valid until ${dayOf(d.file.expiresOn)}`] : []));
+  return parts.join(" · ");
+}
+
+/** One line of Earlier files. */
+export function historyLine(h: ApiOrgDocument["history"][number]): string {
+  return `${h.ended === "REPLACED" ? "Replaced" : "Removed"} ${dayOf(h.endedAt)}`;
 }
 
 /** The row's one button: Replace a file on file, Upload a missing one.
@@ -111,14 +107,14 @@ export function documentAction(d: ApiOrgDocument): { label: "Replace" | "Upload"
   return { label: d.file ? "Replace" : "Upload", primary: d.state !== "ON_FILE" };
 }
 
-const WORDS = ["no", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten"];
-const count = (n: number) => WORDS[n] ?? String(n);
+const COUNT = ["no", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten"];
+const count = (n: number) => COUNT[n] ?? String(n);
 
 /** The banner over the list, or null when every document is fine.
  *  "2 documents need you: one has expired and one is missing." */
 export function needsYou(docs: readonly ApiOrgDocument[]): { title: string; body: string } | null {
   const expired = docs.filter((d) => d.state === "EXPIRED").length;
-  const missing = docs.filter((d) => d.state === "MISSING").length;
+  const missing = docs.filter((d) => d.state === "MISSING" && d.required).length;
   const n = expired + missing;
   if (!n) return null;
   const parts = [
@@ -131,25 +127,41 @@ export function needsYou(docs: readonly ApiOrgDocument[]): { title: string; body
   };
 }
 
-/** "PDF, JPG or PNG, up to 20 MB" — from the upload limits. */
-export function uploadHint(u: ApiOrgDocuments["upload"]): string {
+/** "PDF, JPG or PNG, up to 20 MB (an ID up to 10 MB)" — from the upload limits. */
+export function uploadHint(u: ApiOrgDocuments["upload"], kind?: string): string {
   const names = u.types.map((t) => (t === "application/pdf" ? "PDF" : t === "image/jpeg" ? "JPG" : t === "image/png" ? "PNG" : t));
   const list = names.length > 1 ? `${names.slice(0, -1).join(", ")} or ${names.at(-1)}` : names[0] ?? "";
-  return `${list}, up to ${Math.round(u.maxBytes / (1024 * 1024))} MB`;
+  const mb = (b: number) => Math.round(b / (1024 * 1024));
+  if (kind === "IDENTITY") return `${list}, up to ${mb(u.maxIdBytes)} MB`;
+  return `${list}, up to ${mb(u.maxBytes)} MB${kind ? "" : ` (an ID up to ${mb(u.maxIdBytes)} MB)`}`;
+}
+
+/** Why this file can't be sent, or null — the API checks again. */
+export function checkFile(u: ApiOrgDocuments["upload"], kind: string, file: { type: string; size: number }): string | null {
+  if (!u.types.includes(file.type)) return "Documents are PDF, JPEG or PNG.";
+  if (file.size < 1) return "That file is empty.";
+  const max = kind === "IDENTITY" ? u.maxIdBytes : u.maxBytes;
+  if (file.size > max) return `${kind === "IDENTITY" ? "An ID" : "A document"} is at most ${Math.round(max / (1024 * 1024))} MB.`;
+  return null;
 }
 
 /** The replace / upload dialog's words. */
-export function dialogCopy(d: ApiOrgDocument) {
+export function dialogCopy(d: Pick<ApiOrgDocument, "kind" | "label" | "file" | "state">) {
   const replacing = Boolean(d.file);
-  const thing = d.name.charAt(0).toLowerCase() + d.name.slice(1);
+  const w = wordsFor(d.kind);
+  const thing = d.label.charAt(0).toLowerCase() + d.label.slice(1);
   return {
     title: replacing ? `Replace the ${thing}` : `Upload the ${thing}`,
-    lead: [d.why, d.state === "EXPIRED" && d.expiresAt ? `The one on file expired ${dayOf(d.expiresAt)}.` : null].filter(Boolean).join(" "),
-    drop: replacing ? `Add the new ${d.noun}` : `Add the ${d.noun}`,
+    lead: [w.why, d.state === "EXPIRED" && d.file?.expiresOn ? `The one on file expired ${dayOf(d.file.expiresOn)}.` : null].filter(Boolean).join(" "),
+    drop: replacing ? `Add the new ${w.noun}` : `Add the ${w.noun}`,
     note: replacing ? "BTG is told when you change a document. The old file moves to Earlier files." : "BTG is told when you change a document.",
     submit: replacing ? "Replace" : "Upload",
   };
 }
 
-/** Why the writes are off, for every disabled control on the page. */
-export const DOCUMENTS_NOT_LIVE = "Not switched on yet — changing a document goes live with 2S1-BE-07. Nothing has been sent.";
+/** What removing a document does, said before it happens. */
+export function removeWarning(d: Pick<ApiOrgDocument, "required">): string {
+  return d.required
+    ? "BTG is told, and your organization is flagged for BTG until you upload a new one. Your listings stay live. The file moves to Earlier files."
+    : "BTG is told. The file moves to Earlier files.";
+}

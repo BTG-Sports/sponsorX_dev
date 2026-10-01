@@ -35,6 +35,30 @@ import { sellerCanSell } from "../domain/listing-rules";
 export { type Action, type Resource, type Scope };
 
 /**
+ * The scope an actor holds — the widest of their roles' (policy.ts) — with
+ * one exception: a GUARDIAN ACTING FOR A MINOR (2S1-BE-11, `actor.actingFor`).
+ *
+ * For a minor, every agreement and money action comes from the guardian's
+ * account, so the guardian's login carries the ward as its athlete and holds
+ * the athlete's own cells for them: accept an offer, list an item, set up the
+ * payout account, request a payout. Widest-wins would get that wrong — the
+ * guardian's `ward` outranks the athlete's `own`, and the athlete-side
+ * functions ask for `own` — so while acting, the athlete's cell answers
+ * first and the guardian's own roles answer only what the athlete has no
+ * cell for (their own guardian record, a handoff). The reach is never wider
+ * than the ward's own login's: `own` resolves through `actor.athleteId`,
+ * which is the ward.
+ */
+export function scopeOf(actor: Actor, resource: Resource, action: Action): Scope {
+  if (actor.actingFor) {
+    const asWard = scopeFor(["ATHLETE"], resource, action);
+    if (asWard !== "deny" && asWard !== "deferred") return asWard;
+    return scopeFor(actor.roles.filter((r) => r !== "ATHLETE"), resource, action);
+  }
+  return scopeFor(actor.roles, resource, action);
+}
+
+/**
  * Throw unless the actor may perform this action on this resource at all.
  *
  * This is the coarse gate — "may a PROPERTY_MGR read earnings" — and is what
@@ -46,7 +70,7 @@ export function assertAllowed(
   resource: Resource,
   action: Action,
 ): Scope {
-  const scope = scopeFor(actor.roles, resource, action);
+  const scope = scopeOf(actor, resource, action);
   if (scope === "deny" || scope === "deferred") {
     throw new ForbiddenError(resource, action);
   }
@@ -91,7 +115,7 @@ export function can(
   resource: Resource,
   action: Action,
 ): boolean {
-  const scope = scopeFor(actor.roles, resource, action);
+  const scope = scopeOf(actor, resource, action);
   return scope !== "deny" && scope !== "deferred";
 }
 
@@ -309,8 +333,10 @@ const BUILDERS: Partial<Record<Resource, Builder>> = {
       case "any": return {};
       case "operated": return operated(actor);
       case "own-property":
+        /* The team's own items, and its roster athletes' — 2S2-BE-05: those
+           of an invited athlete live in the athlete's own tenant. */
         return actor.propertyId
-          ? { tenantId: actor.tenantId, OR: [{ propertyId: actor.propertyId }, { athlete: { propertyId: actor.propertyId } }] }
+          ? { OR: [{ tenantId: actor.tenantId, propertyId: actor.propertyId }, { athlete: { propertyId: actor.propertyId } }] }
           : MATCHES_NOTHING;
       case "own":
         /* The athlete's own items, or — for a team manager — the team's own. */
@@ -319,11 +345,15 @@ const BUILDERS: Partial<Record<Resource, Builder>> = {
       default: return MATCHES_NOTHING;
     }
   },
-  /* The athletes on a team: Athlete rows linked to the manager's property. */
+  /* The athletes on a team: Athlete rows linked to the manager's property.
+     2S2-BE-05 — by the link alone, in any tenant: an athlete already on
+     SponsorX who accepted the team's invitation keeps their own tenant (often
+     the marketplace operator's), and the link exists only because they
+     accepted. The property is the manager's own (actor.propertyId). */
   teamMember: (actor, scope) => {
     if (scope === "any") return {};
     if (scope === "own-property") {
-      return actor.propertyId ? { tenantId: actor.tenantId, propertyId: actor.propertyId } : MATCHES_NOTHING;
+      return actor.propertyId ? { propertyId: actor.propertyId } : MATCHES_NOTHING;
     }
     return MATCHES_NOTHING;
   },
@@ -347,7 +377,10 @@ const BUILDERS: Partial<Record<Resource, Builder>> = {
           ],
         };
       case "own-property":
-        return actor.propertyId ? { tenantId: actor.tenantId, propertyId: actor.propertyId } : MATCHES_NOTHING;
+        /* The team's listings — 2S2-BE-05: a listing of an invited athlete's
+           item sits in the item's (the athlete's) tenant, so it is the
+           team's by its propertyId, which is the manager's own. */
+        return actor.propertyId ? { propertyId: actor.propertyId } : MATCHES_NOTHING;
       case "own":
         /* Reading: every listing of the athlete's items, their team's
            included. Writing (2S3-BE-05): only the listings they sell
@@ -400,6 +433,34 @@ const BUILDERS: Partial<Record<Resource, Builder>> = {
   marketplaceOrder: (actor, scope) => {
     if (scope === "own-sponsor") return actor.sponsorId ? { tenantId: actor.tenantId, sponsorId: actor.sponsorId } : MATCHES_NOTHING;
     return tenantScoped(actor, scope);
+  },
+  /* 2S4-BE-06 / -07 — a sold line and its delivery. Each seller reaches it in
+     its OWN tenant: the team by propertyTenantId + propertyId, the athlete by
+     athleteTenantId + athleteId, the buying sponsor by the order's books and
+     sponsorId — never by the order alone. */
+  orderDelivery: (actor, scope) => {
+    switch (scope) {
+      case "any": return {};
+      case "own-tenant": return { tenantId: actor.tenantId };
+      case "own-property":
+        return actor.propertyId ? { propertyTenantId: actor.tenantId, propertyId: actor.propertyId } : MATCHES_NOTHING;
+      case "own":
+        return actor.athleteId ? { athleteTenantId: actor.tenantId, athleteId: actor.athleteId } : MATCHES_NOTHING;
+      case "own-sponsor":
+        return actor.sponsorId ? { tenantId: actor.tenantId, sponsorId: actor.sponsorId } : MATCHES_NOTHING;
+      default: return MATCHES_NOTHING;
+    }
+  },
+  /* 2S2-BE-05 — the team's invitations (in its tenant), and the athlete's own (in theirs). */
+  teamInvitation: (actor, scope) => {
+    switch (scope) {
+      case "any": return {};
+      case "own-property":
+        return actor.propertyId ? { tenantId: actor.tenantId, propertyId: actor.propertyId } : MATCHES_NOTHING;
+      case "own":
+        return actor.athleteId ? { athleteTenantId: actor.tenantId, athleteId: actor.athleteId } : MATCHES_NOTHING;
+      default: return MATCHES_NOTHING;
+    }
   },
   /* 2S5-INT-03 — a payee's own payout account, in the payee's own tenant. */
   payoutAccount: (actor, scope) => {
@@ -773,6 +834,29 @@ const BUILDERS: Partial<Record<Resource, Builder>> = {
   inquiry: tenantScoped,
   /* 2S1-BE-18 — BTG's restricted-words list: tenant rows, kept by BTG admins. */
   restrictedWord: tenantScoped,
+  /* 2S1-BE-13 — closures: tenant rows, BTG's view only. */
+  accountClosure: tenantScoped,
+
+  /* 2S1-BE-15 — a guardian handoff. `ward`: requests about an athlete this
+     guardian is guardian of now, or was asked as (so the status of one they
+     handed off stays readable); the write path re-checks that the athlete is
+     still theirs. `own`: the athlete the request is about. */
+  guardianHandoff: (actor, scope) => {
+    switch (scope) {
+      case "any":
+        return {};
+      case "own-tenant":
+        return { tenantId: actor.tenantId };
+      case "ward":
+        return actor.guardianId ? { tenantId: actor.tenantId, fromGuardianId: actor.guardianId } : MATCHES_NOTHING;
+      case "own":
+        return actor.athleteId ? { tenantId: actor.tenantId, athleteId: actor.athleteId } : MATCHES_NOTHING;
+      default:
+        return MATCHES_NOTHING;
+    }
+  },
+  /* 2S1-BE-10 / -12 — the age table and the staff-confirmation setting: tenant rows, kept by BTG admins. */
+  signupRules: tenantScoped,
 
   /* Added with P4-BE-01, the first task to query sponsors.
 

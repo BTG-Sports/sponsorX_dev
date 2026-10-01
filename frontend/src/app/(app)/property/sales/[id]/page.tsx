@@ -1,5 +1,6 @@
 import { SellerOrderDetail, SellerOrderMissing } from "@/components/seller-orders";
-import { sampleOrder } from "@/lib/seller-orders-live";
+import type { ApiSellerOrder } from "@/lib/seller-orders-live";
+import { apiFetch } from "@/server/api";
 import { requirePortalAccess } from "@/server/portal";
 
 /* --------------------------------------------------------------------------
@@ -8,10 +9,9 @@ import { requirePortalAccess } from "@/server/portal";
    problem · unpaid). The line, the team's share, the delivery track,
    "Mark delivered", and the sponsor's contact once paid.
 
-   SCAFFOLD — sample data.
-   Will read  GET /marketplace-orders/:id            (seller scope — 2S4-BE-06)
-   Will write mark delivered → sponsor confirms in 24h (2S4-BE-07); the
-              dialog's button is disabled until then.
+   Reads  GET  /sales/:lineId              (own line, own share — 2S4-BE-06)
+   Writes POST /sales/:lineId/proof        (photo grant — seller-sales-actions.ts)
+          POST /sales/:lineId/delivered    (note, photo, link — 2S4-BE-07)
    -------------------------------------------------------------------------- */
 
 export const dynamic = "force-dynamic";
@@ -19,6 +19,8 @@ export const dynamic = "force-dynamic";
 export default async function PropertySaleDetailPage({ params }: { params: Promise<{ id: string }> }) {
   await requirePortalAccess("property");
   const { id } = await params;
-  const order = sampleOrder("team", id);
-  return order ? <SellerOrderDetail kind="team" order={order} /> : <SellerOrderMissing kind="team" />;
+  const res = await apiFetch(`/sales/${encodeURIComponent(id)}`);
+  if (res.status === 403 || res.status === 404) return <SellerOrderMissing kind="team" />;
+  if (!res.ok) throw new Error(`Order unavailable (${res.status}).`);
+  return <SellerOrderDetail kind="team" order={(await res.json()) as ApiSellerOrder} />;
 }

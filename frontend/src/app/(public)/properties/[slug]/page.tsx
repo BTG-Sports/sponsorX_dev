@@ -277,6 +277,7 @@ const KIND_LABEL: Record<string, string> = {
   EVENT: "Event",
   MEDIA: "Media property",
   VIRTUAL: "Virtual property",
+  AGENCY: "Athlete agency",
 };
 
 function LiveProfile({ p, back }: { p: PublicProperty; back: ReturnType<typeof resolveBack> }) {

@@ -355,6 +355,7 @@ export function JoinWizard({ demo }: { demo: Demo }) {
         guardianName={draft.answers.guardianName ?? ""}
         submittedAt={draft.submittedAt ?? ""}
         refId={draft.refId}
+        intakeToken={draft.intakeToken}
         onReviewAnswers={() => setReviewing(true)}
         onUpdateRestrictions={() => setEditingRestrictions(true)}
       />

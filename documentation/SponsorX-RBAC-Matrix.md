@@ -190,15 +190,17 @@ assessment of them (§14); self-scoring would make it worthless.
 |---|---|---|---|
 | `SUPER_ADMIN` | any | any | any |
 | `BTG_ADMIN` · `NETWORK_MGR` | own-tenant | own-tenant | own-tenant |
-| `ATHLETE` | own | own (propose) | — |
-| `GUARDIAN` | ward | ward (propose) | — |
+| `ATHLETE` | own | own (edit) | — |
+| `GUARDIAN` | ward | ward (edit) | — |
 | all others | — | — | — |
 
-Added 2026-09-29 (`P3-BE-16`). After approval an athlete cannot write their
-own `athlete` row's public sections directly — the public profile, matching
-and the §26 conflict check read that row, so a proposed edit is held here
-until a reviewer approves it, which copies the fields across. Socials are the
-exception and stay a direct write (self-reported, labelled as such).
+Added 2026-09-29 (`P3-BE-16`). **Changed 2026-10-01 (`2S1-BE-14`), cells
+unchanged:** edits are no longer held for BTG. Write is now *making* the edit,
+which publishes at once and is recorded here as the athlete's history. A
+legal-name change waits only for its matching ID upload. Approve no longer
+means approving an edit. It is BTG's read of the sensitive edits (legal name,
+date of birth, guardian) and of the ID a legal-name change was matched
+against, through a five-minute audited link. Socials stay a direct write.
 
 ### `guardian`
 | Role | Read | Write | Approve |
@@ -551,6 +553,82 @@ a match never rejects anything by itself. BTG admins add and remove words;
 removing one deactivates it, so its history stays. Every change is audited.
 The check itself runs inside the features that use it, with no actor, because
 the text usually comes from the public before anyone has signed in.
+
+### `accountClosure` *(added 2026-10-01, 2S1-BE-13 — §23)*
+| Role | Read | Write | Approve |
+|---|---|---|---|
+| `SUPER_ADMIN` | any | any | any |
+| `BTG_ADMIN` | own-tenant | own-tenant | own-tenant (decline a request to come back) |
+| all others | — | — | — |
+
+A closed account, its 30-day retention, and a rejected account's request to
+come back. **Closing your own account is not authorised here.** It goes
+through the account's own resource at write (`athlete` own, `guardian` own,
+`property` own), and the row closed is always the one on the actor. Coming
+back is a signed link mailed to the account's address, because a closed
+login is refused at sign-in. A self-closed account reactivates itself with
+it. A rejected one can only ask. BTG answers no here, and yes by reinstating
+the account on its own page. Every step is audited.
+
+### `guardianHandoff` *(added 2026-10-01, 2S1-BE-15 — §23)*
+| Role | Read | Write | Approve |
+|---|---|---|---|
+| `SUPER_ADMIN` | any | any | any |
+| `BTG_ADMIN` | own-tenant | — | own-tenant (confirm / decline a handoff held for staff) |
+| `GUARDIAN` | ward (requests made of them) | ward (Hand off / Decline) | — |
+| `ATHLETE` | own (requests about them) | — | — |
+| all others | — | — | — |
+
+A request to become a minor's guardian. **It is created only by the new
+guardian on the public request page**, with no actor, so no signed-in role can
+start one. The current guardian answers it, and only while the athlete is
+still theirs. The athlete can read it but never answer it. BTG reads it and
+does not decide it: a disputed handoff goes to BTG support and is settled by
+hand.
+
+*(2026-10-01, merge gap fixes.)* **Approve** is new: when the tenant's
+"BTG staff confirm minors" setting is on (2S1-BE-10), the current guardian's
+Hand off moves the request to HANDED_OFF and a BTG admin confirms (the
+switch) or declines it, with a reason. Until then the current guardian keeps
+control. The switch is refused if the new guardian can't sign in.
+
+**`POST /athletes/:id/guardian` is not a second road around the handoff.** It
+links a guardian only to a minor who has none. For a minor who already has one
+it answers 409 `handoff_required`. Only a `BTG_ADMIN`, deciding a dispute by
+hand, may replace an existing guardian there, with a required `replaceReason`.
+That is audited (`guardian.replace`) and emailed to both guardians and the
+athlete. A `GUARDIAN`, `NETWORK_MGR` or `ATHLETE` never can, whatever their
+`guardian` write cell says.
+
+### `signupRules` *(added 2026-10-02, 2S1-BE-10 / 2S1-BE-12)*
+| Role | Read | Write | Approve |
+|---|---|---|---|
+| `SUPER_ADMIN` | any | any | — |
+| `BTG_ADMIN` | own-tenant | own-tenant | — |
+| `NETWORK_MGR` | own-tenant | — | — |
+| all others | — | — | — |
+
+The rules automatic sign-up approval reads: the **age-of-majority table** by
+place (a country, or a state within it — seeded with the US states, AL and NE
+at 19, MS at 21, and common countries; a place not in it counts as 18 and is
+flagged), and the per-tenant setting **"BTG staff confirm minors before
+approval"** (off by default). BTG admins edit both; every change is audited,
+and a change to the table works out the age again for the athletes who live
+there. The network manager, who works the sign-ups these rules decide, reads
+them.
+
+**Guardians acting for a minor (2S1-BE-11) — no new cells.** For a minor,
+every agreement and money action comes from the guardian's account. The
+guardian's login carries the ward (one of their own minors, still under their
+control) as its athlete, and while it does the ATHLETE row's own cells answer
+first — `offer`, `listing`, `inventoryItem`, `payoutAccount`, `payout`,
+`campaignOrder`, `invitation`, `agreement` — resolved through that one ward,
+so the reach is exactly the ward's own login's. The minor's own login is
+refused every one of those acts (`guardian_must_act`), and during the 90-day
+coming-of-age allowance neither may start anything new
+(`coming_of_age_paused`). Identity documents (`AccountDocument`) are governed
+by `athleteApplication` and `guardian` and read only tenant-wide — BTG staff,
+through five-minute audited links.
 
 ### `invoice` *(added 2026-09-24)*
 | Role | Read | Write | Approve |
@@ -1092,6 +1170,26 @@ organisation's people are an outside tenant: every scope is tenant-first, so
 they reach their own tenant's rows and none of BTG's or anyone else's. The
 onboarding record and its audit trail stay in BTG's tenant.
 
+**The system approves most organisations itself (2S1-BE-06, 2026-10-01).**
+No row changes. The automatic approval is not a role: it runs on the
+applicant's own public token (a document upload, the submit) or on the
+confirmation email's own signed token, and it provisions exactly what a
+BTG approval does. BTG's checks afterwards — the profile
+(`GET /onboarding/{id}/profile`), the New sign-ups list
+(`GET /onboarding/signups`), the spot-check lists (`?list=auto|flagged`),
+and Reject / Reinstate on `POST /onboarding/{id}/decision` — are this row's
+read and approve, `BTG_ADMIN` own-tenant. Every document now opens through
+a **five-minute** audited link (`GET /onboarding/{id}/documents/{documentId}`).
+
+**An approved organisation's own documents (2S1-BE-07)** go through the
+`property` row, not this one: `PROPERTY_MGR` holds `own` on property, so
+`GET /property/documents`, `POST /property/documents`,
+`POST /property/documents/{documentId}/confirm` and
+`DELETE /property/documents/{documentId}` reach only the onboarding that
+provisioned the manager's own property. BTG and every other role are
+refused there (no property link); the manager gets an upload grant to the
+private bucket and never a read.
+
 ## 17 · Phase 2 · notification preferences *(added 2026-09-28)*
 
 ### `notificationPreference` (2S6-BE-02)
@@ -1279,6 +1377,46 @@ admin", `2S5-FE-01`). Finance reads the rules so it can reconcile.
   writes an entry directly.
 - **The books live in the operator's tenant.** A party reads its own entries
   through the party's tenant and id.
+
+## 22 · Phase 2 · sellers' orders, delivery, team invitations *(added 2026-10-01)*
+
+### `orderDelivery` (2S4-BE-06, 2S4-BE-07, 2S4-BE-08)
+One contracted order line as its sellers see it, and its delivery.
+| Role | Read | Write | Approve |
+|---|---|---|---|
+| `SUPER_ADMIN` | any | any | any |
+| `BTG_ADMIN` | own-tenant (the order's books) | own-tenant | own-tenant (resolves reported problems) |
+| `FINANCE` | own-tenant | — | — |
+| `PROPERTY_MGR` | own-property (the lines its team sells) | own-property (marks them delivered) | — |
+| `ATHLETE` | own (the lines of their items) | own (marks them delivered) | — |
+| `SPONSOR_ADMIN` | own-sponsor (its orders' lines) | own-sponsor (confirms, or reports a problem) | — |
+| `SPONSOR_ANALYST` | own-sponsor | — | — |
+
+- **A seller never reads the order.** The team and the athlete each read
+  only the lines they sell, in their own tenant. Their share comes from
+  their own `ledgerEntry` rows, so neither sees the other's share or BTG's
+  commission. `marketplaceOrder` and `orderFinancials` are unchanged.
+- **The sponsor's contact appears only once the order is paid.**
+- **Writing is split by scope, not by verb.** Only a seller scope (own,
+  own-property) marks delivered. Only `own-sponsor` confirms or reports a
+  problem. `approve` (BTG admin) resolves a problem by confirming or
+  refunding it. BTG admin cannot mark a line delivered.
+
+### `teamInvitation` (2S2-BE-05)
+| Role | Read | Write | Approve |
+|---|---|---|---|
+| `SUPER_ADMIN` | any | any | — |
+| `PROPERTY_MGR` | own-property (the team's invitations) | own-property (sends, withdraws) | — |
+| `ATHLETE` | own (invitations to them) | own (accepts, declines) | — |
+
+- **Nobody is linked without accepting.** Accepting sets
+  `Athlete.propertyId` and `teamShareBps` at the share the athlete was shown.
+- **Only a TEAM or an AGENCY invites.** Other property kinds keep "Add athlete".
+- **A link can cross tenants.** An athlete already on SponsorX keeps their
+  own tenant, often the marketplace operator's. So the team's `teamMember`,
+  `inventoryItem` and `listing` own-property scopes reach a roster athlete
+  through the link itself, `propertyId` being the manager's own property,
+  rather than through the team's tenant. The policy cells are unchanged.
 
 ## 14 · Known gaps
 

@@ -26,6 +26,7 @@ import { prisma } from "../db/client";
 import { authenticateClerkRequest } from "./clerk";
 import { AccountDisabledError, UnauthenticatedError, UnprovisionedError } from "./errors";
 import { ROLES, type Role } from "./policy";
+import { actForWard, WARD_HEADER } from "../domain/guardian-acts";
 
 export type Actor = {
   /** Postgres `User.id`, not the Clerk id. Audit entries reference this. */
@@ -68,6 +69,14 @@ export type Actor = {
    * as null, and a STUDENT without it reaches nothing (the safe direction).
    */
   studentId?: string | null;
+  /**
+   * 2S1-BE-11 — a guardian acting for a minor they look after. Set only by
+   * `requireActor` (guardian-acts.ts `actForWard`), after checking the ward
+   * is theirs and still under their control; then `athleteId` is the ward,
+   * `roles` gains ATHLETE, and scope.ts answers the athlete's own cells
+   * first. Audit rows still name the guardian's own user. Absent otherwise.
+   */
+  actingFor?: { athleteId: string; guardianId: string } | null;
 };
 
 const ROLE_SET = new Set<string>(ROLES);
@@ -97,11 +106,11 @@ export async function resolveActor(
 ): Promise<Actor> {
   const linked = await prisma.user.findUnique({
     where: { clerkId },
-    select: { id: true, tenantId: true, roles: true, sponsorId: true, athleteId: true, guardianId: true, propertyId: true, studentId: true, disabledAt: true },
+    select: { id: true, tenantId: true, roles: true, sponsorId: true, athleteId: true, guardianId: true, propertyId: true, studentId: true, disabledAt: true, disabledReason: true },
   });
   if (linked) {
     /* 2S1-BE-17 — a login BTG switched off is refused, whoever signs in. */
-    if (linked.disabledAt) throw new AccountDisabledError();
+    if (linked.disabledAt) throw new AccountDisabledError(linked.disabledReason);
     return {
       userId: linked.id,
       tenantId: linked.tenantId,
@@ -119,10 +128,10 @@ export async function resolveActor(
   const provisioned = await prisma.user.findFirst({
     /* tenant-scope: identity resolution — there is no actor, and so no tenant, until this finds one. */
     where: { email: email.toLowerCase() },
-    select: { id: true, disabledAt: true },
+    select: { id: true, disabledAt: true, disabledReason: true },
   });
   if (!provisioned) throw new UnprovisionedError(email);
-  if (provisioned.disabledAt) throw new AccountDisabledError();
+  if (provisioned.disabledAt) throw new AccountDisabledError(provisioned.disabledReason);
 
   /* Claim it. `clerkId` is unique, so a second identity claiming the same
      address fails at the database rather than silently sharing a row. */
@@ -167,6 +176,9 @@ export async function requireActor(
   const identity = await authenticateClerkRequest(req);
   if (!identity) throw new UnauthenticatedError();
 
-  req.actor = await resolveActor(identity.clerkId, identity.email);
+  /* 2S1-BE-11 — a guardian's login acts for the minor they look after
+     (the one named by the header, or their first) — only once the guardian
+     is verified for them; a write before then is refused (2S1-BE-14). */
+  req.actor = await actForWard(await resolveActor(identity.clerkId, identity.email), req.get(WARD_HEADER), req.method);
   next();
 }

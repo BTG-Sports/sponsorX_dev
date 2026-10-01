@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import type { AddressInfo } from "node:net";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import { settleDeliveries } from "./support/delivery";
 
 /* --------------------------------------------------------------------------
    Phase 2 batch 5, against the real API and database:
@@ -145,7 +146,10 @@ describe.skipIf(!hasDatabase)("Phase 2 orders over the API", { timeout: 60_000 }
     return r.json;
   };
   const walk = async (id: string, states: string[]) => {
-    for (const to of states) expect((await call("POST", `/marketplace-orders/${id}/transition`, "mo_finance", { to })).json.state).toBe(to);
+    for (const to of states) {
+      if (to === "FULFILLED") await settleDeliveries(prisma, id);
+      expect((await call("POST", `/marketplace-orders/${id}/transition`, "mo_finance", { to })).json.state).toBe(to);
+    }
   };
 
   beforeAll(async () => {
@@ -165,9 +169,9 @@ describe.skipIf(!hasDatabase)("Phase 2 orders over the API", { timeout: 60_000 }
       { id: "mo_s2_admin", tenantId: T, clerkId: "mo_s2_admin", email: "mo_s2_admin@mo-test.invalid", roles: ["SPONSOR_ADMIN"], sponsorId: "mo_s2" },
     ] });
     await prisma.propertyOnboarding.create({ data: {
-      id: "mo_onb", tenantId: T, orgType: "TEAM", orgName: "Bowie Bulldogs", stateCode: "MD", state: "PENDING_REVIEW",
+      id: "mo_onb", tenantId: T, orgType: "TEAM", orgName: "Bowie Bulldogs MO", stateCode: "MD", state: "PENDING_REVIEW",
       contacts: [{ name: "Casey Moore", email: "mo_mgr@mo-test.invalid", phone: "301-555-0100", role: "General manager", primary: true }],
-      details: { legalEntityName: "Bowie Bulldogs LLC", league: "MD Youth", sport: "Basketball" },
+      details: { legalEntityName: "Bowie Bulldogs MO LLC", league: "MD Youth", sport: "Basketball" },
       payoutAcknowledgedAt: new Date(), termsAcceptedAt: new Date(), submittedAt: new Date(),
     } });
     const approved = await decideOnboarding({ userId: "mo_admin", tenantId: T, roles: ["BTG_ADMIN"], sponsorId: null, athleteId: null, guardianId: null, propertyId: null }, "mo_onb", "APPROVE");
@@ -498,7 +502,7 @@ describe.skipIf(!hasDatabase)("Phase 2 orders over the API", { timeout: 60_000 }
       const sponsorAccount = zoho.bySponsorXId("Accounts", "mo_s1")!;
       const propertyAccount = zoho.bySponsorXId("Accounts", `property:${E.property}`)!;
       expect(sponsorAccount).toMatchObject({ Account_Name: "Harbor Apparel", Account_Type: "Customer" });
-      expect(propertyAccount).toMatchObject({ Account_Name: "Bowie Bulldogs", Account_Type: "Partner", Billing_State: "MD" });
+      expect(propertyAccount).toMatchObject({ Account_Name: "Bowie Bulldogs MO", Account_Type: "Partner", Billing_State: "MD" });
       expect(zoho.bySponsorXId("Contacts", "mo_s1_contact")).toMatchObject({ Last_Name: "Morgan Hale", Account_Name: { id: sponsorAccount.id } });
       expect(zoho.bySponsorXId("Contacts", `user:${E.manager}`)).toMatchObject({
         Last_Name: "Casey Moore", Email: "mo_mgr@mo-test.invalid", Phone: "301-555-0100", Title: "General manager", Account_Name: { id: propertyAccount.id },
@@ -508,7 +512,7 @@ describe.skipIf(!hasDatabase)("Phase 2 orders over the API", { timeout: 60_000 }
         Amount: 900, Stage: "Closed Won", Type: "New Business",
         Account_Name: { id: sponsorAccount.id }, Contact_Name: { id: zoho.bySponsorXId("Contacts", "mo_s1_contact")!.id },
       });
-      expect(String(deal.Description)).toContain(`Bowie Bulldogs (Account ${propertyAccount.id})`);
+      expect(String(deal.Description)).toContain(`Bowie Bulldogs MO (Account ${propertyAccount.id})`);
       expect(String(deal.Description)).toContain("Riley's clinic ×1");
 
       /* SponsorX keeps the links. */

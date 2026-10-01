@@ -1,25 +1,54 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 
-import { TEAM_WAITING } from "@/lib/team-invite-live";
+import { leaveTeamAction, respondToTeamAction } from "@/app/(app)/athlete/team/actions";
 import { useDialogFocus } from "./use-dialog-focus";
 
 /* --------------------------------------------------------------------------
-   2S2-FE-05 — "Leave team" and its dialog (TeamInvite.dc.html, leave view).
+   2S2-FE-05 — the athlete's two answers: Accept / Decline on an invitation
+   (TeamInvite.dc.html, invite view) and "Leave team" with its dialog (leave
+   view). Live (2S2-BE-05): respondToTeamAction and leaveTeamAction.
 
-   SCAFFOLD: leaving a team is 2S2-BE-05 — not built. The dialog opens so
-   the athlete can read what leaving means; its "Leave team" is disabled
-   with the reason, and "Stay on the team" just closes it. Nothing here
-   pretends to write.
-
-   The design's first bullet ("the team's listings of your items end") is
-   left out: no such rule was agreed (programme owner, 2026-10-01). Only
-   what was agreed is said — orders already placed carry on.
+   The design's first leave bullet ("the team's listings of your items
+   end") is replaced by what happens (2S2-BE-05): the team's listings of the
+   athlete's items are paused, and orders already placed carry on.
    -------------------------------------------------------------------------- */
 
 const danger =
   "inline-flex min-h-11 items-center justify-center rounded-lg border border-danger/50 px-4 text-[13px] font-semibold text-danger hover:bg-danger/10 disabled:cursor-not-allowed disabled:opacity-40";
+const primary =
+  "inline-flex min-h-12 items-center justify-center rounded-lg bg-primary px-5 text-sm font-semibold text-cta-ink hover:bg-primary-soft disabled:cursor-not-allowed disabled:opacity-40";
+const secondary =
+  "inline-flex min-h-11 items-center justify-center rounded-lg border border-line px-4 text-[13px] font-medium text-text hover:bg-surface-2 disabled:cursor-not-allowed disabled:opacity-40";
+
+/** Accept and join, or decline — the athlete's answer to one invitation. */
+export function TeamInviteAnswer({ invitationId, team }: { invitationId: string; team: string }) {
+  const router = useRouter();
+  const [error, setError] = useState<string | null>(null);
+  const [pending, start] = useTransition();
+  const answer = (decision: "ACCEPT" | "DECLINE") =>
+    start(async () => {
+      setError(null);
+      const r = await respondToTeamAction(invitationId, decision);
+      if (!r.ok) return setError(r.message);
+      router.refresh();
+    });
+  return (
+    <div className="space-y-2">
+      <div className="flex flex-wrap gap-2.5">
+        <button type="button" className={primary} disabled={pending} onClick={() => answer("ACCEPT")} aria-label={`Accept and join ${team}`}>
+          {pending ? "Saving…" : "Accept and join"}
+        </button>
+        <button type="button" className={secondary} disabled={pending} onClick={() => answer("DECLINE")} aria-label={`Decline ${team}'s invitation`}>
+          Decline
+        </button>
+      </div>
+      {error && <p role="alert" className="text-[11px] text-danger">{error}</p>}
+    </div>
+  );
+}
 
 export function TeamLeave({ team, share }: { team: string; share: string }) {
   const [open, setOpen] = useState(false);
@@ -33,6 +62,17 @@ export function TeamLeave({ team, share }: { team: string; share: string }) {
 
 function LeaveDialog({ team, share, onClose }: { team: string; share: string; onClose: () => void }) {
   const ref = useDialogFocus<HTMLDivElement>(onClose);
+  const router = useRouter();
+  const [error, setError] = useState<string | null>(null);
+  const [pending, start] = useTransition();
+  const leave = () =>
+    start(async () => {
+      setError(null);
+      const r = await leaveTeamAction();
+      if (!r.ok) return setError(r.message);
+      onClose();
+      router.refresh();
+    });
   return (
     <div ref={ref} className="fixed inset-0 z-50" role="dialog" aria-modal="true" aria-labelledby="lv-title">
       <button type="button" tabIndex={-1} aria-label="Close" onClick={onClose} className="sx-backdrop absolute inset-0 cursor-default bg-black/55" />
@@ -41,14 +81,17 @@ function LeaveDialog({ team, share, onClose }: { team: string; share: string; on
           <h2 id="lv-title" className="text-base font-semibold tracking-tight">Leave the {team}?</h2>
           <ul className="list-disc space-y-1 pl-5 text-[13px] leading-relaxed text-text/85">
             <li>Orders already placed carry on, and the {team} keep their {share} on those.</li>
+            <li>The {team} stop selling your items; their listings of them are paused.</li>
             <li>You can list your own items, and BTG checks each one.</li>
           </ul>
-          <p className="rounded-lg border border-warn/30 bg-warn/8 px-3 py-2 text-[11px] text-warn">{TEAM_WAITING}</p>
+          {error && <p role="alert" className="rounded-lg bg-danger/10 px-3 py-2 text-[11px] text-danger">{error}</p>}
           <div className="flex flex-wrap justify-end gap-2">
             <button type="button" data-autofocus onClick={onClose} className="inline-flex min-h-11 items-center justify-center rounded-lg border border-line px-4 text-[13px] font-medium text-text hover:bg-surface-2">
               Stay on the team
             </button>
-            <button type="button" className={danger} disabled title={TEAM_WAITING}>Leave team</button>
+            <button type="button" className={danger} disabled={pending} onClick={leave}>
+              {pending ? "Leaving…" : "Leave team"}
+            </button>
           </div>
         </div>
       </div>

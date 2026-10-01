@@ -336,7 +336,30 @@ describe("the whole matrix is pinned", () => {
       // SUPER_ADMIN any/any, BTG_ADMIN own-tenant read/write, every other
       // cell deny (matrix `restrictedWord`). With its rows removed the grid
       // hashes to the previous 77c16c7e171c8dc2, so nothing else moved.
-    ).toBe("7fc0161e9b2baa67");
+      // Updated 2026-10-01: four new resources, every existing cell unchanged —
+      // `orderDelivery` and `teamInvitation` (2S4-BE-06/-07, 2S2-BE-05, matrix §22):
+      // orderDelivery SUPER_ADMIN any/any/any, BTG_ADMIN own-tenant ×3, FINANCE
+      // own-tenant read, PROPERTY_MGR own-property read/write, ATHLETE own
+      // read/write, SPONSOR_ADMIN own-sponsor read/write, SPONSOR_ANALYST
+      // own-sponsor read; teamInvitation SUPER_ADMIN any/any, PROPERTY_MGR
+      // own-property read/write, ATHLETE own read/write. `accountClosure` and
+      // `guardianHandoff` (2S1-BE-13/-15, matrix §23): accountClosure SUPER_ADMIN
+      // any ×3, BTG_ADMIN own-tenant ×3; guardianHandoff SUPER_ADMIN any/any,
+      // BTG_ADMIN own-tenant read, GUARDIAN ward/ward, ATHLETE own read. With all
+      // four removed the grid hashes to the previous 7fc0161e9b2baa67.
+      // Updated 2026-10-01 (merge of 2S1-BE-10 / -12): new `signupRules`
+      // resource — SUPER_ADMIN any/any, BTG_ADMIN own-tenant read/write,
+      // NETWORK_MGR own-tenant read, every other cell deny (matrix
+      // `signupRules`). Resources added today: restrictedWord, orderDelivery,
+      // teamInvitation, accountClosure, guardianHandoff, signupRules. With
+      // signupRules' rows removed the grid hashes to the previous
+      // a21c258670dcdb7c.
+      // Updated 2026-10-01 (2S1-BE-15, the merge's gap fixes): two new cells,
+      // `guardianHandoff.approve` — SUPER_ADMIN any, BTG_ADMIN own-tenant —
+      // BTG confirming or declining a handoff held because "BTG staff confirm
+      // minors" is on. With those two cells back to deny the grid hashes to
+      // the previous 1764feb8e04cc5ea.
+    ).toBe("11bff53b234f5f7c");
   });
 
   it("covers every pair the §30 acceptance asks for", () => {

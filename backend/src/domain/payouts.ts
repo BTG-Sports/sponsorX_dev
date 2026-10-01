@@ -11,8 +11,10 @@
  *     makes the payables available (ledger.ts).
  *   - A payee requests its available balance. It is requestable only when:
  *       the sponsor's payment is in (the payable is AVAILABLE),
- *       the order is delivered (FULFILLED or CLOSED),
- *       the holding period since fulfilment has passed (PAYOUT_HOLD_DAYS),
+ *       the LINE is delivered and confirmed (2S4-BE-07 — by the sponsor, by
+ *         24 hours of silence, or by BTG; a line under a reported problem is
+ *         held until BTG resolves it),
+ *       the holding period since that confirmation has passed (PAYOUT_HOLD_DAYS),
  *       and the payout account is READY.
  *     A refunded or cancelled order's money is reversed in the ledger and so
  *     can never be requested.
@@ -35,6 +37,8 @@ import { ForbiddenError } from "../auth/errors";
 import { providerName, readStandinToken, standinLink, standinRef, StandinTokenError } from "../lib/payment-provider";
 import { postPayout } from "./ledger";
 import { moveOrderAsSystem } from "./marketplace-order";
+import { assertMayCommit } from "./guardian-acts";
+import { payoutHoldReason } from "./payout-holds";
 
 type Tx = Prisma.TransactionClient;
 type Db = Tx | typeof prisma;
@@ -56,7 +60,8 @@ export type Payee = { payeeType: PayeeType; payeeId: string; payeeTenantId: stri
 const PAYABLE: Record<PayeeType, string> = { ATHLETE: "ATHLETE_PAYABLE", PROPERTY: "PROPERTY_PAYABLE" };
 /** A payout still claiming its money — the same money can't be requested twice. */
 const IN_FLIGHT = ["REQUESTED", "APPROVED", "SENDING"];
-const DELIVERED = new Set(["FULFILLED", "CLOSED"]);
+/* 2S4-BE-07 — an order whose confirmed lines may release money: paid, not refunded or cancelled. */
+const RELEASING = new Set(["IN_DELIVERY", "FULFILLED", "CLOSED"]);
 const PAID_OR_LATER = new Set(["PAID", "IN_DELIVERY", "FULFILLED", "CLOSED"]);
 
 const providerUnavailable = (what: string) =>
@@ -133,6 +138,8 @@ export async function myPayoutAccount(actor: Actor) {
 /** The link to the provider's set-up page (or back to it, to finish or manage). */
 export async function payoutAccountLink(actor: Actor, returnPath: unknown, now = new Date()) {
   const payee = payeeOf(actor, "payoutAccount", "write");
+  /* 2S1-BE-11 — a minor's payout account is set up by their guardian, in the guardian's name. */
+  await assertMayCommit(prisma, actor, "manage");
   const provider = providerName();
   if (provider === "none") throw providerUnavailable("Payout set-up");
   const back = safeReturnPath(returnPath, payee.payeeType === "ATHLETE" ? "/athlete" : "/property/earnings");
@@ -395,19 +402,34 @@ export async function completeStandinCheckout(token: string, outcome: "SUCCEED" 
   return { returnPath: link.returnPath };
 }
 
+
 /* ── the payee's balance — 2S5-BE-04 ──────────────────────────────────── */
 
 type OrderMoney = {
   orderId: string; books: string; state: string; fulfilledAt: Date | null; sponsorName: string; title: string;
   shareCents: number; availableCents: number; heldCents: number; awaitingPaymentCents: number; inFlightCents: number;
   requestableCents: number; holdUntil: Date | null;
+  /** 2S4-BE-07 — the payee's lines on this order: how many are confirmed, and how many held by a reported problem. */
+  confirmedLines: number; problemLines: number;
 };
+
+type LineRelease = { state: string; confirmedAt: Date | null };
+
+/**
+ * 2S4-BE-07 — whether a line's money may be released now: confirmed (by the
+ * sponsor, silence or BTG) and past the holding period from that
+ * confirmation. A line still in delivery, delivered but unanswered, or under a
+ * reported problem is held. Pure.
+ */
+export function lineReleasable(d: LineRelease | undefined, holdMs: number, now: Date): boolean {
+  return !!d && d.state === "CONFIRMED" && !!d.confirmedAt && d.confirmedAt.getTime() + holdMs <= now.getTime();
+}
 
 async function balanceOf(db: Db, payee: Payee, now: Date) {
   const entries = await db.ledgerEntry.findMany({
     /* tenant-scope: the payee's own entries — its tenant, type and id, exactly as ledgerEntry's own scope reads them. */
     where: { partyTenantId: payee.payeeTenantId, partyType: payee.payeeType, partyId: payee.payeeId, account: { in: [PAYABLE[payee.payeeType], "RESERVE_HELD"] }, orderId: { not: null } },
-    select: { tenantId: true, orderId: true, account: true, entryType: true, status: true, debitCents: true, creditCents: true },
+    select: { tenantId: true, orderId: true, lineId: true, account: true, entryType: true, status: true, debitCents: true, creditCents: true },
   });
   const inFlight = await db.payoutLine.findMany({
     /* tenant-scope: lines of this payee's own payouts, named by payee. */
@@ -426,6 +448,15 @@ async function balanceOf(db: Db, payee: Payee, now: Date) {
   });
   const sponsorName = new Map(sponsors.map((s) => [s.id, s.name]));
   const holdMs = env.PAYOUT_HOLD_DAYS * 24 * 60 * 60 * 1000;
+  /* 2S4-BE-07 — each of the payee's lines, as delivered and confirmed. */
+  const lineIds = [...new Set(entries.map((e) => e.lineId).filter((x): x is string => Boolean(x)))];
+  const deliveries = lineIds.length
+    ? await db.orderLineDelivery.findMany({
+        /* tenant-scope: the delivery rows of the lines the payee's own ledger entries name. */
+        where: { lineId: { in: lineIds } }, select: { lineId: true, state: true, confirmedAt: true },
+      })
+    : [];
+  const delivery = new Map(deliveries.map((d) => [d.lineId, d]));
 
   const out: OrderMoney[] = [];
   for (const o of orders) {
@@ -437,13 +468,19 @@ async function balanceOf(db: Db, payee: Payee, now: Date) {
     const heldCents = net(mine.filter((e) => e.account === "RESERVE_HELD"));
     const shareCents = mine.filter((e) => e.entryType === "BOOKING" && e.status !== "REVERSED").reduce((s, e) => s + e.creditCents, 0);
     const inFlightCents = inFlight.filter((l) => l.orderId === o.id).reduce((s, l) => s + l.amountCents, 0);
-    const holdUntil = o.fulfilledAt ? new Date(o.fulfilledAt.getTime() + holdMs) : null;
-    const releasable = DELIVERED.has(o.state) && holdUntil !== null && holdUntil <= now;
+    /* Line by line: money on a line not yet confirmed (or past its hold) is
+       locked. Paid-out money (PAYOUT, no line) has already left the balance. */
+    const myLines = [...new Set(mine.map((e) => e.lineId).filter((x): x is string => Boolean(x)))];
+    const released = (lineId: string | null) => lineId !== null && RELEASING.has(o.state) && lineReleasable(delivery.get(lineId), holdMs, now);
+    const lockedCents = net(payable.filter((e) => e.status !== "PENDING" && e.lineId !== null && !released(e.lineId)));
+    const confirmed = myLines.map((l) => delivery.get(l)).filter((d) => d?.state === "CONFIRMED" && d.confirmedAt) as { confirmedAt: Date }[];
+    const holdUntil = confirmed.length ? new Date(Math.max(...confirmed.map((d) => d.confirmedAt.getTime())) + holdMs) : null;
     out.push({
       orderId: o.id, books: mine[0]!.tenantId, state: o.state, fulfilledAt: o.fulfilledAt,
       sponsorName: sponsorName.get(o.sponsorId) ?? "", title: o.lines.map((l) => l.title).join(" · "),
       shareCents, availableCents, heldCents, awaitingPaymentCents, inFlightCents,
-      requestableCents: releasable ? Math.max(0, availableCents - inFlightCents) : 0, holdUntil,
+      requestableCents: Math.max(0, availableCents - lockedCents - inFlightCents), holdUntil,
+      confirmedLines: confirmed.length, problemLines: myLines.filter((l) => delivery.get(l)?.state === "PROBLEM").length,
     });
   }
   return out.sort((a, b) => (b.fulfilledAt?.getTime() ?? 0) - (a.fulfilledAt?.getTime() ?? 0));
@@ -475,14 +512,17 @@ export async function myPayouts(actor: Actor, now = new Date()) {
   const sum = (f: (o: OrderMoney) => number) => orders.reduce((s, o) => s + f(o), 0);
   const requestableCents = sum((o) => o.requestableCents);
   const paidOutCents = payouts.filter((p) => p.state === "PAID").reduce((s, p) => s + p.amountCents, 0);
-  const holds = orders.filter((o) => DELIVERED.has(o.state) && o.holdUntil && o.holdUntil > now && o.availableCents - o.inFlightCents > 0);
+  const holds = orders.filter((o) => o.confirmedLines > 0 && o.holdUntil && o.holdUntil > now && o.availableCents - o.inFlightCents > 0);
   const nextHold = holds.map((o) => o.holdUntil!).sort((a, b) => a.getTime() - b.getTime())[0] ?? null;
   const checks = [
     { key: "payment", label: "Sponsor's payment received", ok: orders.some((o) => PAID_OR_LATER.has(o.state)) },
-    { key: "delivered", label: "Order delivered (marked fulfilled)", ok: orders.some((o) => DELIVERED.has(o.state)) },
+    { key: "delivered", label: "Delivery confirmed by the sponsor", ok: orders.some((o) => o.confirmedLines > 0) },
     { key: "account", label: "Payout account ready", ok: account.status === "READY" },
     { key: "hold", label: nextHold ? `Holding period ends ${nextHold.toISOString().slice(0, 10)}` : "Holding period passed", ok: !nextHold || requestableCents > 0 },
   ];
+  /* 2S4-BE-07 — a line under a reported problem is held until BTG resolves it. */
+  const problemLines = orders.reduce((s, o) => s + o.problemLines, 0);
+  if (problemLines) checks.push({ key: "problem", label: `${problemLines} line${problemLines === 1 ? "" : "s"} held — a sponsor reported a problem BTG is resolving`, ok: false });
   return {
     currency: "USD",
     payee: { payeeType: payee.payeeType, name: await payeeName(prisma, payee) },
@@ -505,7 +545,12 @@ export async function myPayouts(actor: Actor, now = new Date()) {
 /** The payee asks for its whole requestable balance — one payout per set of books. */
 export async function requestPayout(actor: Actor, now = new Date()) {
   const payee = payeeOf(actor, "payout", "write");
+  /* 2S1-BE-11 — a minor's payouts are requested by their guardian; 2S1-BE-12 — none during the coming-of-age allowance. */
+  await assertMayCommit(prisma, actor, "payoutRequest");
   return prisma.$transaction(async (tx) => {
+    /* Held (2S1-BE-06 organisations, 2S1-BE-09 / -10 athletes): payout-holds.ts. */
+    const held = await payoutHoldReason(tx, payee);
+    if (held) throw new PayoutError(held, 409, ["Payouts not on hold"]);
     const account = await tx.payoutAccount.findUnique({
       /* tenant-scope: the payee's own account, by its unique payee key from the actor. */
       where: { payeeType_payeeId: { payeeType: payee.payeeType, payeeId: payee.payeeId } }, select: { status: true },
@@ -565,6 +610,8 @@ export async function getPayout(actor: Actor, id: string, now = new Date()) {
     /* tenant-scope: the orders this payout's own lines name. */
     where: { id: { in: row.lines.map((l) => l.orderId) } }, select: { id: true, state: true, fulfilledAt: true, totalCents: true, lines: { select: { title: true } } },
   });
+  /* 2S4-BE-07 — the payee's money on each order, released line by line, as when it was requested. */
+  const money = new Map((await balanceOf(prisma, payee, now)).map((o) => [o.orderId, o]));
   const [view] = await withPayee(prisma, [row]);
   return {
     ...view!,
@@ -572,9 +619,9 @@ export async function getPayout(actor: Actor, id: string, now = new Date()) {
     orders: orders.map((o) => ({ orderId: o.id, orderRef: orderRef(o.id), state: o.state, fulfilledAt: o.fulfilledAt, totalCents: o.totalCents, title: o.lines.map((l) => l.title).join(" · ") })),
     checks: [
       { key: "payment", label: "Sponsor's payment received", ok: orders.every((o) => PAID_OR_LATER.has(o.state)) },
-      { key: "delivered", label: "Order delivered (marked fulfilled)", ok: orders.every((o) => DELIVERED.has(o.state)) },
+      { key: "delivered", label: "Delivery confirmed (the payee's lines on each order)", ok: orders.every((o) => (money.get(o.id)?.confirmedLines ?? 0) > 0) },
       { key: "account", label: "Payout account ready", ok: account?.status === "READY" },
-      { key: "hold", label: "Holding period passed", ok: orders.every((o) => o.fulfilledAt && o.fulfilledAt.getTime() + env.PAYOUT_HOLD_DAYS * 86_400_000 <= now.getTime()) },
+      { key: "hold", label: "Holding period passed", ok: orders.every((o) => { const h = money.get(o.id)?.holdUntil; return !!h && h <= now; }) },
     ],
     provider: providerName(),
   };
@@ -603,6 +650,9 @@ export async function decidePayout(actor: Actor, id: string, decision: "APPROVE"
     if (!row) throw new ForbiddenError("payout", "approve");
     if (row.state !== "REQUESTED") throw new PayoutError(`This payout is ${row.state.toLowerCase()}, not waiting for a decision.`);
     const payee: Payee = { payeeType: row.payeeType as PayeeType, payeeId: row.payeeId, payeeTenantId: row.payeeTenantId };
+    /* A payee BTG rejected (organisation or athlete) is held: send it back if you must, but don't pay it. */
+    const held = decision === "APPROVE" ? await payoutHoldReason(tx, payee) : null;
+    if (held) throw new PayoutError(held, 409, ["Payouts not on hold"]);
     const updated = await tx.payout.update({
       /* tenant-scope: the row just loaded through whereFor(payout, approve). */
       where: { id: row.id },
@@ -652,9 +702,11 @@ export async function sendPayout(payoutId: string, now = new Date()): Promise<{ 
   return prisma.$transaction(async (tx) => {
     const row = await tx.payout.findUnique({
       /* tenant-scope: the payout named by the job this server enqueued on approval. */
-      where: { id: payoutId }, select: { id: true, tenantId: true, state: true },
+      where: { id: payoutId }, select: { id: true, tenantId: true, state: true, payeeType: true, payeeId: true, payeeTenantId: true },
     });
     if (!row || row.state !== "APPROVED") return { sent: false };
+    /* Held (2S1-BE-06 / -09): it waits, APPROVED, until BTG reinstates the payee, which sends it again. */
+    if (await payoutHoldReason(tx, row)) return { sent: false };
     await tx.payout.update({
       /* tenant-scope: the row just loaded by id. */
       where: { id: row.id }, data: { state: "SENDING", provider, providerRef: standinRef("po"), sentAt: now }, select: { id: true },

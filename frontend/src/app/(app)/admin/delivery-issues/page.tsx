@@ -1,12 +1,14 @@
 import Link from "next/link";
 
 import { NotInRole, staffWithoutAccess } from "@/components/not-in-role";
-import { Badge, BlockedNotice, Card } from "@/components/ui";
+import { RemindSellerButton } from "@/components/delivery-issue-decision";
+import { Badge, Card } from "@/components/ui";
 import { EmptyState, SkeletonRows } from "@/components/states";
 import { demoState } from "@/lib/demo";
 import {
-  CONFIRM_RULE, DELIVERY_BACKEND, DELIVERY_TABS, SAMPLE_OVERDUE, SAMPLE_PROBLEMS, dayOf, deliveryTab, overdueBadge, proofWords,
+  CONFIRM_RULE, DELIVERY_TABS, dayOf, deliveryTab, overdueBadge, proofWords, type ApiDeliveryDesk,
 } from "@/lib/delivery-issues-live";
+import { apiFetch } from "@/server/api";
 
 /* --------------------------------------------------------------------------
    Delivery issues — 2S4-FE-04, BTG half (Claude Design
@@ -14,16 +16,14 @@ import {
    themselves: the sponsor has 24 hours to confirm or report a problem, and
    silence counts as confirmed. BTG sees only the exceptions.
 
-   SCAFFOLD on sample data until 2S4-BE-07 (delivery confirmation) lands.
-
-   Reads  (fixtures, lib/delivery-issues-live.ts)
-   Writes none yet — "Remind seller" is off
+   Reads  GET  /delivery-issues                 { problems, overdue } (2S4-BE-07/-08)
+   Writes POST /delivery-issues/:lineId/remind  (RemindSellerButton → ./actions.ts)
+   BTG admins only (orderDelivery approve); ?demo=loading|empty|error.
    -------------------------------------------------------------------------- */
 
 export const dynamic = "force-dynamic";
 const PATH = "/admin/delivery-issues";
 const TITLE = "Delivery issues";
-const OFF = `Goes live with ${DELIVERY_BACKEND} — this is sample data, nothing is sent.`;
 const PROBLEM_COLS = "md:grid-cols-[1.4fr_8rem_8rem_1.2fr_1.2fr_6rem]";
 const OVERDUE_COLS = "md:grid-cols-[1.4fr_8rem_8rem_8rem_10rem_8rem]";
 
@@ -43,8 +43,11 @@ export default async function DeliveryIssuesPage({ searchParams }: { searchParam
   if (lacking) return <NotInRole path={PATH} title={TITLE} roles={lacking} />;
   const tab = deliveryTab((await searchParams).tab);
   const empty = demo === "empty";
-  const problems = empty ? [] : SAMPLE_PROBLEMS;
-  const overdue = empty ? [] : SAMPLE_OVERDUE;
+  const res = empty ? null : await apiFetch("/delivery-issues");
+  if (res && !res.ok) throw new Error(`Delivery issues unavailable (${res.status}).`);
+  const desk = res ? ((await res.json()) as ApiDeliveryDesk) : { problems: [], overdue: [] };
+  const problems = desk.problems;
+  const overdue = desk.overdue;
   const counts = { problems: problems.length, overdue: overdue.length };
 
   return (
@@ -55,10 +58,6 @@ export default async function DeliveryIssuesPage({ searchParams }: { searchParam
           Deliveries confirm themselves. {CONFIRM_RULE} You only see lines where a sponsor reported a problem, or a seller is late marking delivery.
         </p>
       </div>
-
-      <BlockedNotice>
-        Sample data — this desk goes live with {DELIVERY_BACKEND}. Every order, name and amount below is a sample, and the buttons stay off until then.
-      </BlockedNotice>
 
       <nav aria-label="Delivery issues" className="flex max-w-full gap-1 overflow-x-auto rounded-lg border border-line bg-surface p-1 sm:w-fit">
         {DELIVERY_TABS.map((t) => {
@@ -94,10 +93,10 @@ export default async function DeliveryIssuesPage({ searchParams }: { searchParam
                     </span>
                     <span><span className="text-muted md:hidden">Seller: </span>{p.seller.name}{p.seller.sub && <span className="block text-[11px] text-muted">{p.seller.sub}</span>}</span>
                     <span><span className="text-muted md:hidden">Sponsor: </span>{p.sponsor.name}{p.sponsor.sub && <span className="block text-[11px] text-muted">{p.sponsor.sub}</span>}</span>
-                    <span className="min-w-0 text-muted">&ldquo;{p.sponsorMessage.text}&rdquo;</span>
+                    <span className="min-w-0 text-muted">{p.sponsorMessage ? <>&ldquo;{p.sponsorMessage.text}&rdquo;</> : ""}</span>
                     <span className="min-w-0 text-muted">
-                      &ldquo;{p.sellerNote.text}&rdquo;
-                      <span className="mt-1 block text-[11px] text-primary-soft">{proofWords(p.sellerNote.proofCount)}</span>
+                      {p.sellerNote ? <>&ldquo;{p.sellerNote.text}&rdquo;</> : "Not marked delivered"}
+                      <span className="mt-1 block text-[11px] text-primary-soft">{proofWords(p.sellerNote?.proofCount ?? 0, p.sellerNote?.link)}</span>
                     </span>
                     <span className="md:text-right">
                       <Link href={`${PATH}/${p.id}`} aria-label={`Review ${p.orderRef}`}
@@ -127,17 +126,14 @@ export default async function DeliveryIssuesPage({ searchParams }: { searchParam
                     <li key={o.id} className={`grid gap-x-3 gap-y-1.5 px-4 py-3.5 text-xs md:items-center ${OVERDUE_COLS}`}>
                       <span className="min-w-0">
                         <strong className="block text-[13px] font-semibold">{o.orderRef}</strong>
-                        <span className="block text-[11px] text-muted">{o.line}</span>
+                        <span className="block text-[11px] text-muted">{o.line} · {o.quantity}</span>
                       </span>
                       <span><span className="text-muted md:hidden">Seller: </span>{o.seller.name}{o.seller.sub && <span className="block text-[11px] text-muted">{o.seller.sub}</span>}</span>
                       <span><span className="text-muted md:hidden">Sponsor: </span>{o.sponsor.name}</span>
                       <span className="text-muted">{dayOf(o.lastDate)} has passed</span>
                       <span><Badge tone={b.tone}><span aria-hidden="true" className="mr-1">!</span>{b.label}</Badge></span>
                       <span className="md:text-right">
-                        <button type="button" disabled title={OFF} aria-label={`Remind ${o.seller.name}`}
-                          className="min-h-9 cursor-not-allowed rounded-lg bg-primary px-3.5 text-xs font-semibold text-cta-ink opacity-40">
-                          Remind seller
-                        </button>
+                        <RemindSellerButton lineId={o.id} seller={o.seller.name} />
                       </span>
                     </li>
                   );
@@ -146,7 +142,7 @@ export default async function DeliveryIssuesPage({ searchParams }: { searchParam
             </div>
           </Card>
           <p className="text-[11px] text-faint">
-            Shown here: the same sample order as if Riley had not marked it delivered after the last session. When live, a reminder emails the seller and their team&rsquo;s manager.
+            The seller and their team&rsquo;s manager are reminded once, the day after a line&rsquo;s last date. &ldquo;Remind seller&rdquo; emails them again, at most once a day.
           </p>
         </div>
       )}

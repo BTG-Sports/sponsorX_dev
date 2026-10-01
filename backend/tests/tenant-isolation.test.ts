@@ -63,6 +63,8 @@ const A = {
   asset: "ti_asset_ed_a", claim: "ti_claim_a", onboarding: "ti_onboarding_a",
   /* Phase 2 batch 3 — an athlete's item, a school's item with a listing awaiting approval, a sent offer. */
   item: "ti_item_a", schoolItem: "ti_item_school_a", listing: "ti_listing_a", offer: "ti_offer_a",
+  /* 2S2-FE-03 — the athlete's change request on that offer, unanswered. */
+  changeRequest: "ti_offer_change_a",
   /* Phase 2 batch 4 — a restriction, the sponsor's cart with a line. */
   restriction: "ti_restriction_a", cart: "ti_cart_a", cartLine: "ti_cart_line_a",
   /* Phase 2 batch 5 — a hold and the order it became. */
@@ -80,8 +82,15 @@ const A = {
   /* 2S1-BE-05 — a business asking tenant A's BTG to sponsor. */
   inquiry: "ti_inquiry_a",
   inquiryDocument: "ti_inquiry_doc_a",
+  /* 2S1-BE-12 — a row of tenant A's age-of-majority table. */
+  ageRow: "ti_age_row_a",
   /* 2S7-FE-02 — an order still owing payment whose card payment failed (BTG's console). */
   dueReservation: "ti_reservation_due_a", dueOrder: "ti_mkt_order_due_a", failedAttempt: "ti_attempt_failed_a",
+  /* 2S4-BE-06 / -07 — a sold line of that order, marked delivered and waiting
+     for the sponsor; 2S2-BE-05 — tenant A's school inviting tenant A's athlete. */
+  mktLine: "ti_mkt_line_a", delivery: "ti_delivery_a", teamInvite: "ti_team_invite_a",
+  /* 2S1-BE-13 — a rejected tenant-A account asking to come back; 2S1-BE-15 — a request to become its guardian, waiting. */
+  closure: "ti_closure_a", handoff: "ti_handoff_a",
 } as const;
 const B = {
   tenant: "ti_tenant_b", sponsor: "ti_sponsor_b", athlete: "ti_athlete_b",
@@ -126,19 +135,28 @@ const PARAM_FOR: Record<string, string> = {
   students: A.student, prospects: A.prospect, sponsors: A.sponsor,
   "edition-assets": A.asset, claims: A.claim, properties: A.school, onboarding: A.onboarding,
   inventory: A.item, listings: A.listing, offers: A.offer, roster: A.athlete,
+  /* POST /offers/{id}/change-requests/{requestId}/keep (2S2-FE-03). */
+  "change-requests": A.changeRequest,
   restrictions: A.restriction, lines: A.cartLine,
   reservations: A.reservation, "marketplace-orders": A.mktOrder, "commission-rules": A.rule,
   payouts: A.payout, "sponsor-requests": A.inquiry, "restricted-words": A.restrictedWord,
   /* GET /sponsor-requests/{id}/documents/{documentId} (2S1-BE-17). */
   documents: A.inquiryDocument,
+  /* DELETE /signup-rules/age-table/{id} (2S1-BE-12). */
+  "age-table": A.ageRow,
   /* GET /deliverables/{id}/assets/{version}/url (P5-FE-04) — a creative
      version number, under tenant A's deliverable. */
   assets: "1",
   /* GET /reward-tokens/{id}/qr-url (P6-FE-01). */
   "reward-tokens": A.token,
+  /* 2S4-BE-06 / -07 — the seller's sold line, the sponsor's answer and BTG's
+     desk all take an order-line id; 2S2-BE-05 — an invitation. */
+  sales: A.mktLine, deliveries: A.mktLine, "delivery-issues": A.mktLine, "team-invitations": A.teamInvite,
   /* P3-BE-16 — no tenant-A change is seeded: an unknown id must answer
      exactly as another tenant's would, so a made-up one is the right probe. */
   "profile-changes": "pc_not_yours",
+  /* 2S1-BE-13 / 2S1-BE-15. */
+  "account-closures": A.closure, "guardian-handoffs": A.handoff,
 };
 
 /**
@@ -149,6 +167,13 @@ const PARAM_FOR: Record<string, string> = {
 const BODY: Record<string, unknown> = {
   "POST /restricted-words": { word: "ti-made-up-word", kind: "ADULT" },
   "POST /restricted-words/test": { text: "TI Secret probe text" },
+  /* 2S1-BE-09 / -10 / -12 — New sign-ups and the sign-up rules. */
+  "POST /signups/athletes/{id}/reject": { note: "Isolation sweep" },
+  "POST /signups/guardians/{id}/reject": { note: "Isolation sweep" },
+  "PUT /signup-rules/age-table": { countryCode: "US", regionCode: "AL", age: 19 },
+  "PUT /signup-rules/settings": { staffConfirmMinors: false },
+  "POST /applications/intake/guardian": { legalName: "Sweep Guardian", email: "sweep-guardian@b.invalid", relationship: "PARENT" },
+  "POST /applications/intake/documents": { kind: "GOVERNMENT_ID", filename: "id.pdf", contentType: "application/pdf", bytes: 1000 },
   "POST /sponsor-requests/{id}/decision": { decision: "APPROVE", categories: ["RESTAURANT"], newSponsor: true },
   "PUT /athletes/{id}/tier": { tier: "CREATOR" },
   "POST /athletes/{id}/rates": { jobId: A.job, amount: 20000 },
@@ -187,7 +212,10 @@ const BODY: Record<string, unknown> = {
   "POST /athletes/{id}/guardian": { legalName: "X", email: "x@x.invalid", relationship: "PARENT" },
   "PUT /athletes/{id}/socials": { socials: [{ platform: "INSTAGRAM", handle: "stolen" }] },
   "POST /athletes/{id}/profile-changes": { identity: { displayName: "Stolen Name" } },
-  "POST /profile-changes/{id}/decline": { reviewerNotes: "No." },
+  /* 2S1-BE-13 / 2S1-BE-15. POST /me/close is the actor's own account, so an empty body (refused: confirm is required) keeps the sweep from closing tenant B's logins. */
+  "POST /account-closures/{id}/reactivation-decision": { decision: "DECLINE", note: "cross-tenant" },
+  "POST /guardian-handoffs/{id}/decision": { decision: "HAND_OFF" },
+  "POST /guardian-handoffs/{id}/staff-decision": { decision: "CONFIRM" },
   "POST /guardians/{id}/verify": { method: "DOCUMENT" },
   "POST /agreements/accept": { agreementId: A.agreement, bodyHashShown: "x".repeat(64) },
   "POST /campaigns/{id}/rewards": { offerText: "Free taco", terms: "One per fan", expiresAt: "2026-12-01T00:00:00.000Z" },
@@ -238,6 +266,10 @@ const BODY: Record<string, unknown> = {
     deliverables: [{ title: "Post", dueDate: "2027-06-01T00:00:00.000Z" }], usageRights: "90 days", disclosures: [], expiresAt: "2027-05-01T00:00:00.000Z",
   },
   "POST /offers/{id}/respond": { decision: "DECLINE" },
+  /* 2S2-FE-03 — BTG's answers to a change request, and editing a draft. */
+  "POST /offers/{id}/change-requests/{requestId}/keep": { note: "It stands." },
+  "POST /offers/{id}/revise": {},
+  "PATCH /offers/{id}": { brief: "Stolen brief" },
   "PUT /branding": { displayName: "Sweep brand" },
   "POST /branding/logo": { contentType: "image/png", bytes: 10 },
   "POST /restrictions": { athleteId: A.athlete, category: "CRYPTO", type: "PROHIBITED" },
@@ -252,6 +284,14 @@ const BODY: Record<string, unknown> = {
   "POST /commission-rules/{id}/revise": { bps: 1 },
   "POST /payouts/{id}/decision": { decision: "APPROVE" },
   "POST /payouts/account/link": { returnPath: "/athlete" },
+  /* 2S4-BE-06 / -07 / -08 — sellers' orders and delivery. */
+  "POST /sales/{id}/proof": { contentType: "image/jpeg", bytes: 1000 },
+  "POST /sales/{id}/delivered": { note: "Sweep delivery note" },
+  "POST /deliveries/{id}/problem": { note: "Sweep problem" },
+  "POST /delivery-issues/{id}/resolve": { decision: "CONFIRM", note: "Sweep decision" },
+  /* 2S2-BE-05 — inviting tenant A's athlete, and answering tenant A's invitation. */
+  "POST /team/invitations": { athleteId: A.athlete, teamShareBps: 100 },
+  "POST /team-invitations/{id}/respond": { decision: "ACCEPT" },
 };
 
 describe.skipIf(!hasDatabase)("P8-SEC-02 · tenant B cannot reach tenant A through any route", async () => {
@@ -367,6 +407,7 @@ describe.skipIf(!hasDatabase)("P8-SEC-02 · tenant B cannot reach tenant A throu
       deliverables: [{ title: "Post", dueDate: "2027-06-01T00:00:00.000Z" }], usageRights: "90 days", disclosures: [], expiresAt: new Date(Date.now() + 30 * 864e5),
       state: "SENT", sentAt: new Date(), termsHash: "t".repeat(64),
     } });
+    await prisma.offerChangeRequest.create({ data: { id: A.changeRequest, tenantId: t, offerId: A.offer, requestedBy: "ti_a_athlete", note: "TI Secret change note" } });
     await prisma.tenantBranding.create({ data: { tenantId: t, displayName: "TI Secret Brand", primaryColor: "#123456" } });
     await prisma.brandRestriction.create({ data: { id: A.restriction, tenantId: t, athleteId: A.athlete, category: "GAMBLING", type: "PROHIBITED", reason: "TI Secret reason" } });
     /* Far-future expiry: the cart sweep (2S4-BE-01) is platform-wide, and
@@ -381,10 +422,16 @@ describe.skipIf(!hasDatabase)("P8-SEC-02 · tenant B cannot reach tenant A throu
       requiresApproval: true, approvalReasons: ["TI Secret reason"],
       acceptanceId: A.mktAcceptance, billingName: "TI Secret Billing", billingEmail: "ti-secret-billing@a.invalid", billingReference: "TI Secret PO",
       lines: { create: [
-        { tenantId: t, listingId: A.listing, inventoryItemId: A.schoolItem, itemTenantId: t, propertyId: A.school, title: "TI Secret line", quantity: 1, startsOn: new Date("2027-01-01"), endsOn: new Date("2027-01-02"), unitPriceCents: 9000, lineTotalCents: 9000 },
+        { id: A.mktLine, tenantId: t, listingId: A.listing, inventoryItemId: A.schoolItem, itemTenantId: t, propertyId: A.school, title: "TI Secret line", quantity: 1, startsOn: new Date("2027-01-01"), endsOn: new Date("2027-01-02"), unitPriceCents: 9000, lineTotalCents: 9000 },
         { tenantId: t, listingId: A.athleteListing, inventoryItemId: A.item, itemTenantId: t, sellerAthleteId: A.athlete, title: "TI Secret athlete line", quantity: 1, startsOn: new Date("2027-01-01"), endsOn: new Date("2027-01-02"), unitPriceCents: 5000, lineTotalCents: 5000 },
       ] },
     } });
+    await prisma.orderLineDelivery.create({ data: {
+      id: A.delivery, tenantId: t, orderId: A.mktOrder, lineId: A.mktLine, sponsorId: A.sponsor, propertyId: A.school, propertyTenantId: t,
+      state: "DELIVERED", deliveredAt: new Date(), deliveredByName: "TI Secret Seller", note: "TI Secret delivery note",
+      confirmDueAt: new Date(Date.now() + 3650 * 864e5),
+    } });
+    await prisma.teamInvitation.create({ data: { id: A.teamInvite, tenantId: t, propertyId: A.school, athleteId: A.athlete, athleteTenantId: t, teamShareBps: 1500 } });
     await prisma.reservation.create({ data: { id: A.dueReservation, tenantId: t, sponsorId: A.sponsor, cartId: A.cart, state: "CONVERTED", convertedAt: new Date(), expiresAt: new Date(Date.now() + 3650 * 864e5) } });
     await prisma.marketplaceOrder.create({ data: {
       id: A.dueOrder, tenantId: t, sponsorId: A.sponsor, reservationId: A.dueReservation, state: "AWAITING_PAYMENT",
@@ -407,6 +454,17 @@ describe.skipIf(!hasDatabase)("P8-SEC-02 · tenant B cannot reach tenant A throu
       id: A.inquiryDocument, tenantId: t, inquiryId: A.inquiry, kind: "PROOF_OF_BUSINESS", filename: "ti-secret-license.pdf",
       contentType: "application/pdf", bytes: 100, r2Key: "sponsor-requests/ti_inquiry_a/ti_inquiry_doc_a/ti-secret-license.pdf", uploadedAt: new Date(),
     } });
+    /* 2S1-BE-13 / 2S1-BE-15 — far-future retention: the purge sweep is platform-wide. */
+    await prisma.accountClosure.create({ data: {
+      id: A.closure, tenantId: t, subjectKind: "ATHLETE", subjectId: A.athlete, cause: "REJECTED", reason: "TI Secret reason",
+      retainUntil: new Date(Date.now() + 3650 * 864e5), contactEmail: "ath@a.invalid", displayName: "TI Secret Closed",
+      reactivationRequestedAt: new Date(), reactivationRequestNote: "TI Secret request",
+    } });
+    await prisma.guardianHandoff.create({ data: {
+      id: A.handoff, tenantId: t, athleteId: A.athlete, fromGuardianId: A.guardian, requesterName: "TI Secret New Guardian",
+      requesterEmail: "ti-secret-newg@a.invalid", relationship: "PARENT", state: "WAITING", emailConfirmedAt: new Date(), submittedAt: new Date(),
+    } });
+    await prisma.ageOfMajority.create({ data: { id: A.ageRow, tenantId: t, countryCode: "ZZ", regionCode: "", age: 18 } });
     await prisma.restrictedWord.create({ data: { id: A.restrictedWord, tenantId: t, word: "TI Secret word", normalized: "ti secret word", kind: "OTHER_ILLEGAL", addedBy: A.admin } });
     await prisma.athleteClaim.create({ data: { id: A.claim, tenantId: t, athleteId: A.athlete, claimantName: "TI Secret Claimant", claimantEmail: "secret@a.invalid", rosterMatched: true } });
     await prisma.guardian.create({ data: { id: B.guardian, tenantId: B.tenant, legalName: "TI Guardian B", email: "g@b.invalid", relationship: "PARENT" } });

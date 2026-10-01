@@ -27,6 +27,7 @@ import { enqueue } from "../db/outbox";
 import type { Actor } from "../auth/actor";
 import { assertAllowed, whereFor } from "../auth/scope";
 import { ForbiddenError } from "../auth/errors";
+import { assertMayCommit } from "./guardian-acts";
 import {
   canTransitionInvite,
   IllegalInviteTransitionError,
@@ -115,7 +116,7 @@ export async function inviteAthlete(
       where: { id: input.athleteId, tenantId: actor.tenantId },
       select: {
         id: true, state: true, restrictedCategories: true,
-        birthDate: true, ageBand: true, guardianId: true,
+        birthDate: true, ageBand: true, majorityAge: true, guardianId: true,
         guardian: { select: { verifiedAt: true } },
       },
     });
@@ -127,6 +128,7 @@ export async function inviteAthlete(
     const readiness = guardianReadiness({
       birthDate: athlete.birthDate,
       ageBand: athlete.ageBand,
+      majorityAge: athlete.majorityAge,
       guardianId: athlete.guardianId,
       guardianVerifiedAt: athlete.guardian?.verifiedAt ?? null,
     });
@@ -217,6 +219,8 @@ export async function transitionInvite(
 
     const from = invite.state as InviteState;
     if (!canTransitionInvite(from, to)) throw new IllegalInviteTransitionError(from, to);
+    /* 2S1-BE-11 / -12 — accepting is an agreement: a minor's comes from their guardian, and none during coming of age. */
+    if (to === "ACCEPTED") await assertMayCommit(tx, actor, "accept");
 
     const updated = await tx.campaignInvite.update({
       where: { id: inviteId },

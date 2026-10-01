@@ -1,30 +1,38 @@
-import type { ReactNode } from "react";
 import Link from "next/link";
 
 import { NotInRole, staffWithoutAccess } from "@/components/not-in-role";
-import { Badge, BlockedNotice, Card } from "@/components/ui";
+import { Badge, Card } from "@/components/ui";
 import { EmptyState, SkeletonRows } from "@/components/states";
 import { demoState } from "@/lib/demo";
 import {
-  SAMPLE_SIGNUPS, SIGNUP_BACKEND, SIGNUP_TABS, KIND_WORDS, checksWord, dayOf, inTab, signupBadge, signupTab, sponsorRows, tabCount,
-  type ApiSponsorSignup,
+  SIGNUP_TABS, KIND_WORDS, checksWord, dayOf, orgHref, orgState, signupBadge, signupTab, sponsorRows, tabShows,
+  type ApiOrgSignup, type ApiSponsorSignup, type SignupTab, type SponsorSignupRow,
 } from "@/lib/new-signups-live";
+import { LIVE_KIND_WORDS, liveBadge, liveChecksWord, needsReview, signupHref, type ApiSignupList } from "@/lib/signups-live";
 import { apiFetch } from "@/server/api";
+import { SensitiveEdits } from "@/components/sensitive-edits-section";
 
 /* --------------------------------------------------------------------------
    New sign-ups — 2S1-FE-07 (Claude Design NewSignups.dc.html, views all and
    review). Everything SponsorX approved by itself; BTG steps in only for
    what is held under Needs review, and can reject (with an emailed reason)
-   and reinstate.
+   and reinstate. Every automatic-approval email links here.
 
-   Two sections, never mixed:
-   - Sponsors — LIVE. Approved automatically since 2S1-BE-17.
-   - Organizations, athletes and guardians — SAMPLE rows until 2S1-BE-06,
-     -09 and -10 build their automatic approval.
+   Sections, never mixed, under one set of tabs (All · Organizations ·
+   Athletes · Guardians · Sponsors · Needs review):
+   - Athletes and guardians — LIVE since 2S1-BE-09 / -10; each opens its
+     profile here, with Reject and Reinstate.
+   - Sensitive profile edits — LIVE since 2S1-BE-14 (2S1-FE-09).
+   - Sponsors — LIVE since 2S1-BE-17; each opens its sponsor request.
+   - Organizations — LIVE since 2S1-BE-06; each opens the organisation's
+     profile (/admin/onboarding/:id), with Reject, Reinstate and the
+     5-minute document links.
 
-   Reads  GET /sponsor-requests?state=APPROVED   approved sponsors (autoApproved)
-          GET /sponsor-requests?state=NEW        sponsors held with reviewReasons
-          (fixtures, lib/new-signups-live.ts)    everyone else
+   Reads  GET /signups                             athletes and guardians, with counts
+          GET /profile-changes?size=25             sensitive edits (sensitive-edits-section.tsx)
+          GET /sponsor-requests?state=APPROVED     approved sponsors (autoApproved)
+          GET /sponsor-requests?state=NEW          sponsors held with reviewReasons
+          GET /onboarding/signups                  organizations (autoApproved, reasons)
    -------------------------------------------------------------------------- */
 
 export const dynamic = "force-dynamic";
@@ -32,6 +40,13 @@ const PATH = "/admin/new-signups";
 const TITLE = "New sign-ups";
 const SPONSORS_SHOWN = 25;
 const COLS = "md:grid-cols-[1.5fr_7rem_5rem_11rem_1.4fr_5rem]";
+
+type Live<T> = { ok: true; data: T } | { ok: false; status: number };
+
+async function read<T>(path: string): Promise<Live<T>> {
+  const res = await apiFetch(path);
+  return res.ok ? { ok: true, data: (await res.json()) as T } : { ok: false, status: res.status };
+}
 
 export default async function NewSignupsPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const demo = await demoState(searchParams);
@@ -49,53 +64,144 @@ export default async function NewSignupsPage({ searchParams }: { searchParams: P
   if (lacking) return <NotInRole path={PATH} title={TITLE} roles={lacking} />;
   const tab = signupTab((await searchParams).tab);
 
+  if (demo === "empty") {
+    return (
+      <div className="space-y-6">
+        <Header />
+        <EmptyState mark="users" title="No new sign-ups" hint="Organizations, athletes, guardians and sponsors appear here as they sign up and are approved." />
+      </div>
+    );
+  }
+
+  const [people, approved, waiting, orgs] = await Promise.all([
+    read<ApiSignupList>("/signups"),
+    read<{ requests: ApiSponsorSignup[]; counts: Record<string, number> }>("/sponsor-requests?state=APPROVED"),
+    read<{ requests: ApiSponsorSignup[] }>("/sponsor-requests?state=NEW"),
+    read<{ signups: ApiOrgSignup[] }>("/onboarding/signups"),
+  ]);
+  const sponsors: Live<SponsorSignupRow[]> = approved.ok && waiting.ok
+    ? { ok: true, data: sponsorRows(approved.data.requests, waiting.data.requests) }
+    : { ok: false, status: approved.ok ? (waiting as { status: number }).status : approved.status };
+
+  const counts: Record<SignupTab["key"], number | null> = {
+    all: null,
+    org: orgs.ok ? orgs.data.signups.length : null,
+    ath: people.ok ? people.data.counts.athletes : null,
+    gua: people.ok ? people.data.counts.guardians : null,
+    spo: sponsors.ok ? sponsors.data.length : null,
+    review:
+      (people.ok ? people.data.counts.review : 0) +
+      (sponsors.ok ? sponsors.data.filter((r) => r.badge.tone === "warn").length : 0) +
+      (orgs.ok ? orgs.data.signups.filter((s) => s.state === "NEEDS_REVIEW").length : 0),
+  };
+
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-xl font-semibold tracking-tight">{TITLE}</h1>
-        <p className="mt-1 text-xs text-muted">Everything SponsorX approved by itself. Nothing here needs you unless it&rsquo;s under Needs review.</p>
-      </div>
+      <Header />
+      <nav aria-label="Sign-up type" className="flex max-w-full gap-1 overflow-x-auto rounded-lg border border-line bg-surface p-1">
+        {SIGNUP_TABS.map((t) => {
+          const on = t.key === tab.key;
+          const n = counts[t.key];
+          return (
+            <Link key={t.key} href={`${PATH}?tab=${t.key}`} aria-current={on ? "page" : undefined}
+              className={`inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-md px-3 py-1.5 text-xs font-medium ${on ? "bg-primary/15 text-text" : "text-muted hover:text-text"}`}>
+              {t.label}
+              {n !== null && (
+                <span className={`rounded-full px-1.5 text-[10px] font-semibold tabular-nums ${t.key === "review" && n ? "bg-warn/15 text-warn" : "bg-surface-2"}`}>{n}</span>
+              )}
+            </Link>
+          );
+        })}
+      </nav>
 
-      {demo === "empty" ? (
-        <EmptyState mark="users" title="No new sign-ups" hint="Organizations, athletes, guardians and sponsors appear here as they sign up and are approved." />
-      ) : (
-        <>
-          <LiveSponsors />
-          <SampleSignups tab={tab} />
-        </>
-      )}
+      {(tabShows(tab, "ATHLETE") || tabShows(tab, "GUARDIAN")) && <AthletesAndGuardians tab={tab} live={people} />}
+      {/* 2S1-FE-09 — sensitive profile edits (legal name, date of birth, guardian, a move across an age line). */}
+      {(tab.key === "all" || tab.key === "ath" || tab.key === "review") && <SensitiveEdits />}
+      {tabShows(tab, "SPONSOR") && <Sponsors tab={tab} live={sponsors} total={approved.ok ? approved.data.counts.APPROVED ?? 0 : 0} />}
+      {tabShows(tab, "ORGANIZATION") && <Organizations tab={tab} live={orgs} />}
     </div>
   );
 }
 
-/* ------------------------------------------------------ sponsors · live */
+function Header() {
+  return (
+    <div className="flex flex-wrap items-start justify-between gap-3">
+      <div>
+        <h1 className="text-xl font-semibold tracking-tight">{TITLE}</h1>
+        <p className="mt-1 text-xs text-muted">Everything SponsorX approved by itself. Nothing here needs you unless it&rsquo;s under Needs review.</p>
+      </div>
+      <Link href={`${PATH}/rules`} className="inline-flex min-h-9 items-center rounded-lg border border-line px-3.5 text-xs font-semibold text-text hover:bg-surface-2">
+        Sign-up rules →
+      </Link>
+    </div>
+  );
+}
 
-async function LiveSponsors() {
-  const [approvedRes, waitingRes] = await Promise.all([
-    apiFetch("/sponsor-requests?state=APPROVED"),
-    apiFetch("/sponsor-requests?state=NEW"),
-  ]);
+function SectionHead({ id, title, live, note }: { id: string; title: string; live: boolean; note: string }) {
+  return (
+    <div className="mb-2 flex flex-wrap items-baseline gap-2">
+      <h2 id={id} className="text-sm font-semibold">{title}</h2>
+      <Badge tone={live ? "accent" : "warn"}>{live ? "Live" : "Sample"}</Badge>
+      <span className="text-[11px] text-muted">{note}</span>
+    </div>
+  );
+}
 
-  let body: ReactNode;
-  if (!approvedRes.ok || !waitingRes.ok) {
-    const status = approvedRes.ok ? waitingRes.status : approvedRes.status;
-    body = (
-      <p className="px-4 py-3 text-xs text-muted">
-        {status === 403 ? "Your role doesn’t read sponsor requests, so sponsor sign-ups aren’t shown here." : `Sponsor sign-ups couldn’t be read just now (${status}).`}
-      </p>
-    );
+function Unreadable({ status, what }: { status: number; what: string }) {
+  return (
+    <p className="px-4 py-3 text-xs text-muted">
+      {status === 403 ? `Your role doesn’t read ${what}, so they aren’t shown here.` : `${what[0]!.toUpperCase()}${what.slice(1)} couldn’t be read just now (${status}).`}
+    </p>
+  );
+}
+
+/* ------------------------------------------- athletes and guardians · live */
+
+function AthletesAndGuardians({ tab, live }: { tab: SignupTab; live: Live<ApiSignupList> }) {
+  let body;
+  if (!live.ok) {
+    body = <Unreadable status={live.status} what="athlete and guardian sign-ups" />;
   } else {
-    const approved = (await approvedRes.json()) as { requests: ApiSponsorSignup[]; counts: Record<string, number> };
-    const waiting = (await waitingRes.json()) as { requests: ApiSponsorSignup[] };
-    const rows = sponsorRows(approved.requests, waiting.requests);
-    const heldCount = rows.filter((r) => r.badge.tone === "warn").length;
+    const rows = live.data.signups.filter((s) =>
+      tab.key === "review" ? needsReview(s) : tab.key === "ath" ? s.kind === "ATHLETE" : tab.key === "gua" ? s.kind === "GUARDIAN" : true,
+    );
+    body = rows.length === 0 ? (
+      <p className="px-4 py-3 text-xs text-muted">
+        {tab.key === "review" ? "Nothing to review — every athlete and guardian passed their checks." : "No athlete or guardian sign-ups yet. They appear here once their checks have run."}
+      </p>
+    ) : (
+      <SignupRows
+        label="Athlete and guardian sign-ups"
+        reasonHead={tab.key === "review" ? "Why it needs review" : "Checks"}
+        rows={rows.map((s) => ({
+          key: `${s.kind}-${s.id}`, name: s.name, sub: s.sub, type: LIVE_KIND_WORDS[s.kind], when: dayOf(s.signedUpAt),
+          badge: liveBadge(s), reason: liveChecksWord(s), href: signupHref(s.kind, s.id), primary: needsReview(s),
+        }))}
+      />
+    );
+  }
+  return (
+    <section aria-labelledby="ns-people">
+      <SectionHead id="ns-people" title="Athletes and guardians" live note="Approved automatically since 2S1-BE-09 / -10. Each opens its profile, with Reject and Reinstate." />
+      <Card className="overflow-hidden p-0">{body}</Card>
+    </section>
+  );
+}
+
+/* ---------------------------------------------------------- sponsors · live */
+
+function Sponsors({ tab, live, total }: { tab: SignupTab; live: Live<SponsorSignupRow[]>; total: number }) {
+  let body;
+  if (!live.ok) {
+    body = <Unreadable status={live.status} what="sponsor requests" />;
+  } else {
+    const rows = tab.key === "review" ? live.data.filter((r) => r.badge.tone === "warn") : live.data;
+    const heldCount = live.data.filter((r) => r.badge.tone === "warn").length;
     body = (
       <>
-        <p className="border-b border-line-soft px-4 py-2 text-[11px] text-muted">
-          {approved.counts.APPROVED ?? 0} approved · {heldCount} held for review
-        </p>
+        <p className="border-b border-line-soft px-4 py-2 text-[11px] text-muted">{total} approved · {heldCount} held for review</p>
         {rows.length === 0 ? (
-          <p className="px-4 py-3 text-xs text-muted">No sponsor sign-ups yet. They appear here once a business confirms its email.</p>
+          <p className="px-4 py-3 text-xs text-muted">{tab.key === "review" ? "No sponsors held for review." : "No sponsor sign-ups yet. They appear here once a business confirms its email."}</p>
         ) : (
           <SignupRows
             label="Sponsor sign-ups"
@@ -114,61 +220,46 @@ async function LiveSponsors() {
       </>
     );
   }
-
   return (
     <section aria-labelledby="ns-sponsors">
-      <div className="mb-2 flex flex-wrap items-baseline gap-2">
-        <h2 id="ns-sponsors" className="text-sm font-semibold">Sponsors</h2>
-        <Badge tone="accent">Live</Badge>
-        <span className="text-[11px] text-muted">Approved automatically since 2S1-BE-17. Each opens its sponsor request.</span>
-      </div>
+      <SectionHead id="ns-sponsors" title="Sponsors" live note="Approved automatically since 2S1-BE-17. Each opens its sponsor request." />
       <Card className="overflow-hidden p-0">{body}</Card>
     </section>
   );
 }
 
-/* --------------------------------------- organizations, athletes, guardians · sample */
+/* ----------------------------------------------------- organizations · live */
 
-function SampleSignups({ tab }: { tab: ReturnType<typeof signupTab> }) {
-  const rows = SAMPLE_SIGNUPS.filter((s) => inTab(tab, s));
-  return (
-    <section aria-labelledby="ns-sample" className="space-y-3">
-      <div className="flex flex-wrap items-baseline gap-2">
-        <h2 id="ns-sample" className="text-sm font-semibold">Organizations, athletes and guardians</h2>
-        <Badge tone="warn">Sample</Badge>
-      </div>
-      <BlockedNotice>
-        Sample data — these rows go live with {SIGNUP_BACKEND}, which approve these sign-ups automatically. Reject and Reinstate stay off until then.
-      </BlockedNotice>
-
-      <nav aria-label="Sign-up type" className="flex max-w-full gap-1 overflow-x-auto rounded-lg border border-line bg-surface p-1">
-        {SIGNUP_TABS.map((t) => {
-          const on = t.key === tab.key;
-          const n = tabCount(t, SAMPLE_SIGNUPS);
-          return (
-            <Link key={t.key} href={`${PATH}?tab=${t.key}`} aria-current={on ? "page" : undefined}
-              className={`inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-md px-3 py-1.5 text-xs font-medium ${on ? "bg-primary/15 text-text" : "text-muted hover:text-text"}`}>
-              {t.label}
-              <span className={`rounded-full px-1.5 text-[10px] font-semibold tabular-nums ${t.key === "review" && n ? "bg-warn/15 text-warn" : "bg-surface-2"}`}>{n}</span>
-            </Link>
-          );
+function Organizations({ tab, live }: { tab: SignupTab; live: Live<{ signups: ApiOrgSignup[] }> }) {
+  let body;
+  if (!live.ok) {
+    body = <Unreadable status={live.status} what="organization sign-ups" />;
+  } else {
+    const rows = live.data.signups.filter((s) => (tab.key === "review" ? s.state === "NEEDS_REVIEW" : true));
+    body = rows.length === 0 ? (
+      <p className="px-4 py-3 text-xs text-muted">
+        {tab.key === "review" ? "No organizations need review." : "No organization sign-ups yet. They appear here once they submit."}
+      </p>
+    ) : (
+      <SignupRows
+        label="Organization sign-ups"
+        reasonHead={tab.key === "review" ? "Why it needs review" : "Checks"}
+        rows={rows.map((s) => {
+          const state = orgState(s);
+          return {
+            key: s.id, name: s.name, sub: s.sub, type: KIND_WORDS.ORGANIZATION, when: dayOf(s.signedUpAt),
+            badge: signupBadge({ state }, state === "AUTO_APPROVED" ? s.approvedAt : null),
+            reason: s.reasons.length ? checksWord({ ...s, state }) : state === "APPROVED" ? "Reviewed and approved by BTG" : state === "REJECTED" ? "Rejected by BTG" : "All checks passed",
+            href: orgHref(s.id), primary: s.state === "NEEDS_REVIEW",
+          };
         })}
-      </nav>
-
-      {rows.length === 0 ? (
-        <EmptyState mark="users" title={tab.key === "review" ? "Nothing needs review" : "None of this type"} hint="" />
-      ) : (
-        <Card className="overflow-hidden p-0">
-          <SignupRows
-            label="Sign-ups"
-            reasonHead={tab.key === "review" ? "Why it needs review" : "Checks"}
-            rows={rows.map((s) => ({
-              key: s.id, name: s.name, sub: s.sub, type: KIND_WORDS[s.kind], when: dayOf(s.signedUpAt), badge: signupBadge(s),
-              reason: checksWord(s), href: `${PATH}/${s.id}`, primary: s.state === "NEEDS_REVIEW",
-            }))}
-          />
-        </Card>
-      )}
+      />
+    );
+  }
+  return (
+    <section aria-labelledby="ns-orgs">
+      <SectionHead id="ns-orgs" title="Organizations" live note="Teams, schools, events, media, virtual and agencies — approved automatically since 2S1-BE-06. Each opens its profile, with Reject and Reinstate." />
+      <Card className="overflow-hidden p-0">{body}</Card>
     </section>
   );
 }

@@ -59,8 +59,14 @@ async function post(tx: Tx, books: string, journalId: string, entryType: string,
 }
 
 /** The booking journal for one line — ledger design §4. */
-function bookingEntries(b: LineBreakdown, p: { books: string; sponsorId: string; propertyId: string | null; itemTenantId: string; referrer: string | null }): Entry[] {
-  const athlete = b.athleteId ? { partyType: "ATHLETE", partyId: b.athleteId, partyTenantId: p.itemTenantId } : null;
+function bookingEntries(
+  b: LineBreakdown,
+  p: { books: string; sponsorId: string; propertyId: string | null; propertyTenantId: string; athleteTenantId: string; referrer: string | null },
+): Entry[] {
+  /* Each party in its OWN tenant — the one it reads its entries in. For a
+     team's own roster they are the item's tenant; an athlete already on
+     SponsorX who joined a team keeps theirs (2S2-BE-05). */
+  const athlete = b.athleteId ? { partyType: "ATHLETE", partyId: b.athleteId, partyTenantId: p.athleteTenantId } : null;
   const teamAvailable = athlete ? b.teamAvailableCents! : b.availableCents;
   const teamReserve = athlete ? b.teamReserveCents! : b.reserveCents;
   /* 2S3-BE-05 — an independent athlete's line has no property: the athlete is
@@ -68,7 +74,7 @@ function bookingEntries(b: LineBreakdown, p: { books: string; sponsorId: string;
   if (!p.propertyId && (!athlete || teamAvailable !== 0 || teamReserve !== 0)) {
     throw new Error(`Line ${b.lineId} has no property but routes money to a team.`);
   }
-  const property = p.propertyId ? { partyType: "PROPERTY", partyId: p.propertyId, partyTenantId: p.itemTenantId } : null;
+  const property = p.propertyId ? { partyType: "PROPERTY", partyId: p.propertyId, partyTenantId: p.propertyTenantId } : null;
   return [
     { account: "SPONSOR_RECEIVABLE", partyType: "SPONSOR", partyId: p.sponsorId, partyTenantId: p.books, debitCents: b.netCents },
     { account: "PLATFORM_REVENUE", partyType: "PLATFORM", partyId: p.books, partyTenantId: p.books, creditCents: b.platformFeeCents },
@@ -102,14 +108,15 @@ export async function bookOrder(tx: Tx, orderId: string, at: Date) {
   const items = await tx.inventoryItem.findMany({
     /* tenant-scope: the items this order's lines name, each in the tenant its line records. */
     where: { id: { in: order.lines.map((l) => l.inventoryItemId) } },
-    select: { id: true, athleteId: true, athlete: { select: { teamShareBps: true } }, property: { select: { kind: true } } },
+    select: { id: true, athleteId: true, athlete: { select: { teamShareBps: true, tenantId: true } }, property: { select: { kind: true } } },
   });
   const properties = await tx.property.findMany({
     /* tenant-scope: the properties this order's lines name. */
-    where: { id: { in: order.lines.map((l) => l.propertyId).filter((x): x is string => Boolean(x)) } }, select: { id: true, kind: true },
+    where: { id: { in: order.lines.map((l) => l.propertyId).filter((x): x is string => Boolean(x)) } }, select: { id: true, kind: true, tenantId: true },
   });
   const byItem = new Map(items.map((i) => [i.id, i]));
   const kindOf = new Map(properties.map((p) => [p.id, p.kind]));
+  const tenantOf = new Map(properties.map((p) => [p.id, p.tenantId]));
 
   const processing = (await resolveRates(tx, order.tenantId, { sponsorId: order.sponsorId }, at, ["PROCESSING"])).PROCESSING;
   const inputs = [];
@@ -139,7 +146,12 @@ export async function bookOrder(tx: Tx, orderId: string, at: Date) {
       select: { id: true },
     });
     await post(tx, order.tenantId, `${order.id}:${b.lineId}:booking`, "BOOKING", { orderId: order.id, lineId: b.lineId },
-      bookingEntries(b, { books: order.tenantId, sponsorId: order.sponsorId, propertyId: line.propertyId, itemTenantId: line.itemTenantId, referrer: b.rules.REFERRAL.ruleKey }));
+      bookingEntries(b, {
+        books: order.tenantId, sponsorId: order.sponsorId, propertyId: line.propertyId,
+        propertyTenantId: (line.propertyId && tenantOf.get(line.propertyId)) || line.itemTenantId,
+        athleteTenantId: byItem.get(line.inventoryItemId)?.athlete?.tenantId ?? line.itemTenantId,
+        referrer: b.rules.REFERRAL.ruleKey,
+      }));
   }
   if (order.feesCents > 0) {
     await post(tx, order.tenantId, `${order.id}:fees:booking`, "BOOKING", { orderId: order.id }, [
@@ -192,13 +204,18 @@ export async function releaseReserve(tx: Tx, orderId: string) {
   });
 }
 
-/** A contracted order is cancelled or refunded: the mirror of everything it posted. */
-export async function reverseOrder(tx: Tx, orderId: string) {
+/**
+ * A contracted order is cancelled or refunded: the mirror of everything it
+ * posted. With `lineId` (2S4-BE-07 — BTG refunding one line a sponsor reported
+ * a problem with), only that line's journals are mirrored; the order and its
+ * other lines carry on.
+ */
+export async function reverseOrder(tx: Tx, orderId: string, lineId?: string) {
   const posted = await tx.ledgerEntry.findMany({
     /* tenant-scope: this order's own entries, named by its id. */
     /* Money already paid out stays paid out (2S5-BE-05): a refund after a
        payout leaves the payee owing it back, which is a separate matter. */
-    where: { orderId, entryType: { notIn: ["REVERSAL", "PAYOUT"] }, status: { not: "REVERSED" } },
+    where: { orderId, ...(lineId ? { lineId } : {}), entryType: { notIn: ["REVERSAL", "PAYOUT"] }, status: { not: "REVERSED" } },
     select: { id: true, tenantId: true, journalId: true, lineId: true, account: true, partyType: true, partyId: true, partyTenantId: true, debitCents: true, creditCents: true },
   });
   const journals = new Map<string, typeof posted>();
@@ -213,7 +230,7 @@ export async function reverseOrder(tx: Tx, orderId: string) {
     /* tenant-scope: this order's own entries, named by its id. */
     where: { id: { in: posted.map((e) => e.id) } }, data: { status: "REVERSED" },
   });
-  await audit(tx, await booksOf(tx, orderId), "ledger.reverse", "MarketplaceOrder", orderId, { after: { journals: journals.size, entries: posted.length } });
+  await audit(tx, await booksOf(tx, orderId), "ledger.reverse", "MarketplaceOrder", orderId, { after: { journals: journals.size, entries: posted.length, ...(lineId ? { lineId } : {}) } });
 }
 
 /**
