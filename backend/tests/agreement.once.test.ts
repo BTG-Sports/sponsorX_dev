@@ -30,6 +30,8 @@ const tx = {
     create: () => ((created += 1), Promise.resolve({ id: `acc_${created}`, acceptedAt: new Date() })),
   },
   user: { findFirst: () => Promise.resolve({ athlete: null }) },
+  /* 2S1-BE-11's guard reads the signer's athlete: an adult with no guardian. */
+  athlete: { findFirst: () => Promise.resolve({ id: "ath_1", legalName: "A", displayName: "A", state: "ACTIVE", birthDate: null, ageBand: "18_PLUS", majorityAge: 18, guardianId: null, guardian: null }) },
 } as never;
 
 const athlete = {

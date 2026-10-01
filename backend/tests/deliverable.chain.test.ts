@@ -67,6 +67,8 @@ vi.mock("../src/db/client", () => {
   };
   const tx = {
     deliverable: model,
+    /* 2S1-BE-11 — the upload asks whether the uploader is a minor whose guardian should hear of it: an adult here. */
+    athlete: { findFirst: () => Promise.resolve({ id: "ath_1", legalName: "Alex", displayName: "Alex", state: "ACTIVE", birthDate: null, ageBand: "18_PLUS", majorityAge: 18, guardianId: null, guardian: null }) },
     creativeAsset: {
       aggregate: () => Promise.resolve({ _max: { version: maxVersion } }),
       create: ({ data }: { data: Record<string, unknown> }) => {

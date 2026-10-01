@@ -1,0 +1,6 @@
+SponsorX Guardian Agreement — version 1 (placeholder wording pending counsel; not final legal text)
+
+1. You approve every agreement and every payment for the athlete who named you, before it happens. They are made from your own SponsorX login.
+2. The athlete can upload their own content. You get an email each time, and you can ask BTG to take it down.
+3. Money the athlete earns is paid to the payout account you set up on Stripe, in your name.
+4. [Remaining terms from counsel]

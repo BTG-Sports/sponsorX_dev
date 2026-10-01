@@ -8,12 +8,10 @@ import type { AccountPanelView } from "@/lib/payouts-live";
    WIRED: the sign-in email (Clerk — the identity is Clerk's; GET /me
    carries roles, not the address), the payout account
    (GET /payouts/account → payouts-live accountPanel), and closing an
-   account (POST /me/close, 2S1-BE-13). The public reactivation page's
-   shapes and words are in account-closure-live.ts.
-
-   SCAFFOLD, typed like the future API:
-     2S1-BE-12  age of majority by place, and the 90-day coming-of-age
-                allowance (the reminder, and what is paused meanwhile)
+   account (POST /me/close, 2S1-BE-13), and the coming-of-age reminder
+   (GET /coming-of-age/mine, 2S1-BE-12 — the samples below stay only for
+   the ?demo= previews). The public reactivation page's shapes and words
+   are in account-closure-live.ts.
 
    The rules the copy states (programme owner, 2026-10-01): a closed or
    rejected account's files are kept 30 days, then deleted; a self-closed
@@ -33,18 +31,21 @@ export const RETENTION_DAYS = 30;
 /** The coming-of-age allowance to upload a government ID (2S1-BE-12). */
 export const ALLOWANCE_DAYS = 90;
 
-/** Why each scaffolded control is off — the button's title and the line under it. */
-export const AGE_NOT_LIVE = "Not switched on yet — taking over the account goes live with 2S1-BE-12. Nothing has been sent.";
-
 /* ---------------------------------------------------------------- shapes */
 
-/** 2S1-BE-12 — the coming-of-age allowance, as both sides will read it. */
+/** 2S1-BE-12 — the coming-of-age allowance, as both sides read it (GET /coming-of-age/mine). */
 export type ApiComingOfAge = {
   athleteFirstName: string;
   /** The age of majority of the athlete's state or country. */
   ageOfMajority: number;
   reachedAt: string;
   idUploaded: boolean;
+  /** When the 90 days end — counted from when the allowance opened, which can be after the birthday. */
+  dueAt?: string | null;
+  startedAt?: string | null;
+  seat?: "athlete" | "guardian";
+  /** The athlete's own login: where "Upload government ID" goes. */
+  uploadPath?: string | null;
 };
 
 /* ---------------------------------------------------------------- shared */
@@ -114,7 +115,7 @@ export type AgeView = {
 export function comingOfAgeView(c: ApiComingOfAge, seat: "athlete" | "guardian", now = new Date()): AgeView | null {
   if (c.idUploaded) return null;
   const reached = new Date(c.reachedAt);
-  const n = daysLeft(new Date(reached.getTime() + ALLOWANCE_DAYS * DAY), now);
+  const n = daysLeft(c.dueAt ? new Date(c.dueAt) : new Date(reached.getTime() + ALLOWANCE_DAYS * DAY), now);
   const who = c.athleteFirstName;
   const left = `${plural(n, "day")} left`;
   if (seat === "guardian") {

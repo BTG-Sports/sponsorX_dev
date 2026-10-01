@@ -28,6 +28,7 @@ import { audit } from "../db/audit";
 import type { Actor } from "../auth/actor";
 import { assertAllowed, whereFor } from "../auth/scope";
 import { ForbiddenError } from "../auth/errors";
+import { assertMayCommit } from "./guardian-acts";
 import {
   canTransitionListing,
   governanceProblems,
@@ -152,6 +153,8 @@ export async function createListing(actor: Actor, input: ListingInput & { invent
 /** 2S3-BE-05 — an approved athlete with no team lists an item they own. */
 async function createAthleteListing(actor: Actor, athleteId: string, input: ListingInput & { inventoryItemId: string }) {
   return prisma.$transaction(async (tx) => {
+    /* 2S1-BE-11 / -12 — a minor's listings are their guardian's to make; none during coming of age. */
+    await assertMayCommit(tx, actor, "list");
     const athlete = await tx.athlete.findFirst({
       where: { tenantId: actor.tenantId, id: athleteId },
       select: { state: true, propertyId: true, property: { select: { name: true } } },
@@ -220,6 +223,7 @@ async function ownListing(tx: Prisma.TransactionClient, actor: Actor, id: string
 export async function updateListing(actor: Actor, id: string, patch: Partial<ListingInput>) {
   return prisma.$transaction(async (tx) => {
     const row = await ownListing(tx, actor, id);
+    await assertMayCommit(tx, actor, "manage");
     if (!LISTING_EDITABLE.has(row.state as ListingState)) {
       throw new ListingError(`A listing that is ${row.state} cannot be edited${row.state === "PUBLISHED" ? " — pause it first" : ""}.`, 409);
     }
@@ -253,6 +257,7 @@ async function move(tx: Prisma.TransactionClient, actor: Actor, row: Row, to: Li
 export async function submitListing(actor: Actor, id: string) {
   return prisma.$transaction(async (tx) => {
     const row = await ownListing(tx, actor, id);
+    await assertMayCommit(tx, actor, "list");
     if (row.state !== "DRAFT") throw new IllegalListingTransitionError(row.state as ListingState, "PENDING_APPROVAL");
     assertGoverned(row);
     return move(tx, actor, row, "PENDING_APPROVAL", { submittedAt: new Date(), reviewNotes: null }, "listing.submit");
@@ -266,6 +271,7 @@ export async function submitListing(actor: Actor, id: string) {
 export async function transitionListing(actor: Actor, id: string, to: "PAUSED" | "PUBLISHED" | "ARCHIVED") {
   return prisma.$transaction(async (tx) => {
     const row = await ownListing(tx, actor, id);
+    await assertMayCommit(tx, actor, "manage");
     if (to === "PUBLISHED") {
       if (row.state !== "PAUSED") throw new IllegalListingTransitionError(row.state as ListingState, "PUBLISHED");
       assertGoverned(row);

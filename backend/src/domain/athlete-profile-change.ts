@@ -20,8 +20,17 @@
  *       guardian is confirmed — guardianReadiness); now an adult → the
  *       coming-of-age allowance starts (2S1-BE-12);
  *     · a new GUARDIAN goes through the guardian's page and documents
- *       (2S1-BE-10). Replacing a guardian who already exists is the
- *       handoff's job (2S1-BE-15), which only the new guardian can start.
+ *       (2S1-BE-10): they are emailed its signed set-up link. Replacing a
+ *       guardian who already exists is the handoff's job (2S1-BE-15), which
+ *       only the new guardian can start.
+ *
+ *   A MOVE (a new state) or a new date of birth works the age of majority
+ *   out again from the editable table (2S1-BE-12, age-of-majority.ts): the
+ *   athlete's `majorityAge`, and the age band from the date of birth. A move
+ *   that changes adulthood is sensitive too. Becoming an adult while linked
+ *   to a guardian starts the coming-of-age allowance at once
+ *   (coming-of-age.ts); a corrected date that makes them a minor again closes
+ *   an allowance that should not have opened.
  *
  *   EVERY EDIT is audited and kept as an AthleteProfileChange row — the
  *   athlete's own history, and BTG's list of sensitive edits.
@@ -43,6 +52,10 @@ import type { ProfileChangeInput } from "../contracts/profile-change";
 import { provisionGuardianLoginIn } from "./athlete-login";
 import { requiresGuardian } from "./guardian-rules";
 import { safeFilename } from "./onboarding-documents";
+import { majorityOf, refreshMajorityIn } from "./age-of-majority";
+import { sendGuardianSetupEmail } from "./athlete-signup";
+import { rerunComingOfAgeIn } from "./coming-of-age";
+import { ageBandFor } from "./age-of-majority-rules";
 
 type Tx = Prisma.TransactionClient;
 
@@ -121,7 +134,6 @@ const CHANGE_SELECT = {
 
 const ATHLETE_FIELDS_SELECT = Object.fromEntries(ALL_FIELDS.map((f) => [f, true])) as Record<ChangeField, true>;
 const appUrl = () => env.APP_URL.replace(/\/+$/, "");
-const firstWord = (s: string) => s.trim().split(/\s+/)[0] ?? s;
 
 /** Flatten the sectioned input into { column: value } — only keys present. */
 export function flattenInput(input: ProfileChangeInput): { fields: Fields; sections: ChangeSection[] } {
@@ -166,11 +178,12 @@ export function diffAgainst(fields: Fields, current: Record<string, unknown>): {
 const isoDay = (d: Date | null | undefined) => (d ? d.toISOString().slice(0, 10) : null);
 
 /**
- * What a new date of birth means, in words the athlete and BTG read. Pure.
- * 18 is today's rule (guardian-rules.ts); 2S1-BE-12's table by state or
- * country replaces it inside `requiresGuardian`, and this follows.
+ * What a new date of birth (or a move) means, in words the athlete and BTG
+ * read. Pure. The age of majority is the athlete's place's, from 2S1-BE-12's
+ * table (`majorityAge`); 18 where a caller doesn't carry it.
  */
-export function adulthoodNotes(before: { birthDate: Date | null; ageBand: string | null }, after: { birthDate: Date | null; ageBand: string | null }, hasGuardian: boolean): string[] {
+type AgeFacts = { birthDate: Date | null; ageBand: string | null; majorityAge?: number | null };
+export function adulthoodNotes(before: AgeFacts, after: AgeFacts, hasGuardian: boolean): string[] {
   const was = requiresGuardian(before);
   const now = requiresGuardian(after);
   if (!was && now) {
@@ -192,7 +205,8 @@ async function tellBtg(tx: Tx, tenantId: string, a: { id: string; displayName: s
       template: "athlete.sensitiveEdit", to: u.email, idempotencyKey: `athlete.sensitiveEdit:${changeId}:${u.id}`,
       data: {
         athleteName: a.displayName || a.legalName, what, checks: checks.map((c) => `• ${c}`).join("\n"),
-        reviewUrl: `${appUrl()}/admin/new-signups?athlete=${a.id}`,
+        /* The athlete's profile on New sign-ups (2S1-BE-09), where Reject is. */
+        reviewUrl: `${appUrl()}/admin/new-signups/athletes/${a.id}`,
       },
     });
   }
@@ -217,7 +231,8 @@ export async function submitProfileChange(actor: Actor, athleteId: string, input
     const athlete = await tx.athlete.findFirst({
       where: { ...whereFor(actor, "athlete", "write"), id: athleteId },
       select: {
-        id: true, tenantId: true, state: true, legalName: true, birthDate: true, ageBand: true, guardianId: true, ...ATHLETE_FIELDS_SELECT,
+        id: true, tenantId: true, state: true, legalName: true, email: true, birthDate: true, ageBand: true, guardianId: true,
+        countryCode: true, majorityAge: true, ...ATHLETE_FIELDS_SELECT,
       },
     });
     if (!athlete) throw new ForbiddenError("athleteProfileChange", "write");
@@ -241,19 +256,32 @@ export async function submitProfileChange(actor: Actor, athleteId: string, input
     const checkNotes: string[] = [];
     const sensitiveWhat: string[] = [];
 
-    /* ── the date of birth: applied now, adulthood worked out again ── */
+    /* ── the date of birth and the place: applied now, adulthood worked out again (2S1-BE-12) ── */
     const birthDate = birthChanges ? new Date(`${newBirth}T00:00:00.000Z`) : athlete.birthDate;
+    const moved = "stateCode" in ordinary.fields;
+    const majority = moved
+      ? await majorityOf(tx, athlete.tenantId, athlete.countryCode, (ordinary.fields.stateCode as string | null | undefined) ?? null)
+      : { age: athlete.majorityAge };
+    /* With a date of birth on file the band follows it, so a stale band can't keep an adult a minor (or the reverse). */
+    const ageBand = birthDate && (birthChanges || moved) ? ageBandFor(birthDate, majority.age, now) : athlete.ageBand;
+    if (ageBand !== athlete.ageBand) applied.ageBand = ageBand;
+    const ageAfter = { birthDate, ageBand, majorityAge: majority.age };
+    const adulthood = adulthoodNotes(athlete, ageAfter, Boolean(athlete.guardianId));
     if (birthChanges) {
       applied.birthDate = birthDate;
       sections.add("identity");
       sensitiveWhat.push("their date of birth");
-      checkNotes.push(...adulthoodNotes(athlete, { birthDate, ageBand: athlete.ageBand }, Boolean(athlete.guardianId)));
+      checkNotes.push(...adulthood);
+    } else if (moved && requiresGuardian(athlete) !== requiresGuardian(ageAfter)) {
+      /* A move across an age-of-majority line changes adulthood: sensitive, like a new date of birth. */
+      sensitiveWhat.push("where they live (a different age of majority)");
+      checkNotes.push(...adulthood);
     }
 
     /* ── a guardian: only a minor, and only one with none yet ── */
-    let guardianId: string | null = null;
+    let guardian: { id: string; legalName: string; email: string } | null = null;
     if (guardianIn) {
-      if (!requiresGuardian({ birthDate, ageBand: athlete.ageBand })) {
+      if (!requiresGuardian(ageAfter)) {
         throw new SensitiveEditError("Only an athlete under the age of majority has a guardian.", "guardian_not_required");
       }
       if (athlete.guardianId) {
@@ -262,16 +290,24 @@ export async function submitProfileChange(actor: Actor, athleteId: string, input
           "handoff_required", 409,
         );
       }
-      const g = await tx.guardian.create({
+      const email = guardianIn.email.trim().toLowerCase();
+      if (athlete.email && email === athlete.email.toLowerCase()) {
+        throw new SensitiveEditError("Your guardian's email has to be their own, not yours.", "guardian_email_is_yours");
+      }
+      /* One guardian may look after several athletes (2S1-BE-10): an address
+         already on file in this tenant, and not rejected, is that guardian. */
+      guardian = await tx.guardian.findFirst({
+        where: { tenantId: athlete.tenantId, email: { equals: email, mode: "insensitive" }, rejectedAt: null },
+        select: { id: true, legalName: true, email: true },
+      }) ?? await tx.guardian.create({
         data: {
-          tenantId: athlete.tenantId, legalName: guardianIn.legalName.trim(), email: guardianIn.email.toLowerCase(),
+          tenantId: athlete.tenantId, legalName: guardianIn.legalName.trim(), email,
           phone: guardianIn.phone?.trim() || null, relationship: guardianIn.relationship,
           /* Never verified here: the guardian completes their own page (2S1-BE-10). */
         },
-        select: { id: true },
+        select: { id: true, legalName: true, email: true },
       });
-      guardianId = g.id;
-      applied.guardianId = g.id;
+      applied.guardianId = guardian.id;
       sections.add("guardian");
       sensitiveWhat.push("their guardian");
       checkNotes.push("Your guardian is emailed to complete their page: their ID, proof of guardianship and the guardian agreement. New agreements and payments wait until then.");
@@ -284,6 +320,12 @@ export async function submitProfileChange(actor: Actor, athleteId: string, input
         before[k] = k === "birthDate" ? isoDay(athlete.birthDate) : (athlete as Record<string, unknown>)[k] ?? null;
       }
       await tx.athlete.update({ where: { id: athlete.id }, data: applied as Prisma.AthleteUpdateInput, select: { id: true } });
+      /* 2S1-BE-12 — a move is a new age of majority; a new date of birth may cross it. */
+      if (moved) await refreshMajorityIn(tx, athlete.tenantId, athlete.id);
+      if (moved || birthChanges) {
+        const coming = await rerunComingOfAgeIn(tx, athlete.tenantId, athlete.id, now);
+        if (coming === "started") checkNotes.push("Your coming-of-age allowance has started: you and your guardian are emailed how to take over.");
+      }
       const recorded = { ...applied, ...(applied.birthDate ? { birthDate: newBirth } : {}) };
       appliedChange = await tx.athleteProfileChange.create({
         data: {
@@ -300,13 +342,12 @@ export async function submitProfileChange(actor: Actor, athleteId: string, input
       await audit(tx, actor, sensitiveWhat.length ? "athlete.sensitiveEdit" : "athlete.profileEdit", "Athlete", athlete.id, {
         before, after: { ...recorded, changeId: appliedChange.id, checks: checkNotes },
       });
-      if (guardianId) {
-        await audit(tx, actor, "guardian.link", "Athlete", athlete.id, { before: { guardianId: null }, after: { guardianId, via: "profileEdit" } });
-        if (athlete.state === "APPROVED" || athlete.state === "ACTIVE") await provisionGuardianLoginIn(tx, actor, guardianId);
-        await send(tx, athlete.tenantId, {
-          template: "guardian.verificationRequested", to: guardianIn!.email.toLowerCase(), idempotencyKey: `guardian.verificationRequested:${guardianId}`,
-          data: { guardianName: firstWord(guardianIn!.legalName), athleteName: athlete.displayName || athlete.legalName },
-        });
+      if (guardian) {
+        await audit(tx, actor, "guardian.link", "Athlete", athlete.id, { before: { guardianId: null }, after: { guardianId: guardian.id, via: "profileEdit" } });
+        if (athlete.state === "APPROVED" || athlete.state === "ACTIVE") await provisionGuardianLoginIn(tx, actor, guardian.id);
+        /* The guardian's own page (2S1-BE-10): opening its signed link confirms
+           their email; ID, proof and the agreement there verify them. */
+        await sendGuardianSetupEmail(tx, athlete, guardian, 0);
       }
       if (sensitiveWhat.length) await tellBtg(tx, athlete.tenantId, athlete, appliedChange.id, sensitiveWhat.join(" and "), checkNotes);
     }

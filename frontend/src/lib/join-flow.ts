@@ -286,11 +286,11 @@ export type JoinDraft = {
    draftToApplication is pure so the mapping is testable without a browser or
    an API: wizard keys on the left, AthleteApplicationInput fields on the
    right. Wizard sections the contract deliberately does not take yet
-   (capabilities, interests, restrictions, payment recipient, guardian
-   details — and `country`, which the location step asks but the US-only
-   Phase 1 contract has no field for) stay in the draft — the contract's own
-   description says those are attached by sibling tasks, and the
-   applicant-side guardian capture is a recorded gap on P3-BE-14.
+   (capabilities, interests, restrictions, payment recipient) stay in the
+   draft — the contract's own description says those are attached by sibling
+   tasks. Since 2S1-BE-10 / -12 the guardian's details (a minor's) and the
+   country travel too: the guardian is emailed their own set-up page, and the
+   country decides the age of majority.
    -------------------------------------------------------------------------- */
 
 export type IntakeSocial = {
@@ -311,7 +311,32 @@ export type IntakePayload = {
   school?: string;
   level?: "HIGH_SCHOOL" | "COLLEGE" | "SEMI_PRO" | "PRO" | "AMATEUR";
   socials: IntakeSocial[];
+  /** 2S1-BE-12 — the age of majority follows the country (and state). */
+  countryCode?: string;
+  /** 2S1-BE-10 — a minor's guardian, emailed a link to their own page. */
+  guardian?: { legalName: string; email: string; relationship: GuardianRelationshipCode };
 };
+
+export type GuardianRelationshipCode = "PARENT" | "LEGAL_GUARDIAN" | "AUTHORIZED_REP";
+
+/** The wizard's free-text relationship → the API's vocabulary. A parent unless it says otherwise. */
+export function relationshipToCode(raw: string): GuardianRelationshipCode {
+  const s = raw.toLowerCase();
+  if (/legal|court|custod/.test(s)) return "LEGAL_GUARDIAN";
+  if (/rep|agent|authori[sz]ed/.test(s)) return "AUTHORIZED_REP";
+  return "PARENT";
+}
+
+/** "USA", "United States", "us" → "US"; a two-letter code as given; else nothing (the API then counts US). */
+export function countryToCode(raw: string): string | undefined {
+  const v = raw.trim().toUpperCase().replace(/\./g, "");
+  if (!v) return undefined;
+  if (["USA", "US", "UNITED STATES", "UNITED STATES OF AMERICA", "AMERICA"].includes(v)) return "US";
+  if (["UK", "UNITED KINGDOM", "GREAT BRITAIN", "ENGLAND", "SCOTLAND", "WALES"].includes(v)) return "GB";
+  if (v === "CANADA") return "CA";
+  if (v === "MEXICO") return "MX";
+  return /^[A-Z]{2}$/.test(v) ? v : undefined;
+}
 
 /** The wizard's free-text level → the contract's enum, or nothing — the enum
  *  is optional in the contract, and guessing wrong is worse than omitting. */
@@ -361,6 +386,13 @@ export function draftToApplication(draft: JoinDraft): IntakePayload {
     school: opt("team"),
     level: levelToEnum(val("level")),
     socials,
+    countryCode: countryToCode(val("country")),
+    /* 2S1-FE-06 — the guardian section's answers, for a minor. The API decides
+       "minor" by the place's age of majority (Alabama's is 19), so it may
+       still ask for a guardian after submitting; it ignores one for an adult. */
+    ...(isMinor(val("dob")) && val("guardianName") && val("guardianEmail")
+      ? { guardian: { legalName: val("guardianName"), email: val("guardianEmail"), relationship: relationshipToCode(val("guardianRelation")) } }
+      : {}),
   };
 }
 

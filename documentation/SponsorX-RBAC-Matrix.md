@@ -586,6 +586,36 @@ still theirs. The athlete can read it but never answer it. BTG reads it and
 does not decide it: a disputed handoff goes to BTG support and is settled by
 hand.
 
+### `signupRules` *(added 2026-10-02, 2S1-BE-10 / 2S1-BE-12)*
+| Role | Read | Write | Approve |
+|---|---|---|---|
+| `SUPER_ADMIN` | any | any | — |
+| `BTG_ADMIN` | own-tenant | own-tenant | — |
+| `NETWORK_MGR` | own-tenant | — | — |
+| all others | — | — | — |
+
+The rules automatic sign-up approval reads: the **age-of-majority table** by
+place (a country, or a state within it — seeded with the US states, AL and NE
+at 19, MS at 21, and common countries; a place not in it counts as 18 and is
+flagged), and the per-tenant setting **"BTG staff confirm minors before
+approval"** (off by default). BTG admins edit both; every change is audited,
+and a change to the table works out the age again for the athletes who live
+there. The network manager, who works the sign-ups these rules decide, reads
+them.
+
+**Guardians acting for a minor (2S1-BE-11) — no new cells.** For a minor,
+every agreement and money action comes from the guardian's account. The
+guardian's login carries the ward (one of their own minors, still under their
+control) as its athlete, and while it does the ATHLETE row's own cells answer
+first — `offer`, `listing`, `inventoryItem`, `payoutAccount`, `payout`,
+`campaignOrder`, `invitation`, `agreement` — resolved through that one ward,
+so the reach is exactly the ward's own login's. The minor's own login is
+refused every one of those acts (`guardian_must_act`), and during the 90-day
+coming-of-age allowance neither may start anything new
+(`coming_of_age_paused`). Identity documents (`AccountDocument`) are governed
+by `athleteApplication` and `guardian` and read only tenant-wide — BTG staff,
+through five-minute audited links.
+
 ### `invoice` *(added 2026-09-24)*
 | Role | Read | Write | Approve |
 |---|---|---|---|

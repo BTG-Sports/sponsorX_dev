@@ -63,7 +63,8 @@ const supportAddress = (d: Record<string, string>) => d.supportEmail ?? process.
 const TEMPLATES: Record<string, (d: Record<string, string>) => { subject: string; text: string }> = {
   "athlete.applicationReceived": (d) => ({
     subject: "We have your SponsorX application",
-    text: `Hi ${d.firstName ?? "there"},\n\nThanks for applying to the SponsorX Athlete Network. Our team reviews every application by hand, so this takes a few days rather than minutes.\n\nWe will email you as soon as there is a decision.\n\n— BTG SponsorX`,
+    /* 2S1-BE-09 — the receipt carries the confirmation link; most athletes are then approved by the checks. */
+    text: `Hi ${d.firstName ?? "there"},\n\nThanks for applying to the SponsorX Athlete Network.${d.confirmUrl ? `\n\nFirst, confirm this is your email address:\n\n${d.confirmUrl}\n\nOnce your email is confirmed and your ID is uploaded, most applications are approved straight away.` : ""}\n\nWe will email you as soon as there is a decision.\n\n— BTG SponsorX`,
   }),
   "athlete.approved": (d) => ({
     subject: "You are in — welcome to the SponsorX Athlete Network",
@@ -274,6 +275,79 @@ ${d.portalUrl ?? ""}
   "sponsor.accountRejected": (d) => ({
     subject: "Your SponsorX sponsor account has been closed",
     text: `Hi ${d.firstName ?? "there"},\n\nBTG has closed the sponsor account for ${d.businessName ?? "your business"} on SponsorX:\n\n${d.note ?? ""}\n\nIf you think this is a mistake, contact BTG support${d.supportEmail ? ` at ${d.supportEmail}` : ""}:\n\n${d.supportUrl ?? ""}\n\n— BTG SponsorX`,
+  }),
+  /* 2S1-BE-09 / -10 — athletes and guardians approved automatically. */
+  "athlete.confirmEmail": (d) => ({
+    subject: "Confirm your email for SponsorX",
+    text: `Hi ${d.firstName ?? "there"},\n\nConfirm this is your email address for your SponsorX application:\n\n${d.confirmUrl ?? ""}\n\n— BTG SponsorX`,
+  }),
+  "guardian.setup": (d) => ({
+    subject: `${d.athleteName ?? "An athlete"} named you as their guardian on SponsorX`,
+    text: `Hi ${d.firstName ?? "there"},\n\n${d.athleteName ?? "An athlete"} named you as their guardian on SponsorX. As their guardian you approve every agreement and payment for ${d.athleteFirstName ?? "them"}; they can upload their own content, and you get an email each time.\n\nSet up your guardian account here — opening the link confirms your email:\n\n${d.setupUrl ?? ""}\n\nYou'll need your government ID and proof that you're the guardian (a birth certificate naming you, a court order or a school record).\n\nNot their guardian? Reply to this email or contact BTG and we'll stop the request.\n\n— BTG SponsorX`,
+  }),
+  "guardian.approved": (d) => ({
+    subject: `You're approved — manage ${d.athleteFirstName ?? "your athlete"}'s SponsorX account`,
+    text: `Hi ${d.firstName ?? "there"},\n\nYou're approved as ${d.athleteFirstName ?? "your athlete"}'s guardian. Sign in with this email address to approve agreements and payments, and set up where ${d.athleteFirstName ?? "their"}'s money is paid:\n\n${d.portalUrl ?? ""}\n\n— BTG SponsorX`,
+  }),
+  "signup.newSignup": (d) => ({
+    subject: `New ${d.kindWord ?? "sign-up"}: ${d.name ?? "someone"} ${d.outcome ?? ""}`.trim(),
+    text: `${d.name ?? "Someone"} ${d.outcome ?? "signed up"} on SponsorX.${d.reasons ? `\n\nWhy it is waiting for you:\n${d.reasons}` : ""}\n\nOpen it on New sign-ups:\n\n${d.reviewUrl ?? ""}\n\nIf something is wrong, reject it from that page — their access is withdrawn and they are told why.\n\n— SponsorX`,
+  }),
+  "athlete.accountRejected": (d) => ({
+    subject: "Your SponsorX athlete account has been closed",
+    text: `Hi ${d.firstName ?? "there"},\n\nBTG has closed this SponsorX athlete account:\n\n${d.note ?? ""}\n\nMoney already earned is still owed and stays on hold until this is resolved. If you think this is a mistake, contact BTG support:\n\n${d.supportUrl ?? ""}\n\n— BTG SponsorX`,
+  }),
+  "athlete.accountReinstated": (d) => ({
+    subject: "Your SponsorX athlete account is open again",
+    text: `Hi ${d.firstName ?? "there"},\n\nBTG has reopened your SponsorX account. Sign in with this email address:\n\n${d.portalUrl ?? ""}\n\n— BTG SponsorX`,
+  }),
+  "guardian.accountRejected": (d) => ({
+    subject: "Your SponsorX guardian account has been closed",
+    text: `Hi ${d.firstName ?? "there"},\n\nBTG has closed your SponsorX guardian account:\n\n${d.note ?? ""}${d.athletes ? `\n\nThis also closes the accounts of: ${d.athletes}.` : ""}\n\nIf you think this is a mistake, contact BTG support:\n\n${d.supportUrl ?? ""}\n\n— BTG SponsorX`,
+  }),
+  "guardian.accountReinstated": (d) => ({
+    subject: "Your SponsorX guardian account is open again",
+    text: `Hi ${d.firstName ?? "there"},\n\nBTG has reopened your guardian account${d.athletes ? `, and ${d.athletes}'s with it` : ""}. Sign in with this email address:\n\n${d.portalUrl ?? ""}\n\n— BTG SponsorX`,
+  }),
+  /* 2S1-BE-11 — every upload a minor makes. */
+  "guardian.contentUploaded": (d) => ({
+    subject: `${d.athleteFirstName ?? "Your athlete"} uploaded new content on SponsorX`,
+    text: `Hi ${d.firstName ?? "there"},\n\n${d.athleteFirstName ?? "Your athlete"} uploaded new content for ${d.what ?? "a deliverable"}. You can see it here:\n\n${d.reviewUrl ?? ""}\n\nIf it shouldn't be there, ask BTG to take it down.\n\n— BTG SponsorX`,
+  }),
+  /* 2S1-BE-12 — coming of age. */
+  "comingOfAge.started": (d) => ({
+    subject: d.seat === "guardian" ? `${d.athleteFirstName ?? "Your athlete"} can now take over their SponsorX account` : `You're ${d.age ?? "an adult"} — take over your SponsorX account`,
+    text: d.seat === "guardian"
+      ? `Hi ${d.firstName ?? "there"},\n\n${d.athleteFirstName ?? "Your athlete"} has reached ${d.age ?? "the age of majority"}. They have until ${d.dueDate ?? "the deadline"} to upload a government ID and take over their account. Until then, new items and new deals are paused; orders already agreed carry on.\n\nYou can send them the link from here:\n\n${d.portalUrl ?? ""}\n\n— BTG SponsorX`
+      : `Hi ${d.firstName ?? "there"},\n\nYou've reached ${d.age ?? "the age of majority"}. Upload a government ID by ${d.dueDate ?? "the deadline"} to take over your account from your guardian:\n\n${d.uploadUrl ?? ""}\n\nUntil then, new items and new deals are paused; orders already agreed carry on.\n\n— BTG SponsorX`,
+  }),
+  "comingOfAge.reminder": (d) => ({
+    subject: `${d.daysLeft ?? "A few"} days left to upload a government ID`,
+    text: d.seat === "guardian"
+      ? `Hi ${d.firstName ?? "there"},\n\n${d.athleteFirstName ?? "Your athlete"} has ${d.daysLeft ?? "a few"} days left (until ${d.dueDate ?? "the deadline"}) to upload a government ID. If it isn't uploaded in time, the account is closed.\n\n${d.portalUrl ?? ""}\n\n— BTG SponsorX`
+      : `Hi ${d.firstName ?? "there"},\n\nYou have ${d.daysLeft ?? "a few"} days left (until ${d.dueDate ?? "the deadline"}) to upload a government ID and take over your account. If it isn't uploaded in time, your account is closed.\n\n${d.uploadUrl ?? ""}\n\n— BTG SponsorX`,
+  }),
+  "comingOfAge.completed": (d) => ({
+    subject: d.seat === "guardian" ? `${d.athleteFirstName ?? "Your athlete"} has taken over their SponsorX account` : "You're in control of your SponsorX account",
+    text: d.seat === "guardian"
+      ? `Hi ${d.firstName ?? "there"},\n\n${d.athleteFirstName ?? "Your athlete"} uploaded a government ID and now manages their own account. You no longer approve their agreements and payments. Money already earned is paid as before.\n\n— BTG SponsorX`
+      : `Hi ${d.firstName ?? "there"},\n\nYour government ID is in, and your account is yours: you accept your own agreements and manage your own money from now on.\n\n${d.portalUrl ?? ""}\n\n— BTG SponsorX`,
+  }),
+  "comingOfAge.terminated": (d) => ({
+    subject: "A SponsorX account has been closed",
+    text: d.seat === "athlete"
+      ? `Hi ${d.firstName ?? "there"},\n\nThe 90 days to upload a government ID have passed, so your SponsorX account is closed. Your documents are kept until ${d.until ?? "30 days from now"}. Upload a government ID before then and your account comes back:\n\n${d.uploadUrl ?? ""}\n\nMoney you already earned is still owed to you.\n\n— BTG SponsorX`
+      : d.seat === "guardian-others"
+        ? `Hi ${d.firstName ?? "there"},\n\nThe 90 days for ${d.athleteFirstName ?? "your athlete"} to upload a government ID have passed, so their account is closed and you're no longer their guardian on SponsorX. Your other athletes are not affected.\n\n— BTG SponsorX`
+        : `Hi ${d.firstName ?? "there"},\n\nThe 90 days for ${d.athleteFirstName ?? "your athlete"} to upload a government ID have passed, so their account and your guardian account are closed. If they upload a government ID by ${d.until ?? "30 days from now"}, their account comes back.\n\n— BTG SponsorX`,
+  }),
+  "comingOfAge.uploadLink": (d) => ({
+    subject: "Take over your SponsorX account",
+    text: `Hi ${d.firstName ?? "there"},\n\n${d.guardianName ?? "Your guardian"} sent you this link. Upload a government ID by ${d.dueDate ?? "the deadline"} to take over your SponsorX account:\n\n${d.uploadUrl ?? ""}\n\n— BTG SponsorX`,
+  }),
+  "comingOfAge.btgSettle": (d) => ({
+    subject: `Coming of age ended: ${d.athleteName ?? "an athlete"}'s account closed`,
+    text: `${d.athleteName ?? "An athlete"} didn't upload a government ID within the 90 days, so their account is closed. ${d.openOrders ?? "0"} order(s) are still under way and need settling; ${d.listingsEnded ?? "0"} listing(s) were ended. Money already earned stays owed.\n\n${d.reviewUrl ?? ""}\n\n— SponsorX`,
   }),
   "offer.changeRequested": (d) => ({
     subject: `Change requested: ${d.sponsorName ?? "a sponsor"} · ${d.campaignName ?? "a campaign"}`,

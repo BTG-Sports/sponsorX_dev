@@ -316,7 +316,7 @@ export async function acceptOrder(
         athleteId: true, compensation: true,
         athlete: {
           select: {
-            birthDate: true, ageBand: true, guardianId: true,
+            birthDate: true, ageBand: true, majorityAge: true, guardianId: true,
             guardian: { select: { verifiedAt: true } },
           },
         },
@@ -332,6 +332,7 @@ export async function acceptOrder(
     const readiness = guardianReadiness({
       birthDate: order.athlete.birthDate,
       ageBand: order.athlete.ageBand,
+      majorityAge: order.athlete.majorityAge,
       guardianId: order.athlete.guardianId,
       guardianVerifiedAt: order.athlete.guardian?.verifiedAt ?? null,
     });

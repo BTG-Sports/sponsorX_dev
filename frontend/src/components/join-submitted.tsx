@@ -1,11 +1,18 @@
 "use client";
 
 /* --------------------------------------------------------------------------
-   After submit (P1-ART-07 comp 11). Submission is not approval: a person at
-   BTG reads every application. The guardian-pending card (minors, §4) blocks
-   accepting a campaign, not the review itself — the copy says so in bold.
-   The 900ms entrance: check draws, timeline cascades, guardian card rises.
+   After submit (P1-ART-07 comp 11). The 900ms entrance: check draws,
+   timeline cascades, guardian card rises.
+
+   2S1-FE-06 — a real submission (it carries the intake token) shows the
+   LIVE checklist instead (join-checklist.tsx): SponsorX now approves an
+   application by itself once the email is confirmed and the ID is in (a
+   minor's guardian does their own steps), so "a person reads every
+   application" is no longer the story. The ?demo=submitted render, which
+   has no token, keeps the static timeline and guardian card.
    -------------------------------------------------------------------------- */
+
+import { JoinChecklist } from "./join-checklist";
 
 const TIMELINE = [
   { key: "submitted", title: "Submitted", tone: "success" },
@@ -18,6 +25,7 @@ export function JoinSubmitted({
   guardianName,
   submittedAt,
   refId,
+  intakeToken,
   onReviewAnswers,
   onUpdateRestrictions,
 }: {
@@ -26,6 +34,8 @@ export function JoinSubmitted({
   submittedAt: string;
   /** The real application id (P3-FE-01) — absent on demo renders. */
   refId?: string;
+  /** 2S1-FE-06 — the token that reaches the live checklist; absent on demo renders. */
+  intakeToken?: string;
   onReviewAnswers: () => void;
   onUpdateRestrictions: () => void;
 }) {
@@ -46,8 +56,9 @@ export function JoinSubmitted({
         Application submitted
       </h1>
       <p className="sx-join-rise mt-3 text-sm leading-relaxed text-muted" style={{ "--sx-d": "0.18s" } as React.CSSProperties}>
-        Submitting isn&apos;t approval. A person at BTG reads every application —
-        usually within 3 business days.
+        {intakeToken
+          ? "Confirm your email and upload your ID — most applications are approved straight away after that."
+          : "Submitting isn't approval. A person at BTG reads every application — usually within 3 business days."}
       </p>
       {refId && (
         <p
@@ -59,6 +70,12 @@ export function JoinSubmitted({
         </p>
       )}
 
+      {intakeToken ? (
+        <div className="sx-join-rise mt-8" style={{ "--sx-d": "0.3s" } as React.CSSProperties}>
+          <JoinChecklist token={intakeToken} />
+        </div>
+      ) : (
+      <>
       <div className="mt-8 border-t border-line pt-8">
         <ol className="space-y-7">
           {TIMELINE.map((t, i) => (
@@ -131,6 +148,8 @@ export function JoinSubmitted({
             status page.
           </p>
         </div>
+      )}
+      </>
       )}
 
       <div className="mt-10">

@@ -146,7 +146,7 @@ describe.skipIf(!hasDatabase)("2S1-BE-14 · profile edits without BTG review", {
     expect(ok.json).toMatchObject({ state: "APPROVED", sensitive: true });
     expect((await athlete("pe_riley")).legalName).toBe("Riley Morgan Stone");
     const told = await emails("athlete.sensitiveEdit");
-    expect(told).toEqual([expect.objectContaining({ to: "pe_admin@pe-test.invalid", data: expect.objectContaining({ reviewUrl: expect.stringMatching(/\/admin\/new-signups\?athlete=pe_riley$/), what: expect.stringMatching(/legal name/) }) })]);
+    expect(told).toEqual([expect.objectContaining({ to: "pe_admin@pe-test.invalid", data: expect.objectContaining({ reviewUrl: expect.stringMatching(/\/admin\/new-signups\/athletes\/pe_riley$/), what: expect.stringMatching(/legal name/) }) })]);
   });
 
   it("BTG reads the ID through a five-minute, audited link; the athlete cannot", async () => {
@@ -174,7 +174,9 @@ describe.skipIf(!hasDatabase)("2S1-BE-14 · profile edits without BTG review", {
     const kai = await prisma.athlete.findUniqueOrThrow({ where: { id: "pe_kai" }, select: { guardian: { select: { legalName: true, email: true, verifiedAt: true } } } });
     expect(kai.guardian).toMatchObject({ legalName: "Min Park", email: "pe_min@pe-test.invalid", verifiedAt: null });
     expect((await call("GET", "/athletes/pe_kai/guardian-readiness", "pe_admin")).json.status).toBe("unverified");
-    expect(await emails("guardian.verificationRequested")).toEqual([expect.objectContaining({ to: "pe_min@pe-test.invalid" })]);
+    /* The guardian's own page (2S1-BE-10): the signed set-up link, not the old verification request. */
+    expect(await emails("guardian.setup")).toEqual([expect.objectContaining({ to: "pe_min@pe-test.invalid", data: expect.objectContaining({ setupUrl: expect.stringMatching(/\/guardian\/setup\?t=/) }) })]);
+    expect(await emails("guardian.verificationRequested")).toHaveLength(0);
     expect((await emails("athlete.sensitiveEdit")).at(-1)!.data.what).toBe("their guardian");
 
     const jo = await call("POST", "/athletes/pe_jo/profile-changes", "pe_jo", { guardian: { legalName: "Someone Else", email: "pe_else@pe-test.invalid", relationship: "PARENT" } });

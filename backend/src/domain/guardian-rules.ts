@@ -38,10 +38,10 @@ export type GuardianReadiness =
  * an age *band* instead of a date, and the band is checked separately by
  * `isMinorBand`. A caller with neither has failed validation upstream.
  */
-export function isMinorOn(birthDate: Date | null | undefined, on: Date = new Date()): boolean {
+export function isMinorOn(birthDate: Date | null | undefined, on: Date = new Date(), majorityAge = 18): boolean {
   if (!birthDate) return false;
   const eighteenth = new Date(birthDate);
-  eighteenth.setFullYear(eighteenth.getFullYear() + 18);
+  eighteenth.setFullYear(eighteenth.getFullYear() + majorityAge);
   return eighteenth > on;
 }
 
@@ -54,8 +54,36 @@ export function isMinorBand(ageBand: string | null | undefined): boolean {
 export function requiresGuardian(athlete: {
   birthDate?: Date | null;
   ageBand?: string | null;
+  /** 2S1-BE-12 — the athlete's place's age of majority (Athlete.majorityAge);
+   *  18 where a caller doesn't carry it (a NEXT student, say). */
+  majorityAge?: number | null;
 }): boolean {
-  return isMinorOn(athlete.birthDate) || isMinorBand(athlete.ageBand);
+  return isMinorOn(athlete.birthDate, new Date(), athlete.majorityAge ?? 18) || isMinorBand(athlete.ageBand);
+}
+
+/**
+ * 2S1-BE-11 / -12 — does the guardian act for this athlete? While they are
+ * under their place's age of majority, and through the 90-day coming-of-age
+ * allowance after it until they upload a government ID: "uploading a
+ * government ID moves control from the guardian to the athlete". Every
+ * agreement and money action for such an athlete comes from the guardian's
+ * account (guardian-acts.ts).
+ */
+export function guardianControls(athlete: {
+  birthDate?: Date | null;
+  ageBand?: string | null;
+  majorityAge?: number | null;
+  guardianId?: string | null;
+  comingOfAgeStartedAt?: Date | null;
+  comingOfAgeCompletedAt?: Date | null;
+  comingOfAgeTerminatedAt?: Date | null;
+}): boolean {
+  if (requiresGuardian(athlete)) return true;
+  if (athlete.comingOfAgeCompletedAt || athlete.comingOfAgeTerminatedAt) return false;
+  /* The allowance is running — or the athlete has just come of age with a
+     guardian still linked and the sweep hasn't opened it yet: control does
+     not pass to them by the clock alone, only by the government ID. */
+  return Boolean(athlete.comingOfAgeStartedAt || athlete.guardianId);
 }
 
 /**
@@ -69,6 +97,7 @@ export function requiresGuardian(athlete: {
 export function guardianReadiness(athlete: {
   birthDate?: Date | null;
   ageBand?: string | null;
+  majorityAge?: number | null;
   guardianId?: string | null;
   guardianVerifiedAt?: Date | null;
 }): GuardianReadiness {

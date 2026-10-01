@@ -38,6 +38,7 @@ import { audit } from "../db/audit";
 import type { Actor } from "../auth/actor";
 import { assertAllowed, assertTenantWide, whereFor } from "../auth/scope";
 import { ForbiddenError } from "../auth/errors";
+import { assertMayCommit } from "./guardian-acts";
 import { canReadField } from "../auth/fields";
 import { scopeFor } from "../auth/policy";
 import { env } from "../config/env";
@@ -306,6 +307,8 @@ export async function respondToOffer(
     if (row.state !== "SENT") throw new OfferError(`An offer that is ${row.state} cannot be answered.`, 409);
     const now = new Date();
     if (row.expiresAt <= now) throw new OfferError("This offer has expired.", 409);
+    /* 2S1-BE-11 / -12 — accepting is a minor's guardian's to do, and paused during coming of age (asked first, before any terms are weighed). */
+    if (response.decision === "ACCEPT") await assertMayCommit(tx, actor, "accept");
 
     if (response.decision === "DECLINE") {
       const updated = await tx.offer.update({
@@ -316,7 +319,11 @@ export async function respondToOffer(
       return view(actor, updated);
     }
 
-    if (response.decision === "REQUEST_CHANGE") return requestChange(tx, actor, row, response.note);
+    /* 2S1-BE-11 / -12 — negotiating terms is the guardian's for a minor, and paused during coming of age. */
+    if (response.decision === "REQUEST_CHANGE") {
+      await assertMayCommit(tx, actor, "accept");
+      return requestChange(tx, actor, row, response.note);
+    }
 
     if (!response.termsHashShown || response.termsHashShown !== row.termsHash) {
       throw new OfferError("The terms shown are not the terms of this offer — reload and accept again.", 409);
@@ -406,14 +413,14 @@ async function requestChange(tx: Prisma.TransactionClient, actor: Actor, row: Ro
   if (!note) throw new OfferError("Say what you would like changed — a change request needs a note.");
   if (note.length > CHANGE_NOTE_MAX) throw new OfferError(`A change request is at most ${CHANGE_NOTE_MAX} characters.`);
 
-  const signer = await tx.user.findFirst({
-    where: { id: actor.userId, tenantId: actor.tenantId },
-    select: { athlete: { select: { legalName: true, displayName: true, birthDate: true, ageBand: true, guardianId: true, guardian: { select: { verifiedAt: true } } } } },
-  });
-  const athlete = signer?.athlete ?? null;
+  const SUBJECT = { legalName: true, displayName: true, birthDate: true, ageBand: true, majorityAge: true, guardianId: true, guardian: { select: { verifiedAt: true } } } as const;
+  /* 2S1-BE-11 — a guardian asking for their ward: the ward is the subject the gate asks about. */
+  const athlete = actor.actingFor
+    ? await tx.athlete.findFirst({ where: { tenantId: actor.tenantId, id: actor.actingFor.athleteId }, select: SUBJECT })
+    : (await tx.user.findFirst({ where: { id: actor.userId, tenantId: actor.tenantId }, select: { athlete: { select: SUBJECT } } }))?.athlete ?? null;
   if (athlete) {
     const readiness = guardianReadiness({
-      birthDate: athlete.birthDate, ageBand: athlete.ageBand,
+      birthDate: athlete.birthDate, ageBand: athlete.ageBand, majorityAge: athlete.majorityAge,
       guardianId: athlete.guardianId, guardianVerifiedAt: athlete.guardian?.verifiedAt ?? null,
     });
     if (readiness.status === "missing" || readiness.status === "unverified") throw new GuardianAuthorisationRequiredError(readiness.reason);

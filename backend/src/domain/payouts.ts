@@ -37,6 +37,8 @@ import { ForbiddenError } from "../auth/errors";
 import { providerName, readStandinToken, standinLink, standinRef, StandinTokenError } from "../lib/payment-provider";
 import { postPayout } from "./ledger";
 import { moveOrderAsSystem } from "./marketplace-order";
+import { assertMayCommit } from "./guardian-acts";
+import { payoutHoldReason } from "./payout-holds";
 
 type Tx = Prisma.TransactionClient;
 type Db = Tx | typeof prisma;
@@ -136,6 +138,8 @@ export async function myPayoutAccount(actor: Actor) {
 /** The link to the provider's set-up page (or back to it, to finish or manage). */
 export async function payoutAccountLink(actor: Actor, returnPath: unknown, now = new Date()) {
   const payee = payeeOf(actor, "payoutAccount", "write");
+  /* 2S1-BE-11 — a minor's payout account is set up by their guardian, in the guardian's name. */
+  await assertMayCommit(prisma, actor, "manage");
   const provider = providerName();
   if (provider === "none") throw providerUnavailable("Payout set-up");
   const back = safeReturnPath(returnPath, payee.payeeType === "ATHLETE" ? "/athlete" : "/property/earnings");
@@ -398,22 +402,6 @@ export async function completeStandinCheckout(token: string, outcome: "SUCCEED" 
   return { returnPath: link.returnPath };
 }
 
-/**
- * 2S1-BE-06 — an organisation BTG rejected after approval has its payouts
- * held: none is requested, approved or sent until BTG reinstates it (which
- * clears Property.payoutsHeldAt and hands its approved payouts back to the
- * provider — onboarding.ts).
- */
-export async function payoutsHeld(db: Db, payee: Pick<Payee, "payeeType" | "payeeId">): Promise<boolean> {
-  if (payee.payeeType !== "PROPERTY") return false;
-  const property = await db.property.findFirst({
-    /* tenant-scope: the payee's own property, named by the payout or by the actor's own link. */
-    where: { id: payee.payeeId }, select: { payoutsHeldAt: true },
-  });
-  return Boolean(property?.payoutsHeldAt);
-}
-
-const HELD = "Payouts are on hold — BTG has rejected this organisation. Contact BTG support.";
 
 /* ── the payee's balance — 2S5-BE-04 ──────────────────────────────────── */
 
@@ -557,13 +545,17 @@ export async function myPayouts(actor: Actor, now = new Date()) {
 /** The payee asks for its whole requestable balance — one payout per set of books. */
 export async function requestPayout(actor: Actor, now = new Date()) {
   const payee = payeeOf(actor, "payout", "write");
+  /* 2S1-BE-11 — a minor's payouts are requested by their guardian; 2S1-BE-12 — none during the coming-of-age allowance. */
+  await assertMayCommit(prisma, actor, "payoutRequest");
   return prisma.$transaction(async (tx) => {
+    /* Held (2S1-BE-06 organisations, 2S1-BE-09 / -10 athletes): payout-holds.ts. */
+    const held = await payoutHoldReason(tx, payee);
+    if (held) throw new PayoutError(held, 409, ["Payouts not on hold"]);
     const account = await tx.payoutAccount.findUnique({
       /* tenant-scope: the payee's own account, by its unique payee key from the actor. */
       where: { payeeType_payeeId: { payeeType: payee.payeeType, payeeId: payee.payeeId } }, select: { status: true },
     });
     if (account?.status !== "READY") throw new PayoutError("Set up your payout account first — payouts are sent to it.", 409, ["Payout account ready"]);
-    if (await payoutsHeld(tx, payee)) throw new PayoutError(HELD, 409, ["Payouts not on hold"]);
     const orders = (await balanceOf(tx, payee, now)).filter((o) => o.requestableCents > 0);
     if (!orders.length) throw new PayoutError("Nothing is ready to pay out yet.", 409, ["An order that is paid, delivered and past its holding period"]);
     const byBooks = new Map<string, OrderMoney[]>();
@@ -658,7 +650,9 @@ export async function decidePayout(actor: Actor, id: string, decision: "APPROVE"
     if (!row) throw new ForbiddenError("payout", "approve");
     if (row.state !== "REQUESTED") throw new PayoutError(`This payout is ${row.state.toLowerCase()}, not waiting for a decision.`);
     const payee: Payee = { payeeType: row.payeeType as PayeeType, payeeId: row.payeeId, payeeTenantId: row.payeeTenantId };
-    if (decision === "APPROVE" && (await payoutsHeld(tx, payee))) throw new PayoutError(HELD, 409, ["Payouts not on hold"]);
+    /* A payee BTG rejected (organisation or athlete) is held: send it back if you must, but don't pay it. */
+    const held = decision === "APPROVE" ? await payoutHoldReason(tx, payee) : null;
+    if (held) throw new PayoutError(held, 409, ["Payouts not on hold"]);
     const updated = await tx.payout.update({
       /* tenant-scope: the row just loaded through whereFor(payout, approve). */
       where: { id: row.id },
@@ -708,11 +702,11 @@ export async function sendPayout(payoutId: string, now = new Date()): Promise<{ 
   return prisma.$transaction(async (tx) => {
     const row = await tx.payout.findUnique({
       /* tenant-scope: the payout named by the job this server enqueued on approval. */
-      where: { id: payoutId }, select: { id: true, tenantId: true, state: true, payeeType: true, payeeId: true },
+      where: { id: payoutId }, select: { id: true, tenantId: true, state: true, payeeType: true, payeeId: true, payeeTenantId: true },
     });
     if (!row || row.state !== "APPROVED") return { sent: false };
-    /* Held (2S1-BE-06): it waits, APPROVED; reinstating the organisation sends it again. */
-    if (await payoutsHeld(tx, { payeeType: row.payeeType as PayeeType, payeeId: row.payeeId })) return { sent: false };
+    /* Held (2S1-BE-06 / -09): it waits, APPROVED, until BTG reinstates the payee, which sends it again. */
+    if (await payoutHoldReason(tx, row)) return { sent: false };
     await tx.payout.update({
       /* tenant-scope: the row just loaded by id. */
       where: { id: row.id }, data: { state: "SENDING", provider, providerRef: standinRef("po"), sentAt: now }, select: { id: true },

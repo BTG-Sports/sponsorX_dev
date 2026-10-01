@@ -224,6 +224,11 @@ model Tenant {
   /// own tenant. BTG staff review the inventory and listings of the tenants
   /// they operate — the `operated` scope — and nothing else of theirs.
   operatorTenantId String?
+  /// 2S1-BE-10 — "BTG staff confirm minors before approval". Off by default:
+  /// a minor and their guardian are approved by the system once every check
+  /// passes. On, a complete minor waits in New sign-ups for a person — the
+  /// switch the open guardian e-signature question may need, with no rebuild.
+  staffConfirmMinors Boolean @default(false)
 
   inventoryItems    InventoryItem[]
   listings          Listing[]
@@ -320,8 +325,19 @@ model Guardian {
   relationship String
   /// §37 pre-pilot gate — a minor cannot go ACTIVE without this set.
   verifiedAt   DateTime?
+  /// 2S1-BE-10 — opening the set-up link from the email confirms the address.
+  emailConfirmedAt DateTime?
+  /// True when the system verified this guardian (email, ID, proof, agreement
+  /// all in); false when a BTG person did.
+  autoVerified     Boolean   @default(false)
+  /// 2S1-BE-10 — BTG rejected this guardian after approval: their login is
+  /// off, and every athlete they look after is rejected with them.
+  rejectedAt       DateTime?
+  rejectNote       String?
+  rejectedBy       String?
 
   wards    Athlete[]
+  documents AccountDocument[]
   /// SponsorX NEXT — reused unchanged: a minor student needs a verified
   /// guardian on the same rule as an athlete (P9-BE-04).
   students Student[]
@@ -399,6 +415,44 @@ model Athlete {
   /// (2S5-BE-02) applies it. Null for an athlete with no team.
   teamShareBps Int?
 
+  /// 2S1-BE-12 — where the athlete lives, for the age of majority: an ISO
+  /// country code (US unless they say otherwise) with `stateCode` above as
+  /// the region. `majorityAge` is that place's age, read from the editable
+  /// AgeOfMajority table and stored so every age rule reads it without a
+  /// second query; re-worked out whenever the place or the table changes.
+  /// `majorityKnown` false means the place is not in the table — counted as
+  /// 18 and flagged for BTG.
+  countryCode   String  @default("US")
+  majorityAge   Int     @default(18)
+  majorityKnown Boolean @default(true)
+
+  /// 2S1-BE-09 / -10 — automatic approval. The applicant confirms their
+  /// email by link; `reviewReasons` say why it waits for BTG instead (a
+  /// likely duplicate, the staff-confirmation setting); `autoApproved` is
+  /// true when the system approved it.
+  emailConfirmedAt DateTime?
+  reviewReasons    String[] @default([])
+  autoApproved     Boolean  @default(false)
+  /// BTG's Reject after approval (New sign-ups): access withdrawn, listings
+  /// ended, payouts held, the reason emailed. `rejectedVia` is ATHLETE when
+  /// BTG rejected this athlete, GUARDIAN when it came with their guardian's
+  /// rejection — Reinstate undoes exactly what that rejection did.
+  signupRejectedAt DateTime?
+  signupRejectNote String?
+  signupRejectedBy String?
+  signupRejectedVia String?
+
+  /// 2S1-BE-12 — coming of age. When a minor reaches their place's age they
+  /// have 90 days (`comingOfAgeDueAt`) to upload a government ID; meanwhile
+  /// nothing new is started. `comingOfAgeReminders` are the "days before the
+  /// end" reminders already sent (90 = the start). Completed: control moved
+  /// to the athlete. Terminated: the 90 days ran out.
+  comingOfAgeStartedAt    DateTime?
+  comingOfAgeDueAt        DateTime?
+  comingOfAgeReminders    Int[]     @default([])
+  comingOfAgeCompletedAt  DateTime?
+  comingOfAgeTerminatedAt DateTime?
+
   // Zoho (§18 — Contacts are bi-directional)
   zohoId         String?     @unique
   lastSyncOrigin SyncOrigin?
@@ -431,9 +485,59 @@ model Athlete {
   profileChanges AthleteProfileChange[]
   /// 2S1-BE-15 — requests to become this minor's guardian.
   guardianHandoffs GuardianHandoff[]
+  documents    AccountDocument[]
 
   @@index([tenantId, state])
   @@index([tenantId, sport, stateCode])
+}
+
+/// 2S1-BE-09 / -10 — the identity documents automatic approval checks: an
+/// adult's GOVERNMENT_ID, a minor's SCHOOL_ID (minors have no government ID),
+/// and their guardian's GUARDIAN_ID and GUARDIANSHIP_PROOF (a birth
+/// certificate, court order or school record naming them — `proofKind`).
+/// Exactly one owner (CHECK in the migration). The bytes are in the PRIVATE
+/// bucket only, uploaded straight from the browser; `uploadedAt` is set once
+/// the object is really there. BTG reads them through five-minute audited
+/// links. PDF, JPEG or PNG, at most 10 MB.
+model AccountDocument {
+  id          String    @id
+  tenantId    String
+  athleteId   String?
+  guardianId  String?
+  /// GOVERNMENT_ID | SCHOOL_ID | GUARDIAN_ID | GUARDIANSHIP_PROOF
+  kind        String
+  /// GUARDIANSHIP_PROOF only: BIRTH_CERTIFICATE | COURT_ORDER | SCHOOL_RECORD
+  proofKind   String?
+  filename    String
+  contentType String
+  bytes       Int
+  r2Key       String    @unique
+  uploadedAt  DateTime?
+  createdAt   DateTime  @default(now())
+
+  athlete  Athlete?  @relation(fields: [athleteId], references: [id])
+  guardian Guardian? @relation(fields: [guardianId], references: [id])
+
+  @@index([tenantId, athleteId])
+  @@index([tenantId, guardianId])
+}
+
+/// 2S1-BE-12 — the age of majority by place, which BTG admins edit. A row is
+/// a country (regionCode "") or a region within it (a US state). The most
+/// specific row wins; a place with neither counts as 18 and is flagged.
+/// Seeded with the US states (most 18; AL and NE 19; MS 21) and common
+/// countries.
+model AgeOfMajority {
+  id          String   @id @default(cuid())
+  tenantId    String
+  countryCode String
+  /// "" for the whole country.
+  regionCode  String   @default("")
+  age         Int
+  updatedBy   String?
+  updatedAt   DateTime @default(now()) @updatedAt
+
+  @@unique([tenantId, countryCode, regionCode])
 }
 
 /// P3-BE-16, §11, §24 — a change an approved athlete proposes to their own

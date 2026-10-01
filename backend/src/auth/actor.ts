@@ -26,6 +26,7 @@ import { prisma } from "../db/client";
 import { authenticateClerkRequest } from "./clerk";
 import { AccountDisabledError, UnauthenticatedError, UnprovisionedError } from "./errors";
 import { ROLES, type Role } from "./policy";
+import { actForWard, WARD_HEADER } from "../domain/guardian-acts";
 
 export type Actor = {
   /** Postgres `User.id`, not the Clerk id. Audit entries reference this. */
@@ -68,6 +69,14 @@ export type Actor = {
    * as null, and a STUDENT without it reaches nothing (the safe direction).
    */
   studentId?: string | null;
+  /**
+   * 2S1-BE-11 — a guardian acting for a minor they look after. Set only by
+   * `requireActor` (guardian-acts.ts `actForWard`), after checking the ward
+   * is theirs and still under their control; then `athleteId` is the ward,
+   * `roles` gains ATHLETE, and scope.ts answers the athlete's own cells
+   * first. Audit rows still name the guardian's own user. Absent otherwise.
+   */
+  actingFor?: { athleteId: string; guardianId: string } | null;
 };
 
 const ROLE_SET = new Set<string>(ROLES);
@@ -167,6 +176,8 @@ export async function requireActor(
   const identity = await authenticateClerkRequest(req);
   if (!identity) throw new UnauthenticatedError();
 
-  req.actor = await resolveActor(identity.clerkId, identity.email);
+  /* 2S1-BE-11 — a guardian's login acts for the minor they look after
+     (the one named by the header, or their first). */
+  req.actor = await actForWard(await resolveActor(identity.clerkId, identity.email), req.get(WARD_HEADER));
   next();
 }

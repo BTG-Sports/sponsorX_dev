@@ -21,6 +21,7 @@ import { inquiriesRouter } from "./inquiries";
 import { catalogueRouter } from "./catalogue";
 import { rewardsRouter } from "./rewards";
 import { meRouter } from "./me";
+import { signupsRouter } from "./signups";
 import { propertiesRouter } from "./properties";
 import { editionsRouter } from "./editions";
 import { studentsRouter } from "./students";
@@ -43,6 +44,13 @@ v1Router.get("/", (_req, res) => {
 
 /* Identity first: every portal asks who it is talking to before it renders. */
 v1Router.use("/me", meRouter);
+
+/* 2S1-BE-09 / -10 / -11 / -12 — athletes and guardians signing up: the
+   applicant's checklist and ID upload (by intake token), the guardian's own
+   page and the coming-of-age upload (public, by signed link), BTG's New
+   sign-ups desk and sign-up rules. Full paths; mounted before
+   /applications so its intake paths are matched here first. */
+v1Router.use("/", signupsRouter);
 
 /* B1 — athlete onboarding. The review queue and the three admin decisions
    (P3-BE-07). */

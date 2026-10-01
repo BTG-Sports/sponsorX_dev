@@ -347,7 +347,14 @@ describe("the whole matrix is pinned", () => {
       // any ×3, BTG_ADMIN own-tenant ×3; guardianHandoff SUPER_ADMIN any/any,
       // BTG_ADMIN own-tenant read, GUARDIAN ward/ward, ATHLETE own read. With all
       // four removed the grid hashes to the previous 7fc0161e9b2baa67.
-    ).toBe("a21c258670dcdb7c");
+      // Updated 2026-10-01 (merge of 2S1-BE-10 / -12): new `signupRules`
+      // resource — SUPER_ADMIN any/any, BTG_ADMIN own-tenant read/write,
+      // NETWORK_MGR own-tenant read, every other cell deny (matrix
+      // `signupRules`). Resources added today: restrictedWord, orderDelivery,
+      // teamInvitation, accountClosure, guardianHandoff, signupRules. With
+      // signupRules' rows removed the grid hashes to the previous
+      // a21c258670dcdb7c.
+    ).toBe("1764feb8e04cc5ea");
   });
 
   it("covers every pair the §30 acceptance asks for", () => {

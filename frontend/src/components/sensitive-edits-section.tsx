@@ -4,6 +4,7 @@ import { viewEditIdAction } from "@/app/(app)/admin/new-signups/sensitive-edit-a
 import { Badge, Card } from "@/components/ui";
 import { dayOf } from "@/lib/account-live";
 import { STATE_COPY, changeRows, type ApiSensitiveEdit } from "@/lib/profile-changes-live";
+import { signupHref } from "@/lib/signups-live";
 import { apiFetch } from "@/server/api";
 
 /* --------------------------------------------------------------------------
@@ -61,7 +62,7 @@ export async function SensitiveEdits() {
                     <button type="submit" className="text-primary hover:underline">Open the ID (5-minute link)</button>
                   </form>
                 )}
-                <Link href={`/admin/new-signups?tab=review&athlete=${encodeURIComponent(e.athlete.id)}`} className="text-primary hover:underline">
+                <Link href={signupHref("ATHLETE", e.athlete.id)} className="text-primary hover:underline">
                   Review the athlete →
                 </Link>
               </div>

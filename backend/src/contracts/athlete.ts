@@ -1,5 +1,6 @@
 import { INT4_MAX, z } from "./zod";
 import { hasVisibleText } from "../domain/reward-state";
+import { GuardianInput } from "./guardian";
 
 /* QA pass 6 (P6-BE-07): a required text field must hold something a reader
    can SEE. `.min(1)` and `.trim()` both pass a string of zero-width
@@ -128,6 +129,10 @@ const AthleteApplicationFields = z.object({
     ageBand: z.enum(["UNDER_16", "16_17", "18_PLUS"]).optional(),
     city: z.string().max(80).optional(),
     stateCode: z.string().length(2).refine(hasVisibleText, { message: "State can't be blank." }).describe("US state code — NIL is US law"),
+    /* 2S1-BE-12 — the age of majority follows the athlete's state or country. */
+    countryCode: z.string().regex(/^[A-Z]{2}$/, "A two-letter country code, e.g. US.").optional().describe("ISO country code; US when absent"),
+    /* 2S1-BE-10 — a minor names their guardian, who is emailed a link to their own page. */
+    guardian: GuardianInput.optional().describe("A minor's guardian. Ignored for an adult (by their place's age of majority)."),
 
     // §11 §2 — Sports
     sport: required(60, "Sport"),

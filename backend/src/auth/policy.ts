@@ -166,7 +166,8 @@ export type Resource =
   | "orderDelivery"
   | "teamInvitation"
   | "accountClosure"
-  | "guardianHandoff";
+  | "guardianHandoff"
+  | "signupRules";
 
 export const RESOURCES: readonly Resource[] = [
   "tenant",
@@ -241,6 +242,7 @@ export const RESOURCES: readonly Resource[] = [
   "teamInvitation",
   "accountClosure",
   "guardianHandoff",
+  "signupRules",
 ] as const;
 
 type RolePolicy = Partial<Record<Role, Partial<Record<Action, Scope>>>>;
@@ -974,6 +976,16 @@ export const POLICY: Record<Resource, RolePolicy> = {
     BTG_ADMIN: rwa("own-tenant"),
     GUARDIAN: rwa("ward", "ward"),
     ATHLETE: rwa("own"),
+  },
+
+  /* 2S1-BE-10 / -12 — the rules automatic sign-up approval reads: the
+     age-of-majority table by place, and "BTG staff confirm minors before
+     approval". BTG admins keep them; the network manager, who works the
+     sign-ups they decide, may read them. */
+  signupRules: {
+    SUPER_ADMIN: rwa("any", "any"),
+    BTG_ADMIN: rwa("own-tenant", "own-tenant"),
+    NETWORK_MGR: rwa("own-tenant"),
   },
 };
 

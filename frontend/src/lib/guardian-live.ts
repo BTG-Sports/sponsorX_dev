@@ -3,10 +3,10 @@
    2S1-FE-10 (Claude Design GuardianSetup.dc.html, GuardianHandoff.dc.html,
    Contact.dc.html).
 
-   2S1-BE-15 (the handoff) and 2S1-BE-16 (the contact form) are LIVE: the
-   shapes below are what their routes answer, and the samples remain only
-   for the ?demo= previews. 2S1-BE-10 (the guardian's own page) is still a
-   SCAFFOLD on the sample set-up below.
+   The guardian's own page is LIVE since 2S1-BE-10 (the live shapes below,
+   "guardian set-up, live"), and so are 2S1-BE-15 (the handoff) and
+   2S1-BE-16 (the contact form): the shapes below are what their routes
+   answer, and the samples remain only for the ?demo= previews.
 
    Pure: shapes, fixtures, and every word the screens derive rather than read.
    -------------------------------------------------------------------------- */
@@ -120,6 +120,70 @@ export const sampleGuardianSetup: ApiGuardianSetup = {
 export function setupDemo(raw: string | string[] | undefined): "done" | "approved" | null {
   const v = first(raw);
   return v === "done" || v === "approved" ? v : null;
+}
+
+/* ---------------------------------- guardian set-up, live (2S1-BE-10) ----
+
+   The page the guardian's email links to (/guardian/setup?t=<token>) reads
+   and writes these — backend/src/domain/guardian-setup.ts:
+     POST  /public/guardian-setup/open {token}           opening confirms the email
+     PATCH /public/guardian-setup/:token                 details
+     POST  /public/guardian-setup/:token/documents(/:id/confirm)   ID and proof → private bucket
+     POST  /public/guardian-setup/:token/accept          the agreement, against the text shown
+   -------------------------------------------------------------------------- */
+
+/** The API's vocabulary for a guardian, with the words the page shows. */
+export const RELATIONSHIP_OPTIONS = [
+  { code: "PARENT", label: "Parent (mother or father)" },
+  { code: "LEGAL_GUARDIAN", label: "Legal guardian" },
+  { code: "AUTHORIZED_REP", label: "Authorized representative" },
+] as const;
+export type RelationshipCode = (typeof RELATIONSHIP_OPTIONS)[number]["code"];
+
+export type LiveSetupState = "IN_PROGRESS" | "CHECKING" | "HELD" | "APPROVED" | "REJECTED";
+
+/** GET /public/guardian-setup/:token (and every write's answer). */
+export type ApiGuardianSetupLive = {
+  athlete: { name: string; firstName: string };
+  guardian: { name: string; relationship: RelationshipCode | null; phone: string | null; email: string; emailConfirmed: boolean };
+  idUploaded: boolean;
+  proof: { kind: (typeof PROOF_KINDS)[number]["key"]; fileName: string; uploadedAt: string } | null;
+  agreement: { agreementId: string; version: number; bodyHash: string; body: string } | null;
+  agreementAcceptedAt: string | null;
+  state: LiveSetupState;
+  /** The guardian's own steps still to do. */
+  missing: string[];
+  /** What the athlete still has to do, said to the guardian. */
+  athleteMissing: string[];
+};
+
+/** The step a guardian lands on: the first thing still theirs to do. */
+export function firstOpenStep(s: Pick<ApiGuardianSetupLive, "guardian" | "idUploaded" | "proof" | "agreementAcceptedAt">): SetupStep {
+  if (!s.guardian.relationship || !s.guardian.name.trim()) return "details";
+  if (!s.idUploaded) return "id";
+  if (!s.proof) return "proof";
+  if (!s.agreementAcceptedAt) return "agreement";
+  return "done";
+}
+
+/**
+ * The stored agreement text as the page shows it. A numbered line is a term;
+ * a bracketed one is counsel's still-missing wording, shown AS a placeholder;
+ * a first line that says "placeholder" marks the whole version as a draft.
+ */
+export function agreementFromBody(body: string, version: number): GuardianAgreement {
+  const lines = body.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+  const head = lines[0] ?? "SponsorX Guardian Agreement";
+  const terms = lines.slice(1).map((l) => {
+    const text = l.replace(/^\d+[.)]\s*/, "");
+    return /\[[^\]]+\]/.test(text) ? { text, placeholder: true } : { text };
+  });
+  return {
+    title: head.split(/\s+—\s+|\s+-\s+/)[0] || "SponsorX Guardian Agreement",
+    version: String(version),
+    versionPending: /placeholder|draft|not final/i.test(head),
+    terms,
+  };
 }
 
 /* -------------------------------------------- guardian handoff (2S1-BE-15) */

@@ -80,6 +80,8 @@ const A = {
   /* 2S1-BE-05 — a business asking tenant A's BTG to sponsor. */
   inquiry: "ti_inquiry_a",
   inquiryDocument: "ti_inquiry_doc_a",
+  /* 2S1-BE-12 — a row of tenant A's age-of-majority table. */
+  ageRow: "ti_age_row_a",
   /* 2S7-FE-02 — an order still owing payment whose card payment failed (BTG's console). */
   dueReservation: "ti_reservation_due_a", dueOrder: "ti_mkt_order_due_a", failedAttempt: "ti_attempt_failed_a",
   /* 2S4-BE-06 / -07 — a sold line of that order, marked delivered and waiting
@@ -136,6 +138,8 @@ const PARAM_FOR: Record<string, string> = {
   payouts: A.payout, "sponsor-requests": A.inquiry, "restricted-words": A.restrictedWord,
   /* GET /sponsor-requests/{id}/documents/{documentId} (2S1-BE-17). */
   documents: A.inquiryDocument,
+  /* DELETE /signup-rules/age-table/{id} (2S1-BE-12). */
+  "age-table": A.ageRow,
   /* GET /deliverables/{id}/assets/{version}/url (P5-FE-04) — a creative
      version number, under tenant A's deliverable. */
   assets: "1",
@@ -159,6 +163,13 @@ const PARAM_FOR: Record<string, string> = {
 const BODY: Record<string, unknown> = {
   "POST /restricted-words": { word: "ti-made-up-word", kind: "ADULT" },
   "POST /restricted-words/test": { text: "TI Secret probe text" },
+  /* 2S1-BE-09 / -10 / -12 — New sign-ups and the sign-up rules. */
+  "POST /signups/athletes/{id}/reject": { note: "Isolation sweep" },
+  "POST /signups/guardians/{id}/reject": { note: "Isolation sweep" },
+  "PUT /signup-rules/age-table": { countryCode: "US", regionCode: "AL", age: 19 },
+  "PUT /signup-rules/settings": { staffConfirmMinors: false },
+  "POST /applications/intake/guardian": { legalName: "Sweep Guardian", email: "sweep-guardian@b.invalid", relationship: "PARENT" },
+  "POST /applications/intake/documents": { kind: "GOVERNMENT_ID", filename: "id.pdf", contentType: "application/pdf", bytes: 1000 },
   "POST /sponsor-requests/{id}/decision": { decision: "APPROVE", categories: ["RESTAURANT"], newSponsor: true },
   "PUT /athletes/{id}/tier": { tier: "CREATOR" },
   "POST /athletes/{id}/rates": { jobId: A.job, amount: 20000 },
@@ -443,6 +454,7 @@ describe.skipIf(!hasDatabase)("P8-SEC-02 · tenant B cannot reach tenant A throu
       id: A.handoff, tenantId: t, athleteId: A.athlete, fromGuardianId: A.guardian, requesterName: "TI Secret New Guardian",
       requesterEmail: "ti-secret-newg@a.invalid", relationship: "PARENT", state: "WAITING", emailConfirmedAt: new Date(), submittedAt: new Date(),
     } });
+    await prisma.ageOfMajority.create({ data: { id: A.ageRow, tenantId: t, countryCode: "ZZ", regionCode: "", age: 18 } });
     await prisma.restrictedWord.create({ data: { id: A.restrictedWord, tenantId: t, word: "TI Secret word", normalized: "ti secret word", kind: "OTHER_ILLEGAL", addedBy: A.admin } });
     await prisma.athleteClaim.create({ data: { id: A.claim, tenantId: t, athleteId: A.athlete, claimantName: "TI Secret Claimant", claimantEmail: "secret@a.invalid", rosterMatched: true } });
     await prisma.guardian.create({ data: { id: B.guardian, tenantId: B.tenant, legalName: "TI Guardian B", email: "g@b.invalid", relationship: "PARENT" } });
