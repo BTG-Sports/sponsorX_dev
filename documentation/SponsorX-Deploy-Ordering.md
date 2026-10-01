@@ -9,6 +9,24 @@ is inconvenient.
 
 ---
 
+
+## Daily deploys at 8 pm Manila — in force from 2026-10-01
+
+At the user's instruction, to stop a full rebuild of staging and production on
+every merge and to cut GitHub Actions minutes (the account ran out on
+2026-09-30):
+
+- **Railway deploys from the `release` branch**, not `main`, in both
+  environments (the deploy triggers for `api` and `web` point at `release`).
+- **CI (`ci.yml`) runs once a day**, at 8 pm Manila, on the latest `main`, and
+  only when `main` differs from `release`. It no longer runs on pushes or pull
+  requests. It can be run by hand from the Actions tab.
+- **When that run passes, `deploy-daily.yml` moves `release` to that commit**,
+  and Railway deploys it to staging and production. Nothing new, or a failed
+  check: nothing moves.
+- **Manual deploys are unchanged:** Railway's Deploy / Redeploy buttons, or
+  `npm run deploy` for GitHub `main`.
+
 ## 1 · Migrations run as a pre-deploy step, never in the build
 
 **The rule.** `prisma migrate deploy` runs as Railway's **pre-deploy command**

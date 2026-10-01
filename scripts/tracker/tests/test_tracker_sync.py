@@ -68,6 +68,42 @@ class Digest(unittest.TestCase):
         self.assertIn("*Waiting in Code review (1)*\n• `R` Task R · HeckerCreatives", text)
         self.assertIn("*Newly blocked (1)*\n• `B`", text)  # C was already blocked
 
+    def test_the_evening_post_lists_every_change_since_the_last_one(self):
+        before = board(task("A", "In progress"), task("B", "Ready"))
+        now = board(task("A", "Code review", owner="rcfworks"), task("B", "Ready"), task("N", "Ready"))
+        text = ts.render_digest(now, before, "2026-10-01")
+        self.assertIn("*What changed*", text)
+        self.assertIn("`A` Task A — In progress → *Code review* · rcfworks", text)
+        self.assertIn("`N` Task N — new task, Ready", text)
+        self.assertNotIn("`B`", text.split("*Finished today")[0])
+
+    def test_a_quiet_day_says_so(self):
+        b = board(task("A"))
+        self.assertIn("no task changes today", ts.render_digest(b, b, "2026-10-01"))
+
+
+class SheetOnlyNotify(unittest.TestCase):
+    """Daytime pushes update the Sheet but post nothing — Slack gets the 8 pm digest."""
+
+    def setUp(self):
+        self.saved = (ts.board_at, ts.post_slack, ts.sync_sheet)
+        self.posted, self.synced = [], []
+        boards = {"old": board(task("A", "Ready")), "new": board(task("A", "Done"))}
+        ts.board_at = lambda ref, repo=".": boards.get(ref)
+        ts.post_slack = lambda text, hook, dry: self.posted.append(text)
+        ts.sync_sheet = lambda changes, dry: self.synced.append(len(changes))
+
+    def tearDown(self):
+        ts.board_at, ts.post_slack, ts.sync_sheet = self.saved
+
+    def test_no_slack_updates_the_sheet_and_posts_nothing(self):
+        ts.main(["notify", "--before", "old", "--after", "new", "--no-slack"])
+        self.assertEqual((self.posted, self.synced), ([], [1]))
+
+    def test_without_the_flag_it_still_posts(self):
+        ts.main(["notify", "--before", "old", "--after", "new"])
+        self.assertEqual((len(self.posted), self.synced), (1, [1]))
+
     def test_stage_snapshot_counts_done_per_stage_including_nine(self):
         b = board(task("A", "Done", stage=0, weight=1), task("N", "Done", stage=9, weight=2), task("B", stage=3, weight=5))
         row = ts.stage_snapshot(b, "2026-09-25")
