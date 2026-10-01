@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  SUPPORT_EMAIL, contactTopic, guardianAgreement, handoffCarryOver, handoffDemo, handoffTrack, handoffViews, idFileProblem,
+  SUPPORT_EMAIL, contactTopic, declinedWords, guardianAgreement, handoffCarryOver, handoffDemo, handoffTrack, handoffViews, idFileProblem,
   firstOpenStep, sampleDeclined, sampleHandoff, sampleSwitched, setupDemo, stepMove, stepsFor, whenLabel,
 } from "@/lib/guardian-live";
 
@@ -69,6 +69,23 @@ describe("guardian handoff", () => {
     expect(t.map((s) => s.label)).toEqual(["Carmen handed off", "Luis’s documents checked", "Luis is now Jordan’s guardian"]);
     expect(t[2]!.note).toBe("Oct 1, 9:12 am");
   });
+  it("a BTG decline says BTG declined, with BTG's reason; the current guardian's reads as before, with no note", () => {
+    const byBtg = { ...sampleDeclined, declinedBy: "BTG" as const, declineNote: "We need a clearer copy of the birth certificate." };
+    expect(declinedWords(byBtg)).toEqual({
+      headline: "BTG declined your request.",
+      body: "Nothing changed on Jordan’s account — Carmen is still Jordan’s guardian. If you have something BTG hasn’t seen, or this is about custody, contact BTG support",
+      note: "We need a clearer copy of the birth certificate.",
+    });
+    expect(handoffTrack(byBtg).map((s) => [s.label, s.status])).toEqual([
+      ["Carmen handed off", "done"], ["BTG declined", "stopped"], ["Luis becomes Jordan’s guardian", "todo"],
+    ]);
+    expect(handoffViews(byBtg)[0]!.head).toBe("BTG declined your request.");
+    const byGuardian = { ...sampleDeclined, declinedBy: "CURRENT_GUARDIAN" as const, declineNote: null };
+    expect(declinedWords(byGuardian)).toMatchObject({ headline: "Carmen declined.", note: null });
+    expect(declinedWords(sampleDeclined).headline).toBe("Carmen declined.");
+    expect(handoffViews(byGuardian)[0]!.head).toBe("Carmen declined.");
+  });
+
   it("a declined request stops at the first step", () => {
     expect(handoffTrack(sampleDeclined).map((s) => s.status)).toEqual(["stopped", "todo", "todo"]);
   });

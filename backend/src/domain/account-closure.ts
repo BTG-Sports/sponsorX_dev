@@ -32,7 +32,10 @@
  * the address — answering the same either way, so it reveals nothing about
  * who has an account. The link is purpose-signed (lib/purpose-token.ts) and
  * reaches one closure. Self-closed: the link reactivates. Rejected: the link
- * can only ask BTG, and BTG decides.
+ * can only ask BTG, and BTG decides. Ended at coming of age (TERMINATED):
+ * neither — the athlete's government ID, uploaded on the coming-of-age page
+ * within the 30 days, brings the account back (coming-of-age.ts), so the
+ * page points the athlete there and BTG has nothing to decide.
  *
  * AFTER 30 DAYS the retention job (`purgeExpiredClosures`, run by the
  * worker) deletes the account's ID and verification files from the private
@@ -49,11 +52,12 @@ import type { Actor } from "../auth/actor";
 import { assertAllowed, whereFor } from "../auth/scope";
 import { ForbiddenError } from "../auth/errors";
 import { issuePurposeToken, readPurposeToken } from "../lib/purpose-token";
+import { issueComingOfAgeToken } from "../lib/signup-token";
 import { deletePrivateObject } from "../lib/storage";
 import { mayParticipate } from "./guardian-rules";
 import {
-  closureMarker, dayWords, reactivationStanding, retainUntilFrom, retentionDaysLeft,
-  type ClosureCause, type ClosureSubject,
+  CLOSURE_TABS, closureMarker, dayWords, reactivationStanding, retainUntilFrom, retentionDaysLeft,
+  type ClosureCause, type ClosureSubject, type ClosureTab,
 } from "./account-closure-rules";
 
 type Tx = Prisma.TransactionClient;
@@ -79,6 +83,7 @@ const CLOSURE_SELECT = {
   contactEmail: true, displayName: true, reactivatedAt: true, recheckNotes: true, purgedAt: true,
   reactivationRequestedAt: true, reactivationRequestNote: true, reactivationDecision: true,
   reactivationDecidedAt: true, reactivationDecisionNote: true, createdAt: true,
+  closedBy: true, reactivationDecidedBy: true,
 } as const;
 type ClosureRow = Prisma.AccountClosureGetPayload<{ select: typeof CLOSURE_SELECT }>;
 
@@ -357,12 +362,32 @@ function standingOf(c: ClosureRow) {
     recheckNotes: c.recheckNotes,
     portalPath: PORTAL[c.subjectKind as ClosureSubject],
     supportEmail: env.SUPPORT_EMAIL,
+    /** CLOSED_AT_AGE, the athlete's own closure: the coming-of-age page where their government ID brings it back (reactivationStatus fills it). */
+    comingOfAgePath: null as string | null,
   };
+}
+
+/**
+ * The coming-of-age page for an athlete's TERMINATED closure, while the ID
+ * can still bring it back — and only when the closure's address is the
+ * athlete's own (an athlete with no address of their own was closed with
+ * their guardian's, and the upload is theirs, not the guardian's: the
+ * guardian is told to ask the athlete to use their email's link).
+ */
+async function comingOfAgePathFor(db: Db, c: ClosureRow): Promise<string | null> {
+  if (c.subjectKind !== "ATHLETE" || reactivationStanding(c) !== "CLOSED_AT_AGE") return null;
+  const a = await db.athlete.findFirst({
+    /* tenant-scope: the closure's own athlete, in the closure's tenant. */
+    where: { tenantId: c.tenantId, id: c.subjectId }, select: { email: true, comingOfAgeCompletedAt: true },
+  });
+  if (!a || a.comingOfAgeCompletedAt || !a.email || a.email.toLowerCase() !== c.contactEmail.toLowerCase()) return null;
+  return `/coming-of-age/${encodeURIComponent(issueComingOfAgeToken(c.subjectId))}`;
 }
 
 /** GET /public/account/reactivation/:token — where this closed account stands. */
 export async function reactivationStatus(token: string) {
-  return standingOf(await closureById(prisma, closureIdFrom(token)));
+  const c = await closureById(prisma, closureIdFrom(token));
+  return { ...standingOf(c), comingOfAgePath: await comingOfAgePathFor(prisma, c) };
 }
 
 /**
@@ -404,6 +429,7 @@ export async function reactivateByToken(token: string) {
     if (standing === "REACTIVATED") return standingOf(c);
     if (standing === "EXPIRED") throw new AccountClosureError("The 30 days have passed and the documents are deleted. To come back, sign up again.", 410);
     if (standing === "CLOSED_BY_BTG") throw new AccountClosureError("BTG closed this account, so it can't reactivate itself. Ask BTG to look again instead.", 403);
+    if (standing === "CLOSED_AT_AGE") throw new AccountClosureError(AT_AGE_WAY_BACK, 403);
 
     /* Claim the closure first: two clicks of the link reactivate once. */
     const moved = await tx.accountClosure.updateMany({
@@ -506,6 +532,8 @@ export async function askBtgToReactivate(token: string, note: string | undefined
     const standing = reactivationStanding(c);
     if (standing === "EXPIRED") throw new AccountClosureError("The 30 days have passed and the documents are deleted. To come back, sign up again.", 410);
     if (standing === "CLOSED_SELF") throw new AccountClosureError("You closed this account yourself — reactivate it instead.", 409);
+    /* Coming of age: the government ID brings it back, not BTG — there is nothing for BTG to decide. */
+    if (standing === "CLOSED_AT_AGE") throw new AccountClosureError(AT_AGE_WAY_BACK, 409);
     if (standing === "REACTIVATED") return standingOf(c);
     if (c.reactivationRequestedAt && c.reactivationDecision !== "DECLINED") return standingOf(c);
 
@@ -520,13 +548,13 @@ export async function askBtgToReactivate(token: string, note: string | undefined
     const admins = await tx.user.findMany({
       where: { tenantId: c.tenantId, disabledAt: null, roles: { has: "BTG_ADMIN" } }, select: { id: true, email: true },
     });
-    const reviewUrl = await reviewUrlFor(tx, c);
+    const reviewUrl = `${appUrl()}${await reviewPathFor(tx, c)}`;
     for (const u of admins) {
       await send(tx, c.tenantId, {
         template: "account.reactivationRequested", to: u.email, idempotencyKey: `account.reactivationRequested:${c.id}:${at.getTime()}:${u.id}`,
         data: {
           name: c.displayName, kind: KIND_WORDS[c.subjectKind as ClosureSubject] ?? c.subjectKind.toLowerCase(), closedAt: dayWords(c.closedAt), retainUntil: dayWords(c.retainUntil),
-          note: text ?? "", reviewUrl, requestsUrl: `${appUrl()}/admin/new-signups?tab=review`,
+          note: text ?? "", reviewUrl, requestsUrl: `${appUrl()}/admin/closed-accounts/${c.id}`,
         },
       });
     }
@@ -534,48 +562,162 @@ export async function askBtgToReactivate(token: string, note: string | undefined
   });
 }
 
+/** What the reactivation page's two actions say to an account ended at coming of age. */
+const AT_AGE_WAY_BACK =
+  "This account ended at coming of age. It comes back when the athlete uploads their government ID within the 30 days, from the coming-of-age link we emailed them — BTG doesn't need to review it.";
+
 /** How BTG's email names the kind of account asking. */
 const KIND_WORDS: Record<ClosureSubject, string> = {
   ATHLETE: "athlete", GUARDIAN: "guardian", PROPERTY: "organisation", SPONSOR: "sponsor",
   ONBOARDING: "organisation application, rejected before approval", INQUIRY: "sponsor request, declined before an account opened",
 };
 
-/** The BTG page where this account is reinstated. */
-async function reviewUrlFor(tx: Tx, c: ClosureRow): Promise<string> {
+/** The BTG page where this account is reinstated (an application's: where it was rejected). An app path, without the host. */
+async function reviewPathFor(db: Db, c: { tenantId: string; subjectKind: string; subjectId: string }): Promise<string> {
   if (c.subjectKind === "SPONSOR") {
-    const inq = await tx.inquiry.findFirst({ where: { tenantId: c.tenantId, sponsorId: c.subjectId }, select: { id: true }, orderBy: { createdAt: "desc" } });
-    if (inq) return `${appUrl()}/admin/sponsor-requests/${inq.id}`;
+    /* The sponsor's request is where its Reject and Reinstate live (sponsor-requests.ts): the latest one that opened this sponsor. */
+    /* The request BTG rejected through — that is where Reinstate is — else the newest. */
+    const inq =
+      (await db.inquiry.findFirst({ where: { tenantId: c.tenantId, sponsorId: c.subjectId, state: "REJECTED" }, select: { id: true }, orderBy: { createdAt: "desc" } })) ??
+      (await db.inquiry.findFirst({ where: { tenantId: c.tenantId, sponsorId: c.subjectId }, select: { id: true }, orderBy: { createdAt: "desc" } }));
+    if (inq) return `/admin/sponsor-requests/${inq.id}`;
   }
   /* Where Reinstate is: the athlete's and guardian's profiles on New sign-ups (2S1-BE-09 / -10), the organisation's profile (2S1-BE-06). */
-  if (c.subjectKind === "ATHLETE") return `${appUrl()}/admin/new-signups/athletes/${c.subjectId}`;
-  if (c.subjectKind === "GUARDIAN") return `${appUrl()}/admin/new-signups/guardians/${c.subjectId}`;
+  if (c.subjectKind === "ATHLETE") return `/admin/new-signups/athletes/${c.subjectId}`;
+  if (c.subjectKind === "GUARDIAN") return `/admin/new-signups/guardians/${c.subjectId}`;
   if (c.subjectKind === "PROPERTY") {
-    const onb = await tx.propertyOnboarding.findFirst({
+    const onb = await db.propertyOnboarding.findFirst({
       /* tenant-scope: the onboarding that provisioned this closure's own property (it lives in its operator's tenant). */
       where: { propertyId: c.subjectId }, select: { id: true },
     });
-    if (onb) return `${appUrl()}/admin/onboarding/${onb.id}`;
+    if (onb) return `/admin/onboarding/${onb.id}`;
   }
-  if (c.subjectKind === "ONBOARDING") return `${appUrl()}/admin/onboarding/${c.subjectId}`;
-  if (c.subjectKind === "INQUIRY") return `${appUrl()}/admin/sponsor-requests/${c.subjectId}`;
-  return `${appUrl()}/admin/new-signups?tab=review`;
+  if (c.subjectKind === "ONBOARDING") return `/admin/onboarding/${c.subjectId}`;
+  if (c.subjectKind === "INQUIRY") return `/admin/sponsor-requests/${c.subjectId}`;
+  return "/admin/new-signups?tab=review";
 }
 
 /* ═══════════════════════ BTG's side ═════════════════════════════════════ */
 
-/** GET /account-closures?requested=true — closed accounts, newest first; `requested` narrows to those asking to come back. */
-export async function listClosures(actor: Actor, opts: { requested?: boolean } = {}) {
+/**
+ * The Closed accounts desk's tabs (2S1-FE-08, ClosedAccounts.dc.html). A
+ * closure that came back (REACTIVATED) is in none of them: it is an open
+ * account again, on its own page.
+ */
+const TAB_WHERE: Record<ClosureTab, Prisma.AccountClosureWhereInput> = {
+  /* Closed by BTG and asking to come back, not yet answered. An account ended
+     at coming of age never asks (its way back is the government ID), so one
+     that asked before that rule is not left here unanswerable. */
+  asking: { state: "CLOSED", cause: { not: "TERMINATED" }, reactivationRequestedAt: { not: null }, reactivationDecision: null },
+  btg: { state: "CLOSED", cause: "REJECTED" },
+  owner: { state: "CLOSED", cause: "SELF" },
+  age: { state: "CLOSED", cause: "TERMINATED" },
+  /* The 30 days are up: the retention job deleted the files. */
+  deleted: { state: "PURGED" },
+};
+
+/** An application rejected before approval — never an account, so nothing to reinstate: they apply again. */
+const isApplication = (kind: string) => kind === "ONBOARDING" || kind === "INQUIRY";
+
+/**
+ * The account's own name for BTG's desk — the closure keeps only a greeting
+ * (a first name) for the emails. Falls back to that greeting.
+ */
+async function subjectNames(db: Db, rows: { tenantId: string; subjectKind: string; subjectId: string }[]): Promise<Map<string, string>> {
+  const ids = (kind: string) => [...new Set(rows.filter((r) => r.subjectKind === kind).map((r) => r.subjectId))];
+  const tenants = [...new Set(rows.map((r) => r.tenantId))];
+  const out = new Map<string, string>();
+  const put = (kind: string, id: string, name: string | null | undefined) => { if (name?.trim()) out.set(`${kind}:${id}`, name.trim()); };
+  const [athletes, guardians, sponsors, inquiries, properties, onboardings] = await Promise.all([
+    ids("ATHLETE").length ? db.athlete.findMany({ where: { tenantId: { in: tenants }, id: { in: ids("ATHLETE") } }, select: { id: true, legalName: true, displayName: true } }) : [],
+    ids("GUARDIAN").length ? db.guardian.findMany({ where: { tenantId: { in: tenants }, id: { in: ids("GUARDIAN") } }, select: { id: true, legalName: true } }) : [],
+    ids("SPONSOR").length ? db.sponsor.findMany({ where: { tenantId: { in: tenants }, id: { in: ids("SPONSOR") } }, select: { id: true, name: true } }) : [],
+    ids("INQUIRY").length ? db.inquiry.findMany({ where: { tenantId: { in: tenants }, id: { in: ids("INQUIRY") } }, select: { id: true, companyName: true, firstName: true, lastName: true } }) : [],
+    ids("PROPERTY").length ? db.property.findMany({
+      /* tenant-scope: these closures' own organisations by id (an organisation lives in its own tenant while BTG's Reject files the closure in BTG's). */
+      where: { id: { in: ids("PROPERTY") } }, select: { id: true, name: true },
+    }) : [],
+    ids("ONBOARDING").length ? db.propertyOnboarding.findMany({
+      /* tenant-scope: these closures' own applications by id (an application lives in its operator's tenant). */
+      where: { id: { in: ids("ONBOARDING") } }, select: { id: true, orgName: true },
+    }) : [],
+  ]);
+  for (const a of athletes) put("ATHLETE", a.id, a.legalName || a.displayName);
+  for (const g of guardians) put("GUARDIAN", g.id, g.legalName);
+  for (const s of sponsors) put("SPONSOR", s.id, s.name);
+  for (const i of inquiries) put("INQUIRY", i.id, i.companyName || [i.firstName, i.lastName].filter(Boolean).join(" "));
+  for (const p of properties) put("PROPERTY", p.id, p.name);
+  for (const o of onboardings) put("ONBOARDING", o.id, o.orgName);
+  return out;
+}
+
+/** One closure as BTG's desk lists it. */
+function deskRow(c: ClosureRow, names: Map<string, string>) {
+  return {
+    id: c.id, ...standingOf(c), subjectId: c.subjectId, cause: c.cause, state: c.state, reason: c.reason, requestNote: c.reactivationRequestNote,
+    name: names.get(`${c.subjectKind}:${c.subjectId}`) ?? c.displayName,
+    application: isApplication(c.subjectKind),
+    purgedAt: c.purgedAt,
+  };
+}
+
+/**
+ * GET /account-closures?tab=asking|btg|owner|age|deleted (or the older
+ * ?requested=true, the same as tab=asking) — closed accounts, newest first,
+ * with every tab's count.
+ */
+export async function listClosures(actor: Actor, opts: { requested?: boolean; tab?: ClosureTab } = {}) {
   assertAllowed(actor, "accountClosure", "read");
-  const rows = await prisma.accountClosure.findMany({
-    where: {
-      ...whereFor(actor, "accountClosure", "read"),
-      ...(opts.requested ? { state: "CLOSED", reactivationRequestedAt: { not: null }, reactivationDecision: null } : {}),
-    },
-    select: CLOSURE_SELECT,
-    orderBy: { closedAt: "desc" },
-    take: 100,
-  });
-  return { closures: rows.map((c) => ({ id: c.id, ...standingOf(c), subjectId: c.subjectId, cause: c.cause, state: c.state, reason: c.reason, requestNote: c.reactivationRequestNote })) };
+  const tab: ClosureTab | null = opts.tab ?? (opts.requested ? "asking" : null);
+  const [rows, ...n] = await Promise.all([
+    prisma.accountClosure.findMany({
+      where: { ...whereFor(actor, "accountClosure", "read"), ...(tab ? TAB_WHERE[tab] : {}) },
+      select: CLOSURE_SELECT,
+      orderBy: { closedAt: "desc" },
+      take: 100,
+    }),
+    ...CLOSURE_TABS.map((t) => prisma.accountClosure.count({ where: { ...whereFor(actor, "accountClosure", "read"), ...TAB_WHERE[t] } })),
+  ]);
+  const names = await subjectNames(prisma, rows);
+  return {
+    closures: rows.map((c) => deskRow(c, names)),
+    counts: Object.fromEntries(CLOSURE_TABS.map((t, i) => [t, n[i] as number])) as Record<ClosureTab, number>,
+  };
+}
+
+/**
+ * GET /account-closures/:id — one closure for BTG's desk: why it closed and
+ * who closed it, the request to come back and BTG's answer, and where its
+ * Reinstate is (`subjectHref`, the account's own page). Staff are named by
+ * their login's address: SponsorX keeps no staff names.
+ */
+export async function getClosure(actor: Actor, id: string) {
+  assertAllowed(actor, "accountClosure", "read");
+  const c = await prisma.accountClosure.findFirst({ where: { ...whereFor(actor, "accountClosure", "read"), id }, select: CLOSURE_SELECT });
+  if (!c) throw new ForbiddenError("accountClosure", "read");
+  const staffIds = [c.cause === "SELF" ? null : c.closedBy, c.reactivationDecidedBy].filter((x): x is string => !!x);
+  const staff = staffIds.length
+    ? await prisma.user.findMany({ where: { tenantId: c.tenantId, id: { in: staffIds } }, select: { id: true, email: true } })
+    : [];
+  const emailOf = (userId: string | null) => (userId ? staff.find((u) => u.id === userId)?.email ?? null : null);
+  const open = c.state === "CLOSED";
+  return {
+    ...deskRow(c, await subjectNames(prisma, [c])),
+    contactEmail: c.contactEmail,
+    /** Who closed it: the owner (SELF), a BTG login (REJECTED), or nobody — the system (TERMINATED, or a BTG login since removed). */
+    closedByEmail: emailOf(c.closedBy),
+    decision: c.reactivationDecision,
+    decidedAt: c.reactivationDecidedAt,
+    decidedByEmail: emailOf(c.reactivationDecidedBy),
+    decisionNote: c.reactivationDecisionNote,
+    subjectHref: await reviewPathFor(prisma, c),
+    /** Reinstate is on the account's own page — a rejected account, still inside its 30 days. */
+    reinstatable: open && c.cause === "REJECTED" && !isApplication(c.subjectKind),
+    /** A request to come back that BTG has not answered yet: Decline is here.
+     *  Never for coming of age (TERMINATED): read-only — the athlete's
+     *  government ID brings it back, not BTG. */
+    canDecline: open && c.cause !== "TERMINATED" && !!c.reactivationRequestedAt && !c.reactivationDecision,
+  };
 }
 
 /**
@@ -591,6 +733,7 @@ export async function declineReactivation(actor: Actor, id: string, note: string
     const c = await tx.accountClosure.findFirst({ where: { ...whereFor(actor, "accountClosure", "approve"), id }, select: CLOSURE_SELECT });
     if (!c) throw new ForbiddenError("accountClosure", "approve");
     if (c.state !== "CLOSED" || !c.reactivationRequestedAt || c.reactivationDecision) throw new AccountClosureError("There is no open request to come back on this account.");
+    if (c.cause === "TERMINATED") throw new AccountClosureError("This account ended at coming of age — the athlete's government ID brings it back, not BTG. There is nothing to decline.");
     const at = new Date();
     await tx.accountClosure.update({
       /* tenant-scope: loaded through whereFor(accountClosure, approve). */

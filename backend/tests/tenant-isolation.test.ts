@@ -464,6 +464,11 @@ describe.skipIf(!hasDatabase)("P8-SEC-02 · tenant B cannot reach tenant A throu
       id: A.handoff, tenantId: t, athleteId: A.athlete, fromGuardianId: A.guardian, requesterName: "TI Secret New Guardian",
       requesterEmail: "ti-secret-newg@a.invalid", relationship: "PARENT", state: "WAITING", emailConfirmedAt: new Date(), submittedAt: new Date(),
     } });
+    /* GET /guardian-handoffs/{id}/documents/{documentId}: the "documents" probe id, as a real handoff document of tenant A. */
+    await prisma.guardianHandoffDocument.create({ data: {
+      id: A.inquiryDocument, tenantId: t, handoffId: A.handoff, kind: "GUARDIAN_ID", filename: "ti-secret-id.png",
+      contentType: "image/png", bytes: 100, r2Key: `guardian-handoffs/${A.handoff}/${A.inquiryDocument}/ti-secret-id.png`, uploadedAt: new Date(),
+    } });
     await prisma.ageOfMajority.create({ data: { id: A.ageRow, tenantId: t, countryCode: "ZZ", regionCode: "", age: 18 } });
     await prisma.restrictedWord.create({ data: { id: A.restrictedWord, tenantId: t, word: "TI Secret word", normalized: "ti secret word", kind: "OTHER_ILLEGAL", addedBy: A.admin } });
     await prisma.athleteClaim.create({ data: { id: A.claim, tenantId: t, athleteId: A.athlete, claimantName: "TI Secret Claimant", claimantEmail: "secret@a.invalid", rosterMatched: true } });

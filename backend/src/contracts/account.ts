@@ -1,4 +1,5 @@
 import { z } from "./zod";
+import { CLOSURE_TABS } from "../domain/account-closure-rules";
 
 /* 2S1-BE-13 — closing an account and coming back. */
 
@@ -31,3 +32,11 @@ export const ReactivationDecisionInput = z
   .object({ decision: z.literal("DECLINE"), note: z.string().trim().min(1).max(2000) })
   .strict()
   .meta({ id: "ReactivationDecisionInput", description: "BTG declines a rejected account's request to come back, with a reason the person reads. To bring it back, Reinstate it on its own page." });
+
+export const ClosureListQuery = z
+  .object({
+    /* The older filter: the same as tab=asking. */
+    requested: z.enum(["true", "false"]).optional(),
+    tab: z.enum(CLOSURE_TABS).optional(),
+  })
+  .meta({ id: "ClosureListQuery", description: "One tab of BTG's Closed accounts desk: asking (to come back), btg (closed by BTG), owner (closed by the owner), age (ended at coming of age) or deleted (files deleted). No tab lists them all." });

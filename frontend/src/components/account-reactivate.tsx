@@ -14,6 +14,9 @@ import { PREVIEW_ONLY, type ReactivateView } from "@/lib/account-closure-live";
      closed by BTG — can't reactivate itself; "Ask BTG to review it" with a
                      message (POST … {action: REQUEST}), and Contact BTG;
                      BTG decides
+     ended at coming of age — no Reactivate and no asking BTG: the
+                     athlete's government ID, on the coming-of-age page
+                     (comingOfAgePath), brings it back within the 30 days
      back          — reactivated, with what the re-run checks found
      expired       — the 30 days are up: sign up again
    With no action passed (the ?demo= previews) the buttons stay off.
@@ -75,6 +78,16 @@ export function AccountReactivate({
             </div>
             {!request && <p className="text-[11px] text-warn">{PREVIEW_ONLY}</p>}
           </form>
+        </section>
+      )}
+
+      {view.kind === "age" && (
+        <section role="status" aria-label="Ended at coming of age" className="flex flex-col gap-2.5 rounded-xl border border-warn/40 bg-surface p-4.5">
+          <span><Badge tone="warn">{view.badge}</Badge></span>
+          <p className="text-[15px] font-semibold">{view.headline}</p>
+          <p className="text-sm leading-relaxed text-muted">{view.body}</p>
+          <p className="text-xs text-muted">{view.kept}</p>
+          {view.uploadPath && <Link href={view.uploadPath} className={`${primary} self-start`}>Upload your government ID</Link>}
         </section>
       )}
 

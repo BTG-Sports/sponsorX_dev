@@ -5,7 +5,7 @@ import { HandoffRequestSteps } from "@/components/handoff-request-steps";
 import { HandoffStartForm } from "@/components/handoff-start-form";
 import { HandoffStatusViews, HandoffTrack } from "@/components/handoff-status";
 import { Badge, BlockedNotice, Button } from "@/components/ui";
-import { handoffDemo, handoffViews, sampleDeclined, sampleHandoff, sampleSwitched, type ApiHandoffRequest } from "@/lib/guardian-live";
+import { declinedWords, handoffDemo, handoffViews, sampleDeclined, sampleHandoff, sampleSwitched, type ApiHandoffRequest } from "@/lib/guardian-live";
 import { refusalMessage } from "@/lib/onboarding-live";
 import { supportContact, type SupportContact } from "@/server/support";
 import { publicApi } from "../../onboarding/public-api";
@@ -21,7 +21,8 @@ import { publicApi } from "../../onboarding/public-api";
 
    LIVE (2S1-BE-15):
      Reads  GET  /public/guardian-handoffs/lookup?athleteEmail=   the athlete (handoff-start-form)
-            GET  /public/guardian-handoffs/:token                this request's status (?r=)
+            GET  /public/guardian-handoffs/:token                this request's status (?r=); once declined,
+                                                                 who declined (declinedBy) and BTG's reason (declineNote)
             GET  /public/support                                 the support address
      Writes POST /public/guardian-handoffs                       start      (handoff-start-form → actions.ts)
             POST /public/guardian-handoffs/confirm-email         on render, from the email link (?e=)
@@ -49,7 +50,9 @@ function SupportLine({ athlete, current, support }: { athlete: string; current: 
   );
 }
 
+/** Declined — by the current guardian (no note), or by BTG after a hand-off (BTG's reason, as emailed). */
 function Declined({ r, support }: { r: ApiHandoffRequest; support: SupportContact }) {
+  const w = declinedWords(r);
   return (
     <>
       <h1 className="text-[22px] font-bold sm:text-[28px]">Your guardian request</h1>
@@ -57,10 +60,15 @@ function Declined({ r, support }: { r: ApiHandoffRequest; support: SupportContac
         <Badge tone="danger">
           <span aria-hidden="true" className="mr-1">✕</span>Declined
         </Badge>
-        <p className="text-[15px] font-semibold">{r.current.firstName} declined.</p>
+        <p className="text-[15px] font-semibold">{w.headline}</p>
+        {w.note && (
+          <blockquote aria-label="BTG’s reason" className="w-full rounded-lg border border-line bg-bg px-3 py-2.5">
+            <p className="text-[11px] font-medium text-muted">BTG&rsquo;s reason</p>
+            <p className="mt-1 whitespace-pre-line break-words text-sm">{w.note}</p>
+          </blockquote>
+        )}
         <p className="text-sm leading-relaxed text-muted">
-          Nothing changed on {r.athlete.firstName}&rsquo;s account. If this is about custody or you can&rsquo;t reach {r.current.firstName}, contact BTG support
-          at {support.email}.
+          {w.body} at {support.email}.
         </p>
         <Link
           href="/contact?topic=guardianship"

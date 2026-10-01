@@ -592,6 +592,16 @@ Hand off moves the request to HANDED_OFF and a BTG admin confirms (the
 switch) or declines it, with a reason. Until then the current guardian keeps
 control. The switch is refused if the new guardian can't sign in.
 
+*(2026-10-01, BTG's Guardian handoffs desk — no policy change.)* A
+tenant-wide **read** (`BTG_ADMIN`, `SUPER_ADMIN`) also sees a request the new
+guardian is still filling in, and the desk's detail: the new guardian's
+contact details and agreement, the documents list, and who decided. The new
+guardian's ID and proof open only through
+`GET /guardian-handoffs/:id/documents/:documentId`, which asks for a
+tenant-wide read (`assertTenantWide`), so the current guardian's `ward` read
+and the athlete's `own` read never reach them. Each view is a five-minute
+link, recorded as `storage.privateDownloadGrant`.
+
 **`POST /athletes/:id/guardian` is not a second road around the handoff.** It
 links a guardian only to a minor who has none. For a minor who already has one
 it answers 409 `handoff_required`. Only a `BTG_ADMIN`, deciding a dispute by

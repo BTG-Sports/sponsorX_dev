@@ -59,6 +59,7 @@ import { createEarningForOrder } from "./earning";
 import { assertNoRestriction, writeExclusivity } from "./restrictions";
 import { checkInventoryItem, UnavailableError, unitsTaken } from "./availability";
 import { guardianControls } from "./guardian-rules";
+import { athleteFloor, floorProblem, offerParty, PARTY_SELECT } from "./offer-desk";
 
 export type OfferState = "DRAFT" | "SENT" | "ACCEPTED" | "DECLINED" | "WITHDRAWN";
 export type OfferDeliverable = { title: string; dueDate: Date };
@@ -99,6 +100,10 @@ const SELECT = {
   state: true, sentAt: true, respondedAt: true, termsHash: true, termsSnapshot: true, orderId: true, createdAt: true,
   createdBy: true, fromOfferId: true,
   campaign: { select: { name: true, sponsor: { select: { name: true } } } },
+  /* 2S2-FE-03 (BTG's Offers desk) — whose offer it is, and whether their
+     guardian answers it (offerParty); the job's name. */
+  athlete: { select: PARTY_SELECT },
+  job: { select: { name: true } },
   /* 2S2-FE-03 — who asked for a change, what, and when; and whether and how
      BTG answered it (KEPT with a reply, or REVISED into a new draft). Every
      reader of the offer sees them: the athlete their own, BTG's staff their
@@ -167,8 +172,10 @@ export function termsHashOf(terms: ReturnType<typeof canonicalTerms>): string {
 }
 
 function view(actor: Actor, r: Row) {
-  const { campaign, ...rest } = r;
-  const out: Record<string, unknown> = { ...rest, campaignName: campaign.name, sponsorName: campaign.sponsor.name };
+  const { campaign, athlete, job, ...rest } = r;
+  const out: Record<string, unknown> = {
+    ...rest, campaignName: campaign.name, sponsorName: campaign.sponsor.name, jobName: job.name, athlete: offerParty(actor, athlete),
+  };
   /* The margin is protected from the athlete side (FIELD_DENIALS). */
   if (!canReadField(actor.roles, "campaignOrder.sellPrice")) {
     delete out.sellPrice;
@@ -238,8 +245,10 @@ type DraftInput = OfferTerms & { campaignId: string; athleteId: string; jobId: s
  * well-formed and in the future; the campaign is one the caller may write;
  * the athlete, job and inventory item are this tenant's (the item this
  * athlete's); an exclusive offer has the sponsor's categories to be
- * exclusive against; no restriction or sale blocks it; the line clears the
- * margin floor and the campaign's budget carries it.
+ * exclusive against; the pay is not below the athlete's rate for the job
+ * (athleteFloor — the floor the form's checks show; an item's price is asked
+ * by the availability check instead); no restriction or sale blocks it; the
+ * line clears the margin floor and the campaign's budget carries it.
  */
 async function assertDraftTerms(tx: Prisma.TransactionClient, actor: Actor, input: DraftInput) {
   assertTerms(input);
@@ -252,12 +261,17 @@ async function assertDraftTerms(tx: Prisma.TransactionClient, actor: Actor, inpu
   if (!athlete) throw new ForbiddenError("offer", "write");
   const job = await tx.nilJob.findFirst({ where: { tenantId: actor.tenantId, id: input.jobId }, select: { id: true } });
   if (!job) throw new OfferError(`No catalogue job ${input.jobId}.`);
-  if (input.inventoryItemId) {
-    const item = await tx.inventoryItem.findFirst({
-      where: { tenantId: actor.tenantId, id: input.inventoryItemId, athleteId: athlete.id }, select: { id: true },
-    });
-    if (!item) throw new OfferError("That inventory item is not this athlete's.");
-  }
+  const item = input.inventoryItemId
+    ? await tx.inventoryItem.findFirst({
+        where: { tenantId: actor.tenantId, id: input.inventoryItemId, athleteId: athlete.id }, select: { id: true, priceCents: true },
+      })
+    : null;
+  if (input.inventoryItemId && !item) throw new OfferError("That inventory item is not this athlete's.");
+  /* 2S2-FE-03 — the athlete's rate floor, asked by the function the form's
+     checks ask, so the form and the save cannot disagree. No rate on file,
+     no floor. An item's price is asked below, by the availability check. */
+  const below = floorProblem(await athleteFloor(tx, actor.tenantId, athlete.id, job.id, item), input.compensation);
+  if (below?.code === "RATE_FLOOR") throw new OfferError(below.message);
   if (input.exclusivityDays && !campaign.sponsor.categories.length) {
     throw new OfferError("An exclusive offer needs the sponsor's brand categories — BTG sets them first.");
   }
@@ -349,8 +363,10 @@ async function staffOffer(tx: Prisma.TransactionClient, actor: Actor, id: string
 /**
  * Send: the terms are hashed and fixed from this moment. The terms are asked
  * again first — a draft can sit (or be revised from an older offer) until a
- * deliverable's due date has passed — and the athlete, with a minor's
- * guardian, is emailed the offer.
+ * deliverable's due date has passed — and so is the athlete's floor (their
+ * rate for the job, or the item's price, as the form shows it): a draft saved
+ * before the rate rose, or copied from an older offer, is not sent below it.
+ * The athlete, with a minor's guardian, is emailed the offer.
  */
 export async function sendOffer(actor: Actor, id: string) {
   return prisma.$transaction(async (tx) => {
@@ -358,6 +374,14 @@ export async function sendOffer(actor: Actor, id: string) {
     if (row.state !== "DRAFT") throw new OfferError(`An offer that is ${row.state} cannot be sent.`, 409);
     if (row.expiresAt <= new Date()) throw new OfferError("This offer has already expired — set a new expiry before sending.", 409);
     assertTerms(termsOf(row));
+    const item = row.inventoryItemId
+      ? await tx.inventoryItem.findFirst({
+          /* tenant-scope: tenantId pinned; the item the draft was saved against. */
+          where: { tenantId: actor.tenantId, id: row.inventoryItemId, athleteId: row.athleteId }, select: { priceCents: true },
+        })
+      : null;
+    const below = floorProblem(await athleteFloor(tx, actor.tenantId, row.athleteId, row.jobId, item), row.compensation);
+    if (below) throw new OfferError(`${below.message} Raise the pay before sending.`);
     const termsHash = termsHashOf(canonicalTerms({ ...row, deliverables: row.deliverables as unknown as OfferDeliverable[] }));
     const updated = await tx.offer.update({
       /* tenant-scope: the row loaded above through whereFor(offer, write). */
@@ -694,7 +718,8 @@ async function requestChange(tx: Prisma.TransactionClient, actor: Actor, row: Ro
       data: {
         athleteName: athlete?.displayName || athlete?.legalName || "The athlete",
         sponsorName: row.campaign.sponsor.name, campaignName: row.campaign.name, note,
-        campaignUrl: `${appUrl}/admin/campaigns/${row.campaignId}`,
+        /* The offer itself, on BTG's Offers desk (where Keep / Revise are). */
+        campaignUrl: `${appUrl}/admin/offers/${row.id}`,
       },
     });
   }

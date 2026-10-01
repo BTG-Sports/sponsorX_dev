@@ -15,16 +15,17 @@
  *   GET  /guardian-handoffs/:id
  *   POST /guardian-handoffs/:id/decision                    HAND_OFF | DECLINE
  *   POST /guardian-handoffs/:id/staff-decision              BTG: CONFIRM | DECLINE, when staff confirm minors
+ *   GET  /guardian-handoffs/:id/documents/:documentId       BTG: the new guardian's ID or proof, a 5-minute audited link
  */
 import { Router, type RequestHandler } from "express";
 
 import { requireActor } from "../../auth/actor";
 import {
-  HandoffDecisionInput, HandoffDocumentInput, HandoffStaffDecisionInput, HandoffEmailConfirmInput, HandoffLookupQuery, HandoffStartInput, HandoffSubmitInput,
+  HandoffDecisionInput, HandoffDocumentInput, HandoffStaffDecisionInput, HandoffEmailConfirmInput, HandoffListQuery, HandoffLookupQuery, HandoffStartInput, HandoffSubmitInput,
 } from "../../contracts/guardian-handoff";
 import {
   confirmHandoffDocumentUpload, confirmHandoffEmail, decideHandoff, decideStaffHandoff, getHandoff, handoffStatus, listHandoffs, lookupAthleteForHandoff,
-  requestHandoffDocumentUpload, startHandoff, submitHandoff,
+  requestHandoffDocumentUpload, startHandoff, submitHandoff, viewHandoffDocument,
 } from "../../domain/guardian-handoff";
 import { clientIp } from "../../lib/client-ip";
 import { limit } from "../../lib/rate-limit";
@@ -64,13 +65,16 @@ const submit: RequestHandler<{ token: string }> = async (req, res) => {
 };
 
 const list: RequestHandler = async (req, res) => {
-  res.json(await listHandoffs(req.actor!));
+  res.json(await listHandoffs(req.actor!, HandoffListQuery.parse(req.query)));
 };
 const one: RequestHandler<{ id: string }> = async (req, res) => {
   res.json(await getHandoff(req.actor!, req.params.id));
 };
 const decide: RequestHandler<{ id: string }> = async (req, res) => {
   res.json(await decideHandoff(req.actor!, req.params.id, HandoffDecisionInput.parse(req.body ?? {})));
+};
+const document: RequestHandler<{ id: string; documentId: string }> = async (req, res) => {
+  res.json(await viewHandoffDocument(req.actor!, req.params.id, req.params.documentId));
 };
 const staffDecide: RequestHandler<{ id: string }> = async (req, res) => {
   res.json(await decideStaffHandoff(req.actor!, req.params.id, HandoffStaffDecisionInput.parse(req.body ?? {})));
@@ -88,3 +92,4 @@ guardianHandoffsRouter.get("/guardian-handoffs", requireActor, list);
 guardianHandoffsRouter.get("/guardian-handoffs/:id", requireActor, one);
 guardianHandoffsRouter.post("/guardian-handoffs/:id/decision", requireActor, decide);
 guardianHandoffsRouter.post("/guardian-handoffs/:id/staff-decision", requireActor, staffDecide);
+guardianHandoffsRouter.get("/guardian-handoffs/:id/documents/:documentId", requireActor, document);

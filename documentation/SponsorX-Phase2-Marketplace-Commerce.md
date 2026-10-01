@@ -5,7 +5,7 @@
 | | |
 |---|---|
 | **Goal** | Turn SponsorX from BTG-only operations into a multi-tenant marketplace. External athletes, teams, programs, events and media properties onboard, publish inventory, fulfil deliverables and get paid. |
-| **Tasks** | 104 · 387 person-days |
+| **Tasks** | 106 · 391 person-days |
 | **Blueprint timeline** | 16–20 weeks |
 | **Balanced budget** | $80K–$120K |
 | **Depends on** | Phase 1 auth/RBAC, sponsor/property/inventory/campaign/reward models, Zoho integration, core analytics |
@@ -529,6 +529,46 @@ The applicant is told whether they're approved straight away or under review. BT
 - **Depends on:** 2S1-BE-17, 2S1-BE-18, 2S1-FE-07, 2S0-ART-01
 - **Done when:** A sponsor can complete the form with a business type or Other and their proof of business, and is told whether they're approved or under review; BTG sees the reason for each review; BTG admins can edit the restricted-words list
 - **Reference:** Spec §3, §12, §26; BTG admin review 2026-10-01
+
+### ⏸ `2S1-FE-12` · BTG's Closed accounts desk
+
+**Order** 14.98 · **FE** · **Where:** Code · **2d** · **Code review**
+
+The desk for closed accounts. It has five tabs, each with a count:
+- Asking to come back
+- Closed by BTG
+- Closed by the owner
+- Ended at coming of age
+- Files deleted
+
+A rejected account's request shows BTG's original reason and the person's note. BTG has two answers:
+- decline with a reason, which is emailed;
+- open the account's own page and reinstate it there.
+
+An application rejected before approval can only be declined, or told to apply again. Owner-closed, ended and deleted accounts are read-only.
+
+- **Depends on:** 2S1-BE-13
+- **Done when:** BTG sees closed accounts by tab with counts and answers a rejected account's request to come back — decline with a reason that is emailed, or a link to reinstate on the account's own page; owner-closed, ended and deleted accounts are read-only; BTG admins only
+- **Reference:** Claude Design ClosedAccounts.dc.html; raised 2026-10-01
+
+### ⏸ `2S1-FE-13` · BTG's Guardian handoffs desk
+
+**Order** 14.99 · **FE** · **Where:** Code · **2d** · **Code review**
+
+Guardian handoff requests, grouped by step:
+- Waiting for BTG
+- In progress
+- Switched
+- Declined
+- Cancelled
+
+When "BTG staff confirm minors" is on, a request the current guardian has handed off waits here for BTG. It shows the new guardian's details, their ID and proof of guardianship (opened through 5-minute audited links) and what the switch changes. BTG confirms the switch, or declines with a reason the requester reads.
+
+With the setting off, the desk is a read-only record. Custody disputes go to BTG support, never to this desk.
+
+- **Depends on:** 2S1-BE-15
+- **Done when:** With staff confirmation on, BTG can open a handed-off request, view the new guardian's documents through 5-minute audited links, and confirm the switch or decline with a reason the requester reads; with it off the desk is read-only; BTG admins only
+- **Reference:** Claude Design GuardianHandoffs.dc.html; raised 2026-10-01
 
 ### ⏸ `2S1-INT-01` · Onboarding notification jobs
 

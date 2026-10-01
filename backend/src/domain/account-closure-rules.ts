@@ -9,6 +9,10 @@
  *   - an account its owner closed comes back by itself within those 30 days,
  *     from the reactivation page — files restored, checks re-run;
  *   - a rejected account can only ASK; BTG decides;
+ *   - an account ended at coming of age (TERMINATED) neither reactivates
+ *     nor asks: the athlete comes back by uploading their government ID
+ *     within the 30 days, on the coming-of-age page (coming-of-age.ts) —
+ *     no one at BTG decides it;
  *   - after 30 days, coming back means signing up again.
  */
 
@@ -25,6 +29,12 @@ export type ClosureSubject = (typeof CLOSURE_SUBJECTS)[number];
 export type ClosureCause = "SELF" | "REJECTED" | "TERMINATED";
 export type ClosureState = "CLOSED" | "REACTIVATED" | "PURGED";
 
+/** BTG's Closed accounts desk (GET /account-closures?tab=): asking to come
+ *  back · closed by BTG · closed by the owner · ended at coming of age ·
+ *  files deleted. */
+export const CLOSURE_TABS = ["asking", "btg", "owner", "age", "deleted"] as const;
+export type ClosureTab = (typeof CLOSURE_TABS)[number];
+
 /** The marker a closure leaves on each login it switched off, so coming back
  *  switches on exactly those and never one BTG switched off for another reason. */
 export const closureMarker = (closureId: string) => `accountClosure:${closureId}`;
@@ -37,8 +47,10 @@ export function retainUntilFrom(closedAt: Date): Date {
 export type ReactivationStanding =
   /** Closed by its owner, inside the 30 days: Reactivate is theirs to press. */
   | "CLOSED_SELF"
-  /** Rejected by BTG (or ended by the coming-of-age rule): it can only ask. */
+  /** Rejected by BTG: it can only ask. */
   | "CLOSED_BY_BTG"
+  /** Ended by the coming-of-age rule: the athlete's government ID brings it back, not BTG. */
+  | "CLOSED_AT_AGE"
   /** Already back. */
   | "REACTIVATED"
   /** The 30 days are up (or the files are gone): sign up again. */
@@ -50,7 +62,8 @@ export function reactivationStanding(
 ): ReactivationStanding {
   if (c.state === "REACTIVATED") return "REACTIVATED";
   if (c.state === "PURGED" || c.retainUntil.getTime() <= now.getTime()) return "EXPIRED";
-  return c.cause === "SELF" ? "CLOSED_SELF" : "CLOSED_BY_BTG";
+  if (c.cause === "SELF") return "CLOSED_SELF";
+  return c.cause === "TERMINATED" ? "CLOSED_AT_AGE" : "CLOSED_BY_BTG";
 }
 
 /** Whole days left in the retention window, never below zero. */

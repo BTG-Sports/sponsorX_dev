@@ -5,7 +5,8 @@
  *   POST /public/account/reactivation-link          email a reactivation link (no login: the account's is off)
  *   GET  /public/account/reactivation/:token        where the closed account stands
  *   POST /public/account/reactivation/:token        REACTIVATE (self-closed) or REQUEST (rejected: asks BTG)
- *   GET  /account-closures                          BTG: closed accounts, and requests to come back
+ *   GET  /account-closures                          BTG: closed accounts, and requests to come back (?tab=, with counts)
+ *   GET  /account-closures/:id                      BTG: one closure, with where its Reinstate is
  *   POST /account-closures/:id/reactivation-decision  BTG declines a request (Reinstate is the account's own page)
  *
  * The public routes are rate-limited by address, and the link request by
@@ -14,9 +15,9 @@
 import { Router, type RequestHandler } from "express";
 
 import { requireActor } from "../../auth/actor";
-import { CloseAccountInput, ReactivationActionInput, ReactivationDecisionInput, ReactivationLinkInput } from "../../contracts/account";
+import { CloseAccountInput, ClosureListQuery, ReactivationActionInput, ReactivationDecisionInput, ReactivationLinkInput } from "../../contracts/account";
 import {
-  askBtgToReactivate, closeOwnAccount, declineReactivation, listClosures, reactivateByToken, reactivationStatus, sendReactivationLink,
+  askBtgToReactivate, closeOwnAccount, declineReactivation, getClosure, listClosures, reactivateByToken, reactivationStatus, sendReactivationLink,
 } from "../../domain/account-closure";
 import { clientIp } from "../../lib/client-ip";
 import { limit } from "../../lib/rate-limit";
@@ -47,7 +48,12 @@ const act: RequestHandler<{ token: string }> = async (req, res) => {
 };
 
 const list: RequestHandler = async (req, res) => {
-  res.json(await listClosures(req.actor!, { requested: req.query.requested === "true" }));
+  const q = ClosureListQuery.parse(req.query);
+  res.json(await listClosures(req.actor!, { requested: q.requested === "true", tab: q.tab }));
+};
+
+const one: RequestHandler<{ id: string }> = async (req, res) => {
+  res.json(await getClosure(req.actor!, req.params.id));
 };
 
 const decide: RequestHandler<{ id: string }> = async (req, res) => {
@@ -60,4 +66,5 @@ accountRouter.post("/public/account/reactivation-link", link);
 accountRouter.get("/public/account/reactivation/:token", status);
 accountRouter.post("/public/account/reactivation/:token", act);
 accountRouter.get("/account-closures", requireActor, list);
+accountRouter.get("/account-closures/:id", requireActor, one);
 accountRouter.post("/account-closures/:id/reactivation-decision", requireActor, decide);

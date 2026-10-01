@@ -249,8 +249,10 @@ describe.skipIf(!hasDatabase)("2S1-BE-11 / -12 · the guardian acts for the mino
 
   const now = new Date();
   it("reaching the age of majority opens a 90-day allowance; both are emailed, and both portals show the reminder", async () => {
-    const r = await sweepComingOfAge(now);
-    expect(r.started).toBeGreaterThanOrEqual(3);
+    /* The sweep is platform-wide and another suite runs it in parallel, so this
+       file's athletes may already have been started by that run — assert on
+       them, never on the shared count. */
+    await sweepComingOfAge(now);
     const casey = await prisma.athlete.findUniqueOrThrow({ where: { id: "ga_casey" }, select: { comingOfAgeStartedAt: true, comingOfAgeDueAt: true, comingOfAgeReminders: true } });
     expect(casey.comingOfAgeDueAt!.getTime() - casey.comingOfAgeStartedAt!.getTime()).toBe(90 * DAY);
     expect(casey.comingOfAgeReminders).toEqual([90]);
