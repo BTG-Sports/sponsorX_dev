@@ -37,3 +37,21 @@ The user agreed the recommendations and set the sponsor's confirmation window to
 - **2S4-BE-08** (2d, Ready): a daily job sends overdue reminders, lists overdue lines for BTG, and closes an order 30 days after its last line is confirmed, which releases the reserve.
 - **2S4-FE-03** (3d, Blocked): the seller's Orders page, in both the athlete and team portals.
 - **2S4-FE-04** (4d, Blocked): the delivery screens for the seller, the sponsor and BTG.
+
+## BTG admin review: organizations approved automatically (5 tasks; Phase 2 is now 87 tasks, 331 days)
+
+- **The decision.** The user listed every BTG intervention; the table is in Google Drive at Process / "BTG Admin Interventions". The user decided that organizations are approved automatically: BTG has at most one reviewer, so we push automation.
+- **The rules:**
+  - Required documents are ticked automatically.
+  - The contact must confirm their email.
+  - The organization name is unique platform-wide, compared ignoring case, spaces, punctuation, a leading "The" and LLC/Inc. The database enforces it, and pending applications count.
+  - BTG admins are emailed for every new organization with a link to its profile page.
+  - **Reject** after approval switches off login and listing access, ends listings, holds payouts and emails the reason. BTG can reinstate.
+  - Approved organizations can update their documents from their portal.
+  - New organization type: **AGENCY**.
+- **Raised:**
+  - **2S1-BE-06** (5d): automatic approval, unique names, email confirmation, the BTG email and Reject.
+  - **2S1-BE-07** (2d): document updates after approval.
+  - **2S1-BE-08** (2d): the AGENCY type.
+  - **2S1-FE-04** (3d): the applicant's checklist and the Documents page.
+  - **2S1-FE-05** (2d): BTG's organization profile page with Reject and an "Automatically approved" list.
