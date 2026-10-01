@@ -19,6 +19,13 @@
  *          the rate card or the inventory item, so neither can move it later.
  * DECLINED / WITHDRAWN — the athlete says no, or BTG takes it back.
  *
+ * REQUEST A CHANGE (2S2-FE-03) is not a state. The athlete asks for a change
+ * to a SENT offer with a note; the offer stays SENT — still acceptable and
+ * declinable — because its terms are fixed once sent and cannot be revised
+ * in place. The request is its own row (OfferChangeRequest), audited, and
+ * emailed to the campaign manager(s); BTG answers by withdrawing the offer
+ * and sending a revised one, or by telling the athlete it stands.
+ *
  * Offers live in the campaign's tenant (as Phase 1 invitations do). Offers to
  * athletes in an outside team's tenant arrive with the marketplace order flow
  * (2S4).
@@ -33,7 +40,10 @@ import { assertAllowed, assertTenantWide, whereFor } from "../auth/scope";
 import { ForbiddenError } from "../auth/errors";
 import { canReadField } from "../auth/fields";
 import { scopeFor } from "../auth/policy";
-import { acceptAgreementIn, type AcceptanceRequest } from "./agreement";
+import { env } from "../config/env";
+import { send } from "../lib/email";
+import { acceptAgreementIn, GuardianAuthorisationRequiredError, type AcceptanceRequest } from "./agreement";
+import { guardianReadiness } from "./guardian-rules";
 import { loadAgreementBody } from "./agreement-text";
 import { assertBudgetCarriesLine, assertLineClearsFloor } from "./margin-floor";
 import { createEarningForOrder } from "./earning";
@@ -55,6 +65,9 @@ export type OfferTerms = {
   inventoryItemId?: string | null;
 };
 
+/** The longest change request an athlete can send. */
+export const CHANGE_NOTE_MAX = 2000;
+
 export class OfferError extends Error {
   readonly status: number;
   constructor(message: string, status = 422) {
@@ -69,6 +82,9 @@ const SELECT = {
   sellPrice: true, deliverables: true, usageRights: true, exclusivityDays: true, disclosures: true, expiresAt: true,
   state: true, sentAt: true, respondedAt: true, termsHash: true, termsSnapshot: true, orderId: true, createdAt: true,
   campaign: { select: { name: true, sponsor: { select: { name: true } } } },
+  /* 2S2-FE-03 — who asked for a change, what, and when. Every reader of the
+     offer sees them: the athlete their own, BTG's staff their tenant's. */
+  changeRequests: { select: { id: true, note: true, requestedBy: true, createdAt: true }, orderBy: { createdAt: "asc" } },
 } as const;
 type Row = Prisma.OfferGetPayload<{ select: typeof SELECT }>;
 
@@ -280,7 +296,7 @@ export async function withdrawOffer(actor: Actor, id: string) {
 export async function respondToOffer(
   actor: Actor,
   id: string,
-  response: { decision: "ACCEPT" | "DECLINE"; termsHashShown?: string } & Partial<AcceptanceRequest>,
+  response: { decision: "ACCEPT" | "DECLINE" | "REQUEST_CHANGE"; termsHashShown?: string; note?: string } & Partial<AcceptanceRequest>,
 ) {
   const scope = assertAllowed(actor, "offer", "write");
   if (scope !== "own") throw new ForbiddenError("offer", "write"); // it is the athlete's to answer
@@ -299,6 +315,8 @@ export async function respondToOffer(
       await audit(tx, actor, "offer.decline", "Offer", id, { before: { state: "SENT" }, after: { state: "DECLINED" } });
       return view(actor, updated);
     }
+
+    if (response.decision === "REQUEST_CHANGE") return requestChange(tx, actor, row, response.note);
 
     if (!response.termsHashShown || response.termsHashShown !== row.termsHash) {
       throw new OfferError("The terms shown are not the terms of this offer — reload and accept again.", 409);
@@ -370,4 +388,79 @@ export async function respondToOffer(
     });
     return view(actor, updated);
   });
+}
+
+/**
+ * The athlete's "request a change" (2S2-FE-03): recorded, audited and routed
+ * to the campaign manager(s). The offer is left SENT, so it can still be
+ * accepted or declined as it stands.
+ *
+ * The same actor rule as ACCEPT: only the athlete named on the offer, from
+ * their own login (respondToOffer's "own" check above), and for a minor only
+ * once a guardian is linked and verified — the gate acceptAgreementIn asks,
+ * through the same guardianReadiness rule. A minor whose guardian is missing
+ * or unverified cannot negotiate terms they could not accept.
+ */
+async function requestChange(tx: Prisma.TransactionClient, actor: Actor, row: Row, rawNote: string | undefined) {
+  const note = (rawNote ?? "").trim();
+  if (!note) throw new OfferError("Say what you would like changed — a change request needs a note.");
+  if (note.length > CHANGE_NOTE_MAX) throw new OfferError(`A change request is at most ${CHANGE_NOTE_MAX} characters.`);
+
+  const signer = await tx.user.findFirst({
+    where: { id: actor.userId, tenantId: actor.tenantId },
+    select: { athlete: { select: { legalName: true, displayName: true, birthDate: true, ageBand: true, guardianId: true, guardian: { select: { verifiedAt: true } } } } },
+  });
+  const athlete = signer?.athlete ?? null;
+  if (athlete) {
+    const readiness = guardianReadiness({
+      birthDate: athlete.birthDate, ageBand: athlete.ageBand,
+      guardianId: athlete.guardianId, guardianVerifiedAt: athlete.guardian?.verifiedAt ?? null,
+    });
+    if (readiness.status === "missing" || readiness.status === "unverified") throw new GuardianAuthorisationRequiredError(readiness.reason);
+  }
+
+  const request = await tx.offerChangeRequest.create({
+    data: { tenantId: actor.tenantId, offerId: row.id, requestedBy: actor.userId, note },
+    select: { id: true, createdAt: true },
+  });
+  await audit(tx, actor, "offer.requestChange", "Offer", row.id, {
+    before: { state: row.state }, after: { state: row.state, changeRequestId: request.id, note, requestedAt: request.createdAt.toISOString() },
+  });
+
+  /* Routed back to the campaign manager. A campaign records no owner, so
+     it is the offer's author plus the tenant's CAMPAIGN_MGRs; with none of
+     them active, BTG's admins — a request must never land nowhere. */
+  const { createdBy } = await tx.offer.findFirstOrThrow({
+    /* tenant-scope: the row loaded above through whereFor(offer, write). */
+    where: { id: row.id, tenantId: actor.tenantId }, select: { createdBy: true },
+  });
+  const active = { tenantId: actor.tenantId, disabledAt: null };
+  let staff = await tx.user.findMany({
+    /* tenant-scope: explicit — the offer's tenant, which is the caller's. */
+    where: { ...active, OR: [...(createdBy ? [{ id: createdBy }] : []), { roles: { has: "CAMPAIGN_MGR" as const } }] },
+    select: { id: true, email: true }, orderBy: { id: "asc" },
+  });
+  if (!staff.length) {
+    staff = await tx.user.findMany({
+      /* tenant-scope: explicit — the offer's tenant, which is the caller's. */
+      where: { ...active, roles: { has: "BTG_ADMIN" as const } }, select: { id: true, email: true }, orderBy: { id: "asc" },
+    });
+  }
+  const appUrl = env.APP_URL.replace(/\/+$/, "");
+  for (const u of staff) {
+    await send(tx, actor.tenantId, {
+      template: "offer.changeRequested", to: u.email, idempotencyKey: `offer.changeRequested:${request.id}:${u.id}`,
+      data: {
+        athleteName: athlete?.displayName || athlete?.legalName || "The athlete",
+        sponsorName: row.campaign.sponsor.name, campaignName: row.campaign.name, note,
+        campaignUrl: `${appUrl}/admin/campaigns/${row.campaignId}`,
+      },
+    });
+  }
+
+  const updated = await tx.offer.findFirstOrThrow({
+    /* tenant-scope: the row loaded above through whereFor(offer, write). */
+    where: { id: row.id, tenantId: actor.tenantId }, select: SELECT,
+  });
+  return view(actor, updated);
 }

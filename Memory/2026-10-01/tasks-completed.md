@@ -285,3 +285,32 @@ The user set the 90-day rules:
 **Not touched:** P1-ART-10, -11, -12 are HeckerCreatives' rows.
 
 **Stage Progress row for 2026-10-01:** 236 done, 60 days left.
+
+## Fixed the failing Code review rows (left at Code review for a second look)
+
+- **2S2-FE-03, "Request a change" on an offer:**
+  - The athlete sends `POST /offers/:id/respond` with `REQUEST_CHANGE` and a required note.
+  - The request is stored as a new `OfferChangeRequest` (migration 20261001120000) and audited as `offer.requestChange`.
+  - The `offer.changeRequested` email goes to the offer's author and every active campaign manager, or to the BTG admins if there are none.
+  - A minor needs a verified guardian, the same as for Accept.
+  - The offer stays SENT, so Accept and Decline remain. That's because sent terms are immutable: BTG answers a request by withdrawing and re-sending the offer, or by saying it stands.
+  - There's no BTG offers screen yet, so the requests are visible on `GET /offers` and `GET /offers/:id`.
+- **2S3-FE-01, the listing preview:**
+  - New routes `/property/listings/[id]/preview` and `/athlete/listings/[id]/preview` render the listing with the shop's own `ShopListingCard`, which was moved out of the shop page so both use the same card.
+  - This also fixed the shop crashing on a listing sold by an independent athlete (`property: null`).
+- **2S4-FE-02, the contract gate:**
+  - Checkout now runs: review the hold, the billing contact (pre-filled from the primary contact), the order terms (checkbox), then Place order.
+  - `POST /marketplace-orders` requires `agreementId`, `bodyHashShown` and `billing`. The server re-hashes the terms and records the acceptance through `acceptAgreementIn`.
+  - The billing details and acceptance are stored on the order (migration 20261001130000, with a CHECK pairing the two) and are immutable afterwards.
+  - The order record shows on the sponsor's order page and BTG's order page.
+  - The terms are `backend/agreements/MARKETPLACE_ORDER.v1.txt`, a draft that counsel hasn't approved.
+- **2S7-FE-02, the console:**
+  - Failed card payments show through a new BTG-only route, `GET /payments/failed`.
+  - Payout problems show with a Retry button.
+  - Disputes are still missing, waiting on 2S5-BE-03 (Blocked).
+
+**Deploy notes for staging:**
+- After `migrate deploy`, re-apply `backend/prisma/sql/marketplace_order_immutable.sql`, as the runbook's step 4 says.
+- The seed tenant gets MARKETPLACE_ORDER v1 from the seed job. Any other tenant needs `npm run agreement:register -w @sponsorx/backend -- <tenantId> MARKETPLACE_ORDER 1`. Without it, Place order stays disabled with a message.
+
+**Checks:** backend 1969 of 1970 pass (only QA-02 fails), frontend 881 of 881, and lint and `npm run build` are clean.

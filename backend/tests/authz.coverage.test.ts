@@ -92,6 +92,8 @@ const GOVERNED_BY: Record<string, Resource> = {
   InventoryItem: "inventoryItem",
   Listing: "listing",
   Offer: "offer",
+  /* 2S2-FE-03 — written through the offer's own write (the athlete's answer). */
+  OfferChangeRequest: "offer",
   TenantBranding: "tenantBranding",
   BrandRestriction: "brandRestriction",
   /* A commitment is the item's own ledger of what is spoken for — read by

@@ -20,14 +20,18 @@ export function ShopRefusal({ message, reasons }: { message: string; reasons: st
   );
 }
 
-/** The checkout step strip. Only the steps the API supports are numbered;
- *  payment is shown as a step that is not open yet, never as a working one. */
-export function ShopSteps({ active }: { active: "review" | "place" | "confirmed" }) {
+/** The checkout step strip (2S4-FE-02): review the hold, confirm the billing
+ *  contact, accept the order terms, place the order, confirmation. Payment
+ *  follows on the order page once BTG approves — shown as the step after,
+ *  never as one taken here. */
+export function ShopSteps({ active }: { active: "review" | "billing" | "terms" | "place" | "confirmed" }) {
   const steps: { key: string; label: string; inert?: boolean }[] = [
     { key: "review", label: "Review hold" },
+    { key: "billing", label: "Billing contact" },
+    { key: "terms", label: "Order terms" },
     { key: "place", label: "Place order" },
     { key: "confirmed", label: "Confirmation" },
-    { key: "payment", label: "Payment — not open yet", inert: true },
+    { key: "payment", label: "Pay by card — after BTG approves", inert: true },
   ];
   const at = steps.findIndex((s) => s.key === active);
   return (
@@ -61,14 +65,16 @@ export function ShopSteps({ active }: { active: "review" | "place" | "confirmed"
   );
 }
 
-/** The honest payment panel: there is no payment provider in the API. */
+/** How the order is paid (2S4-FE-02): the approval condition, then card
+ *  payment on the order page. Nothing is charged at checkout. */
 export function ShopPaymentNote() {
   return (
     <div className="rounded-xl border border-dashed border-line bg-surface-2 px-4 py-3">
-      <p className="text-xs font-semibold">Payment</p>
+      <p className="text-xs font-semibold">Approval, then payment</p>
       <p className="mt-1 text-xs text-muted">
-        Payment opens once BTG&rsquo;s payment provider is connected — BTG will invoice you. Nothing is charged here,
-        and no card or PO details are collected.
+        BTG approves the order, then you pay the full total by card from the order page, on the payment provider&rsquo;s
+        own page. Some orders are approved straight away; if this one needs review, the order page says why. Nothing is
+        charged at checkout, and no card or bank details are asked for here.
       </p>
     </div>
   );

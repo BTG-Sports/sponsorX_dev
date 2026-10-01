@@ -4,10 +4,18 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
-import type { RespondResult } from "@/lib/offer-live";
+import {
+  CHANGE_NOTE_MAX,
+  changeNoteProblem,
+  fmtWhen,
+  type ApiOfferChangeRequest,
+  type RespondResult,
+} from "@/lib/offer-live";
+import { useDialogFocus } from "./use-dialog-focus";
 
 /* --------------------------------------------------------------------------
-   OfferRespond — 2S2-FE-03. Accept or decline a formal offer.
+   OfferRespond — 2S2-FE-03. Accept, decline or request a change to a
+   formal offer.
 
    Accept is two deliberate steps: tick "I have read the agreement", then
    accept. The agreement body the page rendered comes in as a prop and goes
@@ -16,6 +24,11 @@ import type { RespondResult } from "@/lib/offer-live";
    once more before it's recorded. A 409 that reloading cures (terms or
    text changed, already answered, expired) offers the reload; the guardian
    gate and restriction refusals show the API's own sentence.
+
+   "Request a change" opens a small dialog for the note (required, ≤ 2000
+   characters). Sending it leaves the offer open — Accept and Decline stay
+   — and shows "Change requested — BTG will come back to you" with the note
+   and time, from the API's answer and then from the reloaded offer.
    -------------------------------------------------------------------------- */
 
 export function OfferRespond({
@@ -27,6 +40,8 @@ export function OfferRespond({
   blocker,
   accept,
   decline,
+  requestChange,
+  changeRequest,
 }: {
   offerId: string;
   termsHash: string | null;
@@ -37,6 +52,9 @@ export function OfferRespond({
   blocker: string | null;
   accept: (offerId: string, termsHash: string, agreementId: string, body: string) => Promise<RespondResult>;
   decline: (offerId: string) => Promise<RespondResult>;
+  requestChange: (offerId: string, note: string) => Promise<RespondResult>;
+  /** The latest change request already on the offer, or null. */
+  changeRequest: ApiOfferChangeRequest | null;
 }) {
   const router = useRouter();
   const [read, setRead] = useState(false);
@@ -44,6 +62,10 @@ export function OfferRespond({
   const [busy, setBusy] = useState<"accept" | "decline" | null>(null);
   const [error, setError] = useState<{ message: string; reload?: boolean } | null>(null);
   const [done, setDone] = useState<{ state: string; orderId: string | null } | null>(null);
+  const [asking, setAsking] = useState(false);
+  /* The request just sent, until the refreshed page carries it. */
+  const [sent, setSent] = useState<ApiOfferChangeRequest | null>(null);
+  const shown = [sent, changeRequest].filter((c): c is ApiOfferChangeRequest => c !== null).sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0] ?? null;
 
   const run = async (which: "accept" | "decline", fn: () => Promise<RespondResult>) => {
     setBusy(which);
@@ -82,6 +104,16 @@ export function OfferRespond({
 
   return (
     <div className="space-y-3">
+      {shown && (
+        <div role="status" className="space-y-1 rounded-lg border border-primary/30 bg-primary/8 px-3 py-2.5 text-[11px] leading-relaxed">
+          <p className="font-semibold text-text">Change requested — BTG will come back to you</p>
+          <p className="whitespace-pre-wrap break-words text-muted">&ldquo;{shown.note}&rdquo;</p>
+          <p className="text-faint">
+            Sent {fmtWhen(shown.createdAt)}. The offer stays open: you can still accept or decline it as it stands.
+          </p>
+        </div>
+      )}
+
       {ready ? (
         <>
           <label className="flex cursor-pointer items-start gap-2.5">
@@ -152,6 +184,29 @@ export function OfferRespond({
         </button>
       )}
 
+      <button
+        type="button"
+        disabled={busy !== null}
+        onClick={() => setAsking(true)}
+        className="w-full rounded-lg border border-line px-4 py-2 text-xs text-text hover:bg-surface-2 disabled:opacity-50"
+      >
+        {shown ? "Request another change" : "Request a change"}
+      </button>
+      {asking && (
+        <ChangeDialog
+          onClose={() => setAsking(false)}
+          send={async (note) => {
+            const r = await requestChange(offerId, note);
+            if (!r.ok) return r;
+            setSent(r.changeRequest ?? { id: "just-sent", note: note.trim(), requestedBy: "", createdAt: new Date().toISOString() });
+            setAsking(false);
+            setError(null);
+            router.refresh();
+            return r;
+          }}
+        />
+      )}
+
       {error && (
         <div role="alert" className="rounded-lg bg-danger/10 px-3 py-2 text-[11px] leading-relaxed text-danger">
           {error.message}
@@ -168,8 +223,87 @@ export function OfferRespond({
       )}
       <p className="text-[10px] leading-relaxed text-faint">
         Accepting records the agreement version, the time and a fingerprint of exactly the text shown — so what you agreed to
-        can always be shown. Questions about these terms? Reply to BTG.
+        can always be shown. Want different terms? Request a change — BTG&rsquo;s campaign manager is told.
       </p>
+    </div>
+  );
+}
+
+function ChangeDialog({ onClose, send }: { onClose: () => void; send: (note: string) => Promise<RespondResult> }) {
+  const ref = useDialogFocus<HTMLDivElement>(onClose);
+  const [note, setNote] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const problem = changeNoteProblem(note);
+  const length = note.trim().length;
+
+  const submit = async () => {
+    if (problem) return setError(problem);
+    setBusy(true);
+    setError(null);
+    try {
+      const r = await send(note);
+      if (!r.ok) setError(r.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div ref={ref} className="fixed inset-0 z-50" role="dialog" aria-modal="true" aria-labelledby="oc-title">
+      <button type="button" tabIndex={-1} aria-label="Close" onClick={onClose} className="sx-backdrop absolute inset-0 cursor-default bg-black/55" />
+      <div className="absolute inset-0 flex items-end justify-center p-4 sm:items-center">
+        <div className="sx-pop relative w-full max-w-md space-y-4 rounded-2xl border border-primary/40 bg-bg p-5 shadow-2xl">
+          <h2 id="oc-title" className="text-base font-semibold tracking-tight">Request a change</h2>
+          <p className="text-xs text-muted">
+            Tell BTG what you&rsquo;d like different — the pay, a due date, the usage rights. Their campaign manager is emailed. The offer
+            stays open while they look at it.
+          </p>
+          <div>
+            <label htmlFor="oc-note" className="block text-sm font-semibold">
+              What would you like changed? <span className="font-medium text-warn">(required)</span>
+            </label>
+            <textarea
+              id="oc-note"
+              data-autofocus
+              rows={4}
+              required
+              maxLength={CHANGE_NOTE_MAX + 200}
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              aria-describedby="oc-count"
+              placeholder="e.g. Could the second post be due a week later? I have a tournament that weekend."
+              className="mt-1.5 w-full resize-y rounded-lg border border-line bg-surface px-3 py-2 text-sm text-text placeholder:text-faint focus:border-primary/60 focus:outline-none"
+            />
+            <p id="oc-count" className={`mt-1 text-right text-[11px] ${length > CHANGE_NOTE_MAX ? "text-danger" : "text-faint"}`}>
+              {length.toLocaleString("en-US")} / {CHANGE_NOTE_MAX.toLocaleString("en-US")}
+            </p>
+          </div>
+          {error && (
+            <p role="alert" className="rounded-lg bg-danger/10 px-3 py-2 text-[11px] leading-relaxed text-danger">
+              {error}
+            </p>
+          )}
+          <div className="flex flex-wrap justify-end gap-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="inline-flex min-h-11 items-center justify-center rounded-lg border border-line px-4 text-sm font-medium text-text hover:bg-surface-2"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              disabled={busy || problem !== null}
+              title={problem ?? undefined}
+              onClick={submit}
+              className="inline-flex min-h-11 items-center justify-center rounded-lg bg-primary px-5 text-sm font-semibold text-cta-ink transition-colors hover:bg-primary-soft disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              {busy ? "Sending…" : "Send to BTG"}
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

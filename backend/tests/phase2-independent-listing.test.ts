@@ -29,6 +29,8 @@ vi.mock("../src/auth/clerk", () => ({
 }));
 
 const seededDb = await import("./support/seeded-db");
+/* 2S4-FE-02 — every order is placed through the contract gate. */
+const { issueOrderTerms, placeOrderBody } = await import("./support/order-terms");
 const hasDatabase = await seededDb.databaseAvailable();
 
 describe.skipIf(!hasDatabase)("2S3-BE-05 · an athlete with no team sells their own item", { timeout: 90_000 }, async () => {
@@ -88,6 +90,7 @@ describe.skipIf(!hasDatabase)("2S3-BE-05 · an athlete with no team sells their 
   beforeAll(async () => {
     await clean();
     await prisma.tenant.createMany({ data: [{ id: T, name: "Independent BTG" }, { id: X, name: "Another marketplace" }] });
+    await issueOrderTerms(prisma, T);
     await prisma.sponsor.createMany({ data: [
       { id: "ind_harbor", tenantId: T, name: "Harbor Coffee", categories: ["RESTAURANT"] },
       { id: "ind_x_sponsor", tenantId: X, name: "Elsewhere Bakery", categories: ["RESTAURANT"] },
@@ -261,7 +264,7 @@ describe.skipIf(!hasDatabase)("2S3-BE-05 · an athlete with no team sells their 
       expect(cart.lines).toEqual([expect.objectContaining({ listingId: E.listing, sellerName: "JORDAN.REED", propertyName: null, lineTotalCents: 100_000 })]);
       const hold = await call("POST", "/cart/reserve", "ind_buyer");
       expect(hold.status, hold.text).toBe(201);
-      const placed = await call("POST", "/marketplace-orders", "ind_buyer", { reservationId: hold.json.id });
+      const placed = await call("POST", "/marketplace-orders", "ind_buyer", placeOrderBody(hold.json.id, `${T}_order_terms`));
       expect(placed.status, placed.text).toBe(201);
       expect(placed.json).toMatchObject({ state: "PENDING_APPROVAL", totalCents: 100_000 });
       expect(placed.json.lines).toEqual([expect.objectContaining({ propertyId: null, sellerAthleteId: "ind_ath_jordan" })]);

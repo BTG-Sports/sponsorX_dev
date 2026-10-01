@@ -15,10 +15,16 @@ export type WriteResult<T> =
   | { ok: true; data: T }
   | { ok: false; status: number; message: string; reasons: string[] };
 
-export async function shopWrite<T>(path: string, method: "POST" | "PATCH" | "DELETE", body?: unknown): Promise<WriteResult<T>> {
+export async function shopWrite<T>(
+  path: string,
+  method: "POST" | "PATCH" | "DELETE",
+  body?: unknown,
+  /** Extra headers — checkout's place-order forwards the signer's evidence (2S4-FE-02). */
+  headers?: Record<string, string>,
+): Promise<WriteResult<T>> {
   let res: Response;
   try {
-    res = await apiFetch(path, { method, ...(body === undefined ? {} : { body: JSON.stringify(body) }) });
+    res = await apiFetch(path, { method, ...(body === undefined ? {} : { body: JSON.stringify(body) }), ...(headers ? { headers } : {}) });
   } catch {
     return { ok: false, status: 0, message: "The API is unreachable — nothing changed. Try again in a minute.", reasons: [] };
   }

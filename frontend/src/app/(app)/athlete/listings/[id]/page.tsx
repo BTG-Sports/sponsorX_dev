@@ -18,6 +18,8 @@ import { sellerContext } from "../load";
    Writes PATCH /listings/:id              what the sponsor gets (DRAFT/PAUSED)
           POST /listings/:id/submit        DRAFT → with BTG (422 problems[])
           POST /listings/:id/transition    Pause · Resume · End listing
+   Links  ./preview                        the listing as a sponsor sees it in
+                                           the shop (own listings)
 
    A team's listing of the athlete's item opens read-only: the API refuses
    the athlete's writes on it (listing write "own" is only what they sell).
@@ -50,6 +52,14 @@ export default async function AthleteListingPage({ params }: { params: Promise<{
         <ListingPill listing={listing} />
       </div>
       <p className="mt-1 text-xs text-muted">Put an item from your inventory on the marketplace. BTG checks it and puts it live.</p>
+      {isOwn(listing) && (
+        <Link
+          href={`/athlete/listings/${encodeURIComponent(listing.id)}/preview`}
+          className="mt-3 inline-flex rounded-lg border border-line px-3.5 py-2 text-xs font-medium text-text hover:bg-surface-2"
+        >
+          Preview as a sponsor sees it →
+        </Link>
+      )}
     </div>
   );
 

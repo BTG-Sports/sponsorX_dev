@@ -2,10 +2,14 @@ import { describe, expect, it } from "vitest";
 
 import {
   ORDER_STATES,
+  agoLabel,
+  failedTriesLabel,
+  failureCopy,
   isOverdue,
   listingDecisions,
   orderDecisions,
   orderMoves,
+  payoutProblemSince,
   splitRows,
   usd,
   waitLabel,
@@ -94,5 +98,33 @@ describe("figures", () => {
     expect(r[at("Athlete") + 2].cents).toBe(6166);
     expect(r.find((x) => x.label.startsWith("Team (20%"))?.cents).toBe(15105);
     expect(top(r)).toBe(100000);
+  });
+});
+
+describe("money exceptions", () => {
+  it("says how long ago, without \"just now ago\"", () => {
+    const now = Date.parse("2026-10-01T12:00:00Z");
+    expect(agoLabel("2026-10-01T11:20:00Z", now)).toBe("40 min ago");
+    expect(agoLabel("2026-09-28T12:00:00Z", now)).toBe("3 days ago");
+    expect(agoLabel("2026-10-01T12:00:00Z", now)).toBe("just now");
+    expect(agoLabel(null, now)).toBe("—");
+  });
+
+  it("counts failed tries in words", () => {
+    expect(failedTriesLabel(1)).toBe("1 failed try");
+    expect(failedTriesLabel(3)).toBe("3 failed tries");
+  });
+
+  it("shows the provider's reason, or says it gave none", () => {
+    expect(failureCopy("The card was declined.")).toBe("The card was declined.");
+    expect(failureCopy(null)).toBe("The payment provider gave no reason.");
+    expect(failureCopy("  ")).toBe("The payment provider gave no reason.");
+  });
+
+  it("dates a failed payout from its last hand-over, else its approval, else its request", () => {
+    const requestedAt = "2026-09-28T10:00:00Z";
+    expect(payoutProblemSince({ requestedAt, decidedAt: "2026-09-29T10:00:00Z", sentAt: "2026-09-30T10:00:00Z" })).toBe("2026-09-30T10:00:00Z");
+    expect(payoutProblemSince({ requestedAt, decidedAt: "2026-09-29T10:00:00Z", sentAt: null })).toBe("2026-09-29T10:00:00Z");
+    expect(payoutProblemSince({ requestedAt, decidedAt: null, sentAt: null })).toBe(requestedAt);
   });
 });

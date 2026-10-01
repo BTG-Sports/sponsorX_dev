@@ -73,6 +73,8 @@ describe("the sequential breakdown, as the design states it (pure)", () => {
 });
 
 const seededDb = await import("./support/seeded-db");
+/* 2S4-FE-02 — every order is placed through the contract gate. */
+const { issueOrderTerms, placeOrderBody } = await import("./support/order-terms");
 const hasDatabase = await seededDb.databaseAvailable();
 
 describe.skipIf(!hasDatabase)("the money side over the API", { timeout: 60_000 }, async () => {
@@ -142,7 +144,7 @@ describe.skipIf(!hasDatabase)("the money side over the API", { timeout: 60_000 }
     await call("POST", "/cart", "lg_s1_admin");
     for (const l of lines) expect((await call("POST", "/cart/lines", "lg_s1_admin", { listingId: L[l.key], quantity: l.quantity, startsOn: at(l.day), endsOn: at(l.day) })).status).toBe(201);
     const hold = (await call("POST", "/cart/reserve", "lg_s1_admin")).json;
-    return (await call("POST", "/marketplace-orders", "lg_s1_admin", { reservationId: hold.id })).json;
+    return (await call("POST", "/marketplace-orders", "lg_s1_admin", placeOrderBody(hold.id, `${T}_order_terms`))).json;
   }
   const dashboard = async (who = "lg_mgr_e") => (await call("GET", "/team/ledger", who)).json;
   /* Every column of every row, as the database holds them. */
@@ -152,6 +154,7 @@ describe.skipIf(!hasDatabase)("the money side over the API", { timeout: 60_000 }
   beforeAll(async () => {
     await clean();
     await prisma.tenant.createMany({ data: [{ id: T, name: "Ledger BTG" }, { id: R, name: "Rules operator" }] });
+    await issueOrderTerms(prisma, T);
     await prisma.sponsor.createMany({ data: [
       { id: "lg_s1", tenantId: T, name: "Harbor Apparel", categories: ["APPAREL"] },
       { id: "lg_r_s1", tenantId: R, name: "Rules sponsor one", categories: ["APPAREL"] },

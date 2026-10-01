@@ -1164,6 +1164,13 @@ later stops being sold as an independent seller.
 
 `sellPrice` is withheld from the athlete side, as `campaignOrder.sellPrice` is.
 
+A change request (`OfferChangeRequest`, 2S2-FE-03) is governed by its offer.
+The athlete's "own" write covers a third answer, **request a change**: a note,
+which leaves the offer `SENT` and answerable, is audited, and is emailed to the
+offer's author and the tenant's `CAMPAIGN_MGR`s (its `BTG_ADMIN`s when there
+is none). Staff do not answer offers. A minor needs a verified guardian to
+request a change, as to accept. Whoever can read the offer reads its requests.
+
 ### `tenantBranding` (2S7-BE-01)
 | Role | Read | Write | Approve |
 |---|---|---|---|

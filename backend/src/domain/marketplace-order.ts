@@ -20,6 +20,18 @@
  * `contractedAt` is set) or rejects (CANCELLED, the stock released). With no
  * reason, policy approves it in the same transaction, as "system".
  *
+ * THE CONTRACT GATE (2S4-FE-02). An order is placed only with the sponsor's
+ * acceptance of the tenant's MARKETPLACE_ORDER terms and the billing contact
+ * they confirmed. Both are refused with 422 when missing. The terms are
+ * re-read and re-hashed on the server inside the order's transaction
+ * (order-terms.ts): a version issued since checkout loaded, a file edited
+ * after issue, or a hash that is not the stored one is refused (409,
+ * AgreementTextChangedError) — the acceptance is recorded only for words the
+ * sponsor was actually shown. The acceptance (acceptAgreementIn: who, when,
+ * the hash, IP and agent) and the billing snapshot are written in the same
+ * transaction as the order and audited with it. placeOrder is the only
+ * writer of a MarketplaceOrder, so there is no second way round the gate.
+ *
  * THE MACHINE. Every state change goes through `moveOrder` and the table in
  * marketplace-order-rules.ts. APPROVED is reachable only through the
  * decision (or policy), never through a transition; payment states will be
@@ -36,13 +48,17 @@ import { assertAllowed, whereFor } from "../auth/scope";
 import { ForbiddenError } from "../auth/errors";
 import { unitsTaken } from "./availability";
 import { convertReservation, lockItems } from "./reservation";
+import { acceptAgreementIn, AgreementTextChangedError } from "./agreement";
+import { currentOrderTerms } from "./order-terms";
 import { bookOrder, markOrderPaid, releaseReserve, reverseOrder } from "./ledger";
 import {
   approvalReasons,
+  billingProblems,
   canTransitionMarketplaceOrder,
   feeFor,
   IllegalMarketplaceOrderTransitionError,
   RELEASES,
+  type BillingContact,
   type MarketplaceOrderState,
 } from "./marketplace-order-rules";
 
@@ -59,6 +75,9 @@ const SELECT = {
   id: true, sponsorId: true, reservationId: true, state: true, currency: true, subtotalCents: true, feesCents: true,
   totalCents: true, requiresApproval: true, approvalReasons: true, decidedAt: true, decidedBy: true, decisionNotes: true,
   contractedAt: true, createdAt: true,
+  /* 2S4-FE-02 — the contract gate's record: the billing snapshot and the acceptance. */
+  billingName: true, billingEmail: true, billingReference: true, acceptanceId: true,
+  acceptance: { select: { acceptedAt: true, userId: true, bodyHash: true, user: { select: { email: true } }, agreement: { select: { kind: true, version: true } } } },
   lines: {
     select: { id: true, listingId: true, inventoryItemId: true, propertyId: true, sellerAthleteId: true, title: true, quantity: true, startsOn: true, endsOn: true, unitPriceCents: true, lineTotalCents: true },
     orderBy: { startsOn: "asc" },
@@ -104,10 +123,29 @@ async function contract(tx: Prisma.TransactionClient, order: Row, by: string, no
   return updated;
 }
 
-/** A sponsor places the order its live hold describes. */
-export async function placeOrder(actor: Actor, reservationId: string, now = new Date()) {
+export type PlaceOrderRequest = {
+  reservationId: string;
+  /** The MARKETPLACE_ORDER agreement checkout showed, and the hash of its text as rendered. */
+  agreementId?: string;
+  bodyHashShown?: string;
+  /** The billing contact the sponsor confirmed. */
+  billing?: BillingContact;
+  /** §12 evidence — from the request, never the body. */
+  ip: string;
+  userAgent: string;
+};
+
+/** A sponsor places the order its live hold describes — only through the contract gate. */
+export async function placeOrder(actor: Actor, request: PlaceOrderRequest, now = new Date()) {
   const scope = assertAllowed(actor, "marketplaceOrder", "write");
   if (scope !== "own-sponsor" || !actor.sponsorId) throw new ForbiddenError("marketplaceOrder", "write");
+  const { reservationId } = request;
+  if (!request.agreementId || !request.bodyHashShown) {
+    throw new MarketplaceOrderError("Accept the order terms before placing the order — an order needs the terms shown and their acceptance.", 422);
+  }
+  const missing = billingProblems(request.billing);
+  if (missing.length) throw new MarketplaceOrderError(`Confirm the billing details before placing the order: ${missing.join("; ")}.`, 422);
+  const billing = request.billing!;
   return prisma.$transaction(async (tx) => {
     const reservation = await tx.reservation.findFirst({
       where: { ...whereFor(actor, "reservation", "write"), id: reservationId },
@@ -117,6 +155,16 @@ export async function placeOrder(actor: Actor, reservationId: string, now = new 
     if (reservation.state !== "HELD" || reservation.expiresAt <= now) {
       throw new MarketplaceOrderError(`A reservation that is ${reservation.state === "HELD" ? "EXPIRED" : reservation.state} cannot become an order. Reserve again.`);
     }
+    /* The gate: the terms in force NOW, re-hashed from the file on the server.
+       Not the current version (or no servable text) → the sponsor saw
+       something else, or nothing; acceptAgreementIn then refuses a hash that
+       is not the stored one. Per order, not once per signer. */
+    const terms = await currentOrderTerms(tx, actor.tenantId, now);
+    if (!terms) throw new MarketplaceOrderError("The order terms are not available right now, so the order cannot be placed. BTG has been asked to publish them — try again later.", 409);
+    if (terms.id !== request.agreementId) throw new AgreementTextChangedError();
+    const acceptance = await acceptAgreementIn(tx, actor, {
+      agreementId: terms.id, bodyHashShown: request.bodyHashShown!, ip: request.ip, userAgent: request.userAgent,
+    }, { oncePerSigner: false });
     const lines = await tx.cartLine.findMany({
       where: { tenantId: actor.tenantId, cartId: reservation.cartId },
       select: {
@@ -141,6 +189,8 @@ export async function placeOrder(actor: Actor, reservationId: string, now = new 
       data: {
         tenantId: actor.tenantId, sponsorId: actor.sponsorId!, reservationId: reservation.id, currency: "USD",
         subtotalCents, feesCents, totalCents, requiresApproval: reasons.length > 0, approvalReasons: reasons, createdBy: actor.userId,
+        acceptanceId: acceptance.acceptanceId,
+        billingName: billing.name.trim(), billingEmail: billing.email.trim(), billingReference: billing.reference?.trim() || null,
         lines: {
           create: lines.map((l) => ({
             tenantId: actor.tenantId, listingId: l.listingId, inventoryItemId: l.listing.inventoryItemId, itemTenantId: l.listing.tenantId,
@@ -164,7 +214,14 @@ export async function placeOrder(actor: Actor, reservationId: string, now = new 
     }
     await tx.cart.updateMany({ where: { id: reservation.cartId, tenantId: actor.tenantId }, data: { state: "CHECKED_OUT" } });
     await audit(tx, actor, "marketplaceOrder.place", "MarketplaceOrder", order.id, {
-      after: { reservationId: reservation.id, totalCents, requiresApproval: reasons.length > 0, reasons },
+      after: {
+        reservationId: reservation.id, totalCents, requiresApproval: reasons.length > 0, reasons,
+        /* 2S4-FE-02 — which terms, accepted when, under which acceptance. The
+           signer is this entry's actor; the billing contact is on the order
+           row itself, fixed (marketplace_order_immutable.sql). */
+        acceptanceId: acceptance.acceptanceId, acceptedAt: acceptance.acceptedAt.toISOString(),
+        terms: { kind: terms.kind, version: terms.version, bodyHash: terms.bodyHash },
+      },
     });
 
     /* Policy approves it: recorded as the system's decision, not the sponsor's. */

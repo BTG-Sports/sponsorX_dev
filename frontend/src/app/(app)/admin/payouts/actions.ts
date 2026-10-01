@@ -29,5 +29,6 @@ export async function retryPayoutAction(id: string): Promise<{ ok: true; state: 
   const r = await payoutWrite<ApiPayout>(`/payouts/${encodeURIComponent(id)}/retry`);
   revalidatePath("/admin/payouts");
   revalidatePath(`/admin/payouts/${id}`);
+  revalidatePath("/admin/marketplace"); // 2S7-FE-02 — the console's Payout problems retry here too
   return r.ok ? { ok: true, state: r.data.state } : r;
 }

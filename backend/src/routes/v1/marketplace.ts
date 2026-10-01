@@ -164,7 +164,10 @@ const orders: RequestHandler = async (req, res) => {
   res.json({ orders: await listMarketplaceOrders(req.actor!, state) });
 };
 const order: RequestHandler<Id> = async (req, res) => { res.json(await getMarketplaceOrder(req.actor!, req.params.id)); };
-const place: RequestHandler = async (req, res) => { res.status(201).json(await placeOrder(req.actor!, PlaceOrderInput.parse(req.body).reservationId)); };
+const place: RequestHandler = async (req, res) => {
+  /* 2S4-FE-02 — the acceptance's evidence comes through the web server's forward, like every acceptance. */
+  res.status(201).json(await placeOrder(req.actor!, { ...PlaceOrderInput.parse(req.body), ip: clientIp(req) ?? "", userAgent: clientUserAgent(req) ?? "" }));
+};
 const decideOrder: RequestHandler<Id> = async (req, res) => {
   const b = MarketplaceOrderDecisionInput.parse(req.body);
   res.json(await decideMarketplaceOrder(req.actor!, req.params.id, b.decision, b.notes));
