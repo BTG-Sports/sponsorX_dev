@@ -209,13 +209,23 @@ body {
    transparent (the gradient shows through them), so an inherited
    text-shadow would paint *behind* them and muddy the blue; it is turned
    off here and the drop shadow comes from a filter instead. */
-.sx-hero-gradient {
+.sx-hero-gradient,
+.sx-hero-gradient-accent {
   background: linear-gradient(90deg, #9be0ff 0%, #4fb6ff 45%, #2e9bf5 100%);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
   text-shadow: none;
   filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.7)) drop-shadow(0 4px 18px rgba(0, 0, 0, 0.5));
+}
+/* The logo's orange (X bolt / "Brand Impact", #F97A1F) as the second
+   headline hue. The landing's stops follow the lockup's tagline split —
+   blue first, orange second — so each headline's closing phrase takes this
+   and its single highlighted word stays blue (owner's call, 2026-10-01).
+   Dark literals like the blue above: the city under it is dark in both
+   themes. The `.sx-hero-shimmer` band is white and works on either. */
+.sx-hero-gradient-accent {
+  background-image: linear-gradient(90deg, #ffd1a6 0%, #fb923c 45%, #f97a1f 100%);
 }
 
 /* Glass panel with the mockup's bracket corners (top-left, bottom-right). */

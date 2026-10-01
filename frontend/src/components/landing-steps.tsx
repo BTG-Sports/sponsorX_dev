@@ -289,7 +289,7 @@ export function HowItWorks() {
       </p>
 
       <h2 className="sx-wipe mt-[clamp(4px,1svh,12px)] text-[clamp(28px,min(9vw,5svh),48px)] font-bold leading-[1.05] tracking-tight text-on-media [text-shadow:0_2px_6px_rgba(0,0,0,.7),0_4px_28px_rgba(0,0,0,.6)] lg:mt-3 lg:text-[clamp(38px,3.2vw,58px)] max-lg:[@media(max-height:700px)]:mt-0">
-        How it <span className="text-[#4fb0ff]">works</span>
+        How it <span className="text-[#fb923c]">works</span>
       </h2>
 
       {/* The intro goes on the shortest screens (≤600px: SE-size, landscape). */}

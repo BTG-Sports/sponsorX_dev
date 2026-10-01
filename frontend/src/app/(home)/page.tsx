@@ -101,7 +101,9 @@ export default function HomePage() {
                     the width sets it, so "Measure Results." never wraps.
                     After the loader each line wipes up out of a mask in turn
                     (`sx-line`), and "Measure Results." then carries a slow
-                    highlight gliding across its gradient (`sx-hero-shimmer`). */}
+                    highlight gliding across its gradient (`sx-hero-shimmer`).
+                    "Reward Fans." takes the logo's orange (`sx-hero-gradient-
+                    accent`) — blue then orange, like the lockup's tagline. */}
                 <h1
                   className="mt-4 text-[clamp(28px,min(9.4vw,6.2svh),56px)] font-bold leading-[1.02] tracking-tight text-on-media [text-shadow:0_2px_6px_rgba(0,0,0,.7),0_4px_28px_rgba(0,0,0,.6)] lg:mt-5 lg:text-[clamp(38px,min(3.5vw,7.5svh),64px)]"
                 >
@@ -109,7 +111,9 @@ export default function HomePage() {
                   <span className="sx-line block whitespace-nowrap" style={reveal(0.24)}>
                     <span className="sx-hero-gradient sx-hero-shimmer" data-text="Measure Results.">Measure Results.</span>
                   </span>
-                  <span className="sx-line block whitespace-nowrap" style={reveal(0.36)}>Reward Fans.</span>
+                  <span className="sx-line block whitespace-nowrap" style={reveal(0.36)}>
+                    <span className="sx-hero-gradient-accent">Reward Fans.</span>
+                  </span>
                 </h1>
 
                 {/* On the shortest phones (landscape, 640px-tall) the

@@ -342,7 +342,7 @@ export function ForSponsors() {
         <h2 className="sx-wipe-flip mt-[clamp(4px,0.9svh,10px)] text-[clamp(20px,min(6.6vw,4.2svh),40px)] font-bold leading-[1.1] tracking-tight [text-shadow:0_2px_6px_rgba(0,0,0,.6)] lg:mt-2 lg:text-[clamp(28px,2.5vw,46px)]">
           Strategic <span className="text-[#6cc0ff]">Partnerships.</span>
           <br />
-          <span className="sx-hero-gradient sx-hero-shimmer" data-text="Real Measurable Impact.">Real Measurable Impact.</span>
+          <span className="sx-hero-gradient-accent sx-hero-shimmer" data-text="Real Measurable Impact.">Real Measurable Impact.</span>
         </h2>
 
         <p className="mt-[clamp(4px,0.9svh,10px)] max-w-[560px] text-[clamp(13px,1.9svh,16px)] leading-[1.4] text-on-media/85 [text-shadow:0_1px_3px_rgba(0,0,0,.9),0_2px_16px_rgba(0,0,0,.7)] lg:mt-2 lg:text-[17px] lg:[@media(max-height:800px)]:text-[15px] max-lg:[@media(max-height:860px)]:hidden">

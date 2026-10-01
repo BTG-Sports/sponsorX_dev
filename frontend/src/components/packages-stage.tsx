@@ -363,7 +363,9 @@ export function PackagesHero({ pkgs, live }: { pkgs: PackageView[]; live: boolea
             <span className="sx-stage-line block" style={reveal(0.24)}>
               <span className="sx-hero-gradient sx-hero-shimmer" data-text="We Match Athletes.">We Match Athletes.</span>
             </span>
-            <span className="sx-stage-line block" style={reveal(0.36)}>You Measure Impact.</span>
+            <span className="sx-stage-line block" style={reveal(0.36)}>
+              <span className="sx-hero-gradient-accent">You Measure Impact.</span>
+            </span>
           </h1>
 
           <p
@@ -490,7 +492,7 @@ export function SectionHead({
       <Eyebrow>{eyebrow}</Eyebrow>
       <h2 className="mt-4 text-[clamp(28px,6.4vw,40px)] font-bold leading-[1.08] tracking-tight lg:text-[clamp(36px,3.2vw,52px)]">
         {title}{" "}
-        <span className="sx-hero-gradient sx-hero-shimmer" data-text={accent}>{accent}</span>
+        <span className="sx-hero-gradient-accent sx-hero-shimmer" data-text={accent}>{accent}</span>
       </h2>
       {children && <p className="mt-4 max-w-[560px] text-[15px] leading-[1.55] text-on-media/75">{children}</p>}
     </div>
@@ -882,7 +884,7 @@ export function PackagesClose() {
               <Eyebrow>Not sure where to start?</Eyebrow>
               <h2 className="mt-4 text-[clamp(28px,6.4vw,40px)] font-bold leading-[1.08] tracking-tight lg:text-[clamp(34px,3vw,48px)]">
                 Tell BTG the goal.{" "}
-                <span className="sx-hero-gradient sx-hero-shimmer" data-text="We'll build the lineup.">We&rsquo;ll build the lineup.</span>
+                <span className="sx-hero-gradient-accent sx-hero-shimmer" data-text="We'll build the lineup.">We&rsquo;ll build the lineup.</span>
               </h2>
               <p className="mt-4 max-w-[560px] text-[15px] leading-[1.55] text-on-media/75">
                 Share the market, the budget and what success looks like. BTG staff match athletes, clear conflicts

@@ -232,7 +232,9 @@ function Headline({ className = "" }: { className?: string }) {
       <span className="sx-stage-line block" style={reveal(0.24)}>
         <span className="sx-hero-gradient sx-hero-shimmer" data-text="Your Game.">Your Game.</span>
       </span>
-      <span className="sx-stage-line block" style={reveal(0.36)}>Your Sponsors.</span>
+      <span className="sx-stage-line block" style={reveal(0.36)}>
+        <span className="sx-hero-gradient-accent">Your Sponsors.</span>
+      </span>
     </h2>
   );
 }
@@ -500,7 +502,7 @@ export function JoinClose() {
             <Eyebrow>Ready when you are</Eyebrow>
             <h2 className="mt-4 text-[clamp(28px,6.4vw,40px)] font-bold leading-[1.08] tracking-tight lg:text-[clamp(34px,3vw,48px)]">
               One application.{" "}
-              <span className="sx-hero-gradient sx-hero-shimmer" data-text="Every campaign after it.">Every campaign after it.</span>
+              <span className="sx-hero-gradient-accent sx-hero-shimmer" data-text="Every campaign after it.">Every campaign after it.</span>
             </h2>
             <p className="mt-4 max-w-[560px] text-[15px] leading-[1.55] text-on-media/75">
               Start now and finish later &mdash; progress saves after every section, and nothing is sent until
