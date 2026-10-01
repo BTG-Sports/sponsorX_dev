@@ -7,7 +7,13 @@ import { headers } from "next/headers";
 import { apiFetch } from "@/server/api";
 import { edgeHeadersFrom } from "@/server/edge";
 import { canonicaliseAgreementBody } from "@/lib/order-live";
-import { explainOfferRefusal, type OfferState, type RespondResult } from "@/lib/offer-live";
+import {
+  changeNoteProblem,
+  explainOfferRefusal,
+  latestChangeRequest,
+  type ApiOffer,
+  type RespondResult,
+} from "@/lib/offer-live";
 
 /* --------------------------------------------------------------------------
    2S2-FE-03 — accepting or declining a formal offer, as server actions.
@@ -23,6 +29,10 @@ import { explainOfferRefusal, type OfferState, type RespondResult } from "@/lib/
    Evidence (§12): the browser's address and user-agent are forwarded on
    the edge-keyed headers, so the acceptance records the signer, not this
    server. No authority is added — the athlete's own token, own scope.
+
+   REQUEST_CHANGE carries the athlete's note. The offer stays SENT; the API
+   records and audits the request and emails the campaign manager(s), and
+   runs the same guardian gate as ACCEPT for a minor.
    -------------------------------------------------------------------------- */
 
 async function respond(id: string, body: Record<string, unknown>, signer: boolean): Promise<RespondResult> {
@@ -37,9 +47,9 @@ async function respond(id: string, body: Record<string, unknown>, signer: boolea
     return { ok: false, message: "The API is unreachable — nothing was recorded. Try again in a minute." };
   }
   if (res.ok) {
-    const o = (await res.json()) as { state: OfferState; orderId: string | null };
+    const o = (await res.json()) as Pick<ApiOffer, "state" | "orderId" | "changeRequests">;
     revalidatePath("/athlete/offers", "layout");
-    return { ok: true, state: o.state, orderId: o.orderId ?? null };
+    return { ok: true, state: o.state, orderId: o.orderId ?? null, changeRequest: latestChangeRequest(o) };
   }
   let parsed: unknown = null;
   try {
@@ -67,4 +77,12 @@ export async function acceptOfferAction(
 export async function declineOfferAction(offerId: string): Promise<RespondResult> {
   if (typeof offerId !== "string" || !offerId) return { ok: false, message: "Unknown offer." };
   return respond(offerId, { decision: "DECLINE" }, false);
+}
+
+export async function requestOfferChangeAction(offerId: string, note: string): Promise<RespondResult> {
+  if (typeof offerId !== "string" || !offerId) return { ok: false, message: "Unknown offer." };
+  if (typeof note !== "string") return { ok: false, message: "Say what you'd like changed." };
+  const problem = changeNoteProblem(note);
+  if (problem) return { ok: false, message: problem };
+  return respond(offerId, { decision: "REQUEST_CHANGE", note: note.trim() }, false);
 }

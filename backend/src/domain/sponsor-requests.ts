@@ -40,7 +40,7 @@ import type { Actor } from "../auth/actor";
 import { assertAllowed, whereFor } from "../auth/scope";
 import { ForbiddenError } from "../auth/errors";
 import { presignPrivateDownload, presignPrivateUpload, privateObjectSize, SENSITIVE_DOCUMENT_TTL_SECONDS } from "../lib/storage";
-import { readSponsorEmailToken, readSponsorRequestToken } from "../lib/sponsor-request-token";
+import { issueSponsorRequestToken, readSponsorEmailToken, readSponsorRequestToken } from "../lib/sponsor-request-token";
 import type { BrandCategory } from "./brand-categories";
 import { normalizeBusinessName } from "./business-name-rules";
 import { checkRestricted } from "./restricted-words";
@@ -326,6 +326,8 @@ export async function sponsorRequestStatus(token: string) {
   return {
     state: row.state as SponsorRequestState,
     businessName: sponsorNameFor(row),
+    /* Their own address, so an approved applicant knows which email signs in. */
+    email: row.email,
     emailConfirmed: Boolean(row.emailConfirmedAt),
     proofUploaded: uploaded > 0,
     missing: row.state === "NEW" ? missing : [],
@@ -387,7 +389,12 @@ export async function confirmSponsorEmail(emailToken: string) {
   }
   const verdict = await evaluateSponsorRequest(row.id);
   const fresh = await applicantRow(row.id);
-  return { state: fresh.state as SponsorRequestState, businessName: sponsorNameFor(fresh), emailConfirmed: true, waitingFor: verdict.outcome === "waiting" ? verdict.missing : [], underReview: fresh.state === "NEW" && fresh.reviewReasons.length > 0 };
+  return {
+    state: fresh.state as SponsorRequestState, businessName: sponsorNameFor(fresh), email: fresh.email, emailConfirmed: true,
+    waitingFor: verdict.outcome === "waiting" ? verdict.missing : [], underReview: fresh.state === "NEW" && fresh.reviewReasons.length > 0,
+    /* Opening the emailed link proves the mailbox, so it may carry on from any device: upload the proof, read the status. */
+    requestToken: issueSponsorRequestToken(fresh.id),
+  };
 }
 
 /* ═══════════════════════ BTG's decisions ══════════════════════════════ */
@@ -424,6 +431,9 @@ export async function decideSponsorRequest(actor: Actor, id: string, d: SponsorR
       return getAfter(tx, actor, row.id);
     }
 
+    /* Proof of business is required of every sponsor, the same rule whoever opens the account (2S1-BE-17). */
+    const proof = await tx.inquiryDocument.count({ where: { tenantId: row.tenantId, inquiryId: row.id, kind: "PROOF_OF_BUSINESS", uploadedAt: { not: null } } });
+    if (!proof) throw new SponsorRequestError("This business hasn't uploaded a proof of business yet — every sponsor needs one before the account opens.");
     const checks = await checksFor(tx, row);
     if (checks.emailInUse) {
       throw new SponsorRequestError(`${row.email} already has a SponsorX login. Ask the business for a different contact, or link this request to that sponsor.`);

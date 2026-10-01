@@ -9,7 +9,8 @@ import { BriefWizard } from "@/components/brief-wizard";
    Same split-stage frame as /join: sticky brand panel at lg+, the 430px
    wizard card beside it, phone-first below. ?package=<id> prefills the
    starting package (unknown ids fall back to "Not sure yet");
-   ?demo=submitted lands on the received state.
+   ?demo=submitted lands on the received state; ?new=1 starts a blank
+   brief ("Send the form again" from /sponsor-request, 2S1-FE-11).
    -------------------------------------------------------------------------- */
 
 const TRUST = [
@@ -30,7 +31,7 @@ const TRUST = [
 export default async function BriefPage({
   searchParams,
 }: {
-  searchParams: Promise<{ package?: string; demo?: string }>;
+  searchParams: Promise<{ package?: string; demo?: string; new?: string }>;
 }) {
   const sp = await searchParams;
   /* Only pass a package when one was actually asked for — a bare /brief
@@ -97,7 +98,7 @@ export default async function BriefPage({
 
         {/* -------------------------------------------------- wizard column */}
         <div className="mx-auto w-full max-w-[430px] lg:mx-0 lg:rounded-2xl lg:border lg:border-line lg:bg-surface/60 lg:shadow-[0_24px_80px_-32px_rgba(0,0,0,0.55)] lg:backdrop-blur">
-          <BriefWizard pkg={pkg} demo={demo} />
+          <BriefWizard pkg={pkg} demo={demo} fresh={sp.new === "1"} />
         </div>
       </div>
     </div>

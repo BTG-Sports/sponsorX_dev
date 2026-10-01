@@ -27,6 +27,11 @@ export const ICONS = {
   pen: "M12 20h9M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5Z",
   camera: "M4 7h3.2L9 4h6l1.8 3H20v13H4V7Zm8 9.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z",
   trophy: "M8 21h8m-4-4v4M6 4h12v5a6 6 0 0 1-12 0V4Zm0 2H3v1a4 4 0 0 0 4 4M18 6h3v1a4 4 0 0 1-4 4",
+  /* 2026-10-01 BTG admin desks — delivery issues, restricted words, guardian requests. */
+  flag: "M5 21V4h11l-1.5 4L16 12H5",
+  ban: "M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18ZM5.6 5.6l12.8 12.8",
+  box: "M3 7l9-4 9 4v10l-9 4-9-4V7Zm0 0 9 4 9-4M12 11v10",
+  shield: "M12 3 4 6v6c0 4.4 3.4 8.3 8 9 4.6-.7 8-4.6 8-9V6l-8-3Zm-3 9 2 2 4-4",
 } as const;
 
 export type NavIcon = keyof typeof ICONS;

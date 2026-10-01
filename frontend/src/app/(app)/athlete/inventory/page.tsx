@@ -39,8 +39,8 @@ import {
        athlete state), so the form is always offered.
      · No "sold" count: the API returns raw stock only.
      · No delete (no route) — pause instead.
-     · Athletes can't create marketplace listings (listing write is
-       PROPERTY_MGR / BTG only); the page says so.
+     · An athlete with no team lists these themselves on /athlete/listings
+       (2S3-BE-05); a roster athlete's team lists them.
      · packageRules (min/max per order, bundle-only, exclusive, needs
        approval) aren't editable here yet — the API keeps what it has.
    -------------------------------------------------------------------------- */
@@ -74,7 +74,7 @@ export default async function AthleteInventoryPage() {
     <InventoryManager
       title="My inventory"
       intro="What you sell, at your price. Sponsors buy these; BTG takes its fee on each order."
-      note="Your team or BTG lists these on the marketplace."
+      note="With no team, you list these yourself under List my item; on a team, your team lists them."
       create={
         <InventoryNewItem
           create={createItemAction}

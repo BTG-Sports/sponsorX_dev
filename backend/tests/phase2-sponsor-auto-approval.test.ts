@@ -149,7 +149,7 @@ describe.skipIf(!hasDatabase)("2S1-BE-17 · sponsors are approved automatically"
       harbor = await ask({ company: "Harbor Coffee", first: "Dana", last: "Brooks", email: "sa_dana@sa-test.invalid", type: "RESTAURANT" });
       const s = await call("GET", `/public/sponsor-requests/${encodeURIComponent(harbor.requestToken)}`);
       expect(s.json).toEqual({
-        state: "NEW", businessName: "Harbor Coffee", emailConfirmed: false, proofUploaded: false,
+        state: "NEW", businessName: "Harbor Coffee", email: "sa_dana@sa-test.invalid", emailConfirmed: false, proofUploaded: false,
         missing: ["confirm your email", "upload your proof of business"], underReview: false,
       });
       /* The Zoho lead still goes, as before. */
@@ -173,7 +173,7 @@ describe.skipIf(!hasDatabase)("2S1-BE-17 · sponsors are approved automatically"
       expect(status).toMatchObject({ state: "NEW", proofUploaded: true, missing: ["confirm your email"] });
       expect((await state(harbor.id)).state).toBe("NEW");
       const c = await confirm(harbor);
-      expect(c).toMatchObject({ state: "APPROVED", emailConfirmed: true, underReview: false });
+      expect(c).toMatchObject({ state: "APPROVED", emailConfirmed: true, underReview: false, requestToken: harbor.requestToken });
       const row = await state(harbor.id);
       expect(row).toMatchObject({ state: "APPROVED", autoApproved: true, reviewReasons: [] });
       expect(await prisma.sponsor.findUniqueOrThrow({ where: { id: row.sponsorId! }, select: { name: true, categories: true } }))

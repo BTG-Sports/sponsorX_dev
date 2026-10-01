@@ -14,15 +14,16 @@ import { requirePortalAccess } from "@/server/portal";
    Reads  GET  /listings/:id                 the listing, its item and its
                                              governance `blockers[]`
           GET  /inventory/:itemId            only for a PACKAGE — its components
+   Links  ./preview                          the listing as a sponsor sees it
+                                             in the shop (ShopListingCard)
    Writes PATCH /listings/:id                while DRAFT or PAUSED
           POST /listings/:id/submit          DRAFT → with BTG (422 problems[])
           POST /listings/:id/transition      pause · resume · archive
 
    `blockers` drive the governance checklist; `reviewNotes` are shown when
    BTG sent it back. Read-only while with BTG or on sale, apart from the
-   moves the state machine allows. Honest gaps: no sponsor-view preview
-   route, no photos, no delete, and the item can't be swapped after
-   creation (archive and list again).
+   moves the state machine allows. Honest gaps: no photos, no delete, and
+   the item can't be swapped after creation (archive and list again).
    -------------------------------------------------------------------------- */
 
 export const dynamic = "force-dynamic";
@@ -75,6 +76,12 @@ export default async function ListingEditorPage({ params }: { params: Promise<{ 
         </div>
         <p className="mt-1 text-xs text-muted">{st.detail}</p>
         {dates.length > 0 && <p className="mt-0.5 text-[11px] text-faint">{dates.join(" · ")}</p>}
+        <Link
+          href={`/property/listings/${encodeURIComponent(listing.id)}/preview`}
+          className="mt-3 inline-flex rounded-lg border border-line px-3.5 py-2 text-xs font-medium text-text hover:bg-surface-2"
+        >
+          Preview as a sponsor sees it →
+        </Link>
       </div>
 
       {listing.reviewNotes && (

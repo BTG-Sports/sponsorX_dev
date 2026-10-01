@@ -105,7 +105,7 @@ describe.skipIf(!hasDatabase)("P7-FE-06 · the Operations Board's queues · P4-F
         } });
       });
     }
-    /* Approvals: n in BTG review + 1 just submitted count; sponsor review does not. */
+    /* Approvals: n in BTG review + 1 just submitted + 1 in sponsor review — the Approvals page's own count. */
     const deliverable = (id: string, state: string) => ({
       id: p(id), tenantId: T, orderId: p("o1"), title: id, dueDate: new Date("2026-11-15"), state: state as never,
     });
@@ -151,7 +151,7 @@ describe.skipIf(!hasDatabase)("P7-FE-06 · the Operations Board's queues · P4-F
     expect(status).toBe(200);
     expect(body).toEqual({
       applications: { waiting: 3, over48h: 2 },
-      approvals: { waiting: 3 },
+      approvals: { waiting: 4 },
       briefs: { toQualify: 2, toMatch: 2 },
       finance: { held: 1, disputed: 1 },
     });
@@ -161,7 +161,7 @@ describe.skipIf(!hasDatabase)("P7-FE-06 · the Operations Board's queues · P4-F
     const { body } = await board(`${B}_admin`);
     expect(body).toEqual({
       applications: { waiting: 6, over48h: 5 },
-      approvals: { waiting: 6 },
+      approvals: { waiting: 7 },
       briefs: { toQualify: 5, toMatch: 2 },
       finance: { held: 1, disputed: 1 },
     });
@@ -171,7 +171,7 @@ describe.skipIf(!hasDatabase)("P7-FE-06 · the Operations Board's queues · P4-F
     expect((await board(`${A}_network`)).body).toMatchObject({ applications: { waiting: 3 }, finance: null });
     const finance = (await board(`${A}_finance`)).body;
     expect(finance).toMatchObject({ applications: null, approvals: null, finance: { held: 1, disputed: 1 } });
-    expect((await board(`${A}_campaigns`)).body).toMatchObject({ approvals: { waiting: 3 }, briefs: { toQualify: 2, toMatch: 2 } });
+    expect((await board(`${A}_campaigns`)).body).toMatchObject({ approvals: { waiting: 4 }, briefs: { toQualify: 2, toMatch: 2 } });
   });
 
   it("a sponsor or an athlete is refused the board outright", async () => {
@@ -218,5 +218,20 @@ describe.skipIf(!hasDatabase)("P7-FE-06 · the Operations Board's queues · P4-F
     const res = await call("POST", `/briefs/${B}_draft0/transition`, `${B}_campaigns`, { to: "QUALIFIED" });
     expect(res.status).toBe(200);
     expect((await board(`${B}_admin`)).body.briefs).toEqual({ toQualify: 4, toMatch: 3 });
+  });
+});
+
+/* P7-FE-06 — the board's "Content approvals" card links to the Approvals
+   page, so both must count the same deliverable states. The page's figure is
+   the frontend's own deskHeadline; this compares the two definitions. */
+describe("the board and the Approvals page count the same states", () => {
+  it("every state in REVIEW_STATES, and only those, adds to the page's 'awaiting a decision'", async () => {
+    const { REVIEW_STATES } = await import("../src/domain/operations-board");
+    const { deskHeadline } = await import("../../frontend/src/lib/approvals-live");
+    const ALL = ["DRAFT", "DRAFT_SUBMITTED", "BTG_REVIEW", "SPONSOR_REVIEW", "REVISION", "APPROVED", "PUBLISHED", "VERIFIED"];
+    for (const s of ALL) {
+      const counted = deskHeadline({ total: 1, states: { [s]: 1 }, openRevisions: 0, aging: 0, campaigns: [] }).waiting === 1;
+      expect(counted, s).toBe((REVIEW_STATES as readonly string[]).includes(s));
+    }
   });
 });

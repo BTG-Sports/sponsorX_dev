@@ -191,6 +191,10 @@ ${d.portalUrl ?? ""}
     subject: "Your SponsorX sponsor account has been closed",
     text: `Hi ${d.firstName ?? "there"},\n\nBTG has closed the sponsor account for ${d.businessName ?? "your business"} on SponsorX:\n\n${d.note ?? ""}\n\nIf you think this is a mistake, contact BTG support:\n\n${d.supportUrl ?? ""}\n\n— BTG SponsorX`,
   }),
+  "offer.changeRequested": (d) => ({
+    subject: `Change requested: ${d.sponsorName ?? "a sponsor"} · ${d.campaignName ?? "a campaign"}`,
+    text: `${d.athleteName ?? "An athlete"} asked for a change to the offer on ${d.sponsorName ?? "a sponsor"}'s ${d.campaignName ?? "campaign"}:\n\n${d.note ?? ""}\n\nThe offer is still open — they can accept or decline it as it stands. Its terms are fixed once sent, so to change them withdraw it and send a revised offer, or tell them it stands.\n\nThe campaign:\n\n${d.campaignUrl ?? ""}\n\n— SponsorX`,
+  }),
   "sponsor.accountReinstated": (d) => ({
     subject: "Your SponsorX sponsor account is open again",
     text: `Hi ${d.firstName ?? "there"},\n\nBTG has reopened the sponsor account for ${d.businessName ?? "your business"}. Sign in with this email address:\n\n${d.portalUrl ?? ""}\n\n— BTG SponsorX`,

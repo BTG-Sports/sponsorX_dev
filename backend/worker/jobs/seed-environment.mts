@@ -32,7 +32,10 @@
  */
 
 import { createHash } from "node:crypto";
+import { readFileSync } from "node:fs";
 import type pg from "pg";
+
+import { hashAgreementBody } from "../../src/domain/agreement-hash.ts";
 
 import { seedPersonas } from "./seed-personas.mts";
 
@@ -254,6 +257,18 @@ export async function seedEnvironment(pool: pg.Pool): Promise<SeedOutcome> {
        VALUES ('seed_agreement_property_terms_v1', $1, 'PROPERTY_TERMS', 1, $2, '2026-09-28')
            ON CONFLICT (id) DO NOTHING`,
       [TENANT_ID, createHash("sha256").update(PROPERTY_TERMS_PLACEHOLDER).digest("hex")],
+    );
+
+    /* 2S4-FE-02 — the marketplace order terms a sponsor accepts at checkout.
+       Placeholder wording pending counsel (agreements/MARKETPLACE_ORDER.v1.txt
+       says so at the top), hashed exactly as acceptances are checked, so the
+       checkout's contract gate can be walked on staging. The counsel-approved
+       text is a new version, registered with `npm run agreement:register`. */
+    await client.query(
+      `INSERT INTO "Agreement" (id, "tenantId", kind, version, "bodyHash", "effectiveAt")
+       VALUES ('seed_agreement_marketplace_order_v1', $1, 'MARKETPLACE_ORDER', 1, $2, '2026-10-01')
+           ON CONFLICT (id) DO NOTHING`,
+      [TENANT_ID, hashAgreementBody(readFileSync(new URL("../../agreements/MARKETPLACE_ORDER.v1.txt", import.meta.url), "utf8"))],
     );
 
     await client.query("COMMIT");

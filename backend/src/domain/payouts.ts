@@ -176,6 +176,72 @@ export async function orderPayment(actor: Actor, orderId: string) {
   };
 }
 
+/** Orders still owing payment — a failed try on any other order is resolved (paid another way, or cancelled). */
+const DUE = ["APPROVED", "AWAITING_PAYMENT"] as const;
+
+type AttemptLite = { id: string; orderId: string; state: string; amountCents: number; failureReason: string | null; createdAt: Date; updatedAt: Date };
+
+/** Each order's latest attempt, kept only where it FAILED; with how many of the order's tries failed. Pure. */
+export function latestFailedAttempts(attempts: AttemptLite[]) {
+  const latest = new Map<string, AttemptLite>();
+  const failedTries = new Map<string, number>();
+  for (const a of attempts) {
+    const seen = latest.get(a.orderId);
+    if (!seen || a.createdAt.getTime() > seen.createdAt.getTime()) latest.set(a.orderId, a);
+    if (a.state === "FAILED") failedTries.set(a.orderId, (failedTries.get(a.orderId) ?? 0) + 1);
+  }
+  return [...latest.values()].filter((a) => a.state === "FAILED").map((a) => ({ attempt: a, failedTries: failedTries.get(a.orderId) ?? 1 }));
+}
+
+/**
+ * 2S7-FE-02 — BTG's failed card payments: every order still owing payment
+ * whose latest card attempt failed, oldest failure first. BTG admin only
+ * (the approve scope, as BTG's payout queue): Finance reads each order's
+ * payment on the order itself. The sponsor can simply pay again from their
+ * order; BTG opens it to cancel, or to mark it paid another way.
+ */
+export async function failedPayments(actor: Actor) {
+  assertAllowed(actor, "marketplaceOrder", "approve");
+  const orders = await prisma.marketplaceOrder.findMany({
+    where: { ...whereFor(actor, "marketplaceOrder", "read"), state: { in: [...DUE] } },
+    select: { id: true, sponsorId: true, state: true, totalCents: true }, take: 500,
+  });
+  if (orders.length === 0) return { payments: [] };
+  const attempts = await prisma.paymentAttempt.findMany({
+    /* tenant-scope: the attempts of orders just loaded through whereFor(marketplaceOrder, read), named by their ids. */
+    where: { orderId: { in: orders.map((o) => o.id) } },
+    select: { id: true, orderId: true, state: true, amountCents: true, failureReason: true, createdAt: true, updatedAt: true },
+  });
+  const failed = latestFailedAttempts(attempts).sort((x, y) => x.attempt.updatedAt.getTime() - y.attempt.updatedAt.getTime());
+  const byId = new Map(orders.map((o) => [o.id, o]));
+  const sponsorIds = [...new Set(failed.map((f) => byId.get(f.attempt.orderId)!.sponsorId))];
+  const sponsors = sponsorIds.length
+    ? await prisma.sponsor.findMany({
+        /* tenant-scope: the sponsors named by orders loaded through whereFor(marketplaceOrder, read). */
+        where: { id: { in: sponsorIds } }, select: { id: true, name: true },
+      })
+    : [];
+  const sponsorName = new Map(sponsors.map((s) => [s.id, s.name]));
+  return {
+    payments: failed.map(({ attempt, failedTries }) => {
+      const o = byId.get(attempt.orderId)!;
+      return {
+        orderId: o.id,
+        orderRef: orderRef(o.id),
+        orderState: o.state,
+        totalCents: o.totalCents,
+        sponsorId: o.sponsorId,
+        sponsorName: sponsorName.get(o.sponsorId) ?? "Sponsor",
+        attemptId: attempt.id,
+        amountCents: attempt.amountCents,
+        failureReason: attempt.failureReason,
+        failedAt: attempt.updatedAt,
+        failedTries,
+      };
+    }),
+  };
+}
+
 /** The sponsor starts paying: a link to the provider's payment page. */
 export async function startCardPayment(actor: Actor, orderId: string, now = new Date()) {
   const scope = assertAllowed(actor, "marketplaceOrder", "write");

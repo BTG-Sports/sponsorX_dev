@@ -12,6 +12,7 @@
    -------------------------------------------------------------------------- */
 
 import { BRAND_CATEGORIES, categoryLabel, type BrandCategory } from "@/lib/brand-categories";
+import type { ApiCheckout, ApiOrderAcceptance } from "@/lib/checkout-gate";
 
 /* ------------------------------------------------------------------ shapes */
 
@@ -44,7 +45,9 @@ export type ApiSearchResult = {
   title: string;
   description: string | null;
   publishedAt: string | null;
-  property: { id: string; name: string; kind: string; stateCode: string | null; city: string | null };
+  /** null for an independent athlete's listing (2S3-BE-05) — `seller` names them. */
+  property: { id: string; name: string; kind: string; stateCode: string | null; city: string | null } | null;
+  seller?: { type: "PROPERTY" | "ATHLETE"; id: string; name: string };
   athlete: { displayName: string; sport: string | null; position: string | null } | null;
   item: {
     id: string;
@@ -97,6 +100,8 @@ export type ApiReservation = {
   createdAt: string;
   /** The order a CONVERTED hold became, else null (2S4-FE-02). */
   orderId: string | null;
+  /** A live (HELD) hold's contract gate — the terms and the billing prefill; null otherwise (2S4-FE-02). */
+  checkout: ApiCheckout | null;
 };
 
 export type OrderState =
@@ -139,6 +144,12 @@ export type ApiOrder = {
   decisionNotes: string | null;
   contractedAt: string | null;
   createdAt: string;
+  /** 2S4-FE-02 — the billing contact confirmed at checkout (null on orders placed before the gate). */
+  billingName: string | null;
+  billingEmail: string | null;
+  billingReference: string | null;
+  acceptanceId: string | null;
+  acceptance: ApiOrderAcceptance | null;
   lines: ApiOrderLine[];
 };
 
@@ -306,9 +317,16 @@ export const KIND_OPTIONS = INVENTORY_KINDS.map((k) => ({ value: k, label: kindL
 export const CATEGORY_OPTIONS = BRAND_CATEGORIES.map((c: BrandCategory) => ({ value: c, label: categoryLabel(c) }));
 
 /** "Westfield Hawks · school · Laurel, MD". */
-export function propertyLine(p: ApiSearchResult["property"]): string {
+export function propertyLine(p: NonNullable<ApiSearchResult["property"]>): string {
   const place = [p.city, p.stateCode].filter(Boolean).join(", ");
   return [p.name, p.kind.replace(/_/g, " ").toLowerCase(), place].filter(Boolean).join(" · ");
+}
+
+/** Who sells it: the property line, or — an independent athlete's listing has
+ *  no property (2S3-BE-05) — the athlete's display name. */
+export function sellerLine(r: Pick<ApiSearchResult, "property" | "seller" | "athlete">): string {
+  if (r.property) return propertyLine(r.property);
+  return `${r.seller?.name ?? r.athlete?.displayName ?? "Athlete"} · independent athlete`;
 }
 
 /** "Riley Carter · Basketball" or null. */

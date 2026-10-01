@@ -1119,6 +1119,8 @@ model AgreementAcceptance {
   athlete   Athlete?       @relation(fields: [athleteId], references: [id], onDelete: Restrict)
   student   Student?       @relation(fields: [studentId], references: [id], onDelete: Restrict)
   order     CampaignOrder?
+  /// 2S4-FE-02 — the sponsor's acceptance of a marketplace order's terms.
+  marketplaceOrder MarketplaceOrder?
   rights    ContentRight[]
 
   @@index([tenantId, agreementId])
@@ -2076,9 +2078,31 @@ model Offer {
   athlete  Athlete        @relation(fields: [athleteId], references: [id])
   job      NilJob         @relation(fields: [jobId], references: [id])
   order    CampaignOrder? @relation(fields: [orderId], references: [id])
+  /// 2S2-FE-03 — the athlete's requests for a change, oldest first.
+  changeRequests OfferChangeRequest[]
 
   @@index([tenantId, state])
   @@index([tenantId, athleteId])
+}
+
+/// 2S2-FE-03 — "requests a change": the athlete asks BTG to change a SENT
+/// offer. It neither accepts nor declines it — the offer stays SENT and
+/// answerable, because its terms are fixed once sent (offer_terms_immutable)
+/// and BTG answers by withdrawing it and sending a revised offer, or by
+/// replying that it stands. One row per request, never edited.
+model OfferChangeRequest {
+  id          String   @id @default(cuid())
+  tenantId    String
+  offerId     String
+  /// The user who asked — the athlete answering the offer.
+  requestedBy String
+  /// What the athlete wants changed, in their words (≤ 2000 chars).
+  note        String
+  createdAt   DateTime @default(now())
+
+  offer Offer @relation(fields: [offerId], references: [id])
+
+  @@index([tenantId, offerId])
 }
 
 /// 2S7-BE-01 — a tenant's own look: shown in its portal and on its reports.
@@ -2298,10 +2322,22 @@ model MarketplaceOrder {
   createdBy        String?
   /// 2S7-INT-01 — the Deal this order is in Zoho.
   zohoDealId       String?               @unique
+  /// 2S4-FE-02 — the contract gate. The sponsor's acceptance of the tenant's
+  /// MARKETPLACE_ORDER terms (who, when, which version, the hash of the text
+  /// shown), written in the order's own transaction. Null only on orders
+  /// placed before the gate existed; placeOrder never writes one without it.
+  acceptanceId     String?               @unique
+  /// The billing contact the sponsor confirmed at checkout — a snapshot,
+  /// fixed when the order is placed (marketplace_order_immutable.sql).
+  /// Name, email and an optional PO / reference; never card or bank numbers.
+  billingName      String?
+  billingEmail     String?
+  billingReference String?
   createdAt        DateTime              @default(now())
   updatedAt        DateTime              @default(now()) @updatedAt
 
   reservation Reservation            @relation(fields: [reservationId], references: [id])
+  acceptance  AgreementAcceptance?   @relation(fields: [acceptanceId], references: [id], onDelete: Restrict)
   lines       MarketplaceOrderLine[]
 
   @@index([tenantId, sponsorId, state])

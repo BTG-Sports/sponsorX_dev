@@ -31,6 +31,7 @@ import { assertAllowed, whereFor } from "../auth/scope";
 import { ForbiddenError } from "../auth/errors";
 import { checkListing, UnavailableError, unitsTaken } from "./availability";
 import { liveCart } from "./cart";
+import { billingPrefill, currentOrderTerms } from "./order-terms";
 
 export const HOLD_MS = 15 * 60 * 1000;
 
@@ -110,14 +111,20 @@ export async function reserveCart(actor: Actor, now = new Date()) {
 export async function getReservation(actor: Actor, id: string) {
   const row = await prisma.reservation.findFirst({
     where: { ...whereFor(actor, "reservation", "read"), id },
-    select: { ...SELECT, order: { select: { id: true } } },
+    select: { ...SELECT, tenantId: true, order: { select: { id: true } } },
   });
   if (!row) throw new ForbiddenError("reservation", "read");
   /* 2S4-FE-02 — a CONVERTED hold names the order it became, so checkout can
      go straight to it. */
-  const { order, ...rest } = row;
+  const { order, tenantId, ...rest } = row;
   const out = { ...rest, orderId: order?.id ?? null };
-  return out.state === "HELD" && out.expiresAt <= new Date() ? { ...out, state: "EXPIRED" as const } : out;
+  if (out.state === "HELD" && out.expiresAt <= new Date()) return { ...out, state: "EXPIRED" as const, checkout: null };
+  /* 2S4-FE-02 — a live hold carries what checkout shows before the order is
+     placed: the order terms the sponsor accepts (body + hash) and the billing
+     contact to prefill. Nothing else does. */
+  if (out.state !== "HELD") return { ...out, checkout: null };
+  const [terms, prefill] = await Promise.all([currentOrderTerms(prisma, tenantId), billingPrefill(prisma, tenantId, out.sponsorId)]);
+  return { ...out, checkout: { terms, ...prefill } };
 }
 
 /** The sponsor lets go of a hold. */

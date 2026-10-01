@@ -5,6 +5,7 @@
 -- subtotal plus fees, and — state machines §4, "changing the financial
 -- snapshot after APPROVED" is illegal — its figures are Postgres's to keep
 -- once it leaves PENDING_APPROVAL. An order line is never rewritten.
+-- The acceptance and billing snapshot (2S4-FE-02) never change at all.
 -- (Idempotent: CI re-applies every file here after migrating.)
 ALTER TABLE "BundleComponent" DROP CONSTRAINT IF EXISTS "BundleComponent_shape";
 ALTER TABLE "BundleComponent" ADD CONSTRAINT "BundleComponent_shape"
@@ -22,6 +23,12 @@ BEGIN
     OR NEW."totalCents" IS DISTINCT FROM OLD."totalCents" OR NEW."currency" IS DISTINCT FROM OLD."currency"
     OR NEW."sponsorId" IS DISTINCT FROM OLD."sponsorId" OR NEW."reservationId" IS DISTINCT FROM OLD."reservationId") THEN
     RAISE EXCEPTION 'marketplace_order_immutable: order % figures are fixed once approved', OLD.id USING ERRCODE = 'check_violation';
+  END IF;
+  -- 2S4-FE-02 — what the sponsor accepted and who they named to bill are
+  -- the record of the contract gate: fixed from the moment it is placed.
+  IF NEW."acceptanceId" IS DISTINCT FROM OLD."acceptanceId" OR NEW."billingName" IS DISTINCT FROM OLD."billingName"
+    OR NEW."billingEmail" IS DISTINCT FROM OLD."billingEmail" OR NEW."billingReference" IS DISTINCT FROM OLD."billingReference" THEN
+    RAISE EXCEPTION 'marketplace_order_immutable: order % acceptance and billing contact are fixed when it is placed', OLD.id USING ERRCODE = 'check_violation';
   END IF;
   RETURN NEW;
 END;

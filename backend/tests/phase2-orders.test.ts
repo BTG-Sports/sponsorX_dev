@@ -55,6 +55,8 @@ describe("the order machine and the approval policy, as written (pure)", () => {
 });
 
 const seededDb = await import("./support/seeded-db");
+/* 2S4-FE-02 — every order is placed through the contract gate. */
+const { issueOrderTerms, ORDER_TERMS_HASH, TEST_BILLING } = await import("./support/order-terms");
 const hasDatabase = await seededDb.databaseAvailable();
 
 describe.skipIf(!hasDatabase)("Phase 2 orders over the API", { timeout: 60_000 }, async () => {
@@ -68,7 +70,7 @@ describe.skipIf(!hasDatabase)("Phase 2 orders over the API", { timeout: 60_000 }
   const T = "mo_btg";
   const L: Record<string, string> = {};
   const I: Record<string, string> = {};
-  const E = { tenant: "", property: "", manager: "" };
+  const E = { tenant: "", property: "", manager: "", terms: "" };
   let server: ReturnType<ReturnType<typeof createApp>["listen"]>;
   let base = "";
 
@@ -127,10 +129,16 @@ describe.skipIf(!hasDatabase)("Phase 2 orders over the API", { timeout: 60_000 }
     expect(reserved.status, reserved.text).toBe(201);
     return reserved.json as { id: string; expiresAt: string; state: string };
   }
+  /* What checkout does (2S4-FE-02): read the live hold's terms and billing
+     prefill, then place with the hash of the text shown and the contact confirmed. */
+  const accepted = (reservationId: string, checkout: { terms: { id: string; bodyHash: string } | null; billingContact: { name: string; email: string } | null }) => ({
+    reservationId, agreementId: checkout.terms!.id, bodyHashShown: checkout.terms!.bodyHash, billing: checkout.billingContact ?? TEST_BILLING,
+  });
   const order = async (sponsor: string, lines: Parameters<typeof held>[1]) => {
     const hold = await held(sponsor, lines);
-    expect((await call("GET", `/reservations/${hold.id}`, sponsor)).json.orderId).toBeNull();
-    const r = await call("POST", "/marketplace-orders", sponsor, { reservationId: hold.id });
+    const read = (await call("GET", `/reservations/${hold.id}`, sponsor)).json;
+    expect(read.orderId).toBeNull();
+    const r = await call("POST", "/marketplace-orders", sponsor, accepted(hold.id, read.checkout));
     expect(r.status, r.text).toBe(201);
     /* A converted hold names its order (2S4-FE-02). */
     expect((await call("GET", `/reservations/${hold.id}`, sponsor)).json).toMatchObject({ state: "CONVERTED", orderId: r.json.id });
@@ -143,6 +151,7 @@ describe.skipIf(!hasDatabase)("Phase 2 orders over the API", { timeout: 60_000 }
   beforeAll(async () => {
     await clean();
     await prisma.tenant.create({ data: { id: T, name: "Orders BTG" } });
+    E.terms = await issueOrderTerms(prisma, T);
     await prisma.sponsor.createMany({ data: [
       { id: "mo_s1", tenantId: T, name: "Harbor Apparel", categories: ["APPAREL"] },
       { id: "mo_s2", tenantId: T, name: "Bay Outfitters", categories: ["APPAREL"] },
@@ -287,7 +296,7 @@ describe.skipIf(!hasDatabase)("Phase 2 orders over the API", { timeout: 60_000 }
       const theirs = await call("POST", "/cart/reserve", loser);
       expect(theirs.status, theirs.text).toBe(201);
       /* An expired hold cannot become an order. */
-      expect((await call("POST", "/marketplace-orders", L.raceWinner, { reservationId: L.raceHold })).status).toBe(409);
+      expect((await call("POST", "/marketplace-orders", L.raceWinner, { reservationId: L.raceHold, agreementId: E.terms, bodyHashShown: ORDER_TERMS_HASH, billing: TEST_BILLING })).status).toBe(409);
       /* The sweep marks it, releases its rows, and a second pass finds nothing. */
       expect((await expireReservations(prisma)).expired).toBeGreaterThanOrEqual(1);
       expect((await prisma.reservation.findUniqueOrThrow({ where: { id: L.raceHold }, select: { state: true } })).state).toBe("EXPIRED");
@@ -377,6 +386,104 @@ describe.skipIf(!hasDatabase)("Phase 2 orders over the API", { timeout: 60_000 }
       expect((await call("POST", `/marketplace-orders/${approvedId}/transition`, "mo_s2_admin", { to: "CANCELLED" })).status).toBe(403);
       expect((await call("GET", "/marketplace-orders?state=PENDING_APPROVAL", "mo_admin")).json.orders.length).toBeGreaterThanOrEqual(1);
       expect((await call("GET", "/marketplace-orders", "mo_mgr")).status).toBe(403);
+    });
+  });
+
+  /* ── 2S4-FE-02 ─────────────────────────────────────────────────────────── */
+  describe("2S4-FE-02 · the contract gate — terms accepted, billing confirmed, or no order", () => {
+    it("a live hold carries the order terms (the real v1 text and its hash) and the billing prefill", async () => {
+      const hold = await held("mo_s1_admin", [{ key: "sticker", quantity: 1, from: 40, to: 41 }]);
+      L.gateHold = hold.id;
+      const read = (await call("GET", `/reservations/${hold.id}`, "mo_s1_admin")).json;
+      expect(read.checkout).toMatchObject({
+        sponsorName: "Harbor Apparel",
+        billingContact: { name: "Morgan Hale", email: "morgan@harbor.invalid" },
+        terms: { id: E.terms, kind: "MARKETPLACE_ORDER", version: 1, bodyHash: ORDER_TERMS_HASH },
+      });
+      expect(read.checkout.terms.body).toMatch(/^DRAFT — NOT COUNSEL-APPROVED/);
+      /* The analyst reads the same hold and terms — placing is the admin's (below). */
+      expect((await call("GET", `/reservations/${hold.id}`, "mo_s1_analyst")).json.checkout.terms.id).toBe(E.terms);
+    });
+
+    it("placing without the acceptance, or without a billing contact, is a 422 — and the hold is untouched", async () => {
+      const without = await call("POST", "/marketplace-orders", "mo_s1_admin", { reservationId: L.gateHold });
+      expect(without.status, without.text).toBe(422);
+      expect(without.text).toMatch(/Accept the order terms/);
+      const noBilling = await call("POST", "/marketplace-orders", "mo_s1_admin", { reservationId: L.gateHold, agreementId: E.terms, bodyHashShown: ORDER_TERMS_HASH });
+      expect(noBilling.status, noBilling.text).toBe(422);
+      expect(noBilling.text).toMatch(/billing contact's name/);
+      /* A card number in the PO box is refused: SponsorX never takes one. */
+      const card = await call("POST", "/marketplace-orders", "mo_s1_admin", {
+        reservationId: L.gateHold, agreementId: E.terms, bodyHashShown: ORDER_TERMS_HASH, billing: { ...TEST_BILLING, reference: "4242 4242 4242 4242" },
+      });
+      expect(card.status, card.text).toBe(422);
+      expect(card.text).toMatch(/not a card number/);
+      expect((await call("GET", `/reservations/${L.gateHold}`, "mo_s1_admin")).json.state).toBe("HELD");
+      expect(await prisma.marketplaceOrder.count({ where: { reservationId: L.gateHold } })).toBe(0);
+    });
+
+    it("a tampered hash, or terms that are not the ones in force, are refused — and nothing is recorded", async () => {
+      const before = await prisma.agreementAcceptance.count({ where: { tenantId: T } });
+      const tampered = await call("POST", "/marketplace-orders", "mo_s1_admin", {
+        reservationId: L.gateHold, agreementId: E.terms, bodyHashShown: `sha256:${"0".repeat(64)}`, billing: TEST_BILLING,
+      });
+      expect(tampered.status, tampered.text).toBe(409);
+      expect(tampered.text).toMatch(/agreement text has changed/);
+      /* An agreement that is not the tenant's current MARKETPLACE_ORDER terms (here, another kind). */
+      await prisma.agreement.create({ data: { id: "mo_other_terms", tenantId: T, kind: "PROPERTY_TERMS", version: 1, bodyHash: ORDER_TERMS_HASH, effectiveAt: new Date("2026-01-01") } });
+      const other = await call("POST", "/marketplace-orders", "mo_s1_admin", { reservationId: L.gateHold, agreementId: "mo_other_terms", bodyHashShown: ORDER_TERMS_HASH, billing: TEST_BILLING });
+      expect(other.status, other.text).toBe(409);
+      /* A version issued since checkout loaded: the old acceptance is refused. */
+      await prisma.agreement.create({ data: { id: "mo_terms_v2", tenantId: T, kind: "MARKETPLACE_ORDER", version: 2, bodyHash: "sha256:v2-not-yet-written", effectiveAt: new Date("2026-02-01") } });
+      const stale = await call("POST", "/marketplace-orders", "mo_s1_admin", { reservationId: L.gateHold, agreementId: E.terms, bodyHashShown: ORDER_TERMS_HASH, billing: TEST_BILLING });
+      expect(stale.status, stale.text).toBe(409);
+      /* v2 has no servable text, so checkout shows no terms rather than the wrong ones. */
+      expect((await call("GET", `/reservations/${L.gateHold}`, "mo_s1_admin")).json.checkout.terms).toBeNull();
+      await prisma.agreement.delete({ where: { id: "mo_terms_v2" } });
+      await prisma.agreement.delete({ where: { id: "mo_other_terms" } });
+      expect(await prisma.agreementAcceptance.count({ where: { tenantId: T } })).toBe(before);
+      expect((await call("GET", `/reservations/${L.gateHold}`, "mo_s1_admin")).json.state).toBe("HELD");
+    });
+
+    it("accepted: the acceptance and billing snapshot are stored with the order, in its transaction, audited — and fixed", async () => {
+      const r = await call("POST", "/marketplace-orders", "mo_s1_admin", {
+        reservationId: L.gateHold, agreementId: E.terms, bodyHashShown: ORDER_TERMS_HASH,
+        billing: { name: "  Accounts Payable ", email: "ap@harbor.invalid", reference: "PO-7781" },
+      });
+      expect(r.status, r.text).toBe(201);
+      expect(r.json).toMatchObject({
+        reservationId: L.gateHold, billingName: "Accounts Payable", billingEmail: "ap@harbor.invalid", billingReference: "PO-7781",
+        acceptance: { userId: "mo_s1_admin", bodyHash: ORDER_TERMS_HASH, user: { email: "mo_s1_admin@mo-test.invalid" }, agreement: { kind: "MARKETPLACE_ORDER", version: 1 } },
+      });
+      const acceptance = await prisma.agreementAcceptance.findUniqueOrThrow({ where: { id: r.json.acceptanceId }, select: { agreementId: true, userId: true, bodyHash: true, ip: true, userAgent: true } });
+      expect(acceptance).toMatchObject({ agreementId: E.terms, userId: "mo_s1_admin", bodyHash: ORDER_TERMS_HASH });
+      expect(acceptance.ip).not.toBe("");
+      const placed = await prisma.auditLog.findFirstOrThrow({ where: { tenantId: T, entityId: r.json.id, action: "marketplaceOrder.place" }, select: { actorId: true, after: true } });
+      expect(placed.actorId).toBe("mo_s1_admin");
+      expect(placed.after).toMatchObject({ reservationId: L.gateHold, acceptanceId: r.json.acceptanceId, terms: { kind: "MARKETPLACE_ORDER", version: 1, bodyHash: ORDER_TERMS_HASH } });
+      expect(await prisma.auditLog.count({ where: { tenantId: T, entity: "Agreement", entityId: E.terms, action: "agreement.accept" } })).toBeGreaterThanOrEqual(1);
+      /* BTG's view carries the same record. */
+      expect((await call("GET", `/marketplace-orders/${r.json.id}`, "mo_admin")).json).toMatchObject({ billingEmail: "ap@harbor.invalid", acceptance: { userId: "mo_s1_admin" } });
+      /* The snapshot is fixed: Postgres refuses a rewrite, whatever the state. */
+      await expect(prisma.$executeRawUnsafe(`UPDATE "MarketplaceOrder" SET "billingEmail" = 'x@y.invalid' WHERE id = $1`, r.json.id)).rejects.toThrow(/marketplace_order_immutable/);
+      await expect(prisma.$executeRawUnsafe(`UPDATE "MarketplaceOrder" SET "acceptanceId" = NULL, "billingName" = NULL, "billingEmail" = NULL, "billingReference" = NULL WHERE id = $1`, r.json.id)).rejects.toThrow(/marketplace_order_immutable/);
+      /* … and a row cannot carry a billing contact without an acceptance. */
+      await expect(prisma.$executeRawUnsafe(
+        `INSERT INTO "MarketplaceOrder" (id, "tenantId", "sponsorId", "reservationId", "subtotalCents", "feesCents", "totalCents", "requiresApproval", "approvalReasons", "billingName", "billingEmail", "updatedAt")
+         VALUES ('mo_bad', $1, 'mo_s1', 'mo_no_hold', 0, 0, 0, false, '{}', 'X', 'x@y.invalid', now())`, T,
+      )).rejects.toThrow(/contract_gate_check/);
+      /* Placed once: the hold is converted, a second placement is refused. */
+      expect((await call("POST", "/marketplace-orders", "mo_s1_admin", { reservationId: L.gateHold, agreementId: E.terms, bodyHashShown: ORDER_TERMS_HASH, billing: TEST_BILLING })).status).toBe(409);
+      await call("POST", `/marketplace-orders/${r.json.id}/transition`, "mo_s1_admin", { to: "CANCELLED" });
+    });
+
+    it("another sponsor's hold cannot be placed with valid terms; an analyst cannot place at all", async () => {
+      const hold = await held("mo_s1_admin", [{ key: "sticker", quantity: 1, from: 42, to: 43 }]);
+      const body = { reservationId: hold.id, agreementId: E.terms, bodyHashShown: ORDER_TERMS_HASH, billing: TEST_BILLING };
+      expect((await call("POST", "/marketplace-orders", "mo_s2_admin", body)).status).toBe(403);
+      expect((await call("POST", "/marketplace-orders", "mo_s1_analyst", body)).status).toBe(403);
+      await call("POST", `/reservations/${hold.id}/release`, "mo_s1_admin");
+      await prisma.cart.updateMany({ where: { tenantId: T, state: "ACTIVE" }, data: { state: "EXPIRED" } });
     });
   });
 

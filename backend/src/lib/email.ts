@@ -69,7 +69,10 @@ export type EmailTemplate =
   | "sponsor.confirmEmail"
   | "sponsor.newSponsor"
   | "sponsor.accountRejected"
-  | "sponsor.accountReinstated";
+  | "sponsor.accountReinstated"
+  /* 2S2-FE-03 — an athlete asks for a change to a sent offer; to the
+     campaign manager(s). */
+  | "offer.changeRequested";
 
 export type EmailMessage = {
   template: EmailTemplate;

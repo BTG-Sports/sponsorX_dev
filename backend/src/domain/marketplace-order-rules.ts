@@ -64,3 +64,40 @@ export function approvalReasons(o: { totalCents: number; thresholdCents: number;
 export function feeFor(subtotalCents: number, bps: number): number {
   return Math.round((subtotalCents * bps) / 10_000);
 }
+
+/* ── the contract gate — 2S4-FE-02 ──────────────────────────────────────── */
+
+/** The agreement kind a sponsor accepts to place a marketplace order —
+ *  `agreements/MARKETPLACE_ORDER.v<n>.txt`, placeholder wording pending counsel. */
+export const MARKETPLACE_ORDER_TERMS_KIND = "MARKETPLACE_ORDER";
+
+export type BillingContact = { name: string; email: string; reference?: string | null };
+
+/**
+ * A card number typed into the PO / reference box: 13–19 digits (spaces and
+ * dashes ignored) that pass the Luhn check. SponsorX never takes card or bank
+ * numbers (§26), so a free-text field must not become a way to store one.
+ */
+export function looksLikeCardNumber(s: string): boolean {
+  const digits = s.replace(/[\s-]/g, "");
+  if (!/^\d{13,19}$/.test(digits)) return false;
+  let sum = 0;
+  for (let i = 0; i < digits.length; i++) {
+    let d = Number(digits[digits.length - 1 - i]);
+    if (i % 2 === 1) {
+      d *= 2;
+      if (d > 9) d -= 9;
+    }
+    sum += d;
+  }
+  return sum % 10 === 0;
+}
+
+/** What is wrong with a billing contact, in words the sponsor can act on. Empty means fine. */
+export function billingProblems(b: Partial<BillingContact> | null | undefined): string[] {
+  const out: string[] = [];
+  if (!b?.name?.trim()) out.push("the billing contact's name");
+  if (!b?.email?.trim()) out.push("the billing contact's email");
+  if (b?.reference && looksLikeCardNumber(b.reference)) out.push("a PO or reference that is not a card number — SponsorX never takes card or bank numbers");
+  return out;
+}

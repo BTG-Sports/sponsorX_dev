@@ -31,6 +31,8 @@ vi.mock("../src/auth/clerk", () => ({
 }));
 
 const seededDb = await import("./support/seeded-db");
+/* 2S4-FE-02 — every order is placed through the contract gate. */
+const { issueOrderTerms, placeOrderBody } = await import("./support/order-terms");
 const hasDatabase = await seededDb.databaseAvailable();
 
 describe.skipIf(!hasDatabase)("card payment and payouts over the API", { timeout: 90_000 }, async () => {
@@ -38,7 +40,7 @@ describe.skipIf(!hasDatabase)("card payment and payouts over the API", { timeout
   const { createApp } = await import("../src/app");
   const { env } = await import("../src/config/env");
   const { decideOnboarding } = await import("../src/domain/onboarding");
-  const { confirmPayment, confirmPayoutPaid, sendPayout, failPayout } = await import("../src/domain/payouts");
+  const { confirmPayment, confirmPayoutPaid, sendPayout, failPayout, latestFailedAttempts } = await import("../src/domain/payouts");
 
   const T = "po_btg";
   const E = { tenant: "", property: "", riley: "", order: "", listing: "" };
@@ -88,6 +90,7 @@ describe.skipIf(!hasDatabase)("card payment and payouts over the API", { timeout
   beforeAll(async () => {
     await clean();
     await prisma.tenant.create({ data: { id: T, name: "Payouts BTG" } });
+    await issueOrderTerms(prisma, T);
     await prisma.sponsor.create({ data: { id: "po_harbor", tenantId: T, name: "Harbor Coffee", categories: ["RESTAURANT"] } });
     await prisma.user.createMany({ data: [
       { id: "po_admin", tenantId: T, clerkId: "po_admin", email: "po_admin@po-test.invalid", roles: ["BTG_ADMIN"] },
@@ -123,7 +126,7 @@ describe.skipIf(!hasDatabase)("card payment and payouts over the API", { timeout
     await call("POST", "/cart", "po_buyer");
     expect((await call("POST", "/cart/lines", "po_buyer", { listingId: E.listing, quantity: 2, startsOn: at(10), endsOn: at(17) })).status).toBe(201);
     const hold = (await call("POST", "/cart/reserve", "po_buyer")).json;
-    const placed = await call("POST", "/marketplace-orders", "po_buyer", { reservationId: hold.id });
+    const placed = await call("POST", "/marketplace-orders", "po_buyer", placeOrderBody(hold.id, `${T}_order_terms`));
     expect(placed.json).toMatchObject({ state: "PENDING_APPROVAL", totalCents: 100_000 });
     E.order = placed.json.id;
   });
@@ -153,11 +156,21 @@ describe.skipIf(!hasDatabase)("card payment and payouts over the API", { timeout
       expect(details.json).toMatchObject({ kind: "checkout", amountCents: 100_000, sponsorName: "Harbor Coffee", orderRef: `SX-${E.order.slice(-8).toUpperCase()}` });
       expect((await call("POST", "/public/test-provider/checkout", undefined, { token: tokenOf(first.json.url), outcome: "DECLINE" })).json.returnPath).toBe(`/sponsor/orders/${E.order}?payment=returned`);
       expect((await call("GET", `/marketplace-orders/${E.order}/payment`, "po_buyer")).json.latest).toMatchObject({ state: "FAILED", failureReason: expect.stringMatching(/declined/) });
+      /* 2S7-FE-02 — and it is on BTG's console: who, how much, why. Only BTG admin reads that queue. */
+      const queue = await call("GET", "/payments/failed", "po_admin");
+      expect(queue.status, queue.text).toBe(200);
+      expect(queue.json.payments).toEqual([expect.objectContaining({
+        orderId: E.order, orderRef: `SX-${E.order.slice(-8).toUpperCase()}`, orderState: "AWAITING_PAYMENT", sponsorName: "Harbor Coffee",
+        amountCents: 100_000, failedTries: 1, failureReason: expect.stringMatching(/declined/),
+      })]);
+      for (const who of ["po_finance", "po_sales", "po_buyer", "po_riley"]) expect((await call("GET", "/payments/failed", who)).status, who).toBe(403);
 
       const second = await call("POST", `/marketplace-orders/${E.order}/pay`, "po_buyer");
       await call("POST", "/public/test-provider/checkout", undefined, { token: tokenOf(second.json.url), outcome: "SUCCEED" });
       const processing = (await call("GET", `/marketplace-orders/${E.order}/payment`, "po_buyer")).json.latest;
       expect(processing.state).toBe("PROCESSING");
+      /* A newer try supersedes the failure: off the console. */
+      expect((await call("GET", "/payments/failed", "po_admin")).json.payments).toEqual([]);
       expect((await call("POST", `/marketplace-orders/${E.order}/pay`, "po_buyer")).status).toBe(409); // "don't pay again"
       expect((await jobs("payments.confirm")).map((j) => j.payload)).toContainEqual({ attemptId: processing.id });
 
@@ -167,6 +180,19 @@ describe.skipIf(!hasDatabase)("card payment and payouts over the API", { timeout
       expect((await call("GET", `/marketplace-orders/${E.order}/payment`, "po_buyer")).json.latest.state).toBe("SUCCEEDED");
       const receipt = (await jobs("notify.email")).map((j) => j.payload as { template: string; to: string; data: Record<string, string> }).find((p) => p.template === "payment.received");
       expect(receipt).toMatchObject({ to: "po_buyer@po-test.invalid", data: { amount: "$1,000.00" } });
+    });
+
+    it("2S7-FE-02 · the console counts an order once, by its latest try, with every failed try", () => {
+      const a = (id: string, orderId: string, state: string, minute: number) => ({
+        id, orderId, state, amountCents: 100, failureReason: state === "FAILED" ? "declined" : null,
+        createdAt: new Date(Date.UTC(2026, 9, 1, 12, minute)), updatedAt: new Date(Date.UTC(2026, 9, 1, 12, minute)),
+      });
+      const out = latestFailedAttempts([
+        a("x1", "o1", "FAILED", 1), a("x2", "o1", "FAILED", 5), // two declines: listed once, with both
+        a("y1", "o2", "FAILED", 1), a("y2", "o2", "PENDING", 9), // a newer try is under way: not listed
+        a("z1", "o3", "SUCCEEDED", 3),
+      ]);
+      expect(out.map((f) => [f.attempt.id, f.failedTries])).toEqual([["x2", 2]]);
     });
 
     it("a tampered or foreign link is refused", async () => {
@@ -298,7 +324,7 @@ describe.skipIf(!hasDatabase)("card payment and payouts over the API", { timeout
       await call("POST", "/cart", "po_buyer");
       await call("POST", "/cart/lines", "po_buyer", { listingId: E.listing, quantity: 1, startsOn: at(20), endsOn: at(21) });
       const hold = (await call("POST", "/cart/reserve", "po_buyer")).json;
-      const o = (await call("POST", "/marketplace-orders", "po_buyer", { reservationId: hold.id })).json;
+      const o = (await call("POST", "/marketplace-orders", "po_buyer", placeOrderBody(hold.id, `${T}_order_terms`))).json;
       if (o.state === "PENDING_APPROVAL") await call("POST", `/marketplace-orders/${o.id}/decision`, "po_admin", { decision: "APPROVE" });
       await walk(o.id, ["AWAITING_PAYMENT", "PAID", "IN_DELIVERY", "FULFILLED"]);
       const p = (await call("POST", "/payouts", "po_riley")).json.payouts[0];

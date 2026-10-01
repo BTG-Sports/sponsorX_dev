@@ -67,6 +67,8 @@ const A = {
   restriction: "ti_restriction_a", cart: "ti_cart_a", cartLine: "ti_cart_line_a",
   /* Phase 2 batch 5 — a hold and the order it became. */
   reservation: "ti_reservation_a", mktOrder: "ti_mkt_order_a",
+  /* 2S4-FE-02 — the sponsor's acceptance of the order terms that order was placed under. */
+  mktAcceptance: "ti_mkt_acceptance_a",
   /* Phase 2 batch 6 — a commission rule. */
   rule: "ti_rule_a",
   /* 2S5-BE-04 — a payout request from tenant A's athlete. */
@@ -78,6 +80,8 @@ const A = {
   /* 2S1-BE-05 — a business asking tenant A's BTG to sponsor. */
   inquiry: "ti_inquiry_a",
   inquiryDocument: "ti_inquiry_doc_a",
+  /* 2S7-FE-02 — an order still owing payment whose card payment failed (BTG's console). */
+  dueReservation: "ti_reservation_due_a", dueOrder: "ti_mkt_order_due_a", failedAttempt: "ti_attempt_failed_a",
 } as const;
 const B = {
   tenant: "ti_tenant_b", sponsor: "ti_sponsor_b", athlete: "ti_athlete_b",
@@ -240,7 +244,8 @@ const BODY: Record<string, unknown> = {
   "PUT /sponsors/{id}/categories": { categories: ["APPAREL"] },
   "POST /cart/lines": { listingId: A.listing, quantity: 1, startsOn: "2027-01-01T00:00:00.000Z", endsOn: "2027-01-02T00:00:00.000Z" },
   "PATCH /cart/lines/{id}": { quantity: 2 },
-  "POST /marketplace-orders": { reservationId: A.reservation },
+  /* 2S4-FE-02 — a whole contract gate (terms accepted, billing confirmed), so the call reaches the hold's scope check. */
+  "POST /marketplace-orders": { reservationId: A.reservation, agreementId: A.agreement, bodyHashShown: "x".repeat(64), billing: { name: "Sweep Billing", email: "sweep@b.invalid" } },
   "POST /marketplace-orders/{id}/decision": { decision: "APPROVE" },
   "POST /marketplace-orders/{id}/transition": { to: "CANCELLED" },
   "POST /commission-rules": { kind: "PLATFORM_FEE", scope: "GLOBAL", bps: 100, priority: 0 },
@@ -370,13 +375,24 @@ describe.skipIf(!hasDatabase)("P8-SEC-02 · tenant B cannot reach tenant A throu
     await prisma.commissionRule.create({ data: { id: A.rule, tenantId: t, ruleKey: "ti_rule_key_a", version: 1, kind: "PLATFORM_FEE", scope: "GLOBAL", bps: 1234, priority: 0, effectiveFrom: new Date("2026-01-01"), note: "TI Secret rule" } });
     /* Far-future: the reservation sweep is platform-wide too. */
     await prisma.reservation.create({ data: { id: A.reservation, tenantId: t, sponsorId: A.sponsor, cartId: A.cart, expiresAt: new Date(Date.now() + 3650 * 864e5) } });
+    await prisma.agreementAcceptance.create({ data: { id: A.mktAcceptance, tenantId: t, agreementId: A.agreement, userId: A.admin, bodyHash: "x".repeat(64), ip: "203.0.113.9", userAgent: "TI Secret agent" } });
     await prisma.marketplaceOrder.create({ data: {
       id: A.mktOrder, tenantId: t, sponsorId: A.sponsor, reservationId: A.reservation, subtotalCents: 14000, feesCents: 0, totalCents: 14000,
       requiresApproval: true, approvalReasons: ["TI Secret reason"],
+      acceptanceId: A.mktAcceptance, billingName: "TI Secret Billing", billingEmail: "ti-secret-billing@a.invalid", billingReference: "TI Secret PO",
       lines: { create: [
         { tenantId: t, listingId: A.listing, inventoryItemId: A.schoolItem, itemTenantId: t, propertyId: A.school, title: "TI Secret line", quantity: 1, startsOn: new Date("2027-01-01"), endsOn: new Date("2027-01-02"), unitPriceCents: 9000, lineTotalCents: 9000 },
         { tenantId: t, listingId: A.athleteListing, inventoryItemId: A.item, itemTenantId: t, sellerAthleteId: A.athlete, title: "TI Secret athlete line", quantity: 1, startsOn: new Date("2027-01-01"), endsOn: new Date("2027-01-02"), unitPriceCents: 5000, lineTotalCents: 5000 },
       ] },
+    } });
+    await prisma.reservation.create({ data: { id: A.dueReservation, tenantId: t, sponsorId: A.sponsor, cartId: A.cart, state: "CONVERTED", convertedAt: new Date(), expiresAt: new Date(Date.now() + 3650 * 864e5) } });
+    await prisma.marketplaceOrder.create({ data: {
+      id: A.dueOrder, tenantId: t, sponsorId: A.sponsor, reservationId: A.dueReservation, state: "AWAITING_PAYMENT",
+      subtotalCents: 7000, feesCents: 0, totalCents: 7000, requiresApproval: false, approvalReasons: [],
+    } });
+    await prisma.paymentAttempt.create({ data: {
+      id: A.failedAttempt, tenantId: t, orderId: A.dueOrder, sponsorId: A.sponsor, amountCents: 7000, provider: "standin",
+      state: "FAILED", failureReason: "TI Secret decline",
     } });
     await prisma.payout.create({ data: {
       id: A.payout, tenantId: t, payeeType: "ATHLETE", payeeId: A.athlete, payeeTenantId: t, amountCents: 4321,
@@ -500,12 +516,18 @@ describe.skipIf(!hasDatabase)("P8-SEC-02 · tenant B cannot reach tenant A throu
   }, 120_000);
 
   it("list endpoints answer tenant B with tenant B's rows only", async () => {
-    for (const path of ["/applications", "/operations/delivery-health", "/operations/network-metrics", "/operations/job-economics", "/operations/board"]) {
+    for (const path of ["/applications", "/operations/delivery-health", "/operations/network-metrics", "/operations/job-economics", "/operations/board", "/payments/failed"]) {
       const { status, text } = await hit("GET", path, "ti_b_admin");
       expect(status).toBe(200);
       expect(text).not.toContain("ti_athlete_a");
       expect(text).not.toContain("TI Secret");
     }
+  });
+
+  it("2S7-FE-02 · tenant A's own admin sees tenant A's failed payment on the console", async () => {
+    const { status, text } = await hit("GET", "/payments/failed", A.admin);
+    expect(status, text).toBe(200);
+    expect(JSON.parse(text).payments).toEqual([expect.objectContaining({ orderId: A.dueOrder, sponsorName: "TI Secret Sponsor A", failureReason: "TI Secret decline" })]);
   });
 
   it("2S8-SEC-01 · the outside organisation is its own tenant, and its manager reaches it", async () => {

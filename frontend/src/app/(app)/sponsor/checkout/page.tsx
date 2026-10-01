@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { Badge, Card } from "@/components/ui";
 import { EmptyState } from "@/components/states";
 import { ShopPaymentNote, ShopSteps } from "@/components/shop-bits";
-import { ShopCheckoutActions, ShopReserveButton } from "@/components/shop-checkout";
+import { ShopCheckoutGate, ShopReserveButton } from "@/components/shop-checkout";
 import { ShopCountdown } from "@/components/shop-countdown";
 import {
   fmtDay,
@@ -19,27 +19,37 @@ import { apiFetch } from "@/server/api";
 import { requirePortalAccess } from "@/server/portal";
 
 /* --------------------------------------------------------------------------
-   Checkout — 2S4-FE-02. /sponsor/checkout?reservation=<id>: the 15-minute
-   hold, reviewed, then placed as an order.
+   Checkout and contract gate — 2S4-FE-02. /sponsor/checkout?reservation=<id>:
+   the 15-minute hold, reviewed, the billing contact confirmed, the order
+   terms accepted, then placed as an order.
 
    Reads  GET /reservations/:id   state HELD | RELEASED | EXPIRED | CONVERTED
-                                  (EXPIRED once past expiresAt), expiresAt
+                                  (EXPIRED once past expiresAt), expiresAt;
+                                  a live hold's `checkout` — the tenant's
+                                  MARKETPLACE_ORDER terms (body + hash), the
+                                  sponsor's name and the primary contact to
+                                  prefill billing with
           GET /cart               the held lines and their total
                                   (a CONVERTED hold carries its orderId)
-   Writes (ShopCheckoutActions → actions.ts)
-          POST /marketplace-orders {reservationId}   → /sponsor/orders/:id?placed=1
+   Writes (ShopCheckoutGate → actions.ts)
+          POST /marketplace-orders {reservationId, agreementId, bodyHashShown,
+                                    billing{name, email, reference?}}
+                                  → /sponsor/orders/:id?placed=1
           POST /reservations/:id/release             → /sponsor/cart
           POST /cart/reserve ("hold again" after a hold ends)
 
-   Steps follow the design (Commerce.dc) but ONLY what the API supports:
-   Review → Place order → Confirmation. Honest gaps, shown as such:
-     - no contract / order-agreement step — placeOrder involves no agreement;
-     - no payment — no payment provider exists, so the payment step is an
-       inert note ("BTG will invoice you") and no card / PO fields are asked;
-     - no billing-contact step — the API has no billing fields;
-     - no fee or total preview — the fee rate and approval threshold are not
-       exposed, so the cart total is shown as the subtotal, fees added when
-       the order is placed.
+   Steps (Commerce.dc): 1 Review hold (countdown, lines, summary) → 2 Billing
+   contact → 3 Order terms (scrollable text, "I accept the order terms on
+   behalf of <sponsor>") → 4 Place order, disabled until 2 and 3 are
+   complete → Confirmation (the order page). The API refuses an order
+   without the acceptance or the billing contact (422) and re-checks the
+   terms' fingerprint itself (409 on a mismatch). Payment is full payment by
+   card on the order page, after BTG approves — the approval condition is
+   stated here; no card or bank details are asked at checkout.
+   Honest gap: no fee or total preview — the fee rate and approval threshold
+   are not exposed, so the cart total is shown as the subtotal, fees added
+   when the order is placed. The order terms are placeholder wording pending
+   counsel (the text says so at its top).
    Roles. SPONSOR_ADMIN places and releases; SPONSOR_ANALYST reads only.
    -------------------------------------------------------------------------- */
 
@@ -59,7 +69,7 @@ export default async function CheckoutPage({
     <div className="flex flex-wrap items-end justify-between gap-3">
       <div>
         <h1 className="text-xl font-semibold tracking-tight">Checkout</h1>
-        <p className="mt-1 text-xs text-muted">Review what&rsquo;s held for you, then place the order.</p>
+        <p className="mt-1 text-xs text-muted">Review what&rsquo;s held for you, confirm the billing contact, accept the order terms, then place the order.</p>
       </div>
     </div>
   );
@@ -118,11 +128,12 @@ export default async function CheckoutPage({
   const copy = reservationCopy(hold.state);
   const serverNow = new Date().getTime();
 
-  return (
-    <div className="space-y-6">
-      {heading}
-      <ShopSteps active="review" />
+  const gate = hold.state === "HELD" && canWrite && lines && hold.checkout ? hold.checkout : null;
 
+  /* Step 1 — the hold, its countdown and its lines. Wrapped by the gate
+     island when the sponsor can place the order; shown alone otherwise. */
+  const review = (
+    <>
       {hold.state === "HELD" && (
         <Card className="border-accent/30 bg-accent/8">
           <p className="text-xs text-accent">
@@ -153,9 +164,11 @@ export default async function CheckoutPage({
       )}
 
       <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_320px] lg:gap-5">
-        <section className="space-y-3">
+        <section className="space-y-3" aria-labelledby="checkout-review">
           <div className="flex items-center gap-2">
-            <h2 className="text-sm font-semibold tracking-tight">What you&rsquo;re buying</h2>
+            <h2 id="checkout-review" className="text-sm font-semibold tracking-tight">
+              1 · What you&rsquo;re buying
+            </h2>
             <Badge tone={copy.tone}>{copy.label}</Badge>
           </div>
           {lines ? (
@@ -181,10 +194,7 @@ export default async function CheckoutPage({
             </p>
           )}
           {lines && hold.state === "HELD" && (
-            <Link
-              href="/sponsor/cart"
-              className="inline-block text-xs text-muted hover:text-text"
-            >
+            <Link href="/sponsor/cart" className="inline-block text-xs text-muted hover:text-text">
               ← Back to cart
             </Link>
           )}
@@ -200,20 +210,28 @@ export default async function CheckoutPage({
                 <span className="text-lg font-semibold tabular-nums">{usd(lines.totalCents)}</span>
               </div>
               <p className="text-[11px] text-faint">Fees are added when the order is placed.</p>
-              {hold.state === "HELD" &&
-                (canWrite ? (
-                  <ShopCheckoutActions reservationId={hold.id} />
-                ) : (
-                  <p className="text-[11px] text-muted">A Sponsor Admin places the order.</p>
-                ))}
-              <p className="text-[11px] text-faint">
-                BTG may review some orders before confirming them. If this one needs review, the order page says why.
-              </p>
+              {hold.state === "HELD" && !canWrite && <p className="text-[11px] text-muted">A Sponsor Admin places the order.</p>}
             </Card>
           )}
           <ShopPaymentNote />
         </aside>
       </div>
+    </>
+  );
+
+  return (
+    <div className="space-y-6">
+      {heading}
+      {gate && lines ? (
+        <ShopCheckoutGate reservationId={hold.id} checkout={gate} subtotalCents={lines.totalCents}>
+          {review}
+        </ShopCheckoutGate>
+      ) : (
+        <>
+          <ShopSteps active="review" />
+          {review}
+        </>
+      )}
     </div>
   );
 }

@@ -216,3 +216,101 @@ The user set the 90-day rules:
 - **Viewing proofs.** BTG opens a proof through a 5-minute audited link (`SENSITIVE_DOCUMENT_TTL_SECONDS`). Storage caps any TTL at 15 minutes.
 - **Tests.** `tests/phase2-sponsor-auto-approval.test.ts` has 16 tests. The full suite passes 1954 of 1955; the only failure is the old QA-02 reservations test.
 - **Frontend still to do.** The form must send `businessType`. Until it does, requests wait for BTG as before.
+
+## Built: the 11 new screens from the Claude Design canvas, plus the sponsor form (rcfworks)
+
+**Design:** canvas RNykbEaHgkiMppTXandrrB, files `project/<Name>.dc.html`.
+
+**Connected to the real API:**
+- `/admin/restricted-words` (2S1-FE-11).
+- `/athlete/listings`, so a no-team athlete lists their own items (2S3-FE-02, on 2S3-BE-05).
+- The sponsor form (2S1-FE-11):
+  - the brief wizard now asks for a business type from a list, or Other with a description, and its old "Brand category" free-text field is gone;
+  - after sending, the proof of business uploads straight to the private bucket;
+  - new pages `/sponsor-request/confirm?t=` and `/sponsor-request/<token>`.
+- Live parts of otherwise-sample screens:
+  - the sponsor section of `/admin/new-signups`;
+  - the sign-in email and payout account in Settings.
+
+**On sample data, buttons switched off with the reason and a notice naming the backend task it waits on:**
+- `/admin/new-signups`, for organizations, athletes and guardians (2S1-BE-06, -09, -10).
+- `/admin/delivery-issues` (2S4-BE-07).
+- `/athlete/sales` and `/property/sales`, the seller's Orders (2S4-BE-06, -07).
+- `/athlete/team` (2S2-BE-05).
+- `/guardian/setup` (2S1-BE-10).
+- `/guardian/handoff` and `/athlete/guardian-requests` (2S1-BE-15). The menu link shows to GUARDIAN only.
+- `/contact` (2S1-BE-16). The address shows as "being set up" until 2S1-OPS-01.
+- `/property/documents` (2S1-BE-07).
+- Close, reactivate and coming-of-age in `/athlete/settings` and `/property/settings` (2S1-BE-13, -12).
+
+**Menu, access and icons:**
+- Admin menu: New sign-ups, Delivery issues, Restricted words. All three are BTG admin only in `admin-access.ts`.
+- Athlete menu: List my item, Orders, Team, Guardian requests, Settings.
+- Property menu: Orders, Documents, Settings.
+- The footer has a "Contact BTG" link.
+- New icons: flag, ban, shield, box.
+
+**Copy we deliberately left out:**
+- Team page: "joining ends your own listings". That rule was never agreed.
+- List my item: "goes live by itself". BTG approves every listing.
+- Profiles and listings don't yet claim the restricted-words check runs on them.
+
+**Backend fixes made today:**
+- **2S1-BE-17:**
+  - a manual Approve now requires an uploaded proof of business (a second path around the rule);
+  - the status read returns the email;
+  - confirm-email returns the request token, so the proof can be uploaded from any device.
+- **P7-FE-06:** the Operations Board's Content approvals card now counts SPONSOR_REVIEW too. That matches the Approvals page, and a new test compares the two definitions.
+
+**Checks:**
+- Frontend: 853 of 853 tests pass, and tsc and eslint are clean.
+- Root `npm run build` is clean.
+- Backend: 1956 of 1957 pass; the one failure is the old QA-02.
+- The public pages return 200 on `next start`.
+
+## Code review rows checked against their acceptance criteria (the user's rows only)
+
+**Moved to Done (27):**
+- Phase 1: P4-FE-01, P6-FE-02, P6-ART-01, P1-ART-08, P1-FE-24, P1-FE-25, P1-FE-26, P9-FE-06, P3-BE-15, P3-FE-06, P3-FE-07, P4-FE-07, P7-FE-06 (after today's fix).
+- Phase 2: 2S1-FE-01, -02, 2S2-FE-02, -04, 2S4-FE-01, 2S5-FE-02, 2S0-ART-01, 2S7-FE-01, -03, 2S3-BE-05, 2S1-BE-05, 2S1-FE-03, 2S1-BE-18, 2S1-BE-17 (after today's fixes).
+
+**Left at Code review:**
+- **2S2-FE-03:** there is no "request a change" action, in the API or on the screen.
+- **2S3-FE-01:** the listing editor has no sponsor-view preview.
+- **2S4-FE-02:** card payment only works with the stand-in provider, and there's no step where the sponsor accepts an agreement.
+- **2S7-FE-02:** disputes, failed payments and payout problems don't show in the marketplace console.
+- **2S5-FE-03, -04, -05:** they wait on Stripe (2S0-PMO-03). 2S5-FE-04 also has no test asserting the payout.approve and payout.reject audit rows.
+- **4S0-ART-01:** the task says 12 screens, but the canvas has 10. The definition needs a PR, or two screens are missing.
+
+**Not touched:** P1-ART-10, -11, -12 are HeckerCreatives' rows.
+
+**Stage Progress row for 2026-10-01:** 236 done, 60 days left.
+
+## Fixed the failing Code review rows (left at Code review for a second look)
+
+- **2S2-FE-03, "Request a change" on an offer:**
+  - The athlete sends `POST /offers/:id/respond` with `REQUEST_CHANGE` and a required note.
+  - The request is stored as a new `OfferChangeRequest` (migration 20261001120000) and audited as `offer.requestChange`.
+  - The `offer.changeRequested` email goes to the offer's author and every active campaign manager, or to the BTG admins if there are none.
+  - A minor needs a verified guardian, the same as for Accept.
+  - The offer stays SENT, so Accept and Decline remain. That's because sent terms are immutable: BTG answers a request by withdrawing and re-sending the offer, or by saying it stands.
+  - There's no BTG offers screen yet, so the requests are visible on `GET /offers` and `GET /offers/:id`.
+- **2S3-FE-01, the listing preview:**
+  - New routes `/property/listings/[id]/preview` and `/athlete/listings/[id]/preview` render the listing with the shop's own `ShopListingCard`, which was moved out of the shop page so both use the same card.
+  - This also fixed the shop crashing on a listing sold by an independent athlete (`property: null`).
+- **2S4-FE-02, the contract gate:**
+  - Checkout now runs: review the hold, the billing contact (pre-filled from the primary contact), the order terms (checkbox), then Place order.
+  - `POST /marketplace-orders` requires `agreementId`, `bodyHashShown` and `billing`. The server re-hashes the terms and records the acceptance through `acceptAgreementIn`.
+  - The billing details and acceptance are stored on the order (migration 20261001130000, with a CHECK pairing the two) and are immutable afterwards.
+  - The order record shows on the sponsor's order page and BTG's order page.
+  - The terms are `backend/agreements/MARKETPLACE_ORDER.v1.txt`, a draft that counsel hasn't approved.
+- **2S7-FE-02, the console:**
+  - Failed card payments show through a new BTG-only route, `GET /payments/failed`.
+  - Payout problems show with a Retry button.
+  - Disputes are still missing, waiting on 2S5-BE-03 (Blocked).
+
+**Deploy notes for staging:**
+- After `migrate deploy`, re-apply `backend/prisma/sql/marketplace_order_immutable.sql`, as the runbook's step 4 says.
+- The seed tenant gets MARKETPLACE_ORDER v1 from the seed job. Any other tenant needs `npm run agreement:register -w @sponsorx/backend -- <tenantId> MARKETPLACE_ORDER 1`. Without it, Place order stays disabled with a message.
+
+**Checks:** backend 1969 of 1970 pass (only QA-02 fails), frontend 881 of 881, and lint and `npm run build` are clean.

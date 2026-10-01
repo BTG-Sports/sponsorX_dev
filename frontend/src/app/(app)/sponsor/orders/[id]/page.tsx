@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { Badge, Card } from "@/components/ui";
 import { EmptyState } from "@/components/states";
+import { OrderGateRecordCard } from "@/components/order-gate-record";
 import { OrderPayButton, PaymentRefresher } from "@/components/order-payment";
 import { ShopSteps } from "@/components/shop-bits";
 import { ShopCancelOrder } from "@/components/shop-checkout";
@@ -22,7 +23,8 @@ import { requirePortalAccess } from "@/server/portal";
    Order — 2S4-FE-02, payment 2S5-FE-05. One marketplace order: its state,
    the order-progress tracker, lines, subtotal, fees and total, why BTG is
    reviewing it (if it is), BTG's decision notes, the Payment card (designs
-   E1 due / E2 confirming / E3 paid / E4 failed) and Cancel. With ?placed=1
+   E1 due / E2 confirming / E3 paid / E4 failed), the billing contact and
+   order-terms acceptance recorded at checkout (2S4-FE-02) and Cancel. With ?placed=1
    (checkout's redirect) it is the Confirmation step; ?payment=returned is the
    provider sending the browser back — the card reads the same API either way.
 
@@ -177,6 +179,7 @@ export default async function OrderPage({
               <span className="text-lg font-semibold tabular-nums">{usd(o.totalCents)}</span>
             </div>
           </Card>
+          <OrderGateRecordCard order={o} />
           {pay.kind !== "none" && (
             <PaymentCard orderId={o.id} totalCents={payment?.amountCents ?? o.totalCents} pay={pay} payment={payment} canWrite={canWrite} />
           )}
