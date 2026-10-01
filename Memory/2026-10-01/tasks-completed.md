@@ -314,3 +314,84 @@ The user set the 90-day rules:
 - The seed tenant gets MARKETPLACE_ORDER v1 from the seed job. Any other tenant needs `npm run agreement:register -w @sponsorx/backend -- <tenantId> MARKETPLACE_ORDER 1`. Without it, Place order stays disabled with a message.
 
 **Checks:** backend 1969 of 1970 pass (only QA-02 fails), frontend 881 of 881, and lint and `npm run build` are clean.
+
+## The 15 backend tasks from the BTG-admin review: built, wired to their screens, and independently reviewed
+
+**How it was done.** There were four groups, each built in its own git worktree from f7232e2, then merged into `development/bob/be_batch_0924`. A separate reviewer agent checked every row's acceptance against the running call paths. Each FAIL was fixed and then re-reviewed. Every Done below passed that review.
+
+### Organizations (a5bcd86, e7bccb7)
+
+**2S1-BE-06: automatic approval.**
+- `PropertyOnboarding.nameKey` is UNIQUE and uses `normalizeBusinessName`. Pending applications hold their name, and BTG's manual approval checks the name too.
+- BTG is emailed a link to `/admin/onboarding/:id`.
+- Reject after approval does all of this: logins off, listing access off, listings archived, `Property.payoutsHeldAt` set, and the reason emailed.
+- Reinstate reverses it.
+
+**2S1-BE-07: document updates.** `/property/documents` lets the organization replace and add documents. Earlier files are kept, BTG is told, and listings stay live.
+
+**2S1-BE-08: AGENCY** is an organization type. Its documents are a registration per state, an ID, and a representation agreement. The representation agreement is still to be confirmed by the owner.
+
+**Screens:**
+- 2S1-FE-04: the wizard checklist and `/onboarding/confirm`.
+- 2S1-FE-05: the profile page at `/admin/onboarding/[id]`, with "Approved automatically" and "Flagged" tabs.
+
+### Teams and orders (a69de3e..f7e4700, 4c7acfd)
+
+- **2S4-BE-06:** sellers see their sales at `GET /sales`, with their own share only. The sponsor's contact appears once paid.
+- **2S4-BE-07:** `OrderLineDelivery`. The seller marks a line delivered, and the sponsor confirms or reports a problem within 24 hours. Silence confirms, through the worker's `sweepDeliveries`. BTG resolves problems by confirming or refunding. Payouts release line by line.
+- **2S4-BE-08:** overdue reminders, and auto-close 30 days after confirmation.
+- **2S2-BE-05:** `TeamInvitation`. The athlete accepts the share, and either side can leave or remove. A team can lower an accepted share but never raise it.
+- **Screens:** 2S4-FE-03/-04 (seller Orders, the sponsor's delivery section, BTG's Delivery issues) and 2S2-FE-05 (athlete Team page, roster invites).
+- **Two review fixes:**
+  - a manual FULFILLED is refused over an unsettled line;
+  - the share-raise guard above.
+- **Plan wording:** the 2S2-BE-05 definition now says the athlete's own listings stop selling while they are on a team, and sell again after leaving. The earlier "ended" wording didn't match what was built.
+
+### Accounts (08ad1a1, 95df581)
+
+- **2S1-BE-13:**
+  - `AccountClosure`: 30-day retention, then `purgeExpiredClosures`.
+  - `/reactivate`: a signed emailed link. Self-closed accounts come back themselves; rejected accounts ask BTG.
+  - Every Reject path records a closure: organization before and after approval, athlete, guardian, applications desk, declined sponsor request, coming-of-age termination.
+- **2S1-BE-14:** profile edits publish at once. Legal name, date of birth and guardian edits re-run the checks and email BTG. The Profile changes desk is retired into New sign-ups → Sensitive edits.
+- **2S1-BE-15:** guardian handoff. It starts only with the new guardian, and the current guardian hands off. `POST /athletes/:id/guardian` refuses with 409 `handoff_required` unless a BTG admin gives a reason.
+- **2S1-BE-16:** the support form goes to `SUPPORT_EMAIL`, with attachments in the private bucket and a copy to the sender.
+- **Screens:** 2S1-FE-08 close/reactivate, 2S1-FE-09, 2S1-FE-10.
+
+### Athletes and guardians (0569cc8; integrated in 0cd8320, 9f0eb78, d4bc22a)
+
+- **2S1-BE-09:** adults are approved automatically. A likely duplicate goes to BTG.
+- **2S1-BE-10:**
+  - minors: the guardian's page and its documents;
+  - proof of guardianship is per child (`AccountDocument.wardId`);
+  - `Tenant.staffConfirmMinors` is the staff-confirmation setting, off by default.
+- **2S1-BE-11:** the guardian acts for the ward through the `x-sponsorx-ward` header and the ward-switcher cookie. A minor's own login is refused every agreement and money write. An unverified guardian gets 403 `guardian_not_verified`.
+- **2S1-BE-12:** an editable age-of-majority table (an unknown place counts as 18 and is flagged). Coming of age gives 90 days, reminders at 90/30/14/7/1 days, a pause on new items and transactions, then termination.
+- **Screens:** 2S1-FE-06 (`/join` checklist and `/guardian/setup`), 2S1-FE-07 (New sign-ups, live for all four kinds), 2S1-FE-08 (guardian controls and the coming-of-age reminder).
+
+### Integration
+
+- A single payout hold, `payoutHoldReason`, now covers PROPERTY and ATHLETE payees.
+- `RETAINED_DOCUMENT_SOURCES` covers every ID-document table.
+- The authz matrix digest changed with the new resources: orderDelivery, teamInvitation, accountClosure, guardianHandoff, signupRules, and `guardianHandoff.approve`.
+
+**Tests:**
+- The test suites now use distinct team names per file, because the platform-wide name rule made shared names collide when files run in parallel.
+- `alignment.test.ts` now reads the domain directory itself, without the 1 MB `cat` pipe.
+
+**Migrations:** 20261002100000, 110000, 120000, 130000, 140000, 150000.
+
+**Checks:** the backend suite passes 2098 of 2099 (only QA-02 fails), the frontend passes 909, and tsc, eslint and the build are clean.
+
+**Left open:**
+- **2S1-BE-16 stays at Code review.** Delivery needs the support mailbox (2S1-OPS-01, `SUPPORT_MAILBOX_READY`) and an email provider key.
+- **Not built yet:**
+  - a BTG button to confirm a held handoff (the API exists; it only matters with staff confirmation on);
+  - a BTG screen for rejected accounts asking to come back (the API exists);
+  - a BTG offers desk.
+- **Profile edits:** a move to another country isn't re-checked, only a move of state.
+
+**Staging, after `migrate deploy`:**
+- re-apply `backend/prisma/sql/*.sql`;
+- set `SUPPORT_EMAIL`;
+- register MARKETPLACE_ORDER v1 for any tenant that isn't the seed tenant.
