@@ -5,7 +5,7 @@
 | | |
 |---|---|
 | **Goal** | Turn SponsorX from BTG-only operations into a multi-tenant marketplace. External athletes, teams, programs, events and media properties onboard, publish inventory, fulfil deliverables and get paid. |
-| **Tasks** | 82 · 317 person-days |
+| **Tasks** | 87 · 331 person-days |
 | **Blueprint timeline** | 16–20 weeks |
 | **Balanced budget** | $80K–$120K |
 | **Depends on** | Phase 1 auth/RBAC, sponsor/property/inventory/campaign/reward models, Zoho integration, core analytics |
@@ -235,6 +235,36 @@ Today a sponsor's request from the public form becomes a Zoho lead and nothing m
 - **Done when:** A sponsor's request appears in BTG's queue with its business type; approving it creates the sponsor, its contact and a login the requester can sign in with, and links the Zoho account without a duplicate; declining tells the requester why; only BTG admin and sales can decide; tenant and role tests cover it
 - **Reference:** Spec §3, §12, §18; walkthrough 2026-09-30
 
+### ⏸ `2S1-BE-06` · Organizations are approved automatically; BTG reviews afterwards
+
+**Order** 12.6 · **BE** · **Where:** Code · **5d** · **Ready**
+
+BTG has at most one person reviewing, so the system approves an organization itself and BTG checks it afterwards. The checklist ticks itself from what is uploaded: the documents each organization type and state requires (`missingFor`). The primary contact must also confirm their email by clicking a link. The organization's name must be unique across the whole platform: compared ignoring case, spaces, punctuation, a leading "The" and legal endings such as LLC or Inc, enforced by the database, and counting applications still in progress. When every item is ticked and the name is free, the organization is approved and its manager's login created, as a manual approval does today. Anything else goes to BTG's queue, and the applicant is told why (for example "This name is already registered; add your town or contact BTG"). For every organization added, BTG admins get an email with a link to its profile page. **Reject** on that page, with a reason that is emailed to the organization, withdraws an approved organization: its login and listing access are switched off, its listings end, and any pending payouts are held. BTG can reinstate it. Every automatic approval and every reject is audited. Raised 2026-10-01 from the BTG admin review.
+
+- **Depends on:** 2S1-BE-03, 2S1-BE-04
+- **Done when:** An organization with every required document, a confirmed contact email and a unique name is approved without BTG; a duplicate name (after normalising) is refused, even between two applications at once; anything incomplete goes to BTG's queue with the reason shown to the applicant; BTG admins are emailed for each new organization with a link to its profile; Reject withdraws access, ends listings, holds payouts and emails the reason; tenant and role tests cover it
+- **Reference:** Spec §3, §12; BTG admin review 2026-10-01
+
+### ⏸ `2S1-BE-07` · Organizations update their documents after approval
+
+**Order** 12.7 · **BE** · **Where:** Code · **2d** · **Ready**
+
+An approved organization can replace an uploaded document or add a new one from its portal (for example an expired ID or a renewed registration). Each change re-runs the checklist. BTG admins are emailed with a link to the profile page, and a required document removed without a replacement flags the organization for BTG, without suspending it automatically. The previous file is kept, so the history is visible. Raised 2026-10-01 from the BTG admin review.
+
+- **Depends on:** 2S1-BE-02, 2S1-BE-06
+- **Done when:** An approved organization can replace or add documents; each change re-runs the checklist, keeps the previous file and emails BTG admins a link; a missing required document flags the organization for BTG; only the organization's own manager can change its documents
+- **Reference:** Spec §3, §12; BTG admin review 2026-10-01
+
+### ⏸ `2S1-BE-08` · AGENCY as an organization type
+
+**Order** 12.8 · **BE** · **Where:** Code · **2d** · **Ready**
+
+Add **AGENCY** (an athlete management or talent agency) to the organization types, beside TEAM, SCHOOL, EVENT, MEDIA and VIRTUAL. Its documents: a business registration in every state (an agency is a business wherever it operates), the contact's identity, and proof it represents the athletes it lists (a representation agreement). Like a team, it has a roster and takes an agreed share of its athletes' sales. It works everywhere an organization type is used: onboarding, the property record, commission rules scoped by property kind, and search and filters. Raised 2026-10-01 from the BTG admin review.
+
+- **Depends on:** 2S1-BE-01
+- **Done when:** An agency can apply, is held to its own document list, can hold a roster and an agreed share, and can be targeted by commission rules like any other organization type
+- **Reference:** Spec §3, §12; BTG admin review 2026-10-01
+
 ### ⏸ `2S1-FE-01` · Build the property onboarding wizard
 
 **Order** 13 · **FE** · **Where:** Code · **5d** · **Blocked**
@@ -264,6 +294,26 @@ BTG's queue of new sponsor requests: who is asking, their business type, their m
 - **Depends on:** 2S1-BE-05
 - **Done when:** BTG can review a sponsor's request, approve it (the sponsor can then sign in) or decline it with a reason, from the admin portal
 - **Reference:** Spec §10; walkthrough 2026-09-30
+
+### ⏸ `2S1-FE-04` · The applicant's checklist and the documents page
+
+**Order** 14.6 · **FE** · **Where:** Code · **3d** · **Blocked**
+
+In the onboarding wizard: the live checklist of required documents, ticking as each is uploaded; the email confirmation step; the "name already registered" message; and AGENCY as a type. In the property portal after approval: a Documents page to replace or add files, showing each document's status and history.
+
+- **Depends on:** 2S1-BE-06, 2S1-BE-07, 2S1-BE-08, 2S0-ART-01
+- **Done when:** An applicant sees exactly what is still missing and is approved when nothing is; an approved organization can replace or add its documents from its portal
+- **Reference:** Spec §3, §12; BTG admin review 2026-10-01
+
+### ⏸ `2S1-FE-05` · BTG's organization profile page with Reject
+
+**Order** 14.7 · **FE** · **Where:** Code · **2d** · **Blocked**
+
+The page BTG's email links to: the organization's details, its documents, the automatic checklist as it was when approved, and its activity. It has **Reject** (a required reason, emailed to the organization) and Reinstate, plus an "Automatically approved" list in the admin portal for spot checks.
+
+- **Depends on:** 2S1-BE-06, 2S1-BE-07, 2S0-ART-01
+- **Done when:** From the emailed link, a BTG admin can review an automatically approved organization and reject it with a reason, or reinstate it; recent automatic approvals are listed for spot checks
+- **Reference:** Spec §3, §12; BTG admin review 2026-10-01
 
 ### ⏸ `2S1-INT-01` · Onboarding notification jobs
 
