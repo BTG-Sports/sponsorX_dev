@@ -155,3 +155,39 @@ The user set the 90-day rules:
   - My assumption: if the guardian has other minors, only the guardian's link to this athlete ends.
   - The 30-day retention and reactivation rules apply.
   - In-flight items go to BTG, and earned money stays owed.
+
+## Profile edits: no more BTG review (2 tasks; Phase 2 is now 97 tasks, 368 days)
+
+- **2S1-BE-14** (3d, Ready) replaces P3-BE-16's review of every edit.
+  - Ordinary edits publish at once.
+  - Sensitive edits also publish at once but re-run the sign-up checks: a legal name needs a matching ID, a date of birth recomputes adulthood, a new guardian goes through the guardian's page.
+  - BTG is emailed only for sensitive edits.
+- **2S1-FE-09** (2d, Blocked): the editor's screens; the Profile changes page is retired.
+
+## Guardian handoff and BTG support (4 tasks; Phase 2 is now 101 tasks, 377 days)
+
+**The user's rules:**
+- A handoff starts only with the new guardian's request. The current guardian then approves it with Hand off, or declines; they can't start a handoff alone.
+- The current guardian keeps control until the switch.
+- Agreed work and earned money stay where they were.
+- A guardian with other children keeps them.
+- **A disputed guardianship is never automated:** the new guardian contacts BTG through a support email and contact page.
+
+**Raised:**
+- **2S1-BE-15** (3d): the handoff.
+- **2S1-BE-16** (2d): the contact form, queued to the support mailbox.
+- **2S1-OPS-01** (1d): set up the support mailbox. Recommended: Zoho Desk at support@sponsorx.net; awaiting the user's choice.
+- **2S1-FE-10** (3d): the handoff and contact screens.
+
+## Sponsors approved automatically, and a restricted-words check (3 tasks; Phase 2 is now 104 tasks, 387 days)
+
+**The user's rules:**
+- Sponsors are automatic except: restricted business types, "Other" descriptions with negative or illegal words (sex, drugs and so on), and name matches. Those go to BTG.
+- The business type comes from a fixed list, or "Other" with a typed description.
+- Proof of business (registration, permit or license) is required of every sponsor, the same everywhere.
+- The word list lives on the server and BTG can edit it.
+
+**Raised:**
+- **2S1-BE-17** (4d): sponsor auto-approval.
+- **2S1-BE-18** (3d): the restricted-words check. It's hard to get around, matches whole words, only routes to review, and is reusable.
+- **2S1-FE-11** (3d): the form changes and the word-list admin page.
