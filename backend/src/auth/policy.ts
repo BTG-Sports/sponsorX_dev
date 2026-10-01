@@ -164,7 +164,9 @@ export type Resource =
   | "payoutAccount"
   | "restrictedWord"
   | "orderDelivery"
-  | "teamInvitation";
+  | "teamInvitation"
+  | "accountClosure"
+  | "guardianHandoff";
 
 export const RESOURCES: readonly Resource[] = [
   "tenant",
@@ -237,6 +239,8 @@ export const RESOURCES: readonly Resource[] = [
   "restrictedWord",
   "orderDelivery",
   "teamInvitation",
+  "accountClosure",
+  "guardianHandoff",
 ] as const;
 
 type RolePolicy = Partial<Record<Role, Partial<Record<Action, Scope>>>>;
@@ -949,6 +953,27 @@ export const POLICY: Record<Resource, RolePolicy> = {
     SUPER_ADMIN: rwa("any", "any"),
     PROPERTY_MGR: rwa("own-property", "own-property"),
     ATHLETE: rwa("own", "own"),
+  },
+  /* 2S1-BE-13 — closed accounts (matrix §23). Closing your OWN account is
+     authorised through the account's own resource (athlete / guardian /
+     property write at `own`), and coming back is the emailed link; this
+     resource is BTG's view of closures and its answer to a rejected
+     account's request to come back. Nobody else reads it. */
+  accountClosure: {
+    SUPER_ADMIN: rwa("any", "any", "any"),
+    BTG_ADMIN: rwa("own-tenant", "own-tenant", "own-tenant"),
+  },
+
+  /* 2S1-BE-15 — a request to become a minor's guardian (matrix §23). It is
+     CREATED only by the new guardian on the public request page (no actor).
+     The current guardian reads and answers requests for their own ward
+     (`ward`); the athlete follows its status (`own`) and can never answer;
+     BTG reads (a dispute is decided by hand, through support). */
+  guardianHandoff: {
+    SUPER_ADMIN: rwa("any", "any"),
+    BTG_ADMIN: rwa("own-tenant"),
+    GUARDIAN: rwa("ward", "ward"),
+    ATHLETE: rwa("own"),
   },
 };
 

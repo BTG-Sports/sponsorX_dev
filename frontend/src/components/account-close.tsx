@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
 
-import { CLOSE_DIALOG, CLOSE_NOT_LIVE } from "@/lib/account-live";
+import { CLOSE_DIALOG } from "@/lib/account-live";
 import { useDialogFocus } from "./use-dialog-focus";
 
 /* --------------------------------------------------------------------------
@@ -10,12 +10,17 @@ import { useDialogFocus } from "./use-dialog-focus";
    The settings row and its confirm dialog: one island because the row's
    button opens the dialog.
 
-   Scaffold: closing is 2S1-BE-13, not built. The dialog shows what closing
-   will mean, and its "Close account" stays disabled with the reason under
-   it — "Keep my account" is the only live button, and nothing is sent.
+   LIVE (2S1-BE-13). "Close account" in the dialog calls the page's server
+   action → POST /me/close {confirm: true}. On success the action sends the
+   person to the public reactivation page (their login no longer works, so
+   the way back is the emailed link); a refusal comes back as words under
+   the buttons and nothing has changed.
    -------------------------------------------------------------------------- */
 
-export function CloseAccount({ line }: { line: string }) {
+export type CloseResult = { ok: false; message: string };
+type CloseAction = () => Promise<CloseResult>;
+
+export function CloseAccount({ line, action }: { line: string; action: CloseAction }) {
   const [open, setOpen] = useState(false);
   return (
     <section aria-label="Close account" className="flex flex-wrap items-center gap-3 rounded-xl border border-danger/35 bg-surface px-4.5 py-4">
@@ -27,13 +32,22 @@ export function CloseAccount({ line }: { line: string }) {
         className="min-h-11 rounded-lg border border-danger/50 px-4 text-xs font-semibold text-danger outline-none hover:bg-danger/10 focus-visible:ring-2 focus-visible:ring-danger">
         Close account
       </button>
-      {open && <CloseDialog onClose={() => setOpen(false)} />}
+      {open && <CloseDialog onClose={() => setOpen(false)} action={action} />}
     </section>
   );
 }
 
-function CloseDialog({ onClose }: { onClose: () => void }) {
+function CloseDialog({ onClose, action }: { onClose: () => void; action: CloseAction }) {
   const ref = useDialogFocus<HTMLDivElement>(onClose);
+  const [pending, start] = useTransition();
+  const [error, setError] = useState<string | null>(null);
+  const close = () =>
+    start(async () => {
+      setError(null);
+      /* A success redirects; only a refusal returns. */
+      const r = await action().catch(() => ({ ok: false as const, message: "Couldn’t reach SponsorX just now. Nothing has changed — try again." }));
+      if (r && !r.ok) setError(r.message);
+    });
   return (
     <div ref={ref} className="fixed inset-0 z-50" role="dialog" aria-modal="true" aria-labelledby="cl-title">
       <button type="button" tabIndex={-1} aria-label="Close" onClick={onClose} className="sx-backdrop absolute inset-0 cursor-default bg-black/55" />
@@ -43,15 +57,15 @@ function CloseDialog({ onClose }: { onClose: () => void }) {
           <p className="text-sm leading-relaxed">{CLOSE_DIALOG.body}</p>
           <p className="text-xs leading-relaxed text-muted">{CLOSE_DIALOG.money}</p>
           <div className="flex flex-wrap justify-end gap-2.5">
-            <button type="button" data-autofocus onClick={onClose} className="min-h-11 rounded-lg border border-line px-4 text-xs font-medium text-text hover:bg-surface-2">
+            <button type="button" data-autofocus onClick={onClose} disabled={pending} className="min-h-11 rounded-lg border border-line px-4 text-xs font-medium text-text hover:bg-surface-2 disabled:opacity-50">
               Keep my account
             </button>
-            <button type="button" disabled title={CLOSE_NOT_LIVE} aria-describedby="cl-why"
-              className="min-h-11 cursor-not-allowed rounded-lg border border-danger/50 px-4 text-xs font-semibold text-danger opacity-40">
-              Close account
+            <button type="button" onClick={close} disabled={pending} aria-busy={pending}
+              className="min-h-11 rounded-lg border border-danger/50 px-4 text-xs font-semibold text-danger hover:bg-danger/10 disabled:cursor-not-allowed disabled:opacity-50">
+              {pending ? "Closing…" : "Close account"}
             </button>
           </div>
-          <p id="cl-why" className="text-[11px] text-warn">{CLOSE_NOT_LIVE}</p>
+          {error && <p role="alert" className="text-[11px] text-danger">{error}</p>}
         </div>
       </div>
     </div>

@@ -336,16 +336,18 @@ describe("the whole matrix is pinned", () => {
       // SUPER_ADMIN any/any, BTG_ADMIN own-tenant read/write, every other
       // cell deny (matrix `restrictedWord`). With its rows removed the grid
       // hashes to the previous 77c16c7e171c8dc2, so nothing else moved.
-      // Updated 2026-10-01 (2S4-BE-06/-07, 2S2-BE-05): two new resources,
-      // every existing cell unchanged (matrix §22). `orderDelivery` —
-      // SUPER_ADMIN any/any/any, BTG_ADMIN own-tenant read/write/approve,
-      // FINANCE own-tenant read, PROPERTY_MGR own-property read/write,
-      // ATHLETE own read/write, SPONSOR_ADMIN own-sponsor read/write,
-      // SPONSOR_ANALYST own-sponsor read. `teamInvitation` — SUPER_ADMIN
-      // any/any, PROPERTY_MGR own-property read/write, ATHLETE own
-      // read/write. With both resources removed the grid hashes to the
-      // previous 7fc0161e9b2baa67.
-    ).toBe("6626855147e34951");
+      // Updated 2026-10-01: four new resources, every existing cell unchanged —
+      // `orderDelivery` and `teamInvitation` (2S4-BE-06/-07, 2S2-BE-05, matrix §22):
+      // orderDelivery SUPER_ADMIN any/any/any, BTG_ADMIN own-tenant ×3, FINANCE
+      // own-tenant read, PROPERTY_MGR own-property read/write, ATHLETE own
+      // read/write, SPONSOR_ADMIN own-sponsor read/write, SPONSOR_ANALYST
+      // own-sponsor read; teamInvitation SUPER_ADMIN any/any, PROPERTY_MGR
+      // own-property read/write, ATHLETE own read/write. `accountClosure` and
+      // `guardianHandoff` (2S1-BE-13/-15, matrix §23): accountClosure SUPER_ADMIN
+      // any ×3, BTG_ADMIN own-tenant ×3; guardianHandoff SUPER_ADMIN any/any,
+      // BTG_ADMIN own-tenant read, GUARDIAN ward/ward, ATHLETE own read. With all
+      // four removed the grid hashes to the previous 7fc0161e9b2baa67.
+    ).toBe("a21c258670dcdb7c");
   });
 
   it("covers every pair the §30 acceptance asks for", () => {

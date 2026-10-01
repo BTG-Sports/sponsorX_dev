@@ -16,8 +16,8 @@ import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
    they are on it (it is not ended) and sells again when they leave.
 
    The cast: Jordan Reed, an approved athlete with no team in BTG's own
-   tenant, with a published listing of his own. The Westfield Hawks and the
-   Lakeside Lions are teams in their own tenants. Pat isn't approved; Lee is
+   tenant, with a published listing of his own. The Westfield Hawks TV and the
+   Lakeside Lions TV are teams in their own tenants. Pat isn't approved; Lee is
    in another marketplace.
    -------------------------------------------------------------------------- */
 
@@ -116,8 +116,8 @@ describe.skipIf(!hasDatabase)("2S2-BE-05 · a team invites an athlete already on
     ] });
     const rule = (kind: string, bps: number, fixedCents = 0) => ({ id: `tv_${kind}`, tenantId: T, ruleKey: `tv_${kind}`, version: 1, kind, scope: "GLOBAL", bps, fixedCents, priority: 0, effectiveFrom: new Date("2026-01-01") });
     await prisma.commissionRule.createMany({ data: [rule("PLATFORM_FEE", 1500), rule("MANAGEMENT_FEE", 500), rule("PROCESSING", 290, 30), rule("REFERRAL", 200), rule("RESERVE", 1000)] });
-    const hawks = await approveTeam("tv_onb_hawks", "Westfield Hawks", "tv_mgr");
-    const lions = await approveTeam("tv_onb_lions", "Lakeside Lions", "tv_mgr2");
+    const hawks = await approveTeam("tv_onb_hawks", "Westfield Hawks TV", "tv_mgr");
+    const lions = await approveTeam("tv_onb_lions", "Lakeside Lions TV", "tv_mgr2");
     Object.assign(E, { hawksTenant: hawks.tenantId, hawks: hawks.id, lionsTenant: lions.tenantId, lions: lions.id });
     server = createApp().listen(0);
     base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
@@ -153,7 +153,7 @@ describe.skipIf(!hasDatabase)("2S2-BE-05 · a team invites an athlete already on
 
   it("only a team (or an agency) invites — a school keeps Add athlete for its own people", async () => {
     await prisma.propertyOnboarding.create({ data: {
-      id: "tv_onb_school", tenantId: T, orgType: "SCHOOL", orgName: "Westfield High", stateCode: "MD", state: "PENDING_REVIEW",
+      id: "tv_onb_school", tenantId: T, orgType: "SCHOOL", orgName: "Westfield High TV", stateCode: "MD", state: "PENDING_REVIEW",
       contacts: [{ name: "Erin Vale", email: "tv_school@tv-test.invalid", role: "Athletic director", primary: true }],
       details: { district: "Westfield District", athleticDirector: "Erin Vale", sports: ["Basketball"] },
       payoutAcknowledgedAt: new Date(), termsAcceptedAt: new Date(), submittedAt: new Date(),
@@ -175,7 +175,7 @@ describe.skipIf(!hasDatabase)("2S2-BE-05 · a team invites an athlete already on
     expect(sent.status, sent.text).toBe(201);
     E.hawksInvite = sent.json.id;
     expect((await call("POST", "/team/invitations", "tv_mgr", { athleteId: "tv_ath_jordan", teamShareBps: 2500 })).status).toBe(409);
-    expect((await emails()).find((e) => e.template === "team.invited" && e.to === "tv_jordan@tv-test.invalid")?.data).toMatchObject({ teamName: "Westfield Hawks", share: "20%" });
+    expect((await emails()).find((e) => e.template === "team.invited" && e.to === "tv_jordan@tv-test.invalid")?.data).toMatchObject({ teamName: "Westfield Hawks TV", share: "20%" });
     E.lionsInvite = (await call("POST", "/team/invitations", "tv_mgr2", { athleteId: "tv_ath_jordan", teamShareBps: 1500 })).json.id;
   });
 
@@ -184,7 +184,7 @@ describe.skipIf(!hasDatabase)("2S2-BE-05 · a team invites an athlete already on
     expect((await call("GET", "/team/athletes", "tv_mgr")).json.athletes).toEqual([]);
     const mine = (await call("GET", "/me/team", "tv_jordan")).json;
     expect(mine.membership).toBeNull();
-    expect(mine.invitations.map((i: { team: { name: string }; teamShareBps: number }) => [i.team.name, i.teamShareBps]).sort()).toEqual([["Lakeside Lions", 1500], ["Westfield Hawks", 2000]]);
+    expect(mine.invitations.map((i: { team: { name: string }; teamShareBps: number }) => [i.team.name, i.teamShareBps]).sort()).toEqual([["Lakeside Lions TV", 1500], ["Westfield Hawks TV", 2000]]);
     expect((await call("GET", "/team/invitations", "tv_mgr")).json.invitations).toEqual([expect.objectContaining({ id: E.hawksInvite, state: "PENDING", athlete: expect.objectContaining({ displayName: "JORDAN.REED" }) })]);
     /* Each side sees only its own. */
     expect((await call("GET", "/team/invitations", "tv_mgr2")).json.invitations.map((i: { id: string }) => i.id)).toEqual([E.lionsInvite]);
@@ -213,7 +213,7 @@ describe.skipIf(!hasDatabase)("2S2-BE-05 · a team invites an athlete already on
     /* On the roster, across tenants: the team sees him and his items. */
     expect((await call("GET", "/team/athletes", "tv_mgr")).json.athletes).toEqual([expect.objectContaining({ id: "tv_ath_jordan", teamShareBps: 2000 })]);
     expect((await call("GET", "/team/inventory", "tv_mgr")).json.inventory.map((i: { id: string }) => i.id).sort()).toEqual([E.ownItem, E.spareItem].sort());
-    expect((await call("GET", "/me/team", "tv_jordan")).json.membership).toMatchObject({ teamId: E.hawks, team: { name: "Westfield Hawks" }, teamShareBps: 2000 });
+    expect((await call("GET", "/me/team", "tv_jordan")).json.membership).toMatchObject({ teamId: E.hawks, team: { name: "Westfield Hawks TV" }, teamShareBps: 2000 });
     /* The other team still can't reach him. */
     expect((await call("GET", "/team/athletes", "tv_mgr2")).json.athletes).toEqual([]);
     expect((await call("PATCH", "/team/roster/tv_ath_jordan", "tv_mgr2", { teamShareBps: 1 })).status).toBe(403);

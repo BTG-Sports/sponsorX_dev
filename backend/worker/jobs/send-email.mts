@@ -37,7 +37,16 @@ export type EmailJob = {
   idempotencyKey: string;
   /** Fan emails only (P6-SEC-03): the claim whose consent this send relies on. */
   fanEventId?: string;
+  /** 2S1-BE-16 — a support message replies to its sender, keeps its thread,
+   *  and carries its private attachments (read here, at send time). */
+  replyTo?: string;
+  headers?: Record<string, string>;
+  attachments?: { filename: string; key: string; contentType: string }[];
 };
+
+/** Reads a private-bucket object for an attachment. Injected so the handler
+ *  stays testable without storage; the worker passes getPrivateObject. */
+export type AttachmentLoader = (key: string) => Promise<Buffer>;
 
 /**
  * Subject and body per template. Data, not code, so adding a message is a
@@ -47,6 +56,10 @@ export type EmailJob = {
  * Plain text only in Phase 1. HTML mail brings a rendering pipeline, inlined
  * CSS and a preview tool, none of which the loop in §39 needs to work.
  */
+/** 2S1-BE-16 — the support address every rejection names: the sender's own
+ *  value if the caller passed one, else SUPPORT_EMAIL, else the default. */
+const supportAddress = (d: Record<string, string>) => d.supportEmail ?? process.env.SUPPORT_EMAIL ?? "support@sponsorx.net";
+
 const TEMPLATES: Record<string, (d: Record<string, string>) => { subject: string; text: string }> = {
   "athlete.applicationReceived": (d) => ({
     subject: "We have your SponsorX application",
@@ -87,7 +100,7 @@ ${d.portalUrl ?? ""}
   }),
   "athlete.rejected": (d) => ({
     subject: "About your SponsorX application",
-    text: `Hi ${d.firstName ?? "there"},\n\nWe are not able to approve your application at this time.\n\n${d.reviewerNotes ?? ""}\n\nThis is not necessarily permanent — the network grows, and sponsor demand changes by sport and region.\n\n— BTG SponsorX`,
+    text: `Hi ${d.firstName ?? "there"},\n\nWe are not able to approve your application at this time.\n\n${d.reviewerNotes ?? ""}\n\nThis is not necessarily permanent — the network grows, and sponsor demand changes by sport and region.\n\nQuestions? Contact BTG support at ${supportAddress(d)}.\n\n— BTG SponsorX`,
   }),
   "invitation.sent": (d) => ({
     subject: `${d.sponsorName ?? "A sponsor"} wants to work with you`,
@@ -260,7 +273,7 @@ ${d.portalUrl ?? ""}
   }),
   "sponsor.accountRejected": (d) => ({
     subject: "Your SponsorX sponsor account has been closed",
-    text: `Hi ${d.firstName ?? "there"},\n\nBTG has closed the sponsor account for ${d.businessName ?? "your business"} on SponsorX:\n\n${d.note ?? ""}\n\nIf you think this is a mistake, contact BTG support:\n\n${d.supportUrl ?? ""}\n\n— BTG SponsorX`,
+    text: `Hi ${d.firstName ?? "there"},\n\nBTG has closed the sponsor account for ${d.businessName ?? "your business"} on SponsorX:\n\n${d.note ?? ""}\n\nIf you think this is a mistake, contact BTG support${d.supportEmail ? ` at ${d.supportEmail}` : ""}:\n\n${d.supportUrl ?? ""}\n\n— BTG SponsorX`,
   }),
   "offer.changeRequested": (d) => ({
     subject: `Change requested: ${d.sponsorName ?? "a sponsor"} · ${d.campaignName ?? "a campaign"}`,
@@ -276,7 +289,7 @@ ${d.portalUrl ?? ""}
   }),
   "onboarding.rejected": (d) => ({
     subject: `About ${d.orgName ?? "your"} application`,
-    text: `Hi ${d.contactName ?? "there"},\n\nWe are not able to approve ${d.orgName ?? "your organisation"} at this time.\n\n${d.notes ?? ""}\n\n— BTG SponsorX`,
+    text: `Hi ${d.contactName ?? "there"},\n\nWe are not able to approve ${d.orgName ?? "your organisation"} at this time.\n\n${d.notes ?? ""}\n\nIf you think this is a mistake, contact BTG support at ${supportAddress(d)}.\n\n— BTG SponsorX`,
   }),
   "onboarding.suspended": (d) => ({
     subject: `${d.orgName ?? "Your organisation"}'s SponsorX listings are paused`,
@@ -285,6 +298,75 @@ ${d.portalUrl ?? ""}
   "guardian.verificationRequested": (d) => ({
     subject: `Please confirm you authorise ${d.athleteName ?? "an athlete"} to join SponsorX`,
     text: `Hi ${d.guardianName ?? "there"},\n\n${d.athleteName ?? "An athlete"} has listed you as their parent or guardian on a SponsorX application. Because they are under 18, we need your authorisation before they can take part in any paid campaign.\n\nA member of the BTG team will contact you to confirm.\n\n— BTG SponsorX`,
+  }),
+
+  /* 2S1-BE-13 — closing an account and coming back. */
+  "account.closed": (d) => ({
+    subject: "Your SponsorX account is closed",
+    text: `Hi ${d.name ?? "there"},\n\nYour SponsorX account is closed. You can't sign in, and your listings have stopped.\n\nYour documents are kept until ${d.retainUntil ?? "30 days from today"}, then deleted for good. Changed your mind? Reactivate before then and everything comes back:\n\n${d.reactivateUrl ?? ""}\n\nMoney you already earned is still paid out to your payout account.\n\nQuestions: ${d.supportEmail ?? ""}\n\n— BTG SponsorX`,
+  }),
+  "account.reactivationLink": (d) => ({
+    subject: "Your link to reactivate your SponsorX account",
+    text: `Hi ${d.name ?? "there"},\n\nHere is the link you asked for. It works for 24 hours:\n\n${d.reactivateUrl ?? ""}\n\nIf you didn't ask for it, you can ignore this email — nothing changes.\n\n— BTG SponsorX`,
+  }),
+  "account.reactivated": (d) => ({
+    subject: "Your SponsorX account is back",
+    text: `Hi ${d.name ?? "there"},\n\nYour SponsorX account is active again. Sign in with this email address:\n\n${d.portalUrl ?? ""}${d.notes ? `\n\n${d.notes}` : ""}\n\n— BTG SponsorX`,
+  }),
+  "account.reactivationRequested": (d) => ({
+    subject: `Asked to come back: ${d.name ?? "a closed account"}`,
+    text: `${d.name ?? "Someone"} (${d.kind ?? "account"}), whose account BTG rejected on ${d.closedAt ?? ""}, asks you to look again:\n\n${d.note ?? "(no message)"}\n\nTheir documents are kept until ${d.retainUntil ?? ""}. To bring them back, reinstate them from their page:\n\n${d.reviewUrl ?? ""}\n\nTo say no, decline the request (they are emailed your reason):\n\n${d.requestsUrl ?? ""}\n\n— SponsorX`,
+  }),
+  "account.reactivationDeclined": (d) => ({
+    subject: "About your request to reopen your SponsorX account",
+    text: `Hi ${d.name ?? "there"},\n\nBTG looked at your account again and is not reopening it:\n\n${d.note ?? ""}\n\nIf you have something BTG hasn't seen, write to ${d.supportEmail ?? "BTG support"} or use the contact page:\n\n${d.supportUrl ?? ""}\n\n— BTG SponsorX`,
+  }),
+
+  /* 2S1-BE-14 — a sensitive profile edit, to BTG admins. */
+  "athlete.sensitiveEdit": (d) => ({
+    subject: `Sensitive profile change: ${d.athleteName ?? "an athlete"}`,
+    text: `${d.athleteName ?? "An athlete"} changed ${d.what ?? "a sensitive detail"} on their SponsorX profile. It is live now; the automatic checks ran again:\n\n${d.checks ?? ""}\n\nOpen them on New sign-ups — Reject is there if this looks wrong:\n\n${d.reviewUrl ?? ""}\n\n— SponsorX`,
+  }),
+
+  /* 2S1-BE-15 — the guardian handoff. */
+  "handoff.confirmEmail": (d) => ({
+    subject: "Confirm your email to ask to become a SponsorX guardian",
+    text: `Hi ${d.name ?? "there"},\n\nYou asked to become ${d.athleteFirstName ?? "an athlete"}'s guardian on SponsorX. Confirm this is your email, then finish your request — your ID, proof you are the guardian, and the guardian agreement:\n\n${d.confirmUrl ?? ""}\n\nIf this is about custody, or you can't reach the current guardian, don't send a request: contact BTG at ${d.supportEmail ?? "BTG support"}. A person decides.\n\n— BTG SponsorX`,
+  }),
+  "handoff.requested": (d) => ({
+    subject: `${d.requesterName ?? "Someone"} asked to become ${d.athleteFirstName ?? "your athlete"}'s guardian`,
+    text: `Hi ${d.name ?? "there"},\n\n${d.requesterName ?? "Someone"} (${d.relationship ?? "guardian"}) asked to become ${d.athleteFirstName ?? "your athlete"}'s guardian on SponsorX. Their ID and proof of guardianship are uploaded.\n\nOnly you can hand off or decline. Until you hand off, you stay the guardian and nothing changes:\n\n${d.portalUrl ?? ""}\n\nIf you don't know them, or this is about custody, decline and contact BTG at ${d.supportEmail ?? "BTG support"}.\n\n— BTG SponsorX`,
+  }),
+  "handoff.declined": (d) => ({
+    subject: `About your request to become ${d.athleteFirstName ?? "an athlete"}'s guardian`,
+    text: `Hi ${d.name ?? "there"},\n\n${d.currentFirstName ?? "The current guardian"} declined your request. Nothing changed on ${d.athleteFirstName ?? "the athlete"}'s account.\n\nIf this is about custody, a court order, or you can't reach them, contact BTG support — a person at BTG decides, never the system:\n\n${d.supportEmail ?? ""}\n${d.supportUrl ?? ""}\n\nYour documents are deleted 30 days after a declined request.\n\n— BTG SponsorX`,
+  }),
+  "handoff.switchedNew": (d) => ({
+    subject: `You are now ${d.athleteFirstName ?? "your athlete"}'s guardian on SponsorX`,
+    text: `Hi ${d.name ?? "there"},\n\n${d.currentFirstName ?? "The previous guardian"} handed off, and you are now ${d.athleteFirstName ?? "the athlete"}'s guardian. You approve their agreements and payments from now on. Sign in with this email address:\n\n${d.portalUrl ?? ""}\n\nNext: set up your own payout account for ${d.athleteFirstName ?? "their"} new deals. Orders already agreed continue as they are, and money already earned is paid as before.\n\n— BTG SponsorX`,
+  }),
+  "handoff.switchedPrevious": (d) => ({
+    subject: `You handed off ${d.athleteFirstName ?? "your athlete"}'s SponsorX account`,
+    text: `Hi ${d.name ?? "there"},\n\n${d.requesterName ?? "The new guardian"} is now ${d.athleteFirstName ?? "the athlete"}'s guardian on SponsorX. Money ${d.athleteFirstName ?? "they"} already earned is still paid to the payout account it was earned under, and orders already agreed continue.${d.otherChildren ? "\n\nYour other athletes are not affected." : ""}\n\nQuestions: ${d.supportEmail ?? ""}\n\n— BTG SponsorX`,
+  }),
+  "handoff.switchedAthlete": (d) => ({
+    subject: "Your guardian on SponsorX has changed",
+    text: `Hi ${d.name ?? "there"},\n\n${d.requesterName ?? "Your new guardian"} is now your guardian on SponsorX and approves your agreements and payments from now on. Your orders and campaigns carry on as agreed.\n\n— BTG SponsorX`,
+  }),
+  "handoff.btgNotice": (d) => ({
+    subject: `Guardian changed: ${d.athleteName ?? "an athlete"}`,
+    text: `${d.previousName ?? "The previous guardian"} handed ${d.athleteName ?? "an athlete"}'s account to ${d.requesterName ?? "a new guardian"} (${d.relationship ?? ""}), who was approved automatically: email confirmed, ID and proof of guardianship uploaded, guardian agreement accepted.\n\nReview them on New sign-ups — Reject is there if this looks wrong:\n\n${d.reviewUrl ?? ""}\n\n— SponsorX`,
+  }),
+
+  /* 2S1-BE-16 — the contact form. The support mailbox (Zoho Desk or a shared
+     inbox) receives the message with Reply-To set to the sender. */
+  "support.message": (d) => ({
+    subject: `[${d.topic ?? "Other"}] ${d.name ?? "Someone"} — SponsorX contact form`,
+    text: `From: ${d.name ?? ""} <${d.email ?? ""}>\nTopic: ${d.topic ?? ""}\nSent: ${d.sentAt ?? ""}\nReference: ${d.reference ?? ""}\nAttachments: ${d.attachments || "none"}\n\n${d.message ?? ""}\n\n— Reply to this email to answer ${d.name ?? "them"} directly.`,
+  }),
+  "support.copy": (d) => ({
+    subject: "We have your message — BTG SponsorX",
+    text: `Hi ${d.name ?? "there"},\n\nThanks — your message reached BTG and a person reads every one. We'll reply to this email address.\n\nTopic: ${d.topic ?? ""}\nReference: ${d.reference ?? ""}\n\nYour message:\n\n${d.message ?? ""}\n\n— BTG SponsorX`,
   }),
 };
 
@@ -334,6 +416,7 @@ export async function mutedFor(pool: pg.Pool, job: Pick<EmailJob, "tenantId" | "
 export async function handleSendEmail(
   pool: pg.Pool,
   job: EmailJob,
+  loadAttachment?: AttachmentLoader,
 ): Promise<"sent" | "duplicate" | "withdrawn" | "muted"> {
   const build = TEMPLATES[job.template];
   if (!build) {
@@ -384,12 +467,23 @@ export async function handleSendEmail(
     const apiKey = process.env.RESEND_API_KEY;
     if (!apiKey) throw new Error("RESEND_API_KEY is not set.");
 
+    /* 2S1-BE-16 — attachments are read from the private bucket now, not
+       stored in the queue. A read that fails throws, so the job retries. */
+    let attachments: { filename: string; content: Buffer; contentType: string }[] | undefined;
+    if (job.attachments?.length) {
+      if (!loadAttachment) throw new Error(`${job.template} carries attachments but no attachment loader was given.`);
+      attachments = [];
+      for (const a of job.attachments) attachments.push({ filename: a.filename, content: await loadAttachment(a.key), contentType: a.contentType });
+    }
+
     const resend = new Resend(apiKey);
     const result = await resend.emails.send({
       from: FROM,
       to: job.to,
       subject,
       text,
+      ...(job.replyTo ? { replyTo: job.replyTo } : {}),
+      ...(attachments ? { attachments } : {}),
       /* RFC 8058 one-click: mail clients show their own "Unsubscribe" button
          and POST to this URL, which the web app forwards to the API. */
       ...(fan
@@ -399,7 +493,9 @@ export async function handleSendEmail(
               "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
             },
           }
-        : {}),
+        : job.headers
+          ? { headers: job.headers }
+          : {}),
     });
     if (result.error) throw new Error(`Resend rejected the message: ${result.error.message}`);
   } catch (error) {

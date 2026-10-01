@@ -19,7 +19,7 @@ import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
                 confirmed and its reserve becomes payable; running the job
                 twice changes nothing.
 
-   The cast: Harbor Coffee buys from the Westfield Hawks (Riley Carter's
+   The cast: Harbor Coffee buys from the Westfield Hawks DL (Riley Carter's
    clinic, a roster athlete's item sold by the team, 20% team share) and from
    Jordan Reed (an independent athlete). The Lakeside Lions are another team.
    The worker's sweep is called with a moved clock, for this tenant only.
@@ -162,7 +162,7 @@ describe.skipIf(!hasDatabase)("sellers' orders and delivery over the API", { tim
     const rule = (kind: string, bps: number, fixedCents = 0) => ({ id: `dl_${kind}`, tenantId: T, ruleKey: `dl_${kind}`, version: 1, kind, scope: "GLOBAL", bps, fixedCents, priority: 0, effectiveFrom: new Date("2026-01-01") });
     await prisma.commissionRule.createMany({ data: [rule("PLATFORM_FEE", 1500), rule("MANAGEMENT_FEE", 500), rule("PROCESSING", 290, 30), rule("REFERRAL", 200), rule("RESERVE", 1000)] });
 
-    const hawks = await approveTeam("dl_onb_hawks", "Westfield Hawks", "dl_mgr");
+    const hawks = await approveTeam("dl_onb_hawks", "Westfield Hawks DL", "dl_mgr");
     const lions = await approveTeam("dl_onb_lions", "Lakeside Lions", "dl_mgr2");
     Object.assign(E, { hawksTenant: hawks.tenantId, hawks: hawks.id, lionsTenant: lions.tenantId, lions: lions.id });
     server = createApp().listen(0);
@@ -208,7 +208,7 @@ describe.skipIf(!hasDatabase)("sellers' orders and delivery over the API", { tim
       expect(team.json.sales[0]).toMatchObject({
         ref: `SX-${E.order1.slice(-8).toUpperCase()}`, state: "UNPAID", shareCents: teamShare,
         sponsor: { name: "Harbor Coffee", contact: null },
-        line: { title: "Youth basketball clinic with Riley Carter", quantity: 2, unit: "session", unitPriceCents: 50_000, soldBy: "Westfield Hawks" },
+        line: { title: "Youth basketball clinic with Riley Carter", quantity: 2, unit: "session", unitPriceCents: 50_000, soldBy: "Westfield Hawks DL" },
       });
       expect(riley.json.sales[0].shareCents).toBe(rileyShare);
       /* Never the other party's share, never BTG's commission, never the order's other line. */
@@ -352,7 +352,7 @@ describe.skipIf(!hasDatabase)("sellers' orders and delivery over the API", { tim
       expect(desk.status, desk.text).toBe(200);
       const p = desk.json.problems.find((x: { id: string }) => x.id === E.hawksLine1);
       expect(p).toMatchObject({
-        state: "PROBLEM", seller: { name: "Riley Carter", sub: "Westfield Hawks" }, sponsor: { name: "Harbor Coffee" },
+        state: "PROBLEM", seller: { name: "Riley Carter", sub: "Westfield Hawks DL" }, sponsor: { name: "Harbor Coffee" },
         sponsorMessage: { text: "We only saw one clinic." }, sellerNote: { text: "Both clinics held, 18 kids each.", proofCount: 0 },
         hold: { sellerShareCents: await partyShare(E.hawksLine1, "ATHLETE"), teamShareCents: await partyShare(E.hawksLine1, "PROPERTY"), sponsorPaidCents: 100_000 },
       });

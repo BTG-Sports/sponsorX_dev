@@ -190,15 +190,17 @@ assessment of them (§14); self-scoring would make it worthless.
 |---|---|---|---|
 | `SUPER_ADMIN` | any | any | any |
 | `BTG_ADMIN` · `NETWORK_MGR` | own-tenant | own-tenant | own-tenant |
-| `ATHLETE` | own | own (propose) | — |
-| `GUARDIAN` | ward | ward (propose) | — |
+| `ATHLETE` | own | own (edit) | — |
+| `GUARDIAN` | ward | ward (edit) | — |
 | all others | — | — | — |
 
-Added 2026-09-29 (`P3-BE-16`). After approval an athlete cannot write their
-own `athlete` row's public sections directly — the public profile, matching
-and the §26 conflict check read that row, so a proposed edit is held here
-until a reviewer approves it, which copies the fields across. Socials are the
-exception and stay a direct write (self-reported, labelled as such).
+Added 2026-09-29 (`P3-BE-16`). **Changed 2026-10-01 (`2S1-BE-14`), cells
+unchanged:** edits are no longer held for BTG. Write is now *making* the edit,
+which publishes at once and is recorded here as the athlete's history. A
+legal-name change waits only for its matching ID upload. Approve no longer
+means approving an edit. It is BTG's read of the sensitive edits (legal name,
+date of birth, guardian) and of the ID a legal-name change was matched
+against, through a five-minute audited link. Socials stay a direct write.
 
 ### `guardian`
 | Role | Read | Write | Approve |
@@ -551,6 +553,38 @@ a match never rejects anything by itself. BTG admins add and remove words;
 removing one deactivates it, so its history stays. Every change is audited.
 The check itself runs inside the features that use it, with no actor, because
 the text usually comes from the public before anyone has signed in.
+
+### `accountClosure` *(added 2026-10-01, 2S1-BE-13 — §23)*
+| Role | Read | Write | Approve |
+|---|---|---|---|
+| `SUPER_ADMIN` | any | any | any |
+| `BTG_ADMIN` | own-tenant | own-tenant | own-tenant (decline a request to come back) |
+| all others | — | — | — |
+
+A closed account, its 30-day retention, and a rejected account's request to
+come back. **Closing your own account is not authorised here.** It goes
+through the account's own resource at write (`athlete` own, `guardian` own,
+`property` own), and the row closed is always the one on the actor. Coming
+back is a signed link mailed to the account's address, because a closed
+login is refused at sign-in. A self-closed account reactivates itself with
+it. A rejected one can only ask. BTG answers no here, and yes by reinstating
+the account on its own page. Every step is audited.
+
+### `guardianHandoff` *(added 2026-10-01, 2S1-BE-15 — §23)*
+| Role | Read | Write | Approve |
+|---|---|---|---|
+| `SUPER_ADMIN` | any | any | — |
+| `BTG_ADMIN` | own-tenant | — | — |
+| `GUARDIAN` | ward (requests made of them) | ward (Hand off / Decline) | — |
+| `ATHLETE` | own (requests about them) | — | — |
+| all others | — | — | — |
+
+A request to become a minor's guardian. **It is created only by the new
+guardian on the public request page**, with no actor, so no signed-in role can
+start one. The current guardian answers it, and only while the athlete is
+still theirs. The athlete can read it but never answer it. BTG reads it and
+does not decide it: a disputed handoff goes to BTG support and is settled by
+hand.
 
 ### `invoice` *(added 2026-09-24)*
 | Role | Read | Write | Approve |

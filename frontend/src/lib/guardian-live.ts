@@ -3,13 +3,10 @@
    2S1-FE-10 (Claude Design GuardianSetup.dc.html, GuardianHandoff.dc.html,
    Contact.dc.html).
 
-   SCAFFOLD. None of the three backends exists yet:
-     2S1-BE-10  the guardian's own page, their ID, proof and agreement
-     2S1-BE-15  changing a minor's guardian (the handoff)
-     2S1-BE-16  the contact form and the support mailbox (2S1-OPS-01)
-   so every screen renders the sample below, typed like the future API, and
-   nothing here writes. When a backend lands, its GET replaces the fixture
-   and these shapes are what the page expects back.
+   2S1-BE-15 (the handoff) and 2S1-BE-16 (the contact form) are LIVE: the
+   shapes below are what their routes answer, and the samples remain only
+   for the ?demo= previews. 2S1-BE-10 (the guardian's own page) is still a
+   SCAFFOLD on the sample set-up below.
 
    Pure: shapes, fixtures, and every word the screens derive rather than read.
    -------------------------------------------------------------------------- */
@@ -32,7 +29,9 @@ export function idFileProblem(file: { type: string; size: number }): string | nu
   return null;
 }
 
-/** The support mailbox is not chosen yet (2S1-OPS-01) — never shown as live. */
+/** The default support address, shown as not live, when GET /public/support
+ *  can't be reached (server/support.ts). The real one is SUPPORT_EMAIL on the
+ *  API, live once 2S1-OPS-01 sets SUPPORT_MAILBOX_READY. */
 export const SUPPORT_EMAIL = { address: "support@sponsorx.net", live: false } as const;
 
 export const RELATIONSHIPS = ["Mother", "Father", "Legal guardian", "Other"] as const;
@@ -125,17 +124,30 @@ export function setupDemo(raw: string | string[] | undefined): "done" | "approve
 
 /* -------------------------------------------- guardian handoff (2S1-BE-15) */
 
-export type HandoffState = "WAITING" | "HANDED_OFF" | "SWITCHED" | "DECLINED";
+/** REQUESTED: the new guardian is still filling it in. WAITING: with the
+ *  current guardian. HANDED_OFF: only if a check ever runs after the answer
+ *  (today the switch happens at once). CANCELLED: the guardian changed
+ *  another way first. */
+export type HandoffState = "REQUESTED" | "WAITING" | "HANDED_OFF" | "SWITCHED" | "DECLINED" | "CANCELLED";
 
-/** The future GET of one handoff request — the current guardian's card, the
- *  new guardian's request page and the athlete's notice all read this. */
+/** One handoff request (2S1-BE-15) — GET /guardian-handoffs[/:id] for the
+ *  current guardian and the athlete, GET /public/guardian-handoffs/:token for
+ *  the new guardian (first names only there). */
 export type ApiHandoffRequest = {
   id: string;
   state: HandoffState;
   athlete: { name: string; firstName: string; sport: string };
   current: { name: string; firstName: string };
-  requester: { name: string; firstName: string; relationship: (typeof RELATIONSHIPS)[number] };
+  /** "Parent", "Legal guardian", "Authorized representative". */
+  requester: { name: string; firstName: string; relationship: string };
   documentsUploaded: boolean;
+  emailConfirmed?: boolean;
+  idUploaded?: boolean;
+  proofUploaded?: boolean;
+  agreementAccepted?: boolean;
+  /** While REQUESTED: what the new guardian still has to do. */
+  missing?: string[];
+  supportEmail?: string;
   requestedAt: string;
   decidedAt: string | null;
   documentsCheckedAt: string | null;
@@ -174,6 +186,13 @@ export function handoffTrack(r: ApiHandoffRequest): TrackStep[] {
   const cur = r.current.firstName;
   const req = r.requester.firstName;
   const declined = r.state === "DECLINED";
+  if (r.state === "CANCELLED") {
+    return [
+      { label: `${cur} is no longer the guardian`, status: "stopped", note: r.decidedAt ? whenLabel(r.decidedAt) : "Closed" },
+      { label: `${req}’s documents checked`, status: "todo", note: "Not needed" },
+      { label: `${req} becomes ${r.athlete.firstName}’s guardian`, status: "todo", note: "Not happening" },
+    ];
+  }
   const decided = r.decidedAt && !declined;
   return [
     declined
@@ -199,6 +218,16 @@ export function handoffViews(r: ApiHandoffRequest): PersonView[] {
   const req = r.requester.firstName;
   const cur = r.current.firstName;
   const words: Record<HandoffState, [string, string][]> = {
+    REQUESTED: [
+      ["Your request isn’t sent yet.", `Confirm your email, upload both documents and accept the agreement. ${cur} is asked only then.`],
+      [`${r.requester.name} is preparing a request.`, "Nothing reaches you until they send it."],
+      [`${r.requester.name} is preparing a request.`, `${cur} is still your guardian.`],
+    ],
+    CANCELLED: [
+      ["This request was closed.", `${a}’s guardian changed another way first. If that’s wrong, contact BTG.`],
+      ["This request was closed.", `You were no longer ${a}’s guardian when it reached you.`],
+      ["This request was closed.", "Nothing changed because of it."],
+    ],
     WAITING: [
       [`${cur} has your request.`, `${cur} stays ${a}’s guardian until they hand off and your documents are checked.`],
       [`${r.requester.name} asked to become ${a}’s guardian.`, "Only you can hand off or decline. Nothing changes until you do."],
@@ -231,6 +260,18 @@ export function handoffCarryOver(r: ApiHandoffRequest): string[] {
     `Money ${r.athlete.firstName} already earned is paid as before, to your payout account.`,
     `${r.requester.firstName} sets up their own payout account for anything new.`,
   ];
+}
+
+/** The request page's relationship words → the API's three (2S1-BE-15). */
+export function relationshipCode(label: string): "PARENT" | "LEGAL_GUARDIAN" | "AUTHORIZED_REP" {
+  if (label === "Legal guardian") return "LEGAL_GUARDIAN";
+  if (label === "Mother" || label === "Father") return "PARENT";
+  return "AUTHORIZED_REP";
+}
+
+/** What the new guardian can still send, in the order the page asks for it. */
+export function handoffReady(r: Pick<ApiHandoffRequest, "emailConfirmed" | "idUploaded" | "proofUploaded">, agreed: boolean): boolean {
+  return Boolean(r.emailConfirmed && r.idUploaded && r.proofUploaded && agreed);
 }
 
 /** ?demo=status|declined on the new guardian's page. */

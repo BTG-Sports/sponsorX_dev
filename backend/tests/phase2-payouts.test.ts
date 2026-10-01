@@ -102,9 +102,9 @@ describe.skipIf(!hasDatabase)("card payment and payouts over the API", { timeout
     const rule = (kind: string, bps: number, fixedCents = 0) => ({ id: `po_${kind}`, tenantId: T, ruleKey: `po_${kind}`, version: 1, kind, scope: "GLOBAL", bps, fixedCents, priority: 0, effectiveFrom: new Date("2026-01-01") });
     await prisma.commissionRule.createMany({ data: [rule("PLATFORM_FEE", 1500), rule("MANAGEMENT_FEE", 500), rule("PROCESSING", 290, 30), rule("REFERRAL", 200), rule("RESERVE", 1000)] });
     await prisma.propertyOnboarding.create({ data: {
-      id: "po_onb", tenantId: T, orgType: "TEAM", orgName: "Westfield Hawks", stateCode: "MD", state: "PENDING_REVIEW",
+      id: "po_onb", tenantId: T, orgType: "TEAM", orgName: "Westfield Hawks PO", stateCode: "MD", state: "PENDING_REVIEW",
       contacts: [{ name: "Dana Brooks", email: "po_mgr@po-test.invalid", phone: "301-555-0100", role: "General manager", primary: true }],
-      details: { legalEntityName: "Westfield Hawks LLC", league: "MD Amateur", sport: "Basketball" },
+      details: { legalEntityName: "Westfield Hawks PO LLC", league: "MD Amateur", sport: "Basketball" },
       payoutAcknowledgedAt: new Date(), termsAcceptedAt: new Date(), submittedAt: new Date(),
     } });
     const approved = await decideOnboarding({ userId: "po_admin", tenantId: T, roles: ["BTG_ADMIN"], sponsorId: null, athleteId: null, guardianId: null, propertyId: null }, "po_onb", "APPROVE");

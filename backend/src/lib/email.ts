@@ -98,7 +98,32 @@ export type EmailTemplate =
      hears the answer; either side ending the link tells the other. */
   | "team.invited"
   | "team.invitationAnswered"
-  | "team.linkEnded";
+  | "team.linkEnded"
+  /* 2S1-BE-13 — closing an account and coming back: the owner is told it
+     closed (with the reactivation link), sent a fresh link on request, and
+     told when it is back; a rejected account's request reaches BTG admins,
+     and BTG's "no" reaches the person. */
+  | "account.closed"
+  | "account.reactivationLink"
+  | "account.reactivated"
+  | "account.reactivationRequested"
+  | "account.reactivationDeclined"
+  /* 2S1-BE-14 — BTG admins are told about sensitive profile edits only. */
+  | "athlete.sensitiveEdit"
+  /* 2S1-BE-15 — the guardian handoff: the new guardian confirms their email;
+     the current guardian is asked; a decline points to BTG support; the
+     switch is told to all three and to BTG admins. */
+  | "handoff.confirmEmail"
+  | "handoff.requested"
+  | "handoff.declined"
+  | "handoff.switchedNew"
+  | "handoff.switchedPrevious"
+  | "handoff.switchedAthlete"
+  | "handoff.btgNotice"
+  /* 2S1-BE-16 — a contact-form message to the support mailbox, and the
+     sender's copy. */
+  | "support.message"
+  | "support.copy";
 
 export type EmailMessage = {
   template: EmailTemplate;
@@ -115,6 +140,14 @@ export type EmailMessage = {
    * this field exists to prevent.
    */
   idempotencyKey: string;
+  /** 2S1-BE-16 — where a reply goes (a support message replies to its sender). */
+  replyTo?: string;
+  /** 2S1-BE-16 — threading headers (Message-ID, In-Reply-To, References), so a
+   *  reply from the support desk continues the sender's thread. */
+  headers?: Record<string, string>;
+  /** 2S1-BE-16 — private-bucket objects the worker attaches. Keys only: the
+   *  bytes are read by the worker at send time, never stored in the outbox. */
+  attachments?: { filename: string; key: string; contentType: string }[];
 };
 
 /**
@@ -144,6 +177,9 @@ export async function send(
     to: message.to,
     data: message.data,
     idempotencyKey: message.idempotencyKey,
+    ...(message.replyTo ? { replyTo: message.replyTo } : {}),
+    ...(message.headers ? { headers: message.headers } : {}),
+    ...(message.attachments?.length ? { attachments: message.attachments } : {}),
   });
 }
 

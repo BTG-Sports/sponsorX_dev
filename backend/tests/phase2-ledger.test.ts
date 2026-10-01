@@ -166,8 +166,8 @@ describe.skipIf(!hasDatabase)("the money side over the API", { timeout: 60_000 }
       { id: "lg_s1_admin", tenantId: T, clerkId: "lg_s1_admin", email: "lg_s1_admin@lg-test.invalid", roles: ["SPONSOR_ADMIN"], sponsorId: "lg_s1" },
       { id: "lg_r_admin", tenantId: R, clerkId: "lg_r_admin", email: "lg_r_admin@lg-test.invalid", roles: ["BTG_ADMIN"] },
     ] });
-    Object.assign(E, await approveTeam("e", "Bowie Bulldogs").then((p) => ({ tenant: p.tenantId, property: p.id })));
-    Object.assign(F, await approveTeam("f", "Laurel Lions").then((p) => ({ tenant: p.tenantId, property: p.id })));
+    Object.assign(E, await approveTeam("e", "Bowie Bulldogs LG").then((p) => ({ tenant: p.tenantId, property: p.id })));
+    Object.assign(F, await approveTeam("f", "Laurel Lions LG").then((p) => ({ tenant: p.tenantId, property: p.id })));
     server = createApp().listen(0);
     base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
     E.riley = (await call("POST", "/team/roster", "lg_mgr_e", { legalName: "Riley Chen", displayName: "RILEY", email: "lg_riley@lg-test.invalid", sport: "Basketball", ageBand: "18_PLUS", teamShareBps: 2000 })).json.id;

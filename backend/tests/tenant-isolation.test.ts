@@ -85,6 +85,8 @@ const A = {
   /* 2S4-BE-06 / -07 — a sold line of that order, marked delivered and waiting
      for the sponsor; 2S2-BE-05 — tenant A's school inviting tenant A's athlete. */
   mktLine: "ti_mkt_line_a", delivery: "ti_delivery_a", teamInvite: "ti_team_invite_a",
+  /* 2S1-BE-13 — a rejected tenant-A account asking to come back; 2S1-BE-15 — a request to become its guardian, waiting. */
+  closure: "ti_closure_a", handoff: "ti_handoff_a",
 } as const;
 const B = {
   tenant: "ti_tenant_b", sponsor: "ti_sponsor_b", athlete: "ti_athlete_b",
@@ -145,6 +147,8 @@ const PARAM_FOR: Record<string, string> = {
   /* P3-BE-16 — no tenant-A change is seeded: an unknown id must answer
      exactly as another tenant's would, so a made-up one is the right probe. */
   "profile-changes": "pc_not_yours",
+  /* 2S1-BE-13 / 2S1-BE-15. */
+  "account-closures": A.closure, "guardian-handoffs": A.handoff,
 };
 
 /**
@@ -193,7 +197,9 @@ const BODY: Record<string, unknown> = {
   "POST /athletes/{id}/guardian": { legalName: "X", email: "x@x.invalid", relationship: "PARENT" },
   "PUT /athletes/{id}/socials": { socials: [{ platform: "INSTAGRAM", handle: "stolen" }] },
   "POST /athletes/{id}/profile-changes": { identity: { displayName: "Stolen Name" } },
-  "POST /profile-changes/{id}/decline": { reviewerNotes: "No." },
+  /* 2S1-BE-13 / 2S1-BE-15. POST /me/close is the actor's own account, so an empty body (refused: confirm is required) keeps the sweep from closing tenant B's logins. */
+  "POST /account-closures/{id}/reactivation-decision": { decision: "DECLINE", note: "cross-tenant" },
+  "POST /guardian-handoffs/{id}/decision": { decision: "HAND_OFF" },
   "POST /guardians/{id}/verify": { method: "DOCUMENT" },
   "POST /agreements/accept": { agreementId: A.agreement, bodyHashShown: "x".repeat(64) },
   "POST /campaigns/{id}/rewards": { offerText: "Free taco", terms: "One per fan", expiresAt: "2026-12-01T00:00:00.000Z" },
@@ -426,6 +432,16 @@ describe.skipIf(!hasDatabase)("P8-SEC-02 · tenant B cannot reach tenant A throu
     await prisma.inquiryDocument.create({ data: {
       id: A.inquiryDocument, tenantId: t, inquiryId: A.inquiry, kind: "PROOF_OF_BUSINESS", filename: "ti-secret-license.pdf",
       contentType: "application/pdf", bytes: 100, r2Key: "sponsor-requests/ti_inquiry_a/ti_inquiry_doc_a/ti-secret-license.pdf", uploadedAt: new Date(),
+    } });
+    /* 2S1-BE-13 / 2S1-BE-15 — far-future retention: the purge sweep is platform-wide. */
+    await prisma.accountClosure.create({ data: {
+      id: A.closure, tenantId: t, subjectKind: "ATHLETE", subjectId: A.athlete, cause: "REJECTED", reason: "TI Secret reason",
+      retainUntil: new Date(Date.now() + 3650 * 864e5), contactEmail: "ath@a.invalid", displayName: "TI Secret Closed",
+      reactivationRequestedAt: new Date(), reactivationRequestNote: "TI Secret request",
+    } });
+    await prisma.guardianHandoff.create({ data: {
+      id: A.handoff, tenantId: t, athleteId: A.athlete, fromGuardianId: A.guardian, requesterName: "TI Secret New Guardian",
+      requesterEmail: "ti-secret-newg@a.invalid", relationship: "PARENT", state: "WAITING", emailConfirmedAt: new Date(), submittedAt: new Date(),
     } });
     await prisma.restrictedWord.create({ data: { id: A.restrictedWord, tenantId: t, word: "TI Secret word", normalized: "ti secret word", kind: "OTHER_ILLEGAL", addedBy: A.admin } });
     await prisma.athleteClaim.create({ data: { id: A.claim, tenantId: t, athleteId: A.athlete, claimantName: "TI Secret Claimant", claimantEmail: "secret@a.invalid", rosterMatched: true } });

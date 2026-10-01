@@ -1,25 +1,33 @@
 /**
- * Post-approval profile edits — P3-BE-16, §11, §24, §26.
+ * Profile edits — P3-BE-16, replaced by 2S1-BE-14 (2026-10-01).
  *
- * Until this landed, only socials could be written after approval, and the
- * live editor told an athlete to "ask your BTG contact" for everything else.
- * The acceptance is that an athlete can submit a change to each editable
- * section and that public-facing changes reach the public profile only after
- * BTG approves — so the edit is a RECORD, not a write. The Athlete row is
- * what /public/athletes/:slug, matching and the conflict check read, and it
- * moves once, inside the approval's transaction, with the audit rows.
+ * P3-BE-16 held every post-approval edit for BTG's review. With BTG down to
+ * one reviewer that review is gone (2S1-BE-14):
  *
- * WHY EVERY SECTION IS REVIEWED, NOT ONLY THE PUBLIC ONES. Restrictions are
- * private, but they are the input to §26's conflict check — a restriction
- * silently removed is the failure that column exists to prevent, and one
- * silently added can strand a running campaign. Capabilities and interests
- * feed matching. Reviewing five sections the same way is one rule instead of
- * three, and "BTG saw it" is the promise the product makes (§10).
+ *   ORDINARY EDITS publish at once — display name, region, sport, position,
+ *   school, level, achievements, capabilities, interests, restrictions. The
+ *   Athlete row (what the public profile, matching and the §26 conflict check
+ *   read) moves in the same transaction as the audit row. No BTG step, no
+ *   email.
  *
- * ONE OPEN REQUEST PER ATHLETE. A new submission while one is pending
- * withdraws the old one and records that; the reviewer always sees the
- * athlete's latest intention, never two that contradict each other.
+ *   SENSITIVE EDITS publish too, but re-run the sign-up checks, and BTG
+ *   admins are emailed a link to the athlete on New sign-ups, where Reject
+ *   is:
+ *     · a new LEGAL NAME needs a matching ID upload (private bucket) before
+ *       it takes effect — the change waits (PENDING) until the file arrives;
+ *     · a new DATE OF BIRTH works out adulthood again: now a minor → the
+ *       guardian process starts (no new agreements or payments until a
+ *       guardian is confirmed — guardianReadiness); now an adult → the
+ *       coming-of-age allowance starts (2S1-BE-12);
+ *     · a new GUARDIAN goes through the guardian's page and documents
+ *       (2S1-BE-10). Replacing a guardian who already exists is the
+ *       handoff's job (2S1-BE-15), which only the new guardian can start.
+ *
+ *   EVERY EDIT is audited and kept as an AthleteProfileChange row — the
+ *   athlete's own history, and BTG's list of sensitive edits.
  */
+
+import { randomBytes } from "node:crypto";
 
 import type { Prisma } from "../generated/prisma/client";
 import type { Actor } from "../auth/actor";
@@ -27,12 +35,18 @@ import { assertAllowed, whereFor } from "../auth/scope";
 import { ForbiddenError } from "../auth/errors";
 import { prisma } from "../db/client";
 import { audit } from "../db/audit";
-import { athleteNotificationKey, send } from "../lib/email";
+import { send } from "../lib/email";
 import { env } from "../config/env";
 import { readPage, type PageRequest } from "../lib/paging";
+import { presignPrivateDownload, presignPrivateUpload, privateObjectSize, SENSITIVE_DOCUMENT_TTL_SECONDS } from "../lib/storage";
 import type { ProfileChangeInput } from "../contracts/profile-change";
+import { provisionGuardianLoginIn } from "./athlete-login";
+import { requiresGuardian } from "./guardian-rules";
+import { safeFilename } from "./onboarding-documents";
 
-/** The Athlete columns a change may carry, by §11 section. */
+type Tx = Prisma.TransactionClient;
+
+/** The Athlete columns an ordinary edit may carry, by §11 section. */
 export const SECTION_FIELDS = {
   identity: ["displayName", "city", "stateCode"],
   sport: ["sport", "position", "school", "level", "gradYear", "achievements"],
@@ -44,13 +58,14 @@ export type ChangeSection = keyof typeof SECTION_FIELDS;
 export type ChangeField = (typeof SECTION_FIELDS)[ChangeSection][number];
 const ALL_FIELDS = Object.values(SECTION_FIELDS).flat() as readonly ChangeField[];
 
-/** States in which the profile is BTG-approved and an edit is a change
- *  request. Before that, the application itself is what the athlete edits. */
+/** States in which the profile is approved and an edit is a change. Before
+ *  that, the application itself is what the athlete edits. */
 export const POST_APPROVAL_STATES = ["APPROVED", "ACTIVE", "SUSPENDED"] as const;
 
-export type ProfileChangeDecision = "APPROVED" | "DECLINED";
+/** 2S1-BE-14 — a new legal name needs its matching ID, at most 10 MB. */
+export const MAX_ID_BYTES = 10 * 1024 * 1024;
 
-/** 409: the athlete's record is not one a change request applies to. */
+/** 409: the athlete's record is not one an edit applies to. */
 export class ProfileNotEditableError extends Error {
   readonly status = 409;
   readonly code = "profile_not_editable";
@@ -58,7 +73,7 @@ export class ProfileNotEditableError extends Error {
     super(
       state === "FEATURED"
         ? "A featured profile is editorial — claim it first."
-        : "Profile changes are for approved athletes. Until then, edit your application.",
+        : "Profile edits are for approved athletes. Until then, edit your application.",
     );
     this.name = "ProfileNotEditableError";
   }
@@ -74,23 +89,25 @@ export class NothingToChangeError extends Error {
   }
 }
 
-/** 409: the request has already been decided or withdrawn. */
+/** 409: the change is not waiting for anything. */
 export class ChangeNotPendingError extends Error {
   readonly status = 409;
   readonly code = "change_not_pending";
   constructor(readonly state: string) {
-    super(`This change is already ${state.toLowerCase()}.`);
+    super(`This change is already ${state === "APPROVED" ? "live" : state.toLowerCase()}.`);
     this.name = "ChangeNotPendingError";
   }
 }
 
-/** 422: a decline carries nothing to tell the athlete. */
-export class DeclineNotesRequiredError extends Error {
-  readonly status = 422;
-  readonly code = "notes_required";
-  constructor() {
-    super("Declining needs reviewer notes: the athlete is sent them verbatim, and they are the record of why.");
-    this.name = "DeclineNotesRequiredError";
+/** 422 / 409: a sensitive edit that cannot go through as sent. */
+export class SensitiveEditError extends Error {
+  readonly status: number;
+  readonly code: string;
+  constructor(message: string, code: string, status = 422) {
+    super(message);
+    this.name = "SensitiveEditError";
+    this.code = code;
+    this.status = status;
   }
 }
 
@@ -99,9 +116,12 @@ type Fields = Partial<Record<ChangeField, unknown>>;
 const CHANGE_SELECT = {
   id: true, athleteId: true, sections: true, fields: true, note: true, state: true,
   reviewerNotes: true, reviewedAt: true, createdAt: true,
+  sensitive: true, appliedAt: true, checkNotes: true, idDocumentFilename: true, idDocumentUploadedAt: true,
 } as const;
 
 const ATHLETE_FIELDS_SELECT = Object.fromEntries(ALL_FIELDS.map((f) => [f, true])) as Record<ChangeField, true>;
+const appUrl = () => env.APP_URL.replace(/\/+$/, "");
+const firstWord = (s: string) => s.trim().split(/\s+/)[0] ?? s;
 
 /** Flatten the sectioned input into { column: value } — only keys present. */
 export function flattenInput(input: ProfileChangeInput): { fields: Fields; sections: ChangeSection[] } {
@@ -142,63 +162,255 @@ export function diffAgainst(fields: Fields, current: Record<string, unknown>): {
   return { fields: kept, sections };
 }
 
+/** "2009-04-12" ⇄ the stored date (midnight UTC). */
+const isoDay = (d: Date | null | undefined) => (d ? d.toISOString().slice(0, 10) : null);
+
 /**
- * POST /athletes/:id/profile-changes — propose a change.
+ * What a new date of birth means, in words the athlete and BTG read. Pure.
+ * 18 is today's rule (guardian-rules.ts); 2S1-BE-12's table by state or
+ * country replaces it inside `requiresGuardian`, and this follows.
+ */
+export function adulthoodNotes(before: { birthDate: Date | null; ageBand: string | null }, after: { birthDate: Date | null; ageBand: string | null }, hasGuardian: boolean): string[] {
+  const was = requiresGuardian(before);
+  const now = requiresGuardian(after);
+  if (!was && now) {
+    return [hasGuardian
+      ? "Now under the age of majority: your guardian approves new agreements and payments."
+      : "Now under the age of majority: a guardian is needed before any new agreement or payment. Name your guardian."];
+  }
+  if (was && !now) return ["Now an adult: the coming-of-age allowance starts. Upload a government ID within 90 days to take over your account."];
+  return ["Adulthood is unchanged."];
+}
+
+/** BTG admins, told about a sensitive edit — with the link to the athlete on New sign-ups, where Reject is. */
+async function tellBtg(tx: Tx, tenantId: string, a: { id: string; displayName: string; legalName: string }, changeId: string, what: string, checks: string[]) {
+  const admins = await tx.user.findMany({
+    where: { tenantId, disabledAt: null, roles: { has: "BTG_ADMIN" } }, select: { id: true, email: true },
+  });
+  for (const u of admins) {
+    await send(tx, tenantId, {
+      template: "athlete.sensitiveEdit", to: u.email, idempotencyKey: `athlete.sensitiveEdit:${changeId}:${u.id}`,
+      data: {
+        athleteName: a.displayName || a.legalName, what, checks: checks.map((c) => `• ${c}`).join("\n"),
+        reviewUrl: `${appUrl()}/admin/new-signups?athlete=${a.id}`,
+      },
+    });
+  }
+}
+
+/**
+ * POST /athletes/:id/profile-changes — make an edit.
  *
  * Scoped through `athlete.write`: an ATHLETE reaches only their own row, a
  * GUARDIAN their ward's, so the id in the path cannot be someone else's.
  * Not found and not-yours answer the same 403, as everywhere.
+ *
+ * Returns the change records it made: one APPROVED (applied now) for the
+ * ordinary and immediate sensitive fields, and one PENDING for a legal name
+ * with the presigned upload for its matching ID.
  */
 export async function submitProfileChange(actor: Actor, athleteId: string, input: ProfileChangeInput) {
   assertAllowed(actor, "athleteProfileChange", "write");
   const proposed = flattenInput(input);
 
-  return prisma.$transaction(async (tx) => {
+  const out = await prisma.$transaction(async (tx) => {
     const athlete = await tx.athlete.findFirst({
       where: { ...whereFor(actor, "athlete", "write"), id: athleteId },
-      select: { id: true, state: true, ...ATHLETE_FIELDS_SELECT },
+      select: {
+        id: true, tenantId: true, state: true, legalName: true, birthDate: true, ageBand: true, guardianId: true, ...ATHLETE_FIELDS_SELECT,
+      },
     });
     if (!athlete) throw new ForbiddenError("athleteProfileChange", "write");
     if (!(POST_APPROVAL_STATES as readonly string[]).includes(athlete.state)) throw new ProfileNotEditableError(athlete.state);
 
-    const { fields, sections } = diffAgainst(proposed.fields, athlete);
-    if (sections.length === 0) throw new NothingToChangeError();
-
-    /* One open request: the newer one replaces the older, on the record. */
-    const open = await tx.athleteProfileChange.findMany({
-      where: { ...whereFor(actor, "athleteProfileChange", "write"), athleteId, state: "PENDING" },
-      select: { id: true },
-    });
-    if (open.length > 0) {
-      await tx.athleteProfileChange.updateMany({
-        where: { id: { in: open.map((o) => o.id) } },
-        data: { state: "WITHDRAWN", reviewedAt: new Date() },
-      });
-      for (const o of open) {
-        await audit(tx, actor, "athlete.profileChangeWithdraw", "AthleteProfileChange", o.id, {
-          after: { reason: "superseded" },
-        });
-      }
+    const ordinary = diffAgainst(proposed.fields, athlete);
+    const newLegal = input.identity?.legalName?.trim();
+    const legalChanges = Boolean(newLegal && newLegal !== athlete.legalName);
+    const newBirth = input.identity?.birthDate ?? null;
+    const birthChanges = Boolean(newBirth && newBirth !== isoDay(athlete.birthDate));
+    const guardianIn = input.guardian;
+    if (!ordinary.sections.length && !legalChanges && !birthChanges && !guardianIn) throw new NothingToChangeError();
+    if (legalChanges && !input.idDocument) {
+      throw new SensitiveEditError("Changing your legal name needs a matching ID. Add the ID upload and send again.", "id_required");
     }
 
-    const change = await tx.athleteProfileChange.create({
-      data: {
-        tenantId: actor.tenantId,
-        athleteId,
-        sections,
-        fields: fields as Prisma.InputJsonObject,
-        note: input.note?.trim() || null,
-      },
-      select: CHANGE_SELECT,
+    const note = input.note?.trim() || null;
+    const now = new Date();
+    const applied: Record<string, unknown> = { ...ordinary.fields };
+    const sections = new Set<string>(ordinary.sections);
+    const checkNotes: string[] = [];
+    const sensitiveWhat: string[] = [];
+
+    /* ── the date of birth: applied now, adulthood worked out again ── */
+    const birthDate = birthChanges ? new Date(`${newBirth}T00:00:00.000Z`) : athlete.birthDate;
+    if (birthChanges) {
+      applied.birthDate = birthDate;
+      sections.add("identity");
+      sensitiveWhat.push("their date of birth");
+      checkNotes.push(...adulthoodNotes(athlete, { birthDate, ageBand: athlete.ageBand }, Boolean(athlete.guardianId)));
+    }
+
+    /* ── a guardian: only a minor, and only one with none yet ── */
+    let guardianId: string | null = null;
+    if (guardianIn) {
+      if (!requiresGuardian({ birthDate, ageBand: athlete.ageBand })) {
+        throw new SensitiveEditError("Only an athlete under the age of majority has a guardian.", "guardian_not_required");
+      }
+      if (athlete.guardianId) {
+        throw new SensitiveEditError(
+          `You already have a guardian. A new guardian asks to take over on the guardian handoff page (${appUrl()}/guardian/handoff), and your current guardian hands off.`,
+          "handoff_required", 409,
+        );
+      }
+      const g = await tx.guardian.create({
+        data: {
+          tenantId: athlete.tenantId, legalName: guardianIn.legalName.trim(), email: guardianIn.email.toLowerCase(),
+          phone: guardianIn.phone?.trim() || null, relationship: guardianIn.relationship,
+          /* Never verified here: the guardian completes their own page (2S1-BE-10). */
+        },
+        select: { id: true },
+      });
+      guardianId = g.id;
+      applied.guardianId = g.id;
+      sections.add("guardian");
+      sensitiveWhat.push("their guardian");
+      checkNotes.push("Your guardian is emailed to complete their page: their ID, proof of guardianship and the guardian agreement. New agreements and payments wait until then.");
+    }
+
+    let appliedChange: { id: string } | null = null;
+    if (Object.keys(applied).length) {
+      const before: Record<string, unknown> = {};
+      for (const k of Object.keys(applied)) {
+        before[k] = k === "birthDate" ? isoDay(athlete.birthDate) : (athlete as Record<string, unknown>)[k] ?? null;
+      }
+      await tx.athlete.update({ where: { id: athlete.id }, data: applied as Prisma.AthleteUpdateInput, select: { id: true } });
+      const recorded = { ...applied, ...(applied.birthDate ? { birthDate: newBirth } : {}) };
+      appliedChange = await tx.athleteProfileChange.create({
+        data: {
+          tenantId: athlete.tenantId, athleteId: athlete.id, sections: [...sections], fields: recorded as Prisma.InputJsonObject, note,
+          state: "APPROVED", appliedAt: now, reviewedAt: now, sensitive: sensitiveWhat.length > 0, checkNotes,
+        },
+        select: { id: true },
+      });
+      if ("restrictedCategories" in applied) {
+        await audit(tx, actor, "athlete.restrictionsSet", "Athlete", athlete.id, {
+          before: { restrictedCategories: before.restrictedCategories }, after: { restrictedCategories: applied.restrictedCategories },
+        });
+      }
+      await audit(tx, actor, sensitiveWhat.length ? "athlete.sensitiveEdit" : "athlete.profileEdit", "Athlete", athlete.id, {
+        before, after: { ...recorded, changeId: appliedChange.id, checks: checkNotes },
+      });
+      if (guardianId) {
+        await audit(tx, actor, "guardian.link", "Athlete", athlete.id, { before: { guardianId: null }, after: { guardianId, via: "profileEdit" } });
+        if (athlete.state === "APPROVED" || athlete.state === "ACTIVE") await provisionGuardianLoginIn(tx, actor, guardianId);
+        await send(tx, athlete.tenantId, {
+          template: "guardian.verificationRequested", to: guardianIn!.email.toLowerCase(), idempotencyKey: `guardian.verificationRequested:${guardianId}`,
+          data: { guardianName: firstWord(guardianIn!.legalName), athleteName: athlete.displayName || athlete.legalName },
+        });
+      }
+      if (sensitiveWhat.length) await tellBtg(tx, athlete.tenantId, athlete, appliedChange.id, sensitiveWhat.join(" and "), checkNotes);
+    }
+
+    /* ── a legal name: waits for its matching ID ── */
+    let pendingLegal: { id: string; idDocumentKey: string; contentType: string } | null = null;
+    if (legalChanges) {
+      const open = await tx.athleteProfileChange.findMany({
+        where: { tenantId: athlete.tenantId, athleteId: athlete.id, state: "PENDING" }, select: { id: true },
+      });
+      if (open.length) {
+        await tx.athleteProfileChange.updateMany({
+          /* tenant-scope: this athlete's own open changes, found just above. */
+          where: { id: { in: open.map((o) => o.id) } }, data: { state: "WITHDRAWN", reviewedAt: now },
+        });
+        for (const o of open) await audit(tx, actor, "athlete.profileChangeWithdraw", "AthleteProfileChange", o.id, { after: { reason: "superseded" } });
+      }
+      const id = `pc_${randomBytes(12).toString("hex")}`;
+      const filename = safeFilename(input.idDocument!.filename);
+      const key = `athlete-ids/${athlete.id}/${id}/${filename}`;
+      await tx.athleteProfileChange.create({
+        data: {
+          id, tenantId: athlete.tenantId, athleteId: athlete.id, sections: ["identity"], fields: { legalName: newLegal } as Prisma.InputJsonObject,
+          note, state: "PENDING", sensitive: true, idDocumentKey: key, idDocumentFilename: filename,
+          idDocumentContentType: input.idDocument!.contentType, idDocumentBytes: input.idDocument!.bytes,
+          checkNotes: ["Your new legal name takes effect once the matching ID arrives."],
+        },
+        select: { id: true },
+      });
+      await audit(tx, actor, "athlete.legalNameRequested", "AthleteProfileChange", id, { after: { athleteId: athlete.id, legalName: newLegal } });
+      pendingLegal = { id, idDocumentKey: key, contentType: input.idDocument!.contentType };
+    }
+    return { athleteTenantId: athlete.tenantId, appliedId: appliedChange?.id ?? null, pendingLegal, checkNotes };
+  });
+
+  const idUpload = out.pendingLegal
+    ? {
+      changeId: out.pendingLegal.id,
+      contentType: out.pendingLegal.contentType,
+      uploadUrl: await presignPrivateUpload(actor, out.pendingLegal.idDocumentKey, out.pendingLegal.contentType, { entity: "AthleteProfileChange", entityId: out.pendingLegal.id }),
+    }
+    : null;
+  const ids = [out.appliedId, out.pendingLegal?.id].filter((x): x is string => Boolean(x));
+  const changes = await prisma.athleteProfileChange.findMany({
+    where: { ...whereFor(actor, "athleteProfileChange", "read"), id: { in: ids } }, select: CHANGE_SELECT, orderBy: { createdAt: "asc" },
+  });
+  return { id: ids[0]!, changes, idUpload, checkNotes: out.checkNotes };
+}
+
+/**
+ * POST /profile-changes/:id/id-document/confirm — the matching ID has been
+ * uploaded. Counted only if it is in the bucket; then the new legal name is
+ * applied, audited, and BTG admins are emailed.
+ */
+export async function confirmLegalNameDocument(actor: Actor, id: string) {
+  assertAllowed(actor, "athleteProfileChange", "write");
+  const change = await prisma.athleteProfileChange.findFirst({
+    where: { ...whereFor(actor, "athleteProfileChange", "write"), id }, select: { id: true, state: true, idDocumentKey: true },
+  });
+  if (!change) throw new ForbiddenError("athleteProfileChange", "write");
+  if (change.state !== "PENDING" || !change.idDocumentKey) throw new ChangeNotPendingError(change.state);
+  const size = await privateObjectSize(change.idDocumentKey);
+  if (size === null) throw new SensitiveEditError("Your ID hasn't arrived yet — upload it, then confirm.", "id_not_arrived", 409);
+  if (size > MAX_ID_BYTES) throw new SensitiveEditError("That file is over 10 MB.", "id_too_large");
+
+  return prisma.$transaction(async (tx) => {
+    const c = await tx.athleteProfileChange.findFirst({
+      where: { ...whereFor(actor, "athleteProfileChange", "write"), id },
+      select: { id: true, tenantId: true, athleteId: true, state: true, fields: true, athlete: { select: { id: true, legalName: true, displayName: true } } },
     });
-    await audit(tx, actor, "athlete.profileChangeSubmit", "AthleteProfileChange", change.id, {
-      after: { athleteId, sections, fields },
+    if (!c || c.state !== "PENDING") throw new ChangeNotPendingError(c?.state ?? "gone");
+    const legalName = String((c.fields as { legalName?: string }).legalName ?? "");
+    const now = new Date();
+    await tx.athlete.update({ where: { id: c.athleteId }, data: { legalName }, select: { id: true } });
+    const notes = ["Matching ID uploaded; the new legal name is live. BTG can see the ID and reject the change if it doesn't match."];
+    await tx.athleteProfileChange.update({
+      /* tenant-scope: loaded through whereFor(athleteProfileChange, write). */
+      where: { id: c.id },
+      data: { state: "APPROVED", appliedAt: now, reviewedAt: now, idDocumentUploadedAt: now, idDocumentBytes: size, checkNotes: notes },
     });
-    return change;
+    await audit(tx, actor, "athlete.sensitiveEdit", "Athlete", c.athleteId, {
+      before: { legalName: c.athlete.legalName }, after: { legalName, changeId: c.id, idDocument: "uploaded" },
+    });
+    await tellBtg(tx, c.tenantId, c.athlete, c.id, "their legal name (matching ID uploaded)", notes);
+    return tx.athleteProfileChange.findFirstOrThrow({ where: { tenantId: c.tenantId, id: c.id }, select: CHANGE_SELECT });
   });
 }
 
-/** POST /profile-changes/:id/withdraw — the athlete takes it back. */
+/**
+ * GET /profile-changes/:id/id-document — BTG reads the ID a legal-name
+ * change was matched against, through a five-minute, audited link.
+ */
+export async function viewLegalNameDocument(actor: Actor, id: string) {
+  assertAllowed(actor, "athleteProfileChange", "approve");
+  const c = await prisma.athleteProfileChange.findFirst({
+    where: { ...whereFor(actor, "athleteProfileChange", "approve"), id }, select: { id: true, idDocumentKey: true, idDocumentUploadedAt: true },
+  });
+  if (!c) throw new ForbiddenError("athleteProfileChange", "approve");
+  if (!c.idDocumentKey || !c.idDocumentUploadedAt) throw new SensitiveEditError("There is no ID on this change.", "no_document", 404);
+  const url = await presignPrivateDownload(actor, c.idDocumentKey, { entity: "AthleteProfileChange", entityId: c.id }, SENSITIVE_DOCUMENT_TTL_SECONDS);
+  return { url, expiresInSeconds: SENSITIVE_DOCUMENT_TTL_SECONDS };
+}
+
+/** POST /profile-changes/:id/withdraw — the athlete takes back a legal name still waiting for its ID. */
 export async function withdrawProfileChange(actor: Actor, id: string) {
   assertAllowed(actor, "athleteProfileChange", "write");
   return prisma.$transaction(async (tx) => {
@@ -219,7 +431,7 @@ export async function withdrawProfileChange(actor: Actor, id: string) {
 }
 
 /** GET /athletes/me/profile-changes — the athlete's own, newest first.
- *  Capped: the editor shows the open one and the last few decisions. */
+ *  Capped: the editor shows a waiting legal name and the last few edits. */
 export async function myProfileChanges(actor: Actor, take = 10) {
   assertAllowed(actor, "athleteProfileChange", "read");
   if (!actor.athleteId && !actor.guardianId) throw new ForbiddenError("athleteProfileChange", "read");
@@ -231,119 +443,30 @@ export async function myProfileChanges(actor: Actor, take = 10) {
   });
 }
 
-export const CHANGE_STATES = ["PENDING", "APPROVED", "DECLINED", "WITHDRAWN"] as const;
-export type ChangeStateName = (typeof CHANGE_STATES)[number];
-
 /**
- * GET /profile-changes?page= — the review desk, SERVER-PAGED, oldest pending
- * first. Each row carries the athlete's current values for the fields it
- * proposes, so the desk shows "now → proposed" without a second read.
+ * GET /profile-changes?page= — BTG's list of SENSITIVE edits, newest first,
+ * SERVER-PAGED: what New sign-ups shows (2S1-FE-09). Ordinary edits are in
+ * each athlete's audit history and need nobody's attention.
  */
-export async function listProfileChangesPage(actor: Actor, req: PageRequest, opts: { states?: ChangeStateName[] } = {}) {
+export async function listSensitiveEditsPage(actor: Actor, req: PageRequest) {
   assertAllowed(actor, "athleteProfileChange", "approve");
-  const states = opts.states?.length ? opts.states : (["PENDING"] as ChangeStateName[]);
-  const where = { ...whereFor(actor, "athleteProfileChange", "approve"), state: { in: states } };
-  const pendingOnly = states.length === 1 && states[0] === "PENDING";
-  const [{ rows, page }, pending] = await Promise.all([
-    readPage(
-      req,
-      () => prisma.athleteProfileChange.count({ where: { ...where } }),
-      (skip, take) =>
-        prisma.athleteProfileChange.findMany({
-          where: { ...where },
-          select: {
-            ...CHANGE_SELECT,
-            athlete: { select: { id: true, slug: true, legalName: true, state: true, ...ATHLETE_FIELDS_SELECT } },
-          },
-          /* Pending: oldest first — the queue's fairness. Decided: newest first. */
-          orderBy: { createdAt: pendingOnly ? "asc" : "desc" },
-          skip,
-          take,
-        }),
-    ),
-    prisma.athleteProfileChange.count({ where: { ...whereFor(actor, "athleteProfileChange", "approve"), state: "PENDING" } }),
-  ]);
-  const changes = rows.map(({ athlete, ...c }) => {
-    const fields = (c.fields ?? {}) as Fields;
-    const current: Fields = {};
-    for (const k of Object.keys(fields) as ChangeField[]) current[k] = athlete[k] ?? null;
-    return {
-      ...c,
-      current,
-      athlete: { id: athlete.id, slug: athlete.slug, displayName: athlete.displayName, legalName: athlete.legalName, state: athlete.state },
-    };
-  });
-  return { changes, page, counts: { pending } };
-}
-
-/**
- * Decide — POST /profile-changes/:id/approve | /decline.
- *
- * One transaction: the decision, the Athlete update (on approve), the audit
- * rows and the queued email. Restrictions are audited as their own change,
- * as `setAthleteProfile` does, so "who removed the alcohol restriction"
- * stays answerable without diffing a whole profile.
- */
-export async function decideProfileChange(actor: Actor, id: string, decision: ProfileChangeDecision, reviewerNotes?: string) {
-  assertAllowed(actor, "athleteProfileChange", "approve");
-  const notes = reviewerNotes?.trim() || undefined;
-  if (decision === "DECLINED" && !notes) throw new DeclineNotesRequiredError();
-
-  return prisma.$transaction(async (tx) => {
-    const change = await tx.athleteProfileChange.findFirst({
-      where: { ...whereFor(actor, "athleteProfileChange", "approve"), id },
-      select: {
-        ...CHANGE_SELECT,
-        athlete: { select: { id: true, state: true, email: true, legalName: true, ...ATHLETE_FIELDS_SELECT } },
-      },
-    });
-    if (!change) throw new ForbiddenError("athleteProfileChange", "approve");
-    if (change.state !== "PENDING") throw new ChangeNotPendingError(change.state);
-
-    const fields = (change.fields ?? {}) as Fields;
-    if (decision === "APPROVED") {
-      /* The row may have moved since submission (a suspension, say); a
-         change is applied only to a profile it still applies to. */
-      if (!(POST_APPROVAL_STATES as readonly string[]).includes(change.athlete.state)) throw new ProfileNotEditableError(change.athlete.state);
-      const before: Fields = {};
-      for (const k of Object.keys(fields) as ChangeField[]) before[k] = change.athlete[k] ?? null;
-      await tx.athlete.update({ where: { id: change.athleteId }, data: fields as Prisma.AthleteUpdateInput });
-      if ("restrictedCategories" in fields) {
-        await audit(tx, actor, "athlete.restrictionsSet", "Athlete", change.athleteId, {
-          before: { restrictedCategories: before.restrictedCategories },
-          after: { restrictedCategories: fields.restrictedCategories },
-        });
-      }
-      await audit(tx, actor, "athlete.profileChangeApprove", "Athlete", change.athleteId, {
-        before, after: { ...fields, changeId: id },
-      });
-    } else {
-      await audit(tx, actor, "athlete.profileChangeDecline", "AthleteProfileChange", id, {
-        after: { athleteId: change.athleteId, reviewerNotes: notes },
-      });
-    }
-
-    const out = await tx.athleteProfileChange.update({
-      where: { id },
-      data: { state: decision, reviewerNotes: notes ?? null, reviewedBy: actor.userId, reviewedAt: new Date() },
-      select: CHANGE_SELECT,
-    });
-
-    if (change.athlete.email) {
-      const template = decision === "APPROVED" ? "athlete.profileChangeApproved" : "athlete.profileChangeDeclined";
-      await send(tx, actor.tenantId, {
-        template,
-        to: change.athlete.email,
-        data: {
-          firstName: (change.athlete.legalName.trim() || change.athlete.displayName.trim()).split(/\s+/)[0] ?? "",
-          sections: change.sections.join(", "),
-          portalUrl: `${env.APP_URL}/athlete/profile`,
-          ...(notes ? { reviewerNotes: notes } : {}),
-        },
-        /* One message per request per decision; a request is decided once. */
-        idempotencyKey: athleteNotificationKey(template, change.athleteId, id),
-      });
-    }
-    return out;
-  });
+  const where = { ...whereFor(actor, "athleteProfileChange", "approve"), sensitive: true, state: { in: ["APPROVED", "PENDING"] as ("APPROVED" | "PENDING")[] } };
+  const { rows, page } = await readPage(
+    req,
+    () => prisma.athleteProfileChange.count({ where: { ...where } }),
+    (skip, take) =>
+      prisma.athleteProfileChange.findMany({
+        where: { ...where },
+        select: { ...CHANGE_SELECT, athlete: { select: { id: true, slug: true, legalName: true, displayName: true, state: true } } },
+        orderBy: { createdAt: "desc" },
+        skip,
+        take,
+      }),
+  );
+  return {
+    edits: rows.map(({ idDocumentFilename, idDocumentUploadedAt, ...c }) => ({
+      ...c, idDocument: idDocumentUploadedAt ? { filename: idDocumentFilename, uploadedAt: idDocumentUploadedAt } : null,
+    })),
+    page,
+  };
 }

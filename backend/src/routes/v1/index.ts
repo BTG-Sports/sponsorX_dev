@@ -30,6 +30,9 @@ import { marketplaceRouter } from "./marketplace";
 import { payoutsRouter } from "./payouts";
 import { sponsorRequestsRouter } from "./sponsor-requests";
 import { restrictedWordsRouter } from "./restricted-words";
+import { accountRouter } from "./account";
+import { guardianHandoffsRouter } from "./guardian-handoffs";
+import { supportRouter } from "./support";
 import { openapiRouter } from "./openapi";
 
 export const v1Router = Router();
@@ -49,9 +52,10 @@ v1Router.use("/applications", applicationsRouter);
    completion meter render (P3-FE-03). */
 v1Router.use("/athletes", athletesRouter);
 
-/* P3-BE-16 — BTG's review desk for post-approval profile edits, and the
-   decisions on them. The athlete's propose/list-mine routes are under
-   /athletes above. */
+/* P3-BE-16, reshaped by 2S1-BE-14 — edits publish at once, so BTG's desk is
+   gone; what is left is BTG's list of sensitive edits, the five-minute view
+   of a legal-name change's ID, and the athlete's confirm and withdraw. The
+   athlete's edit/list-mine routes are under /athletes above. */
 v1Router.use("/profile-changes", profileChangesRouter);
 
 /* B1 — the guardian gate and agreement acceptance (P3-BE-14). Mounted at the
@@ -128,6 +132,14 @@ v1Router.use("/", sponsorRequestsRouter);
 
 /* 2S1-BE-18 — BTG's restricted-words list. */
 v1Router.use("/", restrictedWordsRouter);
+
+/* 2S1-BE-13 — closing an account and coming back (POST /me/close, the
+   public reactivation page, BTG's closures). 2S1-BE-15 — changing a minor's
+   guardian (public request page; the current guardian's answer). 2S1-BE-16 —
+   the public contact form, queued to the support mailbox. */
+v1Router.use("/", accountRouter);
+v1Router.use("/", guardianHandoffsRouter);
+v1Router.use("/", supportRouter);
 v1Router.use("/", auditRouter);
 
 /* The published contract, generated from the Zod registry (§38). Public: a

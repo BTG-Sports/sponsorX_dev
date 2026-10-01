@@ -6,12 +6,12 @@ import type { AccountPanelView } from "@/lib/payouts-live";
    settings / close / reactivate / rejected / ageAthlete / ageGuardian).
 
    WIRED: the sign-in email (Clerk — the identity is Clerk's; GET /me
-   carries roles, not the address) and the payout account
-   (GET /payouts/account → payouts-live accountPanel).
+   carries roles, not the address), the payout account
+   (GET /payouts/account → payouts-live accountPanel), and closing an
+   account (POST /me/close, 2S1-BE-13). The public reactivation page's
+   shapes and words are in account-closure-live.ts.
 
-   SCAFFOLD, typed like the future API — neither backend exists yet:
-     2S1-BE-13  closing an account, 30-day retention and coming back
-                (POST /me/close, the reactivation page and its POST)
+   SCAFFOLD, typed like the future API:
      2S1-BE-12  age of majority by place, and the 90-day coming-of-age
                 allowance (the reminder, and what is paused meanwhile)
 
@@ -34,21 +34,9 @@ export const RETENTION_DAYS = 30;
 export const ALLOWANCE_DAYS = 90;
 
 /** Why each scaffolded control is off — the button's title and the line under it. */
-export const CLOSE_NOT_LIVE = "Not switched on yet — closing an account goes live with 2S1-BE-13. Nothing has changed.";
-export const REACTIVATE_NOT_LIVE = "Not switched on yet — reactivating goes live with 2S1-BE-13. Nothing has changed.";
 export const AGE_NOT_LIVE = "Not switched on yet — taking over the account goes live with 2S1-BE-12. Nothing has been sent.";
 
 /* ---------------------------------------------------------------- shapes */
-
-export type AccountState = "ACTIVE" | "CLOSED_SELF" | "CLOSED_BY_BTG";
-
-/** 2S1-BE-13 — what the reactivation page will read. */
-export type ApiAccountStatus = {
-  state: AccountState;
-  /** Who the page greets — a first name, or the organization's name. */
-  greeting: string;
-  closedAt: string | null;
-};
 
 /** 2S1-BE-12 — the coming-of-age allowance, as both sides will read it. */
 export type ApiComingOfAge = {
@@ -107,37 +95,7 @@ export const CLOSE_DIALOG = {
   money: "Money you already earned is still paid out to your payout account on Stripe.",
 } as const;
 
-/* ------------------------------------------------------------ reactivating */
-
-export type ReactivateView =
-  | { kind: "self"; badge: string; headline: string; left: string; body: string; canReactivate: boolean }
-  | { kind: "btg"; badge: string; headline: string; body: string; kept: string };
-
-export function reactivateView(a: ApiAccountStatus, now = new Date()): ReactivateView | null {
-  if (a.state === "ACTIVE" || !a.closedAt) return null;
-  const closed = new Date(a.closedAt);
-  const until = new Date(closed.getTime() + RETENTION_DAYS * DAY);
-  if (a.state === "CLOSED_BY_BTG") {
-    return {
-      kind: "btg",
-      badge: "Closed by BTG",
-      headline: "Your account was closed by BTG — ask BTG to review it.",
-      body: "You can’t reactivate it yourself. The reason was in the email BTG sent you. If you think it’s wrong, tell us and a person will look again.",
-      kept: `Your documents are kept until ${dayOf(until)}, then deleted.`,
-    };
-  }
-  const n = daysLeft(until, now);
-  return {
-    kind: "self",
-    badge: n > 0 ? "Closed · you can reactivate" : "Closed",
-    headline: `${a.greeting}, your account closed on ${dayOf(closed)}.`,
-    left: n > 0 ? `${plural(n, "day")} left` : "The 30 days have passed",
-    body: n > 0
-      ? `Reactivate by ${dayOf(until)} and everything comes back: your profile, your items and your documents. After that, your documents are deleted.`
-      : "Your documents have been deleted. To come back, sign up again.",
-    canReactivate: n > 0,
-  };
-}
+/* Reactivating (2S1-BE-13) moved to account-closure-live.ts with the API's shapes. */
 
 /* ------------------------------------------------------------ coming of age */
 
@@ -182,11 +140,6 @@ export function comingOfAgeView(c: ApiComingOfAge, seat: "athlete" | "guardian",
 }
 
 /* ---------------------------------------------------------------- samples */
-
-/** Closed 7 days ago — "23 days left", as the design shows. */
-export function sampleClosedAccount(state: "CLOSED_SELF" | "CLOSED_BY_BTG", greeting: string, now = new Date()): ApiAccountStatus {
-  return { state, greeting, closedAt: new Date(now.getTime() - 7 * DAY).toISOString() };
-}
 
 /** Turned 18 eighteen days ago — "72 days left", as the design shows. */
 export function sampleComingOfAge(now = new Date()): ApiComingOfAge {

@@ -31,8 +31,8 @@ import { apiFetch, fetchActor } from "@/server/api";
    the "Open public page" link and the "Edit profile" button are NOT shown:
    the public page and the editor still render fixtures, and pointing a real
    athlete at fixture content presented as theirs is the exact lie the
-   marketplace precedent forbids (§22). Editing goes through BTG for now —
-   the page says so instead of faking a form.
+   marketplace precedent forbids (§22). The live editor is linked from the
+   foot of the page (2S1-FE-09: edits save at once).
    -------------------------------------------------------------------------- */
 
 /** The real profile for a signed-in athlete, or null for the fixture demo. */
@@ -265,9 +265,10 @@ function LiveProfile({ p, rates }: { p: ApiMyProfile; rates: ApiRate[] }) {
       </div>
 
       <p className="sx-animate sx-delay-5 mt-6 text-[10px] leading-relaxed text-faint">
-        To change any of these details, contact your BTG network manager —
-        self-serve editing and the public profile page go live in a later
-        milestone, and this page will say so when they do.
+        To change these details,{" "}
+        <Link href="/athlete/profile/edit" className="text-primary-soft hover:underline">edit your profile</Link>
+        {" "}— changes save straight away. A legal name, date of birth or guardian
+        also tells BTG and re-runs the checks.
       </p>
     </div>
   );

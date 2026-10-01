@@ -10,6 +10,7 @@ import {
   type ApiSponsorSignup,
 } from "@/lib/new-signups-live";
 import { apiFetch } from "@/server/api";
+import { SensitiveEdits } from "@/components/sensitive-edits-section";
 
 /* --------------------------------------------------------------------------
    New sign-ups — 2S1-FE-07 (Claude Design NewSignups.dc.html, views all and
@@ -61,6 +62,8 @@ export default async function NewSignupsPage({ searchParams }: { searchParams: P
       ) : (
         <>
           <LiveSponsors />
+          {/* 2S1-FE-09 — sensitive profile edits (legal name, date of birth, guardian). */}
+          <SensitiveEdits />
           <SampleSignups tab={tab} />
         </>
       )}
