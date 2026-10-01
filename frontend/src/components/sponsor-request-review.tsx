@@ -1,12 +1,12 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { useState, useTransition, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 
 import { Badge, Card } from "@/components/ui";
 import type { BrandCategory } from "@/lib/brand-categories";
 import {
-  approveBlock, categoryOptions, decisionChecks, stateBadge, whatHappens,
+  approveBlock, categoryOptions, decisionChecks, rejectSteps, reinstateSteps, stateBadge, whatHappens,
   type ApiSponsorRequestDetail, type LinkChoice, type RequestWriteFailure,
 } from "@/lib/sponsor-requests-live";
 import { useDialogFocus } from "./use-dialog-focus";
@@ -17,6 +17,13 @@ import { useDialogFocus } from "./use-dialog-focus";
    column) and Approve (the decision card) share state: Approve stays off,
    with the reason written under it, until a type is picked, a same-named
    sponsor is answered, and the email isn't already a login.
+
+   Also here (2S1-BE-17, found in review of the Closed accounts desk):
+   - SponsorAccountDecision — after approval, Reject (a reason is required
+     and emailed; every login switched off) and, once rejected, Reinstate
+     (the logins back on), each behind a dialog saying what it does;
+   - SponsorDocumentOpen — one proof of business, through a five-minute,
+     audited link asked for only on click.
    -------------------------------------------------------------------------- */
 
 type Decide = (input:
@@ -208,5 +215,142 @@ function ConfirmApprove({ title, steps, busy, onCancel, onApprove }: { title: st
         </div>
       </div>
     </div>
+  );
+}
+
+/* ---------------------------------------- Reject / Reinstate (after approval) */
+
+type DecideAccount = (input: { decision: "REJECT"; note: string } | { decision: "REINSTATE" }) => Promise<{ ok: true; state: string } | RequestWriteFailure>;
+
+/** The approved account's Reject, or the rejected account's Reinstate. */
+export function SponsorAccountDecision({ request, decide }: { request: ApiSponsorRequestDetail; decide: DecideAccount }) {
+  const [open, setOpen] = useState(false);
+  if (request.state !== "APPROVED" && request.state !== "REJECTED") return null;
+  const rejecting = request.state === "APPROVED";
+  return (
+    <div className="mt-4 space-y-2 border-t border-line-soft pt-4">
+      {rejecting ? (
+        <>
+          <button type="button" onClick={() => setOpen(true)}
+            className="min-h-11 w-full rounded-lg border border-danger/50 px-4 text-xs font-semibold text-danger hover:bg-danger/10">
+            Reject
+          </button>
+          <p className="text-[11px] text-muted">Rejecting switches off their logins and emails them your reason. You can reinstate them within 30 days.</p>
+        </>
+      ) : (
+        <>
+          <button type="button" onClick={() => setOpen(true)}
+            className="min-h-11 w-full rounded-lg bg-primary px-4 text-xs font-semibold text-cta-ink hover:bg-primary-soft">
+            Reinstate
+          </button>
+          <p className="text-[11px] text-muted">Reinstating switches their logins back on and emails them that the account is back.</p>
+        </>
+      )}
+      {open && <AccountDialog request={request} rejecting={rejecting} decide={decide} onClose={() => setOpen(false)} />}
+    </div>
+  );
+}
+
+function AccountDialog({ request, rejecting, decide, onClose }: { request: ApiSponsorRequestDetail; rejecting: boolean; decide: DecideAccount; onClose: () => void }) {
+  const ref = useDialogFocus<HTMLDivElement>(onClose);
+  const router = useRouter();
+  const [note, setNote] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [pending, start] = useTransition();
+  const go = rejecting ? "Send and reject" : "Reinstate";
+  const off = rejecting && !note.trim();
+  const steps = rejecting ? rejectSteps(request) : reinstateSteps(request);
+  const submit = () => {
+    setError(null);
+    if (off) return setError(`Write a reason to turn on “${go}”.`);
+    start(async () => {
+      const r = await decide(rejecting ? { decision: "REJECT", note: note.trim() } : { decision: "REINSTATE" });
+      if (!r.ok) return setError(r.message);
+      onClose();
+      router.refresh();
+    });
+  };
+  return (
+    <div ref={ref} className="fixed inset-0 z-50" role="dialog" aria-modal="true" aria-labelledby="acct-title">
+      <button type="button" tabIndex={-1} aria-label="Close" onClick={onClose} className="sx-backdrop absolute inset-0 cursor-default bg-black/55" />
+      <div className="absolute inset-0 flex items-end justify-center overflow-y-auto p-4 sm:items-center">
+        <form
+          className="sx-pop relative w-full max-w-md rounded-2xl border border-line bg-bg p-5 shadow-2xl"
+          onSubmit={(e) => {
+            e.preventDefault();
+            submit();
+          }}
+        >
+          <h2 id="acct-title" className="text-sm font-semibold tracking-tight">{rejecting ? `Reject ${request.businessName}?` : `Reinstate ${request.businessName}?`}</h2>
+          <p className="mt-2 text-xs text-muted">This is what happens when you {rejecting ? "reject" : "reinstate"}:</p>
+          <ol className="mt-3 space-y-2">
+            {steps.map((s, i) => (
+              <li key={i} className="flex items-start gap-2 text-xs">
+                <span aria-hidden="true" className={`grid size-5 shrink-0 place-items-center rounded-full border text-[10px] ${rejecting ? "border-danger/60 bg-danger/10 text-danger" : "border-primary/60 bg-primary/15 text-primary"}`}>{i + 1}</span>
+                <span className="pt-0.5">{s}</span>
+              </li>
+            ))}
+          </ol>
+          {rejecting && (
+            <div className="mt-4 space-y-1.5">
+              <label htmlFor="reject-note" className="block text-xs font-medium">
+                Tell {request.businessName} why. <span className="text-warn">(required)</span>
+              </label>
+              <p id="reject-hint" className="text-[11px] text-muted">They&rsquo;ll read this in an email, exactly as written.</p>
+              <textarea id="reject-note" aria-describedby="reject-hint" rows={4} required maxLength={2000} value={note}
+                onChange={(e) => setNote(e.target.value)} placeholder="Write the reason in plain words"
+                className="w-full resize-y rounded-lg border border-line bg-surface px-3 py-2 text-xs outline-none focus:border-primary" />
+            </div>
+          )}
+          {error && <p role="alert" className="mt-3 rounded-lg bg-danger/10 px-3 py-2 text-[11px] text-danger">{error}</p>}
+          <div className="mt-5 flex flex-wrap justify-end gap-2">
+            <button type="button" data-autofocus onClick={onClose} className="rounded-lg border border-line px-3.5 py-2 text-xs font-medium text-text hover:bg-surface-2">Cancel</button>
+            <button type="submit" disabled={pending || off}
+              className={rejecting
+                ? "rounded-lg border border-danger/60 px-3.5 py-2 text-xs font-semibold text-danger hover:bg-danger/10 disabled:cursor-not-allowed disabled:opacity-40"
+                : "rounded-lg bg-primary px-3.5 py-2 text-xs font-semibold text-cta-ink disabled:opacity-40"}>
+              {pending ? (rejecting ? "Rejecting…" : "Reinstating…") : go}
+            </button>
+          </div>
+          {off && <p className="mt-2 text-right text-[11px] text-faint">Write a reason to turn on &ldquo;{go}&rdquo;.</p>}
+        </form>
+      </div>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------- proof of business */
+
+type ViewDocument = () => Promise<{ ok: true; url: string; expiresInSeconds: number } | RequestWriteFailure>;
+
+/** One proof of business: a five-minute, audited link, asked for on click. */
+export function SponsorDocumentOpen({ filename, uploaded, view }: { filename: string; uploaded: boolean; view: ViewDocument }) {
+  const [url, setUrl] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [pending, start] = useTransition();
+  if (!uploaded) return <span className="text-[11px] text-warn">Upload not finished</span>;
+  const ask = () =>
+    start(async () => {
+      setError(null);
+      const r = await view();
+      if (!r.ok) return setError(r.message);
+      setUrl(r.url);
+    });
+  return (
+    <span className="flex flex-wrap items-center gap-2">
+      {url ? (
+        <>
+          <a href={url} target="_blank" rel="noopener noreferrer" className="text-xs font-semibold text-primary hover:underline">Open {filename} →</a>
+          <span className="text-[11px] text-faint">the link lasts 5 minutes ·</span>
+          <button type="button" onClick={ask} disabled={pending} className="text-[11px] text-muted underline disabled:opacity-40">new link</button>
+        </>
+      ) : (
+        <button type="button" disabled={pending} aria-label={`View ${filename}`} onClick={ask}
+          className="min-h-8 rounded-lg border border-line px-3 text-xs font-medium text-text hover:bg-surface-2 disabled:opacity-40">
+          {pending ? "Opening…" : "View"}
+        </button>
+      )}
+      {error && <span role="alert" className="text-[11px] text-danger">{error}</span>}
+    </span>
   );
 }

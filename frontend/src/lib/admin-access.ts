@@ -36,6 +36,12 @@ export const ADMIN_ACCESS: Record<string, { roles: string[]; who: string }> = {
   "/admin/new-signups": { roles: ["SUPER_ADMIN", "BTG_ADMIN"], who: "BTG admins" },
   /* 2S4-FE-04 — delivery problems and refunds. */
   "/admin/delivery-issues": { roles: ["SUPER_ADMIN", "BTG_ADMIN"], who: "BTG admins" },
+  /* Closed accounts, Guardian handoffs, Offers (2026-10-01): accountClosure and
+     guardianHandoff approve are BTG_ADMIN own-tenant and SUPER_ADMIN only. */
+  /* 2S2-FE-03 — offer write is BTG admin and campaign managers; Sales reads. */
+  "/admin/offers": { roles: ["SUPER_ADMIN", "BTG_ADMIN", "CAMPAIGN_MGR", "SALES"], who: "BTG admins, campaign managers and Sales" },
+  "/admin/closed-accounts": { roles: ["SUPER_ADMIN", "BTG_ADMIN"], who: "BTG admins" },
+  "/admin/guardian-handoffs": { roles: ["SUPER_ADMIN", "BTG_ADMIN"], who: "BTG admins" },
   "/admin/next": { roles: ["SUPER_ADMIN", "BTG_ADMIN", "SALES", "FINANCE"], who: "BTG admins, Sales and Finance" },
 };
 

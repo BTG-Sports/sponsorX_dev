@@ -109,6 +109,25 @@ export const OfferKeepInput = z
   .object({ note: z.string().trim().min(1).max(2000).describe("BTG's reply to the athlete — why the offer stands") })
   .strict()
   .meta({ id: "OfferKeepInput", description: "Answer a change request by keeping the offer as it is, with a reply to the athlete (2S2-FE-03)." });
+/* 2S2-FE-03 — BTG's offer form, live: the checks a draft will be asked,
+   answered without refusing (GET /campaigns/:id/offer-checks), and the
+   athletes it can be made to (GET /offers/athletes). Every field optional —
+   the form asks as it is filled in. */
+const cents = z.coerce.number().int().min(0).max(100_000_000);
+export const OfferChecksQuery = z
+  .object({
+    athleteId: z.string().min(1).optional(),
+    jobId: z.string().min(1).optional(),
+    inventoryItemId: z.string().min(1).optional(),
+    compensation: cents.optional(),
+    sellPrice: cents.optional(),
+  })
+  .strict()
+  .meta({ id: "OfferChecksQuery", description: "The draft so far: athlete, job, item and the two prices in cents. Each check runs once its inputs are present." });
+export const OfferAthletesQuery = z
+  .object({ q: z.string().trim().max(80).optional() })
+  .strict()
+  .meta({ id: "OfferAthletesQuery", description: "A name to search for; empty lists the first athletes by name." });
 export const OfferResponseInput = z
   .object({
     /* 2S2-FE-03 — REQUEST_CHANGE neither accepts nor declines: the offer

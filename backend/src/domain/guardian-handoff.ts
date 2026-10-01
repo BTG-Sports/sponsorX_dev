@@ -48,10 +48,11 @@ import { audit, type AuditActor } from "../db/audit";
 import { send } from "../lib/email";
 import { env } from "../config/env";
 import type { Actor } from "../auth/actor";
-import { assertAllowed, whereFor } from "../auth/scope";
+import { assertAllowed, assertTenantWide, scopeOf, whereFor } from "../auth/scope";
 import { ForbiddenError } from "../auth/errors";
+import type { HANDOFF_GROUPS } from "../contracts/guardian-handoff";
 import { issuePurposeToken, readPurposeToken } from "../lib/purpose-token";
-import { presignPrivateUpload, privateObjectSize } from "../lib/storage";
+import { presignPrivateDownload, presignPrivateUpload, privateObjectSize, SENSITIVE_DOCUMENT_TTL_SECONDS } from "../lib/storage";
 import { provisionGuardianLoginIn } from "./athlete-login";
 import { requiresGuardian } from "./guardian-rules";
 import { safeFilename } from "./onboarding-documents";
@@ -233,9 +234,26 @@ export async function confirmHandoffEmail(emailToken: string) {
   });
 }
 
-/** GET /public/guardian-handoffs/:token — where the request stands. */
+/**
+ * Who declined a DECLINED request, and the reason the requester reads:
+ * BTG's decline (a staff decision on a handed-off request, audited as
+ * guardianHandoff.staffDecline) carries BTG's reason, which was emailed to
+ * them; the current guardian's decline carries no note to the requester —
+ * their portal asks for none and its email has none, by design (a dispute
+ * goes to BTG support, never through the request).
+ */
+async function declineOf(db: Tx | typeof prisma, r: Row): Promise<{ declinedBy: "BTG" | "CURRENT_GUARDIAN" | null; declineNote: string | null }> {
+  if (r.state !== "DECLINED") return { declinedBy: null, declineNote: null };
+  const byBtg = await db.auditLog.findFirst({
+    where: { tenantId: r.tenantId, entity: "GuardianHandoff", entityId: r.id, action: "guardianHandoff.staffDecline" }, select: { id: true },
+  });
+  return byBtg ? { declinedBy: "BTG", declineNote: r.declineNote } : { declinedBy: "CURRENT_GUARDIAN", declineNote: null };
+}
+
+/** GET /public/guardian-handoffs/:token — where the request stands; once declined, who declined it and BTG's reason. */
 export async function handoffStatus(token: string) {
-  return view(prisma, await rowById(prisma, idFrom(token)), false);
+  const r = await rowById(prisma, idFrom(token));
+  return { ...(await view(prisma, r, false)), ...(await declineOf(prisma, r)) };
 }
 
 /** Step one of a document: a private-bucket PUT for exactly this file. Audited as a grant. */
@@ -323,23 +341,154 @@ export async function submitHandoff(token: string) {
 
 /* ═══════════════════════ the current guardian's side ═══════════════════ */
 
-/** GET /guardian-handoffs — requests about this guardian's wards (or, for an athlete, about them). */
-export async function listHandoffs(actor: Actor) {
+/**
+ * GET /guardian-handoffs — requests about this guardian's wards (or, for an
+ * athlete, about them). BTG (tenant-wide read) reads every request, including
+ * one the new guardian is still filling in, with the desk's extra detail
+ * (staffDetails) and every group's count; a guardian's or athlete's answer is
+ * unchanged.
+ */
+export async function listHandoffs(actor: Actor, q: { group?: HandoffGroup } = {}) {
   assertAllowed(actor, "guardianHandoff", "read");
+  const staff = staffReads(actor);
+  /* A guardian or an athlete never sees a request before it is sent. (whereFor's own `AND` is the scope: never overwrite it.) */
+  const states = q.group ? GROUP_STATES[q.group].filter((st) => staff || st !== "REQUESTED") : null;
   const rows = await prisma.guardianHandoff.findMany({
-    where: { ...whereFor(actor, "guardianHandoff", "read"), state: { not: "REQUESTED" } },
-    select: SELECT, orderBy: { createdAt: "desc" }, take: 25,
+    where: { ...whereFor(actor, "guardianHandoff", "read"), ...(states ? { state: { in: states } } : staff ? {} : { state: { not: "REQUESTED" } }) },
+    select: SELECT, orderBy: { createdAt: "desc" }, take: staff ? 100 : 25,
   });
   const out = [];
   for (const r of rows) out.push(await view(prisma, r, true));
-  return { handoffs: out };
+  if (!staff) return { handoffs: out };
+  const [details, byState] = await Promise.all([
+    staffDetails(rows),
+    prisma.guardianHandoff.groupBy({ by: ["state"], where: whereFor(actor, "guardianHandoff", "read"), _count: { _all: true } }),
+  ]);
+  const n = (states: string[]) => byState.filter((s) => states.includes(s.state)).reduce((sum, s) => sum + s._count._all, 0);
+  return {
+    handoffs: out.map((h) => ({ ...h, staff: details.get(h.id)! })),
+    counts: Object.fromEntries(Object.entries(GROUP_STATES).map(([g, states]) => [g, n(states)])) as Record<HandoffGroup, number>,
+  };
 }
 
-/** GET /guardian-handoffs/:id */
+/** GET /guardian-handoffs/:id — BTG's answer carries the desk's detail (staffDetails). */
 export async function getHandoff(actor: Actor, id: string) {
-  const r = await prisma.guardianHandoff.findFirst({ where: { ...whereFor(actor, "guardianHandoff", "read"), id, state: { not: "REQUESTED" } }, select: SELECT });
+  const staff = staffReads(actor);
+  const r = await prisma.guardianHandoff.findFirst({
+    where: { ...whereFor(actor, "guardianHandoff", "read"), id, ...(staff ? {} : { state: { not: "REQUESTED" } }) }, select: SELECT,
+  });
   if (!r) throw new ForbiddenError("guardianHandoff", "read");
-  return view(prisma, r, true);
+  const v = await view(prisma, r, true);
+  return staff ? { ...v, staff: (await staffDetails([r])).get(r.id)! } : v;
+}
+
+/* ═══════════════════════ BTG's Guardian handoffs desk ═══════════════════ */
+
+type HandoffGroup = (typeof HANDOFF_GROUPS)[number];
+/** The desk's tabs. IN_PROGRESS holds REQUESTED only for BTG — a guardian never sees a request before it is sent. */
+const GROUP_STATES: Record<HandoffGroup, string[]> = {
+  WAITING_FOR_BTG: ["HANDED_OFF"], IN_PROGRESS: ["REQUESTED", "WAITING"], SWITCHED: ["SWITCHED"], DECLINED: ["DECLINED"], CANCELLED: ["CANCELLED"],
+};
+const DOCUMENT_WORDS: Record<string, string> = { GUARDIAN_ID: "Government ID", GUARDIANSHIP_PROOF: "Proof of guardianship" };
+const PROOF_WORDS: Record<string, string> = { BIRTH_CERTIFICATE: "Birth certificate", COURT_ORDER: "Court order", SCHOOL_RECORD: "School record" };
+
+/** BTG reads across the tenant; a guardian (`ward`) or an athlete (`own`) reads their own requests. */
+function staffReads(actor: Actor): boolean {
+  const s = scopeOf(actor, "guardianHandoff", "read");
+  return s === "any" || s === "own-tenant";
+}
+
+function ageOf(birthDate: Date | null, now = new Date()): number | null {
+  if (!birthDate) return null;
+  let age = now.getUTCFullYear() - birthDate.getUTCFullYear();
+  const m = now.getUTCMonth() - birthDate.getUTCMonth();
+  if (m < 0 || (m === 0 && now.getUTCDate() < birthDate.getUTCDate())) age--;
+  return age;
+}
+
+/**
+ * What only BTG's desk shows: the athlete's age, both guardians' records, the
+ * new guardian's contact details and agreement, the documents (opened only
+ * through the 5-minute link, viewHandoffDocument), and who decided.
+ *
+ * Who decided is read from the audit log, where every step is recorded in
+ * the same transaction as the change: the row's decidedAt / decidedBy hold
+ * the guardian's answer — or, after a staff decline, BTG's — so a
+ * hand-off that BTG then declined or confirmed is recovered from its entries.
+ */
+async function staffDetails(rows: Row[]) {
+  const tenantId = { in: [...new Set(rows.map((r) => r.tenantId))] };
+  const [athletes, guardians, trail] = await Promise.all([
+    prisma.athlete.findMany({ where: { tenantId, id: { in: rows.map((r) => r.athleteId) } }, select: { id: true, birthDate: true } }),
+    prisma.guardian.findMany({
+      where: { tenantId, id: { in: rows.flatMap((r) => (r.newGuardianId ? [r.fromGuardianId, r.newGuardianId] : [r.fromGuardianId])) } },
+      select: { id: true, legalName: true, relationship: true },
+    }),
+    prisma.auditLog.findMany({
+      where: {
+        tenantId,
+        OR: [
+          { entity: "GuardianHandoff", entityId: { in: rows.map((r) => r.id) }, action: { in: ["guardianHandoff.handOffForReview", "guardianHandoff.staffDecline"] } },
+          { entity: "Athlete", entityId: { in: rows.map((r) => r.athleteId) }, action: "guardianHandoff.switch" },
+        ],
+      },
+      select: { action: true, entityId: true, actorId: true, after: true, at: true }, orderBy: { at: "asc" },
+    }),
+  ]);
+  const deciders = await prisma.user.findMany({
+    where: { tenantId, id: { in: trail.flatMap((t) => (t.actorId ? [t.actorId] : [])) } }, select: { id: true, email: true },
+  });
+  const emailOf = (id: string | null) => deciders.find((u) => u.id === id)?.email ?? null;
+  const out = new Map<string, ReturnType<typeof one>>();
+  function one(r: Row) {
+    const handedOff = trail.find((t) => t.entityId === r.id && t.action === "guardianHandoff.handOffForReview");
+    const staffDecline = trail.find((t) => t.entityId === r.id && t.action === "guardianHandoff.staffDecline");
+    const switched = trail.find((t) => t.action === "guardianHandoff.switch" && (t.after as { handoffId?: string } | null)?.handoffId === r.id);
+    const confirmedByBtg = Boolean((switched?.after as { confirmedByBtg?: boolean } | null)?.confirmedByBtg);
+    const from = guardians.find((g) => g.id === r.fromGuardianId);
+    const to = r.newGuardianId ? guardians.find((g) => g.id === r.newGuardianId) : undefined;
+    const decision =
+      r.state === "SWITCHED"
+        ? { by: confirmedByBtg ? "BTG" as const : "CURRENT_GUARDIAN" as const, at: (r.switchedAt ?? r.decidedAt)?.toISOString() ?? null, byEmail: confirmedByBtg ? emailOf(switched!.actorId) : null, note: null }
+        : r.state === "DECLINED"
+          ? staffDecline
+            ? { by: "BTG" as const, at: staffDecline.at.toISOString(), byEmail: emailOf(staffDecline.actorId), note: r.declineNote }
+            : { by: "CURRENT_GUARDIAN" as const, at: r.decidedAt?.toISOString() ?? null, byEmail: null, note: r.declineNote }
+          : r.state === "CANCELLED"
+            ? { by: null, at: r.decidedAt?.toISOString() ?? null, byEmail: null, note: null }
+            : null;
+    return {
+      athlete: { id: r.athleteId, age: ageOf(athletes.find((a) => a.id === r.athleteId)?.birthDate ?? null), sport: r.athlete.sport },
+      current: { id: r.fromGuardianId, relationship: from ? RELATIONSHIP_WORDS[from.relationship] ?? from.relationship : null },
+      newGuardian: to ? { id: to.id, name: to.legalName } : null,
+      requester: {
+        email: r.requesterEmail, phone: r.requesterPhone, emailConfirmedAt: r.emailConfirmedAt?.toISOString() ?? null,
+        agreementVersion: r.agreementVersion, agreementAcceptedAt: r.agreementAcceptedAt?.toISOString() ?? null,
+      },
+      documents: r.documents.map((d) => ({
+        id: d.id, kind: d.kind as "GUARDIAN_ID" | "GUARDIANSHIP_PROOF", label: DOCUMENT_WORDS[d.kind] ?? d.kind,
+        proof: d.proofKind ? PROOF_WORDS[d.proofKind] ?? d.proofKind : null, filename: d.filename, uploadedAt: d.uploadedAt?.toISOString() ?? null,
+      })),
+      /* The current guardian's Hand off: kept on the row unless BTG declined it afterwards. */
+      handedOffAt: (handedOff?.at ?? (r.state === "SWITCHED" || r.state === "HANDED_OFF" ? r.decidedAt : null))?.toISOString() ?? null,
+      decision,
+    };
+  }
+  for (const r of rows) out.set(r.id, one(r));
+  return out;
+}
+
+/** GET /guardian-handoffs/:id/documents/:documentId — BTG reads the new guardian's ID or proof through a five-minute, audited link. */
+export async function viewHandoffDocument(actor: Actor, id: string, documentId: string) {
+  /* Tenant-wide only: the current guardian reads the request (`ward`) but never the new guardian's documents. */
+  assertTenantWide(actor, "guardianHandoff", "read");
+  const r = await prisma.guardianHandoff.findFirst({ where: { ...whereFor(actor, "guardianHandoff", "read"), id }, select: { id: true, tenantId: true } });
+  if (!r) throw new ForbiddenError("guardianHandoff", "read");
+  const doc = await prisma.guardianHandoffDocument.findFirst({ where: { tenantId: r.tenantId, handoffId: r.id, id: documentId }, select: { id: true, r2Key: true, uploadedAt: true } });
+  if (!doc) throw new ForbiddenError("guardianHandoff", "read");
+  if (!doc.uploadedAt) throw new HandoffError("That document never finished uploading.");
+  const url = await presignPrivateDownload(actor, doc.r2Key, { entity: "GuardianHandoffDocument", entityId: doc.id }, SENSITIVE_DOCUMENT_TTL_SECONDS);
+  return { url, expiresInSeconds: SENSITIVE_DOCUMENT_TTL_SECONDS };
 }
 
 /**
@@ -391,7 +540,7 @@ async function toStaffReview(tx: Tx, actor: Actor, r: Row) {
       template: "handoff.staffConfirm", to: u.email, idempotencyKey: `handoff.staffConfirm:${r.id}:${u.id}`,
       data: {
         athleteName: r.athlete.displayName || r.athlete.legalName, previousName: from?.legalName ?? "", requesterName: r.requesterName,
-        relationship: RELATIONSHIP_WORDS[r.relationship] ?? r.relationship, reviewUrl: `${appUrl()}/admin/new-signups/athletes/${r.athleteId}`,
+        relationship: RELATIONSHIP_WORDS[r.relationship] ?? r.relationship, reviewUrl: `${appUrl()}/admin/guardian-handoffs/${r.id}`,
       },
     });
   }
@@ -440,14 +589,21 @@ async function decline(tx: Tx, actor: Actor, r: Row, note?: string, fromState: "
     before: { state: fromState }, after: { state: "DECLINED", ...(fromState === "HANDED_OFF" ? { note: note?.trim() ?? null } : {}) },
   });
   const from = await tx.guardian.findFirst({ where: { tenantId: r.tenantId, id: r.fromGuardianId }, select: { legalName: true } });
-  /* Nothing more happens automatically: the decline email points to BTG support, and a person decides. */
-  await send(tx, r.tenantId, {
-    template: "handoff.declined", to: r.requesterEmail, idempotencyKey: `handoff.declined:${r.id}`,
-    data: {
-      name: firstWord(r.requesterName), currentFirstName: firstWord(from?.legalName), athleteFirstName: firstWord(r.athlete.displayName || r.athlete.legalName),
-      supportEmail: env.SUPPORT_EMAIL, supportUrl: `${appUrl()}/contact?topic=guardianship`,
-    },
-  });
+  const data = {
+    name: firstWord(r.requesterName), currentFirstName: firstWord(from?.legalName), athleteFirstName: firstWord(r.athlete.displayName || r.athlete.legalName),
+    supportEmail: env.SUPPORT_EMAIL, supportUrl: `${appUrl()}/contact?topic=guardianship`,
+  };
+  /* Nothing more happens automatically: the decline email points to BTG support, and a person decides.
+     BTG's decline (found in review) is its own email, carrying BTG's reason as written — never
+     "the current guardian declined", which they did not: they handed off. */
+  if (fromState === "HANDED_OFF") {
+    await send(tx, r.tenantId, {
+      template: "handoff.declinedByBtg", to: r.requesterEmail, idempotencyKey: `handoff.declinedByBtg:${r.id}`,
+      data: { ...data, note: note?.trim() ?? "" },
+    });
+  } else {
+    await send(tx, r.tenantId, { template: "handoff.declined", to: r.requesterEmail, idempotencyKey: `handoff.declined:${r.id}`, data });
+  }
   return view(tx, await rowById(tx, r.id), true);
 }
 

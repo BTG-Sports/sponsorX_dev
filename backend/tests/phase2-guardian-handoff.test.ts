@@ -228,9 +228,14 @@ describe.skipIf(!hasDatabase)("2S1-BE-15 · changing a minor's guardian", { time
     expect(no.json.state).toBe("DECLINED");
     const guardian = (await prisma.athlete.findUniqueOrThrow({ where: { id: "gh_jordan" }, select: { guardianId: true } })).guardianId;
     expect(guardian).toBe(luisLogin.guardianId);
-    expect((await call("GET", pub(pat.token))).json).toMatchObject({ state: "DECLINED", supportEmail: "support@sponsorx.net" });
+    /* The current guardian's decline reads as before: who declined, and no note — none is asked of them. */
+    expect((await call("GET", pub(pat.token))).json).toMatchObject({ state: "DECLINED", supportEmail: "support@sponsorx.net", declinedBy: "CURRENT_GUARDIAN", declineNote: null });
     const mail = (await emails()).find((m) => m.template === "handoff.declined")!;
     expect(mail).toMatchObject({ to: "gh_pat@gh-test.invalid", data: { supportEmail: "support@sponsorx.net", supportUrl: expect.stringMatching(/\/contact\?topic=guardianship$/) } });
+    expect(mail.data).not.toHaveProperty("note");
+    expect((await emails()).some((m) => m.template === "handoff.declinedByBtg")).toBe(false);
+    const { EMAIL_TEMPLATES } = await import("../worker/jobs/send-email.mts");
+    expect(EMAIL_TEMPLATES["handoff.declined"]!(mail.data as Record<string, string>).text).toMatch(/declined your request\. Nothing changed/);
     expect((await call("POST", `/guardian-handoffs/${pat.id}/decision`, "gh_luis", { decision: "HAND_OFF" })).status).toBe(409);
   });
 });

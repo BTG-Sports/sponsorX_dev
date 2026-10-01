@@ -412,3 +412,25 @@ The user set the 90-day rules:
 **Full suite:** 2114 of 2115 on two runs; only QA-02 fails. In one earlier run the coming-of-age test in phase2-guardian-acts failed once and passed alone; watch it.
 
 **Screens:** the Offers desk, Closed accounts and Guardian handoffs prompt for Claude Design is written. The screens get wired when the design comes back.
+
+## Three BTG desks from Claude Design (Offers, Closed accounts, Guardian handoffs), wired and reviewed
+
+- **2S2-FE-03 → Done.** `/admin/offers` (with `[id]`, `new` and `[id]/edit`).
+  - New `GET /campaigns/:id/offer-checks` checks the floor and budget through the same functions the save uses.
+  - New `GET /offers/athletes?q=` is the athlete picker.
+  - The offer read carries the athlete's age, guardian and job name.
+  - Review fix: the athlete's rate floor is now enforced on create, edit and send.
+- **2S1-FE-12 (new row) → Done.** `/admin/closed-accounts`.
+  - `GET /account-closures?tab=` returns counts, and `GET /account-closures/:id` adds a link to where Reinstate is.
+  - Review fixes:
+    - the sponsor-request pages now have a Rejected tab and Reject/Reinstate actions, and they no longer crash on a REJECTED request;
+    - closures ended at coming of age are read-only, and the way back is the government-ID upload.
+- **2S1-FE-13 (new row) → Done.** `/admin/guardian-handoffs`.
+  - `?group=` with counts and a staff detail view.
+  - New `GET /guardian-handoffs/:id/documents/:documentId` gives BTG a 5-minute audited link.
+  - Review fix: BTG's decline reason is emailed (`handoff.declinedByBtg`) and shown on the requester's page.
+- **Plan document:** Phase 2 now has 106 tasks (2S1-FE-12 and -13 added). The tracker has rows 108 and 109, with every range extended.
+- **Test fixes:**
+  - The coming-of-age test was intermittent because `sweepComingOfAge` is platform-wide and two suites ran it in parallel. It now asserts on its own athletes, not the shared count.
+  - `next-packages` now allows `offer-desk.ts` as a floor-check caller. It only previews the check and creates nothing.
+- **Checks:** backend 2136 of 2138, frontend 943, and the build is clean. The remaining backend failures are QA-02 and the coming-of-age race above, which has since been fixed.

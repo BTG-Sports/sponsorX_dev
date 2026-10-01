@@ -233,6 +233,13 @@ export type ApiHandoffRequest = {
   decidedAt: string | null;
   documentsCheckedAt: string | null;
   switchedAt: string | null;
+  /** Once DECLINED, on the new guardian's status page: who declined — BTG (a
+   *  handoff BTG declined after the current guardian handed off) or the
+   *  current guardian. */
+  declinedBy?: "BTG" | "CURRENT_GUARDIAN" | null;
+  /** BTG's reason, as written (it was emailed too). The current guardian's
+   *  decline carries no note to the requester. */
+  declineNote?: string | null;
 };
 
 export const sampleHandoff: ApiHandoffRequest = {
@@ -275,6 +282,14 @@ export function handoffTrack(r: ApiHandoffRequest): TrackStep[] {
     ];
   }
   const decided = r.decidedAt && !declined;
+  if (declined && r.declinedBy === "BTG") {
+    /* The current guardian handed off; BTG declined the switch. */
+    return [
+      { label: `${cur} handed off`, status: "done", note: "Handed off" },
+      { label: "BTG declined", status: "stopped", note: r.decidedAt ? whenLabel(r.decidedAt) : "Declined" },
+      { label: `${req} becomes ${r.athlete.firstName}’s guardian`, status: "todo", note: "Not happening" },
+    ];
+  }
   return [
     declined
       ? { label: `${cur} declined`, status: "stopped", note: whenLabel(r.decidedAt!) }
@@ -325,13 +340,33 @@ export function handoffViews(r: ApiHandoffRequest): PersonView[] {
       [`${r.requester.name} is now your guardian.`, `${req} approves your agreements and payments from now on.`],
     ],
     DECLINED: [
-      [`${cur} declined.`, "If this is about custody or you can’t reach them, contact BTG. A person at BTG decides."],
+      r.declinedBy === "BTG"
+        ? ["BTG declined your request.", `${cur} is still ${a}’s guardian. If you have something BTG hasn’t seen, contact BTG. A person at BTG decides.`]
+        : [`${cur} declined.`, "If this is about custody or you can’t reach them, contact BTG. A person at BTG decides."],
       [`You declined ${req}’s request.`, `Nothing changed. You’re still ${a}’s guardian.`],
       [`${cur} is still your guardian.`, "Nothing changed on your account."],
     ],
   };
   const who = [`${req} sees`, `${cur} sees`, `${a} sees`];
   return words[r.state].map(([head, foot], i) => ({ who: who[i]!, head, foot }));
+}
+
+/** The new guardian's declined page: who declined, and BTG's reason when BTG did. `body` ends where the page adds the support address. */
+export function declinedWords(r: Pick<ApiHandoffRequest, "current" | "athlete" | "declinedBy" | "declineNote">): { headline: string; body: string; note: string | null } {
+  const cur = r.current.firstName;
+  const a = r.athlete.firstName;
+  if (r.declinedBy === "BTG") {
+    return {
+      headline: "BTG declined your request.",
+      body: `Nothing changed on ${a}’s account — ${cur} is still ${a}’s guardian. If you have something BTG hasn’t seen, or this is about custody, contact BTG support`,
+      note: r.declineNote?.trim() || null,
+    };
+  }
+  return {
+    headline: `${cur} declined.`,
+    body: `Nothing changed on ${a}’s account. If this is about custody or you can’t reach ${cur}, contact BTG support`,
+    note: null,
+  };
 }
 
 /** Holds for every state — the agreed carry-over rules (2S1-BE-15 §4). */

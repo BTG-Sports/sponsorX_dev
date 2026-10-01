@@ -9,7 +9,8 @@ import { requireActor } from "../../auth/actor";
 import { clientIp, clientUserAgent } from "../../lib/client-ip";
 import {
   BrandingInput, InventoryItemInput, InventoryItemPatch, ListingDecisionInput, ListingInput, ListingPatch, ListingState,
-  ListingTransitionInput, LogoUploadInput, OfferInput, OfferKeepInput, OfferPatch, OfferResponseInput, RosterAthleteInput, TeamShareInput,
+  ListingTransitionInput, LogoUploadInput, OfferAthletesQuery, OfferChecksQuery, OfferInput, OfferKeepInput, OfferPatch, OfferResponseInput,
+  RosterAthleteInput, TeamShareInput,
   CartLineInput, CartLinePatch, RestrictionInput, SearchQuery, SponsorCategoriesInput,
   MarketplaceOrderDecisionInput, MarketplaceOrderTransitionInput, PlaceOrderInput,
   CommissionRuleInput, CommissionRuleRevision, CommissionPreviewInput,
@@ -32,6 +33,7 @@ import {
 import {
   createOffer, getOffer, keepOffer, listOffers, respondToOffer, reviseOffer, sendOffer, updateOffer, withdrawOffer,
 } from "../../domain/offer";
+import { offerAthletes, offerChecks } from "../../domain/offer-desk";
 import { mayWriteBranding, readBranding, requestLogoUpload, updateBranding } from "../../domain/branding";
 import { allowedList, pageRequest, searchTerm } from "../../lib/paging";
 import {
@@ -126,6 +128,16 @@ const respond: RequestHandler<Id> = async (req, res) => {
   /* The signer's evidence comes through the web server's forward, like every acceptance. */
   res.json(await respondToOffer(req.actor!, req.params.id, { ...b, ip: clientIp(req), userAgent: clientUserAgent(req) }));
 };
+/* 2S2-FE-03 — BTG's new-offer form: the athlete picker and the live checks.
+   /offers/athletes is mounted before /offers/:id, which would take it. */
+const offerAthletePicker: RequestHandler = async (req, res) => {
+  res.json({ athletes: await offerAthletes(req.actor!, OfferAthletesQuery.parse(req.query).q) });
+};
+const offerCheck: RequestHandler<Id> = async (req, res) => {
+  res.json(await offerChecks(req.actor!, req.params.id, OfferChecksQuery.parse(req.query)));
+};
+marketplaceRouter.get("/offers/athletes", requireActor, offerAthletePicker);
+marketplaceRouter.get("/campaigns/:id/offer-checks", requireActor, offerCheck);
 marketplaceRouter.get("/offers", requireActor, offers);
 marketplaceRouter.post("/offers", requireActor, newOffer);
 marketplaceRouter.get("/offers/:id", requireActor, offer);

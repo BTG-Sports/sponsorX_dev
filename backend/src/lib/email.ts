@@ -122,6 +122,7 @@ export type EmailTemplate =
   | "handoff.confirmEmail"
   | "handoff.requested"
   | "handoff.declined"
+  | "handoff.declinedByBtg"
   | "handoff.switchedNew"
   | "handoff.switchedPrevious"
   | "handoff.switchedAthlete"

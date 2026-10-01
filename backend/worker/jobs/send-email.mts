@@ -351,7 +351,7 @@ ${d.portalUrl ?? ""}
   }),
   "offer.changeRequested": (d) => ({
     subject: `Change requested: ${d.sponsorName ?? "a sponsor"} · ${d.campaignName ?? "a campaign"}`,
-    text: `${d.athleteName ?? "An athlete"} asked for a change to the offer on ${d.sponsorName ?? "a sponsor"}'s ${d.campaignName ?? "campaign"}:\n\n${d.note ?? ""}\n\nThe offer is still open — they can accept or decline it as it stands. Its terms are fixed once sent, so to change them withdraw it and send a revised offer, or tell them it stands.\n\nThe campaign:\n\n${d.campaignUrl ?? ""}\n\n— SponsorX`,
+    text: `${d.athleteName ?? "An athlete"} asked for a change to the offer on ${d.sponsorName ?? "a sponsor"}'s ${d.campaignName ?? "campaign"}:\n\n${d.note ?? ""}\n\nThe offer is still open — they can accept or decline it as it stands. Its terms are fixed once sent, so to change them withdraw it and send a revised offer, or tell them it stands.\n\nAnswer it on the Offers desk:\n\n${d.campaignUrl ?? ""}\n\n— SponsorX`,
   }),
   /* 2S2-FE-03 follow-up — to the athlete, and to a minor's guardian (seat), who answers for them. */
   "offer.sent": (d) => ({
@@ -427,6 +427,11 @@ ${d.portalUrl ?? ""}
   "handoff.declined": (d) => ({
     subject: `About your request to become ${d.athleteFirstName ?? "an athlete"}'s guardian`,
     text: `Hi ${d.name ?? "there"},\n\n${d.currentFirstName ?? "The current guardian"} declined your request. Nothing changed on ${d.athleteFirstName ?? "the athlete"}'s account.\n\nIf this is about custody, a court order, or you can't reach them, contact BTG support — a person at BTG decides, never the system:\n\n${d.supportEmail ?? ""}\n${d.supportUrl ?? ""}\n\nYour documents are deleted 30 days after a declined request.\n\n— BTG SponsorX`,
+  }),
+  /* BTG declined a handed-off request (staff confirm minors) — its reason, as written. The current guardian handed off; they did not decline. */
+  "handoff.declinedByBtg": (d) => ({
+    subject: `About your request to become ${d.athleteFirstName ?? "an athlete"}'s guardian`,
+    text: `Hi ${d.name ?? "there"},\n\nBTG looked at your request and declined it:\n\n${d.note ?? ""}\n\nNothing changed on ${d.athleteFirstName ?? "the athlete"}'s account — ${d.currentFirstName ?? "their current guardian"} is still their guardian.\n\nIf you have something BTG hasn't seen, or this is about custody or a court order, contact BTG support — a person at BTG decides, never the system:\n\n${d.supportEmail ?? ""}\n${d.supportUrl ?? ""}\n\nYour documents are deleted 30 days after a declined request.\n\n— BTG SponsorX`,
   }),
   "handoff.switchedNew": (d) => ({
     subject: `You are now ${d.athleteFirstName ?? "your athlete"}'s guardian on SponsorX`,

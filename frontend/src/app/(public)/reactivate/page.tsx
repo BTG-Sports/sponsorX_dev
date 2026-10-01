@@ -132,7 +132,8 @@ export default async function ReactivatePage({ searchParams }: { searchParams: P
       {error && <p role="alert" className="text-sm text-danger">{error}</p>}
       {!closed && (
         <p className="text-sm leading-relaxed text-muted">
-          An account you closed yourself can come back within 30 days. An account BTG closed can ask BTG to look again.
+          An account you closed yourself can come back within 30 days. An account BTG closed can ask BTG to look again. An account
+          that ended at coming of age comes back when the athlete uploads their government ID within 30 days.
         </p>
       )}
       <LinkForm heading={closed ? "Lost the email?" : "Get your link"} />

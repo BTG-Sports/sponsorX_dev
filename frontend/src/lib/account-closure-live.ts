@@ -14,7 +14,8 @@ import { RETENTION_DAYS, dayOf } from "@/lib/account-live";
    previews and never call the API.
    -------------------------------------------------------------------------- */
 
-export type ReactivationStanding = "CLOSED_SELF" | "CLOSED_BY_BTG" | "REACTIVATED" | "EXPIRED";
+/** CLOSED_AT_AGE — ended at coming of age: the athlete's government ID brings it back, not BTG. */
+export type ReactivationStanding = "CLOSED_SELF" | "CLOSED_BY_BTG" | "CLOSED_AT_AGE" | "REACTIVATED" | "EXPIRED";
 
 /** GET /public/account/reactivation/:token. */
 export type ApiReactivationStatus = {
@@ -33,11 +34,14 @@ export type ApiReactivationStatus = {
   /** Where this account signs in again. */
   portalPath: string;
   supportEmail: string;
+  /** CLOSED_AT_AGE, the athlete's own account: the coming-of-age page where their government ID brings it back. */
+  comingOfAgePath?: string | null;
 };
 
 export type ReactivateView =
   | { kind: "self"; badge: string; headline: string; left: string; body: string }
   | { kind: "btg"; badge: string; headline: string; body: string; kept: string; asked: string | null }
+  | { kind: "age"; badge: string; headline: string; body: string; kept: string; uploadPath: string | null }
   | { kind: "back"; badge: string; headline: string; notes: string[] }
   | { kind: "expired"; badge: string; headline: string; body: string };
 
@@ -55,6 +59,23 @@ export function reactivateView(s: ApiReactivationStatus): ReactivateView {
         badge: "Closed",
         headline: `The ${RETENTION_DAYS} days have passed`,
         body: "Your documents have been deleted. To come back, sign up again.",
+      };
+    case "CLOSED_AT_AGE":
+      /* Ended at coming of age: no Reactivate and no "ask BTG" — the
+         athlete's government ID, within the 30 days, brings it back. */
+      return {
+        kind: "age",
+        badge: "Ended at coming of age",
+        headline: s.kind === "GUARDIAN"
+          ? `${s.greeting}, this guardian account ended when your athlete came of age.`
+          : `${s.greeting}, your account ended because no government ID came in within the 90 days.`,
+        body: s.kind === "GUARDIAN"
+          ? `There’s nothing to reactivate here. Your athlete can bring their own account back by uploading their government ID by ${dayOf(until)}, from the coming-of-age link we emailed them — BTG doesn’t need to review it.`
+          : s.comingOfAgePath
+            ? `Upload your government ID by ${dayOf(until)} and your account comes back — no need to ask BTG.`
+            : `Upload your government ID by ${dayOf(until)} from the coming-of-age link we emailed you, and your account comes back — no need to ask BTG.`,
+        kept: `Your documents are kept until ${dayOf(until)}, then deleted.`,
+        uploadPath: s.kind === "GUARDIAN" ? null : s.comingOfAgePath ?? null,
       };
     case "CLOSED_BY_BTG":
       return {

@@ -30,6 +30,25 @@ describe("reactivating", () => {
     expect(no.kind === "btg" && no.asked).toMatch(/replied by email/);
   });
 
+  it("an account ended at coming of age comes back by the government ID, not by asking BTG", () => {
+    const base = { ...sampleReactivation("CLOSED_BY_BTG", "Jordan", now), standing: "CLOSED_AT_AGE" as const };
+    const athlete = reactivateView({ ...base, comingOfAgePath: "/coming-of-age/tok" });
+    expect(athlete.kind).toBe("age");
+    if (athlete.kind !== "age") return;
+    expect(athlete.uploadPath).toBe("/coming-of-age/tok");
+    expect(athlete.body).toBe("Upload your government ID by Oct 24 and your account comes back — no need to ask BTG.");
+    expect(athlete.kept).toBe("Your documents are kept until Oct 24, then deleted.");
+    /* No link of their own (closed with the guardian's address): the email's link. */
+    const noLink = reactivateView(base);
+    expect(noLink.kind === "age" && noLink.uploadPath).toBeNull();
+    expect(noLink.kind === "age" && noLink.body).toMatch(/from the coming-of-age link we emailed you/);
+    /* The guardian: nothing to reactivate; the athlete uploads. */
+    const guardian = reactivateView({ ...base, kind: "GUARDIAN", greeting: "Pat", comingOfAgePath: "/coming-of-age/tok" });
+    expect(guardian.kind === "age" && guardian.uploadPath).toBeNull();
+    expect(guardian.kind === "age" && guardian.body).toMatch(/^There’s nothing to reactivate here\. Your athlete can bring their own account back/);
+    expect(JSON.stringify([athlete, noLink, guardian])).not.toMatch(/Ask BTG to review/);
+  });
+
   it("after 30 days the files are gone: sign up again; once back, the re-run checks are shown", () => {
     const base: ApiReactivationStatus = sampleReactivation("CLOSED_SELF", "Riley", now);
     expect(reactivateView({ ...base, standing: "EXPIRED" })).toMatchObject({ kind: "expired", body: /sign up again/ });

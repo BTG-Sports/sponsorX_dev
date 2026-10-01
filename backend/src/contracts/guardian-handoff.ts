@@ -60,3 +60,13 @@ export const HandoffStaffDecisionInput = z
     z.object({ decision: z.literal("DECLINE"), note: z.string().trim().min(1).max(1000) }).strict(),
   ])
   .meta({ id: "HandoffStaffDecisionInput", description: "BTG's answer to a handed-off request waiting for staff confirmation: CONFIRM (the switch) or DECLINE, with a reason the requester reads." });
+
+/** 2S1-FE-12 — the groups of BTG's Guardian handoffs desk, one tab each. */
+export const HANDOFF_GROUPS = ["WAITING_FOR_BTG", "IN_PROGRESS", "SWITCHED", "DECLINED", "CANCELLED"] as const;
+
+export const HandoffListQuery = z
+  .object({ group: z.enum(HANDOFF_GROUPS).optional() })
+  .meta({
+    id: "HandoffListQuery",
+    description: "One group of requests: WAITING_FOR_BTG (HANDED_OFF), IN_PROGRESS (REQUESTED — BTG only — and WAITING), SWITCHED, DECLINED or CANCELLED. Omitted: every group.",
+  });
