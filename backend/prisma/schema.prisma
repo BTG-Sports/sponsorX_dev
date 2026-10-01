@@ -426,6 +426,8 @@ model Athlete {
   restrictions BrandRestriction[]
   /// P3-BE-16 — the athlete's own post-approval edits, held for BTG review.
   profileChanges AthleteProfileChange[]
+  /// 2S1-BE-15 — requests to become this minor's guardian.
+  guardianHandoffs GuardianHandoff[]
 
   @@index([tenantId, state])
   @@index([tenantId, sport, stateCode])
@@ -454,6 +456,20 @@ model AthleteProfileChange {
   reviewerNotes String?
   reviewedBy    String?
   reviewedAt    DateTime?
+  /// 2S1-BE-14 — edits publish at once (state APPROVED, appliedAt set, no
+  /// reviewer). `sensitive` marks a legal-name, date-of-birth or guardian
+  /// edit: those re-run the sign-up checks and BTG admins are emailed.
+  sensitive     Boolean          @default(false)
+  appliedAt     DateTime?
+  /// A legal-name change waits for this: the matching ID, in the private
+  /// bucket (PENDING until it arrives; then applied).
+  idDocumentKey         String?  @unique
+  idDocumentFilename    String?
+  idDocumentContentType String?
+  idDocumentBytes       Int?
+  idDocumentUploadedAt  DateTime?
+  /// What the re-run checks found, in plain words ("Now a minor — a guardian is needed").
+  checkNotes    String[]         @default([])
   createdAt     DateTime         @default(now())
 
   athlete Athlete @relation(fields: [athleteId], references: [id])
@@ -2575,4 +2591,164 @@ model RestrictedWord {
 
   @@unique([tenantId, normalized])
   @@index([tenantId, active])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 2S1-BE-13 · 2S1-BE-15 · 2S1-BE-16 — closing and coming back, the guardian
+// handoff, and BTG support (added 2026-10-01).
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// 2S1-BE-13 — an account that is closed: by its owner (SELF), by BTG's
+/// Reject (REJECTED), or at the end of the coming-of-age allowance
+/// (TERMINATED, 2S1-BE-12). Its ID and verification files are kept until
+/// `retainUntil` (30 days), then the retention job deletes them (PURGED). A
+/// self-closed account can come back before then (REACTIVATED); a rejected
+/// one can only ask BTG, recorded in the reactivation* columns. At most one
+/// CLOSED row per subject (a partial unique index in the migration).
+model AccountClosure {
+  id          String   @id @default(cuid())
+  tenantId    String
+  /// ATHLETE | GUARDIAN | PROPERTY | SPONSOR
+  subjectKind String
+  subjectId   String
+  /// SELF | REJECTED | TERMINATED
+  cause       String
+  /// CLOSED | REACTIVATED | PURGED
+  state       String   @default("CLOSED")
+  /// Why: the owner's own words, or BTG's reason.
+  reason      String?
+  closedAt    DateTime @default(now())
+  /// The user who closed it; null when the system did.
+  closedBy    String?
+  retainUntil DateTime
+  /// The logins this closure switched off (User ids). Reactivation switches
+  /// on exactly these and no others.
+  userIds                String[] @default([])
+  /// The listings it paused, brought back on reactivation if still paused.
+  pausedListingIds       String[] @default([])
+  /// It withdrew the property's listing access (PROPERTY only).
+  listingAccessWithdrawn Boolean  @default(false)
+  /// Where the reactivation link goes, and who the page greets.
+  contactEmail String
+  displayName  String
+  reactivatedAt DateTime?
+  reactivatedBy String?
+  /// What the re-run checks found on reactivation.
+  recheckNotes  String[] @default([])
+  purgedAt      DateTime?
+  /// A rejected account asking BTG to look again.
+  reactivationRequestedAt  DateTime?
+  reactivationRequestNote  String?
+  /// DECLINED: BTG's answer when it does not reinstate. Reinstating is the
+  /// subject's own BTG decision, which reopens this closure.
+  reactivationDecision     String?
+  reactivationDecidedAt    DateTime?
+  reactivationDecidedBy    String?
+  reactivationDecisionNote String?
+  createdAt DateTime @default(now())
+
+  @@index([tenantId, state, retainUntil])
+  @@index([tenantId, subjectKind, subjectId])
+}
+
+/// 2S1-BE-15 — a new guardian asking to take over a minor's account. It
+/// starts only here, on the public request page; the current guardian hands
+/// off or declines from their portal. The switch is one transaction, and
+/// until it the current guardian keeps acting. A declined or disputed
+/// request goes to BTG support by hand: nothing here decides it.
+model GuardianHandoff {
+  id             String    @id @default(cuid())
+  tenantId       String
+  athleteId      String
+  /// The guardian when the request was made: the only one who can answer.
+  fromGuardianId String
+  requesterName  String
+  requesterEmail String
+  requesterPhone String?
+  /// PARENT | LEGAL_GUARDIAN | AUTHORIZED_REP
+  relationship   String
+  /// REQUESTED (being filled in) | WAITING (with the current guardian) |
+  /// SWITCHED | DECLINED | CANCELLED (the guardian changed another way first)
+  state          String    @default("REQUESTED")
+  emailConfirmedAt    DateTime?
+  agreementAcceptedAt DateTime?
+  agreementVersion    String?
+  submittedAt         DateTime?
+  decidedAt           DateTime?
+  decidedBy           String?
+  declineNote         String?
+  /// When the automatic check of the new guardian's email and documents passed.
+  documentsCheckedAt  DateTime?
+  switchedAt          DateTime?
+  /// The Guardian row the athlete moved to (new, or the requester's existing one).
+  newGuardianId       String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+
+  athlete   Athlete                   @relation(fields: [athleteId], references: [id])
+  documents GuardianHandoffDocument[]
+
+  @@index([tenantId, athleteId, state])
+  @@index([tenantId, fromGuardianId, state])
+}
+
+/// 2S1-BE-15 — the new guardian's government ID and proof of guardianship,
+/// in the private bucket. The same document kinds as the guardian's own
+/// sign-up page (2S1-BE-10): GUARDIAN_ID, GUARDIANSHIP_PROOF.
+model GuardianHandoffDocument {
+  id          String    @id @default(cuid())
+  tenantId    String
+  handoffId   String
+  /// GUARDIAN_ID | GUARDIANSHIP_PROOF
+  kind        String
+  /// For GUARDIANSHIP_PROOF: BIRTH_CERTIFICATE | COURT_ORDER | SCHOOL_RECORD
+  proofKind   String?
+  filename    String
+  contentType String
+  bytes       Int
+  r2Key       String    @unique
+  uploadedAt  DateTime?
+  createdAt   DateTime  @default(now())
+
+  handoff GuardianHandoff @relation(fields: [handoffId], references: [id])
+
+  @@index([tenantId, handoffId])
+}
+
+/// 2S1-BE-16 — a message to BTG support from the public contact form. It is
+/// mailed to SUPPORT_EMAIL through the worker (never on the request path),
+/// with a copy to the sender; this row is the queue's record of it.
+model SupportMessage {
+  id        String    @id @default(cuid())
+  tenantId  String
+  name      String
+  email     String
+  /// GUARDIANSHIP | ACCOUNT | PAYMENT | OTHER
+  topic     String
+  message   String
+  /// DRAFT (attachments still uploading) | QUEUED
+  state     String    @default("DRAFT")
+  queuedAt  DateTime?
+  createdAt DateTime  @default(now())
+
+  attachments SupportAttachment[]
+
+  @@index([tenantId, createdAt])
+}
+
+/// 2S1-BE-16 — an optional attachment to a support message, in the private bucket.
+model SupportAttachment {
+  id          String    @id @default(cuid())
+  tenantId    String
+  messageId   String
+  filename    String
+  contentType String
+  bytes       Int
+  r2Key       String    @unique
+  uploadedAt  DateTime?
+  createdAt   DateTime  @default(now())
+
+  message SupportMessage @relation(fields: [messageId], references: [id])
+
+  @@index([tenantId, messageId])
 }

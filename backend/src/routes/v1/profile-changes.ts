@@ -1,51 +1,47 @@
 /**
- * /api/v1/profile-changes — BTG's review of post-approval profile edits
- * (P3-BE-16). The athlete-side routes (propose, list mine) hang off
- * /athletes in athletes.ts; this file is the desk and the two decisions,
- * plus the athlete's withdraw, which addresses the change by its own id.
+ * /api/v1/profile-changes — P3-BE-16, reshaped by 2S1-BE-14 (2026-10-01).
+ *
+ * BTG no longer approves profile edits, so the review desk's approve and
+ * decline are gone. What is left addresses a change by its own id: BTG's
+ * list of sensitive edits (what New sign-ups shows) and the five-minute
+ * view of a legal-name change's ID; the athlete's confirm of that ID upload
+ * and their withdraw of a legal name still waiting for it. Making an edit
+ * is POST /athletes/:id/profile-changes (athletes.ts).
  */
 import { Router, type RequestHandler } from "express";
 
 import { requireActor } from "../../auth/actor";
-import { z } from "../../contracts/zod";
-import { ProfileChangeDecisionInput } from "../../contracts/profile-change";
 import {
-  CHANGE_STATES,
-  decideProfileChange,
-  listProfileChangesPage,
+  confirmLegalNameDocument,
+  listSensitiveEditsPage,
+  viewLegalNameDocument,
   withdrawProfileChange,
 } from "../../domain/athlete-profile-change";
-import { allowedList, pageRequest } from "../../lib/paging";
+import { pageRequest } from "../../lib/paging";
 
 export const profileChangesRouter = Router();
 
-const ListQuery = z.object({ state: z.string().optional() });
-
-/** GET /profile-changes?page=&size=&state=PENDING,DECLINED */
+/** GET /profile-changes?page=&size= — sensitive edits, newest first. */
 const list: RequestHandler = async (req, res) => {
-  const q = ListQuery.parse(req.query);
-  const states = allowedList(q.state, CHANGE_STATES);
   /* Always paged — a desk never renders the whole tenant's history. */
-  res.json(await listProfileChangesPage(req.actor!, pageRequest({ ...req.query, page: req.query.page ?? 1 })!, { states }));
-};
-
-const approve: RequestHandler<{ id: string }> = async (req, res) => {
-  const b = ProfileChangeDecisionInput.parse(req.body ?? {});
-  res.json(await decideProfileChange(req.actor!, req.params.id, "APPROVED", b.reviewerNotes));
-};
-
-const decline: RequestHandler<{ id: string }> = async (req, res) => {
-  const b = ProfileChangeDecisionInput.parse(req.body ?? {});
-  res.json(await decideProfileChange(req.actor!, req.params.id, "DECLINED", b.reviewerNotes));
+  res.json(await listSensitiveEditsPage(req.actor!, pageRequest({ ...req.query, page: req.query.page ?? 1 })!));
 };
 
 const withdraw: RequestHandler<{ id: string }> = async (req, res) => {
   res.json(await withdrawProfileChange(req.actor!, req.params.id));
 };
 
-profileChangesRouter.get("/", requireActor, list);
-profileChangesRouter.post("/:id/approve", requireActor, approve);
-profileChangesRouter.post("/:id/decline", requireActor, decline);
-profileChangesRouter.post("/:id/withdraw", requireActor, withdraw);
+const confirmId: RequestHandler<{ id: string }> = async (req, res) => {
+  res.json(await confirmLegalNameDocument(req.actor!, req.params.id));
+};
 
-export { list as listProfileChanges, approve as approveProfileChange, decline as declineProfileChange };
+const viewId: RequestHandler<{ id: string }> = async (req, res) => {
+  res.json(await viewLegalNameDocument(req.actor!, req.params.id));
+};
+
+profileChangesRouter.get("/", requireActor, list);
+profileChangesRouter.post("/:id/withdraw", requireActor, withdraw);
+profileChangesRouter.post("/:id/id-document/confirm", requireActor, confirmId);
+profileChangesRouter.get("/:id/id-document", requireActor, viewId);
+
+export { list as listProfileChanges };

@@ -109,12 +109,20 @@ const GOVERNED_BY: Record<string, Resource> = {
   CommissionRule: "commissionRule",
   OrderLineFinancials: "orderFinancials",
   LedgerEntry: "ledgerEntry",
+  /* 2S1-BE-13 — closed accounts; 2S1-BE-15 — a guardian handoff and its documents. */
+  AccountClosure: "accountClosure",
+  GuardianHandoff: "guardianHandoff",
+  GuardianHandoffDocument: "guardianHandoff",
 };
 
 /** Models no API path reads or writes, and why. */
 const SYSTEM_INTERNAL: Record<string, string> = {
   OutboxJob: "the job queue — written inside domain transactions, drained by the worker",
   EmailSendLog: "the worker's idempotency ledger for sent email",
+  /* 2S1-BE-16 — written by the public contact form, read only by the worker
+     that mails it; BTG reads the messages in the support mailbox, not here. */
+  SupportMessage: "a contact-form message — written by the public form, mailed by the worker; read in the support mailbox",
+  SupportAttachment: "a contact-form attachment — uploaded to the private bucket, attached by the worker; no API route reads it",
 };
 
 describe("P8-SEC-01 · every model is governed by the matrix", () => {

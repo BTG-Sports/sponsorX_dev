@@ -1,0 +1,462 @@
+/**
+ * Changing a minor's guardian (the handoff) — 2S1-BE-15.
+ *
+ * Built on the existing Guardian model and the Athlete.guardianId link
+ * (guardian.ts). The rules (programme owner, 2026-10-01):
+ *
+ *   1. IT STARTS ONLY WITH THE NEW GUARDIAN'S REQUEST, on the public request
+ *      page. There is no route by which the current guardian, the minor, or
+ *      anyone signed in can start one.
+ *   2. The new guardian identifies the athlete (the athlete's email), gives
+ *      their details, CONFIRMS THEIR EMAIL, uploads a GOVERNMENT ID and
+ *      PROOF OF GUARDIANSHIP (private bucket, the same document kinds as the
+ *      guardian's own sign-up page, 2S1-BE-10) and accepts the guardian
+ *      agreement. Only then is the request sent to the current guardian.
+ *   3. ONLY THE CURRENT GUARDIAN ANSWERS: Hand off or Decline, from their
+ *      portal. The minor can read the request but never answer it.
+ *   4. NO GAP IN CONTROL. The current guardian keeps acting until the
+ *      switch, and the switch is one transaction: the new guardian approved
+ *      automatically (their checks already passed), the athlete's link moved
+ *      — only if it still points at the guardian who handed off — the new
+ *      guardian's login provisioned, the request closed, and every other
+ *      open request for this athlete cancelled.
+ *   5. WHAT STAYS: orders and campaigns already agreed are not touched;
+ *      money already earned stays with the payout account it was earned
+ *      under (nothing here reads or writes earnings, the ledger or payout
+ *      accounts); the new guardian sets up their own payout account for
+ *      anything new. A guardian's other children keep their guardian.
+ *   6. A DISPUTE IS NEVER AUTOMATED. A decline (or a custody question, a
+ *      court order, an unreachable guardian) points the new guardian to BTG
+ *      support (2S1-BE-16); BTG decides by hand.
+ *
+ * Every step is audited.
+ */
+import { randomBytes } from "node:crypto";
+
+import type { Prisma } from "../generated/prisma/client";
+import { prisma } from "../db/client";
+import { audit, type AuditActor } from "../db/audit";
+import { send } from "../lib/email";
+import { env } from "../config/env";
+import type { Actor } from "../auth/actor";
+import { assertAllowed, whereFor } from "../auth/scope";
+import { ForbiddenError } from "../auth/errors";
+import { issuePurposeToken, readPurposeToken } from "../lib/purpose-token";
+import { presignPrivateUpload, privateObjectSize } from "../lib/storage";
+import { provisionGuardianLoginIn } from "./athlete-login";
+import { requiresGuardian } from "./guardian-rules";
+import { safeFilename } from "./onboarding-documents";
+
+type Tx = Prisma.TransactionClient;
+
+export class HandoffError extends Error {
+  readonly status: number;
+  constructor(message: string, status = 409) {
+    super(message);
+    this.name = "HandoffError";
+    this.status = status;
+  }
+}
+
+/** Agreed 2026-10-01: an ID upload is PDF, JPEG or PNG, at most 10 MB. */
+export const MAX_ID_BYTES = 10 * 1024 * 1024;
+const ID_TYPES = new Set(["application/pdf", "image/jpeg", "image/png"]);
+const SYSTEM = (tenantId: string): AuditActor => ({ userId: null, tenantId });
+const appUrl = () => env.APP_URL.replace(/\/+$/, "");
+const firstWord = (s: string | null | undefined) => (s ?? "").trim().split(/\s+/)[0] ?? "";
+const OPEN_STATES = ["REQUESTED", "WAITING"];
+const RELATIONSHIP_WORDS: Record<string, string> = { PARENT: "Parent", LEGAL_GUARDIAN: "Legal guardian", AUTHORIZED_REP: "Authorized representative" };
+
+const SELECT = {
+  id: true, tenantId: true, athleteId: true, fromGuardianId: true, requesterName: true, requesterEmail: true, requesterPhone: true,
+  relationship: true, state: true, emailConfirmedAt: true, agreementAcceptedAt: true, agreementVersion: true, submittedAt: true,
+  decidedAt: true, declineNote: true, documentsCheckedAt: true, switchedAt: true, newGuardianId: true, createdAt: true,
+  athlete: { select: { displayName: true, legalName: true, sport: true, email: true } },
+  documents: { select: { id: true, kind: true, proofKind: true, filename: true, uploadedAt: true } },
+} as const;
+type Row = Prisma.GuardianHandoffGetPayload<{ select: typeof SELECT }>;
+
+/** Which of the two documents have really arrived. */
+function uploaded(r: Pick<Row, "documents">) {
+  const has = (k: string) => r.documents.some((d) => d.kind === k && d.uploadedAt);
+  return { id: has("GUARDIAN_ID"), proof: has("GUARDIANSHIP_PROOF") };
+}
+
+/** What is still needed before the request can go to the current guardian. */
+function missingOf(r: Row): string[] {
+  const docs = uploaded(r);
+  const missing: string[] = [];
+  if (!r.emailConfirmedAt) missing.push("confirm your email");
+  if (!docs.id) missing.push("upload your government ID");
+  if (!docs.proof) missing.push("upload proof you're the guardian");
+  if (!r.agreementAcceptedAt) missing.push("accept the guardian agreement");
+  return missing;
+}
+
+/**
+ * The one shape every side reads — the new guardian's request page, the
+ * current guardian's card, the athlete's notice. `full` adds the names a
+ * signed-in guardian or athlete already knows; the public page gets first
+ * names only.
+ */
+async function view(db: Tx | typeof prisma, r: Row, full: boolean) {
+  const from = await db.guardian.findFirst({ where: { tenantId: r.tenantId, id: r.fromGuardianId }, select: { legalName: true } });
+  const docs = uploaded(r);
+  const athleteName = r.athlete.displayName || r.athlete.legalName;
+  return {
+    id: r.id,
+    state: r.state as "REQUESTED" | "WAITING" | "SWITCHED" | "DECLINED" | "CANCELLED",
+    athlete: { name: full ? athleteName : firstWord(athleteName), firstName: firstWord(athleteName), sport: r.athlete.sport },
+    current: { name: full ? from?.legalName ?? "" : firstWord(from?.legalName), firstName: firstWord(from?.legalName) },
+    requester: { name: r.requesterName, firstName: firstWord(r.requesterName), relationship: RELATIONSHIP_WORDS[r.relationship] ?? r.relationship },
+    emailConfirmed: Boolean(r.emailConfirmedAt),
+    idUploaded: docs.id,
+    proofUploaded: docs.proof,
+    documentsUploaded: docs.id && docs.proof,
+    agreementAccepted: Boolean(r.agreementAcceptedAt),
+    missing: r.state === "REQUESTED" ? missingOf(r) : [],
+    requestedAt: (r.submittedAt ?? r.createdAt).toISOString(),
+    decidedAt: r.decidedAt?.toISOString() ?? null,
+    documentsCheckedAt: r.documentsCheckedAt?.toISOString() ?? null,
+    switchedAt: r.switchedAt?.toISOString() ?? null,
+    supportEmail: env.SUPPORT_EMAIL,
+  };
+}
+export type HandoffView = Awaited<ReturnType<typeof view>>;
+
+/** The minor this email belongs to, with a guardian to hand off from. */
+async function minorByEmail(tenantId: string, athleteEmail: string) {
+  const a = await prisma.athlete.findFirst({
+    where: { tenantId, email: { equals: athleteEmail.trim(), mode: "insensitive" }, guardianId: { not: null } },
+    select: { id: true, displayName: true, legalName: true, sport: true, birthDate: true, ageBand: true, guardianId: true, email: true, guardian: { select: { legalName: true, email: true } } },
+  });
+  if (!a || !requiresGuardian(a)) return null;
+  return a;
+}
+
+/** GET /public/guardian-handoffs/lookup — "is this the athlete?" First names only. */
+export async function lookupAthleteForHandoff(athleteEmail: string) {
+  const a = await minorByEmail(env.PUBLIC_INTAKE_TENANT_ID, athleteEmail);
+  if (!a) return { found: false as const };
+  return { found: true as const, athlete: { firstName: firstWord(a.displayName || a.legalName), sport: a.sport }, current: { firstName: firstWord(a.guardian?.legalName) } };
+}
+
+/* ═══════════════════════ the new guardian's side (public) ══════════════════ */
+
+const requestToken = (id: string) => issuePurposeToken("handoff", id, new Date(Date.now() + 30 * 86_400_000));
+
+function idFrom(token: string): string {
+  const id = readPurposeToken("handoff", token);
+  if (!id) throw new HandoffError("This link has expired or isn't valid. Start the request again.", 400);
+  return id;
+}
+
+async function rowById(db: Tx | typeof prisma, id: string): Promise<Row> {
+  const r = await db.guardianHandoff.findFirst({
+    /* tenant-scope: found by the id inside a signed token only this request's guardian was given. */
+    where: { id }, select: SELECT,
+  });
+  if (!r) throw new HandoffError("This request no longer exists.", 404);
+  return r;
+}
+
+/**
+ * POST /public/guardian-handoffs — the ONLY way a handoff starts. Refused
+ * when the athlete isn't a minor with a guardian, when the "new" guardian is
+ * the current one or the athlete themselves, or when the email already signs
+ * in to SponsorX as something other than a guardian (the switch must leave
+ * the new guardian a working login, or there would be a gap in control).
+ */
+export async function startHandoff(input: { athleteEmail: string; name: string; email: string; phone?: string; relationship: string }) {
+  const tenantId = env.PUBLIC_INTAKE_TENANT_ID;
+  const a = await minorByEmail(tenantId, input.athleteEmail);
+  if (!a || !a.guardianId) throw new HandoffError("We couldn't find an athlete under 18 with a guardian for that email. Check it with the family, or contact BTG.", 404);
+  const email = input.email.trim().toLowerCase();
+  if (email === a.guardian?.email.toLowerCase()) throw new HandoffError("That is the current guardian's email. The new guardian asks with their own.", 422);
+  if (email === a.email?.toLowerCase()) throw new HandoffError("That is the athlete's own email. The new guardian asks with their own.", 422);
+  const login = await prisma.user.findFirst({
+    /* tenant-scope: identity is global — a sign-in is claimed by email across every tenant (athlete-login.ts). */
+    where: { email: { equals: email, mode: "insensitive" } }, select: { guardianId: true },
+  });
+  if (login && !login.guardianId) throw new HandoffError("That email already signs in to SponsorX for something else. Use another email for your guardian account.", 422);
+
+  return prisma.$transaction(async (tx) => {
+    const open = await tx.guardianHandoff.findFirst({
+      where: { tenantId, athleteId: a.id, requesterEmail: email, state: { in: OPEN_STATES } }, select: { id: true },
+    });
+    if (open) throw new HandoffError("You already have a request open for this athlete. Use the link in your email to carry on.");
+    const r = await tx.guardianHandoff.create({
+      data: {
+        tenantId, athleteId: a.id, fromGuardianId: a.guardianId!, requesterName: input.name.trim(), requesterEmail: email,
+        requesterPhone: input.phone?.trim() || null, relationship: input.relationship,
+      },
+      select: { id: true },
+    });
+    await audit(tx, SYSTEM(tenantId), "guardianHandoff.request", "GuardianHandoff", r.id, {
+      after: { athleteId: a.id, fromGuardianId: a.guardianId, relationship: input.relationship },
+    });
+    await send(tx, tenantId, {
+      template: "handoff.confirmEmail", to: email, idempotencyKey: `handoff.confirmEmail:${r.id}`,
+      data: {
+        name: firstWord(input.name), athleteFirstName: firstWord(a.displayName || a.legalName), supportEmail: env.SUPPORT_EMAIL,
+        confirmUrl: `${appUrl()}/guardian/handoff?e=${encodeURIComponent(issuePurposeToken("handoff-email", r.id, new Date(Date.now() + 7 * 86_400_000)))}`,
+      },
+    });
+    return { token: requestToken(r.id), request: await view(tx, await rowById(tx, r.id), false) };
+  });
+}
+
+/** POST /public/guardian-handoffs/confirm-email — the link in the email: proves the mailbox. */
+export async function confirmHandoffEmail(emailToken: string) {
+  const id = readPurposeToken("handoff-email", emailToken);
+  if (!id) throw new HandoffError("This confirmation link has expired or isn't valid.", 400);
+  return prisma.$transaction(async (tx) => {
+    const r = await rowById(tx, id);
+    if (!r.emailConfirmedAt) {
+      await tx.guardianHandoff.update({
+        /* tenant-scope: the request named inside the signed email token. */
+        where: { id: r.id }, data: { emailConfirmedAt: new Date() },
+      });
+      await audit(tx, SYSTEM(r.tenantId), "guardianHandoff.emailConfirmed", "GuardianHandoff", r.id, { after: { email: r.requesterEmail } });
+    }
+    /* Opening the emailed link proves the mailbox, so it may carry on from any device. */
+    return { token: requestToken(r.id), request: await view(tx, await rowById(tx, r.id), false) };
+  });
+}
+
+/** GET /public/guardian-handoffs/:token — where the request stands. */
+export async function handoffStatus(token: string) {
+  return view(prisma, await rowById(prisma, idFrom(token)), false);
+}
+
+/** Step one of a document: a private-bucket PUT for exactly this file. Audited as a grant. */
+export async function requestHandoffDocumentUpload(token: string, input: { kind: string; proofKind?: string; filename: string; contentType: string; bytes: number }) {
+  const r = await rowById(prisma, idFrom(token));
+  if (r.state !== "REQUESTED") throw new HandoffError("This request has already been sent.");
+  if (!ID_TYPES.has(input.contentType)) throw new HandoffError("Upload a PDF, JPEG or PNG.", 422);
+  if (!Number.isInteger(input.bytes) || input.bytes < 1 || input.bytes > MAX_ID_BYTES) throw new HandoffError("That file is over 10 MB. Upload a smaller scan or photo.", 422);
+  if (input.kind === "GUARDIANSHIP_PROOF" && !input.proofKind) throw new HandoffError("Say what the proof is: a birth certificate, a court order or a school record.", 422);
+  if (r.documents.length >= 6) throw new HandoffError("A request holds at most 6 files.");
+  const id = `hdoc_${randomBytes(12).toString("hex")}`;
+  const filename = safeFilename(input.filename);
+  const r2Key = `guardian-handoffs/${r.id}/${id}/${filename}`;
+  const doc = await prisma.guardianHandoffDocument.create({
+    data: {
+      id, tenantId: r.tenantId, handoffId: r.id, kind: input.kind, proofKind: input.kind === "GUARDIANSHIP_PROOF" ? input.proofKind! : null,
+      filename, contentType: input.contentType, bytes: input.bytes, r2Key,
+    },
+    select: { id: true, kind: true, proofKind: true, filename: true },
+  });
+  const uploadUrl = await presignPrivateUpload(SYSTEM(r.tenantId), r2Key, input.contentType, { entity: "GuardianHandoffDocument", entityId: id });
+  return { document: doc, uploadUrl, contentType: input.contentType };
+}
+
+/** Step two: counted only if the file is really in the bucket. */
+export async function confirmHandoffDocumentUpload(token: string, documentId: string) {
+  const r = await rowById(prisma, idFrom(token));
+  const doc = await prisma.guardianHandoffDocument.findFirst({ where: { tenantId: r.tenantId, handoffId: r.id, id: documentId }, select: { id: true, r2Key: true } });
+  if (!doc) throw new HandoffError("That file isn't part of this request.", 404);
+  const size = await privateObjectSize(doc.r2Key);
+  if (size === null) throw new HandoffError("That file hasn't arrived yet — upload it, then confirm.");
+  if (size > MAX_ID_BYTES) throw new HandoffError("That file is over 10 MB.", 422);
+  await prisma.$transaction(async (tx) => {
+    await tx.guardianHandoffDocument.update({
+      /* tenant-scope: the document loaded above, within this request. */
+      where: { id: doc.id }, data: { uploadedAt: new Date(), bytes: size },
+    });
+    await audit(tx, SYSTEM(r.tenantId), "guardianHandoff.documentUploaded", "GuardianHandoff", r.id, { after: { documentId: doc.id } });
+  });
+  return view(prisma, await rowById(prisma, r.id), false);
+}
+
+/** The guardian agreement as it stands for this tenant, if one is published. */
+async function agreementVersionOf(tx: Tx, tenantId: string): Promise<string> {
+  const a = await tx.agreement.findFirst({ where: { tenantId, kind: "GUARDIAN" }, select: { version: true, bodyHash: true }, orderBy: { version: "desc" } });
+  return a ? `GUARDIAN v${a.version} ${a.bodyHash.slice(0, 12)}` : "GUARDIAN (draft, pending counsel)";
+}
+
+/**
+ * POST /public/guardian-handoffs/:token/submit — the agreement accepted and
+ * the request sent to the current guardian. Only when the email is
+ * confirmed and both documents have arrived: the current guardian is asked
+ * only once the new guardian has done everything a guardian must.
+ */
+export async function submitHandoff(token: string) {
+  const id = idFrom(token);
+  return prisma.$transaction(async (tx) => {
+    const r = await rowById(tx, id);
+    if (r.state !== "REQUESTED") return view(tx, r, false);
+    const docs = uploaded(r);
+    const missing = missingOf({ ...r, agreementAcceptedAt: new Date() });
+    if (missing.length) throw new HandoffError(`Before sending, ${missing.join(", ")}.`);
+    if (!docs.id || !docs.proof) throw new HandoffError("Both documents are needed.");
+    const at = new Date();
+    const moved = await tx.guardianHandoff.updateMany({
+      /* tenant-scope: the request named inside the signed token, still being filled in. */
+      where: { id: r.id, state: "REQUESTED" },
+      data: { state: "WAITING", agreementAcceptedAt: at, agreementVersion: await agreementVersionOf(tx, r.tenantId), submittedAt: at },
+    });
+    if (moved.count !== 1) return view(tx, await rowById(tx, r.id), false);
+    await audit(tx, SYSTEM(r.tenantId), "guardianHandoff.submit", "GuardianHandoff", r.id, { after: { agreementAcceptedAt: at.toISOString() } });
+    const from = await tx.guardian.findFirst({ where: { tenantId: r.tenantId, id: r.fromGuardianId }, select: { legalName: true, email: true } });
+    if (from) {
+      await send(tx, r.tenantId, {
+        template: "handoff.requested", to: from.email, idempotencyKey: `handoff.requested:${r.id}`,
+        data: {
+          name: firstWord(from.legalName), requesterName: r.requesterName, relationship: RELATIONSHIP_WORDS[r.relationship] ?? r.relationship,
+          athleteFirstName: firstWord(r.athlete.displayName || r.athlete.legalName), portalUrl: `${appUrl()}/athlete/guardian-requests`, supportEmail: env.SUPPORT_EMAIL,
+        },
+      });
+    }
+    return view(tx, await rowById(tx, r.id), false);
+  });
+}
+
+/* ═══════════════════════ the current guardian's side ═══════════════════ */
+
+/** GET /guardian-handoffs — requests about this guardian's wards (or, for an athlete, about them). */
+export async function listHandoffs(actor: Actor) {
+  assertAllowed(actor, "guardianHandoff", "read");
+  const rows = await prisma.guardianHandoff.findMany({
+    where: { ...whereFor(actor, "guardianHandoff", "read"), state: { not: "REQUESTED" } },
+    select: SELECT, orderBy: { createdAt: "desc" }, take: 25,
+  });
+  const out = [];
+  for (const r of rows) out.push(await view(prisma, r, true));
+  return { handoffs: out };
+}
+
+/** GET /guardian-handoffs/:id */
+export async function getHandoff(actor: Actor, id: string) {
+  const r = await prisma.guardianHandoff.findFirst({ where: { ...whereFor(actor, "guardianHandoff", "read"), id, state: { not: "REQUESTED" } }, select: SELECT });
+  if (!r) throw new ForbiddenError("guardianHandoff", "read");
+  return view(prisma, r, true);
+}
+
+/**
+ * POST /guardian-handoffs/:id/decision — the current guardian's answer.
+ * `guardianHandoff.write` is held at `ward` by GUARDIAN only: an athlete,
+ * a sponsor or staff cannot answer. The row is found through that scope
+ * (requests made of THIS guardian), and the athlete must still be theirs.
+ */
+export async function decideHandoff(actor: Actor, id: string, d: { decision: "HAND_OFF" } | { decision: "DECLINE"; note?: string }) {
+  assertAllowed(actor, "guardianHandoff", "write");
+  return prisma.$transaction(async (tx) => {
+    const r = await tx.guardianHandoff.findFirst({ where: { ...whereFor(actor, "guardianHandoff", "write"), id }, select: SELECT });
+    if (!r || !actor.guardianId) throw new ForbiddenError("guardianHandoff", "write");
+    if (r.state !== "WAITING") throw new HandoffError(r.state === "REQUESTED" ? "This request hasn't been sent to you yet." : `This request is already ${r.state.toLowerCase()}.`);
+    const athlete = await tx.athlete.findFirst({ where: { tenantId: r.tenantId, id: r.athleteId }, select: { guardianId: true } });
+    if (athlete?.guardianId !== actor.guardianId) {
+      throw new HandoffError("You're no longer this athlete's guardian, so this request isn't yours to answer.");
+    }
+    return d.decision === "DECLINE" ? decline(tx, actor, r, d.note) : handOff(tx, actor, r);
+  });
+}
+
+async function decline(tx: Tx, actor: Actor, r: Row, note?: string) {
+  const at = new Date();
+  await tx.guardianHandoff.update({
+    /* tenant-scope: loaded through whereFor(guardianHandoff, write). */
+    where: { id: r.id }, data: { state: "DECLINED", decidedAt: at, decidedBy: actor.userId, declineNote: note?.trim() || null },
+  });
+  await audit(tx, actor, "guardianHandoff.decline", "GuardianHandoff", r.id, { before: { state: "WAITING" }, after: { state: "DECLINED" } });
+  const from = await tx.guardian.findFirst({ where: { tenantId: r.tenantId, id: r.fromGuardianId }, select: { legalName: true } });
+  /* Nothing more happens automatically: the decline email points to BTG support, and a person decides. */
+  await send(tx, r.tenantId, {
+    template: "handoff.declined", to: r.requesterEmail, idempotencyKey: `handoff.declined:${r.id}`,
+    data: {
+      name: firstWord(r.requesterName), currentFirstName: firstWord(from?.legalName), athleteFirstName: firstWord(r.athlete.displayName || r.athlete.legalName),
+      supportEmail: env.SUPPORT_EMAIL, supportUrl: `${appUrl()}/contact?topic=guardianship`,
+    },
+  });
+  return view(tx, await rowById(tx, r.id), true);
+}
+
+/**
+ * The switch. One transaction, so there is never a moment with no guardian:
+ * either all of it lands or none of it does.
+ */
+async function handOff(tx: Tx, actor: Actor, r: Row) {
+  /* The automatic check: email confirmed, both documents arrived, agreement accepted. Submit required all of it; checked again here. */
+  const docs = uploaded(r);
+  if (!r.emailConfirmedAt || !docs.id || !docs.proof || !r.agreementAcceptedAt) {
+    throw new HandoffError("The new guardian's documents aren't complete. Nothing has changed.");
+  }
+  const at = new Date();
+
+  /* One guardian, several athletes: a requester who is already a guardian here keeps their one record. */
+  const existing = await tx.guardian.findFirst({
+    where: { tenantId: r.tenantId, email: { equals: r.requesterEmail, mode: "insensitive" }, id: { not: r.fromGuardianId } },
+    select: { id: true, verifiedAt: true },
+  });
+  const guardianId = existing
+    ? existing.id
+    : (await tx.guardian.create({
+      data: { tenantId: r.tenantId, legalName: r.requesterName, email: r.requesterEmail, phone: r.requesterPhone, relationship: r.relationship, verifiedAt: at },
+      select: { id: true },
+    })).id;
+  if (existing && !existing.verifiedAt) {
+    await tx.guardian.update({ where: { id: existing.id }, data: { verifiedAt: at }, select: { id: true } });
+  }
+  /* The evidence 2S1-BE-10 records for a guardian approved by the system. */
+  await audit(tx, actor, "guardian.autoApprove", "Guardian", guardianId, {
+    after: { via: "handoff", handoffId: r.id, evidence: `guardian confirmed by email, with ID and proof, at ${at.toISOString()}` },
+  });
+
+  /* The link moves only if it still points at the guardian who handed off. */
+  const moved = await tx.athlete.updateMany({
+    /* tenant-scope: the request's own athlete, in its tenant. */
+    where: { tenantId: r.tenantId, id: r.athleteId, guardianId: r.fromGuardianId },
+    data: { guardianId },
+  });
+  if (moved.count !== 1) throw new HandoffError("This athlete's guardian changed a moment ago. Nothing has been switched.");
+
+  const login = await provisionGuardianLoginIn(tx, actor, guardianId);
+  await tx.guardianHandoff.update({
+    /* tenant-scope: loaded through whereFor(guardianHandoff, write). */
+    where: { id: r.id },
+    data: { state: "SWITCHED", decidedAt: at, decidedBy: actor.userId, documentsCheckedAt: at, switchedAt: at, newGuardianId: guardianId },
+  });
+  /* Any other open request for this athlete was made of a guardian who no longer is one. */
+  const others = await tx.guardianHandoff.updateMany({
+    where: { tenantId: r.tenantId, athleteId: r.athleteId, id: { not: r.id }, state: { in: OPEN_STATES } },
+    data: { state: "CANCELLED", decidedAt: at },
+  });
+  await audit(tx, actor, "guardianHandoff.switch", "Athlete", r.athleteId, {
+    before: { guardianId: r.fromGuardianId }, after: { guardianId, handoffId: r.id, login, othersCancelled: others.count },
+  });
+
+  const [from, otherWards, admins] = await Promise.all([
+    tx.guardian.findFirst({ where: { tenantId: r.tenantId, id: r.fromGuardianId }, select: { legalName: true, email: true } }),
+    tx.athlete.count({ where: { tenantId: r.tenantId, guardianId: r.fromGuardianId } }),
+    tx.user.findMany({ where: { tenantId: r.tenantId, disabledAt: null, roles: { has: "BTG_ADMIN" } }, select: { id: true, email: true } }),
+  ]);
+  const athleteFirstName = firstWord(r.athlete.displayName || r.athlete.legalName);
+  const common = { athleteFirstName, requesterName: r.requesterName, currentFirstName: firstWord(from?.legalName), supportEmail: env.SUPPORT_EMAIL };
+  await send(tx, r.tenantId, {
+    template: "handoff.switchedNew", to: r.requesterEmail, idempotencyKey: `handoff.switchedNew:${r.id}`,
+    data: { ...common, name: firstWord(r.requesterName), portalUrl: `${appUrl()}/athlete` },
+  });
+  if (from) {
+    await send(tx, r.tenantId, {
+      template: "handoff.switchedPrevious", to: from.email, idempotencyKey: `handoff.switchedPrevious:${r.id}`,
+      data: { ...common, name: firstWord(from.legalName), otherChildren: otherWards > 0 ? "yes" : "" },
+    });
+  }
+  if (r.athlete.email) {
+    await send(tx, r.tenantId, {
+      template: "handoff.switchedAthlete", to: r.athlete.email, idempotencyKey: `handoff.switchedAthlete:${r.id}`,
+      data: { ...common, name: athleteFirstName },
+    });
+  }
+  for (const u of admins) {
+    await send(tx, r.tenantId, {
+      template: "handoff.btgNotice", to: u.email, idempotencyKey: `handoff.btgNotice:${r.id}:${u.id}`,
+      data: {
+        athleteName: r.athlete.displayName || r.athlete.legalName, previousName: from?.legalName ?? "", requesterName: r.requesterName,
+        relationship: RELATIONSHIP_WORDS[r.relationship] ?? r.relationship, reviewUrl: `${appUrl()}/admin/new-signups?guardian=${guardianId}`,
+      },
+    });
+  }
+  return view(tx, await rowById(tx, r.id), true);
+}

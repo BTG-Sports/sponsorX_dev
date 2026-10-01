@@ -43,8 +43,14 @@ export class UnprovisionedError extends Error {
 export class AccountDisabledError extends Error {
   readonly status = 403;
   readonly code = "account_disabled";
-  constructor() {
-    super("This SponsorX account has been closed by BTG. Contact BTG support if you think this is a mistake.");
+  /** 2S1-BE-13 — `disabledReason` tells a self-closed account from one BTG
+   *  switched off: the first can reactivate itself, the second asks BTG. */
+  constructor(disabledReason?: string | null) {
+    super(
+      disabledReason?.startsWith("accountClosure:")
+        ? "This SponsorX account is closed. It can be reactivated within 30 days of closing from the reactivation page (/reactivate)."
+        : "This SponsorX account has been closed by BTG. Contact BTG support if you think this is a mistake.",
+    );
     this.name = "AccountDisabledError";
   }
 }

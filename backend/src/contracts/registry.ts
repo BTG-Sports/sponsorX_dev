@@ -57,7 +57,12 @@ import {
   SourcedTotals, SponsorReport,
 } from "./metric";
 import { Invoice, PaymentStatus, ZohoInvoiceWebhook } from "./invoice";
-import { ProfileChangeDecisionInput, ProfileChangeInput, ProfileChangeState } from "./profile-change";
+import { ProfileChangeInput, ProfileChangeState } from "./profile-change";
+import { CloseAccountInput, ReactivationActionInput, ReactivationDecisionInput, ReactivationLinkInput } from "./account";
+import {
+  HandoffDecisionInput, HandoffDocumentInput, HandoffEmailConfirmInput, HandoffLookupQuery, HandoffStartInput, HandoffSubmitInput,
+} from "./guardian-handoff";
+import { SupportMessageInput } from "./support";
 import { InquiryInput, ZohoCrmNotification } from "./zoho";
 import {
   AdSaleInput,
@@ -163,7 +168,6 @@ registry.register("AthleteApplicationSummary", AthleteApplicationSummary);
 registry.register("AthleteApplicationPatch", AthleteApplicationPatch);
 registry.register("ProfileChangeInput", ProfileChangeInput);
 registry.register("ProfileChangeState", ProfileChangeState);
-registry.register("ProfileChangeDecisionInput", ProfileChangeDecisionInput);
 registry.register("ApplicationSubmissionReceipt", ApplicationSubmissionReceipt);
 registry.register("ApplicantView", ApplicantView);
 
@@ -297,13 +301,13 @@ const PATHS: Row[] = [
 
   // athletes, guardians, agreements (P3-BE-03, P3-BE-14)
   { method: "get", path: "/athletes/me", tag: "Athletes", summary: "The signed-in athlete's own profile — §11 fields, socials with provenance, and the section counts the §24 completion meter derives from." },
-  // P3-BE-16 — post-approval profile edits, held for BTG review
-  { method: "get", path: "/athletes/me/profile-changes", tag: "Athletes", summary: "The signed-in athlete's own proposed profile edits, newest first (at most 10): the open one and the last decisions (P3-BE-16)." },
-  { method: "post", path: "/athletes/{id}/profile-changes", tag: "Athletes", summary: "Propose a change to the athlete's own profile, by §11 section — identity, sport, capabilities, interests, restrictions. Held PENDING for BTG; only values that differ are recorded, and a new request withdraws an older open one (P3-BE-16).", body: ProfileChangeInput, status: 201 },
-  { method: "get", path: "/profile-changes", tag: "Athletes", summary: "BTG's review desk, SERVER-PAGED: ?page ?size ?state (comma list; default PENDING, oldest first) → one page with each change's proposed `fields`, the athlete's `current` values for them, `page`, and `counts: { pending }` (P3-BE-16).", query: z.object({ page: z.coerce.number().int().optional(), size: z.coerce.number().int().optional(), state: z.string().optional() }) },
-  { method: "post", path: "/profile-changes/{id}/approve", tag: "Athletes", summary: "Approve a proposed profile edit: the fields are written to the Athlete row in the same transaction, audited (restrictions separately), and the athlete is emailed (P3-BE-16).", body: ProfileChangeDecisionInput },
-  { method: "post", path: "/profile-changes/{id}/decline", tag: "Athletes", summary: "Decline a proposed profile edit. Reviewer notes are required and sent to the athlete verbatim; the profile is unchanged (P3-BE-16).", body: ProfileChangeDecisionInput },
-  { method: "post", path: "/profile-changes/{id}/withdraw", tag: "Athletes", summary: "The athlete (or guardian) takes back a pending proposed edit (P3-BE-16)." },
+  // P3-BE-16, reshaped by 2S1-BE-14 — profile edits publish at once; sensitive ones re-run the checks
+  { method: "get", path: "/athletes/me/profile-changes", tag: "Athletes", summary: "The signed-in athlete's own profile edits, newest first (at most 10): what changed, a legal name still waiting for its ID, and what the re-run checks found (2S1-BE-14)." },
+  { method: "post", path: "/athletes/{id}/profile-changes", tag: "Athletes", summary: "Edit the athlete's own profile, by §11 section. Ordinary edits publish at once (no BTG step). Sensitive edits: a new date of birth re-works adulthood and a guardian is linked at once; a new legal name needs `idDocument` and waits (PENDING) for it, answering with `idUpload` (a private-bucket PUT). BTG admins are emailed for sensitive edits only. Every edit is audited (2S1-BE-14).", body: ProfileChangeInput, status: 201 },
+  { method: "get", path: "/profile-changes", tag: "Athletes", summary: "BTG: sensitive profile edits (legal name, date of birth, guardian), newest first, SERVER-PAGED (?page ?size) — what New sign-ups shows (2S1-BE-14).", query: z.object({ page: z.coerce.number().int().optional(), size: z.coerce.number().int().optional() }) },
+  { method: "post", path: "/profile-changes/{id}/id-document/confirm", tag: "Athletes", summary: "The athlete says the matching ID for a new legal name has uploaded. Counted only if it is in the private bucket; then the legal name is applied, audited, and BTG admins are emailed (2S1-BE-14)." },
+  { method: "get", path: "/profile-changes/{id}/id-document", tag: "Athletes", summary: "BTG: a five-minute, audited link to the ID a legal-name change was matched against (2S1-BE-14)." },
+  { method: "post", path: "/profile-changes/{id}/withdraw", tag: "Athletes", summary: "The athlete (or guardian) takes back a new legal name still waiting for its ID." },
   { method: "put", path: "/athletes/{id}/tier", tag: "Athletes", summary: "Set an athlete's pricing tier.", body: AthleteTierInput },
   { method: "post", path: "/athletes/{id}/rates", tag: "Athletes", summary: "Set an athlete's rate for a NIL job.", body: AthleteRateInput, status: 201 },
   { method: "get", path: "/athletes/{id}/rates", tag: "Athletes", summary: "An athlete's rate card." },
@@ -552,6 +556,32 @@ const PATHS: Row[] = [
 
   // Sponsor enquiries (P8-INT-06)
   { method: "post", path: "/public/inquiries", tag: "Public", summary: "A prospective sponsor asks to talk — becomes a Zoho Lead and a request SponsorX can approve by itself; emails a confirmation link and returns requestToken for the proof-of-business upload (2S1-BE-17).", auth: false, body: InquiryInput, status: 201, response: z.object({ id: z.string(), received: z.boolean(), requestToken: z.string() }) },
+
+  // 2S1-BE-13 — closing an account, 30-day retention, coming back
+  { method: "post", path: "/me/close", tag: "Accounts", summary: "Close the account this login is (athlete, guardian or organization). Its logins are switched off, its published listings paused, and its files kept 30 days; the owner is emailed a reactivation link. Money already earned is still paid out.", body: CloseAccountInput },
+  { method: "post", path: "/public/account/reactivation-link", tag: "Public", summary: "Email a reactivation link to the account using this address, if a closed one does. The answer is the same either way. Rate-limited by address and by mailbox (2S1-BE-13).", auth: false, body: ReactivationLinkInput, status: 202 },
+  { method: "get", path: "/public/account/reactivation/{token}", tag: "Public", summary: "Where a closed account stands, by its emailed link: CLOSED_SELF (can reactivate), CLOSED_BY_BTG (can ask BTG), REACTIVATED or EXPIRED, with the days left (2S1-BE-13).", auth: false },
+  { method: "post", path: "/public/account/reactivation/{token}", tag: "Public", summary: "REACTIVATE a self-closed account inside its 30 days (logins on, listings back, checks re-run), or REQUEST that BTG reviews a rejected one (BTG admins are emailed) (2S1-BE-13).", auth: false, body: ReactivationActionInput },
+  { method: "get", path: "/account-closures", tag: "Accounts", summary: "BTG: closed accounts, newest first; ?requested=true narrows to rejected accounts asking to come back (2S1-BE-13).", query: z.object({ requested: z.enum(["true", "false"]).optional() }) },
+  { method: "post", path: "/account-closures/{id}/reactivation-decision", tag: "Accounts", summary: "BTG declines a rejected account's request to come back, with a reason that is emailed. To bring it back, Reinstate it on its own page (2S1-BE-13).", body: ReactivationDecisionInput },
+
+  // 2S1-BE-15 — changing a minor's guardian (the handoff)
+  { method: "get", path: "/public/guardian-handoffs/lookup", tag: "Public", summary: "The new guardian identifies the athlete by the athlete's email: found (a minor with a guardian) with first names only, or not. Rate-limited (2S1-BE-15).", auth: false, query: HandoffLookupQuery },
+  { method: "post", path: "/public/guardian-handoffs", tag: "Public", summary: "The new guardian starts a request — the only way a handoff starts. Emails a confirmation link; returns the request token (2S1-BE-15).", auth: false, body: HandoffStartInput, status: 201 },
+  { method: "post", path: "/public/guardian-handoffs/confirm-email", tag: "Public", summary: "The link in the new guardian's confirmation email: proves the mailbox, returns the request token (2S1-BE-15).", auth: false, body: HandoffEmailConfirmInput },
+  { method: "get", path: "/public/guardian-handoffs/{token}", tag: "Public", summary: "Where the request stands, and what is still needed (2S1-BE-15).", auth: false },
+  { method: "post", path: "/public/guardian-handoffs/{token}/documents", tag: "Public", summary: "Start uploading the government ID (GUARDIAN_ID) or proof of guardianship (GUARDIANSHIP_PROOF): a presigned PUT to the private bucket, at most 10 MB (2S1-BE-15).", auth: false, body: HandoffDocumentInput, status: 201 },
+  { method: "post", path: "/public/guardian-handoffs/{token}/documents/{documentId}/confirm", tag: "Public", summary: "Say the upload finished; counted only if the file is there (2S1-BE-15).", auth: false },
+  { method: "post", path: "/public/guardian-handoffs/{token}/submit", tag: "Public", summary: "Accept the guardian agreement and send the request to the current guardian — only once the email is confirmed and both documents are in (2S1-BE-15).", auth: false, body: HandoffSubmitInput },
+  { method: "get", path: "/guardian-handoffs", tag: "Guardians", summary: "Requests to take over a ward (the current guardian), or about you (the athlete), newest first (2S1-BE-15)." },
+  { method: "get", path: "/guardian-handoffs/{id}", tag: "Guardians", summary: "One handoff request and its three steps (2S1-BE-15)." },
+  { method: "post", path: "/guardian-handoffs/{id}/decision", tag: "Guardians", summary: "The current guardian only: HAND_OFF switches the athlete to the new guardian in one transaction (agreed work and earned money stay put; other children unaffected); DECLINE closes it and points the requester to BTG support (2S1-BE-15).", body: HandoffDecisionInput },
+
+  // 2S1-BE-16 — contacting BTG support
+  { method: "get", path: "/public/support", tag: "Public", summary: "The support address (SUPPORT_EMAIL), whether the mailbox is set up yet, and the topics (2S1-BE-16).", auth: false },
+  { method: "post", path: "/public/support/messages", tag: "Public", summary: "A message to BTG support. Queued through the worker to the support mailbox (Reply-To the sender) with a copy to the sender; with attachments, each gets a private-bucket PUT and the message is queued by /send. Rate-limited (2S1-BE-16).", auth: false, body: SupportMessageInput, status: 201 },
+  { method: "post", path: "/public/support/messages/{token}/send", tag: "Public", summary: "Every attachment has uploaded: queue the message (2S1-BE-16).", auth: false },
+  { method: "post", path: "/public/support/messages/{token}/attachments/{attachmentId}/drop", tag: "Public", summary: "Send without an attachment that won't upload (2S1-BE-16).", auth: false },
 ];
 
 for (const row of PATHS) {

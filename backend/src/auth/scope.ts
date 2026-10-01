@@ -773,6 +773,27 @@ const BUILDERS: Partial<Record<Resource, Builder>> = {
   inquiry: tenantScoped,
   /* 2S1-BE-18 — BTG's restricted-words list: tenant rows, kept by BTG admins. */
   restrictedWord: tenantScoped,
+  /* 2S1-BE-13 — closures: tenant rows, BTG's view only. */
+  accountClosure: tenantScoped,
+
+  /* 2S1-BE-15 — a guardian handoff. `ward`: requests about an athlete this
+     guardian is guardian of now, or was asked as (so the status of one they
+     handed off stays readable); the write path re-checks that the athlete is
+     still theirs. `own`: the athlete the request is about. */
+  guardianHandoff: (actor, scope) => {
+    switch (scope) {
+      case "any":
+        return {};
+      case "own-tenant":
+        return { tenantId: actor.tenantId };
+      case "ward":
+        return actor.guardianId ? { tenantId: actor.tenantId, fromGuardianId: actor.guardianId } : MATCHES_NOTHING;
+      case "own":
+        return actor.athleteId ? { tenantId: actor.tenantId, athleteId: actor.athleteId } : MATCHES_NOTHING;
+      default:
+        return MATCHES_NOTHING;
+    }
+  },
 
   /* Added with P4-BE-01, the first task to query sponsors.
 

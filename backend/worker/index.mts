@@ -88,6 +88,7 @@ import { handleRenderReport } from "./jobs/render-report.mts";
 import { applyQueuePolicy } from "./queue-policy.mts";
 import { expireCarts } from "../src/domain/cart.ts";
 import { expireReservations } from "../src/domain/reservation.ts";
+import { purgeExpiredClosures } from "../src/domain/account-closure.ts";
 import type { RenderReportJob } from "../src/domain/report-files.ts";
 import { prisma } from "../src/db/client.ts";
 import { ingestZohoInvoice, type ZohoInvoicePayload } from "../src/domain/invoice.ts";
@@ -274,6 +275,8 @@ let cartTimer: ReturnType<typeof setInterval> | undefined;
 /* 2S4-BE-02 — the reservation sweep, every minute. */
 let holdTimer: ReturnType<typeof setInterval> | undefined;
 let zohoTimer: ReturnType<typeof setInterval> | undefined;
+/* 2S1-BE-13 — the retention sweep: closed accounts' files go after 30 days. */
+let retentionTimer: ReturnType<typeof setInterval> | undefined;
 /* P8-INT-05 checks hourly and runs at most once a day per tenant; P8-INT-03's
    channel is renewed every 12 hours against a 24-hour expiry. */
 const ZOHO_SWEEP_INTERVAL_MS = 60 * 60 * 1000;
@@ -365,7 +368,8 @@ async function main(): Promise<void> {
   await ensureQueue("notify.email");
 
   await boss.work<EmailJob>("notify.email", async ([job]) => {
-    const outcome = await handleSendEmail(pool, job.data);
+    /* 2S1-BE-16 — a support message's attachments are read from the private bucket at send time. */
+    const outcome = await handleSendEmail(pool, job.data, getPrivateObject);
     /* Logged because a duplicate is not a failure — it means the message had
        already gone once, which is what was asked for. Silence here would
        make an at-least-once delivery look like a lost email. */
@@ -651,6 +655,17 @@ async function main(): Promise<void> {
       .catch((error: unknown) => console.error("[worker] cart expiry failed, will retry next hour:", error));
   }, REMINDER_INTERVAL_MS);
 
+  /* 2S1-BE-13 — the retention job. Hourly, though the window is whole days:
+     a closure whose 30 days ended is purged within the hour, and a purged
+     one is never picked up again, so the extra passes cost nothing. */
+  retentionTimer = setInterval(() => {
+    void purgeExpiredClosures(prisma)
+      .then(({ closures, files, handoffDocuments }) => {
+        if (closures || handoffDocuments) console.log(`[worker] retention — ${closures} closed account(s) purged, ${files + handoffDocuments} file(s) deleted`);
+      })
+      .catch((error: unknown) => console.error("[worker] retention sweep failed, will retry next hour:", error));
+  }, REMINDER_INTERVAL_MS);
+
   expiryTimer = setInterval(() => {
     void expireInvitations(pool, process.env.APP_URL ?? "http://localhost:3000")
       .then(({ expired, reminded, warned }) => {
@@ -679,6 +694,7 @@ export async function stopWorker(): Promise<void> {
   if (rollupTimer) clearInterval(rollupTimer);
   if (reminderTimer) clearInterval(reminderTimer);
   if (cartTimer) clearInterval(cartTimer);
+  if (retentionTimer) clearInterval(retentionTimer);
   if (holdTimer) clearInterval(holdTimer);
   if (zohoTimer) clearInterval(zohoTimer);
   timer = undefined;
