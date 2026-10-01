@@ -124,3 +124,34 @@ The user agreed the recommendations and set the sponsor's confirmation window to
   - **2S1-BE-08** (2d): the AGENCY type.
   - **2S1-FE-04** (3d): the applicant's checklist and the Documents page.
   - **2S1-FE-05** (2d): BTG's organization profile page with Reject and an "Automatically approved" list.
+
+## BTG admin review: athletes and guardians approved automatically (8 tasks; Phase 2 is now 95 tasks, 362 days)
+
+**Decided with the user:**
+- **Adults** are approved automatically. Needed: a government ID, a confirmed email, a complete application (date of birth now required) and no likely duplicate.
+- **Minors.** A school ID or similar for the minor. The guardian's own page collects their details, a government ID, proof of guardianship and the guardian agreement. Both emails must be confirmed, then approval is automatic.
+  - **The guardian's account does every agreement and money action.** The minor can upload content, and the guardian is emailed for each upload.
+  - Rejecting a guardian rejects all their athletes, not the reverse.
+- **BTG** is emailed for every automatic approval, with a link to a "New sign-ups" page offering Reject and Reinstate.
+- **Age of majority** follows the athlete's state or country, from an editable table. Unknown places count as 18 and are flagged.
+- **Coming of age:** a 90-day allowance with a persistent reminder; after that, new listings and payouts pause until a government ID is uploaded.
+- **Files** are kept in the private R2 bucket (5-minute audited views for BTG admins), retained 30 days after an account closes, with reactivation within those 30 days.
+
+**Assumptions stated to the user:**
+- The pause after the 90 days.
+- A rejected account can only request reactivation; BTG decides.
+- A staff-confirmation setting for minors, so the open guardian e-signature legal question needs no rebuild and doesn't block the build.
+
+**Raised:**
+- Backend: **2S1-BE-09** adults (4d), **2S1-BE-10** minors and guardians (5d), **2S1-BE-11** the guardian acts for the minor (5d), **2S1-BE-12** age of majority and coming of age (3d), **2S1-BE-13** close, retention and reactivation (3d).
+- Frontend: **2S1-FE-06** sign-up screens (4d), **2S1-FE-07** New sign-ups page (3d), **2S1-FE-08** guardian controls, the coming-of-age reminder and close/reactivate (4d).
+
+## Coming-of-age rules set (2S1-BE-12 is now 4 days)
+
+The user set the 90-day rules:
+- During the allowance, neither the athlete nor the guardian can add items or start new transactions. Existing orders and campaigns continue.
+- Reminder emails go out at the start and 30, 14, 7 and 1 days before the end.
+- If the government ID still isn't uploaded after 90 days, both accounts are terminated.
+  - My assumption: if the guardian has other minors, only the guardian's link to this athlete ends.
+  - The 30-day retention and reactivation rules apply.
+  - In-flight items go to BTG, and earned money stays owed.
