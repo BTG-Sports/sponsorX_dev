@@ -395,3 +395,20 @@ The user set the 90-day rules:
 - re-apply `backend/prisma/sql/*.sql`;
 - set `SUPPORT_EMAIL`;
 - register MARKETPLACE_ORDER v1 for any tenant that isn't the seed tenant.
+
+## BTG answers an offer change request (backend for the Offers desk, 3c953ff)
+
+**Routes:**
+- `POST /offers/:id/change-requests/:requestId/keep {note}` marks the request KEPT. The reply is emailed to the athlete, and to the guardian for a minor (`offer.changeKept`). The offer stays open.
+- `POST /offers/:id/revise` withdraws the offer and opens a new DRAFT with every term copied (`fromOfferId`). Open requests become REVISED, and the athlete is told (`offer.revising`).
+- `PATCH /offers/:id` edits a draft. It runs the same checks as create, through the shared function `assertDraftTerms`.
+
+**Send:** `sendOffer` now re-checks the terms (a past due date gets 422) and emails the athlete and guardian (`offer.sent`). Before this, nobody was emailed when an offer was sent.
+
+**Change-request fields:** each request now carries `answeredAt`, `answeredBy`, `answer` (KEPT or REVISED), `answerNote` and `revisedOfferId`. Migration 20261002160000.
+
+**Tests:** `phase2-offer-answers.test.ts`, 12 tests.
+
+**Full suite:** 2114 of 2115 on two runs; only QA-02 fails. In one earlier run the coming-of-age test in phase2-guardian-acts failed once and passed alone; watch it.
+
+**Screens:** the Offers desk, Closed accounts and Guardian handoffs prompt for Claude Design is written. The screens get wired when the design comes back.
