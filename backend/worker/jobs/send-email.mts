@@ -172,7 +172,7 @@ ${d.portalUrl ?? ""}
   /* 2S1-BE-05 — BTG's decision on a request to sponsor. */
   "sponsor.accountOpened": (d) => ({
     subject: "Your SponsorX sponsor account is ready",
-    text: `Hi ${d.firstName ?? "there"},\n\nBTG has opened ${d.businessName ?? "your"} sponsor account on SponsorX. Sign in with this email address:\n\n${d.portalUrl ?? ""}\n\nFrom there you can browse athletes and teams, and send BTG a brief.\n\n— BTG SponsorX`,
+    text: `Hi ${d.firstName ?? "there"},\n\nBTG has opened a sponsor account for ${d.businessName ?? "your business"} on SponsorX. Sign in with this email address:\n\n${d.portalUrl ?? ""}\n\nFrom there you can browse athletes and teams, and send BTG a brief.\n\n— BTG SponsorX`,
   }),
   "sponsor.requestDeclined": (d) => ({
     subject: "About your SponsorX sponsor request",

@@ -1,11 +1,13 @@
-# The weekday evening digest: phase progress, what finished today, what waits
-# in Code review, what is newly blocked — and the day's Stage Progress row
-# appended to the published Sheet. Reads the repo only — never commits.
+# The day's one Slack broadcast, at 8 pm Manila: phase progress, every task
+# change since the last broadcast, what finished today, what waits in Code
+# review, what is newly blocked — and the day's Stage Progress row appended to
+# the published Sheet. (The Sheet itself is kept current all day by
+# tracker-notify.yml.) Reads the repo only — never commits.
 name: Tracker digest
 
 on:
   schedule:
-    - cron: "0 13 * * 1-5" # 13:00 UTC = 9:00 pm Manila, Monday–Friday
+    - cron: "0 12 * * *" # 12:00 UTC = 8:00 pm Manila, every day
   workflow_dispatch:
 
 jobs:

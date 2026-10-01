@@ -104,7 +104,33 @@ export async function getSponsorRequest(actor: Actor, id: string) {
   return {
     ...summary(row), phone: row.phone, message: row.message, answers: briefAnswers(row.message),
     suggestedCategories: suggestCategories(row.categoryText), zohoLeadId: row.zohoLeadId, decisionNote: row.decisionNote, decidedBy: row.decidedBy,
-    checks,
+    checks, progress: await progressOf(row),
+  };
+}
+
+/**
+ * What happened after the decision, read from where it is recorded — never
+ * assumed: who decided, whether the email actually went (the email job's
+ * send log), and whether the new login has been signed into (a claimed
+ * login's clerkId is no longer the invite placeholder).
+ */
+async function progressOf(row: Row) {
+  if (row.state === "NEW") return null;
+  const key = `${row.state === "APPROVED" ? "sponsor.accountOpened" : "sponsor.requestDeclined"}:${row.id}`;
+  const [decider, sent, login, sponsor] = await Promise.all([
+    row.decidedBy ? prisma.user.findFirst({ where: { tenantId: row.tenantId, id: row.decidedBy }, select: { email: true, roles: true } }) : null,
+    prisma.emailSendLog.findFirst({ where: { tenantId: row.tenantId, idempotencyKey: key }, select: { sentAt: true } }),
+    row.state === "APPROVED"
+      ? prisma.user.findFirst({ where: { tenantId: row.tenantId, email: row.email.toLowerCase(), sponsorId: row.sponsorId }, select: { clerkId: true } })
+      : null,
+    row.sponsorId ? prisma.sponsor.findFirst({ where: { tenantId: row.tenantId, id: row.sponsorId }, select: { categories: true } }) : null,
+  ]);
+  return {
+    /* The business type the account was opened with — the clash check's input. */
+    categories: sponsor?.categories ?? [],
+    decidedBy: decider ? { email: decider.email, roles: decider.roles } : null,
+    emailSentAt: sent?.sentAt ?? null,
+    signedIn: login ? !login.clerkId.startsWith("invite:") : null,
   };
 }
 

@@ -968,3 +968,18 @@ no element past either edge.
   - `tests/phase2-sponsor-requests.test.ts` (14 tests) walks the form, the queue and approval, then Dana signs in as Harbor Coffee's SPONSOR_ADMIN; it also covers the refusals.
   - `zoho-sync` now tests `pushSponsor`, and the tenant sweep covers the new routes.
 - **Board.** 2S1-FE-03 moved to Ready; it's waiting on the Claude Design SR-* artboards.
+
+## 2S1-FE-03 — BTG's sponsor-request review screen (Code review)
+
+- **What's built.** From Claude Design `SponsorRequests.dc.html` (SR-1…SR-8):
+  - `/admin/sponsor-requests`: Waiting / Approved / Declined tabs with counts.
+  - `/admin/sponsor-requests/[id]`, which shows:
+    - the business and contact, and what they told us;
+    - business-type chips, with the suggested one pre-picked;
+    - the checks, and the choice to link to an existing sponsor or create a new one (it can't be linked when that sponsor already has a login);
+    - the approve confirmation, and the decline note;
+    - once decided: the account's progress (Requested → Approved by BTG → Sign-in email sent → Signed in), or the note that was sent.
+  - It's in the admin menu for SUPER_ADMIN, BTG_ADMIN and SALES.
+- **API addition.** `GET /sponsor-requests/:id` now returns `progress`: the categories, who decided, `emailSentAt` (from EmailSendLog) and `signedIn` (whether the login has been claimed). Nothing on the screen is assumed; an unsent email shows as "Queued".
+- **Checks.** Walked in a browser: approve (Bayside Bakery) and decline (a Harbor Coffee name match). `tests/sponsor-requests-live.test.ts` added. Frontend 765 tests pass; build, lint and tsc clean.
+- **Still to do.** The walkthrough deck's step 4b still says "not built yet".

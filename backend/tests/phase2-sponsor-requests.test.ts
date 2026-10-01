@@ -205,6 +205,10 @@ describe.skipIf(!hasDatabase)("2S1-BE-05 · BTG reviews a sponsor's request and 
       expect((await call("GET", "/cart", "sr_dana")).status).toBe(200);
       /* She is a sponsor, not staff: the queue is closed to her. */
       expect((await call("GET", "/sponsor-requests", "sr_dana")).status).toBe(403);
+      /* BTG's page now shows the login claimed — read from the login itself. The email
+         hasn't gone (no email provider runs in tests), and the page says so rather than guessing. */
+      expect((await call("GET", `/sponsor-requests/${E.harbor}`, "sr_admin")).json.progress)
+        .toEqual({ categories: ["RESTAURANT"], decidedBy: { email: "sr_sales@sr-test.invalid", roles: ["SALES"] }, emailSentAt: null, signedIn: true });
     });
 
     it("a request is decided once", async () => {
@@ -255,6 +259,9 @@ describe.skipIf(!hasDatabase)("2S1-BE-05 · BTG reviews a sponsor's request and 
         template: "sponsor.requestDeclined", to: "sr_nope@sr-test.invalid", data: expect.objectContaining({ note: "We only work with businesses in Maryland for now." }),
       }));
       expect(await prisma.user.count({ where: { email: "sr_nope@sr-test.invalid" } })).toBe(0);
+      /* Once the email job has sent it, the page says so. */
+      await prisma.emailSendLog.create({ data: { idempotencyKey: `sponsor.requestDeclined:${E.other}`, tenantId: T, template: "sponsor.requestDeclined", to: "sr_nope@sr-test.invalid" } });
+      expect((await call("GET", `/sponsor-requests/${E.other}`, "sr_admin")).json.progress).toMatchObject({ emailSentAt: expect.any(String), signedIn: null });
       expect((await call("GET", "/sponsor-requests?state=DECLINED", "sr_sales")).json.requests.map((x: { id: string }) => x.id)).toEqual([E.other]);
     });
   });
