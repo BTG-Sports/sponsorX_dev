@@ -3,6 +3,8 @@ import { Monogram, initials } from "@/components/hero";
 import { EmptyState } from "@/components/states";
 import { ListFilter, ListSearch, PagerRow, PendingList, ServerList } from "@/components/server-pager";
 import { PropertyRosterAdd, PropertyShareEdit } from "@/components/property-roster";
+import { RosterRemove, TeamInvitePanel } from "@/components/team-invite-panel";
+import type { ApiSentInvitation } from "@/lib/team-invite-live";
 import { apiListQuery, textParam, type SearchParams } from "@/lib/list-query";
 import { ATHLETE_STATES, ATHLETE_STATE_OPTIONS, rosterRow, type ApiAthletesPage } from "@/lib/property-p2-live";
 import { apiFetch } from "@/server/api";
@@ -16,12 +18,16 @@ import { requirePortalAccess } from "@/server/portal";
    Writes POST /team/roster                        add an athlete (409 when
                                                    the email has an account)
           PATCH /team/roster/:athleteId            { teamShareBps | null }
+   2S2-FE-05 — inviting an athlete already on SponsorX, and removing one
+   (TeamInvitePanel / RosterRemove → ./actions.ts, 2S2-BE-05):
+   Reads  GET  /team/invitations                    sent invitations and their state
+   Writes GET  /team/invitations/candidates?q=      (search) · POST /team/invitations
+          POST /team-invitations/:id/withdraw · POST /team/roster/:athleteId/remove
 
    PROPERTY_MGR only (teamMember own-property); a 403 is a login with no
    property linked, shown as such. Honest gaps, left out on purpose: no
-   per-athlete revenue exists (the design's "Earned" column), no remove-
-   from-roster route, no campaigns list for a property, and no "tasks for
-   you" feed — none is shown or faked.
+   per-athlete revenue exists (the design's "Earned" column), no campaigns
+   list for a property, and no "tasks for you" feed — none is shown or faked.
    -------------------------------------------------------------------------- */
 
 export const dynamic = "force-dynamic";
@@ -39,7 +45,10 @@ export default async function PropertyRosterPage({ searchParams }: { searchParam
     </div>
   );
 
-  const res = await apiFetch(`/team/athletes${apiListQuery(sp, { q, state })}`);
+  const [res, invitesRes] = await Promise.all([
+    apiFetch(`/team/athletes${apiListQuery(sp, { q, state })}`),
+    apiFetch("/team/invitations").catch(() => null),
+  ]);
   if (res.status === 403) {
     return (
       <div className="space-y-6">
@@ -50,6 +59,8 @@ export default async function PropertyRosterPage({ searchParams }: { searchParam
   }
   if (!res.ok) throw new Error(`Roster unavailable (${res.status}).`);
   const data = (await res.json()) as ApiAthletesPage;
+  /* A failed read of the invitations hides that list, never the roster. */
+  const invitations = invitesRes?.ok ? ((await invitesRes.json()) as { invitations: ApiSentInvitation[] }).invitations : null;
   const rows = data.athletes.map(rosterRow);
   const filtered = !!(q || state);
 
@@ -71,6 +82,7 @@ export default async function PropertyRosterPage({ searchParams }: { searchParam
       </ul>
 
       <PropertyRosterAdd teamName={data.property.name} />
+      {(data.property.kind === "TEAM" || data.property.kind === "AGENCY") && <TeamInvitePanel teamName={data.property.name} invitations={invitations} />}
 
       <section>
         <SectionHeading title="Athletes" hint="Click a team share to change it. It applies to what the athlete earns from here on." />
@@ -108,6 +120,7 @@ export default async function PropertyRosterPage({ searchParams }: { searchParam
                             <span className="block truncate text-[11px] text-muted">
                               {[a.sport, a.detail, a.legalName ? `Legal name ${a.legalName}` : null].filter(Boolean).join(" · ")}
                             </span>
+                            <RosterRemove athleteId={a.id} name={a.name} team={data.property.name} />
                           </span>
                         </span>
                         <span>
