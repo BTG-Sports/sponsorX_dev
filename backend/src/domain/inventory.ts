@@ -21,6 +21,7 @@ import { audit } from "../db/audit";
 import type { Actor } from "../auth/actor";
 import { assertAllowed, whereFor } from "../auth/scope";
 import { ForbiddenError } from "../auth/errors";
+import { assertMayCommit } from "./guardian-acts";
 import { BRAND_CATEGORIES } from "./brand-categories";
 
 export const INVENTORY_KINDS = ["SOCIAL_POST", "VIDEO", "APPEARANCE", "AUTOGRAPH", "CAMP", "SIGNAGE", "TICKETS", "OTHER", "PACKAGE"] as const;
@@ -169,6 +170,8 @@ export async function createInventoryItem(actor: Actor, input: InventoryInput) {
   assertAllowed(actor, "inventoryItem", "write");
   assertValid(input);
   return prisma.$transaction(async (tx) => {
+    /* 2S1-BE-11 / -12 — a minor's items are added by their guardian; none during coming of age. */
+    await assertMayCommit(tx, actor, "list");
     const owner = await ownerFor(tx, actor);
     await assertJob(tx, input.jobId);
     const parts = await assertComponents(tx, actor, owner, input);
@@ -196,6 +199,8 @@ export async function updateInventoryItem(actor: Actor, id: string, patch: Parti
   return prisma.$transaction(async (tx) => {
     const item = await tx.inventoryItem.findFirst({ where: { ...whereFor(actor, "inventoryItem", "write"), id }, select: SELECT });
     if (!item) throw new ForbiddenError("inventoryItem", "write");
+    /* 2S1-BE-11 — pricing a minor's item is their guardian's. */
+    await assertMayCommit(tx, actor, "manage");
     const next = {
       priceCents: patch.priceCents ?? item.priceCents,
       quantity: patch.quantity === undefined ? item.quantity : patch.quantity,

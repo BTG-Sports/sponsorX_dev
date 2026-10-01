@@ -1,6 +1,8 @@
 "use server";
 
 import type { IntakePayload } from "@/lib/join-flow";
+import type { ApiSignupStatus } from "@/lib/join-signup";
+import { fileArgs, publicCall, requestUpload, type Answer, type UploadGrant } from "@/server/id-upload-actions";
 
 /* --------------------------------------------------------------------------
    P3-FE-01 — the submit path. A server action, not a browser fetch, because
@@ -37,6 +39,8 @@ const FIELD_MAP: Record<string, string> = {
   school: "team",
   level: "level",
   socials: "instagram",
+  countryCode: "country",
+  guardian: "guardianEmail",
 };
 
 /* A "socials.N.…" issue names an array index; the wizard has one input per
@@ -124,4 +128,50 @@ export async function submitJoinApplication(
     /* Non-JSON error body — keep the status-line message. */
   }
   return { ok: false, fields, messages };
+}
+
+/* --------------------------------------------------------------------------
+   2S1-FE-06 — after applying: the checklist, the ID upload, naming a
+   guardian, resending the emails (2S1-BE-09 / -10). The intake token /join
+   was handed is the only key; the file itself goes straight from the
+   browser to the private bucket (components/id-upload.tsx).
+   -------------------------------------------------------------------------- */
+
+const q = (token: string) => `?token=${encodeURIComponent(token)}`;
+const BAD = { ok: false as const, status: 404, message: "No application matches that link." };
+const okToken = (t: unknown): t is string => typeof t === "string" && t.length > 0 && t.length < 500;
+
+export async function signupStatusAction(token: string): Promise<Answer<ApiSignupStatus>> {
+  if (!okToken(token)) return BAD;
+  return publicCall<ApiSignupStatus>(`/applications/intake/status${q(token)}`);
+}
+
+export async function requestIdAction(token: string, kind: "GOVERNMENT_ID" | "SCHOOL_ID", file: unknown): Promise<UploadGrant> {
+  if (!okToken(token) || (kind !== "GOVERNMENT_ID" && kind !== "SCHOOL_ID")) return BAD;
+  const f = fileArgs(file);
+  if (!f) return { ok: false, status: 422, message: "Upload a PDF, JPEG or PNG." };
+  return requestUpload(`/applications/intake/documents${q(token)}`, { kind, ...f });
+}
+
+export async function confirmIdAction(token: string, documentId: string): Promise<Answer<ApiSignupStatus>> {
+  if (!okToken(token) || typeof documentId !== "string" || !/^[A-Za-z0-9_-]{1,64}$/.test(documentId)) return BAD;
+  return publicCall<ApiSignupStatus>(`/applications/intake/documents/${encodeURIComponent(documentId)}/confirm${q(token)}`, { method: "POST" });
+}
+
+export async function nameGuardianAction(
+  token: string, input: { legalName: string; email: string; relationship: "PARENT" | "LEGAL_GUARDIAN" | "AUTHORIZED_REP" },
+): Promise<Answer<ApiSignupStatus>> {
+  if (!okToken(token) || !input) return BAD;
+  if (typeof input.legalName !== "string" || !input.legalName.trim()) return { ok: false, status: 422, message: "Enter your guardian's legal name." };
+  if (typeof input.email !== "string" || !input.email.includes("@")) return { ok: false, status: 422, message: "Enter your guardian's email." };
+  if (!["PARENT", "LEGAL_GUARDIAN", "AUTHORIZED_REP"].includes(input.relationship)) return { ok: false, status: 422, message: "Choose how they're related to you." };
+  return publicCall<ApiSignupStatus>(`/applications/intake/guardian${q(token)}`, {
+    method: "POST",
+    body: JSON.stringify({ legalName: input.legalName.trim().slice(0, 120), email: input.email.trim().slice(0, 200), relationship: input.relationship }),
+  });
+}
+
+export async function resendAction(token: string, which: "email" | "guardian"): Promise<Answer<ApiSignupStatus>> {
+  if (!okToken(token) || (which !== "email" && which !== "guardian")) return BAD;
+  return publicCall<ApiSignupStatus>(`/applications/intake/${which === "email" ? "confirm-email" : "guardian"}/resend${q(token)}`, { method: "POST" });
 }

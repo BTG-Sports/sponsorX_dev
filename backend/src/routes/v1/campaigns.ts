@@ -1080,7 +1080,7 @@ const readOrder: RequestHandler<{ id: string }> = async (req, res) => {
       campaign: { select: { id: true, name: true, startDate: true, endDate: true, sponsor: { select: { name: true } } } },
       athlete: {
         select: {
-          id: true, displayName: true, birthDate: true, ageBand: true, guardianId: true,
+          id: true, displayName: true, birthDate: true, ageBand: true, majorityAge: true, guardianId: true,
           guardian: { select: { legalName: true, verifiedAt: true } },
         },
       },
@@ -1099,6 +1099,7 @@ const readOrder: RequestHandler<{ id: string }> = async (req, res) => {
   const readiness = guardianReadiness({
     birthDate: order.athlete.birthDate,
     ageBand: order.athlete.ageBand,
+    majorityAge: order.athlete.majorityAge,
     guardianId: order.athlete.guardianId,
     guardianVerifiedAt: order.athlete.guardian?.verifiedAt ?? null,
   });

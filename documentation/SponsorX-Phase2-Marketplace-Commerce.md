@@ -5,7 +5,7 @@
 | | |
 |---|---|
 | **Goal** | Turn SponsorX from BTG-only operations into a multi-tenant marketplace. External athletes, teams, programs, events and media properties onboard, publish inventory, fulfil deliverables and get paid. |
-| **Tasks** | 95 · 363 person-days |
+| **Tasks** | 106 · 391 person-days |
 | **Blueprint timeline** | 16–20 weeks |
 | **Balanced budget** | $80K–$120K |
 | **Depends on** | Phase 1 auth/RBAC, sponsor/property/inventory/campaign/reward models, Zoho integration, core analytics |
@@ -320,6 +320,101 @@ Athletes, guardians and organizations can close their account. A closed or rejec
 - **Done when:** Closing an account keeps its files for 30 days and then deletes them permanently, with an audit record; returning within 30 days through the reactivation page restores the account and its files (self-closed) or asks BTG (rejected); after 30 days the files are gone and a new sign-up is needed
 - **Reference:** Spec §4, §26, §37; BTG admin review 2026-10-01
 
+### ⏸ `2S1-BE-14` · Profile edits publish straight away; sensitive edits re-run the checks
+
+**Order** 12.9 · **BE** · **Where:** Code · **3d** · **Ready**
+
+Replaces the BTG review of every profile edit an approved athlete makes (P3-BE-16). With BTG down to one reviewer, edits are no longer held for approval. Ordinary edits (bio, photos, sport, position, social links and the like) publish at once. Sensitive edits publish at once too, but re-run the same automatic checks as sign-up:
+- **A new legal name** needs a matching ID upload before it takes effect.
+- **A new date of birth** works out adulthood again (2S1-BE-12). If that makes the athlete a minor, the guardian process starts. If it makes them an adult, the coming-of-age allowance starts.
+- **A new guardian** goes through the guardian's page and documents (2S1-BE-10).
+
+For every sensitive edit, BTG admins are emailed a link to the athlete on the New sign-ups page, with Reject and Reinstate. They are not emailed for ordinary edits. Every edit, ordinary or sensitive, stays in the athlete's audit history. Raised 2026-10-01 from the BTG admin review.
+
+- **Depends on:** P3-BE-16, 2S1-BE-09, 2S1-BE-10, 2S1-BE-12
+- **Done when:** An approved athlete's ordinary edits publish with no BTG step; a legal-name change needs a matching ID upload, a date-of-birth change recomputes adulthood and starts the guardian or coming-of-age process when it changes, and a new guardian goes through the guardian's page; BTG admins are emailed only for sensitive edits, with a link and Reject; every edit is audited
+- **Reference:** Spec §4, §26, §37; BTG admin review 2026-10-01
+
+### ⏸ `2S1-BE-15` · Changing a minor's guardian (handoff)
+
+**Order** 12.95 · **BE** · **Where:** Code · **3d** · **Ready**
+
+A minor's guardian can change, for example after a custody change or when the other parent takes over. **A handoff starts only with the new guardian's request:**
+1. **The new guardian asks.** On a public request page they give their details and identify the athlete (the athlete's email, or a code the family shares), and complete the guardian page: government ID, proof of guardianship, and the guardian agreement.
+2. **The current guardian decides.** They are emailed, and in their portal they see the request with **Hand off** and **Decline**. The current guardian cannot start a handoff without a request, and the minor cannot start one.
+3. **Approval and switch.** Once the current guardian hands off and the new guardian's documents and email check out, the new guardian is approved automatically and control switches at once. Until then the current guardian keeps acting, so there is no gap. Both guardians and the athlete are emailed.
+4. **What carries over:** orders and campaigns already agreed continue as agreed; money already earned is paid to the payout account it was earned under; the new guardian sets up their own Stripe payout account for anything new.
+5. **A guardian with other children keeps them;** only this athlete moves.
+
+Every request, decision and switch is audited. BTG admins are emailed with a link, with Reject available as for any guardian. **A disputed handoff is never automated.** When the current guardian declines, can't be reached, or there's a court order, the request page and the decline email point the new guardian to BTG support (2S1-BE-16), and BTG decides by hand. Raised 2026-10-01 from the BTG admin review.
+
+- **Depends on:** 2S1-BE-10, 2S1-BE-11
+- **Done when:** A handoff can happen only after the new guardian's request and the current guardian's Hand off; the current guardian keeps control until the switch, which is atomic; agreed work and earned money stay where they were; a guardian's other children are unaffected; a declined or disputed request goes to BTG support and is never automated; every step is audited
+- **Reference:** Spec §4, §26, §37; BTG admin review 2026-10-01
+
+### ⏸ `2S1-BE-16` · Contacting BTG support
+
+**Order** 12.97 · **BE** · **Where:** Code · **2d** · **Ready**
+
+A way to reach BTG for things that must never be automated, starting with disputed guardianship. A contact form (public, rate-limited) takes a name, an email, the topic (guardianship, account, payment, other), a message and optional attachments. Attachments go to the private storage bucket. Each message is queued through the worker, never sent on the request path, and delivered to the support mailbox (2S1-OPS-01), with the sender's message ID so a reply can continue the thread. The support email address is shown wherever a person might be stuck: the guardian request page, a declined-handoff email, a rejection email, and account pages. Raised 2026-10-01 from the BTG admin review.
+
+- **Depends on:** 2S1-OPS-01
+- **Done when:** Anyone can send BTG a message with an attachment from the contact page; it reaches the support mailbox through the queue even when the mail service is briefly down; the support address appears on the guardian request page and in decline and rejection emails; the form is rate-limited and stores attachments privately
+- **Reference:** Spec §4, §26, §37; BTG admin review 2026-10-01
+
+### ⏸ `2S1-OPS-01` · Set up the BTG support mailbox
+
+**Order** 12.98 · **OPS** · **Where:** Vendor console · **1d** · **Ready**
+
+Create the support address, for example support@sponsorx.net, and where its mail lands. **Option A, Zoho Desk (recommended):** BTG already runs on Zoho, and Desk turns each email into a tracked ticket with an owner and a status, so the one BTG reviewer sees what's waiting. **Option B:** a plain shared mailbox. Set it up in sandbox or staging first, then production. The sender domain must be verified once the transactional email provider is chosen.
+
+- **Depends on:** none
+- **Done when:** Mail to the support address lands where BTG works on it, and a test message from the staging contact form arrives
+- **Reference:** Spec §4, §26, §37; BTG admin review 2026-10-01
+
+### ⏸ `2S1-BE-17` · Sponsors are approved automatically
+
+**Order** 12.99 · **BE** · **Where:** Code · **4d** · **Ready**
+
+Changes 2S1-BE-05 so BTG reviews only the exceptions. The request form asks the sponsor for:
+- **Their business type**, from the fixed list, or **Other** with a description of what the business does.
+- **Proof of business: one document, required of every sponsor everywhere.** This can be a business registration, a business permit or a business license, in the business's name. The requirement is the same in every state and country.
+- **A confirmed contact email**, by link.
+
+A request is approved automatically, opening the account and login and sending the sign-in email as today, when all of these hold:
+- the email is confirmed and has no SponsorX login yet;
+- the proof of business is uploaded;
+- no other sponsor has the same name, using the same normalised name rule as organizations (2S1-BE-06);
+- the business type isn't restricted;
+- an Other description passes the restricted-words check (2S1-BE-18).
+
+These go to BTG's review instead, each showing why:
+- **Restricted business types:** alcohol, tobacco and vaping, gambling, cannabis, firearms, adult, political and crypto.
+- **An Other description that matches** the restricted-words list.
+- **A name match**, because only a person can tell the same company from a different one.
+
+For every new sponsor, BTG admins and sales are emailed a link to the New sign-ups page, with Reject (login off, reason emailed). The Zoho lead and account push are unchanged. The proof of business is kept in the private bucket under the same 5-minute audited viewing and 30-day retention rules. Raised 2026-10-01 from the BTG admin review.
+
+- **Depends on:** 2S1-BE-05, 2S1-BE-06, 2S1-BE-18
+- **Done when:** A sponsor with a confirmed email, a proof of business, a unique name and an unrestricted business type is approved and can sign in without BTG; a restricted type, a flagged Other description or a name match goes to BTG's review with the reason; every sponsor must upload proof of business, with the same rule everywhere; BTG and sales are emailed for each new sponsor; Reject switches the login off and emails the reason
+- **Reference:** Spec §3, §12, §26; BTG admin review 2026-10-01
+
+### ⏸ `2S1-BE-18` · The restricted-words check
+
+**Order** 12.995 · **BE** · **Where:** Code · **3d** · **Ready**
+
+A server-side list of restricted words and phrases, grouped by kind: sexual or adult, drugs, weapons, gambling, violence or hate, and other illegal or harmful activity. BTG admins can view and edit the list from the admin portal; it is seeded with a starter list. A check function tests any free text against it:
+- **It is hard to get around.** It ignores case and accents, sees through spacing and common letter swaps ("s3x", "d r u g s", "c0caine"), and matches words, so "Essex" or "Sussex" doesn't trip "sex".
+- **A match never rejects anything on its own.** It marks the text as restricted, with the words and kind that matched, and sends the item to BTG's review.
+- **It is used first** for a sponsor's Other business description (2S1-BE-17). It is built to be reused on other free text later, such as listing titles and descriptions or athlete bios.
+- **Every change to the list is audited,** and the check is unit-tested against a set of tricky spellings and innocent words.
+
+Raised 2026-10-01 from the BTG admin review.
+
+- **Depends on:** none
+- **Done when:** Free text containing a listed word, including disguised spellings, is marked restricted with what matched; innocent words that merely contain a listed word are not; BTG admins can edit the list and every change is audited; a match routes the item to BTG's review and never rejects it automatically
+- **Reference:** Spec §3, §12, §26; BTG admin review 2026-10-01
+
 ### ⏸ `2S1-FE-01` · Build the property onboarding wizard
 
 **Order** 13 · **FE** · **Where:** Code · **5d** · **Blocked**
@@ -400,6 +495,81 @@ For a minor: the guardian's portal acts for them (offers, orders, listings, payo
 - **Done when:** A guardian can do every agreement and money action for their minor from their own portal; the coming-of-age reminder persists until done; an account can be closed and reactivated within 30 days
 - **Reference:** Spec §4, §26, §37; BTG admin review 2026-10-01
 
+### ⏸ `2S1-FE-09` · Profile editing without BTG review, on screen
+
+**Order** 14.9 · **FE** · **Where:** Code · **2d** · **Blocked**
+
+The athlete's profile editor saves ordinary edits at once, with no more "waiting for BTG" state. For a sensitive field it says what will be needed: "Changing your legal name needs a matching ID", with the upload; a date of birth or a guardian starts the right steps. BTG's Profile changes page is retired, and sensitive edits appear on the New sign-ups page (2S1-FE-07) instead.
+
+- **Depends on:** 2S1-BE-14, 2S1-FE-07
+- **Done when:** An athlete's ordinary edits save at once; a sensitive edit shows and collects what it needs; BTG sees sensitive edits on the New sign-ups page, and the old Profile changes review page is gone
+- **Reference:** Spec §4; BTG admin review 2026-10-01
+
+### ⏸ `2S1-FE-10` · Guardian handoff and contact pages, on screen
+
+**Order** 14.95 · **FE** · **Where:** Code · **3d** · **Blocked**
+
+The new guardian's request page (identify the athlete, and complete their details and documents). The current guardian's view of a request, with **Hand off** and **Decline**. The handoff's status for both guardians and the athlete. The **Contact BTG** page and form, linked from the request page, from the decline and rejection emails, and from account pages, showing the support email address.
+
+- **Depends on:** 2S1-BE-15, 2S1-BE-16, 2S0-ART-01
+- **Done when:** A new guardian can request a handoff, the current guardian can hand off or decline from their portal, both can follow its status, and anyone can reach BTG support from the contact page
+- **Reference:** Spec §4, §26, §37; BTG admin review 2026-10-01
+
+### ⏸ `2S1-FE-11` · The sponsor request form, and the word list for BTG
+
+**Order** 14.97 · **FE** · **Where:** Code · **3d** · **Blocked**
+
+In the public "Become a sponsor" form, this adds:
+- the business-type picker, with Other and a description box;
+- the proof-of-business upload, with what counts (registration, permit or license);
+- the email confirmation step.
+
+The applicant is told whether they're approved straight away or under review. BTG's New sign-ups page shows each new sponsor with the review reason (a restricted type, the words that matched, or a name match). An admin page lists and edits the restricted words.
+
+- **Depends on:** 2S1-BE-17, 2S1-BE-18, 2S1-FE-07, 2S0-ART-01
+- **Done when:** A sponsor can complete the form with a business type or Other and their proof of business, and is told whether they're approved or under review; BTG sees the reason for each review; BTG admins can edit the restricted-words list
+- **Reference:** Spec §3, §12, §26; BTG admin review 2026-10-01
+
+### ⏸ `2S1-FE-12` · BTG's Closed accounts desk
+
+**Order** 14.98 · **FE** · **Where:** Code · **2d** · **Code review**
+
+The desk for closed accounts. It has five tabs, each with a count:
+- Asking to come back
+- Closed by BTG
+- Closed by the owner
+- Ended at coming of age
+- Files deleted
+
+A rejected account's request shows BTG's original reason and the person's note. BTG has two answers:
+- decline with a reason, which is emailed;
+- open the account's own page and reinstate it there.
+
+An application rejected before approval can only be declined, or told to apply again. Owner-closed, ended and deleted accounts are read-only.
+
+- **Depends on:** 2S1-BE-13
+- **Done when:** BTG sees closed accounts by tab with counts and answers a rejected account's request to come back — decline with a reason that is emailed, or a link to reinstate on the account's own page; owner-closed, ended and deleted accounts are read-only; BTG admins only
+- **Reference:** Claude Design ClosedAccounts.dc.html; raised 2026-10-01
+
+### ⏸ `2S1-FE-13` · BTG's Guardian handoffs desk
+
+**Order** 14.99 · **FE** · **Where:** Code · **2d** · **Code review**
+
+Guardian handoff requests, grouped by step:
+- Waiting for BTG
+- In progress
+- Switched
+- Declined
+- Cancelled
+
+When "BTG staff confirm minors" is on, a request the current guardian has handed off waits here for BTG. It shows the new guardian's details, their ID and proof of guardianship (opened through 5-minute audited links) and what the switch changes. BTG confirms the switch, or declines with a reason the requester reads.
+
+With the setting off, the desk is a read-only record. Custody disputes go to BTG support, never to this desk.
+
+- **Depends on:** 2S1-BE-15
+- **Done when:** With staff confirmation on, BTG can open a handed-off request, view the new guardian's documents through 5-minute audited links, and confirm the switch or decline with a reason the requester reads; with it off the desk is read-only; BTG admins only
+- **Reference:** Claude Design GuardianHandoffs.dc.html; raised 2026-10-01
+
 ### ⏸ `2S1-INT-01` · Onboarding notification jobs
 
 **Order** 15 · **INT** · **Where:** Code · **1d** · **Blocked**
@@ -460,10 +630,10 @@ Teams and programs hold rosters, property inventory, users and revenue shares �
 
 **Order** 19.5 · **BE** · **Where:** Code · **4d** · **Ready**
 
-Today "add to roster" only creates a new athlete and refuses an email that already has an account, so an athlete who applied on their own (walkthrough step 2) can never join a team (step 3). A team searches for an approved athlete and sends an invitation naming the share it asks for. The athlete accepts or declines from their portal and by email, and nobody joins a team without agreeing to its share. On accepting, the athlete is linked to the team at that share. The athlete's own listings are ended, and the team re-lists the items. Orders already placed keep the split they were sold with. Either side can end the link: the athlete leaves, or the team removes them. That ends the team's listings of the athlete's items, and past orders keep their split. "Add a new athlete" stays for players who aren't on SponsorX yet. Raised 2026-10-01 from the user-flow review.
+Today "add to roster" only creates a new athlete and refuses an email that already has an account, so an athlete who applied on their own (walkthrough step 2) can never join a team (step 3). A team searches for an approved athlete and sends an invitation naming the share it asks for. The athlete accepts or declines from their portal and by email, and nobody joins a team without agreeing to its share. On accepting, the athlete is linked to the team at that share. The athlete's own listings stop selling while they are on the team — the team lists the items — and sell again if they leave. The team can lower its share later, but raising it needs the athlete's agreement. Orders already placed keep the split they were sold with. Either side can end the link: the athlete leaves, or the team removes them. That ends the team's listings of the athlete's items, and past orders keep their split. "Add a new athlete" stays for players who aren't on SponsorX yet. Raised 2026-10-01 from the user-flow review.
 
 - **Depends on:** 2S2-BE-04, 2S3-BE-05
-- **Done when:** A team can invite an existing approved athlete with a proposed share; the athlete can accept or decline; accepting links them at that share and ends their own listings; either side can end the link without changing past orders; nobody is linked without accepting; tenant and role tests cover it
+- **Done when:** A team can invite an existing approved athlete with a proposed share; the athlete can accept or decline; accepting links them at that share and their own listings stop selling while they are on the team; either side can end the link without changing past orders; nobody is linked without accepting; tenant and role tests cover it
 - **Reference:** Spec §5; user-flow review 2026-10-01
 
 ### ⏸ `2S2-FE-01` · Build the athlete portal home

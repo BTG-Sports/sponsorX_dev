@@ -35,6 +35,9 @@ import { issueIntakeToken } from "../lib/intake-token";
 import type { AthleteApplicationInput, AthleteApplicationPatch } from "../contracts/athlete";
 import { transitionAthleteIn, type SystemActor } from "./athlete";
 import type { AthleteState } from "./athlete-state";
+import { refreshMajorityIn } from "./age-of-majority";
+import { athleteConfirmUrl, nameGuardianIn } from "./athlete-signup";
+import { requiresGuardian } from "./guardian-rules";
 
 /** The states an applicant may still edit from. Anything else means a
  *  decision is in flight or has been taken, and the form is closed. */
@@ -91,10 +94,22 @@ export async function submitApplication(
        pressed submit" is not an exception to it. */
     await transitionAthleteIn(tx, asSystem(actor), athlete.id, "SUBMITTED");
 
+    /* 2S1-BE-12 — their place's age of majority, from the editable table. */
+    const majority = await refreshMajorityIn(tx, tenantId, athlete.id);
+
+    /* 2S1-BE-10 — a minor's guardian, linked and emailed their set-up link.
+       Under the place's age, not the wizard's 18: a guardian named by an
+       adult is not linked (linking one would make an adult look supervised). */
+    if (input.guardian && requiresGuardian({ birthDate: input.birthDate ? new Date(input.birthDate) : null, ageBand: input.ageBand, majorityAge: majority.age })) {
+      await nameGuardianIn(tx, { id: athlete.id, tenantId, email: input.email.toLowerCase(), legalName: input.legalName, displayName: input.displayName }, input.guardian);
+    }
+
     await send(tx, tenantId, {
       template: "athlete.applicationReceived",
       to: input.email.toLowerCase(),
-      data: { firstName: firstNameOf(input.legalName, input.displayName) },
+      /* 2S1-BE-09 — the receipt carries the link that confirms the email,
+         the first of the automatic approval's checks. */
+      data: { firstName: firstNameOf(input.legalName, input.displayName), confirmUrl: athleteConfirmUrl(athlete.id) },
       idempotencyKey: athleteNotificationKey(
         "athlete.applicationReceived",
         athlete.id,
@@ -135,6 +150,7 @@ export async function createApplicantIn(
       ageBand: input.ageBand ?? null,
       city: input.city ?? null,
       stateCode: input.stateCode,
+      countryCode: input.countryCode ?? "US",
       sport: input.sport,
       position: input.position ?? null,
       school: input.school ?? null,
@@ -217,6 +233,7 @@ export async function patchApplication(
     if (patch.ageBand !== undefined) data.ageBand = patch.ageBand;
     if (patch.city !== undefined) data.city = patch.city;
     if (patch.stateCode !== undefined) data.stateCode = patch.stateCode;
+    if (patch.countryCode !== undefined) data.countryCode = patch.countryCode;
     if (patch.sport !== undefined) data.sport = patch.sport;
     if (patch.position !== undefined) data.position = patch.position;
     if (patch.school !== undefined) data.school = patch.school;
@@ -230,6 +247,9 @@ export async function patchApplication(
     if (Object.keys(data).length > 0) {
       await tx.athlete.update({ where: { id: athleteId }, data, select: { id: true } });
     }
+
+    /* 2S1-BE-12 — re-checked on a move: a new state or country is a new age of majority. */
+    if (patch.stateCode !== undefined || patch.countryCode !== undefined) await refreshMajorityIn(tx, tenantId, athleteId);
 
     if (patch.socials !== undefined) {
       await tx.athleteSocial.deleteMany({ where: { athleteId } });

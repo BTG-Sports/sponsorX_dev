@@ -10,7 +10,17 @@ const NAV: NavItem[] = [
   { href: "/athlete/earnings", label: "Earnings", icon: "wallet" },
   { href: "/athlete/money", label: "My money", icon: "card" },
   { href: "/athlete/inventory", label: "Inventory", icon: "store" },
+  /* Phase 2 seller screens (2026-10-01): a no-team athlete lists their own
+     items (2S3-FE-02); every seller's sold lines (2S4-FE-03); the team they
+     sell through (2S2-FE-05). */
+  { href: "/athlete/listings", label: "List my item", icon: "megaphone" },
+  { href: "/athlete/sales", label: "Orders", icon: "box" },
+  { href: "/athlete/team", label: "Team", icon: "users" },
   { href: "/athlete/profile", label: "Public profile", icon: "user" },
+  /* 2S1-FE-10 — requests to take over as guardian; GUARDIAN only (below). */
+  { href: "/athlete/guardian-requests", label: "Guardian requests", icon: "shield" },
+  /* 2S1-FE-08 — sign-in, payouts, closing and reactivating the account. */
+  { href: "/athlete/settings", label: "Settings", icon: "gear" },
 ];
 
 /* Authorisation, not merely authentication (P2-BE-04). requirePortalAccess()
@@ -33,7 +43,8 @@ export default async function AthleteLayout({ children }: LayoutProps<"/athlete"
   return (
     <PortalShell
       portal="athlete"
-      nav={NAV}
+      /* Only the current guardian answers a handoff request — the minor never does. */
+      nav={NAV.filter((n) => n.href !== "/athlete/guardian-requests" || actor.roles.includes("GUARDIAN"))}
       rootHref="/athlete"
       userName={await viewerName("Athlete")}
       userRole={isAthlete ? "Content Partner" : `${roleLabel(actor.roles)} · preview`}

@@ -84,6 +84,14 @@ describe.skipIf(!hasDatabase)("2S1-BE-05 · BTG reviews a sponsor's request and 
     expect(r.status, r.text).toBe(201);
     return r.json.id as string;
   };
+  /* Every sponsor uploads a proof of business (2S1-BE-17) — seeded here as already in the bucket. */
+  const withProof = async (id: string) => {
+    await prisma.inquiryDocument.create({ data: {
+      id: `idoc_${id}`, tenantId: T, inquiryId: id, kind: "PROOF_OF_BUSINESS", filename: "license.pdf", contentType: "application/pdf", bytes: 1000,
+      r2Key: `sponsor-requests/${id}/doc/license.pdf`, uploadedAt: new Date(),
+    } });
+    return id;
+  };
   const emails = async () => (await prisma.outboxJob.findMany({ where: { tenantId: T, name: "notify.email" }, select: { payload: true } }))
     .map((j) => j.payload as { template: string; to: string; data: Record<string, string> });
 
@@ -118,10 +126,10 @@ describe.skipIf(!hasDatabase)("2S1-BE-05 · BTG reviews a sponsor's request and 
     ] });
     server = createApp().listen(0);
     base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
-    E.harbor = await ask({ company: "Harbor Coffee", first: "Dana", last: "Brooks", email: "sr_dana@sr-test.invalid", category: "Coffee shop / café" });
-    E.rosa = await ask({ company: "Rosa's Tacos", first: "Rosa", last: "Diaz", email: "sr_rosa@sr-test.invalid", category: "Quick-service restaurant" });
-    E.taken = await ask({ company: "Taken Co", last: "Lee", email: "sr_taken@sr-test.invalid", category: "Gym" });
-    E.other = await ask({ company: "Nope Ltd", last: "Kim", email: "sr_nope@sr-test.invalid" });
+    E.harbor = await withProof(await ask({ company: "Harbor Coffee", first: "Dana", last: "Brooks", email: "sr_dana@sr-test.invalid", category: "Coffee shop / café" }));
+    E.rosa = await withProof(await ask({ company: "Rosa's Tacos", first: "Rosa", last: "Diaz", email: "sr_rosa@sr-test.invalid", category: "Quick-service restaurant" }));
+    E.taken = await withProof(await ask({ company: "Taken Co", last: "Lee", email: "sr_taken@sr-test.invalid", category: "Gym" }));
+    E.other = await withProof(await ask({ company: "Nope Ltd", last: "Kim", email: "sr_nope@sr-test.invalid" }));
   });
 
   afterAll(async () => {
@@ -141,7 +149,7 @@ describe.skipIf(!hasDatabase)("2S1-BE-05 · BTG reviews a sponsor's request and 
       for (const who of ["sr_admin", "sr_sales"]) {
         const q = await call("GET", "/sponsor-requests", who);
         expect(q.status, q.text).toBe(200);
-        expect(q.json.counts).toEqual({ NEW: 4, APPROVED: 0, DECLINED: 0 });
+        expect(q.json.counts).toEqual({ NEW: 4, APPROVED: 0, DECLINED: 0, REJECTED: 0 });
         expect(q.json.requests[0]).toMatchObject({ id: E.harbor, businessName: "Harbor Coffee", contactName: "Dana Brooks", categoryText: "Coffee shop / café", budget: "$1,000–$2,500", state: "NEW" });
       }
       const d = (await call("GET", `/sponsor-requests/${E.harbor}`, "sr_sales")).json;
@@ -157,7 +165,7 @@ describe.skipIf(!hasDatabase)("2S1-BE-05 · BTG reviews a sponsor's request and 
         expect((await call("GET", "/sponsor-requests", who)).status, who).toBe(403);
         expect((await call("GET", `/sponsor-requests/${E.harbor}`, who)).status, who).toBe(403);
       }
-      expect((await call("GET", "/sponsor-requests", "sr_x_admin")).json.counts).toEqual({ NEW: 0, APPROVED: 0, DECLINED: 0 });
+      expect((await call("GET", "/sponsor-requests", "sr_x_admin")).json.counts).toEqual({ NEW: 0, APPROVED: 0, DECLINED: 0, REJECTED: 0 });
       expect((await call("GET", `/sponsor-requests/${E.harbor}`, "sr_x_admin")).status).toBe(403);
       expect((await call("POST", `/sponsor-requests/${E.harbor}/decision`, "sr_x_admin", { decision: "APPROVE", categories: ["RESTAURANT"] })).status).toBe(403);
       expect((await call("GET", "/sponsor-requests")).status).toBe(401);
@@ -208,7 +216,7 @@ describe.skipIf(!hasDatabase)("2S1-BE-05 · BTG reviews a sponsor's request and 
       /* BTG's page now shows the login claimed — read from the login itself. The email
          hasn't gone (no email provider runs in tests), and the page says so rather than guessing. */
       expect((await call("GET", `/sponsor-requests/${E.harbor}`, "sr_admin")).json.progress)
-        .toEqual({ categories: ["RESTAURANT"], decidedBy: { email: "sr_sales@sr-test.invalid", roles: ["SALES"] }, emailSentAt: null, signedIn: true });
+        .toEqual({ categories: ["RESTAURANT"], decidedBy: { email: "sr_sales@sr-test.invalid", roles: ["SALES"] }, emailSentAt: null, signedIn: true, automatic: false, loginSwitchedOff: false });
     });
 
     it("a request is decided once", async () => {
@@ -256,13 +264,23 @@ describe.skipIf(!hasDatabase)("2S1-BE-05 · BTG reviews a sponsor's request and 
       expect(r.status, r.text).toBe(200);
       expect(r.json).toMatchObject({ state: "DECLINED", decisionNote: "We only work with businesses in Maryland for now.", decidedBy: "sr_admin", sponsorId: null });
       expect(await emails()).toContainEqual(expect.objectContaining({
-        template: "sponsor.requestDeclined", to: "sr_nope@sr-test.invalid", data: expect.objectContaining({ note: "We only work with businesses in Maryland for now." }),
+        template: "sponsor.requestDeclined", to: "sr_nope@sr-test.invalid", data: expect.objectContaining({ note: "We only work with businesses in Maryland for now.", supportEmail: expect.any(String) }),
       }));
       expect(await prisma.user.count({ where: { email: "sr_nope@sr-test.invalid" } })).toBe(0);
       /* Once the email job has sent it, the page says so. */
       await prisma.emailSendLog.create({ data: { idempotencyKey: `sponsor.requestDeclined:${E.other}`, tenantId: T, template: "sponsor.requestDeclined", to: "sr_nope@sr-test.invalid" } });
       expect((await call("GET", `/sponsor-requests/${E.other}`, "sr_admin")).json.progress).toMatchObject({ emailSentAt: expect.any(String), signedIn: null });
       expect((await call("GET", "/sponsor-requests?state=DECLINED", "sr_sales")).json.requests.map((x: { id: string }) => x.id)).toEqual([E.other]);
+    });
+  });
+
+  describe("proof of business comes first", () => {
+    it("BTG can't open an account for a business that hasn't uploaded its proof", async () => {
+      const id = await ask({ company: "No Proof LLC", last: "Moss", email: "sr_moss@sr-test.invalid" });
+      const r = await call("POST", `/sponsor-requests/${id}/decision`, "sr_admin", { decision: "APPROVE", categories: ["FITNESS"] });
+      expect(r.status).toBe(409);
+      expect(r.json.error.message).toMatch(/proof of business/);
+      expect(await prisma.inquiry.findUniqueOrThrow({ where: { id }, select: { state: true } })).toEqual({ state: "NEW" });
     });
   });
 });

@@ -7,9 +7,9 @@ import { mayUse } from "@/lib/admin-access";
 /* BTG admin surface — §10's four workspaces plus the command center (§23). */
 const NAV: NavItem[] = [
   { href: "/admin", label: "Dashboard", icon: "grid" },
+  /* 2S1-FE-07 — everything SponsorX approved by itself; BTG steps in only on a problem. */
+  { href: "/admin/new-signups", label: "New sign-ups", icon: "user" },
   { href: "/admin/applications", label: "Applications", icon: "users" },
-  /* P3-BE-16 — approved athletes' proposed profile edits, reviewed here. */
-  { href: "/admin/profile-changes", label: "Profile changes", icon: "file" },
   /* P4-FE-07 — sponsor briefs, qualified here before the Matching Studio. */
   { href: "/admin/briefs", label: "Briefs", icon: "mail" },
   { href: "/admin/campaigns", label: "Campaigns", icon: "megaphone" },
@@ -22,6 +22,16 @@ const NAV: NavItem[] = [
   { href: "/admin/marketplace", label: "Marketplace", icon: "store" },
   /* 2S1-FE-03 — businesses asking to sponsor; approving opens the account. */
   { href: "/admin/sponsor-requests", label: "Sponsor requests", icon: "inbox" },
+  /* 2S4-FE-04 — lines a sponsor reported, or a seller is late marking delivered. */
+  { href: "/admin/delivery-issues", label: "Delivery issues", icon: "flag" },
+  /* 2S1-FE-11 — the restricted-words list. */
+  { href: "/admin/restricted-words", label: "Restricted words", icon: "ban" },
+  /* 2S2-FE-03 — BTG's formal offers: drafts, sending, answering change requests. */
+  { href: "/admin/offers", label: "Offers", icon: "megaphone" },
+  /* Accounts BTG closed that ask to come back (2S1-BE-13). */
+  { href: "/admin/closed-accounts", label: "Closed accounts", icon: "user" },
+  /* 2S1-BE-15 — handed-off guardian requests BTG confirms when staff confirm minors. */
+  { href: "/admin/guardian-handoffs", label: "Guardian handoffs", icon: "shield" },
   { href: "/admin/payouts", label: "Payouts", icon: "wallet" },
   { href: "/admin/onboarding", label: "Onboarding", icon: "users" },
   { href: "/admin/network", label: "Network", icon: "users" },

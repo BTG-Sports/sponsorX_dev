@@ -33,7 +33,7 @@ export const SCOPES: ReadonlyArray<{ scope: RuleScope; label: string }> = [
   { scope: "PROPERTY", label: "One property" },
   { scope: "SPONSOR", label: "One sponsor" },
 ];
-export const PROPERTY_KINDS = ["TEAM", "SCHOOL", "EVENT", "MEDIA", "VIRTUAL"] as const;
+export const PROPERTY_KINDS = ["TEAM", "SCHOOL", "EVENT", "MEDIA", "VIRTUAL", "AGENCY"] as const; // AGENCY — 2S1-BE-08
 
 /** 1500 → "15%", 290 → "2.9%". */
 export function pctLabel(bps: number): string {

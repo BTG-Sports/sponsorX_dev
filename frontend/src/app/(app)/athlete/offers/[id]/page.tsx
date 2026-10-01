@@ -9,13 +9,15 @@ import {
   exclusivityLabel,
   expiryLabel,
   fmtDay,
+  fmtWhen,
+  latestChangeRequest,
   offerStatus,
   usd,
   type ApiOffer,
 } from "@/lib/offer-live";
 import { apiFetch } from "@/server/api";
 import { requirePortalAccess } from "@/server/portal";
-import { acceptOfferAction, declineOfferAction } from "./actions";
+import { acceptOfferAction, declineOfferAction, requestOfferChangeAction } from "./actions";
 
 /* --------------------------------------------------------------------------
    Campaign offer — 2S2-FE-03. Athlete portal.
@@ -33,15 +35,19 @@ import { acceptOfferAction, declineOfferAction } from "./actions";
    Writes POST /offers/:id/respond through ./actions: ACCEPT with the terms
    hash shown, the agreement id and a fingerprint of the body rendered here
    (+ the signer's forwarded address and user-agent); DECLINE after a
-   confirm. The API also runs the guardian gate for a minor, the brand
-   restriction check and availability — their refusals are shown as the
-   API words them. After acceptance the Campaign Order it created is at
-   /athlete/orders/<orderId>.
+   confirm; REQUEST_CHANGE with the athlete's note, from a small dialog.
+   A change request leaves the offer SENT — Accept and Decline stay — and
+   the API records who asked, the note and when (`changeRequests` on this
+   read), audits it and emails the campaign manager(s); the screen then
+   shows "Change requested — BTG will come back to you" with the note and
+   time. The API also runs the guardian gate for a minor (on accept and on
+   request-change), the brand restriction check and availability — their
+   refusals are shown as the API words them. After acceptance the Campaign
+   Order it created is at /athlete/orders/<orderId>.
 
-   Honest gaps: no "request a change" route (the page says "reply to BTG");
-   the team's share of the pay isn't on the offer, so only the gross
-   compensation is shown; the sponsor's categories an exclusivity covers
-   aren't returned.
+   Honest gaps: the team's share of the pay isn't on the offer, so only the
+   gross compensation is shown; the sponsor's categories an exclusivity
+   covers aren't returned.
    -------------------------------------------------------------------------- */
 
 export const dynamic = "force-dynamic";
@@ -76,6 +82,7 @@ export default async function AthleteOfferPage({ params }: { params: Promise<{ i
   const copy = STATUS_COPY[status];
   const blocker = acceptBlocker(o, now);
   const agreement = o.agreement ?? null;
+  const change = latestChangeRequest(o);
 
   return (
     <div className="space-y-6">
@@ -202,6 +209,8 @@ export default async function AthleteOfferPage({ params }: { params: Promise<{ i
                   blocker={blocker}
                   accept={acceptOfferAction}
                   decline={declineOfferAction}
+                  requestChange={requestOfferChangeAction}
+                  changeRequest={change}
                 />
               </>
             ) : (
@@ -215,6 +224,11 @@ export default async function AthleteOfferPage({ params }: { params: Promise<{ i
                   {status === "expired" && (blocker ?? "This offer expired before it was answered.")}
                   {status === "draft" && "BTG is still drafting this offer — its terms can change until it's sent."}
                 </p>
+                {change && (
+                  <p className="mt-2 whitespace-pre-wrap break-words text-[11px] leading-relaxed text-faint">
+                    You asked for a change {fmtWhen(change.createdAt)}: &ldquo;{change.note}&rdquo;
+                  </p>
+                )}
                 {status === "accepted" && o.orderId && (
                   <Link
                     href={`/athlete/orders/${encodeURIComponent(o.orderId)}`}

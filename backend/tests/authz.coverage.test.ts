@@ -56,6 +56,13 @@ const GOVERNED_BY: Record<string, Resource> = {
   WebhookDelivery: "webhookDelivery",
   ZohoReconciliation: "integrationConnection",
   Inquiry: "inquiry",
+  /* 2S1-BE-17 — a sponsor's proof of business is its request's. */
+  InquiryDocument: "inquiry",
+  /* 2S1-BE-09 / -10 — an athlete's or guardian's identity documents are read
+     through their sign-up (athleteApplication / guardian, tenant-wide only). */
+  AccountDocument: "athleteApplication",
+  /* 2S1-BE-12 — the age-of-majority table is one of the sign-up rules. */
+  AgeOfMajority: "signupRules",
   SyncTask: "syncTask",
   AuditLog: "auditLog",
   Publication: "publication",
@@ -65,6 +72,11 @@ const GOVERNED_BY: Record<string, Resource> = {
   /* 2S5-INT-01/-03, 2S5-BE-04/-05 — a card payment is the order's; a payout
      line is its payout's. */
   PayoutAccount: "payoutAccount",
+  RestrictedWord: "restrictedWord",
+  /* 2S4-BE-06 / -07 — a sold line as its sellers see it, and its delivery. */
+  OrderLineDelivery: "orderDelivery",
+  /* 2S2-BE-05 — a team's invitation to an athlete already on SponsorX. */
+  TeamInvitation: "teamInvitation",
   Payout: "payout",
   PayoutLine: "payout",
   PaymentAttempt: "marketplaceOrder",
@@ -89,6 +101,8 @@ const GOVERNED_BY: Record<string, Resource> = {
   InventoryItem: "inventoryItem",
   Listing: "listing",
   Offer: "offer",
+  /* 2S2-FE-03 — written through the offer's own write (the athlete's answer). */
+  OfferChangeRequest: "offer",
   TenantBranding: "tenantBranding",
   BrandRestriction: "brandRestriction",
   /* A commitment is the item's own ledger of what is spoken for — read by
@@ -104,12 +118,20 @@ const GOVERNED_BY: Record<string, Resource> = {
   CommissionRule: "commissionRule",
   OrderLineFinancials: "orderFinancials",
   LedgerEntry: "ledgerEntry",
+  /* 2S1-BE-13 — closed accounts; 2S1-BE-15 — a guardian handoff and its documents. */
+  AccountClosure: "accountClosure",
+  GuardianHandoff: "guardianHandoff",
+  GuardianHandoffDocument: "guardianHandoff",
 };
 
 /** Models no API path reads or writes, and why. */
 const SYSTEM_INTERNAL: Record<string, string> = {
   OutboxJob: "the job queue — written inside domain transactions, drained by the worker",
   EmailSendLog: "the worker's idempotency ledger for sent email",
+  /* 2S1-BE-16 — written by the public contact form, read only by the worker
+     that mails it; BTG reads the messages in the support mailbox, not here. */
+  SupportMessage: "a contact-form message — written by the public form, mailed by the worker; read in the support mailbox",
+  SupportAttachment: "a contact-form attachment — uploaded to the private bucket, attached by the worker; no API route reads it",
 };
 
 describe("P8-SEC-01 · every model is governed by the matrix", () => {
@@ -158,9 +180,16 @@ describe("P8-SEC-01 · every model is governed by the matrix", () => {
     }
   });
 
-  it("runs in CI on every push and pull request", () => {
+  /* Since 2026-10-01 CI runs once a day on main (and by hand), not on every
+     push — the account ran out of Actions minutes. The suite must still run
+     there, and the nightly deploy must still wait for it. */
+  it("runs in CI nightly on main, by hand, and before every automatic deploy", () => {
     const ci = readFileSync(new URL("../../.github/workflows/ci.yml", import.meta.url), "utf8");
-    expect(ci).toMatch(/on:\s*\n\s*push:\s*\n\s*pull_request:/);
+    expect(ci).toMatch(/on:\s*\n\s*schedule:\s*\n\s*- cron:/);
+    expect(ci).toContain("workflow_dispatch:");
     expect(ci).toContain("npm run test -w @sponsorx/backend");
+    const deploy = readFileSync(new URL("../../.github/workflows/deploy-daily.yml", import.meta.url), "utf8");
+    expect(deploy).toMatch(/workflow_run:\s*\n\s*workflows: \[CI\]/);
+    expect(deploy).toContain("conclusion == 'success'");
   });
 });

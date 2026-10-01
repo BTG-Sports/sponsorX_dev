@@ -13,9 +13,14 @@ const NAV: NavItem[] = [
   { href: "/property/roster", label: "Roster", icon: "users" },
   { href: "/property/inventory", label: "Inventory", icon: "store" },
   { href: "/property/listings", label: "Listings", icon: "megaphone" },
+  /* 2S4-FE-03 — the team's sold lines, its own share only. */
+  { href: "/property/sales", label: "Orders", icon: "box" },
   { href: "/property/earnings", label: "Earnings", icon: "wallet" },
   { href: "/property/analytics", label: "Analytics", icon: "chart" },
   { href: "/property/branding", label: "Branding", icon: "pen" },
+  /* 2S1-FE-04 / 2S1-FE-08 — documents on file, and the account itself. */
+  { href: "/property/documents", label: "Documents", icon: "file" },
+  { href: "/property/settings", label: "Settings", icon: "gear" },
   { href: "/property/campaigns", label: "Campaigns", icon: "calendar", pending: true },
 ];
 

@@ -10,7 +10,7 @@
    organisation type allows and nothing else — never a bank or tax field.
    -------------------------------------------------------------------------- */
 
-export const ORG_TYPES = ["TEAM", "SCHOOL", "EVENT", "MEDIA", "VIRTUAL"] as const;
+export const ORG_TYPES = ["TEAM", "SCHOOL", "EVENT", "MEDIA", "VIRTUAL", "AGENCY"] as const;
 export type OrgType = (typeof ORG_TYPES)[number];
 
 export const ORG_TYPE_COPY: Record<OrgType, { label: string; text: string }> = {
@@ -19,6 +19,8 @@ export const ORG_TYPE_COPY: Record<OrgType, { label: string; text: string }> = {
   EVENT: { label: "Event", text: "A tournament, showcase or camp." },
   MEDIA: { label: "Media", text: "A publication, stream or channel." },
   VIRTUAL: { label: "Virtual", text: "A virtual venue or world." },
+  /* 2S1-BE-08 */
+  AGENCY: { label: "Agency", text: "An athlete management or talent agency." },
 };
 
 export const isOrgType = (v: unknown): v is OrgType => typeof v === "string" && (ORG_TYPES as readonly string[]).includes(v);
@@ -52,9 +54,18 @@ export type ApiOnboardingDocument = {
   bytes: number;
   uploadedAt: string | null;
   createdAt: string;
-  /** Staff read only (GET /onboarding/:id/documents): a 15-minute audited link. */
+  /** 2S1-BE-08 — the state a business registration is for. */
+  stateCode?: string | null;
+  /** 2S1-BE-07 — "valid until", and whether it was replaced or removed (kept as history). */
+  expiresOn?: string | null;
+  replacedAt?: string | null;
+  removedAt?: string | null;
+  /** Staff read only (GET /onboarding/:id/documents): a 5-minute audited link. */
   downloadUrl?: string | null;
 };
+
+/** 2S1-BE-06 — one required document, ticked by the API from what is uploaded. */
+export type ApiChecklistItem = { key: string; kind: string; stateCode: string | null; label: string; documentId: string | null; done: boolean };
 
 export type ApiTerms = { agreementId: string; version: number; bodyHash: string; body: string | null };
 
@@ -79,9 +90,25 @@ export type ApiOnboarding = {
   documents: ApiOnboardingDocument[];
   listingAccess: boolean;
   missing: string[];
+  /* 2S1-BE-06 — the automatic approval's live checklist, and where it stands. */
+  checklist: ApiChecklistItem[];
+  emailConfirmed: boolean;
+  contactEmail: string | null;
+  /** Why a submitted application waits — shown to the applicant as-is. */
+  reviewReasons: string[];
+  autoApproved: boolean;
+  /** 2S1-BE-07 — an approved organisation flagged for BTG after a document change. */
+  flags: string[];
   /** Only on the public GET — the latest PROPERTY_TERMS, or null if none is published. */
   terms?: ApiTerms | null;
 };
+
+/** What still stands between this application and its automatic approval, in the applicant's words. */
+export function approvalTodo(v: Pick<ApiOnboarding, "checklist" | "emailConfirmed" | "contactEmail">): string[] {
+  const out = v.checklist.filter((c) => !c.done).map((c) => `Upload: ${c.label}`);
+  if (!v.emailConfirmed) out.push(v.contactEmail ? `Confirm ${v.contactEmail} — open the link we emailed` : "Confirm the primary contact's email");
+  return out;
+}
 
 /* ── the steps ────────────────────────────────────────────────────────── */
 
@@ -93,17 +120,19 @@ const BUSINESS_LABEL: Record<OrgType, string> = {
   EVENT: "Event details",
   MEDIA: "Media details",
   VIRTUAL: "Venue details",
+  AGENCY: "Agency details",
 };
 
 /** The wizard's steps for an organisation type — the same seven for every
- *  type; the business step's name and fields are what change. */
+ *  type; the business step's name and fields are what change. Documents
+ *  are required since 2S1-BE-06: the automatic approval ticks them off. */
 export function stepsFor(orgType: OrgType): { key: StepKey; label: string; optional?: boolean }[] {
   return [
     { key: "organisation", label: "Organisation" },
     { key: "contacts", label: "Contacts" },
     { key: "business", label: BUSINESS_LABEL[orgType] },
     { key: "payout", label: "How you get paid" },
-    { key: "documents", label: "Documents", optional: true },
+    { key: "documents", label: "Documents" },
     { key: "agreements", label: "Property terms" },
     { key: "review", label: "Review & submit" },
   ];
@@ -151,6 +180,15 @@ export const BUSINESS_FIELDS: Record<OrgType, FieldSpec[]> = {
   VIRTUAL: [
     { key: "legalEntityName", label: "Legal entity name", kind: "text", max: 200 },
     { key: "platformUrl", label: "Platform URL", kind: "url", max: 300 },
+    REG_ID,
+  ],
+  /* 2S1-BE-08 — an agency names every state it operates in; each needs its own business registration. */
+  AGENCY: [
+    { key: "legalEntityName", label: "Legal entity name", kind: "text", max: 200 },
+    {
+      key: "statesOperatedIn", label: "Other states you operate in", kind: "list", max: 2, optional: true,
+      hint: "Two-letter codes, separated with commas — e.g. VA, DC. Your own state counts already. You upload a business registration for each.",
+    },
     REG_ID,
   ],
 };
@@ -224,9 +262,10 @@ export function missingByStep(missing: readonly string[], orgType: OrgType): Par
 export type StepStatus = "done" | "todo" | "optional";
 
 /** A step's tick: done when the API reports nothing missing for it.
- *  Documents are optional (the API does not require them to submit). */
-export function stepStatus(step: StepKey, view: Pick<ApiOnboarding, "missing" | "documents">): StepStatus {
-  if (step === "documents") return view.documents.some((d) => d.uploadedAt) ? "done" : "optional";
+ *  Documents (2S1-BE-06): done when the API's checklist is all ticked —
+ *  submitting doesn't wait for them, the automatic approval does. */
+export function stepStatus(step: StepKey, view: Pick<ApiOnboarding, "missing" | "checklist">): StepStatus {
+  if (step === "documents") return view.checklist.every((c) => c.done) ? "done" : "todo";
   if (step === "review") return view.missing.length === 0 ? "done" : "todo";
   return view.missing.some((k) => stepOfMissing(k) === step) ? "todo" : "done";
 }
@@ -341,7 +380,10 @@ export function validateBusiness(orgType: OrgType, form: BusinessForm, stateCode
       if (required) e[f.key] = f.key === "stateRegistrationId" ? `Required for organisations in ${stateCode}.` : `${f.label} is required.`;
       continue;
     }
-    if (f.kind === "list") {
+    if (f.key === "statesOperatedIn") {
+      const bad = splitList(v).map((s) => s.toUpperCase()).filter((s) => !isUsState(s));
+      if (bad.length) e[f.key] = `Not a US state code: ${bad.join(", ")}.`;
+    } else if (f.kind === "list") {
       const items = splitList(v);
       if (items.length === 0) e[f.key] = `${f.label} is required.`;
       else if (items.length > 40) e[f.key] = "At most 40.";
@@ -368,7 +410,7 @@ export function businessBody(orgType: OrgType, form: BusinessForm): Record<strin
   for (const f of BUSINESS_FIELDS[orgType]) {
     const v = (form[f.key] ?? "").trim();
     if (!v) continue;
-    out[f.key] = f.kind === "list" ? splitList(v) : v;
+    out[f.key] = f.kind === "list" ? splitList(f.key === "statesOperatedIn" ? v.toUpperCase() : v) : v;
   }
   return out;
 }
@@ -376,21 +418,26 @@ export function businessBody(orgType: OrgType, form: BusinessForm): Record<strin
 /* ── documents (onboarding-documents.ts, transcribed) ─────────────────── */
 
 export const DOCUMENT_KINDS: readonly { key: string; label: string }[] = [
-  { key: "RIGHTS_PROOF", label: "Proof of rights to sell" },
+  { key: "IDENTITY", label: "Government ID of the person signing" },
+  { key: "RIGHTS_PROOF", label: "Proof of the rights to sell your inventory" },
   { key: "BUSINESS_REGISTRATION", label: "Business registration" },
-  { key: "IDENTITY", label: "Identity" },
-  { key: "OTHER", label: "Other" },
+  /* 2S1-BE-08 — an agency's proof it represents the athletes it lists. */
+  { key: "REPRESENTATION_AGREEMENT", label: "Representation agreement with your athletes" },
+  { key: "OTHER", label: "Other document" },
 ];
 export const documentKindLabel = (k: string) => DOCUMENT_KINDS.find((d) => d.key === k)?.label ?? k;
 export const DOCUMENT_TYPES: ReadonlySet<string> = new Set(["application/pdf", "image/jpeg", "image/png"]);
 export const MAX_DOCUMENT_BYTES = 20 * 1024 * 1024;
+/** An ID document is at most 10 MB (backend onboarding-documents.ts MAX_ID_DOCUMENT_BYTES). */
+export const MAX_ID_DOCUMENT_BYTES = 10 * 1024 * 1024;
 export const MAX_DOCUMENTS = 12;
 
 /** Why this file can't be uploaded, or null. `count` is documents already on the application. */
-export function checkDocument(file: { name: string; type: string; size: number }, count: number): string | null {
-  if (count >= MAX_DOCUMENTS) return `An application holds at most ${MAX_DOCUMENTS} documents.`;
+export function checkDocument(file: { name: string; type: string; size: number }, count: number, kind = "OTHER", max = MAX_DOCUMENTS): string | null {
+  if (count >= max) return `An application holds at most ${max} documents.`;
   if (!DOCUMENT_TYPES.has(file.type)) return "Documents are PDF, JPEG or PNG.";
   if (file.size < 1) return "That file is empty.";
+  if (kind === "IDENTITY" && file.size > MAX_ID_DOCUMENT_BYTES) return "An ID document is at most 10 MB.";
   if (file.size > MAX_DOCUMENT_BYTES) return "A document is at most 20 MB.";
   if (!file.name.trim()) return "The file needs a name.";
   return null;
@@ -410,13 +457,17 @@ const LEGAL_DECISIONS: Record<OnboardingState, readonly OnboardingDecision[]> = 
   DRAFT: [],
   CHANGES_REQUESTED: [],
   PENDING_REVIEW: ["APPROVE", "REQUEST_CHANGES", "REJECT"],
-  APPROVED: ["SUSPEND"],
+  /* 2S1-BE-06 — BTG reviews afterwards: Reject an approved organisation. */
+  APPROVED: ["SUSPEND", "REJECT"],
   SUSPENDED: ["REINSTATE"],
-  REJECTED: [],
+  REJECTED: ["REINSTATE"],
 };
 
-/** The decisions the API will accept from this state — and only those. */
-export function legalDecisions(state: OnboardingState): readonly OnboardingDecision[] {
+/** The decisions the API will accept from this state — and only those.
+ *  Reinstate after a Reject only for an organisation that had been approved
+ *  (it has a property); an application rejected at review stays final. */
+export function legalDecisions(state: OnboardingState, hadProperty = false): readonly OnboardingDecision[] {
+  if (state === "REJECTED" && !hadProperty) return [];
   return LEGAL_DECISIONS[state] ?? [];
 }
 
@@ -430,16 +481,30 @@ export const DECISION_COPY: Record<OnboardingDecision, { label: string; done: st
     hint: "The first approval creates the property and a manager login for the primary contact, and grants listing access.",
   },
   REQUEST_CHANGES: { label: "Request changes", done: "Changes requested", hint: "The applicant is emailed your note and a link back to the application." },
-  REJECT: { label: "Reject", done: "Rejected", hint: "Final. The applicant is emailed your note." },
+  REJECT: { label: "Reject", done: "Rejected", hint: "The applicant is emailed your note. Rejecting an application under review is final." },
   SUSPEND: { label: "Suspend", done: "Suspended", hint: "Withdraws listing access. The applicant is emailed your note." },
   REINSTATE: { label: "Reinstate", done: "Reinstated", hint: "Restores listing access. No email is sent." },
 };
+
+/** 2S1-BE-06 — the decision copy for an organisation that is already approved (Reject after approval) or rejected. */
+export function decisionCopy(d: OnboardingDecision, state: OnboardingState): { label: string; done: string; hint: string } {
+  if (d === "REJECT" && state === "APPROVED") {
+    return {
+      label: "Reject", done: "Rejected",
+      hint: "Switches off its sign-in and listing access, ends its listings and holds its payouts. Your reason is emailed. You can reinstate it.",
+    };
+  }
+  if (d === "REINSTATE" && state === "REJECTED") {
+    return { label: "Reinstate", done: "Reinstated", hint: "Turns its sign-in and listing access back on and releases its payouts. It is emailed. Ended listings need listing again." };
+  }
+  return DECISION_COPY[d];
+}
 
 /** Why nothing can be decided from this state, for the decision panel. */
 export function noDecisionReason(state: OnboardingState): string {
   if (state === "DRAFT") return "Still a draft — the applicant hasn't submitted it.";
   if (state === "CHANGES_REQUESTED") return "Waiting on the applicant to make the changes you asked for and resubmit.";
-  if (state === "REJECTED") return "Rejected — final. No further decision can be recorded.";
+  if (state === "REJECTED") return "Rejected at review — final. No further decision can be recorded.";
   return "No decision is available from this state.";
 }
 

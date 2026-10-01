@@ -3,23 +3,28 @@ import Link from "next/link";
 import { NotInRole, staffWithoutAccess } from "@/components/not-in-role";
 import { Badge, Card } from "@/components/ui";
 import { PayoutTracker } from "@/components/payout-history";
-import { SponsorRequestReview } from "@/components/sponsor-request-review";
+import { SponsorAccountDecision, SponsorDocumentOpen, SponsorRequestReview } from "@/components/sponsor-request-review";
 import { categoryLabel, type BrandCategory } from "@/lib/brand-categories";
 import {
-  accountTracker, initials, roleWords, stampOf, stateBadge, tabFor, type ApiSponsorRequestDetail,
+  accountTracker, documentLine, initials, reviewLine, roleWords, stampOf, stateBadge, tabFor, tabLabel, type ApiSponsorRequestDetail,
 } from "@/lib/sponsor-requests-live";
 import { apiFetch } from "@/server/api";
-import { decideSponsorRequestAction } from "../actions";
+import { decideSponsorRequestAction, viewSponsorDocumentAction } from "../actions";
 
 /* --------------------------------------------------------------------------
    One sponsor request — 2S1-FE-03 (Claude Design SponsorRequests.dc.html,
    SR-2 … SR-8): the business and its contact, what they told us, the
    business type BTG picks, the checks, and the decision. Once decided, the
    account's progress (SR-4) or the note that was sent (SR-6) — each step as
-   the API records it, never assumed.
+   the API records it, never assumed. After approval, Reject (reason
+   required, emailed; logins off) and, once rejected, Reinstate — where the
+   Closed accounts desk sends BTG to bring a rejected sponsor back. The
+   proof of business opens through a five-minute link; how it reached BTG
+   (approved automatically, or the reviewReasons it waited for) is shown.
 
    Reads  GET /sponsor-requests/:id
-   Writes POST /sponsor-requests/:id/decision   (./actions.ts)
+          GET /sponsor-requests/:id/documents/:documentId   on click (./actions.ts)
+   Writes POST /sponsor-requests/:id/decision   APPROVE | DECLINE | REJECT | REINSTATE (./actions.ts)
    -------------------------------------------------------------------------- */
 
 export const dynamic = "force-dynamic";
@@ -42,6 +47,7 @@ export default async function SponsorRequestPage({ params }: { params: Promise<{
   if (!res.ok) throw new Error(`Sponsor request unavailable (${res.status}).`);
   const r = (await res.json()) as ApiSponsorRequestDetail;
   const tab = tabFor(r.state);
+  const review = reviewLine(r);
 
   const details = (
     <>
@@ -74,13 +80,40 @@ export default async function SponsorRequestPage({ params }: { params: Promise<{
           <p className="mt-2 text-xs text-muted">They didn&rsquo;t add anything beyond their contact details.</p>
         )}
       </Card>
+      {review && (
+        <Card>
+          <h2 className="text-sm font-semibold">How it reached BTG</h2>
+          <p className="mt-2 text-xs">{review.text}</p>
+          {review.reasons.length > 0 && (
+            <ul className="mt-1.5 list-disc space-y-1 pl-4 text-xs text-warn">
+              {review.reasons.map((why) => <li key={why}>{why}</li>)}
+            </ul>
+          )}
+        </Card>
+      )}
+      <Card>
+        <h2 className="text-sm font-semibold">Proof of business</h2>
+        {r.documents.length ? (
+          <ul className="mt-2 divide-y divide-line-soft">
+            {r.documents.map((d) => (
+              <li key={d.id} className="flex flex-col gap-1.5 py-2 text-xs sm:flex-row sm:items-center sm:justify-between">
+                <span className="min-w-0 break-words">{documentLine(d)}</span>
+                <SponsorDocumentOpen filename={d.filename} uploaded={Boolean(d.uploadedAt)} view={viewSponsorDocumentAction.bind(null, r.id, d.id)} />
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="mt-2 text-xs text-muted">Nothing uploaded yet — every sponsor needs a proof of business before the account opens.</p>
+        )}
+        <p className="mt-2 text-[11px] text-faint">Each view is a five-minute link, recorded against you.</p>
+      </Card>
     </>
   );
 
   return (
     <div className="space-y-6">
       <div>
-        <Link href={`${PATH}?tab=${tab}`} className="text-xs text-muted hover:text-text">← {tab === "waiting" ? "Waiting" : tab === "approved" ? "Approved" : "Declined"}</Link>
+        <Link href={`${PATH}?tab=${tab}`} className="text-xs text-muted hover:text-text">← {tabLabel(tab)}</Link>
         <h1 className="mt-2 text-xl font-semibold tracking-tight">{TITLE}</h1>
       </div>
 
@@ -90,7 +123,7 @@ export default async function SponsorRequestPage({ params }: { params: Promise<{
         <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_22rem]">
           <div className="space-y-6">{details}</div>
           <aside>
-            <Decided r={r} />
+            <Decided r={r} decide={decideSponsorRequestAction.bind(null, r.id)} />
           </aside>
         </div>
       )}
@@ -98,9 +131,10 @@ export default async function SponsorRequestPage({ params }: { params: Promise<{
   );
 }
 
-function Decided({ r }: { r: ApiSponsorRequestDetail }) {
+function Decided({ r, decide }: { r: ApiSponsorRequestDetail; decide: Parameters<typeof SponsorAccountDecision>[0]["decide"] }) {
   const badge = stateBadge(r.state);
-  const who = r.progress?.decidedBy ? `${r.progress.decidedBy.email} · ${roleWords(r.progress.decidedBy.roles)}` : "BTG";
+  const who = r.progress?.decidedBy ? `${r.progress.decidedBy.email} · ${roleWords(r.progress.decidedBy.roles)}` : r.autoApproved ? "the system" : "BTG";
+  const first = r.contactName.split(/\s+/)[0];
   const steps = accountTracker(r);
   return (
     <Card>
@@ -117,7 +151,18 @@ function Decided({ r }: { r: ApiSponsorRequestDetail }) {
             </p>
           </div>
           {steps && <PayoutTracker steps={steps} vertical />}
-          <p className="text-[11px] text-muted">{r.contactName.split(/\s+/)[0]} signs in with {r.email} and lands in the sponsor portal.</p>
+          <p className="text-[11px] text-muted">{first} signs in with {r.email} and lands in the sponsor portal.</p>
+        </div>
+      ) : r.state === "REJECTED" ? (
+        <div className="mt-4 space-y-3">
+          <div role="status" className="rounded-lg bg-danger/10 px-3 py-2">
+            <p className="text-xs font-semibold text-danger">Rejected — their logins are off</p>
+            <p className="mt-0.5 text-[11px] text-muted">Rejected by {who} · {stampOf(r.decidedAt)}. {first} can&rsquo;t sign in until you reinstate them.</p>
+          </div>
+          <div className="rounded-lg border border-line px-3 py-2">
+            <p className="text-[11px] font-medium text-muted">Reason emailed to {first}</p>
+            <p className="mt-1 whitespace-pre-line text-xs">{r.decisionNote}</p>
+          </div>
         </div>
       ) : (
         <div className="mt-4 space-y-3">
@@ -131,6 +176,7 @@ function Decided({ r }: { r: ApiSponsorRequestDetail }) {
           </p>
         </div>
       )}
+      <SponsorAccountDecision request={r} decide={decide} />
     </Card>
   );
 }

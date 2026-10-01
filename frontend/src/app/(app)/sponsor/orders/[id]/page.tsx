@@ -2,9 +2,12 @@ import Link from "next/link";
 
 import { Badge, Card } from "@/components/ui";
 import { EmptyState } from "@/components/states";
+import { OrderGateRecordCard } from "@/components/order-gate-record";
 import { OrderPayButton, PaymentRefresher } from "@/components/order-payment";
 import { ShopSteps } from "@/components/shop-bits";
 import { ShopCancelOrder } from "@/components/shop-checkout";
+import { SponsorOrderDelivery } from "@/components/sponsor-order-delivery";
+import type { ApiOrderDeliveries } from "@/lib/sponsor-delivery-live";
 import {
   TEST_PROVIDER_BADGE,
   orderTracker,
@@ -22,7 +25,8 @@ import { requirePortalAccess } from "@/server/portal";
    Order — 2S4-FE-02, payment 2S5-FE-05. One marketplace order: its state,
    the order-progress tracker, lines, subtotal, fees and total, why BTG is
    reviewing it (if it is), BTG's decision notes, the Payment card (designs
-   E1 due / E2 confirming / E3 paid / E4 failed) and Cancel. With ?placed=1
+   E1 due / E2 confirming / E3 paid / E4 failed), the billing contact and
+   order-terms acceptance recorded at checkout (2S4-FE-02) and Cancel. With ?placed=1
    (checkout's redirect) it is the Confirmation step; ?payment=returned is the
    provider sending the browser back — the card reads the same API either way.
 
@@ -33,6 +37,10 @@ import { requirePortalAccess } from "@/server/portal";
           move a sponsor may make, and only before payment.
           (OrderPayButton → payment-actions.ts)
           POST /marketplace-orders/:id/pay → redirect to the provider's page.
+   2S4-FE-04 — delivery (SponsorOrderDelivery → delivery-actions.ts):
+   Reads  GET /marketplace-orders/:id/deliveries  (each line's delivery; no shares)
+   Writes POST /deliveries/:lineId/confirm · POST /deliveries/:lineId/problem
+          — within 24 hours of the seller marking it; silence confirms.
 
    While the provider confirms (latest PROCESSING) the page refreshes itself
    every 3s until the order is PAID. Honest gaps: no receipt or invoice link
@@ -62,9 +70,10 @@ export default async function OrderPage({
     </Link>
   );
 
-  const [res, payRes] = await Promise.all([
+  const [res, payRes, deliveryRes] = await Promise.all([
     apiFetch(`/marketplace-orders/${encodeURIComponent(id)}`),
     apiFetch(`/marketplace-orders/${encodeURIComponent(id)}/payment`).catch(() => null),
+    apiFetch(`/marketplace-orders/${encodeURIComponent(id)}/deliveries`).catch(() => null),
   ]);
   if (res.status === 403 || res.status === 404) {
     return (
@@ -85,6 +94,8 @@ export default async function OrderPage({
   /* A failed payment read degrades the card to "couldn't be loaded", never the page. */
   const payment = payRes?.ok ? ((await payRes.json()) as ApiOrderPayment) : null;
   const pay = paymentView(o.state, payment);
+  /* Delivery rows exist from contract time; a failed read hides the section, never the page. */
+  const deliveries = deliveryRes?.ok ? ((await deliveryRes.json()) as ApiOrderDeliveries) : null;
   const steps = orderTracker(o, pay, payment);
 
   return (
@@ -159,6 +170,11 @@ export default async function OrderPage({
             ))}
           </ul>
           <p className="text-[11px] text-muted">{paymentHint(pay.kind) ?? c.hint}</p>
+          {deliveries && deliveries.lines.length > 0 && (
+            <div className="pt-2">
+              <SponsorOrderDelivery orderId={o.id} lines={deliveries.lines} canWrite={canWrite} now={new Date().toISOString()} />
+            </div>
+          )}
         </section>
 
         <aside className="mt-5 space-y-3 lg:mt-0">
@@ -177,6 +193,7 @@ export default async function OrderPage({
               <span className="text-lg font-semibold tabular-nums">{usd(o.totalCents)}</span>
             </div>
           </Card>
+          <OrderGateRecordCard order={o} />
           {pay.kind !== "none" && (
             <PaymentCard orderId={o.id} totalCents={payment?.amountCents ?? o.totalCents} pay={pay} payment={payment} canWrite={canWrite} />
           )}

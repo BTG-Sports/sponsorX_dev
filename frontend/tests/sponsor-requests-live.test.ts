@@ -2,8 +2,8 @@ import { describe, expect, it } from "vitest";
 
 import { accessFor, mayUse } from "@/lib/admin-access";
 import {
-  accountTracker, approveBlock, askedAgo, categoryOptions, decisionChecks, requestRefusal, requestTab, stateBadge, tabFor,
-  whatHappens, type ApiSponsorRequestDetail,
+  accountTracker, approveBlock, askedAgo, categoryOptions, decisionChecks, documentLine, emptyTitle, rejectSteps, reinstateSteps,
+  requestRefusal, requestTab, reviewLine, stateBadge, tabFor, tabLabel, whatHappens, type ApiSponsorRequestDetail,
 } from "@/lib/sponsor-requests-live";
 
 /* 2S1-FE-03 — BTG's sponsor-request screens: what they derive from the API. */
@@ -14,6 +14,7 @@ const base: ApiSponsorRequestDetail = {
   decidedAt: null, sponsorId: null, phone: "(301) 555-0142",
   answers: [{ label: "Goal", value: "More weekday foot traffic" }], suggestedCategories: ["RESTAURANT"],
   zohoLeadId: "zl1", decisionNote: null, checks: { emailInUse: false, matches: [] }, progress: null,
+  autoApproved: false, reviewReasons: [], documents: [],
 };
 const twin = { ...base, checks: { emailInUse: false, matches: [{ id: "s9", name: "Harbor Coffee", fromZoho: true, hasLogin: false }] } };
 
@@ -34,6 +35,42 @@ describe("the queue", () => {
     expect(stateBadge("NEW").label).toMatch(/Waiting for BTG/);
     expect(stateBadge("APPROVED").label).toMatch(/Account opened/);
     expect(stateBadge("DECLINED").label).toBe("Declined");
+  });
+});
+
+describe("rejected accounts (found in review: the Closed accounts desk links here to reinstate)", () => {
+  it("REJECTED has its own tab — the API counts it — and never breaks the page", () => {
+    expect(requestTab("rejected").state).toBe("REJECTED");
+    expect(tabFor("REJECTED")).toBe("rejected");
+    expect(tabLabel(tabFor("REJECTED"))).toBe("Rejected");
+    expect(emptyTitle("REJECTED")).toBe("None rejected");
+    /* A state this screen doesn't know yet falls back to Waiting instead of crashing. */
+    expect(tabFor("SOMETHING_NEW" as never)).toBe("waiting");
+    expect(stateBadge("REJECTED")).toEqual({ label: "✕ Rejected — logins off", tone: "danger" });
+  });
+
+  it("the Reject and Reinstate dialogs say what happens: logins off / on, the reason emailed", () => {
+    const steps = rejectSteps(base);
+    expect(steps[0]).toBe("Every login for Harbor Coffee is switched off — they can’t sign in");
+    expect(steps[1]).toBe("Your reason is emailed to dana@harborcoffee.example, exactly as written");
+    expect(steps.join(" ")).toMatch(/30 days/);
+    const back = reinstateSteps(base);
+    expect(back[0]).toMatch(/switched back on — Harbor Coffee can sign in again/);
+    expect(back[1]).toBe("dana@harborcoffee.example is emailed that the account is back");
+  });
+
+  it("says how a request reached BTG — approved by itself, or why it waited", () => {
+    expect(reviewLine({ ...base, state: "APPROVED", autoApproved: true })?.text).toMatch(/^Approved automatically/);
+    expect(reviewLine({ ...base, reviewReasons: ["Business type “Other”: a person checks it"] }))
+      .toEqual({ text: "Waiting for BTG because:", reasons: ["Business type “Other”: a person checks it"] });
+    expect(reviewLine(base)).toBeNull();
+  });
+
+  it("names a proof of business by kind, file and size", () => {
+    expect(documentLine({ id: "d1", kind: "PROOF_OF_BUSINESS", filename: "licence.pdf", contentType: "application/pdf", bytes: 245_760, uploadedAt: "2026-09-28T10:00:00.000Z" }))
+      .toBe("Proof of business · licence.pdf · 240 KB");
+    expect(documentLine({ id: "d2", kind: "PROOF_OF_BUSINESS", filename: "scan.png", contentType: "image/png", bytes: 3 * 1024 * 1024, uploadedAt: null }))
+      .toBe("Proof of business · scan.png · 3.0 MB");
   });
 });
 

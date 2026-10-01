@@ -101,6 +101,8 @@ const FOOTER_COLUMNS: { title: string; links: { label: string; href: string }[] 
       { label: "Join the Network", href: "/join" },
       { label: "Athlete Portal", href: "/athlete" },
       { label: "List your team or venue", href: "/onboarding" },
+      /* 2S1-FE-10 — guardianship, account or payment questions reach a person at BTG. */
+      { label: "Contact BTG", href: "/contact" },
     ],
   },
   {

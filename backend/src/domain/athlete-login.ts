@@ -20,8 +20,7 @@
 
 import { randomBytes } from "node:crypto";
 
-import type { Actor } from "../auth/actor";
-import { audit, AUDIT_ACTIONS } from "../db/audit";
+import { audit, AUDIT_ACTIONS, type AuditActor } from "../db/audit";
 import type { Prisma } from "../generated/prisma/client";
 
 type Tx = Prisma.TransactionClient;
@@ -45,7 +44,7 @@ function linkFields(link: Link) {
 
 async function ensureLogin(
   tx: Tx,
-  actor: Actor,
+  actor: AuditActor,
   email: string | null,
   link: Link,
 ): Promise<LoginOutcome> {
@@ -87,7 +86,7 @@ async function ensureLogin(
 }
 
 /** A guardian's login, for the guardian row as it stands. */
-export async function provisionGuardianLoginIn(tx: Tx, actor: Actor, guardianId: string): Promise<LoginOutcome> {
+export async function provisionGuardianLoginIn(tx: Tx, actor: AuditActor, guardianId: string): Promise<LoginOutcome> {
   const guardian = await tx.guardian.findFirst({
     where: { tenantId: actor.tenantId, id: guardianId },
     select: { id: true, email: true },
@@ -103,7 +102,7 @@ export async function provisionGuardianLoginIn(tx: Tx, actor: Actor, guardianId:
  */
 export async function provisionAthleteLoginsIn(
   tx: Tx,
-  actor: Actor,
+  actor: AuditActor,
   athleteId: string,
 ): Promise<{ athlete: LoginOutcome; guardian: LoginOutcome | null }> {
   const athlete = await tx.athlete.findFirst({
@@ -125,7 +124,7 @@ export async function provisionAthleteLoginsIn(
  */
 export async function provisionStudentLoginsIn(
   tx: Tx,
-  actor: Actor,
+  actor: AuditActor,
   studentId: string,
 ): Promise<{ student: LoginOutcome; guardian: LoginOutcome | null }> {
   const student = await tx.student.findFirst({

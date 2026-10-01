@@ -200,8 +200,8 @@ describe.skipIf(!hasDatabase)("Phase 2 purchase path over the API", { timeout: 6
       { id: "pu_c_apparel", tenantId: T, sponsorId: "pu_s1", name: "Apparel", budget: 1_000_000, startDate: new Date(), endDate: new Date(Date.now() + 20 * 864e5), state: "STAFFING" },
     ] });
 
-    await approveTeam("e", T, "pu_admin", "Bowie Bulldogs");
-    await approveTeam("f", T, "pu_admin", "Laurel Lions");
+    await approveTeam("e", T, "pu_admin", "Bowie Bulldogs PU");
+    await approveTeam("f", T, "pu_admin", "Laurel Lions PU");
     await approveTeam("g", X, "pu_x_admin", "Far Away FC");
     server = createApp().listen(0);
     base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;

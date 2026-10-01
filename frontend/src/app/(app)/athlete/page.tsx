@@ -13,6 +13,9 @@ import type { ApiMyProfile } from "@/lib/profile-live";
 import { apiFetch } from "@/server/api";
 import { requirePortalAccess } from "@/server/portal";
 import { athletePayoutLinkAction } from "./payout-actions";
+import { ComingOfAgeReminder } from "@/components/coming-of-age-reminder";
+import { GuardianControlNotice } from "@/components/guardian-control-notice";
+import { comingOfAgeView, type ApiComingOfAge } from "@/lib/account-live";
 
 /* --------------------------------------------------------------------------
    Athlete portal home — P3-FE-06, §9 screen 6. The signed-in athlete's own
@@ -20,10 +23,13 @@ import { athletePayoutLinkAction } from "./payout-actions";
    and earnings by status, each linking to its full page. It replaced a
    sample athlete behind a demo banner (found by the staging walkthrough).
 
-   Live only. A guardian also opens this portal: they have no athlete row, so
-   no profile block, but the invitation, deliverable and earning reads are
-   ward-scoped for them and show here. A non-OK read throws to the error page;
-   it never falls back to sample figures.
+   Live only. A guardian also opens this portal, and since 2S1-BE-11 acts
+   for the minor they look after: the API reads the minor's own records for
+   them (and they pick the minor when they look after several —
+   GuardianControlNotice). A minor's own login is told their guardian does
+   the agreements and money. The coming-of-age reminder (2S1-BE-12, GET
+   /coming-of-age/mine) sits at the top for the whole 90 days. A non-OK read
+   throws to the error page; it never falls back to sample figures.
 
    2S5-FE-03 (athlete part, design AthHome.dc.html): GET /payouts/account
    feeds a payout-account banner while the account isn't READY, with the
@@ -44,21 +50,27 @@ async function read<T>(path: string): Promise<T> {
 
 export default async function AthleteHomePage() {
   const actor = await requirePortalAccess("athlete");
-  const isAthlete = actor.roles.includes("ATHLETE");
+  /* 2S1-BE-11 — a guardian acting for their minor reads the minor's own
+     records, exactly as the minor's login would. */
+  const isAthlete = actor.roles.includes("ATHLETE") || Boolean(actor.actingFor);
 
   /* SERVER-PAGED (P2-FE-02): the home shows three of each, so it asks for
      three — the soonest-expiring open invites and the soonest-due
      deliverables — with the true counts from the inbox summary and
      `page.total`, and the money from the earnings summary. Nothing here
      reads a whole list. */
-  const [me, inv, inbox, del, earnSummary, acctRes] = await Promise.all([
+  const [me, inv, inbox, del, earnSummary, acctRes, ageRes] = await Promise.all([
     isAthlete ? apiFetch("/athletes/me") : Promise.resolve(null),
     read<{ invitations: ApiInvitation[] }>("/invitations?page=1&size=3&state=open&sort=expiry"),
     read<{ summary: { open: number } }>("/invitations/summary"),
     read<{ deliverables: ApiDeliverable[]; page: { total: number } }>(`/deliverables?page=1&size=3&state=${DUE_STATES.join(",")}&sort=due`),
     read<ApiEarningsSummary>(`/earnings/summary?year=${new Date().getUTCFullYear()}`),
     isAthlete ? apiFetch("/payouts/account") : Promise.resolve(null),
+    /* 2S1-BE-12 — the coming-of-age reminder stays here for the whole 90 days. */
+    isAthlete ? apiFetch("/coming-of-age/mine") : Promise.resolve(null),
   ]);
+  const coming = ageRes?.ok ? ((await ageRes.json()) as { comingOfAge: ApiComingOfAge | null }).comingOfAge : null;
+  const ageView = coming ? comingOfAgeView(coming, coming.seat ?? "athlete") : null;
   /* F-3: an ATHLETE role with no athlete record behind it is a provisioning
      gap BTG fixes, not an outage — say so instead of the error page. */
   if (me && (me.status === 403 || me.status === 404)) {
@@ -98,7 +110,7 @@ export default async function AthleteHomePage() {
           <p className="text-[10px] uppercase tracking-[0.2em] text-faint">Your dashboard</p>
           <h1 className="mt-1 text-2xl font-semibold tracking-tight">{h.firstName ? `Hi, ${h.firstName}` : "Hi there"}</h1>
           {h.subtitle && <p className="mt-1 text-xs text-muted">{h.subtitle}</p>}
-          {!isAthlete && <p className="mt-1 text-xs text-muted">You’re signed in as a guardian — this is your athlete’s work.</p>}
+
         </div>
         {h.status && (
           <div className="max-w-xs text-right">
@@ -107,6 +119,9 @@ export default async function AthleteHomePage() {
           </div>
         )}
       </div>
+
+      {ageView && coming && <ComingOfAgeReminder view={ageView} seat={coming.seat ?? "athlete"} uploadPath={coming.uploadPath ?? null} />}
+      <GuardianControlNotice actor={actor} />
 
       {payout?.show && (
         <section

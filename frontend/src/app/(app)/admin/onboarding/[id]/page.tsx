@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { NotInRole, staffWithoutAccess } from "@/components/not-in-role";
 import { OnboardingDecisionPanel } from "@/components/onboarding-decision";
+import { OrgDocumentOpen } from "@/components/org-document-open";
 import { EmptyState } from "@/components/states";
 import { Badge, Card, SectionHeading } from "@/components/ui";
 import { waitLabel } from "@/lib/marketplace-ops-live";
@@ -12,30 +13,37 @@ import {
   businessFormFrom,
   contactsFrom,
   dateLabel,
-  documentKindLabel,
   fileSize,
   missingByStep,
   stepsFor,
   type ApiOnboarding,
-  type ApiOnboardingDocument,
 } from "@/lib/onboarding-live";
+import { checklistHeading, momentOf, profileDocumentLine, profileStanding, type ApiOrgProfile } from "@/lib/org-profile-live";
 import { apiFetch } from "@/server/api";
 
 /* --------------------------------------------------------------------------
-   One property application — 2S1-FE-02. Every answer the applicant saved,
-   what the API still reports missing, the verification documents, and the
-   decision panel.
+   One organization — 2S1-FE-02 (the application) and, since 2S1-FE-05, the
+   organization profile page every BTG email links to (2S1-BE-06: "BTG
+   admins are emailed a link to each new organisation's profile"). It is
+   this page, not a new route: the email's link is
+   ${APP_URL}/admin/onboarding/<id>, and the application, its documents and
+   BTG's decisions already live here.
 
-   Reads GET /onboarding/:id and GET /onboarding/:id/documents (each file's
-   downloadUrl is a fifteen-minute, audited link into the private bucket —
-   opened in a new tab; reload for fresh ones). Writes POST
-   /onboarding/:id/decision via the panel's server action. BTG_ADMIN and
-   SUPER_ADMIN only. The API answers an unknown id with 403, so for a
-   reviewer who does hold the role that reads as "no such application".
+   What it shows: how the organization stands (approved automatically, held
+   with its reasons, flagged after a document change, rejected); the
+   checklist as it was when the system approved it (or the live one while
+   it waits); every answer; every document with its history, each opened
+   through a five-minute audited link only when BTG clicks View; its
+   activity; its logins; and the decisions open now — Reject (a reason,
+   emailed) and Reinstate included.
 
-   Honest gaps: the API does not return who decided (decidedBy) or any
-   history beyond the latest note — the audit log has it
-   (GET /audit-log?entity=PropertyOnboarding&entityId=…).
+   Reads  GET /onboarding/:id            the application and what is missing
+          GET /onboarding/:id/profile    standing, checklist, documents + history, activity, logins
+   Writes POST /onboarding/:id/decision  (the panel's server action)
+          GET /onboarding/:id/documents/:documentId  (the viewer's server action — a 5-minute link, audited)
+   BTG_ADMIN and SUPER_ADMIN only. The API answers an unknown id with 403,
+   so for a reviewer who does hold the role that reads as "no such
+   application". The full audit trail stays one click away.
    -------------------------------------------------------------------------- */
 
 export const dynamic = "force-dynamic";
@@ -56,9 +64,9 @@ export default async function OnboardingDetailPage({ params }: { params: Promise
   if (lacking) return <NotInRole path={PATH} title="Property verification" roles={lacking} />;
 
   const { id } = await params;
-  const [res, docsRes] = await Promise.all([
+  const [res, profileRes] = await Promise.all([
     apiFetch(`/onboarding/${encodeURIComponent(id)}`),
-    apiFetch(`/onboarding/${encodeURIComponent(id)}/documents`),
+    apiFetch(`/onboarding/${encodeURIComponent(id)}/profile`),
   ]);
   if (res.status === 403 || res.status === 404) {
     return (
@@ -71,9 +79,11 @@ export default async function OnboardingDetailPage({ params }: { params: Promise
     );
   }
   if (!res.ok) throw new Error(`The application didn't load (${res.status}).`);
-  if (!docsRes.ok && docsRes.status !== 403) throw new Error(`The application's documents didn't load (${docsRes.status}).`);
+  if (!profileRes.ok) throw new Error(`The organization's profile didn't load (${profileRes.status}).`);
   const o = (await res.json()) as ApiOnboarding;
-  const documents: ApiOnboardingDocument[] = docsRes.ok ? ((await docsRes.json()) as { documents: ApiOnboardingDocument[] }).documents : [];
+  const p = (await profileRes.json()) as ApiOrgProfile;
+  const standing = profileStanding(p);
+  const section = "rounded-xl border border-line bg-surface p-4 sm:px-5";
 
   const state = STATE_COPY[o.state];
   const contacts = contactsFrom(o.contacts);
@@ -98,11 +108,52 @@ export default async function OnboardingDetailPage({ params }: { params: Promise
             {wait ? ` · waiting ${wait}` : ""}
           </p>
         </div>
-        <Badge tone={state.tone}>{state.label}</Badge>
+        <div className="flex flex-wrap gap-2">
+          <Badge tone={state.tone}>{state.label}</Badge>
+          <Badge tone={standing.tone}>
+            <span aria-hidden="true" className="mr-1">{standing.mark}</span>
+            {standing.label}
+          </Badge>
+        </div>
       </div>
+
+      {(p.reasons.length > 0 || p.nameTakenBy) && (
+        <section aria-label="Why it needs review" className={`${section} border-warn/40`}>
+          <h2 className="text-sm font-semibold">{p.onboardingState === "PENDING_REVIEW" ? "Why it is waiting" : "Flagged for you"}</h2>
+          <ul className="mt-2">
+            {p.reasons.map((r) => (
+              <li key={r} className="flex items-center gap-2.5 border-t border-line-soft py-2.5 text-[13px]">
+                <span aria-hidden="true" className="grid size-5 shrink-0 place-items-center rounded-full bg-warn/15 text-[10px] font-bold text-warn">!</span>
+                <span className="min-w-0 flex-1">{r}</span>
+              </li>
+            ))}
+            {p.nameTakenBy && (
+              <li className="border-t border-line-soft py-2.5 text-[13px] text-muted">The name is already held by &ldquo;{p.nameTakenBy}&rdquo;.</li>
+            )}
+          </ul>
+        </section>
+      )}
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_22rem]">
         <div className="space-y-6">
+          <section aria-label="Checklist" className={section}>
+            <h2 className="text-sm font-semibold">{checklistHeading(p)}</h2>
+            <ul className="mt-2">
+              {p.checks.map((c) => (
+                <li key={c.key} className="flex items-center gap-2.5 border-t border-line-soft py-2.5 text-[13px]">
+                  <span
+                    aria-hidden="true"
+                    className={`grid size-5 shrink-0 place-items-center rounded-full text-[10px] font-bold ${c.ok ? "bg-accent/15 text-accent" : "bg-warn/15 text-warn"}`}
+                  >
+                    {c.ok ? "✓" : "!"}
+                  </span>
+                  <span className="min-w-0 flex-1 break-words">{c.label}</span>
+                  <Badge tone={c.ok ? "accent" : "warn"}>{c.ok ? "Passed" : "Not yet"}</Badge>
+                </li>
+              ))}
+            </ul>
+          </section>
+
           {o.missing.length > 0 && (
             <Card className="border-warn/30">
               <SectionHeading title="Still missing" hint="What the API says this application lacks before it can be submitted." />
@@ -173,35 +224,63 @@ export default async function OnboardingDetailPage({ params }: { params: Promise
           </Card>
 
           <Card>
-            <SectionHeading title="Documents" hint="Each link opens the file for fifteen minutes and is recorded in the audit log. Reload the page for fresh links." />
-            {documents.length === 0 ? (
-              <p className="text-xs text-faint">No documents uploaded. They are optional on the application.</p>
+            <SectionHeading
+              title="Documents"
+              hint="View opens the file for five minutes and is recorded in the audit log against you. Earlier files stay listed after a replacement or removal."
+            />
+            {p.requirements.length > 0 && (
+              <ul aria-label="Required documents" className="mb-3 flex flex-wrap gap-1.5">
+                {p.requirements.map((r) => (
+                  <li key={r.key}>
+                    <Badge tone={r.done ? "accent" : "warn"}>
+                      <span aria-hidden="true" className="mr-1">{r.done ? "✓" : "!"}</span>
+                      {r.label}
+                    </Badge>
+                  </li>
+                ))}
+              </ul>
+            )}
+            {p.documents.length === 0 ? (
+              <p className="text-xs text-faint">No documents have arrived yet.</p>
             ) : (
               <ul className="divide-y divide-line-soft">
-                {documents.map((d) => (
-                  <li key={d.id} className="flex flex-wrap items-center justify-between gap-2 py-2">
+                {p.documents.map((d) => (
+                  <li key={d.id} className={`flex flex-wrap items-center justify-between gap-2 py-2 ${d.current ? "" : "opacity-70"}`}>
                     <div className="min-w-0">
-                      {d.downloadUrl ? (
-                        <a href={d.downloadUrl} target="_blank" rel="noopener noreferrer" className="truncate text-sm font-medium text-primary hover:underline">
-                          {d.filename}
-                        </a>
-                      ) : (
-                        <p className="truncate text-sm font-medium">{d.filename}</p>
-                      )}
+                      <p className="break-words text-sm font-medium">
+                        {d.filename}
+                        {!d.current && <span className="ml-1.5 text-[11px] font-normal text-faint">earlier file</span>}
+                      </p>
                       <p className="text-[11px] text-muted">
-                        {documentKindLabel(d.kind)} · {fileSize(d.bytes)}
+                        {profileDocumentLine(d)} · {fileSize(d.bytes)}
                       </p>
                     </div>
-                    {d.uploadedAt ? (
-                      <span className="text-[11px] text-muted">Uploaded {dateLabel(d.uploadedAt)}</span>
-                    ) : (
-                      <span className="text-[11px] text-warn">Never arrived — no file to open</span>
-                    )}
+                    <OrgDocumentOpen onboardingId={o.id} documentId={d.id} filename={d.filename} />
                   </li>
                 ))}
               </ul>
             )}
           </Card>
+
+          <section aria-label="Activity" className={section}>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h2 className="text-sm font-semibold">Activity</h2>
+              <Link href={`/admin/audit?entity=PropertyOnboarding&entityId=${encodeURIComponent(o.id)}`} className="text-[11px] text-primary hover:underline">
+                Full history →
+              </Link>
+            </div>
+            <ol className="mt-2 text-xs">
+              {p.activity.map((a, i) => (
+                <li key={i} className="flex flex-col gap-0.5 border-t border-line-soft py-2 sm:flex-row sm:gap-3">
+                  <span className="shrink-0 text-muted sm:w-32">{momentOf(a.at)}</span>
+                  <span className="min-w-0 break-words">
+                    {a.text}
+                    {a.byBtg && <span className="text-faint"> · BTG</span>}
+                  </span>
+                </li>
+              ))}
+            </ol>
+          </section>
 
           <Card>
             <SectionHeading title="Payout and terms" />
@@ -222,8 +301,32 @@ export default async function OnboardingDetailPage({ params }: { params: Promise
         <div className="space-y-6">
           <Card>
             <SectionHeading title="Decision" hint="Recorded against your account, with the note, in the audit log." />
-            <OnboardingDecisionPanel key={o.state} id={o.id} state={o.state} />
+            <OnboardingDecisionPanel key={o.state} id={o.id} state={o.state} hadProperty={Boolean(o.propertyId)} />
           </Card>
+          <section aria-label="Details" className={section}>
+            <h2 className="text-sm font-semibold">At a glance</h2>
+            <dl className="mt-2 grid grid-cols-[7.5rem_1fr] text-[13px]">
+              {p.details.map((d) => (
+                <div key={d.label} className="contents">
+                  <dt className="border-t border-line-soft py-2 pr-3 text-muted">{d.label}</dt>
+                  <dd className="min-w-0 break-words border-t border-line-soft py-2">{d.value}</dd>
+                </div>
+              ))}
+            </dl>
+          </section>
+          {p.logins.length > 0 && (
+            <section aria-label="Logins" className={section}>
+              <h2 className="text-sm font-semibold">Logins</h2>
+              <ul className="mt-2 text-xs">
+                {p.logins.map((l) => (
+                  <li key={l.email} className="flex flex-wrap items-center justify-between gap-2 border-t border-line-soft py-2">
+                    <span className="min-w-0 break-all">{l.email}</span>
+                    <Badge tone={l.switchedOff ? "danger" : "accent"}>{l.switchedOff ? "Switched off" : l.signedIn ? "Signed in" : "Not signed in yet"}</Badge>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
           {(o.reviewNotes || o.decidedAt) && (
             <Card>
               <SectionHeading

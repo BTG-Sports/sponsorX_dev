@@ -29,6 +29,7 @@ import type { Actor } from "../auth/actor";
 import { assertAllowed, assertTenantWide, whereFor } from "../auth/scope";
 import { ForbiddenError } from "../auth/errors";
 import { presignPrivateUpload } from "../lib/storage";
+import { notifyGuardianOfUpload } from "./guardian-acts";
 import {
   canTransitionDeliverable,
   IllegalDeliverableTransitionError,
@@ -431,6 +432,9 @@ export async function registerCreativeAsset(
     /* P5-BE-07 — resizing happens on the worker. An athlete uploading from a
        phone at an event must not wait on three webp encodes. */
     await enqueue(tx, deliverable.tenantId, "image.derive", { assetId: asset.id });
+
+    /* 2S1-BE-11 — a minor uploads their own content; their guardian is emailed for every upload. */
+    await notifyGuardianOfUpload(tx, actor, { deliverableId, assetId: asset.id });
 
     return asset;
   });

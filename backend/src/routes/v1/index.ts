@@ -21,6 +21,7 @@ import { inquiriesRouter } from "./inquiries";
 import { catalogueRouter } from "./catalogue";
 import { rewardsRouter } from "./rewards";
 import { meRouter } from "./me";
+import { signupsRouter } from "./signups";
 import { propertiesRouter } from "./properties";
 import { editionsRouter } from "./editions";
 import { studentsRouter } from "./students";
@@ -29,6 +30,10 @@ import { onboardingRouter } from "./onboarding";
 import { marketplaceRouter } from "./marketplace";
 import { payoutsRouter } from "./payouts";
 import { sponsorRequestsRouter } from "./sponsor-requests";
+import { restrictedWordsRouter } from "./restricted-words";
+import { accountRouter } from "./account";
+import { guardianHandoffsRouter } from "./guardian-handoffs";
+import { supportRouter } from "./support";
 import { openapiRouter } from "./openapi";
 
 export const v1Router = Router();
@@ -40,6 +45,13 @@ v1Router.get("/", (_req, res) => {
 /* Identity first: every portal asks who it is talking to before it renders. */
 v1Router.use("/me", meRouter);
 
+/* 2S1-BE-09 / -10 / -11 / -12 — athletes and guardians signing up: the
+   applicant's checklist and ID upload (by intake token), the guardian's own
+   page and the coming-of-age upload (public, by signed link), BTG's New
+   sign-ups desk and sign-up rules. Full paths; mounted before
+   /applications so its intake paths are matched here first. */
+v1Router.use("/", signupsRouter);
+
 /* B1 — athlete onboarding. The review queue and the three admin decisions
    (P3-BE-07). */
 v1Router.use("/applications", applicationsRouter);
@@ -48,9 +60,10 @@ v1Router.use("/applications", applicationsRouter);
    completion meter render (P3-FE-03). */
 v1Router.use("/athletes", athletesRouter);
 
-/* P3-BE-16 — BTG's review desk for post-approval profile edits, and the
-   decisions on them. The athlete's propose/list-mine routes are under
-   /athletes above. */
+/* P3-BE-16, reshaped by 2S1-BE-14 — edits publish at once, so BTG's desk is
+   gone; what is left is BTG's list of sensitive edits, the five-minute view
+   of a legal-name change's ID, and the athlete's confirm and withdraw. The
+   athlete's edit/list-mine routes are under /athletes above. */
 v1Router.use("/profile-changes", profileChangesRouter);
 
 /* B1 — the guardian gate and agreement acceptance (P3-BE-14). Mounted at the
@@ -124,6 +137,17 @@ v1Router.use("/", payoutsRouter);
 
 /* 2S1-BE-05 — BTG reviews businesses asking to sponsor, and opens their accounts. */
 v1Router.use("/", sponsorRequestsRouter);
+
+/* 2S1-BE-18 — BTG's restricted-words list. */
+v1Router.use("/", restrictedWordsRouter);
+
+/* 2S1-BE-13 — closing an account and coming back (POST /me/close, the
+   public reactivation page, BTG's closures). 2S1-BE-15 — changing a minor's
+   guardian (public request page; the current guardian's answer). 2S1-BE-16 —
+   the public contact form, queued to the support mailbox. */
+v1Router.use("/", accountRouter);
+v1Router.use("/", guardianHandoffsRouter);
+v1Router.use("/", supportRouter);
 v1Router.use("/", auditRouter);
 
 /* The published contract, generated from the Zod registry (§38). Public: a

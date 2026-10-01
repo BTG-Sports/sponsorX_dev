@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { readFileSync } from "node:fs";
-import { execSync } from "node:child_process";
+import { readdirSync, readFileSync } from "node:fs";
 
 import { ROLES } from "../src/auth/policy";
 import { ATHLETE_STATES_FOR_TEST } from "../src/domain/athlete-state";
@@ -166,7 +165,9 @@ describe("every resource the domain scopes on has a builder", () => {
      This reads the domain as text and checks the two lists against each
      other, which is the only thing that can catch it without a database. */
   it("has a builder for each one", () => {
-    const domain = execSync("cat src/domain/*.ts").toString();
+    /* Read file by file — the domain outgrew `cat`'s 1 MB pipe buffer (ENOBUFS). */
+    const dir = new URL("../src/domain/", import.meta.url);
+    const domain = readdirSync(dir).filter((f) => f.endsWith(".ts")).map((f) => readFileSync(new URL(f, dir), "utf8")).join("\n");
     const used = new Set(
       [...domain.matchAll(/whereFor\(\s*actor,\s*"([a-zA-Z]+)"/g)].map((m) => m[1]!),
     );

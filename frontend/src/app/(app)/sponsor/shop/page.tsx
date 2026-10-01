@@ -1,21 +1,15 @@
 import Link from "next/link";
 
-import { Badge } from "@/components/ui";
 import { EmptyState } from "@/components/states";
 import { ShopAddToCart } from "@/components/shop-add-to-cart";
+import { ShopListingCard } from "@/components/shop-listing-card";
 import {
   CATEGORY_OPTIONS,
   KIND_OPTIONS,
   SEARCH_LIMIT,
-  athleteLine,
   hasFilters,
-  kindLabel,
-  propertyLine,
-  ruleNotes,
   searchApiQuery,
   shopFilters,
-  usd,
-  windowLabel,
   type ApiSearchResult,
 } from "@/lib/shop-live";
 import { apiFetch } from "@/server/api";
@@ -209,29 +203,12 @@ export default async function ShopPage({
               : `${results.length} ${results.length === 1 ? "result" : "results"}`}
           </p>
           <ul className="grid gap-3 lg:grid-cols-2">
-            {results.map((r) => {
-              const athlete = athleteLine(r.athlete);
-              const notes = ruleNotes(r.item.packageRules);
-              return (
-                <li key={r.id} className="flex flex-col gap-3 rounded-xl border border-line bg-surface p-4">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <p className="text-sm font-semibold">{r.title}</p>
-                      <p className="mt-0.5 text-[11px] text-muted">{propertyLine(r.property)}</p>
-                      {athlete && <p className="mt-0.5 text-[11px] text-muted">Athlete: {athlete}</p>}
-                    </div>
-                    <div className="shrink-0 text-right">
-                      <p className="text-sm font-semibold tabular-nums">{usd(r.item.priceCents)}</p>
-                      <p className="text-[10px] text-faint">each</p>
-                    </div>
-                  </div>
-                  {r.description && <p className="line-clamp-3 text-xs text-muted">{r.description}</p>}
-                  <div className="flex flex-wrap items-center gap-2 text-[11px]">
-                    <Badge tone="primary">{kindLabel(r.item.kind)}</Badge>
-                    <span className="text-muted">{windowLabel(r.item.availableFrom, r.item.availableUntil)}</span>
-                  </div>
-                  {notes.length > 0 && <p className="text-[11px] text-faint">{notes.join(" · ")}</p>}
-                  {canWrite && (
+            {results.map((r) => (
+              <ShopListingCard
+                key={r.id}
+                result={r}
+                action={
+                  canWrite ? (
                     <ShopAddToCart
                       listingId={r.id}
                       item={{
@@ -241,10 +218,10 @@ export default async function ShopPage({
                       }}
                       today={today}
                     />
-                  )}
-                </li>
-              );
-            })}
+                  ) : null
+                }
+              />
+            ))}
           </ul>
         </section>
       )}

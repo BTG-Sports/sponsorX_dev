@@ -10,6 +10,7 @@
    Spec: docs/superpowers/specs/2026-09-21-brief-wizard-design.md
    -------------------------------------------------------------------------- */
 
+import { BRAND_CATEGORIES, categoryLabel, type BrandCategory } from "./brand-categories";
 import { marketplacePackages } from "./fixtures";
 
 export const GOALS = [
@@ -48,8 +49,8 @@ export const BRIEF_STEPS: BriefStepDef[] = [
     id: "goal",
     heading: "What are you trying to do?",
     sub: "One goal per brief keeps the match sharp — you can always brief again.",
+    /* The business type is a select above these (2S1-FE-11), not a field. */
     fields: [
-      { key: "category", label: "Brand category", placeholder: "Quick-service restaurant", required: true },
       { key: "success", label: "What success looks like", placeholder: "Optional — e.g. 500 reward redemptions in March", required: false },
     ],
   },
@@ -81,6 +82,31 @@ export const BRIEF_STEPS: BriefStepDef[] = [
     ],
   },
 ];
+
+/* ---------------------------------------------------------- business type */
+
+/** 2S1-FE-11 — what the business is: one of the brand categories, or OTHER
+    in its own words. The same list as the API's BUSINESS_TYPES
+    (backend sponsor-request-rules.ts); the system approves the sponsor by
+    itself unless the type needs BTG's look, which the form never says. */
+export const OTHER_BUSINESS_TYPE = "OTHER";
+export const BUSINESS_TYPES = [...BRAND_CATEGORIES, OTHER_BUSINESS_TYPE] as const;
+export type BusinessType = (typeof BUSINESS_TYPES)[number];
+
+export function isBusinessType(v: unknown): v is BusinessType {
+  return typeof v === "string" && (BUSINESS_TYPES as readonly string[]).includes(v);
+}
+
+/** The select's words for a type — "Other — tell us what your business does" for OTHER. */
+export function businessTypeLabel(t: BusinessType): string {
+  return t === OTHER_BUSINESS_TYPE ? "Other — tell us what your business does" : categoryLabel(t as BrandCategory);
+}
+
+/** What the business said it is, in words: the category, or its own description. */
+export function businessTypeText(d: Pick<BriefDraft, "businessType" | "businessTypeOther">): string {
+  if (!isBusinessType(d.businessType)) return "";
+  return d.businessType === OTHER_BUSINESS_TYPE ? (d.businessTypeOther ?? "").trim() : categoryLabel(d.businessType as BrandCategory);
+}
 
 /* -------------------------------------------------------------- audiences */
 
@@ -126,6 +152,13 @@ export function validateBriefStep(
     if (f.required && !(draft.answers[f.key] ?? "").trim()) errs[f.key] = "Required";
   }
   if (def.id === "goal" && !draft.goal) errs.goal = "Pick a goal";
+  if (def.id === "goal") {
+    /* The contract's limits: OTHER needs its own words, 2–200 characters. */
+    const other = (draft.businessTypeOther ?? "").trim();
+    if (!isBusinessType(draft.businessType)) errs.businessType = "Pick what your business is";
+    else if (draft.businessType === OTHER_BUSINESS_TYPE && other.length < 2) errs.businessTypeOther = "Say what your business does";
+    else if (draft.businessType === OTHER_BUSINESS_TYPE && other.length > 200) errs.businessTypeOther = "Keep it under 200 characters";
+  }
   if (def.id === "budget" && !draft.budget) errs.budget = "Pick a band";
   if (def.id === "contact") {
     const email = (draft.answers.email ?? "").trim();
@@ -144,7 +177,15 @@ export type BriefDraft = {
   budget: string;
   package: string;
   answers: Record<string, string>;
+  /** 2S1-FE-11 — one of BUSINESS_TYPES. Optional: drafts saved before it existed still parse. */
+  businessType?: string;
+  /** The business's own words, sent only with OTHER. */
+  businessTypeOther?: string;
   submittedAt?: string;
+  /** The API's requestToken, kept so this device can upload the proof and come back to the status page. */
+  requestToken?: string;
+  /** Set once the API has counted an uploaded proof of business. */
+  proofUploaded?: boolean;
 };
 
 export const BRIEF_DRAFT_KEY = "sx-brief-draft-v1";

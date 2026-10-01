@@ -2,10 +2,16 @@ import Link from "next/link";
 
 import { MopsListingQueue } from "@/components/mops-listing-queue";
 import { NotInRole, staffWithoutAccess } from "@/components/not-in-role";
+import { PayoutRetry } from "@/components/payout-decision";
 import { Card, SectionHeading, StatTile } from "@/components/ui";
-import { isOverdue, shortId, usd, waitLabel, type ApiListing, type ApiMarketplaceOrder } from "@/lib/marketplace-ops-live";
+import {
+  agoLabel, failedTriesLabel, failureCopy, isOverdue, payoutProblemSince, shortId, usd, waitLabel,
+  type ApiFailedPayment, type ApiListing, type ApiMarketplaceOrder,
+} from "@/lib/marketplace-ops-live";
 import { ORG_TYPE_COPY, type ApiOnboarding } from "@/lib/onboarding-live";
+import { payeeKind, type ApiAdminPayout } from "@/lib/payouts-live";
 import { apiFetch } from "@/server/api";
+import { retryPayoutAction } from "@/app/(app)/admin/payouts/actions";
 
 /* --------------------------------------------------------------------------
    Marketplace operations — 2S7-FE-02. Every marketplace exception BTG acts
@@ -15,11 +21,17 @@ import { apiFetch } from "@/server/api";
      GET /onboarding                                  (PENDING_REVIEW, the API's default)
      GET /listings?state=PENDING_APPROVAL             (decided inline: POST /listings/:id/decision)
      GET /marketplace-orders?state=PENDING_APPROVAL   (each opens /admin/marketplace/orders/<id>)
+     GET /payments/failed                             orders still owing whose latest card
+                                                      payment failed (each opens the order:
+                                                      cancel, or mark paid another way)
+     GET /payouts?state=FAILED                        payouts the provider couldn't send
+   Writes POST /payouts/:id/retry                     (the payout desk's own retry action)
    Counts are the lengths of those arrays — the API has no counts route.
 
-   Honest gaps: disputes, failed payments and payout exceptions have no model
-   or route (no payment provider yet), so they show one plain "not tracked
-   yet" note and no numbers. Orders carry only sponsorId — no sponsor name.
+   Honest gaps: disputes have no model or route yet — they arrive with
+   2S5-BE-03 (refunds and disputes), so that section says so and shows no
+   number. A refund is marked by hand on the order (Mark refunded); nothing
+   asks BTG for one yet. Held orders carry only sponsorId — no sponsor name.
    -------------------------------------------------------------------------- */
 
 export const dynamic = "force-dynamic";
@@ -48,10 +60,12 @@ export default async function MarketplaceOpsPage() {
   const lacking = await staffWithoutAccess(PATH);
   if (lacking) return <NotInRole path={PATH} title="Marketplace operations" roles={lacking} />;
 
-  const [onboarding, listings, orders] = await Promise.all([
+  const [onboarding, listings, orders, payments, payouts] = await Promise.all([
     read<ApiOnboarding>("/onboarding", "onboardings"),
     read<ApiListing>("/listings?state=PENDING_APPROVAL", "listings"),
     read<ApiMarketplaceOrder>("/marketplace-orders?state=PENDING_APPROVAL", "orders"),
+    read<ApiFailedPayment>("/payments/failed", "payments"),
+    read<ApiAdminPayout>("/payouts?state=FAILED", "payouts"),
   ]);
   const now = new Date().getTime();
 
@@ -67,10 +81,12 @@ export default async function MarketplaceOpsPage() {
         </Link>
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-3">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
         <StatTile label="Properties awaiting review" value={countOf(onboarding)} />
         <StatTile label="Listings awaiting approval" value={countOf(listings)} />
         <StatTile label="Orders awaiting approval" value={countOf(orders)} />
+        <StatTile label="Failed payments" value={countOf(payments)} />
+        <StatTile label="Payout problems" value={countOf(payouts)} />
       </div>
 
       <Card className="p-0">
@@ -157,9 +173,84 @@ export default async function MarketplaceOpsPage() {
         )}
       </Card>
 
+      <Card className="p-0">
+        <div className="px-5 pt-4">
+          <SectionHeading
+            title="Failed payments"
+            hint="The sponsor's latest card payment didn't go through. They can pay again from their order; open one to cancel it, or mark it paid if they paid another way."
+          />
+        </div>
+        {"forbidden" in payments ? (
+          <Forbidden />
+        ) : payments.rows.length === 0 ? (
+          <Clear>No failed payments right now.</Clear>
+        ) : (
+          <ul className="divide-y divide-line-soft">
+            {payments.rows.map((p) => (
+              <li key={p.orderId}>
+                <Link href={`${PATH}/orders/${p.orderId}`} className="flex flex-wrap items-start justify-between gap-3 px-5 py-3 hover:bg-surface-2">
+                  <span className="min-w-0">
+                    <span className="block text-sm font-medium">
+                      Order {p.orderRef} · <span className="tabular-nums">{usd(p.amountCents)}</span>
+                    </span>
+                    <span className="block text-[11px] text-muted">
+                      {p.sponsorName} · {failedTriesLabel(p.failedTries)}
+                    </span>
+                    <span className="mt-0.5 block text-[11px] text-danger">{failureCopy(p.failureReason)}</span>
+                  </span>
+                  <span className={`text-[11px] tabular-nums ${isOverdue(p.failedAt, now) ? "text-warn" : "text-faint"}`}>
+                    failed {agoLabel(p.failedAt, now)} · Open →
+                  </span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        )}
+      </Card>
+
+      <Card className="p-0">
+        <div className="px-5 pt-4">
+          <SectionHeading
+            title="Payout problems"
+            hint="The payment provider couldn't send these. Retry hands one back to the provider — ask the payee to update their payout account on Stripe first when that's the problem."
+            action={
+              <Link href="/admin/payouts?tab=problems" className="text-[11px] text-primary hover:underline">
+                Payout approvals →
+              </Link>
+            }
+          />
+        </div>
+        {"forbidden" in payouts ? (
+          <Forbidden />
+        ) : payouts.rows.length === 0 ? (
+          <Clear>No payout problems.</Clear>
+        ) : (
+          <ul className="divide-y divide-line-soft">
+            {payouts.rows.map((p) => (
+              <li key={p.id} className="flex flex-wrap items-start justify-between gap-3 px-5 py-3">
+                <span className="min-w-0">
+                  <Link href={`/admin/payouts/${p.id}`} className="block text-sm font-medium hover:underline">
+                    {p.payeeName} · <span className="tabular-nums">{usd(p.amountCents)}</span>
+                  </Link>
+                  <span className="block text-[11px] text-muted">
+                    {payeeKind(p.payeeType)}
+                    {p.lines.length > 0 ? ` · ${p.lines.map((l) => l.orderRef).join(", ")}` : ""}
+                    {` · updated ${agoLabel(payoutProblemSince(p), now)}`}
+                  </span>
+                  <span className="mt-0.5 block text-[11px] text-danger">Couldn&rsquo;t send: {failureCopy(p.failureReason)}</span>
+                </span>
+                <PayoutRetry retry={retryPayoutAction.bind(null, p.id)} />
+              </li>
+            ))}
+          </ul>
+        )}
+      </Card>
+
       <Card>
-        <SectionHeading title="Disputes, failed payments and payout exceptions" />
-        <p className="text-xs text-muted">Not tracked yet — arrives with the payment provider.</p>
+        <SectionHeading title="Disputes" />
+        <p className="text-xs text-muted">
+          Not tracked yet — disputes arrive with refunds and disputes (2S5-BE-03), which waits on the payment provider&rsquo;s live webhooks. Nothing is counted here until then. A refund is marked by hand today: open the order and choose Mark refunded.
+        </p>
       </Card>
     </div>
   );

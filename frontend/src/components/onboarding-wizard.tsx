@@ -1,32 +1,27 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useRef, useState, useTransition, type ReactNode } from "react";
+import { useState, useTransition, type ReactNode } from "react";
 
 import {
   acceptTermsAction,
-  confirmDocumentAction,
-  requestDocumentAction,
   saveStepAction,
   submitOnboardingAction,
   type ViewResult,
 } from "@/app/(public)/onboarding/actions";
+import { OnboardingChecklist } from "@/components/onboarding-checklist";
 import {
   BUSINESS_FIELDS,
-  DOCUMENT_KINDS,
   EMPTY_CONTACT,
   MAX_CONTACTS,
-  MAX_DOCUMENTS,
   ORG_TYPE_COPY,
   US_STATES,
+  approvalTodo,
   businessBody,
   businessFormFrom,
-  checkDocument,
   contactsBody,
   contactsFrom,
   dateLabel,
-  documentKindLabel,
-  fileSize,
   firstOpenStep,
   missingByStep,
   missingLabel,
@@ -38,7 +33,6 @@ import {
   validateContacts,
   validateOrganisation,
   type ApiOnboarding,
-  type ApiOnboardingDocument,
   type ApiTerms,
   type BusinessForm,
   type ContactForm,
@@ -54,6 +48,12 @@ import {
    from anything this screen decides. Documents go straight to the private
    bucket (a presigned PUT), then are confirmed. Submit is refused by the API
    with the list while anything is missing, and that list is shown by step.
+
+   2S1-FE-04 / 2S1-BE-06 — the Documents step is the live checklist of what
+   this type and state must have (components/onboarding-checklist.tsx),
+   ticked by the API; Contacts says where the confirmation link went; Review
+   shows everything still standing between the applicant and the automatic
+   approval. A name already registered is the API's 409, shown as it is.
 
    Left out on purpose: the design's "brand categories you won't accept"
    step — there is no public route to save restrictions during onboarding
@@ -307,6 +307,13 @@ export function OnboardingWizard({ token, initial, terms }: { token: string; ini
               </div>
             ))}
             {errors.list && <p className="text-xs text-danger">{errors.list}</p>}
+            {view.contactEmail && (
+              <p role="status" className={`rounded-lg px-3 py-2 text-xs ${view.emailConfirmed ? "bg-accent/10 text-accent" : "bg-surface-2 text-muted"}`}>
+                {view.emailConfirmed
+                  ? `${view.contactEmail} is confirmed.`
+                  : `We emailed a confirmation link to ${view.contactEmail}. Open it to confirm the address — you can carry on here meanwhile.`}
+              </p>
+            )}
             {contacts.length < MAX_CONTACTS && (
               <button
                 type="button"
@@ -378,8 +385,11 @@ export function OnboardingWizard({ token, initial, terms }: { token: string; ini
         )}
 
         {step === "documents" && (
-          <StepCard title="Documents" hint="Optional, and they help BTG verify you faster. PDF, JPEG or PNG up to 20 MB each. Only BTG reviewers see these.">
-            <DocumentsStep token={token} documents={view.documents} onChange={(documents) => setView((v) => ({ ...v, documents }))} />
+          <StepCard
+            title="Documents"
+            hint={`What ${view.orgName} needs on file${view.stateCode ? ` (${ORG_TYPE_COPY[view.orgType].label}, ${view.stateCode})` : ""}. Each one ticks itself once it arrives — you're approved automatically when every one is in and your email is confirmed.`}
+          >
+            <OnboardingChecklist token={token} view={view} onView={setView} showEmail={false} />
             <Actions pending={pending} onBack={() => go("payout")} onNext={() => go("agreements")} nextLabel="Continue" />
           </StepCard>
         )}
@@ -420,7 +430,14 @@ export function OnboardingWizard({ token, initial, terms }: { token: string; ini
         )}
 
         {step === "review" && (
-          <StepCard title={changes ? "Review & resubmit" : "Review & submit"} hint="BTG reviews every application. You'll hear back by email at the primary contact's address.">
+          <StepCard
+            title={changes ? "Review & resubmit" : "Review & submit"}
+            hint="You're approved automatically once every answer is in, every document has arrived and your email is confirmed. Anything still open goes to BTG, and you can finish it after submitting."
+          >
+            <div>
+              <p className="mb-2 text-xs font-semibold">Before we can approve you</p>
+              <OnboardingChecklist token={token} view={view} onView={setView} />
+            </div>
             <ul className="divide-y divide-line-soft rounded-lg border border-line-soft">
               {steps
                 .filter((s) => s.key !== "review")
@@ -465,9 +482,13 @@ export function OnboardingWizard({ token, initial, terms }: { token: string; ini
                 Back
               </button>
               <button type="button" onClick={submit} className={primaryBtn} disabled={pending || view.missing.length > 0}>
-                {pending ? "Sending…" : changes ? "Resubmit for review" : "Submit for review"}
+                {pending ? "Sending…" : changes ? "Resubmit" : "Submit"}
               </button>
-              {view.missing.length > 0 && <span className="text-[11px] text-faint">Finish the steps marked ! first.</span>}
+              {view.missing.length > 0 ? (
+                <span className="text-[11px] text-faint">Finish the steps marked ! first.</span>
+              ) : (
+                approvalTodo(view).length > 0 && <span className="text-[11px] text-faint">You can submit now and finish the checklist above afterwards.</span>
+              )}
             </div>
           </StepCard>
         )}
@@ -544,141 +565,12 @@ function summaryFor(step: StepKey, v: ApiOnboarding, terms: ApiTerms | null): st
     case "payout":
       return v.payoutAcknowledgedAt ? `Acknowledged ${dateLabel(v.payoutAcknowledgedAt)}` : "Not acknowledged yet";
     case "documents": {
-      const n = v.documents.filter((d) => d.uploadedAt).length;
-      return n ? `${n} uploaded` : "None — optional";
+      const done = v.checklist.filter((c) => c.done).length;
+      return `${done} of ${v.checklist.length} required document${v.checklist.length === 1 ? "" : "s"} received`;
     }
     case "agreements":
       return v.termsAcceptedAt ? `Accepted${terms && v.termsAgreementId === terms.agreementId ? ` version ${terms.version}` : ""} ${dateLabel(v.termsAcceptedAt)}` : "Not accepted yet";
     default:
       return "";
   }
-}
-
-/* ── documents: request a PUT, send the bytes, confirm ─────────────────── */
-
-function DocumentsStep({
-  token,
-  documents,
-  onChange,
-}: {
-  token: string;
-  documents: ApiOnboardingDocument[];
-  onChange: (docs: ApiOnboardingDocument[]) => void;
-}) {
-  const [kind, setKind] = useState(DOCUMENT_KINDS[0]!.key);
-  const [busy, setBusy] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const input = useRef<HTMLInputElement>(null);
-  const full = documents.length >= MAX_DOCUMENTS;
-
-  const replace = (docs: ApiOnboardingDocument[], d: ApiOnboardingDocument) => {
-    const i = docs.findIndex((x) => x.id === d.id);
-    return i < 0 ? [...docs, d] : docs.map((x) => (x.id === d.id ? d : x));
-  };
-
-  const confirm = async (docs: ApiOnboardingDocument[], id: string) => {
-    const c = await confirmDocumentAction(token, id);
-    if (!c.ok) {
-      setError(c.message);
-      return;
-    }
-    onChange(replace(docs, c.document));
-  };
-
-  const upload = async (file: File) => {
-    setError(null);
-    const problem = checkDocument({ name: file.name, type: file.type, size: file.size }, documents.length);
-    if (problem) return setError(problem);
-    setBusy(`Uploading ${file.name}…`);
-    try {
-      const g = await requestDocumentAction(token, { kind, filename: file.name, contentType: file.type, bytes: file.size });
-      if (!g.ok) return setError(g.message);
-      const docs = replace(documents, g.document);
-      onChange(docs);
-      let put: Response;
-      try {
-        put = await fetch(g.uploadUrl, { method: "PUT", headers: { "Content-Type": g.contentType }, body: file });
-      } catch {
-        return setError("The upload didn't reach storage. Check your connection, then use Check again — or upload the file again.");
-      }
-      if (!put.ok) return setError("Storage refused the upload. Try the file again.");
-      await confirm(docs, g.document.id);
-    } finally {
-      setBusy(null);
-      if (input.current) input.current.value = "";
-    }
-  };
-
-  const recheck = async (id: string) => {
-    setError(null);
-    setBusy("Checking the upload…");
-    try {
-      await confirm(documents, id);
-    } finally {
-      setBusy(null);
-    }
-  };
-
-  return (
-    <div className="space-y-4">
-      {documents.length > 0 ? (
-        <ul className="divide-y divide-line-soft rounded-lg border border-line-soft">
-          {documents.map((d) => (
-            <li key={d.id} className="flex flex-wrap items-center justify-between gap-2 px-3 py-2.5">
-              <div className="min-w-0">
-                <p className="truncate text-sm font-medium">{d.filename}</p>
-                <p className="text-[11px] text-muted">
-                  {documentKindLabel(d.kind)} · {fileSize(d.bytes)}
-                </p>
-              </div>
-              {d.uploadedAt ? (
-                <span className="text-[11px] font-medium text-accent">Received {dateLabel(d.uploadedAt)}</span>
-              ) : (
-                <span className="flex items-center gap-2 text-[11px] text-warn">
-                  Not received
-                  <button type="button" disabled={busy !== null} onClick={() => recheck(d.id)} className="underline disabled:opacity-40">
-                    Check again
-                  </button>
-                </span>
-              )}
-            </li>
-          ))}
-        </ul>
-      ) : (
-        <p className="text-xs text-faint">No documents yet. Proof you have the rights to sell your inventory, or your business registration, helps most.</p>
-      )}
-
-      {full ? (
-        <p className="text-xs text-muted">This application holds the most documents it can ({MAX_DOCUMENTS}). Documents can&rsquo;t be removed once added.</p>
-      ) : (
-        <div className="grid gap-3 sm:grid-cols-[12rem_minmax(0,1fr)] sm:items-end">
-          <Field label="What is it?">
-            <select className={field} value={kind} onChange={(e) => setKind(e.target.value)} disabled={busy !== null}>
-              {DOCUMENT_KINDS.map((k) => (
-                <option key={k.key} value={k.key}>
-                  {k.label}
-                </option>
-              ))}
-            </select>
-          </Field>
-          <Field label="File">
-            <input
-              ref={input}
-              type="file"
-              accept="application/pdf,image/jpeg,image/png"
-              disabled={busy !== null}
-              onChange={(e) => {
-                const f = e.target.files?.[0];
-                if (f) void upload(f);
-              }}
-              className="mt-1 block w-full text-xs text-muted file:mr-3 file:rounded-md file:border-0 file:bg-surface-2 file:px-3 file:py-2 file:text-xs file:font-medium file:text-text"
-            />
-          </Field>
-        </div>
-      )}
-      {busy && <p className="text-xs text-muted">{busy}</p>}
-      {error && <p className="text-xs text-danger">{error}</p>}
-      <p className="text-[11px] text-faint">Documents can&rsquo;t be removed once added, and you can&rsquo;t open them again from here — only BTG reviewers can.</p>
-    </div>
-  );
 }

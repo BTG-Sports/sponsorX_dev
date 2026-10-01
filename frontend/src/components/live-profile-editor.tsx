@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { Badge, Card } from "@/components/ui";
@@ -7,8 +8,10 @@ import { SECTIONS, type SectionKey } from "@/lib/profile-sections";
 import type { SectionState } from "@/lib/profile-live";
 import { BRAND_CATEGORIES, categoryLabel } from "@/lib/brand-categories";
 import { CONTENT_CAPABILITIES, capabilityLabel } from "@/lib/content-capabilities";
-import { SECTION_LABELS, STATE_COPY, diffRows, latestForBanner, type ApiProfileChange } from "@/lib/profile-changes-live";
+import { SECTION_LABELS, STATE_COPY, changeRows, latestForBanner, legalNameNeedsId, type ApiProfileChange } from "@/lib/profile-changes-live";
+import { RELATIONSHIPS, idFileProblem, relationshipCode, ID_UPLOAD } from "@/lib/guardian-live";
 import {
+  confirmLegalNameIdAction,
   saveSocials,
   submitProfileChange,
   withdrawProfileChange,
@@ -17,18 +20,23 @@ import {
 } from "@/app/(app)/athlete/profile/edit/actions";
 
 /* --------------------------------------------------------------------------
-   The signed-in athlete's profile editor — P2-FE-01, then P3-BE-16.
+   The signed-in athlete's profile editor — P2-FE-01, P3-BE-16, then
+   2S1-FE-09 (2026-10-01): no more BTG review.
 
    Every §11 section shows what Postgres holds now (GET /athletes/me, shaped
-   on the server). Two kinds of save:
+   on the server). Everything saves AT ONCE:
 
-     · Social accounts save straight away (PUT /athletes/:id/socials) —
-       self-reported by definition, labelled as such.
-     · Identity, sport, capabilities, interests and restrictions are sent as
-       a CHANGE REQUEST (POST /athletes/:id/profile-changes). The profile —
-       the public page, matching, the conflict check — moves only when BTG
-       approves. The banner at the top says where the open request stands,
-       and a declined one shows BTG's notes.
+     · Social accounts — PUT /athletes/:id/socials, self-reported, labelled.
+     · Identity, sport, capabilities, interests and restrictions —
+       POST /athletes/:id/profile-changes publishes the edit immediately
+       (2S1-BE-14). No "waiting for BTG" state.
+     · SENSITIVE fields say what they need and collect it: a new legal name
+       needs a matching ID (chosen here, sent straight to the private
+       bucket, then confirmed — the name goes live when it arrives); a date
+       of birth re-runs the age check; a minor with no guardian names one
+       (a guardian who exists changes only by the handoff, /guardian/handoff).
+       For each, "BTG is told and the checks run again" — the API emails BTG
+       and returns what the checks found, shown in the banner.
 
    Rates, payment and agreements stay read-only: BTG's, or not collected.
    -------------------------------------------------------------------------- */
@@ -73,7 +81,15 @@ export type EditableProfile = {
   brandInterests: string[];
   restrictedCategories: string[];
   restrictionNotes: string | null;
+  /** 2S1-BE-14 — "YYYY-MM-DD", or null when only an age band is on file. */
+  birthDate?: string | null;
+  /** Under the age of majority now (the API's rule, worked out on the server). */
+  minor?: boolean;
+  guardian?: { legalName: string; confirmed: boolean } | null;
 };
+
+/** What a sensitive edit tells the athlete before they save. */
+const SENSITIVE_NOTE = "BTG is told and the checks run again.";
 
 export type LiveEditorProps = {
   athleteId: string;
@@ -120,7 +136,16 @@ export function LiveProfileEditor({ athleteId, initialSection, states, summary, 
     restrictedCategories: new Set(profile?.restrictedCategories ?? []),
     restrictionNotes: profile?.restrictionNotes ?? "",
     note: "",
+    /* 2S1-BE-14 — the sensitive fields. */
+    legalName: profile?.legalName ?? "",
+    birthDate: profile?.birthDate ?? "",
+    guardianName: "",
+    guardianEmail: "",
+    guardianRelationship: RELATIONSHIPS[0] as string,
   }));
+  /** The matching ID for a new legal name — sent only once the change is saved. */
+  const [idFile, setIdFile] = useState<File | null>(null);
+  const [idProblem, setIdProblem] = useState<string | null>(null);
   const set = <K extends keyof typeof form>(k: K, v: (typeof form)[K]) => setForm((f) => ({ ...f, [k]: v }));
   const toggle = (k: "contentCapabilities" | "brandInterests" | "restrictedCategories", v: string) =>
     setForm((f) => {
@@ -163,8 +188,18 @@ export function LiveProfileEditor({ athleteId, initialSection, states, summary, 
     const opt = (s: string) => (s.trim() === "" ? null : s.trim());
     const note = form.note.trim() ? { note: form.note.trim() } : {};
     switch (k) {
-      case "identity":
-        return { identity: { displayName: form.displayName.trim(), city: opt(form.city), stateCode: form.stateCode.trim().toUpperCase() }, ...note };
+      case "identity": {
+        const legal = profile && legalNameNeedsId(profile.legalName, form.legalName) ? { legalName: form.legalName.trim() } : {};
+        const birth = form.birthDate && form.birthDate !== (profile?.birthDate ?? "") ? { birthDate: form.birthDate } : {};
+        const guardian = profile?.minor && !profile.guardian && form.guardianName.trim() && form.guardianEmail.trim()
+          ? { guardian: { legalName: form.guardianName.trim(), email: form.guardianEmail.trim(), relationship: relationshipCode(form.guardianRelationship) } }
+          : {};
+        const idDocument = "legalName" in legal && idFile ? { idDocument: { filename: idFile.name, contentType: idFile.type, bytes: idFile.size } } : {};
+        return {
+          identity: { displayName: form.displayName.trim(), city: opt(form.city), stateCode: form.stateCode.trim().toUpperCase(), ...legal, ...birth },
+          ...guardian, ...idDocument, ...note,
+        };
+      }
       case "sport":
         return {
           sport: {
@@ -183,29 +218,55 @@ export function LiveProfileEditor({ athleteId, initialSection, states, summary, 
         return {};
     }
   };
+  const legalChanging = Boolean(profile && legalNameNeedsId(profile.legalName, form.legalName));
   const sectionValid = (k: SectionKey) =>
     k === "identity"
-      ? form.displayName.trim().length > 0 && /^[A-Za-z]{2}$/.test(form.stateCode.trim())
+      ? form.displayName.trim().length > 0 && /^[A-Za-z]{2}$/.test(form.stateCode.trim()) && (!legalChanging || Boolean(idFile))
       : k === "sport"
         ? form.sport.trim().length > 0 && (form.gradYear === "" || /^\d{4}$/.test(form.gradYear))
         : true;
 
+  const pickId = (f: File | null) => {
+    setIdProblem(null);
+    if (!f) return setIdFile(null);
+    const problem = idFileProblem({ type: f.type, size: f.size });
+    if (problem) {
+      setIdFile(null);
+      return setIdProblem(problem);
+    }
+    setIdFile(f);
+  };
+
   const send = (k: SectionKey) =>
     start(async () => {
-      const r = await submitProfileChange(athleteId, bodyFor(k)).catch(() => ({
-        ok: false as const, message: "Couldn't reach SponsorX just now — nothing changed. Try again in a minute.",
-      }));
-      setResult(r.ok ? { ok: true, text: "Sent to BTG. Your profile stays as it is until they approve — usually within a business day." } : { ok: false, text: r.message });
-      if (r.ok) {
-        set("note", "");
-        router.refresh();
+      const unreachable = { ok: false as const, message: "Couldn't reach SponsorX just now — nothing changed. Try again in a minute." };
+      const r = await submitProfileChange(athleteId, bodyFor(k)).catch(() => unreachable);
+      if (!r.ok) return setResult({ ok: false, text: r.message });
+      const checks = r.checkNotes.length ? ` ${r.checkNotes.join(" ")}` : "";
+      /* A new legal name: the ID goes straight to the private bucket, then the API checks it arrived. */
+      if (r.idUpload && idFile) {
+        let put: Response | null = null;
+        try {
+          put = await fetch(r.idUpload.uploadUrl, { method: "PUT", headers: { "Content-Type": r.idUpload.contentType }, body: idFile });
+        } catch {
+          put = null;
+        }
+        const confirmed = put?.ok ? await confirmLegalNameIdAction(r.idUpload.changeId).catch(() => unreachable) : null;
+        setResult(confirmed?.ok
+          ? { ok: true, text: `Saved — your new legal name is live. ${SENSITIVE_NOTE}${checks}` }
+          : { ok: false, text: "Your other changes are saved, but the ID didn't arrive — your new legal name waits for it. Choose the file and save again, or withdraw it above." });
+        setIdFile(null);
+      } else {
+        setResult({ ok: true, text: r.checkNotes.length ? `Saved. ${SENSITIVE_NOTE}${checks}` : "Saved — live on your profile now." });
       }
+      set("note", "");
+      router.refresh();
     });
 
   const withdraw = (id: string) =>
     start(async () => {
       const r = await withdrawProfileChange(id).catch(() => ({ ok: false as const, message: "Couldn't reach SponsorX just now." }));
-      setResult(r.ok ? { ok: true, text: "Withdrawn. Nothing changed." } : { ok: false, text: r.message });
+      setResult(r.ok ? { ok: true, text: "Withdrawn. Your legal name stays as it is." } : { ok: false, text: r.message });
       if (r.ok) router.refresh();
     });
 
@@ -239,9 +300,45 @@ export function LiveProfileEditor({ athleteId, initialSection, states, summary, 
               <input value={form.displayName} onChange={(e) => set("displayName", e.target.value)} maxLength={120} className={`${INPUT_CLS} mt-1 normal-case tracking-normal`} />
             </label>
             <div className="text-[10px] uppercase tracking-wide text-faint">
-              Legal name
-              <p className="mt-1 rounded-lg border border-dashed border-line px-3 py-2 text-xs normal-case tracking-normal text-muted">{profile.legalName}</p>
-              <p className="mt-1 normal-case tracking-normal">Verified at review — BTG changes this for you.</p>
+              <label className="block">
+                Legal name
+                <input value={form.legalName} onChange={(e) => set("legalName", e.target.value)} maxLength={160} className={`${INPUT_CLS} mt-1 normal-case tracking-normal`} />
+              </label>
+              <p className="mt-1 normal-case tracking-normal">Changing your legal name needs a matching ID. {SENSITIVE_NOTE}</p>
+              {legalChanging && (
+                <label className="mt-1.5 block normal-case tracking-normal">
+                  <span className="text-[11px] text-muted">Your ID with the new name — {ID_UPLOAD.label}</span>
+                  <input type="file" accept={ID_UPLOAD.accept} onChange={(e) => pickId(e.target.files?.[0] ?? null)}
+                    className="mt-1 block w-full text-[11px] text-muted file:mr-2 file:rounded-lg file:border-0 file:bg-surface-2 file:px-3 file:py-1.5 file:text-[11px] file:font-medium file:text-text" />
+                  {idProblem && <span role="alert" className="mt-1 block text-[11px] text-danger">{idProblem}</span>}
+                  {!idFile && !idProblem && <span className="mt-1 block text-[11px] text-warn">Choose the ID to save the new name.</span>}
+                </label>
+              )}
+            </div>
+            <label className="block text-[10px] uppercase tracking-wide text-faint">
+              Date of birth
+              <input type="date" value={form.birthDate} onChange={(e) => set("birthDate", e.target.value)} className={`${INPUT_CLS} mt-1 tracking-normal`} />
+              <span className="mt-1 block normal-case tracking-normal">{SENSITIVE_NOTE} Your age decides whether a guardian approves for you.</span>
+            </label>
+            <div className="text-[10px] uppercase tracking-wide text-faint">
+              Guardian
+              {profile.guardian ? (
+                <p className="mt-1 normal-case tracking-normal text-muted">
+                  {profile.guardian.legalName} · {profile.guardian.confirmed ? "confirmed" : "not confirmed yet"}. To change guardian, the new guardian asks on{" "}
+                  <Link href="/guardian/handoff" className="text-athlete hover:underline">the guardian handoff page</Link> and your guardian hands off.
+                </p>
+              ) : profile.minor ? (
+                <div className="mt-1 space-y-1.5 normal-case tracking-normal">
+                  <input value={form.guardianName} onChange={(e) => set("guardianName", e.target.value)} placeholder="Guardian's full name" maxLength={160} className={INPUT_CLS} aria-label="Guardian's full name" />
+                  <input type="email" value={form.guardianEmail} onChange={(e) => set("guardianEmail", e.target.value)} placeholder="Guardian's email" maxLength={254} className={INPUT_CLS} aria-label="Guardian's email" />
+                  <select value={form.guardianRelationship} onChange={(e) => set("guardianRelationship", e.target.value)} className={INPUT_CLS} aria-label="Relationship">
+                    {RELATIONSHIPS.map((x) => <option key={x}>{x}</option>)}
+                  </select>
+                  <p>Under the age of majority, a guardian approves your agreements and payments. They&rsquo;re emailed to complete their page. {SENSITIVE_NOTE}</p>
+                </div>
+              ) : (
+                <p className="mt-1 normal-case tracking-normal text-muted">Not needed — you&rsquo;re an adult.</p>
+              )}
             </div>
             <label className="block text-[10px] uppercase tracking-wide text-faint">
               City
@@ -321,21 +418,15 @@ export function LiveProfileEditor({ athleteId, initialSection, states, summary, 
               <Badge tone={STATE_COPY[banner.state].tone}>{STATE_COPY[banner.state].label}</Badge>{" "}
               <span className="text-text">{banner.sections.map((s) => SECTION_LABELS[s] ?? s).join(", ")}</span>
               {banner.state === "PENDING"
-                ? " — BTG is reviewing it; your profile stays as it is until they approve."
-                : banner.state === "APPROVED"
-                  ? " — approved and live on your profile."
-                  : " — BTG didn't approve this one."}
+                ? " — your new legal name goes live once its matching ID arrives."
+                : ` — live on your profile. ${SENSITIVE_NOTE}`}
             </p>
-            {banner.state === "PENDING" && (
-              <ul className="mt-1 text-[10px] text-faint">
-                {diffRows(banner, {}).map((r) => (
-                  <li key={r.field}>{r.label}: {r.after}</li>
-                ))}
-              </ul>
-            )}
-            {banner.state === "DECLINED" && banner.reviewerNotes && (
-              <p className="mt-1 text-text">&ldquo;{banner.reviewerNotes}&rdquo;</p>
-            )}
+            <ul className="mt-1 text-[10px] text-faint">
+              {changeRows(banner).map((r) => (
+                <li key={r.field}>{r.label}: {r.value}</li>
+              ))}
+            </ul>
+            {(banner.checkNotes?.length ?? 0) > 0 && <p className="mt-1 text-text">{banner.checkNotes!.join(" ")}</p>}
           </div>
           {banner.state === "PENDING" && (
             <button type="button" onClick={() => withdraw(banner.id)} disabled={pending} className="rounded-lg border border-line px-3 py-1.5 text-[11px] text-muted hover:text-text disabled:opacity-50">
@@ -448,14 +539,14 @@ export function LiveProfileEditor({ athleteId, initialSection, states, summary, 
             <div className="mt-4 space-y-3">
               {requestForm(active)}
               <label className="block text-[10px] uppercase tracking-wide text-faint">
-                A note for BTG (optional)
+                A note for your history (optional)
                 <input value={form.note} onChange={(e) => set("note", e.target.value)} maxLength={1000} placeholder="Why the change, if it helps" className={`${INPUT_CLS} mt-1 normal-case tracking-normal`} />
               </label>
               <div className="flex flex-wrap items-center gap-2 pt-1">
                 <button type="button" onClick={() => send(active)} disabled={pending || !sectionValid(active)} aria-busy={pending} className={SAVE_CLS}>
-                  {pending ? "Sending…" : "Send to BTG for review"}
+                  {pending ? "Saving…" : "Save"}
                 </button>
-                {banner?.state === "PENDING" && <span className="text-[10px] text-faint">Sending replaces the change already waiting.</span>}
+                {banner?.state === "PENDING" && active === "identity" && legalChanging && <span className="text-[10px] text-faint">Saving replaces the legal name already waiting for its ID.</span>}
               </div>
               {result && (
                 <p role="status" className={`text-[11px] ${result.ok ? "text-success" : "text-danger"}`}>
@@ -464,8 +555,10 @@ export function LiveProfileEditor({ athleteId, initialSection, states, summary, 
               )}
               <p className="text-[10px] text-faint">
                 {active === "restrictions"
-                  ? "Restrictions power the conflict check before any invitation reaches you — BTG confirms a change before it applies."
-                  : "BTG reviews changes before they show on your public profile — usually within a business day."}
+                  ? "Restrictions power the conflict check before any invitation reaches you — a change applies to the next match at once."
+                  : active === "identity"
+                    ? `Changes save straight away. A legal name, date of birth or guardian is sensitive: ${SENSITIVE_NOTE}`
+                    : "Changes save straight away and show on your public profile."}
               </p>
             </div>
           ) : (

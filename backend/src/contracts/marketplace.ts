@@ -3,6 +3,7 @@ import { z } from "./zod";
 import { BRAND_CATEGORIES } from "../domain/brand-categories";
 import { INVENTORY_KINDS } from "../domain/inventory";
 import { LISTING_STATES } from "../domain/listing-rules";
+import { ORG_TYPES } from "../domain/onboarding-rules";
 import { LOGO_TYPES } from "../domain/branding";
 
 /* --------------------------------------------------------------------------
@@ -98,16 +99,48 @@ export const OfferInput = z
   })
   .strict()
   .meta({ id: "OfferInput", description: "A formal offer: brief, pay, deliverables, usage rights, exclusivity, disclosures (2S2-BE-03)." });
+/* 2S2-FE-03 — editing a DRAFT: any term but whose offer it is (campaign,
+   athlete). Merged over the row; the domain asks the whole draft again. */
+export const OfferPatch = OfferInput.omit({ campaignId: true, athleteId: true })
+  .partial()
+  .strict()
+  .meta({ id: "OfferPatch", description: "Edit a DRAFT offer: any of its terms except the campaign and the athlete. The merged draft must clear every check drafting does (terms, item, exclusivity, restrictions, floor, budget)." });
+export const OfferKeepInput = z
+  .object({ note: z.string().trim().min(1).max(2000).describe("BTG's reply to the athlete — why the offer stands") })
+  .strict()
+  .meta({ id: "OfferKeepInput", description: "Answer a change request by keeping the offer as it is, with a reply to the athlete (2S2-FE-03)." });
+/* 2S2-FE-03 — BTG's offer form, live: the checks a draft will be asked,
+   answered without refusing (GET /campaigns/:id/offer-checks), and the
+   athletes it can be made to (GET /offers/athletes). Every field optional —
+   the form asks as it is filled in. */
+const cents = z.coerce.number().int().min(0).max(100_000_000);
+export const OfferChecksQuery = z
+  .object({
+    athleteId: z.string().min(1).optional(),
+    jobId: z.string().min(1).optional(),
+    inventoryItemId: z.string().min(1).optional(),
+    compensation: cents.optional(),
+    sellPrice: cents.optional(),
+  })
+  .strict()
+  .meta({ id: "OfferChecksQuery", description: "The draft so far: athlete, job, item and the two prices in cents. Each check runs once its inputs are present." });
+export const OfferAthletesQuery = z
+  .object({ q: z.string().trim().max(80).optional() })
+  .strict()
+  .meta({ id: "OfferAthletesQuery", description: "A name to search for; empty lists the first athletes by name." });
 export const OfferResponseInput = z
   .object({
-    decision: z.enum(["ACCEPT", "DECLINE"]),
+    /* 2S2-FE-03 — REQUEST_CHANGE neither accepts nor declines: the offer
+       stays SENT and the note is routed to the campaign manager(s). */
+    decision: z.enum(["ACCEPT", "DECLINE", "REQUEST_CHANGE"]),
+    note: z.string().trim().min(1).max(2000).describe("REQUEST_CHANGE only — what the athlete wants changed").optional(),
     termsHashShown: z.string().length(64).optional(),
     agreementId: z.string().min(1).optional(),
     /* The agreement's own fingerprint form ("sha256:<hex>"), as campaign.ts and
        guardian.ts take it — a 64-char rule refused every real agreement. */
     bodyHashShown: z.string().min(1).describe("Hash of the agreement text as rendered to the signer").optional(),
   })
-  .meta({ id: "OfferResponseInput", description: "ACCEPT needs the terms hash shown and the agreement shown; it freezes the terms and schedules the deliverables." });
+  .meta({ id: "OfferResponseInput", description: "ACCEPT needs the terms hash shown and the agreement shown; it freezes the terms and schedules the deliverables. REQUEST_CHANGE needs a note; the offer stays SENT." });
 
 /* ── Phase 2 batch 4 — restrictions, search, cart ─────────────────────── */
 export const RestrictionInput = z
@@ -144,9 +177,27 @@ export const CartLinePatch = z
   .meta({ id: "CartLinePatch" });
 
 /* ── Phase 2 batch 5 — reservations and marketplace orders ─────────── */
+/* 2S4-FE-02 — the contract gate. The acceptance and the billing contact are
+   optional on the wire so their absence is the domain's 422 ("accept the
+   terms first"), not a bare 400; placeOrder refuses without either. */
+export const OrderBillingContact = z
+  .object({
+    name: z.string().trim().min(1).max(200),
+    email: z.email().max(320),
+    reference: z.string().trim().max(100).nullable().optional().describe("PO number or the sponsor's own reference — never a card or bank number"),
+  })
+  .strict()
+  .meta({ id: "OrderBillingContact", description: "Who BTG bills for this order — a snapshot kept on the order. No card or bank numbers." });
 export const PlaceOrderInput = z
-  .object({ reservationId: z.string().min(1) })
-  .meta({ id: "PlaceOrderInput", description: "The live hold to turn into an order." });
+  .object({
+    reservationId: z.string().min(1),
+    agreementId: z.string().min(1).describe("The MARKETPLACE_ORDER agreement checkout showed (GET /reservations/:id → checkout.terms.id)").optional(),
+    /* The agreement's own fingerprint form ("sha256:<hex>"), as offers take it. */
+    bodyHashShown: z.string().min(1).max(200).describe("Hash of the order terms as rendered to the sponsor").optional(),
+    billing: OrderBillingContact.optional(),
+  })
+  .strict()
+  .meta({ id: "PlaceOrderInput", description: "The live hold to turn into an order, with the sponsor's acceptance of the order terms and the billing contact they confirmed — 422 without either." });
 export const MarketplaceOrderDecisionInput = z
   .object({ decision: z.enum(["APPROVE", "REJECT"]), notes: z.string().max(4000).nullable().optional() })
   .meta({ id: "MarketplaceOrderDecisionInput", description: "BTG's decision on an order held for approval; REJECT needs notes and releases the stock." });
@@ -179,7 +230,8 @@ export const CommissionPreviewInput = z
     lines: z.array(z.object({
       label: z.string().max(80).optional(),
       grossCents: z.number().int().min(1).max(100_000_000),
-      propertyKind: z.enum(["TEAM", "SCHOOL", "EVENT", "MEDIA", "VIRTUAL"]).nullable().optional(),
+      /* Every organisation type, AGENCY included (2S1-BE-08). */
+      propertyKind: z.enum(ORG_TYPES).nullable().optional(),
       propertyId: z.string().min(1).nullable().optional(),
       athleteItem: z.boolean().optional(),
       /* 2S3-BE-05 — sold by an athlete with no team: the athlete is the only payee, no team share. */

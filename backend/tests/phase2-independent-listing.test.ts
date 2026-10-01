@@ -1,5 +1,6 @@
 import type { AddressInfo } from "node:net";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import { settleDeliveries } from "./support/delivery";
 
 /* --------------------------------------------------------------------------
    2S3-BE-05 — independent athletes list their own items, against the real
@@ -29,6 +30,8 @@ vi.mock("../src/auth/clerk", () => ({
 }));
 
 const seededDb = await import("./support/seeded-db");
+/* 2S4-FE-02 — every order is placed through the contract gate. */
+const { issueOrderTerms, placeOrderBody } = await import("./support/order-terms");
 const hasDatabase = await seededDb.databaseAvailable();
 
 describe.skipIf(!hasDatabase)("2S3-BE-05 · an athlete with no team sells their own item", { timeout: 90_000 }, async () => {
@@ -55,6 +58,7 @@ describe.skipIf(!hasDatabase)("2S3-BE-05 · an athlete with no team sells their 
   const tokenOf = (url: string) => new URL(url).searchParams.get("t")!;
   const walk = async (id: string, states: string[]) => {
     for (const to of states) {
+      if (to === "FULFILLED") await settleDeliveries(prisma, id);
       const r = await call("POST", `/marketplace-orders/${id}/transition`, "ind_admin", { to });
       expect(r.status, r.text).toBe(200);
     }
@@ -88,6 +92,7 @@ describe.skipIf(!hasDatabase)("2S3-BE-05 · an athlete with no team sells their 
   beforeAll(async () => {
     await clean();
     await prisma.tenant.createMany({ data: [{ id: T, name: "Independent BTG" }, { id: X, name: "Another marketplace" }] });
+    await issueOrderTerms(prisma, T);
     await prisma.sponsor.createMany({ data: [
       { id: "ind_harbor", tenantId: T, name: "Harbor Coffee", categories: ["RESTAURANT"] },
       { id: "ind_x_sponsor", tenantId: X, name: "Elsewhere Bakery", categories: ["RESTAURANT"] },
@@ -116,9 +121,9 @@ describe.skipIf(!hasDatabase)("2S3-BE-05 · an athlete with no team sells their 
     ] });
     /* The Hawks — a team BTG approved, with Riley on its roster. */
     await prisma.propertyOnboarding.create({ data: {
-      id: "ind_onb", tenantId: T, orgType: "TEAM", orgName: "Westfield Hawks", stateCode: "MD", state: "PENDING_REVIEW",
+      id: "ind_onb", tenantId: T, orgType: "TEAM", orgName: "Westfield Hawks IL", stateCode: "MD", state: "PENDING_REVIEW",
       contacts: [{ name: "Dana Brooks", email: "ind_mgr@ind-test.invalid", phone: "301-555-0100", role: "General manager", primary: true }],
-      details: { legalEntityName: "Westfield Hawks LLC", league: "MD Amateur", sport: "Basketball" },
+      details: { legalEntityName: "Westfield Hawks IL LLC", league: "MD Amateur", sport: "Basketball" },
       payoutAcknowledgedAt: new Date(), termsAcceptedAt: new Date(), submittedAt: new Date(),
     } });
     const approved = await decideOnboarding({ userId: "ind_admin", tenantId: T, roles: ["BTG_ADMIN"], sponsorId: null, athleteId: null, guardianId: null, propertyId: null }, "ind_onb", "APPROVE");
@@ -180,13 +185,13 @@ describe.skipIf(!hasDatabase)("2S3-BE-05 · an athlete with no team sells their 
     it("Riley is refused, and told their team lists it", async () => {
       const r = await call("POST", "/listings", "ind_riley", { inventoryItemId: E.rileyItem, title: "Riley's camp", description: "A two-day camp at your venue, up to 30 kids." });
       expect(r.status).toBe(409);
-      expect(r.json.error.message).toMatch(/on a team — Westfield Hawks lists your items/);
+      expect(r.json.error.message).toMatch(/on a team — Westfield Hawks IL lists your items/);
     });
 
     it("the team's listing of Riley's item is the team's: Riley can read it but not edit, submit, pause or archive it", async () => {
       const made = await call("POST", "/listings", "ind_mgr", { inventoryItemId: E.rileyItem, title: "Riley's camp", description: "A two-day camp at your venue, up to 30 kids." });
       expect(made.status, made.text).toBe(201);
-      expect(made.json.seller).toMatchObject({ type: "PROPERTY", id: E.property, name: "Westfield Hawks" });
+      expect(made.json.seller).toMatchObject({ type: "PROPERTY", id: E.property, name: "Westfield Hawks IL" });
       E.hawksListing = made.json.id;
       expect((await call("GET", `/listings/${E.hawksListing}`, "ind_riley")).status).toBe(200);
       expect((await call("PATCH", `/listings/${E.hawksListing}`, "ind_riley", { title: "Mine now" })).status).toBe(403);
@@ -261,7 +266,7 @@ describe.skipIf(!hasDatabase)("2S3-BE-05 · an athlete with no team sells their 
       expect(cart.lines).toEqual([expect.objectContaining({ listingId: E.listing, sellerName: "JORDAN.REED", propertyName: null, lineTotalCents: 100_000 })]);
       const hold = await call("POST", "/cart/reserve", "ind_buyer");
       expect(hold.status, hold.text).toBe(201);
-      const placed = await call("POST", "/marketplace-orders", "ind_buyer", { reservationId: hold.json.id });
+      const placed = await call("POST", "/marketplace-orders", "ind_buyer", placeOrderBody(hold.json.id, `${T}_order_terms`));
       expect(placed.status, placed.text).toBe(201);
       expect(placed.json).toMatchObject({ state: "PENDING_APPROVAL", totalCents: 100_000 });
       expect(placed.json.lines).toEqual([expect.objectContaining({ propertyId: null, sellerAthleteId: "ind_ath_jordan" })]);

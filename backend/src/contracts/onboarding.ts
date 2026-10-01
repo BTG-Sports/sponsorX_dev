@@ -12,7 +12,7 @@ import { DOCUMENT_KINDS, DOCUMENT_TYPES, MAX_DOCUMENT_BYTES } from "../domain/on
 export const OrgType = z.enum(ORG_TYPES).meta({ id: "OrgType", description: "Becomes Property.kind on approval." });
 export const OnboardingState = z.enum(ONBOARDING_STATES).meta({
   id: "OnboardingState",
-  description: "DRAFT → PENDING_REVIEW → APPROVED / CHANGES_REQUESTED / REJECTED; APPROVED ⇄ SUSPENDED (Phase 2 state machines §1).",
+  description: "DRAFT → PENDING_REVIEW → APPROVED (automatically, or by BTG) / CHANGES_REQUESTED / REJECTED; APPROVED ⇄ SUSPENDED; APPROVED → REJECTED → APPROVED (Reject after approval, Reinstate) (Phase 2 state machines §1).",
 });
 
 export const OnboardingStartInput = z
@@ -39,11 +39,34 @@ export const OnboardingDecisionInput = z
   .meta({ id: "OnboardingDecisionInput", description: "REQUEST_CHANGES, REJECT and SUSPEND need notes." });
 
 /* 2S1-BE-02 — a verification document, uploaded straight to the private bucket. */
+const documentFields = {
+  kind: z.enum(DOCUMENT_KINDS),
+  filename: z.string().trim().min(1).max(200),
+  contentType: z.enum([...DOCUMENT_TYPES] as [string, ...string[]]),
+  bytes: z.number().int().min(1).max(MAX_DOCUMENT_BYTES),
+  /* 2S1-BE-08 — the state a business registration is for (an agency needs one per state). */
+  stateCode: z.string().length(2).nullable().optional(),
+  /* 2S1-BE-07 — "valid until", when the paper has a date. */
+  expiresOn: z.iso.date().nullable().optional(),
+};
 export const OnboardingDocumentInput = z
-  .object({
-    kind: z.enum(DOCUMENT_KINDS),
-    filename: z.string().trim().min(1).max(200),
-    contentType: z.enum([...DOCUMENT_TYPES] as [string, ...string[]]),
-    bytes: z.number().int().min(1).max(MAX_DOCUMENT_BYTES),
-  })
-  .meta({ id: "OnboardingDocumentInput", description: "Proof of rights, business registration or identity — PDF, JPEG or PNG, up to 20 MB." });
+  .object(documentFields)
+  .strict()
+  .meta({ id: "OnboardingDocumentInput", description: "Proof of rights, business registration, identity or a representation agreement — PDF, JPEG or PNG, up to 20 MB (an ID up to 10 MB)." });
+
+/* 2S1-BE-06 — the link in the confirmation email. */
+export const OnboardingConfirmEmailInput = z
+  .object({ token: z.string().min(10).max(400) })
+  .strict()
+  .meta({ id: "OnboardingConfirmEmailInput", description: "The token from the confirmation email's link — proves the primary contact reads that mailbox." });
+
+export const OnboardingList = z.enum(["auto", "flagged"]).meta({
+  id: "OnboardingList",
+  description: "auto — organisations the system approved, newest first (spot checks); flagged — approved organisations a document change flagged.",
+});
+
+/* 2S1-BE-07 — an approved organisation's own manager adds or replaces a paper. */
+export const OrganizationDocumentInput = z
+  .object({ ...documentFields, replacesId: z.string().min(1).max(60).nullable().optional() })
+  .strict()
+  .meta({ id: "OrganizationDocumentInput", description: "A new or replacement document (replacesId names the one on file). The earlier file is kept as history." });

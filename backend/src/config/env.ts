@@ -144,6 +144,16 @@ const schema = z.object({
   /* Days after an order is fulfilled before its money can be requested as a
      payout (2S5-BE-04's "configured holding period"). */
   PAYOUT_HOLD_DAYS: z.coerce.number().int().min(0).max(90).default(0),
+
+  /* 2S1-BE-16 / 2S1-OPS-01 — BTG's support mailbox. The contact form's
+     messages are queued to this address, and it is shown wherever a person
+     might be stuck (the guardian request page, decline and rejection emails,
+     account pages). It works the same whether BTG picks Zoho Desk (which
+     takes mail in as tickets) or a shared mailbox. SUPPORT_MAILBOX_READY says
+     whether 2S1-OPS-01 has set the mailbox up: until it is "true" the pages
+     say the address is being set up. */
+  SUPPORT_EMAIL: z.string().email().default("support@sponsorx.net"),
+  SUPPORT_MAILBOX_READY: z.enum(["true", "false"]).default("false").transform((v) => v === "true"),
 });
 
 /* A development default that reached production would make every continuation

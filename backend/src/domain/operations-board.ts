@@ -31,8 +31,13 @@ export type OperationsQueues = {
   finance: { held: number; disputed: number } | null;
 };
 
-/** Deliverables that wait on BTG, not the athlete or the sponsor. */
-const BTG_REVIEW_STATES = ["DRAFT_SUBMITTED", "BTG_REVIEW"] as const;
+/**
+ * Deliverables awaiting a decision — the same set the Approvals page counts
+ * in its headline and Review tab (frontend lib/approvals-live.ts
+ * deskHeadline), so the card and the page it links to show one number
+ * (P7-FE-06). Sponsor review is included: BTG chases it from that desk.
+ */
+export const REVIEW_STATES = ["DRAFT_SUBMITTED", "BTG_REVIEW", "SPONSOR_REVIEW"] as const;
 
 function tenantWide(actor: Actor, resource: Resource): boolean {
   const scope = scopeFor(actor.roles, resource, "read");
@@ -60,7 +65,7 @@ export async function operationsQueues(actor: Actor, now = new Date()): Promise<
       : null,
     may.approvals
       ? prisma.deliverable
-          .count({ where: { ...whereFor(actor, "deliverable", "read"), state: { in: [...BTG_REVIEW_STATES] } } })
+          .count({ where: { ...whereFor(actor, "deliverable", "read"), state: { in: [...REVIEW_STATES] } } })
           .then((waiting) => ({ waiting }))
       : null,
     may.briefs

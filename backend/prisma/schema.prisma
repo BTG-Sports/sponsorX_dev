@@ -224,6 +224,11 @@ model Tenant {
   /// own tenant. BTG staff review the inventory and listings of the tenants
   /// they operate — the `operated` scope — and nothing else of theirs.
   operatorTenantId String?
+  /// 2S1-BE-10 — "BTG staff confirm minors before approval". Off by default:
+  /// a minor and their guardian are approved by the system once every check
+  /// passes. On, a complete minor waits in New sign-ups for a person — the
+  /// switch the open guardian e-signature question may need, with no rebuild.
+  staffConfirmMinors Boolean @default(false)
 
   inventoryItems    InventoryItem[]
   listings          Listing[]
@@ -251,6 +256,10 @@ model User {
   /// by matching on email; a Task this user originates is owned by them in
   /// the CRM. Null means the API account owns it and nobody is notified.
   zohoUserId String?  @unique
+  /// 2S1-BE-17 — when BTG switched this login off (Reject), and why. A
+  /// disabled login is refused at sign-in; Reinstate clears both.
+  disabledAt     DateTime?
+  disabledReason String?
   createdAt  DateTime @default(now())
 
   athlete     Athlete?              @relation(fields: [athleteId], references: [id])
@@ -270,7 +279,7 @@ model Property {
   /// Public profile URL.
   slug      String  @unique
   name      String
-  /// TEAM | SCHOOL | EVENT | MEDIA | VIRTUAL
+  /// TEAM | SCHOOL | EVENT | MEDIA | VIRTUAL | AGENCY
   kind      String
   city      String?
   /// US state code, e.g. "MD".
@@ -295,6 +304,9 @@ model Property {
   /// Phase 2 (2S1-BE-03) — set when BTG approves the property's onboarding,
   /// cleared on suspension. Listing creation (2S3-BE-01) requires it.
   listingAccessAt DateTime?
+  /// 2S1-BE-06 — BTG rejected the organisation after approval: no payout is
+  /// requested, approved or sent while this is set. Reinstate clears it.
+  payoutsHeldAt   DateTime?
   onboarding      PropertyOnboarding?
   inventory       InventoryItem[]
   listings        Listing[]
@@ -313,8 +325,19 @@ model Guardian {
   relationship String
   /// §37 pre-pilot gate — a minor cannot go ACTIVE without this set.
   verifiedAt   DateTime?
+  /// 2S1-BE-10 — opening the set-up link from the email confirms the address.
+  emailConfirmedAt DateTime?
+  /// True when the system verified this guardian (email, ID, proof, agreement
+  /// all in); false when a BTG person did.
+  autoVerified     Boolean   @default(false)
+  /// 2S1-BE-10 — BTG rejected this guardian after approval: their login is
+  /// off, and every athlete they look after is rejected with them.
+  rejectedAt       DateTime?
+  rejectNote       String?
+  rejectedBy       String?
 
   wards    Athlete[]
+  documents AccountDocument[]
   /// SponsorX NEXT — reused unchanged: a minor student needs a verified
   /// guardian on the same rule as an athlete (P9-BE-04).
   students Student[]
@@ -392,6 +415,58 @@ model Athlete {
   /// (2S5-BE-02) applies it. Null for an athlete with no team.
   teamShareBps Int?
 
+  /// 2S1-BE-12 — where the athlete lives, for the age of majority: an ISO
+  /// country code (US unless they say otherwise) with `stateCode` above as
+  /// the region. `majorityAge` is that place's age, read from the editable
+  /// AgeOfMajority table and stored so every age rule reads it without a
+  /// second query; re-worked out whenever the place or the table changes.
+  /// `majorityKnown` false means the place is not in the table — counted as
+  /// 18 and flagged for BTG.
+  countryCode   String  @default("US")
+  majorityAge   Int     @default(18)
+  majorityKnown Boolean @default(true)
+
+  /// 2S1-BE-09 / -10 — automatic approval. The applicant confirms their
+  /// email by link; `reviewReasons` say why it waits for BTG instead (a
+  /// likely duplicate, the staff-confirmation setting); `autoApproved` is
+  /// true when the system approved it.
+  emailConfirmedAt DateTime?
+  reviewReasons    String[] @default([])
+  autoApproved     Boolean  @default(false)
+  /// BTG's Reject after approval (New sign-ups): access withdrawn, listings
+  /// ended, payouts held, the reason emailed. `rejectedVia` is ATHLETE when
+  /// BTG rejected this athlete, GUARDIAN when it came with their guardian's
+  /// rejection — Reinstate undoes exactly what that rejection did.
+  signupRejectedAt DateTime?
+  signupRejectNote String?
+  signupRejectedBy String?
+  signupRejectedVia String?
+
+  /// 2S1-BE-12 — coming of age. When a minor reaches their place's age they
+  /// have 90 days (`comingOfAgeDueAt`) to upload a government ID; meanwhile
+  /// nothing new is started. `comingOfAgeReminders` are the "days before the
+  /// end" reminders already sent (90 = the start). Completed: control moved
+  /// to the athlete. Terminated: the 90 days ran out.
+  comingOfAgeStartedAt    DateTime?
+  comingOfAgeDueAt        DateTime?
+  comingOfAgeReminders    Int[]     @default([])
+  comingOfAgeCompletedAt  DateTime?
+  comingOfAgeTerminatedAt DateTime?
+
+  /// 2S1-BE-13 — the athlete's account has an open AccountClosure (closed by
+  /// them, rejected by BTG, or ended by the coming-of-age rule). Mirrors the
+  /// closure so every "can this seller sell?" query (the catalogue, search,
+  /// the cart, BTG's listing approval) can read it without a join; written
+  /// only by account-closure.ts, cleared when the closure ends.
+  accountClosedAt DateTime?
+
+  /// 2S1-BE-10 / -14 — a guardian ALREADY verified for another minor was
+  /// named for this approved athlete by a profile edit. They act for this
+  /// athlete only once their proof of guardianship naming this athlete and
+  /// the guardian agreement for them are in (guardian-acts.ts `actForWard`);
+  /// cleared then, or when the guardian changes.
+  guardianPendingSince DateTime?
+
   // Zoho (§18 — Contacts are bi-directional)
   zohoId         String?     @unique
   lastSyncOrigin SyncOrigin?
@@ -422,9 +497,67 @@ model Athlete {
   restrictions BrandRestriction[]
   /// P3-BE-16 — the athlete's own post-approval edits, held for BTG review.
   profileChanges AthleteProfileChange[]
+  /// 2S1-BE-15 — requests to become this minor's guardian.
+  guardianHandoffs GuardianHandoff[]
+  documents    AccountDocument[]
 
   @@index([tenantId, state])
   @@index([tenantId, sport, stateCode])
+}
+
+/// 2S1-BE-09 / -10 — the identity documents automatic approval checks: an
+/// adult's GOVERNMENT_ID, a minor's SCHOOL_ID (minors have no government ID),
+/// and their guardian's GUARDIAN_ID and GUARDIANSHIP_PROOF (a birth
+/// certificate, court order or school record naming them — `proofKind`).
+/// Exactly one owner (CHECK in the migration). The bytes are in the PRIVATE
+/// bucket only, uploaded straight from the browser; `uploadedAt` is set once
+/// the object is really there. BTG reads them through five-minute audited
+/// links. PDF, JPEG or PNG, at most 10 MB.
+model AccountDocument {
+  id          String    @id
+  tenantId    String
+  athleteId   String?
+  guardianId  String?
+  /// GOVERNMENT_ID | SCHOOL_ID | GUARDIAN_ID | GUARDIANSHIP_PROOF
+  kind        String
+  /// GUARDIANSHIP_PROOF only: BIRTH_CERTIFICATE | COURT_ORDER | SCHOOL_RECORD
+  proofKind   String?
+  /// GUARDIANSHIP_PROOF only: the athlete this proof names. Proof is per
+  /// (guardian, athlete) — a guardian's government ID serves every athlete
+  /// they look after, but each minor's approval needs proof naming them.
+  /// Plain column (CHECK in the migration), like `tenantId`.
+  wardId      String?
+  filename    String
+  contentType String
+  bytes       Int
+  r2Key       String    @unique
+  uploadedAt  DateTime?
+  createdAt   DateTime  @default(now())
+
+  athlete  Athlete?  @relation(fields: [athleteId], references: [id])
+  guardian Guardian? @relation(fields: [guardianId], references: [id])
+
+  @@index([tenantId, athleteId])
+  @@index([tenantId, guardianId])
+  @@index([tenantId, guardianId, wardId])
+}
+
+/// 2S1-BE-12 — the age of majority by place, which BTG admins edit. A row is
+/// a country (regionCode "") or a region within it (a US state). The most
+/// specific row wins; a place with neither counts as 18 and is flagged.
+/// Seeded with the US states (most 18; AL and NE 19; MS 21) and common
+/// countries.
+model AgeOfMajority {
+  id          String   @id @default(cuid())
+  tenantId    String
+  countryCode String
+  /// "" for the whole country.
+  regionCode  String   @default("")
+  age         Int
+  updatedBy   String?
+  updatedAt   DateTime @default(now()) @updatedAt
+
+  @@unique([tenantId, countryCode, regionCode])
 }
 
 /// P3-BE-16, §11, §24 — a change an approved athlete proposes to their own
@@ -450,6 +583,20 @@ model AthleteProfileChange {
   reviewerNotes String?
   reviewedBy    String?
   reviewedAt    DateTime?
+  /// 2S1-BE-14 — edits publish at once (state APPROVED, appliedAt set, no
+  /// reviewer). `sensitive` marks a legal-name, date-of-birth or guardian
+  /// edit: those re-run the sign-up checks and BTG admins are emailed.
+  sensitive     Boolean          @default(false)
+  appliedAt     DateTime?
+  /// A legal-name change waits for this: the matching ID, in the private
+  /// bucket (PENDING until it arrives; then applied).
+  idDocumentKey         String?  @unique
+  idDocumentFilename    String?
+  idDocumentContentType String?
+  idDocumentBytes       Int?
+  idDocumentUploadedAt  DateTime?
+  /// What the re-run checks found, in plain words ("Now a minor — a guardian is needed").
+  checkNotes    String[]         @default([])
   createdAt     DateTime         @default(now())
 
   athlete Athlete @relation(fields: [athleteId], references: [id])
@@ -1115,6 +1262,8 @@ model AgreementAcceptance {
   athlete   Athlete?       @relation(fields: [athleteId], references: [id], onDelete: Restrict)
   student   Student?       @relation(fields: [studentId], references: [id], onDelete: Restrict)
   order     CampaignOrder?
+  /// 2S4-FE-02 — the sponsor's acceptance of a marketplace order's terms.
+  marketplaceOrder MarketplaceOrder?
   rights    ContentRight[]
 
   @@index([tenantId, agreementId])
@@ -1225,11 +1374,45 @@ model Inquiry {
   decisionNote String?
   /// The sponsor approving it opened (or linked to).
   sponsorId    String?
+  /// 2S1-BE-17 — the business type the sponsor picked: a brand category, or
+  /// OTHER with their own description in businessTypeOther.
+  businessType      String?
+  businessTypeOther String?
+  /// When the contact clicked the confirmation link in their email.
+  emailConfirmedAt  DateTime?
+  /// Why it waits for BTG instead of being approved automatically (empty
+  /// when it was, or hasn't been checked yet).
+  reviewReasons     String[] @default([])
+  /// True when the system approved it; false when a person did.
+  autoApproved      Boolean  @default(false)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @default(now()) @updatedAt
 
+  documents InquiryDocument[]
+
   @@index([tenantId, createdAt])
   @@index([tenantId, state])
+}
+
+/// 2S1-BE-17 — a sponsor's proof of business (a registration, permit or
+/// license in the business's name), in the private bucket. Uploaded straight
+/// from the browser; `uploadedAt` is set only once the file is really there.
+model InquiryDocument {
+  id          String    @id
+  tenantId    String
+  inquiryId   String
+  /// PROOF_OF_BUSINESS
+  kind        String
+  filename    String
+  contentType String
+  bytes       Int
+  r2Key       String
+  uploadedAt  DateTime?
+  createdAt   DateTime  @default(now())
+
+  inquiry Inquiry @relation(fields: [inquiryId], references: [id])
+
+  @@index([tenantId, inquiryId])
 }
 
 /// A CRM task SponsorX originates — §18 row 7, field-mapping §7.5/S-4.
@@ -1812,7 +1995,7 @@ model PropertyOnboarding {
   id                   String          @id @default(cuid())
   tenantId             String
   state                OnboardingState @default(DRAFT)
-  /// TEAM | SCHOOL | EVENT | MEDIA | VIRTUAL — becomes Property.kind
+  /// TEAM | SCHOOL | EVENT | MEDIA | VIRTUAL | AGENCY — becomes Property.kind
   orgType              String
   orgName              String
   /// US state (or DC) the organisation operates in — drives required fields.
@@ -1834,6 +2017,28 @@ model PropertyOnboarding {
   decidedBy            String?
   /// The Property created on approval.
   propertyId           String?         @unique
+  /// 2S1-BE-06 — the name as compared platform-wide (business-name-rules.ts
+  /// normalizeBusinessName: case, spacing, punctuation, a leading "The" and
+  /// LLC/Inc endings ignored). UNIQUE, so two applications for one name can
+  /// never both hold it — not even when they arrive at the same moment.
+  /// Released (null) only when an application is rejected at review.
+  nameKey              String?         @unique
+  /// 2S1-BE-06 — the primary contact's address as confirmed by the emailed
+  /// link, and when. Confirmed only while it still equals the primary
+  /// contact's email: changing the contact asks again.
+  confirmedEmail       String?
+  emailConfirmedAt     DateTime?
+  /// 2S1-BE-06 — approved by the system, with no BTG step; the checklist it
+  /// passed, as it stood at that moment (for BTG's spot checks).
+  autoApproved         Boolean         @default(false)
+  approvalChecks       Json?
+  /// 2S1-BE-06 — why a submitted application waits for BTG, shown to the
+  /// applicant too. Empty when nothing is in the way.
+  reviewReasons        String[]        @default([])
+  /// 2S1-BE-07 — an approved organisation flagged for BTG (a required
+  /// document removed without a replacement). Never suspends by itself.
+  flags                String[]        @default([])
+  flaggedAt            DateTime?
   createdAt            DateTime        @default(now())
   updatedAt            DateTime        @default(now()) @updatedAt
 
@@ -1852,7 +2057,7 @@ model OnboardingDocument {
   id           String    @id @default(cuid())
   tenantId     String
   onboardingId String
-  /// RIGHTS_PROOF | BUSINESS_REGISTRATION | IDENTITY | OTHER
+  /// RIGHTS_PROOF | BUSINESS_REGISTRATION | IDENTITY | REPRESENTATION_AGREEMENT | OTHER
   kind         String
   filename     String
   contentType  String
@@ -1862,6 +2067,17 @@ model OnboardingDocument {
   r2Key        String    @unique
   /// Set when the applicant confirms and the object is found in the bucket.
   uploadedAt   DateTime?
+  /// 2S1-BE-08 — the state a BUSINESS_REGISTRATION is for (an agency needs
+  /// one per state it operates in). Null for every other kind.
+  stateCode    String?
+  /// 2S1-BE-07 — "valid until", when the paper has a date. Shown as expired
+  /// after it; never deletes anything.
+  expiresOn    DateTime?
+  /// 2S1-BE-07 — the earlier file this one replaces, and when this one was
+  /// itself replaced or removed. Nothing is deleted: the history stays.
+  replacesId   String?
+  replacedAt   DateTime?
+  removedAt    DateTime?
   createdAt    DateTime  @default(now())
 
   onboarding PropertyOnboarding @relation(fields: [onboardingId], references: [id])
@@ -2033,14 +2249,54 @@ model Offer {
   orderId         String?    @unique
   createdBy       String?
   createdAt       DateTime   @default(now())
+  /// 2S2-FE-03 — the SENT offer this draft revises (POST /offers/:id/revise),
+  /// so BTG's desk can show "Revised from …". Null for an offer drafted fresh.
+  fromOfferId     String?
 
   campaign Campaign       @relation(fields: [campaignId], references: [id])
   athlete  Athlete        @relation(fields: [athleteId], references: [id])
   job      NilJob         @relation(fields: [jobId], references: [id])
   order    CampaignOrder? @relation(fields: [orderId], references: [id])
+  /// 2S2-FE-03 — the athlete's requests for a change, oldest first.
+  changeRequests OfferChangeRequest[] @relation("OfferChangeRequests")
+  /// 2S2-FE-03 — the requests this offer was drafted to answer (REVISED).
+  answersRequests OfferChangeRequest[] @relation("OfferChangeRevisions")
+  fromOffer       Offer?               @relation("OfferRevisions", fields: [fromOfferId], references: [id])
+  revisions       Offer[]              @relation("OfferRevisions")
 
   @@index([tenantId, state])
   @@index([tenantId, athleteId])
+}
+
+/// 2S2-FE-03 — "requests a change": the athlete asks BTG to change a SENT
+/// offer. It neither accepts nor declines it — the offer stays SENT and
+/// answerable, because its terms are fixed once sent (offer_terms_immutable)
+/// and BTG answers by withdrawing it and sending a revised offer, or by
+/// replying that it stands. One row per request; the athlete's words are
+/// never edited, and BTG's answer is written once (answeredAt).
+model OfferChangeRequest {
+  id          String   @id @default(cuid())
+  tenantId    String
+  offerId     String
+  /// The user who asked — the athlete answering the offer.
+  requestedBy String
+  /// What the athlete wants changed, in their words (≤ 2000 chars).
+  note        String
+  createdAt   DateTime @default(now())
+  /// BTG's answer, once: KEPT (the offer stands, with a reply in answerNote)
+  /// or REVISED (withdrawn; revisedOfferId is the new draft). Null while
+  /// unanswered — answer, answeredAt and answeredBy are set together (CHECKs).
+  answeredAt     DateTime?
+  answeredBy     String?
+  answer         String?
+  /// KEPT: BTG's reply to the athlete (≤ 2000 chars).
+  answerNote     String?
+  revisedOfferId String?
+
+  offer        Offer  @relation("OfferChangeRequests", fields: [offerId], references: [id])
+  revisedOffer Offer? @relation("OfferChangeRevisions", fields: [revisedOfferId], references: [id], onDelete: Restrict)
+
+  @@index([tenantId, offerId])
 }
 
 /// 2S7-BE-01 — a tenant's own look: shown in its portal and on its reports.
@@ -2260,10 +2516,22 @@ model MarketplaceOrder {
   createdBy        String?
   /// 2S7-INT-01 — the Deal this order is in Zoho.
   zohoDealId       String?               @unique
+  /// 2S4-FE-02 — the contract gate. The sponsor's acceptance of the tenant's
+  /// MARKETPLACE_ORDER terms (who, when, which version, the hash of the text
+  /// shown), written in the order's own transaction. Null only on orders
+  /// placed before the gate existed; placeOrder never writes one without it.
+  acceptanceId     String?               @unique
+  /// The billing contact the sponsor confirmed at checkout — a snapshot,
+  /// fixed when the order is placed (marketplace_order_immutable.sql).
+  /// Name, email and an optional PO / reference; never card or bank numbers.
+  billingName      String?
+  billingEmail     String?
+  billingReference String?
   createdAt        DateTime              @default(now())
   updatedAt        DateTime              @default(now()) @updatedAt
 
   reservation Reservation            @relation(fields: [reservationId], references: [id])
+  acceptance  AgreementAcceptance?   @relation(fields: [acceptanceId], references: [id], onDelete: Restrict)
   lines       MarketplaceOrderLine[]
 
   @@index([tenantId, sponsorId, state])
@@ -2289,7 +2557,9 @@ model MarketplaceOrderLine {
   unitPriceCents  Int
   lineTotalCents  Int
 
-  order MarketplaceOrder @relation(fields: [orderId], references: [id])
+  order    MarketplaceOrder   @relation(fields: [orderId], references: [id])
+  /// 2S4-BE-06 / 2S4-BE-07 — who sells it, and how its delivery stands.
+  delivery OrderLineDelivery?
 
   @@index([tenantId, orderId])
   @@index([propertyId])
@@ -2478,4 +2748,277 @@ model PayoutLine {
 
   @@index([orderId])
   @@index([payoutId])
+}
+
+/// 2S1-BE-18 — the restricted-words list BTG keeps: words and phrases that
+/// send free text (first, a sponsor's "Other" business description) to BTG's
+/// review. A match never rejects anything by itself. Removing a word
+/// deactivates it (the row, and so its history, stays).
+model RestrictedWord {
+  id         String   @id @default(cuid())
+  tenantId   String
+  /// As BTG typed it.
+  word       String
+  /// The matching form (lower case, accents and letter swaps undone).
+  normalized String
+  /// ADULT | DRUGS | WEAPONS | GAMBLING | VIOLENCE_HATE | OTHER_ILLEGAL
+  kind       String
+  active     Boolean  @default(true)
+  /// "starter" for the seeded list, else the user who added it.
+  addedBy    String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @default(now()) @updatedAt
+
+  @@unique([tenantId, normalized])
+  @@index([tenantId, active])
+}
+
+/// 2S4-BE-06 / 2S4-BE-07 / 2S4-BE-08 — one contracted order line, as its
+/// sellers see it and as it is delivered. Written when the order is
+/// contracted (the line itself never changes — marketplace_order_immutable.sql),
+/// so it carries who may read it: the sponsor, the team (propertyId, in its
+/// own tenant) and the athlete whose item it is (athleteId, in theirs).
+///
+/// UNPAID → IN_DELIVERY (paid) → DELIVERED (the seller marked it, with a note)
+///   → CONFIRMED (the sponsor, or 24 hours of silence, or BTG)
+///   → PROBLEM (the sponsor, within the 24 hours) → CONFIRMED | REFUNDED (BTG).
+/// CANCELLED / REFUNDED follow the order. Only a CONFIRMED line's money can
+/// be requested (payouts.ts); a PROBLEM line's is held.
+model OrderLineDelivery {
+  id               String    @id @default(cuid())
+  /// The order's books (the operator's tenant).
+  tenantId         String
+  orderId          String
+  lineId           String    @unique
+  sponsorId        String
+  /// The team that sells it, and its tenant.
+  propertyId       String?
+  propertyTenantId String?
+  /// The athlete whose item it is (independent seller or roster athlete), and their tenant.
+  athleteId        String?
+  athleteTenantId  String?
+  /// UNPAID | IN_DELIVERY | DELIVERED | CONFIRMED | PROBLEM | REFUNDED | CANCELLED
+  state            String    @default("UNPAID")
+  paidAt           DateTime?
+  deliveredAt      DateTime?
+  deliveredBy      String?
+  deliveredByName  String?
+  note             String?
+  /// The optional photo, in the private bucket; or a link.
+  proofKey         String?
+  proofLink        String?
+  /// deliveredAt + 24 hours: the sponsor's window to confirm or report a problem.
+  confirmDueAt     DateTime?
+  confirmedAt      DateTime?
+  confirmedBy      String?
+  /// SPONSOR | SILENCE | BTG
+  confirmedHow     String?
+  problemAt        DateTime?
+  problemBy        String?
+  problemNote      String?
+  resolvedAt       DateTime?
+  resolvedBy       String?
+  /// CONFIRMED | REFUNDED
+  resolution       String?
+  resolutionNote   String?
+  /// 2S4-BE-08 — the one overdue reminder, once sent.
+  remindedAt       DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @default(now()) @updatedAt
+
+  line MarketplaceOrderLine @relation(fields: [lineId], references: [id])
+
+  @@index([tenantId, state])
+  @@index([orderId])
+  @@index([propertyTenantId, propertyId])
+  @@index([athleteTenantId, athleteId])
+  @@index([tenantId, sponsorId])
+}
+
+/// 2S2-BE-05 — a team invites an athlete already on SponsorX to its roster,
+/// at a proposed share. Nobody is linked without accepting: accepting is
+/// what sets Athlete.propertyId and teamShareBps. Lives in the team's tenant;
+/// names the athlete's own (they may be in the marketplace operator's).
+model TeamInvitation {
+  id              String    @id @default(cuid())
+  /// The team's tenant.
+  tenantId        String
+  propertyId      String
+  athleteId       String
+  athleteTenantId String
+  teamShareBps    Int
+  /// PENDING | ACCEPTED | DECLINED | WITHDRAWN
+  state           String    @default("PENDING")
+  invitedBy       String?
+  decidedAt       DateTime?
+  decidedBy       String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @default(now()) @updatedAt
+
+  @@index([tenantId, propertyId, state])
+  @@index([athleteTenantId, athleteId, state])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 2S1-BE-13 · 2S1-BE-15 · 2S1-BE-16 — closing and coming back, the guardian
+// handoff, and BTG support (added 2026-10-01).
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// 2S1-BE-13 — an account that is closed: by its owner (SELF), by BTG's
+/// Reject (REJECTED), or at the end of the coming-of-age allowance
+/// (TERMINATED, 2S1-BE-12). Its ID and verification files are kept until
+/// `retainUntil` (30 days), then the retention job deletes them (PURGED). A
+/// self-closed account can come back before then (REACTIVATED); a rejected
+/// one can only ask BTG, recorded in the reactivation* columns. At most one
+/// CLOSED row per subject (a partial unique index in the migration).
+model AccountClosure {
+  id          String   @id @default(cuid())
+  tenantId    String
+  /// ATHLETE | GUARDIAN | PROPERTY | SPONSOR — or, for a Reject before
+  /// approval, the application itself: ONBOARDING (a PropertyOnboarding with
+  /// no Property yet) | INQUIRY (a sponsor request declined before an account)
+  subjectKind String
+  subjectId   String
+  /// SELF | REJECTED | TERMINATED
+  cause       String
+  /// CLOSED | REACTIVATED | PURGED
+  state       String   @default("CLOSED")
+  /// Why: the owner's own words, or BTG's reason.
+  reason      String?
+  closedAt    DateTime @default(now())
+  /// The user who closed it; null when the system did.
+  closedBy    String?
+  retainUntil DateTime
+  /// The logins this closure switched off (User ids). Reactivation switches
+  /// on exactly these and no others.
+  userIds                String[] @default([])
+  /// The listings it paused, brought back on reactivation if still paused.
+  pausedListingIds       String[] @default([])
+  /// It withdrew the property's listing access (PROPERTY only).
+  listingAccessWithdrawn Boolean  @default(false)
+  /// Where the reactivation link goes, and who the page greets.
+  contactEmail String
+  displayName  String
+  reactivatedAt DateTime?
+  reactivatedBy String?
+  /// What the re-run checks found on reactivation.
+  recheckNotes  String[] @default([])
+  purgedAt      DateTime?
+  /// A rejected account asking BTG to look again.
+  reactivationRequestedAt  DateTime?
+  reactivationRequestNote  String?
+  /// DECLINED: BTG's answer when it does not reinstate. Reinstating is the
+  /// subject's own BTG decision, which reopens this closure.
+  reactivationDecision     String?
+  reactivationDecidedAt    DateTime?
+  reactivationDecidedBy    String?
+  reactivationDecisionNote String?
+  createdAt DateTime @default(now())
+
+  @@index([tenantId, state, retainUntil])
+  @@index([tenantId, subjectKind, subjectId])
+}
+
+/// 2S1-BE-15 — a new guardian asking to take over a minor's account. It
+/// starts only here, on the public request page; the current guardian hands
+/// off or declines from their portal. The switch is one transaction, and
+/// until it the current guardian keeps acting. A declined or disputed
+/// request goes to BTG support by hand: nothing here decides it.
+model GuardianHandoff {
+  id             String    @id @default(cuid())
+  tenantId       String
+  athleteId      String
+  /// The guardian when the request was made: the only one who can answer.
+  fromGuardianId String
+  requesterName  String
+  requesterEmail String
+  requesterPhone String?
+  /// PARENT | LEGAL_GUARDIAN | AUTHORIZED_REP
+  relationship   String
+  /// REQUESTED (being filled in) | WAITING (with the current guardian) |
+  /// HANDED_OFF (handed off; "BTG staff confirm minors" is on, so BTG
+  /// confirms the switch) | SWITCHED | DECLINED | CANCELLED (the guardian
+  /// changed another way first)
+  state          String    @default("REQUESTED")
+  emailConfirmedAt    DateTime?
+  agreementAcceptedAt DateTime?
+  agreementVersion    String?
+  submittedAt         DateTime?
+  decidedAt           DateTime?
+  decidedBy           String?
+  declineNote         String?
+  /// When the automatic check of the new guardian's email and documents passed.
+  documentsCheckedAt  DateTime?
+  switchedAt          DateTime?
+  /// The Guardian row the athlete moved to (new, or the requester's existing one).
+  newGuardianId       String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+
+  athlete   Athlete                   @relation(fields: [athleteId], references: [id])
+  documents GuardianHandoffDocument[]
+
+  @@index([tenantId, athleteId, state])
+  @@index([tenantId, fromGuardianId, state])
+}
+
+/// 2S1-BE-15 — the new guardian's government ID and proof of guardianship,
+/// in the private bucket. The same document kinds as the guardian's own
+/// sign-up page (2S1-BE-10): GUARDIAN_ID, GUARDIANSHIP_PROOF.
+model GuardianHandoffDocument {
+  id          String    @id @default(cuid())
+  tenantId    String
+  handoffId   String
+  /// GUARDIAN_ID | GUARDIANSHIP_PROOF
+  kind        String
+  /// For GUARDIANSHIP_PROOF: BIRTH_CERTIFICATE | COURT_ORDER | SCHOOL_RECORD
+  proofKind   String?
+  filename    String
+  contentType String
+  bytes       Int
+  r2Key       String    @unique
+  uploadedAt  DateTime?
+  createdAt   DateTime  @default(now())
+
+  handoff GuardianHandoff @relation(fields: [handoffId], references: [id])
+
+  @@index([tenantId, handoffId])
+}
+
+/// 2S1-BE-16 — a message to BTG support from the public contact form. It is
+/// mailed to SUPPORT_EMAIL through the worker (never on the request path),
+/// with a copy to the sender; this row is the queue's record of it.
+model SupportMessage {
+  id        String    @id @default(cuid())
+  tenantId  String
+  name      String
+  email     String
+  /// GUARDIANSHIP | ACCOUNT | PAYMENT | OTHER
+  topic     String
+  message   String
+  /// DRAFT (attachments still uploading) | QUEUED
+  state     String    @default("DRAFT")
+  queuedAt  DateTime?
+  createdAt DateTime  @default(now())
+
+  attachments SupportAttachment[]
+
+  @@index([tenantId, createdAt])
+}
+
+/// 2S1-BE-16 — an optional attachment to a support message, in the private bucket.
+model SupportAttachment {
+  id          String    @id @default(cuid())
+  tenantId    String
+  messageId   String
+  filename    String
+  contentType String
+  bytes       Int
+  r2Key       String    @unique
+  uploadedAt  DateTime?
+  createdAt   DateTime  @default(now())
+
+  message SupportMessage @relation(fields: [messageId], references: [id])
+
+  @@index([tenantId, messageId])
 }

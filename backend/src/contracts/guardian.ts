@@ -32,10 +32,14 @@ export const GuardianInput = z
     email: z.email(),
     phone: z.string().min(7).max(32).optional(),
     relationship: GuardianRelationship,
+    /* 2S1-BE-15 — a BTG admin replacing an existing guardian by hand (a dispute) says why. */
+    replaceReason: z.string().min(1).max(1000).optional(),
   })
   .meta({
     id: "GuardianInput",
-    description: "The adult authorising a minor's participation. Linking is refused for an adult athlete.",
+    description:
+      "The adult authorising a minor's participation. Linking is refused for an adult athlete, and for a minor who already has a guardian " +
+      "(409 handoff_required — the handoff is the way to change guardian). Only a BTG admin may replace an existing guardian, with a replaceReason.",
   });
 
 /**

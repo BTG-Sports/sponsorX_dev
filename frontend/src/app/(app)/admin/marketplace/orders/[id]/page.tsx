@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { MopsOrderActions } from "@/components/mops-order-actions";
+import { OrderGateRecordCard } from "@/components/order-gate-record";
 import { NotInRole, staffWithoutAccess } from "@/components/not-in-role";
 import { EmptyState } from "@/components/states";
 import { Badge, Card, SectionHeading } from "@/components/ui";
@@ -13,13 +14,15 @@ import {
   type ApiLineFinancials,
   type ApiMarketplaceOrder,
 } from "@/lib/marketplace-ops-live";
+import type { OrderGateRecord } from "@/lib/checkout-gate";
 import { dateLabel } from "@/lib/onboarding-live";
 import { paymentView, type ApiOrderPayment } from "@/lib/order-payment-live";
 import { apiFetch } from "@/server/api";
 
 /* --------------------------------------------------------------------------
    One marketplace order — 2S7-FE-02. Its lines, why policy held it, the
-   frozen split per line, and what BTG can do next.
+   frozen split per line, what BTG can do next, and (2S4-FE-02) the billing
+   contact and order-terms acceptance the sponsor gave at checkout.
 
    Reads GET /marketplace-orders/:id and GET /marketplace-orders/:id/financials
    (the split is written at contract time — before approval there is none).
@@ -61,7 +64,7 @@ export default async function MarketplaceOrderPage({ params }: { params: Promise
   }
   if (!res.ok) throw new Error(`The order didn't load (${res.status}).`);
   if (!finRes.ok && finRes.status !== 403) throw new Error(`The order's split didn't load (${finRes.status}).`);
-  const order = (await res.json()) as ApiMarketplaceOrder;
+  const order = (await res.json()) as ApiMarketplaceOrder & OrderGateRecord;
   const financials: ApiLineFinancials[] | null = finRes.ok ? ((await finRes.json()) as { lines: ApiLineFinancials[] }).lines : null;
   const state = ORDER_STATE_COPY[order.state];
   const byLine = new Map((financials ?? []).map((f) => [f.lineId, f]));
@@ -168,6 +171,7 @@ export default async function MarketplaceOrderPage({ params }: { params: Promise
             <SectionHeading title="Actions" hint="Recorded against your account in the audit log." />
             <MopsOrderActions key={order.state} id={order.id} state={order.state} />
           </Card>
+          <OrderGateRecordCard order={order} />
           {(order.decidedAt || order.decisionNotes) && (
             <Card>
               <SectionHeading title="Decision" />

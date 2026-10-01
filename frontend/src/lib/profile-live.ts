@@ -46,6 +46,10 @@ export type ApiMyProfile = {
   socials: ApiSocial[];
   ratesConfirmed: number;
   agreementsSigned: number;
+  /** 2S1-BE-14 — the sensitive fields the editor shows. */
+  birthDate?: string | null;
+  ageBand?: string | null;
+  guardian?: { legalName: string; verifiedAt: string | null } | null;
 };
 
 /** One row of GET /athletes/{id}/rates — the athlete's own pay, in cents

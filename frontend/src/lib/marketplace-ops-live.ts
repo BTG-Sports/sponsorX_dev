@@ -177,6 +177,36 @@ export function splitRows(f: ApiLineFinancials): SplitRow[] {
   return rows;
 }
 
+/* ── the console's money exceptions ───────────────────────────────────── */
+
+/** GET /payments/failed — an order still owing payment whose latest card
+ *  payment failed (backend domain/payouts.ts failedPayments). */
+export type ApiFailedPayment = {
+  orderId: string;
+  orderRef: string;
+  orderState: MarketplaceOrderState;
+  totalCents: number;
+  sponsorId: string;
+  sponsorName: string;
+  attemptId: string;
+  amountCents: number;
+  failureReason: string | null;
+  failedAt: string;
+  failedTries: number;
+};
+
+/** "1 failed try", "3 failed tries". */
+export const failedTriesLabel = (n: number) => `${n} failed ${n === 1 ? "try" : "tries"}`;
+
+/** The provider's reason, or plain words when it gave none. */
+export const failureCopy = (reason: string | null | undefined) => reason?.trim() || "The payment provider gave no reason.";
+
+/** When a failed payout last moved: handed to the provider (each retry
+ *  re-sends it), else approved, else requested. Payouts carry no failedAt. */
+export function payoutProblemSince(p: { sentAt: string | null; decidedAt: string | null; requestedAt: string }): string {
+  return p.sentAt ?? p.decidedAt ?? p.requestedAt;
+}
+
 /* ── figures ──────────────────────────────────────────────────────────── */
 
 const USD = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" });
@@ -198,6 +228,12 @@ export function waitLabel(fromIso: string | null | undefined, now: number): stri
   if (hours < 24) return `${hours} h`;
   const days = Math.floor(hours / 24);
   return days === 1 ? "1 day" : `${days} days`;
+}
+
+/** "40 min ago", "3 days ago", "just now"; "—" for no time. */
+export function agoLabel(fromIso: string | null | undefined, now: number): string {
+  const w = waitLabel(fromIso, now);
+  return w === null ? "—" : w === "just now" ? w : `${w} ago`;
 }
 
 /** Waiting longer than two days is flagged — BTG's review target (simulated). */

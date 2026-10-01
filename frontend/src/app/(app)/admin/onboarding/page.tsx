@@ -24,6 +24,11 @@ import { apiFetch } from "@/server/api";
    oldest submission first as the API sorts. Pending review is the default.
    BTG_ADMIN (own tenant) and SUPER_ADMIN only — every other role is 403 at
    the API and "not in your role" here. Decisions are on the detail page.
+
+   2S1-FE-05 adds BTG's checks afterwards (2S1-BE-06 / -07): "Approved
+   automatically" (GET /onboarding?list=auto — newest first, for spot
+   checks) and "Flagged" (GET /onboarding?list=flagged — a required
+   document removed after approval). A held application shows its reasons.
    -------------------------------------------------------------------------- */
 
 export const dynamic = "force-dynamic";
@@ -36,9 +41,15 @@ export default async function OnboardingQueuePage({ searchParams }: { searchPara
   if (lacking) return <NotInRole path={PATH} title="Property verification" roles={lacking} />;
 
   const sp = await searchParams;
+  /* 2S1-FE-05 — the two lists for BTG's checks afterwards. */
+  const list = sp.list === "auto" || sp.list === "flagged" ? sp.list : null;
   const tab: OnboardingState = isOnboardingState(sp.state) ? sp.state : "PENDING_REVIEW";
 
-  const responses = await Promise.all(ONBOARDING_STATES.map((s) => apiFetch(`/onboarding?state=${s}`)));
+  const responses = await Promise.all([
+    ...ONBOARDING_STATES.map((s) => apiFetch(`/onboarding?state=${s}`)),
+    apiFetch("/onboarding?list=auto"),
+    apiFetch("/onboarding?list=flagged"),
+  ]);
   if (responses.some((r) => r.status === 403)) {
     return (
       <div className="space-y-5">
@@ -51,7 +62,9 @@ export default async function OnboardingQueuePage({ searchParams }: { searchPara
   if (bad) throw new Error(`The verification queue didn't load (${bad.status}).`);
   const lists = await Promise.all(responses.map(async (r) => ((await r.json()) as { onboardings: ApiOnboarding[] }).onboardings));
   const byState = Object.fromEntries(ONBOARDING_STATES.map((s, i) => [s, lists[i]!])) as Record<OnboardingState, ApiOnboarding[]>;
-  const rows = byState[tab];
+  const auto = lists[ONBOARDING_STATES.length]!;
+  const flagged = lists[ONBOARDING_STATES.length + 1]!;
+  const rows = list === "auto" ? auto : list === "flagged" ? flagged : byState[tab];
   const now = new Date().getTime();
 
   return (
@@ -68,26 +81,50 @@ export default async function OnboardingQueuePage({ searchParams }: { searchPara
           <Link
             key={s}
             href={s === "PENDING_REVIEW" ? PATH : `${PATH}?state=${s}`}
-            aria-current={s === tab ? "page" : undefined}
-            className={`rounded-md px-3 py-1.5 text-xs font-medium ${s === tab ? "bg-primary/15 text-primary-soft" : "text-muted hover:text-text"}`}
+            aria-current={!list && s === tab ? "page" : undefined}
+            className={`rounded-md px-3 py-1.5 text-xs font-medium ${!list && s === tab ? "bg-primary/15 text-primary-soft" : "text-muted hover:text-text"}`}
           >
             {STATE_COPY[s].label} <span className="tabular-nums text-faint">{byState[s].length}</span>
           </Link>
         ))}
+        {([["auto", "Approved automatically", auto], ["flagged", "Flagged", flagged]] as const).map(([key, label, items]) => (
+          <Link
+            key={key}
+            href={`${PATH}?list=${key}`}
+            aria-current={list === key ? "page" : undefined}
+            className={`rounded-md px-3 py-1.5 text-xs font-medium ${list === key ? "bg-primary/15 text-primary-soft" : "text-muted hover:text-text"}`}
+          >
+            {label} <span className="tabular-nums text-faint">{items.length}</span>
+          </Link>
+        ))}
       </nav>
+
+      {list === "auto" && rows.length > 0 && (
+        <p className="text-xs text-muted">Every organization the system approved, newest first. Open one to spot-check its documents, and reject it if something is wrong.</p>
+      )}
 
       {rows.length === 0 ? (
         <EmptyState
           mark="inbox"
-          title={tab === "PENDING_REVIEW" ? "Nothing waiting for review" : `No ${STATE_COPY[tab].label.toLowerCase()} applications`}
-          hint="Applications arrive here when a team, school, event or venue submits the onboarding wizard at /onboarding."
+          title={
+            list === "auto" ? "Nothing approved automatically yet"
+              : list === "flagged" ? "Nothing flagged"
+              : tab === "PENDING_REVIEW" ? "Nothing waiting for review" : `No ${STATE_COPY[tab].label.toLowerCase()} applications`
+          }
+          hint={
+            list === "flagged"
+              ? "An approved organization is flagged here when a required document is removed without a replacement."
+              : "Applications arrive here when a team, school, event, venue or agency submits the onboarding wizard at /onboarding."
+          }
         />
       ) : (
         <Card className="p-0">
           <ul className="divide-y divide-line-soft">
             {rows.map((o) => {
-              const wait = tab === "PENDING_REVIEW" ? waitLabel(o.submittedAt, now) : null;
-              const late = tab === "PENDING_REVIEW" && isOverdue(o.submittedAt, now);
+              const waiting = !list && tab === "PENDING_REVIEW";
+              const wait = waiting ? waitLabel(o.submittedAt, now) : null;
+              const late = waiting && isOverdue(o.submittedAt, now);
+              const why = o.state === "PENDING_REVIEW" ? o.reviewReasons : o.flags;
               return (
                 <li key={o.id}>
                   <Link href={`${PATH}/${o.id}`} className="flex flex-wrap items-center justify-between gap-3 px-5 py-3 hover:bg-surface-2">
@@ -98,11 +135,13 @@ export default async function OnboardingQueuePage({ searchParams }: { searchPara
                         {o.stateCode ? ` · ${o.stateCode}` : ""}
                         {o.submittedAt ? ` · submitted ${dateLabel(o.submittedAt)}` : ` · started ${dateLabel(o.createdAt)}`}
                         {o.documents.length ? ` · ${o.documents.filter((d) => d.uploadedAt).length} document(s)` : ""}
+                        {list === "auto" && o.decidedAt ? ` · approved automatically ${dateLabel(o.decidedAt)}` : ""}
                       </p>
+                      {why?.length > 0 && <p className="mt-0.5 text-[11px] text-warn">{why.join(" · ")}</p>}
                     </div>
                     <div className="flex items-center gap-2">
                       {wait && <span className={`text-[11px] tabular-nums ${late ? "text-warn" : "text-faint"}`}>waiting {wait}</span>}
-                      {tab === "DRAFT" && o.missing.length > 0 && <span className="text-[11px] text-faint">{o.missing.length} answer(s) missing</span>}
+                      {!list && tab === "DRAFT" && o.missing.length > 0 && <span className="text-[11px] text-faint">{o.missing.length} answer(s) missing</span>}
                       <Badge tone={STATE_COPY[o.state].tone}>{STATE_COPY[o.state].label}</Badge>
                     </div>
                   </Link>

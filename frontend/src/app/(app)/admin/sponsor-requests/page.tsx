@@ -4,7 +4,7 @@ import { NotInRole, staffWithoutAccess } from "@/components/not-in-role";
 import { Badge, Card } from "@/components/ui";
 import { EmptyState } from "@/components/states";
 import {
-  REQUEST_TABS, askedAgo, requestTab, stampOf, stateBadge, zohoLabel, type ApiSponsorRequestList,
+  REQUEST_TABS, askedAgo, emptyTitle, requestTab, stampOf, stateBadge, zohoLabel, type ApiSponsorRequestList,
 } from "@/lib/sponsor-requests-live";
 import { apiFetch } from "@/server/api";
 
@@ -13,7 +13,8 @@ import { apiFetch } from "@/server/api";
    SR-1). BTG admin and Sales: businesses asking to sponsor. Approving opens
    their account and emails them a sign-in link (on the request's own page).
 
-   Reads  GET /sponsor-requests?state=NEW|APPROVED|DECLINED   the tab + every count
+   Reads  GET /sponsor-requests?state=NEW|APPROVED|DECLINED|REJECTED   the tab + every count
+          (Rejected: approved accounts BTG rejected afterwards — Reinstate is on each one's page)
    -------------------------------------------------------------------------- */
 
 export const dynamic = "force-dynamic";
@@ -53,7 +54,7 @@ export default async function SponsorRequestsPage({ searchParams }: { searchPara
       {list.requests.length === 0 ? (
         <EmptyState
           mark="inbox"
-          title={tab.state === "NEW" ? "No requests waiting" : tab.state === "APPROVED" ? "None approved yet" : "None declined"}
+          title={emptyTitle(tab.state)}
           hint={tab.state === "NEW" ? "New ones appear here as businesses ask to sponsor." : ""}
         />
       ) : (

@@ -11,10 +11,16 @@
    so an acceptance of words or terms they didn't see is never recorded
    (the API answers 409 and the screen reloads).
 
+   The third answer, REQUEST_CHANGE, carries a note (≤ 2000 chars). It
+   neither accepts nor declines: the offer stays SENT — terms fixed once
+   sent can't be revised in place, so BTG answers by withdrawing it and
+   sending a revised offer, or by telling the athlete it stands — and the
+   athlete can still accept or decline. The API records who asked, the note
+   and when (`changeRequests`), audits it and emails the campaign managers.
+
    Every figure shown is an offer field. Not on the wire: the team's share
-   of the pay (the offer carries the gross compensation only), the
-   sponsor's brand categories an exclusivity covers, and any "request a
-   change" — the decision is ACCEPT or DECLINE only.
+   of the pay (the offer carries the gross compensation only) and the
+   sponsor's brand categories an exclusivity covers.
    -------------------------------------------------------------------------- */
 
 import { fmtDay, refusalMessage, usd } from "./inventory-live";
@@ -24,6 +30,9 @@ export { usd, fmtDay };
 export type OfferState = "DRAFT" | "SENT" | "ACCEPTED" | "DECLINED" | "WITHDRAWN";
 
 export type ApiOfferAgreement = { id: string; version: number; bodyHash: string; body: string };
+
+/** One "request a change": who asked (a user id), what, and when. */
+export type ApiOfferChangeRequest = { id: string; note: string; requestedBy: string; createdAt: string };
 
 export type ApiOffer = {
   id: string;
@@ -51,6 +60,8 @@ export type ApiOffer = {
   /** GET /offers/:id only, while SENT: the agreement the acceptance signs, or
    *  null when none is issued or its text can't be served. */
   agreement?: ApiOfferAgreement | null;
+  /** Oldest first. Absent from an API older than 2S2-FE-03's. */
+  changeRequests?: ApiOfferChangeRequest[];
 };
 
 export type OfferStatus = "draft" | "open" | "expired" | "accepted" | "declined" | "withdrawn";
@@ -166,8 +177,31 @@ export function acceptBlocker(o: ApiOffer, now: Date = new Date()): string | nul
 }
 
 export type RespondResult =
-  | { ok: true; state: OfferState; orderId: string | null }
+  | { ok: true; state: OfferState; orderId: string | null; changeRequest?: ApiOfferChangeRequest | null }
   | { ok: false; message: string; reload?: boolean };
+
+/** The API's limit on a change request's note. */
+export const CHANGE_NOTE_MAX = 2000;
+
+/** Why this note can't be sent yet, or null — the API asks the same. */
+export function changeNoteProblem(note: string): string | null {
+  const t = note.trim();
+  if (!t) return "Say what you'd like changed.";
+  if (t.length > CHANGE_NOTE_MAX) return `At most ${CHANGE_NOTE_MAX.toLocaleString("en-US")} characters — ${t.length.toLocaleString("en-US")} now.`;
+  return null;
+}
+
+/** The most recent change request on the offer, or null. */
+export function latestChangeRequest(o: Pick<ApiOffer, "changeRequests">): ApiOfferChangeRequest | null {
+  const all = o.changeRequests ?? [];
+  if (!all.length) return null;
+  return [...all].sort((a, b) => a.createdAt.localeCompare(b.createdAt))[all.length - 1];
+}
+
+/** "Oct 1, 2026, 2:05 PM UTC" — when a change was asked for. */
+export function fmtWhen(iso: string): string {
+  return `${new Date(iso).toLocaleString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit", timeZone: "UTC" })} UTC`;
+}
 
 /**
  * A refusal, in the athlete's words. A 409 is usually "what you saw is no

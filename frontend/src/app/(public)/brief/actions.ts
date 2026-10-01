@@ -16,11 +16,16 @@ import { edgeHeadersFrom } from "@/server/edge";
    staff member who picks the Lead up. A server action, like /join's, because
    API_URL is server-side; the edge headers let the API rate-limit the
    visitor rather than the web server (P8-SEC-03).
+
+   2S1-FE-11: the body also carries businessType / businessTypeOther, and the
+   API answers with a requestToken — the key this browser uses to upload the
+   proof of business and read the request's status (2S1-BE-17), and nothing
+   else. It is handed back to the wizard to keep in the draft.
    -------------------------------------------------------------------------- */
 
 const API_URL = process.env.API_URL ?? "http://localhost:4000";
 
-export type BriefResult = { ok: true; id: string } | { ok: false; message: string };
+export type BriefResult = { ok: true; id: string; requestToken: string } | { ok: false; message: string };
 
 export async function submitBriefRequest(draft: BriefDraft): Promise<BriefResult> {
   /* A server action is a public endpoint: the argument is whatever the caller
@@ -54,14 +59,14 @@ export async function submitBriefRequest(draft: BriefDraft): Promise<BriefResult
     };
   }
   if (res.status === 201) {
-    const body = (await res.json()) as { id: string };
-    return { ok: true, id: body.id };
+    const body = (await res.json()) as { id: string; requestToken: string };
+    return { ok: true, id: body.id, requestToken: body.requestToken };
   }
   if (res.status === 429) {
     return { ok: false, message: "Too many requests from this connection in the last hour. Your answers are saved — try again later." };
   }
   if (res.status === 400) {
-    return { ok: false, message: "Something in the form wasn't accepted — check your name and email and try again." };
+    return { ok: false, message: "Something in the form wasn't accepted — check your name, email and business type and try again." };
   }
   return { ok: false, message: `The request wasn't accepted (HTTP ${res.status}). Your answers are saved — try again.` };
 }

@@ -14,7 +14,7 @@ import { limit } from "../../lib/rate-limit";
 import { clientIp } from "../../lib/client-ip";
 import { PayoutAccountLinkInput, PayoutDecisionInput, PayoutListQuery, StandinAccountInput, StandinCheckoutInput } from "../../contracts/payouts";
 import {
-  completeStandinAccount, completeStandinCheckout, decidePayout, getPayout, isPayoutState, listPayouts, myPayoutAccount,
+  completeStandinAccount, completeStandinCheckout, decidePayout, failedPayments, getPayout, isPayoutState, listPayouts, myPayoutAccount,
   myPayouts, orderPayment, payoutAccountLink, requestPayout, retryPayout, standinDetails, startCardPayment, type PayoutState,
 } from "../../domain/payouts";
 
@@ -41,6 +41,10 @@ payoutsRouter.post("/payouts/:id/decision", requireActor, (async (req, res) => {
   res.json(await decidePayout(req.actor!, req.params.id, b.decision, b.note));
 }) as RequestHandler<Id>);
 payoutsRouter.post("/payouts/:id/retry", requireActor, (async (req, res) => { res.json(await retryPayout(req.actor!, req.params.id)); }) as RequestHandler<Id>);
+
+/* BTG's failed card payments (2S7-FE-02, the marketplace console). Not under
+   /marketplace-orders, where it would read as an order id. */
+payoutsRouter.get("/payments/failed", requireActor, (async (req, res) => { res.json(await failedPayments(req.actor!)); }) as RequestHandler);
 
 /* The sponsor paying an approved order. */
 payoutsRouter.get("/marketplace-orders/:id/payment", requireActor, (async (req, res) => { res.json(await orderPayment(req.actor!, req.params.id)); }) as RequestHandler<Id>);
