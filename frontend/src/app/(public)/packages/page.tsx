@@ -1,20 +1,14 @@
-import Link from "next/link";
-import { Monogram, initials } from "@/components/hero";
-import { Badge } from "@/components/ui";
 import {
-  INVENTORY_COPY,
-  marketplacePackages,
-  type InventoryState,
-} from "@/lib/fixtures";
-
-/** Static stagger classes (globals.css) — index by clamped position. */
-const STAGGER = [
-  "sx-delay-1",
-  "sx-delay-2",
-  "sx-delay-3",
-  "sx-delay-4",
-  "sx-delay-5",
-] as const;
+  BriefSteps,
+  Catalogue,
+  InsideBand,
+  PackagesClose,
+  PackagesHero,
+  PriceLadder,
+  type PackageView,
+} from "@/components/packages-stage";
+import { StageReveal } from "@/components/packages-fx";
+import { marketplacePackages, rates } from "@/lib/fixtures";
 
 /* --------------------------------------------------------------------------
    Sponsor Package Catalog — public, §9 screen 4 · §7.
@@ -22,6 +16,12 @@ const STAGGER = [
    The six standardized packages, from the $750 Test Drive to the $15–30K+
    Season Partner. This is the public marketing view; the signed-in sponsor
    catalogue with athlete/media inventory is /sponsor/marketplace.
+
+   Redesigned 2026-09-30 to match the landing page's visual language: a
+   fixed-dark stage (packages-stage.tsx) with the HUD hero and its "THE
+   RANGE" card, the what's-inside band, the log-scale price ladder, the
+   glass catalogue cards, the three managed steps and the closing panel.
+   This file only fetches, normalises and lays the sections out.
 
    Phase 1 is a managed marketplace (§17): a sponsor requests or reserves a
    brief — there is no self-service checkout until Phase 2. Filters are §9.4's
@@ -63,6 +63,12 @@ const athleteRange = (p: LivePackage) =>
     ? `${p.athleteCountMin}`
     : `${p.athleteCountMin}–${p.athleteCountMax}`;
 
+/** §5 job names by code, so a live line item reads "2× Athlete Reel" and not
+ *  "2× SX-03" — the code stays in the title for the ones that know it. */
+const JOB_NAME = Object.fromEntries(rates.map((r) => [r.jobId, r.name]));
+const jobLine = (li: LivePackage["lineItems"][number]) =>
+  `${li.quantityPerAthlete}× ${JOB_NAME[li.jobCode] ?? li.jobCode}`;
+
 async function livePackages(): Promise<LivePackage[] | null> {
   try {
     const res = await fetch(`${API_URL}/api/v1/public/catalogue/packages`, {
@@ -77,194 +83,81 @@ async function livePackages(): Promise<LivePackage[] | null> {
   }
 }
 
-const STATE_TONE: Record<InventoryState, "accent" | "warn" | "primary" | "neutral"> = {
-  ACTIVE: "accent",
-  LIMITED: "warn",
-  BOOKED: "primary",
-  SOLD_OUT: "neutral",
-};
-
-const FILTERS = ["Sport", "Geography", "Athlete tier", "Job type", "Budget"];
-
-function Chevron() {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      className="size-3"
-      aria-hidden="true"
-    >
-      <path d="m6 9 6 6 6-6" />
-    </svg>
-  );
+/** Fixture prices are display strings ("$1,500–$3,000", "~$5,000",
+ *  "$15K–$30K+"); the ladder and range card need numbers. */
+function parseDollars(s: string): [number, number] {
+  const nums = s.match(/\$\s*[\d,.]+K?/g) ?? [];
+  const toNum = (t: string) => {
+    const k = /K/i.test(t);
+    const n = parseFloat(t.replace(/[^\d.]/g, ""));
+    return Math.round(k ? n * 1000 : n);
+  };
+  const vals = nums.map(toNum);
+  return vals.length === 0 ? [0, 0] : [vals[0], vals[vals.length - 1]];
 }
+
+const fromLive = (p: LivePackage, i: number, all: LivePackage[]): PackageView => ({
+  key: p.code,
+  code: p.code,
+  name: p.name,
+  meta: [p.durationWeeks ? `${p.durationWeeks}-week campaign` : "Flexible duration", p.exclusivity && "category exclusivity"]
+    .filter(Boolean)
+    .join(" · "),
+  price: priceRange(p),
+  low: p.priceLow,
+  high: p.priceHigh,
+  athletes: athleteRange(p),
+  athleteMin: p.athleteCountMin,
+  athleteMax: p.athleteCountMax,
+  items: p.lineItems.map(jobLine),
+  // The live list carries no "popular" flag; light the middle of the range.
+  featured: i === Math.floor((all.length - 1) / 2),
+  exclusive: p.exclusivity,
+});
+
+const fromFixture = (p: (typeof marketplacePackages)[number]): PackageView => {
+  const [low, high] = parseDollars(p.price);
+  const a = p.athletes.match(/\d+/g)?.map(Number) ?? [];
+  return {
+    key: p.id,
+    name: p.name,
+    meta: p.note,
+    price: p.price,
+    low,
+    high,
+    athletes: p.athletes,
+    athleteMin: a[0] ?? null,
+    athleteMax: a[a.length - 1] ?? null,
+    // "Short-form content + stories" → one line each, sentence-cased.
+    items: p.includes
+      .split(/\s*\+\s*|,\s*/)
+      .map((s) => s.trim())
+      .filter(Boolean)
+      .map((s) => s[0].toUpperCase() + s.slice(1)),
+    featured: Boolean(p.featured),
+    // The fixture's "includes" already names exclusivity where it applies.
+    exclusive: false,
+    state: p.state,
+  };
+};
 
 export default async function PackagesPage() {
   const live = await livePackages();
+  const pkgs = live
+    ? [...live].sort((a, b) => a.priceLow - b.priceLow).map(fromLive)
+    : marketplacePackages.map(fromFixture);
+
+  // What the packages contain, once each, for the band.
+  const inside = Array.from(new Set(pkgs.flatMap((p) => p.items.map((it) => it.replace(/^\d+×\s*/, "")))));
 
   return (
-    <div className="mx-auto w-full max-w-6xl px-6 py-12">
-      {/* ------------------------------------------------------------ hero */}
-      <div className="max-w-2xl">
-        <Badge tone="primary">Phase 1</Badge>
-        <h1 className="mt-3 text-3xl font-bold tracking-tight">
-          Sponsorship packages
-        </h1>
-        <p className="mt-3 text-sm leading-relaxed text-muted">
-          Standardized ways to work with the SponsorX athlete network — priced,
-          scoped and ready to brief. Pick a starting point; BTG matches the
-          athletes, checks conflicts and handles the paperwork.
-        </p>
-      </div>
-
-      {/* --------------------------------------------------------- filters */}
-      <div className="mt-8 flex flex-wrap items-center gap-2">
-        {FILTERS.map((f) => (
-          <button
-            key={f}
-            type="button"
-            title="Filters not wired — needs the §13 eligibility query"
-            className="flex items-center gap-2 rounded-lg border border-line bg-surface px-3 py-1.5 text-[11px] font-medium text-muted transition-colors hover:text-text"
-          >
-            {f}
-            <Chevron />
-          </button>
-        ))}
-      </div>
-
-      {/* ---------------------------------------------------------- grid */}
-      {live ? (
-        <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {live.map((p, i) => (
-            <div
-              key={p.id}
-              className={[
-                "flex flex-col rounded-xl border border-line bg-surface p-5 sx-animate",
-                STAGGER[Math.min(i, 4)],
-              ].join(" ")}
-            >
-              <div className="flex items-start justify-between gap-3">
-                <div className="flex min-w-0 items-start gap-3">
-                  <Monogram text={initials(p.name)} tone="accent" className="size-9 text-[11px]" />
-                  <div className="min-w-0">
-                    <p className="text-sm font-semibold tracking-tight">{p.name}</p>
-                    <p className="mt-0.5 text-[11px] text-muted">
-                      {p.durationWeeks
-                        ? `${p.durationWeeks}-week campaign`
-                        : "Flexible duration"}
-                      {p.exclusivity && " · category exclusivity"}
-                    </p>
-                  </div>
-                </div>
-                <Badge tone="neutral">{p.code}</Badge>
-              </div>
-
-              <div className="mt-4 flex items-baseline gap-2">
-                <span className="text-2xl font-semibold tracking-tight">{priceRange(p)}</span>
-                <span className="text-[11px] text-faint">
-                  {athleteRange(p)} {p.athleteCountMax === 1 ? "athlete" : "athletes"}
-                </span>
-              </div>
-
-              {/* The job-code line items the package contains — the §7 list
-                  itself, not a marketing paraphrase of it. */}
-              <p className="mt-3 flex flex-1 flex-wrap content-start gap-1.5">
-                {p.lineItems.map((li) => (
-                  <Badge key={li.jobCode} tone="neutral">
-                    {li.quantityPerAthlete}× {li.jobCode}
-                  </Badge>
-                ))}
-              </p>
-
-              <Link
-                href={`/brief?package=${p.code}`}
-                className="mt-5 block w-full rounded-lg bg-primary py-2.5 text-center text-xs font-medium text-cta-ink transition-colors hover:bg-primary-soft"
-              >
-                Request a brief
-              </Link>
-            </div>
-          ))}
-        </div>
-      ) : (
-      <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-        {marketplacePackages.map((p, i) => (
-          <div
-            key={p.id}
-            className={[
-              "flex flex-col rounded-xl border bg-surface p-5 sx-animate",
-              STAGGER[Math.min(i, 4)],
-              p.featured ? "border-primary/50" : "border-line",
-            ].join(" ")}
-          >
-            <div className="flex items-start justify-between gap-3">
-              <div className="flex min-w-0 items-start gap-3">
-                <Monogram
-                  text={initials(p.name)}
-                  tone={p.featured ? "primary" : "accent"}
-                  className="size-9 text-[11px]"
-                />
-                <div className="min-w-0">
-                  <p className="text-sm font-semibold tracking-tight">
-                    {p.name}
-                  </p>
-                  <p className="mt-0.5 text-[11px] text-muted">{p.note}</p>
-                </div>
-              </div>
-              {p.featured ? (
-                <Badge tone="primary">Popular</Badge>
-              ) : (
-                <Badge tone={STATE_TONE[p.state]}>{INVENTORY_COPY[p.state]}</Badge>
-              )}
-            </div>
-
-            <div className="mt-4 flex items-baseline gap-2">
-              <span className="text-2xl font-semibold tracking-tight">
-                {p.price}
-              </span>
-              <span className="text-[11px] text-faint">{p.athletes} athletes</span>
-            </div>
-
-            <p className="mt-3 flex-1 text-[11px] leading-relaxed text-muted">
-              {p.includes}
-            </p>
-
-            <Link
-              href={`/brief?package=${p.id}`}
-              className="mt-5 block w-full rounded-lg bg-primary py-2.5 text-center text-xs font-medium text-cta-ink transition-colors hover:bg-primary-soft"
-            >
-              Request a brief
-            </Link>
-          </div>
-        ))}
-      </div>
-      )}
-
-      {/* ------------------------------------------------------- explainer */}
-      <div className="mt-8 grid gap-4 sm:grid-cols-3">
-        {[
-          ["1 · Request a brief", "Tell BTG the goal, budget and market. No card, no checkout."],
-          ["2 · BTG matches athletes", "Eligibility, conflicts and rates are handled by BTG staff."],
-          ["3 · Campaign goes live", "You approve content; fans redeem rewards; you get an ROI report."],
-        ].map(([title, body]) => (
-          <div key={title} className="rounded-xl border border-line bg-surface p-4">
-            <p className="text-xs font-semibold tracking-tight">{title}</p>
-            <p className="mt-1.5 text-[11px] leading-relaxed text-muted">{body}</p>
-          </div>
-        ))}
-      </div>
-
-      <p className="mt-6 text-[10px] leading-relaxed text-faint">
-        Phase 1 sponsors request or reserve — there is no self-service checkout
-        until Phase 2. Prices are indicative; the final quote comes from
-        BTG after matching. Already know what you want?{" "}
-        <Link href="/sponsor/marketplace" className="text-accent underline underline-offset-2 hover:no-underline">
-          Browse the full marketplace
-        </Link>
-        .
-      </p>
-    </div>
+    <StageReveal className="sx-stage relative -mt-[72px] w-full overflow-x-clip text-on-media">
+      <PackagesHero pkgs={pkgs} live={Boolean(live)} />
+      <InsideBand items={inside} />
+      <PriceLadder pkgs={pkgs} />
+      <Catalogue pkgs={pkgs} />
+      <BriefSteps />
+      <PackagesClose />
+    </StageReveal>
   );
 }

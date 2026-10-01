@@ -19,8 +19,9 @@
      reveal  the name lifts away and an X-shaped hole tears open in the
              middle of the ink, then the blue, then the orange, each hole
              turning upright as it widens, until the new page is all there
-             is. On the home, `html[data-sx-loaded]` is set as the hole
-             opens so the hero's own entrance plays through it.
+             is. `html[data-sx-loaded]` is set as the hole opens so the
+             destination's own entrance (the home's hero, the
+             /packages stage) plays through it.
 
    Links are not touched: one capture-phase click listener on window cancels
    the default and Next's <Link> then stands down (it checks
@@ -97,6 +98,14 @@ function prepareHome() {
   const load = useLoad.getState();
   load.reset();
   load.setTask("content", 1);
+}
+
+/** Before the push: clear `html[data-sx-loaded]` so the destination's own
+ *  entrance (the home's hero, the /packages stage) waits for the reveal,
+ *  which sets it again as the hole opens. */
+function prepareArrival(path: string) {
+  if (path === "/") prepareHome();
+  else delete document.documentElement.dataset.sxLoaded;
 }
 
 function prefersReducedMotion() {
@@ -233,7 +242,7 @@ export function PageTransition() {
       void anims[anims.length - 1].finished
         .then(() => {
           if (!live) return;
-          if (r.path === "/") prepareHome();
+          prepareArrival(r.path);
           router.push(r.href);
           go("hold");
         })
@@ -246,7 +255,7 @@ export function PageTransition() {
     if (phase === "hold") {
       if (r.instant) {
         lockScroll();
-        if (r.path === "/") prepareHome();
+        prepareArrival(r.path);
       }
       const start = performance.now();
       const minHold = r.instant ? MIN_HOLD_INSTANT_MS : MIN_HOLD_MS;
