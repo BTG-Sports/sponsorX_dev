@@ -99,6 +99,16 @@ export const OfferInput = z
   })
   .strict()
   .meta({ id: "OfferInput", description: "A formal offer: brief, pay, deliverables, usage rights, exclusivity, disclosures (2S2-BE-03)." });
+/* 2S2-FE-03 — editing a DRAFT: any term but whose offer it is (campaign,
+   athlete). Merged over the row; the domain asks the whole draft again. */
+export const OfferPatch = OfferInput.omit({ campaignId: true, athleteId: true })
+  .partial()
+  .strict()
+  .meta({ id: "OfferPatch", description: "Edit a DRAFT offer: any of its terms except the campaign and the athlete. The merged draft must clear every check drafting does (terms, item, exclusivity, restrictions, floor, budget)." });
+export const OfferKeepInput = z
+  .object({ note: z.string().trim().min(1).max(2000).describe("BTG's reply to the athlete — why the offer stands") })
+  .strict()
+  .meta({ id: "OfferKeepInput", description: "Answer a change request by keeping the offer as it is, with a reply to the athlete (2S2-FE-03)." });
 export const OfferResponseInput = z
   .object({
     /* 2S2-FE-03 — REQUEST_CHANGE neither accepts nor declines: the offer

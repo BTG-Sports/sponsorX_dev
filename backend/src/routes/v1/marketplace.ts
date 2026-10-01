@@ -9,7 +9,7 @@ import { requireActor } from "../../auth/actor";
 import { clientIp, clientUserAgent } from "../../lib/client-ip";
 import {
   BrandingInput, InventoryItemInput, InventoryItemPatch, ListingDecisionInput, ListingInput, ListingPatch, ListingState,
-  ListingTransitionInput, LogoUploadInput, OfferInput, OfferResponseInput, RosterAthleteInput, TeamShareInput,
+  ListingTransitionInput, LogoUploadInput, OfferInput, OfferKeepInput, OfferPatch, OfferResponseInput, RosterAthleteInput, TeamShareInput,
   CartLineInput, CartLinePatch, RestrictionInput, SearchQuery, SponsorCategoriesInput,
   MarketplaceOrderDecisionInput, MarketplaceOrderTransitionInput, PlaceOrderInput,
   CommissionRuleInput, CommissionRuleRevision, CommissionPreviewInput,
@@ -29,7 +29,9 @@ import { addRosterAthlete, setTeamShare, teamAthletesPage, teamInventoryPage, te
 import {
   createListing, decideListing, getListing, listListings, submitListing, transitionListing, updateListing,
 } from "../../domain/listing";
-import { createOffer, getOffer, listOffers, respondToOffer, sendOffer, withdrawOffer } from "../../domain/offer";
+import {
+  createOffer, getOffer, keepOffer, listOffers, respondToOffer, reviseOffer, sendOffer, updateOffer, withdrawOffer,
+} from "../../domain/offer";
 import { mayWriteBranding, readBranding, requestLogoUpload, updateBranding } from "../../domain/branding";
 import { allowedList, pageRequest, searchTerm } from "../../lib/paging";
 import {
@@ -112,7 +114,12 @@ marketplaceRouter.post("/listings/:id/decision", requireActor, decide);
 const offers: RequestHandler = async (req, res) => { res.json({ offers: await listOffers(req.actor!) }); };
 const offer: RequestHandler<Id> = async (req, res) => { res.json(await getOffer(req.actor!, req.params.id)); };
 const newOffer: RequestHandler = async (req, res) => { res.status(201).json(await createOffer(req.actor!, OfferInput.parse(req.body))); };
+const editOffer: RequestHandler<Id> = async (req, res) => { res.json(await updateOffer(req.actor!, req.params.id, OfferPatch.parse(req.body))); };
 const send: RequestHandler<Id> = async (req, res) => { res.json(await sendOffer(req.actor!, req.params.id)); };
+const keep: RequestHandler<{ id: string; requestId: string }> = async (req, res) => {
+  res.json(await keepOffer(req.actor!, req.params.id, req.params.requestId, OfferKeepInput.parse(req.body).note));
+};
+const reviseOne: RequestHandler<Id> = async (req, res) => { res.json(await reviseOffer(req.actor!, req.params.id)); };
 const withdraw: RequestHandler<Id> = async (req, res) => { res.json(await withdrawOffer(req.actor!, req.params.id)); };
 const respond: RequestHandler<Id> = async (req, res) => {
   const b = OfferResponseInput.parse(req.body);
@@ -122,9 +129,12 @@ const respond: RequestHandler<Id> = async (req, res) => {
 marketplaceRouter.get("/offers", requireActor, offers);
 marketplaceRouter.post("/offers", requireActor, newOffer);
 marketplaceRouter.get("/offers/:id", requireActor, offer);
+marketplaceRouter.patch("/offers/:id", requireActor, editOffer);
 marketplaceRouter.post("/offers/:id/send", requireActor, send);
 marketplaceRouter.post("/offers/:id/withdraw", requireActor, withdraw);
 marketplaceRouter.post("/offers/:id/respond", requireActor, respond);
+marketplaceRouter.post("/offers/:id/change-requests/:requestId/keep", requireActor, keep);
+marketplaceRouter.post("/offers/:id/revise", requireActor, reviseOne);
 
 /* ── tenant branding ────────────────────────────────────────────────────── */
 const branding: RequestHandler = async (req, res) => {

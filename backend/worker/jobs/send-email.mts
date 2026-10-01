@@ -353,6 +353,19 @@ ${d.portalUrl ?? ""}
     subject: `Change requested: ${d.sponsorName ?? "a sponsor"} · ${d.campaignName ?? "a campaign"}`,
     text: `${d.athleteName ?? "An athlete"} asked for a change to the offer on ${d.sponsorName ?? "a sponsor"}'s ${d.campaignName ?? "campaign"}:\n\n${d.note ?? ""}\n\nThe offer is still open — they can accept or decline it as it stands. Its terms are fixed once sent, so to change them withdraw it and send a revised offer, or tell them it stands.\n\nThe campaign:\n\n${d.campaignUrl ?? ""}\n\n— SponsorX`,
   }),
+  /* 2S2-FE-03 follow-up — to the athlete, and to a minor's guardian (seat), who answers for them. */
+  "offer.sent": (d) => ({
+    subject: `New offer: ${d.sponsorName ?? "a sponsor"} · ${d.campaignName ?? "a campaign"}`,
+    text: `Hi ${d.firstName ?? "there"},\n\n${d.seat === "guardian" ? `${d.athleteFirstName ?? "Your athlete"} has` : "You have"} a formal offer from ${d.sponsorName ?? "a sponsor"} for ${d.campaignName ?? "a campaign"}.\n\nPay: ${d.pay ?? ""}\n\nDeliverables:\n${d.deliverables ?? ""}\n\nThe offer expires on ${d.expiresOn ?? "the date shown in the portal"}. Open it to accept, decline or ask for a change:\n\n${d.offerUrl ?? ""}\n\n— BTG SponsorX`,
+  }),
+  "offer.changeKept": (d) => ({
+    subject: `About your change request: ${d.sponsorName ?? "a sponsor"} · ${d.campaignName ?? "a campaign"}`,
+    text: `Hi ${d.firstName ?? "there"},\n\nBTG read the change ${d.seat === "guardian" ? "requested" : "you asked for"} on the ${d.sponsorName ?? "sponsor"} offer for ${d.campaignName ?? "a campaign"}:\n\n${d.request ?? ""}\n\nBTG's reply:\n\n${d.reply ?? ""}\n\nThe offer is still open — accept or decline it as it stands, by ${d.expiresOn ?? "its expiry date"}:\n\n${d.offerUrl ?? ""}\n\n— BTG SponsorX`,
+  }),
+  "offer.revising": (d) => ({
+    subject: `A revised offer is coming: ${d.sponsorName ?? "a sponsor"} · ${d.campaignName ?? "a campaign"}`,
+    text: `Hi ${d.firstName ?? "there"},\n\nBTG is revising the ${d.sponsorName ?? "sponsor"} offer for ${d.campaignName ?? "a campaign"} after ${d.seat === "guardian" ? "the change request" : "your request"}, so the current one has been withdrawn. You'll get the new one shortly.\n\n${d.offerUrl ?? ""}\n\n— BTG SponsorX`,
+  }),
   "sponsor.accountReinstated": (d) => ({
     subject: "Your SponsorX sponsor account is open again",
     text: `Hi ${d.firstName ?? "there"},\n\nBTG has reopened the sponsor account for ${d.businessName ?? "your business"}. Sign in with this email address:\n\n${d.portalUrl ?? ""}\n\n— BTG SponsorX`,

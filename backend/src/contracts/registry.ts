@@ -95,7 +95,7 @@ import {
 } from "./rights";
 import {
   BrandingInput, InventoryItemInput, InventoryItemPatch, ListingDecisionInput, ListingInput, ListingPatch,
-  ListingTransitionInput, LogoUploadInput, OfferInput, OfferResponseInput, RosterAthleteInput, TeamShareInput,
+  ListingTransitionInput, LogoUploadInput, OfferInput, OfferKeepInput, OfferPatch, OfferResponseInput, RosterAthleteInput, TeamShareInput,
   CartLineInput, CartLinePatch, RestrictionInput, SponsorCategoriesInput,
   MarketplaceOrderDecisionInput, MarketplaceOrderTransitionInput, PlaceOrderInput,
   CommissionRuleInput, CommissionRuleRevision, CommissionPreviewInput,
@@ -490,12 +490,15 @@ const PATHS: Row[] = [
   { method: "post", path: "/listings/{id}/submit", tag: "Marketplace", summary: "Submit for BTG approval — refused, with the list, while governance fails." },
   { method: "post", path: "/listings/{id}/transition", tag: "Marketplace", summary: "Pause, resume or archive.", body: ListingTransitionInput },
   { method: "post", path: "/listings/{id}/decision", tag: "Marketplace", summary: "BTG approves (publishes) or requests changes — the only road to PUBLISHED.", body: ListingDecisionInput },
-  { method: "get", path: "/offers", tag: "Marketplace", summary: "Formal offers in scope — BTG's in its tenant, or the athlete's own (2S2-BE-03) — each with its change requests (2S2-FE-03)." },
+  { method: "get", path: "/offers", tag: "Marketplace", summary: "Formal offers in scope — BTG's in its tenant, or the athlete's own (2S2-BE-03) — each with its change requests and BTG's answer to each (answer KEPT/REVISED, answerNote, answeredAt, answeredBy, revisedOfferId), and fromOfferId on a revised draft (2S2-FE-03)." },
   { method: "post", path: "/offers", tag: "Marketplace", summary: "BTG drafts an offer on a campaign; it must clear the floor and fit the budget.", body: OfferInput, status: 201 },
-  { method: "get", path: "/offers/{id}", tag: "Marketplace", summary: "One offer, with its change requests (who asked, the note, when — 2S2-FE-03); while SENT, the agreement acceptance signs." },
-  { method: "post", path: "/offers/{id}/send", tag: "Marketplace", summary: "Send — the terms are hashed and fixed from here." },
+  { method: "get", path: "/offers/{id}", tag: "Marketplace", summary: "One offer, with its change requests (who asked, the note, when, and BTG's answer — KEPT with a reply, or REVISED into the draft revisedOfferId — 2S2-FE-03) and fromOfferId; while SENT, the agreement acceptance signs." },
+  { method: "patch", path: "/offers/{id}", tag: "Marketplace", summary: "BTG edits a DRAFT offer (409 once sent): any term but the campaign and athlete, merged over the draft, which must clear every check drafting does — terms, item, exclusivity, restrictions, margin floor, budget (2S2-FE-03). Audited with what changed.", body: OfferPatch },
+  { method: "post", path: "/offers/{id}/send", tag: "Marketplace", summary: "Send — the terms are asked again (no past-due deliverable, no lapsed expiry), then hashed and fixed from here; the athlete, and a minor's guardian, are emailed the offer." },
   { method: "post", path: "/offers/{id}/withdraw", tag: "Marketplace", summary: "BTG takes an unanswered offer back." },
   { method: "post", path: "/offers/{id}/respond", tag: "Marketplace", summary: "The athlete accepts (freezes the terms, creates the order and schedules its deliverables), declines, or requests a change (a note, audited and emailed to the campaign manager(s); the offer stays SENT and answerable — 2S2-FE-03). Accept and request-change take the guardian gate for a minor.", body: OfferResponseInput },
+  { method: "post", path: "/offers/{id}/change-requests/{requestId}/keep", tag: "Marketplace", summary: "BTG answers a change request by keeping the offer as it stands: the offer must be SENT and unexpired, the request its own and unanswered (409 once answered). Marks it KEPT with BTG's reply, audited, and emails the athlete (and a minor's guardian); the offer stays SENT and acceptable (2S2-FE-03).", body: OfferKeepInput },
+  { method: "post", path: "/offers/{id}/revise", tag: "Marketplace", summary: "BTG answers by revising a SENT offer, in one transaction: withdraws it, copies every term into a new DRAFT (fromOfferId), marks its unanswered change requests REVISED with that draft, audits both, and tells the athlete (and a minor's guardian) a new offer is coming. Returns { withdrawn, draft } (2S2-FE-03)." },
   // 2S5-INT-01 / -03, 2S5-BE-04 / -05 — payout accounts, card payments and payouts
   { method: "get", path: "/payouts/account", tag: "Payouts", summary: "The caller's payout account status (athlete or property manager): not set up, needs more information, or ready." },
   { method: "post", path: "/payouts/account/link", tag: "Payouts", summary: "A link to the payment provider's page to set up (or finish, or manage) the payout account.", body: PayoutAccountLinkInput },

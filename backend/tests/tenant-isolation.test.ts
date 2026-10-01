@@ -63,6 +63,8 @@ const A = {
   asset: "ti_asset_ed_a", claim: "ti_claim_a", onboarding: "ti_onboarding_a",
   /* Phase 2 batch 3 — an athlete's item, a school's item with a listing awaiting approval, a sent offer. */
   item: "ti_item_a", schoolItem: "ti_item_school_a", listing: "ti_listing_a", offer: "ti_offer_a",
+  /* 2S2-FE-03 — the athlete's change request on that offer, unanswered. */
+  changeRequest: "ti_offer_change_a",
   /* Phase 2 batch 4 — a restriction, the sponsor's cart with a line. */
   restriction: "ti_restriction_a", cart: "ti_cart_a", cartLine: "ti_cart_line_a",
   /* Phase 2 batch 5 — a hold and the order it became. */
@@ -133,6 +135,8 @@ const PARAM_FOR: Record<string, string> = {
   students: A.student, prospects: A.prospect, sponsors: A.sponsor,
   "edition-assets": A.asset, claims: A.claim, properties: A.school, onboarding: A.onboarding,
   inventory: A.item, listings: A.listing, offers: A.offer, roster: A.athlete,
+  /* POST /offers/{id}/change-requests/{requestId}/keep (2S2-FE-03). */
+  "change-requests": A.changeRequest,
   restrictions: A.restriction, lines: A.cartLine,
   reservations: A.reservation, "marketplace-orders": A.mktOrder, "commission-rules": A.rule,
   payouts: A.payout, "sponsor-requests": A.inquiry, "restricted-words": A.restrictedWord,
@@ -262,6 +266,10 @@ const BODY: Record<string, unknown> = {
     deliverables: [{ title: "Post", dueDate: "2027-06-01T00:00:00.000Z" }], usageRights: "90 days", disclosures: [], expiresAt: "2027-05-01T00:00:00.000Z",
   },
   "POST /offers/{id}/respond": { decision: "DECLINE" },
+  /* 2S2-FE-03 — BTG's answers to a change request, and editing a draft. */
+  "POST /offers/{id}/change-requests/{requestId}/keep": { note: "It stands." },
+  "POST /offers/{id}/revise": {},
+  "PATCH /offers/{id}": { brief: "Stolen brief" },
   "PUT /branding": { displayName: "Sweep brand" },
   "POST /branding/logo": { contentType: "image/png", bytes: 10 },
   "POST /restrictions": { athleteId: A.athlete, category: "CRYPTO", type: "PROHIBITED" },
@@ -399,6 +407,7 @@ describe.skipIf(!hasDatabase)("P8-SEC-02 · tenant B cannot reach tenant A throu
       deliverables: [{ title: "Post", dueDate: "2027-06-01T00:00:00.000Z" }], usageRights: "90 days", disclosures: [], expiresAt: new Date(Date.now() + 30 * 864e5),
       state: "SENT", sentAt: new Date(), termsHash: "t".repeat(64),
     } });
+    await prisma.offerChangeRequest.create({ data: { id: A.changeRequest, tenantId: t, offerId: A.offer, requestedBy: "ti_a_athlete", note: "TI Secret change note" } });
     await prisma.tenantBranding.create({ data: { tenantId: t, displayName: "TI Secret Brand", primaryColor: "#123456" } });
     await prisma.brandRestriction.create({ data: { id: A.restriction, tenantId: t, athleteId: A.athlete, category: "GAMBLING", type: "PROHIBITED", reason: "TI Secret reason" } });
     /* Far-future expiry: the cart sweep (2S4-BE-01) is platform-wide, and

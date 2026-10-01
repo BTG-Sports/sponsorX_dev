@@ -2249,13 +2249,20 @@ model Offer {
   orderId         String?    @unique
   createdBy       String?
   createdAt       DateTime   @default(now())
+  /// 2S2-FE-03 — the SENT offer this draft revises (POST /offers/:id/revise),
+  /// so BTG's desk can show "Revised from …". Null for an offer drafted fresh.
+  fromOfferId     String?
 
   campaign Campaign       @relation(fields: [campaignId], references: [id])
   athlete  Athlete        @relation(fields: [athleteId], references: [id])
   job      NilJob         @relation(fields: [jobId], references: [id])
   order    CampaignOrder? @relation(fields: [orderId], references: [id])
   /// 2S2-FE-03 — the athlete's requests for a change, oldest first.
-  changeRequests OfferChangeRequest[]
+  changeRequests OfferChangeRequest[] @relation("OfferChangeRequests")
+  /// 2S2-FE-03 — the requests this offer was drafted to answer (REVISED).
+  answersRequests OfferChangeRequest[] @relation("OfferChangeRevisions")
+  fromOffer       Offer?               @relation("OfferRevisions", fields: [fromOfferId], references: [id])
+  revisions       Offer[]              @relation("OfferRevisions")
 
   @@index([tenantId, state])
   @@index([tenantId, athleteId])
@@ -2265,7 +2272,8 @@ model Offer {
 /// offer. It neither accepts nor declines it — the offer stays SENT and
 /// answerable, because its terms are fixed once sent (offer_terms_immutable)
 /// and BTG answers by withdrawing it and sending a revised offer, or by
-/// replying that it stands. One row per request, never edited.
+/// replying that it stands. One row per request; the athlete's words are
+/// never edited, and BTG's answer is written once (answeredAt).
 model OfferChangeRequest {
   id          String   @id @default(cuid())
   tenantId    String
@@ -2275,8 +2283,18 @@ model OfferChangeRequest {
   /// What the athlete wants changed, in their words (≤ 2000 chars).
   note        String
   createdAt   DateTime @default(now())
+  /// BTG's answer, once: KEPT (the offer stands, with a reply in answerNote)
+  /// or REVISED (withdrawn; revisedOfferId is the new draft). Null while
+  /// unanswered — answer, answeredAt and answeredBy are set together (CHECKs).
+  answeredAt     DateTime?
+  answeredBy     String?
+  answer         String?
+  /// KEPT: BTG's reply to the athlete (≤ 2000 chars).
+  answerNote     String?
+  revisedOfferId String?
 
-  offer Offer @relation(fields: [offerId], references: [id])
+  offer        Offer  @relation("OfferChangeRequests", fields: [offerId], references: [id])
+  revisedOffer Offer? @relation("OfferChangeRevisions", fields: [revisedOfferId], references: [id], onDelete: Restrict)
 
   @@index([tenantId, offerId])
 }

@@ -81,6 +81,12 @@ export type EmailTemplate =
   /* 2S2-FE-03 — an athlete asks for a change to a sent offer; to the
      campaign manager(s). */
   | "offer.changeRequested"
+  /* 2S2-FE-03 follow-up — the athlete (and a minor's guardian) hears that an
+     offer was sent; that BTG kept it as it stands, with BTG's reply; or that
+     BTG is revising it and a new one is coming. */
+  | "offer.sent"
+  | "offer.changeKept"
+  | "offer.revising"
   /* 2S4-BE-06 — a seller (the team's manager, the athlete) hears of each
      sale: when it is approved, and when the sponsor has paid. */
   | "sale.approved"
