@@ -47,8 +47,8 @@ export async function propertyAnalytics(actor: Actor) {
 
   /* The orders behind them — for completion and for the sponsor mix. */
   const lineOrders = await prisma.marketplaceOrderLine.findMany({
-    /* tenant-scope: the order lines that name this property (itemTenantId is the property's own tenant); only ids and states are read. */
-    where: { propertyId, itemTenantId: actor.tenantId },
+    /* tenant-scope: the order lines that name this property — the manager's own (actor.propertyId); a line of an invited athlete's item is in the athlete's tenant (2S2-BE-05). Only ids and states are read. */
+    where: { propertyId },
     select: { orderId: true, order: { select: { state: true, contractedAt: true, sponsorId: true, tenantId: true } } },
   });
   const orders = new Map(lineOrders.map((l) => [l.orderId, l.order]));

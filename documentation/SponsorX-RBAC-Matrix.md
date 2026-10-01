@@ -1280,6 +1280,46 @@ admin", `2S5-FE-01`). Finance reads the rules so it can reconcile.
 - **The books live in the operator's tenant.** A party reads its own entries
   through the party's tenant and id.
 
+## 22 · Phase 2 · sellers' orders, delivery, team invitations *(added 2026-10-01)*
+
+### `orderDelivery` (2S4-BE-06, 2S4-BE-07, 2S4-BE-08)
+One contracted order line as its sellers see it, and its delivery.
+| Role | Read | Write | Approve |
+|---|---|---|---|
+| `SUPER_ADMIN` | any | any | any |
+| `BTG_ADMIN` | own-tenant (the order's books) | own-tenant | own-tenant (resolves reported problems) |
+| `FINANCE` | own-tenant | — | — |
+| `PROPERTY_MGR` | own-property (the lines its team sells) | own-property (marks them delivered) | — |
+| `ATHLETE` | own (the lines of their items) | own (marks them delivered) | — |
+| `SPONSOR_ADMIN` | own-sponsor (its orders' lines) | own-sponsor (confirms, or reports a problem) | — |
+| `SPONSOR_ANALYST` | own-sponsor | — | — |
+
+- **A seller never reads the order.** The team and the athlete each read
+  only the lines they sell, in their own tenant. Their share comes from
+  their own `ledgerEntry` rows, so neither sees the other's share or BTG's
+  commission. `marketplaceOrder` and `orderFinancials` are unchanged.
+- **The sponsor's contact appears only once the order is paid.**
+- **Writing is split by scope, not by verb.** Only a seller scope (own,
+  own-property) marks delivered. Only `own-sponsor` confirms or reports a
+  problem. `approve` (BTG admin) resolves a problem by confirming or
+  refunding it. BTG admin cannot mark a line delivered.
+
+### `teamInvitation` (2S2-BE-05)
+| Role | Read | Write | Approve |
+|---|---|---|---|
+| `SUPER_ADMIN` | any | any | — |
+| `PROPERTY_MGR` | own-property (the team's invitations) | own-property (sends, withdraws) | — |
+| `ATHLETE` | own (invitations to them) | own (accepts, declines) | — |
+
+- **Nobody is linked without accepting.** Accepting sets
+  `Athlete.propertyId` and `teamShareBps` at the share the athlete was shown.
+- **Only a TEAM or an AGENCY invites.** Other property kinds keep "Add athlete".
+- **A link can cross tenants.** An athlete already on SponsorX keeps their
+  own tenant, often the marketplace operator's. So the team's `teamMember`,
+  `inventoryItem` and `listing` own-property scopes reach a roster athlete
+  through the link itself, `propertyId` being the manager's own property,
+  rather than through the team's tenant. The policy cells are unchanged.
+
 ## 14 · Known gaps
 
 - **D1 and D3 are subject to legal confirmation** (§12). Both were adopted at

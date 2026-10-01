@@ -72,7 +72,25 @@ export type EmailTemplate =
   | "sponsor.accountReinstated"
   /* 2S2-FE-03 — an athlete asks for a change to a sent offer; to the
      campaign manager(s). */
-  | "offer.changeRequested";
+  | "offer.changeRequested"
+  /* 2S4-BE-06 — a seller (the team's manager, the athlete) hears of each
+     sale: when it is approved, and when the sponsor has paid. */
+  | "sale.approved"
+  | "sale.paid"
+  /* 2S4-BE-07 / -08 — delivery: the sponsor is asked to confirm; the seller
+     hears it was confirmed, or put on hold by a problem; BTG hears of each
+     problem; everyone hears BTG's decision; a late seller is reminded. */
+  | "delivery.marked"
+  | "delivery.confirmed"
+  | "delivery.problem"
+  | "delivery.onHold"
+  | "delivery.resolved"
+  | "delivery.overdue"
+  /* 2S2-BE-05 — a team invites an athlete already on SponsorX; the team
+     hears the answer; either side ending the link tells the other. */
+  | "team.invited"
+  | "team.invitationAnswered"
+  | "team.linkEnded";
 
 export type EmailMessage = {
   template: EmailTemplate;

@@ -162,7 +162,9 @@ export type Resource =
   | "orderFinancials"
   | "ledgerEntry"
   | "payoutAccount"
-  | "restrictedWord";
+  | "restrictedWord"
+  | "orderDelivery"
+  | "teamInvitation";
 
 export const RESOURCES: readonly Resource[] = [
   "tenant",
@@ -233,6 +235,8 @@ export const RESOURCES: readonly Resource[] = [
   "ledgerEntry",
   "payoutAccount",
   "restrictedWord",
+  "orderDelivery",
+  "teamInvitation",
 ] as const;
 
 type RolePolicy = Partial<Record<Role, Partial<Record<Action, Scope>>>>;
@@ -920,6 +924,31 @@ export const POLICY: Record<Resource, RolePolicy> = {
   restrictedWord: {
     SUPER_ADMIN: rwa("any", "any"),
     BTG_ADMIN: rwa("own-tenant", "own-tenant"),
+  },
+
+  /* 2S4-BE-06 / -07 / -08 (matrix §22) — a contracted order line as its
+     sellers see it, and its delivery. The team (own-property) and the athlete
+     whose item it is (own) read their own sold lines — each with their own
+     share only, never the order's other lines, the other party's share or
+     BTG's commission — and mark them delivered (write). The buying sponsor
+     reads its lines and confirms or reports a problem (write, own-sponsor).
+     BTG admin resolves problems (approve); Finance reads. */
+  orderDelivery: {
+    SUPER_ADMIN: rwa("any", "any", "any"),
+    BTG_ADMIN: rwa("own-tenant", "own-tenant", "own-tenant"),
+    FINANCE: rwa("own-tenant"),
+    PROPERTY_MGR: rwa("own-property", "own-property"),
+    ATHLETE: rwa("own", "own"),
+    SPONSOR_ADMIN: rwa("own-sponsor", "own-sponsor"),
+    SPONSOR_ANALYST: rwa("own-sponsor"),
+  },
+  /* 2S2-BE-05 (matrix §22) — a team invites an athlete already on SponsorX.
+     The team's manager sends and withdraws; the athlete accepts or declines
+     their own. Nobody else reads an invitation. */
+  teamInvitation: {
+    SUPER_ADMIN: rwa("any", "any"),
+    PROPERTY_MGR: rwa("own-property", "own-property"),
+    ATHLETE: rwa("own", "own"),
   },
 };
 

@@ -96,6 +96,10 @@ import {
   CommissionRuleInput, CommissionRuleRevision, CommissionPreviewInput,
 } from "./marketplace";
 import { NotificationPreferenceInput } from "./notification-preferences";
+import {
+  DeliveryProblemInput, DeliveryResolutionInput, InvitableAthletesQuery, MarkDeliveredInput, ProofUploadInput, TeamInvitationInput,
+  TeamInvitationResponseInput,
+} from "./delivery";
 import { PayoutAccountLinkInput, PayoutDecisionInput, StandinAccountInput, StandinCheckoutInput } from "./payouts";
 import { SponsorDocumentInput, SponsorEmailConfirmInput, SponsorRequestDecisionInput } from "./sponsor-requests";
 import { RestrictedTextInput, RestrictedWordInput } from "./restricted-words";
@@ -522,6 +526,28 @@ const PATHS: Row[] = [
   { method: "post", path: "/commission-rules/preview", tag: "Marketplace", summary: "Preview the split of a sample order under the rules in effect — and with an unsaved rule (2S5-FE-01). Writes nothing.", body: CommissionPreviewInput },
   { method: "get", path: "/marketplace-orders/{id}/financials", tag: "Marketplace", summary: "The order's breakdown, frozen at contract time with the rule versions that made it (2S4-BE-04)." },
   { method: "get", path: "/team/ledger", tag: "Marketplace", summary: "The property's dashboard: booked, reversed, paid and pending — reconciling exactly (2S5-BE-02)." },
+  // 2S4-BE-06 / -07 / -08 — sellers' orders and delivery
+  { method: "get", path: "/sales", tag: "Delivery", summary: "The seller's Orders: every contracted order line the caller sells (a team's manager, or the athlete whose item it is), newest first — number, sponsor business, item, quantity, dates, delivery state, and the caller's OWN share only. The sponsor's contact appears only once paid (2S4-BE-06)." },
+  { method: "get", path: "/sales/{id}", tag: "Delivery", summary: "One sold line (by order-line id), as /sales shows it." },
+  { method: "post", path: "/sales/{id}/proof", tag: "Delivery", summary: "A presigned PUT for an optional delivery photo (JPEG, PNG or PDF, up to 10 MB), straight to the private bucket. Audited.", body: ProofUploadInput, status: 201 },
+  { method: "post", path: "/sales/{id}/delivered", tag: "Delivery", summary: "The seller marks its own line delivered, with a note and an optional photo or link. The sponsor is emailed and has 24 hours to confirm or report a problem; silence confirms (2S4-BE-07).", body: MarkDeliveredInput },
+  { method: "get", path: "/marketplace-orders/{id}/deliveries", tag: "Delivery", summary: "An order's lines and how each delivery stands — the note, the proof, the 24-hour deadline, whether the caller can still answer. No shares." },
+  { method: "post", path: "/deliveries/{id}/confirm", tag: "Delivery", summary: "The buying sponsor confirms a delivered line (by order-line id). The order is delivered when all its lines are." },
+  { method: "post", path: "/deliveries/{id}/problem", tag: "Delivery", summary: "The buying sponsor reports a problem, within the 24 hours. The line's payout is held until BTG resolves it; BTG and the seller are emailed.", body: DeliveryProblemInput },
+  { method: "get", path: "/deliveries/{id}/proof", tag: "Delivery", summary: "A five-minute, audited link to the seller's delivery photo — for the seller, the buying sponsor and BTG." },
+  { method: "get", path: "/delivery-issues", tag: "Delivery", summary: "BTG admin: problems sponsors reported, and lines whose last date has passed without being marked delivered (2S4-BE-07, 2S4-BE-08)." },
+  { method: "get", path: "/delivery-issues/{id}", tag: "Delivery", summary: "One reported problem: both sides' words, the proof, the money on hold, its history." },
+  { method: "post", path: "/delivery-issues/{id}/resolve", tag: "Delivery", summary: "BTG confirms the delivery (the hold ends) or refunds the line (the order's refund and ledger reversal), with a note emailed to everyone.", body: DeliveryResolutionInput },
+  { method: "post", path: "/delivery-issues/{id}/remind", tag: "Delivery", summary: "BTG reminds a late seller (and their team's manager) — at most once a day per line." },
+  // 2S2-BE-05 — team invitations
+  { method: "get", path: "/team/invitations", tag: "Marketplace", summary: "The team's invitations to athletes already on SponsorX: open ones first, then the latest answered (2S2-BE-05)." },
+  { method: "get", path: "/team/invitations/candidates", tag: "Marketplace", summary: "Approved athletes with no team in the team's marketplace, found by name (?q, two letters or more). Public-profile fields only.", query: InvitableAthletesQuery },
+  { method: "post", path: "/team/invitations", tag: "Marketplace", summary: "Invite an approved athlete with no team, at a proposed share. They are emailed; nobody is linked until they accept.", body: TeamInvitationInput, status: 201 },
+  { method: "post", path: "/team-invitations/{id}/withdraw", tag: "Marketplace", summary: "The team takes back an invitation nobody has answered." },
+  { method: "post", path: "/team-invitations/{id}/respond", tag: "Marketplace", summary: "The athlete accepts (joins the roster at the share shown; their own listings stop selling while they are on the team) or declines.", body: TeamInvitationResponseInput },
+  { method: "post", path: "/team/roster/{id}/remove", tag: "Marketplace", summary: "The team removes an athlete from its roster. Orders already placed carry on at their split; the team's live listings of the athlete's items pause." },
+  { method: "get", path: "/me/team", tag: "Marketplace", summary: "The athlete's team (name, share, joined) and the invitations waiting for their answer." },
+  { method: "post", path: "/me/team/leave", tag: "Marketplace", summary: "The athlete leaves their team. Orders already placed carry on at their split; the team's live listings of their items pause." },
   { method: "get", path: "/team/analytics", tag: "Marketplace", summary: "Revenue, sell-through, completion, sponsor mix and payout trends — from the ledger and order records (2S7-DATA-01)." },
   { method: "get", path: "/properties/mine", tag: "Properties", summary: "The property this account manages — a NEXT school is kind SCHOOL (P9-OPS-01). 404 when not linked." },
   { method: "get", path: "/public/properties/{slug}", tag: "Public", summary: "A property's public profile — name, kind, place, and its public adult athletes (minors counted, never named). No price, inventory or contact (P2-FE-01).", auth: false },

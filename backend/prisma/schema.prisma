@@ -2363,7 +2363,9 @@ model MarketplaceOrderLine {
   unitPriceCents  Int
   lineTotalCents  Int
 
-  order MarketplaceOrder @relation(fields: [orderId], references: [id])
+  order    MarketplaceOrder   @relation(fields: [orderId], references: [id])
+  /// 2S4-BE-06 / 2S4-BE-07 — who sells it, and how its delivery stands.
+  delivery OrderLineDelivery?
 
   @@index([tenantId, orderId])
   @@index([propertyId])
@@ -2575,4 +2577,90 @@ model RestrictedWord {
 
   @@unique([tenantId, normalized])
   @@index([tenantId, active])
+}
+
+/// 2S4-BE-06 / 2S4-BE-07 / 2S4-BE-08 — one contracted order line, as its
+/// sellers see it and as it is delivered. Written when the order is
+/// contracted (the line itself never changes — marketplace_order_immutable.sql),
+/// so it carries who may read it: the sponsor, the team (propertyId, in its
+/// own tenant) and the athlete whose item it is (athleteId, in theirs).
+///
+/// UNPAID → IN_DELIVERY (paid) → DELIVERED (the seller marked it, with a note)
+///   → CONFIRMED (the sponsor, or 24 hours of silence, or BTG)
+///   → PROBLEM (the sponsor, within the 24 hours) → CONFIRMED | REFUNDED (BTG).
+/// CANCELLED / REFUNDED follow the order. Only a CONFIRMED line's money can
+/// be requested (payouts.ts); a PROBLEM line's is held.
+model OrderLineDelivery {
+  id               String    @id @default(cuid())
+  /// The order's books (the operator's tenant).
+  tenantId         String
+  orderId          String
+  lineId           String    @unique
+  sponsorId        String
+  /// The team that sells it, and its tenant.
+  propertyId       String?
+  propertyTenantId String?
+  /// The athlete whose item it is (independent seller or roster athlete), and their tenant.
+  athleteId        String?
+  athleteTenantId  String?
+  /// UNPAID | IN_DELIVERY | DELIVERED | CONFIRMED | PROBLEM | REFUNDED | CANCELLED
+  state            String    @default("UNPAID")
+  paidAt           DateTime?
+  deliveredAt      DateTime?
+  deliveredBy      String?
+  deliveredByName  String?
+  note             String?
+  /// The optional photo, in the private bucket; or a link.
+  proofKey         String?
+  proofLink        String?
+  /// deliveredAt + 24 hours: the sponsor's window to confirm or report a problem.
+  confirmDueAt     DateTime?
+  confirmedAt      DateTime?
+  confirmedBy      String?
+  /// SPONSOR | SILENCE | BTG
+  confirmedHow     String?
+  problemAt        DateTime?
+  problemBy        String?
+  problemNote      String?
+  resolvedAt       DateTime?
+  resolvedBy       String?
+  /// CONFIRMED | REFUNDED
+  resolution       String?
+  resolutionNote   String?
+  /// 2S4-BE-08 — the one overdue reminder, once sent.
+  remindedAt       DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @default(now()) @updatedAt
+
+  line MarketplaceOrderLine @relation(fields: [lineId], references: [id])
+
+  @@index([tenantId, state])
+  @@index([orderId])
+  @@index([propertyTenantId, propertyId])
+  @@index([athleteTenantId, athleteId])
+  @@index([tenantId, sponsorId])
+}
+
+/// 2S2-BE-05 — a team invites an athlete already on SponsorX to its roster,
+/// at a proposed share. Nobody is linked without accepting: accepting is
+/// what sets Athlete.propertyId and teamShareBps. Lives in the team's tenant;
+/// names the athlete's own (they may be in the marketplace operator's).
+model TeamInvitation {
+  id              String    @id @default(cuid())
+  /// The team's tenant.
+  tenantId        String
+  propertyId      String
+  athleteId       String
+  athleteTenantId String
+  teamShareBps    Int
+  /// PENDING | ACCEPTED | DECLINED | WITHDRAWN
+  state           String    @default("PENDING")
+  invitedBy       String?
+  decidedAt       DateTime?
+  decidedBy       String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @default(now()) @updatedAt
+
+  @@index([tenantId, propertyId, state])
+  @@index([athleteTenantId, athleteId, state])
 }

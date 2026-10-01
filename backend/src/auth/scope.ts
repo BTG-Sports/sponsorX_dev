@@ -309,8 +309,10 @@ const BUILDERS: Partial<Record<Resource, Builder>> = {
       case "any": return {};
       case "operated": return operated(actor);
       case "own-property":
+        /* The team's own items, and its roster athletes' — 2S2-BE-05: those
+           of an invited athlete live in the athlete's own tenant. */
         return actor.propertyId
-          ? { tenantId: actor.tenantId, OR: [{ propertyId: actor.propertyId }, { athlete: { propertyId: actor.propertyId } }] }
+          ? { OR: [{ tenantId: actor.tenantId, propertyId: actor.propertyId }, { athlete: { propertyId: actor.propertyId } }] }
           : MATCHES_NOTHING;
       case "own":
         /* The athlete's own items, or — for a team manager — the team's own. */
@@ -319,11 +321,15 @@ const BUILDERS: Partial<Record<Resource, Builder>> = {
       default: return MATCHES_NOTHING;
     }
   },
-  /* The athletes on a team: Athlete rows linked to the manager's property. */
+  /* The athletes on a team: Athlete rows linked to the manager's property.
+     2S2-BE-05 — by the link alone, in any tenant: an athlete already on
+     SponsorX who accepted the team's invitation keeps their own tenant (often
+     the marketplace operator's), and the link exists only because they
+     accepted. The property is the manager's own (actor.propertyId). */
   teamMember: (actor, scope) => {
     if (scope === "any") return {};
     if (scope === "own-property") {
-      return actor.propertyId ? { tenantId: actor.tenantId, propertyId: actor.propertyId } : MATCHES_NOTHING;
+      return actor.propertyId ? { propertyId: actor.propertyId } : MATCHES_NOTHING;
     }
     return MATCHES_NOTHING;
   },
@@ -347,7 +353,10 @@ const BUILDERS: Partial<Record<Resource, Builder>> = {
           ],
         };
       case "own-property":
-        return actor.propertyId ? { tenantId: actor.tenantId, propertyId: actor.propertyId } : MATCHES_NOTHING;
+        /* The team's listings — 2S2-BE-05: a listing of an invited athlete's
+           item sits in the item's (the athlete's) tenant, so it is the
+           team's by its propertyId, which is the manager's own. */
+        return actor.propertyId ? { propertyId: actor.propertyId } : MATCHES_NOTHING;
       case "own":
         /* Reading: every listing of the athlete's items, their team's
            included. Writing (2S3-BE-05): only the listings they sell
@@ -400,6 +409,34 @@ const BUILDERS: Partial<Record<Resource, Builder>> = {
   marketplaceOrder: (actor, scope) => {
     if (scope === "own-sponsor") return actor.sponsorId ? { tenantId: actor.tenantId, sponsorId: actor.sponsorId } : MATCHES_NOTHING;
     return tenantScoped(actor, scope);
+  },
+  /* 2S4-BE-06 / -07 — a sold line and its delivery. Each seller reaches it in
+     its OWN tenant: the team by propertyTenantId + propertyId, the athlete by
+     athleteTenantId + athleteId, the buying sponsor by the order's books and
+     sponsorId — never by the order alone. */
+  orderDelivery: (actor, scope) => {
+    switch (scope) {
+      case "any": return {};
+      case "own-tenant": return { tenantId: actor.tenantId };
+      case "own-property":
+        return actor.propertyId ? { propertyTenantId: actor.tenantId, propertyId: actor.propertyId } : MATCHES_NOTHING;
+      case "own":
+        return actor.athleteId ? { athleteTenantId: actor.tenantId, athleteId: actor.athleteId } : MATCHES_NOTHING;
+      case "own-sponsor":
+        return actor.sponsorId ? { tenantId: actor.tenantId, sponsorId: actor.sponsorId } : MATCHES_NOTHING;
+      default: return MATCHES_NOTHING;
+    }
+  },
+  /* 2S2-BE-05 — the team's invitations (in its tenant), and the athlete's own (in theirs). */
+  teamInvitation: (actor, scope) => {
+    switch (scope) {
+      case "any": return {};
+      case "own-property":
+        return actor.propertyId ? { tenantId: actor.tenantId, propertyId: actor.propertyId } : MATCHES_NOTHING;
+      case "own":
+        return actor.athleteId ? { athleteTenantId: actor.tenantId, athleteId: actor.athleteId } : MATCHES_NOTHING;
+      default: return MATCHES_NOTHING;
+    }
   },
   /* 2S5-INT-03 — a payee's own payout account, in the payee's own tenant. */
   payoutAccount: (actor, scope) => {

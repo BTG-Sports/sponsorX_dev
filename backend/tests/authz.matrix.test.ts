@@ -336,7 +336,16 @@ describe("the whole matrix is pinned", () => {
       // SUPER_ADMIN any/any, BTG_ADMIN own-tenant read/write, every other
       // cell deny (matrix `restrictedWord`). With its rows removed the grid
       // hashes to the previous 77c16c7e171c8dc2, so nothing else moved.
-    ).toBe("7fc0161e9b2baa67");
+      // Updated 2026-10-01 (2S4-BE-06/-07, 2S2-BE-05): two new resources,
+      // every existing cell unchanged (matrix §22). `orderDelivery` —
+      // SUPER_ADMIN any/any/any, BTG_ADMIN own-tenant read/write/approve,
+      // FINANCE own-tenant read, PROPERTY_MGR own-property read/write,
+      // ATHLETE own read/write, SPONSOR_ADMIN own-sponsor read/write,
+      // SPONSOR_ANALYST own-sponsor read. `teamInvitation` — SUPER_ADMIN
+      // any/any, PROPERTY_MGR own-property read/write, ATHLETE own
+      // read/write. With both resources removed the grid hashes to the
+      // previous 7fc0161e9b2baa67.
+    ).toBe("6626855147e34951");
   });
 
   it("covers every pair the §30 acceptance asks for", () => {

@@ -78,8 +78,12 @@ export function sellerCanSell(): Prisma.ListingWhereInput {
 }
 
 export type GovernanceInput = ListingSeller & {
-  item: { active: boolean; priceCents: number; quantity: number | null; availableUntil: Date | null };
-  listing: { title: string; description: string | null; publishAt: Date | null };
+  item: {
+    active: boolean; priceCents: number; quantity: number | null; availableUntil: Date | null;
+    /** 2S2-BE-05 — whose item it is, and the team that athlete is on now. */
+    athleteId?: string | null; athleteTeamId?: string | null;
+  };
+  listing: { title: string; description: string | null; publishAt: Date | null; propertyId?: string | null };
   now: Date;
 };
 
@@ -92,6 +96,12 @@ export type GovernanceInput = ListingSeller & {
 export function governanceProblems(g: GovernanceInput): string[] {
   const out: string[] = [];
   out.push(...sellerProblems(g));
+  /* 2S2-BE-05 — a team lists its roster athletes' items; an athlete who left
+     (or was removed) is not on its roster, so the team's listing of their
+     item cannot go live again unless they rejoin. */
+  if (g.listing.propertyId && g.item.athleteId && g.item.athleteTeamId !== undefined && g.item.athleteTeamId !== g.listing.propertyId) {
+    out.push("item: its athlete is no longer on this team");
+  }
   if (!g.item.active) out.push("item: inactive");
   if (g.item.priceCents < 100) out.push("item: not priced");
   if (g.item.quantity === 0) out.push("item: none left to sell");
