@@ -216,3 +216,72 @@ The user set the 90-day rules:
 - **Viewing proofs.** BTG opens a proof through a 5-minute audited link (`SENSITIVE_DOCUMENT_TTL_SECONDS`). Storage caps any TTL at 15 minutes.
 - **Tests.** `tests/phase2-sponsor-auto-approval.test.ts` has 16 tests. The full suite passes 1954 of 1955; the only failure is the old QA-02 reservations test.
 - **Frontend still to do.** The form must send `businessType`. Until it does, requests wait for BTG as before.
+
+## Built: the 11 new screens from the Claude Design canvas, plus the sponsor form (rcfworks)
+
+**Design:** canvas RNykbEaHgkiMppTXandrrB, files `project/<Name>.dc.html`.
+
+**Connected to the real API:**
+- `/admin/restricted-words` (2S1-FE-11).
+- `/athlete/listings`, so a no-team athlete lists their own items (2S3-FE-02, on 2S3-BE-05).
+- The sponsor form (2S1-FE-11):
+  - the brief wizard now asks for a business type from a list, or Other with a description, and its old "Brand category" free-text field is gone;
+  - after sending, the proof of business uploads straight to the private bucket;
+  - new pages `/sponsor-request/confirm?t=` and `/sponsor-request/<token>`.
+- Live parts of otherwise-sample screens:
+  - the sponsor section of `/admin/new-signups`;
+  - the sign-in email and payout account in Settings.
+
+**On sample data, buttons switched off with the reason and a notice naming the backend task it waits on:**
+- `/admin/new-signups`, for organizations, athletes and guardians (2S1-BE-06, -09, -10).
+- `/admin/delivery-issues` (2S4-BE-07).
+- `/athlete/sales` and `/property/sales`, the seller's Orders (2S4-BE-06, -07).
+- `/athlete/team` (2S2-BE-05).
+- `/guardian/setup` (2S1-BE-10).
+- `/guardian/handoff` and `/athlete/guardian-requests` (2S1-BE-15). The menu link shows to GUARDIAN only.
+- `/contact` (2S1-BE-16). The address shows as "being set up" until 2S1-OPS-01.
+- `/property/documents` (2S1-BE-07).
+- Close, reactivate and coming-of-age in `/athlete/settings` and `/property/settings` (2S1-BE-13, -12).
+
+**Menu, access and icons:**
+- Admin menu: New sign-ups, Delivery issues, Restricted words. All three are BTG admin only in `admin-access.ts`.
+- Athlete menu: List my item, Orders, Team, Guardian requests, Settings.
+- Property menu: Orders, Documents, Settings.
+- The footer has a "Contact BTG" link.
+- New icons: flag, ban, shield, box.
+
+**Copy we deliberately left out:**
+- Team page: "joining ends your own listings". That rule was never agreed.
+- List my item: "goes live by itself". BTG approves every listing.
+- Profiles and listings don't yet claim the restricted-words check runs on them.
+
+**Backend fixes made today:**
+- **2S1-BE-17:**
+  - a manual Approve now requires an uploaded proof of business (a second path around the rule);
+  - the status read returns the email;
+  - confirm-email returns the request token, so the proof can be uploaded from any device.
+- **P7-FE-06:** the Operations Board's Content approvals card now counts SPONSOR_REVIEW too. That matches the Approvals page, and a new test compares the two definitions.
+
+**Checks:**
+- Frontend: 853 of 853 tests pass, and tsc and eslint are clean.
+- Root `npm run build` is clean.
+- Backend: 1956 of 1957 pass; the one failure is the old QA-02.
+- The public pages return 200 on `next start`.
+
+## Code review rows checked against their acceptance criteria (the user's rows only)
+
+**Moved to Done (27):**
+- Phase 1: P4-FE-01, P6-FE-02, P6-ART-01, P1-ART-08, P1-FE-24, P1-FE-25, P1-FE-26, P9-FE-06, P3-BE-15, P3-FE-06, P3-FE-07, P4-FE-07, P7-FE-06 (after today's fix).
+- Phase 2: 2S1-FE-01, -02, 2S2-FE-02, -04, 2S4-FE-01, 2S5-FE-02, 2S0-ART-01, 2S7-FE-01, -03, 2S3-BE-05, 2S1-BE-05, 2S1-FE-03, 2S1-BE-18, 2S1-BE-17 (after today's fixes).
+
+**Left at Code review:**
+- **2S2-FE-03:** there is no "request a change" action, in the API or on the screen.
+- **2S3-FE-01:** the listing editor has no sponsor-view preview.
+- **2S4-FE-02:** card payment only works with the stand-in provider, and there's no step where the sponsor accepts an agreement.
+- **2S7-FE-02:** disputes, failed payments and payout problems don't show in the marketplace console.
+- **2S5-FE-03, -04, -05:** they wait on Stripe (2S0-PMO-03). 2S5-FE-04 also has no test asserting the payout.approve and payout.reject audit rows.
+- **4S0-ART-01:** the task says 12 screens, but the canvas has 10. The definition needs a PR, or two screens are missing.
+
+**Not touched:** P1-ART-10, -11, -12 are HeckerCreatives' rows.
+
+**Stage Progress row for 2026-10-01:** 236 done, 60 days left.

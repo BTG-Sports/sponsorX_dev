@@ -60,7 +60,7 @@ export function queueCards(q: ApiQueues): QueueCard[] {
   }
   if (q.approvals) {
     cards.push({
-      key: "approvals", label: "Content approvals", hint: "Deliverables awaiting BTG review",
+      key: "approvals", label: "Content approvals", hint: "Deliverables awaiting a decision",
       count: q.approvals.waiting, href: "/admin/approvals", chips: [],
     });
   }

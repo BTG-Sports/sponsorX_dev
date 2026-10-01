@@ -7,8 +7,12 @@ import {
   BRIEF_DRAFT_KEY,
   BRIEF_STEPS,
   BUDGET_BANDS,
+  BUSINESS_TYPES,
   GOALS,
+  OTHER_BUSINESS_TYPE,
   PACKAGE_OPTIONS,
+  businessTypeLabel,
+  businessTypeText,
   emptyBriefDraft,
   packageOption,
   parseBriefDraft,
@@ -17,6 +21,9 @@ import {
   type BriefFieldDef,
 } from "@/lib/brief-flow";
 import { submitBriefRequest } from "@/app/(public)/brief/actions";
+import { SponsorProofUpload } from "@/components/sponsor-proof-upload";
+import { SponsorRequestStanding } from "@/components/sponsor-request-standing";
+import type { ApiSponsorRequestStatus } from "@/lib/sponsor-request-live";
 
 /* --------------------------------------------------------------------------
    The /brief island — sponsor twin of join-wizard.tsx, led by sponsor
@@ -27,6 +34,14 @@ import { submitBriefRequest } from "@/app/(public)/brief/actions";
    POST /public/inquiries (brief/actions.ts, P2-FE-01) and only then shows
    "received"; a failure keeps the draft and says what happened. The
    ?demo=submitted state never posts.
+
+   2S1-FE-11: step one asks what the business is from the brand-category
+   list, or "Other" in its own words — the free-text "Brand category" field
+   it replaces is gone (the message still carries the answer in words, see
+   brief-inquiry.ts). The API's requestToken is kept in the draft, so the
+   submitted screen can take the proof of business (sponsor-proof-upload.tsx,
+   straight to the private bucket) and link to /sponsor-request/<token>,
+   where the applicant can come back to see what's left.
    -------------------------------------------------------------------------- */
 
 const TIMELINE = [
@@ -56,10 +71,13 @@ function onRadioKeys(e: React.KeyboardEvent<HTMLDivElement>) {
 export function BriefWizard({
   pkg,
   demo,
+  fresh = false,
 }: {
   /** Validated ?package= id (or undefined). */
   pkg?: string;
   demo: "submitted" | null;
+  /** ?new=1 — "Send the form again": start a blank brief instead of resuming. */
+  fresh?: boolean;
 }) {
   const storedRaw = useSyncExternalStore(
     emptySubscribe,
@@ -79,16 +97,18 @@ export function BriefWizard({
       d.phase = "submitted";
       d.goal = GOALS[1];
       d.budget = BUDGET_BANDS[2];
+      d.businessType = "RESTAURANT";
       d.answers = {
-        category: "Quick-service restaurant", market: "Silver Spring, MD",
+        market: "Silver Spring, MD",
         company: "Cafe Milo", name: "Jordan Avery", email: "jordan@cafemilo.com",
       };
       d.submittedAt = "2026-09-21T10:30:00";
+      d.requestToken = "demo";
       return d;
     }
     /* A ?package= visit intentionally starts fresh on that package; a bare
        visit resumes any stored draft. */
-    if (pkg) return emptyBriefDraft(pkg);
+    if (pkg || fresh) return emptyBriefDraft(pkg);
     return parseBriefDraft(storedRaw) ?? emptyBriefDraft();
   };
   const draft = touched ?? seeded();
@@ -98,11 +118,13 @@ export function BriefWizard({
   const [reviewing, setReviewing] = useState(false);
   const [sending, setSending] = useState(false);
   const [sendError, setSendError] = useState<string | null>(null);
+  /* Where the request stands after this session's upload — the API's answer to the confirm. */
+  const [proofStatus, setProofStatus] = useState<ApiSponsorRequestStatus | null>(null);
   /* Lifted so the ancestor chain can out-stack the later-DOM siblings while
      a listbox is open — the sx-join-* fill animations keep every sibling a
      stacking context, so a panel's own z-index can't win from inside. One
      key for all selects; opening one closes any other. */
-  const [openSelect, setOpenSelect] = useState<"package" | "audience" | null>(null);
+  const [openSelect, setOpenSelect] = useState<"businessType" | "package" | "audience" | null>(null);
   const headingRef = useRef<HTMLHeadingElement>(null);
   const stepRef = useRef<HTMLDivElement>(null);
 
@@ -147,9 +169,10 @@ export function BriefWizard({
     const errs = validateBriefStep(step, draft);
     setErrors(errs);
     if (Object.keys(errs).length > 0) {
-      const first = def.fields.find((f) => errs[f.key]);
+      /* In the order they're on screen: the business type sits above the fields. */
+      const first = ["businessType", "businessTypeOther", ...def.fields.map((f) => f.key)].find((k) => errs[k]);
       if (first)
-        stepRef.current?.querySelector<HTMLInputElement>(`[name="${first.key}"]`)?.focus();
+        stepRef.current?.querySelector<HTMLElement>(`[name="${first}"]`)?.focus();
       return;
     }
     setDir(1);
@@ -163,7 +186,7 @@ export function BriefWizard({
       setSendError(null);
       void submitBriefRequest(draft)
         .then((r) => {
-          if (r.ok) persist({ ...draft, phase: "submitted", submittedAt: new Date().toISOString() });
+          if (r.ok) persist({ ...draft, phase: "submitted", submittedAt: new Date().toISOString(), requestToken: r.requestToken });
           else setSendError(r.message);
         })
         .catch(() => setSendError("Something went wrong — nothing was sent. Your answers are saved; try again."))
@@ -207,7 +230,7 @@ export function BriefWizard({
             <dl className="space-y-2 text-sm">
               {[
                 ["Goal", draft.goal],
-                ["Category", draft.answers.category],
+                ["Business type", businessTypeText(draft) || draft.answers.category],
                 ["Budget", draft.budget],
                 ["Package", chosen.name],
                 ["Timing", draft.answers.timing],
@@ -242,6 +265,79 @@ export function BriefWizard({
           A person at BTG reviews it and comes back with a matched shortlist —
           usually within 2 business days. No card, no checkout, no commitment.
         </p>
+
+        {/* 2S1-FE-11 — the two things that open the sponsor account. */}
+        <section
+          aria-labelledby="brief-next-steps"
+          className="sx-join-rise mt-8 rounded-xl border border-line bg-surface-2 p-4"
+          style={{ "--sx-d": "0.24s" } as React.CSSProperties}
+        >
+          <h2 id="brief-next-steps" className="text-base font-semibold text-text">
+            Next steps
+          </h2>
+          <p className="mt-1 text-sm text-muted">Your sponsor account opens once both are done.</p>
+          <ol className="mt-4 space-y-5">
+            <li className="flex gap-3">
+              <span aria-hidden className="grid size-6 shrink-0 place-items-center rounded-full border border-accent/50 text-xs font-semibold text-accent">
+                1
+              </span>
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-text">Check your email to confirm it</p>
+                <p className="mt-0.5 break-words text-sm text-muted">
+                  We sent a link to {(draft.answers.email ?? "").trim() || "your email"}. Open it to show the address is yours.
+                </p>
+              </div>
+            </li>
+            <li className="flex gap-3">
+              <span aria-hidden className="grid size-6 shrink-0 place-items-center rounded-full border border-accent/50 text-xs font-semibold text-accent">
+                2
+              </span>
+              <div className="min-w-0 flex-1 space-y-3">
+                <div>
+                  <p className="text-sm font-semibold text-text">Upload your proof of business</p>
+                  <p className="mt-0.5 text-sm text-muted">
+                    Your business registration, permit or license in the business&rsquo;s name — required of every sponsor.
+                  </p>
+                </div>
+                {proofStatus ? (
+                  <>
+                    <p className="text-sm font-medium text-success">Proof of business received.</p>
+                    <SponsorRequestStanding status={proofStatus} email={(draft.answers.email ?? "").trim() || undefined} heading="h3" />
+                  </>
+                ) : draft.proofUploaded ? (
+                  <p className="text-sm font-medium text-success">Proof of business received.</p>
+                ) : draft.requestToken ? (
+                  <SponsorProofUpload
+                    token={draft.requestToken}
+                    after="show"
+                    email={(draft.answers.email ?? "").trim() || undefined}
+                    disabledReason={demo ? "Sample screen — nothing is uploaded from the demo." : undefined}
+                    onStatus={(s) => {
+                      setProofStatus(s);
+                      if (s.proofUploaded) persist({ ...draft, proofUploaded: true });
+                    }}
+                  />
+                ) : (
+                  <p className="text-sm text-muted">
+                    This device doesn&rsquo;t have the upload link for this brief.{" "}
+                    <Link href="/brief?new=1" className="text-accent hover:underline">
+                      Send the form again
+                    </Link>{" "}
+                    to upload it.
+                  </p>
+                )}
+              </div>
+            </li>
+          </ol>
+          {draft.requestToken && !demo && (
+            <p className="mt-5 border-t border-line pt-4 text-sm">
+              <Link href={`/sponsor-request/${encodeURIComponent(draft.requestToken)}`} className="text-accent hover:underline">
+                See where your request stands →
+              </Link>
+              <span className="mt-1 block text-[11px] text-faint">Bookmark it to come back later — it works without signing in.</span>
+            </p>
+          )}
+        </section>
 
         <div className="mt-8 border-t border-line pt-8">
           <ol className="space-y-7">
@@ -436,6 +532,38 @@ export function BriefWizard({
             </>
           )}
 
+          {def.id === "goal" && (
+            <>
+              <div
+                className={`sx-join-rise ${openSelect === "businessType" ? "relative z-30" : ""}`}
+                style={{ "--sx-d": "0.05s" } as React.CSSProperties}
+              >
+                <WizardSelect
+                  label="What is your business?"
+                  name="businessType"
+                  placeholder="Pick the closest fit"
+                  options={BUSINESS_TYPES.map((t) => ({ id: t, name: businessTypeLabel(t) }))}
+                  value={draft.businessType ?? ""}
+                  error={errors.businessType}
+                  onChange={(id) => edit({ ...draft, businessType: id })}
+                  open={openSelect === "businessType"}
+                  onOpenChange={(o) => setOpenSelect(o ? "businessType" : null)}
+                />
+                {errors.businessType && <p className="mt-1 text-[11px] text-danger">{errors.businessType}</p>}
+              </div>
+              {draft.businessType === OTHER_BUSINESS_TYPE && (
+                <BriefField
+                  def={{ key: "businessTypeOther", label: "What does your business do?", placeholder: "e.g. Family-run bike repair shop", required: true }}
+                  index={0}
+                  value={draft.businessTypeOther ?? ""}
+                  error={errors.businessTypeOther}
+                  maxLength={200}
+                  onChange={(v) => edit({ ...draft, businessTypeOther: v })}
+                />
+              )}
+            </>
+          )}
+
           {def.fields.map((f, i) => (
             <BriefField
               key={f.key}
@@ -499,6 +627,7 @@ type SelectOption = { id: string; name: string; meta?: string };
 
 function WizardSelect({
   label,
+  name,
   placeholder,
   options,
   value,
@@ -508,6 +637,8 @@ function WizardSelect({
   onOpenChange,
 }: {
   label: string;
+  /** Set on the trigger, so a failed Continue can focus it. */
+  name?: string;
   placeholder: string;
   options: SelectOption[];
   value: string;
@@ -559,6 +690,7 @@ function WizardSelect({
       <button
         ref={triggerRef}
         type="button"
+        name={name}
         aria-haspopup="listbox"
         aria-expanded={open}
         onClick={() => setOpen(!open)}
@@ -594,7 +726,7 @@ function WizardSelect({
         <div
           role="listbox"
           aria-label={label}
-          className="sx-pop absolute z-20 mt-2 w-full origin-top overflow-hidden rounded-xl border border-line bg-surface shadow-[0_16px_48px_-16px_rgba(0,0,0,0.6)]"
+          className="sx-pop absolute z-20 mt-2 max-h-80 w-full origin-top overflow-y-auto rounded-xl border border-line bg-surface shadow-[0_16px_48px_-16px_rgba(0,0,0,0.6)]"
         >
           {options.map((p, i) => {
             const on = p.id === value;
@@ -640,12 +772,14 @@ function BriefField({
   index,
   value,
   error,
+  maxLength,
   onChange,
 }: {
   def: BriefFieldDef;
   index: number;
   value: string;
   error?: string;
+  maxLength?: number;
   onChange: (value: string) => void;
 }) {
   return (
@@ -660,6 +794,7 @@ function BriefField({
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={def.placeholder}
+        maxLength={maxLength}
         aria-invalid={!!error}
         className={`mt-1.5 min-h-11 w-full rounded-xl border bg-surface-2 px-3.5 py-3 text-base text-text placeholder:text-faint transition-colors focus:outline-none ${
           error ? "border-danger" : "border-line focus:border-accent/60"

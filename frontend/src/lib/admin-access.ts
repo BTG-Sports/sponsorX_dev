@@ -30,6 +30,12 @@ export const ADMIN_ACCESS: Record<string, { roles: string[]; who: string }> = {
   "/admin/payouts": { roles: ["SUPER_ADMIN", "BTG_ADMIN", "FINANCE"], who: "BTG admins and Finance" },
   /* 2S1-FE-03 — sponsor requests: the API's inquiry.approve is BTG admin and Sales. */
   "/admin/sponsor-requests": { roles: ["SUPER_ADMIN", "BTG_ADMIN", "SALES"], who: "BTG admins and Sales" },
+  /* 2S1-FE-11 — the API's restrictedWord policy is BTG_ADMIN own-tenant and SUPER_ADMIN only. */
+  "/admin/restricted-words": { roles: ["SUPER_ADMIN", "BTG_ADMIN"], who: "BTG admins" },
+  /* 2S1-FE-07 — new sign-ups hold athletes', minors' and guardians' IDs; sponsors reach Sales through Sponsor requests. */
+  "/admin/new-signups": { roles: ["SUPER_ADMIN", "BTG_ADMIN"], who: "BTG admins" },
+  /* 2S4-FE-04 — delivery problems and refunds. */
+  "/admin/delivery-issues": { roles: ["SUPER_ADMIN", "BTG_ADMIN"], who: "BTG admins" },
   "/admin/next": { roles: ["SUPER_ADMIN", "BTG_ADMIN", "SALES", "FINANCE"], who: "BTG admins, Sales and Finance" },
 };
 

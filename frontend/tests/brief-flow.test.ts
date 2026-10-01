@@ -16,13 +16,27 @@ describe("steps", () => {
 });
 
 describe("validateBriefStep", () => {
-  it("step 0 requires a goal chip and a category", () => {
+  it("step 0 requires a goal chip and a business type (2S1-FE-11)", () => {
     const d = emptyBriefDraft();
     const errs = validateBriefStep(0, d);
     expect(errs.goal).toBeTruthy();
-    expect(errs.category).toBeTruthy();
+    expect(errs.businessType).toBeTruthy();
     d.goal = GOALS[0];
-    d.answers.category = "Quick-service restaurant";
+    d.businessType = "RESTAURANT";
+    expect(Object.keys(validateBriefStep(0, d))).toHaveLength(0);
+  });
+
+  it("step 0: a type off the list is refused, and Other needs 2–200 characters of its own words", () => {
+    const d = emptyBriefDraft();
+    d.goal = GOALS[0];
+    d.businessType = "Quick-service restaurant";
+    expect(validateBriefStep(0, d).businessType).toBeTruthy();
+    d.businessType = "OTHER";
+    d.businessTypeOther = " x ";
+    expect(validateBriefStep(0, d).businessTypeOther).toBeTruthy();
+    d.businessTypeOther = "y".repeat(201);
+    expect(validateBriefStep(0, d).businessTypeOther).toBeTruthy();
+    d.businessTypeOther = "Family-run bike repair shop";
     expect(Object.keys(validateBriefStep(0, d))).toHaveLength(0);
   });
 
