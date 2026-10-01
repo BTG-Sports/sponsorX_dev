@@ -158,8 +158,9 @@ export async function linkGuardian(
 
     await tx.athlete.update({
       where: { id: athleteId },
-      /* A new, unverified guardian: guardian-acts.ts gates them on verifiedAt, so no per-child wait is needed on top. */
-      data: { guardianId: guardian.id, guardianPendingSince: null },
+      /* The guardian waits for THIS athlete — proof naming them and the agreement
+         for them — even if already verified for another child (2S1-BE-10). */
+      data: { guardianId: guardian.id, guardianPendingSince: new Date() },
       select: { id: true },
     });
 

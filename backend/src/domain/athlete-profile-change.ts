@@ -343,16 +343,15 @@ export async function submitProfileChange(actor: Actor, athleteId: string, input
         before, after: { ...recorded, changeId: appliedChange.id, checks: checkNotes },
       });
       if (guardian) {
-        /* 2S1-BE-10 / -14 — "new agreements and payments wait until then" is
-           made true by guardian-acts.ts: an unverified guardian does not act
-           for the athlete. A guardian ALREADY verified for another child is
-           not yet cleared for this one either: proof naming this athlete and
-           the agreement for them come first (guardianPendingSince). */
-        if (guardian.verifiedAt) {
-          await tx.athlete.update({ where: { id: athlete.id }, data: { guardianPendingSince: now }, select: { id: true } });
-        }
+        /* 2S1-BE-10 / -14 — "new agreements and payments wait until then".
+           Every guardian named here waits for THIS athlete: proof naming them
+           and the agreement for them (guardianPendingSince), whether or not the
+           guardian is, or is about to be, verified through another child.
+           Verifying a guardian through one child's page never clears another
+           child's wait (athlete-signup.ts verifyLateGuardianIn). */
+        await tx.athlete.update({ where: { id: athlete.id }, data: { guardianPendingSince: now }, select: { id: true } });
         await audit(tx, actor, "guardian.link", "Athlete", athlete.id, {
-          before: { guardianId: null }, after: { guardianId: guardian.id, via: "profileEdit", pendingProofForThisAthlete: Boolean(guardian.verifiedAt) },
+          before: { guardianId: null }, after: { guardianId: guardian.id, via: "profileEdit", pendingProofForThisAthlete: true },
         });
         if (athlete.state === "APPROVED" || athlete.state === "ACTIVE") await provisionGuardianLoginIn(tx, actor, guardian.id);
         /* The guardian's own page (2S1-BE-10): opening its signed link confirms
