@@ -87,7 +87,7 @@ export async function linkGuardian(
   return prisma.$transaction(async (tx) => {
     const athlete = await tx.athlete.findFirst({
       where: { ...whereFor(actor, "athlete", "read"), id: athleteId },
-      select: { id: true, birthDate: true, ageBand: true, guardianId: true, state: true },
+      select: { id: true, birthDate: true, ageBand: true, majorityAge: true, guardianId: true, state: true },
     });
     if (!athlete) throw new ForbiddenError("athlete", "write");
     if (!requiresGuardian(athlete)) throw new GuardianNotRequiredError(athleteId);
@@ -185,6 +185,7 @@ export async function readGuardianReadiness(actor: Actor, athleteId: string) {
     select: {
       birthDate: true,
       ageBand: true,
+      majorityAge: true,
       guardianId: true,
       guardian: { select: { verifiedAt: true } },
     },
@@ -194,6 +195,7 @@ export async function readGuardianReadiness(actor: Actor, athleteId: string) {
   return guardianReadiness({
     birthDate: athlete.birthDate,
     ageBand: athlete.ageBand,
+    majorityAge: athlete.majorityAge,
     guardianId: athlete.guardianId,
     guardianVerifiedAt: athlete.guardian?.verifiedAt ?? null,
   });

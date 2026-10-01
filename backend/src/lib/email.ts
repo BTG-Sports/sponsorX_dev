@@ -72,7 +72,28 @@ export type EmailTemplate =
   | "sponsor.accountReinstated"
   /* 2S2-FE-03 — an athlete asks for a change to a sent offer; to the
      campaign manager(s). */
-  | "offer.changeRequested";
+  | "offer.changeRequested"
+  /* 2S1-BE-09 / -10 — athletes and guardians approved automatically: the
+     athlete's email confirmation, the guardian's set-up link and approval,
+     BTG told of every new sign-up, and BTG's Reject / Reinstate after it. */
+  | "athlete.confirmEmail"
+  | "guardian.setup"
+  | "guardian.approved"
+  | "signup.newSignup"
+  | "athlete.accountRejected"
+  | "athlete.accountReinstated"
+  | "guardian.accountRejected"
+  | "guardian.accountReinstated"
+  /* 2S1-BE-11 — a minor uploaded content; their guardian hears of each one. */
+  | "guardian.contentUploaded"
+  /* 2S1-BE-12 — coming of age: the start, the reminders, taking over, the
+     end of the allowance, the link the guardian sends, and BTG's settling. */
+  | "comingOfAge.started"
+  | "comingOfAge.reminder"
+  | "comingOfAge.completed"
+  | "comingOfAge.terminated"
+  | "comingOfAge.uploadLink"
+  | "comingOfAge.btgSettle";
 
 export type EmailMessage = {
   template: EmailTemplate;

@@ -18,6 +18,7 @@ import { assertAllowed } from "../auth/scope";
 import { ForbiddenError } from "../auth/errors";
 import { bodyHashMatches } from "./agreement-hash";
 import { guardianReadiness } from "./guardian-rules";
+import { assertMayCommit } from "./guardian-acts";
 
 export class AgreementTextChangedError extends Error {
   readonly status = 409;
@@ -105,6 +106,9 @@ export async function acceptAgreementIn(
   opts: { oncePerSigner?: boolean } = {},
 ): Promise<{ acceptanceId: string; acceptedAt: Date; guardianId: string | null }> {
   assertAllowed(actor, "agreement", "write");
+  /* 2S1-BE-11 — a minor's agreements come from their guardian's account; and
+     2S1-BE-12 — nothing new is agreed during the coming-of-age allowance. */
+  await assertMayCommit(tx, actor, "accept");
 
   const agreement = await tx.agreement.findFirst({
     where: { id: request.agreementId, tenantId: actor.tenantId },
@@ -133,25 +137,21 @@ export async function acceptAgreementIn(
      and (in B4) Campaign Order acceptance use — one definition of "may
      participate", so a minor cannot be blocked from activation yet able to
      sign. */
-  const signer = await tx.user.findFirst({
-    where: { id: actor.userId, tenantId: actor.tenantId },
-    select: {
-      athlete: {
-        select: {
-          birthDate: true,
-          ageBand: true,
-          guardianId: true,
-          guardian: { select: { verifiedAt: true } },
-        },
-      },
-    },
-  });
+  const SUBJECT = { birthDate: true, ageBand: true, majorityAge: true, guardianId: true, guardian: { select: { verifiedAt: true } } } as const;
+  const signer = actor.actingFor
+    ? /* 2S1-BE-11 — a guardian signing for their ward: the ward is the subject, and the same gate asks of them. */
+      { athlete: await tx.athlete.findFirst({ where: { tenantId: actor.tenantId, id: actor.actingFor.athleteId }, select: SUBJECT }) }
+    : await tx.user.findFirst({
+        where: { id: actor.userId, tenantId: actor.tenantId },
+        select: { athlete: { select: SUBJECT } },
+      });
 
   let guardianId: string | null = null;
   if (signer?.athlete) {
     const readiness = guardianReadiness({
       birthDate: signer.athlete.birthDate,
       ageBand: signer.athlete.ageBand,
+      majorityAge: signer.athlete.majorityAge,
       guardianId: signer.athlete.guardianId,
       guardianVerifiedAt: signer.athlete.guardian?.verifiedAt ?? null,
     });
@@ -163,6 +163,9 @@ export async function acceptAgreementIn(
        acceptance carries null, not a spurious reference. */
     if (readiness.status === "ready") guardianId = signer.athlete.guardianId ?? null;
   }
+  /* 2S1-BE-11 — the guardian accepting from their own login, for the ward:
+     the acceptance records the guardian who authorised it. */
+  if (actor.actingFor) guardianId = actor.actingFor.guardianId;
 
   const acceptance = await tx.agreementAcceptance.create({
     data: {
@@ -201,3 +204,45 @@ export async function acceptAgreementIn(
 }
 
 export * from "./agreement-hash";
+
+
+/* ══════════════ the guardian agreement — 2S1-BE-10 ═════════════════════ */
+
+/** The guardian agreement's kind: accepted on the guardian's public set-up page. */
+export const GUARDIAN_AGREEMENT_KIND = "GUARDIAN";
+
+/**
+ * Record a guardian's acceptance of the guardian agreement for one minor —
+ * from their public set-up page, before they have any login, so there is no
+ * Actor to sign with. §12's evidence is the same as every acceptance: the
+ * version, the hash of the text shown, the IP, the user agent, the time. The
+ * subject is the minor (`athleteId`) and `guardianId` the adult who
+ * authorised — the shape the NEXT consents already use for a subject with no
+ * login. Accepting twice for the same minor returns the first acceptance.
+ */
+export async function recordGuardianAcceptanceIn(
+  tx: Prisma.TransactionClient,
+  input: { tenantId: string; agreementId: string; bodyHashShown: string; athleteId: string; guardianId: string; ip: string; userAgent: string },
+): Promise<{ acceptanceId: string; acceptedAt: Date }> {
+  const agreement = await tx.agreement.findFirst({
+    where: { id: input.agreementId, tenantId: input.tenantId, kind: GUARDIAN_AGREEMENT_KIND },
+    select: { id: true, kind: true, version: true, bodyHash: true },
+  });
+  if (!agreement || !bodyHashMatches(agreement.bodyHash, input.bodyHashShown)) throw new AgreementTextChangedError();
+  const existing = await tx.agreementAcceptance.findFirst({
+    where: { tenantId: input.tenantId, agreementId: agreement.id, athleteId: input.athleteId, guardianId: input.guardianId },
+    select: { id: true, acceptedAt: true },
+  });
+  if (existing) return { acceptanceId: existing.id, acceptedAt: existing.acceptedAt };
+  const acceptance = await tx.agreementAcceptance.create({
+    data: {
+      tenantId: input.tenantId, agreementId: agreement.id, athleteId: input.athleteId, guardianId: input.guardianId,
+      bodyHash: agreement.bodyHash, ip: input.ip, userAgent: input.userAgent,
+    },
+    select: { id: true, acceptedAt: true },
+  });
+  await audit(tx, { userId: null, tenantId: input.tenantId }, AUDIT_ACTIONS.agreement.accept, "Agreement", agreement.id, {
+    after: { acceptanceId: acceptance.id, kind: agreement.kind, version: agreement.version, bodyHash: agreement.bodyHash, guardianId: input.guardianId, athleteId: input.athleteId },
+  });
+  return { acceptanceId: acceptance.id, acceptedAt: acceptance.acceptedAt };
+}

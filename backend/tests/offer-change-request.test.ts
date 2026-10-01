@@ -107,6 +107,8 @@ describe.skipIf(!hasDatabase)("2S2-FE-03 · requesting a change to an offer", { 
       { id: "ocr_athlete", tenantId: T, clerkId: "ocr_athlete", email: "ocr_athlete@ocr-test.invalid", roles: ["ATHLETE"], athleteId: "ocr_ath" },
       { id: "ocr_athlete2", tenantId: T, clerkId: "ocr_athlete2", email: "ocr_athlete2@ocr-test.invalid", roles: ["ATHLETE"], athleteId: "ocr_ath2" },
       { id: "ocr_minor_user", tenantId: T, clerkId: "ocr_minor_user", email: "ocr_minor@ocr-test.invalid", roles: ["ATHLETE"], athleteId: "ocr_minor" },
+      /* 2S1-BE-11 — the minor's guardian, who negotiates for them from their own login. */
+      { id: "ocr_guardian_user", tenantId: T, clerkId: "ocr_guardian_user", email: "ocr_guardian@ocr-test.invalid", roles: ["GUARDIAN"], guardianId: "ocr_guardian" },
       { id: "ocr_x_admin", tenantId: X, clerkId: "ocr_x_admin", email: "ocr_x_admin@ocr-test.invalid", roles: ["BTG_ADMIN"] },
       { id: "ocr_x_athlete", tenantId: X, clerkId: "ocr_x_athlete", email: "ocr_x_athlete@ocr-test.invalid", roles: ["ATHLETE"], athleteId: "ocr_x_ath" },
     ] });
@@ -179,15 +181,21 @@ describe.skipIf(!hasDatabase)("2S2-FE-03 · requesting a change to an offer", { 
     expect((await call("POST", "/offers/ocr_offer/respond", "ocr_athlete", change("Too late?"))).status).toBe(409);
   });
 
-  it("a minor needs a verified guardian, as accepting does", async () => {
+  it("a minor's change request comes from their verified guardian, as accepting does (2S1-BE-11)", async () => {
     const note = "Can my guardian join the shoot?";
+    /* The minor's own login is refused — the guardian negotiates for them. */
     const refused = await call("POST", "/offers/ocr_offer_minor/respond", "ocr_minor_user", change(note));
-    expect(refused.status).toBe(409);
+    expect(refused.status).toBe(403);
+    expect(refused.json.error?.code ?? refused.json.code).toBe("guardian_must_act");
     expect(refused.text).toMatch(/guardian/i);
     expect(await audits("ocr_offer_minor")).toEqual([]);
+    /* The guardian, unverified, cannot either. */
+    const unverified = await call("POST", "/offers/ocr_offer_minor/respond", "ocr_guardian_user", change(note));
+    expect(unverified.status).toBe(409);
     await prisma.guardian.update({ where: { id: "ocr_guardian" }, data: { verifiedAt: new Date() } });
-    const ok = await call("POST", "/offers/ocr_offer_minor/respond", "ocr_minor_user", change(note));
-    expect(ok.status).toBe(200);
+    expect((await call("POST", "/offers/ocr_offer_minor/respond", "ocr_minor_user", change(note))).status).toBe(403);
+    const ok = await call("POST", "/offers/ocr_offer_minor/respond", "ocr_guardian_user", change(note));
+    expect(ok.status, ok.text).toBe(200);
     expect(ok.json.state).toBe("SENT");
   });
 

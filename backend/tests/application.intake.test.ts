@@ -84,6 +84,11 @@ vi.mock("../src/db/client", () => ({
             return Promise.resolve({ id: "a" });
           },
         },
+        /* 2S1-BE-12 — the age-of-majority table the intake reads: seeded, US at 18. */
+        ageOfMajority: {
+          count: () => Promise.resolve(1),
+          findMany: () => Promise.resolve([{ countryCode: "US", regionCode: "", age: 18 }]),
+        },
         outboxJob: {
           create: ({ data }: { data: { name: string; payload: Record<string, unknown> } }) => {
             if (queueThrows) return Promise.reject(new Error("queue unavailable"));

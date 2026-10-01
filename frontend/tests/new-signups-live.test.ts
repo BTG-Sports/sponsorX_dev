@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  SAMPLE_SIGNUPS, SIGNUP_TABS, firstName, inTab, sampleSignup, signupBadge, signupTab, sponsorRows, tabCount, type ApiSponsorSignup,
+  SAMPLE_SIGNUPS, SIGNUP_TABS, firstName, inTab, sampleSignup, signupBadge, signupTab, sponsorRows, tabCount, tabShows, type ApiSponsorSignup,
 } from "../src/lib/new-signups-live";
 
 /* --------------------------------------------------------------------------
@@ -18,12 +18,20 @@ describe("tabs", () => {
   it("falls back to All and counts the sample rows per tab", () => {
     expect(signupTab("nope").key).toBe("all");
     expect(signupTab(["review"]).key).toBe("review");
+    expect(signupTab("spo").label).toBe("Sponsors");
     const review = SIGNUP_TABS.find((t) => t.key === "review")!;
     expect(tabCount(review, SAMPLE_SIGNUPS)).toBe(SAMPLE_SIGNUPS.filter((s) => s.reasons.length).length);
-    expect(SAMPLE_SIGNUPS.filter((s) => inTab(SIGNUP_TABS.find((t) => t.key === "gua")!, s)).map((s) => s.id)).toEqual(["carmen-reyes"]);
   });
-  it("has no sample sponsors — sponsors are live", () => {
-    expect(SAMPLE_SIGNUPS.every((s) => s.kind !== ("SPONSOR" as never))).toBe(true);
+  it("samples only organizations — athletes, guardians and sponsors are live", () => {
+    expect(SAMPLE_SIGNUPS.every((s) => s.kind === "ORGANIZATION")).toBe(true);
+    expect(SAMPLE_SIGNUPS.filter((s) => inTab(SIGNUP_TABS.find((t) => t.key === "org")!, s))).toHaveLength(SAMPLE_SIGNUPS.length);
+  });
+  it("each section shows under All, Needs review and its own tab only", () => {
+    expect(tabShows(signupTab("all"), "ATHLETE")).toBe(true);
+    expect(tabShows(signupTab("review"), "SPONSOR")).toBe(true);
+    expect(tabShows(signupTab("ath"), "ATHLETE")).toBe(true);
+    expect(tabShows(signupTab("ath"), "ORGANIZATION")).toBe(false);
+    expect(tabShows(signupTab("spo"), "GUARDIAN")).toBe(false);
   });
 });
 
@@ -33,7 +41,8 @@ describe("words", () => {
     expect(signupBadge({ state: "NEEDS_REVIEW" }).tone).toBe("warn");
     expect(firstName("Carmen Reyes")).toBe("Carmen");
     expect(firstName("[Athlete name]")).toBe("[Athlete name]");
-    expect(sampleSignup("carmen-reyes")?.guardianOf).toHaveLength(2);
+    expect(signupBadge({ state: "APPROVED" }).label).toBe("Approved by BTG");
+    expect(sampleSignup("westfield-hawks")?.documents).toHaveLength(1);
     expect(sampleSignup("missing")).toBeNull();
   });
 });

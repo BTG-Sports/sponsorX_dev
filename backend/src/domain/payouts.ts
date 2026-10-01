@@ -35,6 +35,8 @@ import { ForbiddenError } from "../auth/errors";
 import { providerName, readStandinToken, standinLink, standinRef, StandinTokenError } from "../lib/payment-provider";
 import { postPayout } from "./ledger";
 import { moveOrderAsSystem } from "./marketplace-order";
+import { assertMayCommit } from "./guardian-acts";
+import { payoutHoldReason } from "./payout-holds";
 
 type Tx = Prisma.TransactionClient;
 type Db = Tx | typeof prisma;
@@ -133,6 +135,8 @@ export async function myPayoutAccount(actor: Actor) {
 /** The link to the provider's set-up page (or back to it, to finish or manage). */
 export async function payoutAccountLink(actor: Actor, returnPath: unknown, now = new Date()) {
   const payee = payeeOf(actor, "payoutAccount", "write");
+  /* 2S1-BE-11 — a minor's payout account is set up by their guardian, in the guardian's name. */
+  await assertMayCommit(prisma, actor, "manage");
   const provider = providerName();
   if (provider === "none") throw providerUnavailable("Payout set-up");
   const back = safeReturnPath(returnPath, payee.payeeType === "ATHLETE" ? "/athlete" : "/property/earnings");
@@ -505,7 +509,11 @@ export async function myPayouts(actor: Actor, now = new Date()) {
 /** The payee asks for its whole requestable balance — one payout per set of books. */
 export async function requestPayout(actor: Actor, now = new Date()) {
   const payee = payeeOf(actor, "payout", "write");
+  /* 2S1-BE-11 — a minor's payouts are requested by their guardian; 2S1-BE-12 — none during the coming-of-age allowance. */
+  await assertMayCommit(prisma, actor, "payoutRequest");
   return prisma.$transaction(async (tx) => {
+    const held = await payoutHoldReason(tx, payee);
+    if (held) throw new PayoutError(held, 409);
     const account = await tx.payoutAccount.findUnique({
       /* tenant-scope: the payee's own account, by its unique payee key from the actor. */
       where: { payeeType_payeeId: { payeeType: payee.payeeType, payeeId: payee.payeeId } }, select: { status: true },
@@ -603,6 +611,9 @@ export async function decidePayout(actor: Actor, id: string, decision: "APPROVE"
     if (!row) throw new ForbiddenError("payout", "approve");
     if (row.state !== "REQUESTED") throw new PayoutError(`This payout is ${row.state.toLowerCase()}, not waiting for a decision.`);
     const payee: Payee = { payeeType: row.payeeType as PayeeType, payeeId: row.payeeId, payeeTenantId: row.payeeTenantId };
+    /* 2S1-BE-09 — a payee BTG rejected is held: send it back if you must, but don't pay it. */
+    const held = decision === "APPROVE" ? await payoutHoldReason(tx, payee) : null;
+    if (held) throw new PayoutError(held, 409);
     const updated = await tx.payout.update({
       /* tenant-scope: the row just loaded through whereFor(payout, approve). */
       where: { id: row.id },
@@ -652,9 +663,11 @@ export async function sendPayout(payoutId: string, now = new Date()): Promise<{ 
   return prisma.$transaction(async (tx) => {
     const row = await tx.payout.findUnique({
       /* tenant-scope: the payout named by the job this server enqueued on approval. */
-      where: { id: payoutId }, select: { id: true, tenantId: true, state: true },
+      where: { id: payoutId }, select: { id: true, tenantId: true, state: true, payeeType: true, payeeId: true, payeeTenantId: true },
     });
     if (!row || row.state !== "APPROVED") return { sent: false };
+    /* 2S1-BE-09 — held: it waits, APPROVED, until BTG reinstates the payee. */
+    if (await payoutHoldReason(tx, row)) return { sent: false };
     await tx.payout.update({
       /* tenant-scope: the row just loaded by id. */
       where: { id: row.id }, data: { state: "SENDING", provider, providerRef: standinRef("po"), sentAt: now }, select: { id: true },

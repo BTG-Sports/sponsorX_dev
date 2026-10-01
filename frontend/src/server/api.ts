@@ -14,6 +14,7 @@
    -------------------------------------------------------------------------- */
 
 import { auth } from "@clerk/nextjs/server";
+import { cookies } from "next/headers";
 
 export type Actor = {
   userId: string;
@@ -24,7 +25,26 @@ export type Actor = {
   /** The school (NEXT advisor / student) and the student record (P9-FE-01). */
   propertyId?: string | null;
   studentId?: string | null;
+  /** 2S1-BE-11 — a guardian's minors, and the one this login is acting for. */
+  wards?: { athleteId: string; displayName: string; firstName: string; comingOfAge: boolean }[];
+  actingFor?: string | null;
+  /** 2S1-BE-11 — a minor's own login: their guardian approves agreements and payments. */
+  guardianControl?: { guardianName: string | null; comingOfAge: boolean; dueAt: string | null } | null;
 };
+
+/** 2S1-BE-11 — which of a guardian's minors the portal acts for (the API's `x-sponsorx-ward`). */
+export const WARD_COOKIE = "sx-ward";
+
+/** The ward header for this request, when a guardian has picked one. */
+async function wardHeader(): Promise<Record<string, string>> {
+  try {
+    const ward = (await cookies()).get(WARD_COOKIE)?.value;
+    return ward && /^[A-Za-z0-9_-]{1,64}$/.test(ward) ? { "x-sponsorx-ward": ward } : {};
+  } catch {
+    /* Outside a request (a build step): no ward. */
+    return {};
+  }
+}
 
 /** Why there is no actor, when there isn't one. Three states, because
  *  "sign in", "ask BTG for access" and "signed in fine" are three different
@@ -54,7 +74,7 @@ export async function fetchActor(): Promise<ActorResult> {
   if (!token) return { status: "anonymous" };
 
   const response = await fetch(`${API_URL}/api/v1/me`, {
-    headers: { Authorization: `Bearer ${token}` },
+    headers: { Authorization: `Bearer ${token}`, ...(await wardHeader()) },
     /* Roles are an authorisation input; a cached answer would keep a revoked
        role alive for as long as the cache lasts. */
     cache: "no-store",
@@ -93,6 +113,7 @@ export async function apiFetch(path: string, init: RequestInit = {}): Promise<Re
     headers: {
       ...(init.body ? { "content-type": "application/json" } : {}),
       ...(init.headers as Record<string, string> | undefined),
+      ...(await wardHeader()),
       Authorization: `Bearer ${token}`,
     },
   });

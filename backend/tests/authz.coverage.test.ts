@@ -58,6 +58,11 @@ const GOVERNED_BY: Record<string, Resource> = {
   Inquiry: "inquiry",
   /* 2S1-BE-17 — a sponsor's proof of business is its request's. */
   InquiryDocument: "inquiry",
+  /* 2S1-BE-09 / -10 — an athlete's or guardian's identity documents are read
+     through their sign-up (athleteApplication / guardian, tenant-wide only). */
+  AccountDocument: "athleteApplication",
+  /* 2S1-BE-12 — the age-of-majority table is one of the sign-up rules. */
+  AgeOfMajority: "signupRules",
   SyncTask: "syncTask",
   AuditLog: "auditLog",
   Publication: "publication",

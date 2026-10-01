@@ -128,6 +128,7 @@ const SUMMARY_SELECT = {
   state: true,
   birthDate: true,
   ageBand: true,
+  majorityAge: true,
   guardianId: true,
   reviewerNotes: true,
   reviewedAt: true,
@@ -157,6 +158,7 @@ type SummaryRow = {
   state: string;
   birthDate: Date | null;
   ageBand: string | null;
+  majorityAge: number;
   guardianId: string | null;
   reviewerNotes: string | null;
   reviewedAt: Date | null;
@@ -185,6 +187,7 @@ function toSummary(row: SummaryRow) {
     guardianStatus: guardianReadiness({
       birthDate: row.birthDate,
       ageBand: row.ageBand,
+      majorityAge: row.majorityAge,
       guardianId: row.guardianId,
       guardianVerifiedAt: row.guardian?.verifiedAt ?? null,
     }).status,

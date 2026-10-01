@@ -35,6 +35,30 @@ import { sellerCanSell } from "../domain/listing-rules";
 export { type Action, type Resource, type Scope };
 
 /**
+ * The scope an actor holds — the widest of their roles' (policy.ts) — with
+ * one exception: a GUARDIAN ACTING FOR A MINOR (2S1-BE-11, `actor.actingFor`).
+ *
+ * For a minor, every agreement and money action comes from the guardian's
+ * account, so the guardian's login carries the ward as its athlete and holds
+ * the athlete's own cells for them: accept an offer, list an item, set up the
+ * payout account, request a payout. Widest-wins would get that wrong — the
+ * guardian's `ward` outranks the athlete's `own`, and the athlete-side
+ * functions ask for `own` — so while acting, the athlete's cell answers
+ * first and the guardian's own roles answer only what the athlete has no
+ * cell for (their own guardian record, a handoff). The reach is never wider
+ * than the ward's own login's: `own` resolves through `actor.athleteId`,
+ * which is the ward.
+ */
+export function scopeOf(actor: Actor, resource: Resource, action: Action): Scope {
+  if (actor.actingFor) {
+    const asWard = scopeFor(["ATHLETE"], resource, action);
+    if (asWard !== "deny" && asWard !== "deferred") return asWard;
+    return scopeFor(actor.roles.filter((r) => r !== "ATHLETE"), resource, action);
+  }
+  return scopeFor(actor.roles, resource, action);
+}
+
+/**
  * Throw unless the actor may perform this action on this resource at all.
  *
  * This is the coarse gate — "may a PROPERTY_MGR read earnings" — and is what
@@ -46,7 +70,7 @@ export function assertAllowed(
   resource: Resource,
   action: Action,
 ): Scope {
-  const scope = scopeFor(actor.roles, resource, action);
+  const scope = scopeOf(actor, resource, action);
   if (scope === "deny" || scope === "deferred") {
     throw new ForbiddenError(resource, action);
   }
@@ -91,7 +115,7 @@ export function can(
   resource: Resource,
   action: Action,
 ): boolean {
-  const scope = scopeFor(actor.roles, resource, action);
+  const scope = scopeOf(actor, resource, action);
   return scope !== "deny" && scope !== "deferred";
 }
 
@@ -773,6 +797,8 @@ const BUILDERS: Partial<Record<Resource, Builder>> = {
   inquiry: tenantScoped,
   /* 2S1-BE-18 — BTG's restricted-words list: tenant rows, kept by BTG admins. */
   restrictedWord: tenantScoped,
+  /* 2S1-BE-10 / -12 — the age table and the staff-confirmation setting: tenant rows, kept by BTG admins. */
+  signupRules: tenantScoped,
 
   /* Added with P4-BE-01, the first task to query sponsors.
 

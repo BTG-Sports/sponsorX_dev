@@ -13,9 +13,10 @@ import {
    SponsorX approved it (or why it is held), its documents behind the
    5-minute audited viewer, its activity, and BTG's Reject / Reinstate.
 
-   SCAFFOLD on sample data — organizations, athletes and guardians are
-   approved automatically only once 2S1-BE-06 / -09 / -10 land. Sponsors
-   are live and open their sponsor request (/admin/sponsor-requests/:id).
+   SCAFFOLD on sample data, for ORGANIZATIONS only — they are approved
+   automatically once 2S1-BE-06 lands. Athletes and guardians are live at
+   ./athletes/[id] and ./guardians/[id]; sponsors open their sponsor
+   request (/admin/sponsor-requests/:id).
 
    Reads  (fixtures, lib/new-signups-live.ts)
    Writes none yet — Reject, Approve and Reinstate are off

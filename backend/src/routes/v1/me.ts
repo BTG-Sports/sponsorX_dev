@@ -16,16 +16,23 @@ import { Router } from "express";
 import { requireActor } from "../../auth/actor";
 import { NotificationPreferenceInput } from "../../contracts/notification-preferences";
 import { listPreferences, setPreference } from "../../domain/notification-preferences";
+import { controlView } from "../../domain/guardian-acts";
 
 export const meRouter = Router();
 
-meRouter.get("/", requireActor, (req, res) => {
+meRouter.get("/", requireActor, async (req, res) => {
   /* `requireActor` has either attached an actor or thrown. */
   const actor = req.actor!;
   res.json({
+    /* 2S1-BE-11 — a guardian's minors (and which one this login is acting
+       for), or, for a minor's own login, that their guardian acts for them —
+       so the portal shows those actions as the guardian's. */
+    ...(await controlView(actor)),
     userId: actor.userId,
     tenantId: actor.tenantId,
-    roles: actor.roles,
+    /* The login's own roles — a guardian acting for a minor holds the
+       ward's athlete cells (actingFor), not the ATHLETE role itself. */
+    roles: actor.actingFor ? actor.roles.filter((r) => r !== "ATHLETE") : actor.roles,
     /* The portal needs the sponsor a sponsor user acts for — a brief is
        filed against it (P4-FE-01). Never another sponsor's: it is the
        actor's own link, read from Postgres. */

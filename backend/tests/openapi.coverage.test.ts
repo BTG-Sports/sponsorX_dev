@@ -36,7 +36,7 @@ beforeAll(async () => {
 
   const v1 = (await import("../src/routes/v1")) as unknown as { v1Router: RouterLike };
   const routers: Record<string, RouterLike> = {};
-  for (const file of ["applications", "athletes", "campaigns", "deliverables", "earnings", "guardians", "metrics", "zoho-webhooks", "inquiries", "catalogue", "rewards", "me", "openapi", "properties", "editions", "students", "rights", "audit", "onboarding", "marketplace", "profile-changes", "payouts", "sponsor-requests", "restricted-words"]) {
+  for (const file of ["applications", "athletes", "campaigns", "deliverables", "earnings", "guardians", "metrics", "zoho-webhooks", "inquiries", "catalogue", "rewards", "me", "openapi", "properties", "editions", "students", "rights", "audit", "onboarding", "marketplace", "profile-changes", "payouts", "sponsor-requests", "restricted-words", "signups"]) {
     Object.assign(routers, await import(`../src/routes/v1/${file}.ts`));
   }
 

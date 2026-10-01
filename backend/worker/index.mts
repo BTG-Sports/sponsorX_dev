@@ -88,6 +88,7 @@ import { handleRenderReport } from "./jobs/render-report.mts";
 import { applyQueuePolicy } from "./queue-policy.mts";
 import { expireCarts } from "../src/domain/cart.ts";
 import { expireReservations } from "../src/domain/reservation.ts";
+import { sweepComingOfAge } from "../src/domain/coming-of-age.ts";
 import type { RenderReportJob } from "../src/domain/report-files.ts";
 import { prisma } from "../src/db/client.ts";
 import { ingestZohoInvoice, type ZohoInvoicePayload } from "../src/domain/invoice.ts";
@@ -274,6 +275,8 @@ let cartTimer: ReturnType<typeof setInterval> | undefined;
 /* 2S4-BE-02 — the reservation sweep, every minute. */
 let holdTimer: ReturnType<typeof setInterval> | undefined;
 let zohoTimer: ReturnType<typeof setInterval> | undefined;
+/* 2S1-BE-12 — the hourly coming-of-age sweep: start, remind, terminate. */
+let comingOfAgeTimer: ReturnType<typeof setInterval> | undefined;
 /* P8-INT-05 checks hourly and runs at most once a day per tenant; P8-INT-03's
    channel is renewed every 12 hours against a 24-hour expiry. */
 const ZOHO_SWEEP_INTERVAL_MS = 60 * 60 * 1000;
@@ -645,6 +648,18 @@ async function main(): Promise<void> {
       .catch((error: unknown) => console.error("[worker] reservation expiry failed, will retry next minute:", error));
   }, 60_000);
 
+  /* 2S1-BE-12 — coming of age. A sweep, like the invitation expiry: a
+     per-athlete timer that is lost leaves a 90-day allowance never opened
+     or never closed, where a missed sweep catches everything next hour.
+     Every step is conditional on the row, so overlapping runs are harmless. */
+  comingOfAgeTimer = setInterval(() => {
+    void sweepComingOfAge()
+      .then(({ started, reminded, terminated }) => {
+        if (started || reminded || terminated) console.log(`[worker] coming of age — started ${started}, reminded ${reminded}, terminated ${terminated}`);
+      })
+      .catch((error: unknown) => console.error("[worker] coming-of-age sweep failed, will retry next hour:", error));
+  }, REMINDER_INTERVAL_MS);
+
   cartTimer = setInterval(() => {
     void expireCarts(prisma)
       .then(({ expired }) => { if (expired) console.log(`[worker] carts — expired ${expired}`); })
@@ -681,6 +696,7 @@ export async function stopWorker(): Promise<void> {
   if (cartTimer) clearInterval(cartTimer);
   if (holdTimer) clearInterval(holdTimer);
   if (zohoTimer) clearInterval(zohoTimer);
+  if (comingOfAgeTimer) clearInterval(comingOfAgeTimer);
   timer = undefined;
   expiryTimer = undefined;
   await boss.stop({ graceful: true }).catch(() => {});

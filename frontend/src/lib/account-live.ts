@@ -50,13 +50,19 @@ export type ApiAccountStatus = {
   closedAt: string | null;
 };
 
-/** 2S1-BE-12 — the coming-of-age allowance, as both sides will read it. */
+/** 2S1-BE-12 — the coming-of-age allowance, as both sides read it (GET /coming-of-age/mine). */
 export type ApiComingOfAge = {
   athleteFirstName: string;
   /** The age of majority of the athlete's state or country. */
   ageOfMajority: number;
   reachedAt: string;
   idUploaded: boolean;
+  /** When the 90 days end — counted from when the allowance opened, which can be after the birthday. */
+  dueAt?: string | null;
+  startedAt?: string | null;
+  seat?: "athlete" | "guardian";
+  /** The athlete's own login: where "Upload government ID" goes. */
+  uploadPath?: string | null;
 };
 
 /* ---------------------------------------------------------------- shared */
@@ -156,7 +162,7 @@ export type AgeView = {
 export function comingOfAgeView(c: ApiComingOfAge, seat: "athlete" | "guardian", now = new Date()): AgeView | null {
   if (c.idUploaded) return null;
   const reached = new Date(c.reachedAt);
-  const n = daysLeft(new Date(reached.getTime() + ALLOWANCE_DAYS * DAY), now);
+  const n = daysLeft(c.dueAt ? new Date(c.dueAt) : new Date(reached.getTime() + ALLOWANCE_DAYS * DAY), now);
   const who = c.athleteFirstName;
   const left = `${plural(n, "day")} left`;
   if (seat === "guardian") {

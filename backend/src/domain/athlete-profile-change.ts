@@ -31,6 +31,7 @@ import { athleteNotificationKey, send } from "../lib/email";
 import { env } from "../config/env";
 import { readPage, type PageRequest } from "../lib/paging";
 import type { ProfileChangeInput } from "../contracts/profile-change";
+import { refreshMajorityIn } from "./age-of-majority";
 
 /** The Athlete columns a change may carry, by §11 section. */
 export const SECTION_FIELDS = {
@@ -308,6 +309,8 @@ export async function decideProfileChange(actor: Actor, id: string, decision: Pr
       const before: Fields = {};
       for (const k of Object.keys(fields) as ChangeField[]) before[k] = change.athlete[k] ?? null;
       await tx.athlete.update({ where: { id: change.athleteId }, data: fields as Prisma.AthleteUpdateInput });
+      /* 2S1-BE-12 — re-checked on a move: a new state is a new age of majority. */
+      if ("stateCode" in fields) await refreshMajorityIn(tx, actor.tenantId, change.athleteId);
       if ("restrictedCategories" in fields) {
         await audit(tx, actor, "athlete.restrictionsSet", "Athlete", change.athleteId, {
           before: { restrictedCategories: before.restrictedCategories },
