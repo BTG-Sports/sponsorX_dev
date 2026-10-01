@@ -274,7 +274,7 @@ model Property {
   /// Public profile URL.
   slug      String  @unique
   name      String
-  /// TEAM | SCHOOL | EVENT | MEDIA | VIRTUAL
+  /// TEAM | SCHOOL | EVENT | MEDIA | VIRTUAL | AGENCY
   kind      String
   city      String?
   /// US state code, e.g. "MD".
@@ -299,6 +299,9 @@ model Property {
   /// Phase 2 (2S1-BE-03) — set when BTG approves the property's onboarding,
   /// cleared on suspension. Listing creation (2S3-BE-01) requires it.
   listingAccessAt DateTime?
+  /// 2S1-BE-06 — BTG rejected the organisation after approval: no payout is
+  /// requested, approved or sent while this is set. Reinstate clears it.
+  payoutsHeldAt   DateTime?
   onboarding      PropertyOnboarding?
   inventory       InventoryItem[]
   listings        Listing[]
@@ -1852,7 +1855,7 @@ model PropertyOnboarding {
   id                   String          @id @default(cuid())
   tenantId             String
   state                OnboardingState @default(DRAFT)
-  /// TEAM | SCHOOL | EVENT | MEDIA | VIRTUAL — becomes Property.kind
+  /// TEAM | SCHOOL | EVENT | MEDIA | VIRTUAL | AGENCY — becomes Property.kind
   orgType              String
   orgName              String
   /// US state (or DC) the organisation operates in — drives required fields.
@@ -1874,6 +1877,28 @@ model PropertyOnboarding {
   decidedBy            String?
   /// The Property created on approval.
   propertyId           String?         @unique
+  /// 2S1-BE-06 — the name as compared platform-wide (business-name-rules.ts
+  /// normalizeBusinessName: case, spacing, punctuation, a leading "The" and
+  /// LLC/Inc endings ignored). UNIQUE, so two applications for one name can
+  /// never both hold it — not even when they arrive at the same moment.
+  /// Released (null) only when an application is rejected at review.
+  nameKey              String?         @unique
+  /// 2S1-BE-06 — the primary contact's address as confirmed by the emailed
+  /// link, and when. Confirmed only while it still equals the primary
+  /// contact's email: changing the contact asks again.
+  confirmedEmail       String?
+  emailConfirmedAt     DateTime?
+  /// 2S1-BE-06 — approved by the system, with no BTG step; the checklist it
+  /// passed, as it stood at that moment (for BTG's spot checks).
+  autoApproved         Boolean         @default(false)
+  approvalChecks       Json?
+  /// 2S1-BE-06 — why a submitted application waits for BTG, shown to the
+  /// applicant too. Empty when nothing is in the way.
+  reviewReasons        String[]        @default([])
+  /// 2S1-BE-07 — an approved organisation flagged for BTG (a required
+  /// document removed without a replacement). Never suspends by itself.
+  flags                String[]        @default([])
+  flaggedAt            DateTime?
   createdAt            DateTime        @default(now())
   updatedAt            DateTime        @default(now()) @updatedAt
 
@@ -1892,7 +1917,7 @@ model OnboardingDocument {
   id           String    @id @default(cuid())
   tenantId     String
   onboardingId String
-  /// RIGHTS_PROOF | BUSINESS_REGISTRATION | IDENTITY | OTHER
+  /// RIGHTS_PROOF | BUSINESS_REGISTRATION | IDENTITY | REPRESENTATION_AGREEMENT | OTHER
   kind         String
   filename     String
   contentType  String
@@ -1902,6 +1927,17 @@ model OnboardingDocument {
   r2Key        String    @unique
   /// Set when the applicant confirms and the object is found in the bucket.
   uploadedAt   DateTime?
+  /// 2S1-BE-08 — the state a BUSINESS_REGISTRATION is for (an agency needs
+  /// one per state it operates in). Null for every other kind.
+  stateCode    String?
+  /// 2S1-BE-07 — "valid until", when the paper has a date. Shown as expired
+  /// after it; never deletes anything.
+  expiresOn    DateTime?
+  /// 2S1-BE-07 — the earlier file this one replaces, and when this one was
+  /// itself replaced or removed. Nothing is deleted: the history stays.
+  replacesId   String?
+  replacedAt   DateTime?
+  removedAt    DateTime?
   createdAt    DateTime  @default(now())
 
   onboarding PropertyOnboarding @relation(fields: [onboardingId], references: [id])

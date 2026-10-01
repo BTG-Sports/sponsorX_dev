@@ -24,21 +24,29 @@ DRAFT ──submit──▶ PENDING_REVIEW ──approve──▶ APPROVED ◀�
 |---|---|---|
 | `DRAFT` | → `PENDING_REVIEW` (submit, only when every required field for the organisation type and state is present) | the applicant |
 | `CHANGES_REQUESTED` | → `PENDING_REVIEW` (resubmit) | the applicant |
-| `PENDING_REVIEW` | → `APPROVED`, → `CHANGES_REQUESTED` (with a note), → `REJECTED` (with a note) | BTG |
-| `APPROVED` | → `SUSPENDED` (with a note) | BTG |
+| `PENDING_REVIEW` | → `APPROVED` (automatically when every check passes — `2S1-BE-06` — or by BTG), → `CHANGES_REQUESTED` (with a note), → `REJECTED` (with a note) | the system, or BTG |
+| `APPROVED` | → `SUSPENDED` (with a note); → `REJECTED` (Reject after approval, with a reason that is emailed — `2S1-BE-06`) | BTG |
 | `SUSPENDED` | → `APPROVED` (reinstate) | BTG |
-| `REJECTED` | none, it is terminal: a new application starts over | — |
+| `REJECTED` | → `APPROVED` (reinstate) **only** for an organisation that was approved before (it has a Property); an application rejected at review is terminal: a new application starts over | BTG |
 
 **Illegal, named:**
-- `DRAFT → APPROVED`: nothing is approved unreviewed.
-- Editing in `PENDING_REVIEW`: the reviewer must see a fixed application.
-- `REJECTED → anything`: reapplying keeps the refusal in the record.
-- `APPROVED → DRAFT`: an approved organisation is suspended, never un-submitted.
-- `SUSPENDED → REJECTED`: suspension is a pause; rejecting an organisation
-  that has live business is a decision for a new review.
+- `DRAFT → APPROVED`: nothing is approved before it is submitted and checked.
+- Editing the answers in `PENDING_REVIEW`: the checks (and BTG) must see a
+  fixed application. The applicant may still upload the documents it is
+  missing and confirm its email (`2S1-BE-06`) — each re-runs the checks.
+- `REJECTED → anything` for an application rejected at review: reapplying
+  keeps the refusal in the record (and its name is released for others).
+- `APPROVED → DRAFT`: an approved organisation is suspended or rejected, never un-submitted.
+- `SUSPENDED → REJECTED`: suspension is a pause; reinstate first, then
+  reject, so the reason is stated against an organisation that was live.
 
 **Approval grants listing access.** Suspension withdraws it, and reinstatement
-restores it. Every decision is audited with its reviewer and note.
+restores it. **Reject after approval** (`2S1-BE-06`) switches off the
+organisation's logins and listing access, ends its listings (published,
+paused and draft ones are archived; one waiting for BTG goes back to draft)
+and holds its payouts; **Reinstate** turns the logins and listing access back
+on and releases the payouts (ended listings are listed again by the
+organisation). Every decision, and every automatic approval, is audited.
 
 ## 2 · Listing (`2S3-BE-01`)
 

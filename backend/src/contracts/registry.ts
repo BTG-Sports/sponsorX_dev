@@ -99,7 +99,9 @@ import { NotificationPreferenceInput } from "./notification-preferences";
 import { PayoutAccountLinkInput, PayoutDecisionInput, StandinAccountInput, StandinCheckoutInput } from "./payouts";
 import { SponsorDocumentInput, SponsorEmailConfirmInput, SponsorRequestDecisionInput } from "./sponsor-requests";
 import { RestrictedTextInput, RestrictedWordInput } from "./restricted-words";
-import { OnboardingDecisionInput, OnboardingDocumentInput, OnboardingStartInput, OnboardingStepInput } from "./onboarding";
+import {
+  OnboardingConfirmEmailInput, OnboardingDecisionInput, OnboardingDocumentInput, OnboardingStartInput, OnboardingStepInput, OrganizationDocumentInput,
+} from "./onboarding";
 import {
   AgreementAcceptanceInput,
   GuardianInput,
@@ -440,7 +442,17 @@ const PATHS: Row[] = [
   { method: "post", path: "/onboarding/{id}/decision", tag: "Onboarding", summary: "Approve (creates the Property, grants listing access), request changes, reject, suspend, reinstate — audited (2S1-BE-03).", body: OnboardingDecisionInput },
   { method: "post", path: "/public/onboarding/{token}/documents", tag: "Public", summary: "A private-bucket upload grant for one verification document — never a read (2S1-BE-02).", auth: false, body: OnboardingDocumentInput, status: 201 },
   { method: "post", path: "/public/onboarding/{token}/documents/{documentId}/confirm", tag: "Public", summary: "Confirm an upload; attached only once the object is found in the private bucket.", auth: false },
-  { method: "get", path: "/onboarding/{id}/documents", tag: "Onboarding", summary: "An application's verification documents, each with an audited 15-minute read (2S1-BE-02)." },
+  { method: "get", path: "/onboarding/{id}/documents", tag: "Onboarding", summary: "An application's verification documents, each with an audited 5-minute read (2S1-BE-02, 2S1-BE-06)." },
+  // 2S1-BE-06 — automatic approval; BTG reviews afterwards. 2S1-BE-07 — documents after approval.
+  { method: "post", path: "/public/onboarding/confirm-email", tag: "Public", summary: "The confirmation email's link: the primary contact confirms their address; the automatic checks run (2S1-BE-06).", auth: false, body: OnboardingConfirmEmailInput },
+  { method: "post", path: "/public/onboarding/{token}/resend-confirmation", tag: "Public", summary: "Send the primary contact's confirmation link again (2S1-BE-06).", auth: false },
+  { method: "get", path: "/onboarding/signups", tag: "Onboarding", summary: "Every submitted organisation as BTG's New sign-ups desk shows it: approved automatically, waiting with reasons, flagged, rejected (2S1-BE-06)." },
+  { method: "get", path: "/onboarding/{id}/profile", tag: "Onboarding", summary: "The organisation's profile BTG's email links to: details, the checklist as approved, documents and history, activity, open decisions (2S1-BE-06)." },
+  { method: "get", path: "/onboarding/{id}/documents/{documentId}", tag: "Onboarding", summary: "One verification document through a five-minute audited link (2S1-BE-06)." },
+  { method: "get", path: "/property/documents", tag: "Onboarding", summary: "The organisation's own documents: what is on file, missing or expired, and each one's history (2S1-BE-07)." },
+  { method: "post", path: "/property/documents", tag: "Onboarding", summary: "A private-bucket upload grant for a new or replacement document — the manager's own organisation only (2S1-BE-07).", body: OrganizationDocumentInput, status: 201 },
+  { method: "post", path: "/property/documents/{documentId}/confirm", tag: "Onboarding", summary: "Confirm an upload: the earlier file is kept as history, the checklist re-runs, BTG admins are emailed (2S1-BE-07)." },
+  { method: "delete", path: "/property/documents/{documentId}", tag: "Onboarding", summary: "Remove a document (kept in the history); a missing required one flags the organisation for BTG (2S1-BE-07)." },
   // Phase 2 Sprint 2–3 — inventory, team roster, listings, offers, branding
   { method: "get", path: "/inventory", tag: "Marketplace", summary: "Inventory the caller may see: their own, their team's, or (BTG) the tenants it operates (2S2-BE-01)." },
   { method: "post", path: "/inventory", tag: "Marketplace", summary: "The caller adds an item they sell, priced by them.", body: InventoryItemInput, status: 201 },

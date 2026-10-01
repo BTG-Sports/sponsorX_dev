@@ -5,7 +5,7 @@ import { useState, useTransition } from "react";
 
 import { decideOnboardingAction } from "@/app/(app)/admin/onboarding/actions";
 import {
-  DECISION_COPY,
+  decisionCopy,
   decisionNeedsNote,
   legalDecisions,
   noDecisionReason,
@@ -16,7 +16,9 @@ import {
 /* --------------------------------------------------------------------------
    2S1-FE-02 — the decision panel on one application. Only the moves the API
    accepts from its state are offered (PENDING_REVIEW → approve / request
-   changes / reject; APPROVED → suspend; SUSPENDED → reinstate), a note is
+   changes / reject; APPROVED → suspend, or reject (2S1-FE-05: BTG's check
+   after the automatic approval); SUSPENDED → reinstate; REJECTED after an
+   approval → reinstate), a note is
    required where the applicant is told why, and a refusal — e.g. the
    primary contact's email already has an account — is shown in the API's
    own words.
@@ -30,9 +32,9 @@ const TONE: Record<OnboardingDecision, string> = {
   REINSTATE: "border-accent/60 bg-accent/10 text-accent",
 };
 
-export function OnboardingDecisionPanel({ id, state }: { id: string; state: OnboardingState }) {
+export function OnboardingDecisionPanel({ id, state, hadProperty = false }: { id: string; state: OnboardingState; hadProperty?: boolean }) {
   const router = useRouter();
-  const options = legalDecisions(state);
+  const options = legalDecisions(state, hadProperty);
   const [decision, setDecision] = useState<OnboardingDecision | null>(options.length === 1 ? options[0]! : null);
   const [notes, setNotes] = useState("");
   const [message, setMessage] = useState<string | null>(null);
@@ -48,12 +50,12 @@ export function OnboardingDecisionPanel({ id, state }: { id: string; state: Onbo
     if (!decision || !ready) return;
     setMessage(null);
     start(async () => {
-      const r = await decideOnboardingAction(id, state, decision, notes);
+      const r = await decideOnboardingAction(id, state, decision, notes, hadProperty);
       if (!r.ok) {
         setMessage(r.message);
         return;
       }
-      setDone(DECISION_COPY[decision].done);
+      setDone(decisionCopy(decision, state).done);
       setNotes("");
       router.refresh();
     });
@@ -74,11 +76,11 @@ export function OnboardingDecisionPanel({ id, state }: { id: string; state: Onbo
             }}
             className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors ${decision === d ? TONE[d] : "border-line text-muted hover:text-text"}`}
           >
-            {DECISION_COPY[d].label}
+            {decisionCopy(d, state).label}
           </button>
         ))}
       </div>
-      {decision && <p className="text-[11px] text-muted">{DECISION_COPY[decision].hint}</p>}
+      {decision && <p className="text-[11px] text-muted">{decisionCopy(decision, state).hint}</p>}
       <label className="block text-xs font-medium">
         Note to the applicant {needNote ? <span className="text-warn">(required)</span> : <span className="text-faint">(optional)</span>}
         <textarea
@@ -96,7 +98,7 @@ export function OnboardingDecisionPanel({ id, state }: { id: string; state: Onbo
         onClick={record}
         className="rounded-lg bg-primary px-4 py-2 text-xs font-medium text-cta-ink transition-colors hover:bg-primary-soft disabled:cursor-not-allowed disabled:opacity-40"
       >
-        {pending ? "Recording…" : decision ? `Record: ${DECISION_COPY[decision].label}` : "Pick a decision"}
+        {pending ? "Recording…" : decision ? `Record: ${decisionCopy(decision, state).label}` : "Pick a decision"}
       </button>
       {done && !message && <p className="text-xs text-accent">{done} — recorded against your account.</p>}
       {message && (

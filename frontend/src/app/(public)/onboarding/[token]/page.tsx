@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { OnboardingPending } from "@/components/onboarding-pending";
 import { OnboardingRemember } from "@/components/onboarding-remember";
 import { OnboardingWizard } from "@/components/onboarding-wizard";
 import { Badge } from "@/components/ui";
@@ -21,7 +22,9 @@ import { publicApi } from "../public-api";
    current PROPERTY_TERMS with their words). Editing — the wizard, which
    writes PATCH …, POST …/documents[/:id/confirm] and POST …/submit — only
    while DRAFT or CHANGES_REQUESTED; the API answers 409 otherwise, so every
-   other state is a plain status page. A bad token is the API's 404 (one
+   other state is a plain status page — except PENDING_REVIEW, which since
+   2S1-FE-04 / 2S1-BE-06 shows what is still missing and takes the missing
+   documents (components/onboarding-pending.tsx). A bad token is the API's 404 (one
    answer for "no such application" and "bad link"); 429 is its per-address
    limit, said kindly. Anything else is the error page.
    -------------------------------------------------------------------------- */
@@ -97,19 +100,13 @@ export default async function OnboardingResumePage({ params }: { params: Promise
       <OnboardingRemember token={token} orgName={view.orgName} compact={view.state === "APPROVED"} />
       <div className="mx-auto max-w-2xl space-y-5 rounded-xl border border-line bg-surface p-6">
         {heading}
-        {view.state === "PENDING_REVIEW" && (
-          <div className="space-y-2 text-sm text-muted">
-            <p className="text-base font-semibold text-text">BTG is reviewing your application.</p>
-            <p>Submitted {dateLabel(view.submittedAt)}. You&rsquo;ll hear back by email at your primary contact&rsquo;s address — approval, a request for changes, or a decision.</p>
-            <p>While it&rsquo;s under review your answers are locked. If BTG asks for changes, this page opens for editing again.</p>
-          </div>
-        )}
+        {view.state === "PENDING_REVIEW" && <OnboardingPending token={token} initial={view} />}
         {view.state === "APPROVED" && (
           <div className="space-y-2 text-sm text-muted">
             <p className="text-base font-semibold text-text">Approved — check your email to sign in.</p>
             <p>
-              BTG approved {view.orgName} on {dateLabel(view.decidedAt)}. Your primary contact can now sign in with the email address on the application to manage the
-              property{view.listingAccess ? " and create listings" : ""}.
+              {view.autoApproved ? `${view.orgName} was approved` : `BTG approved ${view.orgName}`} on {dateLabel(view.decidedAt)}. Your primary contact can now sign in with
+              the email address on the application to manage the property{view.listingAccess ? " and create listings" : ""}.
             </p>
             <p>
               <Link href="/login" className="font-medium text-primary hover:underline">
@@ -118,10 +115,22 @@ export default async function OnboardingResumePage({ params }: { params: Promise
             </p>
           </div>
         )}
-        {view.state === "REJECTED" && (
+        {view.state === "REJECTED" && !view.propertyId && (
           <div className="space-y-2 text-sm text-muted">
             <p className="text-base font-semibold text-text">BTG didn&rsquo;t approve this application.</p>
             <p>Decided {dateLabel(view.decidedAt)}. This decision is final for this application.</p>
+          </div>
+        )}
+        {view.state === "REJECTED" && view.propertyId && (
+          <div className="space-y-2 text-sm text-muted">
+            <p className="text-base font-semibold text-text">BTG has closed this organisation&rsquo;s account.</p>
+            <p>
+              Since {dateLabel(view.decidedAt)} its sign-in and listings are off and payouts are on hold. If you think this is a mistake,{" "}
+              <Link href="/contact" className="text-primary hover:underline">
+                contact BTG
+              </Link>
+              .
+            </p>
           </div>
         )}
         {view.state === "SUSPENDED" && (

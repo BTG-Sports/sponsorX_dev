@@ -61,6 +61,14 @@ export type EmailTemplate =
   | "onboarding.approved"
   | "onboarding.rejected"
   | "onboarding.suspended"
+  /* 2S1-BE-06 — automatic approval: the contact confirms their email; BTG
+     admins hear of every new organisation; a Reject after approval, and a
+     reinstatement. 2S1-BE-07 — BTG admins hear of every document change. */
+  | "onboarding.confirmEmail"
+  | "onboarding.newOrganization"
+  | "onboarding.accountRejected"
+  | "onboarding.reinstated"
+  | "onboarding.documentChanged"
   /* 2S1-BE-05 — BTG's decision on a business asking to sponsor. */
   | "sponsor.accountOpened"
   | "sponsor.requestDeclined"

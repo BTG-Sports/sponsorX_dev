@@ -29,7 +29,7 @@ export type ApiRoster = {
   inventory: ApiItem[];
 };
 
-const KIND: Record<string, string> = { TEAM: "Team", SCHOOL: "School", EVENT: "Event", MEDIA: "Media", VIRTUAL: "Virtual" };
+const KIND: Record<string, string> = { TEAM: "Team", SCHOOL: "School", EVENT: "Event", MEDIA: "Media", VIRTUAL: "Virtual", AGENCY: "Agency" };
 
 export function kindLabel(kind: string): string {
   return KIND[kind] ?? kind.charAt(0) + kind.slice(1).toLowerCase();

@@ -1092,6 +1092,26 @@ organisation's people are an outside tenant: every scope is tenant-first, so
 they reach their own tenant's rows and none of BTG's or anyone else's. The
 onboarding record and its audit trail stay in BTG's tenant.
 
+**The system approves most organisations itself (2S1-BE-06, 2026-10-01).**
+No row changes. The automatic approval is not a role: it runs on the
+applicant's own public token (a document upload, the submit) or on the
+confirmation email's own signed token, and it provisions exactly what a
+BTG approval does. BTG's checks afterwards — the profile
+(`GET /onboarding/{id}/profile`), the New sign-ups list
+(`GET /onboarding/signups`), the spot-check lists (`?list=auto|flagged`),
+and Reject / Reinstate on `POST /onboarding/{id}/decision` — are this row's
+read and approve, `BTG_ADMIN` own-tenant. Every document now opens through
+a **five-minute** audited link (`GET /onboarding/{id}/documents/{documentId}`).
+
+**An approved organisation's own documents (2S1-BE-07)** go through the
+`property` row, not this one: `PROPERTY_MGR` holds `own` on property, so
+`GET /property/documents`, `POST /property/documents`,
+`POST /property/documents/{documentId}/confirm` and
+`DELETE /property/documents/{documentId}` reach only the onboarding that
+provisioned the manager's own property. BTG and every other role are
+refused there (no property link); the manager gets an upload grant to the
+private bucket and never a read.
+
 ## 17 · Phase 2 · notification preferences *(added 2026-09-28)*
 
 ### `notificationPreference` (2S6-BE-02)

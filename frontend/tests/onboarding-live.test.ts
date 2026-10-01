@@ -4,11 +4,13 @@ import {
   BUSINESS_FIELDS,
   ORG_TYPES,
   US_STATES,
+  approvalTodo,
   businessBody,
   businessFormFrom,
   checkDocument,
   contactsBody,
   contactsFrom,
+  decisionCopy,
   decisionNeedsNote,
   explainApplicantRefusal,
   firstOpenStep,
@@ -47,8 +49,10 @@ describe("steps and missing[]", () => {
     for (const t of ORG_TYPES) {
       const s = stepsFor(t);
       expect(s.map((x) => x.key)).toEqual(["organisation", "contacts", "business", "payout", "documents", "agreements", "review"]);
-      expect(s.find((x) => x.key === "documents")?.optional).toBe(true);
+      /* 2S1-BE-06 — documents are part of the automatic approval's checklist now. */
+      expect(s.find((x) => x.key === "documents")?.optional).toBeUndefined();
     }
+    expect(stepsFor("AGENCY")[2]!.label).toBe("Agency details");
     expect(stepsFor("SCHOOL")[2]!.label).toBe("School programme");
   });
 
@@ -78,16 +82,28 @@ describe("steps and missing[]", () => {
     expect(g.organisation).toBeUndefined();
   });
 
-  it("ticks follow missing[]; documents are optional; the wizard opens at the first gap", () => {
-    const view = { missing: ["business.league", "agreements.terms"], documents: [], orgType: "TEAM" as const };
+  it("ticks follow missing[] and the API's checklist; the wizard opens at the first gap", () => {
+    const item = (key: string, done: boolean) => ({ key, kind: key, stateCode: null, label: key, documentId: done ? "d" : null, done });
+    const view = { missing: ["business.league", "agreements.terms"], checklist: [item("IDENTITY", true), item("RIGHTS_PROOF", false)], orgType: "TEAM" as const };
     expect(stepStatus("organisation", view)).toBe("done");
     expect(stepStatus("business", view)).toBe("todo");
-    expect(stepStatus("documents", view)).toBe("optional");
+    expect(stepStatus("documents", view)).toBe("todo");
     expect(stepStatus("review", view)).toBe("todo");
     expect(firstOpenStep(view)).toBe("business");
     expect(firstOpenStep({ ...view, missing: [] })).toBe("review");
-    const uploaded = { id: "d", kind: "OTHER", filename: "a.pdf", contentType: "application/pdf", bytes: 1, uploadedAt: "2026-09-29T00:00:00Z", createdAt: "" };
-    expect(stepStatus("documents", { missing: [], documents: [uploaded] })).toBe("done");
+    expect(stepStatus("documents", { missing: [], checklist: [item("IDENTITY", true)] })).toBe("done");
+  });
+
+  it("says exactly what still stands between the applicant and the automatic approval", () => {
+    const checklist = [
+      { key: "IDENTITY", kind: "IDENTITY", stateCode: null, label: "Government ID of the person signing", documentId: "d", done: true },
+      { key: "BUSINESS_REGISTRATION:VA", kind: "BUSINESS_REGISTRATION", stateCode: "VA", label: "Business registration (VA)", documentId: null, done: false },
+    ];
+    expect(approvalTodo({ checklist, emailConfirmed: false, contactEmail: "dana@team.invalid" })).toEqual([
+      "Upload: Business registration (VA)",
+      "Confirm dana@team.invalid — open the link we emailed",
+    ]);
+    expect(approvalTodo({ checklist: [checklist[0]!], emailConfirmed: true, contactEmail: "dana@team.invalid" })).toEqual([]);
   });
 });
 
@@ -176,17 +192,32 @@ describe("documents", () => {
     expect(checkDocument({ name: "a.gif", type: "image/gif", size: 1000 }, 0)).toMatch(/PDF, JPEG or PNG/);
     expect(checkDocument({ name: "a.png", type: "image/png", size: 20 * 1024 * 1024 + 1 }, 0)).toMatch(/20 MB/);
     expect(checkDocument({ name: "a.png", type: "image/png", size: 10 }, 12)).toMatch(/at most 12/);
+    /* An ID is at most 10 MB. */
+    expect(checkDocument({ name: "id.png", type: "image/png", size: 11 * 1024 * 1024 }, 0, "IDENTITY")).toMatch(/10 MB/);
+    expect(checkDocument({ name: "reg.png", type: "image/png", size: 11 * 1024 * 1024 }, 0, "BUSINESS_REGISTRATION")).toBeNull();
+  });
+});
+
+describe("an agency (2S1-BE-08)", () => {
+  it("names the other states it operates in, as US state codes", () => {
+    const form = { legalEntityName: "Prime Athletes LLC", statesOperatedIn: "va, dc", stateRegistrationId: "" };
+    expect(validateBusiness("AGENCY", form, "MD")).toEqual({});
+    expect(businessBody("AGENCY", form)).toEqual({ legalEntityName: "Prime Athletes LLC", statesOperatedIn: ["VA", "DC"] });
+    expect(validateBusiness("AGENCY", { ...form, statesOperatedIn: "VA, Narnia" }, "MD").statesOperatedIn).toMatch(/NARNIA/);
   });
 });
 
 describe("BTG decisions", () => {
   it("offers only the legal moves per state", () => {
     expect(legalDecisions("PENDING_REVIEW")).toEqual(["APPROVE", "REQUEST_CHANGES", "REJECT"]);
-    expect(legalDecisions("APPROVED")).toEqual(["SUSPEND"]);
+    /* 2S1-BE-06 — BTG reviews afterwards: Reject an approved organisation, Reinstate it. */
+    expect(legalDecisions("APPROVED")).toEqual(["SUSPEND", "REJECT"]);
     expect(legalDecisions("SUSPENDED")).toEqual(["REINSTATE"]);
     expect(legalDecisions("DRAFT")).toEqual([]);
     expect(legalDecisions("CHANGES_REQUESTED")).toEqual([]);
     expect(legalDecisions("REJECTED")).toEqual([]);
+    expect(legalDecisions("REJECTED", true)).toEqual(["REINSTATE"]);
+    expect(decisionCopy("REJECT", "APPROVED").hint).toMatch(/holds its payouts/);
   });
 
   it("needs a note for request changes, reject and suspend", () => {

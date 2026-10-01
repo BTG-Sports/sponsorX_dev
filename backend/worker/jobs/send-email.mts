@@ -161,9 +161,31 @@ ${d.portalUrl ?? ""}
      contact. Every refusal quotes the reviewer's note, which is mandatory
      upstream (NEEDS_NOTE), because "changes requested" with no reason is an
      instruction nobody can follow. */
+  /* 2S1-BE-06 — the receipt says what is still needed; the system approves
+     as soon as it is all in, so usually no person is waited on. */
   "onboarding.received": (d) => ({
     subject: `We have ${d.orgName ?? "your"} application`,
-    text: `Hi ${d.contactName ?? "there"},\n\nThanks for applying to sell on SponsorX. We verify every organisation by hand, so this takes a few days rather than minutes.\n\nWe will email you as soon as there is a decision.\n\n— BTG SponsorX`,
+    text: `Hi ${d.contactName ?? "there"},\n\nThanks for applying to sell on SponsorX.${d.stillNeeded ? `\n\nBefore we can approve ${d.orgName ?? "your organisation"}:\n${d.stillNeeded}\n\nAs soon as these are done we approve you automatically. Your application is here:\n\n${d.resumeUrl ?? ""}` : "\n\nWe will email you as soon as there is a decision."}\n\n— BTG SponsorX`,
+  }),
+  "onboarding.confirmEmail": (d) => ({
+    subject: "Confirm your email for SponsorX",
+    text: `Hi ${d.contactName ?? "there"},\n\nYou are the primary contact on ${d.orgName ?? "an organisation"}'s application to sell on SponsorX. Confirm this is your email address:\n\n${d.confirmUrl ?? ""}\n\nOnce your email is confirmed and your documents are uploaded, we approve you — usually straight away.\n\n— BTG SponsorX`,
+  }),
+  "onboarding.newOrganization": (d) => ({
+    subject: `New organisation: ${d.orgName ?? "an organisation"} ${d.outcome ?? ""}`.trim(),
+    text: `${d.orgName ?? "An organisation"} (${d.orgType ?? "organisation"}) ${d.outcome ?? "applied"} on SponsorX.${d.reasons ? `\n\nWhy it is waiting:\n${d.reasons}` : ""}\n\nOpen its profile:\n\n${d.profileUrl ?? ""}\n\nIf something looks wrong, reject it from that page — its sign-in and listings are switched off, its payouts held, and it is told why.\n\n— SponsorX`,
+  }),
+  "onboarding.accountRejected": (d) => ({
+    subject: `${d.orgName ?? "Your organisation"}'s SponsorX account has been closed`,
+    text: `Hi ${d.contactName ?? "there"},\n\nBTG has closed ${d.orgName ?? "your organisation"}'s account on SponsorX:\n\n${d.notes ?? ""}\n\nYour sign-in and listings are switched off and payouts are on hold. Orders already placed are not cancelled by this. If you think this is a mistake, contact BTG support:\n\n${d.supportUrl ?? ""}\n\n— BTG SponsorX`,
+  }),
+  "onboarding.reinstated": (d) => ({
+    subject: `${d.orgName ?? "Your organisation"}'s SponsorX account is open again`,
+    text: `Hi ${d.contactName ?? "there"},\n\nBTG has reopened ${d.orgName ?? "your organisation"}'s account. Sign in with this email address — your listing access is back and payouts are released:\n\n${d.portalUrl ?? ""}\n\nListings that ended when the account closed need listing again.\n\n— BTG SponsorX`,
+  }),
+  "onboarding.documentChanged": (d) => ({
+    subject: `${d.orgName ?? "An organisation"} ${d.change ?? "changed a document"}`,
+    text: `${d.orgName ?? "An organisation"} ${d.change ?? "changed a document"}: ${d.document ?? ""}.${d.flagged ? `\n\nIt is now flagged for you:\n${d.flagged}\n\nIts listings stay live — nothing is suspended automatically.` : ""}\n\nOpen its profile:\n\n${d.profileUrl ?? ""}\n\n— SponsorX`,
   }),
   "onboarding.changesRequested": (d) => ({
     subject: `One thing to fix on ${d.orgName ?? "your"} application`,
