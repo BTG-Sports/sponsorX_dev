@@ -21,6 +21,7 @@ import {
   pushDeal, pushMarketplaceOrder,
   pushLead,
   pushFanLead,
+  pushSponsor,
   pushRenewal,
   pushTask,
   reconcile,
@@ -69,6 +70,11 @@ export const handlePushLead = (deps: Deps, job: LeadJob) =>
     "fanEventId" in job
       ? pushFanLead(ctxFor(deps), job.tenantId, job.fanEventId)
       : pushLead(ctxFor(deps), job.tenantId, job.inquiryId));
+
+/** 2S1-BE-05 — a sponsor BTG just approved: its Account and primary Contact. */
+export type SponsorJob = Tenanted & { sponsorId: string };
+export const handlePushSponsor = (deps: Deps, job: SponsorJob) =>
+  tolerateRecordErrors("zoho.pushSponsor", () => pushSponsor(ctxFor(deps), job.tenantId, job.sponsorId));
 
 /** 2S7-INT-01 — a contracted marketplace order, its sponsor and its properties. */
 export type MarketplaceOrderJob = Tenanted & { orderId: string };
@@ -188,7 +194,7 @@ export async function runReconciliation(deps: Deps, opts: { force?: boolean; ten
  */
 export const NEEDS_ZOHO_CRM = new Set([
   "zoho.pushDeal", "zoho.pushCampaign", "zoho.pushTask", "zoho.pushLead",
-  "zoho.pushRenewal", "zoho.ingestCrm", "zoho.backfill", "zoho.pushMarketplaceOrder",
+  "zoho.pushRenewal", "zoho.ingestCrm", "zoho.backfill", "zoho.pushMarketplaceOrder", "zoho.pushSponsor",
 ]);
 
 export function dispatchableJobs(handled: Iterable<string>, zohoConfigured: boolean): string[] {

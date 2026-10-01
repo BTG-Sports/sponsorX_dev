@@ -594,11 +594,21 @@ the integration's own state and is read under `integrationConnection`.
 ### `inquiry` *(added 2026-09-24)*
 | Role | Read | Write | Approve |
 |---|---|---|---|
-| `SUPER_ADMIN` | any | any | — |
-| `BTG_ADMIN` | own-tenant | own-tenant | — |
-| `SALES` | own-tenant | — | — |
+| `SUPER_ADMIN` | any | any | any |
+| `BTG_ADMIN` | own-tenant | own-tenant | own-tenant |
+| `SALES` | own-tenant | — | own-tenant |
 | `SERVICE` | own-tenant | own-tenant (Zoho Lead id) | — |
 | all others | — | — | — |
+
+**Approve is BTG's decision on the request (2S1-BE-05, 2026-09-30).** The
+enquiry is also the request BTG reviews in SponsorX. Approving it opens the
+sponsor's account in one transaction: the sponsor with the business type BTG
+picked, its primary contact, and a `SPONSOR_ADMIN` login for the request's
+email, which that email's first sign-in claims. It then queues the sign-in
+email and the Zoho account push. Declining needs a note, which is emailed.
+Each request is decided once. An email that already has a login is refused,
+and a same-named sponsor must be linked or confirmed as a different business.
+The request's other fields are untouched.
 
 A prospective sponsor's enquiry (§18 row 3, P8-INT-06). It is **created by the
 public enquiry form**, which has no signed-in actor — the same shape as `/join`

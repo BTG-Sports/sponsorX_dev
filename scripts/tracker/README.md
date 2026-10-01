@@ -5,8 +5,12 @@
 
 | Command | When | What |
 |---|---|---|
-| `notify` | every push to `main` that changes the tracker | Slack: phase progress + the tasks that changed. Sheet: those changes written into the published Google Sheet (Status, dates, Owner, Notes — by task ID; new tasks appended). |
-| `digest` | weekdays 9 pm Manila | Slack: phase progress, finished today, waiting in Code review, newly blocked. Sheet: that day's Stage Progress row. |
+| `notify --no-slack` | every push to `main` that changes the tracker, as often as that happens | Sheet only: the changes written into the published Google Sheet (Status, dates, Owner, Notes — by task ID; new tasks appended). Nothing is posted to Slack. |
+| `digest` | every day, 8 pm Manila — **the day's only Slack post** | Slack: phase progress, every task change since the previous evening, finished today, waiting in Code review, newly blocked. Sheet: that day's Stage Progress row. |
+
+Since 2026-10-01 Slack hears about the tracker once a day, from the digest; the
+Sheet is still updated on every change. `notify` without `--no-slack` posts
+the change straight away, as before.
 
 Phase 1's figure always includes SponsorX NEXT; Dropped tasks are excluded.
 It never writes to the repository.

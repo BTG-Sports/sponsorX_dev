@@ -5,7 +5,7 @@
 | | |
 |---|---|
 | **Goal** | Turn SponsorX from BTG-only operations into a multi-tenant marketplace. External athletes, teams, programs, events and media properties onboard, publish inventory, fulfil deliverables and get paid. |
-| **Tasks** | 73 · 286 person-days |
+| **Tasks** | 87 · 331 person-days |
 | **Blueprint timeline** | 16–20 weeks |
 | **Balanced budget** | $80K–$120K |
 | **Depends on** | Phase 1 auth/RBAC, sponsor/property/inventory/campaign/reward models, Zoho integration, core analytics |
@@ -225,6 +225,46 @@ Approving a property creates its tenant and role assignments. This is where Phas
 - **Done when:** An approved property's users see only their own tenant's data; cross-tenant tests pass
 - **Reference:** Spec §3, §12
 
+### ⏸ `2S1-BE-05` · BTG approves a new sponsor and opens the account
+
+**Order** 12.5 · **BE** · **Where:** Code · **4d** · **Blocked**
+
+Today a sponsor's request from the public form becomes a Zoho lead and nothing more. BTG cannot approve the sponsor in SponsorX, and nothing gives the sponsor a login, so a real sponsor could never sign in. The request should land in a BTG review queue in SponsorX, as well as going to Zoho. It records the business type as structured categories, since the clash check needs them and today they arrive only inside the message text. BTG approves or declines with a note. Approving creates the sponsor with its categories, its primary contact and a SPONSOR_ADMIN login for the request's email, in one transaction. It links to the Zoho account instead of duplicating it when sales has already converted the lead. It also emails the sponsor a sign-in link, queued through the worker. Declining emails the reason. Every decision is audited. Zoho stays off the request path. Raised 2026-09-30 from the walkthrough (step 4b).
+
+- **Depends on:** 2S1-BE-04, P8-INT-06
+- **Done when:** A sponsor's request appears in BTG's queue with its business type; approving it creates the sponsor, its contact and a login the requester can sign in with, and links the Zoho account without a duplicate; declining tells the requester why; only BTG admin and sales can decide; tenant and role tests cover it
+- **Reference:** Spec §3, §12, §18; walkthrough 2026-09-30
+
+### ⏸ `2S1-BE-06` · Organizations are approved automatically; BTG reviews afterwards
+
+**Order** 12.6 · **BE** · **Where:** Code · **5d** · **Ready**
+
+BTG has at most one person reviewing, so the system approves an organization itself and BTG checks it afterwards. The checklist ticks itself from what is uploaded: the documents each organization type and state requires (`missingFor`). The primary contact must also confirm their email by clicking a link. The organization's name must be unique across the whole platform: compared ignoring case, spaces, punctuation, a leading "The" and legal endings such as LLC or Inc, enforced by the database, and counting applications still in progress. When every item is ticked and the name is free, the organization is approved and its manager's login created, as a manual approval does today. Anything else goes to BTG's queue, and the applicant is told why (for example "This name is already registered; add your town or contact BTG"). For every organization added, BTG admins get an email with a link to its profile page. **Reject** on that page, with a reason that is emailed to the organization, withdraws an approved organization: its login and listing access are switched off, its listings end, and any pending payouts are held. BTG can reinstate it. Every automatic approval and every reject is audited. Raised 2026-10-01 from the BTG admin review.
+
+- **Depends on:** 2S1-BE-03, 2S1-BE-04
+- **Done when:** An organization with every required document, a confirmed contact email and a unique name is approved without BTG; a duplicate name (after normalising) is refused, even between two applications at once; anything incomplete goes to BTG's queue with the reason shown to the applicant; BTG admins are emailed for each new organization with a link to its profile; Reject withdraws access, ends listings, holds payouts and emails the reason; tenant and role tests cover it
+- **Reference:** Spec §3, §12; BTG admin review 2026-10-01
+
+### ⏸ `2S1-BE-07` · Organizations update their documents after approval
+
+**Order** 12.7 · **BE** · **Where:** Code · **2d** · **Ready**
+
+An approved organization can replace an uploaded document or add a new one from its portal (for example an expired ID or a renewed registration). Each change re-runs the checklist. BTG admins are emailed with a link to the profile page, and a required document removed without a replacement flags the organization for BTG, without suspending it automatically. The previous file is kept, so the history is visible. Raised 2026-10-01 from the BTG admin review.
+
+- **Depends on:** 2S1-BE-02, 2S1-BE-06
+- **Done when:** An approved organization can replace or add documents; each change re-runs the checklist, keeps the previous file and emails BTG admins a link; a missing required document flags the organization for BTG; only the organization's own manager can change its documents
+- **Reference:** Spec §3, §12; BTG admin review 2026-10-01
+
+### ⏸ `2S1-BE-08` · AGENCY as an organization type
+
+**Order** 12.8 · **BE** · **Where:** Code · **2d** · **Ready**
+
+Add **AGENCY** (an athlete management or talent agency) to the organization types, beside TEAM, SCHOOL, EVENT, MEDIA and VIRTUAL. Its documents: a business registration in every state (an agency is a business wherever it operates), the contact's identity, and proof it represents the athletes it lists (a representation agreement). Like a team, it has a roster and takes an agreed share of its athletes' sales. It works everywhere an organization type is used: onboarding, the property record, commission rules scoped by property kind, and search and filters. Raised 2026-10-01 from the BTG admin review.
+
+- **Depends on:** 2S1-BE-01
+- **Done when:** An agency can apply, is held to its own document list, can hold a roster and an agreed share, and can be targeted by commission rules like any other organization type
+- **Reference:** Spec §3, §12; BTG admin review 2026-10-01
+
 ### ⏸ `2S1-FE-01` · Build the property onboarding wizard
 
 **Order** 13 · **FE** · **Where:** Code · **5d** · **Blocked**
@@ -244,6 +284,36 @@ The BTG admin review screen: submitted profile, documents, brand-safety status, 
 - **Depends on:** 2S1-BE-03
 - **Done when:** Reviewer can work the queue and action decisions with reasons recorded
 - **Reference:** Spec §6 P2-02
+
+### ⏸ `2S1-FE-03` · BTG's sponsor-request review screen
+
+**Order** 14.5 · **FE** · **Where:** Code · **3d** · **Blocked**
+
+BTG's queue of new sponsor requests: who is asking, their business type, their message and when they asked. BTG can approve, which opens the account and emails the sponsor a sign-in link, or decline with a note the sponsor reads. The same screen shows whether the Zoho lead has already been converted, so sales and BTG don't create the sponsor twice. Raised 2026-09-30 from the walkthrough (step 4b).
+
+- **Depends on:** 2S1-BE-05
+- **Done when:** BTG can review a sponsor's request, approve it (the sponsor can then sign in) or decline it with a reason, from the admin portal
+- **Reference:** Spec §10; walkthrough 2026-09-30
+
+### ⏸ `2S1-FE-04` · The applicant's checklist and the documents page
+
+**Order** 14.6 · **FE** · **Where:** Code · **3d** · **Blocked**
+
+In the onboarding wizard: the live checklist of required documents, ticking as each is uploaded; the email confirmation step; the "name already registered" message; and AGENCY as a type. In the property portal after approval: a Documents page to replace or add files, showing each document's status and history.
+
+- **Depends on:** 2S1-BE-06, 2S1-BE-07, 2S1-BE-08, 2S0-ART-01
+- **Done when:** An applicant sees exactly what is still missing and is approved when nothing is; an approved organization can replace or add its documents from its portal
+- **Reference:** Spec §3, §12; BTG admin review 2026-10-01
+
+### ⏸ `2S1-FE-05` · BTG's organization profile page with Reject
+
+**Order** 14.7 · **FE** · **Where:** Code · **2d** · **Blocked**
+
+The page BTG's email links to: the organization's details, its documents, the automatic checklist as it was when approved, and its activity. It has **Reject** (a required reason, emailed to the organization) and Reinstate, plus an "Automatically approved" list in the admin portal for spot checks.
+
+- **Depends on:** 2S1-BE-06, 2S1-BE-07, 2S0-ART-01
+- **Done when:** From the emailed link, a BTG admin can review an automatically approved organization and reject it with a reason, or reinstate it; recent automatic approvals are listed for spot checks
+- **Reference:** Spec §3, §12; BTG admin review 2026-10-01
 
 ### ⏸ `2S1-INT-01` · Onboarding notification jobs
 
@@ -301,6 +371,16 @@ Teams and programs hold rosters, property inventory, users and revenue shares �
 - **Done when:** A team manager can see their roster and the inventory belonging to it, and nobody else's
 - **Reference:** Spec §6 P2-06
 
+### ⏸ `2S2-BE-05` · A team invites an athlete already on SponsorX
+
+**Order** 19.5 · **BE** · **Where:** Code · **4d** · **Ready**
+
+Today "add to roster" only creates a new athlete and refuses an email that already has an account, so an athlete who applied on their own (walkthrough step 2) can never join a team (step 3). A team searches for an approved athlete and sends an invitation naming the share it asks for. The athlete accepts or declines from their portal and by email, and nobody joins a team without agreeing to its share. On accepting, the athlete is linked to the team at that share. The athlete's own listings are ended, and the team re-lists the items. Orders already placed keep the split they were sold with. Either side can end the link: the athlete leaves, or the team removes them. That ends the team's listings of the athlete's items, and past orders keep their split. "Add a new athlete" stays for players who aren't on SponsorX yet. Raised 2026-10-01 from the user-flow review.
+
+- **Depends on:** 2S2-BE-04, 2S3-BE-05
+- **Done when:** A team can invite an existing approved athlete with a proposed share; the athlete can accept or decline; accepting links them at that share and ends their own listings; either side can end the link without changing past orders; nobody is linked without accepting; tenant and role tests cover it
+- **Reference:** Spec §5; user-flow review 2026-10-01
+
 ### ⏸ `2S2-FE-01` · Build the athlete portal home
 
 **Order** 20 · **FE** · **Where:** Code · **3d** · **Blocked**
@@ -340,6 +420,16 @@ Roster, inventory, campaigns, revenue, tasks and performance for a team or progr
 - **Depends on:** 2S2-BE-04
 - **Done when:** Team dashboard renders roster-scoped data with revenue shares visible to the manager
 - **Reference:** Spec §6 P2-06
+
+### ⏸ `2S2-FE-05` · Team invitations and leaving a team, on screen
+
+**Order** 23.5 · **FE** · **Where:** Code · **3d** · **Blocked**
+
+The screens for 2S2-BE-05. On the team's Roster page: "Invite an athlete already on SponsorX" (search, the share asked for, send), with pending invitations and a "Remove from roster" action. In the athlete portal: the invitation, showing the team, the share and what joining means for their listings, with Accept and Decline, plus "Leave team" later on.
+
+- **Depends on:** 2S2-BE-05, 2S0-ART-01
+- **Done when:** A team can invite an existing athlete and see the invitation's state; the athlete can accept, decline or later leave from their portal; a team can remove an athlete
+- **Reference:** Spec §5; user-flow review 2026-10-01
 
 ## Sprint 3 · Listing engine
 
@@ -493,6 +583,36 @@ Where policy requires it, an order waits for BTG approval before inventory is co
 - **Done when:** An order requiring approval holds inventory without contracting it, and releases on rejection
 - **Reference:** Spec §7.2
 
+### ⏸ `2S4-BE-06` · Sellers see and are told about their sales
+
+**Order** 34.3 · **BE** · **Where:** Code · **3d** · **Ready**
+
+Today only the sponsor and BTG can see a marketplace order, and nobody on the selling side is told about one, so Riley never learns the clinic was sold (walkthrough steps 10 to 13). The team manager and the athlete whose item it is, or the athlete alone when selling without a team, can read the order lines they sell. That covers the order number, the sponsor's business name, what was bought, the quantity, the dates, the status and their own share only. They're emailed when BTG approves the order and the sponsor has paid, and optionally given a heads-up when it's placed and waiting for approval. The sponsor contact's name and email become visible to the seller once the order is paid, so they can arrange the clinic or appearance directly. Raised 2026-10-01 from the user-flow review.
+
+- **Depends on:** 2S4-BE-03, 2S5-BE-02
+- **Done when:** A seller can read only the order lines they sell, with their own share and no one else's; they are emailed when a sale is approved and paid; the sponsor contact appears only once paid; a seller can never read another seller's lines or another tenant's orders (tenant and role tests)
+- **Reference:** Spec §6 P2-08; user-flow review 2026-10-01
+
+### ⏸ `2S4-BE-07` · The seller marks it delivered; the sponsor confirms within 24 hours
+
+**Order** 34.6 · **BE** · **Where:** Code · **5d** · **Ready**
+
+Delivery is confirmed per order line, because one order can hold items from different sellers. A paid order moves to In delivery on its own. The seller marks a line delivered with a required note, and a photo or link optionally. The sponsor is emailed and can Confirm or Report a problem. **After 24 hours with no answer, the line counts as confirmed.** A confirmed line becomes payable, after the holding period, replacing today's whole-order "fulfilled" rule for payouts. A reported problem pauses that line's payout until BTG decides: confirm it was delivered, or cancel and refund the line. The order is delivered once every line is confirmed. Every step is audited. Raised 2026-10-01 from the user-flow review.
+
+- **Depends on:** 2S4-BE-06, 2S5-BE-04
+- **Done when:** A seller can mark only their own lines delivered, with a note; the sponsor can confirm or report a problem, and silence for 24 hours confirms; only confirmed lines can be paid out; a reported problem holds that line's payout until BTG resolves it; the order is delivered when all its lines are
+- **Reference:** Spec §6 P2-08, §7.4; user-flow review 2026-10-01
+
+### ⏸ `2S4-BE-08` · Delivery reminders and automatic close
+
+**Order** 34.8 · **BE** · **Where:** Code · **2d** · **Ready**
+
+A worker job runs daily. The day after a line's last date, a seller who hasn't marked it delivered gets a reminder, and BTG gets a list of overdue lines. 30 days after every line of an order is confirmed, the order closes on its own, releasing the reserve so the reserve parts of the sellers' shares become payable. BTG can still close an order early by hand. Raised 2026-10-01 from the user-flow review.
+
+- **Depends on:** 2S4-BE-07
+- **Done when:** Overdue lines remind the seller once and appear in BTG's list; an order closes itself 30 days after its last line is confirmed and its reserve becomes payable; running the job twice changes nothing
+- **Reference:** Spec §7.4; user-flow review 2026-10-01
+
 ### ⏸ `2S4-FE-01` · Build cart and reservation screens
 
 **Order** 35 · **FE** · **Where:** Code · **3d** · **Blocked**
@@ -512,6 +632,26 @@ Billing details, agreement acceptance, deposit or full payment, and any approval
 - **Depends on:** 2S4-BE-03
 - **Done when:** Sponsor can complete a purchase or reservation through the configured flow
 - **Reference:** Spec §6 P2-09
+
+### ⏸ `2S4-FE-03` · The seller's Orders page
+
+**Order** 36.3 · **FE** · **Where:** Code · **3d** · **Blocked**
+
+An Orders page in the athlete portal and in the team (property) portal. It lists each sale: the order number, the sponsor's business, what was bought, the dates, the status and the seller's own share. Once paid, it shows the sponsor contact. Each line has its own delivery state. Built from 2S4-BE-06.
+
+- **Depends on:** 2S4-BE-06, 2S0-ART-01
+- **Done when:** An athlete and a team each see their own sales with their own share, and the sponsor contact once paid
+- **Reference:** Spec §6 P2-08; user-flow review 2026-10-01
+
+### ⏸ `2S4-FE-04` · Delivery on screen: mark delivered, confirm, resolve
+
+**Order** 36.6 · **FE** · **Where:** Code · **4d** · **Blocked**
+
+The screens for 2S4-BE-07 and 2S4-BE-08. The seller's "Mark delivered" with its note and optional proof, on the Orders page. On the sponsor's order page: "Riley says this was delivered", with Confirm and Report a problem and the time left to answer (24 hours). For BTG: a queue of reported problems with Confirm delivered and Cancel and refund, and the list of overdue lines.
+
+- **Depends on:** 2S4-BE-07, 2S4-BE-08, 2S0-ART-01
+- **Done when:** A seller can mark a line delivered; the sponsor can confirm it or report a problem within 24 hours; BTG can resolve a problem and see overdue lines
+- **Reference:** Spec §6 P2-08; user-flow review 2026-10-01
 
 ## Sprint 5 · Payments, ledger & payouts
 

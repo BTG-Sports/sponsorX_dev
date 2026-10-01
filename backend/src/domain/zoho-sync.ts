@@ -166,6 +166,18 @@ async function ensureAccount(ctx: SyncCtx, tenantId: string, sponsorId: string):
   return out.zohoId;
 }
 
+/**
+ * 2S1-BE-05 — a sponsor BTG just approved: the Account (with our key on it)
+ * and its primary Contact, so sales converting the old lead finds this
+ * account instead of creating a twin.
+ */
+export async function pushSponsor(ctx: SyncCtx, tenantId: string, sponsorId: string): Promise<PushOutcome> {
+  const account = await pushAccount(ctx, tenantId, sponsorId);
+  if (account.status === "skipped") return account;
+  await ensurePrimaryContact(ctx, tenantId, sponsorId);
+  return account;
+}
+
 /** SponsorContact → Contacts (§7.2). The account goes first. */
 export async function pushContact(ctx: SyncCtx, tenantId: string, contactId: string): Promise<PushOutcome> {
   const c = await ctx.db.sponsorContact.findFirst({

@@ -169,6 +169,15 @@ ${d.portalUrl ?? ""}
     subject: `One thing to fix on ${d.orgName ?? "your"} application`,
     text: `Hi ${d.contactName ?? "there"},\n\nWe need a change before we can approve ${d.orgName ?? "your organisation"}:\n\n${d.notes ?? ""}\n\nYour answers are saved. Update them and resubmit here — you do not need to start again:\n\n${d.resumeUrl ?? ""}\n\n— BTG SponsorX`,
   }),
+  /* 2S1-BE-05 — BTG's decision on a request to sponsor. */
+  "sponsor.accountOpened": (d) => ({
+    subject: "Your SponsorX sponsor account is ready",
+    text: `Hi ${d.firstName ?? "there"},\n\nBTG has opened a sponsor account for ${d.businessName ?? "your business"} on SponsorX. Sign in with this email address:\n\n${d.portalUrl ?? ""}\n\nFrom there you can browse athletes and teams, and send BTG a brief.\n\n— BTG SponsorX`,
+  }),
+  "sponsor.requestDeclined": (d) => ({
+    subject: "About your SponsorX sponsor request",
+    text: `Hi ${d.firstName ?? "there"},\n\nThanks for asking to sponsor on SponsorX. BTG can't open an account for ${d.businessName ?? "you"} yet:\n\n${d.note ?? ""}\n\nYou can reply to this email with any questions.\n\n— BTG SponsorX`,
+  }),
   "onboarding.approved": (d) => ({
     subject: `${d.orgName ?? "Your organisation"} is approved on SponsorX`,
     text: `Hi ${d.contactName ?? "there"},\n\n${d.orgName ?? "Your organisation"} has been approved. Your account is ready: sign in with this email address to reach your property portal.\n\n${d.portalUrl ?? ""}\n\n— BTG SponsorX`,

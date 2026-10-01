@@ -97,6 +97,7 @@ import {
 } from "./marketplace";
 import { NotificationPreferenceInput } from "./notification-preferences";
 import { PayoutAccountLinkInput, PayoutDecisionInput, StandinAccountInput, StandinCheckoutInput } from "./payouts";
+import { SponsorRequestDecisionInput } from "./sponsor-requests";
 import { OnboardingDecisionInput, OnboardingDocumentInput, OnboardingStartInput, OnboardingStepInput } from "./onboarding";
 import {
   AgreementAcceptanceInput,
@@ -466,6 +467,9 @@ const PATHS: Row[] = [
   { method: "get", path: "/payouts/account", tag: "Payouts", summary: "The caller's payout account status (athlete or property manager): not set up, needs more information, or ready." },
   { method: "post", path: "/payouts/account/link", tag: "Payouts", summary: "A link to the payment provider's page to set up (or finish, or manage) the payout account.", body: PayoutAccountLinkInput },
   { method: "get", path: "/payouts/me", tag: "Payouts", summary: "The payee's money: requestable, held, awaiting payment, paid out; the rules for requesting; per-order detail; every payout." },
+  { method: "get", path: "/sponsor-requests", tag: "Sponsor requests", summary: "BTG admin / Sales: businesses asking to sponsor, one tab at a time (?state=NEW|APPROVED|DECLINED, default NEW), with every tab's count (2S1-BE-05)." },
+  { method: "get", path: "/sponsor-requests/{id}", tag: "Sponsor requests", summary: "One request: who is asking, what they told us, a suggested business type, and the checks that gate approval — email already in use, same-named sponsors (e.g. synced from Zoho)." },
+  { method: "post", path: "/sponsor-requests/{id}/decision", tag: "Sponsor requests", summary: "APPROVE opens the account — the sponsor, its primary contact and a SPONSOR_ADMIN login for the request's email — and emails a sign-in link; DECLINE emails the note. Once only (409 after).", body: SponsorRequestDecisionInput },
   { method: "post", path: "/payouts", tag: "Payouts", summary: "Request the whole requestable balance as a payout (one per set of books).", status: 201 },
   { method: "get", path: "/payouts", tag: "Payouts", summary: "BTG admin / Finance: payout requests by state, with counts." },
   { method: "get", path: "/payouts/{id}", tag: "Payouts", summary: "One payout: payee, orders, the payout rules checked now, the payee's account status." },

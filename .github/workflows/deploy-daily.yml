@@ -1,0 +1,79 @@
+# The daily deploy, right after the 8 pm Manila CI run (2026-10-01, at the
+# user's instruction).
+#
+# Railway deploys staging and production from the `release` branch, not from
+# `main`. When the nightly CI run (ci.yml) on `main` finishes and passed, this
+# moves `release` up to that commit, and Railway, watching `release`, deploys
+# both services in both environments at that commit. Chained to CI rather than
+# given its own time, so a late-starting CI run can never make it miss.
+#
+# Nothing new on `main`, or checks not green: nothing moves, nothing deploys.
+# Manual deploys are unchanged: Railway's own Deploy / Redeploy buttons, or
+# `npm run deploy` (scripts/deploy.mjs), at any time.
+#
+# Never writes to `main`; it only moves `release`. Needs no Railway key.
+name: Daily deploy
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write # to move the release branch
+  checks: read    # to read main's check results
+
+concurrency:
+  group: deploy-daily
+  cancel-in-progress: false
+
+jobs:
+  release:
+    # After CI: only when it passed. By hand: always try (the checks below still apply).
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || 'main' }}
+          fetch-depth: 0
+
+      - name: Move release to main if main is new and green
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          SHA=$(git rev-parse HEAD)
+          SUBJECT=$(git log -1 --format=%s "$SHA")
+          echo "main is ${SHA:0:7}  $SUBJECT"
+
+          if git ls-remote --exit-code --heads origin release >/dev/null; then
+            CURRENT=$(git ls-remote --heads origin release | cut -f1)
+            if [ "$CURRENT" = "$SHA" ]; then
+              echo "release is already at ${SHA:0:7} — nothing new to deploy today."
+              exit 0
+            fi
+          fi
+
+          # CI's two jobs (ci.yml) must both have run on this commit and passed.
+          # Other workflows on the same commit — the tracker jobs, this one —
+          # are not checks of the code and are ignored.
+          RUNS=$(gh api "repos/$REPO/commits/$SHA/check-runs?per_page=100" \
+            --jq '[.check_runs[] | select((.name | startswith("typecheck")) or (.name | startswith("e2e")))] | map({name, status, conclusion})')
+          echo "CI on ${SHA:0:7}: $RUNS"
+          TOTAL=$(echo "$RUNS" | jq 'length')
+          GREEN=$(echo "$RUNS" | jq '[.[] | select(.status == "completed" and .conclusion == "success")] | length')
+          if [ "$TOTAL" -lt 2 ]; then
+            echo "::warning::CI has not run on ${SHA:0:7} — not deploying. Deploy by hand if this is intended."
+            exit 0
+          fi
+          if [ "$GREEN" -ne "$TOTAL" ]; then
+            echo "::warning::Checks on ${SHA:0:7} are not all green ($GREEN of $TOTAL) — not deploying today."
+            exit 0
+          fi
+
+          git push --force origin "$SHA:refs/heads/release"
+          echo "release → ${SHA:0:7}. Railway is deploying staging and production."
