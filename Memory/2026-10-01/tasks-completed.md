@@ -94,3 +94,18 @@ The user set the 90-day rules:
   - Sensitive edits also publish at once but re-run the sign-up checks: a legal name needs a matching ID, a date of birth recomputes adulthood, a new guardian goes through the guardian's page.
   - BTG is emailed only for sensitive edits.
 - **2S1-FE-09** (2d, Blocked): the editor's screens; the Profile changes page is retired.
+
+## Guardian handoff and BTG support (4 tasks; Phase 2 is now 101 tasks, 377 days)
+
+**The user's rules:**
+- A handoff starts only with the new guardian's request. The current guardian then approves it with Hand off, or declines; they can't start a handoff alone.
+- The current guardian keeps control until the switch.
+- Agreed work and earned money stay where they were.
+- A guardian with other children keeps them.
+- **A disputed guardianship is never automated:** the new guardian contacts BTG through a support email and contact page.
+
+**Raised:**
+- **2S1-BE-15** (3d): the handoff.
+- **2S1-BE-16** (2d): the contact form, queued to the support mailbox.
+- **2S1-OPS-01** (1d): set up the support mailbox. Recommended: Zoho Desk at support@sponsorx.net; awaiting the user's choice.
+- **2S1-FE-10** (3d): the handoff and contact screens.

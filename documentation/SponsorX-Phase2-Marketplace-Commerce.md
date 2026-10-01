@@ -5,7 +5,7 @@
 | | |
 |---|---|
 | **Goal** | Turn SponsorX from BTG-only operations into a multi-tenant marketplace. External athletes, teams, programs, events and media properties onboard, publish inventory, fulfil deliverables and get paid. |
-| **Tasks** | 97 · 368 person-days |
+| **Tasks** | 101 · 377 person-days |
 | **Blueprint timeline** | 16–20 weeks |
 | **Balanced budget** | $80K–$120K |
 | **Depends on** | Phase 1 auth/RBAC, sponsor/property/inventory/campaign/reward models, Zoho integration, core analytics |
@@ -335,6 +335,43 @@ For every sensitive edit, BTG admins are emailed a link to the athlete on the Ne
 - **Done when:** An approved athlete's ordinary edits publish with no BTG step; a legal-name change needs a matching ID upload, a date-of-birth change recomputes adulthood and starts the guardian or coming-of-age process when it changes, and a new guardian goes through the guardian's page; BTG admins are emailed only for sensitive edits, with a link and Reject; every edit is audited
 - **Reference:** Spec §4, §26, §37; BTG admin review 2026-10-01
 
+### ⏸ `2S1-BE-15` · Changing a minor's guardian (handoff)
+
+**Order** 12.95 · **BE** · **Where:** Code · **3d** · **Ready**
+
+A minor's guardian can change, for example after a custody change or when the other parent takes over. **A handoff starts only with the new guardian's request:**
+1. **The new guardian asks.** On a public request page they give their details and identify the athlete (the athlete's email, or a code the family shares), and complete the guardian page: government ID, proof of guardianship, and the guardian agreement.
+2. **The current guardian decides.** They are emailed, and in their portal they see the request with **Hand off** and **Decline**. The current guardian cannot start a handoff without a request, and the minor cannot start one.
+3. **Approval and switch.** Once the current guardian hands off and the new guardian's documents and email check out, the new guardian is approved automatically and control switches at once. Until then the current guardian keeps acting, so there is no gap. Both guardians and the athlete are emailed.
+4. **What carries over:** orders and campaigns already agreed continue as agreed; money already earned is paid to the payout account it was earned under; the new guardian sets up their own Stripe payout account for anything new.
+5. **A guardian with other children keeps them;** only this athlete moves.
+
+Every request, decision and switch is audited. BTG admins are emailed with a link, with Reject available as for any guardian. **A disputed handoff is never automated.** When the current guardian declines, can't be reached, or there's a court order, the request page and the decline email point the new guardian to BTG support (2S1-BE-16), and BTG decides by hand. Raised 2026-10-01 from the BTG admin review.
+
+- **Depends on:** 2S1-BE-10, 2S1-BE-11
+- **Done when:** A handoff can happen only after the new guardian's request and the current guardian's Hand off; the current guardian keeps control until the switch, which is atomic; agreed work and earned money stay where they were; a guardian's other children are unaffected; a declined or disputed request goes to BTG support and is never automated; every step is audited
+- **Reference:** Spec §4, §26, §37; BTG admin review 2026-10-01
+
+### ⏸ `2S1-BE-16` · Contacting BTG support
+
+**Order** 12.97 · **BE** · **Where:** Code · **2d** · **Ready**
+
+A way to reach BTG for things that must never be automated, starting with disputed guardianship. A contact form (public, rate-limited) takes a name, an email, the topic (guardianship, account, payment, other), a message and optional attachments. Attachments go to the private storage bucket. Each message is queued through the worker, never sent on the request path, and delivered to the support mailbox (2S1-OPS-01), with the sender's message ID so a reply can continue the thread. The support email address is shown wherever a person might be stuck: the guardian request page, a declined-handoff email, a rejection email, and account pages. Raised 2026-10-01 from the BTG admin review.
+
+- **Depends on:** 2S1-OPS-01
+- **Done when:** Anyone can send BTG a message with an attachment from the contact page; it reaches the support mailbox through the queue even when the mail service is briefly down; the support address appears on the guardian request page and in decline and rejection emails; the form is rate-limited and stores attachments privately
+- **Reference:** Spec §4, §26, §37; BTG admin review 2026-10-01
+
+### ⏸ `2S1-OPS-01` · Set up the BTG support mailbox
+
+**Order** 12.98 · **OPS** · **Where:** Vendor console · **1d** · **Ready**
+
+Create the support address, for example support@sponsorx.net, and where its mail lands. **Option A, Zoho Desk (recommended):** BTG already runs on Zoho, and Desk turns each email into a tracked ticket with an owner and a status, so the one BTG reviewer sees what's waiting. **Option B:** a plain shared mailbox. Set it up in sandbox or staging first, then production. The sender domain must be verified once the transactional email provider is chosen.
+
+- **Depends on:** none
+- **Done when:** Mail to the support address lands where BTG works on it, and a test message from the staging contact form arrives
+- **Reference:** Spec §4, §26, §37; BTG admin review 2026-10-01
+
 ### ⏸ `2S1-FE-01` · Build the property onboarding wizard
 
 **Order** 13 · **FE** · **Where:** Code · **5d** · **Blocked**
@@ -424,6 +461,16 @@ The athlete's profile editor saves ordinary edits at once, with no more "waiting
 - **Depends on:** 2S1-BE-14, 2S1-FE-07
 - **Done when:** An athlete's ordinary edits save at once; a sensitive edit shows and collects what it needs; BTG sees sensitive edits on the New sign-ups page, and the old Profile changes review page is gone
 - **Reference:** Spec §4; BTG admin review 2026-10-01
+
+### ⏸ `2S1-FE-10` · Guardian handoff and contact pages, on screen
+
+**Order** 14.95 · **FE** · **Where:** Code · **3d** · **Blocked**
+
+The new guardian's request page (identify the athlete, and complete their details and documents). The current guardian's view of a request, with **Hand off** and **Decline**. The handoff's status for both guardians and the athlete. The **Contact BTG** page and form, linked from the request page, from the decline and rejection emails, and from account pages, showing the support email address.
+
+- **Depends on:** 2S1-BE-15, 2S1-BE-16, 2S0-ART-01
+- **Done when:** A new guardian can request a handoff, the current guardian can hand off or decline from their portal, both can follow its status, and anyone can reach BTG support from the contact page
+- **Reference:** Spec §4, §26, §37; BTG admin review 2026-10-01
 
 ### ⏸ `2S1-INT-01` · Onboarding notification jobs
 
