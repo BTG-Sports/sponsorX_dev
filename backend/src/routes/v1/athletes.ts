@@ -53,6 +53,11 @@ export const getMyProfile: RequestHandler = async (req, res) => {
       /* Private §26 sections — own scope makes this the athlete themselves. */
       restrictedCategories: true,
       restrictionNotes: true,
+      /* 2S1-BE-14 — the sensitive fields the editor shows: the date of birth
+         (re-works adulthood when changed) and whether a guardian is linked. */
+      birthDate: true,
+      ageBand: true,
+      guardian: { select: { legalName: true, verifiedAt: true } },
       socials: {
         select: {
           platform: true,

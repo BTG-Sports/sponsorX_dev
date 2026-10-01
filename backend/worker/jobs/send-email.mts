@@ -56,6 +56,10 @@ export type AttachmentLoader = (key: string) => Promise<Buffer>;
  * Plain text only in Phase 1. HTML mail brings a rendering pipeline, inlined
  * CSS and a preview tool, none of which the loop in §39 needs to work.
  */
+/** 2S1-BE-16 — the support address every rejection names: the sender's own
+ *  value if the caller passed one, else SUPPORT_EMAIL, else the default. */
+const supportAddress = (d: Record<string, string>) => d.supportEmail ?? process.env.SUPPORT_EMAIL ?? "support@sponsorx.net";
+
 const TEMPLATES: Record<string, (d: Record<string, string>) => { subject: string; text: string }> = {
   "athlete.applicationReceived": (d) => ({
     subject: "We have your SponsorX application",
@@ -96,7 +100,7 @@ ${d.portalUrl ?? ""}
   }),
   "athlete.rejected": (d) => ({
     subject: "About your SponsorX application",
-    text: `Hi ${d.firstName ?? "there"},\n\nWe are not able to approve your application at this time.\n\n${d.reviewerNotes ?? ""}\n\nThis is not necessarily permanent — the network grows, and sponsor demand changes by sport and region.\n\n— BTG SponsorX`,
+    text: `Hi ${d.firstName ?? "there"},\n\nWe are not able to approve your application at this time.\n\n${d.reviewerNotes ?? ""}\n\nThis is not necessarily permanent — the network grows, and sponsor demand changes by sport and region.\n\nQuestions? Contact BTG support at ${supportAddress(d)}.\n\n— BTG SponsorX`,
   }),
   "invitation.sent": (d) => ({
     subject: `${d.sponsorName ?? "A sponsor"} wants to work with you`,
@@ -214,7 +218,7 @@ ${d.portalUrl ?? ""}
   }),
   "onboarding.rejected": (d) => ({
     subject: `About ${d.orgName ?? "your"} application`,
-    text: `Hi ${d.contactName ?? "there"},\n\nWe are not able to approve ${d.orgName ?? "your organisation"} at this time.\n\n${d.notes ?? ""}\n\n— BTG SponsorX`,
+    text: `Hi ${d.contactName ?? "there"},\n\nWe are not able to approve ${d.orgName ?? "your organisation"} at this time.\n\n${d.notes ?? ""}\n\nIf you think this is a mistake, contact BTG support at ${supportAddress(d)}.\n\n— BTG SponsorX`,
   }),
   "onboarding.suspended": (d) => ({
     subject: `${d.orgName ?? "Your organisation"}'s SponsorX listings are paused`,

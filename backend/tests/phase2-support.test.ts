@@ -83,6 +83,17 @@ describe.skipIf(!hasDatabase)("2S1-BE-16 · contacting BTG support", { timeout: 
     await pool.end();
   });
 
+  it("every rejection and decline email names the support address", async () => {
+    const { EMAIL_TEMPLATES } = await import("../worker/jobs/send-email.mts");
+    for (const t of ["athlete.rejected", "onboarding.rejected"]) {
+      expect(EMAIL_TEMPLATES[t]!({}).text, t).toContain("help@btg-support.invalid");
+    }
+    /* These are sent with the address in their data (asserted where they are sent). */
+    for (const t of ["sponsor.accountRejected", "handoff.declined", "account.reactivationDeclined", "handoff.confirmEmail", "handoff.requested"]) {
+      expect(EMAIL_TEMPLATES[t]!({ supportEmail: "help@btg-support.invalid" }).text, t).toContain("help@btg-support.invalid");
+    }
+  });
+
   it("the page reads the configurable support address, whether it is live yet, and the four topics", async () => {
     expect((await call("GET", "/public/support")).json).toEqual({
       email: "help@btg-support.invalid", ready: false,

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useState, useTransition } from "react";
 
 import { Badge } from "@/components/ui";
 import { handoffCarryOver, whenLabel, type ApiHandoffRequest } from "@/lib/guardian-live";
@@ -12,11 +12,12 @@ import { useDialogFocus } from "./use-dialog-focus";
    GuardianHandoff.dc.html, "card" and "confirm"). One island because Hand
    off opens the confirm dialog.
 
-   SCAFFOLD until 2S1-BE-15. Opening and closing the dialog is all this
-   does: "Hand off to …" and "Decline" are the two writes, and both are off
-   with the reason in their tooltip — a scaffold never looks like it handed
-   anyone's child over. Wired, they become
-     POST /guardian-handoffs/:id/decision  {decision: "HAND_OFF" | "DECLINE"}
+   LIVE (2S1-BE-15). "Hand off to …" and "Decline" call the page's action →
+   POST /guardian-handoffs/:id/decision {decision: "HAND_OFF" | "DECLINE"}.
+   With no `decide` (an athlete reading the request, or the ?demo= preview)
+   both stay off with the reason in their tooltip — only the current
+   guardian answers, and a preview never looks like it handed anyone's
+   child over.
    -------------------------------------------------------------------------- */
 
 const primaryBtn =
@@ -24,11 +25,21 @@ const primaryBtn =
 const secondaryBtn =
   "inline-flex min-h-11 items-center justify-center rounded-lg border border-line px-4 text-sm font-medium text-text hover:bg-surface-2 disabled:cursor-not-allowed disabled:opacity-40";
 
-const NOT_YET = "Goes live with 2S1-BE-15 — nothing is sent yet.";
+type Decide = (decision: "HAND_OFF" | "DECLINE") => Promise<{ ok: true } | { ok: false; message: string }>;
 
-function ConfirmDialog({ request, onClose }: { request: ApiHandoffRequest; onClose: () => void }) {
+function ConfirmDialog({ request, onClose, decide, offReason }: { request: ApiHandoffRequest; onClose: () => void; decide?: Decide; offReason: string }) {
   const ref = useDialogFocus<HTMLDivElement>(onClose);
+  const [pending, start] = useTransition();
+  const [error, setError] = useState<string | null>(null);
   const { athlete, requester } = request;
+  const handOff = () =>
+    start(async () => {
+      if (!decide) return;
+      setError(null);
+      const r = await decide("HAND_OFF").catch(() => ({ ok: false as const, message: "Couldn’t reach SponsorX just now. Nothing has changed." }));
+      if (!r.ok) setError(r.message);
+      else onClose();
+    });
   return (
     <div ref={ref} className="fixed inset-0 z-50" role="dialog" aria-modal="true" aria-labelledby="ho-title">
       <button type="button" tabIndex={-1} aria-label="Close" onClick={onClose} className="sx-backdrop absolute inset-0 cursor-default bg-black/70" />
@@ -38,8 +49,8 @@ function ConfirmDialog({ request, onClose }: { request: ApiHandoffRequest; onClo
             Hand {athlete.firstName}&rsquo;s account to {requester.name}?
           </h2>
           <p className="text-xs leading-relaxed text-muted">
-            Once {requester.firstName}&rsquo;s documents are checked, {requester.firstName} becomes {athlete.firstName}&rsquo;s guardian and you no longer approve
-            things for {athlete.firstName}. Until then, you still do.
+            {requester.firstName}&rsquo;s documents are checked as you hand off; then {requester.firstName} becomes {athlete.firstName}&rsquo;s guardian and you no
+            longer approve things for {athlete.firstName}. Until then, you still do.
           </p>
           <ul className="divide-y divide-line-soft rounded-lg border border-line bg-bg">
             {handoffCarryOver(request).map((line) => (
@@ -50,22 +61,37 @@ function ConfirmDialog({ request, onClose }: { request: ApiHandoffRequest; onClo
             ))}
           </ul>
           <div className="flex flex-wrap justify-end gap-2.5">
-            <button type="button" className={secondaryBtn} onClick={onClose} data-autofocus>
+            <button type="button" className={secondaryBtn} onClick={onClose} data-autofocus disabled={pending}>
               Cancel
             </button>
-            <button type="button" className={primaryBtn} disabled title={NOT_YET}>
-              Hand off to {requester.firstName}
+            <button type="button" className={primaryBtn} disabled={!decide || pending} title={decide ? undefined : offReason} onClick={handOff} aria-busy={pending}>
+              {pending ? "Handing off…" : `Hand off to ${requester.firstName}`}
             </button>
           </div>
+          {error && <p role="alert" className="text-xs text-danger">{error}</p>}
         </section>
       </div>
     </div>
   );
 }
 
-export function HandoffRequestCard({ request }: { request: ApiHandoffRequest }) {
+export function HandoffRequestCard({ request, decide, offReason = "Only the athlete’s current guardian can answer." }: {
+  request: ApiHandoffRequest;
+  /** The page's server action, bound to this request — absent for anyone but the current guardian. */
+  decide?: Decide;
+  offReason?: string;
+}) {
   const [confirming, setConfirming] = useState(false);
+  const [pending, start] = useTransition();
+  const [error, setError] = useState<string | null>(null);
   const { athlete, requester } = request;
+  const decline = () =>
+    start(async () => {
+      if (!decide) return;
+      setError(null);
+      const r = await decide("DECLINE").catch(() => ({ ok: false as const, message: "Couldn’t reach SponsorX just now. Nothing has changed." }));
+      if (!r.ok) setError(r.message);
+    });
 
   return (
     <section aria-label={`Request from ${requester.name}`} className="flex flex-col gap-3 rounded-xl border border-warn/45 bg-surface p-4 sm:p-5">
@@ -83,7 +109,7 @@ export function HandoffRequestCard({ request }: { request: ApiHandoffRequest }) 
         <dt className="text-muted">Asked</dt>
         <dd>{whenLabel(request.requestedAt)}</dd>
         <dt className="text-muted">{requester.firstName}&rsquo;s documents</dt>
-        <dd>{request.documentsUploaded ? "ID and proof of guardianship uploaded · checked once you approve" : "Not uploaded yet"}</dd>
+        <dd>{request.documentsUploaded ? "ID and proof of guardianship uploaded · checked when you hand off" : "Not uploaded yet"}</dd>
       </dl>
       <p className="text-xs leading-relaxed text-muted">
         Only you can approve this. If you don&rsquo;t know {requester.firstName}, or this is about custody, decline and{" "}
@@ -93,14 +119,15 @@ export function HandoffRequestCard({ request }: { request: ApiHandoffRequest }) 
         .
       </p>
       <div className="flex flex-wrap gap-2.5">
-        <button type="button" className={primaryBtn} onClick={() => setConfirming(true)}>
+        <button type="button" className={primaryBtn} onClick={() => setConfirming(true)} disabled={pending}>
           Hand off
         </button>
-        <button type="button" className={secondaryBtn} disabled title={NOT_YET}>
-          Decline
+        <button type="button" className={secondaryBtn} disabled={!decide || pending} title={decide ? undefined : offReason} onClick={decline} aria-busy={pending}>
+          {pending ? "Declining…" : "Decline"}
         </button>
       </div>
-      {confirming && <ConfirmDialog request={request} onClose={() => setConfirming(false)} />}
+      {error && <p role="alert" className="text-xs text-danger">{error}</p>}
+      {confirming && <ConfirmDialog request={request} onClose={() => setConfirming(false)} decide={decide} offReason={offReason} />}
     </section>
   );
 }

@@ -2,7 +2,7 @@ import { AccountSettings } from "@/components/account-settings";
 import { SkeletonPage } from "@/components/states";
 import { demoState } from "@/lib/demo";
 import { requirePortalAccess } from "@/server/portal";
-import { athleteSettingsLinkAction } from "./actions";
+import { athleteCloseAccountAction, athleteSettingsLinkAction } from "./actions";
 
 /* --------------------------------------------------------------------------
    Settings — 2S1-FE-08, the athlete portal (Claude Design Account.dc.html,
@@ -12,12 +12,12 @@ import { athleteSettingsLinkAction } from "./actions";
    Reads  Clerk currentUser()                the sign-in email (live)
           GET /payouts/account               the payout account (live)
    Writes POST /payouts/account/link         Stripe ↗ (live, athleteSettingsLinkAction)
-          close the account                  2S1-BE-13 — not built; disabled
+          POST /me/close                     close the account (live, athleteCloseAccountAction, 2S1-BE-13)
 
    A guardian opens this portal too: they have no payee (GET /payouts/account
-   403s), so the payout row says the money is the athlete's. The
-   reactivation page and the coming-of-age reminder are scaffolds reached
-   from the notice at the top (2S1-BE-13, 2S1-BE-12).
+   403s), so the payout row says the money is the athlete's. Closing ends at
+   the public /reactivate page (2S1-BE-13); its two cases and the
+   coming-of-age reminder (2S1-BE-12) are previews reached from the notice.
    ?demo=loading|error renders the branded states.
    -------------------------------------------------------------------------- */
 
@@ -36,12 +36,13 @@ export default async function AthleteSettingsPage({ searchParams }: { searchPara
       seat={guardian ? "guardian" : "athlete"}
       accountWords={guardian ? "guardian account" : "athlete account"}
       linkAction={athleteSettingsLinkAction}
+      closeAction={athleteCloseAccountAction}
       noPayeeLine={guardian
         ? "Payouts go to the athlete’s own payout account on Stripe. There’s nothing to set up from this login."
         : "There’s no payout account on this login yet."}
       previews={[
-        { href: "/athlete/settings/reactivate", label: "reactivate within 30 days" },
-        { href: "/athlete/settings/reactivate?case=btg", label: "closed by BTG" },
+        { href: "/reactivate?demo=self", label: "reactivate within 30 days" },
+        { href: "/reactivate?demo=btg", label: "closed by BTG" },
         { href: `/athlete/settings/coming-of-age?as=${guardian ? "guardian" : "athlete"}`, label: "coming-of-age reminder" },
       ]}
     />
