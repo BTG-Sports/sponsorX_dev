@@ -82,6 +82,9 @@ const A = {
   inquiryDocument: "ti_inquiry_doc_a",
   /* 2S7-FE-02 — an order still owing payment whose card payment failed (BTG's console). */
   dueReservation: "ti_reservation_due_a", dueOrder: "ti_mkt_order_due_a", failedAttempt: "ti_attempt_failed_a",
+  /* 2S4-BE-06 / -07 — a sold line of that order, marked delivered and waiting
+     for the sponsor; 2S2-BE-05 — tenant A's school inviting tenant A's athlete. */
+  mktLine: "ti_mkt_line_a", delivery: "ti_delivery_a", teamInvite: "ti_team_invite_a",
 } as const;
 const B = {
   tenant: "ti_tenant_b", sponsor: "ti_sponsor_b", athlete: "ti_athlete_b",
@@ -136,6 +139,9 @@ const PARAM_FOR: Record<string, string> = {
   assets: "1",
   /* GET /reward-tokens/{id}/qr-url (P6-FE-01). */
   "reward-tokens": A.token,
+  /* 2S4-BE-06 / -07 — the seller's sold line, the sponsor's answer and BTG's
+     desk all take an order-line id; 2S2-BE-05 — an invitation. */
+  sales: A.mktLine, deliveries: A.mktLine, "delivery-issues": A.mktLine, "team-invitations": A.teamInvite,
   /* P3-BE-16 — no tenant-A change is seeded: an unknown id must answer
      exactly as another tenant's would, so a made-up one is the right probe. */
   "profile-changes": "pc_not_yours",
@@ -252,6 +258,14 @@ const BODY: Record<string, unknown> = {
   "POST /commission-rules/{id}/revise": { bps: 1 },
   "POST /payouts/{id}/decision": { decision: "APPROVE" },
   "POST /payouts/account/link": { returnPath: "/athlete" },
+  /* 2S4-BE-06 / -07 / -08 — sellers' orders and delivery. */
+  "POST /sales/{id}/proof": { contentType: "image/jpeg", bytes: 1000 },
+  "POST /sales/{id}/delivered": { note: "Sweep delivery note" },
+  "POST /deliveries/{id}/problem": { note: "Sweep problem" },
+  "POST /delivery-issues/{id}/resolve": { decision: "CONFIRM", note: "Sweep decision" },
+  /* 2S2-BE-05 — inviting tenant A's athlete, and answering tenant A's invitation. */
+  "POST /team/invitations": { athleteId: A.athlete, teamShareBps: 100 },
+  "POST /team-invitations/{id}/respond": { decision: "ACCEPT" },
 };
 
 describe.skipIf(!hasDatabase)("P8-SEC-02 · tenant B cannot reach tenant A through any route", async () => {
@@ -381,10 +395,16 @@ describe.skipIf(!hasDatabase)("P8-SEC-02 · tenant B cannot reach tenant A throu
       requiresApproval: true, approvalReasons: ["TI Secret reason"],
       acceptanceId: A.mktAcceptance, billingName: "TI Secret Billing", billingEmail: "ti-secret-billing@a.invalid", billingReference: "TI Secret PO",
       lines: { create: [
-        { tenantId: t, listingId: A.listing, inventoryItemId: A.schoolItem, itemTenantId: t, propertyId: A.school, title: "TI Secret line", quantity: 1, startsOn: new Date("2027-01-01"), endsOn: new Date("2027-01-02"), unitPriceCents: 9000, lineTotalCents: 9000 },
+        { id: A.mktLine, tenantId: t, listingId: A.listing, inventoryItemId: A.schoolItem, itemTenantId: t, propertyId: A.school, title: "TI Secret line", quantity: 1, startsOn: new Date("2027-01-01"), endsOn: new Date("2027-01-02"), unitPriceCents: 9000, lineTotalCents: 9000 },
         { tenantId: t, listingId: A.athleteListing, inventoryItemId: A.item, itemTenantId: t, sellerAthleteId: A.athlete, title: "TI Secret athlete line", quantity: 1, startsOn: new Date("2027-01-01"), endsOn: new Date("2027-01-02"), unitPriceCents: 5000, lineTotalCents: 5000 },
       ] },
     } });
+    await prisma.orderLineDelivery.create({ data: {
+      id: A.delivery, tenantId: t, orderId: A.mktOrder, lineId: A.mktLine, sponsorId: A.sponsor, propertyId: A.school, propertyTenantId: t,
+      state: "DELIVERED", deliveredAt: new Date(), deliveredByName: "TI Secret Seller", note: "TI Secret delivery note",
+      confirmDueAt: new Date(Date.now() + 3650 * 864e5),
+    } });
+    await prisma.teamInvitation.create({ data: { id: A.teamInvite, tenantId: t, propertyId: A.school, athleteId: A.athlete, athleteTenantId: t, teamShareBps: 1500 } });
     await prisma.reservation.create({ data: { id: A.dueReservation, tenantId: t, sponsorId: A.sponsor, cartId: A.cart, state: "CONVERTED", convertedAt: new Date(), expiresAt: new Date(Date.now() + 3650 * 864e5) } });
     await prisma.marketplaceOrder.create({ data: {
       id: A.dueOrder, tenantId: t, sponsorId: A.sponsor, reservationId: A.dueReservation, state: "AWAITING_PAYMENT",

@@ -88,6 +88,7 @@ import { handleRenderReport } from "./jobs/render-report.mts";
 import { applyQueuePolicy } from "./queue-policy.mts";
 import { expireCarts } from "../src/domain/cart.ts";
 import { expireReservations } from "../src/domain/reservation.ts";
+import { sweepDeliveries } from "../src/domain/delivery.ts";
 import type { RenderReportJob } from "../src/domain/report-files.ts";
 import { prisma } from "../src/db/client.ts";
 import { ingestZohoInvoice, type ZohoInvoicePayload } from "../src/domain/invoice.ts";
@@ -273,6 +274,11 @@ let reminderTimer: ReturnType<typeof setInterval> | undefined;
 let cartTimer: ReturnType<typeof setInterval> | undefined;
 /* 2S4-BE-02 — the reservation sweep, every minute. */
 let holdTimer: ReturnType<typeof setInterval> | undefined;
+/* 2S4-BE-07 / -08 — the delivery sweep: 24-hour silence confirms, overdue
+   reminders, and the 30-day auto-close. Every ten minutes, so a sponsor's
+   24 hours end within minutes of the deadline; each pass is idempotent. */
+let deliveryTimer: ReturnType<typeof setInterval> | undefined;
+const DELIVERY_SWEEP_INTERVAL_MS = 10 * 60 * 1000;
 let zohoTimer: ReturnType<typeof setInterval> | undefined;
 /* P8-INT-05 checks hourly and runs at most once a day per tenant; P8-INT-03's
    channel is renewed every 12 hours against a 24-hour expiry. */
@@ -645,6 +651,13 @@ async function main(): Promise<void> {
       .catch((error: unknown) => console.error("[worker] reservation expiry failed, will retry next minute:", error));
   }, 60_000);
 
+  const deliverySweep = () =>
+    void sweepDeliveries()
+      .then((r) => { if (r.confirmed || r.reminded || r.closed || r.failed) console.log(`[worker] deliveries ${JSON.stringify(r)}`); })
+      .catch((error: unknown) => console.error("[worker] delivery sweep failed, will retry:", error));
+  deliveryTimer = setInterval(deliverySweep, DELIVERY_SWEEP_INTERVAL_MS);
+  setTimeout(deliverySweep, 30_000).unref();
+
   cartTimer = setInterval(() => {
     void expireCarts(prisma)
       .then(({ expired }) => { if (expired) console.log(`[worker] carts — expired ${expired}`); })
@@ -680,6 +693,7 @@ export async function stopWorker(): Promise<void> {
   if (reminderTimer) clearInterval(reminderTimer);
   if (cartTimer) clearInterval(cartTimer);
   if (holdTimer) clearInterval(holdTimer);
+  if (deliveryTimer) clearInterval(deliveryTimer);
   if (zohoTimer) clearInterval(zohoTimer);
   timer = undefined;
   expiryTimer = undefined;

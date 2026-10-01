@@ -32,6 +32,17 @@ import {
 import { createOffer, getOffer, listOffers, respondToOffer, sendOffer, withdrawOffer } from "../../domain/offer";
 import { mayWriteBranding, readBranding, requestLogoUpload, updateBranding } from "../../domain/branding";
 import { allowedList, pageRequest, searchTerm } from "../../lib/paging";
+import {
+  DeliveryProblemInput, DeliveryResolutionInput, InvitableAthletesQuery, MarkDeliveredInput, ProofUploadInput, TeamInvitationInput,
+  TeamInvitationResponseInput,
+} from "../../contracts/delivery";
+import {
+  confirmDelivery, deliveryIssue, deliveryIssues, markDelivered, mySale, mySales, orderDeliveries, proofLink, remindSeller,
+  reportProblem, requestProofUpload, resolveIssue,
+} from "../../domain/delivery";
+import {
+  inviteAthlete, invitableAthletes, leaveTeam, myTeam, removeFromRoster, respondToInvitation, teamInvitations, withdrawInvitation,
+} from "../../domain/team-invitations";
 const ATHLETE_STATES = ["DRAFT", "SUBMITTED", "UNDER_REVIEW", "APPROVED", "CHANGES_REQUESTED", "REJECTED", "ACTIVE", "SUSPENDED", "FEATURED"] as const;
 
 export const marketplaceRouter = Router();
@@ -198,3 +209,43 @@ const analytics: RequestHandler = async (req, res) => { res.json(await propertyA
 marketplaceRouter.get("/marketplace-orders/:id/financials", requireActor, financials);
 marketplaceRouter.get("/team/ledger", requireActor, ledger);
 marketplaceRouter.get("/team/analytics", requireActor, analytics);
+
+/* ── 2S4-BE-06 / -07 / -08 — sellers' orders and delivery ─────────────────
+   /sales is the seller's (the team's manager, the athlete): their own sold
+   lines, their own share. /deliveries/{lineId} is the buying sponsor's answer;
+   /delivery-issues is BTG's desk. The id is always the order line's. */
+marketplaceRouter.get("/sales", requireActor, (async (req, res) => { res.json(await mySales(req.actor!)); }) as RequestHandler);
+marketplaceRouter.get("/sales/:id", requireActor, (async (req, res) => { res.json(await mySale(req.actor!, req.params.id)); }) as RequestHandler<Id>);
+marketplaceRouter.post("/sales/:id/proof", requireActor, (async (req, res) => {
+  res.status(201).json(await requestProofUpload(req.actor!, req.params.id, ProofUploadInput.parse(req.body)));
+}) as RequestHandler<Id>);
+marketplaceRouter.post("/sales/:id/delivered", requireActor, (async (req, res) => {
+  res.json(await markDelivered(req.actor!, req.params.id, MarkDeliveredInput.parse(req.body)));
+}) as RequestHandler<Id>);
+marketplaceRouter.get("/marketplace-orders/:id/deliveries", requireActor, (async (req, res) => { res.json(await orderDeliveries(req.actor!, req.params.id)); }) as RequestHandler<Id>);
+marketplaceRouter.post("/deliveries/:id/confirm", requireActor, (async (req, res) => { res.json(await confirmDelivery(req.actor!, req.params.id)); }) as RequestHandler<Id>);
+marketplaceRouter.post("/deliveries/:id/problem", requireActor, (async (req, res) => {
+  res.json(await reportProblem(req.actor!, req.params.id, DeliveryProblemInput.parse(req.body).note));
+}) as RequestHandler<Id>);
+marketplaceRouter.get("/deliveries/:id/proof", requireActor, (async (req, res) => { res.json(await proofLink(req.actor!, req.params.id)); }) as RequestHandler<Id>);
+marketplaceRouter.get("/delivery-issues", requireActor, (async (req, res) => { res.json(await deliveryIssues(req.actor!)); }) as RequestHandler);
+marketplaceRouter.get("/delivery-issues/:id", requireActor, (async (req, res) => { res.json(await deliveryIssue(req.actor!, req.params.id)); }) as RequestHandler<Id>);
+marketplaceRouter.post("/delivery-issues/:id/resolve", requireActor, (async (req, res) => {
+  const b = DeliveryResolutionInput.parse(req.body);
+  res.json(await resolveIssue(req.actor!, req.params.id, b.decision, b.note));
+}) as RequestHandler<Id>);
+marketplaceRouter.post("/delivery-issues/:id/remind", requireActor, (async (req, res) => { res.json(await remindSeller(req.actor!, req.params.id)); }) as RequestHandler<Id>);
+
+/* ── 2S2-BE-05 — a team invites an athlete already on SponsorX ──────────── */
+marketplaceRouter.get("/team/invitations", requireActor, (async (req, res) => { res.json(await teamInvitations(req.actor!)); }) as RequestHandler);
+marketplaceRouter.get("/team/invitations/candidates", requireActor, (async (req, res) => {
+  res.json(await invitableAthletes(req.actor!, InvitableAthletesQuery.parse(req.query).q));
+}) as RequestHandler);
+marketplaceRouter.post("/team/invitations", requireActor, (async (req, res) => { res.status(201).json(await inviteAthlete(req.actor!, TeamInvitationInput.parse(req.body))); }) as RequestHandler);
+marketplaceRouter.post("/team-invitations/:id/withdraw", requireActor, (async (req, res) => { res.json(await withdrawInvitation(req.actor!, req.params.id)); }) as RequestHandler<Id>);
+marketplaceRouter.post("/team-invitations/:id/respond", requireActor, (async (req, res) => {
+  res.json(await respondToInvitation(req.actor!, req.params.id, TeamInvitationResponseInput.parse(req.body).decision));
+}) as RequestHandler<Id>);
+marketplaceRouter.post("/team/roster/:id/remove", requireActor, (async (req, res) => { res.json(await removeFromRoster(req.actor!, req.params.id)); }) as RequestHandler<Id>);
+marketplaceRouter.get("/me/team", requireActor, (async (req, res) => { res.json(await myTeam(req.actor!)); }) as RequestHandler);
+marketplaceRouter.post("/me/team/leave", requireActor, (async (req, res) => { res.json(await leaveTeam(req.actor!)); }) as RequestHandler);

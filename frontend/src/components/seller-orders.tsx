@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-import { Badge, BlockedNotice, Card } from "@/components/ui";
+import { Badge, Card } from "@/components/ui";
 import { EmptyState, ErrorPanel, SkeletonRows } from "@/components/states";
 import { SellerMarkDelivered } from "@/components/seller-mark-delivered";
 import type { DemoState } from "@/lib/demo";
@@ -15,17 +15,10 @@ import {
    Orders.dc.html: the list, and one order (detail · waiting · confirmed ·
    problem · unpaid). `kind` is the design's `who` prop — riley | hawks.
 
-   Sample data until 2S4-BE-06 opens the sellers' read; the page says so at
-   the top, and every figure on it is one of those samples.
+   Live: every row is GET /sales (2S4-BE-06) — the caller's own sold lines
+   and own share; Mark delivered posts through seller-mark-delivered.tsx
+   (2S4-BE-07).
    -------------------------------------------------------------------------- */
-
-export function SellerOrdersNotice() {
-  return (
-    <BlockedNotice>
-      Sample data — this page goes live with 2S4-BE-06 (sellers&rsquo; orders). Marking delivered and the sponsor&rsquo;s confirmation follow with 2S4-BE-07.
-    </BlockedNotice>
-  );
-}
 
 function StatusPill({ o }: { o: Pick<ApiSellerOrder, "state" | "sponsor"> }) {
   const b = orderBadge(o);
@@ -50,11 +43,11 @@ function Heading() {
 
 export function SellerOrdersList({ kind, orders, demo }: { kind: SellerKind; orders: ApiSellerOrder[]; demo: DemoState }) {
   const base = SELLER[kind].basePath;
-  const soldByTeam = orders.some((o) => o.line.soldBy !== SELLER[kind].name);
+  /* A roster athlete's line is sold by their team: their team's share is elsewhere. */
+  const soldByTeam = orders.some((o) => o.line.athlete !== null && o.line.soldBy !== o.line.athlete);
   return (
     <div className="space-y-6">
       <Heading />
-      <SellerOrdersNotice />
 
       {demo === "loading" ? (
         <Card className="p-0"><SkeletonRows rows={4} /></Card>
@@ -142,7 +135,6 @@ export function SellerOrderDetail({ kind, order: o }: { kind: SellerKind; order:
   return (
     <div className="space-y-6">
       <Heading />
-      <SellerOrdersNotice />
 
       <div className="space-y-4">
         <Link href={seller.basePath} className="text-xs text-muted hover:text-text">← Orders</Link>
@@ -209,7 +201,13 @@ export function SellerOrderDetail({ kind, order: o }: { kind: SellerKind; order:
                 </ol>
 
                 <div className="mt-4">
-                  <SellerMarkDelivered applies={mark.applies} why={mark.why} sponsor={o.sponsor.name} summary={`${o.line.title} · ${units} · ${datesText(o.line.dates)}`} />
+                  <SellerMarkDelivered
+                    lineId={o.id}
+                    applies={mark.applies}
+                    why={mark.why}
+                    sponsor={o.sponsor.name}
+                    summary={`${o.line.title} · ${units} · ${datesText(o.line.dates)}`}
+                  />
                 </div>
               </Card>
             </section>
@@ -219,8 +217,18 @@ export function SellerOrderDetail({ kind, order: o }: { kind: SellerKind; order:
                 <Card>
                   <h2 className="text-sm font-semibold">Your delivery note</h2>
                   <p className="mt-2 text-[13px] leading-relaxed">{o.deliveryNote}</p>
+                  {(o.proof.photo || o.proof.link) && (
+                    <p className="mt-1.5 flex flex-wrap gap-x-3 text-[11px] text-muted">
+                      {o.proof.photo && <span>Photo attached</span>}
+                      {o.proof.link && (
+                        <a href={o.proof.link} target="_blank" rel="noopener noreferrer" className="break-all text-primary-soft hover:underline">
+                          {o.proof.link}
+                        </a>
+                      )}
+                    </p>
+                  )}
                   <p className="mt-1.5 text-[11px] text-faint">
-                    Marked delivered by {o.markedBy ?? seller.name} · {stamp(o.markedAt)}
+                    Marked delivered by {o.markedBy ?? "you"} · {stamp(o.markedAt)}
                   </p>
                 </Card>
               </section>
@@ -263,7 +271,6 @@ export function SellerOrderMissing({ kind }: { kind: SellerKind }) {
   return (
     <div className="space-y-6">
       <Heading />
-      <SellerOrdersNotice />
       <Link href={SELLER[kind].basePath} className="text-xs text-muted hover:text-text">← Orders</Link>
       <EmptyState mark="inbox" title="No order matches this link" hint="It may be another seller’s order, or the link is wrong." action={{ label: "Your orders", href: SELLER[kind].basePath }} />
     </div>

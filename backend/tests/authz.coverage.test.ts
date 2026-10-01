@@ -68,6 +68,10 @@ const GOVERNED_BY: Record<string, Resource> = {
      line is its payout's. */
   PayoutAccount: "payoutAccount",
   RestrictedWord: "restrictedWord",
+  /* 2S4-BE-06 / -07 — a sold line as its sellers see it, and its delivery. */
+  OrderLineDelivery: "orderDelivery",
+  /* 2S2-BE-05 — a team's invitation to an athlete already on SponsorX. */
+  TeamInvitation: "teamInvitation",
   Payout: "payout",
   PayoutLine: "payout",
   PaymentAttempt: "marketplaceOrder",

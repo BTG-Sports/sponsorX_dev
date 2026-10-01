@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 
 import { apiFetch } from "@/server/api";
 import { apiErrorMessage, parseSharePercent, validateRosterDraft, type RosterDraft } from "@/lib/property-p2-live";
+import { parseInviteShare, teamRefusal, type ApiInvitableAthlete } from "@/lib/team-invite-live";
 
 /* --------------------------------------------------------------------------
    2S2-FE-04 — the roster's two writes, as server actions.
@@ -45,6 +46,68 @@ export async function addRosterAthleteAction(draft: RosterDraft): Promise<Roster
   revalidatePath("/property/roster");
   revalidatePath("/property");
   return { ok: true };
+}
+
+/* --------------------------------------------------------------------------
+   2S2-FE-05 (team side) — inviting an athlete already on SponsorX, and
+   removing one (2S2-BE-05):
+
+     GET  /team/invitations/candidates?q=   approved athletes with no team
+     POST /team/invitations                 { athleteId, teamShareBps }
+     POST /team-invitations/:id/withdraw
+     POST /team/roster/:athleteId/remove    orders already placed carry on
+   -------------------------------------------------------------------------- */
+
+export async function searchInvitableAction(q: string): Promise<{ ok: true; athletes: ApiInvitableAthlete[] } | { ok: false; message: string }> {
+  const term = typeof q === "string" ? q.trim().slice(0, 80) : "";
+  if (term.length < 2) return { ok: true, athletes: [] };
+  let res: Response;
+  try {
+    res = await apiFetch(`/team/invitations/candidates?q=${encodeURIComponent(term)}`);
+  } catch {
+    return { ok: false, message: unreachable };
+  }
+  if (!res.ok) return { ok: false, message: await inviteRefusal(res, "The search didn't run") };
+  return { ok: true, athletes: ((await res.json()) as { athletes: ApiInvitableAthlete[] }).athletes };
+}
+
+export async function inviteAthleteAction(athleteId: string, percent: string): Promise<RosterResult> {
+  if (typeof athleteId !== "string" || !athleteId) return { ok: false, message: "Choose an athlete." };
+  const share = parseInviteShare(typeof percent === "string" ? percent : "");
+  if (!share.ok) return { ok: false, message: share.message };
+  return inviteWrite("/team/invitations", { athleteId, teamShareBps: share.bps }, "The invitation wasn't sent");
+}
+
+export async function withdrawInvitationAction(invitationId: string): Promise<RosterResult> {
+  if (typeof invitationId !== "string" || !invitationId) return { ok: false, message: "Unknown invitation." };
+  return inviteWrite(`/team-invitations/${encodeURIComponent(invitationId)}/withdraw`, undefined, "The invitation wasn't withdrawn");
+}
+
+export async function removeFromRosterAction(athleteId: string): Promise<RosterResult> {
+  if (typeof athleteId !== "string" || !athleteId) return { ok: false, message: "Unknown athlete." };
+  return inviteWrite(`/team/roster/${encodeURIComponent(athleteId)}/remove`, undefined, "The athlete wasn't removed");
+}
+
+async function inviteRefusal(res: Response, fallback: string): Promise<string> {
+  let body: unknown = null;
+  try {
+    body = await res.json();
+  } catch {
+    /* no body */
+  }
+  return teamRefusal(res.status, body, fallback);
+}
+
+async function inviteWrite(path: string, body: unknown, fallback: string): Promise<RosterResult> {
+  let res: Response;
+  try {
+    res = await apiFetch(path, { method: "POST", ...(body === undefined ? {} : { body: JSON.stringify(body) }) });
+  } catch {
+    return { ok: false, message: unreachable };
+  }
+  revalidatePath("/property/roster");
+  revalidatePath("/property");
+  return res.ok ? { ok: true } : { ok: false, message: await inviteRefusal(res, fallback) };
 }
 
 export async function setTeamShareAction(athleteId: string, percent: string): Promise<RosterResult> {

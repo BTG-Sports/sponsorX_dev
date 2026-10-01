@@ -113,6 +113,55 @@ ${d.portalUrl ?? ""}
     text: `Hi ${d.firstName ?? "there"},\n\nBTG couldn't approve your payout request of ${d.amount ?? ""} yet:\n\n${d.note ?? ""}\n\nThe money is still yours and available to request again from your portal:\n\n${d.portalUrl ?? ""}\n\n— BTG SponsorX`,
   }),
 
+  /* 2S4-BE-06 — a seller's sale: approved, then paid. Their own lines only;
+     never another seller's, never a share that isn't theirs. */
+  "sale.approved": (d) => ({
+    subject: `New sale: ${d.sponsorName ?? "a sponsor"} ordered from you (${d.orderRef ?? ""})`,
+    text: `Hi ${d.firstName ?? "there"},\n\n${d.sponsorName ?? "A sponsor"} has ordered from you, and the order is approved (${d.orderRef ?? ""}):\n\n${d.lines ?? ""}\n\nWe'll email you again when they have paid — that's when you deliver, and when their contact details appear on the order.\n\n${d.ordersUrl ?? ""}\n\n— BTG SponsorX`,
+  }),
+  "sale.paid": (d) => ({
+    subject: `${d.sponsorName ?? "The sponsor"} has paid — time to deliver (${d.orderRef ?? ""})`,
+    text: `Hi ${d.firstName ?? "there"},\n\n${d.sponsorName ?? "The sponsor"} has paid for order ${d.orderRef ?? ""}:\n\n${d.lines ?? ""}\n\nTheir contact details are on the order now. When you have delivered, mark each line delivered with a short note — they then have 24 hours to confirm or report a problem.\n\n${d.ordersUrl ?? ""}\n\n— BTG SponsorX`,
+  }),
+  /* 2S4-BE-07 / -08 — delivery. */
+  "delivery.marked": (d) => ({
+    subject: `${d.sellerName ?? "The seller"} says this was delivered: ${d.title ?? ""}`,
+    text: `Hi ${d.firstName ?? "there"},\n\n${d.sellerName ?? "The seller"} marked "${d.title ?? ""}" (order ${d.orderRef ?? ""}) delivered:\n\n"${d.note ?? ""}"\n\nPlease confirm it, or report a problem, by ${d.confirmBy ?? "the time shown on your order"}. If you don't answer by then, it counts as confirmed.\n\n${d.orderUrl ?? ""}\n\n— BTG SponsorX`,
+  }),
+  "delivery.confirmed": (d) => ({
+    subject: `Delivery confirmed: ${d.title ?? ""}`,
+    text: `Hi ${d.firstName ?? "there"},\n\n"${d.title ?? ""}" (order ${d.orderRef ?? ""}) is confirmed — ${d.how ?? "the sponsor confirmed it"}. Your share can be paid out once the holding period has passed.\n\n${d.saleUrl ?? ""}\n\n— BTG SponsorX`,
+  }),
+  "delivery.problem": (d) => ({
+    subject: `Delivery problem reported: ${d.orderRef ?? ""} · ${d.title ?? ""}`,
+    text: `${d.sponsorName ?? "A sponsor"} reported a problem with "${d.title ?? ""}" (order ${d.orderRef ?? ""}):\n\n"${d.problem ?? ""}"\n\nThe line's payout is on hold until you confirm the delivery or cancel and refund it:\n\n${d.issueUrl ?? ""}\n\n— SponsorX`,
+  }),
+  "delivery.onHold": (d) => ({
+    subject: `${d.sponsorName ?? "The sponsor"} reported a problem: ${d.title ?? ""}`,
+    text: `Hi ${d.firstName ?? "there"},\n\n${d.sponsorName ?? "The sponsor"} reported a problem with "${d.title ?? ""}" (order ${d.orderRef ?? ""}):\n\n"${d.problem ?? ""}"\n\nBTG is looking into it, and this line's payout is on hold until they decide. You don't need to do anything unless BTG contacts you.\n\n${d.saleUrl ?? ""}\n\n— BTG SponsorX`,
+  }),
+  "delivery.resolved": (d) => ({
+    subject: `BTG's decision on ${d.orderRef ?? "your order"}: ${d.title ?? ""}`,
+    text: `Hi ${d.firstName ?? "there"},\n\nBTG looked into the problem reported with "${d.title ?? ""}" (order ${d.orderRef ?? ""}) and it has been ${d.decision ?? "resolved"}.\n\nBTG's note: "${d.note ?? ""}"\n\n${d.link ?? ""}\n\n— BTG SponsorX`,
+  }),
+  "delivery.overdue": (d) => ({
+    subject: `Reminder: mark "${d.title ?? "your sale"}" delivered`,
+    text: `Hi ${d.firstName ?? "there"},\n\nThe last date for "${d.title ?? ""}" (order ${d.orderRef ?? ""}, for ${d.sponsorName ?? "the sponsor"}) was ${d.lastDate ?? "recently"}, and it isn't marked delivered yet. Once it's delivered, mark it with a short note — your share is paid only after the sponsor confirms.\n\n${d.saleUrl ?? ""}\n\n— BTG SponsorX`,
+  }),
+  /* 2S2-BE-05 — teams and the athletes they invite. */
+  "team.invited": (d) => ({
+    subject: `${d.teamName ?? "A team"} invited you to join their roster`,
+    text: `Hi ${d.firstName ?? "there"},\n\n${d.teamName ?? "A team"} invited you to join their roster on SponsorX. The team's share would be ${d.share ?? ""} of what's left after BTG's fees and card processing.\n\nNothing changes unless you accept. Orders you already have carry on and pay you as before.\n\n${d.teamUrl ?? ""}\n\n— BTG SponsorX`,
+  }),
+  "team.invitationAnswered": (d) => ({
+    subject: `${d.athleteName ?? "The athlete"} ${d.answer ?? "answered"} your invitation`,
+    text: `Hi there,\n\n${d.athleteName ?? "The athlete"} ${d.answer ?? "answered"} your invitation to join ${d.teamName ?? "your team"}${d.share ? ` at a ${d.share} team share` : ""}.\n\n${d.rosterUrl ?? ""}\n\n— BTG SponsorX`,
+  }),
+  "team.linkEnded": (d) => ({
+    subject: `${d.athleteName ?? "An athlete"} is no longer on ${d.teamName ?? "the team"}`,
+    text: `Hi ${d.firstName ?? "there"},\n\n${d.who ?? "The link between the athlete and the team has ended."}\n\nOrders already placed carry on and pay as agreed when they were placed. New sales of the athlete's items no longer go through the team.\n\n${d.link ?? ""}\n\n— BTG SponsorX`,
+  }),
+
   /* P6-INT-02 — the fan's voucher. The ONLY template addressed to a member
      of the public rather than to an athlete or staff, which is why the
      consent gate in `recordClaim` stands in front of it. It carries the code,

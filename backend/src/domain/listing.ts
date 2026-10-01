@@ -53,7 +53,13 @@ const SELECT = {
   publishAt: true, submittedAt: true, reviewNotes: true, decidedAt: true, publishedAt: true, createdAt: true, updatedAt: true,
   property: { select: { name: true, listingAccessAt: true } },
   sellerAthlete: { select: { displayName: true, state: true, propertyId: true } },
-  item: { select: { id: true, title: true, kind: true, priceCents: true, quantity: true, availableUntil: true, active: true, athleteId: true, propertyId: true } },
+  item: {
+    select: {
+      id: true, title: true, kind: true, priceCents: true, quantity: true, availableUntil: true, active: true, athleteId: true, propertyId: true,
+      /* 2S2-BE-05 — whether a roster athlete's item is still on this team. */
+      athlete: { select: { propertyId: true } },
+    },
+  },
 } as const;
 type Row = Prisma.ListingGetPayload<{ select: typeof SELECT }>;
 
@@ -64,16 +70,20 @@ function sellerOf(r: Row) {
     : { type: "ATHLETE" as const, id: r.sellerAthleteId!, name: r.sellerAthlete?.displayName ?? "athlete" };
 }
 
+/** The item as governance reads it — with its athlete's team (2S2-BE-05). */
+const governedItem = (r: Row) => ({ ...r.item, athleteTeamId: r.item.athlete?.propertyId ?? null });
+
 function view(r: Row, now = new Date()) {
   const { property, sellerAthlete, ...rest } = r;
+  const { athlete: _athlete, ...item } = r.item;
   return {
-    ...rest, propertyName: property?.name ?? null, seller: sellerOf(r),
-    blockers: governanceProblems({ property, sellerAthlete, item: r.item, listing: r, now }),
+    ...rest, item, propertyName: property?.name ?? null, seller: sellerOf(r),
+    blockers: governanceProblems({ property, sellerAthlete, item: governedItem(r), listing: r, now }),
   };
 }
 
 function assertGoverned(r: Row, now = new Date()) {
-  const problems = governanceProblems({ property: r.property, sellerAthlete: r.sellerAthlete, item: r.item, listing: r, now });
+  const problems = governanceProblems({ property: r.property, sellerAthlete: r.sellerAthlete, item: governedItem(r), listing: r, now });
   if (problems.length) throw new ListingError(`Not publishable yet: ${problems.join("; ")}.`, 422, problems);
 }
 
@@ -110,15 +120,32 @@ export async function createListing(actor: Actor, input: ListingInput & { invent
     if (property.onboarding?.state !== "APPROVED" || !property.listingAccessAt) {
       throw new ListingError("Only a property BTG has approved can create listings.", 409);
     }
+    /* The team's own item, or a roster athlete's — 2S2-BE-05: an athlete
+       already on SponsorX who joined the team keeps their items in their own
+       tenant, and the listing is written there, beside the item, so the
+       stock, the order line and the athlete's share all stay in step. */
     const item = await tx.inventoryItem.findFirst({
       where: {
-        tenantId: actor.tenantId, id: input.inventoryItemId,
-        OR: [{ propertyId }, { athlete: { propertyId } }],
+        id: input.inventoryItemId,
+        OR: [{ tenantId: actor.tenantId, propertyId }, { athlete: { propertyId } }],
       },
-      select: { id: true },
+      select: { id: true, tenantId: true },
     });
     if (!item) throw new ForbiddenError("listing", "write");
-    return insertListing(tx, actor, { propertyId }, item.id, input);
+    /* 2S2-BE-05 — an athlete who joined keeps their own listing (it stops
+       selling while they are on the team; it was never ended for them). One
+       open listing per item, so the athlete archives theirs first. */
+    const own = await tx.listing.findFirst({
+      where: { tenantId: item.tenantId, inventoryItemId: item.id, sellerAthleteId: { not: null }, state: { not: "ARCHIVED" } },
+      select: { sellerAthlete: { select: { displayName: true } } },
+    });
+    if (own) {
+      throw new ListingError(
+        `${own.sellerAthlete?.displayName ?? "The athlete"} still has their own listing of this item. It doesn't sell while they're on your team; they can archive it so the team lists the item.`,
+        409,
+      );
+    }
+    return insertListing(tx, actor, { propertyId }, item.id, input, item.tenantId);
   });
 }
 
@@ -141,18 +168,33 @@ async function createAthleteListing(actor: Actor, athleteId: string, input: List
       select: { id: true },
     });
     if (!item) throw new ForbiddenError("listing", "write");
-    return insertListing(tx, actor, { sellerAthleteId: athleteId }, item.id, input);
+    /* 2S2-BE-05 — a team the athlete has left may still hold a listing of
+       this item (paused when they left, unable to go live again). It is the
+       athlete's item and they are off that team, so that listing is archived
+       to let them list it themselves. */
+    const stale = await tx.listing.findMany({
+      where: { tenantId: actor.tenantId, inventoryItemId: item.id, propertyId: { not: null }, state: { not: "ARCHIVED" } },
+      select: { id: true, state: true },
+    });
+    for (const s of stale) {
+      await tx.listing.update({
+        /* tenant-scope: the row just found in the athlete's own tenant, by id. */
+        where: { id: s.id }, data: { state: "ARCHIVED" }, select: { id: true },
+      });
+      await audit(tx, actor, "listing.archive", "Listing", s.id, { before: { state: s.state }, after: { state: "ARCHIVED", reason: "the athlete is no longer on this team and lists the item themselves" } });
+    }
+    return insertListing(tx, actor, { sellerAthleteId: athleteId }, item.id, input, actor.tenantId);
   });
 }
 
 async function insertListing(
   tx: Prisma.TransactionClient, actor: Actor, seller: { propertyId: string } | { sellerAthleteId: string },
-  inventoryItemId: string, input: ListingInput,
+  inventoryItemId: string, input: ListingInput, itemTenantId: string,
 ) {
   try {
     const row = await tx.listing.create({
       data: {
-        tenantId: actor.tenantId, ...seller, inventoryItemId, title: input.title.trim(),
+        tenantId: itemTenantId, ...seller, inventoryItemId, title: input.title.trim(),
         description: input.description?.trim() || null, visibility: input.visibility ?? "PUBLIC",
         publishAt: input.publishAt ?? null, createdBy: actor.userId,
       },
