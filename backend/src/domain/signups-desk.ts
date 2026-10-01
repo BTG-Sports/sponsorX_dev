@@ -194,12 +194,12 @@ async function activityOf(tenantId: string, entity: "Athlete" | "Guardian", id: 
   return items.sort((x, y) => x.at.getTime() - y.at.getTime());
 }
 
-const DOC_VIEW = { id: true, kind: true, proofKind: true, filename: true, uploadedAt: true } as const;
+const DOC_VIEW = { id: true, kind: true, proofKind: true, wardId: true, filename: true, uploadedAt: true } as const;
 const day = (d: Date) => d.toISOString().slice(0, 10);
 
-function docItem(d: { id: string; kind: string; proofKind: string | null; filename: string; uploadedAt: Date | null }) {
+function docItem(d: { id: string; kind: string; proofKind: string | null; filename: string; uploadedAt: Date | null }, forWhom?: string) {
   const word = d.kind === "GUARDIANSHIP_PROOF" && d.proofKind ? PROOF_WORDS[d.proofKind as GuardianProofKind] : DOCUMENT_WORDS[d.kind as AccountDocumentKind];
-  return { id: d.id, name: word ?? "Document", sub: `${d.filename} · uploaded ${d.uploadedAt ? day(d.uploadedAt) : "—"}`, viewable: true };
+  return { id: d.id, name: word ?? "Document", sub: `${forWhom ? `For ${forWhom} · ` : ""}${d.filename} · uploaded ${d.uploadedAt ? day(d.uploadedAt) : "—"}`, viewable: true };
 }
 
 async function athleteFor(actor: Actor, id: string, action: "read" | "approve" = "read"): Promise<SignupAthlete & { school: string | null; sport: string; reviewedAt: Date | null; signupRejectNote: string | null; signupRejectedVia: string | null }> {
@@ -244,7 +244,7 @@ export async function getAthleteSignup(actor: Actor, id: string) {
       : [],
     missing: state === "NEEDS_REVIEW" ? signupMissing(facts) : [],
     documents: [
-      ...docs.map(docItem),
+      ...docs.map((d) => docItem(d)),
       ...(agreedAt && a.guardian ? [{ id: "guardian-agreement", name: "Guardian agreement", sub: `Accepted by ${a.guardian.legalName} · ${day(agreedAt)}`, viewable: false }] : []),
     ],
     activity: await activityOf(a.tenantId, "Athlete", a.id, docs),
@@ -284,6 +284,8 @@ export async function getGuardianSignup(actor: Actor, id: string) {
   });
   const proof = docs.filter((d) => d.kind === "GUARDIANSHIP_PROOF").at(-1);
   const nameOf = (athleteId: string | null) => g.wards.find((w) => w.id === athleteId);
+  /* 2S1-BE-10 — proof is per child: say which child each one names. */
+  const wardName = (athleteId: string | null) => { const w = nameOf(athleteId); return w ? w.legalName || w.displayName : undefined; };
   return {
     id: g.id, kind: "GUARDIAN" as SignupKind, name: g.legalName, state: guardianState(g), reasons: [] as string[], flags: [] as string[],
     signedUpAt: g.verifiedAt ?? g.rejectedAt, approvedAt: g.verifiedAt,
@@ -302,7 +304,7 @@ export async function getGuardianSignup(actor: Actor, id: string) {
       : [],
     missing: [] as string[],
     documents: [
-      ...docs.map(docItem),
+      ...docs.map((d) => docItem(d, d.kind === "GUARDIANSHIP_PROOF" ? wardName(d.wardId) : undefined)),
       ...agreements.map((x) => {
         const w = nameOf(x.athleteId);
         return { id: `agreement-${x.athleteId}`, name: "Guardian agreement", sub: `For ${w?.legalName || w?.displayName || "an athlete"} · accepted ${day(x.acceptedAt)}`, viewable: false };

@@ -158,7 +158,8 @@ export async function linkGuardian(
 
     await tx.athlete.update({
       where: { id: athleteId },
-      data: { guardianId: guardian.id },
+      /* A new, unverified guardian: guardian-acts.ts gates them on verifiedAt, so no per-child wait is needed on top. */
+      data: { guardianId: guardian.id, guardianPendingSince: null },
       select: { id: true },
     });
 
@@ -185,9 +186,12 @@ export async function linkGuardian(
           data: { ...data, name: r.name, seat: r.seat, portalUrl: `${appUrl()}/athlete` },
         });
       }
-      /* The new guardian completes their own page (2S1-BE-10) before they can act. */
-      await sendGuardianSetupEmail(tx, athlete, { id: guardian.id, legalName: input.legalName, email: input.email.toLowerCase() }, 0);
     }
+    /* 2S1-BE-14 — every guardian BTG links, first or replacement, is emailed
+       their own page (2S1-BE-10): opening it confirms their email, and their
+       ID, proof naming this athlete and the agreement verify them. Until
+       then they don't act for the athlete (guardian-acts.ts). */
+    await sendGuardianSetupEmail(tx, athlete, { id: guardian.id, legalName: input.legalName, email: input.email.toLowerCase() }, 0);
 
     /* P3-BE-15 — the second path to a guardian login. Approval provisions a
        guardian already linked; one linked AFTER approval would otherwise

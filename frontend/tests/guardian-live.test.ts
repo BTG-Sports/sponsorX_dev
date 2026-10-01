@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   SUPPORT_EMAIL, contactTopic, guardianAgreement, handoffCarryOver, handoffDemo, handoffTrack, handoffViews, idFileProblem,
-  sampleDeclined, sampleHandoff, sampleSwitched, setupDemo, stepMove, whenLabel,
+  firstOpenStep, sampleDeclined, sampleHandoff, sampleSwitched, setupDemo, stepMove, stepsFor, whenLabel,
 } from "@/lib/guardian-live";
 
 /* 2S1-FE-06 (guardian half) and 2S1-FE-10 — the guardian and contact
@@ -29,6 +29,18 @@ describe("guardian set-up", () => {
     expect(stepMove("details", -1)).toBe("details");
     expect(stepMove("proof", -1)).toBe("id");
     expect(stepMove("agreement", 1)).toBe("agreement");
+  });
+  it("a guardian already verified for another child gets the short page: proof for this child, the agreement, done", () => {
+    expect(stepsFor(true).map((s) => s.key)).toEqual(["proof", "agreement", "done"]);
+    expect(stepsFor(false)).toHaveLength(5);
+    expect(stepMove("proof", -1, true)).toBe("proof");
+    expect(stepMove("proof", 1, true)).toBe("agreement");
+    expect(stepMove("agreement", 1, true)).toBe("agreement");
+    const g = { guardian: { name: "Carmen Reyes", relationship: "PARENT" as const, phone: null, email: "c@x.invalid", emailConfirmed: true }, idUploaded: true, agreementAcceptedAt: null };
+    expect(firstOpenStep({ ...g, returning: true, proof: null })).toBe("proof");
+    expect(firstOpenStep({ ...g, returning: true, proof: { kind: "BIRTH_CERTIFICATE", fileName: "b.pdf", uploadedAt: "2026-10-01" } })).toBe("agreement");
+    /* A returning guardian is never sent back to the details or ID they already gave. */
+    expect(firstOpenStep({ ...g, guardian: { ...g.guardian, relationship: null }, idUploaded: false, returning: true, proof: null })).toBe("proof");
   });
   it("marks counsel's missing terms as placeholders", () => {
     const g = guardianAgreement("Jordan");

@@ -371,7 +371,7 @@ describe.skipIf(!hasDatabase)("2S1-BE-09 / -10 / -12 · athletes and guardians a
   });
 
   let sam: Applied;
-  it("BE-10 · one guardian looks after several athletes — the second only needs the agreement for them", async () => {
+  it("BE-10 · one guardian looks after several athletes — the second needs proof naming THEM and the agreement for them, never the first child's proof", async () => {
     sam = await apply({ name: "Sam Reyes", email: "sam@as-test.invalid", birthDate: yearsAgo(14), guardian: { legalName: "Carmen Reyes", email: "carmen@as-test.invalid", relationship: "PARENT" } });
     const carmen = await prisma.guardian.findMany({ where: { tenantId: T, email: "carmen@as-test.invalid" }, select: { id: true } });
     expect(carmen).toHaveLength(1);
@@ -380,9 +380,20 @@ describe.skipIf(!hasDatabase)("2S1-BE-09 / -10 / -12 · athletes and guardians a
     await uploadId(sam, "SCHOOL_ID");
     const token = await setupToken("carmen@as-test.invalid", "Sam Reyes");
     const st = await call("POST", "/public/guardian-setup/open", undefined, { token });
-    expect(st.json.missing).toEqual(["the guardian agreement"]);
+    /* The short page: her ID is on file; proof for Sam and the agreement for Sam are not. */
+    expect(st.json).toMatchObject({ returning: true, idUploaded: true, proof: null });
+    expect(st.json.missing).toEqual(["proof you're the guardian", "the guardian agreement"]);
+    /* Agreement alone — Jordan's birth certificate doesn't count for Sam: still held. */
     await acceptAgreement(token);
+    expect((await athlete(sam.id)).state).toBe("SUBMITTED");
+    const held = await call("GET", `/applications/intake/status${q(sam.token)}`);
+    expect(held.json.missing).toEqual(["your guardian uploads proof they are your guardian"]);
+    /* Proof naming Sam: approved. */
+    const after = await guardianUpload(token, "GUARDIANSHIP_PROOF");
+    expect(after).toMatchObject({ state: "APPROVED", proof: { kind: "BIRTH_CERTIFICATE" } });
     expect((await athlete(sam.id)).state).toBe("ACTIVE");
+    const proofs = await prisma.accountDocument.findMany({ where: { tenantId: T, guardianId: carmen[0]!.id, kind: "GUARDIANSHIP_PROOF" }, select: { wardId: true }, orderBy: { createdAt: "asc" } });
+    expect(proofs.map((p) => p.wardId)).toEqual([jordan.id, sam.id]);
     const desk = await call("GET", `/signups/guardians/${carmen[0]!.id}`, "as_admin");
     expect(desk.status, desk.text).toBe(200);
     expect(desk.json.guardianOf.map((w: { name: string }) => w.name)).toEqual(["Jordan Reyes", "Sam Reyes"]);

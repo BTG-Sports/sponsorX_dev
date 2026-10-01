@@ -425,6 +425,14 @@ export async function decideSponsorRequest(actor: Actor, id: string, d: SponsorR
       const note = d.note.trim();
       await claim(tx, row.id, { state: "DECLINED", decidedAt: new Date(), decidedBy: actor.userId, decisionNote: note });
       await audit(tx, actor, "sponsorRequest.decline", "Inquiry", row.id, { before: { state: "NEW" }, after: { state: "DECLINED", note } });
+      /* 2S1-BE-13 — a Reject before an account opened closes the REQUEST
+         (subject INQUIRY): its proof of business goes on the 30-day purge,
+         and the business can ask BTG to look again. No logins exist yet.
+         DECLINED is terminal; BTG's "yes" is a new request. */
+      await recordClosureIn(tx, actor, {
+        subjectKind: "INQUIRY", subjectId: row.id, cause: "REJECTED", reason: note, userIds: [],
+        contactEmail: row.email, displayName: firstNameOf(row) || sponsorNameFor(row),
+      });
       await send(tx, row.tenantId, {
         template: "sponsor.requestDeclined", to: row.email, idempotencyKey: `sponsor.requestDeclined:${row.id}`,
         data: { firstName: firstNameOf(row), businessName: sponsorNameFor(row), note, supportEmail: env.SUPPORT_EMAIL, supportUrl: `${appUrl()}/contact?topic=account` },

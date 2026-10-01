@@ -177,7 +177,8 @@ export async function requireActor(
   if (!identity) throw new UnauthenticatedError();
 
   /* 2S1-BE-11 — a guardian's login acts for the minor they look after
-     (the one named by the header, or their first). */
-  req.actor = await actForWard(await resolveActor(identity.clerkId, identity.email), req.get(WARD_HEADER));
+     (the one named by the header, or their first) — only once the guardian
+     is verified for them; a write before then is refused (2S1-BE-14). */
+  req.actor = await actForWard(await resolveActor(identity.clerkId, identity.email), req.get(WARD_HEADER), req.method);
   next();
 }

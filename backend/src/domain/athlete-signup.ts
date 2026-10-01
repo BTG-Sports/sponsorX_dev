@@ -41,7 +41,7 @@ import { IllegalTransitionError, type AthleteState } from "./athlete-state";
 import { provisionAthleteLoginsIn } from "./athlete-login";
 import { requiresGuardian, GUARDIAN_RELATIONSHIPS, type GuardianRelationship } from "./guardian-rules";
 import { GUARDIAN_AGREEMENT_KIND } from "./agreement";
-import { documentsOf, finishAccountDocument, startAccountDocument, uploadedKinds } from "./account-documents";
+import { documentsOf, finishAccountDocument, guardianUploadsFor, startAccountDocument, uploadedKinds } from "./account-documents";
 import { signupMissing, signupVerdict, idKindFor, STAFF_CONFIRM_REASON, type AthleteFacts, type GuardianProofKind, type SignupVerdict } from "./signup-rules";
 
 type Tx = Prisma.TransactionClient;
@@ -67,7 +67,7 @@ const OPEN_STATES: readonly AthleteState[] = ["DRAFT", "SUBMITTED", "CHANGES_REQ
 export const ATHLETE_SELECT = {
   id: true, tenantId: true, state: true, legalName: true, displayName: true, email: true, phone: true, sport: true, stateCode: true,
   countryCode: true, birthDate: true, ageBand: true, majorityAge: true, majorityKnown: true, guardianId: true,
-  emailConfirmedAt: true, reviewReasons: true, autoApproved: true, signupRejectedAt: true, createdAt: true,
+  emailConfirmedAt: true, reviewReasons: true, autoApproved: true, signupRejectedAt: true, createdAt: true, guardianPendingSince: true,
   guardian: { select: { id: true, legalName: true, email: true, relationship: true, phone: true, emailConfirmedAt: true, verifiedAt: true, rejectedAt: true } },
 } as const;
 export type SignupAthlete = Prisma.AthleteGetPayload<{ select: typeof ATHLETE_SELECT }>;
@@ -91,9 +91,10 @@ export async function guardianAgreed(db: Db, tenantId: string, athleteId: string
 /** Everything the verdict weighs, read from where it is recorded. */
 export async function signupFacts(db: Db, a: SignupAthlete): Promise<AthleteFacts> {
   const minor = requiresGuardian(a);
-  const [kinds, gKinds, agreed, dupes, login, tenant] = await Promise.all([
+  const [kinds, gUploads, agreed, dupes, login, tenant] = await Promise.all([
     uploadedKinds(db, { tenantId: a.tenantId, athleteId: a.id }),
-    a.guardian ? uploadedKinds(db, { tenantId: a.tenantId, guardianId: a.guardian.id }) : Promise.resolve(new Set<string>()),
+    /* 2S1-BE-10 — the guardian's ID is theirs; their proof must name THIS athlete. */
+    a.guardian ? guardianUploadsFor(db, a.tenantId, a.guardian.id, a.id) : Promise.resolve({ idUploaded: false, proofUploaded: false }),
     a.guardian ? guardianAgreed(db, a.tenantId, a.id, a.guardian.id) : Promise.resolve(null),
     likelyDuplicates(db, a),
     a.email
@@ -114,8 +115,9 @@ export async function signupFacts(db: Db, a: SignupAthlete): Promise<AthleteFact
       ? {
           name: a.guardian.legalName,
           emailConfirmed: Boolean(a.guardian.emailConfirmedAt),
-          idUploaded: gKinds.has("GUARDIAN_ID"),
-          proofUploaded: gKinds.has("GUARDIANSHIP_PROOF"),
+          /* A guardian already verified (for another child, by the system or BTG) was checked as a person: their ID is reused. */
+          idUploaded: gUploads.idUploaded || Boolean(a.guardian.verifiedAt),
+          proofUploaded: gUploads.proofUploaded,
           agreementAccepted: Boolean(agreed),
           rejected: Boolean(a.guardian.rejectedAt),
         }
@@ -155,8 +157,10 @@ export async function evaluateAthleteSignup(athleteId: string): Promise<SignupVe
     return await prisma.$transaction(async (tx) => {
       const a = await loadAthlete(tx, athleteId);
       /* 2S1-BE-14 — an approved minor who named a guardian after approval (a
-         profile edit): the guardian's own page verifies them the same way. */
-      if (a && !a.signupRejectedAt && (a.state === "APPROVED" || a.state === "ACTIVE") && a.guardian && !a.guardian.verifiedAt) {
+         profile edit): the guardian's own page verifies them the same way —
+         or, for a guardian already verified for another child, confirms them
+         for this one (`guardianPendingSince`). */
+      if (a && !a.signupRejectedAt && (a.state === "APPROVED" || a.state === "ACTIVE") && a.guardian && (!a.guardian.verifiedAt || a.guardianPendingSince)) {
         return verifyLateGuardianIn(tx, a);
       }
       if (!a || a.state !== "SUBMITTED" || a.signupRejectedAt) return { outcome: "decided" as const };
@@ -214,6 +218,27 @@ async function verifyLateGuardianIn(tx: Tx, a: SignupAthlete): Promise<SignupVer
   const f = await signupFacts(tx, a);
   const missing = signupMissing(f).filter((m) => m.startsWith("your guardian"));
   if (missing.length) return { outcome: "waiting", missing };
+  if (g.verifiedAt) {
+    /* Already verified for another child (BTG or the system checked them):
+       proof naming THIS athlete and the agreement for them are what was
+       missing, and they are in. No second staff hold — the person is
+       confirmed; the link to this child is what the proof establishes. */
+    const cleared = await tx.athlete.updateMany({
+      /* tenant-scope: the athlete loaded above, in their tenant; only while pending. */
+      where: { id: a.id, tenantId: a.tenantId, guardianId: g.id, guardianPendingSince: { not: null } }, data: { guardianPendingSince: null },
+    });
+    if (cleared.count !== 1) return { outcome: "decided" };
+    await audit(tx, SYSTEM(a.tenantId), "guardian.wardConfirmed", "Guardian", g.id, {
+      after: { athleteId: a.id, evidence: `proof of guardianship naming this athlete and the guardian agreement for them, at ${new Date().toISOString()}` },
+    });
+    await send(tx, a.tenantId, {
+      template: "guardian.approved", to: g.email,
+      data: { firstName: g.legalName.split(/\s+/)[0] ?? "", athleteFirstName: firstNameOf(a.legalName, a.displayName), portalUrl: `${appUrl()}/athlete` },
+      idempotencyKey: `guardian.approved:${g.id}:${a.id}`,
+    });
+    await tellBtg(tx, a.tenantId, { kind: "guardian", id: g.id, name: g.legalName }, "approved", []);
+    return { outcome: "approve" };
+  }
   if (f.staffConfirmMinors) {
     await tellBtg(tx, a.tenantId, { kind: "guardian", id: g.id, name: g.legalName }, "review", [STAFF_CONFIRM_REASON]);
     return { outcome: "review", reasons: [STAFF_CONFIRM_REASON] };
@@ -224,6 +249,10 @@ async function verifyLateGuardianIn(tx: Tx, a: SignupAthlete): Promise<SignupVer
     where: { id: g.id, tenantId: a.tenantId, verifiedAt: null }, data: { verifiedAt: now, autoVerified: true },
   });
   if (moved.count !== 1) return { outcome: "decided" };
+  await tx.athlete.updateMany({
+    /* tenant-scope: the athlete loaded above, in their tenant. */
+    where: { id: a.id, tenantId: a.tenantId, guardianPendingSince: { not: null } }, data: { guardianPendingSince: null },
+  });
   await audit(tx, SYSTEM(a.tenantId), "guardian.autoVerify", "Guardian", g.id, {
     after: { verifiedAt: now.toISOString(), athleteId: a.id, namedAfterApproval: true, evidence: `guardian confirmed by email, with ID and proof, at ${now.toISOString()}` },
   });
@@ -239,7 +268,14 @@ async function verifyLateGuardianIn(tx: Tx, a: SignupAthlete): Promise<SignupVer
 /** Every athlete a guardian's step may have completed — sign-ups, and approved minors waiting on this guardian. */
 export async function evaluateGuardianWards(guardianId: string, tenantId: string) {
   const wards = await prisma.athlete.findMany({
-    where: { tenantId, guardianId, OR: [{ state: "SUBMITTED" }, { state: { in: ["APPROVED", "ACTIVE"] }, guardian: { is: { verifiedAt: null } } }] },
+    where: {
+      tenantId, guardianId,
+      OR: [
+        { state: "SUBMITTED" },
+        { state: { in: ["APPROVED", "ACTIVE"] }, guardian: { is: { verifiedAt: null } } },
+        { state: { in: ["APPROVED", "ACTIVE"] }, guardianPendingSince: { not: null } },
+      ],
+    },
     select: { id: true }, orderBy: { createdAt: "asc" },
   });
   for (const w of wards) await evaluateAthleteSignup(w.id);

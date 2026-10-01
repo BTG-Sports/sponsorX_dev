@@ -9,7 +9,7 @@ import {
 import { GuardianAgreementText } from "@/components/guardian-agreement";
 import { IdUpload } from "@/components/id-upload";
 import {
-  PROOF_KINDS, RELATIONSHIP_OPTIONS, SETUP_STEPS, agreementFromBody, firstOpenStep, stepMove,
+  PROOF_KINDS, RELATIONSHIP_OPTIONS, SETUP_STEPS, agreementFromBody, firstOpenStep, stepMove, stepsFor,
   type ApiGuardianSetup, type ApiGuardianSetupLive, type RelationshipCode, type SetupStep,
 } from "@/lib/guardian-live";
 
@@ -24,6 +24,11 @@ import {
    (IdUpload: a presigned PUT, then confirm), the agreement accepted against
    the version and text shown. Every answer is the page's new status, so
    "done" and "approved" are what the API says, never assumed.
+
+   A GUARDIAN ALREADY VERIFIED for another child (`returning`, 2S1-BE-10)
+   gets the short page — proof naming THIS child, the agreement for them,
+   done — because their details and government ID are already on file and
+   proof is per child.
 
    PREVIEW (mode "preview", ?demo=done|approved on the sample guardian):
    the two after-finishing views only, and nothing is sent.
@@ -49,10 +54,10 @@ function Label({ text, children }: { text: string; children: ReactNode }) {
   );
 }
 
-function Steps({ idx }: { idx: number }) {
+function Steps({ idx, steps = SETUP_STEPS }: { idx: number; steps?: readonly { key: SetupStep; label: string }[] }) {
   return (
-    <ol aria-label="Steps" className="grid gap-1.5 sm:grid-cols-5">
-      {SETUP_STEPS.map((s, i) => {
+    <ol aria-label="Steps" className={`grid gap-1.5 ${steps.length === 3 ? "sm:grid-cols-3" : "sm:grid-cols-5"}`}>
+      {steps.map((s, i) => {
         const done = i < idx;
         const cur = i === idx;
         return (
@@ -100,10 +105,11 @@ function Live({ token, initial }: { token: string; initial: ApiGuardianSetupLive
   const [pending, start] = useTransition();
 
   const a = s.athlete.firstName;
+  const steps = stepsFor(s.returning);
   const finished = s.state === "APPROVED" || s.state === "CHECKING" || s.state === "HELD";
   const view: SetupStep | "approved" | "rejected" = s.state === "REJECTED" ? "rejected" : s.state === "APPROVED" ? "approved" : finished && step === "done" ? "done" : step;
-  const idx = view === "approved" ? SETUP_STEPS.length : view === "rejected" ? 0 : SETUP_STEPS.findIndex((x) => x.key === view);
-  const title = view === "approved" ? "Approved" : view === "rejected" ? "Closed by BTG" : SETUP_STEPS[idx]!.title.replace("the guardian", `${a}’s guardian`);
+  const idx = view === "approved" ? steps.length : view === "rejected" ? 0 : Math.max(steps.findIndex((x) => x.key === view), 0);
+  const title = view === "approved" ? "Approved" : view === "rejected" ? "Closed by BTG" : steps[idx]!.title.replace("the guardian", `${a}’s guardian`);
   const agreement = s.agreement ? agreementFromBody(s.agreement.body, s.agreement.version) : null;
   const locked = s.state === "APPROVED";
 
@@ -138,14 +144,21 @@ function Live({ token, initial }: { token: string; initial: ApiGuardianSetupLive
       if (locked) return setStep("id");
       return saveDetails();
     }
-    setStep(stepMove(step, 1));
+    setStep(stepMove(step, 1, s.returning));
   };
 
   return (
     <div className="space-y-4">
-      <Steps idx={idx} />
+      <Steps idx={idx} steps={steps} />
       <section aria-label={title} className="space-y-4 rounded-xl border border-line bg-surface p-4 sm:p-5">
         <h2 className="text-lg font-semibold tracking-tight">{title}</h2>
+
+        {s.returning && (view === "proof" || view === "agreement") && (
+          <p className="rounded-lg bg-primary/8 px-3 py-2.5 text-xs leading-relaxed text-muted">
+            You&rsquo;re already a guardian on SponsorX, so your details and government ID are on file. For {a}, we just need proof
+            you&rsquo;re {a}&rsquo;s guardian and the guardian agreement for {a}.
+          </p>
+        )}
 
         {view === "details" && (
           <div className="grid gap-3 sm:grid-cols-2">
@@ -263,7 +276,7 @@ function Live({ token, initial }: { token: string; initial: ApiGuardianSetupLive
 
         {(view === "details" || view === "id" || view === "proof" || view === "agreement") && (
           <div className="flex flex-wrap justify-between gap-2.5 border-t border-line-soft pt-3">
-            <button type="button" className={secondaryBtn} disabled={step === "details" || pending} onClick={() => setStep(stepMove(step, -1))}>
+            <button type="button" className={secondaryBtn} disabled={step === steps[0]!.key || pending} onClick={() => setStep(stepMove(step, -1, s.returning))}>
               Back
             </button>
             {step === "agreement" ? (

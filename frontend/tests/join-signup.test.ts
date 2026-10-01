@@ -63,7 +63,7 @@ describe("the guardian's page", () => {
   const live = (over: Partial<ApiGuardianSetupLive>): ApiGuardianSetupLive => ({
     athlete: { name: "Jordan Reyes", firstName: "Jordan" },
     guardian: { name: "Carmen Reyes", relationship: "PARENT", phone: null, email: "c@example.com", emailConfirmed: true },
-    idUploaded: false, proof: null, agreement: null, agreementAcceptedAt: null, state: "IN_PROGRESS", missing: [], athleteMissing: [], ...over,
+    returning: false, idUploaded: false, proof: null, agreement: null, agreementAcceptedAt: null, state: "IN_PROGRESS", missing: [], athleteMissing: [], ...over,
   });
   it("opens on the first step still to do", () => {
     expect(firstOpenStep(live({ guardian: { ...live({}).guardian, relationship: null } }))).toBe("details");

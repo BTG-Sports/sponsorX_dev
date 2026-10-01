@@ -11,9 +11,12 @@
  * already earned is untouched: it is still paid out.
  *
  * A REJECTED ACCOUNT is closed by BTG's Reject, in the code that owns that
- * Reject: sponsors (sponsor-requests.ts), organisations (onboarding.ts
- * `withdraw`), athletes and guardians (signups-desk.ts), and the coming-of-
- * age termination (coming-of-age.ts, cause TERMINATED). That code switches
+ * Reject: sponsors (sponsor-requests.ts — and a request declined before an
+ * account opened, subject INQUIRY), organisations (onboarding.ts `withdraw`
+ * — and one rejected at review, before it had a Property, subject
+ * ONBOARDING), athletes and guardians (signups-desk.ts, and the
+ * applications desk's reject, application-review.ts), and the coming-of-age
+ * termination (coming-of-age.ts, cause TERMINATED). That code switches
  * the logins off (`REJECT_TAKES_LOGINS` — including any a self-closure had
  * already switched off) and calls `recordClosureIn`, so the same 30-day
  * retention applies; its Reinstate calls `reopenClosureIn`. A self-closed
@@ -83,7 +86,11 @@ export const reactivateUrl = (closureId: string, expiresAt: Date) =>
   `${appUrl()}/reactivate?t=${encodeURIComponent(issuePurposeToken("account-reactivation", closureId, expiresAt))}`;
 
 /** Where each kind of account signs in again. */
-const PORTAL: Record<ClosureSubject, string> = { ATHLETE: "/athlete", GUARDIAN: "/athlete", PROPERTY: "/property", SPONSOR: "/sponsor" };
+const PORTAL: Record<ClosureSubject, string> = {
+  ATHLETE: "/athlete", GUARDIAN: "/athlete", PROPERTY: "/property", SPONSOR: "/sponsor",
+  /* An application never had a portal: coming back after a Reject before approval means BTG looking again, or applying again. */
+  ONBOARDING: "/onboarding", INQUIRY: "/contact",
+};
 
 /* ═══════════════════════ closing your own account ════════════════════════ */
 
@@ -518,7 +525,7 @@ export async function askBtgToReactivate(token: string, note: string | undefined
       await send(tx, c.tenantId, {
         template: "account.reactivationRequested", to: u.email, idempotencyKey: `account.reactivationRequested:${c.id}:${at.getTime()}:${u.id}`,
         data: {
-          name: c.displayName, kind: c.subjectKind.toLowerCase(), closedAt: dayWords(c.closedAt), retainUntil: dayWords(c.retainUntil),
+          name: c.displayName, kind: KIND_WORDS[c.subjectKind as ClosureSubject] ?? c.subjectKind.toLowerCase(), closedAt: dayWords(c.closedAt), retainUntil: dayWords(c.retainUntil),
           note: text ?? "", reviewUrl, requestsUrl: `${appUrl()}/admin/new-signups?tab=review`,
         },
       });
@@ -526,6 +533,12 @@ export async function askBtgToReactivate(token: string, note: string | undefined
     return standingOf(await closureById(tx, c.id));
   });
 }
+
+/** How BTG's email names the kind of account asking. */
+const KIND_WORDS: Record<ClosureSubject, string> = {
+  ATHLETE: "athlete", GUARDIAN: "guardian", PROPERTY: "organisation", SPONSOR: "sponsor",
+  ONBOARDING: "organisation application, rejected before approval", INQUIRY: "sponsor request, declined before an account opened",
+};
 
 /** The BTG page where this account is reinstated. */
 async function reviewUrlFor(tx: Tx, c: ClosureRow): Promise<string> {
@@ -543,6 +556,8 @@ async function reviewUrlFor(tx: Tx, c: ClosureRow): Promise<string> {
     });
     if (onb) return `${appUrl()}/admin/onboarding/${onb.id}`;
   }
+  if (c.subjectKind === "ONBOARDING") return `${appUrl()}/admin/onboarding/${c.subjectId}`;
+  if (c.subjectKind === "INQUIRY") return `${appUrl()}/admin/sponsor-requests/${c.subjectId}`;
   return `${appUrl()}/admin/new-signups?tab=review`;
 }
 
@@ -643,13 +658,16 @@ export const RETAINED_DOCUMENT_SOURCES: RetainedDocumentSource[] = [
     remove: async (tx, tenantId, ids) => { await tx.guardianHandoffDocument.deleteMany({ where: { tenantId, id: { in: ids } } }); },
   },
   {
-    /* 2S1-BE-02 — an organization's verification documents. */
+    /* 2S1-BE-02 — an organization's verification documents: of an approved
+       organisation (PROPERTY), or of an application rejected before it had a
+       Property (ONBOARDING, the onboarding's own id). */
     name: "OnboardingDocument",
-    subjects: ["PROPERTY"],
+    subjects: ["PROPERTY", "ONBOARDING"],
     collect: async (tx, c) =>
       (await tx.onboardingDocument.findMany({
-        /* tenant-scope: the documents of this property's own onboarding, which lives in its operator's tenant. */
-        where: { onboarding: { is: { propertyId: c.subjectId } } }, select: { id: true, r2Key: true },
+        /* tenant-scope: the documents of this property's (or this application's) own onboarding, which lives in its operator's tenant. */
+        where: c.subjectKind === "ONBOARDING" ? { onboardingId: c.subjectId } : { onboarding: { is: { propertyId: c.subjectId } } },
+        select: { id: true, r2Key: true },
       }))
         .map((r) => ({ id: r.id, key: r.r2Key })),
     remove: async (tx, _tenantId, ids) => {
@@ -658,11 +676,15 @@ export const RETAINED_DOCUMENT_SOURCES: RetainedDocumentSource[] = [
     },
   },
   {
-    /* 2S1-BE-17 — a sponsor's proof of business. */
+    /* 2S1-BE-17 — a sponsor's proof of business: of a sponsor (SPONSOR), or of
+       a request declined before an account opened (INQUIRY, the request's id). */
     name: "InquiryDocument",
-    subjects: ["SPONSOR"],
+    subjects: ["SPONSOR", "INQUIRY"],
     collect: async (tx, c) =>
-      (await tx.inquiryDocument.findMany({ where: { tenantId: c.tenantId, inquiry: { is: { sponsorId: c.subjectId } } }, select: { id: true, r2Key: true } }))
+      (await tx.inquiryDocument.findMany({
+        where: { tenantId: c.tenantId, ...(c.subjectKind === "INQUIRY" ? { inquiryId: c.subjectId } : { inquiry: { is: { sponsorId: c.subjectId } } }) },
+        select: { id: true, r2Key: true },
+      }))
         .map((r) => ({ id: r.id, key: r.r2Key })),
     remove: async (tx, tenantId, ids) => { await tx.inquiryDocument.deleteMany({ where: { tenantId, id: { in: ids } } }); },
   },

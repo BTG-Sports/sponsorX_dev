@@ -11,7 +11,9 @@ import { publicApi } from "../../onboarding/public-api";
    GuardianSetup.dc.html, N5). Public (no login): the page a minor's guardian
    reaches from the email the minor's sign-up sends them. Five steps — their
    details, a government ID, proof they're the guardian, the guardian
-   agreement, done — then "approved" once the automatic checks pass.
+   agreement, done — then "approved" once the automatic checks pass. A
+   guardian already verified for another child gets three: proof naming
+   THIS child, the agreement for them, done (proof is per child, 2S1-BE-10).
 
    LIVE since 2S1-BE-10. The email link carries the guardian's signed token
    (it names the guardian and the athlete who named them):

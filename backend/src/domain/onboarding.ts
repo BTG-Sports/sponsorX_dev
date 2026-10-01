@@ -761,6 +761,22 @@ async function withdraw(tx: Tx, actor: Actor, row: Row, now: Date, notes: string
   return { loginsSwitchedOff: off.count, listingsEnded: live.length, closureId };
 }
 
+/**
+ * 2S1-BE-13 — a Reject at review, before the organisation had a Property:
+ * the APPLICATION is closed (subject ONBOARDING), so its uploaded documents
+ * go on the 30-day purge (account-closure.ts RETAINED_DOCUMENT_SOURCES) and
+ * the applicant can ask BTG to look again from the reactivation page. It has
+ * no logins yet. The rejection stays terminal (decisionAllowed): BTG's "yes"
+ * is a fresh application, its name now free.
+ */
+async function closeRejectedApplication(tx: Tx, actor: Actor, row: Row, notes: string | null) {
+  const closureId = await recordClosureIn(tx, actor, {
+    subjectKind: "ONBOARDING", subjectId: row.id, cause: "REJECTED", reason: notes, userIds: [],
+    contactEmail: primaryEmail(row) ?? "", displayName: row.orgName,
+  });
+  return { closureId };
+}
+
 /** Reinstate after a Reject: the logins that Reject switched off come back, payouts are released, the closure ends. */
 async function restore(tx: Tx, actor: Actor, row: Row) {
   const property = row.propertyId && row.property ? { id: row.propertyId, tenantId: row.property.tenantId } : null;
@@ -829,11 +845,15 @@ export async function decideOnboarding(actor: Actor, id: string, decision: Decis
       if (decision === "REINSTATE" && from === "REJECTED") effects = await restore(tx, actor, row);
     }
     if (to === "SUSPENDED" && propertyId) {
+      /* 2S1-BE-13 — deliberately NO closure: a suspension pauses listing
+         access only. The logins stay on, nothing is withdrawn for good, and
+         no file is due for deletion; Reinstate lifts it. */
       /* tenant-scope: the Property this onboarding provisioned, in the organisation's own tenant (2S1-BE-04). */
       await tx.property.update({ where: { id: propertyId }, data: { listingAccessAt: null }, select: { id: true } });
     }
     const afterApproval = decision === "REJECT" && from === "APPROVED";
     if (afterApproval) effects = await withdraw(tx, actor, row, now, notes?.trim() || null);
+    if (decision === "REJECT" && !afterApproval) effects = await closeRejectedApplication(tx, actor, row, notes?.trim() || null);
 
     const updated = await tx.propertyOnboarding.update({
       where: { id },

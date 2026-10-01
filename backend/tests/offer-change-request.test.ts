@@ -189,9 +189,10 @@ describe.skipIf(!hasDatabase)("2S2-FE-03 · requesting a change to an offer", { 
     expect(refused.json.error?.code ?? refused.json.code).toBe("guardian_must_act");
     expect(refused.text).toMatch(/guardian/i);
     expect(await audits("ocr_offer_minor")).toEqual([]);
-    /* The guardian, unverified, cannot either. */
+    /* The guardian, unverified, cannot either — they don't act for the minor until verified (2S1-BE-14). */
     const unverified = await call("POST", "/offers/ocr_offer_minor/respond", "ocr_guardian_user", change(note));
-    expect(unverified.status).toBe(409);
+    expect(unverified.status).toBe(403);
+    expect(unverified.json.error?.code ?? unverified.json.code).toBe("guardian_not_verified");
     await prisma.guardian.update({ where: { id: "ocr_guardian" }, data: { verifiedAt: new Date() } });
     expect((await call("POST", "/offers/ocr_offer_minor/respond", "ocr_minor_user", change(note))).status).toBe(403);
     const ok = await call("POST", "/offers/ocr_offer_minor/respond", "ocr_guardian_user", change(note));

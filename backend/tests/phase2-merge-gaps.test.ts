@@ -63,7 +63,7 @@ describe.skipIf(!hasDatabase)("merge gaps · closures, closed sellers, the hando
     .map((j) => j.payload as { template: string; to: string; data: Record<string, string> }).filter((m) => !template || m.template === template);
   const closureOf = (kind: string, id: string) => prisma.accountClosure.findFirst({ where: { subjectKind: kind, subjectId: id }, orderBy: { createdAt: "desc" }, select: { id: true, tenantId: true, cause: true, state: true, userIds: true } });
   const login = (id: string) => prisma.user.findUniqueOrThrow({ where: { id }, select: { disabledAt: true, disabledReason: true } });
-  const doc = (id: string, owner: { athleteId?: string; guardianId?: string }, kind: string) => ({
+  const doc = (id: string, owner: { athleteId?: string; guardianId?: string; wardId?: string }, kind: string) => ({
     id, tenantId: T, ...owner, kind, ...(kind === "GUARDIANSHIP_PROOF" ? { proofKind: "BIRTH_CERTIFICATE" } : {}),
     filename: `${id}.pdf`, contentType: "application/pdf", bytes: 100, r2Key: `account-documents/${id}.pdf`, uploadedAt: new Date(),
   });
@@ -119,9 +119,9 @@ describe.skipIf(!hasDatabase)("merge gaps · closures, closed sellers, the hando
       doc("mg_doc_riley", { athleteId: "mg_riley" }, "GOVERNMENT_ID"),
       doc("mg_doc_jo", { athleteId: "mg_jo" }, "SCHOOL_ID"),
       doc("mg_doc_carmen_id", { guardianId: "mg_g_carmen" }, "GUARDIAN_ID"),
-      doc("mg_doc_carmen_proof", { guardianId: "mg_g_carmen" }, "GUARDIANSHIP_PROOF"),
+      doc("mg_doc_carmen_proof", { guardianId: "mg_g_carmen", wardId: "mg_jo" }, "GUARDIANSHIP_PROOF"),
       doc("mg_doc_late_id", { guardianId: "mg_g_late" }, "GUARDIAN_ID"),
-      doc("mg_doc_late_proof", { guardianId: "mg_g_late" }, "GUARDIANSHIP_PROOF"),
+      doc("mg_doc_late_proof", { guardianId: "mg_g_late", wardId: "mg_late" }, "GUARDIANSHIP_PROOF"),
       doc("mg_doc_liv", { athleteId: "mg_late" }, "SCHOOL_ID"),
     ] });
     await prisma.inventoryItem.createMany({ data: [

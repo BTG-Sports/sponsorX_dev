@@ -279,7 +279,7 @@ export async function submitProfileChange(actor: Actor, athleteId: string, input
     }
 
     /* ── a guardian: only a minor, and only one with none yet ── */
-    let guardian: { id: string; legalName: string; email: string } | null = null;
+    let guardian: { id: string; legalName: string; email: string; verifiedAt: Date | null } | null = null;
     if (guardianIn) {
       if (!requiresGuardian(ageAfter)) {
         throw new SensitiveEditError("Only an athlete under the age of majority has a guardian.", "guardian_not_required");
@@ -298,14 +298,14 @@ export async function submitProfileChange(actor: Actor, athleteId: string, input
          already on file in this tenant, and not rejected, is that guardian. */
       guardian = await tx.guardian.findFirst({
         where: { tenantId: athlete.tenantId, email: { equals: email, mode: "insensitive" }, rejectedAt: null },
-        select: { id: true, legalName: true, email: true },
+        select: { id: true, legalName: true, email: true, verifiedAt: true },
       }) ?? await tx.guardian.create({
         data: {
           tenantId: athlete.tenantId, legalName: guardianIn.legalName.trim(), email,
           phone: guardianIn.phone?.trim() || null, relationship: guardianIn.relationship,
           /* Never verified here: the guardian completes their own page (2S1-BE-10). */
         },
-        select: { id: true, legalName: true, email: true },
+        select: { id: true, legalName: true, email: true, verifiedAt: true },
       });
       applied.guardianId = guardian.id;
       sections.add("guardian");
@@ -343,7 +343,17 @@ export async function submitProfileChange(actor: Actor, athleteId: string, input
         before, after: { ...recorded, changeId: appliedChange.id, checks: checkNotes },
       });
       if (guardian) {
-        await audit(tx, actor, "guardian.link", "Athlete", athlete.id, { before: { guardianId: null }, after: { guardianId: guardian.id, via: "profileEdit" } });
+        /* 2S1-BE-10 / -14 — "new agreements and payments wait until then" is
+           made true by guardian-acts.ts: an unverified guardian does not act
+           for the athlete. A guardian ALREADY verified for another child is
+           not yet cleared for this one either: proof naming this athlete and
+           the agreement for them come first (guardianPendingSince). */
+        if (guardian.verifiedAt) {
+          await tx.athlete.update({ where: { id: athlete.id }, data: { guardianPendingSince: now }, select: { id: true } });
+        }
+        await audit(tx, actor, "guardian.link", "Athlete", athlete.id, {
+          before: { guardianId: null }, after: { guardianId: guardian.id, via: "profileEdit", pendingProofForThisAthlete: Boolean(guardian.verifiedAt) },
+        });
         if (athlete.state === "APPROVED" || athlete.state === "ACTIVE") await provisionGuardianLoginIn(tx, actor, guardian.id);
         /* The guardian's own page (2S1-BE-10): opening its signed link confirms
            their email; ID, proof and the agreement there verify them. */

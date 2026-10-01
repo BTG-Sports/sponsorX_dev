@@ -485,7 +485,8 @@ async function handOff(tx: Tx, actor: Actor, r: Row) {
   const moved = await tx.athlete.updateMany({
     /* tenant-scope: the request's own athlete, in its tenant. */
     where: { tenantId: r.tenantId, id: r.athleteId, guardianId: r.fromGuardianId },
-    data: { guardianId },
+    /* The handoff's own documents are the proof for this athlete: no per-child wait remains. */
+    data: { guardianId, guardianPendingSince: null },
   });
   if (moved.count !== 1) throw new HandoffError("This athlete's guardian changed a moment ago. Nothing has been switched.");
 

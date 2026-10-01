@@ -460,6 +460,13 @@ model Athlete {
   /// only by account-closure.ts, cleared when the closure ends.
   accountClosedAt DateTime?
 
+  /// 2S1-BE-10 / -14 — a guardian ALREADY verified for another minor was
+  /// named for this approved athlete by a profile edit. They act for this
+  /// athlete only once their proof of guardianship naming this athlete and
+  /// the guardian agreement for them are in (guardian-acts.ts `actForWard`);
+  /// cleared then, or when the guardian changes.
+  guardianPendingSince DateTime?
+
   // Zoho (§18 — Contacts are bi-directional)
   zohoId         String?     @unique
   lastSyncOrigin SyncOrigin?
@@ -515,6 +522,11 @@ model AccountDocument {
   kind        String
   /// GUARDIANSHIP_PROOF only: BIRTH_CERTIFICATE | COURT_ORDER | SCHOOL_RECORD
   proofKind   String?
+  /// GUARDIANSHIP_PROOF only: the athlete this proof names. Proof is per
+  /// (guardian, athlete) — a guardian's government ID serves every athlete
+  /// they look after, but each minor's approval needs proof naming them.
+  /// Plain column (CHECK in the migration), like `tenantId`.
+  wardId      String?
   filename    String
   contentType String
   bytes       Int
@@ -527,6 +539,7 @@ model AccountDocument {
 
   @@index([tenantId, athleteId])
   @@index([tenantId, guardianId])
+  @@index([tenantId, guardianId, wardId])
 }
 
 /// 2S1-BE-12 — the age of majority by place, which BTG admins edit. A row is
@@ -2843,7 +2856,9 @@ model TeamInvitation {
 model AccountClosure {
   id          String   @id @default(cuid())
   tenantId    String
-  /// ATHLETE | GUARDIAN | PROPERTY | SPONSOR
+  /// ATHLETE | GUARDIAN | PROPERTY | SPONSOR — or, for a Reject before
+  /// approval, the application itself: ONBOARDING (a PropertyOnboarding with
+  /// no Property yet) | INQUIRY (a sponsor request declined before an account)
   subjectKind String
   subjectId   String
   /// SELF | REJECTED | TERMINATED

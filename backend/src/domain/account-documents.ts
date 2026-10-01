@@ -17,6 +17,12 @@
  * The callers authorise: a signed link (the applicant, the guardian's
  * set-up page, the coming-of-age page). This file trusts the owner it is
  * handed and checks only the file.
+ *
+ * PROOF IS PER CHILD. A guardian's GUARDIAN_ID is theirs and serves every
+ * athlete they look after; a GUARDIANSHIP_PROOF names one athlete (`wardId`
+ * — the athlete the set-up link is for), and only counts for that athlete.
+ * A second minor naming an already-verified guardian is approved on proof
+ * naming THEM, never on the first child's.
  */
 import { randomBytes } from "node:crypto";
 
@@ -40,7 +46,7 @@ export class AccountDocumentError extends Error {
 
 export type DocumentOwner = { tenantId: string } & ({ athleteId: string; guardianId?: undefined } | { guardianId: string; athleteId?: undefined });
 
-const VIEW = { id: true, kind: true, proofKind: true, filename: true, contentType: true, bytes: true, uploadedAt: true, createdAt: true } as const;
+const VIEW = { id: true, kind: true, proofKind: true, wardId: true, filename: true, contentType: true, bytes: true, uploadedAt: true, createdAt: true } as const;
 
 function ownerWhere(o: DocumentOwner) {
   return o.athleteId ? { tenantId: o.tenantId, athleteId: o.athleteId } : { tenantId: o.tenantId, guardianId: o.guardianId! };
@@ -50,15 +56,24 @@ function ownerWhere(o: DocumentOwner) {
 export async function startAccountDocument(
   owner: DocumentOwner,
   input: { kind: AccountDocumentKind; proofKind?: GuardianProofKind | null; filename: string; contentType: string; bytes: number },
+  /** GUARDIANSHIP_PROOF only: the athlete it names (the set-up link's athlete). */
+  wardId?: string,
 ) {
   const allowed: readonly string[] = owner.athleteId ? ATHLETE_DOCUMENT_KINDS : GUARDIAN_DOCUMENT_KINDS;
   if (!allowed.includes(input.kind)) throw new AccountDocumentError("That kind of document isn't one asked for here.");
   if (input.kind === "GUARDIANSHIP_PROOF" && !GUARDIAN_PROOF_KINDS.includes(input.proofKind as GuardianProofKind)) {
     throw new AccountDocumentError("Say which proof it is: a birth certificate, a court order or a school record.");
   }
+  if (input.kind === "GUARDIANSHIP_PROOF" && !wardId) throw new AccountDocumentError("Proof of guardianship names the athlete it is for.");
+  const ward = input.kind === "GUARDIANSHIP_PROOF" ? wardId! : null;
   const problem = idUploadProblem(input);
   if (problem) throw new AccountDocumentError(problem);
-  const count = await prisma.accountDocument.count({ where: ownerWhere(owner) /* tenant-scope: ownerWhere carries the owner's tenantId. */ });
+  /* The limit is per owner — and for a guardian's proofs, per athlete, so a
+     guardian of several minors is never stopped by their other children's. */
+  const count = await prisma.accountDocument.count({
+    /* tenant-scope: ownerWhere carries the owner's tenantId. */
+    where: { ...ownerWhere(owner), ...(owner.guardianId ? { wardId: ward } : {}) },
+  });
   if (count >= MAX_ACCOUNT_DOCUMENTS) throw new AccountDocumentError(`At most ${MAX_ACCOUNT_DOCUMENTS} documents can be uploaded here.`, 409);
 
   const id = `adoc_${randomBytes(12).toString("hex")}`;
@@ -67,7 +82,7 @@ export async function startAccountDocument(
   const r2Key = `identity/${folder}/${id}/${filename}`;
   const document = await prisma.accountDocument.create({
     data: {
-      id, ...ownerWhere(owner), kind: input.kind, proofKind: input.kind === "GUARDIANSHIP_PROOF" ? input.proofKind! : null,
+      id, ...ownerWhere(owner), kind: input.kind, proofKind: input.kind === "GUARDIANSHIP_PROOF" ? input.proofKind! : null, wardId: ward,
       filename, contentType: input.contentType, bytes: input.bytes, r2Key,
     },
     select: VIEW,
@@ -94,6 +109,20 @@ export async function finishAccountDocument(owner: DocumentOwner, documentId: st
 export async function uploadedKinds(db: Prisma.TransactionClient | typeof prisma, owner: DocumentOwner): Promise<Set<string>> {
   const rows = await db.accountDocument.findMany({ /* tenant-scope: ownerWhere carries the owner's tenantId. */ where: { ...ownerWhere(owner), uploadedAt: { not: null } }, select: { kind: true } });
   return new Set(rows.map((r) => r.kind));
+}
+
+/**
+ * What a guardian has uploaded FOR ONE ATHLETE: their government ID (theirs,
+ * whichever child it was uploaded on) and proof of guardianship naming this
+ * athlete. Proof naming another of their athletes does not count.
+ */
+export async function guardianUploadsFor(db: Prisma.TransactionClient | typeof prisma, tenantId: string, guardianId: string, wardId: string) {
+  const rows = await db.accountDocument.findMany({
+    /* tenant-scope: the guardian's own documents, in their tenant. */
+    where: { tenantId, guardianId, uploadedAt: { not: null }, OR: [{ kind: "GUARDIAN_ID" }, { kind: "GUARDIANSHIP_PROOF", wardId }] },
+    select: { kind: true },
+  });
+  return { idUploaded: rows.some((r) => r.kind === "GUARDIAN_ID"), proofUploaded: rows.some((r) => r.kind === "GUARDIANSHIP_PROOF") };
 }
 
 /** The owner's documents, for the applicant's own checklist (never a read link). */

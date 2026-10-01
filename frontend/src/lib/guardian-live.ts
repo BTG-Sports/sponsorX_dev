@@ -89,12 +89,23 @@ export const PROOF_KINDS = [
   { key: "SCHOOL_RECORD", label: "A school record naming you as guardian" },
 ] as const;
 
-/** One step on or back, clamped to the four steps a guardian fills in.
- *  "done" is reached only by finishing, which the API decides. */
-export function stepMove(step: SetupStep, by: 1 | -1): SetupStep {
-  const i = SETUP_STEPS.findIndex((s) => s.key === step);
-  const next = Math.min(Math.max(i + by, 0), 3);
-  return SETUP_STEPS[next]!.key;
+/** A guardian already verified for another child (2S1-BE-10): their details
+ *  and government ID are on file, so the page asks only for proof naming
+ *  THIS child and the agreement for them. */
+export const RETURNING_STEPS: readonly SetupStep[] = ["proof", "agreement", "done"];
+
+/** The steps this guardian sees: all five, or the short three. */
+export function stepsFor(returning: boolean) {
+  return returning ? SETUP_STEPS.filter((s) => RETURNING_STEPS.includes(s.key)) : SETUP_STEPS;
+}
+
+/** One step on or back, clamped to the steps a guardian fills in (all but
+ *  "done", which is reached only by finishing, which the API decides). */
+export function stepMove(step: SetupStep, by: 1 | -1, returning = false): SetupStep {
+  const steps = stepsFor(returning);
+  const i = steps.findIndex((s) => s.key === step);
+  const next = Math.min(Math.max(i + by, 0), steps.length - 2);
+  return steps[next]!.key;
 }
 
 /** The future GET /public/guardian/:token. */
@@ -146,7 +157,10 @@ export type LiveSetupState = "IN_PROGRESS" | "CHECKING" | "HELD" | "APPROVED" | 
 export type ApiGuardianSetupLive = {
   athlete: { name: string; firstName: string };
   guardian: { name: string; relationship: RelationshipCode | null; phone: string | null; email: string; emailConfirmed: boolean };
+  /** Already verified for another child: the short page (proof for this child, and the agreement). */
+  returning: boolean;
   idUploaded: boolean;
+  /** Proof naming THIS athlete — proof is per child (2S1-BE-10). */
   proof: { kind: (typeof PROOF_KINDS)[number]["key"]; fileName: string; uploadedAt: string } | null;
   agreement: { agreementId: string; version: number; bodyHash: string; body: string } | null;
   agreementAcceptedAt: string | null;
@@ -158,9 +172,11 @@ export type ApiGuardianSetupLive = {
 };
 
 /** The step a guardian lands on: the first thing still theirs to do. */
-export function firstOpenStep(s: Pick<ApiGuardianSetupLive, "guardian" | "idUploaded" | "proof" | "agreementAcceptedAt">): SetupStep {
-  if (!s.guardian.relationship || !s.guardian.name.trim()) return "details";
-  if (!s.idUploaded) return "id";
+export function firstOpenStep(s: Pick<ApiGuardianSetupLive, "guardian" | "idUploaded" | "proof" | "agreementAcceptedAt"> & { returning?: boolean }): SetupStep {
+  if (!s.returning) {
+    if (!s.guardian.relationship || !s.guardian.name.trim()) return "details";
+    if (!s.idUploaded) return "id";
+  }
   if (!s.proof) return "proof";
   if (!s.agreementAcceptedAt) return "agreement";
   return "done";

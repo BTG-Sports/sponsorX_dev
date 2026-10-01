@@ -48,6 +48,8 @@ let outbox: Array<{ name: string; payload: Record<string, unknown> }> = [];
 /* P3-BE-15 — approval now provisions the athlete's login, so the fake holds users too. */
 type UserRow = { id: string; tenantId: string; email: string; roles: string[]; athleteId?: string | null; guardianId?: string | null; clerkId: string };
 let users: UserRow[] = [];
+/* 2S1-BE-13 — a Reject records a closure; the fake keeps them. */
+let closures: Array<{ subjectKind: string; subjectId: string; cause: string; reason: string | null }> = [];
 let failOutbox = false;
 
 function freshRow(over: Partial<AthleteRow> = {}): AthleteRow {
@@ -82,6 +84,7 @@ vi.mock("../src/db/client", () => ({
       const stagedAudits: typeof audits = [];
       const stagedOutbox: typeof outbox = [];
       const stagedUsers = users.map((u) => ({ ...u }));
+      const stagedClosures: typeof closures = [];
 
       const tx = {
         athlete: {
@@ -99,8 +102,23 @@ vi.mock("../src/db/client", () => ({
             Object.assign(row, data);
             return Promise.resolve(row);
           },
+          updateMany: ({ where, data }: { where: { id: string }; data: Record<string, unknown> }) => {
+            const row = stagedRows.find((r) => r.id === where.id);
+            if (row) Object.assign(row, data);
+            return Promise.resolve({ count: row ? 1 : 0 });
+          },
+        },
+        accountClosure: {
+          findFirst: () => Promise.resolve(null),
+          create: ({ data }: { data: (typeof closures)[number] }) => {
+            stagedClosures.push({ subjectKind: data.subjectKind, subjectId: data.subjectId, cause: data.cause, reason: data.reason });
+            return Promise.resolve({ id: `closure_${stagedClosures.length}` });
+          },
         },
         user: {
+          findMany: ({ where }: { where: { tenantId?: string; athleteId?: string } }) =>
+            Promise.resolve(stagedUsers.filter((u) => (where.tenantId === undefined || u.tenantId === where.tenantId) && (where.athleteId === undefined || u.athleteId === where.athleteId)).map((u) => ({ id: u.id }))),
+          updateMany: () => Promise.resolve({ count: 0 }),
           findFirst: ({ where }: { where: { tenantId?: string; athleteId?: string; guardianId?: string; email?: { equals: string } } }) =>
             Promise.resolve(
               stagedUsers.find(
@@ -138,6 +156,7 @@ vi.mock("../src/db/client", () => ({
       const result = await fn(tx); // throws => nothing below runs => rollback
       rows = stagedRows;
       users = stagedUsers;
+      closures = [...closures, ...stagedClosures];
       audits = [...audits, ...stagedAudits];
       outbox = [...outbox, ...stagedOutbox];
       return result;
@@ -159,6 +178,7 @@ const networkMgr: Actor = { userId: "user_nm", tenantId: "tenant_1", roles: ["NE
 
 beforeEach(() => {
   users = [];
+  closures = [];
   failOutbox = false;
   rows = [freshRow()];
   audits = [];
@@ -248,6 +268,8 @@ describe("the three decisions", () => {
     expect(rows[0]?.state).toBe("REJECTED");
     expect(rows[0]?.reviewerNotes).toBe("Outside the pilot sports for this cohort.");
     expect(outbox[0]?.payload).toMatchObject({ template: "athlete.rejected" });
+    /* 2S1-BE-13 — the Reject is a closure: the ID files go on the 30-day purge. */
+    expect(closures).toEqual([{ subjectKind: "ATHLETE", subjectId: "ath_1", cause: "REJECTED", reason: "Outside the pilot sports for this cohort." }]);
   });
 
   it("stamps reviewedAt on an approval even though it carries no note", async () => {

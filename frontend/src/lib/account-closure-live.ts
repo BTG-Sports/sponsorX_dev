@@ -19,7 +19,8 @@ export type ReactivationStanding = "CLOSED_SELF" | "CLOSED_BY_BTG" | "REACTIVATE
 /** GET /public/account/reactivation/:token. */
 export type ApiReactivationStatus = {
   standing: ReactivationStanding;
-  kind: "ATHLETE" | "GUARDIAN" | "PROPERTY" | "SPONSOR";
+  /** ONBOARDING / INQUIRY: an organisation's application or a sponsor's request rejected before approval (2S1-BE-13). */
+  kind: "ATHLETE" | "GUARDIAN" | "PROPERTY" | "SPONSOR" | "ONBOARDING" | "INQUIRY";
   /** A first name, or the organization's name. */
   greeting: string;
   closedAt: string;

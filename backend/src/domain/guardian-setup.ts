@@ -15,6 +15,11 @@
  *   - the guardian agreement, accepted with §12's evidence (agreement.ts
  *     `recordGuardianAcceptanceIn`) — once per athlete they look after.
  *
+ * A GUARDIAN ALREADY VERIFIED for another child (a second minor named them)
+ * gets the short page: their details and government ID are already on file,
+ * so it asks only for proof naming THIS child and the agreement for them —
+ * proof is per (guardian, athlete), account-documents.ts.
+ *
  * Every step runs the athlete's automatic checks (athlete-signup.ts): once
  * both emails are confirmed, the guardian's ID and proof and the minor's ID
  * are in and the agreement is accepted, both are approved with no BTG step
@@ -33,7 +38,7 @@ import { hashAgreementBody } from "./agreement-hash";
 import { agreementFile, loadAgreementBody } from "./agreement-text";
 import { GUARDIAN_AGREEMENT_KIND, recordGuardianAcceptanceIn } from "./agreement";
 import { documentsOf, finishAccountDocument, startAccountDocument } from "./account-documents";
-import { evaluateAthleteSignup, evaluateGuardianWards, firstNameOf, guardianAgreed, signupFacts, SignupError } from "./athlete-signup";
+import { ATHLETE_SELECT, evaluateAthleteSignup, evaluateGuardianWards, firstNameOf, guardianAgreed, signupFacts, SignupError } from "./athlete-signup";
 import { GUARDIAN_RELATIONSHIPS, requiresGuardian, type GuardianRelationship } from "./guardian-rules";
 import { signupMissing, type GuardianProofKind } from "./signup-rules";
 
@@ -46,12 +51,7 @@ async function context(token: string) {
   const athlete = await prisma.athlete.findFirst({
     /* tenant-scope: the athlete named inside a signed set-up token; the guardian must be theirs, in their tenant. */
     where: { id: ids.athleteId, guardianId: ids.guardianId },
-    select: {
-      id: true, tenantId: true, state: true, legalName: true, displayName: true, email: true, phone: true, sport: true, stateCode: true,
-      countryCode: true, birthDate: true, ageBand: true, majorityAge: true, majorityKnown: true, guardianId: true,
-      emailConfirmedAt: true, reviewReasons: true, autoApproved: true, signupRejectedAt: true, createdAt: true,
-      guardian: { select: { id: true, legalName: true, email: true, relationship: true, phone: true, emailConfirmedAt: true, verifiedAt: true, rejectedAt: true } },
-    },
+    select: ATHLETE_SELECT,
   });
   if (!athlete?.guardian) throw new SignupError("This link is no longer valid — you may no longer be this athlete's guardian. Contact BTG if that's wrong.", 404);
   return { athlete, guardian: athlete.guardian };
@@ -95,12 +95,15 @@ export async function guardianSetupStatus(token: string) {
   ]);
   const up = docs.filter((d) => d.uploadedAt);
   const id = up.find((d) => d.kind === "GUARDIAN_ID");
-  const proof = up.filter((d) => d.kind === "GUARDIANSHIP_PROOF").at(-1);
+  /* Proof naming THIS athlete — one naming another of their children doesn't count. */
+  const proof = up.filter((d) => d.kind === "GUARDIANSHIP_PROOF" && d.wardId === a.id).at(-1);
   const athleteFirst = firstNameOf(a.legalName, a.displayName);
+  /* Already verified (for another child, or this one): details and ID are on file — the short page. */
+  const returning = Boolean(g.verifiedAt);
 
   const mine: string[] = [];
-  if (!g.relationship || !g.legalName.trim()) mine.push("your details");
-  if (!id) mine.push("your government ID");
+  if (!returning && (!g.relationship || !g.legalName.trim())) mine.push("your details");
+  if (!id && !returning) mine.push("your government ID");
   if (!proof) mine.push("proof you're the guardian");
   if (!agreedAt) mine.push("the guardian agreement");
   /* What is left on the athlete's side, said to the guardian. */
@@ -108,7 +111,7 @@ export async function guardianSetupStatus(token: string) {
     .filter((m) => !m.startsWith("your guardian"))
     .map((m) => `${athleteFirst} needs to ${m.replace(/^your /, "their ").replace(" your ", " their ")}`);
 
-  const approved = (a.state === "APPROVED" || a.state === "ACTIVE") && Boolean(g.verifiedAt);
+  const approved = (a.state === "APPROVED" || a.state === "ACTIVE") && Boolean(g.verifiedAt) && !a.guardianPendingSince;
   const state: GuardianSetupState = g.rejectedAt
     ? "REJECTED"
     : approved
@@ -125,6 +128,8 @@ export async function guardianSetupStatus(token: string) {
       name: g.legalName, relationship: (GUARDIAN_RELATIONSHIPS as readonly string[]).includes(g.relationship) ? (g.relationship as GuardianRelationship) : null,
       phone: g.phone, email: g.email, emailConfirmed: Boolean(g.emailConfirmedAt),
     },
+    /* The short page: only this child's proof and agreement are asked for. */
+    returning,
     idUploaded: Boolean(id),
     proof: proof ? { kind: proof.proofKind as GuardianProofKind, fileName: proof.filename, uploadedAt: proof.uploadedAt } : null,
     agreement,
@@ -182,7 +187,8 @@ export async function requestGuardianDocument(
 ) {
   const { athlete: a, guardian: g } = await context(token);
   assertEditable(g);
-  return startAccountDocument({ tenantId: a.tenantId, guardianId: g.id }, input);
+  /* Proof names the athlete this link is for (2S1-BE-10: per guardian AND athlete). */
+  return startAccountDocument({ tenantId: a.tenantId, guardianId: g.id }, input, a.id);
 }
 
 /** Step two: counted only if it is there; then the checks run for every athlete they look after. */

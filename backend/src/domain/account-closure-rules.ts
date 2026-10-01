@@ -15,7 +15,12 @@
 export const RETENTION_DAYS = 30;
 const DAY_MS = 86_400_000;
 
-export const CLOSURE_SUBJECTS = ["ATHLETE", "GUARDIAN", "PROPERTY", "SPONSOR"] as const;
+/* The four kinds of account — and, for a Reject before approval, the
+   application itself (2S1-BE-13 review fix): ONBOARDING is an organisation's
+   PropertyOnboarding that never got a Property, INQUIRY a sponsor request
+   declined before an account opened. Their uploaded documents are on the
+   same 30-day purge, and they can ask BTG to look again. */
+export const CLOSURE_SUBJECTS = ["ATHLETE", "GUARDIAN", "PROPERTY", "SPONSOR", "ONBOARDING", "INQUIRY"] as const;
 export type ClosureSubject = (typeof CLOSURE_SUBJECTS)[number];
 export type ClosureCause = "SELF" | "REJECTED" | "TERMINATED";
 export type ClosureState = "CLOSED" | "REACTIVATED" | "PURGED";
