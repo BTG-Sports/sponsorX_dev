@@ -227,7 +227,7 @@ describe.skipIf(!hasDatabase)("merge gaps · closures, closed sellers, the hando
     });
 
     it("the coming-of-age termination records TERMINATED closures for the athlete and their guardian", async () => {
-      await sweepComingOfAge(new Date());
+      await sweepComingOfAge(new Date(), { tenantIds: [T] });
       expect((await prisma.athlete.findUniqueOrThrow({ where: { id: "mg_kai" }, select: { comingOfAgeTerminatedAt: true } })).comingOfAgeTerminatedAt).not.toBeNull();
       expect(await closureOf("ATHLETE", "mg_kai")).toMatchObject({ cause: "TERMINATED", state: "CLOSED", userIds: ["mg_u_kai"] });
       expect(await closureOf("GUARDIAN", "mg_g_kai")).toMatchObject({ cause: "TERMINATED", state: "CLOSED", userIds: ["mg_u_patkai"] });

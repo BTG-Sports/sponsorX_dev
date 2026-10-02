@@ -303,10 +303,10 @@ describe.skipIf(!hasDatabase)("Phase 2 orders over the API", { timeout: 60_000 }
       /* An expired hold cannot become an order. */
       expect((await call("POST", "/marketplace-orders", L.raceWinner, { reservationId: L.raceHold, agreementId: E.terms, bodyHashShown: ORDER_TERMS_HASH, billing: TEST_BILLING })).status).toBe(409);
       /* The sweep marks it, releases its rows, and a second pass finds nothing. */
-      expect((await expireReservations(prisma)).expired).toBeGreaterThanOrEqual(1);
+      expect((await expireReservations(prisma, new Date(), { tenantIds: [T] })).expired).toBeGreaterThanOrEqual(1);
       expect((await prisma.reservation.findUniqueOrThrow({ where: { id: L.raceHold }, select: { state: true } })).state).toBe("EXPIRED");
       expect(await prisma.inventoryCommitment.count({ where: { sourceId: { startsWith: `${L.raceHold}:` }, releasedAt: null } })).toBe(0);
-      expect((await expireReservations(prisma)).expired).toBe(0);
+      expect((await expireReservations(prisma, new Date(), { tenantIds: [T] })).expired).toBe(0);
       await call("POST", `/reservations/${theirs.json.id}/release`, loser);
       expect(await live(I.poster!)).toEqual([]);
       await prisma.cart.updateMany({ where: { tenantId: T, state: "ACTIVE" }, data: { state: "EXPIRED" } });
