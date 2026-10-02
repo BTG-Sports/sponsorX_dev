@@ -44,3 +44,67 @@ The owner's rule: automate. Every listing that passes the checks goes live, the 
 **Checks:** backend 2164 of 2165 pass (only QA-02 fails), frontend 957, and the build is clean.
 
 **Housekeeping:** the scratchpad was cleared overnight, so the local Postgres was reinstalled (v18 embedded), along with the venv and `q.cjs`.
+
+## BTG admin review items 9 to 11: order approval, payment and delivery, automated (2S4-BE-09, -10, -11 and 2S4-FE-05, all Done)
+
+**The owner's decisions:**
+- the spending limit starts at $5,000 and is capped at $25,000;
+- a listing that asks for approval is decided by its seller;
+- an unpaid order is cancelled after 3 days;
+- each side gets 72 hours to answer a delivery problem.
+
+### 2S4-BE-09: approval
+- **The spending limit is never stored.** It is replayed from the sponsor's own records (`backend/src/domain/spending-limit.ts`, `spendingLimit()`):
+  - it starts at $5,000 and rises to max($5,000, 2 × the largest completed order), capped at $25,000;
+  - the first refund or upheld problem freezes it, whether BTG decided it or the two sides agreed a line refund.
+- **Within the limit:** the order is approved automatically, the first one included.
+- **Above it:** the order waits for BTG, with the reason, and BTG is emailed.
+- **A listing that asks for approval:**
+  - the order goes to `PENDING_SELLER`, with an `OrderSellerApproval` row per seller;
+  - the seller has 48 hours, and silence declines (worker);
+  - one decline cancels the order;
+  - seller first, then BTG if the order is also above the limit.
+- **Daily summary:** BTG gets one per day of orders approved automatically.
+- **New policy resource** `orderSellerApproval`. The RBAC Matrix gains §24.
+
+### 2S4-BE-10: payment
+- **Awaiting payment** is set automatically when the order is approved.
+- **Zoho Books:** a paid invoice moves the order to PAID through the queued `zoho.ingestInvoice` and the new `MarketplaceOrderInvoice` mirror. A short invoice, the wrong currency, or an order that isn't waiting is audited as unmatched and never pays.
+  - BTG's Zoho Books is not connected. The MCP reaches only "The Coffee Stage" Books org, which is not BTG's. Books credentials are deferred (credentials doc §6, O-1). This part is tested against a simulated Zoho.
+- **Unpaid orders:** reminders at 1 and 2 days, cancelled at 3 (`cancelReason` UNPAID). Never cancelled while a card payment is in progress.
+- **Manual "Mark paid":** BTG_ADMIN or FINANCE only, with a method, a reference and the date received.
+- **One way to PAID:** card, Zoho and manual all go through `payOrderIn`.
+
+### 2S4-BE-11: delivery problems
+- New `DeliveryIssue` table, one row per problem round.
+- **The seller has 72 hours** to deliver again (the sponsor's 24 hours restart after the new delivery), refund the line, or disagree.
+- **The sponsor then has 72 hours** to accept or reject. An accepted answer settles without BTG.
+- **BTG steps in** only when the sponsor rejects or either side is silent.
+- **Late sellers:** a second reminder at 3 days, then BTG at 7.
+
+### Race fixes (c678ed5, from review)
+- Every order state move is conditional on the state it was read in, and the order row is locked (`lockOrder`). Without this, a cancel could have been overwritten by a payment.
+- Two sellers accepting at once no longer leave the order stuck, and the sweep acts as a backstop.
+- A payment can't start for an order that isn't waiting for one. A payment confirmed after a cancel is flagged to BTG for a refund (`payment.refundNeeded`).
+- A cancel while a card payment is processing gets 409.
+
+### 2S4-FE-05: the screens, from Claude Design
+- **Sellers:** approvals at `/athlete/sales/approvals/[id]` and `/property/sales/approvals/[id]`, plus the problem answer on the sale page.
+- **Sponsor order page:** a status card with the pay-by deadline, and the answer to the seller's reply.
+- **BTG Delivery issues:** Needs BTG, Settled and Overdue.
+- **BTG order page:** the spending-limit card with the held order, and the Mark paid dialog.
+- **Review fix:** a coded 403 (for example `guardian_must_act`) now shows the API's reason instead of "not your line".
+
+### Plan and tests
+- **Plan:** 2S4-BE-09, -10, -11 and 2S4-FE-05 added (Phase 2 now has 113 tasks). `SponsorX-Phase2-State-Machines.md` §4 updated.
+- **2S8-QA-04 raised** for intermittent cross-suite test failures: next-public-apply (the advisor's login answers 403), notification-preferences and pilot-school.
+- **Test fix:** the listing-hold email test now finds the emails by template (`9be8c92`).
+
+### Checks
+- Backend: 2235 of 2236 on two runs; only QA-02 fails.
+- Frontend: 988 tests pass.
+- The build is clean.
+
+### Owner steps
+- Connect BTG's Zoho Books, and switch on the invoice webhook there.
+- Choose Stripe. Real card payments, and refunds actually returned to the card, wait for it.

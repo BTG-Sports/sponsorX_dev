@@ -328,8 +328,9 @@ export function trackSteps(o: ApiSellerOrder): TrackStep[] {
 
 /** The seller's words for a refused write, from the API's error body. */
 export function apiRefusal(status: number, body: unknown, fallback: string): string {
-  if (status === 403) return "Only this line’s own seller can do that.";
-  const e = (body as { error?: { message?: unknown; issues?: { message?: unknown }[] } } | null)?.error;
+  const e = (body as { error?: { code?: unknown; message?: unknown; issues?: { message?: unknown }[] } } | null)?.error;
+  /* A coded 403 says why (e.g. guardian_must_act — a minor's guardian answers); only a bare one means "not yours". */
+  if (status === 403 && !(typeof e?.code === "string" && e.code !== "forbidden" && typeof e?.message === "string")) return "Only this line’s own seller can do that.";
   const issue = e?.issues?.[0]?.message;
   if (typeof issue === "string") return issue;
   if (typeof e?.message === "string") return e.message;

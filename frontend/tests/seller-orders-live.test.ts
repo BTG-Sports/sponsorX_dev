@@ -87,3 +87,13 @@ describe("words", () => {
     expect(linkProblem("not a link")).toMatch(/isn't a link/);
   });
 });
+
+describe("apiRefusal (2S4-FE-05 review)", async () => {
+  const { apiRefusal } = await import("../src/lib/seller-orders-live");
+  it("a bare 403 means the line isn't theirs; a coded 403 (a minor's guardian must act) says why", () => {
+    expect(apiRefusal(403, { error: { code: "forbidden", message: "x" } }, "Couldn't save")).toBe("Only this line’s own seller can do that.");
+    expect(apiRefusal(403, null, "Couldn't save")).toBe("Only this line’s own seller can do that.");
+    expect(apiRefusal(403, { error: { code: "guardian_must_act", message: "Jordan's guardian answers this for them." } }, "Couldn't save"))
+      .toBe("Jordan's guardian answers this for them.");
+  });
+});

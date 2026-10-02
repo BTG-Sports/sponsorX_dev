@@ -87,11 +87,26 @@ the seller's own resume returns it to BTG.
 
 ## 4 · Order (`2S4-BE-03`, `2S4-BE-05`)
 
-`PENDING_APPROVAL → APPROVED → AWAITING_PAYMENT → PAID → IN_DELIVERY → FULFILLED → CLOSED`.
+`PENDING_SELLER → PENDING_APPROVAL → APPROVED → AWAITING_PAYMENT → PAID → IN_DELIVERY → FULFILLED → CLOSED`,
+with the first two steps only when needed (2S4-BE-09, 2026-10-02).
 `CANCELLED` is reachable before `PAID`. `REFUNDED` is reachable from `PAID` or `IN_DELIVERY`.
 
+**Who decides, automatically:**
+- `PENDING_SELLER`: a listing that asks for approval is decided by its seller within 48 hours. If the seller doesn't answer, the order is declined (`SELLER_NO_ANSWER`). One seller declining cancels the order.
+- `PENDING_APPROVAL`: only an order above the sponsor's spending limit waits for BTG. The limit starts at $5,000 and rises to twice the sponsor's largest completed order, up to $25,000. A refund, or a problem upheld or refunded, stops it rising.
+- Otherwise the order is `APPROVED` and moves to `AWAITING_PAYMENT` at once.
+- `AWAITING_PAYMENT → PAID`:
+  - a card payment, through the provider;
+  - a Zoho Books invoice for the order marked paid in full;
+  - BTG admin or Finance by hand, with a method and reference.
+
+  All three go through one path.
+- `AWAITING_PAYMENT → CANCELLED (UNPAID)`: the sponsor is reminded at 1 and 2 days, and the order is cancelled at 3 days, never while a card payment is in progress.
+
+**Delivery problems** (2S4-BE-11) don't change the order's state; they live on the line. The seller answers within 72 hours and the sponsor within 72 hours. BTG decides only an escalated problem. A manual `FULFILLED` is refused while any line is unsettled.
+
 **Illegal, named:**
-- `PENDING_APPROVAL → AWAITING_PAYMENT`: no payment before BTG approves.
+- `PENDING_SELLER` or `PENDING_APPROVAL → AWAITING_PAYMENT`: no payment before the order is approved.
 - `PAID → CANCELLED`: after payment, the way out is a refund.
 - `FULFILLED → REFUNDED` while a payout is `PAID`: that's a dispute, not a refund.
 - Changing the financial snapshot after `APPROVED`.
