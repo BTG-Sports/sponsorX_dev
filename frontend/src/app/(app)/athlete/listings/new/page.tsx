@@ -38,7 +38,7 @@ export default async function NewAthleteListingPage({ searchParams }: { searchPa
     <div>
       <Link href="/athlete/listings" className="text-xs text-muted hover:text-text">← List my item</Link>
       <h1 className="mt-2 text-xl font-semibold tracking-tight">List my item</h1>
-      <p className="mt-1 text-xs text-muted">Put an item from your inventory on the marketplace. BTG checks it and puts it live.</p>
+      <p className="mt-1 text-xs text-muted">Put an item from your inventory on the marketplace. It goes live as soon as the checks pass.</p>
     </div>
   );
 

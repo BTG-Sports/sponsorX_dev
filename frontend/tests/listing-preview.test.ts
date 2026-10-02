@@ -85,9 +85,9 @@ describe("shopResultFrom", () => {
 describe("previewHeadline / previewNotes", () => {
   const now = Date.parse("2026-10-01T12:00:00.000Z");
 
-  it("says sponsors see it once BTG approves it, until it is on sale", () => {
-    expect(previewHeadline("DRAFT")).toBe("Preview — sponsors see this once BTG approves it");
-    expect(previewHeadline("PENDING_APPROVAL")).toBe("Preview — sponsors see this once BTG approves it");
+  it("says sponsors see it once it goes live, until it is on sale", () => {
+    expect(previewHeadline("DRAFT")).toBe("Preview — sponsors see this once it goes live");
+    expect(previewHeadline("PENDING_APPROVAL")).toBe("Preview — sponsors see this once it goes live");
     expect(previewHeadline("PUBLISHED")).toBe("Preview — this is how sponsors see it in the shop");
   });
 
@@ -101,11 +101,11 @@ describe("previewHeadline / previewNotes", () => {
       now,
     );
     expect(notes).toEqual([
-      "It's a draft — only you can see it until you submit it and BTG approves it.",
+      "It's a draft — only you can see it until you submit it. It goes live as soon as the checks pass.",
       "It's private — kept out of the shop's search.",
       "It's set to go on sale on Nov 1, 2026.",
       "Its item is switched off in inventory, so the shop hides it.",
-      "2 points on BTG's checklist are still open — see the editor.",
+      "2 points on the checklist are still open — see the editor.",
     ]);
   });
 
@@ -113,6 +113,10 @@ describe("previewHeadline / previewNotes", () => {
     expect(previewNotes({ ...listing, state: "ARCHIVED", publishAt: "2026-09-01T00:00:00.000Z", blockers: ["a"] }, now)).toEqual([
       "It's archived — sponsors won't see it again.",
     ]);
+  });
+
+  it("a reader the API gives no blockers to (2S3-BE-06: they are the seller's and BTG's) gets no checklist note", () => {
+    expect(previewNotes({ ...listing, blockers: undefined, state: "PUBLISHED" }, now)).toEqual([]);
   });
 });
 

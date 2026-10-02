@@ -29,7 +29,7 @@ import { sellerContext } from "./load";
 
 export const dynamic = "force-dynamic";
 const TITLE = "List my item";
-const INTRO = "Put an item from your inventory on the marketplace. BTG checks it and puts it live.";
+const INTRO = "Put an item from your inventory on the marketplace. It goes live as soon as the checks pass.";
 
 function Row({ l }: { l: ApiAthleteListing }) {
   return (

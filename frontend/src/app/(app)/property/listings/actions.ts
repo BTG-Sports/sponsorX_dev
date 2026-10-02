@@ -12,11 +12,14 @@ import { apiErrorMessage, validateListingDraft, type ApiListing, type ListingDra
                                        property isn't approved to list, or the
                                        item already has a live listing
      PATCH /listings/:id               wording, visibility, schedule (DRAFT /
-                                       PAUSED only — 409 otherwise)
-     POST  /listings/:id/submit        DRAFT → PENDING_APPROVAL; 422 with
-                                       error.problems[] while governance fails
+                                       PAUSED / held — a held one goes back to
+                                       DRAFT; 409 otherwise)
+     POST  /listings/:id/submit        DRAFT → PUBLISHED when the checks pass,
+                                       else PENDING_APPROVAL (held for BTG,
+                                       with `hold`); 422 with error.problems[]
+                                       while governance fails (2S3-BE-06)
      POST  /listings/:id/transition    { to: PAUSED | PUBLISHED | ARCHIVED }
-                                       (PUBLISHED = resume, re-checks governance)
+                                       (PUBLISHED = resume, the submit's path)
 
    The API's matrix (listing: PROPERTY_MGR own property) and state machine
    decide; these add no authority and pass refusals through in its words.
@@ -70,7 +73,7 @@ export async function saveListingAction(id: string, draft: ListingDraft): Promis
   return r;
 }
 
-/** Submit for BTG's review — saving the draft first when it has unsaved edits. */
+/** Submit — live when the checks pass, else held for BTG — saving the draft first when it has unsaved edits. */
 export async function submitListingAction(id: string, draft: ListingDraft | null): Promise<ListingResult> {
   if (typeof id !== "string" || !id) return { ok: false, message: "Unknown listing.", problems: [] };
   if (draft) {

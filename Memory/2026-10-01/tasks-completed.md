@@ -434,3 +434,48 @@ The user set the 90-day rules:
   - The coming-of-age test was intermittent because `sweepComingOfAge` is platform-wide and two suites ran it in parallel. It now asserts on its own athletes, not the shared count.
   - `next-packages` now allows `offer-desk.ts` as a floor-check caller. It only previews the check and creates nothing.
 - **Checks:** backend 2136 of 2138, frontend 943, and the build is clean. The remaining backend failures are QA-02 and the coming-of-age race above, which has since been fixed.
+
+## End of day 2026-10-01: where things stand, and what to do tomorrow
+
+### Merged today
+- PRs #140, #141, #142 and #143 went into main_development.
+- PR #144 (main_development → main) is merged, so main is at `3c8e16b`.
+- main_development is now one merge commit behind main. Fast-forward it to main to make the two identical (a push to main_development only, never to main).
+- `development/bob/be_batch_0924` has one extra commit (`1fd5b29`, the tracker update for the stale rows). It still needs a PR into main_development.
+
+### GitHub Actions: the billing block looks lifted
+- The tracker sheet sync ran successfully at 03:58, 04:26 and 11:56 UTC.
+- On Sep 30 every job was refused with "recent account payments have failed".
+- Tonight's scheduled runs (CI and the Slack tracker digest, both at 12:00 UTC = 8 pm Manila) had not started by 12:03 UTC. Check tomorrow whether they ran.
+
+### NOT DEPLOYED: `release` is still at `c46fc85`
+- **Why the daily deploy won't run:** it moves `release` only when CI is green on main. CI has not been green in its last 100 runs (mostly the billing block), and the backend test QA-02 (`tests/reward.reservations.test.ts`) fails on every local run. So tonight's CI will most likely fail, and nothing will deploy.
+- **The manual run doesn't help:** running `deploy-daily.yml` by hand still requires green CI checks on main.
+- **Manual deploy:** `npm run deploy staging|production` (scripts/deploy.mjs) works. It doesn't wait for CI. The Railway CLI is logged in as infinex1@icarrefound.org. A dry run shows it would ship main `3c8e16b`, both api and web.
+
+**Decision waiting for the user tomorrow** (I recommended option 1):
+1. Deploy staging only, run the database steps, check it, then production.
+2. Deploy staging and then production straight after.
+3. Fix QA-02 first, so CI goes green and the daily deploy works on its own.
+
+### Before or with the deploy (staging, then production)
+- **Database:**
+  - Confirm whether Railway runs `prisma migrate deploy` on start. If not, run it by hand. Today's migrations run from 20261001… through 20261002160000.
+  - Then re-apply `backend/prisma/sql/*.sql`. `migrate deploy` doesn't run those files.
+- **Environment:** set `SUPPORT_EMAIL` on the api and the worker.
+- **Order terms:** register MARKETPLACE_ORDER v1 for any tenant other than the seed tenant: `npm run agreement:register -w @sponsorx/backend -- <tenantId> MARKETPLACE_ORDER 1`.
+
+### Next tasks, ready and with no outside dependency
+1. **2S3-FE-03:** the athlete seller's name in the cart, checkout and BTG's listing queue. Small.
+2. **2S2-FE-01:** the Phase 2 athlete home: inventory performance, payout status, upcoming campaigns.
+3. **2S8-QA-03:** a full-cycle money reconciliation test.
+4. **QA-02** (`reward.reservations`): fix it, so CI can go green.
+
+### Still waiting on the owner
+- The payment provider (2S0-PMO-03, Stripe). This unblocks about 12 rows.
+- The support mailbox (2S1-OPS-01).
+- The domain (P0-OPS-06), then the Resend account (P0-OPS-08).
+- Counsel's wording for the order and guardian agreements.
+- Confirming AGENCY's representation agreement.
+
+The Google Sheet has not been updated by hand yet.

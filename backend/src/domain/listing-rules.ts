@@ -1,26 +1,37 @@
 /**
  * The listing lifecycle and its governance — 2S3-BE-01. Pure.
  *
- * documentation/SponsorX-Phase2-State-Machines.md §2, transcribed:
+ * documentation/SponsorX-Phase2-State-Machines.md §2, transcribed — and
+ * 2S3-BE-06 (programme owner, 2026-10-02): listings publish automatically,
+ * BTG handles the exceptions:
  *
- *   DRAFT → PENDING_APPROVAL → PUBLISHED ⇄ PAUSED → ARCHIVED
- *   PENDING_APPROVAL → DRAFT   (changes requested)
+ *   DRAFT → PUBLISHED          (submitted, every check passed, nothing flagged)
+ *   DRAFT → PENDING_APPROVAL   (submitted, flagged — waits for BTG)
+ *   PENDING_APPROVAL → PUBLISHED | DRAFT | ARCHIVED
+ *                              (BTG approves / sends it back / rejects it;
+ *                               the seller editing it takes it back to DRAFT)
+ *   PUBLISHED ⇄ PAUSED → ARCHIVED
+ *   PAUSED → PENDING_APPROVAL  (resumed, but flagged — or BTG paused it)
  *
  * Illegal, named: any listing for a property that isn't approved, or for an
- * athlete BTG hasn't approved or who is on a team (2S3-BE-05); DRAFT →
- * PUBLISHED (it skips BTG's approval); ARCHIVED → anything; editing price or
- * inventory while PUBLISHED (inventory.ts refuses it — pause first).
+ * athlete BTG hasn't approved or who is on a team (2S3-BE-05); going live
+ * with a governance problem (the submit is refused with the list); ARCHIVED →
+ * anything; editing price or inventory while PUBLISHED (inventory.ts refuses
+ * it — pause first). DRAFT → PUBLISHED is never a transition anyone asks for:
+ * only the submit's automatic path takes it (listing.ts `goLive`).
  */
 import type { AthleteState, Prisma } from "../generated/prisma/client";
+import { comingOfAgeOpen } from "./age-of-majority-rules";
+import { requiresGuardian } from "./guardian-rules";
 
 export type ListingState = "DRAFT" | "PENDING_APPROVAL" | "PUBLISHED" | "PAUSED" | "ARCHIVED";
 export const LISTING_STATES: readonly ListingState[] = ["DRAFT", "PENDING_APPROVAL", "PUBLISHED", "PAUSED", "ARCHIVED"];
 
 const TRANSITIONS: Readonly<Record<ListingState, readonly ListingState[]>> = {
-  DRAFT: ["PENDING_APPROVAL", "ARCHIVED"],
-  PENDING_APPROVAL: ["PUBLISHED", "DRAFT"],
+  DRAFT: ["PUBLISHED", "PENDING_APPROVAL", "ARCHIVED"],
+  PENDING_APPROVAL: ["PUBLISHED", "DRAFT", "ARCHIVED"],
   PUBLISHED: ["PAUSED", "ARCHIVED"],
-  PAUSED: ["PUBLISHED", "ARCHIVED"],
+  PAUSED: ["PUBLISHED", "PENDING_APPROVAL", "ARCHIVED"],
   ARCHIVED: [],
 };
 
@@ -36,8 +47,13 @@ export class IllegalListingTransitionError extends Error {
   }
 }
 
-/** The owner may edit wording and visibility only while nothing is live or under review. */
-export const LISTING_EDITABLE: ReadonlySet<ListingState> = new Set(["DRAFT", "PAUSED"]);
+/**
+ * The owner may edit wording and visibility only while nothing is live.
+ * 2S3-BE-06 — a held listing (PENDING_APPROVAL) is editable too, so a seller
+ * told about restricted words can take them out: the edit takes it out of
+ * BTG's queue, back to DRAFT, to be submitted again.
+ */
+export const LISTING_EDITABLE: ReadonlySet<ListingState> = new Set(["DRAFT", "PENDING_APPROVAL", "PAUSED"]);
 
 /** An athlete may sell only once BTG approved them (the same bar as inventory.ts). */
 export const SELLING_ATHLETE_STATES: readonly string[] = ["APPROVED", "ACTIVE"];
@@ -148,3 +164,88 @@ export function governanceProblems(g: GovernanceInput): string[] {
   }
   return out;
 }
+
+/* ── 2S3-BE-06 — what holds a listing for BTG ───────────────────────────── */
+
+/** The reason a listing's restricted words give — the one the seller is told in full. */
+export function restrictedReason(words: readonly string[]): string | null {
+  const unique = [...new Set(words)];
+  return unique.length ? `Restricted words: ${unique.map((w) => `"${w}"`).join(", ")}` : null;
+}
+
+/** An athlete as the standing check reads them: the coming-of-age pause, and a minor's guardian. */
+export type StandingAthlete = {
+  displayName?: string | null;
+  birthDate?: Date | null; ageBand?: string | null; majorityAge?: number | null;
+  comingOfAgeStartedAt?: Date | null; comingOfAgeCompletedAt?: Date | null; comingOfAgeTerminatedAt?: Date | null;
+  guardianPendingSince?: Date | null;
+  guardian?: { verifiedAt: Date | null } | null;
+};
+
+export type StandingInput = {
+  /** The selling property: its payouts held, and its organisation's flags (a required document missing). */
+  property?: { payoutsHeldAt?: Date | null; onboarding?: { flags: string[]; flaggedAt: Date | null } | null } | null;
+  /** The independent athlete selling their own item. */
+  sellerAthlete?: StandingAthlete | null;
+  /** The athlete whose item a team lists. */
+  itemAthlete?: StandingAthlete | null;
+};
+
+function athleteStanding(who: string, a: StandingAthlete | null | undefined): string[] {
+  if (!a) return [];
+  const out: string[] = [];
+  if (comingOfAgeOpen(a)) out.push(`${who}: in the coming-of-age pause (no government ID yet)`);
+  if (requiresGuardian(a) && (!a.guardian?.verifiedAt || a.guardianPendingSince)) out.push(`${who}: a minor whose guardian isn't verified yet`);
+  return out;
+}
+
+/**
+ * Is the seller in good standing — the half of the hold that is BTG's call,
+ * not a refusal. What already stops a sale outright stays a governance
+ * problem (sellerProblems: closed, rejected, ended, listing access withdrawn,
+ * not approved), and for an independent athlete the guardian and coming-of-
+ * age rules already refuse the submit itself (guardian-acts.ts). What is left
+ * is what BTG decides: an organisation flagged for a missing required
+ * document (2S1-BE-07 keeps its listings live and leaves it to BTG), payouts
+ * held while listing access is on, and an athlete in the coming-of-age pause
+ * or a minor whose guardian isn't verified — on a team's listing of their
+ * item, or on a resume that isn't new.
+ */
+export function standingReasons(s: StandingInput): string[] {
+  const out: string[] = [];
+  if (s.property) {
+    for (const f of s.property.onboarding?.flaggedAt ? s.property.onboarding.flags : []) out.push(`Organisation flagged: ${f}`);
+    if (s.property.onboarding?.flaggedAt && !s.property.onboarding.flags.length) out.push("Organisation flagged for BTG");
+    if (s.property.payoutsHeldAt) out.push("Organisation: payouts are on hold");
+  }
+  out.push(...athleteStanding("Athlete", s.sellerAthlete));
+  out.push(...athleteStanding(s.itemAthlete?.displayName ? `Item's athlete (${s.itemAthlete.displayName})` : "Item's athlete", s.itemAthlete));
+  return out;
+}
+
+/**
+ * What the seller is told about a hold. The restricted words, in full, so
+ * they can edit them out; anything about their standing only as "BTG is
+ * checking your account" — the internal reasons are BTG's. Pure.
+ */
+export function sellerHold(listing: { state: string; reviewReasons: readonly string[]; heldWords: readonly string[]; btgAction?: string | null }) {
+  if (listing.state !== "PENDING_APPROVAL") return null;
+  const words = restrictedReason(listing.heldWords);
+  const other = listing.reviewReasons.filter((r) => r !== words);
+  const accountCheck = other.some((r) => !r.startsWith("Paused by BTG"));
+  const pausedByBtg = other.some((r) => r.startsWith("Paused by BTG"));
+  return {
+    restrictedWords: [...new Set(listing.heldWords)],
+    accountCheck,
+    pausedByBtg,
+    message: [
+      "BTG is taking a look — we'll email you.",
+      ...(words ? [`${words}. Edit them out and submit again, or wait for BTG.`] : []),
+      ...(accountCheck ? ["BTG is checking your account."] : []),
+      ...(pausedByBtg ? ["BTG paused this listing, so BTG puts it back live."] : []),
+    ].join(" "),
+  };
+}
+
+/** The BTG pause / end reason, bounded like every reason the seller is emailed. */
+export const BTG_REASON_MAX = 2000;

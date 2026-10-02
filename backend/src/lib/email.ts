@@ -156,7 +156,20 @@ export type EmailTemplate =
   | "comingOfAge.completed"
   | "comingOfAge.terminated"
   | "comingOfAge.uploadLink"
-  | "comingOfAge.btgSettle";
+  | "comingOfAge.btgSettle"
+  /* 2S3-BE-06 — listings publish automatically: the seller hears it is live,
+     or held ("BTG is taking a look"); BTG's admins hear of each held listing
+     and, once a day, get one summary of what went live on its own; the
+     seller hears BTG's decision, pause or end, with the reason; and, when an
+     account comes back, of any listing that stays paused and why. */
+  | "listing.live"
+  | "listing.held"
+  | "listing.heldForBtg"
+  | "listing.autoPublishedDigest"
+  | "listing.changesRequested"
+  | "listing.pausedByBtg"
+  | "listing.endedByBtg"
+  | "listing.staysPaused";
 
 export type EmailMessage = {
   template: EmailTemplate;

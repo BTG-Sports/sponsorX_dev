@@ -10,6 +10,7 @@ import {
 import {
   CHECK_WORD, MAX_DESCRIPTION, descriptionCheck, ownerControls, type ApiAthleteListing, type ListCheck, type TrackStep,
 } from "@/lib/athlete-listings-live";
+import { btgNote, GOES_LIVE_COPY, submitOutcome } from "@/lib/listing-outcome";
 
 /* --------------------------------------------------------------------------
    2S3-FE-02 — "List my item"'s client islands (ListMyItem.dc.html):
@@ -19,7 +20,10 @@ import {
                            status track with Pause · Resume · End listing
 
    The checklist's description row re-runs as the athlete types; every other
-   row is the server's (item fields, the API's `blockers`). A refusal is
+   row is the server's (item fields, the API's `blockers`). 2S3-FE-04 — a
+   submit goes live as soon as the checks pass; a flagged one waits for BTG
+   ("BTG is taking a look"), naming any restricted words so they can be
+   edited out. A refusal is
    shown in the API's words, a 422's problems as a list. After a write the
    page re-reads the listing (router.refresh).
    -------------------------------------------------------------------------- */
@@ -39,11 +43,11 @@ const STATUS_TONE = {
   optional: { dot: "bg-surface-2 text-muted", pill: "bg-surface-2 text-muted", mark: "○" },
 } as const;
 
-/** "What BTG checks" — the aside. `children` is the Submit slot. */
-export function ListChecklist({ rows, children, foot = "When you submit, BTG checks it and puts it live — or tells you what to change." }: { rows: ListCheck[]; children?: ReactNode; foot?: string }) {
+/** "What's checked" — the aside. `children` is the Submit slot. */
+export function ListChecklist({ rows, children, foot = `${GOES_LIVE_COPY} If something needs a closer look, BTG takes one and emails you.` }: { rows: ListCheck[]; children?: ReactNode; foot?: string }) {
   return (
-    <aside aria-label="What BTG checks" className="space-y-2.5 rounded-xl border border-line bg-surface p-5">
-      <h2 className="text-sm font-semibold">What BTG checks</h2>
+    <aside aria-label="What's checked" className="space-y-2.5 rounded-xl border border-line bg-surface p-5">
+      <h2 className="text-sm font-semibold">What&rsquo;s checked</h2>
       <ul>
         {rows.map((r) => {
           const t = STATUS_TONE[r.status];
@@ -78,7 +82,7 @@ function withDescription(rows: ListCheck[], text: string): ListCheck[] {
 function FailureNote({ f }: { f: Failure }) {
   return (
     <div role="alert" className="rounded-lg bg-danger/10 px-3 py-2 text-[11px] text-danger">
-      <p>{f.problems.length ? "BTG’s rules aren’t met yet:" : f.message}</p>
+      <p>{f.problems.length ? "Not ready to go live yet:" : f.message}</p>
       {f.problems.length > 0 && (
         <ul className="mt-1 list-disc space-y-0.5 pl-4">
           {f.problems.map((p) => <li key={p}>{p}</li>)}
@@ -114,6 +118,25 @@ function DescriptionField({ value, set, disabled }: { value: string; set: (v: st
   );
 }
 
+/** "Live ✓", or "BTG is taking a look" with the restricted words to fix — and a BTG pause or end, with BTG's reason. */
+function Outcome({ listing, justSubmitted }: { listing: ApiAthleteListing; justSubmitted: boolean }) {
+  const o = submitOutcome(listing);
+  const note = btgNote(listing);
+  const show = o && (o.tone === "warn" || justSubmitted);
+  if (!show && !note) return null;
+  return (
+    <div role="status" className="space-y-2">
+      {show && (
+        <div className={`rounded-xl px-4 py-3 text-[13px] ${o.tone === "accent" ? "bg-accent/10 text-accent" : "border border-warn/30 bg-warn/8 text-warn"}`}>
+          <p className="font-semibold">{o.headline}</p>
+          {o.lines.map((l) => <p key={l} className="mt-0.5 text-xs">{l}</p>)}
+        </div>
+      )}
+      {note && <p className="rounded-xl border border-danger/30 bg-danger/8 px-4 py-3 text-xs text-danger">{note}</p>}
+    </div>
+  );
+}
+
 /* --------------------------------------------------------------- compose */
 
 export function AthleteListCompose({ itemId, itemTitle, initial, itemCard, checks }: { itemId: string; itemTitle: string; initial: string; itemCard: ReactNode; checks: ListCheck[] }) {
@@ -141,6 +164,7 @@ export function AthleteListCompose({ itemId, itemTitle, initial, itemCard, check
         <button type="button" className={`${primary} w-full`} disabled={pending} onClick={submit}>
           {pending ? "Submitting…" : "Submit"}
         </button>
+        <p className="text-[11px] text-muted">{GOES_LIVE_COPY}</p>
         {failure && <FailureNote f={failure} />}
       </ListChecklist>
     </div>
@@ -164,6 +188,7 @@ export function AthleteListingEditor({
   const [failure, setFailure] = useState<Failure | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [confirmEnd, setConfirmEnd] = useState(false);
+  const [justSubmitted, setJustSubmitted] = useState(false);
   const [pending, start] = useTransition();
   /* After a write the page re-reads the listing: follow the saved version
      (adjusting state during render, not in an effect). */
@@ -177,13 +202,16 @@ export function AthleteListingEditor({
   const dirty = c.editable && text.trim() !== saved.trim();
   const rows = c.editable ? withDescription(checks, text) : checks;
 
-  const run = (fn: () => Promise<AthleteListingResult>, done: string) =>
+  const held = listing.state === "PENDING_APPROVAL";
+  const run = (fn: () => Promise<AthleteListingResult>, done: string | null, submitted = false) =>
     start(async () => {
       setFailure(null);
       setNotice(null);
+      setJustSubmitted(false);
       const r = await fn();
       if (r.ok) {
         setNotice(done);
+        setJustSubmitted(submitted);
         setConfirmEnd(false);
       } else setFailure({ message: r.message, problems: r.problems });
       router.refresh();
@@ -225,7 +253,7 @@ export function AthleteListingEditor({
               ))}
             </ol>
             <p className="text-[13px] leading-relaxed text-text/85">{status}</p>
-            {(c.pause || c.resume || c.end) && (
+            {(c.pause || c.resume || (c.end && !c.canSubmit)) && (
               <div className="flex flex-wrap items-center gap-2.5">
                 {c.pause && (
                   <button type="button" className={secondary} disabled={pending} onClick={() => run(() => moveAthleteListingAction(listing.id, "PAUSED", null), "Paused — hidden from sponsors.")}>
@@ -233,7 +261,7 @@ export function AthleteListingEditor({
                   </button>
                 )}
                 {c.resume && (
-                  <button type="button" className={secondary} disabled={pending} onClick={() => run(() => moveAthleteListingAction(listing.id, "PUBLISHED", dirty ? text : null), "Back on the marketplace.")}>
+                  <button type="button" className={secondary} disabled={pending} onClick={() => run(() => moveAthleteListingAction(listing.id, "PUBLISHED", dirty ? text : null), null, true)}>
                     {dirty ? "Save and resume" : "Resume"}
                   </button>
                 )}
@@ -242,7 +270,7 @@ export function AthleteListingEditor({
                     Save
                   </button>
                 )}
-                {end}
+                {!c.canSubmit && end}
               </div>
             )}
           </section>
@@ -251,20 +279,30 @@ export function AthleteListingEditor({
         {listing.state === "DRAFT" && (
           <p className="text-[13px] leading-relaxed text-text/85">{status}</p>
         )}
+        {!failure && <Outcome listing={listing} justSubmitted={justSubmitted} />}
         {failure && listing.state !== "DRAFT" && <FailureNote f={failure} />}
         {notice && !failure && <p role="status" className="text-[11px] text-accent">{notice}</p>}
       </div>
 
-      {rows.length > 0 && <ListChecklist rows={rows} {...(c.canSubmit ? {} : { foot: c.resume ? "Resuming runs these checks again." : "BTG ran these checks when you submitted it." })}>
+      {rows.length > 0 && <ListChecklist rows={rows} {...(c.canSubmit ? {} : { foot: c.resume ? `Resuming runs these checks again. ${GOES_LIVE_COPY}` : "These checks ran when you submitted it." })}>
         {c.canSubmit && (
           <div className="space-y-2">
-            <button type="button" className={`${primary} w-full`} disabled={pending} onClick={() => run(() => submitAthleteListingAction(listing.id, dirty ? text : null), "Submitted — BTG is checking it.")}>
-              {pending ? "Working…" : "Submit"}
+            <button
+              type="button"
+              className={`${primary} w-full`}
+              disabled={pending || (held && !dirty)}
+              title={held && !dirty ? "Edit it first — BTG is already taking a look" : undefined}
+              onClick={() => run(() => submitAthleteListingAction(listing.id, dirty ? text : null), null, true)}
+            >
+              {pending ? "Working…" : held ? "Save and submit again" : "Submit"}
             </button>
+            <p className="text-[11px] text-muted">{GOES_LIVE_COPY}</p>
             <div className="flex flex-wrap items-center gap-2">
-              <button type="button" className={secondary} disabled={pending || !dirty} onClick={() => run(() => saveListingDescriptionAction(listing.id, text), "Saved.")}>
-                Save draft
-              </button>
+              {!held && (
+                <button type="button" className={secondary} disabled={pending || !dirty} onClick={() => run(() => saveListingDescriptionAction(listing.id, text), "Saved.")}>
+                  Save draft
+                </button>
+              )}
               {end}
             </div>
             {failure && <FailureNote f={failure} />}
