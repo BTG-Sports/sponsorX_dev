@@ -109,7 +109,8 @@ describe.skipIf(!hasDatabase)("reward redeem and claim · against real Postgres"
     await prisma.sponsor.create({ data: { id: "rv_sponsor", tenantId: T, name: "Rosa's Tacos" } });
     await prisma.campaign.create({ data: { id: "rv_campaign", tenantId: T, sponsorId: "rv_sponsor", name: "Fall tacos", budget: 100_000, startDate: new Date("2026-09-01"), endDate: new Date("2099-12-31"), state: "ACTIVE" } });
     await prisma.user.create({ data: { id: "rv_admin", tenantId: T, clerkId: "rv_admin", email: "admin@rv.invalid", roles: ["BTG_ADMIN"] } });
-    server = createApp().listen(0);
+    server = createApp().listen(0, "127.0.0.1");
+    await new Promise((r) => server.once("listening", r)); // a host makes the bind async
     base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
   });
 

@@ -131,7 +131,8 @@ describe.skipIf(!hasDatabase)("2S1-BE-11 / -12 · the guardian acts for the mino
       deliverables: [{ title: "Feed post", dueDate: new Date(Date.now() + 14 * DAY).toISOString() }], usageRights: "90 days", disclosures: ["#ad"],
       expiresAt: new Date(Date.now() + 7 * DAY), state: "SENT", sentAt: new Date(), termsHash: "a".repeat(64), createdBy: "ga_admin",
     } });
-    server = createApp().listen(0);
+    server = createApp().listen(0, "127.0.0.1");
+    await new Promise((r) => server.once("listening", r)); // a host makes the bind async
     base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
   });
   afterAll(async () => {

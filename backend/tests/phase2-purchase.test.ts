@@ -203,7 +203,8 @@ describe.skipIf(!hasDatabase)("Phase 2 purchase path over the API", { timeout: 6
     await approveTeam("e", T, "pu_admin", "Bowie Bulldogs PU");
     await approveTeam("f", T, "pu_admin", "Laurel Lions PU");
     await approveTeam("g", X, "pu_x_admin", "Far Away FC");
-    server = createApp().listen(0);
+    server = createApp().listen(0, "127.0.0.1");
+    await new Promise((r) => server.once("listening", r)); // a host makes the bind async
     base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
 
     await call("POST", "/team/roster", "pu_mgr_e", { legalName: "Riley Chen", displayName: "RILEY", email: "pu_riley@pu-test.invalid", sport: "Basketball", ageBand: "18_PLUS" });

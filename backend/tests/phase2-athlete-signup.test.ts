@@ -213,7 +213,8 @@ describe.skipIf(!hasDatabase)("2S1-BE-09 / -10 / -12 · athletes and guardians a
       { id: "as_admin", tenantId: T, clerkId: "as_admin", email: "as_admin@as-test.invalid", roles: ["BTG_ADMIN"] },
       { id: "as_netmgr", tenantId: T, clerkId: "as_netmgr", email: "as_netmgr@as-test.invalid", roles: ["NETWORK_MGR"] },
     ] });
-    server = createApp().listen(0);
+    server = createApp().listen(0, "127.0.0.1");
+    await new Promise((r) => server.once("listening", r)); // a host makes the bind async
     base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
   });
   afterAll(async () => {

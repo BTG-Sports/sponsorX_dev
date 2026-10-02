@@ -84,7 +84,8 @@ describe.skipIf(!hasDatabase)("P9-OPS-01 · the pilot school and its advisor", a
       ],
     });
 
-    server = createApp().listen(0);
+    server = createApp().listen(0, "127.0.0.1");
+    await new Promise((r) => server.once("listening", r)); // a host makes the bind async
     base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
   });
 
@@ -194,7 +195,8 @@ describe.skipIf(!hasDatabase)("walkthrough personas · every login works and eve
       client.release();
       await pool.end();
     }
-    server = createApp().listen(0);
+    server = createApp().listen(0, "127.0.0.1");
+    await new Promise((r) => server.once("listening", r)); // a host makes the bind async
     base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
   });
 

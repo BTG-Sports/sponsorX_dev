@@ -183,7 +183,8 @@ describe.skipIf(!hasDatabase)("2S4-BE-11 · delivery problems settled between se
     const rams = await approveTeam("dp_onb_rams", "Riverside Rams DP", "dp_mgr2");
     E.owls = owls.id;
     E.rams = rams.id;
-    server = createApp().listen(0);
+    server = createApp().listen(0, "127.0.0.1");
+    await new Promise((r) => server.once("listening", r)); // a host makes the bind async
     base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
     await call("GET", "/me", "dp_mgr");
     await call("GET", "/me", "dp_mgr2");

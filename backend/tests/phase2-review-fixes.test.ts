@@ -156,7 +156,8 @@ describe.skipIf(!hasDatabase)("review fixes · per-child proof, every Reject clo
       id: "rf_idoc", tenantId: T, inquiryId: "rf_inq", kind: "PROOF_OF_BUSINESS", filename: "license.pdf", contentType: "application/pdf", bytes: 100,
       r2Key: "inquiries/rf_inq/license.pdf", uploadedAt: now,
     } });
-    server = createApp().listen(0);
+    server = createApp().listen(0, "127.0.0.1");
+    await new Promise((r) => server.once("listening", r)); // a host makes the bind async
     base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
   });
   afterAll(async () => {

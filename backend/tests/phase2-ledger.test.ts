@@ -170,7 +170,8 @@ describe.skipIf(!hasDatabase)("the money side over the API", { timeout: 60_000 }
     ] });
     Object.assign(E, await approveTeam("e", "Bowie Bulldogs LG").then((p) => ({ tenant: p.tenantId, property: p.id })));
     Object.assign(F, await approveTeam("f", "Laurel Lions LG").then((p) => ({ tenant: p.tenantId, property: p.id })));
-    server = createApp().listen(0);
+    server = createApp().listen(0, "127.0.0.1");
+    await new Promise((r) => server.once("listening", r)); // a host makes the bind async
     base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
     E.riley = (await call("POST", "/team/roster", "lg_mgr_e", { legalName: "Riley Chen", displayName: "RILEY", email: "lg_riley@lg-test.invalid", sport: "Basketball", ageBand: "18_PLUS", teamShareBps: 2000 })).json.id;
     await publish("banner", { title: "Courtside banner", kind: "SIGNAGE", priceCents: 120_000, quantity: 1 });

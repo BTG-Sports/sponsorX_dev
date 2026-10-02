@@ -197,6 +197,7 @@ describe.skipIf(!hasDatabase)("2S8-QA-03 · a full marketplace cycle reconciles 
     E.herons = await approveTeam("rc_onb_herons", "Lakeside Herons RC", "rc_mgr_herons");
     E.foxes = await approveTeam("rc_onb_foxes", "Hillcrest Foxes RC", "rc_mgr_foxes");
     server = createApp().listen(0, "127.0.0.1");
+    await new Promise((r) => server.once("listening", r)); // a host makes the bind async
     base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
     await ok("GET", "/me", "rc_mgr_herons");
     await ok("GET", "/me", "rc_mgr_foxes");

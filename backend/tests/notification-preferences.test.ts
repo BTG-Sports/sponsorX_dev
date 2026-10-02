@@ -88,7 +88,8 @@ describe.skipIf(!hasDatabase)("a muted channel is not sent by the worker", { tim
       { id: "np_staff", tenantId: T, clerkId: "np_staff", email: "np_staff@prefs-test.invalid", roles: ["CAMPAIGN_MGR"] },
       { id: "np_elsewhere", tenantId: OTHER, clerkId: "np_elsewhere", email: "np_elsewhere@prefs-test.invalid", roles: ["ATHLETE"] },
     ] });
-    server = createApp().listen(0);
+    server = createApp().listen(0, "127.0.0.1");
+    await new Promise((r) => server.once("listening", r)); // a host makes the bind async
     base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
   });
 

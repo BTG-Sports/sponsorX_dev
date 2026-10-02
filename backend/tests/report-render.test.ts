@@ -95,7 +95,8 @@ describe.skipIf(!hasDatabase)("the report rendered on the worker, from screen 12
     await prisma.reward.create({ data: { id: "rr_reward", tenantId: T, campaignId: "rr_campaign", offerText: "Free taco", terms: "t", expiresAt: new Date(Date.now() + 864e5), state: "ACTIVE" } });
     await prisma.rewardToken.create({ data: { id: "rr_tok", tenantId: T, rewardId: "rr_reward", token: "rr-token-1", athleteId: "rr_ath" } });
     await prisma.rewardEvent.createMany({ data: ["SCAN", "LANDING", "CLAIM", "REDEEM"].map((type) => ({ tenantId: T, tokenId: "rr_tok", type: type as never })) });
-    server = createApp().listen(0);
+    server = createApp().listen(0, "127.0.0.1");
+    await new Promise((r) => server.once("listening", r)); // a host makes the bind async
     base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
   });
 

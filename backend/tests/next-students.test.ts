@@ -188,7 +188,8 @@ describe.skipIf(!hasDatabase)("SponsorX NEXT students, on the path a request tak
     const pool = new pg.Pool({ connectionString: seededDb.TEST_DATABASE_URL });
     const client = await pool.connect();
     try { await seedPackages(client, T); } finally { client.release(); await pool.end(); }
-    server = createApp().listen(0);
+    server = createApp().listen(0, "127.0.0.1");
+    await new Promise((r) => server.once("listening", r)); // a host makes the bind async
     base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
   });
 

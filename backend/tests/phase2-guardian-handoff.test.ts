@@ -118,7 +118,8 @@ describe.skipIf(!hasDatabase)("2S1-BE-15 · changing a minor's guardian", { time
     await prisma.campaignOrder.create({ data: { id: "gh_order", tenantId: T, campaignId: "gh_camp", athleteId: "gh_jordan", jobId: "gh_job", compensation: 20000, sellPrice: 40000, usageRights: "90 days", dueDate: new Date("2026-11-15"), state: "ACCEPTED" } });
     await prisma.earning.create({ data: { id: "gh_earn", tenantId: T, athleteId: "gh_jordan", orderId: "gh_order", gross: 20000, taxYear: 2026 } });
     await prisma.payoutAccount.create({ data: { id: "gh_pa", tenantId: T, payeeType: "ATHLETE", payeeId: "gh_jordan", provider: "standin", status: "READY" } });
-    server = createApp().listen(0);
+    server = createApp().listen(0, "127.0.0.1");
+    await new Promise((r) => server.once("listening", r)); // a host makes the bind async
     base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
   });
   afterAll(async () => {

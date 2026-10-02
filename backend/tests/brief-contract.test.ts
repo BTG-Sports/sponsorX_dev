@@ -78,7 +78,8 @@ describe.skipIf(!hasDatabase)("a sponsor files a real brief through the API", as
       { id: "bc_other", tenantId: T, name: "Someone Else" },
     ] });
     await prisma.user.create({ data: { id: "bc_user", tenantId: T, clerkId: "bc_user", email: "owner@rowhouse.invalid", roles: ["SPONSOR_ADMIN"], sponsorId: "bc_sponsor" } });
-    server = createApp().listen(0);
+    server = createApp().listen(0, "127.0.0.1");
+    await new Promise((r) => server.once("listening", r)); // a host makes the bind async
     base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
   });
   afterAll(async () => {

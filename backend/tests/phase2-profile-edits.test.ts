@@ -98,7 +98,8 @@ describe.skipIf(!hasDatabase)("2S1-BE-14 · profile edits without BTG review", {
       { id: "pe_u_kai", tenantId: T, clerkId: "pe_kai", email: "pe_kai@pe-test.invalid", roles: ["ATHLETE"], athleteId: "pe_kai" },
       { id: "pe_u_jo", tenantId: T, clerkId: "pe_jo", email: "pe_jo@pe-test.invalid", roles: ["ATHLETE"], athleteId: "pe_jo" },
     ] });
-    server = createApp().listen(0);
+    server = createApp().listen(0, "127.0.0.1");
+    await new Promise((r) => server.once("listening", r)); // a host makes the bind async
     base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
   });
   afterAll(async () => {

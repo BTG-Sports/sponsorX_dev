@@ -37,6 +37,25 @@ describe("suite isolation · static", () => {
     expect(shared).toEqual([]);
   });
 
+  /* A bare listen(0) binds `::` (every address). On macOS that can be handed
+     a port another program already holds on 127.0.0.1 — VS Code's helper,
+     here — and the test's own fetch to 127.0.0.1 then reaches THAT program:
+     nul-input saw 404s with empty bodies, even for /api/v1/ (2026-10-02;
+     reproduced by binding :: on the helper's port 49190). Bound to
+     127.0.0.1, the address the requests go to, the port is refused instead. */
+  it("every test server listens on 127.0.0.1, the address its requests go to", () => {
+    const bare: string[] = [];
+    for (const [file, text] of source) {
+      const lines = text.split("\n");
+      lines.forEach((line, i) => {
+        if (!/\.listen\(/.test(line) || line.includes("/\\.listen")) return;
+        /* With a host the bind is asynchronous: address() is null until "listening". */
+        if (!/\.listen\(0, "127\.0\.0\.1"\)/.test(line) || !lines[i + 1]?.includes('once("listening"')) bare.push(`${file}:${i + 1}`);
+      });
+    }
+    expect(bare).toEqual([]);
+  });
+
   /* Each of these sweeps every tenant when called bare — right for the worker,
      wrong for a test, which must pass its own tenant. */
   const SWEEPS = [

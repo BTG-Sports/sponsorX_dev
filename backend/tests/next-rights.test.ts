@@ -135,7 +135,8 @@ describe.skipIf(!hasDatabase)("SponsorX NEXT rights, featured athletes and the D
       { tenantId: T, propertyId: "nx4_school", legalName: "Maya Thompson", gradYear: 2028 },
       { tenantId: T, propertyId: "nx4_school", legalName: "Andre Wallace", gradYear: 2027 },
     ] });
-    server = createApp().listen(0);
+    server = createApp().listen(0, "127.0.0.1");
+    await new Promise((r) => server.once("listening", r)); // a host makes the bind async
     base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
   });
 

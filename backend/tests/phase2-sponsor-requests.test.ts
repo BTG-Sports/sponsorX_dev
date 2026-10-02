@@ -124,7 +124,8 @@ describe.skipIf(!hasDatabase)("2S1-BE-05 · BTG reviews a sponsor's request and 
       { id: "sr_sponsor_user", tenantId: T, clerkId: "sr_sponsor_user", email: "sr_taken@sr-test.invalid", roles: ["SPONSOR_ADMIN"], sponsorId: "sr_existing" },
       { id: "sr_x_admin", tenantId: X, clerkId: "sr_x_admin", email: "sr_x_admin@sr-test.invalid", roles: ["BTG_ADMIN"] },
     ] });
-    server = createApp().listen(0);
+    server = createApp().listen(0, "127.0.0.1");
+    await new Promise((r) => server.once("listening", r)); // a host makes the bind async
     base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
     E.harbor = await withProof(await ask({ company: "Harbor Coffee", first: "Dana", last: "Brooks", email: "sr_dana@sr-test.invalid", category: "Coffee shop / café" }));
     E.rosa = await withProof(await ask({ company: "Rosa's Tacos", first: "Rosa", last: "Diaz", email: "sr_rosa@sr-test.invalid", category: "Quick-service restaurant" }));

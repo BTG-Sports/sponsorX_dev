@@ -119,7 +119,8 @@ describe.skipIf(!hasDatabase)("2S3-BE-06 · the review's gaps in automatic publi
       { id: "lpg_mgr", tenantId: T, clerkId: "lpg_mgr", email: "lpg_mgr@lpg-test.invalid", roles: ["PROPERTY_MGR"], propertyId: "lpg_rams" },
       { id: "lpg_dana", tenantId: T, clerkId: "lpg_dana", email: "lpg_dana@lpg-test.invalid", roles: ["SPONSOR_ADMIN"], sponsorId: "lpg_cafe" },
     ] });
-    server = createApp().listen(0);
+    server = createApp().listen(0, "127.0.0.1");
+    await new Promise((r) => server.once("listening", r)); // a host makes the bind async
     base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
   });
   afterAll(async () => {
