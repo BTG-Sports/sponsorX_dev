@@ -541,18 +541,24 @@ function payoutView(p: PayoutRow) {
 /** The payee's money: what can be requested, what can't yet and why, and every payout so far. */
 export async function myPayouts(actor: Actor, now = new Date()) {
   const payee = payeeOf(actor, "payout", "read");
-  const [orders, accountRow, payouts] = await Promise.all([
+  const [orders, accountRow, payouts, grouped] = await Promise.all([
     balanceOf(prisma, payee, now),
     prisma.payoutAccount.findUnique({
       /* tenant-scope: the payee's own account, by its unique payee key from the actor. */
       where: { payeeType_payeeId: { payeeType: payee.payeeType, payeeId: payee.payeeId } }, select: ACCOUNT_SELECT,
     }),
     prisma.payout.findMany({ where: whereFor(actor, "payout", "read"), select: PAYOUT_SELECT, orderBy: { requestedAt: "desc" }, take: 50 }),
+    /* 2S2-FE-01 — every payout of the payee's by state, counted in Postgres, not over the 50 listed. */
+    prisma.payout.groupBy({ by: ["state"], where: whereFor(actor, "payout", "read"), _count: { _all: true }, _sum: { amountCents: true } }),
   ]);
+  const byState = Object.fromEntries(STATES.map((st) => {
+    const g = grouped.find((x) => x.state === st);
+    return [st, { count: g?._count._all ?? 0, amountCents: g?._sum.amountCents ?? 0 }];
+  })) as Record<(typeof STATES)[number], { count: number; amountCents: number }>;
   const account = accountView(accountRow && accountRow.status ? accountRow : null);
   const sum = (f: (o: OrderMoney) => number) => orders.reduce((s, o) => s + f(o), 0);
   const requestableCents = sum((o) => o.requestableCents);
-  const paidOutCents = payouts.filter((p) => p.state === "PAID").reduce((s, p) => s + p.amountCents, 0);
+  const paidOutCents = byState.PAID.amountCents;
   const holds = orders.filter((o) => o.confirmedLines > 0 && o.holdUntil && o.holdUntil > now && o.availableCents - o.inFlightCents > 0);
   const nextHold = holds.map((o) => o.holdUntil!).sort((a, b) => a.getTime() - b.getTime())[0] ?? null;
   const checks = [
@@ -576,6 +582,8 @@ export async function myPayouts(actor: Actor, now = new Date()) {
       inFlightCents: sum((o) => o.inFlightCents),
       paidOutCents,
     },
+    /** Every payout so far by state — how many and how much (2S2-FE-01). */
+    byState,
     canRequest: account.status === "READY" && requestableCents > 0,
     checks,
     orders: orders.map(({ books: _books, ...o }) => ({ ...o, orderRef: orderRef(o.orderId) })),

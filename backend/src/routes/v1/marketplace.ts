@@ -47,6 +47,7 @@ import {
   answerProblem, answerReply, confirmDelivery, deliveryExchange, deliveryIssue, deliveryIssues, markDelivered, mySale, mySales, orderDeliveries,
   proofLink, remindSeller, reportProblem, requestProofUpload, resolveIssue,
 } from "../../domain/delivery";
+import { sellerSummary } from "../../domain/seller-summary";
 import {
   inviteAthlete, invitableAthletes, leaveTeam, myTeam, removeFromRoster, respondToInvitation, teamInvitations, withdrawInvitation,
 } from "../../domain/team-invitations";
@@ -263,6 +264,8 @@ marketplaceRouter.get("/team/analytics", requireActor, analytics);
    lines, their own share. /deliveries/{lineId} is the buying sponsor's answer;
    /delivery-issues is BTG's desk. The id is always the order line's. */
 marketplaceRouter.get("/sales", requireActor, (async (req, res) => { res.json(await mySales(req.actor!)); }) as RequestHandler);
+/* 2S2-FE-01 — before /sales/:id, which would take "summary" for an id. */
+marketplaceRouter.get("/sales/summary", requireActor, (async (req, res) => { res.json(await sellerSummary(req.actor!)); }) as RequestHandler);
 marketplaceRouter.get("/sales/:id", requireActor, (async (req, res) => { res.json(await mySale(req.actor!, req.params.id)); }) as RequestHandler<Id>);
 marketplaceRouter.post("/sales/:id/proof", requireActor, (async (req, res) => {
   res.status(201).json(await requestProofUpload(req.actor!, req.params.id, ProofUploadInput.parse(req.body)));
