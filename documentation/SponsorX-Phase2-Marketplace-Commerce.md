@@ -5,7 +5,7 @@
 | | |
 |---|---|
 | **Goal** | Turn SponsorX from BTG-only operations into a multi-tenant marketplace. External athletes, teams, programs, events and media properties onboard, publish inventory, fulfil deliverables and get paid. |
-| **Tasks** | 115 · 411 person-days |
+| **Tasks** | 118 · 419 person-days |
 | **Blueprint timeline** | 16–20 weeks |
 | **Balanced budget** | $80K–$120K |
 | **Depends on** | Phase 1 auth/RBAC, sponsor/property/inventory/campaign/reward models, Zoho integration, core analytics |
@@ -1025,6 +1025,62 @@ Built from the Claude Design files SellerOrderActions, SponsorOrderUpdates and O
 - **Depends on:** 2S4-BE-09, 2S4-BE-10, 2S4-BE-11
 - **Done when:** Each party sees its next step and deadline: the seller can accept or decline an order and answer a problem, the sponsor can pay before the deadline and accept or reject the seller's answer, and BTG sees only the exceptions, a sponsor's limit, and can mark an order paid with a reference
 - **Reference:** BTG admin review items 9 to 11, 2026-10-02
+
+### ⏸ `2S4-BE-12` · Cancelling a paid line: by the sponsor, by the seller; BTG only on disagreement
+
+**Order** 36.8 · **BE** · **Where:** Code · **3d** · **In progress**
+
+Replaces BTG cancelling a paid order (item 13 of the BTG admin review, 2026-10-02). This applies to a paid line that hasn't been marked delivered.
+
+**The sponsor cancels.**
+- **Free until 3 days before the line's first date:** refunded at once, with no seller step.
+- **Closer than that:** the sponsor asks the seller, with a reason. The seller has 72 hours, or until the first date if that comes sooner:
+  - agreeing refunds the line;
+  - saying no (with a reason), or not answering, sends it to BTG, which keeps the line or refunds it.
+- **From the first date:** no cancelling. The sponsor reports a problem instead.
+
+**The seller cancels** a line they can't deliver, with a reason. The sponsor is refunded in full at once.
+
+**Good standing.** Two seller cancellations in 90 days take a seller out of good standing, so their new listings are held for BTG.
+
+**The spending limit.** Cancellation refunds don't stop a sponsor's spending limit rising.
+
+- **Depends on:** 2S4-BE-07, 2S4-BE-11, 2S3-BE-06
+- **Done when:** A sponsor cancels free before the cut-off and asks the seller after it; the seller agrees, declines or misses the deadline, and only the last two reach BTG; a seller cancels with a reason and the sponsor is refunded; a second seller cancellation within 90 days holds that seller's new listings; every refund happens once under concurrent clicks and the sweep
+- **Reference:** BTG admin review item 13, 2026-10-02
+
+### ⏸ `2S4-BE-13` · Refunds to send
+
+**Order** 36.9 · **BE** · **Where:** Code · **2d** · **In progress**
+
+**Every refund of money actually received** puts one row on Finance's "Refunds to send" list. That covers:
+- a cancellation;
+- an agreed problem refund;
+- BTG's refund;
+- a payment that arrived after its order was cancelled.
+
+**Card refunds.** These go back through the payment provider when it can refund. The staging stand-in does so at once; until a provider is connected, production leaves the row open.
+
+**Everything else.** Finance sends the money and marks the row refunded, with the method, a reference and the date. The sponsor is emailed and sees "Refund on its way", then "Refund sent". If the order was paid by Zoho invoice, the row reminds Finance to issue a credit note.
+
+- **Depends on:** 2S4-BE-10, 2S4-BE-12
+- **Done when:** Each refund path makes exactly one row and an unpaid order makes none; BTG admin and Finance alone can mark a row sent, with a reference; the sponsor sees the refund's state and never a method or a reference
+- **Reference:** BTG admin review item 13, 2026-10-02
+
+### ⏸ `2S4-FE-06` · Cancellations and refunds, on screen
+
+**Order** 38.6 · **FE** · **Where:** Code · **3d** · **Blocked**
+
+Built from the Claude Design file OrderCancellations.
+
+- **For the sponsor:** Cancel this session, or Ask the seller to cancel, with the free-until date; the seller's answer; the refund's state.
+- **For the seller:** Can't deliver this session? (with the 90-day warning); answer a cancellation request.
+- **For BTG:** escalated cancellations on the Delivery issues desk.
+- **For BTG and Finance:** the Refunds to send page and the Mark refunded dialog.
+
+- **Depends on:** 2S4-BE-12, 2S4-BE-13, the OrderCancellations design
+- **Done when:** Each party sees its next step and deadline: the sponsor can cancel or ask, the seller can cancel or answer, BTG decides only escalated requests, and Finance can mark a refund sent with a reference
+- **Reference:** BTG admin review item 13, 2026-10-02
 
 ## Sprint 5 · Payments, ledger & payouts
 
