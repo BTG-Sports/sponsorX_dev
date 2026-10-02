@@ -72,6 +72,38 @@ export async function answerSellerReplyAction(orderId: string, lineId: string, d
   return r.res.ok ? { ok: true } : { ok: false, message: answerRefusal(r.res.status, r.body, "Your answer wasn't sent") };
 }
 
+/* --------------------------------------------------------------------------
+   2S4-FE-06 / 2S4-BE-12 — the sponsor cancels a paid line not yet delivered:
+
+     POST /deliveries/:lineId/cancel  { reason? }
+       → { outcome: REFUNDED, refundCents, refund }   free (until 3 days before
+                                                      its first date): refunded
+       → { outcome: ASKED_SELLER, issueId, sellerAnswerBy }   after the
+                                                      cut-off: the seller is
+                                                      asked (a reason required)
+       409 when it can't be cancelled (the API's words are shown); 422 without
+       the reason the cut-off needs. SPONSOR_ADMIN only.
+   -------------------------------------------------------------------------- */
+
+export type CancelResult =
+  | { ok: true; outcome: "REFUNDED" | "ASKED_SELLER" }
+  | { ok: false; message: string };
+
+export async function cancelLineAction(orderId: string, lineId: string, reason: string, mode: "free" | "ask"): Promise<CancelResult> {
+  if (typeof lineId !== "string" || !lineId) return { ok: false, message: "Unknown order line." };
+  const text = typeof reason === "string" ? reason.trim().slice(0, 2000) : "";
+  if (mode === "ask" && !text) return { ok: false, message: "Say why you want to cancel — the seller reads this, and BTG too if it comes to them." };
+  const r = await call(`/deliveries/${encodeURIComponent(lineId)}/cancel`, { method: "POST", body: JSON.stringify(text ? { reason: text } : {}) });
+  if (!r) return { ok: false, message: unreachable };
+  revalidatePath(`/sponsor/orders/${orderId}`);
+  if (!r.res.ok) {
+    if (r.res.status === 403) return { ok: false, message: "Only a Sponsor Admin in your organisation can cancel a line." };
+    return { ok: false, message: answerRefusal(r.res.status, r.body, "The line wasn't cancelled") };
+  }
+  const outcome = (r.body as { outcome?: unknown } | null)?.outcome;
+  return { ok: true, outcome: outcome === "ASKED_SELLER" ? "ASKED_SELLER" : "REFUNDED" };
+}
+
 /** A seller's photo: the line's current one, or (with `issue`) a problem's answer photo or the delivery photo it disputed. */
 export async function deliveryProofAction(lineId: string, opts: { issue?: string; photo?: "answer" | "marked" } = {}): Promise<{ ok: true; url: string } | { ok: false; message: string }> {
   if (typeof lineId !== "string" || !lineId) return { ok: false, message: "Unknown order line." };

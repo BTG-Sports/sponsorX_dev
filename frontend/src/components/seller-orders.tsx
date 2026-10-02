@@ -6,6 +6,8 @@ import { SellerMarkDelivered } from "@/components/seller-mark-delivered";
 import { DeliveryTrack } from "@/components/order-bits";
 import { SellerApprovalsPanel } from "@/components/seller-approval";
 import { SellerProblemAnswer } from "@/components/seller-problem-answer";
+import { SellerCancelBox, SellerCantDeliver } from "@/components/seller-order-cancel";
+import { LISTINGS_CHECKED_NOTE, listingsChecked, sellerCancelBanner } from "@/lib/cancellations-live";
 import type { ApiSellerApproval } from "@/lib/order-automation-live";
 import type { DemoState } from "@/lib/demo";
 import {
@@ -22,6 +24,13 @@ import {
    Live: every row is GET /sales (2S4-BE-06) — the caller's own sold lines
    and own share; Mark delivered posts through seller-mark-delivered.tsx
    (2S4-BE-07).
+
+   2S4-FE-06 (OrderCancellations.dc.html, CX-6 … CX-8d): the sponsor's
+   request to cancel — with the deadline and Agree / Keep — and how a
+   cancelled line ended, in the box above the line (SellerCancelBox);
+   "Can't deliver this line?" under Mark delivered while the line can still
+   be cancelled (SellerCantDeliver); and, once two cancellations in 90 days
+   are reached, only that "BTG is checking your account" — never why.
    -------------------------------------------------------------------------- */
 
 function StatusPill({ o }: { o: ApiSellerOrder }) {
@@ -140,6 +149,9 @@ const BANNER_TONE = {
 export function SellerOrderDetail({ kind, order: o, now = new Date() }: { kind: SellerKind; order: ApiSellerOrder; now?: Date }) {
   const seller = SELLER[kind];
   const banner = orderBanner(o, now);
+  /* 2S4-FE-06 — a request to cancel, or how a cancelled line ended. */
+  const cancelBox = sellerCancelBanner(o, lineTotalCents(o), now);
+  const held = listingsChecked(o.cancellation);
   /* 2S4-FE-05 — a problem the sponsor reported, while it is the seller's to answer (72 hours). */
   const answering = o.state === "PROBLEM" && o.issue?.kind === "PROBLEM" && o.issue.stage === "SELLER_TO_ANSWER" && (o.canAnswerProblem ?? o.issue.sellerCanAnswer) && o.issue.sellerDueAt
     ? o.issue
@@ -168,6 +180,10 @@ export function SellerOrderDetail({ kind, order: o, now = new Date() }: { kind: 
             refundCents={lineTotalCents(o)}
             now={now.toISOString()}
           />
+        )}
+
+        {cancelBox && (
+          <SellerCancelBox lineId={o.id} title={o.line.title} sponsor={o.sponsor.name} lineTotalCents={lineTotalCents(o)} banner={cancelBox} />
         )}
 
         {banner && (
@@ -210,6 +226,11 @@ export function SellerOrderDetail({ kind, order: o, now = new Date() }: { kind: 
                     sponsor={o.sponsor.name}
                     summary={`${o.line.title} · ${units} · ${datesText(o.line.dates)}`}
                   />
+                  {o.cancellation?.canCancel && (
+                    <div className="mt-2">
+                      <SellerCantDeliver lineId={o.id} title={o.line.title} sponsor={o.sponsor.name} lineTotalCents={lineTotalCents(o)} cancellation={o.cancellation} />
+                    </div>
+                  )}
                 </div>
               </Card>
             </section>
@@ -237,7 +258,12 @@ export function SellerOrderDetail({ kind, order: o, now = new Date() }: { kind: 
             )}
           </div>
 
-          <aside aria-label="Sponsor contact">
+          <aside aria-label="Sponsor contact" className="space-y-3">
+            {held && (
+              <p role="status" className="rounded-lg border border-warn/45 bg-warn/8 px-3 py-2.5 text-xs leading-relaxed">
+                <strong className="text-warn">Your listings:</strong> {LISTINGS_CHECKED_NOTE}
+              </p>
+            )}
             <Card className="space-y-2.5">
               <h2 className="text-sm font-semibold">Sponsor</h2>
               <p className="text-[15px] font-semibold">{o.sponsor.name}</p>
