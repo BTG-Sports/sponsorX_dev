@@ -1285,6 +1285,14 @@ html.lenis body { height: auto; }
   .sx-join-stage { transition: none; }
 }
 
+/* The page transition's scroll lock (P1-ART-12, lib/page-transition.ts). An
+   attribute the transition alone owns, so it composes with the boot
+   screen's inline `overflow: hidden` instead of saving and restoring it —
+   the save/restore pair is what used to leave the page locked for good. */
+html[data-sx-scroll-lock] {
+  overflow: hidden;
+}
+
 /* --------------------------------------------------------------------------
    Landing entrance (P1-ART-11). Inside the home route (`[data-sx-landing]`,
    its layout) every `.sx-reveal` piece waits hidden — down 22px and clear —
