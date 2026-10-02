@@ -12,10 +12,29 @@ describe("printable QR formats", () => {
     expect(FORMATS.sticker).toMatchObject({ w: 3, h: 3, qr: 1.25 });
   });
 
-  it("the panel padding adds two modules to the PNG's two, for codes up to version 6 (41 modules)", () => {
+  /* Quiet zone, in modules, for a code N modules wide: the PNG's own 2-module
+     margin plus the panel's padding (the PNG is N + 4 modules across). */
+  const quietModules = (qrInches: number, n: number) => 2 + quietPad(qrInches) / (qrInches / (n + 4));
+
+  it("the quiet zone is ≥ 4 modules from version 3 (29 modules) up — and only from there", () => {
     for (const f of Object.values(FORMATS)) {
-      const moduleInches = f.qr / (41 + 4); // 41 modules + the PNG's 2-module margin each side
-      expect(quietPad(f.qr) / moduleInches).toBeGreaterThanOrEqual(2);
+      for (let version = 3; version <= 10; version++) {
+        expect(quietModules(f.qr, 17 + 4 * version), `${f.label} v${version}`).toBeGreaterThanOrEqual(4);
+      }
+      // The boundary, stated: version 2 would fall short, which is why the
+      // next test proves a real reward URL never encodes that small.
+      expect(quietModules(f.qr, 25)).toBeLessThan(4);
+    }
+  });
+
+  it("a real reward URL — even on an absurdly short host — encodes at version 3 or larger, so ≥ 4 modules", async () => {
+    const QRCode = await import("qrcode");
+    const token = "A".repeat(27); // randomBytes(20) as base64url, as reward.ts mints it
+    for (const host of ["https://sponsorx.net", "http://localhost:3000", "http://a.co"]) {
+      // Same settings as worker/jobs/generate-qr.mts.
+      const n = QRCode.create(`${host}/r/${token}`, { errorCorrectionLevel: "M" }).modules.size;
+      expect(n, host).toBeGreaterThanOrEqual(29);
+      for (const f of Object.values(FORMATS)) expect(quietModules(f.qr, n), `${host} ${f.label}`).toBeGreaterThanOrEqual(4);
     }
   });
 
