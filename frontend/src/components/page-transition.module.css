@@ -228,16 +228,23 @@
   letter-spacing: -0.035em;
 }
 
-/* the mask each letter rises out of; the padding keeps descenders */
+/* the mask each letter rises out of; the padding keeps descenders (g, p, y
+   reach ~0.22em below the 0.95 line box), the margin gives it back */
 .word {
   display: inline-flex;
   overflow: hidden;
-  padding: 0.04em 0.02em 0.12em;
-  margin-bottom: -0.08em;
+  padding: 0.04em 0.02em 0.26em;
+  margin-bottom: -0.22em;
 }
 
+/* The gradient is clipped to the glyphs, so it must cover them: the box is
+   only the 0.95 line tall, and a descender below it painted transparent —
+   the "g" of "Login" was cut flat. The padding extends the box, the margin
+   cancels it. */
 .char {
   display: inline-block;
+  padding-bottom: 0.24em;
+  margin-bottom: -0.24em;
   background: linear-gradient(180deg, var(--sx-text) 30%, color-mix(in srgb, var(--sx-text) 55%, var(--blue)) 100%);
   -webkit-background-clip: text;
   background-clip: text;

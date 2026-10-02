@@ -30,10 +30,11 @@
    between public pages starts fully covered and plays only the reveal.
 
    Mounted once in the root layout so it survives the move between the
-   (home) and (public) route groups. Everything outside the public site
-   (sign-in, portals, fan QR) keeps plain navigation — lib/page-transition
-   .ts decides. The shapes are clip-path polygons animated with the Web
-   Animations API; React sees only the phase changes.
+   (home) and (public) route groups. Sign-in (/login) counts as the site
+   since its 2026-10-02 redesign; everything else (portals, fan QR) keeps
+   plain navigation — lib/page-transition.ts decides. The shapes are
+   clip-path polygons animated with the Web Animations API; React sees only
+   the phase changes.
    -------------------------------------------------------------------------- */
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
