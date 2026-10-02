@@ -7,6 +7,9 @@ import { OrderPayButton, PaymentRefresher } from "@/components/order-payment";
 import { ShopSteps } from "@/components/shop-bits";
 import { ShopCancelOrder } from "@/components/shop-checkout";
 import { SponsorOrderDelivery } from "@/components/sponsor-order-delivery";
+import { SponsorOrderStatus } from "@/components/sponsor-order-status";
+import { StatePill } from "@/components/order-bits";
+import { sponsorBadge, sponsorStatus } from "@/lib/order-automation-live";
 import type { ApiOrderDeliveries } from "@/lib/sponsor-delivery-live";
 import {
   TEST_PROVIDER_BADGE,
@@ -41,6 +44,15 @@ import { requirePortalAccess } from "@/server/portal";
    Reads  GET /marketplace-orders/:id/deliveries  (each line's delivery; no shares)
    Writes POST /deliveries/:lineId/confirm · POST /deliveries/:lineId/problem
           — within 24 hours of the seller marking it; silence confirms.
+
+   2S4-FE-05 (SponsorOrderUpdates.dc.html) — the status card on top says
+   what the order waits on and by when (SponsorOrderStatus: approved and due
+   in 3 days / 1 day / the last day, waiting for the seller, declined by the
+   seller, held for BTG above the spending limit, cancelled unpaid), from the
+   order's waitingOn / deadlineAt / paymentDueAt / cancelReason /
+   sellerApprovals (2S4-BE-09 / -10). A reported problem's exchange — the
+   seller's answer, Accept / Reject — is in SponsorOrderDelivery
+   (POST /deliveries/:lineId/problem-answer, 2S4-BE-11).
 
    While the provider confirms (latest PROCESSING) the page refreshes itself
    every 3s until the order is PAID. Honest gaps: no receipt or invoice link
@@ -97,6 +109,11 @@ export default async function OrderPage({
   /* Delivery rows exist from contract time; a failed read hides the section, never the page. */
   const deliveries = deliveryRes?.ok ? ((await deliveryRes.json()) as ApiOrderDeliveries) : null;
   const steps = orderTracker(o, pay, payment);
+  const now = new Date();
+  const status = sponsorStatus(o, pay.kind, now);
+  const badge = sponsorBadge(o, pay.kind, now);
+  /* While payment is due the status card carries the Stripe button; the side card then shows the status only. */
+  const payInStatus = Boolean(status?.pay);
 
   return (
     <div className="space-y-6">
@@ -107,7 +124,7 @@ export default async function OrderPage({
         <div>
           <h1 className="flex flex-wrap items-center gap-2 text-xl font-semibold tracking-tight">
             Order <span className="font-mono">{orderRef(o.id)}</span>
-            <Badge tone={c.tone}>{c.label}</Badge>
+            {badge ? <StatePill p={badge} /> : <Badge tone={c.tone}>{c.label}</Badge>}
           </h1>
           <p className="mt-1 text-xs text-muted">
             Placed {fmtStamp(o.createdAt)}
@@ -122,33 +139,26 @@ export default async function OrderPage({
             {o.state === "PENDING_SELLER"
               ? "Your order is placed and sent to the seller, who has 48 hours to accept. The items stay yours while they decide."
               : o.state === "PENDING_APPROVAL"
-              ? "Your order is placed and sent to BTG for review. The items stay yours while BTG reviews it."
-              : "Your order is placed and confirmed."}{" "}
+              ? "Your order is placed. It's above your spending limit, so BTG checks it first. The items stay yours while they do."
+              : "Your order is placed and approved automatically."}{" "}
             {o.state === "PENDING_SELLER"
               ? "Nothing was charged — you pay by card once it is accepted."
               : o.state === "PENDING_APPROVAL"
               ? "Nothing was charged — you pay by card once BTG approves it."
-              : "Nothing was charged yet — pay the total by card below."}
+              : "Nothing was charged yet — pay the total by card within 3 days."}
           </p>
         </Card>
       )}
 
       {steps && <OrderTracker steps={steps} />}
 
-      {pay.banner && <PaymentBanner banner={pay.banner} kind={pay.kind} />}
-
-      {o.requiresApproval && o.approvalReasons.length > 0 && (
-        <Card className="border-warn/30 bg-warn/8">
-          <p className="text-xs font-semibold text-warn">BTG reviews this order because:</p>
-          <ul className="mt-1 list-disc space-y-0.5 pl-4 text-xs text-warn">
-            {o.approvalReasons.map((r) => (
-              <li key={r}>{r}</li>
-            ))}
-          </ul>
-        </Card>
+      {status && (
+        <SponsorOrderStatus card={status} orderId={o.id} amount={usd(payment?.amountCents ?? o.totalCents)} canWrite={canWrite} canPay={Boolean(payment?.canPay)} unavailable={!payment} />
       )}
 
-      {o.decisionNotes && (
+      {pay.banner && !(status && pay.kind === "due") && <PaymentBanner banner={pay.banner} kind={pay.kind} />}
+
+      {o.decisionNotes && o.cancelReason !== "BTG_REJECTED" && (
         <Card>
           <p className="text-[11px] uppercase tracking-wide text-muted">
             BTG&rsquo;s note{o.decidedAt ? ` · ${fmtStamp(o.decidedAt)}` : ""}
@@ -176,7 +186,13 @@ export default async function OrderPage({
           <p className="text-[11px] text-muted">{paymentHint(pay.kind) ?? c.hint}</p>
           {deliveries && deliveries.lines.length > 0 && (
             <div className="pt-2">
-              <SponsorOrderDelivery orderId={o.id} lines={deliveries.lines} canWrite={canWrite} now={new Date().toISOString()} />
+              <SponsorOrderDelivery
+                orderId={o.id}
+                lines={deliveries.lines}
+                canWrite={canWrite}
+                now={now.toISOString()}
+                lineTotals={Object.fromEntries(o.lines.map((l) => [l.id, l.lineTotalCents]))}
+              />
             </div>
           )}
         </section>
@@ -199,7 +215,7 @@ export default async function OrderPage({
           </Card>
           <OrderGateRecordCard order={o} />
           {pay.kind !== "none" && (
-            <PaymentCard orderId={o.id} totalCents={payment?.amountCents ?? o.totalCents} pay={pay} payment={payment} canWrite={canWrite} />
+            <PaymentCard orderId={o.id} totalCents={payment?.amountCents ?? o.totalCents} pay={pay} payment={payment} canWrite={canWrite} ctaAbove={payInStatus} />
           )}
           {canWrite && canCancel(o.state) && (
             <Card className="space-y-2">
@@ -293,16 +309,20 @@ function PaymentCard({
   pay,
   payment,
   canWrite,
+  ctaAbove = false,
 }: {
   orderId: string;
   totalCents: number;
   pay: PaymentView;
   payment: ApiOrderPayment | null;
   canWrite: boolean;
+  /** The status card above already carries the Stripe button (2S4-FE-05). */
+  ctaAbove?: boolean;
 }) {
   const open = pay.kind === "due" || pay.kind === "failed";
+  const cta = ctaAbove ? null : pay.cta;
   return (
-    <Card className={`space-y-3 ${open && pay.cta ? "border-primary/40" : ""}`}>
+    <Card className={`space-y-3 ${open && cta ? "border-primary/40" : ""}`}>
       <p className="text-[11px] uppercase tracking-wide text-muted">Payment</p>
       <div className="flex justify-between text-xs">
         <span className="text-muted">Order total</span>
@@ -313,15 +333,16 @@ function PaymentCard({
         <Badge tone={pay.tone}>{pay.status}</Badge>
       </div>
 
-      {pay.cta && canWrite && (
-        <OrderPayButton orderId={orderId} label={pay.cta.label} ariaLabel={pay.cta.ariaLabel} disabled={!payment?.canPay} />
+      {cta && canWrite && (
+        <OrderPayButton orderId={orderId} label={cta.label} ariaLabel={cta.ariaLabel} disabled={!payment?.canPay} />
       )}
-      {pay.cta && !canWrite && (
+      {cta && !canWrite && (
         <p className="rounded-lg border border-dashed border-line bg-surface-2 px-3 py-2 text-xs text-muted">
           A Sponsor Admin in your organisation pays this order by card. You can follow its progress here.
         </p>
       )}
-      {pay.note && (!pay.cta || canWrite) && <p className="text-[11px] text-muted">{pay.note}</p>}
+      {pay.note && !ctaAbove && (!cta || canWrite) && <p className="text-[11px] text-muted">{pay.note}</p>}
+      {ctaAbove && <p className="text-[11px] text-muted">Not paid yet — pay from the box at the top of the page.</p>}
       {pay.poll && <PaymentRefresher />}
       {payment?.testProvider && (pay.cta || pay.kind === "processing") && (
         <p>

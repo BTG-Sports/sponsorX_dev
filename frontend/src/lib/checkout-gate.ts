@@ -105,7 +105,7 @@ export function placeOrderPayload(g: { reservationId: string; agreementId: strin
 }
 
 /** The approval condition, in one line, wherever checkout and the order page state it. */
-export const APPROVAL_CONDITION = "BTG approves the order, then you pay the full total by card.";
+export const APPROVAL_CONDITION = "Orders within your spending limit are approved straight away — unless a seller asks to accept first, or BTG checks one above your limit. Then you pay the full total by card within 3 days.";
 
 /* ------------------------------------------------- the record, once placed */
 

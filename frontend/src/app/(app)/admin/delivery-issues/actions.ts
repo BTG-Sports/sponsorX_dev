@@ -12,6 +12,7 @@ import { apiFetch } from "@/server/api";
      POST /delivery-issues/:lineId/resolve  { decision: CONFIRM | REFUND, note }
      POST /delivery-issues/:lineId/remind   the seller and the team's manager
      GET  /deliveries/:lineId/proof         a 5-minute audited link to the photo
+                                            (?issue=&photo=answer|marked — a problem's own, 2S4-BE-11)
    -------------------------------------------------------------------------- */
 
 export type DeskWrite = { ok: true } | { ok: false; message: string };
@@ -54,9 +55,15 @@ export async function remindSellerAction(lineId: string): Promise<DeskWrite> {
   return r.res.ok ? { ok: true } : { ok: false, message: deskRefusal(r.res.status, r.body, "The reminder wasn't sent") };
 }
 
-export async function proofLinkAction(lineId: string): Promise<{ ok: true; url: string } | { ok: false; message: string }> {
+/** A seller's photo: the line's current one, or (2S4-BE-11, with `issue`) a problem's answer photo or the delivery photo it disputed. */
+export async function proofLinkAction(lineId: string, opts: { issue?: string | null; photo?: "answer" | "marked" | "current" } = {}): Promise<{ ok: true; url: string } | { ok: false; message: string }> {
   if (typeof lineId !== "string" || !lineId) return { ok: false, message: "Unknown order line." };
-  const r = await call(`/deliveries/${encodeURIComponent(lineId)}/proof`, { method: "GET" });
+  const q = new URLSearchParams();
+  if (typeof opts.issue === "string" && opts.issue && opts.photo !== "current") {
+    q.set("issue", opts.issue);
+    if (opts.photo === "answer" || opts.photo === "marked") q.set("photo", opts.photo);
+  }
+  const r = await call(`/deliveries/${encodeURIComponent(lineId)}/proof${q.size ? `?${q}` : ""}`, { method: "GET" });
   if (!r) return { ok: false, message: unreachable };
   if (!r.res.ok) return { ok: false, message: deskRefusal(r.res.status, r.body, "The photo couldn't be opened") };
   return { ok: true, url: String((r.body as { url?: unknown } | null)?.url ?? "") };

@@ -69,7 +69,7 @@ describe("words", () => {
   it("Mark delivered applies only while in delivery, with a reason otherwise", () => {
     expect(markControl({ state: "IN_DELIVERY" }).applies).toBe(true);
     expect(markControl({ state: "UNPAID" })).toEqual({ applies: false, why: "You can mark it delivered once it’s paid" });
-    expect(markControl({ state: "PROBLEM" }).why).toBe("BTG is reviewing this line");
+    expect(markControl({ state: "PROBLEM" }).why).toBe("BTG is deciding this line");
   });
   it("the track marks the current step", () => {
     expect(trackSteps(base).map((s) => s.state)).toEqual(["done", "current", "todo", "todo"]);
