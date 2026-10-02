@@ -96,6 +96,8 @@ import { followOrder, openDeliveries } from "./delivery";
 import { sponsorLimit } from "./spending-limit";
 import { approvalsForOrders, openSellerApprovals } from "./order-approval";
 import { tellBtgHeld, tellSponsorApproved, tellSponsorPaid } from "./order-mail";
+import { orderRefundCause, recordRefund, refundsForOrders, type RefundContext } from "./refunds";
+import { claimsMoney } from "./payout-auto";
 import {
   approvalReasons,
   billingProblems,
@@ -188,7 +190,7 @@ const SELECT = {
   billingName: true, billingEmail: true, billingReference: true, acceptanceId: true,
   acceptance: { select: { acceptedAt: true, userId: true, bodyHash: true, user: { select: { email: true } }, agreement: { select: { kind: true, version: true } } } },
   /* 2S4-BE-09 — the limit it was checked against, and why it ended if it was cancelled. */
-  spendingLimitCents: true, cancelReason: true,
+  spendingLimitCents: true, cancelReason: true, refundCause: true,
   /* 2S4-BE-10 — the payment window, and how it was paid. */
   awaitingPaymentAt: true, paymentDueAt: true, paymentRemindersSent: true,
   paidAt: true, paidVia: true, paymentReference: true, paymentReceivedOn: true, refundedAt: true,
@@ -221,10 +223,11 @@ function waitingOn(row: Row, approvals: Array<{ state: string; dueAt: Date }>) {
 
 /** The order as the sponsor's and BTG's screens read it: the row, the sellers' answers, and what it is waiting on. */
 async function views(rows: Row[]) {
-  const [approvals, sellers] = await Promise.all([approvalsForOrders(rows.map((r) => r.id)), lineSellers(rows)]);
+  const [approvals, sellers, refunds] = await Promise.all([approvalsForOrders(rows.map((r) => r.id)), lineSellers(rows), refundsForOrders(prisma, rows.map((r) => r.id))]);
   return rows.map((r) => {
     const mine = approvals.get(r.id) ?? [];
-    return { ...r, lines: r.lines.map((l) => ({ ...l, seller: sellers(l) })), sellerApprovals: mine, ...waitingOn(r, mine) };
+    /* 2S4-BE-13 — each refund of the order: on its way, or sent on a date. Never how, or any number. */
+    return { ...r, lines: r.lines.map((l) => ({ ...l, seller: sellers(l) })), sellerApprovals: mine, ...waitingOn(r, mine), refunds: refunds.get(r.id) ?? [] };
   });
 }
 
@@ -578,16 +581,24 @@ export async function moveOrderAsSystem(tx: Prisma.TransactionClient, orderId: s
  * 2S4-BE-07 — an order move made inside another domain's transaction on a
  * person's word (BTG refunding the last line a sponsor reported a problem
  * with). The caller has already loaded the order's line through its own scope.
+ * 2S4-BE-12/-13 — a refund names what started it (`refund`): the last live
+ * line's cancellation or problem, recorded as that line's refund.
  */
-export async function moveOrderIn(tx: Prisma.TransactionClient, actor: AuditActor & { tenantId: string }, orderId: string, to: MarketplaceOrderState, now = new Date()) {
+export async function moveOrderIn(tx: Prisma.TransactionClient, actor: AuditActor & { tenantId: string }, orderId: string, to: MarketplaceOrderState, now = new Date(), refund?: RefundContext) {
   const order = await tx.marketplaceOrder.findUniqueOrThrow({
     /* tenant-scope: the order of a delivery row the caller loaded through whereFor(orderDelivery, approve). */
     where: { id: orderId }, select: SELECT,
   });
-  return moveIn(tx, actor, order, to, now, {});
+  return moveIn(tx, actor, order, to, now, {}, refund);
 }
 
-async function moveIn(tx: Prisma.TransactionClient, actor: AuditActor & { tenantId: string }, order: Row, to: MarketplaceOrderState, now: Date, extra: Prisma.MarketplaceOrderUpdateManyMutationInput) {
+/** A refund with nothing else said is BTG refunding the whole order (the transition). */
+const BTG_REFUND: RefundContext = { cause: "BTG_REFUNDED_ORDER", lineId: null, cancellation: false };
+
+async function moveIn(
+  tx: Prisma.TransactionClient, actor: AuditActor & { tenantId: string }, order: Row, to: MarketplaceOrderState, now: Date,
+  extra: Prisma.MarketplaceOrderUpdateManyMutationInput, refund: RefundContext = BTG_REFUND,
+) {
   const from = order.state as MarketplaceOrderState;
   if (!canTransitionMarketplaceOrder(from, to)) throw new IllegalMarketplaceOrderTransitionError(from, to);
   /* Claimed on the state it was read in (see CONCURRENCY above): an order
@@ -598,8 +609,9 @@ async function moveIn(tx: Prisma.TransactionClient, actor: AuditActor & { tenant
     /* 2S4-BE-10 — the payment window opens: reminders after 1 and 2 days, cancelled at 3. */
     ...(to === "AWAITING_PAYMENT" ? { awaitingPaymentAt: now, paymentDueAt: new Date(now.getTime() + PAYMENT_WINDOW_DAYS * DAY), paymentRemindersSent: 0 } : {}),
     ...(to === "PAID" ? { paidAt: now } : {}),
-    /* 2S4-BE-09 — a refund stops the sponsor's limit rising, from this moment. */
-    ...(to === "REFUNDED" ? { refundedAt: now } : {}),
+    /* 2S4-BE-09 — a refund stops the sponsor's limit rising, from this moment —
+       2S4-BE-12: unless it is a cancellation's, which nobody is at fault for. */
+    ...(to === "REFUNDED" ? { refundedAt: now, refundCause: orderRefundCause(refund) } : {}),
     ...extra,
   });
   /* 2S4-BE-09 — an order that ends while its sellers are still asked closes their questions. */
@@ -613,10 +625,12 @@ async function moveIn(tx: Prisma.TransactionClient, actor: AuditActor & { tenant
   await followOrder(tx, actor, order.id, to, now);
   if (RELEASES.has(to)) {
     /* 2S5-BE-05 — a payout in progress claims this order's money: it is sent
-       back (or fails) before the order can be cancelled or refunded. */
+       back (or fails) before the order can be cancelled or refunded.
+       2S5-BE-07 — so does a failed one the system will send again (a retry
+       scheduled, or waiting for the payee's account). */
     const claimed = await tx.payoutLine.findFirst({
       /* tenant-scope: payout lines naming this order, loaded by the caller through its own scope. */
-      where: { orderId: order.id, payout: { state: { in: ["REQUESTED", "APPROVED", "SENDING"] } } }, select: { id: true },
+      where: { orderId: order.id, payout: claimsMoney }, select: { id: true },
     });
     if (claimed) throw new MarketplaceOrderError("A payout covering this order is in progress — it has to be sent back or finish before the order can be cancelled or refunded.");
     await tx.inventoryCommitment.updateMany({
@@ -630,8 +644,11 @@ async function moveIn(tx: Prisma.TransactionClient, actor: AuditActor & { tenant
   if (to === "PAID") await markOrderPaid(tx, order.id);
   if (to === "CLOSED") await releaseReserve(tx, order.id);
   await audit(tx, actor, `marketplaceOrder.${to.toLowerCase()}` as `${string}.${string}`, "MarketplaceOrder", order.id, {
-    before: { state: from }, after: { state: to, ...("cancelReason" in extra ? { cancelReason: extra.cancelReason } : {}) },
+    before: { state: from },
+    after: { state: to, ...("cancelReason" in extra ? { cancelReason: extra.cancelReason } : {}), ...(to === "REFUNDED" ? { refundCause: orderRefundCause(refund), refundStartedBy: refund.cause } : {}) },
   });
+  /* 2S4-BE-13 — the money still held goes back: one row on Finance's "Refunds to send" list (none if it was never paid). */
+  if (to === "REFUNDED") await recordRefund(tx, actor, order.id, refund, { whole: true }, now);
   /* Zoho follows the order once it has been contracted (its Deal exists from approval on). */
   if (updated.contractedAt) await enqueue(tx, actor.tenantId, "zoho.pushMarketplaceOrder", { orderId: order.id });
   return updated;

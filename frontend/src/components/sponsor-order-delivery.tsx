@@ -6,9 +6,11 @@ import { useRouter } from "next/navigation";
 import { answerSellerReplyAction, confirmDeliveryAction, deliveryProofAction, reportProblemAction } from "@/app/(app)/sponsor/orders/[id]/delivery-actions";
 import { DeadlineChip } from "@/components/order-bits";
 import { Badge } from "@/components/ui";
+import { sponsorCancelView } from "@/lib/cancellations-live";
 import { ANSWER_WINDOW_HOURS, answerForSponsor, deadline, sponsorIssueStatus, type ApiIssue } from "@/lib/order-automation-live";
 import { deliveryBadge, deliveryNote, stamp, timeLeft, type ApiDeliveryLine } from "@/lib/sponsor-delivery-live";
 import { DialogError, NoteField, OrderDialog, btn } from "./order-dialog";
+import { SponsorCancelControls } from "./sponsor-order-cancel";
 import { useDialogFocus } from "./use-dialog-focus";
 
 /* --------------------------------------------------------------------------
@@ -25,6 +27,13 @@ import { useDialogFocus } from "./use-dialog-focus";
    to the seller first; their answer shows here with the sponsor's 72 hours,
    and Accept / Reject post through answerSellerReplyAction
    (POST /deliveries/:lineId/problem-answer). Rejecting sends it to BTG.
+
+   2S4-FE-06 (OrderCancellations.dc.html, CX-1 … CX-5b): a line still waiting
+   to be delivered can be cancelled — free until 3 days before its first
+   date, after that only if the seller agrees (SponsorCancelControls →
+   POST /deliveries/:lineId/cancel). Each line then says how it was
+   cancelled, where a request stands (the seller's deadline, then BTG), and
+   its refund: on its way, or sent on a date — never how, nor a reference.
    -------------------------------------------------------------------------- */
 
 const primary =
@@ -63,8 +72,11 @@ function DeliveryLine({ orderId, line: l, canWrite, clock, refundCents }: { orde
   const [reporting, setReporting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pending, start] = useTransition();
-  const b = deliveryBadge(l);
-  const note = deliveryNote(l);
+  /* 2S4-FE-06 — a cancellation's words, where it has any, come first. */
+  const cv = sponsorCancelView(l, clock);
+  const b = cv.badge ?? deliveryBadge(l);
+  const note = cv.note ?? (cv.owns ? null : deliveryNote(l));
+  const asked = l.issue?.kind === "CANCELLATION" && l.issue.open;
   const left = l.state === "DELIVERED" && l.confirmDueAt ? timeLeft(l.confirmDueAt, clock) : null;
   const open = l.state === "DELIVERED" && l.canAnswer && left !== null;
 
@@ -77,7 +89,7 @@ function DeliveryLine({ orderId, line: l, canWrite, clock, refundCents }: { orde
     });
 
   return (
-    <li className={`rounded-xl border bg-surface px-4 py-3 ${l.state === "DELIVERED" ? "border-warn/40" : l.state === "PROBLEM" ? "border-danger/40" : "border-line"}`}>
+    <li className={`rounded-xl border bg-surface px-4 py-3 ${l.state === "DELIVERED" || asked ? "border-warn/40" : l.state === "PROBLEM" ? "border-danger/40" : "border-line"}`}>
       <div className="flex flex-wrap items-start justify-between gap-2">
         <p className="min-w-0 text-sm font-semibold">{l.title}</p>
         <Badge tone={b.tone}>
@@ -117,6 +129,18 @@ function DeliveryLine({ orderId, line: l, canWrite, clock, refundCents }: { orde
       )}
 
       {note && <p className="mt-2 text-xs text-muted">{note}</p>}
+      {cv.owns && cv.chip && <div className="mt-2.5"><DeadlineChip d={cv.chip} /></div>}
+      {cv.quote && <p className="mt-2 rounded-lg border border-line bg-bg px-3.5 py-3 text-[13px] leading-relaxed">{cv.quote}</p>}
+      {cv.refund && (
+        <p className={`mt-2 inline-flex flex-wrap items-center gap-1.5 text-xs font-semibold ${cv.refund.tone === "accent" ? "text-accent" : "text-warn"}`}>
+          <span aria-hidden="true">{cv.refund.mark}</span>
+          {cv.refund.amount ? `${cv.refund.amount} · ` : ""}{cv.refund.label}
+        </p>
+      )}
+      {cv.action && l.cancellation && (
+        <SponsorCancelControls orderId={orderId} lineId={l.lineId} title={l.title} seller={l.seller} terms={l.cancellation} view={cv} canWrite={canWrite} clock={clock} />
+      )}
+      {cv.hint && <p className="mt-2 text-[11px] text-faint">{cv.hint}</p>}
 
       {open && (
         <div className="mt-3 space-y-2">

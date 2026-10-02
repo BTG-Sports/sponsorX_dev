@@ -48,6 +48,10 @@ describe.skipIf(!hasDatabase)("card payment and payouts over the API", { timeout
   const E = { tenant: "", property: "", riley: "", order: "", listing: "" };
   let server: ReturnType<ReturnType<typeof createApp>["listen"]>;
   let base = "";
+  /* 2S5-BE-06 — this file walks BTG's own approval: nothing is approved
+     automatically here (a $0 limit). The rule itself is
+     phase2-payout-automation.test.ts. */
+  const autoWas = env.PAYOUT_AUTO_APPROVE_LIMIT_CENTS;
 
   const call = async (method: string, path: string, clerk?: string, body?: unknown) => {
     const res = await fetch(`${base}/api/v1${path}`, {
@@ -91,6 +95,7 @@ describe.skipIf(!hasDatabase)("card payment and payouts over the API", { timeout
   }
 
   beforeAll(async () => {
+    (env as { PAYOUT_AUTO_APPROVE_LIMIT_CENTS: number }).PAYOUT_AUTO_APPROVE_LIMIT_CENTS = 0;
     await clean();
     await prisma.tenant.create({ data: { id: T, name: "Payouts BTG" } });
     await issueOrderTerms(prisma, T);
@@ -137,6 +142,7 @@ describe.skipIf(!hasDatabase)("card payment and payouts over the API", { timeout
   });
 
   afterAll(async () => {
+    (env as { PAYOUT_AUTO_APPROVE_LIMIT_CENTS: number }).PAYOUT_AUTO_APPROVE_LIMIT_CENTS = autoWas;
     server?.close();
     await clean();
   });

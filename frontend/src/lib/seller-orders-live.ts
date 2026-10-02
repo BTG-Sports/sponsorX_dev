@@ -25,6 +25,7 @@
    Pure: shapes, rules and the words the screens derive.
    -------------------------------------------------------------------------- */
 
+import { cancelMarkWhy, sellerCancelBadge, sellerCancelBanner, type SellerCancellation } from "@/lib/cancellations-live";
 import {
   ANSWER_WINDOW_HOURS, OVERDUE_HANDOVER_DAYS, answerQuote, datesText, dayOf, inWords, money, stamp,
   type ApiIssue, type ApiTimelineItem,
@@ -89,6 +90,11 @@ export type ApiSellerOrder = {
   canAnswerProblem?: boolean;
   /** GET /sales/:id only — the whole exchange, oldest first. */
   timeline?: ApiTimelineItem[];
+  /* 2S4-BE-12 — the sponsor asked to cancel (answer before the deadline), and
+     the seller's own cancelling: may they, their count in the last 90 days,
+     and how the line was cancelled. Optional: older reads and fixtures. */
+  canAnswerCancellation?: boolean;
+  cancellation?: SellerCancellation | null;
 };
 
 /** The line's total — what a refund of the whole line gives back. */
@@ -155,7 +161,12 @@ export function lineSummary(l: Pick<ApiSellerOrder["line"], "quantity" | "unit" 
 export type Tone = "neutral" | "primary" | "accent" | "danger" | "warn";
 
 /** The status pill — in words and a mark, never colour alone. A problem says whose turn it is (2S4-BE-11). */
-export function orderBadge(o: Pick<ApiSellerOrder, "state" | "sponsor"> & Partial<Pick<ApiSellerOrder, "issue" | "redeliverOn">>): { label: string; tone: Tone; mark: string } {
+export function orderBadge(
+  o: Pick<ApiSellerOrder, "state" | "sponsor"> & Partial<Pick<ApiSellerOrder, "issue" | "redeliverOn" | "cancellation" | "canAnswerCancellation">>,
+): { label: string; tone: Tone; mark: string } {
+  /* 2S4-FE-06 — a request to cancel, or a cancelled line, says so first. */
+  const cancel = sellerCancelBadge(o);
+  if (cancel) return cancel;
   switch (o.state) {
     case "UNPAID": return { label: "Waiting for payment", tone: "neutral", mark: "○" };
     case "IN_DELIVERY":
@@ -243,6 +254,8 @@ function problemBanner(o: ApiSellerOrder, now: Date): SellerBanner | null {
 /** The banner above a line once something has happened to it. */
 export function orderBanner(o: ApiSellerOrder, now: Date = new Date()): SellerBanner | null {
   const s = o.sponsor.name;
+  /* 2S4-FE-06 — a cancellation has its own box (with Agree / Keep while it is the seller's turn). */
+  if (sellerCancelBanner(o, lineTotalCents(o), now)) return null;
   const p = problemBanner(o, now);
   if (p || o.state === "PROBLEM") return p;
   if (o.state === "DELIVERED" && o.markedAt) {
@@ -283,10 +296,18 @@ export function orderBanner(o: ApiSellerOrder, now: Date = new Date()): SellerBa
 }
 
 /** Whether "Mark delivered" applies to this line, and the reason beside it. */
-export function markControl(o: Pick<ApiSellerOrder, "state"> & Partial<Pick<ApiSellerOrder, "issue">>): { applies: boolean; why: string } {
+export function markControl(
+  o: Pick<ApiSellerOrder, "state"> & Partial<Pick<ApiSellerOrder, "issue" | "sponsor" | "canMarkDelivered" | "canAnswerCancellation">>,
+): { applies: boolean; why: string } {
   switch (o.state) {
     case "UNPAID": return { applies: false, why: "You can mark it delivered once it’s paid" };
-    case "IN_DELIVERY": return { applies: true, why: "Add a short note on what you delivered" };
+    case "IN_DELIVERY": {
+      /* 2S4-BE-12 — not while the sponsor's request to cancel is open. */
+      const asked = cancelMarkWhy({ state: o.state, sponsor: o.sponsor ?? { name: "the sponsor" }, issue: o.issue, canAnswerCancellation: o.canAnswerCancellation });
+      if (asked) return { applies: false, why: asked };
+      if (o.canMarkDelivered === false) return { applies: false, why: "It can’t be marked delivered just now" };
+      return { applies: true, why: "Add a short note on what you delivered" };
+    }
     case "DELIVERED": return { applies: false, why: "Already marked delivered" };
     case "CONFIRMED": return { applies: false, why: "Delivered and confirmed" };
     case "PROBLEM":
@@ -314,7 +335,7 @@ export function trackSteps(o: ApiSellerOrder): TrackStep[] {
   const problemNote = stage === "SPONSOR_TO_ANSWER" ? `Waiting for ${o.sponsor.name}` : stage === "ESCALATED" ? "BTG is deciding" : "Problem reported";
   const currentNote = {
     UNPAID: "Not paid yet", IN_DELIVERY: o.redeliverOn ? `Redelivery ${dayOf(o.redeliverOn)}` : "Now", DELIVERED: "Waiting", PROBLEM: problemNote, CONFIRMED: "",
-    REFUNDED: "Refunded", CANCELLED: "Cancelled",
+    REFUNDED: o.cancellation?.cancelled ? "Cancelled" : "Refunded", CANCELLED: "Cancelled",
   }[o.state];
   const waiting = o.state === "PROBLEM" && (stage === "SPONSOR_TO_ANSWER" || stage === "ESCALATED");
   const tone = waiting ? "warn" : o.state === "PROBLEM" || o.state === "REFUNDED" ? "danger" : o.state === "UNPAID" || o.state === "CANCELLED" ? "warn" : "primary";

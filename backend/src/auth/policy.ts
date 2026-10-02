@@ -166,6 +166,7 @@ export type Resource =
   | "restrictedWord"
   | "orderDelivery"
   | "orderSellerApproval"
+  | "refundDue"
   | "teamInvitation"
   | "accountClosure"
   | "guardianHandoff"
@@ -243,6 +244,7 @@ export const RESOURCES: readonly Resource[] = [
   "restrictedWord",
   "orderDelivery",
   "orderSellerApproval",
+  "refundDue",
   "teamInvitation",
   "accountClosure",
   "guardianHandoff",
@@ -981,6 +983,17 @@ export const POLICY: Record<Resource, RolePolicy> = {
     ATHLETE: rwa("own", "own"),
     SPONSOR_ADMIN: rwa("own-sponsor"),
     SPONSOR_ANALYST: rwa("own-sponsor"),
+  },
+  /* 2S4-BE-13 (matrix §25) — refunds to send. Money owed back to a sponsor,
+     one row per refund of a paid order, in the order's books. BTG admin and
+     Finance read the "Refunds to send" list and mark a refund sent by hand
+     (write); nobody approves. Nobody else reaches the list: the sponsor
+     reads each refund's state on its own order (marketplaceOrder /
+     orderDelivery), never the list, a method or a reference. */
+  refundDue: {
+    SUPER_ADMIN: rwa("any", "any"),
+    BTG_ADMIN: rwa("own-tenant", "own-tenant"),
+    FINANCE: rwa("own-tenant", "own-tenant"),
   },
   /* 2S2-BE-05 (matrix §22) — a team invites an athlete already on SponsorX.
      The team's manager sends and withdraws; the athlete accepts or declines

@@ -105,6 +105,16 @@ with the first two steps only when needed (2S4-BE-09, 2026-10-02).
 
 **Delivery problems** (2S4-BE-11) don't change the order's state; they live on the line. The seller answers within 72 hours and the sponsor within 72 hours. BTG decides only an escalated problem. A manual `FULFILLED` is refused while any line is unsettled.
 
+**Cancelling a paid line** (2S4-BE-12, 2026-10-02) also lives on the line, and only a line still `IN_DELIVERY` (paid, not marked delivered, nothing open on it):
+- the **sponsor** cancels for free until the start of the line's first date (UTC) less 3 days — the line goes `IN_DELIVERY → REFUNDED` at once;
+- after that, until the first date starts, the sponsor **asks the seller**: a `CANCELLATION` issue, `SELLER_TO_ANSWER` until the first date's start (the earlier of 72 hours or then). `ACCEPT` → `SETTLED`, the line `REFUNDED`. `DECLINE` (a reason) → `ESCALATED` (`SELLER_DECLINED_CANCELLATION`); no answer → `ESCALATED` (`SELLER_DIDNT_ANSWER_CANCELLATION`, the sweep). BTG decides: `REFUND` (`RESOLVED`/`REFUNDED`, the line `REFUNDED`) or `KEEP` (`RESOLVED`/`KEPT`, the line stays `IN_DELIVERY`). While it is open the line can't be marked delivered and the overdue steps wait;
+- on or after the first date the sponsor can't cancel — it is Report a problem once delivered;
+- the **seller** cancels a line it can't deliver any time while it is `IN_DELIVERY`, an overdue hand-over closing with it (`CLOSED`/`SELLER_CANCELLED`). Two seller cancellations in 90 days and its new listings are held for BTG.
+
+A cancelled line is refunded through the line refund; when it is the last live line the order goes `PAID | IN_DELIVERY → REFUNDED` (`refundCause = CANCELLATION`). A cancellation refund doesn't stop the sponsor's spending limit rising; a problem refund (`PROBLEM`) or BTG's refund of the order (`BTG`) does.
+
+**Refunds to send** (2S4-BE-13): every refund of a paid order writes one `RefundDue`, `OPEN → SENT`. A card the provider can refund is sent at once (the stand-in on staging); otherwise Finance marks it sent with the method, a reference and the day. `SENT` is terminal.
+
 **Illegal, named:**
 - `PENDING_SELLER` or `PENDING_APPROVAL → AWAITING_PAYMENT`: no payment before the order is approved.
 - `PAID → CANCELLED`: after payment, the way out is a refund.
@@ -131,6 +141,64 @@ event id.
 - `ELIGIBLE → PAID`, which skips approval.
 - Any move to `PAID` while the order has an open dispute.
 - `HELD → PAID`: a held payout goes back to `REQUESTED` first.
+
+### As built (2S5-BE-05 … -08, 2026-10-02)
+
+The payout row's states are `REQUESTED → APPROVED → SENDING → PAID`, with
+`REJECTED` (BTG sends it back) and `FAILED` (the provider couldn't send it).
+"Eligible" and "held" are not row states: eligibility is the payee's balance
+(paid, delivered, past its holding period), and a hold is the payee's
+(`payout-holds.ts`) — a held payee's payout is never requested, approved or
+sent.
+
+**Approved automatically (2S5-BE-06).** `REQUESTED → APPROVED` is made by the
+system, in the request's own transaction, when every check passes, the
+amount is under $2,000, the payout account did not change in the last 7 days,
+and the payee's automatic approvals in the last 7 days (an athlete's Phase 1
+earnings included), counting this one, stay under $5,000. It is recorded as
+`decidedBy: "system"`, `approvedAutomatically: true`, and audited
+`payout.autoApprove` with the checks. Otherwise the payout stays `REQUESTED`
+for BTG with its `reviewReasons` in words. A first payout gets no special
+review. Requests, automatic approvals and payout-account changes for one
+payee are serialised by a per-payee lock, so two at once cannot both pass the
+7-day cap.
+
+**Failed, and who it waits on (2S5-BE-07).** `SENDING → FAILED` carries a
+failure kind and `waitingOn`:
+
+| Kind | Waits on | Then |
+|---|---|---|
+| `TEMPORARY` | `SYSTEM_RETRY` | `FAILED → APPROVED` by the system ~1, 6 and 24 hours after each failure (`retryCount` 1–3, `nextRetryAt`); the failure after the third retry waits on `BTG` — "Couldn't be sent after 3 tries" |
+| `ACCOUNT` | `PAYEE_ACCOUNT` | the payee is emailed to fix their payout account; the provider's next `READY` for it moves `FAILED → APPROVED` once; failing again, it waits on `BTG` |
+| `OTHER` | `BTG` | BTG's retry |
+
+BTG's retry (`FAILED → APPROVED`) works whoever it waits on and resets the
+automatic count. A `FAILED` payout the system will send again keeps claiming
+its money (it can't be requested again, and its order can't be refunded under
+it); one left for `BTG` releases it, and BTG's retry is refused if the money
+has since been requested again. Every automatic retry is audited
+`payout.autoRetry` as the system and is conditional on the row, so a sweep
+run twice retries once; every provider step (`APPROVED → SENDING`,
+`SENDING → PAID | FAILED`) is conditional too, so a job delivered twice moves
+it once. With no provider connected nothing is sent, so nothing fails.
+
+**Illegal, as built:**
+- `REQUESTED → APPROVED` automatically for a payee on hold, at or over the
+  limit, after an account change within 7 days, or at the 7-day cap.
+- An automatic retry beyond the third, or a second automatic retry after the
+  payee fixed their account.
+- A payout sent twice: every move out of `APPROVED`, `SENDING` and `FAILED`
+  is conditional on the state it leaves.
+
+### Phase 1 earning (2S5-BE-08)
+
+`PENDING → ELIGIBLE` (the last deliverable verified) moves straight on to
+`ELIGIBLE → APPROVED_FOR_PAYOUT` as the system, in the same transaction, on
+the same rule (no payout-account check: Phase 1 money is paid outside
+SponsorX). Otherwise it stays `ELIGIBLE` with its reasons for Finance.
+`HELD` and `DISPUTED` earnings are never moved by the rule, nor is one
+Finance releases by hand. `APPROVED_FOR_PAYOUT → PAID` stays Finance's,
+with the transfer's reference.
 
 ## 7 · Dispute (`2S5-BE-03`)
 

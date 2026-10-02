@@ -8,8 +8,10 @@ import { ShopLineRow, ShopSteps } from "@/components/shop-bits";
 import { ShopCancelOrder } from "@/components/shop-checkout";
 import { SponsorOrderDelivery } from "@/components/sponsor-order-delivery";
 import { SponsorOrderStatus } from "@/components/sponsor-order-status";
-import { StatePill } from "@/components/order-bits";
+import { StatePill, StatusBox } from "@/components/order-bits";
+import { sellerCancelledBanner } from "@/lib/cancellations-live";
 import { sponsorBadge, sponsorStatus } from "@/lib/order-automation-live";
+import { refundWords } from "@/lib/refunds-live";
 import type { ApiOrderDeliveries } from "@/lib/sponsor-delivery-live";
 import {
   TEST_PROVIDER_BADGE,
@@ -53,6 +55,13 @@ import { requirePortalAccess } from "@/server/portal";
    sellerApprovals (2S4-BE-09 / -10). A reported problem's exchange — the
    seller's answer, Accept / Reject — is in SponsorOrderDelivery
    (POST /deliveries/:lineId/problem-answer, 2S4-BE-11).
+
+   2S4-FE-06 (OrderCancellations.dc.html, CX-1 … CX-5b) — cancelling a paid
+   line is in SponsorOrderDelivery (POST /deliveries/:lineId/cancel). Here:
+   the box on top when a seller cancelled a line (CX-5), and the Refunds
+   card — each refund of the order from GET /marketplace-orders/:id
+   `refunds`, on its way or sent on a date. Never how it was sent, nor any
+   reference: the API doesn't give the sponsor either.
 
    2S3-FE-03 — each line names who sells it (the line's `seller`: the team,
    or the independent athlete — such a line has no property).
@@ -117,6 +126,13 @@ export default async function OrderPage({
   const badge = sponsorBadge(o, pay.kind, now);
   /* While payment is due the status card carries the Stripe button; the side card then shows the status only. */
   const payInStatus = Boolean(status?.pay);
+  /* 2S4-FE-06 — a seller cancelled a line and its refund is on its way (CX-5). */
+  const sellerCancels = (deliveries?.lines ?? []).flatMap((l) => {
+    const b = sellerCancelledBanner(l);
+    return b ? [{ id: l.lineId, ...b }] : [];
+  });
+  const refunds = o.refunds ?? [];
+  const lineTitle = new Map(o.lines.map((l) => [l.id, l.title]));
 
   return (
     <div className="space-y-6">
@@ -160,6 +176,13 @@ export default async function OrderPage({
       )}
 
       {pay.banner && !(status && pay.kind === "due") && <PaymentBanner banner={pay.banner} kind={pay.kind} />}
+
+      {sellerCancels.map((b) => (
+        <div key={b.id} className="space-y-1.5">
+          <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-warn">{b.tag}</p>
+          <StatusBox tone="warn" title={b.title} quote={b.quote ?? undefined} />
+        </div>
+      ))}
 
       {o.decisionNotes && o.cancelReason !== "BTG_REJECTED" && (
         <Card>
@@ -208,6 +231,29 @@ export default async function OrderPage({
               <span className="text-lg font-semibold tabular-nums">{usd(o.totalCents)}</span>
             </div>
           </Card>
+          {refunds.length > 0 && (
+            <Card className="space-y-2">
+              <p className="text-[11px] uppercase tracking-wide text-muted">Refunds</p>
+              <ul className="space-y-2">
+                {refunds.map((r) => {
+                  const w = refundWords(r);
+                  return (
+                    <li key={r.id} className="flex flex-col gap-0.5 text-xs">
+                      <span className="flex items-baseline justify-between gap-3">
+                        <span className="min-w-0 text-muted">{r.lineId ? lineTitle.get(r.lineId) ?? "A line" : refunds.some((x) => x.lineId) ? "The rest of the order" : "The whole order"}</span>
+                        <span className="font-semibold tabular-nums">{usd(r.amountCents)}</span>
+                      </span>
+                      <span className={`font-semibold ${w.tone === "accent" ? "text-accent" : "text-warn"}`}>
+                        <span aria-hidden="true" className="mr-1">{w.mark}</span>
+                        {w.label}
+                      </span>
+                    </li>
+                  );
+                })}
+              </ul>
+              <p className="text-[11px] text-muted">Refunds go back the way you paid. SponsorX never sees bank or card details.</p>
+            </Card>
+          )}
           <OrderGateRecordCard order={o} />
           {pay.kind !== "none" && (
             <PaymentCard orderId={o.id} totalCents={payment?.amountCents ?? o.totalCents} pay={pay} payment={payment} canWrite={canWrite} ctaAbove={payInStatus} />

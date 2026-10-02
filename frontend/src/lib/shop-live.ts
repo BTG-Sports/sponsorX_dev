@@ -13,6 +13,7 @@
 
 import { BRAND_CATEGORIES, categoryLabel, type BrandCategory } from "@/lib/brand-categories";
 import type { ApiCheckout, ApiOrderAcceptance } from "@/lib/checkout-gate";
+import type { SponsorRefund } from "@/lib/refunds-live";
 
 /* ------------------------------------------------------------------ shapes */
 
@@ -171,6 +172,10 @@ export type ApiOrder = {
   waitingOn?: "SELLER" | "BTG" | "PAYMENT" | null;
   deadlineAt?: string | null;
   sellerApprovals?: { id: string; seller: { type: string; id: string; name: string }; lineIds: string[]; state: string; dueAt: string; decidedAt: string | null; reason: string | null }[];
+  /* 2S4-BE-13 — each refund of the order, on its way or sent on a date (never how,
+     nor any reference), and why a whole-order refund happened. */
+  refunds?: SponsorRefund[];
+  refundCause?: "CANCELLATION" | "PROBLEM" | "BTG" | null;
 };
 
 /** What a server action hands back to its island. `reasons` is every

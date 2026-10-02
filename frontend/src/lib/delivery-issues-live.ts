@@ -61,7 +61,16 @@ export type ApiDeliveryIssue = {
   escalation?: { at: string; reason: EscalationReason; text: string } | null;
   canDecide?: boolean;
   timeline?: ApiTimelineItem[];
+  /** 2S4-BE-12 — what BTG may decide now: a request to cancel is REFUND or KEEP; a problem or an overdue line, CONFIRM or REFUND. */
+  decisions?: DeskDecision[];
 };
+
+export type DeskDecision = "CONFIRM" | "REFUND" | "KEEP";
+
+/** A sponsor's request to cancel, rather than a delivery problem (2S4-BE-12). */
+export function isCancellation(p: Pick<ApiDeliveryIssue, "issue" | "decisions">): boolean {
+  return p.issue?.kind === "CANCELLATION" || Boolean(p.decisions?.includes("KEEP"));
+}
 
 /** A problem the two sides settled, as the desk lists it. */
 export type ApiSettledIssue = ApiDeliveryIssue & { settlement: Settlement };
@@ -129,7 +138,7 @@ export function overdueBadge(o: Pick<ApiDeliveryIssue, "remindedAt">): { label: 
 
 /** How the desk works now (2S4-BE-11), in its own words. */
 export const DESK_RULE =
-  "Sellers and sponsors settle problems between them. You only see the ones they couldn’t settle, or where someone didn’t answer.";
+  "Sellers and sponsors settle problems and requests to cancel between them. You only see the ones they couldn’t settle, or where someone didn’t answer.";
 
 /** The 24-hour rule, in the words the desk uses. */
 export const CONFIRM_RULE =

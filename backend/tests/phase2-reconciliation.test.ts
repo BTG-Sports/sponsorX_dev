@@ -65,6 +65,7 @@ describe.skipIf(!hasDatabase)("2S8-QA-03 · a full marketplace cycle reconciles 
   const O: Record<"o1" | "o2" | "o3" | "o4" | "o5", string> = { o1: "", o2: "", o3: "", o4: "", o5: "" };
   const refundedCents = { line: 0, order: 0 };
   let feeWas = 0;
+  let autoWas = 0;
   let server: ReturnType<ReturnType<typeof createApp>["listen"]>;
   let base = "";
 
@@ -172,6 +173,10 @@ describe.skipIf(!hasDatabase)("2S8-QA-03 · a full marketplace cycle reconciles 
   beforeAll(async () => {
     await clean();
     feeWas = env.MARKETPLACE_BUYER_FEE_BPS;
+    /* 2S5-BE-06 — this cycle is BTG approving (and sending back) every payout
+       by hand, so nothing here is approved automatically: a $0 limit. */
+    autoWas = env.PAYOUT_AUTO_APPROVE_LIMIT_CENTS;
+    (env as { PAYOUT_AUTO_APPROVE_LIMIT_CENTS: number }).PAYOUT_AUTO_APPROVE_LIMIT_CENTS = 0;
     (env as { MARKETPLACE_BUYER_FEE_BPS: number }).MARKETPLACE_BUYER_FEE_BPS = BUYER_FEE_BPS;
     await prisma.tenant.create({ data: { id: T, name: "Reconciliation BTG" } });
     await issueOrderTerms(prisma, T);
@@ -213,6 +218,7 @@ describe.skipIf(!hasDatabase)("2S8-QA-03 · a full marketplace cycle reconciles 
 
   afterAll(async () => {
     (env as { MARKETPLACE_BUYER_FEE_BPS: number }).MARKETPLACE_BUYER_FEE_BPS = feeWas;
+    (env as { PAYOUT_AUTO_APPROVE_LIMIT_CENTS: number }).PAYOUT_AUTO_APPROVE_LIMIT_CENTS = autoWas;
     server?.close();
     await clean();
   });
