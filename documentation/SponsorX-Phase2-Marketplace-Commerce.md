@@ -5,7 +5,7 @@
 | | |
 |---|---|
 | **Goal** | Turn SponsorX from BTG-only operations into a multi-tenant marketplace. External athletes, teams, programs, events and media properties onboard, publish inventory, fulfil deliverables and get paid. |
-| **Tasks** | 113 · 409 person-days |
+| **Tasks** | 115 · 411 person-days |
 | **Blueprint timeline** | 16–20 weeks |
 | **Balanced budget** | $80K–$120K |
 | **Depends on** | Phase 1 auth/RBAC, sponsor/property/inventory/campaign/reward models, Zoho integration, core analytics |
@@ -1377,6 +1377,34 @@ This task finds which suite or sweep touches another suite's rows, and isolates 
 
 - **Done when:** Five consecutive full backend runs pass with only known, tracked failures; the interfering suite or sweep is identified and isolated
 - **Reference:** seen 2026-10-01 and 2026-10-02
+
+### ⏸ `2S8-OPS-02` · Pin the database time zone to UTC
+
+**QA/OPS** · **1d** · **Ready**
+
+Timestamp columns hold UTC as timestamp-without-time-zone, but some SQL compares them with `now()` in the session's time zone:
+- `worker/jobs/expire-invitations.mts`;
+- the edition function in migration `20260925120000`.
+
+They are only correct when the database session runs in UTC. On the local dev database, which runs in Asia/Manila, they are 8 hours off.
+
+Two fixes:
+- pin the time zone (`ALTER DATABASE … SET timezone='UTC'`) on staging, production, docker-compose and CI;
+- make the two SQL sites use `now() AT TIME ZONE 'UTC'`, so they don't depend on the setting.
+
+- **Done when:** Every environment's database runs in UTC, and no SQL depends on the session time zone; a test running under a non-UTC session passes
+- **Reference:** found by 2S8-QA-04, 2026-10-02
+
+### ⏸ `2S8-QA-05` · Three robustness gaps found while isolating the suite
+
+**QA** · **1d** · **Ready**
+
+1. **Same-name applicants can collide.** Two applicants with the same display name at the same moment can collide on the athlete slug: `uniqueSlug` checks first and then inserts. One of them gets a 500.
+2. **The walkthrough seed can fail on a non-empty database.** `seed-personas.mts` only skips rows whose id already exists, so a real applicant who already took the slug `riley-carter` would make it fail.
+3. **The payee's payout page hides money owed back.** It rounds each order's figure up to zero, so a payee who owes money after a refund that follows a payout doesn't see it.
+
+- **Done when:** Same-name applicants never error; the seed runs on a non-empty database; a negative balance after a refund shows on the payee's payout page
+- **Reference:** found by 2S8-QA-04, 2026-10-02
 ### ⏸ `2S8-SEC-01` · Cross-tenant isolation tests for external parties
 
 **Order** 61 · **SEC** · **Where:** Code · **5d** · **Blocked**
