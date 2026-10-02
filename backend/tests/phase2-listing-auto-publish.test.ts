@@ -123,7 +123,8 @@ describe.skipIf(!hasDatabase)("2S3-BE-06 · listings publish automatically; BTG 
     const p = await prisma.property.findUniqueOrThrow({ where: { id: approved.propertyId! }, select: { id: true, tenantId: true } });
     Object.assign(E, { tenant: p.tenantId, property: p.id });
 
-    server = createApp().listen(0);
+    server = createApp().listen(0, "127.0.0.1");
+    await new Promise((r) => server.once("listening", r)); // a host makes the bind async
     base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
     await call("GET", "/me", "lap_mgr");
     const morgan = await call("POST", "/team/roster", "lap_mgr", { legalName: "Morgan Diaz", displayName: "MORGAN.DIAZ", email: "lap_morgan@lap-test.invalid", sport: "Soccer", ageBand: "18_PLUS", teamShareBps: 2000 });
@@ -267,10 +268,12 @@ describe.skipIf(!hasDatabase)("2S3-BE-06 · listings publish automatically; BTG 
         expect(sub.json).toMatchObject({ state: "PENDING_APPROVAL", hold: { restrictedWords: [], accountCheck: true } });
         expect(sub.text).not.toMatch(/Business registration|Organisation flagged/);
         expect((await call("GET", `/listings/${id}`, "lap_admin")).json.reviewReasons).toEqual(["Organisation flagged: Document missing after an update: Business registration"]);
+        /* Both emails are written in one transaction with the same createdAt — find each by template, never by position. */
         const told = await mails(about(id, "Larks scarf giveaway"));
-        expect(told[0]).toMatchObject({ template: "listing.held", data: { words: "", accountCheck: "yes" } });
-        expect(JSON.stringify(told[0])).not.toMatch(/Business registration/);
-        expect(told[1]).toMatchObject({ template: "listing.heldForBtg", data: { reasons: "• Organisation flagged: Document missing after an update: Business registration" } });
+        const toSeller = told.find((m) => m.template === "listing.held");
+        expect(toSeller).toMatchObject({ data: { words: "", accountCheck: "yes" } });
+        expect(JSON.stringify(toSeller)).not.toMatch(/Business registration/);
+        expect(told.find((m) => m.template === "listing.heldForBtg")).toMatchObject({ data: { reasons: "• Organisation flagged: Document missing after an update: Business registration" } });
       } finally {
         await prisma.propertyOnboarding.update({ where: { id: "lap_onb" }, data: { flags: [], flaggedAt: null } });
       }

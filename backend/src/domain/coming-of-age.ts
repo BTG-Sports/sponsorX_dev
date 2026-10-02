@@ -219,8 +219,11 @@ export async function rerunComingOfAgeIn(tx: Tx, tenantId: string, athleteId: st
   return "cancelled";
 }
 
-/** Start, remind, terminate — for every athlete in every tenant. Idempotent; the worker runs it hourly. */
-export async function sweepComingOfAge(now = new Date()) {
+/** Start, remind, terminate — for every athlete in every tenant. Idempotent; the worker runs it hourly.
+ *  `opts.tenantIds` narrows it to some tenants, for a test that moves the clock: run platform-wide
+ *  with a future `now`, it started, reminded and TERMINATED other suites' athletes (2S8-QA-04). */
+export async function sweepComingOfAge(now = new Date(), opts: { tenantIds?: string[] } = {}) {
+  const books = opts.tenantIds ? { tenantId: { in: opts.tenantIds } } : {};
   let started = 0;
   let reminded = 0;
   let terminated = 0;
@@ -231,7 +234,7 @@ export async function sweepComingOfAge(now = new Date()) {
   const candidates = await prisma.athlete.findMany({
     /* tenant-scope: the worker's sweep runs across every tenant; each write below stays in the athlete's own tenant. */
     where: {
-      guardianId: { not: null }, birthDate: { not: null, lte: floor }, comingOfAgeStartedAt: null,
+      ...books, guardianId: { not: null }, birthDate: { not: null, lte: floor }, comingOfAgeStartedAt: null,
       comingOfAgeCompletedAt: null, comingOfAgeTerminatedAt: null, state: { in: ["APPROVED", "ACTIVE", "SUSPENDED"] },
     },
     select: SELECT, take: 500,
@@ -242,7 +245,7 @@ export async function sweepComingOfAge(now = new Date()) {
   }
   const open = await prisma.athlete.findMany({
     /* tenant-scope: the worker's sweep, across every tenant; each write stays in the athlete's own tenant. */
-    where: { comingOfAgeStartedAt: { not: null }, comingOfAgeCompletedAt: null, comingOfAgeTerminatedAt: null },
+    where: { ...books, comingOfAgeStartedAt: { not: null }, comingOfAgeCompletedAt: null, comingOfAgeTerminatedAt: null },
     select: SELECT, take: 2000,
   });
   for (const a of open) {

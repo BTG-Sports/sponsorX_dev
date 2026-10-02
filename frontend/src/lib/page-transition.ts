@@ -17,10 +17,14 @@
    points under `evenodd`.
    -------------------------------------------------------------------------- */
 
-/** Route prefixes of the public site — the (home) and (public) route groups.
- *  A navigation gets the transition only when both ends are on this list;
- *  sign-in, the portals and the fan QR page keep plain navigation. */
+/** Route prefixes of the public site — the (home) and (public) route groups,
+ *  plus sign-in (/login, outside both groups but on the same stage since its
+ *  2026-10-02 redesign, so moving between it and the site plays the
+ *  transition both ways). A navigation gets the transition only when both
+ *  ends are on this list; the portals and the fan QR page keep plain
+ *  navigation, so signing in (/login → /portal) does too. */
 export const SITE_PREFIXES = [
+  "/login",
   "/packages",
   "/join",
   "/next",
@@ -39,6 +43,7 @@ export function isSitePath(pathname: string): boolean {
 
 /** The destination's name, shown large while the page loads. */
 const LABELS: ReadonlyArray<readonly [string, string]> = [
+  ["/login", "Login"],
   ["/packages", "For Sponsors"],
   ["/join", "For Athletes"],
   ["/next", "SponsorX NEXT"],

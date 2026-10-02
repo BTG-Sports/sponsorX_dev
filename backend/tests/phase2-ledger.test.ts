@@ -2,6 +2,7 @@ import { readdirSync, readFileSync } from "node:fs";
 import type { AddressInfo } from "node:net";
 import { fileURLToPath } from "node:url";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import { transitionBody } from "./support/order-payment";
 import { settleDeliveries } from "./support/delivery";
 
 /* --------------------------------------------------------------------------
@@ -169,7 +170,8 @@ describe.skipIf(!hasDatabase)("the money side over the API", { timeout: 60_000 }
     ] });
     Object.assign(E, await approveTeam("e", "Bowie Bulldogs LG").then((p) => ({ tenant: p.tenantId, property: p.id })));
     Object.assign(F, await approveTeam("f", "Laurel Lions LG").then((p) => ({ tenant: p.tenantId, property: p.id })));
-    server = createApp().listen(0);
+    server = createApp().listen(0, "127.0.0.1");
+    await new Promise((r) => server.once("listening", r)); // a host makes the bind async
     base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
     E.riley = (await call("POST", "/team/roster", "lg_mgr_e", { legalName: "Riley Chen", displayName: "RILEY", email: "lg_riley@lg-test.invalid", sport: "Basketball", ageBand: "18_PLUS", teamShareBps: 2000 })).json.id;
     await publish("banner", { title: "Courtside banner", kind: "SIGNAGE", priceCents: 120_000, quantity: 1 });
@@ -265,10 +267,10 @@ describe.skipIf(!hasDatabase)("the money side over the API", { timeout: 60_000 }
   describe("2S4-BE-04 / 2S5-BE-02 · booked at contract time, reconciled exactly", () => {
     it("the design's worked example, contracted: every figure frozen, every journal balanced", async () => {
       const o = await placed([{ key: "banner", quantity: 1, day: 10 }, { key: "clinic", quantity: 2, day: 11 }, { key: "shout", quantity: 3, day: 12 }]);
-      expect(o).toMatchObject({ state: "PENDING_APPROVAL", totalCents: 279_997 });
+      /* 2S4-BE-09 — within the sponsor's $5,000 limit: contracted (and booked) as it is placed, and waiting for payment. */
+      expect(o).toMatchObject({ state: "AWAITING_PAYMENT", totalCents: 279_997, decidedBy: "system" });
       orderId = o.id;
-      expect(await prisma.ledgerEntry.count({ where: { orderId } })).toBe(0); // nothing booked before contract
-      expect((await call("POST", `/marketplace-orders/${orderId}/decision`, "lg_admin", { decision: "APPROVE" })).json.state).toBe("APPROVED");
+      expect((await call("POST", `/marketplace-orders/${orderId}/decision`, "lg_admin", { decision: "APPROVE" })).status).toBe(409); // nothing for BTG to decide
 
       const fin = (await call("GET", `/marketplace-orders/${orderId}/financials`, "lg_finance")).json.lines;
       const byNet = new Map(fin.map((l: { netCents: number }) => [l.netCents, l]));
@@ -295,7 +297,7 @@ describe.skipIf(!hasDatabase)("the money side over the API", { timeout: 60_000 }
         currency: "USD", bookedRevenueCents: 151_093, reversedCents: 0, paidEarningsCents: 0, ledgerBalanceCents: 151_093,
         pendingEarnings: { awaitingSponsorPaymentCents: 135_675, availableCents: 0, reservedCents: 15_418, totalCents: 151_093 }, reconciles: true,
       });
-      for (const to of ["AWAITING_PAYMENT", "PAID"]) await call("POST", `/marketplace-orders/${orderId}/transition`, "lg_finance", { to });
+      expect((await call("POST", `/marketplace-orders/${orderId}/transition`, "lg_finance", transitionBody("PAID"))).json.state).toBe("PAID");
       expect((await dashboard()).pendingEarnings).toEqual({ awaitingSponsorPaymentCents: 0, availableCents: 135_675, reservedCents: 15_418, totalCents: 151_093 });
       for (const to of ["IN_DELIVERY", "FULFILLED", "CLOSED"]) {
         if (to === "FULFILLED") await settleDeliveries(prisma, orderId);
@@ -309,10 +311,10 @@ describe.skipIf(!hasDatabase)("the money side over the API", { timeout: 60_000 }
     });
 
     it("a refund reverses what was booked — and the dashboard still reconciles", async () => {
-      const small = await placed([{ key: "sticker", quantity: 2, day: 20 }]); // a second order under $1,000: policy approves it
-      expect(small.state).toBe("APPROVED");
+      const small = await placed([{ key: "sticker", quantity: 2, day: 20 }]); // within the limit: policy approves it
+      expect(small.state).toBe("AWAITING_PAYMENT");
       const booked = (await prisma.orderLineFinancials.findFirstOrThrow({ where: { orderId: small.id }, select: { availableCents: true, reserveCents: true } }));
-      for (const to of ["AWAITING_PAYMENT", "PAID", "REFUNDED"]) await call("POST", `/marketplace-orders/${small.id}/transition`, "lg_finance", { to });
+      for (const to of ["PAID", "REFUNDED"]) expect((await call("POST", `/marketplace-orders/${small.id}/transition`, "lg_finance", transitionBody(to))).json.state).toBe(to);
       const d = await dashboard();
       expect(d.bookedRevenueCents).toBe(151_093 + booked.availableCents + booked.reserveCents);
       expect(d.reversedCents).toBe(booked.availableCents + booked.reserveCents);

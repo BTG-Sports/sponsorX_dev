@@ -142,6 +142,7 @@ export type Resource =
   | "studentPoints"
   | "studentProspect"
   | "editionAsset"
+  | "editionArtwork"
   | "contentRight"
   | "rosterEntry"
   | "athleteClaim"
@@ -164,6 +165,7 @@ export type Resource =
   | "payoutAccount"
   | "restrictedWord"
   | "orderDelivery"
+  | "orderSellerApproval"
   | "teamInvitation"
   | "accountClosure"
   | "guardianHandoff"
@@ -217,6 +219,7 @@ export const RESOURCES: readonly Resource[] = [
   "studentPoints",
   "studentProspect",
   "editionAsset",
+  "editionArtwork",
   "contentRight",
   "rosterEntry",
   "athleteClaim",
@@ -239,6 +242,7 @@ export const RESOURCES: readonly Resource[] = [
   "payoutAccount",
   "restrictedWord",
   "orderDelivery",
+  "orderSellerApproval",
   "teamInvitation",
   "accountClosure",
   "guardianHandoff",
@@ -758,6 +762,21 @@ export const POLICY: Record<Resource, RolePolicy> = {
     ADVISOR: rwa("own-property"),
     STUDENT: rwa("own-property"),
   },
+  /* P9-BE-16 — a sold slot's ad artwork on the approval board (matrix §15.3,
+     added 2026-10-02). The same desk as deliverables: BTG_ADMIN and
+     CAMPAIGN_MGR run the BTG steps (`write`, tenant-wide); the BUYING
+     sponsor uploads its own artwork (`write`, own-campaign) and is the only
+     role that signs it off (`approve`, own-campaign) — no staff role holds
+     approve, so BTG cannot sign off for an advertiser. Same EditionAsset
+     rows as `editionAsset`; this resource is the reach through the slot's
+     campaign, which the sponsor needs and `editionAsset` does not give. */
+  editionArtwork: {
+    SUPER_ADMIN: rwa("any", "any"),
+    BTG_ADMIN: rwa("own-tenant", "own-tenant"),
+    CAMPAIGN_MGR: rwa("own-tenant", "own-tenant"),
+    SPONSOR_ADMIN: rwa("own-campaign", "own-campaign", "own-campaign"),
+    SPONSOR_ANALYST: rwa("own-campaign"),
+  },
   contentRight: {
     SUPER_ADMIN: rwa("any", "any", "any"),
     BTG_ADMIN: rwa("own-tenant", "own-tenant", "own-tenant"),
@@ -946,6 +965,21 @@ export const POLICY: Record<Resource, RolePolicy> = {
     PROPERTY_MGR: rwa("own-property", "own-property"),
     ATHLETE: rwa("own", "own"),
     SPONSOR_ADMIN: rwa("own-sponsor", "own-sponsor"),
+    SPONSOR_ANALYST: rwa("own-sponsor"),
+  },
+  /* 2S4-BE-09 (matrix §24) — a seller's answer to an order a listing of
+     theirs asks to approve. The seller — the team's manager (own-property)
+     or the independent athlete, or the guardian acting for a minor (own) —
+     reads and answers their own, in their own tenant: only the lines it
+     covers, never the order. The buying sponsor and BTG read it (to follow
+     the order); nobody else answers for the seller, BTG included. */
+  orderSellerApproval: {
+    SUPER_ADMIN: rwa("any"),
+    BTG_ADMIN: rwa("own-tenant"),
+    FINANCE: rwa("own-tenant"),
+    PROPERTY_MGR: rwa("own-property", "own-property"),
+    ATHLETE: rwa("own", "own"),
+    SPONSOR_ADMIN: rwa("own-sponsor"),
     SPONSOR_ANALYST: rwa("own-sponsor"),
   },
   /* 2S2-BE-05 (matrix §22) — a team invites an athlete already on SponsorX.

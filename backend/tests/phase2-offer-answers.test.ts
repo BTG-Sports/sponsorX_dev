@@ -123,7 +123,8 @@ describe.skipIf(!hasDatabase)("2S2-FE-03 · BTG answers a change request; drafts
       { id: "oan_guardian_user", tenantId: T, clerkId: "oan_guardian_user", email: "oan_guardian@oan-test.invalid", roles: ["GUARDIAN"], guardianId: "oan_guardian" },
       { id: "oan_x_admin", tenantId: X, clerkId: "oan_x_admin", email: "oan_x_admin@oan-test.invalid", roles: ["BTG_ADMIN"] },
     ] });
-    server = createApp().listen(0);
+    server = createApp().listen(0, "127.0.0.1");
+    await new Promise((r) => server.once("listening", r)); // a host makes the bind async
     base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
   });
 

@@ -71,7 +71,8 @@ describe.skipIf(!hasDatabase)("P9-FE-06 · the public student application, and w
       { id: "np_ed_selling", tenantId: T, publicationId: "np_pub", label: "Fall 2026", closeDate: new Date("2026-11-01"), publishTarget: new Date("2026-12-01"), thresholdCents: 100, state: "SELLING" },
     ] });
     await prisma.user.create({ data: { id: ADVISOR, tenantId: T, clerkId: ADVISOR, email: "np.advisor@np-test.invalid", roles: ["ADVISOR"], propertyId: SCHOOL.id } });
-    server = createApp().listen(0);
+    server = createApp().listen(0, "127.0.0.1");
+    await new Promise((r) => server.once("listening", r)); // a host makes the bind async
     base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
   });
 

@@ -1103,6 +1103,25 @@ reserved; they do not set a price or mark a slot sold. The sale is a
 **Rights are explicit and checked before publication** (principle 4), and an
 advisor explicitly does not make rights decisions. Read-only for both.
 
+#### `editionArtwork` *(added 2026-10-02, P9-BE-16)*
+| Role | Read | Write | Approve |
+|---|---|---|---|
+| `SUPER_ADMIN` | any | any | — |
+| `BTG_ADMIN` | own-tenant | own-tenant | — |
+| `CAMPAIGN_MGR` | own-tenant | own-tenant | — |
+| `SPONSOR_ADMIN` | own-campaign | own-campaign | own-campaign |
+| `SPONSOR_ANALYST` | own-campaign | — | — |
+
+A sold ad slot's artwork on the approval board — the same `EditionAsset` rows
+as `editionAsset`, reached through the slot's campaign. The desk is the
+deliverable board's: `BTG_ADMIN` and `CAMPAIGN_MGR` run BTG's steps (start
+review, send to the sponsor, ask for changes at BTG review) as a tenant-wide
+`write`. The **buying** sponsor uploads its own artwork (`write`) and is the
+only role that signs it off (`approve`) — no staff role holds `approve`, so BTG
+cannot approve an advertiser's ad for them, and another sponsor reaches nothing.
+`ADVISOR` and `STUDENT` keep their `editionAsset` read of their school's
+edition and gain nothing here.
+
 #### `revenueSplit`
 | Role | Read | Write | Approve |
 |---|---|---|---|
@@ -1345,12 +1364,21 @@ sponsors see different catalogues.
 | `SPONSOR_ADMIN` | own-sponsor | own-sponsor (place; cancel before payment) | — |
 | `SPONSOR_ANALYST` | own-sponsor | — | — |
 
-Approve is the gate. An order that policy holds, because it is $1,000 or
-more, the sponsor's first marketplace order, or bought from a listing that
-asks for approval, keeps its stock without contracting it until BTG approves.
-Rejecting it releases the stock. `APPROVED` is reached only by that decision,
-or by policy when there is no reason to hold the order, and never by a
-transition.
+Approve is the gate. An order above the sponsor's spending limit
+(2S4-BE-09, replacing the fixed $1,000 and first-order holds: $5,000 to
+start, then twice the sponsor's largest completed order up to $25,000; a
+refund or an upheld delivery problem stops it rising) keeps its stock without
+contracting it until BTG approves. Rejecting it releases the stock. An order
+within the limit is approved by policy. `APPROVED` is reached only by that
+decision, or by policy, and never by a transition; approval moves the order
+straight on to `AWAITING_PAYMENT` (2S4-BE-10). A listing that asks for
+approval asks its seller, not BTG (`orderSellerApproval`, §24).
+
+Write includes marking an order `PAID` by hand, BTG's fallback for a payment
+made another way, but only for `BTG_ADMIN` and `FINANCE` (a role check on top
+of the cell, so `SUPER_ADMIN` alone cannot): it needs the method, a reference
+and the date received, and is recorded on the order and audited (2S4-BE-10).
+Card payments and Zoho Books invoices marked paid are recorded by the system.
 
 ## 21 · Phase 2 · commission, the frozen breakdown, the ledger *(added 2026-09-28)*
 
@@ -1427,6 +1455,32 @@ One contracted order line as its sellers see it, and its delivery.
   `inventoryItem` and `listing` own-property scopes reach a roster athlete
   through the link itself, `propertyId` being the manager's own property,
   rather than through the team's tenant. The policy cells are unchanged.
+
+## 24 · Phase 2 · order approval and payment, automated *(added 2026-10-02)*
+
+### `orderSellerApproval` (2S4-BE-09)
+A seller's answer to an order a listing of theirs asks to approve.
+| Role | Read | Write | Approve |
+|---|---|---|---|
+| `SUPER_ADMIN` | any | — | — |
+| `BTG_ADMIN`, `FINANCE` | own-tenant (the order's books) | — | — |
+| `PROPERTY_MGR` | own-property (the team's) | own-property (accepts, declines) | — |
+| `ATHLETE` | own (the independent athlete's; a guardian acting for a minor holds this cell) | own (accepts, declines) | — |
+| `SPONSOR_ADMIN`, `SPONSOR_ANALYST` | own-sponsor (its orders' answers) | — | — |
+
+- **Only the seller answers.** The team's manager, or the independent athlete
+  (a minor's guardian answering for them, with the audit naming the
+  guardian). BTG cannot accept or decline for a seller. BTG and the sponsor
+  read the answer on the order.
+- **A seller never reads the order.** The approval names only the lines it
+  covers, and the seller reaches it in their own tenant, as with
+  `orderDelivery`.
+- **48 hours, then it declines.** A decline needs a reason the sponsor reads.
+  Silence declines (the worker's sweep), and either way the order is cancelled
+  and its stock released.
+- **The sponsor's spending limit is read through `sponsor`.** BTG staff with
+  a tenant-wide `sponsor` read see it, with its history
+  (`GET /sponsors/{id}/spending-limit`). No new cell.
 
 ## 14 · Known gaps
 

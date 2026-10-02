@@ -26,12 +26,13 @@ import { prisma } from "../db/client";
 import type { Actor } from "../auth/actor";
 import { assertAllowed, whereFor } from "../auth/scope";
 import { ForbiddenError } from "../auth/errors";
+import { ingestOrderInvoice } from "./order-payment";
 
 export class UnknownDealError extends Error {
   readonly status = 422;
   constructor(dealId: string) {
     super(
-      `No campaign carries Zoho deal ${dealId}. The invoice is kept in the ` +
+      `No campaign or marketplace order carries Zoho deal ${dealId}. The invoice is kept in the ` +
         `delivery log rather than attached to a guess — an invoice on the ` +
         `wrong campaign is worse than one that is visibly unattached.`,
     );
@@ -51,6 +52,8 @@ export type ZohoInvoicePayload = {
   issuedAt?: string | null;
   dueAt?: string | null;
   paidAt?: string | null;
+  /** 2S4-BE-10 — cents still owed, when Zoho sends it; 0 on a live invoice means paid. */
+  balance?: number | null;
 };
 
 /**
@@ -73,7 +76,7 @@ export function payloadHash(payload: ZohoInvoicePayload): string {
 }
 
 export type IngestOutcome =
-  | { applied: true; invoiceId: string; status: string }
+  | { applied: true; invoiceId: string; status: string; orderId?: string; orderPaid?: boolean; note?: string }
   | { applied: false; reason: string };
 
 /**
@@ -91,9 +94,18 @@ export async function ingestZohoInvoice(
     where: { zohoDealId: payload.dealId },
     select: { id: true, tenantId: true },
   });
-  if (!campaign) throw new UnknownDealError(payload.dealId);
-
   const hash = payloadHash(payload);
+  if (!campaign) {
+    /* 2S4-BE-10 — a marketplace order is a Deal too (2S7-INT-01). Its
+       invoice is mirrored on the order, and Zoho marking it paid pays the
+       order (order-payment.ts). */
+    const order = await tx.marketplaceOrder.findUnique({
+      /* tenant-scope: worker-side ingest; the order is resolved from the Zoho Deal it carries. */
+      where: { zohoDealId: payload.dealId }, select: { id: true, tenantId: true },
+    });
+    if (!order) throw new UnknownDealError(payload.dealId);
+    return ingestOrderInvoice(tx, order, payload, hash);
+  }
 
   const existing = await tx.campaignInvoice.findUnique({
     /* tenant-scope: worker-side ingest; resolved from the campaign that owns the Zoho deal, above. */

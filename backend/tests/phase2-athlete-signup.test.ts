@@ -213,7 +213,8 @@ describe.skipIf(!hasDatabase)("2S1-BE-09 / -10 / -12 · athletes and guardians a
       { id: "as_admin", tenantId: T, clerkId: "as_admin", email: "as_admin@as-test.invalid", roles: ["BTG_ADMIN"] },
       { id: "as_netmgr", tenantId: T, clerkId: "as_netmgr", email: "as_netmgr@as-test.invalid", roles: ["NETWORK_MGR"] },
     ] });
-    server = createApp().listen(0);
+    server = createApp().listen(0, "127.0.0.1");
+    await new Promise((r) => server.once("listening", r)); // a host makes the bind async
     base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
   });
   afterAll(async () => {
@@ -223,9 +224,13 @@ describe.skipIf(!hasDatabase)("2S1-BE-09 / -10 / -12 · athletes and guardians a
 
   /* ─────────────────────────── 2S1-BE-09 · adults ─────────────────────── */
 
+  /* Not "Riley Carter": the intake derives the slug from the name, so that
+     applicant took the global slug `riley-carter` — the one the walkthrough
+     seed (seed-personas.mts) inserts for its own Riley, failing pilot-school
+     with Athlete_slug_key whenever the two files overlapped (2S8-QA-04). */
   let riley: Applied;
   it("BE-09 · an adult with a confirmed email and a government ID is approved and can sign in, with no BTG step", async () => {
-    riley = await apply({ name: "Riley Carter", email: "Riley@AS-test.invalid", birthDate: yearsAgo(20) });
+    riley = await apply({ name: "Riley Ashford", email: "Riley@AS-test.invalid", birthDate: yearsAgo(20) });
     const st = await call("GET", `/applications/intake/status${q(riley.token)}`);
     expect(st.json).toMatchObject({ state: "SUBMITTED", minor: false, idKind: "GOVERNMENT_ID", missing: ["confirm your email", "upload your government ID"] });
     const confirmed = await confirmEmail(riley);
@@ -241,7 +246,7 @@ describe.skipIf(!hasDatabase)("2S1-BE-09 / -10 / -12 · athletes and guardians a
     expect(await mailTo("athlete.approved", riley.email)).toHaveLength(1);
     /* BTG's admins are emailed a New sign-ups link. */
     const btg = await mailTo("signup.newSignup", "as_admin@as-test.invalid");
-    expect(btg.find((m) => m.data.name === "Riley Carter")?.data).toMatchObject({ outcome: "was approved automatically", reviewUrl: expect.stringContaining(`/admin/new-signups/athletes/${riley.id}`) });
+    expect(btg.find((m) => m.data.name === "Riley Ashford")?.data).toMatchObject({ outcome: "was approved automatically", reviewUrl: expect.stringContaining(`/admin/new-signups/athletes/${riley.id}`) });
   });
 
   it("BE-09 · the application needs a date of birth before it can be approved", async () => {
@@ -254,13 +259,13 @@ describe.skipIf(!hasDatabase)("2S1-BE-09 / -10 / -12 · athletes and guardians a
 
   let dupe: Applied;
   it("BE-09 · a likely duplicate (same name and date of birth) goes to BTG's queue, BTG is emailed, and BTG approves it", async () => {
-    dupe = await apply({ name: "Riley Carter", email: "riley.two@as-test.invalid", birthDate: yearsAgo(20) });
+    dupe = await apply({ name: "Riley Ashford", email: "riley.two@as-test.invalid", birthDate: yearsAgo(20) });
     /* Same name, same date of birth as the approved Riley. */
     await prisma.athlete.update({ where: { id: dupe.id }, data: { birthDate: (await prisma.athlete.findUniqueOrThrow({ where: { id: riley.id }, select: { birthDate: true } })).birthDate } });
     await confirmEmail(dupe);
     const { status } = await uploadId(dupe);
     expect(status).toMatchObject({ approved: false, underReview: true, missing: [] });
-    expect(await athlete(dupe.id)).toMatchObject({ state: "SUBMITTED", reviewReasons: ["Likely duplicate athlete: same name and date of birth as Riley Carter"] });
+    expect(await athlete(dupe.id)).toMatchObject({ state: "SUBMITTED", reviewReasons: ["Likely duplicate athlete: same name and date of birth as Riley Ashford"] });
     const held = (await mailTo("signup.newSignup", "as_admin@as-test.invalid")).find((m) => m.data.outcome === "needs your review");
     expect(held?.data.reasons).toMatch(/same name and date of birth/);
     /* On the desk, under Needs review. */

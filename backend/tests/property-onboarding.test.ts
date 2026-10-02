@@ -131,7 +131,8 @@ describe.skipIf(!hasDatabase)("property onboarding over the API", async () => {
       { id: "po_reviewer", tenantId: T, clerkId: "po_reviewer", email: "r@po.invalid", roles: ["BTG_ADMIN"] },
       { id: "po_sponsor", tenantId: T, clerkId: "po_sponsor", email: "s@po.invalid", roles: ["SPONSOR_ADMIN"] },
     ] });
-    server = createApp().listen(0);
+    server = createApp().listen(0, "127.0.0.1");
+    await new Promise((r) => server.once("listening", r)); // a host makes the bind async
     base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
   });
 

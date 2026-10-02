@@ -246,7 +246,7 @@ export default async function MarketplaceOpsPage({ searchParams }: { searchParam
 
       <Card className="p-0">
         <div className="px-5 pt-4">
-          <SectionHeading title="Orders awaiting approval" hint="Held by policy — the reasons are the API's own. Open one to see its split and decide." />
+          <SectionHeading title="Orders awaiting approval" hint="Only orders above the sponsor's spending limit wait for BTG — the rest are approved on their own. Open one to see the limit and decide." />
         </div>
         {"forbidden" in orders ? (
           <Forbidden />

@@ -130,7 +130,8 @@ describe.skipIf(!hasDatabase)("2S3-BE-05 · an athlete with no team sells their 
     const p = await prisma.property.findUniqueOrThrow({ where: { id: approved.propertyId! }, select: { id: true, tenantId: true } });
     Object.assign(E, { tenant: p.tenantId, property: p.id });
 
-    server = createApp().listen(0);
+    server = createApp().listen(0, "127.0.0.1");
+    await new Promise((r) => server.once("listening", r)); // a host makes the bind async
     base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
     await call("GET", "/me", "ind_mgr");
     const riley = await call("POST", "/team/roster", "ind_mgr", { legalName: "Riley Carter", displayName: "RILEY.CARTER", email: "ind_riley@ind-test.invalid", sport: "Basketball", ageBand: "18_PLUS", teamShareBps: 2000 });
@@ -265,16 +266,17 @@ describe.skipIf(!hasDatabase)("2S3-BE-05 · an athlete with no team sells their 
       expect(hold.status, hold.text).toBe(201);
       const placed = await call("POST", "/marketplace-orders", "ind_buyer", placeOrderBody(hold.json.id, `${T}_order_terms`));
       expect(placed.status, placed.text).toBe(201);
-      expect(placed.json).toMatchObject({ state: "PENDING_APPROVAL", totalCents: 100_000 });
+      /* 2S4-BE-09 — $1,000 is within Harbor's $5,000 starting limit: approved automatically, first order or not, and waiting for payment. */
+      expect(placed.json).toMatchObject({ state: "AWAITING_PAYMENT", totalCents: 100_000, decidedBy: "system", requiresApproval: false, spendingLimitCents: 500_000, waitingOn: "PAYMENT" });
       expect(placed.json.lines).toEqual([expect.objectContaining({ propertyId: null, sellerAthleteId: "ind_ath_jordan" })]);
       E.order = placed.json.id;
     });
   });
 
   describe("the split pays the athlete as the only payee", () => {
-    it("BTG approves; the frozen split gives the team nothing, whatever the TEAM_SHARE rule says", async () => {
-      const ok = await call("POST", `/marketplace-orders/${E.order}/decision`, "ind_admin", { decision: "APPROVE" });
-      expect(ok.status, ok.text).toBe(200);
+    it("approved automatically; the frozen split gives the team nothing, whatever the TEAM_SHARE rule says", async () => {
+      /* Nothing for BTG to decide: the limit approved it at placement. */
+      expect((await call("POST", `/marketplace-orders/${E.order}/decision`, "ind_admin", { decision: "APPROVE" })).status).toBe(409);
       const [f] = await prisma.orderLineFinancials.findMany({ where: { orderId: E.order }, select: { netCents: true, platformFeeCents: true, managementFeeCents: true, processingCents: true, propertyShareCents: true, referralCents: true, reserveCents: true, availableCents: true, athleteId: true, teamShareBps: true, teamAvailableCents: true, teamReserveCents: true } });
       /* $1,000: fees $150 + $50, processing $29.30 → $770.70 share; referral 2% $15.41, reserve 10% $77.07. */
       expect(f).toMatchObject({

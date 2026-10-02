@@ -359,7 +359,20 @@ describe("the whole matrix is pinned", () => {
       // BTG confirming or declining a handoff held because "BTG staff confirm
       // minors" is on. With those two cells back to deny the grid hashes to
       // the previous 1764feb8e04cc5ea.
-    ).toBe("11bff53b234f5f7c");
+      // Updated 2026-10-02 (2S4-BE-09): new `orderSellerApproval` resource —
+      // SUPER_ADMIN any read; BTG_ADMIN, FINANCE own-tenant read;
+      // PROPERTY_MGR own-property read/write; ATHLETE own read/write;
+      // SPONSOR_ADMIN, SPONSOR_ANALYST own-sponsor read; every other cell
+      // deny (matrix §24). With its rows removed the grid hashes to the
+      // previous 11bff53b234f5f7c.
+      // Updated 2026-10-02 (P9-BE-16): new `editionArtwork` resource — a sold
+      // slot's ad artwork on the approval board. SUPER_ADMIN any read/write;
+      // BTG_ADMIN, CAMPAIGN_MGR own-tenant read/write (the deliverable desk's
+      // BTG steps); SPONSOR_ADMIN own-campaign read/write/approve (upload and
+      // the sign-off — no staff role holds approve); SPONSOR_ANALYST
+      // own-campaign read; every other cell deny (matrix §15.3). With its rows
+      // removed the grid hashes to the previous 9cd49bc7621e483e.
+    ).toBe("549a562e5fbbb0a6");
   });
 
   it("covers every pair the §30 acceptance asks for", () => {

@@ -13,7 +13,10 @@ import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
                 note; the sponsor can confirm or report a problem, and
                 silence for 24 hours confirms; only confirmed lines can be
                 paid out; a reported problem holds that line's payout until
-                BTG resolves it; the order is delivered when all its lines are.
+                it is settled — between the seller and the sponsor, or by BTG
+                once they can't (2S4-BE-11, covered in full by
+                phase2-delivery-problems.test.ts); the order is delivered
+                when all its lines are.
      2S4-BE-08  Overdue lines remind the seller once and appear in BTG's
                 list; an order closes itself 30 days after its last line is
                 confirmed and its reserve becomes payable; running the job
@@ -135,6 +138,13 @@ describe.skipIf(!hasDatabase)("sellers' orders and delivery over the API", { tim
     const attempt = (await call("GET", `/marketplace-orders/${orderId}/payment`, "dl_buyer")).json.latest;
     expect(await confirmPayment(attempt.id)).toEqual({ confirmed: true });
   }
+  /** 2S4-BE-11 — the seller disagrees and the sponsor rejects: only then is it BTG's. */
+  async function toBtg(line: string, seller: string) {
+    const a = await call("POST", `/sales/${line}/problem-answer`, seller, { answer: "DISAGREE", note: "It was delivered as booked." });
+    expect(a.status, a.text).toBe(200);
+    const r = await call("POST", `/deliveries/${line}/problem-answer`, "dl_buyer", { decision: "REJECT", note: "It wasn't." });
+    expect(r.json, r.text).toMatchObject({ stage: "ESCALATED" });
+  }
   const partyShare = async (lineId: string, partyType: "ATHLETE" | "PROPERTY") =>
     (await prisma.ledgerEntry.findMany({ where: { lineId, entryType: "BOOKING", partyType }, select: { creditCents: true } })).reduce((s, e) => s + e.creditCents, 0);
 
@@ -165,7 +175,8 @@ describe.skipIf(!hasDatabase)("sellers' orders and delivery over the API", { tim
     const hawks = await approveTeam("dl_onb_hawks", "Westfield Hawks DL", "dl_mgr");
     const lions = await approveTeam("dl_onb_lions", "Lakeside Lions", "dl_mgr2");
     Object.assign(E, { hawksTenant: hawks.tenantId, hawks: hawks.id, lionsTenant: lions.tenantId, lions: lions.id });
-    server = createApp().listen(0);
+    server = createApp().listen(0, "127.0.0.1");
+    await new Promise((r) => server.once("listening", r)); // a host makes the bind async
     base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
     await call("GET", "/me", "dl_mgr");
     await call("GET", "/me", "dl_mgr2");
@@ -324,10 +335,11 @@ describe.skipIf(!hasDatabase)("sellers' orders and delivery over the API", { tim
       expect((await call("GET", `/sales/${E.hawksLine1}`, "dl_mgr")).json).toMatchObject({ state: "DELIVERED", markedBy: "Riley Carter" });
       expect((await call("POST", `/deliveries/${E.hawksLine1}/problem`, "dl_buyer", { note: "" })).status).toBe(400);
       const p = await call("POST", `/deliveries/${E.hawksLine1}/problem`, "dl_buyer", { note: "We only saw one clinic." });
-      expect(p.json).toMatchObject({ state: "PROBLEM" });
+      expect(p.json).toMatchObject({ state: "PROBLEM", stage: "SELLER_TO_ANSWER" });
+      /* 2S4-BE-11 — the sellers are asked to answer; BTG isn't involved yet. */
       const sent = await emails();
-      expect(sent.some((e) => e.template === "delivery.problem" && e.to === "dl_admin@dl-test.invalid")).toBe(true);
-      expect(sent.filter((e) => e.template === "delivery.onHold").map((e) => e.to)).toEqual(expect.arrayContaining(["dl_mgr@dl-test.invalid", "dl_riley@dl-test.invalid"]));
+      expect(sent.filter((e) => e.template === "delivery.problemToAnswer").map((e) => e.to)).toEqual(expect.arrayContaining(["dl_mgr@dl-test.invalid", "dl_riley@dl-test.invalid"]));
+      expect(sent.some((e) => e.template === "delivery.escalated" && e.data.title?.includes("Riley"))).toBe(false);
       for (const who of ["dl_riley", "dl_mgr"]) {
         const me = (await call("GET", "/payouts/me", who)).json;
         expect(me.totals.requestableCents, who).toBe(0);
@@ -350,11 +362,22 @@ describe.skipIf(!hasDatabase)("sellers' orders and delivery over the API", { tim
       expect(lineDates(new Date("2026-10-10T10:00:00Z"), new Date("2026-10-10T18:00:00Z"))).toEqual(["2026-10-10"]);
       expect(isOverdue({ state: "IN_DELIVERY", endsOn: new Date(Date.now() - 2 * DAY) }, new Date())).toBe(true);
       expect(isOverdue({ state: "DELIVERED", endsOn: new Date(Date.now() - 2 * DAY) }, new Date())).toBe(false);
-      /* The sweep: silence confirms; run twice, nothing more changes. */
-      expect((await sweepDeliveries(late, { tenantIds: [T] })).confirmed).toBe(1);
-      expect((await sweepDeliveries(late, { tenantIds: [T] })).confirmed).toBe(0);
+      /* The sweep: silence confirms; run twice, nothing more changes (asserted on this line, never the sweep's counts). */
+      await sweepDeliveries(late, { tenantIds: [T] });
+      const once = await prisma.orderLineDelivery.findUniqueOrThrow({ where: { lineId: line }, select: { state: true, confirmedAt: true, confirmedHow: true } });
+      expect(once).toMatchObject({ state: "CONFIRMED", confirmedHow: "SILENCE" });
+      await sweepDeliveries(late, { tenantIds: [T] });
+      expect(await prisma.orderLineDelivery.findUniqueOrThrow({ where: { lineId: line }, select: { state: true, confirmedAt: true, confirmedHow: true } })).toEqual(once);
       expect((await call("GET", `/sales/${line}`, "dl_jordan")).json).toMatchObject({ state: "CONFIRMED", confirmedBy: "NO_ANSWER" });
       expect((await call("GET", `/marketplace-orders/${id}`, "dl_buyer")).json.state).toBe("FULFILLED");
+    });
+
+    it("it reaches BTG's desk only once the two sides can't settle it", async () => {
+      expect((await call("GET", "/delivery-issues", "dl_admin")).json.problems.map((x: { id: string }) => x.id)).not.toContain(E.hawksLine1);
+      const early = await call("POST", `/delivery-issues/${E.hawksLine1}/resolve`, "dl_admin", { decision: "CONFIRM", note: "Too soon." });
+      expect(early.status).toBe(409);
+      expect(early.json.error.message).toMatch(/still settling this between them/);
+      await toBtg(E.hawksLine1, "dl_riley");
     });
 
     it("BTG's desk lists the problem with the money on hold; only BTG admin reads it", async () => {
@@ -365,6 +388,7 @@ describe.skipIf(!hasDatabase)("sellers' orders and delivery over the API", { tim
         state: "PROBLEM", seller: { name: "Riley Carter", sub: "Westfield Hawks DL" }, sponsor: { name: "Harbor Coffee" },
         sponsorMessage: { text: "We only saw one clinic." }, sellerNote: { text: "Both clinics held, 18 kids each.", proofCount: 0 },
         hold: { sellerShareCents: await partyShare(E.hawksLine1, "ATHLETE"), teamShareCents: await partyShare(E.hawksLine1, "PROPERTY"), sponsorPaidCents: 100_000 },
+        escalation: { reason: "SPONSOR_REJECTED" }, canDecide: true,
       });
       expect((await call("GET", `/delivery-issues/${E.hawksLine1}`, "dl_admin")).json.history.map((h: { text: string }) => h.text)).toEqual(
         expect.arrayContaining([expect.stringMatching(/^Paid/), "Marked delivered by Riley Carter", expect.stringMatching(/^Problem reported/)]),
@@ -396,6 +420,7 @@ describe.skipIf(!hasDatabase)("sellers' orders and delivery over the API", { tim
       await call("POST", `/sales/${hawks}/delivered`, "dl_mgr", { note: "Clinic held." });
       await call("POST", `/sales/${jordan}/delivered`, "dl_jordan", { note: "Session held." });
       await call("POST", `/deliveries/${hawks}/problem`, "dl_buyer", { note: "Nobody came." });
+      await toBtg(hawks, "dl_mgr");
       await call("POST", `/deliveries/${jordan}/confirm`, "dl_buyer");
       expect((await call("POST", `/delivery-issues/${hawks}/resolve`, "dl_admin", { decision: "REFUND", note: "No-show confirmed; refunding the clinic." })).json.state).toBe("REFUNDED");
       const reversed = await prisma.ledgerEntry.findMany({ where: { orderId: id, entryType: "REVERSAL" }, select: { lineId: true } });
@@ -412,6 +437,7 @@ describe.skipIf(!hasDatabase)("sellers' orders and delivery over the API", { tim
       const line = await lineOf(id, E.hawksListing);
       await call("POST", `/sales/${line}/delivered`, "dl_mgr", { note: "Clinic held." });
       await call("POST", `/deliveries/${line}/problem`, "dl_buyer", { note: "Wrong venue." });
+      await toBtg(line, "dl_mgr");
       expect((await call("POST", `/delivery-issues/${line}/resolve`, "dl_admin", { decision: "REFUND", note: "Refunding." })).json.state).toBe("REFUNDED");
       expect((await call("GET", `/marketplace-orders/${id}`, "dl_buyer")).json.state).toBe("REFUNDED");
       expect(await prisma.ledgerEntry.count({ where: { orderId: id, entryType: "BOOKING", status: { not: "REVERSED" } } })).toBe(0);
@@ -426,8 +452,10 @@ describe.skipIf(!hasDatabase)("sellers' orders and delivery over the API", { tim
       line = await lineOf(id, E.hawksListing);
       const later = new Date(Date.now() + 6 * DAY);
       expect((await deliveryIssues(adminActor, later)).overdue.map((o) => o.id)).toContain(line);
-      expect((await sweepDeliveries(later, { tenantIds: [T] })).reminded).toBe(1);
-      expect((await sweepDeliveries(later, { tenantIds: [T] })).reminded).toBe(0);
+      /* Asserted on this line's own row and emails — never the sweep's counts. */
+      await sweepDeliveries(later, { tenantIds: [T] });
+      await sweepDeliveries(later, { tenantIds: [T] });
+      expect(await prisma.orderLineDelivery.findUniqueOrThrow({ where: { lineId: line }, select: { remindedAt: true, secondRemindedAt: true } })).toEqual({ remindedAt: later, secondRemindedAt: null });
       const sent = (await emails()).filter((e) => e.template === "delivery.overdue" && e.idempotencyKey.includes(line)).map((e) => e.to);
       expect(sent.sort()).toEqual(["dl_mgr@dl-test.invalid", "dl_riley@dl-test.invalid"]);
       expect((await deliveryIssues(adminActor, later)).overdue.find((o) => o.id === line)?.remindedAt).toBeTruthy();
@@ -440,13 +468,17 @@ describe.skipIf(!hasDatabase)("sellers' orders and delivery over the API", { tim
       await call("POST", `/sales/${line}/delivered`, "dl_mgr", { note: "Clinic held." });
       await call("POST", `/deliveries/${line}/confirm`, "dl_buyer");
       expect((await call("GET", `/marketplace-orders/${id}`, "dl_buyer")).json.state).toBe("FULFILLED");
-      expect((await sweepDeliveries(new Date(Date.now() + 29 * DAY), { tenantIds: [T] })).closed).toBe(0);
+      await sweepDeliveries(new Date(Date.now() + 29 * DAY), { tenantIds: [T] });
+      expect((await call("GET", `/marketplace-orders/${id}`, "dl_buyer")).json.state).toBe("FULFILLED");
       const closing = new Date(Date.now() + 31 * DAY);
-      expect((await sweepDeliveries(closing, { tenantIds: [T] })).closed).toBeGreaterThanOrEqual(1);
+      await sweepDeliveries(closing, { tenantIds: [T] });
       expect((await call("GET", `/marketplace-orders/${id}`, "dl_buyer")).json.state).toBe("CLOSED");
-      expect(await prisma.ledgerEntry.count({ where: { orderId: id, entryType: "RESERVE_RELEASE" } })).toBeGreaterThan(0);
-      const again = await sweepDeliveries(closing, { tenantIds: [T] });
-      expect(again).toMatchObject({ confirmed: 0, reminded: 0, closed: 0, failed: 0 });
+      const released = await prisma.ledgerEntry.count({ where: { orderId: id, entryType: "RESERVE_RELEASE" } });
+      expect(released).toBeGreaterThan(0);
+      /* Again: this order changes no further. */
+      await sweepDeliveries(closing, { tenantIds: [T] });
+      expect((await call("GET", `/marketplace-orders/${id}`, "dl_buyer")).json.state).toBe("CLOSED");
+      expect(await prisma.ledgerEntry.count({ where: { orderId: id, entryType: "RESERVE_RELEASE" } })).toBe(released);
       expect((await call("GET", "/team/ledger", "dl_mgr")).json.reconciles).toBe(true);
     });
   });

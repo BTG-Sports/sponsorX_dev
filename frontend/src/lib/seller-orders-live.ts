@@ -25,6 +25,11 @@
    Pure: shapes, rules and the words the screens derive.
    -------------------------------------------------------------------------- */
 
+import {
+  ANSWER_WINDOW_HOURS, OVERDUE_HANDOVER_DAYS, answerQuote, datesText, dayOf, inWords, money, stamp,
+  type ApiIssue, type ApiTimelineItem,
+} from "@/lib/order-automation-live";
+
 export type SellerKind = "athlete" | "team";
 
 export type SellerLineState = "UNPAID" | "IN_DELIVERY" | "DELIVERED" | "CONFIRMED" | "PROBLEM" | "REFUNDED" | "CANCELLED";
@@ -75,7 +80,19 @@ export type ApiSellerOrder = {
   resolution: { decision: "CONFIRMED" | "REFUNDED"; note: string | null; at: string | null } | null;
   overdue: boolean;
   canMarkDelivered: boolean;
+  /* 2S4-BE-11 — the date it is due by now (a redelivery's, else the line's
+     own), the problem exchange, and whether it is the seller's turn. Optional
+     so older reads (and fixtures) still type. */
+  lastDate?: string;
+  redeliverOn?: string | null;
+  issue?: ApiIssue | null;
+  canAnswerProblem?: boolean;
+  /** GET /sales/:id only — the whole exchange, oldest first. */
+  timeline?: ApiTimelineItem[];
 };
+
+/** The line's total — what a refund of the whole line gives back. */
+export const lineTotalCents = (o: Pick<ApiSellerOrder, "line">) => o.line.quantity * o.line.unitPriceCents;
 
 /* ------------------------------------------------------------- the rules */
 
@@ -127,24 +144,8 @@ export function shareUsd(cents: number): string {
   return `$${(cents / 100).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
-/** "Oct 10" — a delivery day (UTC, so server and browser agree). */
-export function dayOf(iso: string): string {
-  return new Date(iso.length === 10 ? `${iso}T12:00:00Z` : iso).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
-}
-
-/** "Oct 18, 7:40 pm UTC". */
-export function stamp(iso: string): string {
-  const d = new Date(iso);
-  const time = d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: "UTC" }).toLowerCase();
-  return `${dayOf(iso)}, ${time} UTC`;
-}
-
-/** "Oct 10", "Oct 10 and Oct 17", "Oct 10, Oct 17 and Oct 24". */
-export function datesText(dates: readonly string[]): string {
-  const days = dates.map(dayOf);
-  if (days.length <= 1) return days[0] ?? "";
-  return `${days.slice(0, -1).join(", ")} and ${days[days.length - 1]}`;
-}
+/* The day words are shared with the order-automation helpers (2S4-FE-05). */
+export { datesText, dayOf, stamp };
 
 /** "2 sessions × $500". */
 export function lineSummary(l: Pick<ApiSellerOrder["line"], "quantity" | "unit" | "unitPriceCents">): string {
@@ -153,14 +154,18 @@ export function lineSummary(l: Pick<ApiSellerOrder["line"], "quantity" | "unit" 
 
 export type Tone = "neutral" | "primary" | "accent" | "danger" | "warn";
 
-/** The status pill — in words and a mark, never colour alone. */
-export function orderBadge(o: Pick<ApiSellerOrder, "state" | "sponsor">): { label: string; tone: Tone; mark: string } {
+/** The status pill — in words and a mark, never colour alone. A problem says whose turn it is (2S4-BE-11). */
+export function orderBadge(o: Pick<ApiSellerOrder, "state" | "sponsor"> & Partial<Pick<ApiSellerOrder, "issue" | "redeliverOn">>): { label: string; tone: Tone; mark: string } {
   switch (o.state) {
     case "UNPAID": return { label: "Waiting for payment", tone: "neutral", mark: "○" };
-    case "IN_DELIVERY": return { label: "In delivery", tone: "primary", mark: "●" };
+    case "IN_DELIVERY":
+      return o.redeliverOn ? { label: `Redelivery booked · ${dayOf(o.redeliverOn)}`, tone: "accent", mark: "✓" } : { label: "In delivery", tone: "primary", mark: "●" };
     case "DELIVERED": return { label: `Waiting for ${o.sponsor.name}`, tone: "warn", mark: "!" };
     case "CONFIRMED": return { label: "Confirmed", tone: "accent", mark: "✓" };
-    case "PROBLEM": return { label: "Problem reported", tone: "danger", mark: "✕" };
+    case "PROBLEM":
+      if (o.issue?.stage === "SPONSOR_TO_ANSWER") return { label: `Waiting for ${o.sponsor.name}`, tone: "warn", mark: "!" };
+      if (o.issue?.stage === "ESCALATED") return { label: "BTG is deciding", tone: "warn", mark: "!" };
+      return { label: "Problem reported", tone: "danger", mark: "✕" };
     case "REFUNDED": return { label: "Refunded", tone: "neutral", mark: "↺" };
     case "CANCELLED": return { label: "Cancelled", tone: "neutral", mark: "–" };
   }
@@ -174,9 +179,72 @@ export function shareNote(kind: SellerKind, soldByTeam: boolean): string {
     : "Only your share is shown.";
 }
 
-/** The banner above a line once something has happened to it. */
-export function orderBanner(o: ApiSellerOrder): null | { tone: "warn" | "accent" | "danger"; title: string; text: string; quote?: string; money?: boolean } {
+export type SellerBanner = { tone: "warn" | "accent" | "danger" | "primary"; title: string; text: string; quote?: string; money?: boolean };
+
+/** "You chose: Deliver again on Oct 24: “…”" — the seller's own answer, quoted back. */
+function chose(o: ApiSellerOrder): string | undefined {
+  const a = o.issue?.sellerAnswer;
+  return a ? `You chose: ${answerQuote(a, lineTotalCents(o), o.sponsor.name)}` : undefined;
+}
+
+/**
+ * The banner above a reported problem once it has left the seller's turn
+ * (SO sent / escalated / noanswer / settled / refunded) — null while it is
+ * the seller's to answer: the answer card says it then.
+ */
+function problemBanner(o: ApiSellerOrder, now: Date): SellerBanner | null {
   const s = o.sponsor.name;
+  const i = o.issue ?? null;
+  if (o.state === "PROBLEM") {
+    if (!i || i.kind !== "PROBLEM") {
+      return { tone: "warn", title: `${s} reported a problem — BTG is deciding`, text: "This line’s payout is on hold until BTG decides. You’ll hear by email.", quote: o.problem ? `${s}: “${o.problem.text}”` : undefined };
+    }
+    if (i.stage === "SELLER_TO_ANSWER") {
+      if (o.canAnswerProblem ?? i.sellerCanAnswer) return null;
+      return { tone: "warn", title: `No answer from you in ${ANSWER_WINDOW_HOURS} hours — BTG is deciding.`, text: `The answer was due ${i.sellerDueAt ? stamp(i.sellerDueAt) : "earlier"}. You’ll hear by email.` };
+    }
+    if (i.stage === "SPONSOR_TO_ANSWER" && i.sponsorDueAt) {
+      const left = inWords(i.sponsorDueAt, now);
+      return {
+        tone: "primary",
+        title: `Sent ✓ — ${s} has until ${stamp(i.sponsorDueAt)} to accept or reject your answer.`,
+        text: `${i.sellerAnswer?.at ? `You answered ${stamp(i.sellerAnswer.at)}. ` : ""}${left ? `Their deadline is ${left}. ` : ""}If they reject it, BTG decides.`,
+        quote: chose(o),
+      };
+    }
+    if (i.stage === "ESCALATED") {
+      const why = i.escalation?.reason;
+      if (why === "SELLER_NO_ANSWER") {
+        return { tone: "warn", title: `No answer from you in ${ANSWER_WINDOW_HOURS} hours — BTG is deciding.`, text: `The answer was due ${i.sellerDueAt ? stamp(i.sellerDueAt) : "earlier"}. You’ll hear by email.` };
+      }
+      return {
+        tone: "warn",
+        title: why === "SPONSOR_NO_ANSWER" ? `${s} didn’t answer in ${ANSWER_WINDOW_HOURS} hours — BTG is deciding.` : `${s} rejected your answer — BTG is deciding. You’ll hear by email.`,
+        text: "Your payout for this line is on hold until BTG decides.",
+        quote: chose(o),
+      };
+    }
+  }
+  if (i?.stage === "SETTLED" && i.outcome) {
+    if (o.state === "IN_DELIVERY" && i.outcome.outcome === "REDELIVER") {
+      const day = o.redeliverOn ? dayOf(o.redeliverOn) : i.sellerAnswer?.newDate ? dayOf(i.sellerAnswer.newDate) : "the new date";
+      return { tone: "accent", title: `${s} accepted — redelivery booked ${day}.`, text: `Deliver it on ${day}, then mark it delivered. ${s} confirms within ${CONFIRM_HOURS} hours, as usual.` };
+    }
+    if (o.state === "REFUNDED" && i.outcome.outcome === "REFUNDED") {
+      return { tone: "accent", title: `${s} accepted the refund — ${money(lineTotalCents(o))} refunded.`, text: "Your share for this line is $0.00. Any other lines on the order are paid as usual." };
+    }
+  }
+  if (o.state === "IN_DELIVERY" && i?.kind === "OVERDUE" && i.stage === "ESCALATED") {
+    return { tone: "warn", title: `No delivery marked ${OVERDUE_HANDOVER_DAYS} days after ${dayOf(o.lastDate ?? o.line.endsOn)} — BTG has been told.`, text: "Mark it delivered as soon as it’s done. BTG may contact you." };
+  }
+  return null;
+}
+
+/** The banner above a line once something has happened to it. */
+export function orderBanner(o: ApiSellerOrder, now: Date = new Date()): SellerBanner | null {
+  const s = o.sponsor.name;
+  const p = problemBanner(o, now);
+  if (p || o.state === "PROBLEM") return p;
   if (o.state === "DELIVERED" && o.markedAt) {
     return {
       tone: "warn",
@@ -185,7 +253,10 @@ export function orderBanner(o: ApiSellerOrder): null | { tone: "warn" | "accent"
     };
   }
   if (o.state === "CONFIRMED" && o.confirmedAt) {
-    const title = o.confirmedBy === "NO_ANSWER"
+    const agreed = o.issue?.stage === "SETTLED" && o.issue.outcome?.outcome === "CONFIRMED";
+    const title = agreed
+      ? `${s} accepted your answer — it counts as delivered ✓`
+      : o.confirmedBy === "NO_ANSWER"
       ? `Counted as confirmed ✓ — ${s} didn’t answer in ${CONFIRM_HOURS} hours`
       : o.confirmedBy === "BTG" ? "Confirmed by BTG ✓" : `Confirmed by ${s} ✓`;
     return {
@@ -195,14 +266,6 @@ export function orderBanner(o: ApiSellerOrder): null | { tone: "warn" | "accent"
       text: `Your share becomes payable once the payout hold ends — My money shows when. The order closes ${CLOSE_DAYS} days after its last line is confirmed.`,
       quote: o.resolution?.note ? `BTG: “${o.resolution.note}”` : undefined,
       money: true,
-    };
-  }
-  if (o.state === "PROBLEM" && o.problem) {
-    return {
-      tone: "danger",
-      title: `${s} reported a problem`,
-      text: "BTG is looking into it — this line’s payout is on hold.",
-      quote: `${s}: “${o.problem.text}”`,
     };
   }
   if (o.state === "REFUNDED") {
@@ -220,13 +283,16 @@ export function orderBanner(o: ApiSellerOrder): null | { tone: "warn" | "accent"
 }
 
 /** Whether "Mark delivered" applies to this line, and the reason beside it. */
-export function markControl(o: Pick<ApiSellerOrder, "state">): { applies: boolean; why: string } {
+export function markControl(o: Pick<ApiSellerOrder, "state"> & Partial<Pick<ApiSellerOrder, "issue">>): { applies: boolean; why: string } {
   switch (o.state) {
     case "UNPAID": return { applies: false, why: "You can mark it delivered once it’s paid" };
     case "IN_DELIVERY": return { applies: true, why: "Add a short note on what you delivered" };
     case "DELIVERED": return { applies: false, why: "Already marked delivered" };
     case "CONFIRMED": return { applies: false, why: "Delivered and confirmed" };
-    case "PROBLEM": return { applies: false, why: "BTG is reviewing this line" };
+    case "PROBLEM":
+      if (o.issue?.stage === "SELLER_TO_ANSWER" && o.issue.sellerCanAnswer) return { applies: false, why: "Answer the problem above first" };
+      if (o.issue?.stage === "SPONSOR_TO_ANSWER") return { applies: false, why: "Waiting for the sponsor to accept or reject your answer" };
+      return { applies: false, why: "BTG is deciding this line" };
     case "REFUNDED": return { applies: false, why: "This line was refunded" };
     case "CANCELLED": return { applies: false, why: "This order was cancelled" };
   }
@@ -244,11 +310,14 @@ export function trackSteps(o: ApiSellerOrder): TrackStep[] {
     o.markedAt ? dayOf(o.markedAt) : "Done",
     o.confirmedAt ? dayOf(o.confirmedAt) : "Done",
   ];
+  const stage = o.issue?.stage;
+  const problemNote = stage === "SPONSOR_TO_ANSWER" ? `Waiting for ${o.sponsor.name}` : stage === "ESCALATED" ? "BTG is deciding" : "Problem reported";
   const currentNote = {
-    UNPAID: "Not paid yet", IN_DELIVERY: "Now", DELIVERED: "Waiting", PROBLEM: "Problem reported", CONFIRMED: "",
+    UNPAID: "Not paid yet", IN_DELIVERY: o.redeliverOn ? `Redelivery ${dayOf(o.redeliverOn)}` : "Now", DELIVERED: "Waiting", PROBLEM: problemNote, CONFIRMED: "",
     REFUNDED: "Refunded", CANCELLED: "Cancelled",
   }[o.state];
-  const tone = o.state === "PROBLEM" || o.state === "REFUNDED" ? "danger" : o.state === "UNPAID" || o.state === "CANCELLED" ? "warn" : "primary";
+  const waiting = o.state === "PROBLEM" && (stage === "SPONSOR_TO_ANSWER" || stage === "ESCALATED");
+  const tone = waiting ? "warn" : o.state === "PROBLEM" || o.state === "REFUNDED" ? "danger" : o.state === "UNPAID" || o.state === "CANCELLED" ? "warn" : "primary";
   return labels.map((label, i) => ({
     label,
     state: i < reached ? "done" : i === reached ? "current" : "todo",
@@ -259,8 +328,9 @@ export function trackSteps(o: ApiSellerOrder): TrackStep[] {
 
 /** The seller's words for a refused write, from the API's error body. */
 export function apiRefusal(status: number, body: unknown, fallback: string): string {
-  if (status === 403) return "Only this line’s own seller can do that.";
-  const e = (body as { error?: { message?: unknown; issues?: { message?: unknown }[] } } | null)?.error;
+  const e = (body as { error?: { code?: unknown; message?: unknown; issues?: { message?: unknown }[] } } | null)?.error;
+  /* A coded 403 says why (e.g. guardian_must_act — a minor's guardian answers); only a bare one means "not yours". */
+  if (status === 403 && !(typeof e?.code === "string" && e.code !== "forbidden" && typeof e?.message === "string")) return "Only this line’s own seller can do that.";
   const issue = e?.issues?.[0]?.message;
   if (typeof issue === "string") return issue;
   if (typeof e?.message === "string") return e.message;

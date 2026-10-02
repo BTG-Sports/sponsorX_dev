@@ -308,6 +308,24 @@ const BUILDERS: Partial<Record<Resource, Builder>> = {
   /* SponsorX NEXT rights and claims (P9-BE-10, -11, -14). */
   editionAsset: (actor, scope) =>
     nextByProperty(actor, scope, (p) => ({ edition: { is: { publication: { is: { propertyId: p } } } } })),
+  /* P9-BE-16 — a slot's artwork reaches its buyer through the slot's
+     campaign: `own-campaign` is the sponsor's own campaigns, as on
+     deliverables. Every row this resource reaches is artwork (adSlotId set)
+     — the plain `editionAsset` rows stay out of a sponsor's reach. */
+  editionArtwork: (actor, scope) => {
+    switch (scope) {
+      case "any":
+        return { adSlotId: { not: null } };
+      case "own-tenant":
+        return { tenantId: actor.tenantId, adSlotId: { not: null } };
+      case "own-campaign":
+        return actor.sponsorId
+          ? { tenantId: actor.tenantId, adSlot: { is: { campaign: { is: { sponsorId: actor.sponsorId } } } } }
+          : MATCHES_NOTHING;
+      default:
+        return MATCHES_NOTHING;
+    }
+  },
   contentRight: (actor, scope) => {
     /* A student reads the rights on their OWN work — the asset they made. */
     if (scope === "own") {
@@ -439,6 +457,23 @@ const BUILDERS: Partial<Record<Resource, Builder>> = {
      athleteTenantId + athleteId, the buying sponsor by the order's books and
      sponsorId — never by the order alone. */
   orderDelivery: (actor, scope) => {
+    switch (scope) {
+      case "any": return {};
+      case "own-tenant": return { tenantId: actor.tenantId };
+      case "own-property":
+        return actor.propertyId ? { propertyTenantId: actor.tenantId, propertyId: actor.propertyId } : MATCHES_NOTHING;
+      case "own":
+        return actor.athleteId ? { athleteTenantId: actor.tenantId, athleteId: actor.athleteId } : MATCHES_NOTHING;
+      case "own-sponsor":
+        return actor.sponsorId ? { tenantId: actor.tenantId, sponsorId: actor.sponsorId } : MATCHES_NOTHING;
+      default: return MATCHES_NOTHING;
+    }
+  },
+  /* 2S4-BE-09 — a seller's answer to an order, reached as a sold line is:
+     the team by propertyTenantId + propertyId, the athlete by
+     athleteTenantId + athleteId, the buying sponsor by the order's books and
+     sponsorId, BTG by the order's books. */
+  orderSellerApproval: (actor, scope) => {
     switch (scope) {
       case "any": return {};
       case "own-tenant": return { tenantId: actor.tenantId };

@@ -29,6 +29,8 @@ const MONEY_MODULES = [
   "inventory.ts",
   "offer.ts",
   "marketplace-order.ts",
+  /* 2S4-BE-10 — the payment window's reminders and the Zoho invoice ingest for orders. */
+  "order-payment.ts",
   "commission.ts",
   "ledger.ts",
 ] as const;
@@ -54,6 +56,8 @@ const READ_ONLY = new Set([
   "termsHashOf",
   "listMarketplaceOrders",
   "getMarketplaceOrder",
+  /* 2S4-BE-09/-10 review — takes the order's row lock (SELECT … FOR UPDATE); the move that follows audits. */
+  "lockOrder",
   "listRules",
   "resolveRates",
   "previewSplit",

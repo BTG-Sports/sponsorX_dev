@@ -1,6 +1,9 @@
 import Link from "next/link";
 
 import { MopsOrderActions } from "@/components/mops-order-actions";
+import { HeldOrderDecision } from "@/components/mops-held-order";
+import { SpendingLimitCard } from "@/components/mops-spending-limit";
+import { money, type ApiSpendingLimit } from "@/lib/order-automation-live";
 import { OrderGateRecordCard } from "@/components/order-gate-record";
 import { NotInRole, staffWithoutAccess } from "@/components/not-in-role";
 import { EmptyState } from "@/components/states";
@@ -16,6 +19,7 @@ import {
 } from "@/lib/marketplace-ops-live";
 import type { OrderGateRecord } from "@/lib/checkout-gate";
 import { dateLabel } from "@/lib/onboarding-live";
+import { lineSeller } from "@/lib/shop-live";
 import { paymentView, type ApiOrderPayment } from "@/lib/order-payment-live";
 import { apiFetch } from "@/server/api";
 
@@ -31,9 +35,14 @@ import { apiFetch } from "@/server/api";
    The API answers an unknown id with 403; for a reviewer who holds the role
    that reads as "no such order".
 
-   Honest gaps: the order names its sponsor only by id (no sponsor name on
-   the order), and payment states are marked by staff — there is no payment
-   provider yet.
+   2S4-FE-05 (OrderExceptions.dc.html, views limit · approveHeld ·
+   rejectHeld · markPaid): GET /sponsors/:sponsorId/spending-limit gives the
+   sponsor's name and limit card; an order held above it gets the Held order
+   card (Approve / Reject → POST …/decision), and Mark paid by hand is the
+   design's dialog (POST …/transition {to: PAID, payment}).
+
+   Honest gap: a role that can't read the sponsor's limit sees the sponsor
+   only by id.
    -------------------------------------------------------------------------- */
 
 export const dynamic = "force-dynamic";
@@ -65,6 +74,11 @@ export default async function MarketplaceOrderPage({ params }: { params: Promise
   if (!res.ok) throw new Error(`The order didn't load (${res.status}).`);
   if (!finRes.ok && finRes.status !== 403) throw new Error(`The order's split didn't load (${finRes.status}).`);
   const order = (await res.json()) as ApiMarketplaceOrder & OrderGateRecord;
+  /* 2S4-BE-09 — the sponsor's spending limit (BTG); a failed read hides the card, never the page. */
+  const limitRes = await apiFetch(`/sponsors/${encodeURIComponent(order.sponsorId)}/spending-limit`).catch(() => null);
+  const limit = limitRes?.ok ? ((await limitRes.json()) as ApiSpendingLimit) : null;
+  const held = order.state === "PENDING_APPROVAL";
+  const above = limit !== null && order.totalCents > limit.limitCents;
   const financials: ApiLineFinancials[] | null = finRes.ok ? ((await finRes.json()) as { lines: ApiLineFinancials[] }).lines : null;
   const state = ORDER_STATE_COPY[order.state];
   const byLine = new Map((financials ?? []).map((f) => [f.lineId, f]));
@@ -81,7 +95,8 @@ export default async function MarketplaceOrderPage({ params }: { params: Promise
           <h1 className="text-xl font-semibold tracking-tight">Order {shortId(order.id)}</h1>
           <p className="mt-1 text-xs text-muted">
             Placed {dateLabel(order.createdAt)}
-            {wait ? ` · waiting ${wait}` : ""} · sponsor <code className="text-[11px]">{order.sponsorId}</code>
+            {wait ? ` · waiting ${wait}` : ""} · sponsor{" "}
+            {limit ? <strong className="font-medium text-text">{limit.sponsorName}</strong> : <code className="text-[11px]">{order.sponsorId}</code>}
           </p>
         </div>
         <Badge tone={state.tone}>{state.label}</Badge>
@@ -89,9 +104,23 @@ export default async function MarketplaceOrderPage({ params }: { params: Promise
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_22rem]">
         <div className="space-y-6">
+          {held && (
+            <section aria-label="Held order" className="flex flex-col gap-2.5 rounded-xl border border-warn/50 bg-surface p-4 sm:p-5">
+              <h2 className="text-sm font-semibold">Held order</h2>
+              <p className="text-sm font-semibold">
+                {shortId(order.id)} · {money(order.totalCents)} · {above ? "above the limit — waiting for you" : "waiting for you"}
+              </p>
+              {order.lines[0] && (
+                <p className="text-xs leading-relaxed text-muted">
+                  {order.lines[0].title}{order.lines.length > 1 ? ` and ${order.lines.length - 1} more` : ""}
+                </p>
+              )}
+              <HeldOrderDecision id={order.id} orderRef={shortId(order.id)} totalCents={order.totalCents} limit={limit} />
+            </section>
+          )}
           {order.approvalReasons.length > 0 && (
             <Card className="border-warn/30">
-              <SectionHeading title="Why it needs approval" hint="The approval policy's own reasons." />
+              <SectionHeading title="Why it needs approval" hint="The approval policy's own reasons — orders within the sponsor's spending limit are approved on their own." />
               <ul className="list-disc space-y-1 pl-4 text-sm">
                 {order.approvalReasons.map((r) => (
                   <li key={r}>{r}</li>
@@ -110,7 +139,7 @@ export default async function MarketplaceOrderPage({ params }: { params: Promise
                   <div className="min-w-0">
                     <p className="text-sm font-medium">{l.title}</p>
                     <p className="text-[11px] text-muted">
-                      {l.quantity} × {usd(l.unitPriceCents)} · {dateLabel(l.startsOn)} – {dateLabel(l.endsOn)}
+                      {l.seller ? `${lineSeller(l)}${l.seller.type === "ATHLETE" ? " (athlete)" : ""} · ` : ""}{l.quantity} × {usd(l.unitPriceCents)} · {dateLabel(l.startsOn)} – {dateLabel(l.endsOn)}
                     </p>
                   </div>
                   <span className="text-sm font-medium tabular-nums">{usd(l.lineTotalCents)}</span>
@@ -169,8 +198,9 @@ export default async function MarketplaceOrderPage({ params }: { params: Promise
         <div className="space-y-6">
           <Card>
             <SectionHeading title="Actions" hint="Recorded against your account in the audit log." />
-            <MopsOrderActions key={order.state} id={order.id} state={order.state} />
+            <MopsOrderActions key={order.state} id={order.id} state={order.state} orderRef={shortId(order.id)} totalCents={order.totalCents} />
           </Card>
+          {limit && <SpendingLimitCard limit={limit} />}
           <OrderGateRecordCard order={order} />
           {(order.decidedAt || order.decisionNotes) && (
             <Card>

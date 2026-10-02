@@ -69,7 +69,10 @@ export type ApiCartLine = {
   endsOn: string;
   unitPriceCents: number;
   title: string;
-  propertyName: string;
+  /** The team that sells it; null for an independent athlete's listing (2S3-BE-05). */
+  propertyName: string | null;
+  /** Who sells it — the team, or the independent athlete (2S3-FE-03). Optional: older reads. */
+  sellerName?: string | null;
   lineTotalCents: number;
 };
 
@@ -105,6 +108,7 @@ export type ApiReservation = {
 };
 
 export type OrderState =
+  | "PENDING_SELLER"
   | "PENDING_APPROVAL"
   | "APPROVED"
   | "AWAITING_PAYMENT"
@@ -119,7 +123,11 @@ export type ApiOrderLine = {
   id: string;
   listingId: string;
   inventoryItemId: string;
-  propertyId: string;
+  /** null for an independent athlete's line (2S3-BE-05) — `sellerAthleteId` / `seller` name them. */
+  propertyId: string | null;
+  sellerAthleteId?: string | null;
+  /** Who sells the line: the team, or the independent athlete (2S3-FE-03). Optional: older reads. */
+  seller?: { type: "PROPERTY" | "ATHLETE"; id: string; name: string } | null;
   title: string;
   quantity: number;
   startsOn: string;
@@ -151,6 +159,18 @@ export type ApiOrder = {
   acceptanceId: string | null;
   acceptance: ApiOrderAcceptance | null;
   lines: ApiOrderLine[];
+  /* 2S4-BE-09 / -10 — the limit it was checked against, why it ended, the
+     payment window, how it was paid, what it waits on, and the sellers'
+     answers (optional: older reads and fixtures). */
+  spendingLimitCents?: number | null;
+  cancelReason?: "SPONSOR" | "BTG" | "BTG_REJECTED" | "SELLER_DECLINED" | "SELLER_NO_ANSWER" | "UNPAID" | null;
+  awaitingPaymentAt?: string | null;
+  paymentDueAt?: string | null;
+  paidAt?: string | null;
+  paidVia?: string | null;
+  waitingOn?: "SELLER" | "BTG" | "PAYMENT" | null;
+  deadlineAt?: string | null;
+  sellerApprovals?: { id: string; seller: { type: string; id: string; name: string }; lineIds: string[]; state: string; dueAt: string; decidedAt: string | null; reason: string | null }[];
 };
 
 /** What a server action hands back to its island. `reasons` is every
@@ -343,7 +363,7 @@ export function ruleNotes(rules: PackageRules): string[] {
   else if (rules.minQuantity != null) out.push(`at least ${rules.minQuantity} per purchase`);
   else if (rules.maxQuantity != null) out.push(`at most ${rules.maxQuantity} per purchase`);
   if (rules.exclusive) out.push("exclusive — one buyer per date window");
-  if (rules.requiresApproval) out.push("BTG approves orders that include this");
+  if (rules.requiresApproval) out.push("the seller approves orders that include this, within 48 hours");
   return out;
 }
 
@@ -443,9 +463,12 @@ export const RESERVATION_COPY: Record<ReservationState, { label: string; tone: T
 };
 
 export const ORDER_COPY: Record<OrderState, { label: string; tone: Tone; hint: string }> = {
-  PENDING_APPROVAL: { label: "Waiting for BTG approval", tone: "warn", hint: "BTG reviews the order before it is confirmed. The items stay yours while they do." },
-  APPROVED: { label: "Approved", tone: "primary", hint: "BTG approved the order. BTG will invoice you." },
-  AWAITING_PAYMENT: { label: "Awaiting payment", tone: "warn", hint: "BTG has invoiced this order and is waiting for payment." },
+  /* 2S4-BE-09 — a listing on it asks its seller first; they have 48 hours. */
+  PENDING_SELLER: { label: "Waiting for the seller", tone: "warn", hint: "The seller has 48 hours to accept. The items stay yours while they decide." },
+  PENDING_APPROVAL: { label: "Held for BTG", tone: "warn", hint: "The order is above your spending limit, so BTG checks it before it is confirmed. The items stay yours while they do." },
+  /* 2S4-BE-09 / -10 — approved on its own within the sponsor's limit (or by BTG above it); paid by card within 3 days. */
+  APPROVED: { label: "Approved", tone: "primary", hint: "Your order is approved. Pay the total by card within 3 days to lock in the dates." },
+  AWAITING_PAYMENT: { label: "Awaiting payment", tone: "warn", hint: "Pay the total by card within 3 days, or the order is cancelled and the dates released." },
   PAID: { label: "Paid", tone: "accent", hint: "Payment is recorded. Sellers deliver on the dates of each line." },
   IN_DELIVERY: { label: "In delivery", tone: "primary", hint: "Sellers are delivering the items." },
   FULFILLED: { label: "Fulfilled", tone: "accent", hint: "Every item has been delivered." },
@@ -463,7 +486,7 @@ export function reservationCopy(state: string): { label: string; tone: Tone } {
 }
 
 /** A sponsor may cancel only before payment (Phase 2 state machine §4). */
-const CANCELLABLE: ReadonlySet<OrderState> = new Set(["PENDING_APPROVAL", "APPROVED", "AWAITING_PAYMENT"]);
+const CANCELLABLE: ReadonlySet<OrderState> = new Set(["PENDING_SELLER", "PENDING_APPROVAL", "APPROVED", "AWAITING_PAYMENT"]);
 export function canCancel(state: string): boolean {
   return CANCELLABLE.has(state as OrderState);
 }
@@ -471,6 +494,7 @@ export function canCancel(state: string): boolean {
 /** The order states the orders list may filter by — the API does not
  *  validate `?state=`, so only these are ever sent. */
 export const ORDER_STATES: OrderState[] = [
+  "PENDING_SELLER",
   "PENDING_APPROVAL",
   "APPROVED",
   "AWAITING_PAYMENT",
@@ -490,10 +514,46 @@ export function orderRef(id: string): string {
   return `SX-${id.slice(-8).toUpperCase()}`;
 }
 
-/** "3 items · 2 sellers" over the cart's or order's lines. */
-export function lineSummary(lines: Array<{ quantity: number; propertyName?: string; propertyId?: string }>): string {
+export type SellerFields = {
+  propertyName?: string | null;
+  sellerName?: string | null;
+  propertyId?: string | null;
+  sellerAthleteId?: string | null;
+  seller?: { type: string; id: string; name: string } | null;
+  listingId?: string;
+};
+
+/** A cart or order line as checkout and the order page list it. */
+export type ShopLine = SellerFields & {
+  id: string;
+  title: string;
+  quantity: number;
+  unitPriceCents: number;
+  startsOn: string;
+  endsOn: string;
+  lineTotalCents: number;
+};
+
+/** Who sells a cart or order line, for people: the team, or the independent
+ *  athlete — an athlete's line has no property (2S3-FE-03). */
+export function lineSeller(l: SellerFields): string {
+  return l.seller?.name ?? l.sellerName ?? l.propertyName ?? (l.propertyId ? "The team" : "Independent athlete");
+}
+
+/** One seller, once: by id where the line carries one, else by its name. */
+function sellerKey(l: SellerFields): string {
+  if (l.seller) return `${l.seller.type}:${l.seller.id}`;
+  if (l.propertyId) return `PROPERTY:${l.propertyId}`;
+  if (l.sellerAthleteId) return `ATHLETE:${l.sellerAthleteId}`;
+  const name = l.sellerName ?? l.propertyName;
+  return name ? `NAME:${name}` : `LISTING:${l.listingId ?? "?"}`;
+}
+
+/** "3 items · 2 sellers" over the cart's or order's lines — an athlete
+ *  selling with no team counts as a seller of their own (2S3-FE-03). */
+export function lineSummary(lines: Array<{ quantity: number } & SellerFields>): string {
   const items = lines.reduce((s, l) => s + l.quantity, 0);
-  const sellers = new Set(lines.map((l) => l.propertyName ?? l.propertyId)).size;
+  const sellers = new Set(lines.map(sellerKey)).size;
   return `${items} ${items === 1 ? "item" : "items"} · ${sellers} ${sellers === 1 ? "seller" : "sellers"}`;
 }
 

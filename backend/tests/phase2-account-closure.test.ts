@@ -114,7 +114,8 @@ describe.skipIf(!hasDatabase)("2S1-BE-13 · closing an account and coming back",
       { id: "ac_u_pm", tenantId: T, clerkId: "ac_pm", email: "ac_pm@ac-test.invalid", roles: ["PROPERTY_MGR"], propertyId: "ac_hawks" },
       { id: "ac_u_dana", tenantId: T, clerkId: "ac_dana", email: "ac_dana@ac-test.invalid", roles: ["SPONSOR_ADMIN"], sponsorId: "ac_cafe" },
     ] });
-    server = createApp().listen(0);
+    server = createApp().listen(0, "127.0.0.1");
+    await new Promise((r) => server.once("listening", r)); // a host makes the bind async
     base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
   });
   afterAll(async () => {

@@ -114,7 +114,8 @@ describe.skipIf(!hasDatabase)("2S1-BE-15 · BTG's Guardian handoffs desk", { tim
       { id: "hd_u_carmen", tenantId: T, clerkId: "hd_carmen", email: "hd_carmen@hd-test.invalid", roles: ["GUARDIAN"], guardianId: "hd_carmen" },
       { id: "hd_u_jordan", tenantId: T, clerkId: "hd_jordan", email: "hd_jordan@hd-test.invalid", roles: ["ATHLETE"], athleteId: "hd_jordan" },
     ] });
-    server = createApp().listen(0);
+    server = createApp().listen(0, "127.0.0.1");
+    await new Promise((r) => server.once("listening", r)); // a host makes the bind async
     base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
 
     luis = await request({ name: "Luis Reyes", email: "hd_luis@hd-test.invalid", phone: "555-0101" });

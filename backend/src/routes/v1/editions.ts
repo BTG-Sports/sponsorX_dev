@@ -14,6 +14,7 @@ import { requireActor } from "../../auth/actor";
 import { assertAllowed, can, whereFor } from "../../auth/scope";
 import { prisma } from "../../db/client";
 import { rightsGap } from "../../domain/content-rights";
+import { artworkBlockers } from "../../domain/edition-artwork-rules";
 import { limit } from "../../lib/rate-limit";
 import { clientIp } from "../../lib/client-ip";
 import {
@@ -112,7 +113,7 @@ const listEditions: RequestHandler = async (req, res) => {
   const slots = ids.length && can(actor, "adSlot", "read")
     ? await prisma.adSlot.findMany({
         where: { ...whereFor(actor, "adSlot", "read"), editionId: { in: ids } },
-        select: { editionId: true, campaignId: true, priceCents: true, soldCents: true },
+        select: { id: true, slotCode: true, editionId: true, campaignId: true, priceCents: true, soldCents: true },
       })
     : [];
   /* The digital gap the production gate asks about (P9-BE-10), counted, so
@@ -120,6 +121,15 @@ const listEditions: RequestHandler = async (req, res) => {
   const gaps = can(actor, "editionAsset", "read")
     ? await Promise.all(editions.map((e) => rightsGap(prisma, actor.tenantId, e.id, "DIGITAL", e.publishTarget)))
     : null;
+  /* P9-BE-16 — the sold slots whose artwork is not yet approved on the board,
+     counted: the fourth thing between the edition and production. */
+  const art = ids.length && can(actor, "editionArtwork", "read")
+    ? await prisma.editionAsset.findMany({
+        where: { ...whereFor(actor, "editionArtwork", "read"), editionId: { in: ids } },
+        select: { adSlotId: true, reviewState: true },
+      })
+    : null;
+  const artBySlot = new Map((art ?? []).map((a) => [a.adSlotId, a]));
 
   res.json({
     editions: editions.map((e, i) => {
@@ -137,6 +147,9 @@ const listEditions: RequestHandler = async (req, res) => {
           rackCents: mine.reduce((n, s) => n + s.priceCents, 0),
         },
         rightsPending: gaps ? gaps[i]!.length : null,
+        artworkPending: art
+          ? artworkBlockers(mine.map((s) => ({ slotCode: s.slotCode, campaignId: s.campaignId, artwork: artBySlot.get(s.id) ?? null }))).length
+          : null,
       };
     }),
   });
@@ -156,6 +169,16 @@ const ledger: RequestHandler<{ id: string }> = async (req, res) => {
       })
     : [];
   const by = new Map(buyers.map((b) => [b.id, b]));
+  /* P9-BE-16 — each sold slot's artwork on the approval board, for a caller
+     who reads it (BTG's desk); nobody else's ledger carries it. */
+  const soldIds = rows.filter((r) => r.campaignId).map((r) => r.id);
+  const artwork = soldIds.length && can(actor, "editionArtwork", "read")
+    ? await prisma.editionAsset.findMany({
+        where: { ...whereFor(actor, "editionArtwork", "read"), adSlotId: { in: soldIds } },
+        select: { id: true, adSlotId: true, reviewState: true, artworkVersion: true, submittedAt: true, revisionNote: true },
+      })
+    : null;
+  const artBySlot = new Map((artwork ?? []).map((a) => [a.adSlotId, a]));
   res.json({
     slots: rows.map((r) => {
       const page = PAGE_OF.exec(r.slotCode);
@@ -170,6 +193,19 @@ const ledger: RequestHandler<{ id: string }> = async (req, res) => {
         soldCents: r.soldCents,
         soldAt: r.soldAt?.toISOString() ?? null,
         ...(buyer ? { buyer: { campaignId: buyer.id, campaign: buyer.name, sponsor: buyer.sponsor.name } } : {}),
+        ...(artwork && r.campaignId
+          ? {
+              artwork: (() => {
+                const a = artBySlot.get(r.id);
+                return a
+                  ? {
+                      id: a.id, state: a.reviewState, version: a.artworkVersion ?? 0,
+                      submittedAt: a.submittedAt?.toISOString() ?? null, revision: a.revisionNote ? { reason: a.revisionNote } : null,
+                    }
+                  : null;
+              })(),
+            }
+          : {}),
       };
     }),
   });

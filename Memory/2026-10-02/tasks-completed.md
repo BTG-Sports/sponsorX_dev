@@ -91,3 +91,141 @@ The owner asked to finish the remaining Phase 1 tasks. Every open row was checke
 - **Waiting on others:** P8-QA-01; P8-QA-03; P9-QA-01 (waits on P9-BE-16); P8-PMO-05 at Code review.
 
 **Tracker:** 17 Phase 1 rows updated and P9-BE-16 appended at row 268. The autofilter, conditional formats and Status list now run to row 268; the Dashboard and Stage Progress formulas already reached row 400. Stage Progress snapshot: 2026-10-02 · 243 Done · 50 days left. The upstream board was merged first, and the teammate's cells are untouched.
+
+## BTG admin review items 9 to 11: order approval, payment and delivery, automated (2S4-BE-09, -10, -11 and 2S4-FE-05, all Done)
+
+**The owner's decisions:**
+- the spending limit starts at $5,000 and is capped at $25,000;
+- a listing that asks for approval is decided by its seller;
+- an unpaid order is cancelled after 3 days;
+- each side gets 72 hours to answer a delivery problem.
+
+### 2S4-BE-09: approval
+- **The spending limit is never stored.** It is replayed from the sponsor's own records (`backend/src/domain/spending-limit.ts`, `spendingLimit()`):
+  - it starts at $5,000 and rises to max($5,000, 2 × the largest completed order), capped at $25,000;
+  - the first refund or upheld problem freezes it, whether BTG decided it or the two sides agreed a line refund.
+- **Within the limit:** the order is approved automatically, the first one included.
+- **Above it:** the order waits for BTG, with the reason, and BTG is emailed.
+- **A listing that asks for approval:**
+  - the order goes to `PENDING_SELLER`, with an `OrderSellerApproval` row per seller;
+  - the seller has 48 hours, and silence declines (worker);
+  - one decline cancels the order;
+  - seller first, then BTG if the order is also above the limit.
+- **Daily summary:** BTG gets one per day of orders approved automatically.
+- **New policy resource** `orderSellerApproval`. The RBAC Matrix gains §24.
+
+### 2S4-BE-10: payment
+- **Awaiting payment** is set automatically when the order is approved.
+- **Zoho Books:** a paid invoice moves the order to PAID through the queued `zoho.ingestInvoice` and the new `MarketplaceOrderInvoice` mirror. A short invoice, the wrong currency, or an order that isn't waiting is audited as unmatched and never pays.
+  - BTG's Zoho Books is not connected. The MCP reaches only "The Coffee Stage" Books org, which is not BTG's. Books credentials are deferred (credentials doc §6, O-1). This part is tested against a simulated Zoho.
+- **Unpaid orders:** reminders at 1 and 2 days, cancelled at 3 (`cancelReason` UNPAID). Never cancelled while a card payment is in progress.
+- **Manual "Mark paid":** BTG_ADMIN or FINANCE only, with a method, a reference and the date received.
+- **One way to PAID:** card, Zoho and manual all go through `payOrderIn`.
+
+### 2S4-BE-11: delivery problems
+- New `DeliveryIssue` table, one row per problem round.
+- **The seller has 72 hours** to deliver again (the sponsor's 24 hours restart after the new delivery), refund the line, or disagree.
+- **The sponsor then has 72 hours** to accept or reject. An accepted answer settles without BTG.
+- **BTG steps in** only when the sponsor rejects or either side is silent.
+- **Late sellers:** a second reminder at 3 days, then BTG at 7.
+
+### Race fixes (c678ed5, from review)
+- Every order state move is conditional on the state it was read in, and the order row is locked (`lockOrder`). Without this, a cancel could have been overwritten by a payment.
+- Two sellers accepting at once no longer leave the order stuck, and the sweep acts as a backstop.
+- A payment can't start for an order that isn't waiting for one. A payment confirmed after a cancel is flagged to BTG for a refund (`payment.refundNeeded`).
+- A cancel while a card payment is processing gets 409.
+
+### 2S4-FE-05: the screens, from Claude Design
+- **Sellers:** approvals at `/athlete/sales/approvals/[id]` and `/property/sales/approvals/[id]`, plus the problem answer on the sale page.
+- **Sponsor order page:** a status card with the pay-by deadline, and the answer to the seller's reply.
+- **BTG Delivery issues:** Needs BTG, Settled and Overdue.
+- **BTG order page:** the spending-limit card with the held order, and the Mark paid dialog.
+- **Review fix:** a coded 403 (for example `guardian_must_act`) now shows the API's reason instead of "not your line".
+
+### Plan and tests
+- **Plan:** 2S4-BE-09, -10, -11 and 2S4-FE-05 added (Phase 2 now has 113 tasks). `SponsorX-Phase2-State-Machines.md` §4 updated.
+- **2S8-QA-04 raised** for intermittent cross-suite test failures: next-public-apply (the advisor's login answers 403), notification-preferences and pilot-school.
+- **Test fix:** the listing-hold email test now finds the emails by template (`9be8c92`).
+
+### Checks
+- Backend: 2235 of 2236 on two runs; only QA-02 fails.
+- Frontend: 988 tests pass.
+- The build is clean.
+
+### Owner steps
+- Connect BTG's Zoho Books, and switch on the invoice webhook there.
+- Choose Stripe. Real card payments, and refunds actually returned to the card, wait for it.
+
+## Afternoon batch: P9-BE-16, 2S3-FE-03, 2S2-FE-01, 2S8-QA-03, 2S8-QA-04 and QA-02 (all Done after independent review)
+
+### P9-BE-16: edition ad artwork through the approval board (option B, chosen by the owner)
+- **Design:** the board learns a second subject, edition artwork. The alternative, making each ad a Deliverable on a fake Campaign Order, was rejected because it would need a made-up athlete and job.
+- **Data:** `EditionAsset` gains `adSlotId`, a `reviewState` that reuses `DeliverableState`, `artworkVersion`, `submittedAt` and `revisionNote`. Migration `20261003150000`. A trigger refuses artwork on an unsold slot.
+- **Transitions:** checked by `canTransitionDeliverable` / `canRequestRevision`, so there is no second state machine.
+- **Sponsor sign-off is mandatory.** The policy resource `editionArtwork` gives approve to SPONSOR_ADMIN on their own campaign only. No staff role can approve. RBAC §15.3; digest `549a562e5fbbb0a6`.
+- **Production gate:** every sold slot needs APPROVED artwork, alongside the rights check.
+- **Review fix (`232b4a9`):** every production gate now asks about the edition's own tenant, not the caller's. A cross-tenant SUPER_ADMIN could otherwise skip the gates.
+- **Screens:**
+  - "Edition ad artwork" on `/admin/approvals`;
+  - "Your ad artwork" on the sponsor's campaign page;
+  - the artwork gate and card on the BTG edition page.
+
+### FOR JAN: `next-edition-e2e.test.ts`, P9-QA-01 clause 4
+Clause 4 now fails at the IN_PRODUCTION step, and clause 5 fails with it, because the artwork is never approved. Two changes make it pass; verified 7/7 on a copy.
+1. Replace the `POST /editions/${editionId}/assets` AD_CREATIVE call with:
+   ```ts
+   const signed = await call("POST", `/ad-slots/${backSlotId}/artwork/uploads`, SPONSOR_USER, { contentType: "image/png" });
+   const art = await call("POST", `/ad-slots/${backSlotId}/artwork`, SPONSOR_USER, { r2Key: signed.json.key, title: "Rosa's back cover artwork" });
+   artworkId = art.json.id;
+   ```
+2. Before the final IN_PRODUCTION transition:
+   ```ts
+   expect((await call("POST", `/edition-artwork/${artworkId}/btg-review`, STAFF)).json.state).toBe("BTG_REVIEW");
+   expect((await call("POST", `/edition-artwork/${artworkId}/sponsor-review`, STAFF)).json.state).toBe("SPONSOR_REVIEW");
+   expect((await call("POST", `/edition-artwork/${artworkId}/approve`, SPONSOR_USER)).json.state).toBe("APPROVED");
+   ```
+
+### 2S3-FE-03 and 2S2-FE-01
+- **2S3-FE-03:** an independent athlete is named as the seller in the cart, checkout, the sponsor's order page and BTG's order page. Order lines carry `seller {type,id,name}`.
+- **2S2-FE-01:** the Phase 2 athlete home.
+  - New `GET /sales/summary`, own scope only, for inventory performance and upcoming sales.
+  - `GET /payouts/me` gains `byState`. This also fixed `paidOutCents`, which only counted the 50 payouts listed.
+  - Offers and invitations waiting, deliverables due and overdue.
+
+### 2S8-QA-03, 2S8-QA-04 and QA-02
+- **QA-02:** the test was wrong, not the code. It wrote `expiresAt` with `now()` in the session's time zone (Manila), but the column is UTC. Fixed in `ed67f6f`.
+- **2S8-QA-04:** four causes, each isolated:
+  - a test tenant id shared by two files (`np_tenant`);
+  - the slug `riley-carter`, shared with the walkthrough seed;
+  - `sweepComingOfAge` and `expireReservations` running platform-wide from tests; they now take `opts.tenantIds`, and the worker is unchanged;
+  - test servers bound to every address on macOS; they now bind 127.0.0.1 and wait for `listening`.
+
+  The new guard is `tests/suite-isolation.static.test.ts`.
+- **2S8-QA-03:** `tests/phase2-reconciliation.test.ts` runs a full cycle through the API, with a tolerance of exactly 0 cents. It found no money bug.
+
+### Newly raised
+- **2S8-OPS-02:** pin the database time zone to UTC. `expire-invitations.mts` and the editions migration compare `now()` with UTC columns.
+- **2S8-QA-05:**
+  - a race between two applicants with the same name;
+  - the walkthrough seed failing on a non-empty database;
+  - a negative payee balance not shown on the payout page.
+
+### Checks
+- Backend: 2279 of 2281 on two runs. The only failures are Jan's clauses 4 and 5, above. QA-02 is green.
+- Frontend: 1025 pass.
+- The build is clean.
+
+## P1-ART-13 (Done): /login redesigned to the landing's stage language
+The owner's ask: make sign-in as lively as the landing, /packages, /join and /next/about.
+- **New:** `frontend/src/components/login-stage.tsx` (server) and `login-fx.tsx` (client islands). `app/login/page.tsx` is rewritten around them, and the `sx-login-*` block in `globals.css` is replaced.
+- **Ground:** the fixed-dark `.sx-stage` with the floor grid, the old Stadium Night floodlights (kept), rising motes, an outlined "SPONSORX" in pointer parallax, and a light that follows the cursor.
+- **From lg:** a HUD column with a scrambled eyebrow, a masked "Welcome Back. / Your Network. / Is Live." headline, a "Where you'll land" card that cycles the five workspaces, and the network figures (fixtures, labelled as samples). Next to it is the sign-in in a chamfered glass panel with brackets, a scan line and an outline spotlight (no tilt on a form).
+- **Below lg:** a compact hero, the panel, then the figures. One viewport down to 1366×700; the HUD drops parts as the screen gets shorter.
+- **Clerk:** behaviour unchanged (hash routing, `/portal`). Clerk's inner card, shadow and footer tint are flattened with two-class CSS, because the Tailwind appearance classes lose to Clerk's runtime styles.
+- `LoginStage` sets `html[data-sx-loaded]` itself, because /login has neither the boot screen nor the page transition.
+- **Verified:** eslint, tsc, vitest 972/972, and Playwright screenshots on the live dev server (1600, 1366×700, 390 phone, Frost theme), with no horizontal overflow.
+- **`next build` NOT verified:** in the shared install `node_modules/rimraf` is an empty folder (mtime 2026-10-02 14:01), so every production build fails resolving it through exceljs → fstream. This is unrelated to this change, and `npm ci` (or reinstalling rimraf 2.7.1) fixes it.
+- **Follow-up: /login now uses both loading screens.** `lib/page-transition.ts` lists `/login` with the site paths (label "Login"), so moving between it and the site plays the X transition both ways. Signing in (→ /portal) is still a plain navigation. The login page mounts `LandingLoader city={false}`, so a hard load or refresh of /login shows the boot screen. `LoginStage` now only arms the entrance, and the loader or the transition releases it. `page-transition.test.ts` was updated to match. Verified in Playwright: hard load shows the loader then the entrance; /login → / and /packages → /login play the transition ("Now entering · Login").
+- **Follow-up: /login closes with the landing's footer.** `SiteFooter compact` now sits at the bottom of the stage and rises in with the entrance. It replaces the "BTG Sports Group · SponsorX" fine print. The ground's outlined "SPONSORX" word was removed, because the footer carries the same wordmark. On desktop the footer sits just below the fold (the page is about 1165px tall at 1600×960), as it does on the other public pages.
+- **Follow-up: the transition title is "Login" (not "Sign In"), and descenders are no longer cut.** Each letter of the title is painted with `background-clip: text`, but its box was only the 0.95 line tall, so the bottom of the "g" painted transparent. `.char` and the `.word` mask in `page-transition.module.css` now pad below the line and cancel it with a negative margin. This fixes every label with a g, p or y ("For Sponsors", "SponsorX NEXT", ...).
+- **Tracker:** P1-ART-13 was raised and closed. It is appended at row 269 of Phase 1 (Order 32.95, Done, HeckerCreatives). The autofilter, conditional formats and Status list now run to row 269; the Dashboard formulas already reached row 400. The entry was also added to the Phase 1 plan after P1-ART-12. The upstream board was fast-forwarded first. The Stage Progress snapshot for 2026-10-02 was already written today and was left as it is.

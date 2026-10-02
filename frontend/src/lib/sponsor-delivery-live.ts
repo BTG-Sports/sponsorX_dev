@@ -11,8 +11,18 @@
      POST /deliveries/:lineId/problem          { note } — within the 24 hours
      GET  /deliveries/:lineId/proof            the seller's photo, 5-minute link
 
+   2S4-FE-05 / 2S4-BE-11 — a reported problem now goes to the seller first
+   (72 hours to deliver again, refund the line, or disagree), then back to
+   the sponsor (72 hours to accept or reject); BTG decides only if they
+   can't settle it:
+
+     POST /deliveries/:lineId/problem-answer   { decision: ACCEPT } | { decision: REJECT, note }
+     GET  /deliveries/:lineId/proof?issue=&photo=answer   the seller's answer photo
+
    Pure: shapes and words.
    -------------------------------------------------------------------------- */
+
+import type { ApiIssue, ApiTimelineItem } from "@/lib/order-automation-live";
 
 export type DeliveryLineState = "UNPAID" | "IN_DELIVERY" | "DELIVERED" | "CONFIRMED" | "PROBLEM" | "REFUNDED" | "CANCELLED";
 
@@ -31,9 +41,15 @@ export type ApiDeliveryLine = {
   problem: { reportedAt: string; text: string } | null;
   resolution: { decision: "CONFIRMED" | "REFUNDED"; note: string | null; at: string | null } | null;
   canAnswer: boolean;
+  /* 2S4-BE-11 — the date it is due by now, the problem exchange, and whether the sponsor's answer is due. */
+  lastDate?: string;
+  redeliverOn?: string | null;
+  issue?: ApiIssue | null;
+  canAnswerSellerReply?: boolean;
+  timeline?: ApiTimelineItem[];
 };
 
-export type ApiOrderDeliveries = { orderId: string; confirmWindowHours: number; lines: ApiDeliveryLine[] };
+export type ApiOrderDeliveries = { orderId: string; confirmWindowHours: number; answerWindowHours?: number; lines: ApiDeliveryLine[] };
 
 export const CONFIRM_HOURS = 24;
 
@@ -58,14 +74,17 @@ export function stamp(iso: string): string {
 export type Tone = "neutral" | "primary" | "accent" | "danger" | "warn";
 
 /** The delivery pill for one line — in words and a mark, never colour alone. */
-export function deliveryBadge(l: Pick<ApiDeliveryLine, "state" | "confirmedBy">): { label: string; tone: Tone; mark: string } {
+export function deliveryBadge(l: Pick<ApiDeliveryLine, "state" | "confirmedBy"> & Partial<Pick<ApiDeliveryLine, "issue" | "redeliverOn">>): { label: string; tone: Tone; mark: string } {
   switch (l.state) {
     case "UNPAID": return { label: "Delivery starts once paid", tone: "neutral", mark: "○" };
-    case "IN_DELIVERY": return { label: "In delivery", tone: "primary", mark: "●" };
+    case "IN_DELIVERY": return l.redeliverOn ? { label: "Redelivery booked", tone: "accent", mark: "✓" } : { label: "In delivery", tone: "primary", mark: "●" };
     case "DELIVERED": return { label: "Waiting for your answer", tone: "warn", mark: "!" };
     case "CONFIRMED":
       return { label: l.confirmedBy === "NO_ANSWER" ? "Counted as confirmed" : l.confirmedBy === "BTG" ? "Confirmed by BTG" : "Confirmed", tone: "accent", mark: "✓" };
-    case "PROBLEM": return { label: "Problem reported — with BTG", tone: "danger", mark: "✕" };
+    case "PROBLEM":
+      if (l.issue?.stage === "SPONSOR_TO_ANSWER") return { label: "Problem reported · answer needed", tone: "warn", mark: "!" };
+      if (l.issue?.stage === "SELLER_TO_ANSWER") return { label: "Problem reported · waiting for the seller", tone: "danger", mark: "✕" };
+      return { label: "BTG is deciding", tone: "warn", mark: "!" };
     case "REFUNDED": return { label: "Refunded", tone: "neutral", mark: "↺" };
     case "CANCELLED": return { label: "Cancelled", tone: "neutral", mark: "–" };
   }
@@ -77,10 +96,14 @@ export function deliveryNote(l: ApiDeliveryLine): string | null {
     return `Confirm it, or report a problem, by ${stamp(l.confirmDueAt)}. If you don’t answer by then, it counts as confirmed.`;
   }
   if (l.state === "CONFIRMED" && l.confirmedBy === "NO_ANSWER") return `No answer came within ${CONFIRM_HOURS} hours, so it counted as confirmed.`;
-  if (l.state === "PROBLEM") return "BTG is looking into it and will email you its decision. The seller isn't paid for this line until then.";
-  if (l.state === "REFUNDED") return "BTG cancelled and refunded this line.";
+  /* 2S4-FE-05 — a problem's own words come from the exchange (order-automation-live sponsorIssueStatus). */
+  if (l.state === "PROBLEM" && !l.issue) return "BTG is deciding and will email you. The seller isn't paid for this line until then.";
+  if (l.state === "IN_DELIVERY" && l.redeliverOn) return `The seller delivers it again on ${dayWord(l.redeliverOn)}. When it's marked delivered you have ${CONFIRM_HOURS} hours to confirm it or report a problem.`;
+  if (l.state === "REFUNDED") return l.issue?.stage === "SETTLED" ? "Refunded in full — you accepted the seller’s refund." : "BTG cancelled and refunded this line.";
   return null;
 }
+
+const dayWord = (iso: string) => new Date(iso.length === 10 ? `${iso}T12:00:00Z` : iso).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
 
 /** The sponsor's words for a refused answer, from the API's error body. */
 export function answerRefusal(status: number, body: unknown, fallback: string): string {

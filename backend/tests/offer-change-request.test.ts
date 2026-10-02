@@ -115,7 +115,8 @@ describe.skipIf(!hasDatabase)("2S2-FE-03 · requesting a change to an offer", { 
     await prisma.offer.create({ data: offerRow("ocr_offer", T, "ocr_ath", "ocr_cm") });
     await prisma.offer.create({ data: offerRow("ocr_offer_minor", T, "ocr_minor", "ocr_cm") });
     await prisma.offer.create({ data: offerRow("ocr_offer_x", X, "ocr_x_ath", null) });
-    server = createApp().listen(0);
+    server = createApp().listen(0, "127.0.0.1");
+    await new Promise((r) => server.once("listening", r)); // a host makes the bind async
     base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
   });
 

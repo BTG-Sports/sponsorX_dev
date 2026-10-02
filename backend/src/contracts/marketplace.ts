@@ -211,9 +211,32 @@ export const PlaceOrderInput = z
 export const MarketplaceOrderDecisionInput = z
   .object({ decision: z.enum(["APPROVE", "REJECT"]), notes: z.string().max(4000).nullable().optional() })
   .meta({ id: "MarketplaceOrderDecisionInput", description: "BTG's decision on an order held for approval; REJECT needs notes and releases the stock." });
+/* 2S4-BE-10 — BTG recording a payment made another way. */
+export const ManualPaymentInput = z
+  .object({
+    method: z.enum(["BANK_TRANSFER", "CHEQUE", "OTHER"]),
+    reference: z.string().trim().max(200).describe("The payment's reference — required; never a card or bank number"),
+    receivedOn: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).describe("The date the money arrived, YYYY-MM-DD — not in the future"),
+  })
+  .strict()
+  .meta({ id: "ManualPaymentInput", description: "How a payment made outside the card provider arrived. Required to mark an order PAID by hand (BTG admin and Finance only)." });
 export const MarketplaceOrderTransitionInput = z
-  .object({ to: z.enum(["AWAITING_PAYMENT", "PAID", "IN_DELIVERY", "FULFILLED", "CLOSED", "CANCELLED", "REFUNDED"]) })
-  .meta({ id: "MarketplaceOrderTransitionInput", description: "Payment and delivery states (staff), or CANCELLED before payment (the sponsor). APPROVED is never a transition." });
+  .object({
+    to: z.enum(["AWAITING_PAYMENT", "PAID", "IN_DELIVERY", "FULFILLED", "CLOSED", "CANCELLED", "REFUNDED"]),
+    /* Optional on the wire so its absence is the domain's 422 ("give the reference"), not a bare 400. */
+    payment: ManualPaymentInput.optional(),
+  })
+  .strict()
+  .meta({ id: "MarketplaceOrderTransitionInput", description: "Payment and delivery states (staff), or CANCELLED before payment (the sponsor). APPROVED is never a transition. PAID by hand needs `payment` (method, reference, date received) and BTG admin or Finance." });
+
+/* 2S4-BE-09 — the seller's answer to an order a listing of theirs asks to approve. */
+export const SellerApprovalDecisionInput = z
+  .object({
+    decision: z.enum(["ACCEPT", "DECLINE"]),
+    reason: z.string().trim().max(2000).nullable().optional().describe("Why — required to decline; the sponsor reads it"),
+  })
+  .strict()
+  .meta({ id: "SellerApprovalDecisionInput", description: "The seller accepts the order, or declines it with a reason the sponsor reads — within 48 hours of it being placed." });
 
 /* ── Phase 2 batch 6 — commission rules ─────────────────────────────── */
 export const CommissionRuleInput = z

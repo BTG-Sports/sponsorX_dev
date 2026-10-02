@@ -36,7 +36,8 @@ import { assertAllowed, whereFor } from "../auth/scope";
 import { ForbiddenError } from "../auth/errors";
 import { providerName, readStandinToken, standinLink, standinRef, StandinTokenError } from "../lib/payment-provider";
 import { postPayout } from "./ledger";
-import { moveOrderAsSystem } from "./marketplace-order";
+import { lockOrder, moveOrderAsSystem, payOrderIn } from "./marketplace-order";
+import { appUrl, btgAdmins, tell } from "./order-mail";
 import { assertMayCommit } from "./guardian-acts";
 import { payoutHoldReason } from "./payout-holds";
 
@@ -256,13 +257,24 @@ export async function startCardPayment(actor: Actor, orderId: string, now = new 
   const provider = providerName();
   if (provider === "none") throw providerUnavailable("Card payment");
   const attempt = await prisma.$transaction(async (tx) => {
-    const order = await tx.marketplaceOrder.findFirst({
-      where: { ...whereFor(actor, "marketplaceOrder", "write"), id: orderId },
-      select: { id: true, tenantId: true, sponsorId: true, state: true, totalCents: true },
+    const found = await tx.marketplaceOrder.findFirst({
+      where: { ...whereFor(actor, "marketplaceOrder", "write"), id: orderId }, select: { id: true },
     });
-    if (!order) throw new ForbiddenError("marketplaceOrder", "write");
+    if (!found) throw new ForbiddenError("marketplaceOrder", "write");
+    /* The order's row lock, then its state as it is now: a cancel committing
+       (the unpaid sweep, the sponsor, BTG) is waited for and read, so no
+       payment starts for an order that is no longer waiting for one. */
+    await lockOrder(tx, found.id);
+    const order = await tx.marketplaceOrder.findUniqueOrThrow({
+      /* tenant-scope: the row just found through whereFor(marketplaceOrder, write), re-read under its lock. */
+      where: { id: found.id }, select: { id: true, tenantId: true, sponsorId: true, state: true, totalCents: true },
+    });
     if (order.state !== "APPROVED" && order.state !== "AWAITING_PAYMENT") {
-      throw new PayoutError(order.state === "PENDING_APPROVAL" ? "BTG hasn't approved this order yet — you can pay once it has." : "This order isn't waiting for payment.");
+      throw new PayoutError(
+        order.state === "PENDING_APPROVAL" ? "BTG hasn't approved this order yet — you can pay once it has."
+        : order.state === "PENDING_SELLER" ? "The seller hasn't accepted this order yet — you can pay once they have."
+        : "This order isn't waiting for payment.",
+      );
     }
     const confirming = await tx.paymentAttempt.findFirst({
       /* tenant-scope: this order's own attempts, named by its id. */
@@ -280,40 +292,54 @@ export async function startCardPayment(actor: Actor, orderId: string, now = new 
   return { url: standinLink({ kind: "checkout", attemptId: attempt.id, returnPath: `/sponsor/orders/${orderId}?payment=returned` }, now) };
 }
 
-/** 2S5-INT-02 — the provider confirms a card payment: the order is paid. Idempotent. */
+/**
+ * 2S5-INT-02 — the provider confirms a card payment: the order is paid.
+ * Idempotent. 2S4-BE-10 — through `payOrderIn`, the one path every payment
+ * takes (card, Zoho invoice, BTG by hand): the same move, the same record
+ * on the order, the same emails.
+ *
+ * The money is the sponsor's either way, so a confirmation for an order that
+ * is no longer waiting for it is never dropped: it is RECORDED FOR REFUND —
+ * audited (`payment.paidAfterCancel` for an order cancelled or refunded,
+ * `payment.afterPaid` for one already paid another way) and BTG's admins
+ * emailed to refund the sponsor. Under the order's row lock, so it reads
+ * what a cancel committing at the same moment did.
+ */
 export async function confirmPayment(attemptId: string, now = new Date()) {
   return prisma.$transaction(async (tx) => {
     const a = await tx.paymentAttempt.findUnique({
       /* tenant-scope: the attempt named by the provider's confirmation job. */
-      where: { id: attemptId }, select: { id: true, tenantId: true, orderId: true, state: true, amountCents: true, createdBy: true },
+      where: { id: attemptId }, select: { id: true, tenantId: true, orderId: true, state: true, amountCents: true, createdBy: true, providerRef: true },
     });
     if (!a || a.state !== "PROCESSING") return { confirmed: false };
-    await tx.paymentAttempt.update({
-      /* tenant-scope: the row just loaded by id. */
-      where: { id: a.id }, data: { state: "SUCCEEDED" }, select: { id: true },
+    await lockOrder(tx, a.orderId);
+    const claimed = await tx.paymentAttempt.updateMany({
+      /* tenant-scope: the row just loaded by id; conditional, so a redelivered confirmation finds nothing. */
+      where: { id: a.id, state: "PROCESSING" }, data: { state: "SUCCEEDED" },
     });
-    const order = await moveOrderAsSystem(tx, a.orderId, "PAID", now);
+    if (claimed.count === 0) return { confirmed: false };
     await audit(tx, { userId: null, tenantId: a.tenantId }, "payment.confirm", "MarketplaceOrder", a.orderId, { after: { attemptId: a.id, amountCents: a.amountCents } });
-    const buyer = a.createdBy
-      ? await tx.user.findUnique({
-          /* tenant-scope: the sponsor user who started this attempt, recorded on it. */
-          where: { id: a.createdBy }, select: { email: true },
-        })
-      : null;
-    if (buyer) {
-      await enqueue(tx, a.tenantId, "notify.email", {
-        tenantId: a.tenantId,
-        template: "payment.received",
-        to: buyer.email,
-        idempotencyKey: `payment.received:${a.id}`,
-        data: {
-          orderRef: orderRef(a.orderId),
-          amount: usd(a.amountCents),
-          lines: order.lines.map((l) => `${l.title} — ${usd(l.lineTotalCents)}`).join("\n"),
-          orderUrl: `${env.APP_URL.replace(/\/+$/, "")}/sponsor/orders/${a.orderId}`,
-        },
+    const order = await tx.marketplaceOrder.findUniqueOrThrow({
+      /* tenant-scope: the order this attempt was made for, recorded on it. */
+      where: { id: a.orderId }, select: { state: true },
+    });
+    if (order.state !== "APPROVED" && order.state !== "AWAITING_PAYMENT") {
+      const ended = order.state === "CANCELLED" || order.state === "REFUNDED";
+      await audit(tx, { userId: null, tenantId: a.tenantId }, ended ? "payment.paidAfterCancel" : "payment.afterPaid", "MarketplaceOrder", a.orderId, {
+        after: { attemptId: a.id, amountCents: a.amountCents, orderState: order.state, providerRef: a.providerRef, refundNeeded: true },
       });
+      for (const u of await btgAdmins(tx, a.tenantId)) {
+        await tell(tx, { tenantId: a.tenantId, email: u.email }, "payment.refundNeeded", a.id, {
+          orderRef: orderRef(a.orderId), amount: usd(a.amountCents), orderState: order.state.toLowerCase().replace("_", " "),
+          why: ended
+            ? `The card payment was confirmed after the order was ${order.state === "CANCELLED" ? "cancelled" : "refunded"}`
+            : "The card payment was confirmed for an order that had already been paid another way",
+          providerRef: a.providerRef ?? "", orderUrl: appUrl(`/admin/marketplace/orders/${a.orderId}`),
+        });
+      }
+      return { confirmed: true, refundNeeded: true };
     }
+    await payOrderIn(tx, { userId: null, tenantId: a.tenantId }, a.orderId, { via: "CARD", reference: a.providerRef, attemptId: a.id, receiptTo: a.createdBy }, now);
     return { confirmed: true };
   });
 }
@@ -384,6 +410,20 @@ export async function completeStandinCheckout(token: string, outcome: "SUCCEED" 
     });
     if (!a) throw new StandinTokenError();
     if (a.state !== "PENDING") return; // already answered — the page was submitted twice
+    /* The order's row lock, then its state now: the money is not taken for
+       an order that stopped waiting for it (cancelled while the page was
+       open) — the attempt fails and nothing is charged. A cancel waits for
+       this, and then sees the payment being confirmed and refuses. */
+    const orderState = await lockOrder(tx, a.orderId);
+    if (outcome === "SUCCEED" && orderState !== "APPROVED" && orderState !== "AWAITING_PAYMENT") {
+      const failed = await tx.paymentAttempt.updateMany({
+        /* tenant-scope: the row just loaded by the signed link's id; conditional on it still being open. */
+        where: { id: a.id, state: "PENDING" },
+        data: { state: "FAILED", failureReason: `The order is no longer waiting for payment (it is ${String(orderState).toLowerCase().replace("_", " ")}) — nothing was charged.` },
+      });
+      if (failed.count) await audit(tx, { userId: null, tenantId: a.tenantId }, "payment.refused", "MarketplaceOrder", a.orderId, { after: { attemptId: a.id, orderState } });
+      return;
+    }
     if (outcome === "DECLINE") {
       await tx.paymentAttempt.update({
         /* tenant-scope: the row just loaded by the signed link's id. */
@@ -392,10 +432,11 @@ export async function completeStandinCheckout(token: string, outcome: "SUCCEED" 
       await audit(tx, { userId: null, tenantId: a.tenantId }, "payment.fail", "MarketplaceOrder", a.orderId, { after: { attemptId: a.id } });
       return;
     }
-    await tx.paymentAttempt.update({
-      /* tenant-scope: the row just loaded by the signed link's id. */
-      where: { id: a.id }, data: { state: "PROCESSING", providerRef: standinRef("pay") }, select: { id: true },
+    const processing = await tx.paymentAttempt.updateMany({
+      /* tenant-scope: the row just loaded by the signed link's id; conditional, so a double submit takes it once. */
+      where: { id: a.id, state: "PENDING" }, data: { state: "PROCESSING", providerRef: standinRef("pay") },
     });
+    if (processing.count === 0) return;
     /* The provider's confirmation arrives separately, like a real webhook. */
     await enqueue(tx, a.tenantId, "payments.confirm", { attemptId: a.id });
   });
@@ -500,18 +541,24 @@ function payoutView(p: PayoutRow) {
 /** The payee's money: what can be requested, what can't yet and why, and every payout so far. */
 export async function myPayouts(actor: Actor, now = new Date()) {
   const payee = payeeOf(actor, "payout", "read");
-  const [orders, accountRow, payouts] = await Promise.all([
+  const [orders, accountRow, payouts, grouped] = await Promise.all([
     balanceOf(prisma, payee, now),
     prisma.payoutAccount.findUnique({
       /* tenant-scope: the payee's own account, by its unique payee key from the actor. */
       where: { payeeType_payeeId: { payeeType: payee.payeeType, payeeId: payee.payeeId } }, select: ACCOUNT_SELECT,
     }),
     prisma.payout.findMany({ where: whereFor(actor, "payout", "read"), select: PAYOUT_SELECT, orderBy: { requestedAt: "desc" }, take: 50 }),
+    /* 2S2-FE-01 — every payout of the payee's by state, counted in Postgres, not over the 50 listed. */
+    prisma.payout.groupBy({ by: ["state"], where: whereFor(actor, "payout", "read"), _count: { _all: true }, _sum: { amountCents: true } }),
   ]);
+  const byState = Object.fromEntries(STATES.map((st) => {
+    const g = grouped.find((x) => x.state === st);
+    return [st, { count: g?._count._all ?? 0, amountCents: g?._sum.amountCents ?? 0 }];
+  })) as Record<(typeof STATES)[number], { count: number; amountCents: number }>;
   const account = accountView(accountRow && accountRow.status ? accountRow : null);
   const sum = (f: (o: OrderMoney) => number) => orders.reduce((s, o) => s + f(o), 0);
   const requestableCents = sum((o) => o.requestableCents);
-  const paidOutCents = payouts.filter((p) => p.state === "PAID").reduce((s, p) => s + p.amountCents, 0);
+  const paidOutCents = byState.PAID.amountCents;
   const holds = orders.filter((o) => o.confirmedLines > 0 && o.holdUntil && o.holdUntil > now && o.availableCents - o.inFlightCents > 0);
   const nextHold = holds.map((o) => o.holdUntil!).sort((a, b) => a.getTime() - b.getTime())[0] ?? null;
   const checks = [
@@ -535,6 +582,8 @@ export async function myPayouts(actor: Actor, now = new Date()) {
       inFlightCents: sum((o) => o.inFlightCents),
       paidOutCents,
     },
+    /** Every payout so far by state — how many and how much (2S2-FE-01). */
+    byState,
     canRequest: account.status === "READY" && requestableCents > 0,
     checks,
     orders: orders.map(({ books: _books, ...o }) => ({ ...o, orderRef: orderRef(o.orderId) })),

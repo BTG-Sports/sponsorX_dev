@@ -12,7 +12,7 @@ import { z } from "./zod";
 export const ZohoInvoiceWebhook = z
   .object({
     invoiceId: z.string().min(1).max(120),
-    /** The Zoho Deal this invoice belongs to; maps to `Campaign.zohoDealId`. */
+    /** The Zoho Deal this invoice belongs to; maps to `Campaign.zohoDealId`, or a marketplace order's `zohoDealId` (2S4-BE-10). */
     dealId: z.string().min(1).max(120),
     number: z.string().max(120).nullable().optional(),
     /** Zoho's own word — draft | sent | overdue | paid | void. Not mapped
@@ -24,6 +24,8 @@ export const ZohoInvoiceWebhook = z
     issuedAt: z.iso.datetime().nullable().optional(),
     dueAt: z.iso.datetime().nullable().optional(),
     paidAt: z.iso.datetime().nullable().optional(),
+    /** 2S4-BE-10 — cents still owed. A live invoice with nothing owing is paid. */
+    balance: z.int().min(0).nullable().optional().describe("cents still owed"),
   })
   .meta({ id: "ZohoInvoiceWebhook" });
 

@@ -48,6 +48,8 @@ const actor = () =>
    than reaching through the mocked client. */
 const tx = () => ({
   campaign: { findUnique: () => Promise.resolve(campaign) },
+  /* 2S4-BE-10 — a deal no campaign carries may be a marketplace order's; here, none. */
+  marketplaceOrder: { findUnique: () => Promise.resolve(null) },
   campaignInvoice: {
     findUnique: () => Promise.resolve(existing),
     upsert: (args: { create: Record<string, unknown>; update: Record<string, unknown> }) => {
@@ -106,7 +108,7 @@ describe("invoices flow in from Zoho", () => {
   });
 
   /* An invoice on the wrong campaign is worse than one visibly unattached. */
-  it("refuses a deal no campaign carries, rather than guessing", async () => {
+  it("refuses a deal no campaign (and no marketplace order) carries, rather than guessing", async () => {
     campaign = null;
     await expect(ingestZohoInvoice(tx(), payload())).rejects.toThrow(UnknownDealError);
     expect(upserts).toEqual([]);

@@ -3,9 +3,13 @@ import Link from "next/link";
 import { Badge, Card } from "@/components/ui";
 import { EmptyState, ErrorPanel, SkeletonRows } from "@/components/states";
 import { SellerMarkDelivered } from "@/components/seller-mark-delivered";
+import { DeliveryTrack } from "@/components/order-bits";
+import { SellerApprovalsPanel } from "@/components/seller-approval";
+import { SellerProblemAnswer } from "@/components/seller-problem-answer";
+import type { ApiSellerApproval } from "@/lib/order-automation-live";
 import type { DemoState } from "@/lib/demo";
 import {
-  SELLER, dayOf, datesText, lineSummary, markControl, orderBadge, orderBanner, shareNote, shareUsd, stamp, trackSteps,
+  SELLER, dayOf, datesText, lineSummary, lineTotalCents, markControl, orderBadge, orderBanner, shareNote, shareUsd, stamp, trackSteps,
   type ApiSellerOrder, type SellerKind,
 } from "@/lib/seller-orders-live";
 
@@ -20,7 +24,7 @@ import {
    (2S4-BE-07).
    -------------------------------------------------------------------------- */
 
-function StatusPill({ o }: { o: Pick<ApiSellerOrder, "state" | "sponsor"> }) {
+function StatusPill({ o }: { o: ApiSellerOrder }) {
   const b = orderBadge(o);
   return (
     <Badge tone={b.tone}>
@@ -41,7 +45,14 @@ function Heading() {
 
 /* ------------------------------------------------------------------ list */
 
-export function SellerOrdersList({ kind, orders, demo }: { kind: SellerKind; orders: ApiSellerOrder[]; demo: DemoState }) {
+export function SellerOrdersList({ kind, orders, demo, approvals = [], now = new Date() }: {
+  kind: SellerKind;
+  orders: ApiSellerOrder[];
+  demo: DemoState;
+  /** 2S4-FE-05 — orders the seller's listings ask them to approve (GET /seller-approvals), not yet sales. */
+  approvals?: ApiSellerApproval[];
+  now?: Date;
+}) {
   const base = SELLER[kind].basePath;
   /* A roster athlete's line is sold by their team: their team's share is elsewhere. */
   const soldByTeam = orders.some((o) => o.line.athlete !== null && o.line.soldBy !== o.line.athlete);
@@ -53,58 +64,63 @@ export function SellerOrdersList({ kind, orders, demo }: { kind: SellerKind; ord
         <Card className="p-0"><SkeletonRows rows={4} /></Card>
       ) : demo === "error" ? (
         <ErrorPanel title="Orders didn’t load" hint="The rest of the portal still works. Try again in a minute." />
-      ) : demo === "empty" || orders.length === 0 ? (
+      ) : demo === "empty" || (orders.length === 0 && approvals.length === 0) ? (
         <EmptyState mark="inbox" title="No orders yet" hint="When a sponsor buys one of your items, the order shows here and we email you." />
       ) : (
-        <div className="space-y-2">
-          <section aria-label="Orders">
-            <Card className="p-0">
-              <div className="hidden grid-cols-[8rem_9rem_minmax(0,1fr)_8rem_10rem_6rem_5rem] gap-x-3 border-b border-line-soft px-4 py-2 text-[10px] font-medium uppercase tracking-wide text-faint lg:grid">
-                <span>Order</span>
-                <span>Sponsor</span>
-                <span>What was bought</span>
-                <span>Dates</span>
-                <span>Status</span>
-                <span className="text-right">Your share</span>
-                <span className="sr-only">Open</span>
-              </div>
-              <ul className="divide-y divide-line-soft">
-                {orders.map((o) => (
-                  <li key={o.id} className="grid gap-x-3 gap-y-1.5 px-4 py-3.5 text-xs lg:grid-cols-[8rem_9rem_minmax(0,1fr)_8rem_10rem_6rem_5rem] lg:items-start">
-                    <span className="flex items-start justify-between gap-2 lg:block">
-                      <strong className="text-sm font-semibold">{o.ref}</strong>
-                      <span className="lg:hidden"><StatusPill o={o} /></span>
-                    </span>
-                    <span className="hidden lg:block">{o.sponsor.name}</span>
-                    <span className="min-w-0">
-                      <span className="block text-[13px] lg:text-xs">{o.line.title}</span>
-                      <span className="hidden text-[11px] text-muted lg:block">{lineSummary(o.line)}</span>
-                      <span className="block text-[11px] text-muted lg:hidden">
-                        {o.sponsor.name} · {lineSummary(o.line)} · {datesText(o.line.dates)}
-                      </span>
-                    </span>
-                    <span className="hidden text-muted lg:block">{datesText(o.line.dates)}</span>
-                    <span className="hidden lg:block"><StatusPill o={o} /></span>
-                    <span className="flex justify-between text-[13px] lg:block lg:text-right lg:text-sm">
-                      <span className="text-muted lg:hidden">Your share</span>
-                      <strong className="font-semibold tabular-nums">{shareUsd(o.shareCents)}</strong>
-                    </span>
-                    <span className="lg:text-right">
-                      <Link
-                        href={`${base}/${o.id}`}
-                        aria-label={`Open order ${o.ref}`}
-                        className="mt-1 inline-flex min-h-11 w-full items-center justify-center rounded-lg bg-primary px-4 text-sm font-semibold text-cta-ink hover:bg-primary-soft lg:mt-0 lg:min-h-9 lg:w-auto lg:px-3.5 lg:text-xs"
-                      >
-                        <span className="lg:hidden">Open order</span>
-                        <span className="hidden lg:inline">Open →</span>
-                      </Link>
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            </Card>
-          </section>
-          <p className="text-[11px] text-faint">{shareNote(kind, soldByTeam)}</p>
+        <div className="space-y-5">
+          <SellerApprovalsPanel kind={kind} approvals={approvals} now={now} />
+          {orders.length > 0 && (
+            <div className="space-y-2">
+              <section aria-label="Orders">
+                <Card className="p-0">
+                  <div className="hidden grid-cols-[8rem_9rem_minmax(0,1fr)_8rem_10rem_6rem_5rem] gap-x-3 border-b border-line-soft px-4 py-2 text-[10px] font-medium uppercase tracking-wide text-faint lg:grid">
+                    <span>Order</span>
+                    <span>Sponsor</span>
+                    <span>What was bought</span>
+                    <span>Dates</span>
+                    <span>Status</span>
+                    <span className="text-right">Your share</span>
+                    <span className="sr-only">Open</span>
+                  </div>
+                  <ul className="divide-y divide-line-soft">
+                    {orders.map((o) => (
+                      <li key={o.id} className="grid gap-x-3 gap-y-1.5 px-4 py-3.5 text-xs lg:grid-cols-[8rem_9rem_minmax(0,1fr)_8rem_10rem_6rem_5rem] lg:items-start">
+                        <span className="flex items-start justify-between gap-2 lg:block">
+                          <strong className="text-sm font-semibold">{o.ref}</strong>
+                          <span className="lg:hidden"><StatusPill o={o} /></span>
+                        </span>
+                        <span className="hidden lg:block">{o.sponsor.name}</span>
+                        <span className="min-w-0">
+                          <span className="block text-[13px] lg:text-xs">{o.line.title}</span>
+                          <span className="hidden text-[11px] text-muted lg:block">{lineSummary(o.line)}</span>
+                          <span className="block text-[11px] text-muted lg:hidden">
+                            {o.sponsor.name} · {lineSummary(o.line)} · {datesText(o.line.dates)}
+                          </span>
+                        </span>
+                        <span className="hidden text-muted lg:block">{datesText(o.line.dates)}</span>
+                        <span className="hidden lg:block"><StatusPill o={o} /></span>
+                        <span className="flex justify-between text-[13px] lg:block lg:text-right lg:text-sm">
+                          <span className="text-muted lg:hidden">Your share</span>
+                          <strong className="font-semibold tabular-nums">{shareUsd(o.shareCents)}</strong>
+                        </span>
+                        <span className="lg:text-right">
+                          <Link
+                            href={`${base}/${o.id}`}
+                            aria-label={`Open order ${o.ref}`}
+                            className="mt-1 inline-flex min-h-11 w-full items-center justify-center rounded-lg bg-primary px-4 text-sm font-semibold text-cta-ink hover:bg-primary-soft lg:mt-0 lg:min-h-9 lg:w-auto lg:px-3.5 lg:text-xs"
+                          >
+                            <span className="lg:hidden">Open order</span>
+                            <span className="hidden lg:inline">Open →</span>
+                          </Link>
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </Card>
+              </section>
+              <p className="text-[11px] text-faint">{shareNote(kind, soldByTeam)}</p>
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -114,20 +130,20 @@ export function SellerOrdersList({ kind, orders, demo }: { kind: SellerKind; ord
 /* ---------------------------------------------------------------- detail */
 
 const BANNER_TONE = {
+  primary: { box: "border-primary/40 bg-primary/8", title: "text-primary-soft" },
   warn: { box: "border-warn/40 bg-warn/8", title: "text-warn" },
   accent: { box: "border-accent/40 bg-accent/10", title: "text-accent" },
   danger: { box: "border-danger/40 bg-danger/10", title: "text-danger" },
 } as const;
 
-const STEP_TONE = {
-  primary: { box: "border-primary bg-primary/12", dot: "bg-primary/15 text-primary", note: "text-primary" },
-  warn: { box: "border-warn bg-warn/10", dot: "bg-warn/15 text-warn", note: "text-warn" },
-  danger: { box: "border-danger bg-danger/10", dot: "bg-danger/15 text-danger", note: "text-danger" },
-} as const;
 
-export function SellerOrderDetail({ kind, order: o }: { kind: SellerKind; order: ApiSellerOrder }) {
+export function SellerOrderDetail({ kind, order: o, now = new Date() }: { kind: SellerKind; order: ApiSellerOrder; now?: Date }) {
   const seller = SELLER[kind];
-  const banner = orderBanner(o);
+  const banner = orderBanner(o, now);
+  /* 2S4-FE-05 — a problem the sponsor reported, while it is the seller's to answer (72 hours). */
+  const answering = o.state === "PROBLEM" && o.issue?.kind === "PROBLEM" && o.issue.stage === "SELLER_TO_ANSWER" && (o.canAnswerProblem ?? o.issue.sellerCanAnswer) && o.issue.sellerDueAt
+    ? o.issue
+    : null;
   const mark = markControl(o);
   const steps = trackSteps(o);
   const units = `${o.line.quantity} ${o.line.quantity === 1 ? o.line.unit : `${o.line.unit}s`}`;
@@ -142,6 +158,17 @@ export function SellerOrderDetail({ kind, order: o }: { kind: SellerKind; order:
           <h2 className="text-lg font-semibold tracking-tight">Order {o.ref}</h2>
           <StatusPill o={o} />
         </div>
+
+        {answering && (
+          <SellerProblemAnswer
+            lineId={o.id}
+            sponsor={o.sponsor.name}
+            problem={answering.problem}
+            sellerDueAt={answering.sellerDueAt!}
+            refundCents={lineTotalCents(o)}
+            now={now.toISOString()}
+          />
+        )}
 
         {banner && (
           <div role="status" className={`rounded-xl border px-4 py-3.5 ${BANNER_TONE[banner.tone].box}`}>
@@ -173,32 +200,7 @@ export function SellerOrderDetail({ kind, order: o }: { kind: SellerKind; order:
                   </span>
                 </div>
 
-                <ol aria-label="Delivery progress" className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-                  {steps.map((s) => {
-                    const t = STEP_TONE[s.tone];
-                    return (
-                      <li
-                        key={s.label}
-                        aria-current={s.state === "current" ? "step" : undefined}
-                        className={`flex items-center gap-2 rounded-lg border px-2.5 py-2 text-xs ${s.state === "current" ? t.box : s.state === "done" ? "border-accent/35" : "border-line"}`}
-                      >
-                        <span
-                          aria-hidden="true"
-                          className={`grid size-5 shrink-0 place-items-center rounded-full text-[10px] font-bold ${s.state === "done" ? "bg-accent/15 text-accent" : s.state === "current" ? t.dot : "bg-surface-2 text-faint"}`}
-                        >
-                          {s.state === "done" ? "✓" : steps.indexOf(s) + 1}
-                        </span>
-                        <span className="flex flex-col">
-                          <span className={s.state === "current" ? "font-bold" : s.state === "done" ? "font-medium" : "font-medium text-faint"}>{s.label}</span>
-                          <span className={`text-[10px] ${s.state === "current" ? t.note : "text-faint"}`}>
-                            {s.note}
-                            <span className="sr-only">{s.state === "done" ? " — done" : s.state === "current" ? " — current step" : ""}</span>
-                          </span>
-                        </span>
-                      </li>
-                    );
-                  })}
-                </ol>
+                <DeliveryTrack steps={steps} label="Delivery progress" />
 
                 <div className="mt-4">
                   <SellerMarkDelivered

@@ -89,8 +89,12 @@ const A = {
   /* 2S4-BE-06 / -07 — a sold line of that order, marked delivered and waiting
      for the sponsor; 2S2-BE-05 — tenant A's school inviting tenant A's athlete. */
   mktLine: "ti_mkt_line_a", delivery: "ti_delivery_a", teamInvite: "ti_team_invite_a",
+  /* 2S4-BE-09 — tenant A's school asked to accept that order (its listing asks), unanswered. */
+  sellerApproval: "ti_seller_approval_a",
   /* 2S1-BE-13 — a rejected tenant-A account asking to come back; 2S1-BE-15 — a request to become its guardian, waiting. */
   closure: "ti_closure_a", handoff: "ti_handoff_a",
+  /* P9-BE-16 — a slot sold to tenant A's campaign, and its artwork on the approval board. */
+  soldSlot: "ti_slot_sold_a", artwork: "ti_artwork_a",
 } as const;
 const B = {
   tenant: "ti_tenant_b", sponsor: "ti_sponsor_b", athlete: "ti_athlete_b",
@@ -152,11 +156,15 @@ const PARAM_FOR: Record<string, string> = {
   /* 2S4-BE-06 / -07 — the seller's sold line, the sponsor's answer and BTG's
      desk all take an order-line id; 2S2-BE-05 — an invitation. */
   sales: A.mktLine, deliveries: A.mktLine, "delivery-issues": A.mktLine, "team-invitations": A.teamInvite,
+  /* 2S4-BE-09 — a seller's answer to an order. */
+  "seller-approvals": A.sellerApproval,
   /* P3-BE-16 — no tenant-A change is seeded: an unknown id must answer
      exactly as another tenant's would, so a made-up one is the right probe. */
   "profile-changes": "pc_not_yours",
   /* 2S1-BE-13 / 2S1-BE-15. */
   "account-closures": A.closure, "guardian-handoffs": A.handoff,
+  /* P9-BE-16 — a sold slot's artwork uploads, and the artwork's review steps. */
+  "ad-slots": A.soldSlot, "edition-artwork": A.artwork,
 };
 
 /**
@@ -244,6 +252,10 @@ const BODY: Record<string, unknown> = {
   "POST /editions/{id}/assets": { kind: "ARTICLE", title: "Stolen", sourceKind: "BTG" },
   "POST /edition-assets/{id}/rights": { grantorKind: "BTG", grantorRef: "x", licenseRef: "L-1", startsAt: "2026-01-01T00:00:00.000Z" },
   "POST /edition-assets/{id}/campaign": { campaignId: A.campaign },
+  /* P9-BE-16 */
+  "POST /ad-slots/{id}/artwork/uploads": { contentType: "image/png" },
+  "POST /ad-slots/{id}/artwork": { r2Key: "t/ti_tenant_a/ad-slot/ti_slot_sold_a/x" },
+  "POST /edition-artwork/{id}/revision": { reason: "Isolation sweep" },
   "POST /consents": { agreementId: A.agreement, subjectKind: "ATHLETE", subjectId: A.athlete, bodyHashShown: "x".repeat(64) },
   "POST /featured-athletes": { displayName: "Stolen", sport: "Soccer", propertyId: A.school },
   "POST /claims/{id}/verify": {},
@@ -290,10 +302,15 @@ const BODY: Record<string, unknown> = {
   "POST /sales/{id}/proof": { contentType: "image/jpeg", bytes: 1000 },
   "POST /sales/{id}/delivered": { note: "Sweep delivery note" },
   "POST /deliveries/{id}/problem": { note: "Sweep problem" },
+  /* 2S4-BE-11 — the problem exchange. */
+  "POST /sales/{id}/problem-answer": { answer: "DISAGREE", note: "Sweep answer" },
+  "POST /deliveries/{id}/problem-answer": { decision: "REJECT", note: "Sweep reject" },
   "POST /delivery-issues/{id}/resolve": { decision: "CONFIRM", note: "Sweep decision" },
   /* 2S2-BE-05 — inviting tenant A's athlete, and answering tenant A's invitation. */
   "POST /team/invitations": { athleteId: A.athlete, teamShareBps: 100 },
   "POST /team-invitations/{id}/respond": { decision: "ACCEPT" },
+  /* 2S4-BE-09 — a seller answering tenant A's order. */
+  "POST /seller-approvals/{id}/decision": { decision: "ACCEPT" },
 };
 
 describe.skipIf(!hasDatabase)("P8-SEC-02 · tenant B cannot reach tenant A through any route", async () => {
@@ -318,7 +335,11 @@ describe.skipIf(!hasDatabase)("P8-SEC-02 · tenant B cannot reach tenant A throu
       /* The positive control's own reads are allowed to leave a trace: a
          private-file read is audited, and tenant A's admin making it is
          tenant A acting on itself (2S1-BE-17, the proof-of-business link). */
-      const own = table_name === "AuditLog" ? `AND NOT ("action" = 'storage.privateDownloadGrant' AND "actorId" = '${A.admin}')` : "";
+      /* P9-BE-16 — and tenant A's own sponsor opening its own ad artwork's
+         signed preview (GET /edition-artwork/{id}/url) in the outside-tenant
+         sweep: the same kind of trace, tenant A acting on itself. */
+      const ownActors = [A.admin, ...A_ACTORS.map((a) => a.id)].map((id) => `'${id}'`).join(", ");
+      const own = table_name === "AuditLog" ? `AND NOT ("action" = 'storage.privateDownloadGrant' AND "actorId" IN (${ownActors}))` : "";
       const rows = await prisma.$queryRawUnsafe<unknown[]>(
         `SELECT * FROM "${table_name}" WHERE "tenantId" = $1 ${own} ORDER BY 1`, tenant,
       );
@@ -396,6 +417,12 @@ describe.skipIf(!hasDatabase)("P8-SEC-02 · tenant B cannot reach tenant A throu
     await prisma.studentProspect.create({ data: { id: A.prospect, tenantId: t, studentId: A.student, businessName: "TI Secret Deli", category: "RESTAURANT" } });
     /* Batch C — an edition asset and a claim on a profile. */
     await prisma.editionAsset.create({ data: { id: A.asset, tenantId: t, editionId: A.edition, kind: "ARTICLE", title: "TI Secret Article", sourceKind: "BTG" } });
+    /* P9-BE-16 — a slot sold to tenant A's campaign, with its artwork waiting on the sponsor. */
+    await prisma.adSlot.create({ data: { id: A.soldSlot, tenantId: t, editionId: A.edition, slotCode: "TI-SECRET-FULL", kind: "FULL", priceCents: 80000, campaignId: A.campaign, soldCents: 80000, soldAt: new Date() } });
+    await prisma.editionAsset.create({ data: {
+      id: A.artwork, tenantId: t, editionId: A.edition, kind: "AD_CREATIVE", title: "TI Secret Artwork", sourceKind: "THIRD_PARTY",
+      r2Key: `t/${t}/ad-slot/${A.soldSlot}/secret`, adSlotId: A.soldSlot, reviewState: "SPONSOR_REVIEW", artworkVersion: 1, submittedAt: new Date(),
+    } });
     await prisma.propertyOnboarding.create({ data: { id: A.onboarding, tenantId: t, orgType: "TEAM", orgName: "TI Secret Org", state: "PENDING_REVIEW" } });
     await prisma.inventoryItem.createMany({ data: [
       { id: A.item, tenantId: t, athleteId: A.athlete, title: "TI Secret Item", kind: "OTHER", priceCents: 5000 },
@@ -434,6 +461,11 @@ describe.skipIf(!hasDatabase)("P8-SEC-02 · tenant B cannot reach tenant A throu
       id: A.delivery, tenantId: t, orderId: A.mktOrder, lineId: A.mktLine, sponsorId: A.sponsor, propertyId: A.school, propertyTenantId: t,
       state: "DELIVERED", deliveredAt: new Date(), deliveredByName: "TI Secret Seller", note: "TI Secret delivery note",
       confirmDueAt: new Date(Date.now() + 3650 * 864e5),
+    } });
+    /* Far-future deadline: the seller-approval sweep is platform-wide. */
+    await prisma.orderSellerApproval.create({ data: {
+      id: A.sellerApproval, tenantId: t, orderId: A.mktOrder, sponsorId: A.sponsor, propertyId: A.school, propertyTenantId: t,
+      lineIds: [A.mktLine], dueAt: new Date(Date.now() + 3650 * 864e5),
     } });
     await prisma.teamInvitation.create({ data: { id: A.teamInvite, tenantId: t, propertyId: A.school, athleteId: A.athlete, athleteTenantId: t, teamShareBps: 1500 } });
     await prisma.reservation.create({ data: { id: A.dueReservation, tenantId: t, sponsorId: A.sponsor, cartId: A.cart, state: "CONVERTED", convertedAt: new Date(), expiresAt: new Date(Date.now() + 3650 * 864e5) } });
@@ -528,7 +560,8 @@ describe.skipIf(!hasDatabase)("P8-SEC-02 · tenant B cannot reach tenant A throu
   beforeAll(async () => {
     await seed();
     before = await fingerprint();
-    server = createApp().listen(0);
+    server = createApp().listen(0, "127.0.0.1");
+    await new Promise((r) => server.once("listening", r)); // a host makes the bind async
     base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
   });
 

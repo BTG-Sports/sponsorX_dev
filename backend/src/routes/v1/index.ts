@@ -26,6 +26,7 @@ import { propertiesRouter } from "./properties";
 import { editionsRouter } from "./editions";
 import { studentsRouter } from "./students";
 import { rightsRouter } from "./rights";
+import { editionArtworkRouter } from "./edition-artwork";
 import { onboardingRouter } from "./onboarding";
 import { marketplaceRouter } from "./marketplace";
 import { payoutsRouter } from "./payouts";
@@ -125,6 +126,10 @@ v1Router.use("/", studentsRouter);
    DMV school pools (P9-BE-10/11/14). Two public routes: a featured athlete's
    profile and the claim. */
 v1Router.use("/", rightsRouter);
+
+/* P9-BE-16 — a sold ad slot's artwork on the approval board: the upload,
+   BTG's review, the buying sponsor's sign-off. Full paths, at the root. */
+v1Router.use("/", editionArtworkRouter);
 
 /* Phase 2 Sprint 1 — external property onboarding (2S1-BE-01, -03). Public
    wizard by resume token; BTG's verification queue behind requireActor. */

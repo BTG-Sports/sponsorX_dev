@@ -190,7 +190,7 @@ describe("2S3-FE-01 · listings", () => {
     expect(p.rows.map((r) => r.line)).toEqual(["$1,000.00", "$300.00"]);
     expect(p.separately).toBe("$1,300.00");
     expect(p.price).toBe("$1,200.00");
-    expect(p.rules).toEqual(["Sold only as this bundle", "BTG approves each order"]);
+    expect(p.rules).toEqual(["Sold only as this bundle", "You approve each order (48 hours to answer)"]);
     expect(packageContents({ priceCents: 1, packageRules: null, components: [] }).separately).toBeNull();
   });
 });
