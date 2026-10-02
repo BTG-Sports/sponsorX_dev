@@ -195,21 +195,34 @@ ${d.portalUrl ?? ""}
     subject: `Delivery confirmed: ${d.title ?? ""}`,
     text: `Hi ${d.firstName ?? "there"},\n\n"${d.title ?? ""}" (order ${d.orderRef ?? ""}) is confirmed — ${d.how ?? "the sponsor confirmed it"}. Your share can be paid out once the holding period has passed.\n\n${d.saleUrl ?? ""}\n\n— BTG SponsorX`,
   }),
-  "delivery.problem": (d) => ({
-    subject: `Delivery problem reported: ${d.orderRef ?? ""} · ${d.title ?? ""}`,
-    text: `${d.sponsorName ?? "A sponsor"} reported a problem with "${d.title ?? ""}" (order ${d.orderRef ?? ""}):\n\n"${d.problem ?? ""}"\n\nThe line's payout is on hold until you confirm the delivery or cancel and refund it:\n\n${d.issueUrl ?? ""}\n\n— SponsorX`,
+  /* 2S4-BE-11 — a reported problem goes to the seller first, then back to the sponsor; BTG only when they can't settle it. */
+  "delivery.problemToAnswer": (d) => ({
+    subject: `${d.sponsorName ?? "The sponsor"} reported a problem — please answer: ${d.title ?? ""}`,
+    text: `Hi ${d.firstName ?? "there"},\n\n${d.sponsorName ?? "The sponsor"} reported a problem with "${d.title ?? ""}" (order ${d.orderRef ?? ""}):\n\n"${d.problem ?? ""}"\n\nThis line's payout is on hold. Please answer by ${d.answerBy ?? "the time shown on the sale"} — offer to deliver it again on a new date, refund the line in full, or say why you disagree (you can add a photo or a link). The sponsor then accepts or rejects your answer. If you don't answer in time, BTG decides.\n\n${d.saleUrl ?? ""}\n\n— BTG SponsorX`,
   }),
-  "delivery.onHold": (d) => ({
-    subject: `${d.sponsorName ?? "The sponsor"} reported a problem: ${d.title ?? ""}`,
-    text: `Hi ${d.firstName ?? "there"},\n\n${d.sponsorName ?? "The sponsor"} reported a problem with "${d.title ?? ""}" (order ${d.orderRef ?? ""}):\n\n"${d.problem ?? ""}"\n\nBTG is looking into it, and this line's payout is on hold until they decide. You don't need to do anything unless BTG contacts you.\n\n${d.saleUrl ?? ""}\n\n— BTG SponsorX`,
+  "delivery.sellerAnswered": (d) => ({
+    subject: `${d.sellerName ?? "The seller"} answered your problem: ${d.title ?? ""}`,
+    text: `Hi ${d.firstName ?? "there"},\n\n${d.sellerName ?? "The seller"} answered the problem you reported with "${d.title ?? ""}" (order ${d.orderRef ?? ""}). They offer to ${d.answer ?? "settle it"}.${d.note ? `\n\nTheir note: "${d.note}"` : ""}\n\nPlease accept or reject their answer by ${d.answerBy ?? "the time shown on your order"}. Accepting settles it straight away; rejecting (with a short note) sends it to BTG to decide. If you don't answer in time, BTG decides.\n\n${d.orderUrl ?? ""}\n\n— BTG SponsorX`,
+  }),
+  "delivery.settled": (d) => ({
+    subject: `Settled: ${d.title ?? ""} (${d.orderRef ?? ""})`,
+    text: `Hi ${d.firstName ?? "there"},\n\nThe problem with "${d.title ?? ""}" (order ${d.orderRef ?? ""}) is settled between the seller and the sponsor: ${d.outcome ?? "it is settled"}.\n\n${d.link ?? ""}\n\n— BTG SponsorX`,
+  }),
+  "delivery.escalated": (d) => ({
+    subject: `Delivery issue for BTG: ${d.orderRef ?? ""} · ${d.title ?? ""}`,
+    text: `"${d.title ?? ""}" (order ${d.orderRef ?? ""}, ${d.sellerName ?? "the seller"} for ${d.sponsorName ?? "the sponsor"}) needs BTG's decision.\n\nWhy: ${d.reason ?? "the two sides couldn't settle it"}.\n\nThe line's payout is on hold until you confirm the delivery or cancel and refund it:\n\n${d.issueUrl ?? ""}\n\n— SponsorX`,
+  }),
+  "delivery.withBtg": (d) => ({
+    subject: `BTG will decide: ${d.title ?? ""} (${d.orderRef ?? ""})`,
+    text: `Hi ${d.firstName ?? "there"},\n\n"${d.title ?? ""}" (order ${d.orderRef ?? ""}) has gone to BTG to decide. Why: ${d.reason ?? "it couldn't be settled"}.\n\nBTG will confirm the delivery or refund the line, and email you with their decision. You don't need to do anything unless BTG contacts you.\n\n${d.link ?? ""}\n\n— BTG SponsorX`,
   }),
   "delivery.resolved": (d) => ({
     subject: `BTG's decision on ${d.orderRef ?? "your order"}: ${d.title ?? ""}`,
-    text: `Hi ${d.firstName ?? "there"},\n\nBTG looked into the problem reported with "${d.title ?? ""}" (order ${d.orderRef ?? ""}) and it has been ${d.decision ?? "resolved"}.\n\nBTG's note: "${d.note ?? ""}"\n\n${d.link ?? ""}\n\n— BTG SponsorX`,
+    text: `Hi ${d.firstName ?? "there"},\n\nBTG looked into "${d.title ?? ""}" (order ${d.orderRef ?? ""}) and it has been ${d.decision ?? "resolved"}.\n\nBTG's note: "${d.note ?? ""}"\n\n${d.link ?? ""}\n\n— BTG SponsorX`,
   }),
   "delivery.overdue": (d) => ({
-    subject: `Reminder: mark "${d.title ?? "your sale"}" delivered`,
-    text: `Hi ${d.firstName ?? "there"},\n\nThe last date for "${d.title ?? ""}" (order ${d.orderRef ?? ""}, for ${d.sponsorName ?? "the sponsor"}) was ${d.lastDate ?? "recently"}, and it isn't marked delivered yet. Once it's delivered, mark it with a short note — your share is paid only after the sponsor confirms.\n\n${d.saleUrl ?? ""}\n\n— BTG SponsorX`,
+    subject: `${d.nth === "second" ? "Second reminder" : "Reminder"}: mark "${d.title ?? "your sale"}" delivered`,
+    text: `Hi ${d.firstName ?? "there"},\n\nThe last date for "${d.title ?? ""}" (order ${d.orderRef ?? ""}, for ${d.sponsorName ?? "the sponsor"}) was ${d.lastDate ?? "recently"}, and it isn't marked delivered yet. Once it's delivered, mark it with a short note — your share is paid only after the sponsor confirms.${d.handOverOn ? `\n\nIf it still isn't marked delivered by ${d.handOverOn}, it goes to BTG to decide.` : ""}\n\n${d.saleUrl ?? ""}\n\n— BTG SponsorX`,
   }),
   /* 2S2-BE-05 — teams and the athletes they invite. */
   "team.invited": (d) => ({

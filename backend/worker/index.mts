@@ -670,7 +670,8 @@ async function main(): Promise<void> {
 
   const deliverySweep = () =>
     void sweepDeliveries()
-      .then((r) => { if (r.confirmed || r.reminded || r.closed || r.failed) console.log(`[worker] deliveries ${JSON.stringify(r)}`); })
+      /* 2S4-BE-07/-08/-11 — silence confirms, a side silent 72 hours hands a problem to BTG, reminders at 1 and 3 days, BTG at 7, auto-close. */
+      .then((r) => { if (Object.values(r).some((n) => n > 0)) console.log(`[worker] deliveries ${JSON.stringify(r)}`); })
       .catch((error: unknown) => console.error("[worker] delivery sweep failed, will retry:", error));
   deliveryTimer = setInterval(deliverySweep, DELIVERY_SWEEP_INTERVAL_MS);
   setTimeout(deliverySweep, 30_000).unref();

@@ -39,12 +39,13 @@ import { offerAthletes, offerChecks } from "../../domain/offer-desk";
 import { mayWriteBranding, readBranding, requestLogoUpload, updateBranding } from "../../domain/branding";
 import { allowedList, pageRequest, searchTerm } from "../../lib/paging";
 import {
-  DeliveryProblemInput, DeliveryResolutionInput, InvitableAthletesQuery, MarkDeliveredInput, ProofUploadInput, TeamInvitationInput,
+  DeliveryProblemInput, DeliveryProofQuery, DeliveryResolutionInput, InvitableAthletesQuery, MarkDeliveredInput, ProblemAnswerInput, ProofUploadInput,
+  ReplyAnswerInput, TeamInvitationInput,
   TeamInvitationResponseInput,
 } from "../../contracts/delivery";
 import {
-  confirmDelivery, deliveryIssue, deliveryIssues, markDelivered, mySale, mySales, orderDeliveries, proofLink, remindSeller,
-  reportProblem, requestProofUpload, resolveIssue,
+  answerProblem, answerReply, confirmDelivery, deliveryExchange, deliveryIssue, deliveryIssues, markDelivered, mySale, mySales, orderDeliveries,
+  proofLink, remindSeller, reportProblem, requestProofUpload, resolveIssue,
 } from "../../domain/delivery";
 import {
   inviteAthlete, invitableAthletes, leaveTeam, myTeam, removeFromRoster, respondToInvitation, teamInvitations, withdrawInvitation,
@@ -274,7 +275,17 @@ marketplaceRouter.post("/deliveries/:id/confirm", requireActor, (async (req, res
 marketplaceRouter.post("/deliveries/:id/problem", requireActor, (async (req, res) => {
   res.json(await reportProblem(req.actor!, req.params.id, DeliveryProblemInput.parse(req.body).note));
 }) as RequestHandler<Id>);
-marketplaceRouter.get("/deliveries/:id/proof", requireActor, (async (req, res) => { res.json(await proofLink(req.actor!, req.params.id)); }) as RequestHandler<Id>);
+marketplaceRouter.get("/deliveries/:id/proof", requireActor, (async (req, res) => {
+  res.json(await proofLink(req.actor!, req.params.id, DeliveryProofQuery.parse(req.query)));
+}) as RequestHandler<Id>);
+/* 2S4-BE-11 — a problem settled between them: the seller answers, the sponsor accepts or rejects; the exchange reads the same for both and BTG. */
+marketplaceRouter.post("/sales/:id/problem-answer", requireActor, (async (req, res) => {
+  res.json(await answerProblem(req.actor!, req.params.id, ProblemAnswerInput.parse(req.body)));
+}) as RequestHandler<Id>);
+marketplaceRouter.post("/deliveries/:id/problem-answer", requireActor, (async (req, res) => {
+  res.json(await answerReply(req.actor!, req.params.id, ReplyAnswerInput.parse(req.body)));
+}) as RequestHandler<Id>);
+marketplaceRouter.get("/deliveries/:id/exchange", requireActor, (async (req, res) => { res.json(await deliveryExchange(req.actor!, req.params.id)); }) as RequestHandler<Id>);
 marketplaceRouter.get("/delivery-issues", requireActor, (async (req, res) => { res.json(await deliveryIssues(req.actor!)); }) as RequestHandler);
 marketplaceRouter.get("/delivery-issues/:id", requireActor, (async (req, res) => { res.json(await deliveryIssue(req.actor!, req.params.id)); }) as RequestHandler<Id>);
 marketplaceRouter.post("/delivery-issues/:id/resolve", requireActor, (async (req, res) => {

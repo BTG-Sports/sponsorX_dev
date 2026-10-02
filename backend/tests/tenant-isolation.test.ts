@@ -294,6 +294,9 @@ const BODY: Record<string, unknown> = {
   "POST /sales/{id}/proof": { contentType: "image/jpeg", bytes: 1000 },
   "POST /sales/{id}/delivered": { note: "Sweep delivery note" },
   "POST /deliveries/{id}/problem": { note: "Sweep problem" },
+  /* 2S4-BE-11 — the problem exchange. */
+  "POST /sales/{id}/problem-answer": { answer: "DISAGREE", note: "Sweep answer" },
+  "POST /deliveries/{id}/problem-answer": { decision: "REJECT", note: "Sweep reject" },
   "POST /delivery-issues/{id}/resolve": { decision: "CONFIRM", note: "Sweep decision" },
   /* 2S2-BE-05 — inviting tenant A's athlete, and answering tenant A's invitation. */
   "POST /team/invitations": { athleteId: A.athlete, teamShareBps: 100 },

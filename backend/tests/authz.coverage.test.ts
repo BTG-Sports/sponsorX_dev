@@ -79,6 +79,8 @@ const GOVERNED_BY: Record<string, Resource> = {
   OrderSellerApproval: "orderSellerApproval",
   /* 2S4-BE-10 — a Zoho Books invoice for a marketplace order is the order's (as a card attempt is). */
   MarketplaceOrderInvoice: "marketplaceOrder",
+  /* 2S4-BE-11 — a delivery problem's exchange is part of its line's delivery. */
+  DeliveryIssue: "orderDelivery",
   /* 2S2-BE-05 — a team's invitation to an athlete already on SponsorX. */
   TeamInvitation: "teamInvitation",
   Payout: "payout",

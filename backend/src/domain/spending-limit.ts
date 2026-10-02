@@ -13,7 +13,8 @@
  * every time it is read (marketplace-order-rules.ts `spendingLimit`): when
  * each order reached FULFILLED (`fulfilledAt`), when one was refunded
  * (`refundedAt`), and which lines BTG refunded over a reported problem
- * (`OrderLineDelivery.resolution = REFUNDED`). So the figure can always be
+ * (`OrderLineDelivery.resolution = REFUNDED`), or the seller refunded and the
+ * sponsor accepted (a SETTLED DeliveryIssue, 2S4-BE-11). So the figure can always be
  * explained — the history is those same events, oldest first, with what each
  * did to it — and it cannot drift from what actually happened. Each order
  * also keeps the limit it was checked against (`spendingLimitCents`).
@@ -48,6 +49,22 @@ export async function limitEvents(db: Db, tenantId: string, sponsorId: string): 
     if (o.state === "REFUNDED") events.push({ kind: "REFUNDED", at: o.refundedAt ?? o.updatedAt, orderId: o.id });
   }
   for (const d of upheld) events.push({ kind: "PROBLEM_UPHELD", at: d.resolvedAt ?? d.updatedAt, orderId: d.orderId, lineId: d.lineId });
+  /* 2S4-BE-11 — a line the seller refunded over a problem, and the sponsor
+     accepted, settles between them without BTG: a refund all the same, so it
+     stops the limit rising too. (BTG's own refunds are `resolution` above.) */
+  const sponsorOrders = await db.marketplaceOrder.findMany({ where: { tenantId, sponsorId }, select: { id: true } });
+  if (sponsorOrders.length) {
+    const agreed = await db.deliveryIssue.findMany({
+      /* tenant-scope: the sponsor's own orders, found above in their tenant. */
+      where: { tenantId, orderId: { in: sponsorOrders.map((o) => o.id) }, stage: "SETTLED", outcome: "REFUNDED" },
+      select: { orderId: true, lineId: true, closedAt: true },
+    });
+    const counted = new Set(upheld.map((d) => d.lineId));
+    for (const a of agreed) {
+      if (counted.has(a.lineId) || !a.closedAt) continue;
+      events.push({ kind: "PROBLEM_UPHELD", at: a.closedAt, orderId: a.orderId, lineId: a.lineId });
+    }
+  }
   return events;
 }
 
