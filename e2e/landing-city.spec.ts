@@ -38,13 +38,16 @@ test("home renders over the poster and the scene never breaks the page", async (
   if (n > 0) {
     const wrapper = canvases.first().locator("xpath=ancestor::div[contains(@class,'fixed')][1]");
     await expect(wrapper).toHaveClass(/pointer-events-none/);
-    await expect(wrapper).toHaveClass(/-z-10/);
+    // Behind the page: z-0 under the content and the z-20 header (it was
+    // -z-10 before the fly-through stage, P1-ART-10, took over the layout).
+    await expect(wrapper).toHaveClass(/(^|\s)z-0(\s|$)/);
   }
 
   // The hero's primary CTA is still visible and reachable through everything.
-  const cta = page.getByRole("link", { name: /I.m a Sponsor/i }).first();
+  // "Get Started" also names the header button, so pick the hero's by target.
+  const cta = page.locator('a[href="#start"]', { hasText: /Get Started/i }).first();
   await expect(cta).toBeVisible();
-  await expect(cta).toHaveAttribute("href", /.+/);
+  await expect(cta).toHaveAttribute("href", "#start");
 
   expect(errors, errors.join("\n")).toEqual([]);
 });
