@@ -44,6 +44,8 @@ export const DeliveryCancelInput = z
   .object({
     reason: z.string().trim().max(2000).nullable().optional()
       .describe("Why — optional before the free cut-off (3 days before the first date); required after it, when the seller is asked (the seller reads it, and BTG if it comes to them)"),
+    expect: z.enum(["FREE", "ASK"]).optional()
+      .describe("What the sponsor's dialog showed: FREE (cancel and refund now) or ASK (ask the seller). If the terms no longer match — the free cut-off passed while it was open — 409 `cancel_terms_changed` and nothing is done"),
   })
   .strict()
   .meta({ id: "DeliveryCancelInput", description: "The buying sponsor's admin cancels a paid line not yet delivered: free (refunded at once) until 3 days before its first date; after that, until the first date starts, the seller is asked to agree." });

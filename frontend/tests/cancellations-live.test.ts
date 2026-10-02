@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  answerByIfAsked, cancelMarkWhy, cancelMode, cancelWarning, listingsChecked, sellerCancelBadge, sellerCancelBanner, sellerCancelDialog,
+  afterTermsChanged, answerByIfAsked, cancelExpect, cancelMarkWhy, cancelMode, cancelWarning, listingsChecked, sellerCancelBadge, sellerCancelBanner, sellerCancelDialog, sellerRefundCents,
   sellerCancelledBanner, sponsorCancelDialog, sponsorCancelView, termsChip, type ApiCancellationTerms,
 } from "@/lib/cancellations-live";
 import { deskReason, decisionLead, settledBadge, settledWords, timelineEvents, type ApiIssue } from "@/lib/order-automation-live";
@@ -175,10 +175,22 @@ describe("the seller's order", () => {
   });
 
   it("says exactly what the seller's dialogs do", () => {
-    const x = { title: "Youth basketball clinic", sponsor: "Harbor Coffee", lineTotalCents: 50_000 };
+    const x = { title: "Youth basketball clinic", sponsor: "Harbor Coffee", refundCents: 50_000 };
     expect(sellerCancelDialog("agree", x)).toMatchObject({ reasonRequired: false, points: ["Harbor Coffee gets $500.00 back and your share for this line goes to $0.00.", "Any other lines on the order aren’t affected."] });
     expect(sellerCancelDialog("keep", x)).toMatchObject({ reasonRequired: true, button: "Keep the line" });
     expect(sellerCancelDialog("cant", x)).toMatchObject({ reasonRequired: true, danger: true, button: "Cancel the line", cancelLabel: "Keep it" });
+  });
+
+  it("states the amount the API says the sponsor gets back — the rest of the order on its last live line", () => {
+    const line = { quantity: 2, unitPriceCents: 25_000 };
+    /* The last live line: the rest of the order, the buyer fee too. */
+    const last = { line, cancellation: { ...sale.cancellation!, refundCents: 51_500 } };
+    expect(sellerRefundCents(last)).toBe(51_500);
+    expect(sellerCancelDialog("agree", { title: "Clinic", sponsor: "Harbor Coffee", refundCents: sellerRefundCents(last) }).points[0]).toBe("Harbor Coffee gets $515.00 back and your share for this line goes to $0.00.");
+    expect(sellerCancelDialog("cant", { title: "Clinic", sponsor: "Harbor Coffee", refundCents: sellerRefundCents(last) }).lead).toMatch(/^Harbor Coffee gets \$515\.00 back/);
+    /* An API that doesn't send it yet: the line's own total. */
+    expect(sellerRefundCents({ line, cancellation: { ...sale.cancellation!, refundCents: undefined } })).toBe(50_000);
+    expect(sellerRefundCents({ line, cancellation: null })).toBe(50_000);
   });
 });
 
@@ -206,5 +218,15 @@ describe("BTG's desk", () => {
     expect(ev.map((e) => e.what)).toEqual(["asked to cancel", "said no", "kept the line — it goes ahead as booked"]);
     expect(ev[0]!.quote).toBe("“Our event moved to November.”");
     expect(ev[1]!.tone).toBe("danger");
+  });
+});
+
+describe("the terms changing under the sponsor's open dialog", () => {
+  it("sends what the dialog showed, and a free cancel the cut-off overtook switches to asking with the API's words", () => {
+    expect(cancelExpect("free")).toBe("FREE");
+    expect(cancelExpect("ask")).toBe("ASK");
+    const msg = "The free cancellation deadline (2026-10-14 00:00 UTC) has passed while this was open, so Riley Carter now has to agree. Nothing was cancelled — add a reason and ask them.";
+    expect(afterTermsChanged("free", msg)).toEqual({ mode: "ask", message: msg });
+    expect(afterTermsChanged("ask", "still free")).toEqual({ mode: null, message: "still free" });
   });
 });

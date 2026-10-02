@@ -20,12 +20,15 @@ import { DialogError, NoteField, OrderDialog, btn } from "./order-dialog";
                     (POST /sales/:id/cancel)
 
    The API decides who may (the team's manager, or the athlete whose item
-   it is) and whether it still can; its refusal is shown as it says it.
+   it is) and whether it still can; its refusal is shown as it says it. The
+   agree and can't-deliver dialogs state what the sponsor gets back —
+   `cancellation.refundCents` (the line, or the rest of the order with the
+   buyer fee when it is the last live line).
    -------------------------------------------------------------------------- */
 
 /** The box above the line: the request (with the deadline and Agree / Keep), or how it ended. */
-export function SellerCancelBox({ lineId, title, sponsor, lineTotalCents, banner }: {
-  lineId: string; title: string; sponsor: string; lineTotalCents: number; banner: SellerCancelBanner;
+export function SellerCancelBox({ lineId, title, sponsor, refundCents, banner }: {
+  lineId: string; title: string; sponsor: string; refundCents: number; banner: SellerCancelBanner;
 }) {
   const [open, setOpen] = useState<null | "agree" | "keep">(null);
   const t = BOX[banner.tone];
@@ -43,20 +46,20 @@ export function SellerCancelBox({ lineId, title, sponsor, lineTotalCents, banner
         </div>
       )}
       {open && (
-        <AnswerDialog kind={open} lineId={lineId} title={title} sponsor={sponsor} lineTotalCents={lineTotalCents} onClose={() => setOpen(null)} />
+        <AnswerDialog kind={open} lineId={lineId} title={title} sponsor={sponsor} refundCents={refundCents} onClose={() => setOpen(null)} />
       )}
     </section>
   );
 }
 
-function AnswerDialog({ kind, lineId, title, sponsor, lineTotalCents, onClose }: {
-  kind: "agree" | "keep"; lineId: string; title: string; sponsor: string; lineTotalCents: number; onClose: () => void;
+function AnswerDialog({ kind, lineId, title, sponsor, refundCents, onClose }: {
+  kind: "agree" | "keep"; lineId: string; title: string; sponsor: string; refundCents: number; onClose: () => void;
 }) {
   const router = useRouter();
   const [reason, setReason] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, start] = useTransition();
-  const d = sellerCancelDialog(kind, { title, sponsor, lineTotalCents });
+  const d = sellerCancelDialog(kind, { title, sponsor, refundCents });
   const off = d.reasonRequired && !reason.trim();
   const submit = () => {
     setError(null);
@@ -88,8 +91,8 @@ function AnswerDialog({ kind, lineId, title, sponsor, lineTotalCents, onClose }:
 }
 
 /** "Can't deliver this line?" — the seller cancels it, with the 90-day warning (CX-8). */
-export function SellerCantDeliver({ lineId, title, sponsor, lineTotalCents, cancellation }: {
-  lineId: string; title: string; sponsor: string; lineTotalCents: number; cancellation: SellerCancellation;
+export function SellerCantDeliver({ lineId, title, sponsor, refundCents, cancellation }: {
+  lineId: string; title: string; sponsor: string; refundCents: number; cancellation: SellerCancellation;
 }) {
   const [open, setOpen] = useState(false);
   return (
@@ -98,19 +101,19 @@ export function SellerCantDeliver({ lineId, title, sponsor, lineTotalCents, canc
         className="inline-flex min-h-11 items-center self-start rounded-lg text-[13px] font-semibold text-primary-soft hover:underline">
         Can’t deliver this line?
       </button>
-      {open && <CantDialog lineId={lineId} title={title} sponsor={sponsor} lineTotalCents={lineTotalCents} cancellation={cancellation} onClose={() => setOpen(false)} />}
+      {open && <CantDialog lineId={lineId} title={title} sponsor={sponsor} refundCents={refundCents} cancellation={cancellation} onClose={() => setOpen(false)} />}
     </>
   );
 }
 
-function CantDialog({ lineId, title, sponsor, lineTotalCents, cancellation, onClose }: {
-  lineId: string; title: string; sponsor: string; lineTotalCents: number; cancellation: SellerCancellation; onClose: () => void;
+function CantDialog({ lineId, title, sponsor, refundCents, cancellation, onClose }: {
+  lineId: string; title: string; sponsor: string; refundCents: number; cancellation: SellerCancellation; onClose: () => void;
 }) {
   const router = useRouter();
   const [reason, setReason] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, start] = useTransition();
-  const d = sellerCancelDialog("cant", { title, sponsor, lineTotalCents });
+  const d = sellerCancelDialog("cant", { title, sponsor, refundCents });
   const warn = cancelWarning(cancellation);
   const off = !reason.trim();
   const submit = () => {

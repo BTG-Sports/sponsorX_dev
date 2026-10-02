@@ -34,6 +34,7 @@ vi.mock("../src/auth/clerk", () => ({
 }));
 
 const seededDb = await import("./support/seeded-db");
+const { EMAIL_TEMPLATES } = await import("../worker/jobs/send-email.mts");
 const { issueOrderTerms, placeOrderBody } = await import("./support/order-terms");
 const hasDatabase = await seededDb.databaseAvailable();
 
@@ -305,11 +306,16 @@ describe.skipIf(!hasDatabase)("2S4-BE-12 / 2S4-BE-13 · cancelling a paid line, 
       const [joL, gullsL] = [o.lines.find((l) => l.listingId === E.joListing)!.id, o.lines.find((l) => l.listingId === E.gullsListing)!.id];
       const terms = (await call("GET", `/deliveries/${joL}/cancellation`, "lc_buyer")).json;
       expect(terms.refundCents).toBe(30_000);
+      /* The seller's sale states the same amount: the line's total while another line is live. */
+      expect((await call("GET", `/sales/${joL}`, "lc_jo")).json.cancellation.refundCents).toBe(30_000);
+      expect((await call("GET", "/sales", "lc_mgr")).json.sales.find((x: { id: string }) => x.id === gullsL).cancellation.refundCents).toBe(80_000);
       expect((await call("POST", `/deliveries/${joL}/cancel`, "lc_buyer", { reason: "Event moved indoors" })).json).toMatchObject({ outcome: "REFUNDED", refund: { state: "OPEN", amountCents: 30_000 } });
       expect((await orderOf(o.orderId)).state).toBe("PAID");
       expect((await rowOf(joL)).cancelNote).toBe("Event moved indoors");
       const total = (await orderOf(o.orderId)).totalCents;
       expect((await call("GET", `/deliveries/${gullsL}/cancellation`, "lc_buyer")).json.refundCents).toBe(total - 30_000);
+      /* The last live line: the rest of the order, the buyer fee too — on the seller's sale as on the sponsor's terms. */
+      expect((await call("GET", `/sales/${gullsL}`, "lc_mgr")).json.cancellation.refundCents).toBe(total - 30_000);
       expect((await call("POST", `/deliveries/${gullsL}/cancel`, "lc_buyer", {})).status).toBe(200);
       expect(await orderOf(o.orderId)).toMatchObject({ state: "REFUNDED", refundCause: "CANCELLATION" });
       const refunds = await refundsOf(o.orderId);
@@ -365,6 +371,29 @@ describe.skipIf(!hasDatabase)("2S4-BE-12 / 2S4-BE-13 · cancelling a paid line, 
       /* Asked once: the terms now say it's waiting. */
       expect((await call("GET", `/deliveries/${line}/cancellation`, "lc_buyer")).json).toMatchObject({ canCancel: false, request: { stage: "SELLER_TO_ANSWER" } });
       expect((await call("POST", `/deliveries/${line}/cancel`, "lc_buyer", { reason: "again" })).status).toBe(409);
+    });
+
+    it("`expect` must match the terms: a free cancel the cut-off overtook (or an ask that's still free) is 409 and creates nothing", async () => {
+      const late = await joLine(2, "BANK");
+      const r = await call("POST", `/deliveries/${late.line}/cancel`, "lc_buyer", { expect: "FREE" });
+      expect(r.status).toBe(409);
+      expect(r.json.error.code).toBe("cancel_terms_changed");
+      expect(r.json.error.message).toMatch(/free cancellation deadline .* has passed.*Jo Park now has to agree/);
+      expect(await prisma.deliveryIssue.count({ where: { lineId: late.line } })).toBe(0);
+      expect((await rowOf(late.line)).state).toBe("IN_DELIVERY");
+      expect(await refundsOf(late.orderId)).toEqual([]);
+      expect((await call("POST", `/deliveries/${late.line}/cancel`, "lc_buyer", { expect: "FREE", reason: "Rain" })).status).toBe(409);
+      expect((await call("POST", `/deliveries/${late.line}/cancel`, "lc_buyer", { expect: "LATER" })).status).toBe(400);
+      const free = await joLine(33, "BANK");
+      const ask = await call("POST", `/deliveries/${free.line}/cancel`, "lc_buyer", { expect: "ASK", reason: "Rain" });
+      expect(ask.status).toBe(409);
+      expect(ask.json.error.code).toBe("cancel_terms_changed");
+      expect(await prisma.deliveryIssue.count({ where: { lineId: free.line } })).toBe(0);
+      expect(await refundsOf(free.orderId)).toEqual([]);
+      /* When they match, it goes ahead as before. */
+      expect((await call("POST", `/deliveries/${free.line}/cancel`, "lc_buyer", { expect: "FREE" })).json.outcome).toBe("REFUNDED");
+      expect((await call("POST", `/deliveries/${late.line}/cancel`, "lc_buyer", { expect: "ASK", reason: "Rain" })).json.outcome).toBe("ASKED_SELLER");
+      await call("POST", `/sales/${late.line}/cancellation-answer`, "lc_jo", { decision: "ACCEPT" });
     });
 
     it("the seller's sale shows the request; it can't be marked delivered or cancelled outright meanwhile", async () => {
@@ -704,6 +733,12 @@ describe.skipIf(!hasDatabase)("2S4-BE-12 / 2S4-BE-13 · cancelling a paid line, 
       expect(ok.json).toMatchObject({ id: target.id, state: "SENT", sent: { on: today(), method: "BANK_TRANSFER", reference: "RF-2026-0042", by: "BTG", test: false } });
       expect((await call("POST", `/refunds/${target.id}/sent`, "lc_admin", body)).status).toBe(409);
       expect(await mailsFor("refund.sent", target.id)).toEqual(["lc_buyer@lc-test.invalid"]);
+      /* The sponsor's email never names how it was sent or its reference. */
+      const mail = (await emails()).find((e) => e.template === "refund.sent" && e.idempotencyKey.includes(target.id))!;
+      expect(Object.keys(mail.data).sort()).toEqual(["amount", "firstName", "orderRef", "orderUrl", "sentOn"]);
+      const rendered = EMAIL_TEMPLATES["refund.sent"]!(mail.data);
+      expect(`${rendered.subject}\n${rendered.text}`).not.toMatch(/RF-2026-0042|bank transfer|cheque|card/i);
+      expect(rendered.text).toContain(`was sent on ${today()}`);
       expect(await prisma.auditLog.count({ where: { action: "refundDue.sent", actorId: "lc_finance", entityId: target.orderId } })).toBe(1);
       /* The sponsor sees it sent, on the day — never the reference. */
       const o = await call("GET", `/marketplace-orders/${target.orderId}`, "lc_buyer");
@@ -711,9 +746,9 @@ describe.skipIf(!hasDatabase)("2S4-BE-12 / 2S4-BE-13 · cancelling a paid line, 
       expect(o.text).not.toContain("RF-2026-0042");
       const d = await call("GET", `/marketplace-orders/${target.orderId}/deliveries`, "lc_buyer");
       expect(d.text).not.toContain("RF-2026-0042");
-      /* Sellers never see refunds or a sponsor's cancellation terms. */
+      /* Sellers never see the refunds, a sponsor's cancellation terms or a refund's state — only what cancelling would give back. */
       const s = await call("GET", "/sales", "lc_jo");
-      expect(s.text).not.toMatch(/"refundCents"|"refunds"/);
+      expect(s.text).not.toMatch(/"refunds"|"freeUntil"|"sellerAnswerBy"|RF-2026-0042/);
     });
   });
 });

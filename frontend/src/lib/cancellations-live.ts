@@ -60,6 +60,8 @@ export type ApiCancellationTerms = {
 export type SellerCancellation = {
   canCancel: boolean;
   cancellationsLast90Days: number;
+  /** What the sponsor gets back if it is cancelled now: the line's total, or (the order's last live line) the rest of the order, the buyer fee too. */
+  refundCents?: number;
   limit: number;
   windowDays: number;
   warning: string;
@@ -72,6 +74,18 @@ const quoted = (text: string | null | undefined) => (text?.trim() ? `“${text.t
 /* ----------------------------------------------------------- the sponsor */
 
 export type CancelMode = "free" | "ask";
+
+/** What the sponsor's dialog tells the API it showed (POST /deliveries/:id/cancel `expect`). */
+export const cancelExpect = (mode: CancelMode): "FREE" | "ASK" => (mode === "free" ? "FREE" : "ASK");
+
+/**
+ * The API refused because the terms changed under the open dialog
+ * (`cancel_terms_changed`): a free cancel the cut-off overtook now has to ask
+ * the seller — the dialog switches to asking, with the API's words. Pure.
+ */
+export function afterTermsChanged(mode: CancelMode, message: string): { mode: CancelMode | null; message: string } {
+  return { mode: mode === "free" ? "ask" : null, message };
+}
 
 /**
  * What pressing "Cancel" means right now: free (refunded at once), ask the
@@ -386,8 +400,14 @@ export function cancelMarkWhy(o: SellerLine): string | null {
 }
 
 /** The seller's confirm dialogs (CX-6b agree, CX-7 keep, CX-8 can't deliver): exactly what will happen. */
-export function sellerCancelDialog(kind: "agree" | "keep" | "cant", x: { title: string; sponsor: string; lineTotalCents: number }) {
-  const back = `${x.sponsor} gets ${money(x.lineTotalCents)} back and your share for this line goes to $0.00.`;
+/** The amount the seller's dialogs state: the API's `cancellation.refundCents`, else (an older API) the line's own total. */
+export function sellerRefundCents(o: { cancellation?: Pick<SellerCancellation, "refundCents"> | null; line: { quantity: number; unitPriceCents: number } }): number {
+  const r = o.cancellation?.refundCents;
+  return typeof r === "number" && r >= 0 ? r : o.line.quantity * o.line.unitPriceCents;
+}
+
+export function sellerCancelDialog(kind: "agree" | "keep" | "cant", x: { title: string; sponsor: string; refundCents: number }) {
+  const back = `${x.sponsor} gets ${money(x.refundCents)} back and your share for this line goes to $0.00.`;
   if (kind === "agree") {
     return {
       title: `Agree to cancel ${x.title}?`,

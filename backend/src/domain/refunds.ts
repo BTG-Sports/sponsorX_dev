@@ -202,7 +202,7 @@ export async function recordRefund(
           before: { refundId: row.id, state: "OPEN" },
           after: { refundId: row.id, state: "SENT", method: "CARD", provider: refunded.provider, test: refunded.test, reference: refunded.reference },
         });
-        await tellRefundSent(tx, order, row.id, amountCents, "to the card it was paid with", now);
+        await tellRefundSent(tx, order, row.id, amountCents, now);
         return { ...row, state: "SENT" };
       }
     }
@@ -210,14 +210,15 @@ export async function recordRefund(
   return row;
 }
 
+/** The sponsor hears the refund was sent: how much, for which order, on which day — never how it was sent or its reference (the sponsor sees neither). */
 async function tellRefundSent(
   tx: Tx, order: { id: string; tenantId: string; createdBy: string | null; billingEmail: string | null; billingName: string | null },
-  refundId: string, amountCents: number, how: string, sentOn: Date,
+  refundId: string, amountCents: number, sentOn: Date,
 ) {
   const sponsor = await sponsorRecipient(tx, order);
   if (!sponsor) return;
   await tell(tx, sponsor, "refund.sent", refundId, {
-    firstName: sponsor.firstName, orderRef: orderRef(order.id), amount: usd(amountCents), how, sentOn: dayOf(sentOn),
+    firstName: sponsor.firstName, orderRef: orderRef(order.id), amount: usd(amountCents), sentOn: dayOf(sentOn),
     orderUrl: appUrl(`/sponsor/orders/${order.id}`),
   });
 }
@@ -316,8 +317,7 @@ export async function markRefundSent(actor: Actor, id: string, input: Partial<Re
       /* tenant-scope: the order of the refund just loaded through whereFor(refundDue, write). */
       where: { id: found.orderId }, select: { id: true, tenantId: true, createdBy: true, billingEmail: true, billingName: true },
     });
-    const how = input.method === "BANK_TRANSFER" ? "by bank transfer" : input.method === "CHEQUE" ? "by cheque" : input.method === "CARD" ? "to your card" : "by BTG";
-    await tellRefundSent(tx, order, found.id, found.amountCents, how, sentOn);
+    await tellRefundSent(tx, order, found.id, found.amountCents, sentOn);
     return tx.refundDue.findUniqueOrThrow({
       /* tenant-scope: the row just moved, by id. */
       where: { id: found.id }, select: ROW,

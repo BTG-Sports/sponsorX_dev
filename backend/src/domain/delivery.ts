@@ -109,10 +109,13 @@ type Tx = Prisma.TransactionClient;
 
 export class DeliveryError extends Error {
   readonly status: number;
-  constructor(message: string, status = 409) {
+  /** A stable code a client branches on, when one is given (else the default). */
+  readonly code?: string;
+  constructor(message: string, status = 409, code?: string) {
     super(message);
     this.name = "DeliveryError";
     this.status = status;
+    if (code) this.code = code;
   }
 }
 
@@ -776,7 +779,7 @@ const sellerMayCancel = (r: Pick<SaleRow, "state" | "issues"> & { line: { order:
   return r.state === "IN_DELIVERY" && PAID_ORDER.has(r.line.order.state) && (!open || open.kind === "OVERDUE");
 };
 
-function saleView(r: SaleRow, names: Awaited<ReturnType<typeof namesFor>>, shareCents: number, now: Date, cancellationsLast90Days = 0) {
+function saleView(r: SaleRow, names: Awaited<ReturnType<typeof namesFor>>, shareCents: number, now: Date, cancellationsLast90Days = 0, refundCents = r.line.lineTotalCents) {
   const order = r.line.order;
   const paid = PAID_STATES.has(order.state);
   const contact = names.contact.get(r.sponsorId);
@@ -830,12 +833,41 @@ function saleView(r: SaleRow, names: Awaited<ReturnType<typeof namesFor>>, share
     cancellation: {
       canCancel: sellerMayCancel(r),
       cancellationsLast90Days,
+      /* What the sponsor gets back if it is cancelled now: the line's total, or — the order's last live line — the rest of the order, the buyer fee too. */
+      refundCents,
       limit: SELLER_CANCELLATION_LIMIT,
       windowDays: SELLER_CANCELLATION_WINDOW_DAYS,
       warning: sellerCancelWarning(cancellationsLast90Days),
       cancelled: r.cancelledAt ? { at: r.cancelledAt, by: r.cancelledBy as CancelledBy, note: r.cancelNote } : null,
     },
   };
+}
+
+/**
+ * What cancelling each of these rows would give the sponsor back (2S4-BE-12),
+ * read from their orders' other lines' states and the refunds already
+ * recorded — figures used only to compute the amount, never shown.
+ */
+async function refundBases(rows: SaleRow[]) {
+  const orderIds = [...new Set(rows.map((r) => r.orderId))];
+  const [siblings, refunded] = orderIds.length
+    ? await Promise.all([
+        prisma.orderLineDelivery.findMany({
+          /* tenant-scope: the delivery rows of orders whose lines the caller loaded through whereFor(orderDelivery) — states only, to know the last live line. */
+          where: { orderId: { in: orderIds } }, select: { orderId: true, lineId: true, state: true },
+        }),
+        prisma.refundDue.groupBy({
+          by: ["orderId"],
+          /* tenant-scope: the refunds of orders whose lines the caller loaded through whereFor(orderDelivery) — a sum only. */
+          where: { orderId: { in: orderIds } }, _sum: { amountCents: true },
+        }),
+      ])
+    : [[], []];
+  const sum = new Map(refunded.map((x) => [x.orderId, x._sum.amountCents ?? 0]));
+  return (r: SaleRow) => refundCentsFor(
+    { lineId: r.lineId, lineTotalCents: r.line.lineTotalCents, orderTotalCents: r.line.order.totalCents },
+    siblings.filter((x) => x.orderId === r.orderId), sum.get(r.orderId) ?? 0,
+  );
 }
 
 /** Each seller's own cancellations in the last 90 days, for the rows' sellers. */
@@ -858,16 +890,16 @@ export async function mySales(actor: Actor, now = new Date()) {
   const rows = await prisma.orderLineDelivery.findMany({
     where: whereFor(actor, "orderDelivery", "read"), select: SALE_SELECT, orderBy: { createdAt: "desc" }, take: 200,
   });
-  const [names, shares, counts] = await Promise.all([namesFor(rows), sharesFor(actor, rows.map((r) => r.lineId)), cancellationCounts(rows, now)]);
-  return { sales: rows.map((r) => saleView(r, names, shares.get(r.lineId) ?? 0, now, counts(r))) };
+  const [names, shares, counts, refundOf] = await Promise.all([namesFor(rows), sharesFor(actor, rows.map((r) => r.lineId)), cancellationCounts(rows, now), refundBases(rows)]);
+  return { sales: rows.map((r) => saleView(r, names, shares.get(r.lineId) ?? 0, now, counts(r), refundOf(r))) };
 }
 
 export async function mySale(actor: Actor, lineId: string, now = new Date()) {
   sellerScope(actor, "read");
   const row = await prisma.orderLineDelivery.findFirst({ where: { ...whereFor(actor, "orderDelivery", "read"), lineId }, select: SALE_SELECT });
   if (!row) throw new ForbiddenError("orderDelivery", "read");
-  const [names, shares, counts] = await Promise.all([namesFor([row]), sharesFor(actor, [row.lineId]), cancellationCounts([row], now)]);
-  return { ...saleView(row, names, shares.get(row.lineId) ?? 0, now, counts(row)), timeline: timelineOf(row, whoOf(row, names)) };
+  const [names, shares, counts, refundOf] = await Promise.all([namesFor([row]), sharesFor(actor, [row.lineId]), cancellationCounts([row], now), refundBases([row])]);
+  return { ...saleView(row, names, shares.get(row.lineId) ?? 0, now, counts(row), refundOf(row)), timeline: timelineOf(row, whoOf(row, names)) };
 }
 
 /** The key a line's proof is uploaded under — built here, never taken from the caller. */
@@ -1598,7 +1630,7 @@ async function lockedLine(tx: Tx, actor: Actor, lineId: string, action: "write" 
  * the earlier of 72 hours or the first date's start. On or after the first
  * date: 409, "Report a problem".
  */
-export async function cancelLine(actor: Actor, lineId: string, input: { reason?: string | null }, now = new Date()) {
+export async function cancelLine(actor: Actor, lineId: string, input: { reason?: string | null; expect?: "FREE" | "ASK" | null }, now = new Date()) {
   const scope = assertAllowed(actor, "orderDelivery", "write");
   if (scope !== "own-sponsor" || !actor.sponsorId) throw new ForbiddenError("orderDelivery", "write");
   const reason = input.reason?.trim() ?? "";
@@ -1606,6 +1638,16 @@ export async function cancelLine(actor: Actor, lineId: string, input: { reason?:
     const row = await lockedLine(tx, actor, lineId, "write");
     const terms = await termsIn(tx, row, now);
     if (!terms.canCancel) throw new DeliveryError(terms.blockedReason ?? "This line can't be cancelled now.");
+    /* What the sponsor's dialog promised must still hold: a free cancel the cut-off has overtaken is never turned into a request (or back). */
+    if (input.expect === "FREE" && !terms.free) {
+      throw new DeliveryError(
+        `The free cancellation deadline (${utc(terms.freeUntil)}) has passed while this was open, so ${await sellerNameIn(tx, row)} now has to agree. Nothing was cancelled — add a reason and ask them.`,
+        409, "cancel_terms_changed",
+      );
+    }
+    if (input.expect === "ASK" && terms.free) {
+      throw new DeliveryError("This line can still be cancelled for free, so there's no need to ask the seller. Nothing was sent — reload to see the terms.", 409, "cancel_terms_changed");
+    }
     const sponsorName = await sponsorNameOf(tx, row);
     const sponsor = await sponsorRecipient(tx, row.line.order);
 

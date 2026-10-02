@@ -254,7 +254,8 @@ ${d.portalUrl ?? ""}
   /* 2S4-BE-13 — a refund sent. */
   "refund.sent": (d) => ({
     subject: `Your refund of ${d.amount ?? "your money"} was sent (${d.orderRef ?? "your order"})`,
-    text: `Hi ${d.firstName ?? "there"},\n\nYour refund of ${d.amount ?? "your money"} for order ${d.orderRef ?? ""} was sent ${d.how ?? ""}${d.sentOn ? ` on ${d.sentOn}` : ""}. It may take a few days to reach you.\n\n${d.orderUrl ?? ""}\n\n— BTG SponsorX`,
+    /* Never how it was sent or its reference — the sponsor sees neither (2S4-BE-13). */
+    text: `Hi ${d.firstName ?? "there"},\n\nYour refund of ${d.amount ?? "your money"} for order ${d.orderRef ?? ""} was sent${d.sentOn ? ` on ${d.sentOn}` : ""}, back the way you paid. It may take a few days to reach you.\n\n${d.orderUrl ?? ""}\n\n— BTG SponsorX`,
   }),
   "delivery.resolved": (d) => ({
     subject: `BTG's decision on ${d.orderRef ?? "your order"}: ${d.title ?? ""}`,

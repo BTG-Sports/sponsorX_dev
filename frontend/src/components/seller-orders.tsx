@@ -7,7 +7,7 @@ import { DeliveryTrack } from "@/components/order-bits";
 import { SellerApprovalsPanel } from "@/components/seller-approval";
 import { SellerProblemAnswer } from "@/components/seller-problem-answer";
 import { SellerCancelBox, SellerCantDeliver } from "@/components/seller-order-cancel";
-import { LISTINGS_CHECKED_NOTE, listingsChecked, sellerCancelBanner } from "@/lib/cancellations-live";
+import { LISTINGS_CHECKED_NOTE, listingsChecked, sellerCancelBanner, sellerRefundCents } from "@/lib/cancellations-live";
 import type { ApiSellerApproval } from "@/lib/order-automation-live";
 import type { DemoState } from "@/lib/demo";
 import {
@@ -183,7 +183,7 @@ export function SellerOrderDetail({ kind, order: o, now = new Date() }: { kind: 
         )}
 
         {cancelBox && (
-          <SellerCancelBox lineId={o.id} title={o.line.title} sponsor={o.sponsor.name} lineTotalCents={lineTotalCents(o)} banner={cancelBox} />
+          <SellerCancelBox lineId={o.id} title={o.line.title} sponsor={o.sponsor.name} refundCents={sellerRefundCents(o)} banner={cancelBox} />
         )}
 
         {banner && (
@@ -228,7 +228,7 @@ export function SellerOrderDetail({ kind, order: o, now = new Date() }: { kind: 
                   />
                   {o.cancellation?.canCancel && (
                     <div className="mt-2">
-                      <SellerCantDeliver lineId={o.id} title={o.line.title} sponsor={o.sponsor.name} lineTotalCents={lineTotalCents(o)} cancellation={o.cancellation} />
+                      <SellerCantDeliver lineId={o.id} title={o.line.title} sponsor={o.sponsor.name} refundCents={sellerRefundCents(o)} cancellation={o.cancellation} />
                     </div>
                   )}
                 </div>

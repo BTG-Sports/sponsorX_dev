@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 
 import { cancelLineAction } from "@/app/(app)/sponsor/orders/[id]/delivery-actions";
 import { DeadlineChip } from "@/components/order-bits";
-import { cancelMode, sponsorCancelDialog, type ApiCancellationTerms, type CancelMode, type SponsorCancelView } from "@/lib/cancellations-live";
+import { afterTermsChanged, cancelMode, sponsorCancelDialog, type ApiCancellationTerms, type CancelMode, type SponsorCancelView } from "@/lib/cancellations-live";
 import { DialogError, NoteField, OrderDialog, btn } from "./order-dialog";
 
 /* --------------------------------------------------------------------------
@@ -15,7 +15,10 @@ import { DialogError, NoteField, OrderDialog, btn } from "./order-dialog";
    Free until 3 days before the line's first date: refunded at once, the
    reason optional. After that, until the first date: the seller is asked,
    a reason required. cancelLineAction → POST /deliveries/:lineId/cancel;
-   a refusal (409) or a missing reason (422) shows the API's words.
+   a refusal (409) or a missing reason (422) shows the API's words. The
+   dialog sends what it showed (`expect`); if the free cut-off passed while
+   it was open the API creates nothing and says the seller now has to agree,
+   and the dialog switches to asking with those words.
    SPONSOR_ADMIN only — the API decides.
    -------------------------------------------------------------------------- */
 
@@ -85,7 +88,15 @@ function CancelDialog({ orderId, lineId, title, seller, terms, mode, clock, onMo
     if (off) return setError("Write a reason first.");
     start(async () => {
       const r = await cancelLineAction(orderId, lineId, reason, mode);
-      if (!r.ok) return setError(r.message);
+      if (!r.ok) {
+        if (r.termsChanged) {
+          const next = afterTermsChanged(mode, r.message);
+          if (next.mode) onMode(next.mode);
+          router.refresh();
+          return setError(next.message);
+        }
+        return setError(r.message);
+      }
       onClose();
       router.refresh();
     });
