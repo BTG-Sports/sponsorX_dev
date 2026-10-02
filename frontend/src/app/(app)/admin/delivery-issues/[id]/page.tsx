@@ -17,6 +17,8 @@ import { apiFetch } from "@/server/api";
    Reads  GET  /delivery-issues/:lineId             (issue, escalation, canDecide, timeline — 2S4-BE-11)
           GET  /deliveries/:lineId/proof            5-minute audited link (DeliveryProofButton)
    Writes POST /delivery-issues/:lineId/resolve     (DeliveryIssueDecision → ../actions.ts)
+   2S4-FE-06 (CX-9 / CX-9b) — a request to cancel shows its exchange here
+   (asked · said no · sent to BTG) and is decided Cancel and refund, or Keep.
    -------------------------------------------------------------------------- */
 
 export const dynamic = "force-dynamic";
@@ -48,6 +50,7 @@ export default async function DeliveryIssuePage({ params }: { params: Promise<{ 
     ? { ...deskReason(p), label: `Needs BTG · ${deskReason(p).label.charAt(0).toLowerCase()}${deskReason(p).label.slice(1)}` }
     : p.issue?.stage === "SETTLED"
     ? { label: "Settled between them", tone: "accent", mark: "✓" }
+    : p.issue?.outcome?.outcome === "KEPT" && p.state === "IN_DELIVERY" ? { label: "Kept by BTG · goes ahead as booked", tone: "accent", mark: "✓" }
     : p.state === "CONFIRMED" ? { label: "Confirmed", tone: "accent", mark: "✓" }
     : p.state === "REFUNDED" ? { label: "Refunded", tone: "neutral", mark: "↺" }
     : p.state === "PROBLEM" ? { label: "Between the seller and the sponsor", tone: "primary", mark: "●" }
