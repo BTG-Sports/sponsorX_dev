@@ -172,7 +172,8 @@ describe.skipIf(!hasDatabase)("P9-BE-16 · edition ad artwork through the approv
     try { await seedPackages(client, T); } finally { client.release(); await pool.end(); }
     rosaCampaign = await campaignFor("eart_rosa_sp", "NEXT-AD-BACK-COVER", "EArt Rosa back cover");
     kimCampaign = await campaignFor("eart_kim_sp", "NEXT-AD-HALF", "EArt Kim half page");
-    server = createApp().listen(0);
+    server = createApp().listen(0, "127.0.0.1");
+    await new Promise((r) => server.once("listening", r)); // a host makes the bind async
     base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
 
     /* An edition with a back cover sold to Rosa, a half page sold to Kim and one quarter left open. */
