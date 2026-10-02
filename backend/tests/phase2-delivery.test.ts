@@ -175,7 +175,8 @@ describe.skipIf(!hasDatabase)("sellers' orders and delivery over the API", { tim
     const hawks = await approveTeam("dl_onb_hawks", "Westfield Hawks DL", "dl_mgr");
     const lions = await approveTeam("dl_onb_lions", "Lakeside Lions", "dl_mgr2");
     Object.assign(E, { hawksTenant: hawks.tenantId, hawks: hawks.id, lionsTenant: lions.tenantId, lions: lions.id });
-    server = createApp().listen(0);
+    server = createApp().listen(0, "127.0.0.1");
+    await new Promise((r) => server.once("listening", r)); // a host makes the bind async
     base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
     await call("GET", "/me", "dl_mgr");
     await call("GET", "/me", "dl_mgr2");

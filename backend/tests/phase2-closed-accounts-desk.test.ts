@@ -128,7 +128,8 @@ describe.skipIf(!hasDatabase)("2S1-FE-08 · BTG's Closed accounts desk", { timeo
       /* Another tenant's. */
       { ...closure("cad_c_other", { subjectKind: "ATHLETE", subjectId: "cad_x", cause: "REJECTED", displayName: "Other" }), tenantId: OTHER },
     ] });
-    server = createApp().listen(0);
+    server = createApp().listen(0, "127.0.0.1");
+    await new Promise((r) => server.once("listening", r)); // a host makes the bind async
     base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
   });
   afterAll(async () => {

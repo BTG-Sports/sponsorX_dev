@@ -74,7 +74,8 @@ describe.skipIf(!hasDatabase)("2S1-BE-16 · contacting BTG support", { timeout: 
   beforeAll(async () => {
     await clean();
     await prisma.tenant.create({ data: { id: T, name: "Support BTG" } });
-    server = createApp().listen(0);
+    server = createApp().listen(0, "127.0.0.1");
+    await new Promise((r) => server.once("listening", r)); // a host makes the bind async
     base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
   });
   afterAll(async () => {

@@ -104,7 +104,8 @@ describe.skipIf(!hasDatabase)("2S1-BE-18 · BTG keeps the list", { timeout: 60_0
       { id: "rw_sales", tenantId: T, clerkId: "rw_sales", email: "rw_sales@rw-test.invalid", roles: ["SALES"] },
       { id: "rw_x_admin", tenantId: X, clerkId: "rw_x_admin", email: "rw_x_admin@rw-test.invalid", roles: ["BTG_ADMIN"] },
     ] });
-    server = createApp().listen(0);
+    server = createApp().listen(0, "127.0.0.1");
+    await new Promise((r) => server.once("listening", r)); // a host makes the bind async
     base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
   });
   afterAll(async () => {

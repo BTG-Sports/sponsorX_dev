@@ -74,7 +74,8 @@ describe.skipIf(!hasDatabase)("2S1-BE-10 · a guardian verified through one chil
       { id: "rp_ux", tenantId: T, clerkId: "rp_x", email: "rp_x@rp-test.invalid", roles: ["ATHLETE"], athleteId: "rp_x" },
       { id: "rp_uy", tenantId: T, clerkId: "rp_y", email: "rp_y@rp-test.invalid", roles: ["ATHLETE"], athleteId: "rp_y" },
     ] });
-    server = createApp().listen(0);
+    server = createApp().listen(0, "127.0.0.1");
+    await new Promise((r) => server.once("listening", r)); // a host makes the bind async
     base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
   });
   afterAll(async () => { server?.close(); await clean(); });

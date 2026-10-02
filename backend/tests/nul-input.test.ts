@@ -37,7 +37,7 @@ describe("the three public lookups over HTTP", async () => {
   let server: ReturnType<ReturnType<typeof createApp>["listen"]>;
   let base = "";
   beforeAll(async () => {
-    server = createApp().listen(0);
+    server = createApp().listen(0, "127.0.0.1");
     await new Promise((r) => server.once("listening", r));
     const addr = server.address();
     base = `http://127.0.0.1:${typeof addr === "object" && addr ? addr.port : 0}`;

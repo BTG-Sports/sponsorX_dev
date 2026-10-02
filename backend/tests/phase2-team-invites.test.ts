@@ -119,7 +119,8 @@ describe.skipIf(!hasDatabase)("2S2-BE-05 · a team invites an athlete already on
     const hawks = await approveTeam("tv_onb_hawks", "Westfield Hawks TV", "tv_mgr");
     const lions = await approveTeam("tv_onb_lions", "Lakeside Lions TV", "tv_mgr2");
     Object.assign(E, { hawksTenant: hawks.tenantId, hawks: hawks.id, lionsTenant: lions.tenantId, lions: lions.id });
-    server = createApp().listen(0);
+    server = createApp().listen(0, "127.0.0.1");
+    await new Promise((r) => server.once("listening", r)); // a host makes the bind async
     base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
     await call("GET", "/me", "tv_mgr");
     await call("GET", "/me", "tv_mgr2");

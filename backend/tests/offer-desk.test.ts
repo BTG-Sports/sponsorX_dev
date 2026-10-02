@@ -112,7 +112,8 @@ describe.skipIf(!hasDatabase)("2S2-FE-03 · the Offers desk's form reads", { tim
       { id: "odk_athlete", tenantId: T, clerkId: "odk_athlete", email: "riley@odk-test.invalid", roles: ["ATHLETE"], athleteId: "odk_riley" },
       { id: "odk_x_admin", tenantId: X, clerkId: "odk_x_admin", email: "odk_x_admin@odk-test.invalid", roles: ["BTG_ADMIN"] },
     ] });
-    server = createApp().listen(0);
+    server = createApp().listen(0, "127.0.0.1");
+    await new Promise((r) => server.once("listening", r)); // a host makes the bind async
     base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
   });
 

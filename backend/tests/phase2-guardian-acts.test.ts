@@ -131,7 +131,8 @@ describe.skipIf(!hasDatabase)("2S1-BE-11 / -12 · the guardian acts for the mino
       deliverables: [{ title: "Feed post", dueDate: new Date(Date.now() + 14 * DAY).toISOString() }], usageRights: "90 days", disclosures: ["#ad"],
       expiresAt: new Date(Date.now() + 7 * DAY), state: "SENT", sentAt: new Date(), termsHash: "a".repeat(64), createdBy: "ga_admin",
     } });
-    server = createApp().listen(0);
+    server = createApp().listen(0, "127.0.0.1");
+    await new Promise((r) => server.once("listening", r)); // a host makes the bind async
     base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
   });
   afterAll(async () => {
@@ -249,10 +250,11 @@ describe.skipIf(!hasDatabase)("2S1-BE-11 / -12 · the guardian acts for the mino
 
   const now = new Date();
   it("reaching the age of majority opens a 90-day allowance; both are emailed, and both portals show the reminder", async () => {
-    /* The sweep is platform-wide and another suite runs it in parallel, so this
-       file's athletes may already have been started by that run — assert on
-       them, never on the shared count. */
-    await sweepComingOfAge(now);
+    /* Narrowed to this file's tenant (2S8-QA-04): run platform-wide with the
+       clock moved 91 days on, this sweep started, reminded and terminated
+       phase2-merge-gaps' athletes too (traced 2026-10-02). Still assert on
+       this file's athletes, never on a count. */
+    await sweepComingOfAge(now, { tenantIds: [T] });
     const casey = await prisma.athlete.findUniqueOrThrow({ where: { id: "ga_casey" }, select: { comingOfAgeStartedAt: true, comingOfAgeDueAt: true, comingOfAgeReminders: true } });
     expect(casey.comingOfAgeDueAt!.getTime() - casey.comingOfAgeStartedAt!.getTime()).toBe(90 * DAY);
     expect(casey.comingOfAgeReminders).toEqual([90]);
@@ -285,7 +287,7 @@ describe.skipIf(!hasDatabase)("2S1-BE-11 / -12 · the guardian acts for the mino
     expect(sent.status, sent.text).toBe(200);
     expect(await mailTo("comingOfAge.uploadLink", "ga_casey@ga-test.invalid")).toHaveLength(1);
     for (const [day, expected] of [[61, [90, 30]], [61, [90, 30]], [77, [90, 30, 14]], [84, [90, 30, 14, 7]], [89.5, [90, 30, 14, 7, 1]]] as const) {
-      await sweepComingOfAge(new Date(now.getTime() + day * DAY));
+      await sweepComingOfAge(new Date(now.getTime() + day * DAY), { tenantIds: [T] });
       const a = await prisma.athlete.findUniqueOrThrow({ where: { id: "ga_casey" }, select: { comingOfAgeReminders: true } });
       expect(a.comingOfAgeReminders, `day ${day}`).toEqual(expected);
     }
@@ -314,7 +316,7 @@ describe.skipIf(!hasDatabase)("2S1-BE-11 / -12 · the guardian acts for the mino
   });
 
   it("90 days without the ID: both accounts end — but a guardian with other minors keeps theirs, only the link ends", async () => {
-    await sweepComingOfAge(new Date(now.getTime() + 91 * DAY));
+    await sweepComingOfAge(new Date(now.getTime() + 91 * DAY), { tenantIds: [T] });
     /* Dana (Carmen still looks after Jordan): Dana ends, Carmen stays. */
     expect(await prisma.athlete.findUniqueOrThrow({ where: { id: "ga_dana" }, select: { state: true, guardianId: true, comingOfAgeTerminatedAt: true } }))
       .toMatchObject({ state: "SUSPENDED", guardianId: null, comingOfAgeTerminatedAt: expect.any(Date) });

@@ -194,7 +194,8 @@ describe.skipIf(!hasDatabase)("organisations over the API", async () => {
     ] });
     /* A property BTG runs itself, never onboarded — its name is taken too. */
     await prisma.property.create({ data: { id: "oa_btg_property", tenantId: T, name: "OA Harbour Rowing Club", kind: "TEAM", slug: "oa-harbour-rowing-club" } });
-    server = createApp().listen(0);
+    server = createApp().listen(0, "127.0.0.1");
+    await new Promise((r) => server.once("listening", r)); // a host makes the bind async
     base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
   });
 

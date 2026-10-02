@@ -132,7 +132,8 @@ describe.skipIf(!hasDatabase)("P7-FE-06 · the Operations Board's queues · P4-F
     await wipe();
     await seed(A, 2);
     await seed(B, 5);
-    server = createApp().listen(0);
+    server = createApp().listen(0, "127.0.0.1");
+    await new Promise((r) => server.once("listening", r)); // a host makes the bind async
     base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
   });
 

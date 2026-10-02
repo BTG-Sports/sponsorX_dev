@@ -134,7 +134,8 @@ describe.skipIf(!hasDatabase)("2S1-BE-17 · sponsors are approved automatically"
       { id: "sa_cm", tenantId: T, clerkId: "sa_cm", email: "sa_cm@sa-test.invalid", roles: ["CAMPAIGN_MGR"] },
       { id: "sa_gym", tenantId: T, clerkId: "sa_gym", email: "sa_gym@sa-test.invalid", roles: ["SPONSOR_ADMIN"], sponsorId: "sa_existing" },
     ] });
-    server = createApp().listen(0);
+    server = createApp().listen(0, "127.0.0.1");
+    await new Promise((r) => server.once("listening", r)); // a host makes the bind async
     base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
   });
   afterAll(async () => {

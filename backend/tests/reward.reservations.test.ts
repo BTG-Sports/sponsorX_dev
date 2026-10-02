@@ -109,7 +109,8 @@ describe.skipIf(!hasDatabase)("reward redeem and claim · against real Postgres"
     await prisma.sponsor.create({ data: { id: "rv_sponsor", tenantId: T, name: "Rosa's Tacos" } });
     await prisma.campaign.create({ data: { id: "rv_campaign", tenantId: T, sponsorId: "rv_sponsor", name: "Fall tacos", budget: 100_000, startDate: new Date("2026-09-01"), endDate: new Date("2099-12-31"), state: "ACTIVE" } });
     await prisma.user.create({ data: { id: "rv_admin", tenantId: T, clerkId: "rv_admin", email: "admin@rv.invalid", roles: ["BTG_ADMIN"] } });
-    server = createApp().listen(0);
+    server = createApp().listen(0, "127.0.0.1");
+    await new Promise((r) => server.once("listening", r)); // a host makes the bind async
     base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
   });
 
@@ -137,9 +138,16 @@ describe.skipIf(!hasDatabase)("reward redeem and claim · against real Postgres"
 
   /* ── QA-02 ─────────────────────────────────────────────────────────────── */
 
+  /* "expiresAt" is TIMESTAMP(3) WITHOUT TIME ZONE holding UTC wall-clock time
+     (Prisma's convention, and the `p_now` the function compares it with is
+     UTC too). Bare `now()` written into it lands as the SESSION's local wall
+     clock: on a box whose Postgres runs Asia/Manila (+08) that put the expiry
+     ~8 h in the future, so the redeem rightly went through (201) and this test
+     failed every run while passing on a UTC server. `now() AT TIME ZONE 'UTC'`
+     is the expiry the test means on any server (QA-02, 2026-10-02). */
   for (const [label, change] of [
     ["paused", `UPDATE "Reward" SET state = 'PAUSED' WHERE id = $1`],
-    ["expired", `UPDATE "Reward" SET "expiresAt" = now() - interval '1 minute' WHERE id = $1`],
+    ["expired", `UPDATE "Reward" SET "expiresAt" = (now() AT TIME ZONE 'UTC') - interval '1 minute' WHERE id = $1`],
   ] as const) {
     it(`QA-02: a redeem waiting on the lock while the reward is ${label} is refused, and writes nothing`, async () => {
       const id = `rv_wait_${label}`;
