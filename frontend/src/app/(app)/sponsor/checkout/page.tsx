@@ -3,11 +3,10 @@ import { redirect } from "next/navigation";
 
 import { Badge, Card } from "@/components/ui";
 import { EmptyState } from "@/components/states";
-import { ShopPaymentNote, ShopSteps } from "@/components/shop-bits";
+import { ShopLineRow, ShopPaymentNote, ShopSteps } from "@/components/shop-bits";
 import { ShopCheckoutGate, ShopReserveButton } from "@/components/shop-checkout";
 import { ShopCountdown } from "@/components/shop-countdown";
 import {
-  fmtDay,
   fmtStamp,
   lineSummary,
   reservationCopy,
@@ -174,15 +173,7 @@ export default async function CheckoutPage({
           {lines ? (
             <ul className="space-y-2">
               {lines.lines.map((l) => (
-                <li key={l.id} className="flex flex-wrap items-start justify-between gap-3 rounded-xl border border-line bg-surface px-4 py-3">
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-semibold">{l.title}</p>
-                    <p className="mt-0.5 text-[11px] text-muted">
-                      {l.propertyName} · {l.quantity} × {usd(l.unitPriceCents)} · {fmtDay(l.startsOn)} – {fmtDay(l.endsOn)}
-                    </p>
-                  </div>
-                  <p className="text-sm font-semibold tabular-nums">{usd(l.lineTotalCents)}</p>
-                </li>
+                <ShopLineRow key={l.id} line={l} />
               ))}
             </ul>
           ) : (

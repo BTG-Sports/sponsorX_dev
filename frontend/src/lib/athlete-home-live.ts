@@ -9,8 +9,26 @@
 
    It replaced a sample athlete ("Shammah") behind a demo banner. Every figure
    is one of these reads; nothing is estimated.
+
+   2S2-FE-01 — the Phase 2 view adds, from the athlete's own reads:
+
+     GET /offers          offers waiting for their answer (the whole list —
+                          the API doesn't cap it), soonest expiry first
+     GET /deliverables    ?to=today — page.total is how many are overdue
+     GET /sales/summary   the shop: items, listings live / held for BTG,
+                          lines and units sold and awaiting payment, orders
+                          waiting for their answer, the next sales with dates
+                          ahead — every count made in Postgres
+     GET /payouts/me      available to pay out (totals.requestableCents),
+                          and every payout by state (byState: count and
+                          amount, counted in Postgres)
+
+   The helpers below only put those figures into words; none is summed or
+   counted here over a list that might be cut short.
    -------------------------------------------------------------------------- */
 
+import { groupOffers, type ApiOffer } from "./offer-live";
+import { usd as cents, type ApiMyPayouts } from "./payouts-live";
 import { buckets, type ApiEarning, summaryBuckets, type ApiEarningsSummary } from "./earnings-live";
 import { dueLabel, type ApiDeliverable } from "./deliverables-live";
 import { toInboxRow, type ApiInvitation } from "./invitations-live";
@@ -151,4 +169,101 @@ export function buildHome(input: {
     ],
     hasEarnings: input.earningsSummary ? input.earningsSummary.count > 0 : input.earnings.length > 0,
   };
+}
+
+/* ============================================================ 2S2-FE-01 */
+
+/** GET /sales/summary — the seller's marketplace, counted by the API. */
+export type ApiSellerSummary = {
+  items: { total: number; active: number };
+  listings: { live: number; held: number; draft: number; paused: number; ended: number; total: number };
+  sold: { lines: number; units: number };
+  awaitingPayment: { lines: number; units: number };
+  /** null when the caller answers no orders (a roster athlete's team does). */
+  approvalsWaiting: number | null;
+  upcoming: {
+    total: number;
+    lines: Array<{ id: string; orderId: string; ref: string; state: string; sponsorName: string; title: string; quantity: number; startsOn: string; endsOn: string }>;
+  };
+};
+
+export type HomeTile = { key: string; label: string; value: string; sub: string; href: string; tone: "neutral" | "primary" | "accent" | "warn" };
+
+const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
+
+/** The shop's performance, as tiles — each an API count. */
+export function shopTiles(s: ApiSellerSummary): HomeTile[] {
+  return [
+    {
+      key: "items", label: "Items for sale", value: String(s.items.active), href: "/athlete/inventory", tone: "neutral",
+      sub: s.items.total === 0 ? "No items yet" : s.items.total === s.items.active ? `${plural(s.items.total, "item")} in all` : `${s.items.total} in all · ${s.items.total - s.items.active} switched off`,
+    },
+    {
+      key: "live", label: "Listings live", value: String(s.listings.live), href: "/athlete/listings", tone: s.listings.live > 0 ? "accent" : "neutral",
+      sub: s.listings.total === 0 ? "No listings yet" : `${plural(s.listings.draft, "draft")} · ${s.listings.paused} paused`,
+    },
+    {
+      key: "held", label: "Held for BTG", value: String(s.listings.held), href: "/athlete/listings", tone: s.listings.held > 0 ? "warn" : "neutral",
+      sub: s.listings.held > 0 ? "BTG is taking a look" : "Nothing waiting on BTG",
+    },
+    {
+      key: "sold", label: "Units sold", value: String(s.sold.units), href: "/athlete/sales", tone: s.sold.units > 0 ? "primary" : "neutral",
+      sub: s.awaitingPayment.lines > 0
+        ? `${plural(s.sold.lines, "order line")} paid · ${plural(s.awaitingPayment.units, "unit")} awaiting payment`
+        : `${plural(s.sold.lines, "order line")} paid for`,
+    },
+  ];
+}
+
+export type HomeSale = { id: string; title: string; sponsor: string; mon: string; day: string; when: string; quantity: string; badge: string };
+
+const SALE_BADGE: Record<string, string> = { UNPAID: "Awaiting payment", IN_DELIVERY: "To deliver" };
+
+/** The next marketplace sales with dates ahead (the API's three, soonest first). */
+export function upcomingSales(s: ApiSellerSummary): HomeSale[] {
+  return s.upcoming.lines.map((l) => {
+    const d = new Date(`${l.startsOn}T00:00:00.000Z`);
+    const fmt = (iso: string) => new Date(`${iso}T00:00:00.000Z`).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
+    return {
+      id: l.id,
+      title: l.title,
+      sponsor: l.sponsorName,
+      mon: d.toLocaleDateString("en-US", { month: "short", timeZone: "UTC" }).toUpperCase(),
+      day: String(d.getUTCDate()),
+      when: l.startsOn === l.endsOn ? fmt(l.startsOn) : `${fmt(l.startsOn)} – ${fmt(l.endsOn)}`,
+      quantity: `× ${l.quantity}`,
+      badge: SALE_BADGE[l.state] ?? l.state.charAt(0) + l.state.slice(1).toLowerCase().replace(/_/g, " "),
+    };
+  });
+}
+
+export type HomeOffer = { id: string; sponsor: string; mono: string; campaign: string; pay: string; when: string };
+
+/** Offers waiting for the athlete's answer: how many, and the soonest three. */
+export function openOffers(offers: ApiOffer[], now: Date): { count: number; rows: HomeOffer[] } {
+  const open = groupOffers(offers, now).open;
+  return {
+    count: open.length,
+    rows: open.slice(0, 3).map((o) => ({ id: o.id, sponsor: o.sponsor, mono: mono(o.sponsor), campaign: o.campaign, pay: o.pay, when: o.when })),
+  };
+}
+
+/** Payout status: what can be asked for now, and every payout by state —
+ *  to the cent, as My money shows it. */
+export function payoutStatusTiles(me: Pick<ApiMyPayouts, "totals" | "byState" | "canRequest">): HomeTile[] {
+  const tiles: HomeTile[] = [
+    {
+      key: "available", label: "Available to pay out", value: cents(me.totals.requestableCents), href: "/athlete/money", tone: me.canRequest ? "accent" : "neutral",
+      sub: me.canRequest ? "Ready to request" : me.totals.requestableCents > 0 ? "See My money for what's left to do" : "Nothing ready yet",
+    },
+  ];
+  const b = me.byState;
+  if (!b) return tiles;
+  const onTheWay = { count: b.APPROVED.count + b.SENDING.count, amountCents: b.APPROVED.amountCents + b.SENDING.amountCents };
+  tiles.push(
+    { key: "requested", label: "Requested", value: cents(b.REQUESTED.amountCents), href: "/athlete/money", tone: b.REQUESTED.count > 0 ? "primary" : "neutral", sub: b.REQUESTED.count > 0 ? `${plural(b.REQUESTED.count, "payout")} waiting for BTG` : "None waiting for BTG" },
+    { key: "approved", label: "Approved", value: cents(onTheWay.amountCents), href: "/athlete/money", tone: onTheWay.count > 0 ? "primary" : "neutral", sub: onTheWay.count > 0 ? `${plural(onTheWay.count, "payout")} on the way` : "None on the way" },
+    { key: "paid", label: "Paid out", value: cents(b.PAID.amountCents), href: "/athlete/money", tone: b.PAID.count > 0 ? "accent" : "neutral", sub: b.PAID.count > 0 ? `${plural(b.PAID.count, "payout")} · confirmed by the payment provider` : "No payouts yet" },
+  );
+  return tiles;
 }

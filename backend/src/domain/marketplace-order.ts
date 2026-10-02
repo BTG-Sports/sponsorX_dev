@@ -221,11 +221,39 @@ function waitingOn(row: Row, approvals: Array<{ state: string; dueAt: Date }>) {
 
 /** The order as the sponsor's and BTG's screens read it: the row, the sellers' answers, and what it is waiting on. */
 async function views(rows: Row[]) {
-  const approvals = await approvalsForOrders(rows.map((r) => r.id));
+  const [approvals, sellers] = await Promise.all([approvalsForOrders(rows.map((r) => r.id)), lineSellers(rows)]);
   return rows.map((r) => {
     const mine = approvals.get(r.id) ?? [];
-    return { ...r, sellerApprovals: mine, ...waitingOn(r, mine) };
+    return { ...r, lines: r.lines.map((l) => ({ ...l, seller: sellers(l) })), sellerApprovals: mine, ...waitingOn(r, mine) };
   });
+}
+
+/**
+ * 2S3-FE-03 — who sells each line, as the sponsor's and BTG's screens name
+ * it: the team, or the independent athlete (2S3-BE-05: such a line has no
+ * property). The athlete's display name — the name the shop showed.
+ */
+async function lineSellers(rows: Row[]) {
+  const lines = rows.flatMap((r) => r.lines);
+  const ids = (f: (l: Row["lines"][number]) => string | null) => [...new Set(lines.map(f).filter((x): x is string => Boolean(x)))];
+  const [teams, athletes] = await Promise.all([
+    prisma.property.findMany({
+      /* tenant-scope: the teams named on order lines the caller loaded through whereFor(marketplaceOrder). */
+      where: { id: { in: ids((l) => l.propertyId) } }, select: { id: true, name: true },
+    }),
+    prisma.athlete.findMany({
+      /* tenant-scope: the independent sellers named on order lines the caller loaded through whereFor(marketplaceOrder). */
+      where: { id: { in: ids((l) => (l.propertyId ? null : l.sellerAthleteId)) } }, select: { id: true, displayName: true },
+    }),
+  ]);
+  const team = new Map(teams.map((t) => [t.id, t.name]));
+  const athlete = new Map(athletes.map((a) => [a.id, a.displayName]));
+  return (l: Row["lines"][number]) =>
+    l.propertyId
+      ? { type: "PROPERTY" as const, id: l.propertyId, name: team.get(l.propertyId) ?? "Team" }
+      : l.sellerAthleteId
+        ? { type: "ATHLETE" as const, id: l.sellerAthleteId, name: athlete.get(l.sellerAthleteId) ?? "Athlete" }
+        : null;
 }
 const viewOf = async (row: Row) => (await views([row]))[0]!;
 

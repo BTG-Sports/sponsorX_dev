@@ -5,7 +5,7 @@ import { useState, useTransition } from "react";
 
 import { removeLineAction, updateLineAction } from "@/app/(app)/sponsor/cart/actions";
 import { ShopRefusal } from "@/components/shop-bits";
-import { isoDay, usd, validateLine, type ApiCartLine } from "@/lib/shop-live";
+import { isoDay, lineSeller, usd, validateLine, type ApiCartLine } from "@/lib/shop-live";
 
 /* --------------------------------------------------------------------------
    2S4-FE-01 — one cart line: quantity and dates editable, Save and Remove.
@@ -57,7 +57,7 @@ export function ShopCartLine({ line, editable }: { line: ApiCartLine; editable: 
         <div className="min-w-0">
           <p className="truncate text-sm font-semibold">{line.title}</p>
           <p className="mt-0.5 text-[11px] text-muted">
-            {line.propertyName} · {usd(line.unitPriceCents)} each
+            {lineSeller(line)} · {usd(line.unitPriceCents)} each
           </p>
         </div>
         <p className="text-sm font-semibold tabular-nums">{usd(line.lineTotalCents)}</p>

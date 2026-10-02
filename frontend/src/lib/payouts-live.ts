@@ -71,6 +71,8 @@ export type ApiMyPayouts = {
     inFlightCents: number;
     paidOutCents: number;
   };
+  /** Every payout by state — how many and how much, counted by the API (2S2-FE-01). Optional: older reads. */
+  byState?: Record<PayoutState, { count: number; amountCents: number }>;
   canRequest: boolean;
   checks: PayoutCheck[];
   orders: ApiPayoutOrder[];
