@@ -92,6 +92,8 @@ import { sweepDeliveries } from "../src/domain/delivery.ts";
 import { purgeExpiredClosures } from "../src/domain/account-closure.ts";
 import { sweepComingOfAge } from "../src/domain/coming-of-age.ts";
 import { LISTING_DIGEST_HOUR_UTC, sendListingDigests } from "../src/domain/listing.ts";
+import { ORDER_DIGEST_HOUR_UTC, sendOrderApprovalDigests, sweepSellerApprovals } from "../src/domain/order-approval.ts";
+import { sweepUnpaidOrders } from "../src/domain/order-payment.ts";
 import type { RenderReportJob } from "../src/domain/report-files.ts";
 import { prisma } from "../src/db/client.ts";
 import { ingestZohoInvoice, type ZohoInvoicePayload } from "../src/domain/invoice.ts";
@@ -288,6 +290,12 @@ let retentionTimer: ReturnType<typeof setInterval> | undefined;
 /* 2S1-BE-12 — the hourly coming-of-age sweep: start, remind, terminate. */
 let comingOfAgeTimer: ReturnType<typeof setInterval> | undefined;
 let listingDigestTimer: ReturnType<typeof setInterval> | undefined;
+/* 2S4-BE-09 / -10 — the order sweep: a seller's 48 hours, the payment
+   reminders on days one and two, the unpaid cancellation on day three.
+   Every ten minutes, like deliveries; each pass is idempotent. */
+let orderTimer: ReturnType<typeof setInterval> | undefined;
+let orderDigestTimer: ReturnType<typeof setInterval> | undefined;
+const ORDER_SWEEP_INTERVAL_MS = 10 * 60 * 1000;
 /* P8-INT-05 checks hourly and runs at most once a day per tenant; P8-INT-03's
    channel is renewed every 12 hours against a 24-hour expiry. */
 const ZOHO_SWEEP_INTERVAL_MS = 60 * 60 * 1000;
@@ -690,6 +698,29 @@ async function main(): Promise<void> {
       .catch((error: unknown) => console.error("[worker] listing digest failed, will retry next hour:", error));
   }, REMINDER_INTERVAL_MS);
 
+  /* 2S4-BE-09 — a seller who never answered declines; 2S4-BE-10 — unpaid
+     orders are reminded, then cancelled. */
+  const orderSweep = () =>
+    void Promise.all([sweepSellerApprovals(), sweepUnpaidOrders()])
+      .then(([sellers, unpaid]) => {
+        if (sellers.expired || sellers.failed) console.log(`[worker] seller approvals ${JSON.stringify(sellers)}`);
+        if (unpaid.reminded || unpaid.cancelled || unpaid.failed) console.log(`[worker] unpaid orders ${JSON.stringify(unpaid)}`);
+      })
+      .catch((error: unknown) => console.error("[worker] order sweep failed, will retry:", error));
+  orderTimer = setInterval(orderSweep, ORDER_SWEEP_INTERVAL_MS);
+  setTimeout(orderSweep, 45_000).unref();
+
+  /* 2S4-BE-09 — BTG's daily summary of the orders approved automatically.
+     Hourly, from ORDER_DIGEST_HOUR_UTC: the first pass of the day sends it
+     and records the day (one per BTG tenant per UTC date), so later passes
+     — and a restarted worker — send nothing more. */
+  orderDigestTimer = setInterval(() => {
+    if (new Date().getUTCHours() < ORDER_DIGEST_HOUR_UTC) return;
+    void sendOrderApprovalDigests()
+      .then(({ tenants, orders }) => { if (tenants) console.log(`[worker] order digests — ${tenants} sent, ${orders} order(s)`); })
+      .catch((error: unknown) => console.error("[worker] order digest failed, will retry next hour:", error));
+  }, REMINDER_INTERVAL_MS);
+
   cartTimer = setInterval(() => {
     void expireCarts(prisma)
       .then(({ expired }) => { if (expired) console.log(`[worker] carts — expired ${expired}`); })
@@ -741,6 +772,8 @@ export async function stopWorker(): Promise<void> {
   if (zohoTimer) clearInterval(zohoTimer);
   if (comingOfAgeTimer) clearInterval(comingOfAgeTimer);
   if (listingDigestTimer) clearInterval(listingDigestTimer);
+  if (orderTimer) clearInterval(orderTimer);
+  if (orderDigestTimer) clearInterval(orderDigestTimer);
   timer = undefined;
   expiryTimer = undefined;
   await boss.stop({ graceful: true }).catch(() => {});

@@ -119,10 +119,14 @@ export default async function OrderPage({
       {placed && (
         <Card className="border-accent/30 bg-accent/8">
           <p className="text-xs text-accent">
-            {o.state === "PENDING_APPROVAL"
+            {o.state === "PENDING_SELLER"
+              ? "Your order is placed and sent to the seller, who has 48 hours to accept. The items stay yours while they decide."
+              : o.state === "PENDING_APPROVAL"
               ? "Your order is placed and sent to BTG for review. The items stay yours while BTG reviews it."
               : "Your order is placed and confirmed."}{" "}
-            {o.state === "PENDING_APPROVAL"
+            {o.state === "PENDING_SELLER"
+              ? "Nothing was charged — you pay by card once it is accepted."
+              : o.state === "PENDING_APPROVAL"
               ? "Nothing was charged — you pay by card once BTG approves it."
               : "Nothing was charged yet — pay the total by card below."}
           </p>

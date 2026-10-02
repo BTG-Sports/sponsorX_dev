@@ -14,11 +14,33 @@
  * moves from the 15-minute hold to the order's own hold, which does not
  * lapse but is NOT contracted (`InventoryCommitment.contracted = false`).
  *
- * THE GATE. `approvalReasons` decides: $1,000 or more, a sponsor's first
- * marketplace order, or a listing that asks. With a reason the order stays
- * PENDING_APPROVAL, holding its stock; BTG approves (the stock is contracted,
- * `contractedAt` is set) or rejects (CANCELLED, the stock released). With no
- * reason, policy approves it in the same transaction, as "system".
+ * THE GATE (2S4-BE-09, replacing 2S4-BE-05's fixed $1,000 and first-order
+ * holds). Each sponsor has a SPENDING LIMIT, replayed from their own orders
+ * (spending-limit.ts): $5,000 to start, then twice their largest completed
+ * order, up to $25,000; a refund or an upheld delivery problem stops it
+ * rising. An order within it is approved by policy in the same transaction,
+ * as "system" — their first order too. Above it, it waits for BTG in
+ * PENDING_APPROVAL ("$12,000.00 is above Harbor Apparel's limit of
+ * $5,000.00"), holding its stock, and BTG's admins are emailed a link to
+ * it; BTG approves (the stock is contracted) or rejects (CANCELLED, the
+ * stock released).
+ *
+ * THE SELLER'S STEP. A listing that asks for approval
+ * (`packageRules.requiresApproval`) asks its SELLER, not BTG: the order
+ * waits in PENDING_SELLER while each seller asked (the team's manager, or
+ * the independent athlete / their guardian) accepts or declines within 48
+ * hours (order-approval.ts); silence declines. An order that is both above
+ * the limit and asks its seller goes to the seller FIRST, then to BTG: the
+ * seller's answer is the one that can end it outright, and there is no
+ * point in BTG reviewing an order the seller would not take.
+ *
+ * PAYMENT (2S4-BE-10). Approval moves it straight on to AWAITING_PAYMENT —
+ * the payment window opens (3 days: reminders after 1 and 2, cancelled at 3,
+ * order-payment.ts) and the sponsor is emailed the deadline. It is PAID by
+ * the card provider's confirmation, by Zoho Books marking its invoice paid,
+ * or by BTG recording a payment made another way (method, reference, date
+ * received) — all three through `payOrderIn`, the same move and the same
+ * emails.
  *
  * THE CONTRACT GATE (2S4-FE-02). An order is placed only with the sponsor's
  * acceptance of the tenant's MARKETPLACE_ORDER terms and the billing contact
@@ -32,11 +54,10 @@
  * transaction as the order and audited with it. placeOrder is the only
  * writer of a MarketplaceOrder, so there is no second way round the gate.
  *
- * THE MACHINE. Every state change goes through `moveOrder` and the table in
+ * THE MACHINE. Every state change goes through `moveIn` and the table in
  * marketplace-order-rules.ts. APPROVED is reachable only through the
- * decision (or policy), never through a transition; payment states will be
- * set by the payment webhooks (2S5) through the same function staff use now.
- * The figures are Postgres's to keep from APPROVED on.
+ * decision (or policy), never through a transition. The figures are
+ * Postgres's to keep from placement on.
  *
  * THE LINES (2S4-BE-06 / -07). Contracting opens a delivery row per line and
  * tells each seller of the sale (delivery.ts `openDeliveries`); every move
@@ -58,15 +79,23 @@ import { acceptAgreementIn, AgreementTextChangedError } from "./agreement";
 import { currentOrderTerms } from "./order-terms";
 import { bookOrder, markOrderPaid, releaseReserve, reverseOrder } from "./ledger";
 import { followOrder, openDeliveries } from "./delivery";
+import { sponsorLimit } from "./spending-limit";
+import { approvalsForOrders, openSellerApprovals } from "./order-approval";
+import { tellBtgHeld, tellSponsorApproved, tellSponsorPaid } from "./order-mail";
 import {
   approvalReasons,
   billingProblems,
   canTransitionMarketplaceOrder,
   feeFor,
   IllegalMarketplaceOrderTransitionError,
+  manualPaymentProblems,
+  PAYMENT_WINDOW_DAYS,
   RELEASES,
   type BillingContact,
+  type CancelReason,
+  type ManualPayment,
   type MarketplaceOrderState,
+  type PaymentMethod,
 } from "./marketplace-order-rules";
 
 export class MarketplaceOrderError extends Error {
@@ -79,12 +108,17 @@ export class MarketplaceOrderError extends Error {
 }
 
 const SELECT = {
-  id: true, sponsorId: true, reservationId: true, state: true, currency: true, subtotalCents: true, feesCents: true,
+  id: true, tenantId: true, sponsorId: true, reservationId: true, state: true, currency: true, subtotalCents: true, feesCents: true,
   totalCents: true, requiresApproval: true, approvalReasons: true, decidedAt: true, decidedBy: true, decisionNotes: true,
-  contractedAt: true, createdAt: true,
+  contractedAt: true, fulfilledAt: true, createdAt: true, createdBy: true,
   /* 2S4-FE-02 — the contract gate's record: the billing snapshot and the acceptance. */
   billingName: true, billingEmail: true, billingReference: true, acceptanceId: true,
   acceptance: { select: { acceptedAt: true, userId: true, bodyHash: true, user: { select: { email: true } }, agreement: { select: { kind: true, version: true } } } },
+  /* 2S4-BE-09 — the limit it was checked against, and why it ended if it was cancelled. */
+  spendingLimitCents: true, cancelReason: true,
+  /* 2S4-BE-10 — the payment window, and how it was paid. */
+  awaitingPaymentAt: true, paymentDueAt: true, paymentRemindersSent: true,
+  paidAt: true, paidVia: true, paymentReference: true, paymentReceivedOn: true, refundedAt: true,
   lines: {
     select: { id: true, listingId: true, inventoryItemId: true, propertyId: true, sellerAthleteId: true, title: true, quantity: true, startsOn: true, endsOn: true, unitPriceCents: true, lineTotalCents: true },
     orderBy: { startsOn: "asc" },
@@ -93,30 +127,63 @@ const SELECT = {
 
 type Row = Prisma.MarketplaceOrderGetPayload<{ select: typeof SELECT }>;
 const SYSTEM = "system";
+const DAY = 86_400_000;
+const systemIn = (tenantId: string): AuditActor & { tenantId: string } => ({ userId: null, tenantId });
+
+/**
+ * What the order is waiting on, and by when — for the sponsor's and BTG's
+ * screens. SELLER: the sellers asked have until `deadlineAt` (the earliest
+ * still open). BTG: no deadline. PAYMENT: paid by `deadlineAt`, or it is
+ * cancelled. Nothing once it is paid or has ended.
+ */
+function waitingOn(row: Row, approvals: Array<{ state: string; dueAt: Date }>) {
+  if (row.state === "PENDING_SELLER") {
+    const open = approvals.filter((a) => a.state === "PENDING").map((a) => a.dueAt.getTime());
+    return { waitingOn: "SELLER" as const, deadlineAt: open.length ? new Date(Math.min(...open)) : null };
+  }
+  if (row.state === "PENDING_APPROVAL") return { waitingOn: "BTG" as const, deadlineAt: null };
+  if (row.state === "APPROVED" || row.state === "AWAITING_PAYMENT") return { waitingOn: "PAYMENT" as const, deadlineAt: row.paymentDueAt };
+  return { waitingOn: null, deadlineAt: null };
+}
+
+/** The order as the sponsor's and BTG's screens read it: the row, the sellers' answers, and what it is waiting on. */
+async function views(rows: Row[]) {
+  const approvals = await approvalsForOrders(rows.map((r) => r.id));
+  return rows.map((r) => {
+    const mine = approvals.get(r.id) ?? [];
+    return { ...r, sellerApprovals: mine, ...waitingOn(r, mine) };
+  });
+}
+const viewOf = async (row: Row) => (await views([row]))[0]!;
 
 export async function listMarketplaceOrders(actor: Actor, state?: MarketplaceOrderState) {
-  return prisma.marketplaceOrder.findMany({
+  const rows = await prisma.marketplaceOrder.findMany({
     where: { ...whereFor(actor, "marketplaceOrder", "read"), ...(state ? { state } : {}) },
     select: SELECT, orderBy: { createdAt: "asc" },
   });
+  return views(rows);
 }
 
 export async function getMarketplaceOrder(actor: Actor, id: string) {
   const row = await prisma.marketplaceOrder.findFirst({ where: { ...whereFor(actor, "marketplaceOrder", "read"), id }, select: SELECT });
   if (!row) throw new ForbiddenError("marketplaceOrder", "read");
-  return row;
+  return viewOf(row);
 }
 
 /** The order's stock: every commitment it wrote. */
 const orderHolds = (orderId: string) => ({ source: "ORDER", sourceId: { startsWith: `${orderId}:` }, releasedAt: null });
 
-/** Contract the order's stock — only ever from the approval. */
+/**
+ * Contract the order's stock — only ever from an approval (BTG's, or
+ * policy's) — and open the payment window: APPROVED → AWAITING_PAYMENT in
+ * the same transaction (2S4-BE-10), the sponsor emailed the deadline.
+ */
 async function contract(tx: Prisma.TransactionClient, order: Row, by: string, now: Date, notes: string | null, auditor: { userId: string | null; tenantId: string }) {
   await tx.inventoryCommitment.updateMany({
     /* tenant-scope: the commitments this order wrote, named by its id (unique); the order was loaded through the caller's scope. */
     where: orderHolds(order.id), data: { contracted: true },
   });
-  const updated = await tx.marketplaceOrder.update({
+  const approved = await tx.marketplaceOrder.update({
     /* tenant-scope: the row loaded by the caller through whereFor(marketplaceOrder, …). */
     where: { id: order.id }, data: { state: "APPROVED", decidedAt: now, decidedBy: by, decisionNotes: notes, contractedAt: now }, select: SELECT,
   });
@@ -125,11 +192,13 @@ async function contract(tx: Prisma.TransactionClient, order: Row, by: string, no
   /* 2S4-BE-06 — the sold lines, as their sellers will read them; each seller emailed. */
   await openDeliveries(tx, order.id);
   await audit(tx, auditor, "marketplaceOrder.approve", "MarketplaceOrder", order.id, {
-    before: { state: "PENDING_APPROVAL" }, after: { state: "APPROVED", decidedBy: by, contracted: true, totalCents: order.totalCents },
+    before: { state: order.state }, after: { state: "APPROVED", decidedBy: by, contracted: true, totalCents: order.totalCents },
   });
-  /* 2S7-INT-01 — the contracted order becomes a Deal in Zoho, queued. */
-  await enqueue(tx, auditor.tenantId, "zoho.pushMarketplaceOrder", { orderId: order.id });
-  return updated;
+  /* 2S4-BE-10 — straight on to payment. The move queues the Zoho push
+     (2S7-INT-01: the contracted order becomes a Deal). */
+  const awaiting = await moveIn(tx, auditor, approved, "AWAITING_PAYMENT", now, {});
+  await tellSponsorApproved(tx, awaiting, by !== SYSTEM ? "BTG" : order.state === "PENDING_SELLER" ? "SELLER" : "AUTOMATIC");
+  return awaiting;
 }
 
 export type PlaceOrderRequest = {
@@ -155,7 +224,7 @@ export async function placeOrder(actor: Actor, request: PlaceOrderRequest, now =
   const missing = billingProblems(request.billing);
   if (missing.length) throw new MarketplaceOrderError(`Confirm the billing details before placing the order: ${missing.join("; ")}.`, 422);
   const billing = request.billing!;
-  return prisma.$transaction(async (tx) => {
+  const placed = await prisma.$transaction(async (tx) => {
     const reservation = await tx.reservation.findFirst({
       where: { ...whereFor(actor, "reservation", "write"), id: reservationId },
       select: { id: true, cartId: true, state: true, expiresAt: true },
@@ -186,18 +255,19 @@ export async function placeOrder(actor: Actor, request: PlaceOrderRequest, now =
     const subtotalCents = lines.reduce((s, l) => s + l.quantity * l.unitPriceCents, 0);
     const feesCents = feeFor(subtotalCents, env.MARKETPLACE_BUYER_FEE_BPS);
     const totalCents = subtotalCents + feesCents;
-    const priorFulfilledOrders = await tx.marketplaceOrder.count({
-      where: { tenantId: actor.tenantId, sponsorId: actor.sponsorId!, state: { in: ["FULFILLED", "CLOSED"] } },
-    });
-    const reasons = approvalReasons({
-      totalCents, thresholdCents: env.MARKETPLACE_APPROVAL_THRESHOLD_CENTS, priorFulfilledOrders,
-      listingsAsking: lines.filter((l) => (l.listing.item.packageRules as { requiresApproval?: boolean } | null)?.requiresApproval).map((l) => l.listing.title),
-    });
+    /* 2S4-BE-09 — the sponsor's spending limit, replayed from their own orders. */
+    const sponsor = await tx.sponsor.findFirst({ where: { tenantId: actor.tenantId, id: actor.sponsorId! }, select: { name: true } });
+    const limit = await sponsorLimit(tx, actor.tenantId, actor.sponsorId!);
+    const reasons = approvalReasons({ totalCents, limitCents: limit.limitCents, sponsorName: sponsor?.name ?? "the sponsor" });
+    /* A listing that asks for approval asks its seller (2S4-BE-09). */
+    const asking = new Set(lines.filter((l) => (l.listing.item.packageRules as { requiresApproval?: boolean } | null)?.requiresApproval).map((l) => l.listingId));
 
     const order = await tx.marketplaceOrder.create({
       data: {
         tenantId: actor.tenantId, sponsorId: actor.sponsorId!, reservationId: reservation.id, currency: "USD",
+        state: asking.size ? "PENDING_SELLER" : "PENDING_APPROVAL",
         subtotalCents, feesCents, totalCents, requiresApproval: reasons.length > 0, approvalReasons: reasons, createdBy: actor.userId,
+        spendingLimitCents: limit.limitCents,
         acceptanceId: acceptance.acceptanceId,
         billingName: billing.name.trim(), billingEmail: billing.email.trim(), billingReference: billing.reference?.trim() || null,
         lines: {
@@ -224,7 +294,9 @@ export async function placeOrder(actor: Actor, request: PlaceOrderRequest, now =
     await tx.cart.updateMany({ where: { id: reservation.cartId, tenantId: actor.tenantId }, data: { state: "CHECKED_OUT" } });
     await audit(tx, actor, "marketplaceOrder.place", "MarketplaceOrder", order.id, {
       after: {
-        reservationId: reservation.id, totalCents, requiresApproval: reasons.length > 0, reasons,
+        reservationId: reservation.id, totalCents, requiresApproval: reasons.length > 0, reasons, state: order.state,
+        /* 2S4-BE-09 — the limit it was checked against, and which listings ask their seller. */
+        spendingLimitCents: limit.limitCents, sellerAsks: lines.filter((l) => asking.has(l.listingId)).map((l) => l.listing.title),
         /* 2S4-FE-02 — which terms, accepted when, under which acceptance. The
            signer is this entry's actor; the billing contact is on the order
            row itself, fixed (marketplace_order_immutable.sql). */
@@ -233,10 +305,48 @@ export async function placeOrder(actor: Actor, request: PlaceOrderRequest, now =
       },
     });
 
-    /* Policy approves it: recorded as the system's decision, not the sponsor's. */
-    if (!reasons.length) return contract(tx, order, SYSTEM, now, "Approved by policy: no reason to hold it.", { userId: null, tenantId: actor.tenantId });
-    return order;
+    /* The seller first (2S4-BE-09): each seller asked has 48 hours. */
+    if (asking.size) {
+      await openSellerApprovals(tx, order, asking, now);
+      return order;
+    }
+    /* Above the limit: BTG decides, and its admins are told. */
+    if (reasons.length) {
+      await tellBtgHeld(tx, order);
+      return order;
+    }
+    /* Within the limit: recorded as the system's decision, not the sponsor's. */
+    return contract(tx, order, SYSTEM, now, "Approved automatically: within the sponsor's spending limit.", systemIn(actor.tenantId));
   });
+  return viewOf(placed);
+}
+
+/**
+ * 2S4-BE-09 — every seller asked accepted (order-approval.ts, inside the
+ * last answer's transaction). Above the limit, it now waits for BTG; within
+ * it, policy approves it and the payment window opens.
+ */
+export async function afterSellersAccepted(tx: Prisma.TransactionClient, orderId: string, now = new Date()) {
+  const order = await tx.marketplaceOrder.findUniqueOrThrow({
+    /* tenant-scope: the order named by the seller's approval row, which the seller loaded through whereFor(orderSellerApproval, write). */
+    where: { id: orderId }, select: SELECT,
+  });
+  if (order.state !== "PENDING_SELLER") return order;
+  if (order.requiresApproval) {
+    const held = await moveIn(tx, systemIn(order.tenantId), order, "PENDING_APPROVAL", now, {});
+    await tellBtgHeld(tx, held);
+    return held;
+  }
+  return contract(tx, order, SYSTEM, now, "Approved automatically: the seller accepted, and it is within the sponsor's spending limit.", systemIn(order.tenantId));
+}
+
+/** An order the system ends — a seller declined or never answered (2S4-BE-09), or it went unpaid (2S4-BE-10). */
+export async function cancelOrderAsSystem(tx: Prisma.TransactionClient, orderId: string, reason: CancelReason, now = new Date()) {
+  const order = await tx.marketplaceOrder.findUniqueOrThrow({
+    /* tenant-scope: the order the system's own sweep (or a seller's answer, loaded through its scope) names. */
+    where: { id: orderId }, select: SELECT,
+  });
+  return moveIn(tx, systemIn(order.tenantId), order, "CANCELLED", now, { cancelReason: reason });
 }
 
 /** BTG's decision on an order policy held for approval. */
@@ -244,26 +354,99 @@ export async function decideMarketplaceOrder(actor: Actor, id: string, decision:
   const scope = assertAllowed(actor, "marketplaceOrder", "approve");
   if (scope !== "any" && scope !== "own-tenant") throw new ForbiddenError("marketplaceOrder", "approve");
   if (decision === "REJECT" && !notes?.trim()) throw new MarketplaceOrderError("REJECT needs a note — the sponsor is told why.", 422);
-  return prisma.$transaction(async (tx) => {
+  const row = await prisma.$transaction(async (tx) => {
     const order = await tx.marketplaceOrder.findFirst({ where: { ...whereFor(actor, "marketplaceOrder", "approve"), id }, select: SELECT });
     if (!order) throw new ForbiddenError("marketplaceOrder", "approve");
+    if (order.state === "PENDING_SELLER") throw new MarketplaceOrderError("This order is waiting for the seller's answer first — BTG decides once the seller has accepted.");
     const to = decision === "APPROVE" ? "APPROVED" : "CANCELLED";
     if (order.state !== "PENDING_APPROVAL") throw new IllegalMarketplaceOrderTransitionError(order.state as MarketplaceOrderState, to);
     if (decision === "APPROVE") return contract(tx, order, actor.userId, now, notes?.trim() || null, actor);
-    return moveIn(tx, actor, order, "CANCELLED", now, { decidedAt: now, decidedBy: actor.userId, decisionNotes: notes!.trim() });
+    return moveIn(tx, actor, order, "CANCELLED", now, { decidedAt: now, decidedBy: actor.userId, decisionNotes: notes!.trim(), cancelReason: "BTG_REJECTED" });
   });
+  return viewOf(row);
 }
 
-/** Staff (payment and delivery states) and the sponsor (cancel before paying). */
-export async function transitionMarketplaceOrder(actor: Actor, id: string, to: MarketplaceOrderState, now = new Date()) {
+/** Who may record a payment made another way (2S4-BE-10): BTG admin and Finance only. */
+const RECORDS_PAYMENT = new Set(["BTG_ADMIN", "FINANCE"]);
+
+/**
+ * Staff (payment and delivery states) and the sponsor (cancel before paying).
+ *
+ * PAID by hand is BTG's fallback for a payment made another way (2S4-BE-10):
+ * BTG admin or Finance only, with how it was paid, the payment reference and
+ * the date it was received — recorded on the order, audited, and the sponsor
+ * and sellers told exactly as for a card payment. Refused while a card
+ * payment is being confirmed.
+ */
+export async function transitionMarketplaceOrder(actor: Actor, id: string, to: MarketplaceOrderState, payment?: Partial<ManualPayment> | null, now = new Date()) {
   if (to === "APPROVED") throw new MarketplaceOrderError("An order is approved by BTG's decision (or by policy), never by a transition.");
+  if (to === "PENDING_APPROVAL" || to === "PENDING_SELLER") throw new MarketplaceOrderError("An order is held for approval by policy, never by a transition.");
   const scope = assertAllowed(actor, "marketplaceOrder", "write");
   if (scope === "own-sponsor" && to !== "CANCELLED") throw new ForbiddenError("marketplaceOrder", "write");
-  return prisma.$transaction(async (tx) => {
+  if (to === "PAID") {
+    if (!actor.roles.some((r) => RECORDS_PAYMENT.has(r))) throw new ForbiddenError("marketplaceOrder", "write");
+    const problems = manualPaymentProblems(payment, now);
+    if (problems.length) throw new MarketplaceOrderError(`To mark it paid, give ${problems.join("; ")}.`, 422);
+  }
+  const row = await prisma.$transaction(async (tx) => {
     const order = await tx.marketplaceOrder.findFirst({ where: { ...whereFor(actor, "marketplaceOrder", "write"), id }, select: SELECT });
     if (!order) throw new ForbiddenError("marketplaceOrder", "write");
-    return moveIn(tx, actor, order, to, now, {});
+    if (to === "PAID") {
+      const p = payment as ManualPayment;
+      const confirming = await tx.paymentAttempt.findFirst({
+        /* tenant-scope: this order's own attempts, named by its id; the order was loaded through whereFor. */
+        where: { orderId: order.id, state: "PROCESSING" }, select: { id: true },
+      });
+      if (confirming) throw new MarketplaceOrderError("A card payment for this order is being confirmed by the payment provider — wait for it before recording another payment.");
+      return payOrderIn(tx, actor, order.id, { via: p.method, reference: p.reference.trim(), receivedOn: p.receivedOn, recordedBy: actor.userId }, now);
+    }
+    return moveIn(tx, actor, order, to, now, to === "CANCELLED" ? { cancelReason: scope === "own-sponsor" ? "SPONSOR" : "BTG" } : {});
   });
+  return viewOf(row);
+}
+
+export type OrderPayment = {
+  via: PaymentMethod;
+  reference?: string | null;
+  /** YYYY-MM-DD — the day the money arrived. */
+  receivedOn?: string | null;
+  /** The BTG user who recorded it (manual methods). */
+  recordedBy?: string | null;
+  /** Which card attempt, or which Zoho invoice, it was. */
+  attemptId?: string;
+  zohoInvoiceId?: string;
+  invoiceNumber?: string | null;
+  /** Who to send the receipt to (the sponsor user who paid by card). */
+  receiptTo?: string | null;
+};
+
+/**
+ * 2S4-BE-10 — the order is paid, however the money came: the card
+ * provider's confirmation (payouts.ts `confirmPayment`), Zoho Books marking
+ * its invoice paid (order-payment.ts), or BTG recording it by hand. One
+ * path: AWAITING_PAYMENT → PAID through the machine (the ledger's payables
+ * made available, every line into delivery and each seller emailed), the
+ * payment recorded on the order and audited, and the sponsor's receipt.
+ */
+export async function payOrderIn(tx: Prisma.TransactionClient, actor: AuditActor & { tenantId: string }, orderId: string, p: OrderPayment, now = new Date()) {
+  let order = await tx.marketplaceOrder.findUniqueOrThrow({
+    /* tenant-scope: the order the caller loaded through its own scope (or named by the provider's, or Zoho's, record of it). */
+    where: { id: orderId }, select: SELECT,
+  });
+  /* An order approved before 2S4-BE-10 may still be APPROVED: the window opens on the way. */
+  if (order.state === "APPROVED") order = await moveIn(tx, actor, order, "AWAITING_PAYMENT", now, {});
+  const paid = await moveIn(tx, actor, order, "PAID", now, {
+    paidVia: p.via, paymentReference: p.reference ?? null, paymentReceivedOn: p.receivedOn ? new Date(`${p.receivedOn}T00:00:00.000Z`) : null,
+    paymentRecordedBy: p.recordedBy ?? null,
+  });
+  await audit(tx, actor, "marketplaceOrder.paymentRecorded", "MarketplaceOrder", order.id, {
+    after: {
+      via: p.via, reference: p.reference ?? null, receivedOn: p.receivedOn ?? null, amountCents: order.totalCents,
+      ...(p.attemptId ? { attemptId: p.attemptId } : {}), ...(p.zohoInvoiceId ? { zohoInvoiceId: p.zohoInvoiceId, invoiceNumber: p.invoiceNumber ?? null } : {}),
+    },
+  });
+  await tellSponsorPaid(tx, paid, { via: p.via, reference: p.reference, receivedOn: p.receivedOn, invoiceNumber: p.invoiceNumber }, p.receiptTo);
+  return paid;
 }
 
 /**
@@ -274,10 +457,9 @@ export async function transitionMarketplaceOrder(actor: Actor, id: string, to: M
 export async function moveOrderAsSystem(tx: Prisma.TransactionClient, orderId: string, to: MarketplaceOrderState, now = new Date()) {
   const order = await tx.marketplaceOrder.findUniqueOrThrow({
     /* tenant-scope: the order the provider's confirmation names, loaded by the caller from its own payment attempt. */
-    where: { id: orderId }, select: { ...SELECT, tenantId: true },
+    where: { id: orderId }, select: SELECT,
   });
-  const { tenantId, ...row } = order;
-  return moveIn(tx, { userId: null, tenantId }, row, to, now, {});
+  return moveIn(tx, systemIn(order.tenantId), order, to, now, {});
 }
 
 /**
@@ -299,9 +481,26 @@ async function moveIn(tx: Prisma.TransactionClient, actor: AuditActor & { tenant
   const updated = await tx.marketplaceOrder.update({
     /* tenant-scope: the row loaded by the caller through whereFor(marketplaceOrder, …). */
     where: { id: order.id },
-    /* 2S5-BE-04 — the payout holding period runs from fulfilment. */
-    data: { state: to, ...(to === "FULFILLED" ? { fulfilledAt: now } : {}), ...extra }, select: SELECT,
+    data: {
+      state: to,
+      /* 2S5-BE-04 — the payout holding period runs from fulfilment. */
+      ...(to === "FULFILLED" ? { fulfilledAt: now } : {}),
+      /* 2S4-BE-10 — the payment window opens: reminders after 1 and 2 days, cancelled at 3. */
+      ...(to === "AWAITING_PAYMENT" ? { awaitingPaymentAt: now, paymentDueAt: new Date(now.getTime() + PAYMENT_WINDOW_DAYS * DAY), paymentRemindersSent: 0 } : {}),
+      ...(to === "PAID" ? { paidAt: now } : {}),
+      /* 2S4-BE-09 — a refund stops the sponsor's limit rising, from this moment. */
+      ...(to === "REFUNDED" ? { refundedAt: now } : {}),
+      ...extra,
+    },
+    select: SELECT,
   });
+  /* 2S4-BE-09 — an order that ends while its sellers are still asked closes their questions. */
+  if (from === "PENDING_SELLER" && RELEASES.has(to)) {
+    await tx.orderSellerApproval.updateMany({
+      /* tenant-scope: this order's own approval rows, named by its id. */
+      where: { orderId: order.id, state: "PENDING" }, data: { state: "CLOSED" },
+    });
+  }
   /* 2S4-BE-06 / -07 — the order's lines follow it (and FULFILLED is refused over a reported problem). */
   await followOrder(tx, actor, order.id, to, now);
   if (RELEASES.has(to)) {
@@ -322,8 +521,10 @@ async function moveIn(tx: Prisma.TransactionClient, actor: AuditActor & { tenant
   /* 2S5-BE-02 — payment makes the payables available; closing releases the reserve. */
   if (to === "PAID") await markOrderPaid(tx, order.id);
   if (to === "CLOSED") await releaseReserve(tx, order.id);
-  await audit(tx, actor, `marketplaceOrder.${to.toLowerCase()}` as `${string}.${string}`, "MarketplaceOrder", order.id, { before: { state: from }, after: { state: to } });
+  await audit(tx, actor, `marketplaceOrder.${to.toLowerCase()}` as `${string}.${string}`, "MarketplaceOrder", order.id, {
+    before: { state: from }, after: { state: to, ...("cancelReason" in extra ? { cancelReason: extra.cancelReason } : {}) },
+  });
   /* Zoho follows the order once it has been contracted (its Deal exists from approval on). */
-  if (order.contractedAt) await enqueue(tx, actor.tenantId, "zoho.pushMarketplaceOrder", { orderId: order.id });
+  if (updated.contractedAt) await enqueue(tx, actor.tenantId, "zoho.pushMarketplaceOrder", { orderId: order.id });
   return updated;
 }

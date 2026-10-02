@@ -451,6 +451,23 @@ const BUILDERS: Partial<Record<Resource, Builder>> = {
       default: return MATCHES_NOTHING;
     }
   },
+  /* 2S4-BE-09 — a seller's answer to an order, reached as a sold line is:
+     the team by propertyTenantId + propertyId, the athlete by
+     athleteTenantId + athleteId, the buying sponsor by the order's books and
+     sponsorId, BTG by the order's books. */
+  orderSellerApproval: (actor, scope) => {
+    switch (scope) {
+      case "any": return {};
+      case "own-tenant": return { tenantId: actor.tenantId };
+      case "own-property":
+        return actor.propertyId ? { propertyTenantId: actor.tenantId, propertyId: actor.propertyId } : MATCHES_NOTHING;
+      case "own":
+        return actor.athleteId ? { athleteTenantId: actor.tenantId, athleteId: actor.athleteId } : MATCHES_NOTHING;
+      case "own-sponsor":
+        return actor.sponsorId ? { tenantId: actor.tenantId, sponsorId: actor.sponsorId } : MATCHES_NOTHING;
+      default: return MATCHES_NOTHING;
+    }
+  },
   /* 2S2-BE-05 — the team's invitations (in its tenant), and the athlete's own (in theirs). */
   teamInvitation: (actor, scope) => {
     switch (scope) {

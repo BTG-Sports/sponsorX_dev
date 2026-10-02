@@ -105,6 +105,18 @@ export function paymentView(orderState: string, payment: ApiOrderPayment | null)
     };
   }
 
+  if (orderState === "PENDING_SELLER") {
+    return {
+      kind: "not-open",
+      status: "Not due yet",
+      tone: "neutral",
+      banner: null,
+      cta: null,
+      note: "You can pay by card once the seller accepts this order. Nothing is charged until then.",
+      poll: false,
+    };
+  }
+
   if (orderState === "PENDING_APPROVAL") {
     return {
       kind: "not-open",
@@ -217,7 +229,7 @@ export function orderTracker(o: TrackerOrder, view: PaymentView, payment: ApiOrd
   const approvedAt = o.decidedAt ?? o.contractedAt;
   const latest = payment?.latest ?? null;
   const paidAt = latest?.state === "SUCCEEDED" ? latest.updatedAt : null;
-  const pending = o.state === "PENDING_APPROVAL";
+  const pending = o.state === "PENDING_APPROVAL" || o.state === "PENDING_SELLER";
   const paid = PAID_OR_LATER.has(o.state);
   const complete = o.state === "FULFILLED" || o.state === "CLOSED";
 

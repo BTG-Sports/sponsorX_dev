@@ -6,12 +6,14 @@ import { refusalMessage } from "@/lib/onboarding-live";
 import {
   btgListingActions,
   explainStaffRefusal,
+  manualPaymentProblem,
   needsReason,
   orderDecisions,
   orderMoves,
   type BtgListingAction,
   type ListingDecision,
   type ListingState,
+  type ManualPayment,
   type MarketplaceOrderState,
   type OrderDecision,
 } from "@/lib/marketplace-ops-live";
@@ -24,7 +26,8 @@ import { apiFetch } from "@/server/api";
               POST /listings/:id/btg-action          {action: PAUSE|END|RESUME, reason} (2S3-BE-06) —
                                                      a RESUME the checks hold answers with `notice`
      order    POST /marketplace-orders/:id/decision  {decision: APPROVE|REJECT, notes}
-     move     POST /marketplace-orders/:id/transition {to}
+     move     POST /marketplace-orders/:id/transition {to, payment?} — PAID by hand carries
+                                                     {method, reference, receivedOn} (2S4-BE-10)
 
    The API decides — the approve scopes, the state machines (409), notes on
    REQUEST_CHANGES and REJECT (422), a listing's governance blockers (422
@@ -85,7 +88,16 @@ export async function decideOrderAction(id: string, from: MarketplaceOrderState,
   ]);
 }
 
-export async function moveOrderAction(id: string, from: MarketplaceOrderState, to: MarketplaceOrderState): Promise<OpsResult> {
+export async function moveOrderAction(id: string, from: MarketplaceOrderState, to: MarketplaceOrderState, payment?: ManualPayment): Promise<OpsResult> {
   if (typeof id !== "string" || !id || !orderMoves(from).includes(to)) return { ok: false, message: `An order that is ${from} can't move to ${to}.` };
+  if (to === "PAID") {
+    const problem = manualPaymentProblem(payment ?? {}, new Date().toISOString().slice(0, 10));
+    if (problem) return { ok: false, message: problem };
+    const p = payment!;
+    return post(`/marketplace-orders/${encodeURIComponent(id)}/transition`, { to, payment: { method: p.method, reference: p.reference.trim(), receivedOn: p.receivedOn } }, [
+      "/admin/marketplace",
+      `/admin/marketplace/orders/${id}`,
+    ]);
+  }
   return post(`/marketplace-orders/${encodeURIComponent(id)}/transition`, { to }, ["/admin/marketplace", `/admin/marketplace/orders/${id}`]);
 }

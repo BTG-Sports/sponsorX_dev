@@ -29,6 +29,8 @@ const MONEY_MODULES = [
   "inventory.ts",
   "offer.ts",
   "marketplace-order.ts",
+  /* 2S4-BE-10 — the payment window's reminders and the Zoho invoice ingest for orders. */
+  "order-payment.ts",
   "commission.ts",
   "ledger.ts",
 ] as const;

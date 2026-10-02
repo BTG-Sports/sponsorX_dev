@@ -4,13 +4,17 @@ import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 
 import { decideOrderAction, moveOrderAction } from "@/app/(app)/admin/marketplace/actions";
-import { MOVE_COPY, orderDecisions, orderMoves, type MarketplaceOrderState, type OrderDecision } from "@/lib/marketplace-ops-live";
+import {
+  MOVE_COPY, orderDecisions, orderMoves, PAYMENT_METHOD_COPY, type ManualPaymentMethod, type MarketplaceOrderState, type OrderDecision,
+} from "@/lib/marketplace-ops-live";
 
 /* --------------------------------------------------------------------------
    2S7-FE-02 — what BTG can do to one marketplace order. While it is held
    (PENDING_APPROVAL): approve, or reject with a note the sponsor reads.
    After that: only the staff transitions the order's state allows
    (marketplace-order-rules.ts). Final or money-moving steps ask twice.
+   2S4-BE-10 — "Mark paid" is for a payment made another way: it asks how it
+   was paid, the reference and the date received before it is sent.
    -------------------------------------------------------------------------- */
 
 export function MopsOrderActions({ id, state }: { id: string; state: MarketplaceOrderState }) {
@@ -20,6 +24,10 @@ export function MopsOrderActions({ id, state }: { id: string; state: Marketplace
   const [notes, setNotes] = useState("");
   const [confirming, setConfirming] = useState<MarketplaceOrderState | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const today = new Date().toISOString().slice(0, 10);
+  const [method, setMethod] = useState<ManualPaymentMethod>("BANK_TRANSFER");
+  const [reference, setReference] = useState("");
+  const [receivedOn, setReceivedOn] = useState(today);
   const [pending, start] = useTransition();
 
   const run = (fn: () => ReturnType<typeof moveOrderAction>) => {
@@ -38,7 +46,7 @@ export function MopsOrderActions({ id, state }: { id: string; state: Marketplace
   const decide = (d: OrderDecision) => run(() => decideOrderAction(id, state, d, notes));
   const move = (to: MarketplaceOrderState) => {
     if (MOVE_COPY[to].confirm && confirming !== to) return setConfirming(to);
-    run(() => moveOrderAction(id, state, to));
+    run(() => moveOrderAction(id, state, to, to === "PAID" ? { method, reference, receivedOn } : undefined));
   };
 
   if (decisions.length === 0 && moves.length === 0) {
@@ -101,6 +109,42 @@ export function MopsOrderActions({ id, state }: { id: string; state: Marketplace
                   {confirming === to ? `Confirm: ${MOVE_COPY[to].label.toLowerCase()}` : MOVE_COPY[to].label}
                 </button>
               </div>
+              {confirming === to && to === "PAID" && (
+                <div className="mt-2 grid gap-2 sm:grid-cols-3">
+                  <label className="block text-xs font-medium">
+                    How it was paid
+                    <select
+                      value={method}
+                      onChange={(e) => setMethod(e.target.value as ManualPaymentMethod)}
+                      className="mt-1 w-full rounded-lg border border-line bg-surface px-2 py-1.5 text-sm text-text"
+                    >
+                      {(Object.keys(PAYMENT_METHOD_COPY) as ManualPaymentMethod[]).map((m) => (
+                        <option key={m} value={m}>{PAYMENT_METHOD_COPY[m]}</option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="block text-xs font-medium">
+                    Payment reference
+                    <input
+                      value={reference}
+                      maxLength={200}
+                      onChange={(e) => setReference(e.target.value)}
+                      placeholder="e.g. the transfer or cheque number"
+                      className="mt-1 w-full rounded-lg border border-line bg-surface px-2 py-1.5 text-sm text-text placeholder:text-faint"
+                    />
+                  </label>
+                  <label className="block text-xs font-medium">
+                    Date received
+                    <input
+                      type="date"
+                      value={receivedOn}
+                      max={today}
+                      onChange={(e) => setReceivedOn(e.target.value)}
+                      className="mt-1 w-full rounded-lg border border-line bg-surface px-2 py-1.5 text-sm text-text"
+                    />
+                  </label>
+                </div>
+              )}
               {confirming === to && (
                 <p className="mt-2 text-[11px] text-warn">
                   This can&rsquo;t be undone. Press again to confirm, or{" "}

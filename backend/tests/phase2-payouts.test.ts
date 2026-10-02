@@ -1,5 +1,6 @@
 import type { AddressInfo } from "node:net";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import { transitionBody } from "./support/order-payment";
 import { settleDeliveries } from "./support/delivery";
 
 /* --------------------------------------------------------------------------
@@ -62,7 +63,7 @@ describe.skipIf(!hasDatabase)("card payment and payouts over the API", { timeout
   const walk = async (id: string, states: string[]) => {
     for (const to of states) {
       if (to === "FULFILLED") await settleDeliveries(prisma, id);
-      const r = await call("POST", `/marketplace-orders/${id}/transition`, "po_finance", { to });
+      const r = await call("POST", `/marketplace-orders/${id}/transition`, "po_finance", transitionBody(to));
       expect(r.status, r.text).toBe(200);
     }
   };
@@ -129,7 +130,8 @@ describe.skipIf(!hasDatabase)("card payment and payouts over the API", { timeout
     expect((await call("POST", "/cart/lines", "po_buyer", { listingId: E.listing, quantity: 2, startsOn: at(10), endsOn: at(17) })).status).toBe(201);
     const hold = (await call("POST", "/cart/reserve", "po_buyer")).json;
     const placed = await call("POST", "/marketplace-orders", "po_buyer", placeOrderBody(hold.id, `${T}_order_terms`));
-    expect(placed.json).toMatchObject({ state: "PENDING_APPROVAL", totalCents: 100_000 });
+    /* 2S4-BE-09 / -10 — within the $5,000 starting limit: approved automatically, and waiting for payment. */
+    expect(placed.json).toMatchObject({ state: "AWAITING_PAYMENT", totalCents: 100_000, decidedBy: "system" });
     E.order = placed.json.id;
   });
 
@@ -139,11 +141,9 @@ describe.skipIf(!hasDatabase)("card payment and payouts over the API", { timeout
   });
 
   describe("2S5-INT-01 · the sponsor pays by card on the provider's page", () => {
-    it("can't pay before BTG approves; then gets a link to the provider (never a card form)", async () => {
-      expect((await call("GET", `/marketplace-orders/${E.order}/payment`, "po_buyer")).json).toMatchObject({ due: false, canPay: true, testProvider: true, latest: null });
-      expect((await call("POST", `/marketplace-orders/${E.order}/pay`, "po_buyer")).status).toBe(409);
-      expect((await call("POST", `/marketplace-orders/${E.order}/decision`, "po_admin", { decision: "APPROVE" })).json.state).toBe("APPROVED");
-      expect((await call("GET", `/marketplace-orders/${E.order}/payment`, "po_buyer")).json).toMatchObject({ due: true, amountCents: 100_000 });
+    it("approved automatically, it is due at once; the sponsor gets a link to the provider (never a card form)", async () => {
+      expect((await call("GET", `/marketplace-orders/${E.order}/payment`, "po_buyer")).json).toMatchObject({ due: true, canPay: true, testProvider: true, latest: null, amountCents: 100_000 });
+      expect((await call("POST", `/marketplace-orders/${E.order}/decision`, "po_admin", { decision: "APPROVE" })).status).toBe(409); // nothing for BTG to decide
       /* Staff and the provider move payment; nobody else starts it for the sponsor. */
       expect((await call("POST", `/marketplace-orders/${E.order}/pay`, "po_admin")).status).toBe(403);
       expect((await call("POST", `/marketplace-orders/${E.order}/pay`, "po_riley")).status).toBe(403);
@@ -327,8 +327,8 @@ describe.skipIf(!hasDatabase)("card payment and payouts over the API", { timeout
       await call("POST", "/cart/lines", "po_buyer", { listingId: E.listing, quantity: 1, startsOn: at(20), endsOn: at(21) });
       const hold = (await call("POST", "/cart/reserve", "po_buyer")).json;
       const o = (await call("POST", "/marketplace-orders", "po_buyer", placeOrderBody(hold.id, `${T}_order_terms`))).json;
-      if (o.state === "PENDING_APPROVAL") await call("POST", `/marketplace-orders/${o.id}/decision`, "po_admin", { decision: "APPROVE" });
-      await walk(o.id, ["AWAITING_PAYMENT", "PAID", "IN_DELIVERY", "FULFILLED"]);
+      expect(o.state).toBe("AWAITING_PAYMENT");
+      await walk(o.id, ["PAID", "IN_DELIVERY", "FULFILLED"]);
       const p = (await call("POST", "/payouts", "po_riley")).json.payouts[0];
       await call("POST", `/payouts/${p.id}/decision`, "po_admin", { decision: "APPROVE" });
       await sendPayout(p.id);

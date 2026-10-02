@@ -98,7 +98,7 @@ import {
   ListingTransitionInput, LogoUploadInput, OfferAthletesQuery, OfferChecksQuery, OfferInput, OfferKeepInput, OfferPatch, OfferResponseInput,
   RosterAthleteInput, TeamShareInput,
   CartLineInput, CartLinePatch, RestrictionInput, SponsorCategoriesInput,
-  MarketplaceOrderDecisionInput, MarketplaceOrderTransitionInput, PlaceOrderInput,
+  MarketplaceOrderDecisionInput, MarketplaceOrderTransitionInput, PlaceOrderInput, SellerApprovalDecisionInput,
   CommissionRuleInput, CommissionRuleRevision, CommissionPreviewInput,
 } from "./marketplace";
 import { NotificationPreferenceInput } from "./notification-preferences";
@@ -581,7 +581,11 @@ const PATHS: Row[] = [
   { method: "post", path: "/marketplace-orders", tag: "Marketplace", summary: "Turn a live hold into an order through the contract gate — the order terms accepted and the billing contact confirmed, or 422 (2S4-FE-02); policy approves it or holds it for BTG (2S4-BE-05).", body: PlaceOrderInput, status: 201 },
   { method: "get", path: "/marketplace-orders/{id}", tag: "Marketplace", summary: "One order, its lines and figures." },
   { method: "post", path: "/marketplace-orders/{id}/decision", tag: "Marketplace", summary: "BTG approves (contracts the stock) or rejects (cancels, releases it).", body: MarketplaceOrderDecisionInput },
-  { method: "post", path: "/marketplace-orders/{id}/transition", tag: "Marketplace", summary: "Payment and delivery states, or a cancellation before payment — by the state machine.", body: MarketplaceOrderTransitionInput },
+  { method: "post", path: "/marketplace-orders/{id}/transition", tag: "Marketplace", summary: "Payment and delivery states, or a cancellation before payment — by the state machine. PAID by hand is BTG's fallback for a payment made another way: BTG admin or Finance only, with `payment` (method, reference, date received) — recorded on the order and audited; the sponsor and sellers are emailed as for a card payment (2S4-BE-10).", body: MarketplaceOrderTransitionInput },
+  { method: "get", path: "/seller-approvals", tag: "Marketplace", summary: "The seller's orders waiting for their answer (a listing of theirs asks to approve it), open ones first by deadline, then answered ones — the team's manager, or the independent athlete / their guardian. Only the lines it covers and the sponsor's business name, never the order (2S4-BE-09)." },
+  { method: "get", path: "/seller-approvals/{id}", tag: "Marketplace", summary: "One of the seller's own approvals, as /seller-approvals shows it." },
+  { method: "post", path: "/seller-approvals/{id}/decision", tag: "Marketplace", summary: "The seller accepts, or declines with a reason the sponsor reads, within 48 hours. Every seller accepting moves the order on (to BTG when above the sponsor's limit, else approved and waiting for payment); a decline cancels it and releases the stock. Silence declines (2S4-BE-09).", body: SellerApprovalDecisionInput },
+  { method: "get", path: "/sponsors/{id}/spending-limit", tag: "Marketplace", summary: "BTG's view of a sponsor's spending limit and its history: $5,000 to start, then twice the largest completed order up to $25,000; a refund or an upheld delivery problem stops it rising. Computed from the sponsor's own orders (2S4-BE-09)." },
   // Phase 2 batch 6 — commission, the frozen breakdown, the ledger, property analytics
   { method: "get", path: "/commission-rules", tag: "Marketplace", summary: "Commission rules and every version of them (2S5-BE-01)." },
   { method: "post", path: "/commission-rules", tag: "Marketplace", summary: "A new commission rule — version 1.", body: CommissionRuleInput, status: 201 },

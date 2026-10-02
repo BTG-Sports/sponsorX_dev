@@ -14,13 +14,14 @@
    -------------------------------------------------------------------------- */
 
 export type MarketplaceOrderState =
-  | "PENDING_APPROVAL" | "APPROVED" | "AWAITING_PAYMENT" | "PAID" | "IN_DELIVERY" | "FULFILLED" | "CLOSED" | "CANCELLED" | "REFUNDED";
+  | "PENDING_SELLER" | "PENDING_APPROVAL" | "APPROVED" | "AWAITING_PAYMENT" | "PAID" | "IN_DELIVERY" | "FULFILLED" | "CLOSED" | "CANCELLED" | "REFUNDED";
 
 export const ORDER_STATES: readonly MarketplaceOrderState[] = [
-  "PENDING_APPROVAL", "APPROVED", "AWAITING_PAYMENT", "PAID", "IN_DELIVERY", "FULFILLED", "CLOSED", "CANCELLED", "REFUNDED",
+  "PENDING_SELLER", "PENDING_APPROVAL", "APPROVED", "AWAITING_PAYMENT", "PAID", "IN_DELIVERY", "FULFILLED", "CLOSED", "CANCELLED", "REFUNDED",
 ];
 
 const ORDER_TRANSITIONS: Readonly<Record<MarketplaceOrderState, readonly MarketplaceOrderState[]>> = {
+  PENDING_SELLER: ["PENDING_APPROVAL", "APPROVED", "CANCELLED"],
   PENDING_APPROVAL: ["APPROVED", "CANCELLED"],
   APPROVED: ["AWAITING_PAYMENT", "CANCELLED"],
   AWAITING_PAYMENT: ["PAID", "CANCELLED"],
@@ -33,10 +34,26 @@ const ORDER_TRANSITIONS: Readonly<Record<MarketplaceOrderState, readonly Marketp
 };
 
 /** The staff transitions POST /marketplace-orders/:id/transition accepts from
- *  this state. None before approval: a held order is decided, not moved. */
+ *  this state. None before approval: a held order is decided, not moved —
+ *  except that BTG may cancel one still waiting for its seller (2S4-BE-09). */
 export function orderMoves(state: MarketplaceOrderState): MarketplaceOrderState[] {
   if (state === "PENDING_APPROVAL") return [];
-  return (ORDER_TRANSITIONS[state] ?? []).filter((s) => s !== "APPROVED");
+  return (ORDER_TRANSITIONS[state] ?? []).filter((s) => s !== "APPROVED" && s !== "PENDING_APPROVAL");
+}
+
+/** 2S4-BE-10 — a payment BTG records by hand: how it arrived, its reference, the day it was received. */
+export type ManualPaymentMethod = "BANK_TRANSFER" | "CHEQUE" | "OTHER";
+export type ManualPayment = { method: ManualPaymentMethod; reference: string; receivedOn: string };
+export const PAYMENT_METHOD_COPY: Record<ManualPaymentMethod, string> = { BANK_TRANSFER: "Bank transfer", CHEQUE: "Cheque", OTHER: "Other" };
+/** What is missing from a hand-recorded payment, in words BTG can act on. Empty means it can be sent. */
+export function manualPaymentProblem(p: Partial<ManualPayment>, today: string): string | null {
+  if (!p.method || !(p.method in PAYMENT_METHOD_COPY)) return "Choose how it was paid.";
+  const ref = (p.reference ?? "").trim();
+  if (!ref) return "Give the payment reference.";
+  if (ref.length > 200) return "Keep the reference to 200 characters.";
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(p.receivedOn ?? "")) return "Give the date the payment was received.";
+  if ((p.receivedOn ?? "") > today) return "The date received can't be in the future.";
+  return null;
 }
 
 export type OrderDecision = "APPROVE" | "REJECT";
@@ -98,6 +115,7 @@ export function sellerLabel(l: Pick<ApiListing, "seller" | "propertyName">): str
 }
 
 export const ORDER_STATE_COPY: Record<MarketplaceOrderState, { label: string; tone: "neutral" | "primary" | "accent" | "danger" | "warn" }> = {
+  PENDING_SELLER: { label: "Waiting for the seller", tone: "warn" },
   PENDING_APPROVAL: { label: "Awaiting approval", tone: "warn" },
   APPROVED: { label: "Approved", tone: "accent" },
   AWAITING_PAYMENT: { label: "Awaiting payment", tone: "primary" },
@@ -112,10 +130,11 @@ export const ORDER_STATE_COPY: Record<MarketplaceOrderState, { label: string; to
 /** The button for each staff move — payment states are marked by hand
  *  today (there is no payment provider yet), and the words say so. */
 export const MOVE_COPY: Record<MarketplaceOrderState, { label: string; hint: string; confirm?: boolean }> = {
+  PENDING_SELLER: { label: "—", hint: "" },
   PENDING_APPROVAL: { label: "—", hint: "" },
   APPROVED: { label: "—", hint: "" },
   AWAITING_PAYMENT: { label: "Mark awaiting payment", hint: "The sponsor owes payment. It moves here on its own when they start paying by card." },
-  PAID: { label: "Mark paid", hint: "Only for a payment made another way — card payments are marked paid by the payment provider. Makes the payables available in the ledger.", confirm: true },
+  PAID: { label: "Mark paid", hint: "Only for a payment made another way (bank transfer, cheque) — give the reference and the date it arrived. Card payments and Zoho invoices are marked paid on their own. Makes the payables available in the ledger.", confirm: true },
   IN_DELIVERY: { label: "Mark in delivery", hint: "Delivery of the order's inventory has started." },
   FULFILLED: { label: "Mark fulfilled", hint: "Everything on the order was delivered." },
   CLOSED: { label: "Close order", hint: "Final. Releases the reserve held against it.", confirm: true },

@@ -36,7 +36,7 @@ import { assertAllowed, whereFor } from "../auth/scope";
 import { ForbiddenError } from "../auth/errors";
 import { providerName, readStandinToken, standinLink, standinRef, StandinTokenError } from "../lib/payment-provider";
 import { postPayout } from "./ledger";
-import { moveOrderAsSystem } from "./marketplace-order";
+import { moveOrderAsSystem, payOrderIn } from "./marketplace-order";
 import { assertMayCommit } from "./guardian-acts";
 import { payoutHoldReason } from "./payout-holds";
 
@@ -262,7 +262,11 @@ export async function startCardPayment(actor: Actor, orderId: string, now = new 
     });
     if (!order) throw new ForbiddenError("marketplaceOrder", "write");
     if (order.state !== "APPROVED" && order.state !== "AWAITING_PAYMENT") {
-      throw new PayoutError(order.state === "PENDING_APPROVAL" ? "BTG hasn't approved this order yet — you can pay once it has." : "This order isn't waiting for payment.");
+      throw new PayoutError(
+        order.state === "PENDING_APPROVAL" ? "BTG hasn't approved this order yet — you can pay once it has."
+        : order.state === "PENDING_SELLER" ? "The seller hasn't accepted this order yet — you can pay once they have."
+        : "This order isn't waiting for payment.",
+      );
     }
     const confirming = await tx.paymentAttempt.findFirst({
       /* tenant-scope: this order's own attempts, named by its id. */
@@ -280,40 +284,34 @@ export async function startCardPayment(actor: Actor, orderId: string, now = new 
   return { url: standinLink({ kind: "checkout", attemptId: attempt.id, returnPath: `/sponsor/orders/${orderId}?payment=returned` }, now) };
 }
 
-/** 2S5-INT-02 — the provider confirms a card payment: the order is paid. Idempotent. */
+/**
+ * 2S5-INT-02 — the provider confirms a card payment: the order is paid.
+ * Idempotent. 2S4-BE-10 — through `payOrderIn`, the one path every payment
+ * takes (card, Zoho invoice, BTG by hand): the same move, the same record
+ * on the order, the same emails. An order already paid another way is left
+ * alone and the attempt recorded, for BTG to refund.
+ */
 export async function confirmPayment(attemptId: string, now = new Date()) {
   return prisma.$transaction(async (tx) => {
     const a = await tx.paymentAttempt.findUnique({
       /* tenant-scope: the attempt named by the provider's confirmation job. */
-      where: { id: attemptId }, select: { id: true, tenantId: true, orderId: true, state: true, amountCents: true, createdBy: true },
+      where: { id: attemptId }, select: { id: true, tenantId: true, orderId: true, state: true, amountCents: true, createdBy: true, providerRef: true },
     });
     if (!a || a.state !== "PROCESSING") return { confirmed: false };
     await tx.paymentAttempt.update({
       /* tenant-scope: the row just loaded by id. */
       where: { id: a.id }, data: { state: "SUCCEEDED" }, select: { id: true },
     });
-    const order = await moveOrderAsSystem(tx, a.orderId, "PAID", now);
     await audit(tx, { userId: null, tenantId: a.tenantId }, "payment.confirm", "MarketplaceOrder", a.orderId, { after: { attemptId: a.id, amountCents: a.amountCents } });
-    const buyer = a.createdBy
-      ? await tx.user.findUnique({
-          /* tenant-scope: the sponsor user who started this attempt, recorded on it. */
-          where: { id: a.createdBy }, select: { email: true },
-        })
-      : null;
-    if (buyer) {
-      await enqueue(tx, a.tenantId, "notify.email", {
-        tenantId: a.tenantId,
-        template: "payment.received",
-        to: buyer.email,
-        idempotencyKey: `payment.received:${a.id}`,
-        data: {
-          orderRef: orderRef(a.orderId),
-          amount: usd(a.amountCents),
-          lines: order.lines.map((l) => `${l.title} — ${usd(l.lineTotalCents)}`).join("\n"),
-          orderUrl: `${env.APP_URL.replace(/\/+$/, "")}/sponsor/orders/${a.orderId}`,
-        },
-      });
+    const order = await tx.marketplaceOrder.findUniqueOrThrow({
+      /* tenant-scope: the order this attempt was made for, recorded on it. */
+      where: { id: a.orderId }, select: { state: true },
+    });
+    if (order.state !== "APPROVED" && order.state !== "AWAITING_PAYMENT") {
+      await audit(tx, { userId: null, tenantId: a.tenantId }, "payment.afterPaid", "MarketplaceOrder", a.orderId, { after: { attemptId: a.id, amountCents: a.amountCents, orderState: order.state } });
+      return { confirmed: true };
     }
+    await payOrderIn(tx, { userId: null, tenantId: a.tenantId }, a.orderId, { via: "CARD", reference: a.providerRef, attemptId: a.id, receiptTo: a.createdBy }, now);
     return { confirmed: true };
   });
 }

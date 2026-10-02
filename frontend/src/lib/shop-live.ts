@@ -105,6 +105,7 @@ export type ApiReservation = {
 };
 
 export type OrderState =
+  | "PENDING_SELLER"
   | "PENDING_APPROVAL"
   | "APPROVED"
   | "AWAITING_PAYMENT"
@@ -443,6 +444,8 @@ export const RESERVATION_COPY: Record<ReservationState, { label: string; tone: T
 };
 
 export const ORDER_COPY: Record<OrderState, { label: string; tone: Tone; hint: string }> = {
+  /* 2S4-BE-09 — a listing on it asks its seller first; they have 48 hours. */
+  PENDING_SELLER: { label: "Waiting for the seller", tone: "warn", hint: "The seller has 48 hours to accept. The items stay yours while they decide." },
   PENDING_APPROVAL: { label: "Waiting for BTG approval", tone: "warn", hint: "BTG reviews the order before it is confirmed. The items stay yours while they do." },
   APPROVED: { label: "Approved", tone: "primary", hint: "BTG approved the order. BTG will invoice you." },
   AWAITING_PAYMENT: { label: "Awaiting payment", tone: "warn", hint: "BTG has invoiced this order and is waiting for payment." },
@@ -463,7 +466,7 @@ export function reservationCopy(state: string): { label: string; tone: Tone } {
 }
 
 /** A sponsor may cancel only before payment (Phase 2 state machine §4). */
-const CANCELLABLE: ReadonlySet<OrderState> = new Set(["PENDING_APPROVAL", "APPROVED", "AWAITING_PAYMENT"]);
+const CANCELLABLE: ReadonlySet<OrderState> = new Set(["PENDING_SELLER", "PENDING_APPROVAL", "APPROVED", "AWAITING_PAYMENT"]);
 export function canCancel(state: string): boolean {
   return CANCELLABLE.has(state as OrderState);
 }
@@ -471,6 +474,7 @@ export function canCancel(state: string): boolean {
 /** The order states the orders list may filter by — the API does not
  *  validate `?state=`, so only these are ever sent. */
 export const ORDER_STATES: OrderState[] = [
+  "PENDING_SELLER",
   "PENDING_APPROVAL",
   "APPROVED",
   "AWAITING_PAYMENT",

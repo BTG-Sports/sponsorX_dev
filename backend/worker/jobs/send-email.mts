@@ -109,9 +109,58 @@ ${d.portalUrl ?? ""}
   }),
   /* 2S5-INT-02 — the sponsor's receipt, sent once the payment provider
      confirms the card payment. No card details: SponsorX never had them. */
+  /* 2S4-BE-10 — the same receipt however it was paid: a card the provider
+     confirmed, an invoice Zoho Books marked paid, or a payment BTG recorded
+     by hand (`paidHow` says which). Never card or bank details. */
   "payment.received": (d) => ({
     subject: `Payment received for order ${d.orderRef ?? ""} — ${d.amount ?? ""}`,
-    text: `Your card payment for order ${d.orderRef ?? ""} has been confirmed by our payment provider.\n\n${d.lines ?? ""}\n\nPaid: ${d.amount ?? ""}\n\nYour order is now in delivery. View it here:\n\n${d.orderUrl ?? ""}\n\nYou paid on the payment provider's secure page. SponsorX never sees your card, and this email never includes card details.\n\n— BTG SponsorX`,
+    text: `${d.paidHow ?? `Your card payment for order ${d.orderRef ?? ""} has been confirmed by our payment provider.`}\n\n${d.lines ?? ""}\n\nPaid: ${d.amount ?? ""}\n\nYour order is now in delivery. View it here:\n\n${d.orderUrl ?? ""}\n\n${d.card ? "You paid on the payment provider's secure page. SponsorX never sees your card, and this email never includes card details." : "SponsorX never takes card or bank details, and this email never includes them."}\n\n— BTG SponsorX`,
+  }),
+  /* 2S4-BE-09 — the seller's step. */
+  "sale.approvalRequested": (d) => ({
+    subject: `${d.sponsorName ?? "A sponsor"} wants to order from you — please answer by ${d.answerBy ?? "the time shown"}`,
+    text: `Hi ${d.firstName ?? "there"},\n\n${d.sponsorName ?? "A sponsor"} has ordered something you asked to approve first (${d.orderRef ?? ""}):\n\n${d.lines ?? ""}\n\nValue: ${d.total ?? ""}\n\nAccept it, or decline it with a reason the sponsor will read, by ${d.answerBy ?? "the time shown"}. If you don't answer by then, the order is cancelled and the stock goes back on sale.\n\n${d.approvalUrl ?? ""}\n\n— BTG SponsorX`,
+  }),
+  "sale.approvalExpired": (d) => ({
+    subject: `Order ${d.orderRef ?? ""} was cancelled — no answer in 48 hours`,
+    text: `Hi ${d.firstName ?? "there"},\n\nYou didn't answer ${d.sponsorName ?? "the sponsor"}'s order ${d.orderRef ?? ""} within 48 hours, so it has been cancelled and the stock is back on sale. Nothing for you to do.\n\n${d.approvalUrl ?? ""}\n\n— BTG SponsorX`,
+  }),
+  "order.sellerAccepted": (d) => ({
+    subject: `${d.sellerName ?? "The seller"} accepted your order ${d.orderRef ?? ""}`,
+    text: `Hi ${d.firstName ?? "there"},\n\n${d.sellerName ?? "The seller"} accepted your order ${d.orderRef ?? ""}. Because it is above your spending limit, BTG checks it next — we'll email you when it is approved, and then you pay.\n\n${d.orderUrl ?? ""}\n\n— BTG SponsorX`,
+  }),
+  "order.sellerDeclined": (d) => ({
+    subject: `${d.sellerName ?? "The seller"} declined your order ${d.orderRef ?? ""}`,
+    text: `Hi ${d.firstName ?? "there"},\n\n${d.sellerName ?? "The seller"} declined your order ${d.orderRef ?? ""}:\n\n"${d.reason ?? ""}"\n\nThe order is cancelled and you haven't been charged.\n\n${d.orderUrl ?? ""}\n\n— BTG SponsorX`,
+  }),
+  "order.sellerNoAnswer": (d) => ({
+    subject: `Your order ${d.orderRef ?? ""} was cancelled — the seller didn't answer`,
+    text: `Hi ${d.firstName ?? "there"},\n\n${d.sellerName ?? "The seller"} didn't answer your order ${d.orderRef ?? ""} within 48 hours, so it has been cancelled. You haven't been charged.\n\n${d.orderUrl ?? ""}\n\n— BTG SponsorX`,
+  }),
+  "order.heldForBtg": (d) => ({
+    subject: `Order held for you: ${d.orderRef ?? ""} from ${d.sponsorName ?? "a sponsor"} — ${d.amount ?? ""}`,
+    text: `Order ${d.orderRef ?? ""} from ${d.sponsorName ?? "a sponsor"} (${d.amount ?? ""}) is waiting for you:\n\n${d.reasons ?? ""}\n\n${d.lines ?? ""}\n\nApprove it or reject it:\n\n${d.reviewUrl ?? ""}\n\n— SponsorX`,
+  }),
+  "order.autoApprovedDigest": (d) => ({
+    subject: `${d.count ?? "0"} order(s) approved automatically — ${d.day ?? "today"}`,
+    text: `${d.count ?? "0"} order(s), ${d.total ?? ""} in all, were within their sponsor's spending limit and were approved on their own in the last 24 hours:\n\n${d.orders ?? ""}\n\nThe marketplace console:\n\n${d.consoleUrl ?? ""}\n\n— SponsorX`,
+  }),
+  /* 2S4-BE-10 — the payment window. */
+  "order.approved": (d) => ({
+    subject: `Your order ${d.orderRef ?? ""} is approved — please pay by ${d.payBy ?? "the date shown"}`,
+    text: `Hi ${d.firstName ?? "there"},\n\n${d.approvedBy ?? "Your order was approved"} (${d.orderRef ?? ""}):\n\n${d.lines ?? ""}\n\nTotal: ${d.amount ?? ""}\n\nPlease pay by ${d.payBy ?? "the date shown on your order"}. If it isn't paid by then, the order is cancelled and the stock goes back on sale.\n\n${d.orderUrl ?? ""}\n\n— BTG SponsorX`,
+  }),
+  "order.paymentReminder": (d) => ({
+    subject: `${d.final ? "Last reminder: " : "Reminder: "}order ${d.orderRef ?? ""} is waiting for payment`,
+    text: `Hi ${d.firstName ?? "there"},\n\nYour order ${d.orderRef ?? ""} (${d.amount ?? ""}) is approved and waiting for payment. Please pay by ${d.payBy ?? "the date shown"}${d.final ? " — after that it is cancelled automatically and the stock goes back on sale" : ""}.\n\n${d.orderUrl ?? ""}\n\n— BTG SponsorX`,
+  }),
+  "order.cancelledUnpaid": (d) => ({
+    subject: `Order ${d.orderRef ?? ""} was cancelled — it wasn't paid`,
+    text: `Hi ${d.firstName ?? "there"},\n\nYour order ${d.orderRef ?? ""} (${d.amount ?? ""}) wasn't paid by ${d.dueAt ?? "its deadline"}, so it has been cancelled and the stock is back on sale. You haven't been charged.\n\nYou can order again from the marketplace:\n\n${d.shopUrl ?? ""}\n\n— BTG SponsorX`,
+  }),
+  "sale.cancelled": (d) => ({
+    subject: `Order ${d.orderRef ?? ""} was cancelled — the sponsor didn't pay`,
+    text: `Hi ${d.firstName ?? "there"},\n\nThe sponsor didn't pay for order ${d.orderRef ?? ""} in time, so it has been cancelled:\n\n${d.lines ?? ""}\n\nThe stock is back on sale. Nothing for you to deliver.\n\n${d.ordersUrl ?? ""}\n\n— BTG SponsorX`,
   }),
   /* 2S5-BE-05 — a payee's payout, from BTG's decision to the money arriving. */
   "payout.approved": (d) => ({

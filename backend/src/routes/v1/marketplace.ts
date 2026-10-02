@@ -12,7 +12,7 @@ import {
   ListingTransitionInput, LogoUploadInput, OfferAthletesQuery, OfferChecksQuery, OfferInput, OfferKeepInput, OfferPatch, OfferResponseInput,
   RosterAthleteInput, TeamShareInput,
   CartLineInput, CartLinePatch, RestrictionInput, SearchQuery, SponsorCategoriesInput,
-  MarketplaceOrderDecisionInput, MarketplaceOrderTransitionInput, PlaceOrderInput,
+  MarketplaceOrderDecisionInput, MarketplaceOrderTransitionInput, PlaceOrderInput, SellerApprovalDecisionInput,
   CommissionRuleInput, CommissionRuleRevision, CommissionPreviewInput,
 } from "../../contracts/marketplace";
 import { createRule, listRules, previewSplit, reviseRule } from "../../domain/commission";
@@ -23,6 +23,8 @@ import {
   decideMarketplaceOrder, getMarketplaceOrder, listMarketplaceOrders, placeOrder, transitionMarketplaceOrder,
 } from "../../domain/marketplace-order";
 import { createRestriction, deleteRestriction, listRestrictions, setSponsorCategories } from "../../domain/restrictions";
+import { decideSellerApproval, mySellerApproval, mySellerApprovals } from "../../domain/order-approval";
+import { sponsorSpendingLimit } from "../../domain/spending-limit";
 import { searchMarketplace } from "../../domain/marketplace-search";
 import { addLine, currentCart, openCart, removeLine, updateLine } from "../../domain/cart";
 import { createInventoryItem, getInventoryItem, listInventory, updateInventoryItem } from "../../domain/inventory";
@@ -217,13 +219,25 @@ const decideOrder: RequestHandler<Id> = async (req, res) => {
   res.json(await decideMarketplaceOrder(req.actor!, req.params.id, b.decision, b.notes));
 };
 const moveOrder: RequestHandler<Id> = async (req, res) => {
-  res.json(await transitionMarketplaceOrder(req.actor!, req.params.id, MarketplaceOrderTransitionInput.parse(req.body).to));
+  const b = MarketplaceOrderTransitionInput.parse(req.body);
+  res.json(await transitionMarketplaceOrder(req.actor!, req.params.id, b.to, b.payment));
 };
 marketplaceRouter.get("/marketplace-orders", requireActor, orders);
 marketplaceRouter.post("/marketplace-orders", requireActor, place);
 marketplaceRouter.get("/marketplace-orders/:id", requireActor, order);
 marketplaceRouter.post("/marketplace-orders/:id/decision", requireActor, decideOrder);
 marketplaceRouter.post("/marketplace-orders/:id/transition", requireActor, moveOrder);
+
+/* ── 2S4-BE-09 — the seller's answer to an order a listing asks to approve
+   (the seller's own, in their own tenant, like /sales), and BTG's read of a
+   sponsor's spending limit ───────────────────────────────────────────────── */
+marketplaceRouter.get("/seller-approvals", requireActor, (async (req, res) => { res.json(await mySellerApprovals(req.actor!)); }) as RequestHandler);
+marketplaceRouter.get("/seller-approvals/:id", requireActor, (async (req, res) => { res.json(await mySellerApproval(req.actor!, req.params.id)); }) as RequestHandler<Id>);
+marketplaceRouter.post("/seller-approvals/:id/decision", requireActor, (async (req, res) => {
+  const b = SellerApprovalDecisionInput.parse(req.body);
+  res.json(await decideSellerApproval(req.actor!, req.params.id, b.decision, b.reason));
+}) as RequestHandler<Id>);
+marketplaceRouter.get("/sponsors/:id/spending-limit", requireActor, (async (req, res) => { res.json(await sponsorSpendingLimit(req.actor!, req.params.id)); }) as RequestHandler<Id>);
 
 /* ── Phase 2 batch 6 — commission (2S5-BE-01), the breakdown (2S4-BE-04),
    the ledger (2S5-BE-02), property analytics (2S7-DATA-01) ─────────────── */

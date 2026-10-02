@@ -164,6 +164,7 @@ export type Resource =
   | "payoutAccount"
   | "restrictedWord"
   | "orderDelivery"
+  | "orderSellerApproval"
   | "teamInvitation"
   | "accountClosure"
   | "guardianHandoff"
@@ -239,6 +240,7 @@ export const RESOURCES: readonly Resource[] = [
   "payoutAccount",
   "restrictedWord",
   "orderDelivery",
+  "orderSellerApproval",
   "teamInvitation",
   "accountClosure",
   "guardianHandoff",
@@ -946,6 +948,21 @@ export const POLICY: Record<Resource, RolePolicy> = {
     PROPERTY_MGR: rwa("own-property", "own-property"),
     ATHLETE: rwa("own", "own"),
     SPONSOR_ADMIN: rwa("own-sponsor", "own-sponsor"),
+    SPONSOR_ANALYST: rwa("own-sponsor"),
+  },
+  /* 2S4-BE-09 (matrix §24) — a seller's answer to an order a listing of
+     theirs asks to approve. The seller — the team's manager (own-property)
+     or the independent athlete, or the guardian acting for a minor (own) —
+     reads and answers their own, in their own tenant: only the lines it
+     covers, never the order. The buying sponsor and BTG read it (to follow
+     the order); nobody else answers for the seller, BTG included. */
+  orderSellerApproval: {
+    SUPER_ADMIN: rwa("any"),
+    BTG_ADMIN: rwa("own-tenant"),
+    FINANCE: rwa("own-tenant"),
+    PROPERTY_MGR: rwa("own-property", "own-property"),
+    ATHLETE: rwa("own", "own"),
+    SPONSOR_ADMIN: rwa("own-sponsor"),
     SPONSOR_ANALYST: rwa("own-sponsor"),
   },
   /* 2S2-BE-05 (matrix §22) — a team invites an athlete already on SponsorX.

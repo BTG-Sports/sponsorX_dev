@@ -75,6 +75,10 @@ const GOVERNED_BY: Record<string, Resource> = {
   RestrictedWord: "restrictedWord",
   /* 2S4-BE-06 / -07 — a sold line as its sellers see it, and its delivery. */
   OrderLineDelivery: "orderDelivery",
+  /* 2S4-BE-09 — a seller's answer to an order a listing of theirs asks to approve. */
+  OrderSellerApproval: "orderSellerApproval",
+  /* 2S4-BE-10 — a Zoho Books invoice for a marketplace order is the order's (as a card attempt is). */
+  MarketplaceOrderInvoice: "marketplaceOrder",
   /* 2S2-BE-05 — a team's invitation to an athlete already on SponsorX. */
   TeamInvitation: "teamInvitation",
   Payout: "payout",
@@ -129,6 +133,7 @@ const SYSTEM_INTERNAL: Record<string, string> = {
   OutboxJob: "the job queue — written inside domain transactions, drained by the worker",
   EmailSendLog: "the worker's idempotency ledger for sent email",
   ListingDigest: "the worker's record of the daily auto-published listings summary sent to each BTG tenant (2S3-BE-06) — no route reads it",
+  OrderApprovalDigest: "the worker's record of the daily summary of orders approved automatically, sent to each BTG tenant (2S4-BE-09) — no route reads it",
   /* 2S1-BE-16 — written by the public contact form, read only by the worker
      that mails it; BTG reads the messages in the support mailbox, not here. */
   SupportMessage: "a contact-form message — written by the public form, mailed by the worker; read in the support mailbox",
