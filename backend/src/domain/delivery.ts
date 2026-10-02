@@ -62,6 +62,30 @@
  * its seller a day after its last date and again at 3 days; at 7 days it is
  * handed to BTG as an OVERDUE issue ("no delivery marked 7 days after <date>").
  * A redelivery's agreed date replaces the line's own last date for all three.
+ *
+ * CANCELLING A PAID LINE (2S4-BE-12, programme owner 2026-10-02). Only a line
+ * still IN_DELIVERY (paid, not yet marked delivered, no open issue) — anything
+ * later is the problem flow above, unchanged.
+ *   - The SPONSOR cancels for free until the cut-off: the start of the line's
+ *     first date (UTC) less 3 days. The line is refunded at once through the
+ *     line refund (the whole order when it is the last live line). After the
+ *     cut-off, until the first date starts, the sponsor ASKS the seller (a
+ *     reason required): a CANCELLATION issue, SELLER_TO_ANSWER until the
+ *     earlier of 72 hours or the first date's start. The seller ACCEPTs (the
+ *     line is refunded — SETTLED) or DECLINEs with a reason; a decline, or no
+ *     answer (the sweep), goes to BTG, which REFUNDs or KEEPs (the line stays
+ *     IN_DELIVERY), with a note to both sides. On or after the first date the
+ *     sponsor can't cancel: 409, "Report a problem".
+ *   - The SELLER cancels a line it can't deliver, any time while it is
+ *     IN_DELIVERY (after its date too). The sponsor is refunded in full at
+ *     once and emailed. Recorded on the line (cancelledBy SELLER, the seller
+ *     it counts against) so the standing rule (2 in 90 days → new listings
+ *     held for BTG, listing-rules.ts) is a count.
+ *   - None of these stops the sponsor's spending limit rising (spending-limit.ts).
+ *   - Every refund leaves a RefundDue row (refunds.ts, 2S4-BE-13).
+ * Every move here takes the order's row lock first (marketplace-order.ts
+ * `lockOrder`) and is made by a state-guarded update, so two clicks — or a
+ * click racing the sweep — refund once.
  */
 import { randomUUID } from "node:crypto";
 
@@ -70,12 +94,16 @@ import { prisma } from "../db/client";
 import { audit, type AuditActor } from "../db/audit";
 import { env } from "../config/env";
 import type { Actor } from "../auth/actor";
-import { assertAllowed, can, whereFor, type Scope } from "../auth/scope";
+import { assertAllowed, can, scopeOf, whereFor, type Scope } from "../auth/scope";
 import { ForbiddenError } from "../auth/errors";
 import { send, type EmailTemplate } from "../lib/email";
 import { presignPrivateDownload, presignPrivateUpload, privateObjectSize, SENSITIVE_DOCUMENT_TTL_SECONDS } from "../lib/storage";
 import { reverseOrder } from "./ledger";
-import { moveOrderAsSystem, moveOrderIn, OrderStateConflictError } from "./marketplace-order";
+import { lockOrder, moveOrderAsSystem, moveOrderIn, OrderStateConflictError } from "./marketplace-order";
+import { usd } from "./marketplace-order-rules";
+import { recordRefund, refundsForOrders, type RefundCause, type RefundContext, type SponsorRefund } from "./refunds";
+import { SELLER_CANCELLATION_LIMIT, SELLER_CANCELLATION_WINDOW_DAYS } from "./listing-rules";
+import { sellerCancellationCount, sellerOfLine } from "./seller-standing";
 
 type Tx = Prisma.TransactionClient;
 
@@ -104,6 +132,10 @@ export const ESCALATE_OVERDUE_DAYS = 7;
 export const ANSWER_WINDOW_HOURS = 72;
 /** How far ahead a redelivery date may be. */
 export const REDELIVER_MAX_DAYS = 90;
+/** 2S4-BE-12 — a sponsor cancels a paid line for free until this many days before its first date… */
+export const FREE_CANCEL_DAYS = 3;
+/** …after that the seller has this long (or until the first date starts, if sooner) to agree. */
+export const CANCEL_ANSWER_HOURS = 72;
 
 const HOUR = 3_600_000;
 const DAY = 24 * HOUR;
@@ -114,12 +146,17 @@ const SETTLED = new Set<DeliveryState>(["CONFIRMED", "REFUNDED", "CANCELLED"]);
 /** Orders whose sponsor has paid — the point the sponsor's contact appears. */
 const PAID_STATES = new Set(["PAID", "IN_DELIVERY", "FULFILLED", "CLOSED"]);
 
-export type IssueKind = "PROBLEM" | "OVERDUE";
+export type IssueKind = "PROBLEM" | "OVERDUE" | "CANCELLATION";
 export type IssueStage = "SELLER_TO_ANSWER" | "SPONSOR_TO_ANSWER" | "ESCALATED" | "SETTLED" | "RESOLVED" | "CLOSED";
-export type SellerAnswer = "DELIVER_AGAIN" | "REFUND" | "DISAGREE";
+/** A problem's answers — and (2S4-BE-12) a cancellation request's: ACCEPT or DECLINE. */
+export type SellerAnswer = "DELIVER_AGAIN" | "REFUND" | "DISAGREE" | "ACCEPT" | "DECLINE";
 export type SponsorAnswer = "ACCEPT" | "REJECT";
-export type EscalationReason = "SPONSOR_REJECTED" | "SELLER_NO_ANSWER" | "SPONSOR_NO_ANSWER" | "NOT_DELIVERED" | "REPORTED_TO_BTG";
-export type IssueOutcome = "REDELIVER" | "REFUNDED" | "CONFIRMED" | "MARKED_DELIVERED" | "ORDER_ENDED";
+export type EscalationReason =
+  | "SPONSOR_REJECTED" | "SELLER_NO_ANSWER" | "SPONSOR_NO_ANSWER" | "NOT_DELIVERED" | "REPORTED_TO_BTG"
+  | "SELLER_DECLINED_CANCELLATION" | "SELLER_DIDNT_ANSWER_CANCELLATION";
+export type IssueOutcome = "REDELIVER" | "REFUNDED" | "CONFIRMED" | "MARKED_DELIVERED" | "ORDER_ENDED" | "KEPT" | "SELLER_CANCELLED";
+/** Who cancelled a paid line (2S4-BE-12). */
+export type CancelledBy = "SPONSOR" | "SELLER" | "AGREED" | "BTG";
 /** An issue still being worked: one per line at most (DeliveryIssue_one_open_per_line). */
 const OPEN_STAGES: IssueStage[] = ["SELLER_TO_ANSWER", "SPONSOR_TO_ANSWER", "ESCALATED"];
 
@@ -178,6 +215,8 @@ export function escalationWords(reason: EscalationReason, lastDate?: Date): stri
     case "SELLER_NO_ANSWER": return `The seller didn't answer within ${ANSWER_WINDOW_HOURS} hours`;
     case "SPONSOR_NO_ANSWER": return `The sponsor didn't accept or reject the seller's answer within ${ANSWER_WINDOW_HOURS} hours`;
     case "NOT_DELIVERED": return `No delivery marked ${ESCALATE_OVERDUE_DAYS} days after ${lastDate ? day(lastDate) : "the last date"}`;
+    case "SELLER_DECLINED_CANCELLATION": return "The seller declined the sponsor's request to cancel";
+    case "SELLER_DIDNT_ANSWER_CANCELLATION": return "The seller didn't answer the sponsor's request to cancel in time";
     default: return "Reported before sellers answered problems themselves, so BTG decides";
   }
 }
@@ -186,8 +225,78 @@ export function escalationWords(reason: EscalationReason, lastDate?: Date): stri
 export function answerWords(answer: SellerAnswer, redeliverOn?: Date | null): string {
   if (answer === "DELIVER_AGAIN") return `deliver it again on ${redeliverOn ? day(redeliverOn) : "a new date"}`;
   if (answer === "REFUND") return "refund the line in full";
+  if (answer === "ACCEPT") return "agree to cancel — the line is refunded in full";
+  if (answer === "DECLINE") return "decline to cancel";
   return "disagree — they say it was delivered";
 }
+
+/* ── cancelling a paid line — 2S4-BE-12 ─────────────────────────────────── */
+
+/** The start of a line's first date (UTC), and the free cut-off 3 days before it. Pure. */
+export function cancelCutoff(startsOn: Date) {
+  const firstDateStart = new Date(`${day(startsOn)}T00:00:00.000Z`);
+  return { firstDate: day(startsOn), firstDateStart, freeUntil: new Date(firstDateStart.getTime() - FREE_CANCEL_DAYS * DAY) };
+}
+
+/** Lines a paid order can have cancelled: the order paid, the line still waiting to be delivered. */
+const PAID_ORDER = new Set(["PAID", "IN_DELIVERY"]);
+
+export type CancellationTerms = {
+  canCancel: boolean;
+  free: boolean;
+  freeUntil: Date;
+  firstDate: string;
+  refundCents: number;
+  needsSellerAgreement: boolean;
+  /** When the seller would have to answer by, if the sponsor asked now. */
+  sellerAnswerBy: Date | null;
+  blockedReason: string | null;
+  /** A request already made: where it stands. */
+  request: { issueId: string; stage: IssueStage; sellerDueAt: Date | null } | null;
+};
+
+/**
+ * What the sponsor may do about cancelling this line now, and why not. Pure.
+ * Free until `freeUntil` (the first date's start less 3 days); then, until
+ * the first date starts, only with the seller's agreement (the seller has
+ * until the earlier of 72 hours or the first date's start); on or after the
+ * first date, not at all — it is "Report a problem" once delivered.
+ */
+export function cancellationTerms(
+  x: { orderState: string; state: string; startsOn: Date; refundCents: number; openIssue: { id: string; kind: string; stage: string; sellerDueAt: Date | null } | null },
+  now: Date,
+): CancellationTerms {
+  const { firstDate, firstDateStart, freeUntil } = cancelCutoff(x.startsOn);
+  const base = { freeUntil, firstDate, refundCents: x.refundCents, request: null as CancellationTerms["request"] };
+  const no = (blockedReason: string, extra: Partial<CancellationTerms> = {}): CancellationTerms =>
+    ({ ...base, canCancel: false, free: false, needsSellerAgreement: false, sellerAnswerBy: null, blockedReason, ...extra });
+  if (x.state === "UNPAID" || (x.state === "IN_DELIVERY" && !PAID_ORDER.has(x.orderState))) {
+    return no("This order isn't paid yet — cancel the order itself instead.");
+  }
+  if (x.state === "REFUNDED") return no("This line has already been refunded.");
+  if (x.state === "CANCELLED") return no("This line was cancelled with its order.");
+  if (x.state !== "IN_DELIVERY") {
+    return no("This line has been marked delivered, so it can't be cancelled. If something is wrong with it, use Report a problem.");
+  }
+  if (x.openIssue?.kind === "CANCELLATION") {
+    const request = { issueId: x.openIssue.id, stage: x.openIssue.stage as IssueStage, sellerDueAt: x.openIssue.sellerDueAt };
+    return no(
+      x.openIssue.stage === "ESCALATED" ? "You asked the seller to cancel and it's with BTG now — they'll decide and email you."
+        : `You've asked the seller to cancel — they have until ${x.openIssue.sellerDueAt ? utc(x.openIssue.sellerDueAt) : "the first date"} to answer.`,
+      { request },
+    );
+  }
+  if (x.openIssue) return no("This line is with BTG — they'll decide what happens to it.");
+  if (now >= firstDateStart) {
+    return no(`The first date (${firstDate}) has started, so this line can't be cancelled. If something goes wrong with it, use Report a problem.`);
+  }
+  if (now < freeUntil) return { ...base, canCancel: true, free: true, needsSellerAgreement: false, sellerAnswerBy: null, blockedReason: null };
+  const sellerAnswerBy = new Date(Math.min(now.getTime() + CANCEL_ANSWER_HOURS * HOUR, firstDateStart.getTime()));
+  return { ...base, canCancel: true, free: false, needsSellerAgreement: true, sellerAnswerBy, blockedReason: null };
+}
+
+/** 2S4-BE-12 — a line with nothing open on it (a cancellation request waiting, or with BTG, holds the overdue steps). */
+const noOpenIssue = { issues: { none: { stage: { in: OPEN_STAGES } } } } satisfies Prisma.OrderLineDeliveryWhereInput;
 
 /** A line due on or before `cutoff` — its redelivery date if agreed, else its own last date. */
 const dueBy = (cutoff: Date): Prisma.OrderLineDeliveryWhereInput => ({
@@ -410,12 +519,14 @@ const SALE_SELECT = {
   paidAt: true, deliveredAt: true, deliveredByName: true, note: true, proofKey: true, proofLink: true, confirmDueAt: true,
   confirmedAt: true, confirmedHow: true, problemAt: true, problemNote: true, resolvedAt: true, resolution: true, resolutionNote: true,
   remindedAt: true, secondRemindedAt: true, overdueEscalatedAt: true, redeliverOn: true, createdAt: true,
+  /* 2S4-BE-12 — a paid line cancelled: when, by whom, why. */
+  cancelledAt: true, cancelledBy: true, cancelNote: true,
   /* 2S4-BE-11 — the line's problems and how each went, oldest first. */
   issues: { select: ISSUE_SELECT, orderBy: { openedAt: "asc" } },
   line: {
     select: {
       title: true, quantity: true, startsOn: true, endsOn: true, unitPriceCents: true, lineTotalCents: true, inventoryItemId: true,
-      order: { select: { id: true, state: true, createdAt: true, contractedAt: true, billingName: true, billingEmail: true } },
+      order: { select: { id: true, state: true, createdAt: true, contractedAt: true, billingName: true, billingEmail: true, totalCents: true } },
     },
   },
 } as const;
@@ -501,7 +612,9 @@ function issueSummary(i: IssueRow, now: Date) {
 
 export type TimelineKind =
   | "PAID" | "MARKED_DELIVERED" | "PROBLEM_REPORTED" | "SELLER_ANSWERED" | "SPONSOR_ACCEPTED" | "SPONSOR_REJECTED"
-  | "ESCALATED" | "SETTLED" | "BTG_DECIDED" | "CLOSED" | "REMINDED" | "CONFIRMED";
+  | "ESCALATED" | "SETTLED" | "BTG_DECIDED" | "CLOSED" | "REMINDED" | "CONFIRMED"
+  /* 2S4-BE-12 — a cancellation: asked for, the seller's answer, or made outright by the sponsor or the seller. */
+  | "CANCELLATION_REQUESTED" | "CANCELLATION_ACCEPTED" | "CANCELLATION_DECLINED" | "CANCELLED";
 export type TimelineItem = {
   at: Date;
   kind: TimelineKind;
@@ -523,6 +636,10 @@ const SETTLED_WORDS: Record<string, string> = {
   REFUNDED: "Settled between them — the line is refunded in full",
   CONFIRMED: "Settled between them — the sponsor accepted it was delivered",
 };
+/** 2S4-BE-12 — a cancellation the seller agreed to. */
+const CANCEL_AGREED_WORDS = "Settled between them — the seller agreed to cancel; the line is refunded in full";
+const settledWords = (i: { kind: string; outcome: string | null }) =>
+  i.kind === "CANCELLATION" ? CANCEL_AGREED_WORDS : SETTLED_WORDS[i.outcome ?? ""] ?? "Settled between them";
 
 /**
  * The full exchange, oldest first — the same steps for the seller, the
@@ -537,6 +654,16 @@ function timelineOf(r: SaleRow, who: { sponsor: string; seller: string }): Timel
   if (r.paidAt) out.push(item({ at: r.paidAt, kind: "PAID", by: "SYSTEM", text: "Paid · confirmed by the payment provider" }));
   const marks = new Set<number>();
   for (const i of r.issues) {
+    if (i.kind === "CANCELLATION") {
+      out.push(item({ at: i.openedAt, kind: "CANCELLATION_REQUESTED", by: "SPONSOR", name: who.sponsor, text: `${who.sponsor} asked to cancel`, note: i.problemNote, issueId: i.id }));
+      if (i.sellerAnswer && i.sellerAnsweredAt) {
+        const accepted = i.sellerAnswer === "ACCEPT";
+        out.push(item({
+          at: i.sellerAnsweredAt, kind: accepted ? "CANCELLATION_ACCEPTED" : "CANCELLATION_DECLINED", by: "SELLER", name: i.sellerAnsweredByName,
+          text: `${i.sellerAnsweredByName ?? who.seller} ${accepted ? "agreed to cancel" : "declined to cancel"}`, note: i.sellerNote, issueId: i.id, answer: i.sellerAnswer as SellerAnswer,
+        }));
+      }
+    }
     if (i.kind === "PROBLEM") {
       if (i.markedAt) {
         marks.add(i.markedAt.getTime());
@@ -571,15 +698,18 @@ function timelineOf(r: SaleRow, who: { sponsor: string; seller: string }): Timel
       const outcome = i.outcome as IssueOutcome;
       if (i.stage === "RESOLVED") {
         out.push(item({
-          at: i.closedAt, kind: "BTG_DECIDED", by: "BTG", text: outcome === "REFUNDED" ? "Cancelled and refunded by BTG" : "Delivery confirmed by BTG",
+          at: i.closedAt, kind: "BTG_DECIDED", by: "BTG",
+          text: outcome === "REFUNDED" ? "Cancelled and refunded by BTG" : outcome === "KEPT" ? "BTG kept the line — it goes ahead as booked" : "Delivery confirmed by BTG",
           note: i.closingNote, issueId: i.id, outcome,
         }));
       } else if (i.stage === "SETTLED") {
-        out.push(item({ at: i.closedAt, kind: "SETTLED", by: "SYSTEM", text: SETTLED_WORDS[outcome] ?? "Settled between them", issueId: i.id, outcome }));
+        out.push(item({ at: i.closedAt, kind: "SETTLED", by: "SYSTEM", text: settledWords(i), issueId: i.id, outcome }));
       } else {
         out.push(item({
           at: i.closedAt, kind: "CLOSED", by: "SYSTEM", issueId: i.id, outcome,
-          text: outcome === "MARKED_DELIVERED" ? "Marked delivered late · taken off BTG's desk" : "Closed · the order was cancelled or refunded",
+          text: outcome === "MARKED_DELIVERED" ? "Marked delivered late · taken off BTG's desk"
+            : outcome === "SELLER_CANCELLED" ? "Closed · the seller cancelled the line"
+            : "Closed · the order was cancelled or refunded",
         }));
       }
     }
@@ -588,6 +718,14 @@ function timelineOf(r: SaleRow, who: { sponsor: string; seller: string }): Timel
     out.push(item({
       at: r.deliveredAt, kind: "MARKED_DELIVERED", by: "SELLER", name: r.deliveredByName, text: `Marked delivered by ${r.deliveredByName ?? who.seller}`,
       note: r.note, proof: r.proofKey || r.proofLink ? { photo: Boolean(r.proofKey), link: r.proofLink, photoOf: "current" } : null,
+    }));
+  }
+  /* 2S4-BE-12 — cancelled outright (an agreed or BTG-decided cancellation reads from its issue above). */
+  if (r.cancelledAt && (r.cancelledBy === "SPONSOR" || r.cancelledBy === "SELLER")) {
+    const bySponsor = r.cancelledBy === "SPONSOR";
+    out.push(item({
+      at: r.cancelledAt, kind: "CANCELLED", by: bySponsor ? "SPONSOR" : "SELLER", name: bySponsor ? who.sponsor : who.seller,
+      text: `Cancelled by ${bySponsor ? who.sponsor : who.seller} · refunded in full`, note: r.cancelNote,
     }));
   }
   if (r.secondRemindedAt) out.push(item({ at: r.secondRemindedAt, kind: "REMINDED", by: "SYSTEM", text: "Second reminder sent to the seller" }));
@@ -622,13 +760,30 @@ async function sharesFor(actor: Actor, lineIds: string[]) {
   return out;
 }
 
-function saleView(r: SaleRow, names: Awaited<ReturnType<typeof namesFor>>, shareCents: number, now: Date) {
+/** 2S4-BE-12 — what the seller is told before cancelling: cancelling 2 in 90 days means BTG checks their new listings. Pure. */
+export function sellerCancelWarning(cancellationsLast90Days: number): string {
+  return cancellationsLast90Days + 1 >= SELLER_CANCELLATION_LIMIT
+    ? `You've cancelled ${cancellationsLast90Days} sold ${cancellationsLast90Days === 1 ? "line" : "lines"} in the last ${SELLER_CANCELLATION_WINDOW_DAYS} days. Cancelling this one means BTG checks your new listings before they go live.`
+    : `Cancelling ${SELLER_CANCELLATION_LIMIT} sold lines in ${SELLER_CANCELLATION_WINDOW_DAYS} days means BTG checks your new listings before they go live.`;
+}
+
+/** The open issue on a line, if any — at most one (DeliveryIssue_one_open_per_line). */
+const openOf = (issues: IssueRow[]) => issues.find((i) => OPEN_STAGES.includes(i.stage as IssueStage)) ?? null;
+
+/** Whether the seller may cancel this line now (2S4-BE-12): paid, still waiting to be delivered, nothing with BTG but an overdue hand-over. */
+const sellerMayCancel = (r: Pick<SaleRow, "state" | "issues"> & { line: { order: { state: string } } }) => {
+  const open = openOf(r.issues);
+  return r.state === "IN_DELIVERY" && PAID_ORDER.has(r.line.order.state) && (!open || open.kind === "OVERDUE");
+};
+
+function saleView(r: SaleRow, names: Awaited<ReturnType<typeof namesFor>>, shareCents: number, now: Date, cancellationsLast90Days = 0) {
   const order = r.line.order;
   const paid = PAID_STATES.has(order.state);
   const contact = names.contact.get(r.sponsorId);
   const team = r.propertyId ? names.team.get(r.propertyId) ?? null : null;
   const athlete = r.athleteId ? names.athlete.get(r.athleteId) ?? null : null;
   const issue = currentIssue(r.issues);
+  const open = openOf(r.issues);
   return {
     id: r.lineId,
     orderId: order.id,
@@ -665,10 +820,35 @@ function saleView(r: SaleRow, names: Awaited<ReturnType<typeof namesFor>>, share
     lastDate: day(lastDateOf(r)),
     redeliverOn: r.redeliverOn ? day(r.redeliverOn) : null,
     overdue: isOverdue({ state: r.state, endsOn: lastDateOf(r) }, now),
-    canMarkDelivered: r.state === "IN_DELIVERY",
+    /* Not while the sponsor's request to cancel waits for an answer, or is with BTG (2S4-BE-12). */
+    canMarkDelivered: r.state === "IN_DELIVERY" && open?.kind !== "CANCELLATION",
     issue: issue ? issueSummary(issue, now) : null,
     /* The seller's move: answer the sponsor's problem within the 72 hours. */
     canAnswerProblem: r.state === "PROBLEM" && sellerCanAnswer(issue, now),
+    /* 2S4-BE-12 — the sponsor asked to cancel: accept or decline before the deadline. */
+    canAnswerCancellation: open?.kind === "CANCELLATION" && sellerCanAnswer(open, now),
+    cancellation: {
+      canCancel: sellerMayCancel(r),
+      cancellationsLast90Days,
+      limit: SELLER_CANCELLATION_LIMIT,
+      windowDays: SELLER_CANCELLATION_WINDOW_DAYS,
+      warning: sellerCancelWarning(cancellationsLast90Days),
+      cancelled: r.cancelledAt ? { at: r.cancelledAt, by: r.cancelledBy as CancelledBy, note: r.cancelNote } : null,
+    },
+  };
+}
+
+/** Each seller's own cancellations in the last 90 days, for the rows' sellers. */
+async function cancellationCounts(rows: Array<{ propertyId: string | null; athleteId: string | null }>, now: Date) {
+  const out = new Map<string, number>();
+  for (const r of rows) {
+    const seller = sellerOfLine(r);
+    if (!seller || out.has(`${seller.type}:${seller.id}`)) continue;
+    out.set(`${seller.type}:${seller.id}`, await sellerCancellationCount(prisma, seller, now));
+  }
+  return (r: { propertyId: string | null; athleteId: string | null }) => {
+    const seller = sellerOfLine(r);
+    return seller ? out.get(`${seller.type}:${seller.id}`) ?? 0 : 0;
   };
 }
 
@@ -678,16 +858,16 @@ export async function mySales(actor: Actor, now = new Date()) {
   const rows = await prisma.orderLineDelivery.findMany({
     where: whereFor(actor, "orderDelivery", "read"), select: SALE_SELECT, orderBy: { createdAt: "desc" }, take: 200,
   });
-  const [names, shares] = await Promise.all([namesFor(rows), sharesFor(actor, rows.map((r) => r.lineId))]);
-  return { sales: rows.map((r) => saleView(r, names, shares.get(r.lineId) ?? 0, now)) };
+  const [names, shares, counts] = await Promise.all([namesFor(rows), sharesFor(actor, rows.map((r) => r.lineId)), cancellationCounts(rows, now)]);
+  return { sales: rows.map((r) => saleView(r, names, shares.get(r.lineId) ?? 0, now, counts(r))) };
 }
 
 export async function mySale(actor: Actor, lineId: string, now = new Date()) {
   sellerScope(actor, "read");
   const row = await prisma.orderLineDelivery.findFirst({ where: { ...whereFor(actor, "orderDelivery", "read"), lineId }, select: SALE_SELECT });
   if (!row) throw new ForbiddenError("orderDelivery", "read");
-  const [names, shares] = await Promise.all([namesFor([row]), sharesFor(actor, [row.lineId])]);
-  return { ...saleView(row, names, shares.get(row.lineId) ?? 0, now), timeline: timelineOf(row, whoOf(row, names)) };
+  const [names, shares, counts] = await Promise.all([namesFor([row]), sharesFor(actor, [row.lineId]), cancellationCounts([row], now)]);
+  return { ...saleView(row, names, shares.get(row.lineId) ?? 0, now, counts(row)), timeline: timelineOf(row, whoOf(row, names)) };
 }
 
 /** The key a line's proof is uploaded under — built here, never taken from the caller. */
@@ -740,16 +920,27 @@ export async function markDelivered(actor: Actor, lineId: string, input: MarkDel
 
   const byName = await markerName(actor);
   return prisma.$transaction(async (tx) => {
+    /* The order's row lock first (2S4-BE-12): a cancellation of this line, or the order moving, waits — or is waited for and read. */
+    const found = await tx.orderLineDelivery.findFirst({ where: { ...whereFor(actor, "orderDelivery", "write"), lineId }, select: { orderId: true } });
+    if (!found) throw new ForbiddenError("orderDelivery", "write");
+    await lockOrder(tx, found.orderId);
     const row = await tx.orderLineDelivery.findFirst({
       where: { ...whereFor(actor, "orderDelivery", "write"), lineId },
       select: {
         id: true, orderId: true, state: true,
+        issues: { where: { stage: { in: OPEN_STAGES } }, select: { kind: true, stage: true } },
         line: { select: { title: true, order: { select: { tenantId: true, state: true, createdBy: true, billingEmail: true, billingName: true } } } },
       },
     });
     if (!row) throw new ForbiddenError("orderDelivery", "write");
     if (row.state !== "IN_DELIVERY") {
       throw new DeliveryError(row.state === "UNPAID" ? "You can mark it delivered once the sponsor has paid." : `This line is ${row.state.toLowerCase().replace("_", " ")} — it can't be marked delivered now.`);
+    }
+    const asked = row.issues.find((i) => i.kind === "CANCELLATION");
+    if (asked) {
+      throw new DeliveryError(asked.stage === "ESCALATED"
+        ? "The sponsor asked to cancel this line and BTG is deciding — it can be marked delivered if BTG keeps it."
+        : "The sponsor asked to cancel this line — accept or decline their request first.");
     }
     const confirmDueAt = new Date(now.getTime() + CONFIRM_WINDOW_HOURS * HOUR);
     await tx.orderLineDelivery.update({
@@ -799,8 +990,24 @@ async function markerName(actor: Actor): Promise<string> {
 /* ── the sponsor's side — 2S4-BE-07 ────────────────────────────────────── */
 
 /** An order's lines and how each delivery stands — the sponsor's order page (and BTG's). No shares. */
+/** What cancelling a line gives back: the line's total — or, when it is the order's last live line, what is left of the order's total (the fee too). Pure. */
+export function refundCentsFor(
+  line: { lineId: string; lineTotalCents: number; orderTotalCents: number },
+  siblings: Array<{ lineId: string; state: string }>, refundedCents: number,
+): number {
+  const othersLive = siblings.filter((x) => x.lineId !== line.lineId && x.state !== "REFUNDED" && x.state !== "CANCELLED").length;
+  return othersLive === 0 ? Math.max(0, line.orderTotalCents - refundedCents) : line.lineTotalCents;
+}
+
+/** A line's own refund, else (refunded with its order) the order's whole-order refund. */
+const refundOfLine = (lineId: string, state: string, refunds: SponsorRefund[]) =>
+  refunds.find((x) => x.lineId === lineId) ?? (state === "REFUNDED" ? refunds.find((x) => x.lineId === null) ?? null : null);
+
+/** Readers who see the sponsor's side of an order (its cancellation terms, its refunds): the sponsor, and BTG. */
+const sponsorSide = (scope: Scope) => scope === "own-sponsor" || scope === "own-tenant" || scope === "any";
+
 export async function orderDeliveries(actor: Actor, orderId: string, now = new Date()) {
-  assertAllowed(actor, "orderDelivery", "read");
+  const readScope = assertAllowed(actor, "orderDelivery", "read");
   const rows = await prisma.orderLineDelivery.findMany({
     where: { ...whereFor(actor, "orderDelivery", "read"), orderId }, select: SALE_SELECT, orderBy: { createdAt: "asc" },
   });
@@ -814,10 +1021,24 @@ export async function orderDeliveries(actor: Actor, orderId: string, now = new D
     if (!order) throw new ForbiddenError("orderDelivery", "read");
   }
   const names = await namesFor(rows);
+  /* 2S4-BE-12 / -13 — the sponsor's side only: what cancelling each line would do, and each refund's state. */
+  const sponsorView = sponsorSide(readScope);
+  const refunds = sponsorView ? (await refundsForOrders(prisma, [orderId])).get(orderId) ?? [] : [];
+  const refunded = refunds.reduce((sum, x) => sum + x.amountCents, 0);
+  const mayCancel = can(actor, "orderDelivery", "write") && scopeOf(actor, "orderDelivery", "write") === "own-sponsor";
+  const termsOf = (r: SaleRow) => {
+    const t = cancellationTerms({
+      orderState: r.line.order.state, state: r.state, startsOn: r.line.startsOn, openIssue: openOf(r.issues),
+      refundCents: refundCentsFor({ lineId: r.lineId, lineTotalCents: r.line.lineTotalCents, orderTotalCents: r.line.order.totalCents }, rows, refunded),
+    }, now);
+    return mayCancel || !t.canCancel ? t : { ...t, canCancel: false, blockedReason: "Only the sponsor's admin can cancel a line." };
+  };
   return {
     orderId,
     confirmWindowHours: CONFIRM_WINDOW_HOURS,
     answerWindowHours: ANSWER_WINDOW_HOURS,
+    freeCancelDays: FREE_CANCEL_DAYS,
+    refunds,
     lines: rows.map((r) => ({
       lineId: r.lineId,
       title: r.line.title,
@@ -839,6 +1060,11 @@ export async function orderDeliveries(actor: Actor, orderId: string, now = new D
       issue: (() => { const i = currentIssue(r.issues); return i ? issueSummary(i, now) : null; })(),
       /* The sponsor's move: accept or reject the seller's answer within the 72 hours. */
       canAnswerSellerReply: r.state === "PROBLEM" && sponsorCanAnswer(currentIssue(r.issues), now),
+      /* 2S4-BE-12 — cancelling it (null for a seller reading its own lines). */
+      cancellation: sponsorView ? termsOf(r) : null,
+      cancelled: r.cancelledAt ? { at: r.cancelledAt, by: r.cancelledBy as CancelledBy, note: r.cancelNote } : null,
+      /* 2S4-BE-13 — its refund: on its way, or sent on a date. */
+      refund: sponsorView ? refundOfLine(r.lineId, r.state, refunds) : null,
       timeline: timelineOf(r, whoOf(r, names)),
     })),
   };
@@ -878,7 +1104,12 @@ const EXCHANGE_ROW = {
   id: true, tenantId: true, orderId: true, lineId: true, state: true, sponsorId: true,
   propertyId: true, propertyTenantId: true, athleteId: true, athleteTenantId: true,
   deliveredAt: true, deliveredByName: true, note: true, proofKey: true, proofLink: true, confirmDueAt: true, redeliverOn: true,
-  line: { select: { title: true, inventoryItemId: true, startsOn: true, endsOn: true, order: { select: { tenantId: true, createdBy: true, billingEmail: true, billingName: true } } } },
+  line: {
+    select: {
+      title: true, inventoryItemId: true, startsOn: true, endsOn: true, lineTotalCents: true,
+      order: { select: { tenantId: true, state: true, totalCents: true, createdBy: true, billingEmail: true, billingName: true } },
+    },
+  },
 } as const;
 type ExchangeRow = Prisma.OrderLineDeliveryGetPayload<{ select: typeof EXCHANGE_ROW }>;
 
@@ -889,6 +1120,21 @@ async function sponsorLine(tx: Tx, actor: Actor, lineId: string) {
   const row = await tx.orderLineDelivery.findFirst({ where: { ...whereFor(actor, "orderDelivery", "write"), lineId }, select: EXCHANGE_ROW });
   if (!row) throw new ForbiddenError("orderDelivery", "write");
   return row;
+}
+
+/**
+ * The buying sponsor's own line, read again under its order's row lock — for
+ * an answer that may move the line or the order (2S4-BE-12: every such move
+ * takes the order's lock first, so it serialises with a cancellation, the
+ * seller's mark and the sweep).
+ */
+async function lockedSponsorLine(tx: Tx, actor: Actor, lineId: string) {
+  const found = await sponsorLine(tx, actor, lineId);
+  await lockOrder(tx, found.orderId);
+  return tx.orderLineDelivery.findUniqueOrThrow({
+    /* tenant-scope: the row just loaded through whereFor(orderDelivery, write), re-read under its order's lock. */
+    where: { id: found.id }, select: EXCHANGE_ROW,
+  });
 }
 
 /** The line's open issue, if any (at most one — DeliveryIssue_one_open_per_line). */
@@ -929,7 +1175,7 @@ async function tellBothSides(tx: Tx, row: ExchangeRow, template: EmailTemplate, 
 /** The sponsor confirms a delivered line. */
 export async function confirmDelivery(actor: Actor, lineId: string, now = new Date()) {
   return prisma.$transaction(async (tx) => {
-    const row = await sponsorLine(tx, actor, lineId);
+    const row = await lockedSponsorLine(tx, actor, lineId);
     if (row.state !== "DELIVERED") throw new DeliveryError(`This line is ${row.state.toLowerCase().replace("_", " ")}, not waiting for your answer.`);
     await tx.orderLineDelivery.update({
       /* tenant-scope: the row just loaded through whereFor(orderDelivery, write). */
@@ -1083,7 +1329,7 @@ export async function answerReply(actor: Actor, lineId: string, input: { decisio
   if (input.decision !== "ACCEPT" && input.decision !== "REJECT") throw new DeliveryError("Answer ACCEPT or REJECT.", 422);
   if (input.decision === "REJECT" && !note) throw new DeliveryError("Say why you're rejecting it — BTG reads this when they decide.", 422);
   return prisma.$transaction(async (tx) => {
-    const row = await sponsorLine(tx, actor, lineId);
+    const row = await lockedSponsorLine(tx, actor, lineId);
     const issue = row.state === "PROBLEM" ? await openIssue(tx, row.id) : null;
     if (!issue || issue.kind !== "PROBLEM") throw new DeliveryError("There's no answer on this line waiting for you.");
     if (issue.stage === "SELLER_TO_ANSWER") throw new DeliveryError("The seller hasn't answered yet.");
@@ -1150,7 +1396,7 @@ async function settleLine(tx: Tx, actor: AuditActor & { tenantId: string }, row:
     /* tenant-scope: the row the caller loaded through whereFor(orderDelivery, write). */
     where: { id: row.id }, data: { state: "REFUNDED" }, select: { id: true },
   });
-  await refundLine(tx, actor, row, now);
+  await refundLine(tx, actor, row, now, { cause: "PROBLEM_AGREED", lineId: row.lineId, cancellation: false });
   await maybeFulfil(tx, row.orderId, now);
   return "REFUNDED";
 }
@@ -1159,15 +1405,21 @@ async function settleLine(tx: Tx, actor: AuditActor & { tenantId: string }, row:
  * A line already marked REFUNDED gets its money back: the order's own refund
  * when no other line is still live (reversal, stock released, Zoho told),
  * else this line's journals mirrored and its stock handed back. The whole
- * line, always — partial refunds are out of scope.
+ * line, always — partial refunds are out of scope. Either way (2S4-BE-13) a
+ * RefundDue row for Finance, naming what started it (`ctx`); the caller holds
+ * the order's row lock, so two lines refunded at once still end the order.
  */
-async function refundLine(tx: Tx, actor: AuditActor & { tenantId: string }, row: { id: string; orderId: string; lineId: string; line: { inventoryItemId: string; startsOn: Date; endsOn: Date } }, now: Date) {
+async function refundLine(
+  tx: Tx, actor: AuditActor & { tenantId: string }, row: { id: string; orderId: string; lineId: string; line: { inventoryItemId: string; startsOn: Date; endsOn: Date } },
+  now: Date, ctx: RefundContext,
+) {
   const live = await tx.orderLineDelivery.count({
     /* tenant-scope: this order's own delivery rows, named by its id. */
     where: { orderId: row.orderId, state: { notIn: ["REFUNDED", "CANCELLED"] } },
   });
   if (live === 0) {
-    await moveOrderIn(tx, actor, row.orderId, "REFUNDED", now);
+    /* The order's own refund records the RefundDue (the rest of its total), as this line's. */
+    await moveOrderIn(tx, actor, row.orderId, "REFUNDED", now, ctx);
     return;
   }
   await reverseOrder(tx, row.orderId, row.lineId);
@@ -1183,16 +1435,22 @@ async function refundLine(tx: Tx, actor: AuditActor & { tenantId: string }, row:
     },
     data: { releasedAt: now },
   });
+  await recordRefund(tx, actor, row.orderId, ctx, { whole: false }, now);
 }
+
+/** 2S4-BE-12 — the two ways a cancellation request reaches BTG. */
+const CANCELLATION_REASONS = new Set<EscalationReason>(["SELLER_DECLINED_CANCELLATION", "SELLER_DIDNT_ANSWER_CANCELLATION"]);
 
 /**
  * Hand an issue to BTG — only from the stages named (so a second run, or a
  * race with an answer, changes nothing). Stores why; tells BTG's admins and
- * both sides. `extra` carries the sponsor's rejection, written with it.
+ * both sides. `extra` carries the sponsor's rejection (or the seller's
+ * decline), written with it. `sponsorTold` — the sponsor already has an
+ * email saying so (the seller's declined answer), so only the sellers hear it.
  */
 async function escalate(
   tx: Tx, actor: AuditActor & { tenantId: string }, row: ExchangeRow, issueId: string, from: IssueStage[], reason: EscalationReason, now: Date,
-  extra: Prisma.DeliveryIssueUpdateManyMutationInput = {},
+  extra: Prisma.DeliveryIssueUpdateManyMutationInput = {}, opts: { sponsorTold?: boolean } = {},
 ) {
   const text = escalationWords(reason, lastDateOf(row));
   const moved = await tx.deliveryIssue.updateMany({
@@ -1201,20 +1459,303 @@ async function escalate(
     data: { ...extra, stage: "ESCALATED", escalatedAt: now, escalationReason: reason, escalationNote: text },
   });
   if (!moved.count) return false;
-  await announceEscalation(tx, actor, row, issueId, reason, text);
+  await announceEscalation(tx, actor, row, issueId, reason, text, opts);
   return true;
 }
 
 /** Audit a hand-over to BTG, and tell BTG's admins and both sides why. */
-async function announceEscalation(tx: Tx, actor: AuditActor & { tenantId: string }, row: ExchangeRow, issueId: string, reason: EscalationReason, text: string) {
+async function announceEscalation(
+  tx: Tx, actor: AuditActor & { tenantId: string }, row: ExchangeRow, issueId: string, reason: EscalationReason, text: string, opts: { sponsorTold?: boolean } = {},
+) {
   await audit(tx, actor, "orderDelivery.escalate", "MarketplaceOrder", row.orderId, { after: { lineId: row.lineId, issueId, reason } });
   const [sponsorName, sellerName] = await Promise.all([sponsorNameOf(tx, row), sellerNameIn(tx, row)]);
+  const cancellation = CANCELLATION_REASONS.has(reason);
+  const issue = cancellation
+    ? await tx.deliveryIssue.findUniqueOrThrow({
+        /* tenant-scope: the issue just handed over, of a row the caller loaded through whereFor (or the sweep found by id). */
+        where: { id: issueId }, select: { problemNote: true, sellerNote: true },
+      })
+    : null;
   for (const admin of await btgAdmins(tx, row.tenantId)) {
-    await tell(tx, { tenantId: row.tenantId, email: admin.email }, "delivery.escalated", issueId, {
-      sponsorName, sellerName, title: row.line.title, orderRef: orderRef(row.orderId), reason: text, issueUrl: appUrl(`/admin/delivery-issues/${row.lineId}`),
-    });
+    const to = { tenantId: row.tenantId, email: admin.email };
+    const data = { sponsorName, sellerName, title: row.line.title, orderRef: orderRef(row.orderId), reason: text, issueUrl: appUrl(`/admin/delivery-issues/${row.lineId}`) };
+    if (issue) {
+      await tell(tx, to, "delivery.cancellationEscalated", issueId, {
+        ...data, firstDate: day(row.line.startsOn), sponsorReason: issue.problemNote.slice(0, 500), sellerReason: issue.sellerNote?.slice(0, 500) ?? "",
+      });
+    } else {
+      await tell(tx, to, "delivery.escalated", issueId, data);
+    }
   }
-  await tellBothSides(tx, row, "delivery.withBtg", issueId, { title: row.line.title, orderRef: orderRef(row.orderId), reason: text });
+  const words = { title: row.line.title, orderRef: orderRef(row.orderId), reason: text, ...(cancellation ? { what: "refund and cancel the line, or keep it going ahead as booked" } : {}) };
+  if (opts.sponsorTold) {
+    for (const r of await sellerRecipients(tx, row)) await tell(tx, r, "delivery.withBtg", issueId, { ...words, firstName: r.firstName, link: appUrl(salePath(r, row.lineId)) });
+  } else {
+    await tellBothSides(tx, row, "delivery.withBtg", issueId, words);
+  }
+}
+
+/* ── cancelling a paid line — 2S4-BE-12 ─────────────────────────────────── */
+
+type Db = Tx | typeof prisma;
+
+/** The line's terms as they stand, read in `db` (under the order's lock when about to act on them). */
+async function termsIn(db: Db, row: ExchangeRow, now: Date) {
+  const siblings = await db.orderLineDelivery.findMany({
+    /* tenant-scope: this order's own delivery rows, named by its id (the row was loaded through the caller's scope). */
+    where: { orderId: row.orderId }, select: { lineId: true, state: true },
+  });
+  const refunded = await db.refundDue.aggregate({
+    /* tenant-scope: this order's own refunds, named by its id. */
+    where: { orderId: row.orderId }, _sum: { amountCents: true },
+  });
+  const open = await db.deliveryIssue.findFirst({
+    /* tenant-scope: the open issue of the row the caller loaded through its scope. */
+    where: { deliveryId: row.id, stage: { in: OPEN_STAGES } }, select: { id: true, kind: true, stage: true, sellerDueAt: true },
+  });
+  return cancellationTerms({
+    orderState: row.line.order.state, state: row.state, startsOn: row.line.startsOn, openIssue: open,
+    refundCents: refundCentsFor({ lineId: row.lineId, lineTotalCents: row.line.lineTotalCents, orderTotalCents: row.line.order.totalCents }, siblings, refunded._sum.amountCents ?? 0),
+  }, now);
+}
+
+/** The refund this line's cancellation recorded — the line's own row (the last line's carries the rest of the order). */
+async function refundOf(tx: Tx, row: { orderId: string; lineId: string }) {
+  const r = await tx.refundDue.findFirst({
+    /* tenant-scope: this order's own refund for this line, by the unique pair. */
+    where: { orderId: row.orderId, lineId: row.lineId }, select: { id: true, amountCents: true, state: true, sentOn: true },
+  });
+  return r ? { id: r.id, amountCents: r.amountCents, state: r.state as "OPEN" | "SENT", sentOn: r.sentOn ? day(r.sentOn) : null } : null;
+}
+
+const refundHow = (r: { state: string } | null) =>
+  !r ? "" : r.state === "SENT" ? "It has gone back to the card you paid with." : "BTG sends it back to you the way you paid — we'll email you when it's sent.";
+
+/**
+ * GET /deliveries/{id}/cancellation — the terms for the sponsor (and BTG):
+ * may it be cancelled now, free or only with the seller's agreement, until
+ * when it is free, what comes back, and why not. A line outside the
+ * caller's reach is 404.
+ */
+export async function cancellationFor(actor: Actor, lineId: string, now = new Date()) {
+  const scope = assertAllowed(actor, "orderDelivery", "read");
+  if (!sponsorSide(scope)) throw new ForbiddenError("orderDelivery", "read");
+  const row = await prisma.orderLineDelivery.findFirst({ where: { ...whereFor(actor, "orderDelivery", "read"), lineId }, select: EXCHANGE_ROW });
+  if (!row) throw new DeliveryError("No such line.", 404);
+  const t = await termsIn(prisma, row, now);
+  const mayCancel = scopeOf(actor, "orderDelivery", "write") === "own-sponsor";
+  return {
+    lineId: row.lineId, orderId: row.orderId, title: row.line.title, freeCancelDays: FREE_CANCEL_DAYS, answerWindowHours: CANCEL_ANSWER_HOURS,
+    ...(mayCancel || !t.canCancel ? t : { ...t, canCancel: false, blockedReason: "Only the sponsor's admin can cancel a line." }),
+  };
+}
+
+/**
+ * Cancel a line still IN_DELIVERY and refund it — the caller holds the
+ * order's lock. Guarded on the state, so a second click (or a race) finds it
+ * moved and changes nothing. Anything still open on the line ends with it
+ * (an overdue hand-over the seller's cancellation answers).
+ */
+async function cancelAndRefund(
+  tx: Tx, actor: AuditActor & { tenantId: string }, row: ExchangeRow, c: { by: Exclude<CancelledBy, "BTG">; note: string | null; cause: RefundCause }, now: Date,
+) {
+  const seller = sellerOfLine(row);
+  const moved = await tx.orderLineDelivery.updateMany({
+    /* tenant-scope: the row the caller loaded through whereFor(orderDelivery, write), only while still waiting to be delivered. */
+    where: { id: row.id, state: "IN_DELIVERY" },
+    data: {
+      state: "REFUNDED", cancelledAt: now, cancelledBy: c.by, cancelledByUser: actor.userId, cancelNote: c.note ? c.note.slice(0, 2000) : null,
+      ...(c.by === "SELLER" && seller ? { cancelledSellerType: seller.type, cancelledSellerId: seller.id } : {}),
+    },
+  });
+  if (!moved.count) throw new DeliveryError("This line has just changed — reload to see where it stands.");
+  await tx.deliveryIssue.updateMany({
+    /* tenant-scope: the issues of the row just moved, by its id. */
+    where: { deliveryId: row.id, stage: { in: OPEN_STAGES } },
+    data: { stage: "CLOSED", outcome: c.by === "SELLER" ? "SELLER_CANCELLED" : "ORDER_ENDED", closedAt: now, closedBy: actor.userId ?? "system" },
+  });
+  await refundLine(tx, actor, row, now, { cause: c.cause, lineId: row.lineId, cancellation: true });
+  await maybeFulfil(tx, row.orderId, now);
+  return refundOf(tx, row);
+}
+
+/** The caller's own line, found through its scope (404 otherwise), its order locked, and read again under the lock. */
+async function lockedLine(tx: Tx, actor: Actor, lineId: string, action: "write" | "approve") {
+  const found = await tx.orderLineDelivery.findFirst({ where: { ...whereFor(actor, "orderDelivery", action), lineId }, select: { id: true, orderId: true } });
+  if (!found) throw new DeliveryError("No such line.", 404);
+  await lockOrder(tx, found.orderId);
+  return tx.orderLineDelivery.findUniqueOrThrow({
+    /* tenant-scope: the row just loaded through whereFor(orderDelivery, …), re-read under its order's lock. */
+    where: { id: found.id }, select: EXCHANGE_ROW,
+  });
+}
+
+/**
+ * POST /deliveries/{id}/cancel — the buying sponsor's admin cancels a paid
+ * line. Before the cut-off (the first date's start less 3 days): refunded at
+ * once, the reason optional, both sides told. After it, until the first date
+ * starts: a reason is required and the SELLER is asked — they have until
+ * the earlier of 72 hours or the first date's start. On or after the first
+ * date: 409, "Report a problem".
+ */
+export async function cancelLine(actor: Actor, lineId: string, input: { reason?: string | null }, now = new Date()) {
+  const scope = assertAllowed(actor, "orderDelivery", "write");
+  if (scope !== "own-sponsor" || !actor.sponsorId) throw new ForbiddenError("orderDelivery", "write");
+  const reason = input.reason?.trim() ?? "";
+  return prisma.$transaction(async (tx) => {
+    const row = await lockedLine(tx, actor, lineId, "write");
+    const terms = await termsIn(tx, row, now);
+    if (!terms.canCancel) throw new DeliveryError(terms.blockedReason ?? "This line can't be cancelled now.");
+    const sponsorName = await sponsorNameOf(tx, row);
+    const sponsor = await sponsorRecipient(tx, row.line.order);
+
+    if (terms.free) {
+      const refund = await cancelAndRefund(tx, actor, row, { by: "SPONSOR", note: reason || null, cause: "SPONSOR_CANCELLED" }, now);
+      await audit(tx, actor, "orderDelivery.cancel", "MarketplaceOrder", row.orderId, {
+        before: { lineId, state: "IN_DELIVERY" }, after: { lineId, state: "REFUNDED", by: "SPONSOR", free: true, refundId: refund?.id ?? null, refundCents: refund?.amountCents ?? 0 },
+      });
+      if (sponsor) {
+        await tell(tx, sponsor, "delivery.cancelConfirmed", lineId, {
+          firstName: sponsor.firstName, title: row.line.title, orderRef: orderRef(row.orderId), amount: usd(refund?.amountCents ?? terms.refundCents),
+          refundHow: refundHow(refund), orderUrl: appUrl(`/sponsor/orders/${row.orderId}`),
+        });
+      }
+      for (const r of await sellerRecipients(tx, row)) {
+        await tell(tx, r, "sale.lineCancelled", lineId, {
+          firstName: r.firstName, sponsorName, title: row.line.title, orderRef: orderRef(row.orderId), firstDate: terms.firstDate,
+          how: `${sponsorName} cancelled it more than ${FREE_CANCEL_DAYS} days before its first date, so there's nothing to deliver.${reason ? ` Their reason: "${reason.slice(0, 500)}"` : ""}`,
+          saleUrl: appUrl(salePath(r, lineId)),
+        });
+      }
+      return { outcome: "REFUNDED" as const, lineId, orderId: row.orderId, state: "REFUNDED" as const, refundCents: refund?.amountCents ?? terms.refundCents, refund };
+    }
+
+    if (!reason) throw new DeliveryError("Say why you want to cancel — the seller reads this, and BTG too if it comes to them.", 422);
+    const sellerDueAt = terms.sellerAnswerBy!;
+    const issue = await tx.deliveryIssue.create({
+      data: {
+        tenantId: row.tenantId, orderId: row.orderId, lineId: row.lineId, deliveryId: row.id, kind: "CANCELLATION", stage: "SELLER_TO_ANSWER",
+        openedAt: now, openedBy: actor.userId, problemNote: reason.slice(0, 2000), sellerDueAt,
+      },
+      select: { id: true },
+    });
+    await audit(tx, actor, "orderDelivery.askCancel", "MarketplaceOrder", row.orderId, {
+      after: { lineId, issueId: issue.id, stage: "SELLER_TO_ANSWER", sellerDueAt: sellerDueAt.toISOString(), reason: reason.slice(0, 500) },
+    });
+    for (const r of await sellerRecipients(tx, row)) {
+      await tell(tx, r, "sale.cancellationRequested", issue.id, {
+        firstName: r.firstName, sponsorName, title: row.line.title, orderRef: orderRef(row.orderId), firstDate: terms.firstDate,
+        reason: reason.slice(0, 500), answerBy: utc(sellerDueAt), saleUrl: appUrl(salePath(r, lineId)),
+      });
+    }
+    return {
+      outcome: "ASKED_SELLER" as const, lineId, orderId: row.orderId, state: "IN_DELIVERY" as const, issueId: issue.id,
+      stage: "SELLER_TO_ANSWER" as const, sellerAnswerBy: sellerDueAt, refundCents: terms.refundCents,
+    };
+  });
+}
+
+/**
+ * POST /sales/{id}/cancellation-answer — the seller answers the sponsor's
+ * request to cancel, before its deadline. ACCEPT: the line is refunded
+ * (settled between them). DECLINE, with a reason: BTG decides. Either way
+ * the sponsor is emailed the answer.
+ */
+export async function answerCancellation(actor: Actor, lineId: string, input: { decision: "ACCEPT" | "DECLINE"; reason?: string | null }, now = new Date()) {
+  sellerScope(actor, "write");
+  if (input.decision !== "ACCEPT" && input.decision !== "DECLINE") throw new DeliveryError("Answer ACCEPT or DECLINE.", 422);
+  const reason = input.reason?.trim() ?? "";
+  if (input.decision === "DECLINE" && !reason) throw new DeliveryError("Say why you can't cancel it — the sponsor reads this, and BTG decides.", 422);
+  const byName = await markerName(actor);
+  return prisma.$transaction(async (tx) => {
+    const row = await lockedLine(tx, actor, lineId, "write");
+    const issue = await openIssue(tx, row.id);
+    if (!issue || issue.kind !== "CANCELLATION") throw new DeliveryError("There's no request to cancel this line waiting for your answer.");
+    if (issue.stage === "ESCALATED") throw new DeliveryError("This request is with BTG now — they'll decide it.");
+    if (!sellerCanAnswer(issue, now)) throw new DeliveryError("The time to answer has passed, so this request goes to BTG.");
+    const answered = {
+      sellerAnswer: input.decision, sellerAnsweredAt: now, sellerAnsweredBy: actor.userId, sellerAnsweredByName: byName, sellerNote: reason ? reason.slice(0, 2000) : null,
+    };
+    const sponsor = await sponsorRecipient(tx, row.line.order);
+    const tellSponsor = (answer: string) => sponsor
+      ? tell(tx, sponsor, "delivery.cancellationAnswered", issue.id, {
+          firstName: sponsor.firstName, sellerName: byName, title: row.line.title, orderRef: orderRef(row.orderId), answer, orderUrl: appUrl(`/sponsor/orders/${row.orderId}`),
+        })
+      : Promise.resolve();
+
+    if (input.decision === "ACCEPT") {
+      const moved = await tx.deliveryIssue.updateMany({
+        /* tenant-scope: the open issue of the row just loaded through whereFor(orderDelivery, write), only while still the seller's turn. */
+        where: { id: issue.id, stage: "SELLER_TO_ANSWER" },
+        data: { ...answered, stage: "SETTLED", outcome: "REFUNDED", closedAt: now, closedBy: actor.userId },
+      });
+      if (!moved.count) throw new DeliveryError("This request has moved on — reload to see where it stands.");
+      const refund = await cancelAndRefund(tx, actor, row, { by: "AGREED", note: issue.problemNote, cause: "CANCELLATION_AGREED" }, now);
+      await audit(tx, actor, "orderDelivery.answerCancellation", "MarketplaceOrder", row.orderId, {
+        before: { lineId, issueId: issue.id, stage: "SELLER_TO_ANSWER", state: "IN_DELIVERY" },
+        after: { lineId, issueId: issue.id, stage: "SETTLED", decision: "ACCEPT", state: "REFUNDED", refundId: refund?.id ?? null },
+      });
+      await tellSponsor(`agreed to cancel it, so it is refunded in full (${usd(refund?.amountCents ?? row.line.lineTotalCents)}). ${refundHow(refund)}`.trim());
+      return { lineId, issueId: issue.id, decision: "ACCEPT" as const, stage: "SETTLED" as const, state: "REFUNDED" as DeliveryState, refund };
+    }
+
+    const sent = await escalate(tx, actor, row, issue.id, ["SELLER_TO_ANSWER"], "SELLER_DECLINED_CANCELLATION", now, answered, { sponsorTold: true });
+    if (!sent) throw new DeliveryError("This request has moved on — reload to see where it stands.");
+    await audit(tx, actor, "orderDelivery.answerCancellation", "MarketplaceOrder", row.orderId, {
+      before: { lineId, issueId: issue.id, stage: "SELLER_TO_ANSWER" }, after: { lineId, issueId: issue.id, stage: "ESCALATED", decision: "DECLINE" },
+    });
+    await tellSponsor(`declined to cancel it: "${reason.slice(0, 500)}". BTG will decide — refund it, or keep it going ahead as booked — and email you.`);
+    return { lineId, issueId: issue.id, decision: "DECLINE" as const, stage: "ESCALATED" as const, state: "IN_DELIVERY" as DeliveryState, refund: null };
+  });
+}
+
+/**
+ * POST /sales/{id}/cancel — the seller cancels a line it can't deliver, any
+ * time while it is IN_DELIVERY (after its date too, if it never delivered).
+ * A reason is required. The sponsor is refunded in full at once and emailed.
+ * It counts against the seller: 2 in 90 days and BTG checks its new listings.
+ */
+export async function sellerCancel(actor: Actor, lineId: string, reason: string, now = new Date()) {
+  sellerScope(actor, "write");
+  const text = reason?.trim() ?? "";
+  if (!text) throw new DeliveryError("Say why you can't deliver it — the sponsor reads this.", 422);
+  const byName = await markerName(actor);
+  const out = await prisma.$transaction(async (tx) => {
+    const row = await lockedLine(tx, actor, lineId, "write");
+    if (row.state !== "IN_DELIVERY") {
+      throw new DeliveryError(
+        row.state === "UNPAID" ? "The sponsor hasn't paid for this yet, so there's nothing to cancel."
+          : row.state === "REFUNDED" || row.state === "CANCELLED" ? "This line has already been cancelled or refunded."
+          : "This line has been marked delivered, so it can't be cancelled — the sponsor's answer decides it now.",
+      );
+    }
+    if (!PAID_ORDER.has(row.line.order.state)) throw new DeliveryError("This order isn't paid and in delivery, so the line can't be cancelled.");
+    const open = await openIssue(tx, row.id);
+    if (open?.kind === "CANCELLATION") {
+      throw new DeliveryError(open.stage === "ESCALATED"
+        ? "The sponsor asked to cancel this line and BTG is deciding it — BTG will refund it or keep it."
+        : "The sponsor has asked to cancel this line — accept their request instead.");
+    }
+    const refund = await cancelAndRefund(tx, actor, row, { by: "SELLER", note: text, cause: "SELLER_CANCELLED" }, now);
+    await audit(tx, actor, "orderDelivery.sellerCancel", "MarketplaceOrder", row.orderId, {
+      before: { lineId, state: "IN_DELIVERY" },
+      after: { lineId, state: "REFUNDED", by: "SELLER", seller: sellerOfLine(row), refundId: refund?.id ?? null, refundCents: refund?.amountCents ?? 0, ...(open ? { closedIssueId: open.id } : {}) },
+    });
+    const sponsor = await sponsorRecipient(tx, row.line.order);
+    if (sponsor) {
+      await tell(tx, sponsor, "delivery.sellerCancelled", lineId, {
+        firstName: sponsor.firstName, sellerName: byName, title: row.line.title, orderRef: orderRef(row.orderId), reason: text.slice(0, 500),
+        amount: usd(refund?.amountCents ?? row.line.lineTotalCents), refundHow: refundHow(refund), orderUrl: appUrl(`/sponsor/orders/${row.orderId}`),
+      });
+    }
+    return { lineId, orderId: row.orderId, state: "REFUNDED" as const, refund, seller: sellerOfLine(row) };
+  });
+  const cancellationsLast90Days = out.seller ? await sellerCancellationCount(prisma, out.seller, now) : 0;
+  return {
+    lineId: out.lineId, orderId: out.orderId, state: out.state, refund: out.refund, cancellationsLast90Days,
+    /* The standing rule just reached: BTG now checks the seller's new listings. */
+    listingsChecked: cancellationsLast90Days >= SELLER_CANCELLATION_LIMIT,
+  };
 }
 
 /* ── the sweep — 2S4-BE-07 (silence) and 2S4-BE-08 (reminders, auto-close) ── */
@@ -1245,11 +1786,13 @@ export async function sweepDeliveries(now = new Date(), opts: { tenantIds?: stri
 
   const due = await prisma.orderLineDelivery.findMany({
     /* tenant-scope: the system sweep — every tenant's lines whose sponsor window has passed; each is handled in its own books. */
-    where: { ...books, state: "DELIVERED", confirmDueAt: { lte: now } }, select: { id: true }, take: 500,
+    where: { ...books, state: "DELIVERED", confirmDueAt: { lte: now } }, select: { id: true, orderId: true }, take: 500,
   });
-  for (const { id } of due) {
+  for (const { id, orderId } of due) {
     try {
       const done = await prisma.$transaction(async (tx) => {
+        /* The order's row lock first, as every move of its lines takes it (a cancellation racing this pass waits, or is waited for). */
+        await lockOrder(tx, orderId);
         const moved = await tx.orderLineDelivery.updateMany({
           /* tenant-scope: the row the sweep found, by id, only while it is still waiting. */
           where: { id, state: "DELIVERED", confirmDueAt: { lte: now } }, data: { state: "CONFIRMED", confirmedAt: now, confirmedBy: "system", confirmedHow: "SILENCE" },
@@ -1281,16 +1824,18 @@ export async function sweepDeliveries(now = new Date(), opts: { tenantIds?: stri
   for (const [stage, dueField, reason, count] of silent) {
     const waiting = await prisma.deliveryIssue.findMany({
       /* tenant-scope: the system sweep — every tenant's issues whose side's 72 hours have passed; each is handed over in its own books. */
-      where: { ...books, stage, [dueField]: { lte: now } }, select: { id: true, deliveryId: true }, take: 500,
+      where: { ...books, stage, [dueField]: { lte: now } }, select: { id: true, deliveryId: true, kind: true }, take: 500,
     });
-    for (const { id, deliveryId } of waiting) {
+    for (const { id, deliveryId, kind } of waiting) {
       try {
         const sent = await prisma.$transaction(async (tx) => {
           const row = await tx.orderLineDelivery.findUniqueOrThrow({
             /* tenant-scope: the delivery row of the issue the sweep found, by id. */
             where: { id: deliveryId }, select: EXCHANGE_ROW,
           });
-          return escalate(tx, { userId: null, tenantId: row.tenantId }, row, id, [stage], reason, now);
+          /* 2S4-BE-12 — a request to cancel the seller didn't answer in time. */
+          const why: EscalationReason = kind === "CANCELLATION" ? "SELLER_DIDNT_ANSWER_CANCELLATION" : reason;
+          return escalate(tx, { userId: null, tenantId: row.tenantId }, row, id, [stage], why, now);
         });
         if (sent) out[count]++;
       } catch (error) {
@@ -1303,7 +1848,7 @@ export async function sweepDeliveries(now = new Date(), opts: { tenantIds?: stri
   /* 2S4-BE-11 — 7 days past the last date with nothing marked: BTG takes it. */
   const abandoned = await prisma.orderLineDelivery.findMany({
     /* tenant-scope: the system sweep — every tenant's lines still in delivery 7 days past their last date, not yet handed to BTG. */
-    where: { ...books, state: "IN_DELIVERY", overdueEscalatedAt: null, ...dueBy(new Date(now.getTime() - ESCALATE_OVERDUE_DAYS * DAY)) }, select: { id: true }, take: 500,
+    where: { ...books, state: "IN_DELIVERY", overdueEscalatedAt: null, ...noOpenIssue, ...dueBy(new Date(now.getTime() - ESCALATE_OVERDUE_DAYS * DAY)) }, select: { id: true }, take: 500,
   });
   for (const { id } of abandoned) {
     try {
@@ -1319,7 +1864,7 @@ export async function sweepDeliveries(now = new Date(), opts: { tenantIds?: stri
     const late = await prisma.orderLineDelivery.findMany({
       /* tenant-scope: the system sweep — every tenant's lines still in delivery this many days past their last date, not yet reminded so. */
       where: {
-        ...books, state: "IN_DELIVERY", overdueEscalatedAt: null, ...(mode === "second" ? { secondRemindedAt: null } : { remindedAt: null, secondRemindedAt: null }),
+        ...books, state: "IN_DELIVERY", overdueEscalatedAt: null, ...noOpenIssue, ...(mode === "second" ? { secondRemindedAt: null } : { remindedAt: null, secondRemindedAt: null }),
         ...dueBy(new Date(now.getTime() - days * DAY)),
       },
       select: { id: true }, take: 500,
@@ -1395,8 +1940,8 @@ async function remindIn(id: string, now: Date, by: { userId: string | null }, mo
 async function escalateOverdue(id: string, now: Date) {
   return prisma.$transaction(async (tx) => {
     const moved = await tx.orderLineDelivery.updateMany({
-      /* tenant-scope: the row named by the sweep, by id, only while still unmarked and not yet handed over. */
-      where: { id, state: "IN_DELIVERY", overdueEscalatedAt: null }, data: { overdueEscalatedAt: now },
+      /* tenant-scope: the row named by the sweep, by id, only while still unmarked, not yet handed over, and with nothing open on it. */
+      where: { id, state: "IN_DELIVERY", overdueEscalatedAt: null, ...noOpenIssue }, data: { overdueEscalatedAt: now },
     });
     if (!moved.count) return false;
     const row = await tx.orderLineDelivery.findUniqueOrThrow({
@@ -1449,9 +1994,12 @@ function issueView(r: SaleRow, names: Awaited<ReturnType<typeof namesFor>>, now:
   const units = `${r.line.quantity} ${unitOf(names.kind.get(r.line.inventoryItemId))}${r.line.quantity === 1 ? "" : "s"}`;
   const issue = currentIssue(r.issues);
   const timeline = timelineOf(r, whoOf(r, names));
-  /* The problem being decided (the open issue's own words), else the row's. */
-  const problem = issue?.kind === "PROBLEM" ? { text: issue.problemNote, at: issue.openedAt } : r.problemAt && r.problemNote ? { text: r.problemNote, at: r.problemAt } : null;
-  const marked = issue?.kind === "PROBLEM" && issue.markedAt
+  /* The problem being decided (the open issue's own words — 2S4-BE-12: or the sponsor's reason for asking to cancel), else the row's. */
+  const problem = issue?.kind === "PROBLEM" || issue?.kind === "CANCELLATION"
+    ? { text: issue.problemNote, at: issue.openedAt } : r.problemAt && r.problemNote ? { text: r.problemNote, at: r.problemAt } : null;
+  const marked = issue?.kind === "CANCELLATION"
+    ? issue.sellerNote && issue.sellerAnsweredAt ? { text: issue.sellerNote, at: issue.sellerAnsweredAt, proofCount: 0, link: null } : null
+    : issue?.kind === "PROBLEM" && issue.markedAt
     ? { text: issue.markedNote ?? "", at: issue.markedAt, proofCount: issue.markedProofKey ? 1 : 0, link: issue.markedProofLink }
     : r.deliveredAt && r.note ? { text: r.note, at: r.deliveredAt, proofCount: r.proofKey ? 1 : 0, link: r.proofLink } : null;
   return {
@@ -1479,6 +2027,8 @@ function issueView(r: SaleRow, names: Awaited<ReturnType<typeof namesFor>>, now:
       ? { at: issue.escalatedAt, reason: issue.escalationReason as EscalationReason, text: issue.escalationNote ?? "" }
       : null,
     canDecide: issue?.stage === "ESCALATED",
+    /* 2S4-BE-12 — what BTG may decide: a request to cancel is REFUND or KEEP; a problem or an overdue line, CONFIRM or REFUND. */
+    decisions: issue?.stage !== "ESCALATED" ? [] : issue.kind === "CANCELLATION" ? ["REFUND", "KEEP"] as const : ["CONFIRM", "REFUND"] as const,
     timeline,
     history: timeline.map((t) => ({ at: t.at, text: t.text })),
   };
@@ -1500,7 +2050,7 @@ export async function deliveryIssues(actor: Actor, now = new Date()) {
     prisma.orderLineDelivery.findMany({ where: { ...where, issues: { some: { stage: "ESCALATED" } } }, select: SALE_SELECT, take: 200 }),
     prisma.orderLineDelivery.findMany({ where: { ...where, issues: { some: { stage: "SETTLED" } } }, select: SALE_SELECT, orderBy: { updatedAt: "desc" }, take: 100 }),
     prisma.orderLineDelivery.findMany({
-      where: { ...where, state: "IN_DELIVERY", overdueEscalatedAt: null, OR: [{ redeliverOn: null, line: { endsOn: { lt: now } } }, { redeliverOn: { lt: now } }] },
+      where: { ...where, state: "IN_DELIVERY", overdueEscalatedAt: null, ...noOpenIssue, OR: [{ redeliverOn: null, line: { endsOn: { lt: now } } }, { redeliverOn: { lt: now } }] },
       select: SALE_SELECT, orderBy: { createdAt: "asc" }, take: 200,
     }),
   ]);
@@ -1514,7 +2064,7 @@ export async function deliveryIssues(actor: Actor, now = new Date()) {
     .slice(0, 100)
     .map(({ r, i }) => ({
       ...issueView(r, names, now),
-      settlement: { issueId: i.id, outcome: i.outcome as IssueOutcome, at: i.closedAt, text: SETTLED_WORDS[i.outcome ?? ""] ?? "Settled between them", answer: i.sellerAnswer as SellerAnswer },
+      settlement: { issueId: i.id, kind: i.kind as IssueKind, outcome: i.outcome as IssueOutcome, at: i.closedAt, text: settledWords(i), answer: i.sellerAnswer as SellerAnswer },
     }));
   return {
     confirmWindowHours: CONFIRM_WINDOW_HOURS,
@@ -1535,16 +2085,23 @@ export async function deliveryIssue(actor: Actor, lineId: string, now = new Date
 
 /**
  * BTG decides an issue the two sides couldn't settle (2S4-BE-11: only an
- * ESCALATED one): CONFIRM (the line is delivered; its money is released on
- * the usual rules) or REFUND (the line's own refund — the whole order when no
- * other line is still live, else this line's journals reversed and its stock
- * released). A note is required: everyone reads it.
+ * ESCALATED one). A problem or an overdue line: CONFIRM (the line is
+ * delivered; its money is released on the usual rules) or REFUND (the line's
+ * own refund — the whole order when no other line is still live, else this
+ * line's journals reversed and its stock released). A sponsor's request to
+ * cancel (2S4-BE-12): REFUND (cancelled and refunded — a cancellation refund,
+ * which doesn't stop the sponsor's limit rising) or KEEP (the request closes;
+ * the line goes ahead, IN_DELIVERY). A note is required: everyone reads it.
  */
-export async function resolveIssue(actor: Actor, lineId: string, decision: "CONFIRM" | "REFUND", note: string, now = new Date()) {
+export async function resolveIssue(actor: Actor, lineId: string, decision: "CONFIRM" | "REFUND" | "KEEP", note: string, now = new Date()) {
   assertDesk(actor);
   const text = note?.trim() ?? "";
   if (!text) throw new DeliveryError("Add a note — the sponsor and the seller both read it.", 422);
   return prisma.$transaction(async (tx) => {
+    const found = await tx.orderLineDelivery.findFirst({ where: { ...whereFor(actor, "orderDelivery", "approve"), lineId }, select: { orderId: true } });
+    if (!found) throw new ForbiddenError("orderDelivery", "approve");
+    /* The order's row lock first: a decision and a cancellation, a mark or the sweep serialise. */
+    await lockOrder(tx, found.orderId);
     const row = await tx.orderLineDelivery.findFirst({ where: { ...whereFor(actor, "orderDelivery", "approve"), lineId }, select: EXCHANGE_ROW });
     if (!row) throw new ForbiddenError("orderDelivery", "approve");
     const issue = await openIssue(tx, row.id);
@@ -1554,7 +2111,10 @@ export async function resolveIssue(actor: Actor, lineId: string, decision: "CONF
           : `This line is ${row.state.toLowerCase().replace("_", " ")}, not waiting for a decision.`,
       );
     }
-    const outcome = decision === "CONFIRM" ? "CONFIRMED" : "REFUNDED";
+    const cancellation = issue.kind === "CANCELLATION";
+    if (cancellation && decision === "CONFIRM") throw new DeliveryError("A request to cancel is decided REFUND (cancel and refund the line) or KEEP (it goes ahead).", 422);
+    if (!cancellation && decision === "KEEP") throw new DeliveryError("A delivery problem is decided CONFIRM (delivered) or REFUND (the line refunded).", 422);
+    const outcome: IssueOutcome = decision === "CONFIRM" ? "CONFIRMED" : decision === "KEEP" ? "KEPT" : "REFUNDED";
     /* The issue first, so a whole-order refund (followOrder) finds nothing of it left open. */
     const closed = await tx.deliveryIssue.updateMany({
       /* tenant-scope: the open issue of the row just loaded through whereFor(orderDelivery, approve), only while still with BTG. */
@@ -1562,27 +2122,38 @@ export async function resolveIssue(actor: Actor, lineId: string, decision: "CONF
     });
     if (!closed.count) throw new DeliveryError("This issue has just been decided — reload to see how.");
     const stamp = { resolvedAt: now, resolvedBy: actor.userId, resolutionNote: text.slice(0, 2000) };
+    let state = row.state as DeliveryState;
     if (decision === "CONFIRM") {
       await tx.orderLineDelivery.update({
         /* tenant-scope: the row just loaded through whereFor(orderDelivery, approve). */
         where: { id: row.id }, data: { ...stamp, state: "CONFIRMED", resolution: "CONFIRMED", confirmedAt: now, confirmedBy: actor.userId, confirmedHow: "BTG" }, select: { id: true },
       });
-    } else {
-      await tx.orderLineDelivery.update({
-        /* tenant-scope: the row just loaded through whereFor(orderDelivery, approve). */
-        where: { id: row.id }, data: { ...stamp, state: "REFUNDED", resolution: "REFUNDED" }, select: { id: true },
+      state = "CONFIRMED";
+    } else if (decision === "REFUND") {
+      const moved = await tx.orderLineDelivery.updateMany({
+        /* tenant-scope: the row just loaded through whereFor(orderDelivery, approve), only while still in the state it was decided in. */
+        where: { id: row.id, state: row.state },
+        data: {
+          ...stamp, state: "REFUNDED", resolution: "REFUNDED",
+          /* 2S4-BE-12 — BTG's REFUND of a request to cancel is a cancellation (it doesn't stop the sponsor's limit rising). */
+          ...(cancellation ? { cancelledAt: now, cancelledBy: "BTG", cancelledByUser: actor.userId, cancelNote: text.slice(0, 2000) } : {}),
+        },
       });
-      await refundLine(tx, actor, row, now);
+      if (!moved.count) throw new DeliveryError("This line has just changed — reload to see where it stands.");
+      await refundLine(tx, actor, row, now, { cause: "BTG_DECIDED", lineId: row.lineId, cancellation });
+      state = "REFUNDED";
     }
     await audit(tx, actor, "orderDelivery.resolve", "MarketplaceOrder", row.orderId, {
-      before: { lineId, state: row.state, issueId: issue.id, stage: "ESCALATED" }, after: { lineId, state: outcome, issueId: issue.id, stage: "RESOLVED", note: text.slice(0, 500) },
+      before: { lineId, state: row.state, issueId: issue.id, kind: issue.kind, stage: "ESCALATED" },
+      after: { lineId, state, issueId: issue.id, stage: "RESOLVED", decision, note: text.slice(0, 500) },
     });
     await maybeFulfil(tx, row.orderId, now);
 
-    const data = { title: row.line.title, orderRef: orderRef(row.orderId), decision: decision === "CONFIRM" ? "confirmed as delivered" : "cancelled and refunded", note: text.slice(0, 1000) };
+    const words = decision === "CONFIRM" ? "confirmed as delivered" : decision === "KEEP" ? "kept — it goes ahead as booked" : "cancelled and refunded";
+    const data = { title: row.line.title, orderRef: orderRef(row.orderId), decision: words, note: text.slice(0, 1000) };
     /* Keyed by the issue: a line can come to BTG more than once over its life. */
     await tellBothSides(tx, row, "delivery.resolved", issue.id, data);
-    return { lineId, issueId: issue.id, state: outcome as DeliveryState };
+    return { lineId, issueId: issue.id, kind: issue.kind as IssueKind, decision, state };
   });
 }
 

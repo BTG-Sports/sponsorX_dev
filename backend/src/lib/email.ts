@@ -104,6 +104,18 @@ export type EmailTemplate =
   | "delivery.withBtg"
   | "delivery.resolved"
   | "delivery.overdue"
+  /* 2S4-BE-12 — cancelling a paid line: the sponsor's cancellation confirmed;
+     the seller told a line was cancelled; the seller asked to cancel (with the
+     deadline); the sponsor told the seller's answer; a seller's cancellation
+     told to the sponsor; a request the seller declined or didn't answer, to BTG. */
+  | "delivery.cancelConfirmed"
+  | "sale.lineCancelled"
+  | "sale.cancellationRequested"
+  | "delivery.cancellationAnswered"
+  | "delivery.sellerCancelled"
+  | "delivery.cancellationEscalated"
+  /* 2S4-BE-13 — the sponsor's refund was sent (by Finance, or to the card by the provider). */
+  | "refund.sent"
   /* 2S2-BE-05 — a team invites an athlete already on SponsorX; the team
      hears the answer; either side ending the link tells the other. */
   | "team.invited"

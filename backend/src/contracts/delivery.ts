@@ -32,9 +32,36 @@ export const DeliveryProblemInput = z
   .meta({ id: "DeliveryProblemInput", description: "The sponsor reports a problem with a delivered line, within 24 hours of it being marked." });
 
 export const DeliveryResolutionInput = z
-  .object({ decision: z.enum(["CONFIRM", "REFUND"]), note: note.describe("Emailed to the sponsor and the seller") })
+  .object({ decision: z.enum(["CONFIRM", "REFUND", "KEEP"]), note: note.describe("Emailed to the sponsor and the seller") })
   .strict()
-  .meta({ id: "DeliveryResolutionInput", description: "BTG's decision on an issue the seller and the sponsor couldn't settle (escalated only): CONFIRM delivered (the hold ends), or REFUND the line in full." });
+  .meta({
+    id: "DeliveryResolutionInput",
+    description: "BTG's decision on an issue the seller and the sponsor couldn't settle (escalated only). A problem or an overdue line: CONFIRM delivered (the hold ends), or REFUND the line in full. A sponsor's request to cancel (2S4-BE-12): REFUND (cancelled and refunded) or KEEP (it goes ahead as booked). Any other pairing is 422.",
+  });
+
+/* 2S4-BE-12 — cancelling a paid line. */
+export const DeliveryCancelInput = z
+  .object({
+    reason: z.string().trim().max(2000).nullable().optional()
+      .describe("Why — optional before the free cut-off (3 days before the first date); required after it, when the seller is asked (the seller reads it, and BTG if it comes to them)"),
+  })
+  .strict()
+  .meta({ id: "DeliveryCancelInput", description: "The buying sponsor's admin cancels a paid line not yet delivered: free (refunded at once) until 3 days before its first date; after that, until the first date starts, the seller is asked to agree." });
+
+export const SaleCancelInput = z
+  .object({ reason: note.describe("Why you can't deliver it — the sponsor reads this") })
+  .strict()
+  .meta({ id: "SaleCancelInput", description: "The seller cancels a paid line it can't deliver (any time while it is in delivery). The sponsor is refunded in full at once. Two seller cancellations in 90 days and BTG checks the seller's new listings." });
+
+export const CancellationAnswerInput = z
+  .discriminatedUnion("decision", [
+    z.object({ decision: z.literal("ACCEPT"), reason: z.string().trim().max(2000).nullable().optional().describe("Optional") }).strict(),
+    z.object({ decision: z.literal("DECLINE"), reason: note.describe("Why it can't be cancelled — the sponsor reads it, and BTG decides") }).strict(),
+  ])
+  .meta({
+    id: "CancellationAnswerInput",
+    description: "The seller's answer to the sponsor's request to cancel, before its deadline: ACCEPT (the line is refunded in full) or DECLINE with a reason (BTG decides — refund or keep).",
+  });
 
 /* 2S4-BE-11 — a reported problem, settled between the seller and the sponsor. */
 const proofLink = z.url({ protocol: /^https$/ }).max(500).nullable().optional().describe("A link to the post, video or page — https only");

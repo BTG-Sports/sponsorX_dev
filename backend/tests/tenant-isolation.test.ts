@@ -95,6 +95,8 @@ const A = {
   closure: "ti_closure_a", handoff: "ti_handoff_a",
   /* P9-BE-16 — a slot sold to tenant A's campaign, and its artwork on the approval board. */
   soldSlot: "ti_slot_sold_a", artwork: "ti_artwork_a",
+  /* 2S4-BE-13 — a refund owed to tenant A's sponsor, still to send. */
+  refund: "ti_refund_a",
 } as const;
 const B = {
   tenant: "ti_tenant_b", sponsor: "ti_sponsor_b", athlete: "ti_athlete_b",
@@ -165,6 +167,8 @@ const PARAM_FOR: Record<string, string> = {
   "account-closures": A.closure, "guardian-handoffs": A.handoff,
   /* P9-BE-16 — a sold slot's artwork uploads, and the artwork's review steps. */
   "ad-slots": A.soldSlot, "edition-artwork": A.artwork,
+  /* 2S4-BE-13 — Finance's refunds to send. */
+  refunds: A.refund,
 };
 
 /**
@@ -306,6 +310,11 @@ const BODY: Record<string, unknown> = {
   "POST /sales/{id}/problem-answer": { answer: "DISAGREE", note: "Sweep answer" },
   "POST /deliveries/{id}/problem-answer": { decision: "REJECT", note: "Sweep reject" },
   "POST /delivery-issues/{id}/resolve": { decision: "CONFIRM", note: "Sweep decision" },
+  /* 2S4-BE-12 — cancelling a paid line; 2S4-BE-13 — marking a refund sent. */
+  "POST /deliveries/{id}/cancel": { reason: "Sweep cancel" },
+  "POST /sales/{id}/cancel": { reason: "Sweep seller cancel" },
+  "POST /sales/{id}/cancellation-answer": { decision: "ACCEPT" },
+  "POST /refunds/{id}/sent": { method: "BANK_TRANSFER", reference: "Sweep ref", sentOn: "2026-10-01" },
   /* 2S2-BE-05 — inviting tenant A's athlete, and answering tenant A's invitation. */
   "POST /team/invitations": { athleteId: A.athlete, teamShareBps: 100 },
   "POST /team-invitations/{id}/respond": { decision: "ACCEPT" },
@@ -468,6 +477,9 @@ describe.skipIf(!hasDatabase)("P8-SEC-02 · tenant B cannot reach tenant A throu
       lineIds: [A.mktLine], dueAt: new Date(Date.now() + 3650 * 864e5),
     } });
     await prisma.teamInvitation.create({ data: { id: A.teamInvite, tenantId: t, propertyId: A.school, athleteId: A.athlete, athleteTenantId: t, teamShareBps: 1500 } });
+    await prisma.refundDue.create({ data: {
+      id: A.refund, tenantId: t, orderId: A.mktOrder, lineId: A.mktLine, sponsorId: A.sponsor, amountCents: 9000, cause: "SELLER_CANCELLED", paidVia: "BANK_TRANSFER",
+    } });
     await prisma.reservation.create({ data: { id: A.dueReservation, tenantId: t, sponsorId: A.sponsor, cartId: A.cart, state: "CONVERTED", convertedAt: new Date(), expiresAt: new Date(Date.now() + 3650 * 864e5) } });
     await prisma.marketplaceOrder.create({ data: {
       id: A.dueOrder, tenantId: t, sponsorId: A.sponsor, reservationId: A.dueReservation, state: "AWAITING_PAYMENT",

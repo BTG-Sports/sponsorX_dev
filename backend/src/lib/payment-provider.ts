@@ -70,6 +70,25 @@ export function readStandinToken(token: string, now = new Date()): StandinLink {
 }
 
 /** The stand-in's reference for something it "did". */
-export function standinRef(prefix: "acct" | "pay" | "po"): string {
+export function standinRef(prefix: "acct" | "pay" | "po" | "re"): string {
   return `standin_${prefix}_${randomBytes(6).toString("hex")}`;
+}
+
+/* ── refunds — 2S4-BE-13 ─────────────────────────────────────────────── */
+
+export type CardRefund = { provider: ProviderName; reference: string; test: boolean };
+
+/**
+ * Refund a card payment, in full or for one line, back to the card it came
+ * from. The stand-in "refunds" at once — labelled a test, moving no money —
+ * so the whole cancel → refunded story runs on staging. With no provider
+ * connected it returns null: the refund stays on Finance's "Refunds to send"
+ * list and is sent by hand. A real provider is a network call, so when one
+ * is added this moves onto the worker (an outbox job), never a request path.
+ * SponsorX never sees the card: only the payment's own reference goes out.
+ */
+export function refundCard(_p: { paymentReference: string | null; amountCents: number }): CardRefund | null {
+  const provider = providerName();
+  if (provider === "none") return null;
+  return { provider, reference: standinRef("re"), test: true };
 }

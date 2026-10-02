@@ -39,14 +39,16 @@ import { offerAthletes, offerChecks } from "../../domain/offer-desk";
 import { mayWriteBranding, readBranding, requestLogoUpload, updateBranding } from "../../domain/branding";
 import { allowedList, pageRequest, searchTerm } from "../../lib/paging";
 import {
-  DeliveryProblemInput, DeliveryProofQuery, DeliveryResolutionInput, InvitableAthletesQuery, MarkDeliveredInput, ProblemAnswerInput, ProofUploadInput,
-  ReplyAnswerInput, TeamInvitationInput,
+  CancellationAnswerInput, DeliveryCancelInput, DeliveryProblemInput, DeliveryProofQuery, DeliveryResolutionInput, InvitableAthletesQuery, MarkDeliveredInput,
+  ProblemAnswerInput, ProofUploadInput, ReplyAnswerInput, SaleCancelInput, TeamInvitationInput,
   TeamInvitationResponseInput,
 } from "../../contracts/delivery";
+import { RefundSentInput, RefundsQuery } from "../../contracts/refunds";
 import {
-  answerProblem, answerReply, confirmDelivery, deliveryExchange, deliveryIssue, deliveryIssues, markDelivered, mySale, mySales, orderDeliveries,
-  proofLink, remindSeller, reportProblem, requestProofUpload, resolveIssue,
+  answerCancellation, answerProblem, answerReply, cancelLine, cancellationFor, confirmDelivery, deliveryExchange, deliveryIssue, deliveryIssues, markDelivered,
+  mySale, mySales, orderDeliveries, proofLink, remindSeller, reportProblem, requestProofUpload, resolveIssue, sellerCancel,
 } from "../../domain/delivery";
+import { listRefunds, markRefundSent } from "../../domain/refunds";
 import { sellerSummary } from "../../domain/seller-summary";
 import {
   inviteAthlete, invitableAthletes, leaveTeam, myTeam, removeFromRoster, respondToInvitation, teamInvitations, withdrawInvitation,
@@ -296,6 +298,22 @@ marketplaceRouter.post("/delivery-issues/:id/resolve", requireActor, (async (req
   res.json(await resolveIssue(req.actor!, req.params.id, b.decision, b.note));
 }) as RequestHandler<Id>);
 marketplaceRouter.post("/delivery-issues/:id/remind", requireActor, (async (req, res) => { res.json(await remindSeller(req.actor!, req.params.id)); }) as RequestHandler<Id>);
+/* 2S4-BE-12 — cancelling a paid line: the sponsor's terms and cancel, the seller's cancel and its answer to a request. */
+marketplaceRouter.get("/deliveries/:id/cancellation", requireActor, (async (req, res) => { res.json(await cancellationFor(req.actor!, req.params.id)); }) as RequestHandler<Id>);
+marketplaceRouter.post("/deliveries/:id/cancel", requireActor, (async (req, res) => {
+  res.json(await cancelLine(req.actor!, req.params.id, DeliveryCancelInput.parse(req.body ?? {})));
+}) as RequestHandler<Id>);
+marketplaceRouter.post("/sales/:id/cancel", requireActor, (async (req, res) => {
+  res.json(await sellerCancel(req.actor!, req.params.id, SaleCancelInput.parse(req.body).reason));
+}) as RequestHandler<Id>);
+marketplaceRouter.post("/sales/:id/cancellation-answer", requireActor, (async (req, res) => {
+  res.json(await answerCancellation(req.actor!, req.params.id, CancellationAnswerInput.parse(req.body)));
+}) as RequestHandler<Id>);
+/* 2S4-BE-13 — refunds to send (BTG admin and Finance). */
+marketplaceRouter.get("/refunds", requireActor, (async (req, res) => { res.json(await listRefunds(req.actor!, RefundsQuery.parse(req.query).state)); }) as RequestHandler);
+marketplaceRouter.post("/refunds/:id/sent", requireActor, (async (req, res) => {
+  res.json(await markRefundSent(req.actor!, req.params.id, RefundSentInput.parse(req.body)));
+}) as RequestHandler<Id>);
 
 /* ── 2S2-BE-05 — a team invites an athlete already on SponsorX ──────────── */
 marketplaceRouter.get("/team/invitations", requireActor, (async (req, res) => { res.json(await teamInvitations(req.actor!)); }) as RequestHandler);
