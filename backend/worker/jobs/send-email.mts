@@ -387,6 +387,36 @@ ${d.portalUrl ?? ""}
     text: `Hi ${d.guardianName ?? "there"},\n\n${d.athleteName ?? "An athlete"} has listed you as their parent or guardian on a SponsorX application. Because they are under 18, we need your authorisation before they can take part in any paid campaign.\n\nA member of the BTG team will contact you to confirm.\n\n— BTG SponsorX`,
   }),
 
+  /* 2S3-BE-06 — listings publish automatically; BTG handles the exceptions. */
+  "listing.live": (d) => ({
+    subject: `Your listing "${d.title ?? "listing"}" ${d.when ?? "is live"}`,
+    text: `Hi ${d.firstName ?? "there"},\n\nYour listing "${d.title ?? ""}" passed its checks and ${d.when ?? "is live"} on the SponsorX marketplace.\n\n${d.listingUrl ?? ""}\n\nTo change it, pause it first, edit, then resume — it is checked again.\n\n— BTG SponsorX`,
+  }),
+  "listing.held": (d) => ({
+    subject: `BTG is taking a look at "${d.title ?? "your listing"}"`,
+    text: `Hi ${d.firstName ?? "there"},\n\nYour listing "${d.title ?? ""}" passed its checks, and BTG is taking a look before it goes live. We'll email you when it does.${d.words ? `\n\n${d.words}. Edit them out of the title or description and submit again, or wait for BTG.` : ""}${d.accountCheck ? "\n\nBTG is checking your account. Nothing for you to do." : ""}${d.pausedByBtg ? "\n\nBTG paused this listing earlier, so BTG puts it back live." : ""}\n\n${d.listingUrl ?? ""}\n\n— BTG SponsorX`,
+  }),
+  "listing.heldForBtg": (d) => ({
+    subject: `Listing held for you: ${d.title ?? "a listing"}`,
+    text: `"${d.title ?? "A listing"}" from ${d.seller ?? "a seller"} passed its checks but is flagged, so it is waiting for you:\n\n${d.reasons ?? ""}\n\nApprove it, send it back or reject it:\n\n${d.reviewUrl ?? ""}\n\n— SponsorX`,
+  }),
+  "listing.autoPublishedDigest": (d) => ({
+    subject: `${d.count ?? "0"} listing(s) went live automatically — ${d.day ?? "today"}`,
+    text: `${d.count ?? "0"} listing(s) passed their checks and went live on their own in the last 24 hours:\n\n${d.listings ?? ""}\n\nPause or end any of them, with a reason the seller is emailed:\n\n${d.consoleUrl ?? ""}\n\n— SponsorX`,
+  }),
+  "listing.changesRequested": (d) => ({
+    subject: `BTG asked for changes to "${d.title ?? "your listing"}"`,
+    text: `Hi ${d.firstName ?? "there"},\n\nBTG looked at your listing "${d.title ?? ""}" and asked for a change before it goes live:\n\n${d.notes ?? ""}\n\nEdit it and submit again:\n\n${d.listingUrl ?? ""}\n\n— BTG SponsorX`,
+  }),
+  "listing.pausedByBtg": (d) => ({
+    subject: `BTG paused your listing "${d.title ?? ""}"`,
+    text: `Hi ${d.firstName ?? "there"},\n\nBTG paused your listing "${d.title ?? ""}", so sponsors can't buy it for now:\n\n${d.reason ?? ""}\n\nYou can edit it. When you resume it, it goes to BTG, and BTG puts it back live.\n\n${d.listingUrl ?? ""}\n\nQuestions: ${supportAddress(d)}\n\n— BTG SponsorX`,
+  }),
+  "listing.endedByBtg": (d) => ({
+    subject: `BTG ended your listing "${d.title ?? ""}"`,
+    text: `Hi ${d.firstName ?? "there"},\n\nBTG ended your listing "${d.title ?? ""}". It is off the marketplace:\n\n${d.reason ?? ""}\n\nOrders already placed are not affected.\n\n${d.listingUrl ?? ""}\n\nQuestions: ${supportAddress(d)}\n\n— BTG SponsorX`,
+  }),
+
   /* 2S1-BE-13 — closing an account and coming back. */
   "account.closed": (d) => ({
     subject: "Your SponsorX account is closed",

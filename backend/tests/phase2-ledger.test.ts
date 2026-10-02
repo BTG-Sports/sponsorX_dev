@@ -138,8 +138,8 @@ describe.skipIf(!hasDatabase)("the money side over the API", { timeout: 60_000 }
   async function publish(key: string, item: Record<string, unknown>, owner = "lg_mgr_e") {
     I[key] = (await call("POST", "/inventory", owner, item)).json.id;
     L[key] = (await call("POST", "/listings", "lg_mgr_e", { inventoryItemId: I[key], title: `${item.title}`, description: "A description long enough for governance." })).json.id;
-    await call("POST", `/listings/${L[key]}/submit`, "lg_mgr_e");
-    expect((await call("POST", `/listings/${L[key]}/decision`, "lg_admin", { decision: "APPROVE" })).json.state).toBe("PUBLISHED");
+    /* 2S3-BE-06 — a clean submit goes live on its own. */
+    expect((await call("POST", `/listings/${L[key]}/submit`, "lg_mgr_e")).json.state).toBe("PUBLISHED");
   }
   async function placed(lines: Array<{ key: string; quantity: number; day: number }>) {
     await call("POST", "/cart", "lg_s1_admin");

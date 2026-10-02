@@ -107,8 +107,8 @@ describe.skipIf(!hasDatabase)("sellers' orders and delivery over the API", { tim
   async function publish(seller: string, inventoryItemId: string, title: string) {
     const l = await call("POST", "/listings", seller, { inventoryItemId, title, description: "A 90-minute session at your venue, for up to 20 kids." });
     expect(l.status, l.text).toBe(201);
-    await call("POST", `/listings/${l.json.id}/submit`, seller);
-    expect((await call("POST", `/listings/${l.json.id}/decision`, "dl_admin", { decision: "APPROVE" })).json.state).toBe("PUBLISHED");
+    /* 2S3-BE-06 — a clean submit goes live on its own. */
+    expect((await call("POST", `/listings/${l.json.id}/submit`, seller)).json.state).toBe("PUBLISHED");
     return l.json.id as string;
   }
 

@@ -162,22 +162,19 @@ describe.skipIf(!hasDatabase)("2S3-BE-05 · an athlete with no team sells their 
       expect((await call("POST", "/listings", "ind_jordan", { inventoryItemId: E.item, ...clinic })).status).toBe(409);
     });
 
-    it("Jordan edits and submits it; it is not for sale until BTG approves", async () => {
+    it("Jordan edits and submits it; the checks pass, so it goes live on its own (2S3-BE-06)", async () => {
       expect((await call("PATCH", `/listings/${E.listing}`, "ind_jordan", { visibility: "PUBLIC" })).status).toBe(200);
       const sub = await call("POST", `/listings/${E.listing}/submit`, "ind_jordan");
       expect(sub.status, sub.text).toBe(200);
-      expect(sub.json.state).toBe("PENDING_APPROVAL");
-      expect(await search("ind_buyer")).toEqual([]);
-      /* Publishing is BTG's approval, never the seller's. */
+      expect(sub.json).toMatchObject({ state: "PUBLISHED", publishedBy: "AUTOMATIC", hold: null });
+      /* The seller never decides: BTG's decision route stays BTG's. */
       expect((await call("POST", `/listings/${E.listing}/decision`, "ind_jordan", { decision: "APPROVE" })).status).toBe(403);
     });
 
-    it("BTG sees it in its queue and approves it by the same rules", async () => {
-      const queue = (await call("GET", "/listings?state=PENDING_APPROVAL", "ind_admin")).json.listings as { id: string; seller: { type: string } }[];
-      expect(queue).toContainEqual(expect.objectContaining({ id: E.listing, seller: expect.objectContaining({ type: "ATHLETE" }) }));
-      const ok = await call("POST", `/listings/${E.listing}/decision`, "ind_admin", { decision: "APPROVE" });
-      expect(ok.status, ok.text).toBe(200);
-      expect(ok.json.state).toBe("PUBLISHED");
+    it("BTG sees it among the listings published automatically", async () => {
+      const auto = (await call("GET", "/listings/auto-published", "ind_admin")).json.listings as { id: string; seller: { type: string } }[];
+      expect(auto).toContainEqual(expect.objectContaining({ id: E.listing, seller: expect.objectContaining({ type: "ATHLETE" }) }));
+      expect((await call("GET", "/listings/auto-published", "ind_jordan")).status).toBe(403);
     });
   });
 
@@ -203,8 +200,8 @@ describe.skipIf(!hasDatabase)("2S3-BE-05 · an athlete with no team sells their 
       /* Sam lists and is approved, then joins the Hawks. */
       const item = (await call("POST", "/inventory", "ind_sam", { title: "Sam's clinic", kind: "CAMP", priceCents: 30_000, quantity: 2 })).json;
       const l = (await call("POST", "/listings", "ind_sam", { inventoryItemId: item.id, title: "Clinic with Sam Lee", description: "A one-hour clinic at your venue, up to 15 kids." })).json;
-      await call("POST", `/listings/${l.id}/submit`, "ind_sam");
-      await call("POST", `/listings/${l.id}/decision`, "ind_admin", { decision: "APPROVE" });
+      /* 2S3-BE-06 — a clean submit goes live on its own. */
+      expect((await call("POST", `/listings/${l.id}/submit`, "ind_sam")).json.state).toBe("PUBLISHED");
       expect((await search("ind_buyer", "Sam")).map((r) => r.id)).toEqual([l.id]);
       await prisma.athlete.update({ where: { id: "ind_ath_sam" }, data: { propertyId: E.property } });
       try {
