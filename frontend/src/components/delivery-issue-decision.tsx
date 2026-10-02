@@ -4,7 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
 import { proofLinkAction, remindSellerAction, resolveIssueAction } from "@/app/(app)/admin/delivery-issues/actions";
-import { money, possessive, type ApiDeliveryIssue } from "@/lib/delivery-issues-live";
+import { dayOf, isCancellation, money, possessive, type ApiDeliveryIssue, type DeskDecision } from "@/lib/delivery-issues-live";
 import { decisionLead, settledWords, type Settlement } from "@/lib/order-automation-live";
 import { DialogError, NoteField, OrderDialog, btn } from "./order-dialog";
 
@@ -20,11 +20,19 @@ import { DialogError, NoteField, OrderDialog, btn } from "./order-dialog";
    Also here: "View photo" (a 5-minute audited link, opened in a new tab —
    the line's own, or a problem's answer / disputed photo) and the overdue
    list's "Remind seller".
+
+   2S4-FE-06 (OrderCancellations.dc.html, CX-9 / CX-9b): a sponsor's request
+   to cancel that the seller declined or didn't answer is decided REFUND
+   ("Cancel and refund" — it goes on Finance's Refunds to send) or KEEP
+   ("Keep the line" — it goes ahead as booked), with the note to both sides.
    -------------------------------------------------------------------------- */
 
 export function DeliveryIssueDecision({ problem }: { problem: ApiDeliveryIssue & { settlement?: Settlement } }) {
-  const [open, setOpen] = useState<null | "confirm" | "refund">(null);
+  const [open, setOpen] = useState<null | "confirm" | "refund" | "cancel" | "keep">(null);
   const team = problem.seller.sub;
+  /* 2S4-BE-12 — a request to cancel is decided REFUND or KEEP, never CONFIRM. */
+  const cancellation = isCancellation(problem);
+  const firstDate = problem.dates[0] ? dayOf(problem.dates[0]) : null;
   const canDecide = problem.canDecide ?? problem.state === "PROBLEM";
   const between = problem.issue && (problem.issue.stage === "SELLER_TO_ANSWER" || problem.issue.stage === "SPONSOR_TO_ANSWER");
   const shares = `${possessive(problem.seller.name)} ${money(problem.hold.sellerShareCents)}${team ? ` and ${possessive(team)} ${money(problem.hold.teamShareCents)}` : ""}`;
@@ -39,14 +47,29 @@ export function DeliveryIssueDecision({ problem }: { problem: ApiDeliveryIssue &
               {team && (<><dt className="text-muted">{possessive(team)} share on hold</dt><dd>{money(problem.hold.teamShareCents)}</dd></>)}
               <dt className="text-muted">{problem.sponsor.name} paid for this line</dt><dd>{money(problem.hold.sponsorPaidCents)}</dd>
             </dl>
-            <button type="button" onClick={() => setOpen("confirm")}
-              className="min-h-12 rounded-lg bg-primary px-5 text-sm font-bold text-cta-ink hover:bg-primary-soft">
-              Confirm delivered
-            </button>
-            <button type="button" onClick={() => setOpen("refund")}
-              className="min-h-11 rounded-lg border border-danger/50 px-4 text-[13px] font-semibold text-danger hover:bg-danger/10">
-              Refund this line
-            </button>
+            {cancellation ? (
+              <>
+                <button type="button" onClick={() => setOpen("cancel")}
+                  className="min-h-11 rounded-lg border border-danger/50 px-4 text-[13px] font-semibold text-danger hover:bg-danger/10">
+                  Cancel and refund
+                </button>
+                <button type="button" onClick={() => setOpen("keep")}
+                  className="min-h-12 rounded-lg bg-primary px-5 text-sm font-bold text-cta-ink hover:bg-primary-soft">
+                  Keep the line
+                </button>
+              </>
+            ) : (
+              <>
+                <button type="button" onClick={() => setOpen("confirm")}
+                  className="min-h-12 rounded-lg bg-primary px-5 text-sm font-bold text-cta-ink hover:bg-primary-soft">
+                  Confirm delivered
+                </button>
+                <button type="button" onClick={() => setOpen("refund")}
+                  className="min-h-11 rounded-lg border border-danger/50 px-4 text-[13px] font-semibold text-danger hover:bg-danger/10">
+                  Refund this line
+                </button>
+              </>
+            )}
             <p className="text-[11px] text-faint">Your note goes to both sides.</p>
           </>
         ) : (
@@ -54,7 +77,9 @@ export function DeliveryIssueDecision({ problem }: { problem: ApiDeliveryIssue &
             <p className="text-xs text-muted">{problem.settlement || problem.issue?.stage === "SETTLED" ? "Settled between them" : between ? "Still between them" : "Decided"}</p>
             <p className="text-[13px] leading-relaxed">
               {problem.settlement || problem.issue?.stage === "SETTLED"
-                ? settledWords(problem.settlement?.outcome ?? problem.issue?.outcome?.outcome, problem.redeliverOn)
+                ? settledWords(problem.settlement?.outcome ?? problem.issue?.outcome?.outcome, problem.redeliverOn, problem.settlement?.kind ?? problem.issue?.kind)
+                : problem.issue?.outcome?.outcome === "KEPT"
+                ? "BTG kept this line — it goes ahead as booked."
                 : between
                 ? "The seller and the sponsor are still settling this between them — it comes to you only if they can’t."
                 : problem.state === "CONFIRMED" ? "This line was confirmed as delivered."
@@ -76,6 +101,27 @@ export function DeliveryIssueDecision({ problem }: { problem: ApiDeliveryIssue &
           ]}
         />
       )}
+      {open === "cancel" && (
+        <Decision
+          id="dd" lineId={problem.id} decision="REFUND" title="Cancel and refund this line?" onClose={() => setOpen(null)}
+          go="Cancel and refund"
+          points={[
+            `${problem.sponsor.name} gets the ${money(problem.hold.sponsorPaidCents)} paid for this line back. It goes on the Refunds to send list for Finance.`,
+            `${possessive(problem.seller.name)}${team ? ` and ${possessive(team)}` : ""} share${team ? "s" : ""} for this line go${team ? "" : "es"} to $0.00. Any other lines on the order aren’t affected.`,
+            `${problem.sponsor.name} and ${problem.seller.name} both get your note.`,
+          ]}
+        />
+      )}
+      {open === "keep" && (
+        <Decision
+          id="dd" lineId={problem.id} decision="KEEP" title="Keep this line?" onClose={() => setOpen(null)}
+          go="Keep the line" primary
+          points={[
+            `The line goes ahead as booked${firstDate ? `, from ${firstDate}` : ""}. Nothing is refunded.`,
+            `${problem.sponsor.name} and ${problem.seller.name} both get your note.`,
+          ]}
+        />
+      )}
       {open === "refund" && (
         <Decision
           id="dd" lineId={problem.id} decision="REFUND" title="Refund this line?" onClose={() => setOpen(null)}
@@ -92,7 +138,7 @@ export function DeliveryIssueDecision({ problem }: { problem: ApiDeliveryIssue &
 }
 
 function Decision({ id, lineId, decision, title, points, go, primary, onClose }: {
-  id: string; lineId: string; decision: "CONFIRM" | "REFUND"; title: string; points: string[]; go: string; primary?: boolean; onClose: () => void;
+  id: string; lineId: string; decision: DeskDecision; title: string; points: string[]; go: string; primary?: boolean; onClose: () => void;
 }) {
   const router = useRouter();
   const [note, setNote] = useState("");

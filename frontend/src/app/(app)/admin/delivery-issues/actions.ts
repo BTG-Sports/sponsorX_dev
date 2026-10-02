@@ -9,7 +9,8 @@ import { apiFetch } from "@/server/api";
    2S4-FE-04 (BTG half) — the Delivery issues desk's writes (BTG admin; the
    API applies the matrix — orderDelivery approve — and sends the emails):
 
-     POST /delivery-issues/:lineId/resolve  { decision: CONFIRM | REFUND, note }
+     POST /delivery-issues/:lineId/resolve  { decision: CONFIRM | REFUND | KEEP, note }
+                                            (KEEP — 2S4-BE-12: a request to cancel, kept as booked)
      POST /delivery-issues/:lineId/remind   the seller and the team's manager
      GET  /deliveries/:lineId/proof         a 5-minute audited link to the photo
                                             (?issue=&photo=answer|marked — a problem's own, 2S4-BE-11)
@@ -35,15 +36,17 @@ async function call(path: string, init: RequestInit): Promise<{ res: Response; b
   }
 }
 
-export async function resolveIssueAction(lineId: string, decision: "CONFIRM" | "REFUND", note: string): Promise<DeskWrite> {
+export async function resolveIssueAction(lineId: string, decision: "CONFIRM" | "REFUND" | "KEEP", note: string): Promise<DeskWrite> {
   if (typeof lineId !== "string" || !lineId) return { ok: false, message: "Unknown order line." };
-  if (decision !== "CONFIRM" && decision !== "REFUND") return { ok: false, message: "Choose confirm or refund." };
+  if (decision !== "CONFIRM" && decision !== "REFUND" && decision !== "KEEP") return { ok: false, message: "Choose confirm, refund or keep." };
   const text = typeof note === "string" ? note.trim() : "";
   if (!text) return { ok: false, message: "Add a note — the sponsor and the seller both read it." };
   const r = await call(`/delivery-issues/${encodeURIComponent(lineId)}/resolve`, { method: "POST", body: JSON.stringify({ decision, note: text.slice(0, 2000) }) });
   if (!r) return { ok: false, message: unreachable };
   revalidatePath(PATH);
   revalidatePath(`${PATH}/${lineId}`);
+  /* A refund puts a row on Finance's list (2S4-BE-13). */
+  if (decision === "REFUND") revalidatePath("/admin/refunds");
   return r.res.ok ? { ok: true } : { ok: false, message: deskRefusal(r.res.status, r.body, "The decision wasn't saved") };
 }
 

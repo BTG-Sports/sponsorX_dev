@@ -6,7 +6,7 @@ import { Card } from "@/components/ui";
 import { EmptyState, SkeletonRows } from "@/components/states";
 import { demoState } from "@/lib/demo";
 import { StatePill } from "@/components/order-bits";
-import { DELIVERY_TABS, DESK_RULE, dayOf, deliveryTab, type ApiDeliveryDesk, type ApiDeliveryIssue } from "@/lib/delivery-issues-live";
+import { DELIVERY_TABS, DESK_RULE, dayOf, deliveryTab, isCancellation, type ApiDeliveryDesk, type ApiDeliveryIssue } from "@/lib/delivery-issues-live";
 import { DESK_EMPTY, OVERDUE_HANDOVER_DAYS, deskReason, momentOf, overdueState, settledBadge, type Pill } from "@/lib/order-automation-live";
 import { apiFetch } from "@/server/api";
 
@@ -17,6 +17,10 @@ import { apiFetch } from "@/server/api";
    settled between the seller and the sponsor: BTG sees only what they
    couldn't settle, or where someone didn't answer — plus, read-only, what
    they settled, and lines still overdue.
+
+   2S4-FE-06 (OrderCancellations.dc.html, CX-9a): a sponsor's request to
+   cancel that the seller declined or didn't answer lands in Needs BTG too,
+   marked "cancellation", with the API's own words for why it came.
 
    Reads  GET  /delivery-issues                 { problems, settled, overdue }
    Writes POST /delivery-issues/:lineId/remind  (RemindSellerButton → ./actions.ts)
@@ -67,7 +71,7 @@ export default async function DeliveryIssuesPage({ searchParams }: { searchParam
   const order = (r: ApiDeliveryIssue) => (
     <span className="min-w-0">
       <strong className="block text-[13px] font-semibold">{r.orderRef}</strong>
-      <span className="block text-[11px] text-muted">{r.line} · {r.quantity}</span>
+      <span className="block text-[11px] text-muted">{r.line} · {r.quantity}{isCancellation(r) ? " · cancellation" : ""}</span>
     </span>
   );
   const reason = (p: Pill & { sub: string }) => (

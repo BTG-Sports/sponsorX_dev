@@ -28,6 +28,8 @@ export const ADMIN_ACCESS: Record<string, { roles: string[]; who: string }> = {
   "/admin/marketplace": { roles: ["SUPER_ADMIN", "BTG_ADMIN"], who: "BTG admins" },
   /* 2S5-FE-04 — payout approvals: the API's payout.approve is BTG admin and Finance. */
   "/admin/payouts": { roles: ["SUPER_ADMIN", "BTG_ADMIN", "FINANCE"], who: "BTG admins and Finance" },
+  /* 2S4-FE-06 — refunds to send by hand: the API's refundDue is BTG admin and Finance (own tenant) and SUPER_ADMIN. */
+  "/admin/refunds": { roles: ["SUPER_ADMIN", "BTG_ADMIN", "FINANCE"], who: "BTG admins and Finance" },
   /* 2S1-FE-03 — sponsor requests: the API's inquiry.approve is BTG admin and Sales. */
   "/admin/sponsor-requests": { roles: ["SUPER_ADMIN", "BTG_ADMIN", "SALES"], who: "BTG admins and Sales" },
   /* 2S1-FE-11 — the API's restrictedWord policy is BTG_ADMIN own-tenant and SUPER_ADMIN only. */

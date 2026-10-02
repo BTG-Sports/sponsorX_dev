@@ -102,6 +102,41 @@ export async function decideSellerApprovalAction(id: string, decision: "ACCEPT" 
   return { ok: true };
 }
 
+/* --------------------------------------------------------------------------
+   2S4-FE-06 / 2S4-BE-12 — cancelling a sold line, the seller's side:
+
+     POST /sales/:lineId/cancel               { reason } — a line the seller
+                                              can't deliver; the sponsor is
+                                              refunded at once
+     POST /sales/:lineId/cancellation-answer  { decision: ACCEPT, reason? }
+                                              | { decision: DECLINE, reason }
+                                              — the sponsor's request to cancel,
+                                              before its deadline; a no goes to BTG
+   -------------------------------------------------------------------------- */
+
+export async function sellerCancelAction(lineId: string, reason: string): Promise<SaleWrite> {
+  if (typeof lineId !== "string" || !lineId) return { ok: false, message: "Unknown order line." };
+  const text = typeof reason === "string" ? reason.trim().slice(0, 2000) : "";
+  if (!text) return { ok: false, message: "Say why you can't deliver it — the sponsor reads this." };
+  const r = await post(`/sales/${encodeURIComponent(lineId)}/cancel`, { reason: text });
+  if (!r) return { ok: false, message: unreachable };
+  revalidateSales(lineId);
+  if (!r.res.ok) return { ok: false, message: apiRefusal(r.res.status, r.json, "The line wasn't cancelled") };
+  return { ok: true };
+}
+
+export async function answerCancellationAction(lineId: string, decision: "ACCEPT" | "DECLINE", reason?: string): Promise<SaleWrite> {
+  if (typeof lineId !== "string" || !lineId) return { ok: false, message: "Unknown order line." };
+  if (decision !== "ACCEPT" && decision !== "DECLINE") return { ok: false, message: "Agree to cancel, or keep it." };
+  const text = typeof reason === "string" ? reason.trim().slice(0, 2000) : "";
+  if (decision === "DECLINE" && !text) return { ok: false, message: "Say why you can't cancel it — the sponsor reads this, and BTG decides." };
+  const r = await post(`/sales/${encodeURIComponent(lineId)}/cancellation-answer`, text ? { decision, reason: text } : { decision });
+  if (!r) return { ok: false, message: unreachable };
+  revalidateSales(lineId);
+  if (!r.res.ok) return { ok: false, message: apiRefusal(r.res.status, r.json, "Your answer wasn't sent") };
+  return { ok: true };
+}
+
 export type ProblemAnswer =
   | { answer: "DELIVER_AGAIN"; newDate: string; note: string }
   | { answer: "REFUND"; note?: string | null }

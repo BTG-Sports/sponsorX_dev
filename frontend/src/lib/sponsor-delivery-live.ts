@@ -22,7 +22,9 @@
    Pure: shapes and words.
    -------------------------------------------------------------------------- */
 
+import type { ApiCancellationTerms, LineCancelled } from "@/lib/cancellations-live";
 import type { ApiIssue, ApiTimelineItem } from "@/lib/order-automation-live";
+import type { SponsorRefund } from "@/lib/refunds-live";
 
 export type DeliveryLineState = "UNPAID" | "IN_DELIVERY" | "DELIVERED" | "CONFIRMED" | "PROBLEM" | "REFUNDED" | "CANCELLED";
 
@@ -47,9 +49,21 @@ export type ApiDeliveryLine = {
   issue?: ApiIssue | null;
   canAnswerSellerReply?: boolean;
   timeline?: ApiTimelineItem[];
+  /* 2S4-BE-12 / -13 — cancelling it (the sponsor's terms; null for a seller),
+     how it was cancelled, and its refund: on its way or sent (never how). */
+  cancellation?: ApiCancellationTerms | null;
+  cancelled?: LineCancelled | null;
+  refund?: SponsorRefund | null;
 };
 
-export type ApiOrderDeliveries = { orderId: string; confirmWindowHours: number; answerWindowHours?: number; lines: ApiDeliveryLine[] };
+export type ApiOrderDeliveries = {
+  orderId: string;
+  confirmWindowHours: number;
+  answerWindowHours?: number;
+  freeCancelDays?: number;
+  refunds?: SponsorRefund[];
+  lines: ApiDeliveryLine[];
+};
 
 export const CONFIRM_HOURS = 24;
 
@@ -92,6 +106,8 @@ export function deliveryBadge(l: Pick<ApiDeliveryLine, "state" | "confirmedBy"> 
 
 /** The sentence under a line, once something has happened to it. */
 export function deliveryNote(l: ApiDeliveryLine): string | null {
+  /* 2S4-FE-06 — a cancelled line's words are the cancellation's (cancellations-live sponsorCancelView). */
+  if (l.cancelled) return null;
   if (l.state === "DELIVERED" && l.confirmDueAt) {
     return `Confirm it, or report a problem, by ${stamp(l.confirmDueAt)}. If you don’t answer by then, it counts as confirmed.`;
   }
