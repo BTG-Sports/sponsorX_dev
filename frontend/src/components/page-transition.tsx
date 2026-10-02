@@ -41,11 +41,15 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useLoad } from "@/lib/city/load-store";
 import { easeDisplayed, overallProgress } from "@/lib/city/loading";
 import {
+  afterCover,
   coverRadius,
   growFrames,
   holePolygon,
   isSitePath,
+  lockScroll as lockScrollOn,
+  phaseDeadlineMs,
   routeLabel,
+  unlockScroll as unlockScrollOn,
   xPoints,
   xPolygon,
 } from "@/lib/page-transition";
@@ -83,6 +87,7 @@ const MIN_HOLD_INSTANT_MS = 950;
 const SAFETY_MS = 12_000;
 /** The cover twists into place as it grows (and the hole the other way). */
 const TURN = Math.PI / 6;
+const TIMINGS = { coverMs: COVER_MS, revealMs: REVEAL_MS, staggerMs: STAGGER_MS, titleLeadMs: TITLE_LEAD_MS };
 
 const EASE_COVER = "cubic-bezier(0.76, 0, 0.24, 1)";
 const EASE_REVEAL = "cubic-bezier(0.7, 0, 0.2, 1)";
@@ -121,7 +126,6 @@ export function PageTransition() {
 
   const phaseRef = useRef<Phase>("idle");
   const pathRef = useRef(pathname);
-  const overflowRef = useRef("");
 
   const orangeRef = useRef<HTMLDivElement>(null);
   const blueRef = useRef<HTMLDivElement>(null);
@@ -136,14 +140,10 @@ export function PageTransition() {
     setPhase(next);
   };
 
-  const lockScroll = () => {
-    const html = document.documentElement;
-    overflowRef.current = html.style.overflow;
-    html.style.overflow = "hidden";
-  };
-  const unlockScroll = () => {
-    document.documentElement.style.overflow = overflowRef.current;
-  };
+  /* The transition's own lock — an attribute, never the boot screen's inline
+     style, so the two cannot overwrite each other (lib/page-transition.ts). */
+  const lockScroll = () => lockScrollOn(document.documentElement);
+  const unlockScroll = () => unlockScrollOn(document.documentElement);
 
   const layers = () =>
     [orangeRef.current, blueRef.current, inkRef.current].filter((el): el is HTMLDivElement => el !== null);
@@ -225,6 +225,7 @@ export function PageTransition() {
 
     if (phase === "cover") {
       let live = true;
+      const from = pathRef.current;
       const w = window.innerWidth;
       const h = window.innerHeight;
       const all = layers();
@@ -239,16 +240,31 @@ export function PageTransition() {
             }),
           );
       animsRef.current = anims;
-      void anims[anims.length - 1].finished
-        .then(() => {
-          if (!live) return;
-          prepareArrival(r.path);
-          router.push(r.href);
-          go("hold");
-        })
-        .catch(() => {});
+      /* Settles exactly once: when the cover has grown, when its animation
+         is cancelled (a rejected `finished`), or at the deadline. Any of the
+         three moves on — a swallowed rejection used to leave the page
+         covered and locked for good. */
+      const settle = () => {
+        if (!live) return;
+        live = false;
+        window.clearTimeout(deadline);
+        if (afterCover(from, pathRef.current) === "stay") {
+          // Back was pressed while the X grew: don't push the clicked link
+          // on top of it. The page they went back to is already there.
+          const here = pathRef.current;
+          prepareArrival(here);
+          go("hold", { ...r, href: here, path: here, label: routeLabel(here), instant: true });
+          return;
+        }
+        prepareArrival(r.path);
+        router.push(r.href);
+        go("hold");
+      };
+      const deadline = window.setTimeout(settle, phaseDeadlineMs("cover", r.reduced, TIMINGS));
+      void anims[anims.length - 1].finished.then(settle, settle);
       return () => {
         live = false;
+        window.clearTimeout(deadline);
       };
     }
 
@@ -295,6 +311,20 @@ export function PageTransition() {
 
     // reveal
     let live = true;
+    /* Ends exactly once: the last hole has opened, its animation was
+       cancelled, or the deadline passed. A reveal that never ended used to
+       leave the phase non-idle, and every later public link click was then
+       cancelled and dropped — site links stopped working. */
+    const finish = () => {
+      if (!live) return;
+      live = false;
+      window.clearTimeout(timer);
+      window.clearTimeout(deadline);
+      unlockScroll();
+      document.documentElement.dataset.sxLoaded = "1";
+      go("idle", null);
+    };
+    const deadline = window.setTimeout(finish, phaseDeadlineMs("reveal", r.reduced, TIMINGS));
     const timer = window.setTimeout(() => {
       if (!live) return;
       document.documentElement.dataset.sxLoaded = "1";
@@ -315,15 +345,12 @@ export function PageTransition() {
             ),
           );
       animsRef.current = anims;
-      void anims[anims.length - 1].finished
-        .then(() => {
-          if (live) go("idle", null);
-        })
-        .catch(() => {});
+      void anims[anims.length - 1].finished.then(finish, finish);
     }, r.reduced ? 0 : TITLE_LEAD_MS);
     return () => {
       live = false;
       window.clearTimeout(timer);
+      window.clearTimeout(deadline);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phase]);

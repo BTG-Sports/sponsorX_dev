@@ -44,9 +44,12 @@ describe("the rules, as written (pure)", () => {
     expect(inventoryProblems({ priceCents: 5000, availableFrom: new Date("2026-12-01"), availableUntil: new Date("2026-11-01") })).toEqual([expect.stringMatching(/availableUntil/)]);
   });
 
-  it("the listing machine has no road from DRAFT to PUBLISHED, and ARCHIVED is terminal", () => {
-    expect(canTransitionListing("DRAFT", "PUBLISHED")).toBe(false);
+  it("the listing machine: a clean submit goes live, a flagged one waits for BTG, and ARCHIVED is terminal (2S3-BE-06)", () => {
+    expect(canTransitionListing("DRAFT", "PUBLISHED")).toBe(true);
+    expect(canTransitionListing("DRAFT", "PENDING_APPROVAL")).toBe(true);
+    expect(canTransitionListing("PAUSED", "PENDING_APPROVAL")).toBe(true);
     expect(canTransitionListing("PENDING_APPROVAL", "PUBLISHED")).toBe(true);
+    expect(canTransitionListing("PUBLISHED", "PENDING_APPROVAL")).toBe(false);
     for (const to of ["DRAFT", "PENDING_APPROVAL", "PUBLISHED", "PAUSED"] as const) expect(canTransitionListing("ARCHIVED", to)).toBe(false);
     const ok = { property: { listingAccessAt: new Date() }, item: { active: true, priceCents: 5000, quantity: null, availableUntil: null }, listing: { title: "Banner", description: "A courtside banner for the season.", publishAt: null }, now: new Date() };
     expect(governanceProblems(ok)).toEqual([]);
@@ -267,18 +270,16 @@ describe.skipIf(!hasDatabase)("Phase 2 marketplace over the API", { timeout: 60_
       expect((await call("POST", `/listings/${listingId}/decision`, "mkt_admin", { decision: "APPROVE" })).status).toBe(409);
 
       await call("PATCH", `/listings/${listingId}`, "mkt_mgr_e", { description: "Two courtside banners for every 2026 home game." });
-      expect((await call("POST", `/listings/${listingId}/submit`, "mkt_mgr_e")).json.state).toBe("PENDING_APPROVAL");
-      /* The property cannot approve itself. */
-      expect((await call("POST", `/listings/${listingId}/decision`, "mkt_mgr_e", { decision: "APPROVE" })).status).toBe(403);
-      /* BTG sees it in the queue of the tenants it operates; an unrelated operator cannot act on it. */
-      const queue = (await call("GET", "/listings?state=PENDING_APPROVAL", "mkt_admin")).json.listings;
-      expect(queue.map((l: { id: string }) => l.id)).toContain(listingId);
-      expect((await call("POST", `/listings/${listingId}/decision`, "mkt_x_admin", { decision: "APPROVE" })).status).toBe(403);
-
-      const approved = await call("POST", `/listings/${listingId}/decision`, "mkt_admin", { decision: "APPROVE" });
-      expect(approved.json).toMatchObject({ state: "PUBLISHED", blockers: [] });
-      expect(approved.json.publishedAt).not.toBeNull();
-      expect(await prisma.auditLog.count({ where: { tenantId: T, action: "listing.approve", entityId: listingId } })).toBe(1);
+      /* 2S3-BE-06 — the checks pass and nothing flags it, so it goes live on submit. */
+      const live = await call("POST", `/listings/${listingId}/submit`, "mkt_mgr_e");
+      expect(live.json).toMatchObject({ state: "PUBLISHED", blockers: [], publishedBy: "AUTOMATIC", publishedAutomatically: true });
+      expect(live.json.publishedAt).not.toBeNull();
+      /* The property cannot act as BTG; an unrelated operator cannot act on it. */
+      expect((await call("POST", `/listings/${listingId}/btg-action`, "mkt_mgr_e", { action: "PAUSE", reason: "x" })).status).toBe(403);
+      expect((await call("POST", `/listings/${listingId}/btg-action`, "mkt_x_admin", { action: "PAUSE", reason: "x" })).status).toBe(403);
+      /* Nothing for BTG to decide. */
+      expect((await call("POST", `/listings/${listingId}/decision`, "mkt_admin", { decision: "APPROVE" })).status).toBe(409);
+      expect(await prisma.auditLog.count({ where: { action: "listing.autoPublish", entityId: listingId } })).toBe(1);
     });
 
     it("a published price cannot move under a buyer — pause first; resuming re-checks governance", async () => {
@@ -303,7 +304,9 @@ describe.skipIf(!hasDatabase)("Phase 2 marketplace over the API", { timeout: 60_
     it("changes requested go back to DRAFT with the note; only the property's own items; one live listing per item", async () => {
       const camp = await call("POST", "/listings", "mkt_mgr_e", { inventoryItemId: rileyItem, title: "Summer camp appearance", description: "Riley runs a two-hour clinic at your venue." });
       expect(camp.status).toBe(201); // a roster athlete's item
-      await call("POST", `/listings/${camp.json.id}/submit`, "mkt_mgr_e");
+      /* 2S3-BE-06 — a word on BTG's list holds it for BTG. */
+      await call("PATCH", `/listings/${camp.json.id}`, "mkt_mgr_e", { description: "Riley runs a two-hour clinic at your venue. Casino night after." });
+      expect((await call("POST", `/listings/${camp.json.id}/submit`, "mkt_mgr_e")).json.state).toBe("PENDING_APPROVAL");
       expect((await call("POST", `/listings/${camp.json.id}/decision`, "mkt_admin", { decision: "REQUEST_CHANGES" })).status).toBe(422); // needs a note
       const sent = await call("POST", `/listings/${camp.json.id}/decision`, "mkt_admin", { decision: "REQUEST_CHANGES", notes: "Say which ages the clinic suits." });
       expect(sent.json).toMatchObject({ state: "DRAFT", reviewNotes: "Say which ages the clinic suits." });

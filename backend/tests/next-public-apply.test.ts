@@ -27,7 +27,10 @@ describe.skipIf(!hasDatabase)("P9-FE-06 · the public student application, and w
   const { prisma } = await import("../src/db/client");
   const { createApp } = await import("../src/app");
 
-  const T = "np_tenant";
+  // Not "np_tenant": notification-preferences.test.ts owns that id, and the
+  // two files run in parallel — each one's wipe() deleted the other's tenant
+  // mid-run, failing whichever seeded second (Tenant_pkey). One id per file.
+  const T = "npa_tenant";
   const SCHOOL = { id: "np_school", slug: "np-high" };
   const OTHER = { id: "np_school_other", slug: "np-no-next" };
   const ADVISOR = "np_advisor";
@@ -123,6 +126,27 @@ describe.skipIf(!hasDatabase)("P9-FE-06 · the public student application, and w
     });
     expect(res.status).toBe(201);
     expect(((await res.json()) as { guardianRequired: boolean }).guardianRequired).toBe(false);
+  });
+
+  /* The bypass: with neither a birthDate nor an ageBand the age is unknown,
+     and an unknown age used to be read as an adult — no guardian asked for.
+     Now refused before anything is created, as the athlete intake does. */
+  it("an application with no birthDate and no ageBand is refused — an unknown age is never an adult", async () => {
+    const { birthDate: _omit, ...noAge } = minor;
+    const before = await prisma.student.count({ where: { tenantId: T } });
+    for (const body of [noAge, { ...noAge, birthDate: null, ageBand: null }]) {
+      const res = await call("POST", "/public/students/applications", { ...body, email: "no.age@np-test.invalid" });
+      expect(res.status).toBe(400);
+      expect(JSON.stringify(await res.json())).toMatch(/birthDate or ageBand/);
+    }
+    expect(await prisma.student.count({ where: { tenantId: T } })).toBe(before);
+  });
+
+  it("a birthDate in the future or before 1900 is refused", async () => {
+    for (const birthDate of ["2999-01-01", "1899-12-31"]) {
+      const res = await call("POST", "/public/students/applications", { ...minor, birthDate, email: "bad.date@np-test.invalid" });
+      expect(res.status).toBe(400);
+    }
   });
 
   it("a school that hasn't adopted NEXT can still be applied to only if it is a school — not an unknown slug", async () => {

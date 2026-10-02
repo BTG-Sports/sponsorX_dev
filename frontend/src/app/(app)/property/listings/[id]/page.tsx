@@ -16,13 +16,16 @@ import { requirePortalAccess } from "@/server/portal";
           GET  /inventory/:itemId            only for a PACKAGE — its components
    Links  ./preview                          the listing as a sponsor sees it
                                              in the shop (ShopListingCard)
-   Writes PATCH /listings/:id                while DRAFT or PAUSED
-          POST /listings/:id/submit          DRAFT → with BTG (422 problems[])
-          POST /listings/:id/transition      pause · resume · archive
+   Writes PATCH /listings/:id                while DRAFT, PAUSED or held for BTG
+                                             (the edit takes a held one back to DRAFT)
+          POST /listings/:id/submit          DRAFT → PUBLISHED when the checks pass,
+                                             else held for BTG (422 problems[])
+          POST /listings/:id/transition      pause · resume (the same path) · archive
 
    `blockers` drive the governance checklist; `reviewNotes` are shown when
-   BTG sent it back. Read-only while with BTG or on sale, apart from the
-   moves the state machine allows. Honest gaps: no photos, no delete, and
+   BTG sent it back; `hold` says why BTG is taking a look (2S3-FE-04);
+   `publishedBy` says how it went live. Read-only while on sale, apart from
+   the moves the state machine allows. Honest gaps: no photos, no delete, and
    the item can't be swapped after creation (archive and list again).
    -------------------------------------------------------------------------- */
 
@@ -63,7 +66,9 @@ export default async function ListingEditorPage({ params }: { params: Promise<{ 
   const dates = [
     listing.submittedAt ? `Submitted ${dateLabel(listing.submittedAt)}` : null,
     listing.decidedAt ? `BTG decided ${dateLabel(listing.decidedAt)}` : null,
-    listing.publishedAt ? `On sale since ${dateLabel(listing.publishedAt)}` : null,
+    listing.publishedAt
+      ? `${listing.publishedBy === "AUTOMATIC" ? "Went live automatically" : listing.publishedBy === "BTG" ? "Approved by BTG" : "On sale"} ${dateLabel(listing.publishedAt)}`
+      : null,
   ].filter(Boolean);
 
   return (

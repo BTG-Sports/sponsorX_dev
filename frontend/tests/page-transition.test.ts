@@ -1,15 +1,61 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  afterCover,
   coverRadius,
   growFrames,
   holePolygon,
   insideX,
   isSitePath,
+  lockScroll,
+  phaseDeadlineMs,
   routeLabel,
+  scrollLocked,
+  unlockScroll,
   xPoints,
   xPolygon,
 } from "../src/lib/page-transition";
+
+/* The three ways a transition used to strand the visitor (audit 2026-10-02). */
+describe("transition safety", () => {
+  const html = () => ({ style: { overflow: "" }, dataset: {} as Record<string, string | undefined> });
+
+  /* The boot screen (landing-loader.tsx) saves html.style.overflow, sets
+     "hidden", and puts the saved value back when it leaves. Replayed here
+     exactly as it runs, interleaved with a link followed mid-boot. */
+  it("a link followed while the boot screen is up never leaves the page locked", () => {
+    const h = html();
+    const bootSaved = h.style.overflow; // boot screen up
+    h.style.overflow = "hidden";
+    lockScroll(h); // click during boot: the transition covers
+    h.style.overflow = bootSaved; // boot screen leaves first
+    expect(scrollLocked(h)).toBe(true); // still covered — still locked
+    unlockScroll(h); // reveal
+    expect(scrollLocked(h)).toBe(false); // the old save/restore left this true for good
+  });
+
+  it("the transition's unlock never releases the boot screen's own lock", () => {
+    const h = html();
+    lockScroll(h);
+    h.style.overflow = "hidden"; // boot screen still up
+    unlockScroll(h);
+    expect(scrollLocked(h)).toBe(true);
+  });
+
+  it("back pressed while the X grows: open up where the visitor is, don't push the clicked link", () => {
+    expect(afterCover("/packages", "/packages")).toBe("push");
+    expect(afterCover("/packages", "/")).toBe("stay");
+  });
+
+  it("cover and reveal always have a deadline past their own animation", () => {
+    const t = { coverMs: 640, revealMs: 860, staggerMs: 85, titleLeadMs: 240 };
+    expect(phaseDeadlineMs("cover", false, t)).toBeGreaterThan(t.coverMs + 2 * t.staggerMs);
+    expect(phaseDeadlineMs("reveal", false, t)).toBeGreaterThan(t.titleLeadMs + t.revealMs + 2 * t.staggerMs);
+    expect(phaseDeadlineMs("cover", true, t)).toBeGreaterThan(280);
+    // …and none is long enough to feel like a hang.
+    for (const p of ["cover", "reveal"] as const) expect(phaseDeadlineMs(p, false, t)).toBeLessThan(5_000);
+  });
+});
 
 /* P1-ART-12 — the page transition. The X must really cover the screen
    before the route swaps (or the swap shows through a notch), every

@@ -116,8 +116,8 @@ describe.skipIf(!hasDatabase)("Phase 2 orders over the API", { timeout: 60_000 }
     expect(made.status, made.text).toBe(201);
     I[key] = made.json.id;
     L[key] = (await call("POST", "/listings", "mo_mgr", { inventoryItemId: I[key], title: `${item.title}`, description: "A description long enough for governance." })).json.id;
-    await call("POST", `/listings/${L[key]}/submit`, "mo_mgr");
-    expect((await call("POST", `/listings/${L[key]}/decision`, "mo_admin", { decision: "APPROVE" })).json.state).toBe("PUBLISHED");
+    /* 2S3-BE-06 — a clean submit goes live on its own. */
+    expect((await call("POST", `/listings/${L[key]}/submit`, "mo_mgr")).json.state).toBe("PUBLISHED");
   }
   /** A sponsor's cart with these lines, reserved. */
   async function held(sponsor: string, lines: Array<{ key: string; quantity: number; from?: number; to?: number }>) {
@@ -216,8 +216,8 @@ describe.skipIf(!hasDatabase)("Phase 2 orders over the API", { timeout: 60_000 }
 
     it("is listed and bought as a single line — and takes its parts with it", async () => {
       L.package = (await call("POST", "/listings", "mo_mgr", { inventoryItemId: I.package, title: "Game-night package", description: "Two scoreboard ads and Riley's clinic, one price." })).json.id;
-      await call("POST", `/listings/${L.package}/submit`, "mo_mgr");
-      await call("POST", `/listings/${L.package}/decision`, "mo_admin", { decision: "APPROVE" });
+      /* 2S3-BE-06 — a clean submit goes live on its own. */
+      expect((await call("POST", `/listings/${L.package}/submit`, "mo_mgr")).json.state).toBe("PUBLISHED");
       expect((await call("GET", "/marketplace/search?kind=PACKAGE", "mo_s2_admin")).json.results.map((r: { id: string }) => r.id)).toEqual([L.package]);
 
       await call("POST", "/cart", "mo_s2_admin");

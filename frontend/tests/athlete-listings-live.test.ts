@@ -37,20 +37,24 @@ describe("who sells it", () => {
 describe("states, in the design's words", () => {
   it("badges", () => {
     expect(listingBadge(null).label).toBe("Not listed yet");
-    expect(listingBadge(listing()).label).toBe("Submitted");
+    expect(listingBadge(listing()).label).toBe("BTG is taking a look");
     expect(listingBadge(listing({ state: "PUBLISHED" })).label).toBe("Live");
     expect(listingBadge(listing({ state: "ARCHIVED" })).label).toBe("Ended");
     expect(listingBadge(listing({ state: "DRAFT", reviewNotes: "Say where." })).label).toBe("Changes asked");
   });
-  it("the track and the sentence say BTG puts it live", () => {
+  it("the track and the sentence: held for BTG, which emails (2S3-FE-04)", () => {
     expect(listingTrack(listing()).map((s) => s.state)).toEqual(["current", "todo", "todo", "todo"]);
     expect(listingTrack(listing())[2]!.note).toBe("Only if you choose");
-    expect(statusText(listing())).toMatch(/goes live once BTG approves it/);
+    expect(statusText(listing())).toMatch(/BTG is taking a look — we’ll email you/);
+    expect(statusText(listing({ state: "DRAFT" }))).toMatch(/goes live as soon as the checks pass/);
+    expect(statusText(listing())).not.toMatch(/once BTG approves/);
   });
   it("the owner's moves", () => {
     expect(ownerControls("PUBLISHED")).toMatchObject({ pause: true, resume: false, editable: false });
     expect(ownerControls("PAUSED")).toMatchObject({ resume: true, editable: true, end: true });
-    expect(ownerControls("PENDING_APPROVAL")).toMatchObject({ pause: false, resume: false, end: false, canSubmit: false });
+    /* 2S3-BE-06 — held for BTG: editable (back to a draft) and submittable again. */
+    expect(ownerControls("PENDING_APPROVAL")).toMatchObject({ pause: false, resume: false, end: true, canSubmit: true, editable: true });
+    expect(ownerControls("ARCHIVED")).toMatchObject({ end: false, editable: false, canSubmit: false });
   });
 });
 

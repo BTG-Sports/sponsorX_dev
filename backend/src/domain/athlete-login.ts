@@ -51,6 +51,17 @@ async function ensureLogin(
   const address = email?.trim().toLowerCase();
   if (!address) return "no-email";
 
+  /* One provisioning per address at a time, across every tenant. The
+     holder check below and the insert are a check-then-insert, and
+     `User.email` carries no unique constraint (only @@index([tenantId,
+     email])), so two transactions provisioning the same address — one
+     guardian approved for two wards at once — could both pass the check and
+     both insert; the sign-in would claim one row and strand the other. The
+     lock is held until this transaction ends, so the second waits, then
+     sees the first's committed row and reports "address-in-use" or
+     "already-linked". Same pattern as reservation.ts. */
+  await tx.$executeRawUnsafe(`SELECT pg_advisory_xact_lock(hashtext($1))`, `login:${address}`);
+
   /* Already this person's login — approval of a re-application, or a
      guardian linked to a second ward. `athleteId` is unique on User. */
   const own = await tx.user.findFirst({

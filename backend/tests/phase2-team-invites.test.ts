@@ -130,8 +130,8 @@ describe.skipIf(!hasDatabase)("2S2-BE-05 · a team invites an athlete already on
     E.ownItem = item.json.id;
     const listing = await call("POST", "/listings", "tv_jordan", { inventoryItemId: E.ownItem, title: "Shooting session with Jordan Reed", description: "A 90-minute shooting session at your venue." });
     E.ownListing = listing.json.id;
-    await call("POST", `/listings/${E.ownListing}/submit`, "tv_jordan");
-    expect((await call("POST", `/listings/${E.ownListing}/decision`, "tv_admin", { decision: "APPROVE" })).json.state).toBe("PUBLISHED");
+    /* 2S3-BE-06 — a clean submit goes live on its own. */
+    expect((await call("POST", `/listings/${E.ownListing}/submit`, "tv_jordan")).json.state).toBe("PUBLISHED");
     E.spareItem = (await call("POST", "/inventory", "tv_jordan", { title: "Free-throw clinic", kind: "CAMP", priceCents: 50_000, quantity: 10 })).json.id;
   });
 
@@ -240,8 +240,8 @@ describe.skipIf(!hasDatabase)("2S2-BE-05 · a team invites an athlete already on
     const team = await call("POST", "/listings", "tv_mgr", { inventoryItemId: E.spareItem, title: "Free-throw clinic with Jordan Reed", description: "A free-throw clinic at your venue, for up to 20 kids." });
     expect(team.status, team.text).toBe(201);
     E.teamListing = team.json.id;
-    await call("POST", `/listings/${E.teamListing}/submit`, "tv_mgr");
-    expect((await call("POST", `/listings/${E.teamListing}/decision`, "tv_admin", { decision: "APPROVE" })).json.state).toBe("PUBLISHED");
+    /* 2S3-BE-06 — a clean submit goes live on its own. */
+    expect((await call("POST", `/listings/${E.teamListing}/submit`, "tv_mgr")).json.state).toBe("PUBLISHED");
     expect(await search("free-throw")).toContain(E.teamListing);
     /* And Jordan can't list around his team. */
     expect((await call("POST", "/listings", "tv_jordan", { inventoryItemId: E.spareItem, title: "Mine", description: "A free-throw clinic, sold by me directly." })).status).toBe(409);

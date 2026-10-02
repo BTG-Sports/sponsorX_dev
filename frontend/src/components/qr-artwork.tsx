@@ -48,6 +48,12 @@ export function QrArtwork(p: {
       style={{
         width: `${spec.w}in`, height: `${spec.h}in`, background: ground, boxShadow: "0 1px 8px rgba(0,0,0,0.25)",
         fontFamily: "var(--font-poppins), system-ui, sans-serif", overflow: "hidden", position: "relative",
+        /* The ground IS the artwork. Without this a browser drops background
+           colours when printing ("background graphics" off by default), so
+           the dark brand printed light-on-white: the QR still scanned, but
+           the offer and sponsor copy were unreadable. Inherited, so it
+           covers every face and the white QR panel too. */
+        printColorAdjust: "exact", WebkitPrintColorAdjust: "exact",
       }}
       className="print:!shadow-none"
     >

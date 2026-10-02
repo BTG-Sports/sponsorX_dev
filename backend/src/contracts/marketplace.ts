@@ -73,14 +73,24 @@ export const ListingInput = z
   .object({ inventoryItemId: z.string().min(1), ...listingFields })
   .strict()
   .meta({ id: "ListingInput", description: "A listing on one of the property's items, or a roster athlete's — or, from an approved athlete with no team, on one of their own items (2S3-BE-05). Starts DRAFT." });
-export const ListingPatch = z.object(listingFields).partial().strict().meta({ id: "ListingPatch", description: "Only while DRAFT or PAUSED." });
+export const ListingPatch = z.object(listingFields).partial().strict().meta({ id: "ListingPatch", description: "Only while DRAFT, PAUSED or held for BTG (PENDING_APPROVAL — the edit takes it back to DRAFT, to submit again)." });
 export const ListingTransitionInput = z
   .object({ to: z.enum(["PAUSED", "PUBLISHED", "ARCHIVED"]) })
-  .meta({ id: "ListingTransitionInput", description: "Pause, resume (re-checks governance) or archive. Publishing a draft is BTG's approval, never this." });
+  .meta({ id: "ListingTransitionInput", description: "Pause, resume or archive. Resuming runs the same automatic path as submitting (2S3-BE-06): live when the checks pass and nothing is flagged, else held for BTG; a listing BTG paused always goes back to BTG." });
 export const ListingDecisionInput = z
-  .object({ decision: z.enum(["APPROVE", "REQUEST_CHANGES"]), notes: z.string().max(4000).nullable().optional() })
-  .meta({ id: "ListingDecisionInput", description: "BTG's decision on a submitted listing; REQUEST_CHANGES needs notes." });
+  .object({ decision: z.enum(["APPROVE", "REQUEST_CHANGES", "REJECT"]), notes: z.string().max(4000).nullable().optional() })
+  .meta({ id: "ListingDecisionInput", description: "BTG's decision on a listing held for it (2S3-BE-06): APPROVE publishes it; REQUEST_CHANGES sends it back to DRAFT; REJECT ends it. REQUEST_CHANGES and REJECT need notes — the seller is emailed them." });
+export const ListingBtgActionInput = z
+  .object({ action: z.enum(["PAUSE", "END", "RESUME"]), reason: z.string().trim().max(2000).nullable().optional() })
+  .strict()
+  .meta({ id: "ListingBtgActionInput", description: "BTG pauses or ends a live listing (END also takes a paused one), with a reason the seller is emailed — PAUSE and END need it; or puts a listing BTG paused back live (RESUME — every check re-run: restricted words or the seller's standing hold it for BTG instead) (2S3-BE-06)." });
 export const ListingState = z.enum(LISTING_STATES).meta({ id: "ListingState" });
+/** 2S3-FE-04 — BTG's "Live listings" tab, a page at a time. */
+export const LISTINGS_LIVE_PAGE_SIZE = 25;
+export const LiveListingsQuery = z
+  .object({ page: z.coerce.number().int().min(1).max(10_000).optional() })
+  .strict()
+  .meta({ id: "LiveListingsQuery", description: `1-based page of ${LISTINGS_LIVE_PAGE_SIZE}, newest live first (default 1).` });
 
 export const OfferInput = z
   .object({

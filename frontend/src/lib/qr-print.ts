@@ -8,9 +8,13 @@
      sticker  3×3 in     QR 1.25 in  (minimum 1 in)
 
    Quiet zone ≥ 4 modules on a plain white panel, nothing overlapping it. The
-   stored PNG carries a 2-module margin (worker/jobs/generate-qr.mts), so the
-   panel adds padding of at least QR ÷ 16 — two more modules for any code up
-   to version 6 (41 modules), which a /r/<token> URL never exceeds.
+   stored PNG carries a 2-module margin (worker/jobs/generate-qr.mts), so a
+   code N modules wide is drawn N + 4 modules across the QR's inches, and the
+   panel's QR ÷ 16 adds (N + 4) ÷ 16 more: the quiet zone is 2 + (N + 4) / 16.
+   That is ≥ 4 from version 3 (29 modules → 4.06) UP, and grows with the
+   version. A real /r/<token> URL is never below version 3 at level M: the
+   token alone is 27 characters, so the URL is ≥ 38 bytes and version 2-M
+   holds only 26 (asserted in tests/qr-print.test.ts with a real encoder).
    -------------------------------------------------------------------------- */
 
 export type PrintFormat = "poster" | "tent" | "sticker";

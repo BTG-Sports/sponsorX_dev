@@ -123,7 +123,8 @@ const listing = (over: Partial<ApiListing> = {}): ApiListing => ({
 describe("2S3-FE-01 · listings", () => {
   it("offers only the owner's moves from each state", () => {
     expect(listingControls("DRAFT")).toEqual({ editable: true, canSubmit: true, moves: [{ to: "ARCHIVED", label: "Archive" }] });
-    expect(listingControls("PENDING_APPROVAL")).toEqual({ editable: false, canSubmit: false, moves: [] });
+    /* 2S3-BE-06 — held for BTG: editable (the edit takes it back to a draft) and submittable again. */
+    expect(listingControls("PENDING_APPROVAL")).toEqual({ editable: true, canSubmit: true, moves: [{ to: "ARCHIVED", label: "Archive" }] });
     expect(listingControls("PUBLISHED").editable).toBe(false);
     expect(listingControls("PUBLISHED").moves.map((m) => m.to)).toEqual(["PAUSED", "ARCHIVED"]);
     expect(listingControls("PAUSED")).toMatchObject({ editable: true, canSubmit: false });

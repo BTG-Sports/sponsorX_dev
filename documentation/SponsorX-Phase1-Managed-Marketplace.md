@@ -5,7 +5,7 @@
 | | |
 |---|---|
 | **Goal** | Launch real micro-NIL campaigns while building the data foundation. BTG staff run matching, pricing, conflict checks and invoicing; the software standardises and records every step. |
-| **Tasks** | 199 · 472 person-days |
+| **Tasks** | 200 · 475 person-days |
 | **Blueprint timeline** | 14–18 weeks |
 | **Balanced budget** | $75K–$105K |
 | **Depends on** | Nothing — this is the start |
@@ -2721,13 +2721,23 @@ Nearly every student is a minor, and the student pool is money-adjacent. Field-l
 - **Done when:** Cross-student and cross-school isolation tested; AthleteRate.amount denied to STUDENT and ADVISOR; no fan or student PII beyond what the programme needs
 - **Reference:** Spec §7, §26, §37
 
+### ▶ `P9-BE-16` · Route edition ad artwork through the approval board
+
+**Order** 209.5 · **BE** · **Where:** Code · **3d** · **Ready** · **Unblocks** 1
+
+An advertiser's artwork for an edition ad slot has no approval step. `EditionAsset` carries no review state, and the approval board (`DeliverableState`) needs a `Deliverable` on a Campaign Order — which an ad-only NEXT campaign never has. The spec says artwork goes "through `CreativeAsset` and the approval board" and calls that reuse rename-only (§3); the model says otherwise. Give ad artwork a path onto the board — BTG review, then the sponsor's sign-off — before an edition goes to production. A design choice comes first: whether an ad becomes a Deliverable (and on what order), or the board learns a second kind of subject.
+
+- **Depends on:** P9-BE-10, P9-FE-03
+- **Done when:** Artwork for a sold slot reaches BTG review and the sponsor's sign-off on the existing approval board, with no new state machine; an edition cannot enter production while any sold slot's artwork is unapproved; the decisions are audited; P9-QA-01 clause 4 passes against it
+- **Reference:** Spec §3, §11 · raised 2026-10-02 by P9-QA-01's end-to-end test (`backend/tests/next-edition-e2e.test.ts`), where it is the one clause the platform cannot meet yet
+
 ### ⏸ `P9-QA-01` · E2E: edition sells once, a student code attributes the sale
 
 **Order** 210 · **QA** · **Where:** Code · **3d** · **Blocked**
 
 The Stage 1 exit, run as a test rather than asserted in a document.
 
-- **Depends on:** P9-FE-03, P9-BE-07
+- **Depends on:** P9-FE-03, P9-BE-07, P9-BE-16
 - **Done when:** A school is a Property, an edition sells a back cover exactly once, a student's code attributes a sale, artwork clears the approval board with a ContentRight covering its use, QR_SCAN and LINK_CLICK report separately, and a split resolves to four payees without touching Earning
 - **Reference:** Spec §11
 

@@ -192,7 +192,7 @@ export default async function ShopPage({
           hint={
             hasFilters(f)
               ? "Loosen a filter — a wider price range or dates, or any type."
-              : "Items appear here once a property publishes a listing and BTG approves it."
+              : "Items appear here once a property or athlete lists one and it passes the marketplace's checks."
           }
         />
       ) : (

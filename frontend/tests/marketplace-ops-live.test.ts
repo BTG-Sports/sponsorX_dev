@@ -1,13 +1,20 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  LISTING_TABS,
   ORDER_STATES,
   agoLabel,
   failedTriesLabel,
   failureCopy,
   isOverdue,
+  btgListingActions,
   listingDecisions,
+  listingTab,
+  livePage,
+  needsReason,
   orderDecisions,
+  publishedByLabel,
+  sellerLabel,
   orderMoves,
   payoutProblemSince,
   splitRows,
@@ -45,9 +52,46 @@ describe("order decisions and moves", () => {
   });
 
   it("decides a listing only while pending approval", () => {
-    expect(listingDecisions("PENDING_APPROVAL")).toEqual(["APPROVE", "REQUEST_CHANGES"]);
+    expect(listingDecisions("PENDING_APPROVAL")).toEqual(["APPROVE", "REQUEST_CHANGES", "REJECT"]);
     expect(listingDecisions("DRAFT")).toEqual([]);
     expect(listingDecisions("PUBLISHED")).toEqual([]);
+  });
+});
+
+describe("2S3-FE-04 · listings that went live on their own", () => {
+  it("BTG pauses or ends a live listing, ends a paused one, and puts back only its own pause", () => {
+    expect(btgListingActions({ state: "PUBLISHED" })).toEqual(["PAUSE", "END"]);
+    expect(btgListingActions({ state: "PAUSED", btgAction: null })).toEqual(["END"]);
+    expect(btgListingActions({ state: "PAUSED", btgAction: "PAUSED" })).toEqual(["RESUME", "END"]);
+    for (const s of ["DRAFT", "PENDING_APPROVAL", "ARCHIVED"] as const) expect(btgListingActions({ state: s })).toEqual([]);
+    expect(needsReason("PAUSE")).toBe(true);
+    expect(needsReason("END")).toBe(true);
+    expect(needsReason("RESUME")).toBe(false);
+  });
+
+  it("the tab, how it went live and who sells it", () => {
+    expect(listingTab("auto")).toBe("auto");
+    expect(listingTab("live")).toBe("live");
+    for (const v of [undefined, "held", "nonsense", ["auto"], ["live"]]) expect(listingTab(v)).toBe("held");
+    expect(publishedByLabel({ publishedBy: "AUTOMATIC" })).toBe("Published automatically");
+    expect(publishedByLabel({ publishedBy: "BTG" })).toBe("Approved by BTG");
+    expect(publishedByLabel({ publishedBy: null })).toBeNull();
+    expect(sellerLabel({ seller: { type: "ATHLETE", id: "a", name: "QUINN.AVERY" }, propertyName: null })).toBe("QUINN.AVERY (athlete)");
+    expect(sellerLabel({ seller: { type: "PROPERTY", id: "p", name: "Lakeside Larks" }, propertyName: "Lakeside Larks" })).toBe("Lakeside Larks");
+    expect(sellerLabel({ propertyName: "Old shape" })).toBe("Old shape");
+  });
+});
+
+describe("2S3-FE-04 · BTG can pause or end ANY live listing", () => {
+  it("the Live listings tab sits beside the other two, and its page is read safely", () => {
+    expect(LISTING_TABS.map((t) => t.key)).toEqual(["held", "auto", "live"]);
+    expect(LISTING_TABS.find((t) => t.key === "live")?.label).toBe("Live listings");
+    expect(livePage("3")).toBe(3);
+    for (const v of [undefined, "0", "-2", "two", "1.5", ["2"], "999999"]) expect(livePage(v)).toBe(1);
+  });
+
+  it("every live listing — however it went live — offers Pause and End", () => {
+    for (const btgAction of [null, undefined]) expect(btgListingActions({ state: "PUBLISHED", btgAction })).toEqual(["PAUSE", "END"]);
   });
 });
 

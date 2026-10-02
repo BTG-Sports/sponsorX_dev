@@ -2193,6 +2193,23 @@ model Listing {
   decidedAt       DateTime?
   decidedBy       String?
   publishedAt     DateTime?
+  /// 2S3-BE-06 — why the listing waits for BTG (plain words, for BTG): the
+  /// restricted words matched, or the seller's standing. Empty when nothing
+  /// held it. Kept after BTG decides, so the history reads true.
+  reviewReasons   String[]     @default([])
+  /// 2S3-BE-06 — the restricted words that held it — the one reason the
+  /// seller is told in full, so they can edit them out.
+  heldWords       String[]     @default([])
+  /// 2S3-BE-06 — true when the checks passed and it went live on its own;
+  /// false when BTG approved it (decidedBy / decidedAt) or it isn't live.
+  publishedAutomatically Boolean @default(false)
+  /// 2S3-BE-06 — BTG paused (PAUSED) or ended (ENDED) it, with the reason the
+  /// seller was emailed. A BTG pause is BTG's to lift: the seller's resume
+  /// sends it back to BTG instead of putting it live.
+  btgAction       String?
+  btgReason       String?
+  btgActedAt      DateTime?
+  btgActedBy      String?
   createdBy       String?
   createdAt       DateTime     @default(now())
   updatedAt       DateTime     @default(now()) @updatedAt
@@ -2206,6 +2223,7 @@ model Listing {
   @@index([tenantId, state])
   @@index([inventoryItemId, state])
   @@index([sellerAthleteId])
+  @@index([tenantId, publishedAutomatically, publishedAt])
 }
 
 enum OfferState {
@@ -2754,6 +2772,22 @@ model PayoutLine {
 /// send free text (first, a sponsor's "Other" business description) to BTG's
 /// review. A match never rejects anything by itself. Removing a word
 /// deactivates it (the row, and so its history, stays).
+/// 2S3-BE-06 — BTG's daily summary of the listings that went live on their
+/// own: one row per BTG tenant per day (UTC), written when the email is
+/// queued, so a second run that day sends nothing.
+model ListingDigest {
+  id          String   @id @default(cuid())
+  tenantId    String
+  /// The UTC date, YYYY-MM-DD.
+  day         String
+  windowStart DateTime
+  windowEnd   DateTime
+  listings    Int
+  createdAt   DateTime @default(now())
+
+  @@unique([tenantId, day])
+}
+
 model RestrictedWord {
   id         String   @id @default(cuid())
   tenantId   String

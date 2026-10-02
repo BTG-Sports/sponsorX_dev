@@ -128,6 +128,7 @@ const GOVERNED_BY: Record<string, Resource> = {
 const SYSTEM_INTERNAL: Record<string, string> = {
   OutboxJob: "the job queue — written inside domain transactions, drained by the worker",
   EmailSendLog: "the worker's idempotency ledger for sent email",
+  ListingDigest: "the worker's record of the daily auto-published listings summary sent to each BTG tenant (2S3-BE-06) — no route reads it",
   /* 2S1-BE-16 — written by the public contact form, read only by the worker
      that mails it; BTG reads the messages in the support mailbox, not here. */
   SupportMessage: "a contact-form message — written by the public form, mailed by the worker; read in the support mailbox",

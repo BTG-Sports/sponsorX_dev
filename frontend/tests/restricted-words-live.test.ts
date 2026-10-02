@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  groupWords, historyLines, testInputs, testWhy, wordRefusal, TEST_LINES_MAX, type ApiRestrictedWord,
+  groupWords, historyLines, testInputs, testWhy, wordRefusal, TEST_LINES_MAX, WHERE_CHECKED, type ApiRestrictedWord,
 } from "../src/lib/restricted-words-live";
 
 /* --------------------------------------------------------------------------
@@ -68,5 +68,13 @@ describe("wordRefusal", () => {
     expect(wordRefusal(409, { error: { message: "“fake id” is already on the list." } }).message).toBe("“fake id” is already on the list.");
     expect(wordRefusal(400, { error: { message: "The submission failed validation.", issues: [{ message: "Too long" }] } }).message).toBe("The submission failed validation. Too long");
     expect(wordRefusal(403, null).message).toBe("Only BTG admins can change the restricted words.");
+  });
+});
+
+describe("2S3-FE-04 · where the list is checked", () => {
+  it("listings are checked now; profiles still follow", () => {
+    expect(WHERE_CHECKED).toMatch(/marketplace listings \(their title and description/);
+    expect(WHERE_CHECKED).toMatch(/Athlete profiles follow later/);
+    expect(WHERE_CHECKED).not.toMatch(/listings follow/);
   });
 });

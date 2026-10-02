@@ -26,7 +26,7 @@ import { RollLabel, SiteMenu, SiteNav } from "./site-nav";
 
 export function SiteHeader() {
   return (
-    <header className="sticky top-0 z-20 h-[72px]">
+    <header className="sticky top-0 z-20 h-[72px] print:hidden">
       <HeaderBar className="relative flex items-center bg-bg/55 px-5 backdrop-blur-xl sm:pl-[8vw] sm:pr-[6vw]">
         {/* glass sheen */}
         <span
@@ -153,7 +153,7 @@ export function SiteFooter({ compact = false }: { compact?: boolean }) {
   // Phone-only overrides, applied when compact.
   const c = (cls: string) => (compact ? cls : "");
   return (
-    <footer className="relative z-10 w-full overflow-hidden bg-[#03070f]/92 text-on-media backdrop-blur-xl">
+    <footer className="relative z-10 w-full overflow-hidden bg-[#03070f]/92 text-on-media backdrop-blur-xl print:hidden">
       {/* glowing top rule, a light travelling along it */}
       <span
         aria-hidden="true"

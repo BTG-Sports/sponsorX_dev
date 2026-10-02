@@ -25,7 +25,7 @@ import { execFileSync } from "node:child_process";
 import { createInterface } from "node:readline/promises";
 
 const PROJECT_ID = "1c11f29a-b569-4d14-98cf-e97a4d3ae209"; // Railway project "sponsorX"
-const SERVICES = ["api", "web"];
+const SERVICES = ["api", "web"]; // deploy order — see deployEnv
 const POLL_MS = 10_000;
 const TIMEOUT_MS = 25 * 60_000;
 const DONE_OK = new Set(["SUCCESS", "SLEEPING"]);
@@ -132,17 +132,27 @@ async function deployOne(envName, env, serviceName, sha) {
   return { label, ok: false, status: "still running after 25 minutes", deploymentId };
 }
 
+/* P2-OPS-10 rule 2, in today's topology: `api` (the API with the worker in
+   the same process, src/combined.mts) is live before `web` starts. New web
+   code calls the API it was built against; shipped together, it can serve
+   a page that calls an endpoint the previous API does not have yet. So the
+   services deploy one at a time, in SERVICES order, and a failed `api`
+   stops the run — `web` is never deployed on top of an API that did not
+   come up. */
 async function deployEnv(envName, envs, sha) {
   const env = envs[envName];
   if (!env) fail(`Railway has no environment called "${envName}".`);
-  console.log(`\n▶ Deploying to ${envName}…`);
-  const results = await Promise.all(SERVICES.map((s) => deployOne(envName, env, s, sha)));
-  const bad = results.filter((r) => !r.ok);
-  if (bad.length) {
-    fail(
-      `${envName} did not deploy cleanly:\n` +
-        bad.map((r) => `  ${r.label}: ${r.status} — see \`railway logs -d ${r.deploymentId}\``).join("\n"),
-    );
+  console.log(`\n▶ Deploying to ${envName} (${SERVICES.join(" → ")}, in order)…`);
+  for (const s of SERVICES) {
+    const r = await deployOne(envName, env, s, sha);
+    if (!r.ok) {
+      const skipped = SERVICES.slice(SERVICES.indexOf(s) + 1);
+      fail(
+        `${envName} did not deploy cleanly:\n` +
+          `  ${r.label}: ${r.status} — see \`railway logs -d ${r.deploymentId}\`` +
+          (skipped.length ? `\n  not deployed, to keep it in step: ${skipped.join(", ")}` : ""),
+      );
+    }
   }
   const web = env.services.web?.domains ?? [];
   console.log(`✓ ${envName} is live${web.length ? ` at https://${web[0]}` : ""}`);

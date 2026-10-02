@@ -6,7 +6,16 @@
    lands it SUBMITTED for the school's advisor, with a minor's guardian
    captured; the API refuses a minor without one (422), and that answer is
    returned as copy, not thrown.
+
+   The applicant's own address is forwarded (edgeHeadersFrom), as every
+   other public action does. Without it the API's 5-an-hour limit keys on
+   this web server's address, so every student on the site shares ONE
+   bucket and the sixth application in an hour — from anyone — is refused.
    -------------------------------------------------------------------------- */
+
+import { headers } from "next/headers";
+
+import { edgeHeadersFrom } from "@/server/edge";
 
 const API_URL = process.env.API_URL ?? "http://localhost:4000";
 
@@ -17,7 +26,7 @@ export async function submitNextApplication(body: unknown): Promise<ApplyResult>
   try {
     res = await fetch(`${API_URL}/api/v1/public/students/applications`, {
       method: "POST",
-      headers: { "content-type": "application/json" },
+      headers: { "content-type": "application/json", ...edgeHeadersFrom(await headers()) },
       body: JSON.stringify(body),
       cache: "no-store",
       signal: AbortSignal.timeout(8000),

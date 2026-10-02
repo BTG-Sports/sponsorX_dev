@@ -16,6 +16,7 @@
    never written yet), no CPM (the API says why, and that is what we show).
    -------------------------------------------------------------------------- */
 
+import type { ListingHold } from "@/lib/listing-outcome";
 import { categoryLabel, type BrandCategory } from "@/lib/brand-categories";
 
 /* ================================================================ shared */
@@ -265,13 +266,18 @@ export type ApiListing = {
   };
   propertyName: string;
   blockers: string[];
+  /* 2S3-BE-06 — how it went live, why it waits for BTG, and BTG's pause or end. */
+  publishedBy?: "AUTOMATIC" | "BTG" | null;
+  hold?: ListingHold | null;
+  btgAction?: "PAUSED" | "ENDED" | null;
+  btgReason?: string | null;
 };
 
 const LISTING_COPY: Record<ListingState, [string, "neutral" | "primary" | "accent" | "danger" | "warn", string]> = {
-  DRAFT: ["Draft", "neutral", "Only you can see it. Submit it when the checklist is clear and BTG reviews it."],
-  PENDING_APPROVAL: ["With BTG", "warn", "BTG is reviewing it. It can't be edited until they decide."],
+  DRAFT: ["Draft", "neutral", "Only you can see it. Submit it when the checklist is clear — it goes live as soon as the checks pass."],
+  PENDING_APPROVAL: ["With BTG", "warn", "BTG is taking a look — we'll email you. Editing it takes it back to a draft to submit again."],
   PUBLISHED: ["On sale", "accent", "Sponsors can find and buy it. Pause it to change the wording."],
-  PAUSED: ["Paused", "primary", "Hidden from sponsors. Edit it, then resume — the checklist is re-checked."],
+  PAUSED: ["Paused", "primary", "Hidden from sponsors. Edit it, then resume — the checks run again."],
   ARCHIVED: ["Archived", "neutral", "Retired for good. List the item again to sell it."],
 };
 
@@ -283,7 +289,9 @@ export function listingState(s: ListingState) {
 export const LISTING_STATE_OPTIONS = LISTING_STATES.map((s) => ({ value: s, label: listingState(s).label }));
 
 /** What the owner may do from each state — the state machine's owner moves
- *  (listing-rules.ts). PUBLISHED from DRAFT is BTG's approval, never ours. */
+ *  (listing-rules.ts). Submitting puts it live when the checks pass
+ *  (2S3-BE-06); a listing held for BTG can be edited, which takes it back to
+ *  a draft, and submitted again. */
 export function listingControls(s: ListingState): {
   editable: boolean;
   canSubmit: boolean;
@@ -291,6 +299,8 @@ export function listingControls(s: ListingState): {
 } {
   switch (s) {
     case "DRAFT":
+      return { editable: true, canSubmit: true, moves: [{ to: "ARCHIVED", label: "Archive" }] };
+    case "PENDING_APPROVAL":
       return { editable: true, canSubmit: true, moves: [{ to: "ARCHIVED", label: "Archive" }] };
     case "PUBLISHED":
       return { editable: false, canSubmit: false, moves: [{ to: "PAUSED", label: "Pause" }, { to: "ARCHIVED", label: "Archive" }] };
