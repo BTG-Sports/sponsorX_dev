@@ -637,6 +637,33 @@ describe.skipIf(!hasDatabase)("2S4-BE-12 / 2S4-BE-13 · cancelling a paid line, 
       expect(await refundsOf(o.orderId)).toEqual(rows);
     });
 
+    it("two card attempts confirmed after one cancellation: two rows, each refunded; a redelivery of either makes no third", async () => {
+      const o = await order("lc_cedar_buyer", [{ listingId: E.joListing, quantity: 1, startsOn: at(76), endsOn: at(77) }], "NONE");
+      const link = await call("POST", `/marketplace-orders/${o.orderId}/pay`, "lc_cedar_buyer");
+      await call("POST", "/public/test-provider/checkout", undefined, { token: tokenOf(link.json.url), outcome: "SUCCEED" });
+      const first = await prisma.paymentAttempt.findFirstOrThrow({ where: { orderId: o.orderId, state: "PROCESSING" }, select: { id: true, amountCents: true, sponsorId: true } });
+      /* A second payment of the same order the provider also took (a second tab, a retried checkout). */
+      const second = await prisma.paymentAttempt.create({
+        data: { tenantId: T, orderId: o.orderId, sponsorId: first.sponsorId, amountCents: first.amountCents, provider: "standin", providerRef: "standin_pay_lc_second", state: "PROCESSING" },
+        select: { id: true },
+      });
+      await prisma.$transaction((tx) => cancelOrderAsSystem(tx, o.orderId, "UNPAID"));
+      expect(await confirmPayment(first.id)).toMatchObject({ confirmed: true, refundNeeded: true });
+      expect(await confirmPayment(second.id)).toMatchObject({ confirmed: true, refundNeeded: true });
+      const rows = await prisma.refundDue.findMany({ where: { orderId: o.orderId }, select: { id: true, attemptId: true, lineId: true, cause: true, amountCents: true, state: true }, orderBy: { createdAt: "asc" } });
+      expect(rows).toEqual([
+        expect.objectContaining({ attemptId: first.id, lineId: null, cause: "PAID_AFTER_CANCELLATION", amountCents: first.amountCents, state: "SENT" }),
+        expect.objectContaining({ attemptId: second.id, lineId: null, cause: "PAID_AFTER_CANCELLATION", amountCents: first.amountCents, state: "SENT" }),
+      ]);
+      for (const r of rows) expect(await mailsFor("refund.sent", r.id)).toEqual(["lc_cedar_buyer@lc-test.invalid"]);
+      for (const id of [first.id, second.id]) expect(await confirmPayment(id)).toMatchObject({ confirmed: false });
+      expect(await prisma.refundDue.count({ where: { orderId: o.orderId } })).toBe(2);
+      /* And the database refuses a second row for one attempt. */
+      await expect(prisma.refundDue.create({ data: {
+        tenantId: T, orderId: o.orderId, sponsorId: "lc_cedar", amountCents: 1, cause: "PAID_AFTER_CANCELLATION", attemptId: first.id,
+      } })).rejects.toThrow();
+    });
+
     it("Finance's list: BTG admin and Finance only, tenant-wide, with what each needs — and a Zoho invoice's credit note", async () => {
       for (const who of ["lc_buyer", "lc_analyst", "lc_jo", "lc_mgr"]) expect((await call("GET", "/refunds", who)).status, who).toBe(403);
       const open = await call("GET", "/refunds?state=OPEN", "lc_finance");

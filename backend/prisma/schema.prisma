@@ -3060,6 +3060,8 @@ model RefundDue {
   sentOn      DateTime? @db.Date
   /// The provider that refunded a card ("standin" on staging: a test, no money moved).
   provider    String?
+  /// PAID_AFTER_CANCELLATION only: the card attempt the money came from — one row per attempt.
+  attemptId   String?
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @default(now()) @updatedAt
 

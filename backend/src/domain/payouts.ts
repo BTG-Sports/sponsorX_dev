@@ -333,11 +333,12 @@ export async function confirmPayment(attemptId: string, now = new Date()) {
          Finance's "Refunds to send" for the amount received (refunded to the
          card at once through the stand-in). That row is the refund, so BTG's
          "refund needed" email is not sent for it. (A cancelled order was never
-         paid, so it has no other refund row; the attempt's claim above means a
-         redelivered confirmation never reaches here twice.) */
+         paid, so it has no other refund row. One row per card attempt — two
+         attempts confirmed after one cancellation are two rows — and the
+         attempt's claim above means a redelivery never reaches here twice.) */
       if (order.state === "CANCELLED") {
         await recordRefund(tx, { userId: null, tenantId: a.tenantId }, a.orderId, { cause: "PAID_AFTER_CANCELLATION", lineId: null, cancellation: false }, {
-          whole: true, received: { amountCents: a.amountCents, paidVia: "CARD", paymentReference: a.providerRef },
+          whole: true, received: { attemptId: a.id, amountCents: a.amountCents, paidVia: "CARD", paymentReference: a.providerRef },
         }, now);
         return { confirmed: true, refundNeeded: true };
       }

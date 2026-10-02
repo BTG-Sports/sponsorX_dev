@@ -11,7 +11,10 @@
  * transition, or the last live line's refund) — calls `recordRefund` in its
  * own transaction. An order that was never paid gets no row. The row is
  * unique per (order, line), and per order for a whole-order row
- * (RefundDue_one_whole_order), so a retry never makes two.
+ * (RefundDue_one_whole_order), so a retry never makes two. Money a card
+ * brought in after the order was cancelled (PAID_AFTER_CANCELLATION) is one
+ * row per card attempt instead (RefundDue_one_per_attempt), so a second
+ * payment is never missing from the list.
  *
  * HOW MUCH. A line's refund is the line's total (the buyer's fee stays with
  * the order, as the ledger keeps it — ledger.ts `reverseOrder(…, lineId)`).
@@ -124,7 +127,7 @@ export async function recordRefund(
   opts: {
     whole: boolean;
     /** Money that arrived without paying the order (a card confirmed after it was cancelled): how much, how, and the provider's reference. */
-    received?: { amountCents: number; paidVia: string; paymentReference: string | null };
+    received?: { attemptId: string; amountCents: number; paidVia: string; paymentReference: string | null };
   },
   now = new Date(),
 ) {
@@ -140,9 +143,11 @@ export async function recordRefund(
   })) > 0;
   if (!paid) return null;
   /* Already written (a retry): nothing more to do. */
+  /* One row per (order, line), one whole-order row per order — and one per card attempt for money received after a cancellation. */
+  const identity = opts.received ? { orderId, attemptId: opts.received.attemptId } : { orderId, lineId: ctx.lineId, attemptId: null };
   const existing = await tx.refundDue.findFirst({
-    /* tenant-scope: this order's own refund for this line (or the whole order), by the unique pair. */
-    where: { orderId, lineId: ctx.lineId }, select: { id: true, state: true, amountCents: true },
+    /* tenant-scope: this order's own refund for this line (or the whole order, or the card attempt), by its unique key. */
+    where: identity, select: { id: true, state: true, amountCents: true },
   });
   if (existing) return existing;
 
@@ -169,17 +174,18 @@ export async function recordRefund(
   const made = await tx.refundDue.createMany({
     data: [{
       tenantId: order.tenantId, orderId, lineId: ctx.lineId, sponsorId: order.sponsorId, amountCents, cause: ctx.cause, paidVia,
+      attemptId: opts.received?.attemptId ?? null,
     }],
     /* (order, line) is unique — and one whole-order row per order: a retry finds its row and writes nothing. */
     skipDuplicates: true,
   });
   const row = await tx.refundDue.findFirstOrThrow({
-    /* tenant-scope: this order's own refund for this line (or the whole order), by the unique pair. */
-    where: { orderId, lineId: ctx.lineId }, select: { id: true, state: true, amountCents: true },
+    /* tenant-scope: this order's own refund for this line (or the whole order, or the card attempt), by its unique key. */
+    where: identity, select: { id: true, state: true, amountCents: true },
   });
   if (!made.count) return row;
   await audit(tx, actor, "refundDue.create", "MarketplaceOrder", orderId, {
-    after: { refundId: row.id, lineId: ctx.lineId, amountCents, cause: ctx.cause, paidVia, whole: opts.whole },
+    after: { refundId: row.id, lineId: ctx.lineId, amountCents, cause: ctx.cause, paidVia, whole: opts.whole, ...(opts.received ? { attemptId: opts.received.attemptId } : {}) },
   });
 
   /* A card payment the provider can refund goes back at once; with no provider it waits for Finance. */
