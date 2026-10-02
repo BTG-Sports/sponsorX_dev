@@ -182,7 +182,24 @@ export type StandingAthlete = {
   guardian?: { verifiedAt: Date | null } | null;
 };
 
+/**
+ * 2S4-BE-12 (programme owner, 2026-10-02) — "a seller with 2 or more seller
+ * cancellations in 90 days loses good standing, so their new listings are
+ * held for BTG". A seller's cancellation is a paid line it cancelled itself
+ * (OrderLineDelivery.cancelledBy = SELLER), counted against the line's seller
+ * — the property, or the independent athlete.
+ */
+export const SELLER_CANCELLATION_LIMIT = 2;
+export const SELLER_CANCELLATION_WINDOW_DAYS = 90;
+
+/** The standing reason for a seller's own cancellations, or null below the limit. Pure. */
+export function cancellationReason(count: number): string | null {
+  return count >= SELLER_CANCELLATION_LIMIT ? `Seller cancelled ${count} sold sessions in the last ${SELLER_CANCELLATION_WINDOW_DAYS} days` : null;
+}
+
 export type StandingInput = {
+  /** 2S4-BE-12 — how many sold lines the seller cancelled itself in the last 90 days. */
+  sellerCancellations?: number;
   /** The selling property: its payouts held, and its organisation's flags (a required document missing). */
   property?: { payoutsHeldAt?: Date | null; onboarding?: { flags: string[]; flaggedAt: Date | null } | null } | null;
   /** The independent athlete selling their own item. */
@@ -209,7 +226,8 @@ function athleteStanding(who: string, a: StandingAthlete | null | undefined): st
  * document (2S1-BE-07 keeps its listings live and leaves it to BTG), payouts
  * held while listing access is on, and an athlete in the coming-of-age pause
  * or a minor whose guardian isn't verified — on a team's listing of their
- * item, or on a resume that isn't new.
+ * item, or on a resume that isn't new. And (2S4-BE-12) a seller who cancelled
+ * SELLER_CANCELLATION_LIMIT or more sold lines in the last 90 days.
  */
 export function standingReasons(s: StandingInput): string[] {
   const out: string[] = [];
@@ -220,6 +238,8 @@ export function standingReasons(s: StandingInput): string[] {
   }
   out.push(...athleteStanding("Athlete", s.sellerAthlete));
   out.push(...athleteStanding(s.itemAthlete?.displayName ? `Item's athlete (${s.itemAthlete.displayName})` : "Item's athlete", s.itemAthlete));
+  const cancelled = cancellationReason(s.sellerCancellations ?? 0);
+  if (cancelled) out.push(cancelled);
   return out;
 }
 

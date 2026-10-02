@@ -2592,6 +2592,11 @@ model MarketplaceOrder {
   paymentRecordedBy    String?
   /// When it was refunded — a refund stops the sponsor's limit rising.
   refundedAt           DateTime?
+  /// 2S4-BE-12 — why it was refunded: CANCELLATION (its last live line was
+  /// cancelled — by the sponsor, the seller, or agreed — which does NOT stop
+  /// the sponsor's limit rising), PROBLEM (a delivery problem or an overdue
+  /// line refunded), BTG (BTG refunded the whole order). Null before 2S4-BE-12.
+  refundCause          String?
   createdAt        DateTime              @default(now())
   updatedAt        DateTime              @default(now()) @updatedAt
 
@@ -2600,6 +2605,8 @@ model MarketplaceOrder {
   lines           MarketplaceOrderLine[]
   sellerApprovals OrderSellerApproval[]
   invoices        MarketplaceOrderInvoice[]
+  /// 2S4-BE-13 — the money owed back to the sponsor, one row per refund.
+  refunds         RefundDue[]
 
   @@index([tenantId, sponsorId, state])
   @@index([tenantId, state])
@@ -2996,6 +3003,18 @@ model OrderLineDelivery {
   /// 2S4-BE-11 — the date the seller agreed to deliver again on (the sponsor
   /// accepted). Replaces the line's own last date for reminders and overdue.
   redeliverOn      DateTime?
+  /// 2S4-BE-12 — a paid line cancelled before it was delivered (the line is
+  /// then REFUNDED): when, by whom — SPONSOR (free, before the cut-off),
+  /// SELLER (couldn't deliver), AGREED (the sponsor asked, the seller
+  /// accepted) or BTG (decided an escalated request) — the user, why, and,
+  /// for a seller's cancellation, the seller it counts against (PROPERTY or
+  /// ATHLETE + id), so the standing rule is a query.
+  cancelledAt         DateTime?
+  cancelledBy         String?
+  cancelledByUser     String?
+  cancelledSellerType String?
+  cancelledSellerId   String?
+  cancelNote          String?
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @default(now()) @updatedAt
 
@@ -3006,6 +3025,50 @@ model OrderLineDelivery {
   @@index([orderId])
   @@index([propertyTenantId, propertyId])
   @@index([athleteTenantId, athleteId])
+  @@index([tenantId, sponsorId])
+  @@index([cancelledSellerType, cancelledSellerId, cancelledAt])
+}
+
+/// 2S4-BE-13 — money owed back to a sponsor: one row for every refund of
+/// money actually received (the order was paid), written in the refund's own
+/// transaction — a line's refund (lineId) or the whole order's (lineId null).
+/// Until a payment provider is connected Finance sends it by hand and marks
+/// it SENT with the method and reference; a card payment the provider can
+/// refund is refunded through the adapter and marked SENT at once. Lives in
+/// the order's books. Unique per (order, line) — and per order for the
+/// whole-order row — so a retry never makes two.
+model RefundDue {
+  id          String    @id @default(cuid())
+  tenantId    String
+  orderId     String
+  lineId      String?
+  sponsorId   String
+  amountCents Int
+  /// SPONSOR_CANCELLED | SELLER_CANCELLED | CANCELLATION_AGREED | PROBLEM_AGREED | BTG_DECIDED | BTG_REFUNDED_ORDER
+  /// | PAID_AFTER_CANCELLATION (a card payment confirmed after the order was cancelled)
+  cause       String
+  /// Copied from the order: CARD | BANK_TRANSFER | CHEQUE | OTHER | ZOHO_INVOICE.
+  paidVia     String?
+  /// OPEN (on its way) | SENT
+  state       String    @default("OPEN")
+  sentAt      DateTime?
+  /// A user id, or "system" for a card refund through the provider.
+  sentBy      String?
+  /// BANK_TRANSFER | CHEQUE | CARD | OTHER — never a card or bank number.
+  method      String?
+  reference   String?
+  sentOn      DateTime? @db.Date
+  /// The provider that refunded a card ("standin" on staging: a test, no money moved).
+  provider    String?
+  /// PAID_AFTER_CANCELLATION only: the card attempt the money came from — one row per attempt.
+  attemptId   String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @default(now()) @updatedAt
+
+  order MarketplaceOrder @relation(fields: [orderId], references: [id])
+
+  @@unique([orderId, lineId])
+  @@index([tenantId, state, createdAt])
   @@index([tenantId, sponsorId])
 }
 
@@ -3023,7 +3086,8 @@ model DeliveryIssue {
   orderId              String
   lineId               String
   deliveryId           String
-  /// PROBLEM | OVERDUE
+  /// PROBLEM | OVERDUE | CANCELLATION (2S4-BE-12 — the sponsor asked the
+  /// seller to cancel a paid line inside the 3 days before its first date)
   kind                 String
   /// SELLER_TO_ANSWER | SPONSOR_TO_ANSWER | ESCALATED | SETTLED | RESOLVED | CLOSED
   stage                String
@@ -3038,7 +3102,7 @@ model DeliveryIssue {
   markedProofKey       String?
   markedProofLink      String?
   sellerDueAt          DateTime?
-  /// DELIVER_AGAIN | REFUND | DISAGREE
+  /// DELIVER_AGAIN | REFUND | DISAGREE — or, to a CANCELLATION, ACCEPT | DECLINE
   sellerAnswer         String?
   sellerAnsweredAt     DateTime?
   sellerAnsweredBy     String?
@@ -3055,9 +3119,11 @@ model DeliveryIssue {
   sponsorNote          String?
   escalatedAt          DateTime?
   /// SPONSOR_REJECTED | SELLER_NO_ANSWER | SPONSOR_NO_ANSWER | NOT_DELIVERED | REPORTED_TO_BTG
+  /// | SELLER_DECLINED_CANCELLATION | SELLER_DIDNT_ANSWER_CANCELLATION
   escalationReason     String?
   escalationNote       String?
   /// REDELIVER | REFUNDED | CONFIRMED | MARKED_DELIVERED | ORDER_ENDED
+  /// | KEPT (BTG kept a line the sponsor asked to cancel) | SELLER_CANCELLED
   outcome              String?
   closedAt             DateTime?
   closedBy             String?

@@ -55,6 +55,7 @@ import { ForbiddenError } from "../auth/errors";
 import { assertMayCommit } from "./guardian-acts";
 import { guardianControls } from "./guardian-rules";
 import { checkRestricted } from "./restricted-words";
+import { sellerCancellationCount } from "./seller-standing";
 import { LISTINGS_LIVE_PAGE_SIZE } from "../contracts/marketplace";
 import {
   canTransitionListing,
@@ -353,7 +354,12 @@ export async function listingChecks(tx: Prisma.TransactionClient, row: Row, now:
   assertGoverned(row, now);
   const matches = await checkRestricted(tx, btgTenantOf(row), [row.title, row.description].filter(Boolean).join("\n"));
   const words = [...new Set(matches.map((m) => m.word))];
+  /* 2S4-BE-12 — the seller's own cancellations of sold lines in the last 90 days (the property, or the independent athlete). */
+  const sellerCancellations = await sellerCancellationCount(
+    tx, row.propertyId ? { type: "PROPERTY", id: row.propertyId } : { type: "ATHLETE", id: row.sellerAthleteId! }, now,
+  );
   const standing = standingReasons({
+    sellerCancellations,
     property: row.property,
     sellerAthlete: row.sellerAthlete,
     /* The athlete whose item a team lists; an independent seller's item is their own, already read above. */

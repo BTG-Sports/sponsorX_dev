@@ -219,7 +219,37 @@ ${d.portalUrl ?? ""}
   }),
   "delivery.withBtg": (d) => ({
     subject: `BTG will decide: ${d.title ?? ""} (${d.orderRef ?? ""})`,
-    text: `Hi ${d.firstName ?? "there"},\n\n"${d.title ?? ""}" (order ${d.orderRef ?? ""}) has gone to BTG to decide. Why: ${d.reason ?? "it couldn't be settled"}.\n\nBTG will confirm the delivery or refund the line, and email you with their decision. You don't need to do anything unless BTG contacts you.\n\n${d.link ?? ""}\n\n— BTG SponsorX`,
+    text: `Hi ${d.firstName ?? "there"},\n\n"${d.title ?? ""}" (order ${d.orderRef ?? ""}) has gone to BTG to decide. Why: ${d.reason ?? "it couldn't be settled"}.\n\nBTG will ${d.what ?? "confirm the delivery or refund the line"}, and email you with their decision. You don't need to do anything unless BTG contacts you.\n\n${d.link ?? ""}\n\n— BTG SponsorX`,
+  }),
+  /* 2S4-BE-12 — cancelling a paid line. */
+  "delivery.cancelConfirmed": (d) => ({
+    subject: `Cancelled: ${d.title ?? "your line"} (${d.orderRef ?? ""})`,
+    text: `Hi ${d.firstName ?? "there"},\n\nYou cancelled "${d.title ?? ""}" (order ${d.orderRef ?? ""}). It is refunded in full: ${d.amount ?? "the line's price"}. ${d.refundHow ?? ""}\n\nThe seller has been told.\n\n${d.orderUrl ?? ""}\n\n— BTG SponsorX`,
+  }),
+  "sale.lineCancelled": (d) => ({
+    subject: `Cancelled by the sponsor: ${d.title ?? "a sold line"} (${d.orderRef ?? ""})`,
+    text: `Hi ${d.firstName ?? "there"},\n\n"${d.title ?? ""}" (order ${d.orderRef ?? ""}${d.firstDate ? `, first date ${d.firstDate}` : ""}) has been cancelled. ${d.how ?? "There's nothing to deliver."}\n\nThe sponsor is refunded, so no payout comes from this line. The date is free again.\n\n${d.saleUrl ?? ""}\n\n— BTG SponsorX`,
+  }),
+  "sale.cancellationRequested": (d) => ({
+    subject: `${d.sponsorName ?? "The sponsor"} asks to cancel ${d.title ?? "a sold line"} — answer by ${d.answerBy ?? "the deadline"}`,
+    text: `Hi ${d.firstName ?? "there"},\n\n${d.sponsorName ?? "The sponsor"} asks to cancel "${d.title ?? ""}" (order ${d.orderRef ?? ""}${d.firstDate ? `, first date ${d.firstDate}` : ""}).\n\nTheir reason: "${d.reason ?? ""}"\n\nAccept (the sponsor is refunded in full) or decline with a reason (BTG then decides) by ${d.answerBy ?? "the deadline"}. If you don't answer by then, it goes to BTG to decide.\n\n${d.saleUrl ?? ""}\n\n— BTG SponsorX`,
+  }),
+  "delivery.cancellationAnswered": (d) => ({
+    subject: `${d.sellerName ?? "The seller"} answered your request to cancel ${d.title ?? ""} (${d.orderRef ?? ""})`,
+    text: `Hi ${d.firstName ?? "there"},\n\n${d.sellerName ?? "The seller"} ${d.answer ?? "has answered your request to cancel"}\n\n"${d.title ?? ""}" (order ${d.orderRef ?? ""}).\n\n${d.orderUrl ?? ""}\n\n— BTG SponsorX`,
+  }),
+  "delivery.sellerCancelled": (d) => ({
+    subject: `${d.sellerName ?? "The seller"} cancelled ${d.title ?? "a line"} (${d.orderRef ?? ""}) — you're refunded in full`,
+    text: `Hi ${d.firstName ?? "there"},\n\n${d.sellerName ?? "The seller"} can't deliver "${d.title ?? ""}" (order ${d.orderRef ?? ""}) and has cancelled it.\n\nTheir reason: "${d.reason ?? ""}"\n\nYou're refunded in full: ${d.amount ?? "the line's price"}. ${d.refundHow ?? ""}\n\n${d.orderUrl ?? ""}\n\n— BTG SponsorX`,
+  }),
+  "delivery.cancellationEscalated": (d) => ({
+    subject: `Cancellation for BTG to decide: ${d.orderRef ?? ""} · ${d.title ?? ""}`,
+    text: `${d.sponsorName ?? "The sponsor"} asked to cancel "${d.title ?? ""}" (order ${d.orderRef ?? ""}, sold by ${d.sellerName ?? "the seller"}${d.firstDate ? `, first date ${d.firstDate}` : ""}) inside the 3 days before its first date, so the seller had to agree.\n\nWhy it's with BTG: ${d.reason ?? "the seller didn't agree"}.\nThe sponsor's reason: "${d.sponsorReason ?? ""}"${d.sellerReason ? `\nThe seller's reason: "${d.sellerReason}"` : ""}\n\nRefund it (cancelled, the sponsor refunded in full) or keep it (it goes ahead as booked), with a note both sides read:\n\n${d.issueUrl ?? ""}\n\n— SponsorX`,
+  }),
+  /* 2S4-BE-13 — a refund sent. */
+  "refund.sent": (d) => ({
+    subject: `Your refund of ${d.amount ?? "your money"} was sent (${d.orderRef ?? "your order"})`,
+    text: `Hi ${d.firstName ?? "there"},\n\nYour refund of ${d.amount ?? "your money"} for order ${d.orderRef ?? ""} was sent ${d.how ?? ""}${d.sentOn ? ` on ${d.sentOn}` : ""}. It may take a few days to reach you.\n\n${d.orderUrl ?? ""}\n\n— BTG SponsorX`,
   }),
   "delivery.resolved": (d) => ({
     subject: `BTG's decision on ${d.orderRef ?? "your order"}: ${d.title ?? ""}`,

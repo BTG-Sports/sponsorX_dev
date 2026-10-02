@@ -18,6 +18,13 @@
  * explained — the history is those same events, oldest first, with what each
  * did to it — and it cannot drift from what actually happened. Each order
  * also keeps the limit it was checked against (`spendingLimitCents`).
+ *
+ * 2S4-BE-12 — A CANCELLATION REFUND DOES NOT STOP IT RISING. A paid line
+ * cancelled before it was delivered — by the sponsor (free, before the
+ * cut-off), by the seller (couldn't deliver), agreed between them, or by BTG
+ * deciding an escalated request — is nobody's fault, so it is skipped: the
+ * line carries `cancelledAt`, its issue is a CANCELLATION, and an order its
+ * last live line's cancellation refunded carries `refundCause = CANCELLATION`.
  */
 import type { Prisma } from "../generated/prisma/client";
 import { prisma } from "../db/client";
@@ -36,17 +43,18 @@ export const limitSettings = () => ({ startCents: env.MARKETPLACE_SPENDING_LIMIT
 export async function limitEvents(db: Db, tenantId: string, sponsorId: string): Promise<LimitEvent[]> {
   const orders = await db.marketplaceOrder.findMany({
     where: { tenantId, sponsorId, OR: [{ fulfilledAt: { not: null } }, { state: "REFUNDED" }] },
-    select: { id: true, totalCents: true, fulfilledAt: true, refundedAt: true, updatedAt: true, state: true },
+    select: { id: true, totalCents: true, fulfilledAt: true, refundedAt: true, updatedAt: true, state: true, refundCause: true },
   });
   const upheld = await db.orderLineDelivery.findMany({
-    where: { tenantId, sponsorId, resolution: "REFUNDED" },
+    /* 2S4-BE-12 — BTG refunding an escalated CANCELLATION is a cancellation refund (cancelledAt), not an upheld problem. */
+    where: { tenantId, sponsorId, resolution: "REFUNDED", cancelledAt: null },
     select: { orderId: true, lineId: true, resolvedAt: true, updatedAt: true },
   });
   const events: LimitEvent[] = [];
   for (const o of orders) {
     if (o.fulfilledAt) events.push({ kind: "COMPLETED", at: o.fulfilledAt, orderId: o.id, totalCents: o.totalCents });
     /* refundedAt is recorded from 2S4-BE-10 on; an older refund is dated by its last change. */
-    if (o.state === "REFUNDED") events.push({ kind: "REFUNDED", at: o.refundedAt ?? o.updatedAt, orderId: o.id });
+    if (o.state === "REFUNDED" && o.refundCause !== "CANCELLATION") events.push({ kind: "REFUNDED", at: o.refundedAt ?? o.updatedAt, orderId: o.id });
   }
   for (const d of upheld) events.push({ kind: "PROBLEM_UPHELD", at: d.resolvedAt ?? d.updatedAt, orderId: d.orderId, lineId: d.lineId });
   /* 2S4-BE-11 — a line the seller refunded over a problem, and the sponsor
@@ -56,7 +64,7 @@ export async function limitEvents(db: Db, tenantId: string, sponsorId: string): 
   if (sponsorOrders.length) {
     const agreed = await db.deliveryIssue.findMany({
       /* tenant-scope: the sponsor's own orders, found above in their tenant. */
-      where: { tenantId, orderId: { in: sponsorOrders.map((o) => o.id) }, stage: "SETTLED", outcome: "REFUNDED" },
+      where: { tenantId, orderId: { in: sponsorOrders.map((o) => o.id) }, kind: "PROBLEM", stage: "SETTLED", outcome: "REFUNDED" },
       select: { orderId: true, lineId: true, closedAt: true },
     });
     const counted = new Set(upheld.map((d) => d.lineId));

@@ -372,7 +372,13 @@ describe("the whole matrix is pinned", () => {
       // the sign-off — no staff role holds approve); SPONSOR_ANALYST
       // own-campaign read; every other cell deny (matrix §15.3). With its rows
       // removed the grid hashes to the previous 9cd49bc7621e483e.
-    ).toBe("549a562e5fbbb0a6");
+      // Updated 2026-10-02 (2S4-BE-13): new `refundDue` resource — Finance's
+      // "Refunds to send". SUPER_ADMIN any read/write; BTG_ADMIN and FINANCE
+      // own-tenant read/write (the list, and marking a refund sent); every
+      // other cell deny — the sponsor reads a refund's state on its own order
+      // (matrix §25). With its rows removed the grid hashes to the previous
+      // 549a562e5fbbb0a6.
+    ).toBe("168f5303543b3776");
   });
 
   it("covers every pair the §30 acceptance asks for", () => {
