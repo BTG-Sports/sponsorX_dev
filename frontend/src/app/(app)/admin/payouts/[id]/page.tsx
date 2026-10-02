@@ -5,7 +5,7 @@ import { Badge, Card, SectionHeading } from "@/components/ui";
 import { PayoutDecision, PayoutRetry } from "@/components/payout-decision";
 import { PayoutTracker } from "@/components/payout-history";
 import {
-  auditTrail, payeeKind, payeeShare, payoutStatus, payoutTracker, usd, type ApiPayoutDetail,
+  approvalBadge, auditTrail, payeeKind, payeeShare, payoutStatus, payoutTracker, retryStatus, usd, type ApiPayoutDetail,
 } from "@/lib/payouts-live";
 import type { ApiLineFinancials } from "@/lib/marketplace-ops-live";
 import { apiFetch } from "@/server/api";
@@ -48,13 +48,17 @@ export default async function PayoutDetailPage({ params }: { params: Promise<{ i
   }));
   const status = payoutStatus(p);
   const steps = payoutTracker(p);
+  /* 2S5-FE-06 — the rule's approval, why a request waits, and a failed payout's retry status. */
+  const auto = approvalBadge(p);
+  const retry = retryStatus(p);
+  const reasons = p.state === "REQUESTED" ? (p.reviewReasons ?? []) : [];
   /* An athlete by first name; a team or school by its whole name. */
   const first = p.payeeType === "ATHLETE" ? (p.payeeName.split(/\s+/)[0] ?? p.payeeName) : p.payeeName;
   const passed = p.checks.filter((c) => c.ok).length;
 
   return (
     <div className="space-y-6">
-      <Link href={`${PATH}?tab=${p.state === "REQUESTED" ? "waiting" : p.state === "PAID" ? "paid" : p.state === "FAILED" ? "problems" : "sending"}`} className="text-xs text-muted hover:text-text">
+      <Link href={`${PATH}?tab=${p.state === "REQUESTED" ? "waiting" : p.state === "PAID" ? "paid" : p.state === "FAILED" ? `problems${p.waitingOn && p.waitingOn !== "BTG" ? "&show=all" : ""}` : "sending"}`} className="text-xs text-muted hover:text-text">
         ← Payout approvals
       </Link>
 
@@ -130,7 +134,18 @@ export default async function PayoutDetailPage({ params }: { params: Promise<{ i
           <Card>
             <p className="text-[11px] text-muted">Payout to {p.payeeName}</p>
             <p className="mt-1 text-2xl font-semibold tabular-nums">{usd(p.amountCents)}</p>
-            <p className="mt-2"><Badge tone={status.tone}>{status.label}</Badge></p>
+            <p className="mt-2 flex flex-wrap gap-1">
+              {retry ? <Badge tone={retry.tone}>{retry.label}</Badge> : <Badge tone={status.tone}>{p.state === "REQUESTED" ? "Waiting for BTG's decision" : p.state === "APPROVED" ? "Approved — sending soon" : status.label}</Badge>}
+              {auto && <Badge tone="accent">✓ {auto}</Badge>}
+            </p>
+            {reasons.length > 0 && (
+              <div className="mt-3 rounded-lg border border-warn/40 bg-warn/5 px-3 py-2">
+                <p className="text-[11px] font-medium text-warn">Not approved automatically because</p>
+                <ul className="mt-1 list-disc space-y-0.5 pl-4 text-[11px]">
+                  {reasons.map((r) => <li key={r}>{r}</li>)}
+                </ul>
+              </div>
+            )}
             {steps && <PayoutTracker steps={steps} vertical />}
             <div className="mt-4 border-t border-line-soft pt-4">
               {p.state === "REQUESTED" && (
@@ -149,7 +164,9 @@ export default async function PayoutDetailPage({ params }: { params: Promise<{ i
                 <div className="space-y-2">
                   {p.failureReason && <p className="text-[11px] text-danger">Couldn&rsquo;t send: {p.failureReason}</p>}
                   <PayoutRetry retry={retryPayoutAction.bind(null, p.id)} />
-                  <p className="text-[11px] text-muted">Retry hands the payout to the payment provider again.</p>
+                  <p className="text-[11px] text-muted">
+                    Retry hands the payout to the payment provider again, now{retry && !retry.needsBtg ? " — you don't have to: it goes again on its own" : ""}. It resets the automatic retries.
+                  </p>
                 </div>
               )}
             </div>

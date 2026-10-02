@@ -121,7 +121,8 @@ describe("athleteBanner", () => {
 
 describe("payoutStatus", () => {
   it("names every state in words", () => {
-    expect(payoutStatus(payout()).label).toBe("Requested — waiting for BTG");
+    /* 2S5-FE-06 — the payee reads that BTG is reviewing it, never why. */
+    expect(payoutStatus(payout()).label).toBe("BTG is reviewing this payout");
     expect(payoutStatus(payout({ state: "APPROVED" })).label).toBe("Approved by BTG — sending soon");
     expect(payoutStatus(payout({ state: "SENDING" })).label).toBe("Sending — with the payment provider");
     expect(payoutStatus(payout({ state: "PAID", paidAt: "2026-09-22T15:00:00Z" }))).toEqual({
@@ -240,5 +241,72 @@ describe("2S5-FE-03 / 2S5-FE-04 · the payout's road and BTG's queue", () => {
       { what: "Requested by Riley Carter", when: "Sep 30, 10:40" },
       { what: "Sent back by BTG: “Confirm the clinic date”", when: "Sep 30, 11:20" },
     ]);
+  });
+});
+
+describe("2S5-FE-06 · approved automatically, the reasons, and the retry status", () => {
+  const p = (over: Partial<L.ApiAdminPayout> = {}): L.ApiAdminPayout => ({
+    id: "p1", amountCents: 27_118, state: "REQUESTED", requestedAt: "2026-10-02T15:00:00Z", decidedAt: null, decisionNote: null,
+    providerRef: null, sentAt: null, paidAt: null, failureReason: null, lines: [], payeeType: "ATHLETE", payeeId: "a1", payeeName: "Riley Carter",
+    approvedAutomatically: false, waitingOn: "BTG", reviewReasons: [], failureKind: null, retryCount: 0, nextRetryAt: null, ...over,
+  });
+
+  it("the payee's words: approved automatically, BTG reviewing, fix your payout account", () => {
+    expect(payoutStatus(p({ state: "APPROVED", approvedAutomatically: true, waitingOn: null })).label).toBe("Approved automatically — sending soon");
+    expect(payoutStatus(p({ state: "APPROVED", waitingOn: null })).label).toBe("Approved by BTG — sending soon");
+    expect(payoutStatus(p({ reviewReasons: ["Over $2,000"] })).label).toBe("BTG is reviewing this payout");
+    expect(payoutStatus(p({ state: "FAILED", waitingOn: "PAYEE_ACCOUNT" }))).toEqual({ label: "Your payout couldn't be sent — fix your payout account", tone: "warn" });
+    expect(payoutStatus(p({ state: "FAILED", waitingOn: "SYSTEM_RETRY" })).label).toBe("Couldn't be sent yet — it will be tried again automatically");
+    expect(payoutStatus(p({ state: "FAILED", waitingOn: "BTG" })).label).toBe("The payment provider couldn't send this — BTG is looking into it");
+  });
+
+  it("the fix-your-account link only for a payout waiting on the payee's account", () => {
+    expect(L.payeeFixPrompt(p({ state: "FAILED", waitingOn: "PAYEE_ACCOUNT" }), "/athlete/money#payout-account")).toMatchObject({
+      label: "Fix your payout account", href: "/athlete/money#payout-account",
+    });
+    expect(L.payeeFixPrompt(p({ state: "FAILED", waitingOn: "BTG" }), "/x")).toBeNull();
+    expect(L.payeeFixPrompt(p({ state: "APPROVED", waitingOn: null }), "/x")).toBeNull();
+  });
+
+  it("the badge on the rule's approvals — never on a request or a send-back", () => {
+    expect(L.approvalBadge(p({ state: "APPROVED", approvedAutomatically: true }))).toBe("Approved automatically");
+    expect(L.approvalBadge(p({ state: "PAID", approvedAutomatically: true }))).toBe("Approved automatically");
+    expect(L.approvalBadge(p({ state: "PAID" }))).toBeNull();
+    expect(L.approvalBadge(p({ state: "REQUESTED", approvedAutomatically: true }))).toBeNull();
+  });
+
+  it("why a request waits for BTG", () => {
+    expect(L.waitingReasons(p({ reviewReasons: ["Over $2,000", "Payout account changed on Oct 1"] }))).toBe("Waiting because: Over $2,000 · Payout account changed on Oct 1");
+    expect(L.waitingReasons(p({ reviewReasons: [] }))).toBeNull();
+    expect(L.waitingReasons(p({ state: "APPROVED", reviewReasons: ["Over $2,000"] }))).toBeNull();
+  });
+
+  it("the retry status, in words", () => {
+    expect(L.retryWhen("2026-10-03T16:00:00Z")).toBe("Oct 3, 4:00 pm");
+    expect(L.retryStatus(p({ state: "FAILED", waitingOn: "SYSTEM_RETRY", retryCount: 1, nextRetryAt: "2026-10-03T16:00:00Z" }))).toEqual({
+      label: "Retrying automatically — next try Oct 3, 4:00 pm (2 of 3)", tone: "primary", needsBtg: false,
+    });
+    expect(L.retryStatus(p({ state: "FAILED", waitingOn: "PAYEE_ACCOUNT" }))).toMatchObject({ label: "Waiting for the payee to fix their payout account", needsBtg: false });
+    expect(L.retryStatus(p({ state: "FAILED", waitingOn: "BTG", reviewReasons: ["Couldn't be sent after 3 tries"] }))).toMatchObject({ label: "Needs BTG — Couldn't be sent after 3 tries", needsBtg: true });
+    expect(L.retryStatus(p({ state: "FAILED", waitingOn: "BTG", failureReason: "Refused." }))?.label).toBe("Needs BTG — Couldn't send: Refused.");
+    expect(L.retryStatus(p({ state: "APPROVED" }))).toBeNull();
+  });
+
+  it("the Failed tab shows what needs BTG by default", () => {
+    expect(L.failedFilter(undefined)).toBe("btg");
+    expect(L.failedFilter("all")).toBe("all");
+    expect(L.listQuery("problems")).toBe("state=FAILED&waitingOn=BTG");
+    expect(L.listQuery("problems", "all")).toBe("state=FAILED");
+    expect(L.listQuery("sending")).toBe("state=APPROVED,SENDING");
+    const waiting = { BTG: 3, SYSTEM_RETRY: 2, PAYEE_ACCOUNT: 1, failed: { BTG: 1, SYSTEM_RETRY: 2, PAYEE_ACCOUNT: 1 } };
+    expect(L.tabCount("problems", { FAILED: 4 }, waiting)).toBe(1);
+    expect(L.tabCount("problems", { FAILED: 4 }, waiting, true)).toBe(4);
+    expect(L.APPROVAL_TABS.find((t) => t.key === "problems")!.label).toBe("Failed");
+  });
+
+  it("the tracker and the trail name an automatic approval", () => {
+    const auto = { state: "APPROVED" as const, requestedAt: "2026-10-02T15:00:00Z", decidedAt: "2026-10-02T15:00:00Z", sentAt: null, paidAt: null, approvedAutomatically: true };
+    expect(L.payoutTracker(auto)![1]).toMatchObject({ label: "Approved automatically", state: "done" });
+    expect(L.auditTrail({ ...auto, payeeName: "Riley Carter", decisionNote: null, failureReason: null })[1]!.what).toBe("Approved automatically — every check passed");
   });
 });

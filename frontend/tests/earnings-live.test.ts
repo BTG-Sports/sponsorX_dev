@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { agingBuckets, buckets, career, lastChange, paidByMonth, toActivityItem, type ApiEarning } from "../src/lib/earnings-live";
+import { agingBuckets, buckets, career, earningApprovalNote, lastChange, paidByMonth, toActivityItem, type ApiEarning } from "../src/lib/earnings-live";
 
 /* --------------------------------------------------------------------------
    P7-FE-01 / -02 — the earnings arithmetic. "Career" is what signed orders
@@ -75,5 +75,16 @@ describe("agingBuckets", () => {
     const a = agingBuckets(recon, now);
     expect(a.map((x) => x.value)).toEqual([25, 75, 0, 0]);
     expect(a[1].display).toBe("$300");
+  });
+});
+
+describe("2S5-FE-06 · Finance's note on a Phase 1 earning", () => {
+  it("'Approved automatically' while approved or paid; the reasons only on one left ELIGIBLE", () => {
+    expect(earningApprovalNote({ state: "APPROVED_FOR_PAYOUT", approvedAutomatically: true, reviewReasons: [] })).toEqual({ badge: "Approved automatically", reasons: [] });
+    expect(earningApprovalNote({ state: "PAID", approvedAutomatically: true })).toEqual({ badge: "Approved automatically", reasons: [] });
+    expect(earningApprovalNote({ state: "HELD", approvedAutomatically: true })).toEqual({ badge: null, reasons: [] });
+    expect(earningApprovalNote({ state: "ELIGIBLE", approvedAutomatically: false, reviewReasons: ["Over $2,000"] })).toEqual({ badge: null, reasons: ["Over $2,000"] });
+    /* An athlete's read has no reasons at all. */
+    expect(earningApprovalNote({ state: "ELIGIBLE" })).toEqual({ badge: null, reasons: [] });
   });
 });

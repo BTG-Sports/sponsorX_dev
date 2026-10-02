@@ -39,7 +39,22 @@ export type ApiEarning = {
   /** Finance / BTG only. */
   sellPrice?: number;
   commission?: number;
+  /** 2S5-BE-08 — approved for payout by the rule, as it became ELIGIBLE. Optional: older reads. */
+  approvedAutomatically?: boolean;
+  /** Why it was left ELIGIBLE for Finance — Finance and BTG admin only. */
+  reviewReasons?: string[];
 };
+
+/**
+ * 2S5-FE-06 — Finance's note on a Phase 1 earning: "Approved automatically"
+ * on one the rule approved (and still approved or paid), the reasons on one
+ * left ELIGIBLE for Finance. Pure.
+ */
+export function earningApprovalNote(e: Pick<ApiEarning, "state" | "approvedAutomatically" | "reviewReasons">): { badge: string | null; reasons: string[] } {
+  const badge = e.approvedAutomatically && (e.state === "APPROVED_FOR_PAYOUT" || e.state === "PAID") ? "Approved automatically" : null;
+  const reasons = e.state === "ELIGIBLE" ? (e.reviewReasons ?? []) : [];
+  return { badge, reasons };
+}
 
 export type ApiReconciliation = {
   campaignId: string;
