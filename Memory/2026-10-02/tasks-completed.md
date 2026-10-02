@@ -229,3 +229,69 @@ The owner's ask: make sign-in as lively as the landing, /packages, /join and /ne
 - **Follow-up: /login closes with the landing's footer.** `SiteFooter compact` now sits at the bottom of the stage and rises in with the entrance. It replaces the "BTG Sports Group · SponsorX" fine print. The ground's outlined "SPONSORX" word was removed, because the footer carries the same wordmark. On desktop the footer sits just below the fold (the page is about 1165px tall at 1600×960), as it does on the other public pages.
 - **Follow-up: the transition title is "Login" (not "Sign In"), and descenders are no longer cut.** Each letter of the title is painted with `background-clip: text`, but its box was only the 0.95 line tall, so the bottom of the "g" painted transparent. `.char` and the `.word` mask in `page-transition.module.css` now pad below the line and cancel it with a negative margin. This fixes every label with a g, p or y ("For Sponsors", "SponsorX NEXT", ...).
 - **Tracker:** P1-ART-13 was raised and closed. It is appended at row 269 of Phase 1 (Order 32.95, Done, HeckerCreatives). The autofilter, conditional formats and Status list now run to row 269; the Dashboard formulas already reached row 400. The entry was also added to the Phase 1 plan after P1-ART-12. The upstream board was fast-forwarded first. The Stage Progress snapshot for 2026-10-02 was already written today and was left as it is.
+
+## rcfworks — afternoon: staging deploy, Zoho Books, item 13 (cancellations and refunds)
+
+- **Staging deployed** at main `51c84de` (everything through #147 plus P1-ART-13), using `npm run deploy staging`.
+  - The API's pre-deploy step (`prisma migrate deploy`) applied 15 migrations. The `prisma/sql` files are applied by the migrations themselves, so nothing extra needs re-applying.
+  - Checks passed: web `/` 200, `/login` 200, the API `/health` ok, and the OpenAPI spec has 326 paths including `/seller-approvals`.
+  - **Production is not deployed.** Last night's CI failed on 4 Playwright specs on main: the landing city scene, and the duplicate "Instagram" label in the loop-p3 application tests. Jan's `next-edition-e2e` clauses 4–5 also still need the artwork-review step (the patch is in #147). Tonight's 8 pm run must be green before the daily deploy moves `release`.
+- **Zoho Books.** The code needs no Books API credentials. It only receives `/webhooks/zoho/invoice`, which must be our own signed shape (`invoiceId`, `dealId`, cents, `balance`), so Books needs a Deluge workflow function to send it.
+  - The Books connector sees only "The Coffee Stage" (org 763851111). In it, rcfworks is an admin but only a *User* of the iCARRe Foundation Zoho One. Zoho One therefore sends "+ New Organization" to a separate paid sign-up; **don't use it**.
+  - The Zoho One admin (Rodney) has to create **BTG SponsorX (test)** inside Zoho One and invite infinex1@icarrefound.org as Admin. The request letter is in Drive: "Zoho Books test organization request.docx".
+  - Next steps (mine): add a CRM Deal ID custom field on invoices, write the Deluge workflow, then test on staging.
+- **Item 13 of the BTG admin review → 2S4-BE-12, 2S4-BE-13 (Done) and 2S4-FE-06 (Blocked on the design).** Item 12 needed nothing: 2S4-BE-08 already closes an order 30 days after its last confirmed line and releases the reserve.
+  - **Owner decisions:** a sponsor cancels free until **3 days** before a line's first date, and after that the seller must agree. **2 seller cancellations in 90 days** remove good standing.
+  - **2S4-BE-12:**
+    - `GET /deliveries/:id/cancellation`, `POST /deliveries/:id/cancel`, `POST /sales/:id/cancel`, `POST /sales/:id/cancellation-answer`.
+    - The delivery-issues desk takes CANCELLATION issues, resolved with REFUND or KEEP.
+    - Cancellation refunds don't freeze the spending limit (`MarketplaceOrder.refundCause`).
+    - Listings are held at 2 seller cancellations in 90 days (`seller-standing.ts`).
+  - **2S4-BE-13:**
+    - A new `RefundDue` table gets one row per refund of money received, across seven causes, one of them `PAID_AFTER_CANCELLATION`, which gets one row per card attempt.
+    - `GET /refunds` and `POST /refunds/:id/sent` (BTG admin, Finance).
+    - `refundCard` on the provider adapter: the stand-in refunds at once; `none` leaves the row open.
+    - The sponsor sees "Refund on its way" / "Refund sent", never a method or a reference.
+  - **Migrations:** 20261003160000, 20261003170000, 20261003180000.
+  - **Authz:** new `refundDue` resource; matrix digest `168f5303543b3776`; RBAC Matrix §25.
+  - **Also changed:** `phase2-order-concurrency.test.ts`. A card confirmed after cancellation now expects the refund row instead of the BTG email.
+  - **Checks:** backend 2311 of 2313 on two runs (only Jan's 2 known clauses fail); tsc and eslint clean.
+  - The design brief for OrderCancellations.dc.html (states CX-1…CX-14) was given to the user for Claude Design.
+- **Tracker:** Phase 2 rows 119–121 added (Order 36.8, 36.9, 38.6). Autofilter, conditional formats, the Status list and the 15 Dashboard `'Phase 2'!` formulas now run to row 121. The plan now has 118 tasks.
+
+## rcfworks — evening: cancellation screens, automatic payouts (items 14, 15, 17)
+
+- **2S4-FE-06 Done.** Built from OrderCancellations.dc.html (CX-1…CX-14).
+  - **Sponsor:** cancel or ask on `/sponsor/orders/[id]`.
+  - **Seller:** can't deliver, and agree or keep, on `/athlete|property/sales/[id]`.
+  - **BTG:** decides escalated cancellations on the delivery-issues desk.
+  - **Finance:** the new `/admin/refunds` (Refunds to send, Mark refunded).
+  - **Copy:** the screens say "line", as the existing order screens do. The sponsor never sees a refund's method or reference.
+- **Follow-up fixes (`b771fd7`):**
+  - `POST /deliveries/:id/cancel` takes `expect: FREE|ASK`, and a stale dialog gets 409 `cancel_terms_changed`.
+  - The `refund.sent` email carries no method.
+  - The seller's sale has `cancellation.refundCents`, which includes the buyer fee on the order's last live line.
+- **Owner decisions for items 14, 15 and 17:** a $2,000 automatic limit; a first payout is fine if the provider account is ready; both safeguards (an account changed in the last 7 days goes to BTG; $5,000 of automatic approvals in 7 days goes to BTG); Phase 1 earnings move to approved for payout automatically now.
+- **2S5-BE-06 Done:**
+  - `requestPayout` approves automatically, as the system, when the rule passes. Otherwise the payout stays REQUESTED with `reviewReasons`.
+  - `PayoutAccount.changedAt` records a real change.
+  - A per-payee advisory lock (`lockPayee`) covers requests, earning approvals and account changes.
+  - The 7-day total is counted across every tenant. A reason that includes another tenant's approvals shows no figure (`f6a63eb`).
+  - Env knobs: `PAYOUT_AUTO_APPROVE_*` and `PAYOUT_ACCOUNT_CHANGE_REVIEW_DAYS`.
+- **2S5-BE-07 Done:**
+  - Each failure has a kind: TEMPORARY, ACCOUNT or OTHER.
+  - TEMPORARY retries at about 1, 6 and 24 hours (`sweepPayoutRetries`, every 10 minutes), then goes to BTG.
+  - ACCOUNT emails the payee (`payout.accountNeedsFix`) and retries once when the account is next READY.
+  - A FAILED payout awaiting a resend still claims its money (`claimsMoney`).
+  - `sendPayout`, `confirmPayoutPaid` and `decidePayout` are now state-guarded.
+- **2S5-BE-08 Done:**
+  - `maybeMakeEligible` moves an earning on to APPROVED_FOR_PAYOUT by the same rule, with no account check.
+  - Otherwise it stays ELIGIBLE with `reviewReasons`, which only Finance and BTG admin can read.
+  - PAID stays manual.
+- **2S5-FE-06 Done:**
+  - `admin/payouts`: an "Approved automatically" badge, "Waiting because", and the retry status; it opens on a Needs BTG filter by default.
+  - Payee money pages: "BTG is reviewing this payout" and "fix your payout account".
+  - `admin/finance`: the earnings reasons.
+- **Migrations:** 20261003190000_payout_automation (plus 20261003160000/170000/180000 from the afternoon).
+- **Checks on the combined branch:** backend 2348/2350 on two runs (only Jan's next-edition-e2e clauses 4–5); frontend 1068/1068; tsc and eslint clean on both.
+- **Tracker:** Phase 2 rows 122–125 added (Order 44.1, 44.2, 44.3, 47.6). Ranges and the Dashboard formulas now run to row 125. The plan has 122 tasks.

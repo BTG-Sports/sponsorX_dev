@@ -526,6 +526,17 @@ only its own payouts (by payee tenant, type and id, as `ledgerEntry`). The
 GUARDIAN `ward` row is kept from Phase 1; the payout scope does not yet
 resolve a ward, so it matches nothing until it does.
 
+Noted 2026-10-02 (2S5-BE-06 / -07 / -08 — no change to the matrix): the
+**system** also approves — a payout under $2,000 with every check passed,
+no payout-account change in 7 days and the payee under $5,000 of automatic
+approvals in 7 days; and a Phase 1 earning, on the same rule, as it becomes
+eligible. It retries a failed payout automatically. Each is audited with a
+null actor. BTG admin and Finance keep approve, send-back and retry exactly
+as above. What BTG reads that the payee does not: a payout's
+`reviewReasons`, failure kind and retry schedule, and an earning's
+`reviewReasons` (Finance and BTG admin only — they name amounts). A payee
+reads only `approvedAutomatically` and who the payout waits on.
+
 ### `payoutAccount` *(added 2026-09-30, 2S5-INT-03)*
 | Role | Read | Write | Approve |
 |---|---|---|---|
@@ -1439,6 +1450,13 @@ One contracted order line as its sellers see it, and its delivery.
   own-property) marks delivered. Only `own-sponsor` confirms or reports a
   problem. `approve` (BTG admin) resolves a problem by confirming or
   refunding it. BTG admin cannot mark a line delivered.
+- **Cancelling a paid line (2S4-BE-12, added 2026-10-02) uses the same
+  cells.** Only `own-sponsor` write (the sponsor's admin) cancels, or asks the
+  seller to cancel, a line not yet delivered; a sponsor analyst and BTG read
+  the terms but cannot cancel. Only a seller scope cancels a line it can't
+  deliver, and only the seller answers the sponsor's request. `approve` (BTG
+  admin) decides a request the seller declined or didn't answer: refund or
+  keep. A line outside the caller's reach answers 404 on these routes.
 
 ### `teamInvitation` (2S2-BE-05)
 | Role | Read | Write | Approve |
@@ -1481,6 +1499,26 @@ A seller's answer to an order a listing of theirs asks to approve.
 - **The sponsor's spending limit is read through `sponsor`.** BTG staff with
   a tenant-wide `sponsor` read see it, with its history
   (`GET /sponsors/{id}/spending-limit`). No new cell.
+
+## 25 · Phase 2 · refunds to send *(added 2026-10-02)*
+
+### `refundDue` (2S4-BE-13)
+Money owed back to a sponsor: one row per refund of a paid order, in the
+order's books.
+| Role | Read | Write | Approve |
+|---|---|---|---|
+| `SUPER_ADMIN` | any | any | — |
+| `BTG_ADMIN`, `FINANCE` | own-tenant (the order's books — the "Refunds to send" list) | own-tenant (marks a refund sent: method, reference, date) | — |
+
+- **Nobody else reaches the list.** The sponsor reads each refund's state on
+  its own order (`marketplaceOrder` / `orderDelivery`, own-sponsor): "on its
+  way" or "sent on" a date, never the method, the reference, or any card or
+  bank number. A seller never sees a refund.
+- **No role writes a row directly.** A row is written by the refund itself,
+  in its own transaction. `write` is only marking it sent by hand, until a
+  payment provider is connected (a card refunded through the provider is
+  marked sent by the system).
+- **A refund outside the caller's books answers 404.**
 
 ## 14 · Known gaps
 

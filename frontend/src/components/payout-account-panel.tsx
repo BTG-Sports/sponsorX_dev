@@ -56,8 +56,9 @@ export function PayoutAccountPanel({ view, action }: { view: AccountPanelView; a
   const needed = view.actionNeeded;
   return (
     <section
+      id="payout-account"
       aria-label="Payout account"
-      className={`rounded-xl border p-5 ${needed ? "border-primary/40 bg-primary/5" : "border-line bg-surface"}`}
+      className={`scroll-mt-20 rounded-xl border p-5 ${needed ? "border-primary/40 bg-primary/5" : "border-line bg-surface"}`}
     >
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="min-w-0 max-w-xl">

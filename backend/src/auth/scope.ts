@@ -486,6 +486,8 @@ const BUILDERS: Partial<Record<Resource, Builder>> = {
       default: return MATCHES_NOTHING;
     }
   },
+  /* 2S4-BE-13 — refunds to send live in the order's books. */
+  refundDue: tenantScoped,
   /* 2S2-BE-05 — the team's invitations (in its tenant), and the athlete's own (in theirs). */
   teamInvitation: (actor, scope) => {
     switch (scope) {

@@ -25,6 +25,8 @@ export type ApiPayoutAccount = {
 };
 
 export type PayoutState = "REQUESTED" | "APPROVED" | "SENDING" | "PAID" | "REJECTED" | "FAILED";
+/** 2S5-BE-07 — who a REQUESTED or FAILED payout waits on (null otherwise). */
+export type WaitingOn = "SYSTEM_RETRY" | "PAYEE_ACCOUNT" | "BTG";
 
 export type ApiPayout = {
   id: string;
@@ -38,6 +40,10 @@ export type ApiPayout = {
   paidAt: string | null;
   failureReason: string | null;
   lines: Array<{ orderId: string; orderRef: string; amountCents: number }>;
+  /** 2S5-BE-06 — approved by the rule, as the system. Optional: older reads. */
+  approvedAutomatically?: boolean;
+  /** 2S5-BE-07 — who it waits on. */
+  waitingOn?: WaitingOn | null;
 };
 
 export type ApiPayoutOrder = {
@@ -194,12 +200,13 @@ export function athleteBanner(a: ApiPayoutAccount, opts: { minor?: boolean } = {
 
 /* ============================================================ payout rows */
 
-export function payoutStatus(p: Pick<ApiPayout, "state" | "paidAt" | "decisionNote">): { label: string; tone: Tone } {
+/** The payee's words for a payout. 2S5-BE-06 / -07 — never the internal reasons. */
+export function payoutStatus(p: Pick<ApiPayout, "state" | "paidAt" | "decisionNote"> & Partial<Pick<ApiPayout, "approvedAutomatically" | "waitingOn">>): { label: string; tone: Tone } {
   switch (p.state) {
     case "REQUESTED":
-      return { label: "Requested — waiting for BTG", tone: "neutral" };
+      return { label: "BTG is reviewing this payout", tone: "neutral" };
     case "APPROVED":
-      return { label: "Approved by BTG — sending soon", tone: "primary" };
+      return { label: p.approvedAutomatically ? "Approved automatically — sending soon" : "Approved by BTG — sending soon", tone: "primary" };
     case "SENDING":
       return { label: "Sending — with the payment provider", tone: "primary" };
     case "PAID": {
@@ -211,10 +218,24 @@ export function payoutStatus(p: Pick<ApiPayout, "state" | "paidAt" | "decisionNo
       return { label: note ? `Sent back by BTG: ${note}` : "Sent back by BTG", tone: "warn" };
     }
     case "FAILED":
+      if (p.waitingOn === "PAYEE_ACCOUNT") return { label: PAYEE_FIX_LABEL, tone: "warn" };
+      if (p.waitingOn === "SYSTEM_RETRY") return { label: "Couldn't be sent yet — it will be tried again automatically", tone: "warn" };
       return { label: "The payment provider couldn't send this — BTG is looking into it", tone: "danger" };
     default:
       return { label: String(p.state), tone: "neutral" };
   }
+}
+
+export const PAYEE_FIX_LABEL = "Your payout couldn't be sent — fix your payout account";
+
+/** 2S5-BE-07 — the payee's "fix your payout account" prompt: only for a payout waiting on their account. */
+export function payeeFixPrompt(p: Pick<ApiPayout, "state"> & Partial<Pick<ApiPayout, "waitingOn">>, href: string) {
+  if (p.state !== "FAILED" || p.waitingOn !== "PAYEE_ACCOUNT") return null;
+  return {
+    label: "Fix your payout account",
+    href,
+    note: "Update it on the payment provider's page. As soon as it's ready, we send this payout again — you don't need to request it.",
+  };
 }
 
 export function historyRows(payouts: ApiPayout[]) {
@@ -319,13 +340,13 @@ export type TrackerStep = { label: string; state: "done" | "current" | "todo"; n
 
 /** Requested → Approved by BTG → Sent → Paid, from the payout's own timestamps.
  *  Null for a payout that left the road (sent back, failed) — its status says why. */
-export function payoutTracker(p: Pick<ApiPayout, "state" | "requestedAt" | "decidedAt" | "sentAt" | "paidAt">): TrackerStep[] | null {
+export function payoutTracker(p: Pick<ApiPayout, "state" | "requestedAt" | "decidedAt" | "sentAt" | "paidAt"> & Partial<Pick<ApiPayout, "approvedAutomatically">>): TrackerStep[] | null {
   /* How many steps are behind it: requested (1), approved (2), sent (3), paid (4). */
   const done = ({ REQUESTED: 1, APPROVED: 2, SENDING: 3, PAID: 4 } as Record<string, number>)[p.state];
   if (done === undefined) return null;
   const steps = [
     { label: "Requested", at: p.requestedAt, waiting: "" },
-    { label: "Approved by BTG", at: p.decidedAt, waiting: "Waiting for BTG" },
+    { label: p.approvedAutomatically ? "Approved automatically" : "Approved by BTG", at: p.decidedAt, waiting: "Waiting for BTG" },
     { label: "Sent", at: p.sentAt, waiting: "Sending soon" },
     { label: "Paid", at: p.paidAt, waiting: "With the payment provider" },
   ];
@@ -342,13 +363,25 @@ export const APPROVAL_TABS: ReadonlyArray<{ key: ApprovalTab; label: string; sta
   { key: "waiting", label: "Waiting for approval", states: ["REQUESTED"] },
   { key: "sending", label: "Sending", states: ["APPROVED", "SENDING"] },
   { key: "paid", label: "Paid", states: ["PAID"] },
-  { key: "problems", label: "Problems", states: ["FAILED"] },
+  { key: "problems", label: "Failed", states: ["FAILED"] },
 ];
 export const approvalTab = (v: unknown): ApprovalTab =>
   APPROVAL_TABS.some((t) => t.key === v) ? (v as ApprovalTab) : "waiting";
-/** A tab's count from GET /payouts' per-state counts. */
-export const tabCount = (tab: ApprovalTab, counts: Record<string, number>) =>
-  APPROVAL_TABS.find((t) => t.key === tab)!.states.reduce((s, st) => s + (counts[st] ?? 0), 0);
+/** A tab's count from GET /payouts' per-state counts. 2S5-BE-07 — the Failed
+ *  tab counts only what needs BTG unless every failed payout is shown. */
+export const tabCount = (tab: ApprovalTab, counts: Record<string, number>, waiting?: ApiPayoutList["waiting"], showAll = false) =>
+  tab === "problems" && waiting && !showAll
+    ? waiting.failed.BTG
+    : APPROVAL_TABS.find((t) => t.key === tab)!.states.reduce((s, st) => s + (counts[st] ?? 0), 0);
+
+/** 2S5-BE-07 — the Failed tab's filter: what needs BTG (the default), or every failed payout. */
+export type FailedFilter = "btg" | "all";
+export const failedFilter = (v: unknown): FailedFilter => (v === "all" ? "all" : "btg");
+/** The list read for a tab: the Failed tab asks only for what waits on BTG by default. */
+export function listQuery(tab: ApprovalTab, filter: FailedFilter = "btg"): string {
+  const states = APPROVAL_TABS.find((t) => t.key === tab)!.states.join(",");
+  return tab === "problems" && filter === "btg" ? `state=${states}&waitingOn=BTG` : `state=${states}`;
+}
 
 export const payeeKind = (t: string) => (t === "PROPERTY" ? "Team" : "Athlete");
 
@@ -377,8 +410,20 @@ export function orderStatusLabel(state: string): string {
 
 /* ========================================== BTG's payout reads (2S5-FE-04) */
 
-export type ApiAdminPayout = ApiPayout & { payeeType: string; payeeId: string; payeeName: string };
-export type ApiPayoutList = { payouts: ApiAdminPayout[]; counts: Record<string, number> };
+export type ApiAdminPayout = ApiPayout & {
+  payeeType: string; payeeId: string; payeeName: string;
+  /** 2S5-BE-06 / -07 — BTG's only: why it waits, the failure kind and the retry schedule. */
+  reviewReasons?: string[];
+  failureKind?: "TEMPORARY" | "ACCOUNT" | "OTHER" | null;
+  retryCount?: number;
+  nextRetryAt?: string | null;
+};
+export type ApiPayoutList = {
+  payouts: ApiAdminPayout[];
+  counts: Record<string, number>;
+  /** 2S5-BE-07 — how many wait on whom; `failed` is the FAILED ones only. Optional: older reads. */
+  waiting?: Record<WaitingOn, number> & { failed: Record<WaitingOn, number> };
+};
 export type ApiPayoutDetail = ApiAdminPayout & {
   account: ApiPayoutAccount;
   orders: Array<{ orderId: string; orderRef: string; state: string; fulfilledAt: string | null; totalCents: number; title: string }>;
@@ -400,11 +445,54 @@ export function payeeShare(
 }
 
 /** The payout's own history, in order: who did what, when. */
-export function auditTrail(p: Pick<ApiAdminPayout, "state" | "payeeName" | "requestedAt" | "decidedAt" | "sentAt" | "paidAt" | "decisionNote" | "failureReason">) {
+export function auditTrail(p: Pick<ApiAdminPayout, "state" | "payeeName" | "requestedAt" | "decidedAt" | "sentAt" | "paidAt" | "decisionNote" | "failureReason" | "approvedAutomatically">) {
   const out: Array<{ what: string; when: string }> = [{ what: `Requested by ${p.payeeName}`, when: stamp(p.requestedAt) }];
-  if (p.decidedAt) out.push({ what: p.state === "REJECTED" ? `Sent back by BTG${p.decisionNote ? `: “${p.decisionNote}”` : ""}` : "Approved by BTG", when: stamp(p.decidedAt) });
+  if (p.decidedAt) out.push({ what: p.state === "REJECTED" ? `Sent back by BTG${p.decisionNote ? `: “${p.decisionNote}”` : ""}` : p.approvedAutomatically ? "Approved automatically — every check passed" : "Approved by BTG", when: stamp(p.decidedAt) });
   if (p.sentAt) out.push({ what: "Handed to the payment provider", when: stamp(p.sentAt) });
   if (p.paidAt) out.push({ what: "Paid — confirmed by the payment provider", when: stamp(p.paidAt) });
   if (p.state === "FAILED") out.push({ what: `Couldn't send${p.failureReason ? `: ${p.failureReason}` : ""}`, when: "" });
   return out;
+}
+
+/* ======================= automatic approval and retries (2S5-FE-06) */
+
+/** "Approved automatically" — on a payout the rule approved, whatever its state since. Null otherwise. */
+export function approvalBadge(p: Pick<ApiPayout, "state"> & Partial<Pick<ApiPayout, "approvedAutomatically">>): string | null {
+  return p.approvedAutomatically && p.state !== "REQUESTED" && p.state !== "REJECTED" ? "Approved automatically" : null;
+}
+
+/** BTG's line for why a REQUESTED payout waits: "Waiting because: Over $2,000 · …". Null when there is none. */
+export function waitingReasons(p: Pick<ApiAdminPayout, "state" | "reviewReasons">): string | null {
+  if (p.state !== "REQUESTED" || !p.reviewReasons?.length) return null;
+  return `Waiting because: ${p.reviewReasons.join(" · ")}`;
+}
+
+/** "Oct 3, 4:00 pm" (UTC, as `stamp`). */
+export function retryWhen(iso: string | null | undefined): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  const date = d.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
+  const time = d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true, timeZone: "UTC" }).replace(" AM", " am").replace(" PM", " pm");
+  return `${date}, ${time}`;
+}
+
+/** The automatic retries a temporary failure gets (2S5-BE-07). */
+export const AUTO_RETRIES = 3;
+
+/**
+ * BTG's retry status for a FAILED payout, in words:
+ *   "Retrying automatically — next try Oct 3, 4:00 pm (2 of 3)"
+ *   "Waiting for the payee to fix their payout account"
+ *   or BTG's: its reason ("Couldn't be sent after 3 tries"), else the provider's.
+ */
+export function retryStatus(p: Pick<ApiAdminPayout, "state" | "waitingOn" | "nextRetryAt" | "retryCount" | "reviewReasons" | "failureReason">): { label: string; tone: Tone; needsBtg: boolean } | null {
+  if (p.state !== "FAILED") return null;
+  if (p.waitingOn === "SYSTEM_RETRY") {
+    const when = retryWhen(p.nextRetryAt);
+    return { label: `Retrying automatically — next try ${when || "soon"} (${(p.retryCount ?? 0) + 1} of ${AUTO_RETRIES})`, tone: "primary", needsBtg: false };
+  }
+  if (p.waitingOn === "PAYEE_ACCOUNT") return { label: "Waiting for the payee to fix their payout account", tone: "warn", needsBtg: false };
+  const why = p.reviewReasons?.[0] ?? (p.failureReason ? `Couldn't send: ${p.failureReason}` : "The payment provider couldn't send it");
+  return { label: `Needs BTG — ${why}`, tone: "danger", needsBtg: true };
 }

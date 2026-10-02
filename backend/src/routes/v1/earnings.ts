@@ -19,7 +19,7 @@ import { Router, type RequestHandler } from "express";
 
 import { requireActor, type Actor } from "../../auth/actor";
 import { ForbiddenError } from "../../auth/errors";
-import { can, whereFor } from "../../auth/scope";
+import { can, scopeOf, whereFor } from "../../auth/scope";
 import { canReadField } from "../../auth/fields";
 import { prisma } from "../../db/client";
 import { allowedList, pageRequest, readPage, searchTerm } from "../../lib/paging";
@@ -63,17 +63,23 @@ export const earningsRouter = Router();
 const EARNING_STATES = ["PENDING", "ELIGIBLE", "APPROVED_FOR_PAYOUT", "PAID", "HELD", "DISPUTED"] as const;
 type EarningStateName = (typeof EARNING_STATES)[number];
 
-type Rights = { seeAmount: boolean; seeSell: boolean; seeInvoices: boolean };
+type Rights = { seeAmount: boolean; seeSell: boolean; seeInvoices: boolean; seeReasons: boolean };
 
 function rightsOf(actor: Actor): Rights {
   const seeAmount = canReadField(actor.roles, "earning.amount");
   const seeSell = seeAmount && canReadField(actor.roles, "campaignOrder.sellPrice");
   const seeInvoices = seeSell && can(actor, "invoice", "read");
-  return { seeAmount, seeSell, seeInvoices };
+  /* 2S5-BE-08 — why an earning was left for Finance: BTG's own words, and
+     they name amounts. Tenant-wide readers who see amounts only (Finance,
+     BTG admin) — never the athlete, never a role denied the amount. */
+  const readScope = scopeOf(actor, "earning", "read");
+  const seeReasons = seeAmount && (readScope === "own-tenant" || readScope === "any");
+  return { seeAmount, seeSell, seeInvoices, seeReasons };
 }
 
 const EARNING_SELECT = {
   id: true, state: true, gross: true, adjustment: true, taxYear: true, paidAt: true, reference: true,
+  approvedAutomatically: true, reviewReasons: true,
   athlete: { select: { id: true, displayName: true } },
   order: {
     select: {
@@ -88,6 +94,7 @@ const EARNING_SELECT = {
 type EarningRow = {
   id: string; state: string; gross: number; adjustment: number; taxYear: number;
   paidAt: Date | null; reference: string | null;
+  approvedAutomatically?: boolean; reviewReasons?: string[];
   athlete: { id: string; displayName: string };
   order: {
     id: string; jobId: string; acceptedAt: Date | null; sellPrice: number;
@@ -105,6 +112,9 @@ function earningOut(e: EarningRow, r: Rights) {
     taxYear: e.taxYear,
     paidAt: e.paidAt?.toISOString() ?? null,
     reference: e.reference,
+    /* 2S5-BE-08 — approved for payout by the rule, not by Finance. */
+    approvedAutomatically: Boolean(e.approvedAutomatically),
+    ...(r.seeReasons ? { reviewReasons: e.reviewReasons ?? [] } : {}),
     athlete: e.athlete,
     order: {
       id: e.order.id,

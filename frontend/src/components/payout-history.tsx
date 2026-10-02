@@ -1,11 +1,18 @@
+import Link from "next/link";
+
 import { Badge, Card } from "@/components/ui";
-import { historyRows, payoutTracker, type ApiPayout, type TrackerStep } from "@/lib/payouts-live";
+import { approvalBadge, historyRows, payeeFixPrompt, payoutTracker, type ApiPayout, type TrackerStep } from "@/lib/payouts-live";
 
 /* --------------------------------------------------------------------------
    Payout history — 2S5-FE-02 (design Earnings.dc.html). Every payout from
    GET /payouts/me: when it was requested, the amount, the orders it covers
    and its status in words (never colour alone). No card or bank numbers —
    "confirmed by the payment provider" is as far as a status goes.
+
+   2S5-FE-06 — "Approved automatically" on a payout the rule approved, "BTG
+   is reviewing this payout" on one waiting for BTG (never why), and for a
+   payout waiting on the payee's account, "Your payout couldn't be sent —
+   fix your payout account" with the link (`fixHref`, the money page).
    -------------------------------------------------------------------------- */
 
 /** Requested → Approved by BTG → Sent → Paid (2S5-FE-03, design MyMoney). */
@@ -28,7 +35,7 @@ export function PayoutTracker({ steps, vertical = false }: { steps: TrackerStep[
   );
 }
 
-export function PayoutHistory({ payouts, emptyHint }: { payouts: ApiPayout[]; emptyHint?: string }) {
+export function PayoutHistory({ payouts, emptyHint, fixHref }: { payouts: ApiPayout[]; emptyHint?: string; fixHref: string }) {
   const rows = historyRows(payouts);
   const byId = new Map(payouts.map((p) => [p.id, p]));
   if (rows.length === 0) {
@@ -54,7 +61,22 @@ export function PayoutHistory({ payouts, emptyHint }: { payouts: ApiPayout[]; em
             <span className="flex flex-col items-end gap-1 text-right">
               <span className="text-sm font-semibold tabular-nums">{r.amount}</span>
               <Badge tone={r.status.tone}>{r.status.label}</Badge>
+              {(() => {
+                const p = byId.get(r.id)!;
+                const auto = approvalBadge(p);
+                /* The tracker already names the automatic approval while it is on its way; the badge stays once paid. */
+                return auto && p.state === "PAID" ? <Badge tone="accent">✓ {auto}</Badge> : null;
+              })()}
             </span>
+            {(() => {
+              const fix = payeeFixPrompt(byId.get(r.id)!, fixHref);
+              return fix ? (
+                <div className="w-full rounded-lg border border-warn/40 bg-warn/5 px-3 py-2 text-[11px]">
+                  <Link href={fix.href} className="font-medium text-primary hover:underline">{fix.label} →</Link>
+                  <span className="mt-0.5 block text-muted">{fix.note}</span>
+                </div>
+              ) : null;
+            })()}
             {(() => {
               const steps = payoutTracker(byId.get(r.id)!);
               return steps ? <div className="w-full"><PayoutTracker steps={steps} /></div> : null;

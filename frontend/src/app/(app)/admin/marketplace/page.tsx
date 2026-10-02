@@ -36,7 +36,7 @@ import { retryPayoutAction } from "@/app/(app)/admin/payouts/actions";
      GET /payments/failed                             orders still owing whose latest card
                                                       payment failed (each opens the order:
                                                       cancel, or mark paid another way)
-     GET /payouts?state=FAILED                        payouts the provider couldn't send
+     GET /payouts?state=FAILED&waitingOn=BTG          payouts the provider couldn't send, left for BTG
    Writes POST /payouts/:id/retry                     (the payout desk's own retry action)
    Counts are the lengths of those arrays — the API has no counts route.
 
@@ -124,7 +124,8 @@ export default async function MarketplaceOpsPage({ searchParams }: { searchParam
     readLive(tab === "live" ? livePage(sp.page) : 1),
     read<ApiMarketplaceOrder>("/marketplace-orders?state=PENDING_APPROVAL", "orders"),
     read<ApiFailedPayment>("/payments/failed", "payments"),
-    read<ApiAdminPayout>("/payouts?state=FAILED", "payouts"),
+    /* 2S5-FE-06 — only the failed payouts that need BTG: the rest retry on their own or wait for the payee. */
+    read<ApiAdminPayout>("/payouts?state=FAILED&waitingOn=BTG", "payouts"),
   ]);
   const now = new Date().getTime();
 

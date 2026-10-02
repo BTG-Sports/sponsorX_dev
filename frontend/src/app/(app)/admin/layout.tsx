@@ -17,6 +17,8 @@ const NAV: NavItem[] = [
   { href: "/admin/rewards", label: "Rewards", icon: "gift" },
   { href: "/admin/analytics", label: "Analytics", icon: "chart" },
   { href: "/admin/finance", label: "Finance", icon: "wallet" },
+  /* 2S4-FE-06 — money owed back to sponsors, sent by hand until a payment provider is connected (BTG admin and Finance). */
+  { href: "/admin/refunds", label: "Refunds to send", icon: "wallet" },
   /* 2S5-FE-01 — BTG admin only; hidden from the other staff roles below. */
   { href: "/admin/commission", label: "Commission", icon: "card" },
   { href: "/admin/marketplace", label: "Marketplace", icon: "store" },

@@ -33,6 +33,8 @@ const MONEY_MODULES = [
   "order-payment.ts",
   "commission.ts",
   "ledger.ts",
+  /* 2S4-BE-13 — refunds to send: written with each refund, marked sent by Finance. */
+  "refunds.ts",
 ] as const;
 
 /**
@@ -64,6 +66,11 @@ const READ_ONLY = new Set([
   "orderFinancials",
   "propertyLedger",
   "summarise",
+  /* 2S4-BE-13 — reads and pure functions in refunds.ts. */
+  "orderRefundCause",
+  "refundSentProblems",
+  "listRefunds",
+  "refundsForOrders",
 ]);
 
 function sourceOf(file: string): string {
@@ -121,7 +128,7 @@ describe("P7-SEC-01 · every money change is audited", () => {
     const { readdirSync } = await import("node:fs");
     const writers = readdirSync(new URL("../src/domain/", import.meta.url))
       .filter((f) => f.endsWith(".ts"))
-      .filter((f) => /\b(ledgerEntry|commissionRule|orderLineFinancials|marketplaceOrder|offer|athleteRate|earning)\.(create|createMany|update|updateMany|upsert|delete)\(/.test(sourceOf(f)));
+      .filter((f) => /\b(ledgerEntry|commissionRule|orderLineFinancials|marketplaceOrder|offer|athleteRate|earning|refundDue)\.(create|createMany|update|updateMany|upsert|delete)\(/.test(sourceOf(f)));
     /* Named exceptions, each with its reason: these write a money model's row but never an amount. */
     const NOT_MONEY: Record<string, string> = {
       "zoho-sync.ts": "stores only the Zoho link id on an order (zohoDealId) — never an amount",

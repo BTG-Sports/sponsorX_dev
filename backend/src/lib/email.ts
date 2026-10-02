@@ -104,6 +104,18 @@ export type EmailTemplate =
   | "delivery.withBtg"
   | "delivery.resolved"
   | "delivery.overdue"
+  /* 2S4-BE-12 — cancelling a paid line: the sponsor's cancellation confirmed;
+     the seller told a line was cancelled; the seller asked to cancel (with the
+     deadline); the sponsor told the seller's answer; a seller's cancellation
+     told to the sponsor; a request the seller declined or didn't answer, to BTG. */
+  | "delivery.cancelConfirmed"
+  | "sale.lineCancelled"
+  | "sale.cancellationRequested"
+  | "delivery.cancellationAnswered"
+  | "delivery.sellerCancelled"
+  | "delivery.cancellationEscalated"
+  /* 2S4-BE-13 — the sponsor's refund was sent (by Finance, or to the card by the provider). */
+  | "refund.sent"
   /* 2S2-BE-05 — a team invites an athlete already on SponsorX; the team
      hears the answer; either side ending the link tells the other. */
   | "team.invited"
@@ -202,7 +214,11 @@ export type EmailTemplate =
   | "editionArtwork.submitted"
   | "editionArtwork.readyForSignOff"
   | "editionArtwork.revisionRequested"
-  | "editionArtwork.approved";
+  | "editionArtwork.approved"
+  /* 2S5-BE-07 — the payment provider couldn't send a payout because the
+     payee's payout account needs attention: fix it (on the provider's page,
+     from the money page) and it is sent again on its own. */
+  | "payout.accountNeedsFix";
 
 export type EmailMessage = {
   template: EmailTemplate;

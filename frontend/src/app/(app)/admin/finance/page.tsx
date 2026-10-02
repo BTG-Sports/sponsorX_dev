@@ -16,6 +16,7 @@ import {
 } from "@/lib/fixtures";
 import {
   agingRows,
+  earningApprovalNote,
   pagedQuery,
   summaryBuckets,
   STATES,
@@ -144,7 +145,9 @@ function LiveFinance({ books }: { books: LiveBooks }) {
 
       <BlockedNotice>
         Payout actions are blocked on the written Phase 1 payment policy (§37 gate one, an open A-gate). This screen
-        shows real states; it does not approve, pay or collect payout details until the policy is written.
+        shows real states; it does not approve, pay or collect payout details until the policy is written. Earnings
+        under $2,000 move to &ldquo;approved for payout&rdquo; on their own as they become eligible (2S5-BE-08); the
+        ones left for Finance say why. Paid is still recorded by Finance.
       </BlockedNotice>
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
@@ -354,7 +357,18 @@ function LiveFinance({ books }: { books: LiveBooks }) {
                       {e.reference ? <code className="font-mono text-[11px] text-faint">{e.reference}</code> : <span className="text-[11px] text-faint">—</span>}
                     </td>
                     <td className="px-4 py-3">
-                      <Badge tone={EARNING_TONE[e.state]}>{EARNING_COPY[e.state]}</Badge>
+                      {(() => {
+                        const note = earningApprovalNote(e);
+                        return (
+                          <span className="flex flex-col items-start gap-1">
+                            <Badge tone={EARNING_TONE[e.state]}>{EARNING_COPY[e.state]}</Badge>
+                            {note.badge && <Badge tone="accent">✓ {note.badge}</Badge>}
+                            {note.reasons.length > 0 && (
+                              <span className="text-[11px] leading-snug text-warn">For Finance: {note.reasons.join(" · ")}</span>
+                            )}
+                          </span>
+                        );
+                      })()}
                     </td>
                     <td className="px-4 py-3 text-right text-xs font-semibold tabular-nums">{typeof e.amount === "number" ? money(e.amount) : "—"}</td>
                     <td className="px-4 py-3 text-right text-xs tabular-nums text-muted">{typeof e.sellPrice === "number" ? money(e.sellPrice) : "—"}</td>

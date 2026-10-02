@@ -135,7 +135,7 @@ export default async function PropertyEarningsPage() {
 
         <section>
           <SectionHeading title="Payout history" hint="Each payout, the orders it covers and where it stands." />
-          <PayoutHistory
+          <PayoutHistory fixHref="/property/earnings#payout-account"
             payouts={me.payouts}
             emptyHint={me.account.status === "READY" ? "Your first payout can be requested once an order is paid, delivered and past its holding period." : "Set up your payout account on Stripe (above) so money can be sent once your first order closes."}
           />

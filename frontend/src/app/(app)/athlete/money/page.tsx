@@ -137,7 +137,7 @@ export default async function MyMoneyPage() {
 
       <section>
         <SectionHeading title="Payout history" hint="Follow each payout from request to paid." />
-        <PayoutHistory payouts={me.payouts} emptyHint="When you request one, you can follow it here from request to paid." />
+        <PayoutHistory fixHref="/athlete/money#payout-account" payouts={me.payouts} emptyHint="When you request one, you can follow it here from request to paid." />
       </section>
     </div>
   );
