@@ -23,6 +23,14 @@
  *     declines for them: CANCELLED (SELLER_NO_ANSWER), stock released, the
  *     sponsor and the silent seller emailed.
  *
+ * TWO SELLERS AT ONCE. Each answer takes the ORDER's row lock before it
+ * writes (marketplace-order.ts `lockOrder`), so answers to one order
+ * serialize: the second reads the first's, and whichever is last sees no
+ * question left open and moves the order on. (Without it, two accepts each
+ * counted the other still PENDING under READ COMMITTED and neither moved it
+ * — the order stuck in PENDING_SELLER.) As a backstop the sweep also picks up
+ * any PENDING_SELLER order with no question left open.
+ *
  * THE DAILY SUMMARY. One email a day per BTG tenant to its admins, listing
  * the orders approved automatically since the last summary
  * (`sendOrderApprovalDigests`) — the same shape as listing.ts
@@ -36,7 +44,7 @@ import { assertAllowed, whereFor, type Scope } from "../auth/scope";
 import { ForbiddenError } from "../auth/errors";
 import { send } from "../lib/email";
 import { assertMayCommit } from "./guardian-acts";
-import { afterSellersAccepted, cancelOrderAsSystem } from "./marketplace-order";
+import { afterSellersAccepted, cancelOrderAsSystem, lockOrder } from "./marketplace-order";
 import { SELLER_APPROVAL_HOURS, usd } from "./marketplace-order-rules";
 import { appUrl, btgAdmins, orderRef, sellerRecipients, sponsorRecipient, tell, utc, type SellerParty } from "./order-mail";
 
@@ -239,6 +247,11 @@ export async function decideSellerApproval(actor: Actor, id: string, decision: "
   const why = reason?.trim() ?? "";
   if (decision === "DECLINE" && !why) throw new SellerApprovalError("Declining needs a reason — the sponsor reads it.", 422);
   await prisma.$transaction(async (tx) => {
+    const found = await tx.orderSellerApproval.findFirst({ where: { ...whereFor(actor, "orderSellerApproval", "write"), id }, select: { orderId: true } });
+    if (!found) throw new ForbiddenError("orderSellerApproval", "write");
+    /* The order's row lock before anything is written: answers to one order
+       serialize, so the count below sees every other answer already made. */
+    await lockOrder(tx, found.orderId);
     const row = await tx.orderSellerApproval.findFirst({ where: { ...whereFor(actor, "orderSellerApproval", "write"), id }, select: SELECT });
     if (!row) throw new ForbiddenError("orderSellerApproval", "write");
     await assertMayCommit(tx, actor, decision === "ACCEPT" ? "accept" : "manage");
@@ -268,13 +281,7 @@ export async function decideSellerApproval(actor: Actor, id: string, decision: "
         where: { orderId: row.orderId, state: "PENDING" },
       });
       if (waiting) return;
-      const order = await afterSellersAccepted(tx, row.orderId, now);
-      /* Within the limit the order is approved now and the sponsor gets the
-         "approved — pay by" email; above it, they are told BTG is checking. */
-      if (order.state === "PENDING_APPROVAL") {
-        const sponsor = await sponsorRecipient(tx, order);
-        if (sponsor) await tell(tx, sponsor, "order.sellerAccepted", order.id, { firstName: sponsor.firstName, orderRef: orderRef(order.id), sellerName: seller.name, orderUrl: appUrl(`/sponsor/orders/${order.id}`) });
-      }
+      await sellersAccepted(tx, row.orderId, seller.name, now);
       return;
     }
     const order = await cancelOrderAsSystem(tx, row.orderId, "SELLER_DECLINED", now);
@@ -288,6 +295,21 @@ export async function decideSellerApproval(actor: Actor, id: string, decision: "
   return mySellerApproval(actor, id, now);
 }
 
+/**
+ * Every seller asked has accepted: the order moves on (`afterSellersAccepted`).
+ * Within the limit it is approved now and the sponsor gets the "approved —
+ * pay by" email; above it, they are told BTG is checking. Under the order's
+ * row lock (the caller's).
+ */
+async function sellersAccepted(tx: Tx, orderId: string, sellerName: string, now: Date) {
+  const order = await afterSellersAccepted(tx, orderId, now);
+  if (order.state === "PENDING_APPROVAL") {
+    const sponsor = await sponsorRecipient(tx, order);
+    if (sponsor) await tell(tx, sponsor, "order.sellerAccepted", order.id, { firstName: sponsor.firstName, orderRef: orderRef(order.id), sellerName, orderUrl: appUrl(`/sponsor/orders/${order.id}`) });
+  }
+  return order;
+}
+
 /* ── the 48 hours — the worker's sweep ─────────────────────────────────── */
 
 /**
@@ -297,6 +319,12 @@ export async function decideSellerApproval(actor: Actor, id: string, decision: "
  * on the row still being PENDING, so overlapping runs and retries do
  * nothing twice. `tenantIds` limits the pass to named order books (a test,
  * or a re-run for one marketplace); the worker passes none — every one.
+ *
+ * And the backstop: an order still PENDING_SELLER with no question left open
+ * is settled from its answers — every seller accepted → moved on as the last
+ * answer would have; one declined → cancelled (SELLER_DECLINED); one expired
+ * → cancelled (SELLER_NO_ANSWER). Under the order's row lock, so it never
+ * races a seller answering.
  */
 export async function sweepSellerApprovals(now = new Date(), opts: { tenantIds?: string[] } = {}) {
   const due = await prisma.orderSellerApproval.findMany({
@@ -307,8 +335,11 @@ export async function sweepSellerApprovals(now = new Date(), opts: { tenantIds?:
   let expired = 0;
   let cancelled = 0;
   let failed = 0;
+  let movedOn = 0;
   for (const orderId of [...new Set(due.map((d) => d.orderId))]) {
     await prisma.$transaction(async (tx) => {
+      /* The order's row lock first, as a seller's answer takes it. */
+      await lockOrder(tx, orderId);
       const silent = await tx.orderSellerApproval.findMany({
         /* tenant-scope: this order's own approval rows, named by its id. */
         where: { orderId, state: "PENDING", dueAt: { lte: now } }, select: SELECT,
@@ -344,7 +375,49 @@ export async function sweepSellerApprovals(now = new Date(), opts: { tenantIds?:
       console.error(`[seller approvals] order ${orderId} failed, will retry next pass:`, error);
     });
   }
-  return { expired, cancelled, failed };
+
+  /* The backstop: waiting on its sellers, with nothing left to wait for. */
+  const stranded = await prisma.marketplaceOrder.findMany({
+    /* tenant-scope: the worker's sweep across every tenant (or the named ones); each order is settled in its own books. */
+    where: { state: "PENDING_SELLER", sellerApprovals: { some: {}, none: { state: "PENDING" } }, ...(opts.tenantIds ? { tenantId: { in: opts.tenantIds } } : {}) },
+    select: { id: true }, orderBy: { createdAt: "asc" }, take: 500,
+  });
+  for (const { id: orderId } of stranded) {
+    await prisma.$transaction(async (tx) => {
+      if ((await lockOrder(tx, orderId)) !== "PENDING_SELLER") return;
+      const answers = await tx.orderSellerApproval.findMany({
+        /* tenant-scope: this order's own approval rows, named by its id. */
+        where: { orderId }, select: SELECT,
+      });
+      if (!answers.length || answers.some((a) => a.state === "PENDING")) return;
+      const names = await namesFor(answers);
+      const declined = answers.find((a) => a.state === "DECLINED");
+      const silent = answers.filter((a) => a.state === "EXPIRED");
+      if (declined) {
+        const order = await cancelOrderAsSystem(tx, orderId, "SELLER_DECLINED", now);
+        cancelled++;
+        const sponsor = await sponsorRecipient(tx, order);
+        if (sponsor) await tell(tx, sponsor, "order.sellerDeclined", order.id, { firstName: sponsor.firstName, orderRef: orderRef(order.id), sellerName: sellerOf(declined, names).name, reason: declined.reason ?? "", orderUrl: appUrl(`/sponsor/orders/${order.id}`) });
+        return;
+      }
+      if (silent.length) {
+        const order = await cancelOrderAsSystem(tx, orderId, "SELLER_NO_ANSWER", now);
+        cancelled++;
+        const sponsor = await sponsorRecipient(tx, order);
+        if (sponsor) await tell(tx, sponsor, "order.sellerNoAnswer", order.id, { firstName: sponsor.firstName, orderRef: orderRef(order.id), sellerName: silent.map((r) => sellerOf(r, names).name).join(", "), orderUrl: appUrl(`/sponsor/orders/${order.id}`) });
+        return;
+      }
+      if (answers.every((a) => a.state === "ACCEPTED")) {
+        await sellersAccepted(tx, orderId, answers.map((a) => sellerOf(a, names).name).join(", "), now);
+        await audit(tx, { userId: null, tenantId: answers[0]!.tenantId }, "orderSellerApproval.settledBySweep", "MarketplaceOrder", orderId, { after: { approvals: answers.map((a) => a.id) } });
+        movedOn++;
+      }
+    }).catch((error: unknown) => {
+      failed++;
+      console.error(`[seller approvals] settling order ${orderId} failed, will retry next pass:`, error);
+    });
+  }
+  return { expired, cancelled, failed, movedOn };
 }
 
 /* ── BTG's daily summary of orders approved automatically ─────────────── */

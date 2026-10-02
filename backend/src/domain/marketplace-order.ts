@@ -59,6 +59,20 @@
  * decision (or policy), never through a transition. The figures are
  * Postgres's to keep from placement on.
  *
+ * CONCURRENCY (the 2S4-BE-09/-10 review). A cancel and a payment can race
+ * for one order — the unpaid sweep, a Zoho ingest, BTG marking it paid, the
+ * card provider. Two rules keep one of them from overwriting the other:
+ *   - every move is CLAIMED: `moveIn` (and `contract`) update only where
+ *     the state is still the one read (`updateMany where {id, state:
+ *     from}`); a count of 0 is OrderStateConflictError (409) and nothing
+ *     else is written — the audit, the stock, the books and Zoho follow only
+ *     a successful claim;
+ *   - every decision that reads before it moves takes the order's row lock
+ *     first (`lockOrder`, SELECT … FOR UPDATE), so the checks it makes (is
+ *     a payment in progress? is every seller's answer in?) are made on the
+ *     state the move will be made from. Lock order: the order row first,
+ *     then its attempts, approvals and lines.
+ *
  * THE LINES (2S4-BE-06 / -07). Contracting opens a delivery row per line and
  * tells each seller of the sale (delivery.ts `openDeliveries`); every move
  * then takes the lines with it (`followOrder`) — paid opens delivery,
@@ -105,6 +119,65 @@ export class MarketplaceOrderError extends Error {
     this.name = "MarketplaceOrderError";
     this.status = status;
   }
+}
+
+/** The order moved on while this request was deciding — its move was not made (409). */
+export class OrderStateConflictError extends MarketplaceOrderError {
+  readonly from: MarketplaceOrderState;
+  readonly to: MarketplaceOrderState;
+  readonly current: MarketplaceOrderState | null;
+  constructor(from: MarketplaceOrderState, to: MarketplaceOrderState, current: MarketplaceOrderState | null) {
+    super(`This order changed while that was being done: it was ${from} and is now ${current ?? "gone"}, so it was not moved to ${to}. Reload it and try again.`);
+    this.name = "OrderStateConflictError";
+    this.from = from;
+    this.to = to;
+    this.current = current;
+  }
+}
+
+/**
+ * Hold the order's row until the transaction ends (SELECT … FOR UPDATE) and
+ * read its state as it is now — committed moves included. Every path that
+ * checks something about an order before moving it takes this first, so a
+ * concurrent move waits rather than slipping in between. Taking it twice in
+ * one transaction is free. Null if there is no such order.
+ */
+export async function lockOrder(tx: Prisma.TransactionClient, orderId: string): Promise<MarketplaceOrderState | null> {
+  const rows = await tx.$queryRaw<Array<{ state: MarketplaceOrderState }>>`SELECT state::text AS state FROM "MarketplaceOrder" WHERE id = ${orderId} FOR UPDATE`;
+  return rows[0]?.state ?? null;
+}
+
+/** The caller's order, locked, and read after the lock: `where` is the caller's whereFor(marketplaceOrder, …) filter. */
+async function lockedOrder(tx: Prisma.TransactionClient, where: Prisma.MarketplaceOrderWhereInput) {
+  const found = await tx.marketplaceOrder.findFirst({
+    /* tenant-scope: `where` is the caller's whereFor(marketplaceOrder, …) filter, with the id. */
+    where, select: { id: true },
+  });
+  if (!found) return null;
+  await lockOrder(tx, found.id);
+  return tx.marketplaceOrder.findUniqueOrThrow({
+    /* tenant-scope: the row just found through the caller's whereFor filter, re-read under its lock. */
+    where: { id: found.id }, select: SELECT,
+  });
+}
+
+/** Claim a move: update only while the order is still `from`. 0 rows → OrderStateConflictError, nothing written. */
+async function claim(tx: Prisma.TransactionClient, orderId: string, from: MarketplaceOrderState, to: MarketplaceOrderState, data: Prisma.MarketplaceOrderUpdateManyMutationInput) {
+  const claimed = await tx.marketplaceOrder.updateMany({
+    /* tenant-scope: the row loaded by the caller through whereFor(marketplaceOrder, …); conditional on the state it was read in. */
+    where: { id: orderId, state: from }, data: { ...data, state: to },
+  });
+  if (claimed.count === 1) {
+    return tx.marketplaceOrder.findUniqueOrThrow({
+      /* tenant-scope: the row just claimed by id. */
+      where: { id: orderId }, select: SELECT,
+    });
+  }
+  const now = await tx.marketplaceOrder.findUnique({
+    /* tenant-scope: the row the caller loaded, re-read to say what it became. */
+    where: { id: orderId }, select: { state: true },
+  });
+  throw new OrderStateConflictError(from, to, (now?.state as MarketplaceOrderState | undefined) ?? null);
 }
 
 const SELECT = {
@@ -179,13 +252,11 @@ const orderHolds = (orderId: string) => ({ source: "ORDER", sourceId: { startsWi
  * the same transaction (2S4-BE-10), the sponsor emailed the deadline.
  */
 async function contract(tx: Prisma.TransactionClient, order: Row, by: string, now: Date, notes: string | null, auditor: { userId: string | null; tenantId: string }) {
+  /* Claimed first, on the state it was read in — nothing is contracted for an order that moved meanwhile. */
+  const approved = await claim(tx, order.id, order.state as MarketplaceOrderState, "APPROVED", { decidedAt: now, decidedBy: by, decisionNotes: notes, contractedAt: now });
   await tx.inventoryCommitment.updateMany({
     /* tenant-scope: the commitments this order wrote, named by its id (unique); the order was loaded through the caller's scope. */
     where: orderHolds(order.id), data: { contracted: true },
-  });
-  const approved = await tx.marketplaceOrder.update({
-    /* tenant-scope: the row loaded by the caller through whereFor(marketplaceOrder, …). */
-    where: { id: order.id }, data: { state: "APPROVED", decidedAt: now, decidedBy: by, decisionNotes: notes, contractedAt: now }, select: SELECT,
   });
   /* 2S4-BE-04 / 2S5-BE-02 — contract time: the breakdown frozen, the ledger booked, in this transaction. */
   await bookOrder(tx, order.id, now);
@@ -327,6 +398,7 @@ export async function placeOrder(actor: Actor, request: PlaceOrderRequest, now =
  * it, policy approves it and the payment window opens.
  */
 export async function afterSellersAccepted(tx: Prisma.TransactionClient, orderId: string, now = new Date()) {
+  await lockOrder(tx, orderId);
   const order = await tx.marketplaceOrder.findUniqueOrThrow({
     /* tenant-scope: the order named by the seller's approval row, which the seller loaded through whereFor(orderSellerApproval, write). */
     where: { id: orderId }, select: SELECT,
@@ -342,6 +414,7 @@ export async function afterSellersAccepted(tx: Prisma.TransactionClient, orderId
 
 /** An order the system ends — a seller declined or never answered (2S4-BE-09), or it went unpaid (2S4-BE-10). */
 export async function cancelOrderAsSystem(tx: Prisma.TransactionClient, orderId: string, reason: CancelReason, now = new Date()) {
+  await lockOrder(tx, orderId);
   const order = await tx.marketplaceOrder.findUniqueOrThrow({
     /* tenant-scope: the order the system's own sweep (or a seller's answer, loaded through its scope) names. */
     where: { id: orderId }, select: SELECT,
@@ -355,7 +428,7 @@ export async function decideMarketplaceOrder(actor: Actor, id: string, decision:
   if (scope !== "any" && scope !== "own-tenant") throw new ForbiddenError("marketplaceOrder", "approve");
   if (decision === "REJECT" && !notes?.trim()) throw new MarketplaceOrderError("REJECT needs a note — the sponsor is told why.", 422);
   const row = await prisma.$transaction(async (tx) => {
-    const order = await tx.marketplaceOrder.findFirst({ where: { ...whereFor(actor, "marketplaceOrder", "approve"), id }, select: SELECT });
+    const order = await lockedOrder(tx, { ...whereFor(actor, "marketplaceOrder", "approve"), id });
     if (!order) throw new ForbiddenError("marketplaceOrder", "approve");
     if (order.state === "PENDING_SELLER") throw new MarketplaceOrderError("This order is waiting for the seller's answer first — BTG decides once the seller has accepted.");
     const to = decision === "APPROVE" ? "APPROVED" : "CANCELLED";
@@ -389,15 +462,25 @@ export async function transitionMarketplaceOrder(actor: Actor, id: string, to: M
     if (problems.length) throw new MarketplaceOrderError(`To mark it paid, give ${problems.join("; ")}.`, 422);
   }
   const row = await prisma.$transaction(async (tx) => {
-    const order = await tx.marketplaceOrder.findFirst({ where: { ...whereFor(actor, "marketplaceOrder", "write"), id }, select: SELECT });
+    /* Locked first: the card check below and the move are made on the same state. */
+    const order = await lockedOrder(tx, { ...whereFor(actor, "marketplaceOrder", "write"), id });
     if (!order) throw new ForbiddenError("marketplaceOrder", "write");
-    if (to === "PAID") {
-      const p = payment as ManualPayment;
+    if (to === "PAID" || to === "CANCELLED") {
+      /* A card payment the provider is confirming may already have taken the
+         money: neither a second payment nor a cancel until it answers (the
+         unpaid sweep defers the same way). */
       const confirming = await tx.paymentAttempt.findFirst({
         /* tenant-scope: this order's own attempts, named by its id; the order was loaded through whereFor. */
         where: { orderId: order.id, state: "PROCESSING" }, select: { id: true },
       });
-      if (confirming) throw new MarketplaceOrderError("A card payment for this order is being confirmed by the payment provider — wait for it before recording another payment.");
+      if (confirming) {
+        throw new MarketplaceOrderError(to === "PAID"
+          ? "A card payment for this order is being confirmed by the payment provider — wait for it before recording another payment."
+          : "A card payment for this order is being confirmed by the payment provider — wait for it before cancelling the order.");
+      }
+    }
+    if (to === "PAID") {
+      const p = payment as ManualPayment;
       return payOrderIn(tx, actor, order.id, { via: p.method, reference: p.reference.trim(), receivedOn: p.receivedOn, recordedBy: actor.userId }, now);
     }
     return moveIn(tx, actor, order, to, now, to === "CANCELLED" ? { cancelReason: scope === "own-sponsor" ? "SPONSOR" : "BTG" } : {});
@@ -429,6 +512,7 @@ export type OrderPayment = {
  * payment recorded on the order and audited, and the sponsor's receipt.
  */
 export async function payOrderIn(tx: Prisma.TransactionClient, actor: AuditActor & { tenantId: string }, orderId: string, p: OrderPayment, now = new Date()) {
+  await lockOrder(tx, orderId);
   let order = await tx.marketplaceOrder.findUniqueOrThrow({
     /* tenant-scope: the order the caller loaded through its own scope (or named by the provider's, or Zoho's, record of it). */
     where: { id: orderId }, select: SELECT,
@@ -475,24 +559,20 @@ export async function moveOrderIn(tx: Prisma.TransactionClient, actor: AuditActo
   return moveIn(tx, actor, order, to, now, {});
 }
 
-async function moveIn(tx: Prisma.TransactionClient, actor: AuditActor & { tenantId: string }, order: Row, to: MarketplaceOrderState, now: Date, extra: Prisma.MarketplaceOrderUpdateInput) {
+async function moveIn(tx: Prisma.TransactionClient, actor: AuditActor & { tenantId: string }, order: Row, to: MarketplaceOrderState, now: Date, extra: Prisma.MarketplaceOrderUpdateManyMutationInput) {
   const from = order.state as MarketplaceOrderState;
   if (!canTransitionMarketplaceOrder(from, to)) throw new IllegalMarketplaceOrderTransitionError(from, to);
-  const updated = await tx.marketplaceOrder.update({
-    /* tenant-scope: the row loaded by the caller through whereFor(marketplaceOrder, …). */
-    where: { id: order.id },
-    data: {
-      state: to,
-      /* 2S5-BE-04 — the payout holding period runs from fulfilment. */
-      ...(to === "FULFILLED" ? { fulfilledAt: now } : {}),
-      /* 2S4-BE-10 — the payment window opens: reminders after 1 and 2 days, cancelled at 3. */
-      ...(to === "AWAITING_PAYMENT" ? { awaitingPaymentAt: now, paymentDueAt: new Date(now.getTime() + PAYMENT_WINDOW_DAYS * DAY), paymentRemindersSent: 0 } : {}),
-      ...(to === "PAID" ? { paidAt: now } : {}),
-      /* 2S4-BE-09 — a refund stops the sponsor's limit rising, from this moment. */
-      ...(to === "REFUNDED" ? { refundedAt: now } : {}),
-      ...extra,
-    },
-    select: SELECT,
+  /* Claimed on the state it was read in (see CONCURRENCY above): an order
+     that moved meanwhile is a conflict, and none of what follows happens. */
+  const updated = await claim(tx, order.id, from, to, {
+    /* 2S5-BE-04 — the payout holding period runs from fulfilment. */
+    ...(to === "FULFILLED" ? { fulfilledAt: now } : {}),
+    /* 2S4-BE-10 — the payment window opens: reminders after 1 and 2 days, cancelled at 3. */
+    ...(to === "AWAITING_PAYMENT" ? { awaitingPaymentAt: now, paymentDueAt: new Date(now.getTime() + PAYMENT_WINDOW_DAYS * DAY), paymentRemindersSent: 0 } : {}),
+    ...(to === "PAID" ? { paidAt: now } : {}),
+    /* 2S4-BE-09 — a refund stops the sponsor's limit rising, from this moment. */
+    ...(to === "REFUNDED" ? { refundedAt: now } : {}),
+    ...extra,
   });
   /* 2S4-BE-09 — an order that ends while its sellers are still asked closes their questions. */
   if (from === "PENDING_SELLER" && RELEASES.has(to)) {

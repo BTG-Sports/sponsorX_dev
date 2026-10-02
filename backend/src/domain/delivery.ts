@@ -75,7 +75,7 @@ import { ForbiddenError } from "../auth/errors";
 import { send, type EmailTemplate } from "../lib/email";
 import { presignPrivateDownload, presignPrivateUpload, privateObjectSize, SENSITIVE_DOCUMENT_TTL_SECONDS } from "../lib/storage";
 import { reverseOrder } from "./ledger";
-import { moveOrderAsSystem, moveOrderIn } from "./marketplace-order";
+import { moveOrderAsSystem, moveOrderIn, OrderStateConflictError } from "./marketplace-order";
 
 type Tx = Prisma.TransactionClient;
 
@@ -1349,6 +1349,8 @@ export async function sweepDeliveries(now = new Date(), opts: { tenantIds?: stri
       });
       out.closed++;
     } catch (error) {
+      /* Moved meanwhile (refunded): nothing was written — not a failure. */
+      if (error instanceof OrderStateConflictError) continue;
       out.failed++;
       console.error(`[delivery] closing ${id} failed, will retry:`, error);
     }

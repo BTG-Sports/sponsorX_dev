@@ -116,6 +116,11 @@ ${d.portalUrl ?? ""}
     subject: `Payment received for order ${d.orderRef ?? ""} — ${d.amount ?? ""}`,
     text: `${d.paidHow ?? `Your card payment for order ${d.orderRef ?? ""} has been confirmed by our payment provider.`}\n\n${d.lines ?? ""}\n\nPaid: ${d.amount ?? ""}\n\nYour order is now in delivery. View it here:\n\n${d.orderUrl ?? ""}\n\n${d.card ? "You paid on the payment provider's secure page. SponsorX never sees your card, and this email never includes card details." : "SponsorX never takes card or bank details, and this email never includes them."}\n\n— BTG SponsorX`,
   }),
+  /* 2S4-BE-10 — a card payment confirmed for an order no longer waiting for it: BTG refunds the sponsor. */
+  "payment.refundNeeded": (d) => ({
+    subject: `Refund the sponsor: a card payment of ${d.amount ?? ""} for order ${d.orderRef ?? ""}, which is ${d.orderState ?? "no longer waiting for payment"}`,
+    text: `${d.why ?? "A card payment was confirmed for an order that was no longer waiting for payment"} (order ${d.orderRef ?? ""}, ${d.amount ?? ""}). The order has not been reopened — refund the sponsor's payment with the payment provider${d.providerRef ? ` (payment ${d.providerRef})` : ""}.\n\n${d.orderUrl ?? ""}\n\n— SponsorX`,
+  }),
   /* 2S4-BE-09 — the seller's step. */
   "sale.approvalRequested": (d) => ({
     subject: `${d.sponsorName ?? "A sponsor"} wants to order from you — please answer by ${d.answerBy ?? "the time shown"}`,

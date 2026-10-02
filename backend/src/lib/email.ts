@@ -193,7 +193,9 @@ export type EmailTemplate =
   | "order.paymentReminder"
   | "order.cancelledUnpaid"
   | "sale.cancelled"
-  | "payment.received";
+  | "payment.received"
+  /* 2S4-BE-10 — a card payment confirmed for an order no longer waiting for it: BTG's admins refund the sponsor. */
+  | "payment.refundNeeded";
 
 export type EmailMessage = {
   template: EmailTemplate;
