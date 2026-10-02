@@ -100,7 +100,10 @@ async function apply(page: Page, a: Applicant): Promise<string> {
   await next.click();
 
   await heading("Your channels");
-  await page.getByLabel("Instagram").fill(`@${a.first.toLowerCase()}e2e`);
+  // The text box, by role: since 2026-09-30 the footer's social icon is
+  // labelled "Instagram — not linked yet", and getByLabel matches substrings —
+  // two elements, a strict-mode failure, on every run.
+  await page.getByRole("textbox", { name: "Instagram", exact: true }).fill(`@${a.first.toLowerCase()}e2e`);
   await next.click();
 
   await heading("What you can make");
