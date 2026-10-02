@@ -7,8 +7,14 @@ you will have the platform running on your machine, the tests green, and a
 change on its way to production. Each section ends where a deeper document
 takes over; this one only gets you to the door.
 
-**Verified** on 2026-10-02 by following it in a fresh checkout on Windows 11
-(Git Bash). Steps that differ on macOS are marked.
+**Verified** on 2026-10-02 by following it in a fresh clone on Windows 11
+(Git Bash): install, environment files, Prisma, migrations, the three
+processes (API healthy, worker seeded 7 NIL jobs, 12 packages and 14 logins,
+web serving), the test suites, lint and the build. Following it found two
+faults, both fixed the same day: `prisma:deploy` ignored the root `.env`, and
+`frontend/.env.example` named variables the app does not read. The first
+sign-in could not be completed because the Clerk development instance is at
+its user cap (§4). Only installing Node differs on macOS (§2).
 
 ---
 
@@ -108,6 +114,10 @@ npm run prisma:generate     # REQUIRED after every clone — see below
 npm run prisma:deploy       # applies every migration to the local dev database
 ```
 
+The Prisma commands read `DATABASE_URL` from the root `.env`, like every
+other backend script, unless it is already set in your shell — then yours
+wins.
+
 > **Why `prisma:generate` is not optional.** The Prisma client is generated
 > into `backend/src/generated/prisma/`, which is **gitignored**. A fresh clone
 > has no client, so the API, the worker and 52 of the backend test files fail
@@ -131,9 +141,27 @@ jobs, the sponsor packages) and a cast of demo people, each waiting at a step
 of the loop. It is idempotent — restart the worker any time — and it refuses
 to run in production.
 
-**Signing in.** The seeded people have Clerk *test* addresses, which sign in
-on the development instance with the code **424242** and no email is sent.
-Go to http://localhost:3000/login and use, for example:
+**Signing in.** The seeded people have Clerk *test* addresses
+(`…+clerk_test@example.com`): on the development instance they verify with
+the code **424242**, and no email is sent. Their SponsorX row is waiting;
+what does not exist yet is the **Clerk identity**. So the first time:
+
+1. Go to http://localhost:3000/login and enter the address.
+2. Clerk does not know it and shows **Create your account**. That is
+   expected. Choose any password (development instance only), continue,
+   and enter **424242** as the code.
+3. SponsorX matches the new identity to the seeded row by its verified
+   email and you land in that person's portal. From then on, sign in
+   normally.
+
+> **The development instance holds at most 100 users** — a Clerk limit, and
+> on 2026-10-02 it was full: step 2 fails with "user quota exceeded", and so
+> does every browser test that needs a login it has not created before.
+> Delete stale test users in the Clerk dashboard → Users (the `e2e.*` and
+> old QA addresses) to make room. Ask the programme owner; the production
+> instance has no such cap but is never used for local work.
+
+Seeded addresses to start with:
 
 | Address | Who | Where they land |
 |---|---|---|
