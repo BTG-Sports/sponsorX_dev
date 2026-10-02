@@ -98,12 +98,13 @@ import {
   ListingTransitionInput, LogoUploadInput, OfferAthletesQuery, OfferChecksQuery, OfferInput, OfferKeepInput, OfferPatch, OfferResponseInput,
   RosterAthleteInput, TeamShareInput,
   CartLineInput, CartLinePatch, RestrictionInput, SponsorCategoriesInput,
-  MarketplaceOrderDecisionInput, MarketplaceOrderTransitionInput, PlaceOrderInput,
+  MarketplaceOrderDecisionInput, MarketplaceOrderTransitionInput, PlaceOrderInput, SellerApprovalDecisionInput,
   CommissionRuleInput, CommissionRuleRevision, CommissionPreviewInput,
 } from "./marketplace";
 import { NotificationPreferenceInput } from "./notification-preferences";
 import {
-  DeliveryProblemInput, DeliveryResolutionInput, InvitableAthletesQuery, MarkDeliveredInput, ProofUploadInput, TeamInvitationInput,
+  DeliveryProblemInput, DeliveryProofQuery, DeliveryResolutionInput, InvitableAthletesQuery, MarkDeliveredInput, ProblemAnswerInput, ProofUploadInput,
+  ReplyAnswerInput, TeamInvitationInput,
   TeamInvitationResponseInput,
 } from "./delivery";
 import { PayoutAccountLinkInput, PayoutDecisionInput, StandinAccountInput, StandinCheckoutInput } from "./payouts";
@@ -581,7 +582,11 @@ const PATHS: Row[] = [
   { method: "post", path: "/marketplace-orders", tag: "Marketplace", summary: "Turn a live hold into an order through the contract gate — the order terms accepted and the billing contact confirmed, or 422 (2S4-FE-02); policy approves it or holds it for BTG (2S4-BE-05).", body: PlaceOrderInput, status: 201 },
   { method: "get", path: "/marketplace-orders/{id}", tag: "Marketplace", summary: "One order, its lines and figures." },
   { method: "post", path: "/marketplace-orders/{id}/decision", tag: "Marketplace", summary: "BTG approves (contracts the stock) or rejects (cancels, releases it).", body: MarketplaceOrderDecisionInput },
-  { method: "post", path: "/marketplace-orders/{id}/transition", tag: "Marketplace", summary: "Payment and delivery states, or a cancellation before payment — by the state machine.", body: MarketplaceOrderTransitionInput },
+  { method: "post", path: "/marketplace-orders/{id}/transition", tag: "Marketplace", summary: "Payment and delivery states, or a cancellation before payment — by the state machine. PAID by hand is BTG's fallback for a payment made another way: BTG admin or Finance only, with `payment` (method, reference, date received) — recorded on the order and audited; the sponsor and sellers are emailed as for a card payment (2S4-BE-10).", body: MarketplaceOrderTransitionInput },
+  { method: "get", path: "/seller-approvals", tag: "Marketplace", summary: "The seller's orders waiting for their answer (a listing of theirs asks to approve it), open ones first by deadline, then answered ones — the team's manager, or the independent athlete / their guardian. Only the lines it covers and the sponsor's business name, never the order (2S4-BE-09)." },
+  { method: "get", path: "/seller-approvals/{id}", tag: "Marketplace", summary: "One of the seller's own approvals, as /seller-approvals shows it." },
+  { method: "post", path: "/seller-approvals/{id}/decision", tag: "Marketplace", summary: "The seller accepts, or declines with a reason the sponsor reads, within 48 hours. Every seller accepting moves the order on (to BTG when above the sponsor's limit, else approved and waiting for payment); a decline cancels it and releases the stock. Silence declines (2S4-BE-09).", body: SellerApprovalDecisionInput },
+  { method: "get", path: "/sponsors/{id}/spending-limit", tag: "Marketplace", summary: "BTG's view of a sponsor's spending limit and its history: $5,000 to start, then twice the largest completed order up to $25,000; a refund or an upheld delivery problem stops it rising. Computed from the sponsor's own orders (2S4-BE-09)." },
   // Phase 2 batch 6 — commission, the frozen breakdown, the ledger, property analytics
   { method: "get", path: "/commission-rules", tag: "Marketplace", summary: "Commission rules and every version of them (2S5-BE-01)." },
   { method: "post", path: "/commission-rules", tag: "Marketplace", summary: "A new commission rule — version 1.", body: CommissionRuleInput, status: 201 },
@@ -596,11 +601,14 @@ const PATHS: Row[] = [
   { method: "post", path: "/sales/{id}/delivered", tag: "Delivery", summary: "The seller marks its own line delivered, with a note and an optional photo or link. The sponsor is emailed and has 24 hours to confirm or report a problem; silence confirms (2S4-BE-07).", body: MarkDeliveredInput },
   { method: "get", path: "/marketplace-orders/{id}/deliveries", tag: "Delivery", summary: "An order's lines and how each delivery stands — the note, the proof, the 24-hour deadline, whether the caller can still answer. No shares." },
   { method: "post", path: "/deliveries/{id}/confirm", tag: "Delivery", summary: "The buying sponsor confirms a delivered line (by order-line id). The order is delivered when all its lines are." },
-  { method: "post", path: "/deliveries/{id}/problem", tag: "Delivery", summary: "The buying sponsor reports a problem, within the 24 hours. The line's payout is held until BTG resolves it; BTG and the seller are emailed.", body: DeliveryProblemInput },
-  { method: "get", path: "/deliveries/{id}/proof", tag: "Delivery", summary: "A five-minute, audited link to the seller's delivery photo — for the seller, the buying sponsor and BTG." },
-  { method: "get", path: "/delivery-issues", tag: "Delivery", summary: "BTG admin: problems sponsors reported, and lines whose last date has passed without being marked delivered (2S4-BE-07, 2S4-BE-08)." },
-  { method: "get", path: "/delivery-issues/{id}", tag: "Delivery", summary: "One reported problem: both sides' words, the proof, the money on hold, its history." },
-  { method: "post", path: "/delivery-issues/{id}/resolve", tag: "Delivery", summary: "BTG confirms the delivery (the hold ends) or refunds the line (the order's refund and ledger reversal), with a note emailed to everyone.", body: DeliveryResolutionInput },
+  { method: "post", path: "/deliveries/{id}/problem", tag: "Delivery", summary: "The buying sponsor reports a problem, within the 24 hours. The line's payout is held while the problem is open; the SELLER is emailed and has 72 hours to answer (2S4-BE-11). Answers `{ lineId, state: PROBLEM, issueId, stage: SELLER_TO_ANSWER, sellerDueAt }`.", body: DeliveryProblemInput },
+  { method: "get", path: "/deliveries/{id}/proof", tag: "Delivery", summary: "A five-minute, audited link to a seller's photo — for the seller, the buying sponsor and BTG. No query: the line's current delivery photo; ?issue=…&photo=answer|marked: a problem's disagreement photo, or the delivery photo the sponsor disputed (2S4-BE-11).", query: DeliveryProofQuery },
+  { method: "post", path: "/sales/{id}/problem-answer", tag: "Delivery", summary: "The seller answers the sponsor's problem within 72 hours (the team's manager or the athlete — own lines only): DELIVER_AGAIN (new date + note), REFUND (the whole line; partial refunds are out of scope), or DISAGREE (note, optional photo or https link). The sponsor is emailed and has 72 hours to accept or reject (2S4-BE-11). Answers `{ lineId, issueId, state: PROBLEM, stage: SPONSOR_TO_ANSWER, answer, sponsorDueAt }`.", body: ProblemAnswerInput },
+  { method: "post", path: "/deliveries/{id}/problem-answer", tag: "Delivery", summary: "The buying sponsor accepts or rejects the seller's answer within 72 hours (2S4-BE-11). ACCEPT settles it: deliver again (the line returns to IN_DELIVERY for the new date; its next mark restarts the 24 hours), refund (the line's own refund and ledger reversal), or disagreement accepted (CONFIRMED). REJECT (a note) sends it to BTG. Answers `{ lineId, issueId, decision, stage, outcome?, state }`.", body: ReplyAnswerInput },
+  { method: "get", path: "/deliveries/{id}/exchange", tag: "Delivery", summary: "One line's whole problem exchange, the same for the seller, the buying sponsor and BTG (2S4-BE-11): `issue` (where it stands now), every `issues` entry, and `timeline` — paid, each mark, each problem, each side's answer, the escalation and why, the outcome. Never anyone's share." },
+  { method: "get", path: "/delivery-issues", tag: "Delivery", summary: "BTG admin (2S4-BE-11): `problems` — only issues the seller and the sponsor couldn't settle (the sponsor rejected, or a side didn't answer in 72 hours, or nothing marked 7 days after the last date), each with `escalation.reason`; `settled` — problems settled between them, read-only; `overdue` — unmarked lines past their last date not yet handed over (2S4-BE-08)." },
+  { method: "get", path: "/delivery-issues/{id}", tag: "Delivery", summary: "One line on the desk: both sides' words, the proof, the money on hold, `escalation`, `issue`, the whole `timeline` and its `history`." },
+  { method: "post", path: "/delivery-issues/{id}/resolve", tag: "Delivery", summary: "BTG decides an ESCALATED issue only (2S4-BE-11; 409 while the two sides are still settling it): confirms the delivery (the hold ends) or refunds the line (the order's refund and ledger reversal), with a note emailed to everyone.", body: DeliveryResolutionInput },
   { method: "post", path: "/delivery-issues/{id}/remind", tag: "Delivery", summary: "BTG reminds a late seller (and their team's manager) — at most once a day per line." },
   // 2S2-BE-05 — team invitations
   { method: "get", path: "/team/invitations", tag: "Marketplace", summary: "The team's invitations to athletes already on SponsorX: open ones first, then the latest answered (2S2-BE-05)." },

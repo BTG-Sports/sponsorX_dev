@@ -26,7 +26,7 @@ describe("words", () => {
   it("every state is in words and a mark", () => {
     expect(deliveryBadge(delivered)).toMatchObject({ label: "Waiting for your answer", tone: "warn" });
     expect(deliveryBadge({ state: "CONFIRMED", confirmedBy: "NO_ANSWER" }).label).toBe("Counted as confirmed");
-    expect(deliveryBadge({ state: "PROBLEM", confirmedBy: null }).tone).toBe("danger");
+    expect(deliveryBadge({ state: "PROBLEM", confirmedBy: null })).toMatchObject({ label: "BTG is deciding", tone: "warn" });
   });
   it("turns refusals into the API's sentence", () => {
     expect(answerRefusal(403, null, "x")).toMatch(/Sponsor Admin/);

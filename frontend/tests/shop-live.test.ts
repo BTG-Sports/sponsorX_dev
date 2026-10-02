@@ -140,7 +140,7 @@ describe("validateLine — the date window before a line is sent", () => {
   it("names package rules for the buyer", () => {
     expect(ruleNotes({ minQuantity: 2, maxQuantity: 5, requiresApproval: true })).toEqual([
       "2–5 per purchase",
-      "BTG approves orders that include this",
+      "the seller approves orders that include this, within 48 hours",
     ]);
     expect(ruleNotes(null)).toEqual([]);
   });
@@ -183,7 +183,7 @@ describe("order states", () => {
     expect(["PAID", "IN_DELIVERY", "FULFILLED", "CLOSED", "CANCELLED", "REFUNDED"].some(canCancel)).toBe(false);
   });
   it("labels states and never sends an unknown ?state", () => {
-    expect(orderCopy("PENDING_APPROVAL").label).toBe("Waiting for BTG approval");
+    expect(orderCopy("PENDING_APPROVAL").label).toBe("Held for BTG");
     expect(orderCopy("WEIRD").label).toBe("WEIRD");
     expect(orderStateParam("PAID")).toBe("PAID");
     expect(orderStateParam("paid")).toBeNull();

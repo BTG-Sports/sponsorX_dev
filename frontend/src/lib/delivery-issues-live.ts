@@ -16,10 +16,19 @@
      POST /delivery-issues/:lineId/remind  a late seller, at most once a day
      GET  /deliveries/:lineId/proof        the seller's photo, a 5-minute audited link
 
+   2S4-FE-05 / 2S4-BE-11 (Claude Design OrderExceptions.dc.html, views
+   needs · timeline · decideRefund · decideConfirm · settled · overdue ·
+   empty): a reported problem goes to the seller first, then back to the
+   sponsor; the desk holds only what they couldn't settle (`problems`, each
+   with why it came), what they settled (`settled`, read-only) and lines
+   still overdue (`overdue`; at 7 days they move to `problems`).
+
    Pure: shapes, tabs and the words the screens derive.
    -------------------------------------------------------------------------- */
 
 export const CONFIRM_WINDOW_HOURS = 24;
+
+import type { ApiIssue, ApiTimelineItem, EscalationReason, Settlement } from "@/lib/order-automation-live";
 
 export type Party = { name: string; sub: string | null };
 
@@ -43,15 +52,34 @@ export type ApiDeliveryIssue = {
   hold: { sellerShareCents: number; teamShareCents: number; sponsorPaidCents: number };
   remindedAt: string | null;
   history: { at: string; text: string }[];
+  /* 2S4-BE-11 — the redelivery date agreed, the second reminder, where the
+     problem stands, why it came to BTG, whether BTG may decide it now, and
+     the whole exchange (optional: older reads and fixtures). */
+  redeliverOn?: string | null;
+  secondRemindedAt?: string | null;
+  issue?: ApiIssue | null;
+  escalation?: { at: string; reason: EscalationReason; text: string } | null;
+  canDecide?: boolean;
+  timeline?: ApiTimelineItem[];
 };
 
-export type ApiDeliveryDesk = { confirmWindowHours: number; problems: ApiDeliveryIssue[]; overdue: ApiDeliveryIssue[] };
+/** A problem the two sides settled, as the desk lists it. */
+export type ApiSettledIssue = ApiDeliveryIssue & { settlement: Settlement };
+
+export type ApiDeliveryDesk = {
+  confirmWindowHours: number;
+  answerWindowHours?: number;
+  problems: ApiDeliveryIssue[];
+  settled?: ApiSettledIssue[];
+  overdue: ApiDeliveryIssue[];
+};
 
 /* ------------------------------------------------------------------ tabs */
 
 export const DELIVERY_TABS = [
-  { key: "problems", label: "Problems reported" },
-  { key: "overdue", label: "Overdue" },
+  { key: "problems", label: "Needs BTG" },
+  { key: "settled", label: "Settled between them" },
+  { key: "overdue", label: "Overdue delivery" },
 ] as const;
 export type DeliveryTab = (typeof DELIVERY_TABS)[number];
 
@@ -98,6 +126,10 @@ export function proofWords(n: number, link?: string | null): string {
 export function overdueBadge(o: Pick<ApiDeliveryIssue, "remindedAt">): { label: string; tone: "warn" | "primary" } {
   return o.remindedAt ? { label: `Reminder sent ${dayOf(o.remindedAt)}`, tone: "primary" } : { label: "Not marked delivered", tone: "warn" };
 }
+
+/** How the desk works now (2S4-BE-11), in its own words. */
+export const DESK_RULE =
+  "Sellers and sponsors settle problems between them. You only see the ones they couldn’t settle, or where someone didn’t answer.";
 
 /** The 24-hour rule, in the words the desk uses. */
 export const CONFIRM_RULE =

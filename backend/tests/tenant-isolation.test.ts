@@ -89,6 +89,8 @@ const A = {
   /* 2S4-BE-06 / -07 — a sold line of that order, marked delivered and waiting
      for the sponsor; 2S2-BE-05 — tenant A's school inviting tenant A's athlete. */
   mktLine: "ti_mkt_line_a", delivery: "ti_delivery_a", teamInvite: "ti_team_invite_a",
+  /* 2S4-BE-09 — tenant A's school asked to accept that order (its listing asks), unanswered. */
+  sellerApproval: "ti_seller_approval_a",
   /* 2S1-BE-13 — a rejected tenant-A account asking to come back; 2S1-BE-15 — a request to become its guardian, waiting. */
   closure: "ti_closure_a", handoff: "ti_handoff_a",
 } as const;
@@ -152,6 +154,8 @@ const PARAM_FOR: Record<string, string> = {
   /* 2S4-BE-06 / -07 — the seller's sold line, the sponsor's answer and BTG's
      desk all take an order-line id; 2S2-BE-05 — an invitation. */
   sales: A.mktLine, deliveries: A.mktLine, "delivery-issues": A.mktLine, "team-invitations": A.teamInvite,
+  /* 2S4-BE-09 — a seller's answer to an order. */
+  "seller-approvals": A.sellerApproval,
   /* P3-BE-16 — no tenant-A change is seeded: an unknown id must answer
      exactly as another tenant's would, so a made-up one is the right probe. */
   "profile-changes": "pc_not_yours",
@@ -290,10 +294,15 @@ const BODY: Record<string, unknown> = {
   "POST /sales/{id}/proof": { contentType: "image/jpeg", bytes: 1000 },
   "POST /sales/{id}/delivered": { note: "Sweep delivery note" },
   "POST /deliveries/{id}/problem": { note: "Sweep problem" },
+  /* 2S4-BE-11 — the problem exchange. */
+  "POST /sales/{id}/problem-answer": { answer: "DISAGREE", note: "Sweep answer" },
+  "POST /deliveries/{id}/problem-answer": { decision: "REJECT", note: "Sweep reject" },
   "POST /delivery-issues/{id}/resolve": { decision: "CONFIRM", note: "Sweep decision" },
   /* 2S2-BE-05 — inviting tenant A's athlete, and answering tenant A's invitation. */
   "POST /team/invitations": { athleteId: A.athlete, teamShareBps: 100 },
   "POST /team-invitations/{id}/respond": { decision: "ACCEPT" },
+  /* 2S4-BE-09 — a seller answering tenant A's order. */
+  "POST /seller-approvals/{id}/decision": { decision: "ACCEPT" },
 };
 
 describe.skipIf(!hasDatabase)("P8-SEC-02 · tenant B cannot reach tenant A through any route", async () => {
@@ -434,6 +443,11 @@ describe.skipIf(!hasDatabase)("P8-SEC-02 · tenant B cannot reach tenant A throu
       id: A.delivery, tenantId: t, orderId: A.mktOrder, lineId: A.mktLine, sponsorId: A.sponsor, propertyId: A.school, propertyTenantId: t,
       state: "DELIVERED", deliveredAt: new Date(), deliveredByName: "TI Secret Seller", note: "TI Secret delivery note",
       confirmDueAt: new Date(Date.now() + 3650 * 864e5),
+    } });
+    /* Far-future deadline: the seller-approval sweep is platform-wide. */
+    await prisma.orderSellerApproval.create({ data: {
+      id: A.sellerApproval, tenantId: t, orderId: A.mktOrder, sponsorId: A.sponsor, propertyId: A.school, propertyTenantId: t,
+      lineIds: [A.mktLine], dueAt: new Date(Date.now() + 3650 * 864e5),
     } });
     await prisma.teamInvitation.create({ data: { id: A.teamInvite, tenantId: t, propertyId: A.school, athleteId: A.athlete, athleteTenantId: t, teamShareBps: 1500 } });
     await prisma.reservation.create({ data: { id: A.dueReservation, tenantId: t, sponsorId: A.sponsor, cartId: A.cart, state: "CONVERTED", convertedAt: new Date(), expiresAt: new Date(Date.now() + 3650 * 864e5) } });

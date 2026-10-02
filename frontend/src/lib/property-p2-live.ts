@@ -500,7 +500,7 @@ export function packageContents(i: Pick<ApiInventoryItem, "components" | "priceC
   const ruleNotes = [
     rules.bundleOnly ? "Sold only as this bundle" : null,
     rules.exclusive ? "One buyer per period" : null,
-    rules.requiresApproval ? "BTG approves each order" : null,
+    rules.requiresApproval ? "You approve each order (48 hours to answer)" : null,
     rules.minQuantity ? `At least ${rules.minQuantity} per order` : null,
     rules.maxQuantity ? `At most ${rules.maxQuantity} per order` : null,
   ].filter((x): x is string => !!x);

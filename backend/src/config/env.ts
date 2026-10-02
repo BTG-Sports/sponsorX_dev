@@ -71,9 +71,14 @@ const schema = z.object({
      are linked, never signed (storage.ts). */
   R2_PUBLIC_BASE_URL: z.string().default("http://localhost:9000/sponsorx-public"),
 
-  /* 2S4-BE-05 — a marketplace order at or above this total waits for BTG's
-     approval. $1,000, set by the programme owner on 2026-09-28. */
-  MARKETPLACE_APPROVAL_THRESHOLD_CENTS: z.coerce.number().int().min(0).default(100_000),
+  /* 2S4-BE-09 — each sponsor's spending limit (programme owner, 2026-10-02).
+     An order within it is approved automatically; above it, it waits for BTG.
+     It starts at $5,000 and, after each order completed without a refund or
+     an upheld delivery problem, becomes twice the sponsor's largest completed
+     order (never below the start), up to the cap of $25,000. Replaces the
+     fixed $1,000 threshold and the first-order hold of 2S4-BE-05. */
+  MARKETPLACE_SPENDING_LIMIT_START_CENTS: z.coerce.number().int().min(0).default(500_000),
+  MARKETPLACE_SPENDING_LIMIT_CAP_CENTS: z.coerce.number().int().min(0).default(2_500_000),
   /* 2S4-BE-03 — a buyer fee on marketplace orders, in basis points. 0 until
      BTG sets one: no fee is invented here (commission is 2S5-BE-01). */
   MARKETPLACE_BUYER_FEE_BPS: z.coerce.number().int().min(0).max(5_000).default(0),
@@ -160,6 +165,12 @@ const schema = z.object({
    link forgeable by anyone who has read this repository. Refusing to boot is
    the only safe failure: a warning gets missed, and the damage is silent. */
 const parsed = schema.parse(process.env);
+if (parsed.MARKETPLACE_SPENDING_LIMIT_CAP_CENTS < parsed.MARKETPLACE_SPENDING_LIMIT_START_CENTS) {
+  throw new Error(
+    "MARKETPLACE_SPENDING_LIMIT_CAP_CENTS is below MARKETPLACE_SPENDING_LIMIT_START_CENTS. " +
+      "A sponsor's limit starts at the start figure and only rises to the cap, so the cap must be at least the start.",
+  );
+}
 if (parsed.RAILWAY_ENVIRONMENT_NAME?.toLowerCase() === "production" && parsed.PAYMENT_PROVIDER === "standin") {
   throw new Error(
     "PAYMENT_PROVIDER=standin in production. The stand-in provider marks cards " +

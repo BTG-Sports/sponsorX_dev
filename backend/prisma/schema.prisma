@@ -2496,6 +2496,8 @@ model Reservation {
 }
 
 enum MarketplaceOrderState {
+  /// 2S4-BE-09 — a listing on it asks its seller; the seller has 48 hours.
+  PENDING_SELLER
   PENDING_APPROVAL
   APPROVED
   AWAITING_PAYMENT
@@ -2545,15 +2547,44 @@ model MarketplaceOrder {
   billingName      String?
   billingEmail     String?
   billingReference String?
+  /// 2S4-BE-09 — the sponsor's spending limit when the order was placed: the
+  /// figure it was checked against (computed from their own orders —
+  /// spending-limit.ts). Above it, the order waits for BTG.
+  spendingLimitCents   Int?
+  /// Why it was cancelled: SPONSOR | BTG | BTG_REJECTED | SELLER_DECLINED |
+  /// SELLER_NO_ANSWER | UNPAID. Null on orders cancelled before 2S4-BE-09.
+  cancelReason         String?
+  /// 2S4-BE-10 — the payment window. Set when it reaches AWAITING_PAYMENT
+  /// (at approval); reminders after 1 and 2 days, cancelled at paymentDueAt.
+  awaitingPaymentAt    DateTime?
+  paymentDueAt         DateTime?
+  /// How many of the two payment reminders have been sent.
+  paymentRemindersSent Int                   @default(0)
+  /// 2S4-BE-10 — how it was paid: CARD (the provider confirmed), ZOHO_INVOICE
+  /// (Zoho Books marked its invoice paid), or BTG recording a payment made
+  /// another way — BANK_TRANSFER | CHEQUE | OTHER, which needs the reference
+  /// and the date received. Never a card or bank number.
+  paidAt               DateTime?
+  paidVia              String?
+  paymentReference     String?
+  paymentReceivedOn    DateTime?             @db.Date
+  /// The BTG user who recorded a manual payment.
+  paymentRecordedBy    String?
+  /// When it was refunded — a refund stops the sponsor's limit rising.
+  refundedAt           DateTime?
   createdAt        DateTime              @default(now())
   updatedAt        DateTime              @default(now()) @updatedAt
 
-  reservation Reservation            @relation(fields: [reservationId], references: [id])
-  acceptance  AgreementAcceptance?   @relation(fields: [acceptanceId], references: [id], onDelete: Restrict)
-  lines       MarketplaceOrderLine[]
+  reservation     Reservation               @relation(fields: [reservationId], references: [id])
+  acceptance      AgreementAcceptance?      @relation(fields: [acceptanceId], references: [id], onDelete: Restrict)
+  lines           MarketplaceOrderLine[]
+  sellerApprovals OrderSellerApproval[]
+  invoices        MarketplaceOrderInvoice[]
 
   @@index([tenantId, sponsorId, state])
   @@index([tenantId, state])
+  @@index([state, paymentDueAt])
+  @@index([tenantId, decidedBy, decidedAt])
 }
 
 model MarketplaceOrderLine {
@@ -2807,6 +2838,87 @@ model RestrictedWord {
   @@index([tenantId, active])
 }
 
+/// 2S4-BE-09 — a seller's answer to an order a listing of theirs asks to
+/// approve: one row per seller (the team, or the independent athlete) per
+/// order, naming the lines it covers. The seller reaches it in their OWN
+/// tenant, as with a sold line (orderSellerApproval scope). They accept, or
+/// decline with a reason the sponsor reads, by dueAt (48 hours); silence
+/// declines (the worker's sweep). Lives in the order's books.
+model OrderSellerApproval {
+  id               String    @id @default(cuid())
+  tenantId         String
+  orderId          String
+  sponsorId        String
+  propertyId       String?
+  propertyTenantId String?
+  athleteId        String?
+  athleteTenantId  String?
+  /// The order lines whose listings ask.
+  lineIds          String[]
+  /// PENDING | ACCEPTED | DECLINED | EXPIRED (no answer in time) | CLOSED (the order ended first)
+  state            String    @default("PENDING")
+  dueAt            DateTime
+  decidedAt        DateTime?
+  /// The user who answered (a guardian acting for a minor is named as themselves).
+  decidedBy        String?
+  /// The decline reason — the sponsor reads it.
+  reason           String?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @default(now()) @updatedAt
+
+  order MarketplaceOrder @relation(fields: [orderId], references: [id])
+
+  @@index([tenantId, state])
+  @@index([orderId])
+  @@index([propertyTenantId, propertyId])
+  @@index([athleteTenantId, athleteId])
+  @@index([state, dueAt])
+}
+
+/// 2S4-BE-09 — BTG's daily summary of the orders approved automatically: one
+/// row per BTG tenant per day (UTC), written when the email is queued, so a
+/// second run that day sends nothing (as ListingDigest).
+model OrderApprovalDigest {
+  id          String   @id @default(cuid())
+  tenantId    String
+  /// The UTC date, YYYY-MM-DD.
+  day         String
+  windowStart DateTime
+  windowEnd   DateTime
+  orders      Int
+  createdAt   DateTime @default(now())
+
+  @@unique([tenantId, day])
+}
+
+/// 2S4-BE-10 — a Zoho Books invoice for a marketplace order's Deal, mirrored
+/// as Zoho last described it (as CampaignInvoice is for a campaign). Zoho
+/// marking it paid moves the order to PAID. SponsorX never creates one.
+model MarketplaceOrderInvoice {
+  id            String    @id @default(cuid())
+  tenantId      String
+  orderId       String
+  zohoInvoiceId String    @unique
+  number        String?
+  /// Zoho's own status word, verbatim — draft | sent | overdue | paid | void.
+  status        String
+  /// cents
+  amount        Int
+  /// cents still owed, when Zoho sends it
+  balance       Int?
+  currency      String    @default("USD")
+  issuedAt      DateTime?
+  dueAt         DateTime?
+  paidAt        DateTime?
+  lastSyncHash  String?
+  syncedAt      DateTime  @default(now())
+
+  order MarketplaceOrder @relation(fields: [orderId], references: [id])
+
+  @@index([tenantId, status])
+  @@index([orderId])
+}
+
 /// 2S4-BE-06 / 2S4-BE-07 / 2S4-BE-08 — one contracted order line, as its
 /// sellers see it and as it is delivered. Written when the order is
 /// contracted (the line itself never changes — marketplace_order_immutable.sql),
@@ -2855,18 +2967,91 @@ model OrderLineDelivery {
   /// CONFIRMED | REFUNDED
   resolution       String?
   resolutionNote   String?
-  /// 2S4-BE-08 — the one overdue reminder, once sent.
+  /// 2S4-BE-08 — the first overdue reminder (a day after the last date), once sent.
   remindedAt       DateTime?
+  /// 2S4-BE-11 — the second reminder, 3 days after the last date.
+  secondRemindedAt DateTime?
+  /// 2S4-BE-11 — handed to BTG 7 days after the last date with nothing marked.
+  overdueEscalatedAt DateTime?
+  /// 2S4-BE-11 — the date the seller agreed to deliver again on (the sponsor
+  /// accepted). Replaces the line's own last date for reminders and overdue.
+  redeliverOn      DateTime?
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @default(now()) @updatedAt
 
-  line MarketplaceOrderLine @relation(fields: [lineId], references: [id])
+  line   MarketplaceOrderLine @relation(fields: [lineId], references: [id])
+  issues DeliveryIssue[]
 
   @@index([tenantId, state])
   @@index([orderId])
   @@index([propertyTenantId, propertyId])
   @@index([athleteTenantId, athleteId])
   @@index([tenantId, sponsorId])
+}
+
+/// 2S4-BE-11 — one delivery problem and how it was settled: the sponsor's
+/// report, the seller's answer (deliver again, refund, or disagree) within 72
+/// hours, the sponsor's accept or reject within 72 hours, and — only when the
+/// two can't settle it — BTG's decision. Or a line handed to BTG because
+/// nothing was marked delivered 7 days after its last date (kind OVERDUE).
+/// A line can have several over its life (a redelivery can be disputed
+/// again); at most one is open. Lives in the order's books, beside its
+/// delivery row, and is read only through that row's own scope.
+model DeliveryIssue {
+  id                   String    @id @default(cuid())
+  tenantId             String
+  orderId              String
+  lineId               String
+  deliveryId           String
+  /// PROBLEM | OVERDUE
+  kind                 String
+  /// SELLER_TO_ANSWER | SPONSOR_TO_ANSWER | ESCALATED | SETTLED | RESOLVED | CLOSED
+  stage                String
+  openedAt             DateTime
+  openedBy             String?
+  /// The sponsor's words — or, for OVERDUE, why it went to BTG.
+  problemNote          String
+  /// What the sponsor was disputing: the seller's mark, as it stood.
+  markedAt             DateTime?
+  markedByName         String?
+  markedNote           String?
+  markedProofKey       String?
+  markedProofLink      String?
+  sellerDueAt          DateTime?
+  /// DELIVER_AGAIN | REFUND | DISAGREE
+  sellerAnswer         String?
+  sellerAnsweredAt     DateTime?
+  sellerAnsweredBy     String?
+  sellerAnsweredByName String?
+  sellerNote           String?
+  redeliverOn          DateTime?
+  sellerProofKey       String?
+  sellerProofLink      String?
+  sponsorDueAt         DateTime?
+  /// ACCEPT | REJECT
+  sponsorAnswer        String?
+  sponsorAnsweredAt    DateTime?
+  sponsorAnsweredBy    String?
+  sponsorNote          String?
+  escalatedAt          DateTime?
+  /// SPONSOR_REJECTED | SELLER_NO_ANSWER | SPONSOR_NO_ANSWER | NOT_DELIVERED | REPORTED_TO_BTG
+  escalationReason     String?
+  escalationNote       String?
+  /// REDELIVER | REFUNDED | CONFIRMED | MARKED_DELIVERED | ORDER_ENDED
+  outcome              String?
+  closedAt             DateTime?
+  closedBy             String?
+  /// BTG's note, when BTG decided it.
+  closingNote          String?
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @default(now()) @updatedAt
+
+  delivery OrderLineDelivery @relation(fields: [deliveryId], references: [id])
+
+  @@index([tenantId, stage])
+  @@index([deliveryId])
+  @@index([stage, sellerDueAt])
+  @@index([stage, sponsorDueAt])
 }
 
 /// 2S2-BE-05 — a team invites an athlete already on SponsorX to its roster,

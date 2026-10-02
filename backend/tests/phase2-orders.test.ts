@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import type { AddressInfo } from "node:net";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import { transitionBody } from "./support/order-payment";
 import { settleDeliveries } from "./support/delivery";
 
 /* --------------------------------------------------------------------------
@@ -41,12 +42,12 @@ describe("the order machine and the approval policy, as written (pure)", () => {
     expect(canTransitionMarketplaceOrder("PAID", "REFUNDED")).toBe(true);
     for (const to of ["APPROVED", "PAID", "CANCELLED", "REFUNDED"] as const) expect(canTransitionMarketplaceOrder("CLOSED", to)).toBe(false);
   });
-  it("holds for approval at $1,000, a first order, or a listing that asks", () => {
-    const base = { thresholdCents: 100_000, priorFulfilledOrders: 3, listingsAsking: [] as string[] };
-    expect(approvalReasons({ ...base, totalCents: 99_999 })).toEqual([]);
-    expect(approvalReasons({ ...base, totalCents: 100_000 })).toEqual([expect.stringMatching(/\$1000\.00/)]);
-    expect(approvalReasons({ ...base, totalCents: 500, priorFulfilledOrders: 0 })).toEqual(["the sponsor's first marketplace order"]);
-    expect(approvalReasons({ ...base, totalCents: 500, listingsAsking: ["VIP suite"] })).toEqual(['"VIP suite" asks for approval']);
+  it("2S4-BE-09 · holds for BTG only above the sponsor's spending limit (equal is within it)", () => {
+    const base = { limitCents: 500_000, sponsorName: "Harbor Apparel" };
+    expect(approvalReasons({ ...base, totalCents: 500_000 })).toEqual([]);
+    expect(approvalReasons({ ...base, totalCents: 1_200_000 })).toEqual(["$12,000.00 is above Harbor Apparel's limit of $5,000.00"]);
+    /* No first-order rule any more, and a listing that asks goes to its seller, not BTG. */
+    expect(approvalReasons({ ...base, totalCents: 500 })).toEqual([]);
   });
   it("the worker sweeps holds every minute and pushes contracted orders to Zoho", () => {
     const worker = readFileSync(new URL("../worker/index.mts", import.meta.url), "utf8");
@@ -148,7 +149,7 @@ describe.skipIf(!hasDatabase)("Phase 2 orders over the API", { timeout: 60_000 }
   const walk = async (id: string, states: string[]) => {
     for (const to of states) {
       if (to === "FULFILLED") await settleDeliveries(prisma, id);
-      expect((await call("POST", `/marketplace-orders/${id}/transition`, "mo_finance", { to })).json.state).toBe(to);
+      expect((await call("POST", `/marketplace-orders/${id}/transition`, "mo_finance", transitionBody(to))).json.state).toBe(to);
     }
   };
 
@@ -317,9 +318,10 @@ describe.skipIf(!hasDatabase)("Phase 2 orders over the API", { timeout: 60_000 }
 
   describe("2S4-BE-03 / 2S4-BE-05 · the order, its machine and BTG's gate", () => {
     it("an order held for approval keeps its stock without contracting it — and rejection releases it", async () => {
-      const o = await order("mo_s1_admin", [{ key: "poster", quantity: 1 }]);
-      expect(o).toMatchObject({ state: "PENDING_APPROVAL", requiresApproval: true, subtotalCents: 40_000, feesCents: 0, totalCents: 40_000, currency: "USD", contractedAt: null });
-      expect(o.approvalReasons).toEqual(["the sponsor's first marketplace order"]);
+      /* 2S4-BE-09 — $5,400 is above Harbor's $5,000 starting limit. */
+      const o = await order("mo_s1_admin", [{ key: "poster", quantity: 1 }, { key: "sticker", quantity: 25 }]);
+      expect(o).toMatchObject({ state: "PENDING_APPROVAL", requiresApproval: true, subtotalCents: 540_000, feesCents: 0, totalCents: 540_000, currency: "USD", contractedAt: null, spendingLimitCents: 500_000, waitingOn: "BTG" });
+      expect(o.approvalReasons).toEqual(["$5,400.00 is above Harbor Apparel's limit of $5,000.00"]);
       expect(await live(I.poster!)).toEqual([{ source: "ORDER", quantity: 1, contracted: false }]);
       /* Held: nobody else can buy the poster while BTG decides … */
       await call("POST", "/cart", "mo_s2_admin");
@@ -340,11 +342,15 @@ describe.skipIf(!hasDatabase)("Phase 2 orders over the API", { timeout: 60_000 }
     });
 
     it("BTG's approval contracts it; the machine then walks it, and refuses what the document names", async () => {
-      const o = await order("mo_s1_admin", [{ key: "sticker", quantity: 2 }, { key: "clinic", quantity: 1 }]);
-      expect(o).toMatchObject({ state: "PENDING_APPROVAL", subtotalCents: 90_000, totalCents: 90_000 });
-      expect(o.lines.map((l: { title: string; lineTotalCents: number }) => [l.title, l.lineTotalCents]).sort()).toEqual([["Riley's clinic", 50_000], ["Scoreboard shout-out", 40_000]]);
+      const o = await order("mo_s1_admin", [{ key: "sticker", quantity: 24 }, { key: "clinic", quantity: 1 }]);
+      expect(o).toMatchObject({ state: "PENDING_APPROVAL", subtotalCents: 530_000, totalCents: 530_000 });
+      expect(o.lines.map((l: { title: string; lineTotalCents: number }) => [l.title, l.lineTotalCents]).sort()).toEqual([["Riley's clinic", 50_000], ["Scoreboard shout-out", 480_000]]);
+      /* BTG's admins were emailed a link to it (2S4-BE-09). */
+      expect(await prisma.outboxJob.count({ where: { tenantId: T, name: "notify.email", payload: { path: ["template"], equals: "order.heldForBtg" } } })).toBeGreaterThanOrEqual(1);
       const ok = await call("POST", `/marketplace-orders/${o.id}/decision`, "mo_admin", { decision: "APPROVE" });
-      expect(ok.json).toMatchObject({ state: "APPROVED", decidedBy: "mo_admin" });
+      /* 2S4-BE-10 — approval opens the payment window at once. */
+      expect(ok.json).toMatchObject({ state: "AWAITING_PAYMENT", decidedBy: "mo_admin", waitingOn: "PAYMENT" });
+      expect(new Date(ok.json.paymentDueAt).getTime() - new Date(ok.json.awaitingPaymentAt).getTime()).toBe(3 * 864e5);
       expect(ok.json.contractedAt).not.toBeNull();
       expect((await live(I.clinic!)).filter((c) => c.source === "ORDER")).toEqual([{ source: "ORDER", quantity: 1, contracted: true }]);
       approvedId = o.id;
@@ -355,7 +361,7 @@ describe.skipIf(!hasDatabase)("Phase 2 orders over the API", { timeout: 60_000 }
       await expect(prisma.$executeRawUnsafe(`UPDATE "MarketplaceOrderLine" SET quantity = 9 WHERE "orderId" = $1`, o.id)).rejects.toThrow(/marketplace_order_line_immutable/);
 
       expect((await call("POST", `/marketplace-orders/${o.id}/transition`, "mo_s1_admin", { to: "PAID" })).status).toBe(403); // a sponsor only cancels
-      await walk(o.id, ["AWAITING_PAYMENT", "PAID"]);
+      await walk(o.id, ["PAID"]);
       expect((await call("POST", `/marketplace-orders/${o.id}/transition`, "mo_finance", { to: "CANCELLED" })).status).toBe(409); // after payment, a refund
       expect((await call("POST", `/marketplace-orders/${o.id}/transition`, "mo_s1_admin", { to: "CANCELLED" })).status).toBe(409);
       await walk(o.id, ["IN_DELIVERY", "FULFILLED", "CLOSED"]);
@@ -364,23 +370,26 @@ describe.skipIf(!hasDatabase)("Phase 2 orders over the API", { timeout: 60_000 }
     });
 
     it("policy approves what it has no reason to hold — and holds what it does", async () => {
-      /* The sponsor now has a fulfilled order; a small one needs nobody. */
+      /* Within the limit, a small order needs nobody. */
       const small = await order("mo_s1_admin", [{ key: "sticker", quantity: 1 }]);
-      expect(small).toMatchObject({ state: "APPROVED", requiresApproval: false, approvalReasons: [], decidedBy: "system" });
+      expect(small).toMatchObject({ state: "AWAITING_PAYMENT", requiresApproval: false, approvalReasons: [], decidedBy: "system" });
       expect(small.contractedAt).not.toBeNull();
       const systemAudit = await prisma.auditLog.findFirstOrThrow({ where: { tenantId: T, entityId: small.id, action: "marketplaceOrder.approve" }, select: { actorId: true } });
       expect(systemAudit.actorId).toBeNull(); // policy's decision, not the sponsor's
-      /* $1,000 or more waits for BTG; so does a listing that asks. */
-      const big = await order("mo_s1_admin", [{ key: "sticker", quantity: 5 }]);
-      expect(big).toMatchObject({ state: "PENDING_APPROVAL", totalCents: 100_000 });
-      expect(big.approvalReasons).toEqual([expect.stringMatching(/at or above \$1000\.00/)]);
+      /* The completed $5,300 order raised Harbor's limit to twice it, $10,600: above that waits for BTG. */
+      const big = await order("mo_s1_admin", [{ key: "sticker", quantity: 54 }]);
+      expect(big).toMatchObject({ state: "PENDING_APPROVAL", totalCents: 1_080_000, spendingLimitCents: 1_060_000 });
+      expect(big.approvalReasons).toEqual(["$10,800.00 is above Harbor Apparel's limit of $10,600.00"]);
+      /* A listing that asks for approval asks its seller, not BTG. */
       const vip = await order("mo_s1_admin", [{ key: "vip", quantity: 1 }]);
-      expect(vip.approvalReasons).toEqual(['"VIP courtside" asks for approval']);
-      /* The sponsor may cancel before paying; the stock comes back. */
-      expect((await call("POST", `/marketplace-orders/${vip.id}/transition`, "mo_s1_admin", { to: "CANCELLED" })).json.state).toBe("CANCELLED");
+      expect(vip).toMatchObject({ state: "PENDING_SELLER", approvalReasons: [], requiresApproval: false, waitingOn: "SELLER" });
+      expect(vip.sellerApprovals).toEqual([expect.objectContaining({ state: "PENDING", seller: expect.objectContaining({ type: "PROPERTY", name: "Bowie Bulldogs MO" }) })]);
+      /* The sponsor may cancel before paying; the stock comes back, and the seller's question closes. */
+      expect((await call("POST", `/marketplace-orders/${vip.id}/transition`, "mo_s1_admin", { to: "CANCELLED" })).json).toMatchObject({ state: "CANCELLED", cancelReason: "SPONSOR" });
       expect((await live(I.vip!)).length).toBe(0);
+      expect((await prisma.orderSellerApproval.findFirstOrThrow({ where: { orderId: vip.id }, select: { state: true } })).state).toBe("CLOSED");
       /* A refund after payment releases too. */
-      await walk(small.id, ["AWAITING_PAYMENT", "PAID", "REFUNDED"]);
+      await walk(small.id, ["PAID", "REFUNDED"]);
       expect((await prisma.inventoryCommitment.count({ where: { sourceId: { startsWith: `${small.id}:` }, releasedAt: null } }))).toBe(0);
     });
 
@@ -509,7 +518,7 @@ describe.skipIf(!hasDatabase)("Phase 2 orders over the API", { timeout: 60_000 }
       });
       const deal = zoho.bySponsorXId("Deals", `mkt-order:${approvedId}`)!;
       expect(deal).toMatchObject({
-        Amount: 900, Stage: "Closed Won", Type: "New Business",
+        Amount: 5300, Stage: "Closed Won", Type: "New Business",
         Account_Name: { id: sponsorAccount.id }, Contact_Name: { id: zoho.bySponsorXId("Contacts", "mo_s1_contact")!.id },
       });
       expect(String(deal.Description)).toContain(`Bowie Bulldogs MO (Account ${propertyAccount.id})`);
@@ -538,7 +547,7 @@ describe.skipIf(!hasDatabase)("Phase 2 orders over the API", { timeout: 60_000 }
       expect(await handlePushMarketplaceOrder(deps, { tenantId: T, orderId: pending.id })).toMatchObject({ status: "skipped" });
       expect(zoho.bySponsorXId("Deals", `mkt-order:${pending.id}`)).toBeUndefined();
       /* Every move of a contracted order is queued for Zoho. */
-      expect(await prisma.outboxJob.count({ where: { tenantId: T, name: "zoho.pushMarketplaceOrder", payload: { equals: { orderId: refunded.id } } } })).toBeGreaterThanOrEqual(4);
+      expect(await prisma.outboxJob.count({ where: { tenantId: T, name: "zoho.pushMarketplaceOrder", payload: { equals: { orderId: refunded.id } } } })).toBeGreaterThanOrEqual(3);
     });
   });
 });

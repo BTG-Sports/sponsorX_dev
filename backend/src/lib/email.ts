@@ -96,8 +96,12 @@ export type EmailTemplate =
      problem; everyone hears BTG's decision; a late seller is reminded. */
   | "delivery.marked"
   | "delivery.confirmed"
-  | "delivery.problem"
-  | "delivery.onHold"
+  /* 2S4-BE-11 — a problem settled between the seller and the sponsor, or handed to BTG. */
+  | "delivery.problemToAnswer"
+  | "delivery.sellerAnswered"
+  | "delivery.settled"
+  | "delivery.escalated"
+  | "delivery.withBtg"
   | "delivery.resolved"
   | "delivery.overdue"
   /* 2S2-BE-05 — a team invites an athlete already on SponsorX; the team
@@ -169,7 +173,29 @@ export type EmailTemplate =
   | "listing.changesRequested"
   | "listing.pausedByBtg"
   | "listing.endedByBtg"
-  | "listing.staysPaused";
+  | "listing.staysPaused"
+  /* 2S4-BE-09 — order approval, automated: a seller is asked to accept an
+     order a listing of theirs asks to approve (and told if their 48 hours
+     ran out); the sponsor hears the seller's answer, or that nobody
+     answered; BTG's admins hear of each order held for them, and once a day
+     get one summary of what was approved on its own. */
+  | "sale.approvalRequested"
+  | "sale.approvalExpired"
+  | "order.sellerAccepted"
+  | "order.sellerDeclined"
+  | "order.sellerNoAnswer"
+  | "order.heldForBtg"
+  | "order.autoApprovedDigest"
+  /* 2S4-BE-10 — payment, automated: approved (pay by), reminded on days
+     one and two, cancelled unpaid on day three (and each seller told); the
+     receipt, however it was paid. */
+  | "order.approved"
+  | "order.paymentReminder"
+  | "order.cancelledUnpaid"
+  | "sale.cancelled"
+  | "payment.received"
+  /* 2S4-BE-10 — a card payment confirmed for an order no longer waiting for it: BTG's admins refund the sponsor. */
+  | "payment.refundNeeded";
 
 export type EmailMessage = {
   template: EmailTemplate;

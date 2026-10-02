@@ -5,7 +5,7 @@
 | | |
 |---|---|
 | **Goal** | Turn SponsorX from BTG-only operations into a multi-tenant marketplace. External athletes, teams, programs, events and media properties onboard, publish inventory, fulfil deliverables and get paid. |
-| **Tasks** | 108 · 396 person-days |
+| **Tasks** | 113 · 409 person-days |
 | **Blueprint timeline** | 16–20 weeks |
 | **Balanced budget** | $80K–$120K |
 | **Depends on** | Phase 1 auth/RBAC, sponsor/property/inventory/campaign/reward models, Zoho integration, core analytics |
@@ -908,6 +908,60 @@ A worker job runs daily. The day after a line's last date, a seller who hasn't m
 - **Done when:** Overdue lines remind the seller once and appear in BTG's list; an order closes itself 30 days after its last line is confirmed and its reserve becomes payable; running the job twice changes nothing
 - **Reference:** Spec §7.4; user-flow review 2026-10-01
 
+### ⏸ `2S4-BE-09` · Order approval by spending limit; seller approves listings that ask
+
+**Order** 36.5 · **BE** · **Where:** Code · **3d** · **In progress**
+
+Replaces BTG's approval of orders of $1,000 or more and of every sponsor's first order (items 9 to 11 of the BTG admin review, 2026-10-02).
+
+**The spending limit.** Each sponsor has one:
+- it starts at $5,000;
+- it rises to twice the sponsor's largest completed order, up to $25,000;
+- a refund, or a problem BTG upheld, stops it rising.
+
+**Orders within the limit** are approved automatically, the first one included. Orders above it wait for BTG with the reason, and BTG is emailed for each.
+
+**A listing that asks for approval** goes to its seller, not BTG. The seller accepts or declines within 48 hours; silence declines and releases the stock.
+
+**BTG gets one daily summary** of orders approved automatically.
+
+- **Depends on:** 2S4-BE-03
+- **Done when:** Orders within the sponsor's spending limit are approved automatically and only those above it wait for BTG with the reason; the limit grows with completed orders as set and stops after a refund or upheld problem; a listing that asks for approval is decided by its seller within 48 hours, silence declining; BTG gets one daily summary; tenant and role tests cover it
+- **Reference:** BTG admin review items 9 to 11, 2026-10-02
+
+### ⏸ `2S4-BE-10` · Payment status automated: awaiting payment, Zoho invoices, reminders, auto-cancel
+
+**Order** 36.6 · **BE** · **Where:** Code · **3d** · **In progress**
+
+- **Awaiting payment** is set automatically the moment an order is approved.
+- **Card payments** are marked paid by the payment provider, as today.
+- **An order paid by Zoho Books invoice** is marked paid when Zoho marks the invoice paid. This uses the inbound invoice webhook (P7-BE-04), queued so Zoho is never on a request path. It is tested against a simulated Zoho, because BTG's Zoho Books isn't connected yet.
+- **Unpaid orders** are reminded at 1 and 2 days and cancelled at 3 days, which releases the stock. An order with a payment in progress is never cancelled.
+- **BTG's manual "Mark paid"** stays as a fallback. It needs a method and a payment reference, and only BTG admin or Finance can use it.
+
+- **Depends on:** 2S4-BE-09, P7-BE-04
+- **Done when:** An approved order is awaiting payment without a manual step; a Zoho invoice marked paid moves its order to paid; an unpaid order is reminded at 1 and 2 days and cancelled at 3, never while a payment is in progress; a manual mark-paid needs a method and reference and is BTG admin or Finance only
+- **Reference:** BTG admin review items 9 to 11, 2026-10-02
+
+### ⏸ `2S4-BE-11` · Delivery problems settled between seller and sponsor; BTG only on disagreement
+
+**Order** 36.7 · **BE** · **Where:** Code · **3d** · **In progress**
+
+**When a sponsor reports a problem,** the seller has 72 hours to answer in one of three ways:
+- **deliver again,** with a new date; the sponsor's 24-hour confirm window restarts after the new delivery;
+- **refund the line**;
+- **disagree,** with a note.
+
+**The sponsor then has 72 hours** to accept or reject that answer. An accepted answer settles automatically.
+
+**BTG steps in only when** the sponsor rejects the answer or either side doesn't answer.
+
+**Late sellers** get a second reminder at 3 days, and go to BTG at 7 days.
+
+- **Depends on:** 2S4-BE-07
+- **Done when:** A reported problem is answered by the seller (deliver again, refund, or disagree) and accepted or rejected by the sponsor within 72 hours each; an accepted answer settles without BTG; BTG sees only rejected or unanswered cases with the reason; a late seller is reminded twice and escalated at 7 days
+- **Reference:** BTG admin review items 9 to 11, 2026-10-02
+
 ### ⏸ `2S4-FE-01` · Build cart and reservation screens
 
 **Order** 35 · **FE** · **Where:** Code · **3d** · **Blocked**
@@ -947,6 +1001,30 @@ The screens for 2S4-BE-07 and 2S4-BE-08. The seller's "Mark delivered" with its 
 - **Depends on:** 2S4-BE-07, 2S4-BE-08, 2S0-ART-01
 - **Done when:** A seller can mark a line delivered; the sponsor can confirm it or report a problem within 24 hours; BTG can resolve a problem and see overdue lines
 - **Reference:** Spec §6 P2-08; user-flow review 2026-10-01
+
+### ⏸ `2S4-FE-05` · Automatic order handling, on screen
+
+**Order** 38.5 · **FE** · **Where:** Code · **3d** · **In progress**
+
+Built from the Claude Design files SellerOrderActions, SponsorOrderUpdates and OrderExceptions.
+
+**For the seller:**
+- accept or decline an order;
+- answer a delivery problem.
+
+**For the sponsor:**
+- the pay-by deadline;
+- the held and declined states;
+- the answer to the seller's reply.
+
+**For BTG:**
+- the revised Delivery issues desk;
+- the sponsor's spending-limit card;
+- the Mark paid dialog, with a payment reference.
+
+- **Depends on:** 2S4-BE-09, 2S4-BE-10, 2S4-BE-11
+- **Done when:** Each party sees its next step and deadline: the seller can accept or decline an order and answer a problem, the sponsor can pay before the deadline and accept or reject the seller's answer, and BTG sees only the exceptions, a sponsor's limit, and can mark an order paid with a reference
+- **Reference:** BTG admin review items 9 to 11, 2026-10-02
 
 ## Sprint 5 · Payments, ledger & payouts
 
@@ -1283,6 +1361,22 @@ Prove the ledger balances against orders, payments and payouts across a full cam
 - **Done when:** Reconciliation passes within defined tolerance across a seeded full-cycle dataset
 - **Reference:** Spec §38
 
+
+### ⏸ `2S8-QA-04` · Find the cross-suite test interference
+
+**Order** after 2S8-QA-03 · **QA** · **Where:** Code · **1d** · **Ready**
+
+The backend suite runs its files in parallel on one database. A few suites fail now and then, only when run with the others:
+- `next-public-apply`: the advisor's login answers 403;
+- `notification-preferences`;
+- `pilot-school`: a duplicate athlete slug.
+
+Each passes when run alone. One more, `phase2-guardian-acts`, was fixed on 2026-10-01: its sweep was platform-wide and raced another suite's.
+
+This task finds which suite or sweep touches another suite's rows, and isolates it, so CI is reliably green and the automatic deploy can run.
+
+- **Done when:** Five consecutive full backend runs pass with only known, tracked failures; the interfering suite or sweep is identified and isolated
+- **Reference:** seen 2026-10-01 and 2026-10-02
 ### ⏸ `2S8-SEC-01` · Cross-tenant isolation tests for external parties
 
 **Order** 61 · **SEC** · **Where:** Code · **5d** · **Blocked**

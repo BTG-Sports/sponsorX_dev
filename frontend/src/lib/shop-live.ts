@@ -105,6 +105,7 @@ export type ApiReservation = {
 };
 
 export type OrderState =
+  | "PENDING_SELLER"
   | "PENDING_APPROVAL"
   | "APPROVED"
   | "AWAITING_PAYMENT"
@@ -151,6 +152,18 @@ export type ApiOrder = {
   acceptanceId: string | null;
   acceptance: ApiOrderAcceptance | null;
   lines: ApiOrderLine[];
+  /* 2S4-BE-09 / -10 — the limit it was checked against, why it ended, the
+     payment window, how it was paid, what it waits on, and the sellers'
+     answers (optional: older reads and fixtures). */
+  spendingLimitCents?: number | null;
+  cancelReason?: "SPONSOR" | "BTG" | "BTG_REJECTED" | "SELLER_DECLINED" | "SELLER_NO_ANSWER" | "UNPAID" | null;
+  awaitingPaymentAt?: string | null;
+  paymentDueAt?: string | null;
+  paidAt?: string | null;
+  paidVia?: string | null;
+  waitingOn?: "SELLER" | "BTG" | "PAYMENT" | null;
+  deadlineAt?: string | null;
+  sellerApprovals?: { id: string; seller: { type: string; id: string; name: string }; lineIds: string[]; state: string; dueAt: string; decidedAt: string | null; reason: string | null }[];
 };
 
 /** What a server action hands back to its island. `reasons` is every
@@ -343,7 +356,7 @@ export function ruleNotes(rules: PackageRules): string[] {
   else if (rules.minQuantity != null) out.push(`at least ${rules.minQuantity} per purchase`);
   else if (rules.maxQuantity != null) out.push(`at most ${rules.maxQuantity} per purchase`);
   if (rules.exclusive) out.push("exclusive — one buyer per date window");
-  if (rules.requiresApproval) out.push("BTG approves orders that include this");
+  if (rules.requiresApproval) out.push("the seller approves orders that include this, within 48 hours");
   return out;
 }
 
@@ -443,9 +456,12 @@ export const RESERVATION_COPY: Record<ReservationState, { label: string; tone: T
 };
 
 export const ORDER_COPY: Record<OrderState, { label: string; tone: Tone; hint: string }> = {
-  PENDING_APPROVAL: { label: "Waiting for BTG approval", tone: "warn", hint: "BTG reviews the order before it is confirmed. The items stay yours while they do." },
-  APPROVED: { label: "Approved", tone: "primary", hint: "BTG approved the order. BTG will invoice you." },
-  AWAITING_PAYMENT: { label: "Awaiting payment", tone: "warn", hint: "BTG has invoiced this order and is waiting for payment." },
+  /* 2S4-BE-09 — a listing on it asks its seller first; they have 48 hours. */
+  PENDING_SELLER: { label: "Waiting for the seller", tone: "warn", hint: "The seller has 48 hours to accept. The items stay yours while they decide." },
+  PENDING_APPROVAL: { label: "Held for BTG", tone: "warn", hint: "The order is above your spending limit, so BTG checks it before it is confirmed. The items stay yours while they do." },
+  /* 2S4-BE-09 / -10 — approved on its own within the sponsor's limit (or by BTG above it); paid by card within 3 days. */
+  APPROVED: { label: "Approved", tone: "primary", hint: "Your order is approved. Pay the total by card within 3 days to lock in the dates." },
+  AWAITING_PAYMENT: { label: "Awaiting payment", tone: "warn", hint: "Pay the total by card within 3 days, or the order is cancelled and the dates released." },
   PAID: { label: "Paid", tone: "accent", hint: "Payment is recorded. Sellers deliver on the dates of each line." },
   IN_DELIVERY: { label: "In delivery", tone: "primary", hint: "Sellers are delivering the items." },
   FULFILLED: { label: "Fulfilled", tone: "accent", hint: "Every item has been delivered." },
@@ -463,7 +479,7 @@ export function reservationCopy(state: string): { label: string; tone: Tone } {
 }
 
 /** A sponsor may cancel only before payment (Phase 2 state machine §4). */
-const CANCELLABLE: ReadonlySet<OrderState> = new Set(["PENDING_APPROVAL", "APPROVED", "AWAITING_PAYMENT"]);
+const CANCELLABLE: ReadonlySet<OrderState> = new Set(["PENDING_SELLER", "PENDING_APPROVAL", "APPROVED", "AWAITING_PAYMENT"]);
 export function canCancel(state: string): boolean {
   return CANCELLABLE.has(state as OrderState);
 }
@@ -471,6 +487,7 @@ export function canCancel(state: string): boolean {
 /** The order states the orders list may filter by — the API does not
  *  validate `?state=`, so only these are ever sent. */
 export const ORDER_STATES: OrderState[] = [
+  "PENDING_SELLER",
   "PENDING_APPROVAL",
   "APPROVED",
   "AWAITING_PAYMENT",

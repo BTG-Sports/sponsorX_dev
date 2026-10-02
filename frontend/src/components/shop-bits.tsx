@@ -72,9 +72,10 @@ export function ShopPaymentNote() {
     <div className="rounded-xl border border-dashed border-line bg-surface-2 px-4 py-3">
       <p className="text-xs font-semibold">Approval, then payment</p>
       <p className="mt-1 text-xs text-muted">
-        BTG approves the order, then you pay the full total by card from the order page, on the payment provider&rsquo;s
-        own page. Some orders are approved straight away; if this one needs review, the order page says why. Nothing is
-        charged at checkout, and no card or bank details are asked for here.
+        Orders within your spending limit are approved straight away; a listing may ask its seller to accept first (they
+        have 48 hours), and an order above your limit is checked by BTG. Then you pay the full total by card from the order
+        page, on the payment provider&rsquo;s own page, within 3 days. Nothing is charged at checkout, and no card or bank
+        details are asked for here.
       </p>
     </div>
   );

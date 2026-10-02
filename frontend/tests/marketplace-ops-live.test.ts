@@ -16,6 +16,7 @@ import {
   publishedByLabel,
   sellerLabel,
   orderMoves,
+  manualPaymentProblem,
   payoutProblemSince,
   splitRows,
   usd,
@@ -43,6 +44,20 @@ describe("order decisions and moves", () => {
     expect(orderMoves("IN_DELIVERY")).toEqual(["FULFILLED", "REFUNDED"]);
     expect(orderMoves("FULFILLED")).toEqual(["CLOSED", "REFUNDED"]);
     for (const s of ["CLOSED", "CANCELLED", "REFUNDED"] as const) expect(orderMoves(s)).toEqual([]);
+  });
+
+  it("2S4-BE-09 · an order waiting for its seller can only be cancelled by BTG — never pushed on", () => {
+    expect(orderMoves("PENDING_SELLER")).toEqual(["CANCELLED"]);
+    expect(orderDecisions("PENDING_SELLER")).toEqual([]);
+  });
+
+  it("2S4-BE-10 · Mark paid needs how it was paid, a reference and a date received that isn't in the future", () => {
+    const today = "2026-10-02";
+    expect(manualPaymentProblem({ method: "BANK_TRANSFER", reference: "WIRE-1", receivedOn: "2026-10-01" }, today)).toBeNull();
+    expect(manualPaymentProblem({ method: "CHEQUE", reference: "  ", receivedOn: today }, today)).toMatch(/reference/);
+    expect(manualPaymentProblem({ method: "OTHER", reference: "x", receivedOn: "" }, today)).toMatch(/date/);
+    expect(manualPaymentProblem({ method: "OTHER", reference: "x", receivedOn: "2026-10-03" }, today)).toMatch(/future/);
+    expect(manualPaymentProblem({ reference: "x", receivedOn: today }, today)).toMatch(/how it was paid/);
   });
 
   it("never offers APPROVED as a transition, nor cancelling after payment", () => {

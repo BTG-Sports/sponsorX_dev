@@ -105,6 +105,18 @@ export function paymentView(orderState: string, payment: ApiOrderPayment | null)
     };
   }
 
+  if (orderState === "PENDING_SELLER") {
+    return {
+      kind: "not-open",
+      status: "Not due yet",
+      tone: "neutral",
+      banner: null,
+      cta: null,
+      note: "You can pay by card once the seller accepts this order. Nothing is charged until then.",
+      poll: false,
+    };
+  }
+
   if (orderState === "PENDING_APPROVAL") {
     return {
       kind: "not-open",
@@ -176,8 +188,8 @@ export function paymentView(orderState: string, payment: ApiOrderPayment | null)
     status: "Due now",
     tone: "warn",
     banner: {
-      title: "Approved by BTG — payment due",
-      text: "Pay the total to start delivery. Nothing has been charged yet.",
+      title: "Approved — payment due",
+      text: "Pay the total within 3 days to start delivery. Nothing has been charged yet.",
       detail: null,
       role: "region",
     },
@@ -190,7 +202,7 @@ export function paymentView(orderState: string, payment: ApiOrderPayment | null)
 /** The line under the lines list, where the order's generic hint would talk
  *  about invoicing — replaced while payment is by card. */
 export function paymentHint(kind: PaymentKind): string | null {
-  if (kind === "due" || kind === "failed") return "BTG approved the order. Pay the total by card to start delivery.";
+  if (kind === "due" || kind === "failed") return "Your order is approved. Pay the total by card to start delivery.";
   if (kind === "processing") return "Your payment is being confirmed by the payment provider.";
   return null;
 }
@@ -198,7 +210,7 @@ export function paymentHint(kind: PaymentKind): string | null {
 /* ------------------------------------------------------------ the tracker */
 
 export type TrackerStep = {
-  label: "Order placed" | "Approved by BTG" | "Payment" | "In delivery" | "Complete";
+  label: "Order placed" | "Approved" | "Payment" | "In delivery" | "Complete";
   state: "done" | "current" | "todo";
   /** A date for a done step, a short word for the current one ("Due now"), or "". */
   note: string;
@@ -208,7 +220,7 @@ export type TrackerStep = {
 type TrackerOrder = { state: OrderState | string; createdAt: string; decidedAt: string | null; contractedAt: string | null };
 
 /**
- * Order placed → Approved by BTG → Payment → In delivery → Complete, from the
+ * Order placed → Approved → Payment → In delivery → Complete, from the
  * order's own state and dates. Null for a cancelled or refunded order — the
  * tracker would claim a path the order left.
  */
@@ -217,7 +229,7 @@ export function orderTracker(o: TrackerOrder, view: PaymentView, payment: ApiOrd
   const approvedAt = o.decidedAt ?? o.contractedAt;
   const latest = payment?.latest ?? null;
   const paidAt = latest?.state === "SUCCEEDED" ? latest.updatedAt : null;
-  const pending = o.state === "PENDING_APPROVAL";
+  const pending = o.state === "PENDING_APPROVAL" || o.state === "PENDING_SELLER";
   const paid = PAID_OR_LATER.has(o.state);
   const complete = o.state === "FULFILLED" || o.state === "CLOSED";
 
@@ -229,7 +241,10 @@ export function orderTracker(o: TrackerOrder, view: PaymentView, payment: ApiOrd
 
   return [
     done("Order placed", o.createdAt),
-    pending ? { label: "Approved by BTG", state: "current", note: "Waiting for BTG", tone: "warn" } : done("Approved by BTG", approvedAt),
+    /* 2S4-BE-09 — the seller answers first when a listing asks; BTG only above the sponsor's limit; else policy approves it at once. */
+    pending
+      ? { label: "Approved", state: "current", note: o.state === "PENDING_SELLER" ? "Waiting for the seller" : "Waiting for BTG", tone: "warn" }
+      : done("Approved", approvedAt),
     paid ? done("Payment", paidAt) : pending ? todo("Payment") : { label: "Payment", state: "current", note: payNote, tone: payTone },
     complete ? done("In delivery", null) : paid ? { label: "In delivery", state: "current", note: "Now", tone: "accent" } : todo("In delivery"),
     complete ? done("Complete", null) : todo("Complete"),
