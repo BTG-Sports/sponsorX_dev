@@ -308,6 +308,24 @@ const BUILDERS: Partial<Record<Resource, Builder>> = {
   /* SponsorX NEXT rights and claims (P9-BE-10, -11, -14). */
   editionAsset: (actor, scope) =>
     nextByProperty(actor, scope, (p) => ({ edition: { is: { publication: { is: { propertyId: p } } } } })),
+  /* P9-BE-16 — a slot's artwork reaches its buyer through the slot's
+     campaign: `own-campaign` is the sponsor's own campaigns, as on
+     deliverables. Every row this resource reaches is artwork (adSlotId set)
+     — the plain `editionAsset` rows stay out of a sponsor's reach. */
+  editionArtwork: (actor, scope) => {
+    switch (scope) {
+      case "any":
+        return { adSlotId: { not: null } };
+      case "own-tenant":
+        return { tenantId: actor.tenantId, adSlotId: { not: null } };
+      case "own-campaign":
+        return actor.sponsorId
+          ? { tenantId: actor.tenantId, adSlot: { is: { campaign: { is: { sponsorId: actor.sponsorId } } } } }
+          : MATCHES_NOTHING;
+      default:
+        return MATCHES_NOTHING;
+    }
+  },
   contentRight: (actor, scope) => {
     /* A student reads the rights on their OWN work — the asset they made. */
     if (scope === "own") {

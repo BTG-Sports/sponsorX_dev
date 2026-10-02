@@ -73,3 +73,22 @@ export const EditionEventInput = z
     region: z.string().max(100).nullable().optional(),
   })
   .meta({ id: "EditionEventInput" });
+
+/* P9-BE-16 — a sold slot's ad artwork on the approval board. The upload
+   itself reuses CreativeUploadInput (deliverable.ts): same presign, same
+   private bucket, key chosen by the server. */
+
+export const ArtworkInput = z
+  .object({
+    /** The key the slot's presign call returned — any other is refused. */
+    r2Key: z.string().min(1).max(1024),
+    title: z.string().min(1).max(300).nullable().optional(),
+  })
+  .meta({ id: "ArtworkInput", description: "Record an uploaded file as the slot's artwork. The first upload puts it on the board (DRAFT_SUBMITTED); a later one, while it is still DRAFT_SUBMITTED, replaces the file and answers any open change request." });
+
+export const ArtworkRevisionInput = z
+  .object({
+    /** Mandatory. Whoever supplies the artwork gets these words. */
+    reason: z.string().min(1).max(2000),
+  })
+  .meta({ id: "ArtworkRevisionInput" });

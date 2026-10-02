@@ -31,6 +31,8 @@ import {
 import { allocateSplit } from "./revenue-split";
 import { attributeSale } from "./student";
 import { rightsGap } from "./content-rights";
+import { artworkGap } from "./edition-artwork";
+import { describeBlocker } from "./edition-artwork-rules";
 import { resolveSchoolPools } from "./dmv-pools";
 
 export type AdSlotKind = "QUARTER" | "HALF" | "FULL" | "BACK_COVER" | "PRESENTING";
@@ -223,7 +225,18 @@ export async function transitionEdition(
       const gap = await rightsGap(tx, actor.tenantId, editionId, "DIGITAL", edition.publishTarget);
       throw new RightsNotClearedError("digital", gap.map((a) => a.title));
     }
-    assertEditionTransition(from, to, { ...edition, rightsCleared });
+    /* P9-BE-16 — production also needs every SOLD slot's artwork approved
+       on the board, asked in this transaction like the rights gap. */
+    let artworkApproved = true;
+    const artworkProblems: string[] = [];
+    if (to === "IN_PRODUCTION") {
+      const blockers = await artworkGap(tx, actor.tenantId, editionId);
+      artworkApproved = blockers.length === 0;
+      if (blockers.length) {
+        artworkProblems.push(`Ad artwork not approved: ${blockers.map((b) => describeBlocker(b, b.revisionOpen)).join(", ")}.`);
+      }
+    }
+    assertEditionTransition(from, to, { ...edition, rightsCleared, artworkApproved }, artworkProblems);
 
     let revenueMet = edition.revenueMet;
     if (to === "CLOSED") revenueMet = (await resolveSplit(tx, actor.tenantId, editionId)) >= edition.thresholdCents;

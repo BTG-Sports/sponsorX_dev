@@ -30,7 +30,7 @@ vi.mock("../src/auth/clerk", () => ({
 const { positionsFor, spreadPrice } = await import("../src/domain/edition");
 
 describe("P9-BE-02 · the edition state machine (pure)", () => {
-  const conditions = { contentReady: true, rightsCleared: true, revenueMet: true };
+  const conditions = { contentReady: true, rightsCleared: true, revenueMet: true, artworkApproved: true };
 
   it("walks PLANNING → … → DISTRIBUTED, with the free digital edition a stop on the way", () => {
     const path = ["PLANNING", "SELLING", "CLOSED", "IN_PRODUCTION", "PUBLISHED_DIGITAL", "PRINTED", "DISTRIBUTED"] as const;
@@ -47,9 +47,10 @@ describe("P9-BE-02 · the edition state machine (pure)", () => {
     expect(canTransitionEdition("IN_PRODUCTION", "CANCELLED")).toBe(false);
   });
 
-  it("goes to production only with content, rights and revenue all in place", () => {
+  it("goes to production only with content, rights, revenue and approved ad artwork all in place", () => {
     expect(() => assertEditionTransition("CLOSED", "IN_PRODUCTION", conditions)).not.toThrow();
-    for (const key of ["contentReady", "rightsCleared", "revenueMet"] as const) {
+    /* artworkApproved — P9-BE-16: every sold slot's artwork signed off on the approval board. */
+    for (const key of ["contentReady", "rightsCleared", "revenueMet", "artworkApproved"] as const) {
       expect(() => assertEditionTransition("CLOSED", "IN_PRODUCTION", { ...conditions, [key]: false }))
         .toThrow(new RegExp(key));
     }
@@ -114,6 +115,8 @@ describe.skipIf(!hasDatabase)("SponsorX NEXT editions, on the path a request tak
   const { createEarningForOrder } = await import("../src/domain/earning");
   const { assembleSponsorReport } = await import("../src/domain/sponsor-report");
   const ed = await import("../src/domain/edition");
+  const artwork = await import("../src/domain/edition-artwork");
+  const { grantRight } = await import("../src/domain/content-rights");
   const { createApp } = await import("../src/app");
 
   const T = "nx2_tenant";
@@ -121,13 +124,15 @@ describe.skipIf(!hasDatabase)("SponsorX NEXT editions, on the path a request tak
     userId: "nx2_staff", tenantId: T, roles: ["BTG_ADMIN" as const],
     sponsorId: null, athleteId: null, guardianId: null, propertyId: null,
   };
+  /* The buying sponsor — signs off its own ad artwork (P9-BE-16). */
+  const rosa = { ...staff, userId: "nx2_rosa", roles: ["SPONSOR_ADMIN" as const], sponsorId: "nx2_sponsor" };
   const DAY = 864e5;
   let server: ReturnType<ReturnType<typeof createApp>["listen"]>;
   let base = "";
   let n = 0;
 
   async function clean() {
-    const tables = ["EditionEvent", "RevenueSplit", "AdSlot", "Earning", "Deliverable", "CampaignOrder", "OutboxJob",
+    const tables = ["EditionEvent", "ContentRight", "EditionAsset", "RevenueSplit", "AdSlot", "Earning", "Deliverable", "CampaignOrder", "OutboxJob",
       "SyncTask", "AuditLog", "Campaign", "CampaignBrief", "Edition", "Publication", "SponsorPackage",
       "SponsorContact", "Sponsor", "NilJob", "Athlete", "Property", "User"];
     for (const t of tables) await prisma.$executeRawUnsafe(`DELETE FROM "${t}" WHERE "tenantId" = $1`, T);
@@ -147,6 +152,18 @@ describe.skipIf(!hasDatabase)("SponsorX NEXT editions, on the path a request tak
     return (await createCampaignFromBrief(staff, brief.id, `Campaign ${packageCode} ${++n}`)).id;
   }
 
+  /** A sold slot's artwork, uploaded by its sponsor, through BTG's review to
+   *  the sponsor's sign-off, with the sponsor's licence for it — what
+   *  production needs since P9-BE-16 (and P9-BE-10 for the right). */
+  async function approvedArtwork(slotId: string) {
+    const { key } = await artwork.presignArtworkUpload(rosa, slotId, "image/png");
+    const a = await artwork.registerArtwork(rosa, slotId, { r2Key: key });
+    await artwork.startArtworkReview(staff, a.id);
+    await artwork.sendArtworkToSponsor(staff, a.id);
+    await artwork.approveArtwork(rosa, a.id);
+    await grantRight(staff, a.id, { grantorKind: "THIRD_PARTY", grantorRef: "Rosa's Bakery", mayPublishDigital: true, startsAt: new Date(), licenseRef: "nx2-IO-1" });
+  }
+
   async function sellingEdition(label: string, thresholdCents = 100_000): Promise<string> {
     const pub = await ed.createPublication(staff, { name: `Masthead ${label}`, propertyId: "nx2_school" });
     const edition = await ed.createEdition(staff, pub.id, {
@@ -163,6 +180,7 @@ describe.skipIf(!hasDatabase)("SponsorX NEXT editions, on the path a request tak
     await prisma.user.create({ data: { id: "nx2_staff", tenantId: T, clerkId: "nx2_staff", email: "ops@nx2.invalid", roles: ["BTG_ADMIN"] } });
     await prisma.property.create({ data: { id: "nx2_school", tenantId: T, slug: "nx2-northside", name: "Northside High", kind: "SCHOOL" } });
     await prisma.sponsor.create({ data: { id: "nx2_sponsor", tenantId: T, name: "Rosa's Bakery" } });
+    await prisma.user.create({ data: { id: "nx2_rosa", tenantId: T, clerkId: "nx2_rosa", email: "rosa@nx2.invalid", roles: ["SPONSOR_ADMIN"], sponsorId: "nx2_sponsor" } });
     const pool = new pg.Pool({ connectionString: seededDb.TEST_DATABASE_URL });
     const client = await pool.connect();
     try {
@@ -333,7 +351,9 @@ describe.skipIf(!hasDatabase)("SponsorX NEXT editions, on the path a request tak
       expect((await post({ type: "QR_SCAN", targetKind: "AD_SLOT", targetRef: slot.id })).status).toBe(404);
 
       await ed.transitionEdition(staff, id, "CLOSED");
-      await ed.setEditionConditions(staff, id, { contentReady: true }); /* no assets → nothing to clear (P9-BE-10) */
+      await ed.setEditionConditions(staff, id, { contentReady: true });
+      /* The one asset is the sold slot's artwork: approved by its sponsor and licensed (P9-BE-16, -10). */
+      await approvedArtwork(slot.id);
       await ed.transitionEdition(staff, id, "IN_PRODUCTION");
       await ed.transitionEdition(staff, id, "PUBLISHED_DIGITAL");
 

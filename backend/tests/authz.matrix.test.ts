@@ -365,7 +365,14 @@ describe("the whole matrix is pinned", () => {
       // SPONSOR_ADMIN, SPONSOR_ANALYST own-sponsor read; every other cell
       // deny (matrix §24). With its rows removed the grid hashes to the
       // previous 11bff53b234f5f7c.
-    ).toBe("9cd49bc7621e483e");
+      // Updated 2026-10-02 (P9-BE-16): new `editionArtwork` resource — a sold
+      // slot's ad artwork on the approval board. SUPER_ADMIN any read/write;
+      // BTG_ADMIN, CAMPAIGN_MGR own-tenant read/write (the deliverable desk's
+      // BTG steps); SPONSOR_ADMIN own-campaign read/write/approve (upload and
+      // the sign-off — no staff role holds approve); SPONSOR_ANALYST
+      // own-campaign read; every other cell deny (matrix §15.3). With its rows
+      // removed the grid hashes to the previous 9cd49bc7621e483e.
+    ).toBe("549a562e5fbbb0a6");
   });
 
   it("covers every pair the §30 acceptance asks for", () => {

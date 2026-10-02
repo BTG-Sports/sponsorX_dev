@@ -50,6 +50,7 @@ describe.skipIf(!hasDatabase)("SponsorX NEXT rights, featured athletes and the D
   const { prisma } = await import("../src/db/client");
   const ed = await import("../src/domain/edition");
   const rights = await import("../src/domain/content-rights");
+  const artwork = await import("../src/domain/edition-artwork");
   const featured = await import("../src/domain/featured");
   const dmv = await import("../src/domain/dmv-pools");
   const { verifyGuardian, linkGuardian } = await import("../src/domain/guardian");
@@ -67,6 +68,8 @@ describe.skipIf(!hasDatabase)("SponsorX NEXT rights, featured athletes and the D
     userId: "nx4_staff", tenantId: T, roles: ["BTG_ADMIN" as const],
     sponsorId: null, athleteId: null, guardianId: null, propertyId: null,
   };
+  /* The buying sponsor — signs off its own ad artwork (P9-BE-16). */
+  const rosa = { ...staff, userId: "nx4_rosa", roles: ["SPONSOR_ADMIN" as const], sponsorId: "nx4_sponsor" };
   let server: ReturnType<ReturnType<typeof createApp>["listen"]>;
   let base = "";
   let n = 0;
@@ -120,6 +123,7 @@ describe.skipIf(!hasDatabase)("SponsorX NEXT rights, featured athletes and the D
     ] });
     await prisma.user.createMany({ data: [
       { id: "nx4_staff", tenantId: T, clerkId: "nx4_staff", email: "ops@nx4.invalid", roles: ["BTG_ADMIN"] },
+      { id: "nx4_rosa", tenantId: T, clerkId: "nx4_rosa", email: "rosa@nx4.invalid", roles: ["SPONSOR_ADMIN"], sponsorId: "nx4_sponsor" },
       { id: "nx4_advisor", tenantId: T, clerkId: "nx4_advisor", email: "adv@nx4.invalid", roles: ["ADVISOR"], propertyId: "nx4_school" },
       { id: "nx4_advisor_b", tenantId: T, clerkId: "nx4_advisor_b", email: "advb@nx4.invalid", roles: ["ADVISOR"], propertyId: "nx4_school_b" },
     ] });
@@ -294,6 +298,15 @@ describe.skipIf(!hasDatabase)("SponsorX NEXT rights, featured athletes and the D
       await dmv.recordContribution(staff, id, { studentId: a, kind: "FEATURE" });
       await dmv.recordContribution(staff, id, { studentId: b, kind: "INTERVIEW" });
       await dmv.recordContribution(staff, id, { studentId: b, kind: "PHOTO_PACKAGE" });
+
+      /* The sold page's artwork: through BTG's review to its sponsor's sign-off, licensed (P9-BE-16, -10). */
+      const f1 = await prisma.adSlot.findFirstOrThrow({ where: { editionId: id, slotCode: "F1" }, select: { id: true } });
+      const { key } = await artwork.presignArtworkUpload(rosa, f1.id, "image/png");
+      const art = await artwork.registerArtwork(rosa, f1.id, { r2Key: key });
+      await artwork.startArtworkReview(staff, art.id);
+      await artwork.sendArtworkToSponsor(staff, art.id);
+      await artwork.approveArtwork(rosa, art.id);
+      await rights.grantRight(staff, art.id, { grantorKind: "THIRD_PARTY", grantorRef: "Rosa's Bakery", mayPublishDigital: true, startsAt: new Date(), licenseRef: "nx4-IO-1" });
 
       await toProduction(id);
       await ed.transitionEdition(staff, id, "PUBLISHED_DIGITAL");

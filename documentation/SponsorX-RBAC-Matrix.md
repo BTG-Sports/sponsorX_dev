@@ -1103,6 +1103,25 @@ reserved; they do not set a price or mark a slot sold. The sale is a
 **Rights are explicit and checked before publication** (principle 4), and an
 advisor explicitly does not make rights decisions. Read-only for both.
 
+#### `editionArtwork` *(added 2026-10-02, P9-BE-16)*
+| Role | Read | Write | Approve |
+|---|---|---|---|
+| `SUPER_ADMIN` | any | any | — |
+| `BTG_ADMIN` | own-tenant | own-tenant | — |
+| `CAMPAIGN_MGR` | own-tenant | own-tenant | — |
+| `SPONSOR_ADMIN` | own-campaign | own-campaign | own-campaign |
+| `SPONSOR_ANALYST` | own-campaign | — | — |
+
+A sold ad slot's artwork on the approval board — the same `EditionAsset` rows
+as `editionAsset`, reached through the slot's campaign. The desk is the
+deliverable board's: `BTG_ADMIN` and `CAMPAIGN_MGR` run BTG's steps (start
+review, send to the sponsor, ask for changes at BTG review) as a tenant-wide
+`write`. The **buying** sponsor uploads its own artwork (`write`) and is the
+only role that signs it off (`approve`) — no staff role holds `approve`, so BTG
+cannot approve an advertiser's ad for them, and another sponsor reaches nothing.
+`ADVISOR` and `STUDENT` keep their `editionAsset` read of their school's
+edition and gain nothing here.
+
 #### `revenueSplit`
 | Role | Read | Write | Approve |
 |---|---|---|---|

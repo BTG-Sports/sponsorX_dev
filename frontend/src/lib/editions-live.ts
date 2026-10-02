@@ -32,6 +32,9 @@ export type ApiEdition = {
   inventory: { total: number; sold: number; committedCents: number; rackCents: number };
   /** Assets with no digital right in force at the publish target — null where the caller can't read assets. */
   rightsPending: number | null;
+  /** P9-BE-16 — sold slots whose ad artwork is not yet approved by its sponsor;
+   *  null (or absent, from an older API) where the caller can't read artwork. */
+  artworkPending?: number | null;
 };
 
 export type ApiSlotKind = AdSlotKind | "PRESENTING";
@@ -47,6 +50,15 @@ export type ApiLedgerSlot = {
   soldAt: string | null;
   /** Only for a caller who may read campaigns — a student sees "taken", not who. */
   buyer?: { campaignId: string; campaign: string; sponsor: string };
+  /** P9-BE-16 — a SOLD slot's artwork on the approval board, for a caller who
+   *  reads it (BTG's desk); null when nothing is uploaded yet; absent otherwise. */
+  artwork?: {
+    id: string;
+    state: "DRAFT_SUBMITTED" | "BTG_REVIEW" | "SPONSOR_REVIEW" | "APPROVED";
+    version: number;
+    submittedAt: string | null;
+    revision: { reason: string } | null;
+  } | null;
 };
 
 export type ApiSplit = {

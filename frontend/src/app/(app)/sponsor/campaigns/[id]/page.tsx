@@ -25,6 +25,8 @@ import {
 import { daysRemaining, reachPct, verifiedPct } from "@/lib/ops-live";
 import { isBehind, monogramOf, windowLabel } from "@/lib/sponsor-live";
 import { liveSponsorCampaign, type LiveCampaignDetail } from "@/server/sponsor";
+import { SponsorArtwork } from "@/components/edition-artwork";
+import { presignArtwork, registerArtwork, sponsorArtworkAction, sponsorArtworkLink } from "./actions";
 
 /* --------------------------------------------------------------------------
    Sponsor Campaign detail — §9, sponsor portal (2026-09-15). The screen that
@@ -540,6 +542,27 @@ function LiveDetail({
           chip={<MiniChip kind="est">COMPUTED</MiniChip>}
         />
       </div>
+
+      {/* P9-BE-16 — the SponsorX NEXT ad slots this campaign bought: upload
+          the artwork, then approve it (or ask for changes) once BTG has
+          reviewed it. The edition can't go to print until it's approved. */}
+      {detail.artwork.length > 0 && (
+        <section className="sx-animate sx-delay-2">
+          <SectionHeading
+            title="Your ad artwork"
+            hint="Each ad goes through BTG's review, then comes back to you to approve. The edition prints only once every ad is approved."
+          />
+          <SponsorArtwork
+            slots={detail.artwork}
+            now={now.getTime()}
+            canDecide={detail.canDecideArtwork}
+            act={sponsorArtworkAction}
+            link={sponsorArtworkLink}
+            presign={presignArtwork}
+            register={registerArtwork}
+          />
+        </section>
+      )}
 
       <section className="sx-animate sx-delay-2">
         <SectionHeading

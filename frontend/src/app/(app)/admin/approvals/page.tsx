@@ -15,7 +15,10 @@ import {
 import type { ApiDeliverable } from "@/lib/deliverables-live";
 import { pageParams, type PageInfo, type SearchParams } from "@/lib/list-query";
 import { apiFetch, fetchActor } from "@/server/api";
-import { approvalAction, assetLink } from "./actions";
+import { approvalAction, artworkAction, artworkLink, assetLink } from "./actions";
+import { ArtworkQueue } from "@/components/edition-artwork";
+import type { ApiArtwork } from "@/lib/edition-artwork-live";
+import { requestTime } from "../next/live";
 import {
   adminApprovalsX,
   contentCleared,
@@ -57,6 +60,13 @@ import { NotInRole, staffWithoutAccess } from "@/components/not-in-role";
    the pipeline strip, the tab counts and the campaign filter. The fixture
    desk (demo, and staff outside the desk's roles) stays the in-memory
    ApprovalsDesk.
+
+   TWO KINDS OF SUBJECT (P9-BE-16). Beside the deliverables, the live desk
+   lists SponsorX NEXT edition ad artwork — GET /edition-artwork, rows with
+   `subject: EDITION_ARTWORK`, the edition and the slot. Same states, same
+   BTG steps (start review, send to the sponsor, ask for changes); no
+   Approve, because the sign-off is the buying sponsor's, on their campaign
+   page. A handful per edition, so the list is read whole, waiting first.
    -------------------------------------------------------------------------- */
 
 const DESK_ROLES = ["SUPER_ADMIN", "BTG_ADMIN", "CAMPAIGN_MGR"];
@@ -69,20 +79,28 @@ async function liveDesk(sp: SearchParams) {
   if (who.status !== "linked") return null;
   if (!who.actor.roles.some((r) => DESK_ROLES.includes(r))) return null;
 
-  const sumRes = await apiFetch(`/deliverables/summary${DESK_SUMMARY_QUERY}`);
+  const [sumRes, artRes] = await Promise.all([
+    apiFetch(`/deliverables/summary${DESK_SUMMARY_QUERY}`),
+    apiFetch("/edition-artwork"),
+  ]);
   if (!sumRes.ok) throw new Error(`Content queue unavailable (${sumRes.status}).`);
+  if (!artRes.ok) throw new Error(`Edition artwork unavailable (${artRes.status}).`);
   const summary = (await sumRes.json()) as DeskSummary;
+  /* Waiting first (oldest submission first, as the API orders them), then approved. */
+  const artwork = ((await artRes.json()) as { artwork: ApiArtwork[] }).artwork
+    .slice()
+    .sort((a, b) => Number(a.state === "APPROVED") - Number(b.state === "APPROVED"));
 
   const filters = deskFilters(sp);
   /* A stale or hand-typed campaign id is dropped, not sent. */
   if (filters.camp && !summary.campaigns.some((c) => c.id === filters.camp)) filters.camp = "";
-  if (summary.total === 0) return { summary, filters, rows: [], page: null };
+  if (summary.total === 0) return { summary, filters, rows: [], page: null, artwork };
 
   const res = await apiFetch(`/deliverables${deskListQuery(filters, pageParams(sp))}`);
   if (!res.ok) throw new Error(`Content queue unavailable (${res.status}).`);
   const body = (await res.json()) as { deliverables: ApiDeliverable[]; page: PageInfo };
   const now = new Date();
-  return { summary, filters, rows: body.deliverables.map((d) => toDeskItem(d, now)), page: body.page };
+  return { summary, filters, rows: body.deliverables.map((d) => toDeskItem(d, now)), page: body.page, artwork };
 }
 
 const PIPELINE_HINTS = [
@@ -122,7 +140,7 @@ export default async function AdminApprovalsPage({
     </div>
   );
 
-  if (demo === "empty" || (live && live.summary.total === 0)) {
+  if (demo === "empty" || (live && live.summary.total === 0 && live.artwork.length === 0)) {
     return (
       <div className="space-y-6">
         {heading}
@@ -275,7 +293,13 @@ export default async function AdminApprovalsPage({
           title="The queue"
           hint="Click a deliverable to review it — search and filters apply instantly."
         />
-        {live && live.page ? (
+        {live && !live.page ? (
+          <EmptyState
+            mark="inbox"
+            title="No deliverables waiting"
+            hint="Deliverables arrive here when athletes submit content."
+          />
+        ) : live && live.page ? (
           <ApprovalsDeskServer
             rows={live.rows}
             page={live.page}
@@ -300,6 +324,17 @@ export default async function AdminApprovalsPage({
           />
         )}
       </section>
+
+      {/* --------------------------------------------- edition ad artwork */}
+      {live && live.artwork.length > 0 && (
+        <section className="sx-animate sx-delay-2">
+          <SectionHeading
+            title="Edition ad artwork"
+            hint={`${live.artwork.filter((a) => a.state !== "APPROVED").length} waiting · SponsorX NEXT ads — BTG reviews, the sponsor signs off`}
+          />
+          <ArtworkQueue rows={live.artwork} now={requestTime()} act={artworkAction} link={artworkLink} />
+        </section>
+      )}
 
       {/* ------------------------------------------------------ trust note */}
       <p className="sx-animate sx-delay-2 text-[10px] leading-relaxed text-faint">
