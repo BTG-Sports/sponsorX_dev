@@ -713,6 +713,16 @@ Raised 2026-09-30 by the programme owner: going to For Sponsors or For Athletes 
 - **Done when:** A client-side move between public pages never shows the boot screen and always plays the transition, and a hard refresh on any of them shows the boot screen; the X covers every point of the viewport before the route swaps, from any click point (unit-tested); every keyframe of each shape has one point count; the home reveals only after the city's first frame and replays its entrance; back and forward are never seen uncovered; scroll is locked while covered and always released; reduced motion gets a plain fade; build, tests and lint green
 - **Reference:** §9 screen 1; `frontend/src/lib/page-transition.ts`; `frontend/src/components/page-transition.tsx`; `frontend/tests/page-transition.test.ts`
 
+### ▶ `P1-ART-13` · Sign-in — stage redesign, boot screen and page transition
+
+**Order** 32.95 · **ART** · **Where:** Code · **2d** · **Done** · **Unblocks** 0
+
+Raised 2026-10-02 by the programme owner: the sign-in looked plain next to the landing, /packages, /join and /next/about. It now uses their visual language. The stage is fixed-dark, with a light that follows the pointer, sweeping floodlights (kept from the 2026-09-23 Stadium Night scene), rising motes and a parallax floor. From lg a HUD column sits beside the sign-in: a scrambled eyebrow, a masked three-line headline, a "Where you'll land" card cycling the five workspaces, and the network figures (fixtures, labelled as samples). The sign-in is in a chamfered glass panel with an outline spotlight, and the page closes with the landing's compact footer. /login also joins the public site's loading screens: a hard load or refresh shows the boot screen, and moving between it and the site plays the X transition both ways, titled "Login". Signing in (→ /portal) stays a plain navigation.
+
+- **Depends on:** `P1-ART-11` (the boot screen) and `P1-ART-12` (the transition)
+- **Done when:** Clerk behaviour is unchanged (hash routing, lands on /portal); the stage is fixed-dark in both themes; desktop fits one viewport down to 1366×700 above the footer, with no horizontal overflow at 390px; reduced motion shows the still stage; a hard load of /login shows the boot screen first, and /login ↔ site moves play the transition; transition titles never clip a descender (g, p, y); tests, lint and typecheck green
+- **Reference:** §9 screen 2; `frontend/src/app/login/page.tsx`; `frontend/src/components/login-stage.tsx`; `frontend/src/components/login-fx.tsx`; `frontend/src/lib/page-transition.ts`
+
 ### ▶ `P1-FE-18` · Apply the SponsorX NEXT UI requirement across the existing pages
 
 **Order** 37.02 · **FE** · **Where:** Code · **2d** · **Ready** · **Unblocks** 5
