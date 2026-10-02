@@ -370,6 +370,24 @@ describe.skipIf(!hasDatabase)("P9-BE-16 · edition ad artwork through the approv
     expect(refused.status).toBe(409);
     expect(refused.json.error.missing).toEqual(["artworkApproved"]);
     expect(refused.json.error.problems).toEqual(["Ad artwork not approved: BACK (no artwork yet)."]);
+
+    /* A SUPER_ADMIN's scope crosses tenants: the gate asks about the edition's
+       tenant, not theirs, so they are refused just the same (review fix). */
+    const XT = "eart_tenant_super";
+    await prisma.tenant.upsert({ where: { id: XT }, create: { id: XT, name: "EArt other tenant" }, update: {} });
+    await prisma.user.upsert({
+      where: { id: "eart_super" }, update: {},
+      create: { id: "eart_super", tenantId: XT, clerkId: "eart_super", email: "super@eart.invalid", roles: ["SUPER_ADMIN"] },
+    });
+    try {
+      const asSuper = await call("POST", `/editions/${id}/transition`, "eart_super", { to: "IN_PRODUCTION" });
+      expect(asSuper.status, asSuper.text).toBe(409);
+      expect(asSuper.json.error.missing).toEqual(["artworkApproved"]);
+    } finally {
+      await prisma.auditLog.deleteMany({ where: { tenantId: XT } });
+      await prisma.user.deleteMany({ where: { id: "eart_super" } });
+      await prisma.tenant.deleteMany({ where: { id: XT } });
+    }
   });
 
   it("5 · every decision is audited, and the other party is emailed", async () => {

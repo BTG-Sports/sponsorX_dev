@@ -202,12 +202,16 @@ export async function transitionEdition(
     const edition = await tx.edition.findFirst({
       where: { ...whereFor(actor, "edition", "approve"), id: editionId },
       select: {
-        id: true, state: true, contentReady: true, rightsCleared: true, revenueMet: true,
+        id: true, tenantId: true, state: true, contentReady: true, rightsCleared: true, revenueMet: true,
         thresholdCents: true, publishTarget: true, printDate: true,
       },
     });
     if (!edition) throw new ForbiddenError("edition", "approve");
     const from = edition.state as EditionState;
+    /* Every gate asks about the EDITION's tenant, never the caller's — a
+       SUPER_ADMIN's scope crosses tenants, and asking its own would find no
+       slots, no assets and so no blockers (P9-BE-16 review). */
+    const tenantId = edition.tenantId;
 
     /* P9-BE-10 — the gate asks the ledger, in one query, which assets have no
        right for this format on this date. Digital clears production and the
@@ -215,14 +219,14 @@ export async function transitionEdition(
        digital-first edition clears while print rights are still outstanding. */
     let rightsCleared = edition.rightsCleared;
     if (to === "IN_PRODUCTION" || to === "PUBLISHED_DIGITAL") {
-      rightsCleared = (await rightsGap(tx, actor.tenantId, editionId, "DIGITAL", edition.publishTarget)).length === 0;
+      rightsCleared = (await rightsGap(tx, tenantId, editionId, "DIGITAL", edition.publishTarget)).length === 0;
     }
     if (to === "PRINTED") {
-      const gap = await rightsGap(tx, actor.tenantId, editionId, "PRINT", edition.printDate ?? new Date());
+      const gap = await rightsGap(tx, tenantId, editionId, "PRINT", edition.printDate ?? new Date());
       if (gap.length) throw new RightsNotClearedError("print", gap.map((a) => a.title));
     }
     if (to === "PUBLISHED_DIGITAL" && !rightsCleared) {
-      const gap = await rightsGap(tx, actor.tenantId, editionId, "DIGITAL", edition.publishTarget);
+      const gap = await rightsGap(tx, tenantId, editionId, "DIGITAL", edition.publishTarget);
       throw new RightsNotClearedError("digital", gap.map((a) => a.title));
     }
     /* P9-BE-16 — production also needs every SOLD slot's artwork approved
@@ -230,7 +234,7 @@ export async function transitionEdition(
     let artworkApproved = true;
     const artworkProblems: string[] = [];
     if (to === "IN_PRODUCTION") {
-      const blockers = await artworkGap(tx, actor.tenantId, editionId);
+      const blockers = await artworkGap(tx, tenantId, editionId);
       artworkApproved = blockers.length === 0;
       if (blockers.length) {
         artworkProblems.push(`Ad artwork not approved: ${blockers.map((b) => describeBlocker(b, b.revisionOpen)).join(", ")}.`);
@@ -239,10 +243,10 @@ export async function transitionEdition(
     assertEditionTransition(from, to, { ...edition, rightsCleared, artworkApproved }, artworkProblems);
 
     let revenueMet = edition.revenueMet;
-    if (to === "CLOSED") revenueMet = (await resolveSplit(tx, actor.tenantId, editionId)) >= edition.thresholdCents;
+    if (to === "CLOSED") revenueMet = (await resolveSplit(tx, tenantId, editionId)) >= edition.thresholdCents;
     /* P9-BE-14 — a regional edition's school pools resolve by formula when
        it publishes, from its frozen revenue and final content. */
-    if (to === "PUBLISHED_DIGITAL") await resolveSchoolPools(tx, actor.tenantId, editionId);
+    if (to === "PUBLISHED_DIGITAL") await resolveSchoolPools(tx, tenantId, editionId);
 
     const updated = await tx.edition.update({
       where: { id: editionId },

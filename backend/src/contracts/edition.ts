@@ -11,7 +11,7 @@ import { ENGAGEMENT_TYPES, TARGET_KINDS } from "../domain/edition";
 export const EditionState = z.enum(EDITION_STATES).meta({
   id: "EditionState",
   description:
-    "PLANNING → SELLING → CLOSED → IN_PRODUCTION → PUBLISHED_DIGITAL → PRINTED → DISTRIBUTED; CANCELLED until production. Production needs contentReady, rightsCleared and revenueMet.",
+    "PLANNING → SELLING → CLOSED → IN_PRODUCTION → PUBLISHED_DIGITAL → PRINTED → DISTRIBUTED; CANCELLED until production. Production needs contentReady, rightsCleared, revenueMet and every sold slot's artwork approved (P9-BE-16).",
 });
 
 export const AdSlotKind = z.enum(["QUARTER", "HALF", "FULL", "BACK_COVER", "PRESENTING"]).meta({
