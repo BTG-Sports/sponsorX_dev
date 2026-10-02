@@ -50,12 +50,28 @@ organisation). Every decision, and every automatic approval, is audited.
 
 ## 2 · Listing (`2S3-BE-01`)
 
-`DRAFT → PENDING_APPROVAL → PUBLISHED ⇄ PAUSED → ARCHIVED`, and
-`PENDING_APPROVAL → DRAFT` when changes are requested.
+`DRAFT → PUBLISHED ⇄ PAUSED → ARCHIVED` when the checks pass on submit, and
+`DRAFT → PENDING_APPROVAL → PUBLISHED` when the listing is held for BTG.
+`PENDING_APPROVAL → DRAFT` when changes are requested (or the seller edits it),
+`PENDING_APPROVAL → ARCHIVED` when BTG rejects it.
+
+**Automatic publishing (2S3-BE-06, 2026-10-02).** On submit, every check BTG's
+approval used to run, runs first; a failure is refused outright, as before. A
+listing that passes goes straight to `PUBLISHED`, the first one included, and is
+marked `publishedAutomatically`. It goes to `PENDING_APPROVAL` instead, with
+its reasons, only when flagged:
+- restricted words in its title or description;
+- a seller BTG should look at: an organisation flagged for a missing document,
+  payouts held, an athlete in the coming-of-age pause, or a minor whose
+  guardian isn't verified.
+
+Resuming a paused listing takes the same path. A listing BTG paused or ended,
+with a reason emailed to the seller, goes back live only when BTG puts it back:
+the seller's own resume returns it to BTG.
 
 **Illegal, named:**
 - Any listing for a property that isn't `APPROVED`.
-- `DRAFT → PUBLISHED`, which skips BTG's approval.
+- `DRAFT → PUBLISHED` without the checks; the only road is submit.
 - `ARCHIVED → anything`.
 - Editing price or inventory while `PUBLISHED`. Pause it first, so an open
   cart never changes under a buyer.

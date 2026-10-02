@@ -4,10 +4,14 @@ import { revalidatePath } from "next/cache";
 
 import { refusalMessage } from "@/lib/onboarding-live";
 import {
+  btgListingActions,
   explainStaffRefusal,
+  needsReason,
   orderDecisions,
   orderMoves,
+  type BtgListingAction,
   type ListingDecision,
+  type ListingState,
   type MarketplaceOrderState,
   type OrderDecision,
 } from "@/lib/marketplace-ops-live";
@@ -16,7 +20,9 @@ import { apiFetch } from "@/server/api";
 /* --------------------------------------------------------------------------
    2S7-FE-02 — the marketplace console's decisions, as server actions.
 
-     listing  POST /listings/:id/decision            {decision: APPROVE|REQUEST_CHANGES, notes}
+     listing  POST /listings/:id/decision            {decision: APPROVE|REQUEST_CHANGES|REJECT, notes}
+              POST /listings/:id/btg-action          {action: PAUSE|END|RESUME, reason} (2S3-BE-06) —
+                                                     a RESUME the checks hold answers with `notice`
      order    POST /marketplace-orders/:id/decision  {decision: APPROVE|REJECT, notes}
      move     POST /marketplace-orders/:id/transition {to}
 
@@ -27,7 +33,8 @@ import { apiFetch } from "@/server/api";
    refusals into copy.
    -------------------------------------------------------------------------- */
 
-export type OpsResult = { ok: true; state: string } | { ok: false; message: string };
+/** `notice`: what the API said came of it instead (BTG's "Put back live" held for restricted words). */
+export type OpsResult = { ok: true; state: string; notice?: string } | { ok: false; message: string };
 
 async function post(path: string, body: unknown, revalidate: string[]): Promise<OpsResult> {
   let res: Response;
@@ -37,9 +44,9 @@ async function post(path: string, body: unknown, revalidate: string[]): Promise<
     return { ok: false, message: "The API is unreachable — nothing changed. Try again in a minute." };
   }
   if (res.ok) {
-    const d = (await res.json()) as { state: string };
+    const d = (await res.json()) as { state: string; notice?: unknown };
     for (const p of revalidate) revalidatePath(p);
-    return { ok: true, state: d.state };
+    return { ok: true, state: d.state, ...(typeof d.notice === "string" ? { notice: d.notice } : {}) };
   }
   let payload: unknown = null;
   try {
@@ -51,13 +58,21 @@ async function post(path: string, body: unknown, revalidate: string[]): Promise<
   return { ok: false, message: explainStaffRefusal(res.status, refusalMessage(payload)) };
 }
 
-const LISTING_DECISIONS: readonly ListingDecision[] = ["APPROVE", "REQUEST_CHANGES"];
+const LISTING_DECISIONS: readonly ListingDecision[] = ["APPROVE", "REQUEST_CHANGES", "REJECT"];
 
 export async function decideListingAction(id: string, decision: ListingDecision, notes: string): Promise<OpsResult> {
   if (typeof id !== "string" || !id || !LISTING_DECISIONS.includes(decision)) return { ok: false, message: "Unknown listing decision." };
   const trimmed = typeof notes === "string" ? notes.trim() : "";
-  if (decision === "REQUEST_CHANGES" && !trimmed) return { ok: false, message: "Write a note — the property is told what to change." };
+  if (decision !== "APPROVE" && !trimmed) return { ok: false, message: "Write a note — the seller is emailed it." };
   return post(`/listings/${encodeURIComponent(id)}/decision`, { decision, notes: trimmed || null }, ["/admin/marketplace"]);
+}
+
+/** 2S3-BE-06 — pause or end a live listing with a reason the seller is emailed, or put back one BTG paused. */
+export async function btgListingAction(id: string, from: { state: ListingState; btgAction: "PAUSED" | "ENDED" | null }, action: BtgListingAction, reason: string): Promise<OpsResult> {
+  if (typeof id !== "string" || !id || !btgListingActions(from).includes(action)) return { ok: false, message: "That isn't available for this listing." };
+  const trimmed = typeof reason === "string" ? reason.trim().slice(0, 2000) : "";
+  if (needsReason(action) && !trimmed) return { ok: false, message: "Write a reason — the seller is emailed it." };
+  return post(`/listings/${encodeURIComponent(id)}/btg-action`, { action, reason: trimmed || null }, ["/admin/marketplace"]);
 }
 
 export async function decideOrderAction(id: string, from: MarketplaceOrderState, decision: OrderDecision, notes: string): Promise<OpsResult> {

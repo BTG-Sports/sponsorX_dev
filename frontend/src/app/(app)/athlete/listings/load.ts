@@ -3,7 +3,7 @@ import type { ApiRestriction } from "@/lib/inventory-live";
 import { apiFetch } from "@/server/api";
 
 /* --------------------------------------------------------------------------
-   2S3-FE-02 — what "What BTG checks" needs beyond the listing and the item,
+   2S3-FE-02 — what "What's checked" needs beyond the listing and the item,
    read as the signed-in athlete:
 
      GET /athletes/me        `state` — approved (APPROVED / ACTIVE) or not

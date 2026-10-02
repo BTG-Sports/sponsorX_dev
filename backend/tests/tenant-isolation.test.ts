@@ -261,6 +261,8 @@ const BODY: Record<string, unknown> = {
   "PATCH /listings/{id}": { title: "Renamed" },
   "POST /listings/{id}/transition": { to: "ARCHIVED" },
   "POST /listings/{id}/decision": { decision: "APPROVE" },
+  /* 2S3-BE-06 — BTG pauses or ends a live listing, with a reason. */
+  "POST /listings/{id}/btg-action": { action: "PAUSE", reason: "Isolation sweep" },
   "POST /offers": {
     campaignId: A.campaign, athleteId: A.athlete, jobId: A.job, brief: "Stolen", compensation: 20000, sellPrice: 40000,
     deliverables: [{ title: "Post", dueDate: "2027-06-01T00:00:00.000Z" }], usageRights: "90 days", disclosures: [], expiresAt: "2027-05-01T00:00:00.000Z",
@@ -401,7 +403,9 @@ describe.skipIf(!hasDatabase)("P8-SEC-02 · tenant B cannot reach tenant A throu
     ] });
     await prisma.listing.create({ data: { id: A.listing, tenantId: t, propertyId: A.school, inventoryItemId: A.schoolItem, title: "TI Secret Listing", description: "TI secret listing description", state: "PENDING_APPROVAL" } });
     /* 2S3-BE-05 — sold by the athlete with no team, published, so every catalogue and search read is swept against it. */
-    await prisma.listing.create({ data: { id: A.athleteListing, tenantId: t, sellerAthleteId: A.athlete, inventoryItemId: A.item, title: "TI Secret Athlete Listing", description: "TI secret athlete listing description", state: "PUBLISHED", publishedAt: new Date() } });
+    await prisma.listing.create({ data: { id: A.athleteListing, tenantId: t, sellerAthleteId: A.athlete, inventoryItemId: A.item, title: "TI Secret Athlete Listing", description: "TI secret athlete listing description", state: "PUBLISHED", publishedAt: new Date(),
+      /* 2S3-BE-06 — went live on its own, so BTG's "Published automatically" read is swept for leaks too. */
+      publishedAutomatically: true } });
     await prisma.offer.create({ data: {
       id: A.offer, tenantId: t, campaignId: A.campaign, athleteId: A.athlete, jobId: A.job, brief: "TI Secret brief", compensation: 20000, sellPrice: 40000,
       deliverables: [{ title: "Post", dueDate: "2027-06-01T00:00:00.000Z" }], usageRights: "90 days", disclosures: [], expiresAt: new Date(Date.now() + 30 * 864e5),

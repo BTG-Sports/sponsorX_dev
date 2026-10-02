@@ -160,8 +160,8 @@ describe.skipIf(!hasDatabase)("Phase 2 purchase path over the API", { timeout: 6
     const l = await call("POST", "/listings", mgr, { inventoryItemId: I[key], title: `${item.title}`, description: "A description long enough for governance.", ...listing });
     expect(l.status, l.text).toBe(201);
     L[key] = l.json.id;
-    expect((await call("POST", `/listings/${L[key]}/submit`, mgr)).status).toBe(200);
-    expect((await call("POST", `/listings/${L[key]}/decision`, operatorAdmin, { decision: "APPROVE" })).json.state).toBe("PUBLISHED");
+    /* 2S3-BE-06 — a clean submit goes live on its own. */
+    expect((await call("POST", `/listings/${L[key]}/submit`, mgr)).json.state).toBe("PUBLISHED");
   }
 
   beforeAll(async () => {

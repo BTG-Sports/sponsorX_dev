@@ -14,6 +14,7 @@ import {
   type ApiListing,
   type ListingDraft,
 } from "@/lib/property-p2-live";
+import { btgNote, GOES_LIVE_COPY, submitOutcome } from "@/lib/listing-outcome";
 
 /* --------------------------------------------------------------------------
    2S3-FE-01 — the listing editor's client island.
@@ -21,7 +22,9 @@ import {
    The wording, visibility and publish day of one listing, with the
    governance checklist beside it. Property and item rules come from the
    API's `blockers`; the listing's own rules re-run on every keystroke, so
-   the checklist is live. Writes go through the server actions; a refusal is
+   the checklist is live. 2S3-FE-04 — a submit goes live as soon as the
+   checks pass; a flagged one waits for BTG ("BTG is taking a look"), with
+   the restricted words named so the manager can edit them out. Writes go through the server actions; a refusal is
    shown in the API's words, a 422's problems as a list. After a write the
    page re-reads the listing (router.refresh) and the draft follows it.
    -------------------------------------------------------------------------- */
@@ -82,7 +85,7 @@ function Fields({ draft, set, disabled }: { draft: ListingDraft; set: (d: Listin
           value={publishDateInput(draft.publishAt)}
           onChange={(e) => set({ ...draft, publishAt: publishDateIso(e.target.value) })}
         />
-        <span className="mt-1 block text-[11px] text-faint">Once BTG approves it, it goes on sale that day (UTC) or on approval, whichever is later.</span>
+        <span className="mt-1 block text-[11px] text-faint">Once the checks pass, it goes on sale that day (UTC), or straight away if that day has passed.</span>
       </label>
     </div>
   );
@@ -115,7 +118,7 @@ function Checklist({ rows }: { rows: ReturnType<typeof governanceChecklist> }) {
 function FailureNote({ f }: { f: Failure }) {
   return (
     <div role="alert" className="rounded-lg bg-danger/10 px-3 py-2 text-[11px] text-danger">
-      <p>{f.problems.length ? "BTG's rules aren't met yet:" : f.message}</p>
+      <p>{f.problems.length ? "Not ready to go live yet:" : f.message}</p>
       {f.problems.length > 0 && (
         <ul className="mt-1 list-disc space-y-0.5 pl-4">
           {f.problems.map((p) => (
@@ -123,6 +126,29 @@ function FailureNote({ f }: { f: Failure }) {
           ))}
         </ul>
       )}
+    </div>
+  );
+}
+
+/** "Live ✓", or "BTG is taking a look" with what the seller can fix — and a BTG pause or end, with BTG's reason. */
+function Outcome({ listing, justSubmitted }: { listing: ApiListing; justSubmitted: boolean }) {
+  const o = submitOutcome(listing);
+  const note = btgNote(listing);
+  const show = o && (o.tone === "warn" || justSubmitted);
+  if (!show && !note) return null;
+  return (
+    <div role="status" className="space-y-2">
+      {show && (
+        <div className={`rounded-lg px-3 py-2 text-xs ${o.tone === "accent" ? "bg-accent/10 text-accent" : "border border-warn/30 bg-warn/8 text-warn"}`}>
+          <p className="font-semibold">{o.headline}</p>
+          {o.lines.map((l) => (
+            <p key={l} className="mt-0.5 text-[11px]">
+              {l}
+            </p>
+          ))}
+        </div>
+      )}
+      {note && <p className="rounded-lg border border-danger/30 bg-danger/8 px-3 py-2 text-[11px] text-danger">{note}</p>}
     </div>
   );
 }
@@ -135,6 +161,7 @@ export function PropertyListingEditor({ listing }: { listing: ApiListing }) {
   const [failure, setFailure] = useState<Failure | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [confirmArchive, setConfirmArchive] = useState(false);
+  const [justSubmitted, setJustSubmitted] = useState(false);
   const [pending, start] = useTransition();
   /* The page re-read the listing after a write: take the saved version as
      the new draft (adjusting state during render, not in an effect). */
@@ -149,13 +176,16 @@ export function PropertyListingEditor({ listing }: { listing: ApiListing }) {
   const checklist = governanceChecklist(listing.blockers, draft, listing.item);
   const clear = checklist.every((r) => r.ok);
 
-  const run = (fn: () => Promise<ListingResult>, done: string) =>
+  const held = listing.state === "PENDING_APPROVAL";
+  const run = (fn: () => Promise<ListingResult>, done: string | null, submitted = false) =>
     start(async () => {
       setFailure(null);
       setNotice(null);
+      setJustSubmitted(false);
       const r = await fn();
       if (r.ok) {
         setNotice(done);
+        setJustSubmitted(submitted);
         setConfirmArchive(false);
         router.refresh();
       } else {
@@ -171,15 +201,12 @@ export function PropertyListingEditor({ listing }: { listing: ApiListing }) {
           <Fields draft={draft} set={setDraft} disabled={!controls.editable || pending} />
           {!controls.editable && (
             <p className="mt-4 text-[11px] text-muted">
-              {listing.state === "PUBLISHED"
-                ? "It's on sale, so the wording is locked. Pause it to edit."
-                : listing.state === "PENDING_APPROVAL"
-                  ? "BTG is reviewing it — nothing can change until they decide."
-                  : "Archived listings can't be edited."}
+              {listing.state === "PUBLISHED" ? "It's on sale, so the wording is locked. Pause it to edit." : "Archived listings can't be edited."}
             </p>
           )}
         </div>
 
+        {!failure && <Outcome listing={listing} justSubmitted={justSubmitted} />}
         {failure && <FailureNote f={failure} />}
         {notice && !failure && (
           <p role="status" className="text-[11px] text-accent">
@@ -189,11 +216,17 @@ export function PropertyListingEditor({ listing }: { listing: ApiListing }) {
 
         <div className="flex flex-wrap items-center gap-2">
           {controls.canSubmit && (
-            <button type="button" className={primaryBtn} disabled={pending} onClick={() => run(() => submitListingAction(listing.id, dirty ? draft : null), "Submitted — BTG will review it.")}>
-              {pending ? "Working…" : dirty ? "Save and submit for review" : "Submit for review"}
+            <button
+              type="button"
+              className={primaryBtn}
+              disabled={pending || (held && !dirty)}
+              title={held && !dirty ? "Edit it first — BTG is already taking a look" : undefined}
+              onClick={() => run(() => submitListingAction(listing.id, dirty ? draft : null), null, true)}
+            >
+              {pending ? "Working…" : held ? "Save and submit again" : dirty ? "Save and submit" : "Submit"}
             </button>
           )}
-          {controls.editable && (
+          {controls.editable && !held && (
             <button type="button" className={controls.canSubmit ? secondaryBtn : primaryBtn} disabled={pending || !dirty} onClick={() => run(() => saveListingAction(listing.id, draft), "Saved.")}>
               {controls.canSubmit ? "Save draft" : "Save changes"}
             </button>
@@ -206,7 +239,11 @@ export function PropertyListingEditor({ listing }: { listing: ApiListing }) {
                 type="button"
                 className={secondaryBtn}
                 disabled={pending}
-                onClick={() => run(() => moveListingAction(listing.id, m.to, m.to === "PUBLISHED" && dirty ? draft : null), m.to === "PAUSED" ? "Paused — hidden from sponsors." : "Back on sale.")}
+                onClick={() =>
+                  m.to === "PAUSED"
+                    ? run(() => moveListingAction(listing.id, m.to, null), "Paused — hidden from sponsors.")
+                    : run(() => moveListingAction(listing.id, m.to, dirty ? draft : null), null, true)
+                }
               >
                 {m.to === "PUBLISHED" && dirty ? "Save and resume" : m.label}
               </button>
@@ -228,7 +265,13 @@ export function PropertyListingEditor({ listing }: { listing: ApiListing }) {
               </button>
             ))}
         </div>
-        {controls.canSubmit && !clear && <p className="text-[11px] text-faint">You can submit now, but BTG&rsquo;s rules will refuse it until the checklist is clear.</p>}
+        {controls.canSubmit && (
+          <p className="text-[11px] text-faint">
+            {GOES_LIVE_COPY}
+            {clear ? "" : " It can't go live until the checklist is clear."}
+          </p>
+        )}
+        {listing.state === "PAUSED" && <p className="text-[11px] text-faint">Resuming runs the checks again. {GOES_LIVE_COPY}</p>}
       </div>
 
       <aside className="space-y-4">{listing.state !== "ARCHIVED" && <Checklist rows={checklist} />}</aside>
@@ -269,7 +312,7 @@ export function PropertyListingCreate({ itemId, itemTitle, itemDescription, avai
             Choose another item
           </Link>
         </div>
-        <p className="text-[11px] text-faint">It starts as a draft only you can see. Submit it for BTG&rsquo;s review from the next screen.</p>
+        <p className="text-[11px] text-faint">It starts as a draft only you can see. Submit it from the next screen — {GOES_LIVE_COPY.charAt(0).toLowerCase() + GOES_LIVE_COPY.slice(1)}</p>
       </div>
       <aside>
         <Checklist rows={checklist} />

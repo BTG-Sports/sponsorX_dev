@@ -91,6 +91,7 @@ import { expireReservations } from "../src/domain/reservation.ts";
 import { sweepDeliveries } from "../src/domain/delivery.ts";
 import { purgeExpiredClosures } from "../src/domain/account-closure.ts";
 import { sweepComingOfAge } from "../src/domain/coming-of-age.ts";
+import { LISTING_DIGEST_HOUR_UTC, sendListingDigests } from "../src/domain/listing.ts";
 import type { RenderReportJob } from "../src/domain/report-files.ts";
 import { prisma } from "../src/db/client.ts";
 import { ingestZohoInvoice, type ZohoInvoicePayload } from "../src/domain/invoice.ts";
@@ -286,6 +287,7 @@ let zohoTimer: ReturnType<typeof setInterval> | undefined;
 let retentionTimer: ReturnType<typeof setInterval> | undefined;
 /* 2S1-BE-12 — the hourly coming-of-age sweep: start, remind, terminate. */
 let comingOfAgeTimer: ReturnType<typeof setInterval> | undefined;
+let listingDigestTimer: ReturnType<typeof setInterval> | undefined;
 /* P8-INT-05 checks hourly and runs at most once a day per tenant; P8-INT-03's
    channel is renewed every 12 hours against a 24-hour expiry. */
 const ZOHO_SWEEP_INTERVAL_MS = 60 * 60 * 1000;
@@ -677,6 +679,17 @@ async function main(): Promise<void> {
       .catch((error: unknown) => console.error("[worker] coming-of-age sweep failed, will retry next hour:", error));
   }, REMINDER_INTERVAL_MS);
 
+  /* 2S3-BE-06 — BTG's daily summary of the listings that went live on their
+     own. Hourly, from LISTING_DIGEST_HOUR_UTC: the first pass of the day
+     sends it and records the day (one per BTG tenant per UTC date), so the
+     later passes — and a restarted worker — send nothing more. */
+  listingDigestTimer = setInterval(() => {
+    if (new Date().getUTCHours() < LISTING_DIGEST_HOUR_UTC) return;
+    void sendListingDigests()
+      .then(({ tenants, listings }) => { if (tenants) console.log(`[worker] listing digests — ${tenants} sent, ${listings} listing(s)`); })
+      .catch((error: unknown) => console.error("[worker] listing digest failed, will retry next hour:", error));
+  }, REMINDER_INTERVAL_MS);
+
   cartTimer = setInterval(() => {
     void expireCarts(prisma)
       .then(({ expired }) => { if (expired) console.log(`[worker] carts — expired ${expired}`); })
@@ -727,6 +740,7 @@ export async function stopWorker(): Promise<void> {
   if (deliveryTimer) clearInterval(deliveryTimer);
   if (zohoTimer) clearInterval(zohoTimer);
   if (comingOfAgeTimer) clearInterval(comingOfAgeTimer);
+  if (listingDigestTimer) clearInterval(listingDigestTimer);
   timer = undefined;
   expiryTimer = undefined;
   await boss.stop({ graceful: true }).catch(() => {});

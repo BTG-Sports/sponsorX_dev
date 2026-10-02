@@ -30,7 +30,7 @@ export default async function PropertyListingsPage({ searchParams }: { searchPar
     <div className="flex flex-wrap items-start justify-between gap-3">
       <div>
         <h1 className="text-xl font-semibold tracking-tight">Listings</h1>
-        <p className="mt-1 text-xs text-muted">What you sell on the marketplace. BTG reviews each listing before sponsors can buy it.</p>
+        <p className="mt-1 text-xs text-muted">What you sell on the marketplace. A listing goes live as soon as its checks pass; BTG takes a look only when something is flagged.</p>
       </div>
       <Link href="/property/listings/new" className="rounded-lg bg-primary px-3.5 py-2 text-xs font-medium text-cta-ink transition-colors hover:bg-primary-soft">
         New listing

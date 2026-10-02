@@ -12,8 +12,9 @@ import { addRestrictedWordAction, removeRestrictedWordAction, testRestrictedText
    Restricted words — 2S1-FE-11, the word-list half (Claude Design
    RestrictedWords.dc.html: list, add, test). BTG admins keep the list of
    words and phrases that hold an item for BTG's review. A match never
-   rejects anything. Today the check runs on a sponsor's "Other" business
-   description (2S1-BE-17); profiles and listings follow.
+   rejects anything. Today the check runs on marketplace listings' title and
+   description (2S3-BE-06 — a match holds the listing for BTG) and on a
+   sponsor's "Other" business description (2S1-BE-17); profiles follow.
 
    Reads  GET    /restricted-words            the words by kind, active and removed
           GET    /restricted-words/history    the change history

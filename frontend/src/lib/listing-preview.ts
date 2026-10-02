@@ -34,7 +34,8 @@ export type PreviewListing = {
   publishedAt: string | null;
   propertyName: string | null;
   seller?: { type: "PROPERTY" | "ATHLETE"; id: string; name: string };
-  blockers: string[];
+  /** The seller's and BTG's only — absent for any other reader (2S3-BE-06). */
+  blockers?: string[];
   item: {
     id: string;
     kind: string;
@@ -101,11 +102,11 @@ export function shopResultFrom(
   };
 }
 
-/** The banner's headline: on sale now, or once BTG approves it. */
+/** The banner's headline: on sale now, or once it goes live (2S3-BE-06: as soon as its checks pass). */
 export function previewHeadline(state: PreviewListing["state"]): string {
   return state === "PUBLISHED"
     ? "Preview — this is how sponsors see it in the shop"
-    : "Preview — sponsors see this once BTG approves it";
+    : "Preview — sponsors see this once it goes live";
 }
 
 /**
@@ -115,8 +116,8 @@ export function previewHeadline(state: PreviewListing["state"]): string {
  */
 export function previewNotes(listing: PreviewListing, nowMs: number): string[] {
   const out: string[] = [];
-  if (listing.state === "DRAFT") out.push("It's a draft — only you can see it until you submit it and BTG approves it.");
-  if (listing.state === "PENDING_APPROVAL") out.push("BTG is reviewing it — it goes on sale when they approve it.");
+  if (listing.state === "DRAFT") out.push("It's a draft — only you can see it until you submit it. It goes live as soon as the checks pass.");
+  if (listing.state === "PENDING_APPROVAL") out.push("BTG is taking a look — it goes on sale when they approve it. We'll email you.");
   if (listing.state === "PAUSED") out.push("It's paused — hidden from sponsors until you resume it.");
   if (listing.state === "ARCHIVED") out.push("It's archived — sponsors won't see it again.");
   if (listing.visibility === "PRIVATE") out.push("It's private — kept out of the shop's search.");
@@ -124,9 +125,11 @@ export function previewNotes(listing: PreviewListing, nowMs: number): string[] {
     out.push(`It's set to go on sale on ${fmtDay(listing.publishAt)}.`);
   }
   if (!listing.item.active) out.push("Its item is switched off in inventory, so the shop hides it.");
-  if (listing.state !== "ARCHIVED" && listing.blockers.length > 0) {
+  /* Only the seller reads the blockers (2S3-BE-06); another reader gets none. */
+  const blockers = listing.blockers ?? [];
+  if (listing.state !== "ARCHIVED" && blockers.length > 0) {
     out.push(
-      `${listing.blockers.length} ${listing.blockers.length === 1 ? "point" : "points"} on BTG's checklist ${listing.blockers.length === 1 ? "is" : "are"} still open — see the editor.`,
+      `${blockers.length} ${blockers.length === 1 ? "point" : "points"} on the checklist ${blockers.length === 1 ? "is" : "are"} still open — see the editor.`,
     );
   }
   return out;

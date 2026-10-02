@@ -122,8 +122,8 @@ describe.skipIf(!hasDatabase)("card payment and payouts over the API", { timeout
     const clinic = await call("POST", "/inventory", "po_riley", { title: "Basketball clinic", kind: "CAMP", priceCents: 50_000, quantity: 4 });
     expect(clinic.status, clinic.text).toBe(201);
     E.listing = (await call("POST", "/listings", "po_mgr", { inventoryItemId: clinic.json.id, title: "Youth basketball clinic with Riley Carter", description: "A 90-minute youth clinic at your venue, for up to 20 kids." })).json.id;
-    await call("POST", `/listings/${E.listing}/submit`, "po_mgr");
-    expect((await call("POST", `/listings/${E.listing}/decision`, "po_admin", { decision: "APPROVE" })).json.state).toBe("PUBLISHED");
+    /* 2S3-BE-06 — a clean submit goes live on its own. */
+    expect((await call("POST", `/listings/${E.listing}/submit`, "po_mgr")).json.state).toBe("PUBLISHED");
 
     await call("POST", "/cart", "po_buyer");
     expect((await call("POST", "/cart/lines", "po_buyer", { listingId: E.listing, quantity: 2, startsOn: at(10), endsOn: at(17) })).status).toBe(201);

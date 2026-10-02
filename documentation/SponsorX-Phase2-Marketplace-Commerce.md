@@ -5,7 +5,7 @@
 | | |
 |---|---|
 | **Goal** | Turn SponsorX from BTG-only operations into a multi-tenant marketplace. External athletes, teams, programs, events and media properties onboard, publish inventory, fulfil deliverables and get paid. |
-| **Tasks** | 106 · 391 person-days |
+| **Tasks** | 108 · 396 person-days |
 | **Blueprint timeline** | 16–20 weeks |
 | **Balanced budget** | $80K–$120K |
 | **Depends on** | Phase 1 auth/RBAC, sponsor/property/inventory/campaign/reward models, Zoho integration, core analytics |
@@ -742,6 +742,30 @@ Not every athlete has a team. Today only a property manager can put an item on s
 - **Done when:** An approved athlete with no team can submit their own item, BTG can approve it, a sponsor can find, cart and order it, and the split pays the athlete as the only payee; a roster athlete still cannot list around their team; scope and tenant tests cover the new seller
 - **Reference:** Spec §9, §12; walkthrough 2026-09-30
 
+### ⏸ `2S3-BE-06` · Listings publish automatically; BTG handles the exceptions
+
+**Order** 27.6 · **BE** · **Where:** Code · **3d** · **In progress**
+
+Replaces BTG's approval of every listing (item 8 of the BTG admin review, 2026-10-02). When a seller submits a listing, the checks BTG's approval runs today run first. If they pass, the listing goes live straight away, the first one included.
+
+A seller whose account is closed, rejected or ended, or has no listing access, is refused outright, as before. Nobody can approve those, and their logins are switched off.
+
+Otherwise the listing waits for BTG only when it is flagged:
+- **restricted words** in its title or description, from BTG's list (2S1-BE-18);
+- **a seller BTG should look at:** an organisation flagged for a missing document, payouts on hold, an athlete in the coming-of-age pause, or a minor whose guardian isn't verified yet.
+
+An independent minor's own login is refused, because the guardian acts for them (2S1-BE-11).
+
+The reasons are stored on the listing and shown to BTG.
+
+BTG admins get one daily summary of listings published automatically, and an email for each held listing. BTG can pause or end any live listing with a reason, which is emailed to the seller.
+
+There is no price check; it was left out on purpose.
+
+- **Depends on:** 2S3-BE-01, 2S3-BE-05, 2S1-BE-18
+- **Done when:** A listing that passes the checks is published on submit without BTG; a closed, rejected or unapproved seller is refused; a listing with restricted words or from a seller BTG should look at waits for BTG with the reason; resuming a paused listing and reactivating an account take the same checks; BTG can approve a held listing and pause or end any listing with a reason emailed to the seller; BTG admins get one daily summary of automatic publishes; tenant and role tests cover it
+- **Reference:** BTG admin review item 8, 2026-10-02
+
 ### ⏸ `2S3-FE-01` · Build the listing editor
 
 **Order** 28 · **FE** · **Where:** Code · **5d** · **Blocked**
@@ -771,6 +795,22 @@ Since 2S3-BE-05 a listing is sold by a team **or** by an athlete with no team. F
 - **Depends on:** 2S3-BE-05
 - **Done when:** An athlete-sold listing shows the athlete as its seller in the shop, the cart, checkout and BTG's listing queue, with no screen assuming a property; a test renders each with `property: null`
 - **Reference:** Spec §6 P2-07; 2S3-BE-05
+
+### ⏸ `2S3-FE-04` · Automatic listing publishing, on screen
+
+**Order** 28.8 · **FE** · **Where:** Code · **2d** · **In progress**
+
+**The seller's listing editors** (team and independent athlete):
+- before submitting, they say the listing goes live as soon as the checks pass;
+- after submitting, they show either "Live" or "BTG is taking a look", naming the restricted words when those are the reason, so the seller can fix them.
+
+**BTG's marketplace console:**
+- each held listing shows its reasons;
+- a new "Published automatically" tab lists the listings that went live without BTG, with Pause and End (a reason is required, and it's emailed).
+
+- **Depends on:** 2S3-BE-06
+- **Done when:** The seller sees whether a submitted listing went live or is held, and why when it can fix it; BTG sees held listings with their reasons and listings published automatically, and can pause or end one with a reason
+- **Reference:** BTG admin review item 8, 2026-10-02
 
 ### ⏸ `2S3-SEC-01` · Listing visibility and tenant isolation tests
 
