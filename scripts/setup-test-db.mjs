@@ -33,10 +33,16 @@ import pg from "pg";
 
 const ROOT = fileURLToPath(new URL("..", import.meta.url));
 const ADMIN_URL = process.env.TEST_DB_ADMIN_URL ?? "postgresql://sponsorx:sponsorx@localhost:5432/postgres";
-const NAME = "sponsorx_test";
+/* CI keeps two: sponsorx_test for the backend suite, sponsorx_e2e for the
+   browser suite, so the two can run at once. TEST_DB_NAME=sponsorx_e2e
+   builds the second. Never the dev database — this one is dropped. */
+const NAME = process.env.TEST_DB_NAME ?? "sponsorx_test";
 const TEST_URL = ADMIN_URL.replace(/\/[^/?]*(\?|$)/, `/${NAME}$1`);
 
-if (!/^[a-z_]+$/.test(NAME)) throw new Error("unsafe database name");
+if (!/^sponsorx_[a-z0-9_]+$/.test(NAME) || NAME === "sponsorx") {
+  console.error(`✗ Refusing "${NAME}": a test database must be named sponsorx_<something>, and never the dev database "sponsorx".`);
+  process.exit(1);
+}
 
 async function withClient(url, fn) {
   const client = new pg.Client({ connectionString: url });
