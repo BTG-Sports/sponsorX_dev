@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  LISTING_TABS,
   ORDER_STATES,
   agoLabel,
   failedTriesLabel,
@@ -9,6 +10,7 @@ import {
   btgListingActions,
   listingDecisions,
   listingTab,
+  livePage,
   needsReason,
   orderDecisions,
   publishedByLabel,
@@ -69,13 +71,27 @@ describe("2S3-FE-04 · listings that went live on their own", () => {
 
   it("the tab, how it went live and who sells it", () => {
     expect(listingTab("auto")).toBe("auto");
-    for (const v of [undefined, "held", "nonsense", ["auto"]]) expect(listingTab(v)).toBe("held");
+    expect(listingTab("live")).toBe("live");
+    for (const v of [undefined, "held", "nonsense", ["auto"], ["live"]]) expect(listingTab(v)).toBe("held");
     expect(publishedByLabel({ publishedBy: "AUTOMATIC" })).toBe("Published automatically");
     expect(publishedByLabel({ publishedBy: "BTG" })).toBe("Approved by BTG");
     expect(publishedByLabel({ publishedBy: null })).toBeNull();
     expect(sellerLabel({ seller: { type: "ATHLETE", id: "a", name: "QUINN.AVERY" }, propertyName: null })).toBe("QUINN.AVERY (athlete)");
     expect(sellerLabel({ seller: { type: "PROPERTY", id: "p", name: "Lakeside Larks" }, propertyName: "Lakeside Larks" })).toBe("Lakeside Larks");
     expect(sellerLabel({ propertyName: "Old shape" })).toBe("Old shape");
+  });
+});
+
+describe("2S3-FE-04 · BTG can pause or end ANY live listing", () => {
+  it("the Live listings tab sits beside the other two, and its page is read safely", () => {
+    expect(LISTING_TABS.map((t) => t.key)).toEqual(["held", "auto", "live"]);
+    expect(LISTING_TABS.find((t) => t.key === "live")?.label).toBe("Live listings");
+    expect(livePage("3")).toBe(3);
+    for (const v of [undefined, "0", "-2", "two", "1.5", ["2"], "999999"]) expect(livePage(v)).toBe(1);
+  });
+
+  it("every live listing — however it went live — offers Pause and End", () => {
+    for (const btgAction of [null, undefined]) expect(btgListingActions({ state: "PUBLISHED", btgAction })).toEqual(["PAUSE", "END"]);
   });
 });
 

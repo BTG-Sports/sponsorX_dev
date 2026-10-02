@@ -8,7 +8,7 @@ import { Router, type RequestHandler } from "express";
 import { requireActor } from "../../auth/actor";
 import { clientIp, clientUserAgent } from "../../lib/client-ip";
 import {
-  BrandingInput, InventoryItemInput, InventoryItemPatch, ListingBtgActionInput, ListingDecisionInput, ListingInput, ListingPatch, ListingState,
+  BrandingInput, InventoryItemInput, InventoryItemPatch, ListingBtgActionInput, ListingDecisionInput, ListingInput, ListingPatch, ListingState, LiveListingsQuery,
   ListingTransitionInput, LogoUploadInput, OfferAthletesQuery, OfferChecksQuery, OfferInput, OfferKeepInput, OfferPatch, OfferResponseInput,
   RosterAthleteInput, TeamShareInput,
   CartLineInput, CartLinePatch, RestrictionInput, SearchQuery, SponsorCategoriesInput,
@@ -28,7 +28,7 @@ import { addLine, currentCart, openCart, removeLine, updateLine } from "../../do
 import { createInventoryItem, getInventoryItem, listInventory, updateInventoryItem } from "../../domain/inventory";
 import { addRosterAthlete, setTeamShare, teamAthletesPage, teamInventoryPage, teamRoster } from "../../domain/team";
 import {
-  autoPublishedListings, btgActOnListing, createListing, decideListing, getListing, listListings, submitListing, transitionListing, updateListing,
+  autoPublishedListings, btgActOnListing, liveListings, createListing, decideListing, getListing, listListings, submitListing, transitionListing, updateListing,
 } from "../../domain/listing";
 import {
   createOffer, getOffer, keepOffer, listOffers, respondToOffer, reviseOffer, sendOffer, updateOffer, withdrawOffer,
@@ -106,6 +106,7 @@ const decide: RequestHandler<Id> = async (req, res) => {
 };
 /* 2S3-BE-06 — BTG's "Published automatically" tab, and its pause / end / resume. */
 const autoPublished: RequestHandler = async (req, res) => { res.json({ listings: await autoPublishedListings(req.actor!) }); };
+const live: RequestHandler = async (req, res) => { res.json(await liveListings(req.actor!, LiveListingsQuery.parse(req.query).page ?? 1)); };
 const btgAct: RequestHandler<Id> = async (req, res) => {
   const b = ListingBtgActionInput.parse(req.body);
   res.json(await btgActOnListing(req.actor!, req.params.id, b.action, b.reason));
@@ -114,6 +115,7 @@ marketplaceRouter.get("/listings", requireActor, listings);
 marketplaceRouter.post("/listings", requireActor, newListing);
 /* Mounted before /listings/:id, which would take it. */
 marketplaceRouter.get("/listings/auto-published", requireActor, autoPublished);
+marketplaceRouter.get("/listings/live", requireActor, live);
 marketplaceRouter.get("/listings/:id", requireActor, listing);
 marketplaceRouter.patch("/listings/:id", requireActor, editListing);
 marketplaceRouter.post("/listings/:id/submit", requireActor, submit);

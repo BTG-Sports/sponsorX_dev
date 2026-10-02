@@ -24,9 +24,12 @@ import {
                              Request changes or Reject (both need a note,
                              which the seller is emailed)
      MopsAutoPublishedList   the listings published automatically, newest
-                             first, with Pause / End and a required reason
-                             the seller is emailed (and Put back live for a
-                             listing BTG paused)
+                             first — and, on the "Live listings" tab, every
+                             live listing however it went live — with Pause /
+                             End and a required reason the seller is emailed
+                             (and Put back live for a listing BTG paused;
+                             when the checks run again and hold it instead,
+                             the API's notice says so)
 
    `now` comes from the server render so the wait labels match it.
    -------------------------------------------------------------------------- */
@@ -188,6 +191,7 @@ function AutoRow({ listing: l, now }: { listing: ApiListing; now: number }) {
   const [reason, setReason] = useState("");
   const [message, setMessage] = useState<string | null>(null);
   const [done, setDone] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const [pending, start] = useTransition();
   const actions = btgListingActions({ state: l.state, btgAction: l.btgAction ?? null });
   const badge = STATE_BADGE[l.state];
@@ -201,7 +205,9 @@ function AutoRow({ listing: l, now }: { listing: ApiListing; now: number }) {
         setMessage(r.message);
         return;
       }
-      setDone(BTG_ACTION_COPY[action].done);
+      /* Put back live re-runs the checks: words or the seller's standing hold it for BTG instead. */
+      setDone(r.state === "PENDING_APPROVAL" ? "Held for BTG" : BTG_ACTION_COPY[action].done);
+      setNotice(r.notice ?? null);
       setOpen(null);
       router.refresh();
     });
@@ -247,6 +253,11 @@ function AutoRow({ listing: l, now }: { listing: ApiListing; now: number }) {
             {pending ? "Sending…" : open === "END" ? "End it and email the seller" : "Pause it and email the seller"}
           </button>
         </div>
+      )}
+      {notice && (
+        <p role="status" className="rounded-lg border border-warn/30 bg-warn/8 px-3 py-2 text-[11px] text-warn">
+          {notice}
+        </p>
       )}
       {message && (
         <p role="alert" className="text-xs text-danger">

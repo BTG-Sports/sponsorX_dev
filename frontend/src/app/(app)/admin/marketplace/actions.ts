@@ -21,7 +21,8 @@ import { apiFetch } from "@/server/api";
    2S7-FE-02 — the marketplace console's decisions, as server actions.
 
      listing  POST /listings/:id/decision            {decision: APPROVE|REQUEST_CHANGES|REJECT, notes}
-              POST /listings/:id/btg-action          {action: PAUSE|END|RESUME, reason} (2S3-BE-06)
+              POST /listings/:id/btg-action          {action: PAUSE|END|RESUME, reason} (2S3-BE-06) —
+                                                     a RESUME the checks hold answers with `notice`
      order    POST /marketplace-orders/:id/decision  {decision: APPROVE|REJECT, notes}
      move     POST /marketplace-orders/:id/transition {to}
 
@@ -32,7 +33,8 @@ import { apiFetch } from "@/server/api";
    refusals into copy.
    -------------------------------------------------------------------------- */
 
-export type OpsResult = { ok: true; state: string } | { ok: false; message: string };
+/** `notice`: what the API said came of it instead (BTG's "Put back live" held for restricted words). */
+export type OpsResult = { ok: true; state: string; notice?: string } | { ok: false; message: string };
 
 async function post(path: string, body: unknown, revalidate: string[]): Promise<OpsResult> {
   let res: Response;
@@ -42,9 +44,9 @@ async function post(path: string, body: unknown, revalidate: string[]): Promise<
     return { ok: false, message: "The API is unreachable — nothing changed. Try again in a minute." };
   }
   if (res.ok) {
-    const d = (await res.json()) as { state: string };
+    const d = (await res.json()) as { state: string; notice?: unknown };
     for (const p of revalidate) revalidatePath(p);
-    return { ok: true, state: d.state };
+    return { ok: true, state: d.state, ...(typeof d.notice === "string" ? { notice: d.notice } : {}) };
   }
   let payload: unknown = null;
   try {

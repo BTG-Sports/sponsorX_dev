@@ -94,8 +94,8 @@ describe.skipIf(!hasDatabase)("2S1-BE-13 · closing an account and coming back",
       { id: "ac_item_hawks", tenantId: T, propertyId: "ac_hawks", title: "Banner", kind: "SIGNAGE", priceCents: 9000 },
     ] });
     await prisma.listing.createMany({ data: [
-      { id: "ac_list_riley", tenantId: T, sellerAthleteId: "ac_riley", inventoryItemId: "ac_item_riley", title: "Riley shout-out", state: "PUBLISHED", publishedAt: new Date() },
-      { id: "ac_list_hawks", tenantId: T, propertyId: "ac_hawks", inventoryItemId: "ac_item_hawks", title: "Hawks banner", state: "PUBLISHED", publishedAt: new Date() },
+      { id: "ac_list_riley", tenantId: T, sellerAthleteId: "ac_riley", inventoryItemId: "ac_item_riley", title: "Riley shout-out", description: "A personal video shout-out for your team or business.", state: "PUBLISHED", publishedAt: new Date() },
+      { id: "ac_list_hawks", tenantId: T, propertyId: "ac_hawks", inventoryItemId: "ac_item_hawks", title: "Hawks banner", description: "A courtside banner at every Hawks home game.", state: "PUBLISHED", publishedAt: new Date() },
     ] });
     await prisma.athleteProfileChange.create({ data: {
       id: "ac_pc_sam", tenantId: T, athleteId: "ac_sam", sections: ["identity"], fields: { legalName: "Samuel Lee" }, state: "APPROVED", sensitive: true,

@@ -66,13 +66,25 @@ export const BTG_ACTION_COPY: Record<BtgListingAction, { label: string; done: st
   RESUME: { label: "Put back live", done: "Back live", placeholder: "" },
 };
 
-/** The console's two listing tabs: held for BTG, and published automatically. */
+/**
+ * The console's listing tabs: held for BTG; published automatically (the
+ * last 30 days); and every live listing (2S3-FE-04), however it went live —
+ * so BTG can pause or end any of them.
+ */
 export const LISTING_TABS = [
   { key: "held", label: "Held for BTG" },
   { key: "auto", label: "Published automatically" },
+  { key: "live", label: "Live listings" },
 ] as const;
 export type ListingTab = (typeof LISTING_TABS)[number]["key"];
-export const listingTab = (v: unknown): ListingTab => (v === "auto" ? "auto" : "held");
+export const listingTab = (v: unknown): ListingTab => (v === "auto" ? "auto" : v === "live" ? "live" : "held");
+/** The "Live listings" page from `?page=` — 1-based, anything else is page 1. */
+export function livePage(v: unknown): number {
+  const n = typeof v === "string" && /^\d{1,5}$/.test(v) ? Number(v) : 1;
+  return n >= 1 ? n : 1;
+}
+/** GET /listings/live's page block. */
+export type ApiPage = { page: number; size: number; total: number; pages: number };
 
 /** "Published automatically" or "Approved by BTG" — how a listing went live. */
 export function publishedByLabel(l: { publishedBy?: "AUTOMATIC" | "BTG" | null }): string | null {

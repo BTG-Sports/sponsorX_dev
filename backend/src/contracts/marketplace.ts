@@ -83,8 +83,14 @@ export const ListingDecisionInput = z
 export const ListingBtgActionInput = z
   .object({ action: z.enum(["PAUSE", "END", "RESUME"]), reason: z.string().trim().max(2000).nullable().optional() })
   .strict()
-  .meta({ id: "ListingBtgActionInput", description: "BTG pauses or ends a live listing (END also takes a paused one), with a reason the seller is emailed — PAUSE and END need it; or puts a listing BTG paused back live (RESUME, governance re-checked) (2S3-BE-06)." });
+  .meta({ id: "ListingBtgActionInput", description: "BTG pauses or ends a live listing (END also takes a paused one), with a reason the seller is emailed — PAUSE and END need it; or puts a listing BTG paused back live (RESUME — every check re-run: restricted words or the seller's standing hold it for BTG instead) (2S3-BE-06)." });
 export const ListingState = z.enum(LISTING_STATES).meta({ id: "ListingState" });
+/** 2S3-FE-04 — BTG's "Live listings" tab, a page at a time. */
+export const LISTINGS_LIVE_PAGE_SIZE = 25;
+export const LiveListingsQuery = z
+  .object({ page: z.coerce.number().int().min(1).max(10_000).optional() })
+  .strict()
+  .meta({ id: "LiveListingsQuery", description: `1-based page of ${LISTINGS_LIVE_PAGE_SIZE}, newest live first (default 1).` });
 
 export const OfferInput = z
   .object({

@@ -114,6 +114,10 @@ describe("previewHeadline / previewNotes", () => {
       "It's archived — sponsors won't see it again.",
     ]);
   });
+
+  it("a reader the API gives no blockers to (2S3-BE-06: they are the seller's and BTG's) gets no checklist note", () => {
+    expect(previewNotes({ ...listing, blockers: undefined, state: "PUBLISHED" }, now)).toEqual([]);
+  });
 });
 
 describe("previewGaps", () => {

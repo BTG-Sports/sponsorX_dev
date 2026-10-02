@@ -46,7 +46,7 @@
  */
 import type { Prisma } from "../generated/prisma/client";
 import { prisma } from "../db/client";
-import { audit } from "../db/audit";
+import { audit, type AuditActor } from "../db/audit";
 import { env } from "../config/env";
 import { send, type EmailTemplate } from "../lib/email";
 import type { Actor } from "../auth/actor";
@@ -55,6 +55,7 @@ import { ForbiddenError } from "../auth/errors";
 import { assertMayCommit } from "./guardian-acts";
 import { guardianControls } from "./guardian-rules";
 import { checkRestricted } from "./restricted-words";
+import { LISTINGS_LIVE_PAGE_SIZE } from "../contracts/marketplace";
 import {
   canTransitionListing,
   governanceProblems,
@@ -120,23 +121,37 @@ function sellerOf(r: Row) {
 /** The item as governance reads it — with its athlete's team (2S2-BE-05). */
 const governedItem = (r: Row) => ({ ...r.item, athleteTeamId: r.item.athlete?.propertyId ?? null });
 
+/** The seller, as the reader: the team that sells it (its manager), or the athlete who sells it (or their guardian, acting for them). */
+const sellsIt = (r: Pick<Row, "propertyId" | "sellerAthleteId">, actor: Actor) =>
+  (r.propertyId !== null && actor.propertyId === r.propertyId) || (r.sellerAthleteId !== null && actor.athleteId === r.sellerAthleteId);
+
 /**
  * The listing as the API shows it. 2S3-BE-06 — `publishedBy` says how it went
  * live; `hold` is what the seller is told while it waits for BTG (the
  * restricted words in full, the rest only as an account check); BTG alone
- * reads `reviewReasons`, the reasons in full, and who decided. A sponsor's
- * catalogue sees neither the hold nor the reasons.
+ * reads `reviewReasons`, the reasons in full, and who decided. BTG's notes,
+ * its pause or end and its reason, and the governance `blockers` are the
+ * seller's and BTG's: a sponsor's catalogue — and any other reader, such as
+ * the athlete whose item a team lists — sees none of them.
  */
 function view(r: Row, actor?: Actor, now = new Date()) {
-  const { property, sellerAthlete, tenant: _tenant, reviewReasons, heldWords: _words, decidedBy, ...rest } = r;
+  const {
+    property, sellerAthlete, tenant: _tenant, reviewReasons, heldWords: _words, decidedBy,
+    reviewNotes, btgAction, btgReason, btgActedAt, ...rest
+  } = r;
   const { athlete: _athlete, ...item } = r.item;
   const staff = actor ? can(actor, "listing", "approve") : false;
-  const seller = actor ? !staff && can(actor, "listing", "write") : false;
+  const seller = actor ? !staff && sellsIt(r, actor) : false;
   return {
     ...rest, item, propertyName: property?.name ?? null, seller: sellerOf(r),
-    blockers: governanceProblems({ property, sellerAthlete, itemAthlete: r.item.athlete, item: governedItem(r), listing: r, now }),
     publishedBy: r.publishedAt ? (r.publishedAutomatically ? ("AUTOMATIC" as const) : ("BTG" as const)) : null,
-    hold: staff || seller ? sellerHold(r) : null,
+    ...(staff || seller
+      ? {
+        reviewNotes, btgAction, btgReason, btgActedAt,
+        blockers: governanceProblems({ property, sellerAthlete, itemAthlete: r.item.athlete, item: governedItem(r), listing: r, now }),
+        hold: sellerHold(r),
+      }
+      : {}),
     ...(staff ? { reviewReasons, decidedBy } : {}),
   };
 }
@@ -411,41 +426,50 @@ async function tellLive(tx: Prisma.TransactionClient, row: Row, now: Date) {
   });
 }
 
-/**
- * Submit, or resume: run the checks; refused while governance fails (422 with
- * the list); PUBLISHED when nothing flags it; else PENDING_APPROVAL with the
- * reasons, the seller told plainly and BTG's admins emailed a link.
- */
-async function goLive(tx: Prisma.TransactionClient, actor: Actor, row: Row, now: Date) {
-  const { reasons, words, checks } = await listingChecks(tx, row, now);
+type Checks = Awaited<ReturnType<typeof listingChecks>>;
+
+/** Live on its own: PUBLISHED from its publish date, audited with the checks, the seller told. */
+async function publishAutomatically(tx: Prisma.TransactionClient, by: AuditActor, row: Row, now: Date, checks: Checks["checks"]) {
   const from = row.state as ListingState;
-  if (!reasons.length) {
-    if (!canTransitionListing(from, "PUBLISHED")) throw new IllegalListingTransitionError(from, "PUBLISHED");
-    const publishedAt = liveFrom(row, now);
-    const updated = await tx.listing.update({
-      /* tenant-scope: the row loaded by the caller through whereFor(listing, write). */
-      where: { id: row.id },
-      data: {
-        state: "PUBLISHED", submittedAt: now, publishedAt, publishedAutomatically: true, reviewNotes: null,
-        reviewReasons: [], heldWords: [], decidedAt: null, decidedBy: null,
-      },
-      select: SELECT,
-    });
-    await audit(tx, actor, "listing.autoPublish", "Listing", row.id, { before: { state: from }, after: { state: "PUBLISHED", publishedAt, checks } });
-    await tellLive(tx, updated, now);
-    return view(updated, actor);
-  }
-  if (!canTransitionListing(from, "PENDING_APPROVAL")) throw new IllegalListingTransitionError(from, "PENDING_APPROVAL");
+  if (!canTransitionListing(from, "PUBLISHED")) throw new IllegalListingTransitionError(from, "PUBLISHED");
+  const publishedAt = liveFrom(row, now);
   const updated = await tx.listing.update({
-    /* tenant-scope: the row loaded by the caller through whereFor(listing, write). */
+    /* tenant-scope: the row loaded by the caller through whereFor(listing, …), or by the closure's own tenant. */
     where: { id: row.id },
     data: {
+      state: "PUBLISHED", submittedAt: now, publishedAt, publishedAutomatically: true, reviewNotes: null,
+      reviewReasons: [], heldWords: [], decidedAt: null, decidedBy: null,
+    },
+    select: SELECT,
+  });
+  await audit(tx, by, "listing.autoPublish", "Listing", row.id, { before: { state: from }, after: { state: "PUBLISHED", publishedAt, checks } });
+  await tellLive(tx, updated, now);
+  return updated;
+}
+
+/**
+ * Held for BTG: PENDING_APPROVAL with the reasons, audited, the seller told
+ * plainly (the words named; standing only as an account check) and BTG's
+ * admins emailed a link. `extra` is what else changes with it (BTG lifting
+ * its own pause), `via` what the audit says it came from.
+ */
+async function holdForBtg(
+  tx: Prisma.TransactionClient, by: AuditActor, row: Row, now: Date, { reasons, words, checks }: Checks,
+  extra: Prisma.ListingUpdateInput = {}, via?: string,
+) {
+  const from = row.state as ListingState;
+  if (!canTransitionListing(from, "PENDING_APPROVAL")) throw new IllegalListingTransitionError(from, "PENDING_APPROVAL");
+  const updated = await tx.listing.update({
+    /* tenant-scope: the row loaded by the caller through whereFor(listing, …), or by the closure's own tenant. */
+    where: { id: row.id },
+    data: {
+      ...extra,
       state: "PENDING_APPROVAL", submittedAt: now, publishedAutomatically: false, reviewNotes: null,
       reviewReasons: reasons, heldWords: words, decidedAt: null, decidedBy: null,
     },
     select: SELECT,
   });
-  await audit(tx, actor, "listing.hold", "Listing", row.id, { before: { state: from }, after: { state: "PENDING_APPROVAL", reasons, checks } });
+  await audit(tx, by, "listing.hold", "Listing", row.id, { before: { state: from }, after: { state: "PENDING_APPROVAL", reasons, checks, ...(via ? { via } : {}) } });
   const hold = sellerHold(updated)!;
   await tellSeller(tx, updated, "listing.held", now.toISOString(), {
     words: words.length ? restrictedReason(words)! : "",
@@ -463,7 +487,60 @@ async function goLive(tx: Prisma.TransactionClient, actor: Actor, row: Row, now:
       },
     });
   }
+  return updated;
+}
+
+/**
+ * Submit, or resume: run the checks; refused while governance fails (422 with
+ * the list); PUBLISHED when nothing flags it; else held for BTG with the
+ * reasons.
+ */
+async function goLive(tx: Prisma.TransactionClient, actor: Actor, row: Row, now: Date) {
+  const checked = await listingChecks(tx, row, now);
+  const updated = checked.reasons.length
+    ? await holdForBtg(tx, actor, row, now, checked)
+    : await publishAutomatically(tx, actor, row, now, checked.checks);
   return view(updated, actor);
+}
+
+/** What became of one listing an account's closure paused, on its way back. */
+export type Relisted = { id: string; title: string; outcome: "PUBLISHED" | "HELD" | "PAUSED"; problems: string[] };
+
+/**
+ * 2S3-BE-06 — an account comes back (account-closure.ts `recheck`): every
+ * listing its closure paused is re-checked on the submit's own path, one by
+ * one, rather than simply switched back on. Clean, it goes live as an
+ * automatic publish (`listing.autoPublish`, with the checks); flagged —
+ * restricted words, the seller's standing — it is held for BTG with its
+ * reasons; failing governance (a short description, an item ended, …) it
+ * stays PAUSED and the seller is emailed what to fix. A listing BTG paused
+ * is never touched: that one is BTG's to put back live.
+ */
+export async function relistAfterReactivation(tx: Prisma.TransactionClient, by: AuditActor, tenantId: string, ids: readonly string[], now = new Date()): Promise<Relisted[]> {
+  if (!ids.length) return [];
+  const rows = await tx.listing.findMany({
+    /* tenant-scope: the listings the closure paused, in the closure's own tenant. */
+    where: { tenantId, id: { in: [...ids] }, state: "PAUSED", btgAction: null },
+    select: SELECT, orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+  });
+  const out: Relisted[] = [];
+  for (const row of rows) {
+    const problems = governanceProblems({ property: row.property, sellerAthlete: row.sellerAthlete, itemAthlete: row.item.athlete, item: governedItem(row), listing: row, now });
+    if (problems.length) {
+      await tellSeller(tx, row, "listing.staysPaused", now.toISOString(), { problems: problems.map((p) => `• ${p}`).join("\n") });
+      out.push({ id: row.id, title: row.title, outcome: "PAUSED", problems });
+      continue;
+    }
+    const checked = await listingChecks(tx, row, now);
+    if (checked.reasons.length) {
+      await holdForBtg(tx, by, row, now, checked, {}, "account.reactivate");
+      out.push({ id: row.id, title: row.title, outcome: "HELD", problems: [] });
+    } else {
+      await publishAutomatically(tx, by, row, now, checked.checks);
+      out.push({ id: row.id, title: row.title, outcome: "PUBLISHED", problems: [] });
+    }
+  }
+  return out;
 }
 
 /**
@@ -545,7 +622,10 @@ export async function decideListing(actor: Actor, id: string, decision: "APPROVE
 
 /**
  * BTG pauses or ends a live listing (END takes a paused one too), with a
- * reason the seller is emailed; or puts a listing BTG paused back live.
+ * reason the seller is emailed; or puts a listing BTG paused back live —
+ * after every check the automatic path runs, since the seller may have
+ * edited it while paused: words or standing land it in the held queue (and
+ * the answer's `notice` tells BTG), governance failing refuses it.
  *
  * WHO RESUMES A BTG PAUSE. BTG. The seller may still edit it, archive it, or
  * resume it — but their resume sends it back to BTG (held, "Paused by BTG:
@@ -575,7 +655,16 @@ export async function btgActOnListing(actor: Actor, id: string, action: "PAUSE" 
     if (row.state !== "PAUSED" || row.btgAction !== "PAUSED") {
       throw new ListingError("Only a listing BTG paused is resumed here — the seller resumes their own pause.", 409);
     }
-    assertGoverned(row, now);
+    /* Every check the automatic path runs — the seller may have edited the
+       wording while it was paused — except BTG's own pause, which is what BTG
+       is lifting. Restricted words or the seller's standing hold it for BTG
+       instead (the pause lifted, the reasons in the held queue); governance
+       failing refuses it (422 with the list). */
+    const checked = await listingChecks(tx, { ...row, btgAction: null }, now);
+    if (checked.reasons.length) {
+      const held = await holdForBtg(tx, actor, row, now, checked, { ...CLEAR_BTG }, "listing.btgResume");
+      return { ...view(held, actor, now), notice: resumeHeldNotice(checked) };
+    }
     const done = await move(
       tx, actor, row, "PUBLISHED",
       { ...CLEAR_BTG, decidedAt: now, decidedBy: actor.userId, publishedAutomatically: false, publishedAt: liveFrom(row, now) },
@@ -586,6 +675,11 @@ export async function btgActOnListing(actor: Actor, id: string, action: "PAUSE" 
   });
 }
 
+/** What BTG is told when its "Put back live" lands the listing in the held queue instead. */
+function resumeHeldNotice({ reasons }: Checks) {
+  return `Not put back live — it was checked again and is now held for BTG: ${reasons.join("; ")}. Your pause is lifted; approve it from the held listings, send it back, or reject it.`;
+}
+
 /** BTG's "Published automatically" tab: the last 30 days, newest first, in the tenants it operates. */
 export async function autoPublishedListings(actor: Actor, now = new Date()) {
   assertBtg(actor);
@@ -594,6 +688,29 @@ export async function autoPublishedListings(actor: Actor, now = new Date()) {
     select: SELECT, orderBy: [{ publishedAt: "desc" }, { id: "asc" }], take: 200,
   });
   return rows.map((r) => view(r, actor, now));
+}
+
+/**
+ * BTG's "Live listings" tab (2S3-FE-04): every PUBLISHED listing in the
+ * tenants it operates — however it went live — newest live first, a page at
+ * a time, so BTG can pause or end any of them, not only the last 30 days'
+ * automatic ones.
+ */
+export async function liveListings(actor: Actor, page = 1, now = new Date()) {
+  assertBtg(actor);
+  const size = LISTINGS_LIVE_PAGE_SIZE;
+  const where: Prisma.ListingWhereInput = { ...whereFor(actor, "listing", "approve"), state: "PUBLISHED" };
+  const [total, rows] = await Promise.all([
+    prisma.listing.count({
+      /* tenant-scope: `where` is whereFor(listing, approve) — the tenants BTG operates. */
+      where,
+    }),
+    prisma.listing.findMany({
+      /* tenant-scope: `where` is whereFor(listing, approve) — the tenants BTG operates. */
+      where, select: SELECT, orderBy: [{ publishedAt: { sort: "desc", nulls: "last" } }, { id: "asc" }], skip: (page - 1) * size, take: size,
+    }),
+  ]);
+  return { listings: rows.map((r) => view(r, actor, now)), page: { page, size, total, pages: Math.max(1, Math.ceil(total / size)) } };
 }
 
 /* ── 2S3-BE-06 — BTG's daily summary ────────────────────────────────────── */

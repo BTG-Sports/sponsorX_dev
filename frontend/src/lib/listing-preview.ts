@@ -34,7 +34,8 @@ export type PreviewListing = {
   publishedAt: string | null;
   propertyName: string | null;
   seller?: { type: "PROPERTY" | "ATHLETE"; id: string; name: string };
-  blockers: string[];
+  /** The seller's and BTG's only — absent for any other reader (2S3-BE-06). */
+  blockers?: string[];
   item: {
     id: string;
     kind: string;
@@ -124,9 +125,11 @@ export function previewNotes(listing: PreviewListing, nowMs: number): string[] {
     out.push(`It's set to go on sale on ${fmtDay(listing.publishAt)}.`);
   }
   if (!listing.item.active) out.push("Its item is switched off in inventory, so the shop hides it.");
-  if (listing.state !== "ARCHIVED" && listing.blockers.length > 0) {
+  /* Only the seller reads the blockers (2S3-BE-06); another reader gets none. */
+  const blockers = listing.blockers ?? [];
+  if (listing.state !== "ARCHIVED" && blockers.length > 0) {
     out.push(
-      `${listing.blockers.length} ${listing.blockers.length === 1 ? "point" : "points"} on the checklist ${listing.blockers.length === 1 ? "is" : "are"} still open — see the editor.`,
+      `${blockers.length} ${blockers.length === 1 ? "point" : "points"} on the checklist ${blockers.length === 1 ? "is" : "are"} still open — see the editor.`,
     );
   }
   return out;

@@ -55,6 +55,7 @@ import { issuePurposeToken, readPurposeToken } from "../lib/purpose-token";
 import { issueComingOfAgeToken } from "../lib/signup-token";
 import { deletePrivateObject } from "../lib/storage";
 import { mayParticipate } from "./guardian-rules";
+import { relistAfterReactivation } from "./listing";
 import {
   CLOSURE_TABS, closureMarker, dayWords, reactivationStanding, retainUntilFrom, retentionDaysLeft,
   type ClosureCause, type ClosureSubject, type ClosureTab,
@@ -445,7 +446,7 @@ export async function reactivateByToken(token: string) {
       data: { disabledAt: null, disabledReason: null },
     });
     await markAthleteClosedIn(tx, c.subjectKind, c.subjectId, null);
-    const notes = await recheck(tx, c);
+    const notes = await recheck(tx, c, by);
     await tx.accountClosure.update({
       /* tenant-scope: the closure claimed above. */
       where: { id: c.id }, data: { recheckNotes: notes.notes },
@@ -469,7 +470,7 @@ export async function reactivateByToken(token: string) {
  * guardian (2S1-BE-10's rule, `mayParticipate`). What fails is said, and its
  * listings stay paused until BTG or the guardian sorts it.
  */
-async function recheck(tx: Tx, c: ClosureRow): Promise<{ notes: string[]; listingsRestored: number }> {
+async function recheck(tx: Tx, c: ClosureRow, by: AuditActor): Promise<{ notes: string[]; listingsRestored: number }> {
   const notes: string[] = [];
   let mayList = true;
   if (c.subjectKind === "ATHLETE") {
@@ -509,12 +510,15 @@ async function recheck(tx: Tx, c: ClosureRow): Promise<{ notes: string[]; listin
     });
     /* A team's listing of the athlete's item comes back only while the athlete is still on that team (2S2-BE-05). */
     const ids = paused.filter((l) => !l.propertyId || c.subjectKind !== "ATHLETE" || l.item.athlete?.propertyId === l.propertyId).map((l) => l.id);
-    const back = await tx.listing.updateMany({
-      /* tenant-scope: the listings found just above. */
-      /* 2S3-BE-06 — never a listing BTG paused: that one is BTG's to put back live. */
-      where: { tenantId: c.tenantId, id: { in: ids }, state: "PAUSED", btgAction: null }, data: { state: "PUBLISHED" },
-    });
-    listingsRestored = back.count;
+    /* 2S3-BE-06 — each one re-checked on the submit's own path (listing.ts),
+       never a listing BTG paused: live when clean, held for BTG when flagged,
+       still paused (the seller emailed why) when it can't go live as it is. */
+    const back = await relistAfterReactivation(tx, by, c.tenantId, ids);
+    listingsRestored = back.filter((l) => l.outcome === "PUBLISHED").length;
+    for (const l of back) {
+      if (l.outcome === "HELD") notes.push(`Your listing "${l.title}" is waiting for BTG before it goes live again — we've emailed you why.`);
+      if (l.outcome === "PAUSED") notes.push(`Your listing "${l.title}" stays paused until you fix it: ${l.problems.join("; ")}.`);
+    }
   }
   if (!notes.length) notes.push("Everything checked out: your profile, items and documents are active again.");
   return { notes, listingsRestored };
