@@ -137,9 +137,16 @@ describe.skipIf(!hasDatabase)("reward redeem and claim · against real Postgres"
 
   /* ── QA-02 ─────────────────────────────────────────────────────────────── */
 
+  /* "expiresAt" is TIMESTAMP(3) WITHOUT TIME ZONE holding UTC wall-clock time
+     (Prisma's convention, and the `p_now` the function compares it with is
+     UTC too). Bare `now()` written into it lands as the SESSION's local wall
+     clock: on a box whose Postgres runs Asia/Manila (+08) that put the expiry
+     ~8 h in the future, so the redeem rightly went through (201) and this test
+     failed every run while passing on a UTC server. `now() AT TIME ZONE 'UTC'`
+     is the expiry the test means on any server (QA-02, 2026-10-02). */
   for (const [label, change] of [
     ["paused", `UPDATE "Reward" SET state = 'PAUSED' WHERE id = $1`],
-    ["expired", `UPDATE "Reward" SET "expiresAt" = now() - interval '1 minute' WHERE id = $1`],
+    ["expired", `UPDATE "Reward" SET "expiresAt" = (now() AT TIME ZONE 'UTC') - interval '1 minute' WHERE id = $1`],
   ] as const) {
     it(`QA-02: a redeem waiting on the lock while the reward is ${label} is refused, and writes nothing`, async () => {
       const id = `rv_wait_${label}`;
