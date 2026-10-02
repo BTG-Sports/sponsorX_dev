@@ -176,6 +176,11 @@ ${d.portalUrl ?? ""}
     subject: `Your payout of ${d.amount ?? ""} has been paid`,
     text: `Hi ${d.firstName ?? "there"},\n\nYour payout of ${d.amount ?? ""} has been paid, confirmed by our payment provider. It may take a few days to show in your bank.\n\nWhat it covers:\n${d.orders ?? ""}\n\nView it in SponsorX:\n\n${d.portalUrl ?? ""}\n\n— BTG SponsorX`,
   }),
+  /* 2S5-BE-07 — the provider couldn't send it: the payee's payout account needs attention. */
+  "payout.accountNeedsFix": (d) => ({
+    subject: `Your payout of ${d.amount ?? ""} couldn't be sent — please fix your payout account`,
+    text: `Hi ${d.firstName ?? "there"},\n\nWe tried to send your payout of ${d.amount ?? ""}, but our payment provider says your payout account needs attention first.\n\nOpen your money page and update your payout account on the provider's secure page. As soon as it's ready again, we'll send the payout automatically — you don't need to request it again.\n\n${d.portalUrl ?? ""}\n\n— BTG SponsorX`,
+  }),
   "payout.sentBack": (d) => ({
     subject: "About your SponsorX payout request",
     text: `Hi ${d.firstName ?? "there"},\n\nBTG couldn't approve your payout request of ${d.amount ?? ""} yet:\n\n${d.note ?? ""}\n\nThe money is still yours and available to request again from your portal:\n\n${d.portalUrl ?? ""}\n\n— BTG SponsorX`,

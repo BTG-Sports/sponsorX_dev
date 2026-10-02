@@ -526,6 +526,17 @@ only its own payouts (by payee tenant, type and id, as `ledgerEntry`). The
 GUARDIAN `ward` row is kept from Phase 1; the payout scope does not yet
 resolve a ward, so it matches nothing until it does.
 
+Noted 2026-10-02 (2S5-BE-06 / -07 / -08 — no change to the matrix): the
+**system** also approves — a payout under $2,000 with every check passed,
+no payout-account change in 7 days and the payee under $5,000 of automatic
+approvals in 7 days; and a Phase 1 earning, on the same rule, as it becomes
+eligible. It retries a failed payout automatically. Each is audited with a
+null actor. BTG admin and Finance keep approve, send-back and retry exactly
+as above. What BTG reads that the payee does not: a payout's
+`reviewReasons`, failure kind and retry schedule, and an earning's
+`reviewReasons` (Finance and BTG admin only — they name amounts). A payee
+reads only `approvedAutomatically` and who the payout waits on.
+
 ### `payoutAccount` *(added 2026-09-30, 2S5-INT-03)*
 | Role | Read | Write | Approve |
 |---|---|---|---|

@@ -98,7 +98,7 @@ import type { RenderReportJob } from "../src/domain/report-files.ts";
 import { prisma } from "../src/db/client.ts";
 import { ingestZohoInvoice, type ZohoInvoicePayload } from "../src/domain/invoice.ts";
 import { importCohort, type CohortImportJob } from "../src/domain/cohort-import.ts";
-import { confirmPayment, confirmPayoutPaid, sendPayout } from "../src/domain/payouts.ts";
+import { completeStandinPayout, confirmPayment, confirmPayoutPaid, sendPayout, sweepPayoutRetries } from "../src/domain/payouts.ts";
 import { providerName } from "../src/lib/payment-provider.ts";
 import { redis } from "../src/lib/redis.ts";
 import { zohoConfigFromEnv, zohoFromEnv } from "../src/lib/zoho.ts";
@@ -294,6 +294,10 @@ let listingDigestTimer: ReturnType<typeof setInterval> | undefined;
    reminders on days one and two, the unpaid cancellation on day three.
    Every ten minutes, like deliveries; each pass is idempotent. */
 let orderTimer: ReturnType<typeof setInterval> | undefined;
+/* 2S5-BE-07 — the payout retry sweep: a payout the provider couldn't send
+   for a temporary reason goes back to it about 1, 6 and 24 hours later. */
+let payoutRetryTimer: ReturnType<typeof setInterval> | undefined;
+const PAYOUT_RETRY_SWEEP_INTERVAL_MS = 10 * 60 * 1000;
 let orderDigestTimer: ReturnType<typeof setInterval> | undefined;
 const ORDER_SWEEP_INTERVAL_MS = 10 * 60 * 1000;
 /* P8-INT-05 checks hourly and runs at most once a day per tenant; P8-INT-03's
@@ -469,7 +473,8 @@ async function main(): Promise<void> {
     console.log(`[worker] payouts.send ${JSON.stringify(sent)}`);
     if (sent.sent && providerName() === "standin") {
       await providerDelay();
-      console.log(`[worker] payouts.confirm ${JSON.stringify(await confirmPayoutPaid(job.data.payoutId))}`);
+      /* Paid — or, with STANDIN_PAYOUT_FAILURE set, failed that way (2S5-BE-07). */
+      console.log(`[worker] payouts.standin ${JSON.stringify(await completeStandinPayout(job.data.payoutId))}`);
     }
   });
   await ensureQueue("payouts.confirm");
@@ -711,6 +716,16 @@ async function main(): Promise<void> {
   orderTimer = setInterval(orderSweep, ORDER_SWEEP_INTERVAL_MS);
   setTimeout(orderSweep, 45_000).unref();
 
+  /* 2S5-BE-07 — automatic payout retries. A sweep, like the delivery one: a
+     retry due is a row with a time, so a missed run catches it next pass,
+     and each retry is conditional on the row, so overlapping runs retry once. */
+  const payoutRetrySweep = () =>
+    void sweepPayoutRetries()
+      .then((r) => { if (r.retried || r.failed) console.log(`[worker] payout retries ${JSON.stringify(r)}`); })
+      .catch((error: unknown) => console.error("[worker] payout retry sweep failed, will retry:", error));
+  payoutRetryTimer = setInterval(payoutRetrySweep, PAYOUT_RETRY_SWEEP_INTERVAL_MS);
+  setTimeout(payoutRetrySweep, 50_000).unref();
+
   /* 2S4-BE-09 — BTG's daily summary of the orders approved automatically.
      Hourly, from ORDER_DIGEST_HOUR_UTC: the first pass of the day sends it
      and records the day (one per BTG tenant per UTC date), so later passes
@@ -774,6 +789,7 @@ export async function stopWorker(): Promise<void> {
   if (comingOfAgeTimer) clearInterval(comingOfAgeTimer);
   if (listingDigestTimer) clearInterval(listingDigestTimer);
   if (orderTimer) clearInterval(orderTimer);
+  if (payoutRetryTimer) clearInterval(payoutRetryTimer);
   if (orderDigestTimer) clearInterval(orderDigestTimer);
   timer = undefined;
   expiryTimer = undefined;

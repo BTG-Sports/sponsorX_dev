@@ -214,7 +214,11 @@ export type EmailTemplate =
   | "editionArtwork.submitted"
   | "editionArtwork.readyForSignOff"
   | "editionArtwork.revisionRequested"
-  | "editionArtwork.approved";
+  | "editionArtwork.approved"
+  /* 2S5-BE-07 — the payment provider couldn't send a payout because the
+     payee's payout account needs attention: fix it (on the provider's page,
+     from the money page) and it is sent again on its own. */
+  | "payout.accountNeedsFix";
 
 export type EmailMessage = {
   template: EmailTemplate;

@@ -29,6 +29,8 @@ import {
   isEarningMutable,
   type EarningState,
 } from "./earning-state";
+import { payoutHoldReason } from "./payout-holds";
+import { autoApprovalReasons, autoApproveSettings, autoApprovedSince, lockPayee, SYSTEM, windowStart } from "./payout-auto";
 
 export class EarningImmutableError extends Error {
   readonly status = 409;
@@ -207,6 +209,8 @@ export async function transitionEarning(
         ...(to === "PAID"
           ? { paidAt: new Date(), reference: detail.reference ?? null }
           : {}),
+        /* 2S5-BE-08 — approved by a person now, not by the rule. */
+        ...(to === "APPROVED_FOR_PAYOUT" ? { approvedAutomatically: false } : {}),
       },
       select: { id: true, state: true },
     });
@@ -354,7 +358,60 @@ export async function maybeMakeEligible(
     after: { state: "ELIGIBLE", reason: "all deliverables verified", orderId },
   });
 
-  return { id: updated.id, state: updated.state as EarningState };
+  /* 2S5-BE-08 — and on to APPROVED_FOR_PAYOUT, by the rule, in this same transaction. */
+  const approved = await autoApproveEarning(tx, earning.id);
+  return { id: updated.id, state: approved ?? (updated.state as EarningState) };
+}
+
+/**
+ * 2S5-BE-08 — an earning that has just become ELIGIBLE moves on to
+ * APPROVED_FOR_PAYOUT as the system, audited, when the programme owner's rule
+ * passes (payout-auto.ts): it is not HELD or DISPUTED, the athlete's payouts
+ * are not on hold, its net is under $2,000, and the athlete's automatic
+ * approvals in the last 7 days — Phase 2 payouts and Phase 1 earnings,
+ * counting this one — stay under $5,000. There is no payout-account check:
+ * Phase 1 money is paid outside SponsorX and Finance records it. Otherwise it
+ * stays ELIGIBLE with its reasons, for Finance's approval by hand.
+ *
+ * Only an ELIGIBLE earning is ever moved, conditionally — a HELD or DISPUTED
+ * one (a person put it there) is never touched. PAID stays Finance's.
+ * Under the athlete's payee lock, shared with their payout requests, so the
+ * two cannot both slip under the 7-day cap.
+ */
+async function autoApproveEarning(tx: Prisma.TransactionClient, earningId: string, now = new Date()): Promise<EarningState | null> {
+  const e = await tx.earning.findUnique({
+    /* tenant-scope: the earning the caller just made ELIGIBLE, by id. */
+    where: { id: earningId }, select: { id: true, tenantId: true, athleteId: true, state: true, gross: true, adjustment: true },
+  });
+  if (!e || e.state !== "ELIGIBLE") return null;
+  const payee = { payeeType: "ATHLETE", payeeId: e.athleteId };
+  await lockPayee(tx, payee);
+  const settings = autoApproveSettings();
+  const amountCents = e.gross + e.adjustment;
+  const held = await payoutHoldReason(tx, payee);
+  const windowCents = await autoApprovedSince(tx, payee, windowStart(now, settings));
+  const reasons = autoApprovalReasons({ amountCents, held: Boolean(held), windowCents, now }, settings);
+  if (reasons.length) {
+    await tx.earning.updateMany({
+      /* tenant-scope: the earning just loaded by id; only while it is still ELIGIBLE. */
+      where: { id: e.id, state: "ELIGIBLE" }, data: { reviewReasons: reasons },
+    });
+    await audit(tx, { userId: null, tenantId: e.tenantId }, "earning.needsReview", "Earning", e.id, {
+      after: { state: "ELIGIBLE", approvedAutomatically: false, reviewReasons: reasons },
+    });
+    return null;
+  }
+  const moved = await tx.earning.updateMany({
+    /* tenant-scope: the earning just loaded by id; conditional, so nothing but an ELIGIBLE earning moves. */
+    where: { id: e.id, state: "ELIGIBLE" },
+    data: { state: "APPROVED_FOR_PAYOUT", approvedAutomatically: true, autoApprovedAt: now, reviewReasons: [] },
+  });
+  if (!moved.count) return null;
+  await audit(tx, { userId: null, tenantId: e.tenantId }, AUDIT_ACTIONS.payout.approveForPayout, "Earning", e.id, {
+    before: { state: "ELIGIBLE" },
+    after: { state: "APPROVED_FOR_PAYOUT", approvedBy: SYSTEM, approvedAutomatically: true, amountCents, rule: { ...settings, windowCentsBefore: windowCents } },
+  });
+  return "APPROVED_FOR_PAYOUT";
 }
 
 const EARNING_AUDIT_ACTIONS: Record<EarningState, `${string}.${string}`> = {

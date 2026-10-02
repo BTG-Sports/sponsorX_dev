@@ -1209,6 +1209,13 @@ model Earning {
   taxYear    Int
   paidAt     DateTime?
   reference  String?
+  /// 2S5-BE-08 — moved to APPROVED_FOR_PAYOUT by the rule as it became
+  /// ELIGIBLE (false once Finance approves it by hand). `autoApprovedAt` is
+  /// never cleared: the athlete's 7-day automatic total counts it.
+  approvedAutomatically Boolean   @default(false)
+  autoApprovedAt        DateTime?
+  /// Why it was left ELIGIBLE for Finance, in words. Internal.
+  reviewReasons         String[]  @default([])
 
   order   CampaignOrder @relation(fields: [orderId], references: [id])
   athlete Athlete       @relation(fields: [athleteId], references: [id])
@@ -1216,6 +1223,7 @@ model Earning {
   /// Year-end reporting rollup.
   @@index([athleteId, taxYear])
   @@index([tenantId, state])
+  @@index([athleteId, autoApprovedAt])
 }
 
 /// A versioned agreement template. `bodyHash` is the sha256 of the exact text
@@ -2751,6 +2759,12 @@ model PayoutAccount {
   providerAccountId String?
   /// NOT_SET_UP | NEEDS_INFO | READY
   status            String   @default("NOT_SET_UP")
+  /// 2S5-BE-06 — when where the payee is paid last CHANGED: the provider's
+  /// account id replaced, or the account leaving READY (and so, on its
+  /// return, a re-onboarding). Null for an account set up once. Not
+  /// `updatedAt`, which moves on every status sync. A payout requested within
+  /// PAYOUT_ACCOUNT_CHANGE_REVIEW_DAYS of it goes to BTG.
+  changedAt         DateTime?
   createdAt         DateTime @default(now())
   updatedAt         DateTime @default(now()) @updatedAt
 
@@ -2804,6 +2818,24 @@ model Payout {
   sentAt         DateTime?
   paidAt         DateTime?
   failureReason  String?
+  /// 2S5-BE-06 — approved by the rule (under the limit, every check passed),
+  /// as the system: `decidedBy` "system", `decidedAt` the moment.
+  approvedAutomatically Boolean   @default(false)
+  /// Why it waits for BTG, in words: the automatic-approval rule's reasons
+  /// on a REQUESTED payout, or why a FAILED one is BTG's (or the payee's).
+  /// Internal — never shown to the payee.
+  reviewReasons         String[]  @default([])
+  /// 2S5-BE-07 — the provider's failure kind: TEMPORARY | ACCOUNT | OTHER.
+  failureKind           String?
+  failedAt              DateTime?
+  /// Who a FAILED payout waits on: SYSTEM_RETRY | PAYEE_ACCOUNT | BTG.
+  /// Null otherwise (a REQUESTED payout always waits on BTG).
+  waitingOn             String?
+  /// Automatic retries made since the last BTG retry (at most 3).
+  retryCount            Int       @default(0)
+  nextRetryAt           DateTime?
+  /// The one automatic retry after the payee fixed their account was used.
+  accountRetryUsed      Boolean   @default(false)
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @default(now()) @updatedAt
 
@@ -2811,6 +2843,8 @@ model Payout {
 
   @@index([tenantId, state])
   @@index([payeeTenantId, payeeType, payeeId])
+  @@index([state, waitingOn, nextRetryAt])
+  @@index([payeeType, payeeId, decidedAt])
 }
 
 /// Which order's available money a payout covers, and how much of it.

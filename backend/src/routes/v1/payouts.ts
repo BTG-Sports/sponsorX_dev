@@ -31,9 +31,9 @@ payoutsRouter.post("/payouts", requireActor, (async (req, res) => { res.status(2
 
 /* BTG's side. */
 payoutsRouter.get("/payouts", requireActor, (async (req, res) => {
-  const raw = PayoutListQuery.parse(req.query).state;
-  const states = raw ? raw.split(",").map((s) => s.trim()).filter(isPayoutState) : undefined;
-  res.json(await listPayouts(req.actor!, states as PayoutState[] | undefined));
+  const q = PayoutListQuery.parse(req.query);
+  const states = q.state ? q.state.split(",").map((s) => s.trim()).filter(isPayoutState) : undefined;
+  res.json(await listPayouts(req.actor!, states as PayoutState[] | undefined, q.waitingOn));
 }) as RequestHandler);
 payoutsRouter.get("/payouts/:id", requireActor, (async (req, res) => { res.json(await getPayout(req.actor!, req.params.id)); }) as RequestHandler<Id>);
 payoutsRouter.post("/payouts/:id/decision", requireActor, (async (req, res) => {

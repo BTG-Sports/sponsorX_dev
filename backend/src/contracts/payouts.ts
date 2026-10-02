@@ -13,8 +13,12 @@ export const PayoutDecisionInput = z
   .meta({ id: "PayoutDecisionInput", description: "BTG's decision on a payout request. APPROVE hands it to the payment provider; REJECT (send back) needs a note the payee reads." });
 
 export const PayoutListQuery = z
-  .object({ state: z.string().max(80).optional() })
-  .meta({ id: "PayoutListQuery", description: "Comma-separated payout states: REQUESTED, APPROVED, SENDING, PAID, REJECTED, FAILED." });
+  .object({
+    state: z.string().max(80).optional(),
+    /* 2S5-BE-07 — who the payout waits on. BTG = REQUESTED, and FAILED left for BTG. */
+    waitingOn: z.enum(["BTG", "SYSTEM_RETRY", "PAYEE_ACCOUNT"]).optional(),
+  })
+  .meta({ id: "PayoutListQuery", description: "Comma-separated payout states: REQUESTED, APPROVED, SENDING, PAID, REJECTED, FAILED; and optionally who it waits on (BTG, SYSTEM_RETRY, PAYEE_ACCOUNT)." });
 
 export const StandinAccountInput = z
   .object({ token: z.string().min(10).max(2000), outcome: z.enum(["READY", "NEEDS_INFO"]) })

@@ -149,6 +149,19 @@ const schema = z.object({
   /* Days after an order is fulfilled before its money can be requested as a
      payout (2S5-BE-04's "configured holding period"). */
   PAYOUT_HOLD_DAYS: z.coerce.number().int().min(0).max(90).default(0),
+  /* 2S5-BE-06 / -08 — the programme owner's automatic-approval rule
+     (2026-10-02). A payout (or a Phase 1 earning) under the limit, with every
+     check passed, is approved as the system — unless the payee's payout
+     account changed within the review days, or the payee's automatic
+     approvals in the window, counting this one, reach the cap. */
+  PAYOUT_AUTO_APPROVE_LIMIT_CENTS: z.coerce.number().int().min(0).default(200_000),
+  PAYOUT_ACCOUNT_CHANGE_REVIEW_DAYS: z.coerce.number().int().min(0).max(90).default(7),
+  PAYOUT_AUTO_APPROVE_WINDOW_DAYS: z.coerce.number().int().min(0).max(90).default(7),
+  PAYOUT_AUTO_APPROVE_WINDOW_CAP_CENTS: z.coerce.number().int().min(0).default(500_000),
+  /* 2S5-BE-07 — staging's stand-in provider can be told to fail every payout
+     it sends, with one failure kind, so the retry story can be run end to
+     end. Unset: it pays. Ignored by any other provider. */
+  STANDIN_PAYOUT_FAILURE: z.enum(["TEMPORARY", "ACCOUNT", "OTHER"]).optional(),
 
   /* 2S1-BE-16 / 2S1-OPS-01 — BTG's support mailbox. The contact form's
      messages are queued to this address, and it is shown wherever a person

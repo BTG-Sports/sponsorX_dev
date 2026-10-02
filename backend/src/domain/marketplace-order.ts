@@ -97,6 +97,7 @@ import { sponsorLimit } from "./spending-limit";
 import { approvalsForOrders, openSellerApprovals } from "./order-approval";
 import { tellBtgHeld, tellSponsorApproved, tellSponsorPaid } from "./order-mail";
 import { orderRefundCause, recordRefund, refundsForOrders, type RefundContext } from "./refunds";
+import { claimsMoney } from "./payout-auto";
 import {
   approvalReasons,
   billingProblems,
@@ -624,10 +625,12 @@ async function moveIn(
   await followOrder(tx, actor, order.id, to, now);
   if (RELEASES.has(to)) {
     /* 2S5-BE-05 — a payout in progress claims this order's money: it is sent
-       back (or fails) before the order can be cancelled or refunded. */
+       back (or fails) before the order can be cancelled or refunded.
+       2S5-BE-07 — so does a failed one the system will send again (a retry
+       scheduled, or waiting for the payee's account). */
     const claimed = await tx.payoutLine.findFirst({
       /* tenant-scope: payout lines naming this order, loaded by the caller through its own scope. */
-      where: { orderId: order.id, payout: { state: { in: ["REQUESTED", "APPROVED", "SENDING"] } } }, select: { id: true },
+      where: { orderId: order.id, payout: claimsMoney }, select: { id: true },
     });
     if (claimed) throw new MarketplaceOrderError("A payout covering this order is in progress — it has to be sent back or finish before the order can be cancelled or refunded.");
     await tx.inventoryCommitment.updateMany({

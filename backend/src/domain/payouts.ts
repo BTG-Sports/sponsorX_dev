@@ -18,9 +18,17 @@
  *       and the payout account is READY.
  *     A refunded or cancelled order's money is reversed in the ledger and so
  *     can never be requested.
- *   - BTG admin or Finance approves (or sends it back with a note). The
- *     provider sends it; its confirmation marks it PAID, posts the PAYOUT
+ *   - 2S5-BE-06 — it is approved AUTOMATICALLY, as the system, when every
+ *     check passes, it is under $2,000, the payout account didn't change in
+ *     the last 7 days and the payee's automatic approvals in the last 7 days
+ *     stay under $5,000 (payout-auto.ts). Otherwise BTG admin or Finance
+ *     approves it (or sends it back with a note), reading the reasons.
+ *   - The provider sends it; its confirmation marks it PAID, posts the PAYOUT
  *     journals and emails the payee.
+ *   - 2S5-BE-07 — a payout the provider couldn't send is retried
+ *     automatically (a temporary failure, up to 3 times), waits for the payee
+ *     to fix their payout account (retried once when it is READY again), or
+ *     goes to BTG. BTG can retry any failed payout at any time.
  *
  * All provider traffic goes through lib/payment-provider.ts. On staging the
  * provider is a labelled stand-in that moves no money; in production, until a
@@ -32,7 +40,7 @@ import { audit } from "../db/audit";
 import { enqueue } from "../db/outbox";
 import { env } from "../config/env";
 import type { Actor } from "../auth/actor";
-import { assertAllowed, whereFor } from "../auth/scope";
+import { assertAllowed, can, whereFor } from "../auth/scope";
 import { ForbiddenError } from "../auth/errors";
 import { providerName, readStandinToken, standinLink, standinRef, StandinTokenError } from "../lib/payment-provider";
 import { postPayout } from "./ledger";
@@ -41,6 +49,10 @@ import { lockOrder, moveOrderAsSystem, payOrderIn } from "./marketplace-order";
 import { appUrl, btgAdmins, tell } from "./order-mail";
 import { assertMayCommit } from "./guardian-acts";
 import { payoutHoldReason } from "./payout-holds";
+import {
+  autoApprovalReasons, autoApproveSettings, autoApprovedSince, claimsMoney, lockPayee, nextChangedAt, planFailure,
+  SYSTEM, waitingOnOf, waitingOnWhere, windowStart, type FailureKind, type WaitingOn,
+} from "./payout-auto";
 
 type Tx = Prisma.TransactionClient;
 type Db = Tx | typeof prisma;
@@ -60,8 +72,6 @@ export type PayeeType = "ATHLETE" | "PROPERTY";
 export type Payee = { payeeType: PayeeType; payeeId: string; payeeTenantId: string };
 
 const PAYABLE: Record<PayeeType, string> = { ATHLETE: "ATHLETE_PAYABLE", PROPERTY: "PROPERTY_PAYABLE" };
-/** A payout still claiming its money — the same money can't be requested twice. */
-const IN_FLIGHT = ["REQUESTED", "APPROVED", "SENDING"];
 /* 2S4-BE-07 — an order whose confirmed lines may release money: paid, not refunded or cancelled. */
 const RELEASING = new Set(["IN_DELIVERY", "FULFILLED", "CLOSED"]);
 const PAID_OR_LATER = new Set(["PAID", "IN_DELIVERY", "FULFILLED", "CLOSED"]);
@@ -117,7 +127,7 @@ const orderRef = (id: string) => `SX-${id.slice(-8).toUpperCase()}`;
 
 /* ── payout accounts — 2S5-INT-03 ─────────────────────────────────────── */
 
-const ACCOUNT_SELECT = { status: true, provider: true, providerAccountId: true, updatedAt: true } as const;
+const ACCOUNT_SELECT = { status: true, provider: true, providerAccountId: true, changedAt: true, updatedAt: true } as const;
 
 function accountView(row: { status: string; provider: string; updatedAt: Date } | null) {
   const provider = providerName();
@@ -395,22 +405,48 @@ export async function completeStandinAccount(token: string, outcome: "READY" | "
   const link = readStandinToken(token, now);
   if (link.kind !== "account") throw new StandinTokenError();
   await prisma.$transaction(async (tx) => {
-    const row = await tx.payoutAccount.findUnique({
-      /* tenant-scope: the payee named in a link this server signed. */
-      where: { payeeType_payeeId: { payeeType: link.payeeType, payeeId: link.payeeId } }, select: { id: true, providerAccountId: true },
-    });
-    const data = { status: outcome, provider: "standin", providerAccountId: row?.providerAccountId ?? standinRef("acct") };
-    if (row) {
-      await tx.payoutAccount.update({
-        /* tenant-scope: the row just loaded for this signed link's payee. */
-        where: { id: row.id }, data, select: { id: true },
-      });
-    } else {
-      await tx.payoutAccount.create({ data: { ...data, tenantId: link.tenantId, payeeType: link.payeeType, payeeId: link.payeeId }, select: { id: true } });
-    }
-    await audit(tx, { userId: null, tenantId: link.tenantId }, "payoutAccount.status", "PayoutAccount", `${link.payeeType}:${link.payeeId}`, { after: { status: outcome, provider: "standin" } });
+    await recordAccountStatus(tx, { payeeType: link.payeeType, payeeId: link.payeeId, payeeTenantId: link.tenantId }, { status: outcome, provider: "standin" }, now);
   });
   return { returnPath: link.returnPath };
+}
+
+/**
+ * The provider's word on a payee's payout account — the one place its status
+ * is written (the stand-in's page today; a real provider's webhook later).
+ * 2S5-BE-06 — keeps `changedAt` (nextChangedAt). 2S5-BE-07 — an account
+ * READY again releases the payouts that were waiting for the payee to fix
+ * it: each is retried automatically, once. Under the payee's lock, so a
+ * payout request at the same moment reads the account as it now is.
+ */
+async function recordAccountStatus(
+  tx: Tx, payee: Payee, report: { status: "READY" | "NEEDS_INFO"; provider: string; providerAccountId?: string | null }, now: Date,
+) {
+  await lockPayee(tx, payee);
+  const row = await tx.payoutAccount.findUnique({
+    /* tenant-scope: the payee named in a link this server signed (or the provider's report), by its unique payee key. */
+    where: { payeeType_payeeId: { payeeType: payee.payeeType, payeeId: payee.payeeId } }, select: { id: true, status: true, providerAccountId: true, changedAt: true },
+  });
+  const providerAccountId = report.providerAccountId ?? row?.providerAccountId ?? standinRef("acct");
+  const changedAt = nextChangedAt(row, { status: report.status, providerAccountId }, now);
+  const data = { status: report.status, provider: report.provider, providerAccountId, changedAt };
+  if (row) {
+    await tx.payoutAccount.update({
+      /* tenant-scope: the row just loaded for this payee. */
+      where: { id: row.id }, data, select: { id: true },
+    });
+  } else {
+    await tx.payoutAccount.create({ data: { ...data, tenantId: payee.payeeTenantId, payeeType: payee.payeeType, payeeId: payee.payeeId }, select: { id: true } });
+  }
+  await audit(tx, { userId: null, tenantId: payee.payeeTenantId }, "payoutAccount.status", "PayoutAccount", `${payee.payeeType}:${payee.payeeId}`, {
+    before: row ? { status: row.status, changedAt: row.changedAt } : undefined,
+    after: { status: report.status, provider: report.provider, changedAt },
+  });
+  if (report.status !== "READY") return;
+  const waiting = await tx.payout.findMany({
+    /* tenant-scope: this payee's own payouts in every set of books, by payee key, waiting for this account. */
+    where: { payeeType: payee.payeeType, payeeId: payee.payeeId, state: "FAILED", waitingOn: "PAYEE_ACCOUNT" }, select: { id: true },
+  });
+  for (const w of waiting) await autoRetry(tx, w.id, "ACCOUNT_READY", now);
 }
 
 /** The stand-in's payment page: the sponsor paid (confirmation follows) or the card was declined. */
@@ -488,8 +524,8 @@ async function balanceOf(db: Db, payee: Payee, now: Date) {
     select: { tenantId: true, orderId: true, lineId: true, account: true, entryType: true, status: true, debitCents: true, creditCents: true },
   });
   const inFlight = await db.payoutLine.findMany({
-    /* tenant-scope: lines of this payee's own payouts, named by payee. */
-    where: { payout: { payeeTenantId: payee.payeeTenantId, payeeType: payee.payeeType, payeeId: payee.payeeId, state: { in: IN_FLIGHT } } },
+    /* tenant-scope: lines of this payee's own payouts, named by payee. 2S5-BE-07 — a failed payout that will be sent again on its own still claims its money. */
+    where: { payout: { payeeTenantId: payee.payeeTenantId, payeeType: payee.payeeType, payeeId: payee.payeeId, ...claimsMoney } },
     select: { orderId: true, amountCents: true },
   });
   const orderIds = [...new Set(entries.map((e) => e.orderId!))];
@@ -545,13 +581,41 @@ async function balanceOf(db: Db, payee: Payee, now: Date) {
 const PAYOUT_SELECT = {
   id: true, tenantId: true, payeeType: true, payeeId: true, payeeTenantId: true, amountCents: true, state: true,
   requestedAt: true, decidedAt: true, decisionNote: true, providerRef: true, sentAt: true, paidAt: true, failureReason: true, createdAt: true,
+  approvedAutomatically: true, reviewReasons: true, failureKind: true, failedAt: true, waitingOn: true, retryCount: true, nextRetryAt: true,
+  accountRetryUsed: true,
   lines: { select: { orderId: true, amountCents: true } },
 } as const;
 type PayoutRow = Prisma.PayoutGetPayload<{ select: typeof PAYOUT_SELECT }>;
 
+/**
+ * A payout as BTG reads it: the automatic approval, the reasons it waits
+ * (2S5-BE-06), the failure kind, who it waits on and the retry schedule
+ * (2S5-BE-07).
+ */
 function payoutView(p: PayoutRow) {
-  return { ...p, lines: p.lines.map((l) => ({ ...l, orderRef: orderRef(l.orderId) })) };
+  const { accountRetryUsed: _used, waitingOn: _stored, ...rest } = p;
+  return {
+    ...rest,
+    waitingOn: waitingOnOf(p),
+    /* Empty when approved automatically; the reasons a REQUESTED or FAILED payout waits. */
+    reviewReasons: p.approvedAutomatically ? [] : p.reviewReasons,
+    lines: p.lines.map((l) => ({ ...l, orderRef: orderRef(l.orderId) })),
+  };
 }
+
+/**
+ * The same payout as the payee reads it: whether it was approved
+ * automatically and who it waits on — never the internal reasons (the rule's
+ * safeguards, the same rule as listing holds), the failure kind or the retry
+ * schedule.
+ */
+function payeePayoutView(p: PayoutRow) {
+  const { reviewReasons: _r, retryCount: _c, nextRetryAt: _n, failureKind: _k, failedAt: _f, ...rest } = payoutView(p);
+  return rest;
+}
+
+/** BTG's view for a payout approver; the payee's for everyone else who reads it. */
+const viewFor = (actor: Actor) => (can(actor, "payout", "approve") ? payoutView : payeePayoutView);
 
 /** The payee's money: what can be requested, what can't yet and why, and every payout so far. */
 export async function myPayouts(actor: Actor, now = new Date()) {
@@ -602,40 +666,81 @@ export async function myPayouts(actor: Actor, now = new Date()) {
     canRequest: account.status === "READY" && requestableCents > 0,
     checks,
     orders: orders.map(({ books: _books, ...o }) => ({ ...o, orderRef: orderRef(o.orderId) })),
-    payouts: payouts.map(payoutView),
+    payouts: payouts.map(payeePayoutView),
   };
 }
 
-/** The payee asks for its whole requestable balance — one payout per set of books. */
+/** The four payout rules, as BTG reads them on a payout: over its orders, the payee's money on each, and the account. Pure. */
+export function payoutChecks(
+  orders: Array<{ state: string; confirmedLines: number; holdUntil: Date | null }>, accountStatus: string | null | undefined, now: Date,
+) {
+  return [
+    { key: "payment", label: "Sponsor's payment received", ok: orders.every((o) => PAID_OR_LATER.has(o.state)) },
+    { key: "delivered", label: "Delivery confirmed (the payee's lines on each order)", ok: orders.every((o) => o.confirmedLines > 0) },
+    { key: "account", label: "Payout account ready", ok: accountStatus === "READY" },
+    { key: "hold", label: "Holding period passed", ok: orders.every((o) => !!o.holdUntil && o.holdUntil <= now) },
+  ];
+}
+
+/**
+ * The payee asks for its whole requestable balance — one payout per set of
+ * books. 2S5-BE-06 — each is then approved automatically, as the system, in
+ * this same transaction, when the rule passes (payout-auto.ts); otherwise it
+ * waits for BTG with its reasons. Under the payee's lock: two requests at
+ * once are taken one after the other, so the second neither claims the same
+ * money nor slips under the 7-day cap beside the first.
+ */
 export async function requestPayout(actor: Actor, now = new Date()) {
   const payee = payeeOf(actor, "payout", "write");
   /* 2S1-BE-11 — a minor's payouts are requested by their guardian; 2S1-BE-12 — none during the coming-of-age allowance. */
   await assertMayCommit(prisma, actor, "payoutRequest");
   return prisma.$transaction(async (tx) => {
+    await lockPayee(tx, payee);
     /* Held (2S1-BE-06 organisations, 2S1-BE-09 / -10 athletes): payout-holds.ts. */
     const held = await payoutHoldReason(tx, payee);
     if (held) throw new PayoutError(held, 409, ["Payouts not on hold"]);
     const account = await tx.payoutAccount.findUnique({
       /* tenant-scope: the payee's own account, by its unique payee key from the actor. */
-      where: { payeeType_payeeId: { payeeType: payee.payeeType, payeeId: payee.payeeId } }, select: { status: true },
+      where: { payeeType_payeeId: { payeeType: payee.payeeType, payeeId: payee.payeeId } }, select: { status: true, changedAt: true },
     });
     if (account?.status !== "READY") throw new PayoutError("Set up your payout account first — payouts are sent to it.", 409, ["Payout account ready"]);
     const orders = (await balanceOf(tx, payee, now)).filter((o) => o.requestableCents > 0);
     if (!orders.length) throw new PayoutError("Nothing is ready to pay out yet.", 409, ["An order that is paid, delivered and past its holding period"]);
     const byBooks = new Map<string, OrderMoney[]>();
     for (const o of orders) byBooks.set(o.books, [...(byBooks.get(o.books) ?? []), o]);
+    const settings = autoApproveSettings();
+    /* Read after the lock: every automatic approval for this payee that committed before it. */
+    let windowCents = await autoApprovedSince(tx, payee, windowStart(now, settings));
     const created = [];
     for (const [books, os] of byBooks) {
       const amountCents = os.reduce((s, o) => s + o.requestableCents, 0);
+      const checks = payoutChecks(os, account.status, now);
+      const reasons = autoApprovalReasons({
+        amountCents, held: false, unmetChecks: checks.filter((c) => !c.ok).map((c) => c.label),
+        accountChangedAt: account.changedAt, windowCents, now,
+      }, settings);
+      const auto = reasons.length === 0;
       const row = await tx.payout.create({
         data: {
           tenantId: books, ...payee, amountCents, requestedBy: actor.userId, requestedAt: now,
+          ...(auto
+            ? { state: "APPROVED", decidedBy: SYSTEM, decidedAt: now, approvedAutomatically: true, reviewReasons: [] }
+            : { state: "REQUESTED", reviewReasons: reasons }),
           lines: { create: os.map((o) => ({ orderId: o.orderId, amountCents: o.requestableCents })) },
         },
         select: PAYOUT_SELECT,
       });
-      await audit(tx, actor, "payout.request", "Payout", row.id, { after: { amountCents, orders: os.length } });
-      created.push(payoutView(row));
+      await audit(tx, actor, "payout.request", "Payout", row.id, { after: { amountCents, orders: os.length, ...(auto ? {} : { reviewReasons: reasons }) } });
+      if (auto) {
+        await audit(tx, { userId: null, tenantId: books }, "payout.autoApprove", "Payout", row.id, {
+          before: { state: "REQUESTED" },
+          after: { state: "APPROVED", decidedBy: SYSTEM, approvedAutomatically: true, checks, rule: { ...settings, windowCentsBefore: windowCents } },
+        });
+        await enqueue(tx, books, "payouts.send", { payoutId: row.id });
+        await notifyPayee(tx, { ...row, ...payee }, "payout.approved");
+        windowCents += amountCents;
+      }
+      created.push(payeePayoutView(row));
     }
     return { payouts: created };
   });
@@ -647,20 +752,46 @@ const STATES = ["REQUESTED", "APPROVED", "SENDING", "PAID", "REJECTED", "FAILED"
 export type PayoutState = (typeof STATES)[number];
 export const isPayoutState = (s: unknown): s is PayoutState => typeof s === "string" && (STATES as readonly string[]).includes(s);
 
-async function withPayee(db: Db, rows: PayoutRow[]) {
-  return Promise.all(rows.map(async (p) => ({ ...payoutView(p), payeeName: await payeeName(db, { payeeType: p.payeeType as PayeeType, payeeId: p.payeeId }) })));
+async function withPayee(db: Db, rows: PayoutRow[], view: (p: PayoutRow) => ReturnType<typeof payeePayoutView> | ReturnType<typeof payoutView> = payoutView) {
+  return Promise.all(rows.map(async (p) => ({ ...view(p), payeeName: await payeeName(db, { payeeType: p.payeeType as PayeeType, payeeId: p.payeeId }) })));
 }
 
-export async function listPayouts(actor: Actor, states?: PayoutState[]) {
+/**
+ * BTG's list: payouts by state, every state's count, and — 2S5-BE-07 — how
+ * many wait on whom (`waiting`). `waitingOn` narrows the list to the payouts
+ * waiting on BTG (REQUESTED, and FAILED left for BTG), on the system's
+ * retry, or on the payee's account; BTG's screen defaults to BTG.
+ */
+export async function listPayouts(actor: Actor, states?: PayoutState[], waitingOn?: WaitingOn) {
   assertAllowed(actor, "payout", "approve");
+  const scope = whereFor(actor, "payout", "read");
   const rows = await prisma.payout.findMany({
-    where: { ...whereFor(actor, "payout", "read"), ...(states?.length ? { state: { in: states } } : {}) },
+    /* tenant-scope: `scope` is whereFor(payout, read); every filter only narrows it. */
+    where: { AND: [scope, ...(states?.length ? [{ state: { in: states } }] : []), ...(waitingOn ? [waitingOnWhere(waitingOn)] : [])] },
     select: PAYOUT_SELECT, orderBy: { requestedAt: "asc" }, take: 200,
   });
-  const counts = await prisma.payout.groupBy({ by: ["state"], where: whereFor(actor, "payout", "read"), _count: { _all: true } });
-  return { payouts: await withPayee(prisma, rows), counts: Object.fromEntries(counts.map((c) => [c.state, c._count._all])) };
+  const counts = await prisma.payout.groupBy({ /* tenant-scope: whereFor(payout, read). */ by: ["state"], where: scope, _count: { _all: true } });
+  const failed = await prisma.payout.groupBy({ /* tenant-scope: whereFor(payout, read). */ by: ["waitingOn"], where: { AND: [scope, { state: "FAILED" }] }, _count: { _all: true } });
+  const failedOn = (w: WaitingOn) => failed.filter((f) => (f.waitingOn ?? "BTG") === w).reduce((n, f) => n + f._count._all, 0);
+  const requested = counts.find((c) => c.state === "REQUESTED")?._count._all ?? 0;
+  return {
+    payouts: await withPayee(prisma, rows),
+    counts: Object.fromEntries(counts.map((c) => [c.state, c._count._all])),
+    waiting: {
+      BTG: requested + failedOn("BTG"),
+      SYSTEM_RETRY: failedOn("SYSTEM_RETRY"),
+      PAYEE_ACCOUNT: failedOn("PAYEE_ACCOUNT"),
+      /* FAILED only, by who it waits on — the Failed tab's filter. */
+      failed: { BTG: failedOn("BTG"), SYSTEM_RETRY: failedOn("SYSTEM_RETRY"), PAYEE_ACCOUNT: failedOn("PAYEE_ACCOUNT") },
+    },
+  };
 }
 
+/**
+ * One payout. BTG (an approver) reads the rule checks and every reason; a
+ * payee reading its own payout here gets its own view (payeePayoutView) —
+ * the checks are about its own money, but never the internal reasons.
+ */
 export async function getPayout(actor: Actor, id: string, now = new Date()) {
   assertAllowed(actor, "payout", "read");
   const row = await prisma.payout.findFirst({ where: { ...whereFor(actor, "payout", "read"), id }, select: PAYOUT_SELECT });
@@ -676,22 +807,22 @@ export async function getPayout(actor: Actor, id: string, now = new Date()) {
   });
   /* 2S4-BE-07 — the payee's money on each order, released line by line, as when it was requested. */
   const money = new Map((await balanceOf(prisma, payee, now)).map((o) => [o.orderId, o]));
-  const [view] = await withPayee(prisma, [row]);
+  const [view] = await withPayee(prisma, [row], viewFor(actor));
   return {
     ...view!,
     account: accountView(account),
     orders: orders.map((o) => ({ orderId: o.id, orderRef: orderRef(o.id), state: o.state, fulfilledAt: o.fulfilledAt, totalCents: o.totalCents, title: o.lines.map((l) => l.title).join(" · ") })),
-    checks: [
-      { key: "payment", label: "Sponsor's payment received", ok: orders.every((o) => PAID_OR_LATER.has(o.state)) },
-      { key: "delivered", label: "Delivery confirmed (the payee's lines on each order)", ok: orders.every((o) => (money.get(o.id)?.confirmedLines ?? 0) > 0) },
-      { key: "account", label: "Payout account ready", ok: account?.status === "READY" },
-      { key: "hold", label: "Holding period passed", ok: orders.every((o) => { const h = money.get(o.id)?.holdUntil; return !!h && h <= now; }) },
-    ],
+    checks: payoutChecks(
+      orders.map((o) => ({ state: o.state, confirmedLines: money.get(o.id)?.confirmedLines ?? 0, holdUntil: money.get(o.id)?.holdUntil ?? null })),
+      account?.status, now,
+    ),
     provider: providerName(),
   };
 }
 
-async function notifyPayee(tx: Tx, row: { id: string; tenantId: string; amountCents: number } & Payee, template: string, extra: Record<string, string> = {}) {
+async function notifyPayee(
+  tx: Tx, row: { id: string; tenantId: string; amountCents: number } & Payee, template: string, extra: Record<string, string> = {}, key?: string,
+) {
   const to = await payeeEmail(tx, row);
   if (!to) return;
   const path = row.payeeType === "ATHLETE" ? "/athlete/money" : "/property/earnings";
@@ -699,7 +830,7 @@ async function notifyPayee(tx: Tx, row: { id: string; tenantId: string; amountCe
     tenantId: row.tenantId,
     template,
     to: to.email,
-    idempotencyKey: `${template}:${row.id}`,
+    idempotencyKey: key ?? `${template}:${row.id}`,
     data: { firstName: to.firstName, amount: usd(row.amountCents), portalUrl: `${env.APP_URL.replace(/\/+$/, "")}${path}`, ...extra },
   });
 }
@@ -717,11 +848,16 @@ export async function decidePayout(actor: Actor, id: string, decision: "APPROVE"
     /* A payee BTG rejected (organisation or athlete) is held: send it back if you must, but don't pay it. */
     const held = decision === "APPROVE" ? await payoutHoldReason(tx, payee) : null;
     if (held) throw new PayoutError(held, 409, ["Payouts not on hold"]);
-    const updated = await tx.payout.update({
+    /* Conditional: two decisions at once (two reviewers) move it once. */
+    const moved = await tx.payout.updateMany({
       /* tenant-scope: the row just loaded through whereFor(payout, approve). */
-      where: { id: row.id },
+      where: { id: row.id, state: "REQUESTED" },
       data: { state: decision === "APPROVE" ? "APPROVED" : "REJECTED", decidedBy: actor.userId, decidedAt: now, decisionNote: trimmed },
-      select: PAYOUT_SELECT,
+    });
+    if (!moved.count) throw new PayoutError("This payout has just been decided by someone else.");
+    const updated = await tx.payout.findUniqueOrThrow({
+      /* tenant-scope: the row just moved. */
+      where: { id: row.id }, select: PAYOUT_SELECT,
     });
     await audit(tx, actor, decision === "APPROVE" ? "payout.approve" : "payout.reject", "Payout", row.id, {
       before: { state: row.state }, after: { state: updated.state, note: trimmed },
@@ -736,20 +872,52 @@ export async function decidePayout(actor: Actor, id: string, decision: "APPROVE"
   });
 }
 
-/** A payout the provider couldn't send goes back to the provider. */
-export async function retryPayout(actor: Actor, id: string) {
+/**
+ * A payout the provider couldn't send goes back to the provider — BTG's
+ * retry, at any time, whoever it was waiting on. 2S5-BE-07 — it resets the
+ * automatic retries (three more if it fails again for a temporary reason,
+ * and one more after the payee fixes their account).
+ *
+ * A failed payout left for BTG no longer claims its money, so the payee may
+ * have requested it again since. Under the payee's lock, its money must
+ * still be free — or it is refused, and never sent twice.
+ */
+export async function retryPayout(actor: Actor, id: string, now = new Date()) {
   assertAllowed(actor, "payout", "approve");
   return prisma.$transaction(async (tx) => {
-    const row = await tx.payout.findFirst({ where: { ...whereFor(actor, "payout", "approve"), id }, select: PAYOUT_SELECT });
-    if (!row) throw new ForbiddenError("payout", "approve");
-    if (row.state !== "FAILED") throw new PayoutError("Only a payout the provider couldn't send can be retried.");
-    const updated = await tx.payout.update({
-      /* tenant-scope: the row just loaded through whereFor(payout, approve). */
-      where: { id: row.id }, data: { state: "APPROVED", failureReason: null }, select: PAYOUT_SELECT,
+    const found = await tx.payout.findFirst({ where: { ...whereFor(actor, "payout", "approve"), id }, select: { id: true, payeeType: true, payeeId: true, payeeTenantId: true } });
+    if (!found) throw new ForbiddenError("payout", "approve");
+    const payee: Payee = { payeeType: found.payeeType as PayeeType, payeeId: found.payeeId, payeeTenantId: found.payeeTenantId };
+    await lockPayee(tx, payee);
+    const row = await tx.payout.findUniqueOrThrow({
+      /* tenant-scope: the row just found through whereFor(payout, approve), re-read under the payee's lock. */
+      where: { id: found.id }, select: PAYOUT_SELECT,
     });
-    await audit(tx, actor, "payout.retry", "Payout", row.id, { before: { state: "FAILED" }, after: { state: "APPROVED" } });
+    if (row.state !== "FAILED") throw new PayoutError("Only a payout the provider couldn't send can be retried.");
+    if (waitingOnOf(row) === "BTG") {
+      const money = new Map((await balanceOf(tx, payee, now)).map((o) => [o.orderId, o.requestableCents]));
+      if (row.lines.some((l) => (money.get(l.orderId) ?? 0) < l.amountCents)) {
+        throw new PayoutError("This money has been requested again in a newer payout, or is no longer available to pay out — this payout can't be sent again.");
+      }
+    }
+    const moved = await tx.payout.updateMany({
+      /* tenant-scope: the row just loaded through whereFor(payout, approve); conditional, so two retries at once move it once. */
+      where: { id: row.id, state: "FAILED" },
+      data: {
+        state: "APPROVED", failureReason: null, failureKind: null, waitingOn: null, nextRetryAt: null,
+        retryCount: 0, accountRetryUsed: false, reviewReasons: [],
+      },
+    });
+    if (!moved.count) throw new PayoutError("Only a payout the provider couldn't send can be retried.");
+    await audit(tx, actor, "payout.retry", "Payout", row.id, {
+      before: { state: "FAILED", waitingOn: waitingOnOf(row), retryCount: row.retryCount, failureKind: row.failureKind },
+      after: { state: "APPROVED", retryCount: 0 },
+    });
     await enqueue(tx, row.tenantId, "payouts.send", { payoutId: row.id });
-    return payoutView(updated);
+    return payoutView(await tx.payout.findUniqueOrThrow({
+      /* tenant-scope: the row just moved. */
+      where: { id: row.id }, select: PAYOUT_SELECT,
+    }));
   });
 }
 
@@ -758,7 +926,9 @@ export async function retryPayout(actor: Actor, id: string) {
 /**
  * Hand an approved payout to the provider. With no provider connected it
  * waits, APPROVED, and says so on every screen. The stand-in "sends" it;
- * its confirmation follows as a separate job (`confirmPayoutPaid`).
+ * its answer follows as a separate step (`completeStandinPayout`).
+ * Conditional on the row still being APPROVED, so two send jobs for the same
+ * payout (a retry queued twice) hand it over once.
  */
 export async function sendPayout(payoutId: string, now = new Date()): Promise<{ sent: boolean }> {
   const provider = providerName();
@@ -771,10 +941,11 @@ export async function sendPayout(payoutId: string, now = new Date()): Promise<{ 
     if (!row || row.state !== "APPROVED") return { sent: false };
     /* Held (2S1-BE-06 / -09): it waits, APPROVED, until BTG reinstates the payee, which sends it again. */
     if (await payoutHoldReason(tx, row)) return { sent: false };
-    await tx.payout.update({
-      /* tenant-scope: the row just loaded by id. */
-      where: { id: row.id }, data: { state: "SENDING", provider, providerRef: standinRef("po"), sentAt: now }, select: { id: true },
+    const moved = await tx.payout.updateMany({
+      /* tenant-scope: the row just loaded by id; conditional, so a second job for it finds nothing. */
+      where: { id: row.id, state: "APPROVED" }, data: { state: "SENDING", provider, providerRef: standinRef("po"), sentAt: now },
     });
+    if (!moved.count) return { sent: false };
     await audit(tx, { userId: null, tenantId: row.tenantId }, "payout.send", "Payout", row.id, { after: { provider } });
     return { sent: true };
   });
@@ -789,10 +960,11 @@ export async function confirmPayoutPaid(payoutId: string, now = new Date()) {
     });
     if (!row || row.state !== "SENDING") return { paid: false };
     const payee: Payee = { payeeType: row.payeeType as PayeeType, payeeId: row.payeeId, payeeTenantId: row.payeeTenantId };
-    await tx.payout.update({
-      /* tenant-scope: the row just loaded by id. */
-      where: { id: row.id }, data: { state: "PAID", paidAt: now }, select: { id: true },
+    const moved = await tx.payout.updateMany({
+      /* tenant-scope: the row just loaded by id; conditional, so a redelivered confirmation posts nothing twice. */
+      where: { id: row.id, state: "SENDING" }, data: { state: "PAID", paidAt: now },
     });
+    if (!moved.count) return { paid: false };
     await postPayout(tx, row.tenantId, row.id, payee, row.lines);
     await audit(tx, { userId: null, tenantId: row.tenantId }, "payout.paid", "Payout", row.id, { after: { amountCents: row.amountCents } });
     await notifyPayee(tx, { ...row, ...payee }, "payout.paid", { orders: row.lines.map((l) => `${orderRef(l.orderId)} — ${usd(l.amountCents)}`).join("\n") });
@@ -800,19 +972,113 @@ export async function confirmPayoutPaid(payoutId: string, now = new Date()) {
   });
 }
 
-/** The provider couldn't send it: FAILED, with the reason BTG sees. */
-export async function failPayout(payoutId: string, reason: string) {
+/**
+ * The provider couldn't send it: FAILED, with the provider's reason, and —
+ * 2S5-BE-07 — its failure kind deciding what happens next (payout-auto.ts
+ * `planFailure`): a temporary failure is retried by the sweep; an account
+ * problem emails the payee and waits for their account; anything else is
+ * BTG's. Idempotent (conditional on SENDING).
+ */
+export async function failPayout(payoutId: string, reason: string, kind: FailureKind = "OTHER", now = new Date()) {
   return prisma.$transaction(async (tx) => {
     const row = await tx.payout.findUnique({
       /* tenant-scope: the payout named by the provider's failure. */
-      where: { id: payoutId }, select: { id: true, tenantId: true, state: true },
+      where: { id: payoutId }, select: PAYOUT_SELECT,
     });
     if (!row || row.state !== "SENDING") return { failed: false };
-    await tx.payout.update({
-      /* tenant-scope: the row just loaded by id. */
-      where: { id: row.id }, data: { state: "FAILED", failureReason: reason.slice(0, 500) }, select: { id: true },
+    const plan = planFailure(kind, row, now);
+    const moved = await tx.payout.updateMany({
+      /* tenant-scope: the row just loaded by id; conditional, so a redelivered failure moves it once. */
+      where: { id: row.id, state: "SENDING" },
+      data: {
+        state: "FAILED", failureReason: reason.slice(0, 500), failureKind: kind, failedAt: now,
+        waitingOn: plan.waitingOn, nextRetryAt: plan.nextRetryAt, reviewReasons: plan.reviewReasons,
+      },
     });
-    await audit(tx, { userId: null, tenantId: row.tenantId }, "payout.fail", "Payout", row.id, { after: { reason } });
+    if (!moved.count) return { failed: false };
+    await audit(tx, { userId: null, tenantId: row.tenantId }, "payout.fail", "Payout", row.id, {
+      after: { reason, kind, waitingOn: plan.waitingOn, nextRetryAt: plan.nextRetryAt, retryCount: row.retryCount, reviewReasons: plan.reviewReasons },
+    });
+    if (plan.tellPayee) {
+      const payee: Payee = { payeeType: row.payeeType as PayeeType, payeeId: row.payeeId, payeeTenantId: row.payeeTenantId };
+      await notifyPayee(tx, { ...row, ...payee }, "payout.accountNeedsFix", {}, `payout.accountNeedsFix:${row.id}:${now.toISOString()}`);
+    }
     return { failed: true };
   });
+}
+
+/**
+ * 2S5-BE-07 — one automatic retry, as the system: the payout goes back to
+ * APPROVED and to the provider. Conditional on the row still waiting the way
+ * the caller found it (and, for a scheduled retry, on its count), so a sweep
+ * run twice — or two sweeps at once — retries it once.
+ */
+async function autoRetry(tx: Tx, payoutId: string, why: "SCHEDULE" | "ACCOUNT_READY", now: Date): Promise<boolean> {
+  const row = await tx.payout.findUnique({
+    /* tenant-scope: the payout named by the sweep (or the payee's account report), by id. */
+    where: { id: payoutId }, select: { id: true, tenantId: true, state: true, waitingOn: true, retryCount: true },
+  });
+  if (!row || row.state !== "FAILED") return false;
+  const moved = why === "SCHEDULE"
+    ? await tx.payout.updateMany({
+        /* tenant-scope: the row just loaded by id; conditional on its schedule and count. */
+        where: { id: row.id, state: "FAILED", waitingOn: "SYSTEM_RETRY", nextRetryAt: { lte: now }, retryCount: row.retryCount },
+        data: { state: "APPROVED", waitingOn: null, nextRetryAt: null, retryCount: row.retryCount + 1, reviewReasons: [] },
+      })
+    : await tx.payout.updateMany({
+        /* tenant-scope: the row just loaded by id; conditional on it still waiting for the payee's account. */
+        where: { id: row.id, state: "FAILED", waitingOn: "PAYEE_ACCOUNT" },
+        data: { state: "APPROVED", waitingOn: null, accountRetryUsed: true, reviewReasons: [] },
+      });
+  if (!moved.count) return false;
+  await audit(tx, { userId: null, tenantId: row.tenantId }, "payout.autoRetry", "Payout", row.id, {
+    before: { state: "FAILED", waitingOn: row.waitingOn, retryCount: row.retryCount },
+    after: { state: "APPROVED", why, retryCount: why === "SCHEDULE" ? row.retryCount + 1 : row.retryCount },
+  });
+  await enqueue(tx, row.tenantId, "payouts.send", { payoutId: row.id });
+  return true;
+}
+
+/**
+ * 2S5-BE-07 — the worker's sweep: every payout whose automatic retry is due
+ * goes back to the provider. `opts.tenantIds` limits it to some books, for a
+ * test that moves the clock.
+ */
+export async function sweepPayoutRetries(now = new Date(), opts: { tenantIds?: string[] } = {}) {
+  const out = { retried: 0, failed: 0 };
+  const books = opts.tenantIds ? { tenantId: { in: opts.tenantIds } } : {};
+  const due = await prisma.payout.findMany({
+    /* tenant-scope: the system sweep — every tenant's payouts whose automatic retry is due; each is retried in its own books. */
+    where: { ...books, state: "FAILED", waitingOn: "SYSTEM_RETRY", nextRetryAt: { lte: now } },
+    select: { id: true }, orderBy: { nextRetryAt: "asc" }, take: 200,
+  });
+  for (const { id } of due) {
+    try {
+      if (await prisma.$transaction((tx) => autoRetry(tx, id, "SCHEDULE", now))) out.retried++;
+    } catch (error) {
+      out.failed++;
+      console.error(`[payouts] automatic retry of ${id} failed, will retry next sweep:`, error);
+    }
+  }
+  return out;
+}
+
+/** What the stand-in says when it fails a payout, by kind. */
+const STANDIN_FAILURES: Record<FailureKind, string> = {
+  TEMPORARY: "The payment provider couldn't reach the bank — a temporary problem (test payment provider).",
+  ACCOUNT: "The payee's payout account needs attention before money can be sent to it (test payment provider).",
+  OTHER: "The payment provider refused this payout (test payment provider).",
+};
+
+/**
+ * The stand-in provider's answer to a payout it was handed: paid — or, when
+ * STANDIN_PAYOUT_FAILURE names a failure kind, failed that way, so the
+ * retry story runs end to end on staging and in tests. A real provider's
+ * webhook lands on confirmPayoutPaid / failPayout the same way.
+ */
+export async function completeStandinPayout(payoutId: string, now = new Date()) {
+  if (providerName() !== "standin") return { paid: false, failed: false };
+  const kind = env.STANDIN_PAYOUT_FAILURE;
+  if (kind) return { paid: false, ...(await failPayout(payoutId, STANDIN_FAILURES[kind], kind, now)) };
+  return { failed: false, ...(await confirmPayoutPaid(payoutId, now)) };
 }
