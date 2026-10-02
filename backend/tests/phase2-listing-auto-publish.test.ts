@@ -382,7 +382,8 @@ describe.skipIf(!hasDatabase)("2S3-BE-06 · listings publish automatically; BTG 
       const digests = async () => prisma.listingDigest.findMany({ where: { tenantId: T }, select: { day: true, listings: true } });
       const summaries = async () => mails((m) => m.template === "listing.autoPublishedDigest" && m.to === "lap_admin@lap-test.invalid");
       expect(await digests()).toEqual([]);
-      await sendListingDigests(now);
+      /* Only this file's marketplace: the sweep is platform-wide, and other files' tenants are theirs. */
+      await sendListingDigests(now, [T]);
       const auto = await prisma.listing.findMany({
         where: { tenantId: { in: await tenantsInPlay() }, publishedAutomatically: true, publishedAt: { lte: now } }, select: { id: true, title: true },
       });
@@ -398,7 +399,7 @@ describe.skipIf(!hasDatabase)("2S3-BE-06 · listings publish automatically; BTG 
       /* Another marketplace's admin hears nothing of these. */
       expect(await mails((m) => m.template === "listing.autoPublishedDigest" && m.to === "lap_x_admin@lap-test.invalid")).toEqual([]);
 
-      await sendListingDigests(new Date(now.getTime() + 60_000));
+      await sendListingDigests(new Date(now.getTime() + 60_000), [T]);
       expect(await digests()).toHaveLength(1);
       expect(await summaries()).toHaveLength(1);
     });

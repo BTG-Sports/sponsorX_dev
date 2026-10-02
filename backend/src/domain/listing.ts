@@ -608,9 +608,10 @@ export const LISTING_DIGEST_HOUR_UTC = 13;
  * `ListingDigest` row is written with the email (one per tenant per UTC
  * date), and the email's key is the tenant, the date and the admin, so a
  * second pass that day — or a retried send — adds nothing. A day with
- * nothing published sends nothing.
+ * nothing published sends nothing. `only` limits the pass to the named BTG
+ * tenants (a re-run for one marketplace); the worker passes none — every one.
  */
-export async function sendListingDigests(now = new Date()) {
+export async function sendListingDigests(now = new Date(), only?: readonly string[]) {
   const rows = await prisma.listing.findMany({
     /* tenant-scope: the worker's daily sweep across every tenant; each summary goes to the BTG tenant that operates the listing's own. */
     where: { publishedAutomatically: true, publishedAt: { gt: new Date(now.getTime() - DAY), lte: now } },
@@ -623,6 +624,7 @@ export async function sendListingDigests(now = new Date()) {
   const byBtg = new Map<string, typeof rows>();
   for (const r of rows) {
     const btg = r.tenant.operatorTenantId ?? r.tenantId;
+    if (only && !only.includes(btg)) continue;
     byBtg.set(btg, [...(byBtg.get(btg) ?? []), r]);
   }
   const day = dateOf(now);
