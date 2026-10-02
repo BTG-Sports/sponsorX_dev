@@ -3045,6 +3045,7 @@ model RefundDue {
   sponsorId   String
   amountCents Int
   /// SPONSOR_CANCELLED | SELLER_CANCELLED | CANCELLATION_AGREED | PROBLEM_AGREED | BTG_DECIDED | BTG_REFUNDED_ORDER
+  /// | PAID_AFTER_CANCELLATION (a card payment confirmed after the order was cancelled)
   cause       String
   /// Copied from the order: CARD | BANK_TRANSFER | CHEQUE | OTHER | ZOHO_INVOICE.
   paidVia     String?

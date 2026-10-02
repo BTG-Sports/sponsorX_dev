@@ -36,6 +36,7 @@ import { assertAllowed, whereFor } from "../auth/scope";
 import { ForbiddenError } from "../auth/errors";
 import { providerName, readStandinToken, standinLink, standinRef, StandinTokenError } from "../lib/payment-provider";
 import { postPayout } from "./ledger";
+import { recordRefund } from "./refunds";
 import { lockOrder, moveOrderAsSystem, payOrderIn } from "./marketplace-order";
 import { appUrl, btgAdmins, tell } from "./order-mail";
 import { assertMayCommit } from "./guardian-acts";
@@ -328,11 +329,24 @@ export async function confirmPayment(attemptId: string, now = new Date()) {
       await audit(tx, { userId: null, tenantId: a.tenantId }, ended ? "payment.paidAfterCancel" : "payment.afterPaid", "MarketplaceOrder", a.orderId, {
         after: { attemptId: a.id, amountCents: a.amountCents, orderState: order.state, providerRef: a.providerRef, refundNeeded: true },
       });
+      /* 2S4-BE-13 — money received for a cancelled order: a whole-order row on
+         Finance's "Refunds to send" for the amount received (refunded to the
+         card at once through the stand-in). That row is the refund, so BTG's
+         "refund needed" email is not sent for it. (A cancelled order was never
+         paid, so it has no other refund row; the attempt's claim above means a
+         redelivered confirmation never reaches here twice.) */
+      if (order.state === "CANCELLED") {
+        await recordRefund(tx, { userId: null, tenantId: a.tenantId }, a.orderId, { cause: "PAID_AFTER_CANCELLATION", lineId: null, cancellation: false }, {
+          whole: true, received: { amountCents: a.amountCents, paidVia: "CARD", paymentReference: a.providerRef },
+        }, now);
+        return { confirmed: true, refundNeeded: true };
+      }
+      /* Refunded, or already paid another way: BTG's to sort out by hand. */
       for (const u of await btgAdmins(tx, a.tenantId)) {
         await tell(tx, { tenantId: a.tenantId, email: u.email }, "payment.refundNeeded", a.id, {
           orderRef: orderRef(a.orderId), amount: usd(a.amountCents), orderState: order.state.toLowerCase().replace("_", " "),
           why: ended
-            ? `The card payment was confirmed after the order was ${order.state === "CANCELLED" ? "cancelled" : "refunded"}`
+            ? "The card payment was confirmed after the order was refunded"
             : "The card payment was confirmed for an order that had already been paid another way",
           providerRef: a.providerRef ?? "", orderUrl: appUrl(`/admin/marketplace/orders/${a.orderId}`),
         });

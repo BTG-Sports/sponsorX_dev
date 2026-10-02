@@ -42,6 +42,7 @@ describe.skipIf(!hasDatabase)("2S4-BE-12 / 2S4-BE-13 · cancelling a paid line, 
   const { createApp } = await import("../src/app");
   const { decideOnboarding } = await import("../src/domain/onboarding");
   const { confirmPayment } = await import("../src/domain/payouts");
+  const { cancelOrderAsSystem } = await import("../src/domain/marketplace-order");
   const { sponsorLimit } = await import("../src/domain/spending-limit");
   const { recordRefund, refundSentProblems } = await import("../src/domain/refunds");
   const { cancellationTerms, cancelCutoff, cancelLine, cancellationFor, sweepDeliveries, refundCentsFor } = await import("../src/domain/delivery");
@@ -613,6 +614,27 @@ describe.skipIf(!hasDatabase)("2S4-BE-12 / 2S4-BE-13 · cancelling a paid line, 
       });
       expect(await refundsOf(orderId)).toEqual(first);
       await expect(prisma.refundDue.create({ data: { tenantId: T, orderId, lineId: line, sponsorId: "lc_cedar", amountCents: 1, cause: "SPONSOR_CANCELLED" } })).rejects.toThrow();
+    });
+
+    it("a card payment confirmed after its order was cancelled: one whole-order row for the amount received, refunded by the stand-in — once", async () => {
+      const o = await order("lc_cedar_buyer", [{ listingId: E.joListing, quantity: 1, startsOn: at(74), endsOn: at(75) }], "NONE");
+      const link = await call("POST", `/marketplace-orders/${o.orderId}/pay`, "lc_cedar_buyer");
+      await call("POST", "/public/test-provider/checkout", undefined, { token: tokenOf(link.json.url), outcome: "SUCCEED" });
+      const attempt = await prisma.paymentAttempt.findFirstOrThrow({ where: { orderId: o.orderId, state: "PROCESSING" }, select: { id: true, amountCents: true } });
+      /* Cancelled underneath the provider's confirmation. */
+      await prisma.$transaction((tx) => cancelOrderAsSystem(tx, o.orderId, "UNPAID"));
+      expect(await confirmPayment(attempt.id)).toMatchObject({ confirmed: true, refundNeeded: true });
+      expect((await orderOf(o.orderId)).state).toBe("CANCELLED");
+      const rows = await refundsOf(o.orderId);
+      expect(rows).toEqual([expect.objectContaining({
+        lineId: null, cause: "PAID_AFTER_CANCELLATION", amountCents: attempt.amountCents, paidVia: "CARD", state: "SENT", method: "CARD", provider: "standin",
+      })]);
+      expect(await mailsFor("refund.sent", rows[0]!.id)).toEqual(["lc_cedar_buyer@lc-test.invalid"]);
+      expect((await call("GET", "/refunds?state=SENT", "lc_finance")).json.refunds.find((r: { id: string }) => r.id === rows[0]!.id))
+        .toMatchObject({ wholeOrder: true, causeWords: "Paid after the order was cancelled" });
+      /* The provider's confirmation again: no second row. */
+      expect(await confirmPayment(attempt.id)).toMatchObject({ confirmed: false });
+      expect(await refundsOf(o.orderId)).toEqual(rows);
     });
 
     it("Finance's list: BTG admin and Finance only, tenant-wide, with what each needs — and a Zoho invoice's credit note", async () => {

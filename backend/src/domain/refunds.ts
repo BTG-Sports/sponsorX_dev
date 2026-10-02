@@ -52,6 +52,8 @@ export class RefundError extends Error {
 
 export const REFUND_CAUSES = [
   "SPONSOR_CANCELLED", "SELLER_CANCELLED", "CANCELLATION_AGREED", "PROBLEM_AGREED", "BTG_DECIDED", "BTG_REFUNDED_ORDER",
+  /* A card payment the provider confirmed after the order was cancelled (payouts.ts `confirmPayment`). */
+  "PAID_AFTER_CANCELLATION",
 ] as const;
 export type RefundCause = (typeof REFUND_CAUSES)[number];
 export const REFUND_STATES = ["OPEN", "SENT"] as const;
@@ -67,6 +69,7 @@ export const CAUSE_WORDS: Record<RefundCause, string> = {
   PROBLEM_AGREED: "A delivery problem — the seller refunded the line and the sponsor accepted",
   BTG_DECIDED: "BTG decided to refund the line",
   BTG_REFUNDED_ORDER: "BTG refunded the order",
+  PAID_AFTER_CANCELLATION: "Paid after the order was cancelled",
 };
 
 const PAID_VIA_WORDS: Record<string, string> = {
@@ -116,14 +119,22 @@ export function refundSentProblems(p: { method?: string | null; reference?: stri
  * payment is refunded through the adapter where it can be, and the row
  * marked SENT.
  */
-export async function recordRefund(tx: Tx, actor: AuditActor, orderId: string, ctx: RefundContext, opts: { whole: boolean }, now = new Date()) {
+export async function recordRefund(
+  tx: Tx, actor: AuditActor, orderId: string, ctx: RefundContext,
+  opts: {
+    whole: boolean;
+    /** Money that arrived without paying the order (a card confirmed after it was cancelled): how much, how, and the provider's reference. */
+    received?: { amountCents: number; paidVia: string; paymentReference: string | null };
+  },
+  now = new Date(),
+) {
   const order = await tx.marketplaceOrder.findUniqueOrThrow({
     /* tenant-scope: the order the refunding path loaded through its caller's scope (or the system's own sweep), by id. */
     where: { id: orderId },
     select: { id: true, tenantId: true, sponsorId: true, totalCents: true, paidAt: true, paidVia: true, paymentReference: true, createdBy: true, billingEmail: true, billingName: true },
   });
   /* Money actually received: the order was paid (paidAt from 2S4-BE-10 on; before it, its lines opened for delivery). */
-  const paid = Boolean(order.paidAt || order.paidVia) || (await tx.orderLineDelivery.count({
+  const paid = Boolean(opts.received) || Boolean(order.paidAt || order.paidVia) || (await tx.orderLineDelivery.count({
     /* tenant-scope: this order's own delivery rows, named by its id. */
     where: { orderId, paidAt: { not: null } },
   })) > 0;
@@ -135,8 +146,12 @@ export async function recordRefund(tx: Tx, actor: AuditActor, orderId: string, c
   });
   if (existing) return existing;
 
+  const paidVia = opts.received?.paidVia ?? order.paidVia;
+  const paymentReference = opts.received ? opts.received.paymentReference : order.paymentReference;
   let amountCents: number;
-  if (opts.whole) {
+  if (opts.received) {
+    amountCents = opts.received.amountCents;
+  } else if (opts.whole) {
     const already = await tx.refundDue.aggregate({
       /* tenant-scope: this order's own refunds, named by its id. */
       where: { orderId }, _sum: { amountCents: true },
@@ -153,7 +168,7 @@ export async function recordRefund(tx: Tx, actor: AuditActor, orderId: string, c
 
   const made = await tx.refundDue.createMany({
     data: [{
-      tenantId: order.tenantId, orderId, lineId: ctx.lineId, sponsorId: order.sponsorId, amountCents, cause: ctx.cause, paidVia: order.paidVia,
+      tenantId: order.tenantId, orderId, lineId: ctx.lineId, sponsorId: order.sponsorId, amountCents, cause: ctx.cause, paidVia,
     }],
     /* (order, line) is unique — and one whole-order row per order: a retry finds its row and writes nothing. */
     skipDuplicates: true,
@@ -164,12 +179,12 @@ export async function recordRefund(tx: Tx, actor: AuditActor, orderId: string, c
   });
   if (!made.count) return row;
   await audit(tx, actor, "refundDue.create", "MarketplaceOrder", orderId, {
-    after: { refundId: row.id, lineId: ctx.lineId, amountCents, cause: ctx.cause, paidVia: order.paidVia, whole: opts.whole },
+    after: { refundId: row.id, lineId: ctx.lineId, amountCents, cause: ctx.cause, paidVia, whole: opts.whole },
   });
 
   /* A card payment the provider can refund goes back at once; with no provider it waits for Finance. */
-  if (order.paidVia === "CARD") {
-    const refunded = refundCard({ paymentReference: order.paymentReference, amountCents });
+  if (paidVia === "CARD") {
+    const refunded = refundCard({ paymentReference, amountCents });
     if (refunded) {
       const sent = await tx.refundDue.updateMany({
         /* tenant-scope: the row just written, by id, only while still on its way. */

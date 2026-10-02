@@ -358,7 +358,7 @@ describe.skipIf(!hasDatabase)("2S4-BE-09 / 2S4-BE-10 · order state under concur
       expect(await stateOf(o.id)).toBe("CANCELLED");
     });
 
-    it("a card payment confirmed for an order already cancelled is recorded for refund, and BTG is emailed", async () => {
+    it("a card payment confirmed for an order already cancelled is recorded for refund (a RefundDue row, 2S4-BE-13)", async () => {
       const o = await order("oc_s1_admin", [{ key: "poster", quantity: 1 }]);
       const pay = await call("POST", `/marketplace-orders/${o.id}/pay`, "oc_s1_admin");
       const token = new URL(pay.json.url).searchParams.get("t")!;
@@ -372,12 +372,14 @@ describe.skipIf(!hasDatabase)("2S4-BE-09 / 2S4-BE-10 · order state under concur
       expect(await audits(o.id, "payment.paidAfterCancel")).toEqual([
         { after: expect.objectContaining({ attemptId: attempt.id, amountCents: o.totalCents, orderState: "CANCELLED" }) },
       ]);
-      const mail = (await mails("payment.refundNeeded")).filter((m) => m.data.orderRef === ref(o.id));
-      expect(mail.map((m) => m.to)).toEqual(["oc_admin@oc-test.invalid"]);
-      expect(mail[0]!.data).toMatchObject({ amount: expect.stringMatching(/^\$/), orderState: "cancelled" });
+      /* 2S4-BE-13 — the refund is a row on Finance's list (refunded to the card by the stand-in), so no "refund needed" email. */
+      expect(await prisma.refundDue.findMany({ where: { orderId: o.id }, select: { lineId: true, cause: true, amountCents: true } }))
+        .toEqual([{ lineId: null, cause: "PAID_AFTER_CANCELLATION", amountCents: o.totalCents }]);
+      expect((await mails("payment.refundNeeded")).filter((m) => m.data.orderRef === ref(o.id))).toEqual([]);
       /* The confirmation redelivered records nothing twice. */
       expect(await confirmPayment(attempt.id)).toMatchObject({ confirmed: false });
       expect(await audits(o.id, "payment.paidAfterCancel")).toHaveLength(1);
+      expect(await prisma.refundDue.count({ where: { orderId: o.id } })).toBe(1);
     });
 
     it("cancelling through /transition — sponsor or BTG — is refused (409) while a card payment is being confirmed", async () => {
