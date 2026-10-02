@@ -180,7 +180,7 @@ export function LandingLoader({ city = true }: { city?: boolean }) {
   if (phase === "gone") return null;
 
   return (
-    <div className={`sx-loader ${styles.overlay}`} data-phase={phase} data-testid="landing-loader">
+    <div className={`sx-loader ${styles.overlay} print:hidden`} data-phase={phase} data-testid="landing-loader">
       <p className={styles.sr} role="status">
         {phase === "loading" ? (city ? "Loading the city" : "Loading SponsorX") : "Loaded"}
       </p>
