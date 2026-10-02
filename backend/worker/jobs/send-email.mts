@@ -267,6 +267,24 @@ ${d.portalUrl ?? ""}
        with no reason is an instruction the athlete cannot follow. */
     text: `Hi ${d.firstName ?? "there"},\n\nWe need a change to ${d.title ?? "your deliverable"} before it can be approved:\n\n${d.reason ?? ""}\n\nYou do not need to start again — update and resubmit here:\n\n${d.portalUrl ?? ""}\n\n— BTG SponsorX`,
   }),
+  /* P9-BE-16 — edition ad artwork on the approval board, to the other party. */
+  "editionArtwork.submitted": (d) => ({
+    subject: `Ad artwork in: ${d.sponsorName ?? "a sponsor"} — ${d.slotCode ?? "an ad slot"}, ${d.editionLabel ?? "an edition"}`,
+    text: `${d.by ?? "Someone"} uploaded version ${d.version ?? "1"} of the artwork for ${d.slotCode ?? "an ad slot"} in ${d.editionLabel ?? "the edition"} (${d.campaignName ?? "the campaign"}).\n\nIt goes through BTG's review, then to the sponsor for sign-off:\n\n${d.reviewUrl ?? ""}\n\n— SponsorX`,
+  }),
+  "editionArtwork.readyForSignOff": (d) => ({
+    subject: `Your ad artwork is ready for your sign-off — ${d.editionLabel ?? "the edition"}`,
+    text: `Hi,\n\nBTG has reviewed your artwork for ${d.slotCode ?? "your ad"} in ${d.editionLabel ?? "the edition"}. Please approve it, or ask for changes, on your campaign page:\n\n${d.reviewUrl ?? ""}\n\nThe edition can't go to print until every ad is approved by its sponsor.\n\n— BTG SponsorX`,
+  }),
+  "editionArtwork.revisionRequested": (d) => ({
+    subject: `Changes asked for: ad artwork for ${d.slotCode ?? "an ad slot"}, ${d.editionLabel ?? "the edition"}`,
+    /* The note is mandatory upstream (ArtworkRevisionNoteRequiredError), so it is quoted, not defaulted. */
+    text: `Hi,\n\n${d.by === "BTG" ? "BTG" : d.sponsorName ?? "The sponsor"} asked for changes to the artwork for ${d.slotCode ?? "the ad slot"} in ${d.editionLabel ?? "the edition"}:\n\n"${d.reason ?? ""}"\n\nUpload the new version here:\n\n${d.reviewUrl ?? ""}\n\n— BTG SponsorX`,
+  }),
+  "editionArtwork.approved": (d) => ({
+    subject: `Ad artwork approved: ${d.sponsorName ?? "a sponsor"} — ${d.slotCode ?? "an ad slot"}, ${d.editionLabel ?? "an edition"}`,
+    text: `${d.sponsorName ?? "The sponsor"} approved the artwork for ${d.slotCode ?? "their ad slot"} in ${d.editionLabel ?? "the edition"}. That slot no longer holds up production.\n\n${d.reviewUrl ?? ""}\n\n— SponsorX`,
+  }),
   "deliverable.approved": (d) => ({
     subject: `Approved: ${d.title ?? "your deliverable"}`,
     text: `Hi ${d.firstName ?? "there"},\n\n${d.title ?? "Your deliverable"} has been approved${d.campaignName ? ` for ${d.campaignName}` : ""}.\n\nOnce it is live, mark it published in your portal and add the link — that is what lets us verify it and release your earnings.\n\n${d.portalUrl ?? ""}\n\n— BTG SponsorX`,

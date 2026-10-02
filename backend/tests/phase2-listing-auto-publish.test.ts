@@ -123,7 +123,8 @@ describe.skipIf(!hasDatabase)("2S3-BE-06 · listings publish automatically; BTG 
     const p = await prisma.property.findUniqueOrThrow({ where: { id: approved.propertyId! }, select: { id: true, tenantId: true } });
     Object.assign(E, { tenant: p.tenantId, property: p.id });
 
-    server = createApp().listen(0);
+    server = createApp().listen(0, "127.0.0.1");
+    await new Promise((r) => server.once("listening", r)); // a host makes the bind async
     base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
     await call("GET", "/me", "lap_mgr");
     const morgan = await call("POST", "/team/roster", "lap_mgr", { legalName: "Morgan Diaz", displayName: "MORGAN.DIAZ", email: "lap_morgan@lap-test.invalid", sport: "Soccer", ageBand: "18_PLUS", teamShareBps: 2000 });

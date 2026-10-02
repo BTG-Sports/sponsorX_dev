@@ -155,3 +155,62 @@ The owner asked to finish the remaining Phase 1 tasks. Every open row was checke
 ### Owner steps
 - Connect BTG's Zoho Books, and switch on the invoice webhook there.
 - Choose Stripe. Real card payments, and refunds actually returned to the card, wait for it.
+
+## Afternoon batch: P9-BE-16, 2S3-FE-03, 2S2-FE-01, 2S8-QA-03, 2S8-QA-04 and QA-02 (all Done after independent review)
+
+### P9-BE-16: edition ad artwork through the approval board (option B, chosen by the owner)
+- **Design:** the board learns a second subject, edition artwork. The alternative, making each ad a Deliverable on a fake Campaign Order, was rejected because it would need a made-up athlete and job.
+- **Data:** `EditionAsset` gains `adSlotId`, a `reviewState` that reuses `DeliverableState`, `artworkVersion`, `submittedAt` and `revisionNote`. Migration `20261003150000`. A trigger refuses artwork on an unsold slot.
+- **Transitions:** checked by `canTransitionDeliverable` / `canRequestRevision`, so there is no second state machine.
+- **Sponsor sign-off is mandatory.** The policy resource `editionArtwork` gives approve to SPONSOR_ADMIN on their own campaign only. No staff role can approve. RBAC §15.3; digest `549a562e5fbbb0a6`.
+- **Production gate:** every sold slot needs APPROVED artwork, alongside the rights check.
+- **Review fix (`232b4a9`):** every production gate now asks about the edition's own tenant, not the caller's. A cross-tenant SUPER_ADMIN could otherwise skip the gates.
+- **Screens:**
+  - "Edition ad artwork" on `/admin/approvals`;
+  - "Your ad artwork" on the sponsor's campaign page;
+  - the artwork gate and card on the BTG edition page.
+
+### FOR JAN: `next-edition-e2e.test.ts`, P9-QA-01 clause 4
+Clause 4 now fails at the IN_PRODUCTION step, and clause 5 fails with it, because the artwork is never approved. Two changes make it pass; verified 7/7 on a copy.
+1. Replace the `POST /editions/${editionId}/assets` AD_CREATIVE call with:
+   ```ts
+   const signed = await call("POST", `/ad-slots/${backSlotId}/artwork/uploads`, SPONSOR_USER, { contentType: "image/png" });
+   const art = await call("POST", `/ad-slots/${backSlotId}/artwork`, SPONSOR_USER, { r2Key: signed.json.key, title: "Rosa's back cover artwork" });
+   artworkId = art.json.id;
+   ```
+2. Before the final IN_PRODUCTION transition:
+   ```ts
+   expect((await call("POST", `/edition-artwork/${artworkId}/btg-review`, STAFF)).json.state).toBe("BTG_REVIEW");
+   expect((await call("POST", `/edition-artwork/${artworkId}/sponsor-review`, STAFF)).json.state).toBe("SPONSOR_REVIEW");
+   expect((await call("POST", `/edition-artwork/${artworkId}/approve`, SPONSOR_USER)).json.state).toBe("APPROVED");
+   ```
+
+### 2S3-FE-03 and 2S2-FE-01
+- **2S3-FE-03:** an independent athlete is named as the seller in the cart, checkout, the sponsor's order page and BTG's order page. Order lines carry `seller {type,id,name}`.
+- **2S2-FE-01:** the Phase 2 athlete home.
+  - New `GET /sales/summary`, own scope only, for inventory performance and upcoming sales.
+  - `GET /payouts/me` gains `byState`. This also fixed `paidOutCents`, which only counted the 50 payouts listed.
+  - Offers and invitations waiting, deliverables due and overdue.
+
+### 2S8-QA-03, 2S8-QA-04 and QA-02
+- **QA-02:** the test was wrong, not the code. It wrote `expiresAt` with `now()` in the session's time zone (Manila), but the column is UTC. Fixed in `ed67f6f`.
+- **2S8-QA-04:** four causes, each isolated:
+  - a test tenant id shared by two files (`np_tenant`);
+  - the slug `riley-carter`, shared with the walkthrough seed;
+  - `sweepComingOfAge` and `expireReservations` running platform-wide from tests; they now take `opts.tenantIds`, and the worker is unchanged;
+  - test servers bound to every address on macOS; they now bind 127.0.0.1 and wait for `listening`.
+
+  The new guard is `tests/suite-isolation.static.test.ts`.
+- **2S8-QA-03:** `tests/phase2-reconciliation.test.ts` runs a full cycle through the API, with a tolerance of exactly 0 cents. It found no money bug.
+
+### Newly raised
+- **2S8-OPS-02:** pin the database time zone to UTC. `expire-invitations.mts` and the editions migration compare `now()` with UTC columns.
+- **2S8-QA-05:**
+  - a race between two applicants with the same name;
+  - the walkthrough seed failing on a non-empty database;
+  - a negative payee balance not shown on the payout page.
+
+### Checks
+- Backend: 2279 of 2281 on two runs. The only failures are Jan's clauses 4 and 5, above. QA-02 is green.
+- Frontend: 1025 pass.
+- The build is clean.

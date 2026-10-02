@@ -138,6 +138,16 @@ export const AUDIT_ACTIONS = {
     verify: "deliverable.verify",
     assetRegister: "deliverable.assetRegister",
   },
+  /** P9-BE-16 — a sold slot's ad artwork on the approval board: the same
+   *  steps as a deliverable's, under their own names so the log says which
+   *  kind of subject was decided. */
+  editionArtwork: {
+    submit: "editionArtwork.submit",
+    btgReview: "editionArtwork.btgReview",
+    sponsorReview: "editionArtwork.sponsorReview",
+    requestRevision: "editionArtwork.requestRevision",
+    approve: "editionArtwork.approve",
+  },
   /**
    * The fan funnel (P6-BE-02, P6-BE-07, §16).
    *

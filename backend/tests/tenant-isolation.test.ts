@@ -93,6 +93,8 @@ const A = {
   sellerApproval: "ti_seller_approval_a",
   /* 2S1-BE-13 — a rejected tenant-A account asking to come back; 2S1-BE-15 — a request to become its guardian, waiting. */
   closure: "ti_closure_a", handoff: "ti_handoff_a",
+  /* P9-BE-16 — a slot sold to tenant A's campaign, and its artwork on the approval board. */
+  soldSlot: "ti_slot_sold_a", artwork: "ti_artwork_a",
 } as const;
 const B = {
   tenant: "ti_tenant_b", sponsor: "ti_sponsor_b", athlete: "ti_athlete_b",
@@ -161,6 +163,8 @@ const PARAM_FOR: Record<string, string> = {
   "profile-changes": "pc_not_yours",
   /* 2S1-BE-13 / 2S1-BE-15. */
   "account-closures": A.closure, "guardian-handoffs": A.handoff,
+  /* P9-BE-16 — a sold slot's artwork uploads, and the artwork's review steps. */
+  "ad-slots": A.soldSlot, "edition-artwork": A.artwork,
 };
 
 /**
@@ -248,6 +252,10 @@ const BODY: Record<string, unknown> = {
   "POST /editions/{id}/assets": { kind: "ARTICLE", title: "Stolen", sourceKind: "BTG" },
   "POST /edition-assets/{id}/rights": { grantorKind: "BTG", grantorRef: "x", licenseRef: "L-1", startsAt: "2026-01-01T00:00:00.000Z" },
   "POST /edition-assets/{id}/campaign": { campaignId: A.campaign },
+  /* P9-BE-16 */
+  "POST /ad-slots/{id}/artwork/uploads": { contentType: "image/png" },
+  "POST /ad-slots/{id}/artwork": { r2Key: "t/ti_tenant_a/ad-slot/ti_slot_sold_a/x" },
+  "POST /edition-artwork/{id}/revision": { reason: "Isolation sweep" },
   "POST /consents": { agreementId: A.agreement, subjectKind: "ATHLETE", subjectId: A.athlete, bodyHashShown: "x".repeat(64) },
   "POST /featured-athletes": { displayName: "Stolen", sport: "Soccer", propertyId: A.school },
   "POST /claims/{id}/verify": {},
@@ -327,7 +335,11 @@ describe.skipIf(!hasDatabase)("P8-SEC-02 · tenant B cannot reach tenant A throu
       /* The positive control's own reads are allowed to leave a trace: a
          private-file read is audited, and tenant A's admin making it is
          tenant A acting on itself (2S1-BE-17, the proof-of-business link). */
-      const own = table_name === "AuditLog" ? `AND NOT ("action" = 'storage.privateDownloadGrant' AND "actorId" = '${A.admin}')` : "";
+      /* P9-BE-16 — and tenant A's own sponsor opening its own ad artwork's
+         signed preview (GET /edition-artwork/{id}/url) in the outside-tenant
+         sweep: the same kind of trace, tenant A acting on itself. */
+      const ownActors = [A.admin, ...A_ACTORS.map((a) => a.id)].map((id) => `'${id}'`).join(", ");
+      const own = table_name === "AuditLog" ? `AND NOT ("action" = 'storage.privateDownloadGrant' AND "actorId" IN (${ownActors}))` : "";
       const rows = await prisma.$queryRawUnsafe<unknown[]>(
         `SELECT * FROM "${table_name}" WHERE "tenantId" = $1 ${own} ORDER BY 1`, tenant,
       );
@@ -405,6 +417,12 @@ describe.skipIf(!hasDatabase)("P8-SEC-02 · tenant B cannot reach tenant A throu
     await prisma.studentProspect.create({ data: { id: A.prospect, tenantId: t, studentId: A.student, businessName: "TI Secret Deli", category: "RESTAURANT" } });
     /* Batch C — an edition asset and a claim on a profile. */
     await prisma.editionAsset.create({ data: { id: A.asset, tenantId: t, editionId: A.edition, kind: "ARTICLE", title: "TI Secret Article", sourceKind: "BTG" } });
+    /* P9-BE-16 — a slot sold to tenant A's campaign, with its artwork waiting on the sponsor. */
+    await prisma.adSlot.create({ data: { id: A.soldSlot, tenantId: t, editionId: A.edition, slotCode: "TI-SECRET-FULL", kind: "FULL", priceCents: 80000, campaignId: A.campaign, soldCents: 80000, soldAt: new Date() } });
+    await prisma.editionAsset.create({ data: {
+      id: A.artwork, tenantId: t, editionId: A.edition, kind: "AD_CREATIVE", title: "TI Secret Artwork", sourceKind: "THIRD_PARTY",
+      r2Key: `t/${t}/ad-slot/${A.soldSlot}/secret`, adSlotId: A.soldSlot, reviewState: "SPONSOR_REVIEW", artworkVersion: 1, submittedAt: new Date(),
+    } });
     await prisma.propertyOnboarding.create({ data: { id: A.onboarding, tenantId: t, orgType: "TEAM", orgName: "TI Secret Org", state: "PENDING_REVIEW" } });
     await prisma.inventoryItem.createMany({ data: [
       { id: A.item, tenantId: t, athleteId: A.athlete, title: "TI Secret Item", kind: "OTHER", priceCents: 5000 },
@@ -542,7 +560,8 @@ describe.skipIf(!hasDatabase)("P8-SEC-02 · tenant B cannot reach tenant A throu
   beforeAll(async () => {
     await seed();
     before = await fingerprint();
-    server = createApp().listen(0);
+    server = createApp().listen(0, "127.0.0.1");
+    await new Promise((r) => server.once("listening", r)); // a host makes the bind async
     base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
   });
 

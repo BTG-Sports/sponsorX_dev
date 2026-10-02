@@ -150,7 +150,8 @@ describe.skipIf(!hasDatabase)("P4-SEC-02 · athlete pay never reaches a sponsor"
     await prisma.student.create({ data: { id: "fa_student_row", tenantId: T, propertyId: "fa_school", legalName: "FA Student", displayName: "FAS", masthead: ["WRITER"], state: "ACTIVE" } });
     await prisma.user.create({ data: { id: "fa_student", tenantId: T, clerkId: "fa_student", email: "fa_student@x.invalid", roles: ["STUDENT"], studentId: "fa_student_row", propertyId: "fa_school" } });
     await prisma.user.create({ data: { id: "fa_advisor", tenantId: T, clerkId: "fa_advisor", email: "fa_advisor@x.invalid", roles: ["ADVISOR"], propertyId: "fa_school" } });
-    server = createApp().listen(0);
+    server = createApp().listen(0, "127.0.0.1");
+    await new Promise((r) => server.once("listening", r)); // a host makes the bind async
     base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
   });
 

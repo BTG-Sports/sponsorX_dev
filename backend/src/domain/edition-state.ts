@@ -12,7 +12,9 @@
  * THE PRODUCTION GATE. An edition enters production only when all three V3 §3
  * conditions hold — content ready, rights cleared, revenue met — and they are
  * columns, not an opinion computed at the moment someone clicks. SponsorX
- * makes this call, not the school (§5.2).
+ * makes this call, not the school (§5.2). P9-BE-16 adds a fourth, computed at
+ * the transition like rightsCleared: every SOLD slot's artwork is APPROVED on
+ * the approval board (`artworkApproved`, edition-artwork.ts).
  *
  * WHY CANCELLED STOPS AT CLOSED. Once in production, advertisers have been
  * sold a published placement and the cost is being spent; stopping then is a
@@ -48,7 +50,13 @@ const TRANSITIONS: Readonly<Record<EditionState, readonly EditionState[]>> = {
 /** States in which the edition is live to readers — events may be recorded. */
 export const PUBLISHED_STATES: readonly EditionState[] = ["PUBLISHED_DIGITAL", "PRINTED", "DISTRIBUTED"];
 
-export type ProductionConditions = { contentReady: boolean; rightsCleared: boolean; revenueMet: boolean };
+export type ProductionConditions = {
+  contentReady: boolean;
+  rightsCleared: boolean;
+  revenueMet: boolean;
+  /** P9-BE-16 — every sold slot's artwork APPROVED by its sponsor. */
+  artworkApproved: boolean;
+};
 
 export class IllegalEditionTransitionError extends Error {
   readonly status = 409;
@@ -64,10 +72,16 @@ export class IllegalEditionTransitionError extends Error {
 export class ProductionGateError extends Error {
   readonly status = 409;
   readonly missing: string[];
-  constructor(missing: string[]) {
-    super(`An edition goes to production only when content, rights and revenue are all in place. Missing: ${missing.join(", ")}.`);
+  /** What to fix, in words — e.g. each slot whose artwork is not approved. */
+  readonly problems: string[];
+  constructor(missing: string[], problems: string[] = []) {
+    super(
+      `An edition goes to production only when content, rights, revenue and every sold ad's artwork are all in place. ` +
+        `Missing: ${missing.join(", ")}.${problems.length ? ` ${problems.join(" ")}` : ""}`,
+    );
     this.name = "ProductionGateError";
     this.missing = missing;
+    this.problems = problems;
   }
 }
 
@@ -75,11 +89,14 @@ export function canTransitionEdition(from: EditionState, to: EditionState): bool
   return TRANSITIONS[from].includes(to);
 }
 
-/** Throws unless `from → to` is legal and, for production, all three hold. */
+/** Throws unless `from → to` is legal and, for production, all four hold.
+ *  `problems` is the detail the caller already has (which slots' artwork is
+ *  not approved), carried on the refusal. */
 export function assertEditionTransition(
   from: EditionState,
   to: EditionState,
   conditions: ProductionConditions,
+  problems: string[] = [],
 ): void {
   if (!canTransitionEdition(from, to)) throw new IllegalEditionTransitionError(from, to);
   if (to === "IN_PRODUCTION") {
@@ -87,8 +104,9 @@ export function assertEditionTransition(
       ...(conditions.contentReady ? [] : ["contentReady"]),
       ...(conditions.rightsCleared ? [] : ["rightsCleared"]),
       ...(conditions.revenueMet ? [] : ["revenueMet"]),
+      ...(conditions.artworkApproved ? [] : ["artworkApproved"]),
     ];
-    if (missing.length) throw new ProductionGateError(missing);
+    if (missing.length) throw new ProductionGateError(missing, conditions.artworkApproved ? [] : problems);
   }
 }
 

@@ -121,7 +121,8 @@ describe.skipIf(!hasDatabase)("P6-BE-08 · on the path a request takes", async (
     await prisma.campaign.create({ data: { id: "rl_campaign", tenantId: T, sponsorId: "rl_sponsor", name: "Fall tacos", budget: 100_000, startDate: new Date("2026-09-01"), endDate: new Date("2026-12-31"), state: "ACTIVE" } });
     await prisma.athlete.create({ data: { id: "rl_ath", tenantId: T, slug: "rl-ath", legalName: "A", displayName: "A", email: "a@rl.invalid", sport: "Soccer", stateCode: "MD", ageBand: "18_PLUS", state: "ACTIVE" } });
     await prisma.user.create({ data: { id: "rl_admin", tenantId: T, clerkId: "rl_admin", email: "admin@rl.invalid", roles: ["BTG_ADMIN"] } });
-    server = createApp().listen(0);
+    server = createApp().listen(0, "127.0.0.1");
+    await new Promise((r) => server.once("listening", r)); // a host makes the bind async
     base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
   });
 

@@ -76,7 +76,8 @@ describe.skipIf(!hasDatabase)("P6-BE-08 · reward eligibility, cap and landing c
     await prisma.sponsor.create({ data: { id: "cap_sponsor", tenantId: T, name: "Rosa's Tacos" } });
     await prisma.user.create({ data: { id: "cap_admin", tenantId: T, clerkId: "cap_admin", email: "cap_admin@cap-test.invalid", roles: ["BTG_ADMIN"] } });
     await prisma.campaign.create({ data: { id: "cap_campaign", tenantId: T, sponsorId: "cap_sponsor", name: "Tacos", budget: 100_000, startDate: new Date(), endDate: new Date(Date.now() + 60 * 864e5), state: "ACTIVE" } });
-    server = createApp().listen(0);
+    server = createApp().listen(0, "127.0.0.1");
+    await new Promise((r) => server.once("listening", r)); // a host makes the bind async
     base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
   });
 

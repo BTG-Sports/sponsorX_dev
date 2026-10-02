@@ -158,10 +158,15 @@ async function expireOne(tx: Prisma.TransactionClient, id: string, now: Date) {
  * released. Idempotent. The stock was already back the moment the time
  * passed; this makes the record say so.
  */
-export async function expireReservations(db: typeof prisma, now = new Date()): Promise<{ expired: number }> {
+export async function expireReservations(
+  db: typeof prisma,
+  now = new Date(),
+  /** Tests narrow the sweep to their own tenant (2S8-QA-04); the worker sweeps them all. */
+  opts: { tenantIds?: string[] } = {},
+): Promise<{ expired: number }> {
   const due = await db.reservation.findMany({
     /* tenant-scope: a platform sweep over every tenant's holds, by state and time only. */
-    where: { state: "HELD", expiresAt: { lte: now } },
+    where: { ...(opts.tenantIds ? { tenantId: { in: opts.tenantIds } } : {}), state: "HELD", expiresAt: { lte: now } },
     select: { id: true },
   });
   let expired = 0;

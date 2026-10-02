@@ -4,6 +4,8 @@
    pages and from the shop-* client islands alike.
    -------------------------------------------------------------------------- */
 
+import { fmtDay, lineSeller, usd, type ShopLine } from "@/lib/shop-live";
+
 /** A refusal: the message, then every reason the API gave as a list. */
 export function ShopRefusal({ message, reasons }: { message: string; reasons: string[] }) {
   return (
@@ -78,5 +80,22 @@ export function ShopPaymentNote() {
         details are asked for here.
       </p>
     </div>
+  );
+}
+
+/** One cart or order line as checkout and the order page list it: who sells
+ *  it — the team, or the independent athlete, who has no property
+ *  (2S3-FE-03) — then quantity, unit price and dates. */
+export function ShopLineRow({ line: l }: { line: ShopLine }) {
+  return (
+    <li className="flex flex-wrap items-start justify-between gap-3 rounded-xl border border-line bg-surface px-4 py-3">
+      <div className="min-w-0">
+        <p className="truncate text-sm font-semibold">{l.title}</p>
+        <p className="mt-0.5 text-[11px] text-muted">
+          {lineSeller(l)} · {l.quantity} × {usd(l.unitPriceCents)} · {fmtDay(l.startsOn)} – {fmtDay(l.endsOn)}
+        </p>
+      </div>
+      <p className="text-sm font-semibold tabular-nums">{usd(l.lineTotalCents)}</p>
+    </li>
   );
 }

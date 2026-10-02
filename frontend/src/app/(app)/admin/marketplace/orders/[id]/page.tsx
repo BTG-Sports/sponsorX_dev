@@ -19,6 +19,7 @@ import {
 } from "@/lib/marketplace-ops-live";
 import type { OrderGateRecord } from "@/lib/checkout-gate";
 import { dateLabel } from "@/lib/onboarding-live";
+import { lineSeller } from "@/lib/shop-live";
 import { paymentView, type ApiOrderPayment } from "@/lib/order-payment-live";
 import { apiFetch } from "@/server/api";
 
@@ -138,7 +139,7 @@ export default async function MarketplaceOrderPage({ params }: { params: Promise
                   <div className="min-w-0">
                     <p className="text-sm font-medium">{l.title}</p>
                     <p className="text-[11px] text-muted">
-                      {l.quantity} × {usd(l.unitPriceCents)} · {dateLabel(l.startsOn)} – {dateLabel(l.endsOn)}
+                      {l.seller ? `${lineSeller(l)}${l.seller.type === "ATHLETE" ? " (athlete)" : ""} · ` : ""}{l.quantity} × {usd(l.unitPriceCents)} · {dateLabel(l.startsOn)} – {dateLabel(l.endsOn)}
                     </p>
                   </div>
                   <span className="text-sm font-medium tabular-nums">{usd(l.lineTotalCents)}</span>

@@ -177,7 +177,11 @@ export type ApiOrderLine = {
   id: string;
   listingId: string;
   inventoryItemId: string;
-  propertyId: string;
+  /** null for an independent athlete's line (2S3-BE-05). */
+  propertyId: string | null;
+  sellerAthleteId?: string | null;
+  /** Who sells the line: the team, or the independent athlete (2S3-FE-03). Optional: older reads. */
+  seller?: { type: "PROPERTY" | "ATHLETE"; id: string; name: string } | null;
   title: string;
   quantity: number;
   startsOn: string;

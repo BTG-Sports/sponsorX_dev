@@ -130,7 +130,8 @@ describe.skipIf(!hasDatabase)("2S3-BE-05 · an athlete with no team sells their 
     const p = await prisma.property.findUniqueOrThrow({ where: { id: approved.propertyId! }, select: { id: true, tenantId: true } });
     Object.assign(E, { tenant: p.tenantId, property: p.id });
 
-    server = createApp().listen(0);
+    server = createApp().listen(0, "127.0.0.1");
+    await new Promise((r) => server.once("listening", r)); // a host makes the bind async
     base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
     await call("GET", "/me", "ind_mgr");
     const riley = await call("POST", "/team/roster", "ind_mgr", { legalName: "Riley Carter", displayName: "RILEY.CARTER", email: "ind_riley@ind-test.invalid", sport: "Basketball", ageBand: "18_PLUS", teamShareBps: 2000 });

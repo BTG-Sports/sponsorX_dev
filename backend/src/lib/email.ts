@@ -195,7 +195,14 @@ export type EmailTemplate =
   | "sale.cancelled"
   | "payment.received"
   /* 2S4-BE-10 — a card payment confirmed for an order no longer waiting for it: BTG's admins refund the sponsor. */
-  | "payment.refundNeeded";
+  | "payment.refundNeeded"
+  /* P9-BE-16 — a sold ad slot's artwork on the approval board, each step
+     emailed to the other party: a new version is in; it is ready for the
+     sponsor's sign-off; a reviewer asked for changes; the sponsor approved. */
+  | "editionArtwork.submitted"
+  | "editionArtwork.readyForSignOff"
+  | "editionArtwork.revisionRequested"
+  | "editionArtwork.approved";
 
 export type EmailMessage = {
   template: EmailTemplate;

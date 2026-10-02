@@ -178,7 +178,8 @@ describe.skipIf(!hasDatabase)("Phase 2 orders over the API", { timeout: 60_000 }
     const approved = await decideOnboarding({ userId: "mo_admin", tenantId: T, roles: ["BTG_ADMIN"], sponsorId: null, athleteId: null, guardianId: null, propertyId: null }, "mo_onb", "APPROVE");
     const p = await prisma.property.findUniqueOrThrow({ where: { id: approved.propertyId! }, select: { id: true, tenantId: true } });
     Object.assign(E, { tenant: p.tenantId, property: p.id });
-    server = createApp().listen(0);
+    server = createApp().listen(0, "127.0.0.1");
+    await new Promise((r) => server.once("listening", r)); // a host makes the bind async
     base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
 
     E.manager = (await call("GET", "/me", "mo_mgr")).json.userId;
@@ -303,10 +304,10 @@ describe.skipIf(!hasDatabase)("Phase 2 orders over the API", { timeout: 60_000 }
       /* An expired hold cannot become an order. */
       expect((await call("POST", "/marketplace-orders", L.raceWinner, { reservationId: L.raceHold, agreementId: E.terms, bodyHashShown: ORDER_TERMS_HASH, billing: TEST_BILLING })).status).toBe(409);
       /* The sweep marks it, releases its rows, and a second pass finds nothing. */
-      expect((await expireReservations(prisma)).expired).toBeGreaterThanOrEqual(1);
+      expect((await expireReservations(prisma, new Date(), { tenantIds: [T] })).expired).toBeGreaterThanOrEqual(1);
       expect((await prisma.reservation.findUniqueOrThrow({ where: { id: L.raceHold }, select: { state: true } })).state).toBe("EXPIRED");
       expect(await prisma.inventoryCommitment.count({ where: { sourceId: { startsWith: `${L.raceHold}:` }, releasedAt: null } })).toBe(0);
-      expect((await expireReservations(prisma)).expired).toBe(0);
+      expect((await expireReservations(prisma, new Date(), { tenantIds: [T] })).expired).toBe(0);
       await call("POST", `/reservations/${theirs.json.id}/release`, loser);
       expect(await live(I.poster!)).toEqual([]);
       await prisma.cart.updateMany({ where: { tenantId: T, state: "ACTIVE" }, data: { state: "EXPIRED" } });

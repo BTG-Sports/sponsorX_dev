@@ -69,7 +69,10 @@ export type ApiCartLine = {
   endsOn: string;
   unitPriceCents: number;
   title: string;
-  propertyName: string;
+  /** The team that sells it; null for an independent athlete's listing (2S3-BE-05). */
+  propertyName: string | null;
+  /** Who sells it — the team, or the independent athlete (2S3-FE-03). Optional: older reads. */
+  sellerName?: string | null;
   lineTotalCents: number;
 };
 
@@ -120,7 +123,11 @@ export type ApiOrderLine = {
   id: string;
   listingId: string;
   inventoryItemId: string;
-  propertyId: string;
+  /** null for an independent athlete's line (2S3-BE-05) — `sellerAthleteId` / `seller` name them. */
+  propertyId: string | null;
+  sellerAthleteId?: string | null;
+  /** Who sells the line: the team, or the independent athlete (2S3-FE-03). Optional: older reads. */
+  seller?: { type: "PROPERTY" | "ATHLETE"; id: string; name: string } | null;
   title: string;
   quantity: number;
   startsOn: string;
@@ -507,10 +514,46 @@ export function orderRef(id: string): string {
   return `SX-${id.slice(-8).toUpperCase()}`;
 }
 
-/** "3 items · 2 sellers" over the cart's or order's lines. */
-export function lineSummary(lines: Array<{ quantity: number; propertyName?: string; propertyId?: string }>): string {
+export type SellerFields = {
+  propertyName?: string | null;
+  sellerName?: string | null;
+  propertyId?: string | null;
+  sellerAthleteId?: string | null;
+  seller?: { type: string; id: string; name: string } | null;
+  listingId?: string;
+};
+
+/** A cart or order line as checkout and the order page list it. */
+export type ShopLine = SellerFields & {
+  id: string;
+  title: string;
+  quantity: number;
+  unitPriceCents: number;
+  startsOn: string;
+  endsOn: string;
+  lineTotalCents: number;
+};
+
+/** Who sells a cart or order line, for people: the team, or the independent
+ *  athlete — an athlete's line has no property (2S3-FE-03). */
+export function lineSeller(l: SellerFields): string {
+  return l.seller?.name ?? l.sellerName ?? l.propertyName ?? (l.propertyId ? "The team" : "Independent athlete");
+}
+
+/** One seller, once: by id where the line carries one, else by its name. */
+function sellerKey(l: SellerFields): string {
+  if (l.seller) return `${l.seller.type}:${l.seller.id}`;
+  if (l.propertyId) return `PROPERTY:${l.propertyId}`;
+  if (l.sellerAthleteId) return `ATHLETE:${l.sellerAthleteId}`;
+  const name = l.sellerName ?? l.propertyName;
+  return name ? `NAME:${name}` : `LISTING:${l.listingId ?? "?"}`;
+}
+
+/** "3 items · 2 sellers" over the cart's or order's lines — an athlete
+ *  selling with no team counts as a seller of their own (2S3-FE-03). */
+export function lineSummary(lines: Array<{ quantity: number } & SellerFields>): string {
   const items = lines.reduce((s, l) => s + l.quantity, 0);
-  const sellers = new Set(lines.map((l) => l.propertyName ?? l.propertyId)).size;
+  const sellers = new Set(lines.map(sellerKey)).size;
   return `${items} ${items === 1 ? "item" : "items"} · ${sellers} ${sellers === 1 ? "seller" : "sellers"}`;
 }
 

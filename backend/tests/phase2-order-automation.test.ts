@@ -277,7 +277,8 @@ describe.skipIf(!hasDatabase)("2S4-BE-09 / 2S4-BE-10 over the API", { timeout: 9
     const approved = await decideOnboarding({ userId: "ox_admin", tenantId: T, roles: ["BTG_ADMIN"], sponsorId: null, athleteId: null, guardianId: null, propertyId: null }, "ox_onb", "APPROVE");
     const p = await prisma.property.findUniqueOrThrow({ where: { id: approved.propertyId! }, select: { id: true, tenantId: true } });
     Object.assign(E, { tenant: p.tenantId, property: p.id });
-    server = createApp().listen(0);
+    server = createApp().listen(0, "127.0.0.1");
+    await new Promise((r) => server.once("listening", r)); // a host makes the bind async
     base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
     E.managerUser = (await call("GET", "/me", "ox_mgr")).json.userId;
 

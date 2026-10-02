@@ -156,7 +156,8 @@ describe.skipIf(!hasDatabase)("Phase 2 marketplace over the API", { timeout: 60_
     await prisma.agreement.create({ data: { id: "mkt_order_terms", tenantId: T, kind: "CAMPAIGN_ORDER", version: 1, bodyHash: HASH, effectiveAt: new Date("2026-01-01") } });
     Object.assign(E, await approveTeam("mkt_onb_e", "Bowie Bulldogs MK", "mkt_mgr_e"));
     Object.assign(F, await approveTeam("mkt_onb_f", "Laurel Lions MK", "mkt_mgr_f"));
-    server = createApp().listen(0);
+    server = createApp().listen(0, "127.0.0.1");
+    await new Promise((r) => server.once("listening", r)); // a host makes the bind async
     base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
   });
 

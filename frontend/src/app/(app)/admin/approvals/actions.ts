@@ -1,6 +1,9 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
+
 import { apiFetch } from "@/server/api";
+import type { BoardMove } from "@/lib/edition-artwork-live";
 import type {
   ApprovalActionKind,
   ApprovalResult,
@@ -66,6 +69,51 @@ export async function assetLink(id: string, version: number): Promise<AssetLinkR
   let res: Response;
   try {
     res = await apiFetch(`/deliverables/${encodeURIComponent(id)}/assets/${version}/url`);
+  } catch {
+    return { ok: false, message: "The API is unreachable." };
+  }
+  if (!res.ok) return { ok: false, message: await reason(res, `No link (HTTP ${res.status}).`) };
+  return { ok: true, url: ((await res.json()) as { url: string }).url };
+}
+
+/* --------------------------------------------------------------------------
+   P9-BE-16 — edition ad artwork, the board's second kind of subject. BTG's
+   three moves only: there is no approve here — the sign-off is the buying
+   sponsor's, on their campaign page, and the API refuses it from staff.
+   -------------------------------------------------------------------------- */
+
+const ARTWORK_PATH: Record<BoardMove, string> = {
+  "btg-review": "btg-review",
+  "sponsor-review": "sponsor-review",
+  revision: "revision",
+};
+
+export async function artworkAction(id: string, kind: BoardMove, note?: string): Promise<ApprovalResult> {
+  const path = ARTWORK_PATH[kind];
+  if (!path || typeof id !== "string" || !id) return { ok: false, message: "Unknown decision." };
+  const trimmed = note?.trim() ?? "";
+  if (kind === "revision" && !trimmed) return { ok: false, message: "Say what needs to change — the sponsor gets these words." };
+  let res: Response;
+  try {
+    res = await apiFetch(`/edition-artwork/${encodeURIComponent(id)}/${path}`, {
+      method: "POST",
+      body: JSON.stringify(kind === "revision" ? { reason: trimmed } : {}),
+    });
+  } catch {
+    return { ok: false, message: "The API is unreachable — nothing was decided. Try again in a minute." };
+  }
+  if (!res.ok) return { ok: false, message: await reason(res, `The decision was not accepted (HTTP ${res.status}).`) };
+  revalidatePath("/admin/approvals");
+  revalidatePath("/admin/next/editions");
+  return { ok: true, state: ((await res.json()) as { state: string }).state };
+}
+
+/** A short-lived signed link to the artwork file (audited by the API). */
+export async function artworkLink(id: string): Promise<AssetLinkResult> {
+  if (typeof id !== "string" || !id) return { ok: false, message: "No such file." };
+  let res: Response;
+  try {
+    res = await apiFetch(`/edition-artwork/${encodeURIComponent(id)}/url`);
   } catch {
     return { ok: false, message: "The API is unreachable." };
   }

@@ -1584,8 +1584,10 @@ model AdSlot {
   soldCents  Int?
   soldAt     DateTime?
 
-  edition  Edition   @relation(fields: [editionId], references: [id])
-  campaign Campaign? @relation(fields: [campaignId], references: [id])
+  edition  Edition       @relation(fields: [editionId], references: [id])
+  campaign Campaign?     @relation(fields: [campaignId], references: [id])
+  /// P9-BE-16 — the buyer's artwork for this position, once uploaded.
+  artwork  EditionAsset?
 
   @@unique([editionId, slotCode])
   @@index([tenantId, editionId])
@@ -1830,11 +1832,29 @@ model EditionAsset {
   campaignId String?
   createdAt  DateTime @default(now())
 
+  /// P9-BE-16 — ad artwork on the approval board. Set only on the buyer's
+  /// artwork for a SOLD slot (kind AD_CREATIVE); null on every other asset.
+  /// One artwork per slot. The review reuses the deliverable states and their
+  /// transition table (deliverable-state.ts) — no state machine of its own —
+  /// and stops at APPROVED: a CHECK in migration 20261003150000 keeps it to
+  /// DRAFT_SUBMITTED, BTG_REVIEW, SPONSOR_REVIEW or APPROVED.
+  adSlotId       String?           @unique
+  reviewState    DeliverableState?
+  /// Uploads so far — a new upload replaces r2Key and counts up.
+  artworkVersion Int?
+  /// When the latest file landed: what "waiting since" is measured from.
+  submittedAt    DateTime?
+  /// An open revision request, until the next upload answers it. Only ever
+  /// set in DRAFT_SUBMITTED (CHECK). The full history is the audit log.
+  revisionNote   String?
+
   edition  Edition        @relation(fields: [editionId], references: [id])
   campaign Campaign?      @relation(fields: [campaignId], references: [id])
+  adSlot   AdSlot?        @relation(fields: [adSlotId], references: [id])
   rights   ContentRight[]
 
   @@index([tenantId, editionId])
+  @@index([tenantId, reviewState])
 }
 
 /// ONE rights ledger, three population paths (spec §6.1): student consent,

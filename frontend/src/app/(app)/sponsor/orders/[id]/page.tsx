@@ -4,7 +4,7 @@ import { Badge, Card } from "@/components/ui";
 import { EmptyState } from "@/components/states";
 import { OrderGateRecordCard } from "@/components/order-gate-record";
 import { OrderPayButton, PaymentRefresher } from "@/components/order-payment";
-import { ShopSteps } from "@/components/shop-bits";
+import { ShopLineRow, ShopSteps } from "@/components/shop-bits";
 import { ShopCancelOrder } from "@/components/shop-checkout";
 import { SponsorOrderDelivery } from "@/components/sponsor-order-delivery";
 import { SponsorOrderStatus } from "@/components/sponsor-order-status";
@@ -20,7 +20,7 @@ import {
   type PaymentView,
   type TrackerStep,
 } from "@/lib/order-payment-live";
-import { canCancel, fmtDay, fmtStamp, orderCopy, orderRef, usd, type ApiOrder } from "@/lib/shop-live";
+import { canCancel, fmtStamp, orderCopy, orderRef, usd, type ApiOrder } from "@/lib/shop-live";
 import { apiFetch } from "@/server/api";
 import { requirePortalAccess } from "@/server/portal";
 
@@ -53,6 +53,9 @@ import { requirePortalAccess } from "@/server/portal";
    sellerApprovals (2S4-BE-09 / -10). A reported problem's exchange — the
    seller's answer, Accept / Reject — is in SponsorOrderDelivery
    (POST /deliveries/:lineId/problem-answer, 2S4-BE-11).
+
+   2S3-FE-03 — each line names who sells it (the line's `seller`: the team,
+   or the independent athlete — such a line has no property).
 
    While the provider confirms (latest PROCESSING) the page refreshes itself
    every 3s until the order is PAID. Honest gaps: no receipt or invoice link
@@ -172,15 +175,7 @@ export default async function OrderPage({
           <h2 className="text-sm font-semibold tracking-tight">Lines</h2>
           <ul className="space-y-2">
             {o.lines.map((l) => (
-              <li key={l.id} className="flex flex-wrap items-start justify-between gap-3 rounded-xl border border-line bg-surface px-4 py-3">
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-semibold">{l.title}</p>
-                  <p className="mt-0.5 text-[11px] text-muted">
-                    {l.quantity} × {usd(l.unitPriceCents)} · {fmtDay(l.startsOn)} – {fmtDay(l.endsOn)}
-                  </p>
-                </div>
-                <p className="text-sm font-semibold tabular-nums">{usd(l.lineTotalCents)}</p>
-              </li>
+              <ShopLineRow key={l.id} line={l} />
             ))}
           </ul>
           <p className="text-[11px] text-muted">{paymentHint(pay.kind) ?? c.hint}</p>

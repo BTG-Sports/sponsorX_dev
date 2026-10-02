@@ -18,6 +18,7 @@ import {
   type ApiSlotKind,
 } from "@/lib/editions-live";
 import { noEditionHint, readJson, type LiveEditions } from "../live";
+import { artworkGate, artworkStatus } from "@/lib/edition-artwork-live";
 
 /* --------------------------------------------------------------------------
    P9-FE-03 — the page map on the AdSlot ledger. Same screen as the fixture
@@ -28,6 +29,11 @@ import { noEditionHint, readJson, type LiveEditions } from "../live";
    The back cover cannot go to a second campaign from here: booking lists
    only packages this edition can still honour (sale-candidates), and the
    sale itself is all-or-nothing in the ledger (P9-BE-03).
+
+   P9-BE-16 — a fourth gate: every SOLD slot's ad artwork approved by its
+   sponsor on the approval board. The ledger carries each sold slot's artwork
+   for BTG's desk, so the gate names the slots holding production up — the
+   same answer the transition gives — and the "Ad artwork" card lists each.
    -------------------------------------------------------------------------- */
 
 const SELLERS = ["SUPER_ADMIN", "BTG_ADMIN"];
@@ -123,6 +129,8 @@ export async function LiveEditionPlanning({ live, initialOpenPage, now }: { live
   const selling = e.state === "SELLING" && Date.parse(e.closeDate) > now;
   const closeSoon = selling && days <= 7;
 
+  const art = artworkGate(slots);
+  const artPending = art ? art.blockers.length : e.artworkPending ?? null;
   const gates = [
     {
       key: "content",
@@ -147,6 +155,19 @@ export async function LiveEditionPlanning({ live, initialOpenPage, now }: { live
       sub: e.revenueMet ? "frozen at close" : `${money(committed)} of ${money(e.thresholdCents)}`,
       pass: e.revenueMet || committed >= e.thresholdCents,
     },
+    {
+      key: "artwork",
+      label: "Ad artwork approved",
+      sub:
+        artPending == null
+          ? "checked at the production gate"
+          : sold === 0
+            ? "no ads sold — nothing to approve"
+            : artPending === 0
+              ? `all ${sold} sold ad${sold === 1 ? "" : "s"} signed off by their sponsors`
+              : `${artPending} of ${sold} sold ad${sold === 1 ? "" : "s"} not yet approved`,
+      pass: artPending === 0,
+    },
   ];
 
   return (
@@ -168,8 +189,8 @@ export async function LiveEditionPlanning({ live, initialOpenPage, now }: { live
             {seller && <div className="ml-auto"><EditionAdvance editionId={e.id} state={e.state} /></div>}
           </div>
 
-          {/* §5.2 — all three must hold for production */}
-          <div className="grid gap-2 sm:grid-cols-3">
+          {/* §5.2 — all four must hold for production (artwork: P9-BE-16) */}
+          <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
             {gates.map((g) => (
               <div
                 key={g.key}
@@ -187,6 +208,16 @@ export async function LiveEditionPlanning({ live, initialOpenPage, now }: { live
                 )}
                 {g.key === "rights" && (
                   <Link href={`/admin/next/rights?edition=${encodeURIComponent(e.id)}`} className="mt-1.5 inline-block text-[11px] font-medium text-next hover:text-next-soft">Rights ledger →</Link>
+                )}
+                {g.key === "artwork" && art && art.blockers.length > 0 && (
+                  <ul className="mt-1.5 space-y-0.5 text-[11px] text-muted">
+                    {art.blockers.map((b) => (
+                      <li key={b} className="[overflow-wrap:anywhere]">· {b}</li>
+                    ))}
+                  </ul>
+                )}
+                {g.key === "artwork" && sold > 0 && (
+                  <Link href="/admin/approvals" className="mt-1.5 inline-block text-[11px] font-medium text-next hover:text-next-soft">Approval board →</Link>
                 )}
               </div>
             ))}
@@ -240,6 +271,31 @@ export async function LiveEditionPlanning({ live, initialOpenPage, now }: { live
             <section className="sx-animate sx-delay-2">
               <SectionHeading title="Sell" />
               <BookCampaign editionId={e.id} candidates={sale.body.candidates} selling={selling} />
+            </section>
+          )}
+
+          {art && art.sold > 0 && (
+            <section className="sx-animate sx-delay-2">
+              <SectionHeading title="Ad artwork" hint="BTG reviews, the sponsor signs off" />
+              <Card className="p-0">
+                <ul className="divide-y divide-line-soft">
+                  {slots.filter((sl) => sl.sold).map((sl) => {
+                    const st = artworkStatus(sl.artwork?.state ?? null, Boolean(sl.artwork?.revision));
+                    return (
+                      <li key={sl.id} className="flex items-center justify-between gap-3 px-4 py-2.5 text-xs">
+                        <span className="min-w-0">
+                          <span className="block font-medium">{sl.slotCode}</span>
+                          <span className="block truncate text-[11px] text-muted">{sl.buyer?.sponsor ?? "Taken"}</span>
+                        </span>
+                        <Badge tone={st.tone}>{st.label}</Badge>
+                      </li>
+                    );
+                  })}
+                </ul>
+                <p className="border-t border-line-soft px-4 py-3 text-[10px] leading-relaxed text-faint">
+                  The edition goes to production only once every sold ad is approved by its sponsor.
+                </p>
+              </Card>
             </section>
           )}
 
