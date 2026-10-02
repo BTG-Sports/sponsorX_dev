@@ -347,7 +347,7 @@ export function sellerCancelBanner(o: SellerLine & { line: { title: string } }, 
       case "SELLER":
         return { ask: false, tone: "primary", tag: "Line cancelled", title: `Cancelled — ${s} was told and refunded.`, text: zero, quote: note ? `Your reason: ${note}` : undefined };
       case "AGREED":
-        return { ask: false, tone: "accent", tag: "You agreed", title: "Agreed ✓ — the line is cancelled.", text: `${s} gets ${money(lineTotalCents)} back. ${zero}` };
+        return { ask: false, tone: "accent", tag: "You agreed", title: "Agreed ✓ — the line is cancelled.", text: `${s} was refunded. ${zero}` };
       case "SPONSOR":
         return {
           ask: false, tone: "primary", tag: "Line cancelled",

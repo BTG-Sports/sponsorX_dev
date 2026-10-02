@@ -5,7 +5,7 @@
 | | |
 |---|---|
 | **Goal** | Turn SponsorX from BTG-only operations into a multi-tenant marketplace. External athletes, teams, programs, events and media properties onboard, publish inventory, fulfil deliverables and get paid. |
-| **Tasks** | 118 · 419 person-days |
+| **Tasks** | 122 · 424 person-days |
 | **Blueprint timeline** | 16–20 weeks |
 | **Balanced budget** | $80K–$120K |
 | **Depends on** | Phase 1 auth/RBAC, sponsor/property/inventory/campaign/reward models, Zoho integration, core analytics |
@@ -1167,6 +1167,80 @@ Admin approves, the worker sends funds or marks the payout ready through the pro
 - **Depends on:** 2S5-BE-04
 - **Done when:** An approved payout executes through the provider and its status is tracked to completion
 - **Reference:** Spec §8
+
+### ⏸ `2S5-BE-06` · Payouts approved automatically
+
+**Order** 44.1 · **BE** · **Where:** Code · **2d** · **In progress**
+
+Replaces BTG approving every payout request (item 14 of the BTG admin review, 2026-10-02).
+
+**Approved the moment it's requested** when all of these hold:
+- the four checks pass: payment in, delivery confirmed, payout account ready, holding period passed;
+- the payee isn't on hold;
+- the payout is under $2,000.
+
+A payee's first payout needs no extra review.
+
+**Two safeguards send it to BTG instead:**
+- the payout account changed in the last 7 days;
+- the payee's automatic approvals in the last 7 days, including this one, would reach $5,000. Phase 1 earnings count towards this.
+
+**What each side sees.** BTG sees the reasons in words. The payee sees only "BTG is reviewing this payout".
+
+- **Depends on:** 2S5-BE-05
+- **Done when:** A payout passing every check under $2,000 is approved without a person, a first payout included; a recent account change, the 7-day $5,000 total, a hold, or $2,000 or more sends it to BTG with the reason; two requests at once can't both pass the 7-day total
+- **Reference:** BTG admin review item 14, 2026-10-02
+
+### ⏸ `2S5-BE-07` · Failed payouts retried automatically
+
+**Order** 44.2 · **BE** · **Where:** Code · **1d** · **In progress**
+
+Item 15 of the BTG admin review, 2026-10-02. What happens depends on why the provider couldn't send the payout:
+- **A temporary failure:** retried up to 3 times, at about 1, 6 and 24 hours.
+- **A problem with the payee's account:** the payee is emailed to fix it, and the payout is retried once the account is ready.
+- **Anything else, or a failure that doesn't clear:** it goes to BTG, whose Retry still works.
+
+- **Depends on:** 2S5-BE-05
+- **Done when:** Temporary failures retry on the schedule and stop after 3; an account failure emails the payee and retries when the account is ready; only the rest reach BTG; no retry is sent twice
+- **Reference:** BTG admin review item 15, 2026-10-02
+
+### ⏸ `2S5-BE-08` · Phase 1 earnings approved for payout automatically
+
+**Order** 44.3 · **BE** · **Where:** Code · **1d** · **In progress**
+
+Item 17 of the BTG admin review, 2026-10-02.
+
+**Approved automatically.** An earning that becomes eligible moves on to approved for payout when all of these hold:
+- the earning isn't held or disputed;
+- the athlete isn't on hold;
+- it's under $2,000;
+- it stays within the athlete's 7-day $5,000 automatic total.
+
+**Otherwise** it stays eligible for Finance, with the reasons.
+
+**Marking it paid** stays with Finance until a payment provider is connected.
+
+- **Depends on:** P7-BE-02, 2S5-BE-06
+- **Done when:** An eligible earning within the rule is approved for payout without a person; one outside it stays eligible with its reasons; held and disputed earnings are never touched; paid stays manual
+- **Reference:** BTG admin review item 17, 2026-10-02
+
+### ⏸ `2S5-FE-06` · Automatic payouts, on screen
+
+**Order** 47.6 · **FE** · **Where:** Code · **1d** · **In progress**
+
+Small changes to the existing payout screens. No new design.
+
+- **BTG:**
+  - an "Approved automatically" label;
+  - the reasons a payout is waiting;
+  - the retry status;
+  - a view showing only what needs BTG.
+- **Payees:** "Approved automatically", "BTG is reviewing this payout", and "Fix your payout account".
+- **Finance:** "Approved automatically" on Phase 1 earnings.
+
+- **Depends on:** 2S5-BE-06, 2S5-BE-07, 2S5-BE-08
+- **Done when:** Each payout and earning shows whether it was approved automatically or why it waits, and BTG's list defaults to what needs BTG
+- **Reference:** BTG admin review items 14, 15 and 17, 2026-10-02
 
 ### ⏸ `2S5-FE-01` · Build the commission and revenue-share editor
 

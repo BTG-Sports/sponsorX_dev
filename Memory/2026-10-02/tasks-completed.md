@@ -258,3 +258,40 @@ The owner's ask: make sign-in as lively as the landing, /packages, /join and /ne
   - **Checks:** backend 2311 of 2313 on two runs (only Jan's 2 known clauses fail); tsc and eslint clean.
   - The design brief for OrderCancellations.dc.html (states CX-1…CX-14) was given to the user for Claude Design.
 - **Tracker:** Phase 2 rows 119–121 added (Order 36.8, 36.9, 38.6). Autofilter, conditional formats, the Status list and the 15 Dashboard `'Phase 2'!` formulas now run to row 121. The plan now has 118 tasks.
+
+## rcfworks — evening: cancellation screens, automatic payouts (items 14, 15, 17)
+
+- **2S4-FE-06 Done.** Built from OrderCancellations.dc.html (CX-1…CX-14).
+  - **Sponsor:** cancel or ask on `/sponsor/orders/[id]`.
+  - **Seller:** can't deliver, and agree or keep, on `/athlete|property/sales/[id]`.
+  - **BTG:** decides escalated cancellations on the delivery-issues desk.
+  - **Finance:** the new `/admin/refunds` (Refunds to send, Mark refunded).
+  - **Copy:** the screens say "line", as the existing order screens do. The sponsor never sees a refund's method or reference.
+- **Follow-up fixes (`b771fd7`):**
+  - `POST /deliveries/:id/cancel` takes `expect: FREE|ASK`, and a stale dialog gets 409 `cancel_terms_changed`.
+  - The `refund.sent` email carries no method.
+  - The seller's sale has `cancellation.refundCents`, which includes the buyer fee on the order's last live line.
+- **Owner decisions for items 14, 15 and 17:** a $2,000 automatic limit; a first payout is fine if the provider account is ready; both safeguards (an account changed in the last 7 days goes to BTG; $5,000 of automatic approvals in 7 days goes to BTG); Phase 1 earnings move to approved for payout automatically now.
+- **2S5-BE-06 Done:**
+  - `requestPayout` approves automatically, as the system, when the rule passes. Otherwise the payout stays REQUESTED with `reviewReasons`.
+  - `PayoutAccount.changedAt` records a real change.
+  - A per-payee advisory lock (`lockPayee`) covers requests, earning approvals and account changes.
+  - The 7-day total is counted across every tenant. A reason that includes another tenant's approvals shows no figure (`f6a63eb`).
+  - Env knobs: `PAYOUT_AUTO_APPROVE_*` and `PAYOUT_ACCOUNT_CHANGE_REVIEW_DAYS`.
+- **2S5-BE-07 Done:**
+  - Each failure has a kind: TEMPORARY, ACCOUNT or OTHER.
+  - TEMPORARY retries at about 1, 6 and 24 hours (`sweepPayoutRetries`, every 10 minutes), then goes to BTG.
+  - ACCOUNT emails the payee (`payout.accountNeedsFix`) and retries once when the account is next READY.
+  - A FAILED payout awaiting a resend still claims its money (`claimsMoney`).
+  - `sendPayout`, `confirmPayoutPaid` and `decidePayout` are now state-guarded.
+- **2S5-BE-08 Done:**
+  - `maybeMakeEligible` moves an earning on to APPROVED_FOR_PAYOUT by the same rule, with no account check.
+  - Otherwise it stays ELIGIBLE with `reviewReasons`, which only Finance and BTG admin can read.
+  - PAID stays manual.
+- **2S5-FE-06 Done:**
+  - `admin/payouts`: an "Approved automatically" badge, "Waiting because", and the retry status; it opens on a Needs BTG filter by default.
+  - Payee money pages: "BTG is reviewing this payout" and "fix your payout account".
+  - `admin/finance`: the earnings reasons.
+- **Migrations:** 20261003190000_payout_automation (plus 20261003160000/170000/180000 from the afternoon).
+- **Checks on the combined branch:** backend 2348/2350 on two runs (only Jan's next-edition-e2e clauses 4–5); frontend 1068/1068; tsc and eslint clean on both.
+- **Tracker:** Phase 2 rows 122–125 added (Order 44.1, 44.2, 44.3, 47.6). Ranges and the Dashboard formulas now run to row 125. The plan has 122 tasks.

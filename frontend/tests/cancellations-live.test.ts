@@ -163,7 +163,7 @@ describe("the seller's order", () => {
   it("says how each cancellation ended for the seller (CX-7b, CX-8b, CX-8c, CX-8d)", () => {
     const ended = (by: "SELLER" | "AGREED" | "SPONSOR" | "BTG", note: string | null = null) =>
       ({ ...sale, state: "REFUNDED" as const, cancellation: { ...sale.cancellation!, cancelled: { at: "x", by, note } } });
-    expect(sellerCancelBanner(ended("AGREED"), 50_000, LATE_NOW)).toMatchObject({ title: "Agreed ✓ — the line is cancelled.", text: "Harbor Coffee gets $500.00 back. Your share for this line is $0.00." });
+    expect(sellerCancelBanner(ended("AGREED"), 50_000, LATE_NOW)).toMatchObject({ title: "Agreed ✓ — the line is cancelled.", text: "Harbor Coffee was refunded. Your share for this line is $0.00." });
     expect(sellerCancelBanner(ended("SELLER", "I injured my ankle."), 50_000, LATE_NOW)).toMatchObject({ title: "Cancelled — Harbor Coffee was told and refunded.", quote: "Your reason: “I injured my ankle.”" });
     expect(sellerCancelBanner(ended("BTG", "Asked in time, with a reason."), 50_000, LATE_NOW)).toMatchObject({ title: "BTG cancelled the line and refunded Harbor Coffee.", quote: "BTG: “Asked in time, with a reason.”" });
     expect(orderBadge(ended("SELLER")).label).toBe("Cancelled by you");
