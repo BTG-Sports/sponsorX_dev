@@ -83,7 +83,9 @@ function BriefsWaiting({ waiting }: { waiting: NonNullable<Waiting> }) {
   ].filter(Boolean);
   return (
     <Link
-      href={waiting.toMatch ? "/admin/briefs?tab=QUALIFIED" : "/admin/briefs?tab=DRAFT"}
+      /* Open the tab that has the briefs: with only APPROVED briefs waiting,
+         QUALIFIED was an empty tab under a banner saying "1 approved". */
+      href={`/admin/briefs?tab=${waiting.qualified ? "QUALIFIED" : waiting.approved ? "APPROVED" : "DRAFT"}`}
       className="flex items-center gap-4 rounded-xl border border-primary/35 bg-gradient-to-r from-primary/15 via-surface to-surface px-4 py-3.5 transition-colors hover:border-primary/60"
     >
       <span className="grid size-10 shrink-0 place-items-center rounded-lg bg-primary/15 text-base font-semibold tabular-nums text-primary">
