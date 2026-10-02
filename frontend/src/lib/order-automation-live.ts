@@ -220,12 +220,16 @@ export function approvalsToList(list: readonly ApiSellerApproval[], max = 20): A
 
 /* ------------------------------------------------- the problem exchange */
 
-export type IssueKind = "PROBLEM" | "OVERDUE";
+/* 2S4-BE-12 — a sponsor's request to cancel a paid line is an issue too (CANCELLATION). */
+export type IssueKind = "PROBLEM" | "OVERDUE" | "CANCELLATION";
 export type IssueStage = "SELLER_TO_ANSWER" | "SPONSOR_TO_ANSWER" | "ESCALATED" | "SETTLED" | "RESOLVED" | "CLOSED";
-export type SellerAnswer = "DELIVER_AGAIN" | "REFUND" | "DISAGREE";
+/** A problem's answers — and (2S4-BE-12) a request to cancel's: ACCEPT or DECLINE. */
+export type SellerAnswer = "DELIVER_AGAIN" | "REFUND" | "DISAGREE" | "ACCEPT" | "DECLINE";
 export type SponsorAnswer = "ACCEPT" | "REJECT";
-export type EscalationReason = "SPONSOR_REJECTED" | "SELLER_NO_ANSWER" | "SPONSOR_NO_ANSWER" | "NOT_DELIVERED" | "REPORTED_TO_BTG";
-export type IssueOutcome = "REDELIVER" | "REFUNDED" | "CONFIRMED" | "MARKED_DELIVERED" | "ORDER_ENDED";
+export type EscalationReason =
+  | "SPONSOR_REJECTED" | "SELLER_NO_ANSWER" | "SPONSOR_NO_ANSWER" | "NOT_DELIVERED" | "REPORTED_TO_BTG"
+  | "SELLER_DECLINED_CANCELLATION" | "SELLER_DIDNT_ANSWER_CANCELLATION";
+export type IssueOutcome = "REDELIVER" | "REFUNDED" | "CONFIRMED" | "MARKED_DELIVERED" | "ORDER_ENDED" | "KEPT" | "SELLER_CANCELLED";
 
 /** One problem as every reader sees it (delivery.ts issueSummary). */
 export type ApiIssue = {
@@ -254,7 +258,9 @@ export type ApiIssue = {
 
 export type TimelineKind =
   | "PAID" | "MARKED_DELIVERED" | "PROBLEM_REPORTED" | "SELLER_ANSWERED" | "SPONSOR_ACCEPTED" | "SPONSOR_REJECTED"
-  | "ESCALATED" | "SETTLED" | "BTG_DECIDED" | "CLOSED" | "REMINDED" | "CONFIRMED";
+  | "ESCALATED" | "SETTLED" | "BTG_DECIDED" | "CLOSED" | "REMINDED" | "CONFIRMED"
+  /* 2S4-BE-12 — a cancellation: asked for, the seller's answer, or made outright. */
+  | "CANCELLATION_REQUESTED" | "CANCELLATION_ACCEPTED" | "CANCELLATION_DECLINED" | "CANCELLED";
 
 /** One step of a line's exchange, oldest first (delivery.ts timelineOf). Never money. */
 export type ApiTimelineItem = {
@@ -591,7 +597,13 @@ export function deskReason(r: DeskRow): Pill & { sub: string } {
   const why = r.escalation?.reason ?? r.issue?.escalation?.reason ?? null;
   const seller = firstWord(r.seller.name);
   const answered = r.issue?.sellerAnswer;
+  /* 2S4-BE-12 — a request to cancel: the API's own words for why it came. */
+  const said = (r.escalation?.text ?? r.issue?.escalation?.text ?? "").trim();
   switch (why) {
+    case "SELLER_DECLINED_CANCELLATION":
+      return { label: said || "The seller declined the sponsor’s request to cancel", tone: "danger", mark: "✕", sub: `${r.sponsor.name} asked to cancel; ${seller} said no` };
+    case "SELLER_DIDNT_ANSWER_CANCELLATION":
+      return { label: said || "The seller didn’t answer the sponsor’s request to cancel in time", tone: "warn", mark: "!", sub: `${r.sponsor.name} asked to cancel; no answer came` };
     case "SPONSOR_REJECTED":
       return { label: "The two sides disagree", tone: "danger", mark: "✕", sub: `${r.sponsor.name} rejected ${possessive(seller)} answer` };
     case "SELLER_NO_ANSWER":
@@ -612,6 +624,8 @@ export function deskReason(r: DeskRow): Pill & { sub: string } {
 /** The line in the decision panel that says what BTG is deciding. */
 export function decisionLead(r: DeskRow): string {
   switch (r.escalation?.reason ?? r.issue?.escalation?.reason) {
+    case "SELLER_DECLINED_CANCELLATION": return `${r.seller.name} said no to ${possessive(r.sponsor.name)} request to cancel. You decide for this line.`;
+    case "SELLER_DIDNT_ANSWER_CANCELLATION": return `${r.seller.name} didn’t answer ${possessive(r.sponsor.name)} request to cancel in time. You decide for this line.`;
     case "SPONSOR_REJECTED": return "The two sides disagree. You decide for this line.";
     case "SELLER_NO_ANSWER": return `The seller didn’t answer in ${ANSWER_WINDOW_HOURS} hours. You decide for this line.`;
     case "SPONSOR_NO_ANSWER": return `The sponsor didn’t accept or reject the seller’s answer in ${ANSWER_WINDOW_HOURS} hours. You decide for this line.`;
@@ -620,11 +634,15 @@ export function decisionLead(r: DeskRow): string {
   }
 }
 
-export type Settlement = { issueId: string; outcome: IssueOutcome; at: string | null; text: string; answer: SellerAnswer | null };
+/** `kind` (2S4-BE-12): a settled request to cancel reads differently from a settled problem. */
+export type Settlement = { issueId: string; kind?: IssueKind; outcome: IssueOutcome; at: string | null; text: string; answer: SellerAnswer | null };
 
 /** A problem the two sides settled (BX settled): "Settled — redelivery Oct 24". */
 export function settledBadge(r: DeskRow & { settlement: Settlement }): Pill & { sub: string } {
   const s = r.settlement;
+  if (s.kind === "CANCELLATION") {
+    return { label: "Settled — seller agreed to cancel", tone: "accent", mark: "✓", sub: `${firstWord(r.seller.name)} agreed to ${possessive(r.sponsor.name)} request` };
+  }
   const label =
     s.outcome === "REDELIVER" ? `Settled — redelivery ${r.redeliverOn ? dayOf(r.redeliverOn) : "agreed"}`
     : s.outcome === "REFUNDED" ? "Settled — line refunded"
@@ -633,7 +651,8 @@ export function settledBadge(r: DeskRow & { settlement: Settlement }): Pill & { 
 }
 
 /** A settled problem in a sentence: "Settled between them — the seller delivers it again on Oct 24." */
-export function settledWords(outcome: IssueOutcome | null | undefined, redeliverOn?: string | null): string {
+export function settledWords(outcome: IssueOutcome | null | undefined, redeliverOn?: string | null, kind?: IssueKind | null): string {
+  if (kind === "CANCELLATION") return "Settled between them — the seller agreed to cancel; the line is refunded in full.";
   if (outcome === "REDELIVER") return `Settled between them — the seller delivers it again${redeliverOn ? ` on ${dayOf(redeliverOn)}` : ""}.`;
   if (outcome === "REFUNDED") return "Settled between them — the line is refunded in full.";
   if (outcome === "CONFIRMED") return "Settled between them — the sponsor accepted it was delivered.";
@@ -693,7 +712,14 @@ export function timelineEvents(items: readonly ApiTimelineItem[], names: { selle
         what = why ? `sent it to BTG — ${why.charAt(0).toLowerCase()}${why.slice(1)}` : "sent it to BTG";
         break;
       }
-      case "BTG_DECIDED": what = t.outcome === "REFUNDED" ? "refunded the line" : "confirmed it was delivered"; break;
+      case "BTG_DECIDED":
+        what = t.outcome === "REFUNDED" ? "refunded the line" : t.outcome === "KEPT" ? "kept the line — it goes ahead as booked" : "confirmed it was delivered";
+        break;
+      /* 2S4-BE-12 — a request to cancel, the seller's answer, or a cancellation made outright. */
+      case "CANCELLATION_REQUESTED": what = "asked to cancel"; break;
+      case "CANCELLATION_ACCEPTED": what = "agreed to cancel"; break;
+      case "CANCELLATION_DECLINED": what = "said no"; tone = "danger"; break;
+      case "CANCELLED": what = "cancelled it · refunded in full"; break;
       case "REMINDED": what = t.text.toLowerCase().startsWith("second") ? "sent the seller a second reminder" : "reminded the seller"; break;
       default: what = t.text;
     }
