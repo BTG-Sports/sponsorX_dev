@@ -50,7 +50,7 @@ import { appUrl, btgAdmins, tell } from "./order-mail";
 import { assertMayCommit } from "./guardian-acts";
 import { payoutHoldReason } from "./payout-holds";
 import {
-  autoApprovalReasons, autoApproveSettings, autoApprovedSince, claimsMoney, lockPayee, nextChangedAt, planFailure,
+  autoApprovalReasons, autoApproveSettings, autoApprovedByTenant, autoWindowFor, claimsMoney, lockPayee, nextChangedAt, planFailure,
   SYSTEM, waitingOnOf, waitingOnWhere, windowStart, type FailureKind, type WaitingOn,
 } from "./payout-auto";
 
@@ -710,14 +710,17 @@ export async function requestPayout(actor: Actor, now = new Date()) {
     for (const o of orders) byBooks.set(o.books, [...(byBooks.get(o.books) ?? []), o]);
     const settings = autoApproveSettings();
     /* Read after the lock: every automatic approval for this payee that committed before it. */
-    let windowCents = await autoApprovedSince(tx, payee, windowStart(now, settings));
+    const byTenant = await autoApprovedByTenant(tx, payee, windowStart(now, settings));
     const created = [];
     for (const [books, os] of byBooks) {
       const amountCents = os.reduce((s, o) => s + o.requestableCents, 0);
       const checks = payoutChecks(os, account.status, now);
+      /* The cap counts every tenant; this payout's books are who reads the reason. */
+      const window = autoWindowFor(byTenant, books);
+      const windowCents = window.totalCents;
       const reasons = autoApprovalReasons({
         amountCents, held: false, unmetChecks: checks.filter((c) => !c.ok).map((c) => c.label),
-        accountChangedAt: account.changedAt, windowCents, now,
+        accountChangedAt: account.changedAt, windowCents, windowIncludesOtherTenants: window.includesOtherTenants, now,
       }, settings);
       const auto = reasons.length === 0;
       const row = await tx.payout.create({
@@ -734,11 +737,11 @@ export async function requestPayout(actor: Actor, now = new Date()) {
       if (auto) {
         await audit(tx, { userId: null, tenantId: books }, "payout.autoApprove", "Payout", row.id, {
           before: { state: "REQUESTED" },
-          after: { state: "APPROVED", decidedBy: SYSTEM, approvedAutomatically: true, checks, rule: { ...settings, windowCentsBefore: windowCents } },
+          after: { state: "APPROVED", decidedBy: SYSTEM, approvedAutomatically: true, checks, rule: { ...settings, windowCentsBefore: window.includesOtherTenants ? null : windowCents, windowIncludesOtherTenants: window.includesOtherTenants } },
         });
         await enqueue(tx, books, "payouts.send", { payoutId: row.id });
         await notifyPayee(tx, { ...row, ...payee }, "payout.approved");
-        windowCents += amountCents;
+        byTenant.set(books, (byTenant.get(books) ?? 0) + amountCents);
       }
       created.push(payeePayoutView(row));
     }

@@ -136,7 +136,7 @@ describe.skipIf(!hasDatabase)("payouts approved and retried automatically", { ti
 
   /* Phase 1: a campaign order and its earning for an athlete, ready to become ELIGIBLE (no deliverables outstanding). */
   let p1 = 0;
-  async function phase1Earning(athleteId: string, netCents: number, state = "PENDING", extra: Record<string, unknown> = {}) {
+  async function phase1Earning(athleteId: string, netCents: number, state = "PENDING", extra: Record<string, unknown> = {}, tenantId = T) {
     p1 += 1;
     /* One order per athlete and job: a job of its own each time. */
     const jobId = `pa_job_${p1}`;
@@ -145,7 +145,7 @@ describe.skipIf(!hasDatabase)("payouts approved and retried automatically", { ti
       id: `pa_co_${p1}`, tenantId: T, campaignId: E.campaign, athleteId, jobId,
       compensation: netCents, sellPrice: netCents * 2, usageRights: "90 days", dueDate: new Date("2026-11-15"), state: "ACTIVE",
     } });
-    const e = await prisma.earning.create({ data: { tenantId: T, athleteId, orderId: order.id, gross: netCents, taxYear: 2026, state: state as never, ...extra } });
+    const e = await prisma.earning.create({ data: { tenantId, athleteId, orderId: order.id, gross: netCents, taxYear: 2026, state: state as never, ...extra } });
     return { orderId: order.id, earningId: e.id };
   }
   const becomeEligible = (orderId: string) => prisma.$transaction((tx) => maybeMakeEligible(tx, { tenantId: T, userId: "pa_admin" }, orderId));
@@ -323,6 +323,47 @@ describe.skipIf(!hasDatabase)("payouts approved and retried automatically", { ti
       const [p] = (await request()).json.payouts;
       expect(p).toMatchObject({ state: "APPROVED", approvedAutomatically: true });
       await settle(p.id);
+    });
+
+    it("approved in two tenants: the cap counts both, but BTG's reason names no figure", async () => {
+      const amount = await freshMoney(1);
+      const before = await windowNow();
+      /* An automatic payout to Riley in another tenant's books: with this one, the cap. */
+      await prisma.payout.create({ data: {
+        tenantId: OTHER_T, payeeType: "ATHLETE", payeeId: E.riley, payeeTenantId: E.tenant, amountCents: 500_000 - before - amount,
+        state: "PAID", decidedBy: "system", decidedAt: ago(1), approvedAutomatically: true,
+      }, select: { id: true } });
+      try {
+        const [p] = (await request()).json.payouts;
+        expect(p.state).toBe("REQUESTED");
+        const reasons = (await call("GET", `/payouts/${p.id}`, "pa_admin")).json.reviewReasons as string[];
+        expect(reasons).toEqual(["Automatic payouts in the last 7 days would reach the $5,000 limit"]);
+        expect(reasons.join(" ")).not.toMatch(/\$\d[\d,]*(\.\d\d)? approved/);
+        const trail = await prisma.auditLog.findFirstOrThrow({ where: { entityId: p.id, action: "payout.request" }, select: { after: true } });
+        expect(JSON.stringify(trail.after)).not.toMatch(/\$[\d,]+(\.\d\d)? approved automatically/);
+        await sendBack(p.id);
+        /* The same, for a Phase 1 earning in this tenant beside the other tenant's payout. */
+        const jordanForeign = await prisma.payout.create({ data: {
+          tenantId: OTHER_T, payeeType: "ATHLETE", payeeId: E.jordan, payeeTenantId: T, amountCents: 495_000,
+          state: "PAID", decidedBy: "system", decidedAt: ago(1), approvedAutomatically: true,
+        }, select: { id: true } });
+        const { orderId, earningId } = await phase1Earning(E.jordan, 10_000);
+        expect(await becomeEligible(orderId)).toMatchObject({ state: "ELIGIBLE" });
+        expect((await earning(earningId)).reviewReasons).toEqual(["Automatic payouts in the last 7 days would reach the $5,000 limit"]);
+        await prisma.payout.delete({ where: { id: jordanForeign.id }, select: { id: true } });
+        /* Everything counted in the reader's own tenant: the figure stays. */
+        const own = await phase1Earning(E.jordan, 495_000, "APPROVED_FOR_PAYOUT", { approvedAutomatically: true, autoApprovedAt: ago(1) });
+        const next = await phase1Earning(E.jordan, 10_000);
+        expect(await becomeEligible(next.orderId)).toMatchObject({ state: "ELIGIBLE" });
+        expect((await earning(next.earningId)).reviewReasons).toEqual(["$4,950 approved automatically in the last 7 days"]);
+        await prisma.earning.update({ where: { id: own.earningId }, data: { autoApprovedAt: ago(30) }, select: { id: true } });
+      } finally {
+        /* The other tenant's seeded payouts go: its BTG must see none of this suite's. */
+        await prisma.payout.deleteMany({ where: { tenantId: OTHER_T } });
+      }
+      const [again] = (await request()).json.payouts;
+      expect(again).toMatchObject({ state: "APPROVED", approvedAutomatically: true });
+      await settle(again.id);
     });
 
     it("payouts on hold: nothing is requested, let alone approved automatically", async () => {

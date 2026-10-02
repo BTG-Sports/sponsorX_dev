@@ -9,7 +9,7 @@ import { describe, expect, it, vi } from "vitest";
 vi.mock("../src/config/env", () => ({ env: {} }));
 
 const {
-  autoApprovalReasons, autoApproveSettings, dollars, nextChangedAt, planFailure, waitingOnOf,
+  autoApprovalReasons, autoApproveSettings, autoWindowFor, dollars, nextChangedAt, planFailure, waitingOnOf,
   GAVE_UP, WAITING_FOR_PAYEE, ACCOUNT_STILL_FAILING,
 } = await import("../src/domain/payout-auto");
 
@@ -46,6 +46,15 @@ describe("2S5-BE-06 · autoApprovalReasons", () => {
     expect(rule({ windowCents: 449_999 })).toEqual([]);
     expect(rule({ windowCents: 450_000 })).toEqual(["$4,500 approved automatically in the last 7 days"]);
     expect(rule({ windowCents: 420_050, amountCents: 90_000 })).toEqual(["$4,200.50 approved automatically in the last 7 days"]);
+  });
+
+  it("approvals in another tenant's books count, but the reason names no figure", () => {
+    expect(rule({ windowCents: 450_000, windowIncludesOtherTenants: true })).toEqual(["Automatic payouts in the last 7 days would reach the $5,000 limit"]);
+    expect(rule({ windowCents: 449_999, windowIncludesOtherTenants: true })).toEqual([]);
+    const byTenant = new Map([["t1", 300_000], ["t2", 150_000]]);
+    expect(autoWindowFor(byTenant, "t1")).toEqual({ totalCents: 450_000, includesOtherTenants: true });
+    expect(autoWindowFor(new Map([["t1", 450_000]]), "t1")).toEqual({ totalCents: 450_000, includesOtherTenants: false });
+    expect(autoWindowFor(new Map(), "t1")).toEqual({ totalCents: 0, includesOtherTenants: false });
   });
 
   it("on hold, or a check unmet: never automatic; every reason is listed", () => {

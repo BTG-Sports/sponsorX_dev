@@ -102,8 +102,10 @@ export type RuleInput = {
   unmetChecks?: string[];
   /** When the payout account last changed — undefined where there is no account check (Phase 1). */
   accountChangedAt?: Date | null;
-  /** Approved automatically for this payee in the window, NOT counting this one. */
+  /** Approved automatically for this payee in the window, NOT counting this one — in every tenant's books. */
   windowCents: number;
+  /** Some of `windowCents` was approved in another tenant's books: the reason names no figure. */
+  windowIncludesOtherTenants?: boolean;
   now: Date;
 };
 
@@ -121,7 +123,11 @@ export function autoApprovalReasons(i: RuleInput, s: AutoApproveSettings = autoA
     out.push(`Payout account changed on ${dayLabel(i.accountChangedAt)}`);
   }
   if (i.windowCents + i.amountCents >= s.windowCapCents) {
-    out.push(`${dollars(i.windowCents)} approved automatically in the last ${s.windowDays} days`);
+    /* The cap is the payee's across every tenant, but a tenant's BTG never
+       reads a figure that includes another tenant's approvals. */
+    out.push(i.windowIncludesOtherTenants
+      ? `Automatic payouts in the last ${s.windowDays} days would reach the ${dollars(s.windowCapCents)} limit`
+      : `${dollars(i.windowCents)} approved automatically in the last ${s.windowDays} days`);
   }
   return out;
 }
@@ -144,21 +150,45 @@ export async function lockPayee(tx: Prisma.TransactionClient, payee: { payeeType
  * earnings (net). Call it after `lockPayee`.
  */
 export async function autoApprovedSince(db: Db, payee: { payeeType: string; payeeId: string }, since: Date): Promise<number> {
-  const payouts = await db.payout.aggregate({
+  return autoWindowFor(await autoApprovedByTenant(db, payee, since), "").totalCents;
+}
+
+/** The same total, by the tenant whose books (or earnings) each approval is in. */
+export async function autoApprovedByTenant(db: Db, payee: { payeeType: string; payeeId: string }, since: Date): Promise<Map<string, number>> {
+  const out = new Map<string, number>();
+  const add = (tenantId: string, cents: number) => { if (cents) out.set(tenantId, (out.get(tenantId) ?? 0) + cents); };
+  const payouts = await db.payout.groupBy({
+    by: ["tenantId"],
     /* tenant-scope: the payee's own payouts in every set of books, by its payee key — the cap is the payee's, not a tenant's. */
     where: { payeeType: payee.payeeType, payeeId: payee.payeeId, approvedAutomatically: true, decidedAt: { gte: since } },
     _sum: { amountCents: true },
   });
-  let total = payouts._sum.amountCents ?? 0;
+  for (const g of payouts) add(g.tenantId, g._sum.amountCents ?? 0);
   if (payee.payeeType === "ATHLETE") {
-    const earnings = await db.earning.aggregate({
+    const earnings = await db.earning.groupBy({
+      by: ["tenantId"],
       /* tenant-scope: the athlete's own Phase 1 earnings, by athlete id — the same person's 7-day total. */
       where: { athleteId: payee.payeeId, autoApprovedAt: { gte: since } },
       _sum: { gross: true, adjustment: true },
     });
-    total += (earnings._sum.gross ?? 0) + (earnings._sum.adjustment ?? 0);
+    for (const g of earnings) add(g.tenantId, (g._sum.gross ?? 0) + (g._sum.adjustment ?? 0));
   }
-  return total;
+  return out;
+}
+
+/**
+ * The window as a reader in `readerTenantId` may see it: the payee's whole
+ * total (the cap counts every tenant), and whether any of it is another
+ * tenant's — in which case the reason names no figure. Pure.
+ */
+export function autoWindowFor(byTenant: Map<string, number>, readerTenantId: string): { totalCents: number; includesOtherTenants: boolean } {
+  let totalCents = 0;
+  let includesOtherTenants = false;
+  for (const [tenantId, cents] of byTenant) {
+    totalCents += cents;
+    if (tenantId !== readerTenantId && cents !== 0) includesOtherTenants = true;
+  }
+  return { totalCents, includesOtherTenants };
 }
 
 /** The start of the rule's window. */

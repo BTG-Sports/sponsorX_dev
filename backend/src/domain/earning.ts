@@ -30,7 +30,7 @@ import {
   type EarningState,
 } from "./earning-state";
 import { payoutHoldReason } from "./payout-holds";
-import { autoApprovalReasons, autoApproveSettings, autoApprovedSince, lockPayee, SYSTEM, windowStart } from "./payout-auto";
+import { autoApprovalReasons, autoApproveSettings, autoApprovedByTenant, autoWindowFor, lockPayee, SYSTEM, windowStart } from "./payout-auto";
 
 export class EarningImmutableError extends Error {
   readonly status = 409;
@@ -389,8 +389,10 @@ async function autoApproveEarning(tx: Prisma.TransactionClient, earningId: strin
   const settings = autoApproveSettings();
   const amountCents = e.gross + e.adjustment;
   const held = await payoutHoldReason(tx, payee);
-  const windowCents = await autoApprovedSince(tx, payee, windowStart(now, settings));
-  const reasons = autoApprovalReasons({ amountCents, held: Boolean(held), windowCents, now }, settings);
+  /* The cap counts every tenant; Finance in this earning's tenant reads the reason. */
+  const window = autoWindowFor(await autoApprovedByTenant(tx, payee, windowStart(now, settings)), e.tenantId);
+  const windowCents = window.totalCents;
+  const reasons = autoApprovalReasons({ amountCents, held: Boolean(held), windowCents, windowIncludesOtherTenants: window.includesOtherTenants, now }, settings);
   if (reasons.length) {
     await tx.earning.updateMany({
       /* tenant-scope: the earning just loaded by id; only while it is still ELIGIBLE. */
@@ -409,7 +411,7 @@ async function autoApproveEarning(tx: Prisma.TransactionClient, earningId: strin
   if (!moved.count) return null;
   await audit(tx, { userId: null, tenantId: e.tenantId }, AUDIT_ACTIONS.payout.approveForPayout, "Earning", e.id, {
     before: { state: "ELIGIBLE" },
-    after: { state: "APPROVED_FOR_PAYOUT", approvedBy: SYSTEM, approvedAutomatically: true, amountCents, rule: { ...settings, windowCentsBefore: windowCents } },
+    after: { state: "APPROVED_FOR_PAYOUT", approvedBy: SYSTEM, approvedAutomatically: true, amountCents, rule: { ...settings, windowCentsBefore: window.includesOtherTenants ? null : windowCents, windowIncludesOtherTenants: window.includesOtherTenants } },
   });
   return "APPROVED_FOR_PAYOUT";
 }
