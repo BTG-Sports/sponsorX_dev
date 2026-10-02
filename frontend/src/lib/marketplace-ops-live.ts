@@ -7,7 +7,10 @@
    console offers only moves the API would accept from the order's state,
    and never APPROVED as a transition — approval is the decision, not a move.
    Listing decisions are domain/listing.ts's decideListing: from
-   PENDING_APPROVAL only.
+   PENDING_APPROVAL only — which, since 2S3-BE-06, holds only the listings
+   something flagged (restricted words, the seller's standing, a BTG
+   pause); the rest go live on their own, and BTG pauses or ends those with
+   a reason (btgActOnListing).
    -------------------------------------------------------------------------- */
 
 export type MarketplaceOrderState =
@@ -43,9 +46,43 @@ export function orderDecisions(state: MarketplaceOrderState): OrderDecision[] {
 }
 
 export type ListingState = "DRAFT" | "PENDING_APPROVAL" | "PUBLISHED" | "PAUSED" | "ARCHIVED";
-export type ListingDecision = "APPROVE" | "REQUEST_CHANGES";
+export type ListingDecision = "APPROVE" | "REQUEST_CHANGES" | "REJECT";
 export function listingDecisions(state: ListingState): ListingDecision[] {
-  return state === "PENDING_APPROVAL" ? ["APPROVE", "REQUEST_CHANGES"] : [];
+  return state === "PENDING_APPROVAL" ? ["APPROVE", "REQUEST_CHANGES", "REJECT"] : [];
+}
+
+/** 2S3-BE-06 — BTG on a listing that is live, or that BTG paused. */
+export type BtgListingAction = "PAUSE" | "END" | "RESUME";
+export function btgListingActions(l: { state: ListingState; btgAction?: "PAUSED" | "ENDED" | null }): BtgListingAction[] {
+  if (l.state === "PUBLISHED") return ["PAUSE", "END"];
+  if (l.state === "PAUSED") return l.btgAction === "PAUSED" ? ["RESUME", "END"] : ["END"];
+  return [];
+}
+/** Pause and End need a reason — the seller is emailed it. */
+export const needsReason = (a: BtgListingAction) => a !== "RESUME";
+export const BTG_ACTION_COPY: Record<BtgListingAction, { label: string; done: string; placeholder: string }> = {
+  PAUSE: { label: "Pause", done: "Paused — the seller is emailed why", placeholder: "Why it's paused — the seller is emailed this" },
+  END: { label: "End", done: "Ended — the seller is emailed why", placeholder: "Why it's ended — the seller is emailed this" },
+  RESUME: { label: "Put back live", done: "Back live", placeholder: "" },
+};
+
+/** The console's two listing tabs: held for BTG, and published automatically. */
+export const LISTING_TABS = [
+  { key: "held", label: "Held for BTG" },
+  { key: "auto", label: "Published automatically" },
+] as const;
+export type ListingTab = (typeof LISTING_TABS)[number]["key"];
+export const listingTab = (v: unknown): ListingTab => (v === "auto" ? "auto" : "held");
+
+/** "Published automatically" or "Approved by BTG" — how a listing went live. */
+export function publishedByLabel(l: { publishedBy?: "AUTOMATIC" | "BTG" | null }): string | null {
+  return l.publishedBy === "AUTOMATIC" ? "Published automatically" : l.publishedBy === "BTG" ? "Approved by BTG" : null;
+}
+
+/** Who sells it: the team, or the independent athlete. */
+export function sellerLabel(l: Pick<ApiListing, "seller" | "propertyName">): string {
+  if (l.seller) return l.seller.type === "ATHLETE" ? `${l.seller.name} (athlete)` : l.seller.name;
+  return l.propertyName ?? "—";
 }
 
 export const ORDER_STATE_COPY: Record<MarketplaceOrderState, { label: string; tone: "neutral" | "primary" | "accent" | "danger" | "warn" }> = {
@@ -81,7 +118,7 @@ export const isOrderState = (v: unknown): v is MarketplaceOrderState =>
 
 export type ApiListing = {
   id: string;
-  propertyId: string;
+  propertyId: string | null;
   inventoryItemId: string;
   title: string;
   description: string | null;
@@ -92,8 +129,17 @@ export type ApiListing = {
   reviewNotes: string | null;
   createdAt: string;
   item: { id: string; title: string; kind: string; priceCents: number; quantity: number | null; availableUntil: string | null; active: boolean; athleteId: string | null; propertyId: string | null };
-  propertyName: string;
+  propertyName: string | null;
   blockers: string[];
+  /* 2S3-BE-06 — the seller, how it went live, why it is held (BTG reads the reasons in full), and BTG's pause or end. */
+  seller?: { type: "PROPERTY" | "ATHLETE"; id: string; name: string };
+  publishedAt?: string | null;
+  publishedAutomatically?: boolean;
+  publishedBy?: "AUTOMATIC" | "BTG" | null;
+  reviewReasons?: string[];
+  btgAction?: "PAUSED" | "ENDED" | null;
+  btgReason?: string | null;
+  btgActedAt?: string | null;
 };
 
 export type ApiOrderLine = {

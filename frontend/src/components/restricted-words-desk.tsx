@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 
 import { Badge } from "@/components/ui";
 import {
-  TEST_LINES_MAX, testWhy, type ApiRestrictedKind, type ApiRestrictedTest, type ApiRestrictedWord, type WordGroup, type WordWriteFailure,
+  TEST_LINES_MAX, testWhy, WHERE_CHECKED, type ApiRestrictedKind, type ApiRestrictedTest, type ApiRestrictedWord, type WordGroup, type WordWriteFailure,
 } from "@/lib/restricted-words-live";
 import { useDialogFocus } from "./use-dialog-focus";
 
@@ -57,7 +57,7 @@ export function RestrictedWordsDesk({ groups, kinds, activeWords, history, actio
           <h1 className="text-xl font-semibold tracking-tight">Restricted words</h1>
           <p className="mt-1 text-xs leading-relaxed text-muted">
             Text that uses one of these is held for BTG&rsquo;s review instead of being approved by itself — a match never rejects anything.
-            Today the check runs on a sponsor&rsquo;s &ldquo;Other&rdquo; business description; athlete profiles and listings follow.
+            {" "}{WHERE_CHECKED}
           </p>
         </div>
         <button type="button" onClick={() => setAdding(true)} className="min-h-12 rounded-lg bg-primary px-5 text-sm font-bold text-cta-ink hover:bg-primary-soft">

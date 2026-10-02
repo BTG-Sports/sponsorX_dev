@@ -89,6 +89,16 @@ export function testInputs(text: string): string[] {
 }
 
 /**
+ * Where BTG's list is checked today, in words. 2S3-BE-06 — a marketplace
+ * listing's title and description: a match holds the listing for BTG
+ * instead of letting it go live by itself, and the seller is told the
+ * words. 2S1-BE-17 — a sponsor's "Other" business description. Athlete
+ * profiles are not checked yet.
+ */
+export const WHERE_CHECKED =
+  "Today the check runs on marketplace listings (their title and description — a match holds the listing for BTG instead of letting it go live, and the seller is told the words) and on a sponsor’s “Other” business description. Athlete profiles follow later.";
+
+/**
  * Why a line did or didn't match, in words. For a line the API passed, a
  * listed single word that sits inside a longer word is named — that is the
  * one near miss people ask about ("sex" inside "Essex").

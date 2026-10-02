@@ -15,8 +15,11 @@ import { sellerContext } from "../load";
    Reads  GET  /listings/:id               the listing, its item, and the API's
                                            governance `blockers[]`
           GET  /athletes/me · /restrictions · /payouts/account   (../load.ts)
-   Writes PATCH /listings/:id              what the sponsor gets (DRAFT/PAUSED)
-          POST /listings/:id/submit        DRAFT → with BTG (422 problems[])
+   Writes PATCH /listings/:id              what the sponsor gets (DRAFT/PAUSED,
+                                           or held for BTG — back to DRAFT)
+          POST /listings/:id/submit        DRAFT → live when the checks pass,
+                                           else held for BTG with `hold`
+                                           (422 problems[]) — 2S3-FE-04
           POST /listings/:id/transition    Pause · Resume · End listing
    Links  ./preview                        the listing as a sponsor sees it in
                                            the shop (own listings)
@@ -51,7 +54,7 @@ export default async function AthleteListingPage({ params }: { params: Promise<{
         <h1 className="text-xl font-semibold tracking-tight">{listing.title}</h1>
         <ListingPill listing={listing} />
       </div>
-      <p className="mt-1 text-xs text-muted">Put an item from your inventory on the marketplace. BTG checks it and puts it live.</p>
+      <p className="mt-1 text-xs text-muted">Put an item from your inventory on the marketplace. It goes live as soon as the checks pass.</p>
       {isOwn(listing) && (
         <Link
           href={`/athlete/listings/${encodeURIComponent(listing.id)}/preview`}

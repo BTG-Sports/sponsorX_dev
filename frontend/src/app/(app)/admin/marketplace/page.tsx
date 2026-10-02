@@ -1,11 +1,11 @@
 import Link from "next/link";
 
-import { MopsListingQueue } from "@/components/mops-listing-queue";
+import { MopsAutoPublishedList, MopsListingQueue } from "@/components/mops-listing-queue";
 import { NotInRole, staffWithoutAccess } from "@/components/not-in-role";
 import { PayoutRetry } from "@/components/payout-decision";
 import { Card, SectionHeading, StatTile } from "@/components/ui";
 import {
-  agoLabel, failedTriesLabel, failureCopy, isOverdue, payoutProblemSince, shortId, usd, waitLabel,
+  agoLabel, failedTriesLabel, failureCopy, isOverdue, LISTING_TABS, listingTab, payoutProblemSince, shortId, usd, waitLabel,
   type ApiFailedPayment, type ApiListing, type ApiMarketplaceOrder,
 } from "@/lib/marketplace-ops-live";
 import { ORG_TYPE_COPY, type ApiOnboarding } from "@/lib/onboarding-live";
@@ -19,7 +19,13 @@ import { retryPayoutAction } from "@/app/(app)/admin/payouts/actions";
 
    Reads, in parallel:
      GET /onboarding                                  (PENDING_REVIEW, the API's default)
-     GET /listings?state=PENDING_APPROVAL             (decided inline: POST /listings/:id/decision)
+     GET /listings?state=PENDING_APPROVAL             listings HELD for BTG, with their reasons
+                                                      (decided inline: POST /listings/:id/decision)
+     GET /listings/auto-published                     2S3-FE-04 — the last 30 days' listings that went
+                                                      live on their own (2S3-BE-06), newest first;
+                                                      POST /listings/:id/btg-action pauses or ends one
+                                                      with a reason the seller is emailed
+                                                      (?listings=held | auto picks the tab)
      GET /marketplace-orders?state=PENDING_APPROVAL   (each opens /admin/marketplace/orders/<id>)
      GET /payments/failed                             orders still owing whose latest card
                                                       payment failed (each opens the order:
@@ -56,13 +62,15 @@ function Clear({ children }: { children: React.ReactNode }) {
   return <p className="px-5 py-4 text-xs text-faint">{children}</p>;
 }
 
-export default async function MarketplaceOpsPage() {
+export default async function MarketplaceOpsPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const lacking = await staffWithoutAccess(PATH);
   if (lacking) return <NotInRole path={PATH} title="Marketplace operations" roles={lacking} />;
+  const tab = listingTab((await searchParams).listings);
 
-  const [onboarding, listings, orders, payments, payouts] = await Promise.all([
+  const [onboarding, listings, autoPublished, orders, payments, payouts] = await Promise.all([
     read<ApiOnboarding>("/onboarding", "onboardings"),
     read<ApiListing>("/listings?state=PENDING_APPROVAL", "listings"),
+    read<ApiListing>("/listings/auto-published", "listings"),
     read<ApiMarketplaceOrder>("/marketplace-orders?state=PENDING_APPROVAL", "orders"),
     read<ApiFailedPayment>("/payments/failed", "payments"),
     read<ApiAdminPayout>("/payouts?state=FAILED", "payouts"),
@@ -81,9 +89,10 @@ export default async function MarketplaceOpsPage() {
         </Link>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
         <StatTile label="Properties awaiting review" value={countOf(onboarding)} />
-        <StatTile label="Listings awaiting approval" value={countOf(listings)} />
+        <StatTile label="Listings held for BTG" value={countOf(listings)} />
+        <StatTile label="Listings live automatically (30 days)" value={countOf(autoPublished)} />
         <StatTile label="Orders awaiting approval" value={countOf(orders)} />
         <StatTile label="Failed payments" value={countOf(payments)} />
         <StatTile label="Payout problems" value={countOf(payouts)} />
@@ -128,15 +137,47 @@ export default async function MarketplaceOpsPage() {
       </Card>
 
       <Card className="p-0">
-        <div className="px-5 pt-4">
-          <SectionHeading title="Listings awaiting approval" hint="Approving publishes the listing. Blockers must be cleared by the property first." />
+        <div id="listings" className="space-y-3 px-5 pt-4">
+          <SectionHeading
+            title="Listings"
+            hint={
+              tab === "held"
+                ? "A listing goes live on its own when its checks pass. These were flagged — the reasons are below. Approving puts it live; blockers must be cleared by the seller first."
+                : "Went live on their own in the last 30 days, newest first. Pause or end one with a reason — the seller is emailed it, and only BTG puts a listing it paused back live."
+            }
+          />
+          <nav aria-label="Listing desks" className="flex flex-wrap gap-2 pb-1">
+            {LISTING_TABS.map((t) => {
+              const on = t.key === tab;
+              const n = countOf(t.key === "held" ? listings : autoPublished);
+              return (
+                <Link
+                  key={t.key}
+                  href={`${PATH}?listings=${t.key}#listings`}
+                  aria-current={on ? "page" : undefined}
+                  className={`inline-flex items-center gap-2 rounded-lg border px-3 py-1.5 text-xs ${on ? "border-primary/60 text-primary" : "border-line text-muted hover:text-text"}`}
+                >
+                  {t.label}
+                  <span className={`rounded-full px-1.5 text-[10px] tabular-nums ${t.key === "held" && n !== "0" && n !== "—" ? "bg-warn/15 text-warn" : "bg-surface-2"}`}>{n}</span>
+                </Link>
+              );
+            })}
+          </nav>
         </div>
-        {"forbidden" in listings ? (
+        {tab === "held" ? (
+          "forbidden" in listings ? (
+            <Forbidden />
+          ) : listings.rows.length === 0 ? (
+            <Clear>Nothing held — every listing submitted lately passed its checks and went live.</Clear>
+          ) : (
+            <MopsListingQueue listings={listings.rows} now={now} />
+          )
+        ) : "forbidden" in autoPublished ? (
           <Forbidden />
-        ) : listings.rows.length === 0 ? (
-          <Clear>No listings to review.</Clear>
+        ) : autoPublished.rows.length === 0 ? (
+          <Clear>No listings went live automatically in the last 30 days.</Clear>
         ) : (
-          <MopsListingQueue listings={listings.rows} now={now} />
+          <MopsAutoPublishedList listings={autoPublished.rows} now={now} />
         )}
       </Card>
 

@@ -11,21 +11,26 @@
      POST /listings                    create (DRAFT); 409 "You're on a team —
                                        <team> lists your items" for a roster
                                        athlete, 409 until BTG approves them
-     PATCH /listings/:id               wording — DRAFT or PAUSED only
-     POST /listings/:id/submit         DRAFT → PENDING_APPROVAL; 422 with
-                                       error.problems[] while governance fails
+     PATCH /listings/:id               wording — DRAFT, PAUSED, or held for
+                                       BTG (the edit takes it back to DRAFT)
+     POST /listings/:id/submit         DRAFT → PUBLISHED when the checks pass,
+                                       else PENDING_APPROVAL with `hold`; 422
+                                       with error.problems[] while governance
+                                       fails
      POST /listings/:id/transition     PAUSED · PUBLISHED (resume) · ARCHIVED
      GET  /athletes/me                 the athlete's own state (approved?)
      GET  /restrictions                the categories they won't promote
      GET  /payouts/account             their payout account's status
 
-   PUBLISHED is reached only by BTG approving a submitted listing
-   (decideListing) — so the words say BTG puts it live, not that it goes
-   live by itself (the design's wording assumed an automatic publish the API
-   does not do). Pure: shapes and every derived word; figures are API fields.
+   2S3-BE-06 / 2S3-FE-04 (programme owner, 2026-10-02): a listing goes live
+   by itself as soon as its checks pass — the design's original wording — and
+   BTG takes a look only when something flags it (restricted words, the
+   account's standing, a BTG pause). Pure: shapes and every derived word;
+   figures are API fields.
    -------------------------------------------------------------------------- */
 
 import { kindLabel } from "@/lib/inventory-live";
+import type { ListingHold } from "@/lib/listing-outcome";
 
 export type ListingState = "DRAFT" | "PENDING_APPROVAL" | "PUBLISHED" | "PAUSED" | "ARCHIVED";
 
@@ -60,6 +65,11 @@ export type ApiAthleteListing = {
   propertyName: string | null;
   seller: { type: "PROPERTY" | "ATHLETE"; id: string; name: string };
   blockers: string[];
+  /* 2S3-BE-06 — how it went live, why BTG is taking a look, and BTG's pause or end. */
+  publishedBy?: "AUTOMATIC" | "BTG" | null;
+  hold?: ListingHold | null;
+  btgAction?: "PAUSED" | "ENDED" | null;
+  btgReason?: string | null;
 };
 
 /** The item fields the screens read (GET /inventory · /inventory/:id). */
@@ -118,9 +128,9 @@ export function listingBadge(l: Pick<ApiAthleteListing, "state" | "reviewNotes" 
   switch (l.state) {
     case "DRAFT":
       return l.reviewNotes ? { label: "Changes asked", tone: "warn", mark: "!" } : { label: "Not listed yet", tone: "neutral", mark: "○" };
-    case "PENDING_APPROVAL": return { label: "Submitted", tone: "primary", mark: "●" };
+    case "PENDING_APPROVAL": return { label: "BTG is taking a look", tone: "warn", mark: "●" };
     case "PUBLISHED":
-      return l.publishAt && new Date(l.publishAt) > now ? { label: "Approved · not live yet", tone: "primary", mark: "●" } : { label: "Live", tone: "accent", mark: "✓" };
+      return l.publishAt && new Date(l.publishAt) > now ? { label: "Checks passed · not live yet", tone: "primary", mark: "●" } : { label: "Live", tone: "accent", mark: "✓" };
     case "PAUSED": return { label: "Paused", tone: "neutral", mark: "Ⅱ" };
     case "ARCHIVED": return { label: "Ended", tone: "neutral", mark: "■" };
   }
@@ -145,11 +155,11 @@ export function statusText(l: ApiAthleteListing, now = new Date()): string {
     case "DRAFT":
       return l.reviewNotes
         ? "BTG asked for changes. Make them below, then submit it again."
-        : "Not submitted yet — only you can see it. Submit it and BTG checks it.";
+        : "Not submitted yet — only you can see it. Submit it: it goes live as soon as the checks pass.";
     case "PENDING_APPROVAL":
-      return `Submitted ${stamp(l.submittedAt)}. BTG is checking it now; it goes live once BTG approves it, and you can’t edit it until then.`;
+      return `Submitted ${stamp(l.submittedAt)}. BTG is taking a look — we’ll email you. You can still edit what the sponsor gets; that takes it back to a draft to submit again.`;
     case "PUBLISHED":
-      if (l.publishAt && new Date(l.publishAt) > now) return `BTG approved it. It goes live on ${stamp(l.publishAt)}.`;
+      if (l.publishAt && new Date(l.publishAt) > now) return `The checks passed. It goes live on ${stamp(l.publishAt)}.`;
       return `Live on the marketplace since ${stamp(l.publishedAt)}. Sponsors can buy it now. Pausing hides it; ending stops it for good.`;
     case "PAUSED":
       return "Paused — hidden from sponsors. Edit what the sponsor gets if you like, then resume it; the checks run again.";
@@ -158,14 +168,15 @@ export function statusText(l: ApiAthleteListing, now = new Date()): string {
   }
 }
 
-/** What the athlete may do from each state (listing-rules.ts' owner moves). */
+/** What the athlete may do from each state (listing-rules.ts' owner moves).
+ *  A listing held for BTG can be edited and submitted again (2S3-BE-06). */
 export function ownerControls(s: ListingState): { editable: boolean; canSubmit: boolean; pause: boolean; resume: boolean; end: boolean } {
   return {
-    editable: s === "DRAFT" || s === "PAUSED",
-    canSubmit: s === "DRAFT",
+    editable: s === "DRAFT" || s === "PAUSED" || s === "PENDING_APPROVAL",
+    canSubmit: s === "DRAFT" || s === "PENDING_APPROVAL",
     pause: s === "PUBLISHED",
     resume: s === "PAUSED",
-    end: s === "DRAFT" || s === "PUBLISHED" || s === "PAUSED",
+    end: s !== "ARCHIVED",
   };
 }
 

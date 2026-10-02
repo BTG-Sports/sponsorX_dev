@@ -6,8 +6,13 @@ import {
   failedTriesLabel,
   failureCopy,
   isOverdue,
+  btgListingActions,
   listingDecisions,
+  listingTab,
+  needsReason,
   orderDecisions,
+  publishedByLabel,
+  sellerLabel,
   orderMoves,
   payoutProblemSince,
   splitRows,
@@ -45,9 +50,32 @@ describe("order decisions and moves", () => {
   });
 
   it("decides a listing only while pending approval", () => {
-    expect(listingDecisions("PENDING_APPROVAL")).toEqual(["APPROVE", "REQUEST_CHANGES"]);
+    expect(listingDecisions("PENDING_APPROVAL")).toEqual(["APPROVE", "REQUEST_CHANGES", "REJECT"]);
     expect(listingDecisions("DRAFT")).toEqual([]);
     expect(listingDecisions("PUBLISHED")).toEqual([]);
+  });
+});
+
+describe("2S3-FE-04 · listings that went live on their own", () => {
+  it("BTG pauses or ends a live listing, ends a paused one, and puts back only its own pause", () => {
+    expect(btgListingActions({ state: "PUBLISHED" })).toEqual(["PAUSE", "END"]);
+    expect(btgListingActions({ state: "PAUSED", btgAction: null })).toEqual(["END"]);
+    expect(btgListingActions({ state: "PAUSED", btgAction: "PAUSED" })).toEqual(["RESUME", "END"]);
+    for (const s of ["DRAFT", "PENDING_APPROVAL", "ARCHIVED"] as const) expect(btgListingActions({ state: s })).toEqual([]);
+    expect(needsReason("PAUSE")).toBe(true);
+    expect(needsReason("END")).toBe(true);
+    expect(needsReason("RESUME")).toBe(false);
+  });
+
+  it("the tab, how it went live and who sells it", () => {
+    expect(listingTab("auto")).toBe("auto");
+    for (const v of [undefined, "held", "nonsense", ["auto"]]) expect(listingTab(v)).toBe("held");
+    expect(publishedByLabel({ publishedBy: "AUTOMATIC" })).toBe("Published automatically");
+    expect(publishedByLabel({ publishedBy: "BTG" })).toBe("Approved by BTG");
+    expect(publishedByLabel({ publishedBy: null })).toBeNull();
+    expect(sellerLabel({ seller: { type: "ATHLETE", id: "a", name: "QUINN.AVERY" }, propertyName: null })).toBe("QUINN.AVERY (athlete)");
+    expect(sellerLabel({ seller: { type: "PROPERTY", id: "p", name: "Lakeside Larks" }, propertyName: "Lakeside Larks" })).toBe("Lakeside Larks");
+    expect(sellerLabel({ propertyName: "Old shape" })).toBe("Old shape");
   });
 });
 
