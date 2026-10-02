@@ -511,7 +511,8 @@ async function recheck(tx: Tx, c: ClosureRow): Promise<{ notes: string[]; listin
     const ids = paused.filter((l) => !l.propertyId || c.subjectKind !== "ATHLETE" || l.item.athlete?.propertyId === l.propertyId).map((l) => l.id);
     const back = await tx.listing.updateMany({
       /* tenant-scope: the listings found just above. */
-      where: { tenantId: c.tenantId, id: { in: ids }, state: "PAUSED" }, data: { state: "PUBLISHED" },
+      /* 2S3-BE-06 — never a listing BTG paused: that one is BTG's to put back live. */
+      where: { tenantId: c.tenantId, id: { in: ids }, state: "PAUSED", btgAction: null }, data: { state: "PUBLISHED" },
     });
     listingsRestored = back.count;
   }
