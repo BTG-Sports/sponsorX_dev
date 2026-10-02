@@ -566,7 +566,10 @@ describe.skipIf(!hasDatabase)("P8-SEC-02 · tenant B cannot reach tenant A throu
     for (const r of reads) if ((await hit("GET", r.path, A.admin)).status === 200) ok.push(r.path);
     /* Nearly all of them; a few need data the seed deliberately omits. */
     expect(ok.length).toBeGreaterThanOrEqual(Math.floor(reads.length * 0.7));
-  });
+    /* One request per route, sequentially — under 1s alone, but it timed out
+       at vitest's 5s default when the whole suite ran in parallel
+       (2026-10-02, 134 files). The siblings below already carry 120s. */
+  }, 60_000);
 
   it("every route, as every tenant-B actor: never a success, never a tenant-A value", async () => {
     const secrets = [

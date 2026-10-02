@@ -87,6 +87,11 @@ vi.mock("../src/db/client", () => ({
       const stagedClosures: typeof closures = [];
 
       const tx = {
+        /* ensureLogin takes a per-address advisory lock (athlete-login.ts).
+           One callback at a time here, so there is nothing to serialise; the
+           lock's real behaviour is proven against Postgres in
+           athlete-login.race.test.ts. */
+        $executeRawUnsafe: () => Promise.resolve(1),
         athlete: {
           findFirst: ({ where }: { where: { id?: string; tenantId?: string } }) =>
             Promise.resolve(

@@ -211,7 +211,9 @@ describe.skipIf(!hasDatabase)("SponsorX NEXT students, on the path a request tak
       expect(r.json.state).toBe("SUBMITTED");
       const row = await prisma.student.findUniqueOrThrow({ where: { id: r.json.id }, select: { tenantId: true, propertyId: true } });
       expect(row).toEqual({ tenantId: T, propertyId: "nx3_school" });
-      expect((await call("POST", "/public/students/applications", null, { schoolSlug: "nx3-team", legalName: "x", displayName: "x", masthead: ["WRITER"] })).status).toBe(422);
+      // A team is not a school (422). The age band is here so this asserts the
+      // school rule, not the separate "birthDate or ageBand" one (a 400).
+      expect((await call("POST", "/public/students/applications", null, { schoolSlug: "nx3-team", legalName: "x", displayName: "x", ageBand: "18_PLUS", masthead: ["WRITER"] })).status).toBe(422);
     });
 
     it("the school's advisor reviews it; the student cannot approve themselves; another school's advisor cannot touch it", async () => {

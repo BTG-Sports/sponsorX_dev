@@ -1,10 +1,15 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
-/* P1-FE-26 — the schools page is forwarded and printed, so it offers both. */
+import { printInLight } from "@/lib/print-light";
+
+/* P1-FE-26 — the schools page is forwarded and printed, so it offers both.
+   While it is mounted, any print of the page (this button or Ctrl+P) uses
+   the light theme — see lib/print-light.ts. */
 export function ShareActions() {
   const [copied, setCopied] = useState(false);
+  useEffect(() => printInLight(document.documentElement, window), []);
   const copy = async () => {
     try {
       await navigator.clipboard.writeText(window.location.href);

@@ -14,13 +14,23 @@ export const StudentState = z.enum(STUDENT_STATES).meta({
   description: "Mirrors AthleteState, advisor-reviewed, plus INACTIVE (left the programme). A minor reaches ACTIVE only with a verified guardian.",
 });
 
+/** Today as an ISO date (UTC) — the latest birthDate that can be true. */
+const todayIso = () => new Date().toISOString().slice(0, 10);
+
 const studentFields = {
   legalName: z.string().min(1).max(200),
   displayName: z.string().min(1).max(100),
   /** Optional on purpose — school email must not be a hard requirement. */
   email: z.email().nullable().optional(),
   gradYear: z.number().int().min(2020).max(2040).nullable().optional(),
-  birthDate: z.iso.date().nullable().optional(),
+  /* The athlete contract's sanity bounds (contracts/athlete.ts): a future
+     date or one before 1900 makes every age rule meaningless. */
+  birthDate: z.iso
+    .date()
+    .refine((d) => d >= "1900-01-01", "birthDate must be 1900 or later.")
+    .refine((d) => d <= todayIso(), "birthDate can't be in the future.")
+    .nullable()
+    .optional(),
   ageBand: z.enum(["UNDER_16", "16_17", "18_PLUS"]).nullable().optional(),
   masthead: z.array(z.enum(MASTHEAD_ROLES)).min(1).max(7),
 };
@@ -43,7 +53,15 @@ export const StudentApplicationInput = z
       .nullable()
       .optional(),
   })
-  .meta({ id: "StudentApplicationInput", description: "The public 'Become the Media' application. Lands SUBMITTED for the school's advisor." });
+  /* The athlete intake's one-of rule (AthleteApplicationInput), reused as the
+     task requires. Without it a request carrying neither date was read as an
+     adult and skipped the guardian — an unknown age must never pass as one. */
+  .refine((v) => (v.birthDate ?? undefined) !== undefined || (v.ageBand ?? undefined) !== undefined, {
+    message:
+      "Either birthDate or ageBand is required: the guardian workflow (§26) cannot be decided without knowing whether the applicant is a minor.",
+    path: ["birthDate"],
+  })
+  .meta({ id: "StudentApplicationInput", description: "The public 'Become the Media' application. Lands SUBMITTED for the school's advisor. Needs a birthDate or an ageBand." });
 
 export const StudentTransitionInput = z
   .object({ to: StudentState, reviewerNotes: z.string().max(2000).nullable().optional() })

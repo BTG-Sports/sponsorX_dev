@@ -1,4 +1,17 @@
+import { existsSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+
 import { defineConfig } from "prisma/config";
+
+/* The repo-root .env, as every other backend script reads it
+   (`node --env-file-if-exists=../.env`, package.json). Prisma's own CLI
+   cannot take that flag, so without this `npm run prisma:deploy` on a
+   fresh checkout failed with "Connection url is empty" although .env held
+   the URL (found following the developer handoff, P8-PMO-05). Only when
+   DATABASE_URL is unset: an explicit value — CI, `npm run db:test` — wins,
+   exactly as with --env-file. No .env, no change. */
+const rootEnv = fileURLToPath(new URL("../.env", import.meta.url));
+if (!process.env.DATABASE_URL && existsSync(rootEnv)) process.loadEnvFile(rootEnv);
 
 /**
  * Prisma 7 configuration — backend copy.

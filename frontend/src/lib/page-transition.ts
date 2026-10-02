@@ -153,3 +153,56 @@ export function growFrames(
   }
   return frames;
 }
+
+/* ---------------------------------------------------------------- safety
+   The three ways a transition used to strand the visitor (P1-ART-12 audit,
+   2026-10-02), each decided here so it can be tested without a browser. */
+
+/** The attribute the transition's scroll lock sets on <html>; globals.css
+ *  holds `html[data-sx-scroll-lock] { overflow: hidden }`.
+ *
+ *  It used to save `html.style.overflow` and put it back. The boot screen
+ *  (landing-loader.tsx) locks the same property the same way, so a link
+ *  followed while the boot screen was still up saved ITS "hidden" — and the
+ *  reveal restored "hidden" after the boot screen had already let go: the
+ *  page stayed locked for good. An attribute owned by the transition alone
+ *  composes with the boot screen's inline lock instead of overwriting it. */
+export const SCROLL_LOCK_ATTR = "sxScrollLock";
+
+type Dataset = { dataset: Record<string, string | undefined> };
+
+export function lockScroll(html: Dataset): void {
+  html.dataset[SCROLL_LOCK_ATTR] = "1";
+}
+
+export function unlockScroll(html: Dataset): void {
+  delete html.dataset[SCROLL_LOCK_ATTR];
+}
+
+/** Is the page locked, by either owner — the boot screen's inline style or
+ *  the transition's attribute? Mirrors what the browser applies. */
+export function scrollLocked(html: Dataset & { style: { overflow: string } }): boolean {
+  return html.style.overflow === "hidden" || html.dataset[SCROLL_LOCK_ATTR] !== undefined;
+}
+
+/** What the cover does once it has grown. If the address changed while it
+ *  grew — the visitor pressed back — pushing the clicked link would send
+ *  them forward to a page they just left; open up where they are instead. */
+export function afterCover(fromPath: string, currentPath: string): "push" | "stay" {
+  return currentPath === fromPath ? "push" : "stay";
+}
+
+/** The longest a cover or reveal may take before it is moved on regardless.
+ *  Their animations' `finished` promises reject if an animation is ever
+ *  cancelled, and used to be swallowed — the phase never ended: covered for
+ *  good, or every later public link cancelled and dropped. Generous: the
+ *  real animation plus its three-layer stagger, plus two seconds. */
+export function phaseDeadlineMs(phase: "cover" | "reveal", reduced: boolean, t: {
+  coverMs: number; revealMs: number; staggerMs: number; titleLeadMs: number;
+}): number {
+  const slack = 2_000;
+  if (reduced) return 280 + slack;
+  return phase === "cover"
+    ? t.coverMs + 2 * t.staggerMs + slack
+    : t.titleLeadMs + t.revealMs + 2 * t.staggerMs + slack;
+}
