@@ -40,8 +40,13 @@ export type GuardianReadiness =
  */
 export function isMinorOn(birthDate: Date | null | undefined, on: Date = new Date(), majorityAge = 18): boolean {
   if (!birthDate) return false;
+  /* UTC, like the two frontend copies (lib/next-apply.ts, lib/join-flow.ts):
+     a Postgres `date` arrives as UTC midnight, so local-time arithmetic
+     agreed with them only on a UTC server — in a daylight-saving zone the
+     18th birthday could move by an hour and the copies disagree on the day.
+     No change on Railway, which runs in UTC. Parity: tests/minor-rule-parity. */
   const eighteenth = new Date(birthDate);
-  eighteenth.setFullYear(eighteenth.getFullYear() + majorityAge);
+  eighteenth.setUTCFullYear(eighteenth.getUTCFullYear() + majorityAge);
   return eighteenth > on;
 }
 
