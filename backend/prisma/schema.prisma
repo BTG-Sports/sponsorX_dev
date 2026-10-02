@@ -2855,18 +2855,91 @@ model OrderLineDelivery {
   /// CONFIRMED | REFUNDED
   resolution       String?
   resolutionNote   String?
-  /// 2S4-BE-08 — the one overdue reminder, once sent.
+  /// 2S4-BE-08 — the first overdue reminder (a day after the last date), once sent.
   remindedAt       DateTime?
+  /// 2S4-BE-11 — the second reminder, 3 days after the last date.
+  secondRemindedAt DateTime?
+  /// 2S4-BE-11 — handed to BTG 7 days after the last date with nothing marked.
+  overdueEscalatedAt DateTime?
+  /// 2S4-BE-11 — the date the seller agreed to deliver again on (the sponsor
+  /// accepted). Replaces the line's own last date for reminders and overdue.
+  redeliverOn      DateTime?
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @default(now()) @updatedAt
 
-  line MarketplaceOrderLine @relation(fields: [lineId], references: [id])
+  line   MarketplaceOrderLine @relation(fields: [lineId], references: [id])
+  issues DeliveryIssue[]
 
   @@index([tenantId, state])
   @@index([orderId])
   @@index([propertyTenantId, propertyId])
   @@index([athleteTenantId, athleteId])
   @@index([tenantId, sponsorId])
+}
+
+/// 2S4-BE-11 — one delivery problem and how it was settled: the sponsor's
+/// report, the seller's answer (deliver again, refund, or disagree) within 72
+/// hours, the sponsor's accept or reject within 72 hours, and — only when the
+/// two can't settle it — BTG's decision. Or a line handed to BTG because
+/// nothing was marked delivered 7 days after its last date (kind OVERDUE).
+/// A line can have several over its life (a redelivery can be disputed
+/// again); at most one is open. Lives in the order's books, beside its
+/// delivery row, and is read only through that row's own scope.
+model DeliveryIssue {
+  id                   String    @id @default(cuid())
+  tenantId             String
+  orderId              String
+  lineId               String
+  deliveryId           String
+  /// PROBLEM | OVERDUE
+  kind                 String
+  /// SELLER_TO_ANSWER | SPONSOR_TO_ANSWER | ESCALATED | SETTLED | RESOLVED | CLOSED
+  stage                String
+  openedAt             DateTime
+  openedBy             String?
+  /// The sponsor's words — or, for OVERDUE, why it went to BTG.
+  problemNote          String
+  /// What the sponsor was disputing: the seller's mark, as it stood.
+  markedAt             DateTime?
+  markedByName         String?
+  markedNote           String?
+  markedProofKey       String?
+  markedProofLink      String?
+  sellerDueAt          DateTime?
+  /// DELIVER_AGAIN | REFUND | DISAGREE
+  sellerAnswer         String?
+  sellerAnsweredAt     DateTime?
+  sellerAnsweredBy     String?
+  sellerAnsweredByName String?
+  sellerNote           String?
+  redeliverOn          DateTime?
+  sellerProofKey       String?
+  sellerProofLink      String?
+  sponsorDueAt         DateTime?
+  /// ACCEPT | REJECT
+  sponsorAnswer        String?
+  sponsorAnsweredAt    DateTime?
+  sponsorAnsweredBy    String?
+  sponsorNote          String?
+  escalatedAt          DateTime?
+  /// SPONSOR_REJECTED | SELLER_NO_ANSWER | SPONSOR_NO_ANSWER | NOT_DELIVERED | REPORTED_TO_BTG
+  escalationReason     String?
+  escalationNote       String?
+  /// REDELIVER | REFUNDED | CONFIRMED | MARKED_DELIVERED | ORDER_ENDED
+  outcome              String?
+  closedAt             DateTime?
+  closedBy             String?
+  /// BTG's note, when BTG decided it.
+  closingNote          String?
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @default(now()) @updatedAt
+
+  delivery OrderLineDelivery @relation(fields: [deliveryId], references: [id])
+
+  @@index([tenantId, stage])
+  @@index([deliveryId])
+  @@index([stage, sellerDueAt])
+  @@index([stage, sponsorDueAt])
 }
 
 /// 2S2-BE-05 — a team invites an athlete already on SponsorX to its roster,

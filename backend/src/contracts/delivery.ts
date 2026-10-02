@@ -34,7 +34,50 @@ export const DeliveryProblemInput = z
 export const DeliveryResolutionInput = z
   .object({ decision: z.enum(["CONFIRM", "REFUND"]), note: note.describe("Emailed to the sponsor and the seller") })
   .strict()
-  .meta({ id: "DeliveryResolutionInput", description: "BTG's decision on a reported problem: CONFIRM delivered (the hold ends), or REFUND the line." });
+  .meta({ id: "DeliveryResolutionInput", description: "BTG's decision on an issue the seller and the sponsor couldn't settle (escalated only): CONFIRM delivered (the hold ends), or REFUND the line in full." });
+
+/* 2S4-BE-11 — a reported problem, settled between the seller and the sponsor. */
+const proofLink = z.url({ protocol: /^https$/ }).max(500).nullable().optional().describe("A link to the post, video or page — https only");
+
+export const ProblemAnswerInput = z
+  .discriminatedUnion("answer", [
+    z.object({
+      answer: z.literal("DELIVER_AGAIN"),
+      newDate: z.iso.date().describe("The date you'll deliver it again on — today or later, within 90 days"),
+      note: note.describe("What you'll do — the sponsor reads it"),
+    }).strict(),
+    z.object({
+      answer: z.literal("REFUND"),
+      note: z.string().trim().max(2000).nullable().optional().describe("Optional — the sponsor reads it"),
+    }).strict(),
+    z.object({
+      answer: z.literal("DISAGREE"),
+      note: note.describe("Why you think it was delivered — the sponsor reads it, and BTG if it comes to them"),
+      proofKey: z.string().min(1).max(300).nullable().optional().describe("The key POST /sales/{id}/proof returned, once the photo is uploaded"),
+      proofLink,
+    }).strict(),
+  ])
+  .meta({
+    id: "ProblemAnswerInput",
+    description: "The seller's answer to a problem the sponsor reported, within 72 hours: DELIVER_AGAIN (a new date and a note), REFUND (the whole line — partial refunds are out of scope), or DISAGREE (a note, an optional photo or https link). The sponsor then has 72 hours to accept or reject it.",
+  });
+
+export const ReplyAnswerInput = z
+  .discriminatedUnion("decision", [
+    z.object({ decision: z.literal("ACCEPT") }).strict(),
+    z.object({ decision: z.literal("REJECT"), note: note.describe("Why — BTG reads it when they decide") }).strict(),
+  ])
+  .meta({
+    id: "ReplyAnswerInput",
+    description: "The sponsor's answer to the seller's answer, within 72 hours: ACCEPT settles it (deliver again, refund, or the disagreement accepted — the line is confirmed); REJECT, with a note, sends it to BTG.",
+  });
+
+export const DeliveryProofQuery = z
+  .object({
+    issue: z.string().min(1).max(64).optional().describe("A problem on this line (its id, from the exchange) — its photo instead of the current delivery's"),
+    photo: z.enum(["answer", "marked"]).optional().describe("With issue: the seller's answer photo (default), or the delivery photo the sponsor disputed"),
+  })
+  .meta({ id: "DeliveryProofQuery", description: "Which photo: the line's current delivery photo, or one from a problem's exchange." });
 
 export const TeamInvitationInput = z
   .object({ athleteId: z.string().min(1), teamShareBps: z.number().int().min(0).max(10_000) })

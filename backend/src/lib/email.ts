@@ -96,8 +96,12 @@ export type EmailTemplate =
      problem; everyone hears BTG's decision; a late seller is reminded. */
   | "delivery.marked"
   | "delivery.confirmed"
-  | "delivery.problem"
-  | "delivery.onHold"
+  /* 2S4-BE-11 — a problem settled between the seller and the sponsor, or handed to BTG. */
+  | "delivery.problemToAnswer"
+  | "delivery.sellerAnswered"
+  | "delivery.settled"
+  | "delivery.escalated"
+  | "delivery.withBtg"
   | "delivery.resolved"
   | "delivery.overdue"
   /* 2S2-BE-05 — a team invites an athlete already on SponsorX; the team

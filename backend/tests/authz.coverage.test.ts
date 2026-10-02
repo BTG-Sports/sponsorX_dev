@@ -75,6 +75,8 @@ const GOVERNED_BY: Record<string, Resource> = {
   RestrictedWord: "restrictedWord",
   /* 2S4-BE-06 / -07 — a sold line as its sellers see it, and its delivery. */
   OrderLineDelivery: "orderDelivery",
+  /* 2S4-BE-11 — a delivery problem's exchange is part of its line's delivery. */
+  DeliveryIssue: "orderDelivery",
   /* 2S2-BE-05 — a team's invitation to an athlete already on SponsorX. */
   TeamInvitation: "teamInvitation",
   Payout: "payout",
