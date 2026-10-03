@@ -71,6 +71,7 @@ describe("a cancelled edition's refund on Finance's list", () => {
     expect(refundRef({ orderRef: "SX-1234", edition: null })).toBe("SX-1234");
     expect(refundWhat({ line: null, wholeOrder: false, edition })).toBe("Rosa · Half page · ad in Fall 2026");
     expect(causeLabel("EDITION_CANCELLED")).toBe("Edition cancelled");
+    expect(causeLabel("PAID_AFTER_EDITION_CANCELLED")).toBe("Paid after the edition was cancelled");
   });
 
   it("says who hears it was sent: Zoho's credit note, not a SponsorX email", () => {

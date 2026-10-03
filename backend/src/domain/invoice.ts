@@ -27,6 +27,7 @@ import type { Actor } from "../auth/actor";
 import { assertAllowed, whereFor } from "../auth/scope";
 import { ForbiddenError } from "../auth/errors";
 import { ingestOrderInvoice } from "./order-payment";
+import { refundPaymentAfterEditionCancel } from "./refunds";
 
 export class UnknownDealError extends Error {
   readonly status = 422;
@@ -143,6 +144,17 @@ export async function ingestZohoInvoice(
     update: data,
     select: { id: true, status: true },
   });
+
+  /* P9-BE-19 — money that arrives for an ad sale an edition's cancellation
+     already undid goes straight onto Finance's "Refunds to send", in this
+     transaction. Capped by what was sold and already refunded, so a
+     redelivery writes nothing new. */
+  const isPaid = payload.status.toLowerCase() !== "void" && (payload.status.toLowerCase() === "paid" || Boolean(payload.paidAt));
+  if (isPaid) {
+    await refundPaymentAfterEditionCancel(tx, { userId: null, tenantId: campaign.tenantId }, {
+      tenantId: campaign.tenantId, campaignId: campaign.id, invoiceId: row.id,
+    });
+  }
 
   return { applied: true, invoiceId: row.id, status: row.status };
 }

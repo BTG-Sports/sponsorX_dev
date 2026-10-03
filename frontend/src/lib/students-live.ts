@@ -205,6 +205,8 @@ export const POINT_REASON_COPY: Record<string, string> = {
   INTERVIEW: "Interview delivered",
   APPOINTMENT: "Sales meeting held",
   SALES_500: "Every $500 closed",
+  /* P9-BE-19 — a sale refunded (its edition was cancelled) takes its $500 mark back. */
+  SALES_500_REVERSED: "Sale refunded — $500 mark taken back",
   VIEWS_BONUS: "Views bonus",
 };
 

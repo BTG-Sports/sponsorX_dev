@@ -20,6 +20,8 @@ export const REFUND_CAUSES = [
   "SPONSOR_CANCELLED", "SELLER_CANCELLED", "CANCELLATION_AGREED", "PROBLEM_AGREED", "BTG_DECIDED", "BTG_REFUNDED_ORDER", "PAID_AFTER_CANCELLATION",
   /* P9-BE-19 — a paid NEXT ad sale in an edition BTG cancelled: no order, a campaign and an edition. */
   "EDITION_CANCELLED",
+  /* P9-BE-19 — Zoho marked the ad's invoice paid after its edition was cancelled. */
+  "PAID_AFTER_EDITION_CANCELLED",
 ] as const;
 export type RefundCause = (typeof REFUND_CAUSES)[number];
 export type RefundState = "OPEN" | "SENT";
@@ -98,6 +100,7 @@ export function causeLabel(cause: string): string {
     case "BTG_REFUNDED_ORDER": return "Order refunded by BTG";
     case "PAID_AFTER_CANCELLATION": return "Paid after it was cancelled";
     case "EDITION_CANCELLED": return "Edition cancelled";
+    case "PAID_AFTER_EDITION_CANCELLED": return "Paid after the edition was cancelled";
     default: return "Refund";
   }
 }

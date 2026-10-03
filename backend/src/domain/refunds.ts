@@ -40,6 +40,7 @@ import { assertTenantWide, whereFor } from "../auth/scope";
 import { refundCard } from "../lib/payment-provider";
 import { looksLikeCardNumber } from "./marketplace-order-rules";
 import { appUrl, orderRef, sponsorRecipient, tell, usd } from "./order-mail";
+import { lockCampaign } from "./campaign-stages";
 
 type Tx = Prisma.TransactionClient;
 type Db = Tx | typeof prisma;
@@ -59,7 +60,11 @@ export const REFUND_CAUSES = [
   "PAID_AFTER_CANCELLATION",
   /* P9-BE-19 — a paid ad sale in a NEXT edition BTG cancelled (`recordEditionRefund`). */
   "EDITION_CANCELLED",
+  /* P9-BE-19 — Zoho marked the sale's invoice paid after the edition was cancelled (`refundPaymentAfterEditionCancel`). */
+  "PAID_AFTER_EDITION_CANCELLED",
 ] as const;
+/** The two causes that refund a cancelled edition's ad sale — capped together. */
+export const EDITION_REFUND_CAUSES = ["EDITION_CANCELLED", "PAID_AFTER_EDITION_CANCELLED"] as const;
 export type RefundCause = (typeof REFUND_CAUSES)[number];
 export const REFUND_STATES = ["OPEN", "SENT"] as const;
 export type RefundState = (typeof REFUND_STATES)[number];
@@ -76,6 +81,7 @@ export const CAUSE_WORDS: Record<RefundCause, string> = {
   BTG_REFUNDED_ORDER: "BTG refunded the order",
   PAID_AFTER_CANCELLATION: "Paid after the order was cancelled",
   EDITION_CANCELLED: "BTG cancelled the edition the ad was sold in",
+  PAID_AFTER_EDITION_CANCELLED: "Paid after BTG cancelled the edition the ad was sold in",
 };
 
 const PAID_VIA_WORDS: Record<string, string> = {
@@ -243,16 +249,10 @@ export async function recordEditionRefund(
   if (existing) return existing;
   if (sale.soldCents <= 0) return null;
 
-  const invoices = await tx.campaignInvoice.findMany({
-    where: { tenantId: sale.tenantId, campaignId: sale.campaignId },
-    select: { status: true, amount: true, paidAt: true },
-  });
-  const paid = invoices
-    .filter((i) => i.status.toLowerCase() !== "void" && (i.status.toLowerCase() === "paid" || i.paidAt !== null))
-    .reduce((n, i) => n + i.amount, 0);
+  const paid = await campaignPaidCents(tx, sale.tenantId, sale.campaignId);
   if (paid <= 0) return null;
   const already = await tx.refundDue.aggregate({
-    where: { tenantId: sale.tenantId, campaignId: sale.campaignId, cause: "EDITION_CANCELLED" }, _sum: { amountCents: true },
+    where: { tenantId: sale.tenantId, campaignId: sale.campaignId, cause: { in: [...EDITION_REFUND_CAUSES] } }, _sum: { amountCents: true },
   });
   const amountCents = Math.min(sale.soldCents, paid - (already._sum.amountCents ?? 0));
   if (amountCents <= 0) return null;
@@ -271,6 +271,81 @@ export async function recordEditionRefund(
     });
   }
   return row;
+}
+
+/** What a campaign's sponsor has actually paid, from the Zoho mirror: invoices marked paid (or with a paid date), never a void one. */
+async function campaignPaidCents(tx: Tx, tenantId: string, campaignId: string): Promise<number> {
+  const invoices = await tx.campaignInvoice.findMany({
+    where: { tenantId, campaignId },
+    select: { status: true, amount: true, paidAt: true },
+  });
+  return invoices
+    .filter((i) => i.status.toLowerCase() !== "void" && (i.status.toLowerCase() === "paid" || i.paidAt !== null))
+    .reduce((n, i) => n + i.amount, 0);
+}
+
+/**
+ * P9-BE-19 — Zoho marked a campaign's invoice paid AFTER an edition it had
+ * bought into was cancelled: the money has nowhere to go but back. Called by
+ * the invoice ingest (invoice.ts) in its own transaction, for an invoice that
+ * is now paid.
+ *
+ * Matched against the sales the cancellations undid (CancelledAdSale). Each
+ * cancelled sale is owed at most what it sold for, less what was already
+ * refunded for it; and all of it together at most what the campaign has
+ * paid, less every edition refund already recorded. So a payment that only
+ * covers live placements refunds nothing, and a redelivered webhook — or the
+ * same invoice re-sent with any change — finds nothing left to refund. One
+ * row per (edition, campaign, invoice) besides
+ * (RefundDue_one_per_edition_campaign_invoice), cause
+ * PAID_AFTER_EDITION_CANCELLED, `attemptId` the CampaignInvoice. Under the
+ * campaign's row lock, so two invoices ingested at once cannot both claim
+ * the same money.
+ */
+export async function refundPaymentAfterEditionCancel(
+  tx: Tx,
+  actor: AuditActor,
+  paid: { tenantId: string; campaignId: string; invoiceId: string },
+): Promise<Array<{ id: string; editionId: string; amountCents: number }>> {
+  const out: Array<{ id: string; editionId: string; amountCents: number }> = [];
+  const cancelled = await tx.cancelledAdSale.findMany({
+    where: { tenantId: paid.tenantId, campaignId: paid.campaignId },
+    select: { editionId: true, sponsorId: true, soldCents: true },
+    orderBy: [{ cancelledAt: "asc" }, { id: "asc" }],
+  });
+  if (cancelled.length === 0) return out;
+  await lockCampaign(tx, paid.campaignId, paid.tenantId);
+
+  const refundedFor = async (editionId?: string) =>
+    (await tx.refundDue.aggregate({
+      where: { tenantId: paid.tenantId, campaignId: paid.campaignId, cause: { in: [...EDITION_REFUND_CAUSES] }, ...(editionId ? { editionId } : {}) },
+      _sum: { amountCents: true },
+    }))._sum.amountCents ?? 0;
+  let money = (await campaignPaidCents(tx, paid.tenantId, paid.campaignId)) - (await refundedFor());
+
+  for (const sale of cancelled) {
+    if (money <= 0) break;
+    const amountCents = Math.min(sale.soldCents - (await refundedFor(sale.editionId)), money);
+    if (amountCents <= 0) continue;
+    const made = await tx.refundDue.createMany({
+      data: [{
+        tenantId: paid.tenantId, orderId: null, lineId: null, campaignId: paid.campaignId, editionId: sale.editionId,
+        sponsorId: sale.sponsorId, amountCents, cause: "PAID_AFTER_EDITION_CANCELLED", paidVia: "ZOHO_INVOICE", attemptId: paid.invoiceId,
+      }],
+      skipDuplicates: true,
+    });
+    if (!made.count) continue;
+    const row = await tx.refundDue.findFirstOrThrow({
+      where: { tenantId: paid.tenantId, campaignId: paid.campaignId, editionId: sale.editionId, attemptId: paid.invoiceId, cause: "PAID_AFTER_EDITION_CANCELLED" },
+      select: { id: true },
+    });
+    await audit(tx, actor, "refundDue.create", "Campaign", paid.campaignId, {
+      after: { refundId: row.id, editionId: sale.editionId, amountCents, cause: "PAID_AFTER_EDITION_CANCELLED", paidVia: "ZOHO_INVOICE", invoiceId: paid.invoiceId },
+    });
+    out.push({ id: row.id, editionId: sale.editionId, amountCents });
+    money -= amountCents;
+  }
+  return out;
 }
 
 /** The sponsor hears the refund was sent: how much, for which order, on which day — never how it was sent or its reference (the sponsor sees neither). */

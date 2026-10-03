@@ -84,13 +84,14 @@ describe.skipIf(!hasDatabase)("P9-BE-17/18/19 · editions that run themselves, o
   const { createCampaignFromBrief } = await import("../src/domain/campaign");
   const ed = await import("../src/domain/edition");
   const artwork = await import("../src/domain/edition-artwork");
-  const { grantRight } = await import("../src/domain/content-rights");
+  const { addEditionAsset, grantRight } = await import("../src/domain/content-rights");
   const automation = await import("../src/domain/edition-automation");
   const sales = await import("../src/domain/ad-sale-auto");
   const splitLock = await import("../src/domain/edition-split-lock");
   const rateCard = await import("../src/domain/edition-rate-card");
   const refunds = await import("../src/domain/refunds");
   const { listEditions } = await import("../src/routes/v1/editions");
+  const { ingestZohoInvoice } = await import("../src/domain/invoice");
 
   const T = "nxa_tenant";
   const T_RACE = "nxa_tenant_race";
@@ -111,6 +112,11 @@ describe.skipIf(!hasDatabase)("P9-BE-17/18/19 · editions that run themselves, o
     await prisma.$executeRawUnsafe(
       `UPDATE "Edition" SET "splitLockedAt" = NULL, "splitLockedBy" = NULL, "splitLockNote" = NULL WHERE "tenantId" = ANY($1::text[])`, [T, T_RACE],
     );
+    /* Attribution is append-only; teardown is the named, deliberate way past it. */
+    await prisma.$transaction([
+      prisma.$executeRawUnsafe(`SET LOCAL sponsorx.attribution_purge = 'on'`),
+      prisma.$executeRawUnsafe(`DELETE FROM "SalesAttribution" WHERE "tenantId" = ANY($1::text[])`, [T, T_RACE]),
+    ]);
     for (let pass = 0; pass < 6; pass++) {
       for (const { table_name } of tables) {
         await prisma.$executeRawUnsafe(`DELETE FROM "${table_name}" WHERE "tenantId" = ANY($1::text[])`, [T, T_RACE]).catch(() => {});
@@ -143,10 +149,10 @@ describe.skipIf(!hasDatabase)("P9-BE-17/18/19 · editions that run themselves, o
   }
 
   /** A campaign the way one is really made — a brief on a NEXT package, approved by BTG — so the automatic sale runs. */
-  async function campaign(sponsorId: string, packageCode: string, briefCategories: string[] = [], who = staff): Promise<string> {
+  async function campaign(sponsorId: string, packageCode: string, briefCategories: string[] = [], who = staff, studentCode: string | null = null): Promise<string> {
     const pkg = await prisma.sponsorPackage.findFirstOrThrow({ where: { tenantId: who.tenantId, code: packageCode }, select: { id: true, priceLow: true } });
     const brief = await createBrief(who, {
-      sponsorId, objective: `NXA ${packageCode}`, budget: pkg.priceLow * 100, packageId: pkg.id,
+      sponsorId, objective: `NXA ${packageCode}`, budget: pkg.priceLow * 100, packageId: pkg.id, studentCode,
       startDate: new Date("2026-10-01"), endDate: new Date("2026-11-30"), sports: [], stateCodes: ["MD"], categories: briefCategories as never,
     });
     await transitionBrief(who, brief.id, "QUALIFIED");
@@ -238,18 +244,19 @@ describe.skipIf(!hasDatabase)("P9-BE-17/18/19 · editions that run themselves, o
       expect(await state()).toBe("CLOSED");
       expect((await view()).nextStep.text).toBe("1 sold ad has no approved artwork");
 
-      /* Artwork approved, but its licence not yet granted: the rights gate holds it. */
+      /* Artwork approved (its licence recorded with it), but an article has no right yet: the rights gate holds it. */
+      const article = await addEditionAsset(staff as never, e.id, { kind: "ARTICLE", title: "NXA cover story", sourceKind: "BTG" });
       const slot = await prisma.adSlot.findFirstOrThrow({ where: { tenantId: T, editionId: e.id, slotCode: "P03-HALF" }, select: { id: true } });
-      const { key } = await artwork.presignArtworkUpload(rosa as never, slot.id, "image/png");
+      const { key } = await artwork.presignArtworkUpload(rosa as never, slot.id, "image/png", 48_213);
       const a = await artwork.registerArtwork(rosa as never, slot.id, { r2Key: key });
-      await artwork.startArtworkReview(staff as never, a.id);
+      /* P9-BE-22 — the system picks a file that passes its checks up for review on upload. */
       await artwork.sendArtworkToSponsor(staff as never, a.id);
       await artwork.approveArtwork(rosa as never, a.id);
       await sweep(afterClose);
       expect(await state()).toBe("CLOSED");
       expect((await view()).nextStep.text).toBe("1 asset has no digital right");
 
-      await grantRight(staff as never, a.id, { grantorKind: "THIRD_PARTY", grantorRef: "NXA Rosa", mayPublishDigital: true, startsAt: new Date(now.getTime() - DAY), licenseRef: "nxa-IO-1" });
+      await grantRight(staff as never, article.id, { grantorKind: "BTG", grantorRef: "SponsorX", mayPublishDigital: true, startsAt: new Date(now.getTime() - DAY), licenseRef: "nxa-IO-1" });
       await sweep(afterClose);
       expect(await state()).toBe("IN_PRODUCTION");
       expect((await view()).nextStep).toMatchObject({ who: "SYSTEM", text: expect.stringMatching(/^Publishes digitally on/) });
@@ -514,6 +521,65 @@ describe.skipIf(!hasDatabase)("P9-BE-17/18/19 · editions that run themselves, o
       expect(mine[0]).toMatchObject({ orderId: null, orderRef: null, wholeOrder: false, zohoNote: refunds.ZOHO_NOTE, edition: { label: "NXA Cancel" }, causeWords: expect.stringMatching(/cancelled the edition/) });
       const sent = await refunds.markRefundSent(finance as never, mine[0]!.id, { method: "BANK_TRANSFER", reference: "NXA-CN-1", sentOn: new Date().toISOString().slice(0, 10) });
       expect(sent.state).toBe("SENT");
+    });
+
+    it("a Zoho payment after the cancellation becomes one refund row; a redelivered webhook adds none", async () => {
+      const s = await school("late");
+      const e = await edition(s, "NXA Late", { slots: [["P02-HALF", "HALF", 50_000]] });
+      const c = await campaign(await sponsor("late", ["APPAREL"], s), "NEXT-AD-HALF");
+      expect(await soldTo(c)).toHaveLength(1);
+      await prisma.campaign.update({ where: { id: c }, data: { zohoDealId: "nxa_deal_late" }, select: { id: true } });
+      const invoice = { invoiceId: "nxa_zinv_late", dealId: "nxa_deal_late", number: "INV-NXA-1", status: "sent", amount: 50_000 };
+      await prisma.$transaction((tx) => ingestZohoInvoice(tx, invoice));
+
+      /* Unpaid when the edition is cancelled: nothing to refund yet. */
+      await ed.transitionEdition(staff, e.id, "CANCELLED");
+      const rows = () => prisma.refundDue.findMany({
+        where: { tenantId: T, campaignId: c }, select: { cause: true, amountCents: true, editionId: true, paidVia: true },
+      });
+      expect(await rows()).toEqual([]);
+
+      /* Zoho marks it paid afterwards: the money goes onto Finance's list. */
+      const paid = { ...invoice, status: "paid", paidAt: new Date().toISOString() };
+      await prisma.$transaction((tx) => ingestZohoInvoice(tx, paid));
+      expect(await rows()).toEqual([{ cause: "PAID_AFTER_EDITION_CANCELLED", amountCents: 50_000, editionId: e.id, paidVia: "ZOHO_INVOICE" }]);
+
+      /* Redelivered as is — and again with a field changed: nothing new. */
+      expect(await prisma.$transaction((tx) => ingestZohoInvoice(tx, paid))).toMatchObject({ applied: false });
+      await prisma.$transaction((tx) => ingestZohoInvoice(tx, { ...paid, number: "INV-NXA-1b" }));
+      expect(await rows()).toHaveLength(1);
+      const listed = (await refunds.listRefunds(finance as never, "OPEN")).refunds.find((r) => r.edition?.campaignId === c);
+      expect(listed).toMatchObject({ cause: "PAID_AFTER_EDITION_CANCELLED", zohoNote: refunds.ZOHO_NOTE, orderRef: null });
+    });
+
+    it("a refunded sale stops counting for the student: the total drops and the $500 milestone is taken back", async () => {
+      const s = await school("student");
+      await prisma.student.create({ data: { id: "nxa_student", tenantId: T, propertyId: s, legalName: "NXA Legal Student", displayName: "NXA Student", state: "ACTIVE" } });
+      await prisma.studentCode.create({ data: { tenantId: T, studentId: "nxa_student", code: "nxa-code-1" } });
+      const e = await edition(s, "NXA Student sale", { slots: [["P02-FULL", "FULL", 80_000]] });
+      /* The Local Business Package: $1,500, credited to the student — three $500 marks. */
+      const c = await campaign(await sponsor("student", ["RESTAURANT"], s), "NEXT-LOCAL-1500", [], staff, "nxa-code-1");
+      expect(await soldTo(c)).toHaveLength(1);
+      const total = async () => (await prisma.salesAttribution.aggregate({ where: { tenantId: T, studentId: "nxa_student" }, _sum: { value: true } }))._sum.value ?? 0;
+      const points = async () => (await prisma.studentPointAccrual.aggregate({ where: { tenantId: T, studentId: "nxa_student" }, _sum: { points: true } }))._sum.points ?? 0;
+      expect(await total()).toBe(150_000);
+      expect(await points()).toBe(300);
+
+      await ed.transitionEdition(staff, e.id, "CANCELLED");
+      expect(await total()).toBe(0);
+      expect(await points()).toBe(0);
+      /* The original row is untouched; the reversal names it. */
+      const rows = await prisma.salesAttribution.findMany({ where: { tenantId: T, studentId: "nxa_student" }, select: { id: true, value: true, reversesId: true }, orderBy: { value: "desc" } });
+      expect(rows).toEqual([{ id: expect.any(String), value: 150_000, reversesId: null }, { id: expect.any(String), value: -150_000, reversesId: rows[0]!.id }]);
+      /* A sale is reversed once — Postgres refuses a second reversal. */
+      await expect(prisma.salesAttribution.create({ data: { tenantId: T, studentId: "nxa_student", sponsorId: "nxa_sponsor_student", value: -1, reversesId: rows[0]!.id }, select: { id: true } })).rejects.toThrow();
+
+      /* The next sale ($500) counts from the lower total: its one $500 mark is its own — none comes from the refunded sale. */
+      const next = await edition(s, "NXA Student next", { slots: [["P03-HALF", "HALF", 50_000]] });
+      await campaign(await sponsor("student_next", ["RESTAURANT"], s), "NEXT-AD-HALF", [], staff, "nxa-code-1");
+      expect(await prisma.adSlot.count({ where: { tenantId: T, editionId: next.id, campaignId: { not: null } } })).toBe(1);
+      expect(await total()).toBe(50_000);
+      expect(await points()).toBe(100);
     });
   });
 });

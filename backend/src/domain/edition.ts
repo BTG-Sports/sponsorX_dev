@@ -35,6 +35,7 @@ import { AdSaleRefusedError, categoryHolds, clashHold, saleCategories, type Sale
 import { applyStageMove, CAMPAIGN_FOR_MOVE, lockCampaign } from "./campaign-stages";
 import { canTransitionCampaign, type CampaignState } from "./campaign-state";
 import { recordEditionRefund } from "./refunds";
+import { reverseSaleAttributions } from "./attribution-reversal";
 import { rateCardPrice } from "./edition-rate-card";
 import { rightsGap } from "./content-rights";
 import { artworkGap } from "./edition-artwork";
@@ -387,6 +388,14 @@ async function cancelEditionIn(
       select: { ...CAMPAIGN_FOR_MOVE, _count: { select: { orders: true, adSlots: true } } },
     });
     const soldCents = slots.reduce((n, s) => n + (s.soldCents ?? 0), 0);
+    /* The record of the sale undone — what a payment arriving later is matched
+       against (refunds.ts `refundPaymentAfterEditionCancel`). */
+    await tx.cancelledAdSale.createMany({
+      data: [{ tenantId, editionId: edition.id, campaignId, sponsorId: campaign.sponsorId, soldCents }],
+      skipDuplicates: true,
+    });
+    /* The student who originated the sale no longer counts it (attribution-reversal.ts). */
+    await reverseSaleAttributions(tx, by, { tenantId, campaignId, editionId: edition.id, reason: `The edition ${edition.label} was cancelled.` });
     const refund = await recordEditionRefund(tx, by, { tenantId, editionId: edition.id, campaignId, sponsorId: campaign.sponsorId, soldCents });
     if (refund) out.refunds.push({ campaignId, refundId: refund.id, amountCents: refund.amountCents });
 
@@ -571,7 +580,7 @@ export function kindWords(kind: string): string {
 /**
  * P9-BE-18 — the categories already held exclusively against this edition,
  * for a buyer: the presenting sponsor of any edition still in flight at the
- * school (student.ts `heldCategories`, the prospect check's own rule), this
+ * school (student-moves.ts `heldCategories`, the prospect check's own rule), this
  * edition's presenting sponsor and every buyer here whose package bought
  * exclusivity — and, when the buyer is itself buying exclusivity (a
  * presenting position or an exclusive package), every category already sold

@@ -75,6 +75,8 @@ const GOVERNED_BY: Record<string, Resource> = {
   EditionRateCard: "adSlot",
   /* P9-BE-18 — the ad sales the system held for SALES: read by SALES and BTG (adSlot write, tenant-wide), written only by the system. */
   AdSaleHold: "adSlot",
+  /* P9-BE-19 — the sales an edition's cancellation undid: written by the cancellation, read only by the invoice ingest to match a late payment to a refund; nothing reaches it through the API but Finance's refund rows. */
+  CancelledAdSale: "refundDue",
   /* 2S5-INT-01/-03, 2S5-BE-04/-05 — a card payment is the order's; a payout
      line is its payout's. */
   PayoutAccount: "payoutAccount",

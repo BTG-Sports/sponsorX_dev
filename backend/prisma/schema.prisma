@@ -902,6 +902,8 @@ model Campaign {
   editionAssets EditionAsset[]
   /// P9-BE-18 — its automatic ad sale, held for SALES with the reasons.
   adSaleHold    AdSaleHold?
+  /// P9-BE-19 — sales an edition's cancellation undid.
+  cancelledAdSales CancelledAdSale[]
   /// P9-BE-19 — money owed back because an edition it bought into was cancelled.
   refundsDue    RefundDue[]
   /// Server-rendered sponsor reports (2S7-BE-02).
@@ -1655,6 +1657,7 @@ model Edition {
   contributions ContentContribution[]
   schoolPools   SchoolPoolAllocation[]
   saleHolds     AdSaleHold[]
+  cancelledSales CancelledAdSale[]
   refundsDue    RefundDue[]
 
   @@index([tenantId, state])
@@ -1912,14 +1915,42 @@ model SalesAttribution {
   sponsorId    String
   campaignId   String?
   editionId    String?
-  /// cents, at close
+  /// cents, at close. Negative only on a reversal (P9-BE-19).
   value        Int
   originatedAt DateTime @default(now())
+  /// P9-BE-19 — set on a REVERSAL: the attribution whose sale was refunded
+  /// (an edition cancelled). Its value is the negative of that one's, so the
+  /// student's sum drops by it; the original row is never touched. Unique: a
+  /// sale is reversed once.
+  reversesId   String?  @unique
 
   student Student @relation(fields: [studentId], references: [id], onDelete: Restrict)
+  reverses SalesAttribution? @relation("AttributionReversal", fields: [reversesId], references: [id], onDelete: Cascade)
+  reversal SalesAttribution? @relation("AttributionReversal")
 
   @@index([tenantId, studentId])
   @@index([sponsorId])
+}
+
+/// P9-BE-19 — a sale an edition's cancellation undid: which campaign bought
+/// in which edition, and for how much. The released slots no longer name the
+/// campaign, so this is what a payment arriving after the cancellation is
+/// matched against (refunds.ts `refundPaymentAfterEditionCancel`).
+model CancelledAdSale {
+  id          String   @id @default(cuid())
+  tenantId    String
+  editionId   String
+  campaignId  String
+  sponsorId   String
+  /// cents — what the released slots sold for
+  soldCents   Int
+  cancelledAt DateTime @default(now())
+
+  edition  Edition  @relation(fields: [editionId], references: [id], onDelete: Restrict)
+  campaign Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  @@unique([editionId, campaignId])
+  @@index([tenantId, campaignId])
 }
 
 /// P9-BE-15, §5.5 — accruals only. NO cents column, NO EarningState, NO
@@ -3272,6 +3303,7 @@ model RefundDue {
   /// SPONSOR_CANCELLED | SELLER_CANCELLED | CANCELLATION_AGREED | PROBLEM_AGREED | BTG_DECIDED | BTG_REFUNDED_ORDER
   /// | PAID_AFTER_CANCELLATION (a card payment confirmed after the order was cancelled)
   /// | EDITION_CANCELLED (P9-BE-19 — a paid ad sale in an edition BTG cancelled)
+  /// | PAID_AFTER_EDITION_CANCELLED (P9-BE-19 — Zoho marked an invoice paid after that edition was cancelled)
   cause       String
   /// Copied from the order: CARD | BANK_TRANSFER | CHEQUE | OTHER | ZOHO_INVOICE.
   paidVia     String?
@@ -3286,7 +3318,8 @@ model RefundDue {
   sentOn      DateTime? @db.Date
   /// The provider that refunded a card ("standin" on staging: a test, no money moved).
   provider    String?
-  /// PAID_AFTER_CANCELLATION only: the card attempt the money came from — one row per attempt.
+  /// PAID_AFTER_CANCELLATION: the card attempt the money came from — one row per attempt.
+  /// PAID_AFTER_EDITION_CANCELLED (P9-BE-19): the CampaignInvoice the late payment came from.
   attemptId   String?
   /// P9-BE-19 — EDITION_CANCELLED only: the campaign whose paid ad sale the
   /// cancelled edition released. One row per (edition, campaign).

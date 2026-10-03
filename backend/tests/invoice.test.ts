@@ -57,6 +57,9 @@ const tx = () => ({
       return Promise.resolve({ id: "inv_1", status: args.create.status });
     },
   },
+  /* P9-BE-19 — a paid invoice asks whether a cancelled edition undid any of
+     the campaign's sales (refunds.ts refundPaymentAfterEditionCancel); none here. */
+  cancelledAdSale: { findMany: () => Promise.resolve([]) },
 }) as never;
 
 const payload = (over: Record<string, unknown> = {}) => ({
