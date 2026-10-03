@@ -376,9 +376,16 @@ ${d.portalUrl ?? ""}
   /* P9-BE-13, §5.6 — SponsorX declined a business a student brought in.
      It says plainly that their sales credit is untouched, because that is a
      requirement and not a courtesy, and offers the categories still open. */
+  /* P9-BE-21 — a minor's guardian gets the same message (`guardianName`
+     set), addressed to them and about their student. */
   "student.prospectDeclined": (d) => ({
     subject: `About ${d.businessName ?? "your prospect"}`,
-    text: `Hi ${d.studentName ?? "there"},\n\nSponsorX can't take on ${d.businessName ?? "this business"} right now (reason: ${(d.reason ?? "OTHER").replace(/_/g, " ").toLowerCase()}).\n\nThis doesn't count against you — your sales credit and points are unchanged.${d.openCategories ? `\n\nCategories still open at your school: ${d.openCategories}.` : ""}\n\n— SponsorX NEXT`,
+    text: `Hi ${d.guardianName || d.studentName || "there"},\n\n${d.guardianName ? `About a business ${d.studentName ?? "your student"} brought to SponsorX NEXT: ` : ""}SponsorX can't take on ${d.businessName ?? "this business"} right now (reason: ${(d.reason ?? "OTHER").replace(/_/g, " ").toLowerCase()}).\n\nThis doesn't count against ${d.guardianName ? d.studentName ?? "them" : "you"} — ${d.guardianName ? "their" : "your"} sales credit and points are unchanged.${d.openCategories ? `\n\nCategories still open at ${d.guardianName ? "their" : "your"} school: ${d.openCategories}.` : ""}\n\n— SponsorX NEXT`,
+  }),
+  /* P9-BE-20 — the advisor's once-a-day list of roster approvals. */
+  "student.autoApprovedDigest": (d) => ({
+    subject: `${d.count ?? "0"} student(s) approved from your roster — ${d.day ?? "today"}`,
+    text: `These applications matched your school's roster exactly and were approved automatically:\n\n${d.students ?? ""}\n\nIf someone shouldn't be on the masthead, suspend them from your desk:\n\n${d.deskUrl ?? ""}\n\n— SponsorX NEXT`,
   }),
   /* 2S1-INT-01 — the five onboarding messages, to the organisation's primary
      contact. Every refusal quotes the reviewer's note, which is mandatory

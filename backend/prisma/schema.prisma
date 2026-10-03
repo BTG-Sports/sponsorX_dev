@@ -311,6 +311,11 @@ model Property {
   inventory       InventoryItem[]
   listings        Listing[]
   restrictions    BrandRestriction[]
+  /// P9-BE-20 — a SCHOOL's email domain ("northside.k12.md.us"), set by its
+  /// advisor or BTG. An adult student is approved from the roster only with
+  /// an application email on it; with none on file, adults go to the advisor.
+  /// Lower case, no "@" (CHECK in migration 20261004800000).
+  emailDomain     String?
 
   @@index([tenantId])
 }
@@ -1779,6 +1784,16 @@ model Student {
   /// Graduated, transferred or withdrew. Access ends; attribution does not.
   leftAt        DateTime?
   createdAt     DateTime     @default(now())
+  /// P9-BE-20 — why an application waits for the advisor, in words
+  /// ("Not on the school roster"). Only while UNDER_REVIEW (CHECK). Read by
+  /// the advisor and BTG only — the student is told their school is reviewing.
+  reviewReasons String[]     @default([])
+  /// P9-BE-20 — approved by the system on an exact roster match, and which
+  /// roster entry it matched. Both or neither (CHECK).
+  autoApprovedAt            DateTime?
+  autoApprovedRosterEntryId String?
+  /// When the advisor's once-a-day digest listed this automatic approval.
+  autoApprovalDigestedAt    DateTime?
 
   property      Property              @relation(fields: [propertyId], references: [id])
   athlete       Athlete?              @relation(fields: [athleteId], references: [id])
@@ -1879,10 +1894,18 @@ model StudentProspect {
   redirectCategories String[]
   decidedAt          DateTime?
   createdAt          DateTime      @default(now())
+  /// P9-BE-21 — decided by the system on submit (accepted clean, or refused
+  /// for a category another sponsor holds). Never while SUBMITTED (CHECK).
+  decidedAutomatically Boolean     @default(false)
+  /// P9-BE-21 — why the system held it for SALES / BTG, in words. Kept after
+  /// a person decides, as the record of why it reached them. Internal: never
+  /// in a student's read.
+  reviewReasons      String[]      @default([])
 
   student Student @relation(fields: [studentId], references: [id])
 
   @@index([tenantId, studentId])
+  @@index([tenantId, state])
 }
 
 enum ProspectState {

@@ -5,8 +5,8 @@ import { EmptyState, SkeletonPage } from "@/components/states";
 import { demoState } from "@/lib/demo";
 import { apiFetch, fetchActor } from "@/server/api";
 import { apiListQuery, textParam } from "@/lib/list-query";
-import { CLAIM_KEYS, STUDENT_GROUP_KEYS, keyedListQuery, type StudentGroup } from "@/lib/students-live";
-import { LiveAdvisorDesk, type ClaimsPage, type StudentsPage } from "./live-advisor";
+import { AUTO_KEYS, CLAIM_KEYS, STUDENT_GROUP_KEYS, keyedListQuery, type StudentGroup } from "@/lib/students-live";
+import { LiveAdvisorDesk, type ClaimsPage, type ReviewSettings, type StudentsPage } from "./live-advisor";
 
 const DESK_ROLES = ["ADVISOR", "SUPER_ADMIN", "BTG_ADMIN"];
 import {
@@ -56,17 +56,27 @@ export default async function AdvisorHomePage({
       const group = textParam(sp, "group", STUDENT_GROUP_KEYS) as StudentGroup | "";
       const q = textParam(sp, "q");
       const cstate = textParam(sp, "cstate", ["open"]) as "" | "open";
-      const [res, cRes] = await Promise.all([
+      /* P9-FE-11 — the students the system approved from the roster (a
+         second list on ?apage / ?asize), and the advisor's own school's
+         roster-approval settings. BTG staff have no school of their own. */
+      const propertyId = who.actor.propertyId ?? null;
+      const [res, cRes, aRes, sRes] = await Promise.all([
         apiFetch(`/students${apiListQuery(sp, { group, q })}`),
         /* P9-FE-08 — claims on featured profiles at this school; a role
            outside the claim matrix (403) simply has none to show. */
         apiFetch(`/claims${keyedListQuery(sp, CLAIM_KEYS, { state: cstate === "open" ? "SUBMITTED" : "" })}`),
+        apiFetch(`/students${keyedListQuery(sp, AUTO_KEYS, { auto: "true" })}`),
+        propertyId ? apiFetch(`/properties/${encodeURIComponent(propertyId)}/email-domain`) : Promise.resolve(null),
       ]);
       if (!res.ok) throw new Error(`Students unavailable (${res.status}).`);
       if (!cRes.ok && cRes.status !== 403) throw new Error(`Claims unavailable (${cRes.status}).`);
+      if (!aRes.ok) throw new Error(`Students unavailable (${aRes.status}).`);
+      if (sRes && !sRes.ok && sRes.status !== 403) throw new Error(`School settings unavailable (${sRes.status}).`);
       const students = (await res.json()) as StudentsPage;
       const claims = cRes.ok ? ((await cRes.json()) as ClaimsPage) : null;
-      return <LiveAdvisorDesk students={students} claims={claims} group={group} q={q} cstate={cstate} />;
+      const auto = (await aRes.json()) as StudentsPage;
+      const settings = sRes?.ok ? ((await sRes.json()) as ReviewSettings) : null;
+      return <LiveAdvisorDesk students={students} claims={claims} auto={auto} settings={settings} group={group} q={q} cstate={cstate} />;
     }
   }
 

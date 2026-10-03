@@ -222,12 +222,13 @@ describe.skipIf(!hasDatabase)("SponsorX NEXT students, on the path a request tak
       const id = app.json.id as string;
       await prisma.user.create({ data: { id: "nx3_casey", tenantId: T, clerkId: "nx3_casey", email: "casey@nx3.invalid", roles: ["STUDENT"], studentId: id, propertyId: "nx3_school" } });
 
-      expect((await call("POST", `/students/${id}/transition`, "nx3_advisor_other", { to: "UNDER_REVIEW" })).status).toBe(403);
-      expect((await call("POST", `/students/${id}/transition`, "nx3_casey", { to: "UNDER_REVIEW" })).status).toBe(403);
-      expect((await call("POST", `/students/${id}/transition`, "nx3_advisor", { to: "UNDER_REVIEW" })).status).toBe(200);
+      /* P9-BE-20 — picked up on submit (UNDER_REVIEW, as the system); this
+         school has no roster, so it waits for the advisor. */
+      expect((await prisma.student.findUniqueOrThrow({ where: { id }, select: { state: true } })).state).toBe("UNDER_REVIEW");
+      expect((await call("POST", `/students/${id}/transition`, "nx3_advisor_other", { to: "APPROVED" })).status).toBe(403);
       expect((await call("POST", `/students/${id}/transition`, "nx3_casey", { to: "APPROVED" })).status).toBe(403);
-      expect((await call("POST", `/students/${id}/transition`, "nx3_advisor", { to: "APPROVED" })).status).toBe(200);
-      expect((await call("POST", `/students/${id}/transition`, "nx3_advisor", { to: "ACTIVE" })).json.state).toBe("ACTIVE");
+      /* An adult: the advisor's approval activates at once (P9-BE-20 §3). */
+      expect((await call("POST", `/students/${id}/transition`, "nx3_advisor", { to: "APPROVED" })).json.state).toBe("ACTIVE");
     });
 
     it("a minor student needs a VERIFIED guardian to go ACTIVE — the athlete's rule", async () => {
@@ -240,8 +241,9 @@ describe.skipIf(!hasDatabase)("SponsorX NEXT students, on the path a request tak
       expect(link.status).toBe(201);
       expect((await call("POST", "/students/nx3_minor/transition", "nx3_advisor", { to: "ACTIVE" })).status).toBe(409);
 
+      /* P9-BE-20 — verifying the guardian activates the waiting student, as the system. */
       await verifyGuardian(staff, link.json.guardianId);
-      expect((await call("POST", "/students/nx3_minor/transition", "nx3_advisor", { to: "ACTIVE" })).json.state).toBe("ACTIVE");
+      expect((await prisma.student.findUniqueOrThrow({ where: { id: "nx3_minor" }, select: { state: true } })).state).toBe("ACTIVE");
     });
   });
 
@@ -385,15 +387,16 @@ describe.skipIf(!hasDatabase)("SponsorX NEXT students, on the path a request tak
       expect((await call("POST", "/students/nx3_taylor/prospects", "nx3_taylor_user", { businessName: "Corner Bar", category: "ALCOHOL" })).status).toBe(422);
       const p = await call("POST", "/students/nx3_taylor/prospects", "nx3_taylor_user", { businessName: "Luigi's", category: "RESTAURANT" });
       expect(p.status).toBe(201);
+      /* P9-BE-21 — refused on submit, as the system: another sponsor holds the category. */
+      expect(p.json.state).toBe("REJECTED");
       expect((await call("POST", `/prospects/${p.json.id}/decision`, "nx3_taylor_user", { decision: "REJECT", reasonCode: "OTHER" })).status).toBe(403);
       expect((await call("POST", `/prospects/${p.json.id}/decision`, "nx3_staff", { decision: "REJECT" })).status).toBe(422);
 
-      const d = await call("POST", `/prospects/${p.json.id}/decision`, "nx3_staff", { decision: "REJECT", reasonCode: "CATEGORY_EXCLUSIVE" });
-      expect(d.status).toBe(200);
-      expect(d.json.state).toBe("REJECTED");
-      expect(d.json.redirectCategories.length).toBeGreaterThan(0);
-      expect(d.json.redirectCategories).not.toContain("RESTAURANT");
-      for (const bad of ["ALCOHOL", "GAMBLING", "CANNABIS"]) expect(d.json.redirectCategories).not.toContain(bad);
+      const d = await prisma.studentProspect.findUniqueOrThrow({ where: { id: p.json.id }, select: { state: true, reasonCode: true, redirectCategories: true, decidedAutomatically: true } });
+      expect(d).toMatchObject({ state: "REJECTED", reasonCode: "CATEGORY_EXCLUSIVE", decidedAutomatically: true });
+      expect(d.redirectCategories.length).toBeGreaterThan(0);
+      expect(d.redirectCategories).not.toContain("RESTAURANT");
+      for (const bad of ["ALCOHOL", "GAMBLING", "CANNABIS"]) expect(d.redirectCategories).not.toContain(bad);
 
       expect(await standing()).toBe(before);
       const mail = await prisma.outboxJob.findFirstOrThrow({ where: { tenantId: T, name: "notify.email" }, select: { payload: true }, orderBy: { createdAt: "desc" } });

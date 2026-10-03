@@ -46,6 +46,9 @@ export type EmailTemplate =
   | "athlete.rejected"
   | "athlete.profileChangeApproved"
   | "athlete.profileChangeDeclined"
+  /* P9-BE-20 — a school's advisors hear, once a day, who the system
+     approved from their roster. */
+  | "student.autoApprovedDigest"
   | "guardian.verificationRequested"
   /* P4-INT-01 — the invitation's three moments. A reminder and an expiry
      warning are separate templates rather than one with a flag, because the

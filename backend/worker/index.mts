@@ -94,6 +94,7 @@ import { sweepCampaignStages } from "../src/domain/campaign-stages.ts";
 import { recheckHeldBriefs } from "../src/domain/brief-auto.ts";
 import { sweepAutoStaffing } from "../src/domain/auto-staffing.ts";
 import { sweepCampaignLaunches } from "../src/domain/campaign-launch.ts";
+import { STUDENT_DIGEST_HOUR_UTC, sendStudentApprovalDigests, sweepStudentAutomation } from "../src/domain/student-auto.ts";
 import { purgeExpiredClosures } from "../src/domain/account-closure.ts";
 import { sweepComingOfAge } from "../src/domain/coming-of-age.ts";
 import { LISTING_DIGEST_HOUR_UTC, sendListingDigests } from "../src/domain/listing.ts";
@@ -326,6 +327,12 @@ const BRIEF_RECHECK_INTERVAL_MS = 24 * 60 * 60 * 1000;
 let autoStaffingTimer: ReturnType<typeof setInterval> | undefined;
 let campaignLaunchTimer: ReturnType<typeof setInterval> | undefined;
 const AUTO_CAMPAIGN_SWEEP_INTERVAL_MS = 10 * 60 * 1000;
+/* P9-BE-20 — the student sweep (an application still SUBMITTED, an approved
+   student whose guardian is now verified, an active one with no code), every
+   ten minutes; and the advisors' once-a-day digest of roster approvals,
+   checked hourly from STUDENT_DIGEST_HOUR_UTC. */
+let studentSweepTimer: ReturnType<typeof setInterval> | undefined;
+let studentDigestTimer: ReturnType<typeof setInterval> | undefined;
 /* P8-INT-05 checks hourly and runs at most once a day per tenant; P8-INT-03's
    channel is renewed every 12 hours against a 24-hour expiry. */
 const ZOHO_SWEEP_INTERVAL_MS = 60 * 60 * 1000;
@@ -794,6 +801,22 @@ async function main(): Promise<void> {
   campaignLaunchTimer = setInterval(campaignLaunchSweep, AUTO_CAMPAIGN_SWEEP_INTERVAL_MS);
   setTimeout(campaignLaunchSweep, 65_000).unref();
 
+  /* P9-BE-20 — the student sweep is the safety net behind the events (submit,
+     approval, guardian verification); the digest is held to one a day per
+     school by the data, so the hourly passes after the first send nothing. */
+  const studentSweep = () =>
+    void sweepStudentAutomation()
+      .then((r) => { if (r.approved || r.held || r.activated || r.coded || r.failed) console.log(`[worker] students ${JSON.stringify(r)}`); })
+      .catch((error: unknown) => console.error("[worker] student sweep failed, will retry:", error));
+  studentSweepTimer = setInterval(studentSweep, AUTO_CAMPAIGN_SWEEP_INTERVAL_MS);
+  setTimeout(studentSweep, 70_000).unref();
+  studentDigestTimer = setInterval(() => {
+    if (new Date().getUTCHours() < STUDENT_DIGEST_HOUR_UTC) return;
+    void sendStudentApprovalDigests()
+      .then(({ schools, students }) => { if (schools) console.log(`[worker] student digests — ${schools} school(s), ${students} student(s)`); })
+      .catch((error: unknown) => console.error("[worker] student digest failed, will retry next hour:", error));
+  }, REMINDER_INTERVAL_MS);
+
   /* 2S4-BE-09 — BTG's daily summary of the orders approved automatically.
      Hourly, from ORDER_DIGEST_HOUR_UTC: the first pass of the day sends it
      and records the day (one per BTG tenant per UTC date), so later passes
@@ -864,6 +887,8 @@ export async function stopWorker(): Promise<void> {
   if (briefRecheckTimer) clearInterval(briefRecheckTimer);
   if (autoStaffingTimer) clearInterval(autoStaffingTimer);
   if (campaignLaunchTimer) clearInterval(campaignLaunchTimer);
+  if (studentSweepTimer) clearInterval(studentSweepTimer);
+  if (studentDigestTimer) clearInterval(studentDigestTimer);
   timer = undefined;
   expiryTimer = undefined;
   await boss.stop({ graceful: true }).catch(() => {});

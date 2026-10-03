@@ -29,6 +29,8 @@ import { scopeFor } from "../auth/policy";
 import { ForbiddenError } from "../auth/errors";
 import { transitionAthleteIn } from "./athlete";
 import { readPage, type PageRequest } from "../lib/paging";
+/* The claim's name match — shared with P9-BE-20's roster approval. */
+import { norm } from "./name-match";
 
 export class FeaturedError extends Error {
   readonly status: number;
@@ -46,8 +48,6 @@ export class ProfileNotFoundError extends Error {
     this.name = "ProfileNotFoundError";
   }
 }
-
-const norm = (name: string) => name.normalize("NFKD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/[^a-z]+/g, " ").trim();
 
 /** Editorial features an athlete. No email, no consent, no rates. */
 export async function createFeaturedAthlete(
