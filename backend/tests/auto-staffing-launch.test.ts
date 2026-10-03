@@ -113,7 +113,7 @@ describe.skipIf(!hasDatabase)("P4-BE-12 / P4-BE-13 · on a real database", { tim
   const { createApp } = await import("../src/app");
   type Actor = import("../src/auth/actor").Actor;
 
-  const TENANTS = ["asl_t1", "asl_t2", "asl_t3", "asl_t4", "asl_t5", "asl_t6"];
+  const TENANTS = ["asl_t1", "asl_t2", "asl_t3", "asl_t4", "asl_t5", "asl_t6", "asl_t7"];
   const DAY = 864e5;
   const inDays = (n: number) => new Date(Date.now() + n * DAY);
   const HASH = "asl-order-terms-hash";
@@ -520,6 +520,37 @@ describe.skipIf(!hasDatabase)("P4-BE-12 / P4-BE-13 · on a real database", { tim
       expect(r.state).toBe("ACTIVE");
       const audit = await prisma.auditLog.findFirst({ where: { tenantId: T, entityId: "asl5_future", action: "campaign.launch" }, select: { actorId: true } });
       expect(audit?.actorId).toBe(`${T}_admin`);
+    });
+  });
+
+  /* P4-BE-11 + P4-BE-12 together: the sponsor files a brief, it is approved
+     automatically, and the campaign it becomes starts staffing itself with no
+     person anywhere in the chain. */
+  describe("a brief approved automatically staffs itself", () => {
+    const T = "asl_t7";
+    const ids = ["asl7_a", "asl7_b", "asl7_c"];
+
+    beforeAll(async () => {
+      await world(T, { min: 2, max: 2, athletes: [
+        { key: ids[0]!, name: "Asl7 Avery" }, { key: ids[1]!, name: "Asl7 Blake" }, { key: ids[2]!, name: "Asl7 Casey" },
+      ] });
+    });
+
+    it("the sponsor's brief becomes a STAFFING campaign with offers out to the package's maximum", async () => {
+      const day = (n: number) => inDays(n).toISOString().slice(0, 10);
+      const r = await call("POST", "/briefs", `${T}_sp`, {
+        sponsorId: `${T}_sponsor`, objective: "Weekday lunch traffic from local college basketball fans this autumn",
+        budget: 1_000_000, packageId: `${T}_pkg`, startDate: day(10), endDate: day(40), sports: [], stateCodes: [], categories: [],
+      });
+      expect(r.status, JSON.stringify(r.json)).toBe(201);
+      expect(r.json).toMatchObject({ autoApproved: true, state: "CAMPAIGN_CREATED" });
+      const campaignId = r.json.campaignId as string;
+
+      const row = await prisma.campaign.findUniqueOrThrow({ where: { id: campaignId }, select: { autoStaffing: true, state: true } });
+      expect(row).toEqual({ autoStaffing: true, state: "STAFFING" });
+      const offers = await offersOf(campaignId);
+      expect(offers.map((o) => [o.athleteId, o.state])).toEqual([[ids[0], "SENT"], [ids[1], "SENT"]]);
+      for (const o of offers) expect(o.createdBy).toBeNull();
     });
   });
 });

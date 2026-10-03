@@ -7,6 +7,18 @@ Phase 1 is a **managed** marketplace: sponsors browse and submit briefs, BTG
 staff does matching, pricing, conflict checks and invoicing. No self-service
 checkout — that is Phase 2.
 
+> **Phase 2 automates the managed steps — 2026-10-03, by the programme owner.**
+> "If we are in phase 2, we need to override any rules set in phase 1 because
+> we are already polishing the flow. Automation and safety is our priority."
+> Any Phase 1 rule that BTG does a step by hand is overridden: a step is
+> automatic when every safety check passes, and held for BTG with the reason
+> when one fails. Built so far: listings (2S3-BE-06), orders (2S4-BE-09/10/11),
+> cancellations (2S4-BE-12), payouts (2S5-BE-06/07/08), brief approval
+> (P4-BE-11), matching and staffing (P4-BE-12), launch (P4-BE-13), stage moves
+> (P4-BE-09), content checks and trusted review (P5-BE-09/10). Safety never
+> gives: tenant scope, price floors, guardian consent, minors and sensitive
+> categories always reach a person.
+
 **Surfaces:** marketing site; the 12 core screens (§9); portals for sponsor,
 athlete and property (§8); four BTG admin workspaces — Admin, Athlete Network
 Manager, Finance, Content Approval (§10, §23); guardian / authorized-rep access
@@ -185,7 +197,7 @@ Code review. Committing one file is what makes a shared tracker actually shared.
   by hand at end of day, still the copy stakeholders read.
 
 **Phase files:**
-[Phase 1 · Managed Marketplace](documentation/SponsorX-Phase1-Managed-Marketplace.md) (207 tasks) ·
+[Phase 1 · Managed Marketplace](documentation/SponsorX-Phase1-Managed-Marketplace.md) (212 tasks) ·
 [Phase 2 · Marketplace & Commerce](documentation/SponsorX-Phase2-Marketplace-Commerce.md) (123) ·
 [Phase 3 · Intelligence & Attribution](documentation/SponsorX-Phase3-Intelligence-Attribution.md) (44) ·
 [Phase 4 · INFINEX Integration](documentation/SponsorX-Phase4-INFINEX-Integration.md) (51)

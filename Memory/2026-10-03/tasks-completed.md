@@ -34,3 +34,32 @@
 - **How it was built:** three agents in worktrees, each with its own test database (`sponsorx_test_a/b/c`), merged into `development/bob/be_batch_0924`. Two trivial conflicts (`registry.ts` and `worker/index.mts`) were resolved by keeping both sides.
 - **Checks on the combined branch:** backend 2465/2467 on two runs (only Jan's next-edition-e2e 4–5); frontend 1096/1096; tsc and eslint clean.
 - **Tracker:** Phase 1 rows 270–276 (P4-BE-07/08/09/10, P5-BE-09, P6-BE-09, P4-FE-08), all Done; Phase 2 row 126 (2S8-QA-06), Done. The plans now have 207 (Phase 1) and 123 (Phase 2) tasks.
+
+## rcfworks — afternoon: Phase 2 overrides Phase 1's manual rules; briefs, staffing, launch and content review automated
+
+- **Programme owner's decision (2026-10-03):** "if we are in phase2, we need to override any rules set in phase 1 … Automation and safety is our priority." It's recorded at the top of CLAUDE.md. The rule from now on: a step is automatic when every safety check passes, and held for BTG with the reason when one fails. Minors and sensitive categories always reach a person.
+- **P4-BE-11 · Briefs approved automatically:**
+  - A sponsor's brief, on create or a DRAFT edit, goes DRAFT → QUALIFIED → APPROVED → CAMPAIGN_CREATED as the system when all of these hold: readiness passes; it has a package and the budget meets `priceLow`; fitting athletes reach `athleteCountMin`; no sensitive category on the brief or the sponsor; the sponsor is in good standing.
+  - Otherwise it is held (`heldReasons` is BTG-only) and BTG is emailed once.
+  - `recheckHeldBriefs` runs daily.
+  - New `PATCH /briefs/:id`.
+  - `SENSITIVE_CATEGORIES` lives in `brand-categories.ts`; offers and trusted review import it from there.
+  - Also fixed: sponsors no longer read `closeReason`. A cross-tenant SUPER_ADMIN no longer creates the campaign in their own tenant.
+- **P4-BE-12 · Campaigns staff themselves:**
+  - A campaign from a package with job lines has `autoStaffing` on. It is new campaigns only: no backfill.
+  - Offers go to the ranked list up to `athleteCountMax`, with a 3-day window (`AUTO_OFFER_WINDOW_DAYS`), within budget. A minor's offer goes to their guardian.
+  - A decline is replaced in its own transaction (behind a savepoint); an expiry by `sweepAutoStaffing`.
+  - A validation refusal skips that athlete (`CampaignStaffingSkip`). Running out of athletes or budget stops staffing and emails BTG.
+  - `POST /campaigns/:id/auto-staffing` switches it.
+  - Staffing starts straight after commit on every path (`startAutoStaffing`): BTG's approval, an auto-approved brief, and the held-brief recheck.
+- **P4-BE-13 · Launch:** APPROVAL → ACTIVE as the system on the start date (`sweepCampaignLaunches`). The code has no sponsor approval step. `launchCampaign` now requires BTG tenant-wide approval; before this, a sponsor admin could launch their own campaign.
+- **P5-BE-10 · Trusted drafts skip BTG review:**
+  - A draft goes straight to the sponsor when the athlete's last 3 BTG-reviewed drafts had no BTG revision, the athlete is not a minor (`guardianControls`) and no category is sensitive.
+  - A BTG revision resets the streak. A per-athlete lock serializes revision and submission.
+  - Sponsors can no longer approve from BTG_REVIEW (409 `BtgReviewFirstError`).
+  - A submit while in review is now refused (409).
+- **P4-FE-09:** the screens for all of the above.
+- **Merge note:** campaign creation now lives in `campaign-create.ts` `createCampaignIn`, used by both BTG approval and automatic approval. It sets `autoStaffing` from the package. A joint test in `auto-staffing-launch.test.ts` proves a sponsor's brief becomes a STAFFING campaign with offers out, with no person involved.
+- **Migrations:** 20261004400000 (brief auto), 20261004500000 (staffing and launch), 20261004600000 (content trust).
+- **Checks on the combined branch:** backend 2566/2568 on two runs (only Jan's next-edition-e2e 4–5); frontend 1117/1117; tsc and eslint clean.
+- **Tracker:** Phase 1 rows 277–281 Done. The plan has 212 Phase 1 tasks.

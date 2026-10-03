@@ -5,7 +5,7 @@
 | | |
 |---|---|
 | **Goal** | Launch real micro-NIL campaigns while building the data foundation. BTG staff run matching, pricing, conflict checks and invoicing; the software standardises and records every step. |
-| **Tasks** | 207 · 486 person-days |
+| **Tasks** | 212 · 496 person-days |
 | **Blueprint timeline** | 14–18 weeks |
 | **Balanced budget** | $75K–$105K |
 | **Depends on** | Nothing — this is the start |
@@ -1598,6 +1598,59 @@ BTG keeps launching and cancelling. Each campaign shows its next step and who it
 - **Done when:** Each automatic move happens on its event and only when its whole condition holds, staffing only at the package's full athlete count; a sweep catches missed events; manual and automatic moves never both apply; each campaign shows its next step
 - **Reference:** BTG admin review item 20, 2026-10-03
 
+### ✅ `P4-BE-11` · Sponsor briefs approved automatically
+
+**Order** 90.4 · **BE** · **Where:** Code · **2d** · **Done**
+
+Phase 2 overrides Phase 1's manual rule here (programme owner, 2026-10-03).
+
+**Approved automatically.** A brief is qualified, approved and turned into a campaign without a person when all of these hold:
+- the readiness checks pass;
+- it has a package, and the budget meets the package's price;
+- at least the package's minimum number of athletes fit;
+- none of its categories is sensitive;
+- the sponsor is in good standing.
+
+**Otherwise** it is held for BTG with the reason, and BTG is emailed. The sponsor sees only "BTG is reviewing your request".
+
+- **Depends on:** P4-BE-07
+- **Done when:** A brief passing every check becomes a campaign without a person; any failed check holds it for BTG with the reason, BTG emailed once; sensitive and custom briefs always reach BTG
+- **Reference:** BTG admin review item 18, 2026-10-03
+
+### ✅ `P4-BE-12` · Campaigns staff themselves
+
+**Order** 90.5 · **BE** · **Where:** Code · **3d** · **Done**
+
+Phase 2 overrides Phase 1's manual rule here (programme owner, 2026-10-03).
+
+**Offers go out automatically** to the top-ranked athletes, up to the package maximum. Each offer:
+- is pre-filled and passes every offer check;
+- has a 3-day answer window;
+- stays within the budget;
+- goes to the guardian, for a minor.
+
+**Declines are replaced.** A decline or an expiry is replaced by the next athlete on the list.
+
+**Stops reach BTG.** Staffing stops and goes to BTG, with the reason, when the list or the budget runs out. BTG can also switch automatic staffing off for any campaign. It is on by default only for campaigns created from 2026-10-03 onwards; BTG switches older campaigns on by hand.
+
+- **Depends on:** P4-BE-08, P4-BE-09, P4-BE-11
+- **Done when:** Offers reach the package maximum without a person, never twice to one athlete, never to a conflicted or inactive athlete, never over budget; declines are replaced; stops reach BTG with the reason
+- **Reference:** BTG admin review item 19, 2026-10-03
+
+### ✅ `P4-BE-13` · Campaigns launch on their start date
+
+**Order** 90.6 · **BE** · **Where:** Code · **1d** · **Done**
+
+Phase 2 overrides Phase 1's manual rule here (programme owner, 2026-10-03).
+
+**Launches on its own.** A campaign in approval launches automatically on its start date, or at once if that date has passed. It waits for any sponsor approval step, and goes through the existing launch checks.
+
+**BTG can still launch by hand.**
+
+- **Depends on:** P4-BE-09
+- **Done when:** A ready campaign launches on its start date and not before, with every existing launch check; cancelled campaigns never launch
+- **Reference:** BTG admin review item 20, 2026-10-03
+
 ### ⏸ `P4-FE-01` · Wire the sponsor marketplace and brief submission
 
 **Order** 91 · **FE** · **Where:** Code · **3d** · **Blocked** · **Unblocks** 1
@@ -1674,6 +1727,21 @@ Items 18 to 22 of the BTG admin review. Small additions to existing screens:
 - **Depends on:** P4-BE-07, P4-BE-08, P4-BE-09, P5-BE-09, P6-BE-09
 - **Done when:** Each screen shows what the system did or checked and what is left for BTG
 - **Reference:** BTG admin review items 18 to 22, 2026-10-03
+
+### ✅ `P4-FE-09` · Automatic briefs, staffing, launch and trusted review, on screen
+
+**Order** 97.6 · **FE** · **Where:** Code · **2d** · **Done**
+
+- **The brief desk:** a Held for BTG tab, with the reasons.
+- **The sponsor's request:** its status.
+- **Staffing:** the staffing panel, and the automatic-staffing switch.
+- **Launch:** the launch date.
+- **Content review:** a tab for drafts that skipped BTG review, and the athlete's trust level.
+- **The athlete:** "Sent straight to the sponsor".
+
+- **Depends on:** P4-BE-11, P4-BE-12, P4-BE-13, P5-BE-10
+- **Done when:** Each screen shows what the system did and what is left for BTG
+- **Reference:** BTG admin review items 18 to 21, 2026-10-03
 
 ### ⏸ `P4-FE-03` · Wire the invitation send flow
 
@@ -1812,6 +1880,25 @@ Item 21 of the BTG admin review. BTG keeps approving every draft.
 
 - **Depends on:** P5-BE-01
 - **Done when:** A failing draft returns to the athlete with reasons and never reaches BTG; a passing draft reaches BTG with its checks shown; each reminder is sent once after 48 hours
+- **Reference:** BTG admin review item 21, 2026-10-03
+
+### ✅ `P5-BE-10` · Trusted drafts skip BTG review
+
+**Order** 102.6 · **BE** · **Where:** Code · **2d** · **Done**
+
+Phase 2 overrides Phase 1's manual rule here (programme owner, 2026-10-03).
+
+**Straight to the sponsor.** A draft that passes every automatic check skips BTG's review and goes straight to the sponsor when all of these hold:
+- the athlete's last 3 BTG-reviewed drafts were approved without changes;
+- the athlete is not a minor;
+- no category is sensitive.
+
+**Trust resets.** A BTG revision resets the athlete's streak.
+
+**Still checked by people.** The sponsor still reviews every draft, and BTG can still open any skipped draft and ask for changes.
+
+- **Depends on:** P5-BE-09
+- **Done when:** Trusted adult athletes' passing drafts skip BTG; minors and sensitive categories never skip; a BTG revision resets trust; BTG can request changes on a skipped draft
 - **Reference:** BTG admin review item 21, 2026-10-03
 
 ### ⏸ `P5-BE-02` · Campaign Order model and state machine
