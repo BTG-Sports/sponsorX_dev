@@ -33,11 +33,7 @@ CREATE INDEX "CampaignStaffingSkip_tenantId_idx" ON "CampaignStaffingSkip"("tena
 ALTER TABLE "CampaignStaffingSkip" ADD CONSTRAINT "CampaignStaffingSkip_campaignId_fkey"
   FOREIGN KEY ("campaignId") REFERENCES "Campaign"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
--- Campaigns already made from a brief with an athlete package take the
--- default they would have been created with. The flag acts only on a
--- campaign in DRAFT or STAFFING, so a live or finished one is untouched.
-UPDATE "Campaign" c SET "autoStaffing" = true
-  FROM "CampaignBrief" b JOIN "SponsorPackage" p ON p."id" = b."packageId"
-  WHERE c."briefId" = b."id"
-    AND p."athleteCountMax" > 0
-    AND jsonb_typeof(p."lineItems") = 'array' AND jsonb_array_length(p."lineItems") > 0;
+-- NO BACKFILL. Every campaign that exists today keeps autoStaffing = false;
+-- only campaigns created from now on, from a package that staffs athletes,
+-- default to on. BTG switches an older one on with
+-- POST /campaigns/:id/auto-staffing.

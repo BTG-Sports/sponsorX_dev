@@ -10,7 +10,7 @@ import { prisma } from "../db/client";
 import { audit, type AuditActor } from "../db/audit";
 import { enqueue } from "../db/outbox";
 import type { Actor } from "../auth/actor";
-import { assertAllowed, whereFor } from "../auth/scope";
+import { assertAllowed, assertTenantWide, whereFor } from "../auth/scope";
 import { ForbiddenError } from "../auth/errors";
 import {
   canTransitionCampaign,
@@ -209,8 +209,13 @@ export async function launchCampaign(
   now = new Date(),
 ): Promise<{ id: string; state: CampaignState; ordersActivated: number; rewards: RewardsOnLaunch }> {
   /* Launching is an approval, not an edit — §15 gives CAMPAIGN_MGR and above
-     `campaign.approve`, and that is the gate the old path used too. */
-  assertAllowed(actor, "campaign", "approve");
+     `campaign.approve`, and that is the gate the old path used too.
+     TENANT-WIDE (2026-10-03): only BTG or the system launches. The matrix
+     also gives SPONSOR_ADMIN `campaign.approve` with an `own` scope, which
+     let a sponsor admin take their own campaign live through this route; the
+     policy row is left as it is and the domain refuses any scope narrower
+     than the tenant (BTG_ADMIN, CAMPAIGN_MGR own-tenant; SUPER_ADMIN any). */
+  assertTenantWide(actor, "campaign", "approve");
 
   return prisma.$transaction(async (tx) => {
     const campaign = await tx.campaign.findFirst({

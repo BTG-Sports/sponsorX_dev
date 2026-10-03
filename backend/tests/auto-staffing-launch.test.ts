@@ -498,6 +498,23 @@ describe.skipIf(!hasDatabase)("P4-BE-12 / P4-BE-13 · on a real database", { tim
       expect((await campaignOf("asl6_past")).state).toBe("ACTIVE");
     });
 
+    it("only BTG launches by hand: a sponsor admin's launch is refused and the campaign stays in APPROVAL", async () => {
+      await prisma.campaign.create({ data: {
+        id: "asl5_sponsor_try", tenantId: T, sponsorId: `${T}_sponsor`, name: "ASL5 sponsor try", budget: 500_000,
+        startDate: inDays(12), endDate: inDays(30), state: "APPROVAL",
+      } });
+      /* The sponsor admin holds campaign.approve on their own campaign (the matrix row); the launch asks for it tenant-wide. */
+      expect((await call("POST", "/campaigns/asl5_sponsor_try/launch", `${T}_sp`)).status).toBe(403);
+      await expect(launchCampaign(person(`${T}_sp`, T, ["SPONSOR_ADMIN"], { sponsorId: `${T}_sponsor` }), "asl5_sponsor_try")).rejects.toMatchObject({ status: 403 });
+      expect((await campaignOf("asl5_sponsor_try")).state).toBe("APPROVAL");
+      expect(await prisma.auditLog.count({ where: { tenantId: T, entityId: "asl5_sponsor_try", action: "campaign.launch" } })).toBe(0);
+
+      const btg = await call("POST", "/campaigns/asl5_sponsor_try/launch", `${T}_mgr`);
+      expect(btg.status).toBe(200);
+      expect(btg.json.state).toBe("ACTIVE");
+      expect((await campaignOf("asl5_sponsor_try")).state).toBe("ACTIVE");
+    });
+
     it("BTG can still launch by hand before the start date", async () => {
       const r = await launchCampaign(person(`${T}_admin`, T, ["BTG_ADMIN"]), "asl5_future");
       expect(r.state).toBe("ACTIVE");
