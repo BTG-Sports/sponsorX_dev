@@ -900,6 +900,10 @@ model Campaign {
   /// Edition content sponsored by this campaign — only with a commercial
   /// grant (P9-BE-10).
   editionAssets EditionAsset[]
+  /// P9-BE-18 — its automatic ad sale, held for SALES with the reasons.
+  adSaleHold    AdSaleHold?
+  /// P9-BE-19 — money owed back because an edition it bought into was cancelled.
+  refundsDue    RefundDue[]
   /// Server-rendered sponsor reports (2S7-BE-02).
   reportFiles   ReportFile[]
   /// P4-BE-12 — athletes automatic staffing skipped, and why.
@@ -1608,6 +1612,8 @@ model Publication {
 
   property Property? @relation(fields: [propertyId], references: [id])
   editions Edition[]
+  /// P9-BE-18 — what each position kind costs in this masthead's editions.
+  rateCard EditionRateCard[]
 
   @@index([tenantId])
 }
@@ -1630,6 +1636,16 @@ model Edition {
   /// cents — the minimum viable edition threshold
   thresholdCents Int
   state          EditionState @default(PLANNING)
+  /// P9-BE-17 — the day sales open by themselves (PLANNING → SELLING, the
+  /// edition sweep). Null: BTG opens sales by hand.
+  salesOpenAt    DateTime?
+  /// P9-BE-19 — Finance locked the revenue split: when, by whom, and why.
+  /// Locked, the split and the school pools are never recomputed (Postgres
+  /// refuses the write — migration 20261004700000). Any future payout from a
+  /// split must require it. BTG admin unlocks, with a reason (audited).
+  splitLockedAt  DateTime?
+  splitLockedBy  String?
+  splitLockNote  String?
 
   publication   Publication            @relation(fields: [publicationId], references: [id])
   slots         AdSlot[]
@@ -1638,8 +1654,55 @@ model Edition {
   assets        EditionAsset[]
   contributions ContentContribution[]
   schoolPools   SchoolPoolAllocation[]
+  saleHolds     AdSaleHold[]
+  refundsDue    RefundDue[]
 
   @@index([tenantId, state])
+}
+
+/// P9-BE-18 — a masthead's rate card: one price per position kind. BTG
+/// admin keeps it. A slot added without a price takes the card's; a typed
+/// price that differs from the card is refused.
+model EditionRateCard {
+  id            String     @id @default(cuid())
+  tenantId      String
+  publicationId String
+  kind          AdSlotKind
+  /// cents
+  priceCents    Int
+  updatedAt     DateTime   @default(now()) @updatedAt
+  updatedBy     String?
+
+  publication Publication @relation(fields: [publicationId], references: [id])
+
+  @@unique([publicationId, kind])
+  @@index([tenantId])
+}
+
+/// P9-BE-18 — an ad sale the system would not make by itself, held for
+/// SALES with the reasons (keys and words). One per campaign. Resolved when
+/// the campaign's slots are sold (by the system or by hand) or the campaign
+/// is cancelled. Only a hold whose every reason is "no slot available yet"
+/// is retried by the sweep.
+model AdSaleHold {
+  id          String    @id @default(cuid())
+  tenantId    String
+  campaignId  String    @unique
+  /// The edition the sale was tried against, when one could be chosen.
+  editionId   String?
+  heldKeys    String[]
+  heldReasons String[]
+  heldAt      DateTime
+  checkedAt   DateTime
+  /// SOLD | CAMPAIGN_CANCELLED
+  resolution  String?
+  resolvedAt  DateTime?
+  createdAt   DateTime  @default(now())
+
+  campaign Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  edition  Edition? @relation(fields: [editionId], references: [id])
+
+  @@index([tenantId, resolvedAt])
 }
 
 /// P9-BE-02. V1 is a free digital edition; print is an optional layer.
@@ -3200,12 +3263,15 @@ model OrderLineDelivery {
 model RefundDue {
   id          String    @id @default(cuid())
   tenantId    String
-  orderId     String
+  /// The order refunded. Null only for an EDITION_CANCELLED row (P9-BE-19),
+  /// which names the campaign and the edition instead.
+  orderId     String?
   lineId      String?
   sponsorId   String
   amountCents Int
   /// SPONSOR_CANCELLED | SELLER_CANCELLED | CANCELLATION_AGREED | PROBLEM_AGREED | BTG_DECIDED | BTG_REFUNDED_ORDER
   /// | PAID_AFTER_CANCELLATION (a card payment confirmed after the order was cancelled)
+  /// | EDITION_CANCELLED (P9-BE-19 — a paid ad sale in an edition BTG cancelled)
   cause       String
   /// Copied from the order: CARD | BANK_TRANSFER | CHEQUE | OTHER | ZOHO_INVOICE.
   paidVia     String?
@@ -3222,14 +3288,21 @@ model RefundDue {
   provider    String?
   /// PAID_AFTER_CANCELLATION only: the card attempt the money came from — one row per attempt.
   attemptId   String?
+  /// P9-BE-19 — EDITION_CANCELLED only: the campaign whose paid ad sale the
+  /// cancelled edition released. One row per (edition, campaign).
+  campaignId  String?
+  editionId   String?
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @default(now()) @updatedAt
 
-  order MarketplaceOrder @relation(fields: [orderId], references: [id])
+  order    MarketplaceOrder? @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  campaign Campaign?         @relation(fields: [campaignId], references: [id], onDelete: Restrict)
+  edition  Edition?          @relation(fields: [editionId], references: [id], onDelete: Restrict)
 
   @@unique([orderId, lineId])
   @@index([tenantId, state, createdAt])
   @@index([tenantId, sponsorId])
+  @@index([editionId])
 }
 
 /// 2S4-BE-11 — one delivery problem and how it was settled: the sponsor's

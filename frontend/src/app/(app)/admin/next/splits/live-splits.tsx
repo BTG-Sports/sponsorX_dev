@@ -1,8 +1,9 @@
-import { Card, SectionHeading } from "@/components/ui";
+import { Badge, Card, SectionHeading } from "@/components/ui";
 import { MiniChip } from "@/components/hero";
 import { EmptyState } from "@/components/states";
+import { SplitLockControl } from "@/components/edition-controls";
 import { money, type SplitPayeeKind } from "@/lib/fixtures";
-import { PAYEE_LABEL, SPLIT_STATES, orderSplits, payeeBlurb, shortDate, type ApiSplit } from "@/lib/editions-live";
+import { PAYEE_LABEL, SPLIT_STATES, orderSplits, payeeBlurb, shortDate, splitLockLine, type ApiSplit, type SplitLock } from "@/lib/editions-live";
 import { noEditionHint, readJson, type LiveEditions } from "../live";
 import { EditionSwitcher, NextHeading } from "../editions/live-editions";
 
@@ -14,6 +15,10 @@ import { EditionSwitcher, NextHeading } from "../editions/live-editions";
    rather than projecting one. An amount the matrix denies (§15.4) is absent,
    and the share still shows.
    -------------------------------------------------------------------------- */
+
+/* P9-BE-19 — revenueSplit.approve (Finance) locks; edition.approve (BTG admin) unlocks. */
+const LOCKERS = ["FINANCE", "SUPER_ADMIN"];
+const UNLOCKERS = ["BTG_ADMIN", "SUPER_ADMIN"];
 
 const PAYEE_FILL: Record<SplitPayeeKind, string> = {
   SPONSORX: "bg-admin",
@@ -54,7 +59,7 @@ export async function LiveSplits({ live }: { live: LiveEditions }) {
     );
   }
 
-  const { status, body } = await readJson<{ splits: ApiSplit[] }>(`/editions/${encodeURIComponent(e.id)}/splits`);
+  const { status, body } = await readJson<{ splits: ApiSplit[]; splitLocked?: SplitLock | null }>(`/editions/${encodeURIComponent(e.id)}/splits`);
   if (status === 403 || !body) {
     return (
       <div className="space-y-6">
@@ -75,10 +80,26 @@ export async function LiveSplits({ live }: { live: LiveEditions }) {
   const amounts = rows.every((r) => r.amountCents != null);
   const total = amounts ? rows.reduce((n, r) => n + r.amountCents!, 0) : null;
   const regional = e.publication.propertyId == null;
+  /* P9-BE-19 — Finance locks the split once checked; BTG admin unlocks. */
+  const lock = body.splitLocked ?? null;
+  const canLock = live.roles.some((r) => LOCKERS.includes(r));
+  const canUnlock = live.roles.some((r) => UNLOCKERS.includes(r));
 
   return (
     <div className="space-y-6">
       {heading}
+
+      <Card className="sx-animate flex flex-col gap-2 p-4">
+        <div className="flex flex-wrap items-center gap-2">
+          <Badge tone={lock ? "accent" : "warn"}>{lock ? "Split locked" : "Not locked yet"}</Badge>
+          <p className="min-w-0 text-xs text-muted [overflow-wrap:anywhere]">
+            {lock ? splitLockLine(lock) : "Finance locks the split once it has checked it. Nothing is paid from a split until it is locked."}
+          </p>
+          <div className="w-full sm:ml-auto sm:w-auto">
+            <SplitLockControl editionId={e.id} locked={Boolean(lock)} canLock={canLock} canUnlock={canUnlock} />
+          </div>
+        </div>
+      </Card>
 
       <Card className="sx-animate p-5 sm:p-6">
         <div className="flex flex-wrap items-baseline justify-between gap-2">

@@ -17,7 +17,7 @@
  */
 import type { Prisma } from "../generated/prisma/client";
 import { prisma } from "../db/client";
-import { audit } from "../db/audit";
+import { audit, type AuditActor } from "../db/audit";
 import type { Actor } from "../auth/actor";
 import { assertAllowed, assertTenantWide, whereFor } from "../auth/scope";
 import { ForbiddenError } from "../auth/errors";
@@ -87,16 +87,28 @@ export async function recordContribution(
  * formula, inside the caller's transaction (the edition's publication).
  * Returns nothing for a school's own (non-regional) edition — its school
  * share is simply that school's.
+ *
+ * P9-BE-19 — once Finance has locked the edition's split, pools already
+ * resolved are never replaced: the recompute is refused and audited (and
+ * Postgres refuses the write — trigger schoolpool_guard_lock). Pools never
+ * resolved are resolved once, from the locked SCHOOL share.
  */
 export async function resolveSchoolPools(
   tx: Prisma.TransactionClient,
   tenantId: string,
   editionId: string,
+  by: AuditActor = { userId: null, tenantId },
 ): Promise<{ sales: Map<string, number>; content: Map<string, number> } | null> {
   const edition = await tx.edition.findFirst({
-    where: { tenantId, id: editionId }, select: { publication: { select: { propertyId: true } } },
+    where: { tenantId, id: editionId }, select: { splitLockedAt: true, publication: { select: { propertyId: true } } },
   });
   if (!edition || edition.publication.propertyId !== null) return null;
+  if (edition.splitLockedAt && (await tx.schoolPoolAllocation.count({ where: { tenantId, editionId } })) > 0) {
+    await audit(tx, by, "revenueSplit.recomputeRefused", "Edition", editionId, {
+      after: { reason: "The split is locked by Finance; the school pools stand.", lockedAt: edition.splitLockedAt.toISOString() },
+    });
+    return null;
+  }
 
   const school = await tx.revenueSplit.findFirst({
     where: { tenantId, editionId, payeeKind: "SCHOOL" }, select: { amountCents: true },

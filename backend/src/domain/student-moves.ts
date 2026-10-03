@@ -177,11 +177,17 @@ export async function issueStudentCodeIn(tx: Tx, actor: AuditActor, tenantId: st
 /* ── prospects ──────────────────────────────────────────────────────────── */
 
 /** Categories someone already holds exclusively at this school: the
- *  presenting sponsor of any edition still being planned, sold or produced. */
-export async function heldCategories(tx: Tx, tenantId: string, propertyId: string): Promise<Set<string>> {
+ *  presenting sponsor of any edition still being planned, sold or produced.
+ *  Also the ad sale's category gate (P9-BE-18, edition.ts `heldAgainst`),
+ *  which leaves out the buyer's own sponsor — a sponsor never clashes with
+ *  itself. */
+export async function heldCategories(
+  tx: Tx, tenantId: string, propertyId: string, opts: { exceptSponsorId?: string } = {},
+): Promise<Set<string>> {
   const held = await tx.adSlot.findMany({
     where: {
       tenantId, kind: "PRESENTING", campaignId: { not: null },
+      ...(opts.exceptSponsorId ? { campaign: { is: { sponsorId: { not: opts.exceptSponsorId } } } } : {}),
       edition: { is: { state: { in: ["PLANNING", "SELLING", "CLOSED", "IN_PRODUCTION"] }, publication: { is: { propertyId } } } },
     },
     select: { campaign: { select: { brief: { select: { categories: true } } } } },

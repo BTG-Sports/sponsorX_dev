@@ -64,6 +64,8 @@ describe("suite isolation · static", () => {
     "sweepReviewReminders",
     /* P4-BE-12 / P4-BE-13 */
     "sweepAutoStaffing", "sweepCampaignLaunches",
+    /* P9-BE-17 / P9-BE-18 */
+    "sweepEditionStages", "sweepHeldSales",
   ];
 
   it("every platform-wide sweep a test runs is narrowed to that test's tenant", () => {

@@ -247,6 +247,11 @@ const BODY: Record<string, unknown> = {
   "POST /editions/{id}/transition": { to: "CANCELLED" },
   "POST /editions/{id}/slots": { slotCode: "STOLEN", kind: "HALF", priceCents: 100 },
   "POST /editions/{id}/sales": { campaignId: A.campaign },
+  /* P9-BE-17 / -18 / -19 — the sales-open date, the rate card, the split lock. */
+  "POST /editions/{id}/sales-open": { salesOpenAt: null },
+  "PUT /publications/{id}/rate-card": { prices: { HALF: 100 } },
+  "POST /editions/{id}/splits/lock": { note: "TI lock" },
+  "POST /editions/{id}/splits/unlock": { reason: "TI unlock" },
   "POST /students": {
     propertyId: A.school, legalName: "Stolen", displayName: "Stolen", masthead: ["WRITER"],
   },

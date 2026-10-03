@@ -24,6 +24,7 @@ import type { BrandCategory } from "./brand-categories";
 import { applyBriefMove, BRIEF_AUDIT_ACTIONS, lockBrief } from "./brief-moves";
 import { autoApproveOrHold } from "./brief-auto";
 import { startAutoStaffing } from "./auto-staffing";
+import { startAutoSale } from "./ad-sale-auto";
 import { sponsorBriefStatus, type SponsorBriefStatus } from "./brief-auto-rules";
 
 export type BriefInput = {
@@ -266,6 +267,8 @@ async function staffIfApproved(result: BriefSubmitted): Promise<BriefSubmitted> 
     where: { id: result.campaignId },
     select: { tenantId: true, autoStaffing: true },
   });
+  /* P9-BE-18 — its edition positions sell first, while it is a DRAFT. */
+  if (campaign) await startAutoSale(campaign.tenantId, result.campaignId);
   if (campaign?.autoStaffing) await startAutoStaffing(campaign.tenantId, result.campaignId);
   return result;
 }

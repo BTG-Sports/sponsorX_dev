@@ -411,7 +411,8 @@ export async function resolveStudentCode(code: string): Promise<{ code: string; 
  */
 export async function attributeSale(
   tx: Prisma.TransactionClient,
-  actor: Pick<Actor, "tenantId" | "userId">,
+  /* P9-BE-18 — the system (userId null) credits the student for an automatic ad sale. */
+  actor: { tenantId: string; userId: string | null },
   sale: { studentCodeId: string; sponsorId: string; campaignId: string; editionId: string | null; valueCents: number },
 ): Promise<{ attributionId: string } | null> {
   const code = await tx.studentCode.findFirst({

@@ -8,10 +8,13 @@ import {
   addAssetAction,
   grantRightAction,
   setContentReadyAction,
+  setRateCardAction,
+  setSalesOpenAction,
+  splitLockAction,
   transitionEditionAction,
   type GrantInput,
 } from "@/app/(app)/admin/next/actions";
-import type { ApiEditionState } from "@/lib/editions-live";
+import { rateCardPrice, type ApiEditionState, type ApiRateCard, type ApiSlotKind } from "@/lib/editions-live";
 import {
   CONSENT_GRANTORS,
   NEXT_STATE,
@@ -207,6 +210,121 @@ export function GrantRight({ assetId, source, today }: { assetId: string; source
         {pending ? "Recording…" : "Record"}
       </button>
       <button type="button" onClick={() => setOpen(false)} className="px-2 py-2 text-xs text-muted hover:text-text">Cancel</button>
+      <div className="basis-full"><NoteLine note={note} /></div>
+    </form>
+  );
+}
+
+/* --------------------------------------------------------------------------
+   P9-FE-11 — editions that run themselves (P9-BE-17 / -18 / -19): the day
+   sales open by themselves, the masthead's rate card, and Finance's split
+   lock. Each is a server action; the API decides and its refusals are shown.
+   -------------------------------------------------------------------------- */
+
+/** BTG sets (or clears) the day sales open by themselves — while PLANNING. */
+export function SalesOpenDate({ editionId, salesOpenAt }: { editionId: string; salesOpenAt: string | null }) {
+  const { pending, note, run } = useAction();
+  const [day, setDay] = useState(salesOpenAt ? salesOpenAt.slice(0, 10) : "");
+  return (
+    <form
+      className="flex flex-wrap items-end gap-2"
+      onSubmit={(e) => {
+        e.preventDefault();
+        run(() => setSalesOpenAction(editionId, day));
+      }}
+    >
+      <label className={label}>
+        Sales open on
+        <input type="date" value={day} onChange={(e) => setDay(e.target.value)} className={field} />
+      </label>
+      <button type="submit" disabled={pending} className="rounded-lg border border-line px-3 py-1.5 text-xs font-medium hover:border-next/50 disabled:opacity-40">
+        {pending ? "Saving…" : day ? "Save date" : "Open by hand"}
+      </button>
+      <div className="basis-full"><NoteLine note={note} /></div>
+    </form>
+  );
+}
+
+const CARD_KINDS: Array<[ApiSlotKind, string]> = [
+  ["FULL", "Full page"], ["HALF", "Half page"], ["QUARTER", "Quarter"], ["BACK_COVER", "Back cover"], ["PRESENTING", "Presenting"],
+];
+
+/** BTG admin keeps the masthead's rate card: a price per kind, empty for none. */
+export function RateCardEditor({ publicationId, card }: { publicationId: string; card: ApiRateCard | null }) {
+  const { pending, note, run } = useAction();
+  const [open, setOpen] = useState(false);
+  const initial = () =>
+    Object.fromEntries(CARD_KINDS.map(([k]) => {
+      const p = rateCardPrice(card, k);
+      return [k, p == null ? "" : String(p / 100)];
+    })) as Record<ApiSlotKind, string>;
+  const [dollars, setDollars] = useState<Record<ApiSlotKind, string>>(initial);
+  if (!open) return <Button variant="secondary" onClick={() => setOpen(true)}>Rate card</Button>;
+  return (
+    <form
+      className="flex w-full flex-wrap items-end gap-2 rounded-xl border border-line bg-surface p-3"
+      onSubmit={(e) => {
+        e.preventDefault();
+        run(() => setRateCardAction(publicationId, dollars));
+      }}
+    >
+      {CARD_KINDS.map(([k, l]) => (
+        <label key={k} className={label}>
+          {l} $
+          <input
+            value={dollars[k]}
+            onChange={(e) => setDollars((d) => ({ ...d, [k]: e.target.value }))}
+            inputMode="decimal"
+            placeholder="none"
+            className={`${field} w-20 tabular-nums normal-case`}
+          />
+        </label>
+      ))}
+      <button type="submit" disabled={pending} className="rounded-lg bg-primary px-3.5 py-2 text-xs font-medium text-cta-ink hover:bg-primary-soft disabled:opacity-40">
+        {pending ? "Saving…" : "Save"}
+      </button>
+      <button type="button" onClick={() => setOpen(false)} className="px-2 py-2 text-xs text-muted hover:text-text">Done</button>
+      <p className="basis-full text-[11px] text-muted">A slot added without a price takes the card&rsquo;s; a different typed price is refused. Slots already added keep their price.</p>
+      <div className="basis-full"><NoteLine note={note} /></div>
+    </form>
+  );
+}
+
+/** Finance locks the split with a note; BTG admin unlocks it with a reason. */
+export function SplitLockControl({ editionId, locked, canLock, canUnlock }: { editionId: string; locked: boolean; canLock: boolean; canUnlock: boolean }) {
+  const { pending, note, run } = useAction();
+  const [open, setOpen] = useState(false);
+  const [text, setText] = useState("");
+  const lock = !locked;
+  if ((lock && !canLock) || (!lock && !canUnlock)) return null;
+  if (!open) {
+    return (
+      <Button variant={lock ? "primary" : "secondary"} onClick={() => setOpen(true)}>
+        {lock ? "Lock split" : "Unlock split"}
+      </Button>
+    );
+  }
+  return (
+    <form
+      className="flex w-full flex-wrap items-end gap-2 rounded-xl border border-line bg-surface p-3"
+      onSubmit={(e) => {
+        e.preventDefault();
+        run(() => splitLockAction(editionId, lock, text), () => { setText(""); setOpen(false); });
+      }}
+    >
+      <label className={`${label} min-w-0 flex-1 basis-56`}>
+        {lock ? "What you checked" : "Why it is being unlocked"}
+        <input value={text} onChange={(e) => setText(e.target.value)} maxLength={500} required className={`${field} normal-case`} />
+      </label>
+      <button type="submit" disabled={pending} className="rounded-lg bg-primary px-3.5 py-2 text-xs font-medium text-cta-ink hover:bg-primary-soft disabled:opacity-40">
+        {pending ? "Saving…" : lock ? "Lock" : "Unlock"}
+      </button>
+      <button type="button" onClick={() => setOpen(false)} className="px-2 py-2 text-xs text-muted hover:text-text">Cancel</button>
+      <p className="basis-full text-[11px] text-muted">
+        {lock
+          ? "Locked, the split is never recomputed, and any payout from it will need the lock."
+          : "Unlocked, the split can be recomputed again. Finance locks it again once checked."}
+      </p>
       <div className="basis-full"><NoteLine note={note} /></div>
     </form>
   );

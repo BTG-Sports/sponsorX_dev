@@ -38,6 +38,7 @@ import { send } from "../lib/email";
 import { applyBriefMove, lockBrief } from "./brief-moves";
 import { createCampaignIn } from "./campaign-create";
 import { startAutoStaffing } from "./auto-staffing";
+import { startAutoSale } from "./ad-sale-auto";
 import { lowestJobFloor, sponsorStanding } from "./brief-readiness-rules";
 import { athleteFit } from "./matching";
 import { autoApprovalHolds, holdKeys, type Hold } from "./brief-auto-rules";
@@ -274,6 +275,8 @@ export async function recheckHeldBriefs(now = new Date(), opts: { tenantIds?: st
       const r = await prisma.$transaction((tx) => autoApproveOrHold(tx, tenantId, id, now, "sweep"));
       if (r.outcome === "APPROVED") {
         out.approved++;
+        /* P9-BE-18 — its edition positions sell first, while it is a DRAFT. */
+        await startAutoSale(tenantId, r.campaignId);
         await startAutoStaffing(tenantId, r.campaignId);
       }
       else if (r.outcome === "HELD") out.held++;

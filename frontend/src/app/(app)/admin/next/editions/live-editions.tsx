@@ -4,17 +4,23 @@ import { Badge, Card, Meter, SectionHeading } from "@/components/ui";
 import { HeroBand, MiniChip } from "@/components/hero";
 import { EditionFlatplan } from "@/components/edition-flatplan";
 import { BookCampaign } from "@/components/edition-sell";
-import { ContentReadyToggle, EditionAdvance } from "@/components/edition-controls";
+import { ContentReadyToggle, EditionAdvance, SalesOpenDate } from "@/components/edition-controls";
 import { EmptyState } from "@/components/states";
 import { money } from "@/lib/fixtures";
 import {
   daysUntil,
+  holdKeyLabel,
+  holdNext,
+  nextStepBadge,
   rackByKind,
   shortDate,
+  stageChangeLine,
   toFlatplan,
   type ApiEdition,
+  type ApiEditionDetail,
   type ApiLedgerSlot,
   type ApiSaleCandidate,
+  type ApiSaleHold,
   type ApiSlotKind,
 } from "@/lib/editions-live";
 import { noEditionHint, readJson, type LiveEditions } from "../live";
@@ -113,10 +119,17 @@ export async function LiveEditionPlanning({ live, initialOpenPage, now }: { live
   }
 
   const seller = live.roles.some((r) => SELLERS.includes(r));
-  const [ledger, sale] = await Promise.all([
+  const [ledger, sale, detail, held] = await Promise.all([
     readJson<{ slots: ApiLedgerSlot[] }>(`/editions/${encodeURIComponent(e.id)}/ledger`),
     seller ? readJson<{ candidates: ApiSaleCandidate[] }>(`/editions/${encodeURIComponent(e.id)}/sale-candidates`) : null,
+    /* P9-BE-17 — what happens next and the moves made by themselves. */
+    readJson<ApiEditionDetail>(`/editions/${encodeURIComponent(e.id)}`),
+    /* P9-BE-18 — every sale the system held for SALES, this edition's and those it couldn't place. */
+    seller ? readJson<{ holds: ApiSaleHold[] }>("/ad-sale-holds") : null,
   ]);
+  const step = detail.body?.nextStep ?? e.nextStep ?? null;
+  const history = detail.body?.stageHistory ?? [];
+  const holds = (held?.body?.holds ?? []).filter((h) => !h.edition || h.edition.id === e.id);
   const slots = ledger.body?.slots ?? [];
   const plan = toFlatplan(slots, e.pageCount);
   const kinds = rackByKind(slots);
@@ -188,6 +201,19 @@ export async function LiveEditionPlanning({ live, initialOpenPage, now }: { live
             <Badge tone="neutral">publish target {shortDate(e.publishTarget)}</Badge>
             {seller && <div className="ml-auto"><EditionAdvance editionId={e.id} state={e.state} /></div>}
           </div>
+
+          {/* P9-BE-17 — the next step: the system's, or BTG's with the reason. */}
+          {step && (
+            <div className="flex flex-wrap items-center gap-2 rounded-lg border border-line bg-surface/60 px-3 py-2.5">
+              <Badge tone={nextStepBadge(step).tone}>{nextStepBadge(step).label}</Badge>
+              <p className="min-w-0 text-xs [overflow-wrap:anywhere]">{step.text}</p>
+              {seller && e.state === "PLANNING" && (
+                <div className="w-full sm:ml-auto sm:w-auto">
+                  <SalesOpenDate editionId={e.id} salesOpenAt={detail.body?.salesOpenAt ?? e.salesOpenAt ?? null} />
+                </div>
+              )}
+            </div>
+          )}
 
           {/* §5.2 — all four must hold for production (artwork: P9-BE-16) */}
           <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
@@ -271,6 +297,56 @@ export async function LiveEditionPlanning({ live, initialOpenPage, now }: { live
             <section className="sx-animate sx-delay-2">
               <SectionHeading title="Sell" />
               <BookCampaign editionId={e.id} candidates={sale.body.candidates} selling={selling} />
+            </section>
+          )}
+
+          {/* P9-BE-18 — sales the system would not make by itself, with why. */}
+          {seller && held?.body && (
+            <section id="held" className="sx-animate sx-delay-2">
+              <SectionHeading title="Sales held" hint="Read by students — checked before any ad sells" />
+              <Card className="p-0">
+                {holds.length === 0 ? (
+                  <p className="px-4 py-4 text-[11px] text-muted">Nothing held. A clean sale makes itself when its campaign is created.</p>
+                ) : (
+                  <ul className="divide-y divide-line-soft">
+                    {holds.map((h) => (
+                      <li key={h.id} id={`hold-${h.campaignId}`} className="px-4 py-3 text-xs">
+                        <p className="truncate font-medium">{h.sponsor}</p>
+                        <p className="truncate text-[11px] text-muted">
+                          {h.campaign}{h.package ? ` · ${h.package.name}` : ""}{h.edition ? "" : " · no edition chosen"}
+                        </p>
+                        <div className="mt-1.5 flex flex-wrap gap-1">
+                          {h.reasons.map((r) => <Badge key={r.key} tone="warn">{holdKeyLabel(r.key)}</Badge>)}
+                        </div>
+                        <ul className="mt-1.5 space-y-0.5 text-[11px] text-muted">
+                          {h.reasons.map((r) => <li key={r.key} className="[overflow-wrap:anywhere]">· {r.text}</li>)}
+                        </ul>
+                        <p className="mt-1.5 text-[10px] text-faint">Held {shortDate(h.heldAt)} · {holdNext(h)}</p>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </Card>
+            </section>
+          )}
+
+          {/* P9-BE-17 — every stage change, the automatic ones marked. */}
+          {history.length > 0 && (
+            <section className="sx-animate sx-delay-2">
+              <SectionHeading title="Stage history" />
+              <Card className="p-0">
+                <ul className="divide-y divide-line-soft">
+                  {history.map((c) => (
+                    <li key={`${c.at}-${c.to}`} className="px-4 py-2.5 text-xs">
+                      <p className="flex flex-wrap items-center justify-between gap-2">
+                        <span className="font-medium">{stageChangeLine({ ...c, reason: null })}</span>
+                        <span className="text-[10px] tabular-nums text-faint">{shortDate(c.at)}</span>
+                      </p>
+                      {c.reason && <p className="mt-0.5 text-[11px] text-muted [overflow-wrap:anywhere]">{c.reason}</p>}
+                    </li>
+                  ))}
+                </ul>
+              </Card>
             </section>
           )}
 

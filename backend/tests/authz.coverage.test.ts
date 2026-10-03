@@ -71,6 +71,10 @@ const GOVERNED_BY: Record<string, Resource> = {
   Edition: "edition",
   AdSlot: "adSlot",
   RevenueSplit: "revenueSplit",
+  /* P9-BE-18 — a masthead's rate card prices its slots: read with the slots, kept by BTG admin (publication write). */
+  EditionRateCard: "adSlot",
+  /* P9-BE-18 — the ad sales the system held for SALES: read by SALES and BTG (adSlot write, tenant-wide), written only by the system. */
+  AdSaleHold: "adSlot",
   /* 2S5-INT-01/-03, 2S5-BE-04/-05 — a card payment is the order's; a payout
      line is its payout's. */
   PayoutAccount: "payoutAccount",
