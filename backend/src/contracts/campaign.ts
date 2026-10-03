@@ -100,6 +100,17 @@ export const EligibleAthlete = z
       .array(z.object({ jobId: z.string(), amount: z.int() }))
       .optional()
       .describe("Current athlete rate per job, cents. Absent when §7 denies athleteRate.amount."),
+    /* P4-BE-08 — the brief's rank and its reasons. */
+    matchScore: z.int().min(0).max(100).optional()
+      .describe("How well this athlete fits the brief, 0–100 (sport 30, state 20, verified past work 20, rate fit 20, recent activity 10). Not §14's score."),
+    reasons: z
+      .array(z.object({
+        key: z.enum(["sport", "state", "work", "rate", "recent"]),
+        text: z.string(),
+        points: z.int().min(0),
+      }))
+      .optional()
+      .describe("Every signal behind matchScore, strongest first. A signal the caller may not read (rates; other campaigns' orders) is absent."),
   })
   .meta({ id: "EligibleAthlete", description: "A shortlisted athlete. Phase 1 shortlists; a person chooses." });
 

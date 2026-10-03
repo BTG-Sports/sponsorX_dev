@@ -9,7 +9,7 @@ import { requireActor } from "../../auth/actor";
 import { clientIp, clientUserAgent } from "../../lib/client-ip";
 import {
   BrandingInput, InventoryItemInput, InventoryItemPatch, ListingBtgActionInput, ListingDecisionInput, ListingInput, ListingPatch, ListingState, LiveListingsQuery,
-  ListingTransitionInput, LogoUploadInput, OfferAthletesQuery, OfferChecksQuery, OfferInput, OfferKeepInput, OfferPatch, OfferResponseInput,
+  ListingTransitionInput, LogoUploadInput, OfferAthletesQuery, OfferChecksQuery, OfferDraftQuery, OfferInput, OfferKeepInput, OfferPatch, OfferResponseInput,
   RosterAthleteInput, TeamShareInput,
   CartLineInput, CartLinePatch, RestrictionInput, SearchQuery, SponsorCategoriesInput,
   MarketplaceOrderDecisionInput, MarketplaceOrderTransitionInput, PlaceOrderInput, SellerApprovalDecisionInput,
@@ -36,6 +36,7 @@ import {
   createOffer, getOffer, keepOffer, listOffers, respondToOffer, reviseOffer, sendOffer, updateOffer, withdrawOffer,
 } from "../../domain/offer";
 import { offerAthletes, offerChecks } from "../../domain/offer-desk";
+import { offerDraft } from "../../domain/offer-draft";
 import { mayWriteBranding, readBranding, requestLogoUpload, updateBranding } from "../../domain/branding";
 import { allowedList, pageRequest, searchTerm } from "../../lib/paging";
 import {
@@ -153,8 +154,13 @@ const offerAthletePicker: RequestHandler = async (req, res) => {
 const offerCheck: RequestHandler<Id> = async (req, res) => {
   res.json(await offerChecks(req.actor!, req.params.id, OfferChecksQuery.parse(req.query)));
 };
+/* P4-BE-08 — the same form, filled in from the records; creates nothing. */
+const draftOne: RequestHandler<Id> = async (req, res) => {
+  res.json(await offerDraft(req.actor!, req.params.id, OfferDraftQuery.parse(req.query)));
+};
 marketplaceRouter.get("/offers/athletes", requireActor, offerAthletePicker);
 marketplaceRouter.get("/campaigns/:id/offer-checks", requireActor, offerCheck);
+marketplaceRouter.get("/campaigns/:id/offer-draft", requireActor, draftOne);
 marketplaceRouter.get("/offers", requireActor, offers);
 marketplaceRouter.post("/offers", requireActor, newOffer);
 marketplaceRouter.get("/offers/:id", requireActor, offer);
