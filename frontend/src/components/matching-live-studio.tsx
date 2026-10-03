@@ -79,7 +79,8 @@ function Studio({
           sport: f.sport || null,
           tier: f.tier || null,
           min: f.minScore > MIN_SCORE_FLOOR ? f.minScore : null,
-          asort: s === "score" ? null : s,
+          /* P4-FE-08 — best match is the API's default; the rest by name. */
+          asort: s === "match" ? null : s,
         },
         ATHLETE_KEYS,
       ),

@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
+import Link from "next/link";
 import { Card } from "@/components/ui";
 import {
   CloseIcon,
@@ -46,7 +47,9 @@ import {
   slotFill,
   SORT_OPTIONS,
   statusFor,
+  topReasons,
   type MatchAthlete,
+  type MatchReason,
   type MatchData,
   type MatchFilters,
   type MatchSort,
@@ -614,6 +617,9 @@ export function MatchingStudio({
                 Reach is verified (by BTG, or a platform where connected), otherwise
                 self-reported. Cost comes from the athlete&apos;s rate card; sell
                 price from the package band{live ? " — the job's floor for the athlete's tier" : ""}.
+                {live
+                  ? " Match ranks each athlete against this brief — sport, state, verified past work, rate against the budget and recent activity. It orders the list; you still choose who is invited."
+                  : ""}
               </p>
             </div>
 
@@ -1168,6 +1174,8 @@ function AthleteRow({
           <span className="block truncate text-[10px] text-muted">
             {a.sport} · {a.market} · {a.tier}
           </span>
+          {/* P4-FE-08 — the brief's rank and why (live only). */}
+          {a.match && <MatchReasons match={a.match} name={a.name} />}
           {/* card-only status line */}
           <span className="mt-1 block lg:hidden">
             <StatusPill status={st} withSub />
@@ -1246,8 +1254,56 @@ function AthleteRow({
             Hold
           </span>
         )}
+        {/* P4-FE-08 — the offer form, filled in for this athlete. */}
+        {!blocked && a.offerHref && (
+          <Link
+            href={a.offerHref}
+            className="mt-1.5 block text-center text-[11px] font-medium text-muted underline-offset-2 hover:text-text hover:underline"
+          >
+            Draft offer
+          </Link>
+        )}
       </span>
     </li>
+  );
+}
+
+/** P4-FE-08 — the match score, the top reasons as chips, and every reason
+ *  behind "Why this rank". Spans throughout: it sits inside the row's
+ *  athlete cell, which is phrasing content. */
+function MatchReasons({ match, name }: { match: { score: number; reasons: MatchReason[] }; name: string }) {
+  const [open, setOpen] = useState(false);
+  const chip = "inline-flex items-center gap-1 rounded-full border border-line bg-surface-2/60 px-2 py-0.5 text-[10px] font-medium text-muted";
+  return (
+    <span className="mt-1.5 block">
+      <span className="flex flex-wrap items-center gap-1">
+        <span className={cx(chip, "border-primary/40 text-text")} title="How well this athlete fits the brief, out of 100">
+          Match <span className="tabular-nums">{match.score}</span>
+        </span>
+        {topReasons(match.reasons).map((r) => (
+          <span key={r.key} className={chip}>{r.text}</span>
+        ))}
+        <button
+          type="button"
+          onClick={() => setOpen((v) => !v)}
+          aria-expanded={open}
+          aria-label={`Why ${name} ranks here`}
+          className="min-h-6 px-1 text-[10px] font-medium text-muted underline-offset-2 hover:text-text hover:underline"
+        >
+          Why this rank
+        </button>
+      </span>
+      {open && (
+        <span role="list" className="mt-1 block rounded-lg border border-line-soft bg-surface-2/40 px-2.5 py-1.5">
+          {match.reasons.map((r) => (
+            <span role="listitem" key={r.key} className="flex items-baseline justify-between gap-3 py-0.5 text-[10px]">
+              <span className={r.points > 0 ? "text-text" : "text-faint"}>{r.text}</span>
+              <span className="shrink-0 tabular-nums text-muted">+{r.points}</span>
+            </span>
+          ))}
+        </span>
+      )}
+    </span>
   );
 }
 

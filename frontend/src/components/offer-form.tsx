@@ -8,8 +8,8 @@ import {
   type ItemOption,
 } from "@/app/(app)/admin/offers/actions";
 import {
-  budgetLine, centsFromUsd, firstName, floorLine, marginFloorLine, money, offerBody, otherProblems, partyWords, sendBlocker, sendSummary,
-  type ApiOfferChecks, type ApiOfferParty, type CheckLine, type OfferBody, type OfferFields,
+  budgetLine, centsFromUsd, filledNote, firstName, floorLine, marginFloorLine, money, offerBody, otherProblems, partyWords, sendBlocker, sendSummary,
+  type ApiOfferChecks, type ApiOfferParty, type CheckLine, type FieldSources, type FilledField, type OfferBody, type OfferFields,
 } from "@/lib/admin-offers-live";
 import { useDialogFocus } from "./use-dialog-focus";
 
@@ -43,18 +43,23 @@ const quietBtn = "inline-flex min-h-11 items-center justify-center rounded-lg bo
 const smallBtn = "min-h-9 rounded-lg border border-line px-3.5 text-xs font-semibold text-text hover:bg-surface-2";
 const FIXED_TIP = "Whose offer it is can't change. Start a new offer instead.";
 
-export function OfferForm({ offerId, initial, campaigns, jobs, athlete: fixedAthlete }: {
+export function OfferForm({ offerId, initial, campaigns, jobs, athlete: fixedAthlete, sources }: {
   /** Set when editing a draft: the campaign and the athlete are fixed. */
   offerId?: string;
   initial: OfferFields;
   campaigns: CampaignOption[];
   jobs: JobOption[];
   athlete: Party | null;
+  /** P4-FE-08 — opened pre-filled from GET /campaigns/:id/offer-draft: where
+   *  each field's value came from. Shown under a field while it still holds
+   *  that value; BTG can change every one. */
+  sources?: FieldSources;
 }) {
   const router = useRouter();
   const editing = Boolean(offerId);
   const [f, setF] = useState<OfferFields>(initial);
   const set = <K extends keyof OfferFields>(k: K, v: OfferFields[K]) => setF((x) => ({ ...x, [k]: v }));
+  const filled = (k: FilledField) => <Filled text={filledNote(sources, initial, f, k)} />;
   const [savedId, setSavedId] = useState<string | null>(offerId ?? null);
 
   /* ── the athlete picker ─────────────────────────────────────────────── */
@@ -224,6 +229,7 @@ export function OfferForm({ offerId, initial, campaigns, jobs, athlete: fixedAth
         <label className={label}>
           Brief
           <textarea rows={2} className={area} maxLength={8000} value={f.brief} onChange={(e) => set("brief", e.target.value)} />
+          {filled("brief")}
         </label>
 
         <div className="grid gap-3 sm:grid-cols-2">
@@ -231,11 +237,13 @@ export function OfferForm({ offerId, initial, campaigns, jobs, athlete: fixedAth
             Athlete&rsquo;s pay ($)
             <input type="text" inputMode="decimal" className={`${field} ${floor.tone === "danger" ? "border-danger" : ""}`} value={f.pay}
               aria-describedby="floor-chk" aria-invalid={floor.tone === "danger" || undefined} onChange={(e) => set("pay", e.target.value)} />
+            {filled("pay")}
           </label>
           <label className={label}>
             Sell price ($)
             <input type="text" inputMode="decimal" className={`${field} ${marginFloor ? "border-danger" : ""}`} value={f.sell}
               aria-describedby={marginFloor ? "margin-chk" : undefined} aria-invalid={marginFloor ? true : undefined} onChange={(e) => set("sell", e.target.value)} />
+            {filled("sell")}
           </label>
         </div>
 
@@ -258,25 +266,30 @@ export function OfferForm({ offerId, initial, campaigns, jobs, athlete: fixedAth
               Add a deliverable
             </button>
           )}
+          {filled("deliverables")}
         </fieldset>
 
         <label className={label}>
           Usage rights
           <textarea rows={2} className={area} maxLength={2000} value={f.usageRights} onChange={(e) => set("usageRights", e.target.value)} />
+          {filled("usageRights")}
         </label>
 
         <div className="grid gap-3 sm:grid-cols-2">
           <label className={label}>
             <span>Exclusivity days <span className="font-normal text-muted">(optional)</span></span>
             <input type="number" min={0} max={730} className={field} value={f.exclusivityDays} onChange={(e) => set("exclusivityDays", e.target.value)} />
+            {filled("exclusivityDays")}
           </label>
           <label className={label}>
             Expires
             <input type="date" className={field} value={f.expires} onChange={(e) => set("expires", e.target.value)} />
+            {filled("expires")}
           </label>
         </div>
 
         <Disclosures value={f.disclosures} onChange={(v) => set("disclosures", v)} />
+        {filled("disclosures")}
         {/* Enter in a field saves a draft — never sends. */}
         <button type="submit" hidden aria-hidden="true" tabIndex={-1} />
       </form>
@@ -310,6 +323,11 @@ export function OfferForm({ offerId, initial, campaigns, jobs, athlete: fixedAth
       )}
     </div>
   );
+}
+
+/** P4-FE-08 — where a pre-filled field's value came from. */
+function Filled({ text }: { text: string | null }) {
+  return text ? <span className="text-[11px] font-normal leading-snug text-muted">{text}</span> : null;
 }
 
 function Check({ id, line }: { id?: string; line: CheckLine }) {

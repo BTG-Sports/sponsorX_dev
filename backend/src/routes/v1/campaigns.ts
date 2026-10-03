@@ -635,7 +635,8 @@ const shortlist: RequestHandler<{ id: string }> = async (req, res) => {
         sport: typeof query.sport === "string" && query.sport ? query.sport.slice(0, 60) : undefined,
         tier: typeof query.tier === "string" ? query.tier : undefined,
         minScore: Number.isInteger(min) && min > 0 && min <= 100 ? min : undefined,
-        sort: query.sort === "name" ? "name" : "score",
+        /* P4-BE-08 — best match first unless the desk asks otherwise. */
+        sort: query.sort === "name" ? "name" : query.sort === "score" ? "score" : "match",
       }),
     );
     return;
