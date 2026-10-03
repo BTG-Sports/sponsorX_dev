@@ -32,6 +32,8 @@ import {
 } from "../../contracts/campaign";
 import { createBrief, transitionBrief } from "../../domain/brief";
 import { createCampaignFromBrief, launchCampaign, transitionCampaign } from "../../domain/campaign";
+import { stageViews, type StageView } from "../../domain/campaign-stages";
+import type { Audience } from "../../domain/campaign-stage-rules";
 import { eligibleForBrief, eligiblePageForBrief } from "../../domain/matching";
 import { readinessFor, readyBriefIds, type Readiness } from "../../domain/brief-readiness";
 import { loadAgreementBody } from "../../domain/agreement-text";
@@ -391,10 +393,36 @@ type CampaignRow = {
   invoices?: { status: string; amount: number }[];
 };
 
-function campaignOut(c: CampaignRow, see: { seeValue: boolean; seeBudget: boolean; seeInvoices: boolean }) {
+/* P4-BE-09 — what each campaign read adds: the next step in words (BTG's
+   wording for staff, plain wording for a sponsor), and the latest stage
+   change with whether the system made it. The full stage history goes to
+   BTG's detail read only. A sponsor never gets the internal reason. */
+type Stages = { views: Map<string, StageView>; audience: Audience; history: boolean };
+
+const BTG_STAFF = new Set<string>(["SUPER_ADMIN", "BTG_ADMIN", "SALES", "CAMPAIGN_MGR", "NETWORK_MGR", "FINANCE"]);
+
+async function stagesFor(actor: Actor, ids: string[], history = false): Promise<Stages> {
+  /* BTG's own people get the desk's wording; everyone else (a sponsor, or
+     any other reader) the plain one, which names no invitation or offer. */
+  const audience: Audience = actor.roles.some((r) => BTG_STAFF.has(r)) ? "staff" : "sponsor";
+  return { views: await stageViews(ids, audience), audience, history: history && audience === "staff" };
+}
+
+function stageOut(id: string, stages: Stages) {
+  const v = stages.views.get(id);
+  const change = v?.stageChange ?? null;
+  return {
+    nextStep: v?.nextStep ?? null,
+    stageChange: change && stages.audience === "sponsor" ? { state: change.state, at: change.at, movedAutomatically: change.movedAutomatically } : change,
+    ...(stages.history ? { stageHistory: v?.stageHistory ?? [] } : {}),
+  };
+}
+
+function campaignOut(c: CampaignRow, see: { seeValue: boolean; seeBudget: boolean; seeInvoices: boolean }, stages: Stages) {
   const deliverables = c.orders.flatMap((o) => o.deliverables);
   const liveInvoices = (c.invoices ?? []).filter((i) => i.status.toLowerCase() !== "void");
   return {
+    ...stageOut(c.id, stages),
     id: c.id,
     name: c.name,
     state: c.state,
@@ -485,15 +513,16 @@ const listCampaigns: RequestHandler = async (req, res) => {
           take,
         }) as unknown as Promise<CampaignRow[]>,
     );
+    const stages = await stagesFor(actor, rows.map((c) => c.id));
     if (!wantHealth) {
-      res.json({ campaigns: rows.map((c) => campaignOut(c, see)), page });
+      res.json({ campaigns: rows.map((c) => campaignOut(c, see, stages)), page });
       return;
     }
     res.json({
       campaigns: rows.map((c) => {
         const h = health?.get(c.id);
         return {
-          ...campaignOut(c, see),
+          ...campaignOut(c, see, stages),
           ...(health
             ? {
                 health: h
@@ -539,8 +568,9 @@ const listCampaigns: RequestHandler = async (req, res) => {
   const hasMore = rows.length > limit;
   const items = hasMore ? rows.slice(0, limit) : rows;
   const last = items.at(-1);
+  const stages = await stagesFor(actor, items.map((c) => c.id));
   res.json({
-    campaigns: items.map((c) => campaignOut(c, see)),
+    campaigns: items.map((c) => campaignOut(c, see, stages)),
     page: { nextCursor: hasMore && last ? encodeCursor(last) : null, hasMore },
   });
 };
@@ -632,7 +662,7 @@ const readCampaign: RequestHandler<{ id: string }> = async (req, res) => {
     select,
   })) as unknown as CampaignRow | null;
   if (!c) throw new ForbiddenError("campaign", "read");
-  res.json({ campaign: campaignOut(c, see) });
+  res.json({ campaign: campaignOut(c, see, await stagesFor(actor, [c.id], true)) });
 };
 
 /**

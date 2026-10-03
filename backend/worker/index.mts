@@ -90,6 +90,7 @@ import { expireCarts } from "../src/domain/cart.ts";
 import { expireReservations } from "../src/domain/reservation.ts";
 import { sweepDeliveries } from "../src/domain/delivery.ts";
 import { sweepReviewReminders } from "../src/domain/review-reminders.ts";
+import { sweepCampaignStages } from "../src/domain/campaign-stages.ts";
 import { purgeExpiredClosures } from "../src/domain/account-closure.ts";
 import { sweepComingOfAge } from "../src/domain/coming-of-age.ts";
 import { LISTING_DIGEST_HOUR_UTC, sendListingDigests } from "../src/domain/listing.ts";
@@ -305,6 +306,11 @@ let payoutRetryTimer: ReturnType<typeof setInterval> | undefined;
 const PAYOUT_RETRY_SWEEP_INTERVAL_MS = 10 * 60 * 1000;
 let orderDigestTimer: ReturnType<typeof setInterval> | undefined;
 const ORDER_SWEEP_INTERVAL_MS = 10 * 60 * 1000;
+/* P4-BE-09 — campaign stages that move by themselves. Each move is made by
+   the event that makes it true; this sweep is the safety net for one that
+   was missed (an invitation expiring, a crash). Idempotent. */
+let campaignStageTimer: ReturnType<typeof setInterval> | undefined;
+const CAMPAIGN_STAGE_SWEEP_INTERVAL_MS = 10 * 60 * 1000;
 /* P8-INT-05 checks hourly and runs at most once a day per tenant; P8-INT-03's
    channel is renewed every 12 hours against a 24-hour expiry. */
 const ZOHO_SWEEP_INTERVAL_MS = 60 * 60 * 1000;
@@ -739,6 +745,15 @@ async function main(): Promise<void> {
   payoutRetryTimer = setInterval(payoutRetrySweep, PAYOUT_RETRY_SWEEP_INTERVAL_MS);
   setTimeout(payoutRetrySweep, 50_000).unref();
 
+  /* P4-BE-09 — the campaign stage sweep: STAFFING → APPROVAL, ACTIVE →
+     REPORTING, REPORTING → COMPLETED, whichever a missed event left due. */
+  const campaignStageSweep = () =>
+    void sweepCampaignStages()
+      .then((r) => { if (r.moved || r.failed) console.log(`[worker] campaign stages ${JSON.stringify(r)}`); })
+      .catch((error: unknown) => console.error("[worker] campaign stage sweep failed, will retry:", error));
+  campaignStageTimer = setInterval(campaignStageSweep, CAMPAIGN_STAGE_SWEEP_INTERVAL_MS);
+  setTimeout(campaignStageSweep, 55_000).unref();
+
   /* 2S4-BE-09 — BTG's daily summary of the orders approved automatically.
      Hourly, from ORDER_DIGEST_HOUR_UTC: the first pass of the day sends it
      and records the day (one per BTG tenant per UTC date), so later passes
@@ -805,6 +820,7 @@ export async function stopWorker(): Promise<void> {
   if (orderTimer) clearInterval(orderTimer);
   if (payoutRetryTimer) clearInterval(payoutRetryTimer);
   if (orderDigestTimer) clearInterval(orderDigestTimer);
+  if (campaignStageTimer) clearInterval(campaignStageTimer);
   timer = undefined;
   expiryTimer = undefined;
   await boss.stop({ graceful: true }).catch(() => {});

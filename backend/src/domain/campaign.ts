@@ -18,7 +18,15 @@ import {
   type CampaignState,
 } from "./campaign-state";
 import { transitionBrief } from "./brief";
-import { raiseSyncTask } from "./sync-tasks";
+import {
+  activateRewardsOnLaunch,
+  applyStageMove,
+  CAMPAIGN_AUDIT_ACTIONS,
+  CAMPAIGN_FOR_MOVE,
+  CampaignStateConflictError,
+  lockCampaign,
+  type RewardsOnLaunch,
+} from "./campaign-stages";
 import type { BriefState } from "./brief-state";
 
 export class LaunchNeedsFullTransitionError extends Error {
@@ -130,57 +138,27 @@ export async function transitionCampaign(
     const campaign = await tx.campaign.findFirst({
       where: { ...whereFor(actor, "campaign", "write"), id: campaignId },
       select: {
-        id: true, state: true, name: true, sponsor: { select: { name: true } },
+        ...CAMPAIGN_FOR_MOVE,
         /* P9-BE-09 — an ad-only campaign may skip STAFFING. */
         _count: { select: { orders: true, adSlots: true } },
       },
     });
     if (!campaign) throw new ForbiddenError("campaign", "write");
 
-    const from = campaign.state as CampaignState;
+    /* P4-BE-09 — decided on the state read under the row lock, so an
+       automatic move racing this one has either finished (and this sees its
+       result) or waits for this one. */
+    const from = await lockCampaign(tx, campaignId);
+    if (!from) throw new ForbiddenError("campaign", "write");
     if (!canTransitionCampaign(from, to, campaign._count)) {
       throw new IllegalCampaignTransitionError(from, to);
     }
 
-    const updated = await tx.campaign.update({
-      where: { id: campaignId },
-      data: { state: to as Prisma.CampaignUpdateInput["state"] },
-      select: { id: true, state: true },
-    });
+    /* The claim, the audit, and §18's side effects (P8-INT-01 / -06), shared
+       with the automatic moves — see campaign-stages.ts. */
+    await applyStageMove(tx, actor, campaign, from, to, { shape: campaign._count });
 
-    await audit(tx, actor, CAMPAIGN_AUDIT_ACTIONS[to], "Campaign", campaignId, {
-      before: { state: from },
-      after: { state: to },
-    });
-
-    /* §18, P8-INT-01 / P8-INT-06. Each is queued in this transaction. */
-    if (to === "APPROVAL") {
-      await raiseSyncTask(tx, actor, {
-        kind: "APPROVAL",
-        campaignId,
-        subject: `Approve campaign: ${campaign.name}`,
-      });
-    }
-    if (to === "CANCELLED") {
-      /* A cancelled campaign's Deal is Closed Lost — SponsorX asserts it. */
-      await enqueue(tx, actor.tenantId, "zoho.pushDeal", { campaignId });
-    }
-    if (to === "COMPLETED") {
-      /* §18 row 9: campaign closure opens the renewal Deal, and the renewal
-         conversation lands in the CRM as a task on it. */
-      await enqueue(tx, actor.tenantId, "zoho.pushRenewal", { campaignId });
-      /* 2S7-BE-02 — the report the renewal signer is sent is rendered on the
-         worker, since that person may never log in to open screen 12. */
-      await enqueue(tx, actor.tenantId, "report.render", { campaignId, trigger: "COMPLETED", requestedBy: actor.userId });
-      await raiseSyncTask(tx, actor, {
-        kind: "RENEWAL",
-        campaignId,
-        subject: `Renewal conversation: ${campaign.sponsor.name}`,
-        body: `${campaign.name} completed. Open the renewal.`,
-      });
-    }
-
-    return { id: updated.id, state: updated.state as CampaignState };
+    return { id: campaign.id, state: to };
   });
 }
 
@@ -208,7 +186,8 @@ export async function transitionCampaign(
 export async function launchCampaign(
   actor: Actor,
   campaignId: string,
-): Promise<{ id: string; state: CampaignState; ordersActivated: number }> {
+  now = new Date(),
+): Promise<{ id: string; state: CampaignState; ordersActivated: number; rewards: RewardsOnLaunch }> {
   /* Launching is an approval, not an edit — §15 gives CAMPAIGN_MGR and above
      `campaign.approve`, and that is the gate the old path used too. */
   assertAllowed(actor, "campaign", "approve");
@@ -216,20 +195,23 @@ export async function launchCampaign(
   return prisma.$transaction(async (tx) => {
     const campaign = await tx.campaign.findFirst({
       where: { ...whereFor(actor, "campaign", "approve"), id: campaignId },
-      select: { id: true, state: true },
+      select: { id: true, state: true, tenantId: true },
     });
     if (!campaign) throw new ForbiddenError("campaign", "approve");
 
-    const from = campaign.state as CampaignState;
+    /* P4-BE-09 — the row lock every stage change takes, then the state under it. */
+    const from = await lockCampaign(tx, campaignId);
+    if (!from) throw new ForbiddenError("campaign", "approve");
     if (!canTransitionCampaign(from, "ACTIVE")) {
       throw new IllegalCampaignTransitionError(from, "ACTIVE");
     }
 
-    const updated = await tx.campaign.update({
-      where: { id: campaignId },
-      data: { state: "ACTIVE" as Prisma.CampaignUpdateInput["state"] },
-      select: { id: true, state: true },
+    const claimed = await tx.campaign.updateMany({
+      /* tenant-scope: the campaign loaded above through whereFor and locked; claimed on the state read under the lock. */
+      where: { id: campaignId, state: from },
+      data: { state: "ACTIVE" as Prisma.CampaignUpdateManyMutationInput["state"] },
     });
+    if (claimed.count !== 1) throw new CampaignStateConflictError(from, "ACTIVE");
 
     const activated = await tx.campaignOrder.updateMany({
       where: { campaignId, state: "ACCEPTED" },
@@ -244,23 +226,18 @@ export async function launchCampaign(
     await enqueue(tx, actor.tenantId, "zoho.pushDeal", { campaignId });
     await enqueue(tx, actor.tenantId, "notify.campaignLive", { campaignId });
 
+    /* P6-BE-09 — the campaign's complete draft rewards go live with it, as
+       the system; an incomplete one stays a draft, and the result says why. */
+    const rewards = await activateRewardsOnLaunch(tx, { id: campaignId, tenantId: campaign.tenantId }, now);
+
     return {
-      id: updated.id,
-      state: updated.state as CampaignState,
+      id: campaignId,
+      state: "ACTIVE" as CampaignState,
       ordersActivated: activated.count,
+      rewards,
     };
   });
 }
-
-const CAMPAIGN_AUDIT_ACTIONS: Record<CampaignState, `${string}.${string}`> = {
-  DRAFT: "campaign.draft",
-  STAFFING: "campaign.staff",
-  APPROVAL: "campaign.submitForApproval",
-  ACTIVE: "campaign.launch",
-  REPORTING: "campaign.report",
-  COMPLETED: "campaign.complete",
-  CANCELLED: "campaign.cancel",
-};
 
 export { CAMPAIGN_AUDIT_ACTIONS, transitionBrief };
 export * from "./campaign-state";

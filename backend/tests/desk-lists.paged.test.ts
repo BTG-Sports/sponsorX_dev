@@ -36,6 +36,13 @@ const model = (name: string) =>
     ]),
   );
 
+/* P4-BE-09 — the campaign reads' next step is read by campaign-stages.ts
+   (tests/campaign-stages.test.ts covers it on a real database). */
+vi.mock("../src/domain/campaign-stages", async (actual) => ({
+  ...(await actual<typeof import("../src/domain/campaign-stages")>()),
+  stageViews: async () => new Map(),
+}));
+
 vi.mock("../src/db/client", () => ({
   prisma: {
     campaignBrief: model("campaignBrief"),

@@ -181,6 +181,16 @@ ${d.portalUrl ?? ""}
     subject: `Your payout of ${d.amount ?? ""} couldn't be sent — please fix your payout account`,
     text: `Hi ${d.firstName ?? "there"},\n\nWe tried to send your payout of ${d.amount ?? ""}, but our payment provider says your payout account needs attention first.\n\nOpen your money page and update your payout account on the provider's secure page. As soon as it's ready again, we'll send the payout automatically — you don't need to request it again.\n\n${d.portalUrl ?? ""}\n\n— BTG SponsorX`,
   }),
+  /* P4-BE-09 — campaigns move on their own: ready for BTG to launch; the
+     sponsor's final report is ready. */
+  "campaign.readyToLaunch": (d) => ({
+    subject: `Ready to launch: ${d.campaignName ?? "a campaign"}`,
+    text: `Every athlete on ${d.campaignName ?? "this campaign"}${d.sponsorName ? ` for ${d.sponsorName}` : ""} has accepted, and nobody is still waiting to answer.\n\nIt's ready for you to launch:\n\n${d.campaignUrl ?? ""}\n\n— BTG SponsorX`,
+  }),
+  "campaign.finalReportReady": (d) => ({
+    subject: `Your final report for ${d.campaignName ?? "your campaign"} is ready`,
+    text: `Hi${d.sponsorName ? ` ${d.sponsorName}` : ""},\n\nEvery piece of content on ${d.campaignName ?? "your campaign"} has been checked, and your final report is ready:\n\n${d.reportUrl ?? ""}\n\nThe campaign is now complete. Thank you for working with our athletes.\n\n— BTG SponsorX`,
+  }),
   "payout.sentBack": (d) => ({
     subject: "About your SponsorX payout request",
     text: `Hi ${d.firstName ?? "there"},\n\nBTG couldn't approve your payout request of ${d.amount ?? ""} yet:\n\n${d.note ?? ""}\n\nThe money is still yours and available to request again from your portal:\n\n${d.portalUrl ?? ""}\n\n— BTG SponsorX`,
