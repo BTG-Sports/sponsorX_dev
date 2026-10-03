@@ -34,7 +34,12 @@ vi.mock("../src/db/client", () => ({
     },
     athlete: {
       findMany: (a: Record<string, unknown>) => ((athleteArgs = a), Promise.resolve(athletes)),
+      /* P4-BE-07 — the readiness checklist counts eligible athletes. */
+      count: () => Promise.resolve(0),
     },
+    /* P4-BE-07 — the sponsor's standing, for the readiness checklist. */
+    inquiry: { findMany: () => Promise.resolve([]) },
+    accountClosure: { findMany: () => Promise.resolve([]) },
   },
 }));
 

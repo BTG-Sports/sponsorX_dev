@@ -23,8 +23,10 @@
 
 import type { Prisma } from "../generated/prisma/client";
 import { prisma } from "../db/client";
-import { audit, AUDIT_ACTIONS } from "../db/audit";
+import { audit, AUDIT_ACTIONS, type AuditActor } from "../db/audit";
 import { enqueue } from "../db/outbox";
+import { send } from "../lib/email";
+import { env } from "../config/env";
 import type { Actor } from "../auth/actor";
 import { assertAllowed, assertTenantWide, whereFor } from "../auth/scope";
 import { ForbiddenError } from "../auth/errors";
@@ -36,6 +38,15 @@ import {
   type DeliverableState,
 } from "./deliverable-state";
 import { deliverablesForOrder } from "./deliverable-template";
+import {
+  allPassed,
+  CAPTION_MAX,
+  contentChecks,
+  failedReasons,
+  normalizeContentType,
+  sentBack,
+  type ContentCheck,
+} from "./content-check-rules";
 import { maybeMakeEligible } from "./earning";
 
 export class PublishedUrlRequiredError extends Error {
@@ -60,6 +71,55 @@ export class RevisionReasonRequiredError extends Error {
     this.name = "RevisionReasonRequiredError";
   }
 }
+
+/** P5-BE-09 — a draft that failed the automatic checks is the athlete's to
+ *  fix; BTG cannot pick it up. */
+export class DraftFailedChecksError extends Error {
+  readonly status = 409;
+  constructor() {
+    super(
+      "This draft didn't pass the automatic checks and is back with the " +
+        "athlete. It reaches the review queue when they submit one that passes.",
+    );
+    this.name = "DraftFailedChecksError";
+  }
+}
+
+/** P5-BE-09 — a submitted draft that is in BTG's queue cannot be submitted
+ *  again until it is sent back. */
+export class DraftAlreadySubmittedError extends Error {
+  readonly status = 409;
+  constructor() {
+    super(
+      "This draft is already waiting for BTG's review. You can submit again " +
+        "if it is sent back to you.",
+    );
+    this.name = "DraftAlreadySubmittedError";
+  }
+}
+
+/** P5-BE-09 — no new version while a reviewer is looking at the checked one. */
+export class DraftInReviewError extends Error {
+  readonly status = 409;
+  constructor() {
+    super(
+      "This draft is with its reviewers. You can upload a new version if it " +
+        "is sent back to you.",
+    );
+    this.name = "DraftInReviewError";
+  }
+}
+
+export class CaptionTooLongError extends Error {
+  readonly status = 422;
+  constructor() {
+    super(`A caption can be at most ${CAPTION_MAX} characters.`);
+    this.name = "CaptionTooLongError";
+  }
+}
+
+const SYSTEM = (tenantId: string): AuditActor => ({ userId: null, tenantId });
+const appUrl = () => env.APP_URL.replace(/\/+$/, "");
 
 /* ────────────────────────────────────────────────────────────────────────────
    P5-BE-03 · Creation
@@ -157,6 +217,9 @@ async function move(
       template: string;
       data?: Record<string, string>;
     };
+    /** P5-BE-09 — refuse the move for a reason the state table cannot see
+     *  (a draft that failed its checks). Runs inside the transaction. */
+    guard?: (found: { checksPassed: boolean | null }) => void;
   },
 ): Promise<Moved> {
   if (opts.tenantWide) {
@@ -170,6 +233,7 @@ async function move(
       where: { ...whereFor(actor, "deliverable", opts.action), id: deliverableId },
       select: {
         id: true, state: true, orderId: true, title: true, tenantId: true,
+        checksPassed: true, reviewWaitingSince: true,
         /* P5-INT-01 — who to write to, and what to call the campaign. Read
            in the same query rather than a second one after the move. */
         order: {
@@ -186,10 +250,15 @@ async function move(
     if (!canTransitionDeliverable(from, to)) {
       throw new IllegalDeliverableTransitionError(from, to);
     }
+    opts.guard?.(found);
 
     const updated = await tx.deliverable.update({
       where: { id: deliverableId },
-      data: { state: to as Prisma.DeliverableUpdateInput["state"], ...opts.data },
+      data: {
+        state: to as Prisma.DeliverableUpdateInput["state"],
+        ...reviewClock(to, found.reviewWaitingSince),
+        ...opts.data,
+      },
       select: { id: true, state: true },
     });
 
@@ -231,21 +300,177 @@ async function move(
   });
 }
 
-/** The athlete submits a draft: NOT_STARTED → DRAFT_SUBMITTED. */
-export function submitDraft(actor: Actor, deliverableId: string): Promise<Moved> {
-  return move(actor, deliverableId, "DRAFT_SUBMITTED", {
-    action: "write",
-    tenantWide: false,
-    auditAction: AUDIT_ACTIONS.deliverable.submitDraft,
+/**
+ * P5-BE-09 — the review clock a move leaves behind.
+ *
+ * `reviewWaitingSince` is when the current draft reached its current
+ * reviewer. BTG picking a draft up does not restart BTG's wait (it reached
+ * BTG when it was submitted — a draft from before the clock existed starts
+ * it here); sending it to the sponsor starts the sponsor's; leaving the
+ * review desks clears it. A new wait has not been reminded about.
+ */
+function reviewClock(
+  to: DeliverableState,
+  waitingSince: Date | null,
+): { reviewWaitingSince?: Date | null; reviewRemindedAt?: null } {
+  if (to === "BTG_REVIEW") return waitingSince ? {} : { reviewWaitingSince: new Date(), reviewRemindedAt: null };
+  if (to === "SPONSOR_REVIEW") return { reviewWaitingSince: new Date(), reviewRemindedAt: null };
+  return { reviewWaitingSince: null, reviewRemindedAt: null };
+}
+
+export type Submitted = Moved & { passed: boolean; checks: ContentCheck[] };
+
+/**
+ * The athlete submits a draft, with the caption they will post — and the
+ * automatic checks run on it (P5-BE-09).
+ *
+ * From NOT_STARTED it is the chain's first move (→ DRAFT_SUBMITTED). From
+ * DRAFT_SUBMITTED it is a RESUBMISSION, allowed only while the draft is back
+ * with the athlete — sent back by the checks or by a reviewer — and it moves
+ * no state: the same deliverable, answered.
+ *
+ * Passing: it is in BTG's queue exactly as before, with the passed checks
+ * kept for the reviewer and BTG's review clock started. Failing: in the same
+ * transaction the system sends it back — the failures are audited as a
+ * revision by the system and emailed to the athlete — and it never enters
+ * BTG's queue (`checksPassed = false`). Failing is recorded, not refused, so
+ * the athlete sees exactly what to fix.
+ *
+ * The write is conditional on the row being as it was read (state and the
+ * last check time), so two submissions racing record one and refuse the
+ * other — never two verdicts and two emails for one draft.
+ */
+export async function submitDraft(
+  actor: Actor,
+  deliverableId: string,
+  input: { caption?: string | null } = {},
+): Promise<Submitted> {
+  assertAllowed(actor, "deliverable", "write");
+  const caption = input.caption?.trim() || null;
+  if (caption && caption.length > CAPTION_MAX) throw new CaptionTooLongError();
+
+  return prisma.$transaction(async (tx) => {
+    const found = await tx.deliverable.findFirst({
+      where: { ...whereFor(actor, "deliverable", "write"), id: deliverableId },
+      select: {
+        id: true, state: true, title: true, tenantId: true,
+        checks: true, checksPassed: true, checkedAt: true,
+        assets: { select: { version: true, contentType: true, uploadedAt: true }, orderBy: { version: "desc" }, take: 1 },
+        order: {
+          select: {
+            campaign: { select: { name: true } },
+            athlete: { select: { displayName: true, user: { select: { email: true } } } },
+            /* The accepted offer, when the order came from one: its disclosures. */
+            offer: { select: { disclosures: true } },
+          },
+        },
+      },
+    });
+    if (!found) throw new ForbiddenError("deliverable", "write");
+
+    const from = found.state as DeliverableState;
+    const latest = found.assets[0] ?? null;
+    if (from === "DRAFT_SUBMITTED") {
+      const revision = await tx.auditLog.findFirst({
+        /* tenant-scope: the deliverable's own tenant, loaded above through whereFor. */
+        where: {
+          tenantId: found.tenantId, entity: "Deliverable", entityId: found.id,
+          action: AUDIT_ACTIONS.deliverable.requestRevision,
+        },
+        select: { after: true, at: true },
+        orderBy: { at: "desc" },
+      });
+      const reason = (revision?.after as { reason?: unknown } | null)?.reason;
+      const back = sentBack({
+        state: from,
+        checksPassed: found.checksPassed,
+        checks: found.checks,
+        checkedAt: found.checkedAt,
+        latestUploadAt: latest?.uploadedAt ?? null,
+        revision: revision ? { reason: typeof reason === "string" ? reason : "", at: revision.at } : null,
+      });
+      if (!back) throw new DraftAlreadySubmittedError();
+    } else if (!canTransitionDeliverable(from, "DRAFT_SUBMITTED")) {
+      throw new IllegalDeliverableTransitionError(from, "DRAFT_SUBMITTED");
+    }
+
+    const checks = contentChecks({
+      latest: latest ? { version: latest.version, contentType: latest.contentType } : null,
+      caption,
+      requiredDisclosures: found.order.offer?.disclosures ?? [],
+    });
+    const passed = allPassed(checks);
+    const now = new Date();
+
+    const written = await tx.deliverable.updateMany({
+      /* tenant-scope: the row loaded above through whereFor, only while unchanged. */
+      where: { id: found.id, state: from, checkedAt: found.checkedAt },
+      data: {
+        state: "DRAFT_SUBMITTED",
+        caption,
+        captionVersion: latest?.version ?? null,
+        checks: checks as unknown as Prisma.InputJsonValue,
+        checksPassed: passed,
+        checkedAt: now,
+        reviewWaitingSince: passed ? now : null,
+        reviewRemindedAt: null,
+      },
+    });
+    if (written.count !== 1) throw new DraftAlreadySubmittedError();
+
+    await audit(tx, actor, AUDIT_ACTIONS.deliverable.submitDraft, "Deliverable", found.id, {
+      before: { state: from },
+      after: {
+        state: "DRAFT_SUBMITTED",
+        resubmission: from === "DRAFT_SUBMITTED",
+        version: latest?.version ?? null,
+        caption,
+        checksPassed: passed,
+        checks,
+      },
+    });
+
+    if (!passed) {
+      const reasons = failedReasons(checks);
+      await audit(tx, SYSTEM(found.tenantId), AUDIT_ACTIONS.deliverable.systemRevision, "Deliverable", found.id, {
+        before: { state: "DRAFT_SUBMITTED" },
+        after: { state: "DRAFT_SUBMITTED", reasons },
+      });
+      /* As move()'s notifications: skipped where the athlete has no linked
+         login yet. Their page shows the same reasons either way. */
+      const email = found.order.athlete.user?.email;
+      if (email) {
+        await send(tx, found.tenantId, {
+          template: "deliverable.checksFailed",
+          to: email,
+          /* One per failed submission, identified by its own recorded time
+             (checkedAt), so a retried send is the same message. */
+          idempotencyKey: `deliverable.checksFailed:${found.id}:${now.toISOString()}`,
+          data: {
+            firstName: found.order.athlete.displayName,
+            title: found.title,
+            campaignName: found.order.campaign.name,
+            reasons: reasons.map((r) => `- ${r}`).join("\n"),
+            portalUrl: `${appUrl()}/athlete/deliverables/${found.id}`,
+          },
+        });
+      }
+    }
+
+    return { id: found.id, state: "DRAFT_SUBMITTED" as const, passed, checks };
   });
 }
 
-/** BTG picks it up: DRAFT_SUBMITTED → BTG_REVIEW. */
+/** BTG picks it up: DRAFT_SUBMITTED → BTG_REVIEW. Never a draft the
+ *  automatic checks sent back (P5-BE-09). */
 export function startBtgReview(actor: Actor, deliverableId: string): Promise<Moved> {
   return move(actor, deliverableId, "BTG_REVIEW", {
     action: "write",
     tenantWide: true,
     auditAction: AUDIT_ACTIONS.deliverable.btgReview,
+    guard: (d) => {
+      if (d.checksPassed === false) throw new DraftFailedChecksError();
+    },
   });
 }
 
@@ -345,6 +570,33 @@ export async function verifyPublished(
    ──────────────────────────────────────────────────────────────────────────── */
 
 /**
+ * P5-BE-09 — what a reviewer looks at is the version that passed the checks.
+ * A new version while the draft is on a review desk would put unchecked work
+ * in front of BTG or the sponsor, so it waits until the draft comes back to
+ * the athlete: in BTG_REVIEW or SPONSOR_REVIEW, or in BTG's queue (submitted,
+ * passed, no reviewer's revision since), it is refused. A draft submitted
+ * before the checks existed (checksPassed null) keeps the old rule — an
+ * upload answers its revision.
+ */
+async function assertMayAddVersion(
+  db: Pick<Prisma.TransactionClient, "auditLog">,
+  d: { id: string; tenantId: string; state: string; checksPassed: boolean | null; checkedAt: Date | null },
+): Promise<void> {
+  if (d.state === "BTG_REVIEW" || d.state === "SPONSOR_REVIEW") throw new DraftInReviewError();
+  if (d.state !== "DRAFT_SUBMITTED" || d.checksPassed !== true) return;
+  const revision = await db.auditLog.findFirst({
+    /* tenant-scope: the deliverable's own tenant, loaded by the caller through whereFor. */
+    where: {
+      tenantId: d.tenantId, entity: "Deliverable", entityId: d.id,
+      action: AUDIT_ACTIONS.deliverable.requestRevision,
+      at: { gt: d.checkedAt ?? new Date(0) },
+    },
+    select: { id: true },
+  });
+  if (!revision) throw new DraftInReviewError();
+}
+
+/**
  * Presign a direct-to-R2 upload for a deliverable's creative.
  *
  * The bytes never touch this server — §11 and Addendum A8. The browser PUTs
@@ -366,9 +618,11 @@ export async function presignCreativeUpload(
      cannot write this deliverable's assets gets no URL. */
   const deliverable = await prisma.deliverable.findFirst({
     where: { ...whereFor(actor, "deliverable", "write"), id: deliverableId },
-    select: { id: true, tenantId: true },
+    select: { id: true, tenantId: true, state: true, checksPassed: true, checkedAt: true },
   });
   if (!deliverable) throw new ForbiddenError("creativeAsset", "write");
+  /* No credential for a file that could not be recorded (P5-BE-09). */
+  await assertMayAddVersion(prisma, deliverable);
 
   const key = `t/${deliverable.tenantId}/deliverable/${deliverable.id}/${crypto.randomUUID()}`;
 
@@ -398,9 +652,31 @@ export async function registerCreativeAsset(
   return prisma.$transaction(async (tx) => {
     const deliverable = await tx.deliverable.findFirst({
       where: { ...whereFor(actor, "deliverable", "write"), id: deliverableId },
-      select: { id: true, tenantId: true },
+      select: { id: true, tenantId: true, state: true, checksPassed: true, checkedAt: true },
     });
     if (!deliverable) throw new ForbiddenError("creativeAsset", "write");
+
+    await assertMayAddVersion(tx, deliverable);
+
+    /* P5-BE-09 — the file's type is the one its upload was presigned for:
+       the signed PUT enforces that Content-Type, and the grant's audit row
+       recorded it server-side. A key this deliverable was never granted has
+       no type, and the file-type check will say so. */
+    const grant = await tx.auditLog.findFirst({
+      /* tenant-scope: the grant was audited under the presigning actor's
+         tenant — the deliverable's own (loaded above through whereFor), or
+         this actor's; keyed by this deliverable and this key. */
+      where: {
+        tenantId: { in: [...new Set([deliverable.tenantId, actor.tenantId])] },
+        entity: "Deliverable", entityId: deliverable.id,
+        action: AUDIT_ACTIONS.storage.privateUploadGrant,
+        after: { path: ["key"], equals: r2Key },
+      },
+      select: { after: true },
+      orderBy: { at: "desc" },
+    });
+    const granted = (grant?.after as { contentType?: unknown } | null)?.contentType;
+    const contentType = normalizeContentType(typeof granted === "string" ? granted : null);
 
     const highest = await tx.creativeAsset.aggregate({
       /* tenant-scope: keyed by the deliverable loaded above through whereFor. */
@@ -415,6 +691,7 @@ export async function registerCreativeAsset(
         deliverableId,
         version,
         r2Key,
+        contentType,
         uploadedBy: actor.userId,
       },
       select: { id: true, version: true },

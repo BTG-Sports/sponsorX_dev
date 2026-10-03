@@ -26,7 +26,15 @@ import { daysRemaining, reachPct, verifiedPct } from "@/lib/ops-live";
 import { isBehind, monogramOf, windowLabel } from "@/lib/sponsor-live";
 import { liveSponsorCampaign, type LiveCampaignDetail } from "@/server/sponsor";
 import { SponsorArtwork } from "@/components/edition-artwork";
-import { presignArtwork, registerArtwork, sponsorArtworkAction, sponsorArtworkLink } from "./actions";
+import { SponsorContentReview } from "@/components/sponsor-content-review";
+import {
+  presignArtwork,
+  registerArtwork,
+  sponsorArtworkAction,
+  sponsorArtworkLink,
+  sponsorContentAction,
+  sponsorContentLink,
+} from "./actions";
 
 /* --------------------------------------------------------------------------
    Sponsor Campaign detail — §9, sponsor portal (2026-09-15). The screen that
@@ -560,6 +568,25 @@ function LiveDetail({
             link={sponsorArtworkLink}
             presign={presignArtwork}
             register={registerArtwork}
+          />
+        </section>
+      )}
+
+      {/* P4-FE-08 (P5-BE-09) — athlete content BTG sent for the sponsor's
+          sign-off: the caption it will go out with and how long it has
+          waited. Hidden when nothing is waiting. */}
+      {detail.review.length > 0 && (
+        <section className="sx-animate sx-delay-2">
+          <SectionHeading
+            title="Content for your approval"
+            hint={`${detail.review.length} waiting · BTG has reviewed ${detail.review.length === 1 ? "it" : "each one"}; the athlete posts once you approve.`}
+          />
+          <SponsorContentReview
+            items={detail.review}
+            now={now.getTime()}
+            canDecide={detail.canDecideContent}
+            act={sponsorContentAction}
+            link={sponsorContentLink}
           />
         </section>
       )}

@@ -80,15 +80,35 @@ export default async function DeliverablePage({ params }: { params: Promise<{ id
         </div>
       </div>
 
-      {d.revision && (
+      {d.revision && d.revision.by === "SYSTEM" ? (
+        /* P5-BE-09 — the automatic checks sent it back: each failure in
+           words. It hasn't gone to BTG; fixing these and resubmitting does. */
+        <Card className="border-danger/30 bg-danger/5">
+          <p className="text-xs font-semibold text-danger">Fix before review</p>
+          <p className="mt-1 text-xs leading-relaxed text-text">
+            Your draft didn&rsquo;t pass our automatic checks, so it hasn&rsquo;t gone to BTG yet:
+          </p>
+          <ul className="mt-2 space-y-1">
+            {(d.revision.failed ?? d.revision.reason.split("\n")).map((f) => (
+              <li key={f} className="flex items-start gap-2 text-xs leading-relaxed text-text">
+                <span aria-hidden="true" className="mt-0.5 grid size-4 shrink-0 place-items-center rounded-full bg-danger/15 text-[10px] font-bold text-danger">!</span>
+                <span className="min-w-0 flex-1">{f}</span>
+              </li>
+            ))}
+          </ul>
+          <p className="mt-2 text-[10px] text-faint">
+            Checked {fmt(d.revision.at)} · fix these and submit again below
+          </p>
+        </Card>
+      ) : d.revision ? (
         <Card className="border-danger/30 bg-danger/5">
           <p className="text-xs font-semibold text-danger">Changes requested</p>
           <p className="mt-1 whitespace-pre-wrap text-xs leading-relaxed text-text">{d.revision.reason}</p>
           <p className="mt-2 text-[10px] text-faint">
-            Asked {fmt(d.revision.at)} · upload a new version to answer it
+            Asked {fmt(d.revision.at)} · {d.checks ? "make the change and resubmit below" : "upload a new version to answer it"}
           </p>
         </Card>
-      )}
+      ) : null}
 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_22rem] xl:items-start">
         <section className="min-w-0">
@@ -138,6 +158,10 @@ export default async function DeliverablePage({ params }: { params: Promise<{ id
                 presign={presignUpload}
                 register={registerUpload}
                 submit={submitDraft}
+                captioned
+                requiredDisclosures={d.requiredDisclosures ?? []}
+                initialCaption={d.caption ?? ""}
+                canResubmitAsIs={Boolean(d.revision) && d.assets.length > 0}
               />
             </>
           ) : d.state === "APPROVED" && isAthlete ? (
@@ -158,6 +182,15 @@ export default async function DeliverablePage({ params }: { params: Promise<{ id
                 {step.on === "done" && "Verified — this deliverable is complete."}
                 {step.on === "you" && "Only the athlete can act on this deliverable."}
               </p>
+              {/* P5-BE-09 — what was submitted, and that it passed the checks. */}
+              {d.caption && (
+                <p className="mt-3 whitespace-pre-wrap break-words rounded-lg border border-line bg-surface-2/60 px-3 py-2 text-[11px] leading-relaxed text-text">
+                  {d.caption}
+                </p>
+              )}
+              {d.checks && d.checks.every((c) => c.ok) && (
+                <p className="mt-2 text-[10px] leading-relaxed text-faint">Passed the automatic checks.</p>
+              )}
             </>
           )}
         </Card>

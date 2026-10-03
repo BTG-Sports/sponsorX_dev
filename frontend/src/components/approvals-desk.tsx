@@ -25,6 +25,7 @@ import type { ReviewContentItem } from "@/lib/fixtures";
 import {
   isLiveItem,
   liveMoves,
+  type LiveDeskItem,
   MOVE_LABEL,
   type ApprovalActionKind,
   type ApprovalResult,
@@ -41,9 +42,9 @@ import {
   dueValue,
   inQueue,
   stateLabel,
-  waitLabel,
   type EffectiveState,
 } from "@/lib/approvals-ui";
+import { passedChecks, waitingWords } from "@/lib/content-checks";
 
 /* --------------------------------------------------------------------------
    ApprovalsDesk — the content approval queue (2026-09-16 redesign). The
@@ -768,7 +769,8 @@ function DeskBody({
                       {aging && (
                         <span className="absolute right-2 top-2">
                           <Badge tone="warn">
-                            waiting {waitLabel(it.waitingHours)}
+                            {/* "waiting 2 days" — since it reached this desk (P5-BE-09) */}
+                            {waitingWords(it.waitingHours)}
                           </Badge>
                         </span>
                       )}
@@ -1011,6 +1013,11 @@ function ReviewDrawer({
             )}
           </div>
 
+          {/* P5-BE-09 — the automatic checks it passed, and its caption */}
+          {live && isLiveItem(it) && (it.live.checks || it.live.caption) && s !== "REVISION" && (
+            <ChecksAndCaption item={it} />
+          )}
+
           {/* details */}
           <div className="sx-animate sx-delay-4 p-5">
             <p className="text-[11px] font-medium uppercase tracking-wide text-muted">
@@ -1097,6 +1104,57 @@ function ReviewDrawer({
 /* --------------------------------------------------------- live decisions */
 
 /** Opens a short-lived signed link to the latest version (API-audited). */
+/**
+ * P5-BE-09 — what the reviewer no longer has to look up: the automatic
+ * checks this draft passed on submission (a draft that failed never reaches
+ * this desk), and the caption the athlete will post with the version it
+ * was submitted with.
+ */
+function ChecksAndCaption({ item: it }: { item: LiveDeskItem }) {
+  /* Only passed checks reach this desk — a failing draft is sent back first. */
+  const checks = passedChecks(it.live.checks);
+  return (
+    <div className="sx-animate sx-delay-3 border-b border-line-soft p-5">
+      {checks.length > 0 && (
+        <>
+          <p className="text-[11px] font-medium uppercase tracking-wide text-muted">
+            Automatic checks passed
+          </p>
+          <ul className="mt-2 space-y-1.5">
+            {checks.map((c) => (
+              <li key={c.key} className="flex items-start gap-2 text-xs leading-relaxed">
+                <span
+                  aria-hidden="true"
+                  className={[
+                    "mt-0.5 grid size-4 shrink-0 place-items-center rounded-full text-[10px] font-bold",
+                    c.ok ? "bg-success/15 text-success" : "bg-danger/15 text-danger",
+                  ].join(" ")}
+                >
+                  {c.ok ? "✓" : "!"}
+                </span>
+                <span className="min-w-0 flex-1 text-text">
+                  <span className="sr-only">{c.ok ? "Passed: " : "Failed: "}</span>
+                  {c.text}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
+      <p className={["text-[11px] font-medium uppercase tracking-wide text-muted", checks.length ? "mt-4" : ""].join(" ")}>
+        Caption{it.live.captionVersion ? ` · with v${it.live.captionVersion}` : ""}
+      </p>
+      {it.live.caption ? (
+        <p className="mt-2 whitespace-pre-wrap break-words rounded-lg border border-line bg-surface-2/60 px-3 py-2 text-xs leading-relaxed text-text">
+          {it.live.caption}
+        </p>
+      ) : (
+        <p className="mt-2 text-xs text-faint">No caption was submitted with this draft.</p>
+      )}
+    </div>
+  );
+}
+
 function OpenAsset({
   id,
   version,

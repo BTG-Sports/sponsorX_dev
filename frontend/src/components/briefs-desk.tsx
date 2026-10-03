@@ -11,6 +11,7 @@ import {
   TABS,
   filterBriefs,
   nextMoves,
+  readinessSummary,
   sportOptions,
   tabCounts,
   type BriefRow,
@@ -133,8 +134,19 @@ export function BriefsDesk({
         <ul className="space-y-2">
           {shown.length === 0 && (
             <li className="rounded-xl border border-line bg-surface px-5 py-10 text-center">
-              <p className="text-sm font-semibold">Nothing matches these filters</p>
-              <p className="mt-1 text-xs text-muted">Try another sport, a sponsor name, or the All tab.</p>
+              {tab === "ready" && !q && !sport ? (
+                <>
+                  <p className="text-sm font-semibold">No brief is ready for review yet</p>
+                  <p className="mt-1 text-xs text-muted">
+                    A draft lands here once its checklist passes — objective, dates, budget, sponsor and eligible athletes. The Draft tab shows what each one is missing.
+                  </p>
+                </>
+              ) : (
+                <>
+                  <p className="text-sm font-semibold">Nothing matches these filters</p>
+                  <p className="mt-1 text-xs text-muted">Try another sport, a sponsor name, or the All tab.</p>
+                </>
+              )}
             </li>
           )}
           {shown.map((b) => (
@@ -153,6 +165,10 @@ export function BriefsDesk({
                   <span className="flex flex-wrap items-center gap-2">
                     <span className="truncate text-sm font-semibold">{b.sponsor}</span>
                     <Badge tone={b.tone}>{b.stateLabel}</Badge>
+                    {/* P4-FE-08 — the readiness checklist, on a draft */}
+                    {b.state === "DRAFT" && readinessSummary(b.readiness) && (
+                      <Badge tone={readinessSummary(b.readiness)!.tone}>{readinessSummary(b.readiness)!.label}</Badge>
+                    )}
                     <span className="ml-auto text-xs font-semibold tabular-nums">{b.budget}</span>
                   </span>
                   <span className="mt-0.5 block truncate text-[11px] text-muted">
@@ -218,6 +234,41 @@ export function BriefsDesk({
               <p className="text-[11px] font-medium uppercase tracking-wide text-muted">Objective</p>
               <p className="mt-1 whitespace-pre-line text-xs leading-relaxed">{sel.objective}</p>
             </div>
+
+            {/* P4-FE-08 (P4-BE-07) — what the system looked up; BTG decides. */}
+            {sel.readiness && sel.state === "DRAFT" && (
+              <div className="mt-4">
+                <p className="flex flex-wrap items-center gap-2 text-[11px] font-medium uppercase tracking-wide text-muted">
+                  Readiness
+                  {sel.ready && <Badge tone="accent">Ready for review</Badge>}
+                </p>
+                <ul className="mt-2 space-y-1.5">
+                  {sel.readiness.checks.map((c) => {
+                    const info = c.key === "conflicts";
+                    return (
+                      <li key={c.key} className="flex items-start gap-2 text-xs leading-relaxed">
+                        <span
+                          aria-hidden="true"
+                          className={[
+                            "mt-0.5 grid size-4 shrink-0 place-items-center rounded-full text-[10px] font-bold",
+                            info ? "bg-surface-2 text-muted" : c.ok ? "bg-success/15 text-success" : "bg-danger/15 text-danger",
+                          ].join(" ")}
+                        >
+                          {info ? "i" : c.ok ? "✓" : "!"}
+                        </span>
+                        <span className="min-w-0 flex-1 [overflow-wrap:anywhere]">
+                          <span className="sr-only">{info ? "For information: " : c.ok ? "Passed: " : "Not yet: "}</span>
+                          {c.text}
+                        </span>
+                      </li>
+                    );
+                  })}
+                </ul>
+                <p className="mt-2 text-[11px] text-faint">
+                  Looked up automatically. Nothing moves on its own — qualifying is still your call.
+                </p>
+              </div>
+            )}
 
             <div className="mt-5 space-y-3 border-t border-line-soft pt-4">
               {message && (

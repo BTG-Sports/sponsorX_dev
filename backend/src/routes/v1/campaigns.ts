@@ -33,6 +33,7 @@ import {
 import { createBrief, transitionBrief } from "../../domain/brief";
 import { createCampaignFromBrief, launchCampaign, transitionCampaign } from "../../domain/campaign";
 import { eligibleForBrief, eligiblePageForBrief } from "../../domain/matching";
+import { readinessFor, readyBriefIds, type Readiness } from "../../domain/brief-readiness";
 import { loadAgreementBody } from "../../domain/agreement-text";
 import { guardianReadiness } from "../../domain/guardian-rules";
 import { assessDelivery, deliveryHealth } from "../../domain/delivery-health";
@@ -77,6 +78,8 @@ const BRIEF_SELECT = {
   id: true, objective: true, state: true, budget: true, closeReason: true,
   startDate: true, endDate: true, sports: true, stateCodes: true, categories: true,
   createdAt: true,
+  /* P4-BE-07 — the readiness checklist's inputs; not in the response. */
+  tenantId: true, sponsorId: true,
   sponsor: { select: { name: true } },
   package: {
     select: { code: true, name: true, lineItems: true, athleteCountMin: true, athleteCountMax: true, priceLow: true, priceHigh: true },
@@ -88,6 +91,7 @@ type BriefRow = {
   id: string; objective: string; state: string; budget: number; closeReason: string | null;
   startDate: Date; endDate: Date; sports: string[]; stateCodes: string[]; categories: string[];
   createdAt: Date;
+  tenantId: string; sponsorId: string;
   sponsor: { name: string };
   package: {
     code: string; name: string; lineItems: unknown;
@@ -98,8 +102,11 @@ type BriefRow = {
   campaign: { id: string; name: string; state: string } | null;
 };
 
-function briefOut(b: BriefRow) {
+function briefOut(b: BriefRow, readiness?: Readiness) {
   return {
+    /* P4-BE-07 — BTG's readiness checklist; absent for a caller who doesn't
+       see it (a sponsor), never a guessed "not ready". */
+    ...(readiness ? { readiness } : {}),
     id: b.id,
     objective: b.objective,
     state: b.state,
@@ -162,6 +169,15 @@ const BRIEF_SORTS = {
  *  BRIEF_DESK_ORDER, newest first within each state. */
 const listBriefs: RequestHandler = async (req, res) => {
   const paged = pageRequest(req.query as Record<string, unknown>);
+  /* P4-BE-07 — `?ready=true`: only DRAFT briefs whose readiness checklist
+     passes (computed, so found by a bounded scan; none for a caller who
+     doesn't see readiness). */
+  const readyOnly = req.query.ready === "true";
+  const readyWhere = readyOnly ? [{ id: { in: await readyBriefIds(req.actor!) } }] : [];
+  const withReadiness = async (rows: BriefRow[]) => {
+    const readiness = await readinessFor(req.actor!, rows);
+    return rows.map((b) => briefOut(b, readiness.get(b.id)));
+  };
   if (paged) {
     const actor = req.actor!;
     const q = searchTerm(req.query as Record<string, unknown>);
@@ -169,6 +185,7 @@ const listBriefs: RequestHandler = async (req, res) => {
     const sort = req.query.sort === "desk" || req.query.sort === "oldest" ? req.query.sort : "newest";
     const base = [
       whereFor(actor, "campaignBrief", "read"),
+      ...readyWhere,
       ...(q
         ? [{
             OR: [
@@ -207,22 +224,25 @@ const listBriefs: RequestHandler = async (req, res) => {
         read(where, BRIEF_SORTS[sort]),
       );
     }
-    res.json({ briefs: result.rows.map(briefOut), page: result.page });
+    res.json({ briefs: await withReadiness(result.rows), page: result.page });
     return;
   }
 
   const state = typeof req.query.state === "string" ? req.query.state : undefined;
   const STATES = ["DRAFT", "QUALIFIED", "APPROVED", "CAMPAIGN_CREATED", "CLOSED"];
+  const where = {
+    ...whereFor(req.actor!, "campaignBrief", "read"),
+    ...(state && STATES.includes(state) ? { state: state as never } : {}),
+  };
   const rows = await prisma.campaignBrief.findMany({
-    where: {
-      ...whereFor(req.actor!, "campaignBrief", "read"),
-      ...(state && STATES.includes(state) ? { state: state as never } : {}),
-    },
+    /* tenant-scope: `where` spreads whereFor(campaignBrief); the ready ids are
+       a further conjunct, never a sibling `AND` that would replace the scope. */
+    where: readyWhere.length ? { AND: [where, ...readyWhere] } : where,
     select: BRIEF_SELECT,
     orderBy: { createdAt: "desc" },
     take: 100,
   });
-  res.json({ briefs: (rows as BriefRow[]).map(briefOut) });
+  res.json({ briefs: await withReadiness(rows as BriefRow[]) });
 };
 
 /**
@@ -289,7 +309,8 @@ const readBrief: RequestHandler<{ id: string }> = async (req, res) => {
       : [];
   });
 
-  res.json({ ...briefOut(brief), jobs, ...(invites ? { invites } : {}) });
+  const readiness = (await readinessFor(actor, [brief])).get(brief.id);
+  res.json({ ...briefOut(brief, readiness), jobs, ...(invites ? { invites } : {}) });
 };
 
 /* --- the campaign portfolio (P4-FE-05) ----------------------------------

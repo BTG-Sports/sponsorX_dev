@@ -321,6 +321,21 @@ ${d.portalUrl ?? ""}
     subject: `Ad artwork approved: ${d.sponsorName ?? "a sponsor"} — ${d.slotCode ?? "an ad slot"}, ${d.editionLabel ?? "an edition"}`,
     text: `${d.sponsorName ?? "The sponsor"} approved the artwork for ${d.slotCode ?? "their ad slot"} in ${d.editionLabel ?? "the edition"}. That slot no longer holds up production.\n\n${d.reviewUrl ?? ""}\n\n— SponsorX`,
   }),
+  /* P5-BE-09 — the automatic checks sent the draft back; every failure is
+     listed, one per line, so the athlete can fix them all in one go. */
+  "deliverable.checksFailed": (d) => ({
+    subject: `Fix before review: ${d.title ?? "your deliverable"}`,
+    text: `Hi ${d.firstName ?? "there"},\n\nYour draft of ${d.title ?? "your deliverable"}${d.campaignName ? ` for ${d.campaignName}` : ""} didn't pass our automatic checks, so it hasn't gone to BTG yet:\n\n${d.reasons ?? ""}\n\nFix these and submit again here:\n\n${d.portalUrl ?? ""}\n\n— BTG SponsorX`,
+  }),
+  /* P5-BE-09 — one reminder per draft per review stage, after 48 hours. */
+  "deliverable.btgReviewReminder": (d) => ({
+    subject: `Waiting ${d.waited ?? "2 days"} for BTG review: ${d.title ?? "a deliverable"}`,
+    text: `${d.athleteName ?? "An athlete"}'s ${d.title ?? "deliverable"} for ${d.campaignName ?? "a campaign"} passed the automatic checks and has waited ${d.waited ?? "over 2 days"} for BTG's review.\n\nReview it here:\n\n${d.reviewUrl ?? ""}\n\n— SponsorX`,
+  }),
+  "deliverable.sponsorReviewReminder": (d) => ({
+    subject: `Waiting for your approval: ${d.title ?? "a deliverable"}`,
+    text: `Hi,\n\n${d.athleteName ?? "An athlete"}'s ${d.title ?? "deliverable"} for ${d.campaignName ?? "your campaign"} has waited ${d.waited ?? "over 2 days"} for your approval. Approve it, or ask for changes, here:\n\n${d.reviewUrl ?? ""}\n\nThe athlete can't post it until you do.\n\n— BTG SponsorX`,
+  }),
   "deliverable.approved": (d) => ({
     subject: `Approved: ${d.title ?? "your deliverable"}`,
     text: `Hi ${d.firstName ?? "there"},\n\n${d.title ?? "Your deliverable"} has been approved${d.campaignName ? ` for ${d.campaignName}` : ""}.\n\nOnce it is live, mark it published in your portal and add the link — that is what lets us verify it and release your earnings.\n\n${d.portalUrl ?? ""}\n\n— BTG SponsorX`,

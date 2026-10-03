@@ -43,7 +43,7 @@ const BTN_PRIMARY =
 const BTN_SECONDARY =
   "inline-flex items-center justify-center rounded-lg border border-line px-3.5 py-2 text-xs font-medium text-text transition-colors hover:bg-surface-2 disabled:opacity-40";
 
-function OpenFile({ id, version, link }: { id: string; version: number; link: (id: string) => Promise<LinkResult> }) {
+export function OpenFile({ id, version, link }: { id: string; version: number; link: (id: string) => Promise<LinkResult> }) {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   return (
@@ -74,7 +74,7 @@ function OpenFile({ id, version, link }: { id: string; version: number; link: (i
 }
 
 /** The buttons for one artwork, with the note box a change request needs. */
-function Decisions<K extends string>({
+export function Decisions<K extends string>({
   id,
   moves,
   labels,

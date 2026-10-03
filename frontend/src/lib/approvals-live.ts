@@ -1,5 +1,6 @@
 import type { ReviewContentItem } from "@/lib/fixtures";
 import type { ApiDeliverable } from "@/lib/deliverables-live";
+import type { ContentCheck } from "@/lib/content-checks";
 
 /* --------------------------------------------------------------------------
    P5-FE-04 — the content approval desk's live translation: GET /deliverables
@@ -24,6 +25,13 @@ export type LiveDeskItem = ReviewContentItem & {
     latestVersion: number | null;
     jobId: string;
     dueIso: string;
+    /* P5-BE-09 — what the reviewer sees beside the draft: the automatic
+       checks it passed, the caption the athlete will post (and its version),
+       and when it reached the desk it is waiting on. */
+    checks: ContentCheck[] | null;
+    caption: string | null;
+    captionVersion: number | null;
+    waitingSince: string | null;
   };
 };
 
@@ -59,6 +67,9 @@ function monDay(iso: string): string {
 
 export function toDeskItem(d: ApiDeliverable, now: Date): LiveDeskItem {
   const since = d.latestAsset ? ago(d.latestAsset.uploadedAt, now) : null;
+  /* P5-BE-09 — the API says when it reached its reviewer; before that
+     field existed, the latest upload was the measure. */
+  const waited = d.waitingSince ? ago(d.waitingSince, now) : since;
   return {
     id: d.id,
     campaign: d.campaign.name,
@@ -73,8 +84,8 @@ export function toDeskItem(d: ApiDeliverable, now: Date): LiveDeskItem {
     submittedAt: since ? since.label : "nothing uploaded yet",
     /* Only content actually sitting on a review desk is "waiting". */
     waitingHours:
-      since && ["DRAFT_SUBMITTED", "BTG_REVIEW", "SPONSOR_REVIEW"].includes(d.state) && !d.revision
-        ? since.hours
+      waited && ["DRAFT_SUBMITTED", "BTG_REVIEW", "SPONSOR_REVIEW"].includes(d.state) && !d.revision
+        ? waited.hours
         : 0,
     ...(d.publishedAt ? { clearedAt: monDay(d.publishedAt) } : {}),
     live: {
@@ -83,6 +94,10 @@ export function toDeskItem(d: ApiDeliverable, now: Date): LiveDeskItem {
       latestVersion: d.latestAsset?.version ?? null,
       jobId: d.jobId,
       dueIso: d.dueDate,
+      checks: d.checks ?? null,
+      caption: d.caption ?? null,
+      captionVersion: d.captionVersion ?? null,
+      waitingSince: d.waitingSince ?? null,
     },
   };
 }
@@ -154,6 +169,9 @@ export function tabStates(tab: DeskTab): readonly string[] {
 /** The GET /deliverables query for one page of the desk. */
 export function deskListQuery(f: DeskFilters, p: { page: number; size: number }): string {
   const u = new URLSearchParams({ page: String(p.page), size: String(p.size), state: tabStates(f.tab).join(",") });
+  /* P5-BE-09 — a draft the automatic checks sent back is the athlete's to
+     fix; it never sits in BTG's queue. */
+  u.set("systemReturned", "exclude");
   if (f.q) u.set("q", f.q);
   if (f.camp) u.set("campaignId", f.camp);
   if (f.kind) u.set("kind", f.kind);
@@ -161,8 +179,9 @@ export function deskListQuery(f: DeskFilters, p: { page: number; size: number })
   return `?${u}`;
 }
 
-/** The summary query — counted over every state on the desk. */
-export const DESK_SUMMARY_QUERY = `?state=${DESK_STATES.join(",")}`;
+/** The summary query — counted over every state on the desk, without the
+ *  drafts the automatic checks sent back (P5-BE-09). */
+export const DESK_SUMMARY_QUERY = `?state=${DESK_STATES.join(",")}&systemReturned=exclude`;
 
 /** Only the fields of GET /deliverables/summary the desk reads. */
 export type DeskSummary = {
