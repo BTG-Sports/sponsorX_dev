@@ -165,6 +165,12 @@ export type EmailTemplate =
   | "guardian.accountReinstated"
   /* 2S1-BE-11 — a minor uploaded content; their guardian hears of each one. */
   | "guardian.contentUploaded"
+  /* P5-BE-09 — a draft that failed the automatic checks goes back to the
+     athlete, each failure in words; a draft waiting over 48 hours on its
+     reviewer reminds BTG's campaign managers, or the sponsor's admins. */
+  | "deliverable.checksFailed"
+  | "deliverable.btgReviewReminder"
+  | "deliverable.sponsorReviewReminder"
   /* 2S1-BE-12 — coming of age: the start, the reminders, taking over, the
      end of the allowance, the link the guardian sends, and BTG's settling. */
   | "comingOfAge.started"
@@ -218,7 +224,19 @@ export type EmailTemplate =
   /* 2S5-BE-07 — the payment provider couldn't send a payout because the
      payee's payout account needs attention: fix it (on the provider's page,
      from the money page) and it is sent again on its own. */
-  | "payout.accountNeedsFix";
+  | "payout.accountNeedsFix"
+  /* P4-BE-09 — campaigns move on their own: BTG's campaign managers hear a
+     campaign is ready to launch; the sponsor hears their final report is ready. */
+  | "campaign.readyToLaunch"
+  | "campaign.finalReportReady"
+  /* P4-BE-11 — sponsor briefs approved automatically: the sponsor hears
+     their request is approved; BTG's campaign managers hear of each brief
+     held for them, with the reasons (which the sponsor never sees). */
+  | "brief.autoApproved"
+  | "brief.heldForBtg"
+  /* P4-BE-12 — automatic staffing stopped and handed the campaign to BTG's
+     campaign managers, with the reason. */
+  | "campaign.staffingStopped";
 
 export type EmailMessage = {
   template: EmailTemplate;

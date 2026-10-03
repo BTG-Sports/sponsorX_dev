@@ -39,6 +39,8 @@ const GOVERNED_BY: Record<string, Resource> = {
   SponsorContact: "sponsorContact",
   CampaignBrief: "campaignBrief",
   Campaign: "campaign",
+  /* P4-BE-12 — who automatic staffing skipped: read on BTG's campaign detail, written only by the system. */
+  CampaignStaffingSkip: "campaign",
   CampaignInvite: "invitation",
   CampaignOrder: "campaignOrder",
   Deliverable: "deliverable",

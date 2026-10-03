@@ -54,19 +54,39 @@ vi.mock("../src/lib/storage", () => ({
   },
 }));
 
+/* P4-BE-09 — the automatic campaign move verification triggers is
+   tests/campaign-stages.test.ts's, on a real database. */
+vi.mock("../src/domain/campaign-stages", async (actual) => ({
+  ...(await actual<typeof import("../src/domain/campaign-stages")>()),
+  advanceCampaign: async () => [],
+  advanceCampaignOfOrder: async () => [],
+}));
+
 vi.mock("../src/db/client", () => {
   const model = {
     findFirst: () => Promise.resolve(deliverable),
     /* P7-BE-02 counts outstanding deliverables when one is verified. */
     count: () => Promise.resolve(outstandingDeliverables),
+    /* P5-BE-10 — the athlete's latest BTG revision: none on record. */
+    aggregate: () => Promise.resolve({ _max: { btgRevisionAt: null } }),
     update: ({ data }: { data: Record<string, unknown> }) => {
       committedWrites.push("deliverable.update");
       updates.push(data);
       return Promise.resolve({ id: "dlv_1", state: data.state });
     },
+    /* P5-BE-09 — a submission is a conditional write (one verdict per draft). */
+    updateMany: ({ data }: { data: Record<string, unknown> }) => {
+      committedWrites.push("deliverable.update");
+      updates.push(data);
+      return Promise.resolve({ count: 1 });
+    },
   };
   const tx = {
     deliverable: model,
+    /* P5-BE-10 — the sponsor's reviewers, asked before a draft may skip BTG. */
+    user: { findFirst: () => Promise.resolve(null) },
+    /* P5-BE-10 — the athlete's content-trust lock (a row lock in SQL). */
+    $queryRaw: () => Promise.resolve([]),
     /* 2S1-BE-11 — the upload asks whether the uploader is a minor whose guardian should hear of it: an adult here. */
     athlete: { findFirst: () => Promise.resolve({ id: "ath_1", legalName: "Alex", displayName: "Alex", state: "ACTIVE", birthDate: null, ageBand: "18_PLUS", majorityAge: 18, guardianId: null, guardian: null }) },
     creativeAsset: {
@@ -93,6 +113,8 @@ vi.mock("../src/db/client", () => {
       },
     },
     auditLog: {
+      /* P5-BE-09 — no reviewer's revision and no upload grant on record. */
+      findFirst: () => Promise.resolve(null),
       create: ({ data }: { data: Record<string, unknown> }) => {
         committedWrites.push("audit");
         auditRows.push(data);
@@ -129,11 +151,18 @@ const sponsor = () => actor(["SPONSOR_ADMIN"], { athleteId: null, sponsorId: "sp
 const at = (state: string) => {
   deliverable = {
     id: "dlv_1", state, tenantId: "t1", orderId: "ord_1", title: "Story drop",
+    /* P5-BE-09 — a passing draft: one MP4 version, and an offer with no disclosures. */
+    checks: null, checksPassed: null, checkedAt: null, reviewWaitingSince: null,
+    assets: [{ version: 1, contentType: "video/mp4", uploadedAt: new Date("2026-10-01T00:00:00Z") }],
     /* P5-INT-01 widened move()'s read so a notification can be addressed. */
     order: {
-      campaign: { name: "Autumn" },
-      athlete: { displayName: "Alex", user: { email: "alex@example.com" } },
+      /* P5-BE-10 — what deciding a skip reads: an adult, no categories. */
+      athleteId: "ath_1",
+      campaign: { name: "Autumn", sponsorId: "spn_1", sponsor: { categories: [] }, brief: null },
+      athlete: { displayName: "Alex", user: { email: "alex@example.com" }, birthDate: null, ageBand: "18_PLUS", majorityAge: 18, guardianId: null },
+      offer: null,
     },
+    btgRevisionAt: null,
   };
 };
 
@@ -230,6 +259,18 @@ describe("who may do what — §15, not a comment", () => {
     await expect(approveDeliverable(sponsor(), "dlv_1")).resolves.toMatchObject({
       state: "APPROVED",
     });
+  });
+
+  /* P5-BE-10 — the sponsor's approval comes after BTG's review, never instead of it. */
+  it("a sponsor may NOT approve while BTG is reviewing", async () => {
+    at("BTG_REVIEW");
+    await expect(approveDeliverable(sponsor(), "dlv_1")).rejects.toMatchObject({ status: 409, name: "BtgReviewFirstError" });
+    expect(committedWrites).toEqual([]);
+  });
+
+  it("BTG may approve from its own review", async () => {
+    at("BTG_REVIEW");
+    await expect(approveDeliverable(btg(), "dlv_1")).resolves.toMatchObject({ state: "APPROVED" });
   });
 
   it("a sponsor may request a revision", async () => {

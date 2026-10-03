@@ -92,7 +92,8 @@ describe("GET /deliverables", () => {
   it("an open revision: requested after the latest upload, and back with the athlete", async () => {
     audits = [{ entityId: "dl_1", after: { reason: "Show the logo", }, at: new Date("2026-10-02T00:00:00Z") }];
     const d = ((await run(listDeliverables, {})).deliverables as Record<string, unknown>[])[0];
-    expect(d.revision).toEqual({ reason: "Show the logo", at: "2026-10-02T00:00:00.000Z" });
+    /* P5-BE-09 — `by` says who sent it back: a person, not the automatic checks. */
+    expect(d.revision).toEqual({ reason: "Show the logo", at: "2026-10-02T00:00:00.000Z", by: "REVIEWER" });
   });
 
   it("a newer upload answers the revision", async () => {

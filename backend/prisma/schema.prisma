@@ -400,7 +400,7 @@ model Athlete {
   /// §11 §6 — categories they will NOT promote. This one is a rule, and §26's
   /// conflict check reads it: Phase 4 asks "which athletes exclude alcohol?"
   /// and must get an answer from an index, not from someone reading notes.
-  restrictedCategories String[]
+  restrictedCategories String[] @default([])
   /// Anything that does not reduce to a category. Deliberately separate from
   /// the list above so nobody mistakes unenforceable text for an enforceable
   /// restriction — a conflict check cannot read this and must not appear to.
@@ -822,6 +822,16 @@ model CampaignBrief {
   state         BriefState @default(DRAFT)
   /// P4-FE-07 — why BTG closed it; null unless CLOSED.
   closeReason   String?
+  /// P4-BE-11 — approved by the system, every safety check having passed
+  /// (brief-auto.ts): DRAFT → QUALIFIED → APPROVED → CAMPAIGN_CREATED.
+  autoApproved  Boolean    @default(false)
+  /// P4-BE-11 — held for BTG: when the current hold began (null when not
+  /// held), the failed checks (HOLD_KEYS, brief-auto-rules.ts) and the same
+  /// in words. BTG reads them; a sponsor never does. Kept once BTG takes the
+  /// brief on by hand, as the record of why it waited.
+  heldAt        DateTime?
+  heldKeys      String[]   @default([])
+  heldReasons   String[]   @default([])
   createdAt     DateTime   @default(now())
   updatedAt     DateTime   @default(now()) @updatedAt
 
@@ -839,6 +849,7 @@ model CampaignBrief {
   campaign    Campaign?
 
   @@index([tenantId, state])
+  @@index([state, heldAt])
 }
 
 model Campaign {
@@ -852,6 +863,16 @@ model Campaign {
   startDate DateTime
   endDate   DateTime
   state     CampaignState @default(DRAFT)
+
+  /// P4-BE-12 — the system staffs the campaign from its package: on for a
+  /// campaign created from a brief whose package has athlete job lines, off
+  /// otherwise. BTG turns it off and on with a reason (audited).
+  autoStaffing       Boolean   @default(false)
+  /// P4-BE-12 — why automatic staffing stopped and handed the campaign to
+  /// BTG, in words, and when. Both null while it runs (or never stopped);
+  /// cleared when BTG turns it back on.
+  staffingStopReason String?
+  staffingStoppedAt  DateTime?
 
   // Zoho (§18 — Deals are bi-directional)
   zohoDealId        String?     @unique
@@ -876,8 +897,28 @@ model Campaign {
   editionAssets EditionAsset[]
   /// Server-rendered sponsor reports (2S7-BE-02).
   reportFiles   ReportFile[]
+  /// P4-BE-12 — athletes automatic staffing skipped, and why.
+  staffingSkips CampaignStaffingSkip[]
 
   @@index([tenantId, state])
+}
+
+/// P4-BE-12 — an athlete automatic staffing passed over on a campaign,
+/// because an offer to them could not be made (a validation refusal), with
+/// the refusal in words. One per athlete per campaign: a skipped athlete is
+/// never offered automatically on that campaign again.
+model CampaignStaffingSkip {
+  id         String   @id @default(cuid())
+  tenantId   String
+  campaignId String
+  athleteId  String
+  reason     String
+  createdAt  DateTime @default(now())
+
+  campaign Campaign @relation(fields: [campaignId], references: [id])
+
+  @@unique([campaignId, athleteId])
+  @@index([tenantId])
 }
 
 /// §21 — INVITED → VIEWED → ACCEPTED / DECLINED / EXPIRED.
@@ -982,12 +1023,45 @@ model Deliverable {
   publishedUrl String?
   publishedAt  DateTime?
 
+  /// P5-BE-09 — the caption the athlete will post, as last submitted, and the
+  /// creative version it was submitted with. Every submission is also on the
+  /// audit log (deliverable.submitDraft), so this is the latest, not the only.
+  caption        String?
+  captionVersion Int?
+  /// P5-BE-09 — the automatic checks of the latest submission:
+  /// [{ key, ok, text }]. Null until the first submission after the checks
+  /// existed. checksPassed=false while DRAFT_SUBMITTED means the system sent
+  /// it back to the athlete and it is not in BTG's queue.
+  checks         Json?
+  checksPassed   Boolean?
+  checkedAt      DateTime?
+  /// P5-BE-09 — when the current draft reached its current reviewer: BTG (a
+  /// passing submission; kept through BTG_REVIEW) or the sponsor
+  /// (SPONSOR_REVIEW). Null off a review desk. The 48-hour reminder is sent
+  /// once per value: reviewRemindedAt is set when it goes, cleared with it.
+  reviewWaitingSince DateTime?
+  reviewRemindedAt   DateTime?
+
+  /// P5-BE-10 — the latest submission skipped BTG's review and went straight
+  /// to the sponsor (a trusted adult athlete, no sensitive category, no BTG
+  /// revision on this deliverable), with the reason in words. Recomputed on
+  /// every submission; kept through a later revision so BTG can see it was.
+  btgReviewSkipped Boolean @default(false)
+  skipReason       String?
+  /// P5-BE-10 — when a BTG reviewer (a person, never the system) last passed
+  /// this deliverable on from BTG_REVIEW, and last asked for a revision on
+  /// it. The athlete's clean streak is read from these two: deliverables
+  /// passed after their latest BTG revision, never revised by BTG themselves.
+  btgPassedAt      DateTime?
+  btgRevisionAt    DateTime?
+
   order   CampaignOrder   @relation(fields: [orderId], references: [id])
   assets  CreativeAsset[]
   link    TrackingLink?
   metrics MetricDaily[]
 
   @@index([tenantId, state, dueDate])
+  @@index([state, reviewWaitingSince])
 }
 
 model CreativeAsset {
@@ -999,6 +1073,10 @@ model CreativeAsset {
   r2Key         String
   /// §12 — pre-derived sizes, since next/image optimization is not adopted.
   derivatives   Json?
+  /// P5-BE-09 — the MIME type the upload was presigned for (the signed PUT
+  /// enforces it), read from the grant's audit row at registration. Null for
+  /// assets registered before it was recorded, or under a key never granted.
+  contentType   String?
   uploadedBy    String
   uploadedAt    DateTime @default(now())
 
@@ -2166,7 +2244,7 @@ model InventoryItem {
   availableUntil       DateTime?
   /// Brand categories it suits, and the ones it will not be sold to.
   categories           String[]
-  restrictedCategories String[]
+  restrictedCategories String[] @default([])
   /// { minQuantity?, maxQuantity?, bundleOnly? } — strict.
   packageRules         Json      @default("{}")
   active               Boolean   @default(true)

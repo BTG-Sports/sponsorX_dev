@@ -15,6 +15,8 @@ import { toJob, toPkg } from "@/lib/marketplace-live";
    -------------------------------------------------------------------------- */
 
 const vars = vi.hoisted(() => ({ actor: null as unknown, calls: [] as { path: string; init?: RequestInit }[], status: 201 }));
+/* P4-FE-09 — a sent request may already be a campaign; the action refreshes the Campaigns page. */
+vi.mock("next/cache", () => ({ revalidatePath: () => {} }));
 vi.mock("@/server/api", () => ({
   fetchActor: async () => vars.actor,
   apiFetch: async (path: string, init?: RequestInit) => {
@@ -75,7 +77,10 @@ describe("submitBrief files a real brief for the signed-in sponsor only", async 
 
   it("POSTs to /briefs with the caller's own sponsor id", async () => {
     vars.actor = { status: "linked", actor: { userId: "u", tenantId: "t", roles: ["SPONSOR_ADMIN"], sponsorId: "sp_own" } };
-    expect(await submitBrief(base)).toEqual({ ok: true, id: "brief_new" });
+    /* P4-FE-09 — with the sponsor-safe status (from the state when the API sent none). */
+    expect(await submitBrief(base)).toEqual({
+      ok: true, id: "brief_new", status: { key: "REVIEWING", text: "BTG is reviewing your request — usually within a working day" },
+    });
     expect(vars.calls[0]!.path).toBe("/briefs");
     expect(vars.calls[0]!.init!.method).toBe("POST");
     expect(JSON.parse(String(vars.calls[0]!.init!.body)).sponsorId).toBe("sp_own");

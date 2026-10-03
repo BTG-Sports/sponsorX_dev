@@ -42,7 +42,7 @@ import { createHash } from "node:crypto";
 
 import type { Prisma } from "../generated/prisma/client";
 import { prisma } from "../db/client";
-import { audit } from "../db/audit";
+import { audit, type AuditActor } from "../db/audit";
 import type { Actor } from "../auth/actor";
 import { assertAllowed, assertTenantWide, whereFor } from "../auth/scope";
 import { ForbiddenError } from "../auth/errors";
@@ -60,6 +60,8 @@ import { assertNoRestriction, writeExclusivity } from "./restrictions";
 import { checkInventoryItem, UnavailableError, unitsTaken } from "./availability";
 import { guardianControls } from "./guardian-rules";
 import { athleteFloor, floorProblem, offerParty, PARTY_SELECT } from "./offer-desk";
+import { advanceCampaign, lockCampaignForStaffing } from "./campaign-stages";
+import { replaceAfterDecline } from "./auto-staffing";
 
 export type OfferState = "DRAFT" | "SENT" | "ACCEPTED" | "DECLINED" | "WITHDRAWN";
 export type OfferDeliverable = { title: string; dueDate: Date };
@@ -237,7 +239,7 @@ export async function getOffer(actor: Actor, id: string) {
   return { ...view(actor, row), agreement };
 }
 
-type DraftInput = OfferTerms & { campaignId: string; athleteId: string; jobId: string };
+export type DraftInput = OfferTerms &{ campaignId: string; athleteId: string; jobId: string };
 
 /**
  * Every question a draft's terms are asked — by createOffer, and again by
@@ -283,6 +285,9 @@ async function assertDraftTerms(tx: Prisma.TransactionClient, actor: Actor, inpu
     where: { campaignId: campaign.id, state: { not: "CANCELLED" } }, _sum: { compensation: true },
   });
   assertBudgetCarriesLine(input.jobId, athlete.tier ?? null, input.compensation, committed._sum.compensation ?? 0, campaign.budget);
+  /* P4-BE-09 — the campaign lock before the write (see lockCampaignForStaffing),
+     after the terms' own checks so their answer comes first. */
+  await lockCampaignForStaffing(tx, campaign.id);
   return { campaignId: campaign.id, athleteId: athlete.id, jobId: job.id };
 }
 
@@ -310,15 +315,31 @@ function termsOf(row: Row): OfferTerms & { jobId: string } {
 export async function createOffer(actor: Actor, input: DraftInput) {
   assertTenantWide(actor, "offer", "write");
   assertTerms(input);
-  return prisma.$transaction(async (tx) => {
-    const ids = await assertDraftTerms(tx, actor, input);
-    const row = await tx.offer.create({
-      data: { tenantId: actor.tenantId, ...ids, ...termsData(input), createdBy: actor.userId },
-      select: SELECT,
-    });
-    await audit(tx, actor, "offer.create", "Offer", row.id, { after: { campaignId: ids.campaignId, athleteId: ids.athleteId, compensation: row.compensation } });
-    return view(actor, row);
+  return prisma.$transaction((tx) => draftIn(tx, actor, input, actor));
+}
+
+/**
+ * The draft itself, in the caller's transaction — P4-BE-12's automatic
+ * staffing drafts as the system: `actor` is the scope every check is asked
+ * through, `by` whom the row and its audit name (`userId: null` for the
+ * system, as every sweep audits).
+ */
+export async function createOfferIn(tx: Prisma.TransactionClient, actor: Actor, input: DraftInput, by: AuditActor = actor) {
+  return draftIn(tx, actor, input, by);
+}
+
+/** createOffer's body (see createOfferIn). */
+async function draftIn(tx: Prisma.TransactionClient, actor: Actor, input: DraftInput, by: AuditActor) {
+  assertTenantWide(actor, "offer", "write");
+  const ids = await assertDraftTerms(tx, actor, input);
+  const row = await tx.offer.create({
+    data: { tenantId: actor.tenantId, ...ids, ...termsData(input), createdBy: by.userId },
+    select: SELECT,
   });
+  await audit(tx, by, "offer.create", "Offer", row.id, {
+    after: { campaignId: ids.campaignId, athleteId: ids.athleteId, compensation: row.compensation, ...(by.userId === null ? { automatic: true } : {}) },
+  });
+  return view(actor, row);
 }
 
 /**
@@ -369,33 +390,47 @@ async function staffOffer(tx: Prisma.TransactionClient, actor: Actor, id: string
  * The athlete, with a minor's guardian, is emailed the offer.
  */
 export async function sendOffer(actor: Actor, id: string) {
-  return prisma.$transaction(async (tx) => {
-    const row = await staffOffer(tx, actor, id);
-    if (row.state !== "DRAFT") throw new OfferError(`An offer that is ${row.state} cannot be sent.`, 409);
-    if (row.expiresAt <= new Date()) throw new OfferError("This offer has already expired — set a new expiry before sending.", 409);
-    assertTerms(termsOf(row));
-    const item = row.inventoryItemId
-      ? await tx.inventoryItem.findFirst({
-          /* tenant-scope: tenantId pinned; the item the draft was saved against. */
-          where: { tenantId: actor.tenantId, id: row.inventoryItemId, athleteId: row.athleteId }, select: { priceCents: true },
-        })
-      : null;
-    const below = floorProblem(await athleteFloor(tx, actor.tenantId, row.athleteId, row.jobId, item), row.compensation);
-    if (below) throw new OfferError(`${below.message} Raise the pay before sending.`);
-    const termsHash = termsHashOf(canonicalTerms({ ...row, deliverables: row.deliverables as unknown as OfferDeliverable[] }));
-    const updated = await tx.offer.update({
-      /* tenant-scope: the row loaded above through whereFor(offer, write). */
-      where: { id: row.id }, data: { state: "SENT", sentAt: new Date(), termsHash }, select: SELECT,
-    });
-    await audit(tx, actor, "offer.send", "Offer", id, { before: { state: "DRAFT" }, after: { state: "SENT", termsHash } });
-    const terms = termsOf(row);
-    await tellAthlete(tx, actor.tenantId, row, "offer.sent", `offer.sent:${row.id}`, {
-      pay: usd(row.compensation),
-      deliverables: terms.deliverables.map((d) => `- ${d.title}, due ${dateOf(d.dueDate)}`).join("\n"),
-      expiresOn: dateOf(row.expiresAt),
-    });
-    return view(actor, updated);
+  return prisma.$transaction((tx) => sendIn(tx, actor, id, actor));
+}
+
+/** Send, in the caller's transaction — P4-BE-12's automatic staffing (`by`
+ *  as in createOfferIn). Every check sendOffer asks still runs. */
+export async function sendOfferIn(tx: Prisma.TransactionClient, actor: Actor, id: string, by: AuditActor = actor) {
+  return sendIn(tx, actor, id, by);
+}
+
+/** sendOffer's body (see sendOfferIn). */
+async function sendIn(tx: Prisma.TransactionClient, actor: Actor, id: string, by: AuditActor) {
+  const row = await staffOffer(tx, actor, id);
+  /* P4-BE-09 — a sent offer holds the campaign in STAFFING, so sending
+     takes the campaign lock first, like creating one. */
+  await lockCampaignForStaffing(tx, row.campaignId);
+  if (row.state !== "DRAFT") throw new OfferError(`An offer that is ${row.state} cannot be sent.`, 409);
+  if (row.expiresAt <= new Date()) throw new OfferError("This offer has already expired — set a new expiry before sending.", 409);
+  assertTerms(termsOf(row));
+  const item = row.inventoryItemId
+    ? await tx.inventoryItem.findFirst({
+        /* tenant-scope: tenantId pinned; the item the draft was saved against. */
+        where: { tenantId: actor.tenantId, id: row.inventoryItemId, athleteId: row.athleteId }, select: { priceCents: true },
+      })
+    : null;
+  const below = floorProblem(await athleteFloor(tx, actor.tenantId, row.athleteId, row.jobId, item), row.compensation);
+  if (below) throw new OfferError(`${below.message} Raise the pay before sending.`);
+  const termsHash = termsHashOf(canonicalTerms({ ...row, deliverables: row.deliverables as unknown as OfferDeliverable[] }));
+  const updated = await tx.offer.update({
+    /* tenant-scope: the row loaded above through whereFor(offer, write). */
+    where: { id: row.id }, data: { state: "SENT", sentAt: new Date(), termsHash }, select: SELECT,
   });
+  await audit(tx, by, "offer.send", "Offer", id, {
+    before: { state: "DRAFT" }, after: { state: "SENT", termsHash, ...(by.userId === null ? { automatic: true } : {}) },
+  });
+  const terms = termsOf(row);
+  await tellAthlete(tx, actor.tenantId, row, "offer.sent", `offer.sent:${row.id}`, {
+    pay: usd(row.compensation),
+    deliverables: terms.deliverables.map((d) => `- ${d.title}, due ${dateOf(d.dueDate)}`).join("\n"),
+    expiresOn: dateOf(row.expiresAt),
+  });
+  return view(actor, updated);
 }
 
 /** Withdraw, inside the caller's transaction — withdrawOffer's, or a revise's. */
@@ -574,6 +609,12 @@ export async function respondToOffer(
         where: { id: row.id }, data: { state: "DECLINED", respondedAt: now }, select: SELECT,
       });
       await audit(tx, actor, "offer.decline", "Offer", id, { before: { state: "SENT" }, after: { state: "DECLINED" } });
+      /* P4-BE-12 — a campaign staffing itself offers the next-ranked
+         athlete in this same transaction, as the system, behind a savepoint
+         (a failure leaves the decline standing; the sweep retries). */
+      await replaceAfterDecline(tx, actor.tenantId, row.campaignId, now);
+      /* P4-BE-09 — the last answer the campaign was waiting for. */
+      await advanceCampaign(tx, actor.tenantId, row.campaignId, now);
       return view(actor, updated);
     }
 
@@ -651,6 +692,8 @@ export async function respondToOffer(
     await audit(tx, actor, "offer.accept", "Offer", id, {
       before: { state: "SENT" }, after: { state: "ACCEPTED", orderId: order.id, termsHash: row.termsHash, deliverables: lines.length },
     });
+    /* P4-BE-09 — the signed order may complete the campaign's staffing. */
+    await advanceCampaign(tx, actor.tenantId, row.campaignId, now);
     return view(actor, updated);
   });
 }

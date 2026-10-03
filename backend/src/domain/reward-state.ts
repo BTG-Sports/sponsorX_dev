@@ -138,3 +138,47 @@ export function cleanCopy(s: string | null | undefined): string | null {
   if (!hasVisibleText(s)) return null;
   return s!.replace(INVISIBLE_EDGES, "");
 }
+
+/* ------------------------------------------------- P6-BE-09 rewards follow */
+
+/**
+ * Why a reward cannot go live yet, or null when it can — the checks the
+ * ACTIVE transition makes (a legal move, an expiry still ahead), plus the
+ * copy createReward requires, re-asked because a draft is a stored row, not
+ * a promise. Launching a campaign puts every draft that passes live
+ * (P6-BE-09) and leaves the rest, saying why.
+ */
+export function notReadyToGoLive(
+  r: { state: RewardState; expiresAt: Date; offerText: string | null; terms: string | null },
+  now: Date,
+): string | null {
+  if (!canTransitionReward(r.state, "ACTIVE")) return `It is ${r.state.toLowerCase()}, not a draft.`;
+  if (r.expiresAt.getTime() <= now.getTime()) return "Its expiry has passed.";
+  if (!hasVisibleText(r.offerText)) return "The offer is blank.";
+  if (!hasVisibleText(r.terms)) return "The terms are blank.";
+  return null;
+}
+
+/**
+ * How a reward follows its campaign, in BTG's words (P6-BE-09): a draft goes
+ * live when the campaign launches, a live reward pauses if the campaign is
+ * cancelled, and a completed campaign leaves it alone — a fan keeps a valid
+ * offer until the reward's own expiry. Null where there is nothing to say.
+ */
+export function followsCampaign(rewardState: RewardState, campaignState: string, expired: boolean): string | null {
+  const preLaunch = campaignState === "DRAFT" || campaignState === "STAFFING" || campaignState === "APPROVAL";
+  switch (rewardState) {
+    case "DRAFT":
+      if (campaignState === "CANCELLED") return "The campaign was cancelled, so this won't go live";
+      if (expired) return "Its expiry has passed, so it won't go live";
+      if (preLaunch) return "Goes live when the campaign launches";
+      return "The campaign is already live — put this live yourself";
+    case "ACTIVE":
+      if (campaignState === "REPORTING" || campaignState === "COMPLETED") return "Stays open to fans until its own expiry";
+      return "Pauses if the campaign is cancelled";
+    case "PAUSED":
+      return campaignState === "CANCELLED" ? "Paused because the campaign was cancelled" : null;
+    default:
+      return null;
+  }
+}

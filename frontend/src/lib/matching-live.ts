@@ -1,4 +1,4 @@
-import type { MatchAthlete, MatchData, MatchTier } from "@/lib/matching";
+import type { MatchAthlete, MatchData, MatchReason, MatchTier } from "@/lib/matching";
 import { apiListQuery, pageParamsFor, textParam, type PageInfo, type SearchParams } from "@/lib/list-query";
 
 /* --------------------------------------------------------------------------
@@ -77,7 +77,16 @@ export type ApiEligibleAthlete = {
   score?: { value: number; factors: unknown; method: string; scoredAt: string } | null;
   reach?: { followers: number | null; verified: boolean };
   rates?: { jobId: string; amount: number }[];
+  /** P4-BE-08 — the brief's rank (0–100) and every reason, strongest first. */
+  matchScore?: number;
+  reasons?: MatchReason[];
 };
+
+/** P4-FE-08 — the new-offer form, opened pre-filled from
+ *  GET /campaigns/{id}/offer-draft for this athlete and job. */
+export function offerDraftHref(campaignId: string, athleteId: string, jobId: string): string {
+  return `/admin/offers/new?${new URLSearchParams({ campaign: campaignId, athlete: athleteId, job: jobId })}`;
+}
 
 /** The Studio's comparison rows, in COMPARE_FACTORS order, keyed as the
  *  §14 breakdown stores them (applications-live's FACTOR_LABELS). */
@@ -145,6 +154,7 @@ export function toMatchAthlete(
   jobs: ApiBriefJob[],
   pkgId: string,
   inviteState: string | null,
+  offerHref: string | null = null,
 ): MatchAthlete {
   const rates = a.rates ?? [];
   let noRate: string | null = null;
@@ -181,6 +191,8 @@ export function toMatchAthlete(
     noRate,
     lines: noRate ? [] : lines,
     invite: inviteState,
+    match: typeof a.matchScore === "number" ? { score: a.matchScore, reasons: a.reasons ?? [] } : null,
+    offerHref,
   };
 }
 
@@ -191,12 +203,19 @@ function inviteStates(b: ApiBrief): Map<string, string> {
   return out;
 }
 
-export function toMatchData(b: ApiBrief, eligible: ApiEligibleAthlete[]): MatchData {
+/** `offers`: the viewer may make offers (BTG admin, campaign manager) — the
+ *  rows then link to the pre-filled offer form once the brief has a
+ *  campaign, for the package's first job (the form can change it). */
+export function toMatchData(b: ApiBrief, eligible: ApiEligibleAthlete[], opts: { offers?: boolean } = {}): MatchData {
   const jobs = b.jobs ?? [];
   const pkgId = b.package?.code ?? "NO_PACKAGE";
   const needed = b.package?.athleteCountMax ?? 0;
   const invites = inviteStates(b);
-  const roster = eligible.map((a) => toMatchAthlete(a, jobs, pkgId, invites.get(a.id) ?? null));
+  const campaignId = opts.offers ? b.campaign?.id ?? null : null;
+  const offerJob = campaignId ? jobs[0]?.jobId ?? null : null;
+  const roster = eligible.map((a) =>
+    toMatchAthlete(a, jobs, pkgId, invites.get(a.id) ?? null, campaignId && offerJob ? offerDraftHref(campaignId, a.id, offerJob) : null),
+  );
 
   const scored = eligible.filter((a) => a.score).map((a) => a.score!);
   const latest = scored.length
@@ -275,7 +294,8 @@ export function briefsApiQuery(sp: SearchParams): string {
 
 /** GET /briefs/{id}/eligible-athletes, one page under the Studio's filters.
  *  A minimum at the slider's floor is no minimum; the tier is the Studio's
- *  label, sent as the API's enum. */
+ *  label, sent as the API's enum. No ?asort is the API's default, best match
+ *  first (P4-FE-08); "score" and "name" are asked for by name. */
 export function eligibleApiQuery(sp: SearchParams, floor: number): string {
   const { page, size } = pageParamsFor(sp, ATHLETE_KEYS);
   const tier = textParam(sp, "tier", Object.keys(TIER_API));
@@ -286,8 +306,14 @@ export function eligibleApiQuery(sp: SearchParams, floor: number): string {
   set("sport", textParam(sp, "sport"));
   set("tier", tier ? TIER_API[tier as MatchTier] : "");
   set("min", Number.isInteger(min) && min > floor ? String(min) : "");
-  set("sort", textParam(sp, "asort", ["name"]));
+  set("sort", textParam(sp, "asort", ["name", "score"]));
   return `?${u}`;
+}
+
+/** The desk's sort from the URL: best match unless ?asort says otherwise. */
+export function asortOf(sp: SearchParams): "match" | "score" | "name" {
+  const v = textParam(sp, "asort", ["name", "score"]);
+  return v === "name" || v === "score" ? v : "match";
 }
 
 /** The API's tier facets → the Studio's tier counts ("all" + per label,

@@ -89,6 +89,11 @@ import { applyQueuePolicy } from "./queue-policy.mts";
 import { expireCarts } from "../src/domain/cart.ts";
 import { expireReservations } from "../src/domain/reservation.ts";
 import { sweepDeliveries } from "../src/domain/delivery.ts";
+import { sweepReviewReminders } from "../src/domain/review-reminders.ts";
+import { sweepCampaignStages } from "../src/domain/campaign-stages.ts";
+import { recheckHeldBriefs } from "../src/domain/brief-auto.ts";
+import { sweepAutoStaffing } from "../src/domain/auto-staffing.ts";
+import { sweepCampaignLaunches } from "../src/domain/campaign-launch.ts";
 import { purgeExpiredClosures } from "../src/domain/account-closure.ts";
 import { sweepComingOfAge } from "../src/domain/coming-of-age.ts";
 import { LISTING_DIGEST_HOUR_UTC, sendListingDigests } from "../src/domain/listing.ts";
@@ -284,6 +289,10 @@ let holdTimer: ReturnType<typeof setInterval> | undefined;
    24 hours end within minutes of the deadline; each pass is idempotent. */
 let deliveryTimer: ReturnType<typeof setInterval> | undefined;
 const DELIVERY_SWEEP_INTERVAL_MS = 10 * 60 * 1000;
+/* P5-BE-09 — the 48-hour review reminders, every ten minutes. Each is
+   claimed on its row before it is sent, so overlapping passes send once. */
+let reviewReminderTimer: ReturnType<typeof setInterval> | undefined;
+const REVIEW_REMINDER_SWEEP_INTERVAL_MS = 10 * 60 * 1000;
 let zohoTimer: ReturnType<typeof setInterval> | undefined;
 /* 2S1-BE-13 — the retention sweep: closed accounts' files go after 30 days. */
 let retentionTimer: ReturnType<typeof setInterval> | undefined;
@@ -300,6 +309,23 @@ let payoutRetryTimer: ReturnType<typeof setInterval> | undefined;
 const PAYOUT_RETRY_SWEEP_INTERVAL_MS = 10 * 60 * 1000;
 let orderDigestTimer: ReturnType<typeof setInterval> | undefined;
 const ORDER_SWEEP_INTERVAL_MS = 10 * 60 * 1000;
+/* P4-BE-09 — campaign stages that move by themselves. Each move is made by
+   the event that makes it true; this sweep is the safety net for one that
+   was missed (an invitation expiring, a crash). Idempotent. */
+let campaignStageTimer: ReturnType<typeof setInterval> | undefined;
+const CAMPAIGN_STAGE_SWEEP_INTERVAL_MS = 10 * 60 * 1000;
+/* P4-BE-11 — the daily re-check of briefs held only for too few athletes:
+   athletes join later, and a brief that now has enough is approved. Each
+   brief is decided under its row lock, so overlapping passes approve once. */
+let briefRecheckTimer: ReturnType<typeof setInterval> | undefined;
+const BRIEF_RECHECK_INTERVAL_MS = 24 * 60 * 60 * 1000;
+
+/* P4-BE-12 / P4-BE-13 — campaigns staffing themselves (offers to send,
+   expired offers to replace) and campaigns launching on their start date.
+   Every ten minutes; each pass is idempotent and locks each campaign. */
+let autoStaffingTimer: ReturnType<typeof setInterval> | undefined;
+let campaignLaunchTimer: ReturnType<typeof setInterval> | undefined;
+const AUTO_CAMPAIGN_SWEEP_INTERVAL_MS = 10 * 60 * 1000;
 /* P8-INT-05 checks hourly and runs at most once a day per tenant; P8-INT-03's
    channel is renewed every 12 hours against a 24-hour expiry. */
 const ZOHO_SWEEP_INTERVAL_MS = 60 * 60 * 1000;
@@ -681,6 +707,14 @@ async function main(): Promise<void> {
   deliveryTimer = setInterval(deliverySweep, DELIVERY_SWEEP_INTERVAL_MS);
   setTimeout(deliverySweep, 30_000).unref();
 
+  /* P5-BE-09 — a draft waiting over 48 hours reminds its reviewer, once. */
+  const reviewReminderSweep = () =>
+    void sweepReviewReminders()
+      .then((r) => { if (r.btg || r.sponsor || r.failed) console.log(`[worker] review reminders ${JSON.stringify(r)}`); })
+      .catch((error: unknown) => console.error("[worker] review reminder sweep failed, will retry:", error));
+  reviewReminderTimer = setInterval(reviewReminderSweep, REVIEW_REMINDER_SWEEP_INTERVAL_MS);
+  setTimeout(reviewReminderSweep, 35_000).unref();
+
   /* 2S1-BE-12 — coming of age. A sweep, like the invitation expiry: a
      per-athlete timer that is lost leaves a 90-day allowance never opened
      or never closed, where a missed sweep catches everything next hour.
@@ -725,6 +759,40 @@ async function main(): Promise<void> {
       .catch((error: unknown) => console.error("[worker] payout retry sweep failed, will retry:", error));
   payoutRetryTimer = setInterval(payoutRetrySweep, PAYOUT_RETRY_SWEEP_INTERVAL_MS);
   setTimeout(payoutRetrySweep, 50_000).unref();
+
+  /* P4-BE-09 — the campaign stage sweep: STAFFING → APPROVAL, ACTIVE →
+     REPORTING, REPORTING → COMPLETED, whichever a missed event left due. */
+  const campaignStageSweep = () =>
+    void sweepCampaignStages()
+      .then((r) => { if (r.moved || r.failed) console.log(`[worker] campaign stages ${JSON.stringify(r)}`); })
+      .catch((error: unknown) => console.error("[worker] campaign stage sweep failed, will retry:", error));
+  campaignStageTimer = setInterval(campaignStageSweep, CAMPAIGN_STAGE_SWEEP_INTERVAL_MS);
+  setTimeout(campaignStageSweep, 55_000).unref();
+
+  /* P4-BE-11 — briefs held only for too few athletes, re-checked daily. */
+  const briefRecheck = () =>
+    void recheckHeldBriefs()
+      .then((r) => { if (r.approved || r.failed) console.log(`[worker] held briefs ${JSON.stringify(r)}`); })
+      .catch((error: unknown) => console.error("[worker] held-brief re-check failed, will retry tomorrow:", error));
+  briefRecheckTimer = setInterval(briefRecheck, BRIEF_RECHECK_INTERVAL_MS);
+  setTimeout(briefRecheck, 60_000).unref();
+  /* P4-BE-12 — automatic staffing's safety net: a missed decline's
+     replacement, an expired offer's, and a campaign created while staffing
+     could not start. */
+  const autoStaffingSweep = () =>
+    void sweepAutoStaffing()
+      .then((r) => { if (r.sent || r.skipped || r.stopped || r.failed) console.log(`[worker] auto staffing ${JSON.stringify(r)}`); })
+      .catch((error: unknown) => console.error("[worker] auto staffing sweep failed, will retry:", error));
+  autoStaffingTimer = setInterval(autoStaffingSweep, AUTO_CAMPAIGN_SWEEP_INTERVAL_MS);
+  setTimeout(autoStaffingSweep, 60_000).unref();
+
+  /* P4-BE-13 — APPROVAL campaigns whose start day has come launch, as the system. */
+  const campaignLaunchSweep = () =>
+    void sweepCampaignLaunches()
+      .then((r) => { if (r.launched || r.failed) console.log(`[worker] campaign launches ${JSON.stringify(r)}`); })
+      .catch((error: unknown) => console.error("[worker] campaign launch sweep failed, will retry:", error));
+  campaignLaunchTimer = setInterval(campaignLaunchSweep, AUTO_CAMPAIGN_SWEEP_INTERVAL_MS);
+  setTimeout(campaignLaunchSweep, 65_000).unref();
 
   /* 2S4-BE-09 — BTG's daily summary of the orders approved automatically.
      Hourly, from ORDER_DIGEST_HOUR_UTC: the first pass of the day sends it
@@ -785,12 +853,17 @@ export async function stopWorker(): Promise<void> {
   if (retentionTimer) clearInterval(retentionTimer);
   if (holdTimer) clearInterval(holdTimer);
   if (deliveryTimer) clearInterval(deliveryTimer);
+  if (reviewReminderTimer) clearInterval(reviewReminderTimer);
   if (zohoTimer) clearInterval(zohoTimer);
   if (comingOfAgeTimer) clearInterval(comingOfAgeTimer);
   if (listingDigestTimer) clearInterval(listingDigestTimer);
   if (orderTimer) clearInterval(orderTimer);
   if (payoutRetryTimer) clearInterval(payoutRetryTimer);
   if (orderDigestTimer) clearInterval(orderDigestTimer);
+  if (campaignStageTimer) clearInterval(campaignStageTimer);
+  if (briefRecheckTimer) clearInterval(briefRecheckTimer);
+  if (autoStaffingTimer) clearInterval(autoStaffingTimer);
+  if (campaignLaunchTimer) clearInterval(campaignLaunchTimer);
   timer = undefined;
   expiryTimer = undefined;
   await boss.stop({ graceful: true }).catch(() => {});

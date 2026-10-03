@@ -9,6 +9,7 @@
    -------------------------------------------------------------------------- */
 
 import type { PageInfo } from "@/lib/list-query";
+import type { ContentCheck } from "@/lib/content-checks";
 
 export type DeliverableState =
   | "NOT_STARTED"
@@ -34,7 +35,22 @@ export type ApiDeliverable = {
   campaign: { id: string; name: string; sponsorName: string };
   latestAsset: { version: number; uploadedAt: string } | null;
   assetCount: number;
-  revision: { reason: string; at: string } | null;
+  /** Back with the athlete. `by` SYSTEM: the automatic checks sent it back,
+   *  and `failed` lists each failure in words (P5-BE-09). */
+  revision: { reason: string; at: string; by?: "SYSTEM" | "REVIEWER"; failed?: string[] } | null;
+  /* P5-BE-09 — the latest submission: the caption the athlete will post (and
+     the version it went with), the disclosures it must carry, the automatic
+     checks (null for a draft submitted before they existed), and — on a
+     review desk — when it reached the reviewer it is waiting on. */
+  caption?: string | null;
+  captionVersion?: number | null;
+  requiredDisclosures?: string[];
+  checks?: ContentCheck[] | null;
+  waitingSince?: string | null;
+  /* P5-BE-10 — the latest submission skipped BTG's review and went straight
+     to the sponsor; why, in words, is sent to BTG only. */
+  btgReviewSkipped?: boolean;
+  skipReason?: string | null;
 };
 
 export type ApiDeliverableDetail = ApiDeliverable & {
@@ -50,6 +66,8 @@ export type NextStep = {
 };
 
 export function nextStep(d: Pick<ApiDeliverable, "state" | "revision" | "appearance">): NextStep {
+  /* P5-BE-09 — the automatic checks sent it back before BTG saw it. */
+  if (d.revision?.by === "SYSTEM") return { label: "Fix before review", tone: "danger", on: "you" };
   if (d.revision) return { label: "Revision requested", tone: "danger", on: "you" };
   switch (d.state) {
     case "NOT_STARTED":

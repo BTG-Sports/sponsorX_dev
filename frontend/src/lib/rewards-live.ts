@@ -36,10 +36,13 @@ export type ApiReward = {
   held?: number;
   reserveMinutes?: number;
   landing?: { headline: string | null; subhead: string | null };
-  campaign: { id: string; name: string; sponsorName: string; endDate: string };
+  campaign: { id: string; name: string; sponsorName: string; endDate: string; state?: string };
   athletes: number;
   tokenCount: number;
   funnel?: Funnel;
+  /* P6-BE-09 — how it follows its campaign, in words, e.g. "Goes live when
+     the campaign launches". Optional so a desk against an older API renders. */
+  followsCampaign?: string | null;
 };
 
 export type ApiRewardDetail = ApiReward & {

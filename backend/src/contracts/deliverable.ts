@@ -1,6 +1,7 @@
 import { z } from "./zod";
 
 import { DELIVERABLE_STATES } from "../domain/deliverable-state";
+import { CAPTION_MAX } from "../domain/content-check-rules";
 
 /* --------------------------------------------------------------------------
    Deliverables on the wire — P5-BE-05, P5-BE-06, P5-BE-08, §13 steps 7–9.
@@ -39,6 +40,20 @@ export const CreativeUploadInput = z
     id: "CreativeUploadInput",
     description:
       "Requests a presigned PUT against the private R2 bucket. The key is chosen by the server — a client-chosen key is a client-chosen path (§11, Addendum A8).",
+  });
+
+/** P5-BE-09 — the draft, with the caption the athlete will post. The
+ *  automatic checks run on submission; a failing draft is sent back with the
+ *  failures in words and never reaches BTG's queue. */
+export const SubmitDraftInput = z
+  .object({
+    caption: z.string().max(CAPTION_MAX).nullable().optional(),
+  })
+  .strict()
+  .meta({
+    id: "SubmitDraftInput",
+    description:
+      "Submit — or, while it is back with the athlete, resubmit — a draft. The caption must carry every disclosure the accepted offer requires (e.g. #ad), ignoring case.",
   });
 
 export const CreativeAssetInput = z

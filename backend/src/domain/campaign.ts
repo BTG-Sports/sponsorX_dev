@@ -7,10 +7,10 @@
 
 import type { Prisma } from "../generated/prisma/client";
 import { prisma } from "../db/client";
-import { audit } from "../db/audit";
+import { audit, type AuditActor } from "../db/audit";
 import { enqueue } from "../db/outbox";
 import type { Actor } from "../auth/actor";
-import { assertAllowed, whereFor } from "../auth/scope";
+import { assertAllowed, assertTenantWide, whereFor } from "../auth/scope";
 import { ForbiddenError } from "../auth/errors";
 import {
   canTransitionCampaign,
@@ -18,8 +18,19 @@ import {
   type CampaignState,
 } from "./campaign-state";
 import { transitionBrief } from "./brief";
-import { raiseSyncTask } from "./sync-tasks";
+import {
+  activateRewardsOnLaunch,
+  applyStageMove,
+  CAMPAIGN_AUDIT_ACTIONS,
+  CAMPAIGN_FOR_MOVE,
+  CampaignStateConflictError,
+  lockCampaign,
+  type RewardsOnLaunch,
+} from "./campaign-stages";
 import type { BriefState } from "./brief-state";
+import { lockBrief } from "./brief-moves";
+import { createCampaignIn } from "./campaign-create";
+import { startAutoStaffing } from "./auto-staffing";
 
 export class LaunchNeedsFullTransitionError extends Error {
   readonly status = 409;
@@ -61,47 +72,39 @@ export async function createCampaignFromBrief(
 ): Promise<{ id: string; state: CampaignState }> {
   assertAllowed(actor, "campaign", "write");
 
-  return prisma.$transaction(async (tx) => {
-    const brief = await tx.campaignBrief.findFirst({
+  const created = await prisma.$transaction(async (tx) => {
+    const found = await tx.campaignBrief.findFirst({
       where: { ...whereFor(actor, "campaignBrief", "read"), id: briefId },
+      select: { id: true, tenantId: true },
+    });
+    if (!found) throw new ForbiddenError("campaign", "write");
+
+    /* P4-BE-11 — the brief's row lock first, as every brief move takes it:
+       the automatic approval creating this same campaign waits, or is
+       waited for, and the loser sees the brief already CAMPAIGN_CREATED. */
+    await lockBrief(tx, found.id, found.tenantId);
+    const brief = await tx.campaignBrief.findFirstOrThrow({
+      /* tenant-scope: the brief found through whereFor(campaignBrief, read) and locked. */
+      where: { id: found.id, tenantId: found.tenantId },
       select: {
-        id: true, state: true, sponsorId: true, budget: true,
+        id: true, tenantId: true, state: true, sponsorId: true, budget: true,
         startDate: true, endDate: true, campaign: { select: { id: true } },
+        package: { select: { athleteCountMax: true, lineItems: true } },
       },
     });
-    if (!brief) throw new ForbiddenError("campaign", "write");
     if (brief.campaign) throw new BriefNotApprovedError(brief.state as BriefState);
     if (brief.state !== "APPROVED") throw new BriefNotApprovedError(brief.state as BriefState);
 
-    const campaign = await tx.campaign.create({
-      data: {
-        tenantId: actor.tenantId,
-        sponsorId: brief.sponsorId,
-        briefId: brief.id,
-        name,
-        budget: brief.budget,
-        startDate: brief.startDate,
-        endDate: brief.endDate,
-      },
-      select: { id: true, state: true },
-    });
-
-    await tx.campaignBrief.update({
-      where: { id: briefId },
-      data: { state: "CAMPAIGN_CREATED" },
-      select: { id: true },
-    });
-
-    await audit(tx, actor, "campaign.create", "Campaign", campaign.id, {
-      after: { state: "DRAFT", briefId, sponsorId: brief.sponsorId },
-    });
-
-    /* The brief's Deal is now won (§7.4: CAMPAIGN_CREATED → Closed Won), and
-       the campaign takes over as the row that owns it. */
-    await enqueue(tx, actor.tenantId, "zoho.pushDeal", { campaignId: campaign.id });
-
-    return { id: campaign.id, state: campaign.state as CampaignState };
+    return { ...(await createCampaignIn(tx, actor, brief, name)), tenantId: brief.tenantId };
   });
+
+  /* P4-BE-12 — staffing starts now, as the system, after the campaign is
+     committed. A failure never undoes the campaign; the sweep retries. */
+  if (created.autoStaffing) {
+    const state = await startAutoStaffing(created.tenantId, created.id);
+    if (state) return { id: created.id, state };
+  }
+  return { id: created.id, state: created.state };
 }
 
 /**
@@ -130,57 +133,27 @@ export async function transitionCampaign(
     const campaign = await tx.campaign.findFirst({
       where: { ...whereFor(actor, "campaign", "write"), id: campaignId },
       select: {
-        id: true, state: true, name: true, sponsor: { select: { name: true } },
+        ...CAMPAIGN_FOR_MOVE,
         /* P9-BE-09 — an ad-only campaign may skip STAFFING. */
         _count: { select: { orders: true, adSlots: true } },
       },
     });
     if (!campaign) throw new ForbiddenError("campaign", "write");
 
-    const from = campaign.state as CampaignState;
+    /* P4-BE-09 — decided on the state read under the row lock, so an
+       automatic move racing this one has either finished (and this sees its
+       result) or waits for this one. */
+    const from = await lockCampaign(tx, campaignId);
+    if (!from) throw new ForbiddenError("campaign", "write");
     if (!canTransitionCampaign(from, to, campaign._count)) {
       throw new IllegalCampaignTransitionError(from, to);
     }
 
-    const updated = await tx.campaign.update({
-      where: { id: campaignId },
-      data: { state: to as Prisma.CampaignUpdateInput["state"] },
-      select: { id: true, state: true },
-    });
+    /* The claim, the audit, and §18's side effects (P8-INT-01 / -06), shared
+       with the automatic moves — see campaign-stages.ts. */
+    await applyStageMove(tx, actor, campaign, from, to, { shape: campaign._count });
 
-    await audit(tx, actor, CAMPAIGN_AUDIT_ACTIONS[to], "Campaign", campaignId, {
-      before: { state: from },
-      after: { state: to },
-    });
-
-    /* §18, P8-INT-01 / P8-INT-06. Each is queued in this transaction. */
-    if (to === "APPROVAL") {
-      await raiseSyncTask(tx, actor, {
-        kind: "APPROVAL",
-        campaignId,
-        subject: `Approve campaign: ${campaign.name}`,
-      });
-    }
-    if (to === "CANCELLED") {
-      /* A cancelled campaign's Deal is Closed Lost — SponsorX asserts it. */
-      await enqueue(tx, actor.tenantId, "zoho.pushDeal", { campaignId });
-    }
-    if (to === "COMPLETED") {
-      /* §18 row 9: campaign closure opens the renewal Deal, and the renewal
-         conversation lands in the CRM as a task on it. */
-      await enqueue(tx, actor.tenantId, "zoho.pushRenewal", { campaignId });
-      /* 2S7-BE-02 — the report the renewal signer is sent is rendered on the
-         worker, since that person may never log in to open screen 12. */
-      await enqueue(tx, actor.tenantId, "report.render", { campaignId, trigger: "COMPLETED", requestedBy: actor.userId });
-      await raiseSyncTask(tx, actor, {
-        kind: "RENEWAL",
-        campaignId,
-        subject: `Renewal conversation: ${campaign.sponsor.name}`,
-        body: `${campaign.name} completed. Open the renewal.`,
-      });
-    }
-
-    return { id: updated.id, state: updated.state as CampaignState };
+    return { id: campaign.id, state: to };
   });
 }
 
@@ -208,59 +181,82 @@ export async function transitionCampaign(
 export async function launchCampaign(
   actor: Actor,
   campaignId: string,
-): Promise<{ id: string; state: CampaignState; ordersActivated: number }> {
+  now = new Date(),
+): Promise<{ id: string; state: CampaignState; ordersActivated: number; rewards: RewardsOnLaunch }> {
   /* Launching is an approval, not an edit — §15 gives CAMPAIGN_MGR and above
-     `campaign.approve`, and that is the gate the old path used too. */
-  assertAllowed(actor, "campaign", "approve");
+     `campaign.approve`, and that is the gate the old path used too.
+     TENANT-WIDE (2026-10-03): only BTG or the system launches. The matrix
+     also gives SPONSOR_ADMIN `campaign.approve` with an `own` scope, which
+     let a sponsor admin take their own campaign live through this route; the
+     policy row is left as it is and the domain refuses any scope narrower
+     than the tenant (BTG_ADMIN, CAMPAIGN_MGR own-tenant; SUPER_ADMIN any). */
+  assertTenantWide(actor, "campaign", "approve");
 
   return prisma.$transaction(async (tx) => {
     const campaign = await tx.campaign.findFirst({
       where: { ...whereFor(actor, "campaign", "approve"), id: campaignId },
-      select: { id: true, state: true },
+      select: { id: true, state: true, tenantId: true },
     });
     if (!campaign) throw new ForbiddenError("campaign", "approve");
 
-    const from = campaign.state as CampaignState;
-    if (!canTransitionCampaign(from, "ACTIVE")) {
-      throw new IllegalCampaignTransitionError(from, "ACTIVE");
-    }
-
-    const updated = await tx.campaign.update({
-      where: { id: campaignId },
-      data: { state: "ACTIVE" as Prisma.CampaignUpdateInput["state"] },
-      select: { id: true, state: true },
-    });
-
-    const activated = await tx.campaignOrder.updateMany({
-      where: { campaignId, state: "ACCEPTED" },
-      data: { state: "ACTIVE" },
-    });
-
-    await audit(tx, actor, CAMPAIGN_AUDIT_ACTIONS.ACTIVE, "Campaign", campaignId, {
-      before: { state: from },
-      after: { state: "ACTIVE", ordersActivated: activated.count },
-    });
-
-    await enqueue(tx, actor.tenantId, "zoho.pushDeal", { campaignId });
-    await enqueue(tx, actor.tenantId, "notify.campaignLive", { campaignId });
-
-    return {
-      id: updated.id,
-      state: updated.state as CampaignState,
-      ordersActivated: activated.count,
-    };
+    /* P4-BE-09 — the row lock every stage change takes, then the state under it. */
+    const from = await lockCampaign(tx, campaignId);
+    if (!from) throw new ForbiddenError("campaign", "approve");
+    return launchIn(tx, actor, { id: campaignId, tenantId: campaign.tenantId }, from, now);
   });
 }
 
-const CAMPAIGN_AUDIT_ACTIONS: Record<CampaignState, `${string}.${string}`> = {
-  DRAFT: "campaign.draft",
-  STAFFING: "campaign.staff",
-  APPROVAL: "campaign.submitForApproval",
-  ACTIVE: "campaign.launch",
-  REPORTING: "campaign.report",
-  COMPLETED: "campaign.complete",
-  CANCELLED: "campaign.cancel",
-};
+/**
+ * The launch itself, in the caller's transaction, which holds the campaign's
+ * row lock and read `from` under it — launchCampaign's body, and P4-BE-13's
+ * automatic launch on the start date, which runs it as the system
+ * (`by.userId` null, `automatic` with the reason on the audit row). Every
+ * check and every side effect is the same either way.
+ */
+export async function launchIn(
+  tx: Prisma.TransactionClient,
+  by: AuditActor,
+  campaign: { id: string; tenantId: string },
+  from: CampaignState,
+  now: Date,
+  automatic?: { reason: string },
+): Promise<{ id: string; state: CampaignState; ordersActivated: number; rewards: RewardsOnLaunch }> {
+  const campaignId = campaign.id;
+  if (!canTransitionCampaign(from, "ACTIVE")) {
+    throw new IllegalCampaignTransitionError(from, "ACTIVE");
+  }
+
+  const claimed = await tx.campaign.updateMany({
+    /* tenant-scope: the campaign the caller loaded in its own scope and locked; claimed on the state read under the lock. */
+    where: { id: campaignId, tenantId: campaign.tenantId, state: from },
+    data: { state: "ACTIVE" as Prisma.CampaignUpdateManyMutationInput["state"] },
+  });
+  if (claimed.count !== 1) throw new CampaignStateConflictError(from, "ACTIVE");
+
+  const activated = await tx.campaignOrder.updateMany({
+    where: { campaignId, state: "ACCEPTED" },
+    data: { state: "ACTIVE" },
+  });
+
+  await audit(tx, by, CAMPAIGN_AUDIT_ACTIONS.ACTIVE, "Campaign", campaignId, {
+    before: { state: from },
+    after: { state: "ACTIVE", ordersActivated: activated.count, ...(automatic ? { automatic: true, reason: automatic.reason } : {}) },
+  });
+
+  await enqueue(tx, campaign.tenantId, "zoho.pushDeal", { campaignId });
+  await enqueue(tx, campaign.tenantId, "notify.campaignLive", { campaignId });
+
+  /* P6-BE-09 — the campaign's complete draft rewards go live with it, as
+     the system; an incomplete one stays a draft, and the result says why. */
+  const rewards = await activateRewardsOnLaunch(tx, campaign, now);
+
+  return {
+    id: campaignId,
+    state: "ACTIVE" as CampaignState,
+    ordersActivated: activated.count,
+    rewards,
+  };
+}
 
 export { CAMPAIGN_AUDIT_ACTIONS, transitionBrief };
 export * from "./campaign-state";

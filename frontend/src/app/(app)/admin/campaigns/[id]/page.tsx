@@ -24,7 +24,19 @@ import {
 } from "@/lib/ops-live";
 import { apiFetch, fetchActor } from "@/server/api";
 import { roleLabel } from "@/server/viewer";
-import { draftAndSendOrder } from "./actions";
+import { draftAndSendOrder, setAutoStaffingAction } from "./actions";
+import {
+  launchLine,
+  nextStepTone,
+  nextStepWho,
+  rangeWords,
+  staffingStop,
+  staffingTiles,
+  stageChangeLine,
+  type CampaignStaffing,
+} from "@/lib/campaign-stage";
+import { AutoStaffingToggle } from "@/components/auto-staffing-toggle";
+import type { ApiCampaign } from "@/lib/sponsor-live";
 import { PACE_COPY, fmtRate, paceFor, paceProjection } from "@/lib/campaign-ui";
 import { demoState } from "@/lib/demo";
 import {
@@ -68,21 +80,117 @@ const OPS_ROLES = ["SUPER_ADMIN", "BTG_ADMIN", "CAMPAIGN_MGR", "NETWORK_MGR", "S
    your scope" and for "your role can't read its orders". Asking the campaign
    read tells them apart, so a SALES / NETWORK_MGR user who can see the list
    gets "not in your role" — not "this page doesn't exist". */
-async function liveOps(id: string): Promise<ApiOps | "missing" | { lacking: string; roles: string[] } | null> {
+/* P4-FE-08 — the campaign read's stage fields (P4-BE-09): what happens next,
+   and every stage change with whether the system made it. */
+type LiveStage = Pick<ApiCampaign, "nextStep" | "stageChange" | "stageHistory" | "autoStaffing" | "staffing" | "state" | "startDate">;
+
+async function liveOps(id: string): Promise<{ ops: ApiOps; stage: LiveStage | null } | "missing" | { lacking: string; roles: string[] } | null> {
   /* No catch — an outage is an error page, never fixtures dressed as a real
      campaign (QA pass 4 rule). */
   const who = await fetchActor();
   if (who.status !== "linked") return null;
   if (!who.actor.roles.some((r) => OPS_ROLES.includes(r))) return null;
-  const res = await apiFetch(`/campaigns/${encodeURIComponent(id)}/ops`);
+  /* One round trip: the board, and the campaign read for its stage. */
+  const [res, c] = await Promise.all([
+    apiFetch(`/campaigns/${encodeURIComponent(id)}/ops`),
+    apiFetch(`/campaigns/${encodeURIComponent(id)}`),
+  ]);
   if (res.status === 403) {
-    const c = await apiFetch(`/campaigns/${encodeURIComponent(id)}`);
     if (!c.ok) return "missing";
     const { campaign } = (await c.json()) as { campaign: { name: string } };
     return { lacking: campaign.name, roles: who.actor.roles };
   }
   if (!res.ok) throw new Error(`Campaign unavailable (${res.status}).`);
-  return (await res.json()) as ApiOps;
+  const stage = c.ok ? ((await c.json()) as { campaign: LiveStage }).campaign : null;
+  return { ops: (await res.json()) as ApiOps, stage };
+}
+
+/** P4-FE-08 — the next step and the stage history, "Moved automatically"
+ *  where the system made the move. */
+function StagePanel({ stage }: { stage: LiveStage }) {
+  const history = stage.stageHistory ?? (stage.stageChange ? [stage.stageChange] : []);
+  if (!stage.nextStep && history.length === 0) return null;
+  return (
+    <Card className="sx-animate sx-delay-1">
+      {stage.nextStep && (
+        <div className="flex min-w-0 flex-wrap items-center gap-2">
+          <span className="text-[10px] font-medium uppercase tracking-[0.2em] text-muted">Next step</span>
+          <Badge tone={nextStepTone(stage.nextStep.who)}>{nextStepWho(stage.nextStep)}</Badge>
+          <span className="min-w-0 text-sm font-medium [overflow-wrap:anywhere]">{stage.nextStep.text}</span>
+        </div>
+      )}
+      {history.length > 0 && (
+        <ol className={`${stage.nextStep ? "mt-4 border-t border-line-soft pt-4" : ""} space-y-2 text-xs text-muted`} aria-label="Stage history">
+          {history.map((h) => (
+            <li key={`${h.state}-${h.at}`} className="flex min-w-0 flex-wrap items-center gap-2">
+              <Badge tone={STATE_TONE[h.state] ?? "neutral"}>{h.state.toLowerCase()}</Badge>
+              <span>{stageChangeLine(h)}</span>
+              {h.movedAutomatically && h.reason && <span className="text-faint [overflow-wrap:anywhere]">— {h.reason}</span>}
+            </li>
+          ))}
+        </ol>
+      )}
+    </Card>
+  );
+}
+
+/** P4-FE-09 — automatic staffing (P4-BE-12) and the launch day (P4-BE-13):
+ *  the counts by athlete, why it stopped, who was skipped, the switch with
+ *  its reason dialog, and "Launches on …" once the campaign is in APPROVAL. */
+function StaffingPanel({ campaignId, stage, now }: { campaignId: string; stage: LiveStage; now: Date }) {
+  const s = stage.staffing && "sent" in stage.staffing ? (stage.staffing as CampaignStaffing) : null;
+  const launch = stage.state === "APPROVAL" && stage.startDate ? launchLine(stage.startDate, now) : null;
+  if (!s && !launch) return null;
+  const stop = staffingStop(s);
+  const editable = s && (stage.state === "DRAFT" || stage.state === "STAFFING");
+  return (
+    <Card className="sx-animate sx-delay-1">
+      <div className="flex min-w-0 flex-wrap items-center justify-between gap-3">
+        <h2 className="text-sm font-semibold tracking-tight">Staffing</h2>
+        {s && <span className="text-xs text-muted">Package needs {rangeWords(s.needed)} athletes</span>}
+      </div>
+      {launch && (
+        <p className="mt-3 flex min-w-0 flex-wrap items-center gap-2 text-sm">
+          <Badge tone="accent">Automatic</Badge>
+          <span className="font-medium">{launch}</span>
+          <span className="text-xs text-muted">— BTG can still launch it sooner.</span>
+        </p>
+      )}
+      {s && (
+        <>
+          <dl className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+            {staffingTiles(s).map((t) => (
+              <div key={t.label} className="min-w-0 rounded-lg border border-line-soft px-3 py-2">
+                <dt className="text-[10px] uppercase tracking-wide text-faint">{t.label}</dt>
+                <dd className="mt-0.5 text-lg font-semibold tabular-nums tracking-tight">{t.value}</dd>
+              </div>
+            ))}
+          </dl>
+          {stop && (
+            <div role="status" className="mt-4 rounded-lg border border-warn/30 bg-warn/8 px-3 py-2.5 text-xs leading-relaxed">
+              <p className="font-semibold text-warn">Automatic staffing stopped — over to BTG</p>
+              <p className="mt-0.5 text-muted [overflow-wrap:anywhere]">{stop.reason}</p>
+            </div>
+          )}
+          {s.skips && s.skips.length > 0 && (
+            <ul className="mt-4 space-y-1.5 text-xs text-muted" aria-label="Skipped athletes">
+              {s.skips.map((k) => (
+                <li key={k.athleteId} className="min-w-0 [overflow-wrap:anywhere]">
+                  <span className="font-medium text-text">{k.displayName ?? "An athlete"}</span> skipped — {k.reason}
+                </li>
+              ))}
+            </ul>
+          )}
+          {editable && (
+            <div className="mt-4 border-t border-line-soft pt-4">
+              {/* Stopped reads as off: turning it on resumes it (the API clears the stop). */}
+              <AutoStaffingToggle campaignId={campaignId} on={stage.autoStaffing === true && !stop} action={setAutoStaffingAction} />
+            </div>
+          )}
+        </>
+      )}
+    </Card>
+  );
 }
 
 const STATE_TONE: Record<string, "accent" | "warn" | "neutral" | "danger" | "primary"> = {
@@ -97,10 +205,12 @@ const STATE_TONE: Record<string, "accent" | "warn" | "neutral" | "danger" | "pri
 
 function LiveOpsView({
   ops,
+  stage,
   back,
   initial,
 }: {
   ops: ApiOps;
+  stage: LiveStage | null;
   back: ReturnType<typeof resolveBack>;
   initial: { q: string; show: string };
 }) {
@@ -199,6 +309,9 @@ function LiveOpsView({
         </div>
       </HeroBand>
 
+      {stage && <StagePanel stage={stage} />}
+      {stage && <StaffingPanel campaignId={c.id} stage={stage} now={now} />}
+
       <section className="sx-animate sx-delay-2">
         <SectionHeading
           title="Roster"
@@ -263,7 +376,7 @@ export default async function CampaignDashboardPage({
     );
   }
   if (live) {
-    return <LiveOpsView ops={live} back={back} initial={{ q: one(sp.q), show: one(sp.show) }} />;
+    return <LiveOpsView ops={live.ops} stage={live.stage} back={back} initial={{ q: one(sp.q), show: one(sp.show) }} />;
   }
 
   if (demo === "empty") {

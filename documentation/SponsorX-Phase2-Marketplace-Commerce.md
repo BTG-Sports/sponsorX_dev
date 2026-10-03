@@ -5,7 +5,7 @@
 | | |
 |---|---|
 | **Goal** | Turn SponsorX from BTG-only operations into a multi-tenant marketplace. External athletes, teams, programs, events and media properties onboard, publish inventory, fulfil deliverables and get paid. |
-| **Tasks** | 122 · 424 person-days |
+| **Tasks** | 123 · 425 person-days |
 | **Blueprint timeline** | 16–20 weeks |
 | **Balanced budget** | $80K–$120K |
 | **Depends on** | Phase 1 auth/RBAC, sponsor/property/inventory/campaign/reward models, Zoho integration, core analytics |
@@ -1535,6 +1535,18 @@ Two fixes:
 
 - **Done when:** Same-name applicants never error; the seed runs on a non-empty database; a negative balance after a refund shows on the payee's payout page
 - **Reference:** found by 2S8-QA-04, 2026-10-02
+### ✅ `2S8-QA-06` · Database rules installed by a deploy match the tests
+
+**Order** 60.8 · **QA** · **Where:** Code · **1d** · **Done**
+
+**Why it went wrong.** CI re-applies the `prisma/sql` files after migrating, but a deploy only migrates. The contract gate's lock on an order's acceptance and billing contact (2S4-FE-02) existed only in `prisma/sql`, so staging and production never had it.
+
+**The fix.** Migration 20261004000000 installs it. A guard test builds a database from the migrations alone and fails if applying `prisma/sql` would change anything.
+
+- **Depends on:** 2S4-FE-02
+- **Done when:** A database built only by migrations has every rule in prisma/sql; the guard fails on any drift
+- **Reference:** Found 2026-10-03 by a failing phase2-orders test on a fresh database
+
 ### ⏸ `2S8-SEC-01` · Cross-tenant isolation tests for external parties
 
 **Order** 61 · **SEC** · **Where:** Code · **5d** · **Blocked**

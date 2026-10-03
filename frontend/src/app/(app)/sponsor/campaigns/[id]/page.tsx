@@ -24,9 +24,19 @@ import {
 } from "@/lib/fixtures";
 import { daysRemaining, reachPct, verifiedPct } from "@/lib/ops-live";
 import { isBehind, monogramOf, windowLabel } from "@/lib/sponsor-live";
+import { launchLine, sponsorNextStep, sponsorStaffing } from "@/lib/campaign-stage";
+import { campaignApprovalLine } from "@/lib/brief-status";
 import { liveSponsorCampaign, type LiveCampaignDetail } from "@/server/sponsor";
 import { SponsorArtwork } from "@/components/edition-artwork";
-import { presignArtwork, registerArtwork, sponsorArtworkAction, sponsorArtworkLink } from "./actions";
+import { SponsorContentReview } from "@/components/sponsor-content-review";
+import {
+  presignArtwork,
+  registerArtwork,
+  sponsorArtworkAction,
+  sponsorArtworkLink,
+  sponsorContentAction,
+  sponsorContentLink,
+} from "./actions";
 
 /* --------------------------------------------------------------------------
    Sponsor Campaign detail — §9, sponsor portal (2026-09-15). The screen that
@@ -452,6 +462,14 @@ function LiveDetail({
      is still negotiating with (the API sends no invitations here anyway). */
   const roster = ops.roster.filter((r) => r.order);
   const attention = roster.filter((r) => r.overdue > 0 || r.order?.state === "SENT");
+  /* P4-FE-08 — the plain next step the API gives a sponsor (P4-BE-09). */
+  const next = sponsorNextStep(c.nextStep);
+  /* P4-FE-09 — while it is being staffed, the request it came from is approved. */
+  const approved = campaignApprovalLine(c.state);
+  /* P4-FE-09 — while athletes are signing: how full the package is (P4-BE-12);
+     once confirmed, the launch day (P4-BE-13) when the API sent no step. */
+  const staffing = c.state === "STAFFING" ? sponsorStaffing(c.staffing) : null;
+  const nextLine = next ?? staffing?.line ?? (c.state === "APPROVAL" ? launchLine(c.startDate, now) : null);
 
   return (
     <div className="space-y-6">
@@ -492,6 +510,27 @@ function LiveDetail({
           </span>
         )}
       </div>
+
+      {approved && (
+        <div className="sx-animate flex min-w-0 items-center gap-3 rounded-xl border border-accent/30 bg-accent/8 px-4 py-3">
+          <Badge tone="accent">Approved</Badge>
+          <p className="min-w-0 text-xs font-medium text-text [overflow-wrap:anywhere]">{approved}</p>
+        </div>
+      )}
+
+      {nextLine && (
+        <div className="sx-animate rounded-xl border border-line bg-surface px-4 py-3">
+          <div className="flex min-w-0 items-center gap-3">
+            <span className="shrink-0 text-[10px] font-medium uppercase tracking-[0.2em] text-muted">What&apos;s next</span>
+            <p className="min-w-0 text-xs font-medium text-text [overflow-wrap:anywhere]">{nextLine}</p>
+          </div>
+          {staffing && (
+            <div className="mt-2.5" aria-label={staffing.line}>
+              <Meter value={staffing.pct} tone="accent" />
+            </div>
+          )}
+        </div>
+      )}
 
       {attention.length > 0 && (
         <div className="sx-animate flex items-start gap-3 rounded-xl border border-warn/30 bg-warn/8 px-4 py-3">
@@ -560,6 +599,25 @@ function LiveDetail({
             link={sponsorArtworkLink}
             presign={presignArtwork}
             register={registerArtwork}
+          />
+        </section>
+      )}
+
+      {/* P4-FE-08 (P5-BE-09) — athlete content BTG sent for the sponsor's
+          sign-off: the caption it will go out with and how long it has
+          waited. Hidden when nothing is waiting. */}
+      {detail.review.length > 0 && (
+        <section className="sx-animate sx-delay-2">
+          <SectionHeading
+            title="Content for your approval"
+            hint={`${detail.review.length} waiting · BTG has reviewed ${detail.review.length === 1 ? "it" : "each one"}; the athlete posts once you approve.`}
+          />
+          <SponsorContentReview
+            items={detail.review}
+            now={now.getTime()}
+            canDecide={detail.canDecideContent}
+            act={sponsorContentAction}
+            link={sponsorContentLink}
           />
         </section>
       )}

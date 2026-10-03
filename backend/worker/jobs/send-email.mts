@@ -181,6 +181,30 @@ ${d.portalUrl ?? ""}
     subject: `Your payout of ${d.amount ?? ""} couldn't be sent — please fix your payout account`,
     text: `Hi ${d.firstName ?? "there"},\n\nWe tried to send your payout of ${d.amount ?? ""}, but our payment provider says your payout account needs attention first.\n\nOpen your money page and update your payout account on the provider's secure page. As soon as it's ready again, we'll send the payout automatically — you don't need to request it again.\n\n${d.portalUrl ?? ""}\n\n— BTG SponsorX`,
   }),
+  /* P4-BE-09 — campaigns move on their own: ready for BTG to launch; the
+     sponsor's final report is ready. */
+  "campaign.readyToLaunch": (d) => ({
+    subject: `Ready to launch: ${d.campaignName ?? "a campaign"}`,
+    text: `Every athlete on ${d.campaignName ?? "this campaign"}${d.sponsorName ? ` for ${d.sponsorName}` : ""} has accepted, and nobody is still waiting to answer.\n\nIt launches on its own on its start date — or you can launch it sooner:\n\n${d.campaignUrl ?? ""}\n\n— BTG SponsorX`,
+  }),
+  /* P4-BE-12 — automatic staffing stopped; BTG takes it from here. */
+  "campaign.staffingStopped": (d) => ({
+    subject: `Automatic staffing stopped: ${d.campaignName ?? "a campaign"}`,
+    text: `Automatic staffing has stopped on ${d.campaignName ?? "this campaign"}${d.sponsorName ? ` for ${d.sponsorName}` : ""}, and it's over to you:\n\n${d.reason ?? ""}\n\nOffers already out stay open. Staff the rest by hand, or turn automatic staffing back on once it can carry on:\n\n${d.campaignUrl ?? ""}\n\n— BTG SponsorX`,
+  }),
+  /* P4-BE-11 — a sponsor's brief approved automatically; one held for BTG. */
+  "brief.autoApproved": (d) => ({
+    subject: "Your request is approved — your campaign is being staffed",
+    text: `Hi${d.sponsorName ? ` ${d.sponsorName}` : ""},\n\nYour request${d.packageName ? ` for ${d.packageName}` : ""} is approved, and your campaign is being staffed. We'll let you know as athletes accept.\n\nFollow it here:\n\n${d.campaignUrl ?? ""}\n\n— BTG SponsorX`,
+  }),
+  "brief.heldForBtg": (d) => ({
+    subject: `Brief held for you: ${d.sponsorName ?? "a sponsor"}`,
+    text: `${d.sponsorName ?? "A sponsor"}'s request (${d.packageName ?? "custom request"}) couldn't be approved automatically, so it is waiting for you:\n\n${d.reasons ?? ""}\n\nThe sponsor has been told only that BTG is reviewing it. Qualify, approve or close it here:\n\n${d.reviewUrl ?? ""}\n\n— SponsorX`,
+  }),
+  "campaign.finalReportReady": (d) => ({
+    subject: `Your final report for ${d.campaignName ?? "your campaign"} is ready`,
+    text: `Hi${d.sponsorName ? ` ${d.sponsorName}` : ""},\n\nEvery piece of content on ${d.campaignName ?? "your campaign"} has been checked, and your final report is ready:\n\n${d.reportUrl ?? ""}\n\nThe campaign is now complete. Thank you for working with our athletes.\n\n— BTG SponsorX`,
+  }),
   "payout.sentBack": (d) => ({
     subject: "About your SponsorX payout request",
     text: `Hi ${d.firstName ?? "there"},\n\nBTG couldn't approve your payout request of ${d.amount ?? ""} yet:\n\n${d.note ?? ""}\n\nThe money is still yours and available to request again from your portal:\n\n${d.portalUrl ?? ""}\n\n— BTG SponsorX`,
@@ -320,6 +344,21 @@ ${d.portalUrl ?? ""}
   "editionArtwork.approved": (d) => ({
     subject: `Ad artwork approved: ${d.sponsorName ?? "a sponsor"} — ${d.slotCode ?? "an ad slot"}, ${d.editionLabel ?? "an edition"}`,
     text: `${d.sponsorName ?? "The sponsor"} approved the artwork for ${d.slotCode ?? "their ad slot"} in ${d.editionLabel ?? "the edition"}. That slot no longer holds up production.\n\n${d.reviewUrl ?? ""}\n\n— SponsorX`,
+  }),
+  /* P5-BE-09 — the automatic checks sent the draft back; every failure is
+     listed, one per line, so the athlete can fix them all in one go. */
+  "deliverable.checksFailed": (d) => ({
+    subject: `Fix before review: ${d.title ?? "your deliverable"}`,
+    text: `Hi ${d.firstName ?? "there"},\n\nYour draft of ${d.title ?? "your deliverable"}${d.campaignName ? ` for ${d.campaignName}` : ""} didn't pass our automatic checks, so it hasn't gone to BTG yet:\n\n${d.reasons ?? ""}\n\nFix these and submit again here:\n\n${d.portalUrl ?? ""}\n\n— BTG SponsorX`,
+  }),
+  /* P5-BE-09 — one reminder per draft per review stage, after 48 hours. */
+  "deliverable.btgReviewReminder": (d) => ({
+    subject: `Waiting ${d.waited ?? "2 days"} for BTG review: ${d.title ?? "a deliverable"}`,
+    text: `${d.athleteName ?? "An athlete"}'s ${d.title ?? "deliverable"} for ${d.campaignName ?? "a campaign"} passed the automatic checks and has waited ${d.waited ?? "over 2 days"} for BTG's review.\n\nReview it here:\n\n${d.reviewUrl ?? ""}\n\n— SponsorX`,
+  }),
+  "deliverable.sponsorReviewReminder": (d) => ({
+    subject: `Waiting for your approval: ${d.title ?? "a deliverable"}`,
+    text: `Hi,\n\n${d.athleteName ?? "An athlete"}'s ${d.title ?? "deliverable"} for ${d.campaignName ?? "your campaign"} has waited ${d.waited ?? "over 2 days"} for your approval. Approve it, or ask for changes, here:\n\n${d.reviewUrl ?? ""}\n\nThe athlete can't post it until you do.\n\n— BTG SponsorX`,
   }),
   "deliverable.approved": (d) => ({
     subject: `Approved: ${d.title ?? "your deliverable"}`,

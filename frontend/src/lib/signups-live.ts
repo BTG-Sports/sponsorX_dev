@@ -12,6 +12,8 @@
    their own section (new-signups-live.ts). Pure: shapes and words.
    -------------------------------------------------------------------------- */
 
+import type { ContentTrust } from "@/lib/content-trust";
+
 export type LiveSignupKind = "ATHLETE" | "GUARDIAN";
 export type LiveSignupState = "AUTO_APPROVED" | "APPROVED" | "NEEDS_REVIEW" | "REJECTED";
 
@@ -47,6 +49,8 @@ export type ApiSignupDetail = ApiSignupRow & {
   guardianOf: (ApiSignupRow & { rejectedWithGuardian?: boolean })[];
   rejectNote: string | null;
   rejectedWithGuardian: boolean;
+  /** P5-BE-10 — an athlete's content standing (BTG only; absent for a guardian). */
+  contentTrust?: ContentTrust;
   can: { approve: boolean; reject: boolean; reinstate: boolean };
 };
 

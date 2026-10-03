@@ -36,6 +36,13 @@ const model = (name: string) =>
     ]),
   );
 
+/* P4-BE-09 — the campaign reads' next step is read by campaign-stages.ts
+   (tests/campaign-stages.test.ts covers it on a real database). */
+vi.mock("../src/domain/campaign-stages", async (actual) => ({
+  ...(await actual<typeof import("../src/domain/campaign-stages")>()),
+  stageViews: async () => new Map(),
+}));
+
 vi.mock("../src/db/client", () => ({
   prisma: {
     campaignBrief: model("campaignBrief"),
@@ -43,6 +50,10 @@ vi.mock("../src/db/client", () => ({
     campaignInvite: model("campaignInvite"),
     campaignOrder: model("campaignOrder"),
     athlete: model("athlete"),
+    /* P4-BE-07 — the brief readiness checklist's inputs. */
+    inquiry: model("inquiry"),
+    accountClosure: model("accountClosure"),
+    nilJob: model("nilJob"),
   },
 }));
 
@@ -342,11 +353,12 @@ describe("GET /briefs/:id/eligible-athletes · paged", () => {
     ];
     impl["athlete.findMany"] = (a) =>
       a.select.displayName ? a.where.AND[1].id.in.map((id: string) => ATH(id, 1)) : thin;
-    let body = await run(shortlist, admin, { page: "1", size: "12" }, { id: "brf_1" });
+    /* P4-BE-08 — best match is the default now; the §14 order is asked for. */
+    let body = await run(shortlist, admin, { page: "1", size: "12", sort: "score" }, { id: "brf_1" });
     expect(body.athletes.map((a: { id: string }) => a.id)).toEqual(["a3", "a4", "a1", "a2"]);
     expect(body.page.total).toBe(4);
     calls = [];
-    body = await run(shortlist, admin, { page: "1", min: "80" }, { id: "brf_1" });
+    body = await run(shortlist, admin, { page: "1", min: "80", sort: "score" }, { id: "brf_1" });
     expect(body.athletes.map((a: { id: string }) => a.id)).toEqual(["a3", "a4"]);
     expect(body.page.total).toBe(2);
     /* The full read is for this page's ids only. */
@@ -358,12 +370,27 @@ describe("GET /briefs/:id/eligible-athletes · paged", () => {
     impl["campaignBrief.findFirst"] = () => BRIEF_CRIT;
     impl["athlete.count"] = () => 1;
     impl["athlete.findMany"] = () => [ATH("a1", 90)];
-    const body = await run(shortlist, sponsor, { page: "1", min: "80" }, { id: "brf_1" });
+    const body = await run(shortlist, sponsor, { page: "1", min: "80", sort: "score" }, { id: "brf_1" });
     expect(of("athlete", "findMany")).toHaveLength(1);
     expect(of("athlete", "findMany")[0]!.args.orderBy).toEqual([{ displayName: "asc" }, { id: "asc" }]);
     expect(of("athlete", "findMany")[0]!.args.select.scores).toBeUndefined();
     expect("score" in body.athletes[0]).toBe(false);
     expect("rates" in body.athletes[0]).toBe(false);
+    /* The brief's rank is theirs too — without the signals they may not read. */
+    expect(body.athletes[0].reasons.map((r: { key: string }) => r.key)).toEqual(["sport", "state"]);
+  });
+
+  it("P4-BE-08 · with no ?sort it ranks best match first, ignoring a minimum the caller may not read", async () => {
+    impl["campaignBrief.findFirst"] = () => BRIEF_CRIT;
+    impl["athlete.findMany"] = (a) =>
+      a.select.city ? a.where.AND[1].id.in.map((id: string) => ATH(id, 1)) : [ATH("a1", 90), ATH("a2", 90)];
+    const body = await run(shortlist, sponsor, { page: "1", min: "80" }, { id: "brf_1" });
+    expect(body.athletes.map((a: { id: string }) => a.id)).toHaveLength(2);
+    expect(body.athletes[0].matchScore).toEqual(expect.any(Number));
+    /* No score is selected for the sponsor side, so none can order or filter. */
+    expect(of("athlete", "findMany").every((c) => c.args.select.scores === undefined)).toBe(true);
+    /* And no other campaign's orders are read to rank them. */
+    expect(of("campaignOrder", "findMany")).toEqual([]);
   });
 });
 
