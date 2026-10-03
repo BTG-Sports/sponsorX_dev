@@ -589,7 +589,7 @@ function LiveDetail({
         <section className="sx-animate sx-delay-2">
           <SectionHeading
             title="Your ad artwork"
-            hint="Each ad goes through BTG's review, then comes back to you to approve. The edition prints only once every ad is approved."
+            hint="Each file is checked as soon as it lands, goes through BTG's review — or, once your recent ads were approved without changes, straight to you — and you approve it. The edition prints only once every ad is approved."
           />
           <SponsorArtwork
             slots={detail.artwork}

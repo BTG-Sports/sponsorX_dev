@@ -35,6 +35,9 @@ const MONEY_MODULES = [
   "ledger.ts",
   /* 2S4-BE-13 — refunds to send: written with each refund, marked sent by Finance. */
   "refunds.ts",
+  /* P9-BE-18 — a masthead's rate card (pricing); P9-BE-19 — Finance's split lock. */
+  "edition-rate-card.ts",
+  "edition-split-lock.ts",
 ] as const;
 
 /**
@@ -71,6 +74,12 @@ const READ_ONLY = new Set([
   "refundSentProblems",
   "listRefunds",
   "refundsForOrders",
+  /* P9-BE-18 / -19 — reads in the rate card and the split lock. */
+  "rateCardPrice",
+  "readEditionRateCard",
+  "splitLockOf",
+  /* A guard a future payout calls: it refuses, it writes nothing. */
+  "assertSplitLocked",
 ]);
 
 function sourceOf(file: string): string {

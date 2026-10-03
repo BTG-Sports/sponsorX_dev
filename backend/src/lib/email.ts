@@ -46,6 +46,11 @@ export type EmailTemplate =
   | "athlete.rejected"
   | "athlete.profileChangeApproved"
   | "athlete.profileChangeDeclined"
+  /* P9-BE-20 — a school's advisors hear, once a day, who the system
+     approved from their roster. */
+  | "student.autoApprovedDigest"
+  /* P9-BE-21 — SALES (or BTG admins) hear once of a prospect held for them. */
+  | "studentProspect.heldForSales"
   | "guardian.verificationRequested"
   /* P4-INT-01 — the invitation's three moments. A reminder and an expiry
      warning are separate templates rather than one with a flag, because the
@@ -221,6 +226,8 @@ export type EmailTemplate =
   | "editionArtwork.readyForSignOff"
   | "editionArtwork.revisionRequested"
   | "editionArtwork.approved"
+  /* P9-BE-22 — the automatic checks sent an upload back: every reason, to the sponsor. */
+  | "editionArtwork.checksFailed"
   /* 2S5-BE-07 — the payment provider couldn't send a payout because the
      payee's payout account needs attention: fix it (on the provider's page,
      from the money page) and it is sent again on its own. */
@@ -236,7 +243,10 @@ export type EmailTemplate =
   | "brief.heldForBtg"
   /* P4-BE-12 — automatic staffing stopped and handed the campaign to BTG's
      campaign managers, with the reason. */
-  | "campaign.staffingStopped";
+  | "campaign.staffingStopped"
+  /* P9-BE-18 — a NEXT ad sale the system would not make by itself: SALES
+     and BTG's admins hear of it once, with the reasons. */
+  | "adSale.heldForSales";
 
 export type EmailMessage = {
   template: EmailTemplate;

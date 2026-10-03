@@ -247,6 +247,11 @@ const BODY: Record<string, unknown> = {
   "POST /editions/{id}/transition": { to: "CANCELLED" },
   "POST /editions/{id}/slots": { slotCode: "STOLEN", kind: "HALF", priceCents: 100 },
   "POST /editions/{id}/sales": { campaignId: A.campaign },
+  /* P9-BE-17 / -18 / -19 — the sales-open date, the rate card, the split lock. */
+  "POST /editions/{id}/sales-open": { salesOpenAt: null },
+  "PUT /publications/{id}/rate-card": { prices: { HALF: 100 } },
+  "POST /editions/{id}/splits/lock": { note: "TI lock" },
+  "POST /editions/{id}/splits/unlock": { reason: "TI unlock" },
   "POST /students": {
     propertyId: A.school, legalName: "Stolen", displayName: "Stolen", masthead: ["WRITER"],
   },
@@ -261,7 +266,7 @@ const BODY: Record<string, unknown> = {
   "POST /edition-assets/{id}/rights": { grantorKind: "BTG", grantorRef: "x", licenseRef: "L-1", startsAt: "2026-01-01T00:00:00.000Z" },
   "POST /edition-assets/{id}/campaign": { campaignId: A.campaign },
   /* P9-BE-16 */
-  "POST /ad-slots/{id}/artwork/uploads": { contentType: "image/png" },
+  "POST /ad-slots/{id}/artwork/uploads": { contentType: "image/png", bytes: 48_213 },
   "POST /ad-slots/{id}/artwork": { r2Key: "t/ti_tenant_a/ad-slot/ti_slot_sold_a/x" },
   "POST /edition-artwork/{id}/revision": { reason: "Isolation sweep" },
   "POST /consents": { agreementId: A.agreement, subjectKind: "ATHLETE", subjectId: A.athlete, bodyHashShown: "x".repeat(64) },
@@ -269,6 +274,8 @@ const BODY: Record<string, unknown> = {
   "POST /claims/{id}/verify": {},
   "POST /claims/{id}/reject": {},
   "POST /properties/{id}/roster": { entries: [{ legalName: "Stolen Name" }] },
+  /* P9-BE-20 — tenant B setting tenant A's school email domain. */
+  "PUT /properties/{id}/email-domain": { emailDomain: "stolen-school.org" },
   "POST /editions/{id}/contributions": { studentId: A.student, kind: "FEATURE" },
   "POST /onboarding/{id}/decision": { decision: "REJECT", notes: "cross-tenant" },
   "POST /campaigns/{id}/report/render": {},

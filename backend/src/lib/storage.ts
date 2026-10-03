@@ -65,12 +65,28 @@ export const BUCKETS = {
  */
 const PRESIGN_TTL_SECONDS = 15 * 60;
 
+/**
+ * What a presigned PUT pins beyond the key. P9-BE-22 — ad artwork is
+ * checked on its type and size at upload, from the grant; signing both into
+ * the PUT makes the stored object match what the grant recorded: a PUT with
+ * another Content-Type or another length is refused by the bucket. Without
+ * these the presigner signs only the host (the SDK leaves Content-Type
+ * unsigned by default), as every other upload still is.
+ */
+export type UploadPins = { contentLength?: number; signContentType?: boolean };
+
 /** Presigned PUT. Private-bucket callers must go through the audited wrapper. */
-function presignUpload(bucket: string, key: string, contentType: string) {
+function presignUpload(bucket: string, key: string, contentType: string, pins: UploadPins = {}) {
   return getSignedUrl(
     s3,
-    new PutObjectCommand({ Bucket: bucket, Key: key, ContentType: contentType }),
-    { expiresIn: PRESIGN_TTL_SECONDS },
+    new PutObjectCommand({
+      Bucket: bucket, Key: key, ContentType: contentType,
+      ...(pins.contentLength !== undefined ? { ContentLength: pins.contentLength } : {}),
+    }),
+    {
+      expiresIn: PRESIGN_TTL_SECONDS,
+      ...(pins.signContentType ? { signableHeaders: new Set(["content-type"]) } : {}),
+    },
   );
 }
 
@@ -124,6 +140,7 @@ export async function presignPrivateUpload(
   key: string,
   contentType: string,
   context: GrantContext,
+  pins: UploadPins = {},
 ): Promise<string> {
   assertSafeKey(key);
 
@@ -140,12 +157,14 @@ export async function presignPrivateUpload(
           key,
           contentType,
           ttlSeconds: PRESIGN_TTL_SECONDS,
+          /* P9-BE-22 — recorded only where the PUT is pinned to it. */
+          ...(pins.contentLength !== undefined ? { bytes: pins.contentLength } : {}),
         },
       },
     ),
   );
 
-  return presignUpload(BUCKETS.private, key, contentType);
+  return presignUpload(BUCKETS.private, key, contentType, pins);
 }
 
 /** Grant a time-limited read of a **private** object, and record it. */

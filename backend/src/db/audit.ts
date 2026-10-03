@@ -155,6 +155,12 @@ export const AUDIT_ACTIONS = {
     sponsorReview: "editionArtwork.sponsorReview",
     requestRevision: "editionArtwork.requestRevision",
     approve: "editionArtwork.approve",
+    /** P9-BE-22 — the automatic checks sent the upload back to its
+     *  supplier, with the reasons; it never reached BTG. */
+    systemReturn: "editionArtwork.systemReturn",
+    /** P9-BE-22 — a trusted sponsor's passing upload moved by the system
+     *  past BTG's review (BTG_REVIEW → SPONSOR_REVIEW), with the reason. */
+    btgReviewSkipped: "editionArtwork.btgReviewSkipped",
   },
   /**
    * The fan funnel (P6-BE-02, P6-BE-07, §16).

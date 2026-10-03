@@ -12,7 +12,7 @@ import { Router, type RequestHandler } from "express";
 
 import { requireActor } from "../../auth/actor";
 import { allowedList } from "../../lib/paging";
-import { CreativeUploadInput } from "../../contracts/deliverable";
+import { ArtworkUploadInput } from "../../contracts/edition-artwork";
 import { ArtworkInput, ArtworkRevisionInput } from "../../contracts/edition";
 import {
   approveArtwork,
@@ -31,7 +31,7 @@ export const editionArtworkRouter = Router();
 
 const str = (v: unknown) => (typeof v === "string" && v ? v.slice(0, 200) : undefined);
 
-/** GET /edition-artwork — the board's artwork rows; ?state= ?editionId= ?campaignId= narrow. */
+/** GET /edition-artwork — the board's artwork rows; ?state= ?editionId= ?campaignId= ?btgSkipped=only narrow. */
 const list: RequestHandler = async (req, res) => {
   const q = (req.query ?? {}) as Record<string, unknown>;
   res.json({
@@ -39,6 +39,8 @@ const list: RequestHandler = async (req, res) => {
       states: allowedList(q.state, ARTWORK_STATES),
       editionId: str(q.editionId),
       campaignId: str(q.campaignId),
+      /* P9-BE-22 — BTG's "Skipped BTG review" tab. */
+      btgSkipped: q.btgSkipped === "only",
     }),
   });
 };
@@ -53,8 +55,8 @@ const fileUrl: RequestHandler<{ id: string }> = async (req, res) => {
 };
 
 const upload: RequestHandler<{ id: string }> = async (req, res) => {
-  const { contentType } = CreativeUploadInput.parse(req.body ?? {});
-  res.status(201).json(await presignArtworkUpload(req.actor!, req.params.id, contentType));
+  const { contentType, bytes } = ArtworkUploadInput.parse(req.body ?? {});
+  res.status(201).json(await presignArtworkUpload(req.actor!, req.params.id, contentType, bytes));
 };
 
 const register: RequestHandler<{ id: string }> = async (req, res) => {

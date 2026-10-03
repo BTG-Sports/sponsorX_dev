@@ -35,11 +35,14 @@ export const MarkPublishedInput = z
 export const CreativeUploadInput = z
   .object({
     contentType: z.string().min(1).max(255),
+    /** P5-BE-09 — the file's size in bytes, exactly. Optional: when given it
+     *  is signed into the PUT as Content-Length, as Content-Type always is. */
+    bytes: z.number().int().positive().max(2 * 1024 ** 3).optional(),
   })
   .meta({
     id: "CreativeUploadInput",
     description:
-      "Requests a presigned PUT against the private R2 bucket. The key is chosen by the server — a client-chosen key is a client-chosen path (§11, Addendum A8).",
+      "Requests a presigned PUT against the private R2 bucket. The key is chosen by the server — a client-chosen key is a client-chosen path (§11, Addendum A8). Content-Type is signed into the PUT (the upload must be that type — the file-type check reads it from the grant), and Content-Length too when `bytes` is given.",
   });
 
 /** P5-BE-09 — the draft, with the caption the athlete will post. The

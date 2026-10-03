@@ -156,9 +156,9 @@ describe.skipIf(!hasDatabase)("SponsorX NEXT editions, on the path a request tak
    *  the sponsor's sign-off, with the sponsor's licence for it — what
    *  production needs since P9-BE-16 (and P9-BE-10 for the right). */
   async function approvedArtwork(slotId: string) {
-    const { key } = await artwork.presignArtworkUpload(rosa, slotId, "image/png");
+    const { key } = await artwork.presignArtworkUpload(rosa, slotId, "image/png", 48_213);
     const a = await artwork.registerArtwork(rosa, slotId, { r2Key: key });
-    await artwork.startArtworkReview(staff, a.id);
+    /* P9-BE-22 — the system picked it up on upload (BTG_REVIEW). */
     await artwork.sendArtworkToSponsor(staff, a.id);
     await artwork.approveArtwork(rosa, a.id);
     await grantRight(staff, a.id, { grantorKind: "THIRD_PARTY", grantorRef: "Rosa's Bakery", mayPublishDigital: true, startsAt: new Date(), licenseRef: "nx2-IO-1" });

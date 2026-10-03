@@ -18,6 +18,10 @@ import { dayOf, money, type Pill } from "@/lib/order-automation-live";
 
 export const REFUND_CAUSES = [
   "SPONSOR_CANCELLED", "SELLER_CANCELLED", "CANCELLATION_AGREED", "PROBLEM_AGREED", "BTG_DECIDED", "BTG_REFUNDED_ORDER", "PAID_AFTER_CANCELLATION",
+  /* P9-BE-19 — a paid NEXT ad sale in an edition BTG cancelled: no order, a campaign and an edition. */
+  "EDITION_CANCELLED",
+  /* P9-BE-19 — Zoho marked the ad's invoice paid after its edition was cancelled. */
+  "PAID_AFTER_EDITION_CANCELLED",
 ] as const;
 export type RefundCause = (typeof REFUND_CAUSES)[number];
 export type RefundState = "OPEN" | "SENT";
@@ -42,8 +46,11 @@ export type SponsorRefund = {
 /** One row of Finance's list (GET /refunds). */
 export type ApiRefund = {
   id: string;
-  orderId: string;
-  orderRef: string;
+  /** Null on a cancelled edition's refund (P9-BE-19), which names `edition` instead. */
+  orderId: string | null;
+  orderRef: string | null;
+  /** P9-BE-19 — the edition BTG cancelled and the campaign whose ad it released. */
+  edition?: { id: string; label: string; publication: string | null; campaignId: string; campaign: string } | null;
   sponsor: { id: string; name: string };
   line: { id: string; title: string; quantity: number; dates: string[] } | null;
   wholeOrder: boolean;
@@ -92,12 +99,28 @@ export function causeLabel(cause: string): string {
     case "BTG_DECIDED": return "Decided by BTG";
     case "BTG_REFUNDED_ORDER": return "Order refunded by BTG";
     case "PAID_AFTER_CANCELLATION": return "Paid after it was cancelled";
+    case "EDITION_CANCELLED": return "Edition cancelled";
+    case "PAID_AFTER_EDITION_CANCELLED": return "Paid after the edition was cancelled";
     default: return "Refund";
   }
 }
 
-/** "Youth basketball clinic · Oct 10 and Oct 17", or "Whole order". */
-export function refundWhat(r: Pick<ApiRefund, "line" | "wholeOrder">): string {
+/** The row's name: the order's reference, or the cancelled edition's ("Fall 2026 ad"). */
+export function refundRef(r: Pick<ApiRefund, "orderRef" | "edition">): string {
+  if (r.orderRef) return r.orderRef;
+  return r.edition ? `${r.edition.label} ad` : "Refund";
+}
+
+/** Who hears that it was sent: the order's sponsor by email; a Zoho credit note reaches an edition's sponsor from Zoho. */
+export function sentNotice(r: Pick<ApiRefund, "orderId" | "sponsor">): string {
+  return r.orderId
+    ? `${r.sponsor.name} is emailed that the refund was sent.`
+    : `${r.sponsor.name} gets the credit note from Zoho Books — SponsorX sends no email for an edition's refund.`;
+}
+
+/** "Youth basketball clinic · Oct 10 and Oct 17", "Whole order", or "Spring push · ad in Fall 2026". */
+export function refundWhat(r: Pick<ApiRefund, "line" | "wholeOrder"> & Partial<Pick<ApiRefund, "edition">>): string {
+  if (r.edition) return `${r.edition.campaign} · ad in ${r.edition.label}`;
   if (!r.line) return r.wholeOrder ? "Whole order" : "—";
   const days = r.line.dates.map(dayOf);
   const when = days.length > 1 ? `${days.slice(0, -1).join(", ")} and ${days[days.length - 1]}` : days[0] ?? "";

@@ -174,23 +174,92 @@ export async function grantRightAction(assetId: string, g: GrantInput): Promise<
 
 const KINDS: ApiSlotKind[] =["QUARTER", "HALF", "FULL", "BACK_COVER", "PRESENTING"];
 
+/** Add a position. P9-BE-18 — an empty price takes the masthead's rate-card
+ *  price; a typed price that differs from the card is refused by the API. */
 export async function addSlotAction(
   editionId: string,
-  input: { slotCode: string; kind: ApiSlotKind; priceDollars: number },
+  input: { slotCode: string; kind: ApiSlotKind; priceDollars: string },
 ): Promise<EditionActionResult> {
   const code = typeof input?.slotCode === "string" ? input.slotCode.trim().toUpperCase() : "";
   if (!editionId || !code) return { ok: false, message: "Give the slot a code, e.g. P04-QTR-A." };
   if (!KINDS.includes(input.kind)) return { ok: false, message: "Pick a position kind." };
-  const priceCents = Math.round(Number(input.priceDollars) * 100);
-  if (!Number.isFinite(priceCents) || priceCents < 0) return { ok: false, message: "Rack price must be a dollar amount." };
+  const typed = typeof input.priceDollars === "string" ? input.priceDollars.trim() : "";
+  const priceCents = typed ? Math.round(Number(typed) * 100) : null;
+  if (priceCents !== null && (!Number.isFinite(priceCents) || priceCents < 0)) return { ok: false, message: "Rack price must be a dollar amount." };
   try {
     const res = await apiFetch(`/editions/${encodeURIComponent(editionId)}/slots`, {
       method: "POST",
-      body: JSON.stringify({ slotCode: code, kind: input.kind, priceCents }),
+      body: JSON.stringify({ slotCode: code, kind: input.kind, ...(priceCents !== null ? { priceCents } : {}) }),
     });
     if (!res.ok) return { ok: false, message: await reason(res, `The slot was not added (HTTP ${res.status}).`) };
+    const slot = (await res.json()) as { priceCents?: number };
     refresh();
-    return { ok: true, message: `${code} added.` };
+    return { ok: true, message: `${code} added${slot.priceCents != null ? ` at $${(slot.priceCents / 100).toLocaleString("en-US")}` : ""}.` };
+  } catch {
+    return { ok: false, message: unreachable };
+  }
+}
+
+/* ── P9-BE-17 / -19 — the sales-open date and the split lock ──────────── */
+
+/** BTG sets (or clears) the day sales open by themselves — PLANNING only. */
+export async function setSalesOpenAction(editionId: string, day: string): Promise<EditionActionResult> {
+  if (!editionId) return { ok: false, message: "Nothing to change." };
+  const at = day ? new Date(`${day}T00:00:00Z`) : null;
+  if (at && Number.isNaN(at.getTime())) return { ok: false, message: "That date isn't valid." };
+  try {
+    const res = await apiFetch(`/editions/${encodeURIComponent(editionId)}/sales-open`, {
+      method: "POST",
+      body: JSON.stringify({ salesOpenAt: at?.toISOString() ?? null }),
+    });
+    if (!res.ok) return { ok: false, message: await reason(res, `Not saved (HTTP ${res.status}).`) };
+    refresh();
+    return { ok: true, message: at ? `Sales open by themselves on ${day}.` : "No date — BTG opens sales by hand." };
+  } catch {
+    return { ok: false, message: unreachable };
+  }
+}
+
+/** BTG admin sets the masthead's rate card: dollars per kind; empty clears it. */
+export async function setRateCardAction(publicationId: string, dollars: Partial<Record<ApiSlotKind, string>>): Promise<EditionActionResult> {
+  if (!publicationId || !dollars) return { ok: false, message: "Nothing to change." };
+  const prices: Partial<Record<ApiSlotKind, number | null>> = {};
+  for (const k of KINDS) {
+    if (!(k in dollars)) continue;
+    const typed = (dollars[k] ?? "").trim();
+    if (!typed) { prices[k] = null; continue; }
+    const cents = Math.round(Number(typed) * 100);
+    if (!Number.isFinite(cents) || cents <= 0) return { ok: false, message: "Each price must be a dollar amount above zero." };
+    prices[k] = cents;
+  }
+  try {
+    const res = await apiFetch(`/publications/${encodeURIComponent(publicationId)}/rate-card`, {
+      method: "PUT",
+      body: JSON.stringify({ prices }),
+    });
+    if (!res.ok) return { ok: false, message: await reason(res, `Not saved (HTTP ${res.status}).`) };
+    refresh();
+    return { ok: true, message: "Rate card saved. New slots take these prices." };
+  } catch {
+    return { ok: false, message: unreachable };
+  }
+}
+
+/** Finance locks the split with a note; BTG admin unlocks with a reason. */
+export async function splitLockAction(editionId: string, lock: boolean, text: string): Promise<EditionActionResult> {
+  const words = typeof text === "string" ? text.trim() : "";
+  if (!editionId) return { ok: false, message: "Nothing to change." };
+  if (!words) return { ok: false, message: lock ? "Say what you checked." : "Say why it is being unlocked." };
+  if (words.length > 500) return { ok: false, message: "Keep it to 500 characters." };
+  try {
+    const res = await apiFetch(`/editions/${encodeURIComponent(editionId)}/splits/${lock ? "lock" : "unlock"}`, {
+      method: "POST",
+      body: JSON.stringify(lock ? { note: words } : { reason: words }),
+    });
+    if (!res.ok) return { ok: false, message: await reason(res, `Not saved (HTTP ${res.status}).`) };
+    revalidatePath("/admin/next/splits");
+    refresh();
+    return { ok: true, message: lock ? "Split locked." : "Split unlocked." };
   } catch {
     return { ok: false, message: unreachable };
   }

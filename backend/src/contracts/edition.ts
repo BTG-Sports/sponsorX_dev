@@ -41,8 +41,16 @@ export const EditionInput = z
     pageCount: z.number().int().positive().max(500).nullable().optional(),
     /** cents — the minimum viable edition */
     thresholdCents: z.number().int().nonnegative().max(INT4_MAX),
+    /** P9-BE-17 — sales open by themselves on this day; null or absent: BTG opens by hand. */
+    salesOpenAt: z.iso.datetime().nullable().optional(),
   })
   .meta({ id: "EditionInput" });
+
+/* P9-BE-17 — the day an edition's sales open by themselves (null: by hand). */
+export const SalesOpenInput = z
+  .object({ salesOpenAt: z.iso.datetime().nullable() })
+  .strict()
+  .meta({ id: "SalesOpenInput" });
 
 export const EditionTransitionInput = z.object({ to: EditionState }).meta({ id: "EditionTransitionInput" });
 
@@ -57,10 +65,32 @@ export const AdSlotInput = z
   .object({
     slotCode: z.string().min(1).max(40),
     kind: AdSlotKind,
-    /** cents — rack price */
-    priceCents: z.number().int().nonnegative().max(INT4_MAX),
+    /** cents — rack price. P9-BE-18: leave it out to take the masthead's
+     *  rate-card price; a typed price that differs from the card is 422. */
+    priceCents: z.number().int().nonnegative().max(INT4_MAX).optional(),
   })
   .meta({ id: "AdSlotInput" });
+
+/* P9-BE-18 — a masthead's rate card: a price (cents) per position kind to
+   set, null to clear; kinds left out are untouched. */
+const RateCardPrice = z.number().int().positive().max(INT4_MAX).nullable().optional();
+export const RateCardInput = z
+  .object({
+    prices: z
+      .object({ QUARTER: RateCardPrice, HALF: RateCardPrice, FULL: RateCardPrice, BACK_COVER: RateCardPrice, PRESENTING: RateCardPrice })
+      .strict(),
+  })
+  .strict()
+  .meta({ id: "RateCardInput" });
+
+/* P9-BE-19 — Finance locks the split with a note; BTG admin unlocks with a reason. */
+export const SplitLockInput = z.object({ note: z.string().trim().min(1).max(500) }).strict().meta({ id: "SplitLockInput" });
+export const SplitUnlockInput = z.object({ reason: z.string().trim().min(1).max(500) }).strict().meta({ id: "SplitUnlockInput" });
+
+/* P9-BE-18 — the held ad sales. */
+export const SaleHoldsQuery = z
+  .object({ editionId: z.string().min(1).optional(), all: z.enum(["true", "false"]).optional() })
+  .meta({ id: "SaleHoldsQuery" });
 
 export const AdSaleInput = z.object({ campaignId: z.string().min(1) }).meta({ id: "AdSaleInput" });
 

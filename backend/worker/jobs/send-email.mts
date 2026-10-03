@@ -192,6 +192,11 @@ ${d.portalUrl ?? ""}
     subject: `Automatic staffing stopped: ${d.campaignName ?? "a campaign"}`,
     text: `Automatic staffing has stopped on ${d.campaignName ?? "this campaign"}${d.sponsorName ? ` for ${d.sponsorName}` : ""}, and it's over to you:\n\n${d.reason ?? ""}\n\nOffers already out stay open. Staff the rest by hand, or turn automatic staffing back on once it can carry on:\n\n${d.campaignUrl ?? ""}\n\n— BTG SponsorX`,
   }),
+  /* P9-BE-18 — a NEXT ad sale held for SALES, with the reasons. */
+  "adSale.heldForSales": (d) => ({
+    subject: `Ad sale held for you: ${d.sponsorName ?? "a sponsor"}`,
+    text: `${d.sponsorName ?? "A sponsor"}'s ad placement (${d.campaignName ?? "a campaign"}) couldn't be sold automatically, because a NEXT edition is read by students:\n\n${d.reasons ?? ""}\n\nThe sponsor hasn't been told. Sell it by hand once it's right, or leave it — the reasons are on the editions page:\n\n${d.reviewUrl ?? ""}\n\n— SponsorX`,
+  }),
   /* P4-BE-11 — a sponsor's brief approved automatically; one held for BTG. */
   "brief.autoApproved": (d) => ({
     subject: "Your request is approved — your campaign is being staffed",
@@ -334,7 +339,16 @@ ${d.portalUrl ?? ""}
   }),
   "editionArtwork.readyForSignOff": (d) => ({
     subject: `Your ad artwork is ready for your sign-off — ${d.editionLabel ?? "the edition"}`,
-    text: `Hi,\n\nBTG has reviewed your artwork for ${d.slotCode ?? "your ad"} in ${d.editionLabel ?? "the edition"}. Please approve it, or ask for changes, on your campaign page:\n\n${d.reviewUrl ?? ""}\n\nThe edition can't go to print until every ad is approved by its sponsor.\n\n— BTG SponsorX`,
+    /* P9-BE-22 — a trusted sponsor's upload skipped BTG's review. */
+    text: d.skipped === "yes"
+      ? `Hi,\n\nYour artwork for ${d.slotCode ?? "your ad"} in ${d.editionLabel ?? "the edition"} passed our automatic checks and, because your recent ads were approved without changes, it came straight to you. Please approve it, or ask for changes, on your campaign page:\n\n${d.reviewUrl ?? ""}\n\nBTG can still ask for changes while you review it. The edition can't go to print until every ad is approved by its sponsor.\n\n— BTG SponsorX`
+      : `Hi,\n\nBTG has reviewed your artwork for ${d.slotCode ?? "your ad"} in ${d.editionLabel ?? "the edition"}. Please approve it, or ask for changes, on your campaign page:\n\n${d.reviewUrl ?? ""}\n\nThe edition can't go to print until every ad is approved by its sponsor.\n\n— BTG SponsorX`,
+  }),
+  /* P9-BE-22 — the automatic checks sent the upload back; every failure is
+     listed, one per line, so the sponsor can fix them in one go. */
+  "editionArtwork.checksFailed": (d) => ({
+    subject: `Fix before review: your ad artwork for ${d.slotCode ?? "your ad slot"}, ${d.editionLabel ?? "the edition"}`,
+    text: `Hi,\n\nVersion ${d.version ?? "1"} of the artwork for ${d.slotCode ?? "your ad slot"} in ${d.editionLabel ?? "the edition"} didn't pass our automatic checks, so it hasn't gone to BTG:\n\n${d.reasons ?? ""}\n\nFix these and upload it again here:\n\n${d.reviewUrl ?? ""}\n\n— BTG SponsorX`,
   }),
   "editionArtwork.revisionRequested": (d) => ({
     subject: `Changes asked for: ad artwork for ${d.slotCode ?? "an ad slot"}, ${d.editionLabel ?? "the edition"}`,
@@ -376,9 +390,21 @@ ${d.portalUrl ?? ""}
   /* P9-BE-13, §5.6 — SponsorX declined a business a student brought in.
      It says plainly that their sales credit is untouched, because that is a
      requirement and not a courtesy, and offers the categories still open. */
+  /* P9-BE-21 — a minor's guardian gets the same message (`guardianName`
+     set), addressed to them and about their student. */
   "student.prospectDeclined": (d) => ({
     subject: `About ${d.businessName ?? "your prospect"}`,
-    text: `Hi ${d.studentName ?? "there"},\n\nSponsorX can't take on ${d.businessName ?? "this business"} right now (reason: ${(d.reason ?? "OTHER").replace(/_/g, " ").toLowerCase()}).\n\nThis doesn't count against you — your sales credit and points are unchanged.${d.openCategories ? `\n\nCategories still open at your school: ${d.openCategories}.` : ""}\n\n— SponsorX NEXT`,
+    text: `Hi ${d.guardianName || d.studentName || "there"},\n\n${d.guardianName ? `About a business ${d.studentName ?? "your student"} brought to SponsorX NEXT: ` : ""}SponsorX can't take on ${d.businessName ?? "this business"} right now (reason: ${(d.reason ?? "OTHER").replace(/_/g, " ").toLowerCase()}).\n\nThis doesn't count against ${d.guardianName ? d.studentName ?? "them" : "you"} — ${d.guardianName ? "their" : "your"} sales credit and points are unchanged.${d.openCategories ? `\n\nCategories still open at ${d.guardianName ? "their" : "your"} school: ${d.openCategories}.` : ""}\n\n— SponsorX NEXT`,
+  }),
+  /* P9-BE-21 — a prospect the system held for a person, with the reasons. */
+  "studentProspect.heldForSales": (d) => ({
+    subject: `A student prospect needs a decision: ${d.businessName ?? "a business"}`,
+    text: `${d.studentName ?? "A student"}${d.school ? ` at ${d.school}` : ""} brought in ${d.businessName ?? "a business"} (${d.category ?? "no category"}). It wasn't decided automatically:\n\n${d.reasons ?? ""}\n\nAccept it or refuse it with a reason on the prospect desk:\n\n${d.deskUrl ?? ""}\n\n— SponsorX NEXT`,
+  }),
+  /* P9-BE-20 — the advisor's once-a-day list of roster approvals. */
+  "student.autoApprovedDigest": (d) => ({
+    subject: `${d.count ?? "0"} student(s) approved from your roster — ${d.day ?? "today"}`,
+    text: `These applications matched your school's roster exactly and were approved automatically:\n\n${d.students ?? ""}\n\nIf someone shouldn't be on the masthead, suspend them from your desk:\n\n${d.deskUrl ?? ""}\n\n— SponsorX NEXT`,
   }),
   /* 2S1-INT-01 — the five onboarding messages, to the organisation's primary
      contact. Every refusal quotes the reviewer's note, which is mandatory

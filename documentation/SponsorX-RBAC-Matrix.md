@@ -1144,6 +1144,25 @@ Neither `ADVISOR` nor `STUDENT` appears. Publishing economics is not an
 advisor's authority, and a student seeing the school's cut of an edition is a
 conversation for the school to have, not a column to expose.
 
+**The split lock (P9-BE-19, added 2026-10-03).** `revenueSplit.approve` is
+the lock: `FINANCE` (and `SUPER_ADMIN`) lock an edition's split with a note
+(`POST /editions/{id}/splits/lock`). Unlocking is `edition.approve`,
+tenant-wide — `BTG_ADMIN` (and `SUPER_ADMIN`), with a reason
+(`POST /editions/{id}/splits/unlock`); Finance cannot unlock its own lock.
+Who locked a split is shown only to a caller with `revenueSplit` read.
+
+**FINANCE lists editions through its split read (added 2026-10-03).**
+`FINANCE` holds no `edition` read, so it could not reach the splits screen.
+`GET /editions` now answers a caller with no `edition` read but with
+`revenueSplit` read (`FINANCE`, own-tenant) with the editions in its tenant —
+**the edition row only**: label, publication, dates, state, threshold, the
+three production flags, `salesOpenAt` and whether the split is locked. Every
+other part of that read asks its own resource and stays empty for Finance:
+no slots or inventory values (`adSlot`), no buyers (`campaign`), no rights
+gap (`editionAsset`), no artwork (`editionArtwork`), and no `nextStep`. No
+row of `backend/src/auth/policy.ts` changed; the widening is in the route
+(`backend/src/routes/v1/editions.ts`, `listEditions`).
+
 #### `editionEvent`
 | Role | Read | Write | Approve |
 |---|---|---|---|

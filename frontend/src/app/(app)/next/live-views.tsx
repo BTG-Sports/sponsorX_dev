@@ -16,8 +16,8 @@ import {
   PROSPECT_FILTERS,
   PROSPECT_STATE_COPY,
   STUDENT_CATEGORIES,
-  STUDENT_STATE_COPY,
   salesMilestone,
+  studentStatusWords,
 } from "@/lib/students-live";
 import type { ApiStudentProspect, LiveStudent } from "./live";
 
@@ -51,18 +51,19 @@ export function StudentUnlinked({ title }: { title: string }) {
   );
 }
 
+/* P9-FE-11 — the student's status in plain words (studentStatusWords):
+   "your school is reviewing your application" while it waits — never the
+   advisor's internal reasons, which the API does not send to a student. */
 function ActiveOnly({ s }: { s: Student["student"] }) {
   if (s.state === "ACTIVE") return null;
+  const words = studentStatusWords(s);
   return (
     <Card className="border-warn/30 bg-warn/5">
-      <p className="text-sm font-medium">{STUDENT_STATE_COPY[s.state]}</p>
-      <p className="mt-1 text-xs text-muted">
-        {s.state === "APPROVED"
-          ? "You're approved — you join the masthead once your advisor adds you (a guardian must be verified first if you're under 18)."
-          : s.reviewerNotes
-            ? `Your advisor's note: ${s.reviewerNotes}`
-            : "Selling and points start once you're on the masthead."}
-      </p>
+      <p className="text-sm font-medium">{words.title}</p>
+      <p className="mt-1 text-xs text-muted">{words.body}</p>
+      {s.state !== "REJECTED" && s.state !== "INACTIVE" && (
+        <p className="mt-1 text-[10px] text-faint">Selling and points start once you&rsquo;re on the masthead.</p>
+      )}
     </Card>
   );
 }

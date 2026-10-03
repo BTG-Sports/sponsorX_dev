@@ -88,6 +88,8 @@ const rightsLedger: RequestHandler<{ id: string }> = async (req, res) => {
                   id: true, grantorKind: true, grantorRef: true, mayPublishDigital: true, mayPublishPrint: true,
                   mayPromote: true, mayReuseCommercially: true, territory: true, startsAt: true, endsAt: true,
                   attribution: true, acceptanceId: true, licenseRef: true,
+                  /* P9-BE-22, -23 — "Recorded automatically", and on what. */
+                  autoBasis: true,
                 },
                 orderBy: { startsAt: "asc" as const },
               },

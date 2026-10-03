@@ -13,42 +13,38 @@
  * published about a student is the display name and the school — never the
  * legal name, email, age or grade (P9-SEC-01).
  */
-import { randomBytes } from "node:crypto";
-
 import type { Prisma } from "../generated/prisma/client";
 import { prisma } from "../db/client";
 import { audit } from "../db/audit";
-import { enqueue } from "../db/outbox";
 import type { Actor } from "../auth/actor";
 import { assertAllowed, assertTenantWide, whereFor } from "../auth/scope";
 import { scopeFor } from "../auth/policy";
 import { ForbiddenError } from "../auth/errors";
 import { BRAND_CATEGORIES } from "./brand-categories";
-import { GUARDIAN_RELATIONSHIPS, guardianReadiness, requiresGuardian } from "./guardian-rules";
-import {
-  canTransitionStudent,
-  IllegalStudentTransitionError,
-  SELF_MOVES,
-  StudentGuardianRequiredError,
-  type StudentState,
-} from "./student-state";
+import { GUARDIAN_RELATIONSHIPS, requiresGuardian } from "./guardian-rules";
+import { SELF_MOVES, type StudentState } from "./student-state";
 import { pointsFor, salesMilestonesCrossed, type PointReason } from "./student-points";
-import { provisionStudentLoginsIn } from "./athlete-login";
 import { readPage, type PageRequest } from "../lib/paging";
+import { NOT_FOR_STUDENTS } from "./student-categories";
+import {
+  decideProspectIn,
+  issueStudentCodeIn,
+  moveStudentIn,
+  ProspectDecisionError,
+  PROSPECT_DECIDE_SELECT,
+  STUDENT_MOVE_SELECT,
+  StudentNotActiveError,
+} from "./student-moves";
+import { autoDecideProspectIn, autoReviewStudentIn } from "./student-auto";
+
+/* Moved to student-moves.ts with the moves that throw them; re-exported where they always were. */
+export { ProspectDecisionError, StudentNotActiveError } from "./student-moves";
 
 export const MASTHEAD_ROLES = ["EDITOR", "WRITER", "PHOTOGRAPHER", "VIDEO", "DESIGNER", "SALES", "CORRESPONDENT"] as const;
 export type MastheadRole = (typeof MASTHEAD_ROLES)[number];
 
-/**
- * Categories a school programme of minors does not sell (P9-SEC-01). A
- * student can neither bring one in nor be redirected towards one. Decided
- * here, conservatively, pending the school terms' own list (P9-PMO-02 §4
- * lets a school refuse more, never fewer).
- */
-export const NOT_FOR_STUDENTS: ReadonlySet<string> = new Set([
-  "ALCOHOL", "TOBACCO_VAPE", "GAMBLING", "CANNABIS", "FIREARMS", "ADULT",
-  "POLITICAL", "RELIGIOUS", "PHARMA", "CRYPTO", "ENERGY_DRINK", "SUPPLEMENTS",
-]);
+/* P9-SEC-01 — moved to student-categories.ts (pure, for the rules); re-exported where it always was. */
+export { NOT_FOR_STUDENTS } from "./student-categories";
 
 /** §5.6 Sponsor Acceptance Check — why SponsorX declined a prospect. */
 export const PROSPECT_REJECTION_REASONS = [
@@ -66,13 +62,6 @@ export class NotASchoolError extends Error {
   }
 }
 
-export class StudentNotActiveError extends Error {
-  readonly status = 409;
-  constructor(what: string) {
-    super(`Only an ACTIVE student can ${what}.`);
-    this.name = "StudentNotActiveError";
-  }
-}
 
 export class UnknownCodeError extends Error {
   readonly status = 404;
@@ -92,13 +81,6 @@ export class StudentGuardianNotRequiredError extends Error {
   }
 }
 
-export class ProspectDecisionError extends Error {
-  readonly status = 422;
-  constructor(message: string) {
-    super(message);
-    this.name = "ProspectDecisionError";
-  }
-}
 
 /* ── the student (P9-BE-04) ─────────────────────────────────────────────── */
 
@@ -119,6 +101,16 @@ const STUDENT_SELECT = {
   displayName: true, email: true, gradYear: true, masthead: true, state: true,
   reviewerNotes: true, leftAt: true, createdAt: true,
 } as const;
+
+/** P9-BE-20 — what the reviewers (the advisor, BTG) also see: why an
+ *  application waits for them, and whether the system approved it. Never a
+ *  student's or a guardian's read — they are told "your school is
+ *  reviewing", not what the roster said. */
+const REVIEWER_SELECT = { ...STUDENT_SELECT, reviewReasons: true, autoApprovedAt: true } as const;
+
+/** Those who may decide an application (student.approve) read the review; nobody else does. */
+const isReviewer = (actor: Actor) => !["deny", "deferred"].includes(scopeFor(actor.roles, "student", "approve"));
+const selectFor = (actor: Actor) => (isReviewer(actor) ? REVIEWER_SELECT : STUDENT_SELECT);
 
 async function assertSchool(tx: Prisma.TransactionClient, tenantId: string, propertyId: string): Promise<void> {
   const school = await tx.property.findFirst({ where: { tenantId, id: propertyId }, select: { kind: true } });
@@ -149,8 +141,14 @@ export async function createStudent(actor: Actor, input: StudentInput): Promise<
 /**
  * The public "Become the Media" application (spec §8 `(public)/next/apply`).
  * No login — a student applying is not yet anyone's user. Lands SUBMITTED in
- * the school's tenant, for that school's advisor to review. Returns only the
- * id and state: nothing the applicant sent is echoed back.
+ * the school's tenant and is picked up and decided from the roster in the
+ * same transaction (P9-BE-20): approved on an exact match, otherwise waiting
+ * for the school's advisor with the reasons.
+ *
+ * The answer is the RECEIPT — always `state: "SUBMITTED"`, whatever the
+ * roster said. An anonymous caller is never told whether a name is on a
+ * school's list of (mostly minor) students: the claim flow's rule
+ * (featured.ts `submitClaim`). The student reads their status once signed in.
  */
 export type StudentApplicationGuardian = { legalName: string; email: string; relationship: string };
 
@@ -186,7 +184,8 @@ export async function applyAsStudent(
     await audit(tx, { tenantId: school.tenantId, userId: null }, "student.apply", "Student", student.id, {
       after: { propertyId: school.id, guardianId: guardian?.id ?? null },
     });
-    return { id: student.id, state: student.state as StudentState, guardianRequired: minor };
+    await autoReviewStudentIn(tx, school.tenantId, student.id);
+    return { id: student.id, state: "SUBMITTED", guardianRequired: minor };
   });
 }
 
@@ -202,7 +201,7 @@ export class StudentApplicationGuardianMissingError extends Error {
 export async function getStudent(actor: Actor, studentId: string) {
   const student = await prisma.student.findFirst({
     where: { ...whereFor(actor, "student", "read"), id: studentId },
-    select: STUDENT_SELECT,
+    select: selectFor(actor),
   });
   if (!student) throw new ForbiddenError("student", "read");
   return student;
@@ -211,7 +210,7 @@ export async function getStudent(actor: Actor, studentId: string) {
 export async function listStudents(actor: Actor) {
   return prisma.student.findMany({
     where: { ...whereFor(actor, "student", "read") },
-    select: STUDENT_SELECT,
+    select: selectFor(actor),
     orderBy: { createdAt: "desc" },
   });
 }
@@ -244,21 +243,30 @@ const studentSearch = (q?: string): Prisma.StudentWhereInput =>
  * group and a name search, plus every group's count (groupBy, not a fold):
  * the counts honour the search but not the group, so the desk's tabs say
  * what each would hold.
+ *
+ * P9-BE-20 — `auto` (reviewers only): the students the system approved from
+ * the roster, newest approval first, whatever their state now; and the
+ * reviewers' summary carries how many there are (`autoApproved`).
  */
-export async function listStudentsPage(actor: Actor, req: PageRequest, opts: { group?: StudentGroup; q?: string } = {}) {
+export async function listStudentsPage(actor: Actor, req: PageRequest, opts: { group?: StudentGroup; q?: string; auto?: boolean } = {}) {
+  const reviewer = isReviewer(actor);
+  const auto = Boolean(opts.auto) && reviewer;
   const scope = { ...whereFor(actor, "student", "read"), ...studentSearch(opts.q) };
-  const where: Prisma.StudentWhereInput = opts.group ? { ...scope, state: { in: [...STUDENT_GROUPS[opts.group]] } } : scope;
-  const [{ rows, page }, counts] = await Promise.all([
+  const grouped: Prisma.StudentWhereInput = opts.group ? { ...scope, state: { in: [...STUDENT_GROUPS[opts.group]] } } : scope;
+  const where: Prisma.StudentWhereInput = auto ? { ...grouped, autoApprovedAt: { not: null } } : grouped;
+  const orderBy: Prisma.StudentOrderByWithRelationInput[] = auto ? [{ autoApprovedAt: "desc" }, { id: "desc" }] : [{ createdAt: "desc" }, { id: "desc" }];
+  const [{ rows, page }, counts, autoApproved] = await Promise.all([
     readPage(
       req,
       () => prisma.student.count({ where: { ...where } }),
       (skip, take) =>
-        prisma.student.findMany({ where: { ...where }, select: STUDENT_SELECT, orderBy: [{ createdAt: "desc" }, { id: "desc" }], skip, take }),
+        prisma.student.findMany({ where: { ...where }, select: selectFor(actor), orderBy, skip, take }),
     ),
     prisma.student.groupBy({
       /* tenant-scope: `scope` is whereFor(student, read) plus the name search. */
       by: ["state"], where: { ...scope }, _count: { _all: true },
     }),
+    reviewer ? prisma.student.count({ where: { ...scope, autoApprovedAt: { not: null } } /* tenant-scope: whereFor(student, read). */ }) : Promise.resolve(null),
   ]);
   const groups = Object.fromEntries(STUDENT_GROUP_KEYS.map((g) => [g, 0])) as Record<StudentGroup, number>;
   for (const c of counts) {
@@ -266,7 +274,7 @@ export async function listStudentsPage(actor: Actor, req: PageRequest, opts: { g
     if (g) groups[g] += c._count._all;
   }
   const all = STUDENT_GROUP_KEYS.reduce((n, g) => n + groups[g], 0);
-  return { students: rows, page, summary: { groups, all } };
+  return { students: rows, page, summary: { groups, all, ...(autoApproved !== null ? { autoApproved } : {}) } };
 }
 
 /**
@@ -274,6 +282,12 @@ export async function listStudentsPage(actor: Actor, req: PageRequest, opts: { g
  * (`write`); every other move is a review (`approve`) — the school's advisor
  * or BTG. ACTIVE needs a verified guardian for a minor, on the athlete's rule.
  * INACTIVE records when they left, and touches no attribution.
+ *
+ * P9-BE-20 — the system carries on from a person's move in the same
+ * transaction: a submission is picked up and decided from the roster, an
+ * approval activates at once when the guardian gate is met, and ACTIVE
+ * issues the sales code (student-moves.ts). The answer is where the student
+ * ended up.
  */
 export async function transitionStudent(
   actor: Actor,
@@ -286,38 +300,14 @@ export async function transitionStudent(
   return prisma.$transaction(async (tx) => {
     const student = await tx.student.findFirst({
       where: { ...whereFor(actor, "student", action), id: studentId },
-      select: {
-        id: true, state: true, birthDate: true, ageBand: true, guardianId: true,
-        guardian: { select: { verifiedAt: true } },
-      },
+      select: STUDENT_MOVE_SELECT,
     });
     if (!student) throw new ForbiddenError("student", action);
-    const from = student.state as StudentState;
-    if (!canTransitionStudent(from, to)) throw new IllegalStudentTransitionError(from, to);
-    if (to === "ACTIVE") {
-      const readiness = guardianReadiness({
-        birthDate: student.birthDate, ageBand: student.ageBand,
-        guardianId: student.guardianId, guardianVerifiedAt: student.guardian?.verifiedAt ?? null,
-      });
-      if (readiness.status !== "not-required" && readiness.status !== "ready") {
-        throw new StudentGuardianRequiredError(readiness.reason);
-      }
-    }
-    const updated = await tx.student.update({
-      where: { id: studentId },
-      data: {
-        state: to as Prisma.StudentUpdateInput["state"],
-        ...(reviewerNotes !== undefined ? { reviewerNotes } : {}),
-        ...(to === "INACTIVE" ? { leftAt: new Date() } : {}),
-      },
-      select: { id: true, state: true },
-    });
-    await audit(tx, actor, "student.transition", "Student", studentId, { before: { state: from }, after: { state: to } });
-    /* P9-FE-06 — approval is what makes a login worth having, the same rule
-       as athletes (P3-BE-15): the student's, and a linked guardian's, in the
-       decision's own transaction. */
-    if (to === "APPROVED") await provisionStudentLoginsIn(tx, actor, studentId);
-    return { id: updated.id, state: updated.state as StudentState };
+    const moved = await moveStudentIn(tx, actor, student, to, { reviewerNotes });
+    if (moved !== "SUBMITTED") return { id: studentId, state: moved };
+    await autoReviewStudentIn(tx, student.tenantId, studentId);
+    const now = await tx.student.findFirstOrThrow({ where: { tenantId: student.tenantId, id: studentId }, select: { state: true } });
+    return { id: studentId, state: now.state as StudentState };
   });
 }
 
@@ -359,22 +349,18 @@ export async function linkStudentGuardian(
 /**
  * Issue — or return — the student's sales code. ONE code per student,
  * across every sale they ever originate: the code is a person's, not a
- * campaign's. Written by BTG, never by the student it credits.
+ * campaign's. Written by BTG, never by the student it credits — and, since
+ * P9-BE-20, by the system the moment a student goes ACTIVE.
  */
 export async function issueStudentCode(actor: Actor, studentId: string): Promise<{ code: string }> {
   assertTenantWide(actor, "studentCode", "write");
   return prisma.$transaction(async (tx) => {
     const student = await tx.student.findFirst({
       where: { ...whereFor(actor, "student", "read"), id: studentId },
-      select: { id: true, state: true, code: { select: { code: true } } },
+      select: { id: true, tenantId: true },
     });
     if (!student) throw new ForbiddenError("studentCode", "write");
-    if (student.code) return { code: student.code.code };
-    if (student.state !== "ACTIVE") throw new StudentNotActiveError("be given a sales code");
-    const code = randomBytes(9).toString("base64url");
-    await tx.studentCode.create({ data: { tenantId: actor.tenantId, studentId, code }, select: { id: true } });
-    await audit(tx, actor, "studentCode.issue", "Student", studentId, {});
-    return { code };
+    return issueStudentCodeIn(tx, actor, student.tenantId, studentId);
   });
 }
 
@@ -425,7 +411,8 @@ export async function resolveStudentCode(code: string): Promise<{ code: string; 
  */
 export async function attributeSale(
   tx: Prisma.TransactionClient,
-  actor: Pick<Actor, "tenantId" | "userId">,
+  /* P9-BE-18 — the system (userId null) credits the student for an automatic ad sale. */
+  actor: { tenantId: string; userId: string | null },
   sale: { studentCodeId: string; sponsorId: string; campaignId: string; editionId: string | null; valueCents: number },
 ): Promise<{ attributionId: string } | null> {
   const code = await tx.studentCode.findFirst({
@@ -587,11 +574,18 @@ export async function assignAccountStudent(actor: Actor, sponsorId: string, stud
 
 /* ── prospects: the Sponsor Acceptance Check (P9-BE-13, §5.6) ───────────── */
 
+/**
+ * A student brings a business in. P9-BE-21 — decided at once, as the
+ * system, in the same transaction (student-auto.ts `autoDecideProspectIn`):
+ * refused when another sponsor holds the category, accepted when nothing is
+ * in the way, otherwise held for SALES with the reasons. The answer says
+ * where it landed — never why it was held.
+ */
 export async function submitProspect(
   actor: Actor,
   studentId: string,
   input: { businessName: string; category: string },
-): Promise<{ id: string }> {
+): Promise<{ id: string; state: ProspectState }> {
   assertAllowed(actor, "studentProspect", "write");
   if (!(BRAND_CATEGORIES as readonly string[]).includes(input.category)) {
     throw new ProspectDecisionError("Unknown brand category.");
@@ -603,16 +597,18 @@ export async function submitProspect(
     /* A student submits their own prospects (student.write is `own`); staff
        may file one for any student in the tenant. */
     const student = await tx.student.findFirst({
-      where: { ...whereFor(actor, "student", "write"), id: studentId }, select: { id: true, state: true },
+      where: { ...whereFor(actor, "student", "write"), id: studentId }, select: { id: true, tenantId: true, state: true },
     });
     if (!student) throw new ForbiddenError("studentProspect", "write");
     if (student.state !== "ACTIVE") throw new StudentNotActiveError("submit a prospect");
     const row = await tx.studentProspect.create({
-      data: { tenantId: actor.tenantId, studentId, businessName: input.businessName, category: input.category },
+      data: { tenantId: student.tenantId, studentId, businessName: input.businessName, category: input.category },
       select: { id: true },
     });
     await audit(tx, actor, "studentProspect.submit", "StudentProspect", row.id, { after: input });
-    return row;
+    await autoDecideProspectIn(tx, student.tenantId, row.id);
+    const now = await tx.studentProspect.findFirstOrThrow({ where: { tenantId: student.tenantId, id: row.id }, select: { state: true } });
+    return { id: row.id, state: now.state as ProspectState };
   });
 }
 
@@ -659,25 +655,50 @@ export async function listProspectsPage(actor: Actor, studentId: string, req: Pa
   return { prospects: rows, page, summary: { states, all: PROSPECT_STATES.reduce((n, s) => n + states[s], 0) } };
 }
 
-/** Categories someone already holds exclusively at this school: the
- *  presenting sponsor of any edition still being planned, sold or produced. */
-async function heldCategories(tx: Prisma.TransactionClient, tenantId: string, propertyId: string): Promise<Set<string>> {
-  const held = await tx.adSlot.findMany({
-    where: {
-      tenantId, kind: "PRESENTING", campaignId: { not: null },
-      edition: { is: { state: { in: ["PLANNING", "SELLING", "CLOSED", "IN_PRODUCTION"] }, publication: { is: { propertyId } } } },
-    },
-    select: { campaign: { select: { brief: { select: { categories: true } } } } },
-  });
-  return new Set(held.flatMap((s) => s.campaign?.brief?.categories ?? []));
+/* ── the prospect desk (P9-BE-21, P9-FE-11) ─────────────────────────────── */
+
+export const PROSPECT_DESK_VIEWS = ["held", "auto", "all"] as const;
+export type ProspectDeskView = (typeof PROSPECT_DESK_VIEWS)[number];
+
+/** The desk's row: the student's own fields plus why it was held, whether
+ *  the system decided it, and who brought it in from which school. */
+const PROSPECT_DESK_SELECT = {
+  ...PROSPECT_SELECT, reviewReasons: true, decidedAutomatically: true,
+  student: { select: { id: true, displayName: true, property: { select: { name: true } } } },
+} as const;
+
+/**
+ * GET /prospects?page= — SALES and BTG's desk across the tenant. `view`:
+ * `held` (the default — undecided, waiting on a person, with the reasons),
+ * `auto` (decided by the system) or `all`; and every view's count.
+ */
+export async function listProspectDesk(actor: Actor, req: PageRequest, opts: { view?: ProspectDeskView } = {}) {
+  assertTenantWide(actor, "studentProspect", "approve");
+  const scope = { ...whereFor(actor, "studentProspect", "approve") };
+  const view = opts.view ?? "held";
+  const narrow: Record<ProspectDeskView, Prisma.StudentProspectWhereInput> = {
+    held: { state: "SUBMITTED" }, auto: { decidedAutomatically: true }, all: {},
+  };
+  const where = { ...scope, ...narrow[view] };
+  const [{ rows, page }, held, auto, all] = await Promise.all([
+    readPage(
+      req,
+      () => prisma.studentProspect.count({ where: { ...where } }),
+      (skip, take) =>
+        prisma.studentProspect.findMany({ where: { ...where }, select: PROSPECT_DESK_SELECT, orderBy: [{ createdAt: "desc" }, { id: "desc" }], skip, take }),
+    ),
+    prisma.studentProspect.count({ where: { ...scope, ...narrow.held } /* tenant-scope: whereFor(studentProspect, approve). */ }),
+    prisma.studentProspect.count({ where: { ...scope, ...narrow.auto } /* tenant-scope: whereFor(studentProspect, approve). */ }),
+    prisma.studentProspect.count({ where: { ...scope } /* tenant-scope: whereFor(studentProspect, approve). */ }),
+  ]);
+  return { prospects: rows, page, summary: { held, auto, all } };
 }
 
 /**
- * Commercial operations decide a prospect. A rejection carries a reason code,
- * notifies the student, and COSTS THEM NO SALES CREDIT — no attribution row or
- * point is touched, here or anywhere a rejection is recorded. Where the refusal
- * was a category someone else holds, the student is offered the categories
- * still open at their school.
+ * Commercial operations decide a prospect — the one the system held, or any
+ * still undecided. A rejection carries a reason code, notifies the student
+ * (and a minor's guardian), and COSTS THEM NO SALES CREDIT (student-moves.ts
+ * `decideProspectIn`, the same move the system makes).
  */
 export async function decideProspect(
   actor: Actor,
@@ -691,49 +712,9 @@ export async function decideProspect(
   return prisma.$transaction(async (tx) => {
     const prospect = await tx.studentProspect.findFirst({
       where: { ...whereFor(actor, "studentProspect", "approve"), id: prospectId },
-      select: {
-        id: true, state: true, businessName: true, category: true,
-        student: { select: { id: true, displayName: true, email: true, propertyId: true, guardian: { select: { email: true } } } },
-      },
+      select: PROSPECT_DECIDE_SELECT,
     });
     if (!prospect) throw new ForbiddenError("studentProspect", "approve");
-    if (prospect.state !== "SUBMITTED") throw new ProspectDecisionError(`This prospect was already ${prospect.state.toLowerCase()}.`);
-
-    let redirectCategories: string[] = [];
-    if (input.decision === "REJECT" && input.reasonCode === "CATEGORY_EXCLUSIVE") {
-      const held = await heldCategories(tx, actor.tenantId, prospect.student.propertyId);
-      held.add(prospect.category);
-      redirectCategories = BRAND_CATEGORIES.filter((c) => !held.has(c) && !NOT_FOR_STUDENTS.has(c));
-    }
-    const state = input.decision === "ACCEPT" ? "ACCEPTED" : "REJECTED";
-    await tx.studentProspect.update({
-      where: { id: prospectId },
-      data: { state, reasonCode: input.reasonCode ?? null, redirectCategories, decidedAt: new Date() },
-      select: { id: true },
-    });
-    await audit(tx, actor, "studentProspect.decide", "StudentProspect", prospectId, {
-      after: { state, reasonCode: input.reasonCode ?? null },
-    });
-
-    if (state === "REJECTED") {
-      /* The student hears it from SponsorX, not from silence. A minor with no
-         email of their own is reached through their guardian. */
-      const to = prospect.student.email ?? prospect.student.guardian?.email ?? null;
-      if (to) {
-        await enqueue(tx, actor.tenantId, "notify.email", {
-          tenantId: actor.tenantId,
-          template: "student.prospectDeclined",
-          to,
-          idempotencyKey: `student.prospectDeclined:${prospectId}`,
-          data: {
-            studentName: prospect.student.displayName,
-            businessName: prospect.businessName,
-            reason: input.reasonCode!,
-            openCategories: redirectCategories.join(", "),
-          },
-        });
-      }
-    }
-    return { id: prospectId, state, redirectCategories };
+    return decideProspectIn(tx, actor, prospect, input);
   });
 }

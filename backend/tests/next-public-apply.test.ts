@@ -165,11 +165,13 @@ describe.skipIf(!hasDatabase)("P9-FE-06 · the public student application, and w
   });
 
   it("the advisor's approval gives the student, and the guardian, a login", async () => {
-    const jo = await prisma.student.findFirstOrThrow({ where: { tenantId: T, legalName: "Jo Minor" }, select: { id: true, guardianId: true } });
-    for (const to of ["UNDER_REVIEW", "APPROVED"]) {
-      const r = await call("POST", `/students/${jo.id}/transition`, { to }, { clerk: ADVISOR });
-      expect(r.status, to).toBe(200);
-    }
+    const jo = await prisma.student.findFirstOrThrow({ where: { tenantId: T, legalName: "Jo Minor" }, select: { id: true, guardianId: true, state: true, reviewReasons: true } });
+    /* P9-BE-20 — picked up on submit; with no roster at this school it waits for the advisor, saying why. */
+    expect(jo).toMatchObject({ state: "UNDER_REVIEW", reviewReasons: ["Your school has no roster on file"] });
+    const r = await call("POST", `/students/${jo.id}/transition`, { to: "APPROVED" }, { clerk: ADVISOR });
+    expect(r.status).toBe(200);
+    /* A minor whose guardian is not verified stays APPROVED — the gate is unchanged. */
+    expect(((await r.json()) as { state: string }).state).toBe("APPROVED");
     const me = await call("GET", "/me", undefined, { clerk: "clerk_np_jo", email: "jo.minor@np-test.invalid" });
     expect(me.status).toBe(200);
     expect(await me.json()).toMatchObject({ tenantId: T, roles: ["STUDENT"], studentId: jo.id, propertyId: SCHOOL.id });

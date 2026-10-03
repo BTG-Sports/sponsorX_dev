@@ -17,6 +17,7 @@ import {
   PointsInput,
   ProspectDecisionInput,
   ProspectInput,
+  SchoolEmailDomainInput,
   StudentApplicationInput,
   StudentGuardianInput,
   StudentInput,
@@ -34,7 +35,9 @@ import {
   listProspects,
   listProspectsPage,
   listStudents,
+  listProspectDesk,
   listStudentsPage,
+  PROSPECT_DESK_VIEWS,
   PROSPECT_STATES,
   readStudentCode,
   resolveStudentCode,
@@ -47,6 +50,7 @@ import {
   type ProspectRejectionReason,
 } from "../../domain/student";
 import type { PointReason } from "../../domain/student-points";
+import { readSchoolReviewSettings, setSchoolEmailDomain } from "../../domain/student-auto";
 import { allowedList, pageRequest, searchTerm } from "../../lib/paging";
 
 export const studentsRouter = Router();
@@ -70,7 +74,8 @@ export const list: RequestHandler = async (req, res) => {
     return;
   }
   const [group] = allowedList(query.group, STUDENT_GROUP_KEYS);
-  res.json(await listStudentsPage(req.actor!, pr, { group, q: searchTerm(query) }));
+  const auto = query.auto === "true" || query.auto === "1";
+  res.json(await listStudentsPage(req.actor!, pr, { group, q: searchTerm(query), auto }));
 };
 const read: RequestHandler<{ id: string }> = async (req, res) => {
   res.json(await getStudent(req.actor!, req.params.id));
@@ -114,6 +119,19 @@ const decide: RequestHandler<{ id: string }> = async (req, res) => {
   const b = ProspectDecisionInput.parse(req.body);
   res.json(await decideProspect(req.actor!, req.params.id, { ...b, reasonCode: b.reasonCode as ProspectRejectionReason | undefined }));
 };
+/** GET /prospects — SALES and BTG's desk; held prospects by default (P9-BE-21). */
+export const prospectDesk: RequestHandler = async (req, res) => {
+  const query = (req.query ?? {}) as Record<string, unknown>;
+  const [view] = allowedList(query.view, PROSPECT_DESK_VIEWS);
+  res.json(await listProspectDesk(req.actor!, pageRequest({ page: 1, ...query })!, { view }));
+};
+/** GET / PUT /properties/:id/email-domain — the school's roster-approval settings (P9-BE-20). */
+const reviewSettings: RequestHandler<{ id: string }> = async (req, res) => {
+  res.json(await readSchoolReviewSettings(req.actor!, req.params.id));
+};
+const setEmailDomain: RequestHandler<{ id: string }> = async (req, res) => {
+  res.json(await setSchoolEmailDomain(req.actor!, req.params.id, SchoolEmailDomainInput.parse(req.body).emailDomain));
+};
 const assign: RequestHandler<{ id: string }> = async (req, res) => {
   res.json(await assignAccountStudent(req.actor!, req.params.id, AssignStudentInput.parse(req.body).studentId));
 };
@@ -130,7 +148,10 @@ studentsRouter.get("/students/:id/points", requireActor, points);
 studentsRouter.post("/students/:id/points", requireActor, accrue);
 studentsRouter.post("/students/:id/prospects", requireActor, newProspect);
 studentsRouter.get("/students/:id/prospects", requireActor, prospects);
+studentsRouter.get("/prospects", requireActor, prospectDesk);
 studentsRouter.post("/prospects/:id/decision", requireActor, decide);
+studentsRouter.get("/properties/:id/email-domain", requireActor, reviewSettings);
+studentsRouter.put("/properties/:id/email-domain", requireActor, setEmailDomain);
 studentsRouter.post("/sponsors/:id/assigned-student", requireActor, assign);
 
 /* ── public ─────────────────────────────────────────────────────────────── */

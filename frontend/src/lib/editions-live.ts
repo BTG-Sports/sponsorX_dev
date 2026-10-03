@@ -35,7 +35,123 @@ export type ApiEdition = {
   /** P9-BE-16 — sold slots whose ad artwork is not yet approved by its sponsor;
    *  null (or absent, from an older API) where the caller can't read artwork. */
   artworkPending?: number | null;
+  /** P9-BE-17 — the day sales open by themselves; null: BTG opens by hand. */
+  salesOpenAt?: string | null;
+  /** P9-BE-19 — Finance has locked the split (the detail is on the splits read). */
+  splitLocked?: boolean;
+  /** P9-BE-17 — what happens next, for a caller who reads every gate (BTG's desk). */
+  nextStep?: EditionNextStep | null;
 };
+
+/* ── P9-BE-17 / -18 / -19 — editions that run themselves ───────────────── */
+
+export type EditionNextStep = { who: "SYSTEM" | "BTG" | "NONE"; text: string };
+
+export type EditionStageChange = {
+  from: ApiEditionState | null;
+  to: ApiEditionState;
+  at: string;
+  movedAutomatically: boolean;
+  reason: string | null;
+};
+
+export type SplitLock = { at: string; by: { userId: string; email: string | null }; note: string };
+
+/** GET /editions/:id — the automation band's part of it. */
+export type ApiEditionDetail = {
+  id: string;
+  salesOpenAt: string | null;
+  nextStep: EditionNextStep;
+  stageHistory: EditionStageChange[];
+  splitLocked: SplitLock | null;
+};
+
+export type SaleHoldKey =
+  | "NOT_FOR_STUDENTS" | "SENSITIVE" | "UNKNOWN_CATEGORY" | "CLASH" | "NO_CATEGORIES"
+  | "NO_EDITION" | "EDITION_CHOICE" | "NO_SLOT" | "CAMPAIGN_STATE";
+
+/** GET /ad-sale-holds — one sale the system held for SALES. */
+export type ApiSaleHold = {
+  id: string;
+  campaignId: string;
+  campaign: string;
+  campaignState: string;
+  sponsor: string;
+  package: { code: string; name: string } | null;
+  edition: { id: string; label: string } | null;
+  reasons: Array<{ key: SaleHoldKey | string; text: string }>;
+  retriesItself: boolean;
+  heldAt: string;
+  checkedAt: string;
+  resolution: string | null;
+  resolvedAt: string | null;
+};
+
+/** GET /publications/:id/rate-card. */
+export type ApiRateCard = { publicationId: string; prices: Array<{ kind: ApiSlotKind; priceCents: number; updatedAt: string }> };
+
+/** Who acts next, as a badge: the system on its own, BTG, or nobody. */
+export function nextStepBadge(step: EditionNextStep): { label: string; tone: "accent" | "warn" | "neutral" } {
+  if (step.who === "SYSTEM") return { label: "Moves on its own", tone: "accent" };
+  if (step.who === "BTG") return { label: "Waiting for BTG", tone: "warn" };
+  return { label: "Nothing left to do", tone: "neutral" };
+}
+
+const STATE_WORDS: Record<ApiEditionState, string> = {
+  PLANNING: "planning", SELLING: "selling", CLOSED: "closed", IN_PRODUCTION: "in production",
+  PUBLISHED_DIGITAL: "published digitally", PRINTED: "printed", DISTRIBUTED: "distributed", CANCELLED: "cancelled",
+};
+
+export const editionStateWords = (s: ApiEditionState) => STATE_WORDS[s] ?? s.toLowerCase();
+
+/** One stage change in words: "Selling · automatically — Sales opened on their date (2026-10-12)." */
+export function stageChangeLine(c: EditionStageChange): string {
+  const to = editionStateWords(c.to);
+  const head = `${to.charAt(0).toUpperCase()}${to.slice(1)} · ${c.movedAutomatically ? "automatically" : "by BTG"}`;
+  return c.reason ? `${head} — ${c.reason}` : head;
+}
+
+/** A held sale's reasons, short enough for a badge each. */
+export const HOLD_KEY_LABEL: Record<SaleHoldKey, string> = {
+  NOT_FOR_STUDENTS: "Not sold to students",
+  SENSITIVE: "Sensitive category",
+  UNKNOWN_CATEGORY: "Unknown category",
+  CLASH: "Category clash",
+  NO_CATEGORIES: "No category recorded",
+  NO_EDITION: "No edition selling yet",
+  EDITION_CHOICE: "Choose an edition",
+  NO_SLOT: "No slot free yet",
+  CAMPAIGN_STATE: "Campaign moved on",
+};
+
+export function holdKeyLabel(key: string): string {
+  return HOLD_KEY_LABEL[key as SaleHoldKey] ?? "Held";
+}
+
+/** What becomes of a held sale: the system tries again, or SALES decides. */
+export function holdNext(h: Pick<ApiSaleHold, "retriesItself">): string {
+  return h.retriesItself
+    ? "Tried again every ten minutes — it sells by itself once a slot or an edition is free."
+    : "Waiting for SALES: sell it by hand once it's right, or leave it.";
+}
+
+/** The rate card's price for a kind, in cents, or null. */
+export function rateCardPrice(card: ApiRateCard | null | undefined, kind: ApiSlotKind): number | null {
+  return card?.prices.find((p) => p.kind === kind)?.priceCents ?? null;
+}
+
+/** The slot form's line under the price field. */
+export function slotPriceHint(card: ApiRateCard | null | undefined, kind: ApiSlotKind): string {
+  const p = rateCardPrice(card, kind);
+  return p == null
+    ? "No rate-card price for this kind — type the rack price."
+    : `Rate card: $${(p / 100).toLocaleString("en-US", { maximumFractionDigits: 2 })}. Leave the price empty to use it; a different price is refused.`;
+}
+
+/** "Locked Oct 3, 2026 by fin@… — Checked against Zoho". */
+export function splitLockLine(lock: SplitLock): string {
+  return `Locked ${shortDate(lock.at)} by ${lock.by.email ?? "Finance"} — ${lock.note}`;
+}
 
 export type ApiSlotKind = AdSlotKind | "PRESENTING";
 
@@ -58,6 +174,8 @@ export type ApiLedgerSlot = {
     version: number;
     submittedAt: string | null;
     revision: { reason: string } | null;
+    /** P9-BE-22 — the automatic checks sent it back to the sponsor. */
+    sentBack?: boolean;
   } | null;
 };
 

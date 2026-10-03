@@ -31,6 +31,7 @@ import type { BriefState } from "./brief-state";
 import { lockBrief } from "./brief-moves";
 import { createCampaignIn } from "./campaign-create";
 import { startAutoStaffing } from "./auto-staffing";
+import { startAutoSale } from "./ad-sale-auto";
 
 export class LaunchNeedsFullTransitionError extends Error {
   readonly status = 409;
@@ -98,6 +99,10 @@ export async function createCampaignFromBrief(
     return { ...(await createCampaignIn(tx, actor, brief, name)), tenantId: brief.tenantId };
   });
 
+  /* P9-BE-18 — a package that promises edition positions sells them now,
+     as the system, while the campaign is still a DRAFT — or holds the sale
+     for SALES with the reasons. A failure never undoes the campaign. */
+  await startAutoSale(created.tenantId, created.id);
   /* P4-BE-12 — staffing starts now, as the system, after the campaign is
      committed. A failure never undoes the campaign; the sweep retries. */
   if (created.autoStaffing) {
