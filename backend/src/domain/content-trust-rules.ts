@@ -1,3 +1,4 @@
+import { SENSITIVE_CATEGORIES as SENSITIVE } from "./brand-categories";
 /**
  * Content trust — P5-BE-10: when a draft may skip BTG's review and go
  * straight to the sponsor.
@@ -33,12 +34,11 @@
 export const TRUSTED_DRAFT_COUNT = 3;
 
 /**
- * The sensitive categories: always reviewed by BTG. The same list as
- * `CATEGORY_DISCLOSURES` in offer-draft.ts (the age-gated ones) — kept here
- * as a literal because offer-draft reaches the database and this file must
- * not; tests/content-trust-rules.test.ts pins the two together.
+ * The sensitive categories: always reviewed by BTG. One list for the whole
+ * product — brief auto-approval (P4-BE-11), offer disclosures and this — in
+ * brand-categories.ts, which is pure, so importing it reaches no database.
  */
-export const SENSITIVE_CATEGORIES: readonly string[] = ["ALCOHOL", "TOBACCO_VAPE", "CANNABIS", "GAMBLING"];
+export { SENSITIVE_CATEGORIES } from "./brand-categories";
 
 export type ContentTrust = { trusted: boolean; cleanStreak: number; needed: number };
 
@@ -51,7 +51,7 @@ export function contentTrust(clean: number): ContentTrust {
 /** The sensitive categories among these, de-duplicated, in list order. */
 export function sensitiveIn(categories: readonly (string | null | undefined)[]): string[] {
   const have = new Set(categories.filter((c): c is string => Boolean(c)).map((c) => c.trim().toUpperCase()));
-  return SENSITIVE_CATEGORIES.filter((c) => have.has(c));
+  return (SENSITIVE as readonly string[]).filter((c) => have.has(c));
 }
 
 export type SkipInput = {
