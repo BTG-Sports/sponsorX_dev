@@ -5,7 +5,7 @@
 | | |
 |---|---|
 | **Goal** | Launch real micro-NIL campaigns while building the data foundation. BTG staff run matching, pricing, conflict checks and invoicing; the software standardises and records every step. |
-| **Tasks** | 212 · 496 person-days |
+| **Tasks** | 220 · 509 person-days |
 | **Blueprint timeline** | 14–18 weeks |
 | **Balanced budget** | $75K–$105K |
 | **Depends on** | Nothing — this is the start |
@@ -2946,6 +2946,86 @@ An advertiser's artwork for an edition ad slot has no approval step. `EditionAss
 - **Depends on:** P9-BE-10, P9-FE-03
 - **Done when:** Artwork for a sold slot reaches BTG review and the sponsor's sign-off on the existing approval board, with no new state machine; an edition cannot enter production while any sold slot's artwork is unapproved; the decisions are audited; P9-QA-01 clause 4 passes against it
 - **Reference:** Spec §3, §11 · raised 2026-10-02 by P9-QA-01's end-to-end test (`backend/tests/next-edition-e2e.test.ts`), where it is the one clause the platform cannot meet yet
+
+### ⏸ `P9-BE-17` · Editions move through their stages by themselves
+
+**Order** 209.6 · **BE** · **Where:** Code · **2d** · **In progress**
+
+Phase 2 overrides Phase 1's manual rule here (programme owner, 2026-10-03). Sales open on the opening date when priced slots exist; sales close on the closing date (the split is calculated then); the edition goes to production once all four production checks pass; it publishes digitally on the publish date. Printed, distributed and cancelled stay with BTG. An edition waiting on a check shows why.
+
+- **Depends on:** P9-BE-02, P9-BE-16
+- **Done when:** Each stage moves on its date or check and not before; a failing check leaves the edition with its reason; BTG's manual moves still work
+- **Reference:** BTG admin review item 23, 2026-10-03
+
+### ⏸ `P9-BE-18` · Ad slots priced from the rate card; ads sold automatically behind a student-audience check
+
+**Order** 209.7 · **BE** · **Where:** Code · **2d** · **In progress**
+
+Phase 2 overrides Phase 1's manual rule here (programme owner, 2026-10-03). Slots take their price from the publication's rate card. A package's slots are sold automatically when the sponsor's business is allowed in a student publication (not alcohol, vaping, gambling or other not-for-students categories), no exclusive category clashes, and slots are available; otherwise Sales gets it with the reason. The category check now also applies to Sales' manual sale.
+
+- **Depends on:** P9-BE-03
+- **Done when:** A clean sale needs no person; a not-for-students, sensitive, unknown or clashing category is never sold and reaches Sales with the reason; prices come from the rate card
+- **Reference:** BTG admin review item 23, 2026-10-03
+
+### ⏸ `P9-BE-19` · Finance locks the revenue split; cancelling an edition queues its refunds
+
+**Order** 209.8 · **BE** · **Where:** Code · **1d** · **In progress**
+
+Phase 2 overrides Phase 1's manual rule here (programme owner, 2026-10-03). Finance can lock an edition's split so it is never recalculated; BTG admin can unlock with a reason. Cancelling an edition releases its sold slots, cancels ad-only campaigns that bought only those slots, and puts any money received on Finance's Refunds to send list. Split shares stay placeholders (owner's decision).
+
+- **Depends on:** P9-BE-06, 2S4-BE-13
+- **Done when:** A locked split is never replaced; a cancelled edition releases its slots and creates one refund row per payment received
+- **Reference:** BTG admin review item 23, 2026-10-03
+
+### ⏸ `P9-BE-20` · Students approved from the school roster; activated and given codes automatically
+
+**Order** 209.81 · **BE** · **Where:** Code · **2d** · **In progress**
+
+Phase 2 overrides Phase 1's manual rule here (programme owner, 2026-10-03). An application is approved automatically when the name exactly matches one entry on the school's roster (graduation year too), no student with that name is already approved there, and an adult applies from the school's email domain; otherwise the advisor reviews it with the reason. A minor activates only once their guardian is verified; the sales code is issued on activation. An empty roster approves nobody.
+
+- **Depends on:** P9-BE-05
+- **Done when:** Exact roster matches are approved without a person; every other case reaches the advisor with its reason; a minor never activates without a verified guardian; codes are issued once
+- **Reference:** BTG admin review item 24, 2026-10-03
+
+### ⏸ `P9-BE-21` · Student prospects decided automatically
+
+**Order** 209.82 · **BE** · **Where:** Code · **1d** · **In progress**
+
+Phase 2 overrides Phase 1's manual rule here (programme owner, 2026-10-03). A prospect is rejected automatically when another sponsor holds its category (with other categories suggested), accepted automatically when the category is allowed and nothing clashes, and otherwise held for Sales with the reason.
+
+- **Depends on:** P9-BE-05
+- **Done when:** Exclusive-category prospects are declined with suggestions; clean ones accepted; the rest reach Sales with the reason; a minor's decline goes to the guardian
+- **Reference:** BTG admin review item 24, 2026-10-03
+
+### ⏸ `P9-BE-22` · Ad artwork checked automatically; trusted sponsors skip BTG; the ad licence recorded on approval
+
+**Order** 209.83 · **BE** · **Where:** Code · **2d** · **In progress**
+
+Phase 2 overrides Phase 1's manual rule here (programme owner, 2026-10-03). Uploaded artwork is checked automatically (file type, size, and dimensions if known); a failing upload goes back to the sponsor. A sponsor whose last 3 ads had no BTG changes skips BTG's review; any BTG change request puts them back under review. When the sponsor approves their ad, its licence is recorded, so sold ads no longer block production.
+
+- **Depends on:** P9-BE-16
+- **Done when:** Failing uploads never reach BTG; only sponsors with a clean record skip, and a BTG revision resets them; every approved ad has its licence once
+- **Reference:** BTG admin review item 24, 2026-10-03
+
+### ⏸ `P9-BE-23` · Content rights recorded automatically from valid consent
+
+**Order** 209.84 · **BE** · **Where:** Code · **1d** · **In progress**
+
+Phase 2 overrides Phase 1's manual rule here (programme owner, 2026-10-03). When the student or athlete who made an edition asset has a valid consent on file, the right for that asset is recorded automatically, with the same checks as BTG's: a minor's consent needs a verified guardian, and commercial reuse only under a commercial agreement. Paper consent forms and third-party licences stay with BTG.
+
+- **Depends on:** P9-BE-10, P9-BE-11
+- **Done when:** Rights are recorded automatically only from valid consent, never for a minor without a verified guardian, never commercial without a commercial agreement
+- **Reference:** BTG admin review item 24, 2026-10-03
+
+### ⏸ `P9-FE-11` · NEXT automation, on screen
+
+**Order** 209.85 · **FE** · **Where:** Code · **2d** · **In progress**
+
+Phase 2 overrides Phase 1's manual rule here (programme owner, 2026-10-03). Edition next step and automatic moves; held ad sales with reasons; rate-card prices; Finance's split lock; the advisor's queue with reasons and the school email domain; held prospects; artwork checks, the skipped-review tab and sponsor trust; rights recorded automatically.
+
+- **Depends on:** P9-BE-17, P9-BE-18, P9-BE-19, P9-BE-20, P9-BE-21, P9-BE-22, P9-BE-23
+- **Done when:** Each screen shows what the system did and what is left for a person
+- **Reference:** BTG admin review items 23 and 24, 2026-10-03
 
 ### ⏸ `P9-QA-01` · E2E: edition sells once, a student code attributes the sale
 
