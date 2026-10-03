@@ -70,6 +70,7 @@ export function DeliverableUpload({
   requiredDisclosures = [],
   initialCaption = "",
   canResubmitAsIs = false,
+  accept,
 }: {
   deliverableId: string;
   /** NOT_STARTED — this upload also submits the draft. */
@@ -80,7 +81,9 @@ export function DeliverableUpload({
    *  uploads that reuse this component (edition ad artwork). */
   captioned?: boolean;
   label: string;
-  presign: (id: string, contentType: string) => Promise<Ok<{ url: string; key: string }> | Fail>;
+  /** P9-BE-22 — the size is passed too; an upload that signs it (edition
+   *  ad artwork) uses it, the others ignore it. */
+  presign: (id: string, contentType: string, bytes: number) => Promise<Ok<{ url: string; key: string }> | Fail>;
   register: (id: string, key: string) => Promise<Ok<{ version: number }> | Fail>;
   submit: (id: string, caption: string) => Promise<Ok<{ state: string; passed?: boolean }> | Fail>;
   /** P5-BE-09 — what the caption must carry (the accepted offer's terms). */
@@ -90,6 +93,9 @@ export function DeliverableUpload({
   /** Back with the athlete with a file already there: resubmit it with a
    *  corrected caption, no new upload. */
   canResubmitAsIs?: boolean;
+  /** The file picker's accept list, where an upload allows fewer types
+   *  (edition ad artwork: PDF, PNG or JPG). */
+  accept?: string;
 }) {
   const router = useRouter();
   const input = useRef<HTMLInputElement>(null);
@@ -170,7 +176,7 @@ export function DeliverableUpload({
     setError(null);
     setProgress(0);
     setStep("start");
-    const p = await presign(deliverableId, f.type || "application/octet-stream");
+    const p = await presign(deliverableId, f.type || "application/octet-stream", f.size);
     if (!p.ok) {
       setError({ at: "start", message: p.message });
       return;
@@ -227,7 +233,7 @@ export function DeliverableUpload({
         <input
           ref={input}
           type="file"
-          accept={captioned ? DRAFT_ACCEPT : ACCEPT}
+          accept={accept ?? (captioned ? DRAFT_ACCEPT : ACCEPT)}
           className="sr-only"
           disabled={busy}
           onChange={(e) => choose(e.target.files?.[0] ?? null)}

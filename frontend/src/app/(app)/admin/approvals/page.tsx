@@ -330,7 +330,7 @@ export default async function AdminApprovalsPage({
         <section className="sx-animate sx-delay-2">
           <SectionHeading
             title="Edition ad artwork"
-            hint={`${live.artwork.filter((a) => a.state !== "APPROVED").length} waiting · SponsorX NEXT ads — BTG reviews, the sponsor signs off`}
+            hint={`${live.artwork.filter((a) => a.state !== "APPROVED").length} waiting · ${live.artwork.filter((a) => a.btgReviewSkipped).length} skipped BTG review · SponsorX NEXT ads — checked on upload, BTG reviews, the sponsor signs off`}
           />
           <ArtworkQueue rows={live.artwork} now={requestTime()} act={artworkAction} link={artworkLink} />
         </section>

@@ -27,7 +27,82 @@ export type ApiArtwork = {
   edition: { id: string; label: string; state: string; publication: string };
   slot: { id: string; slotCode: string; kind: string } | null;
   campaign: { id: string; name: string; sponsorName: string } | null;
+  /* P9-BE-22 — the latest upload's automatic checks (null: uploaded before
+     they existed), whether the checks sent it back, and whether it skipped
+     BTG's review. BTG's desk also gets the skip's reason and the sponsor's
+     record. All optional: an older API answers without them. */
+  checks?: ArtworkCheck[] | null;
+  checksPassed?: boolean | null;
+  sentBack?: { by: "SYSTEM"; at: string | null; failed: string[] } | null;
+  btgReviewSkipped?: boolean;
+  skipReason?: string | null;
+  sponsorTrust?: SponsorTrust | null;
 };
+
+export type ArtworkCheck = { key: "fileType" | "fileSize" | "dimensions" | "words"; ok: boolean; text: string };
+export type SponsorTrust = { trusted: boolean; cleanStreak: number; needed: number };
+
+/* --------------------------------------------------------------------------
+   P9-BE-22 — checked on upload, and the trusted-sponsor skip, as the three
+   screens word them. The API decides; these only say it.
+   -------------------------------------------------------------------------- */
+
+export const ARTWORK_SKIPPED_LABEL = "Skipped BTG review";
+
+/** The file types the checks accept — the upload's file picker offers these. */
+export const ARTWORK_ACCEPT = "application/pdf,image/png,image/jpeg";
+
+/** Is it back with its supplier — by a person's change request or the checks? */
+export function artworkBackWithSupplier(a: Pick<ApiArtwork, "state" | "revision" | "sentBack">): boolean {
+  return a.state === "DRAFT_SUBMITTED" && Boolean(a.revision || a.sentBack);
+}
+
+/** The status chip for a row, with the checks' return told apart. */
+export function artworkRowStatus(a: Pick<ApiArtwork, "state" | "revision" | "sentBack">): { label: string; tone: Tone } {
+  if (a.state === "DRAFT_SUBMITTED" && a.sentBack && !a.revision) return { label: "Failed checks", tone: "warn" };
+  return artworkStatus(a.state, artworkBackWithSupplier(a));
+}
+
+/** The checks, each in words, in the API's order: type, size, size in
+ *  pixels, words. */
+export function checkLines(checks: readonly ArtworkCheck[] | null | undefined): Array<{ ok: boolean; text: string }> {
+  return (checks ?? []).map((c) => ({ ok: c.ok, text: c.text }));
+}
+
+/** Only the failures — what the supplier has to fix. */
+export function failedChecks(a: Pick<ApiArtwork, "sentBack">): string[] {
+  return a.sentBack?.failed ?? [];
+}
+
+/** BTG's line for a sponsor's artwork record: "3 of 3 clean". */
+export function sponsorTrustLine(t: SponsorTrust | null | undefined): string | null {
+  if (!t || !(t.needed > 0)) return null;
+  const clean = Math.max(0, Math.min(t.needed, Math.floor(t.cleanStreak)));
+  if (t.trusted || clean >= t.needed) return `Trusted for ads: ${t.needed} of ${t.needed} clean`;
+  const more = t.needed - clean;
+  return `${clean} of ${t.needed} clean — needs ${more} more`;
+}
+
+/** Where the sponsor's latest upload went, in words — or null. */
+export function artworkRoute(a: Pick<ApiArtwork, "state" | "btgReviewSkipped" | "revision" | "sentBack">, side: "BTG" | "SPONSOR"): string | null {
+  if (a.state === "SPONSOR_REVIEW" && a.btgReviewSkipped) {
+    return side === "SPONSOR"
+      ? "Sent straight to your review — your recent ads were approved without changes, so this one skipped BTG's review. BTG can still ask for changes."
+      : "Skipped BTG review — it went straight to the sponsor. You can still ask for changes while they review it.";
+  }
+  if (a.state === "DRAFT_SUBMITTED" && a.sentBack && !a.revision) {
+    return side === "SPONSOR"
+      ? "This file didn't pass our automatic checks, so it hasn't gone to BTG. Fix what's listed and upload it again."
+      : "Sent back by the automatic checks — waiting on a new file from the sponsor.";
+  }
+  return null;
+}
+
+/** BTG's tabs over the artwork list: all of it, or just what skipped BTG. */
+export type ArtworkTab = "all" | "skipped";
+export function artworkTab(rows: readonly ApiArtwork[], tab: ArtworkTab): ApiArtwork[] {
+  return tab === "skipped" ? rows.filter((a) => a.btgReviewSkipped) : [...rows];
+}
 
 /** One row of GET /campaigns/:id/artwork — a slot the campaign bought. */
 export type ApiCampaignArtworkSlot = {
@@ -61,10 +136,14 @@ export function artworkStatus(state: ArtworkState | null, revisionOpen: boolean)
   }
 }
 
-/** BTG's moves on the board — no approve: the sign-off is the sponsor's. */
-export function boardMoves(state: ArtworkState, revisionOpen: boolean): BoardMove[] {
+/** BTG's moves on the board — no approve: the sign-off is the sponsor's.
+ *  P9-BE-22 — on an artwork that skipped BTG's review, BTG can still ask for
+ *  changes while the sponsor reviews it. `revisionOpen` covers a return by
+ *  the automatic checks too (artworkBackWithSupplier). */
+export function boardMoves(state: ArtworkState, revisionOpen: boolean, skipped = false): BoardMove[] {
   if (state === "DRAFT_SUBMITTED") return revisionOpen ? [] : ["btg-review"];
   if (state === "BTG_REVIEW") return ["sponsor-review", "revision"];
+  if (state === "SPONSOR_REVIEW" && skipped) return ["revision"];
   return [];
 }
 
@@ -81,7 +160,7 @@ export function canUploadArtwork(state: ArtworkState | null, editionOpen: boolea
 
 /** Plain-English "what happens next", per side. */
 export function artworkNext(state: ArtworkState | null, revisionOpen: boolean, side: "BTG" | "SPONSOR"): string {
-  if (!state) return side === "SPONSOR" ? "Upload your ad artwork — BTG reviews it, then sends it back to you to approve." : "Waiting on the sponsor's artwork file.";
+  if (!state) return side === "SPONSOR" ? "Upload your ad artwork — it's checked as soon as it lands, BTG reviews it, then it comes back to you to approve." : "Waiting on the sponsor's artwork file.";
   if (state === "DRAFT_SUBMITTED" && revisionOpen) {
     return side === "SPONSOR" ? "Changes were asked for — upload a new version to answer them." : "Sent back for changes — waiting on the new version.";
   }

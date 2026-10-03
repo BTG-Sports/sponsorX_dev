@@ -29,7 +29,23 @@ export type ApiRight = {
   attribution: string | null;
   acceptanceId: string | null;
   licenseRef: string | null;
+  /** P9-BE-22 / -23 — recorded by the system, and on what; null (or absent,
+   *  from an API before it) when BTG recorded it by hand. */
+  autoBasis?: AutoBasis | null;
 };
+
+export type AutoBasis = "AD_APPROVAL" | "CONSENT";
+
+/** "Recorded automatically" and why — or null for a grant BTG typed in. */
+export function autoRecorded(r: Pick<ApiRight, "autoBasis">): { label: string; hint: string } | null {
+  if (r.autoBasis === "AD_APPROVAL") {
+    return { label: "Recorded automatically", hint: "From the sponsor's approval of their own ad artwork — digital and print, for this edition." };
+  }
+  if (r.autoBasis === "CONSENT") {
+    return { label: "Recorded automatically", hint: "From the maker's consent on file — what that consent covers, nothing more." };
+  }
+  return null;
+}
 
 export type ApiRightsAsset = {
   id: string;

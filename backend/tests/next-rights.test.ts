@@ -302,9 +302,9 @@ describe.skipIf(!hasDatabase)("SponsorX NEXT rights, featured athletes and the D
 
       /* The sold page's artwork: through BTG's review to its sponsor's sign-off, licensed (P9-BE-16, -10). */
       const f1 = await prisma.adSlot.findFirstOrThrow({ where: { editionId: id, slotCode: "F1" }, select: { id: true } });
-      const { key } = await artwork.presignArtworkUpload(rosa, f1.id, "image/png");
+      const { key } = await artwork.presignArtworkUpload(rosa, f1.id, "image/png", 48_213);
       const art = await artwork.registerArtwork(rosa, f1.id, { r2Key: key });
-      await artwork.startArtworkReview(staff, art.id);
+      /* P9-BE-22 — the system picked it up on upload (BTG_REVIEW). */
       await artwork.sendArtworkToSponsor(staff, art.id);
       await artwork.approveArtwork(rosa, art.id);
       await rights.grantRight(staff, art.id, { grantorKind: "THIRD_PARTY", grantorRef: "Rosa's Bakery", mayPublishDigital: true, startsAt: new Date(), licenseRef: "nx4-IO-1" });
