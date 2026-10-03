@@ -71,7 +71,8 @@ export async function registerUpload(deliverableId: string, key: string) {
 export async function submitDraft(deliverableId: string, caption?: string) {
   if (!valid(deliverableId)) return { ok: false, message: "Nothing to submit." } as Fail;
   const text = typeof caption === "string" ? caption.trim().slice(0, CAPTION_MAX) : "";
-  return post<{ state: string; passed: boolean; checks: ContentCheck[] }>(
+  /* P5-BE-10 — btgReviewSkipped: it went straight to the sponsor. */
+  return post<{ state: string; passed: boolean; checks: ContentCheck[]; btgReviewSkipped?: boolean }>(
     `/deliverables/${encodeURIComponent(deliverableId)}/submit`,
     text ? { caption: text } : {},
     "Couldn't submit your draft",

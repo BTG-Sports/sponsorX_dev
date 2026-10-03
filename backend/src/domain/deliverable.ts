@@ -49,6 +49,7 @@ import {
 } from "./content-check-rules";
 import { maybeMakeEligible } from "./earning";
 import { advanceCampaignOfOrder } from "./campaign-stages";
+import { decideSkip, isBtgReviewer, lockAthleteContent, SKIP_ATHLETE_SELECT } from "./content-trust";
 
 export class PublishedUrlRequiredError extends Error {
   readonly status = 400;
@@ -108,6 +109,25 @@ export class DraftInReviewError extends Error {
         "is sent back to you.",
     );
     this.name = "DraftInReviewError";
+  }
+}
+
+/** P5-BE-10 — a sponsor approves once BTG has sent the draft to them. */
+export class BtgReviewFirstError extends Error {
+  readonly status = 409;
+  constructor() {
+    super("BTG is still reviewing this draft. You can approve it once it reaches you.");
+    this.name = "BtgReviewFirstError";
+  }
+}
+
+/** A review step written only while the deliverable is still in the state
+ *  it was read in — someone else moved it first. */
+export class DeliverableMovedError extends Error {
+  readonly status = 409;
+  constructor() {
+    super("This deliverable changed while you were deciding. Reload it and try again.");
+    this.name = "DeliverableMovedError";
   }
 }
 
@@ -199,7 +219,9 @@ async function move(
     action: "write" | "approve";
     tenantWide: boolean;
     auditAction: Parameters<typeof audit>[2];
-    data?: Prisma.DeliverableUpdateInput;
+    /** A function of the state it leaves where the write depends on it
+     *  (P5-BE-10: BTG's pass is a pass only from BTG_REVIEW). */
+    data?: Prisma.DeliverableUpdateManyMutationInput | ((from: DeliverableState) => Prisma.DeliverableUpdateManyMutationInput);
     after?: Record<string, unknown>;
     /** Runs inside the same transaction, once the move is written and
      *  audited. Used by P7-BE-02 to release the order's earning. */
@@ -220,7 +242,11 @@ async function move(
     };
     /** P5-BE-09 — refuse the move for a reason the state table cannot see
      *  (a draft that failed its checks). Runs inside the transaction. */
-    guard?: (found: { checksPassed: boolean | null }) => void;
+    guard?: (found: { checksPassed: boolean | null; state: string }) => void;
+    /** P5-BE-10 — runs after the guard and before the write, in the
+     *  transaction: a BTG revision takes the athlete's content-trust lock
+     *  here, before it stamps the deliverable. */
+    beforeWrite?: (tx: Prisma.TransactionClient, found: { tenantId: string; athleteId: string }) => Promise<void>;
   },
 ): Promise<Moved> {
   if (opts.tenantWide) {
@@ -239,6 +265,7 @@ async function move(
            in the same query rather than a second one after the move. */
         order: {
           select: {
+            athleteId: true,
             campaign: { select: { name: true } },
             athlete: { select: { displayName: true, user: { select: { email: true } } } },
           },
@@ -252,16 +279,22 @@ async function move(
       throw new IllegalDeliverableTransitionError(from, to);
     }
     opts.guard?.(found);
+    if (opts.beforeWrite) await opts.beforeWrite(tx, { tenantId: found.tenantId, athleteId: found.order.athleteId });
 
-    const updated = await tx.deliverable.update({
-      where: { id: deliverableId },
+    /* P5-BE-10 — written only while it is still in the state it was read in:
+       a step that waited on the athlete's lock must not overwrite a move
+       someone else made meanwhile. */
+    const written = await tx.deliverable.updateMany({
+      /* tenant-scope: the row loaded above through whereFor, only while unchanged. */
+      where: { id: deliverableId, state: from },
       data: {
-        state: to as Prisma.DeliverableUpdateInput["state"],
+        state: to,
         ...reviewClock(to, found.reviewWaitingSince),
-        ...opts.data,
+        ...(typeof opts.data === "function" ? opts.data(from) : opts.data),
       },
-      select: { id: true, state: true },
     });
+    if (written.count !== 1) throw new DeliverableMovedError();
+    const updated = { id: deliverableId, state: to };
 
     await audit(tx, actor, opts.auditAction, "Deliverable", deliverableId, {
       before: { state: from },
@@ -319,7 +352,7 @@ function reviewClock(
   return { reviewWaitingSince: null, reviewRemindedAt: null };
 }
 
-export type Submitted = Moved & { passed: boolean; checks: ContentCheck[] };
+export type Submitted = Moved & { passed: boolean; checks: ContentCheck[]; btgReviewSkipped: boolean };
 
 /**
  * The athlete submits a draft, with the caption they will post — and the
@@ -340,6 +373,16 @@ export type Submitted = Moved & { passed: boolean; checks: ContentCheck[] };
  * The write is conditional on the row being as it was read (state and the
  * last check time), so two submissions racing record one and refuse the
  * other — never two verdicts and two emails for one draft.
+ *
+ * P5-BE-10 — a passing draft from a trusted adult athlete, with no
+ * sensitive category on the sponsor or the brief and no earlier BTG revision
+ * on this deliverable, SKIPS BTG's review (content-trust-rules.ts): in this
+ * same transaction the system moves it DRAFT_SUBMITTED → BTG_REVIEW →
+ * SPONSOR_REVIEW, each step checked against the state table, written once
+ * and conditionally on the submission just recorded (so it cannot apply
+ * twice), audited with the reason, and the sponsor's review clock started —
+ * the 48-hour reminder goes to the sponsor. Every other passing draft waits
+ * for BTG exactly as before.
  */
 export async function submitDraft(
   actor: Actor,
@@ -356,11 +399,23 @@ export async function submitDraft(
       select: {
         id: true, state: true, title: true, tenantId: true,
         checks: true, checksPassed: true, checkedAt: true,
+        /* P5-BE-10 — rule 4: BTG asked for changes on an earlier version. */
+        btgRevisionAt: true,
         assets: { select: { version: true, contentType: true, uploadedAt: true }, orderBy: { version: "desc" }, take: 1 },
         order: {
           select: {
-            campaign: { select: { name: true } },
-            athlete: { select: { displayName: true, user: { select: { email: true } } } },
+            /* P5-BE-10 — the sponsor and the brief, for their categories. */
+            athleteId: true,
+            campaign: {
+              select: {
+                name: true, sponsorId: true,
+                sponsor: { select: { categories: true } },
+                brief: { select: { categories: true } },
+              },
+            },
+            athlete: {
+              select: { displayName: true, user: { select: { email: true } }, ...SKIP_ATHLETE_SELECT },
+            },
             /* The accepted offer, when the order came from one: its disclosures. */
             offer: { select: { disclosures: true } },
           },
@@ -391,6 +446,12 @@ export async function submitDraft(
         revision: revision ? { reason: typeof reason === "string" ? reason : "", at: revision.at } : null,
       });
       if (!back) throw new DraftAlreadySubmittedError();
+    } else if (from === "BTG_REVIEW" || from === "SPONSOR_REVIEW") {
+      /* P5-BE-10 — the state table allows REVIEW → DRAFT_SUBMITTED because a
+         reviewer may send it back; it is not the athlete's move. Submitting
+         again here would pull the draft off its reviewer's desk — and, for a
+         draft that skipped BTG, run the skip twice. */
+      throw new DraftInReviewError();
     } else if (!canTransitionDeliverable(from, "DRAFT_SUBMITTED")) {
       throw new IllegalDeliverableTransitionError(from, "DRAFT_SUBMITTED");
     }
@@ -402,6 +463,8 @@ export async function submitDraft(
     });
     const passed = allPassed(checks);
     const now = new Date();
+    /* P5-BE-10 — only a passing draft is considered; read before any write. */
+    const route = passed ? await decideSkip(tx, found) : null;
 
     const written = await tx.deliverable.updateMany({
       /* tenant-scope: the row loaded above through whereFor, only while unchanged. */
@@ -415,6 +478,9 @@ export async function submitDraft(
         checkedAt: now,
         reviewWaitingSince: passed ? now : null,
         reviewRemindedAt: null,
+        /* Recomputed on every submission — set below if this one skips. */
+        btgReviewSkipped: false,
+        skipReason: null,
       },
     });
     if (written.count !== 1) throw new DraftAlreadySubmittedError();
@@ -428,8 +494,36 @@ export async function submitDraft(
         caption,
         checksPassed: passed,
         checks,
+        ...(route ? { btgReview: { skipped: route.skip, reason: route.reason } } : {}),
       },
     });
+
+    if (route?.skip) {
+      /* The system's move, through the state table's own steps. */
+      const via: DeliverableState[] = ["BTG_REVIEW", "SPONSOR_REVIEW"];
+      let at: DeliverableState = "DRAFT_SUBMITTED";
+      for (const next of via) {
+        if (!canTransitionDeliverable(at, next)) throw new IllegalDeliverableTransitionError(at, next);
+        at = next;
+      }
+      const skipped = await tx.deliverable.updateMany({
+        /* tenant-scope: the row this transaction just wrote, only while it is that submission. */
+        where: { id: found.id, state: "DRAFT_SUBMITTED", checkedAt: now, checksPassed: true },
+        data: {
+          state: "SPONSOR_REVIEW",
+          btgReviewSkipped: true,
+          skipReason: route.reason,
+          /* The sponsor's wait starts now; its reminder goes to them. */
+          reviewWaitingSince: now,
+          reviewRemindedAt: null,
+        },
+      });
+      if (skipped.count !== 1) throw new DraftAlreadySubmittedError();
+      await audit(tx, SYSTEM(found.tenantId), AUDIT_ACTIONS.deliverable.btgReviewSkipped, "Deliverable", found.id, {
+        before: { state: "DRAFT_SUBMITTED" },
+        after: { state: "SPONSOR_REVIEW", via, reason: route.reason },
+      });
+    }
 
     if (!passed) {
       const reasons = failedReasons(checks);
@@ -458,7 +552,8 @@ export async function submitDraft(
       }
     }
 
-    return { id: found.id, state: "DRAFT_SUBMITTED" as const, passed, checks };
+    const btgReviewSkipped = Boolean(route?.skip);
+    return { id: found.id, state: btgReviewSkipped ? "SPONSOR_REVIEW" as const : "DRAFT_SUBMITTED" as const, passed, checks, btgReviewSkipped };
   });
 }
 
@@ -486,12 +581,23 @@ export function sendToSponsorReview(actor: Actor, deliverableId: string): Promis
     action: "write",
     tenantWide: true,
     auditAction: AUDIT_ACTIONS.deliverable.sponsorReview,
+    /* P5-BE-10 — BTG passed it: one clean BTG review on the athlete's record
+       (tenant-wide write is BTG's alone, and the state table allows this
+       move only from BTG_REVIEW). */
+    /* Stamped when written, inside the transaction, not when called. */
+    data: () => ({ btgPassedAt: new Date() }),
   });
 }
 
 /**
  * Either reviewer sends it back: BTG_REVIEW | SPONSOR_REVIEW →
  * DRAFT_SUBMITTED, with the reason on the audit row.
+ *
+ * P5-BE-10 — BTG may do this from SPONSOR_REVIEW too, so a draft that
+ * skipped BTG's review can still be stopped while it is with the sponsor.
+ * A BTG revision (never the sponsor's, never the system's) stamps
+ * `btgRevisionAt`: this deliverable goes to BTG from now on, and the
+ * athlete's clean streak starts again from 0.
  */
 export async function requestRevision(
   actor: Actor,
@@ -500,22 +606,49 @@ export async function requestRevision(
 ): Promise<Moved> {
   const trimmed = reason?.trim() ?? "";
   if (!trimmed) throw new RevisionReasonRequiredError();
+  const btg = isBtgReviewer(actor);
 
   return await move(actor, deliverableId, "DRAFT_SUBMITTED", {
     action: "approve",
     tenantWide: false,
     auditAction: AUDIT_ACTIONS.deliverable.requestRevision,
-    after: { reason: trimmed },
+    ...(btg
+      ? {
+          /* The athlete's content-trust lock BEFORE the stamp, the same lock
+             submitDraft takes before it reads the streak — so a submission
+             racing this revision never skips on the streak it breaks. The
+             stamp's time is taken after the lock, when it is written. */
+          beforeWrite: (tx: Prisma.TransactionClient, f: { tenantId: string; athleteId: string }) =>
+            lockAthleteContent(tx, f.tenantId, f.athleteId),
+          data: () => ({ btgRevisionAt: new Date() }),
+        }
+      : {}),
+    after: { reason: trimmed, by: btg ? "BTG" : "SPONSOR" },
     notify: { template: "deliverable.revisionRequested", data: { reason: trimmed } },
   });
 }
 
-/** Either reviewer approves: BTG_REVIEW | SPONSOR_REVIEW → APPROVED. */
+/**
+ * A reviewer approves: BTG_REVIEW | SPONSOR_REVIEW → APPROVED.
+ *
+ * P5-BE-10 — from BTG_REVIEW only BTG may approve (tenant-wide approve). The
+ * state table cannot see who is acting, and a sponsor holds `approve` on
+ * their own campaigns for SPONSOR_REVIEW; without this a sponsor could
+ * approve a draft BTG is still reviewing and skip BTG's safety review.
+ */
 export function approveDeliverable(actor: Actor, deliverableId: string): Promise<Moved> {
+  const btg = isBtgReviewer(actor);
   return move(actor, deliverableId, "APPROVED", {
     action: "approve",
     tenantWide: false,
     auditAction: AUDIT_ACTIONS.deliverable.approve,
+    guard: (d) => {
+      if (d.state === "BTG_REVIEW" && !btg) throw new BtgReviewFirstError();
+    },
+    /* P5-BE-10 — BTG approving it outright from its own review is a clean
+       pass too. BTG approving from SPONSOR_REVIEW is not counted: it is not
+       a review of BTG's own desk. */
+    data: (from) => (btg && from === "BTG_REVIEW" ? { btgPassedAt: new Date() } : {}),
     notify: { template: "deliverable.approved" },
   });
 }

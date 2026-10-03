@@ -32,6 +32,11 @@ export type LiveDeskItem = ReviewContentItem & {
     caption: string | null;
     captionVersion: number | null;
     waitingSince: string | null;
+    /* P5-BE-10 — the latest submission skipped BTG's review and went straight
+       to the sponsor, and why (BTG's to read). BTG can still open it and ask
+       for changes while it is with the sponsor. */
+    btgSkipped: boolean;
+    skipReason: string | null;
   };
 };
 
@@ -98,6 +103,8 @@ export function toDeskItem(d: ApiDeliverable, now: Date): LiveDeskItem {
       caption: d.caption ?? null,
       captionVersion: d.captionVersion ?? null,
       waitingSince: d.waitingSince ?? null,
+      btgSkipped: Boolean(d.btgReviewSkipped),
+      skipReason: d.skipReason ?? null,
     },
   };
 }
@@ -136,7 +143,9 @@ export const DESK_STATES = ["DRAFT_SUBMITTED", "BTG_REVIEW", "SPONSOR_REVIEW", "
 const REVIEW_STATES = ["DRAFT_SUBMITTED", "BTG_REVIEW", "SPONSOR_REVIEW"];
 const CLEARED_STATES = ["APPROVED", "PUBLISHED", "VERIFIED"];
 
-export const DESK_TABS = ["review", "cleared", "all"] as const;
+/* P5-BE-10 — "skipped": the drafts that skipped BTG's review, every state,
+   for BTG's spot checks. */
+export const DESK_TABS = ["review", "cleared", "all", "skipped"] as const;
 export type DeskTab = (typeof DESK_TABS)[number];
 export const DESK_KINDS = ["video", "image"] as const;
 /** "" is the desk's default, "Waiting longest". */
@@ -172,6 +181,8 @@ export function deskListQuery(f: DeskFilters, p: { page: number; size: number })
   /* P5-BE-09 — a draft the automatic checks sent back is the athlete's to
      fix; it never sits in BTG's queue. */
   u.set("systemReturned", "exclude");
+  /* P5-BE-10 — the spot-check tab: only the drafts that skipped BTG. */
+  if (f.tab === "skipped") u.set("btgSkipped", "only");
   if (f.q) u.set("q", f.q);
   if (f.camp) u.set("campaignId", f.camp);
   if (f.kind) u.set("kind", f.kind);
@@ -190,6 +201,8 @@ export type DeskSummary = {
   openRevisions: number;
   aging: number;
   campaigns: { id: string; name: string }[];
+  /** P5-BE-10 — how many skipped BTG's review (absent from an older API). */
+  btgSkipped?: number;
 };
 
 /** The hero's figures, the pipeline strip and the tab counts, from the summary. */
@@ -202,7 +215,7 @@ export function deskHeadline(s: DeskSummary) {
     aging: s.aging,
     /* A revision sent back is with the athlete, not on the submit desk. */
     stageCounts: [Math.max(0, n("DRAFT_SUBMITTED") - s.openRevisions), n("BTG_REVIEW"), n("SPONSOR_REVIEW"), cleared],
-    tabs: { review: waiting, cleared, all: waiting + cleared },
+    tabs: { review: waiting, cleared, all: waiting + cleared, skipped: s.btgSkipped ?? 0 },
   };
 }
 
