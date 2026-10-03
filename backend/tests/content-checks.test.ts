@@ -150,6 +150,23 @@ describe.skipIf(!hasDatabase)("P5-BE-09 · content checks and review reminders",
     expect(asset.contentType).toBe("video/mp4");
   });
 
+  it("the PUT is signed for that type — and for the size, when the athlete's page sends it", async () => {
+    const signed = (u: string) => new URL(u).searchParams.get("X-Amz-SignedHeaders");
+    const typed = await call("POST", `/deliverables/${A("good")}/uploads`, A("athlete"), { contentType: "image/png" });
+    expect(typed.status, typed.text).toBe(201);
+    expect(signed(typed.json.url)).toBe("content-type;host");
+    const sized = await call("POST", `/deliverables/${A("good")}/uploads`, A("athlete"), { contentType: "image/png", bytes: 48_213 });
+    expect(sized.status, sized.text).toBe(201);
+    expect(signed(sized.json.url)).toBe("content-length;content-type;host");
+    /* The grant records the size it was pinned to. */
+    const grant = await prisma.auditLog.findFirstOrThrow({
+      where: { tenantId: T, action: "storage.privateUploadGrant", entity: "Deliverable", entityId: A("good"), after: { path: ["key"], equals: sized.json.key } },
+      select: { after: true },
+    });
+    expect(grant.after).toMatchObject({ contentType: "image/png", bytes: 48_213 });
+    expect((await call("POST", `/deliverables/${A("good")}/uploads`, A("athlete"), { contentType: "image/png", bytes: 0 })).status).toBe(400);
+  });
+
   it("a passing draft reaches BTG's queue with its checks, caption and wait — disclosures ignoring case", async () => {
     const r = await call("POST", `/deliverables/${A("good")}/submit`, A("athlete"), { caption: "Game day with the crew #AD" });
     expect(r.status).toBe(200);

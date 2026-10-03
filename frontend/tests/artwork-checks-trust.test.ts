@@ -4,6 +4,7 @@ import {
   ARTWORK_ACCEPT,
   ARTWORK_SKIPPED_LABEL,
   artworkBackWithSupplier,
+  artworkGate,
   artworkRoute,
   artworkRowStatus,
   artworkTab,
@@ -14,6 +15,7 @@ import {
   type ApiArtwork,
 } from "../src/lib/edition-artwork-live";
 import { autoRecorded } from "../src/lib/rights-live";
+import type { ApiLedgerSlot } from "../src/lib/editions-live";
 
 /* P9-BE-22 / -23 · P9-FE-11 — how the three screens word the automatic
    artwork checks, the trusted-sponsor skip and rights the system recorded.
@@ -35,6 +37,17 @@ describe("checked on upload", () => {
     expect(failedChecks(a)).toEqual(sentBack.failed);
     expect(artworkRoute(a, "SPONSOR")).toMatch(/didn't pass our automatic checks, so it hasn't gone to BTG/);
     expect(artworkRoute(a, "BTG")).toMatch(/Sent back by the automatic checks/);
+  });
+
+  it("the edition page's gate says a returned file is back with the sponsor, not waiting on BTG", () => {
+    const sold = (code: string, artwork: NonNullable<ApiLedgerSlot["artwork"]>): ApiLedgerSlot => ({
+      id: code, slotCode: code, kind: "HALF", page: 2, priceCents: 50_000, sold: true, soldCents: 50_000, soldAt: null, artwork,
+    });
+    const base = { id: "a", version: 1, submittedAt: null, revision: null };
+    expect(artworkGate([
+      sold("P02-HALF", { ...base, state: "DRAFT_SUBMITTED", sentBack: true }),
+      sold("P03-HALF", { ...base, state: "DRAFT_SUBMITTED" }),
+    ])?.blockers).toEqual(["P02-HALF — sent back to the sponsor", "P03-HALF — waiting for BTG to pick it up"]);
   });
 
   it("a person's change request still reads as one, even after a failed check", () => {

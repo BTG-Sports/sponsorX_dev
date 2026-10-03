@@ -175,7 +175,7 @@ const ledger: RequestHandler<{ id: string }> = async (req, res) => {
   const artwork = soldIds.length && can(actor, "editionArtwork", "read")
     ? await prisma.editionAsset.findMany({
         where: { ...whereFor(actor, "editionArtwork", "read"), adSlotId: { in: soldIds } },
-        select: { id: true, adSlotId: true, reviewState: true, artworkVersion: true, submittedAt: true, revisionNote: true },
+        select: { id: true, adSlotId: true, reviewState: true, artworkVersion: true, submittedAt: true, revisionNote: true, artworkChecksPassed: true },
       })
     : null;
   const artBySlot = new Map((artwork ?? []).map((a) => [a.adSlotId, a]));
@@ -201,6 +201,8 @@ const ledger: RequestHandler<{ id: string }> = async (req, res) => {
                   ? {
                       id: a.id, state: a.reviewState, version: a.artworkVersion ?? 0,
                       submittedAt: a.submittedAt?.toISOString() ?? null, revision: a.revisionNote ? { reason: a.revisionNote } : null,
+                      /* P9-BE-22 — the automatic checks sent it back to the sponsor. */
+                      sentBack: a.reviewState === "DRAFT_SUBMITTED" && a.artworkChecksPassed === false,
                     }
                   : null;
               })(),

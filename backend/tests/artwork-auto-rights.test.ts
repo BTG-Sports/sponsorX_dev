@@ -275,6 +275,10 @@ describe.skipIf(!hasDatabase)("P9-BE-22 / -23 · artwork checked, trusted sponso
     /* The production gate reads it as sent back. */
     const gap = await prisma.$transaction((tx) => art.artworkGap(tx, T, editionId));
     expect(gap.find((g) => g.slotCode === code)).toEqual({ slotCode: code, state: "DRAFT_SUBMITTED", revisionOpen: true });
+    /* …and so does the edition ledger: sent back to the sponsor, not waiting on BTG. */
+    const ledger = await call("GET", `/editions/${editionId}/ledger`, "aar_staff");
+    expect(ledger.status, ledger.text).toBe(200);
+    expect(ledger.json.slots.find((s: { slotCode: string }) => s.slotCode === code).artwork).toMatchObject({ state: "DRAFT_SUBMITTED", revision: null, sentBack: true });
 
     /* A corrected file answers it, and is picked up. */
     expect(await upload(sp("rosa"), slot)).toMatchObject({ id: bad.id, state: "BTG_REVIEW", version: 2, route: "BTG_REVIEW" });

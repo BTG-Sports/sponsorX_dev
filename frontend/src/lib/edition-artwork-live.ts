@@ -196,7 +196,11 @@ export function artworkGate(slots: readonly ApiLedgerSlot[]): { sold: number; ap
     .filter((s) => s.artwork?.state !== "APPROVED")
     .map((s) => {
       const a = s.artwork ?? null;
-      const where = a && a.state === "DRAFT_SUBMITTED" && a.revision ? "sent back for changes" : BLOCKER[a?.state ?? "NONE"];
+      const where = a && a.state === "DRAFT_SUBMITTED" && a.revision
+        ? "sent back for changes"
+        : a && a.state === "DRAFT_SUBMITTED" && a.sentBack
+          ? "sent back to the sponsor"
+          : BLOCKER[a?.state ?? "NONE"];
       return `${s.slotCode}${s.buyer ? ` · ${s.buyer.sponsor}` : ""} — ${where}`;
     });
   return { sold: sold.length, approved: sold.length - blockers.length, blockers };

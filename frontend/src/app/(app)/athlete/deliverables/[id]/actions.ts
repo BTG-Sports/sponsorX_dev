@@ -39,13 +39,15 @@ async function post<T>(path: string, body: unknown, fallback: string): Promise<(
 const valid = (id: unknown): id is string => typeof id === "string" && id.length > 0 && id.length < 200;
 
 /** A presigned PUT for one file. The API chooses the key. */
-export async function presignUpload(deliverableId: string, contentType: string) {
+export async function presignUpload(deliverableId: string, contentType: string, bytes?: number) {
   if (!valid(deliverableId) || typeof contentType !== "string" || !contentType) {
     return { ok: false, message: "That file can't be uploaded." } as Fail;
   }
+  /* P5-BE-09 — the type, and the size when known, are signed into the PUT. */
+  const size = typeof bytes === "number" && Number.isInteger(bytes) && bytes > 0 ? { bytes } : {};
   return post<{ url: string; key: string }>(
     `/deliverables/${encodeURIComponent(deliverableId)}/uploads`,
-    { contentType },
+    { contentType, ...size },
     "Couldn't start the upload",
   );
 }
