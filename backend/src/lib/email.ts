@@ -218,7 +218,11 @@ export type EmailTemplate =
   /* 2S5-BE-07 — the payment provider couldn't send a payout because the
      payee's payout account needs attention: fix it (on the provider's page,
      from the money page) and it is sent again on its own. */
-  | "payout.accountNeedsFix";
+  | "payout.accountNeedsFix"
+  /* P4-BE-09 — campaigns move on their own: BTG's campaign managers hear a
+     campaign is ready to launch; the sponsor hears their final report is ready. */
+  | "campaign.readyToLaunch"
+  | "campaign.finalReportReady";
 
 export type EmailMessage = {
   template: EmailTemplate;

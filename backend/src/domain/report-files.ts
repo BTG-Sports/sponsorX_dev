@@ -16,7 +16,10 @@ import { assertAllowed, assertTenantWide, whereFor } from "../auth/scope";
 import { ForbiddenError } from "../auth/errors";
 import { presignPrivateDownload } from "../lib/storage";
 
-export type RenderReportJob = { campaignId: string; trigger: "COMPLETED" | "REQUESTED"; requestedBy: string | null };
+/** COMPLETED — BTG completed the campaign by hand (the renewal hand-off);
+ *  REQUESTED — BTG asked; FINAL — the campaign entered REPORTING and this is
+ *  the sponsor's final report (P4-BE-09: its render completes the campaign). */
+export type RenderReportJob = { campaignId: string; trigger: "COMPLETED" | "REQUESTED" | "FINAL"; requestedBy: string | null };
 
 /** POST /campaigns/:id/report/render — BTG asks for a file now. */
 export async function requestReportRender(actor: Actor, campaignId: string): Promise<{ queued: true }> {

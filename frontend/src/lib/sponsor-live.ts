@@ -1,5 +1,6 @@
 import type { PortfolioRow } from "@/components/sponsor-portfolio-list";
 import type { CampaignRow } from "@/components/sponsor-campaigns-list";
+import type { NextStep, StageChange } from "@/lib/campaign-stage";
 
 /* --------------------------------------------------------------------------
    P4-FE-05 — the sponsor dashboard's live translation: GET /campaigns
@@ -35,6 +36,12 @@ export type ApiCampaign = {
   contracted?: number;
   invoiced?: number;
   paid?: number;
+  /* P4-BE-09 — what happens next, and the latest stage change (optional so
+     a page against an older API still renders). `stageHistory` is BTG's
+     detail read only. */
+  nextStep?: NextStep | null;
+  stageChange?: StageChange | null;
+  stageHistory?: StageChange[];
 };
 
 /** The roles whose portal is the sponsor's — the gate for every live read. */

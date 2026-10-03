@@ -7,6 +7,7 @@ import { Monogram, initials } from "@/components/hero";
 import { ListFilter, ListSearch, PagerRow, PendingList, ServerList, useListNav } from "@/components/server-pager";
 import { money } from "@/lib/fixtures";
 import { GROUP_LABEL, STAFFING_STATES, type CampaignGroup } from "@/lib/admin-campaign-groups";
+import { nextStepTone, nextStepWho } from "@/lib/campaign-stage";
 import type { PageInfo } from "@/lib/list-query";
 import type { AdminCampaign } from "@/server/admin-campaigns";
 
@@ -133,6 +134,14 @@ function CampaignCard({ c }: { c: AdminCampaign }) {
             </p>
           </div>
         </div>
+        {c.nextStep && (
+          /* P4-FE-08 — what happens next, and who it waits on (P4-BE-09). */
+          <p className="mt-3 flex min-w-0 items-center gap-2 text-[11px]">
+            <Badge tone={nextStepTone(c.nextStep.who)}>{nextStepWho(c.nextStep)}</Badge>
+            <span className="min-w-0 truncate text-text">{c.nextStep.text}</span>
+            {c.stageChange?.movedAutomatically && <span className="shrink-0 text-faint">· moved automatically</span>}
+          </p>
+        )}
         <div className="mt-4">
           <div className="mb-1.5 flex items-baseline justify-between text-[11px]">
             <span className="text-muted">Deliverables published</span>

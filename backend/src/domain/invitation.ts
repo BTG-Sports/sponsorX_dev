@@ -36,6 +36,7 @@ import {
 } from "./invite-state";
 import { guardianReadiness } from "./guardian-rules";
 import { restrictionConflicts } from "./restrictions";
+import { advanceCampaign } from "./campaign-stages";
 
 /** §21 gives no number, so this is a product default rather than a rule.
  *  Named and exported so the expiry job and the tests share one answer. */
@@ -213,7 +214,7 @@ export async function transitionInvite(
       /* An athlete answers their OWN invitation. Unscoped, they could
          accept or decline another athlete's. */
       where: { ...whereFor(actor, "invitation", "write"), id: inviteId },
-      select: { id: true, state: true },
+      select: { id: true, state: true, tenantId: true, campaignId: true },
     });
     if (!invite) throw new ForbiddenError("invitation", "write");
 
@@ -236,6 +237,11 @@ export async function transitionInvite(
       before: { state: from },
       after: { state: to },
     });
+
+    /* P4-BE-09 — a declined invitation may have been the last answer the
+       campaign was waiting for. (An accepted one still needs its order, so
+       it holds the campaign in STAFFING until BTG sends it.) */
+    if (to === "DECLINED" || to === "EXPIRED") await advanceCampaign(tx, invite.tenantId, invite.campaignId);
 
     return { id: updated.id, state: updated.state as InviteState };
   });

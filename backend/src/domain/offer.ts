@@ -60,6 +60,7 @@ import { assertNoRestriction, writeExclusivity } from "./restrictions";
 import { checkInventoryItem, UnavailableError, unitsTaken } from "./availability";
 import { guardianControls } from "./guardian-rules";
 import { athleteFloor, floorProblem, offerParty, PARTY_SELECT } from "./offer-desk";
+import { advanceCampaign } from "./campaign-stages";
 
 export type OfferState = "DRAFT" | "SENT" | "ACCEPTED" | "DECLINED" | "WITHDRAWN";
 export type OfferDeliverable = { title: string; dueDate: Date };
@@ -574,6 +575,8 @@ export async function respondToOffer(
         where: { id: row.id }, data: { state: "DECLINED", respondedAt: now }, select: SELECT,
       });
       await audit(tx, actor, "offer.decline", "Offer", id, { before: { state: "SENT" }, after: { state: "DECLINED" } });
+      /* P4-BE-09 — the last answer the campaign was waiting for. */
+      await advanceCampaign(tx, actor.tenantId, row.campaignId, now);
       return view(actor, updated);
     }
 
@@ -651,6 +654,8 @@ export async function respondToOffer(
     await audit(tx, actor, "offer.accept", "Offer", id, {
       before: { state: "SENT" }, after: { state: "ACCEPTED", orderId: order.id, termsHash: row.termsHash, deliverables: lines.length },
     });
+    /* P4-BE-09 — the signed order may complete the campaign's staffing. */
+    await advanceCampaign(tx, actor.tenantId, row.campaignId, now);
     return view(actor, updated);
   });
 }

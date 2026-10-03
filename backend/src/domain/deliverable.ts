@@ -37,6 +37,7 @@ import {
 } from "./deliverable-state";
 import { deliverablesForOrder } from "./deliverable-template";
 import { maybeMakeEligible } from "./earning";
+import { advanceCampaignOfOrder } from "./campaign-stages";
 
 export class PublishedUrlRequiredError extends Error {
   readonly status = 400;
@@ -336,7 +337,12 @@ export async function verifyPublished(
        owed have to become true together: a crash between them would leave an
        athlete who finished everything permanently at PENDING, with nothing in
        the system to notice. */
-    afterMove: (tx, order) => maybeMakeEligible(tx, actor, order.orderId),
+    afterMove: async (tx, order) => {
+      await maybeMakeEligible(tx, actor, order.orderId);
+      /* P4-BE-09 — the last verification moves an ACTIVE campaign to
+         REPORTING, as the system, in this same transaction. */
+      await advanceCampaignOfOrder(tx, order.orderId);
+    },
   });
 }
 

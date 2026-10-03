@@ -54,6 +54,14 @@ vi.mock("../src/lib/storage", () => ({
   },
 }));
 
+/* P4-BE-09 — the automatic campaign move verification triggers is
+   tests/campaign-stages.test.ts's, on a real database. */
+vi.mock("../src/domain/campaign-stages", async (actual) => ({
+  ...(await actual<typeof import("../src/domain/campaign-stages")>()),
+  advanceCampaign: async () => [],
+  advanceCampaignOfOrder: async () => [],
+}));
+
 vi.mock("../src/db/client", () => {
   const model = {
     findFirst: () => Promise.resolve(deliverable),

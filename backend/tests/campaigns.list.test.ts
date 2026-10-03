@@ -21,6 +21,23 @@ vi.mock("../src/db/client", () => ({
   },
 }));
 
+/* P4-BE-09 — the stage facts are read by campaign-stages.ts (covered on a
+   real database by tests/campaign-stages.test.ts); here, what the route does
+   with them for each audience. */
+let stageAudience: string | null = null;
+vi.mock("../src/domain/campaign-stages", async (actual) => ({
+  ...(await actual<typeof import("../src/domain/campaign-stages")>()),
+  stageViews: async (ids: string[], audience: string) => {
+    stageAudience = audience;
+    const change = { state: "APPROVAL", at: "2026-10-03T10:00:00.000Z", movedAutomatically: true, reason: "Every athlete has accepted." };
+    return new Map(ids.map((id) => [id, {
+      nextStep: { who: "BTG", text: audience === "staff" ? "Ready for BTG to launch" : "Your athletes are confirmed — your campaign launches soon" },
+      stageChange: change,
+      stageHistory: [change],
+    }]));
+  },
+}));
+
 const { listCampaigns, readCampaign } = await import("../src/routes/v1/campaigns");
 
 const base = { userId: "u_1", tenantId: "t_1", guardianId: null, propertyId: null };
@@ -161,5 +178,26 @@ describe("GET /campaigns/:id (QA pass 7, F-5)", () => {
   it("a campaign outside the caller's scope is a 403, not an empty body", async () => {
     rows = [];
     await expect(one(sponsor, "cmp_other")).rejects.toMatchObject({ status: 403 });
+  });
+
+  /* P4-BE-09 — the next step and the latest stage change ride on every read. */
+  it("BTG's desk gets its wording, the reason and the history; a sponsor gets the plain step and neither", async () => {
+    const staff = { ...base, roles: ["CAMPAIGN_MGR"], sponsorId: null, athleteId: null } as unknown as Actor;
+    const desk = await one(staff, "cmp_1");
+    expect(stageAudience).toBe("staff");
+    expect(desk.nextStep).toEqual({ who: "BTG", text: "Ready for BTG to launch" });
+    expect(desk.stageChange).toMatchObject({ state: "APPROVAL", movedAutomatically: true, reason: "Every athlete has accepted." });
+    expect(desk.stageHistory).toHaveLength(1);
+
+    const mine = await one(sponsor, "cmp_1");
+    expect(stageAudience).toBe("sponsor");
+    expect(mine.nextStep).toEqual({ who: "BTG", text: "Your athletes are confirmed — your campaign launches soon" });
+    expect(mine.stageChange).toEqual({ state: "APPROVAL", at: "2026-10-03T10:00:00.000Z", movedAutomatically: true });
+    expect("stageHistory" in mine).toBe(false);
+
+    /* The list carries the step too, without the history. */
+    const row = (await list(staff)).campaigns[0]!;
+    expect(row.nextStep).toEqual({ who: "BTG", text: "Ready for BTG to launch" });
+    expect("stageHistory" in row).toBe(false);
   });
 });

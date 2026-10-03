@@ -39,6 +39,14 @@ vi.mock("../src/domain/agreement", () => ({
     Promise.resolve({ acceptanceId: "acc_1", acceptedAt: new Date(), guardianId: null }),
 }));
 
+/* P4-BE-09 — the automatic campaign move the acceptance triggers is
+   tests/campaign-stages.test.ts's, on a real database. */
+vi.mock("../src/domain/campaign-stages", async (actual) => ({
+  ...(await actual<typeof import("../src/domain/campaign-stages")>()),
+  advanceCampaign: async () => [],
+  advanceCampaignOfOrder: async () => [],
+}));
+
 vi.mock("../src/db/client", () => ({
   prisma: {
     $transaction: async (fn: (tx: unknown) => Promise<unknown>) => {

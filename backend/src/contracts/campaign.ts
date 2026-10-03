@@ -151,3 +151,45 @@ export const OrderAcceptanceInput = z
     id: "OrderAcceptanceInput",
     description: "The signer, IP and user agent come from the request, never the body (§12).",
   });
+
+/* --------------------------------------------------------------------------
+   P4-BE-09 / P6-BE-09 — campaigns move on their own; rewards follow them.
+   -------------------------------------------------------------------------- */
+
+export const CampaignNextStep = z
+  .strictObject({
+    who: z.enum(["BTG", "SYSTEM", "ATHLETES", "SPONSOR"]),
+    text: z.string().describe("Plain words, e.g. \"Waiting for 2 athletes to accept\" or \"Ready for BTG to launch\". BTG's staff get the desk's wording; everyone else the plain one, which names no invitation or offer."),
+  })
+  .meta({ id: "CampaignNextStep", description: "What happens next on a campaign, and who it waits for (P4-BE-09)." });
+
+export const CampaignStageChange = z
+  .strictObject({
+    state: CampaignState,
+    at: z.iso.datetime(),
+    movedAutomatically: z.boolean().describe("True when the system made the move (no actor on the audit row, `automatic: true`)."),
+    reason: z.string().nullable().optional().describe("Why the system moved it — BTG's staff only."),
+  })
+  .meta({ id: "CampaignStageChange", description: "A stage change, read from the audit log (P4-BE-09)." });
+
+export const CampaignStageFields = z
+  .strictObject({
+    nextStep: CampaignNextStep.nullable(),
+    stageChange: CampaignStageChange.nullable().describe("The latest stage change."),
+    stageHistory: z.array(CampaignStageChange).optional().describe("Every stage change, newest first — GET /campaigns/{id}, BTG's staff only."),
+  })
+  .meta({ id: "CampaignStageFields", description: "What every campaign read adds (P4-BE-09)." });
+
+export const CampaignLaunchResult = z
+  .strictObject({
+    id: z.string(),
+    state: CampaignState,
+    ordersActivated: z.number().int(),
+    rewards: z.strictObject({
+      activated: z.number().int().describe("Draft rewards that went live with the launch, as the system (P6-BE-09)."),
+      leftInDraft: z
+        .array(z.strictObject({ id: z.string(), offerText: z.string(), reason: z.string() }))
+        .describe("Drafts that could not go live, and why — they stay DRAFT."),
+    }),
+  })
+  .meta({ id: "CampaignLaunchResult" });

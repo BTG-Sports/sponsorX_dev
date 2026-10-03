@@ -27,7 +27,8 @@ const DUE_IN_DAYS: Record<SyncTaskKind, number> = {
 
 export async function raiseSyncTask(
   tx: Prisma.TransactionClient,
-  actor: Pick<Actor, "userId" | "tenantId">,
+  /* P4-BE-09 — `userId: null` for a move the system made: the task is unassigned. */
+  actor: { userId: Actor["userId"] | null; tenantId: string },
   task: {
     kind: SyncTaskKind;
     briefId?: string;

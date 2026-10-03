@@ -24,6 +24,7 @@ import {
 } from "@/lib/fixtures";
 import { daysRemaining, reachPct, verifiedPct } from "@/lib/ops-live";
 import { isBehind, monogramOf, windowLabel } from "@/lib/sponsor-live";
+import { sponsorNextStep } from "@/lib/campaign-stage";
 import { liveSponsorCampaign, type LiveCampaignDetail } from "@/server/sponsor";
 import { SponsorArtwork } from "@/components/edition-artwork";
 import { presignArtwork, registerArtwork, sponsorArtworkAction, sponsorArtworkLink } from "./actions";
@@ -452,6 +453,8 @@ function LiveDetail({
      is still negotiating with (the API sends no invitations here anyway). */
   const roster = ops.roster.filter((r) => r.order);
   const attention = roster.filter((r) => r.overdue > 0 || r.order?.state === "SENT");
+  /* P4-FE-08 — the plain next step the API gives a sponsor (P4-BE-09). */
+  const next = sponsorNextStep(c.nextStep);
 
   return (
     <div className="space-y-6">
@@ -492,6 +495,13 @@ function LiveDetail({
           </span>
         )}
       </div>
+
+      {next && (
+        <div className="sx-animate flex min-w-0 items-center gap-3 rounded-xl border border-line bg-surface px-4 py-3">
+          <span className="shrink-0 text-[10px] font-medium uppercase tracking-[0.2em] text-muted">What&apos;s next</span>
+          <p className="min-w-0 text-xs font-medium text-text [overflow-wrap:anywhere]">{next}</p>
+        </div>
+      )}
 
       {attention.length > 0 && (
         <div className="sx-animate flex items-start gap-3 rounded-xl border border-warn/30 bg-warn/8 px-4 py-3">

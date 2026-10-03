@@ -35,6 +35,7 @@ import { assertBudgetCarriesLine, assertLineClearsFloor } from "./margin-floor";
 import { createDeliverablesFromJob } from "./deliverable";
 import { createEarningForOrder } from "./earning";
 import { projectLine } from "./pricing-learning";
+import { advanceCampaign, advanceCampaignOfOrder } from "./campaign-stages";
 
 export class TermsFrozenError extends Error {
   readonly status = 409;
@@ -275,6 +276,10 @@ export async function transitionOrder(
       after: { state: to },
     });
 
+    /* P4-BE-09 — a declined or withdrawn order was the last one waiting:
+       the campaign may now be fully staffed (or fully verified). */
+    if (to === "REJECTED" || to === "CANCELLED") await advanceCampaignOfOrder(tx, orderId);
+
     return { id: updated.id, state: updated.state as OrderState };
   });
 }
@@ -314,6 +319,8 @@ export async function acceptOrder(
         tenantId: true, jobId: true, dueDate: true,
         /* P7-BE-01 — the earning is raised in this same transaction. */
         athleteId: true, compensation: true,
+        /* P4-BE-09 — the campaign this signature may complete the staffing of. */
+        campaignId: true,
         athlete: {
           select: {
             birthDate: true, ageBand: true, majorityAge: true, guardianId: true,
@@ -394,6 +401,10 @@ export async function acceptOrder(
        one order was accepted — and inventing a job name whose handler nobody
        owns just adds rows to the outbox that wait forever. P5-INT-01 owns
        deliverable and order notifications (fix 6). */
+
+    /* P4-BE-09 — the last signature moves a STAFFING campaign to APPROVAL,
+       as the system, in this transaction. */
+    await advanceCampaign(tx, order.tenantId, order.campaignId);
 
     return {
       id: updated.id,
