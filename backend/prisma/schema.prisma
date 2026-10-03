@@ -400,7 +400,7 @@ model Athlete {
   /// §11 §6 — categories they will NOT promote. This one is a rule, and §26's
   /// conflict check reads it: Phase 4 asks "which athletes exclude alcohol?"
   /// and must get an answer from an index, not from someone reading notes.
-  restrictedCategories String[]
+  restrictedCategories String[] @default([])
   /// Anything that does not reduce to a category. Deliberately separate from
   /// the list above so nobody mistakes unenforceable text for an enforceable
   /// restriction — a conflict check cannot read this and must not appear to.
@@ -2166,7 +2166,7 @@ model InventoryItem {
   availableUntil       DateTime?
   /// Brand categories it suits, and the ones it will not be sold to.
   categories           String[]
-  restrictedCategories String[]
+  restrictedCategories String[] @default([])
   /// { minQuantity?, maxQuantity?, bundleOnly? } — strict.
   packageRules         Json      @default("{}")
   active               Boolean   @default(true)
