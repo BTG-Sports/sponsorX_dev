@@ -337,6 +337,23 @@ describe.skipIf(!hasDatabase)("P4-BE-11 · sponsor briefs approved automatically
       expect(btg.json.heldAt).toEqual(expect.any(String));
     });
 
+    it("BTG's close reason is internal too: a sponsor's raw response never carries it", async () => {
+      const h = await fileAs("good", { packageId: null });
+      const REASON = "Bau internal note: sponsor went quiet after pricing call";
+      expect((await call("POST", `/briefs/${h.id}/transition`, A("cm"), { to: "CLOSED", reason: REASON })).status).toBe(200);
+      for (const path of [`/briefs/${h.id}`, "/briefs", "/briefs?state=CLOSED", "/briefs?page=1&size=100&state=CLOSED"]) {
+        const r = await call("GET", path, A("sa_good"));
+        expect(r.status).toBe(200);
+        expect(r.text).not.toContain("closeReason");
+        expect(r.text).not.toContain(REASON);
+      }
+      expect((await call("GET", `/briefs/${h.id}`, A("sa_good"))).json.status).toEqual({ key: "CLOSED", text: "This request is closed" });
+      /* BTG keeps reading it. */
+      for (const who of ["cm", "sales"]) {
+        expect((await call("GET", `/briefs/${h.id}`, A(who))).json.closeReason).toBe(REASON);
+      }
+    });
+
     it("?held=true lists BTG's held DRAFT briefs, paged and unpaged", async () => {
       const unpaged = (await call("GET", "/briefs?held=true", A("cm"))).json.briefs as { id: string; state: string }[];
       expect(unpaged.map((b) => b.id)).toContain(held.id);

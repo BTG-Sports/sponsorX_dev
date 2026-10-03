@@ -135,11 +135,12 @@ function briefOut(b: BriefRow, readiness?: Readiness, holds = false) {
        for BTG only, when and why the brief was held. */
     autoApproved: b.autoApproved,
     status: sponsorBriefStatus(b.state),
-    ...(holds ? { heldAt: b.heldAt?.toISOString() ?? null, heldReasons: b.heldReasons } : {}),
+    /* P4-FE-07's close reason is BTG's internal note, like a hold's reasons:
+       BTG only. A sponsor reads a closed brief through `status` alone. */
+    ...(holds ? { heldAt: b.heldAt?.toISOString() ?? null, heldReasons: b.heldReasons, closeReason: b.closeReason } : {}),
     id: b.id,
     objective: b.objective,
     state: b.state,
-    closeReason: b.closeReason,
     budget: b.budget,
     startDate: b.startDate.toISOString(),
     endDate: b.endDate.toISOString(),
