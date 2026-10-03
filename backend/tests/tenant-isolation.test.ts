@@ -236,6 +236,8 @@ const BODY: Record<string, unknown> = {
   "POST /rewards/{id}/transition": { to: "PAUSED" },
   "POST /rewards/{id}/tokens": { athleteId: A.athlete },
   "POST /campaigns/{id}/launch": {},
+  /* P4-BE-12 — turning automatic staffing off is a valid body for any campaign. */
+  "POST /campaigns/{id}/auto-staffing": { on: false, reason: "cross-tenant" },
   "POST /publications": { name: "TI B masthead", propertyId: null },
   "POST /publications/{id}/editions": {
     label: "Stolen edition", closeDate: "2026-12-01T00:00:00.000Z",

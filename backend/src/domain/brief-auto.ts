@@ -37,6 +37,7 @@ import { env } from "../config/env";
 import { send } from "../lib/email";
 import { applyBriefMove, lockBrief } from "./brief-moves";
 import { createCampaignIn } from "./campaign-create";
+import { startAutoStaffing } from "./auto-staffing";
 import { lowestJobFloor, sponsorStanding } from "./brief-readiness-rules";
 import { athleteFit } from "./matching";
 import { autoApprovalHolds, holdKeys, type Hold } from "./brief-auto-rules";
@@ -55,7 +56,7 @@ const BRIEF = {
   id: true, tenantId: true, sponsorId: true, state: true, objective: true, budget: true,
   startDate: true, endDate: true, sports: true, stateCodes: true, categories: true,
   autoApproved: true, heldAt: true, heldKeys: true, heldReasons: true,
-  package: { select: { name: true, priceLow: true, athleteCountMin: true, active: true } },
+  package: { select: { name: true, priceLow: true, athleteCountMin: true, athleteCountMax: true, lineItems: true, active: true } },
   sponsor: { select: { name: true, categories: true } },
 } as const;
 type BriefRow = Prisma.CampaignBriefGetPayload<{ select: typeof BRIEF }>;
@@ -144,7 +145,7 @@ async function approveAutomatically(tx: Tx, b: BriefRow, fitCount: number, via: 
   await applyBriefMove(tx, by, { ...move, state: "QUALIFIED" }, "APPROVED", { automatic: true, reason: why, pushDeal: false });
   const campaign = await createCampaignIn(
     tx, by,
-    { id: b.id, tenantId: b.tenantId, sponsorId: b.sponsorId, budget: b.budget, startDate: b.startDate, endDate: b.endDate },
+    { id: b.id, tenantId: b.tenantId, sponsorId: b.sponsorId, budget: b.budget, startDate: b.startDate, endDate: b.endDate, package: b.package },
     campaignName(b),
     { automatic: true },
   );
@@ -271,7 +272,10 @@ export async function recheckHeldBriefs(now = new Date(), opts: { tenantIds?: st
     out.checked++;
     try {
       const r = await prisma.$transaction((tx) => autoApproveOrHold(tx, tenantId, id, now, "sweep"));
-      if (r.outcome === "APPROVED") out.approved++;
+      if (r.outcome === "APPROVED") {
+        out.approved++;
+        await startAutoStaffing(tenantId, r.campaignId);
+      }
       else if (r.outcome === "HELD") out.held++;
     } catch (error) {
       out.failed++;

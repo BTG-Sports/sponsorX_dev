@@ -1,6 +1,6 @@
 import type { PortfolioRow } from "@/components/sponsor-portfolio-list";
 import type { CampaignRow } from "@/components/sponsor-campaigns-list";
-import type { NextStep, StageChange } from "@/lib/campaign-stage";
+import type { CampaignStaffing, NextStep, SponsorStaffing, StageChange } from "@/lib/campaign-stage";
 
 /* --------------------------------------------------------------------------
    P4-FE-05 — the sponsor dashboard's live translation: GET /campaigns
@@ -42,6 +42,11 @@ export type ApiCampaign = {
   nextStep?: NextStep | null;
   stageChange?: StageChange | null;
   stageHistory?: StageChange[];
+  /* P4-BE-12 — automatic staffing. BTG's staff get `autoStaffing` and every
+     count with the stop; a sponsor only `signed` against the package's
+     range. Null with no package to staff from. */
+  autoStaffing?: boolean;
+  staffing?: CampaignStaffing | SponsorStaffing | null;
 };
 
 /** The roles whose portal is the sponsor's — the gate for every live read. */

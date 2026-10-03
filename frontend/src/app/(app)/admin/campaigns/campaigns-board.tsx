@@ -7,7 +7,7 @@ import { Monogram, initials } from "@/components/hero";
 import { ListFilter, ListSearch, PagerRow, PendingList, ServerList, useListNav } from "@/components/server-pager";
 import { money } from "@/lib/fixtures";
 import { GROUP_LABEL, STAFFING_STATES, type CampaignGroup } from "@/lib/admin-campaign-groups";
-import { nextStepTone, nextStepWho } from "@/lib/campaign-stage";
+import { nextStepTone, nextStepWho, staffingStop } from "@/lib/campaign-stage";
 import type { PageInfo } from "@/lib/list-query";
 import type { AdminCampaign } from "@/server/admin-campaigns";
 
@@ -108,7 +108,9 @@ function Body({ rows, page, group, counts, q, sort }: Props) {
 
 function CampaignCard({ c }: { c: AdminCampaign }) {
   const h = c.health;
-  const href = STAFFING.has(c.state)
+  /* P4-FE-09 — a campaign staffing itself opens its detail, where the
+     staffing panel, the stop reason and the switch are. */
+  const href = STAFFING.has(c.state) && !c.autoStaffing
     ? `/admin/campaigns/match${c.briefId ? `?brief=${encodeURIComponent(c.briefId)}` : ""}`
     : `/admin/campaigns/${encodeURIComponent(c.id)}`;
   const pct = c.deliverables.total ? Math.round((100 * c.deliverables.done) / c.deliverables.total) : 0;
@@ -128,6 +130,8 @@ function CampaignCard({ c }: { c: AdminCampaign }) {
               <Badge tone={c.state === "ACTIVE" ? "accent" : STAFFING.has(c.state) ? "warn" : "neutral"}>{c.state}</Badge>
               {h?.underDeliveringWork && <Badge tone="danger">{h.deliverablesOverdue} overdue</Badge>}
               {h?.underDeliveringReach && <Badge tone="warn">Reach short</Badge>}
+              {/* P4-FE-09 — automatic staffing handed this one back to BTG (P4-BE-12). */}
+              {staffingStop(c.staffing) && <Badge tone="danger">Staffing stopped</Badge>}
             </div>
             <p className="mt-0.5 truncate text-[11px] text-muted">
               Presented by {c.sponsorName} · {c.package?.name ?? "custom"}

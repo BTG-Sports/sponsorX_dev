@@ -864,6 +864,16 @@ model Campaign {
   endDate   DateTime
   state     CampaignState @default(DRAFT)
 
+  /// P4-BE-12 — the system staffs the campaign from its package: on for a
+  /// campaign created from a brief whose package has athlete job lines, off
+  /// otherwise. BTG turns it off and on with a reason (audited).
+  autoStaffing       Boolean   @default(false)
+  /// P4-BE-12 — why automatic staffing stopped and handed the campaign to
+  /// BTG, in words, and when. Both null while it runs (or never stopped);
+  /// cleared when BTG turns it back on.
+  staffingStopReason String?
+  staffingStoppedAt  DateTime?
+
   // Zoho (§18 — Deals are bi-directional)
   zohoDealId        String?     @unique
   lastSyncOrigin    SyncOrigin?
@@ -887,8 +897,28 @@ model Campaign {
   editionAssets EditionAsset[]
   /// Server-rendered sponsor reports (2S7-BE-02).
   reportFiles   ReportFile[]
+  /// P4-BE-12 — athletes automatic staffing skipped, and why.
+  staffingSkips CampaignStaffingSkip[]
 
   @@index([tenantId, state])
+}
+
+/// P4-BE-12 — an athlete automatic staffing passed over on a campaign,
+/// because an offer to them could not be made (a validation refusal), with
+/// the refusal in words. One per athlete per campaign: a skipped athlete is
+/// never offered automatically on that campaign again.
+model CampaignStaffingSkip {
+  id         String   @id @default(cuid())
+  tenantId   String
+  campaignId String
+  athleteId  String
+  reason     String
+  createdAt  DateTime @default(now())
+
+  campaign Campaign @relation(fields: [campaignId], references: [id])
+
+  @@unique([campaignId, athleteId])
+  @@index([tenantId])
 }
 
 /// §21 — INVITED → VIEWED → ACCEPTED / DECLINED / EXPIRED.

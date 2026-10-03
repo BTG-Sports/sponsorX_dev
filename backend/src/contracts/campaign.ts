@@ -223,6 +223,44 @@ export const CampaignStageFields = z
   })
   .meta({ id: "CampaignStageFields", description: "What every campaign read adds (P4-BE-09)." });
 
+/* --------------------------------------------------------------------------
+   P4-BE-12 / P4-BE-13 — campaigns staff themselves, then launch on their
+   start date.
+   -------------------------------------------------------------------------- */
+
+export const AutoStaffingInput = z
+  .strictObject({
+    on: z.boolean().describe("true: the system staffs the campaign from its package; false: BTG staffs it by hand."),
+    reason: z.string().trim().min(1).max(500).describe("Why — recorded on the audit row."),
+  })
+  .meta({ id: "AutoStaffingInput", description: "Turn a campaign's automatic staffing off or on (P4-BE-12). Either way any stop is cleared; on, staffing carries on at once." });
+
+export const AutoStaffingResult = z
+  .strictObject({
+    id: z.string(),
+    autoStaffing: z.boolean(),
+    state: CampaignState.nullable(),
+    sent: z.number().int().describe("Athletes offered by this call (on only)."),
+    skipped: z.number().int().describe("Athletes skipped by this call, with a recorded reason."),
+    stop: z.strictObject({ reason: z.string(), at: z.iso.datetime() }).nullable().describe("Set when this call's run stopped and handed the campaign back to BTG."),
+  })
+  .meta({ id: "AutoStaffingResult" });
+
+export const CampaignStaffing = z
+  .strictObject({
+    sent: z.number().int().describe("Athletes ever sent an offer on the campaign."),
+    signed: z.number().int().describe("Athletes holding a signed order."),
+    outstanding: z.number().int().describe("Athletes still being asked — offers, orders or invitations waiting for an answer."),
+    declined: z.number().int(),
+    expired: z.number().int().describe("Athletes whose offer or invitation ran out unanswered."),
+    skipped: z.number().int().describe("Athletes automatic staffing skipped because an offer could not be made."),
+    needed: z.strictObject({ min: z.number().int(), max: z.number().int() }).describe("The package's athlete range."),
+    stop: z.strictObject({ reason: z.string(), at: z.iso.datetime() }).nullable().describe("Why automatic staffing stopped and handed the campaign to BTG."),
+    skips: z.array(z.strictObject({ athleteId: z.string(), displayName: z.string().nullable(), reason: z.string(), at: z.iso.datetime() }))
+      .optional().describe("GET /campaigns/{id}, BTG's staff only: who was skipped, and why."),
+  })
+  .meta({ id: "CampaignStaffing", description: "A campaign's staffing, counted by athlete (P4-BE-12). BTG's staff get every field and `autoStaffing` beside it; a sponsor gets only `signed` and `needed`. Null for a campaign with no package to staff from." });
+
 export const CampaignLaunchResult = z
   .strictObject({
     id: z.string(),

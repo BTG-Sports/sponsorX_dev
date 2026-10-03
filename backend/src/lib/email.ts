@@ -233,7 +233,10 @@ export type EmailTemplate =
      their request is approved; BTG's campaign managers hear of each brief
      held for them, with the reasons (which the sponsor never sees). */
   | "brief.autoApproved"
-  | "brief.heldForBtg";
+  | "brief.heldForBtg"
+  /* P4-BE-12 — automatic staffing stopped and handed the campaign to BTG's
+     campaign managers, with the reason. */
+  | "campaign.staffingStopped";
 
 export type EmailMessage = {
   template: EmailTemplate;

@@ -23,6 +23,7 @@ import type { BriefState } from "./brief-state";
 import type { BrandCategory } from "./brand-categories";
 import { applyBriefMove, BRIEF_AUDIT_ACTIONS, lockBrief } from "./brief-moves";
 import { autoApproveOrHold } from "./brief-auto";
+import { startAutoStaffing } from "./auto-staffing";
 import { sponsorBriefStatus, type SponsorBriefStatus } from "./brief-auto-rules";
 
 export type BriefInput = {
@@ -113,7 +114,7 @@ export async function createBrief(
   assertAllowed(actor, "campaignBrief", "write");
   if (input.endDate <= input.startDate) throw new InvalidBriefWindowError();
 
-  return prisma.$transaction(async (tx) => {
+  return staffIfApproved(await prisma.$transaction(async (tx) => {
     /* The sponsor must be one this actor may reach. A SPONSOR_ADMIN filing a
        brief against another company's id is the obvious abuse, and the scope
        filter is what refuses it rather than a hand-written check. */
@@ -162,7 +163,7 @@ export async function createBrief(
       await autoApproveOrHold(tx, actor.tenantId, brief.id, now, "create");
     }
     return submitted(tx, actor.tenantId, brief.id);
-  });
+  }));
 }
 
 /** The brief as its submitter is answered: state, how it was approved, and the sponsor-safe status. */
@@ -198,7 +199,7 @@ export async function updateBrief(
   now = new Date(),
 ): Promise<BriefSubmitted> {
   assertAllowed(actor, "campaignBrief", "write");
-  return prisma.$transaction(async (tx) => {
+  return staffIfApproved(await prisma.$transaction(async (tx) => {
     const found = await tx.campaignBrief.findFirst({
       where: { ...whereFor(actor, "campaignBrief", "write"), id: briefId },
       select: { id: true, tenantId: true },
@@ -250,7 +251,23 @@ export async function updateBrief(
       await autoApproveOrHold(tx, found.tenantId, found.id, now, "edit");
     }
     return submitted(tx, found.tenantId, found.id);
+  }));
+}
+
+/**
+ * P4-BE-12 — a brief approved automatically has just become a campaign; its
+ * staffing starts now that the transaction has committed (the sweep is the
+ * safety net). Returns the submitted brief unchanged.
+ */
+async function staffIfApproved(result: BriefSubmitted): Promise<BriefSubmitted> {
+  if (!result.autoApproved || !result.campaignId) return result;
+  const campaign = await prisma.campaign.findUnique({
+    /* tenant-scope: the campaign this request's own transaction just created, by id — read for its tenant. */
+    where: { id: result.campaignId },
+    select: { tenantId: true, autoStaffing: true },
   });
+  if (campaign?.autoStaffing) await startAutoStaffing(campaign.tenantId, result.campaignId);
+  return result;
 }
 
 /**

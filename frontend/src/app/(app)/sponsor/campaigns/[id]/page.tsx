@@ -24,7 +24,7 @@ import {
 } from "@/lib/fixtures";
 import { daysRemaining, reachPct, verifiedPct } from "@/lib/ops-live";
 import { isBehind, monogramOf, windowLabel } from "@/lib/sponsor-live";
-import { sponsorNextStep } from "@/lib/campaign-stage";
+import { launchLine, sponsorNextStep, sponsorStaffing } from "@/lib/campaign-stage";
 import { campaignApprovalLine } from "@/lib/brief-status";
 import { liveSponsorCampaign, type LiveCampaignDetail } from "@/server/sponsor";
 import { SponsorArtwork } from "@/components/edition-artwork";
@@ -466,6 +466,10 @@ function LiveDetail({
   const next = sponsorNextStep(c.nextStep);
   /* P4-FE-09 — while it is being staffed, the request it came from is approved. */
   const approved = campaignApprovalLine(c.state);
+  /* P4-FE-09 — while athletes are signing: how full the package is (P4-BE-12);
+     once confirmed, the launch day (P4-BE-13) when the API sent no step. */
+  const staffing = c.state === "STAFFING" ? sponsorStaffing(c.staffing) : null;
+  const nextLine = next ?? staffing?.line ?? (c.state === "APPROVAL" ? launchLine(c.startDate, now) : null);
 
   return (
     <div className="space-y-6">
@@ -514,10 +518,17 @@ function LiveDetail({
         </div>
       )}
 
-      {next && (
-        <div className="sx-animate flex min-w-0 items-center gap-3 rounded-xl border border-line bg-surface px-4 py-3">
-          <span className="shrink-0 text-[10px] font-medium uppercase tracking-[0.2em] text-muted">What&apos;s next</span>
-          <p className="min-w-0 text-xs font-medium text-text [overflow-wrap:anywhere]">{next}</p>
+      {nextLine && (
+        <div className="sx-animate rounded-xl border border-line bg-surface px-4 py-3">
+          <div className="flex min-w-0 items-center gap-3">
+            <span className="shrink-0 text-[10px] font-medium uppercase tracking-[0.2em] text-muted">What&apos;s next</span>
+            <p className="min-w-0 text-xs font-medium text-text [overflow-wrap:anywhere]">{nextLine}</p>
+          </div>
+          {staffing && (
+            <div className="mt-2.5" aria-label={staffing.line}>
+              <Meter value={staffing.pct} tone="accent" />
+            </div>
+          )}
         </div>
       )}
 

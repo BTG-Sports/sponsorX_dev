@@ -92,6 +92,8 @@ import { sweepDeliveries } from "../src/domain/delivery.ts";
 import { sweepReviewReminders } from "../src/domain/review-reminders.ts";
 import { sweepCampaignStages } from "../src/domain/campaign-stages.ts";
 import { recheckHeldBriefs } from "../src/domain/brief-auto.ts";
+import { sweepAutoStaffing } from "../src/domain/auto-staffing.ts";
+import { sweepCampaignLaunches } from "../src/domain/campaign-launch.ts";
 import { purgeExpiredClosures } from "../src/domain/account-closure.ts";
 import { sweepComingOfAge } from "../src/domain/coming-of-age.ts";
 import { LISTING_DIGEST_HOUR_UTC, sendListingDigests } from "../src/domain/listing.ts";
@@ -317,6 +319,13 @@ const CAMPAIGN_STAGE_SWEEP_INTERVAL_MS = 10 * 60 * 1000;
    brief is decided under its row lock, so overlapping passes approve once. */
 let briefRecheckTimer: ReturnType<typeof setInterval> | undefined;
 const BRIEF_RECHECK_INTERVAL_MS = 24 * 60 * 60 * 1000;
+
+/* P4-BE-12 / P4-BE-13 — campaigns staffing themselves (offers to send,
+   expired offers to replace) and campaigns launching on their start date.
+   Every ten minutes; each pass is idempotent and locks each campaign. */
+let autoStaffingTimer: ReturnType<typeof setInterval> | undefined;
+let campaignLaunchTimer: ReturnType<typeof setInterval> | undefined;
+const AUTO_CAMPAIGN_SWEEP_INTERVAL_MS = 10 * 60 * 1000;
 /* P8-INT-05 checks hourly and runs at most once a day per tenant; P8-INT-03's
    channel is renewed every 12 hours against a 24-hour expiry. */
 const ZOHO_SWEEP_INTERVAL_MS = 60 * 60 * 1000;
@@ -767,6 +776,23 @@ async function main(): Promise<void> {
       .catch((error: unknown) => console.error("[worker] held-brief re-check failed, will retry tomorrow:", error));
   briefRecheckTimer = setInterval(briefRecheck, BRIEF_RECHECK_INTERVAL_MS);
   setTimeout(briefRecheck, 60_000).unref();
+  /* P4-BE-12 — automatic staffing's safety net: a missed decline's
+     replacement, an expired offer's, and a campaign created while staffing
+     could not start. */
+  const autoStaffingSweep = () =>
+    void sweepAutoStaffing()
+      .then((r) => { if (r.sent || r.skipped || r.stopped || r.failed) console.log(`[worker] auto staffing ${JSON.stringify(r)}`); })
+      .catch((error: unknown) => console.error("[worker] auto staffing sweep failed, will retry:", error));
+  autoStaffingTimer = setInterval(autoStaffingSweep, AUTO_CAMPAIGN_SWEEP_INTERVAL_MS);
+  setTimeout(autoStaffingSweep, 60_000).unref();
+
+  /* P4-BE-13 — APPROVAL campaigns whose start day has come launch, as the system. */
+  const campaignLaunchSweep = () =>
+    void sweepCampaignLaunches()
+      .then((r) => { if (r.launched || r.failed) console.log(`[worker] campaign launches ${JSON.stringify(r)}`); })
+      .catch((error: unknown) => console.error("[worker] campaign launch sweep failed, will retry:", error));
+  campaignLaunchTimer = setInterval(campaignLaunchSweep, AUTO_CAMPAIGN_SWEEP_INTERVAL_MS);
+  setTimeout(campaignLaunchSweep, 65_000).unref();
 
   /* 2S4-BE-09 — BTG's daily summary of the orders approved automatically.
      Hourly, from ORDER_DIGEST_HOUR_UTC: the first pass of the day sends it
@@ -836,6 +862,8 @@ export async function stopWorker(): Promise<void> {
   if (orderDigestTimer) clearInterval(orderDigestTimer);
   if (campaignStageTimer) clearInterval(campaignStageTimer);
   if (briefRecheckTimer) clearInterval(briefRecheckTimer);
+  if (autoStaffingTimer) clearInterval(autoStaffingTimer);
+  if (campaignLaunchTimer) clearInterval(campaignLaunchTimer);
   timer = undefined;
   expiryTimer = undefined;
   await boss.stop({ graceful: true }).catch(() => {});
