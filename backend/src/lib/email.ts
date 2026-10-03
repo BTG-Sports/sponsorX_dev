@@ -228,6 +228,9 @@ export type EmailTemplate =
   /* P4-BE-09 — campaigns move on their own: BTG's campaign managers hear a
      campaign is ready to launch; the sponsor hears their final report is ready. */
   | "campaign.readyToLaunch"
+  /* P4-BE-12 — automatic staffing stopped and handed the campaign to BTG's
+     campaign managers, with the reason. */
+  | "campaign.staffingStopped"
   | "campaign.finalReportReady";
 
 export type EmailMessage = {

@@ -23,6 +23,7 @@ import { ForbiddenError } from "../../auth/errors";
 import { clientIp, clientUserAgent } from "../../lib/client-ip";
 import { prisma } from "../../db/client";
 import {
+  AutoStaffingInput,
   BriefTransitionInput,
   CampaignBriefInput,
   CampaignFromBriefInput,
@@ -33,6 +34,7 @@ import {
 import { createBrief, transitionBrief } from "../../domain/brief";
 import { createCampaignFromBrief, launchCampaign, transitionCampaign } from "../../domain/campaign";
 import { stageViews, type StageView } from "../../domain/campaign-stages";
+import { setAutoStaffing, staffingSkips } from "../../domain/auto-staffing";
 import type { Audience } from "../../domain/campaign-stage-rules";
 import { eligibleForBrief, eligiblePageForBrief } from "../../domain/matching";
 import { readinessFor, readyBriefIds, type Readiness } from "../../domain/brief-readiness";
@@ -415,7 +417,20 @@ function stageOut(id: string, stages: Stages) {
     nextStep: v?.nextStep ?? null,
     stageChange: change && stages.audience === "sponsor" ? { state: change.state, at: change.at, movedAutomatically: change.movedAutomatically } : change,
     ...(stages.history ? { stageHistory: v?.stageHistory ?? [] } : {}),
+    ...staffingOut(v?.staffing ?? null, stages.audience),
   };
+}
+
+/* P4-BE-12 — automatic staffing on every read. BTG's staff get whether the
+   system staffs, the counts by athlete, the package's range and the stop
+   reason; a sponsor gets only the athletes signed against the range — never
+   who is being asked, or why staffing stopped. Null with no package to
+   staff from. */
+function staffingOut(st: StageView["staffing"], audience: Audience) {
+  if (audience === "sponsor") return { staffing: st ? { signed: st.signed, needed: st.needed } : null };
+  if (!st) return { autoStaffing: false, staffing: null };
+  const { auto, ...staffing } = st;
+  return { autoStaffing: auto, staffing };
 }
 
 function campaignOut(c: CampaignRow, see: { seeValue: boolean; seeBudget: boolean; seeInvoices: boolean }, stages: Stages) {
@@ -662,7 +677,20 @@ const readCampaign: RequestHandler<{ id: string }> = async (req, res) => {
     select,
   })) as unknown as CampaignRow | null;
   if (!c) throw new ForbiddenError("campaign", "read");
-  res.json({ campaign: campaignOut(c, see, await stagesFor(actor, [c.id], true)) });
+  const stages = await stagesFor(actor, [c.id], true);
+  const out = campaignOut(c, see, stages);
+  /* P4-BE-12 — BTG's detail names the athletes automatic staffing skipped, and why. */
+  if (stages.history && out.staffing && "skipped" in out.staffing) {
+    res.json({ campaign: { ...out, staffing: { ...out.staffing, skips: await staffingSkips(c.id) } } });
+    return;
+  }
+  res.json({ campaign: out });
+};
+
+/** POST /campaigns/:id/auto-staffing — BTG turns automatic staffing off or on, with a reason (P4-BE-12). */
+const autoStaffing: RequestHandler<{ id: string }> = async (req, res) => {
+  const body = AutoStaffingInput.parse(req.body ?? {});
+  res.json(await setAutoStaffing(req.actor!, req.params.id, body));
 };
 
 /**
@@ -1294,6 +1322,7 @@ campaignsRouter.get("/briefs/:id/eligible-athletes", requireActor, shortlist);
 campaignsRouter.post("/briefs/:id/campaign", requireActor, createCampaign);
 campaignsRouter.post("/campaigns/:id/transition", requireActor, moveCampaign);
 campaignsRouter.post("/campaigns/:id/launch", requireActor, launch);
+campaignsRouter.post("/campaigns/:id/auto-staffing", requireActor, autoStaffing);
 campaignsRouter.post("/campaigns/:id/invitations", requireActor, invite);
 campaignsRouter.post("/invitations/:id/respond", requireActor, respond);
 campaignsRouter.get("/invitations", requireActor, listInvitations);

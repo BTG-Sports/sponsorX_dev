@@ -43,7 +43,9 @@ import {
   type NextStep,
   type StageChange,
   type StageFacts,
+  type StageStaffing,
 } from "./campaign-stage-rules";
+import { staffsAthletes, tallyStaffing, type StaffingRows } from "./auto-staffing-rules";
 import { OPEN_INVITE_STATES } from "./invite-state";
 import { notReadyToGoLive, type RewardState } from "./reward-state";
 import { raiseSyncTask } from "./sync-tasks";
@@ -135,7 +137,9 @@ export async function loadStageFacts(db: Tx, campaignIds: string[], now: Date): 
       select: {
         id: true, state: true, _count: { select: { orders: true, adSlots: true } },
         /* The package's athlete range — fully staffed is its maximum. */
-        brief: { select: { package: { select: { athleteCountMin: true, athleteCountMax: true } } } },
+        brief: { select: { package: { select: { athleteCountMin: true, athleteCountMax: true, lineItems: true } } } },
+        /* P4-BE-12 / P4-BE-13 — automatic staffing, and the launch day. */
+        startDate: true, autoStaffing: true, staffingStopReason: true, staffingStoppedAt: true,
       },
     }),
     db.campaignOrder.findMany({
@@ -175,6 +179,9 @@ export async function loadStageFacts(db: Tx, campaignIds: string[], now: Date): 
       orderBy: { renderedAt: "desc" },
     }),
   ]);
+  /* P4-BE-12 — the staffing tally, for the campaigns with a package to staff from. */
+  const staffed = campaigns.filter((c) => staffsAthletes(c.brief?.package)).map((c) => c.id);
+  const staffing = await staffingRows(db, staffed);
 
   for (const c of campaigns) {
     const mine = orders.filter((o) => o.campaignId === c.id);
@@ -207,6 +214,9 @@ export async function loadStageFacts(db: Tx, campaignIds: string[], now: Date): 
       },
       reportingSince: enteredReporting,
       finalReportAt: latestFile?.renderedAt ?? null,
+      startDate: c.startDate,
+      now,
+      staffing: staffingView(c, staffing.get(c.id), now),
     };
     const history = rows.map(stageChangeOf).filter((s): s is StageChange => s !== null);
     out.set(c.id, { facts, history });
@@ -214,14 +224,73 @@ export async function loadStageFacts(db: Tx, campaignIds: string[], now: Date): 
   return out;
 }
 
+/**
+ * P4-BE-12 — the rows the staffing tally reads (orders, offers,
+ * invitations, skips), per campaign. Keyed by campaigns the caller scoped.
+ */
+export async function staffingRows(db: Tx, campaignIds: string[]): Promise<Map<string, StaffingRows>> {
+  const out = new Map<string, StaffingRows>();
+  if (!campaignIds.length) return out;
+  const ids = { in: campaignIds };
+  /* One after another: inside a transaction they share one connection. */
+  const orders = await db.campaignOrder.findMany({
+    /* tenant-scope: keyed by campaigns already scoped by the caller. */
+    where: { campaignId: ids }, select: { campaignId: true, athleteId: true, jobId: true, state: true, sellPrice: true },
+  });
+  const offers = await db.offer.findMany({
+    /* tenant-scope: keyed by campaigns already scoped by the caller. */
+    where: { campaignId: ids }, select: { campaignId: true, athleteId: true, state: true, expiresAt: true, sellPrice: true, sentAt: true },
+  });
+  const invites = await db.campaignInvite.findMany({
+    /* tenant-scope: keyed by campaigns already scoped by the caller. */
+    where: { campaignId: ids }, select: { campaignId: true, athleteId: true, jobId: true, state: true, expiresAt: true },
+  });
+  const skips = await db.campaignStaffingSkip.findMany({
+    /* tenant-scope: keyed by campaigns already scoped by the caller. */
+    where: { campaignId: ids }, select: { campaignId: true, athleteId: true },
+  });
+  for (const id of campaignIds) {
+    out.set(id, {
+      orders: orders.filter((o) => o.campaignId === id),
+      offers: offers.filter((o) => o.campaignId === id),
+      invites: invites.filter((i) => i.campaignId === id),
+      skips: skips.filter((s) => s.campaignId === id),
+    });
+  }
+  return out;
+}
+
+/** The staffing a read shows, or null for a campaign with no package to staff from. */
+function staffingView(
+  c: {
+    autoStaffing: boolean; staffingStopReason: string | null; staffingStoppedAt: Date | null;
+    brief: { package: { athleteCountMin: number; athleteCountMax: number } | null } | null;
+  },
+  rows: StaffingRows | undefined,
+  now: Date,
+): StageStaffing | null {
+  const pkg = c.brief?.package;
+  if (!pkg || !rows) return null;
+  const t = tallyStaffing(rows, now);
+  return {
+    auto: c.autoStaffing,
+    sent: t.sent, signed: t.signed, outstanding: t.outstanding, declined: t.declined, expired: t.expired, skipped: t.skipped,
+    needed: { min: pkg.athleteCountMin, max: pkg.athleteCountMax },
+    stop: c.staffingStopReason && c.staffingStoppedAt ? { reason: c.staffingStopReason, at: c.staffingStoppedAt.toISOString() } : null,
+  };
+}
+
 /** What the campaign reads add (P4-BE-09): the next step, and the latest
- *  stage change with whether it was made automatically. */
-export type StageView = { nextStep: NextStep; stageChange: StageChange | null; stageHistory: StageChange[] };
+ *  stage change with whether it was made automatically; P4-BE-12 — the
+ *  staffing, for a campaign with a package to staff from. */
+export type StageView = { nextStep: NextStep; stageChange: StageChange | null; stageHistory: StageChange[]; staffing?: StageStaffing | null };
 
 export async function stageViews(campaignIds: string[], audience: Audience, now = new Date()): Promise<Map<string, StageView>> {
   const read = await loadStageFacts(prisma, campaignIds, now);
   return new Map(
-    [...read].map(([id, r]) => [id, { nextStep: nextStep(r.facts, audience), stageChange: r.history[0] ?? null, stageHistory: r.history }]),
+    [...read].map(([id, r]) => [id, {
+      nextStep: nextStep(r.facts, audience), stageChange: r.history[0] ?? null, stageHistory: r.history, staffing: r.facts.staffing ?? null,
+    }]),
   );
 }
 
@@ -316,7 +385,8 @@ export async function advanceCampaign(
 ): Promise<Array<{ from: CampaignState; to: CampaignState }>> {
   const moved: Array<{ from: CampaignState; to: CampaignState }> = [];
   if (!(await lockCampaign(tx, campaignId, tenantId))) return moved;
-  /* At most one move per stage, and never past APPROVAL (launching is BTG's). */
+  /* At most one move per stage, and never past APPROVAL (launching is
+     launchCampaign's, or campaign-launch.ts's on the start date — P4-BE-13). */
   for (let i = 0; i < 3; i++) {
     const read = (await loadStageFacts(tx, [campaignId], now)).get(campaignId);
     if (!read) break;

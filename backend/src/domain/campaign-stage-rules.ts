@@ -37,10 +37,17 @@
  * before cannot be. The move to COMPLETED is made in the render's own
  * transaction, so it always follows the render.
  *
+ * LATER THE SAME DAY (P4-BE-12 / P4-BE-13): staffing itself is automatic for
+ * a campaign with a package (auto-staffing.ts), and APPROVAL → ACTIVE happens
+ * on the campaign's start date (campaign-launch.ts). Both are moves of their
+ * own, made outside `automaticMove`; BTG keeps cancelling, and can still
+ * launch early or staff by hand.
+ *
  * AN AD-ONLY CAMPAIGN (P9-BE-09) is never moved here: it has no athletes to
  * staff or deliverables to verify, and it keeps the path BTG walks by hand.
  */
 import { isAdOnly, type CampaignState } from "./campaign-state";
+import { launchLine, sponsorStaffingLine, staffingLine, type StaffingView } from "./auto-staffing-rules";
 
 export type StageFacts = {
   state: CampaignState;
@@ -69,7 +76,16 @@ export type StageFacts = {
   reportingSince: Date | null;
   /** The newest report file rendered at or after `reportingSince`; null when there is none, or no recorded entry. */
   finalReportAt: Date | null;
+  /** P4-BE-13 — the start date (launch day in APPROVAL) and the clock the facts were read at. Absent: not known. */
+  startDate?: Date | null;
+  now?: Date;
+  /** P4-BE-12 — the staffing tally; null (or absent) with no package to staff from. */
+  staffing?: StageStaffing | null;
 };
+
+/** P4-BE-12 — staffing as the reads show it: whether the system staffs, the
+ *  counts by athlete, the package's range and the stop, if any. */
+export type StageStaffing = StaffingView & { auto: boolean };
 
 export type AutomaticMove = { to: CampaignState; reason: string };
 
@@ -136,6 +152,19 @@ export function nextStep(f: StageFacts, audience: Audience): NextStep {
         ? { who: "BTG", text: "Ready for BTG to send for approval" }
         : { who: "BTG", text: "Ready for BTG to start staffing" };
     case "STAFFING":
+      /* P4-BE-12 — a campaign with a package to staff from: the sponsor
+         sees signed athletes against the package's range, never who is
+         being asked; BTG sees the system's progress, or why it stopped. */
+      if (f.staffing) {
+        const st = f.staffing;
+        if (sponsor) {
+          return { who: st.outstanding > 0 ? "ATHLETES" : st.auto && !st.stop ? "SYSTEM" : "BTG", text: sponsorStaffingLine(st) };
+        }
+        if (st.auto && st.stop) return { who: "BTG", text: `Automatic staffing stopped — ${st.stop.reason}` };
+        if (st.auto && !(f.athleteRange && f.athletesSigned >= f.athleteRange.max)) {
+          return { who: st.outstanding > 0 ? "ATHLETES" : "SYSTEM", text: staffingLine(st) };
+        }
+      }
       /* A sponsor sees orders on their campaign page, never the invitations
          or offers BTG is still negotiating — so their count is orders only. */
       if (sponsor) {
@@ -156,6 +185,9 @@ export function nextStep(f: StageFacts, audience: Audience): NextStep {
         return { who: "SYSTEM", text: `${of} — moves to approval on its own` };
       }
     case "APPROVAL":
+      /* P4-BE-13 — it launches on its own on its start date; APPROVAL waits
+         for nothing else (no sponsor step exists at campaign level). */
+      if (f.startDate && f.now) return { who: "SYSTEM", text: launchLine(f.startDate, f.now) };
       return sponsor
         ? { who: "BTG", text: "Your athletes are confirmed — your campaign launches soon" }
         : { who: "BTG", text: "Ready for BTG to launch" };

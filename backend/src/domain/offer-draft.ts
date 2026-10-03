@@ -134,11 +134,27 @@ export function draftDeliverables(
 
 /** The draft. Reads only. */
 export async function offerDraft(actor: Actor, campaignId: string, q: { athleteId?: string; jobId?: string }) {
+  return draftOfferIn(prisma as unknown as Prisma.TransactionClient, actor, campaignId, q);
+}
+
+/**
+ * The draft, read through `db` — offerDraft's body, and P4-BE-12's automatic
+ * staffing, which reads it inside its own transaction and asks for its own
+ * answer window (`expiresAt`, AUTO_OFFER_WINDOW_DAYS from now) in place of
+ * the default. Every other field comes from the same sources.
+ */
+export async function draftOfferIn(
+  db: Prisma.TransactionClient,
+  actor: Actor,
+  campaignId: string,
+  q: { athleteId?: string; jobId?: string },
+  opts: { now?: Date; expiresAt?: Date; expiresWhy?: string } = {},
+) {
   assertTenantWide(actor, "offer", "write");
-  const now = new Date();
+  const now = opts.now ?? new Date();
 
   /* The campaign must be one the caller may write — as drafting asks. */
-  const campaign = await prisma.campaign.findFirst({
+  const campaign = await db.campaign.findFirst({
     where: { ...whereFor(actor, "campaign", "write"), id: campaignId },
     select: {
       id: true, name: true, startDate: true, endDate: true,
@@ -154,12 +170,12 @@ export async function offerDraft(actor: Actor, campaignId: string, q: { athleteI
   if (!campaign) throw new OfferDraftNotFoundError("campaign");
   if (!q.athleteId || !q.jobId) throw new OfferError("Name the athlete and the NIL job to draft an offer for.");
 
-  const athlete = await prisma.athlete.findFirst({
+  const athlete = await db.athlete.findFirst({
     where: { AND: [whereFor(actor, "athlete", "read"), { tenantId: actor.tenantId, id: q.athleteId }] },
     select: { id: true, state: true, tier: true, ...PARTY_SELECT },
   });
   if (!athlete) throw new OfferDraftNotFoundError("athlete");
-  const job = await prisma.nilJob.findFirst({
+  const job = await db.nilJob.findFirst({
     where: { tenantId: actor.tenantId, id: q.jobId },
     select: {
       id: true, name: true, baseLow: true, baseHigh: true, sellLow: true,
@@ -174,10 +190,10 @@ export async function offerDraft(actor: Actor, campaignId: string, q: { athleteI
      asks) over its dates. */
   if (athlete.state !== "ACTIVE") throw new AthleteNotActiveError(athlete.state);
   const categories = [...new Set([...(campaign.brief?.categories ?? []), ...campaign.sponsor.categories])];
-  const expiresAt = endOfDay(new Date(now.getTime() + OFFER_DRAFT_DEFAULTS.expiresInDays * DAY_MS));
+  const expiresAt = opts.expiresAt ?? endOfDay(new Date(now.getTime() + OFFER_DRAFT_DEFAULTS.expiresInDays * DAY_MS));
   const deliverables = draftDeliverables(job, campaign.endDate, expiresAt);
   const lastDue = deliverables.items.reduce((d, i) => (i.dueDate > d ? i.dueDate : d), campaign.endDate);
-  const conflicts = await restrictionConflicts(prisma as unknown as Prisma.TransactionClient, {
+  const conflicts = await restrictionConflicts(db, {
     tenantId: actor.tenantId, athleteId: athlete.id, categories,
     startsOn: new Date(Math.min(campaign.startDate.getTime(), ...deliverables.items.map((i) => i.dueDate.getTime()))),
     endsOn: lastDue,
@@ -187,7 +203,7 @@ export async function offerDraft(actor: Actor, campaignId: string, q: { athleteI
   const who = firstName(athlete.displayName);
 
   /* Pay: the rate card, else the base range's midpoint. */
-  const rate = await athleteFloor(prisma, actor.tenantId, athlete.id, job.id, null);
+  const rate = await athleteFloor(db, actor.tenantId, athlete.id, job.id, null);
   const compensation = rate.floorCents ?? Math.round(((job.baseLow + job.baseHigh) / 2) * 100);
   const compensationWhy = rate.floorCents !== null
     ? `From ${who}'s rate card for ${job.name}`
@@ -261,7 +277,7 @@ export async function offerDraft(actor: Actor, campaignId: string, q: { athleteI
       usageRights: usageWhy,
       exclusivityDays: exclusivityWhy,
       disclosures: disclosuresWhy,
-      expiresAt: `Offers expire ${OFFER_DRAFT_DEFAULTS.expiresInDays} days after they are drafted, as invitations do`,
+      expiresAt: opts.expiresWhy ?? `Offers expire ${OFFER_DRAFT_DEFAULTS.expiresInDays} days after they are drafted, as invitations do`,
     },
   };
 }

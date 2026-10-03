@@ -266,9 +266,13 @@ describe.skipIf(!hasDatabase)("SponsorX NEXT editions, on the path a request tak
       await expect(ed.sellCampaignSlots(staff, id, second)).rejects.toThrow(/No full/);
       expect(await prisma.adSlot.count({ where: { campaignId: second } })).toBe(0);
 
-      /* An athlete package includes no placement at all. */
+      /* An athlete package includes no placement at all. Since P4-BE-12 its
+         campaign staffs itself from the moment it is created (DRAFT →
+         STAFFING), so the sale refuses it as no longer a draft (409) before
+         it gets to the missing placement — refused either way, nothing taken. */
       const athletePkg = await nextCampaign("TEST_DRIVE");
-      await expect(ed.sellCampaignSlots(staff, id, athletePkg)).rejects.toMatchObject({ status: 422 });
+      await expect(ed.sellCampaignSlots(staff, id, athletePkg)).rejects.toMatchObject({ status: 409 });
+      expect(await prisma.adSlot.count({ where: { campaignId: athletePkg } })).toBe(0);
     });
   });
 

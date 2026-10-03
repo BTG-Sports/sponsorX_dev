@@ -24,8 +24,18 @@ import {
 } from "@/lib/ops-live";
 import { apiFetch, fetchActor } from "@/server/api";
 import { roleLabel } from "@/server/viewer";
-import { draftAndSendOrder } from "./actions";
-import { nextStepTone, nextStepWho, stageChangeLine } from "@/lib/campaign-stage";
+import { draftAndSendOrder, setAutoStaffingAction } from "./actions";
+import {
+  launchLine,
+  nextStepTone,
+  nextStepWho,
+  rangeWords,
+  staffingStop,
+  staffingTiles,
+  stageChangeLine,
+  type CampaignStaffing,
+} from "@/lib/campaign-stage";
+import { AutoStaffingToggle } from "@/components/auto-staffing-toggle";
 import type { ApiCampaign } from "@/lib/sponsor-live";
 import { PACE_COPY, fmtRate, paceFor, paceProjection } from "@/lib/campaign-ui";
 import { demoState } from "@/lib/demo";
@@ -72,7 +82,7 @@ const OPS_ROLES = ["SUPER_ADMIN", "BTG_ADMIN", "CAMPAIGN_MGR", "NETWORK_MGR", "S
    gets "not in your role" — not "this page doesn't exist". */
 /* P4-FE-08 — the campaign read's stage fields (P4-BE-09): what happens next,
    and every stage change with whether the system made it. */
-type LiveStage = Pick<ApiCampaign, "nextStep" | "stageChange" | "stageHistory">;
+type LiveStage = Pick<ApiCampaign, "nextStep" | "stageChange" | "stageHistory" | "autoStaffing" | "staffing" | "state" | "startDate">;
 
 async function liveOps(id: string): Promise<{ ops: ApiOps; stage: LiveStage | null } | "missing" | { lacking: string; roles: string[] } | null> {
   /* No catch — an outage is an error page, never fixtures dressed as a real
@@ -119,6 +129,65 @@ function StagePanel({ stage }: { stage: LiveStage }) {
             </li>
           ))}
         </ol>
+      )}
+    </Card>
+  );
+}
+
+/** P4-FE-09 — automatic staffing (P4-BE-12) and the launch day (P4-BE-13):
+ *  the counts by athlete, why it stopped, who was skipped, the switch with
+ *  its reason dialog, and "Launches on …" once the campaign is in APPROVAL. */
+function StaffingPanel({ campaignId, stage, now }: { campaignId: string; stage: LiveStage; now: Date }) {
+  const s = stage.staffing && "sent" in stage.staffing ? (stage.staffing as CampaignStaffing) : null;
+  const launch = stage.state === "APPROVAL" && stage.startDate ? launchLine(stage.startDate, now) : null;
+  if (!s && !launch) return null;
+  const stop = staffingStop(s);
+  const editable = s && (stage.state === "DRAFT" || stage.state === "STAFFING");
+  return (
+    <Card className="sx-animate sx-delay-1">
+      <div className="flex min-w-0 flex-wrap items-center justify-between gap-3">
+        <h2 className="text-sm font-semibold tracking-tight">Staffing</h2>
+        {s && <span className="text-xs text-muted">Package needs {rangeWords(s.needed)} athletes</span>}
+      </div>
+      {launch && (
+        <p className="mt-3 flex min-w-0 flex-wrap items-center gap-2 text-sm">
+          <Badge tone="accent">Automatic</Badge>
+          <span className="font-medium">{launch}</span>
+          <span className="text-xs text-muted">— BTG can still launch it sooner.</span>
+        </p>
+      )}
+      {s && (
+        <>
+          <dl className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+            {staffingTiles(s).map((t) => (
+              <div key={t.label} className="min-w-0 rounded-lg border border-line-soft px-3 py-2">
+                <dt className="text-[10px] uppercase tracking-wide text-faint">{t.label}</dt>
+                <dd className="mt-0.5 text-lg font-semibold tabular-nums tracking-tight">{t.value}</dd>
+              </div>
+            ))}
+          </dl>
+          {stop && (
+            <div role="status" className="mt-4 rounded-lg border border-warn/30 bg-warn/8 px-3 py-2.5 text-xs leading-relaxed">
+              <p className="font-semibold text-warn">Automatic staffing stopped — over to BTG</p>
+              <p className="mt-0.5 text-muted [overflow-wrap:anywhere]">{stop.reason}</p>
+            </div>
+          )}
+          {s.skips && s.skips.length > 0 && (
+            <ul className="mt-4 space-y-1.5 text-xs text-muted" aria-label="Skipped athletes">
+              {s.skips.map((k) => (
+                <li key={k.athleteId} className="min-w-0 [overflow-wrap:anywhere]">
+                  <span className="font-medium text-text">{k.displayName ?? "An athlete"}</span> skipped — {k.reason}
+                </li>
+              ))}
+            </ul>
+          )}
+          {editable && (
+            <div className="mt-4 border-t border-line-soft pt-4">
+              {/* Stopped reads as off: turning it on resumes it (the API clears the stop). */}
+              <AutoStaffingToggle campaignId={campaignId} on={stage.autoStaffing === true && !stop} action={setAutoStaffingAction} />
+            </div>
+          )}
+        </>
       )}
     </Card>
   );
@@ -241,6 +310,7 @@ function LiveOpsView({
       </HeroBand>
 
       {stage && <StagePanel stage={stage} />}
+      {stage && <StaffingPanel campaignId={c.id} stage={stage} now={now} />}
 
       <section className="sx-animate sx-delay-2">
         <SectionHeading

@@ -185,7 +185,12 @@ ${d.portalUrl ?? ""}
      sponsor's final report is ready. */
   "campaign.readyToLaunch": (d) => ({
     subject: `Ready to launch: ${d.campaignName ?? "a campaign"}`,
-    text: `Every athlete on ${d.campaignName ?? "this campaign"}${d.sponsorName ? ` for ${d.sponsorName}` : ""} has accepted, and nobody is still waiting to answer.\n\nIt's ready for you to launch:\n\n${d.campaignUrl ?? ""}\n\n— BTG SponsorX`,
+    text: `Every athlete on ${d.campaignName ?? "this campaign"}${d.sponsorName ? ` for ${d.sponsorName}` : ""} has accepted, and nobody is still waiting to answer.\n\nIt launches on its own on its start date — or you can launch it sooner:\n\n${d.campaignUrl ?? ""}\n\n— BTG SponsorX`,
+  }),
+  /* P4-BE-12 — automatic staffing stopped; BTG takes it from here. */
+  "campaign.staffingStopped": (d) => ({
+    subject: `Automatic staffing stopped: ${d.campaignName ?? "a campaign"}`,
+    text: `Automatic staffing has stopped on ${d.campaignName ?? "this campaign"}${d.sponsorName ? ` for ${d.sponsorName}` : ""}, and it's over to you:\n\n${d.reason ?? ""}\n\nOffers already out stay open. Staff the rest by hand, or turn automatic staffing back on once it can carry on:\n\n${d.campaignUrl ?? ""}\n\n— BTG SponsorX`,
   }),
   "campaign.finalReportReady": (d) => ({
     subject: `Your final report for ${d.campaignName ?? "your campaign"} is ready`,
