@@ -165,6 +165,12 @@ export type EmailTemplate =
   | "guardian.accountReinstated"
   /* 2S1-BE-11 — a minor uploaded content; their guardian hears of each one. */
   | "guardian.contentUploaded"
+  /* P5-BE-09 — a draft that failed the automatic checks goes back to the
+     athlete, each failure in words; a draft waiting over 48 hours on its
+     reviewer reminds BTG's campaign managers, or the sponsor's admins. */
+  | "deliverable.checksFailed"
+  | "deliverable.btgReviewReminder"
+  | "deliverable.sponsorReviewReminder"
   /* 2S1-BE-12 — coming of age: the start, the reminders, taking over, the
      end of the allowance, the link the guardian sends, and BTG's settling. */
   | "comingOfAge.started"

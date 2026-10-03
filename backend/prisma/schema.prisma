@@ -982,12 +982,32 @@ model Deliverable {
   publishedUrl String?
   publishedAt  DateTime?
 
+  /// P5-BE-09 — the caption the athlete will post, as last submitted, and the
+  /// creative version it was submitted with. Every submission is also on the
+  /// audit log (deliverable.submitDraft), so this is the latest, not the only.
+  caption        String?
+  captionVersion Int?
+  /// P5-BE-09 — the automatic checks of the latest submission:
+  /// [{ key, ok, text }]. Null until the first submission after the checks
+  /// existed. checksPassed=false while DRAFT_SUBMITTED means the system sent
+  /// it back to the athlete and it is not in BTG's queue.
+  checks         Json?
+  checksPassed   Boolean?
+  checkedAt      DateTime?
+  /// P5-BE-09 — when the current draft reached its current reviewer: BTG (a
+  /// passing submission; kept through BTG_REVIEW) or the sponsor
+  /// (SPONSOR_REVIEW). Null off a review desk. The 48-hour reminder is sent
+  /// once per value: reviewRemindedAt is set when it goes, cleared with it.
+  reviewWaitingSince DateTime?
+  reviewRemindedAt   DateTime?
+
   order   CampaignOrder   @relation(fields: [orderId], references: [id])
   assets  CreativeAsset[]
   link    TrackingLink?
   metrics MetricDaily[]
 
   @@index([tenantId, state, dueDate])
+  @@index([state, reviewWaitingSince])
 }
 
 model CreativeAsset {
@@ -999,6 +1019,10 @@ model CreativeAsset {
   r2Key         String
   /// §12 — pre-derived sizes, since next/image optimization is not adopted.
   derivatives   Json?
+  /// P5-BE-09 — the MIME type the upload was presigned for (the signed PUT
+  /// enforces it), read from the grant's audit row at registration. Null for
+  /// assets registered before it was recorded, or under a key never granted.
+  contentType   String?
   uploadedBy    String
   uploadedAt    DateTime @default(now())
 

@@ -89,6 +89,7 @@ import { applyQueuePolicy } from "./queue-policy.mts";
 import { expireCarts } from "../src/domain/cart.ts";
 import { expireReservations } from "../src/domain/reservation.ts";
 import { sweepDeliveries } from "../src/domain/delivery.ts";
+import { sweepReviewReminders } from "../src/domain/review-reminders.ts";
 import { purgeExpiredClosures } from "../src/domain/account-closure.ts";
 import { sweepComingOfAge } from "../src/domain/coming-of-age.ts";
 import { LISTING_DIGEST_HOUR_UTC, sendListingDigests } from "../src/domain/listing.ts";
@@ -284,6 +285,10 @@ let holdTimer: ReturnType<typeof setInterval> | undefined;
    24 hours end within minutes of the deadline; each pass is idempotent. */
 let deliveryTimer: ReturnType<typeof setInterval> | undefined;
 const DELIVERY_SWEEP_INTERVAL_MS = 10 * 60 * 1000;
+/* P5-BE-09 — the 48-hour review reminders, every ten minutes. Each is
+   claimed on its row before it is sent, so overlapping passes send once. */
+let reviewReminderTimer: ReturnType<typeof setInterval> | undefined;
+const REVIEW_REMINDER_SWEEP_INTERVAL_MS = 10 * 60 * 1000;
 let zohoTimer: ReturnType<typeof setInterval> | undefined;
 /* 2S1-BE-13 — the retention sweep: closed accounts' files go after 30 days. */
 let retentionTimer: ReturnType<typeof setInterval> | undefined;
@@ -681,6 +686,14 @@ async function main(): Promise<void> {
   deliveryTimer = setInterval(deliverySweep, DELIVERY_SWEEP_INTERVAL_MS);
   setTimeout(deliverySweep, 30_000).unref();
 
+  /* P5-BE-09 — a draft waiting over 48 hours reminds its reviewer, once. */
+  const reviewReminderSweep = () =>
+    void sweepReviewReminders()
+      .then((r) => { if (r.btg || r.sponsor || r.failed) console.log(`[worker] review reminders ${JSON.stringify(r)}`); })
+      .catch((error: unknown) => console.error("[worker] review reminder sweep failed, will retry:", error));
+  reviewReminderTimer = setInterval(reviewReminderSweep, REVIEW_REMINDER_SWEEP_INTERVAL_MS);
+  setTimeout(reviewReminderSweep, 35_000).unref();
+
   /* 2S1-BE-12 — coming of age. A sweep, like the invitation expiry: a
      per-athlete timer that is lost leaves a 90-day allowance never opened
      or never closed, where a missed sweep catches everything next hour.
@@ -785,6 +798,7 @@ export async function stopWorker(): Promise<void> {
   if (retentionTimer) clearInterval(retentionTimer);
   if (holdTimer) clearInterval(holdTimer);
   if (deliveryTimer) clearInterval(deliveryTimer);
+  if (reviewReminderTimer) clearInterval(reviewReminderTimer);
   if (zohoTimer) clearInterval(zohoTimer);
   if (comingOfAgeTimer) clearInterval(comingOfAgeTimer);
   if (listingDigestTimer) clearInterval(listingDigestTimer);

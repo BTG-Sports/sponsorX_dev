@@ -64,6 +64,12 @@ vi.mock("../src/db/client", () => {
       updates.push(data);
       return Promise.resolve({ id: "dlv_1", state: data.state });
     },
+    /* P5-BE-09 — a submission is a conditional write (one verdict per draft). */
+    updateMany: ({ data }: { data: Record<string, unknown> }) => {
+      committedWrites.push("deliverable.update");
+      updates.push(data);
+      return Promise.resolve({ count: 1 });
+    },
   };
   const tx = {
     deliverable: model,
@@ -93,6 +99,8 @@ vi.mock("../src/db/client", () => {
       },
     },
     auditLog: {
+      /* P5-BE-09 — no reviewer's revision and no upload grant on record. */
+      findFirst: () => Promise.resolve(null),
       create: ({ data }: { data: Record<string, unknown> }) => {
         committedWrites.push("audit");
         auditRows.push(data);
@@ -129,10 +137,14 @@ const sponsor = () => actor(["SPONSOR_ADMIN"], { athleteId: null, sponsorId: "sp
 const at = (state: string) => {
   deliverable = {
     id: "dlv_1", state, tenantId: "t1", orderId: "ord_1", title: "Story drop",
+    /* P5-BE-09 — a passing draft: one MP4 version, and an offer with no disclosures. */
+    checks: null, checksPassed: null, checkedAt: null, reviewWaitingSince: null,
+    assets: [{ version: 1, contentType: "video/mp4", uploadedAt: new Date("2026-10-01T00:00:00Z") }],
     /* P5-INT-01 widened move()'s read so a notification can be addressed. */
     order: {
       campaign: { name: "Autumn" },
       athlete: { displayName: "Alex", user: { email: "alex@example.com" } },
+      offer: null,
     },
   };
 };

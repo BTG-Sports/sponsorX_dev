@@ -12,6 +12,7 @@ import { apiFetch, fetchActor } from "@/server/api";
 import { fetchCampaign, fetchCampaignPage, fetchCampaignSummary, type CampaignSummary } from "@/server/campaigns";
 import type { PageInfo, SearchParams } from "@/lib/list-query";
 import type { ApiCampaignArtworkSlot } from "@/lib/edition-artwork-live";
+import type { ApiDeliverable } from "@/lib/deliverables-live";
 
 async function isSponsor(): Promise<boolean> {
   const who = await fetchActor();
@@ -50,6 +51,11 @@ export type LiveCampaignDetail =
       artwork: ApiCampaignArtworkSlot[];
       /** SPONSOR_ADMIN — uploads and signs off; an analyst only sees the status. */
       canDecideArtwork: boolean;
+      /** P5-BE-09 / P4-FE-08 — content waiting for the sponsor's sign-off
+       *  (SPONSOR_REVIEW on this campaign), with its caption and wait. */
+      review: ApiDeliverable[];
+      /** SPONSOR_ADMIN approves or asks for changes; an analyst only sees it. */
+      canDecideContent: boolean;
     }
   /** Not theirs, or not a campaign — the API answers both the same (403). */
   | { status: "missing" };
@@ -65,10 +71,11 @@ export async function liveSponsorCampaign(id: string): Promise<LiveCampaignDetai
   /* GET /campaigns/:id, not a search of the list — the 101st campaign is as
      findable as the first (QA pass 7, F-5). */
   /* The reads are independent — one round trip, not three (QA pass 9). */
-  const [campaign, res, art] = await Promise.all([
+  const [campaign, res, art, rev] = await Promise.all([
     fetchCampaign(id),
     apiFetch(`/campaigns/${encodeURIComponent(id)}/ops`),
     apiFetch(`/campaigns/${encodeURIComponent(id)}/artwork`),
+    apiFetch(`/deliverables?state=SPONSOR_REVIEW&campaignId=${encodeURIComponent(id)}`),
   ]);
   if (!campaign) return { status: "missing" };
   if (res.status === 403 || res.status === 404) return { status: "missing" };
@@ -76,11 +83,16 @@ export async function liveSponsorCampaign(id: string): Promise<LiveCampaignDetai
   /* P9-BE-16 — no NEXT placements is an empty list, not an error. */
   if (!art.ok && art.status !== 403) throw new Error(`Ad artwork unavailable (${art.status}).`);
   const artwork = art.ok ? ((await art.json()) as { slots: ApiCampaignArtworkSlot[] }).slots : [];
+  /* Content for sign-off: a role that can't read it gets none, not an error. */
+  if (!rev.ok && rev.status !== 403) throw new Error(`Content review unavailable (${rev.status}).`);
+  const review = rev.ok ? ((await rev.json()) as { deliverables: ApiDeliverable[] }).deliverables : [];
   return {
     status: "found",
     campaign,
     ops: (await res.json()) as ApiOps,
     artwork,
     canDecideArtwork: who.actor.roles.includes("SPONSOR_ADMIN"),
+    review,
+    canDecideContent: who.actor.roles.includes("SPONSOR_ADMIN"),
   };
 }

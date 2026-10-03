@@ -2,7 +2,7 @@ import Link from "next/link";
 
 import { BriefsDesk } from "@/components/briefs-desk";
 import { EmptyState } from "@/components/states";
-import { TABS, toBriefRow, type ApiBrief, type TabKey } from "@/lib/briefs-live";
+import { TABS, mergeBriefs, toBriefRow, type ApiBrief, type TabKey } from "@/lib/briefs-live";
 import { apiFetch } from "@/server/api";
 import { requirePortalAccess } from "@/server/portal";
 
@@ -27,8 +27,10 @@ const CLOSERS = [...APPROVERS, "SALES"];
 export default async function BriefsPage({ searchParams }: PageProps<"/admin/briefs">) {
   const actor = await requirePortalAccess("admin");
   const sp = await searchParams;
-  const tabParam = typeof sp.tab === "string" ? sp.tab : "all";
-  const initialTab = (TABS.some((t) => t.key === tabParam) ? tabParam : "all") as TabKey;
+  /* P4-FE-08 — "Ready for review" is the default: the DRAFT briefs whose
+     readiness checklist passes, so BTG starts with what it can qualify. */
+  const tabParam = typeof sp.tab === "string" ? sp.tab : "ready";
+  const initialTab = (TABS.some((t) => t.key === tabParam) ? tabParam : "ready") as TabKey;
 
   const heading = (
     <div className="flex flex-wrap items-start justify-between gap-3">
@@ -44,7 +46,9 @@ export default async function BriefsPage({ searchParams }: PageProps<"/admin/bri
     </div>
   );
 
-  const res = await apiFetch("/briefs");
+  /* The newest briefs, and — so none is cut off by that first page — every
+     ready one (P4-BE-07's ?ready=true). */
+  const [res, readyRes] = await Promise.all([apiFetch("/briefs"), apiFetch("/briefs?ready=true")]);
   if (res.status === 403) {
     return (
       <div className="space-y-6">
@@ -54,7 +58,11 @@ export default async function BriefsPage({ searchParams }: PageProps<"/admin/bri
     );
   }
   if (!res.ok) throw new Error(`Briefs unavailable (${res.status}).`);
-  const { briefs } = (await res.json()) as { briefs: ApiBrief[] };
+  if (!readyRes.ok) throw new Error(`Briefs unavailable (${readyRes.status}).`);
+  const briefs = mergeBriefs(
+    ((await res.json()) as { briefs: ApiBrief[] }).briefs,
+    ((await readyRes.json()) as { briefs: ApiBrief[] }).briefs,
+  );
 
   if (briefs.length === 0) {
     return (

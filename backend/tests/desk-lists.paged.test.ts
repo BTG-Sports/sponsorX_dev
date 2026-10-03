@@ -43,6 +43,10 @@ vi.mock("../src/db/client", () => ({
     campaignInvite: model("campaignInvite"),
     campaignOrder: model("campaignOrder"),
     athlete: model("athlete"),
+    /* P4-BE-07 — the brief readiness checklist's inputs. */
+    inquiry: model("inquiry"),
+    accountClosure: model("accountClosure"),
+    nilJob: model("nilJob"),
   },
 }));
 

@@ -1,6 +1,7 @@
 "use server";
 
 import { apiFetch } from "@/server/api";
+import { CAPTION_MAX, type ContentCheck } from "@/lib/content-checks";
 
 /* --------------------------------------------------------------------------
    P5-FE-03 — the athlete's side of a deliverable, as server actions.
@@ -61,12 +62,18 @@ export async function registerUpload(deliverableId: string, key: string) {
   );
 }
 
-/** NOT_STARTED → DRAFT_SUBMITTED. */
-export async function submitDraft(deliverableId: string) {
+/**
+ * NOT_STARTED → DRAFT_SUBMITTED, or a resubmission while it is back with the
+ * athlete — with the caption they will post. The API runs the automatic
+ * checks (P5-BE-09) and answers whether they passed; a failing draft is
+ * already back on this page with each failure in words.
+ */
+export async function submitDraft(deliverableId: string, caption?: string) {
   if (!valid(deliverableId)) return { ok: false, message: "Nothing to submit." } as Fail;
-  return post<{ state: string }>(
+  const text = typeof caption === "string" ? caption.trim().slice(0, CAPTION_MAX) : "";
+  return post<{ state: string; passed: boolean; checks: ContentCheck[] }>(
     `/deliverables/${encodeURIComponent(deliverableId)}/submit`,
-    {},
+    text ? { caption: text } : {},
     "Couldn't submit your draft",
   );
 }

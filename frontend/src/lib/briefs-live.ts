@@ -41,7 +41,15 @@ export type ApiBrief = {
     priceHigh?: number;
   } | null;
   campaign: { id: string; name: string; state: string } | null;
+  /** P4-BE-07 — BTG's readiness checklist, computed by the API on read.
+   *  Absent for a caller who doesn't see it. Nothing moves a brief because
+   *  it is ready: BTG still qualifies by hand. */
+  readiness?: { ready: boolean; checks: ReadinessCheck[] };
 };
+
+/** One line of the readiness checklist: objective, dates, budget, sponsor,
+ *  eligible, conflicts (information only — always ok). */
+export type ReadinessCheck = { key: string; ok: boolean; text: string; count?: number };
 
 export const STATE_COPY: Record<BriefState, string> = {
   DRAFT: "Draft",
@@ -59,8 +67,11 @@ export const STATE_TONE: Record<BriefState, "warn" | "primary" | "accent" | "neu
   CLOSED: "neutral",
 };
 
-export type TabKey = "all" | BriefState;
+/** "ready" — P4-FE-08: DRAFT briefs whose readiness checklist passes; the
+ *  desk's default tab. */
+export type TabKey = "ready" | "all" | BriefState;
 export const TABS: { key: TabKey; label: string }[] = [
+  { key: "ready", label: "Ready for review" },
   { key: "all", label: "All" },
   { key: "DRAFT", label: "Draft" },
   { key: "QUALIFIED", label: "Qualified" },
@@ -129,6 +140,9 @@ export type BriefRow = {
   objective: string;
   closeReason: string | null;
   campaign: ApiBrief["campaign"];
+  /** P4-BE-07 — the checklist, or null where the API sent none. */
+  readiness: { ready: boolean; checks: ReadinessCheck[] } | null;
+  ready: boolean;
   /** For the sport filter and search. */
   sportList: string[];
   haystack: string;
@@ -157,15 +171,36 @@ export function toBriefRow(b: ApiBrief): BriefRow {
     objective: b.objective,
     closeReason: b.closeReason ?? null,
     campaign: b.campaign,
+    readiness: b.readiness ?? null,
+    ready: b.readiness?.ready === true,
     sportList: b.sports,
     haystack: `${b.sponsorName} ${packageName}`.toLowerCase(),
   };
 }
 
-export function tabCounts(rows: Pick<BriefRow, "state">[]): Record<TabKey, number> {
-  const out = { all: rows.length, DRAFT: 0, QUALIFIED: 0, APPROVED: 0, CAMPAIGN_CREATED: 0, CLOSED: 0 } as Record<TabKey, number>;
-  for (const r of rows) out[r.state] += 1;
+export function tabCounts(rows: Pick<BriefRow, "state" | "ready">[]): Record<TabKey, number> {
+  const out = { ready: 0, all: rows.length, DRAFT: 0, QUALIFIED: 0, APPROVED: 0, CAMPAIGN_CREATED: 0, CLOSED: 0 } as Record<TabKey, number>;
+  for (const r of rows) {
+    out[r.state] += 1;
+    if (r.ready) out.ready += 1;
+  }
   return out;
+}
+
+/** "4 of 5 checks pass" — the deciding checks only (conflicts informs). */
+export function readinessSummary(r: BriefRow["readiness"]): { label: string; tone: "accent" | "warn" | "neutral" } | null {
+  if (!r) return null;
+  const deciding = r.checks.filter((c) => c.key !== "conflicts");
+  const passing = deciding.filter((c) => c.ok).length;
+  if (r.ready) return { label: "Ready for review", tone: "accent" };
+  return { label: `${passing} of ${deciding.length} checks pass`, tone: passing === deciding.length ? "neutral" : "warn" };
+}
+
+/** The desk's rows: the newest briefs, plus every ready one even if it is
+ *  older than that first page — deduplicated, newest first. */
+export function mergeBriefs(all: ApiBrief[], ready: ApiBrief[]): ApiBrief[] {
+  const seen = new Set(all.map((b) => b.id));
+  return [...all, ...ready.filter((b) => !seen.has(b.id))].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 }
 
 /** Every sport any brief targets, for the filter. */
@@ -173,14 +208,14 @@ export function sportOptions(rows: Pick<BriefRow, "sportList">[]): string[] {
   return [...new Set(rows.flatMap((r) => r.sportList))].sort();
 }
 
-export function filterBriefs<T extends Pick<BriefRow, "state" | "sportList" | "haystack">>(
+export function filterBriefs<T extends Pick<BriefRow, "state" | "sportList" | "haystack"> & { ready?: boolean }>(
   rows: T[],
   f: { tab: TabKey; sport: string; q: string },
 ): T[] {
   const q = f.q.trim().toLowerCase();
   return rows.filter(
     (r) =>
-      (f.tab === "all" || r.state === f.tab) &&
+      (f.tab === "all" || (f.tab === "ready" ? r.ready === true : r.state === f.tab)) &&
       (!f.sport || r.sportList.includes(f.sport)) &&
       (!q || r.haystack.includes(q)),
   );

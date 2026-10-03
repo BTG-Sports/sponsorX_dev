@@ -133,6 +133,11 @@ export const AUDIT_ACTIONS = {
     btgReview: "deliverable.btgReview",
     sponsorReview: "deliverable.sponsorReview",
     requestRevision: "deliverable.requestRevision",
+    /** P5-BE-09 — a draft that failed the automatic checks, sent back by
+     *  the system (a separate action, so "who sent it back" is a filter). */
+    systemRevision: "deliverable.systemRevision",
+    /** P5-BE-09 — the one 48-hour reminder to a draft's reviewer. */
+    reviewReminder: "deliverable.reviewReminder",
     approve: "deliverable.approve",
     markPublished: "deliverable.markPublished",
     verify: "deliverable.verify",

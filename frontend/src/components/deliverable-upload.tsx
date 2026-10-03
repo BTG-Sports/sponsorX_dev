@@ -2,6 +2,13 @@
 
 import { useRef, useState, useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
+import {
+  CAPTION_MAX,
+  CREATIVE_ACCEPT,
+  CREATIVE_TYPES_WORDS,
+  disclosureHint,
+  missingDisclosures,
+} from "@/lib/content-checks";
 
 /* --------------------------------------------------------------------------
    DeliverableUpload — the athlete's upload, straight to R2 (P5-FE-03, §24).
@@ -13,7 +20,10 @@ import { useRouter } from "next/navigation";
      2. upload   — PUT the bytes to R2 with real progress (XHR, not fetch —
                    fetch has no upload progress)
      3. record   — tell the API the upload landed (a new creative version)
-     4. submit   — NOT_STARTED → DRAFT_SUBMITTED, first upload only
+     4. submit   — with the caption: NOT_STARTED → DRAFT_SUBMITTED, or a
+                   resubmission while it is back with the athlete. The API
+                   runs the automatic checks (P5-BE-09) — a failing draft
+                   comes straight back with each failure in words.
 
    A dropped connection during 2 keeps the chosen file and offers "Retry
    upload" (with a fresh URL — presigns expire). If 2 finished but 3 failed,
@@ -27,6 +37,9 @@ type Fail = { ok: false; message: string };
 type Ok<T> = { ok: true } & T;
 
 const ACCEPT = "image/*,video/*,application/pdf";
+/* P5-BE-09 — an athlete's draft takes only the types the automatic checks
+   allow; anything else would just come back as a failed check. */
+const DRAFT_ACCEPT = CREATIVE_ACCEPT;
 const MAX_BYTES = 2 * 1024 ** 3; // 2 GB — a long 4K reel fits; a mistake doesn't
 
 const pendingKey = (id: string) => `sx:pending-upload:${id}`;
@@ -53,19 +66,37 @@ export function DeliverableUpload({
   presign,
   register,
   submit,
+  captioned = false,
+  requiredDisclosures = [],
+  initialCaption = "",
+  canResubmitAsIs = false,
 }: {
   deliverableId: string;
   /** NOT_STARTED — this upload also submits the draft. */
   firstUpload: boolean;
+  /** P5-BE-09 — an athlete's draft: a caption box, and every upload is
+   *  submitted with it (a first submission, or a resubmission while it is
+   *  back with the athlete) so the automatic checks run. Off for other
+   *  uploads that reuse this component (edition ad artwork). */
+  captioned?: boolean;
   label: string;
   presign: (id: string, contentType: string) => Promise<Ok<{ url: string; key: string }> | Fail>;
   register: (id: string, key: string) => Promise<Ok<{ version: number }> | Fail>;
-  submit: (id: string) => Promise<Ok<{ state: string }> | Fail>;
+  submit: (id: string, caption: string) => Promise<Ok<{ state: string; passed?: boolean }> | Fail>;
+  /** P5-BE-09 — what the caption must carry (the accepted offer's terms). */
+  requiredDisclosures?: string[];
+  /** The caption last submitted, to edit rather than retype. */
+  initialCaption?: string;
+  /** Back with the athlete with a file already there: resubmit it with a
+   *  corrected caption, no new upload. */
+  canResubmitAsIs?: boolean;
 }) {
   const router = useRouter();
   const input = useRef<HTMLInputElement>(null);
   const xhr = useRef<XMLHttpRequest | null>(null);
   const [file, setFile] = useState<File | null>(null);
+  const [caption, setCaption] = useState(initialCaption);
+  const missing = missingDisclosures(caption, requiredDisclosures);
   const [step, setStep] = useState<Step>("idle");
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState<{ at: Step; message: string } | null>(null);
@@ -113,17 +144,26 @@ export function DeliverableUpload({
       return;
     }
     remember(null);
-    if (firstUpload) {
-      setStep("submit");
-      const s = await submit(deliverableId);
-      if (!s.ok) {
-        setError({ at: "submit", message: s.message });
-        return;
-      }
+    if (firstUpload || captioned) {
+      await submitNow();
+      return;
     }
     setStep("done");
     router.refresh();
   };
+
+  /** Step 4 alone — also the "resubmit as it is" path. */
+  async function submitNow() {
+    setError(null);
+    setStep("submit");
+    const s = await submit(deliverableId, caption);
+    if (!s.ok) {
+      setError({ at: "submit", message: s.message });
+      return;
+    }
+    setStep("done");
+    router.refresh();
+  }
 
   /** Steps 1–4 for the chosen file. */
   const run = async (f: File) => {
@@ -187,16 +227,40 @@ export function DeliverableUpload({
         <input
           ref={input}
           type="file"
-          accept={ACCEPT}
+          accept={captioned ? DRAFT_ACCEPT : ACCEPT}
           className="sr-only"
           disabled={busy}
           onChange={(e) => choose(e.target.files?.[0] ?? null)}
         />
         <span className="text-xs font-semibold">{file ? file.name : label}</span>
         <span className="text-[11px] text-muted">
-          {file ? fmtBytes(file.size) : "Photo, video or PDF · up to 2 GB · goes straight to secure storage"}
+          {file
+            ? fmtBytes(file.size)
+            : captioned
+              ? `A ${CREATIVE_TYPES_WORDS} · up to 2 GB · goes straight to secure storage`
+              : "Photo, video or PDF · up to 2 GB · goes straight to secure storage"}
         </span>
       </label>
+
+      {/* P5-BE-09 — the caption the athlete will post, checked on submit. */}
+      {captioned && (
+      <label className="block">
+        <span className="text-[11px] font-medium text-muted">Caption you&rsquo;ll post</span>
+        <textarea
+          value={caption}
+          onChange={(e) => setCaption(e.target.value.slice(0, CAPTION_MAX))}
+          disabled={busy}
+          rows={3}
+          maxLength={CAPTION_MAX}
+          placeholder={requiredDisclosures.length ? `e.g. Game day with the team ${requiredDisclosures.join(" ")}` : "What you'll write with the post"}
+          className="mt-1 w-full resize-y rounded-lg border border-line bg-surface px-3 py-2 text-xs leading-relaxed outline-none transition-colors focus:border-athlete/60 disabled:opacity-60"
+        />
+        <span className={`mt-1 block text-[10px] leading-relaxed ${missing.length && caption.trim() ? "text-warn" : "text-faint"}`}>
+          {disclosureHint(requiredDisclosures)}
+          {missing.length > 0 && caption.trim() && ` Still missing: ${missing.join(", ")}.`}
+        </span>
+      </label>
+      )}
 
       {(step === "upload" || (error?.at === "upload" && progress > 0)) && (
         <div>
@@ -223,7 +287,7 @@ export function DeliverableUpload({
               onClick={() => {
                 setError(null);
                 if ((error.at === "record" || error.at === "submit") && pending) void finish(pending);
-                else if (error.at === "submit") void submit(deliverableId).then((s) => (s.ok ? router.refresh() : setError({ at: "submit", message: s.message })));
+                else if (error.at === "submit") void submitNow();
                 else if (file) void run(file);
               }}
               className="mt-1.5 block font-semibold underline underline-offset-2"
@@ -251,7 +315,9 @@ export function DeliverableUpload({
                   ? "Submitting…"
                   : firstUpload
                     ? "Upload and submit"
-                    : "Upload new version"}
+                    : captioned
+                      ? "Upload new version and resubmit"
+                      : "Upload new version"}
         </button>
         {step === "upload" && !error && (
           <button
@@ -263,6 +329,23 @@ export function DeliverableUpload({
           </button>
         )}
       </div>
+      {captioned && canResubmitAsIs && (
+        <button
+          type="button"
+          disabled={busy || Boolean(file)}
+          onClick={() => void submitNow()}
+          className="w-full rounded-lg border border-line px-4 py-2.5 text-xs font-medium text-text transition-colors hover:bg-surface-2 disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          Resubmit the current version with this caption
+        </button>
+      )}
+      {captioned && (
+        <p className="text-[10px] leading-relaxed text-faint">
+          Submitting runs quick automatic checks — a file, its type, and the
+          caption&rsquo;s disclosures. If one fails, it comes straight back here
+          saying what to fix, before BTG reviews it.
+        </p>
+      )}
     </div>
   );
 }

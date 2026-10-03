@@ -245,7 +245,7 @@ const TIER_WORDS: Record<(typeof TIERS)[number], string> = {
   EMERGING: "emerging", CREATOR: "creator", PREMIUM: "premium", ANCHOR: "anchor",
 };
 
-function eligibilityWhere(actor: Actor, sports: string[], stateCodes: string[], categories: string[]) {
+export function eligibilityWhere(actor: Actor, sports: string[], stateCodes: string[], categories: string[]) {
   return {
     ...whereFor(actor, "athlete", "read"),
     state: "ACTIVE" as const,
