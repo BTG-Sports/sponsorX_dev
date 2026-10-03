@@ -625,8 +625,8 @@ const verify: RequestHandler<{ id: string }> = async (req, res) => {
  * itself; they never pass through this server (Addendum A8).
  */
 const upload: RequestHandler<{ id: string }> = async (req, res) => {
-  const { contentType } = CreativeUploadInput.parse(req.body ?? {});
-  res.status(201).json(await presignCreativeUpload(req.actor!, req.params.id, contentType));
+  const { contentType, bytes } = CreativeUploadInput.parse(req.body ?? {});
+  res.status(201).json(await presignCreativeUpload(req.actor!, req.params.id, contentType, bytes));
 };
 
 /** POST /deliverables/:id/assets — record what was uploaded. */

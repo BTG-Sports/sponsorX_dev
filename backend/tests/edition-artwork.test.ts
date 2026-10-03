@@ -144,7 +144,7 @@ describe.skipIf(!hasDatabase)("P9-BE-16 · edition ad artwork through the approv
 
   /** Presign as `who`, then register the key — the two upload calls. */
   async function upload(who: string, slotId: string) {
-    const signed = await call("POST", `/ad-slots/${slotId}/artwork/uploads`, who, { contentType: "image/png" });
+    const signed = await call("POST", `/ad-slots/${slotId}/artwork/uploads`, who, { contentType: "image/png", bytes: 48_213 });
     expect(signed.status, signed.text).toBe(201);
     expect(signed.json.key.startsWith(`t/${T}/ad-slot/${slotId}/`)).toBe(true);
     return call("POST", `/ad-slots/${slotId}/artwork`, who, { r2Key: signed.json.key });
@@ -204,12 +204,13 @@ describe.skipIf(!hasDatabase)("P9-BE-16 · edition ad artwork through the approv
     expect(before.json.slots).toEqual([expect.objectContaining({ slotId: backSlot, slotCode: "BACK", open: true, artwork: null, edition: expect.objectContaining({ id: editionId, label: "EArt Fall" }) })]);
 
     /* An unsold slot takes no artwork. */
-    expect((await call("POST", `/ad-slots/${openSlot}/artwork/uploads`, STAFF, { contentType: "image/png" })).status).toBe(403);
+    expect((await call("POST", `/ad-slots/${openSlot}/artwork/uploads`, STAFF, { contentType: "image/png", bytes: 48_213 })).status).toBe(403);
 
-    /* Rosa uploads her own back cover. */
+    /* Rosa uploads her own back cover. It passes the automatic checks, and
+       the system puts it on BTG's desk (P9-BE-22): no record yet, no skip. */
     const first = await upload(ROSA, backSlot);
     expect(first.status, first.text).toBe(201);
-    expect(first.json).toEqual({ id: expect.any(String), state: "DRAFT_SUBMITTED", version: 1 });
+    expect(first.json).toEqual(expect.objectContaining({ id: expect.any(String), state: "BTG_REVIEW", version: 1, route: "BTG_REVIEW", btgReviewSkipped: false }));
     backArt = first.json.id;
     expect(await prisma.editionAsset.findUniqueOrThrow({ where: { id: backArt }, select: { kind: true, adSlotId: true, editionId: true, sourceKind: true } }))
       .toEqual({ kind: "AD_CREATIVE", adSlotId: backSlot, editionId, sourceKind: "THIRD_PARTY" });
@@ -218,14 +219,15 @@ describe.skipIf(!hasDatabase)("P9-BE-16 · edition ad artwork through the approv
     const board = await call("GET", "/edition-artwork?state=DRAFT_SUBMITTED,BTG_REVIEW,SPONSOR_REVIEW", CM);
     expect(board.status, board.text).toBe(200);
     expect(board.json.artwork).toEqual([expect.objectContaining({
-      subject: "EDITION_ARTWORK", id: backArt, state: "DRAFT_SUBMITTED", version: 1, revision: null,
+      subject: "EDITION_ARTWORK", id: backArt, state: "BTG_REVIEW", version: 1, revision: null,
       edition: expect.objectContaining({ id: editionId, label: "EArt Fall", publication: "EArt Regional Record" }),
       slot: { id: backSlot, slotCode: "BACK", kind: "BACK_COVER" },
       campaign: { id: rosaCampaign, name: "EArt Rosa back cover", sponsorName: "EArt Rosa's Bakery" },
     })]);
 
-    /* BTG's steps (a CAMPAIGN_MGR, the deliverable desk's role). */
-    expect((await step(CM, backArt, "btg-review")).json).toEqual({ id: backArt, state: "BTG_REVIEW" });
+    /* BTG's steps (a CAMPAIGN_MGR, the deliverable desk's role). It is
+       already on the desk, so picking it up by hand is an illegal move. */
+    expect((await step(CM, backArt, "btg-review")).status).toBe(409);
     /* An ad does not skip its sponsor: approving from BTG_REVIEW is refused. */
     const early = await step(ROSA, backArt, "approve");
     expect(early.status).toBe(409);
@@ -241,7 +243,7 @@ describe.skipIf(!hasDatabase)("P9-BE-16 · edition ad artwork through the approv
     expect(after.json.slots[0].artwork).toEqual(expect.objectContaining({ id: backArt, state: "APPROVED", subject: "EDITION_ARTWORK" }));
 
     /* Approved artwork cannot be replaced. */
-    const signed = await call("POST", `/ad-slots/${backSlot}/artwork/uploads`, ROSA, { contentType: "image/png" });
+    const signed = await call("POST", `/ad-slots/${backSlot}/artwork/uploads`, ROSA, { contentType: "image/png", bytes: 48_213 });
     expect((await call("POST", `/ad-slots/${backSlot}/artwork`, ROSA, { r2Key: signed.json.key })).status).toBe(409);
   });
 
@@ -250,7 +252,7 @@ describe.skipIf(!hasDatabase)("P9-BE-16 · edition ad artwork through the approv
     const first = await upload(STAFF, halfSlot);
     expect(first.status, first.text).toBe(201);
     halfArt = first.json.id;
-    expect((await step(STAFF, halfArt, "btg-review")).status).toBe(200);
+    expect(first.json.state).toBe("BTG_REVIEW");
 
     /* No note, no revision. */
     expect((await step(STAFF, halfArt, "revision", { reason: "" })).status).toBe(400);
@@ -271,12 +273,11 @@ describe.skipIf(!hasDatabase)("P9-BE-16 · edition ad artwork through the approv
 
     /* Kim uploads version 2: the note is answered. */
     const second = await upload(KIM, halfSlot);
-    expect(second.json).toEqual({ id: halfArt, state: "DRAFT_SUBMITTED", version: 2 });
+    expect(second.json).toEqual(expect.objectContaining({ id: halfArt, state: "BTG_REVIEW", version: 2 }));
     expect((await prisma.editionAsset.findUniqueOrThrow({ where: { id: halfArt }, select: { revisionNote: true } })).revisionNote).toBeNull();
 
-    expect((await step(STAFF, halfArt, "btg-review")).status).toBe(200);
     /* Mid-review the file cannot change. */
-    const signed = await call("POST", `/ad-slots/${halfSlot}/artwork/uploads`, KIM, { contentType: "image/png" });
+    const signed = await call("POST", `/ad-slots/${halfSlot}/artwork/uploads`, KIM, { contentType: "image/png", bytes: 48_213 });
     expect((await call("POST", `/ad-slots/${halfSlot}/artwork`, KIM, { r2Key: signed.json.key })).status).toBe(409);
     expect((await step(STAFF, halfArt, "sponsor-review")).status).toBe(200);
     /* With the sponsor, BTG cannot ask for changes — it is the sponsor's step. */
@@ -292,14 +293,13 @@ describe.skipIf(!hasDatabase)("P9-BE-16 · edition ad artwork through the approv
   it("3 · a different sponsor is refused at every step, BTG cannot sign off for a sponsor, an analyst only reads", async () => {
     /* Back to SPONSOR_REVIEW for Kim's half page, with a version 3. */
     expect((await upload(KIM, halfSlot)).json.version).toBe(3);
-    expect((await step(CM, halfArt, "btg-review")).status).toBe(200);
     expect((await step(CM, halfArt, "sponsor-review")).status).toBe(200);
 
     /* Rosa is not the buyer of the half page. */
     expect((await step(ROSA, halfArt, "approve")).status).toBe(403);
     expect((await step(ROSA, halfArt, "revision", { reason: "Not mine" })).status).toBe(403);
     expect((await call("GET", `/edition-artwork/${halfArt}/url`, ROSA)).status).toBe(403);
-    expect((await call("POST", `/ad-slots/${halfSlot}/artwork/uploads`, ROSA, { contentType: "image/png" })).status).toBe(403);
+    expect((await call("POST", `/ad-slots/${halfSlot}/artwork/uploads`, ROSA, { contentType: "image/png", bytes: 48_213 })).status).toBe(403);
     expect((await call("GET", `/campaigns/${kimCampaign}/artwork`, ROSA)).status).toBe(403);
     /* Her board read holds her own artwork only. */
     expect(((await call("GET", "/edition-artwork", ROSA)).json.artwork as Array<{ id: string }>).map((a) => a.id)).toEqual([backArt]);
@@ -312,7 +312,7 @@ describe.skipIf(!hasDatabase)("P9-BE-16 · edition ad artwork through the approv
     expect((await step(KIM, halfArt, "btg-review")).status).toBe(403);
     /* The sponsor's analyst reads, and decides nothing. */
     expect((await call("GET", `/campaigns/${rosaCampaign}/artwork`, ROSA_ANALYST)).status).toBe(200);
-    expect((await call("POST", `/ad-slots/${backSlot}/artwork/uploads`, ROSA_ANALYST, { contentType: "image/png" })).status).toBe(403);
+    expect((await call("POST", `/ad-slots/${backSlot}/artwork/uploads`, ROSA_ANALYST, { contentType: "image/png", bytes: 48_213 })).status).toBe(403);
     expect(await stateOf(halfArt)).toBe("SPONSOR_REVIEW");
 
     /* A key that was not issued for this slot is not attached to it. */
@@ -322,7 +322,8 @@ describe.skipIf(!hasDatabase)("P9-BE-16 · edition ad artwork through the approv
   it("4 · the edition cannot enter production while any sold slot's artwork is unapproved, and can once all are", async () => {
     expect((await call("POST", `/editions/${editionId}/transition`, STAFF, { to: "CLOSED" })).json.state).toBe("CLOSED");
     expect((await call("POST", `/editions/${editionId}/conditions`, STAFF, { contentReady: true })).status).toBe(200);
-    /* Both sponsors' licences for their own artwork — the rights gate is not what is tested here. */
+    /* Licences for both, by hand — the rights gate is not what is tested
+       here (Rosa's approval already recorded hers, P9-BE-22; a second does no harm). */
     for (const [id, ref] of [[backArt, "EArt-IO-1"], [halfArt, "EArt-IO-2"]] as const) {
       expect((await call("POST", `/edition-assets/${id}/rights`, STAFF, {
         grantorKind: "THIRD_PARTY", grantorRef: "sponsor", mayPublishDigital: true, startsAt: new Date().toISOString(), licenseRef: ref,
@@ -349,7 +350,7 @@ describe.skipIf(!hasDatabase)("P9-BE-16 · edition ad artwork through the approv
     expect((await call("POST", `/editions/${editionId}/transition`, STAFF, { to: "IN_PRODUCTION" })).json.state).toBe("IN_PRODUCTION");
 
     /* In production the artwork is final. */
-    const signed = await call("POST", `/ad-slots/${halfSlot}/artwork/uploads`, KIM, { contentType: "image/png" });
+    const signed = await call("POST", `/ad-slots/${halfSlot}/artwork/uploads`, KIM, { contentType: "image/png", bytes: 48_213 });
     const locked = await call("POST", `/ad-slots/${halfSlot}/artwork`, KIM, { r2Key: signed.json.key });
     expect(locked.status).toBe(409);
     expect(locked.text).toMatch(/IN_PRODUCTION/);
@@ -395,16 +396,17 @@ describe.skipIf(!hasDatabase)("P9-BE-16 · edition ad artwork through the approv
     const rows = await prisma.auditLog.findMany({
       where: { tenantId: T, entity: "EditionAsset", action: { startsWith: "editionArtwork." } },
       select: { action: true, actorId: true, entityId: true, before: true, after: true },
-      orderBy: { at: "asc" },
+      orderBy: [{ at: "asc" }, { id: "asc" }],
     });
     const of = (id: string) => rows.filter((r) => r.entityId === id).map((r) => [r.action, r.actorId]);
     expect(of(backArt)).toEqual([
-      ["editionArtwork.submit", ROSA], ["editionArtwork.btgReview", CM], ["editionArtwork.sponsorReview", CM], ["editionArtwork.approve", ROSA],
+      /* P9-BE-22 — the pick-up is the system's (actor null), on upload. */
+      ["editionArtwork.submit", ROSA], ["editionArtwork.btgReview", null], ["editionArtwork.sponsorReview", CM], ["editionArtwork.approve", ROSA],
     ]);
     expect(of(halfArt)).toEqual([
-      ["editionArtwork.submit", STAFF], ["editionArtwork.btgReview", STAFF], ["editionArtwork.requestRevision", STAFF],
-      ["editionArtwork.submit", KIM], ["editionArtwork.btgReview", STAFF], ["editionArtwork.sponsorReview", STAFF],
-      ["editionArtwork.requestRevision", KIM], ["editionArtwork.submit", KIM], ["editionArtwork.btgReview", CM],
+      ["editionArtwork.submit", STAFF], ["editionArtwork.btgReview", null], ["editionArtwork.requestRevision", STAFF],
+      ["editionArtwork.submit", KIM], ["editionArtwork.btgReview", null], ["editionArtwork.sponsorReview", STAFF],
+      ["editionArtwork.requestRevision", KIM], ["editionArtwork.submit", KIM], ["editionArtwork.btgReview", null],
       ["editionArtwork.sponsorReview", CM], ["editionArtwork.approve", KIM],
     ]);
     /* The reason is on the audit row, with who asked. */

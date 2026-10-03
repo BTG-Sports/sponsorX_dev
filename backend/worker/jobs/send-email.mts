@@ -334,7 +334,16 @@ ${d.portalUrl ?? ""}
   }),
   "editionArtwork.readyForSignOff": (d) => ({
     subject: `Your ad artwork is ready for your sign-off — ${d.editionLabel ?? "the edition"}`,
-    text: `Hi,\n\nBTG has reviewed your artwork for ${d.slotCode ?? "your ad"} in ${d.editionLabel ?? "the edition"}. Please approve it, or ask for changes, on your campaign page:\n\n${d.reviewUrl ?? ""}\n\nThe edition can't go to print until every ad is approved by its sponsor.\n\n— BTG SponsorX`,
+    /* P9-BE-22 — a trusted sponsor's upload skipped BTG's review. */
+    text: d.skipped === "yes"
+      ? `Hi,\n\nYour artwork for ${d.slotCode ?? "your ad"} in ${d.editionLabel ?? "the edition"} passed our automatic checks and, because your recent ads were approved without changes, it came straight to you. Please approve it, or ask for changes, on your campaign page:\n\n${d.reviewUrl ?? ""}\n\nBTG can still ask for changes while you review it. The edition can't go to print until every ad is approved by its sponsor.\n\n— BTG SponsorX`
+      : `Hi,\n\nBTG has reviewed your artwork for ${d.slotCode ?? "your ad"} in ${d.editionLabel ?? "the edition"}. Please approve it, or ask for changes, on your campaign page:\n\n${d.reviewUrl ?? ""}\n\nThe edition can't go to print until every ad is approved by its sponsor.\n\n— BTG SponsorX`,
+  }),
+  /* P9-BE-22 — the automatic checks sent the upload back; every failure is
+     listed, one per line, so the sponsor can fix them in one go. */
+  "editionArtwork.checksFailed": (d) => ({
+    subject: `Fix before review: your ad artwork for ${d.slotCode ?? "your ad slot"}, ${d.editionLabel ?? "the edition"}`,
+    text: `Hi,\n\nVersion ${d.version ?? "1"} of the artwork for ${d.slotCode ?? "your ad slot"} in ${d.editionLabel ?? "the edition"} didn't pass our automatic checks, so it hasn't gone to BTG:\n\n${d.reasons ?? ""}\n\nFix these and upload it again here:\n\n${d.reviewUrl ?? ""}\n\n— BTG SponsorX`,
   }),
   "editionArtwork.revisionRequested": (d) => ({
     subject: `Changes asked for: ad artwork for ${d.slotCode ?? "an ad slot"}, ${d.editionLabel ?? "the edition"}`,

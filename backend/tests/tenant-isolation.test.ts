@@ -261,7 +261,7 @@ const BODY: Record<string, unknown> = {
   "POST /edition-assets/{id}/rights": { grantorKind: "BTG", grantorRef: "x", licenseRef: "L-1", startsAt: "2026-01-01T00:00:00.000Z" },
   "POST /edition-assets/{id}/campaign": { campaignId: A.campaign },
   /* P9-BE-16 */
-  "POST /ad-slots/{id}/artwork/uploads": { contentType: "image/png" },
+  "POST /ad-slots/{id}/artwork/uploads": { contentType: "image/png", bytes: 48_213 },
   "POST /ad-slots/{id}/artwork": { r2Key: "t/ti_tenant_a/ad-slot/ti_slot_sold_a/x" },
   "POST /edition-artwork/{id}/revision": { reason: "Isolation sweep" },
   "POST /consents": { agreementId: A.agreement, subjectKind: "ATHLETE", subjectId: A.athlete, bodyHashShown: "x".repeat(64) },

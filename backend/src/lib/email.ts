@@ -221,6 +221,8 @@ export type EmailTemplate =
   | "editionArtwork.readyForSignOff"
   | "editionArtwork.revisionRequested"
   | "editionArtwork.approved"
+  /* P9-BE-22 — the automatic checks sent an upload back: every reason, to the sponsor. */
+  | "editionArtwork.checksFailed"
   /* 2S5-BE-07 — the payment provider couldn't send a payout because the
      payee's payout account needs attention: fix it (on the provider's page,
      from the money page) and it is sent again on its own. */

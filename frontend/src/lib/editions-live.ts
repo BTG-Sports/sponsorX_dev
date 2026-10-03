@@ -58,6 +58,8 @@ export type ApiLedgerSlot = {
     version: number;
     submittedAt: string | null;
     revision: { reason: string } | null;
+    /** P9-BE-22 — the automatic checks sent it back to the sponsor. */
+    sentBack?: boolean;
   } | null;
 };
 
