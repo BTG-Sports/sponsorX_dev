@@ -63,3 +63,49 @@
 - **Migrations:** 20261004400000 (brief auto), 20261004500000 (staffing and launch), 20261004600000 (content trust).
 - **Checks on the combined branch:** backend 2566/2568 on two runs (only Jan's next-edition-e2e 4–5); frontend 1117/1117; tsc and eslint clean.
 - **Tracker:** Phase 1 rows 277–281 Done. The plan has 212 Phase 1 tasks.
+
+## rcfworks — evening: SponsorX NEXT automation (BTG admin review items 23–24)
+
+Owner decisions: students matched to the school roster are approved automatically (expanded rules below). Ads skip BTG review for sponsors with a clean record, and BTG reviews after any BTG change request. Revenue split shares stay placeholders (40/30/20/10, DMV 50/50). The machine restarted mid-build; the three agents resumed from their worktrees, and the local Postgres and test DBs were rebuilt.
+
+- **P9-BE-17 · Editions run themselves:** `sweepEditionStages` (every 10 minutes, under an edition lock).
+  - PLANNING→SELLING at the new `Edition.salesOpenAt`, needing a priced slot.
+  - SELLING→CLOSED at `closeDate`, which resolves the split.
+  - CLOSED→IN_PRODUCTION once all four gates pass (`contentReady` stays BTG's editorial call).
+  - IN_PRODUCTION→PUBLISHED_DIGITAL at `publishTarget`, with the gates re-checked.
+  - PRINTED, DISTRIBUTED and CANCELLED stay manual. Each edition shows `nextStep`.
+- **P9-BE-18 · Rate card and gated ad sales:**
+  - New `EditionRateCard`. A typed slot price that doesn't match the card is refused (422).
+  - `sellIn` is the single sale path, and it now refuses NOT_FOR_STUDENTS, sensitive and unknown categories and clashes, for manual sales too (409 `ad_sale_refused`).
+  - Automatic sale after campaign creation, only when exactly one SELLING edition fits. Otherwise an `AdSaleHold` is created and SALES is emailed once. The sweep retries holds for NO_SLOT and NO_EDITION.
+  - Fixed: SALES could not sell by hand (the edition lookup used edition read).
+- **P9-BE-19 · Split lock and cancel refunds:**
+  - Finance locks a split; BTG admin unlocks. Triggers block writes to a locked split. Cancelling an edition with a locked split is refused.
+  - Cancelling releases its slots, cancels ad-only campaigns, and creates `RefundDue` rows (EDITION_CANCELLED) for money received.
+  - A Zoho payment after a cancel creates a PAID_AFTER_EDITION_CANCELLED row (via `CancelledAdSale`).
+  - A refunded sale's student credit is reversed (`SalesAttribution.reversesId`, SALES_500_REVERSED −100).
+  - RBAC Matrix §15.3: Finance lists editions through its split read.
+- **P9-BE-20 · Students:**
+  - Picked up on submit. Approved on an exact roster match (`name-match.ts` `norm`), only when:
+    - the name matches exactly one roster entry, and the graduation year matches when both have one;
+    - no approved student at that school has the same name;
+    - an adult applies from the school's email domain (`Property.emailDomain`).
+  - Otherwise the advisor reviews, with `reviewReasons`. An empty roster approves nobody.
+  - Activation comes after guardian verification (unknown age never activates). The sales code is issued on ACTIVE. The advisor gets a daily digest.
+  - Only ACTIVE students read school-wide data.
+  - A roster upload re-reviews applicants held only for the roster.
+  - No in-app guardian signature exists for students, so guardian verification stays with BTG.
+  - **Walkthrough impact:** seeded Jordan (SUBMITTED) can no longer see the Fall 2026 slots until active (`pilot-school.test.ts` updated). Jan's `next-edition-e2e` clause 1 was adjusted minimally (one APPROVED step now returns ACTIVE).
+- **P9-BE-21 · Prospects:** auto-reject on a held category (with redirects); auto-accept when clean (school `BrandRestriction` rows and athletes checked); otherwise held, with SALES emailed once. New BTG desk at `/admin/next/prospects`.
+- **P9-BE-22 · Ad artwork:**
+  - Checks: PDF/PNG/JPG, at most 50 MB, Content-Type and Content-Length signed into the PUT. Dimensions skipped (no source). A restricted word in the title holds the ad for BTG instead of returning it.
+  - A failing upload returns to the sponsor.
+  - Trusted sponsors (last 3 with no BTG revision) skip to the sponsor's own review, under a per-sponsor lock. Sensitive and NOT_FOR_STUDENTS sponsors never skip.
+  - On approval, the THIRD_PARTY ad licence is recorded once, so sold ads no longer block production.
+  - Also: athlete deliverable uploads now sign their content type, which makes P5-BE-09's check true.
+- **P9-BE-23 · Consent rights recorded automatically:** from valid consent in force. A minor needs a verified guardian; commercial reuse only under COMMERCIAL. This now applies to BTG's manual grants too.
+- **P9-FE-11:** the screens for all of the above.
+- **Migrations:** 20261004700000, 800000, 900000 and 20261005000000.
+- **Merge note:** `heldCategories` lives in `student-moves.ts` (with `exceptSponsorId`), and `edition.ts` imports it from there.
+- **Checks on the combined branch:** backend 2658/2660 on two runs (only Jan's next-edition-e2e 4–5); frontend 1141/1141; tsc and eslint clean.
+- **Tracker:** Phase 1 rows 282–289 are Done. The plan has 220 Phase 1 tasks.
