@@ -49,7 +49,7 @@ import {
 } from "./content-check-rules";
 import { maybeMakeEligible } from "./earning";
 import { advanceCampaignOfOrder } from "./campaign-stages";
-import { decideSkip, isBtgReviewer, SKIP_ATHLETE_SELECT } from "./content-trust";
+import { decideSkip, isBtgReviewer, lockAthleteContent, SKIP_ATHLETE_SELECT } from "./content-trust";
 
 export class PublishedUrlRequiredError extends Error {
   readonly status = 400;
@@ -109,6 +109,25 @@ export class DraftInReviewError extends Error {
         "is sent back to you.",
     );
     this.name = "DraftInReviewError";
+  }
+}
+
+/** P5-BE-10 — a sponsor approves once BTG has sent the draft to them. */
+export class BtgReviewFirstError extends Error {
+  readonly status = 409;
+  constructor() {
+    super("BTG is still reviewing this draft. You can approve it once it reaches you.");
+    this.name = "BtgReviewFirstError";
+  }
+}
+
+/** A review step written only while the deliverable is still in the state
+ *  it was read in — someone else moved it first. */
+export class DeliverableMovedError extends Error {
+  readonly status = 409;
+  constructor() {
+    super("This deliverable changed while you were deciding. Reload it and try again.");
+    this.name = "DeliverableMovedError";
   }
 }
 
@@ -202,7 +221,7 @@ async function move(
     auditAction: Parameters<typeof audit>[2];
     /** A function of the state it leaves where the write depends on it
      *  (P5-BE-10: BTG's pass is a pass only from BTG_REVIEW). */
-    data?: Prisma.DeliverableUpdateInput | ((from: DeliverableState) => Prisma.DeliverableUpdateInput);
+    data?: Prisma.DeliverableUpdateManyMutationInput | ((from: DeliverableState) => Prisma.DeliverableUpdateManyMutationInput);
     after?: Record<string, unknown>;
     /** Runs inside the same transaction, once the move is written and
      *  audited. Used by P7-BE-02 to release the order's earning. */
@@ -223,7 +242,11 @@ async function move(
     };
     /** P5-BE-09 — refuse the move for a reason the state table cannot see
      *  (a draft that failed its checks). Runs inside the transaction. */
-    guard?: (found: { checksPassed: boolean | null }) => void;
+    guard?: (found: { checksPassed: boolean | null; state: string }) => void;
+    /** P5-BE-10 — runs after the guard and before the write, in the
+     *  transaction: a BTG revision takes the athlete's content-trust lock
+     *  here, before it stamps the deliverable. */
+    beforeWrite?: (tx: Prisma.TransactionClient, found: { tenantId: string; athleteId: string }) => Promise<void>;
   },
 ): Promise<Moved> {
   if (opts.tenantWide) {
@@ -242,6 +265,7 @@ async function move(
            in the same query rather than a second one after the move. */
         order: {
           select: {
+            athleteId: true,
             campaign: { select: { name: true } },
             athlete: { select: { displayName: true, user: { select: { email: true } } } },
           },
@@ -255,16 +279,22 @@ async function move(
       throw new IllegalDeliverableTransitionError(from, to);
     }
     opts.guard?.(found);
+    if (opts.beforeWrite) await opts.beforeWrite(tx, { tenantId: found.tenantId, athleteId: found.order.athleteId });
 
-    const updated = await tx.deliverable.update({
-      where: { id: deliverableId },
+    /* P5-BE-10 — written only while it is still in the state it was read in:
+       a step that waited on the athlete's lock must not overwrite a move
+       someone else made meanwhile. */
+    const written = await tx.deliverable.updateMany({
+      /* tenant-scope: the row loaded above through whereFor, only while unchanged. */
+      where: { id: deliverableId, state: from },
       data: {
-        state: to as Prisma.DeliverableUpdateInput["state"],
+        state: to,
         ...reviewClock(to, found.reviewWaitingSince),
         ...(typeof opts.data === "function" ? opts.data(from) : opts.data),
       },
-      select: { id: true, state: true },
     });
+    if (written.count !== 1) throw new DeliverableMovedError();
+    const updated = { id: deliverableId, state: to };
 
     await audit(tx, actor, opts.auditAction, "Deliverable", deliverableId, {
       before: { state: from },
@@ -554,7 +584,8 @@ export function sendToSponsorReview(actor: Actor, deliverableId: string): Promis
     /* P5-BE-10 — BTG passed it: one clean BTG review on the athlete's record
        (tenant-wide write is BTG's alone, and the state table allows this
        move only from BTG_REVIEW). */
-    data: { btgPassedAt: new Date() },
+    /* Stamped when written, inside the transaction, not when called. */
+    data: () => ({ btgPassedAt: new Date() }),
   });
 }
 
@@ -581,19 +612,39 @@ export async function requestRevision(
     action: "approve",
     tenantWide: false,
     auditAction: AUDIT_ACTIONS.deliverable.requestRevision,
-    ...(btg ? { data: { btgRevisionAt: new Date() } } : {}),
+    ...(btg
+      ? {
+          /* The athlete's content-trust lock BEFORE the stamp, the same lock
+             submitDraft takes before it reads the streak — so a submission
+             racing this revision never skips on the streak it breaks. The
+             stamp's time is taken after the lock, when it is written. */
+          beforeWrite: (tx: Prisma.TransactionClient, f: { tenantId: string; athleteId: string }) =>
+            lockAthleteContent(tx, f.tenantId, f.athleteId),
+          data: () => ({ btgRevisionAt: new Date() }),
+        }
+      : {}),
     after: { reason: trimmed, by: btg ? "BTG" : "SPONSOR" },
     notify: { template: "deliverable.revisionRequested", data: { reason: trimmed } },
   });
 }
 
-/** Either reviewer approves: BTG_REVIEW | SPONSOR_REVIEW → APPROVED. */
+/**
+ * A reviewer approves: BTG_REVIEW | SPONSOR_REVIEW → APPROVED.
+ *
+ * P5-BE-10 — from BTG_REVIEW only BTG may approve (tenant-wide approve). The
+ * state table cannot see who is acting, and a sponsor holds `approve` on
+ * their own campaigns for SPONSOR_REVIEW; without this a sponsor could
+ * approve a draft BTG is still reviewing and skip BTG's safety review.
+ */
 export function approveDeliverable(actor: Actor, deliverableId: string): Promise<Moved> {
   const btg = isBtgReviewer(actor);
   return move(actor, deliverableId, "APPROVED", {
     action: "approve",
     tenantWide: false,
     auditAction: AUDIT_ACTIONS.deliverable.approve,
+    guard: (d) => {
+      if (d.state === "BTG_REVIEW" && !btg) throw new BtgReviewFirstError();
+    },
     /* P5-BE-10 — BTG approving it outright from its own review is a clean
        pass too. BTG approving from SPONSOR_REVIEW is not counted: it is not
        a review of BTG's own desk. */

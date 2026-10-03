@@ -69,6 +69,7 @@ describe.skipIf(!hasDatabase)("P5-BE-10 · trusted drafts skip BTG's content rev
   const ATHLETES: Record<string, { birthDate?: Date; ageBand?: string }> = {
     pro: { birthDate: new Date("1996-04-02") },
     pro2: { ageBand: "18_PLUS" },
+    racer: { ageBand: "18_PLUS" },
     kid: { birthDate: new Date("2012-06-01") },
     noage: {},
   };
@@ -374,6 +375,81 @@ describe.skipIf(!hasDatabase)("P5-BE-10 · trusted drafts skip BTG's content rev
     await call("POST", `/deliverables/${id}/btg-review`, A("cm"));
     expect((await call("POST", `/deliverables/${id}/revision`, A("cm"), { reason: "Add the 21+ line" })).status).toBe(200);
     expect(await trust(A("pro2"))).toEqual({ trusted: false, cleanStreak: 0, needed: 3 });
+  });
+
+  /** Wait until `n` sessions are queued on the athlete's content-trust lock. */
+  async function lockWaiters(n: number) {
+    for (let i = 0; i < 300; i++) {
+      const [row] = await prisma.$queryRaw<Array<{ n: number }>>`
+        SELECT count(*)::int AS n FROM pg_stat_activity
+         WHERE datname = current_database() AND wait_event_type = 'Lock'
+           AND query LIKE '%FROM "Athlete"%FOR NO KEY UPDATE%'`;
+      if ((row?.n ?? 0) >= n) return;
+      await new Promise((r) => setTimeout(r, 10));
+    }
+    throw new Error(`fewer than ${n} sessions ever waited on the athlete's lock`);
+  }
+
+  it("a BTG revision and a submission racing: the submission never skips on the streak the revision breaks", async () => {
+    await history(T, "racer", 3);
+    expect(await trust(A("racer"))).toMatchObject({ trusted: true });
+    /* X skipped to the sponsor; BTG is about to revise it. Y is uploaded, ready to submit. */
+    const x = await deliverable(T, "c_plain", "racer");
+    expect((await submit(A("racer"), x)).json.btgReviewSkipped).toBe(true);
+    const y = await deliverable(T, "c_plain", "racer");
+    const pre = await call("POST", `/deliverables/${y}/uploads`, A("racer"), { contentType: "image/png" });
+    await call("POST", `/deliverables/${y}/assets`, A("racer"), { r2Key: pre.json.key });
+
+    /* Hold the athlete's lock, queue the revision on it, then the submission. */
+    let release!: () => void;
+    const held = new Promise<void>((r) => (release = r));
+    let locked!: () => void;
+    const isLocked = new Promise<void>((r) => (locked = r));
+    const holder = prisma.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT "id" FROM "Athlete" WHERE "id" = ${A("racer")} FOR NO KEY UPDATE`;
+      locked();
+      await held;
+    }, { timeout: 30_000, maxWait: 10_000 });
+    await isLocked;
+
+    let revisionDone = false;
+    const revision = call("POST", `/deliverables/${x}/revision`, A("cm"), { reason: "The logo is cropped" }).then((r) => {
+      revisionDone = true;
+      return r;
+    });
+    await lockWaiters(1);
+    /* The revision takes the lock before it writes: it is waiting, not done. */
+    expect(revisionDone).toBe(false);
+    const submission = call("POST", `/deliverables/${y}/submit`, A("racer"), {});
+    await lockWaiters(2);
+
+    release();
+    await holder;
+    const [r, s] = await Promise.all([revision, submission]);
+    expect(r.status).toBe(200);
+    expect(s.status).toBe(200);
+    /* The submission read the streak after the revision broke it. */
+    expect(s.json).toMatchObject({ state: "DRAFT_SUBMITTED", passed: true, btgReviewSkipped: false });
+    expect((await auditOf(y)).find((l) => l.action === "deliverable.submitDraft")!.after).toMatchObject({
+      btgReview: { skipped: false, reason: "Not trusted yet: 0 of 3 clean drafts — reviewed by BTG" },
+    });
+    expect(await trust(A("racer"))).toEqual({ trusted: false, cleanStreak: 0, needed: 3 });
+  });
+
+  it("a sponsor can't approve while BTG is reviewing — only once it reaches them", async () => {
+    const id = await deliverable(T, "c_booze", "pro2"); // sensitive: goes to BTG
+    expect((await submit(A("pro2"), id)).json).toMatchObject({ state: "DRAFT_SUBMITTED" });
+    expect((await call("POST", `/deliverables/${id}/btg-review`, A("cm"))).json).toMatchObject({ state: "BTG_REVIEW" });
+    const early = await call("POST", `/deliverables/${id}/approve`, A("sp_booze"));
+    expect(early.status).toBe(409);
+    expect(early.json.error.message).toMatch(/BTG is still reviewing/);
+    expect(await stateOf(id)).toBe("BTG_REVIEW");
+    expect((await auditOf(id)).map((l) => l.action)).not.toContain("deliverable.approve");
+
+    expect((await call("POST", `/deliverables/${id}/sponsor-review`, A("cm"))).json).toMatchObject({ state: "SPONSOR_REVIEW" });
+    const ok = await call("POST", `/deliverables/${id}/approve`, A("sp_booze"));
+    expect(ok.status).toBe(200);
+    expect(ok.json).toMatchObject({ state: "APPROVED" });
   });
 
   it("cross-tenant: no reads, no revisions, no counts, no trust across tenants", async () => {

@@ -24,7 +24,22 @@ import { scopeOf } from "../auth/scope";
 import { guardianControls } from "./guardian-rules";
 import { contentTrust, skipDecision, type ContentTrust, type SkipDecision } from "./content-trust-rules";
 
-type Db = Pick<Prisma.TransactionClient, "deliverable" | "user">;
+type Db = Pick<Prisma.TransactionClient, "deliverable" | "user" | "$queryRaw">;
+
+/**
+ * The athlete's content-trust lock, held to the end of the caller's
+ * transaction. Taken by a BTG revision BEFORE it stamps `btgRevisionAt`, and
+ * by a submission BEFORE it reads the streak — always first, before either
+ * writes the deliverable — so the two cannot interleave: a submission that
+ * waits on a revision reads the streak the revision just broke, and one that
+ * goes first skips only on a streak that was still intact.
+ *
+ * A row lock on the Athlete, FOR NO KEY UPDATE: it conflicts with itself but
+ * not with the key-share locks inserts referencing the athlete take.
+ */
+export async function lockAthleteContent(db: Pick<Db, "$queryRaw">, tenantId: string, athleteId: string): Promise<void> {
+  await db.$queryRaw`SELECT "id" FROM "Athlete" WHERE "id" = ${athleteId} AND "tenantId" = ${tenantId} FOR NO KEY UPDATE`;
+}
 
 /**
  * Is this a BTG reviewer's verdict, rather than the sponsor's? BTG holds
@@ -91,7 +106,9 @@ export const SKIP_ATHLETE_SELECT = {
 /** Does this passing draft skip BTG? Reads the streak and the sponsor's reviewers. */
 export async function decideSkip(db: Db, d: SkipFacts): Promise<SkipDecision> {
   const a = d.order.athlete;
-  /* One after the other: `db` is a transaction, one connection. */
+  /* One after the other: `db` is a transaction, one connection. The lock
+     first, so the streak is read after any BTG revision ahead of us. */
+  await lockAthleteContent(db, d.tenantId, d.order.athleteId);
   const clean = await cleanCount(db, d.tenantId, d.order.athleteId);
   const reviewer = await db.user.findFirst({
     where: { tenantId: d.tenantId, disabledAt: null, sponsorId: d.order.campaign.sponsorId, roles: { has: "SPONSOR_ADMIN" } },

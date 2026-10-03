@@ -370,7 +370,7 @@ const PATHS: Row[] = [
   { method: "post", path: "/deliverables/{id}/btg-review", tag: "Deliverables", summary: "BTG starts content review. Refused (409) for a draft the automatic checks sent back (P5-BE-09)." },
   { method: "post", path: "/deliverables/{id}/sponsor-review", tag: "Deliverables", summary: "Send to the sponsor for approval. Counts as a clean BTG review on the athlete's record (P5-BE-10)." },
   { method: "post", path: "/deliverables/{id}/revision", tag: "Deliverables", summary: "Request a revision, with a reason. BTG may ask from BTG_REVIEW or SPONSOR_REVIEW — including on a draft that skipped BTG's review; a BTG revision resets the athlete's clean streak and sends this deliverable's later drafts to BTG (P5-BE-10).", body: RevisionRequestInput },
-  { method: "post", path: "/deliverables/{id}/approve", tag: "Deliverables", summary: "Approve a deliverable." },
+  { method: "post", path: "/deliverables/{id}/approve", tag: "Deliverables", summary: "Approve a deliverable. From BTG_REVIEW only BTG may approve; a sponsor approves once it reaches SPONSOR_REVIEW (409 before then, P5-BE-10)." },
   { method: "post", path: "/deliverables/{id}/published", tag: "Deliverables", summary: "Mark published, with the live URL.", body: MarkPublishedInput },
   { method: "post", path: "/deliverables/{id}/verify", tag: "Deliverables", summary: "BTG verifies the published post." },
   { method: "post", path: "/deliverables/{id}/uploads", tag: "Deliverables", summary: "Presign a direct-to-R2 upload. Refused (409) while the draft is with its reviewers — in BTG's queue, BTG_REVIEW or SPONSOR_REVIEW (P5-BE-09).", body: CreativeUploadInput, status: 201 },
