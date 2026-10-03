@@ -392,16 +392,10 @@ describe.skipIf(!hasDatabase)("Phase 2 marketplace over the API", { timeout: 60_
     });
 
     it("a sent offer's terms are fixed before acceptance too; decline and withdraw close it", async () => {
-      /* P4-BE-09 — the accepted offer above completed the campaign's staffing,
-         so it moved to APPROVAL on its own; BTG moves it back to staff more. */
-      expect((await call("POST", "/campaigns/mkt_campaign/transition", "mkt_cm", { to: "STAFFING" })).status).toBe(200);
       const second = (await call("POST", "/offers", "mkt_cm", { ...offer(), athleteId: "mkt_ath2", inventoryItemId: null })).json.id as string;
       await call("POST", `/offers/${second}/send`, "mkt_cm");
       await expect(prisma.$executeRawUnsafe(`UPDATE "Offer" SET brief = 'changed' WHERE id = $1`, second)).rejects.toThrow(/offer_terms_immutable/);
       expect((await call("POST", `/offers/${second}/respond`, "mkt_athlete2", { decision: "DECLINE" })).json.state).toBe("DECLINED");
-      /* P4-BE-09 — that decline was the last answer waiting: APPROVAL again, on its own. */
-      expect((await call("GET", "/campaigns/mkt_campaign", "mkt_cm")).json.campaign.state).toBe("APPROVAL");
-      expect((await call("POST", "/campaigns/mkt_campaign/transition", "mkt_cm", { to: "STAFFING" })).status).toBe(200);
 
       const third = (await call("POST", "/offers", "mkt_cm", { ...offer(), athleteId: "mkt_ath2", inventoryItemId: null })).json.id as string;
       await call("POST", `/offers/${third}/send`, "mkt_cm");

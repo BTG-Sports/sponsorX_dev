@@ -41,7 +41,8 @@ const { automaticMove, nextStep } = await import("../src/domain/campaign-stage-r
 const { followsCampaign, notReadyToGoLive } = await import("../src/domain/reward-state");
 
 const facts = (over: Partial<import("../src/domain/campaign-stage-rules").StageFacts> = {}) => ({
-  state: "STAFFING" as const, ordersAll: 2, ordersSigned: 2, ordersSent: 0, ordersDraft: 0, offersWaiting: 0,
+  state: "STAFFING" as const, ordersAll: 2, ordersSigned: 2, athletesSigned: 2, athleteRange: { min: 1, max: 2 } as { min: number; max: number } | null,
+  ordersSent: 0, ordersDraft: 0, offersWaiting: 0,
   invitesWaiting: 0, invitesWithoutOrder: 0, adSlots: 0, deliverables: { total: 0, published: 0, verified: 0 },
   reportingSince: null, finalReportAt: null, ...over,
 });
@@ -54,7 +55,30 @@ describe("P4-BE-09 · the rules (pure)", () => {
     expect(automaticMove(facts({ offersWaiting: 1 }))).toBeNull();
     expect(automaticMove(facts({ invitesWaiting: 1 }))).toBeNull();
     expect(automaticMove(facts({ invitesWithoutOrder: 1 }))).toBeNull();
-    expect(automaticMove(facts({ ordersSigned: 0, ordersAll: 1 }))).toBeNull();
+    expect(automaticMove(facts({ ordersSigned: 0, athletesSigned: 0, ordersAll: 1 }))).toBeNull();
+  });
+
+  it("STAFFING → APPROVAL only at the package's maximum; never without a package", () => {
+    const p59 = { athleteRange: { min: 5, max: 9 } };
+    expect(automaticMove(facts({ ...p59, ordersSigned: 1, athletesSigned: 1 }))).toBeNull();
+    expect(automaticMove(facts({ ...p59, ordersSigned: 8, athletesSigned: 8 }))).toBeNull();
+    expect(automaticMove(facts({ ...p59, ordersSigned: 9, athletesSigned: 9 }))?.to).toBe("APPROVAL");
+    expect(automaticMove(facts({ ...p59, ordersSigned: 9, athletesSigned: 9, offersWaiting: 1 }))).toBeNull();
+    /* Two signed jobs for one athlete are one athlete. */
+    expect(automaticMove(facts({ ...p59, ordersSigned: 9, athletesSigned: 8 }))).toBeNull();
+    expect(automaticMove(facts({ athleteRange: null, ordersSigned: 50, athletesSigned: 50 }))).toBeNull();
+  });
+
+  it("below the maximum the next step is BTG's, with the count", () => {
+    const p59 = { athleteRange: { min: 5, max: 9 } };
+    expect(nextStep(facts({ ...p59, ordersSigned: 3, athletesSigned: 3 }), "staff")).toEqual({ who: "BTG", text: "Staffed 3 of 5–9 — needs at least 5" });
+    expect(nextStep(facts({ ...p59, ordersSigned: 6, athletesSigned: 6 }), "staff"))
+      .toEqual({ who: "BTG", text: "Staffed 6 of 5–9 — move to approval when you're done, or it moves on its own at 9" });
+    expect(nextStep(facts({ athleteRange: null, ordersSigned: 4, athletesSigned: 4 }), "staff")).toEqual({ who: "BTG", text: "Move to approval when staffing is done" });
+    expect(nextStep(facts({ athleteRange: { min: 1, max: 1 }, ordersSigned: 0, athletesSigned: 0 }), "staff")).toEqual({ who: "BTG", text: "Staffed 0 of 1 — needs at least 1" });
+    /* Answers still out come first; the sponsor's wording is unchanged. */
+    expect(nextStep(facts({ ...p59, athletesSigned: 6, ordersSent: 1 }), "staff")).toEqual({ who: "ATHLETES", text: "Waiting for 1 athlete to accept" });
+    expect(nextStep(facts({ ...p59, athletesSigned: 6 }), "sponsor")).toEqual({ who: "BTG", text: "We're lining up athletes for your campaign" });
   });
 
   it("ACTIVE → REPORTING only with at least one deliverable, all verified", () => {
@@ -133,9 +157,9 @@ describe.skipIf(!hasDatabase)("P4-BE-09 / P6-BE-09 · on a real database", async
   };
 
   const TABLES = [
-    "OutboxJob", "SyncTask", "ReportFile", "AuditLog", "RewardEvent", "RewardToken", "Reward", "Earning", "MetricDaily",
+    "OutboxJob", "SyncTask", "ReportFile", "AuditLog", "RewardEvent", "RewardToken", "Reward", "Earning", "Offer", "MetricDaily",
     "Deliverable", "CampaignOrder", "AgreementAcceptance", "Agreement", "CampaignInvite", "AdSlot", "Edition", "Publication",
-    "Campaign", "NilJob", "User", "Athlete", "SponsorContact", "Sponsor",
+    "Campaign", "CampaignBrief", "SponsorPackage", "NilJob", "User", "Athlete", "SponsorContact", "Sponsor",
   ];
   async function clean() {
     for (const t of TABLES) await prisma.$executeRawUnsafe(`DELETE FROM "${t}" WHERE "tenantId" IN ($1, $2)`, A, B);
@@ -155,15 +179,25 @@ describe.skipIf(!hasDatabase)("P4-BE-09 / P6-BE-09 · on a real database", async
     (await prisma.outboxJob.findMany({ where: { tenantId: { in: [A, B] }, name }, select: { payload: true } }))
       .map((j) => j.payload as Record<string, unknown>).filter((p) => p.campaignId === campaignId);
 
-  async function campaign(id: string, s: string, tenantId = A) {
+  /* Every campaign comes from a brief with a package — a one-athlete package
+     unless the test names another, or `null` for no brief at all. */
+  async function campaign(id: string, s: string, tenantId = A, pkg: string | null = tenantId === A ? "cs_pkg_1" : "cs_pkg_b") {
+    const sponsorId = tenantId === A ? "cs_sponsor" : "cs_sponsor_b";
+    const window = { startDate: new Date("2026-09-01"), endDate: new Date("2026-12-31") };
+    if (pkg) {
+      await prisma.campaignBrief.create({ data: {
+        id: `${id}_brief`, tenantId, sponsorId, objective: "CS stages", budget: 1_000_000, packageId: pkg, ...window,
+        sports: [], stateCodes: [], categories: [], state: "CAMPAIGN_CREATED",
+      } });
+    }
     await prisma.campaign.create({ data: {
-      id, tenantId, sponsorId: tenantId === A ? "cs_sponsor" : "cs_sponsor_b", name: `CS ${id}`, budget: 1_000_000,
-      startDate: new Date("2026-09-01"), endDate: new Date("2026-12-31"), state: s as never,
+      id, tenantId, sponsorId, name: `CS ${id}`, budget: 1_000_000, ...window, state: s as never,
+      ...(pkg ? { briefId: `${id}_brief` } : {}),
     } });
   }
-  async function order(id: string, campaignId: string, ath: number, s: string, job = "cs_job_1", tenantId = A) {
+  async function order(id: string, campaignId: string, ath: number | string, s: string, job = "cs_job_1", tenantId = A) {
     await prisma.campaignOrder.create({ data: {
-      id, tenantId, campaignId, athleteId: `cs_ath${ath}`, jobId: job, compensation: 10_000, sellPrice: 20_000,
+      id, tenantId, campaignId, athleteId: typeof ath === "string" ? ath : `cs_ath${ath}`, jobId: job, compensation: 10_000, sellPrice: 20_000,
       usageRights: "90 days", dueDate: FUTURE, state: s as never, ...(s === "ACCEPTED" || s === "ACTIVE" ? { acceptedAt: new Date() } : {}),
     } });
   }
@@ -205,6 +239,17 @@ describe.skipIf(!hasDatabase)("P4-BE-09 / P6-BE-09 · on a real database", async
       sellFloorEmerging: 8_000, sellFloorCreator: 10_000, sellFloorPremium: 15_000,
     }))) });
     await prisma.agreement.create({ data: { id: "cs_agr", tenantId: A, kind: "CS_CAMPAIGN_ORDER", version: 1, bodyHash: "cs-order-terms-hash", effectiveAt: new Date("2026-01-01") } });
+    const pkg = (id: string, tenantId: string, min: number, max: number) => ({
+      id, tenantId, code: id.toUpperCase(), name: `CS ${min}–${max}`, priceLow: 100_000, priceHigh: 900_000,
+      athleteCountMin: min, athleteCountMax: max, lineItems: [],
+    });
+    await prisma.sponsorPackage.createMany({ data: [pkg("cs_pkg_1", A, 1, 1), pkg("cs_pkg_59", A, 5, 9), pkg("cs_pkg_b", B, 1, 1)] });
+    /* Nine more athletes for the 5–9 package; the ninth signs through the app. */
+    await prisma.athlete.createMany({ data: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((n) => ({
+      id: `cs_pk${n}`, tenantId: A, slug: `cs-stages-pk-${n}`, legalName: `CS Package Athlete ${n}`, displayName: `CS.PK${n}`,
+      email: `cs_pk${n}@cs-test.invalid`, sport: "Basketball", stateCode: "MD", ageBand: "18_PLUS" as const, state: "ACTIVE" as const,
+    })) });
+    await prisma.user.create({ data: { id: "cs_pk9_user", tenantId: A, clerkId: "cs_pk9_user", email: "cs_pk9@cs-test.invalid", roles: ["ATHLETE"], athleteId: "cs_pk9" } });
 
     server = createApp().listen(0, "127.0.0.1");
     await new Promise((r) => server.once("listening", r));
@@ -231,7 +276,7 @@ describe.skipIf(!hasDatabase)("P4-BE-09 / P6-BE-09 · on a real database", async
       const moves = await stageAudits("cs_c1");
       expect(moves).toEqual([{
         action: "campaign.submitForApproval", actorId: null, before: { state: "STAFFING" },
-        after: { state: "APPROVAL", automatic: true, reason: expect.stringMatching(/Every athlete has accepted/) },
+        after: { state: "APPROVAL", automatic: true, reason: expect.stringMatching(/Fully staffed: 2 athletes signed/) },
       }]);
       /* BTG's CRM task, and one "ready to launch" to the campaign manager. */
       expect(await prisma.syncTask.count({ where: { tenantId: A, campaignId: "cs_c1", kind: "APPROVAL" } })).toBe(1);
@@ -259,6 +304,67 @@ describe.skipIf(!hasDatabase)("P4-BE-09 / P6-BE-09 · on a real database", async
       await sweepCampaignStages(new Date(), { tenantIds: [A] });
       expect(await state("cs_c1c")).toBe("STAFFING");
       expect((await call("/campaigns/cs_c1c", "cs_staff")).json.campaign.nextStep).toEqual({ who: "BTG", text: "BTG to send 1 order" });
+    });
+  });
+
+  describe("STAFFING → APPROVAL at the package's maximum (5–9)", () => {
+    const pk9 = person("cs_pk9_user", A, ["ATHLETE"], { athleteId: "cs_pk9" });
+    const signed = async (campaignId: string, ids: number[]) => {
+      for (const n of ids) await order(`${campaignId}_pk${n}`, campaignId, `cs_pk${n}`, "ACCEPTED");
+    };
+
+    it("one acceptance doesn't move it, and the desk is told how far staffing has got", async () => {
+      await campaign("cs_p59", "STAFFING", A, "cs_pkg_59");
+      await order("cs_p59_first", "cs_p59", 1, "SENT");
+      await acceptOrder(athlete(1), "cs_p59_first", evidence);
+      expect(await state("cs_p59")).toBe("STAFFING");
+      expect((await call("/campaigns/cs_p59", "cs_staff")).json.campaign.nextStep).toEqual({ who: "BTG", text: "Staffed 1 of 5–9 — needs at least 5" });
+
+      await signed("cs_p59", [1, 2, 3, 4, 5]);
+      await sweepCampaignStages(new Date(), { tenantIds: [A] });
+      expect(await state("cs_p59")).toBe("STAFFING");
+      expect((await call("/campaigns/cs_p59", "cs_staff")).json.campaign.nextStep)
+        .toEqual({ who: "BTG", text: "Staffed 6 of 5–9 — move to approval when you're done, or it moves on its own at 9" });
+      expect(await stageAudits("cs_p59")).toEqual([]);
+    });
+
+    it("reaching 9 with nothing outstanding moves it, on the ninth acceptance", async () => {
+      await campaign("cs_p59b", "STAFFING", A, "cs_pkg_59");
+      await signed("cs_p59b", [1, 2, 3, 4, 5, 6, 7, 8]);
+      await order("cs_p59b_ninth", "cs_p59b", "cs_pk9", "SENT");
+      await acceptOrder(pk9, "cs_p59b_ninth", evidence);
+      expect(await state("cs_p59b")).toBe("APPROVAL");
+      expect((await stageAudits("cs_p59b"))[0]).toMatchObject({ action: "campaign.submitForApproval", actorId: null, after: { automatic: true } });
+    });
+
+    it("reaching 9 with an offer still open doesn't move it — until the offer is closed", async () => {
+      await campaign("cs_p59c", "STAFFING", A, "cs_pkg_59");
+      await signed("cs_p59c", [1, 2, 3, 4, 5, 6, 7, 8]);
+      await prisma.offer.create({ data: {
+        id: "cs_p59c_offer", tenantId: A, campaignId: "cs_p59c", athleteId: "cs_pk10", jobId: "cs_job_1", brief: "One more.",
+        compensation: 10_000, sellPrice: 20_000, deliverables: [{ title: "Post", dueDate: FUTURE.toISOString() }], usageRights: "90 days",
+        disclosures: ["#ad"], expiresAt: FUTURE, state: "SENT", sentAt: new Date(), termsHash: "cs-offer-hash",
+      } });
+      await order("cs_p59c_ninth", "cs_p59c", "cs_pk9", "SENT");
+      await acceptOrder(pk9, "cs_p59c_ninth", evidence);
+      expect(await state("cs_p59c")).toBe("STAFFING");
+      expect((await call("/campaigns/cs_p59c", "cs_staff")).json.campaign.nextStep).toEqual({ who: "ATHLETES", text: "Waiting for 1 athlete to accept" });
+
+      await prisma.offer.update({ where: { id: "cs_p59c_offer" }, data: { state: "WITHDRAWN", respondedAt: new Date() } });
+      await sweepCampaignStages(new Date(), { tenantIds: [A] });
+      expect(await state("cs_p59c")).toBe("APPROVAL");
+    });
+
+    it("no package never moves on its own; BTG's manual move is unchanged", async () => {
+      await campaign("cs_nopkg", "STAFFING", A, null);
+      await order("cs_nopkg_o1", "cs_nopkg", 1, "SENT");
+      await acceptOrder(athlete(1), "cs_nopkg_o1", evidence);
+      await sweepCampaignStages(new Date(), { tenantIds: [A] });
+      expect(await state("cs_nopkg")).toBe("STAFFING");
+      expect((await call("/campaigns/cs_nopkg", "cs_staff")).json.campaign.nextStep).toEqual({ who: "BTG", text: "Move to approval when staffing is done" });
+      await transitionCampaign(staff, "cs_nopkg", "APPROVAL");
+      expect(await state("cs_nopkg")).toBe("APPROVAL");
+      expect((await stageAudits("cs_nopkg"))[0]).toMatchObject({ action: "campaign.submitForApproval", actorId: "cs_staff" });
     });
   });
 

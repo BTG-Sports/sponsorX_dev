@@ -7,14 +7,20 @@
  * (APPROVAL → ACTIVE) and cancelling — and the stage moves that are only
  * facts happen on their own:
  *
- *   STAFFING  → APPROVAL   every athlete order is signed and nobody is still
- *                          being asked: at least one ACCEPTED order, no DRAFT
- *                          or SENT order, no SENT offer or open invitation
- *                          still inside its window, and no accepted
- *                          invitation BTG has not yet turned into an order.
- *                          REJECTED and CANCELLED orders are settled and do
- *                          not count either way (the launch's rule, which
- *                          activates ACCEPTED orders only).
+ *   STAFFING  → APPROVAL   the campaign is FULLY staffed: the athletes with a
+ *                          signed order reach the package's athleteCountMax
+ *                          (the campaign's brief's SponsorPackage), and
+ *                          nobody is still being asked: no DRAFT or SENT
+ *                          order, no SENT offer or open invitation still
+ *                          inside its window, and no accepted invitation BTG
+ *                          has not yet turned into an order. REJECTED and
+ *                          CANCELLED orders are settled and do not count
+ *                          either way (the launch's rule, which activates
+ *                          ACCEPTED orders only). Below the maximum BTG is
+ *                          still staffing, one offer at a time, and decides
+ *                          when it is done (its manual move, unchanged); with
+ *                          no package there is no maximum, so it never moves
+ *                          on its own (programme owner, 2026-10-03).
  *   ACTIVE    → REPORTING  every deliverable on the signed orders (ACCEPTED,
  *                          ACTIVE, COMPLETED) is VERIFIED — at least one —
  *                          and no order or offer is still waiting for an
@@ -42,6 +48,10 @@ export type StageFacts = {
   ordersAll: number;
   /** ACCEPTED, ACTIVE or COMPLETED — signed. */
   ordersSigned: number;
+  /** Distinct athletes holding a signed order — what the package counts. */
+  athletesSigned: number;
+  /** The package's athlete range (its brief's SponsorPackage); null with no package. */
+  athleteRange: { min: number; max: number } | null;
   /** SENT — in front of an athlete. */
   ordersSent: number;
   /** DRAFT — BTG has not sent it yet. */
@@ -82,10 +92,11 @@ export function automaticMove(f: StageFacts): AutomaticMove | null {
   if (adOnly(f)) return null;
   switch (f.state) {
     case "STAFFING":
-      if (f.ordersSigned > 0 && f.ordersDraft === 0 && answersWaiting(f) === 0 && f.invitesWithoutOrder === 0) {
+      if (!f.athleteRange || f.athletesSigned < f.athleteRange.max) return null;
+      if (f.ordersDraft === 0 && answersWaiting(f) === 0 && f.invitesWithoutOrder === 0) {
         return {
           to: "APPROVAL",
-          reason: `Every athlete has accepted (${plural(f.ordersSigned, "signed order")}) and no offer or invitation is waiting for an answer.`,
+          reason: `Fully staffed: ${plural(f.athletesSigned, "athlete")} signed, the package's maximum, and no offer or invitation is waiting for an answer.`,
         };
       }
       return null;
@@ -136,7 +147,14 @@ export function nextStep(f: StageFacts, audience: Audience): NextStep {
       if (f.ordersDraft + f.invitesWithoutOrder > 0) {
         return { who: "BTG", text: `BTG to send ${plural(f.ordersDraft + f.invitesWithoutOrder, "order")}` };
       }
-      return { who: "BTG", text: "BTG to invite athletes" };
+      if (!f.athleteRange) return { who: "BTG", text: "Move to approval when staffing is done" };
+      {
+        const { min, max } = f.athleteRange;
+        const of = `Staffed ${f.athletesSigned} of ${min === max ? max : `${min}–${max}`}`;
+        if (f.athletesSigned < min) return { who: "BTG", text: `${of} — needs at least ${min}` };
+        if (f.athletesSigned < max) return { who: "BTG", text: `${of} — move to approval when you're done, or it moves on its own at ${max}` };
+        return { who: "SYSTEM", text: `${of} — moves to approval on its own` };
+      }
     case "APPROVAL":
       return sponsor
         ? { who: "BTG", text: "Your athletes are confirmed — your campaign launches soon" }

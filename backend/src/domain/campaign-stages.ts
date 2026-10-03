@@ -132,7 +132,11 @@ export async function loadStageFacts(db: Tx, campaignIds: string[], now: Date): 
     db.campaign.findMany({
       /* tenant-scope: ids the caller loaded through whereFor, or the sweep's tenant-filtered ids. */
       where: { id: ids },
-      select: { id: true, state: true, _count: { select: { orders: true, adSlots: true } } },
+      select: {
+        id: true, state: true, _count: { select: { orders: true, adSlots: true } },
+        /* The package's athlete range — fully staffed is its maximum. */
+        brief: { select: { package: { select: { athleteCountMin: true, athleteCountMax: true } } } },
+      },
     }),
     db.campaignOrder.findMany({
       /* tenant-scope: keyed by campaigns already scoped by the caller. */
@@ -188,6 +192,8 @@ export async function loadStageFacts(db: Tx, campaignIds: string[], now: Date): 
       state: c.state as CampaignState,
       ordersAll: c._count.orders,
       ordersSigned: mine.filter((o) => (SIGNED as readonly string[]).includes(o.state)).length,
+      athletesSigned: new Set(mine.filter((o) => (SIGNED as readonly string[]).includes(o.state)).map((o) => o.athleteId)).size,
+      athleteRange: c.brief?.package ? { min: c.brief.package.athleteCountMin, max: c.brief.package.athleteCountMax } : null,
       ordersSent: mine.filter((o) => o.state === "SENT").length,
       ordersDraft: mine.filter((o) => o.state === "DRAFT").length,
       offersWaiting: offers.find((o) => o.campaignId === c.id)?._count._all ?? 0,
