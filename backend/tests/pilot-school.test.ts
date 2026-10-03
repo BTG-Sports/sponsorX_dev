@@ -241,8 +241,11 @@ describe.skipIf(!hasDatabase)("walkthrough personas · every login works and eve
     expect(await other.text()).not.toContain(JORDAN.studentId);
   });
 
-  it("NEXT story: the Fall 2026 edition is selling, every slot open, visible to Northside's student", async () => {
-    const res = await get(`/editions/${EDITION.editionId}/slots`, clerkOf("seed_user_p_jordan"));
+  it("NEXT story: the Fall 2026 edition is selling, every slot open, visible to Northside's advisor", async () => {
+    /* P9-BE-20 — only an ACTIVE student reads the school's editions; Jordan
+       is still waiting in the advisor's queue, so Jordan is refused. */
+    expect((await get(`/editions/${EDITION.editionId}/slots`, clerkOf("seed_user_p_jordan"))).status).toBe(403);
+    const res = await get(`/editions/${EDITION.editionId}/slots`, clerkOf("seed_user_p_patel"));
     expect(res.status).toBe(200);
     const body = await res.text();
     for (const [slotCode] of EDITION_SLOTS) expect(body).toContain(slotCode);

@@ -35,7 +35,7 @@ import { scopeFor } from "../auth/policy";
 import { ForbiddenError } from "../auth/errors";
 import { norm, sameName } from "./name-match";
 import { overlaps, restrictionConflicts } from "./restrictions";
-import { normalizeSchoolDomain, prospectVerdict, rosterVerdict } from "./student-auto-rules";
+import { normalizeSchoolDomain, prospectVerdict, rosterVerdict, STUDENT_HOLD } from "./student-auto-rules";
 import {
   activateIfReadyIn,
   decideProspectIn,
@@ -178,7 +178,55 @@ export async function autoDecideProspectIn(tx: Tx, tenantId: string, prospectId:
     where: { id: p.id, tenantId, state: "SUBMITTED" }, data: { reviewReasons: verdict.reasons },
   });
   await audit(tx, SYSTEM(tenantId), "studentProspect.hold", "StudentProspect", p.id, { after: { reasons: verdict.reasons } });
+  await tellSalesOfHold(tx, tenantId, p, verdict.reasons);
   return { outcome: "held", reasons: verdict.reasons };
+}
+
+/**
+ * A held prospect is a person's to decide: SALES hears of it once, with the
+ * reasons — or, in a tenant with no SALES user, its BTG admins. Once is the
+ * key (the prospect and the recipient) and the hold itself, which happens
+ * only on the first evaluation (a held prospect is never re-evaluated).
+ */
+async function tellSalesOfHold(tx: Tx, tenantId: string, p: { id: string; businessName: string; category: string; student: { displayName: string; propertyId: string } }, reasons: string[]) {
+  const staff = (role: "SALES" | "BTG_ADMIN") =>
+    tx.user.findMany({ where: { tenantId, roles: { has: role }, disabledAt: null }, select: { id: true, email: true }, orderBy: { id: "asc" } });
+  let to = await staff("SALES");
+  if (!to.length) to = await staff("BTG_ADMIN");
+  if (!to.length) return;
+  const school = await tx.property.findFirst({ where: { tenantId, id: p.student.propertyId }, select: { name: true } });
+  for (const u of to) {
+    await send(tx, tenantId, {
+      template: "studentProspect.heldForSales", to: u.email, idempotencyKey: `studentProspect.heldForSales:${p.id}:${u.id}`,
+      data: {
+        businessName: p.businessName, category: p.category.replace(/_/g, " ").toLowerCase(), studentName: p.student.displayName,
+        school: school?.name ?? "", reasons: reasons.map((r) => `• ${r}`).join("\n"), deskUrl: `${app()}/admin/next/prospects`,
+      },
+    });
+  }
+}
+
+/**
+ * P9-BE-20 — the school just supplied (more of) its roster: re-run the
+ * verdict for every application at that school waiting ONLY because it
+ * wasn't on a roster (NO_ROSTER / NOT_ON_ROSTER). Inside the upload's
+ * transaction, under the same per-school lock; anything else that held an
+ * application (two entries, an existing student, an adult's email) leaves it
+ * where it is, with its reasons. Returns how many it approved.
+ */
+export async function recheckRosterHoldsIn(tx: Tx, tenantId: string, propertyId: string, now = new Date()): Promise<number> {
+  await lockSchoolReview(tx, tenantId, propertyId);
+  const rosterOnly: string[] = [STUDENT_HOLD.NO_ROSTER, STUDENT_HOLD.NOT_ON_ROSTER];
+  const waiting = await tx.student.findMany({
+    where: { tenantId, propertyId, state: "UNDER_REVIEW", reviewReasons: { isEmpty: false } },
+    select: { id: true, reviewReasons: true }, orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+  });
+  let approved = 0;
+  for (const w of waiting) {
+    if (!w.reviewReasons.every((r) => rosterOnly.includes(r))) continue;
+    if ((await autoReviewStudentIn(tx, tenantId, w.id, now)).outcome === "approved") approved++;
+  }
+  return approved;
 }
 
 /* ── the school's email domain (P9-BE-20 §2) ────────────────────────────── */

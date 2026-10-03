@@ -382,6 +382,11 @@ ${d.portalUrl ?? ""}
     subject: `About ${d.businessName ?? "your prospect"}`,
     text: `Hi ${d.guardianName || d.studentName || "there"},\n\n${d.guardianName ? `About a business ${d.studentName ?? "your student"} brought to SponsorX NEXT: ` : ""}SponsorX can't take on ${d.businessName ?? "this business"} right now (reason: ${(d.reason ?? "OTHER").replace(/_/g, " ").toLowerCase()}).\n\nThis doesn't count against ${d.guardianName ? d.studentName ?? "them" : "you"} — ${d.guardianName ? "their" : "your"} sales credit and points are unchanged.${d.openCategories ? `\n\nCategories still open at ${d.guardianName ? "their" : "your"} school: ${d.openCategories}.` : ""}\n\n— SponsorX NEXT`,
   }),
+  /* P9-BE-21 — a prospect the system held for a person, with the reasons. */
+  "studentProspect.heldForSales": (d) => ({
+    subject: `A student prospect needs a decision: ${d.businessName ?? "a business"}`,
+    text: `${d.studentName ?? "A student"}${d.school ? ` at ${d.school}` : ""} brought in ${d.businessName ?? "a business"} (${d.category ?? "no category"}). It wasn't decided automatically:\n\n${d.reasons ?? ""}\n\nAccept it or refuse it with a reason on the prospect desk:\n\n${d.deskUrl ?? ""}\n\n— SponsorX NEXT`,
+  }),
   /* P9-BE-20 — the advisor's once-a-day list of roster approvals. */
   "student.autoApprovedDigest": (d) => ({
     subject: `${d.count ?? "0"} student(s) approved from your roster — ${d.day ?? "today"}`,

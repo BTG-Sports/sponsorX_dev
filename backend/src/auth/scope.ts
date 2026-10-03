@@ -29,7 +29,7 @@
 
 import type { Actor } from "./actor";
 import { ForbiddenError } from "./errors";
-import { scopeFor, type Action, type Resource, type Scope } from "./policy";
+import { scopeFor, scopeForRole, type Action, type Resource, type Scope } from "./policy";
 import { sellerCanSell } from "../domain/listing-rules";
 
 export { type Action, type Resource, type Scope };
@@ -967,6 +967,19 @@ function nestedUnderAthlete(actor: Actor, scope: Scope): Where {
  * It never returns an unrestricted `{}` by accident: that value is only
  * reachable from an explicit `any` or `catalog` branch.
  */
+/**
+ * P9-BE-20 — a STUDENT's school-wide reach (`own-property`: the school's
+ * publications, editions, slots, assets, events) holds only while their
+ * Student row is ACTIVE (`actor.studentActive`, read per request). An
+ * APPROVED minor waiting on a guardian keeps their own rows (`own`) and
+ * nothing of the school's. Only when STUDENT is the role giving the scope —
+ * an advisor who is also a student keeps the advisor's reach.
+ */
+function studentSchoolReadBlocked(actor: Actor, resource: Resource, action: Action, scope: Scope): boolean {
+  if (scope !== "own-property" || !actor.roles.includes("STUDENT") || actor.studentActive === true) return false;
+  return !actor.roles.some((r) => r !== "STUDENT" && scopeForRole(r, resource, action) === "own-property");
+}
+
 export function whereFor(
   actor: Actor,
   resource: Resource,
@@ -976,6 +989,7 @@ export function whereFor(
 
   const build = BUILDERS[resource];
   if (!build) throw new ScopeNotImplementedError(resource, scope);
+  if (studentSchoolReadBlocked(actor, resource, action, scope)) return { AND: [MATCHES_NOTHING] };
 
   /* WRAPPED IN `AND`, AND THAT IS THE SECURITY PROPERTY (P8-SEC-02).
 

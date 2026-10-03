@@ -49,6 +49,8 @@ export type EmailTemplate =
   /* P9-BE-20 — a school's advisors hear, once a day, who the system
      approved from their roster. */
   | "student.autoApprovedDigest"
+  /* P9-BE-21 — SALES (or BTG admins) hear once of a prospect held for them. */
+  | "studentProspect.heldForSales"
   | "guardian.verificationRequested"
   /* P4-INT-01 — the invitation's three moments. A reminder and an expiry
      warning are separate templates rather than one with a flag, because the

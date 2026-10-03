@@ -244,6 +244,30 @@ describe.skipIf(!hasDatabase)("P9-BE-20 / P9-BE-21 · students and prospects dec
       expect((await prisma.property.findUniqueOrThrow({ where: { id: "sa20_north" }, select: { emailDomain: true } })).emailDomain).toBe(DOMAIN);
     });
 
+    it("a roster upload approves a waiting applicant once, and leaves the others with their reasons", async () => {
+      const rita = (await apply({ legalName: "Rita Sa20 Later", gradYear: 2029, ...minorGuardian("rita") })).json.id as string;
+      expect(await row(rita)).toMatchObject({ state: "UNDER_REVIEW", reviewReasons: [STUDENT_HOLD.NOT_ON_ROSTER] });
+      const twin = await prisma.student.findFirstOrThrow({ where: { tenantId: T, legalName: "Sam Sa20 Twin" }, select: { id: true } });
+      const ex = await prisma.student.findFirstOrThrow({ where: { tenantId: T, legalName: "Ex Sa20 Isting", state: "UNDER_REVIEW" }, select: { id: true } });
+
+      /* Another school's advisor cannot upload North's roster. */
+      expect((await call("POST", "/properties/sa20_north/roster", "sa20_advisor_south", { entries: [{ legalName: "Rita Sa20 Later" }] })).status).toBe(403);
+      expect((await row(rita)).state).toBe("UNDER_REVIEW");
+
+      expect((await call("POST", "/properties/sa20_north/roster", "sa20_advisor", { entries: [{ legalName: "Rita Sa20 Later", gradYear: 2029 }] })).status).toBe(201);
+      expect(await row(rita)).toMatchObject({ state: "APPROVED", reviewReasons: [] });
+      /* A second upload changes nothing: approved once, one login. */
+      await call("POST", "/properties/sa20_north/roster", "sa20_advisor", { entries: [{ legalName: "Someone Sa20 Else" }] });
+      expect(await prisma.auditLog.count({ where: { tenantId: T, entityId: rita, action: "student.autoApprove" } })).toBe(1);
+      expect(await prisma.user.count({ where: { tenantId: T, email: "parent.rita@sa20.invalid" } })).toBe(1); // the guardian's login, once (Rita gave no email)
+      /* Held for anything but the roster: untouched, reasons kept. */
+      expect(await row(twin.id)).toMatchObject({ state: "UNDER_REVIEW", reviewReasons: [STUDENT_HOLD.TWO_ENTRIES] });
+      expect(await row(ex.id)).toMatchObject({ state: "UNDER_REVIEW", reviewReasons: [STUDENT_HOLD.ALREADY_APPROVED] });
+      /* Still not on the roster: still waiting, with the reason. */
+      const nobody = await prisma.student.findFirstOrThrow({ where: { tenantId: T, legalName: "Nobody Sa20 Here" }, select: { id: true } });
+      expect(await row(nobody.id)).toMatchObject({ state: "UNDER_REVIEW", reviewReasons: [STUDENT_HOLD.NOT_ON_ROSTER] });
+    });
+
     it("the advisors get ONE digest a day listing who was approved automatically", async () => {
       const now = new Date();
       const first = await auto.sendStudentApprovalDigests(now, { tenantIds: [T] });
@@ -358,7 +382,50 @@ describe.skipIf(!hasDatabase)("P9-BE-20 / P9-BE-21 · students and prospects dec
         expect(r.json.state, name).toBe("SUBMITTED");
         const p = await prisma.studentProspect.findUniqueOrThrow({ where: { id: r.json.id }, select: { reviewReasons: true, decidedAutomatically: true } });
         expect(p, name).toEqual({ reviewReasons: [reason], decidedAutomatically: false });
+        /* SALES is told once, with the reason — not the BTG admin, since this tenant has SALES. */
+        const told = (await prisma.outboxJob.findMany({ where: { tenantId: T, name: "notify.email" }, select: { payload: true } }))
+          .map((m) => m.payload as { template: string; to: string; idempotencyKey: string; data: Record<string, string> })
+          .filter((m) => m.template === "studentProspect.heldForSales" && m.idempotencyKey.includes(r.json.id));
+        expect(told.map((m) => m.to), name).toEqual(["sales@sa20.invalid"]);
+        expect(told[0]!.data.reasons, name).toContain(reason);
       }
+    });
+
+    it("a tenant with no SALES user tells its BTG admins of a held prospect — once", async () => {
+      await prisma.student.create({ data: { id: "sa20_t2_student", tenantId: T2, propertyId: "sa20_t2_school", legalName: "T2 Sa20 Student", displayName: "T2", masthead: ["SALES"], ageBand: "18_PLUS", state: "ACTIVE" } });
+      await prisma.user.create({ data: { id: "sa20_t2_student_user", tenantId: T2, clerkId: "sa20_t2_student_user", email: "t2.student@sa20.invalid", roles: ["STUDENT"], studentId: "sa20_t2_student", propertyId: "sa20_t2_school" } });
+      await prisma.sponsor.create({ data: { id: "sa20_t2_shop", tenantId: T2, name: "SA20 Tenant-Two Shop" } });
+      const r = await submit("sa20_t2_student_user", "sa20_t2_student", "SA20 tenant two shop", "EDUCATION");
+      expect(r.json.state).toBe("SUBMITTED");
+      expect(await prisma.$transaction((tx) => auto.autoDecideProspectIn(tx, T2, r.json.id))).toEqual({ outcome: "skipped" });
+      const told = (await prisma.outboxJob.findMany({ where: { tenantId: T2, name: "notify.email" }, select: { payload: true } }))
+        .map((m) => m.payload as { template: string; to: string }).filter((m) => m.template === "studentProspect.heldForSales");
+      expect(told.map((m) => m.to)).toEqual(["ops@sa20-two.invalid"]);
+    });
+
+    it("only an ACTIVE student reads the school's NEXT rows — an approved minor waiting on a guardian sees only their own application", async () => {
+      const g = await prisma.guardian.create({ data: { tenantId: T, legalName: "Gate Parent", email: "gate.parent@sa20.invalid", relationship: "PARENT" }, select: { id: true } });
+      await prisma.student.create({ data: { id: "sa20_gated", tenantId: T, propertyId: "sa20_north", legalName: "Gate Sa20 Kid", displayName: "Gate", masthead: ["WRITER"], birthDate: new Date("2012-02-02"), state: "APPROVED", guardianId: g.id } });
+      await prisma.user.create({ data: { id: "sa20_gated_user", tenantId: T, clerkId: "sa20_gated_user", email: "gate@sa20.invalid", roles: ["STUDENT"], studentId: "sa20_gated", propertyId: "sa20_north" } });
+
+      /* APPROVED: their own record, nothing of the school's. */
+      expect((await call("GET", "/students/sa20_gated", "sa20_gated_user")).json.state).toBe("APPROVED");
+      expect((await call("GET", "/editions/sa20_edition", "sa20_gated_user")).status).not.toBe(200);
+      const list = await call("GET", "/editions", "sa20_gated_user");
+      expect(list.text).not.toContain("sa20_edition");
+      expect((await call("GET", "/editions/sa20_edition/slots", "sa20_gated_user")).text).not.toContain("PRESENTING");
+      /* The advisor still reads it (their own reach, not a student's). */
+      expect((await call("GET", "/editions/sa20_edition", "sa20_advisor")).status).toBe(200);
+
+      /* The guardian is verified → ACTIVE → the same login reads the school's edition. */
+      await verifyGuardian(staff, g.id);
+      expect((await row("sa20_gated")).state).toBe("ACTIVE");
+      expect((await call("GET", "/editions/sa20_edition", "sa20_gated_user")).status).toBe(200);
+      expect((await call("GET", "/editions", "sa20_gated_user")).text).toContain("sa20_edition");
+
+      /* Suspended: back to nothing school-wide. */
+      expect((await call("POST", "/students/sa20_gated/transition", "sa20_advisor", { to: "SUSPENDED", reviewerNotes: "Paused" })).json.state).toBe("SUSPENDED");
+      expect((await call("GET", "/editions/sa20_edition", "sa20_gated_user")).status).not.toBe(200);
     });
 
     it("the student never reads the internal reasons; SALES's desk shows held ones by default, with reasons and badges", async () => {
