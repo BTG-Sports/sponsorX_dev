@@ -192,6 +192,11 @@ ${d.portalUrl ?? ""}
     subject: `Automatic staffing stopped: ${d.campaignName ?? "a campaign"}`,
     text: `Automatic staffing has stopped on ${d.campaignName ?? "this campaign"}${d.sponsorName ? ` for ${d.sponsorName}` : ""}, and it's over to you:\n\n${d.reason ?? ""}\n\nOffers already out stay open. Staff the rest by hand, or turn automatic staffing back on once it can carry on:\n\n${d.campaignUrl ?? ""}\n\n— BTG SponsorX`,
   }),
+  /* P9-BE-18 — a NEXT ad sale held for SALES, with the reasons. */
+  "adSale.heldForSales": (d) => ({
+    subject: `Ad sale held for you: ${d.sponsorName ?? "a sponsor"}`,
+    text: `${d.sponsorName ?? "A sponsor"}'s ad placement (${d.campaignName ?? "a campaign"}) couldn't be sold automatically, because a NEXT edition is read by students:\n\n${d.reasons ?? ""}\n\nThe sponsor hasn't been told. Sell it by hand once it's right, or leave it — the reasons are on the editions page:\n\n${d.reviewUrl ?? ""}\n\n— SponsorX`,
+  }),
   /* P4-BE-11 — a sponsor's brief approved automatically; one held for BTG. */
   "brief.autoApproved": (d) => ({
     subject: "Your request is approved — your campaign is being staffed",

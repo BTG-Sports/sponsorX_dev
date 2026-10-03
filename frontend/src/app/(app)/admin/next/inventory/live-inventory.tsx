@@ -2,9 +2,10 @@ import { Card } from "@/components/ui";
 import { MiniChip } from "@/components/hero";
 import { EditionInventory, type InventoryRow } from "@/components/edition-inventory";
 import { AddSlot } from "@/components/edition-sell";
+import { RateCardEditor } from "@/components/edition-controls";
 import { EmptyState } from "@/components/states";
 import { money } from "@/lib/fixtures";
-import { inventoryTotals, toInventoryRows, type ApiLedgerSlot } from "@/lib/editions-live";
+import { inventoryTotals, toInventoryRows, type ApiLedgerSlot, type ApiRateCard } from "@/lib/editions-live";
 import { noEditionHint, readJson, type LiveEditions } from "../live";
 import { EditionSwitcher, NextHeading } from "../editions/live-editions";
 
@@ -40,6 +41,10 @@ export async function LiveInventory({
 
   const canLayout = live.roles.some((r) => LAYOUT_ROLES.includes(r));
   const layoutClosed = e.state !== "PLANNING" && e.state !== "SELLING";
+  /* P9-BE-18 — the masthead's rate card prices the slot form. */
+  const card = canLayout
+    ? (await readJson<ApiRateCard>(`/publications/${encodeURIComponent(e.publication.id)}/rate-card`)).body
+    : null;
 
   const tiles: Array<{ label: string; value: string; sub: string; violet?: boolean }> = [
     { label: "Committed", value: money(t.committed), sub: "sold value, frozen at sale", violet: true },
@@ -57,10 +62,14 @@ export async function LiveInventory({
       />
 
       {canLayout && (
-        <AddSlot
-          editionId={e.id}
-          disabledReason={layoutClosed ? `This edition is ${e.state.replace("_", " ").toLowerCase()} — positions are laid out while it is planning or selling.` : undefined}
-        />
+        <div className="flex flex-wrap items-start gap-2">
+          <AddSlot
+            editionId={e.id}
+            rateCard={card}
+            disabledReason={layoutClosed ? `This edition is ${e.state.replace("_", " ").toLowerCase()} — positions are laid out while it is planning or selling.` : undefined}
+          />
+          <RateCardEditor publicationId={e.publication.id} card={card} />
+        </div>
       )}
 
       {rows.length === 0 ? (

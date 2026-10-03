@@ -308,10 +308,16 @@ describe.skipIf(!hasDatabase)("SponsorX NEXT students, on the path a request tak
       expect((await call("GET", `/public/s/${code}`, null)).status).toBe(200);
 
       const edition = await sellingEdition();
-      await ed.sellCampaignSlots(staff, edition, await campaignWithCode(code, "NEXT-AD-HALF", "nx3_sponsor"));
-      await ed.sellCampaignSlots(staff, edition, await campaignWithCode(code, "NEXT-AD-HALF", "nx3_sponsor2"));
+      /* P9-BE-18 — a clean sale (one edition selling at the school, nothing
+         clashing) is made by the system when the campaign is created; sell
+         by hand only what it left. Either way the student is credited. */
+      const sell = async (campaignId: string) => {
+        if ((await prisma.adSlot.count({ where: { tenantId: T, campaignId } })) === 0) await ed.sellCampaignSlots(staff, edition, campaignId);
+      };
+      await sell(await campaignWithCode(code, "NEXT-AD-HALF", "nx3_sponsor"));
+      await sell(await campaignWithCode(code, "NEXT-AD-HALF", "nx3_sponsor2"));
       /* A sale with no code credits nobody. */
-      await ed.sellCampaignSlots(staff, edition, await campaignWithCode(null, "NEXT-AD-HALF", "nx3_old_account"));
+      await sell(await campaignWithCode(null, "NEXT-AD-HALF", "nx3_old_account"));
 
       const sales = (await call("GET", "/students/nx3_jordan/sales", "nx3_staff")).json;
       expect(sales.sales).toHaveLength(2);

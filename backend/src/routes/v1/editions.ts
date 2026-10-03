@@ -25,7 +25,17 @@ import {
   EditionInput,
   EditionTransitionInput,
   PublicationInput,
+  RateCardInput,
+  SaleHoldsQuery,
+  SalesOpenInput,
+  SplitLockInput,
+  SplitUnlockInput,
 } from "../../contracts/edition";
+import { editionAutomationView, setSalesOpen } from "../../domain/edition-automation";
+import { editionNextStep } from "../../domain/edition-automation-rules";
+import { lockSplit, splitLockOf, unlockSplit } from "../../domain/edition-split-lock";
+import { readEditionRateCard, setEditionRateCard } from "../../domain/edition-rate-card";
+import { listSaleHolds } from "../../domain/ad-sale-auto";
 import {
   addSlot,
   createEdition,
@@ -57,11 +67,42 @@ const newEdition: RequestHandler<{ id: string }> = async (req, res) => {
     closeDate: new Date(b.closeDate),
     publishTarget: new Date(b.publishTarget),
     printDate: b.printDate ? new Date(b.printDate) : null,
+    salesOpenAt: b.salesOpenAt ? new Date(b.salesOpenAt) : null,
   }));
 };
 
+/** GET /editions/:id — the edition, and (P9-BE-17) what happens next and
+ *  why, its stage history with the automatic moves marked, and (P9-BE-19)
+ *  the split lock. */
 const readEdition: RequestHandler<{ id: string }> = async (req, res) => {
-  res.json(await getEdition(req.actor!, req.params.id));
+  const { splitLockedAt: _a, splitLockedBy: _b, splitLockNote: _c, tenantId: _t, ...edition } = await getEdition(req.actor!, req.params.id);
+  res.json({ ...edition, ...(await editionAutomationView(req.actor!, req.params.id)) });
+};
+
+const salesOpen: RequestHandler<{ id: string }> = async (req, res) => {
+  const b = SalesOpenInput.parse(req.body);
+  res.json(await setSalesOpen(req.actor!, req.params.id, b.salesOpenAt ? new Date(b.salesOpenAt) : null));
+};
+
+const rateCard: RequestHandler<{ id: string }> = async (req, res) => {
+  res.json(await readEditionRateCard(req.actor!, req.params.id));
+};
+
+const putRateCard: RequestHandler<{ id: string }> = async (req, res) => {
+  res.json(await setEditionRateCard(req.actor!, req.params.id, RateCardInput.parse(req.body).prices));
+};
+
+const lock: RequestHandler<{ id: string }> = async (req, res) => {
+  res.json(await lockSplit(req.actor!, req.params.id, SplitLockInput.parse(req.body)));
+};
+
+const unlock: RequestHandler<{ id: string }> = async (req, res) => {
+  res.json(await unlockSplit(req.actor!, req.params.id, SplitUnlockInput.parse(req.body)));
+};
+
+const saleHolds: RequestHandler = async (req, res) => {
+  const q = SaleHoldsQuery.parse(req.query);
+  res.json({ holds: await listSaleHolds(req.actor!, { editionId: q.editionId, all: q.all === "true" }) });
 };
 
 const conditions: RequestHandler<{ id: string }> = async (req, res) => {
@@ -85,7 +126,8 @@ const sell: RequestHandler<{ id: string }> = async (req, res) => {
 };
 
 const splits: RequestHandler<{ id: string }> = async (req, res) => {
-  res.json({ splits: await editionSplits(req.actor!, req.params.id) });
+  const rows = await editionSplits(req.actor!, req.params.id);
+  res.json({ splits: rows, splitLocked: await splitLockOf(req.actor!, req.params.id) });
 };
 
 /* ── screen reads (P9-FE-03, -04, -05) ──────────────────────────────────────
@@ -98,12 +140,18 @@ const PAGE_OF = /^P(\d+)/;
  *  with its inventory folded to counts and its rights gap counted. */
 const listEditions: RequestHandler = async (req, res) => {
   const actor = req.actor!;
-  assertAllowed(actor, "edition", "read");
+  /* P9-BE-19 — Finance holds no edition read (matrix §15.3) but locks
+     splits, so it lists the editions in its books through its split read:
+     the edition row only — no slot, buyer, asset or artwork read follows
+     (each below asks its own resource). */
+  const viaSplits = !can(actor, "edition", "read") && can(actor, "revenueSplit", "read");
+  if (!viaSplits) assertAllowed(actor, "edition", "read");
   const editions = await prisma.edition.findMany({
-    where: { ...whereFor(actor, "edition", "read") },
+    where: viaSplits ? { ...whereFor(actor, "revenueSplit", "read") } : { ...whereFor(actor, "edition", "read") },
     select: {
       id: true, label: true, state: true, closeDate: true, publishTarget: true, printDate: true,
       pageCount: true, thresholdCents: true, contentReady: true, rightsCleared: true, revenueMet: true,
+      salesOpenAt: true, splitLockedAt: true,
       publication: { select: { id: true, name: true, propertyId: true } },
     },
     orderBy: [{ closeDate: "desc" }, { id: "asc" }],
@@ -130,16 +178,34 @@ const listEditions: RequestHandler = async (req, res) => {
       })
     : null;
   const artBySlot = new Map((art ?? []).map((a) => [a.adSlotId, a]));
+  const now = new Date();
 
   res.json({
     editions: editions.map((e, i) => {
       const mine = slots.filter((s) => s.editionId === e.id);
       const sold = mine.filter((s) => s.campaignId);
+      const artworkPending = art
+        ? artworkBlockers(mine.map((s) => ({ slotCode: s.slotCode, campaignId: s.campaignId, artwork: artBySlot.get(s.id) ?? null }))).length
+        : null;
+      const { splitLockedAt, ...row } = e;
       return {
-        ...e,
+        ...row,
         closeDate: e.closeDate.toISOString(),
         publishTarget: e.publishTarget.toISOString(),
         printDate: e.printDate?.toISOString() ?? null,
+        salesOpenAt: e.salesOpenAt?.toISOString() ?? null,
+        /* P9-BE-19 — whether Finance has locked the split (the detail is on the splits read). */
+        splitLocked: splitLockedAt != null,
+        /* P9-BE-17 — what happens next, for a caller who reads every gate (BTG's desk). */
+        nextStep: gaps && artworkPending !== null
+          ? editionNextStep({
+              state: e.state, salesOpenAt: e.salesOpenAt, closeDate: e.closeDate, publishTarget: e.publishTarget,
+              contentReady: e.contentReady, revenueMet: e.revenueMet, thresholdCents: e.thresholdCents,
+              soldCents: sold.reduce((n, s) => n + (s.soldCents ?? 0), 0),
+              pricedSlots: mine.filter((s) => s.priceCents > 0).length,
+              artworkPending, rightsPending: gaps[i]!.length,
+            }, now)
+          : null,
         inventory: {
           total: mine.length,
           sold: sold.length,
@@ -147,9 +213,7 @@ const listEditions: RequestHandler = async (req, res) => {
           rackCents: mine.reduce((n, s) => n + s.priceCents, 0),
         },
         rightsPending: gaps ? gaps[i]!.length : null,
-        artworkPending: art
-          ? artworkBlockers(mine.map((s) => ({ slotCode: s.slotCode, campaignId: s.campaignId, artwork: artBySlot.get(s.id) ?? null }))).length
-          : null,
+        artworkPending,
       };
     }),
   });
@@ -264,6 +328,13 @@ editionsRouter.post("/editions/:id/slots", requireActor, newSlot);
 editionsRouter.get("/editions/:id/slots", requireActor, slots);
 editionsRouter.post("/editions/:id/sales", requireActor, sell);
 editionsRouter.get("/editions/:id/splits", requireActor, splits);
+/* P9-BE-17 / -18 / -19 */
+editionsRouter.post("/editions/:id/sales-open", requireActor, salesOpen);
+editionsRouter.get("/publications/:id/rate-card", requireActor, rateCard);
+editionsRouter.put("/publications/:id/rate-card", requireActor, putRateCard);
+editionsRouter.post("/editions/:id/splits/lock", requireActor, lock);
+editionsRouter.post("/editions/:id/splits/unlock", requireActor, unlock);
+editionsRouter.get("/ad-sale-holds", requireActor, saleHolds);
 
 /* ── public ─────────────────────────────────────────────────────────────── */
 

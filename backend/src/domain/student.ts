@@ -425,7 +425,8 @@ export async function resolveStudentCode(code: string): Promise<{ code: string; 
  */
 export async function attributeSale(
   tx: Prisma.TransactionClient,
-  actor: Pick<Actor, "tenantId" | "userId">,
+  /* P9-BE-18 — the system (userId null) credits the student for an automatic ad sale. */
+  actor: { tenantId: string; userId: string | null },
   sale: { studentCodeId: string; sponsorId: string; campaignId: string; editionId: string | null; valueCents: number },
 ): Promise<{ attributionId: string } | null> {
   const code = await tx.studentCode.findFirst({
@@ -660,11 +661,17 @@ export async function listProspectsPage(actor: Actor, studentId: string, req: Pa
 }
 
 /** Categories someone already holds exclusively at this school: the
- *  presenting sponsor of any edition still being planned, sold or produced. */
-async function heldCategories(tx: Prisma.TransactionClient, tenantId: string, propertyId: string): Promise<Set<string>> {
+ *  presenting sponsor of any edition still being planned, sold or produced.
+ *  Exported for the ad sale's category gate (P9-BE-18, edition.ts
+ *  `heldAgainst`), which leaves out the buyer's own sponsor — a sponsor
+ *  never clashes with itself. */
+export async function heldCategories(
+  tx: Prisma.TransactionClient, tenantId: string, propertyId: string, opts: { exceptSponsorId?: string } = {},
+): Promise<Set<string>> {
   const held = await tx.adSlot.findMany({
     where: {
       tenantId, kind: "PRESENTING", campaignId: { not: null },
+      ...(opts.exceptSponsorId ? { campaign: { is: { sponsorId: { not: opts.exceptSponsorId } } } } : {}),
       edition: { is: { state: { in: ["PLANNING", "SELLING", "CLOSED", "IN_PRODUCTION"] }, publication: { is: { propertyId } } } },
     },
     select: { campaign: { select: { brief: { select: { categories: true } } } } },

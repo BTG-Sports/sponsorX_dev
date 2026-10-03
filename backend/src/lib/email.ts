@@ -236,7 +236,10 @@ export type EmailTemplate =
   | "brief.heldForBtg"
   /* P4-BE-12 — automatic staffing stopped and handed the campaign to BTG's
      campaign managers, with the reason. */
-  | "campaign.staffingStopped";
+  | "campaign.staffingStopped"
+  /* P9-BE-18 — a NEXT ad sale the system would not make by itself: SALES
+     and BTG's admins hear of it once, with the reasons. */
+  | "adSale.heldForSales";
 
 export type EmailMessage = {
   template: EmailTemplate;
