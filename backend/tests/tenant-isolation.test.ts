@@ -200,6 +200,8 @@ const BODY: Record<string, unknown> = {
     sponsorId: A.sponsor, objective: "Cross-tenant brief", budget: 100000,
     startDate: "2026-10-01", endDate: "2026-11-01", sports: [], stateCodes: [], categories: [],
   },
+  /* P4-BE-11 — an edit re-runs the automatic approval; never across tenants. */
+  "PATCH /briefs/{id}": { objective: "Cross-tenant edit of someone else's brief, which must be refused", budget: 1 },
   "POST /briefs/{id}/transition": { to: "CLOSED", reason: "Isolation sweep" },
   "POST /briefs/{id}/campaign": { name: "Stolen campaign" },
   "POST /campaigns/{id}/transition": { to: "CANCELLED" },

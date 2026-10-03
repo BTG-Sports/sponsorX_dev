@@ -48,6 +48,38 @@ export const CampaignBriefInput = z
   })
   .meta({ id: "CampaignBriefInput", description: "What a sponsor asks for, before BTG turns it into a campaign." });
 
+/** P4-BE-11 — a DRAFT brief edited (its sponsor, or BTG): any of the brief's
+ *  own fields; never its sponsor or its student code. */
+export const CampaignBriefPatch = z
+  .object({
+    objective: z.string().min(1).max(2000).optional(),
+    budget: z.int().min(0).max(INT4_MAX).optional().describe("Budget in cents"),
+    packageId: z.string().nullable().optional(),
+    startDate: z.iso.date().optional(),
+    endDate: z.iso.date().optional(),
+    sports: z.array(z.string().min(1).max(60)).max(20).optional(),
+    stateCodes: z.array(z.string().length(2)).max(60).optional(),
+    categories: z.array(BrandCategory).max(25).optional(),
+  })
+  .meta({
+    id: "CampaignBriefPatch",
+    description: "Change a brief while it is still DRAFT. It is evaluated again for automatic approval (P4-BE-11); refused once it has left DRAFT.",
+  });
+
+/** P4-BE-11 — what submitting or editing a brief answers. */
+export const BriefSubmitted = z
+  .object({
+    id: z.string(),
+    state: BriefState,
+    autoApproved: z.boolean(),
+    status: z.object({ key: z.enum(["REVIEWING", "APPROVED", "CLOSED"]), text: z.string() }),
+    campaignId: z.string().nullable(),
+  })
+  .meta({
+    id: "BriefSubmitted",
+    description: "The brief as its submitter is answered: approved automatically (with its campaign) or waiting for BTG. `status` is the sponsor-safe line — never why a brief waits.",
+  });
+
 export const BriefTransitionInput = z
   .object({
     to: BriefState,

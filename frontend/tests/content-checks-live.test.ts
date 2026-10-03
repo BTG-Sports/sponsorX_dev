@@ -14,10 +14,8 @@ import { DESK_SUMMARY_QUERY, deskFilters, deskListQuery, toDeskItem } from "../s
 import { nextStep, type ApiDeliverable } from "../src/lib/deliverables-live";
 import {
   TABS,
-  filterBriefs,
   mergeBriefs,
   readinessSummary,
-  tabCounts,
   toBriefRow,
   type ApiBrief,
 } from "../src/lib/briefs-live";
@@ -116,19 +114,9 @@ const checks = (failing: string[] = []) =>
   ["objective", "dates", "budget", "sponsor", "eligible", "conflicts"].map((key) => ({ key, ok: !failing.includes(key), text: key }));
 
 describe("BTG's brief desk · the readiness checklist", () => {
-  it("'Ready for review' is a tab, first — the desk's default", () => {
-    expect(TABS[0]).toEqual({ key: "ready", label: "Ready for review" });
-  });
-
-  it("counts and filters ready briefs", () => {
-    const rows = [
-      brief({ id: "a", readiness: { ready: true, checks: checks() } }),
-      brief({ id: "b", readiness: { ready: false, checks: checks(["budget"]) } }),
-      brief({ id: "c", state: "QUALIFIED" }),
-    ].map(toBriefRow);
-    expect(tabCounts(rows)).toMatchObject({ ready: 1, all: 3, DRAFT: 2, QUALIFIED: 1 });
-    expect(filterBriefs(rows, { tab: "ready", sport: "", q: "" }).map((r) => r.id)).toEqual(["a"]);
-    expect(filterBriefs(rows, { tab: "DRAFT", sport: "", q: "" }).map((r) => r.id)).toEqual(["a", "b"]);
+  it("P4-FE-09 — 'Held for BTG' replaces 'Ready for review' as the first tab, the desk's default", () => {
+    expect(TABS[0]).toEqual({ key: "held", label: "Held for BTG" });
+    expect(TABS.some((t) => (t.key as string) === "ready")).toBe(false);
   });
 
   it("summarises the deciding checks — conflicts only inform", () => {
@@ -143,9 +131,9 @@ describe("BTG's brief desk · the readiness checklist", () => {
     expect(r.ready).toBe(false);
   });
 
-  it("merges the newest briefs with every ready one, once, newest first", () => {
+  it("merges the newest briefs with every held one, once, newest first", () => {
     const all = [brief({ id: "n2", createdAt: "2026-10-02T00:00:00.000Z" }), brief({ id: "n1", createdAt: "2026-10-01T00:00:00.000Z" })];
-    const ready = [brief({ id: "n1" }), brief({ id: "old", createdAt: "2026-08-01T00:00:00.000Z" })];
-    expect(mergeBriefs(all, ready).map((b) => b.id)).toEqual(["n2", "n1", "old"]);
+    const held = [brief({ id: "n1" }), brief({ id: "old", createdAt: "2026-08-01T00:00:00.000Z" })];
+    expect(mergeBriefs(all, held).map((b) => b.id)).toEqual(["n2", "n1", "old"]);
   });
 });

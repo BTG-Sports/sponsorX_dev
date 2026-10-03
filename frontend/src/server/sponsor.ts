@@ -13,6 +13,7 @@ import { fetchCampaign, fetchCampaignPage, fetchCampaignSummary, type CampaignSu
 import type { PageInfo, SearchParams } from "@/lib/list-query";
 import type { ApiCampaignArtworkSlot } from "@/lib/edition-artwork-live";
 import type { ApiDeliverable } from "@/lib/deliverables-live";
+import { openRequests, type ApiSponsorRequest } from "@/lib/brief-status";
 
 async function isSponsor(): Promise<boolean> {
   const who = await fetchActor();
@@ -38,6 +39,19 @@ export async function liveSponsorDashboard(
   if (!(await isSponsor())) return null;
   const [pg, summary] = await Promise.all([fetchCampaignPage(sp, 5), fetchCampaignSummary()]);
   return { summary: summary ?? EMPTY_SUMMARY, rows: pg?.campaigns ?? [], page: pg?.page ?? { page: 1, size: 5, total: 0, pages: 1 } };
+}
+
+/**
+ * P4-FE-09 — the sponsor's own requests still waiting to become a campaign
+ * (GET /briefs, own scope, newest first), each with the API's sponsor-safe
+ * status. Never the reasons a request is held: the API doesn't send them to
+ * a sponsor. A role that can't read briefs gets none, not an error.
+ */
+export async function liveSponsorRequests(): Promise<ApiSponsorRequest[]> {
+  const res = await apiFetch("/briefs?page=1&size=20&state=DRAFT,QUALIFIED,APPROVED&sort=newest");
+  if (res.status === 403) return [];
+  if (!res.ok) throw new Error(`Requests unavailable (${res.status}).`);
+  return openRequests(((await res.json()) as { briefs: ApiSponsorRequest[] }).briefs);
 }
 
 const EMPTY_SUMMARY: CampaignSummary = { total: 0, byState: {}, active: 0, athletes: 0, behind: 0, pacing: [] };

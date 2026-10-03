@@ -25,6 +25,7 @@ import {
 import { daysRemaining, reachPct, verifiedPct } from "@/lib/ops-live";
 import { isBehind, monogramOf, windowLabel } from "@/lib/sponsor-live";
 import { sponsorNextStep } from "@/lib/campaign-stage";
+import { campaignApprovalLine } from "@/lib/brief-status";
 import { liveSponsorCampaign, type LiveCampaignDetail } from "@/server/sponsor";
 import { SponsorArtwork } from "@/components/edition-artwork";
 import { SponsorContentReview } from "@/components/sponsor-content-review";
@@ -463,6 +464,8 @@ function LiveDetail({
   const attention = roster.filter((r) => r.overdue > 0 || r.order?.state === "SENT");
   /* P4-FE-08 — the plain next step the API gives a sponsor (P4-BE-09). */
   const next = sponsorNextStep(c.nextStep);
+  /* P4-FE-09 — while it is being staffed, the request it came from is approved. */
+  const approved = campaignApprovalLine(c.state);
 
   return (
     <div className="space-y-6">
@@ -503,6 +506,13 @@ function LiveDetail({
           </span>
         )}
       </div>
+
+      {approved && (
+        <div className="sx-animate flex min-w-0 items-center gap-3 rounded-xl border border-accent/30 bg-accent/8 px-4 py-3">
+          <Badge tone="accent">Approved</Badge>
+          <p className="min-w-0 text-xs font-medium text-text [overflow-wrap:anywhere]">{approved}</p>
+        </div>
+      )}
 
       {next && (
         <div className="sx-animate flex min-w-0 items-center gap-3 rounded-xl border border-line bg-surface px-4 py-3">

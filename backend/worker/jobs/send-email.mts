@@ -187,6 +187,15 @@ ${d.portalUrl ?? ""}
     subject: `Ready to launch: ${d.campaignName ?? "a campaign"}`,
     text: `Every athlete on ${d.campaignName ?? "this campaign"}${d.sponsorName ? ` for ${d.sponsorName}` : ""} has accepted, and nobody is still waiting to answer.\n\nIt's ready for you to launch:\n\n${d.campaignUrl ?? ""}\n\n— BTG SponsorX`,
   }),
+  /* P4-BE-11 — a sponsor's brief approved automatically; one held for BTG. */
+  "brief.autoApproved": (d) => ({
+    subject: "Your request is approved — your campaign is being staffed",
+    text: `Hi${d.sponsorName ? ` ${d.sponsorName}` : ""},\n\nYour request${d.packageName ? ` for ${d.packageName}` : ""} is approved, and your campaign is being staffed. We'll let you know as athletes accept.\n\nFollow it here:\n\n${d.campaignUrl ?? ""}\n\n— BTG SponsorX`,
+  }),
+  "brief.heldForBtg": (d) => ({
+    subject: `Brief held for you: ${d.sponsorName ?? "a sponsor"}`,
+    text: `${d.sponsorName ?? "A sponsor"}'s request (${d.packageName ?? "custom request"}) couldn't be approved automatically, so it is waiting for you:\n\n${d.reasons ?? ""}\n\nThe sponsor has been told only that BTG is reviewing it. Qualify, approve or close it here:\n\n${d.reviewUrl ?? ""}\n\n— SponsorX`,
+  }),
   "campaign.finalReportReady": (d) => ({
     subject: `Your final report for ${d.campaignName ?? "your campaign"} is ready`,
     text: `Hi${d.sponsorName ? ` ${d.sponsorName}` : ""},\n\nEvery piece of content on ${d.campaignName ?? "your campaign"} has been checked, and your final report is ready:\n\n${d.reportUrl ?? ""}\n\nThe campaign is now complete. Thank you for working with our athletes.\n\n— BTG SponsorX`,

@@ -55,6 +55,7 @@ import { lineFloor } from "./margin-floor";
 import { athleteFloor, offerParty, PARTY_SELECT } from "./offer-desk";
 import { OfferError } from "./offer";
 import { restrictionConflicts } from "./restrictions";
+import { SENSITIVE_CATEGORIES } from "./brand-categories";
 
 export const OFFER_DRAFT_DEFAULTS = {
   usageRights: "Organic posts on the sponsor's own social channels during the campaign and for 90 days after it ends.",
@@ -67,13 +68,12 @@ export const OFFER_DRAFT_DEFAULTS = {
 export const DELIVERABLE_LEAD_DAYS = 7;
 
 /** What a category adds to "#ad". Age-gated categories carry the age; BTG
- *  edits or adds to these per offer. */
-export const CATEGORY_DISCLOSURES: Readonly<Record<string, string>> = {
-  ALCOHOL: "21+",
-  TOBACCO_VAPE: "21+",
-  CANNABIS: "21+",
-  GAMBLING: "21+",
-};
+ *  edits or adds to these per offer. P4-BE-11 — built from the one list of
+ *  sensitive categories (brand-categories.ts), which also holds a brief in
+ *  one of them for BTG. */
+export const CATEGORY_DISCLOSURES: Readonly<Record<string, string>> = Object.fromEntries(
+  SENSITIVE_CATEGORIES.map((c) => [c, "21+"]),
+);
 
 export class OfferDraftNotFoundError extends Error {
   readonly status = 404;

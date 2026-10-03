@@ -228,7 +228,12 @@ export type EmailTemplate =
   /* P4-BE-09 — campaigns move on their own: BTG's campaign managers hear a
      campaign is ready to launch; the sponsor hears their final report is ready. */
   | "campaign.readyToLaunch"
-  | "campaign.finalReportReady";
+  | "campaign.finalReportReady"
+  /* P4-BE-11 — sponsor briefs approved automatically: the sponsor hears
+     their request is approved; BTG's campaign managers hear of each brief
+     held for them, with the reasons (which the sponsor never sees). */
+  | "brief.autoApproved"
+  | "brief.heldForBtg";
 
 export type EmailMessage = {
   template: EmailTemplate;

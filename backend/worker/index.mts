@@ -91,6 +91,7 @@ import { expireReservations } from "../src/domain/reservation.ts";
 import { sweepDeliveries } from "../src/domain/delivery.ts";
 import { sweepReviewReminders } from "../src/domain/review-reminders.ts";
 import { sweepCampaignStages } from "../src/domain/campaign-stages.ts";
+import { recheckHeldBriefs } from "../src/domain/brief-auto.ts";
 import { purgeExpiredClosures } from "../src/domain/account-closure.ts";
 import { sweepComingOfAge } from "../src/domain/coming-of-age.ts";
 import { LISTING_DIGEST_HOUR_UTC, sendListingDigests } from "../src/domain/listing.ts";
@@ -311,6 +312,11 @@ const ORDER_SWEEP_INTERVAL_MS = 10 * 60 * 1000;
    was missed (an invitation expiring, a crash). Idempotent. */
 let campaignStageTimer: ReturnType<typeof setInterval> | undefined;
 const CAMPAIGN_STAGE_SWEEP_INTERVAL_MS = 10 * 60 * 1000;
+/* P4-BE-11 — the daily re-check of briefs held only for too few athletes:
+   athletes join later, and a brief that now has enough is approved. Each
+   brief is decided under its row lock, so overlapping passes approve once. */
+let briefRecheckTimer: ReturnType<typeof setInterval> | undefined;
+const BRIEF_RECHECK_INTERVAL_MS = 24 * 60 * 60 * 1000;
 /* P8-INT-05 checks hourly and runs at most once a day per tenant; P8-INT-03's
    channel is renewed every 12 hours against a 24-hour expiry. */
 const ZOHO_SWEEP_INTERVAL_MS = 60 * 60 * 1000;
@@ -754,6 +760,14 @@ async function main(): Promise<void> {
   campaignStageTimer = setInterval(campaignStageSweep, CAMPAIGN_STAGE_SWEEP_INTERVAL_MS);
   setTimeout(campaignStageSweep, 55_000).unref();
 
+  /* P4-BE-11 — briefs held only for too few athletes, re-checked daily. */
+  const briefRecheck = () =>
+    void recheckHeldBriefs()
+      .then((r) => { if (r.approved || r.failed) console.log(`[worker] held briefs ${JSON.stringify(r)}`); })
+      .catch((error: unknown) => console.error("[worker] held-brief re-check failed, will retry tomorrow:", error));
+  briefRecheckTimer = setInterval(briefRecheck, BRIEF_RECHECK_INTERVAL_MS);
+  setTimeout(briefRecheck, 60_000).unref();
+
   /* 2S4-BE-09 — BTG's daily summary of the orders approved automatically.
      Hourly, from ORDER_DIGEST_HOUR_UTC: the first pass of the day sends it
      and records the day (one per BTG tenant per UTC date), so later passes
@@ -821,6 +835,7 @@ export async function stopWorker(): Promise<void> {
   if (payoutRetryTimer) clearInterval(payoutRetryTimer);
   if (orderDigestTimer) clearInterval(orderDigestTimer);
   if (campaignStageTimer) clearInterval(campaignStageTimer);
+  if (briefRecheckTimer) clearInterval(briefRecheckTimer);
   timer = undefined;
   expiryTimer = undefined;
   await boss.stop({ graceful: true }).catch(() => {});

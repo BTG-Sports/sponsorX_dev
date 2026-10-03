@@ -448,15 +448,27 @@ const TIER_WORDS: Record<(typeof TIERS)[number], string> = {
   EMERGING: "emerging", CREATOR: "creator", PREMIUM: "premium", ANCHOR: "anchor",
 };
 
-export function eligibilityWhere(actor: Actor, sports: string[], stateCodes: string[], categories: string[]) {
+/**
+ * The matching rule itself, with no reader attached: ACTIVE, the brief's
+ * sports and states, and no restriction on any of its categories (§26).
+ * P4-BE-11 — the automatic brief approval counts athletes with this, pinned
+ * to the brief's own tenant, so the desk and the system apply one rule.
+ */
+export function athleteFit(sports: readonly string[], stateCodes: readonly string[], categories: readonly string[]) {
   return {
-    ...whereFor(actor, "athlete", "read"),
     state: "ACTIVE" as const,
     ...(sports.length ? { sport: { in: [...sports] } } : {}),
     ...(stateCodes.length ? { stateCode: { in: [...stateCodes] } } : {}),
     ...(categories.length
       ? { NOT: { restrictedCategories: { hasSome: [...categories] } } }
       : {}),
+  };
+}
+
+export function eligibilityWhere(actor: Actor, sports: string[], stateCodes: string[], categories: string[]) {
+  return {
+    ...whereFor(actor, "athlete", "read"),
+    ...athleteFit(sports, stateCodes, categories),
   };
 }
 

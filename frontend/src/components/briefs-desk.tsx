@@ -9,9 +9,9 @@ import { Monogram } from "@/components/hero";
 import { moveBriefAction } from "@/app/(app)/admin/briefs/actions";
 import {
   TABS,
+  approvalBadge,
   filterBriefs,
   nextMoves,
-  readinessSummary,
   sportOptions,
   tabCounts,
   type BriefRow,
@@ -24,6 +24,10 @@ import {
    filter over the rows the server read, and the detail panel with Qualify /
    Approve / Close (with a reason) / Open in Matching Studio. On a wide screen
    the panel sits beside the list; on a phone it covers the screen.
+
+   P4-FE-09 — briefs that pass every safety check are approved automatically
+   (P4-BE-11). The default tab is "Held for BTG", each card carrying its
+   reasons; an auto-approved brief carries "Approved automatically".
    -------------------------------------------------------------------------- */
 
 const QUICK_REASONS = ["Budget below the package minimum", "Sponsor went quiet", "Category conflict with an existing sponsor"];
@@ -134,11 +138,11 @@ export function BriefsDesk({
         <ul className="space-y-2">
           {shown.length === 0 && (
             <li className="rounded-xl border border-line bg-surface px-5 py-10 text-center">
-              {tab === "ready" && !q && !sport ? (
+              {tab === "held" && !q && !sport ? (
                 <>
-                  <p className="text-sm font-semibold">No brief is ready for review yet</p>
+                  <p className="text-sm font-semibold">Nothing is held for you</p>
                   <p className="mt-1 text-xs text-muted">
-                    A draft lands here once its checklist passes — objective, dates, budget, sponsor and eligible athletes. The Draft tab shows what each one is missing.
+                    A request lands here when a safety check fails — no package, a budget below the price, too few athletes, a sensitive category or a sponsor on hold. The rest are approved automatically; the All tab shows them.
                   </p>
                 </>
               ) : (
@@ -165,10 +169,9 @@ export function BriefsDesk({
                   <span className="flex flex-wrap items-center gap-2">
                     <span className="truncate text-sm font-semibold">{b.sponsor}</span>
                     <Badge tone={b.tone}>{b.stateLabel}</Badge>
-                    {/* P4-FE-08 — the readiness checklist, on a draft */}
-                    {b.state === "DRAFT" && readinessSummary(b.readiness) && (
-                      <Badge tone={readinessSummary(b.readiness)!.tone}>{readinessSummary(b.readiness)!.label}</Badge>
-                    )}
+                    {/* P4-FE-09 — held for BTG, or approved by the system */}
+                    {b.held && <Badge tone="warn">Held for BTG</Badge>}
+                    {approvalBadge(b) && <Badge tone={approvalBadge(b)!.tone}>{approvalBadge(b)!.label}</Badge>}
                     <span className="ml-auto text-xs font-semibold tabular-nums">{b.budget}</span>
                   </span>
                   <span className="mt-0.5 block truncate text-[11px] text-muted">
@@ -178,6 +181,17 @@ export function BriefsDesk({
                   <span className="mt-0.5 block truncate text-[11px] text-faint">
                     {b.sports} · {b.geography} · {b.category} · submitted {b.submitted}
                   </span>
+                  {b.held && b.heldReasons.length > 0 && (
+                    <span className="mt-1.5 block space-y-0.5">
+                      <span className="sr-only">Held because: </span>
+                      {b.heldReasons.map((r) => (
+                        <span key={r} className="flex items-start gap-1.5 text-[11px] leading-snug text-warn [overflow-wrap:anywhere]">
+                          <span aria-hidden="true">!</span>
+                          <span className="min-w-0">{r}</span>
+                        </span>
+                      ))}
+                    </span>
+                  )}
                 </span>
               </button>
             </li>
@@ -196,6 +210,7 @@ export function BriefsDesk({
                 <p className="flex flex-wrap items-center gap-2">
                   <span className="text-sm font-semibold">{sel.sponsor}</span>
                   <Badge tone={sel.tone}>{sel.stateLabel}</Badge>
+                  {approvalBadge(sel) && <Badge tone={approvalBadge(sel)!.tone}>{approvalBadge(sel)!.label}</Badge>}
                 </p>
               </div>
               <button
@@ -235,12 +250,32 @@ export function BriefsDesk({
               <p className="mt-1 whitespace-pre-line text-xs leading-relaxed">{sel.objective}</p>
             </div>
 
+            {/* P4-FE-09 (P4-BE-11) — why it wasn't approved automatically. Kept
+                once BTG takes it on, as the record of why it waited. */}
+            {sel.heldReasons.length > 0 && (
+              <div className="mt-4 rounded-lg border border-warn/30 bg-warn/8 px-3 py-2.5">
+                <p className="text-[11px] font-medium uppercase tracking-wide text-warn">
+                  {sel.held ? "Held for BTG" : "Was held for BTG"}
+                </p>
+                <ul className="mt-1.5 space-y-1">
+                  {sel.heldReasons.map((r) => (
+                    <li key={r} className="text-xs leading-relaxed [overflow-wrap:anywhere]">
+                      {r}
+                    </li>
+                  ))}
+                </ul>
+                {sel.held && (
+                  <p className="mt-1.5 text-[11px] text-faint">The sponsor sees only that BTG is reviewing their request.</p>
+                )}
+              </div>
+            )}
+
             {/* P4-FE-08 (P4-BE-07) — what the system looked up; BTG decides. */}
             {sel.readiness && sel.state === "DRAFT" && (
               <div className="mt-4">
                 <p className="flex flex-wrap items-center gap-2 text-[11px] font-medium uppercase tracking-wide text-muted">
                   Readiness
-                  {sel.ready && <Badge tone="accent">Ready for review</Badge>}
+                  {sel.ready && <Badge tone="accent">Checklist passes</Badge>}
                 </p>
                 <ul className="mt-2 space-y-1.5">
                   {sel.readiness.checks.map((c) => {
@@ -265,7 +300,7 @@ export function BriefsDesk({
                   })}
                 </ul>
                 <p className="mt-2 text-[11px] text-faint">
-                  Looked up automatically. Nothing moves on its own — qualifying is still your call.
+                  Looked up automatically. This request is waiting for you — qualifying it is your call.
                 </p>
               </div>
             )}

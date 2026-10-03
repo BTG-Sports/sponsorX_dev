@@ -8,7 +8,9 @@ import { requirePortalAccess } from "@/server/portal";
 
 /* --------------------------------------------------------------------------
    Briefs — P4-FE-07. Sponsor requests as they arrive: qualify, approve, then
-   send each one to the Matching Studio.
+   send each one to the Matching Studio. P4-FE-09 (P4-BE-11): a sponsor's
+   brief that passes every safety check is approved automatically, so the
+   desk opens on "Held for BTG" — the exceptions, each with its reasons.
 
    Live only. GET /briefs is the tenant's briefs for BTG staff (own scope for
    a sponsor, who never reaches this workspace). A 403 is a role that doesn't
@@ -27,17 +29,18 @@ const CLOSERS = [...APPROVERS, "SALES"];
 export default async function BriefsPage({ searchParams }: PageProps<"/admin/briefs">) {
   const actor = await requirePortalAccess("admin");
   const sp = await searchParams;
-  /* P4-FE-08 — "Ready for review" is the default: the DRAFT briefs whose
-     readiness checklist passes, so BTG starts with what it can qualify. */
-  const tabParam = typeof sp.tab === "string" ? sp.tab : "ready";
-  const initialTab = (TABS.some((t) => t.key === tabParam) ? tabParam : "ready") as TabKey;
+  /* P4-FE-09 — "Held for BTG" is the default: a brief whose every safety
+     check passes is approved automatically (P4-BE-11), so what is left for
+     BTG is the DRAFT briefs held for it, each with its reasons. */
+  const tabParam = typeof sp.tab === "string" ? sp.tab : "held";
+  const initialTab = (TABS.some((t) => t.key === tabParam) ? tabParam : "held") as TabKey;
 
   const heading = (
     <div className="flex flex-wrap items-start justify-between gap-3">
       <div>
         <h1 className="text-xl font-semibold tracking-tight">Briefs</h1>
         <p className="mt-1 text-xs text-muted">
-          Sponsor requests as they arrive. Qualify, approve, then send each one to the Matching Studio.
+          Requests that pass every safety check are approved automatically. The ones held for you are listed first, each with why.
         </p>
       </div>
       <Link href="/admin/campaigns" className="text-xs text-primary hover:underline">
@@ -47,8 +50,8 @@ export default async function BriefsPage({ searchParams }: PageProps<"/admin/bri
   );
 
   /* The newest briefs, and — so none is cut off by that first page — every
-     ready one (P4-BE-07's ?ready=true). */
-  const [res, readyRes] = await Promise.all([apiFetch("/briefs"), apiFetch("/briefs?ready=true")]);
+     held one (P4-BE-11's ?held=true). */
+  const [res, heldRes] = await Promise.all([apiFetch("/briefs"), apiFetch("/briefs?held=true")]);
   if (res.status === 403) {
     return (
       <div className="space-y-6">
@@ -58,10 +61,10 @@ export default async function BriefsPage({ searchParams }: PageProps<"/admin/bri
     );
   }
   if (!res.ok) throw new Error(`Briefs unavailable (${res.status}).`);
-  if (!readyRes.ok) throw new Error(`Briefs unavailable (${readyRes.status}).`);
+  if (!heldRes.ok) throw new Error(`Briefs unavailable (${heldRes.status}).`);
   const briefs = mergeBriefs(
     ((await res.json()) as { briefs: ApiBrief[] }).briefs,
-    ((await readyRes.json()) as { briefs: ApiBrief[] }).briefs,
+    ((await heldRes.json()) as { briefs: ApiBrief[] }).briefs,
   );
 
   if (briefs.length === 0) {
@@ -71,7 +74,7 @@ export default async function BriefsPage({ searchParams }: PageProps<"/admin/bri
         <EmptyState
           mark="inbox"
           title="No briefs yet"
-          hint="Briefs land here the moment a sponsor submits the brief form or requests a package. New ones arrive as Draft."
+          hint="Briefs land here the moment a sponsor submits the brief form or requests a package. Ones that pass every safety check are approved automatically; the rest wait here for you."
         />
       </div>
     );

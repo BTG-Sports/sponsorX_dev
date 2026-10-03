@@ -17,7 +17,7 @@ import {
   allowedList, clampPage, pageInfo, pageRequest, readPage, searchTerm,
   type PageInfo, type PageRequest,
 } from "../../lib/paging";
-import { can, whereFor } from "../../auth/scope";
+import { can, scopeOf, whereFor } from "../../auth/scope";
 import { canReadField } from "../../auth/fields";
 import { ForbiddenError } from "../../auth/errors";
 import { clientIp, clientUserAgent } from "../../lib/client-ip";
@@ -25,12 +25,14 @@ import { prisma } from "../../db/client";
 import {
   BriefTransitionInput,
   CampaignBriefInput,
+  CampaignBriefPatch,
   CampaignFromBriefInput,
   CampaignTransitionInput,
   InvitationInput,
   InvitationResponseInput,
 } from "../../contracts/campaign";
-import { createBrief, transitionBrief } from "../../domain/brief";
+import { createBrief, transitionBrief, updateBrief } from "../../domain/brief";
+import { sponsorBriefStatus } from "../../domain/brief-auto-rules";
 import { createCampaignFromBrief, launchCampaign, transitionCampaign } from "../../domain/campaign";
 import { stageViews, type StageView } from "../../domain/campaign-stages";
 import type { Audience } from "../../domain/campaign-stage-rules";
@@ -63,6 +65,18 @@ const submitBrief: RequestHandler = async (req, res) => {
   );
 };
 
+/** PATCH /briefs/:id — change a DRAFT brief; evaluated again (P4-BE-11). */
+const editBrief: RequestHandler<{ id: string }> = async (req, res) => {
+  const body = CampaignBriefPatch.parse(req.body ?? {});
+  res.json(
+    await updateBrief(req.actor!, req.params.id, {
+      ...body,
+      startDate: body.startDate ? new Date(body.startDate) : undefined,
+      endDate: body.endDate ? new Date(body.endDate) : undefined,
+    }),
+  );
+};
+
 /** POST /briefs/:id/transition — qualify, approve or close. */
 const moveBrief: RequestHandler<{ id: string }> = async (req, res) => {
   const { to, reason } = BriefTransitionInput.parse(req.body ?? {});
@@ -80,6 +94,8 @@ const BRIEF_SELECT = {
   id: true, objective: true, state: true, budget: true, closeReason: true,
   startDate: true, endDate: true, sports: true, stateCodes: true, categories: true,
   createdAt: true,
+  /* P4-BE-11 — how it was approved, and (BTG only) why it was held. */
+  autoApproved: true, heldAt: true, heldReasons: true,
   /* P4-BE-07 — the readiness checklist's inputs; not in the response. */
   tenantId: true, sponsorId: true,
   sponsor: { select: { name: true } },
@@ -93,6 +109,7 @@ type BriefRow = {
   id: string; objective: string; state: string; budget: number; closeReason: string | null;
   startDate: Date; endDate: Date; sports: string[]; stateCodes: string[]; categories: string[];
   createdAt: Date;
+  autoApproved: boolean; heldAt: Date | null; heldReasons: string[];
   tenantId: string; sponsorId: string;
   sponsor: { name: string };
   package: {
@@ -104,11 +121,21 @@ type BriefRow = {
   campaign: { id: string; name: string; state: string } | null;
 };
 
-function briefOut(b: BriefRow, readiness?: Readiness) {
+/** P4-BE-11 — who reads why a brief was held: BTG staff, who read briefs
+ *  tenant-wide (campaign managers, admins, sales). A sponsor reads only its
+ *  own (`own`) and never does — the same rule as listing holds. */
+const seesHolds = (actor: Actor) => ["own-tenant", "any"].includes(scopeOf(actor, "campaignBrief", "read"));
+
+function briefOut(b: BriefRow, readiness?: Readiness, holds = false) {
   return {
     /* P4-BE-07 — BTG's readiness checklist; absent for a caller who doesn't
        see it (a sponsor), never a guessed "not ready". */
     ...(readiness ? { readiness } : {}),
+    /* P4-BE-11 — approved by the system or not; the sponsor-safe line; and,
+       for BTG only, when and why the brief was held. */
+    autoApproved: b.autoApproved,
+    status: sponsorBriefStatus(b.state),
+    ...(holds ? { heldAt: b.heldAt?.toISOString() ?? null, heldReasons: b.heldReasons } : {}),
     id: b.id,
     objective: b.objective,
     state: b.state,
@@ -175,10 +202,17 @@ const listBriefs: RequestHandler = async (req, res) => {
      passes (computed, so found by a bounded scan; none for a caller who
      doesn't see readiness). */
   const readyOnly = req.query.ready === "true";
-  const readyWhere = readyOnly ? [{ id: { in: await readyBriefIds(req.actor!) } }] : [];
+  /* P4-BE-11 — `?held=true`: DRAFT briefs held for BTG. Matches nothing for
+     a caller who doesn't see holds, so it can't be used to tell a held
+     brief from one not yet looked at. */
+  const holds = seesHolds(req.actor!);
+  const heldWhere = req.query.held === "true"
+    ? [holds ? { state: "DRAFT" as const, heldAt: { not: null } } : { id: { in: [] as string[] } }]
+    : [];
+  const readyWhere = [...(readyOnly ? [{ id: { in: await readyBriefIds(req.actor!) } }] : []), ...heldWhere];
   const withReadiness = async (rows: BriefRow[]) => {
     const readiness = await readinessFor(req.actor!, rows);
-    return rows.map((b) => briefOut(b, readiness.get(b.id)));
+    return rows.map((b) => briefOut(b, readiness.get(b.id), holds));
   };
   if (paged) {
     const actor = req.actor!;
@@ -312,7 +346,7 @@ const readBrief: RequestHandler<{ id: string }> = async (req, res) => {
   });
 
   const readiness = (await readinessFor(actor, [brief])).get(brief.id);
-  res.json({ ...briefOut(brief, readiness), jobs, ...(invites ? { invites } : {}) });
+  res.json({ ...briefOut(brief, readiness, seesHolds(actor)), jobs, ...(invites ? { invites } : {}) });
 };
 
 /* --- the campaign portfolio (P4-FE-05) ----------------------------------
@@ -1289,6 +1323,7 @@ campaignsRouter.get("/campaigns/:id", requireActor, readCampaign);
 campaignsRouter.get("/campaigns/:id/ops", requireActor, campaignOps);
 campaignsRouter.get("/orders/:id", requireActor, readOrder);
 campaignsRouter.get("/briefs/:id", requireActor, readBrief);
+campaignsRouter.patch("/briefs/:id", requireActor, editBrief);
 campaignsRouter.post("/briefs/:id/transition", requireActor, moveBrief);
 campaignsRouter.get("/briefs/:id/eligible-athletes", requireActor, shortlist);
 campaignsRouter.post("/briefs/:id/campaign", requireActor, createCampaign);
@@ -1301,6 +1336,6 @@ campaignsRouter.get("/invitations/summary", requireActor, invitationSummary);
 
 export {
   listBriefs, readBrief, listCampaigns, readCampaign, campaignSummary, readOrder, campaignOps,
-  submitBrief, moveBrief, shortlist, createCampaign, moveCampaign, launch, invite, respond,
+  submitBrief, editBrief, moveBrief, shortlist, createCampaign, moveCampaign, launch, invite, respond,
   listInvitations, invitationSummary, setTier, setRate, rateCard, addOrder, editOrder, moveOrder, accept,
 };

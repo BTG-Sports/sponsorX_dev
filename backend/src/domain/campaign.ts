@@ -28,6 +28,8 @@ import {
   type RewardsOnLaunch,
 } from "./campaign-stages";
 import type { BriefState } from "./brief-state";
+import { lockBrief } from "./brief-moves";
+import { createCampaignIn } from "./campaign-create";
 
 export class LaunchNeedsFullTransitionError extends Error {
   readonly status = 409;
@@ -70,45 +72,28 @@ export async function createCampaignFromBrief(
   assertAllowed(actor, "campaign", "write");
 
   return prisma.$transaction(async (tx) => {
-    const brief = await tx.campaignBrief.findFirst({
+    const found = await tx.campaignBrief.findFirst({
       where: { ...whereFor(actor, "campaignBrief", "read"), id: briefId },
+      select: { id: true, tenantId: true },
+    });
+    if (!found) throw new ForbiddenError("campaign", "write");
+
+    /* P4-BE-11 — the brief's row lock first, as every brief move takes it:
+       the automatic approval creating this same campaign waits, or is
+       waited for, and the loser sees the brief already CAMPAIGN_CREATED. */
+    await lockBrief(tx, found.id, found.tenantId);
+    const brief = await tx.campaignBrief.findFirstOrThrow({
+      /* tenant-scope: the brief found through whereFor(campaignBrief, read) and locked. */
+      where: { id: found.id, tenantId: found.tenantId },
       select: {
-        id: true, state: true, sponsorId: true, budget: true,
+        id: true, tenantId: true, state: true, sponsorId: true, budget: true,
         startDate: true, endDate: true, campaign: { select: { id: true } },
       },
     });
-    if (!brief) throw new ForbiddenError("campaign", "write");
     if (brief.campaign) throw new BriefNotApprovedError(brief.state as BriefState);
     if (brief.state !== "APPROVED") throw new BriefNotApprovedError(brief.state as BriefState);
 
-    const campaign = await tx.campaign.create({
-      data: {
-        tenantId: actor.tenantId,
-        sponsorId: brief.sponsorId,
-        briefId: brief.id,
-        name,
-        budget: brief.budget,
-        startDate: brief.startDate,
-        endDate: brief.endDate,
-      },
-      select: { id: true, state: true },
-    });
-
-    await tx.campaignBrief.update({
-      where: { id: briefId },
-      data: { state: "CAMPAIGN_CREATED" },
-      select: { id: true },
-    });
-
-    await audit(tx, actor, "campaign.create", "Campaign", campaign.id, {
-      after: { state: "DRAFT", briefId, sponsorId: brief.sponsorId },
-    });
-
-    /* The brief's Deal is now won (§7.4: CAMPAIGN_CREATED → Closed Won), and
-       the campaign takes over as the row that owns it. */
-    await enqueue(tx, actor.tenantId, "zoho.pushDeal", { campaignId: campaign.id });
-
-    return { id: campaign.id, state: campaign.state as CampaignState };
+    return createCampaignIn(tx, actor, brief, name);
   });
 }
 

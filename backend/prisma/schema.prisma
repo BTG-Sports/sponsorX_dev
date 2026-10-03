@@ -822,6 +822,16 @@ model CampaignBrief {
   state         BriefState @default(DRAFT)
   /// P4-FE-07 — why BTG closed it; null unless CLOSED.
   closeReason   String?
+  /// P4-BE-11 — approved by the system, every safety check having passed
+  /// (brief-auto.ts): DRAFT → QUALIFIED → APPROVED → CAMPAIGN_CREATED.
+  autoApproved  Boolean    @default(false)
+  /// P4-BE-11 — held for BTG: when the current hold began (null when not
+  /// held), the failed checks (HOLD_KEYS, brief-auto-rules.ts) and the same
+  /// in words. BTG reads them; a sponsor never does. Kept once BTG takes the
+  /// brief on by hand, as the record of why it waited.
+  heldAt        DateTime?
+  heldKeys      String[]   @default([])
+  heldReasons   String[]   @default([])
   createdAt     DateTime   @default(now())
   updatedAt     DateTime   @default(now()) @updatedAt
 
@@ -839,6 +849,7 @@ model CampaignBrief {
   campaign    Campaign?
 
   @@index([tenantId, state])
+  @@index([state, heldAt])
 }
 
 model Campaign {
