@@ -70,6 +70,14 @@ export type Actor = {
    */
   studentId?: string | null;
   /**
+   * P9-BE-20 — whether that Student row is ACTIVE, read with the actor on
+   * every request. A STUDENT reaches their school's NEXT rows (publications,
+   * editions, slots, assets, events — `own-property`) only while ACTIVE; an
+   * approved minor waiting on a guardian reads their own application and
+   * nothing school-wide (scope.ts `whereFor`). Absent reads as not active.
+   */
+  studentActive?: boolean;
+  /**
    * 2S1-BE-11 — a guardian acting for a minor they look after. Set only by
    * `requireActor` (guardian-acts.ts `actForWard`), after checking the ward
    * is theirs and still under their control; then `athleteId` is the ward,
@@ -100,6 +108,13 @@ function knownRoles(values: readonly string[]): Role[] {
  * time and the first sign-in claims it by writing the real `clerkId` over the
  * placeholder.
  */
+/** P9-BE-20 — is the user's Student row ACTIVE right now? False without one. */
+async function studentIsActive(tenantId: string, studentId: string | null): Promise<boolean> {
+  if (!studentId) return false;
+  const s = await prisma.student.findFirst({ where: { tenantId, id: studentId }, select: { state: true } });
+  return s?.state === "ACTIVE";
+}
+
 export async function resolveActor(
   clerkId: string,
   email: string | null,
@@ -112,6 +127,7 @@ export async function resolveActor(
     /* 2S1-BE-17 — a login BTG switched off is refused, whoever signs in. */
     if (linked.disabledAt) throw new AccountDisabledError(linked.disabledReason);
     return {
+      studentActive: await studentIsActive(linked.tenantId, linked.studentId),
       userId: linked.id,
       tenantId: linked.tenantId,
       roles: knownRoles(linked.roles),
@@ -142,6 +158,7 @@ export async function resolveActor(
   });
 
   return {
+    studentActive: await studentIsActive(claimed.tenantId, claimed.studentId),
     userId: claimed.id,
     tenantId: claimed.tenantId,
     roles: knownRoles(claimed.roles),

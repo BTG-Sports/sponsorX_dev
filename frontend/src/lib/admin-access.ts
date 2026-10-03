@@ -45,6 +45,8 @@ export const ADMIN_ACCESS: Record<string, { roles: string[]; who: string }> = {
   "/admin/closed-accounts": { roles: ["SUPER_ADMIN", "BTG_ADMIN"], who: "BTG admins" },
   "/admin/guardian-handoffs": { roles: ["SUPER_ADMIN", "BTG_ADMIN"], who: "BTG admins" },
   "/admin/next": { roles: ["SUPER_ADMIN", "BTG_ADMIN", "SALES", "FINANCE"], who: "BTG admins, Sales and Finance" },
+  /* P9-FE-11 — the API's studentProspect.approve is BTG admin and Sales (own tenant) and SUPER_ADMIN. */
+  "/admin/next/prospects": { roles: ["SUPER_ADMIN", "BTG_ADMIN", "SALES"], who: "BTG admins and Sales" },
 };
 
 /** The access entry that governs a path (longest matching prefix). */

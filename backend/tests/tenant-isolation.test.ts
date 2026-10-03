@@ -269,6 +269,8 @@ const BODY: Record<string, unknown> = {
   "POST /claims/{id}/verify": {},
   "POST /claims/{id}/reject": {},
   "POST /properties/{id}/roster": { entries: [{ legalName: "Stolen Name" }] },
+  /* P9-BE-20 — tenant B setting tenant A's school email domain. */
+  "PUT /properties/{id}/email-domain": { emailDomain: "stolen-school.org" },
   "POST /editions/{id}/contributions": { studentId: A.student, kind: "FEATURE" },
   "POST /onboarding/{id}/decision": { decision: "REJECT", notes: "cross-tenant" },
   "POST /campaigns/{id}/report/render": {},

@@ -168,11 +168,12 @@ describe.skipIf(!hasDatabase)("P9-QA-01 · one edition, end to end: sold once, a
       schoolSlug: "nxe2e-team", legalName: "x", displayName: "x", ageBand: "18_PLUS", masthead: ["SALES"],
     })).status).toBe(422);
 
-    /* BTG reviews the student to ACTIVE. */
-    for (const to of ["UNDER_REVIEW", "APPROVED", "ACTIVE"]) {
-      const r = await call("POST", `/students/${studentId}/transition`, STAFF, { to });
-      expect(r.status, `${to}: ${r.text}`).toBe(200);
-    }
+    /* BTG reviews the student to ACTIVE. P9-BE-20: the application was
+       picked up on submit (UNDER_REVIEW — this school has no roster), and
+       an adult's approval activates at once. */
+    const r = await call("POST", `/students/${studentId}/transition`, STAFF, { to: "APPROVED" });
+    expect(r.status, `APPROVED: ${r.text}`).toBe(200);
+    expect(r.json.state).toBe("ACTIVE");
 
     /* The school's masthead is a Publication owned by that Property. */
     const pub = await call("POST", "/publications", STAFF, { name: "The Northside Record", propertyId: "nxe2e_school" });

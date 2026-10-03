@@ -45,6 +45,8 @@ const NAV: NavItem[] = [
   { href: "/admin/next/inventory", label: "NEXT inventory", icon: "card" },
   { href: "/admin/next/splits", label: "NEXT splits", icon: "file" },
   { href: "/admin/next/rights", label: "NEXT rights", icon: "camera" },
+  /* P9-FE-11 — businesses students bring in; the system decides most, the rest wait here. */
+  { href: "/admin/next/prospects", label: "NEXT prospects", icon: "inbox" },
 ];
 
 /* Authorisation, not merely authentication (P2-BE-04). requirePortalAccess()
