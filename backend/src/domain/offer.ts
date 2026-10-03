@@ -60,7 +60,7 @@ import { assertNoRestriction, writeExclusivity } from "./restrictions";
 import { checkInventoryItem, UnavailableError, unitsTaken } from "./availability";
 import { guardianControls } from "./guardian-rules";
 import { athleteFloor, floorProblem, offerParty, PARTY_SELECT } from "./offer-desk";
-import { advanceCampaign } from "./campaign-stages";
+import { advanceCampaign, lockCampaignForStaffing } from "./campaign-stages";
 
 export type OfferState = "DRAFT" | "SENT" | "ACCEPTED" | "DECLINED" | "WITHDRAWN";
 export type OfferDeliverable = { title: string; dueDate: Date };
@@ -284,6 +284,9 @@ async function assertDraftTerms(tx: Prisma.TransactionClient, actor: Actor, inpu
     where: { campaignId: campaign.id, state: { not: "CANCELLED" } }, _sum: { compensation: true },
   });
   assertBudgetCarriesLine(input.jobId, athlete.tier ?? null, input.compensation, committed._sum.compensation ?? 0, campaign.budget);
+  /* P4-BE-09 — the campaign lock before the write (see lockCampaignForStaffing),
+     after the terms' own checks so their answer comes first. */
+  await lockCampaignForStaffing(tx, campaign.id);
   return { campaignId: campaign.id, athleteId: athlete.id, jobId: job.id };
 }
 
@@ -372,6 +375,9 @@ async function staffOffer(tx: Prisma.TransactionClient, actor: Actor, id: string
 export async function sendOffer(actor: Actor, id: string) {
   return prisma.$transaction(async (tx) => {
     const row = await staffOffer(tx, actor, id);
+    /* P4-BE-09 — a sent offer holds the campaign in STAFFING, so sending
+       takes the campaign lock first, like creating one. */
+    await lockCampaignForStaffing(tx, row.campaignId);
     if (row.state !== "DRAFT") throw new OfferError(`An offer that is ${row.state} cannot be sent.`, 409);
     if (row.expiresAt <= new Date()) throw new OfferError("This offer has already expired — set a new expiry before sending.", 409);
     assertTerms(termsOf(row));

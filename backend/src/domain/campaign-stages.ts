@@ -83,6 +83,38 @@ export async function lockCampaign(tx: Tx, campaignId: string, tenantId?: string
   return rows[0]?.state ?? null;
 }
 
+/** New staffing on a campaign whose staffing is settled. */
+export class CampaignNotStaffingError extends Error {
+  readonly status = 409;
+  readonly code = "campaign_not_staffing";
+  constructor(state: CampaignState) {
+    super(
+      `This campaign is ${state}, so it takes no new orders, offers or invitations. ` +
+        (state === "APPROVAL" ? "Move it back to STAFFING to add athletes." : "Its staffing is finished."),
+    );
+    this.name = "CampaignNotStaffingError";
+  }
+}
+
+/** The states in which a campaign may still be staffed: before approval,
+ *  and while live (a replacement athlete). */
+const STAFFABLE: readonly CampaignState[] = ["DRAFT", "STAFFING", "ACTIVE"];
+
+/**
+ * P4-BE-09 — creating an order, an offer or an invitation, or sending an
+ * offer, takes the campaign's row lock first, as every stage change does, so
+ * it cannot interleave with the automatic STAFFING → APPROVAL move: either it
+ * commits first and the move sees it (and waits for its answer), or the move
+ * commits first and this is refused, because the campaign is no longer
+ * being staffed. The caller has loaded the campaign through its own scope.
+ */
+export async function lockCampaignForStaffing(tx: Tx, campaignId: string): Promise<CampaignState> {
+  const state = await lockCampaign(tx, campaignId);
+  if (!state) throw new Error(`Campaign ${campaignId} disappeared while it was being staffed.`);
+  if (!STAFFABLE.includes(state)) throw new CampaignNotStaffingError(state);
+  return state;
+}
+
 /* ------------------------------------------------------------------ facts */
 
 export type StageRead = { facts: StageFacts; history: StageChange[] };

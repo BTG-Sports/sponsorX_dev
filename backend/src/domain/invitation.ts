@@ -36,7 +36,7 @@ import {
 } from "./invite-state";
 import { guardianReadiness } from "./guardian-rules";
 import { restrictionConflicts } from "./restrictions";
-import { advanceCampaign } from "./campaign-stages";
+import { advanceCampaign, lockCampaignForStaffing } from "./campaign-stages";
 
 /** §21 gives no number, so this is a product default rather than a rule.
  *  Named and exported so the expiry job and the tests share one answer. */
@@ -151,6 +151,10 @@ export async function inviteAthlete(
       startsOn: campaign.startDate, endsOn: campaign.endDate,
     });
     if (dated.length > 0) throw new CategoryConflictError([...new Set(dated.map((c) => c.category))]);
+
+    /* P4-BE-09 — the campaign lock before the write (see lockCampaignForStaffing),
+       after the athlete's own checks so their answer comes first. */
+    await lockCampaignForStaffing(tx, campaign.id);
 
     const open = await tx.campaignInvite.findFirst({
       /* tenant-scope: campaign and athlete were both loaded above through whereFor. */

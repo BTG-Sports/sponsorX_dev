@@ -36,6 +36,7 @@ vi.mock("../src/domain/campaign-stages", async (actual) => ({
   ...(await actual<typeof import("../src/domain/campaign-stages")>()),
   advanceCampaign: async () => [],
   advanceCampaignOfOrder: async () => [],
+  lockCampaignForStaffing: async () => "STAFFING",
 }));
 
 vi.mock("../src/domain/agreement", async () => {

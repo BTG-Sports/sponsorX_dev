@@ -35,7 +35,7 @@ import { assertBudgetCarriesLine, assertLineClearsFloor } from "./margin-floor";
 import { createDeliverablesFromJob } from "./deliverable";
 import { createEarningForOrder } from "./earning";
 import { projectLine } from "./pricing-learning";
-import { advanceCampaign, advanceCampaignOfOrder } from "./campaign-stages";
+import { advanceCampaign, advanceCampaignOfOrder, lockCampaignForStaffing } from "./campaign-stages";
 
 export class TermsFrozenError extends Error {
   readonly status = 409;
@@ -113,6 +113,10 @@ export async function createOrder(
       select: { id: true, budget: true },
     });
     if (!campaign) throw new ForbiddenError("campaignOrder", "write");
+    /* P4-BE-09 — the campaign lock first, so this cannot interleave with an
+       automatic STAFFING → APPROVAL move (and the budget below is read with
+       no other line landing beside it). */
+    await lockCampaignForStaffing(tx, campaign.id);
 
     /* P3-BE-12, enforced HERE rather than reported later. Built and tested as
        a rule, it was called by nothing until this line — which made its

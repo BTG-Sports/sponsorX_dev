@@ -106,11 +106,11 @@ const hasDatabase = await seededDb.databaseAvailable();
 
 describe.skipIf(!hasDatabase)("P4-BE-09 / P6-BE-09 · on a real database", async () => {
   const { prisma } = await import("../src/db/client");
-  const { acceptOrder } = await import("../src/domain/campaign-order");
+  const { acceptOrder, createOrder } = await import("../src/domain/campaign-order");
   const { verifyPublished } = await import("../src/domain/deliverable");
-  const { transitionInvite } = await import("../src/domain/invitation");
+  const { inviteAthlete, transitionInvite } = await import("../src/domain/invitation");
   const { launchCampaign, transitionCampaign } = await import("../src/domain/campaign");
-  const { advanceCampaign, sweepCampaignStages } = await import("../src/domain/campaign-stages");
+  const { advanceCampaign, CampaignNotStaffingError, sweepCampaignStages } = await import("../src/domain/campaign-stages");
   const { handleRenderReport } = await import("../worker/jobs/render-report.mts");
   const { createApp } = await import("../src/app");
   type Actor = import("../src/auth/actor").Actor;
@@ -405,6 +405,47 @@ describe.skipIf(!hasDatabase)("P4-BE-09 / P6-BE-09 · on a real database", async
         /* The loser (if the manual move lost) was told plainly, not silently overwritten. */
         if (results[0].status === "rejected") expect(String(results[0].reason)).toMatch(/APPROVAL to APPROVAL/);
       }
+    });
+
+    it("a DRAFT order created alongside the last acceptance: it holds the campaign in STAFFING, or the move wins and it is refused", async () => {
+      const outcomes = new Set<string>();
+      for (let i = 0; i < 6; i++) {
+        const id = `cs_lockrace${i}`;
+        await campaign(id, "STAFFING");
+        await order(`${id}_o1`, id, 1, "SENT");
+        const [accepted, created] = await Promise.allSettled([
+          acceptOrder(athlete(1), `${id}_o1`, evidence),
+          createOrder(staff, { campaignId: id, athleteId: "cs_ath2", jobId: "cs_job_1", compensation: 10_000, sellPrice: 20_000, usageRights: "90 days", dueDate: FUTURE }),
+        ]);
+        expect(accepted.status).toBe("fulfilled");
+        const orders = await prisma.campaignOrder.findMany({ where: { tenantId: A, campaignId: id }, select: { state: true }, orderBy: { id: "asc" } });
+        if (created.status === "fulfilled") {
+          /* The new order committed first: the move saw it and waits for it. */
+          expect(await state(id)).toBe("STAFFING");
+          expect(orders.map((o) => o.state).sort()).toEqual(["ACCEPTED", "DRAFT"]);
+          outcomes.add("held");
+        } else {
+          /* The move committed first: the campaign's staffing is settled, and the order is refused. */
+          expect(created.reason).toBeInstanceOf(CampaignNotStaffingError);
+          expect(await state(id)).toBe("APPROVAL");
+          expect(orders.map((o) => o.state)).toEqual(["ACCEPTED"]);
+          outcomes.add("refused");
+        }
+      }
+      expect(outcomes.size).toBeGreaterThan(0);
+    });
+
+    it("once the campaign has moved to APPROVAL, new orders and invitations are refused", async () => {
+      await campaign("cs_settled", "STAFFING");
+      await order("cs_settled_o1", "cs_settled", 1, "ACCEPTED");
+      await sweepCampaignStages(new Date(), { tenantIds: [A] });
+      expect(await state("cs_settled")).toBe("APPROVAL");
+      await expect(createOrder(staff, { campaignId: "cs_settled", athleteId: "cs_ath2", jobId: "cs_job_1", compensation: 10_000, sellPrice: 20_000, usageRights: "90 days", dueDate: FUTURE }))
+        .rejects.toMatchObject({ status: 409, code: "campaign_not_staffing" });
+      await expect(inviteAthlete(staff, { campaignId: "cs_settled", athleteId: "cs_ath3", jobId: "cs_job_1", offered: 10_000 }))
+        .rejects.toMatchObject({ status: 409, code: "campaign_not_staffing" });
+      expect(await prisma.campaignOrder.count({ where: { tenantId: A, campaignId: "cs_settled" } })).toBe(1);
+      expect(await prisma.campaignInvite.count({ where: { tenantId: A, campaignId: "cs_settled" } })).toBe(0);
     });
 
     it("a cancel racing the automatic move leaves a consistent history", async () => {
