@@ -138,6 +138,9 @@ export const AUDIT_ACTIONS = {
     systemRevision: "deliverable.systemRevision",
     /** P5-BE-09 — the one 48-hour reminder to a draft's reviewer. */
     reviewReminder: "deliverable.reviewReminder",
+    /** P5-BE-10 — a trusted draft moved by the system past BTG's review
+     *  (DRAFT_SUBMITTED → BTG_REVIEW → SPONSOR_REVIEW), with the reason. */
+    btgReviewSkipped: "deliverable.btgReviewSkipped",
     approve: "deliverable.approve",
     markPublished: "deliverable.markPublished",
     verify: "deliverable.verify",

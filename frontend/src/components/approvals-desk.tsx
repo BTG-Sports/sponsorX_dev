@@ -45,6 +45,7 @@ import {
   type EffectiveState,
 } from "@/lib/approvals-ui";
 import { passedChecks, waitingWords } from "@/lib/content-checks";
+import { SKIPPED_LABEL } from "@/lib/content-trust";
 
 /* --------------------------------------------------------------------------
    ApprovalsDesk — the content approval queue (2026-09-16 redesign). The
@@ -79,7 +80,10 @@ const TABS = [
   { key: "cleared", label: "Cleared" },
   { key: "all", label: "All" },
 ] as const;
-type TabKey = (typeof TABS)[number]["key"];
+/* P5-BE-10 — the live desk adds BTG's spot-check tab: drafts that skipped
+   BTG's review and went straight to the sponsor. The fixture desk has none. */
+const LIVE_TABS = [...TABS, { key: "skipped", label: SKIPPED_LABEL }] as const;
+type TabKey = (typeof LIVE_TABS)[number]["key"];
 const TAB_KEYS = TABS.map((t) => t.key) as readonly string[];
 
 const KIND_OPTIONS = [
@@ -359,7 +363,7 @@ export function ApprovalsDesk({
   }, [tab, q, camp, kind, sort, safePage, pageSize, demoParam]);
 
   const counts = useMemo(() => {
-    const c = { review: 0, cleared: 0, all: items.length };
+    const c = { review: 0, cleared: 0, all: items.length, skipped: 0 };
     for (const it of items) {
       if (inQueue(moves[it.id] ?? baseState(it))) c.review += 1;
       else c.cleared += 1;
@@ -491,6 +495,7 @@ function ServerDesk({
     <DeskBody
       rows={rows}
       counts={counts}
+      tabs={LIVE_TABS}
       tab={f.tab}
       qShown={f.q}
       camp={f.camp}
@@ -552,6 +557,7 @@ function ServerDesk({
 function DeskBody({
   rows,
   counts,
+  tabs = TABS,
   tab,
   qShown,
   camp,
@@ -571,6 +577,7 @@ function DeskBody({
   /** The visible page only. */
   rows: Item[];
   counts: Record<TabKey, number>;
+  tabs?: readonly { key: TabKey; label: string }[];
   tab: TabKey;
   qShown: string;
   camp: string;
@@ -644,7 +651,7 @@ function DeskBody({
         aria-label="Approval queue"
         className="mb-3 flex w-fit max-w-full flex-wrap gap-1 rounded-lg border border-line bg-surface p-1"
       >
-        {TABS.map((t) => {
+        {tabs.map((t) => {
           const active = t.key === tab;
           return (
             <button
@@ -722,7 +729,9 @@ function DeskBody({
               ? "Try a title, an athlete's name, or another tab."
               : tab === "cleared"
                 ? "Approved and published content shows up here."
-                : "Deliverables arrive here when athletes submit content."}
+                : tab === "skipped"
+                  ? "Drafts from trusted athletes that went straight to the sponsor show up here, for spot checks."
+                  : "Deliverables arrive here when athletes submit content."}
           </p>
           {isFiltered && (
             <button
@@ -789,6 +798,12 @@ function DeskBody({
                     <span className="mt-1 block truncate text-[11px] text-faint">
                       {it.athlete} · {it.campaign}
                     </span>
+                    {/* P5-BE-10 — went straight to the sponsor; BTG can still step in. */}
+                    {isLiveItem(it) && it.live.btgSkipped && (
+                      <span className="mt-2 block">
+                        <Badge tone="warn">{SKIPPED_LABEL}</Badge>
+                      </span>
+                    )}
 
                     <span className="mt-auto flex items-center justify-between gap-2 pt-3 text-[11px]">
                       <span className="truncate text-muted">{it.sponsor}</span>
@@ -992,6 +1007,19 @@ function ReviewDrawer({
             <p className="mt-3 text-xs leading-relaxed text-muted">
               {STATE_DETAIL[s]}
             </p>
+            {/* P5-BE-10 — it skipped BTG's review; say why, and that BTG can
+                still ask for changes while the sponsor has it. */}
+            {live && isLiveItem(it) && it.live.btgSkipped && (
+              <div className="mt-2 rounded-lg border border-warn/25 bg-warn/8 px-3 py-2 text-[11px] leading-relaxed text-text">
+                <p className="font-semibold">{SKIPPED_LABEL}</p>
+                {it.live.skipReason && <p className="mt-0.5">{it.live.skipReason}.</p>}
+                <p className="mt-0.5 text-muted">
+                  {s === "SPONSOR_REVIEW"
+                    ? "It went straight to the sponsor. You can still request a revision while they review it."
+                    : "It went straight to the sponsor."}
+                </p>
+              </div>
+            )}
             {live && isLiveItem(it) && it.live.revisionReason && s === "REVISION" && (
               <p className="mt-2 whitespace-pre-wrap rounded-lg bg-warn/10 px-3 py-2 text-[11px] leading-relaxed text-text">
                 {it.live.revisionReason}

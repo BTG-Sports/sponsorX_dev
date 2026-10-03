@@ -1001,6 +1001,19 @@ model Deliverable {
   reviewWaitingSince DateTime?
   reviewRemindedAt   DateTime?
 
+  /// P5-BE-10 — the latest submission skipped BTG's review and went straight
+  /// to the sponsor (a trusted adult athlete, no sensitive category, no BTG
+  /// revision on this deliverable), with the reason in words. Recomputed on
+  /// every submission; kept through a later revision so BTG can see it was.
+  btgReviewSkipped Boolean @default(false)
+  skipReason       String?
+  /// P5-BE-10 — when a BTG reviewer (a person, never the system) last passed
+  /// this deliverable on from BTG_REVIEW, and last asked for a revision on
+  /// it. The athlete's clean streak is read from these two: deliverables
+  /// passed after their latest BTG revision, never revised by BTG themselves.
+  btgPassedAt      DateTime?
+  btgRevisionAt    DateTime?
+
   order   CampaignOrder   @relation(fields: [orderId], references: [id])
   assets  CreativeAsset[]
   link    TrackingLink?

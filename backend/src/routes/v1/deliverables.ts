@@ -30,6 +30,7 @@ import {
   SubmitDraftInput,
 } from "../../contracts/deliverable";
 import { readChecks, sentBack } from "../../domain/content-check-rules";
+import { isBtgReviewer } from "../../domain/content-trust";
 import {
   approveDeliverable,
   markPublished,
@@ -64,6 +65,8 @@ const LIST_SELECT = {
   id: true, title: true, dueDate: true, state: true, publishedUrl: true, publishedAt: true,
   /* P5-BE-09 — the latest submission's caption and checks, and the wait. */
   caption: true, captionVersion: true, checks: true, checksPassed: true, checkedAt: true, reviewWaitingSince: true,
+  /* P5-BE-10 — the latest submission skipped BTG's review, and why. */
+  btgReviewSkipped: true, skipReason: true,
   order: {
     select: {
       id: true, jobId: true,
@@ -85,6 +88,7 @@ type ListRow = {
   publishedUrl: string | null; publishedAt: Date | null;
   caption: string | null; captionVersion: number | null;
   checks: unknown; checksPassed: boolean | null; checkedAt: Date | null; reviewWaitingSince: Date | null;
+  btgReviewSkipped: boolean; skipReason: string | null;
   order: {
     id: string; jobId: string; job: { name: string };
     athlete: { id: string; displayName: string };
@@ -114,7 +118,7 @@ async function revisionsFor(tenantId: string, ids: string[]) {
   return out;
 }
 
-function rowOut(d: ListRow, revision: { reason: string; at: Date } | undefined) {
+function rowOut(d: ListRow, revision: { reason: string; at: Date } | undefined, btg = false) {
   const latest = d.assets[0] ?? null;
   /* Open only while it sits back with the athlete: sent back by the
      automatic checks (until a submission passes), or by a reviewer and not
@@ -165,6 +169,10 @@ function rowOut(d: ListRow, revision: { reason: string; at: Date } | undefined) 
     waitingSince: onReviewDesk
       ? (d.reviewWaitingSince ?? latest?.uploadedAt ?? null)?.toISOString() ?? null
       : null,
+    /* P5-BE-10 — the latest submission went straight to the sponsor. Why, in
+       words, is BTG's to read: it describes the athlete's record. */
+    btgReviewSkipped: d.btgReviewSkipped,
+    skipReason: btg && d.btgReviewSkipped ? d.skipReason : null,
   };
 }
 
@@ -209,8 +217,12 @@ const NOT_SYSTEM_RETURNED: Where = {
   OR: [{ state: { not: "DRAFT_SUBMITTED" } }, { checksPassed: null }, { checksPassed: true }],
 };
 
+/** P5-BE-10 — `?btgSkipped=only`: the drafts that skipped BTG's review,
+ *  for BTG's spot checks. */
+const BTG_SKIPPED: Where = { btgReviewSkipped: true };
+
 /** The narrowing both modes share: `?state`, `?campaignId`, `?from`/`?to`,
- *  `?systemReturned=exclude`. */
+ *  `?systemReturned=exclude`, `?btgSkipped=only`. */
 function baseFilters(query: Record<string, unknown>): Where[] {
   const wanted = allowedList(query.state, STATES);
   const campaignId = typeof query.campaignId === "string" && query.campaignId ? query.campaignId : undefined;
@@ -218,6 +230,7 @@ function baseFilters(query: Record<string, unknown>): Where[] {
   const to = dateParam(query.to);
   return [
     ...(query.systemReturned === "exclude" ? [NOT_SYSTEM_RETURNED] : []),
+    ...(query.btgSkipped === "only" ? [BTG_SKIPPED] : []),
     ...(wanted.length ? [{ state: { in: wanted } }] : []),
     ...(campaignId ? [{ order: { campaignId } }] : []),
     ...(from || to ? [{ dueDate: { ...(from ? { gte: from } : {}), ...(to ? { lt: to } : {}) } }] : []),
@@ -366,6 +379,7 @@ const listDeliverables: RequestHandler = async (req, res) => {
   const actor = req.actor!;
   const query = req.query as Record<string, unknown>;
   const paged = pageRequest(query);
+  const btg = isBtgReviewer(actor);
 
   if (!paged) {
     const wanted =
@@ -384,13 +398,21 @@ const listDeliverables: RequestHandler = async (req, res) => {
     };
     const rows = (await prisma.deliverable.findMany({
       /* tenant-scope: `where` spreads whereFor(actor, "deliverable", "read") */
-      where: query.systemReturned === "exclude" ? { AND: [where, NOT_SYSTEM_RETURNED] } : where,
+      where: query.systemReturned === "exclude" || query.btgSkipped === "only"
+        ? {
+            AND: [
+              where,
+              ...(query.systemReturned === "exclude" ? [NOT_SYSTEM_RETURNED] : []),
+              ...(query.btgSkipped === "only" ? [BTG_SKIPPED] : []),
+            ],
+          }
+        : where,
       select: LIST_SELECT,
       orderBy: { dueDate: "asc" },
       take: UNPAGED_CAP,
     })) as ListRow[];
     const revisions = await revisionsFor(actor.tenantId, rows.map((r) => r.id));
-    res.json({ deliverables: rows.map((d) => rowOut(d, revisions.get(d.id))) });
+    res.json({ deliverables: rows.map((d) => rowOut(d, revisions.get(d.id), btg)) });
     return;
   }
 
@@ -431,7 +453,7 @@ const listDeliverables: RequestHandler = async (req, res) => {
         : readByWaiting(actor.tenantId, where, openIds, sort === "waiting" ? "asc" : "desc", skip, take),
   );
   const revisions = await revisionsFor(actor.tenantId, rows.map((r) => r.id));
-  res.json({ deliverables: rows.map((d) => rowOut(d, revisions.get(d.id))), page });
+  res.json({ deliverables: rows.map((d) => rowOut(d, revisions.get(d.id), btg)), page });
 };
 
 /**
@@ -446,6 +468,8 @@ const listDeliverables: RequestHandler = async (req, res) => {
  *   overdue        — the athlete's move and due before today (UTC day)
  *   campaigns      — the campaigns those deliverables belong to (the desk's
  *                    campaign filter), by name
+ *   btgSkipped     — those whose latest submission skipped BTG's review
+ *                    (P5-BE-10, the desk's spot-check tab)
  */
 const summarizeDeliverables: RequestHandler = async (req, res) => {
   const actor = req.actor!;
@@ -456,7 +480,7 @@ const summarizeDeliverables: RequestHandler = async (req, res) => {
   const agingCutoff = new Date(now - (AGING_HOURS + 1) * 3_600_000);
   const today = new Date(new Date(now).toISOString().slice(0, 10));
 
-  const [grouped, { open, notOpen }, deskAging, lateOwn, orders] = await Promise.all([
+  const [grouped, { open, notOpen }, deskAging, lateOwn, orders, btgSkipped] = await Promise.all([
     prisma.deliverable.groupBy({
       by: ["state"],
       /* tenant-scope: `where` is whereFor(actor, "deliverable", "read") ∧ filters */
@@ -487,6 +511,10 @@ const summarizeDeliverables: RequestHandler = async (req, res) => {
       select: { campaign: { select: { id: true, name: true } } },
       take: 500,
     }),
+    prisma.deliverable.count({
+      /* tenant-scope: `where` is whereFor(actor, "deliverable", "read") ∧ filters */
+      where: { AND: [where, BTG_SKIPPED] },
+    }),
   ]);
 
   const states = Object.fromEntries(STATES.map((s) => [s, 0])) as Record<string, number>;
@@ -504,6 +532,7 @@ const summarizeDeliverables: RequestHandler = async (req, res) => {
     aging: deskAging + draftAging,
     overdue: lateOwn + lateRevisions,
     campaigns,
+    btgSkipped,
   });
 };
 
@@ -517,7 +546,7 @@ const readDeliverable: RequestHandler<{ id: string }> = async (req, res) => {
   if (!d) throw new ForbiddenError("deliverable", "read");
   const revisions = await revisionsFor(actor.tenantId, [d.id]);
   res.json({
-    ...rowOut(d, revisions.get(d.id)),
+    ...rowOut(d, revisions.get(d.id), isBtgReviewer(actor)),
     assets: d.assets.map((a) => ({ version: a.version, uploadedAt: a.uploadedAt.toISOString() })),
   });
 };

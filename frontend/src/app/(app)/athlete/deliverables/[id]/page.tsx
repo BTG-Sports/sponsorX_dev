@@ -9,6 +9,7 @@ import {
   nextStep,
   type ApiDeliverableDetail,
 } from "@/lib/deliverables-live";
+import { submittedRoute } from "@/lib/content-trust";
 import { apiFetch, fetchActor } from "@/server/api";
 import { markPublished, presignUpload, registerUpload, submitDraft } from "./actions";
 
@@ -53,6 +54,7 @@ export default async function DeliverablePage({ params }: { params: Promise<{ id
 
   const today = new Date();
   const step = nextStep(d);
+  const route = submittedRoute(d);
   const overdue = isOverdue(d, today);
   const canUpload = isAthlete && (d.state === "NOT_STARTED" || Boolean(d.revision));
 
@@ -176,6 +178,14 @@ export default async function DeliverablePage({ params }: { params: Promise<{ id
           ) : (
             <>
               <SectionHeading title="Where it stands" />
+              {/* P5-BE-10 — where the submitted draft went: straight to the
+                  sponsor (it skipped BTG's review), or to BTG first. */}
+              {route && (
+                <div className="mb-2">
+                  <Badge tone={route.on === "sponsor" ? "accent" : "neutral"}>{route.label}</Badge>
+                  <p className="mt-1.5 text-[11px] leading-relaxed text-muted">{route.hint}</p>
+                </div>
+              )}
               <p className="text-[11px] leading-relaxed text-muted">
                 {step.on === "btg" && "It's with BTG — you'll be told the moment it moves."}
                 {step.on === "sponsor" && "The sponsor is reviewing it."}

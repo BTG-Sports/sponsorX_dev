@@ -80,7 +80,7 @@ describe("content desk · URL → API", () => {
     expect(h.waiting).toBe(7);
     expect(h.aging).toBe(3);
     expect(h.stageCounts).toEqual([2, 2, 1, 5]);
-    expect(h.tabs).toEqual({ review: 7, cleared: 5, all: 12 });
+    expect(h.tabs).toEqual({ review: 7, cleared: 5, all: 12, skipped: 0 });
     expect(deskHeadline({ total: 0, openRevisions: 0, aging: 0, campaigns: [], states: {} }).stageCounts).toEqual([0, 0, 0, 0]);
   });
 });

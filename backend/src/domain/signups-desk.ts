@@ -48,6 +48,7 @@ import { enqueue } from "../db/outbox";
 import { env } from "../config/env";
 import type { AthleteState } from "./athlete-state";
 import { requiresGuardian } from "./guardian-rules";
+import { contentTrustOf } from "./content-trust";
 import {
   ATHLETE_SELECT, appUrl, approveSignupIn, evaluateAthleteSignup, firstNameOf, guardianAgreed, signupFacts, SignupError, type SignupAthlete,
 } from "./athlete-signup";
@@ -215,13 +216,15 @@ async function athleteFor(actor: Actor, id: string, action: "read" | "approve" =
 export async function getAthleteSignup(actor: Actor, id: string) {
   assertTenantWide(actor, "athleteApplication", "approve");
   const a = await athleteFor(actor, id);
-  const [facts, docs, approval] = await Promise.all([
+  const [facts, docs, approval, contentTrust] = await Promise.all([
     signupFacts(prisma, a),
     prisma.accountDocument.findMany({ where: { tenantId: a.tenantId, athleteId: a.id, uploadedAt: { not: null } }, select: DOC_VIEW, orderBy: { createdAt: "asc" } }),
     prisma.auditLog.findFirst({
       where: { tenantId: a.tenantId, entity: "Athlete", entityId: a.id, action: { in: ["athlete.autoApprove", "athlete.signupApprove", "athlete.approve"] } },
       select: { at: true }, orderBy: { at: "desc" },
     }),
+    /* P5-BE-10 — BTG only (this read is): do their drafts skip BTG's review? */
+    contentTrustOf(prisma, a.tenantId, a.id),
   ]);
   const age = ageOf(a.birthDate);
   const minor = facts.minor;
@@ -252,6 +255,7 @@ export async function getAthleteSignup(actor: Actor, id: string) {
     guardianOf: [],
     rejectNote: a.signupRejectNote,
     rejectedWithGuardian: a.signupRejectedVia === "GUARDIAN",
+    contentTrust,
     can: {
       approve: state === "NEEDS_REVIEW",
       reject: state !== "REJECTED",

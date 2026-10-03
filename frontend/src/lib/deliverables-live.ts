@@ -47,6 +47,10 @@ export type ApiDeliverable = {
   requiredDisclosures?: string[];
   checks?: ContentCheck[] | null;
   waitingSince?: string | null;
+  /* P5-BE-10 — the latest submission skipped BTG's review and went straight
+     to the sponsor; why, in words, is sent to BTG only. */
+  btgReviewSkipped?: boolean;
+  skipReason?: string | null;
 };
 
 export type ApiDeliverableDetail = ApiDeliverable & {

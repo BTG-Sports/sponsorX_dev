@@ -67,6 +67,8 @@ vi.mock("../src/db/client", () => {
     findFirst: () => Promise.resolve(deliverable),
     /* P7-BE-02 counts outstanding deliverables when one is verified. */
     count: () => Promise.resolve(outstandingDeliverables),
+    /* P5-BE-10 — the athlete's latest BTG revision: none on record. */
+    aggregate: () => Promise.resolve({ _max: { btgRevisionAt: null } }),
     update: ({ data }: { data: Record<string, unknown> }) => {
       committedWrites.push("deliverable.update");
       updates.push(data);
@@ -81,6 +83,8 @@ vi.mock("../src/db/client", () => {
   };
   const tx = {
     deliverable: model,
+    /* P5-BE-10 — the sponsor's reviewers, asked before a draft may skip BTG. */
+    user: { findFirst: () => Promise.resolve(null) },
     /* 2S1-BE-11 — the upload asks whether the uploader is a minor whose guardian should hear of it: an adult here. */
     athlete: { findFirst: () => Promise.resolve({ id: "ath_1", legalName: "Alex", displayName: "Alex", state: "ACTIVE", birthDate: null, ageBand: "18_PLUS", majorityAge: 18, guardianId: null, guardian: null }) },
     creativeAsset: {
@@ -150,10 +154,13 @@ const at = (state: string) => {
     assets: [{ version: 1, contentType: "video/mp4", uploadedAt: new Date("2026-10-01T00:00:00Z") }],
     /* P5-INT-01 widened move()'s read so a notification can be addressed. */
     order: {
-      campaign: { name: "Autumn" },
-      athlete: { displayName: "Alex", user: { email: "alex@example.com" } },
+      /* P5-BE-10 — what deciding a skip reads: an adult, no categories. */
+      athleteId: "ath_1",
+      campaign: { name: "Autumn", sponsorId: "spn_1", sponsor: { categories: [] }, brief: null },
+      athlete: { displayName: "Alex", user: { email: "alex@example.com" }, birthDate: null, ageBand: "18_PLUS", majorityAge: 18, guardianId: null },
       offer: null,
     },
+    btgRevisionAt: null,
   };
 };
 
