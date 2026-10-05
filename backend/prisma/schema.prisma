@@ -3167,6 +3167,14 @@ model Payout {
   nextRetryAt           DateTime?
   /// The one automatic retry after the payee fixed their account was used.
   accountRetryUsed      Boolean   @default(false)
+  /// 2S5-BE-05 — each hand-over to the provider (APPROVED → SENDING). The
+  /// provider is sent `<id>:<n>` as its idempotency key, so a hand-over
+  /// retried after a crash is the same payout to the provider, never two.
+  sendAttempts          Int       @default(0)
+  /// 2S5-BE-05 — the bank returned it after it was paid (`payout.returned`):
+  /// PAID → FAILED, its PAYOUT journals mirrored, retried like an account failure.
+  returnedAt            DateTime?
+  returnCount           Int       @default(0)
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @default(now()) @updatedAt
 

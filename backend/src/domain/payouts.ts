@@ -42,14 +42,14 @@ import { env } from "../config/env";
 import type { Actor } from "../auth/actor";
 import { assertAllowed, can, whereFor } from "../auth/scope";
 import { ForbiddenError } from "../auth/errors";
-import { providerName, readStandinToken, standinLink, standinRef, StandinTokenError } from "../lib/payment-provider";
-import { postPayout } from "./ledger";
+import { providerName, readStandinToken, sendPayoutToProvider, standinLink, standinRef, StandinTokenError } from "../lib/payment-provider";
+import { postPayout, postPayoutReturn } from "./ledger";
 import { recordRefund } from "./refunds";
 import { lockOrder, moveOrderAsSystem, payOrderIn } from "./marketplace-order";
 import { appUrl, btgAdmins, tell } from "./order-mail";
 import { assertMayCommit } from "./guardian-acts";
 import { payoutHoldReason } from "./payout-holds";
-import { standinDecline } from "./payment-events";
+import { applied, deferred, emitStandinEvent, held, ignored, processPaymentEvent, standinDecline, type Handler } from "./payment-events";
 import { moneyHoldsOn } from "./payment-exceptions";
 import {
   autoApprovalReasons, autoApproveSettings, autoApprovedByTenant, autoWindowFor, claimsMoney, lockPayee, nextChangedAt, planFailure,
@@ -335,7 +335,7 @@ export async function confirmPayment(attemptId: string, now = new Date()) {
       where: { id: a.id, state: "PROCESSING" }, data: { state: "SUCCEEDED" },
     });
     if (claimed.count === 0) return { confirmed: false };
-    return paymentSucceededIn(tx, a, now);
+    return succeededIn(tx, a, now);
   });
 }
 
@@ -349,7 +349,11 @@ type ConfirmedAttempt = Prisma.PaymentAttemptGetPayload<{ select: typeof ATTEMPT
  * transaction and under the order's row lock: the order is paid — or, when
  * it is no longer waiting, the money is recorded for refund. Audited.
  */
-export async function paymentSucceededIn(tx: Tx, a: ConfirmedAttempt, now: Date): Promise<{ confirmed: true; refundNeeded?: true }> {
+export async function paymentSucceededIn(tx: Tx, a: ConfirmedAttempt, now: Date) {
+  return succeededIn(tx, a, now);
+}
+
+async function succeededIn(tx: Tx, a: ConfirmedAttempt, now: Date): Promise<{ confirmed: true; refundNeeded?: true }> {
   await audit(tx, { userId: null, tenantId: a.tenantId }, "payment.confirm", "MarketplaceOrder", a.orderId, { after: { attemptId: a.id, amountCents: a.amountCents } });
   const order = await tx.marketplaceOrder.findUniqueOrThrow({
     /* tenant-scope: the order this attempt was made for, recorded on it. */
@@ -639,6 +643,8 @@ const PAYOUT_SELECT = {
   requestedAt: true, decidedAt: true, decisionNote: true, providerRef: true, sentAt: true, paidAt: true, failureReason: true, createdAt: true,
   approvedAutomatically: true, reviewReasons: true, failureKind: true, failedAt: true, waitingOn: true, retryCount: true, nextRetryAt: true,
   accountRetryUsed: true,
+  /* 2S5-BE-05 — its hand-overs to the provider, and a return by the bank. */
+  sendAttempts: true, returnedAt: true, returnCount: true,
   lines: { select: { orderId: true, amountCents: true } },
 } as const;
 type PayoutRow = Prisma.PayoutGetPayload<{ select: typeof PAYOUT_SELECT }>;
@@ -1062,11 +1068,14 @@ export async function resumePayoutsCovering(tx: Tx, orderId: string) {
 /* ── the provider's side (worker jobs) ────────────────────────────────── */
 
 /**
- * Hand an approved payout to the provider. With no provider connected it
- * waits, APPROVED, and says so on every screen. The stand-in "sends" it;
- * its answer follows as a separate step (`completeStandinPayout`).
- * Conditional on the row still being APPROVED, so two send jobs for the same
- * payout (a retry queued twice) hand it over once.
+ * Hand an approved payout to the provider (the `payouts.send` job). With no
+ * provider connected it waits, APPROVED, and says so on every screen. The
+ * provider is called through the adapter with `<id>:<hand-over>` as its
+ * idempotency key; its answer — paid, failed, returned — arrives later as a
+ * provider event (`payout.*`, below). Conditional on the row still being
+ * APPROVED and on its hand-over count, so two send jobs for the same payout
+ * hand it over once; a provider that throws (down, timing out) rolls the
+ * whole step back and the queue retries it with the same key.
  */
 export async function sendPayout(payoutId: string, now = new Date()): Promise<{ sent: boolean }> {
   const provider = providerName();
@@ -1074,7 +1083,8 @@ export async function sendPayout(payoutId: string, now = new Date()): Promise<{ 
   return prisma.$transaction(async (tx) => {
     const row = await tx.payout.findUnique({
       /* tenant-scope: the payout named by the job this server enqueued on approval. */
-      where: { id: payoutId }, select: { id: true, tenantId: true, state: true, payeeType: true, payeeId: true, payeeTenantId: true, lines: { select: { orderId: true } } },
+      where: { id: payoutId },
+      select: { id: true, tenantId: true, state: true, payeeType: true, payeeId: true, payeeTenantId: true, amountCents: true, sendAttempts: true, lines: { select: { orderId: true } } },
     });
     if (!row || row.state !== "APPROVED") return { sent: false };
     /* Held (2S1-BE-06 / -09): it waits, APPROVED, until BTG reinstates the payee, which sends it again. */
@@ -1085,12 +1095,21 @@ export async function sendPayout(payoutId: string, now = new Date()): Promise<{ 
     /* 2S5-BE-04 — never released to an account that isn't READY: it waits, APPROVED, and the payee's
        next READY sends it (recordAccountStatus). */
     if (!(await accountReady(tx, row))) return { sent: false };
+    const account = await tx.payoutAccount.findUnique({
+      /* tenant-scope: the payee's account, by the unique payee key the payout names. */
+      where: { payeeType_payeeId: { payeeType: row.payeeType, payeeId: row.payeeId } }, select: { providerAccountId: true },
+    });
+    const attempt = row.sendAttempts + 1;
+    const handed = await sendPayoutToProvider({
+      payoutId: row.id, amountCents: row.amountCents, currency: "USD", accountId: account?.providerAccountId ?? null, idempotencyKey: `${row.id}:${attempt}`,
+    });
     const moved = await tx.payout.updateMany({
-      /* tenant-scope: the row just loaded by id; conditional, so a second job for it finds nothing. */
-      where: { id: row.id, state: "APPROVED" }, data: { state: "SENDING", provider, providerRef: standinRef("po"), sentAt: now },
+      /* tenant-scope: the row just loaded by id; conditional on its state and hand-over count, so a second job for it finds nothing. */
+      where: { id: row.id, state: "APPROVED", sendAttempts: row.sendAttempts },
+      data: { state: "SENDING", provider: handed.provider, providerRef: handed.reference, sentAt: now, sendAttempts: attempt },
     });
     if (!moved.count) return { sent: false };
-    await audit(tx, { userId: null, tenantId: row.tenantId }, "payout.send", "Payout", row.id, { after: { provider } });
+    await audit(tx, { userId: null, tenantId: row.tenantId }, "payout.send", "Payout", row.id, { after: { provider: handed.provider, providerRef: handed.reference, attempt } });
     return { sent: true };
   });
 }
@@ -1103,17 +1122,23 @@ export async function confirmPayoutPaid(payoutId: string, now = new Date()) {
       where: { id: payoutId }, select: PAYOUT_SELECT,
     });
     if (!row || row.state !== "SENDING") return { paid: false };
-    const payee: Payee = { payeeType: row.payeeType as PayeeType, payeeId: row.payeeId, payeeTenantId: row.payeeTenantId };
-    const moved = await tx.payout.updateMany({
-      /* tenant-scope: the row just loaded by id; conditional, so a redelivered confirmation posts nothing twice. */
-      where: { id: row.id, state: "SENDING" }, data: { state: "PAID", paidAt: now },
-    });
-    if (!moved.count) return { paid: false };
-    await postPayout(tx, row.tenantId, row.id, payee, row.lines);
-    await audit(tx, { userId: null, tenantId: row.tenantId }, "payout.paid", "Payout", row.id, { after: { amountCents: row.amountCents } });
-    await notifyPayee(tx, { ...row, ...payee }, "payout.paid", { orders: row.lines.map((l) => `${orderRef(l.orderId)} — ${usd(l.amountCents)}`).join("\n") });
-    return { paid: true };
+    return { paid: await payoutPaidIn(tx, row, now) };
   });
+}
+
+/** SENDING → PAID, under the caller's transaction: conditional, so a second confirmation posts nothing twice. */
+async function payoutPaidIn(tx: Tx, row: PayoutRow, now: Date): Promise<boolean> {
+  const payee: Payee = { payeeType: row.payeeType as PayeeType, payeeId: row.payeeId, payeeTenantId: row.payeeTenantId };
+  const moved = await tx.payout.updateMany({
+    /* tenant-scope: the row the caller loaded by id; conditional, so a redelivered confirmation posts nothing twice. */
+    where: { id: row.id, state: "SENDING" }, data: { state: "PAID", paidAt: now },
+  });
+  if (!moved.count) return false;
+  /* A payout paid again after the bank returned it posts its own journals (the return mirrored the first). */
+  await postPayout(tx, row.tenantId, row.id, payee, row.lines, row.returnCount);
+  await audit(tx, { userId: null, tenantId: row.tenantId }, "payout.paid", "Payout", row.id, { after: { amountCents: row.amountCents, providerRef: row.providerRef } });
+  await notifyPayee(tx, { ...row, ...payee }, "payout.paid", { orders: row.lines.map((l) => `${orderRef(l.orderId)} — ${usd(l.amountCents)}`).join("\n") }, `payout.paid:${row.id}:${row.sendAttempts}`);
+  return true;
 }
 
 /**
@@ -1130,25 +1155,43 @@ export async function failPayout(payoutId: string, reason: string, kind: Failure
       where: { id: payoutId }, select: PAYOUT_SELECT,
     });
     if (!row || row.state !== "SENDING") return { failed: false };
-    const plan = planFailure(kind, row, now);
-    const moved = await tx.payout.updateMany({
-      /* tenant-scope: the row just loaded by id; conditional, so a redelivered failure moves it once. */
-      where: { id: row.id, state: "SENDING" },
-      data: {
-        state: "FAILED", failureReason: reason.slice(0, 500), failureKind: kind, failedAt: now,
-        waitingOn: plan.waitingOn, nextRetryAt: plan.nextRetryAt, reviewReasons: plan.reviewReasons,
-      },
-    });
-    if (!moved.count) return { failed: false };
-    await audit(tx, { userId: null, tenantId: row.tenantId }, "payout.fail", "Payout", row.id, {
-      after: { reason, kind, waitingOn: plan.waitingOn, nextRetryAt: plan.nextRetryAt, retryCount: row.retryCount, reviewReasons: plan.reviewReasons },
-    });
-    if (plan.tellPayee) {
-      const payee: Payee = { payeeType: row.payeeType as PayeeType, payeeId: row.payeeId, payeeTenantId: row.payeeTenantId };
-      await notifyPayee(tx, { ...row, ...payee }, "payout.accountNeedsFix", {}, `payout.accountNeedsFix:${row.id}:${now.toISOString()}`);
-    }
-    return { failed: true };
+    return { failed: await payoutFailedIn(tx, row, "SENDING", reason, kind, now) };
   });
+}
+
+/**
+ * → FAILED from `from` (SENDING: the provider couldn't send it; PAID: the
+ * bank returned it), with the plan for what happens next. Conditional on
+ * `from`. 2S5-BE-05 — a failure left for BTG is surfaced: BTG's admins are
+ * emailed, and it waits on BTG's list.
+ */
+async function payoutFailedIn(tx: Tx, row: PayoutRow, from: "SENDING" | "PAID", reason: string, kind: FailureKind, now: Date, extra: Prisma.PayoutUpdateManyMutationInput = {}): Promise<boolean> {
+  const plan = planFailure(kind, row, now);
+  const moved = await tx.payout.updateMany({
+    /* tenant-scope: the row the caller loaded by id; conditional, so a redelivered failure moves it once. */
+    where: { id: row.id, state: from },
+    data: {
+      state: "FAILED", failureReason: reason.slice(0, 500), failureKind: kind, failedAt: now,
+      waitingOn: plan.waitingOn, nextRetryAt: plan.nextRetryAt, reviewReasons: plan.reviewReasons, ...extra,
+    },
+  });
+  if (!moved.count) return false;
+  await audit(tx, { userId: null, tenantId: row.tenantId }, from === "PAID" ? "payout.returned" : "payout.fail", "Payout", row.id, {
+    before: { state: from },
+    after: { reason, kind, waitingOn: plan.waitingOn, nextRetryAt: plan.nextRetryAt, retryCount: row.retryCount, reviewReasons: plan.reviewReasons },
+  });
+  const payee: Payee = { payeeType: row.payeeType as PayeeType, payeeId: row.payeeId, payeeTenantId: row.payeeTenantId };
+  if (plan.tellPayee) await notifyPayee(tx, { ...row, ...payee }, "payout.accountNeedsFix", {}, `payout.accountNeedsFix:${row.id}:${now.toISOString()}`);
+  if (plan.waitingOn === "BTG") {
+    const name = await payeeName(tx, payee);
+    for (const u of await btgAdmins(tx, row.tenantId)) {
+      await tell(tx, { tenantId: row.tenantId, email: u.email }, "payout.failedForBtg", `${row.id}:${row.sendAttempts}:${from}`, {
+        payeeName: name, amount: usd(row.amountCents), reason: [reason, ...plan.reviewReasons].join(" — "),
+        payoutUrl: appUrl(`/admin/payouts/${row.id}`),
+      });
+    }
+  }
+  return true;
 }
 
 /**
@@ -1217,12 +1260,112 @@ const STANDIN_FAILURES: Record<FailureKind, string> = {
 /**
  * The stand-in provider's answer to a payout it was handed: paid — or, when
  * STANDIN_PAYOUT_FAILURE names a failure kind, failed that way, so the
- * retry story runs end to end on staging and in tests. A real provider's
- * webhook lands on confirmPayoutPaid / failPayout the same way.
+ * retry story runs end to end on staging and in tests. 2S5-BE-05 — spoken as
+ * a provider speaks: a signed `payout.paid` / `payout.failed` event through
+ * the webhook's door, applied at once (the queued job then finds it applied).
+ * Its event id is the hand-over's, so the job delivered twice is one event.
  */
 export async function completeStandinPayout(payoutId: string, now = new Date()) {
   if (providerName() !== "standin") return { paid: false, failed: false };
+  const row = await prisma.payout.findUnique({
+    /* tenant-scope: the payout the stand-in was just handed, by id. */
+    where: { id: payoutId }, select: { id: true, state: true, providerRef: true, sendAttempts: true },
+  });
+  if (!row || row.state !== "SENDING") return { paid: false, failed: false };
   const kind = env.STANDIN_PAYOUT_FAILURE;
-  if (kind) return { paid: false, ...(await failPayout(payoutId, STANDIN_FAILURES[kind], kind, now)) };
-  return { failed: false, ...(await confirmPayoutPaid(payoutId, now)) };
+  const ref = { payoutId: row.id, payoutRef: row.providerRef ?? undefined };
+  const ev = kind
+    ? await emitStandinEvent("payout.failed", { ...ref, kind, reason: STANDIN_FAILURES[kind] }, { id: `evt_standin_payout_${row.id}_${row.sendAttempts}`, now })
+    : await emitStandinEvent("payout.paid", ref, { id: `evt_standin_payout_${row.id}_${row.sendAttempts}`, now });
+  const r = await processPaymentEvent(ev.id, now);
+  const applied = r.status === "APPLIED" && r.changed;
+  return kind ? { paid: false, failed: applied } : { failed: false, paid: applied };
+}
+
+/* ── the provider's word on a payout — 2S5-BE-05 ──────────────────────── */
+
+/** The payout an event names: its id, else the provider's reference. */
+async function payoutOf(tx: Tx, data: Record<string, unknown>) {
+  const byId = typeof data.payoutId === "string"
+    ? await tx.payout.findUnique({ /* tenant-scope: the payout a verified provider event names, by id. */ where: { id: data.payoutId }, select: PAYOUT_SELECT })
+    : null;
+  return byId ?? (typeof data.payoutRef === "string"
+    ? await tx.payout.findFirst({ /* tenant-scope: the payout the provider's own reference names. */ where: { providerRef: data.payoutRef }, select: PAYOUT_SELECT })
+    : null);
+}
+
+/** The payout, locked for this event (`SELECT … FOR UPDATE`), and read again after the lock. */
+async function lockedPayout(tx: Tx, data: Record<string, unknown>) {
+  const found = await payoutOf(tx, data);
+  if (!found) return null;
+  await tx.$queryRaw`SELECT id FROM "Payout" WHERE id = ${found.id} FOR UPDATE`;
+  return tx.payout.findUniqueOrThrow({ /* tenant-scope: the row just found, re-read under its lock. */ where: { id: found.id }, select: PAYOUT_SELECT });
+}
+
+/** An event about an earlier hand-over of this payout (its reference since replaced by a retry) says nothing about this one. */
+const stale = (row: PayoutRow, data: Record<string, unknown>) => typeof data.payoutRef === "string" && row.providerRef !== null && data.payoutRef !== row.providerRef;
+
+/** payout.paid — the money arrived: SENDING → PAID, its journals, the payee told. A late "paid" for a payout SponsorX had failed is BTG's. */
+export const onPayoutPaid: Handler = async (tx, _ev, data, now) => {
+  const row = await lockedPayout(tx, data);
+  if (!row) return deferred("No payout in SponsorX matches this event yet — tried again shortly");
+  if (stale(row, data)) return ignored("About an earlier hand-over of this payout, since sent again", row.tenantId);
+  if (row.state === "PAID") return ignored("The payout was already confirmed paid", row.tenantId);
+  if (row.state === "APPROVED") return deferred("The provider's answer arrived before SponsorX recorded the hand-over — tried again shortly", row.tenantId);
+  if (row.state === "SENDING") {
+    await payoutPaidIn(tx, row, now);
+    return applied(`Payout of ${usd(row.amountCents)} paid`, row.tenantId);
+  }
+  /* FAILED or REJECTED: SponsorX thought it didn't go — never let a retry pay it twice. */
+  if (row.state === "FAILED" && row.waitingOn !== "BTG") {
+    await tx.payout.updateMany({
+      /* tenant-scope: the row just locked; conditional on its state. */
+      where: { id: row.id, state: "FAILED" },
+      data: { waitingOn: "BTG", nextRetryAt: null, reviewReasons: ["The provider later reported this payout as paid — check with the provider before retrying"] },
+    });
+    await audit(tx, { userId: null, tenantId: row.tenantId }, "payout.retryStopped", "Payout", row.id, { before: { waitingOn: row.waitingOn }, after: { waitingOn: "BTG", why: "provider reported it paid" } });
+  }
+  return held(`The provider says this payout of ${usd(row.amountCents)} was paid, but SponsorX had it as ${row.state.toLowerCase()} — no retry is sent until BTG has checked with the provider.`, row.tenantId);
+};
+
+/** payout.failed — the provider couldn't send it: SENDING → FAILED, retried or BTG's by its kind. Never undoes a paid payout. */
+export const onPayoutFailed: Handler = async (tx, _ev, data, now) => {
+  const row = await lockedPayout(tx, data);
+  if (!row) return deferred("No payout in SponsorX matches this event yet — tried again shortly");
+  if (stale(row, data)) return ignored("About an earlier hand-over of this payout, since sent again", row.tenantId);
+  if (row.state === "APPROVED") return deferred("The provider's answer arrived before SponsorX recorded the hand-over — tried again shortly", row.tenantId);
+  if (row.state !== "SENDING") return ignored(`The payout is already ${row.state.toLowerCase()} — a late failure changes nothing (a returned payout is payout.returned)`, row.tenantId);
+  const kind = (["TEMPORARY", "ACCOUNT", "OTHER"] as const).find((k) => k === data.kind) ?? "OTHER";
+  const reason = (typeof data.reason === "string" && data.reason.trim()) || "The payment provider couldn't send this payout.";
+  await payoutFailedIn(tx, row, "SENDING", reason, kind, now);
+  return applied(`Payout failed (${kind.toLowerCase()})`, row.tenantId);
+};
+
+/**
+ * payout.returned — the bank sent a paid payout back: PAID → FAILED as an
+ * account failure (the payee is asked to fix their payout account, and it is
+ * sent again when it is READY; a second return is BTG's), and its PAYOUT
+ * journals mirrored, so the money is the payee's again in the books.
+ */
+export const onPayoutReturned: Handler = async (tx, _ev, data, now) => {
+  const row = await lockedPayout(tx, data);
+  if (!row) return deferred("No payout in SponsorX matches this event yet — tried again shortly");
+  if (stale(row, data)) return ignored("About an earlier hand-over of this payout, since sent again", row.tenantId);
+  if (row.state === "SENDING" || row.state === "APPROVED") return deferred("The return arrived before the payout's confirmation — tried again shortly", row.tenantId);
+  if (row.state !== "PAID") return ignored(`The payout is ${row.state.toLowerCase()} — nothing to return`, row.tenantId);
+  const reason = (typeof data.reason === "string" && data.reason.trim()) || "The payee's bank returned the payout.";
+  const returnCount = row.returnCount + 1;
+  const moved = await payoutFailedIn(tx, row, "PAID", reason, "ACCOUNT", now, { paidAt: null, returnedAt: now, returnCount });
+  if (!moved) return ignored("The return was already recorded", row.tenantId);
+  const payee: Payee = { payeeType: row.payeeType as PayeeType, payeeId: row.payeeId, payeeTenantId: row.payeeTenantId };
+  await postPayoutReturn(tx, row.tenantId, row.id, payee, row.lines, returnCount);
+  return applied(`Payout of ${usd(row.amountCents)} returned by the bank — waiting for the payee's payout account`, row.tenantId);
+};
+
+/** The handlers this module owns, for payment-events.ts (resolved at call time). */
+export function payoutHandlerFor(type: string): Handler | null {
+  if (type === "payout.paid") return onPayoutPaid;
+  if (type === "payout.failed") return onPayoutFailed;
+  if (type === "payout.returned") return onPayoutReturned;
+  return null;
 }

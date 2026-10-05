@@ -42,6 +42,8 @@ const MONEY_MODULES = [
   "payment-events.ts",
   /* 2S5-BE-03 — refunds the provider reports, and disputes: they reverse the books and send payouts back. */
   "payment-exceptions.ts",
+  /* 2S5-BE-05 — payouts: every status a payout moves through, and card payments' confirmation. */
+  "payouts.ts",
 ] as const;
 
 /**
@@ -99,6 +101,22 @@ const READ_ONLY = new Set([
   "listDisputes",
   "getDispute",
   "exceptionHandlerFor",
+  /* 2S5-BE-05 — reads and pure functions in payouts.ts. */
+  "safeReturnPath",
+  "myPayoutAccount",
+  "orderPayment",
+  "latestFailedAttempts",
+  "failedPayments",
+  "standinDetails",
+  "lineReleasable",
+  "myPayouts",
+  "payoutChecks",
+  "listPayouts",
+  "getPayout",
+  "payoutHandlerFor",
+  /* A delegate: completeStandinPayout writes only through the provider
+     event's own path (processPaymentEvent, which audits). */
+  "completeStandinPayout",
 ]);
 
 function sourceOf(file: string): string {

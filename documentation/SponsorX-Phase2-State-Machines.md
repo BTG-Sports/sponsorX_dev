@@ -222,6 +222,27 @@ run twice retries once; every provider step (`APPROVED → SENDING`,
 `SENDING → PAID | FAILED`) is conditional too, so a job delivered twice moves
 it once. With no provider connected nothing is sent, so nothing fails.
 
+**Executed and tracked by the provider's word (2S5-BE-05, 2026-10-05).**
+"Admin approves" is now the automatic approval above, with BTG approving only
+what it holds. `APPROVED → SENDING` is the worker's hand-over through the
+provider adapter, sent with `<payout id>:<hand-over number>` as the
+provider's idempotency key (`sendAttempts`), so a hand-over retried after a
+crash is the same payout to the provider; a provider that throws rolls the
+step back and the queue retries it. Everything after that is the provider's
+event, through the payment webhook (§5):
+
+| Event | Move |
+|---|---|
+| `payout.paid` | `SENDING → PAID`: its PAYOUT journals, the payee emailed |
+| `payout.failed` | `SENDING → FAILED`, by kind (the table above); one left for `BTG` emails BTG's admins |
+| `payout.returned` | `PAID → FAILED` as an `ACCOUNT` failure (`returnedAt`, `returnCount`): its PAYOUT journals mirrored, the payee asked to fix the account, sent again when it is READY; a second return is BTG's |
+
+Out of order: a "paid" or "failed" before SponsorX recorded the hand-over, or
+a return before the payment, waits (DEFERRED); a failure after "paid" is
+ignored; a word about an earlier hand-over (its reference replaced by a
+retry) is ignored; a "paid" for a payout SponsorX had failed is HELD for BTG
+and its automatic retry stopped, so it is never paid twice.
+
 **Illegal, as built:**
 - `REQUESTED → APPROVED` automatically for a payee on hold, at or over the
   limit, after an account change within 7 days, or at the 7-day cap.

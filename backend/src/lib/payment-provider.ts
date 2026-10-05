@@ -1,4 +1,4 @@
-import { createHmac, randomBytes } from "node:crypto";
+import { createHash, createHmac, randomBytes } from "node:crypto";
 
 import { env } from "../config/env";
 import { PAYMENT_EVENT_DATA, ProviderWebhookEnvelope, type NeutralPaymentEvent } from "../contracts/payment-events";
@@ -135,6 +135,25 @@ export function parseProviderWebhook(provider: string, body: unknown): NeutralPa
   const data = PAYMENT_EVENT_DATA[envelope.data.type].safeParse(envelope.data.data);
   if (!data.success) throw new WebhookPayloadError(`This ${envelope.data.type} event is missing what it must name.`);
   return [{ id: envelope.data.id, type: envelope.data.type, occurredAt: new Date(envelope.data.created), data: data.data as Record<string, unknown> }];
+}
+
+/* ── payouts — 2S5-BE-05 ─────────────────────────────────────────────── */
+
+export type PayoutHandOver = { payoutId: string; amountCents: number; currency: string; accountId: string | null; idempotencyKey: string };
+
+/**
+ * Hand an approved payout to the provider: its reference back. The stand-in
+ * accepts at once (its answer — paid or failed — follows as an event, like a
+ * real provider's webhook). A real provider is sent `idempotencyKey`, so a
+ * hand-over retried after a crash between its call and our commit is the
+ * same payout to the provider, never a second one. A throw (the provider
+ * down) is the caller's to roll back: nothing is recorded as sent.
+ */
+export async function sendPayoutToProvider(p: PayoutHandOver): Promise<{ provider: ProviderName; reference: string }> {
+  const provider = providerName();
+  if (provider === "none") throw new Error("No payment provider is connected.");
+  /* The stand-in honours the key as a provider would: the same hand-over is the same payout reference. */
+  return { provider, reference: `standin_po_${createHash("sha256").update(p.idempotencyKey).digest("hex").slice(0, 16)}` };
 }
 
 /* ── refunds — 2S4-BE-13 ─────────────────────────────────────────────── */

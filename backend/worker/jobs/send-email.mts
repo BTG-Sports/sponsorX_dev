@@ -195,6 +195,11 @@ ${d.portalUrl ?? ""}
     subject: `Your payout of ${d.amount ?? ""} couldn't be sent — please fix your payout account`,
     text: `Hi ${d.firstName ?? "there"},\n\nWe tried to send your payout of ${d.amount ?? ""}, but our payment provider says your payout account needs attention first.\n\nOpen your money page and update your payout account on the provider's secure page. As soon as it's ready again, we'll send the payout automatically — you don't need to request it again.\n\n${d.portalUrl ?? ""}\n\n— BTG SponsorX`,
   }),
+  /* 2S5-BE-05 — a failed payout that is BTG's now. */
+  "payout.failedForBtg": (d) => ({
+    subject: `A payout of ${d.amount ?? ""} to ${d.payeeName ?? "a payee"} couldn't be sent — it's yours to look at`,
+    text: `The payment provider couldn't send a payout of ${d.amount ?? ""} to ${d.payeeName ?? "a payee"}, and SponsorX won't retry it by itself.\n\nWhy: ${d.reason ?? ""}\n\nCheck it with the provider, then retry it — or send it back to the payee with a note:\n\n${d.payoutUrl ?? ""}\n\n— SponsorX`,
+  }),
   /* P4-BE-09 — campaigns move on their own: ready for BTG to launch; the
      sponsor's final report is ready. */
   "campaign.readyToLaunch": (d) => ({

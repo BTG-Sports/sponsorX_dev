@@ -91,7 +91,8 @@ both, never zero), its type and its status.
 | `BOOKING` | the order is contracted | Dr `SPONSOR_RECEIVABLE` net. Cr each party's share by the table above. |
 | `RESERVE_RELEASE` | the order is `CLOSED` | Dr `RESERVE_HELD`, Cr `PROPERTY_PAYABLE` / `ATHLETE_PAYABLE` |
 | `REVERSAL` | a contracted order is `CANCELLED` or `REFUNDED` — or its payment is disputed and the dispute `LOST` (2S5-BE-03) | the mirror of every entry the order posted (for a line refunded, or a dispute lost on part of the order, that line's entries only) |
-| `PAYOUT` | a payout is paid (`2S5-BE-05`) | Dr `PROPERTY_PAYABLE` / `ATHLETE_PAYABLE`, Cr the processor's settlement account |
+| `PAYOUT` | a payout is paid (`2S5-BE-05`) | Dr `PROPERTY_PAYABLE` / `ATHLETE_PAYABLE`, Cr the processor's settlement account (`PAYOUT_CLEARING`) |
+| `PAYOUT` (returned) | the bank returns a paid payout (`2S5-BE-05`) | the mirror: Cr the payable (the money is the payee's again), Dr `PAYOUT_CLEARING`. *Paid earnings* read PAYOUT debits less PAYOUT credits |
 
 - **Entries are never updated or deleted.** A correction is a new journal.
 - **Status** moves forward only: `PENDING` → `AVAILABLE` → `PAID`.

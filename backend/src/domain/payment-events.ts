@@ -61,7 +61,7 @@ import {
 } from "../contracts/payment-events";
 import { lockOrder } from "./marketplace-order";
 import { appUrl, btgAdmins, orderRef, tell, usd } from "./order-mail";
-import { paymentSucceededIn } from "./payouts";
+import { paymentSucceededIn, payoutHandlerFor } from "./payouts";
 import { dismissHeldRefund, exceptionHandlerFor } from "./payment-exceptions";
 
 type Tx = Prisma.TransactionClient;
@@ -297,8 +297,9 @@ function handlerFor(type: string): Handler | null {
     case "payment.processing": return onProcessing;
     case "payment.succeeded": return onSucceeded;
     case "payment.failed": return onFailed;
-    /* 2S5-BE-03 — refunds the provider reports, and disputes (payment-exceptions.ts). */
-    default: return exceptionHandlerFor(type);
+    /* 2S5-BE-03 — refunds the provider reports, and disputes (payment-exceptions.ts);
+       2S5-BE-05 — a payout paid, failed or returned (payouts.ts). */
+    default: return exceptionHandlerFor(type) ?? payoutHandlerFor(type);
   }
 }
 

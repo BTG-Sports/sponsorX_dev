@@ -237,6 +237,8 @@ export type EmailTemplate =
      payee's payout account needs attention: fix it (on the provider's page,
      from the money page) and it is sent again on its own. */
   | "payout.accountNeedsFix"
+  /* 2S5-BE-05 — a payout the provider couldn't send (or the bank returned) that now waits on BTG: its admins, with the reason. */
+  | "payout.failedForBtg"
   /* P4-BE-09 — campaigns move on their own: BTG's campaign managers hear a
      campaign is ready to launch; the sponsor hears their final report is ready. */
   | "campaign.readyToLaunch"
