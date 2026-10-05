@@ -119,7 +119,7 @@ export function ActiveProfile({ a }: { a: PublicAthlete }) {
         <Card>
           <p className="text-xs font-medium">Is this you?</p>
           <p className="mt-1 text-[11px] leading-relaxed text-muted">
-            Sign in to your portal to update these sections — BTG reviews public changes before they appear here.
+            Sign in to your portal to update these sections — your changes appear here straight away.
           </p>
           <Link href="/athlete/profile" className="mt-2 inline-block text-[11px] font-medium text-accent hover:text-accent-soft">
             Open your portal →

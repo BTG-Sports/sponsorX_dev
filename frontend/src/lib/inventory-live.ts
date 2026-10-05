@@ -396,7 +396,7 @@ export function refusalMessage(body: unknown): string | null {
 /** What a create/edit refusal says to the person who made it. */
 export function explainInventoryRefusal(op: "create" | "update" | "pause", status: number, body: unknown): string {
   const said = refusalMessage(body);
-  if (status === 409 && op === "create") return "Inventory opens once BTG approves your profile.";
+  if (status === 409 && op === "create") return "Inventory opens once your profile is approved.";
   if (status === 409) return said ?? "A published listing shows this price and quantity. Pause the listing first, then change them.";
   if (status === 403 && op === "create") return "This login can't sell inventory — it isn't linked to an athlete profile or a team.";
   if (status === 403) return "This item isn't yours to change.";

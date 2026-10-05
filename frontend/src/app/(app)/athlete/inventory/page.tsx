@@ -34,8 +34,8 @@ import {
 
    Honest gaps:
      · Creating needs the athlete to be APPROVED or ACTIVE — the API answers
-       409 and the form says "Inventory opens once BTG approves your
-       profile". The page can't tell beforehand (GET /inventory carries no
+       409 and the form says "Inventory opens once your profile is
+       approved". The page can't tell beforehand (GET /inventory carries no
        athlete state), so the form is always offered.
      · No "sold" count: the API returns raw stock only.
      · No delete (no route) — pause instead.

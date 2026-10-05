@@ -271,8 +271,8 @@ export function listChecks(input: {
 
   const notApproved = has(blockers, "athlete: not approved by BTG") || (input.athleteState !== null && !SELLING_STATES.includes(input.athleteState));
   rows.push(notApproved
-    ? { key: "seller", label: "BTG has approved your profile", status: "fix", note: "Listing opens once BTG approves your profile." }
-    : { key: "seller", label: "BTG has approved your profile", status: "ready" });
+    ? { key: "seller", label: "Your profile is approved", status: "fix", note: "Listing opens once your profile is approved." }
+    : { key: "seller", label: "Your profile is approved", status: "ready" });
 
   if (input.wontPromote) {
     rows.push(input.wontPromote.length
