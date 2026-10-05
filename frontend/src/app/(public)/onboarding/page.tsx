@@ -22,7 +22,7 @@ export default function OnboardingStartPage() {
         <p className="text-[11px] uppercase tracking-[0.2em] text-faint">Property application</p>
         <h1 className="mt-2 text-3xl font-semibold leading-tight tracking-tight lg:text-4xl">Sell on SponsorX.</h1>
         <p className="mt-3 text-sm text-muted">
-          Tell BTG who you are. BTG verifies every organisation before it can list inventory on the marketplace.
+          Tell us who you are. Once your documents are in and your email is confirmed, your organisation is approved automatically and can list on the marketplace.
         </p>
         <ol className="mt-6 hidden space-y-2 text-sm text-muted lg:block">
           {STEPS.map((r, i) => (

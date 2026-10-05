@@ -98,7 +98,7 @@ export default async function PropertyHomePage({
           {athleteTotal === 0 ? (
             <Card>
               <p className="text-sm font-semibold">No athletes on your roster yet</p>
-              <p className="mt-1 text-xs text-muted">Athletes appear here once BTG approves them with {p.name} as their team or school.</p>
+              <p className="mt-1 text-xs text-muted">Athletes appear here once they join {p.name}: approved with you as their team or school, or by accepting your invitation.</p>
             </Card>
           ) : (
             <ServerList>
@@ -133,7 +133,7 @@ export default async function PropertyHomePage({
           {itemTotal === 0 ? (
             <Card>
               <p className="text-sm font-semibold">No inventory yet</p>
-              <p className="mt-1 text-xs text-muted">Listing opens once BTG approves your onboarding. Signage, tickets and appearances all go here.</p>
+              <p className="mt-1 text-xs text-muted">Listing opens once your onboarding is approved. Signage, tickets and appearances all go here.</p>
             </Card>
           ) : (
             <ServerList>

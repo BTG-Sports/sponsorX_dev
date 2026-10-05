@@ -169,8 +169,8 @@ ${d.portalUrl ?? ""}
   }),
   /* 2S5-BE-05 — a payee's payout, from BTG's decision to the money arriving. */
   "payout.approved": (d) => ({
-    subject: `BTG approved your payout of ${d.amount ?? ""}`,
-    text: `Hi ${d.firstName ?? "there"},\n\nBTG has approved your payout of ${d.amount ?? ""}. It's on its way to your payout account — we'll email you again when it has been paid.\n\n${d.portalUrl ?? ""}\n\n— BTG SponsorX`,
+    subject: `Your payout of ${d.amount ?? ""} is approved`,
+    text: `Hi ${d.firstName ?? "there"},\n\nYour payout of ${d.amount ?? ""} is approved. It's on its way to your payout account — we'll email you again when it has been paid.\n\n${d.portalUrl ?? ""}\n\n— BTG SponsorX`,
   }),
   "payout.paid": (d) => ({
     subject: `Your payout of ${d.amount ?? ""} has been paid`,
@@ -443,7 +443,7 @@ ${d.portalUrl ?? ""}
   /* 2S1-BE-05 — BTG's decision on a request to sponsor. */
   "sponsor.accountOpened": (d) => ({
     subject: "Your SponsorX sponsor account is ready",
-    text: `Hi ${d.firstName ?? "there"},\n\nBTG has opened a sponsor account for ${d.businessName ?? "your business"} on SponsorX. Sign in with this email address:\n\n${d.portalUrl ?? ""}\n\nFrom there you can browse athletes and teams, and send BTG a brief.\n\n— BTG SponsorX`,
+    text: `Hi ${d.firstName ?? "there"},\n\nYour sponsor account for ${d.businessName ?? "your business"} is open on SponsorX. Sign in with this email address:\n\n${d.portalUrl ?? ""}\n\nFrom there you can browse athletes and teams, and send BTG a brief.\n\n— BTG SponsorX`,
   }),
   "sponsor.requestDeclined": (d) => ({
     subject: "About your SponsorX sponsor request",

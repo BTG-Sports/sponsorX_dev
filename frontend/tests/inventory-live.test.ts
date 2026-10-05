@@ -222,7 +222,7 @@ describe("refusals", () => {
   });
   it("409 on create is the approval gate; on edit it's the live listing", () => {
     expect(explainInventoryRefusal("create", 409, { error: { message: "Only an approved athlete can sell inventory." } })).toBe(
-      "Inventory opens once BTG approves your profile.",
+      "Inventory opens once your profile is approved.",
     );
     expect(explainInventoryRefusal("update", 409, { error: { message: "A published listing shows this price and quantity. Pause the listing first, then change them." } })).toMatch(
       /Pause the listing first/,

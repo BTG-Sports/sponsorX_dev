@@ -76,7 +76,7 @@ export default async function PayoutDetailPage({ params }: { params: Promise<{ i
           </Card>
 
           <section>
-            <SectionHeading title="Orders" hint="Each order's split, frozen when BTG approved the sale." />
+            <SectionHeading title="Orders" hint="Each order's split, frozen when the sale was approved." />
             <div className="space-y-3">
               {p.orders.map((o, i) => {
                 const line = p.lines.find((l) => l.orderId === o.orderId);
