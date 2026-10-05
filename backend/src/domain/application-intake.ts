@@ -138,27 +138,23 @@ export async function createApplicantIn(
   input: AthleteApplicationInput,
   auditExtra: Record<string, unknown> = {},
 ): Promise<{ id: string }> {
-  const athlete = await tx.athlete.create({
-    data: {
-      tenantId,
-      slug: await uniqueSlug(tx, input.displayName),
-      legalName: input.legalName,
-      displayName: input.displayName,
-      email: input.email.toLowerCase(),
-      phone: input.phone ?? null,
-      birthDate: input.birthDate ? new Date(input.birthDate) : null,
-      ageBand: input.ageBand ?? null,
-      city: input.city ?? null,
-      stateCode: input.stateCode,
-      countryCode: input.countryCode ?? "US",
-      sport: input.sport,
-      position: input.position ?? null,
-      school: input.school ?? null,
-      level: input.level ?? null,
-      gradYear: input.gradYear ?? null,
-      achievements: input.achievements ?? null,
-    },
-    select: { id: true },
+  const athlete = await createWithFreeSlug(tx, input.displayName, {
+    tenantId,
+    legalName: input.legalName,
+    displayName: input.displayName,
+    email: input.email.toLowerCase(),
+    phone: input.phone ?? null,
+    birthDate: input.birthDate ? new Date(input.birthDate) : null,
+    ageBand: input.ageBand ?? null,
+    city: input.city ?? null,
+    stateCode: input.stateCode,
+    countryCode: input.countryCode ?? "US",
+    sport: input.sport,
+    position: input.position ?? null,
+    school: input.school ?? null,
+    level: input.level ?? null,
+    gradYear: input.gradYear ?? null,
+    achievements: input.achievements ?? null,
   });
 
   await writeSocials(tx, tenantId, athlete.id, input.socials);
@@ -296,22 +292,69 @@ async function writeSocials(
   });
 }
 
+/** How many times a slug lost to a concurrent insert is re-chosen before giving up.
+ *  Each loss is to a different applicant who now holds that slug, so this many
+ *  same-name applications can arrive in the same instant and all succeed. */
+const SLUG_ATTEMPTS = 10;
+
 /**
- * A public URL that is unique, without a second round trip per collision.
+ * Create the athlete under a public URL that is unique — race-safe.
  *
  * Two people called Jordan Reed is not an edge case in a network of
  * teenagers, and `slug` is `@unique`, so a naive slug fails at the database on
  * an insert the applicant cannot retry.
+ *
+ * 2S8-QA-05 — choosing a free slug and then inserting it is a race: two
+ * same-name applications at the same moment both read "free" and the second
+ * insert hit the unique index (a 409 the applicant could do nothing about).
+ * So the insert runs under a savepoint, and a unique violation that the slug
+ * now being taken explains rolls back to it and picks again — the winner's
+ * slug is committed by then (the losing insert waited on it), so the next
+ * read sees it and moves to the next suffix. Anything else is re-thrown.
  */
-async function uniqueSlug(tx: Prisma.TransactionClient, displayName: string): Promise<string> {
-  const base =
+async function createWithFreeSlug(
+  tx: Prisma.TransactionClient,
+  displayName: string,
+  data: Omit<Prisma.AthleteUncheckedCreateInput, "slug">,
+): Promise<{ id: string }> {
+  const base = slugBase(displayName);
+  for (let attempt = 1; ; attempt++) {
+    const slug = await freeSlug(tx, base);
+    await tx.$executeRawUnsafe("SAVEPOINT athlete_slug");
+    try {
+      const row = await tx.athlete.create({ data: { ...data, slug }, select: { id: true } });
+      await tx.$executeRawUnsafe("RELEASE SAVEPOINT athlete_slug");
+      return row;
+    } catch (error) {
+      await tx.$executeRawUnsafe("ROLLBACK TO SAVEPOINT athlete_slug");
+      const lostTheRace = isUniqueViolation(error) && (await tx.athlete.count({
+        /* tenant-scope: slugs are unique across tenants by design (@unique); a count, returns no row. */
+        where: { slug },
+      })) > 0;
+      if (!lostTheRace || attempt >= SLUG_ATTEMPTS) throw error;
+    }
+  }
+}
+
+/** A unique violation, from a model call or surfacing through the driver adapter. */
+function isUniqueViolation(e: unknown): boolean {
+  const err = e as { code?: unknown; meta?: { driverAdapterError?: { cause?: { originalCode?: unknown } } } } | null;
+  return err?.code === "P2002" || err?.meta?.driverAdapterError?.cause?.originalCode === "23505";
+}
+
+function slugBase(displayName: string): string {
+  return (
     displayName
       .toLowerCase()
       .normalize("NFKD")
       .replace(/[^a-z0-9]+/g, "-")
       .replace(/^-+|-+$/g, "")
-      .slice(0, 48) || "athlete";
+      .slice(0, 48) || "athlete"
+  );
+}
 
+/** The first slug from `base`, `base-2`, `base-3`… that no athlete holds yet. */
+async function freeSlug(tx: Prisma.TransactionClient, base: string): Promise<string> {
   const taken = await tx.athlete.findMany({
     /* tenant-scope: slugs are unique across tenants by design (@unique); reads slug strings only, returns none. */
     where: { slug: { startsWith: base } },

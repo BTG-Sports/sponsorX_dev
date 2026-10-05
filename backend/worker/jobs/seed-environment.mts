@@ -209,7 +209,7 @@ export async function seedEnvironment(pool: pg.Pool): Promise<SeedOutcome> {
        and an edited demo athlete is not reverted under whoever is using it. */
     const guardian = await client.query(
       `INSERT INTO "Guardian" (id, "tenantId", "legalName", email, relationship, "verifiedAt")
-       VALUES ('seed_grd_1', $1, 'Dana Reed', 'dana.reed@example.com', 'PARENT', now())
+       VALUES ('seed_grd_1', $1, 'Dana Reed', 'dana.reed@example.com', 'PARENT', (now() AT TIME ZONE 'UTC'))
            ON CONFLICT (id) DO NOTHING`,
       [TENANT_ID],
     );

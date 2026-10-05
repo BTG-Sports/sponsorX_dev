@@ -93,6 +93,10 @@ describe.skipIf(!base)("prisma/sql rules are installed by the migrations", () =>
     expect(fromMigrations["function marketplace_order_immutable"]).toContain(`"billingEmail"`);
   });
 
+  it("2S8-OPS-02 · the edition rule a deploy installs reads the clock in UTC, not the session's zone", () => {
+    expect(fromMigrations["function adslot_guard_sale"]).toContain(`(now() AT TIME ZONE 'UTC') >= ed."closeDate"`);
+  });
+
   it("no restrictions is an empty list, never NULL, so a shortlist never drops an athlete for it", () => {
     expect(fromMigrations["column Athlete.restrictedCategories"]).toBe("NO '{}'::text[]");
     expect(fromMigrations["column InventoryItem.restrictedCategories"]).toBe("NO '{}'::text[]");

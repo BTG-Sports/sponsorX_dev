@@ -29,6 +29,10 @@ import type pg from "pg";
    two agree. */
 const PILOT_SCHOOL = { propertyId: "seed_prop_northside" } as const;
 
+/* 2S8-OPS-02 — timestamps are stored as UTC wall-clock time; bare now()
+   would write the session's local time instead. */
+const NOW = `(now() AT TIME ZONE 'UTC')`;
+
 const TEST = "+clerk_test@example.com";
 const email = (local: string) => `${local}${TEST}`;
 
@@ -93,14 +97,40 @@ export const EDITION_SLOTS: ReadonlyArray<readonly [slotCode: string, kind: stri
   ["P16-BACK", "BACK_COVER", 100_000],
 ];
 
+type Query = (sql: string, params: unknown[]) => Promise<pg.QueryResult>;
+
+/**
+ * 2S8-QA-05 — the slug a seeded row is inserted with.
+ *
+ * Slugs are globally unique, and the seed runs on databases real people use:
+ * an applicant who signed up as "Riley Carter" holds `riley-carter`, and the
+ * seed then failed on the unique index (taking the whole boot seed with it).
+ * The persona's row is keyed by its fixed id and its login by its email, not
+ * by the slug, so the safe answer is to keep the persona and give it the
+ * first free `riley-carter-2`, `-3`… — logged — and never touch the other
+ * person's row. A row the seed already created keeps whatever slug it has.
+ */
+export async function seedSlug(q: Query, table: "Athlete" | "Property", id: string, slug: string): Promise<string> {
+  const own = await q(`SELECT slug FROM "${table}" WHERE id = $1`, [id]);
+  if (own.rowCount) return (own.rows[0] as { slug: string }).slug;
+  const taken = new Set(
+    (await q(`SELECT slug FROM "${table}" WHERE slug = $1 OR slug LIKE $2`, [slug, `${slug}-%`])).rows.map((r: { slug: string }) => r.slug),
+  );
+  if (!taken.has(slug)) return slug;
+  let n = 2;
+  while (taken.has(`${slug}-${n}`)) n++;
+  console.log(`[seed] ${table} slug "${slug}" is held by another row — seeding ${id} as "${slug}-${n}" instead`);
+  return `${slug}-${n}`;
+}
+
 export async function seedPersonas(client: pg.PoolClient, tenantId: string): Promise<{ usersCreated: number }> {
-  const q = (sql: string, params: unknown[]) => client.query(sql, params);
+  const q: Query = (sql, params) => client.query(sql, params);
 
   /* Organisations. */
   await q(
     `INSERT INTO "Property" (id, "tenantId", slug, name, kind, city, "stateCode")
      VALUES ($1, $2, $3, $4, 'TEAM', 'Laurel', 'MD') ON CONFLICT (id) DO NOTHING`,
-    [HAWKS.propertyId, tenantId, HAWKS.slug, HAWKS.name],
+    [HAWKS.propertyId, tenantId, await seedSlug(q, "Property", HAWKS.propertyId, HAWKS.slug), HAWKS.name],
   );
   for (const [s, category] of [[HARBOR, "RESTAURANT"], [BOWIE, "AUTOMOTIVE"]] as const) {
     await q(
@@ -119,19 +149,19 @@ export async function seedPersonas(client: pg.PoolClient, tenantId: string): Pro
   await q(
     `INSERT INTO "PropertyOnboarding" (id, "tenantId", state, "orgType", "orgName", "stateCode", contacts, details,
                                        "payoutAcknowledgedAt", "termsAcceptedAt", "submittedAt", "decidedAt", "propertyId")
-     VALUES ('seed_onb_hawks', $1, 'APPROVED', 'TEAM', $2, 'MD', $3::jsonb, $4::jsonb, now(), now(), now(), now(), $5)
+     VALUES ('seed_onb_hawks', $1, 'APPROVED', 'TEAM', $2, 'MD', $3::jsonb, $4::jsonb, ${NOW}, ${NOW}, ${NOW}, ${NOW}, $5)
      ON CONFLICT (id) DO NOTHING`,
     [tenantId, HAWKS.name,
      JSON.stringify([{ name: "Dana Brooks", email: email("hawks"), role: "General manager", primary: true }]),
      JSON.stringify({ legalEntityName: "Westfield Hawks Basketball LLC", league: "Mid-Atlantic Amateur League", sport: "Basketball" }),
      HAWKS.propertyId],
   );
-  await q(`UPDATE "Property" SET "listingAccessAt" = now() WHERE id = $1 AND "listingAccessAt" IS NULL`, [HAWKS.propertyId]);
+  await q(`UPDATE "Property" SET "listingAccessAt" = ${NOW} WHERE id = $1 AND "listingAccessAt" IS NULL`, [HAWKS.propertyId]);
   await q(
     `INSERT INTO "PropertyOnboarding" (id, "tenantId", state, "orgType", "orgName", "stateCode", contacts, details,
                                        "payoutAcknowledgedAt", "termsAcceptedAt", "submittedAt")
      VALUES ('seed_onb_baysox', $1, 'PENDING_REVIEW', 'TEAM', 'Bowie Bay Sox', 'MD', $2::jsonb, $3::jsonb,
-             now(), now(), now() - interval '26 hours')
+             ${NOW}, ${NOW}, ${NOW} - interval '26 hours')
      ON CONFLICT (id) DO NOTHING`,
     [tenantId,
      JSON.stringify([{ name: "Sam Ortiz", email: email("baysox"), role: "Owner", primary: true }]),
@@ -151,7 +181,7 @@ export async function seedPersonas(client: pg.PoolClient, tenantId: string): Pro
                             "submittedAt", "decidedAt", "publishedAt")
      VALUES ('seed_lst_hawks_signage', $1, $2, $3, 'Courtside LED signage — Hawks home games',
              'Rotating courtside LED board, 30 seconds per quarter at every Hawks home game, October through March.',
-             'PUBLISHED', now(), now(), now())
+             'PUBLISHED', ${NOW}, ${NOW}, ${NOW})
      ON CONFLICT (id) DO NOTHING`,
     [tenantId, HAWKS.propertyId, MARKETPLACE_ITEMS[0][0]],
   );
@@ -160,7 +190,7 @@ export async function seedPersonas(client: pg.PoolClient, tenantId: string): Pro
      because authorising her claim is a step in the story. */
   await q(
     `INSERT INTO "Guardian" (id, "tenantId", "legalName", email, relationship, "verifiedAt")
-     VALUES ($1, $2, 'Carmen Reyes', $3, 'PARENT', now()),
+     VALUES ($1, $2, 'Carmen Reyes', $3, 'PARENT', ${NOW}),
             ($4, $2, 'Lena Thompson', $5, 'PARENT', NULL)
      ON CONFLICT (id) DO NOTHING`,
     [JORDAN.guardianId, tenantId, email("jordan.guardian"), MAYA.guardianId, email("maya.guardian")],
@@ -174,7 +204,7 @@ export async function seedPersonas(client: pg.PoolClient, tenantId: string): Pro
      VALUES ($1, $2, $3, 'Riley Carter', 'RILEY.CARTER', $4, 'Basketball', 'Guard',
              'Laurel', 'MD', '2006-03-11'::timestamp, '18_PLUS', 'SUBMITTED'::"AthleteState", $5, 2000)
      ON CONFLICT (id) DO NOTHING`,
-    [RILEY.athleteId, tenantId, RILEY.slug, email("riley"), HAWKS.propertyId],
+    [RILEY.athleteId, tenantId, await seedSlug(q, "Athlete", RILEY.athleteId, RILEY.slug), email("riley"), HAWKS.propertyId],
   );
   await q(
     `INSERT INTO "Athlete" (id, "tenantId", slug, "legalName", "displayName", email, sport, position,
@@ -183,7 +213,7 @@ export async function seedPersonas(client: pg.PoolClient, tenantId: string): Pro
              'Northside High School', 'Bowie', 'MD', '2010-05-19'::timestamp, '16_17', 2028,
              'FEATURED'::"AthleteState", $5)
      ON CONFLICT (id) DO NOTHING`,
-    [MAYA.athleteId, tenantId, MAYA.slug, email("maya"), MAYA.guardianId],
+    [MAYA.athleteId, tenantId, await seedSlug(q, "Athlete", MAYA.athleteId, MAYA.slug), email("maya"), MAYA.guardianId],
   );
 
   /* Jordan — a Northside minor, sales and writing, application submitted. */
@@ -226,12 +256,18 @@ export async function seedPersonas(client: pg.PoolClient, tenantId: string): Pro
       `INSERT INTO "User" (id, "tenantId", "clerkId", email, roles,
                            "sponsorId", "propertyId", "athleteId", "guardianId", "studentId")
        SELECT $1, $2, $3, $4, $5::"Role"[], $6, $7, $8, $9, $10
-        WHERE NOT EXISTS (SELECT 1 FROM "User" WHERE email = $4)
+        WHERE NOT EXISTS (SELECT 1 FROM "User" WHERE email = $4 OR "clerkId" = $3)
           ON CONFLICT (id) DO NOTHING`,
       [p.userId, tenantId, `seed:${p.email}`, p.email, p.roles,
        p.sponsorId ?? null, p.propertyId ?? null, p.athleteId ?? null, p.guardianId ?? null, p.studentId ?? null],
     );
     usersCreated += result.rowCount ?? 0;
+    /* 2S8-QA-05 — a login whose address another user already holds is
+       skipped, never merged into theirs: the email is the identity a sign-in
+       claims, so sharing it would hand one person the other's account. */
+    if (!result.rowCount && !(await q(`SELECT 1 FROM "User" WHERE id = $1`, [p.userId])).rowCount) {
+      console.log(`[seed] persona ${p.userId} skipped — ${p.email} already belongs to another user`);
+    }
   }
   return { usersCreated };
 }

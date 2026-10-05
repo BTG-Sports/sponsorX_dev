@@ -191,6 +191,8 @@ describe("P4-INT-01 · all three emails are enqueued by something", () => {
   });
 
   it("does not warn about an invitation that already expired", () => {
-    expect(sweep).toContain('i."expiresAt" > now()');
+    /* 2S8-OPS-02 — the clock in UTC, as the column holds it (utc-session.test.ts). */
+    expect(sweep).toContain('i."expiresAt" > ${NOW}');
+    expect(sweep).toContain("const NOW = `(now() AT TIME ZONE 'UTC')`");
   });
 });
