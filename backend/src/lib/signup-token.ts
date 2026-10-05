@@ -17,9 +17,10 @@
  *
  * None is authentication: they grant no role and reach no other record.
  */
-import { createHmac, timingSafeEqual } from "node:crypto";
+import { createHmac } from "node:crypto";
 
 import { env } from "../config/env";
+import { intakeHmacMatches } from "./intake-secret";
 
 type Purpose = "athlete-email:" | "guardian-setup:" | "coming-of-age:";
 
@@ -36,10 +37,7 @@ function read(purpose: Purpose, token: string | undefined | null): string | null
   const cut = token.lastIndexOf(".");
   if (cut <= 0) return null;
   const id = token.slice(0, cut);
-  const provided = Buffer.from(token.slice(cut + 1), "utf8");
-  const expected = Buffer.from(sign(purpose, id), "utf8");
-  if (provided.length !== expected.length) return null;
-  return timingSafeEqual(provided, expected) ? id : null;
+  return intakeHmacMatches(purpose + id, token.slice(cut + 1)) ? id : null;
 }
 
 export const issueAthleteEmailToken = (athleteId: string) => issue("athlete-email:", athleteId);

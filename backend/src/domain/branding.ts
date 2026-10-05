@@ -136,5 +136,9 @@ export async function requestLogoUpload(actor: Actor, input: { contentType: keyo
   if (!(input.contentType in LOGO_TYPES)) throw new BrandingError("A logo is PNG or JPEG.");
   if (!Number.isInteger(input.bytes) || input.bytes < 1 || input.bytes > MAX_LOGO_BYTES) throw new BrandingError("A logo is at most 1 MB.");
   const logoKey = `${logoPrefix(actor.tenantId)}logo-${randomBytes(8).toString("hex")}.${LOGO_TYPES[input.contentType]}`;
-  return { logoKey, uploadUrl: await presignPublicUpload(logoKey, input.contentType), logoUrl: publicObjectUrl(logoKey) };
+  /* 2S8-SEC-02 — the public CDN serves whatever lands here, so the PUT is
+     pinned to the declared type and size: the bucket refuses an HTML file or
+     a 50 MB one sent with this URL. */
+  const uploadUrl = await presignPublicUpload(logoKey, input.contentType, { signContentType: true, contentLength: input.bytes });
+  return { logoKey, uploadUrl, logoUrl: publicObjectUrl(logoKey) };
 }

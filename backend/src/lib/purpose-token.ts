@@ -17,9 +17,10 @@
  *
  * None of them is authentication: they grant no role and reach one record.
  */
-import { createHmac, timingSafeEqual } from "node:crypto";
+import { createHmac } from "node:crypto";
 
 import { env } from "../config/env";
+import { intakeHmacMatches } from "./intake-secret";
 
 export type TokenPurpose = "account-reactivation" | "handoff" | "handoff-email" | "support";
 
@@ -40,9 +41,7 @@ export function readPurposeToken(purpose: TokenPurpose, token: string | undefine
   const cut = token.lastIndexOf(".");
   if (cut <= 0) return null;
   const body = token.slice(0, cut);
-  const provided = Buffer.from(token.slice(cut + 1), "utf8");
-  const expected = Buffer.from(sign(purpose, body), "utf8");
-  if (provided.length !== expected.length || !timingSafeEqual(provided, expected)) return null;
+  if (!intakeHmacMatches(`${purpose}:${body}`, token.slice(cut + 1))) return null;
   const dot = body.lastIndexOf(".");
   if (dot <= 0) return null;
   const exp = Number(body.slice(dot + 1));

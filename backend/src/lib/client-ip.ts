@@ -14,23 +14,22 @@
  * who could set the header would pick their own bucket and evade the limit
  * entirely. Without the key the socket address is used, exactly as before.
  */
-import { timingSafeEqual } from "node:crypto";
-
 import type { Request } from "express";
 
 import { env } from "../config/env";
+import { acceptedSecrets, matchesAny } from "./rotating-secret";
 
-function keyMatches(provided: string | undefined, expected: string | undefined): boolean {
-  if (!provided || !expected) return false;
-  const a = Buffer.from(provided, "utf8");
-  const b = Buffer.from(expected, "utf8");
-  return a.length === b.length && timingSafeEqual(a, b);
+/* 2S8-SEC-02: SPONSORX_EDGE_KEY_PREVIOUS is accepted too, so the key can be
+   rotated on the API first and the web service second with no fan's
+   address dropped in between (documentation/SponsorX-Secrets-Rotation.md). */
+function keyMatches(provided: string | undefined): boolean {
+  return matchesAny(provided, acceptedSecrets(env.SPONSORX_EDGE_KEY, env.SPONSORX_EDGE_KEY_PREVIOUS));
 }
 
 /** The caller's address for rate limiting and geo — trusted forward, or the socket. */
 export function clientIp(req: Pick<Request, "ip" | "get">): string | undefined {
   const forwarded = req.get("x-sponsorx-client-ip")?.trim();
-  if (forwarded && keyMatches(req.get("x-sponsorx-edge-key"), env.SPONSORX_EDGE_KEY)) {
+  if (forwarded && keyMatches(req.get("x-sponsorx-edge-key"))) {
     return forwarded.slice(0, 64);
   }
   return req.ip;
@@ -47,7 +46,7 @@ export function clientIp(req: Pick<Request, "ip" | "get">): string | undefined {
  */
 export function clientUserAgent(req: Pick<Request, "get">): string | undefined {
   const forwarded = req.get("x-sponsorx-client-ua")?.trim();
-  if (forwarded && keyMatches(req.get("x-sponsorx-edge-key"), env.SPONSORX_EDGE_KEY)) {
+  if (forwarded && keyMatches(req.get("x-sponsorx-edge-key"))) {
     return forwarded.slice(0, 512);
   }
   return req.get("user-agent");

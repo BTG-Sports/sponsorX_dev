@@ -87,9 +87,13 @@ function payeeOf(actor: Actor, resource: "payout" | "payoutAccount", action: "re
   throw new ForbiddenError(resource, action);
 }
 
-/** A same-site path to come back to — never another site. */
-function safeReturnPath(p: unknown, fallback: string): string {
-  return typeof p === "string" && p.startsWith("/") && !p.startsWith("//") && !p.includes("\\") ? p.slice(0, 300) : fallback;
+/** A same-site path to come back to — never another site. 2S8-SEC-02: control
+ *  characters are refused too — browsers strip a tab or newline, so
+ *  "/\t/evil.example" arrives as "//evil.example". */
+export function safeReturnPath(p: unknown, fallback: string): string {
+  // eslint-disable-next-line no-control-regex -- matching control characters is the point
+  const control = /[\u0000-\u001f\u007f]/;
+  return typeof p === "string" && p.startsWith("/") && !p.startsWith("//") && !p.includes("\\") && !control.test(p) ? p.slice(0, 300) : fallback;
 }
 
 async function payeeName(db: Db, p: { payeeType: PayeeType; payeeId: string }): Promise<string> {

@@ -932,7 +932,11 @@ async function checkProof(row: { tenantId: string; lineId: string }, input: { pr
     if (!proofKey.startsWith(proofPrefix(row.tenantId, row.lineId)) || proofKey.includes("..") || proofKey.includes("//")) {
       throw new DeliveryError("That photo wasn't uploaded for this line.", 422);
     }
-    if ((await privateObjectSize(proofKey)) === null) throw new DeliveryError(`The photo hasn't arrived in storage yet — upload it again, or ${without} without it.`, 422);
+    const size = await privateObjectSize(proofKey);
+    if (size === null) throw new DeliveryError(`The photo hasn't arrived in storage yet — upload it again, or ${without} without it.`, 422);
+    /* 2S8-SEC-02 — the 10 MB limit checked on the file that actually
+       arrived: a presigned PUT does not stop a larger one being sent. */
+    if (size > PROOF_MAX_BYTES) throw new DeliveryError("Up to 10 MB.", 422);
   }
   const proofLink = input.proofLink?.trim() || null;
   if (proofLink && !/^https:\/\//i.test(proofLink)) throw new DeliveryError("A link starts with https://", 422);

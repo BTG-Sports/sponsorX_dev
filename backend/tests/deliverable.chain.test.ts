@@ -369,4 +369,22 @@ describe("P5-BE-06 · creative goes straight to R2", () => {
     expect(auditRows[0]!.action).toBe("deliverable.assetRegister");
     expect(auditRows[0]!.entityId).toBe("dlv_1");
   });
+
+  /* 2S8-SEC-02 (OWASP A01) — the download link is presigned from the stored
+     key, so a key outside this deliverable's folder would be a read of any
+     object in the private bucket: another tenant's reward QR, a report. */
+  it("refuses a key outside this deliverable's own folder, and records nothing", async () => {
+    at("DRAFT_SUBMITTED");
+    for (const key of [
+      "t/other/reward-qr/tok.png",
+      "reports/cmp_1/2026-10-05T00:00:00.000Z.pdf",
+      "t/t1/deliverable/dlv_2/x",
+      "t/t1/deliverable/dlv_1/",
+      "t/t1/deliverable/dlv_1/../dlv_2/x",
+      "t/t1/deliverable/dlv_1x/y",
+    ]) {
+      await expect(registerCreativeAsset(athlete(), "dlv_1", key), key).rejects.toThrow(/not uploaded for this deliverable/);
+    }
+    expect(auditRows).toEqual([]);
+  });
 });

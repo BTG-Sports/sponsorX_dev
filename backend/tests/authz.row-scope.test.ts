@@ -67,6 +67,12 @@ describe("1 · an actor reaches their own row and no one else's", () => {
     expect(whereFor(a, "campaign", "read")).toEqual({ AND: [{ tenantId: "t1", sponsorId: "sp_1" }] });
   });
 
+  /* 2S8-SEC-02 — was `sponsorId: { not: null }`, every sponsor's users. */
+  it("scopes a sponsor admin's users to their own organisation, and a sponsor-less one to nothing", () => {
+    expect(whereFor(actor(["SPONSOR_ADMIN"], { sponsorId: "sp_1" }), "user", "read")).toEqual({ AND: [{ tenantId: "t1", sponsorId: "sp_1" }] });
+    expect(whereFor(actor(["SPONSOR_ADMIN"]), "user", "read")).toEqual({ AND: [MATCHES_NOTHING] });
+  });
+
   it("gives BTG the whole tenant and SUPER_ADMIN everything", () => {
     expect(whereFor(actor(["NETWORK_MGR"]), "athlete", "write")).toEqual({ AND: [{ tenantId: "t1" }] });
     expect(whereFor(actor(["SUPER_ADMIN"]), "athlete", "write")).toEqual({ AND: [{}] });

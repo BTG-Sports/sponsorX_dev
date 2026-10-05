@@ -12,9 +12,10 @@
  * No expiry: an unsubscribe link that stops working after a month is a
  * promise broken to exactly the person who waited before acting on it.
  */
-import { createHmac, timingSafeEqual } from "node:crypto";
+import { createHmac } from "node:crypto";
 
 import { env } from "../config/env";
+import { intakeHmacMatches } from "./intake-secret";
 
 const PURPOSE = "fan-unsubscribe:";
 
@@ -28,10 +29,7 @@ export function readUnsubscribeToken(token: string | undefined | null): string |
   if (cut <= 0) return null;
 
   const id = token.slice(0, cut);
-  const provided = Buffer.from(token.slice(cut + 1), "utf8");
-  const expected = Buffer.from(sign(id), "utf8");
-  if (provided.length !== expected.length) return null;
-  return timingSafeEqual(provided, expected) ? id : null;
+  return intakeHmacMatches(PURPOSE + id, token.slice(cut + 1)) ? id : null;
 }
 
 /** Where the link lands: the web app's public page, not the API. */
