@@ -47,7 +47,7 @@ import { audit } from "../db/audit";
 import { send } from "../lib/email";
 import { env } from "../config/env";
 import { readPage, type PageRequest } from "../lib/paging";
-import { presignPrivateDownload, presignPrivateUpload, privateObjectSize, SENSITIVE_DOCUMENT_TTL_SECONDS } from "../lib/storage";
+import { checkPrivateUpload, presignPrivateDownload, presignPrivateUpload, SENSITIVE_DOCUMENT_TTL_SECONDS, uploadRefusal } from "../lib/storage";
 import type { ProfileChangeInput } from "../contracts/profile-change";
 import { provisionGuardianLoginIn } from "./athlete-login";
 import { requiresGuardian } from "./guardian-rules";
@@ -362,7 +362,7 @@ export async function submitProfileChange(actor: Actor, athleteId: string, input
     }
 
     /* ── a legal name: waits for its matching ID ── */
-    let pendingLegal: { id: string; idDocumentKey: string; contentType: string } | null = null;
+    let pendingLegal: { id: string; idDocumentKey: string; contentType: string; bytes: number } | null = null;
     if (legalChanges) {
       const open = await tx.athleteProfileChange.findMany({
         where: { tenantId: athlete.tenantId, athleteId: athlete.id, state: "PENDING" }, select: { id: true },
@@ -387,7 +387,7 @@ export async function submitProfileChange(actor: Actor, athleteId: string, input
         select: { id: true },
       });
       await audit(tx, actor, "athlete.legalNameRequested", "AthleteProfileChange", id, { after: { athleteId: athlete.id, legalName: newLegal } });
-      pendingLegal = { id, idDocumentKey: key, contentType: input.idDocument!.contentType };
+      pendingLegal = { id, idDocumentKey: key, contentType: input.idDocument!.contentType, bytes: input.idDocument!.bytes };
     }
     return { athleteTenantId: athlete.tenantId, appliedId: appliedChange?.id ?? null, pendingLegal, checkNotes };
   });
@@ -396,7 +396,10 @@ export async function submitProfileChange(actor: Actor, athleteId: string, input
     ? {
       changeId: out.pendingLegal.id,
       contentType: out.pendingLegal.contentType,
-      uploadUrl: await presignPrivateUpload(actor, out.pendingLegal.idDocumentKey, out.pendingLegal.contentType, { entity: "AthleteProfileChange", entityId: out.pendingLegal.id }),
+      /* 2S8-SEC-03 — the PUT is signed for exactly this type and size. */
+      uploadUrl: await presignPrivateUpload(actor, out.pendingLegal.idDocumentKey, out.pendingLegal.contentType, { entity: "AthleteProfileChange", entityId: out.pendingLegal.id }, {
+        signContentType: true, contentLength: out.pendingLegal.bytes,
+      }),
     }
     : null;
   const ids = [out.appliedId, out.pendingLegal?.id].filter((x): x is string => Boolean(x));
@@ -414,13 +417,16 @@ export async function submitProfileChange(actor: Actor, athleteId: string, input
 export async function confirmLegalNameDocument(actor: Actor, id: string) {
   assertAllowed(actor, "athleteProfileChange", "write");
   const change = await prisma.athleteProfileChange.findFirst({
-    where: { ...whereFor(actor, "athleteProfileChange", "write"), id }, select: { id: true, state: true, idDocumentKey: true },
+    where: { ...whereFor(actor, "athleteProfileChange", "write"), id }, select: { id: true, state: true, idDocumentKey: true, idDocumentContentType: true, idDocumentBytes: true },
   });
   if (!change) throw new ForbiddenError("athleteProfileChange", "write");
   if (change.state !== "PENDING" || !change.idDocumentKey) throw new ChangeNotPendingError(change.state);
-  const size = await privateObjectSize(change.idDocumentKey);
-  if (size === null) throw new SensitiveEditError("Your ID hasn't arrived yet — upload it, then confirm.", "id_not_arrived", 409);
-  if (size > MAX_ID_BYTES) throw new SensitiveEditError("That file is over 10 MB.", "id_too_large");
+  /* 2S8-SEC-03 — what arrived must be what the grant pinned; anything else is deleted. */
+  const arrived = await checkPrivateUpload(actor, change.idDocumentKey,
+    { contentType: change.idDocumentContentType ?? "", bytes: change.idDocumentBytes, maxBytes: MAX_ID_BYTES }, { entity: "AthleteProfileChange", entityId: change.id });
+  if (!arrived.ok && arrived.problem === "missing") throw new SensitiveEditError("Your ID hasn't arrived yet — upload it, then confirm.", "id_not_arrived", 409);
+  if (!arrived.ok) throw new SensitiveEditError(uploadRefusal(arrived.problem, "Your ID"), arrived.problem === "type" ? "id_wrong_type" : "id_too_large");
+  const size = arrived.bytes;
 
   return prisma.$transaction(async (tx) => {
     const c = await tx.athleteProfileChange.findFirst({

@@ -39,7 +39,7 @@ import { env } from "../config/env";
 import type { Actor } from "../auth/actor";
 import { assertAllowed, whereFor } from "../auth/scope";
 import { ForbiddenError } from "../auth/errors";
-import { presignPrivateDownload, presignPrivateUpload, privateObjectSize, SENSITIVE_DOCUMENT_TTL_SECONDS } from "../lib/storage";
+import { checkPrivateUpload, presignPrivateDownload, presignPrivateUpload, SENSITIVE_DOCUMENT_TTL_SECONDS, uploadRefusal } from "../lib/storage";
 import { issueSponsorRequestToken, readSponsorEmailToken, readSponsorRequestToken } from "../lib/sponsor-request-token";
 import type { BrandCategory } from "./brand-categories";
 import { normalizeBusinessName } from "./business-name-rules";
@@ -354,18 +354,24 @@ export async function requestSponsorDocumentUpload(token: string, input: { filen
     data: { id, tenantId: row.tenantId, inquiryId: row.id, kind: "PROOF_OF_BUSINESS", filename, contentType: input.contentType, bytes: input.bytes, r2Key },
     select: { id: true, filename: true, contentType: true, bytes: true },
   });
-  const uploadUrl = await presignPrivateUpload(SYSTEM(row.tenantId), r2Key, input.contentType, { entity: "InquiryDocument", entityId: id });
+  /* 2S8-SEC-03 — the PUT is signed for exactly this type and size. */
+  const uploadUrl = await presignPrivateUpload(SYSTEM(row.tenantId), r2Key, input.contentType, { entity: "InquiryDocument", entityId: id }, {
+    signContentType: true, contentLength: input.bytes,
+  });
   return { document: doc, uploadUrl, contentType: input.contentType };
 }
 
 /** Step two: the applicant says it has uploaded. Counted only if it is there; then the checks run. */
 export async function confirmSponsorDocumentUpload(token: string, documentId: string) {
   const row = await applicantRow(requestFromToken(token));
-  const doc = await prisma.inquiryDocument.findFirst({ where: { tenantId: row.tenantId, inquiryId: row.id, id: documentId }, select: { id: true, r2Key: true } });
+  const doc = await prisma.inquiryDocument.findFirst({ where: { tenantId: row.tenantId, inquiryId: row.id, id: documentId }, select: { id: true, r2Key: true, contentType: true, bytes: true } });
   if (!doc) throw new SponsorRequestError("That document isn't part of this request.", 404);
-  const size = await privateObjectSize(doc.r2Key);
-  if (size === null) throw new SponsorRequestError("That document has not arrived yet — upload it, then confirm.");
-  if (size > MAX_DOCUMENT_BYTES) throw new SponsorRequestError("That document is larger than allowed.", 422);
+  /* 2S8-SEC-03 — what arrived must be what the grant pinned; anything else is deleted. */
+  const arrived = await checkPrivateUpload(SYSTEM(row.tenantId), doc.r2Key,
+    { contentType: doc.contentType, bytes: doc.bytes, maxBytes: MAX_DOCUMENT_BYTES }, { entity: "InquiryDocument", entityId: doc.id });
+  if (!arrived.ok && arrived.problem === "missing") throw new SponsorRequestError("That document has not arrived yet — upload it, then confirm.");
+  if (!arrived.ok) throw new SponsorRequestError(uploadRefusal(arrived.problem, "That document"), 422);
+  const size = arrived.bytes;
   await prisma.inquiryDocument.update({
     /* tenant-scope: the row loaded above, within this request. */
     where: { id: doc.id }, data: { uploadedAt: new Date(), bytes: size },

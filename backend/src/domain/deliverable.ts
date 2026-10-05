@@ -767,7 +767,7 @@ export async function presignCreativeUpload(
   actor: Actor,
   deliverableId: string,
   contentType: string,
-  bytes?: number,
+  bytes: number,
 ): Promise<{ url: string; key: string }> {
   assertAllowed(actor, "creativeAsset", "write");
 
@@ -785,11 +785,12 @@ export async function presignCreativeUpload(
 
   /* P5-BE-09 — the file-type check reads the type from this grant, so the
      PUT is pinned to it: the bucket refuses another Content-Type (the SDK
-     leaves it unsigned unless asked). The size too, when the client gave it. */
+     leaves it unsigned unless asked). 2S8-SEC-03 — and to its exact size,
+     always: every private upload URL is signed for one type and one size. */
   const url = await presignPrivateUpload(actor, key, contentType, {
     entity: "Deliverable",
     entityId: deliverable.id,
-  }, { signContentType: true, ...(bytes !== undefined ? { contentLength: bytes } : {}) });
+  }, { signContentType: true, contentLength: bytes });
 
   return { url, key };
 }

@@ -115,7 +115,7 @@ describe.skipIf(!hasDatabase)("P5-BE-09 · content checks and review reminders",
 
   /** Presign as `contentType`, then record it — the way the athlete's page does. */
   async function upload(who: string, deliverableId: string, contentType: string) {
-    const pre = await call("POST", `/deliverables/${deliverableId}/uploads`, who, { contentType });
+    const pre = await call("POST", `/deliverables/${deliverableId}/uploads`, who, { contentType, bytes: 48_213 });
     expect(pre.status).toBe(201);
     const reg = await call("POST", `/deliverables/${deliverableId}/assets`, who, { r2Key: pre.json.key });
     expect(reg.status).toBe(201);
@@ -150,11 +150,11 @@ describe.skipIf(!hasDatabase)("P5-BE-09 · content checks and review reminders",
     expect(asset.contentType).toBe("video/mp4");
   });
 
-  it("the PUT is signed for that type — and for the size, when the athlete's page sends it", async () => {
+  it("the PUT is signed for that type and that size — 2S8-SEC-03: the size is required", async () => {
     const signed = (u: string) => new URL(u).searchParams.get("X-Amz-SignedHeaders");
+    /* 2S8-SEC-03 — every private upload URL is signed for one type and one size; a grant without a size is refused. */
     const typed = await call("POST", `/deliverables/${A("good")}/uploads`, A("athlete"), { contentType: "image/png" });
-    expect(typed.status, typed.text).toBe(201);
-    expect(signed(typed.json.url)).toBe("content-type;host");
+    expect(typed.status, typed.text).toBe(400);
     const sized = await call("POST", `/deliverables/${A("good")}/uploads`, A("athlete"), { contentType: "image/png", bytes: 48_213 });
     expect(sized.status, sized.text).toBe(201);
     expect(signed(sized.json.url)).toBe("content-length;content-type;host");
@@ -256,10 +256,10 @@ describe.skipIf(!hasDatabase)("P5-BE-09 · content checks and review reminders",
   it("a draft already in BTG's queue can't be resubmitted, and takes no new version until it comes back", async () => {
     const r = await call("POST", `/deliverables/${A("plain1")}/submit`, A("athlete2"), { caption: "again" });
     expect(r.status).toBe(409);
-    expect((await call("POST", `/deliverables/${A("plain1")}/uploads`, A("athlete2"), { contentType: "image/png" })).status).toBe(409);
+    expect((await call("POST", `/deliverables/${A("plain1")}/uploads`, A("athlete2"), { contentType: "image/png", bytes: 48_213 })).status).toBe(409);
     /* A reviewer's revision hands it back: a new version, then a resubmission, answer it. */
     await call("POST", `/deliverables/${A("plain1")}/btg-review`, A("cm"));
-    expect((await call("POST", `/deliverables/${A("plain1")}/uploads`, A("athlete2"), { contentType: "image/png" })).status).toBe(409);
+    expect((await call("POST", `/deliverables/${A("plain1")}/uploads`, A("athlete2"), { contentType: "image/png", bytes: 48_213 })).status).toBe(409);
     expect((await call("POST", `/deliverables/${A("plain1")}/revision`, A("cm"), { reason: "Brighter, please" })).status).toBe(200);
     const back = (await call("GET", `/deliverables/${A("plain1")}`, A("athlete2"))).json;
     expect(back.revision).toMatchObject({ by: "REVIEWER", reason: "Brighter, please" });

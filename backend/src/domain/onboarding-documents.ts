@@ -23,7 +23,7 @@ import { prisma } from "../db/client";
 import type { Actor } from "../auth/actor";
 import { assertTenantWide, whereFor } from "../auth/scope";
 import { ForbiddenError } from "../auth/errors";
-import { presignPrivateDownload, presignPrivateUpload, privateObjectSize, SENSITIVE_DOCUMENT_TTL_SECONDS } from "../lib/storage";
+import { checkPrivateUpload, presignPrivateDownload, presignPrivateUpload, SENSITIVE_DOCUMENT_TTL_SECONDS, uploadRefusal } from "../lib/storage";
 import { readOnboardingToken } from "../lib/onboarding-token";
 import { DOCUMENT_KINDS, EDITABLE, requiredDocuments, US_STATES, type DocumentKind, type OnboardingShape, type OnboardingState } from "./onboarding-rules";
 import { evaluateOnboarding, OnboardingError, OnboardingNotFoundError } from "./onboarding";
@@ -120,9 +120,10 @@ export async function requestDocumentUpload(
     },
     select: APPLICANT_VIEW,
   });
+  /* 2S8-SEC-03 — the PUT is signed for exactly this type and size. */
   const uploadUrl = await presignPrivateUpload({ userId: null, tenantId: o.tenantId }, r2Key, input.contentType, {
     entity: "OnboardingDocument", entityId: id,
-  });
+  }, { signContentType: true, contentLength: input.bytes });
   return { document: doc, uploadUrl, contentType: input.contentType };
 }
 
@@ -132,12 +133,15 @@ export async function confirmDocumentUpload(token: string, documentId: string) {
   assertEditable(o.state);
   const doc = await prisma.onboardingDocument.findFirst({
     where: { tenantId: o.tenantId, onboardingId: o.id, id: documentId },
-    select: { id: true, r2Key: true, kind: true },
+    select: { id: true, r2Key: true, kind: true, contentType: true, bytes: true },
   });
   if (!doc) throw new OnboardingNotFoundError();
-  const size = await privateObjectSize(doc.r2Key);
-  if (size === null) throw new OnboardingError("That document has not arrived yet — upload it, then confirm.", 409);
-  if (size > maxBytesFor(doc.kind)) throw new OnboardingError("That document is larger than allowed.", 422);
+  /* 2S8-SEC-03 — what arrived must be what the grant pinned; anything else is deleted. */
+  const arrived = await checkPrivateUpload({ userId: null, tenantId: o.tenantId }, doc.r2Key,
+    { contentType: doc.contentType, bytes: doc.bytes, maxBytes: maxBytesFor(doc.kind) }, { entity: "OnboardingDocument", entityId: doc.id });
+  if (!arrived.ok && arrived.problem === "missing") throw new OnboardingError("That document has not arrived yet — upload it, then confirm.", 409);
+  if (!arrived.ok) throw new OnboardingError(uploadRefusal(arrived.problem, "That document"), 422);
+  const size = arrived.bytes;
   return prisma.$transaction(async (tx) => {
     const confirmed = await tx.onboardingDocument.update({
       where: { id: doc.id }, data: { uploadedAt: new Date(), bytes: size }, select: APPLICANT_VIEW,

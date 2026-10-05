@@ -121,9 +121,11 @@ The checks were made against the OWASP Top 10 (2021), plus the ASVS basics that 
 - **Fixed (Low).** Delivery-proof uploads checked only that the file existed, not its size.
 - **Fixed (Medium).** Webhook rate limits were keyed on `req.ip`, which is the platform edge, so every caller shared one bucket. 120 junk requests a minute could make Zoho's real, signed deliveries fail with 429.
 - **Fixed (Low).** A rate-limit key that lost its EXPIRE (INCR and EXPIRE are two separate commands) kept that caller blocked forever.
-- **Open (Medium).** The other private-bucket presigns (account, onboarding, organisation, sponsor-request, hand-off, support and profile-change documents) pin neither type nor length. Their confirm step checks size but not the content type, and does not delete an oversized object.
-  - Exposure is limited: the private bucket is only reached through short presigned GETs, on R2's own origin.
-  - Recommendation: pin `{signContentType, contentLength}` at each presign, since every browser upload already sends the exact `Content-Type`. Then compare `HeadObject` type and size on confirm, and delete on mismatch. This needs an end-to-end upload check, so it is left as a follow-up rather than done blind.
+- **Fixed (Medium), 2S8-SEC-03.** The other private-bucket presigns (account, onboarding, organisation, sponsor-request, hand-off, support and profile-change documents) pinned neither type nor length. Their confirm step checked size but not the content type, and did not delete an oversized object.
+  - Every private presign is now signed for one type and one exact size: `{signContentType: true, contentLength}` at all ten `presignPrivateUpload` calls. That includes the delivery proof, which had neither, and the deliverable creative upload, whose `bytes` was optional and is now required (`CreativeUploadInput`). Ad artwork was already pinned.
+  - Every confirm step now goes through one helper, `checkPrivateUpload` (`backend/src/lib/storage.ts`). It reads the object's `HeadObject` type and size and compares them with what the grant pinned: the exact size, and the flow's ceiling. On a mismatch it deletes the object, writes a `storage.privateUploadRefused` audit row (expected vs arrived), and the flow answers 422 "…so it was removed. Upload it again." The delivery proof reads the pinned type and size back from its grant's audit row.
+  - The browser side needed no change. Every upload component already PUTs the `File` it declared, with the grant's own `contentType` (or, for the deliverable upload, `f.type`, which is what it presigned). A zero-byte creative file is now refused at presign.
+  - Not covered by the confirm-side check: the creative and artwork **register** steps. They do not HEAD the object; they rely on the bucket enforcing the signed pins, plus their own type check from the grant (P5-BE-09 / P9-BE-22). Adding a HEAD there would be a separate change.
 - **Open (Low).** Replay of an old signed invoice webhook could roll an invoice's status back. Zoho Books sends no timestamp. **Owner/next task:** make the ingest refuse a payload older than the stored row (paid never goes back to sent).
 
 **Fix:**
@@ -135,6 +137,14 @@ The checks were made against the OWASP Top 10 (2021), plus the ASVS basics that 
 **Test:**
 - `rate-limit-expiry.test.ts`.
 - The logo and proof changes are one-line pins on code that existing branding and delivery tests already cover.
+- 2S8-SEC-03: `backend/tests/private-upload-pins.test.ts`, end to end with no storage mock. The API presigns against an in-process S3 endpoint (`tests/support/object-store.ts`) that checks presigned signatures the way R2 does. For each of the eight flows the test checks five things:
+  1. the URL signs `content-length;content-type;host`;
+  2. a PUT with another type, or one byte more or less, is refused 403;
+  3. a wrong-type file placed in the bucket anyway is refused on confirm, deleted and audited;
+  4. so is a wrong-size one;
+  5. the right file PUT through the URL is accepted.
+
+  A last case fails if any `presignPrivateUpload` in `src/domain` lacks either pin. Removing one pin in a scratch run failed both cases.
 
 ### A05 · Security misconfiguration
 
@@ -360,7 +370,7 @@ Matches are printed masked. **Result on 2026-10-05: 2,220 tracked files, no secr
 
 ## Follow-ups not done here (each is Open above)
 
-- Pin type and length on every private presign, and check type on confirm (§A04).
+- ~~Pin type and length on every private presign, and check type on confirm (§A04).~~ Fixed, 2S8-SEC-03.
 - Make the invoice ingest refuse an older state (§A04).
 - Close the rate-card existence oracle (§A01).
 - Constrain Zoho notification `module` and `ids` (§A10).

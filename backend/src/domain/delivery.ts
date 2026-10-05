@@ -97,7 +97,7 @@ import type { Actor } from "../auth/actor";
 import { assertAllowed, can, scopeOf, whereFor, type Scope } from "../auth/scope";
 import { ForbiddenError } from "../auth/errors";
 import { send, type EmailTemplate } from "../lib/email";
-import { presignPrivateDownload, presignPrivateUpload, privateObjectSize, SENSITIVE_DOCUMENT_TTL_SECONDS } from "../lib/storage";
+import { checkPrivateUpload, presignPrivateDownload, presignPrivateUpload, SENSITIVE_DOCUMENT_TTL_SECONDS, uploadRefusal } from "../lib/storage";
 import { reverseOrder } from "./ledger";
 import { lockOrder, moveOrderAsSystem, moveOrderIn, OrderStateConflictError } from "./marketplace-order";
 import { usd } from "./marketplace-order-rules";
@@ -919,24 +919,40 @@ export async function requestProofUpload(actor: Actor, lineId: string, input: { 
   const answering = row.state === "PROBLEM" && row.issues.length > 0;
   if (row.state !== "IN_DELIVERY" && !answering) throw new DeliveryError("Proof is added when you mark the line delivered, or when you answer a problem.");
   const key = `${proofPrefix(row.tenantId, row.lineId)}${randomUUID()}.${PROOF_TYPES[input.contentType]}`;
-  const uploadUrl = await presignPrivateUpload(actor, key, input.contentType, { entity: "OrderLineDelivery", entityId: row.id });
+  /* 2S8-SEC-03 — the PUT is signed for exactly this type and size, and the
+     grant's audit row records both: checkProof reads them back from it. */
+  const uploadUrl = await presignPrivateUpload(actor, key, input.contentType, { entity: "OrderLineDelivery", entityId: row.id }, {
+    signContentType: true, contentLength: input.bytes,
+  });
   return { uploadUrl, key, contentType: input.contentType };
 }
 
 export type MarkDeliveredInput = { note: string; proofKey?: string | null; proofLink?: string | null };
 
 /** The optional photo (uploaded under this line's own key, and arrived) and https link. */
-async function checkProof(row: { tenantId: string; lineId: string }, input: { proofKey?: string | null; proofLink?: string | null }, without: string) {
+async function checkProof(actor: Actor, row: { id: string; tenantId: string; lineId: string }, input: { proofKey?: string | null; proofLink?: string | null }, without: string) {
   const proofKey = input.proofKey?.trim() || null;
   if (proofKey) {
     if (!proofKey.startsWith(proofPrefix(row.tenantId, row.lineId)) || proofKey.includes("..") || proofKey.includes("//")) {
       throw new DeliveryError("That photo wasn't uploaded for this line.", 422);
     }
-    const size = await privateObjectSize(proofKey);
-    if (size === null) throw new DeliveryError(`The photo hasn't arrived in storage yet — upload it again, or ${without} without it.`, 422);
+    /* 2S8-SEC-03 — the type and size this key's grant pinned, read back from
+       the grant's own audit row (the key is unguessable, so one exists only
+       for a key this line was really handed). */
+    const grant = await prisma.auditLog.findFirst({
+      /* tenant-scope: the grant was audited in this line's tenant, under this line's delivery row. */
+      where: { tenantId: row.tenantId, action: "storage.privateUploadGrant", entity: "OrderLineDelivery", entityId: row.id, after: { path: ["key"], equals: proofKey } },
+      select: { after: true }, orderBy: { at: "desc" },
+    });
+    const pinned = (grant?.after ?? null) as { contentType?: unknown; bytes?: unknown } | null;
+    if (!pinned || typeof pinned.contentType !== "string") throw new DeliveryError("That photo wasn't uploaded for this line.", 422);
     /* 2S8-SEC-02 — the 10 MB limit checked on the file that actually
-       arrived: a presigned PUT does not stop a larger one being sent. */
-    if (size > PROOF_MAX_BYTES) throw new DeliveryError("Up to 10 MB.", 422);
+       arrived; 2S8-SEC-03 — and its type and exact size, or it is deleted. */
+    const arrived = await checkPrivateUpload(actor, proofKey,
+      { contentType: pinned.contentType, bytes: typeof pinned.bytes === "number" ? pinned.bytes : null, maxBytes: PROOF_MAX_BYTES },
+      { entity: "OrderLineDelivery", entityId: row.id });
+    if (!arrived.ok && arrived.problem === "missing") throw new DeliveryError(`The photo hasn't arrived in storage yet — upload it again, or ${without} without it.`, 422);
+    if (!arrived.ok) throw new DeliveryError(uploadRefusal(arrived.problem, "That photo"), 422);
   }
   const proofLink = input.proofLink?.trim() || null;
   if (proofLink && !/^https:\/\//i.test(proofLink)) throw new DeliveryError("A link starts with https://", 422);
@@ -952,7 +968,7 @@ export async function markDelivered(actor: Actor, lineId: string, input: MarkDel
     where: { ...whereFor(actor, "orderDelivery", "write"), lineId }, select: { id: true, tenantId: true, lineId: true },
   });
   if (!found) throw new ForbiddenError("orderDelivery", "write");
-  const { proofKey, proofLink } = await checkProof(found, input, "mark delivered");
+  const { proofKey, proofLink } = await checkProof(actor, found, input, "mark delivered");
 
   const byName = await markerName(actor);
   return prisma.$transaction(async (tx) => {
@@ -1318,7 +1334,7 @@ export async function answerProblem(actor: Actor, lineId: string, input: Problem
     where: { ...whereFor(actor, "orderDelivery", "write"), lineId }, select: { id: true, tenantId: true, lineId: true },
   });
   if (!found) throw new ForbiddenError("orderDelivery", "write");
-  const { proofKey, proofLink } = answer === "DISAGREE" ? await checkProof(found, input, "answer") : { proofKey: null, proofLink: null };
+  const { proofKey, proofLink } = answer === "DISAGREE" ? await checkProof(actor, found, input, "answer") : { proofKey: null, proofLink: null };
   const byName = await markerName(actor);
 
   return prisma.$transaction(async (tx) => {

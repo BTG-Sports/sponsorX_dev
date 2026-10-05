@@ -35,7 +35,7 @@ vi.mock("../src/auth/clerk", () => ({
   },
 }));
 /* The disagreement photo "has arrived" in the private bucket. */
-vi.mock("../src/lib/storage", async (original) => ({ ...(await original<typeof import("../src/lib/storage")>()), privateObjectSize: async () => 2048 }));
+vi.mock("../src/lib/storage", async (original) => ({ ...(await original<typeof import("../src/lib/storage")>()), checkPrivateUpload: async () => ({ ok: true as const, bytes: 2048 }) }));
 
 const seededDb = await import("./support/seeded-db");
 const { issueOrderTerms, placeOrderBody } = await import("./support/order-terms");
