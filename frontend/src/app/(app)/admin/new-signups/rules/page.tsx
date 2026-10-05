@@ -23,7 +23,8 @@ import { apiFetch } from "@/server/api";
    rules-control-panel-design.md): the "Control Panel" — the admin stage,
    full bleed and fixed-dark, as a DASHBOARD (memory: admin-desks-are-
    dashboards): back link, a compact title, four tiles, then the work — the
-   minors switch, the place form and the place grid (rules-board.tsx).
+   minors switch, then the place board (rules-board.tsx: search, country
+   rail, the country's places; adding and changing in a dialog).
 
    Reads  GET /signup-rules/settings · GET /signup-rules/age-table
    Writes PUT /signup-rules/settings · PUT / DELETE /signup-rules/age-table   (./actions.ts)
@@ -107,16 +108,13 @@ export default async function SignupRulesPage() {
         </dl>
       </header>
 
+      <section aria-labelledby="sr-minors" className="sx-ops-panel sx-ops-in relative mt-8 px-5 pb-5 pt-4" style={at(0.32)}>
+        <h2 id="sr-minors" className="mb-4 text-[11px] font-semibold uppercase tracking-[0.3em] text-[#cfe9ff]">Minors</h2>
+        <StaffConfirmSwitch on={on} />
+      </section>
+
       <div className="mt-8">
-        <RulesBoard
-          rows={table.rows}
-          aside={
-            <section key="minors" aria-labelledby="sr-minors" className="sx-ops-panel sx-ops-in relative px-5 pb-5 pt-4" style={at(0.32)}>
-              <h2 id="sr-minors" className="mb-4 text-[11px] font-semibold uppercase tracking-[0.3em] text-[#cfe9ff]">Minors</h2>
-              <StaffConfirmSwitch on={on} />
-            </section>
-          }
-        />
+        <RulesBoard rows={table.rows} />
       </div>
 
       <p className="sx-ops-in mt-8 text-[11px] text-[#7e88a0]" style={at(0.8)}>

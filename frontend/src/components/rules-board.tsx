@@ -7,11 +7,11 @@
    BUILT FOR SCALE (owner, 2026-10-05: "what if there are more countries and
    more states / provinces"). The page never lays out the whole table:
 
-   - PlaceForm   country + state (mono caps), an age stepper (14–25, arrow
-                 keys), "Save place" / "Change AL, US", and — for a place
-                 already in the table — "Remove AL, US" with a confirm. All
-                 through the existing server actions; the API accepts BTG
-                 admins only and audits each change.
+   - the dialog  "+ Add a place" and every card open one modal
+                 (place-dialog.tsx): adding picks a real country and state
+                 from dropdowns (no free text — owner, 2026-10-05), changing
+                 moves only the age, Remove confirms. A change that goes
+                 through closes it and is said on the board.
    - search      one box across every country, by code or by name (lib
                  searchPlaces): picking a result selects its country and
                  loads the place into the form. A listbox with ↑ ↓ ⏎ Esc.
@@ -27,29 +27,22 @@
                  2026-10-05: "list the items 20 items per page, make the
                  items large, add more detail on each items").
 
-   Picking anything is never a silent scroll (owner, twice — memory
-   "scroll-to-needs-a-loud-cue"): the form glows and pulses, a lit callout
-   names the place with numbered next steps and a Cancel, the stepper is
-   ringed, the picked tile or chip stays lit, and a live region says it.
+   Picking a place opens the dialog on it — the change happens where the
+   eye already is (the earlier inline form scrolled; owner, 2026-10-05:
+   "this is better if this is a popup"). The picked card stays lit.
    -------------------------------------------------------------------------- */
 
-import { useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { useMemo, useRef, useState, type CSSProperties } from "react";
 
-import { removeAgeRowAction, setAgeRowAction } from "@/app/(app)/admin/new-signups/rules/actions";
 import { SearchInput } from "@/components/filter-kit";
 import { Pagination } from "@/components/pagination";
-import { Said, useRun } from "@/components/signup-rules-editor";
+import { PlaceDialog, type DialogMode } from "@/components/place-dialog";
 import {
-  ageBand, changedWords, countryDetail, countryIndex, placeLabel, placeList, placeName, placePage, regionName, searchPlaces, statusWords,
+  ageBand, changedWords, countryDetail, countryIndex, placeLabel, placeList, placePage, regionName, searchPlaces, statusWords,
   type AgeBand, type AgeRow, type CountryDetail, type CountryEntry, type PlaceFilter, type SearchHit,
 } from "@/lib/age-table";
 
-const MIN = 14;
-const MAX = 25;
 const CHAMFER = "[clip-path:polygon(0_0,calc(100%-8px)_0,100%_8px,100%_100%,8px_100%,0_calc(100%-8px))]";
-const FIELD =
-  "min-h-10 w-full rounded-lg border border-[#63b4f8]/30 bg-[#04080f]/70 px-3 font-mono text-sm font-semibold uppercase tracking-[0.12em] text-white placeholder:normal-case placeholder:tracking-normal placeholder:font-sans placeholder:font-normal placeholder:text-[#5b6b7d] focus:border-[#9be0ff] focus:outline-none focus:ring-2 focus:ring-[#63b4f8]/40";
-
 const BAND: Record<AgeBand, { tile: string; age: string }> = {
   young: { tile: "border-[#a479ff]/45 bg-[#a479ff]/10", age: "text-[#c3a6ff]" },
   eighteen: { tile: "border-[#63b4f8]/22 bg-[#0a121e]/60", age: "text-[#93c5fd]" },
@@ -59,51 +52,21 @@ const BAND: Record<AgeBand, { tile: string; age: string }> = {
 const at = (s: number) => ({ "--sx-reveal-delay": `${s}s` }) as CSSProperties;
 const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
 
-/** `aside`: the panel beside the form (the minors switch) — the two controls share a row. */
-export function RulesBoard({ rows, aside }: { rows: AgeRow[]; aside?: ReactNode }) {
-  /* Empty at rest: an "Add a place" form, not a preloaded US row. */
-  const [c, setC] = useState("");
-  const [r, setR] = useState("");
-  const [age, setAge] = useState(18);
-  const save = useRun();
-  const del = useRun();
-  const [armRemove, setArmRemove] = useState(false);
-  /* Bumped each time something loads into the form — keys the flash so its
-     pulse replays, and tells the form it is answering a pick. */
-  const [pulse, setPulse] = useState(0);
-  const formRef = useRef<HTMLFormElement>(null);
-  const ageRef = useRef<HTMLButtonElement>(null);
+export function RulesBoard({ rows }: { rows: AgeRow[] }) {
+  const [dialog, setDialog] = useState<DialogMode | null>(null);
+  /* The last change that went through — said on the board once the dialog closes. */
+  const [done, setDone] = useState<{ n: number; message: string } | null>(null);
 
   const index = useMemo(() => countryIndex(rows), [rows]);
   const [picked, setPicked] = useState<string | null>(null);
   /* The selected country, or the biggest one — and never one that's gone. */
   const country = picked && index.some((x) => x.country === picked) ? picked : index[0]?.country ?? null;
   const detail = useMemo(() => (country ? countryDetail(rows, country) : null), [rows, country]);
-
-  const existing = rows.find((x) => x.countryCode === c.trim().toUpperCase() && x.regionCode === r.trim().toUpperCase());
-  /* A picked place is in the form (not just a typed code that happens to exist). */
-  const editing = pulse > 0 && existing !== undefined;
+  const editingId = dialog?.kind === "edit" ? dialog.row.id : null;
 
   const load = (row: AgeRow) => {
-    setC(row.countryCode);
-    setR(row.regionCode);
-    setAge(row.age);
     setPicked(row.countryCode);
-    save.clear();
-    del.clear();
-    setArmRemove(false);
-    setPulse((n) => n + 1);
-    formRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
-    ageRef.current?.focus({ preventScroll: true });
-  };
-  const step = (d: number) => setAge((a) => Math.min(MAX, Math.max(MIN, a + d)));
-  const fresh = () => {
-    setC("");
-    setR("");
-    setAge(18);
-    setPulse(0);
-    setArmRemove(false);
-    save.clear();
+    setDialog({ kind: "edit", row });
   };
   const pick = (hit: SearchHit) => {
     setPicked(hit.country);
@@ -111,150 +74,45 @@ export function RulesBoard({ rows, aside }: { rows: AgeRow[]; aside?: ReactNode 
   };
 
   return (
-    <div className="space-y-8">
-      <div className="grid items-stretch gap-4 lg:grid-cols-2">
-        {aside}
-        {/* ---------------------------------------------------------- form */}
-        {/* The wrapper carries the glow: the panel's chamfer clip would cut a
-            shadow of its own off. Lit while a picked place is in the form. */}
-        <div className="relative">
-          {editing && (
-            <span aria-hidden="true" className="pointer-events-none absolute -inset-1.5 rounded-xl bg-gradient-to-br from-[#2e9bf5]/50 via-[#9be0ff]/25 to-[#2e9bf5]/40 blur-lg" />
-          )}
-          <form
-            ref={formRef}
-            aria-labelledby="sr-place"
-            className={`sx-ops-panel sx-ops-in relative h-full px-5 pb-5 pt-4 ${editing ? "!bg-[linear-gradient(160deg,rgba(24,52,88,.92),rgba(8,18,34,.9))]" : ""}`}
-            style={at(0.38)}
-            onSubmit={(e) => {
-              e.preventDefault();
-              del.clear();
-              save.run(() => setAgeRowAction({ countryCode: c, regionCode: r, age }));
-            }}
-          >
-            {pulse > 0 && <span key={`flash-${pulse}`} aria-hidden="true" className="sx-ops-flash absolute inset-0" />}
-            <h2 id="sr-place" className="text-[11px] font-semibold uppercase tracking-[0.3em] text-[#cfe9ff]">
-              {existing ? "Change a place" : "Add a place"}
-            </h2>
-
-            {editing && existing && (
-              <div key={`hint-${pulse}`} className="sx-pop relative mt-3 overflow-hidden rounded-lg border border-[#9be0ff]/70 bg-gradient-to-r from-[#2e9bf5]/35 via-[#2e9bf5]/15 to-transparent px-4 py-3 shadow-[0_0_24px_rgba(46,155,245,.35)]">
-                <span aria-hidden="true" className="absolute inset-y-0 left-0 w-1 bg-[#9be0ff] shadow-[0_0_12px_#9be0ff]" />
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <p className="text-base font-bold text-white">
-                    Editing {placeName(existing)} <span className="font-semibold text-[#9be0ff]">— adult at {existing.age}</span>
-                  </p>
-                  <button type="button" onClick={fresh} className="rounded-md border border-white/25 px-2.5 py-1 text-[11px] font-semibold text-[#cfe9ff] transition-colors hover:border-white/60 hover:text-white">
-                    Cancel · new place
-                  </button>
-                </div>
-                <ol className="mt-2 flex flex-wrap gap-x-5 gap-y-1 text-[13px] font-medium text-[#e0f2ff]">
-                  <li className="flex items-center gap-2">
-                    <span aria-hidden="true" className="grid size-5 place-items-center rounded-full bg-[#9be0ff] text-[11px] font-bold text-[#04070e]">1</span>
-                    Set the new age with − / +
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <span aria-hidden="true" className="grid size-5 place-items-center rounded-full bg-[#9be0ff] text-[11px] font-bold text-[#04070e]">2</span>
-                    Press <strong className="text-white">Change {placeLabel(existing)}</strong>
-                  </li>
-                </ol>
-              </div>
-            )}
-            <p aria-live="polite" className="sr-only">
-              {editing && existing ? `Editing ${placeName(existing)}, adult at ${existing.age}. Set the new age, then press Change ${placeLabel(existing)}.` : ""}
-            </p>
-
-            <div className="mt-4 grid grid-cols-2 items-end gap-3 sm:grid-cols-[6rem_8rem_auto]">
-              <label className="text-[11px] font-medium text-[#8a96a3]">
-                Country
-                <input className={`${FIELD} mt-1`} value={c} maxLength={2} placeholder="US" onChange={(e) => { setC(e.target.value); setArmRemove(false); }} aria-describedby="age-hint" />
-              </label>
-              <label className="text-[11px] font-medium text-[#8a96a3]">
-                State or province
-                <input className={`${FIELD} mt-1`} value={r} maxLength={3} placeholder="All" onChange={(e) => { setR(e.target.value); setArmRemove(false); }} />
-              </label>
-              <div className="text-[11px] font-medium text-[#8a96a3]">
-                <span id="age-label">Adult at</span>
-                <div className="mt-1 flex items-center gap-1.5">
-                  <button type="button" aria-label="One year younger" onClick={() => step(-1)} disabled={age <= MIN}
-                    className="grid size-10 place-items-center rounded-lg border border-[#63b4f8]/30 text-lg text-[#cfe9ff] transition-colors hover:border-[#9be0ff] disabled:opacity-30">−</button>
-                  <button
-                    ref={ageRef}
-                    type="button"
-                    role="spinbutton"
-                    aria-labelledby="age-label"
-                    aria-valuenow={age}
-                    aria-valuemin={MIN}
-                    aria-valuemax={MAX}
-                    onKeyDown={(e) => {
-                      if (e.key === "ArrowUp" || e.key === "ArrowRight") { e.preventDefault(); step(1); }
-                      if (e.key === "ArrowDown" || e.key === "ArrowLeft") { e.preventDefault(); step(-1); }
-                    }}
-                    className={`relative h-10 w-14 rounded-md text-center text-2xl font-bold tabular-nums focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#63b4f8]/60 ${BAND[ageBand(age)].age} ${editing ? "bg-[#2e9bf5]/15 ring-2 ring-[#9be0ff] shadow-[0_0_16px_rgba(155,224,255,.6)]" : ""}`}
-                  >
-                    {age}
-                  </button>
-                  <button type="button" aria-label="One year older" onClick={() => step(1)} disabled={age >= MAX}
-                    className="grid size-10 place-items-center rounded-lg border border-[#63b4f8]/30 text-lg text-[#cfe9ff] transition-colors hover:border-[#9be0ff] disabled:opacity-30">+</button>
-                </div>
-              </div>
-              <button
-                type="submit"
-                disabled={save.pending || del.pending}
-                className={`col-span-full min-h-11 truncate bg-gradient-to-r from-[#63b4f8] to-[#2e9bf5] px-5 text-sm font-semibold text-[#04070e] shadow-[0_0_22px_rgba(46,155,245,.45)] transition-shadow hover:shadow-[0_0_32px_rgba(46,155,245,.7)] disabled:opacity-50 ${CHAMFER}`}
-              >
-                {save.pending ? "Saving…" : existing ? `Change ${placeLabel(existing)}` : "Save place"}
-              </button>
-            </div>
-
-            <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
-              <p id="age-hint" className="text-[11px] text-[#7e88a0]">
-                Two-letter codes (US, AL). Leave the state empty for the whole country. Saving an existing place changes its age.
-              </p>
-              {existing && (
-                armRemove ? (
-                  <span className="sx-pop flex flex-wrap items-center gap-2 text-[11px]">
-                    <span className="font-semibold text-[#fca5a5]">Remove {placeLabel(existing)}?</span>
-                    <button
-                      type="button"
-                      disabled={del.pending}
-                      onClick={() => del.run(async () => {
-                        const res = await removeAgeRowAction(existing.id);
-                        if (res.ok) fresh();
-                        return res;
-                      })}
-                      className="rounded-md bg-[#ef4444] px-2.5 py-1 font-semibold text-white disabled:opacity-50"
-                    >
-                      {del.pending ? "Removing…" : "Remove"}
-                    </button>
-                    <button type="button" onClick={() => setArmRemove(false)} className="rounded-md border border-white/20 px-2.5 py-1 font-medium text-[#cfe9ff]">Keep</button>
-                  </span>
-                ) : (
-                  <button type="button" onClick={() => { setArmRemove(true); del.clear(); }}
-                    className="rounded-md border border-[#ef4444]/45 px-2.5 py-1 text-[11px] font-semibold text-[#fca5a5] transition-colors hover:bg-[#ef4444]/15">
-                    Remove {placeLabel(existing)}
-                  </button>
-                )
-              )}
-            </div>
-            <div className="mt-2 space-y-1"><Said r={save.result} /><Said r={del.result} /></div>
-          </form>
-        </div>
+    <section aria-label="Age of majority by place" className="space-y-4">
+      <div className="sx-ops-in flex flex-col gap-3 lg:flex-row lg:items-center" style={at(0.45)}>
+        <h2 className="text-[11px] font-semibold uppercase tracking-[0.3em] text-[#cfe9ff] lg:mr-auto">Age of majority by place</h2>
+        <GlobalSearch rows={rows} onPick={pick} />
+        <button
+          type="button"
+          onClick={() => setDialog({ kind: "add" })}
+          className={`inline-flex min-h-10 shrink-0 items-center justify-center gap-2 bg-gradient-to-r from-[#63b4f8] to-[#2e9bf5] px-4 text-sm font-semibold text-[#04070e] shadow-[0_0_22px_rgba(46,155,245,.45)] transition-shadow hover:shadow-[0_0_32px_rgba(46,155,245,.7)] ${CHAMFER}`}
+        >
+          <span aria-hidden="true" className="text-base leading-none">+</span> Add a place
+        </button>
       </div>
 
-      {/* ------------------------------------------------- search + browse */}
-      <section aria-label="Age of majority by place" className="space-y-4">
-        <div className="sx-ops-in flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between" style={at(0.45)}>
-          <h2 className="text-[11px] font-semibold uppercase tracking-[0.3em] text-[#cfe9ff]">Age of majority by place</h2>
-          <GlobalSearch rows={rows} onPick={pick} />
-        </div>
+      {done && (
+        <p key={done.n} role="status" className="sx-pop flex items-center gap-2 rounded-lg border border-[#22c55e]/40 bg-[#22c55e]/10 px-3.5 py-2 text-xs text-[#bbf7d0]">
+          <span aria-hidden="true" className="text-[#86efac]">✓</span>
+          {done.message}
+          <button type="button" onClick={() => setDone(null)} aria-label="Dismiss" className="ml-auto text-[#86efac] hover:text-white">×</button>
+        </p>
+      )}
 
-        <div className="grid gap-4 lg:grid-cols-[19rem_minmax(0,1fr)]">
-          <CountryRail index={index} selected={country} onSelect={setPicked} />
-          {detail && <CountryPanel key={detail.country} detail={detail} editingId={editing ? existing?.id ?? null : null} onLoad={load} />}
-        </div>
-      </section>
-    </div>
+      <div className="grid gap-4 lg:grid-cols-[19rem_minmax(0,1fr)]">
+        <CountryRail index={index} selected={country} onSelect={setPicked} />
+        {detail && <CountryPanel key={detail.country} detail={detail} editingId={editingId} onLoad={load} />}
+      </div>
+
+      {dialog && (
+        <PlaceDialog
+          key={dialog.kind === "edit" ? dialog.row.id : "add"}
+          mode={dialog}
+          rows={rows}
+          onClose={() => setDialog(null)}
+          onDone={(message) => {
+            setDialog(null);
+            setDone((d) => ({ n: (d?.n ?? 0) + 1, message }));
+          }}
+        />
+      )}
+    </section>
   );
 }
 
@@ -328,7 +186,12 @@ function CountryRail({ index, selected, onSelect }: { index: CountryEntry[]; sel
   const shown = index.filter((x) => (!only || x.not18) && (!needle || x.country.toLowerCase().includes(needle) || x.name.toLowerCase().includes(needle)));
   const not18 = index.filter((x) => x.not18).length;
   return (
-    <nav aria-label="Countries" className="sx-ops-panel sx-ops-in relative flex max-h-[22rem] flex-col p-3 lg:max-h-[38rem]" style={at(0.5)}>
+    /* Same height as the country panel beside it (owner, 2026-10-05): from lg
+       the rail is pinned to its grid cell (absolute, inset 0), so its long
+       list never sets the row's height — the panel does, with a shared floor
+       — and the list scrolls inside. Below lg it stacks with its own cap. */
+    <div className="relative lg:min-h-[34rem]">
+    <nav aria-label="Countries" className="sx-ops-panel sx-ops-in relative flex max-h-[22rem] flex-col p-3 lg:absolute lg:inset-0 lg:max-h-none" style={at(0.5)}>
       <SearchInput value={q} onChange={setQ} label="Filter countries" placeholder="Filter countries…" tone="admin" className="w-full" />
       <div role="radiogroup" aria-label="Which countries" className="mt-2.5 flex gap-1.5">
         {[{ v: false, label: `All · ${index.length}` }, { v: true, label: `Not 18 · ${not18}` }].map((o) => (
@@ -373,6 +236,7 @@ function CountryRail({ index, selected, onSelect }: { index: CountryEntry[]; sel
         })}
       </ul>
     </nav>
+    </div>
   );
 }
 
@@ -419,7 +283,7 @@ function CountryPanel({ detail, editingId, onLoad }: { detail: CountryDetail; ed
     );
 
   return (
-    <div className="sx-ops-panel sx-ops-in relative px-5 pb-5 pt-4" style={at(0.55)}>
+    <div className="sx-ops-panel sx-ops-in relative px-5 pb-5 pt-4 lg:min-h-[34rem]" style={at(0.55)}>
       <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
         <h3 className="text-lg font-semibold text-white">{detail.name}</h3>
         <span className="text-xs text-[#8a96a3]">

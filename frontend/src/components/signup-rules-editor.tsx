@@ -61,7 +61,7 @@ export function StaffConfirmSwitch({ on }: { on: boolean }) {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2" aria-hidden="true">
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:max-w-3xl" aria-hidden="true">
         {[
           { key: false, title: "Off", body: "A minor and their guardian are approved once every check passes." },
           { key: true, title: "On", body: "A complete minor waits under Needs review for a person." },

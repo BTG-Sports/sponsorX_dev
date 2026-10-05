@@ -19,7 +19,7 @@
    house pagination rule lets stay client-side.
    -------------------------------------------------------------------------- */
 
-import { REGION_NAMES } from "./region-names";
+import { COUNTRY_CODES, REGION_NAMES } from "./region-names";
 
 export type AgeRow = { id: string; countryCode: string; regionCode: string; age: number; updatedBy: string | null; updatedAt: string };
 
@@ -207,4 +207,30 @@ export function statusWords(r: AgeRow, d: Pick<CountryDetail, "defaultRow">): { 
   if (!def) return { text: `Its own age — ${r.countryCode} has no whole-country age`, exception: false };
   if (r.age === def.age) return { text: `Follows the ${r.countryCode} default`, exception: false };
   return { text: `Exception · ${r.countryCode} default is ${def.age}`, exception: true };
+}
+
+/* ----------------------------------------------- the Add a place dropdowns */
+
+export type Option = { code: string; name: string };
+
+/** Every country in the world, by name — what "Add a place" offers, so a
+ *  made-up code can't be chosen. */
+export function countryOptions(): Option[] {
+  return COUNTRY_CODES.map((code) => ({ code, name: countryName(code) })).sort((a, b) => a.name.localeCompare(b.name));
+}
+
+/** A country's states / provinces by name — or none, when this list has no
+ *  names for it (then only the whole country can be added). */
+export function regionOptions(country: string): Option[] {
+  const names = REGION_NAMES[country];
+  if (!names) return [];
+  return Object.entries(names).map(([code, name]) => ({ code, name })).sort((a, b) => a.name.localeCompare(b.name));
+}
+
+/** Options narrowed by what's typed: code first, then names that start with it, then contain it. */
+export function filterOptions(options: readonly Option[], text: string): Option[] {
+  const q = text.trim().toLowerCase();
+  if (!q) return [...options];
+  const rank = (o: Option) => (o.code.toLowerCase() === q ? 0 : o.name.toLowerCase().startsWith(q) ? 1 : o.code.toLowerCase().startsWith(q) ? 2 : o.name.toLowerCase().includes(q) ? 3 : 9);
+  return options.map((o) => [rank(o), o] as const).filter(([r]) => r < 9).sort((a, b) => a[0] - b[0] || a[1].name.localeCompare(b[1].name)).map(([, o]) => o);
 }

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  PLACES_PER_PAGE, ageBand, changedWords, placeList, placePage, statusWords, countryDetail, countryIndex, countryName, placeLabel, placeName, regionName, searchPlaces, type AgeRow,
+  PLACES_PER_PAGE, countryOptions, filterOptions, regionOptions, ageBand, changedWords, placeList, placePage, statusWords, countryDetail, countryIndex, countryName, placeLabel, placeName, regionName, searchPlaces, type AgeRow,
 } from "../src/lib/age-table";
 
 /* --------------------------------------------------------------------------
@@ -110,5 +110,29 @@ describe("search across every country", () => {
     expect(searchPlaces(rows, "  ")).toEqual([]);
     expect(searchPlaces(rows, "m").length).toBeGreaterThan(3);
     expect(searchPlaces(rows, "m", 3)).toHaveLength(3);
+  });
+});
+
+describe("the Add a place dropdowns", () => {
+  it("offers every country in the world by name, and nothing made up", () => {
+    const all = countryOptions();
+    expect(all.length).toBeGreaterThan(240);
+    expect(all.find((o) => o.code === "US")?.name).toBe("United States");
+    expect(all.some((o) => o.code === "XY")).toBe(false);
+    expect(all.map((o) => o.name)).toEqual([...all.map((o) => o.name)].sort((a, b) => a.localeCompare(b)));
+  });
+
+  it("offers a country's states by name, or none when the list has no names", () => {
+    expect(regionOptions("CA").map((o) => o.code)).toContain("BC");
+    expect(regionOptions("CA")[0]).toEqual({ code: "AB", name: "Alberta" });
+    expect(regionOptions("FR")).toEqual([]);
+  });
+
+  it("narrows options as you type — code first, then names", () => {
+    const opts = countryOptions();
+    expect(filterOptions(opts, "us")[0]?.code).toBe("US");
+    expect(filterOptions(opts, "germ").map((o) => o.code)).toEqual(["DE"]);
+    expect(filterOptions(opts, "").length).toBe(opts.length);
+    expect(filterOptions(opts, "zzzz")).toEqual([]);
   });
 });

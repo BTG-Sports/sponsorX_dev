@@ -136,3 +136,14 @@ The owner asked for /admin/new-signups/rules in the same structure. Direction A,
   - The list shows 20 per page with the house `Pagination` above (with "Showing x–y of n") and below. It is client-side, because the table is bounded. The fixed 20 is the owner's number, not the usual 12/24/60.
   - The bottom pager scrolls back to the top of the list.
   - New helpers `placeList`, `placePage`, `statusWords`, `changedWords`, with tests. Frontend 1164 tests.
+- **P1-ART-17 follow-ups (owner):**
+  - **Equal heights:** "make the item list panel and the country list panel have the same height". From lg the rail is pinned (absolute, inset 0) to its grid cell, so the country panel sets the row height (34rem floor) and the rail's list scrolls inside. Measured 958/958 (US), 544/544 (BR), 713/713 (CA).
+  - **The editor is a popup with real places:** "this is better if this is a popup… what if I put xyz since this is a free input, it should be dropdown and listing all of the available countries in the world".
+    - `components/place-dialog.tsx` replaces the inline form: one modal for adding and changing, with the house `useDialogFocus` contract, portaled with `.sx-ops`.
+    - Country is a designed searchable `ComboBox` over all ISO 3166-1 codes (`COUNTRY_CODES` in `lib/region-names.ts`, named by `Intl.DisplayNames`).
+    - State is "Whole country" plus the known subdivisions (US/CA/MX/AU/BR/IN), else whole country only.
+    - Options already in the table say "in table · N", and choosing one switches the dialog to changing it.
+    - A change closes the dialog and is announced on the board.
+    - The minors switch is now a full-width panel.
+    - Walk: Add → "germ" → Germany (already in table) → Mexico/Jalisco → "Add JAL, MX" (not saved); Esc closes; a card opens "Alabama, United States"; focus returns to the card; saving Maryland via search worked; 390 fine; no console errors.
+    - New helpers `countryOptions`, `regionOptions`, `filterOptions`, with tests. Frontend 1167 tests.

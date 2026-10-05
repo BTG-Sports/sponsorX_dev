@@ -24,11 +24,28 @@ sign-ups"; title "Sign-up rules" + live dot + Postgres pill; four tiles:
 
 ## Controls
 
-- **Minors** panel: a designed `role="switch"` replacing the checkbox; an
-  Off / On pair explaining both behaviours (current one lit); the result
-  message inline.
-- **Add or change a place** panel: country and state fields (mono caps), an
-  age stepper (− n +, 14–25), "Save place"; the hint stays.
+- **Minors** panel (full width): a designed `role="switch"` replacing the
+  checkbox; an Off / On pair explaining both behaviours (current one lit); the
+  result message inline.
+- **Adding and changing a place happen in a dialog** (owner, 2026-10-05:
+  "this is better if this is a popup and for creating new place, what if I
+  put xyz since this is a free input, it should be dropdown and listing all of
+  the available countries in the world") — `components/place-dialog.tsx`:
+  - opened by "+ Add a place" (beside the search) or by any card / the
+    default; portaled with `.sx-ops`, the house `useDialogFocus` contract
+    (focus in and trapped, Esc / backdrop / Cancel close, focus back to the
+    opener);
+  - **add**: Country is a designed, searchable dropdown of every ISO 3166-1
+    country (`COUNTRY_CODES`, named by `Intl.DisplayNames`); State or
+    province is "Whole country" plus the real subdivisions where SponsorX
+    ships names (US, CA, MX, AU, BR, IN), else whole country only — nothing
+    that isn't a place can be chosen. Options already in the table say "in
+    table · 18"; choosing one turns the dialog into changing it ("Already in
+    the table — changing it");
+  - **change**: the place is fixed and named; a large age stepper (14–25,
+    arrow keys); Remove with a confirm; the save says "Change AL, US";
+  - a change that goes through closes the dialog and is said on the board
+    (a dismissible status line); a refusal stays in the dialog.
 
 ## The age table — built for scale
 
@@ -55,27 +72,24 @@ whole:
   each items".) The bottom pager returns to the top of the list. A country
   with no whole-country row lists every place, with no tabs. 20 countries or
   200, the page height stays bounded.
-- **Remove** moves into the edit panel ("Remove AL, US" → confirm) — one
-  place for it whether the place was a tile or a chip.
-- The form is empty at rest ("Add a place"); the save button has its own
-  full-width row.
+- The rail and the country panel are the **same height** from lg (owner):
+  the rail is pinned to its grid cell, so the panel sets the row (with a
+  34rem floor) and the rail's list scrolls inside.
 
-**Picking anything** loads it into the form and scrolls there — never a
-silent jump (the owner asked twice): the panel glows from behind (a wrapper,
-since the chamfer clip cuts the panel's own shadow) and pulses a bright ring
-twice; a lit callout bar reads "Editing Alabama, United States — adult at 19"
-with two numbered steps and "Cancel · new place"; the age stepper carries a
-bright ring; the picked tile or chip stays lit (`aria-pressed`); a polite
-live region says the same.
+**Picking a card** opens the dialog on it — the change happens where the eye
+already is. (Before the dialog, picking scrolled to an inline form; the owner
+asked twice for a cue, which led to a glow / pulse / callout — superseded by
+the dialog, whose modal focus is the cue.) The picked card stays lit.
 
 ## Build
 
 - `lib/age-table.ts` (pure): `placeLabel`, `ageBand`, `countryName`,
   `regionName`, `placeName`, `countryIndex`, `countryDetail`, `searchPlaces`,
-  `PLACES_PER_PAGE`, `placeList`, `placePage`, `statusWords`, `changedWords` —
+  `PLACES_PER_PAGE`, `placeList`, `placePage`, `statusWords`, `changedWords`, `countryOptions`, `regionOptions`, `filterOptions` —
   unit-tested; `lib/region-names.ts` (data).
-- `components/rules-board.tsx` (client): the form, the search, the rail and
-  the country panel in one island (anything picked fills the form). `components/signup-rules-editor.tsx`
+- `components/rules-board.tsx` (client): the search, the rail, the country
+  panel and the dialog's state; `components/place-dialog.tsx` (client): the
+  dialog and its `ComboBox`. `components/signup-rules-editor.tsx`
   keeps `StaffConfirmSwitch` (restyled), the old form and remove button go.
 - `rules/page.tsx` on the stage; `rules/loading.tsx` dark.
 
