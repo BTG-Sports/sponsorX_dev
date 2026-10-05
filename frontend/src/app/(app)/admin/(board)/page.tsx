@@ -50,7 +50,7 @@ async function read<T>(path: string): Promise<T | null> {
 
 /** How many live campaigns the board lists; the rest are one click away on
  *  the server-paged Campaigns desk (P2-FE-02 — no board renders every row). */
-const BOARD_CAMPAIGNS = 8;
+const BOARD_CAMPAIGNS = 5;
 
 export default async function OperationsBoardPage() {
   const actor = await requirePortalAccess("admin");
