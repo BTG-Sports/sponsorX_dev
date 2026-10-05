@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  FOLLOWING_SHOWN, ageBand, countryDetail, countryIndex, countryName, placeLabel, placeName, regionName, searchPlaces, type AgeRow,
+  PLACES_PER_PAGE, ageBand, changedWords, placeList, placePage, statusWords, countryDetail, countryIndex, countryName, placeLabel, placeName, regionName, searchPlaces, type AgeRow,
 } from "../src/lib/age-table";
 
 /* --------------------------------------------------------------------------
@@ -63,8 +63,30 @@ describe("one country", () => {
     expect(mx.following).toEqual([]);
   });
 
-  it("caps the chips it shows before Show all", () => {
-    expect(FOLLOWING_SHOWN).toBe(40);
+  it("lists every place exceptions first, and narrows by tab", () => {
+    const us = countryDetail(rows, "US");
+    expect(placeList(us, "all").map((r) => r.regionCode)).toEqual(["AL", "MS", "MD", "NY"]);
+    expect(placeList(us, "exceptions").map((r) => r.regionCode)).toEqual(["AL", "MS"]);
+    expect(placeList(us, "following").map((r) => r.regionCode)).toEqual(["MD", "NY"]);
+  });
+
+  it("pages 20 at a time and clamps a page past the end", () => {
+    expect(PLACES_PER_PAGE).toBe(20);
+    const list = Array.from({ length: 48 }, (_, i) => i);
+    expect(placePage(list, 1)).toMatchObject({ page: 1, pages: 3, start: 1, end: 20, total: 48 });
+    expect(placePage(list, 3)).toMatchObject({ page: 3, start: 41, end: 48 });
+    expect(placePage(list, 3).rows).toHaveLength(8);
+    expect(placePage(list, 9).page).toBe(3);
+    expect(placePage([], 1)).toMatchObject({ page: 1, pages: 1, start: 0, end: 0, total: 0, rows: [] });
+  });
+
+  it("says each card's status and history", () => {
+    const us = countryDetail(rows, "US");
+    expect(statusWords(row("US", "AL", 19), us)).toEqual({ text: "Exception · US default is 18", exception: true });
+    expect(statusWords(row("US", "MD", 18), us)).toEqual({ text: "Follows the US default", exception: false });
+    expect(statusWords(row("MX", "JAL", 18), countryDetail(rows, "MX")).text).toBe("Its own age — MX has no whole-country age");
+    expect(changedWords({ updatedBy: "seed", updatedAt: "2026-09-30T10:00:00Z" })).toBe("Default table · Sep 30, 2026");
+    expect(changedWords({ updatedBy: "u_admin", updatedAt: "2026-10-05T10:00:00Z" })).toBe("BTG staff · Oct 5, 2026");
   });
 });
 

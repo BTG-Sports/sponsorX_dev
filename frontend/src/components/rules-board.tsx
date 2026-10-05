@@ -20,9 +20,12 @@
                  It scrolls inside its panel, so 20 countries or 200 the page
                  is the same height.
    - the detail  the selected country: its default (the whole-country row),
-                 its EXCEPTIONS as big banded tiles, and the places that
-                 follow the default as small chips — the first 40, then
-                 "Show all".
+                 then every place as a large card (code and name, age, its
+                 status against the default, who set it when), exceptions
+                 first, 20 to a page with the house pager above and below,
+                 and All / Exceptions / Follow the default tabs (owner,
+                 2026-10-05: "list the items 20 items per page, make the
+                 items large, add more detail on each items").
 
    Picking anything is never a silent scroll (owner, twice — memory
    "scroll-to-needs-a-loud-cue"): the form glows and pulses, a lit callout
@@ -34,10 +37,11 @@ import { useMemo, useRef, useState, type CSSProperties, type ReactNode } from "r
 
 import { removeAgeRowAction, setAgeRowAction } from "@/app/(app)/admin/new-signups/rules/actions";
 import { SearchInput } from "@/components/filter-kit";
+import { Pagination } from "@/components/pagination";
 import { Said, useRun } from "@/components/signup-rules-editor";
 import {
-  FOLLOWING_SHOWN, ageBand, countryDetail, countryIndex, placeLabel, placeName, regionName, searchPlaces,
-  type AgeBand, type AgeRow, type CountryDetail, type CountryEntry, type SearchHit,
+  ageBand, changedWords, countryDetail, countryIndex, placeLabel, placeList, placeName, placePage, regionName, searchPlaces, statusWords,
+  type AgeBand, type AgeRow, type CountryDetail, type CountryEntry, type PlaceFilter, type SearchHit,
 } from "@/lib/age-table";
 
 const MIN = 14;
@@ -374,11 +378,46 @@ function CountryRail({ index, selected, onSelect }: { index: CountryEntry[]; sel
 
 /* --------------------------------------------------------------- detail */
 
+const TABS: { key: PlaceFilter; label: string }[] = [
+  { key: "all", label: "All" },
+  { key: "exceptions", label: "Exceptions" },
+  { key: "following", label: "Follow the default" },
+];
+
 function CountryPanel({ detail, editingId, onLoad }: { detail: CountryDetail; editingId: string | null; onLoad: (row: AgeRow) => void }) {
-  const [all, setAll] = useState(false);
   const { defaultRow, exceptions, following } = detail;
-  const chips = all ? following : following.slice(0, FOLLOWING_SHOWN);
+  /* With no whole-country row there is no default to follow: one list, no tabs. */
+  const tabbed = defaultRow !== null && exceptions.length + following.length > 0;
+  const [tab, setTab] = useState<PlaceFilter>("all");
+  const [page, setPage] = useState(1);
+  const topRef = useRef<HTMLDivElement>(null);
+  /* From the bottom pager, a new page starts at the top of the list — not
+     twenty cards below where the eye is. */
+  const turn = (where: "top" | "bottom") => (n: number) => {
+    setPage(n);
+    if (where === "bottom") topRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+  const list = placeList(detail, tabbed ? tab : "all");
+  const view = placePage(list, page);
   const total = exceptions.length + following.length + (defaultRow ? 1 : 0);
+  const count = (k: PlaceFilter) => (k === "all" ? exceptions.length + following.length : k === "exceptions" ? exceptions.length : following.length);
+  const choose = (k: PlaceFilter) => {
+    setTab(k);
+    setPage(1);
+  };
+
+  const pager = (where: "top" | "bottom") =>
+    view.total > 0 && (
+      <div className={`flex flex-wrap items-center justify-end gap-3 ${where === "bottom" ? "mt-4" : ""}`}>
+        {where === "top" && (
+          <p className="mr-auto text-[11px] text-[#8a96a3]" aria-live="polite">
+            Showing {view.start}–{view.end} of {view.total}
+          </p>
+        )}
+        <Pagination page={view.page} count={view.pages} onChange={turn(where)} tone="admin" alwaysShow />
+      </div>
+    );
+
   return (
     <div className="sx-ops-panel sx-ops-in relative px-5 pb-5 pt-4" style={at(0.55)}>
       <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
@@ -405,70 +444,82 @@ function CountryPanel({ detail, editingId, onLoad }: { detail: CountryDetail; ed
         <p className="mt-3 text-[11px] text-[#7e88a0]">No whole-country age — each place below has its own. A place not listed counts as 18.</p>
       )}
 
-      {exceptions.length > 0 && (
-        <>
-          <p className="mb-2.5 mt-5 flex items-center gap-3 text-[10px] font-semibold uppercase tracking-[0.3em] text-[#cfe9ff]">
-            {defaultRow ? `Exceptions · ${exceptions.length}` : `Places · ${exceptions.length}`}
-            <span className="h-px flex-1 bg-gradient-to-r from-[#63b4f8]/40 to-transparent" />
-          </p>
-          <ul className="grid grid-cols-3 gap-2 sm:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-8">
-            {exceptions.map((p, i) => {
-              const band = BAND[ageBand(p.age)];
-              const lit = editingId === p.id;
-              const nm = regionName(p.countryCode, p.regionCode);
-              return (
-                <li key={p.id} className="sx-ops-in" style={at(0.6 + Math.min(i, 24) * 0.02)}>
+      {(list.length > 0 || tabbed) && (
+        <div ref={topRef} className="mt-5 scroll-mt-24 space-y-3">
+          {tabbed && (
+            <div role="tablist" aria-label={`Places in ${detail.name}`} className="flex flex-wrap gap-1.5">
+              {TABS.map((t) => {
+                const on = t.key === tab;
+                return (
                   <button
+                    key={t.key}
                     type="button"
-                    onClick={() => onLoad(p)}
-                    aria-pressed={lit}
-                    aria-label={`Change ${placeLabel(p)} — adult at ${p.age}`}
-                    title={nm ?? undefined}
-                    className={`flex h-full min-h-[4.75rem] w-full flex-col items-center justify-center border px-1.5 py-2 text-center transition-[transform,box-shadow,border-color] duration-300 hover:-translate-y-0.5 hover:border-[#9be0ff] hover:shadow-[0_0_18px_rgba(46,155,245,.35)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#63b4f8]/70 ${band.tile} ${lit ? "!border-[#9be0ff] shadow-[0_0_22px_rgba(46,155,245,.55)] ring-1 ring-[#9be0ff]/70" : ""} ${CHAMFER}`}
+                    role="tab"
+                    aria-selected={on}
+                    onClick={() => choose(t.key)}
+                    className={`inline-flex min-h-8 items-center gap-2 rounded-full border px-3 text-xs font-medium transition-[background-color,border-color] ${
+                      on
+                        ? t.key === "exceptions"
+                          ? "border-[#fb923c] bg-[#f97a1f]/20 text-[#ffd1a6]"
+                          : "border-[#63b4f8] bg-[#2e9bf5]/25 text-white"
+                        : "border-[#63b4f8]/25 bg-[#0a121e]/60 text-[#cfe9ff] hover:border-[#63b4f8]/60"
+                    }`}
                   >
-                    <span className="font-mono text-[11px] font-semibold tracking-[0.12em] text-[#cfe9ff]">{p.regionCode}</span>
-                    <span className={`text-2xl font-bold leading-none tabular-nums ${band.age}`}>{p.age}</span>
-                    {nm && <span className="mt-1 max-w-full truncate text-[9px] text-[#7e88a0]">{nm}</span>}
+                    {t.label}
+                    <span className="font-mono text-[11px] text-[#7e88a0]">{count(t.key)}</span>
                   </button>
-                </li>
-              );
-            })}
-          </ul>
-        </>
-      )}
-
-      {following.length > 0 && (
-        <>
-          <p className="mb-2.5 mt-5 flex items-center gap-3 text-[10px] font-semibold uppercase tracking-[0.3em] text-[#cfe9ff]">
-            Follow the default · {following.length}
-            <span className="h-px flex-1 bg-gradient-to-r from-[#63b4f8]/40 to-transparent" />
-          </p>
-          <ul className="flex flex-wrap gap-1.5">
-            {chips.map((p) => {
-              const lit = editingId === p.id;
-              return (
-                <li key={p.id}>
-                  <button
-                    type="button"
-                    onClick={() => onLoad(p)}
-                    aria-pressed={lit}
-                    aria-label={`Change ${placeLabel(p)} — adult at ${p.age}`}
-                    title={regionName(p.countryCode, p.regionCode) ?? undefined}
-                    className={`rounded-md border px-2.5 py-1 font-mono text-[11px] font-semibold transition-colors ${lit ? "border-[#9be0ff] bg-[#2e9bf5]/25 text-white shadow-[0_0_14px_rgba(46,155,245,.5)]" : "border-[#63b4f8]/20 bg-[#0a121e]/60 text-[#9aa4b2] hover:border-[#9be0ff] hover:text-white"}`}
-                  >
-                    {p.regionCode}
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
-          {following.length > FOLLOWING_SHOWN && (
-            <button type="button" onClick={() => setAll((v) => !v)} className="mt-2.5 text-[11px] font-medium text-[#63b4f8] hover:text-[#9be0ff]">
-              {all ? "Show fewer" : `Show all ${following.length}`}
-            </button>
+                );
+              })}
+            </div>
           )}
-        </>
+          {pager("top")}
+          {view.rows.length === 0 ? (
+            <p className="rounded-lg border border-white/10 px-4 py-5 text-sm text-[#9aa4b2]">
+              {tab === "exceptions" ? `Every place in ${detail.name} follows its default.` : "Nothing here."}
+            </p>
+          ) : (
+            <ul className="grid gap-2.5 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+              {view.rows.map((p, i) => (
+                <PlaceCard key={p.id} row={p} detail={detail} lit={editingId === p.id} onLoad={() => onLoad(p)} delay={0.05 + i * 0.025} />
+              ))}
+            </ul>
+          )}
+          {view.pages > 1 && pager("bottom")}
+        </div>
       )}
     </div>
+  );
+}
+
+/** One place, large: its code and name, its age, how it stands against the
+ *  default, and who set it when. Clicking loads it into the form. */
+function PlaceCard({ row, detail, lit, onLoad, delay }: { row: AgeRow; detail: CountryDetail; lit: boolean; onLoad: () => void; delay: number }) {
+  const band = BAND[ageBand(row.age)];
+  const status = statusWords(row, detail);
+  const nm = regionName(row.countryCode, row.regionCode);
+  return (
+    <li className="sx-ops-in" style={at(delay)}>
+      <button
+        type="button"
+        onClick={onLoad}
+        aria-pressed={lit}
+        aria-label={`Change ${placeLabel(row)} — adult at ${row.age}`}
+        className={`group flex h-full w-full items-stretch gap-3 border px-3.5 py-3 text-left transition-[transform,box-shadow,border-color] duration-300 hover:-translate-y-0.5 hover:border-[#9be0ff] hover:shadow-[0_0_18px_rgba(46,155,245,.35)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#63b4f8]/70 ${
+          status.exception ? band.tile : "border-[#63b4f8]/20 bg-[#0a121e]/60"
+        } ${lit ? "!border-[#9be0ff] shadow-[0_0_22px_rgba(46,155,245,.55)] ring-1 ring-[#9be0ff]/70" : ""} ${CHAMFER}`}
+      >
+        <span className={`grid size-12 shrink-0 place-items-center border font-mono text-sm font-bold tracking-[0.06em] ${band.tile} ${band.age} [clip-path:polygon(0_0,calc(100%-6px)_0,100%_6px,100%_100%,6px_100%,0_calc(100%-6px))]`}>
+          {row.regionCode || row.countryCode}
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="flex items-baseline justify-between gap-2">
+            <span className="truncate text-sm font-semibold text-white">{nm ?? (row.regionCode || detail.name)}</span>
+            <span className={`shrink-0 text-2xl font-bold leading-none tabular-nums ${band.age}`}>{row.age}</span>
+          </span>
+          <span className={`mt-1 block truncate text-[11px] ${status.exception ? "font-semibold text-[#fdba74]" : "text-[#9aa4b2]"}`}>{status.text}</span>
+          <span className="mt-0.5 block truncate text-[10px] text-[#6b7785]">{changedWords(row)}</span>
+        </span>
+      </button>
+    </li>
   );
 }

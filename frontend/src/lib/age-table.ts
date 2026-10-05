@@ -8,9 +8,11 @@
    more states / provinces"). The page never renders the whole table: a rail
    lists countries (it scrolls inside its panel), one country shows at a
    time, and inside it only the EXCEPTIONS — places whose age differs from the
-   country's own row — are big tiles; places that follow the default are
-   small chips, capped (FOLLOWING_SHOWN) behind "Show all". So 20 countries or
-   200, 13 provinces or 37, the page stays about the same height.
+   country's own row — come first; every place is a large card with its
+   name, status and history, PLACES_PER_PAGE to a page (owner, 2026-10-05:
+   "list the items 20 items per page, make the items large, add more detail
+   on each items"). So 20 countries or 200, 13 provinces or 37, the page
+   stays about the same height.
 
    The table is still a bounded catalogue (one row per place that has its own
    age), so it is read whole and filtered here — the one kind of list the
@@ -21,8 +23,8 @@ import { REGION_NAMES } from "./region-names";
 
 export type AgeRow = { id: string; countryCode: string; regionCode: string; age: number; updatedBy: string | null; updatedAt: string };
 
-/** How many "follow the default" chips a country shows before "Show all". */
-export const FOLLOWING_SHOWN = 40;
+/** A country's places, a page at a time (the owner's 20). */
+export const PLACES_PER_PAGE = 20;
 
 /** "AL, US", or "All of US" for the whole-country row. */
 export function placeLabel(r: Pick<AgeRow, "countryCode" | "regionCode">): string {
@@ -167,4 +169,42 @@ export function searchPlaces(rows: readonly AgeRow[], text: string, limit = 8): 
     .sort((a, b) => a.s - b.s || a.title.localeCompare(b.title))
     .slice(0, limit)
     .map((h) => ({ row: h.row, country: h.country, title: h.title, detail: h.detail, exception: h.exception }));
+}
+
+export type PlaceFilter = "all" | "exceptions" | "following";
+
+/** The country's places as one list — exceptions first, then those that
+ *  follow the default — narrowed by the panel's tabs. With no whole-country
+ *  row, every place is its own and "exceptions" are all of them. */
+export function placeList(d: CountryDetail, filter: PlaceFilter): AgeRow[] {
+  if (filter === "exceptions") return d.exceptions;
+  if (filter === "following") return d.following;
+  return [...d.exceptions, ...d.following];
+}
+
+/** One page of a list, clamped to the pages that exist, with "Showing x–y of n". */
+export function placePage<T>(list: readonly T[], page: number, size = PLACES_PER_PAGE): { rows: T[]; page: number; pages: number; start: number; end: number; total: number } {
+  const total = list.length;
+  const pages = Math.max(1, Math.ceil(total / size));
+  const at = Math.min(Math.max(1, Math.floor(page) || 1), pages);
+  const start = total === 0 ? 0 : (at - 1) * size + 1;
+  const end = Math.min(total, at * size);
+  return { rows: list.slice((at - 1) * size, at * size), page: at, pages, start, end, total };
+}
+
+const dayOf = (iso: string) => new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" });
+
+/** A card's history line: who last set the age, and when. "seed" is the
+ *  built-in default table; anyone else is a BTG admin (the API's only writer). */
+export function changedWords(r: Pick<AgeRow, "updatedBy" | "updatedAt">): string {
+  if (!r.updatedBy || r.updatedBy === "seed") return `Default table · ${dayOf(r.updatedAt)}`;
+  return `BTG staff · ${dayOf(r.updatedAt)}`;
+}
+
+/** A card's status line, against its country's default. */
+export function statusWords(r: AgeRow, d: Pick<CountryDetail, "defaultRow">): { text: string; exception: boolean } {
+  const def = d.defaultRow;
+  if (!def) return { text: `Its own age — ${r.countryCode} has no whole-country age`, exception: false };
+  if (r.age === def.age) return { text: `Follows the ${r.countryCode} default`, exception: false };
+  return { text: `Exception · ${r.countryCode} default is ${def.age}`, exception: true };
 }

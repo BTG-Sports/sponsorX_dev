@@ -44,11 +44,17 @@ whole:
 - **Country rail**: every country once (most places first), its default age,
   place count and exceptions badge; its own filter and an All / Not 18
   switch; it scrolls inside its panel.
-- **Country panel**: the default (the whole-country row, clickable), its
-  **exceptions** (age ≠ default) as big banded tiles with the state's name,
-  and the places that **follow the default** as small chips — the first 40,
-  then "Show all". A country with no whole-country row shows every place as
-  a tile. 20 countries or 200, the page stays ~1,345px.
+- **Country panel**: the default (the whole-country row, clickable), then
+  every place as a **large card** — code badge, full name, the age, a status
+  line ("Exception · US default is 18" / "Follows the US default"), a history
+  line ("Default table · Sep 30, 2026" / "BTG staff · Oct 5, 2026") —
+  exceptions first, **20 per page** with the house pager above (with
+  "Showing x–y of n") and below, and All / Exceptions / Follow the default
+  tabs. (Owner, after the first scale cut's small chips and "Show all 48":
+  "list the items 20 items per page, make the items large, add more detail on
+  each items".) The bottom pager returns to the top of the list. A country
+  with no whole-country row lists every place, with no tabs. 20 countries or
+  200, the page height stays bounded.
 - **Remove** moves into the edit panel ("Remove AL, US" → confirm) — one
   place for it whether the place was a tile or a chip.
 - The form is empty at rest ("Add a place"); the save button has its own
@@ -66,7 +72,8 @@ live region says the same.
 
 - `lib/age-table.ts` (pure): `placeLabel`, `ageBand`, `countryName`,
   `regionName`, `placeName`, `countryIndex`, `countryDetail`, `searchPlaces`,
-  `FOLLOWING_SHOWN` — unit-tested; `lib/region-names.ts` (data).
+  `PLACES_PER_PAGE`, `placeList`, `placePage`, `statusWords`, `changedWords` —
+  unit-tested; `lib/region-names.ts` (data).
 - `components/rules-board.tsx` (client): the form, the search, the rail and
   the country panel in one island (anything picked fills the form). `components/signup-rules-editor.tsx`
   keeps `StaffConfirmSwitch` (restyled), the old form and remove button go.

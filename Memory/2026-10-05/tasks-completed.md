@@ -130,3 +130,9 @@ The owner asked for /admin/new-signups/rules in the same structure. Direction A,
   - Two React key warnings were found and fixed during the walks: a server element passed into a client slot needs a key, and sibling elements were sharing `key={pulse}`.
   - rimraf restored after the teardown.
 - **Tracker:** P1-ART-17 is Phase 1 row 293 (Order 32.995, Code review); ranges extended to 293; today's snapshot recomputed.
+- **P1-ART-17 follow-up (owner):** "why do you still have that show all 48, what if you did is list the items 20 items per page, make the items large, add more detail on each items?"
+  - The exceptions tiles and the following chips are now ONE list of large cards: code badge, name, age, a status line against the default, and a history line ("Default table" / "BTG staff" · date, from `updatedBy` / `updatedAt`).
+  - Exceptions come first, then All / Exceptions / Follow the default tabs.
+  - The list shows 20 per page with the house `Pagination` above (with "Showing x–y of n") and below. It is client-side, because the table is bounded. The fixed 20 is the owner's number, not the usual 12/24/60.
+  - The bottom pager scrolls back to the top of the list.
+  - New helpers `placeList`, `placePage`, `statusWords`, `changedWords`, with tests. Frontend 1164 tests.
