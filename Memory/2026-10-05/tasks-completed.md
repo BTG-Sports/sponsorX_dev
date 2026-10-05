@@ -108,3 +108,7 @@
 - **Release (2026-10-05):** PRs #155 (into main_development) and #156 (into main) were merged at 9865881.
   - **Staging is deployed and verified.** The API and web are on 9865881, and the 13 pending migrations were applied, including `utc_time_zone` and the three payment migrations. The database reports `TimeZone=UTC` for both the session and the database setting. The API is listening with no errors, and the web app answers 200.
   - **Production is not yet deployed** (it is still on c46fc85). `npm run deploy production` asks a person to type "yes"; that confirmation is the owner's to give. Once it has run, 2S8-OPS-02 moves to Done.
+- **Production deployed** (the owner ran `npm run deploy production`). The API and web are on 9865881, and all 32 pending migrations were applied, including UTC and the payment ones.
+  - The production database reports `TimeZone=UTC`.
+  - sponsorx.net answers 200 with the new security headers: `X-Frame-Options DENY`, HSTS and nosniff, with no `X-Powered-By`.
+  - **2S8-OPS-02 · Done:** every environment now runs in UTC.
