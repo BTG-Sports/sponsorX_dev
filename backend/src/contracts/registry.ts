@@ -135,7 +135,7 @@ import {
 } from "./onboarding";
 import {
   AgeRowInput, AthleteDocumentInput, GuardianAgreementInput, GuardianDetailsInput, GuardianDocumentInput, IdDocumentInput,
-  SignupRejectInput, SignupSettingsInput, SignupTokenInput,
+  SignupRejectInput, SignupSettingsInput, SignupStreamQuery, SignupTokenInput,
 } from "./signups";
 import {
   AgreementAcceptanceInput,
@@ -588,6 +588,8 @@ const PATHS: Row[] = [
   { method: "post", path: "/public/coming-of-age/{token}/documents/{documentId}/confirm", tag: "Public", summary: "Say the upload finished: control moves from the guardian to the athlete (or, within 30 days of termination, the account comes back) (2S1-BE-12).", auth: false },
   { method: "post", path: "/public/sponsor-requests/confirm-email", tag: "Public", summary: "The link from the confirmation email. Proves the contact reads that mailbox; then the automatic checks run (2S1-BE-17).", auth: false, body: SponsorEmailConfirmInput },
   { method: "get", path: "/signups", tag: "New sign-ups", summary: "BTG: every athlete and guardian the system approved or held, everyone rejected, and anyone in a place the age table doesn't know — with their reasons and flags, and the tab counts (2S1-BE-09 / -10)." },
+  { method: "get", path: "/signups/stream", tag: "New sign-ups", summary: "BTG: every kind of sign-up (organisations, athletes, guardians, sponsors) as ONE stream, newest first, SERVER-PAGED (?page ?size) and filtered in the database by `kind`, `review=1` (only what is held for BTG) and `q` (name / email). Rows: `{ kind, id, name, sub, signedUpAt, state, reasons, flags }` (P1-ART-15).", query: SignupStreamQuery },
+  { method: "get", path: "/signups/stream/summary", tag: "New sign-ups", summary: "BTG: the stream's figures per kind and overall, `{ total, held, auto }` (auto = approved automatically). Never computed from a page of rows (P1-ART-15)." },
   { method: "get", path: "/signups/athletes/{id}", tag: "New sign-ups", summary: "One athlete: details, the checks they passed (or why they are held), documents, guardian, activity, and what BTG can do. `contentTrust: { trusted, cleanStreak, needed }` — whether their drafts skip BTG's content review (P5-BE-10)." },
   { method: "get", path: "/signups/guardians/{id}", tag: "New sign-ups", summary: "One guardian: details, checks, documents, the athletes they look after, activity." },
   { method: "get", path: "/signups/athletes/{id}/documents/{documentId}", tag: "New sign-ups", summary: "A five-minute, audited link to read one of the athlete's ID documents. BTG only." },

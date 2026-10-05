@@ -61,18 +61,19 @@ export class SponsorRequestError extends Error {
   }
 }
 
-const SELECT = {
+export const INQUIRY_SELECT = {
   id: true, tenantId: true, companyName: true, firstName: true, lastName: true, email: true, phone: true, message: true, source: true,
   categoryText: true, zohoLeadId: true, state: true, decidedAt: true, decidedBy: true, decisionNote: true, sponsorId: true, createdAt: true,
   businessType: true, businessTypeOther: true, emailConfirmedAt: true, reviewReasons: true, autoApproved: true,
 } as const;
-type Row = Prisma.InquiryGetPayload<{ select: typeof SELECT }>;
+const SELECT = INQUIRY_SELECT;
+type Row = Prisma.InquiryGetPayload<{ select: typeof INQUIRY_SELECT }>;
 
 const SYSTEM = (tenantId: string): AuditActor => ({ userId: null, tenantId });
 const appUrl = () => env.APP_URL.replace(/\/+$/, "");
 const firstNameOf = (r: Pick<Row, "firstName" | "lastName">) => r.firstName?.trim() || r.lastName;
 
-function summary(r: Row) {
+export function summary(r: Row) {
   return {
     id: r.id, state: r.state as SponsorRequestState, businessName: sponsorNameFor(r),
     contactName: [r.firstName, r.lastName].filter(Boolean).join(" "), email: r.email,
