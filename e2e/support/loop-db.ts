@@ -181,6 +181,12 @@ export async function purge(owned: Owned): Promise<void> {
       `select id from "CampaignOrder" where "campaignId" = any($1) or "athleteId" = any($2)`,
       [campaigns, athletes],
     );
+    /* P4-BE-12 — a campaign staffing itself sends formal offers; an accepted
+       one names its order, so offers go before orders. */
+    const offers = await ids(
+      `select id from "Offer" where "campaignId" = any($1) or "athleteId" = any($2)`,
+      [campaigns, athletes],
+    );
     const acceptances = await ids(
       `select "acceptanceId" as id from "CampaignOrder" where id = any($1) and "acceptanceId" is not null
        union select id from "AgreementAcceptance" where "athleteId" = any($2)`,
@@ -207,6 +213,10 @@ export async function purge(owned: Owned): Promise<void> {
     await c.query(`delete from "CreativeAsset" where "deliverableId" = any($1)`, [deliverables]);
     await c.query(`delete from "Deliverable" where id = any($1)`, [deliverables]);
     await c.query(`delete from "Earning" where id = any($1)`, [earnings]);
+    await c.query(`delete from "OfferChangeRequest" where "offerId" = any($1)`, [offers]);
+    /* An accepted offer's exclusivity is a restriction on the athlete (2S2-BE-02). */
+    await c.query(`delete from "BrandRestriction" where "athleteId" = any($1) or "sourceOfferId" = any($2)`, [athletes, offers]);
+    await c.query(`delete from "Offer" where id = any($1)`, [offers]);
     await c.query(`delete from "CampaignOrder" where id = any($1)`, [orders]);
     await c.query(`delete from "AgreementAcceptance" where id = any($1)`, [acceptances]);
     await c.query(`delete from "CampaignInvite" where id = any($1)`, [invites]);
@@ -221,7 +231,8 @@ export async function purge(owned: Owned): Promise<void> {
       [campaigns, athletes],
     );
     await c.query(`delete from "Reward" where "campaignId" = any($1)`, [campaigns]);
-    await c.query(`delete from "SyncTask" where "campaignId" = any($1)`, [campaigns]);
+    await c.query(`delete from "SyncTask" where "campaignId" = any($1) or "briefId" = any($2)`, [campaigns, briefs]);
+    await c.query(`delete from "CampaignStaffingSkip" where "campaignId" = any($1) or "athleteId" = any($2)`, [campaigns, athletes]);
     await c.query(`delete from "Campaign" where id = any($1)`, [campaigns]);
     await c.query(`delete from "CampaignBrief" where id = any($1)`, [briefs]);
     await c.query(`update "User" set "sponsorId" = null where "sponsorId" = any($1)`, [sponsors]);
@@ -241,7 +252,7 @@ export async function purge(owned: Owned): Promise<void> {
 
     const everything = [
       ...athletes, ...sponsors, ...briefs, ...campaigns, ...orders, ...deliverables,
-      ...invites, ...earnings, ...guardians, ...links,
+      ...invites, ...earnings, ...guardians, ...links, ...offers,
     ];
     await c.query(`delete from "AuditLog" where "entityId" = any($1)`, [everything]);
     /* Queued side effects (notification emails, Zoho syncs) that name these

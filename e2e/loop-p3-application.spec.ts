@@ -16,10 +16,12 @@ import { auditActions, clearRateLimit, ensureBase, purge, q, TENANT } from "./su
  *
  * ONE STEP HAS NO SCREEN YET and goes through the API with the reviewer's own
  * session token — nothing elevated, the matrix decides exactly as for a click:
- * the guardian (`POST /athletes/:id/guardian`, `POST /guardians/:id/verify`).
- * /join collects the guardian's details but the intake contract does not
- * carry them (a recorded gap on P3-BE-14), and there is no BTG capture UI.
- * The desk is re-read after each, so the screen is still what is asserted.
+ * verifying the guardian (`POST /guardians/:id/verify`). Since 2S1-BE-10 the
+ * guardian /join collects travels with the intake and is linked at once,
+ * unverified. The desk is re-read after the verify, so the screen is still
+ * what is asserted. Neither applicant here confirms their email or uploads
+ * an ID, so the automatic approval (2S1-BE-09/-10) never fires: BTG's manual
+ * review, which it left untouched, is what these walk.
  * (Activation had no screen either until this task added "Activate athlete"
  * to the desk — the §39 loop could not otherwise be walked in the UI.)
  *
@@ -218,10 +220,20 @@ test("a minor cannot go ACTIVE until a guardian is linked and verified", async (
   const a = { first: "Chidi", last: `Minor${run}`, dob: isoDate(16), email: MINOR_EMAIL, guardian: true };
   const name = `${a.first} ${a.last}`;
 
-  // 1. Apply — the DOB opens the guardian branch, and the receipt says so.
+  // 1. Apply — the DOB opens the guardian branch. Since 2S1-BE-10 the
+  //    guardian the wizard collects travels with the intake: linked at once,
+  //    emailed their own set-up page, and NOT verified. The receipt is the
+  //    live checklist, with the guardian's own steps still open.
   const id = await apply(page, a);
-  await expect(page.getByText("Waiting on your guardian")).toBeVisible();
-  expect(await athlete(id)).toMatchObject({ state: "SUBMITTED", guardianId: null });
+  await expect(page.getByText(`Guardian named: Parent ${a.last}`)).toBeVisible();
+  await expect(page.getByText("The guardian agreement")).toBeVisible();
+  const submitted = await athlete(id);
+  expect(submitted).toMatchObject({ state: "SUBMITTED" });
+  expect(submitted.guardianId, "the wizard's guardian is linked with the application").not.toBeNull();
+  const guardianId = submitted.guardianId as string;
+  const guardian = async () =>
+    (await q<{ email: string; verifiedAt: Date | null }>(`select email, "verifiedAt" from "Guardian" where id = $1`, [guardianId]))[0];
+  expect(await guardian()).toMatchObject({ email: emailFor("p3.guardian"), verifiedAt: null });
 
   // 2. Review — the desk flags the minor before and inside the drawer.
   const desk = await pageAs(browser, testInfo, ADMIN);
@@ -229,37 +241,26 @@ test("a minor cannot go ACTIVE until a guardian is linked and verified", async (
   const row = desk.getByRole("button", { name: new RegExp(name) }).first();
   await expect(row.getByText("Minor", { exact: true })).toBeVisible();
   let drawer = await openOnDesk(desk, name, "review");
-  await expect(drawer.getByText(/Minor with no guardian linked/)).toBeVisible();
+  await expect(drawer.getByText(/Guardian linked but not verified/)).toBeVisible();
   await drawer.getByRole("button", { name: "Start review" }).click();
   await expect(drawer.getByText(/Minor without a verified guardian — approving is allowed/)).toBeVisible();
   await drawer.getByRole("button", { name: "Approve", exact: true }).click();
   await expect(drawer.getByText(`${name} approved`)).toBeVisible();
   await expect.poll(async () => (await athlete(id)).state).toBe("APPROVED");
 
-  // 3. Activation is refused — §37's gate. The desk says why and offers no
-  //    live button; the API refuses the same move for anyone who asks.
+  // 3. Activation is refused — §37's gate. Linked is not enough: the desk
+  //    says why and offers no live button; the API refuses the same move for
+  //    anyone who asks.
   const activate = drawer.getByRole("button", { name: "Activate athlete" });
   await expect(activate).toBeDisabled();
-  await expect(drawer.getByText(/no guardian is linked yet/)).toBeVisible();
+  await expect(drawer.getByText(/guardian is linked but not verified yet/)).toBeVisible();
   const refused = await apiAs<{ error?: { message?: string } }>(desk, "POST", `/applications/${id}/activate`);
   expect(refused.status).toBe(409);
   expect(refused.body.error?.message).toMatch(/guardian/i);
   expect((await athlete(id)).state).toBe("APPROVED");
 
-  // 4. BTG links the guardian (API — no capture screen yet). Linked is not enough.
-  const linked = await apiAs<{ guardianId: string }>(desk, "POST", `/athletes/${id}/guardian`, {
-    legalName: `Parent ${a.last}`,
-    email: emailFor("p3.guardian"),
-    relationship: "PARENT",
-  });
-  expect(linked.status, JSON.stringify(linked.body)).toBe(201);
-  const guardianId = linked.body.guardianId;
-  drawer = await openOnDesk(desk, name);
-  await expect(drawer.getByText(/Guardian linked but not verified/)).toBeVisible();
-  await expect(drawer.getByText(/guardian is linked but not verified yet/)).toBeVisible();
-  await expect(drawer.getByRole("button", { name: "Activate athlete" })).toBeDisabled();
-
-  // 5. BTG verifies the guardian (API) — now the desk says go, and activating lands.
+  // 4. BTG verifies the guardian (API — no screen for it) — now the desk says
+  //    go, and activating lands.
   const verified = await apiAs<{ verifiedAt: string }>(desk, "POST", `/guardians/${guardianId}/verify`);
   expect(verified.status, JSON.stringify(verified.body)).toBe(200);
   drawer = await openOnDesk(desk, name);

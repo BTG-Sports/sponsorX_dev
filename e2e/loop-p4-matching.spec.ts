@@ -1,35 +1,40 @@
 import { expect, test, type Page } from "@playwright/test";
 
 import { apiAs, desktopOnly, hasLoopStack, LOOP_SKIP_REASON, pageAs, releaseUser } from "./support/auth";
-import { ensureBase, pool, purge, q, seedAthlete, seedSponsor } from "./support/loop-db";
-import { expireInvitations } from "../backend/worker/jobs/expire-invitations.mts";
+import { ensureBase, purge, q, seedAthlete, seedSponsor, TENANT } from "./support/loop-db";
+import { runWorker } from "./support/worker";
 
 /**
- * P4-QA-01 — E2E: brief → matching → invitation → response.
+ * P4-QA-01 — E2E: brief → matching → offer → response.
  *
  * "The full segment runs green, including decline and expiry paths."
  *
- * Real stack, real roles. A SPONSOR_ADMIN files a brief from the live
- * Marketplace; BTG qualifies and approves it; a BTG_ADMIN shortlists three
- * athletes in the Matching Studio and sends; then each athlete answers in
- * their own inbox — one accepts, one declines, and one lets it lapse. The
- * Studio's roster reads all three outcomes back.
+ * Real stack, real roles — and, since the programme owner's Phase 2 decision
+ * (2026-10-03, CLAUDE.md), no person in the middle when every check passes:
+ *
+ *   - P4-BE-11: a SPONSOR_ADMIN files a ready brief from the live
+ *     Marketplace, and it is approved as the system on the spot — DRAFT →
+ *     QUALIFIED → APPROVED → CAMPAIGN_CREATED.
+ *   - P4-BE-12: the campaign staffs itself. Offers go to the ranked
+ *     shortlist, one per package line, up to the package's maximum, each
+ *     with a three-day window.
+ *
+ * Then each athlete answers in their own portal — one accepts (a Campaign
+ * Order is created), one declines (the system looks for a replacement in
+ * the same transaction, finds nobody left, and hands the campaign to BTG
+ * with the reason), and one lets the window lapse (the offer can no longer
+ * be answered, and the worker's staffing sweep — run here with the worker's
+ * own code — offers nobody twice). BTG's campaign page reads it all back.
  *
  * DRIVEN BELOW THE UI, and why:
- *   - Qualify / approve the brief — `POST /briefs/:id/transition` with the
- *     BTG admin's own session. No screen calls it yet (the Studio's empty
- *     state only mentions qualifying).
- *   - Expiry — the sweep is the worker's hourly timer, not an endpoint, and
- *     the harness runs no worker. The spec backdates the one invite's
- *     `expiresAt` (standing in for seven days passing) and then runs the
- *     worker's own `expireInvitations()` against the same database, so the
- *     code that expires invitations in production is the code under test.
- *     It sweeps every overdue open invite, as the hourly timer does.
+ *   - Expiry — the three-day window is time passing, not an event. The spec
+ *     backdates the one offer's `expiresAt` and runs the worker's own
+ *     `sweepAutoStaffing` against the same database, as its ten-minute timer
+ *     does.
  *
- * Seeds: one sponsor and three ACTIVE adult athletes with an SX-01 rate
- * (the Test Drive package's one line), all `e2e_p4_*`, purged before and
- * after. The roster also lists whatever else in the tenant matches the
- * brief; the spec only ever acts on its own three.
+ * Seeds: one sponsor and three ACTIVE adult athletes with an SX-01 rate (the
+ * Test Drive package's one line; it needs exactly three athletes), all
+ * `e2e_p4_*`, purged before and after.
  */
 test.skip(!hasLoopStack, LOOP_SKIP_REASON);
 
@@ -56,7 +61,7 @@ test.beforeAll(async ({}, testInfo) => {
   await seedSponsor(SPONSOR, SPONSOR_NAME);
   for (const a of Object.values(ATHLETES)) {
     /* $30 for a Story Drop — well inside the 1.4× margin against the
-       catalogue's sell floor, so the Studio needs no margin acknowledgement. */
+       catalogue's sell floor, so the offers pass the margin check. */
     await seedAthlete({ ...a, rates: { "SX-01": 3000 } });
   }
 });
@@ -64,25 +69,33 @@ test.afterAll(async ({}, testInfo) => {
   if (desktopOnly(testInfo)) await clean();
 });
 
-async function invites() {
-  return q<{ athleteId: string; state: string; offered: number; jobId: string }>(
-    `select i."athleteId", i.state, i.offered, i."jobId" from "CampaignInvite" i
-       join "Campaign" c on c.id = i."campaignId" where c."sponsorId" = $1`,
+type OfferRow = { id: string; athleteId: string; state: string; jobId: string; compensation: number; expiresAt: Date; sentAt: Date | null; orderId: string | null };
+async function offers(): Promise<OfferRow[]> {
+  return q<OfferRow>(
+    `select o.id, o."athleteId", o.state, o."jobId", o.compensation, o."expiresAt", o."sentAt", o."orderId"
+       from "Offer" o join "Campaign" c on c.id = o."campaignId" where c."sponsorId" = $1`,
     [SPONSOR],
   );
 }
-const stateOf = async (athleteId: string) => (await invites()).find((i) => i.athleteId === athleteId)?.state;
+const offerOf = async (athleteId: string) => (await offers()).find((o) => o.athleteId === athleteId);
 
-async function inbox(page: Page) {
-  await page.goto("/athlete/invitations");
-  await expect(page.getByRole("heading", { level: 1, name: "Campaign invitations" })).toBeVisible();
+/** The athlete's own offer page — the full terms, and their answer. */
+async function openOffer(page: Page, offerId: string) {
+  await page.goto("/athlete/offers");
+  await expect(page.getByRole("heading", { level: 1, name: "Offers" })).toBeVisible();
+  await page.locator(`a[href="/athlete/offers/${offerId}"]`).click();
+  await expect(page.getByRole("heading", { level: 1, name: new RegExp(SPONSOR_NAME) })).toBeVisible();
 }
 
-test("a sponsor brief is matched, invited, and answered — accept, decline and expiry", async ({ browser }, testInfo) => {
+test("a sponsor brief is approved, staffs itself, and is answered — accept, decline and expiry", async ({ browser }, testInfo) => {
   test.setTimeout(240_000);
-  const objective = `E2E P4 spring launch ${Date.now().toString(36)}`;
+  const run = Date.now().toString(36);
+  /* Ready by P4-BE-07's checklist: eight words or more, and the drawer's
+     default dates (two weeks out, four weeks long). */
+  const objective = `E2E P4 spring launch ${run}: three soccer players post one story each`;
 
-  // 1. BRIEF — the sponsor requests one from the live Marketplace.
+  // 1. BRIEF — the sponsor requests one from the live Marketplace, and every
+  //    check passes, so it is approved there and then.
   const sponsor = await pageAs(browser, testInfo, { key: "p4.sponsor", roles: ["SPONSOR_ADMIN"], sponsorId: SPONSOR });
   await sponsor.goto("/sponsor/marketplace");
   await expect(sponsor.getByRole("heading", { name: "Packages" })).toBeVisible();
@@ -98,99 +111,103 @@ test("a sponsor brief is matched, invited, and answered — accept, decline and 
   await drawer.getByRole("button", { name: "Target geography" }).click();
   await sponsor.getByRole("option", { name: "Silver Spring, MD" }).click();
   await drawer.getByRole("button", { name: "Submit brief to BTG" }).click();
-  await expect(drawer.getByText("Brief received")).toBeVisible({ timeout: 20_000 });
+  await expect(drawer.getByText("Approved — your campaign is being staffed")).toBeVisible({ timeout: 20_000 });
 
-  const [brief] = await q<{ id: string; state: string; sports: string[]; stateCodes: string[]; packageId: string | null; budget: number }>(
-    `select id, state, sports, "stateCodes", "packageId", budget from "CampaignBrief" where "sponsorId" = $1 and objective = $2`,
-    [SPONSOR, objective],
+  const [brief] = await q<{
+    id: string; state: string; sports: string[]; stateCodes: string[]; packageId: string | null; budget: number;
+    autoApproved: boolean; heldReasons: string[];
+  }>(
+    `select id, state, sports, "stateCodes", "packageId", budget, "autoApproved", "heldReasons"
+       from "CampaignBrief" where "sponsorId" = $1 and objective like $2`,
+    [SPONSOR, `${objective}%`],
   );
-  expect(brief).toMatchObject({ state: "DRAFT", sports: ["Soccer"], stateCodes: ["MD"], budget: 75000 });
+  expect(brief, `held for: ${JSON.stringify(brief?.heldReasons)}`).toMatchObject({
+    state: "CAMPAIGN_CREATED", autoApproved: true, sports: ["Soccer"], stateCodes: ["MD"], budget: 75000,
+  });
   expect(brief.packageId).not.toBeNull();
+  const [briefApproval] = await q<{ n: number }>(
+    `select count(*)::int n from "AuditLog" where "entityId" = $1 and "actorId" is null and after->>'state' = 'APPROVED'`,
+    [brief.id],
+  );
+  expect(briefApproval.n, "approved as the system, audited").toBe(1);
 
-  // 2. QUALIFY + APPROVE — BTG, through the API (no screen yet).
-  const desk = await pageAs(browser, testInfo, ADMIN);
-  for (const to of ["QUALIFIED", "APPROVED"]) {
-    const moved = await apiAs<{ state: string }>(desk, "POST", `/briefs/${brief.id}/transition`, { to });
-    expect(moved.status, `${to}: ${JSON.stringify(moved.body)}`).toBe(200);
+  // 2. STAFFING — the campaign exists, staffs itself, and offers are out to
+  //    the three, ranked, one per package line, three days to answer.
+  const [campaign] = await q<{ id: string; name: string; state: string; autoStaffing: boolean }>(
+    `select id, name, state, "autoStaffing" from "Campaign" where "briefId" = $1`,
+    [brief.id],
+  );
+  expect(campaign).toMatchObject({ state: "STAFFING", autoStaffing: true });
+  await expect.poll(async () => (await offers()).length).toBe(3);
+  const sent = await offers();
+  expect(sent.map((o) => o.athleteId).sort()).toEqual([...ATHLETE_IDS].sort());
+  for (const o of sent) {
+    expect(o).toMatchObject({ state: "SENT", jobId: "SX-01", orderId: null });
+    const days = (o.expiresAt.getTime() - (o.sentAt as Date).getTime()) / 864e5;
+    expect(days, "the automatic offer window").toBeCloseTo(3, 1);
   }
+  const accepted = sent.find((o) => o.athleteId === ATHLETES.accept.id)!;
+  const declined = sent.find((o) => o.athleteId === ATHLETES.decline.id)!;
+  const lapsed = sent.find((o) => o.athleteId === ATHLETES.lapse.id)!;
 
-  // 3. MATCH + INVITE — the Matching Studio on the real brief.
-  await desk.goto(`/admin/campaigns/match?brief=${brief.id}`);
-  for (const a of Object.values(ATHLETES)) {
-    await desk.getByRole("checkbox", { name: `Add ${a.name} to the shortlist` }).check();
-    await expect(desk.getByRole("checkbox", { name: `Remove ${a.name} from the shortlist` })).toBeChecked();
-  }
-  await desk.getByRole("button", { name: "Review 3 and send invitations" }).click();
-  await expect(desk.getByRole("heading", { name: "Review & send invitations" })).toBeVisible();
-  await desk.getByRole("button", { name: "Send 3 invitations" }).click();
-  await expect(desk.getByText("3 of 3 athletes invited")).toBeVisible({ timeout: 30_000 });
-
-  const sent = await invites();
-  expect(sent).toHaveLength(3);
-  for (const i of sent) expect(i).toMatchObject({ state: "INVITED", jobId: "SX-01", offered: 3000 });
-  const [{ state: briefState }] = await q<{ state: string }>(`select state from "CampaignBrief" where id = $1`, [brief.id]);
-  expect(briefState, "the first send turns the approved brief into its campaign").toBe("CAMPAIGN_CREATED");
-
-  // 4a. ACCEPT — open (INVITED → VIEWED), then the armed two-step accept.
+  // 3a. ACCEPT — the athlete reads the terms and the agreement, and signs.
   const accepter = await pageAs(browser, testInfo, { key: "p4.accept", roles: ["ATHLETE"], athleteId: ATHLETES.accept.id });
-  await inbox(accepter);
-  await expect(accepter.getByText("New invitation").first()).toBeVisible();
-  await expect(accepter.getByText(SPONSOR_NAME).first()).toBeVisible();
-  await expect(accepter.getByRole("button", { name: "Accept", exact: true }), "§21: never INVITED → ACCEPTED").toHaveCount(0);
-  await accepter.getByRole("button", { name: "Open offer" }).click();
-  await expect.poll(() => stateOf(ATHLETES.accept.id)).toBe("VIEWED");
-  await accepter.getByRole("button", { name: "Accept", exact: true }).click();
-  await accepter.getByRole("button", { name: "Confirm — accept" }).click();
-  await expect(accepter.getByText("BTG is drafting your Campaign Order.")).toBeVisible();
-  await expect.poll(() => stateOf(ATHLETES.accept.id)).toBe("ACCEPTED");
+  await openOffer(accepter, accepted.id);
+  const accept = accepter.getByRole("button", { name: "Accept offer" });
+  await expect(accept, "not before the agreement is read").toBeDisabled();
+  await accepter.getByText(/I have read the agreement \(version \d+\)/).click();
+  await accept.click();
+  await expect(accepter.getByText("Accepted. The deliverables are now scheduled on your Campaign Order.")).toBeVisible({ timeout: 20_000 });
+  await expect.poll(async () => (await offerOf(ATHLETES.accept.id))?.state).toBe("ACCEPTED");
+  const [order] = await q<{ state: string; compensation: number; jobId: string }>(
+    `select o.state, o.compensation, o."jobId" from "CampaignOrder" o join "Offer" f on f."orderId" = o.id where f.id = $1`,
+    [accepted.id],
+  );
+  expect(order, "the accepted offer became a signed Campaign Order").toEqual({ state: "ACCEPTED", compensation: accepted.compensation, jobId: "SX-01" });
 
-  // 4b. DECLINE — after reading it.
+  // 3b. DECLINE — after reading it. The system looks for the next athlete
+  //     in the same transaction; with nobody left, the package's minimum of
+  //     three can no longer be reached, so staffing stops and BTG takes over.
   const decliner = await pageAs(browser, testInfo, { key: "p4.decline", roles: ["ATHLETE"], athleteId: ATHLETES.decline.id });
-  await inbox(decliner);
-  await decliner.getByRole("button", { name: "Open offer" }).click();
-  await expect.poll(() => stateOf(ATHLETES.decline.id)).toBe("VIEWED");
+  await openOffer(decliner, declined.id);
   await decliner.getByRole("button", { name: "Decline", exact: true }).click();
-  await expect.poll(() => stateOf(ATHLETES.decline.id)).toBe("DECLINED");
-  await inbox(decliner);
-  await expect(decliner.getByText("Declined", { exact: true }).first()).toBeVisible();
-  await expect(decliner.getByRole("button", { name: "Open offer" })).toHaveCount(0);
+  await decliner.getByRole("button", { name: "Yes, decline" }).click();
+  await expect(decliner.getByText("Declined. BTG has been told; no reason needed.")).toBeVisible();
+  await expect.poll(async () => (await offerOf(ATHLETES.decline.id))?.state).toBe("DECLINED");
+  await openOffer(decliner, declined.id);
+  await expect(decliner.getByRole("button", { name: "Accept offer" }), "a declined offer can't be reopened").toHaveCount(0);
+  const stopped = async () =>
+    (await q<{ staffingStopReason: string | null }>(`select "staffingStopReason" from "Campaign" where id = $1`, [campaign.id]))[0]
+      .staffingStopReason;
+  await expect.poll(stopped).toMatch(/No eligible athlete is left to offer: 1 signed and 1 waiting, below the package's minimum of 3/);
+  expect(await offers(), "nobody is offered twice").toHaveLength(3);
 
-  // 4c. EXPIRY — seven days pass unanswered; the worker's sweep expires it.
+  // 3c. EXPIRY — three days pass unanswered. The offer can't be taken any
+  //     more, and the worker's staffing sweep offers nobody in its place:
+  //     the campaign is BTG's now.
   await q(
-    `update "CampaignInvite" set "expiresAt" = now() - interval '1 minute', "sentAt" = now() - interval '7 days'
-      where "athleteId" = $1 and state = 'INVITED'`,
-    [ATHLETES.lapse.id],
+    `update "Offer" set "expiresAt" = now() - interval '1 minute', "sentAt" = now() - interval '3 days' where id = $1`,
+    [lapsed.id],
   );
-  const db = pool();
-  try {
-    const swept = await expireInvitations(db, process.env.APP_URL ?? "http://localhost:3000");
-    expect(swept.expired).toBeGreaterThanOrEqual(1);
-  } finally {
-    await db.end();
-  }
-  expect(await stateOf(ATHLETES.lapse.id)).toBe("EXPIRED");
-  const [audit] = await q<{ n: number }>(
-    `select count(*)::int n from "AuditLog" a join "CampaignInvite" i on i.id = a."entityId"
-      where i."athleteId" = $1 and a.action = 'invitation.expire'`,
-    [ATHLETES.lapse.id],
-  );
-  expect(audit.n, "the sweep audits what it expires").toBe(1);
   const lapser = await pageAs(browser, testInfo, { key: "p4.lapse", roles: ["ATHLETE"], athleteId: ATHLETES.lapse.id });
-  await inbox(lapser);
-  await expect(lapser.getByText("Expired", { exact: true }).first()).toBeVisible();
-  await expect(lapser.getByRole("button", { name: "Open offer" }), "a lapsed offer can't be answered").toHaveCount(0);
+  await openOffer(lapser, lapsed.id);
+  await expect(lapser.getByText("This offer has expired. BTG can send a new one.")).toBeVisible();
+  await expect(lapser.getByRole("button", { name: "Accept offer" }), "a lapsed offer can't be answered").toHaveCount(0);
+  const late = await apiAs<{ error?: { message?: string } }>(lapser, "POST", `/offers/${lapsed.id}/respond`, { decision: "DECLINE" });
+  expect(late.status).toBe(409);
+  expect(late.body.error?.message).toMatch(/expired/i);
+  const swept = await runWorker<{ sent: number }>("sweepAutoStaffing", { tenantIds: [TENANT] });
+  expect(swept.sent, "a stopped campaign is left to BTG").toBe(0);
+  expect(await offers()).toHaveLength(3);
+  expect((await offerOf(ATHLETES.lapse.id))?.state, "a lapse is time, not a decision").toBe("SENT");
 
-  // 5. The Studio reads every outcome back — and a lapsed or declined athlete
-  //    can be invited again, an accepted one can't.
-  await desk.goto(`/admin/campaigns/match?brief=${brief.id}`);
-  const roster = (name: string) => desk.locator("li").filter({ hasText: name });
-  await expect(roster(ATHLETES.accept.name).getByText("Accepted", { exact: true }).filter({ visible: true })).toBeVisible();
-  await expect(roster(ATHLETES.decline.name).getByText("Declined", { exact: true }).filter({ visible: true })).toBeVisible();
-  await expect(roster(ATHLETES.lapse.name).getByText("Expired", { exact: true }).filter({ visible: true })).toBeVisible();
-  await expect(roster(ATHLETES.accept.name).getByRole("checkbox"), "an accepted athlete can't be re-invited").toHaveCount(0);
-  await expect(desk.getByRole("checkbox", { name: `Add ${ATHLETES.lapse.name} to the shortlist` })).toBeEnabled();
-  await expect(desk.getByRole("checkbox", { name: `Add ${ATHLETES.decline.name} to the shortlist` })).toBeEnabled();
+  // 4. BTG's campaign page reads it back: why staffing stopped, and the
+  //    switch to take it on.
+  const desk = await pageAs(browser, testInfo, ADMIN);
+  await desk.goto(`/admin/campaigns/${campaign.id}`);
+  await expect(desk.getByText("Automatic staffing stopped — over to BTG")).toBeVisible();
+  await expect(desk.getByText(/No eligible athlete is left to offer/)).toBeVisible();
+  await expect(desk.getByText("Package needs 3 athletes")).toBeVisible();
 
   for (const p of [sponsor, desk, accepter, decliner, lapser]) await p.context().close();
 });
-
