@@ -210,7 +210,7 @@ test("a sponsor brief is approved, staffs itself, and is answered — accept, de
   const desk = await pageAs(browser, testInfo, ADMIN);
   await desk.goto(`/admin/campaigns/${campaign.id}`);
   await expect(desk.getByText("Automatic staffing stopped — over to BTG")).toBeVisible();
-  await expect(desk.getByText(/No eligible athlete is left to offer/)).toBeVisible();
+  await expect(desk.getByRole("status").getByText(/No eligible athlete is left to offer/)).toBeVisible();
   await expect(desk.getByText("Package needs 3 athletes")).toBeVisible();
 
   for (const p of [sponsor, desk, accepter, decliner, reserve]) await p.context().close();

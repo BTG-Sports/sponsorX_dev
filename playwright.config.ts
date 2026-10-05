@@ -86,7 +86,10 @@ export default defineConfig({
                 timeout: 120_000,
                 stdout: "pipe" as const,
                 stderr: "pipe" as const,
-                env: { PORT: String(API_PORT) },
+                /* APP_URL: where the API sends a browser back to — the
+                   stand-in payment provider's pages, email links. Here that
+                   is this harness's web app, not the default localhost:3000. */
+                env: { PORT: String(API_PORT), APP_URL: process.env.APP_URL ?? BASE_URL },
               }]
             : []),
           {
