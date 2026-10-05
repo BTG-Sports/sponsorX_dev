@@ -40,3 +40,41 @@ The owner asked for the admin dashboard to get the landing's wow factor. Scope i
   - Playwright walk as BTG_ADMIN and FINANCE (e2e keys p7.admin / p7.finance): dark, light, 1440 and 390, reduced motion. No console errors, no x-overflow.
   - The phone ring label wrapped after a fix.
 - **Environment gotcha:** `node_modules/rimraf` in the main checkout was EMPTY (since 2026-10-02). That broke `next build` ("Can't resolve 'rimraf'" via exceljs) and `/athlete/earnings` on dev. It was restored from `rimraf@2.7.1`, the lockfile's version. The worktree teardown emptied it again, and it was restored again. Check it after any worktree build.
+
+## HeckerCreatives — P1-ART-14 follow-ups
+
+- The board lists 5 live campaigns, down from 8.
+- A "See all N live campaigns" row closes the panel. Only roles that may open the Campaigns desk see it.
+
+## HeckerCreatives — P1-ART-15: New sign-ups as the "Intake Stream" (Code review)
+
+The owner asked for /admin/new-signups to get the same wow-factor redesign, with every list paged by the house rule (memory: pagination-pattern). The layout was picked in the visual companion: A, "Intake Stream". Spec: `docs/superpowers/specs/2026-10-05-new-signups-intake-stream-design.md`. Branch `feature/P1-ART-15-new-signups-stream`, stacked on P1-ART-14.
+
+- **Backend: `GET /signups/stream` and `/signups/stream/summary`** (`domain/signups-stream.ts`, pure merge in `signups-stream-rules.ts`).
+  - There are six sources, each a Prisma query under `whereFor` with one real sort column:
+    - athletes, by `createdAt`;
+    - verified guardians by `verifiedAt`, and rejected ones by `rejectedAt`;
+    - approved sponsors by `decidedAt`, and held ones by `createdAt`;
+    - organisations, by `submittedAt`.
+  - For page p: count everything, clamp, read p·size keys per source, merge newest first, slice, then load only that page's ids with the desks' own row builders. Those builders are now exported from `signups-desk.ts`, `sponsor-requests.ts` and `onboarding-profile.ts`. The old endpoints are unchanged.
+  - No raw SQL, so every read stays under the P8-SEC-02 static check (`tenant-scope:` notes inside each call).
+  - The filters run in the database: `kind`, `review=1` (the desks' own held rules) and `q`.
+- **Tenant isolation flagged `/signups/stream`.** It shows tenant A's admin the outside organisation's onboarding row. That row is tenant A's own, already shown on `/onboarding/signups`, so the test's allowlist now includes the stream, with that reason written beside it.
+- **Test gotcha:** test tenant AND row/user ids must be unique across test files. My first `ss_btg` / `ss_admin` / `ath_held` collided with `phase2-seller-summary.test.ts`, and `suite-isolation.static` caught it. Everything is now prefixed `sst_`.
+- **Test DB was stale (`ColumnNotFound`).** `npm run db:test` rebuilt it.
+  - Full backend suite: 161/165 files.
+  - Remaining failures, not caused by this work: `next-edition-e2e` fails the same with these changes stashed, and `sql-rules-in-migrations` hits Windows `spawnSync npx ENOENT`.
+- **Frontend:**
+  - `components/intake-stage.tsx` (hero, rows) and `intake-fx.tsx` (KindChips, ReviewToggle on `useListNav`).
+  - The house `PagerRow` / `ListSearch` / `PendingList`.
+  - `lib/new-signups-live.ts`: `streamParams` (maps legacy `?tab=`), `streamApiQuery`, `streamRowView`, `intakeHeadline`, all tested.
+  - The page moved to `(stream)/` for a dark loading screen.
+  - Sensitive edits are paged on `epage` / `esize`.
+  - `OpsGround` takes a `word` (INTAKE).
+  - `.sx-ops` now re-pins `--sx-admin` and the status colours, because the house pager's admin tone was light-theme slate on the dark stage.
+- **Restarted the dev API on :4000.** The owner's `npm start` (combined.mts) doesn't watch, so the new routes 404'd until it was restarted with the same command.
+- **Verified:**
+  - Frontend 1152 tests, eslint, `next build` (worktree).
+  - Backend stream tests 8/8, tenant-isolation, tenant-scope.static and openapi.coverage.
+  - Playwright walk as BTG_ADMIN: chips, toggle, legacy `?tab=review`, search, size; dark, light and 390; no console errors, no overflow.
+  - rimraf was emptied again by the worktree teardown and restored.

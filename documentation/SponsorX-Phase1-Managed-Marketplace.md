@@ -733,6 +733,22 @@ Raised 2026-10-05 by the programme owner: give /admin the landing's wow factor. 
 - **Done when:** the same reads and role filtering, with no new figure; fixed-dark in both themes; links to desks a role can't use are hidden; zero actions reads "All clear"; reduced motion shows the still stage; no horizontal overflow at 390px; `boardHeadline` and `ringSegments` unit-tested; build, frontend tests and lint green
 - **Reference:** §23; `docs/superpowers/specs/2026-10-05-admin-ops-stage-design.md`; `frontend/src/components/ops-stage.tsx`; `frontend/src/components/ops-fx.tsx`; `frontend/tests/gap-screens-live.test.ts`
 
+### ▶ `P1-ART-15` · New sign-ups — "Intake Stream" redesign, server-paged
+
+**Order** 32.98 · **ART** · **Where:** Code · **2d** · **Code review** · **Unblocks** 0
+
+Raised 2026-10-05 by the programme owner: redesign /admin/new-signups with the landing's wow factor, and page its lists by the house rule. The desk (`2S1-FE-07`) is redrawn on the Mission Control stage (`P1-ART-14`). It is now one server-paged stream of every kind of sign-up (organisations, athletes, guardians, sponsors), newest first. It replaces four separate sections, each of which read its whole table.
+
+- **Hero:** "N sign-ups approved themselves. / M need you." and the four kind figures, all from a summary read.
+- **Filters:** kind chips with totals, a Needs review toggle and a search. They act instantly, live in the URL, and reset the list to page 1. The old `?tab=` links still land on the same view.
+- **Rows:** held rows are marked. The house pager sits above and below (12 / 24 / 60).
+- **Sensitive profile edits:** a paged panel of its own.
+- **Backend:** `GET /signups/stream` reads six Prisma sources under `whereFor`, merged exactly for each page, with no raw SQL. `GET /signups/stream/summary` gives the figures.
+
+- **Depends on:** `2S1-FE-07` (the desk and its rules); `P1-ART-14` (the stage)
+- **Done when:** every list is server-paged (page, size, kind, Needs review and search run in the database; the figures come from a summary); a page is exact across the four tables (tested); old `?tab=` links still land; no role sees more than before; tenant isolation green; fixed-dark in both themes; no horizontal overflow at 390px; build, tests and lint green
+- **Reference:** `2S1-FE-07`; `docs/superpowers/specs/2026-10-05-new-signups-intake-stream-design.md`; `backend/src/domain/signups-stream.ts`; `backend/tests/signups-stream.test.ts`; `frontend/src/components/intake-stage.tsx`
+
 ### ▶ `P1-FE-18` · Apply the SponsorX NEXT UI requirement across the existing pages
 
 **Order** 37.02 · **FE** · **Where:** Code · **2d** · **Ready** · **Unblocks** 5
