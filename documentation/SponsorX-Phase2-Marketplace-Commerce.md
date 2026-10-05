@@ -1461,9 +1461,9 @@ The property portal's frame shows the signed-in tenant's own logo and colours, r
 
 *7 tasks · 31 person-days*
 
-### ⏸ `2S8-QA-01` · End-to-end marketplace test suite
+### ✅ `2S8-QA-01` · End-to-end marketplace test suite
 
-**Order** 58 · **QA** · **Where:** Code · **5d** · **Blocked**
+**Order** 58 · **QA** · **Where:** Code · **5d** · **Done**
 
 Onboarding through listing, purchase, fulfilment, earnings and payout, as one automated run.
 
@@ -1557,9 +1557,9 @@ Phase 1 tested BTG's own roles. Phase 2 has outside organisations, which is a di
 - **Done when:** Cross-tenant data access tests pass for sponsor, athlete/property and admin roles
 - **Reference:** Spec §12
 
-### ⏸ `2S8-SEC-02` · OWASP review and dependency scanning
+### ✅ `2S8-SEC-02` · OWASP review and dependency scanning
 
-**Order** 62 · **SEC** · **Where:** Code · **3d** · **Blocked**
+**Order** 62 · **SEC** · **Where:** Code · **3d** · **Done**
 
 External users, money movement and file uploads all raise the stakes.
 
