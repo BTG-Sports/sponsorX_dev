@@ -143,6 +143,7 @@ export async function confirmDocumentUpload(token: string, documentId: string) {
   if (!arrived.ok) throw new OnboardingError(uploadRefusal(arrived.problem, "That document"), 422);
   const size = arrived.bytes;
   return prisma.$transaction(async (tx) => {
+    /* tenant-scope: the document loaded above within this application's tenant and onboarding. */
     const confirmed = await tx.onboardingDocument.update({
       where: { id: doc.id }, data: { uploadedAt: new Date(), bytes: size }, select: APPLICANT_VIEW,
     });

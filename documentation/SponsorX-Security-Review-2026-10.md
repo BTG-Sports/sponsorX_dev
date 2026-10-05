@@ -304,7 +304,40 @@ The checks were made against the OWASP Top 10 (2021), plus the ASVS basics that 
 | **CSRF**, server actions | Pass. Next 16's Origin-vs-Host check is on, because `allowedOrigins` is not set. |
 | **CSRF**, API | Pass. The browser never calls the API: portals call it server-to-server with a Bearer token, so there is no ambient cookie. |
 | **CSRF**, public POST route handlers (`/r/*/claim`, `/r/*/redeem`, `/u/*`) | Pass. They are authorised by the token in the URL, not by a cookie. |
-| **Guard tests** | **Open (Info).** `tenant-scope.static` checks reads only. `tenant-isolation` sweeps across tenants but not within one (sponsor vs sponsor, athlete vs athlete). Recommendation: extend both. |
+| **Guard tests** | **Fixed (Info), 2S8-QA-07.** `tenant-scope.static` checked reads only, and `tenant-isolation` swept across tenants but not within one (sponsor vs sponsor, athlete vs athlete). Both are extended; see [Guard tests, extended](#guard-tests-extended-2s8-qa-07) below. |
+
+### Guard tests, extended (2S8-QA-07)
+
+**`tenant-scope.static` now checks writes too.** It covers every `update`, `updateMany`, `delete`, `deleteMany` and `upsert` on the request path, and every raw SQL statement that writes (`UPDATE` / `DELETE FROM` / `INSERT INTO`). Each must carry its tenant (`whereFor`, a `tenantId`) or a `tenant-scope:` note naming the scoped read it relies on. The note goes inside the call or in the comment directly above it. A note elsewhere in the function does not count, and neither does a JSDoc example. A self-test pins what the check flags and what it passes.
+
+The first run found 45 unscoped writes; no raw SQL write was unscoped.
+- **Fixed, 3.** The tenant is now in the write itself:
+  - the athlete state move (`athlete.ts`, `tenantId: actor.tenantId`);
+  - launch's activation of a campaign's orders (`campaign.ts`, `tenantId: campaign.tenantId`);
+  - the application's social-accounts replace (`application-intake.ts`, the intake `tenantId`).
+- **Justified, 42**, each with its own note at the call. On review, every one writes a row that the same function had just reached through a tenant- or account-scoped read: `whereFor`, a signed public token, the order being moved, or worker-side Zoho ingest resolved from its deal. None was blanket-justified: the five `followOrder` writes in `delivery.ts` each carry the note, where before one comment at the top of the function covered all of them.
+- **Not caught** by a static check: writes made inside SQL functions (`reward_reserve`, `reward_redeem`), called through `SELECT`. They are keyed by the fan's opaque token and covered by the reward tests.
+
+**`tenant-isolation` now sweeps within a tenant.**
+- Tenant A gains a second sponsor admin (`ti_a2_sponsor`) and a second athlete (`ti_a2_athlete`). As each of them, every route aimed at a tenant-A record is called with the first sponsor's or first athlete's ids, with a valid body for writes. Covered: campaign orders, marketplace orders, offers, payouts, deliverables, briefs and listings, both read and write, plus campaigns, earnings, invitations, sales, deliveries and the rest of `PARAM_FOR`.
+- Each call must be refused, and must not crash or stop at validation.
+- Every list read (`GET` without an id) must not show any of the first accounts' private ids or values. The published athlete listing is the only exception, being catalogue-visible by design.
+- A positive control has the owners read the same records with 200.
+- The existing fingerprint check then proves nothing tenant A owns changed.
+
+**Shown failing on a deliberately broken route (scratch run, not committed).** Three breaks were made together:
+1. `GET /briefs/:id` scoped by `{ tenantId }` instead of `whereFor(campaignBrief, read)`;
+2. `respondToOffer` scoped by `{ tenantId }` instead of `whereFor(offer, write)`;
+3. the `tenant-scope:` note removed from one `campaignOrder.update`.
+
+Three tests then failed:
+- the static write check, naming `campaign-order.ts:219 campaignOrder.update`;
+- the same-tenant sweep, which reported `ti_a2_sponsor` and `ti_a2_athlete` reading `ti_brief_a` (leaking "TI secret objective"), and `ti_a2_athlete` answering `ti_offer_a` with 200;
+- the fingerprint check, which caught the offer that changed.
+
+The cross-tenant sweep still passed with the brief break in place, which is the gap this closes. All three files were restored.
+
+**Same-tenant leaks found: none.** Before the break, every route aimed at a record (197 per account), run as each of the two accounts, was refused, and no list read leaked.
 
 ## Dependency scan
 
@@ -382,14 +415,14 @@ Matches are printed masked. **Result on 2026-10-05: 2,220 tracked files, no secr
 6. **Production `PAYMENT_PROVIDER`.** Set `PAYMENT_PROVIDER=none` explicitly on Railway production. The stand-in is chosen whenever `RAILWAY_ENVIRONMENT_NAME` is not exactly `production`, so a renamed environment would quietly switch it on. The boot guard only catches an *explicit* `standin`.
 7. **Staging `STANDIN_PROVIDER_SECRET`.** Staging is now safe without it (the secret is derived), but setting it explicitly makes rotation independent of `INTAKE_TOKEN_SECRET`. It is in the rotation runbook.
 
-## Follow-ups not done here (each is Open above)
+## Follow-ups not done here (each was Open above; struck through when closed)
 
 - ~~Pin type and length on every private presign, and check type on confirm (§A04).~~ Fixed, 2S8-SEC-03.
 - ~~Make the invoice ingest refuse an older state (§A04).~~ Fixed, 2S8-SEC-04.
 - ~~Close the rate-card existence oracle (§A01).~~ Fixed, 2S8-SEC-05.
 - ~~Constrain Zoho notification `module` and `ids` (§A10).~~ Fixed, 2S8-SEC-05.
 - ~~Turn off JavaScript in the PDF renderer (§A10).~~ Fixed, 2S8-SEC-05.
-- Extend the guard tests to writes and same-tenant cases (§Other checks).
+- ~~Extend the guard tests to writes and same-tenant cases (§Other checks).~~ Fixed, 2S8-QA-07.
 - ~~Add `import "server-only"` to `frontend/src/server/{api,edge,payouts}.ts`.~~ Fixed, 2S8-SEC-05.
   - The three files import it. It resolves to the copy in the lockfile, which `@clerk/nextjs` depends on; Next itself handles the import and needs no direct dependency.
   - Five vitest files that load those modules directly now `vi.mock("server-only")`, as they already mock `next/server` and `next/headers`. No config was changed.

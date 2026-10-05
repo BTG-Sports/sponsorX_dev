@@ -319,6 +319,7 @@ export async function submitProfileChange(actor: Actor, athleteId: string, input
       for (const k of Object.keys(applied)) {
         before[k] = k === "birthDate" ? isoDay(athlete.birthDate) : (athlete as Record<string, unknown>)[k] ?? null;
       }
+      /* tenant-scope: the row loaded above through whereFor(athlete, write). */
       await tx.athlete.update({ where: { id: athlete.id }, data: applied as Prisma.AthleteUpdateInput, select: { id: true } });
       /* 2S1-BE-12 — a move is a new age of majority; a new date of birth may cross it. */
       if (moved) await refreshMajorityIn(tx, athlete.tenantId, athlete.id);
@@ -349,6 +350,7 @@ export async function submitProfileChange(actor: Actor, athleteId: string, input
            guardian is, or is about to be, verified through another child.
            Verifying a guardian through one child's page never clears another
            child's wait (athlete-signup.ts verifyLateGuardianIn). */
+        /* tenant-scope: the row loaded above through whereFor(athlete, write). */
         await tx.athlete.update({ where: { id: athlete.id }, data: { guardianPendingSince: now }, select: { id: true } });
         await audit(tx, actor, "guardian.link", "Athlete", athlete.id, {
           before: { guardianId: null }, after: { guardianId: guardian.id, via: "profileEdit", pendingProofForThisAthlete: true },
@@ -436,6 +438,7 @@ export async function confirmLegalNameDocument(actor: Actor, id: string) {
     if (!c || c.state !== "PENDING") throw new ChangeNotPendingError(c?.state ?? "gone");
     const legalName = String((c.fields as { legalName?: string }).legalName ?? "");
     const now = new Date();
+    /* tenant-scope: the change's own athlete; the change was loaded above through whereFor(athleteProfileChange, write). */
     await tx.athlete.update({ where: { id: c.athleteId }, data: { legalName }, select: { id: true } });
     const notes = ["Matching ID uploaded; the new legal name is live. BTG can see the ID and reject the change if it doesn't match."];
     await tx.athleteProfileChange.update({
@@ -476,6 +479,7 @@ export async function withdrawProfileChange(actor: Actor, id: string) {
     });
     if (!change) throw new ForbiddenError("athleteProfileChange", "write");
     if (change.state !== "PENDING") throw new ChangeNotPendingError(change.state);
+    /* tenant-scope: the row loaded above through whereFor(athleteProfileChange, write). */
     const out = await tx.athleteProfileChange.update({
       where: { id },
       data: { state: "WITHDRAWN", reviewedAt: new Date() },

@@ -100,6 +100,7 @@ export async function ingestOrderInvoice(
     issuedAt: payload.issuedAt ? new Date(payload.issuedAt) : null, dueAt: payload.dueAt ? new Date(payload.dueAt) : null,
     paidAt: payload.paidAt ? new Date(payload.paidAt) : null, lastSyncHash: hash, syncedAt: now,
   };
+  /* tenant-scope: worker-side ingest; the invoice of the order resolved from its Zoho deal, and `data` carries that order's tenantId. */
   const row = await tx.marketplaceOrderInvoice.upsert({
     where: { zohoInvoiceId: payload.invoiceId },
     create: { zohoInvoiceId: payload.invoiceId, ...data },

@@ -24,6 +24,13 @@ import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
    them to succeed, so a sweep that "passes" because the ids are wrong
    cannot pass.
 
+   2S8-QA-07 — and WITHIN tenant A: a second sponsor admin and a second
+   athlete, in the same tenant, are swept the same way against the first
+   sponsor's and first athlete's records (orders, marketplace orders,
+   offers, payouts, deliverables, briefs, listings and the rest). A scope
+   that checked only the tenant passes the cross-tenant sweep and fails
+   this one. Its own positive control has the records' owners read them.
+
    The public routes (/public/*, the Zoho webhooks, /openapi.json) are
    excluded by design: they carry no tenant-bound actor, and their access is
    a bearer token or a signature — tested in their own suites.
@@ -115,6 +122,18 @@ const E_MANAGER = "ti_e_manager"; // signs in as ti_e_manager@tenant-test.invali
 const A_ACTORS = [
   { id: "ti_a_sponsor", roles: ["SPONSOR_ADMIN"], sponsorId: "ti_sponsor_a" },
   { id: "ti_a_athlete", roles: ["ATHLETE"], athleteId: "ti_athlete_a" },
+] as const;
+
+/**
+ * 2S8-QA-07 — the SAME tenant's other accounts: a second sponsor and a second
+ * athlete in tenant A, each with their own login. Tenant isolation says
+ * nothing about them; account isolation does. They must reach none of the
+ * first sponsor's or the first athlete's records.
+ */
+const A2 = { sponsor: "ti_sponsor_a2", athlete: "ti_athlete_a2" } as const;
+const A2_ACTORS = [
+  { id: "ti_a2_sponsor", roles: ["SPONSOR_ADMIN"], sponsorId: A2.sponsor },
+  { id: "ti_a2_athlete", roles: ["ATHLETE"], athleteId: A2.athlete },
 ] as const;
 
 /** Tenant B's users: every kind of actor who could try to reach across. */
@@ -546,6 +565,18 @@ describe.skipIf(!hasDatabase)("P8-SEC-02 · tenant B cannot reach tenant A throu
         sponsorId: "sponsorId" in u ? u.sponsorId : null, athleteId: "athleteId" in u ? u.athleteId : null,
       } });
     }
+    /* 2S8-QA-07 — tenant A's second sponsor and second athlete, and their logins. */
+    await prisma.sponsor.create({ data: { id: A2.sponsor, tenantId: t, name: "TI Other Sponsor" } });
+    await prisma.athlete.create({ data: {
+      id: A2.athlete, tenantId: t, slug: "ti-athlete-a2", legalName: "TI Other Athlete", displayName: "TIOA", email: "ath2@a.invalid",
+      sport: "Soccer", stateCode: "MD", ageBand: "18_PLUS", state: "ACTIVE",
+    } });
+    for (const u of A2_ACTORS) {
+      await prisma.user.create({ data: {
+        id: u.id, tenantId: t, clerkId: u.id, email: `${u.id}@a.invalid`, roles: [...u.roles],
+        sponsorId: "sponsorId" in u ? u.sponsorId : null, athleteId: "athleteId" in u ? u.athleteId : null,
+      } });
+    }
 
     /* 2S8-SEC-01 — tenant A's admin approves an outside school; approval provisions tenant E. */
     await prisma.propertyOnboarding.create({ data: {
@@ -694,6 +725,74 @@ describe.skipIf(!hasDatabase)("P8-SEC-02 · tenant B cannot reach tenant A throu
     }
     expect(failures).toEqual([]);
     expect(await fingerprint(E.tenant)).toBe(beforeE);
+  }, 120_000);
+
+  /* ── 2S8-QA-07 · the same tenant, another account ─────────────────────── */
+
+  /** The resources the same-tenant sweep must cover, by the noun in the path. */
+  const ACCOUNT_RESOURCES = ["orders", "marketplace-orders", "offers", "payouts", "deliverables", "briefs", "listings"] as const;
+
+  /**
+   * What only tenant A's FIRST sponsor or FIRST athlete may see, quoted as
+   * JSON writes it: an exact id or value, so the published athlete listing
+   * (catalogue-visible to every sponsor, by design) is not mistaken for the
+   * pending school listing whose id it starts with.
+   */
+  const ACCOUNT_PRIVATE = [
+    A.brief, A.campaign, A.order, A.deliverable, A.offer, A.changeRequest, A.payout, A.mktOrder, A.dueOrder, A.mktLine,
+    A.earning, A.invite, A.listing, A.reservation, A.cart, A.cartLine, A.refund, A.delivery, A.failedAttempt, A.invoice, A.link,
+    "TI secret objective", "TI Secret Campaign", "TI secret post", "TI Secret Billing", "TI Secret PO", "TI Secret payout note",
+    "TI Secret brief", "TI Secret change note", "TI Secret decline", "TI Secret Listing", "TI secret listing description",
+    "TI Secret Athlete", "secret@a.invalid", "ti-secret-billing@a.invalid",
+  ].map((v) => JSON.stringify(v));
+
+  it("2S8-QA-07 · positive control: tenant A's first sponsor and first athlete reach their own records", async () => {
+    const own: Array<[string, string]> = [
+      ["ti_a_sponsor", `/briefs/${A.brief}`],
+      ["ti_a_sponsor", `/marketplace-orders/${A.mktOrder}`],
+      ["ti_a_sponsor", `/deliverables/${A.deliverable}`],
+      ["ti_a_athlete", `/offers/${A.offer}`],
+      ["ti_a_athlete", `/payouts/${A.payout}`],
+      ["ti_a_athlete", `/deliverables/${A.deliverable}`],
+      ["ti_a_athlete", `/orders/${A.order}`],
+      ["ti_a_athlete", `/listings/${A.athleteListing}`],
+    ];
+    for (const [who, path] of own) {
+      const res = await fetch(`${base}/api/v1${path}`, { headers: { "x-test-clerk": who } });
+      expect(res.status, `${who} GET ${path}`).toBe(200);
+    }
+  });
+
+  it("2S8-QA-07 · same tenant: another sponsor admin and another athlete read and write none of the first's records", async () => {
+    const failures: string[] = [];
+    const swept = new Map<string, { reads: number; writes: number }>();
+    for (const actor of A2_ACTORS) {
+      for (const r of routes()) {
+        const aimed = r.path.includes("{");
+        /* Every route aimed at a tenant-A record (reads and writes), and every list read. */
+        if (!aimed && r.method !== "GET") continue;
+        const key = `${r.method} ${r.path}`;
+        const { status, text } = await hit(r.method, r.path, actor.id);
+        if (aimed && status < 400) failures.push(`${actor.id} ${key} → ${status}: ${text.slice(0, 160)}`);
+        if (aimed && status === 400) failures.push(`${actor.id} ${key} → 400 (stopped at validation; needs a valid BODY): ${text.slice(0, 200)}`);
+        if (status >= 500) failures.push(`${actor.id} ${key} → ${status} (crashed, not refused)`);
+        const leaked = ACCOUNT_PRIVATE.filter((v) => text.includes(v));
+        if (leaked.length) failures.push(`${actor.id} ${key} → leaked ${leaked.join(", ")}`);
+        const noun = /^\/([a-z-]+)\/\{/.exec(r.path)?.[1];
+        if (aimed && noun) {
+          const n = swept.get(noun) ?? { reads: 0, writes: 0 };
+          if (r.method === "GET") n.reads++;
+          else n.writes++;
+          swept.set(noun, n);
+        }
+      }
+    }
+    expect(failures).toEqual([]);
+    /* The sweep really covered each main resource, both ways. */
+    for (const noun of ACCOUNT_RESOURCES) {
+      expect(swept.get(noun)?.reads, `${noun} reads`).toBeGreaterThan(0);
+      expect(swept.get(noun)?.writes, `${noun} writes`).toBeGreaterThan(0);
+    }
   }, 120_000);
 
   it("and nothing tenant A owns changed, in any table", async () => {

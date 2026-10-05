@@ -142,6 +142,7 @@ export async function ingestZohoInvoice(
     syncedAt: new Date(),
   };
 
+  /* tenant-scope: worker-side ingest; the invoice of the campaign resolved from its Zoho deal above, and `data` carries that campaign's tenantId. */
   const row = await tx.campaignInvoice.upsert({
     where: { zohoInvoiceId: payload.invoiceId },
     create: { zohoInvoiceId: payload.invoiceId, ...data },

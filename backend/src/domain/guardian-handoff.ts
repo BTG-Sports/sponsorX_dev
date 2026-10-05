@@ -636,6 +636,7 @@ async function handOff(tx: Tx, actor: Actor, r: Row) {
       select: { id: true },
     })).id;
   if (existing && !existing.verifiedAt) {
+    /* tenant-scope: the guardian found above by email within this request's own tenant (r.tenantId). */
     await tx.guardian.update({ where: { id: existing.id }, data: { verifiedAt: at }, select: { id: true } });
   }
   /* The evidence 2S1-BE-10 records for a guardian approved by the system. */

@@ -241,6 +241,7 @@ export async function patchApplication(
        shared, and §11 gives no rule for changing one — renaming it silently
        would break a link nobody knows they are holding. */
     if (Object.keys(data).length > 0) {
+      /* tenant-scope: the application loaded above within the public intake tenant. */
       await tx.athlete.update({ where: { id: athleteId }, data, select: { id: true } });
     }
 
@@ -248,7 +249,7 @@ export async function patchApplication(
     if (patch.stateCode !== undefined || patch.countryCode !== undefined) await refreshMajorityIn(tx, tenantId, athleteId);
 
     if (patch.socials !== undefined) {
-      await tx.athleteSocial.deleteMany({ where: { athleteId } });
+      await tx.athleteSocial.deleteMany({ where: { tenantId, athleteId } });
       await writeSocials(tx, tenantId, athleteId, patch.socials);
     }
 

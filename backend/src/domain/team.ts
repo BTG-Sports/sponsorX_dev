@@ -235,6 +235,7 @@ export async function setTeamShare(actor: Actor, athleteId: string, teamShareBps
     if (invited && raises) {
       throw new TeamError("This athlete agreed to their share when they accepted your invitation — you can lower it, but raising it needs their agreement.", 409);
     }
+    /* tenant-scope: the row loaded above through whereFor(teamMember, write). */
     const updated = await tx.athlete.update({
       where: { id: athlete.id }, data: { teamShareBps }, select: { id: true, displayName: true, teamShareBps: true },
     });

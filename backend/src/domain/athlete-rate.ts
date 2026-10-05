@@ -90,6 +90,7 @@ export async function setAthleteTier(
     });
     if (!athlete) throw new ForbiddenError("athlete", "write");
 
+    /* tenant-scope: the row loaded above through whereFor(athlete, write). */
     await tx.athlete.update({
       where: { id: athleteId },
       data: { tier: tier as never },

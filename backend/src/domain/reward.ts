@@ -340,6 +340,7 @@ export async function transitionReward(
       throw new RewardExpiredCannotGoLiveError();
     }
 
+    /* tenant-scope: the row loaded above through whereFor(reward, write). */
     const updated = await tx.reward.update({
       where: { id: rewardId },
       data: { state: to as Prisma.RewardUpdateInput["state"] },
@@ -756,6 +757,7 @@ export async function withdrawFanConsent(
 
     /* One tap withdraws BOTH: the fan unsubscribing from the voucher mail has
        not thereby agreed to keep hearing from the sponsor (2S6-BE-03). */
+    /* tenant-scope: the claim named by the signed unsubscribe token, loaded above; a public, token-authorised write with no tenant-bound actor. */
     await tx.rewardEvent.update({
       where: { id: row.id },
       data: {

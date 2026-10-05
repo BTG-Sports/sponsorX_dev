@@ -195,6 +195,7 @@ export async function verifyClaim(actor: Actor, claimId: string): Promise<{ athl
     if (claim.state !== "SUBMITTED") throw new FeaturedError(`This claim was already ${claim.state.toLowerCase()}.`);
     if (!claim.rosterMatched) throw new FeaturedError("The claimant is not on the school's roster; the school cannot verify this claim.");
 
+    /* tenant-scope: the claimed athlete; the claim was loaded above through whereFor(athleteClaim, approve), in the same tenant. */
     await tx.athlete.update({
       where: { id: claim.athleteId },
       data: { legalName: claim.claimantName, email: claim.claimantEmail, birthDate: claim.birthDate, ageBand: claim.ageBand },
@@ -204,6 +205,7 @@ export async function verifyClaim(actor: Actor, claimId: string): Promise<{ athl
        the move itself goes through the one function that changes an
        athlete's state, as a system transition — which can never activate. */
     await transitionAthleteIn(tx, { system: true, tenantId: actor.tenantId, userId: null }, claim.athleteId, "UNDER_REVIEW");
+    /* tenant-scope: the row loaded above through whereFor(athleteClaim, approve). */
     await tx.athleteClaim.update({
       where: { id: claimId }, data: { state: "VERIFIED", verifiedBy: actor.userId, verifiedAt: new Date() }, select: { id: true },
     });
@@ -225,6 +227,7 @@ export async function rejectClaim(actor: Actor, claimId: string): Promise<{ id: 
     });
     if (!claim) throw new ForbiddenError("athleteClaim", "approve");
     if (claim.state !== "SUBMITTED") throw new FeaturedError(`This claim was already ${claim.state.toLowerCase()}.`);
+    /* tenant-scope: the row loaded above through whereFor(athleteClaim, approve). */
     await tx.athleteClaim.update({ where: { id: claimId }, data: { state: "REJECTED" }, select: { id: true } });
     await audit(tx, actor, "athleteClaim.reject", "Athlete", claim.athleteId, { after: { claimId } });
     return { id: claimId, state: "REJECTED" };

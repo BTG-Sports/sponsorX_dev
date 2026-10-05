@@ -450,18 +450,22 @@ async function notifySellers(tx: Tx, orderId: string, template: "sale.approved" 
 export async function followOrder(tx: Tx, actor: AuditActor, orderId: string, to: string, now: Date) {
   /* tenant-scope (every call below): this order's own delivery rows, named by its id. */
   if (to === "PAID") {
+    /* tenant-scope: this order's own delivery rows, named by its id; followOrder runs only inside moveIn, on an order its caller loaded in its own scope. */
     const opened = await tx.orderLineDelivery.updateMany({ where: { orderId, state: "UNPAID" }, data: { state: "IN_DELIVERY", paidAt: now } });
     if (opened.count) await notifySellers(tx, orderId, "sale.paid");
   }
   if (to === "CANCELLED") {
+    /* tenant-scope: this order's own delivery rows, named by its id; followOrder runs only inside moveIn, on an order its caller loaded in its own scope. */
     await tx.orderLineDelivery.updateMany({ where: { orderId, state: { in: ["UNPAID", "IN_DELIVERY", "DELIVERED", "PROBLEM"] } }, data: { state: "CANCELLED" } });
   }
   if (to === "REFUNDED") {
+    /* tenant-scope: this order's own delivery rows, named by its id; followOrder runs only inside moveIn, on an order its caller loaded in its own scope. */
     await tx.orderLineDelivery.updateMany({ where: { orderId, state: { notIn: ["REFUNDED", "CANCELLED"] } }, data: { state: "REFUNDED" } });
   }
   if (to === "CANCELLED" || to === "REFUNDED") {
     /* 2S4-BE-11 — an issue still open on the order ends with it. (An issue
        settled or decided as part of this refund was closed first, by its caller.) */
+    /* tenant-scope: this order's own open issues, named by its id; as above. */
     await tx.deliveryIssue.updateMany({
       where: { orderId, stage: { in: OPEN_STAGES } }, data: { stage: "CLOSED", outcome: "ORDER_ENDED", closedAt: now, closedBy: actor.userId ?? "system" },
     });
@@ -483,6 +487,7 @@ export async function followOrder(tx: Tx, actor: AuditActor, orderId: string, to
     });
     if (open) throw new DeliveryError("A line on this order isn't settled yet — the seller marks it delivered, then the sponsor has 24 hours to confirm or report a problem.");
     /* A delivered line whose 24 hours are over is confirmed by silence — the sweep would do the same. */
+    /* tenant-scope: this order's own delivery rows, named by its id; followOrder runs only inside moveIn, on an order its caller loaded in its own scope. */
     await tx.orderLineDelivery.updateMany({
       where: { orderId, state: "DELIVERED", confirmDueAt: { lte: now } },
       data: { state: "CONFIRMED", confirmedAt: now, confirmedBy: "system", confirmedHow: "SILENCE" },
