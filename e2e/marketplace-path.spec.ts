@@ -159,6 +159,10 @@ test.beforeAll(async ({}, testInfo) => {
   await ensureAgreements();
   await retirePreviousRun();
   await seedSponsor(SPONSOR.id, SPONSOR.name);
+  /* A coffee shop, as the sponsor request files one ("Coffee" → Restaurant):
+     nothing can be bought until the buyer's brand category is set, because
+     the sellers' restrictions are checked against it. */
+  await q(`update "Sponsor" set categories = '{RESTAURANT}' where id = $1`, [SPONSOR.id]);
 });
 
 /** Set up the payout account on the stand-in provider, from a money page. */
@@ -368,7 +372,11 @@ test("a team and an athlete join, list, sell, deliver, get paid — and the orde
   await addForm.getByLabel("Starts").fill(day(12));
   await addForm.getByLabel("Ends").fill(day(19));
   await addForm.getByRole("button", { name: "Add to cart" }).click();
-  await expect(sponsor.getByRole("status").filter({ hasText: "Added." })).toBeVisible({ timeout: 30_000 });
+  const added = sponsor.getByRole("status").filter({ hasText: "Added." });
+  const refused = addForm.getByRole("alert");
+  await expect(added.or(refused).first()).toBeVisible({ timeout: 30_000 });
+  expect(await refused.count() ? await refused.first().innerText() : "", "the line was refused").toBe("");
+  await expect(added).toBeVisible();
 
   await sponsor.goto("/sponsor/cart");
   await sponsor.getByRole("button", { name: "Reserve & check out" }).click();
