@@ -1567,9 +1567,9 @@ External users, money movement and file uploads all raise the stakes.
 - **Done when:** OWASP testing complete, dependency scan clean, secrets rotation in place
 - **Reference:** Spec §38
 
-### ⏸ `2S8-SEC-03` · Pin type and size on every private upload
+### ✅ `2S8-SEC-03` · Pin type and size on every private upload
 
-**Order** 62.1 · **SEC** · **Where:** Code · **1d** · **Ready**
+**Order** 62.1 · **SEC** · **Where:** Code · **1d** · **Done**
 
 The private-bucket upload URLs don't pin content type or length: account, onboarding, organisation, sponsor-request, hand-off, support and profile-change documents. Their confirm step checks size but not type, and does not delete an oversized object.
 
@@ -1579,9 +1579,9 @@ Pin `{signContentType, contentLength}` at each presign. On confirm, compare the 
 - **Done when:** Every private upload URL is signed for one type and size; a mismatched object is refused and deleted on confirm, proven end to end
 - **Reference:** Security review 2026-10, §A04 (Open, Medium); raised 2026-10-05 by 2S8-SEC-02
 
-### ⏸ `2S8-SEC-04` · A replayed invoice webhook can't roll an invoice back
+### ✅ `2S8-SEC-04` · A replayed invoice webhook can't roll an invoice back
 
-**Order** 62.2 · **SEC** · **Where:** Code · **1d** · **Ready**
+**Order** 62.2 · **SEC** · **Where:** Code · **1d** · **Done**
 
 Zoho Books sends no timestamp, so replaying an old, correctly signed invoice webhook could roll an invoice's status back. The ingest should refuse a payload that would move the stored state backwards: paid never goes back to sent.
 
@@ -1589,9 +1589,9 @@ Zoho Books sends no timestamp, so replaying an old, correctly signed invoice web
 - **Done when:** A replayed older invoice webhook leaves the stored status unchanged; paid never returns to sent
 - **Reference:** Security review 2026-10, §A04 (Open, Low); raised 2026-10-05 by 2S8-SEC-02
 
-### ⏸ `2S8-SEC-05` · Small hardening items from the security review
+### ✅ `2S8-SEC-05` · Small hardening items from the security review
 
-**Order** 62.3 · **SEC** · **Where:** Code · **1d** · **Ready**
+**Order** 62.3 · **SEC** · **Where:** Code · **1d** · **Done**
 
 1. `GET /athletes/:id/rates` answers `200 []` for a real athlete but 403 for a missing id, which reveals which ids exist.
 2. Restrict the Zoho CRM notification `module` and `ids` to an enum and digits.
@@ -1604,9 +1604,9 @@ Zoho Books sends no timestamp, so replaying an old, correctly signed invoice web
 - **Done when:** Each item is fixed with a test, or recorded as declined with a reason in the security review
 - **Reference:** Security review 2026-10, §A01, §A09, §A10 and Follow-ups; raised 2026-10-05 by 2S8-SEC-02
 
-### ⏸ `2S8-QA-07` · Guard tests cover writes and same-tenant access
+### ✅ `2S8-QA-07` · Guard tests cover writes and same-tenant access
 
-**Order** 62.4 · **QA** · **Where:** Code · **2d** · **Ready**
+**Order** 62.4 · **QA** · **Where:** Code · **2d** · **Done**
 
 `tenant-scope.static` checks reads only. `tenant-isolation` sweeps across tenants but not within one, so sponsor vs sponsor and athlete vs athlete are untested. Extend both, so that an unscoped write or a same-tenant read of another account fails the suite.
 
