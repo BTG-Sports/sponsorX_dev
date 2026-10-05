@@ -99,6 +99,8 @@ const A = {
   refund: "ti_refund_a",
   /* 2S5-INT-02 — a provider event held for tenant A's BTG. */
   paymentEvent: "ti_payment_event_a",
+  /* 2S5-BE-03 — a dispute on tenant A's order. */
+  dispute: "ti_dispute_a",
 } as const;
 const B = {
   tenant: "ti_tenant_b", sponsor: "ti_sponsor_b", athlete: "ti_athlete_b",
@@ -173,6 +175,7 @@ const PARAM_FOR: Record<string, string> = {
   refunds: A.refund,
   /* 2S5-INT-02 — BTG's provider-event exceptions. */
   "payment-events": A.paymentEvent,
+  disputes: A.dispute,
 };
 
 /**
@@ -333,6 +336,9 @@ const BODY: Record<string, unknown> = {
   /* 2S5-INT-02 — closing tenant A's held event; the stand-in talking about tenant A's order. */
   "POST /payment-events/{id}/resolve": { note: "Sweep note" },
   "POST /payment-events/test-provider": { type: "payment.processing", orderId: A.mktOrder },
+  /* 2S5-BE-03 — reviewing and resolving tenant A's dispute. */
+  "POST /disputes/{id}/review": { note: "Sweep review" },
+  "POST /disputes/{id}/resolve": { note: "Sweep resolve" },
   /* 2S2-BE-05 — inviting tenant A's athlete, and answering tenant A's invitation. */
   "POST /team/invitations": { athleteId: A.athlete, teamShareBps: 100 },
   "POST /team-invitations/{id}/respond": { decision: "ACCEPT" },
@@ -501,6 +507,11 @@ describe.skipIf(!hasDatabase)("P8-SEC-02 · tenant B cannot reach tenant A throu
     await prisma.paymentEvent.create({ data: {
       id: A.paymentEvent, tenantId: t, provider: "standin", providerEventId: "ti_evt_a", type: "payment.succeeded", occurredAt: new Date(),
       payload: { attemptId: "ti_attempt_a", amountCents: 9000 }, subjectRef: "ti_attempt_a", status: "HELD", outcome: "TI secret held reason", appliedAt: new Date(),
+    }, select: { id: true } });
+    await prisma.paymentDispute.create({ data: {
+      id: A.dispute, tenantId: t, orderId: A.mktOrder, sponsorId: A.sponsor, provider: "standin", providerDisputeRef: "ti_dp_a", amountCents: 9000,
+      reason: "TI secret dispute reason", state: "UNDER_REVIEW", providerOutcome: "LOST", providerClosedAt: new Date(), openedAt: new Date(),
+      reviewStartedAt: new Date(), reviewedBy: "ti_a_admin",
     }, select: { id: true } });
     await prisma.reservation.create({ data: { id: A.dueReservation, tenantId: t, sponsorId: A.sponsor, cartId: A.cart, state: "CONVERTED", convertedAt: new Date(), expiresAt: new Date(Date.now() + 3650 * 864e5) } });
     await prisma.marketplaceOrder.create({ data: {

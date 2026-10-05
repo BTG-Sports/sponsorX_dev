@@ -62,6 +62,8 @@ export const REFUND_CAUSES = [
   "EDITION_CANCELLED",
   /* P9-BE-19 — Zoho marked the sale's invoice paid after the edition was cancelled (`refundPaymentAfterEditionCancel`). */
   "PAID_AFTER_EDITION_CANCELLED",
+  /* 2S5-BE-03 — the provider refunded the whole payment itself (payment-exceptions.ts): recorded SENT, never refunded again. */
+  "PROVIDER_REFUNDED",
 ] as const;
 /** The two causes that refund a cancelled edition's ad sale — capped together. */
 export const EDITION_REFUND_CAUSES = ["EDITION_CANCELLED", "PAID_AFTER_EDITION_CANCELLED"] as const;
@@ -82,6 +84,7 @@ export const CAUSE_WORDS: Record<RefundCause, string> = {
   PAID_AFTER_CANCELLATION: "Paid after the order was cancelled",
   EDITION_CANCELLED: "BTG cancelled the edition the ad was sold in",
   PAID_AFTER_EDITION_CANCELLED: "Paid after BTG cancelled the edition the ad was sold in",
+  PROVIDER_REFUNDED: "Refunded at the payment provider",
 };
 
 const PAID_VIA_WORDS: Record<string, string> = {
@@ -97,12 +100,17 @@ export const ZOHO_NOTE = "Issue a credit note in Zoho Books for this invoice";
  * cancelling (BTG's REFUND of an escalated cancellation too) — which does
  * not stop the sponsor's spending limit rising (spending-limit.ts).
  */
-export type RefundContext = { cause: RefundCause; lineId: string | null; cancellation: boolean };
+export type RefundContext = {
+  cause: RefundCause; lineId: string | null; cancellation: boolean;
+  /** 2S5-BE-03 — the money already went back at the provider (its refund reference): the row is written SENT and nothing is refunded again. */
+  returned?: { provider: string; reference: string };
+};
 
 /** The order's refundCause for a whole-order refund. Pure. */
 export function orderRefundCause(ctx: Pick<RefundContext, "cause" | "cancellation">): "CANCELLATION" | "PROBLEM" | "BTG" {
   if (ctx.cancellation) return "CANCELLATION";
-  return ctx.cause === "BTG_REFUNDED_ORDER" ? "BTG" : "PROBLEM";
+  /* A refund made at the provider is BTG's act there — it stops the sponsor's limit rising, as BTG's refund here does. */
+  return ctx.cause === "BTG_REFUNDED_ORDER" || ctx.cause === "PROVIDER_REFUNDED" ? "BTG" : "PROBLEM";
 }
 
 const dayOf = (d: Date) => d.toISOString().slice(0, 10);
@@ -197,8 +205,39 @@ export async function recordRefund(
     after: { refundId: row.id, lineId: ctx.lineId, amountCents, cause: ctx.cause, paidVia, whole: opts.whole, ...(opts.received ? { attemptId: opts.received.attemptId } : {}) },
   });
 
-  /* A card payment the provider can refund goes back at once; with no provider it waits for Finance. */
+  /* A card payment the provider can refund goes back at once; with no provider it waits for Finance.
+     2S5-BE-03 — unless the money already went back at the provider: the
+     provider's own refund (ctx.returned), or one it reported earlier that BTG
+     was holding for this amount (a HELD PaymentRefund). Then the row is SENT
+     with the provider's reference and nothing is refunded twice. */
   if (paidVia === "CARD") {
+    const already = ctx.returned ?? (await takeHeldProviderRefund(tx, orderId, row.id, amountCents));
+    if (already) {
+      await tx.refundDue.updateMany({
+        /* tenant-scope: the row just written, by id, only while still on its way. */
+        where: { id: row.id, state: "OPEN" },
+        data: { state: "SENT", sentAt: now, sentBy: "system", method: "CARD", reference: already.reference, sentOn: new Date(`${dayOf(now)}T00:00:00.000Z`), provider: already.provider },
+      });
+      await audit(tx, actor, "refundDue.sent", "MarketplaceOrder", orderId, {
+        before: { refundId: row.id, state: "OPEN" },
+        after: { refundId: row.id, state: "SENT", method: "CARD", provider: already.provider, reference: already.reference, alreadyRefundedAtProvider: true },
+      });
+      await tellRefundSent(tx, order, row.id, amountCents, now);
+      return { ...row, state: "SENT" };
+    }
+    /* The provider already returned some of this payment, for another amount:
+       refunding the card again could pay the sponsor twice. Left OPEN for
+       Finance, who sends only what is still owed. */
+    const unmatched = await tx.paymentRefund.aggregate({
+      /* tenant-scope: this order's own provider refunds, named by its id. */
+      where: { orderId, outcome: "HELD" }, _sum: { amountCents: true },
+    });
+    if ((unmatched._sum.amountCents ?? 0) > 0) {
+      await audit(tx, actor, "refundDue.heldForProviderRefund", "MarketplaceOrder", orderId, {
+        after: { refundId: row.id, amountCents, alreadyRefundedAtProviderCents: unmatched._sum.amountCents },
+      });
+      return row;
+    }
     const refunded = refundCard({ paymentReference, amountCents });
     if (refunded) {
       const sent = await tx.refundDue.updateMany({
@@ -217,6 +256,30 @@ export async function recordRefund(
     }
   }
   return row;
+}
+
+/**
+ * 2S5-BE-03 — a refund the provider reported for this order that BTG was
+ * holding (a part refund, or one under a payout), for exactly this amount:
+ * BTG has now refunded it in SponsorX, so it is this refund. Claimed once
+ * (conditional on HELD) and linked to the row; the hold on the order's
+ * payouts lifts with it.
+ */
+async function takeHeldProviderRefund(tx: Tx, orderId: string, refundDueId: string, amountCents: number) {
+  const heldRefund = await tx.paymentRefund.findFirst({
+    /* tenant-scope: this order's own provider refunds, named by its id. */
+    where: { orderId, outcome: "HELD", amountCents }, select: { id: true, tenantId: true, provider: true, providerRefundRef: true }, orderBy: { createdAt: "asc" },
+  });
+  if (!heldRefund) return null;
+  const taken = await tx.paymentRefund.updateMany({
+    /* tenant-scope: the row just found for this order; conditional, so one refund takes it once. */
+    where: { id: heldRefund.id, outcome: "HELD" }, data: { outcome: "APPLIED", refundDueId },
+  });
+  if (!taken.count) return null;
+  await audit(tx, { userId: null, tenantId: heldRefund.tenantId }, "paymentRefund.applied", "MarketplaceOrder", orderId, {
+    before: { outcome: "HELD" }, after: { paymentRefundId: heldRefund.id, refundDueId, outcome: "APPLIED", amountCents },
+  });
+  return { provider: heldRefund.provider, reference: heldRefund.providerRefundRef };
 }
 
 /**

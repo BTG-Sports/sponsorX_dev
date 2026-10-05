@@ -128,7 +128,9 @@ import {
 } from "./delivery";
 import { PayoutAccountLinkInput, PayoutDecisionInput, PayoutListQuery, StandinAccountInput, StandinCheckoutInput } from "./payouts";
 import { RefundSentInput, RefundsQuery } from "./refunds";
-import { PaymentEventResolveInput, PaymentEventsQuery, ProviderWebhookEnvelope, StandinEventInput } from "./payment-events";
+import {
+  DisputeResolveInput, DisputeReviewInput, DisputesQuery, PaymentEventResolveInput, PaymentEventsQuery, ProviderWebhookEnvelope, StandinEventInput,
+} from "./payment-events";
 import { SponsorDocumentInput, SponsorEmailConfirmInput, SponsorRequestDecisionInput } from "./sponsor-requests";
 import { RestrictedTextInput, RestrictedWordInput } from "./restricted-words";
 import {
@@ -713,6 +715,12 @@ const PATHS: Row[] = [
   { method: "get", path: "/payment-events", tag: "Payments", summary: "BTG admin and Finance, in their own books: the provider's events as SponsorX applied them — by default the exceptions not yet closed (HELD and FAILED for BTG, DEFERRED waiting for what they follow). `{ counts: { RECEIVED, APPLIED, IGNORED, DEFERRED, HELD, FAILED }, waitingOnBtg, events: [{ id, provider, providerEventId, type, occurredAt, subjectRef, status, outcome (in words), attempts, nextAttemptAt, receivedAt, appliedAt, resolvedAt, resolvedBy, resolutionNote }] }`. ?status= narrows (comma-separated).", query: PaymentEventsQuery },
   { method: "post", path: "/payment-events/{id}/resolve", tag: "Payments", summary: "BTG admin closes a HELD or FAILED provider event with a note saying what was done. Once only (409 after); audited.", body: PaymentEventResolveInput },
   { method: "post", path: "/payment-events/test-provider", tag: "Payments", summary: "Staging only, BTG admin: have the stand-in provider send an event about an order's latest card payment or a payout in your books — once or up to three times (a provider retrying), in any order. The queue applies it as it would a real delivery. 400 where the stand-in is off.", body: StandinEventInput, status: 202 },
+
+  // 2S5-BE-03 — disputes (BTG support; never resolved by the system)
+  { method: "get", path: "/disputes", tag: "Payments", summary: "BTG admin and Finance, in their own books: sponsors' disputes of card payments, open ones first, with counts by state. Each: `{ id, orderId, orderRef, sponsorName, amountCents, reason, state: OPEN|UNDER_REVIEW|WON|LOST, providerOutcome: WON|LOST|null (the provider's decision), frozen (its order's money can't move), canResolve, reviewNote, resolutionNote, lineIds, ledgerReversed, owedBackCents, lines, payouts: [{ id, state, payeeType, payeeId, amountCents }] }`.", query: DisputesQuery },
+  { method: "get", path: "/disputes/{id}", tag: "Payments", summary: "One dispute, as GET /disputes shows it. 404 outside the caller's books." },
+  { method: "post", path: "/disputes/{id}/review", tag: "Payments", summary: "BTG admin or Finance takes a dispute for review (OPEN → UNDER_REVIEW), saying what was sent to the provider. 409 if it isn't open.", body: DisputeReviewInput },
+  { method: "post", path: "/disputes/{id}/resolve", tag: "Payments", summary: "A BTG admin resolves a dispute under review to the outcome the provider reported — 409 before the provider has decided, or straight from OPEN. WON: the money unfreezes and an approved payout waiting on it is sent. LOST: the order's books are reversed (the whole order, or `lineIds` for a part dispute), payouts not yet sent are sent back, and what was already paid out is owed back (`owedBackCents`; GET /payouts/me shows the payee's).", body: DisputeResolveInput },
 
   // Zoho inbound (P7-BE-04)
   { method: "post", path: "/webhooks/zoho/invoice", tag: "Webhooks", summary: "Zoho Books invoice webhook — shared-secret signed, queued.", auth: false, body: ZohoInvoiceWebhook, status: 202 },

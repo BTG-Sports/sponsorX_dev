@@ -99,6 +99,7 @@ import { ForbiddenError } from "../auth/errors";
 import { send, type EmailTemplate } from "../lib/email";
 import { presignPrivateDownload, presignPrivateUpload, privateObjectSize, SENSITIVE_DOCUMENT_TTL_SECONDS } from "../lib/storage";
 import { reverseOrder } from "./ledger";
+import { assertRefundable } from "./payment-exceptions";
 import { lockOrder, moveOrderAsSystem, moveOrderIn, OrderStateConflictError } from "./marketplace-order";
 import { usd } from "./marketplace-order-rules";
 import { recordRefund, refundsForOrders, type RefundCause, type RefundContext, type SponsorRefund } from "./refunds";
@@ -1449,6 +1450,8 @@ async function refundLine(
   tx: Tx, actor: AuditActor & { tenantId: string }, row: { id: string; orderId: string; lineId: string; line: { inventoryItemId: string; startsOn: Date; endsOn: Date } },
   now: Date, ctx: RefundContext,
 ) {
+  /* 2S5-BE-03 — not under a dispute, nor after one was lost. */
+  await assertRefundable(tx, row.orderId);
   const live = await tx.orderLineDelivery.count({
     /* tenant-scope: this order's own delivery rows, named by its id. */
     where: { orderId: row.orderId, state: { notIn: ["REFUNDED", "CANCELLED"] } },

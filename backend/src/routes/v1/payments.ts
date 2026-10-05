@@ -13,7 +13,10 @@ import { Router, type RequestHandler } from "express";
 import { requireActor } from "../../auth/actor";
 import { limit } from "../../lib/rate-limit";
 import { WEBHOOK_SIGNATURE_HEADER } from "../../lib/payment-provider";
-import { PaymentEventResolveInput, PaymentEventsQuery, StandinEventInput } from "../../contracts/payment-events";
+import {
+  DisputeResolveInput, DisputeReviewInput, DisputesQuery, PaymentEventResolveInput, PaymentEventsQuery, StandinEventInput,
+} from "../../contracts/payment-events";
+import { getDispute, listDisputes, resolveDispute, reviewDispute } from "../../domain/payment-exceptions";
 import {
   acceptPaymentWebhook, isPaymentEventStatus, listPaymentEvents, PaymentWebhookError, resolvePaymentEvent, standinSendEvent,
 } from "../../domain/payment-events";
@@ -44,6 +47,16 @@ paymentsRouter.get("/payment-events", requireActor, (async (req, res) => {
 }) as RequestHandler);
 paymentsRouter.post("/payment-events/:id/resolve", requireActor, (async (req, res) => {
   res.json(await resolvePaymentEvent(req.actor!, req.params.id, PaymentEventResolveInput.parse(req.body).note));
+}) as RequestHandler<Id>);
+
+/* 2S5-BE-03 — disputes, worked by BTG support; never resolved by the system. */
+paymentsRouter.get("/disputes", requireActor, (async (req, res) => { res.json(await listDisputes(req.actor!, DisputesQuery.parse(req.query).state)); }) as RequestHandler);
+paymentsRouter.get("/disputes/:id", requireActor, (async (req, res) => { res.json(await getDispute(req.actor!, req.params.id)); }) as RequestHandler<Id>);
+paymentsRouter.post("/disputes/:id/review", requireActor, (async (req, res) => {
+  res.json(await reviewDispute(req.actor!, req.params.id, DisputeReviewInput.parse(req.body).note));
+}) as RequestHandler<Id>);
+paymentsRouter.post("/disputes/:id/resolve", requireActor, (async (req, res) => {
+  res.json(await resolveDispute(req.actor!, req.params.id, DisputeResolveInput.parse(req.body)));
 }) as RequestHandler<Id>);
 
 /* Staging only: have the stand-in provider send an event. */

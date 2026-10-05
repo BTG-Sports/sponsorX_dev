@@ -221,6 +221,9 @@ export type EmailTemplate =
   | "payment.refundNeeded"
   /* 2S5-INT-02 — a provider event SponsorX would not apply on its own (it names nothing SponsorX knows, the amounts disagree, it contradicts what was recorded): BTG's admins, with the reason. */
   | "payment.heldForBtg"
+  /* 2S5-BE-03 — a dispute opened (the support mailbox and BTG's admins: the review item), and the provider's decision on it (BTG resolves it). */
+  | "dispute.opened"
+  | "dispute.providerClosed"
   /* P9-BE-16 — a sold ad slot's artwork on the approval board, each step
      emailed to the other party: a new version is in; it is ready for the
      sponsor's sign-off; a reviewer asked for changes; the sponsor approved. */

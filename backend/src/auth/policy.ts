@@ -171,7 +171,8 @@ export type Resource =
   | "accountClosure"
   | "guardianHandoff"
   | "signupRules"
-  | "paymentEvent";
+  | "paymentEvent"
+  | "paymentDispute";
 
 export const RESOURCES: readonly Resource[] = [
   "tenant",
@@ -251,6 +252,7 @@ export const RESOURCES: readonly Resource[] = [
   "guardianHandoff",
   "signupRules",
   "paymentEvent",
+  "paymentDispute",
 ] as const;
 
 type RolePolicy = Partial<Record<Role, Partial<Record<Action, Scope>>>>;
@@ -1049,6 +1051,18 @@ export const POLICY: Record<Resource, RolePolicy> = {
     SUPER_ADMIN: rwa("any", "any"),
     BTG_ADMIN: rwa("own-tenant", "own-tenant"),
     FINANCE: rwa("own-tenant"),
+  },
+
+  /* 2S5-BE-03 (matrix §26) — a sponsor's dispute of a card payment. Opened
+     and closed by the provider (the signed webhook, no actor) and NEVER
+     resolved by the system: BTG support works it. BTG admin and Finance read
+     the list and take one for review, recording what was sent to the
+     provider (write); only a BTG admin resolves it to the provider's outcome
+     (approve), which reverses the books when it was lost. Nobody else. */
+  paymentDispute: {
+    SUPER_ADMIN: rwa("any", "any", "any"),
+    BTG_ADMIN: rwa("own-tenant", "own-tenant", "own-tenant"),
+    FINANCE: rwa("own-tenant", "own-tenant"),
   },
 };
 

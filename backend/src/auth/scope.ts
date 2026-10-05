@@ -900,6 +900,8 @@ const BUILDERS: Partial<Record<Resource, Builder>> = {
   signupRules: tenantScoped,
   /* 2S5-INT-02 — provider events live in the books of what they are about. */
   paymentEvent: tenantScoped,
+  /* 2S5-BE-03 — disputes live in the order's books. */
+  paymentDispute: tenantScoped,
 
   /* Added with P4-BE-01, the first task to query sponsors.
 

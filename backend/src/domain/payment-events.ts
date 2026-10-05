@@ -62,6 +62,7 @@ import {
 import { lockOrder } from "./marketplace-order";
 import { appUrl, btgAdmins, orderRef, tell, usd } from "./order-mail";
 import { paymentSucceededIn } from "./payouts";
+import { dismissHeldRefund, exceptionHandlerFor } from "./payment-exceptions";
 
 type Tx = Prisma.TransactionClient;
 
@@ -296,7 +297,8 @@ function handlerFor(type: string): Handler | null {
     case "payment.processing": return onProcessing;
     case "payment.succeeded": return onSucceeded;
     case "payment.failed": return onFailed;
-    default: return null;
+    /* 2S5-BE-03 — refunds the provider reports, and disputes (payment-exceptions.ts). */
+    default: return exceptionHandlerFor(type);
   }
 }
 
@@ -479,6 +481,11 @@ export async function resolvePaymentEvent(actor: Actor, id: string, note: string
     });
     if (!moved.count) throw new PaymentEventError("This event was just marked dealt with by someone else.");
     await audit(tx, actor, "paymentEvent.resolve", "PaymentEvent", ev.id, { before: { status: ev.status }, after: { resolvedAt: now, note: text } });
+    /* 2S5-BE-03 — a held provider refund BTG closed without refunding the order here: its payouts are free again. */
+    if (ev.type === "payment.refunded") {
+      const full = await tx.paymentEvent.findUniqueOrThrow({ /* tenant-scope: the row just moved, by id. */ where: { id: ev.id }, select: { provider: true, payload: true } });
+      await dismissHeldRefund(tx, actor, full);
+    }
     return tx.paymentEvent.findUniqueOrThrow({
       /* tenant-scope: the row just moved, by id. */
       where: { id: ev.id }, select: LIST,

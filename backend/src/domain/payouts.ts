@@ -50,6 +50,7 @@ import { appUrl, btgAdmins, tell } from "./order-mail";
 import { assertMayCommit } from "./guardian-acts";
 import { payoutHoldReason } from "./payout-holds";
 import { standinDecline } from "./payment-events";
+import { moneyHoldsOn } from "./payment-exceptions";
 import {
   autoApprovalReasons, autoApproveSettings, autoApprovedByTenant, autoWindowFor, claimsMoney, lockPayee, nextChangedAt, planFailure,
   SYSTEM, waitingOnOf, waitingOnWhere, windowStart, type FailureKind, type WaitingOn,
@@ -883,6 +884,9 @@ export async function decidePayout(actor: Actor, id: string, decision: "APPROVE"
     /* A payee BTG rejected (organisation or athlete) is held: send it back if you must, but don't pay it. */
     const held = decision === "APPROVE" ? await payoutHoldReason(tx, payee) : null;
     if (held) throw new PayoutError(held, 409, ["Payouts not on hold"]);
+    /* 2S5-BE-03 — a disputed payment (or a refund the provider made that BTG is checking) freezes its order's money. */
+    const frozen = decision === "APPROVE" ? await moneyHoldsOn(tx, row.lines.map((l) => l.orderId)) : new Map<string, string>();
+    if (frozen.size) throw new PayoutError(`${[...frozen.values()][0]}, so this payout can't be approved yet.`, 409, [FROZEN_CHECK]);
     /* Conditional: two decisions at once (two reviewers) move it once. */
     const moved = await tx.payout.updateMany({
       /* tenant-scope: the row just loaded through whereFor(payout, approve). */
@@ -956,6 +960,60 @@ export async function retryPayout(actor: Actor, id: string, now = new Date()) {
   });
 }
 
+/* ── frozen money — 2S5-BE-03 ─────────────────────────────────────────── */
+
+/** The rule's name for a dispute (or a provider refund BTG is checking) on a payout's orders. */
+export const FROZEN_CHECK = "No dispute open on its orders";
+
+/**
+ * The money a payout would pay went back to the sponsor (a dispute lost, or
+ * the provider refunded the payment): every payout covering this order that
+ * has not been handed to the provider — REQUESTED, APPROVED, or FAILED — is
+ * sent back, as the system, with a note the payee reads. Its other orders'
+ * money is free to request again. A payout already SENDING can't be stopped:
+ * once paid, what it paid is owed back. Each move is conditional on the state
+ * it leaves. Returns how many were sent back.
+ */
+export async function sendBackPayoutsCovering(tx: Tx, orderId: string, note: string, now: Date): Promise<number> {
+  const rows = await tx.payout.findMany({
+    /* tenant-scope: the payouts whose lines name this order — the caller loaded the order through its own scope. */
+    where: { lines: { some: { orderId } }, state: { in: ["REQUESTED", "APPROVED", "FAILED"] } }, select: PAYOUT_SELECT,
+  });
+  let sentBack = 0;
+  for (const row of rows) {
+    const moved = await tx.payout.updateMany({
+      /* tenant-scope: a row just listed for this order; conditional on the state it leaves. */
+      where: { id: row.id, state: row.state },
+      data: { state: "REJECTED", decidedBy: SYSTEM, decidedAt: now, decisionNote: note, waitingOn: null, nextRetryAt: null },
+    });
+    if (!moved.count) continue;
+    sentBack++;
+    await audit(tx, { userId: null, tenantId: row.tenantId }, "payout.sentBackBySystem", "Payout", row.id, {
+      before: { state: row.state }, after: { state: "REJECTED", orderId, note },
+    });
+    const payee: Payee = { payeeType: row.payeeType as PayeeType, payeeId: row.payeeId, payeeTenantId: row.payeeTenantId };
+    await notifyPayee(tx, { ...row, ...payee }, "payout.sentBack", { note }, `payout.sentBack:${row.id}:${orderId}`);
+  }
+  return sentBack;
+}
+
+/**
+ * The hold on an order's money lifted (a dispute won, a provider refund
+ * closed): each APPROVED payout covering it goes to the provider again.
+ * Sending is conditional, so one already sent or queued is harmless.
+ */
+export async function resumePayoutsCovering(tx: Tx, orderId: string) {
+  const rows = await tx.payout.findMany({
+    /* tenant-scope: the payouts whose lines name this order — the caller loaded the order through its own scope. */
+    where: { lines: { some: { orderId } }, state: "APPROVED" }, select: { id: true, tenantId: true },
+  });
+  for (const row of rows) {
+    await enqueue(tx, row.tenantId, "payouts.send", { payoutId: row.id });
+    await audit(tx, { userId: null, tenantId: row.tenantId }, "payout.resume", "Payout", row.id, { after: { orderId, why: "its order's money is no longer frozen" } });
+  }
+  return rows.length;
+}
+
 /* ── the provider's side (worker jobs) ────────────────────────────────── */
 
 /**
@@ -971,11 +1029,14 @@ export async function sendPayout(payoutId: string, now = new Date()): Promise<{ 
   return prisma.$transaction(async (tx) => {
     const row = await tx.payout.findUnique({
       /* tenant-scope: the payout named by the job this server enqueued on approval. */
-      where: { id: payoutId }, select: { id: true, tenantId: true, state: true, payeeType: true, payeeId: true, payeeTenantId: true },
+      where: { id: payoutId }, select: { id: true, tenantId: true, state: true, payeeType: true, payeeId: true, payeeTenantId: true, lines: { select: { orderId: true } } },
     });
     if (!row || row.state !== "APPROVED") return { sent: false };
     /* Held (2S1-BE-06 / -09): it waits, APPROVED, until BTG reinstates the payee, which sends it again. */
     if (await payoutHoldReason(tx, row)) return { sent: false };
+    /* 2S5-BE-03 — frozen by a dispute (or a provider refund BTG is checking) on an order it covers:
+       it waits, APPROVED, until BTG resolves it (resumePayoutsCovering sends it), or is sent back if the dispute is lost. */
+    if ((await moneyHoldsOn(tx, row.lines.map((l) => l.orderId))).size) return { sent: false };
     const moved = await tx.payout.updateMany({
       /* tenant-scope: the row just loaded by id; conditional, so a second job for it finds nothing. */
       where: { id: row.id, state: "APPROVED" }, data: { state: "SENDING", provider, providerRef: standinRef("po"), sentAt: now },

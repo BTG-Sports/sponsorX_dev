@@ -90,7 +90,7 @@ both, never zero), its type and its status.
 |---|---|---|
 | `BOOKING` | the order is contracted | Dr `SPONSOR_RECEIVABLE` net. Cr each party's share by the table above. |
 | `RESERVE_RELEASE` | the order is `CLOSED` | Dr `RESERVE_HELD`, Cr `PROPERTY_PAYABLE` / `ATHLETE_PAYABLE` |
-| `REVERSAL` | a contracted order is `CANCELLED` or `REFUNDED` | the mirror of every entry the order posted |
+| `REVERSAL` | a contracted order is `CANCELLED` or `REFUNDED` — or its payment is disputed and the dispute `LOST` (2S5-BE-03) | the mirror of every entry the order posted (for a line refunded, or a dispute lost on part of the order, that line's entries only) |
 | `PAYOUT` | a payout is paid (`2S5-BE-05`) | Dr `PROPERTY_PAYABLE` / `ATHLETE_PAYABLE`, Cr the processor's settlement account |
 
 - **Entries are never updated or deleted.** A correction is a new journal.
@@ -156,6 +156,31 @@ It is allocated by net: 3,493 / 2,911 and 1,746 (the remainder).
 
 The implementation's test, `tests/phase2-ledger.test.ts`, posts this exact
 order and asserts every figure in the table.
+
+## 5a · Refunds and disputes, as built (2S5-BE-03, 2026-10-05)
+
+- **A refund reverses; it never edits.** However it starts — a cancellation,
+  a problem, BTG, or the provider refunding the whole payment itself (the
+  order is then refunded in SponsorX automatically when every check passes) —
+  the order (or the line) posts its `REVERSAL` and the money owed back is a
+  `RefundDue`. A refund the provider already made is written `SENT` with the
+  provider's reference, so it is never sent twice.
+- **A dispute freezes; only a lost one reverses.** While a dispute is open
+  nothing of the order's money moves: no payout covering it is approved or
+  sent, none of it can be requested, the order can't be refunded. Won, it
+  unfreezes and nothing is posted. Lost, the order (or the lines BTG names)
+  posts its `REVERSAL` exactly as a refund would — but no `RefundDue`: the
+  bank already returned the money. A lost order can never be refunded again.
+- **Money already paid out is owed back, not hidden.** `reverseOrder` leaves
+  `PAYOUT` entries alone, so after a reversal a payee's payable on that order
+  is negative by what was paid out. That is the payee's `owedBackCents`
+  (GET /payouts/me), and a lost dispute records the total on itself. Payouts
+  not yet handed to the provider are sent back instead, so nothing more is
+  paid out of money that went back to the sponsor.
+- **The books still reconcile:** booked − reversed − paid = ledger balance =
+  pending, with pending negative by what is owed back.
+- **Not yet:** the provider's dispute fee, and its fee on a refund — trued up
+  with processing when the real provider is connected (2S5-INT-01).
 
 ## 6 · Not in this design (named)
 

@@ -104,6 +104,24 @@ export const StandinEventInput = z
   .strict()
   .meta({ id: "StandinEventInput", description: "Staging only: have the stand-in payment provider send an event, once or more, in any order." });
 
+/* 2S5-BE-03 — disputes, on BTG's side. */
+export const DisputesQuery = z
+  .object({ state: z.enum(["OPEN", "UNDER_REVIEW", "WON", "LOST"]).optional() })
+  .meta({ id: "DisputesQuery", description: "Which disputes: by state. Omitted: all, the open ones first." });
+
+export const DisputeReviewInput = z
+  .object({ note: z.string().trim().min(1).max(2000).describe("What BTG sent the provider (the evidence), or is gathering") })
+  .strict()
+  .meta({ id: "DisputeReviewInput", description: "BTG takes a dispute for review: OPEN → UNDER_REVIEW." });
+
+export const DisputeResolveInput = z
+  .object({
+    note: z.string().trim().min(1).max(2000).describe("How it was resolved"),
+    lineIds: z.array(ref).max(200).optional().describe("A dispute lost on part of the order: the lines it was for (their books are reversed). Not needed for the whole order."),
+  })
+  .strict()
+  .meta({ id: "DisputeResolveInput", description: "A BTG admin resolves a dispute under review to the outcome the provider reported (WON or LOST)." });
+
 export const PaymentEventResolveInput = z
   .object({ note: z.string().trim().min(1).max(2000).describe("What BTG did about it — the record for whoever looks next") })
   .strict()

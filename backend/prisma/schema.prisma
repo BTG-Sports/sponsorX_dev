@@ -3058,6 +3058,74 @@ model PaymentEvent {
   @@index([status, nextAttemptAt])
 }
 
+/// 2S5-BE-03 — a refund the provider reported (`payment.refunded`), once per
+/// provider refund reference. CONFIRMED: it confirms a refund SponsorX sent
+/// (`refundDueId`). APPLIED: SponsorX refunded the order because of it — the
+/// whole payment refunded at the provider, every check passed — or BTG did,
+/// later (`refundDueId`). HELD: BTG's (a part refund, a payout in progress, an
+/// order that can't be refunded): the order's payouts wait until BTG refunds it
+/// in SponsorX or closes the event without (DISMISSED). In the order's books.
+model PaymentRefund {
+  id                String   @id @default(cuid())
+  tenantId          String
+  attemptId         String
+  orderId           String
+  provider          String
+  providerRefundRef String
+  amountCents       Int
+  refundDueId       String?
+  /// CONFIRMED | APPLIED | HELD | DISMISSED
+  outcome           String
+  createdAt         DateTime @default(now())
+
+  @@unique([provider, providerRefundRef])
+  @@index([tenantId, orderId])
+}
+
+/// 2S5-BE-03 — the sponsor disputed a card payment with their bank
+/// (state machines §7). OPEN → UNDER_REVIEW → WON | LOST, never decided by the
+/// system: the provider's `dispute.closed` records its outcome
+/// (`providerOutcome`), and a BTG person resolves the dispute to it. While it
+/// is OPEN or UNDER_REVIEW the order's money is frozen — no payout covering it
+/// is approved or sent, nothing of it can be requested, and the order can't be
+/// refunded. LOST reverses the order's books (the whole order, or `lineIds`)
+/// and cancels payouts not yet sent; money already paid out is owed back
+/// (`owedBackCents`, as GET /payouts/me counts it). In the order's books.
+model PaymentDispute {
+  id                 String    @id @default(cuid())
+  tenantId           String
+  orderId            String
+  attemptId          String?
+  sponsorId          String
+  provider           String
+  providerDisputeRef String
+  amountCents        Int
+  reason             String?
+  /// OPEN | UNDER_REVIEW | WON | LOST
+  state              String    @default("OPEN")
+  /// WON | LOST — the provider's decision; null until it closes the dispute.
+  providerOutcome    String?
+  providerClosedAt   DateTime?
+  openedAt           DateTime
+  reviewStartedAt    DateTime?
+  reviewedBy         String?
+  reviewNote         String?
+  resolvedAt         DateTime?
+  resolvedBy         String?
+  resolutionNote     String?
+  /// LOST on part of the order: the lines whose books were reversed.
+  lineIds            String[]  @default([])
+  ledgerReversed     Boolean   @default(false)
+  /// LOST after money was paid out: what the payees owe back, when it was resolved.
+  owedBackCents      Int       @default(0)
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @default(now()) @updatedAt
+
+  @@unique([provider, providerDisputeRef])
+  @@index([tenantId, state])
+  @@index([orderId, state])
+}
+
 /// 2S5-BE-04 / 2S5-BE-05 — a payee asks to be paid its available balance; BTG
 /// approves; the provider sends it; confirmation posts the PAYOUT journals.
 model Payout {
@@ -3346,6 +3414,7 @@ model RefundDue {
   /// SPONSOR_CANCELLED | SELLER_CANCELLED | CANCELLATION_AGREED | PROBLEM_AGREED | BTG_DECIDED | BTG_REFUNDED_ORDER
   /// | PAID_AFTER_CANCELLATION (a card payment confirmed after the order was cancelled)
   /// | EDITION_CANCELLED (P9-BE-19 — a paid ad sale in an edition BTG cancelled)
+  /// | PROVIDER_REFUNDED (2S5-BE-03 — the provider refunded the whole payment itself: written SENT, never refunded again)
   /// | PAID_AFTER_EDITION_CANCELLED (P9-BE-19 — Zoho marked an invoice paid after that edition was cancelled)
   cause       String
   /// Copied from the order: CARD | BANK_TRANSFER | CHEQUE | OTHER | ZOHO_INVOICE.

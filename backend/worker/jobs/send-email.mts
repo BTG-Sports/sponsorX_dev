@@ -126,6 +126,15 @@ ${d.portalUrl ?? ""}
     subject: `Payment provider event held for you: ${d.type ?? "an event"}${d.orderRef ? ` (order ${d.orderRef})` : ""}`,
     text: `SponsorX received this from the payment provider and did not act on it by itself:\n\n${d.type ?? ""}${d.subject ? ` — ${d.subject}` : ""}\n\nWhy: ${d.reason ?? ""}\n\nCheck it with the provider, put it right in SponsorX (record the payment, refund it, or leave it), then mark it dealt with:\n\n${d.eventsUrl ?? ""}\n\n— SponsorX`,
   }),
+  /* 2S5-BE-03 — a sponsor disputed a card payment: BTG support's review item. Never resolved automatically. */
+  "dispute.opened": (d) => ({
+    subject: `Payment disputed: order ${d.orderRef ?? ""} — ${d.amount ?? ""}`,
+    text: `The sponsor has disputed their card payment for order ${d.orderRef ?? ""} (${d.amount ?? ""}) with their bank.\n\nReason given: ${d.reason ?? "not given"}\n\nThe order's money is frozen: no payout covering it is approved or sent, and it can't be refunded. Take the dispute for review, send the provider your evidence, and resolve it once the provider decides:\n\n${d.disputeUrl ?? ""}\n\n— SponsorX`,
+  }),
+  "dispute.providerClosed": (d) => ({
+    subject: `The payment provider decided the dispute on order ${d.orderRef ?? ""}: ${d.outcome ?? ""}`,
+    text: `The payment provider closed the dispute on order ${d.orderRef ?? ""} (${d.amount ?? ""}) — ${d.outcome === "lost" ? "lost: the bank returned the money to the sponsor" : "won: the money stays with BTG"}.\n\nNothing has been changed yet. Resolve it in SponsorX: ${d.outcome === "lost" ? "the order's books are then reversed and payouts not yet sent are sent back" : "the order's money then unfreezes and waiting payouts are sent"}.\n\n${d.disputeUrl ?? ""}\n\n— SponsorX`,
+  }),
   /* 2S4-BE-09 — the seller's step. */
   "sale.approvalRequested": (d) => ({
     subject: `${d.sponsorName ?? "A sponsor"} wants to order from you — please answer by ${d.answerBy ?? "the time shown"}`,

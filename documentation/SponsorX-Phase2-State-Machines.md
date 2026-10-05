@@ -237,6 +237,24 @@ with the transfer's reference.
 - Reopening a closed dispute (a new one is opened instead).
 - `OPEN → WON`, which skips review.
 
+### As built (2S5-BE-03, 2026-10-05)
+
+| From | Legal moves | Who |
+|---|---|---|
+| — | → `OPEN` on the provider's `dispute.opened` (or its `dispute.closed` arriving first) | the provider |
+| `OPEN` | → `UNDER_REVIEW` (what was sent to the provider, in a note) | BTG admin or Finance |
+| `UNDER_REVIEW` | → `WON` or `LOST`, only to the outcome the provider reported (`providerOutcome`), with a note | a BTG admin |
+
+The provider's `dispute.closed` records `providerOutcome` and tells BTG; it
+moves no state. While `OPEN` or `UNDER_REVIEW` the order's money is frozen.
+`LOST` reverses the order's books (or the lines named, for a part dispute),
+sends back payouts not yet handed to the provider, and records what was
+already paid out as owed back; `WON` sends a payout that was waiting on it.
+
+**Illegal, as built:** any move by the system out of `OPEN` or
+`UNDER_REVIEW`; resolving before the provider has decided, or to the other
+outcome; a refund of the order while it is open, or after it was lost.
+
 ## How they depend on each other
 
 | Rule | Machines |
@@ -246,5 +264,6 @@ with the transfer's reference.
 | An order is created only from a `CONVERTED` reservation | reservation → order |
 | An order is `PAID` only when its payment is `CAPTURED` | payment → order |
 | A payout is `ELIGIBLE` only after the order is `FULFILLED` | order → payout |
-| **An open dispute holds every payout on its order** (`→ HELD`), and a `LOST` dispute cancels the payout | dispute → payout |
+| **An open dispute holds every payout on its order** (`→ HELD`), and a `LOST` dispute cancels the payout. As built: an approved payout waits `APPROVED` (not sent) and a requested one can't be approved; `LOST` sends back every payout not yet `SENDING` (`→ REJECTED` as the system) | dispute → payout |
+| A refund the provider made on its own: the whole payment refunds the order (cancelling payouts not yet sent); anything else is held for BTG, and holds the order's payouts until BTG refunds it or closes it | payment → order, payout |
 | A refund reverses in the ledger, never by editing an entry | payment → ledger (`2S0-PMO-02`) |

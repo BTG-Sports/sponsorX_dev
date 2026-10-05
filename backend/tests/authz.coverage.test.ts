@@ -91,6 +91,9 @@ const GOVERNED_BY: Record<string, Resource> = {
   RefundDue: "refundDue",
   /* 2S5-INT-02 — the payment provider's events: written by the signed webhook and the worker, read by BTG admin and Finance. */
   PaymentEvent: "paymentEvent",
+  /* 2S5-BE-03 — a refund the provider reported: its record, read with the events. A dispute: BTG support's. */
+  PaymentRefund: "paymentEvent",
+  PaymentDispute: "paymentDispute",
   /* 2S4-BE-11 — a delivery problem's exchange is part of its line's delivery. */
   DeliveryIssue: "orderDelivery",
   /* 2S2-BE-05 — a team's invitation to an athlete already on SponsorX. */

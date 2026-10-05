@@ -40,6 +40,8 @@ const MONEY_MODULES = [
   "edition-split-lock.ts",
   /* 2S5-INT-02 — the payment provider's events: a payment's state moves only here (and in payouts.ts). */
   "payment-events.ts",
+  /* 2S5-BE-03 — refunds the provider reports, and disputes: they reverse the books and send payouts back. */
+  "payment-exceptions.ts",
 ] as const;
 
 /**
@@ -91,6 +93,12 @@ const READ_ONLY = new Set([
   "emitStandinEvent",
   "standinConfirmPayment",
   "standinDecline",
+  /* 2S5-BE-03 — reads, guards and the handler table in payment-exceptions.ts. */
+  "moneyHoldsOn",
+  "assertRefundable",
+  "listDisputes",
+  "getDispute",
+  "exceptionHandlerFor",
 ]);
 
 function sourceOf(file: string): string {
