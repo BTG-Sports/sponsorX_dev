@@ -22,6 +22,13 @@ import type pg from "pg";
 
 export type ExpiryOutcome = { expired: number; reminded: number; warned: number };
 
+/* 2S8-OPS-02 — THE CLOCK IS READ IN UTC. The timestamp columns hold UTC as
+   `timestamp without time zone`; bare `now()` is a timestamptz, and comparing
+   the two makes Postgres read the column in the SESSION's zone. On a database
+   running in Asia/Manila that expired every invitation eight hours early.
+   `now() AT TIME ZONE 'UTC'` is UTC wall-clock time, whatever the session. */
+const NOW = `(now() AT TIME ZONE 'UTC')`;
+
 /** Days after sending with no response before a nudge. */
 const REMINDER_AFTER_DAYS = 3;
 /** Days before expiry that the warning goes out. */
@@ -30,7 +37,10 @@ const WARN_WITHIN_DAYS = 2;
 export async function expireInvitations(
   pool: pg.Pool,
   appUrl: string,
+  /** Only these tenants' invitations (tests); every tenant's when omitted. */
+  opts: { tenantIds?: string[] } = {},
 ): Promise<ExpiryOutcome> {
+  const tenants = opts.tenantIds ?? null;
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
@@ -46,8 +56,10 @@ export async function expireInvitations(
       `UPDATE "CampaignInvite"
           SET state = 'EXPIRED'
         WHERE state IN ('INVITED', 'VIEWED')
-          AND "expiresAt" <= now()
+          AND "expiresAt" <= ${NOW}
+          AND ($1::text[] IS NULL OR "tenantId" = ANY($1::text[]))
         RETURNING id, "tenantId"`,
+      [tenants],
     );
 
     if (expired.rowCount) {
@@ -86,9 +98,10 @@ export async function expireInvitations(
          JOIN "Sponsor" s  ON s.id = c."sponsorId"
         WHERE i.state = 'INVITED'
           AND i."viewedAt" IS NULL
-          AND i."sentAt" <= now() - ($2 || ' days')::interval
-          AND i."expiresAt" > now()`,
-      [appUrl, REMINDER_AFTER_DAYS],
+          AND i."sentAt" <= ${NOW} - ($2 || ' days')::interval
+          AND i."expiresAt" > ${NOW}
+          AND ($3::text[] IS NULL OR i."tenantId" = ANY($3::text[]))`,
+      [appUrl, REMINDER_AFTER_DAYS, tenants],
     );
 
     const warned = await client.query(
@@ -108,9 +121,10 @@ export async function expireInvitations(
          JOIN "Campaign" c ON c.id = i."campaignId"
          JOIN "Sponsor" s  ON s.id = c."sponsorId"
         WHERE i.state IN ('INVITED', 'VIEWED')
-          AND i."expiresAt" > now()
-          AND i."expiresAt" <= now() + ($2 || ' days')::interval`,
-      [appUrl, WARN_WITHIN_DAYS],
+          AND i."expiresAt" > ${NOW}
+          AND i."expiresAt" <= ${NOW} + ($2 || ' days')::interval
+          AND ($3::text[] IS NULL OR i."tenantId" = ANY($3::text[]))`,
+      [appUrl, WARN_WITHIN_DAYS, tenants],
     );
 
     await client.query("COMMIT");

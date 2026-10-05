@@ -76,6 +76,10 @@ jobs:
           POSTGRES_USER: sponsorx
           POSTGRES_PASSWORD: sponsorx
           POSTGRES_DB: sponsorx_test
+          # 2S8-OPS-02 — the server runs in UTC: initdb writes TZ into its
+          # config. A service container can't take `-c timezone=UTC` (no
+          # command override), so the database is also pinned below.
+          TZ: UTC
         ports:
           - 5432:5432
         # Without this the job races the database and fails intermittently,
@@ -88,6 +92,8 @@ jobs:
 
     env:
       DATABASE_URL: postgresql://sponsorx:sponsorx@localhost:5432/sponsorx_test
+      # 2S8-OPS-02 — psql's sessions in UTC too, whatever the runner's zone.
+      PGTZ: UTC
       # Clerk is not needed to build or to run these tests — verified by
       # building with the environment file removed. Should a future test need
       # a real key, it goes in repository secrets, never here.
@@ -144,6 +150,11 @@ jobs:
       - name: Mark the test database as purgeable
         run: psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -c "ALTER DATABASE sponsorx_test SET sponsorx.audit_purge = 'on'"
 
+      # 2S8-OPS-02 — migration 20261005100000 pins it too; stated here so the
+      # CI database is UTC by construction, not only by a migration.
+      - name: Pin the test database to UTC
+        run: psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -c "ALTER DATABASE sponsorx_test SET timezone TO 'UTC'"
+
       # 2S7-BE-02 — the report-render test prints a real PDF in headless
       # Chromium, so this job needs the browser too (same cache as e2e).
       - name: Cache the browser
@@ -190,6 +201,8 @@ jobs:
           POSTGRES_USER: sponsorx
           POSTGRES_PASSWORD: sponsorx
           POSTGRES_DB: sponsorx_e2e
+          # 2S8-OPS-02 — UTC, as the unit job's database.
+          TZ: UTC
         ports:
           - 5432:5432
         options: >-
@@ -212,6 +225,7 @@ jobs:
 
     env:
       DATABASE_URL: postgresql://sponsorx:sponsorx@localhost:5432/sponsorx_e2e
+      PGTZ: UTC
       REDIS_URL: redis://localhost:6379
       # The API validates both Clerk keys at boot; the fan routes never call
       # Clerk, so the test instance's keys are enough.
@@ -262,6 +276,8 @@ jobs:
           done
           # 2S5-SEC-01 — a test database: the append-only audit log may be purged here.
           psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -c "ALTER DATABASE sponsorx_e2e SET sponsorx.audit_purge = 'on'"
+          # 2S8-OPS-02 — UTC by construction, as the unit job's database.
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -c "ALTER DATABASE sponsorx_e2e SET timezone TO 'UTC'"
 
       - name: Run the E2E suite
         run: npm run e2e

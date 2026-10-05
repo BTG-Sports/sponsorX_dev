@@ -29,6 +29,10 @@ import type pg from "pg";
    two agree. */
 const PILOT_SCHOOL = { propertyId: "seed_prop_northside" } as const;
 
+/* 2S8-OPS-02 — timestamps are stored as UTC wall-clock time; bare now()
+   would write the session's local time instead. */
+const NOW = `(now() AT TIME ZONE 'UTC')`;
+
 const TEST = "+clerk_test@example.com";
 const email = (local: string) => `${local}${TEST}`;
 
@@ -119,19 +123,19 @@ export async function seedPersonas(client: pg.PoolClient, tenantId: string): Pro
   await q(
     `INSERT INTO "PropertyOnboarding" (id, "tenantId", state, "orgType", "orgName", "stateCode", contacts, details,
                                        "payoutAcknowledgedAt", "termsAcceptedAt", "submittedAt", "decidedAt", "propertyId")
-     VALUES ('seed_onb_hawks', $1, 'APPROVED', 'TEAM', $2, 'MD', $3::jsonb, $4::jsonb, now(), now(), now(), now(), $5)
+     VALUES ('seed_onb_hawks', $1, 'APPROVED', 'TEAM', $2, 'MD', $3::jsonb, $4::jsonb, ${NOW}, ${NOW}, ${NOW}, ${NOW}, $5)
      ON CONFLICT (id) DO NOTHING`,
     [tenantId, HAWKS.name,
      JSON.stringify([{ name: "Dana Brooks", email: email("hawks"), role: "General manager", primary: true }]),
      JSON.stringify({ legalEntityName: "Westfield Hawks Basketball LLC", league: "Mid-Atlantic Amateur League", sport: "Basketball" }),
      HAWKS.propertyId],
   );
-  await q(`UPDATE "Property" SET "listingAccessAt" = now() WHERE id = $1 AND "listingAccessAt" IS NULL`, [HAWKS.propertyId]);
+  await q(`UPDATE "Property" SET "listingAccessAt" = ${NOW} WHERE id = $1 AND "listingAccessAt" IS NULL`, [HAWKS.propertyId]);
   await q(
     `INSERT INTO "PropertyOnboarding" (id, "tenantId", state, "orgType", "orgName", "stateCode", contacts, details,
                                        "payoutAcknowledgedAt", "termsAcceptedAt", "submittedAt")
      VALUES ('seed_onb_baysox', $1, 'PENDING_REVIEW', 'TEAM', 'Bowie Bay Sox', 'MD', $2::jsonb, $3::jsonb,
-             now(), now(), now() - interval '26 hours')
+             ${NOW}, ${NOW}, ${NOW} - interval '26 hours')
      ON CONFLICT (id) DO NOTHING`,
     [tenantId,
      JSON.stringify([{ name: "Sam Ortiz", email: email("baysox"), role: "Owner", primary: true }]),
@@ -151,7 +155,7 @@ export async function seedPersonas(client: pg.PoolClient, tenantId: string): Pro
                             "submittedAt", "decidedAt", "publishedAt")
      VALUES ('seed_lst_hawks_signage', $1, $2, $3, 'Courtside LED signage — Hawks home games',
              'Rotating courtside LED board, 30 seconds per quarter at every Hawks home game, October through March.',
-             'PUBLISHED', now(), now(), now())
+             'PUBLISHED', ${NOW}, ${NOW}, ${NOW})
      ON CONFLICT (id) DO NOTHING`,
     [tenantId, HAWKS.propertyId, MARKETPLACE_ITEMS[0][0]],
   );
@@ -160,7 +164,7 @@ export async function seedPersonas(client: pg.PoolClient, tenantId: string): Pro
      because authorising her claim is a step in the story. */
   await q(
     `INSERT INTO "Guardian" (id, "tenantId", "legalName", email, relationship, "verifiedAt")
-     VALUES ($1, $2, 'Carmen Reyes', $3, 'PARENT', now()),
+     VALUES ($1, $2, 'Carmen Reyes', $3, 'PARENT', ${NOW}),
             ($4, $2, 'Lena Thompson', $5, 'PARENT', NULL)
      ON CONFLICT (id) DO NOTHING`,
     [JORDAN.guardianId, tenantId, email("jordan.guardian"), MAYA.guardianId, email("maya.guardian")],

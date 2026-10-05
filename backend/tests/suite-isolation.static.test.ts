@@ -66,6 +66,8 @@ describe("suite isolation · static", () => {
     "sweepAutoStaffing", "sweepCampaignLaunches",
     /* P9-BE-17 / P9-BE-18 */
     "sweepEditionStages", "sweepHeldSales",
+    /* P4-BE-05 (2S8-OPS-02 gave it tenantIds) */
+    "expireInvitations",
   ];
 
   it("every platform-wide sweep a test runs is narrowed to that test's tenant", () => {
