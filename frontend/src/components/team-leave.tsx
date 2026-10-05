@@ -82,7 +82,7 @@ function LeaveDialog({ team, share, onClose }: { team: string; share: string; on
           <ul className="list-disc space-y-1 pl-5 text-[13px] leading-relaxed text-text/85">
             <li>Orders already placed carry on, and the {team} keep their {share} on those.</li>
             <li>The {team} stop selling your items; their listings of them are paused.</li>
-            <li>You can list your own items, and BTG checks each one.</li>
+            <li>You can list your own items; each one is checked before it goes live.</li>
           </ul>
           {error && <p role="alert" className="rounded-lg bg-danger/10 px-3 py-2 text-[11px] text-danger">{error}</p>}
           <div className="flex flex-wrap justify-end gap-2">

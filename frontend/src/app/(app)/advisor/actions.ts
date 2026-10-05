@@ -47,6 +47,36 @@ export async function reviewStudentAction(
   }
 }
 
+/** P9-FE-11 — the school's email domain (PUT /properties/:id/email-domain).
+ *  An adult applicant on the roster is approved automatically only with an
+ *  email on it; the API refuses a public mail provider and says so. An empty
+ *  field clears it — adults then always come to the advisor. */
+export async function setEmailDomainAction(propertyId: string, domain: string): Promise<{ ok: boolean; message: string }> {
+  if (typeof propertyId !== "string" || !propertyId || typeof domain !== "string") return { ok: false, message: "That isn't offered here." };
+  const emailDomain = domain.trim().slice(0, 253) || null;
+  try {
+    const res = await apiFetch(`/properties/${encodeURIComponent(propertyId)}/email-domain`, {
+      method: "PUT",
+      body: JSON.stringify({ emailDomain }),
+    });
+    if (!res.ok) {
+      let message = `Not saved (HTTP ${res.status}).`;
+      try {
+        const e = (await res.json()) as { error?: { message?: string; issues?: Array<{ message: string }> } };
+        message = e.error?.issues?.[0]?.message ?? e.error?.message ?? message;
+      } catch {
+        /* keep the status line */
+      }
+      return { ok: false, message };
+    }
+    const saved = (await res.json()) as { emailDomain: string | null };
+    revalidatePath("/advisor");
+    return { ok: true, message: saved.emailDomain ? `Saved — ${saved.emailDomain}.` : "Cleared — adult applicants will come to you." };
+  } catch {
+    return { ok: false, message: "The API is unreachable — try again in a minute." };
+  }
+}
+
 /** P9-FE-08 — step two of a claim: the school confirms it (roster match
  *  required by the API) or rejects it. Verifying moves the profile into
  *  ordinary review — it never activates, and never represents. */

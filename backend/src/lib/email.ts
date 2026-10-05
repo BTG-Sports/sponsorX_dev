@@ -46,6 +46,11 @@ export type EmailTemplate =
   | "athlete.rejected"
   | "athlete.profileChangeApproved"
   | "athlete.profileChangeDeclined"
+  /* P9-BE-20 — a school's advisors hear, once a day, who the system
+     approved from their roster. */
+  | "student.autoApprovedDigest"
+  /* P9-BE-21 — SALES (or BTG admins) hear once of a prospect held for them. */
+  | "studentProspect.heldForSales"
   | "guardian.verificationRequested"
   /* P4-INT-01 — the invitation's three moments. A reminder and an expiry
      warning are separate templates rather than one with a flag, because the
@@ -165,6 +170,12 @@ export type EmailTemplate =
   | "guardian.accountReinstated"
   /* 2S1-BE-11 — a minor uploaded content; their guardian hears of each one. */
   | "guardian.contentUploaded"
+  /* P5-BE-09 — a draft that failed the automatic checks goes back to the
+     athlete, each failure in words; a draft waiting over 48 hours on its
+     reviewer reminds BTG's campaign managers, or the sponsor's admins. */
+  | "deliverable.checksFailed"
+  | "deliverable.btgReviewReminder"
+  | "deliverable.sponsorReviewReminder"
   /* 2S1-BE-12 — coming of age: the start, the reminders, taking over, the
      end of the allowance, the link the guardian sends, and BTG's settling. */
   | "comingOfAge.started"
@@ -208,6 +219,11 @@ export type EmailTemplate =
   | "payment.received"
   /* 2S4-BE-10 — a card payment confirmed for an order no longer waiting for it: BTG's admins refund the sponsor. */
   | "payment.refundNeeded"
+  /* 2S5-INT-02 — a provider event SponsorX would not apply on its own (it names nothing SponsorX knows, the amounts disagree, it contradicts what was recorded): BTG's admins, with the reason. */
+  | "payment.heldForBtg"
+  /* 2S5-BE-03 — a dispute opened (the support mailbox and BTG's admins: the review item), and the provider's decision on it (BTG resolves it). */
+  | "dispute.opened"
+  | "dispute.providerClosed"
   /* P9-BE-16 — a sold ad slot's artwork on the approval board, each step
      emailed to the other party: a new version is in; it is ready for the
      sponsor's sign-off; a reviewer asked for changes; the sponsor approved. */
@@ -215,10 +231,29 @@ export type EmailTemplate =
   | "editionArtwork.readyForSignOff"
   | "editionArtwork.revisionRequested"
   | "editionArtwork.approved"
+  /* P9-BE-22 — the automatic checks sent an upload back: every reason, to the sponsor. */
+  | "editionArtwork.checksFailed"
   /* 2S5-BE-07 — the payment provider couldn't send a payout because the
      payee's payout account needs attention: fix it (on the provider's page,
      from the money page) and it is sent again on its own. */
-  | "payout.accountNeedsFix";
+  | "payout.accountNeedsFix"
+  /* 2S5-BE-05 — a payout the provider couldn't send (or the bank returned) that now waits on BTG: its admins, with the reason. */
+  | "payout.failedForBtg"
+  /* P4-BE-09 — campaigns move on their own: BTG's campaign managers hear a
+     campaign is ready to launch; the sponsor hears their final report is ready. */
+  | "campaign.readyToLaunch"
+  | "campaign.finalReportReady"
+  /* P4-BE-11 — sponsor briefs approved automatically: the sponsor hears
+     their request is approved; BTG's campaign managers hear of each brief
+     held for them, with the reasons (which the sponsor never sees). */
+  | "brief.autoApproved"
+  | "brief.heldForBtg"
+  /* P4-BE-12 — automatic staffing stopped and handed the campaign to BTG's
+     campaign managers, with the reason. */
+  | "campaign.staffingStopped"
+  /* P9-BE-18 — a NEXT ad sale the system would not make by itself: SALES
+     and BTG's admins hear of it once, with the reasons. */
+  | "adSale.heldForSales";
 
 export type EmailMessage = {
   template: EmailTemplate;

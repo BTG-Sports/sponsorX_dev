@@ -3,6 +3,7 @@ import Link from "next/link";
 import { LiveSignupReview } from "@/components/live-signup-review";
 import { Badge } from "@/components/ui";
 import { momentOf } from "@/lib/new-signups-live";
+import { trustHint, trustLine } from "@/lib/content-trust";
 import { LIVE_KIND_WORDS, liveBadge, signupHref, type ApiSignupDetail } from "@/lib/signups-live";
 import { apiFetch } from "@/server/api";
 
@@ -50,6 +51,16 @@ export async function LiveSignupProfile({ owner, id }: { owner: "athletes" | "gu
           ))}
         </dl>
       </section>
+      {/* P5-BE-10 — whether this athlete's drafts skip BTG's content review. */}
+      {s.kind === "ATHLETE" && s.contentTrust && (
+        <section aria-label="Content review" className={section}>
+          <h2 className="flex flex-wrap items-center gap-2 text-sm font-semibold">
+            Content review
+            <Badge tone={s.contentTrust.trusted ? "accent" : "neutral"}>{trustLine(s.contentTrust)}</Badge>
+          </h2>
+          <p className="mt-2 text-xs leading-relaxed text-muted">{trustHint(s.contentTrust)}</p>
+        </section>
+      )}
       {s.guardianOf.length > 0 && (
         <section aria-label="Athletes" className={section}>
           <h2 className="text-sm font-semibold">Guardian of</h2>

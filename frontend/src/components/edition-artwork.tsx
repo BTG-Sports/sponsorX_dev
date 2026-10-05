@@ -6,15 +6,25 @@ import { useRouter } from "next/navigation";
 import { Badge, Card } from "@/components/ui";
 import { DeliverableUpload } from "@/components/deliverable-upload";
 import {
+  ARTWORK_ACCEPT,
+  ARTWORK_SKIPPED_LABEL,
+  artworkBackWithSupplier,
   artworkNext,
+  artworkRoute,
+  artworkRowStatus,
   artworkStatus,
+  artworkTab,
   boardMoves,
   BOARD_MOVE_LABEL,
   canUploadArtwork,
+  checkLines,
+  failedChecks,
   sponsorMoves,
+  sponsorTrustLine,
   submittedAgo,
   type ApiArtwork,
   type ApiCampaignArtworkSlot,
+  type ArtworkTab,
   type BoardMove,
   type SponsorMove,
 } from "@/lib/edition-artwork-live";
@@ -43,7 +53,7 @@ const BTN_PRIMARY =
 const BTN_SECONDARY =
   "inline-flex items-center justify-center rounded-lg border border-line px-3.5 py-2 text-xs font-medium text-text transition-colors hover:bg-surface-2 disabled:opacity-40";
 
-function OpenFile({ id, version, link }: { id: string; version: number; link: (id: string) => Promise<LinkResult> }) {
+export function OpenFile({ id, version, link }: { id: string; version: number; link: (id: string) => Promise<LinkResult> }) {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   return (
@@ -74,7 +84,7 @@ function OpenFile({ id, version, link }: { id: string; version: number; link: (i
 }
 
 /** The buttons for one artwork, with the note box a change request needs. */
-function Decisions<K extends string>({
+export function Decisions<K extends string>({
   id,
   moves,
   labels,
@@ -155,9 +165,39 @@ function Decisions<K extends string>({
   );
 }
 
+/* ------------------------------------------------------------ CheckList */
+
+/** P9-BE-22 — the automatic checks on the latest file, each in words. */
+export function CheckList({ checks }: { checks: ApiArtwork["checks"] }) {
+  const lines = checkLines(checks);
+  if (lines.length === 0) return null;
+  return (
+    <ul className="mt-2 space-y-0.5" aria-label="Automatic checks">
+      {lines.map((c) => (
+        <li key={c.text} className="flex items-start gap-1.5 text-[11px] leading-snug">
+          <span aria-hidden="true" className={c.ok ? "text-success" : "text-danger"}>
+            {c.ok ? "✓" : "✕"}
+          </span>
+          <span className={c.ok ? "text-muted" : "text-text"}>
+            <span className="sr-only">{c.ok ? "Passed: " : "Failed: "}</span>
+            {c.text}
+          </span>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 /* ------------------------------------------------------------ ArtworkQueue */
 
-/** BTG's desk: the edition artwork waiting on, or cleared by, the board. */
+const ARTWORK_TABS: Array<{ key: ArtworkTab; label: string }> = [
+  { key: "all", label: "All artwork" },
+  { key: "skipped", label: ARTWORK_SKIPPED_LABEL },
+];
+
+/** BTG's desk: the edition artwork waiting on, or cleared by, the board.
+ *  P9-BE-22 — a "Skipped BTG review" tab, each card's check results, the
+ *  skip badge with its reason, and the sponsor's record. */
 export function ArtworkQueue({
   rows,
   now,
@@ -170,55 +210,101 @@ export function ArtworkQueue({
   link: (id: string) => Promise<LinkResult>;
 }) {
   const at = new Date(now);
+  const [tab, setTab] = useState<ArtworkTab>("all");
+  const counts: Record<ArtworkTab, number> = { all: rows.length, skipped: artworkTab(rows, "skipped").length };
+  const shown = artworkTab(rows, tab);
   return (
-    <ul className="grid gap-3 md:grid-cols-2">
-      {rows.map((a) => {
-        const s = artworkStatus(a.state, Boolean(a.revision));
-        return (
-          <li key={a.id}>
-            <Card className="h-full p-4">
-              <div className="flex flex-wrap items-start justify-between gap-2">
-                <div className="min-w-0">
-                  <p className="text-[10px] font-medium uppercase tracking-wide text-next">Edition ad · {a.slot?.slotCode ?? "slot"}</p>
-                  <p className="mt-0.5 break-words text-sm font-semibold [overflow-wrap:anywhere]">{a.campaign?.sponsorName ?? a.title}</p>
-                  <p className="text-[11px] text-muted [overflow-wrap:anywhere]">
-                    {a.edition.label} · {a.edition.publication}
-                    {a.campaign ? ` · ${a.campaign.name}` : ""}
+    <div>
+      <div role="tablist" aria-label="Edition ad artwork" className="mb-3 flex w-fit max-w-full flex-wrap gap-1 rounded-lg border border-line bg-surface p-1">
+        {ARTWORK_TABS.map((t) => {
+          const active = t.key === tab;
+          return (
+            <button
+              key={t.key}
+              type="button"
+              role="tab"
+              aria-selected={active}
+              onClick={() => setTab(t.key)}
+              className={[
+                "flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-colors",
+                active ? "bg-admin/15 text-text" : "text-muted hover:text-text",
+              ].join(" ")}
+            >
+              {t.label}
+              <span className={["tabular-nums text-[10px]", active ? "text-text" : "text-faint"].join(" ")}>{counts[t.key]}</span>
+            </button>
+          );
+        })}
+      </div>
+      {shown.length === 0 ? (
+        <p className="rounded-xl border border-line bg-surface px-5 py-6 text-center text-xs text-muted">
+          Nothing has skipped BTG&rsquo;s review — artwork does once a sponsor&rsquo;s last three ads were approved by BTG without changes.
+        </p>
+      ) : (
+        <ul className="grid gap-3 md:grid-cols-2">
+          {shown.map((a) => {
+            const s = artworkRowStatus(a);
+            const back = artworkBackWithSupplier(a);
+            const route = artworkRoute(a, "BTG");
+            const trust = sponsorTrustLine(a.sponsorTrust);
+            return (
+              <li key={a.id}>
+                <Card className="h-full p-4">
+                  <div className="flex flex-wrap items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="text-[10px] font-medium uppercase tracking-wide text-next">Edition ad · {a.slot?.slotCode ?? "slot"}</p>
+                      <p className="mt-0.5 break-words text-sm font-semibold [overflow-wrap:anywhere]">{a.campaign?.sponsorName ?? a.title}</p>
+                      <p className="text-[11px] text-muted [overflow-wrap:anywhere]">
+                        {a.edition.label} · {a.edition.publication}
+                        {a.campaign ? ` · ${a.campaign.name}` : ""}
+                      </p>
+                    </div>
+                    <span className="flex flex-wrap justify-end gap-1">
+                      <Badge tone={s.tone}>{s.label}</Badge>
+                      {a.btgReviewSkipped && <Badge tone="warn">{ARTWORK_SKIPPED_LABEL}</Badge>}
+                    </span>
+                  </div>
+                  <p className="mt-2 text-[11px] text-faint">
+                    v{a.version} · {submittedAgo(a.submittedAt, at)}
+                    {trust ? ` · ${trust}` : ""}
                   </p>
-                </div>
-                <Badge tone={s.tone}>{s.label}</Badge>
-              </div>
-              <p className="mt-2 text-[11px] text-faint">
-                v{a.version} · {submittedAgo(a.submittedAt, at)}
-              </p>
-              {a.revision && (
-                <p className="mt-2 rounded-lg border border-warn/30 bg-warn/8 px-3 py-2 text-[11px] text-text">“{a.revision.reason}”</p>
-              )}
-              <p className="mt-2 text-[11px] leading-relaxed text-muted">{artworkNext(a.state, Boolean(a.revision), "BTG")}</p>
-              {a.version > 0 && (
-                <div className="mt-2">
-                  <OpenFile id={a.id} version={a.version} link={link} />
-                </div>
-              )}
-              <Decisions<BoardMove>
-                id={a.id}
-                moves={boardMoves(a.state, Boolean(a.revision))}
-                labels={BOARD_MOVE_LABEL}
-                act={act}
-                noteHint="The sponsor gets these words exactly."
-                done={(k) =>
-                  k === "revision"
-                    ? `Sent back to ${a.campaign?.sponsorName ?? "the sponsor"} with your notes.`
-                    : k === "sponsor-review"
-                      ? `Sent to ${a.campaign?.sponsorName ?? "the sponsor"} for their sign-off.`
-                      : "Review started — it's on the BTG desk now."
-                }
-              />
-            </Card>
-          </li>
-        );
-      })}
-    </ul>
+                  {a.revision && (
+                    <p className="mt-2 rounded-lg border border-warn/30 bg-warn/8 px-3 py-2 text-[11px] text-text">“{a.revision.reason}”</p>
+                  )}
+                  {route && (
+                    <div className="mt-2 rounded-lg border border-warn/25 bg-warn/8 px-3 py-2 text-[11px] leading-relaxed text-text">
+                      <p>{route}</p>
+                      {a.btgReviewSkipped && a.skipReason && <p className="mt-0.5 text-muted">{a.skipReason}.</p>}
+                    </div>
+                  )}
+                  {!route && <p className="mt-2 text-[11px] leading-relaxed text-muted">{artworkNext(a.state, back, "BTG")}</p>}
+                  <CheckList checks={a.checks} />
+                  {a.version > 0 && (
+                    <div className="mt-2">
+                      <OpenFile id={a.id} version={a.version} link={link} />
+                    </div>
+                  )}
+                  <Decisions<BoardMove>
+                    id={a.id}
+                    moves={boardMoves(a.state, back, Boolean(a.btgReviewSkipped))}
+                    labels={BOARD_MOVE_LABEL}
+                    act={act}
+                    noteHint="The sponsor gets these words exactly."
+                    done={(k) =>
+                      k === "revision"
+                        ? `Sent back to ${a.campaign?.sponsorName ?? "the sponsor"} with your notes.`
+                        : k === "sponsor-review"
+                          ? `Sent to ${a.campaign?.sponsorName ?? "the sponsor"} for their sign-off.`
+                          : "Review started — it's on the BTG desk now."
+                    }
+                  />
+                </Card>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </div>
   );
 }
 
@@ -226,7 +312,9 @@ export function ArtworkQueue({
 
 const SPONSOR_LABEL: Record<SponsorMove, string> = { approve: "Approve", revision: "Request changes" };
 
-/** The sponsor's campaign page: each edition slot they bought and its artwork. */
+/** The sponsor's campaign page: each edition slot they bought and its artwork.
+ *  P9-BE-22 — a file the checks sent back lists what failed, in words; one
+ *  that skipped BTG says it was sent straight to their review. */
 export function SponsorArtwork({
   slots,
   now,
@@ -242,7 +330,7 @@ export function SponsorArtwork({
   canDecide: boolean;
   act: (id: string, kind: SponsorMove, note?: string) => Promise<Result>;
   link: (id: string) => Promise<LinkResult>;
-  presign: (slotId: string, contentType: string) => Promise<({ ok: true } & { url: string; key: string }) | Fail>;
+  presign: (slotId: string, contentType: string, bytes: number) => Promise<({ ok: true } & { url: string; key: string }) | Fail>;
   register: (slotId: string, key: string) => Promise<({ ok: true } & { version: number }) | Fail>;
 }) {
   const at = new Date(now);
@@ -251,8 +339,10 @@ export function SponsorArtwork({
     <ul className="space-y-3">
       {slots.map((slot) => {
         const a = slot.artwork;
-        const revisionOpen = Boolean(a?.revision);
-        const s = artworkStatus(a?.state ?? null, revisionOpen);
+        const back = a ? artworkBackWithSupplier(a) : false;
+        const s = a ? artworkRowStatus(a) : artworkStatus(null, false);
+        const route = a ? artworkRoute(a, "SPONSOR") : null;
+        const failed = a ? failedChecks(a) : [];
         const uploadable = canDecide && canUploadArtwork(a?.state ?? null, slot.open);
         return (
           <li key={slot.slotId}>
@@ -276,9 +366,23 @@ export function SponsorArtwork({
               {a?.revision && (
                 <p className="mt-2 rounded-lg border border-warn/30 bg-warn/8 px-3 py-2 text-[11px] text-text">“{a.revision.reason}”</p>
               )}
-              <p className="mt-2 text-[11px] leading-relaxed text-muted">
-                {slot.open || a?.state === "APPROVED" ? artworkNext(a?.state ?? null, revisionOpen, "SPONSOR") : "This edition is in production — its artwork is final."}
-              </p>
+              {route && (
+                <div className="mt-2 rounded-lg border border-warn/25 bg-warn/8 px-3 py-2 text-[11px] leading-relaxed text-text">
+                  <p className={failed.length ? "font-semibold" : undefined}>{route}</p>
+                  {failed.length > 0 && (
+                    <ul className="mt-1 list-disc space-y-0.5 pl-4">
+                      {failed.map((f) => (
+                        <li key={f}>{f}</li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              )}
+              {!route && (
+                <p className="mt-2 text-[11px] leading-relaxed text-muted">
+                  {slot.open || a?.state === "APPROVED" ? artworkNext(a?.state ?? null, back, "SPONSOR") : "This edition is in production — its artwork is final."}
+                </p>
+              )}
               {a && a.version > 0 && (
                 <div className="mt-2">
                   <OpenFile id={a.id} version={a.version} link={link} />
@@ -290,10 +394,12 @@ export function SponsorArtwork({
                     deliverableId={slot.slotId}
                     firstUpload={false}
                     label={a ? "Upload a new version" : "Upload your ad artwork"}
+                    accept={ARTWORK_ACCEPT}
                     presign={presign}
                     register={register}
                     submit={noSubmit}
                   />
+                  <p className="mt-1.5 text-[10px] text-faint">A PDF, or a PNG or JPG image, up to 50 MB.</p>
                 </div>
               )}
               {a && (

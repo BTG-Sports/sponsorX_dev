@@ -29,6 +29,9 @@ import { scopeFor } from "../auth/policy";
 import { ForbiddenError } from "../auth/errors";
 import { transitionAthleteIn } from "./athlete";
 import { readPage, type PageRequest } from "../lib/paging";
+/* The claim's name match — shared with P9-BE-20's roster approval. */
+import { norm } from "./name-match";
+import { recheckRosterHoldsIn } from "./student-auto";
 
 export class FeaturedError extends Error {
   readonly status: number;
@@ -46,8 +49,6 @@ export class ProfileNotFoundError extends Error {
     this.name = "ProfileNotFoundError";
   }
 }
-
-const norm = (name: string) => name.normalize("NFKD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/[^a-z]+/g, " ").trim();
 
 /** Editorial features an athlete. No email, no consent, no rates. */
 export async function createFeaturedAthlete(
@@ -194,6 +195,7 @@ export async function verifyClaim(actor: Actor, claimId: string): Promise<{ athl
     if (claim.state !== "SUBMITTED") throw new FeaturedError(`This claim was already ${claim.state.toLowerCase()}.`);
     if (!claim.rosterMatched) throw new FeaturedError("The claimant is not on the school's roster; the school cannot verify this claim.");
 
+    /* tenant-scope: the claimed athlete; the claim was loaded above through whereFor(athleteClaim, approve), in the same tenant. */
     await tx.athlete.update({
       where: { id: claim.athleteId },
       data: { legalName: claim.claimantName, email: claim.claimantEmail, birthDate: claim.birthDate, ageBand: claim.ageBand },
@@ -203,6 +205,7 @@ export async function verifyClaim(actor: Actor, claimId: string): Promise<{ athl
        the move itself goes through the one function that changes an
        athlete's state, as a system transition — which can never activate. */
     await transitionAthleteIn(tx, { system: true, tenantId: actor.tenantId, userId: null }, claim.athleteId, "UNDER_REVIEW");
+    /* tenant-scope: the row loaded above through whereFor(athleteClaim, approve). */
     await tx.athleteClaim.update({
       where: { id: claimId }, data: { state: "VERIFIED", verifiedBy: actor.userId, verifiedAt: new Date() }, select: { id: true },
     });
@@ -224,6 +227,7 @@ export async function rejectClaim(actor: Actor, claimId: string): Promise<{ id: 
     });
     if (!claim) throw new ForbiddenError("athleteClaim", "approve");
     if (claim.state !== "SUBMITTED") throw new FeaturedError(`This claim was already ${claim.state.toLowerCase()}.`);
+    /* tenant-scope: the row loaded above through whereFor(athleteClaim, approve). */
     await tx.athleteClaim.update({ where: { id: claimId }, data: { state: "REJECTED" }, select: { id: true } });
     await audit(tx, actor, "athleteClaim.reject", "Athlete", claim.athleteId, { after: { claimId } });
     return { id: claimId, state: "REJECTED" };
@@ -248,6 +252,8 @@ export async function addRosterEntries(
       data: entries.map((e) => ({ tenantId: actor.tenantId, propertyId, legalName: e.legalName, gradYear: e.gradYear ?? null })),
     });
     await audit(tx, actor, "rosterEntry.add", "Property", propertyId, { after: { count: out.count } });
+    /* P9-BE-20 — applications waiting only for a roster are decided again. */
+    await recheckRosterHoldsIn(tx, actor.tenantId, propertyId);
     return { added: out.count };
   });
 }

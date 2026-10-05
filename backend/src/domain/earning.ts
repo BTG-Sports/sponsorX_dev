@@ -202,6 +202,7 @@ export async function transitionEarning(
     const from = earning.state as EarningState;
     if (!canTransitionEarning(from, to)) throw new IllegalEarningTransitionError(from, to);
 
+    /* tenant-scope: the row loaded above through whereFor(earning). */
     const updated = await tx.earning.update({
       where: { id: earningId },
       data: {
@@ -252,6 +253,7 @@ export async function adjustEarning(
     const state = earning.state as EarningState;
     if (!isEarningMutable(state)) throw new EarningImmutableError(state);
 
+    /* tenant-scope: the row loaded above through whereFor(earning, write). */
     const updated = await tx.earning.update({
       where: { id: earningId },
       data: { adjustment },
@@ -347,6 +349,7 @@ export async function maybeMakeEligible(
      landing — that decision is Finance's to reverse, not this function's. */
   if (from !== "PENDING") return null;
 
+  /* tenant-scope: the order's earning found above; orderId is unique and comes from a deliverable the caller loaded through whereFor. */
   const updated = await tx.earning.update({
     where: { id: earning.id },
     data: { state: "ELIGIBLE" },

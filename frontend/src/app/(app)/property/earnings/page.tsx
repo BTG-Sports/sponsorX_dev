@@ -5,7 +5,7 @@ import { PayoutHistory } from "@/components/payout-history";
 import { PayoutRequest } from "@/components/payout-request";
 import { PAYOUTS_NOTE, buildEarnings, type ApiAnalytics, type ApiLedger } from "@/lib/property-p2-live";
 import {
-  accountPanel, payoutTiles, requestButton, requestOrders, showChecklist, usd, type ApiMyPayouts,
+  accountPanel, owedBackNotice, payoutTiles, requestButton, requestOrders, showChecklist, usd, type ApiMyPayouts,
 } from "@/lib/payouts-live";
 import { apiFetch } from "@/server/api";
 import { requirePortalAccess } from "@/server/portal";
@@ -66,6 +66,8 @@ export default async function PropertyEarningsPage() {
   const tiles = [...payoutTiles(me), ...e.tiles.filter((t) => t.key === "awaiting")];
   const request = requestButton(me);
   const linkAction = payoutAccountLinkAction.bind(null, "/property/earnings");
+  /* 2S8-QA-05 — a refund after a payout leaves money owed back; never shown as $0. */
+  const owedBack = owedBackNotice(me);
 
   return (
     <div className="space-y-6">
@@ -73,6 +75,12 @@ export default async function PropertyEarningsPage() {
         {heading}
         <PayoutRequest view={request} amount={usd(me.totals.requestableCents)} orders={requestOrders(me.orders)} action={requestPayoutAction} />
       </div>
+
+      {owedBack && (
+        <p role="status" className="rounded-lg border border-warn/30 bg-warn/8 px-3 py-2 text-xs text-warn">
+          {owedBack}. A sponsor was refunded after your property&rsquo;s share was paid out.
+        </p>
+      )}
 
       {!e.reconciles && (
         <p role="alert" className="rounded-lg border border-warn/30 bg-warn/8 px-3 py-2 text-xs text-warn">

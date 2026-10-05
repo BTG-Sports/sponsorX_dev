@@ -109,7 +109,7 @@ function ConfirmDialog({
             Request a payout of {amount}?
           </h2>
           <p className="mt-2 text-xs leading-relaxed text-muted">
-            It goes to your payout account on Stripe. It usually arrives within a few days after BTG approves it.
+            It goes to your payout account on Stripe. Most payouts are approved automatically, and it usually arrives within a few days.
           </p>
           {orders.length > 0 && (
             <div className="mt-4">

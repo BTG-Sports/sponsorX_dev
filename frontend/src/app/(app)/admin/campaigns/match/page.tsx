@@ -5,6 +5,7 @@ import { EmptyState } from "@/components/states";
 import { BlockedNotice } from "@/components/ui";
 import { MATCH_BRIEF, MIN_SCORE_FLOOR } from "@/lib/matching";
 import {
+  asortOf,
   briefsApiQuery,
   eligibleApiQuery,
   toMatchData,
@@ -16,6 +17,7 @@ import { apiFetch, fetchActor } from "@/server/api";
 import { sendInvitations } from "./actions";
 import { BriefPicker } from "./brief-picker";
 import { NotInRole, staffWithoutAccess } from "@/components/not-in-role";
+import { mayWriteOffers } from "@/lib/admin-offers-live";
 
 /* --------------------------------------------------------------------------
    /admin/campaigns/match — the Matching Studio (P4-ART-01 in-app).
@@ -47,7 +49,7 @@ type BriefList = { briefs: ApiBrief[]; page: PageInfo };
 type Live =
   | { kind: "denied" }
   | { kind: "none"; list: BriefList }
-  | { kind: "brief"; list: BriefList; brief: ApiBrief; eligible: ApiEligiblePage };
+  | { kind: "brief"; list: BriefList; brief: ApiBrief; eligible: ApiEligiblePage; offers: boolean };
 
 async function liveDesk(sp: SearchParams): Promise<Live | null> {
   /* No catch — an outage is an error page, never fixtures dressed as a real
@@ -85,7 +87,8 @@ async function liveDesk(sp: SearchParams): Promise<Live | null> {
   if (!eligibleRes.ok) throw new Error(`Eligible roster unavailable (${eligibleRes.status}).`);
   const brief = (await detailRes.json()) as ApiBrief;
   const eligible = (await eligibleRes.json()) as ApiEligiblePage;
-  return { kind: "brief", list, brief, eligible };
+  /* P4-FE-08 — an offer writer's rows link to the pre-filled offer form. */
+  return { kind: "brief", list, brief, eligible, offers: mayWriteOffers(who.actor.roles) };
 }
 
 export default async function MatchingStudioPage({
@@ -110,7 +113,7 @@ export default async function MatchingStudioPage({
     if (lacking) return <NotInRole path="/admin/campaigns/match" title="Matching Studio" roles={lacking} />;
   }
   const live = str(sp.demo) ? null : await liveDesk(sp);
-  const data = live?.kind === "brief" ? toMatchData(live.brief, live.eligible.athletes) : null;
+  const data = live?.kind === "brief" ? toMatchData(live.brief, live.eligible.athletes, { offers: live.offers }) : null;
   const bq = textParam(sp, "bq");
   const campaignName = data ? data.brief.campaign : MATCH_BRIEF.campaign;
 
@@ -165,7 +168,7 @@ export default async function MatchingStudioPage({
           send={sendInvitations.bind(null, live.brief.id)}
           page={live.eligible.page}
           facets={live.eligible.facets}
-          sort={textParam(sp, "asort") === "name" ? "name" : "score"}
+          sort={asortOf(sp)}
         />
       ) : (
         <>

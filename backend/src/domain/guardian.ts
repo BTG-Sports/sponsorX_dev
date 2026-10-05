@@ -27,6 +27,7 @@ import type { Actor } from "../auth/actor";
 import { assertAllowed, assertTenantWide, whereFor } from "../auth/scope";
 import { ForbiddenError } from "../auth/errors";
 import { provisionGuardianLoginIn } from "./athlete-login";
+import { activateWardStudentsIn } from "./student-moves";
 import {
   GUARDIAN_RELATIONSHIPS,
   guardianReadiness,
@@ -156,6 +157,7 @@ export async function linkGuardian(
       select: { id: true },
     });
 
+    /* tenant-scope: the athlete loaded above through whereFor(athlete, read), after guardian.write was asserted: a guardian's reach is their ward. */
     await tx.athlete.update({
       where: { id: athleteId },
       /* The guardian waits for THIS athlete — proof naming them and the agreement
@@ -228,12 +230,13 @@ export async function verifyGuardian(
   return prisma.$transaction(async (tx) => {
     const guardian = await tx.guardian.findFirst({
       where: { ...whereFor(actor, "guardian", "write"), id: guardianId },
-      select: { id: true, verifiedAt: true },
+      select: { id: true, tenantId: true, verifiedAt: true },
     });
     if (!guardian) throw new ForbiddenError("guardian", "write");
     if (guardian.verifiedAt) throw new AlreadyVerifiedError(guardianId);
 
     const verifiedAt = new Date();
+    /* tenant-scope: the row loaded above through whereFor(guardian, write). */
     await tx.guardian.update({
       where: { id: guardianId },
       data: { verifiedAt },
@@ -243,6 +246,9 @@ export async function verifyGuardian(
     await audit(tx, actor, AUDIT_ACTIONS.guardian.verify, "Guardian", guardianId, {
       after: { verifiedAt: verifiedAt.toISOString() },
     });
+    /* P9-BE-20 — a NEXT student approved and waiting only on this guardian
+       joins the masthead now, as the system, in this transaction. */
+    await activateWardStudentsIn(tx, guardian.tenantId, guardianId, verifiedAt);
 
     return { guardianId, verifiedAt };
   });

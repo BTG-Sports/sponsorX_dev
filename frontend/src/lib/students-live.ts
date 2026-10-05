@@ -28,6 +28,11 @@ export type ApiStudent = {
   reviewerNotes: string | null;
   leftAt: string | null;
   createdAt: string;
+  /** P9-BE-20 — reviewers only (the advisor, BTG): why the application
+   *  waits for them, and when the system approved it from the roster. A
+   *  student's or guardian's read never carries either. */
+  reviewReasons?: string[];
+  autoApprovedAt?: string | null;
 };
 
 export const STUDENT_STATE_COPY: Record<ApiStudentState, string> = {
@@ -92,7 +97,47 @@ export const STUDENT_GROUPS: Array<{ key: StudentGroup; tab: string; title: stri
 ];
 export const STUDENT_GROUP_KEYS = STUDENT_GROUPS.map((g) => g.key);
 
-export type StudentGroupCounts = { groups: Record<StudentGroup, number>; all: number };
+export type StudentGroupCounts = { groups: Record<StudentGroup, number>; all: number; autoApproved?: number };
+
+/** URL keys for the advisor desk's "Approved automatically" list (P9-FE-11). */
+export const AUTO_KEYS = { page: "apage", size: "asize" } as const;
+
+/** Why an application waits for the advisor — only while it is under review. */
+export function waitingReasons(s: Pick<ApiStudent, "state" | "reviewReasons">): string[] {
+  return s.state === "UNDER_REVIEW" ? (s.reviewReasons ?? []) : [];
+}
+
+/**
+ * P9-FE-11 — what a student reads about their own application, in plain
+ * words. Never the advisor's internal reasons (the API does not send them
+ * to a student): while it waits, "your school is reviewing" is all it says.
+ * The advisor's own note to the student is shown where one was written.
+ */
+export function studentStatusWords(s: Pick<ApiStudent, "state" | "reviewerNotes">): { title: string; body: string } {
+  const note = s.reviewerNotes?.trim() ? `Your advisor's note: ${s.reviewerNotes.trim()}` : null;
+  switch (s.state) {
+    case "DRAFT":
+      return { title: "Not sent yet", body: "Finish your application and send it to your school." };
+    case "SUBMITTED":
+    case "UNDER_REVIEW":
+      return { title: "Your school is reviewing your application", body: "You'll hear as soon as there's a decision." };
+    case "CHANGES_REQUESTED":
+      return { title: "Your school asked for changes", body: note ?? "Update your application and send it again." };
+    case "APPROVED":
+      return {
+        title: "You're approved",
+        body: "You join the masthead as soon as your parent or guardian is confirmed (if you're under 18), or when your advisor adds you.",
+      };
+    case "REJECTED":
+      return { title: "Your application wasn't accepted", body: note ?? "Talk to your advisor if you have questions." };
+    case "ACTIVE":
+      return { title: "You're on the masthead", body: "Your code and prospects are open." };
+    case "SUSPENDED":
+      return { title: "Your place on the masthead is paused", body: note ?? "Talk to your advisor." };
+    case "INACTIVE":
+      return { title: "You've left the programme", body: "Your sales record stays yours." };
+  }
+}
 
 /** URL keys for the second list on a page. */
 export const CLAIM_KEYS = { page: "cpage", size: "csize" } as const;
@@ -160,6 +205,8 @@ export const POINT_REASON_COPY: Record<string, string> = {
   INTERVIEW: "Interview delivered",
   APPOINTMENT: "Sales meeting held",
   SALES_500: "Every $500 closed",
+  /* P9-BE-19 — a sale refunded (its edition was cancelled) takes its $500 mark back. */
+  SALES_500_REVERSED: "Sale refunded — $500 mark taken back",
   VIEWS_BONUS: "Views bonus",
 };
 

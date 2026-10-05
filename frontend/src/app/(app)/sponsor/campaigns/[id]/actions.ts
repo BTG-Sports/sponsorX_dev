@@ -44,16 +44,21 @@ function refresh() {
   revalidatePath("/(app)/sponsor/campaigns/[id]", "page");
 }
 
-/** A presigned PUT for the slot's artwork file. The API chooses the key. */
-export async function presignArtwork(slotId: string, contentType: string) {
+/** A presigned PUT for the slot's artwork file. The API chooses the key;
+ *  P9-BE-22 — the file's size is signed into the PUT with its type, and the
+ *  upload's automatic checks read both. */
+export async function presignArtwork(slotId: string, contentType: string, bytes?: number) {
   if (!valid(slotId) || typeof contentType !== "string" || !contentType) return { ok: false, message: "That file can't be uploaded." } as Fail;
-  return post<{ url: string; key: string }>(`/ad-slots/${encodeURIComponent(slotId)}/artwork/uploads`, { contentType }, "Couldn't start the upload");
+  if (typeof bytes !== "number" || !Number.isInteger(bytes) || bytes <= 0) return { ok: false, message: "That file is empty — choose another." } as Fail;
+  return post<{ url: string; key: string }>(`/ad-slots/${encodeURIComponent(slotId)}/artwork/uploads`, { contentType, bytes }, "Couldn't start the upload");
 }
 
-/** Record the finished upload as the slot's artwork — it goes to BTG's review. */
+/** Record the finished upload as the slot's artwork. P9-BE-22 — it is checked
+ *  at once: back to you with the reasons, on to BTG, or — for a sponsor whose
+ *  recent ads were approved without changes — straight to your review. */
 export async function registerArtwork(slotId: string, key: string) {
   if (!valid(slotId) || typeof key !== "string" || !key) return { ok: false, message: "Nothing to record." } as Fail;
-  const r = await post<{ id: string; state: string; version: number }>(
+  const r = await post<{ id: string; state: string; version: number; route?: string; btgReviewSkipped?: boolean }>(
     `/ad-slots/${encodeURIComponent(slotId)}/artwork`,
     { r2Key: key },
     "The upload finished but couldn't be recorded",
@@ -74,6 +79,39 @@ export async function sponsorArtworkAction(id: string, kind: SponsorMove, note?:
   );
   if (r.ok) refresh();
   return r;
+}
+
+/* --------------------------------------------------------------------------
+   P5-BE-09 / P4-FE-08 — the sponsor's sign-off on athlete content waiting in
+   SPONSOR_REVIEW. The API's matrix decides (a sponsor approves on their own
+   campaigns, §15), audits, and tells the athlete.
+   -------------------------------------------------------------------------- */
+
+/** Approve, or Request changes with a note — the athlete gets the words. */
+export async function sponsorContentAction(id: string, kind: "approve" | "revision", note?: string) {
+  if (!valid(id) || (kind !== "approve" && kind !== "revision")) return { ok: false, message: "Unknown decision." } as Fail;
+  const trimmed = note?.trim() ?? "";
+  if (kind === "revision" && !trimmed) return { ok: false, message: "Say what needs to change — the athlete gets these words." } as Fail;
+  const r = await post<{ state: string }>(
+    `/deliverables/${encodeURIComponent(id)}/${kind}`,
+    kind === "revision" ? { reason: trimmed } : {},
+    "The decision was not accepted",
+  );
+  if (r.ok) refresh();
+  return r;
+}
+
+/** A short-lived signed link to one version of the content (audited by the API). */
+export async function sponsorContentLink(id: string, version: number): Promise<{ ok: true; url: string } | Fail> {
+  if (!valid(id) || !Number.isInteger(version) || version < 1) return { ok: false, message: "No such version." };
+  let res: Response;
+  try {
+    res = await apiFetch(`/deliverables/${encodeURIComponent(id)}/assets/${version}/url`);
+  } catch {
+    return { ok: false, message: "Can't reach SponsorX right now." };
+  }
+  if (!res.ok) return { ok: false, message: await reason(res, `No link (HTTP ${res.status}).`) };
+  return { ok: true, url: ((await res.json()) as { url: string }).url };
 }
 
 /** A short-lived signed link to the artwork file (audited by the API). */

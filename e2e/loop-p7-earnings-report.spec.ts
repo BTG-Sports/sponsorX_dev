@@ -13,8 +13,11 @@ import { ensureBase, purge, q, seedAthlete, seedCampaign, seedSponsor, TENANT, t
  * leave it: order ACCEPTED with its acceptance, the deliverable, a PENDING
  * earning) — and closes the §39 loop:
  *   BTG_ADMIN  verifies the publication on the content desk, which releases
- *              the earning PENDING → ELIGIBLE in the same transaction;
- *   ATHLETE    sees it cleared on their earnings page — pay only;
+ *              the earning PENDING → ELIGIBLE and — under $2,000, every check
+ *              passed (2S5-BE-08, the programme owner's automatic-approval
+ *              rule) — on to APPROVED_FOR_PAYOUT as the system, all in the
+ *              same transaction;
+ *   ATHLETE    sees it approved on their earnings page — pay only;
  *   BTG_ADMIN  sees it on the finance workspace with commission and the
  *              Zoho reconciliation; FINANCE sees the earning but, by the
  *              2026-09-24 matrix decision, not the invoices;
@@ -29,9 +32,10 @@ import { ensureBase, purge, q, seedAthlete, seedCampaign, seedSponsor, TENANT, t
  *     records either yet (platform ingestion is Phase 3).
  *   - The Zoho Books invoice is a seeded CampaignInvoice row: it is a mirror
  *     of Zoho, written by the sync, and no route creates one.
- * Payout (APPROVED_FOR_PAYOUT / PAID) is NOT driven: the finance screen
- * blocks it on the unwritten Phase 1 payment policy (§37 gate one), and a
- * test must not do what the product deliberately refuses to offer.
+ * Paying it (PAID) is NOT driven: the finance screen still blocks payout
+ * actions on the unwritten Phase 1 payment policy (§37 gate one), and a test
+ * must not do what the product deliberately refuses to offer. The approval
+ * before it is the system's, and is asserted.
  */
 test.skip(!hasLoopStack, LOOP_SKIP_REASON);
 
@@ -98,8 +102,10 @@ test.afterAll(async ({}, testInfo) => {
   if (desktopOnly(testInfo)) await clean();
 });
 
-const earningState = async () =>
-  (await q<{ state: string }>(`select state from "Earning" where "orderId" = $1`, [ORDER]))[0]?.state;
+const earning = async () =>
+  (await q<{ id: string; state: string; approvedAutomatically: boolean }>(
+    `select id, state, "approvedAutomatically" from "Earning" where "orderId" = $1`, [ORDER]))[0];
+const earningState = async () => (await earning())?.state;
 
 /** A table row on the finance page, by the text it must contain. */
 const rowWith = (page: import("@playwright/test").Page, ...texts: string[]) => {
@@ -121,8 +127,15 @@ test("a verified post releases the earning, shows in finance, and lands in the s
   await expect(drawer.getByText("Verified — it now counts toward the athlete's earning.")).toBeVisible();
   const [d] = await q<{ state: string }>(`select state from "Deliverable" where id = $1`, [DELIVERABLE]);
   expect(d.state).toBe("VERIFIED");
-  // The order's last deliverable verified → its earning is released, same transaction.
-  await expect.poll(earningState).toBe("ELIGIBLE");
+  // The order's last deliverable verified → its earning is released, and —
+  // $30, nothing held — approved for payout by the system, same transaction.
+  await expect.poll(earningState).toBe("APPROVED_FOR_PAYOUT");
+  const released = await earning();
+  expect(released.approvedAutomatically, "approved by the rule, not by a person").toBe(true);
+  const approvals = await q<{ actorId: string | null; before: { state?: string } | null }>(
+    `select "actorId", before from "AuditLog" where "entityId" = $1 and after->>'state' = 'APPROVED_FOR_PAYOUT'`,
+    [released.id]);
+  expect(approvals).toEqual([expect.objectContaining({ actorId: null, before: { state: "ELIGIBLE" } })]);
 
   // 2. METRICS + TRACKING LINK — BTG, through the API (no screen yet).
   const today = new Date().toISOString().slice(0, 10);
@@ -146,13 +159,13 @@ test("a verified post releases the earning, shows in finance, and lands in the s
       [DELIVERABLE]))[0].n,
   ).toBe(1);
 
-  // 4. THE ATHLETE — cleared, their pay only, never the sponsor's price.
+  // 4. THE ATHLETE — approved for payout, their pay only, never the sponsor's price.
   const athlete = await pageAs(browser, testInfo, { key: "p7.athlete", roles: ["ATHLETE"], athleteId: ATHLETE.id });
   await athlete.goto("/athlete/earnings");
   await expect(athlete.getByRole("heading", { level: 1, name: "Earnings" })).toBeVisible();
   await expect(athlete.getByText(/1 of 1/).first()).toBeVisible();
   const activity = athlete.getByRole("button", { name: new RegExp(CAMPAIGN_NAME) });
-  await expect(activity).toContainText("Eligible");
+  await expect(activity).toContainText("Approved for payout");
   await expect(activity).toContainText("$30");
   await expect(athlete.getByText("$80"), "no sponsor price on the athlete's side").toHaveCount(0);
   await expect(athlete.getByText("$50"), "no commission either").toHaveCount(0);
@@ -161,8 +174,9 @@ test("a verified post releases the earning, shows in finance, and lands in the s
   await desk.goto("/admin/finance");
   await expect(desk.getByRole("heading", { level: 1, name: "Finance" })).toBeVisible();
   await expect(desk.getByText(/Payout actions are blocked on the written Phase 1 payment policy/)).toBeVisible();
+  await expect(desk.getByText(/under \$2,000 move to .approved for payout. on their own/)).toBeVisible();
   const earningRow = rowWith(desk, ATHLETE.name, CAMPAIGN_NAME);
-  await expect(earningRow).toContainText("Eligible");
+  await expect(earningRow).toContainText("Approved for payout");
   await expect(earningRow).toContainText("$30");
   await expect(earningRow, "sponsor price").toContainText("$80");
   await expect(earningRow, "commission = $80 − $30").toContainText("$50");
@@ -174,7 +188,7 @@ test("a verified post releases the earning, shows in finance, and lands in the s
   const finance = await pageAs(browser, testInfo, { key: "p7.finance", roles: ["FINANCE"] });
   await finance.goto("/admin/finance");
   await expect(finance.getByText(/Invoices are visible to BTG admin only/).first()).toBeVisible();
-  await expect(rowWith(finance, ATHLETE.name, CAMPAIGN_NAME)).toContainText("Eligible");
+  await expect(rowWith(finance, ATHLETE.name, CAMPAIGN_NAME)).toContainText("Approved for payout");
   await expect(finance.getByText("INV-E2E-P7")).toHaveCount(0);
 
   // 6. THE SPONSOR'S REPORT — from their dashboard.

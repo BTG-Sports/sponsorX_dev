@@ -1,6 +1,7 @@
 "use server";
 
 import { apiFetch } from "@/server/api";
+import { CAPTION_MAX, type ContentCheck } from "@/lib/content-checks";
 
 /* --------------------------------------------------------------------------
    P5-FE-03 — the athlete's side of a deliverable, as server actions.
@@ -38,13 +39,15 @@ async function post<T>(path: string, body: unknown, fallback: string): Promise<(
 const valid = (id: unknown): id is string => typeof id === "string" && id.length > 0 && id.length < 200;
 
 /** A presigned PUT for one file. The API chooses the key. */
-export async function presignUpload(deliverableId: string, contentType: string) {
+export async function presignUpload(deliverableId: string, contentType: string, bytes?: number) {
   if (!valid(deliverableId) || typeof contentType !== "string" || !contentType) {
     return { ok: false, message: "That file can't be uploaded." } as Fail;
   }
+  /* P5-BE-09 — the type, and the size when known, are signed into the PUT. */
+  const size = typeof bytes === "number" && Number.isInteger(bytes) && bytes > 0 ? { bytes } : {};
   return post<{ url: string; key: string }>(
     `/deliverables/${encodeURIComponent(deliverableId)}/uploads`,
-    { contentType },
+    { contentType, ...size },
     "Couldn't start the upload",
   );
 }
@@ -61,12 +64,19 @@ export async function registerUpload(deliverableId: string, key: string) {
   );
 }
 
-/** NOT_STARTED → DRAFT_SUBMITTED. */
-export async function submitDraft(deliverableId: string) {
+/**
+ * NOT_STARTED → DRAFT_SUBMITTED, or a resubmission while it is back with the
+ * athlete — with the caption they will post. The API runs the automatic
+ * checks (P5-BE-09) and answers whether they passed; a failing draft is
+ * already back on this page with each failure in words.
+ */
+export async function submitDraft(deliverableId: string, caption?: string) {
   if (!valid(deliverableId)) return { ok: false, message: "Nothing to submit." } as Fail;
-  return post<{ state: string }>(
+  const text = typeof caption === "string" ? caption.trim().slice(0, CAPTION_MAX) : "";
+  /* P5-BE-10 — btgReviewSkipped: it went straight to the sponsor. */
+  return post<{ state: string; passed: boolean; checks: ContentCheck[]; btgReviewSkipped?: boolean }>(
     `/deliverables/${encodeURIComponent(deliverableId)}/submit`,
-    {},
+    text ? { caption: text } : {},
     "Couldn't submit your draft",
   );
 }

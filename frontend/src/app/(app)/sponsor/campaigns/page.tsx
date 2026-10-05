@@ -1,4 +1,5 @@
-import { BlockedNotice } from "@/components/ui";
+import { Badge, BlockedNotice, SectionHeading } from "@/components/ui";
+import { toRequestRow } from "@/lib/brief-status";
 import { EmptyState, SkeletonPage } from "@/components/states";
 import {
   SponsorCampaignsList,
@@ -10,7 +11,7 @@ import { toCampaignRow } from "@/lib/sponsor-live";
 import { textParam } from "@/lib/list-query";
 import { SponsorCampaignsServer } from "@/components/sponsor-campaigns-server";
 import { CAMPAIGN_SORTS, CAMPAIGN_STATES } from "@/server/campaigns";
-import { liveSponsorCampaignPage } from "@/server/sponsor";
+import { liveSponsorCampaignPage, liveSponsorRequests } from "@/server/sponsor";
 
 /* --------------------------------------------------------------------------
    Sponsor Campaigns list — §9, sponsor portal (2026-09-15).
@@ -64,6 +65,8 @@ export default async function SponsorCampaignsPage({
     const now = new Date();
     const liveRows = live.rows.map((c) => toCampaignRow(c, now));
     const total = live.summary.total;
+    /* P4-FE-09 — requests not yet a campaign, each with its plain status. */
+    const requests = (await liveSponsorRequests()).map(toRequestRow);
     return (
       <div className="space-y-6">
         <div>
@@ -74,11 +77,32 @@ export default async function SponsorCampaignsPage({
             one for delivery, roster and its ROI report
           </p>
         </div>
+        {requests.length > 0 && (
+          <section aria-label="Your requests">
+            <SectionHeading title="Your requests" hint="Requests that aren't a campaign yet." />
+            <ul className="space-y-2">
+              {requests.map((r) => (
+                <li key={r.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-xl border border-line bg-surface px-4 py-3">
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-sm font-semibold">{r.title}</span>
+                    <span className="block text-[11px] text-muted">
+                      {r.budget} · sent {r.submitted}
+                    </span>
+                  </span>
+                  <span className="flex min-w-0 basis-full items-center gap-2 sm:basis-auto">
+                    <Badge tone={r.tone}>{r.status.key === "APPROVED" ? "Approved" : "In review"}</Badge>
+                    <span className="min-w-0 text-xs text-text [overflow-wrap:anywhere]">{r.status.text}</span>
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
         {total === 0 ? (
           <EmptyState
             mark="chart"
             title="No campaigns yet"
-            hint="Your campaigns appear here once BTG matches your first brief."
+            hint="Your campaigns appear here as soon as your first request is approved."
             action={{ label: "Browse the marketplace", href: "/sponsor/marketplace" }}
           />
         ) : (

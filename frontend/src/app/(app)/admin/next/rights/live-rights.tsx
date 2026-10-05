@@ -3,7 +3,7 @@ import { HeroBand, MiniChip } from "@/components/hero";
 import { EmptyState } from "@/components/states";
 import { AddAsset, EditionAdvance, GrantRight } from "@/components/edition-controls";
 import { shortDate } from "@/lib/editions-live";
-import { clearanceQueue, coverage, ledgerRows, type ApiRightsLedger, type GrantorKind } from "@/lib/rights-live";
+import { autoRecorded, clearanceQueue, coverage, ledgerRows, type ApiRightsLedger, type GrantorKind } from "@/lib/rights-live";
 import { noEditionHint, readJson, type LiveEditions } from "../live";
 import { EditionSwitcher, NextHeading } from "../editions/live-editions";
 
@@ -196,6 +196,13 @@ export async function LiveRights({ live, today }: { live: LiveEditions; today: s
                     </td>
                     <td className="px-3 py-2.5">
                       {r.acceptanceId ? <Badge tone="primary">consent · {r.acceptanceId}</Badge> : <Badge tone="accent">licence · {r.licenseRef}</Badge>}
+                      {/* P9-BE-22 / -23 — the system recorded it, from the evidence beside it. */}
+                      {autoRecorded(r) && (
+                        <span className="mt-1 block" title={autoRecorded(r)!.hint}>
+                          <Badge tone="neutral">{autoRecorded(r)!.label}</Badge>
+                          <span className="mt-0.5 block max-w-56 text-[10px] leading-snug text-faint">{autoRecorded(r)!.hint}</span>
+                        </span>
+                      )}
                     </td>
                   </tr>
                 ))}

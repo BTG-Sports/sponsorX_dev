@@ -6,14 +6,26 @@ import { BUSINESS_TYPES } from "../domain/sponsor-request-rules";
    -------------------------------------------------------------------------- */
 
 /**
+ * The CRM modules SponsorX subscribes to (§18: Accounts, Contacts, Deals and
+ * Tasks are bi-directional) — the worker's `zoho:watch` channel asks for
+ * exactly these (`WATCH_EVENTS`, worker/jobs/zoho-sync.mts).
+ */
+export const ZOHO_CRM_MODULES = ["Accounts", "Contacts", "Deals", "Tasks"] as const;
+
+/**
  * A Zoho CRM Notifications API callback. It names records, it does not carry
  * them: the worker fetches each id, so the route has nothing to trust beyond
  * the channel token and never needs to call Zoho back.
+ *
+ * 2S8-SEC-05 — `module` and `ids` end up in a Zoho API path
+ * (`/crm/v8/<module>/<id>`), so they are held to what Zoho sends: one of the
+ * modules subscribed to, and record ids that are digits. Even a verified
+ * callback cannot steer the worker to another endpoint.
  */
 export const ZohoCrmNotification = z
   .object({
-    module: z.string().min(1).max(60),
-    ids: z.array(z.string().min(1).max(40)).min(1).max(200),
+    module: z.enum(ZOHO_CRM_MODULES),
+    ids: z.array(z.string().regex(/^\d{1,40}$/, "a Zoho record id is digits")).min(1).max(200),
     operation: z.string().min(1).max(20),
     channel_id: z.union([z.string(), z.number()]).transform(String),
     token: z.string().max(200).optional(),

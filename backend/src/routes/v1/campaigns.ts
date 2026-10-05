@@ -17,22 +17,29 @@ import {
   allowedList, clampPage, pageInfo, pageRequest, readPage, searchTerm,
   type PageInfo, type PageRequest,
 } from "../../lib/paging";
-import { can, whereFor } from "../../auth/scope";
+import { can, scopeOf, whereFor } from "../../auth/scope";
 import { canReadField } from "../../auth/fields";
 import { ForbiddenError } from "../../auth/errors";
 import { clientIp, clientUserAgent } from "../../lib/client-ip";
 import { prisma } from "../../db/client";
 import {
+  AutoStaffingInput,
   BriefTransitionInput,
   CampaignBriefInput,
+  CampaignBriefPatch,
   CampaignFromBriefInput,
   CampaignTransitionInput,
   InvitationInput,
   InvitationResponseInput,
 } from "../../contracts/campaign";
-import { createBrief, transitionBrief } from "../../domain/brief";
+import { createBrief, transitionBrief, updateBrief } from "../../domain/brief";
+import { sponsorBriefStatus } from "../../domain/brief-auto-rules";
 import { createCampaignFromBrief, launchCampaign, transitionCampaign } from "../../domain/campaign";
+import { stageViews, type StageView } from "../../domain/campaign-stages";
+import { setAutoStaffing, staffingSkips } from "../../domain/auto-staffing";
+import type { Audience } from "../../domain/campaign-stage-rules";
 import { eligibleForBrief, eligiblePageForBrief } from "../../domain/matching";
+import { readinessFor, readyBriefIds, type Readiness } from "../../domain/brief-readiness";
 import { loadAgreementBody } from "../../domain/agreement-text";
 import { guardianReadiness } from "../../domain/guardian-rules";
 import { assessDelivery, deliveryHealth } from "../../domain/delivery-health";
@@ -60,6 +67,18 @@ const submitBrief: RequestHandler = async (req, res) => {
   );
 };
 
+/** PATCH /briefs/:id — change a DRAFT brief; evaluated again (P4-BE-11). */
+const editBrief: RequestHandler<{ id: string }> = async (req, res) => {
+  const body = CampaignBriefPatch.parse(req.body ?? {});
+  res.json(
+    await updateBrief(req.actor!, req.params.id, {
+      ...body,
+      startDate: body.startDate ? new Date(body.startDate) : undefined,
+      endDate: body.endDate ? new Date(body.endDate) : undefined,
+    }),
+  );
+};
+
 /** POST /briefs/:id/transition — qualify, approve or close. */
 const moveBrief: RequestHandler<{ id: string }> = async (req, res) => {
   const { to, reason } = BriefTransitionInput.parse(req.body ?? {});
@@ -77,6 +96,10 @@ const BRIEF_SELECT = {
   id: true, objective: true, state: true, budget: true, closeReason: true,
   startDate: true, endDate: true, sports: true, stateCodes: true, categories: true,
   createdAt: true,
+  /* P4-BE-11 — how it was approved, and (BTG only) why it was held. */
+  autoApproved: true, heldAt: true, heldReasons: true,
+  /* P4-BE-07 — the readiness checklist's inputs; not in the response. */
+  tenantId: true, sponsorId: true,
   sponsor: { select: { name: true } },
   package: {
     select: { code: true, name: true, lineItems: true, athleteCountMin: true, athleteCountMax: true, priceLow: true, priceHigh: true },
@@ -88,6 +111,8 @@ type BriefRow = {
   id: string; objective: string; state: string; budget: number; closeReason: string | null;
   startDate: Date; endDate: Date; sports: string[]; stateCodes: string[]; categories: string[];
   createdAt: Date;
+  autoApproved: boolean; heldAt: Date | null; heldReasons: string[];
+  tenantId: string; sponsorId: string;
   sponsor: { name: string };
   package: {
     code: string; name: string; lineItems: unknown;
@@ -98,12 +123,26 @@ type BriefRow = {
   campaign: { id: string; name: string; state: string } | null;
 };
 
-function briefOut(b: BriefRow) {
+/** P4-BE-11 — who reads why a brief was held: BTG staff, who read briefs
+ *  tenant-wide (campaign managers, admins, sales). A sponsor reads only its
+ *  own (`own`) and never does — the same rule as listing holds. */
+const seesHolds = (actor: Actor) => ["own-tenant", "any"].includes(scopeOf(actor, "campaignBrief", "read"));
+
+function briefOut(b: BriefRow, readiness?: Readiness, holds = false) {
   return {
+    /* P4-BE-07 — BTG's readiness checklist; absent for a caller who doesn't
+       see it (a sponsor), never a guessed "not ready". */
+    ...(readiness ? { readiness } : {}),
+    /* P4-BE-11 — approved by the system or not; the sponsor-safe line; and,
+       for BTG only, when and why the brief was held. */
+    autoApproved: b.autoApproved,
+    status: sponsorBriefStatus(b.state),
+    /* P4-FE-07's close reason is BTG's internal note, like a hold's reasons:
+       BTG only. A sponsor reads a closed brief through `status` alone. */
+    ...(holds ? { heldAt: b.heldAt?.toISOString() ?? null, heldReasons: b.heldReasons, closeReason: b.closeReason } : {}),
     id: b.id,
     objective: b.objective,
     state: b.state,
-    closeReason: b.closeReason,
     budget: b.budget,
     startDate: b.startDate.toISOString(),
     endDate: b.endDate.toISOString(),
@@ -162,6 +201,22 @@ const BRIEF_SORTS = {
  *  BRIEF_DESK_ORDER, newest first within each state. */
 const listBriefs: RequestHandler = async (req, res) => {
   const paged = pageRequest(req.query as Record<string, unknown>);
+  /* P4-BE-07 — `?ready=true`: only DRAFT briefs whose readiness checklist
+     passes (computed, so found by a bounded scan; none for a caller who
+     doesn't see readiness). */
+  const readyOnly = req.query.ready === "true";
+  /* P4-BE-11 — `?held=true`: DRAFT briefs held for BTG. Matches nothing for
+     a caller who doesn't see holds, so it can't be used to tell a held
+     brief from one not yet looked at. */
+  const holds = seesHolds(req.actor!);
+  const heldWhere = req.query.held === "true"
+    ? [holds ? { state: "DRAFT" as const, heldAt: { not: null } } : { id: { in: [] as string[] } }]
+    : [];
+  const readyWhere = [...(readyOnly ? [{ id: { in: await readyBriefIds(req.actor!) } }] : []), ...heldWhere];
+  const withReadiness = async (rows: BriefRow[]) => {
+    const readiness = await readinessFor(req.actor!, rows);
+    return rows.map((b) => briefOut(b, readiness.get(b.id), holds));
+  };
   if (paged) {
     const actor = req.actor!;
     const q = searchTerm(req.query as Record<string, unknown>);
@@ -169,6 +224,7 @@ const listBriefs: RequestHandler = async (req, res) => {
     const sort = req.query.sort === "desk" || req.query.sort === "oldest" ? req.query.sort : "newest";
     const base = [
       whereFor(actor, "campaignBrief", "read"),
+      ...readyWhere,
       ...(q
         ? [{
             OR: [
@@ -207,22 +263,25 @@ const listBriefs: RequestHandler = async (req, res) => {
         read(where, BRIEF_SORTS[sort]),
       );
     }
-    res.json({ briefs: result.rows.map(briefOut), page: result.page });
+    res.json({ briefs: await withReadiness(result.rows), page: result.page });
     return;
   }
 
   const state = typeof req.query.state === "string" ? req.query.state : undefined;
   const STATES = ["DRAFT", "QUALIFIED", "APPROVED", "CAMPAIGN_CREATED", "CLOSED"];
+  const where = {
+    ...whereFor(req.actor!, "campaignBrief", "read"),
+    ...(state && STATES.includes(state) ? { state: state as never } : {}),
+  };
   const rows = await prisma.campaignBrief.findMany({
-    where: {
-      ...whereFor(req.actor!, "campaignBrief", "read"),
-      ...(state && STATES.includes(state) ? { state: state as never } : {}),
-    },
+    /* tenant-scope: `where` spreads whereFor(campaignBrief); the ready ids are
+       a further conjunct, never a sibling `AND` that would replace the scope. */
+    where: readyWhere.length ? { AND: [where, ...readyWhere] } : where,
     select: BRIEF_SELECT,
     orderBy: { createdAt: "desc" },
     take: 100,
   });
-  res.json({ briefs: (rows as BriefRow[]).map(briefOut) });
+  res.json({ briefs: await withReadiness(rows as BriefRow[]) });
 };
 
 /**
@@ -289,7 +348,8 @@ const readBrief: RequestHandler<{ id: string }> = async (req, res) => {
       : [];
   });
 
-  res.json({ ...briefOut(brief), jobs, ...(invites ? { invites } : {}) });
+  const readiness = (await readinessFor(actor, [brief])).get(brief.id);
+  res.json({ ...briefOut(brief, readiness, seesHolds(actor)), jobs, ...(invites ? { invites } : {}) });
 };
 
 /* --- the campaign portfolio (P4-FE-05) ----------------------------------
@@ -370,10 +430,49 @@ type CampaignRow = {
   invoices?: { status: string; amount: number }[];
 };
 
-function campaignOut(c: CampaignRow, see: { seeValue: boolean; seeBudget: boolean; seeInvoices: boolean }) {
+/* P4-BE-09 — what each campaign read adds: the next step in words (BTG's
+   wording for staff, plain wording for a sponsor), and the latest stage
+   change with whether the system made it. The full stage history goes to
+   BTG's detail read only. A sponsor never gets the internal reason. */
+type Stages = { views: Map<string, StageView>; audience: Audience; history: boolean };
+
+const BTG_STAFF = new Set<string>(["SUPER_ADMIN", "BTG_ADMIN", "SALES", "CAMPAIGN_MGR", "NETWORK_MGR", "FINANCE"]);
+
+async function stagesFor(actor: Actor, ids: string[], history = false): Promise<Stages> {
+  /* BTG's own people get the desk's wording; everyone else (a sponsor, or
+     any other reader) the plain one, which names no invitation or offer. */
+  const audience: Audience = actor.roles.some((r) => BTG_STAFF.has(r)) ? "staff" : "sponsor";
+  return { views: await stageViews(ids, audience), audience, history: history && audience === "staff" };
+}
+
+function stageOut(id: string, stages: Stages) {
+  const v = stages.views.get(id);
+  const change = v?.stageChange ?? null;
+  return {
+    nextStep: v?.nextStep ?? null,
+    stageChange: change && stages.audience === "sponsor" ? { state: change.state, at: change.at, movedAutomatically: change.movedAutomatically } : change,
+    ...(stages.history ? { stageHistory: v?.stageHistory ?? [] } : {}),
+    ...staffingOut(v?.staffing ?? null, stages.audience),
+  };
+}
+
+/* P4-BE-12 — automatic staffing on every read. BTG's staff get whether the
+   system staffs, the counts by athlete, the package's range and the stop
+   reason; a sponsor gets only the athletes signed against the range — never
+   who is being asked, or why staffing stopped. Null with no package to
+   staff from. */
+function staffingOut(st: StageView["staffing"], audience: Audience) {
+  if (audience === "sponsor") return { staffing: st ? { signed: st.signed, needed: st.needed } : null };
+  if (!st) return { autoStaffing: false, staffing: null };
+  const { auto, ...staffing } = st;
+  return { autoStaffing: auto, staffing };
+}
+
+function campaignOut(c: CampaignRow, see: { seeValue: boolean; seeBudget: boolean; seeInvoices: boolean }, stages: Stages) {
   const deliverables = c.orders.flatMap((o) => o.deliverables);
   const liveInvoices = (c.invoices ?? []).filter((i) => i.status.toLowerCase() !== "void");
   return {
+    ...stageOut(c.id, stages),
     id: c.id,
     name: c.name,
     state: c.state,
@@ -464,15 +563,16 @@ const listCampaigns: RequestHandler = async (req, res) => {
           take,
         }) as unknown as Promise<CampaignRow[]>,
     );
+    const stages = await stagesFor(actor, rows.map((c) => c.id));
     if (!wantHealth) {
-      res.json({ campaigns: rows.map((c) => campaignOut(c, see)), page });
+      res.json({ campaigns: rows.map((c) => campaignOut(c, see, stages)), page });
       return;
     }
     res.json({
       campaigns: rows.map((c) => {
         const h = health?.get(c.id);
         return {
-          ...campaignOut(c, see),
+          ...campaignOut(c, see, stages),
           ...(health
             ? {
                 health: h
@@ -518,8 +618,9 @@ const listCampaigns: RequestHandler = async (req, res) => {
   const hasMore = rows.length > limit;
   const items = hasMore ? rows.slice(0, limit) : rows;
   const last = items.at(-1);
+  const stages = await stagesFor(actor, items.map((c) => c.id));
   res.json({
-    campaigns: items.map((c) => campaignOut(c, see)),
+    campaigns: items.map((c) => campaignOut(c, see, stages)),
     page: { nextCursor: hasMore && last ? encodeCursor(last) : null, hasMore },
   });
 };
@@ -611,7 +712,20 @@ const readCampaign: RequestHandler<{ id: string }> = async (req, res) => {
     select,
   })) as unknown as CampaignRow | null;
   if (!c) throw new ForbiddenError("campaign", "read");
-  res.json({ campaign: campaignOut(c, see) });
+  const stages = await stagesFor(actor, [c.id], true);
+  const out = campaignOut(c, see, stages);
+  /* P4-BE-12 — BTG's detail names the athletes automatic staffing skipped, and why. */
+  if (stages.history && out.staffing && "skipped" in out.staffing) {
+    res.json({ campaign: { ...out, staffing: { ...out.staffing, skips: await staffingSkips(c.id) } } });
+    return;
+  }
+  res.json({ campaign: out });
+};
+
+/** POST /campaigns/:id/auto-staffing — BTG turns automatic staffing off or on, with a reason (P4-BE-12). */
+const autoStaffing: RequestHandler<{ id: string }> = async (req, res) => {
+  const body = AutoStaffingInput.parse(req.body ?? {});
+  res.json(await setAutoStaffing(req.actor!, req.params.id, body));
 };
 
 /**
@@ -635,7 +749,8 @@ const shortlist: RequestHandler<{ id: string }> = async (req, res) => {
         sport: typeof query.sport === "string" && query.sport ? query.sport.slice(0, 60) : undefined,
         tier: typeof query.tier === "string" ? query.tier : undefined,
         minScore: Number.isInteger(min) && min > 0 && min <= 100 ? min : undefined,
-        sort: query.sort === "name" ? "name" : "score",
+        /* P4-BE-08 — best match first unless the desk asks otherwise. */
+        sort: query.sort === "name" ? "name" : query.sort === "score" ? "score" : "match",
       }),
     );
     return;
@@ -1237,11 +1352,13 @@ campaignsRouter.get("/campaigns/:id", requireActor, readCampaign);
 campaignsRouter.get("/campaigns/:id/ops", requireActor, campaignOps);
 campaignsRouter.get("/orders/:id", requireActor, readOrder);
 campaignsRouter.get("/briefs/:id", requireActor, readBrief);
+campaignsRouter.patch("/briefs/:id", requireActor, editBrief);
 campaignsRouter.post("/briefs/:id/transition", requireActor, moveBrief);
 campaignsRouter.get("/briefs/:id/eligible-athletes", requireActor, shortlist);
 campaignsRouter.post("/briefs/:id/campaign", requireActor, createCampaign);
 campaignsRouter.post("/campaigns/:id/transition", requireActor, moveCampaign);
 campaignsRouter.post("/campaigns/:id/launch", requireActor, launch);
+campaignsRouter.post("/campaigns/:id/auto-staffing", requireActor, autoStaffing);
 campaignsRouter.post("/campaigns/:id/invitations", requireActor, invite);
 campaignsRouter.post("/invitations/:id/respond", requireActor, respond);
 campaignsRouter.get("/invitations", requireActor, listInvitations);
@@ -1249,6 +1366,6 @@ campaignsRouter.get("/invitations/summary", requireActor, invitationSummary);
 
 export {
   listBriefs, readBrief, listCampaigns, readCampaign, campaignSummary, readOrder, campaignOps,
-  submitBrief, moveBrief, shortlist, createCampaign, moveCampaign, launch, invite, respond,
+  submitBrief, editBrief, moveBrief, shortlist, createCampaign, moveCampaign, launch, invite, respond,
   listInvitations, invitationSummary, setTier, setRate, rateCard, addOrder, editOrder, moveOrder, accept,
 };

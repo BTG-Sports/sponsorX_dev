@@ -30,6 +30,15 @@ let acceptOpts: unknown = undefined;
 let acceptThrows: Error | null = null;
 let committedWrites: string[] = [];
 
+/* P4-BE-09 — the automatic campaign move the acceptance triggers is
+   tests/campaign-stages.test.ts's, on a real database. */
+vi.mock("../src/domain/campaign-stages", async (actual) => ({
+  ...(await actual<typeof import("../src/domain/campaign-stages")>()),
+  advanceCampaign: async () => [],
+  advanceCampaignOfOrder: async () => [],
+  lockCampaignForStaffing: async () => "STAFFING",
+}));
+
 vi.mock("../src/domain/agreement", async () => {
   const actual = await vi.importActual<typeof import("../src/domain/agreement")>(
     "../src/domain/agreement");

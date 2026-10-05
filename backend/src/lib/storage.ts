@@ -65,12 +65,29 @@ export const BUCKETS = {
  */
 const PRESIGN_TTL_SECONDS = 15 * 60;
 
+/**
+ * What a presigned PUT pins beyond the key. P9-BE-22 — ad artwork is
+ * checked on its type and size at upload, from the grant; signing both into
+ * the PUT makes the stored object match what the grant recorded: a PUT with
+ * another Content-Type or another length is refused by the bucket. Without
+ * these the presigner signs only the host (the SDK leaves Content-Type
+ * unsigned by default). 2S8-SEC-03 — every private upload now passes both
+ * (tests/private-upload-pins.test.ts fails on one that does not).
+ */
+export type UploadPins = { contentLength?: number; signContentType?: boolean };
+
 /** Presigned PUT. Private-bucket callers must go through the audited wrapper. */
-function presignUpload(bucket: string, key: string, contentType: string) {
+function presignUpload(bucket: string, key: string, contentType: string, pins: UploadPins = {}) {
   return getSignedUrl(
     s3,
-    new PutObjectCommand({ Bucket: bucket, Key: key, ContentType: contentType }),
-    { expiresIn: PRESIGN_TTL_SECONDS },
+    new PutObjectCommand({
+      Bucket: bucket, Key: key, ContentType: contentType,
+      ...(pins.contentLength !== undefined ? { ContentLength: pins.contentLength } : {}),
+    }),
+    {
+      expiresIn: PRESIGN_TTL_SECONDS,
+      ...(pins.signContentType ? { signableHeaders: new Set(["content-type"]) } : {}),
+    },
   );
 }
 
@@ -124,6 +141,7 @@ export async function presignPrivateUpload(
   key: string,
   contentType: string,
   context: GrantContext,
+  pins: UploadPins = {},
 ): Promise<string> {
   assertSafeKey(key);
 
@@ -140,12 +158,14 @@ export async function presignPrivateUpload(
           key,
           contentType,
           ttlSeconds: PRESIGN_TTL_SECONDS,
+          /* P9-BE-22 — recorded only where the PUT is pinned to it. */
+          ...(pins.contentLength !== undefined ? { bytes: pins.contentLength } : {}),
         },
       },
     ),
   );
 
-  return presignUpload(BUCKETS.private, key, contentType);
+  return presignUpload(BUCKETS.private, key, contentType, pins);
 }
 
 /** Grant a time-limited read of a **private** object, and record it. */
@@ -181,9 +201,10 @@ export async function presignPrivateDownload(
 export async function presignPublicUpload(
   key: string,
   contentType: string,
+  pins: UploadPins = {},
 ): Promise<string> {
   assertSafeKey(key);
-  return presignUpload(BUCKETS.public, key, contentType);
+  return presignUpload(BUCKETS.public, key, contentType, pins);
 }
 
 /** Used by the health endpoint to prove the storage credentials work. */
@@ -248,20 +269,86 @@ export async function deletePrivateObject(key: string): Promise<void> {
 }
 
 /**
- * The stored size of a private object, or null when there is none — how the
- * server learns that a browser's direct upload actually landed (2S1-BE-02).
- * Nothing is handed to anyone, so nothing is audited.
+ * 2S8-SEC-03 — what a private object's HEAD says it is: its stored size and
+ * the Content-Type it was PUT with. Null when there is no such object — how
+ * the server learns that a browser's direct upload actually landed
+ * (2S1-BE-02). Nothing is handed to anyone, so nothing is audited.
  */
-export async function privateObjectSize(key: string): Promise<number | null> {
+export async function privateObjectHead(key: string): Promise<{ bytes: number; contentType: string | null } | null> {
   assertSafeKey(key);
   try {
     const head = await s3.send(new HeadObjectCommand({ Bucket: BUCKETS.private, Key: key }));
-    return head.ContentLength ?? 0;
+    return { bytes: head.ContentLength ?? 0, contentType: head.ContentType ?? null };
   } catch (error) {
     const status = (error as { $metadata?: { httpStatusCode?: number } }).$metadata?.httpStatusCode;
     if (status === 404 || (error as Error).name === "NotFound") return null;
     throw error;
   }
+}
+
+/** The media type alone, lowercased — `application/pdf; charset=binary` is `application/pdf`. */
+const mediaType = (t: string | null | undefined) => (t ?? "").split(";")[0]!.trim().toLowerCase();
+
+/** What a private upload's confirm step expects: what its grant pinned. */
+export type ExpectedUpload = {
+  /** The Content-Type the PUT was signed for. */
+  contentType: string;
+  /** The exact length the PUT was signed for, when the grant recorded one. */
+  bytes?: number | null;
+  /** The flow's own ceiling, checked whatever the grant said. */
+  maxBytes: number;
+};
+
+export type UploadCheck =
+  | { ok: true; bytes: number }
+  | { ok: false; problem: "missing" | "type" | "size" };
+
+/**
+ * 2S8-SEC-03 — the confirm step of every private document upload.
+ *
+ * The grant signs Content-Type and Content-Length into the PUT, so a bucket
+ * that checks signatures refuses any other file. This is the second half:
+ * the server reads back what actually arrived and compares it with what the
+ * grant pinned — its type and its exact size, and the flow's ceiling. A
+ * mismatch is refused AND DELETED, so a file nobody vetted never sits in the
+ * private bucket waiting for a reviewer's signed link to serve it. The
+ * refusal is audited with what was expected and what arrived.
+ *
+ * Nothing is handed to anyone here; the audit row records the refusal, not
+ * a credential.
+ */
+export async function checkPrivateUpload(
+  actor: AuditActor,
+  key: string,
+  expected: ExpectedUpload,
+  context: GrantContext,
+): Promise<UploadCheck> {
+  const head = await privateObjectHead(key);
+  if (!head) return { ok: false, problem: "missing" };
+  const typeOk = mediaType(head.contentType) === mediaType(expected.contentType);
+  const sizeOk = head.bytes <= expected.maxBytes && (expected.bytes == null || head.bytes === expected.bytes);
+  if (typeOk && sizeOk) return { ok: true, bytes: head.bytes };
+
+  await deletePrivateObject(key);
+  const problem = typeOk ? "size" : "type";
+  await prisma.$transaction((tx) =>
+    audit(tx, actor, AUDIT_ACTIONS.storage.privateUploadRefused, context.entity, context.entityId, {
+      after: {
+        bucket: BUCKETS.private, key, problem, deleted: true,
+        expected: { contentType: expected.contentType, bytes: expected.bytes ?? null, maxBytes: expected.maxBytes },
+        arrived: { contentType: head.contentType, bytes: head.bytes },
+      },
+    }),
+  );
+  return { ok: false, problem };
+}
+
+/** The words a person reads when their upload is refused on confirm. */
+export function uploadRefusal(problem: "missing" | "type" | "size", what = "That file"): string {
+  if (problem === "missing") return `${what} hasn't arrived yet — upload it, then confirm.`;
+  return problem === "type"
+    ? `${what} isn't the type of file that was asked for, so it was removed. Upload it again.`
+    : `${what} isn't the size that was declared, so it was removed. Upload it again.`;
 }
 
 /** The CDN address of a public object — no signature, the bucket is world-readable. */

@@ -18,10 +18,17 @@ services:
   postgres:
     image: postgres:17-alpine
     restart: unless-stopped
+    # 2S8-OPS-02 — the server runs in UTC. Timestamp columns hold UTC as
+    # `timestamp without time zone`, so a session in any other zone reads and
+    # writes them hours off. `-c` overrides postgresql.conf on every start, so
+    # it also fixes a volume initialised before this line existed; TZ makes a
+    # fresh initdb write UTC into the config as well.
+    command: ["postgres", "-c", "timezone=UTC", "-c", "log_timezone=UTC"]
     environment:
       POSTGRES_USER: sponsorx
       POSTGRES_PASSWORD: sponsorx
       POSTGRES_DB: sponsorx
+      TZ: UTC
     ports:
       - "5432:5432"
     volumes:

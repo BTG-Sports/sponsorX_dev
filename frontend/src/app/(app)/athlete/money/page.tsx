@@ -4,7 +4,7 @@ import { PayoutAccountPanel, StripeLinkButton } from "@/components/payout-accoun
 import { PayoutHistory } from "@/components/payout-history";
 import { PayoutRequest } from "@/components/payout-request";
 import {
-  accountPanel, orderStatusLabel, payoutTiles, requestButton, requestOrders, usd, type ApiMyPayouts,
+  accountPanel, orderAvailable, orderStatusLabel, owedBackNotice, payoutTiles, requestButton, requestOrders, usd, type ApiMyPayouts,
 } from "@/lib/payouts-live";
 import { apiFetch } from "@/server/api";
 import { moneyAccountLinkAction, moneyRequestAction } from "./actions";
@@ -55,6 +55,7 @@ export default async function MyMoneyPage() {
   const panel = accountPanel(me.account, me.payee.name);
   const unmet = me.checks.filter((c) => !c.ok);
   const hasMoney = me.orders.length > 0;
+  const owedBack = owedBackNotice(me);
 
   return (
     <div className="space-y-6">
@@ -62,6 +63,12 @@ export default async function MyMoneyPage() {
         {heading}
         <PayoutRequest view={request} amount={usd(me.totals.requestableCents)} orders={orders} action={moneyRequestAction} note={reserve} />
       </div>
+
+      {owedBack && (
+        <p role="status" className="rounded-lg border border-warn/30 bg-warn/8 px-3 py-2 text-xs text-warn">
+          {owedBack}. A sponsor was refunded after your share was paid out — see the order below.
+        </p>
+      )}
 
       <ul className="grid gap-3 sm:grid-cols-3">
         {payoutTiles(me).map((t) => (
@@ -117,19 +124,26 @@ export default async function MyMoneyPage() {
               <span className="text-right">Order status</span>
             </div>
             <ul className="divide-y divide-line-soft">
-              {me.orders.map((o) => (
-                <li key={o.orderId} className="grid gap-x-3 gap-y-1 px-4 py-3 text-xs md:grid-cols-[7rem_1fr_6rem_6rem_6rem_8rem] md:items-center">
-                  <span className="font-medium tabular-nums">{o.orderRef}</span>
-                  <span className="min-w-0 text-muted">
-                    <span className="text-text">{o.sponsorName}</span>
-                    {o.title && <span className="block truncate text-[11px]">{o.title}</span>}
-                  </span>
-                  <span className="tabular-nums md:text-right"><span className="text-muted md:hidden">Your share </span>{usd(o.shareCents)}</span>
-                  <span className="tabular-nums md:text-right"><span className="text-muted md:hidden">Available </span>{usd(Math.max(0, o.availableCents - o.inFlightCents))}</span>
-                  <span className="tabular-nums md:text-right"><span className="text-muted md:hidden">Held </span>{usd(o.heldCents)}</span>
-                  <span className="text-muted md:text-right">{orderStatusLabel(o.state)}</span>
-                </li>
-              ))}
+              {me.orders.map((o) => {
+                /* 2S8-QA-05 — the real figure, negative when a refund came after the payout. */
+                const available = orderAvailable(o);
+                return (
+                  <li key={o.orderId} className="grid gap-x-3 gap-y-1 px-4 py-3 text-xs md:grid-cols-[7rem_1fr_6rem_6rem_6rem_8rem] md:items-center">
+                    <span className="font-medium tabular-nums">{o.orderRef}</span>
+                    <span className="min-w-0 text-muted">
+                      <span className="text-text">{o.sponsorName}</span>
+                      {o.title && <span className="block truncate text-[11px]">{o.title}</span>}
+                    </span>
+                    <span className="tabular-nums md:text-right"><span className="text-muted md:hidden">Your share </span>{usd(o.shareCents)}</span>
+                    <span className={`tabular-nums md:text-right ${available.owedBack ? "text-warn" : ""}`}>
+                      <span className="text-muted md:hidden">Available </span>{available.value}
+                      {available.owedBack && <span className="block text-[11px]">{available.owedBack}</span>}
+                    </span>
+                    <span className="tabular-nums md:text-right"><span className="text-muted md:hidden">Held </span>{usd(o.heldCents)}</span>
+                    <span className="text-muted md:text-right">{orderStatusLabel(o.state)}</span>
+                  </li>
+                );
+              })}
             </ul>
           </Card>
         )}

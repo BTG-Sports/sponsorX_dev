@@ -3,12 +3,15 @@ import { HeroBand, MiniChip } from "@/components/hero";
 import { EmptyState } from "@/components/states";
 import { StudentDecision } from "@/components/student-review";
 import { ClaimDecision } from "@/components/claim-decision";
+import { SchoolEmailDomain } from "@/components/school-email-domain";
 import { ListSearch, PagerRow, PendingList, ServerList } from "@/components/server-pager";
 import type { PageInfo } from "@/lib/list-query";
 import {
+  AUTO_KEYS,
   CLAIM_KEYS,
   STUDENT_GROUPS,
   STUDENT_STATE_COPY,
+  waitingReasons,
   type ApiStudent,
   type ApiStudentState,
   type StudentGroup,
@@ -40,6 +43,7 @@ const TONE: Partial<Record<ApiStudentState, "warn" | "primary" | "accent" | "neu
 const fmt = (iso: string) => new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
 
 function StudentCard({ s }: { s: ApiStudent }) {
+  const reasons = waitingReasons(s);
   return (
     <Card className="flex flex-wrap items-start justify-between gap-3">
       <div className="min-w-0 flex-1 basis-64">
@@ -54,13 +58,25 @@ function StudentCard({ s }: { s: ApiStudent }) {
           ))}
         </p>
         {s.reviewerNotes && <p className="mt-1 text-xs leading-relaxed text-muted">Note: {s.reviewerNotes}</p>}
+        {/* P9-FE-11 — why the system left this one for you. Only reviewers read these; the student is told their school is reviewing. */}
+        {reasons.length > 0 && (
+          <ul className="mt-1.5 space-y-0.5 text-xs text-warn">
+            {reasons.map((r) => (
+              <li key={r} className="break-words">
+                Waiting for you: {r}
+              </li>
+            ))}
+          </ul>
+        )}
         <p className="mt-1 text-[10px] text-faint">
           applied {fmt(s.createdAt)}
           {s.guardianId ? " · guardian linked" : ""}
+          {s.autoApprovedAt ? ` · approved automatically ${fmt(s.autoApprovedAt)}` : ""}
         </p>
       </div>
       <div className="flex shrink-0 flex-col items-end gap-2">
         <Badge tone={TONE[s.state] ?? "neutral"}>{STUDENT_STATE_COPY[s.state]}</Badge>
+        {s.autoApprovedAt && <Badge tone="accent">Approved automatically</Badge>}
         <StudentDecision studentId={s.id} state={s.state} />
       </div>
     </Card>
@@ -81,6 +97,30 @@ export type ApiClaim = {
 
 export type ClaimsPage = { claims: ApiClaim[]; page: PageInfo; summary: { open: number; all: number } };
 export type StudentsPage = { students: ApiStudent[]; page: PageInfo; summary: StudentGroupCounts };
+/** GET /properties/:id/email-domain — the school's roster-approval settings (P9-BE-20). */
+export type ReviewSettings = { propertyId: string; school: string; emailDomain: string | null; rosterEntries: number };
+
+/** P9-FE-11 — who the system approved from the roster, newest first, as a
+ *  second paged list (?apage / ?asize). The advisor can suspend any of them
+ *  from the masthead tab, as before. */
+function AutoApprovedSection({ list }: { list: StudentsPage | null }) {
+  if (!list || list.page.total === 0) return null;
+  return (
+    <section className="sx-animate sx-delay-1 min-w-0 space-y-3">
+      <SectionHeading
+        title={`Approved automatically · ${list.page.total}`}
+        hint="On your roster, exactly once — you also get a daily email listing them. Suspend anyone who shouldn't be here."
+      />
+      <PagerRow page={list.page} noun="Students" tone="next" position="top" keys={AUTO_KEYS} />
+      <PendingList className="space-y-3">
+        {list.students.map((s) => (
+          <StudentCard key={s.id} s={s} />
+        ))}
+      </PendingList>
+      <PagerRow page={list.page} noun="Students" tone="next" position="bottom" keys={AUTO_KEYS} />
+    </section>
+  );
+}
 
 function ClaimCard({ c }: { c: ApiClaim }) {
   return (
@@ -134,12 +174,16 @@ function ClaimsSection({ claims, cstate }: { claims: ClaimsPage | null; cstate: 
 export function LiveAdvisorDesk({
   students,
   claims = null,
+  auto = null,
+  settings = null,
   group = "",
   q = "",
   cstate = "",
 }: {
   students: StudentsPage;
   claims?: ClaimsPage | null;
+  auto?: StudentsPage | null;
+  settings?: ReviewSettings | null;
   group?: StudentGroup | "";
   q?: string;
   cstate?: "" | "open";
@@ -151,12 +195,14 @@ export function LiveAdvisorDesk({
       <p className="mt-1 text-xs text-muted">Your school&rsquo;s applicants and masthead — nobody else&rsquo;s.</p>
     </div>
   );
+  const settingsCard = settings ? <SchoolEmailDomain {...settings} /> : null;
   if (all === 0 && !q) {
     return (
       <ServerList>
         <div className="space-y-6">
           {heading}
           <EmptyState mark="chart" title="No applications yet" hint="Students apply from the public Become the Media page; new ones land here." />
+          {settingsCard}
           <ClaimsSection claims={claims} cstate={cstate} />
         </div>
       </ServerList>
@@ -181,10 +227,13 @@ export function LiveAdvisorDesk({
               </p>
             </div>
             <p className="max-w-md text-xs leading-relaxed text-muted">
-              You approve who joins the masthead. Publishing economics and rights stay with SponsorX — never on this desk.
+              Students on your roster are approved automatically; the rest wait here with the reason. You decide those, and can suspend
+              anyone. Publishing economics and rights stay with SponsorX — never on this desk.
             </p>
           </div>
         </HeroBand>
+        {settingsCard}
+        <AutoApprovedSection list={auto} />
         <ClaimsSection claims={claims} cstate={cstate} />
         <section className="sx-animate sx-delay-1 min-w-0 space-y-3">
           <SectionHeading

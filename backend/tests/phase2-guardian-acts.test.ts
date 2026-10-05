@@ -25,7 +25,7 @@ process.env.CLERK_PUBLISHABLE_KEY ??= "pk_test_x";
 const { uploaded } = vi.hoisted(() => ({ uploaded: new Set<string>() }));
 vi.mock("../src/lib/storage", async (importOriginal) => {
   const real = await importOriginal<typeof import("../src/lib/storage")>();
-  return { ...real, privateObjectSize: async (key: string) => (uploaded.has(key) ? 20_480 : null) };
+  return { ...real, checkPrivateUpload: async (_actor: unknown, key: string) => (uploaded.has(key) ? { ok: true as const, bytes: 20_480 } : { ok: false as const, problem: "missing" as const }) };
 });
 vi.mock("../src/lib/rate-limit", () => ({ limit: async () => {} }));
 /* The test's NIL job isn't one of the catalogue's: give it a one-post template. */

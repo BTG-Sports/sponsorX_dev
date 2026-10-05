@@ -52,7 +52,7 @@ export default async function PayoutApprovalsPage({ searchParams }: { searchPara
     <div className="space-y-6">
       <div>
         <h1 className="text-xl font-semibold tracking-tight">Payout approvals</h1>
-        <p className="mt-1 text-xs text-muted">Money only moves after someone at BTG approves it. Every decision is recorded with its reviewer.</p>
+        <p className="mt-1 text-xs text-muted">Payouts that pass every check are approved automatically; only the rest wait here for you. Every decision is recorded, automatic or yours.</p>
       </div>
 
       <nav aria-label="Payout states" className="flex flex-wrap gap-2">

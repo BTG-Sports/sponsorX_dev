@@ -1,6 +1,13 @@
 import { readFileSync } from "node:fs";
 import type { AddressInfo } from "node:net";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+/* 2S8-SEC-03 — registering a creative or artwork upload HEADs the object.
+   There is no bucket here, so the file stands in as arrived exactly as its
+   grant pinned it; tests/private-upload-pins.test.ts checks the real thing. */
+vi.mock("../src/lib/storage", async (original) => ({
+  ...(await original<typeof import("../src/lib/storage")>()),
+  checkPrivateUpload: async (_actor: unknown, _key: string, expected: { bytes?: number | null }) => ({ ok: true as const, bytes: expected.bytes ?? 1 }),
+}));
 
 /* --------------------------------------------------------------------------
    SponsorX NEXT, Stage 9 Batch C — P9-BE-10, -11, -14.
@@ -302,9 +309,9 @@ describe.skipIf(!hasDatabase)("SponsorX NEXT rights, featured athletes and the D
 
       /* The sold page's artwork: through BTG's review to its sponsor's sign-off, licensed (P9-BE-16, -10). */
       const f1 = await prisma.adSlot.findFirstOrThrow({ where: { editionId: id, slotCode: "F1" }, select: { id: true } });
-      const { key } = await artwork.presignArtworkUpload(rosa, f1.id, "image/png");
+      const { key } = await artwork.presignArtworkUpload(rosa, f1.id, "image/png", 48_213);
       const art = await artwork.registerArtwork(rosa, f1.id, { r2Key: key });
-      await artwork.startArtworkReview(staff, art.id);
+      /* P9-BE-22 — the system picked it up on upload (BTG_REVIEW). */
       await artwork.sendArtworkToSponsor(staff, art.id);
       await artwork.approveArtwork(rosa, art.id);
       await rights.grantRight(staff, art.id, { grantorKind: "THIRD_PARTY", grantorRef: "Rosa's Bakery", mayPublishDigital: true, startsAt: new Date(), licenseRef: "nx4-IO-1" });

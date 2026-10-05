@@ -64,10 +64,12 @@ describe("content desk · URL → API", () => {
     expect(q(deskListQuery(f, { page: 2, size: 24 }))).toEqual({
       page: "2", size: "24", state: "DRAFT_SUBMITTED,BTG_REVIEW,SPONSOR_REVIEW",
       q: "bowie", campaignId: "cmp_1", kind: "image", sort: "waiting",
+      /* P5-BE-09 — drafts the automatic checks sent back never sit in BTG's queue. */
+      systemReturned: "exclude",
     });
     expect(q(deskListQuery(deskFilters({ sort: "newest" }), { page: 1, size: 12 })).sort).toBe("newest");
     expect(q(deskListQuery(deskFilters({ sort: "due" }), { page: 1, size: 12 }))).not.toHaveProperty("q");
-    expect(DESK_SUMMARY_QUERY).toBe("?state=DRAFT_SUBMITTED,BTG_REVIEW,SPONSOR_REVIEW,APPROVED,PUBLISHED,VERIFIED");
+    expect(DESK_SUMMARY_QUERY).toBe("?state=DRAFT_SUBMITTED,BTG_REVIEW,SPONSOR_REVIEW,APPROVED,PUBLISHED,VERIFIED&systemReturned=exclude");
   });
 
   it("derives the hero, the pipeline strip and the tab counts from the summary", () => {
@@ -78,7 +80,7 @@ describe("content desk · URL → API", () => {
     expect(h.waiting).toBe(7);
     expect(h.aging).toBe(3);
     expect(h.stageCounts).toEqual([2, 2, 1, 5]);
-    expect(h.tabs).toEqual({ review: 7, cleared: 5, all: 12 });
+    expect(h.tabs).toEqual({ review: 7, cleared: 5, all: 12, skipped: 0 });
     expect(deskHeadline({ total: 0, openRevisions: 0, aging: 0, campaigns: [], states: {} }).stageCounts).toEqual([0, 0, 0, 0]);
   });
 });

@@ -118,6 +118,8 @@ export const AUDIT_ACTIONS = {
   storage: {
     privateUploadGrant: "storage.privateUploadGrant",
     privateDownloadGrant: "storage.privateDownloadGrant",
+    /** 2S8-SEC-03 — an arrived upload that was not what its grant pinned, deleted. */
+    privateUploadRefused: "storage.privateUploadRefused",
   },
   /**
    * The delivery chain (P5-BE-03, P5-BE-05, P5-BE-08, §13 steps 7–9).
@@ -133,6 +135,14 @@ export const AUDIT_ACTIONS = {
     btgReview: "deliverable.btgReview",
     sponsorReview: "deliverable.sponsorReview",
     requestRevision: "deliverable.requestRevision",
+    /** P5-BE-09 — a draft that failed the automatic checks, sent back by
+     *  the system (a separate action, so "who sent it back" is a filter). */
+    systemRevision: "deliverable.systemRevision",
+    /** P5-BE-09 — the one 48-hour reminder to a draft's reviewer. */
+    reviewReminder: "deliverable.reviewReminder",
+    /** P5-BE-10 — a trusted draft moved by the system past BTG's review
+     *  (DRAFT_SUBMITTED → BTG_REVIEW → SPONSOR_REVIEW), with the reason. */
+    btgReviewSkipped: "deliverable.btgReviewSkipped",
     approve: "deliverable.approve",
     markPublished: "deliverable.markPublished",
     verify: "deliverable.verify",
@@ -147,6 +157,12 @@ export const AUDIT_ACTIONS = {
     sponsorReview: "editionArtwork.sponsorReview",
     requestRevision: "editionArtwork.requestRevision",
     approve: "editionArtwork.approve",
+    /** P9-BE-22 — the automatic checks sent the upload back to its
+     *  supplier, with the reasons; it never reached BTG. */
+    systemReturn: "editionArtwork.systemReturn",
+    /** P9-BE-22 — a trusted sponsor's passing upload moved by the system
+     *  past BTG's review (BTG_REVIEW → SPONSOR_REVIEW), with the reason. */
+    btgReviewSkipped: "editionArtwork.btgReviewSkipped",
   },
   /**
    * The fan funnel (P6-BE-02, P6-BE-07, §16).

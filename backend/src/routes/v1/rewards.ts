@@ -52,6 +52,7 @@ import {
   viewToken,
   withdrawFanConsent,
 } from "../../domain/reward";
+import { followsCampaign, type RewardState } from "../../domain/reward-state";
 import {
   clicksForLink,
   codesForCampaign,
@@ -292,7 +293,7 @@ function rewardSelect(tokenWhere: Prisma.RewardTokenWhereInput | null) {
     id: true, offerText: true, terms: true, singleUse: true, expiresAt: true, state: true,
     eligibility: true, eligibilityNote: true, redemptionCap: true, landingHeadline: true, landingSubhead: true,
     redemptionCount: true, reserveMinutes: true,
-    campaign: { select: { id: true, name: true, endDate: true, sponsor: { select: { name: true } } } },
+    campaign: { select: { id: true, name: true, endDate: true, state: true, sponsor: { select: { name: true } } } },
     tokens: tokenWhere ? { where: tokenWhere, select: TOKEN_SELECT } : { select: TOKEN_SELECT },
   } satisfies Prisma.RewardSelect;
 }
@@ -318,7 +319,7 @@ type RewardRow = {
   eligibility: string; eligibilityNote: string | null; redemptionCap: number | null;
   landingHeadline: string | null; landingSubhead: string | null;
   redemptionCount: number; reserveMinutes: number;
-  campaign: { id: string; name: string; endDate: Date; sponsor: { name: string } };
+  campaign: { id: string; name: string; endDate: Date; state: string; sponsor: { name: string } };
   tokens: { id: string; token: string; qrKey: string | null; athlete: { id: string; displayName: string } | null }[];
 };
 
@@ -359,7 +360,9 @@ function rewardOut(r: RewardRow, funnel: Record<string, number> | undefined, wit
     held,
     reserveMinutes: r.reserveMinutes,
     landing: { headline: r.landingHeadline, subhead: r.landingSubhead },
-    campaign: { id: r.campaign.id, name: r.campaign.name, sponsorName: r.campaign.sponsor.name, endDate: r.campaign.endDate.toISOString() },
+    campaign: { id: r.campaign.id, name: r.campaign.name, sponsorName: r.campaign.sponsor.name, endDate: r.campaign.endDate.toISOString(), state: r.campaign.state },
+    /* P6-BE-09 — how this reward follows its campaign, in words. */
+    followsCampaign: followsCampaign(r.state as RewardState, r.campaign.state, r.expiresAt.getTime() <= Date.now()),
     athletes: new Set(r.tokens.map((t) => t.athlete?.id).filter(Boolean)).size,
     tokenCount: r.tokens.length,
     ...(funnel ? { funnel } : {}),

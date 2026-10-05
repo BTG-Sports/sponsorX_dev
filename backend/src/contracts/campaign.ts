@@ -48,6 +48,38 @@ export const CampaignBriefInput = z
   })
   .meta({ id: "CampaignBriefInput", description: "What a sponsor asks for, before BTG turns it into a campaign." });
 
+/** P4-BE-11 — a DRAFT brief edited (its sponsor, or BTG): any of the brief's
+ *  own fields; never its sponsor or its student code. */
+export const CampaignBriefPatch = z
+  .object({
+    objective: z.string().min(1).max(2000).optional(),
+    budget: z.int().min(0).max(INT4_MAX).optional().describe("Budget in cents"),
+    packageId: z.string().nullable().optional(),
+    startDate: z.iso.date().optional(),
+    endDate: z.iso.date().optional(),
+    sports: z.array(z.string().min(1).max(60)).max(20).optional(),
+    stateCodes: z.array(z.string().length(2)).max(60).optional(),
+    categories: z.array(BrandCategory).max(25).optional(),
+  })
+  .meta({
+    id: "CampaignBriefPatch",
+    description: "Change a brief while it is still DRAFT. It is evaluated again for automatic approval (P4-BE-11); refused once it has left DRAFT.",
+  });
+
+/** P4-BE-11 — what submitting or editing a brief answers. */
+export const BriefSubmitted = z
+  .object({
+    id: z.string(),
+    state: BriefState,
+    autoApproved: z.boolean(),
+    status: z.object({ key: z.enum(["REVIEWING", "APPROVED", "CLOSED"]), text: z.string() }),
+    campaignId: z.string().nullable(),
+  })
+  .meta({
+    id: "BriefSubmitted",
+    description: "The brief as its submitter is answered: approved automatically (with its campaign) or waiting for BTG. `status` is the sponsor-safe line — never why a brief waits.",
+  });
+
 export const BriefTransitionInput = z
   .object({
     to: BriefState,
@@ -100,6 +132,17 @@ export const EligibleAthlete = z
       .array(z.object({ jobId: z.string(), amount: z.int() }))
       .optional()
       .describe("Current athlete rate per job, cents. Absent when §7 denies athleteRate.amount."),
+    /* P4-BE-08 — the brief's rank and its reasons. */
+    matchScore: z.int().min(0).max(100).optional()
+      .describe("How well this athlete fits the brief, 0–100 (sport 30, state 20, verified past work 20, rate fit 20, recent activity 10). Not §14's score."),
+    reasons: z
+      .array(z.object({
+        key: z.enum(["sport", "state", "work", "rate", "recent"]),
+        text: z.string(),
+        points: z.int().min(0),
+      }))
+      .optional()
+      .describe("Every signal behind matchScore, strongest first. A signal the caller may not read (rates; other campaigns' orders) is absent."),
   })
   .meta({ id: "EligibleAthlete", description: "A shortlisted athlete. Phase 1 shortlists; a person chooses." });
 
@@ -151,3 +194,83 @@ export const OrderAcceptanceInput = z
     id: "OrderAcceptanceInput",
     description: "The signer, IP and user agent come from the request, never the body (§12).",
   });
+
+/* --------------------------------------------------------------------------
+   P4-BE-09 / P6-BE-09 — campaigns move on their own; rewards follow them.
+   -------------------------------------------------------------------------- */
+
+export const CampaignNextStep = z
+  .strictObject({
+    who: z.enum(["BTG", "SYSTEM", "ATHLETES", "SPONSOR"]),
+    text: z.string().describe("Plain words, e.g. \"Waiting for 2 athletes to accept\" or \"Ready for BTG to launch\". BTG's staff get the desk's wording; everyone else the plain one, which names no invitation or offer."),
+  })
+  .meta({ id: "CampaignNextStep", description: "What happens next on a campaign, and who it waits for (P4-BE-09)." });
+
+export const CampaignStageChange = z
+  .strictObject({
+    state: CampaignState,
+    at: z.iso.datetime(),
+    movedAutomatically: z.boolean().describe("True when the system made the move (no actor on the audit row, `automatic: true`)."),
+    reason: z.string().nullable().optional().describe("Why the system moved it — BTG's staff only."),
+  })
+  .meta({ id: "CampaignStageChange", description: "A stage change, read from the audit log (P4-BE-09)." });
+
+export const CampaignStageFields = z
+  .strictObject({
+    nextStep: CampaignNextStep.nullable(),
+    stageChange: CampaignStageChange.nullable().describe("The latest stage change."),
+    stageHistory: z.array(CampaignStageChange).optional().describe("Every stage change, newest first — GET /campaigns/{id}, BTG's staff only."),
+  })
+  .meta({ id: "CampaignStageFields", description: "What every campaign read adds (P4-BE-09)." });
+
+/* --------------------------------------------------------------------------
+   P4-BE-12 / P4-BE-13 — campaigns staff themselves, then launch on their
+   start date.
+   -------------------------------------------------------------------------- */
+
+export const AutoStaffingInput = z
+  .strictObject({
+    on: z.boolean().describe("true: the system staffs the campaign from its package; false: BTG staffs it by hand."),
+    reason: z.string().trim().min(1).max(500).describe("Why — recorded on the audit row."),
+  })
+  .meta({ id: "AutoStaffingInput", description: "Turn a campaign's automatic staffing off or on (P4-BE-12). Either way any stop is cleared; on, staffing carries on at once." });
+
+export const AutoStaffingResult = z
+  .strictObject({
+    id: z.string(),
+    autoStaffing: z.boolean(),
+    state: CampaignState.nullable(),
+    sent: z.number().int().describe("Athletes offered by this call (on only)."),
+    skipped: z.number().int().describe("Athletes skipped by this call, with a recorded reason."),
+    stop: z.strictObject({ reason: z.string(), at: z.iso.datetime() }).nullable().describe("Set when this call's run stopped and handed the campaign back to BTG."),
+  })
+  .meta({ id: "AutoStaffingResult" });
+
+export const CampaignStaffing = z
+  .strictObject({
+    sent: z.number().int().describe("Athletes ever sent an offer on the campaign."),
+    signed: z.number().int().describe("Athletes holding a signed order."),
+    outstanding: z.number().int().describe("Athletes still being asked — offers, orders or invitations waiting for an answer."),
+    declined: z.number().int(),
+    expired: z.number().int().describe("Athletes whose offer or invitation ran out unanswered."),
+    skipped: z.number().int().describe("Athletes automatic staffing skipped because an offer could not be made."),
+    needed: z.strictObject({ min: z.number().int(), max: z.number().int() }).describe("The package's athlete range."),
+    stop: z.strictObject({ reason: z.string(), at: z.iso.datetime() }).nullable().describe("Why automatic staffing stopped and handed the campaign to BTG."),
+    skips: z.array(z.strictObject({ athleteId: z.string(), displayName: z.string().nullable(), reason: z.string(), at: z.iso.datetime() }))
+      .optional().describe("GET /campaigns/{id}, BTG's staff only: who was skipped, and why."),
+  })
+  .meta({ id: "CampaignStaffing", description: "A campaign's staffing, counted by athlete (P4-BE-12). BTG's staff get every field and `autoStaffing` beside it; a sponsor gets only `signed` and `needed`. Null for a campaign with no package to staff from." });
+
+export const CampaignLaunchResult = z
+  .strictObject({
+    id: z.string(),
+    state: CampaignState,
+    ordersActivated: z.number().int(),
+    rewards: z.strictObject({
+      activated: z.number().int().describe("Draft rewards that went live with the launch, as the system (P6-BE-09)."),
+      leftInDraft: z
+        .array(z.strictObject({ id: z.string(), offerText: z.string(), reason: z.string() }))
+        .describe("Drafts that could not go live, and why — they stay DRAFT."),
+    }),
+  })
+  .meta({ id: "CampaignLaunchResult" });

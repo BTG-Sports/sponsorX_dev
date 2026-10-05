@@ -59,7 +59,21 @@ export type MatchAthlete = {
   lines?: { jobId: string; quantity: number; offered: number }[];
   /** Already invited on this campaign — the roster's SENT / answered state. */
   invite?: string | null;
+  /** P4-BE-08 — how well the athlete fits this brief (0–100) and every
+   *  reason, strongest first. Live only; absent on fixtures. */
+  match?: { score: number; reasons: MatchReason[] } | null;
+  /** P4-FE-08 — the new-offer form, pre-filled for this athlete on this
+   *  brief's campaign; null when there is no campaign yet or no job. */
+  offerHref?: string | null;
 };
+
+/** One signal behind a match score (GET /briefs/{id}/eligible-athletes). */
+export type MatchReason = { key: string; text: string; points: number };
+
+/** The reasons worth a chip: the ones that scored, strongest first. */
+export function topReasons(reasons: readonly MatchReason[], n = 3): MatchReason[] {
+  return reasons.filter((r) => r.points > 0).slice(0, n);
+}
 
 /* ------------------------------------------------------------- the brief */
 
@@ -239,8 +253,10 @@ export function canShortlist(a: MatchAthlete): boolean {
 
 /** "name" is the server-paged live desk's (2026-09-29): the API orders by
  *  score or name; margin and cost are priced here, per page, so they're
- *  offered only where the whole roster is in hand (the fixture demo). */
-export type MatchSort = "score" | "margin" | "cost" | "name";
+ *  offered only where the whole roster is in hand (the fixture demo).
+ *  "match" (P4-FE-08) is the live desk's default: the API's rank for the
+ *  brief, best match first. */
+export type MatchSort = "match" | "score" | "margin" | "cost" | "name";
 
 export type MatchFilters = {
   q: string;
@@ -271,6 +287,7 @@ export const SORT_OPTIONS: { value: MatchSort; label: string }[] = [
 
 /** The sorts the server-paged live desk can ask the API for. */
 export const SERVER_SORT_OPTIONS: { value: MatchSort; label: string }[] = [
+  { value: "match", label: "Best match first" },
   { value: "score", label: "Score, high to low" },
   { value: "name", label: "Name, A to Z" },
 ];
@@ -302,6 +319,7 @@ export function sortRoster(list: MatchAthlete[], sort: MatchSort): MatchAthlete[
     c.sort((a, b) => marginRatio(a.cost, a.sell) - marginRatio(b.cost, b.sell));
   else if (sort === "cost") c.sort((a, b) => a.cost - b.cost);
   else if (sort === "name") c.sort((a, b) => a.name.localeCompare(b.name));
+  else if (sort === "match") c.sort((a, b) => (b.match?.score ?? -1) - (a.match?.score ?? -1));
   else c.sort((a, b) => (b.score ?? -1) - (a.score ?? -1));
   return c;
 }

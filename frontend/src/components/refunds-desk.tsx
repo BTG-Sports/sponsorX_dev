@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 
 import { markRefundSentAction } from "@/app/(app)/admin/refunds/actions";
 import { money } from "@/lib/order-automation-live";
-import { METHOD_WORDS, REFUND_METHODS, refundWhat, sentProblems, today, type ApiRefund, type RefundMethod } from "@/lib/refunds-live";
+import { METHOD_WORDS, REFUND_METHODS, refundRef, refundWhat, sentNotice, sentProblems, today, type ApiRefund, type RefundMethod } from "@/lib/refunds-live";
 import { DialogError, OrderDialog, btn } from "./order-dialog";
 
 /* --------------------------------------------------------------------------
@@ -21,7 +21,7 @@ export function MarkRefunded({ refund }: { refund: ApiRefund }) {
   const [open, setOpen] = useState(false);
   return (
     <>
-      <button type="button" onClick={() => setOpen(true)} aria-label={`Mark the ${refund.orderRef} refund sent`}
+      <button type="button" onClick={() => setOpen(true)} aria-label={`Mark the ${refundRef(refund)} refund sent`}
         className="inline-flex min-h-11 w-full items-center justify-center rounded-lg bg-primary px-3.5 text-sm font-semibold text-cta-ink hover:bg-primary-soft xl:min-h-9 xl:w-auto xl:text-xs">
         Mark refunded
       </button>
@@ -56,7 +56,7 @@ function MarkDialog({ refund: r, onClose }: { refund: ApiRefund; onClose: () => 
     });
   };
   return (
-    <OrderDialog id={`rf-${r.id}`} title={`Mark the ${r.orderRef} refund sent?`} onClose={onClose} onSubmit={submit}>
+    <OrderDialog id={`rf-${r.id}`} title={`Mark the ${refundRef(r)} refund sent?`} onClose={onClose} onSubmit={submit}>
       {r.zohoNote && (
         <p className="rounded-lg border border-primary/40 bg-primary/8 px-3 py-2.5 text-xs leading-relaxed">
           Paid by Zoho invoice — {r.zohoNote.charAt(0).toLowerCase()}{r.zohoNote.slice(1)} too.
@@ -91,7 +91,7 @@ function MarkDialog({ refund: r, onClose }: { refund: ApiRefund; onClose: () => 
       </p>
       {bad.sentOn && sentOn && <p className="-mt-1 text-[11px] text-danger">{bad.sentOn}</p>}
       <ul className="list-disc space-y-1 pl-4 text-[13px] leading-relaxed text-text/85">
-        <li>{r.sponsor.name} is emailed that the refund was sent.</li>
+        <li>{sentNotice(r)}</li>
         <li>The method, reference and day are recorded, and it moves to Sent. It can’t be marked twice.</li>
       </ul>
       <DialogError message={error} />

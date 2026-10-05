@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Badge } from "@/components/ui";
@@ -8,12 +9,13 @@ import { CloseIcon, Dropdown } from "@/components/filter-kit";
 import { athleteInv, money } from "@/lib/fixtures";
 import { BRAND_CATEGORIES, categoryLabel } from "@/lib/brand-categories";
 import type { BriefRequest } from "@/lib/brief-request";
+import { submittedMessage, type BriefStatus } from "@/lib/brief-status";
 
 /** A live submit (P4-FE-01). Absent in demo mode, where the drawer only
  *  shows its success state — nothing is sent. */
 export type BriefSubmit = (
   r: Omit<BriefRequest, "sponsorId">,
-) => Promise<{ ok: true; id: string } | { ok: false; error: string }>;
+) => Promise<{ ok: true; id: string; status?: BriefStatus } | { ok: false; error: string }>;
 
 const CATEGORY_OPTIONS = BRAND_CATEGORIES.map((c) => ({ value: c, label: categoryLabel(c) }));
 
@@ -218,6 +220,8 @@ function BriefForm({
   const [category, setCategory] = useState("");
   const [message, setMessage] = useState("");
   const [submitted, setSubmitted] = useState(false);
+  /* P4-FE-09 — the live answer: approved automatically, or BTG reviewing. */
+  const [status, setStatus] = useState<BriefStatus | null>(null);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -237,11 +241,16 @@ function BriefForm({
       jobName: seed.kind === "job" ? `${seed.name} (${seed.jobId})` : seed.kind === "athlete" ? seed.jobName : null,
     }).catch(() => ({ ok: false as const, error: "Couldn't reach BTG — please try again." }));
     setSending(false);
-    if (out.ok) setSubmitted(true);
-    else setError(out.error);
+    if (out.ok) {
+      setStatus(out.status ?? null);
+      setSubmitted(true);
+    } else setError(out.error);
   }
 
   if (submitted) {
+    /* Live: the API's answer, in its sponsor-safe words. Demo: nothing was
+       sent, so the original copy. */
+    const said = submit ? submittedMessage(status) : null;
     return (
       <div className="flex flex-1 flex-col">
         <DrawerHeader seed={seed} closeBtnRef={closeBtnRef} onClose={onRequestClose} />
@@ -249,12 +258,23 @@ function BriefForm({
           <div className="grid size-14 place-items-center rounded-full bg-accent/15 text-accent">
             <CheckMark />
           </div>
-          <p className="mt-4 text-sm font-semibold tracking-tight">Brief received</p>
+          <p className="mt-4 text-sm font-semibold tracking-tight">{said ? said.title : "Brief received"}</p>
           <p className="mx-auto mt-1.5 max-w-xs text-xs leading-relaxed text-muted">
-            BTG will match eligible athletes, price the campaign, run conflict
-            checks and follow up. Phase 1 is managed — there&rsquo;s no
-            self-service checkout (§17).
+            {said ? (
+              said.body
+            ) : (
+              <>
+                BTG will match eligible athletes, price the campaign, run conflict
+                checks and follow up. Phase 1 is managed — there&rsquo;s no
+                self-service checkout (§17).
+              </>
+            )}
           </p>
+          {said && (
+            <Link href="/sponsor/campaigns" className="mt-3 text-[11px] font-medium text-sponsor hover:underline">
+              Go to Campaigns →
+            </Link>
+          )}
           <button
             type="button"
             onClick={onRequestClose}

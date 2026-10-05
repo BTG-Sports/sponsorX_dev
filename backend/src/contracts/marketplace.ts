@@ -134,6 +134,31 @@ export const OfferChecksQuery = z
   })
   .strict()
   .meta({ id: "OfferChecksQuery", description: "The draft so far: athlete, job, item and the two prices in cents. Each check runs once its inputs are present." });
+/* P4-BE-08 — the new-offer form, filled in from the records that decide
+   each field (GET /campaigns/:id/offer-draft). Both ids are optional HERE so
+   the campaign is asked first — another tenant's campaign answers 404, not
+   400; the domain refuses a draft missing either (422). */
+export const OfferDraftQuery = z
+  .object({
+    athleteId: z.string().min(1).max(64).optional(),
+    jobId: z.string().min(1).max(64).optional(),
+  })
+  .strict()
+  .meta({ id: "OfferDraftQuery", description: "The athlete and the NIL job to draft an offer for — both required to draft." });
+const OFFER_DRAFT_FIELDS = ["brief", "compensation", "sellPrice", "deliverables", "usageRights", "exclusivityDays", "disclosures", "expiresAt"] as const;
+export const OfferDraft = z
+  .object({
+    campaignId: z.string(),
+    athlete: z.object({
+      id: z.string(), name: z.string(), minor: z.boolean(), guardianAnswers: z.boolean(),
+      age: z.int().nullable(), guardianName: z.string().nullable(),
+    }),
+    job: z.object({ id: z.string(), name: z.string() }),
+    offer: OfferInput.describe("The draft as POST /offers takes it — sent unchanged, it passes every check drafting asks (budget aside: what the campaign has left is the form's check)."),
+    sources: z.object(Object.fromEntries(OFFER_DRAFT_FIELDS.map((k) => [k, z.string()])) as Record<(typeof OFFER_DRAFT_FIELDS)[number], z.ZodString>)
+      .describe("Per field, in plain words, where its value came from."),
+  })
+  .meta({ id: "OfferDraft", description: "A new offer filled in for BTG to check and send (P4-BE-08). Creates nothing." });
 export const OfferAthletesQuery = z
   .object({ q: z.string().trim().max(80).optional() })
   .strict()

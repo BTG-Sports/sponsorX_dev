@@ -27,7 +27,10 @@ import {
   CreativeUploadInput,
   MarkPublishedInput,
   RevisionRequestInput,
+  SubmitDraftInput,
 } from "../../contracts/deliverable";
+import { readChecks, sentBack } from "../../domain/content-check-rules";
+import { isBtgReviewer } from "../../domain/content-trust";
 import {
   approveDeliverable,
   markPublished,
@@ -60,12 +63,18 @@ const STATES = ["NOT_STARTED", "DRAFT_SUBMITTED", "BTG_REVIEW", "SPONSOR_REVIEW"
 
 const LIST_SELECT = {
   id: true, title: true, dueDate: true, state: true, publishedUrl: true, publishedAt: true,
+  /* P5-BE-09 — the latest submission's caption and checks, and the wait. */
+  caption: true, captionVersion: true, checks: true, checksPassed: true, checkedAt: true, reviewWaitingSince: true,
+  /* P5-BE-10 — the latest submission skipped BTG's review, and why. */
+  btgReviewSkipped: true, skipReason: true,
   order: {
     select: {
       id: true, jobId: true,
       job: { select: { name: true } },
       athlete: { select: { id: true, displayName: true } },
       campaign: { select: { id: true, name: true, sponsor: { select: { name: true } } } },
+      /* P5-BE-09 — what the caption must carry (the accepted offer's terms). */
+      offer: { select: { disclosures: true } },
     },
   },
   assets: {
@@ -77,10 +86,14 @@ const LIST_SELECT = {
 type ListRow = {
   id: string; title: string; dueDate: Date; state: string;
   publishedUrl: string | null; publishedAt: Date | null;
+  caption: string | null; captionVersion: number | null;
+  checks: unknown; checksPassed: boolean | null; checkedAt: Date | null; reviewWaitingSince: Date | null;
+  btgReviewSkipped: boolean; skipReason: string | null;
   order: {
     id: string; jobId: string; job: { name: string };
     athlete: { id: string; displayName: string };
     campaign: { id: string; name: string; sponsor: { name: string } };
+    offer: { disclosures: string[] } | null;
   };
   assets: { version: number; uploadedAt: Date }[];
 };
@@ -105,12 +118,20 @@ async function revisionsFor(tenantId: string, ids: string[]) {
   return out;
 }
 
-function rowOut(d: ListRow, revision: { reason: string; at: Date } | undefined) {
+function rowOut(d: ListRow, revision: { reason: string; at: Date } | undefined, btg = false) {
   const latest = d.assets[0] ?? null;
-  /* Open only while nothing newer has been uploaded, and only while it sits
-     back with the athlete. */
-  const open =
-    revision && d.state === "DRAFT_SUBMITTED" && (!latest || latest.uploadedAt < revision.at);
+  /* Open only while it sits back with the athlete: sent back by the
+     automatic checks (until a submission passes), or by a reviewer and not
+     yet answered (content-check-rules sentBack). */
+  const back = sentBack({
+    state: d.state,
+    checksPassed: d.checksPassed,
+    checks: d.checks,
+    checkedAt: d.checkedAt,
+    latestUploadAt: latest?.uploadedAt ?? null,
+    revision,
+  });
+  const onReviewDesk = REVIEW_STATES.includes(d.state) && !back;
   return {
     id: d.id,
     title: d.title,
@@ -126,7 +147,32 @@ function rowOut(d: ListRow, revision: { reason: string; at: Date } | undefined) 
     campaign: { id: d.order.campaign.id, name: d.order.campaign.name, sponsorName: d.order.campaign.sponsor.name },
     latestAsset: latest ? { version: latest.version, uploadedAt: latest.uploadedAt.toISOString() } : null,
     assetCount: d.assets.length,
-    revision: open ? { reason: revision!.reason, at: revision!.at.toISOString() } : null,
+    /* `by` SYSTEM: the automatic checks sent it back; `failed` lists them. */
+    revision: back
+      ? {
+          reason: back.reason,
+          at: back.at.toISOString(),
+          by: back.by,
+          ...(back.by === "SYSTEM" ? { failed: back.failed } : {}),
+        }
+      : null,
+    /* P5-BE-09 — the latest submission: its caption (and the version it went
+       with), the disclosures it had to carry, and the automatic checks (null
+       for a draft submitted before they existed). */
+    caption: d.caption,
+    captionVersion: d.captionVersion,
+    requiredDisclosures: d.order.offer?.disclosures ?? [],
+    checks: readChecks(d.checks),
+    /* When it reached the reviewer it is waiting on; null off a review desk.
+       A draft from before the clock existed falls back to its latest upload,
+       the desk's old measure. */
+    waitingSince: onReviewDesk
+      ? (d.reviewWaitingSince ?? latest?.uploadedAt ?? null)?.toISOString() ?? null
+      : null,
+    /* P5-BE-10 — the latest submission went straight to the sponsor. Why, in
+       words, is BTG's to read: it describes the athlete's record. */
+    btgReviewSkipped: d.btgReviewSkipped,
+    skipReason: btg && d.btgReviewSkipped ? d.skipReason : null,
   };
 }
 
@@ -164,13 +210,27 @@ function dateParam(v: unknown): Date | undefined {
   return Number.isNaN(d.getTime()) ? undefined : d;
 }
 
-/** The narrowing both modes share: `?state`, `?campaignId`, `?from`/`?to`. */
+/** P5-BE-09 — `?systemReturned=exclude`: BTG's queue never shows a draft the
+ *  automatic checks sent back (it is the athlete's to fix). Spelled as an OR
+ *  rather than a NOT, so a draft never checked (checksPassed null) stays. */
+const NOT_SYSTEM_RETURNED: Where = {
+  OR: [{ state: { not: "DRAFT_SUBMITTED" } }, { checksPassed: null }, { checksPassed: true }],
+};
+
+/** P5-BE-10 — `?btgSkipped=only`: the drafts that skipped BTG's review,
+ *  for BTG's spot checks. */
+const BTG_SKIPPED: Where = { btgReviewSkipped: true };
+
+/** The narrowing both modes share: `?state`, `?campaignId`, `?from`/`?to`,
+ *  `?systemReturned=exclude`, `?btgSkipped=only`. */
 function baseFilters(query: Record<string, unknown>): Where[] {
   const wanted = allowedList(query.state, STATES);
   const campaignId = typeof query.campaignId === "string" && query.campaignId ? query.campaignId : undefined;
   const from = dateParam(query.from);
   const to = dateParam(query.to);
   return [
+    ...(query.systemReturned === "exclude" ? [NOT_SYSTEM_RETURNED] : []),
+    ...(query.btgSkipped === "only" ? [BTG_SKIPPED] : []),
     ...(wanted.length ? [{ state: { in: wanted } }] : []),
     ...(campaignId ? [{ order: { campaignId } }] : []),
     ...(from || to ? [{ dueDate: { ...(from ? { gte: from } : {}), ...(to ? { lt: to } : {}) } }] : []),
@@ -188,7 +248,7 @@ async function openRevisions(tenantId: string, where: Where) {
     /* tenant-scope: `where` is whereFor(actor, "deliverable", "read") ∧ filters */
     where: { AND: [where, { state: "DRAFT_SUBMITTED" }] },
     select: {
-      id: true, dueDate: true,
+      id: true, dueDate: true, checks: true, checksPassed: true, checkedAt: true,
       assets: { select: { uploadedAt: true }, orderBy: { version: "desc" as const }, take: 1 },
     },
     take: DRAFT_SCAN_CAP,
@@ -197,9 +257,17 @@ async function openRevisions(tenantId: string, where: Where) {
   const open = new Map<string, { dueDate: Date; uploadedAt: Date | null }>();
   const notOpen: { uploadedAt: Date | null }[] = [];
   for (const d of drafts) {
-    const r = revisions.get(d.id);
     const latest = d.assets[0]?.uploadedAt ?? null;
-    if (r && (!latest || latest < r.at)) open.set(d.id, { dueDate: d.dueDate, uploadedAt: latest });
+    /* P5-BE-09 — sent back by the checks, or by a reviewer and unanswered. */
+    const back = sentBack({
+      state: "DRAFT_SUBMITTED",
+      checksPassed: d.checksPassed ?? null,
+      checks: d.checks,
+      checkedAt: d.checkedAt ?? null,
+      latestUploadAt: latest,
+      revision: revisions.get(d.id),
+    });
+    if (back) open.set(d.id, { dueDate: d.dueDate, uploadedAt: latest });
     else notOpen.push({ uploadedAt: latest });
   }
   return { open, notOpen };
@@ -311,6 +379,7 @@ const listDeliverables: RequestHandler = async (req, res) => {
   const actor = req.actor!;
   const query = req.query as Record<string, unknown>;
   const paged = pageRequest(query);
+  const btg = isBtgReviewer(actor);
 
   if (!paged) {
     const wanted =
@@ -320,20 +389,30 @@ const listDeliverables: RequestHandler = async (req, res) => {
     const campaignId = typeof req.query.campaignId === "string" ? req.query.campaignId : undefined;
     const from = dateParam(query.from);
     const to = dateParam(query.to);
+    const where = {
+      ...whereFor(actor, "deliverable", "read"),
+      ...(wanted.length ? { state: { in: wanted as never } } : {}),
+      ...(campaignId ? { order: { campaignId } } : {}),
+      /* the calendar's month — only when asked, so the legacy call is unchanged */
+      ...(from || to ? { dueDate: { ...(from ? { gte: from } : {}), ...(to ? { lt: to } : {}) } } : {}),
+    };
     const rows = (await prisma.deliverable.findMany({
-      where: {
-        ...whereFor(actor, "deliverable", "read"),
-        ...(wanted.length ? { state: { in: wanted as never } } : {}),
-        ...(campaignId ? { order: { campaignId } } : {}),
-        /* the calendar's month — only when asked, so the legacy call is unchanged */
-        ...(from || to ? { dueDate: { ...(from ? { gte: from } : {}), ...(to ? { lt: to } : {}) } } : {}),
-      },
+      /* tenant-scope: `where` spreads whereFor(actor, "deliverable", "read") */
+      where: query.systemReturned === "exclude" || query.btgSkipped === "only"
+        ? {
+            AND: [
+              where,
+              ...(query.systemReturned === "exclude" ? [NOT_SYSTEM_RETURNED] : []),
+              ...(query.btgSkipped === "only" ? [BTG_SKIPPED] : []),
+            ],
+          }
+        : where,
       select: LIST_SELECT,
       orderBy: { dueDate: "asc" },
       take: UNPAGED_CAP,
     })) as ListRow[];
     const revisions = await revisionsFor(actor.tenantId, rows.map((r) => r.id));
-    res.json({ deliverables: rows.map((d) => rowOut(d, revisions.get(d.id))) });
+    res.json({ deliverables: rows.map((d) => rowOut(d, revisions.get(d.id), btg)) });
     return;
   }
 
@@ -374,7 +453,7 @@ const listDeliverables: RequestHandler = async (req, res) => {
         : readByWaiting(actor.tenantId, where, openIds, sort === "waiting" ? "asc" : "desc", skip, take),
   );
   const revisions = await revisionsFor(actor.tenantId, rows.map((r) => r.id));
-  res.json({ deliverables: rows.map((d) => rowOut(d, revisions.get(d.id))), page });
+  res.json({ deliverables: rows.map((d) => rowOut(d, revisions.get(d.id), btg)), page });
 };
 
 /**
@@ -389,6 +468,8 @@ const listDeliverables: RequestHandler = async (req, res) => {
  *   overdue        — the athlete's move and due before today (UTC day)
  *   campaigns      — the campaigns those deliverables belong to (the desk's
  *                    campaign filter), by name
+ *   btgSkipped     — those whose latest submission skipped BTG's review
+ *                    (P5-BE-10, the desk's spot-check tab)
  */
 const summarizeDeliverables: RequestHandler = async (req, res) => {
   const actor = req.actor!;
@@ -399,7 +480,7 @@ const summarizeDeliverables: RequestHandler = async (req, res) => {
   const agingCutoff = new Date(now - (AGING_HOURS + 1) * 3_600_000);
   const today = new Date(new Date(now).toISOString().slice(0, 10));
 
-  const [grouped, { open, notOpen }, deskAging, lateOwn, orders] = await Promise.all([
+  const [grouped, { open, notOpen }, deskAging, lateOwn, orders, btgSkipped] = await Promise.all([
     prisma.deliverable.groupBy({
       by: ["state"],
       /* tenant-scope: `where` is whereFor(actor, "deliverable", "read") ∧ filters */
@@ -430,6 +511,10 @@ const summarizeDeliverables: RequestHandler = async (req, res) => {
       select: { campaign: { select: { id: true, name: true } } },
       take: 500,
     }),
+    prisma.deliverable.count({
+      /* tenant-scope: `where` is whereFor(actor, "deliverable", "read") ∧ filters */
+      where: { AND: [where, BTG_SKIPPED] },
+    }),
   ]);
 
   const states = Object.fromEntries(STATES.map((s) => [s, 0])) as Record<string, number>;
@@ -447,6 +532,7 @@ const summarizeDeliverables: RequestHandler = async (req, res) => {
     aging: deskAging + draftAging,
     overdue: lateOwn + lateRevisions,
     campaigns,
+    btgSkipped,
   });
 };
 
@@ -460,7 +546,7 @@ const readDeliverable: RequestHandler<{ id: string }> = async (req, res) => {
   if (!d) throw new ForbiddenError("deliverable", "read");
   const revisions = await revisionsFor(actor.tenantId, [d.id]);
   res.json({
-    ...rowOut(d, revisions.get(d.id)),
+    ...rowOut(d, revisions.get(d.id), isBtgReviewer(actor)),
     assets: d.assets.map((a) => ({ version: a.version, uploadedAt: a.uploadedAt.toISOString() })),
   });
 };
@@ -493,9 +579,11 @@ const assetUrl: RequestHandler<{ id: string; version: string }> = async (req, re
   res.json({ url });
 };
 
-/** POST /deliverables/:id/submit — the athlete submits a draft. */
+/** POST /deliverables/:id/submit — the athlete submits a draft, with its
+ *  caption; the automatic checks run (P5-BE-09). */
 const submit: RequestHandler<{ id: string }> = async (req, res) => {
-  res.json(await submitDraft(req.actor!, req.params.id));
+  const { caption } = SubmitDraftInput.parse(req.body ?? {});
+  res.json(await submitDraft(req.actor!, req.params.id, { caption }));
 };
 
 /** POST /deliverables/:id/btg-review — BTG picks it up. */
@@ -537,8 +625,8 @@ const verify: RequestHandler<{ id: string }> = async (req, res) => {
  * itself; they never pass through this server (Addendum A8).
  */
 const upload: RequestHandler<{ id: string }> = async (req, res) => {
-  const { contentType } = CreativeUploadInput.parse(req.body ?? {});
-  res.status(201).json(await presignCreativeUpload(req.actor!, req.params.id, contentType));
+  const { contentType, bytes } = CreativeUploadInput.parse(req.body ?? {});
+  res.status(201).json(await presignCreativeUpload(req.actor!, req.params.id, contentType, bytes));
 };
 
 /** POST /deliverables/:id/assets — record what was uploaded. */

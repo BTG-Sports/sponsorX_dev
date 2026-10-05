@@ -121,6 +121,20 @@ ${d.portalUrl ?? ""}
     subject: `Refund the sponsor: a card payment of ${d.amount ?? ""} for order ${d.orderRef ?? ""}, which is ${d.orderState ?? "no longer waiting for payment"}`,
     text: `${d.why ?? "A card payment was confirmed for an order that was no longer waiting for payment"} (order ${d.orderRef ?? ""}, ${d.amount ?? ""}). The order has not been reopened — refund the sponsor's payment with the payment provider${d.providerRef ? ` (payment ${d.providerRef})` : ""}.\n\n${d.orderUrl ?? ""}\n\n— SponsorX`,
   }),
+  /* 2S5-INT-02 — a provider event SponsorX held for BTG instead of applying it. */
+  "payment.heldForBtg": (d) => ({
+    subject: `Payment provider event held for you: ${d.type ?? "an event"}${d.orderRef ? ` (order ${d.orderRef})` : ""}`,
+    text: `SponsorX received this from the payment provider and did not act on it by itself:\n\n${d.type ?? ""}${d.subject ? ` — ${d.subject}` : ""}\n\nWhy: ${d.reason ?? ""}\n\nCheck it with the provider, put it right in SponsorX (record the payment, refund it, or leave it), then mark it dealt with:\n\n${d.eventsUrl ?? ""}\n\n— SponsorX`,
+  }),
+  /* 2S5-BE-03 — a sponsor disputed a card payment: BTG support's review item. Never resolved automatically. */
+  "dispute.opened": (d) => ({
+    subject: `Payment disputed: order ${d.orderRef ?? ""} — ${d.amount ?? ""}`,
+    text: `The sponsor has disputed their card payment for order ${d.orderRef ?? ""} (${d.amount ?? ""}) with their bank.\n\nReason given: ${d.reason ?? "not given"}\n\nThe order's money is frozen: no payout covering it is approved or sent, and it can't be refunded. Take the dispute for review, send the provider your evidence, and resolve it once the provider decides:\n\n${d.disputeUrl ?? ""}\n\n— SponsorX`,
+  }),
+  "dispute.providerClosed": (d) => ({
+    subject: `The payment provider decided the dispute on order ${d.orderRef ?? ""}: ${d.outcome ?? ""}`,
+    text: `The payment provider closed the dispute on order ${d.orderRef ?? ""} (${d.amount ?? ""}) — ${d.outcome === "lost" ? "lost: the bank returned the money to the sponsor" : "won: the money stays with BTG"}.\n\nNothing has been changed yet. Resolve it in SponsorX: ${d.outcome === "lost" ? "the order's books are then reversed and payouts not yet sent are sent back" : "the order's money then unfreezes and waiting payouts are sent"}.\n\n${d.disputeUrl ?? ""}\n\n— SponsorX`,
+  }),
   /* 2S4-BE-09 — the seller's step. */
   "sale.approvalRequested": (d) => ({
     subject: `${d.sponsorName ?? "A sponsor"} wants to order from you — please answer by ${d.answerBy ?? "the time shown"}`,
@@ -169,8 +183,8 @@ ${d.portalUrl ?? ""}
   }),
   /* 2S5-BE-05 — a payee's payout, from BTG's decision to the money arriving. */
   "payout.approved": (d) => ({
-    subject: `BTG approved your payout of ${d.amount ?? ""}`,
-    text: `Hi ${d.firstName ?? "there"},\n\nBTG has approved your payout of ${d.amount ?? ""}. It's on its way to your payout account — we'll email you again when it has been paid.\n\n${d.portalUrl ?? ""}\n\n— BTG SponsorX`,
+    subject: `Your payout of ${d.amount ?? ""} is approved`,
+    text: `Hi ${d.firstName ?? "there"},\n\nYour payout of ${d.amount ?? ""} is approved. It's on its way to your payout account — we'll email you again when it has been paid.\n\n${d.portalUrl ?? ""}\n\n— BTG SponsorX`,
   }),
   "payout.paid": (d) => ({
     subject: `Your payout of ${d.amount ?? ""} has been paid`,
@@ -180,6 +194,40 @@ ${d.portalUrl ?? ""}
   "payout.accountNeedsFix": (d) => ({
     subject: `Your payout of ${d.amount ?? ""} couldn't be sent — please fix your payout account`,
     text: `Hi ${d.firstName ?? "there"},\n\nWe tried to send your payout of ${d.amount ?? ""}, but our payment provider says your payout account needs attention first.\n\nOpen your money page and update your payout account on the provider's secure page. As soon as it's ready again, we'll send the payout automatically — you don't need to request it again.\n\n${d.portalUrl ?? ""}\n\n— BTG SponsorX`,
+  }),
+  /* 2S5-BE-05 — a failed payout that is BTG's now. */
+  "payout.failedForBtg": (d) => ({
+    subject: `A payout of ${d.amount ?? ""} to ${d.payeeName ?? "a payee"} couldn't be sent — it's yours to look at`,
+    text: `The payment provider couldn't send a payout of ${d.amount ?? ""} to ${d.payeeName ?? "a payee"}, and SponsorX won't retry it by itself.\n\nWhy: ${d.reason ?? ""}\n\nCheck it with the provider, then retry it — or send it back to the payee with a note:\n\n${d.payoutUrl ?? ""}\n\n— SponsorX`,
+  }),
+  /* P4-BE-09 — campaigns move on their own: ready for BTG to launch; the
+     sponsor's final report is ready. */
+  "campaign.readyToLaunch": (d) => ({
+    subject: `Ready to launch: ${d.campaignName ?? "a campaign"}`,
+    text: `Every athlete on ${d.campaignName ?? "this campaign"}${d.sponsorName ? ` for ${d.sponsorName}` : ""} has accepted, and nobody is still waiting to answer.\n\nIt launches on its own on its start date — or you can launch it sooner:\n\n${d.campaignUrl ?? ""}\n\n— BTG SponsorX`,
+  }),
+  /* P4-BE-12 — automatic staffing stopped; BTG takes it from here. */
+  "campaign.staffingStopped": (d) => ({
+    subject: `Automatic staffing stopped: ${d.campaignName ?? "a campaign"}`,
+    text: `Automatic staffing has stopped on ${d.campaignName ?? "this campaign"}${d.sponsorName ? ` for ${d.sponsorName}` : ""}, and it's over to you:\n\n${d.reason ?? ""}\n\nOffers already out stay open. Staff the rest by hand, or turn automatic staffing back on once it can carry on:\n\n${d.campaignUrl ?? ""}\n\n— BTG SponsorX`,
+  }),
+  /* P9-BE-18 — a NEXT ad sale held for SALES, with the reasons. */
+  "adSale.heldForSales": (d) => ({
+    subject: `Ad sale held for you: ${d.sponsorName ?? "a sponsor"}`,
+    text: `${d.sponsorName ?? "A sponsor"}'s ad placement (${d.campaignName ?? "a campaign"}) couldn't be sold automatically, because a NEXT edition is read by students:\n\n${d.reasons ?? ""}\n\nThe sponsor hasn't been told. Sell it by hand once it's right, or leave it — the reasons are on the editions page:\n\n${d.reviewUrl ?? ""}\n\n— SponsorX`,
+  }),
+  /* P4-BE-11 — a sponsor's brief approved automatically; one held for BTG. */
+  "brief.autoApproved": (d) => ({
+    subject: "Your request is approved — your campaign is being staffed",
+    text: `Hi${d.sponsorName ? ` ${d.sponsorName}` : ""},\n\nYour request${d.packageName ? ` for ${d.packageName}` : ""} is approved, and your campaign is being staffed. We'll let you know as athletes accept.\n\nFollow it here:\n\n${d.campaignUrl ?? ""}\n\n— BTG SponsorX`,
+  }),
+  "brief.heldForBtg": (d) => ({
+    subject: `Brief held for you: ${d.sponsorName ?? "a sponsor"}`,
+    text: `${d.sponsorName ?? "A sponsor"}'s request (${d.packageName ?? "custom request"}) couldn't be approved automatically, so it is waiting for you:\n\n${d.reasons ?? ""}\n\nThe sponsor has been told only that BTG is reviewing it. Qualify, approve or close it here:\n\n${d.reviewUrl ?? ""}\n\n— SponsorX`,
+  }),
+  "campaign.finalReportReady": (d) => ({
+    subject: `Your final report for ${d.campaignName ?? "your campaign"} is ready`,
+    text: `Hi${d.sponsorName ? ` ${d.sponsorName}` : ""},\n\nEvery piece of content on ${d.campaignName ?? "your campaign"} has been checked, and your final report is ready:\n\n${d.reportUrl ?? ""}\n\nThe campaign is now complete. Thank you for working with our athletes.\n\n— BTG SponsorX`,
   }),
   "payout.sentBack": (d) => ({
     subject: "About your SponsorX payout request",
@@ -310,7 +358,16 @@ ${d.portalUrl ?? ""}
   }),
   "editionArtwork.readyForSignOff": (d) => ({
     subject: `Your ad artwork is ready for your sign-off — ${d.editionLabel ?? "the edition"}`,
-    text: `Hi,\n\nBTG has reviewed your artwork for ${d.slotCode ?? "your ad"} in ${d.editionLabel ?? "the edition"}. Please approve it, or ask for changes, on your campaign page:\n\n${d.reviewUrl ?? ""}\n\nThe edition can't go to print until every ad is approved by its sponsor.\n\n— BTG SponsorX`,
+    /* P9-BE-22 — a trusted sponsor's upload skipped BTG's review. */
+    text: d.skipped === "yes"
+      ? `Hi,\n\nYour artwork for ${d.slotCode ?? "your ad"} in ${d.editionLabel ?? "the edition"} passed our automatic checks and, because your recent ads were approved without changes, it came straight to you. Please approve it, or ask for changes, on your campaign page:\n\n${d.reviewUrl ?? ""}\n\nBTG can still ask for changes while you review it. The edition can't go to print until every ad is approved by its sponsor.\n\n— BTG SponsorX`
+      : `Hi,\n\nBTG has reviewed your artwork for ${d.slotCode ?? "your ad"} in ${d.editionLabel ?? "the edition"}. Please approve it, or ask for changes, on your campaign page:\n\n${d.reviewUrl ?? ""}\n\nThe edition can't go to print until every ad is approved by its sponsor.\n\n— BTG SponsorX`,
+  }),
+  /* P9-BE-22 — the automatic checks sent the upload back; every failure is
+     listed, one per line, so the sponsor can fix them in one go. */
+  "editionArtwork.checksFailed": (d) => ({
+    subject: `Fix before review: your ad artwork for ${d.slotCode ?? "your ad slot"}, ${d.editionLabel ?? "the edition"}`,
+    text: `Hi,\n\nVersion ${d.version ?? "1"} of the artwork for ${d.slotCode ?? "your ad slot"} in ${d.editionLabel ?? "the edition"} didn't pass our automatic checks, so it hasn't gone to BTG:\n\n${d.reasons ?? ""}\n\nFix these and upload it again here:\n\n${d.reviewUrl ?? ""}\n\n— BTG SponsorX`,
   }),
   "editionArtwork.revisionRequested": (d) => ({
     subject: `Changes asked for: ad artwork for ${d.slotCode ?? "an ad slot"}, ${d.editionLabel ?? "the edition"}`,
@@ -320,6 +377,21 @@ ${d.portalUrl ?? ""}
   "editionArtwork.approved": (d) => ({
     subject: `Ad artwork approved: ${d.sponsorName ?? "a sponsor"} — ${d.slotCode ?? "an ad slot"}, ${d.editionLabel ?? "an edition"}`,
     text: `${d.sponsorName ?? "The sponsor"} approved the artwork for ${d.slotCode ?? "their ad slot"} in ${d.editionLabel ?? "the edition"}. That slot no longer holds up production.\n\n${d.reviewUrl ?? ""}\n\n— SponsorX`,
+  }),
+  /* P5-BE-09 — the automatic checks sent the draft back; every failure is
+     listed, one per line, so the athlete can fix them all in one go. */
+  "deliverable.checksFailed": (d) => ({
+    subject: `Fix before review: ${d.title ?? "your deliverable"}`,
+    text: `Hi ${d.firstName ?? "there"},\n\nYour draft of ${d.title ?? "your deliverable"}${d.campaignName ? ` for ${d.campaignName}` : ""} didn't pass our automatic checks, so it hasn't gone to BTG yet:\n\n${d.reasons ?? ""}\n\nFix these and submit again here:\n\n${d.portalUrl ?? ""}\n\n— BTG SponsorX`,
+  }),
+  /* P5-BE-09 — one reminder per draft per review stage, after 48 hours. */
+  "deliverable.btgReviewReminder": (d) => ({
+    subject: `Waiting ${d.waited ?? "2 days"} for BTG review: ${d.title ?? "a deliverable"}`,
+    text: `${d.athleteName ?? "An athlete"}'s ${d.title ?? "deliverable"} for ${d.campaignName ?? "a campaign"} passed the automatic checks and has waited ${d.waited ?? "over 2 days"} for BTG's review.\n\nReview it here:\n\n${d.reviewUrl ?? ""}\n\n— SponsorX`,
+  }),
+  "deliverable.sponsorReviewReminder": (d) => ({
+    subject: `Waiting for your approval: ${d.title ?? "a deliverable"}`,
+    text: `Hi,\n\n${d.athleteName ?? "An athlete"}'s ${d.title ?? "deliverable"} for ${d.campaignName ?? "your campaign"} has waited ${d.waited ?? "over 2 days"} for your approval. Approve it, or ask for changes, here:\n\n${d.reviewUrl ?? ""}\n\nThe athlete can't post it until you do.\n\n— BTG SponsorX`,
   }),
   "deliverable.approved": (d) => ({
     subject: `Approved: ${d.title ?? "your deliverable"}`,
@@ -337,9 +409,21 @@ ${d.portalUrl ?? ""}
   /* P9-BE-13, §5.6 — SponsorX declined a business a student brought in.
      It says plainly that their sales credit is untouched, because that is a
      requirement and not a courtesy, and offers the categories still open. */
+  /* P9-BE-21 — a minor's guardian gets the same message (`guardianName`
+     set), addressed to them and about their student. */
   "student.prospectDeclined": (d) => ({
     subject: `About ${d.businessName ?? "your prospect"}`,
-    text: `Hi ${d.studentName ?? "there"},\n\nSponsorX can't take on ${d.businessName ?? "this business"} right now (reason: ${(d.reason ?? "OTHER").replace(/_/g, " ").toLowerCase()}).\n\nThis doesn't count against you — your sales credit and points are unchanged.${d.openCategories ? `\n\nCategories still open at your school: ${d.openCategories}.` : ""}\n\n— SponsorX NEXT`,
+    text: `Hi ${d.guardianName || d.studentName || "there"},\n\n${d.guardianName ? `About a business ${d.studentName ?? "your student"} brought to SponsorX NEXT: ` : ""}SponsorX can't take on ${d.businessName ?? "this business"} right now (reason: ${(d.reason ?? "OTHER").replace(/_/g, " ").toLowerCase()}).\n\nThis doesn't count against ${d.guardianName ? d.studentName ?? "them" : "you"} — ${d.guardianName ? "their" : "your"} sales credit and points are unchanged.${d.openCategories ? `\n\nCategories still open at ${d.guardianName ? "their" : "your"} school: ${d.openCategories}.` : ""}\n\n— SponsorX NEXT`,
+  }),
+  /* P9-BE-21 — a prospect the system held for a person, with the reasons. */
+  "studentProspect.heldForSales": (d) => ({
+    subject: `A student prospect needs a decision: ${d.businessName ?? "a business"}`,
+    text: `${d.studentName ?? "A student"}${d.school ? ` at ${d.school}` : ""} brought in ${d.businessName ?? "a business"} (${d.category ?? "no category"}). It wasn't decided automatically:\n\n${d.reasons ?? ""}\n\nAccept it or refuse it with a reason on the prospect desk:\n\n${d.deskUrl ?? ""}\n\n— SponsorX NEXT`,
+  }),
+  /* P9-BE-20 — the advisor's once-a-day list of roster approvals. */
+  "student.autoApprovedDigest": (d) => ({
+    subject: `${d.count ?? "0"} student(s) approved from your roster — ${d.day ?? "today"}`,
+    text: `These applications matched your school's roster exactly and were approved automatically:\n\n${d.students ?? ""}\n\nIf someone shouldn't be on the masthead, suspend them from your desk:\n\n${d.deskUrl ?? ""}\n\n— SponsorX NEXT`,
   }),
   /* 2S1-INT-01 — the five onboarding messages, to the organisation's primary
      contact. Every refusal quotes the reviewer's note, which is mandatory
@@ -378,7 +462,7 @@ ${d.portalUrl ?? ""}
   /* 2S1-BE-05 — BTG's decision on a request to sponsor. */
   "sponsor.accountOpened": (d) => ({
     subject: "Your SponsorX sponsor account is ready",
-    text: `Hi ${d.firstName ?? "there"},\n\nBTG has opened a sponsor account for ${d.businessName ?? "your business"} on SponsorX. Sign in with this email address:\n\n${d.portalUrl ?? ""}\n\nFrom there you can browse athletes and teams, and send BTG a brief.\n\n— BTG SponsorX`,
+    text: `Hi ${d.firstName ?? "there"},\n\nYour sponsor account for ${d.businessName ?? "your business"} is open on SponsorX. Sign in with this email address:\n\n${d.portalUrl ?? ""}\n\nFrom there you can browse athletes and teams, and send BTG a brief.\n\n— BTG SponsorX`,
   }),
   "sponsor.requestDeclined": (d) => ({
     subject: "About your SponsorX sponsor request",
@@ -630,9 +714,14 @@ ${d.portalUrl ?? ""}
     subject: `[${d.topic ?? "Other"}] ${d.name ?? "Someone"} — SponsorX contact form`,
     text: `From: ${d.name ?? ""} <${d.email ?? ""}>\nTopic: ${d.topic ?? ""}\nSent: ${d.sentAt ?? ""}\nReference: ${d.reference ?? ""}\nAttachments: ${d.attachments || "none"}\n\n${d.message ?? ""}\n\n— Reply to this email to answer ${d.name ?? "them"} directly.`,
   }),
+  /* 2S8-SEC-02 — this goes to an address nobody has confirmed, from the
+     public contact form, so it carries nothing the sender typed: echoing the
+     name and message let anyone send their own text (a phishing link) from
+     SponsorX's domain to any inbox. The topic is one of our own words and the
+     reference is ours. */
   "support.copy": (d) => ({
     subject: "We have your message — BTG SponsorX",
-    text: `Hi ${d.name ?? "there"},\n\nThanks — your message reached BTG and a person reads every one. We'll reply to this email address.\n\nTopic: ${d.topic ?? ""}\nReference: ${d.reference ?? ""}\n\nYour message:\n\n${d.message ?? ""}\n\n— BTG SponsorX`,
+    text: `Hi,\n\nThanks — your message reached BTG and a person reads every one. We'll reply to this email address.\n\nTopic: ${d.topic ?? ""}\nReference: ${d.reference ?? ""}\n\nIf you did not write to us, you can ignore this email.\n\n— BTG SponsorX`,
   }),
 };
 

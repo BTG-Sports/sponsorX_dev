@@ -41,6 +41,29 @@ export const BRAND_CATEGORIES = [
 ] as const;
 export type BrandCategory = (typeof BRAND_CATEGORIES)[number];
 
+/**
+ * SENSITIVE CATEGORIES — P4-BE-11. Defined once, used in two places: a brief
+ * in one of these (or from a sponsor who sells in one) is never approved
+ * automatically — BTG reviews it (brief-auto-rules.ts) — and an offer in one
+ * carries the 21+ disclosure (offer-draft.ts `CATEGORY_DISCLOSURES`). These
+ * are the age-gated categories; widening the list holds more briefs for BTG
+ * and adds the disclosure to more offers, which is why it is one list.
+ */
+export const SENSITIVE_CATEGORIES = ["ALCOHOL", "TOBACCO_VAPE", "CANNABIS", "GAMBLING"] as const satisfies readonly BrandCategory[];
+export type SensitiveCategory = (typeof SENSITIVE_CATEGORIES)[number];
+
+/** How a sensitive category reads in a sentence ("Alcohol is a sensitive category"). */
+export const SENSITIVE_CATEGORY_WORDS: Readonly<Record<SensitiveCategory, string>> = {
+  ALCOHOL: "Alcohol",
+  TOBACCO_VAPE: "Tobacco and vaping",
+  CANNABIS: "Cannabis",
+  GAMBLING: "Gambling",
+};
+
+export function isSensitiveCategory(c: string): c is SensitiveCategory {
+  return (SENSITIVE_CATEGORIES as readonly string[]).includes(c);
+}
+
 /** §11 §4 — what the athlete can actually produce. */
 export const CONTENT_CAPABILITIES = [
   "PHOTO",

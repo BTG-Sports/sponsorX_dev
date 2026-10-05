@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { Badge, Button, Card } from "./ui";
 import { bookCampaignAction, addSlotAction } from "@/app/(app)/admin/next/actions";
 import { money } from "@/lib/fixtures";
-import type { ApiSaleCandidate, ApiSlotKind } from "@/lib/editions-live";
+import { rateCardPrice, slotPriceHint, type ApiRateCard, type ApiSaleCandidate, type ApiSlotKind } from "@/lib/editions-live";
 
 /* --------------------------------------------------------------------------
    P9-FE-03 / -04 — the two live inventory writes.
@@ -116,12 +116,22 @@ export function BookCampaign({
 
 const ADD_KINDS: ApiSlotKind[] = ["FULL", "HALF", "QUARTER", "BACK_COVER", "PRESENTING"];
 
-export function AddSlot({ editionId, disabledReason }: { editionId: string; disabledReason?: string }) {
+export function AddSlot({
+  editionId,
+  disabledReason,
+  rateCard,
+}: {
+  editionId: string;
+  disabledReason?: string;
+  /** P9-BE-18 — the masthead's rate card: a kind it prices needs no typed price. */
+  rateCard?: ApiRateCard | null;
+}) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [code, setCode] = useState("");
   const [kind, setKind] = useState<ApiSlotKind>("QUARTER");
-  const [price, setPrice] = useState("250");
+  const [price, setPrice] = useState("");
+  const carded = rateCardPrice(rateCard, kind);
   const [pending, start] = useTransition();
   const [note, setNote] = useState<{ ok: boolean; message: string } | null>(null);
 
@@ -136,10 +146,11 @@ export function AddSlot({ editionId, disabledReason }: { editionId: string; disa
 
   const submit = () =>
     start(async () => {
-      const r = await addSlotAction(editionId, { slotCode: code, kind, priceDollars: Number(price) });
+      const r = await addSlotAction(editionId, { slotCode: code, kind, priceDollars: price });
       setNote(r);
       if (r.ok) {
         setCode("");
+        setPrice("");
         router.refresh();
       }
     });
@@ -167,7 +178,15 @@ export function AddSlot({ editionId, disabledReason }: { editionId: string; disa
       </label>
       <label className="flex flex-col gap-1 text-[10px] font-medium uppercase tracking-wide text-muted">
         Rack $
-        <input value={price} onChange={(e) => setPrice(e.target.value)} inputMode="decimal" className={`${field} w-20 tabular-nums`} required />
+        <input
+          value={price}
+          onChange={(e) => setPrice(e.target.value)}
+          inputMode="decimal"
+          placeholder={carded != null ? String(carded / 100) : ""}
+          aria-describedby={`slot-price-hint-${editionId}`}
+          className={`${field} w-20 tabular-nums`}
+          required={carded == null}
+        />
       </label>
       <button type="submit" disabled={pending} className="rounded-lg bg-primary px-3.5 py-2 text-xs font-medium text-cta-ink hover:bg-primary-soft disabled:opacity-40">
         {pending ? "Adding…" : "Add"}
@@ -175,6 +194,7 @@ export function AddSlot({ editionId, disabledReason }: { editionId: string; disa
       <button type="button" onClick={() => { setOpen(false); setNote(null); }} className="px-2 py-2 text-xs text-muted hover:text-text">
         Done
       </button>
+      <p id={`slot-price-hint-${editionId}`} className="basis-full text-[11px] text-muted">{slotPriceHint(rateCard, kind)}</p>
       {note && (
         <p role="status" className={`basis-full text-[11px] ${note.ok ? "text-success" : "text-danger"}`}>
           {note.message}

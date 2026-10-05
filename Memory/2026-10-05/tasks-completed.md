@@ -1,0 +1,107 @@
+# 2026-10-05
+
+## rcfworks — tester facility and walkthrough presentation (separate projects, outside this repo)
+
+- **Tester facility:** `../sponsorX_tester_facility`, its own git repo, local only, with no remote. It is an admin page plus a small backend that create SponsorX test accounts directly in an environment's database and Clerk, the owner's choice of option (b). That means no app change: accounts skip Zoho sync, and app emails to them will bounce.
+  - **Hosted on Railway staging:** the `tester` service, at https://tester-staging-8074.up.railway.app.
+    - Per-person logins (`TESTER_USERS`) for infinex1, infinex2, rcarr and chantelleicarre.
+    - Passwords are in the staging `tester` service variables (`TESTER_PW_*`); they were generated straight into Railway and never shown.
+    - A `/data` volume holds the registry and log. Every action is logged with the operator's email, and writes `testAccount.*` audit rows.
+  - **Sign-in:** "Sign in as" uses one-time Clerk sign-in tokens, so no inbox is needed.
+  - **Kinds:** BTG staff, sponsor, adult athlete, minor athlete with guardian, team, advisor, student, and a story set.
+  - **Production is not connected.** The production DB is unreachable from the staging service, and opening it to the internet was blocked by the safety system. The owner decided staging-only is fine for now. The options, if it's ever needed: a second tester service inside production, or public networking on Postgres-production.
+- **Walkthrough presentation:** `../sponsorX_presentation`, local git only.
+  - A client-only animated deck that plays over the REAL SponsorX pages, captured as static HTML (scripts stripped) from a local stack seeded with the story data. The capture can be re-run from `capture/`.
+  - Part 1 "Everyone joins" is trimmed to 21 slides. Next pulses and glows once a slide's animation finishes.
+  - **Findings for the app:**
+    - "Coffee" isn't a business type (it's filed as Other, then Restaurant).
+    - Stale copy: "BTG verifies every organisation…" on the application page, and "BTG has opened a sponsor account" in the account email.
+    - An overlap on the athlete home ("Coming up" over "Offers waiting").
+
+## Phase 2 Sprint 8 backend close-out (rcfworks)
+
+- **2S8-QA-05 · Done.** Three robustness gaps:
+  - Same-name applicants no longer collide on the athlete slug. The insert retries under a savepoint (`athlete-slug-race.test`, 6 concurrent same-name applications).
+  - `seed-personas` runs on a used database. It picks a free slug and skips on an email clash (`pilot-school.test`).
+  - `GET /payouts/me` adds `balanceCents`, `owedBackCents` and `owedBackNote`, and the athlete and property payout pages show money owed back after a refund. Netting money owed back against future payouts is unchanged; that is a policy choice.
+- **2S8-OPS-02 · Code review.**
+  - The new migration `20261005100000_utc_time_zone` sets the database to UTC and redefines `adslot_guard_sale` to use UTC.
+  - `expire-invitations` uses `now() AT TIME ZONE 'UTC'`.
+  - The Prisma and worker pools force `TimeZone=UTC`, and docker-compose and CI are pinned.
+  - `utc-session.test` passes under Manila and Los Angeles sessions.
+  - **It moves to Done after the next staging and production deploy applies the migration.** Staging's DB has no public URL, so it can't be checked from a laptop.
+- **Suite:** 2675 of 2677 pass. The only failures are `next-edition-e2e` clauses 4–5, which were already failing on main; they are part of 2S8-QA-01's "CI green" work.
+- **2S8-QA-01** (the end-to-end marketplace suite and a green CI) and **2S8-SEC-02** (OWASP review, dependency scan, secrets rotation) are in progress.
+- **2S8-QA-01 · Done.** The full marketplace path runs green in CI (run 37281259338: unit, e2e, and the new security job).
+  - **New `e2e/marketplace-path.spec.ts`:** a team and an athlete onboard automatically, then roster, listing and auto-publish. The sponsor buys within the spending limit, and the frozen split is asserted to the cent. Then payment on the stand-in, delivery and confirmation, an automatic payout, the reserve released after the delivery sweep, and the order CLOSED with nobody approving.
+  - **Stale specs updated for automation:** loop-p3, p4, p5 and p7, plus Jan's `next-edition-e2e` clauses 4–5. The automatic artwork licence covers publishing, not reuse in a campaign; BTG still records a reuse right.
+  - **The CI 429s were Clerk's own rate limit,** not ours. The actor lookup called `clerk.users.getUser` on every request; it now fetches the email only when no user is linked yet (`resolve-actor-lazy-email.test`).
+  - **New e2e support:** an in-memory object store stand-in, a worker runner and `signInExisting`.
+- **2S8-SEC-02 · Done.** The review is `documentation/SponsorX-Security-Review-2026-10.md`, and the runbook is `documentation/SponsorX-Secrets-Rotation.md`.
+  - **Fixes, all with tests:**
+    - deliverable file keys pinned to their own folder (a cross-tenant read);
+    - the staging stand-in secret derived instead of the public default;
+    - the contact-form copy no longer echoes the sender's message;
+    - API and web security headers;
+    - webhook signatures checked over the raw body;
+    - webhook-only rate limiting, and rate-limit keys that can't block forever;
+    - logo uploads pinned to type and size.
+  - **Dependencies:** next 16.3.8 fixes the critical `next/og` remote-code-execution advisory, plus vite 7.3.6 and three overrides. The production audit is now 0. One dev-only `braces` advisory is allowlisted until 2027-01-05.
+  - **CI:** a nightly `security` job runs the audit gate and a secret scan over every tracked file.
+  - **Rotation:** five signing secrets accept `<NAME>_PREVIOUS` during a rotation.
+  - **Frontend changes, merged at the owner's request (2026-10-05) — heads-up, HeckerCreatives:**
+    - `user-menu.tsx` and the new `server/sign-out-actions.ts`: Log out now really ends the Clerk session.
+    - `next.config.ts`: security headers.
+    - `app/t/[code]/route.ts`: codes are checked.
+    - the admin sensitive-edit redirect is https-only.
+    - the new `lib/safe-path.ts` is used by `order-payment-live.ts` and `payouts-live.ts`.
+  - **Owner decisions still open (listed in the review):**
+    - a full CSP, report-only first;
+    - HSTS `includeSubDomains` / `preload`;
+    - Clerk `authorizedParties`;
+    - expiry times for intake, onboarding, sign-up and sponsor-request links;
+    - whether a profile claim needs email confirmation;
+    - setting `PAYMENT_PROVIDER=none` explicitly on production;
+    - setting `STANDIN_PROVIDER_SECRET` on staging. The first deploy changes staging's derived value, so test-provider links already sent stop working.
+- **Stage Progress:** the 2026-10-05 row is appended (Phase 1: 265 Done, 47 days left).
+- **PR #153 merged into main_development** (2026-10-05). It is not on `main` yet, so it is not deployed. **2S8-OPS-02 stays Code review** until the next deploy applies the UTC migration on staging and production.
+- **New rows raised by 2S8-SEC-02,** all Ready, Order 62.1–62.5, in the tracker and the Phase 2 plan:
+  - 2S8-SEC-03: private uploads pin their type and size;
+  - 2S8-SEC-04: an invoice webhook replay can't roll an invoice back;
+  - 2S8-SEC-05: small hardening items;
+  - 2S8-QA-07: guard tests cover writes and same-tenant access;
+  - 2S8-PMO-02: the seven security settings the owner decides.
+- **Tracker ranges:** the Phase 2 ranges now end at row 131. That covers the Dashboard formulas, the autofilter, the conditional formatting and the Status list.
+- **Security follow-ups · all Done** (merged 62495d9). Backend 2731/2731 and frontend 1155/1155. Secret scan, audit gate and script tests pass.
+  - **2S8-SEC-03:** all ten private upload URLs are signed for one type and size. Every confirm or register step checks the object (HEAD) and refuses, deletes and audits a mismatch. `tests/support/object-store.ts` is an in-process bucket that checks signatures the way R2 does.
+  - **2S8-SEC-04:** the invoice ingest never moves a stored invoice backwards, and `invoice.staleRefused` is audited. A genuine backwards correction in Zoho is held for BTG too, because Zoho sends no timestamp.
+  - **2S8-SEC-05:**
+    - the rates probe is closed;
+    - the Zoho CRM module and ids are constrained;
+    - the PDF renderer runs with JavaScript off;
+    - worker logs mask email addresses;
+    - `server-only` is on the three `frontend/src/server` files, owner approved — heads-up, HeckerCreatives: the five vitest files that load them mock it;
+    - a new `npm run secrets:scan:history` scanned 868 commits and found nothing.
+  - **2S8-QA-07:**
+    - the static guard now covers writes: 3 writes were fixed to carry the tenant, and 42 were justified one by one;
+    - the isolation test adds a second sponsor and a second athlete in the same tenant, across 197 routes;
+    - no real leak was found.
+- **2S8-PMO-02** (the seven security decisions) stays with the owner.
+- **The payment chain is in progress:** 2S5-INT-02, BE-03, BE-04, BE-05 and 2S8-QA-02.
+- **Payment chain · all Done** (merged cdf89cf), built on the stand-in provider. CI is green (run 37297015366). Backend 2838/2838, frontend 1155/1155.
+  - **2S5-INT-02:** signed payment webhooks with a 5-minute replay window, and one `PaymentEvent` per provider event, applied by the `payments.event` job. States only move forward; early events are deferred, and conflicts are held for BTG.
+  - **2S5-BE-03:** provider refunds reverse the ledger. Disputes go OPEN → UNDER_REVIEW → WON | LOST and are never moved by the system. An open dispute freezes the order's money, and a lost one reverses the books and records money owed back.
+  - **2S5-BE-04:** the dispute clause is added, so eligibility now checks all five conditions.
+  - **2S5-BE-05:** payouts go to the provider with idempotency keys, `payout.paid` / `failed` / `returned` track them to completion, and retries run 1/6/24 hours, then hand over to BTG.
+  - **2S8-QA-02:** a deliberate-breakage suite with a books-balance check after every scenario. The stand-in has `STANDIN_OUTAGE` for outage tests. Wallet provider outages are split out to the new **2S6-QA-01** (Blocked until wallet adapters exist; owner decision).
+  - **Left for Stripe (2S5-INT-01):** the verifier and event mapping (the mapping table is already in `contracts/payment-events.ts`), the adapter calls, metadata, Connect status, and dispute evidence and fees.
+- **Six new frontend rows for HeckerCreatives, all Ready** (owner decision). The API already serves each one:
+  - 2S5-FE-07: BTG's payment exceptions page;
+  - 2S5-FE-08: dispute pages;
+  - 2S5-FE-09: frozen money on the payee page;
+  - 2S5-FE-10: payout attempts and returns;
+  - 2S5-FE-11: checkout "busy, try again";
+  - 2S5-FE-12: provider refunds on Finance's list.
+- **Two merge fixes:**
+  - The payment worker's new log lines now go through the email-masking `log()`, as 2S8-SEC-05 requires.
+  - `loop-p4` was racing the page refresh: the "Declined…" confirmation disappears once the offer leaves "open". The spec now accepts the confirmation or the refreshed status, for accept and decline both.

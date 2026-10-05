@@ -37,9 +37,10 @@ import { prisma } from "../db/client";
 import { audit, type AuditActor } from "../db/audit";
 import type { Actor } from "../auth/actor";
 import { assertTenantWide, whereFor } from "../auth/scope";
-import { refundCard } from "../lib/payment-provider";
+import { ProviderUnavailableError, refundCard } from "../lib/payment-provider";
 import { looksLikeCardNumber } from "./marketplace-order-rules";
 import { appUrl, orderRef, sponsorRecipient, tell, usd } from "./order-mail";
+import { lockCampaign } from "./campaign-stages";
 
 type Tx = Prisma.TransactionClient;
 type Db = Tx | typeof prisma;
@@ -57,7 +58,15 @@ export const REFUND_CAUSES = [
   "SPONSOR_CANCELLED", "SELLER_CANCELLED", "CANCELLATION_AGREED", "PROBLEM_AGREED", "BTG_DECIDED", "BTG_REFUNDED_ORDER",
   /* A card payment the provider confirmed after the order was cancelled (payouts.ts `confirmPayment`). */
   "PAID_AFTER_CANCELLATION",
+  /* P9-BE-19 — a paid ad sale in a NEXT edition BTG cancelled (`recordEditionRefund`). */
+  "EDITION_CANCELLED",
+  /* P9-BE-19 — Zoho marked the sale's invoice paid after the edition was cancelled (`refundPaymentAfterEditionCancel`). */
+  "PAID_AFTER_EDITION_CANCELLED",
+  /* 2S5-BE-03 — the provider refunded the whole payment itself (payment-exceptions.ts): recorded SENT, never refunded again. */
+  "PROVIDER_REFUNDED",
 ] as const;
+/** The two causes that refund a cancelled edition's ad sale — capped together. */
+export const EDITION_REFUND_CAUSES = ["EDITION_CANCELLED", "PAID_AFTER_EDITION_CANCELLED"] as const;
 export type RefundCause = (typeof REFUND_CAUSES)[number];
 export const REFUND_STATES = ["OPEN", "SENT"] as const;
 export type RefundState = (typeof REFUND_STATES)[number];
@@ -73,6 +82,9 @@ export const CAUSE_WORDS: Record<RefundCause, string> = {
   BTG_DECIDED: "BTG decided to refund the line",
   BTG_REFUNDED_ORDER: "BTG refunded the order",
   PAID_AFTER_CANCELLATION: "Paid after the order was cancelled",
+  EDITION_CANCELLED: "BTG cancelled the edition the ad was sold in",
+  PAID_AFTER_EDITION_CANCELLED: "Paid after BTG cancelled the edition the ad was sold in",
+  PROVIDER_REFUNDED: "Refunded at the payment provider",
 };
 
 const PAID_VIA_WORDS: Record<string, string> = {
@@ -88,12 +100,17 @@ export const ZOHO_NOTE = "Issue a credit note in Zoho Books for this invoice";
  * cancelling (BTG's REFUND of an escalated cancellation too) — which does
  * not stop the sponsor's spending limit rising (spending-limit.ts).
  */
-export type RefundContext = { cause: RefundCause; lineId: string | null; cancellation: boolean };
+export type RefundContext = {
+  cause: RefundCause; lineId: string | null; cancellation: boolean;
+  /** 2S5-BE-03 — the money already went back at the provider (its refund reference): the row is written SENT and nothing is refunded again. */
+  returned?: { provider: string; reference: string };
+};
 
 /** The order's refundCause for a whole-order refund. Pure. */
 export function orderRefundCause(ctx: Pick<RefundContext, "cause" | "cancellation">): "CANCELLATION" | "PROBLEM" | "BTG" {
   if (ctx.cancellation) return "CANCELLATION";
-  return ctx.cause === "BTG_REFUNDED_ORDER" ? "BTG" : "PROBLEM";
+  /* A refund made at the provider is BTG's act there — it stops the sponsor's limit rising, as BTG's refund here does. */
+  return ctx.cause === "BTG_REFUNDED_ORDER" || ctx.cause === "PROVIDER_REFUNDED" ? "BTG" : "PROBLEM";
 }
 
 const dayOf = (d: Date) => d.toISOString().slice(0, 10);
@@ -188,9 +205,50 @@ export async function recordRefund(
     after: { refundId: row.id, lineId: ctx.lineId, amountCents, cause: ctx.cause, paidVia, whole: opts.whole, ...(opts.received ? { attemptId: opts.received.attemptId } : {}) },
   });
 
-  /* A card payment the provider can refund goes back at once; with no provider it waits for Finance. */
+  /* A card payment the provider can refund goes back at once; with no provider it waits for Finance.
+     2S5-BE-03 — unless the money already went back at the provider: the
+     provider's own refund (ctx.returned), or one it reported earlier that BTG
+     was holding for this amount (a HELD PaymentRefund). Then the row is SENT
+     with the provider's reference and nothing is refunded twice. */
   if (paidVia === "CARD") {
-    const refunded = refundCard({ paymentReference, amountCents });
+    const already = ctx.returned ?? (await takeHeldProviderRefund(tx, orderId, row.id, amountCents));
+    if (already) {
+      await tx.refundDue.updateMany({
+        /* tenant-scope: the row just written, by id, only while still on its way. */
+        where: { id: row.id, state: "OPEN" },
+        data: { state: "SENT", sentAt: now, sentBy: "system", method: "CARD", reference: already.reference, sentOn: new Date(`${dayOf(now)}T00:00:00.000Z`), provider: already.provider },
+      });
+      await audit(tx, actor, "refundDue.sent", "MarketplaceOrder", orderId, {
+        before: { refundId: row.id, state: "OPEN" },
+        after: { refundId: row.id, state: "SENT", method: "CARD", provider: already.provider, reference: already.reference, alreadyRefundedAtProvider: true },
+      });
+      await tellRefundSent(tx, order, row.id, amountCents, now);
+      return { ...row, state: "SENT" };
+    }
+    /* The provider already returned some of this payment, for another amount:
+       refunding the card again could pay the sponsor twice. Left OPEN for
+       Finance, who sends only what is still owed. */
+    const unmatched = await tx.paymentRefund.aggregate({
+      /* tenant-scope: this order's own provider refunds, named by its id. */
+      where: { orderId, outcome: "HELD" }, _sum: { amountCents: true },
+    });
+    if ((unmatched._sum.amountCents ?? 0) > 0) {
+      await audit(tx, actor, "refundDue.heldForProviderRefund", "MarketplaceOrder", orderId, {
+        after: { refundId: row.id, amountCents, alreadyRefundedAtProviderCents: unmatched._sum.amountCents },
+      });
+      return row;
+    }
+    /* 2S8-QA-02 — the provider down: the refund (and everything it was part
+       of — the cancel, the books reversed) still stands; the money waits on
+       Finance's list, OPEN, to be sent when the provider is back. */
+    let refunded: ReturnType<typeof refundCard>;
+    try {
+      refunded = refundCard({ paymentReference, amountCents });
+    } catch (error) {
+      if (!(error instanceof ProviderUnavailableError)) throw error;
+      await audit(tx, actor, "refundDue.providerUnavailable", "MarketplaceOrder", orderId, { after: { refundId: row.id, amountCents, error: error.message } });
+      return row;
+    }
     if (refunded) {
       const sent = await tx.refundDue.updateMany({
         /* tenant-scope: the row just written, by id, only while still on its way. */
@@ -208,6 +266,159 @@ export async function recordRefund(
     }
   }
   return row;
+}
+
+/**
+ * 2S5-BE-03 — a refund the provider reported for this order that BTG was
+ * holding (a part refund, or one under a payout), for exactly this amount:
+ * BTG has now refunded it in SponsorX, so it is this refund. Claimed once
+ * (conditional on HELD) and linked to the row; the hold on the order's
+ * payouts lifts with it.
+ */
+async function takeHeldProviderRefund(tx: Tx, orderId: string, refundDueId: string, amountCents: number) {
+  const heldRefund = await tx.paymentRefund.findFirst({
+    /* tenant-scope: this order's own provider refunds, named by its id. */
+    where: { orderId, outcome: "HELD", amountCents }, select: { id: true, tenantId: true, provider: true, providerRefundRef: true }, orderBy: { createdAt: "asc" },
+  });
+  if (!heldRefund) return null;
+  const taken = await tx.paymentRefund.updateMany({
+    /* tenant-scope: the row just found for this order; conditional, so one refund takes it once. */
+    where: { id: heldRefund.id, outcome: "HELD" }, data: { outcome: "APPLIED", refundDueId },
+  });
+  if (!taken.count) return null;
+  await audit(tx, { userId: null, tenantId: heldRefund.tenantId }, "paymentRefund.applied", "MarketplaceOrder", orderId, {
+    before: { outcome: "HELD" }, after: { paymentRefundId: heldRefund.id, refundDueId, outcome: "APPLIED", amountCents },
+  });
+  return { provider: heldRefund.provider, reference: heldRefund.providerRefundRef };
+}
+
+/**
+ * P9-BE-19 — the refund owed when BTG cancels a NEXT edition a campaign
+ * bought ad positions in, written in the cancellation's own transaction
+ * (edition.ts `cancelEditionIn`), before the slots are released.
+ *
+ * MONEY ACTUALLY RECEIVED. An ad sale is invoiced in Zoho Books and its
+ * payment mirrored onto CampaignInvoice (invoice.ts); that is the only record
+ * of a sponsor paying for one. A campaign with no invoice marked paid gets no
+ * row. The amount is what this edition's slots sold for, capped at what the
+ * campaign has paid and not already been refunded for another cancelled
+ * edition — so a campaign that paid for one edition of two is refunded once.
+ * A Zoho status other than "paid" (a part payment) is not counted: the mirror
+ * carries no paid amount for it.
+ *
+ * One row per (edition, campaign) — RefundDue_one_per_edition_campaign — so a
+ * retry finds its row and writes nothing. It names the campaign and the
+ * edition instead of an order, is paid via ZOHO_INVOICE, and Finance's list
+ * says to issue a credit note in Zoho Books. Never a card refund: an invoice
+ * is not refunded through the card adapter.
+ */
+export async function recordEditionRefund(
+  tx: Tx,
+  actor: AuditActor,
+  sale: { tenantId: string; editionId: string; campaignId: string; sponsorId: string; soldCents: number },
+) {
+  const identity = { tenantId: sale.tenantId, editionId: sale.editionId, campaignId: sale.campaignId, cause: "EDITION_CANCELLED" };
+  const existing = await tx.refundDue.findFirst({ /* tenant-scope: identity carries the edition's tenantId. */ where: identity, select: { id: true, state: true, amountCents: true } });
+  if (existing) return existing;
+  if (sale.soldCents <= 0) return null;
+
+  const paid = await campaignPaidCents(tx, sale.tenantId, sale.campaignId);
+  if (paid <= 0) return null;
+  const already = await tx.refundDue.aggregate({
+    where: { tenantId: sale.tenantId, campaignId: sale.campaignId, cause: { in: [...EDITION_REFUND_CAUSES] } }, _sum: { amountCents: true },
+  });
+  const amountCents = Math.min(sale.soldCents, paid - (already._sum.amountCents ?? 0));
+  if (amountCents <= 0) return null;
+
+  const made = await tx.refundDue.createMany({
+    data: [{
+      tenantId: sale.tenantId, orderId: null, lineId: null, campaignId: sale.campaignId, editionId: sale.editionId,
+      sponsorId: sale.sponsorId, amountCents, cause: "EDITION_CANCELLED", paidVia: "ZOHO_INVOICE",
+    }],
+    skipDuplicates: true,
+  });
+  const row = await tx.refundDue.findFirstOrThrow({ /* tenant-scope: identity carries the edition's tenantId. */ where: identity, select: { id: true, state: true, amountCents: true } });
+  if (made.count) {
+    await audit(tx, actor, "refundDue.create", "Campaign", sale.campaignId, {
+      after: { refundId: row.id, editionId: sale.editionId, amountCents, cause: "EDITION_CANCELLED", paidVia: "ZOHO_INVOICE", paidCents: paid },
+    });
+  }
+  return row;
+}
+
+/** What a campaign's sponsor has actually paid, from the Zoho mirror: invoices marked paid (or with a paid date), never a void one. */
+async function campaignPaidCents(tx: Tx, tenantId: string, campaignId: string): Promise<number> {
+  const invoices = await tx.campaignInvoice.findMany({
+    where: { tenantId, campaignId },
+    select: { status: true, amount: true, paidAt: true },
+  });
+  return invoices
+    .filter((i) => i.status.toLowerCase() !== "void" && (i.status.toLowerCase() === "paid" || i.paidAt !== null))
+    .reduce((n, i) => n + i.amount, 0);
+}
+
+/**
+ * P9-BE-19 — Zoho marked a campaign's invoice paid AFTER an edition it had
+ * bought into was cancelled: the money has nowhere to go but back. Called by
+ * the invoice ingest (invoice.ts) in its own transaction, for an invoice that
+ * is now paid.
+ *
+ * Matched against the sales the cancellations undid (CancelledAdSale). Each
+ * cancelled sale is owed at most what it sold for, less what was already
+ * refunded for it; and all of it together at most what the campaign has
+ * paid, less every edition refund already recorded. So a payment that only
+ * covers live placements refunds nothing, and a redelivered webhook — or the
+ * same invoice re-sent with any change — finds nothing left to refund. One
+ * row per (edition, campaign, invoice) besides
+ * (RefundDue_one_per_edition_campaign_invoice), cause
+ * PAID_AFTER_EDITION_CANCELLED, `attemptId` the CampaignInvoice. Under the
+ * campaign's row lock, so two invoices ingested at once cannot both claim
+ * the same money.
+ */
+export async function refundPaymentAfterEditionCancel(
+  tx: Tx,
+  actor: AuditActor,
+  paid: { tenantId: string; campaignId: string; invoiceId: string },
+): Promise<Array<{ id: string; editionId: string; amountCents: number }>> {
+  const out: Array<{ id: string; editionId: string; amountCents: number }> = [];
+  const cancelled = await tx.cancelledAdSale.findMany({
+    where: { tenantId: paid.tenantId, campaignId: paid.campaignId },
+    select: { editionId: true, sponsorId: true, soldCents: true },
+    orderBy: [{ cancelledAt: "asc" }, { id: "asc" }],
+  });
+  if (cancelled.length === 0) return out;
+  await lockCampaign(tx, paid.campaignId, paid.tenantId);
+
+  const refundedFor = async (editionId?: string) =>
+    (await tx.refundDue.aggregate({
+      where: { tenantId: paid.tenantId, campaignId: paid.campaignId, cause: { in: [...EDITION_REFUND_CAUSES] }, ...(editionId ? { editionId } : {}) },
+      _sum: { amountCents: true },
+    }))._sum.amountCents ?? 0;
+  let money = (await campaignPaidCents(tx, paid.tenantId, paid.campaignId)) - (await refundedFor());
+
+  for (const sale of cancelled) {
+    if (money <= 0) break;
+    const amountCents = Math.min(sale.soldCents - (await refundedFor(sale.editionId)), money);
+    if (amountCents <= 0) continue;
+    const made = await tx.refundDue.createMany({
+      data: [{
+        tenantId: paid.tenantId, orderId: null, lineId: null, campaignId: paid.campaignId, editionId: sale.editionId,
+        sponsorId: sale.sponsorId, amountCents, cause: "PAID_AFTER_EDITION_CANCELLED", paidVia: "ZOHO_INVOICE", attemptId: paid.invoiceId,
+      }],
+      skipDuplicates: true,
+    });
+    if (!made.count) continue;
+    const row = await tx.refundDue.findFirstOrThrow({
+      where: { tenantId: paid.tenantId, campaignId: paid.campaignId, editionId: sale.editionId, attemptId: paid.invoiceId, cause: "PAID_AFTER_EDITION_CANCELLED" },
+      select: { id: true },
+    });
+    await audit(tx, actor, "refundDue.create", "Campaign", paid.campaignId, {
+      after: { refundId: row.id, editionId: sale.editionId, amountCents, cause: "PAID_AFTER_EDITION_CANCELLED", paidVia: "ZOHO_INVOICE", invoiceId: paid.invoiceId },
+    });
+    out.push({ id: row.id, editionId: sale.editionId, amountCents });
+    money -= amountCents;
+  }
+  return out;
 }
 
 /** The sponsor hears the refund was sent: how much, for which order, on which day — never how it was sent or its reference (the sponsor sees neither). */
@@ -228,12 +439,13 @@ async function tellRefundSent(
 const ROW = {
   id: true, tenantId: true, orderId: true, lineId: true, sponsorId: true, amountCents: true, cause: true, paidVia: true, state: true,
   sentAt: true, sentBy: true, method: true, reference: true, sentOn: true, provider: true, createdAt: true,
+  campaignId: true, editionId: true,
 } as const;
 type Row = Prisma.RefundDueGetPayload<{ select: typeof ROW }>;
 
 async function viewsOf(rows: Row[]) {
   const ids = (f: (r: Row) => string | null) => [...new Set(rows.map(f).filter((x): x is string => Boolean(x)))];
-  const [sponsors, lines] = await Promise.all([
+  const [sponsors, lines, editions, campaigns] = await Promise.all([
     prisma.sponsor.findMany({
       /* tenant-scope: the sponsors named on refunds the caller loaded through whereFor(refundDue). */
       where: { id: { in: ids((r) => r.sponsorId) } }, select: { id: true, name: true },
@@ -242,19 +454,34 @@ async function viewsOf(rows: Row[]) {
       /* tenant-scope: the lines named on refunds the caller loaded through whereFor(refundDue). */
       where: { id: { in: ids((r) => r.lineId) } }, select: { id: true, title: true, quantity: true, startsOn: true, endsOn: true },
     }),
+    prisma.edition.findMany({
+      /* tenant-scope: the editions named on refunds the caller loaded through whereFor(refundDue) (P9-BE-19). */
+      where: { id: { in: ids((r) => r.editionId) } }, select: { id: true, label: true, publication: { select: { name: true } } },
+    }),
+    prisma.campaign.findMany({
+      /* tenant-scope: the campaigns named on refunds the caller loaded through whereFor(refundDue) (P9-BE-19). */
+      where: { id: { in: ids((r) => r.campaignId) } }, select: { id: true, name: true },
+    }),
   ]);
   const sponsor = new Map(sponsors.map((s) => [s.id, s.name]));
   const line = new Map(lines.map((l) => [l.id, l]));
+  const edition = new Map(editions.map((e) => [e.id, e]));
+  const campaign = new Map(campaigns.map((c) => [c.id, c.name]));
   return rows.map((r) => {
     const l = r.lineId ? line.get(r.lineId) : null;
     const dates = l ? [...new Set([dayOf(l.startsOn), dayOf(l.endsOn)])] : [];
+    const e = r.editionId ? edition.get(r.editionId) : null;
     return {
       id: r.id,
       orderId: r.orderId,
-      orderRef: orderRef(r.orderId),
+      orderRef: r.orderId ? orderRef(r.orderId) : null,
+      /* P9-BE-19 — a cancelled edition's ad sale: no order, the campaign and the edition instead. */
+      edition: r.editionId && r.campaignId
+        ? { id: r.editionId, label: e?.label ?? "Edition", publication: e?.publication.name ?? null, campaignId: r.campaignId, campaign: campaign.get(r.campaignId) ?? "Campaign" }
+        : null,
       sponsor: { id: r.sponsorId, name: sponsor.get(r.sponsorId) ?? "Sponsor" },
       line: l ? { id: l.id, title: l.title, quantity: l.quantity, dates } : null,
-      wholeOrder: !r.lineId,
+      wholeOrder: Boolean(r.orderId) && !r.lineId,
       amountCents: r.amountCents,
       cause: r.cause as RefundCause,
       causeWords: CAUSE_WORDS[r.cause as RefundCause] ?? r.cause,
@@ -309,15 +536,20 @@ export async function markRefundSent(actor: Actor, id: string, input: Partial<Re
       data: { state: "SENT", sentAt: now, sentBy: actor.userId ?? "unknown", method: input.method!, reference, sentOn },
     });
     if (!moved.count) throw new RefundError("This refund was just marked sent — reload to see it.");
-    await audit(tx, actor, "refundDue.sent", "MarketplaceOrder", found.orderId, {
+    const [entity, entityId] = found.orderId ? ["MarketplaceOrder", found.orderId] : ["Campaign", found.campaignId!];
+    await audit(tx, actor, "refundDue.sent", entity, entityId, {
       before: { refundId: found.id, state: "OPEN" },
       after: { refundId: found.id, state: "SENT", method: input.method, reference, sentOn: input.sentOn, amountCents: found.amountCents },
     });
-    const order = await tx.marketplaceOrder.findUniqueOrThrow({
-      /* tenant-scope: the order of the refund just loaded through whereFor(refundDue, write). */
-      where: { id: found.orderId }, select: { id: true, tenantId: true, createdBy: true, billingEmail: true, billingName: true },
-    });
-    await tellRefundSent(tx, order, found.id, found.amountCents, sentOn);
+    /* An order's sponsor is emailed. A cancelled edition's (P9-BE-19) is not:
+       its money goes back as a Zoho Books credit note, and Zoho sends that. */
+    if (found.orderId) {
+      const order = await tx.marketplaceOrder.findUniqueOrThrow({
+        /* tenant-scope: the order of the refund just loaded through whereFor(refundDue, write). */
+        where: { id: found.orderId }, select: { id: true, tenantId: true, createdBy: true, billingEmail: true, billingName: true },
+      });
+      await tellRefundSent(tx, order, found.id, found.amountCents, sentOn);
+    }
     return tx.refundDue.findUniqueOrThrow({
       /* tenant-scope: the row just moved, by id. */
       where: { id: found.id }, select: ROW,
@@ -344,6 +576,7 @@ export async function refundsForOrders(db: Db, orderIds: string[]) {
   const out = new Map<string, SponsorRefund[]>();
   for (const r of rows) {
     const sentOn = r.sentOn ? dayOf(r.sentOn) : null;
+    if (!r.orderId) continue;
     out.set(r.orderId, [...(out.get(r.orderId) ?? []), {
       id: r.id, lineId: r.lineId, amountCents: r.amountCents, cause: r.cause as RefundCause, state: r.state as RefundState, sentOn,
       text: r.state === "SENT" ? `Refund sent${sentOn ? ` on ${sentOn}` : ""}` : "Refund on its way",

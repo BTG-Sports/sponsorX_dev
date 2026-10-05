@@ -49,6 +49,11 @@ export async function rateLimit(
     if (hits <= limit) return { allowed: true, retryAfter: 0 };
 
     const ttl = await redis.ttl(redisKey);
+    /* 2S8-SEC-02 — INCR and EXPIRE are two commands: if the EXPIRE was lost
+       (a dropped connection between them), the key would never expire and
+       that caller would be locked out for good. A key with no expiry gets
+       one here, the first time it blocks anyone. */
+    if (ttl === -1) await redis.expire(redisKey, windowSeconds);
     return { allowed: false, retryAfter: ttl > 0 ? ttl : windowSeconds };
   } catch {
     /* See the note above: unreachable Redis must not close the front door. */

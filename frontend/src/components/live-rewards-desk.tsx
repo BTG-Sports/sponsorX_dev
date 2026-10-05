@@ -239,6 +239,10 @@ export function LiveRewardsDesk({
                     <Badge tone={TONE[r.state]}>{LABEL[r.state]}</Badge>
                   </div>
                   <p className="mt-2 text-[11px] leading-relaxed text-faint">{STATE_COPY[r.state]}</p>
+                  {r.followsCampaign && (
+                    /* P4-FE-08 — how the reward follows its campaign (P6-BE-09). */
+                    <p className="mt-1 text-[11px] font-medium leading-relaxed text-muted">{r.followsCampaign}</p>
+                  )}
 
                   {f && (
                     <ol className="mt-3 grid grid-cols-4 gap-1 text-center" aria-label="Scan to redemption">

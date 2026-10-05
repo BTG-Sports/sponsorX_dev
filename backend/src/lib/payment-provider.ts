@@ -1,6 +1,8 @@
-import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
+import { createHash, createHmac, randomBytes } from "node:crypto";
 
 import { env } from "../config/env";
+import { PAYMENT_EVENT_DATA, ProviderWebhookEnvelope, type NeutralPaymentEvent } from "../contracts/payment-events";
+import { acceptedSecrets, hmacMatchesAny } from "./rotating-secret";
 
 /**
  * The payment-provider adapter (2S5-INT-01 / -03, 2S5-BE-05).
@@ -55,9 +57,10 @@ export class StandinTokenError extends Error {
 export function readStandinToken(token: string, now = new Date()): StandinLink {
   const [body, sig] = token.split(".");
   if (!body || !sig) throw new StandinTokenError();
-  const expected = Buffer.from(mac(body));
-  const given = Buffer.from(sig);
-  if (expected.length !== given.length || !timingSafeEqual(expected, given)) throw new StandinTokenError();
+  /* Signed with the current secret; verified against it and, mid-rotation,
+     STANDIN_PROVIDER_SECRET_PREVIOUS (2S8-SEC-02). */
+  const secrets = acceptedSecrets(env.STANDIN_PROVIDER_SECRET, env.STANDIN_PROVIDER_SECRET_PREVIOUS);
+  if (!hmacMatchesAny(secrets, body, sig, "base64url")) throw new StandinTokenError();
   let parsed: StandinLink & { exp: number };
   try {
     parsed = JSON.parse(Buffer.from(body, "base64url").toString("utf8"));
@@ -72,6 +75,149 @@ export function readStandinToken(token: string, now = new Date()): StandinLink {
 /** The stand-in's reference for something it "did". */
 export function standinRef(prefix: "acct" | "pay" | "po" | "re"): string {
   return `standin_${prefix}_${randomBytes(6).toString("hex")}`;
+}
+
+/* ── webhooks — 2S5-INT-02 ───────────────────────────────────────────── */
+
+/**
+ * What a provider's webhook must carry, and how it is checked. Each provider
+ * signs differently; past this adapter every event is a NeutralPaymentEvent
+ * (contracts/payment-events.ts), so Stripe joins by adding its verifier and
+ * its name mapping here — nothing that applies an event changes.
+ *
+ * The stand-in signs like Stripe does: `t=<unix seconds>,v1=<hex HMAC-SHA256
+ * of "<t>.<raw body>">` under STANDIN_PROVIDER_SECRET (and, mid-rotation,
+ * STANDIN_PROVIDER_SECRET_PREVIOUS — 2S8-SEC-02). The timestamp is inside the
+ * signature, so a replayed delivery cannot be freshened: one older (or newer)
+ * than PAYMENT_WEBHOOK_TOLERANCE_SECONDS is refused, and one inside the
+ * window is a duplicate event id — a no-op.
+ */
+export const WEBHOOK_SIGNATURE_HEADER: Record<Exclude<ProviderName, "none">, string> = { standin: "x-standin-signature" };
+
+export type WebhookCheck = { ok: true } | { ok: false; reason: string };
+
+/** The stand-in's signature header for a raw body, signed now (current secret only). */
+export function standinWebhookSignature(rawBody: string, now = new Date()): string {
+  const t = Math.floor(now.getTime() / 1000);
+  return `t=${t},v1=${createHmac("sha256", env.STANDIN_PROVIDER_SECRET).update(`${t}.${rawBody}`).digest("hex")}`;
+}
+
+/** Is this delivery really from `provider`, and fresh? Constant-time over every accepted secret. */
+export function verifyProviderWebhook(provider: string, rawBody: string, header: string | undefined, now = new Date()): WebhookCheck {
+  if (provider !== "standin") return { ok: false, reason: `no webhook verifier for provider "${provider}"` };
+  if (!header) return { ok: false, reason: "no signature" };
+  const parts = Object.fromEntries(header.split(",").map((p) => p.trim().split("=", 2) as [string, string]));
+  const t = Number(parts.t);
+  if (!Number.isInteger(t) || !parts.v1) return { ok: false, reason: "malformed signature" };
+  const secrets = acceptedSecrets(env.STANDIN_PROVIDER_SECRET, env.STANDIN_PROVIDER_SECRET_PREVIOUS);
+  if (!hmacMatchesAny(secrets, `${t}.${rawBody}`, parts.v1, "hex")) return { ok: false, reason: "signature did not verify" };
+  if (Math.abs(now.getTime() / 1000 - t) > env.PAYMENT_WEBHOOK_TOLERANCE_SECONDS) return { ok: false, reason: "signature timestamp outside the tolerance (a replay)" };
+  return { ok: true };
+}
+
+export class WebhookPayloadError extends Error {
+  readonly status = 400;
+  constructor(message = "This webhook body is not an event this provider sends.") {
+    super(message);
+    this.name = "WebhookPayloadError";
+  }
+}
+
+/**
+ * A verified body, mapped onto SponsorX's own event model. The stand-in sends
+ * the neutral envelope as it is; each event's data is checked against its
+ * type. Throws WebhookPayloadError for anything else.
+ */
+export function parseProviderWebhook(provider: string, body: unknown): NeutralPaymentEvent[] {
+  if (provider !== "standin") throw new WebhookPayloadError(`No event mapping for provider "${provider}".`);
+  const envelope = ProviderWebhookEnvelope.safeParse(body);
+  if (!envelope.success) throw new WebhookPayloadError();
+  const data = PAYMENT_EVENT_DATA[envelope.data.type].safeParse(envelope.data.data);
+  if (!data.success) throw new WebhookPayloadError(`This ${envelope.data.type} event is missing what it must name.`);
+  return [{ id: envelope.data.id, type: envelope.data.type, occurredAt: new Date(envelope.data.created), data: data.data as Record<string, unknown> }];
+}
+
+/* ── outages — 2S8-QA-02 ─────────────────────────────────────────────── */
+
+/** The provider couldn't be reached, or didn't answer in time: nothing it was asked to do is recorded as done. */
+export class ProviderUnavailableError extends Error {
+  readonly status = 503;
+  readonly retryAfter = 30;
+  /* The one 5xx code a client may branch on (lib/error-body.ts): "try again", not "we broke". */
+  readonly code = "busy";
+  readonly operation: StandinOperation;
+  readonly timedOut: boolean;
+  constructor(operation: StandinOperation, timedOut = false) {
+    super(timedOut
+      ? "The payment provider didn't answer in time. Nothing was charged or sent — try again in a moment."
+      : "The payment provider is unavailable right now. Nothing was charged or sent — try again in a moment.");
+    this.name = "ProviderUnavailableError";
+    this.operation = operation;
+    this.timedOut = timedOut;
+  }
+}
+
+export type StandinOperation = "checkout" | "payout" | "refund";
+
+/**
+ * The stand-in can be told to be down (STANDIN_OUTAGE, staging and tests
+ * only): a comma list of operations — `checkout`, `payout`, `refund` — each
+ * failing at once, or, written `payout:timeout`, hanging until the provider
+ * timeout (PAYMENT_PROVIDER_TIMEOUT_MS) gives up on it. Returns how it fails.
+ */
+function standinOutage(op: StandinOperation): "error" | "timeout" | null {
+  for (const part of (env.STANDIN_OUTAGE ?? "").split(",").map((s) => s.trim()).filter(Boolean)) {
+    const [name, mode] = part.split(":");
+    if (name === op) return mode === "timeout" ? "timeout" : "error";
+  }
+  return null;
+}
+
+/** Every provider call goes through this: refused when the stand-in is told it is down, and never waits past the timeout. */
+async function providerCall<T>(op: StandinOperation, call: () => Promise<T>): Promise<T> {
+  const outage = providerName() === "standin" ? standinOutage(op) : null;
+  if (outage === "error") throw new ProviderUnavailableError(op);
+  const work = outage === "timeout" ? new Promise<T>(() => {}) : call();
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new ProviderUnavailableError(op, true)), env.PAYMENT_PROVIDER_TIMEOUT_MS);
+  });
+  try {
+    return await Promise.race([work, timeout]);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/* ── checkout — 2S5-INT-01 ───────────────────────────────────────────── */
+
+/**
+ * Open the provider's payment page for an attempt, inside the attempt's own
+ * transaction: if the provider is down, the attempt is never recorded and
+ * the order is untouched. The stand-in's page is SponsorX's own
+ * (`standinLink`), so it only has to be up.
+ */
+export async function openCheckout(_p: { attemptId: string; amountCents: number }): Promise<void> {
+  await providerCall("checkout", async () => undefined);
+}
+
+/* ── payouts — 2S5-BE-05 ─────────────────────────────────────────────── */
+
+export type PayoutHandOver = { payoutId: string; amountCents: number; currency: string; accountId: string | null; idempotencyKey: string };
+
+/**
+ * Hand an approved payout to the provider: its reference back. The stand-in
+ * accepts at once (its answer — paid or failed — follows as an event, like a
+ * real provider's webhook). A real provider is sent `idempotencyKey`, so a
+ * hand-over retried after a crash between its call and our commit is the
+ * same payout to the provider, never a second one. A throw (the provider
+ * down) is the caller's to roll back: nothing is recorded as sent.
+ */
+export async function sendPayoutToProvider(p: PayoutHandOver): Promise<{ provider: ProviderName; reference: string }> {
+  const provider = providerName();
+  if (provider === "none") throw new Error("No payment provider is connected.");
+  /* The stand-in honours the key as a provider would: the same hand-over is the same payout reference. */
+  return providerCall("payout", async () => ({ provider, reference: `standin_po_${createHash("sha256").update(p.idempotencyKey).digest("hex").slice(0, 16)}` }));
 }
 
 /* ── refunds — 2S4-BE-13 ─────────────────────────────────────────────── */
@@ -90,5 +236,7 @@ export type CardRefund = { provider: ProviderName; reference: string; test: bool
 export function refundCard(_p: { paymentReference: string | null; amountCents: number }): CardRefund | null {
   const provider = providerName();
   if (provider === "none") return null;
+  /* 2S8-QA-02 — the stand-in told it is down: refused (the caller keeps the refund on Finance's list). */
+  if (provider === "standin" && standinOutage("refund")) throw new ProviderUnavailableError("refund");
   return { provider, reference: standinRef("re"), test: true };
 }

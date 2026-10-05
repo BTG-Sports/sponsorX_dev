@@ -61,6 +61,15 @@ describe("suite isolation · static", () => {
   const SWEEPS = [
     "sweepComingOfAge", "sweepDeliveries", "sweepSellerApprovals", "sweepUnpaidOrders",
     "expireReservations", "sendListingDigests", "sendOrderApprovalDigests", "purgeExpiredClosures",
+    "sweepReviewReminders",
+    /* P4-BE-12 / P4-BE-13 */
+    "sweepAutoStaffing", "sweepCampaignLaunches",
+    /* P9-BE-17 / P9-BE-18 */
+    "sweepEditionStages", "sweepHeldSales",
+    /* P4-BE-05 (2S8-OPS-02 gave it tenantIds) */
+    "expireInvitations",
+    /* 2S5-INT-02 */
+    "retryDeferredPaymentEvents",
   ];
 
   it("every platform-wide sweep a test runs is narrowed to that test's tenant", () => {

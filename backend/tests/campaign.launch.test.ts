@@ -36,13 +36,23 @@ vi.mock("../src/db/client", () => ({
       const localEnqueued: typeof enqueued = [];
       const localAudit: typeof auditRows = [];
       const tx = {
+        /* P4-BE-09 — every stage change takes the campaign's row lock first
+           and decides on the state read under it. */
+        $queryRaw: () => Promise.resolve(campaign ? [{ state: campaign.state }] : []),
         campaign: {
           findFirst: () => Promise.resolve(campaign),
-          update: ({ data }: { data: Record<string, unknown> }) => {
+          /* …and claims the row on that state. */
+          updateMany: ({ where, data }: { where: Record<string, unknown>; data: Record<string, unknown> }) => {
+            if (where.state !== campaign?.state) return Promise.resolve({ count: 0 });
             writes.push("campaign.update");
-            return Promise.resolve({ id: "cmp_1", state: data.state });
+            void data;
+            return Promise.resolve({ count: 1 });
           },
         },
+        /* P6-BE-09 — the launch puts the campaign's complete draft rewards live. */
+        reward: { findMany: () => Promise.resolve([]) },
+        /* P4-BE-09 — reaching APPROVAL emails the campaign managers (none here). */
+        user: { findMany: () => Promise.resolve([]) },
         campaignOrder: {
           updateMany: ({ where }: { where: Record<string, unknown> }) => {
             if (orderUpdateThrows) throw orderUpdateThrows;
@@ -52,6 +62,7 @@ vi.mock("../src/db/client", () => ({
           },
         },
         auditLog: {
+          count: () => Promise.resolve(1),
           create: ({ data }: { data: Record<string, unknown> }) => {
             writes.push("audit");
             localAudit.push(data);
@@ -94,7 +105,7 @@ const actor = (roles: Role[] = ["CAMPAIGN_MGR"]): Actor =>
   ({ userId: "u", tenantId: "t1", roles, sponsorId: null, athleteId: null, guardianId: null });
 
 beforeEach(() => {
-  campaign = { id: "cmp_1", state: "APPROVAL" };
+  campaign = { id: "cmp_1", state: "APPROVAL", tenantId: "t1" };
   committedWrites = [];
   enqueued = [];
   auditRows = [];
@@ -119,7 +130,8 @@ describe("P5-BE-04 · launching a campaign does all five things", () => {
      sweeping it to ACTIVE would manufacture a contract. */
   it("activates ONLY the accepted orders", async () => {
     await launchCampaign(actor(), "cmp_1");
-    expect(orderUpdateWhere).toEqual({ campaignId: "cmp_1", state: "ACCEPTED" });
+    /* 2S8-QA-07 — the campaign's own tenant, in the write itself. */
+    expect(orderUpdateWhere).toEqual({ campaignId: "cmp_1", tenantId: "t1", state: "ACCEPTED" });
   });
 
   it("queues both jobs — the Zoho push and the launch notification", async () => {
@@ -153,7 +165,7 @@ describe("P5-BE-04 · launching a campaign does all five things", () => {
   });
 
   it("refuses to launch from a state that cannot reach ACTIVE", async () => {
-    campaign = { id: "cmp_1", state: "DRAFT" };
+    campaign = { id: "cmp_1", state: "DRAFT", tenantId: "t1" };
     await expect(launchCampaign(actor(), "cmp_1")).rejects.toThrow(/DRAFT to ACTIVE/);
     expect(committedWrites).toEqual([]);
   });
@@ -178,7 +190,10 @@ describe("the generic transition cannot reach ACTIVE around the launch", () => {
   });
 
   it("still moves a campaign to a state that is not ACTIVE", async () => {
-    campaign = { id: "cmp_1", state: "STAFFING", name: "Fall Push", sponsor: { name: "Rosa's" } };
+    campaign = {
+      id: "cmp_1", state: "STAFFING", tenantId: "t1", name: "Fall Push", sponsorId: "sp_1", sponsor: { name: "Rosa's" },
+      _count: { orders: 1, adSlots: 0 },
+    };
     const out = await transitionCampaign(actor(), "cmp_1", "APPROVAL");
     expect(out.state).toBe("APPROVAL");
     /* P8-INT-01: submitting for approval raises the CRM approval task, in

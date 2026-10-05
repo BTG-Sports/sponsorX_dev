@@ -1,6 +1,13 @@
 import { readFileSync } from "node:fs";
 import type { AddressInfo } from "node:net";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+/* 2S8-SEC-03 — registering a creative or artwork upload HEADs the object.
+   There is no bucket here, so the file stands in as arrived exactly as its
+   grant pinned it; tests/private-upload-pins.test.ts checks the real thing. */
+vi.mock("../src/lib/storage", async (original) => ({
+  ...(await original<typeof import("../src/lib/storage")>()),
+  checkPrivateUpload: async (_actor: unknown, _key: string, expected: { bytes?: number | null }) => ({ ok: true as const, bytes: expected.bytes ?? 1 }),
+}));
 
 import { assertEditionTransition, canTransitionEdition, EDITION_STATES } from "../src/domain/edition-state";
 import { allocateSplit } from "../src/domain/revenue-split";
@@ -156,9 +163,9 @@ describe.skipIf(!hasDatabase)("SponsorX NEXT editions, on the path a request tak
    *  the sponsor's sign-off, with the sponsor's licence for it — what
    *  production needs since P9-BE-16 (and P9-BE-10 for the right). */
   async function approvedArtwork(slotId: string) {
-    const { key } = await artwork.presignArtworkUpload(rosa, slotId, "image/png");
+    const { key } = await artwork.presignArtworkUpload(rosa, slotId, "image/png", 48_213);
     const a = await artwork.registerArtwork(rosa, slotId, { r2Key: key });
-    await artwork.startArtworkReview(staff, a.id);
+    /* P9-BE-22 — the system picked it up on upload (BTG_REVIEW). */
     await artwork.sendArtworkToSponsor(staff, a.id);
     await artwork.approveArtwork(rosa, a.id);
     await grantRight(staff, a.id, { grantorKind: "THIRD_PARTY", grantorRef: "Rosa's Bakery", mayPublishDigital: true, startsAt: new Date(), licenseRef: "nx2-IO-1" });
@@ -266,9 +273,13 @@ describe.skipIf(!hasDatabase)("SponsorX NEXT editions, on the path a request tak
       await expect(ed.sellCampaignSlots(staff, id, second)).rejects.toThrow(/No full/);
       expect(await prisma.adSlot.count({ where: { campaignId: second } })).toBe(0);
 
-      /* An athlete package includes no placement at all. */
+      /* An athlete package includes no placement at all. Since P4-BE-12 its
+         campaign staffs itself from the moment it is created (DRAFT →
+         STAFFING), so the sale refuses it as no longer a draft (409) before
+         it gets to the missing placement — refused either way, nothing taken. */
       const athletePkg = await nextCampaign("TEST_DRIVE");
-      await expect(ed.sellCampaignSlots(staff, id, athletePkg)).rejects.toMatchObject({ status: 422 });
+      await expect(ed.sellCampaignSlots(staff, id, athletePkg)).rejects.toMatchObject({ status: 409 });
+      expect(await prisma.adSlot.count({ where: { campaignId: athletePkg } })).toBe(0);
     });
   });
 

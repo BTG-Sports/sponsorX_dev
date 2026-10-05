@@ -93,6 +93,17 @@ export const ProspectDecisionInput = z
   .object({ decision: z.enum(["ACCEPT", "REJECT"]), reasonCode: z.enum(PROSPECT_REJECTION_REASONS).optional() })
   .meta({ id: "ProspectDecisionInput", description: "A rejection needs a reason code, notifies the student, and costs them no sales credit." });
 
+/* P9-BE-20 — the school's email domain, set by its advisor or BTG. An adult
+   student is approved from the roster only with an application email on it.
+   The part after the "@"; null clears it. A public mail provider is refused. */
+export const SchoolEmailDomainInput = z
+  .object({ emailDomain: z.string().min(1).max(253).nullable() })
+  .strict()
+  .meta({
+    id: "SchoolEmailDomainInput",
+    description: "The school's email domain (the part after the @), or null to clear it. A public mail provider (gmail.com and the like) is refused (422).",
+  });
+
 export const AssignStudentInput = z
   .object({ studentId: z.string().min(1).nullable() })
   .meta({ id: "AssignStudentInput", description: "Who works the account now. Changes nothing about who originated a sale." });

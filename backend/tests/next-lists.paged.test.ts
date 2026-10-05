@@ -81,7 +81,10 @@ describe("GET /students (advisor desk)", () => {
     const w = whereOf("student.findMany");
     expect(Object.keys(w)[0]).toBe("AND");
     expect(w.state).toEqual({ in: ["SUBMITTED", "UNDER_REVIEW"] });
-    expect(whereOf("student.count")).toEqual(w);
+    /* The page's own count is the first; P9-BE-20's `autoApproved` count follows, scoped the same way. */
+    expect(calls["student.count"]![0]!.where).toEqual(w);
+    expect(Object.keys(whereOf("student.count"))[0]).toBe("AND");
+    expect(whereOf("student.count").autoApprovedAt).toEqual({ not: null });
     expect(last("student.findMany")).toMatchObject({ skip: 12, take: 12 });
     expect(b.page).toEqual({ page: 2, size: 12, total: 30, pages: 3 });
   });
@@ -101,7 +104,8 @@ describe("GET /students (advisor desk)", () => {
     expect(Object.keys(gw)[0]).toBe("AND");
     expect(gw.state).toBeUndefined();
     expect(gw.OR).toEqual([{ displayName: { contains: "sam", mode: "insensitive" } }, { legalName: { contains: "sam", mode: "insensitive" } }]);
-    expect(b.summary).toEqual({ groups: { waiting: 5, approved: 0, with: 3, roster: 7, closed: 2 }, all: 17 });
+    /* `autoApproved` (P9-BE-20) is the reviewers' count — the mocked count answers 30. */
+    expect(b.summary).toEqual({ groups: { waiting: 5, approved: 0, with: 3, roster: 7, closed: 2 }, all: 17, autoApproved: 30 });
   });
 
   it("hostile page / size / group degrade, never error", async () => {

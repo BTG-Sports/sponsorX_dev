@@ -262,8 +262,8 @@ export function BriefWizard({
           Brief received
         </h1>
         <p className="sx-join-rise mt-3 text-sm leading-relaxed text-muted" style={{ "--sx-d": "0.18s" } as React.CSSProperties}>
-          A person at BTG reviews it and comes back with a matched shortlist —
-          usually within 2 business days. No card, no checkout, no commitment.
+          Confirm your email and upload proof of business below — your sponsor
+          account then opens automatically. No card, no checkout, no commitment.
         </p>
 
         {/* 2S1-FE-11 — the two things that open the sponsor account. */}

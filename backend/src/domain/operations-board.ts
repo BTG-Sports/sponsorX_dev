@@ -65,7 +65,16 @@ export async function operationsQueues(actor: Actor, now = new Date()): Promise<
       : null,
     may.approvals
       ? prisma.deliverable
-          .count({ where: { ...whereFor(actor, "deliverable", "read"), state: { in: [...REVIEW_STATES] } } })
+          .count({
+            where: {
+              AND: [
+                whereFor(actor, "deliverable", "read"),
+                { state: { in: [...REVIEW_STATES] } },
+                /* P5-BE-09 — a draft the automatic checks sent back is the athlete's, not BTG's. */
+                { OR: [{ state: { not: "DRAFT_SUBMITTED" } }, { checksPassed: null }, { checksPassed: true }] },
+              ],
+            },
+          })
           .then((waiting) => ({ waiting }))
       : null,
     may.briefs

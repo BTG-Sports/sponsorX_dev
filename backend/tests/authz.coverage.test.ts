@@ -39,6 +39,8 @@ const GOVERNED_BY: Record<string, Resource> = {
   SponsorContact: "sponsorContact",
   CampaignBrief: "campaignBrief",
   Campaign: "campaign",
+  /* P4-BE-12 — who automatic staffing skipped: read on BTG's campaign detail, written only by the system. */
+  CampaignStaffingSkip: "campaign",
   CampaignInvite: "invitation",
   CampaignOrder: "campaignOrder",
   Deliverable: "deliverable",
@@ -69,6 +71,12 @@ const GOVERNED_BY: Record<string, Resource> = {
   Edition: "edition",
   AdSlot: "adSlot",
   RevenueSplit: "revenueSplit",
+  /* P9-BE-18 — a masthead's rate card prices its slots: read with the slots, kept by BTG admin (publication write). */
+  EditionRateCard: "adSlot",
+  /* P9-BE-18 — the ad sales the system held for SALES: read by SALES and BTG (adSlot write, tenant-wide), written only by the system. */
+  AdSaleHold: "adSlot",
+  /* P9-BE-19 — the sales an edition's cancellation undid: written by the cancellation, read only by the invoice ingest to match a late payment to a refund; nothing reaches it through the API but Finance's refund rows. */
+  CancelledAdSale: "refundDue",
   /* 2S5-INT-01/-03, 2S5-BE-04/-05 — a card payment is the order's; a payout
      line is its payout's. */
   PayoutAccount: "payoutAccount",
@@ -81,6 +89,11 @@ const GOVERNED_BY: Record<string, Resource> = {
   MarketplaceOrderInvoice: "marketplaceOrder",
   /* 2S4-BE-13 — money owed back to a sponsor: Finance's "Refunds to send". */
   RefundDue: "refundDue",
+  /* 2S5-INT-02 — the payment provider's events: written by the signed webhook and the worker, read by BTG admin and Finance. */
+  PaymentEvent: "paymentEvent",
+  /* 2S5-BE-03 — a refund the provider reported: its record, read with the events. A dispute: BTG support's. */
+  PaymentRefund: "paymentEvent",
+  PaymentDispute: "paymentDispute",
   /* 2S4-BE-11 — a delivery problem's exchange is part of its line's delivery. */
   DeliveryIssue: "orderDelivery",
   /* 2S2-BE-05 — a team's invitation to an athlete already on SponsorX. */

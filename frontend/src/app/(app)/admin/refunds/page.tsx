@@ -8,7 +8,7 @@ import { EmptyState, SkeletonRows } from "@/components/states";
 import { demoState } from "@/lib/demo";
 import { money } from "@/lib/order-automation-live";
 import {
-  REFUND_TABS, causeLabel, openSummary, refundTab, refundWhat, sentWords, waitingSince,
+  REFUND_TABS, causeLabel, openSummary, refundRef, refundTab, refundWhat, sentWords, waitingSince,
   type ApiRefund, type ApiRefundList,
 } from "@/lib/refunds-live";
 import { apiFetch } from "@/server/api";
@@ -109,7 +109,7 @@ function RefundRow({ r, sent }: { r: ApiRefund; sent: boolean }) {
   return (
     <li className={`grid gap-x-3 gap-y-1.5 px-4 py-3.5 text-xs xl:items-start ${COLS}`}>
       <span className="flex items-baseline justify-between gap-3 xl:block">
-        <strong className="text-[13px] font-semibold">{r.orderRef}</strong>
+        <strong className="text-[13px] font-semibold">{refundRef(r)}</strong>
         <strong className="text-sm tabular-nums xl:hidden">{money(r.amountCents)}</strong>
       </span>
       <span className="hidden xl:block">{r.sponsor.name}</span>

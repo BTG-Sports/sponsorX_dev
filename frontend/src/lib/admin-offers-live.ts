@@ -507,6 +507,64 @@ export function blankFields(campaignId = ""): OfferFields {
   };
 }
 
+/* ── the pre-filled offer (P4-FE-08) ──────────────────────────────────────
+   GET /campaigns/:id/offer-draft?athleteId=&jobId= fills every field from
+   the records that decide it and says where each came from. The form opens
+   on it; BTG can change anything, and saving asks every rule as before. */
+
+/** The draft as the API answers it. `offer` is OfferInput. */
+export type ApiOfferDraft = {
+  campaignId: string;
+  athlete: ApiOfferParty & { id: string };
+  job: { id: string; name: string };
+  offer: OfferBody;
+  sources: Record<"brief" | "compensation" | "sellPrice" | "deliverables" | "usageRights" | "exclusivityDays" | "disclosures" | "expiresAt", string>;
+};
+
+/** The form fields a "Filled from …" note can sit under. */
+export type FilledField = "brief" | "pay" | "sell" | "deliverables" | "usageRights" | "exclusivityDays" | "expires" | "disclosures";
+export type FieldSources = Partial<Record<FilledField, string>>;
+
+/** The draft, into the form's fields (text as typed). */
+export function draftFields(d: ApiOfferDraft): OfferFields {
+  const o = d.offer;
+  return {
+    campaignId: o.campaignId, athleteId: o.athleteId, jobId: o.jobId, inventoryItemId: o.inventoryItemId ?? "",
+    brief: o.brief, pay: (o.compensation / 100).toFixed(2), sell: (o.sellPrice / 100).toFixed(2),
+    deliverables: o.deliverables.map((x) => ({ title: x.title, due: dateInput(x.dueDate) })),
+    usageRights: o.usageRights, exclusivityDays: o.exclusivityDays == null ? "" : String(o.exclusivityDays),
+    expires: dateInput(o.expiresAt), disclosures: [...o.disclosures],
+  };
+}
+
+/** The API's per-field sources, keyed by the form's fields. */
+export function draftSources(d: ApiOfferDraft): FieldSources {
+  const s = d.sources;
+  return {
+    brief: s.brief, pay: s.compensation, sell: s.sellPrice, deliverables: s.deliverables,
+    usageRights: s.usageRights, exclusivityDays: s.exclusivityDays, expires: s.expiresAt, disclosures: s.disclosures,
+  };
+}
+
+/** The "Filled from …" note for a field — only while it still holds the
+ *  drafted value, for the campaign, athlete and job it was drafted for: once
+ *  BTG changes any of those, the note would no longer be true. */
+export function filledNote(sources: FieldSources | undefined, drafted: OfferFields, now: OfferFields, field: FilledField): string | null {
+  const why = sources?.[field];
+  if (!why) return null;
+  if (drafted.campaignId !== now.campaignId || drafted.athleteId !== now.athleteId || drafted.jobId !== now.jobId) return null;
+  if (JSON.stringify(drafted[field]) !== JSON.stringify(now[field])) return null;
+  /* "From Riley's rate card" reads as "Filled from Riley's rate card". */
+  if (why.startsWith("From ")) return `Filled from ${why.slice(5)}.`;
+  /* Lower-case a plain opening word ("The …"), never an acronym ("BTG's …"). */
+  return `Filled in: ${/^[A-Z][a-z]/.test(why) ? why.charAt(0).toLowerCase() + why.slice(1) : why}.`;
+}
+
+/** GET /campaigns/:id/offer-draft's query. */
+export function offerDraftQuery(athleteId: string, jobId: string): string {
+  return new URLSearchParams({ athleteId, jobId }).toString();
+}
+
 /** BTG's words for a refused write, from the API's error body. */
 export function offerRefusal(status: number, body: unknown, fallback: string): string {
   if (status === 403) return "Only BTG admins and campaign managers can make or change offers — and only their own tenant's.";

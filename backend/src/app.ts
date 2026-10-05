@@ -11,10 +11,37 @@ import { errorBody } from "./lib/error-body";
 import { healthRouter } from "./routes/health";
 import { v1Router } from "./routes/v1";
 
+/** Sent on every API response (2S8-SEC-02). HSTS is the web app's job — it
+ *  owns the public hostname; the API's public domain only takes webhooks. */
+export const API_SECURITY_HEADERS: Readonly<Record<string, string>> = {
+  "X-Content-Type-Options": "nosniff",
+  "X-Frame-Options": "DENY",
+  "Content-Security-Policy": "default-src 'none'; frame-ancestors 'none'",
+  "Referrer-Policy": "no-referrer",
+};
+
 export function createApp() {
   const app = express();
 
-  app.use(express.json());
+  /* 2S8-SEC-02 (OWASP A05) — don't advertise Express, and send the headers
+     a JSON API wants: never sniffed as HTML, never framed, no script/style
+     of any kind, no Referer. Set by hand rather than through helmet: six
+     fixed headers do not justify a dependency. */
+  app.disable("x-powered-by");
+  app.use((_req, res, next) => {
+    res.set(API_SECURITY_HEADERS);
+    next();
+  });
+
+  /* The webhook routes verify an HMAC over the bytes the sender signed, so
+     the raw body is kept for them (and only them) alongside the parsed one. */
+  app.use(
+    express.json({
+      verify: (req, _res, buf) => {
+        if ((req as { url?: string }).url?.startsWith("/api/v1/webhooks/")) (req as { rawBody?: Buffer }).rawBody = Buffer.from(buf);
+      },
+    }),
+  );
 
   // Health lives outside /api/v1 so a load balancer can probe it without
   // versioning concerns.

@@ -26,7 +26,9 @@ import { prisma } from "../db/client";
 import type { Actor } from "../auth/actor";
 import { assertAllowed, whereFor } from "../auth/scope";
 import { ForbiddenError } from "../auth/errors";
+import { refuseIfBackwards } from "./invoice-replay";
 import { ingestOrderInvoice } from "./order-payment";
+import { refundPaymentAfterEditionCancel } from "./refunds";
 
 export class UnknownDealError extends Error {
   readonly status = 422;
@@ -77,7 +79,8 @@ export function payloadHash(payload: ZohoInvoicePayload): string {
 
 export type IngestOutcome =
   | { applied: true; invoiceId: string; status: string; orderId?: string; orderPaid?: boolean; note?: string }
-  | { applied: false; reason: string };
+  /** `stale` (2S8-SEC-04): refused because it would move the stored invoice backwards — the delivery is REJECTED, not retried. */
+  | { applied: false; reason: string; stale?: true };
 
 /**
  * Apply one Zoho invoice to the mirror.
@@ -110,11 +113,14 @@ export async function ingestZohoInvoice(
   const existing = await tx.campaignInvoice.findUnique({
     /* tenant-scope: worker-side ingest; resolved from the campaign that owns the Zoho deal, above. */
     where: { zohoInvoiceId: payload.invoiceId },
-    select: { id: true, lastSyncHash: true },
+    select: { id: true, lastSyncHash: true, status: true },
   });
   if (existing?.lastSyncHash === hash) {
     return { applied: false, reason: "identical payload already applied" };
   }
+  /* 2S8-SEC-04 — a replayed older delivery never rolls the invoice back: paid never returns to sent. */
+  const refused = await refuseIfBackwards(tx, campaign.tenantId, "CampaignInvoice", existing, payload);
+  if (refused) return refused;
 
   const data = {
     tenantId: campaign.tenantId,
@@ -136,6 +142,7 @@ export async function ingestZohoInvoice(
     syncedAt: new Date(),
   };
 
+  /* tenant-scope: worker-side ingest; the invoice of the campaign resolved from its Zoho deal above, and `data` carries that campaign's tenantId. */
   const row = await tx.campaignInvoice.upsert({
     where: { zohoInvoiceId: payload.invoiceId },
     create: { zohoInvoiceId: payload.invoiceId, ...data },
@@ -143,6 +150,17 @@ export async function ingestZohoInvoice(
     update: data,
     select: { id: true, status: true },
   });
+
+  /* P9-BE-19 — money that arrives for an ad sale an edition's cancellation
+     already undid goes straight onto Finance's "Refunds to send", in this
+     transaction. Capped by what was sold and already refunded, so a
+     redelivery writes nothing new. */
+  const isPaid = payload.status.toLowerCase() !== "void" && (payload.status.toLowerCase() === "paid" || Boolean(payload.paidAt));
+  if (isPaid) {
+    await refundPaymentAfterEditionCancel(tx, { userId: null, tenantId: campaign.tenantId }, {
+      tenantId: campaign.tenantId, campaignId: campaign.id, invoiceId: row.id,
+    });
+  }
 
   return { applied: true, invoiceId: row.id, status: row.status };
 }

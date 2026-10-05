@@ -29,7 +29,7 @@
 
 import type { Actor } from "./actor";
 import { ForbiddenError } from "./errors";
-import { scopeFor, type Action, type Resource, type Scope } from "./policy";
+import { scopeFor, scopeForRole, type Action, type Resource, type Scope } from "./policy";
 import { sellerCanSell } from "../domain/listing-rules";
 
 export { type Action, type Resource, type Scope };
@@ -242,8 +242,12 @@ const BUILDERS: Partial<Record<Resource, Builder>> = {
         return { id: actor.userId };
       case "own-sponsor":
         /* A sponsor admin reaches the users of their own sponsor org. The
-           column exists on User, so this one is expressible today. */
-        return { tenantId: actor.tenantId, sponsorId: { not: null } };
+           column exists on User, so this one is expressible today.
+           2S8-SEC-02: it used to be `sponsorId: { not: null }` — every
+           sponsor's users in the tenant. Only a BTG route used it, so
+           nothing leaked; pinned to the actor's own sponsor before a
+           sponsor-facing route could. */
+        return actor.sponsorId ? { tenantId: actor.tenantId, sponsorId: actor.sponsorId } : MATCHES_NOTHING;
       default:
         return MATCHES_NOTHING;
     }
@@ -894,6 +898,10 @@ const BUILDERS: Partial<Record<Resource, Builder>> = {
   },
   /* 2S1-BE-10 / -12 — the age table and the staff-confirmation setting: tenant rows, kept by BTG admins. */
   signupRules: tenantScoped,
+  /* 2S5-INT-02 — provider events live in the books of what they are about. */
+  paymentEvent: tenantScoped,
+  /* 2S5-BE-03 — disputes live in the order's books. */
+  paymentDispute: tenantScoped,
 
   /* Added with P4-BE-01, the first task to query sponsors.
 
@@ -967,6 +975,19 @@ function nestedUnderAthlete(actor: Actor, scope: Scope): Where {
  * It never returns an unrestricted `{}` by accident: that value is only
  * reachable from an explicit `any` or `catalog` branch.
  */
+/**
+ * P9-BE-20 — a STUDENT's school-wide reach (`own-property`: the school's
+ * publications, editions, slots, assets, events) holds only while their
+ * Student row is ACTIVE (`actor.studentActive`, read per request). An
+ * APPROVED minor waiting on a guardian keeps their own rows (`own`) and
+ * nothing of the school's. Only when STUDENT is the role giving the scope —
+ * an advisor who is also a student keeps the advisor's reach.
+ */
+function studentSchoolReadBlocked(actor: Actor, resource: Resource, action: Action, scope: Scope): boolean {
+  if (scope !== "own-property" || !actor.roles.includes("STUDENT") || actor.studentActive === true) return false;
+  return !actor.roles.some((r) => r !== "STUDENT" && scopeForRole(r, resource, action) === "own-property");
+}
+
 export function whereFor(
   actor: Actor,
   resource: Resource,
@@ -976,6 +997,7 @@ export function whereFor(
 
   const build = BUILDERS[resource];
   if (!build) throw new ScopeNotImplementedError(resource, scope);
+  if (studentSchoolReadBlocked(actor, resource, action, scope)) return { AND: [MATCHES_NOTHING] };
 
   /* WRAPPED IN `AND`, AND THAT IS THE SECURITY PROPERTY (P8-SEC-02).
 

@@ -213,6 +213,7 @@ export async function closeOwnAccount(actor: Actor, input: CloseInput) {
     if (s.kind === "PROPERTY") {
       const p = await tx.property.findFirst({ where: { tenantId: actor.tenantId, id: s.id }, select: { listingAccessAt: true } });
       if (p?.listingAccessAt) {
+        /* tenant-scope: the closing organisation's own property, loaded just above within actor.tenantId. */
         await tx.property.update({ where: { id: s.id }, data: { listingAccessAt: null }, select: { id: true } });
         listingAccessWithdrawn = true;
       }
@@ -498,6 +499,7 @@ async function recheck(tx: Tx, c: ClosureRow, by: AuditActor): Promise<{ notes: 
       mayList = false;
       notes.push("Your organization's documents are missing, so listing access waits until they are uploaded.");
     } else if (c.listingAccessWithdrawn) {
+      /* tenant-scope: the closure's own property, loaded just above within the closure's tenant. */
       await tx.property.update({ where: { id: c.subjectId }, data: { listingAccessAt: new Date() }, select: { id: true } });
     }
   }

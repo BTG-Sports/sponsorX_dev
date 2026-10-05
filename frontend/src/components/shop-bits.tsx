@@ -33,7 +33,7 @@ export function ShopSteps({ active }: { active: "review" | "billing" | "terms" |
     { key: "terms", label: "Order terms" },
     { key: "place", label: "Place order" },
     { key: "confirmed", label: "Confirmation" },
-    { key: "payment", label: "Pay by card — after BTG approves", inert: true },
+    { key: "payment", label: "Pay by card — once the order is approved", inert: true },
   ];
   const at = steps.findIndex((s) => s.key === active);
   return (

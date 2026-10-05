@@ -41,6 +41,12 @@ export async function GET(
   { params }: { params: Promise<{ code: string }> },
 ) {
   const { code } = await params;
+  /* 2S8-SEC-02: codes are base64url (generateCode). Anything else — "..",
+     above all, which encodeURIComponent leaves alone and fetch then resolves
+     to a DIFFERENT API path — is an unknown code, and the API is not asked. */
+  if (!/^[A-Za-z0-9_-]{1,64}$/.test(code)) {
+    return new Response(null, { status: 302, headers: { Location: FALLBACK_URL } });
+  }
   const encoded = encodeURIComponent(code);
 
   let destinationUrl: string | null = null;
@@ -55,8 +61,11 @@ export async function GET(
       signal: AbortSignal.timeout(4000),
     });
     if (response.ok) {
-      const body = (await response.json()) as { destinationUrl?: string };
-      destinationUrl = body.destinationUrl ?? null;
+      const body = (await response.json()) as { destinationUrl?: unknown };
+      /* 2S8-SEC-02: only an absolute http(s) URL is ever a destination — the
+         API checks this too; a second check here costs nothing. */
+      destinationUrl =
+        typeof body.destinationUrl === "string" && /^https?:\/\//i.test(body.destinationUrl) ? body.destinationUrl : null;
     }
   } catch {
     /* The API being unreachable must not strand the fan on an error page.

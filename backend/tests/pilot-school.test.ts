@@ -241,8 +241,11 @@ describe.skipIf(!hasDatabase)("walkthrough personas · every login works and eve
     expect(await other.text()).not.toContain(JORDAN.studentId);
   });
 
-  it("NEXT story: the Fall 2026 edition is selling, every slot open, visible to Northside's student", async () => {
-    const res = await get(`/editions/${EDITION.editionId}/slots`, clerkOf("seed_user_p_jordan"));
+  it("NEXT story: the Fall 2026 edition is selling, every slot open, visible to Northside's advisor", async () => {
+    /* P9-BE-20 — only an ACTIVE student reads the school's editions; Jordan
+       is still waiting in the advisor's queue, so Jordan is refused. */
+    expect((await get(`/editions/${EDITION.editionId}/slots`, clerkOf("seed_user_p_jordan"))).status).toBe(403);
+    const res = await get(`/editions/${EDITION.editionId}/slots`, clerkOf("seed_user_p_patel"));
     expect(res.status).toBe(200);
     const body = await res.text();
     for (const [slotCode] of EDITION_SLOTS) expect(body).toContain(slotCode);
@@ -268,5 +271,112 @@ describe.skipIf(!hasDatabase)("walkthrough personas · every login works and eve
     const res = await fetch(`${base}/api/v1/public/athletes/${MAYA.slug}`);
     expect(res.status).toBe(200);
     expect(await res.json()).toMatchObject({ slug: MAYA.slug, featured: true, claimable: true });
+  });
+});
+
+/* --------------------------------------------------------------------------
+   2S8-QA-05 — the walkthrough seed on a database real people already use.
+
+   The seed skipped only rows whose id it had written before. A real applicant
+   called Riley Carter holds the global slug `riley-carter`, and the seed then
+   failed on Athlete_slug_key — and took the whole boot seed with it. Now a
+   slug held by another row gives the persona the next free one; a login
+   address held by another user skips that persona's login. Each is logged,
+   and the other person's row is never touched. Same file as the personas
+   above, because both use the seed's fixed ids.
+   -------------------------------------------------------------------------- */
+describe.skipIf(!hasDatabase)("walkthrough seed · runs on a database where its slugs and addresses are taken", async () => {
+  const pg = (await import("pg")).default;
+  const { prisma } = await import("../src/db/client");
+  const { PILOT_SCHOOL, TENANT_ID, seedPilotSchool } = await import("../worker/jobs/seed-environment.mts");
+  const { PERSONAS, HAWKS, HARBOR, BOWIE, RILEY, MAYA, JORDAN, EDITION, MARKETPLACE_ITEMS, seedPersonas } =
+    await import("../worker/jobs/seed-personas.mts");
+
+  const STRANGER = { athlete: "ps_stranger_riley", property: "ps_stranger_hawks", user: "ps_stranger_maya_login" } as const;
+  const mayaEmail = PERSONAS.find((p) => p.userId === "seed_user_p_maya")!.email;
+  let createdTenant = false;
+
+  async function clean() {
+    await prisma.user.deleteMany({ where: { id: { in: [...PERSONAS.map((p) => p.userId), PILOT_SCHOOL.advisorUserId, STRANGER.user] } } });
+    await prisma.adSlot.deleteMany({ where: { editionId: EDITION.editionId } });
+    await prisma.edition.deleteMany({ where: { id: EDITION.editionId } });
+    await prisma.publication.deleteMany({ where: { id: EDITION.publicationId } });
+    await prisma.student.deleteMany({ where: { id: JORDAN.studentId } });
+    await prisma.athlete.deleteMany({ where: { id: { in: [RILEY.athleteId, MAYA.athleteId, STRANGER.athlete] } } });
+    await prisma.guardian.deleteMany({ where: { id: { in: [JORDAN.guardianId, MAYA.guardianId] } } });
+    await prisma.sponsor.deleteMany({ where: { id: { in: [HARBOR.sponsorId, BOWIE.sponsorId] } } });
+    await prisma.listing.deleteMany({ where: { propertyId: HAWKS.propertyId } });
+    await prisma.inventoryItem.deleteMany({ where: { id: { in: MARKETPLACE_ITEMS.map(([id]) => id) } } });
+    await prisma.propertyOnboarding.deleteMany({ where: { id: { in: ["seed_onb_hawks", "seed_onb_baysox"] } } });
+    await prisma.property.deleteMany({ where: { id: { in: [HAWKS.propertyId, STRANGER.property] } } });
+    await prisma.rosterEntry.deleteMany({ where: { propertyId: PILOT_SCHOOL.propertyId } });
+    await prisma.property.deleteMany({ where: { id: PILOT_SCHOOL.propertyId } });
+    if (createdTenant) await prisma.tenant.deleteMany({ where: { id: TENANT_ID } });
+  }
+
+  const logged: string[] = [];
+  let firstRun = -1;
+  let secondRun = -1;
+
+  beforeAll(async () => {
+    await clean();
+    createdTenant = !(await prisma.tenant.findUnique({ where: { id: TENANT_ID }, select: { id: true } }));
+    if (createdTenant) await prisma.tenant.create({ data: { id: TENANT_ID, name: "BTG Sports Group" } });
+    /* Real people, there first: an applicant called Riley Carter, a team that
+       took the Hawks' slug, and someone already signed in with Maya's address. */
+    await prisma.athlete.create({ data: {
+      id: STRANGER.athlete, tenantId: TENANT_ID, slug: RILEY.slug, legalName: "Riley Carter", displayName: "Riley Carter",
+      email: "riley.carter@ps-stranger.invalid", sport: "Soccer", stateCode: "VA",
+    } });
+    await prisma.property.create({ data: { id: STRANGER.property, tenantId: TENANT_ID, slug: HAWKS.slug, name: "Westfield Hawks Soccer", kind: "TEAM", city: "Westfield", stateCode: "NJ" } });
+    await prisma.user.create({ data: { id: STRANGER.user, tenantId: TENANT_ID, clerkId: "ps_stranger_clerk", email: mayaEmail, roles: ["SPONSOR_ADMIN"] } });
+
+    const spy = vi.spyOn(console, "log").mockImplementation((...args: unknown[]) => { logged.push(args.map(String).join(" ")); });
+    const pool = new pg.Pool({ connectionString: seededDb.TEST_DATABASE_URL });
+    const client = await pool.connect();
+    try {
+      await seedPilotSchool(client, TENANT_ID);
+      firstRun = (await seedPersonas(client, TENANT_ID)).usersCreated;
+      secondRun = (await seedPersonas(client, TENANT_ID)).usersCreated;
+    } finally {
+      client.release();
+      await pool.end();
+      spy.mockRestore();
+    }
+  });
+
+  afterAll(clean);
+
+  it("completes, twice, creating every login but the one whose address is taken", () => {
+    expect(firstRun).toBe(PERSONAS.length - 1);
+    expect(secondRun).toBe(0);
+  });
+
+  it("Riley's persona takes the next free slug; the real Riley Carter keeps theirs, untouched", async () => {
+    expect(await prisma.athlete.findUniqueOrThrow({ where: { id: RILEY.athleteId }, select: { slug: true, state: true } }))
+      .toEqual({ slug: `${RILEY.slug}-2`, state: "SUBMITTED" });
+    expect(await prisma.athlete.findUniqueOrThrow({ where: { id: STRANGER.athlete }, select: { slug: true, legalName: true, sport: true } }))
+      .toEqual({ slug: RILEY.slug, legalName: "Riley Carter", sport: "Soccer" });
+    /* Maya's slug was free, so it is hers as before. */
+    expect((await prisma.athlete.findUniqueOrThrow({ where: { id: MAYA.athleteId }, select: { slug: true } })).slug).toBe(MAYA.slug);
+  });
+
+  it("the Hawks take the next free slug too, and the other team is untouched", async () => {
+    expect((await prisma.property.findUniqueOrThrow({ where: { id: HAWKS.propertyId }, select: { slug: true } })).slug).toBe(`${HAWKS.slug}-2`);
+    expect(await prisma.property.findUniqueOrThrow({ where: { id: STRANGER.property }, select: { slug: true, name: true } }))
+      .toEqual({ slug: HAWKS.slug, name: "Westfield Hawks Soccer" });
+  });
+
+  it("Maya's login is skipped, not merged into the account that already holds her address", async () => {
+    expect(await prisma.user.findUnique({ where: { id: "seed_user_p_maya" }, select: { id: true } })).toBeNull();
+    expect(await prisma.user.findMany({ where: { email: mayaEmail }, select: { id: true, roles: true } }))
+      .toEqual([{ id: STRANGER.user, roles: ["SPONSOR_ADMIN"] }]);
+  });
+
+  it("says what it did in the log", () => {
+    expect(logged.filter((l) => l.includes(`Athlete slug "${RILEY.slug}" is held by another row`) && l.includes(`"${RILEY.slug}-2"`))).toHaveLength(1);
+    expect(logged.filter((l) => l.includes(`Property slug "${HAWKS.slug}" is held by another row`))).toHaveLength(1);
+    /* Once per run: the address is still taken the second time. */
+    expect(logged.filter((l) => l.includes("persona seed_user_p_maya skipped"))).toHaveLength(2);
   });
 });

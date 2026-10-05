@@ -8,9 +8,10 @@
  * to nothing else. Not authentication: it grants no role and reaches no
  * other record.
  */
-import { createHmac, timingSafeEqual } from "node:crypto";
+import { createHmac } from "node:crypto";
 
 import { env } from "../config/env";
+import { intakeHmacMatches } from "./intake-secret";
 
 const PURPOSE = "property-onboarding:";
 
@@ -23,10 +24,7 @@ export function readOnboardingToken(token: string | undefined | null): string | 
   const cut = token.lastIndexOf(".");
   if (cut <= 0) return null;
   const id = token.slice(0, cut);
-  const provided = Buffer.from(token.slice(cut + 1), "utf8");
-  const expected = Buffer.from(sign(id), "utf8");
-  if (provided.length !== expected.length) return null;
-  return timingSafeEqual(provided, expected) ? id : null;
+  return intakeHmacMatches(PURPOSE + id, token.slice(cut + 1)) ? id : null;
 }
 
 function sign(id: string): string {
@@ -40,8 +38,9 @@ function sign(id: string): string {
    never confirm an email, and this one never resumes an application. */
 const EMAIL_PURPOSE = "property-onboarding-email:";
 
+const emailData = (id: string, email: string) => `${EMAIL_PURPOSE}${id}:${email.trim().toLowerCase()}`;
 const signEmail = (id: string, email: string) =>
-  createHmac("sha256", env.INTAKE_TOKEN_SECRET).update(`${EMAIL_PURPOSE}${id}:${email.trim().toLowerCase()}`).digest("base64url");
+  createHmac("sha256", env.INTAKE_TOKEN_SECRET).update(emailData(id, email)).digest("base64url");
 
 export function issueOnboardingEmailToken(onboardingId: string, email: string): string {
   return `${onboardingId}.${signEmail(onboardingId, email)}`;
@@ -58,7 +57,5 @@ export function onboardingIdOfEmailToken(token: string | undefined | null): stri
 export function emailTokenMatches(token: string, onboardingId: string, email: string): boolean {
   const cut = token.lastIndexOf(".");
   if (cut <= 0 || token.slice(0, cut) !== onboardingId) return false;
-  const provided = Buffer.from(token.slice(cut + 1), "utf8");
-  const expected = Buffer.from(signEmail(onboardingId, email), "utf8");
-  return provided.length === expected.length && timingSafeEqual(provided, expected);
+  return intakeHmacMatches(emailData(onboardingId, email), token.slice(cut + 1));
 }

@@ -25,7 +25,7 @@ import { audit, type AuditActor } from "../db/audit";
 import { send } from "../lib/email";
 import { env } from "../config/env";
 import { issuePurposeToken, readPurposeToken } from "../lib/purpose-token";
-import { presignPrivateUpload, privateObjectSize } from "../lib/storage";
+import { checkPrivateUpload, presignPrivateUpload, uploadRefusal } from "../lib/storage";
 import { safeFilename } from "./onboarding-documents";
 import { MAX_SUPPORT_ATTACHMENT_BYTES, SUPPORT_TOPICS } from "../contracts/support";
 import type { Prisma } from "../generated/prisma/client";
@@ -112,7 +112,7 @@ export async function submitSupportMessage(input: SupportInput) {
       const r2Key = `support/${m.id}/${id}/${filename}`;
       files.push(await tx.supportAttachment.create({
         data: { id, tenantId, messageId: m.id, filename, contentType: a.contentType, bytes: a.bytes, r2Key },
-        select: { id: true, filename: true, contentType: true, r2Key: true },
+        select: { id: true, filename: true, contentType: true, bytes: true, r2Key: true },
       }));
     }
     if (!declared.length) await queue(tx, m);
@@ -122,7 +122,10 @@ export async function submitSupportMessage(input: SupportInput) {
   for (const f of created.files) {
     uploads.push({
       attachmentId: f.id, filename: f.filename, contentType: f.contentType,
-      uploadUrl: await presignPrivateUpload(SYSTEM(tenantId), f.r2Key, f.contentType, { entity: "SupportAttachment", entityId: f.id }),
+      /* 2S8-SEC-03 — each PUT is signed for exactly its file's type and size. */
+      uploadUrl: await presignPrivateUpload(SYSTEM(tenantId), f.r2Key, f.contentType, { entity: "SupportAttachment", entityId: f.id }, {
+        signContentType: true, contentLength: f.bytes,
+      }),
     });
   }
   return {
@@ -146,11 +149,14 @@ export async function sendSupportMessage(token: string) {
     });
     if (!m) throw new SupportError("This message no longer exists.", 404);
     if (m.state === "QUEUED") return { id: m.id, queued: true, supportEmail: env.SUPPORT_EMAIL };
-    const files = await tx.supportAttachment.findMany({ where: { tenantId: m.tenantId, messageId: m.id }, select: { id: true, r2Key: true, filename: true } });
+    const files = await tx.supportAttachment.findMany({ where: { tenantId: m.tenantId, messageId: m.id }, select: { id: true, r2Key: true, filename: true, contentType: true, bytes: true } });
     for (const f of files) {
-      const size = await privateObjectSize(f.r2Key);
-      if (size === null) throw new SupportError(`${f.filename} hasn't arrived yet — upload it again, or send without it.`);
-      if (size > MAX_SUPPORT_ATTACHMENT_BYTES) throw new SupportError(`${f.filename} is over 10 MB.`, 422);
+      /* 2S8-SEC-03 — what arrived must be what the grant pinned; anything else is deleted. */
+      const arrived = await checkPrivateUpload(SYSTEM(m.tenantId), f.r2Key,
+        { contentType: f.contentType, bytes: f.bytes, maxBytes: MAX_SUPPORT_ATTACHMENT_BYTES }, { entity: "SupportAttachment", entityId: f.id });
+      if (!arrived.ok && arrived.problem === "missing") throw new SupportError(`${f.filename} hasn't arrived yet — upload it again, or send without it.`);
+      if (!arrived.ok) throw new SupportError(uploadRefusal(arrived.problem, f.filename), 422);
+      const size = arrived.bytes;
       await tx.supportAttachment.update({
         /* tenant-scope: this message's own attachment. */
         where: { id: f.id }, data: { uploadedAt: new Date(), bytes: size },

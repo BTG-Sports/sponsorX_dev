@@ -88,7 +88,7 @@ export default async function AthleteListingsPage() {
         <>
           {!approved && (
             <div role="status" className="rounded-xl border border-line bg-surface px-4 py-3 text-xs">
-              <p className="font-semibold">Listing opens once BTG approves your profile</p>
+              <p className="font-semibold">Listing opens once your profile is approved</p>
               <p className="mt-1 text-muted">You can get your items ready in Inventory meanwhile.</p>
             </div>
           )}
