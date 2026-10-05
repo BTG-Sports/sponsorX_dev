@@ -806,7 +806,7 @@ async function main(): Promise<void> {
      (DEFERRED) is applied again when its back-off is due. */
   const deferredEventSweep = () =>
     void retryDeferredPaymentEvents()
-      .then((r) => { if (r.retried || r.failed) console.log(`[worker] deferred payment events ${JSON.stringify(r)}`); })
+      .then((r) => { if (r.retried || r.failed) log(`[worker] deferred payment events ${JSON.stringify(r)}`); })
       .catch((error: unknown) => console.error("[worker] deferred payment event sweep failed, will retry:", error));
   paymentEventTimer = setInterval(deferredEventSweep, PAYMENT_EVENT_SWEEP_INTERVAL_MS);
   setTimeout(deferredEventSweep, 20_000).unref();
