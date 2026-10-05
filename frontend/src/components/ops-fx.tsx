@@ -51,17 +51,30 @@ export function OpsStage({ children, className = "" }: { children: ReactNode; cl
         const c = card.getBoundingClientRect();
         card.style.setProperty("--mx", `${(x - c.left).toFixed(0)}px`);
         card.style.setProperty("--my", `${(y - c.top).toFixed(0)}px`);
+        /* P1-ART-16 — a `data-tilt` card also leans toward the pointer (unitless degrees, ±6). */
+        if (card.dataset.tilt !== undefined) {
+          card.style.setProperty("--ry", (((x - c.left) / c.width - 0.5) * 12).toFixed(2));
+          card.style.setProperty("--rx", ((0.5 - (y - c.top) / c.height) * 12).toFixed(2));
+        }
       }
+    };
+    const settle = (el: HTMLElement | null) => {
+      el?.style.removeProperty("--rx");
+      el?.style.removeProperty("--ry");
     };
     const onMove = (e: PointerEvent) => {
       if (e.pointerType === "touch") return;
       x = e.clientX;
       y = e.clientY;
-      card = (e.target as Element | null)?.closest<HTMLElement>("[data-spot]") ?? null;
+      const next = (e.target as Element | null)?.closest<HTMLElement>("[data-spot]") ?? null;
+      if (next !== card) settle(card);
+      card = next;
       root.dataset.lit = "";
       if (!raf) raf = requestAnimationFrame(paint);
     };
     const onLeave = () => {
+      settle(card);
+      card = null;
       delete root.dataset.lit;
       root.style.setProperty("--tx", "0");
       root.style.setProperty("--ty", "0");

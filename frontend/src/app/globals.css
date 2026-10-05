@@ -2316,6 +2316,18 @@ html[data-sx-loaded] [data-sx-stage][data-armed] .sx-bar { transform: none; }
 .sx-ops-card:hover,
 .sx-ops-card:focus-visible { --spot: 1; transform: translate3d(0, -4px, 0); }
 .sx-ops-card:focus-visible { outline: none; }
+/* P1-ART-16 — the Scouting Board's cards lean toward the pointer (OpsStage writes --rx / --ry). */
+.sx-ops-card[data-tilt] {
+  transform: perspective(900px) rotateX(calc(var(--rx, 0) * 1deg)) rotateY(calc(var(--ry, 0) * 1deg));
+  transition: transform 0.5s var(--sx-ease);
+}
+.sx-ops-card[data-tilt]:hover,
+.sx-ops-card[data-tilt]:focus-visible {
+  transform: perspective(900px) rotateX(calc(var(--rx, 0) * 1deg)) rotateY(calc(var(--ry, 0) * 1deg)) translate3d(0, -4px, 0);
+  transition-duration: 0.18s;
+}
+/* the 48-hour bar on a card */
+.sx-ops-wait { transform-origin: left; animation: sx-ops-grow 1.1s var(--sx-ease) var(--sx-reveal-delay, 0s) backwards; }
 /* the outline: a hairline ring, lit by a spotlight that follows the pointer */
 .sx-ops-card::before,
 .sx-ops-panel::before {
@@ -2385,10 +2397,14 @@ html[data-sx-loaded] [data-sx-stage][data-armed] .sx-bar { transform: none; }
   .sx-ops-bar,
   .sx-ops-orbit,
   .sx-ops-led,
-  .sx-ops-ghost { animation: none; }
+  .sx-ops-ghost,
+  .sx-ops-wait { animation: none; }
   .sx-ops-sweep { display: none; }
   .sx-ops-card,
   .sx-ops-br { transition: none; }
   .sx-ops-card:hover,
   .sx-ops-card:focus-visible { transform: none; }
+  .sx-ops-card[data-tilt],
+  .sx-ops-card[data-tilt]:hover,
+  .sx-ops-card[data-tilt]:focus-visible { transform: none; }
 }

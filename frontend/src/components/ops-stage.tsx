@@ -68,12 +68,15 @@ export function OpsGround({ word = "OPS" }: { word?: string }) {
       <div className="absolute inset-0 bg-[radial-gradient(60%_50%_at_10%_0%,rgba(46,155,245,.22),transparent_65%),radial-gradient(40%_40%_at_88%_30%,rgba(46,155,245,.1),transparent_65%),radial-gradient(50%_45%_at_100%_100%,rgba(249,122,31,.15),transparent_62%)]" />
       <div className="sx-login-light absolute inset-0" />
 
-      <span
-        className="sx-stage-word absolute -right-4 top-6 select-none font-black leading-none tracking-tighter"
-        style={{ fontSize: `clamp(120px, ${Math.min(17, 52 / word.length)}vw, 260px)` }}
-      >
-        {word}
-      </span>
+      {/* "" — a desk with no word (a dashboard header, not a hero). */}
+      {word && (
+        <span
+          className="sx-stage-word absolute -right-4 top-6 select-none font-black leading-none tracking-tighter"
+          style={{ fontSize: `clamp(120px, ${Math.min(17, 52 / word.length)}vw, 260px)` }}
+        >
+          {word}
+        </span>
+      )}
 
       <div className="sx-login-depth absolute inset-0" style={{ "--depth": 1 } as CSSProperties}>
         <div className="sx-stage-floor" />
