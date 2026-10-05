@@ -36,7 +36,7 @@ export const LOOP_SKIP_REASON =
   "needs DATABASE_URL, CLERK_SECRET_KEY and the API — CI's e2e job provides all three";
 
 /** Where the API listens — the same address playwright.config.ts starts it on. */
-export const API_URL = process.env.E2E_API_URL ?? "http://127.0.0.1:4000";
+export const API_URL = process.env.E2E_API_URL ?? `http://127.0.0.1:${process.env.E2E_API_PORT ?? 4000}`;
 
 export type Role =
   | "SUPER_ADMIN" | "BTG_ADMIN" | "SALES" | "CAMPAIGN_MGR" | "NETWORK_MGR" | "FINANCE"

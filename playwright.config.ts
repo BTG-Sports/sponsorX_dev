@@ -25,6 +25,11 @@ import { defineConfig, devices } from "@playwright/test";
 
 const PORT = Number(process.env.E2E_PORT ?? 3100);
 const BASE_URL = process.env.E2E_BASE_URL ?? `http://127.0.0.1:${PORT}`;
+/* The API beside it. E2E_API_PORT moves it off 4000 when that is taken
+   (another checkout running its own stack); the specs follow through
+   e2e/support/auth.ts. */
+const API_PORT = Number(process.env.E2E_API_PORT ?? 4000);
+const API_URL = `http://127.0.0.1:${API_PORT}`;
 
 export default defineConfig({
   testDir: "./e2e",
@@ -62,12 +67,12 @@ export default defineConfig({
           ...(process.env.DATABASE_URL
             ? [{
                 command: "npm run start:api -w @sponsorx/backend",
-                url: "http://127.0.0.1:4000/health",
+                url: `${API_URL}/health`,
                 reuseExistingServer: !process.env.CI,
                 timeout: 120_000,
                 stdout: "pipe" as const,
                 stderr: "pipe" as const,
-                env: { PORT: "4000" },
+                env: { PORT: String(API_PORT) },
               }]
             : []),
           {
@@ -88,7 +93,7 @@ export default defineConfig({
           timeout: 120_000,
           stdout: "pipe",
           stderr: "pipe",
-          env: { API_URL: "http://127.0.0.1:4000" },
+          env: { API_URL },
           },
         ],
       }),
