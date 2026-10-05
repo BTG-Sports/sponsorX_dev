@@ -78,3 +78,26 @@ The owner asked for /admin/new-signups to get the same wow-factor redesign, with
   - Backend stream tests 8/8, tenant-isolation, tenant-scope.static and openapi.coverage.
   - Playwright walk as BTG_ADMIN: chips, toggle, legacy `?tab=review`, search, size; dark, light and 390; no console errors, no overflow.
   - rimraf was emptied again by the worktree teardown and restored.
+
+## HeckerCreatives — P1-ART-16: /admin/applications as the "Scouting Board" (Code review)
+
+The owner asked for the review desk to get the same treatment. Direction A, "Scouting Board", was picked from three mockups (`.superpowers/brainstorm/applications/`). Spec: `docs/superpowers/specs/2026-10-05-applications-scouting-board-design.md`. Branch `feature/P1-ART-16-applications-scouting-board`, stacked on P1-ART-15.
+
+- **Visual only.** `applications-desk.tsx` had markup and classes changed; its logic, server paging and review actions are untouched.
+  - Tabs became stage pills.
+  - The list became a grid of glass player cards: score ring, safeguard chips, and a 48-hour bar (`waitMeter`, tested) that turns orange past 48h.
+  - `OpsStage` now writes `--rx` / `--ry` on `[data-tilt]` cards, so they tilt toward the pointer.
+  - The drawer's portaled root pins `.sx-ops`, so it stays dark for Frost users. It also got a glowing factor bar (role=meter) and restyled buttons.
+- **OWNER FEEDBACK, mid-build:** "don't make the design like a landing page or a hero section, this is a dashboard."
+  - The 64px headline and the dek were replaced by a compact title row plus four KPI tiles (`KpiTile`, now shared in `ops-stage.tsx`).
+  - The same was then applied to /admin/new-signups at the owner's request (`IntakeHeader`; `intakeHeadline` removed).
+  - `OpsGround word=""` drops the outlined word.
+  - Saved as Claude memory "admin-desks-are-dashboards". /admin itself still has its hero, so ask the owner before changing it.
+- **The e2e contract held:** each card is still the row `<button>`, named with the athlete's name, and the `Minor` text is exact. The dialog's label and button names are unchanged.
+  - `loop-p3-application`: the adult path (desk → drawer → start review → approve → activate) passes.
+  - The minor path fails at line 223, on the public join page ("Waiting on your guardian"), before it reaches the desk. Not caused by this work.
+- **Verified:**
+  - Frontend 1153 tests, eslint, `next build` (worktree).
+  - Walk as BTG_ADMIN: 12 cards, tilt, drawer dark in light theme, 390 with no overflow, no console errors.
+  - rimraf restored again after the teardown.
+- **Tracker:** P1-ART-16 is Phase 1 row 292 (Order 32.99, Code review); ranges extended to 292; today's snapshot recomputed.

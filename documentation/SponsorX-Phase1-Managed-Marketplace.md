@@ -749,6 +749,21 @@ Raised 2026-10-05 by the programme owner: redesign /admin/new-signups with the l
 - **Done when:** every list is server-paged (page, size, kind, Needs review and search run in the database; the figures come from a summary); a page is exact across the four tables (tested); old `?tab=` links still land; no role sees more than before; tenant isolation green; fixed-dark in both themes; no horizontal overflow at 390px; build, tests and lint green
 - **Reference:** `2S1-FE-07`; `docs/superpowers/specs/2026-10-05-new-signups-intake-stream-design.md`; `backend/src/domain/signups-stream.ts`; `backend/tests/signups-stream.test.ts`; `frontend/src/components/intake-stage.tsx`
 
+### ▶ `P1-ART-16` · Athlete applications — "Scouting Board" redesign
+
+**Order** 32.99 · **ART** · **Where:** Code · **1d** · **Code review** · **Unblocks** 0
+
+Raised 2026-10-05 by the programme owner: redesign /admin/applications with the landing's wow factor, in the current theme. The change is visual only; the desk's reads, server paging and review actions are unchanged. The page sits on the admin stage (`P1-ART-14`), full bleed and fixed-dark.
+
+- **Header:** a dashboard header, not a hero; the owner rejected a hero mid-build. It holds the title, the Postgres pill and four KPI tiles from `/applications/summary`.
+- **Tabs:** restyled as stage pills.
+- **The queue:** glass player cards. Each has a score ring, safeguard chips, and a 48-hour bar that turns orange once past 48h. Cards tilt toward the pointer with a spotlight.
+- **The review drawer:** a dark scouting report in both themes, with glowing factor bars and restyled decision buttons. Its text and labels are the same as before.
+
+- **Depends on:** `P3-FE-02` (the desk); `P1-ART-14` (the stage)
+- **Done when:** same reads, paging and review actions; a dashboard header, not a hero; cards keep the row button's accessible name and the exact `Minor` label, so the P3 e2e loop still finds them; the drawer is dark in both themes; no horizontal overflow at 390px; `waitMeter` unit-tested; build, tests and lint green
+- **Reference:** `P3-FE-02`; `docs/superpowers/specs/2026-10-05-applications-scouting-board-design.md`; `frontend/src/components/scout-stage.tsx`; `frontend/src/components/applications-desk.tsx`
+
 ### ▶ `P1-FE-18` · Apply the SponsorX NEXT UI requirement across the existing pages
 
 **Order** 37.02 · **FE** · **Where:** Code · **2d** · **Ready** · **Unblocks** 5
