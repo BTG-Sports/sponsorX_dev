@@ -126,10 +126,14 @@ The checks were made against the OWASP Top 10 (2021), plus the ASVS basics that 
   - Every confirm step now goes through one helper, `checkPrivateUpload` (`backend/src/lib/storage.ts`). It reads the object's `HeadObject` type and size and compares them with what the grant pinned: the exact size, and the flow's ceiling. On a mismatch it deletes the object, writes a `storage.privateUploadRefused` audit row (expected vs arrived), and the flow answers 422 "…so it was removed. Upload it again." The delivery proof reads the pinned type and size back from its grant's audit row.
   - The browser side needed no change. Every upload component already PUTs the `File` it declared, with the grant's own `contentType` (or, for the deliverable upload, `f.type`, which is what it presigned). A zero-byte creative file is now refused at presign.
   - Not covered by the confirm-side check: the creative and artwork **register** steps. They do not HEAD the object; they rely on the bucket enforcing the signed pins, plus their own type check from the grant (P5-BE-09 / P9-BE-22). Adding a HEAD there would be a separate change.
-- **Open (Low).** Replay of an old signed invoice webhook could roll an invoice's status back. Zoho Books sends no timestamp. **Owner/next task:** make the ingest refuse a payload older than the stored row (paid never goes back to sent).
+- **Fixed (Low), 2S8-SEC-04.** Replay of an old signed invoice webhook could roll an invoice's status back. Zoho Books sends no timestamp.
+  - The ingest now refuses any payload that would move the **stored** state backwards. The forward order comes from Zoho's own words (`backend/src/domain/invoice-status-rules.ts`): `draft` < `sent` / `viewed` / `unpaid` < `partially_paid` / `overdue` < `paid`. A live invoice with nothing owed counts as paid, as in 2S4-BE-10. `void` is reachable from any unpaid state. `paid` and `void` are terminal: once paid, only another paid payload is applied (so a corrected amount still lands); once void, only void.
+  - The check applies to both mirrors, the campaign invoice and the marketplace order's. A refusal writes an `invoice.staleRefused` audit row (stored state, incoming state, reason) and marks the delivery `REJECTED` with the reason. The route still answers Zoho `202`, and the job finishes without throwing, so neither Zoho nor pg-boss retries it.
+  - Trade-off: a genuine move backwards in Zoho, such as a payment deleted or a void turned back into a draft, is held the same way. It cannot be told apart from a replay without the timestamp Zoho does not send. The audit row and the `REJECTED` delivery are where BTG sees it.
 
 **Fix:**
 - `requestLogoUpload` signs `Content-Type` and `Content-Length` into the presigned PUT.
+- 2S8-SEC-04: `backwardsMove` (invoice-status-rules.ts) and `refuseIfBackwards` (invoice-replay.ts), called by `ingestZohoInvoice` and `ingestOrderInvoice` before anything is written. `handleIngestInvoice` marks a refused delivery `REJECTED`.
 - `checkProof` refuses an arrived file over 10 MB.
 - The Zoho hooks now rate-limit **only unverified** attempts; a verified delivery is never throttled.
 - `rateLimit` re-sets the expiry on any key with TTL −1.
@@ -145,6 +149,7 @@ The checks were made against the OWASP Top 10 (2021), plus the ASVS basics that 
   5. the right file PUT through the URL is accepted.
 
   A last case fails if any `presignPrivateUpload` in `src/domain` lacks either pin. Removing one pin in a scratch run failed both cases.
+- 2S8-SEC-04: `backend/tests/invoice-replay.test.ts`. The rule is tested pure: forward moves apply, paid never goes back (void included), void is never reopened, and an older open state is refused. It is then tested end to end: a correctly signed delivery is POSTed to the real route and the worker's job applies it. For a campaign invoice, sent then paid, the replayed `sent` bytes get `202`, the delivery is `REJECTED`, the stored row is unchanged and still paid, and the refusal is audited. So are older `draft`, `overdue` and `void` payloads, while a later paid correction still lands. For an open invoice, overdue never returns to sent. A marketplace order's paid invoice is not rolled back either.
 
 ### A05 · Security misconfiguration
 
@@ -371,7 +376,7 @@ Matches are printed masked. **Result on 2026-10-05: 2,220 tracked files, no secr
 ## Follow-ups not done here (each is Open above)
 
 - ~~Pin type and length on every private presign, and check type on confirm (§A04).~~ Fixed, 2S8-SEC-03.
-- Make the invoice ingest refuse an older state (§A04).
+- ~~Make the invoice ingest refuse an older state (§A04).~~ Fixed, 2S8-SEC-04.
 - Close the rate-card existence oracle (§A01).
 - Constrain Zoho notification `module` and `ids` (§A10).
 - Turn off JavaScript in the PDF renderer (§A10).

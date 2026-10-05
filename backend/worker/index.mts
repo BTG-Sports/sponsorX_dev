@@ -471,7 +471,7 @@ async function main(): Promise<void> {
           const result = await ingestZohoInvoice(tx, payload as ZohoInvoicePayload);
           return result.applied
             ? { applied: true, invoiceId: result.invoiceId }
-            : { applied: false, reason: result.reason };
+            : { applied: false, reason: result.reason, rejected: result.stale === true };
         }),
     });
     console.log(`[worker] zoho.ingestInvoice ${outcome.status}`);
