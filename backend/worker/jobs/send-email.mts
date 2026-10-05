@@ -695,9 +695,14 @@ ${d.portalUrl ?? ""}
     subject: `[${d.topic ?? "Other"}] ${d.name ?? "Someone"} — SponsorX contact form`,
     text: `From: ${d.name ?? ""} <${d.email ?? ""}>\nTopic: ${d.topic ?? ""}\nSent: ${d.sentAt ?? ""}\nReference: ${d.reference ?? ""}\nAttachments: ${d.attachments || "none"}\n\n${d.message ?? ""}\n\n— Reply to this email to answer ${d.name ?? "them"} directly.`,
   }),
+  /* 2S8-SEC-02 — this goes to an address nobody has confirmed, from the
+     public contact form, so it carries nothing the sender typed: echoing the
+     name and message let anyone send their own text (a phishing link) from
+     SponsorX's domain to any inbox. The topic is one of our own words and the
+     reference is ours. */
   "support.copy": (d) => ({
     subject: "We have your message — BTG SponsorX",
-    text: `Hi ${d.name ?? "there"},\n\nThanks — your message reached BTG and a person reads every one. We'll reply to this email address.\n\nTopic: ${d.topic ?? ""}\nReference: ${d.reference ?? ""}\n\nYour message:\n\n${d.message ?? ""}\n\n— BTG SponsorX`,
+    text: `Hi,\n\nThanks — your message reached BTG and a person reads every one. We'll reply to this email address.\n\nTopic: ${d.topic ?? ""}\nReference: ${d.reference ?? ""}\n\nIf you did not write to us, you can ignore this email.\n\n— BTG SponsorX`,
   }),
 };
 

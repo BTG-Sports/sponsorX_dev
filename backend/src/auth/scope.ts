@@ -242,8 +242,12 @@ const BUILDERS: Partial<Record<Resource, Builder>> = {
         return { id: actor.userId };
       case "own-sponsor":
         /* A sponsor admin reaches the users of their own sponsor org. The
-           column exists on User, so this one is expressible today. */
-        return { tenantId: actor.tenantId, sponsorId: { not: null } };
+           column exists on User, so this one is expressible today.
+           2S8-SEC-02: it used to be `sponsorId: { not: null }` — every
+           sponsor's users in the tenant. Only a BTG route used it, so
+           nothing leaked; pinned to the actor's own sponsor before a
+           sponsor-facing route could. */
+        return actor.sponsorId ? { tenantId: actor.tenantId, sponsorId: actor.sponsorId } : MATCHES_NOTHING;
       default:
         return MATCHES_NOTHING;
     }

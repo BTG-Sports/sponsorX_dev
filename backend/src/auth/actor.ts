@@ -23,7 +23,7 @@
 import type { NextFunction, Request, Response } from "express";
 
 import { prisma } from "../db/client";
-import { authenticateClerkRequest } from "./clerk";
+import { authenticateClerkRequest, type EmailSource } from "./clerk";
 import { AccountDisabledError, UnauthenticatedError, UnprovisionedError } from "./errors";
 import { ROLES, type Role } from "./policy";
 import { actForWard, WARD_HEADER } from "../domain/guardian-acts";
@@ -117,7 +117,7 @@ async function studentIsActive(tenantId: string, studentId: string | null): Prom
 
 export async function resolveActor(
   clerkId: string,
-  email: string | null,
+  emailSource: EmailSource,
 ): Promise<Actor> {
   const linked = await prisma.user.findUnique({
     where: { clerkId },
@@ -139,6 +139,8 @@ export async function resolveActor(
     };
   }
 
+  /* Only an identity no row knows yet needs its address — fetched here, once. */
+  const email = typeof emailSource === "function" ? await emailSource() : emailSource;
   if (!email) throw new UnprovisionedError(null);
 
   const provisioned = await prisma.user.findFirst({

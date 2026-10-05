@@ -25,6 +25,11 @@ import { defineConfig, devices } from "@playwright/test";
 
 const PORT = Number(process.env.E2E_PORT ?? 3100);
 const BASE_URL = process.env.E2E_BASE_URL ?? `http://127.0.0.1:${PORT}`;
+/* The API beside it. E2E_API_PORT moves it off 4000 when that is taken
+   (another checkout running its own stack); the specs follow through
+   e2e/support/auth.ts. */
+const API_PORT = Number(process.env.E2E_API_PORT ?? 4000);
+const API_URL = `http://127.0.0.1:${API_PORT}`;
 
 export default defineConfig({
   testDir: "./e2e",
@@ -56,18 +61,35 @@ export default defineConfig({
     ? {}
     : {
         webServer: [
+          /* An in-memory object store where there is no MinIO (CI's e2e
+             job sets E2E_OBJECT_STORE_STANDIN and points S3_ENDPOINT at it).
+             The upload steps PUT from the browser and the API then HEADs
+             the object, so a stubbed PUT alone cannot pass them. */
+          ...(process.env.E2E_OBJECT_STORE_STANDIN
+            ? [{
+                command: "node e2e/support/object-store-standin.mjs",
+                url: `${process.env.S3_ENDPOINT ?? "http://127.0.0.1:9100"}/minio/health/live`,
+                reuseExistingServer: !process.env.CI,
+                timeout: 30_000,
+                stdout: "pipe" as const,
+                stderr: "pipe" as const,
+              }]
+            : []),
           /* The API, when there is a database for it (CI's e2e job, or a
              local run with DATABASE_URL set). The fan-flow specs drive the
              real stack — web → API → Postgres — and skip without it. */
           ...(process.env.DATABASE_URL
             ? [{
                 command: "npm run start:api -w @sponsorx/backend",
-                url: "http://127.0.0.1:4000/health",
+                url: `${API_URL}/health`,
                 reuseExistingServer: !process.env.CI,
                 timeout: 120_000,
                 stdout: "pipe" as const,
                 stderr: "pipe" as const,
-                env: { PORT: "4000" },
+                /* APP_URL: where the API sends a browser back to — the
+                   stand-in payment provider's pages, email links. Here that
+                   is this harness's web app, not the default localhost:3000. */
+                env: { PORT: String(API_PORT), APP_URL: process.env.APP_URL ?? BASE_URL },
               }]
             : []),
           {
@@ -88,7 +110,7 @@ export default defineConfig({
           timeout: 120_000,
           stdout: "pipe",
           stderr: "pipe",
-          env: { API_URL: "http://127.0.0.1:4000" },
+          env: { API_URL },
           },
         ],
       }),

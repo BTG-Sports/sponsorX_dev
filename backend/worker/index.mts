@@ -148,7 +148,9 @@ const DRAIN_BATCH = 100;
 
 type OutboxRow = { id: string; tenantId: string; name: string; payload: unknown };
 
-const pool = new pg.Pool({ connectionString });
+/* 2S8-OPS-02 — the worker's sessions run in UTC, as the API's do
+   (src/db/client.ts): column defaults and any bare now() then write UTC. */
+const pool = new pg.Pool({ connectionString, options: "-c TimeZone=UTC" });
 const boss = new PgBoss({ connectionString });
 
 /** Queues pg-boss already knows about. Creating one is required before a send
@@ -237,7 +239,7 @@ async function drainOnce(): Promise<number> {
     }
 
     await client.query(
-      `UPDATE "OutboxJob" SET "dispatchedAt" = now() WHERE id = ANY($1::text[])`,
+      `UPDATE "OutboxJob" SET "dispatchedAt" = (now() AT TIME ZONE 'UTC') WHERE id = ANY($1::text[])`,
       [rows.map((r) => r.id)],
     );
 

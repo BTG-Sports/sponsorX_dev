@@ -1,6 +1,7 @@
-import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
+import { createHmac, randomBytes } from "node:crypto";
 
 import { env } from "../config/env";
+import { acceptedSecrets, hmacMatchesAny } from "./rotating-secret";
 
 /**
  * The payment-provider adapter (2S5-INT-01 / -03, 2S5-BE-05).
@@ -55,9 +56,10 @@ export class StandinTokenError extends Error {
 export function readStandinToken(token: string, now = new Date()): StandinLink {
   const [body, sig] = token.split(".");
   if (!body || !sig) throw new StandinTokenError();
-  const expected = Buffer.from(mac(body));
-  const given = Buffer.from(sig);
-  if (expected.length !== given.length || !timingSafeEqual(expected, given)) throw new StandinTokenError();
+  /* Signed with the current secret; verified against it and, mid-rotation,
+     STANDIN_PROVIDER_SECRET_PREVIOUS (2S8-SEC-02). */
+  const secrets = acceptedSecrets(env.STANDIN_PROVIDER_SECRET, env.STANDIN_PROVIDER_SECRET_PREVIOUS);
+  if (!hmacMatchesAny(secrets, body, sig, "base64url")) throw new StandinTokenError();
   let parsed: StandinLink & { exp: number };
   try {
     parsed = JSON.parse(Buffer.from(body, "base64url").toString("utf8"));

@@ -112,6 +112,23 @@ export class DraftInReviewError extends Error {
   }
 }
 
+/**
+ * 2S8-SEC-02 — the key names a file outside this deliverable's own folder.
+ * The asset's download link is presigned from the stored key, so accepting
+ * any key let an athlete point their deliverable at another tenant's QR
+ * image or a sponsor report and read it back (OWASP A01).
+ */
+export class CreativeKeyError extends Error {
+  readonly status = 422;
+  constructor() {
+    super("That file was not uploaded for this deliverable. Start the upload again from this deliverable.");
+    this.name = "CreativeKeyError";
+  }
+}
+
+/** The folder presignCreativeUpload puts every one of a deliverable's files in. */
+export const creativeKeyPrefix = (tenantId: string, deliverableId: string) => `t/${tenantId}/deliverable/${deliverableId}/`;
+
 /** P5-BE-10 — a sponsor approves once BTG has sent the draft to them. */
 export class BtgReviewFirstError extends Error {
   readonly status = 409;
@@ -764,7 +781,7 @@ export async function presignCreativeUpload(
   /* No credential for a file that could not be recorded (P5-BE-09). */
   await assertMayAddVersion(prisma, deliverable);
 
-  const key = `t/${deliverable.tenantId}/deliverable/${deliverable.id}/${crypto.randomUUID()}`;
+  const key = `${creativeKeyPrefix(deliverable.tenantId, deliverable.id)}${crypto.randomUUID()}`;
 
   /* P5-BE-09 — the file-type check reads the type from this grant, so the
      PUT is pinned to it: the bucket refuses another Content-Type (the SDK
@@ -798,6 +815,19 @@ export async function registerCreativeAsset(
       select: { id: true, tenantId: true, state: true, checksPassed: true, checkedAt: true },
     });
     if (!deliverable) throw new ForbiddenError("creativeAsset", "write");
+
+    /* 2S8-SEC-02 — only a key in this deliverable's own folder, which is
+       where presignCreativeUpload puts every file and nowhere else. */
+    const prefix = creativeKeyPrefix(deliverable.tenantId, deliverable.id);
+    if (
+      typeof r2Key !== "string" ||
+      !r2Key.startsWith(prefix) ||
+      r2Key.length === prefix.length ||
+      r2Key.split("/").some((part) => part === ".." || part === ".") ||
+      r2Key.includes("\\")
+    ) {
+      throw new CreativeKeyError();
+    }
 
     await assertMayAddVersion(tx, deliverable);
 

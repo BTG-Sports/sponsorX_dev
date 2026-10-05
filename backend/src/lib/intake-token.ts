@@ -19,9 +19,10 @@
  * has no roles, and reaches no endpoint outside this applicant's own
  * application. `requireActor` is untouched and nothing here writes `req.actor`.
  */
-import { createHmac, timingSafeEqual } from "node:crypto";
+import { createHmac } from "node:crypto";
 
 import { env } from "../config/env";
+import { intakeHmacMatches } from "./intake-secret";
 
 /** `<athleteId>.<signature>` — the id is in the clear so the server does not
  *  have to guess which application is being opened before it verifies. */
@@ -42,14 +43,8 @@ export function readIntakeToken(token: string | undefined | null): string | null
   if (cut <= 0) return null;
 
   const athleteId = token.slice(0, cut);
-  const provided = Buffer.from(token.slice(cut + 1), "utf8");
-  const expected = Buffer.from(sign(athleteId), "utf8");
-
-  /* Lengths differ on a malformed token, and timingSafeEqual throws rather
-     than returning false when they do. */
-  if (provided.length !== expected.length) return null;
-
-  return timingSafeEqual(provided, expected) ? athleteId : null;
+  /* Constant time, length-checked, current or previous secret (2S8-SEC-02). */
+  return intakeHmacMatches(athleteId, token.slice(cut + 1)) ? athleteId : null;
 }
 
 function sign(athleteId: string): string {

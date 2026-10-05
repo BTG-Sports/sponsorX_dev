@@ -24,7 +24,8 @@ CREATE UNIQUE INDEX IF NOT EXISTS "AdSlot_one_exclusive_per_edition"
 -- an edition still SELLING and before its close date, to a campaign in the
 -- same tenant. Releasing (campaignId back to NULL, when a campaign is
 -- cancelled or deleted) is allowed; moving a sold slot straight to another
--- campaign is not.
+-- campaign is not. (Installed by 20260925120000; redefined by 20261005100000
+-- to read the clock in UTC — 2S8-OPS-02.)
 CREATE OR REPLACE FUNCTION adslot_guard_sale() RETURNS trigger AS $$
 DECLARE
   ed RECORD;
@@ -40,7 +41,8 @@ BEGIN
       USING ERRCODE = 'check_violation';
   END IF;
   SELECT "closeDate", state INTO ed FROM "Edition" WHERE id = NEW."editionId" FOR SHARE;
-  IF ed.state <> 'SELLING' OR now() >= ed."closeDate" THEN
+  -- 2S8-OPS-02: "closeDate" is UTC wall-clock time, so the clock is too.
+  IF ed.state <> 'SELLING' OR (now() AT TIME ZONE 'UTC') >= ed."closeDate" THEN
     RAISE EXCEPTION 'adslot_edition_closed: edition % is not selling', NEW."editionId"
       USING ERRCODE = 'check_violation';
   END IF;

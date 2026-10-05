@@ -200,9 +200,10 @@ export async function presignPrivateDownload(
 export async function presignPublicUpload(
   key: string,
   contentType: string,
+  pins: UploadPins = {},
 ): Promise<string> {
   assertSafeKey(key);
-  return presignUpload(BUCKETS.public, key, contentType);
+  return presignUpload(BUCKETS.public, key, contentType, pins);
 }
 
 /** Used by the health endpoint to prove the storage credentials work. */

@@ -13,6 +13,8 @@
    CTA names Stripe, ends in "↗" and its aria-label says it leaves SponsorX.
    -------------------------------------------------------------------------- */
 
+import { isSafeLocalPath } from "@/lib/safe-path";
+
 export type PayoutAccountStatus = "NOT_SET_UP" | "NEEDS_INFO" | "READY";
 
 /** GET /payouts/account — also embedded as `account` in GET /payouts/me. */
@@ -60,6 +62,11 @@ export type ApiPayoutOrder = {
   inFlightCents: number;
   requestableCents: number;
   holdUntil: string | null;
+  /** 2S8-QA-05 — available less already requested, never rounded up to zero:
+   *  negative when a refund came after the payout. Optional: older reads. */
+  balanceCents?: number;
+  /** 2S8-QA-05 — how much the payee owes back on this order (0 when nothing). */
+  owedBackCents?: number;
 };
 
 export type PayoutCheck = { key: "payment" | "delivered" | "account" | "hold" | string; label: string; ok: boolean };
@@ -76,7 +83,11 @@ export type ApiMyPayouts = {
     notYetReleasableCents: number;
     inFlightCents: number;
     paidOutCents: number;
+    /** 2S8-QA-05 — owed back from refunds that came after a payout. Optional: older reads. */
+    owedBackCents?: number;
   };
+  /** 2S8-QA-05 — "You owe $X back from a refund", or null. Optional: older reads. */
+  owedBackNote?: string | null;
   /** Every payout by state — how many and how much, counted by the API (2S2-FE-01). Optional: older reads. */
   byState?: Record<PayoutState, { count: number; amountCents: number }>;
   canRequest: boolean;
@@ -109,7 +120,7 @@ export const TEST_PROVIDER_BADGE = "Test payment provider — staging only, no r
 
 /** A same-site path to come back to — never another site. */
 export function safeReturnPath(p: unknown, fallback: string): string {
-  return typeof p === "string" && p.startsWith("/") && !p.startsWith("//") && !p.includes("\\") ? p.slice(0, 300) : fallback;
+  return isSafeLocalPath(p) ? p.slice(0, 300) : fallback;
 }
 
 /** The provider URL the API handed back — only ever http(s), absolute. */
@@ -288,6 +299,31 @@ export function showChecklist(me: Pick<ApiMyPayouts, "canRequest" | "totals" | "
   if (me.checks.every((c) => c.ok)) return false;
   const t = me.totals;
   return t.requestableCents + t.heldCents + t.awaitingPaymentCents + t.notYetReleasableCents > 0;
+}
+
+/* ================================================ owed back (2S8-QA-05) */
+
+/** The payee's words for money owed back after a refund; null when nothing is. */
+export function owedBackLine(cents: number): string | null {
+  return cents > 0 ? `You owe ${usd(cents)} back from a refund` : null;
+}
+
+/** The real figure on an order — available less already requested, negative
+ *  when a refund came after the payout — never rounded up to $0. */
+export function orderBalanceCents(o: Pick<ApiPayoutOrder, "availableCents" | "inFlightCents" | "balanceCents">): number {
+  return o.balanceCents ?? o.availableCents - o.inFlightCents;
+}
+
+/** An order's "Available" cell: the signed figure, and the plain words when it is owed back. */
+export function orderAvailable(o: Pick<ApiPayoutOrder, "availableCents" | "inFlightCents" | "balanceCents">): { value: string; owedBack: string | null } {
+  const cents = orderBalanceCents(o);
+  return { value: usd(cents), owedBack: owedBackLine(-cents) };
+}
+
+/** The page's notice: every order's money owed back, in one line. Null when nothing is. */
+export function owedBackNotice(me: Pick<ApiMyPayouts, "totals" | "orders">): string | null {
+  const cents = me.totals.owedBackCents ?? me.orders.reduce((s, o) => s + Math.max(0, -orderBalanceCents(o)), 0);
+  return owedBackLine(cents);
 }
 
 export function payoutTiles(me: Pick<ApiMyPayouts, "totals">) {

@@ -1461,9 +1461,9 @@ The property portal's frame shows the signed-in tenant's own logo and colours, r
 
 *7 tasks · 31 person-days*
 
-### ⏸ `2S8-QA-01` · End-to-end marketplace test suite
+### ✅ `2S8-QA-01` · End-to-end marketplace test suite
 
-**Order** 58 · **QA** · **Where:** Code · **5d** · **Blocked**
+**Order** 58 · **QA** · **Where:** Code · **5d** · **Done**
 
 Onboarding through listing, purchase, fulfilment, earnings and payout, as one automated run.
 
@@ -1510,7 +1510,7 @@ This task finds which suite or sweep touches another suite's rows, and isolates 
 
 ### ⏸ `2S8-OPS-02` · Pin the database time zone to UTC
 
-**QA/OPS** · **1d** · **Ready**
+**QA/OPS** · **1d** · **Code review** — merged 2026-10-05; Done once the next deploy applies migration `20261005100000_utc_time_zone` on staging and production
 
 Timestamp columns hold UTC as timestamp-without-time-zone, but some SQL compares them with `now()` in the session's time zone:
 - `worker/jobs/expire-invitations.mts`;
@@ -1525,9 +1525,9 @@ Two fixes:
 - **Done when:** Every environment's database runs in UTC, and no SQL depends on the session time zone; a test running under a non-UTC session passes
 - **Reference:** found by 2S8-QA-04, 2026-10-02
 
-### ⏸ `2S8-QA-05` · Three robustness gaps found while isolating the suite
+### ✅ `2S8-QA-05` · Three robustness gaps found while isolating the suite
 
-**QA** · **1d** · **Ready**
+**Order** 60.7 · **QA** · **Where:** Code · **1d** · **Done**
 
 1. **Same-name applicants can collide.** Two applicants with the same display name at the same moment can collide on the athlete slug: `uniqueSlug` checks first and then inserts. One of them gets a 500.
 2. **The walkthrough seed can fail on a non-empty database.** `seed-personas.mts` only skips rows whose id already exists, so a real applicant who already took the slug `riley-carter` would make it fail.
@@ -1557,9 +1557,9 @@ Phase 1 tested BTG's own roles. Phase 2 has outside organisations, which is a di
 - **Done when:** Cross-tenant data access tests pass for sponsor, athlete/property and admin roles
 - **Reference:** Spec §12
 
-### ⏸ `2S8-SEC-02` · OWASP review and dependency scanning
+### ✅ `2S8-SEC-02` · OWASP review and dependency scanning
 
-**Order** 62 · **SEC** · **Where:** Code · **3d** · **Blocked**
+**Order** 62 · **SEC** · **Where:** Code · **3d** · **Done**
 
 External users, money movement and file uploads all raise the stakes.
 

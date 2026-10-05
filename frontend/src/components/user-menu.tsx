@@ -1,12 +1,15 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { useClerk } from "@clerk/nextjs";
 import { useEffect, useRef, useState } from "react";
+
+import { clearSessionCookiesAction } from "@/server/sign-out-actions";
 
 /* --------------------------------------------------------------------------
    Top-bar user menu: the name/role block and avatar open a dropdown with a
-   sign-out action. Mock auth has no session to clear, so signing out just
-   returns to /login — replaced by Clerk's signOut() in guide §04.
+   sign-out action. Signing out ends the Clerk session and first clears
+   SponsorX's own cookies (2S8-SEC-02: it used to only navigate to /login,
+   which sent a still-signed-in visitor straight back into the portal).
    -------------------------------------------------------------------------- */
 
 export function UserMenu({
@@ -20,7 +23,7 @@ export function UserMenu({
   accentBg: string;
   accentText: string;
 }) {
-  const router = useRouter();
+  const { signOut } = useClerk();
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
 
@@ -88,9 +91,10 @@ export function UserMenu({
           <button
             type="button"
             role="menuitem"
-            onClick={() => {
+            onClick={async () => {
               setOpen(false);
-              router.push("/login");
+              await clearSessionCookiesAction().catch(() => {});
+              await signOut({ redirectUrl: "/" });
             }}
             className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-xs text-muted transition-colors hover:bg-surface-2 hover:text-danger"
           >

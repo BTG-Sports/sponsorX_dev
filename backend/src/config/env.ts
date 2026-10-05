@@ -1,3 +1,5 @@
+import { createHmac } from "node:crypto";
+
 import { z } from "zod";
 
 /**
@@ -53,6 +55,11 @@ const schema = z.object({
      and production must set it — see the refinement below. */
   PUBLIC_INTAKE_TENANT_ID: z.string().default("seed_tenant_btg"),
   INTAKE_TOKEN_SECRET: z.string().default("dev-intake-secret-not-for-production"),
+  /* 2S8-SEC-02 — every `*_PREVIOUS` below is the rotation overlap: the old
+     value, still ACCEPTED (never used to sign) until it is deleted. Comma
+     list allowed. See lib/rotating-secret.ts and
+     documentation/SponsorX-Secrets-Rotation.md. */
+  INTAKE_TOKEN_SECRET_PREVIOUS: z.string().optional(),
 
   CLERK_SECRET_KEY: z.string().min(1, "CLERK_SECRET_KEY is not set"),
   CLERK_PUBLISHABLE_KEY: z.string().min(1, "CLERK_PUBLISHABLE_KEY is not set"),
@@ -97,6 +104,7 @@ const schema = z.object({
      below refuses to boot without it: the invoice webhook is a public route,
      and an unsigned one is an unauthenticated write into the finance mirror. */
   ZOHO_WEBHOOK_SECRET: z.string().optional(),
+  ZOHO_WEBHOOK_SECRET_PREVIOUS: z.string().optional(),
 
   /* The Zoho CRM sync — P8-INT-01..07, field-mapping §8.2.
 
@@ -117,6 +125,7 @@ const schema = z.object({
      callback where either is wrong — or where they are not configured. The
      worker keeps the channel subscribed when NOTIFY_URL is set. */
   ZOHO_NOTIFY_TOKEN: z.string().min(16).optional(),
+  ZOHO_NOTIFY_TOKEN_PREVIOUS: z.string().optional(),
   ZOHO_NOTIFY_CHANNEL_ID: z.string().regex(/^\d+$/).optional(),
   ZOHO_NOTIFY_URL: z.string().url().optional(),
 
@@ -124,6 +133,7 @@ const schema = z.object({
      (P8-SEC-03, lib/client-ip.ts). Unset: forwarded addresses are ignored
      and the socket address is used. Set the same value on web and api. */
   SPONSORX_EDGE_KEY: z.string().min(24).optional(),
+  SPONSORX_EDGE_KEY_PREVIOUS: z.string().optional(),
 
   /* Which Railway environment this is (P3-DATA-01). Railway injects it; a
      developer machine has none. Needed because NODE_ENV cannot tell staging
@@ -146,6 +156,7 @@ const schema = z.object({
   /* Signs the stand-in provider's links. Development default is fine: the
      stand-in is refused in production (below). */
   STANDIN_PROVIDER_SECRET: z.string().default("dev-standin-provider-secret"),
+  STANDIN_PROVIDER_SECRET_PREVIOUS: z.string().optional(),
   /* Days after an order is fulfilled before its money can be requested as a
      payout (2S5-BE-04's "configured holding period"). */
   PAYOUT_HOLD_DAYS: z.coerce.number().int().min(0).max(90).default(0),
@@ -209,5 +220,30 @@ if (
       "must be a real secret.",
   );
 }
+/* 2S8-SEC-02 — a rotation overlap must not quietly re-admit the public
+   development default. */
+if (
+  parsed.NODE_ENV === "production" &&
+  (parsed.INTAKE_TOKEN_SECRET_PREVIOUS ?? "").split(",").some((s) => s.trim() === "dev-intake-secret-not-for-production")
+) {
+  throw new Error(
+    "INTAKE_TOKEN_SECRET_PREVIOUS contains the development default. The previous " +
+      "value is still accepted, so in production it must be the real old secret.",
+  );
+}
 
-export const env = parsed;
+/* 2S8-SEC-02 — the stand-in provider on STAGING (NODE_ENV=production, not
+   Railway "production") signed its links with the development default unless
+   someone set STANDIN_PROVIDER_SECRET, so anyone who had read this repository
+   could forge a link that marks a payout account ready or a checkout paid.
+   Rather than refuse to boot a staging that may never have set it, an unset
+   secret is DERIVED from INTAKE_TOKEN_SECRET — already guaranteed real in
+   production — under its own label, so it is unguessable with no Railway
+   change. Setting STANDIN_PROVIDER_SECRET explicitly still wins (runbook). */
+const STANDIN_DEV_DEFAULT = "dev-standin-provider-secret";
+const standinSecret =
+  parsed.NODE_ENV === "production" && parsed.STANDIN_PROVIDER_SECRET === STANDIN_DEV_DEFAULT
+    ? createHmac("sha256", parsed.INTAKE_TOKEN_SECRET).update("sponsorx:standin-provider-secret:v1").digest("base64url")
+    : parsed.STANDIN_PROVIDER_SECRET;
+
+export const env = { ...parsed, STANDIN_PROVIDER_SECRET: standinSecret };

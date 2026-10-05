@@ -1,0 +1,14 @@
+{
+  "$comment": "2S8-SEC-02. Advisories `npm audit` reports that cannot be fixed today and are not exploitable here. scripts/audit-check.mjs fails CI on any advisory NOT listed, on any listed one that reaches production dependencies, and on any entry past its reviewBy date. Reasons are in documentation/SponsorX-Security-Review-2026-10.md (Dependency scan). Remove an entry as soon as a fix ships.",
+  "advisories": [
+    {
+      "id": "GHSA-vfj7-8cjw-p6xm",
+      "package": "braces",
+      "severity": "high",
+      "devOnly": true,
+      "path": "frontend devDependency eslint-config-next@16.3.8 > @next/eslint-plugin-next > fast-glob > micromatch > braces@3.0.3",
+      "reason": "Stack-exhaustion DoS when braces expands an attacker-supplied pattern. No patched braces exists (every version is in range), and npm's only 'fix' is downgrading eslint-config-next to 14.2 — two majors behind Next 16. braces runs only inside ESLint, on glob patterns written in our own lint config, on a developer machine or CI runner; it is never installed in the production image (--omit=dev) and never sees user input.",
+      "reviewBy": "2027-01-05"
+    }
+  ]
+}
