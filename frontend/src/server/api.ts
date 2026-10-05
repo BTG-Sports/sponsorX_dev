@@ -13,6 +13,7 @@
    can be forwarded at all.
    -------------------------------------------------------------------------- */
 
+import "server-only";
 import { auth } from "@clerk/nextjs/server";
 import { cookies } from "next/headers";
 

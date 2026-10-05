@@ -569,6 +569,7 @@ async function saveStepTx(token: string, input: StepInput) {
         break;
       }
     }
+    /* tenant-scope: the application named by the signed resume token, loaded above (byToken). */
     const updated = await tx.propertyOnboarding.update({ where: { id: row.id }, data, select: SELECT });
     /* 2S1-BE-06 — a primary contact whose address isn't confirmed is sent the link (once per address). */
     if (input.step === "contacts" && !emailConfirmed(updated)) await sendConfirmation(tx, updated);
@@ -589,6 +590,7 @@ export async function submitOnboarding(token: string) {
     if (!canTransitionOnboarding(from, "PENDING_REVIEW")) throw new IllegalOnboardingTransitionError(from, "PENDING_REVIEW");
     const missing = missingFor(row);
     if (missing.length) throw new OnboardingError(`The application is not complete: ${missing.join(", ")}.`, 422, missing);
+    /* tenant-scope: the application named by the signed resume token, loaded above (byToken). */
     await tx.propertyOnboarding.update({
       where: { id: row.id }, data: { state: "PENDING_REVIEW", submittedAt: new Date(), reviewReasons: [] }, select: { id: true },
     });
@@ -855,6 +857,7 @@ export async function decideOnboarding(actor: Actor, id: string, decision: Decis
     if (afterApproval) effects = await withdraw(tx, actor, row, now, notes?.trim() || null);
     if (decision === "REJECT" && !afterApproval) effects = await closeRejectedApplication(tx, actor, row, notes?.trim() || null);
 
+    /* tenant-scope: the row loaded above through whereFor(propertyOnboarding, approve). */
     const updated = await tx.propertyOnboarding.update({
       where: { id },
       data: {

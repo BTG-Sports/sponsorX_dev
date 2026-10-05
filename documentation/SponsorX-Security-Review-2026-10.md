@@ -44,7 +44,7 @@ The checks were made against the OWASP Top 10 (2021), plus the ASVS basics that 
 - **Fixed (Low).** `safeReturnPath` on both servers accepted `/\t/evil.example`. Browsers strip the tab, which turns it into `//evil.example`.
 - **Fixed (Low).** `/t/[code]` passed `..` to the API, and `fetch` resolves that to a different endpoint. It also did not re-check that the destination is http(s).
 - **Fixed (Low).** The admin ID-document action redirected to any URL the API returned.
-- **Open (Low).** `GET /athletes/:id/rates` answers `200 []` for another athlete in the same tenant but 403 for an id that doesn't exist, which reveals which ids exist. The rates themselves are scoped.
+- **Fixed (Low), 2S8-SEC-05.** `GET /athletes/:id/rates` answered `200 []` for another athlete in the same tenant but 403 for an id that doesn't exist, which revealed which ids exist. The rates themselves were scoped. `readRateCard` now checks the athlete is within the caller's **own** reach (an athlete's own id, a guardian's ward, BTG's tenant) before it answers. Another athlete's id and a made-up one now give the same 403, word for word. Test: `backend/tests/security-hardening.test.ts`, block "1".
 - **Open (Low).** The public "claim this profile" flow (`/public/athletes/:slug/claim`) puts an unverified email onto the athlete once an advisor approves it. **Owner:** should the claimant confirm the email first?
 
 **Fix:**
@@ -121,13 +121,18 @@ The checks were made against the OWASP Top 10 (2021), plus the ASVS basics that 
 - **Fixed (Low).** Delivery-proof uploads checked only that the file existed, not its size.
 - **Fixed (Medium).** Webhook rate limits were keyed on `req.ip`, which is the platform edge, so every caller shared one bucket. 120 junk requests a minute could make Zoho's real, signed deliveries fail with 429.
 - **Fixed (Low).** A rate-limit key that lost its EXPIRE (INCR and EXPIRE are two separate commands) kept that caller blocked forever.
-- **Open (Medium).** The other private-bucket presigns (account, onboarding, organisation, sponsor-request, hand-off, support and profile-change documents) pin neither type nor length. Their confirm step checks size but not the content type, and does not delete an oversized object.
-  - Exposure is limited: the private bucket is only reached through short presigned GETs, on R2's own origin.
-  - Recommendation: pin `{signContentType, contentLength}` at each presign, since every browser upload already sends the exact `Content-Type`. Then compare `HeadObject` type and size on confirm, and delete on mismatch. This needs an end-to-end upload check, so it is left as a follow-up rather than done blind.
-- **Open (Low).** Replay of an old signed invoice webhook could roll an invoice's status back. Zoho Books sends no timestamp. **Owner/next task:** make the ingest refuse a payload older than the stored row (paid never goes back to sent).
+- **Fixed (Medium), 2S8-SEC-03.** The other private-bucket presigns (account, onboarding, organisation, sponsor-request, hand-off, support and profile-change documents) pinned neither type nor length. Their confirm step checked size but not the content type, and did not delete an oversized object.
+  - Every private presign is now signed for one type and one exact size: `{signContentType: true, contentLength}` at all ten `presignPrivateUpload` calls. That includes the delivery proof, which had neither, and the deliverable creative upload, whose `bytes` was optional and is now required (`CreativeUploadInput`). Ad artwork was already pinned.
+  - Every confirm step now goes through one helper, `checkPrivateUpload` (`backend/src/lib/storage.ts`). For the deliverable creative and the ad artwork, the confirm step is the register step (`registerCreativeAsset`, `registerArtwork`); both call it with the type and size their grant's audit row recorded. It reads the object's `HeadObject` type and size and compares them with what the grant pinned: the exact size, and the flow's ceiling. On a mismatch it deletes the object, writes a `storage.privateUploadRefused` audit row (expected vs arrived), and the flow answers 422 "…so it was removed. Upload it again." The delivery proof reads the pinned type and size back from its grant's audit row.
+  - The browser side needed no change. Every upload component already PUTs the `File` it declared, with the grant's own `contentType` (or, for the deliverable upload, `f.type`, which is what it presigned). A zero-byte creative file is now refused at presign.
+- **Fixed (Low), 2S8-SEC-04.** Replay of an old signed invoice webhook could roll an invoice's status back. Zoho Books sends no timestamp.
+  - The ingest now refuses any payload that would move the **stored** state backwards. The forward order comes from Zoho's own words (`backend/src/domain/invoice-status-rules.ts`): `draft` < `sent` / `viewed` / `unpaid` < `partially_paid` / `overdue` < `paid`. A live invoice with nothing owed counts as paid, as in 2S4-BE-10. `void` is reachable from any unpaid state. `paid` and `void` are terminal: once paid, only another paid payload is applied (so a corrected amount still lands); once void, only void.
+  - The check applies to both mirrors, the campaign invoice and the marketplace order's. A refusal writes an `invoice.staleRefused` audit row (stored state, incoming state, reason) and marks the delivery `REJECTED` with the reason. The route still answers Zoho `202`, and the job finishes without throwing, so neither Zoho nor pg-boss retries it.
+  - Trade-off: a genuine move backwards in Zoho, such as a payment deleted or a void turned back into a draft, is held the same way. It cannot be told apart from a replay without the timestamp Zoho does not send. The audit row and the `REJECTED` delivery are where BTG sees it.
 
 **Fix:**
 - `requestLogoUpload` signs `Content-Type` and `Content-Length` into the presigned PUT.
+- 2S8-SEC-04: `backwardsMove` (invoice-status-rules.ts) and `refuseIfBackwards` (invoice-replay.ts), called by `ingestZohoInvoice` and `ingestOrderInvoice` before anything is written. `handleIngestInvoice` marks a refused delivery `REJECTED`.
 - `checkProof` refuses an arrived file over 10 MB.
 - The Zoho hooks now rate-limit **only unverified** attempts; a verified delivery is never throttled.
 - `rateLimit` re-sets the expiry on any key with TTL −1.
@@ -135,6 +140,15 @@ The checks were made against the OWASP Top 10 (2021), plus the ASVS basics that 
 **Test:**
 - `rate-limit-expiry.test.ts`.
 - The logo and proof changes are one-line pins on code that existing branding and delivery tests already cover.
+- 2S8-SEC-03: `backend/tests/private-upload-pins.test.ts`, end to end with no storage mock. The API presigns against an in-process S3 endpoint (`tests/support/object-store.ts`) that checks presigned signatures the way R2 does. For each of the ten flows (the eight document and proof uploads, plus the creative and artwork register steps) the test checks five things:
+  1. the URL signs `content-length;content-type;host`;
+  2. a PUT with another type, or one byte more or less, is refused 403;
+  3. a wrong-type file placed in the bucket anyway is refused on confirm, deleted and audited;
+  4. so is a wrong-size one;
+  5. the right file PUT through the URL is accepted.
+
+  A last case fails if any `presignPrivateUpload` in `src/domain` lacks either pin. Removing one pin in a scratch run failed both cases.
+- 2S8-SEC-04: `backend/tests/invoice-replay.test.ts`. The rule is tested pure: forward moves apply, paid never goes back (void included), void is never reopened, and an older open state is refused. It is then tested end to end: a correctly signed delivery is POSTed to the real route and the worker's job applies it. For a campaign invoice, sent then paid, the replayed `sent` bytes get `202`, the delivery is `REJECTED`, the stored row is unchanged and still paid, and the refusal is audited. So are older `draft`, `overdue` and `void` payloads, while a later paid correction still lands. For an open invoice, overdue never returns to sent. A marketplace order's paid invoice is not rolled back either.
 
 ### A05 · Security misconfiguration
 
@@ -248,11 +262,15 @@ The checks were made against the OWASP Top 10 (2021), plus the ASVS basics that 
   - No token, `Authorization` header, env value or `DATABASE_URL` is logged.
   - Every write is audited (`financial-audit-coverage`).
   - Every webhook attempt is recorded as RECEIVED or REJECTED, without the token it carried.
-- **Open (Info).** The worker logs non-fan recipients' email addresses.
+- **Fixed (Info), 2S8-SEC-05.** The worker logged non-fan recipients' email addresses.
 
-**Fix:** none needed.
+**Fix:**
+- Every line `worker/index.mts` logs now goes through one `log()`, which masks any address to its domain (`redactEmails`, `backend/src/lib/redact.ts`). So `rosa@school.org` is logged as `…@school.org`.
+- The two lines that named a recipient (`notify.email`, `notify.invitationSent`) and the persona seed's "skipped" line use `maskEmail`.
 
-**Test:** existing `error-body`, `financial-audit-coverage` and `zoho-webhook` tests.
+**Test:**
+- Existing: `error-body`, `financial-audit-coverage` and `zoho-webhook`.
+- 2S8-SEC-05: `security-hardening.test.ts`, block "4". It checks the masking, that the worker's only `console.log` is inside the redacting `log()`, and that no worker log line interpolates an `email` or `to` value unmasked.
 
 ### A10 · Server-side request forgery
 
@@ -268,12 +286,15 @@ The checks were made against the OWASP Top 10 (2021), plus the ASVS basics that 
   - The API fetches only Zoho hosts that are fixed in env.
   - The PDF renderer aborts every request and accepts the logo only as a `data:image/(png|jpeg)` URI.
   - Tracking destinations are restricted to http(s) at write time and again at read time.
-- **Open (Low).** Chromium runs with `--no-sandbox` and JavaScript on. Recommendation: `javaScriptEnabled: false` once it is confirmed the report needs no script.
-- **Open (Low).** Zoho CRM notification `module` and `ids` are free strings that end up in a Zoho API path. They are only accepted after the channel token verifies. Recommendation: restrict them to an enum and digits.
+- **Fixed (Low), 2S8-SEC-05.** Chromium ran with `--no-sandbox` and JavaScript on. The report template was confirmed to need no script: it has no `<script>`, no handler attribute and no `javascript:` link, and a real report was rendered and checked. `renderPdf` now opens its page with `javaScriptEnabled: false`. `--no-sandbox` is unchanged; it was outside this item.
+- **Fixed (Low), 2S8-SEC-05.** Zoho CRM notification `module` and `ids` were free strings that ended up in a Zoho API path. They were only accepted after the channel token verified. `ZohoCrmNotification` now holds `module` to `ZOHO_CRM_MODULES` (Accounts, Contacts, Deals, Tasks: exactly the worker's `WATCH_EVENTS`) and each id to `^\d{1,40}$`. Anything else is refused as `WebhookBodyError` and recorded REJECTED.
 
-**Fix:** none needed for SSRF.
+**Fix:** none needed for SSRF; the two hardening items above.
 
-**Test:** existing `report-render` and `tracking` tests.
+**Test:**
+- Existing: `report-render` and `tracking`.
+- 2S8-SEC-05 (PDF): `report-render.test.ts` asserts the real rendered report HTML carries no script and prints it to a real PDF with JavaScript off. `security-hardening.test.ts`, block "3", renders HTML whose script would rewrite `document.title` and checks that the PDF's `/Title` is still the static one.
+- 2S8-SEC-05 (CRM): `security-hardening.test.ts`, block "2". It checks the four modules are accepted, other modules and path-like or non-digit ids are refused, and the enum equals `WATCH_EVENTS`.
 
 ### Other checks
 
@@ -282,7 +303,40 @@ The checks were made against the OWASP Top 10 (2021), plus the ASVS basics that 
 | **CSRF**, server actions | Pass. Next 16's Origin-vs-Host check is on, because `allowedOrigins` is not set. |
 | **CSRF**, API | Pass. The browser never calls the API: portals call it server-to-server with a Bearer token, so there is no ambient cookie. |
 | **CSRF**, public POST route handlers (`/r/*/claim`, `/r/*/redeem`, `/u/*`) | Pass. They are authorised by the token in the URL, not by a cookie. |
-| **Guard tests** | **Open (Info).** `tenant-scope.static` checks reads only. `tenant-isolation` sweeps across tenants but not within one (sponsor vs sponsor, athlete vs athlete). Recommendation: extend both. |
+| **Guard tests** | **Fixed (Info), 2S8-QA-07.** `tenant-scope.static` checked reads only, and `tenant-isolation` swept across tenants but not within one (sponsor vs sponsor, athlete vs athlete). Both are extended; see [Guard tests, extended](#guard-tests-extended-2s8-qa-07) below. |
+
+### Guard tests, extended (2S8-QA-07)
+
+**`tenant-scope.static` now checks writes too.** It covers every `update`, `updateMany`, `delete`, `deleteMany` and `upsert` on the request path, and every raw SQL statement that writes (`UPDATE` / `DELETE FROM` / `INSERT INTO`). Each must carry its tenant (`whereFor`, a `tenantId`) or a `tenant-scope:` note naming the scoped read it relies on. The note goes inside the call or in the comment directly above it. A note elsewhere in the function does not count, and neither does a JSDoc example. A self-test pins what the check flags and what it passes.
+
+The first run found 45 unscoped writes; no raw SQL write was unscoped.
+- **Fixed, 3.** The tenant is now in the write itself:
+  - the athlete state move (`athlete.ts`, `tenantId: actor.tenantId`);
+  - launch's activation of a campaign's orders (`campaign.ts`, `tenantId: campaign.tenantId`);
+  - the application's social-accounts replace (`application-intake.ts`, the intake `tenantId`).
+- **Justified, 42**, each with its own note at the call. On review, every one writes a row that the same function had just reached through a tenant- or account-scoped read: `whereFor`, a signed public token, the order being moved, or worker-side Zoho ingest resolved from its deal. None was blanket-justified: the five `followOrder` writes in `delivery.ts` each carry the note, where before one comment at the top of the function covered all of them.
+- **Not caught** by a static check: writes made inside SQL functions (`reward_reserve`, `reward_redeem`), called through `SELECT`. They are keyed by the fan's opaque token and covered by the reward tests.
+
+**`tenant-isolation` now sweeps within a tenant.**
+- Tenant A gains a second sponsor admin (`ti_a2_sponsor`) and a second athlete (`ti_a2_athlete`). As each of them, every route aimed at a tenant-A record is called with the first sponsor's or first athlete's ids, with a valid body for writes. Covered: campaign orders, marketplace orders, offers, payouts, deliverables, briefs and listings, both read and write, plus campaigns, earnings, invitations, sales, deliveries and the rest of `PARAM_FOR`.
+- Each call must be refused, and must not crash or stop at validation.
+- Every list read (`GET` without an id) must not show any of the first accounts' private ids or values. The published athlete listing is the only exception, being catalogue-visible by design.
+- A positive control has the owners read the same records with 200.
+- The existing fingerprint check then proves nothing tenant A owns changed.
+
+**Shown failing on a deliberately broken route (scratch run, not committed).** Three breaks were made together:
+1. `GET /briefs/:id` scoped by `{ tenantId }` instead of `whereFor(campaignBrief, read)`;
+2. `respondToOffer` scoped by `{ tenantId }` instead of `whereFor(offer, write)`;
+3. the `tenant-scope:` note removed from one `campaignOrder.update`.
+
+Three tests then failed:
+- the static write check, naming `campaign-order.ts:219 campaignOrder.update`;
+- the same-tenant sweep, which reported `ti_a2_sponsor` and `ti_a2_athlete` reading `ti_brief_a` (leaking "TI secret objective"), and `ti_a2_athlete` answering `ti_offer_a` with 200;
+- the fingerprint check, which caught the offer that changed.
+
+The cross-tenant sweep still passed with the brief break in place, which is the gap this closes. All three files were restored.
+
+**Same-tenant leaks found: none.** Before the break, every route aimed at a record (197 per account), run as each of the two accounts, was refused, and no list read leaked.
 
 ## Dependency scan
 
@@ -348,6 +402,8 @@ It deliberately ignores:
 
 Matches are printed masked. **Result on 2026-10-05: 2,220 tracked files, no secrets found.** It scans the current tree, not git history.
 
+**Git history, 2S8-SEC-05.** `npm run secrets:scan:history` (`scripts/secret-scan.mjs --history`) runs the same rules over every line ever added, in every commit reachable from any ref. It reads `git log --all --full-history -p --cc`, so merge resolutions and side branches are included, and skips the lockfile and binaries as the tree scan does. It needs no new dependency. `gitleaks` was not used: it is not installed, and `npx gitleaks` would download it. **Result on 2026-10-05: 868 commits, 4,433,222 added lines, no secrets found.** Test: `scripts/security-scripts.test.mjs`, "secret scan --history". In a throwaway repo, a key committed and then deleted is found and attributed to the commit that added it, masked.
+
 ## Decisions for the owner
 
 1. **Full CSP.** Roll out a script/style CSP in report-only mode first. It has to allow Clerk, Turnstile, the R2 upload host and the inline styles on `/r` and `/u` (§A05).
@@ -358,13 +414,17 @@ Matches are printed masked. **Result on 2026-10-05: 2,220 tracked files, no secr
 6. **Production `PAYMENT_PROVIDER`.** Set `PAYMENT_PROVIDER=none` explicitly on Railway production. The stand-in is chosen whenever `RAILWAY_ENVIRONMENT_NAME` is not exactly `production`, so a renamed environment would quietly switch it on. The boot guard only catches an *explicit* `standin`.
 7. **Staging `STANDIN_PROVIDER_SECRET`.** Staging is now safe without it (the secret is derived), but setting it explicitly makes rotation independent of `INTAKE_TOKEN_SECRET`. It is in the rotation runbook.
 
-## Follow-ups not done here (each is Open above)
+## Follow-ups not done here (each was Open above; struck through when closed)
 
-- Pin type and length on every private presign, and check type on confirm (§A04).
-- Make the invoice ingest refuse an older state (§A04).
-- Close the rate-card existence oracle (§A01).
-- Constrain Zoho notification `module` and `ids` (§A10).
-- Turn off JavaScript in the PDF renderer (§A10).
-- Extend the guard tests to writes and same-tenant cases (§Other checks).
-- Add `import "server-only"` to `frontend/src/server/{api,edge,payouts}.ts`.
-- Optionally run a git-history secret scan, for example gitleaks, once.
+- ~~Pin type and length on every private presign, and check type on confirm (§A04).~~ Fixed, 2S8-SEC-03.
+- ~~Make the invoice ingest refuse an older state (§A04).~~ Fixed, 2S8-SEC-04.
+- ~~Close the rate-card existence oracle (§A01).~~ Fixed, 2S8-SEC-05.
+- ~~Constrain Zoho notification `module` and `ids` (§A10).~~ Fixed, 2S8-SEC-05.
+- ~~Turn off JavaScript in the PDF renderer (§A10).~~ Fixed, 2S8-SEC-05.
+- ~~Extend the guard tests to writes and same-tenant cases (§Other checks).~~ Fixed, 2S8-QA-07.
+- ~~Add `import "server-only"` to `frontend/src/server/{api,edge,payouts}.ts`.~~ Fixed, 2S8-SEC-05.
+  - The three files import it. It resolves to the copy in the lockfile, which `@clerk/nextjs` depends on; Next itself handles the import and needs no direct dependency.
+  - Five vitest files that load those modules directly now `vi.mock("server-only")`, as they already mock `next/server` and `next/headers`. No config was changed.
+  - Test: `frontend/tests/security-review.test.ts`, "2S8-SEC-05". It checks each file imports the marker, that the real marker throws outside a server bundle, and that no `"use client"` module reaches the three files through its imports. Adding such an import in a scratch run failed it.
+  - The frontend typecheck and full vitest pass. `next build` was not run: free disk on the build machine was 1.6 GB, and the build output would compete with other sessions.
+- ~~Optionally run a git-history secret scan, for example gitleaks, once.~~ Done, 2S8-SEC-05: clean (see [Secret scan](#secret-scan)).

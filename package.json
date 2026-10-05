@@ -27,6 +27,7 @@
     "deploy": "node scripts/deploy.mjs",
     "audit:check": "node scripts/audit-check.mjs",
     "secrets:scan": "node scripts/secret-scan.mjs",
+    "secrets:scan:history": "node scripts/secret-scan.mjs --history",
     "test:security-scripts": "node --test scripts/security-scripts.test.mjs"
   },
   "devDependencies": {

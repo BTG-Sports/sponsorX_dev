@@ -217,6 +217,7 @@ export async function updateInventoryItem(actor: Actor, id: string, patch: Parti
       if (live) throw new InventoryError("A published listing shows this price and quantity. Pause the listing first, then change them.", 409);
     }
     if (patch.jobId !== undefined) await assertJob(tx, patch.jobId);
+    /* tenant-scope: the row loaded above through whereFor(inventoryItem, write). */
     const updated = await tx.inventoryItem.update({
       where: { id },
       data: {

@@ -4,7 +4,7 @@
  *
  * Every upload in the app is presign (API) → PUT straight from the browser
  * to the bucket → the API asks the bucket whether it landed (a HEAD, for
- * IDs and onboarding documents — storage.ts privateObjectSize). CI's e2e
+ * IDs and onboarding documents — storage.ts checkPrivateUpload). CI's e2e
  * job has no MinIO, so a page.route stub of the PUT is not enough there: the
  * HEAD that follows would find nothing. This answers the few path-style S3
  * calls those steps make, the way a bucket with a CORS policy does:
