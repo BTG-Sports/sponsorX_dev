@@ -130,7 +130,8 @@ describe("P5-BE-04 · launching a campaign does all five things", () => {
      sweeping it to ACTIVE would manufacture a contract. */
   it("activates ONLY the accepted orders", async () => {
     await launchCampaign(actor(), "cmp_1");
-    expect(orderUpdateWhere).toEqual({ campaignId: "cmp_1", state: "ACCEPTED" });
+    /* 2S8-QA-07 — the campaign's own tenant, in the write itself. */
+    expect(orderUpdateWhere).toEqual({ campaignId: "cmp_1", tenantId: "t1", state: "ACCEPTED" });
   });
 
   it("queues both jobs — the Zoho push and the launch notification", async () => {

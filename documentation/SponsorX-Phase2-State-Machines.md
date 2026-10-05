@@ -132,6 +132,45 @@ event id.
 - Refunding more than was captured.
 - Any state set from the client. Only the provider's webhook moves a payment.
 
+### As built (2S5-INT-02, 2026-10-05)
+
+The payment is the card attempt (`PaymentAttempt`):
+`PENDING → PROCESSING → SUCCEEDED → (PARTIALLY_REFUNDED →) REFUNDED`, with
+`FAILED` reachable from `PENDING` or `PROCESSING`. `SUCCEEDED` is the
+design's `CAPTURED` (the provider authorises and captures in one step);
+`refundedCents` never passes `amountCents` (a CHECK). `PENDING → PROCESSING`
+is also made by the provider's own page when the sponsor completes it.
+
+**The provider's word.** Every provider webhook is checked over its raw body
+(a signed timestamp, five minutes either way: a replay is refused), mapped
+onto nine provider-neutral events — `payment.processing | succeeded | failed
+| refunded`, `dispute.opened | closed`, `payout.paid | failed | returned` —
+and recorded once per (provider, event id) as a `PaymentEvent`, queued for
+the worker in the same transaction. A duplicate delivery writes nothing. The
+worker applies each event under the order's row lock; it ends:
+
+| Event status | Means |
+|---|---|
+| `APPLIED` | it moved what it names |
+| `IGNORED` | nothing left to do: a late or repeated word (a "processing" after "succeeded", a failure after "succeeded", a second "succeeded") |
+| `DEFERRED` | it names something SponsorX hasn't recorded yet; tried again after 30 s, 2, 10, 30, 60 and 180 minutes |
+| `HELD` | BTG's, with the reason: "succeeded" after a recorded failure, an amount that isn't the payment's |
+| `FAILED` | BTG's: deferred past the last try, or its handler failed six times |
+
+**Illegal, as built:** any move backwards (`SUCCEEDED → PROCESSING`,
+`SUCCEEDED → FAILED`), `FAILED → SUCCEEDED` by itself (HELD instead), and
+applying one event twice (the event's row lock and its status).
+
+**Outages (2S8-QA-02).** Every call to the provider goes through the adapter
+with a timeout (`PAYMENT_PROVIDER_TIMEOUT_MS`), inside the transaction of the
+step it belongs to: the provider down (or silent) when a sponsor starts
+paying answers 503 `busy` with no attempt recorded; when a payout is handed
+over, nothing is recorded as sent and the queue retries it with the same
+idempotency key; when a card is refunded, the refund and its reversal stand
+and the money waits on Finance's list. A step that fails half-way (the
+database refusing a write) leaves nothing written. The stand-in can be told
+it is down (`STANDIN_OUTAGE`) to prove it on staging.
+
 ## 6 · Payout (`2S5-BE-04`, `2S5-BE-05`)
 
 `NOT_ELIGIBLE → ELIGIBLE → REQUESTED → APPROVED → PAID`, with `FAILED → REQUESTED`
@@ -150,6 +189,17 @@ The payout row's states are `REQUESTED → APPROVED → SENDING → PAID`, with
 (paid, delivered, past its holding period), and a hold is the payee's
 (`payout-holds.ts`) — a held payee's payout is never requested, approved or
 sent.
+
+**Eligibility, all five every time (2S5-BE-04, 2026-10-05).** Money is
+released only when the sponsor's payment is in (the payable is available),
+the payee's lines are delivered and confirmed, the holding period has
+passed, the payout account is READY, and no dispute is open on the order
+(nor a provider refund BTG is checking). Each is checked where money moves:
+the balance a payee can request, BTG's approval (the fifth check, `dispute`,
+on every payout), and the worker's hand-over to the provider — an approved
+payout whose account has left READY, or whose order is frozen, waits
+`APPROVED` and is sent by the account's next READY or the dispute's
+resolution.
 
 **Approved automatically (2S5-BE-06).** `REQUESTED → APPROVED` is made by the
 system, in the request's own transaction, when every check passes, the
@@ -182,6 +232,27 @@ run twice retries once; every provider step (`APPROVED → SENDING`,
 `SENDING → PAID | FAILED`) is conditional too, so a job delivered twice moves
 it once. With no provider connected nothing is sent, so nothing fails.
 
+**Executed and tracked by the provider's word (2S5-BE-05, 2026-10-05).**
+"Admin approves" is now the automatic approval above, with BTG approving only
+what it holds. `APPROVED → SENDING` is the worker's hand-over through the
+provider adapter, sent with `<payout id>:<hand-over number>` as the
+provider's idempotency key (`sendAttempts`), so a hand-over retried after a
+crash is the same payout to the provider; a provider that throws rolls the
+step back and the queue retries it. Everything after that is the provider's
+event, through the payment webhook (§5):
+
+| Event | Move |
+|---|---|
+| `payout.paid` | `SENDING → PAID`: its PAYOUT journals, the payee emailed |
+| `payout.failed` | `SENDING → FAILED`, by kind (the table above); one left for `BTG` emails BTG's admins |
+| `payout.returned` | `PAID → FAILED` as an `ACCOUNT` failure (`returnedAt`, `returnCount`): its PAYOUT journals mirrored, the payee asked to fix the account, sent again when it is READY; a second return is BTG's |
+
+Out of order: a "paid" or "failed" before SponsorX recorded the hand-over, or
+a return before the payment, waits (DEFERRED); a failure after "paid" is
+ignored; a word about an earlier hand-over (its reference replaced by a
+retry) is ignored; a "paid" for a payout SponsorX had failed is HELD for BTG
+and its automatic retry stopped, so it is never paid twice.
+
 **Illegal, as built:**
 - `REQUESTED → APPROVED` automatically for a payee on hold, at or over the
   limit, after an account change within 7 days, or at the 7-day cap.
@@ -208,6 +279,24 @@ with the transfer's reference.
 - Reopening a closed dispute (a new one is opened instead).
 - `OPEN → WON`, which skips review.
 
+### As built (2S5-BE-03, 2026-10-05)
+
+| From | Legal moves | Who |
+|---|---|---|
+| — | → `OPEN` on the provider's `dispute.opened` (or its `dispute.closed` arriving first) | the provider |
+| `OPEN` | → `UNDER_REVIEW` (what was sent to the provider, in a note) | BTG admin or Finance |
+| `UNDER_REVIEW` | → `WON` or `LOST`, only to the outcome the provider reported (`providerOutcome`), with a note | a BTG admin |
+
+The provider's `dispute.closed` records `providerOutcome` and tells BTG; it
+moves no state. While `OPEN` or `UNDER_REVIEW` the order's money is frozen.
+`LOST` reverses the order's books (or the lines named, for a part dispute),
+sends back payouts not yet handed to the provider, and records what was
+already paid out as owed back; `WON` sends a payout that was waiting on it.
+
+**Illegal, as built:** any move by the system out of `OPEN` or
+`UNDER_REVIEW`; resolving before the provider has decided, or to the other
+outcome; a refund of the order while it is open, or after it was lost.
+
 ## How they depend on each other
 
 | Rule | Machines |
@@ -217,5 +306,6 @@ with the transfer's reference.
 | An order is created only from a `CONVERTED` reservation | reservation → order |
 | An order is `PAID` only when its payment is `CAPTURED` | payment → order |
 | A payout is `ELIGIBLE` only after the order is `FULFILLED` | order → payout |
-| **An open dispute holds every payout on its order** (`→ HELD`), and a `LOST` dispute cancels the payout | dispute → payout |
+| **An open dispute holds every payout on its order** (`→ HELD`), and a `LOST` dispute cancels the payout. As built: an approved payout waits `APPROVED` (not sent) and a requested one can't be approved; `LOST` sends back every payout not yet `SENDING` (`→ REJECTED` as the system) | dispute → payout |
+| A refund the provider made on its own: the whole payment refunds the order (cancelling payouts not yet sent); anything else is held for BTG, and holds the order's payouts until BTG refunds it or closes it | payment → order, payout |
 | A refund reverses in the ledger, never by editing an entry | payment → ledger (`2S0-PMO-02`) |

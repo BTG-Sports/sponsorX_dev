@@ -322,7 +322,7 @@ describe("the two mandatory inputs", () => {
 describe("P5-BE-06 · creative goes straight to R2", () => {
   it("hands back a presigned URL and the key", async () => {
     at("NOT_STARTED");
-    const out = await presignCreativeUpload(athlete(), "dlv_1", "video/mp4");
+    const out = await presignCreativeUpload(athlete(), "dlv_1", "video/mp4", 1_048_576);
     expect(out.url).toContain("X-Amz-Signature");
     expect(out.key).toBe(presignCalls[0]!.key);
   });
@@ -332,20 +332,20 @@ describe("P5-BE-06 · creative goes straight to R2", () => {
      folder. */
   it("builds the key itself, under the tenant and the deliverable", async () => {
     at("NOT_STARTED");
-    const out = await presignCreativeUpload(athlete(), "dlv_1", "video/mp4");
+    const out = await presignCreativeUpload(athlete(), "dlv_1", "video/mp4", 1_048_576);
     expect(out.key).toMatch(/^t\/t1\/deliverable\/dlv_1\/[0-9a-f-]{36}$/);
   });
 
   it("gives a different key every time, so an upload never overwrites another", async () => {
     at("NOT_STARTED");
-    const a = await presignCreativeUpload(athlete(), "dlv_1", "video/mp4");
-    const b = await presignCreativeUpload(athlete(), "dlv_1", "video/mp4");
+    const a = await presignCreativeUpload(athlete(), "dlv_1", "video/mp4", 1_048_576);
+    const b = await presignCreativeUpload(athlete(), "dlv_1", "video/mp4", 1_048_576);
     expect(a.key).not.toBe(b.key);
   });
 
   it("issues no credential for a deliverable the actor cannot reach", async () => {
     deliverable = null;
-    await expect(presignCreativeUpload(athlete(), "dlv_1", "video/mp4")).rejects.toThrow();
+    await expect(presignCreativeUpload(athlete(), "dlv_1", "video/mp4", 1_048_576)).rejects.toThrow();
     expect(presignCalls).toEqual([]);
   });
 

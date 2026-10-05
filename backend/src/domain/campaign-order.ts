@@ -216,6 +216,7 @@ export async function updateOrderTerms(
     const from = order.state as OrderState;
     if (from !== "DRAFT") throw new TermsFrozenError(from);
 
+    /* tenant-scope: the row loaded above through whereFor(campaignOrder, write). */
     const updated = await tx.campaignOrder.update({
       where: { id: orderId },
       data: {
@@ -269,6 +270,7 @@ export async function transitionOrder(
     const from = order.state as OrderState;
     if (!canTransitionOrder(from, to)) throw new IllegalOrderTransitionError(from, to);
 
+    /* tenant-scope: the row loaded above through whereFor(campaignOrder, write). */
     const updated = await tx.campaignOrder.update({
       where: { id: orderId },
       data: { state: to as Prisma.CampaignOrderUpdateInput["state"] },
@@ -356,6 +358,7 @@ export async function acceptOrder(
        protection, and it runs inside this transaction. */
     const acceptance = await acceptAgreementIn(tx, actor, evidence, { oncePerSigner: false });
 
+    /* tenant-scope: the row loaded above through whereFor(campaignOrder, write). */
     const updated = await tx.campaignOrder.update({
       where: { id: orderId },
       data: {

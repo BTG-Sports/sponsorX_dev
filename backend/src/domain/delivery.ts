@@ -97,8 +97,9 @@ import type { Actor } from "../auth/actor";
 import { assertAllowed, can, scopeOf, whereFor, type Scope } from "../auth/scope";
 import { ForbiddenError } from "../auth/errors";
 import { send, type EmailTemplate } from "../lib/email";
-import { presignPrivateDownload, presignPrivateUpload, privateObjectSize, SENSITIVE_DOCUMENT_TTL_SECONDS } from "../lib/storage";
+import { checkPrivateUpload, presignPrivateDownload, presignPrivateUpload, SENSITIVE_DOCUMENT_TTL_SECONDS, uploadRefusal } from "../lib/storage";
 import { reverseOrder } from "./ledger";
+import { assertRefundable } from "./payment-exceptions";
 import { lockOrder, moveOrderAsSystem, moveOrderIn, OrderStateConflictError } from "./marketplace-order";
 import { usd } from "./marketplace-order-rules";
 import { recordRefund, refundsForOrders, type RefundCause, type RefundContext, type SponsorRefund } from "./refunds";
@@ -450,18 +451,22 @@ async function notifySellers(tx: Tx, orderId: string, template: "sale.approved" 
 export async function followOrder(tx: Tx, actor: AuditActor, orderId: string, to: string, now: Date) {
   /* tenant-scope (every call below): this order's own delivery rows, named by its id. */
   if (to === "PAID") {
+    /* tenant-scope: this order's own delivery rows, named by its id; followOrder runs only inside moveIn, on an order its caller loaded in its own scope. */
     const opened = await tx.orderLineDelivery.updateMany({ where: { orderId, state: "UNPAID" }, data: { state: "IN_DELIVERY", paidAt: now } });
     if (opened.count) await notifySellers(tx, orderId, "sale.paid");
   }
   if (to === "CANCELLED") {
+    /* tenant-scope: this order's own delivery rows, named by its id; followOrder runs only inside moveIn, on an order its caller loaded in its own scope. */
     await tx.orderLineDelivery.updateMany({ where: { orderId, state: { in: ["UNPAID", "IN_DELIVERY", "DELIVERED", "PROBLEM"] } }, data: { state: "CANCELLED" } });
   }
   if (to === "REFUNDED") {
+    /* tenant-scope: this order's own delivery rows, named by its id; followOrder runs only inside moveIn, on an order its caller loaded in its own scope. */
     await tx.orderLineDelivery.updateMany({ where: { orderId, state: { notIn: ["REFUNDED", "CANCELLED"] } }, data: { state: "REFUNDED" } });
   }
   if (to === "CANCELLED" || to === "REFUNDED") {
     /* 2S4-BE-11 — an issue still open on the order ends with it. (An issue
        settled or decided as part of this refund was closed first, by its caller.) */
+    /* tenant-scope: this order's own open issues, named by its id; as above. */
     await tx.deliveryIssue.updateMany({
       where: { orderId, stage: { in: OPEN_STAGES } }, data: { stage: "CLOSED", outcome: "ORDER_ENDED", closedAt: now, closedBy: actor.userId ?? "system" },
     });
@@ -483,6 +488,7 @@ export async function followOrder(tx: Tx, actor: AuditActor, orderId: string, to
     });
     if (open) throw new DeliveryError("A line on this order isn't settled yet — the seller marks it delivered, then the sponsor has 24 hours to confirm or report a problem.");
     /* A delivered line whose 24 hours are over is confirmed by silence — the sweep would do the same. */
+    /* tenant-scope: this order's own delivery rows, named by its id; followOrder runs only inside moveIn, on an order its caller loaded in its own scope. */
     await tx.orderLineDelivery.updateMany({
       where: { orderId, state: "DELIVERED", confirmDueAt: { lte: now } },
       data: { state: "CONFIRMED", confirmedAt: now, confirmedBy: "system", confirmedHow: "SILENCE" },
@@ -919,24 +925,40 @@ export async function requestProofUpload(actor: Actor, lineId: string, input: { 
   const answering = row.state === "PROBLEM" && row.issues.length > 0;
   if (row.state !== "IN_DELIVERY" && !answering) throw new DeliveryError("Proof is added when you mark the line delivered, or when you answer a problem.");
   const key = `${proofPrefix(row.tenantId, row.lineId)}${randomUUID()}.${PROOF_TYPES[input.contentType]}`;
-  const uploadUrl = await presignPrivateUpload(actor, key, input.contentType, { entity: "OrderLineDelivery", entityId: row.id });
+  /* 2S8-SEC-03 — the PUT is signed for exactly this type and size, and the
+     grant's audit row records both: checkProof reads them back from it. */
+  const uploadUrl = await presignPrivateUpload(actor, key, input.contentType, { entity: "OrderLineDelivery", entityId: row.id }, {
+    signContentType: true, contentLength: input.bytes,
+  });
   return { uploadUrl, key, contentType: input.contentType };
 }
 
 export type MarkDeliveredInput = { note: string; proofKey?: string | null; proofLink?: string | null };
 
 /** The optional photo (uploaded under this line's own key, and arrived) and https link. */
-async function checkProof(row: { tenantId: string; lineId: string }, input: { proofKey?: string | null; proofLink?: string | null }, without: string) {
+async function checkProof(actor: Actor, row: { id: string; tenantId: string; lineId: string }, input: { proofKey?: string | null; proofLink?: string | null }, without: string) {
   const proofKey = input.proofKey?.trim() || null;
   if (proofKey) {
     if (!proofKey.startsWith(proofPrefix(row.tenantId, row.lineId)) || proofKey.includes("..") || proofKey.includes("//")) {
       throw new DeliveryError("That photo wasn't uploaded for this line.", 422);
     }
-    const size = await privateObjectSize(proofKey);
-    if (size === null) throw new DeliveryError(`The photo hasn't arrived in storage yet — upload it again, or ${without} without it.`, 422);
+    /* 2S8-SEC-03 — the type and size this key's grant pinned, read back from
+       the grant's own audit row (the key is unguessable, so one exists only
+       for a key this line was really handed). */
+    const grant = await prisma.auditLog.findFirst({
+      /* tenant-scope: the grant was audited in this line's tenant, under this line's delivery row. */
+      where: { tenantId: row.tenantId, action: "storage.privateUploadGrant", entity: "OrderLineDelivery", entityId: row.id, after: { path: ["key"], equals: proofKey } },
+      select: { after: true }, orderBy: { at: "desc" },
+    });
+    const pinned = (grant?.after ?? null) as { contentType?: unknown; bytes?: unknown } | null;
+    if (!pinned || typeof pinned.contentType !== "string") throw new DeliveryError("That photo wasn't uploaded for this line.", 422);
     /* 2S8-SEC-02 — the 10 MB limit checked on the file that actually
-       arrived: a presigned PUT does not stop a larger one being sent. */
-    if (size > PROOF_MAX_BYTES) throw new DeliveryError("Up to 10 MB.", 422);
+       arrived; 2S8-SEC-03 — and its type and exact size, or it is deleted. */
+    const arrived = await checkPrivateUpload(actor, proofKey,
+      { contentType: pinned.contentType, bytes: typeof pinned.bytes === "number" ? pinned.bytes : null, maxBytes: PROOF_MAX_BYTES },
+      { entity: "OrderLineDelivery", entityId: row.id });
+    if (!arrived.ok && arrived.problem === "missing") throw new DeliveryError(`The photo hasn't arrived in storage yet — upload it again, or ${without} without it.`, 422);
+    if (!arrived.ok) throw new DeliveryError(uploadRefusal(arrived.problem, "That photo"), 422);
   }
   const proofLink = input.proofLink?.trim() || null;
   if (proofLink && !/^https:\/\//i.test(proofLink)) throw new DeliveryError("A link starts with https://", 422);
@@ -952,7 +974,7 @@ export async function markDelivered(actor: Actor, lineId: string, input: MarkDel
     where: { ...whereFor(actor, "orderDelivery", "write"), lineId }, select: { id: true, tenantId: true, lineId: true },
   });
   if (!found) throw new ForbiddenError("orderDelivery", "write");
-  const { proofKey, proofLink } = await checkProof(found, input, "mark delivered");
+  const { proofKey, proofLink } = await checkProof(actor, found, input, "mark delivered");
 
   const byName = await markerName(actor);
   return prisma.$transaction(async (tx) => {
@@ -1318,7 +1340,7 @@ export async function answerProblem(actor: Actor, lineId: string, input: Problem
     where: { ...whereFor(actor, "orderDelivery", "write"), lineId }, select: { id: true, tenantId: true, lineId: true },
   });
   if (!found) throw new ForbiddenError("orderDelivery", "write");
-  const { proofKey, proofLink } = answer === "DISAGREE" ? await checkProof(found, input, "answer") : { proofKey: null, proofLink: null };
+  const { proofKey, proofLink } = answer === "DISAGREE" ? await checkProof(actor, found, input, "answer") : { proofKey: null, proofLink: null };
   const byName = await markerName(actor);
 
   return prisma.$transaction(async (tx) => {
@@ -1449,6 +1471,8 @@ async function refundLine(
   tx: Tx, actor: AuditActor & { tenantId: string }, row: { id: string; orderId: string; lineId: string; line: { inventoryItemId: string; startsOn: Date; endsOn: Date } },
   now: Date, ctx: RefundContext,
 ) {
+  /* 2S5-BE-03 — not under a dispute, nor after one was lost. */
+  await assertRefundable(tx, row.orderId);
   const live = await tx.orderLineDelivery.count({
     /* tenant-scope: this order's own delivery rows, named by its id. */
     where: { orderId: row.orderId, state: { notIn: ["REFUNDED", "CANCELLED"] } },

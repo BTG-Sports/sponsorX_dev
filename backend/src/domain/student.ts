@@ -336,6 +336,7 @@ export async function linkStudentGuardian(
       },
       select: { id: true },
     });
+    /* tenant-scope: the row loaded above through whereFor(student, write). */
     await tx.student.update({ where: { id: studentId }, data: { guardianId: guardian.id }, select: { id: true } });
     await audit(tx, actor, "student.guardianLink", "Student", studentId, {
       before: { guardianId: student.guardianId }, after: { guardianId: guardian.id },
@@ -564,6 +565,7 @@ export async function assignAccountStudent(actor: Actor, sponsorId: string, stud
       if (!student) throw new ForbiddenError("student", "read");
       if (student.state !== "ACTIVE") throw new StudentNotActiveError("be assigned an account");
     }
+    /* tenant-scope: the row loaded above through whereFor(sponsor, write). */
     await tx.sponsor.update({ where: { id: sponsorId }, data: { assignedStudentId: studentId }, select: { id: true } });
     await audit(tx, actor, "sponsor.assignStudent", "Sponsor", sponsorId, {
       before: { assignedStudentId: sponsor.assignedStudentId }, after: { assignedStudentId: studentId },

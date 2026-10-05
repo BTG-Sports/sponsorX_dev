@@ -35,7 +35,9 @@ export async function handleIngestInvoice(
   db: pg.Pool,
   job: IngestInvoiceJob,
   deps: {
-    apply: (payload: unknown) => Promise<{ applied: boolean; invoiceId?: string; reason?: string }>;
+    /** `rejected` (2S8-SEC-04): understood and declined — e.g. a replayed
+     *  older payload that would move the invoice backwards. */
+    apply: (payload: unknown) => Promise<{ applied: boolean; invoiceId?: string; reason?: string; rejected?: boolean }>;
   },
 ): Promise<IngestInvoiceOutcome> {
   const { rows } = await db.query<DeliveryRow>(
@@ -52,6 +54,14 @@ export async function handleIngestInvoice(
 
   try {
     const result = await deps.apply(delivery.payload);
+    /* 2S8-SEC-04 — refused as older than the stored invoice: terminal, like
+       an unknown deal. Recorded with its reason; the job succeeds, so pg-boss
+       does not retry it, and the route already answered Zoho 202. */
+    if (result.rejected) {
+      const reason = result.reason ?? "refused";
+      await db.query(`UPDATE "WebhookDelivery" SET status = $2, error = $3 WHERE id = $1`, [delivery.id, "REJECTED", reason]);
+      return { status: "REJECTED", reason };
+    }
     await db.query(`UPDATE "WebhookDelivery" SET status = $2 WHERE id = $1`, [
       delivery.id,
       "APPLIED",

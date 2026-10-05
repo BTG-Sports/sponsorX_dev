@@ -513,6 +513,7 @@ export async function useAssetInCampaign(actor: Actor, assetId: string, campaign
       where: { tenantId: actor.tenantId, assetId, mayReuseCommercially: true, ...inForce(new Date()) },
     });
     if (granted === 0) throw new CommercialGrantRequiredError();
+    /* tenant-scope: the row loaded above through whereFor(editionAsset, write). */
     await tx.editionAsset.update({ where: { id: assetId }, data: { campaignId }, select: { id: true } });
     await audit(tx, actor, "editionAsset.useInCampaign", "EditionAsset", assetId, { after: { campaignId } });
     return { assetId, campaignId };

@@ -239,7 +239,8 @@ export async function launchIn(
   if (claimed.count !== 1) throw new CampaignStateConflictError(from, "ACTIVE");
 
   const activated = await tx.campaignOrder.updateMany({
-    where: { campaignId, state: "ACCEPTED" },
+    /* 2S8-QA-07 — the campaign's own tenant, in the write itself. */
+    where: { campaignId, tenantId: campaign.tenantId, state: "ACCEPTED" },
     data: { state: "ACTIVE" },
   });
 

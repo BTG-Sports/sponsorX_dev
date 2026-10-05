@@ -191,7 +191,8 @@ export async function transitionAthleteIn(
   let updated: { id: string; state: string };
   try {
     updated = await tx.athlete.update({
-      where: { id: athleteId, state: from },
+      /* 2S8-QA-07 — the tenant the athlete was loaded in, in the write itself. */
+      where: { id: athleteId, tenantId: actor.tenantId, state: from },
       data: {
         state: to as Prisma.AthleteUpdateInput["state"],
         ...(isReviewDecision

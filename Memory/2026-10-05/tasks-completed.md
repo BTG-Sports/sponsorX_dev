@@ -72,3 +72,36 @@
   - 2S8-QA-07: guard tests cover writes and same-tenant access;
   - 2S8-PMO-02: the seven security settings the owner decides.
 - **Tracker ranges:** the Phase 2 ranges now end at row 131. That covers the Dashboard formulas, the autofilter, the conditional formatting and the Status list.
+- **Security follow-ups · all Done** (merged 62495d9). Backend 2731/2731 and frontend 1155/1155. Secret scan, audit gate and script tests pass.
+  - **2S8-SEC-03:** all ten private upload URLs are signed for one type and size. Every confirm or register step checks the object (HEAD) and refuses, deletes and audits a mismatch. `tests/support/object-store.ts` is an in-process bucket that checks signatures the way R2 does.
+  - **2S8-SEC-04:** the invoice ingest never moves a stored invoice backwards, and `invoice.staleRefused` is audited. A genuine backwards correction in Zoho is held for BTG too, because Zoho sends no timestamp.
+  - **2S8-SEC-05:**
+    - the rates probe is closed;
+    - the Zoho CRM module and ids are constrained;
+    - the PDF renderer runs with JavaScript off;
+    - worker logs mask email addresses;
+    - `server-only` is on the three `frontend/src/server` files, owner approved — heads-up, HeckerCreatives: the five vitest files that load them mock it;
+    - a new `npm run secrets:scan:history` scanned 868 commits and found nothing.
+  - **2S8-QA-07:**
+    - the static guard now covers writes: 3 writes were fixed to carry the tenant, and 42 were justified one by one;
+    - the isolation test adds a second sponsor and a second athlete in the same tenant, across 197 routes;
+    - no real leak was found.
+- **2S8-PMO-02** (the seven security decisions) stays with the owner.
+- **The payment chain is in progress:** 2S5-INT-02, BE-03, BE-04, BE-05 and 2S8-QA-02.
+- **Payment chain · all Done** (merged cdf89cf), built on the stand-in provider. CI is green (run 37297015366). Backend 2838/2838, frontend 1155/1155.
+  - **2S5-INT-02:** signed payment webhooks with a 5-minute replay window, and one `PaymentEvent` per provider event, applied by the `payments.event` job. States only move forward; early events are deferred, and conflicts are held for BTG.
+  - **2S5-BE-03:** provider refunds reverse the ledger. Disputes go OPEN → UNDER_REVIEW → WON | LOST and are never moved by the system. An open dispute freezes the order's money, and a lost one reverses the books and records money owed back.
+  - **2S5-BE-04:** the dispute clause is added, so eligibility now checks all five conditions.
+  - **2S5-BE-05:** payouts go to the provider with idempotency keys, `payout.paid` / `failed` / `returned` track them to completion, and retries run 1/6/24 hours, then hand over to BTG.
+  - **2S8-QA-02:** a deliberate-breakage suite with a books-balance check after every scenario. The stand-in has `STANDIN_OUTAGE` for outage tests. Wallet provider outages are split out to the new **2S6-QA-01** (Blocked until wallet adapters exist; owner decision).
+  - **Left for Stripe (2S5-INT-01):** the verifier and event mapping (the mapping table is already in `contracts/payment-events.ts`), the adapter calls, metadata, Connect status, and dispute evidence and fees.
+- **Six new frontend rows for HeckerCreatives, all Ready** (owner decision). The API already serves each one:
+  - 2S5-FE-07: BTG's payment exceptions page;
+  - 2S5-FE-08: dispute pages;
+  - 2S5-FE-09: frozen money on the payee page;
+  - 2S5-FE-10: payout attempts and returns;
+  - 2S5-FE-11: checkout "busy, try again";
+  - 2S5-FE-12: provider refunds on Finance's list.
+- **Two merge fixes:**
+  - The payment worker's new log lines now go through the email-masking `log()`, as 2S8-SEC-05 requires.
+  - `loop-p4` was racing the page refresh: the "Declined…" confirmation disappears once the offer leaves "open". The spec now accepts the confirmation or the refreshed status, for accept and decline both.

@@ -134,6 +134,10 @@ describe.skipIf(!hasDatabase)("the report rendered on the worker, from screen 12
     for (const [s, words] of chips) expect(words).toBe(SOURCE_LABEL[s as keyof typeof SOURCE_LABEL]);
     /* Reach stays three layers, never one total (§22). */
     expect(html).not.toMatch(/total views/i);
+    /* 2S8-SEC-05 — the report needs no script: none in it, no handler
+       attributes, no javascript: links. It prints (below) with JavaScript
+       off in the renderer. */
+    expect(html).not.toMatch(/<script|\son[a-z]+\s*=|javascript:/i);
 
     /* A real PDF, into the private bucket, recorded. */
     expect(puts).toHaveLength(1);

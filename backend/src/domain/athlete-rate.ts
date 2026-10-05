@@ -21,7 +21,7 @@
 import { prisma } from "../db/client";
 import { audit, AUDIT_ACTIONS } from "../db/audit";
 import type { Actor } from "../auth/actor";
-import { assertAllowed, assertTenantWide, whereFor } from "../auth/scope";
+import { assertAllowed, assertTenantWide, MATCHES_NOTHING, whereFor } from "../auth/scope";
 import { ForbiddenError } from "../auth/errors";
 import { TIER_MULTIPLIERS, type PricedTier } from "./pricing";
 import { lineFloor } from "./margin-floor";
@@ -90,6 +90,7 @@ export async function setAthleteTier(
     });
     if (!athlete) throw new ForbiddenError("athlete", "write");
 
+    /* tenant-scope: the row loaded above through whereFor(athlete, write). */
     await tx.athlete.update({
       where: { id: athleteId },
       data: { tier: tier as never },
@@ -214,8 +215,18 @@ export async function readRateCard(actor: Actor, athleteId: string) {
      200 with an empty card — no rates leaked, but "this id is not yours"
      and "this athlete has no rates" were indistinguishable, and every other
      by-id read here refuses instead. */
+  /* 2S8-SEC-05 — and within the tenant, the caller's OWN reach: an athlete
+     their own card, a guardian their ward's. Checked by tenant alone, another
+     athlete's id answered 200 [] while a made-up one answered 403, which told
+     an athlete which ids exist. Now both are 403. */
+  const reach =
+    scope === "any" ? {}
+    : scope === "own" ? (actor.athleteId ? { tenantId: actor.tenantId, id: actor.athleteId } : MATCHES_NOTHING)
+    : scope === "ward" ? (actor.guardianId ? { tenantId: actor.tenantId, guardianId: actor.guardianId } : MATCHES_NOTHING)
+    : { tenantId: actor.tenantId };
   const reachable = await prisma.athlete.count({
-    where: { id: athleteId, ...(scope === "any" ? {} : { tenantId: actor.tenantId }) },
+    /* tenant-scope: `reach`, just above, is the caller's own reach — tenantId included, except for SUPER_ADMIN's `any`. */
+    where: { AND: [reach], id: athleteId },
   });
   if (reachable === 0) throw new ForbiddenError("athleteRate", "read");
 

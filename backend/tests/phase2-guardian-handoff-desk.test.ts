@@ -24,7 +24,7 @@ process.env.PUBLIC_INTAKE_TENANT_ID = "hd_btg";
 const { uploaded } = vi.hoisted(() => ({ uploaded: new Set<string>() }));
 vi.mock("../src/lib/storage", async (importOriginal) => {
   const real = await importOriginal<typeof import("../src/lib/storage")>();
-  return { ...real, privateObjectSize: async (key: string) => (uploaded.has(key) ? 204_800 : null) };
+  return { ...real, checkPrivateUpload: async (_actor: unknown, key: string) => (uploaded.has(key) ? { ok: true as const, bytes: 204_800 } : { ok: false as const, problem: "missing" as const }) };
 });
 vi.mock("../src/lib/rate-limit", () => ({ limit: async () => {} }));
 vi.mock("../src/auth/clerk", () => ({

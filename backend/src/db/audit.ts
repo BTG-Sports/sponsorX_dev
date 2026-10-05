@@ -118,6 +118,8 @@ export const AUDIT_ACTIONS = {
   storage: {
     privateUploadGrant: "storage.privateUploadGrant",
     privateDownloadGrant: "storage.privateDownloadGrant",
+    /** 2S8-SEC-03 — an arrived upload that was not what its grant pinned, deleted. */
+    privateUploadRefused: "storage.privateUploadRefused",
   },
   /**
    * The delivery chain (P5-BE-03, P5-BE-05, P5-BE-08, §13 steps 7–9).

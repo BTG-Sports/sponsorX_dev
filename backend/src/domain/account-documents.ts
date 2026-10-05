@@ -28,7 +28,7 @@ import { randomBytes } from "node:crypto";
 
 import type { Prisma } from "../generated/prisma/client";
 import { prisma } from "../db/client";
-import { presignPrivateUpload, privateObjectSize } from "../lib/storage";
+import { checkPrivateUpload, presignPrivateUpload, uploadRefusal } from "../lib/storage";
 import { safeFilename } from "./onboarding-documents";
 import {
   ATHLETE_DOCUMENT_KINDS, GUARDIAN_DOCUMENT_KINDS, GUARDIAN_PROOF_KINDS, MAX_ACCOUNT_DOCUMENTS, MAX_ID_DOCUMENT_BYTES, idUploadProblem,
@@ -87,21 +87,27 @@ export async function startAccountDocument(
     },
     select: VIEW,
   });
-  const uploadUrl = await presignPrivateUpload({ userId: null, tenantId: owner.tenantId }, r2Key, input.contentType, { entity: "AccountDocument", entityId: id });
+  /* 2S8-SEC-03 — the PUT is signed for exactly this type and size. */
+  const uploadUrl = await presignPrivateUpload({ userId: null, tenantId: owner.tenantId }, r2Key, input.contentType, { entity: "AccountDocument", entityId: id }, {
+    signContentType: true, contentLength: input.bytes,
+  });
   return { document, uploadUrl, contentType: input.contentType };
 }
 
 /** Step two: count it only if it is really in the bucket. Returns the document. */
 export async function finishAccountDocument(owner: DocumentOwner, documentId: string) {
-  const doc = await prisma.accountDocument.findFirst({ /* tenant-scope: ownerWhere carries the owner's tenantId. */ where: { ...ownerWhere(owner), id: documentId }, select: { id: true, r2Key: true, kind: true, uploadedAt: true } });
+  const doc = await prisma.accountDocument.findFirst({ /* tenant-scope: ownerWhere carries the owner's tenantId. */ where: { ...ownerWhere(owner), id: documentId }, select: { id: true, r2Key: true, kind: true, uploadedAt: true, contentType: true, bytes: true } });
   if (!doc) throw new AccountDocumentError("That document isn't one of yours.", 404);
-  if (doc.uploadedAt) return doc;
-  const size = await privateObjectSize(doc.r2Key);
-  if (size === null) throw new AccountDocumentError("That document hasn't arrived yet — upload it, then confirm.", 409);
-  if (size > MAX_ID_DOCUMENT_BYTES) throw new AccountDocumentError("That document is larger than 10 MB.");
+  const view = { id: doc.id, r2Key: doc.r2Key, kind: doc.kind, uploadedAt: doc.uploadedAt };
+  if (doc.uploadedAt) return view;
+  /* 2S8-SEC-03 — what arrived must be what the grant pinned; anything else is deleted. */
+  const arrived = await checkPrivateUpload({ userId: null, tenantId: owner.tenantId }, doc.r2Key,
+    { contentType: doc.contentType, bytes: doc.bytes, maxBytes: MAX_ID_DOCUMENT_BYTES }, { entity: "AccountDocument", entityId: doc.id });
+  if (!arrived.ok && arrived.problem === "missing") throw new AccountDocumentError("That document hasn't arrived yet — upload it, then confirm.", 409);
+  if (!arrived.ok) throw new AccountDocumentError(uploadRefusal(arrived.problem, "That document"));
   return prisma.accountDocument.update({
     /* tenant-scope: the row loaded above within this owner. */
-    where: { id: doc.id }, data: { uploadedAt: new Date(), bytes: size }, select: { id: true, r2Key: true, kind: true, uploadedAt: true },
+    where: { id: doc.id }, data: { uploadedAt: new Date(), bytes: arrived.bytes }, select: { id: true, r2Key: true, kind: true, uploadedAt: true },
   });
 }
 

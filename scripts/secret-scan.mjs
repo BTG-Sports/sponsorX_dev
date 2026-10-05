@@ -20,7 +20,9 @@
    scanner works, say) carries the marker `secret-scan: allow`.
 
    Scope is the tracked tree as it stands, which is what a clone hands to
-   anyone. A secret in history needs rotating, not just deleting — see
+   anyone. `--history` (npm run secrets:scan:history, 2S8-SEC-05) runs the
+   same rules over every line ever added in the repository's history. A
+   secret in history needs rotating, not just deleting — see
    documentation/SponsorX-Secrets-Rotation.md.
    -------------------------------------------------------------------------- */
 
@@ -96,6 +98,66 @@ function trackedFiles() {
     .filter((f) => !SKIP.some((re) => re.test(f)));
 }
 
+/**
+ * 2S8-SEC-05 — the same rules over git HISTORY: every line ever added, in
+ * every commit reachable from any ref (`git log --all -p --cc`; for a merge,
+ * the lines its conflict resolution added), not just the tree as it
+ * stands. A secret committed and then deleted is still in every
+ * clone; this is how it would be found. Streamed, so the size of the history
+ * does not matter. Each finding names the commit that added it.
+ *
+ * Skips what the tree scan skips (the lockfile, node_modules, binaries).
+ */
+export async function scanHistory(cwd = ROOT) {
+  const { spawn } = await import("node:child_process");
+  const { createInterface } = await import("node:readline");
+  const git = spawn(
+    "git",
+    ["log", "--all", "--full-history", "-p", "--cc", "--no-color", "--no-ext-diff", "--unified=0", "--format=commit %H", "--", ".", ":(exclude,glob)**/package-lock.json"],
+    { cwd, stdio: ["ignore", "pipe", "inherit"] },
+  );
+  const findings = [];
+  const seen = new Set();
+  const commits = new Set();
+  let commit = "";
+  let file = "";
+  let lines = 0;
+  for await (const line of createInterface({ input: git.stdout, crlfDelay: Infinity })) {
+    if (line.startsWith("commit ")) {
+      commit = line.slice(7, 19);
+      commits.add(commit);
+      continue;
+    }
+    if (line.startsWith("+++ ")) {
+      file = line.startsWith("+++ b/") ? line.slice(6) : "";
+      continue;
+    }
+    if (!line.startsWith("+") || !file || SKIP.some((re) => re.test(file))) continue;
+    lines++;
+    for (const f of scanText(line.slice(1), file)) {
+      /* The same secret carried through many commits is one finding (newest first, as git log lists them). */
+      const key = `${f.file}\0${f.rule}\0${f.excerpt}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      findings.push({ ...f, line: undefined, commit });
+    }
+  }
+  const code = await new Promise((resolve) => git.on("close", resolve));
+  if (code !== 0) throw new Error(`git log exited ${code}`);
+  return { commits: commits.size, lines, findings };
+}
+
+async function mainHistory() {
+  const { commits, lines, findings } = await scanHistory();
+  if (findings.length) {
+    console.error(`✗ secret scan (history): ${findings.length} possible secret(s) in ${commits} commits:`);
+    for (const f of findings) console.error(`  ${f.commit} ${f.file}  [${f.rule}]  ${f.excerpt}`);
+    console.error("\nA secret in history is in every clone: rotate it (documentation/SponsorX-Secrets-Rotation.md). Deleting the line does not remove it.");
+    process.exit(1);
+  }
+  console.log(`✓ secret scan (history): ${commits} commits, ${lines} added lines, no secrets found.`);
+}
+
 function main() {
   const findings = [];
   let scanned = 0;
@@ -126,4 +188,7 @@ function main() {
   console.log(`✓ secret scan: ${scanned} tracked files, no secrets found.`);
 }
 
-if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) main();
+if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
+  if (process.argv.includes("--history")) await mainHistory();
+  else main();
+}
