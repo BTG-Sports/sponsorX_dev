@@ -269,13 +269,3 @@ export function streamRowView(r: ApiStreamRow): StreamRowView {
     when: dayOf(r.signedUpAt), badge, reason, href: streamHref(r.kind, r.id), held,
   };
 }
-
-/** The hero: "186 sign-ups / approved themselves." and "4 need you." — from the summary, never a page. */
-export function intakeHeadline(all: KindFigures): { count: string; approved: string; held: string } {
-  const n = all.auto.toLocaleString("en-US");
-  return {
-    count: all.auto === 0 ? "No sign-ups" : all.auto === 1 ? `${n} sign-up` : `${n} sign-ups`,
-    approved: all.auto === 0 ? "approved themselves yet." : all.auto === 1 ? "approved itself." : "approved themselves.",
-    held: all.held === 0 ? "Nothing needs you." : all.held === 1 ? "1 needs you." : `${all.held.toLocaleString("en-US")} need you.`,
-  };
-}

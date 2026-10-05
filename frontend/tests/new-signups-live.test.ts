@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   SIGNUP_BACKEND, SIGNUP_TABS, firstName, inTab, orgHref, orgState, signupBadge, signupTab, sponsorRows, streamApiQuery, streamParams, streamRowView, tabCount, tabShows,
-  intakeHeadline, type ApiSponsorSignup, type ApiStreamRow, type Signup,
+  type ApiSponsorSignup, type ApiStreamRow, type Signup,
 } from "../src/lib/new-signups-live";
 
 /* --------------------------------------------------------------------------
@@ -122,15 +122,5 @@ describe("a stream row", () => {
     expect(streamRowView(row({ kind: "ORGANIZATION", state: "APPROVED" })).reason).toBe("Reviewed and approved by BTG");
     /* held with no reason given (an organisation waiting on BTG) never reads "All checks passed" */
     expect(streamRowView(row({ kind: "ORGANIZATION", state: "NEEDS_REVIEW" })).reason).toBe("Waiting for BTG’s review");
-  });
-});
-
-describe("the stream's headline", () => {
-  it("counts what approved itself and what needs BTG, from the summary", () => {
-    expect(intakeHeadline({ total: 190, held: 4, auto: 186 })).toEqual({ count: "186 sign-ups", approved: "approved themselves.", held: "4 need you." });
-    expect(intakeHeadline({ total: 2, held: 1, auto: 1 })).toEqual({ count: "1 sign-up", approved: "approved itself.", held: "1 needs you." });
-    expect(intakeHeadline({ total: 1200, held: 0, auto: 1200 }).held).toBe("Nothing needs you.");
-    expect(intakeHeadline({ total: 1200, held: 0, auto: 1200 }).count).toBe("1,200 sign-ups");
-    expect(intakeHeadline({ total: 4, held: 1, auto: 0 })).toMatchObject({ count: "No sign-ups", approved: "approved themselves yet." });
   });
 });

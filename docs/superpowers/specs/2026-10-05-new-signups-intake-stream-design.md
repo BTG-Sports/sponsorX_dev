@@ -17,12 +17,15 @@ Approved layout: **A · Intake Stream** (mockup
 
 ## Page
 
-Fixed-dark stage, full bleed, the `.sx-ops` ground and entrance.
+Fixed-dark stage, full bleed, the `.sx-ops` ground and entrance, no outlined word.
 
-1. **Hero**: eyebrow `BTG · INTAKE · LIVE`; "Sign-up rules →" HUD button;
-   headline "**{auto} sign-ups** approved themselves. / **{held} need you.**"
-   ("Nothing needs you." when held is 0); a figures row: Organizations,
-   Athletes, Guardians, Sponsors totals. Every figure from the summary read.
+1. **Header** — a dashboard header, not a hero (owner, 2026-10-05: "this
+   is a dashboard not a landing page, so clear the hero style"; the first
+   cut's 60px headline, dek and outlined INTAKE word are gone): title row
+   (live dot, `New sign-ups`, Postgres pill, "Sign-up rules →"), then four
+   glass tiles — Needs review (held), Approved automatically (with an auto /
+   total share bar), On the desk (total), By kind (the four totals, held
+   marked). Every figure from the summary read.
 2. **Filter bar**: kind chips (All · Organizations · Athletes · Guardians ·
    Sponsors) with totals; an orange "Needs review" toggle that combines with
    the kind; a search box (debounced, `ListSearch`). Instant, URL-driven

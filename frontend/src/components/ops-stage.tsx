@@ -428,3 +428,47 @@ export function OutsideRole({ children, delay }: { children: ReactNode; delay: n
     </p>
   );
 }
+
+/* ------------------------------------------------------------ KPI tiles */
+
+/** A desk's dashboard figure (P1-ART-16): label, count-up, a one-line
+ *  caption, and optionally a thin share bar. Shared by the admin desks'
+ *  headers — a dashboard row, never a hero. */
+const TONE = {
+  blue: { text: "text-[#93c5fd]", bar: "from-[#2e9bf5] to-[#9be0ff]", edge: "#2e9bf5" },
+  orange: { text: "text-[#fdba74]", bar: "from-[#fb923c] to-[#f97a1f]", edge: "#f97a1f" },
+  green: { text: "text-[#86efac]", bar: "from-[#22c55e] to-[#86efac]", edge: "#22c55e" },
+  cyan: { text: "text-[#cfe9ff]", bar: "from-[#2e9bf5] to-[#9be0ff]", edge: "#9be0ff" },
+} as const;
+
+export function KpiTile({
+  label, value, caption, tone, share, delay,
+}: {
+  label: string;
+  value: number;
+  caption: string;
+  tone: keyof typeof TONE;
+  /** 0..1 — draws a thin share bar under the figure. */
+  share?: number;
+  delay: number;
+}) {
+  const t = TONE[tone];
+  return (
+    <div className="sx-ops-panel sx-ops-in relative px-4 pb-4 pt-3.5" style={at(delay)}>
+      <span aria-hidden="true" className="absolute inset-x-0 top-0 h-[2px]" style={{ background: t.edge, boxShadow: `0 0 10px ${t.edge}` }} />
+      <dt className="text-[10px] font-medium uppercase tracking-[0.22em] text-[#8a96a3]">{label}</dt>
+      <dd className="mt-1.5">
+        <OpsCount value={value} delay={delay} className={`text-[28px] font-bold leading-none tracking-tight ${t.text}`} />
+        <span className="mt-1.5 block truncate text-[11px] text-[#7e88a0]">{caption}</span>
+        {share !== undefined && (
+          <span aria-hidden="true" className="relative mt-2 block h-1 overflow-hidden rounded-full bg-white/[0.07]">
+            <span
+              className={`sx-ops-bar absolute inset-y-0 left-0 block rounded-full bg-gradient-to-r ${t.bar}`}
+              style={at(delay + 0.2, { width: `${Math.round(share * 100)}%` })}
+            />
+          </span>
+        )}
+      </dd>
+    </div>
+  );
+}

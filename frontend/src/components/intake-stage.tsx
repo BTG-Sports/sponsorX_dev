@@ -10,9 +10,9 @@
    column's edges; every figure from GET /signups/stream/summary (never
    counted from the page of rows on screen).
 
-   - IntakeHero   eyebrow + rules button, the two-line headline ("186
-                  sign-ups approved themselves. / 4 need you."), and the
-                  four kind figures.
+   - IntakeHeader a dashboard header: title row (live dot, Postgres pill,
+                  rules button) and four tiles — Needs review, Approved
+                  automatically, On the desk, and the per-kind breakdown.
    - StreamRows   the page of rows on glass: kind mark, name + sub, day,
                   status light, reason, Open / Review. Held rows carry an
                   orange edge and wash.
@@ -21,9 +21,8 @@
 import Link from "next/link";
 import type { CSSProperties, ReactNode } from "react";
 
-import { ScrambleText } from "./hero-fx";
-import { OpsCount } from "./ops-fx";
-import { intakeHeadline, STREAM_CHIPS, type ApiStreamSummary, type StreamKind, type StreamRowView } from "@/lib/new-signups-live";
+import { KpiTile } from "./ops-stage";
+import { STREAM_CHIPS, type ApiStreamSummary, type StreamKind, type StreamRowView } from "@/lib/new-signups-live";
 
 const at = (seconds: number, extra?: CSSProperties) => ({ "--sx-reveal-delay": `${seconds}s`, ...extra }) as CSSProperties;
 
@@ -37,64 +36,72 @@ const KIND_TONE: Record<StreamKind, { mark: string; text: string }> = {
 
 const CHAMFER = "[clip-path:polygon(0_0,calc(100%-7px)_0,100%_7px,100%_100%,7px_100%,0_calc(100%-7px))]";
 
-/* ------------------------------------------------------------------- hero */
+/* ----------------------------------------------------------------- header */
 
-export function IntakeHero({ summary, readAt }: { summary: ApiStreamSummary; readAt: string }) {
-  const h = intakeHeadline(summary.all);
+/** A dashboard header, not a hero (owner, 2026-10-05: "this is a dashboard
+ *  not a landing page, so clear the hero style"): the title row, then four
+ *  tiles — three figures and the per-kind breakdown — and the stream. */
+export function IntakeHeader({ summary, readAt }: { summary: ApiStreamSummary; readAt: string }) {
+  const { all } = summary;
   const kinds = STREAM_CHIPS.filter((c): c is { kind: StreamKind; label: string } => c.kind !== "" && summary.kinds[c.kind as StreamKind] !== undefined);
   return (
-    <div>
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <p className="sx-ops-in flex flex-wrap items-center gap-x-3 gap-y-2 text-[11px] font-medium uppercase tracking-[0.32em] text-[#9be0ff]" style={at(0.05)}>
+    <header>
+      <div className="sx-ops-in flex flex-wrap items-center justify-between gap-3" style={at(0.05)}>
+        <div className="flex flex-wrap items-center gap-3">
           <span className="relative flex size-2">
             <span className="sx-login-ping relative inline-flex size-2 rounded-full bg-[#22c98d] shadow-[0_0_8px_#22c98d]" />
           </span>
-          <ScrambleText text="BTG · Intake · Live" immediate delay={0.1} />
-          <span className="rounded-full border border-[#9be0ff]/30 bg-[#04080f]/40 px-2 py-0.5 text-[9px] tracking-[0.2em] text-[#cfe9ff]">
+          <h1 className="text-xl font-semibold tracking-tight text-white sm:text-2xl">New sign-ups</h1>
+          <span className="rounded-full border border-[#9be0ff]/30 bg-[#04080f]/40 px-2.5 py-1 text-[9px] font-medium uppercase tracking-[0.2em] text-[#cfe9ff]">
             Postgres · read {readAt}
           </span>
-        </p>
+        </div>
         <Link
           href="/admin/new-signups/rules"
-          className={`sx-ops-in group inline-flex min-h-10 items-center gap-2 border border-[#63b4f8]/40 bg-[#0a121e]/70 px-4 text-xs font-semibold text-[#cfe9ff] transition-colors hover:border-[#9be0ff] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#63b4f8]/70 ${CHAMFER}`}
-          style={at(0.35)}
+          className={`group inline-flex min-h-9 items-center gap-2 border border-[#63b4f8]/40 bg-[#0a121e]/70 px-4 text-xs font-semibold text-[#cfe9ff] transition-colors hover:border-[#9be0ff] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#63b4f8]/70 ${CHAMFER}`}
         >
           Sign-up rules
           <span aria-hidden="true" className="transition-transform duration-300 group-hover:translate-x-1">→</span>
         </Link>
       </div>
 
-      {/* The headline takes the stage's full width; the dek and the four
-          kind figures share the row under it. */}
-      <h1 className="mt-5 max-w-5xl text-[clamp(30px,4vw,60px)] font-bold leading-[1.02] tracking-tight text-on-media [text-shadow:0_2px_6px_rgba(0,0,0,.6)]">
-        <span className="sx-ops-line block text-balance" style={at(0.15)}>
-          <span className="sx-hero-gradient sx-hero-shimmer" data-text={h.count}>{h.count}</span> {h.approved}
-        </span>
-        <span className="sx-ops-line block" style={at(0.27)}>
-          <span className="sx-hero-gradient-accent">{h.held}</span>
-        </span>
-      </h1>
-
-      <div className="mt-6 flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
-        <p className="sx-ops-in max-w-[540px] text-[15px] leading-relaxed text-on-media/70" style={at(0.4)}>
-          Everything SponsorX approved by itself. Nothing here needs you unless it&rsquo;s under Needs review.
-        </p>
-        <dl className="grid shrink-0 grid-cols-2 gap-x-10 gap-y-4 sm:grid-cols-[repeat(4,minmax(7.5rem,auto))]">
-          {kinds.map((c, i) => {
-            const f = summary.kinds[c.kind]!;
-            return (
-              <div key={c.kind} className="sx-ops-in" style={at(0.45 + i * 0.07)}>
-                <dt className="whitespace-nowrap text-[10px] font-medium uppercase tracking-[0.2em] text-[#8a96a3]">{c.label}</dt>
-                <dd className="mt-1 flex items-baseline gap-2">
-                  <OpsCount value={f.total} delay={0.45 + i * 0.07} className={`text-[clamp(26px,2.4vw,34px)] font-bold leading-none tracking-tight ${KIND_TONE[c.kind].text}`} />
-                  {f.held > 0 && <span className="text-[11px] font-semibold text-[#fdba74]">{f.held} held</span>}
-                </dd>
-              </div>
-            );
-          })}
-        </dl>
-      </div>
-    </div>
+      <dl className="mt-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <KpiTile
+          label="Needs review"
+          value={all.held}
+          caption={all.held ? "held for BTG · open each to decide" : "nothing held for BTG"}
+          tone={all.held ? "orange" : "green"}
+          delay={0.1}
+        />
+        <KpiTile
+          label="Approved automatically"
+          value={all.auto}
+          caption={all.total ? `of ${all.total.toLocaleString("en-US")} on the desk` : "nothing on the desk yet"}
+          tone="green"
+          share={all.total ? all.auto / all.total : 0}
+          delay={0.16}
+        />
+        <KpiTile label="On the desk" value={all.total} caption="every kind, all time" tone="cyan" delay={0.22} />
+        <div className="sx-ops-panel sx-ops-in relative col-span-2 px-4 pb-4 pt-3.5 lg:col-span-1" style={at(0.28)}>
+          <span aria-hidden="true" className="absolute inset-x-0 top-0 h-[2px] bg-[#a479ff] shadow-[0_0_10px_#a479ff]" />
+          <dt className="text-[10px] font-medium uppercase tracking-[0.22em] text-[#8a96a3]">By kind</dt>
+          <dd className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1.5">
+            {kinds.map((c) => {
+              const f = summary.kinds[c.kind]!;
+              return (
+                <span key={c.kind} className="flex items-baseline justify-between gap-2 text-[11px] text-[#9aa4b2]">
+                  <span className="truncate">{c.label}</span>
+                  <span className={`font-mono text-sm font-bold tabular-nums ${KIND_TONE[c.kind].text}`}>
+                    {f.total.toLocaleString("en-US")}
+                    {f.held > 0 && <span className="ml-1 text-[10px] font-semibold text-[#fdba74]">·{f.held}</span>}
+                  </span>
+                </span>
+              );
+            })}
+          </dd>
+        </div>
+      </dl>
+    </header>
   );
 }
 

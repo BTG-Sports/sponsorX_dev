@@ -1,7 +1,7 @@
 import { NotInRole, staffWithoutAccess } from "@/components/not-in-role";
 import { OpsStage } from "@/components/ops-fx";
-import { OpsGround, StageHeading } from "@/components/ops-stage";
-import { IntakeHero, StreamNote, StreamRows } from "@/components/intake-stage";
+import { OpsGround } from "@/components/ops-stage";
+import { IntakeHeader, StreamNote, StreamRows } from "@/components/intake-stage";
 import { KindChips, ReviewToggle } from "@/components/intake-fx";
 import { ListSearch, PagerRow, PendingList, ServerList } from "@/components/server-pager";
 import { SensitiveEdits } from "@/components/sensitive-edits-section";
@@ -75,13 +75,13 @@ export default async function NewSignupsPage({ searchParams }: { searchParams: P
 
   return (
     <OpsStage className={STAGE}>
-      <OpsGround word="INTAKE" />
+      {/* A dashboard: the stage's ground, no outlined word behind a hero. */}
+      <OpsGround word="" />
       <div className="relative mx-auto max-w-[1440px]">
-        <IntakeHero summary={summary} readAt={readAt} />
+        <IntakeHeader summary={summary} readAt={readAt} />
 
         <ServerList>
-          <section aria-label="Every sign-up" className="mt-10">
-            <StageHeading title="The stream" hint="Newest first. Each row opens the sign-up, with Reject and Reinstate." delay={0.5} />
+          <section aria-label="Every sign-up" className="mt-8">
 
             {refused ? (
               <StreamNote>Your role doesn&rsquo;t read sign-ups, so none are shown here.</StreamNote>
