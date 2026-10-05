@@ -58,7 +58,7 @@ test.skip(!hasLoopStack, LOOP_SKIP_REASON);
 test.describe.configure({ timeout: 600_000 });
 /* The public wizards animate; with motion on, a click can wait out "element
    is not stable" (seen on /join in CI). */
-test.use({ reducedMotion: "reduce" });
+test.use({ contextOptions: { reducedMotion: "reduce" } });
 
 const run = Date.now().toString(36);
 const KEY = { team: "mkt.team", athlete: "mkt.athlete" };
