@@ -13,6 +13,8 @@
    CTA names Stripe, ends in "↗" and its aria-label says it leaves SponsorX.
    -------------------------------------------------------------------------- */
 
+import { isSafeLocalPath } from "@/lib/safe-path";
+
 export type PayoutAccountStatus = "NOT_SET_UP" | "NEEDS_INFO" | "READY";
 
 /** GET /payouts/account — also embedded as `account` in GET /payouts/me. */
@@ -118,7 +120,7 @@ export const TEST_PROVIDER_BADGE = "Test payment provider — staging only, no r
 
 /** A same-site path to come back to — never another site. */
 export function safeReturnPath(p: unknown, fallback: string): string {
-  return typeof p === "string" && p.startsWith("/") && !p.startsWith("//") && !p.includes("\\") ? p.slice(0, 300) : fallback;
+  return isSafeLocalPath(p) ? p.slice(0, 300) : fallback;
 }
 
 /** The provider URL the API handed back — only ever http(s), absolute. */
