@@ -723,6 +723,16 @@ Raised 2026-10-02 by the programme owner: the sign-in looked plain next to the l
 - **Done when:** Clerk behaviour is unchanged (hash routing, lands on /portal); the stage is fixed-dark in both themes; desktop fits one viewport down to 1366×700 above the footer, with no horizontal overflow at 390px; reduced motion shows the still stage; a hard load of /login shows the boot screen first, and /login ↔ site moves play the transition; transition titles never clip a descender (g, p, y); tests, lint and typecheck green
 - **Reference:** §9 screen 2; `frontend/src/app/login/page.tsx`; `frontend/src/components/login-stage.tsx`; `frontend/src/components/login-fx.tsx`; `frontend/src/lib/page-transition.ts`
 
+### ▶ `P1-ART-14` · Admin Operations Board — "Mission Control" stage redesign
+
+**Order** 32.97 · **ART** · **Where:** Code · **1d** · **Code review** · **Unblocks** 0
+
+Raised 2026-10-05 by the programme owner: give /admin the landing's wow factor. The Operations Board (`P7-FE-06`) is redrawn on a fixed-dark HUD stage in the landing's, /packages' and /login's language, bled to the edges of the portal's content column. The sidebar, top bar and every other admin desk are unchanged. The ground has brand glows, a pointer-led light, the drifting floor grid, rising motes, a scan sweep and an outlined OPS word. The hero has a scrambled live eyebrow with the Postgres provenance pill, a masked headline ("23 things need / BTG's hand today.") and an action ring whose arcs are each queue's share of the total. Below it: queue cards in chamfered glass (count-ups, lit brackets, a pointer spotlight), live campaigns with glowing progress, and Systems as status lights. /admin has its own dark loading skeleton (the `(board)` route group). There are no new figures: the board makes the same three live reads with the same role filtering.
+
+- **Depends on:** `P7-FE-06` (the board and its reads); `P1-ART-13` (the stage pieces it reuses)
+- **Done when:** the same reads and role filtering, with no new figure; fixed-dark in both themes; links to desks a role can't use are hidden; zero actions reads "All clear"; reduced motion shows the still stage; no horizontal overflow at 390px; `boardHeadline` and `ringSegments` unit-tested; build, frontend tests and lint green
+- **Reference:** §23; `docs/superpowers/specs/2026-10-05-admin-ops-stage-design.md`; `frontend/src/components/ops-stage.tsx`; `frontend/src/components/ops-fx.tsx`; `frontend/tests/gap-screens-live.test.ts`
+
 ### ▶ `P1-FE-18` · Apply the SponsorX NEXT UI requirement across the existing pages
 
 **Order** 37.02 · **FE** · **Where:** Code · **2d** · **Ready** · **Unblocks** 5

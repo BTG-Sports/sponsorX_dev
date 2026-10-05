@@ -17,3 +17,26 @@
     - "Coffee" isn't a business type (it's filed as Other, then Restaurant).
     - Stale copy: "BTG verifies every organisation…" on the application page, and "BTG has opened a sponsor account" in the account email.
     - An overlap on the athlete home ("Coming up" over "Offers waiting").
+
+## HeckerCreatives — P1-ART-14: /admin as the "Mission Control" stage (Code review)
+
+The owner asked for the admin dashboard to get the landing's wow factor. Scope is `/admin` only: the shell and the other desks are unchanged. Picked in the visual companion: direction A "Mission Control", full bleed. Spec: `docs/superpowers/specs/2026-10-05-admin-ops-stage-design.md`. Branch `feature/P1-ART-14-admin-ops-stage`.
+
+- **What it is:** a fixed-dark HUD stage in both themes, bled to the edges of the content column (negative margins cancel PortalShell's `<main>` padding).
+  - Ground: reuses /login's light, depth, motes and ping, plus /packages' floor and outlined word ("OPS").
+  - Hero: a scrambled eyebrow with the Postgres pill, the headline "N things need / BTG's hand today.", and an action ring (each queue's share).
+  - Chamfered glass queue cards with count-ups, lit brackets and a pointer spotlight.
+  - Campaign progress bars and Systems status lights.
+- **Files:**
+  - `components/ops-stage.tsx` (server) and `components/ops-fx.tsx` (OpsStage pointer vars, OpsCount).
+  - CSS in the `.sx-ops` block at the end of `globals.css`.
+  - The page moved to `app/(app)/admin/(board)/page.tsx`, a route group, so it has its own dark `loading.tsx`. The URL is still /admin.
+- **No new figures.** New pure helpers in `lib/ops-board-live.ts`: `boardHeadline`, `ringSegments`, `QUEUE_TONE`, `CampaignLine.pct`. All are tested in `tests/gap-screens-live.test.ts`.
+  - A role with no card of its own gets no ring and no count, rather than "All clear".
+  - Links to desks the role can't use are hidden.
+- **Entrance is plain CSS animation**, not `html[data-sx-loaded]`: the portal has no boot screen, so the landing's transition rules would never release. `ScrambleText` gained `immediate`.
+- **Verified:**
+  - Frontend tests 1147/1147, eslint clean, `next build` green in a detached worktree.
+  - Playwright walk as BTG_ADMIN and FINANCE (e2e keys p7.admin / p7.finance): dark, light, 1440 and 390, reduced motion. No console errors, no x-overflow.
+  - The phone ring label wrapped after a fix.
+- **Environment gotcha:** `node_modules/rimraf` in the main checkout was EMPTY (since 2026-10-02). That broke `next build` ("Can't resolve 'rimraf'" via exceljs) and `/athlete/earnings` on dev. It was restored from `rimraf@2.7.1`, the lockfile's version. The worktree teardown emptied it again, and it was restored again. Check it after any worktree build.
