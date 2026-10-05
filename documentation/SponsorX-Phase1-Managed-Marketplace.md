@@ -764,6 +764,28 @@ Raised 2026-10-05 by the programme owner: redesign /admin/applications with the 
 - **Done when:** same reads, paging and review actions; a dashboard header, not a hero; cards keep the row button's accessible name and the exact `Minor` label, so the P3 e2e loop still finds them; the drawer is dark in both themes; no horizontal overflow at 390px; `waitMeter` unit-tested; build, tests and lint green
 - **Reference:** `P3-FE-02`; `docs/superpowers/specs/2026-10-05-applications-scouting-board-design.md`; `frontend/src/components/scout-stage.tsx`; `frontend/src/components/applications-desk.tsx`
 
+### ▶ `P1-ART-17` · Sign-up rules — "Control Panel" redesign, built for scale
+
+**Order** 32.995 · **ART** · **Where:** Code · **1d** · **Code review** · **Unblocks** 0
+
+Raised 2026-10-05 by the programme owner: redesign /admin/new-signups/rules in the same structure as the other admin desks. The page sits on the admin stage as a dashboard:
+
+- **Header:** a back link, the title and four tiles: places in the table, athletes in an unknown place, places that aren't 18, and the minors rule in words.
+- **Minors rule:** a designed switch.
+- **Place form:** mono-caps codes, an age stepper, and Remove with a confirm.
+
+It is built for scale, after the owner asked what happens with more countries and states:
+
+- **Search:** one search across every country, by code or by name.
+- **Country rail:** a list of countries that scrolls inside its own panel.
+- **One country at a time:** its exceptions as big tiles, and the places that follow the default as chips (the first 40, then Show all). The page height doesn't grow with the table.
+
+Picking anything lights the form: a glow, a pulse, and an "Editing" callout with numbered steps. The owner asked twice for a cue that can't be missed.
+
+- **Depends on:** `2S1-FE-07` (the rules and their API); `P1-ART-14` (the stage)
+- **Done when:** same reads, server actions and admin-only API; a dashboard header; the page height doesn't grow with the number of countries or places; search by code or name; picking a place is visibly highlighted with next steps; no native checkbox or unstyled inputs left; no horizontal overflow at 390px; `lib/age-table.ts` unit-tested; build, tests and lint green
+- **Reference:** `2S1-FE-07`; `docs/superpowers/specs/2026-10-05-signup-rules-control-panel-design.md`; `frontend/src/components/rules-board.tsx`; `frontend/src/lib/age-table.ts`
+
 ### ▶ `P1-FE-18` · Apply the SponsorX NEXT UI requirement across the existing pages
 
 **Order** 37.02 · **FE** · **Where:** Code · **2d** · **Ready** · **Unblocks** 5

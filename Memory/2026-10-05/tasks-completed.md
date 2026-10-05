@@ -101,3 +101,32 @@ The owner asked for the review desk to get the same treatment. Direction A, "Sco
   - Walk as BTG_ADMIN: 12 cards, tilt, drawer dark in light theme, 390 with no overflow, no console errors.
   - rimraf restored again after the teardown.
 - **Tracker:** P1-ART-16 is Phase 1 row 292 (Order 32.99, Code review); ranges extended to 292; today's snapshot recomputed.
+
+## HeckerCreatives — P1-ART-17: sign-up rules as the "Control Panel" (Code review)
+
+The owner asked for /admin/new-signups/rules in the same structure. Direction A, "Control Panel", was picked (`.superpowers/brainstorm/rules/`). Spec: `docs/superpowers/specs/2026-10-05-signup-rules-control-panel-design.md`. Branch `feature/P1-ART-17-signup-rules-control-panel`, stacked on P1-ART-16.
+
+- **Dashboard header:** a back link, the title and four tiles. The minors rule became a designed `role="switch"`. The place form got mono-caps codes, an age stepper (14–25, arrow keys), and Remove with a confirm.
+- **Owner feedback during the build:**
+  1. "put a highlight on the edit panel… you're just scrolling up", then "the hint is still not noticeable". The fix has six parts:
+     - a glow on a wrapper, because the panel's chamfer clip-path cuts its own box-shadow;
+     - a two-beat pulse (`.sx-ops-flash`);
+     - a bold callout, "Editing Alabama, United States — adult at 19", with numbered steps and a Cancel;
+     - a ringed age stepper;
+     - the picked tile or chip kept lit (`aria-pressed`);
+     - a live region.
+
+     Saved as Claude memory "scroll-to-needs-a-loud-cue".
+  2. "what if there are more countries and more state/provinces?" The first cut tiled every place: 3,786px tall with 85 places, growing without bound. It now has:
+     - a search across every country, by code or name. Country names come from `Intl.DisplayNames`; `lib/region-names.ts` names the US, CA, MX, AU, BR and IN subdivisions.
+     - a country rail that scrolls inside its own panel;
+     - one country at a time: exceptions as tiles, places that follow the default as chips, capped at 40 with Show all.
+
+     The page now stays about 1,345px whatever the count.
+- **Data note:** PR (Puerto Rico) appears both as a US region and as its own country row in the dev table. Both are shown as they are.
+- **Verified:**
+  - Frontend 1162 tests, eslint, `next build` (worktree).
+  - Walk as BTG_ADMIN: search → Enter → callout; Remove armed then kept; rail switch and the Not 18 filter; chip → form; saving MD unchanged ("Saved. 0 athletes worked out again."); 390 with no overflow; no console errors.
+  - Two React key warnings were found and fixed during the walks: a server element passed into a client slot needs a key, and sibling elements were sharing `key={pulse}`.
+  - rimraf restored after the teardown.
+- **Tracker:** P1-ART-17 is Phase 1 row 293 (Order 32.995, Code review); ranges extended to 293; today's snapshot recomputed.
