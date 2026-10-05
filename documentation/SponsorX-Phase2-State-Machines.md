@@ -161,6 +161,16 @@ worker applies each event under the order's row lock; it ends:
 `SUCCEEDED → FAILED`), `FAILED → SUCCEEDED` by itself (HELD instead), and
 applying one event twice (the event's row lock and its status).
 
+**Outages (2S8-QA-02).** Every call to the provider goes through the adapter
+with a timeout (`PAYMENT_PROVIDER_TIMEOUT_MS`), inside the transaction of the
+step it belongs to: the provider down (or silent) when a sponsor starts
+paying answers 503 `busy` with no attempt recorded; when a payout is handed
+over, nothing is recorded as sent and the queue retries it with the same
+idempotency key; when a card is refunded, the refund and its reversal stand
+and the money waits on Finance's list. A step that fails half-way (the
+database refusing a write) leaves nothing written. The stand-in can be told
+it is down (`STANDIN_OUTAGE`) to prove it on staging.
+
 ## 6 · Payout (`2S5-BE-04`, `2S5-BE-05`)
 
 `NOT_ELIGIBLE → ELIGIBLE → REQUESTED → APPROVED → PAID`, with `FAILED → REQUESTED`

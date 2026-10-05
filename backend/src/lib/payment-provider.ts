@@ -137,6 +137,70 @@ export function parseProviderWebhook(provider: string, body: unknown): NeutralPa
   return [{ id: envelope.data.id, type: envelope.data.type, occurredAt: new Date(envelope.data.created), data: data.data as Record<string, unknown> }];
 }
 
+/* ── outages — 2S8-QA-02 ─────────────────────────────────────────────── */
+
+/** The provider couldn't be reached, or didn't answer in time: nothing it was asked to do is recorded as done. */
+export class ProviderUnavailableError extends Error {
+  readonly status = 503;
+  readonly retryAfter = 30;
+  /* The one 5xx code a client may branch on (lib/error-body.ts): "try again", not "we broke". */
+  readonly code = "busy";
+  readonly operation: StandinOperation;
+  readonly timedOut: boolean;
+  constructor(operation: StandinOperation, timedOut = false) {
+    super(timedOut
+      ? "The payment provider didn't answer in time. Nothing was charged or sent — try again in a moment."
+      : "The payment provider is unavailable right now. Nothing was charged or sent — try again in a moment.");
+    this.name = "ProviderUnavailableError";
+    this.operation = operation;
+    this.timedOut = timedOut;
+  }
+}
+
+export type StandinOperation = "checkout" | "payout" | "refund";
+
+/**
+ * The stand-in can be told to be down (STANDIN_OUTAGE, staging and tests
+ * only): a comma list of operations — `checkout`, `payout`, `refund` — each
+ * failing at once, or, written `payout:timeout`, hanging until the provider
+ * timeout (PAYMENT_PROVIDER_TIMEOUT_MS) gives up on it. Returns how it fails.
+ */
+function standinOutage(op: StandinOperation): "error" | "timeout" | null {
+  for (const part of (env.STANDIN_OUTAGE ?? "").split(",").map((s) => s.trim()).filter(Boolean)) {
+    const [name, mode] = part.split(":");
+    if (name === op) return mode === "timeout" ? "timeout" : "error";
+  }
+  return null;
+}
+
+/** Every provider call goes through this: refused when the stand-in is told it is down, and never waits past the timeout. */
+async function providerCall<T>(op: StandinOperation, call: () => Promise<T>): Promise<T> {
+  const outage = providerName() === "standin" ? standinOutage(op) : null;
+  if (outage === "error") throw new ProviderUnavailableError(op);
+  const work = outage === "timeout" ? new Promise<T>(() => {}) : call();
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new ProviderUnavailableError(op, true)), env.PAYMENT_PROVIDER_TIMEOUT_MS);
+  });
+  try {
+    return await Promise.race([work, timeout]);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/* ── checkout — 2S5-INT-01 ───────────────────────────────────────────── */
+
+/**
+ * Open the provider's payment page for an attempt, inside the attempt's own
+ * transaction: if the provider is down, the attempt is never recorded and
+ * the order is untouched. The stand-in's page is SponsorX's own
+ * (`standinLink`), so it only has to be up.
+ */
+export async function openCheckout(_p: { attemptId: string; amountCents: number }): Promise<void> {
+  await providerCall("checkout", async () => undefined);
+}
+
 /* ── payouts — 2S5-BE-05 ─────────────────────────────────────────────── */
 
 export type PayoutHandOver = { payoutId: string; amountCents: number; currency: string; accountId: string | null; idempotencyKey: string };
@@ -153,7 +217,7 @@ export async function sendPayoutToProvider(p: PayoutHandOver): Promise<{ provide
   const provider = providerName();
   if (provider === "none") throw new Error("No payment provider is connected.");
   /* The stand-in honours the key as a provider would: the same hand-over is the same payout reference. */
-  return { provider, reference: `standin_po_${createHash("sha256").update(p.idempotencyKey).digest("hex").slice(0, 16)}` };
+  return providerCall("payout", async () => ({ provider, reference: `standin_po_${createHash("sha256").update(p.idempotencyKey).digest("hex").slice(0, 16)}` }));
 }
 
 /* ── refunds — 2S4-BE-13 ─────────────────────────────────────────────── */
@@ -172,5 +236,7 @@ export type CardRefund = { provider: ProviderName; reference: string; test: bool
 export function refundCard(_p: { paymentReference: string | null; amountCents: number }): CardRefund | null {
   const provider = providerName();
   if (provider === "none") return null;
+  /* 2S8-QA-02 — the stand-in told it is down: refused (the caller keeps the refund on Finance's list). */
+  if (provider === "standin" && standinOutage("refund")) throw new ProviderUnavailableError("refund");
   return { provider, reference: standinRef("re"), test: true };
 }

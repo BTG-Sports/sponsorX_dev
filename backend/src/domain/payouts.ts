@@ -42,7 +42,7 @@ import { env } from "../config/env";
 import type { Actor } from "../auth/actor";
 import { assertAllowed, can, whereFor } from "../auth/scope";
 import { ForbiddenError } from "../auth/errors";
-import { providerName, readStandinToken, sendPayoutToProvider, standinLink, standinRef, StandinTokenError } from "../lib/payment-provider";
+import { openCheckout, providerName, readStandinToken, sendPayoutToProvider, standinLink, standinRef, StandinTokenError } from "../lib/payment-provider";
 import { postPayout, postPayoutReturn } from "./ledger";
 import { recordRefund } from "./refunds";
 import { lockOrder, moveOrderAsSystem, payOrderIn } from "./marketplace-order";
@@ -304,6 +304,9 @@ export async function startCardPayment(actor: Actor, orderId: string, now = new 
       select: { id: true },
     });
     await audit(tx, actor, "payment.start", "MarketplaceOrder", order.id, { after: { attemptId: created.id, amountCents: order.totalCents, provider } });
+    /* 2S8-QA-02 — the provider's page is opened inside this transaction: if the provider is down,
+       no attempt is recorded and the order is as it was (503, try again). */
+    await openCheckout({ attemptId: created.id, amountCents: order.totalCents });
     return created;
   });
   return { url: standinLink({ kind: "checkout", attemptId: attempt.id, returnPath: `/sponsor/orders/${orderId}?payment=returned` }, now) };

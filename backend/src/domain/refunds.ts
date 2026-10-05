@@ -37,7 +37,7 @@ import { prisma } from "../db/client";
 import { audit, type AuditActor } from "../db/audit";
 import type { Actor } from "../auth/actor";
 import { assertTenantWide, whereFor } from "../auth/scope";
-import { refundCard } from "../lib/payment-provider";
+import { ProviderUnavailableError, refundCard } from "../lib/payment-provider";
 import { looksLikeCardNumber } from "./marketplace-order-rules";
 import { appUrl, orderRef, sponsorRecipient, tell, usd } from "./order-mail";
 import { lockCampaign } from "./campaign-stages";
@@ -238,7 +238,17 @@ export async function recordRefund(
       });
       return row;
     }
-    const refunded = refundCard({ paymentReference, amountCents });
+    /* 2S8-QA-02 — the provider down: the refund (and everything it was part
+       of — the cancel, the books reversed) still stands; the money waits on
+       Finance's list, OPEN, to be sent when the provider is back. */
+    let refunded: ReturnType<typeof refundCard>;
+    try {
+      refunded = refundCard({ paymentReference, amountCents });
+    } catch (error) {
+      if (!(error instanceof ProviderUnavailableError)) throw error;
+      await audit(tx, actor, "refundDue.providerUnavailable", "MarketplaceOrder", orderId, { after: { refundId: row.id, amountCents, error: error.message } });
+      return row;
+    }
     if (refunded) {
       const sent = await tx.refundDue.updateMany({
         /* tenant-scope: the row just written, by id, only while still on its way. */
