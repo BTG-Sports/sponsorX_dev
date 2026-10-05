@@ -61,14 +61,18 @@ const MOTES: ReadonlyArray<readonly [number, number, number, number, string]> = 
   [95, 2, 18, 5.5, "#fb923c"],
 ];
 
-export function OpsGround() {
+/** `word`: the outlined word behind the hero — each desk on the stage names itself. */
+export function OpsGround({ word = "OPS" }: { word?: string }) {
   return (
     <div aria-hidden="true" className="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
       <div className="absolute inset-0 bg-[radial-gradient(60%_50%_at_10%_0%,rgba(46,155,245,.22),transparent_65%),radial-gradient(40%_40%_at_88%_30%,rgba(46,155,245,.1),transparent_65%),radial-gradient(50%_45%_at_100%_100%,rgba(249,122,31,.15),transparent_62%)]" />
       <div className="sx-login-light absolute inset-0" />
 
-      <span className="sx-stage-word absolute -right-4 top-6 select-none text-[clamp(120px,17vw,260px)] font-black leading-none tracking-tighter">
-        OPS
+      <span
+        className="sx-stage-word absolute -right-4 top-6 select-none font-black leading-none tracking-tighter"
+        style={{ fontSize: `clamp(120px, ${Math.min(17, 52 / word.length)}vw, 260px)` }}
+      >
+        {word}
       </span>
 
       <div className="sx-login-depth absolute inset-0" style={{ "--depth": 1 } as CSSProperties}>

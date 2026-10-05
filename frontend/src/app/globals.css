@@ -2267,6 +2267,12 @@ html[data-sx-loaded] [data-sx-stage][data-armed] .sx-bar { transform: none; }
   --sx-primary-soft: #63b4f8;
   --sx-accent: #f97a1f;
   --sx-accent-soft: #fb923c;
+  --sx-cta-ink: #0a0c10;
+  --sx-danger: #ff4d4f;
+  --sx-warn: #facc15;
+  --sx-success: #22c98d;
+  /* the admin tone the house pager and filters take (P1-ART-15) */
+  --sx-admin: #cbd5e1;
   color-scheme: dark;
   color: #f4f5f7;
 }
