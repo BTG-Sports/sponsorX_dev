@@ -290,8 +290,20 @@ export function QueueDeck({ cards }: { cards: QueueCard[] }) {
 
 /* -------------------------------------------------------------- campaigns */
 
-/** `briefs`: whether the role may open the Briefs desk the empty state points to. */
-export function CampaignPanel({ campaigns, briefs }: { campaigns: CampaignLine[]; briefs: boolean }) {
+/** `total`: every live campaign, of which `campaigns` is the first page.
+ *  `allHref`: the Campaigns desk, or null when the role may not open it.
+ *  `briefs`: whether the role may open the Briefs desk the empty state points to. */
+export function CampaignPanel({
+  campaigns,
+  total,
+  allHref,
+  briefs,
+}: {
+  campaigns: CampaignLine[];
+  total: number;
+  allHref: string | null;
+  briefs: boolean;
+}) {
   if (campaigns.length === 0) {
     return (
       <div className="sx-ops-panel sx-ops-in relative px-6 py-6" style={at(0.9)}>
@@ -347,6 +359,25 @@ export function CampaignPanel({ campaigns, briefs }: { campaigns: CampaignLine[]
           </Link>
         </li>
       ))}
+      {/* The board shows the first few; the rest are one click away. */}
+      {allHref && total > campaigns.length && (
+        <li>
+          <Link
+            href={allHref}
+            className="group flex items-center justify-between gap-3 px-5 py-3.5 text-sm font-semibold text-[#63b4f8] transition-colors hover:bg-[#2e9bf5]/[0.07] hover:text-[#9be0ff] focus-visible:bg-[#2e9bf5]/[0.1] focus-visible:outline-none"
+          >
+            <span>
+              See all {total} live campaigns
+              <span className="ml-2 text-xs font-normal text-[#8a96a3]">
+                {total - campaigns.length} more not shown
+              </span>
+            </span>
+            <span aria-hidden="true" className="transition-transform duration-300 group-hover:translate-x-1 group-focus-visible:translate-x-1">
+              →
+            </span>
+          </Link>
+        </li>
+      )}
     </ul>
   );
 }

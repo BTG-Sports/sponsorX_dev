@@ -98,7 +98,12 @@ export default async function OperationsBoardPage() {
             {campaigns === null ? (
               <OutsideRole delay={0.9}>Delivery progress is outside your role.</OutsideRole>
             ) : (
-              <CampaignPanel campaigns={campaigns} briefs={mayUse("/admin/briefs", actor.roles)} />
+              <CampaignPanel
+                campaigns={campaigns}
+                total={campaignTotal}
+                allHref={mayUse("/admin/campaigns", actor.roles) ? "/admin/campaigns" : null}
+                briefs={mayUse("/admin/briefs", actor.roles)}
+              />
             )}
           </section>
 
