@@ -105,3 +105,6 @@
 - **Two merge fixes:**
   - The payment worker's new log lines now go through the email-masking `log()`, as 2S8-SEC-05 requires.
   - `loop-p4` was racing the page refresh: the "Declined…" confirmation disappears once the offer leaves "open". The spec now accepts the confirmation or the refreshed status, for accept and decline both.
+- **Release (2026-10-05):** PRs #155 (into main_development) and #156 (into main) were merged at 9865881.
+  - **Staging is deployed and verified.** The API and web are on 9865881, and the 13 pending migrations were applied, including `utc_time_zone` and the three payment migrations. The database reports `TimeZone=UTC` for both the session and the database setting. The API is listening with no errors, and the web app answers 200.
+  - **Production is not yet deployed** (it is still on c46fc85). `npm run deploy production` asks a person to type "yes"; that confirmation is the owner's to give. Once it has run, 2S8-OPS-02 moves to Done.
