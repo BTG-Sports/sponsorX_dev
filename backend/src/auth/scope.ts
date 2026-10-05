@@ -898,6 +898,8 @@ const BUILDERS: Partial<Record<Resource, Builder>> = {
   },
   /* 2S1-BE-10 / -12 — the age table and the staff-confirmation setting: tenant rows, kept by BTG admins. */
   signupRules: tenantScoped,
+  /* 2S5-INT-02 — provider events live in the books of what they are about. */
+  paymentEvent: tenantScoped,
 
   /* Added with P4-BE-01, the first task to query sponsors.
 

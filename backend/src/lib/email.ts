@@ -219,6 +219,8 @@ export type EmailTemplate =
   | "payment.received"
   /* 2S4-BE-10 — a card payment confirmed for an order no longer waiting for it: BTG's admins refund the sponsor. */
   | "payment.refundNeeded"
+  /* 2S5-INT-02 — a provider event SponsorX would not apply on its own (it names nothing SponsorX knows, the amounts disagree, it contradicts what was recorded): BTG's admins, with the reason. */
+  | "payment.heldForBtg"
   /* P9-BE-16 — a sold ad slot's artwork on the approval board, each step
      emailed to the other party: a new version is in; it is ready for the
      sponsor's sign-off; a reviewer asked for changes; the sponsor approved. */

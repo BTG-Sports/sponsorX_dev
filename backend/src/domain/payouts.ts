@@ -49,6 +49,7 @@ import { lockOrder, moveOrderAsSystem, payOrderIn } from "./marketplace-order";
 import { appUrl, btgAdmins, tell } from "./order-mail";
 import { assertMayCommit } from "./guardian-acts";
 import { payoutHoldReason } from "./payout-holds";
+import { standinDecline } from "./payment-events";
 import {
   autoApprovalReasons, autoApproveSettings, autoApprovedByTenant, autoWindowFor, claimsMoney, lockPayee, nextChangedAt, planFailure,
   SYSTEM, waitingOnOf, waitingOnWhere, windowStart, type FailureKind, type WaitingOn,
@@ -324,7 +325,7 @@ export async function confirmPayment(attemptId: string, now = new Date()) {
   return prisma.$transaction(async (tx) => {
     const a = await tx.paymentAttempt.findUnique({
       /* tenant-scope: the attempt named by the provider's confirmation job. */
-      where: { id: attemptId }, select: { id: true, tenantId: true, orderId: true, state: true, amountCents: true, createdBy: true, providerRef: true },
+      where: { id: attemptId }, select: ATTEMPT_CONFIRM,
     });
     if (!a || a.state !== "PROCESSING") return { confirmed: false };
     await lockOrder(tx, a.orderId);
@@ -333,44 +334,58 @@ export async function confirmPayment(attemptId: string, now = new Date()) {
       where: { id: a.id, state: "PROCESSING" }, data: { state: "SUCCEEDED" },
     });
     if (claimed.count === 0) return { confirmed: false };
-    await audit(tx, { userId: null, tenantId: a.tenantId }, "payment.confirm", "MarketplaceOrder", a.orderId, { after: { attemptId: a.id, amountCents: a.amountCents } });
-    const order = await tx.marketplaceOrder.findUniqueOrThrow({
-      /* tenant-scope: the order this attempt was made for, recorded on it. */
-      where: { id: a.orderId }, select: { state: true },
+    return paymentSucceededIn(tx, a, now);
+  });
+}
+
+/** What a confirmation reads of the attempt. */
+export const ATTEMPT_CONFIRM = { id: true, tenantId: true, orderId: true, state: true, amountCents: true, createdBy: true, providerRef: true } as const;
+type ConfirmedAttempt = Prisma.PaymentAttemptGetPayload<{ select: typeof ATTEMPT_CONFIRM }>;
+
+/**
+ * After the attempt was claimed SUCCEEDED (by `confirmPayment`, or by the
+ * provider's `payment.succeeded` event — payment-events.ts), in the same
+ * transaction and under the order's row lock: the order is paid — or, when
+ * it is no longer waiting, the money is recorded for refund. Audited.
+ */
+export async function paymentSucceededIn(tx: Tx, a: ConfirmedAttempt, now: Date): Promise<{ confirmed: true; refundNeeded?: true }> {
+  await audit(tx, { userId: null, tenantId: a.tenantId }, "payment.confirm", "MarketplaceOrder", a.orderId, { after: { attemptId: a.id, amountCents: a.amountCents } });
+  const order = await tx.marketplaceOrder.findUniqueOrThrow({
+    /* tenant-scope: the order this attempt was made for, recorded on it. */
+    where: { id: a.orderId }, select: { state: true },
+  });
+  if (order.state !== "APPROVED" && order.state !== "AWAITING_PAYMENT") {
+    const ended = order.state === "CANCELLED" || order.state === "REFUNDED";
+    await audit(tx, { userId: null, tenantId: a.tenantId }, ended ? "payment.paidAfterCancel" : "payment.afterPaid", "MarketplaceOrder", a.orderId, {
+      after: { attemptId: a.id, amountCents: a.amountCents, orderState: order.state, providerRef: a.providerRef, refundNeeded: true },
     });
-    if (order.state !== "APPROVED" && order.state !== "AWAITING_PAYMENT") {
-      const ended = order.state === "CANCELLED" || order.state === "REFUNDED";
-      await audit(tx, { userId: null, tenantId: a.tenantId }, ended ? "payment.paidAfterCancel" : "payment.afterPaid", "MarketplaceOrder", a.orderId, {
-        after: { attemptId: a.id, amountCents: a.amountCents, orderState: order.state, providerRef: a.providerRef, refundNeeded: true },
-      });
-      /* 2S4-BE-13 — money received for a cancelled order: a whole-order row on
-         Finance's "Refunds to send" for the amount received (refunded to the
-         card at once through the stand-in). That row is the refund, so BTG's
-         "refund needed" email is not sent for it. (A cancelled order was never
-         paid, so it has no other refund row. One row per card attempt — two
-         attempts confirmed after one cancellation are two rows — and the
-         attempt's claim above means a redelivery never reaches here twice.) */
-      if (order.state === "CANCELLED") {
-        await recordRefund(tx, { userId: null, tenantId: a.tenantId }, a.orderId, { cause: "PAID_AFTER_CANCELLATION", lineId: null, cancellation: false }, {
-          whole: true, received: { attemptId: a.id, amountCents: a.amountCents, paidVia: "CARD", paymentReference: a.providerRef },
-        }, now);
-        return { confirmed: true, refundNeeded: true };
-      }
-      /* Refunded, or already paid another way: BTG's to sort out by hand. */
-      for (const u of await btgAdmins(tx, a.tenantId)) {
-        await tell(tx, { tenantId: a.tenantId, email: u.email }, "payment.refundNeeded", a.id, {
-          orderRef: orderRef(a.orderId), amount: usd(a.amountCents), orderState: order.state.toLowerCase().replace("_", " "),
-          why: ended
-            ? "The card payment was confirmed after the order was refunded"
-            : "The card payment was confirmed for an order that had already been paid another way",
-          providerRef: a.providerRef ?? "", orderUrl: appUrl(`/admin/marketplace/orders/${a.orderId}`),
-        });
-      }
+    /* 2S4-BE-13 — money received for a cancelled order: a whole-order row on
+       Finance's "Refunds to send" for the amount received (refunded to the
+       card at once through the stand-in). That row is the refund, so BTG's
+       "refund needed" email is not sent for it. (A cancelled order was never
+       paid, so it has no other refund row. One row per card attempt — two
+       attempts confirmed after one cancellation are two rows — and the
+       attempt's claim above means a redelivery never reaches here twice.) */
+    if (order.state === "CANCELLED") {
+      await recordRefund(tx, { userId: null, tenantId: a.tenantId }, a.orderId, { cause: "PAID_AFTER_CANCELLATION", lineId: null, cancellation: false }, {
+        whole: true, received: { attemptId: a.id, amountCents: a.amountCents, paidVia: "CARD", paymentReference: a.providerRef },
+      }, now);
       return { confirmed: true, refundNeeded: true };
     }
-    await payOrderIn(tx, { userId: null, tenantId: a.tenantId }, a.orderId, { via: "CARD", reference: a.providerRef, attemptId: a.id, receiptTo: a.createdBy }, now);
-    return { confirmed: true };
-  });
+    /* Refunded, or already paid another way: BTG's to sort out by hand. */
+    for (const u of await btgAdmins(tx, a.tenantId)) {
+      await tell(tx, { tenantId: a.tenantId, email: u.email }, "payment.refundNeeded", a.id, {
+        orderRef: orderRef(a.orderId), amount: usd(a.amountCents), orderState: order.state.toLowerCase().replace("_", " "),
+        why: ended
+          ? "The card payment was confirmed after the order was refunded"
+          : "The card payment was confirmed for an order that had already been paid another way",
+        providerRef: a.providerRef ?? "", orderUrl: appUrl(`/admin/marketplace/orders/${a.orderId}`),
+      });
+    }
+    return { confirmed: true, refundNeeded: true };
+  }
+  await payOrderIn(tx, { userId: null, tenantId: a.tenantId }, a.orderId, { via: "CARD", reference: a.providerRef, attemptId: a.id, receiptTo: a.createdBy }, now);
+  return { confirmed: true };
 }
 
 /* ── the stand-in provider's own pages (staging only) ─────────────────── */
@@ -458,6 +473,9 @@ export async function completeStandinCheckout(token: string, outcome: "SUCCEED" 
   assertStandin();
   const link = readStandinToken(token, now);
   if (link.kind !== "checkout") throw new StandinTokenError();
+  /* 2S5-INT-02 — a declined card is the provider's word like any other: a
+     signed `payment.failed` event, through the webhook's own door. */
+  let declined = false;
   await prisma.$transaction(async (tx) => {
     const a = await tx.paymentAttempt.findUnique({
       /* tenant-scope: the attempt named in a link this server signed. */
@@ -465,26 +483,22 @@ export async function completeStandinCheckout(token: string, outcome: "SUCCEED" 
     });
     if (!a) throw new StandinTokenError();
     if (a.state !== "PENDING") return; // already answered — the page was submitted twice
+    if (outcome === "DECLINE") {
+      declined = true;
+      return;
+    }
     /* The order's row lock, then its state now: the money is not taken for
        an order that stopped waiting for it (cancelled while the page was
        open) — the attempt fails and nothing is charged. A cancel waits for
        this, and then sees the payment being confirmed and refuses. */
     const orderState = await lockOrder(tx, a.orderId);
-    if (outcome === "SUCCEED" && orderState !== "APPROVED" && orderState !== "AWAITING_PAYMENT") {
+    if (orderState !== "APPROVED" && orderState !== "AWAITING_PAYMENT") {
       const failed = await tx.paymentAttempt.updateMany({
         /* tenant-scope: the row just loaded by the signed link's id; conditional on it still being open. */
         where: { id: a.id, state: "PENDING" },
         data: { state: "FAILED", failureReason: `The order is no longer waiting for payment (it is ${String(orderState).toLowerCase().replace("_", " ")}) — nothing was charged.` },
       });
       if (failed.count) await audit(tx, { userId: null, tenantId: a.tenantId }, "payment.refused", "MarketplaceOrder", a.orderId, { after: { attemptId: a.id, orderState } });
-      return;
-    }
-    if (outcome === "DECLINE") {
-      await tx.paymentAttempt.update({
-        /* tenant-scope: the row just loaded by the signed link's id. */
-        where: { id: a.id }, data: { state: "FAILED", failureReason: "The card was declined (test payment provider)." }, select: { id: true },
-      });
-      await audit(tx, { userId: null, tenantId: a.tenantId }, "payment.fail", "MarketplaceOrder", a.orderId, { after: { attemptId: a.id } });
       return;
     }
     const processing = await tx.paymentAttempt.updateMany({
@@ -495,6 +509,7 @@ export async function completeStandinCheckout(token: string, outcome: "SUCCEED" 
     /* The provider's confirmation arrives separately, like a real webhook. */
     await enqueue(tx, a.tenantId, "payments.confirm", { attemptId: a.id });
   });
+  if (declined) await standinDecline(link.attemptId, now);
   return { returnPath: link.returnPath };
 }
 

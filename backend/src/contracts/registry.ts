@@ -128,6 +128,7 @@ import {
 } from "./delivery";
 import { PayoutAccountLinkInput, PayoutDecisionInput, PayoutListQuery, StandinAccountInput, StandinCheckoutInput } from "./payouts";
 import { RefundSentInput, RefundsQuery } from "./refunds";
+import { PaymentEventResolveInput, PaymentEventsQuery, ProviderWebhookEnvelope, StandinEventInput } from "./payment-events";
 import { SponsorDocumentInput, SponsorEmailConfirmInput, SponsorRequestDecisionInput } from "./sponsor-requests";
 import { RestrictedTextInput, RestrictedWordInput } from "./restricted-words";
 import {
@@ -706,6 +707,12 @@ const PATHS: Row[] = [
   { method: "get", path: "/operations/delivery-health", tag: "Operations", summary: "Delivery health across live campaigns. Paged with ?page (2026-09-29): ?size ?projected=true (campaigns carrying a reach projection), ending soonest first → adds `page`.", query: z.object({ under: z.enum(["true", "false"]).optional(), page: z.coerce.number().int().optional(), size: z.coerce.number().int().optional(), projected: z.enum(["true", "false"]).optional() }) },
   { method: "get", path: "/operations/network-metrics", tag: "Operations", summary: "Network-wide metrics." },
   { method: "get", path: "/operations/job-economics", tag: "Operations", summary: "Economics by NIL job." },
+
+  // 2S5-INT-02 — the payment provider's events
+  { method: "post", path: "/webhooks/payments/{provider}", tag: "Webhooks", summary: "The payment provider's webhook (`standin` on staging; Stripe joins in 2S5-INT-01). Signature checked over the raw body (`x-standin-signature: t=…,v1=…`; a timestamp outside PAYMENT_WEBHOOK_TOLERANCE_SECONDS is a replay, 401); each event recorded once by (provider, event id) — a duplicate delivery is a no-op — and queued for the worker, which applies it forward-only. Answers `{ received, events: [{ id, type, duplicate }] }`. 404 for a provider not connected here; 400 for a body that isn't one of its events.", auth: false, body: ProviderWebhookEnvelope, status: 202 },
+  { method: "get", path: "/payment-events", tag: "Payments", summary: "BTG admin and Finance, in their own books: the provider's events as SponsorX applied them — by default the exceptions not yet closed (HELD and FAILED for BTG, DEFERRED waiting for what they follow). `{ counts: { RECEIVED, APPLIED, IGNORED, DEFERRED, HELD, FAILED }, waitingOnBtg, events: [{ id, provider, providerEventId, type, occurredAt, subjectRef, status, outcome (in words), attempts, nextAttemptAt, receivedAt, appliedAt, resolvedAt, resolvedBy, resolutionNote }] }`. ?status= narrows (comma-separated).", query: PaymentEventsQuery },
+  { method: "post", path: "/payment-events/{id}/resolve", tag: "Payments", summary: "BTG admin closes a HELD or FAILED provider event with a note saying what was done. Once only (409 after); audited.", body: PaymentEventResolveInput },
+  { method: "post", path: "/payment-events/test-provider", tag: "Payments", summary: "Staging only, BTG admin: have the stand-in provider send an event about an order's latest card payment or a payout in your books — once or up to three times (a provider retrying), in any order. The queue applies it as it would a real delivery. 400 where the stand-in is off.", body: StandinEventInput, status: 202 },
 
   // Zoho inbound (P7-BE-04)
   { method: "post", path: "/webhooks/zoho/invoice", tag: "Webhooks", summary: "Zoho Books invoice webhook — shared-secret signed, queued.", auth: false, body: ZohoInvoiceWebhook, status: 202 },

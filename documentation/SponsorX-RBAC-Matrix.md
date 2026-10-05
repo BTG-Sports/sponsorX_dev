@@ -1539,6 +1539,24 @@ order's books.
   marked sent by the system).
 - **A refund outside the caller's books answers 404.**
 
+## 26 · Phase 2 · the payment provider's word *(added 2026-10-05)*
+
+### `paymentEvent` (2S5-INT-02)
+One event from the payment provider (a payment confirmed or declined, a
+refund, a dispute, a payout paid, failed or returned), recorded once and
+applied by the worker, in the books of what it is about.
+| Role | Read | Write | Approve |
+|---|---|---|---|
+| `SUPER_ADMIN` | any | any | — |
+| `BTG_ADMIN` | own-tenant (the exceptions list — held, failed, deferred) | own-tenant (closes a held or failed event with a note; on staging, has the stand-in provider send one) | — |
+| `FINANCE` | own-tenant (the same list) | — | — |
+
+- **No role writes an event.** Rows are written by the signed webhook
+  (`POST /webhooks/payments/{provider}`, no actor) and moved by the worker.
+  `write` is only closing an exception, and the staging-only test sender.
+- **Nobody else reaches them.** A sponsor reads its payment on its own order;
+  a payee its payouts. Neither ever sees the provider's events.
+
 ## 14 · Known gaps
 
 - **D1 and D3 are subject to legal confirmation** (§12). Both were adopted at

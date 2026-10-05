@@ -173,6 +173,10 @@ const schema = z.object({
      it sends, with one failure kind, so the retry story can be run end to
      end. Unset: it pays. Ignored by any other provider. */
   STANDIN_PAYOUT_FAILURE: z.enum(["TEMPORARY", "ACCOUNT", "OTHER"]).optional(),
+  /* 2S5-INT-02 — a provider webhook is refused when its signed timestamp is
+     further than this from now: a replayed delivery, even correctly signed,
+     is turned away (its event id would make it a no-op anyway). */
+  PAYMENT_WEBHOOK_TOLERANCE_SECONDS: z.coerce.number().int().min(30).max(3600).default(300),
 
   /* 2S1-BE-16 / 2S1-OPS-01 — BTG's support mailbox. The contact form's
      messages are queued to this address, and it is shown wherever a person

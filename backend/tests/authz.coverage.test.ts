@@ -89,6 +89,8 @@ const GOVERNED_BY: Record<string, Resource> = {
   MarketplaceOrderInvoice: "marketplaceOrder",
   /* 2S4-BE-13 — money owed back to a sponsor: Finance's "Refunds to send". */
   RefundDue: "refundDue",
+  /* 2S5-INT-02 — the payment provider's events: written by the signed webhook and the worker, read by BTG admin and Finance. */
+  PaymentEvent: "paymentEvent",
   /* 2S4-BE-11 — a delivery problem's exchange is part of its line's delivery. */
   DeliveryIssue: "orderDelivery",
   /* 2S2-BE-05 — a team's invitation to an athlete already on SponsorX. */

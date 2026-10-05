@@ -170,7 +170,8 @@ export type Resource =
   | "teamInvitation"
   | "accountClosure"
   | "guardianHandoff"
-  | "signupRules";
+  | "signupRules"
+  | "paymentEvent";
 
 export const RESOURCES: readonly Resource[] = [
   "tenant",
@@ -249,6 +250,7 @@ export const RESOURCES: readonly Resource[] = [
   "accountClosure",
   "guardianHandoff",
   "signupRules",
+  "paymentEvent",
 ] as const;
 
 type RolePolicy = Partial<Record<Role, Partial<Record<Action, Scope>>>>;
@@ -1035,6 +1037,18 @@ export const POLICY: Record<Resource, RolePolicy> = {
     SUPER_ADMIN: rwa("any", "any"),
     BTG_ADMIN: rwa("own-tenant", "own-tenant"),
     NETWORK_MGR: rwa("own-tenant"),
+  },
+
+  /* 2S5-INT-02 (matrix §26) — the payment provider's events, as SponsorX
+     recorded and applied them. Rows are written by the signed webhook (no
+     actor) and the worker, never through this matrix. BTG admin and Finance
+     read them — the exceptions held for BTG first. BTG admin also closes a
+     held or failed one with a note, and (staging only) has the stand-in
+     provider send one (write). Nobody else reaches them. */
+  paymentEvent: {
+    SUPER_ADMIN: rwa("any", "any"),
+    BTG_ADMIN: rwa("own-tenant", "own-tenant"),
+    FINANCE: rwa("own-tenant"),
   },
 };
 

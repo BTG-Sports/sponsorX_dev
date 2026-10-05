@@ -132,6 +132,35 @@ event id.
 - Refunding more than was captured.
 - Any state set from the client. Only the provider's webhook moves a payment.
 
+### As built (2S5-INT-02, 2026-10-05)
+
+The payment is the card attempt (`PaymentAttempt`):
+`PENDING → PROCESSING → SUCCEEDED → (PARTIALLY_REFUNDED →) REFUNDED`, with
+`FAILED` reachable from `PENDING` or `PROCESSING`. `SUCCEEDED` is the
+design's `CAPTURED` (the provider authorises and captures in one step);
+`refundedCents` never passes `amountCents` (a CHECK). `PENDING → PROCESSING`
+is also made by the provider's own page when the sponsor completes it.
+
+**The provider's word.** Every provider webhook is checked over its raw body
+(a signed timestamp, five minutes either way: a replay is refused), mapped
+onto nine provider-neutral events — `payment.processing | succeeded | failed
+| refunded`, `dispute.opened | closed`, `payout.paid | failed | returned` —
+and recorded once per (provider, event id) as a `PaymentEvent`, queued for
+the worker in the same transaction. A duplicate delivery writes nothing. The
+worker applies each event under the order's row lock; it ends:
+
+| Event status | Means |
+|---|---|
+| `APPLIED` | it moved what it names |
+| `IGNORED` | nothing left to do: a late or repeated word (a "processing" after "succeeded", a failure after "succeeded", a second "succeeded") |
+| `DEFERRED` | it names something SponsorX hasn't recorded yet; tried again after 30 s, 2, 10, 30, 60 and 180 minutes |
+| `HELD` | BTG's, with the reason: "succeeded" after a recorded failure, an amount that isn't the payment's |
+| `FAILED` | BTG's: deferred past the last try, or its handler failed six times |
+
+**Illegal, as built:** any move backwards (`SUCCEEDED → PROCESSING`,
+`SUCCEEDED → FAILED`), `FAILED → SUCCEEDED` by itself (HELD instead), and
+applying one event twice (the event's row lock and its status).
+
 ## 6 · Payout (`2S5-BE-04`, `2S5-BE-05`)
 
 `NOT_ELIGIBLE → ELIGIBLE → REQUESTED → APPROVED → PAID`, with `FAILED → REQUESTED`

@@ -121,6 +121,11 @@ ${d.portalUrl ?? ""}
     subject: `Refund the sponsor: a card payment of ${d.amount ?? ""} for order ${d.orderRef ?? ""}, which is ${d.orderState ?? "no longer waiting for payment"}`,
     text: `${d.why ?? "A card payment was confirmed for an order that was no longer waiting for payment"} (order ${d.orderRef ?? ""}, ${d.amount ?? ""}). The order has not been reopened — refund the sponsor's payment with the payment provider${d.providerRef ? ` (payment ${d.providerRef})` : ""}.\n\n${d.orderUrl ?? ""}\n\n— SponsorX`,
   }),
+  /* 2S5-INT-02 — a provider event SponsorX held for BTG instead of applying it. */
+  "payment.heldForBtg": (d) => ({
+    subject: `Payment provider event held for you: ${d.type ?? "an event"}${d.orderRef ? ` (order ${d.orderRef})` : ""}`,
+    text: `SponsorX received this from the payment provider and did not act on it by itself:\n\n${d.type ?? ""}${d.subject ? ` — ${d.subject}` : ""}\n\nWhy: ${d.reason ?? ""}\n\nCheck it with the provider, put it right in SponsorX (record the payment, refund it, or leave it), then mark it dealt with:\n\n${d.eventsUrl ?? ""}\n\n— SponsorX`,
+  }),
   /* 2S4-BE-09 — the seller's step. */
   "sale.approvalRequested": (d) => ({
     subject: `${d.sponsorName ?? "A sponsor"} wants to order from you — please answer by ${d.answerBy ?? "the time shown"}`,

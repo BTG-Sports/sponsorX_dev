@@ -378,7 +378,13 @@ describe("the whole matrix is pinned", () => {
       // other cell deny — the sponsor reads a refund's state on its own order
       // (matrix §25). With its rows removed the grid hashes to the previous
       // 549a562e5fbbb0a6.
-    ).toBe("168f5303543b3776");
+      // Updated 2026-10-05 (2S5-INT-02): new `paymentEvent` resource — the
+      // payment provider's events as SponsorX applied them. SUPER_ADMIN any
+      // read/write; BTG_ADMIN own-tenant read/write (the exceptions list,
+      // closing one with a note, the stand-in's test events on staging);
+      // FINANCE own-tenant read; every other cell deny (matrix §26). With its
+      // rows removed the grid hashes to the previous 168f5303543b3776.
+    ).toBe("193e39d2e041e519");
   });
 
   it("covers every pair the §30 acceptance asks for", () => {

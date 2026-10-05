@@ -1,6 +1,7 @@
 import { createHmac, randomBytes } from "node:crypto";
 
 import { env } from "../config/env";
+import { PAYMENT_EVENT_DATA, ProviderWebhookEnvelope, type NeutralPaymentEvent } from "../contracts/payment-events";
 import { acceptedSecrets, hmacMatchesAny } from "./rotating-secret";
 
 /**
@@ -74,6 +75,66 @@ export function readStandinToken(token: string, now = new Date()): StandinLink {
 /** The stand-in's reference for something it "did". */
 export function standinRef(prefix: "acct" | "pay" | "po" | "re"): string {
   return `standin_${prefix}_${randomBytes(6).toString("hex")}`;
+}
+
+/* ── webhooks — 2S5-INT-02 ───────────────────────────────────────────── */
+
+/**
+ * What a provider's webhook must carry, and how it is checked. Each provider
+ * signs differently; past this adapter every event is a NeutralPaymentEvent
+ * (contracts/payment-events.ts), so Stripe joins by adding its verifier and
+ * its name mapping here — nothing that applies an event changes.
+ *
+ * The stand-in signs like Stripe does: `t=<unix seconds>,v1=<hex HMAC-SHA256
+ * of "<t>.<raw body>">` under STANDIN_PROVIDER_SECRET (and, mid-rotation,
+ * STANDIN_PROVIDER_SECRET_PREVIOUS — 2S8-SEC-02). The timestamp is inside the
+ * signature, so a replayed delivery cannot be freshened: one older (or newer)
+ * than PAYMENT_WEBHOOK_TOLERANCE_SECONDS is refused, and one inside the
+ * window is a duplicate event id — a no-op.
+ */
+export const WEBHOOK_SIGNATURE_HEADER: Record<Exclude<ProviderName, "none">, string> = { standin: "x-standin-signature" };
+
+export type WebhookCheck = { ok: true } | { ok: false; reason: string };
+
+/** The stand-in's signature header for a raw body, signed now (current secret only). */
+export function standinWebhookSignature(rawBody: string, now = new Date()): string {
+  const t = Math.floor(now.getTime() / 1000);
+  return `t=${t},v1=${createHmac("sha256", env.STANDIN_PROVIDER_SECRET).update(`${t}.${rawBody}`).digest("hex")}`;
+}
+
+/** Is this delivery really from `provider`, and fresh? Constant-time over every accepted secret. */
+export function verifyProviderWebhook(provider: string, rawBody: string, header: string | undefined, now = new Date()): WebhookCheck {
+  if (provider !== "standin") return { ok: false, reason: `no webhook verifier for provider "${provider}"` };
+  if (!header) return { ok: false, reason: "no signature" };
+  const parts = Object.fromEntries(header.split(",").map((p) => p.trim().split("=", 2) as [string, string]));
+  const t = Number(parts.t);
+  if (!Number.isInteger(t) || !parts.v1) return { ok: false, reason: "malformed signature" };
+  const secrets = acceptedSecrets(env.STANDIN_PROVIDER_SECRET, env.STANDIN_PROVIDER_SECRET_PREVIOUS);
+  if (!hmacMatchesAny(secrets, `${t}.${rawBody}`, parts.v1, "hex")) return { ok: false, reason: "signature did not verify" };
+  if (Math.abs(now.getTime() / 1000 - t) > env.PAYMENT_WEBHOOK_TOLERANCE_SECONDS) return { ok: false, reason: "signature timestamp outside the tolerance (a replay)" };
+  return { ok: true };
+}
+
+export class WebhookPayloadError extends Error {
+  readonly status = 400;
+  constructor(message = "This webhook body is not an event this provider sends.") {
+    super(message);
+    this.name = "WebhookPayloadError";
+  }
+}
+
+/**
+ * A verified body, mapped onto SponsorX's own event model. The stand-in sends
+ * the neutral envelope as it is; each event's data is checked against its
+ * type. Throws WebhookPayloadError for anything else.
+ */
+export function parseProviderWebhook(provider: string, body: unknown): NeutralPaymentEvent[] {
+  if (provider !== "standin") throw new WebhookPayloadError(`No event mapping for provider "${provider}".`);
+  const envelope = ProviderWebhookEnvelope.safeParse(body);
+  if (!envelope.success) throw new WebhookPayloadError();
+  const data = PAYMENT_EVENT_DATA[envelope.data.type].safeParse(envelope.data.data);
+  if (!data.success) throw new WebhookPayloadError(`This ${envelope.data.type} event is missing what it must name.`);
+  return [{ id: envelope.data.id, type: envelope.data.type, occurredAt: new Date(envelope.data.created), data: data.data as Record<string, unknown> }];
 }
 
 /* ── refunds — 2S4-BE-13 ─────────────────────────────────────────────── */

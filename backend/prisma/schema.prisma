@@ -3005,7 +3005,11 @@ model PaymentAttempt {
   provider      String
   providerRef   String?
   /// PENDING (sent to the provider) | PROCESSING (back, awaiting confirmation) | SUCCEEDED | FAILED
+  /// | PARTIALLY_REFUNDED | REFUNDED (2S5-INT-02 — moved only forward, only on the provider's word:
+  /// payment-events.ts; a late "processing" never undoes "succeeded").
   state         String   @default("PENDING")
+  /// 2S5-INT-02 — how much of it the provider says it refunded (never more than amountCents).
+  refundedCents Int      @default(0)
   failureReason String?
   createdBy     String?
   createdAt     DateTime @default(now())
@@ -3013,6 +3017,45 @@ model PaymentAttempt {
 
   @@index([tenantId, orderId])
   @@index([orderId, createdAt])
+}
+
+/// 2S5-INT-02 — one event from the payment provider, in SponsorX's own
+/// provider-neutral words (`type`: payment.processing | payment.succeeded |
+/// payment.failed | payment.refunded | dispute.opened | dispute.closed |
+/// payout.paid | payout.failed | payout.returned — a provider's own event names
+/// are mapped onto these in lib/payment-provider.ts). Unique per (provider,
+/// providerEventId): a duplicate delivery writes nothing. The webhook writes
+/// it RECEIVED and queues `payments.event`; the worker applies it
+/// (payment-events.ts) and records the outcome: APPLIED, IGNORED (nothing
+/// left to do — a late or repeated word), DEFERRED (it arrived before what it
+/// follows; tried again at `nextAttemptAt`), HELD (BTG's, with the reason in
+/// `outcome`) or FAILED (deferred too long — BTG's). In the books of what it
+/// is about; until that is known, the platform's BTG tenant.
+model PaymentEvent {
+  id              String    @id @default(cuid())
+  tenantId        String
+  provider        String
+  providerEventId String
+  type            String
+  occurredAt      DateTime
+  payload         Json
+  /// The payment attempt, payout or dispute it names, as the provider gave it.
+  subjectRef      String?
+  status          String    @default("RECEIVED")
+  outcome         String?
+  attempts        Int       @default(0)
+  nextAttemptAt   DateTime?
+  receivedAt      DateTime  @default(now())
+  appliedAt       DateTime?
+  /// A HELD or FAILED event BTG has dealt with: who, when, and what they did.
+  resolvedAt      DateTime?
+  resolvedBy      String?
+  resolutionNote  String?
+  updatedAt       DateTime  @default(now()) @updatedAt
+
+  @@unique([provider, providerEventId])
+  @@index([tenantId, status])
+  @@index([status, nextAttemptAt])
 }
 
 /// 2S5-BE-04 / 2S5-BE-05 — a payee asks to be paid its available balance; BTG
