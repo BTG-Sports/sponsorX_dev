@@ -1585,9 +1585,9 @@ This task finds which suite or sweep touches another suite's rows, and isolates 
 - **Done when:** Five consecutive full backend runs pass with only known, tracked failures; the interfering suite or sweep is identified and isolated
 - **Reference:** seen 2026-10-01 and 2026-10-02
 
-### ⏸ `2S8-OPS-02` · Pin the database time zone to UTC
+### ✅ `2S8-OPS-02` · Pin the database time zone to UTC
 
-**QA/OPS** · **1d** · **Code review** — merged 2026-10-05; Done once the next deploy applies migration `20261005100000_utc_time_zone` on staging and production
+**QA/OPS** · **1d** · **Done** — staging and production deployed 2026-10-05; both databases report UTC
 
 Timestamp columns hold UTC as timestamp-without-time-zone, but some SQL compares them with `now()` in the session's time zone:
 - `worker/jobs/expire-invitations.mts`;
