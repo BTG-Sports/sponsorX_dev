@@ -30,39 +30,51 @@ sign-ups"; title "Sign-up rules" + live dot + Postgres pill; four tiles:
 - **Add or change a place** panel: country and state fields (mono caps), an
   age stepper (− n +, 14–25), "Save place"; the hint stays.
 
-## The grid
+## The age table — built for scale
 
-Age chips (All · each age present, with counts) and an instant search
-(client-side — a bounded catalogue of ~60–70 places, allowed by the
-pagination rule). Sections (`placeSections`): each country with states or
-provinces its own (biggest first; whole-country row first, then regions A→Z),
-and every whole-country-only place in one "Countries" section — twenty single
-tiles otherwise took a row of the page each (seen in the first walk). Each
-tile: code (or "All of US") and the age, banded: under 18 violet, 18 blue, 19
-cyan, 20+ orange. Hover / focus → "×"; click → inline "Remove AL? Yes / No".
-Staggered rise-in. Refusals show the API's words.
+The owner asked mid-build: "what if there are more countries and more state
+/ provinces". The first cut laid every place out as a tile (3,786px tall
+with 85 places; it would grow without bound). The table now never renders
+whole:
 
-**Picking a tile** loads it into the form and scrolls there — and, the owner
-asked twice, never as a silent jump: the panel glows from behind (a wrapper,
+- **Global search** across every country, by code or name (country names
+  from `Intl.DisplayNames`; state / province names from `lib/region-names.ts`
+  for US, CA, MX, AU, BR, IN — other codes stay searchable by code). A
+  listbox (↑ ↓ ⏎ Esc); picking selects the country and loads the place.
+- **Country rail**: every country once (most places first), its default age,
+  place count and exceptions badge; its own filter and an All / Not 18
+  switch; it scrolls inside its panel.
+- **Country panel**: the default (the whole-country row, clickable), its
+  **exceptions** (age ≠ default) as big banded tiles with the state's name,
+  and the places that **follow the default** as small chips — the first 40,
+  then "Show all". A country with no whole-country row shows every place as
+  a tile. 20 countries or 200, the page stays ~1,345px.
+- **Remove** moves into the edit panel ("Remove AL, US" → confirm) — one
+  place for it whether the place was a tile or a chip.
+- The form is empty at rest ("Add a place"); the save button has its own
+  full-width row.
+
+**Picking anything** loads it into the form and scrolls there — never a
+silent jump (the owner asked twice): the panel glows from behind (a wrapper,
 since the chamfer clip cuts the panel's own shadow) and pulses a bright ring
-twice; a lit callout bar reads "Editing AL, US — adult at 19" with two
-numbered steps ("Set the new age with − / +", "Press Change AL, US") and a
-"Cancel · new place"; the age stepper carries a bright ring; the picked tile
-stays lit (`aria-pressed`); a polite live region says the same. All of it
-stays while the picked place is in the form.
+twice; a lit callout bar reads "Editing Alabama, United States — adult at 19"
+with two numbered steps and "Cancel · new place"; the age stepper carries a
+bright ring; the picked tile or chip stays lit (`aria-pressed`); a polite
+live region says the same.
 
 ## Build
 
-- `lib/age-table.ts` (pure): `ageBand`, `placeLabel`, `ageChips`,
-  `groupPlaces`, `placeSections` — unit-tested.
-- `components/rules-board.tsx` (client): the form, chips, search and grid
-  in one island (a tile fills the form). `components/signup-rules-editor.tsx`
+- `lib/age-table.ts` (pure): `placeLabel`, `ageBand`, `countryName`,
+  `regionName`, `placeName`, `countryIndex`, `countryDetail`, `searchPlaces`,
+  `FOLLOWING_SHOWN` — unit-tested; `lib/region-names.ts` (data).
+- `components/rules-board.tsx` (client): the form, the search, the rail and
+  the country panel in one island (anything picked fills the form). `components/signup-rules-editor.tsx`
   keeps `StaffConfirmSwitch` (restyled), the old form and remove button go.
 - `rules/page.tsx` on the stage; `rules/loading.tsx` dark.
 
 ## Verification
 
 Unit tests; frontend tests and lint; build in a detached worktree (then the
-rimraf check); browser walk as BTG_ADMIN — tile → form, save an unchanged
-place, a chip and the search, dark / light / 390. No real place is removed
-in the walk.
+rimraf check); browser walk as BTG_ADMIN — search → pick, rail filter and
+switch, chip → form, save an unchanged place, Remove armed then kept, dark /
+light / 390. No real place is removed in the walk.

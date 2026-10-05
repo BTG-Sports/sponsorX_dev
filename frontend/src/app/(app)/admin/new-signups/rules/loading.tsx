@@ -1,8 +1,8 @@
 import { OpsGround } from "@/components/ops-stage";
 
 /* Sign-up rules' loading screen (P1-ART-17): the stage's dark ground with
-   ghost blocks where the title, the four tiles, the two control panels and
-   the place grid land — so arriving here never flashes the light skeleton. */
+   ghost blocks where the title, the four tiles, the two control panels, the
+   country rail and the country panel land — so arriving here never flashes the light skeleton. */
 export default function Loading() {
   return (
     <div
@@ -21,8 +21,9 @@ export default function Loading() {
           <div className="sx-ops-panel sx-ops-ghost relative h-48" />
           <div className="sx-ops-panel sx-ops-ghost relative h-48" />
         </div>
-        <div className="mt-8 grid grid-cols-3 gap-2 sm:grid-cols-5 md:grid-cols-6 xl:grid-cols-8 2xl:grid-cols-10">
-          {Array.from({ length: 20 }, (_, i) => <div key={i} className="sx-ops-panel sx-ops-ghost relative h-[4.75rem]" />)}
+        <div className="mt-8 grid gap-4 lg:grid-cols-[19rem_minmax(0,1fr)]">
+          <div className="sx-ops-panel sx-ops-ghost relative h-[24rem]" />
+          <div className="sx-ops-panel sx-ops-ghost relative h-[24rem]" />
         </div>
       </div>
     </div>
