@@ -158,7 +158,12 @@ test("a sponsor brief is approved, staffs itself, and is answered — accept, de
   await expect(accept, "not before the agreement is read").toBeDisabled();
   await accepter.getByText(/I have read the agreement \(version \d+\)/).click();
   await accept.click();
-  await expect(accepter.getByText("Accepted. The deliverables are now scheduled on your Campaign Order.")).toBeVisible({ timeout: 20_000 });
+  /* The answer panel confirms, then the page refreshes into the offer's
+     status — either is the accepted outcome; asserting only the first races
+     the refresh. */
+  await expect(
+    accepter.getByText(/Accepted\. The deliverables are now scheduled on your Campaign Order\.|You accepted these terms\./).first(),
+  ).toBeVisible({ timeout: 20_000 });
   const stateOf = async (offerId: string) => (await offers()).find((o) => o.id === offerId)?.state;
   await expect.poll(() => stateOf(accepted.id)).toBe("ACCEPTED");
   const [order] = await q<{ state: string; compensation: number; jobId: string }>(
@@ -173,7 +178,10 @@ test("a sponsor brief is approved, staffs itself, and is answered — accept, de
   await openOffer(decliner, declined.id);
   await decliner.getByRole("button", { name: "Decline", exact: true }).click();
   await decliner.getByRole("button", { name: "Yes, decline" }).click();
-  await expect(decliner.getByText("Declined. BTG has been told; no reason needed.")).toBeVisible();
+  /* As for accept: the brief confirmation or the refreshed status. */
+  await expect(
+    decliner.getByText(/Declined\. BTG has been told; no reason needed\.|You declined this offer\. No Campaign Order was created\./).first(),
+  ).toBeVisible();
   await expect.poll(() => stateOf(declined.id)).toBe("DECLINED");
   await openOffer(decliner, declined.id);
   await expect(decliner.getByRole("button", { name: "Accept offer" }), "a declined offer can't be reopened").toHaveCount(0);
