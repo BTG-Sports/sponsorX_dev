@@ -1567,6 +1567,70 @@ External users, money movement and file uploads all raise the stakes.
 - **Done when:** OWASP testing complete, dependency scan clean, secrets rotation in place
 - **Reference:** Spec §38
 
+### ⏸ `2S8-SEC-03` · Pin type and size on every private upload
+
+**Order** 62.1 · **SEC** · **Where:** Code · **1d** · **Ready**
+
+The private-bucket upload URLs don't pin content type or length: account, onboarding, organisation, sponsor-request, hand-off, support and profile-change documents. Their confirm step checks size but not type, and does not delete an oversized object.
+
+Pin `{signContentType, contentLength}` at each presign. On confirm, compare the object's type and size, and delete it on a mismatch.
+
+- **Depends on:** 2S8-SEC-02
+- **Done when:** Every private upload URL is signed for one type and size; a mismatched object is refused and deleted on confirm, proven end to end
+- **Reference:** Security review 2026-10, §A04 (Open, Medium); raised 2026-10-05 by 2S8-SEC-02
+
+### ⏸ `2S8-SEC-04` · A replayed invoice webhook can't roll an invoice back
+
+**Order** 62.2 · **SEC** · **Where:** Code · **1d** · **Ready**
+
+Zoho Books sends no timestamp, so replaying an old, correctly signed invoice webhook could roll an invoice's status back. The ingest should refuse a payload that would move the stored state backwards: paid never goes back to sent.
+
+- **Depends on:** 2S8-SEC-02
+- **Done when:** A replayed older invoice webhook leaves the stored status unchanged; paid never returns to sent
+- **Reference:** Security review 2026-10, §A04 (Open, Low); raised 2026-10-05 by 2S8-SEC-02
+
+### ⏸ `2S8-SEC-05` · Small hardening items from the security review
+
+**Order** 62.3 · **SEC** · **Where:** Code · **1d** · **Ready**
+
+1. `GET /athletes/:id/rates` answers `200 []` for a real athlete but 403 for a missing id, which reveals which ids exist.
+2. Restrict the Zoho CRM notification `module` and `ids` to an enum and digits.
+3. Turn off JavaScript in the PDF renderer, once the report is confirmed to need none.
+4. Stop the worker logging non-fan email addresses.
+5. Add `import "server-only"` to `frontend/src/server/{api,edge,payouts}.ts`.
+6. Run one git-history secret scan, for example gitleaks.
+
+- **Depends on:** 2S8-SEC-02
+- **Done when:** Each item is fixed with a test, or recorded as declined with a reason in the security review
+- **Reference:** Security review 2026-10, §A01, §A09, §A10 and Follow-ups; raised 2026-10-05 by 2S8-SEC-02
+
+### ⏸ `2S8-QA-07` · Guard tests cover writes and same-tenant access
+
+**Order** 62.4 · **QA** · **Where:** Code · **2d** · **Ready**
+
+`tenant-scope.static` checks reads only. `tenant-isolation` sweeps across tenants but not within one, so sponsor vs sponsor and athlete vs athlete are untested. Extend both, so that an unscoped write or a same-tenant read of another account fails the suite.
+
+- **Depends on:** 2S8-SEC-02
+- **Done when:** The guard tests fail on an unscoped write and on a same-tenant cross-account read, shown by a deliberately broken route
+- **Reference:** Security review 2026-10, Other checks (Open, Info); raised 2026-10-05 by 2S8-SEC-02
+
+### ⏸ `2S8-PMO-02` · Security settings the owner decides
+
+**Order** 62.5 · **PMO** · **Where:** Document · **1d** · **Ready**
+
+The security review leaves seven decisions to the owner:
+1. A full CSP, in report-only mode first.
+2. HSTS `includeSubDomains` / `preload`.
+3. Clerk `authorizedParties`, after listing every web origin that signs people in.
+4. How long intake, onboarding, sign-up and sponsor-request links last.
+5. Whether a profile claimant confirms their email before an advisor verifies the claim.
+6. Setting `PAYMENT_PROVIDER=none` explicitly on Railway production.
+7. Setting `STANDIN_PROVIDER_SECRET` explicitly on staging.
+
+- **Depends on:** 2S8-SEC-02
+- **Done when:** Each of the seven decisions is recorded in the security review, and every setting chosen is applied on Railway
+- **Reference:** Security review 2026-10, Decisions for the owner; raised 2026-10-05 by 2S8-SEC-02
+
 ### ⏸ `2S8-OPS-01` · Production readiness and restore test
 
 **Order** 63 · **OPS** · **Where:** Vendor console · **3d** · **Blocked**

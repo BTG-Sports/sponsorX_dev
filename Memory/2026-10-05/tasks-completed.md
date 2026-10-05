@@ -64,3 +64,11 @@
     - setting `PAYMENT_PROVIDER=none` explicitly on production;
     - setting `STANDIN_PROVIDER_SECRET` on staging. The first deploy changes staging's derived value, so test-provider links already sent stop working.
 - **Stage Progress:** the 2026-10-05 row is appended (Phase 1: 265 Done, 47 days left).
+- **PR #153 merged into main_development** (2026-10-05). It is not on `main` yet, so it is not deployed. **2S8-OPS-02 stays Code review** until the next deploy applies the UTC migration on staging and production.
+- **New rows raised by 2S8-SEC-02,** all Ready, Order 62.1–62.5, in the tracker and the Phase 2 plan:
+  - 2S8-SEC-03: private uploads pin their type and size;
+  - 2S8-SEC-04: an invoice webhook replay can't roll an invoice back;
+  - 2S8-SEC-05: small hardening items;
+  - 2S8-QA-07: guard tests cover writes and same-tenant access;
+  - 2S8-PMO-02: the seven security settings the owner decides.
+- **Tracker ranges:** the Phase 2 ranges now end at row 131. That covers the Dashboard formulas, the autofilter, the conditional formatting and the Status list.
