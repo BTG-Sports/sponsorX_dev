@@ -259,6 +259,16 @@ jobs:
       DATABASE_URL: postgresql://sponsorx:sponsorx@localhost:5432/sponsorx_e2e
       PGTZ: UTC
       REDIS_URL: redis://localhost:6379
+      # The whole suite reaches the API from this one machine — one visitor,
+      # as far as the per-visitor rate limits can tell — so the limits that
+      # stop a scripted attacker stop the suite instead. Scaled up here, for
+      # this job only (rate-limit.ts, limitMultiplier); never set in production.
+      RATE_LIMIT_MULTIPLIER: "100"
+      # No MinIO here: Playwright starts an in-memory object store
+      # (e2e/support/object-store-standin.mjs) and the API presigns against
+      # it, so an upload's PUT lands and the API's check that it landed finds it.
+      E2E_OBJECT_STORE_STANDIN: "1"
+      S3_ENDPOINT: http://127.0.0.1:9100
       # The API validates both Clerk keys at boot; the fan routes never call
       # Clerk, so the test instance's keys are enough.
       CLERK_PUBLISHABLE_KEY: ${{ vars.CLERK_PUBLISHABLE_KEY_TEST }}

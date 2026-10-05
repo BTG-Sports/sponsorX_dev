@@ -18,11 +18,14 @@ import type { Request } from "express";
 
 import { env } from "../config/env";
 
+/** Verified primary address, lowercased. `null` when the identity has none,
+ *  which is possible for machine or SSO identities. A function when it has
+ *  not been fetched yet — called only if it is actually needed. */
+export type EmailSource = string | null | (() => Promise<string | null>);
+
 export type ClerkIdentity = {
   clerkId: string;
-  /** Verified primary address, lowercased. `null` when the identity has none,
-   *  which is possible for machine or SSO identities. */
-  email: string | null;
+  email: EmailSource;
 };
 
 const clerk = createClerkClient({
@@ -62,11 +65,15 @@ export async function authenticateClerkRequest(
   /* The session token carries no email, so the address that links a Clerk
      identity to its provisioned Postgres row has to be fetched. Only needed
      on first sign-in — every later request matches on `clerkId` and never
-     reaches this call. */
-  const user = await clerk.users.getUser(userId);
-  const email =
-    user.emailAddresses.find((address) => address.id === user.primaryEmailAddressId)
-      ?.emailAddress ?? null;
+     calls this. So it is handed over unfetched: a Backend API call on every
+     request spent Clerk's rate limit on lookups whose answer was never read,
+     and a page making a handful of API calls ran into Clerk's 429. */
+  const email = async () => {
+    const user = await clerk.users.getUser(userId);
+    const address =
+      user.emailAddresses.find((a) => a.id === user.primaryEmailAddressId)?.emailAddress ?? null;
+    return address ? address.toLowerCase() : null;
+  };
 
-  return { clerkId: userId, email: email ? email.toLowerCase() : null };
+  return { clerkId: userId, email };
 }

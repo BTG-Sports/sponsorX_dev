@@ -16,7 +16,8 @@
  * already exists and the upserts change nothing. Shared base rows are never
  * deleted.
  */
-import { readFileSync } from "node:fs";
+import { createHash } from "node:crypto";
+import { readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 
 import pg from "pg";
@@ -116,6 +117,39 @@ export async function ensureBase(): Promise<void> {
   });
 }
 
+/**
+ * Every agreement in backend/agreements, registered as
+ * `npm run agreement:register` does — the marketplace path signs three more
+ * than the Phase 1 loop (PROPERTY_TERMS, MARKETPLACE_ORDER, GUARDIAN).
+ * The property wizard compares the plain sha256 hex of its file
+ * (onboarding.ts); every other kind the canonical agreement hash.
+ * Idempotent; an issued hash is never rewritten — a mismatch fails loudly.
+ */
+export async function ensureAgreements(): Promise<void> {
+  const dir = path.resolve(__dirname, "../../backend/agreements");
+  await tx(async (c) => {
+    for (const f of readdirSync(dir)) {
+      const m = /^([A-Z_]+)\.v(\d+)\.txt$/.exec(f);
+      if (!m) continue;
+      const [, kind, v] = m;
+      const text = readFileSync(path.join(dir, f), "utf8");
+      const hash = kind === "PROPERTY_TERMS" ? createHash("sha256").update(text).digest("hex") : hashAgreementBody(text);
+      await c.query(
+        `insert into "Agreement"(id, "tenantId", kind, version, "bodyHash", "effectiveAt")
+         values ($1, $2, $3, $4, $5, now() - interval '1 day')
+         on conflict ("tenantId", kind, version) do nothing`,
+        [`e2e_agreement_${kind.toLowerCase()}_v${v}_${TENANT}`, TENANT, kind, Number(v), hash],
+      );
+      const [row] = (await c.query<{ bodyHash: string }>(
+        `select "bodyHash" from "Agreement" where "tenantId" = $1 and kind = $2 and version = $3`, [TENANT, kind, Number(v)],
+      )).rows;
+      if (row?.bodyHash !== hash) {
+        throw new Error(`${kind} v${v} in ${TENANT} is registered with ${row?.bodyHash}, but the file hashes to ${hash}.`);
+      }
+    }
+  });
+}
+
 /** Rate-limit counters the specs legitimately exceed (every public intake in
  *  a run comes from the web server's one address). Only `ratelimit:<prefix>*`
  *  keys, and only when Redis is there — without it the limiter fails open. */
@@ -181,6 +215,12 @@ export async function purge(owned: Owned): Promise<void> {
       `select id from "CampaignOrder" where "campaignId" = any($1) or "athleteId" = any($2)`,
       [campaigns, athletes],
     );
+    /* P4-BE-12 — a campaign staffing itself sends formal offers; an accepted
+       one names its order, so offers go before orders. */
+    const offers = await ids(
+      `select id from "Offer" where "campaignId" = any($1) or "athleteId" = any($2)`,
+      [campaigns, athletes],
+    );
     const acceptances = await ids(
       `select "acceptanceId" as id from "CampaignOrder" where id = any($1) and "acceptanceId" is not null
        union select id from "AgreementAcceptance" where "athleteId" = any($2)`,
@@ -207,6 +247,10 @@ export async function purge(owned: Owned): Promise<void> {
     await c.query(`delete from "CreativeAsset" where "deliverableId" = any($1)`, [deliverables]);
     await c.query(`delete from "Deliverable" where id = any($1)`, [deliverables]);
     await c.query(`delete from "Earning" where id = any($1)`, [earnings]);
+    await c.query(`delete from "OfferChangeRequest" where "offerId" = any($1)`, [offers]);
+    /* An accepted offer's exclusivity is a restriction on the athlete (2S2-BE-02). */
+    await c.query(`delete from "BrandRestriction" where "athleteId" = any($1) or "sourceOfferId" = any($2)`, [athletes, offers]);
+    await c.query(`delete from "Offer" where id = any($1)`, [offers]);
     await c.query(`delete from "CampaignOrder" where id = any($1)`, [orders]);
     await c.query(`delete from "AgreementAcceptance" where id = any($1)`, [acceptances]);
     await c.query(`delete from "CampaignInvite" where id = any($1)`, [invites]);
@@ -221,7 +265,8 @@ export async function purge(owned: Owned): Promise<void> {
       [campaigns, athletes],
     );
     await c.query(`delete from "Reward" where "campaignId" = any($1)`, [campaigns]);
-    await c.query(`delete from "SyncTask" where "campaignId" = any($1)`, [campaigns]);
+    await c.query(`delete from "SyncTask" where "campaignId" = any($1) or "briefId" = any($2)`, [campaigns, briefs]);
+    await c.query(`delete from "CampaignStaffingSkip" where "campaignId" = any($1) or "athleteId" = any($2)`, [campaigns, athletes]);
     await c.query(`delete from "Campaign" where id = any($1)`, [campaigns]);
     await c.query(`delete from "CampaignBrief" where id = any($1)`, [briefs]);
     await c.query(`update "User" set "sponsorId" = null where "sponsorId" = any($1)`, [sponsors]);
@@ -241,7 +286,7 @@ export async function purge(owned: Owned): Promise<void> {
 
     const everything = [
       ...athletes, ...sponsors, ...briefs, ...campaigns, ...orders, ...deliverables,
-      ...invites, ...earnings, ...guardians, ...links,
+      ...invites, ...earnings, ...guardians, ...links, ...offers,
     ];
     await c.query(`delete from "AuditLog" where "entityId" = any($1)`, [everything]);
     /* Queued side effects (notification emails, Zoho syncs) that name these
