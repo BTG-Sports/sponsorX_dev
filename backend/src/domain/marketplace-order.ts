@@ -98,6 +98,7 @@ import { approvalsForOrders, openSellerApprovals } from "./order-approval";
 import { tellBtgHeld, tellSponsorApproved, tellSponsorPaid } from "./order-mail";
 import { orderRefundCause, recordRefund, refundsForOrders, type RefundContext } from "./refunds";
 import { claimsMoney } from "./payout-auto";
+import { assertRefundable } from "./payment-exceptions";
 import {
   approvalReasons,
   billingProblems,
@@ -601,6 +602,8 @@ async function moveIn(
 ) {
   const from = order.state as MarketplaceOrderState;
   if (!canTransitionMarketplaceOrder(from, to)) throw new IllegalMarketplaceOrderTransitionError(from, to);
+  /* 2S5-BE-03 — never under a dispute (its money is frozen), nor after one was lost (the bank already returned it). */
+  if (to === "REFUNDED") await assertRefundable(tx, order.id);
   /* Claimed on the state it was read in (see CONCURRENCY above): an order
      that moved meanwhile is a conflict, and none of what follows happens. */
   const updated = await claim(tx, order.id, from, to, {

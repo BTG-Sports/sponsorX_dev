@@ -30,6 +30,7 @@ import { editionArtworkRouter } from "./edition-artwork";
 import { onboardingRouter } from "./onboarding";
 import { marketplaceRouter } from "./marketplace";
 import { payoutsRouter } from "./payouts";
+import { paymentsRouter } from "./payments";
 import { sponsorRequestsRouter } from "./sponsor-requests";
 import { restrictedWordsRouter } from "./restricted-words";
 import { accountRouter } from "./account";
@@ -139,6 +140,8 @@ v1Router.use("/", onboardingRouter);
    and tenant branding (2S2-BE-01/-03/-04, 2S3-BE-01, 2S7-BE-01). */
 v1Router.use("/", marketplaceRouter);
 v1Router.use("/", payoutsRouter);
+/* 2S5-INT-02 — the payment provider's signed webhook, and BTG's list of what it said. */
+v1Router.use("/", paymentsRouter);
 
 /* 2S1-BE-05 — BTG reviews businesses asking to sponsor, and opens their accounts. */
 v1Router.use("/", sponsorRequestsRouter);

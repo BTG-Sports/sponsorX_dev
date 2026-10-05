@@ -68,6 +68,8 @@ describe("suite isolation · static", () => {
     "sweepEditionStages", "sweepHeldSales",
     /* P4-BE-05 (2S8-OPS-02 gave it tenantIds) */
     "expireInvitations",
+    /* 2S5-INT-02 */
+    "retryDeferredPaymentEvents",
   ];
 
   it("every platform-wide sweep a test runs is narrowed to that test's tenant", () => {

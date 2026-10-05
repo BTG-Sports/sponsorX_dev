@@ -71,6 +71,7 @@ const HANDLED_JOBS = new Set<string>([
   "report.render",
   /* 2S5-INT-02 / 2S5-BE-05 — the payment provider's side (stand-in on staging). */
   "payments.confirm",
+  "payments.event",
   "payouts.send",
   "payouts.confirm",
 ]);
@@ -106,7 +107,8 @@ import type { RenderReportJob } from "../src/domain/report-files.ts";
 import { prisma } from "../src/db/client.ts";
 import { ingestZohoInvoice, type ZohoInvoicePayload } from "../src/domain/invoice.ts";
 import { importCohort, type CohortImportJob } from "../src/domain/cohort-import.ts";
-import { completeStandinPayout, confirmPayment, confirmPayoutPaid, sendPayout, sweepPayoutRetries } from "../src/domain/payouts.ts";
+import { completeStandinPayout, confirmPayoutPaid, sendPayout, sweepPayoutRetries } from "../src/domain/payouts.ts";
+import { processPaymentEvent, retryDeferredPaymentEvents, standinConfirmPayment } from "../src/domain/payment-events.ts";
 import { providerName } from "../src/lib/payment-provider.ts";
 import { redis } from "../src/lib/redis.ts";
 import { zohoConfigFromEnv, zohoFromEnv } from "../src/lib/zoho.ts";
@@ -323,6 +325,9 @@ let orderTimer: ReturnType<typeof setInterval> | undefined;
    for a temporary reason goes back to it about 1, 6 and 24 hours later. */
 let payoutRetryTimer: ReturnType<typeof setInterval> | undefined;
 const PAYOUT_RETRY_SWEEP_INTERVAL_MS = 10 * 60 * 1000;
+/* 2S5-INT-02 — the shortest deferral is 30 seconds. */
+let paymentEventTimer: ReturnType<typeof setInterval> | undefined;
+const PAYMENT_EVENT_SWEEP_INTERVAL_MS = 30 * 1000;
 let orderDigestTimer: ReturnType<typeof setInterval> | undefined;
 const ORDER_SWEEP_INTERVAL_MS = 10 * 60 * 1000;
 /* P4-BE-09 — campaign stages that move by themselves. Each move is made by
@@ -521,8 +526,15 @@ async function main(): Promise<void> {
   await ensureQueue("payments.confirm");
   await boss.work<{ attemptId: string }>("payments.confirm", async ([job]) => {
     await providerDelay();
-    log(`[worker] payments.confirm ${JSON.stringify(await confirmPayment(job.data.attemptId))}`);
+    /* 2S5-INT-02 — the stand-in confirms as a provider does: a signed
+       payment.succeeded event, through the webhook's own door. */
+    log(`[worker] payments.confirm ${JSON.stringify(await standinConfirmPayment(job.data.attemptId))}`);
   });
+  /* 2S5-INT-02 — one provider event, recorded by the webhook. A throw leaves
+     nothing written and the queue retries it (queue-policy.mts). */
+  await ensureQueue("payments.event");
+  await boss.work<{ eventId: string }>("payments.event", async ([job]) =>
+    log(`[worker] payments.event ${JSON.stringify(await processPaymentEvent(job.data.eventId))}`));
   await ensureQueue("payouts.send");
   await boss.work<{ payoutId: string }>("payouts.send", async ([job]) => {
     const sent = await sendPayout(job.data.payoutId);
@@ -790,6 +802,15 @@ async function main(): Promise<void> {
   payoutRetryTimer = setInterval(payoutRetrySweep, PAYOUT_RETRY_SWEEP_INTERVAL_MS);
   setTimeout(payoutRetrySweep, 50_000).unref();
 
+  /* 2S5-INT-02 — a provider event that arrived before what it follows
+     (DEFERRED) is applied again when its back-off is due. */
+  const deferredEventSweep = () =>
+    void retryDeferredPaymentEvents()
+      .then((r) => { if (r.retried || r.failed) console.log(`[worker] deferred payment events ${JSON.stringify(r)}`); })
+      .catch((error: unknown) => console.error("[worker] deferred payment event sweep failed, will retry:", error));
+  paymentEventTimer = setInterval(deferredEventSweep, PAYMENT_EVENT_SWEEP_INTERVAL_MS);
+  setTimeout(deferredEventSweep, 20_000).unref();
+
   /* P4-BE-09 — the campaign stage sweep: STAFFING → APPROVAL, ACTIVE →
      REPORTING, REPORTING → COMPLETED, whichever a missed event left due. */
   const campaignStageSweep = () =>
@@ -918,6 +939,7 @@ export async function stopWorker(): Promise<void> {
   if (listingDigestTimer) clearInterval(listingDigestTimer);
   if (orderTimer) clearInterval(orderTimer);
   if (payoutRetryTimer) clearInterval(payoutRetryTimer);
+  if (paymentEventTimer) clearInterval(paymentEventTimer);
   if (orderDigestTimer) clearInterval(orderDigestTimer);
   if (campaignStageTimer) clearInterval(campaignStageTimer);
   if (briefRecheckTimer) clearInterval(briefRecheckTimer);

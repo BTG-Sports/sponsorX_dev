@@ -121,6 +121,20 @@ ${d.portalUrl ?? ""}
     subject: `Refund the sponsor: a card payment of ${d.amount ?? ""} for order ${d.orderRef ?? ""}, which is ${d.orderState ?? "no longer waiting for payment"}`,
     text: `${d.why ?? "A card payment was confirmed for an order that was no longer waiting for payment"} (order ${d.orderRef ?? ""}, ${d.amount ?? ""}). The order has not been reopened — refund the sponsor's payment with the payment provider${d.providerRef ? ` (payment ${d.providerRef})` : ""}.\n\n${d.orderUrl ?? ""}\n\n— SponsorX`,
   }),
+  /* 2S5-INT-02 — a provider event SponsorX held for BTG instead of applying it. */
+  "payment.heldForBtg": (d) => ({
+    subject: `Payment provider event held for you: ${d.type ?? "an event"}${d.orderRef ? ` (order ${d.orderRef})` : ""}`,
+    text: `SponsorX received this from the payment provider and did not act on it by itself:\n\n${d.type ?? ""}${d.subject ? ` — ${d.subject}` : ""}\n\nWhy: ${d.reason ?? ""}\n\nCheck it with the provider, put it right in SponsorX (record the payment, refund it, or leave it), then mark it dealt with:\n\n${d.eventsUrl ?? ""}\n\n— SponsorX`,
+  }),
+  /* 2S5-BE-03 — a sponsor disputed a card payment: BTG support's review item. Never resolved automatically. */
+  "dispute.opened": (d) => ({
+    subject: `Payment disputed: order ${d.orderRef ?? ""} — ${d.amount ?? ""}`,
+    text: `The sponsor has disputed their card payment for order ${d.orderRef ?? ""} (${d.amount ?? ""}) with their bank.\n\nReason given: ${d.reason ?? "not given"}\n\nThe order's money is frozen: no payout covering it is approved or sent, and it can't be refunded. Take the dispute for review, send the provider your evidence, and resolve it once the provider decides:\n\n${d.disputeUrl ?? ""}\n\n— SponsorX`,
+  }),
+  "dispute.providerClosed": (d) => ({
+    subject: `The payment provider decided the dispute on order ${d.orderRef ?? ""}: ${d.outcome ?? ""}`,
+    text: `The payment provider closed the dispute on order ${d.orderRef ?? ""} (${d.amount ?? ""}) — ${d.outcome === "lost" ? "lost: the bank returned the money to the sponsor" : "won: the money stays with BTG"}.\n\nNothing has been changed yet. Resolve it in SponsorX: ${d.outcome === "lost" ? "the order's books are then reversed and payouts not yet sent are sent back" : "the order's money then unfreezes and waiting payouts are sent"}.\n\n${d.disputeUrl ?? ""}\n\n— SponsorX`,
+  }),
   /* 2S4-BE-09 — the seller's step. */
   "sale.approvalRequested": (d) => ({
     subject: `${d.sponsorName ?? "A sponsor"} wants to order from you — please answer by ${d.answerBy ?? "the time shown"}`,
@@ -180,6 +194,11 @@ ${d.portalUrl ?? ""}
   "payout.accountNeedsFix": (d) => ({
     subject: `Your payout of ${d.amount ?? ""} couldn't be sent — please fix your payout account`,
     text: `Hi ${d.firstName ?? "there"},\n\nWe tried to send your payout of ${d.amount ?? ""}, but our payment provider says your payout account needs attention first.\n\nOpen your money page and update your payout account on the provider's secure page. As soon as it's ready again, we'll send the payout automatically — you don't need to request it again.\n\n${d.portalUrl ?? ""}\n\n— BTG SponsorX`,
+  }),
+  /* 2S5-BE-05 — a failed payout that is BTG's now. */
+  "payout.failedForBtg": (d) => ({
+    subject: `A payout of ${d.amount ?? ""} to ${d.payeeName ?? "a payee"} couldn't be sent — it's yours to look at`,
+    text: `The payment provider couldn't send a payout of ${d.amount ?? ""} to ${d.payeeName ?? "a payee"}, and SponsorX won't retry it by itself.\n\nWhy: ${d.reason ?? ""}\n\nCheck it with the provider, then retry it — or send it back to the payee with a note:\n\n${d.payoutUrl ?? ""}\n\n— SponsorX`,
   }),
   /* P4-BE-09 — campaigns move on their own: ready for BTG to launch; the
      sponsor's final report is ready. */

@@ -170,7 +170,9 @@ export type Resource =
   | "teamInvitation"
   | "accountClosure"
   | "guardianHandoff"
-  | "signupRules";
+  | "signupRules"
+  | "paymentEvent"
+  | "paymentDispute";
 
 export const RESOURCES: readonly Resource[] = [
   "tenant",
@@ -249,6 +251,8 @@ export const RESOURCES: readonly Resource[] = [
   "accountClosure",
   "guardianHandoff",
   "signupRules",
+  "paymentEvent",
+  "paymentDispute",
 ] as const;
 
 type RolePolicy = Partial<Record<Role, Partial<Record<Action, Scope>>>>;
@@ -1035,6 +1039,30 @@ export const POLICY: Record<Resource, RolePolicy> = {
     SUPER_ADMIN: rwa("any", "any"),
     BTG_ADMIN: rwa("own-tenant", "own-tenant"),
     NETWORK_MGR: rwa("own-tenant"),
+  },
+
+  /* 2S5-INT-02 (matrix §26) — the payment provider's events, as SponsorX
+     recorded and applied them. Rows are written by the signed webhook (no
+     actor) and the worker, never through this matrix. BTG admin and Finance
+     read them — the exceptions held for BTG first. BTG admin also closes a
+     held or failed one with a note, and (staging only) has the stand-in
+     provider send one (write). Nobody else reaches them. */
+  paymentEvent: {
+    SUPER_ADMIN: rwa("any", "any"),
+    BTG_ADMIN: rwa("own-tenant", "own-tenant"),
+    FINANCE: rwa("own-tenant"),
+  },
+
+  /* 2S5-BE-03 (matrix §26) — a sponsor's dispute of a card payment. Opened
+     and closed by the provider (the signed webhook, no actor) and NEVER
+     resolved by the system: BTG support works it. BTG admin and Finance read
+     the list and take one for review, recording what was sent to the
+     provider (write); only a BTG admin resolves it to the provider's outcome
+     (approve), which reverses the books when it was lost. Nobody else. */
+  paymentDispute: {
+    SUPER_ADMIN: rwa("any", "any", "any"),
+    BTG_ADMIN: rwa("own-tenant", "own-tenant", "own-tenant"),
+    FINANCE: rwa("own-tenant", "own-tenant"),
   },
 };
 
