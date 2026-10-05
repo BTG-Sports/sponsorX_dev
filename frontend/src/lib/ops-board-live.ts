@@ -89,12 +89,66 @@ export function actionTotal(cards: QueueCard[]): number {
   return cards.reduce((n, c) => n + c.count, 0);
 }
 
+/* --------------------------------------------------------------------------
+   P1-ART-14 — the "Mission Control" stage's pure pieces: the headline's
+   words and the action ring's arcs. Both read only the queue cards above, so
+   the stage shows no figure the board didn't already have.
+   -------------------------------------------------------------------------- */
+
+/** Each queue's hue on the stage — its ring arc and its card's foot strip.
+ *  Fixed-dark literals (the --sx-on-media rule): the stage is dark in both
+ *  themes. Blue then orange, the lockup's split. */
+export const QUEUE_TONE: Record<QueueCard["key"], string> = {
+  applications: "#2e9bf5",
+  approvals: "#9be0ff",
+  briefs: "#fb923c",
+  finance: "#f97a1f",
+};
+
+export type BoardHeadline = { lead: string; hand: string; tail: string };
+
+/** "23 things need / BTG's hand today." — `null` when the role reads no queue. */
+export function boardHeadline(total: number | null): BoardHeadline {
+  const hand = "BTG’s hand";
+  if (total === null) return { lead: "Operations,", hand: "live", tail: "today." };
+  if (total === 0) return { lead: "Nothing needs", hand, tail: "right now." };
+  const n = total.toLocaleString("en-US");
+  return { lead: total === 1 ? `${n} thing needs` : `${n} things need`, hand, tail: "today." };
+}
+
+export type RingSegment = { key: QueueCard["key"]; len: number; offset: number; color: string };
+
+/** The smallest arc a non-empty queue draws, so one item beside thousands still shows. */
+const MIN_ARC = 2;
+
+/** One arc per queue with work, sized by its share of the total, `gap` apart.
+ *  `offset` is where the arc starts along the circle (for stroke-dashoffset).
+ *  A lone queue closes the circle with no gap; nothing waiting draws nothing. */
+export function ringSegments(cards: QueueCard[], circumference: number, gap: number): RingSegment[] {
+  const live = cards.filter((c) => c.count > 0);
+  const total = actionTotal(live);
+  if (live.length === 0) return [];
+  if (live.length === 1) {
+    const c = live[0]!;
+    return [{ key: c.key, len: circumference, offset: 0, color: QUEUE_TONE[c.key] }];
+  }
+  let at = 0;
+  return live.map((c) => {
+    const share = (c.count / total) * circumference;
+    const seg = { key: c.key, len: Math.max(MIN_ARC, share - gap), offset: at, color: QUEUE_TONE[c.key] };
+    at += share;
+    return seg;
+  });
+}
+
 export type CampaignLine = {
   id: string;
   name: string;
   mono: string;
   done: number;
   due: number;
+  /** Rounded percent of deliverables done; 0 when none are due yet. */
+  pct: number;
   overdue: number;
   ends: string;
 };
@@ -107,6 +161,7 @@ export function campaignLines(rows: ApiDeliveryHealth[]): CampaignLine[] {
       mono: r.campaignName.split(/\s+/).map((w) => w[0] ?? "").join("").slice(0, 2).toUpperCase(),
       done: r.deliverablesVerified,
       due: r.deliverablesTotal,
+      pct: r.deliverablesTotal ? Math.round((r.deliverablesVerified / r.deliverablesTotal) * 100) : 0,
       overdue: r.deliverablesOverdue,
       ends: `Ends ${new Date(r.endDate).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" })}`,
     }))
