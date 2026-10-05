@@ -467,6 +467,21 @@ async function recordAccountStatus(
     where: { payeeType: payee.payeeType, payeeId: payee.payeeId, state: "FAILED", waitingOn: "PAYEE_ACCOUNT" }, select: { id: true },
   });
   for (const w of waiting) await autoRetry(tx, w.id, "ACCOUNT_READY", now);
+  /* 2S5-BE-04 — an approved payout that waited because the account wasn't READY goes now (sending is conditional: one already sent is untouched). */
+  const approved = await tx.payout.findMany({
+    /* tenant-scope: this payee's own approved payouts in every set of books, by payee key. */
+    where: { payeeType: payee.payeeType, payeeId: payee.payeeId, state: "APPROVED" }, select: { id: true, tenantId: true },
+  });
+  for (const p of approved) await enqueue(tx, p.tenantId, "payouts.send", { payoutId: p.id });
+}
+
+/** 2S5-BE-04 — provider readiness: the payee's payout account is READY at the provider now. */
+async function accountReady(db: Db, payee: { payeeType: string; payeeId: string }): Promise<boolean> {
+  const account = await db.payoutAccount.findUnique({
+    /* tenant-scope: the account of the payee a payout (loaded through the caller's scope) names, by its unique payee key. */
+    where: { payeeType_payeeId: { payeeType: payee.payeeType, payeeId: payee.payeeId } }, select: { status: true },
+  });
+  return account?.status === "READY";
 }
 
 /** The stand-in's payment page: the sponsor paid (confirmation follows) or the card was declined. */
@@ -530,6 +545,13 @@ type OrderMoney = {
   balanceCents: number; owedBackCents: number;
   /** 2S4-BE-07 — the payee's lines on this order: how many are confirmed, and how many held by a reported problem. */
   confirmedLines: number; problemLines: number;
+  /**
+   * 2S5-BE-04 — the order's money is frozen: the sponsor disputed the payment,
+   * or the provider refunded part of it and BTG is checking (payment-
+   * exceptions.ts). Nothing of it is requestable. BTG's words in `frozenReason`;
+   * the payee reads only that BTG is reviewing a problem with the payment.
+   */
+  frozen: boolean; frozenReason: string | null;
 };
 
 type LineRelease = { state: string; confirmedAt: Date | null };
@@ -576,6 +598,8 @@ async function balanceOf(db: Db, payee: Payee, now: Date) {
       })
     : [];
   const delivery = new Map(deliveries.map((d) => [d.lineId, d]));
+  /* 2S5-BE-04 — "dispute status": an open dispute (or a provider refund BTG is checking) freezes the order's money. */
+  const frozen = await moneyHoldsOn(db, orders.map((o) => o.id));
 
   const out: OrderMoney[] = [];
   for (const o of orders) {
@@ -591,7 +615,10 @@ async function balanceOf(db: Db, payee: Payee, now: Date) {
        locked. Paid-out money (PAYOUT, no line) has already left the balance. */
     const myLines = [...new Set(mine.map((e) => e.lineId).filter((x): x is string => Boolean(x)))];
     const released = (lineId: string | null) => lineId !== null && RELEASING.has(o.state) && lineReleasable(delivery.get(lineId), holdMs, now);
-    const lockedCents = net(payable.filter((e) => e.status !== "PENDING" && e.lineId !== null && !released(e.lineId)));
+    const frozenReason = frozen.get(o.id) ?? null;
+    const lockedCents = frozenReason
+      ? Math.max(0, availableCents)
+      : net(payable.filter((e) => e.status !== "PENDING" && e.lineId !== null && !released(e.lineId)));
     const confirmed = myLines.map((l) => delivery.get(l)).filter((d) => d?.state === "CONFIRMED" && d.confirmedAt) as { confirmedAt: Date }[];
     const holdUntil = confirmed.length ? new Date(Math.max(...confirmed.map((d) => d.confirmedAt.getTime())) + holdMs) : null;
     out.push({
@@ -601,6 +628,7 @@ async function balanceOf(db: Db, payee: Payee, now: Date) {
       requestableCents: Math.max(0, availableCents - lockedCents - inFlightCents), holdUntil,
       balanceCents: availableCents - inFlightCents, owedBackCents: Math.max(0, inFlightCents - availableCents),
       confirmedLines: confirmed.length, problemLines: myLines.filter((l) => delivery.get(l)?.state === "PROBLEM").length,
+      frozen: frozenReason !== null, frozenReason,
     });
   }
   return out.sort((a, b) => (b.fulfilledAt?.getTime() ?? 0) - (a.fulfilledAt?.getTime() ?? 0));
@@ -678,6 +706,9 @@ export async function myPayouts(actor: Actor, now = new Date()) {
   /* 2S4-BE-07 — a line under a reported problem is held until BTG resolves it. */
   const problemLines = orders.reduce((s, o) => s + o.problemLines, 0);
   if (problemLines) checks.push({ key: "problem", label: `${problemLines} line${problemLines === 1 ? "" : "s"} held — a sponsor reported a problem BTG is resolving`, ok: false });
+  /* 2S5-BE-04 — a dispute (or a provider refund BTG is checking) freezes an order's money. The payee is told BTG is on it, not the detail. */
+  const frozenOrders = orders.filter((o) => o.frozen).length;
+  if (frozenOrders) checks.push({ key: "dispute", label: `${frozenOrders} order${frozenOrders === 1 ? "" : "s"} held — BTG is reviewing a problem with the sponsor's payment`, ok: false });
   return {
     currency: "USD",
     payee: { payeeType: payee.payeeType, name: await payeeName(prisma, payee) },
@@ -698,20 +729,26 @@ export async function myPayouts(actor: Actor, now = new Date()) {
     byState,
     canRequest: account.status === "READY" && requestableCents > 0,
     checks,
-    orders: orders.map(({ books: _books, ...o }) => ({ ...o, orderRef: orderRef(o.orderId) })),
+    orders: orders.map(({ books: _books, frozenReason: _why, ...o }) => ({ ...o, orderRef: orderRef(o.orderId) })),
     payouts: payouts.map(payeePayoutView),
   };
 }
 
-/** The four payout rules, as BTG reads them on a payout: over its orders, the payee's money on each, and the account. Pure. */
+/**
+ * The payout rules, as BTG reads them on a payout: over its orders, the
+ * payee's money on each, and the account. 2S5-BE-04's five, every time —
+ * payment cleared, delivery confirmed, provider readiness, the holding
+ * period, and (`dispute`) no dispute open on its orders. Pure.
+ */
 export function payoutChecks(
-  orders: Array<{ state: string; confirmedLines: number; holdUntil: Date | null }>, accountStatus: string | null | undefined, now: Date,
+  orders: Array<{ state: string; confirmedLines: number; holdUntil: Date | null; frozen?: boolean }>, accountStatus: string | null | undefined, now: Date,
 ) {
   return [
     { key: "payment", label: "Sponsor's payment received", ok: orders.every((o) => PAID_OR_LATER.has(o.state)) },
     { key: "delivered", label: "Delivery confirmed (the payee's lines on each order)", ok: orders.every((o) => o.confirmedLines > 0) },
     { key: "account", label: "Payout account ready", ok: accountStatus === "READY" },
     { key: "hold", label: "Holding period passed", ok: orders.every((o) => !!o.holdUntil && o.holdUntil <= now) },
+    { key: "dispute", label: FROZEN_CHECK, ok: orders.every((o) => !o.frozen) },
   ];
 }
 
@@ -737,8 +774,16 @@ export async function requestPayout(actor: Actor, now = new Date()) {
       where: { payeeType_payeeId: { payeeType: payee.payeeType, payeeId: payee.payeeId } }, select: { status: true, changedAt: true },
     });
     if (account?.status !== "READY") throw new PayoutError("Set up your payout account first — payouts are sent to it.", 409, ["Payout account ready"]);
-    const orders = (await balanceOf(tx, payee, now)).filter((o) => o.requestableCents > 0);
-    if (!orders.length) throw new PayoutError("Nothing is ready to pay out yet.", 409, ["An order that is paid, delivered and past its holding period"]);
+    const money = await balanceOf(tx, payee, now);
+    const orders = money.filter((o) => o.requestableCents > 0);
+    if (!orders.length) {
+      /* 2S5-BE-04 — say so when the only money there is is frozen by a payment problem BTG is reviewing. */
+      const frozenOnly = money.some((o) => o.frozen && o.availableCents - o.inFlightCents > 0);
+      throw new PayoutError(
+        frozenOnly ? "Nothing can be paid out yet — BTG is reviewing a problem with a sponsor's payment, and that money is held until it is resolved." : "Nothing is ready to pay out yet.",
+        409, ["An order that is paid, delivered and past its holding period", ...(frozenOnly ? [FROZEN_CHECK] : [])],
+      );
+    }
     const byBooks = new Map<string, OrderMoney[]>();
     for (const o of orders) byBooks.set(o.books, [...(byBooks.get(o.books) ?? []), o]);
     const settings = autoApproveSettings();
@@ -849,7 +894,7 @@ export async function getPayout(actor: Actor, id: string, now = new Date()) {
     account: accountView(account),
     orders: orders.map((o) => ({ orderId: o.id, orderRef: orderRef(o.id), state: o.state, fulfilledAt: o.fulfilledAt, totalCents: o.totalCents, title: o.lines.map((l) => l.title).join(" · ") })),
     checks: payoutChecks(
-      orders.map((o) => ({ state: o.state, confirmedLines: money.get(o.id)?.confirmedLines ?? 0, holdUntil: money.get(o.id)?.holdUntil ?? null })),
+      orders.map((o) => ({ state: o.state, confirmedLines: money.get(o.id)?.confirmedLines ?? 0, holdUntil: money.get(o.id)?.holdUntil ?? null, frozen: money.get(o.id)?.frozen ?? false })),
       account?.status, now,
     ),
     provider: providerName(),
@@ -1037,6 +1082,9 @@ export async function sendPayout(payoutId: string, now = new Date()): Promise<{ 
     /* 2S5-BE-03 — frozen by a dispute (or a provider refund BTG is checking) on an order it covers:
        it waits, APPROVED, until BTG resolves it (resumePayoutsCovering sends it), or is sent back if the dispute is lost. */
     if ((await moneyHoldsOn(tx, row.lines.map((l) => l.orderId))).size) return { sent: false };
+    /* 2S5-BE-04 — never released to an account that isn't READY: it waits, APPROVED, and the payee's
+       next READY sends it (recordAccountStatus). */
+    if (!(await accountReady(tx, row))) return { sent: false };
     const moved = await tx.payout.updateMany({
       /* tenant-scope: the row just loaded by id; conditional, so a second job for it finds nothing. */
       where: { id: row.id, state: "APPROVED" }, data: { state: "SENDING", provider, providerRef: standinRef("po"), sentAt: now },

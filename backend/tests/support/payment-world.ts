@@ -114,7 +114,8 @@ export async function paymentWorld(o: { T: string; OTHER_T: string; prefix: stri
 
   /** Walk a paid order through delivery to FULFILLED (Finance's transitions; every line confirmed). */
   async function deliverOrder(orderId: string) {
-    for (const to of ["IN_DELIVERY", "FULFILLED"]) {
+    const from = await orderState(orderId);
+    for (const to of from === "IN_DELIVERY" ? ["FULFILLED"] : ["IN_DELIVERY", "FULFILLED"]) {
       if (to === "FULFILLED") await settleDeliveries(prisma as unknown as PrismaClient, orderId);
       const r = await call("POST", `/marketplace-orders/${orderId}/transition`, id("finance"), transitionBody(to));
       expect(r.status, r.text).toBe(200);

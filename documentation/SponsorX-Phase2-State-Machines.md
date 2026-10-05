@@ -180,6 +180,17 @@ The payout row's states are `REQUESTED → APPROVED → SENDING → PAID`, with
 (`payout-holds.ts`) — a held payee's payout is never requested, approved or
 sent.
 
+**Eligibility, all five every time (2S5-BE-04, 2026-10-05).** Money is
+released only when the sponsor's payment is in (the payable is available),
+the payee's lines are delivered and confirmed, the holding period has
+passed, the payout account is READY, and no dispute is open on the order
+(nor a provider refund BTG is checking). Each is checked where money moves:
+the balance a payee can request, BTG's approval (the fifth check, `dispute`,
+on every payout), and the worker's hand-over to the provider — an approved
+payout whose account has left READY, or whose order is frozen, waits
+`APPROVED` and is sent by the account's next READY or the dispute's
+resolution.
+
 **Approved automatically (2S5-BE-06).** `REQUESTED → APPROVED` is made by the
 system, in the request's own transaction, when every check passes, the
 amount is under $2,000, the payout account did not change in the last 7 days,
