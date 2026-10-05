@@ -33,6 +33,9 @@ test.skip(!hasLoopStack, LOOP_SKIP_REASON);
 /* Several signed-in people and a ten-screen wizard per test — well past the
    30 s default on a `next dev` server. */
 test.describe.configure({ timeout: 180_000 });
+/* The wizard's buttons sheen and its sections slide in; with motion on, a
+   click sometimes waits out "element is not stable" until the test times out. */
+test.use({ reducedMotion: "reduce" });
 
 const ADULT_EMAIL = emailFor("p3.athlete");
 const MINOR_EMAIL = emailFor("p3.minor");

@@ -56,6 +56,9 @@ import { runWorker } from "./support/worker";
  */
 test.skip(!hasLoopStack, LOOP_SKIP_REASON);
 test.describe.configure({ timeout: 600_000 });
+/* The public wizards animate; with motion on, a click can wait out "element
+   is not stable" (seen on /join in CI). */
+test.use({ reducedMotion: "reduce" });
 
 const run = Date.now().toString(36);
 const KEY = { team: "mkt.team", athlete: "mkt.athlete" };
@@ -254,7 +257,7 @@ test("a team and an athlete join, list, sell, deliver, get paid — and the orde
   const propertyId = onboarding.propertyId!;
 
   /* ───────────────────────────────────────── 2 · the athlete applies ── */
-  const applicant = await (await browser.newContext({ ...testInfo.project.use, baseURL: testInfo.project.use.baseURL })).newPage();
+  const applicant = await (await browser.newContext({ ...testInfo.project.use, baseURL: testInfo.project.use.baseURL, reducedMotion: "reduce" })).newPage();
   await useObjectStore(applicant);
   await applicant.goto("/join");
   await applicant.getByRole("button", { name: "Start application" }).click();
@@ -438,12 +441,14 @@ test("a team and an athlete join, list, sell, deliver, get paid — and the orde
   await expect(mark).toBeHidden({ timeout: 30_000 });
 
   await sponsor.goto(`/sponsor/orders/${orderId}`);
-  const confirm = sponsor.getByRole("button", { name: "Confirm delivered" });
-  await confirm.click();
-  await expect(confirm).toBeHidden({ timeout: 30_000 });
-  const [delivery] = await q<{ state: string }>(
-    `select d.state from "OrderLineDelivery" d join "MarketplaceOrderLine" l on l.id = d."lineId" where l."orderId" = $1`, [orderId]);
-  expect(delivery.state).toBe("CONFIRMED");
+  const deliveryState = async () => (await q<{ state: string }>(
+    `select d.state from "OrderLineDelivery" d join "MarketplaceOrderLine" l on l.id = d."lineId" where l."orderId" = $1`, [orderId]))[0]?.state;
+  await expect.poll(deliveryState, { message: "the seller marked it delivered" }).toBe("DELIVERED");
+  await sponsor.getByRole("button", { name: "Confirm delivered" }).click();
+  /* The button reads "Confirming…" while the answer is recorded; the line
+     closes its answer controls once it is. */
+  await expect(sponsor.getByRole("button", { name: "Report a problem" })).toBeHidden({ timeout: 30_000 });
+  await expect.poll(deliveryState).toBe("CONFIRMED");
 
   /* ──── 8 · the athlete's money is available; paid out with nobody approving ── */
   expect(await requestPayout(athlete, "/athlete/money"), "available now: the athlete's share less its reserve").toBe("$542.58");
