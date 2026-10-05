@@ -501,6 +501,13 @@ type OrderMoney = {
   orderId: string; books: string; state: string; fulfilledAt: Date | null; sponsorName: string; title: string;
   shareCents: number; availableCents: number; heldCents: number; awaitingPaymentCents: number; inFlightCents: number;
   requestableCents: number; holdUntil: Date | null;
+  /**
+   * 2S8-QA-05 — the real figure on this order: available less what is already
+   * requested, NOT rounded up to zero. Negative when a refund came after the
+   * money was paid out (the reversal debits a payable the payout already
+   * emptied) — the payee owes that much back, and `owedBackCents` says how much.
+   */
+  balanceCents: number; owedBackCents: number;
   /** 2S4-BE-07 — the payee's lines on this order: how many are confirmed, and how many held by a reported problem. */
   confirmedLines: number; problemLines: number;
 };
@@ -572,6 +579,7 @@ async function balanceOf(db: Db, payee: Payee, now: Date) {
       sponsorName: sponsorName.get(o.sponsorId) ?? "", title: o.lines.map((l) => l.title).join(" · "),
       shareCents, availableCents, heldCents, awaitingPaymentCents, inFlightCents,
       requestableCents: Math.max(0, availableCents - lockedCents - inFlightCents), holdUntil,
+      balanceCents: availableCents - inFlightCents, owedBackCents: Math.max(0, inFlightCents - availableCents),
       confirmedLines: confirmed.length, problemLines: myLines.filter((l) => delivery.get(l)?.state === "PROBLEM").length,
     });
   }
@@ -637,6 +645,7 @@ export async function myPayouts(actor: Actor, now = new Date()) {
   const account = accountView(accountRow && accountRow.status ? accountRow : null);
   const sum = (f: (o: OrderMoney) => number) => orders.reduce((s, o) => s + f(o), 0);
   const requestableCents = sum((o) => o.requestableCents);
+  const owedBackCents = sum((o) => o.owedBackCents);
   const paidOutCents = byState.PAID.amountCents;
   const holds = orders.filter((o) => o.confirmedLines > 0 && o.holdUntil && o.holdUntil > now && o.availableCents - o.inFlightCents > 0);
   const nextHold = holds.map((o) => o.holdUntil!).sort((a, b) => a.getTime() - b.getTime())[0] ?? null;
@@ -660,7 +669,11 @@ export async function myPayouts(actor: Actor, now = new Date()) {
       notYetReleasableCents: sum((o) => Math.max(0, o.availableCents - o.inFlightCents) - o.requestableCents),
       inFlightCents: sum((o) => o.inFlightCents),
       paidOutCents,
+      /* 2S8-QA-05 — money owed back from refunds that came after a payout, never hidden as $0. */
+      owedBackCents,
     },
+    /** 2S8-QA-05 — the same, in words; null when nothing is owed back. */
+    owedBackNote: owedBackCents > 0 ? `You owe ${usd(owedBackCents)} back from a refund` : null,
     /** Every payout so far by state — how many and how much (2S2-FE-01). */
     byState,
     canRequest: account.status === "READY" && requestableCents > 0,
