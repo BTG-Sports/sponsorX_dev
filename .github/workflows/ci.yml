@@ -56,6 +56,38 @@ jobs:
             echo "run=true" >> "$GITHUB_OUTPUT"
           fi
 
+  # ---------------------------------------------------------------------
+  # 2S8-SEC-02 — dependency scan and secret scan.
+  #
+  # Not gated on `changed`, deliberately: a new advisory against a package
+  # we already ship appears without anyone committing anything, so this runs
+  # every night whether or not `main` moved. It needs no install — npm audit
+  # reads the lockfile — so it costs well under a minute.
+  #
+  # Fails on: any high or critical advisory in PRODUCTION dependencies; any
+  # moderate-or-worse advisory anywhere that is not in
+  # scripts/audit-allowlist.json (each entry carries its reason and a
+  # review-by date, and lapses after it); any credential-shaped string in a
+  # tracked file. documentation/SponsorX-Security-Review-2026-10.md has why.
+  security:
+    name: dependency audit · secret scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.21.0
+
+      - name: Test the scanners themselves
+        run: npm run test:security-scripts
+
+      - name: Secret scan (tracked files)
+        run: npm run secrets:scan
+
+      - name: Dependency audit (production high/critical, allowlist for the rest)
+        run: npm run audit:check
+
   ci:
     name: typecheck · lint · unit · authz matrix
     needs: changed
