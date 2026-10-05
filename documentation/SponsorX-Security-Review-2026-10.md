@@ -44,7 +44,7 @@ The checks were made against the OWASP Top 10 (2021), plus the ASVS basics that 
 - **Fixed (Low).** `safeReturnPath` on both servers accepted `/\t/evil.example`. Browsers strip the tab, which turns it into `//evil.example`.
 - **Fixed (Low).** `/t/[code]` passed `..` to the API, and `fetch` resolves that to a different endpoint. It also did not re-check that the destination is http(s).
 - **Fixed (Low).** The admin ID-document action redirected to any URL the API returned.
-- **Open (Low).** `GET /athletes/:id/rates` answers `200 []` for another athlete in the same tenant but 403 for an id that doesn't exist, which reveals which ids exist. The rates themselves are scoped.
+- **Fixed (Low), 2S8-SEC-05.** `GET /athletes/:id/rates` answered `200 []` for another athlete in the same tenant but 403 for an id that doesn't exist, which revealed which ids exist. The rates themselves were scoped. `readRateCard` now checks the athlete is within the caller's **own** reach (an athlete's own id, a guardian's ward, BTG's tenant) before it answers. Another athlete's id and a made-up one now give the same 403, word for word. Test: `backend/tests/security-hardening.test.ts`, block "1".
 - **Open (Low).** The public "claim this profile" flow (`/public/athletes/:slug/claim`) puts an unverified email onto the athlete once an advisor approves it. **Owner:** should the claimant confirm the email first?
 
 **Fix:**
@@ -263,11 +263,15 @@ The checks were made against the OWASP Top 10 (2021), plus the ASVS basics that 
   - No token, `Authorization` header, env value or `DATABASE_URL` is logged.
   - Every write is audited (`financial-audit-coverage`).
   - Every webhook attempt is recorded as RECEIVED or REJECTED, without the token it carried.
-- **Open (Info).** The worker logs non-fan recipients' email addresses.
+- **Fixed (Info), 2S8-SEC-05.** The worker logged non-fan recipients' email addresses.
 
-**Fix:** none needed.
+**Fix:**
+- Every line `worker/index.mts` logs now goes through one `log()`, which masks any address to its domain (`redactEmails`, `backend/src/lib/redact.ts`). So `rosa@school.org` is logged as `…@school.org`.
+- The two lines that named a recipient (`notify.email`, `notify.invitationSent`) and the persona seed's "skipped" line use `maskEmail`.
 
-**Test:** existing `error-body`, `financial-audit-coverage` and `zoho-webhook` tests.
+**Test:**
+- Existing: `error-body`, `financial-audit-coverage` and `zoho-webhook`.
+- 2S8-SEC-05: `security-hardening.test.ts`, block "4". It checks the masking, that the worker's only `console.log` is inside the redacting `log()`, and that no worker log line interpolates an `email` or `to` value unmasked.
 
 ### A10 · Server-side request forgery
 
@@ -283,12 +287,15 @@ The checks were made against the OWASP Top 10 (2021), plus the ASVS basics that 
   - The API fetches only Zoho hosts that are fixed in env.
   - The PDF renderer aborts every request and accepts the logo only as a `data:image/(png|jpeg)` URI.
   - Tracking destinations are restricted to http(s) at write time and again at read time.
-- **Open (Low).** Chromium runs with `--no-sandbox` and JavaScript on. Recommendation: `javaScriptEnabled: false` once it is confirmed the report needs no script.
-- **Open (Low).** Zoho CRM notification `module` and `ids` are free strings that end up in a Zoho API path. They are only accepted after the channel token verifies. Recommendation: restrict them to an enum and digits.
+- **Fixed (Low), 2S8-SEC-05.** Chromium ran with `--no-sandbox` and JavaScript on. The report template was confirmed to need no script: it has no `<script>`, no handler attribute and no `javascript:` link, and a real report was rendered and checked. `renderPdf` now opens its page with `javaScriptEnabled: false`. `--no-sandbox` is unchanged; it was outside this item.
+- **Fixed (Low), 2S8-SEC-05.** Zoho CRM notification `module` and `ids` were free strings that ended up in a Zoho API path. They were only accepted after the channel token verified. `ZohoCrmNotification` now holds `module` to `ZOHO_CRM_MODULES` (Accounts, Contacts, Deals, Tasks: exactly the worker's `WATCH_EVENTS`) and each id to `^\d{1,40}$`. Anything else is refused as `WebhookBodyError` and recorded REJECTED.
 
-**Fix:** none needed for SSRF.
+**Fix:** none needed for SSRF; the two hardening items above.
 
-**Test:** existing `report-render` and `tracking` tests.
+**Test:**
+- Existing: `report-render` and `tracking`.
+- 2S8-SEC-05 (PDF): `report-render.test.ts` asserts the real rendered report HTML carries no script and prints it to a real PDF with JavaScript off. `security-hardening.test.ts`, block "3", renders HTML whose script would rewrite `document.title` and checks that the PDF's `/Title` is still the static one.
+- 2S8-SEC-05 (CRM): `security-hardening.test.ts`, block "2". It checks the four modules are accepted, other modules and path-like or non-digit ids are refused, and the enum equals `WATCH_EVENTS`.
 
 ### Other checks
 
@@ -363,6 +370,8 @@ It deliberately ignores:
 
 Matches are printed masked. **Result on 2026-10-05: 2,220 tracked files, no secrets found.** It scans the current tree, not git history.
 
+**Git history, 2S8-SEC-05.** `npm run secrets:scan:history` (`scripts/secret-scan.mjs --history`) runs the same rules over every line ever added, in every commit reachable from any ref. It reads `git log --all --full-history -p --cc`, so merge resolutions and side branches are included, and skips the lockfile and binaries as the tree scan does. It needs no new dependency. `gitleaks` was not used: it is not installed, and `npx gitleaks` would download it. **Result on 2026-10-05: 868 commits, 4,433,222 added lines, no secrets found.** Test: `scripts/security-scripts.test.mjs`, "secret scan --history". In a throwaway repo, a key committed and then deleted is found and attributed to the commit that added it, masked.
+
 ## Decisions for the owner
 
 1. **Full CSP.** Roll out a script/style CSP in report-only mode first. It has to allow Clerk, Turnstile, the R2 upload host and the inline styles on `/r` and `/u` (§A05).
@@ -377,9 +386,13 @@ Matches are printed masked. **Result on 2026-10-05: 2,220 tracked files, no secr
 
 - ~~Pin type and length on every private presign, and check type on confirm (§A04).~~ Fixed, 2S8-SEC-03.
 - ~~Make the invoice ingest refuse an older state (§A04).~~ Fixed, 2S8-SEC-04.
-- Close the rate-card existence oracle (§A01).
-- Constrain Zoho notification `module` and `ids` (§A10).
-- Turn off JavaScript in the PDF renderer (§A10).
+- ~~Close the rate-card existence oracle (§A01).~~ Fixed, 2S8-SEC-05.
+- ~~Constrain Zoho notification `module` and `ids` (§A10).~~ Fixed, 2S8-SEC-05.
+- ~~Turn off JavaScript in the PDF renderer (§A10).~~ Fixed, 2S8-SEC-05.
 - Extend the guard tests to writes and same-tenant cases (§Other checks).
-- Add `import "server-only"` to `frontend/src/server/{api,edge,payouts}.ts`.
-- Optionally run a git-history secret scan, for example gitleaks, once.
+- ~~Add `import "server-only"` to `frontend/src/server/{api,edge,payouts}.ts`.~~ Fixed, 2S8-SEC-05.
+  - The three files import it. It resolves to the copy in the lockfile, which `@clerk/nextjs` depends on; Next itself handles the import and needs no direct dependency.
+  - Five vitest files that load those modules directly now `vi.mock("server-only")`, as they already mock `next/server` and `next/headers`. No config was changed.
+  - Test: `frontend/tests/security-review.test.ts`, "2S8-SEC-05". It checks each file imports the marker, that the real marker throws outside a server bundle, and that no `"use client"` module reaches the three files through its imports. Adding such an import in a scratch run failed it.
+  - The frontend typecheck and full vitest pass. `next build` was not run: free disk on the build machine was 1.6 GB, and the build output would compete with other sessions.
+- ~~Optionally run a git-history secret scan, for example gitleaks, once.~~ Done, 2S8-SEC-05: clean (see [Secret scan](#secret-scan)).

@@ -1,4 +1,8 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+/* src/server/{api,edge,payouts}.ts import "server-only" (2S8-SEC-05), which
+   throws anywhere but a React Server bundle — as it should. Next resolves it
+   to nothing on the server; so does this test. */
+vi.mock("server-only", () => ({}));
 
 import { GET, POST } from "@/app/u/[token]/route";
 

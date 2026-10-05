@@ -23,6 +23,7 @@
  */
 
 import type pg from "pg";
+import { maskEmail } from "../../src/lib/redact.ts";
 
 /* The pilot school's id, as a literal: importing PILOT_SCHOOL would make a
    cycle with seed-environment (which calls this), and the test asserts the
@@ -266,7 +267,8 @@ export async function seedPersonas(client: pg.PoolClient, tenantId: string): Pro
        skipped, never merged into theirs: the email is the identity a sign-in
        claims, so sharing it would hand one person the other's account. */
     if (!result.rowCount && !(await q(`SELECT 1 FROM "User" WHERE id = $1`, [p.userId])).rowCount) {
-      console.log(`[seed] persona ${p.userId} skipped — ${p.email} already belongs to another user`);
+      /* 2S8-SEC-05 — the address by its domain only. */
+      console.log(`[seed] persona ${p.userId} skipped — ${maskEmail(p.email)} already belongs to another user`);
     }
   }
   return { usersCreated };

@@ -153,7 +153,13 @@ export async function renderPdf(html: string): Promise<Buffer> {
     args: ["--no-sandbox"],
   });
   try {
-    const page = await browser.newPage();
+    /* 2S8-SEC-05 — no script either. The report is static HTML and CSS
+       (renderReportHtml writes no <script> and no handler attributes;
+       tests/security-hardening.test.ts checks both, and that a script in
+       the HTML does not run), so turning JavaScript off costs nothing and
+       means an escaping bug in a sponsor's text could only ever be markup,
+       never code running in a browser with --no-sandbox. */
+    const page = await browser.newPage({ javaScriptEnabled: false });
     /* No network: the HTML is self-contained, and a report must not fetch. */
     await page.route("**/*", (route) => route.abort());
     await page.setContent(html, { waitUntil: "load" });

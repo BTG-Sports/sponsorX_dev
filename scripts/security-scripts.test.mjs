@@ -36,6 +36,35 @@ test("secret scan: flags each credential shape, and prints it masked", () => {
   }
 });
 
+test("secret scan --history (2S8-SEC-05): finds a secret committed and then deleted, and names the commit", async () => {
+  const { execFileSync } = await import("node:child_process");
+  const { mkdtempSync, rmSync, writeFileSync } = await import("node:fs");
+  const { tmpdir } = await import("node:os");
+  const { join } = await import("node:path");
+  const dir = mkdtempSync(join(tmpdir(), "secret-history-"));
+  const git = (...args) => execFileSync("git", ["-c", "user.name=t", "-c", "user.email=t@t.invalid", "-c", "commit.gpgsign=false", ...args], { cwd: dir, encoding: "utf8" });
+  try {
+    git("init", "-q");
+    writeFileSync(join(dir, "config.env"), "NODE_ENV=production\n");
+    git("add", "config.env");
+    git("commit", "-q", "-m", "clean");
+    writeFileSync(join(dir, "config.env"), `NODE_ENV=production\n${j("STRIPE_KEY=sk", "_live_", "Zx9Kq2Lm4Np6Rs8Tu0Vw")}\n`);
+    git("commit", "-q", "-am", "oops");
+    const leaked = git("rev-parse", "HEAD").trim().slice(0, 12);
+    writeFileSync(join(dir, "config.env"), "NODE_ENV=production\n");
+    git("commit", "-q", "-am", "remove it");
+    /* The tree is clean now; the history is not. */
+    assert.equal(scanText("NODE_ENV=production\n", "config.env").length, 0);
+    const { scanHistory } = await import("./secret-scan.mjs");
+    const out = await scanHistory(dir);
+    assert.equal(out.commits, 3);
+    assert.deepEqual(out.findings.map((f) => [f.commit, f.file, f.rule]), [[leaked, "config.env", "stripe-or-clerk-secret-key"]]);
+    assert.ok(!out.findings[0].excerpt.includes("Rs8Tu0Vw"), "masked, never printed in full");
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
 test("secret scan: leaves placeholders, publishable test keys and the local stack alone", () => {
   const clean = [
     'process.env.CLERK_SECRET_KEY ??= "sk_test_x";',
