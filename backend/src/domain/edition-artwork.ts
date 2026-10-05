@@ -40,7 +40,7 @@ import { prisma } from "../db/client";
 import { audit, AUDIT_ACTIONS, type AuditAction } from "../db/audit";
 import { env } from "../config/env";
 import { send, type EmailTemplate } from "../lib/email";
-import { presignPrivateDownload, presignPrivateUpload } from "../lib/storage";
+import { checkPrivateUpload, presignPrivateDownload, presignPrivateUpload, uploadRefusal } from "../lib/storage";
 import type { Actor } from "../auth/actor";
 import { assertAllowed, assertTenantWide, scopeOf, whereFor } from "../auth/scope";
 import { ForbiddenError } from "../auth/errors";
@@ -60,6 +60,7 @@ import {
   type SlotArtworkState,
 } from "./edition-artwork-rules";
 import {
+  ARTWORK_MAX_BYTES,
   artworkChecks,
   artworkVerdict,
   readArtworkChecks,
@@ -113,6 +114,16 @@ export class ArtworkKeyError extends Error {
   constructor() {
     super("That file was not uploaded for this ad slot. Start the upload again from this slot.");
     this.name = "ArtworkKeyError";
+  }
+}
+
+/** 2S8-SEC-03 — the uploaded file is not what its grant pinned (it has been deleted), or has not arrived. */
+export class ArtworkUploadError extends Error {
+  readonly status: number;
+  constructor(message: string, status = 422) {
+    super(message);
+    this.name = "ArtworkUploadError";
+    this.status = status;
   }
 }
 
@@ -322,6 +333,19 @@ export async function registerArtwork(
     const granted = (grant?.after ?? null) as { contentType?: unknown; bytes?: unknown } | null;
     const contentType = normalizeContentType(typeof granted?.contentType === "string" ? granted.contentType : null);
     const bytes = typeof granted?.bytes === "number" ? granted.bytes : null;
+    /* 2S8-SEC-03 — registering is this upload's confirm step: what arrived
+       must be what the grant pinned (its type and exact size), or it is
+       deleted, audited and refused. The ceiling is the checks' own limit or
+       the pinned size, whichever is larger: an oversized declaration is the
+       file-size check's to return to its supplier, with the reason. A key
+       with no grant has nothing to compare against, and its checks fail. */
+    if (typeof granted?.contentType === "string") {
+      const arrived = await checkPrivateUpload(actor, input.r2Key,
+        { contentType: granted.contentType, bytes, maxBytes: Math.max(ARTWORK_MAX_BYTES, bytes ?? 0) },
+        { entity: "AdSlot", entityId: slot.id });
+      if (!arrived.ok && arrived.problem === "missing") throw new ArtworkUploadError("That artwork hasn't arrived yet — upload it, then record it.", 409);
+      if (!arrived.ok) throw new ArtworkUploadError(uploadRefusal(arrived.problem, "That artwork"));
+    }
     const text = input.title?.trim() || null;
     const checks = artworkChecks({ contentType, bytes, text, restricted: text ? await checkRestricted(tx, slot.tenantId, text) : [] });
     const verdict = artworkVerdict(checks);

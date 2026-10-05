@@ -18,8 +18,9 @@ import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
    Run for every private document upload — account (sign-up / guardian /
    coming-of-age ID), onboarding, organisation, sponsor-request, guardian
-   hand-off, support attachment, profile-change ID — and the seller's
-   delivery proof.
+   hand-off, support attachment, profile-change ID — the seller's delivery
+   proof, and the two uploads whose confirm step is their register step: a
+   deliverable's creative and an ad slot's artwork.
    -------------------------------------------------------------------------- */
 
 process.env.CLERK_SECRET_KEY ??= "sk_test_x";
@@ -54,6 +55,8 @@ describe.skipIf(!hasDatabase)("2S8-SEC-03 · private uploads are pinned to one t
   const { submitSupportMessage, sendSupportMessage } = await import("../src/domain/support");
   const { submitProfileChange, confirmLegalNameDocument } = await import("../src/domain/athlete-profile-change");
   const { requestProofUpload, markDelivered } = await import("../src/domain/delivery");
+  const { presignCreativeUpload, registerCreativeAsset } = await import("../src/domain/deliverable");
+  const { presignArtworkUpload, registerArtwork } = await import("../src/domain/edition-artwork");
   const { issueOnboardingToken } = await import("../src/lib/onboarding-token");
   const { issueSponsorRequestToken } = await import("../src/lib/sponsor-request-token");
   const { issuePurposeToken } = await import("../src/lib/purpose-token");
@@ -62,6 +65,7 @@ describe.skipIf(!hasDatabase)("2S8-SEC-03 · private uploads are pinned to one t
   const BUCKET = storage.BUCKETS.private;
   const athlete = { userId: "pu_athlete_user", tenantId: T, roles: ["ATHLETE" as const], sponsorId: null, athleteId: "pu_athlete", guardianId: null, propertyId: null };
   const manager = { userId: "pu_pm_user", tenantId: T, roles: ["PROPERTY_MGR" as const], sponsorId: null, athleteId: null, guardianId: null, propertyId: "pu_prop" };
+  const sponsorAdmin = { userId: "pu_sp_user", tenantId: T, roles: ["SPONSOR_ADMIN" as const], sponsorId: "pu_sponsor", athleteId: null, guardianId: null, propertyId: null };
 
   async function wipe() {
     const tables = await prisma.$queryRawUnsafe<{ table_name: string }[]>(
@@ -89,6 +93,7 @@ describe.skipIf(!hasDatabase)("2S8-SEC-03 · private uploads are pinned to one t
     await prisma.user.createMany({ data: [
       { id: athlete.userId, tenantId: T, clerkId: athlete.userId, email: "pu-athlete@pu.invalid", roles: ["ATHLETE"], athleteId: "pu_athlete" },
       { id: manager.userId, tenantId: T, clerkId: manager.userId, email: "pu-pm@pu.invalid", roles: ["PROPERTY_MGR"], propertyId: "pu_prop" },
+      { id: sponsorAdmin.userId, tenantId: T, clerkId: sponsorAdmin.userId, email: "pu-sp@pu.invalid", roles: ["SPONSOR_ADMIN"], sponsorId: "pu_sponsor" },
     ] });
     await prisma.propertyOnboarding.createMany({ data: [
       { id: "pu_onb_draft", tenantId: T, orgType: "TEAM", orgName: "PU Applicant", state: "DRAFT" },
@@ -114,6 +119,24 @@ describe.skipIf(!hasDatabase)("2S8-SEC-03 · private uploads are pinned to one t
     } });
     await prisma.orderLineDelivery.create({ data: {
       id: "pu_delivery", tenantId: T, orderId: "pu_order", lineId: "pu_line", sponsorId: "pu_sponsor", propertyId: "pu_prop", propertyTenantId: T, state: "IN_DELIVERY",
+    } });
+    /* A campaign: the athlete's deliverable for its creative, and an ad slot sold to it for its artwork. */
+    await prisma.campaign.create({ data: {
+      id: "pu_campaign", tenantId: T, sponsorId: "pu_sponsor", name: "PU Campaign", budget: 500000,
+      startDate: new Date("2026-10-01"), endDate: new Date("2026-12-31"), state: "ACTIVE",
+    } });
+    await prisma.nilJob.create({ data: { id: "pu_job", tenantId: T, name: "PU Job", baseLow: 10000, baseHigh: 20000, sellLow: 20000, sellHigh: 40000, sellFloorEmerging: 15000, sellFloorCreator: 20000, sellFloorPremium: 30000 } });
+    await prisma.campaignOrder.create({ data: {
+      id: "pu_corder", tenantId: T, campaignId: "pu_campaign", athleteId: "pu_athlete", jobId: "pu_job", compensation: 20000, sellPrice: 40000,
+      usageRights: "90 days", dueDate: new Date("2026-12-15"), state: "ACTIVE",
+    } });
+    await prisma.deliverable.create({ data: { id: "pu_deliverable", tenantId: T, orderId: "pu_corder", title: "PU post", dueDate: new Date("2026-12-15") } });
+    await prisma.publication.create({ data: { id: "pu_pub", tenantId: T, name: "PU Masthead" } });
+    await prisma.edition.create({ data: {
+      id: "pu_edition", tenantId: T, publicationId: "pu_pub", label: "PU Edition", closeDate: far, publishTarget: far, thresholdCents: 100000, state: "SELLING",
+    } });
+    await prisma.adSlot.create({ data: {
+      id: "pu_slot", tenantId: T, editionId: "pu_edition", slotCode: "PU-FULL", kind: "FULL", priceCents: 80000, campaignId: "pu_campaign", soldCents: 80000, soldAt: new Date(),
     } });
   });
 
@@ -224,6 +247,26 @@ describe.skipIf(!hasDatabase)("2S8-SEC-03 · private uploads are pinned to one t
       },
       confirm: () => markDelivered(manager, "pu_line", { note: "Hung at the home game.", proofKey: ctx.proof! }),
       confirmed: async () => (await prisma.orderLineDelivery.findUniqueOrThrow({ where: { id: "pu_delivery" }, select: { state: true } })).state === "DELIVERED",
+    },
+    {
+      name: "deliverable creative (registering the upload is its confirm)", type: "image/png", bytes: 12_345,
+      grant: async () => {
+        const g = await presignCreativeUpload(athlete, "pu_deliverable", "image/png", 12_345);
+        ctx.creative = g.key;
+        return g.url;
+      },
+      confirm: () => registerCreativeAsset(athlete, "pu_deliverable", ctx.creative!),
+      confirmed: async () => (await prisma.creativeAsset.count({ where: { tenantId: T, deliverableId: "pu_deliverable", r2Key: ctx.creative! } })) === 1,
+    },
+    {
+      name: "ad artwork (registering the upload is its confirm)", type: "image/png", bytes: 23_456,
+      grant: async () => {
+        const g = await presignArtworkUpload(sponsorAdmin, "pu_slot", "image/png", 23_456);
+        ctx.artwork = g.key;
+        return g.url;
+      },
+      confirm: () => registerArtwork(sponsorAdmin, "pu_slot", { r2Key: ctx.artwork! }),
+      confirmed: async () => (await prisma.editionAsset.count({ where: { tenantId: T, adSlotId: "pu_slot", r2Key: ctx.artwork! } })) === 1,
     },
   ];
 

@@ -1,5 +1,12 @@
 import type { AddressInfo } from "node:net";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+/* 2S8-SEC-03 — registering a creative or artwork upload HEADs the object.
+   There is no bucket here, so the file stands in as arrived exactly as its
+   grant pinned it; tests/private-upload-pins.test.ts checks the real thing. */
+vi.mock("../src/lib/storage", async (original) => ({
+  ...(await original<typeof import("../src/lib/storage")>()),
+  checkPrivateUpload: async (_actor: unknown, _key: string, expected: { bytes?: number | null }) => ({ ok: true as const, bytes: expected.bytes ?? 1 }),
+}));
 
 /* --------------------------------------------------------------------------
    P5-BE-10 — BTG's content review skipped for trusted drafts, against a real
