@@ -226,7 +226,7 @@ test("a minor cannot go ACTIVE until a guardian is linked and verified", async (
   //    live checklist, with the guardian's own steps still open.
   const id = await apply(page, a);
   await expect(page.getByText(`Guardian named: Parent ${a.last}`)).toBeVisible();
-  await expect(page.getByText("The guardian agreement")).toBeVisible();
+  await expect(page.getByText("The guardian agreement", { exact: true })).toBeVisible();
   const submitted = await athlete(id);
   expect(submitted).toMatchObject({ state: "SUBMITTED" });
   expect(submitted.guardianId, "the wizard's guardian is linked with the application").not.toBeNull();

@@ -61,6 +61,20 @@ export default defineConfig({
     ? {}
     : {
         webServer: [
+          /* An in-memory object store where there is no MinIO (CI's e2e
+             job sets E2E_OBJECT_STORE_STANDIN and points S3_ENDPOINT at it).
+             The upload steps PUT from the browser and the API then HEADs
+             the object, so a stubbed PUT alone cannot pass them. */
+          ...(process.env.E2E_OBJECT_STORE_STANDIN
+            ? [{
+                command: "node e2e/support/object-store-standin.mjs",
+                url: `${process.env.S3_ENDPOINT ?? "http://127.0.0.1:9100"}/minio/health/live`,
+                reuseExistingServer: !process.env.CI,
+                timeout: 30_000,
+                stdout: "pipe" as const,
+                stderr: "pipe" as const,
+              }]
+            : []),
           /* The API, when there is a database for it (CI's e2e job, or a
              local run with DATABASE_URL set). The fan-flow specs drive the
              real stack — web → API → Postgres — and skip without it. */

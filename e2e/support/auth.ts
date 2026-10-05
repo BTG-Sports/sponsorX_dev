@@ -166,6 +166,28 @@ export async function releaseUser(key: string): Promise<void> {
  */
 export async function signIn(page: Page, grant: Grant): Promise<void> {
   const { clerkId } = await provision(grant);
+  await ticketSignIn(page, clerkId, grant.key);
+}
+
+/**
+ * Sign in as someone the product itself gave a login — an organisation's
+ * contact once it is approved, an athlete once their application is — with
+ * NO provisioning: the Clerk identity for `e2e.<key>@example.com` signs in,
+ * and the API claims the `User` row the real flow created for that address
+ * (first sign-in links by verified email). Nothing is granted here.
+ */
+export async function signInExisting(page: Page, key: string): Promise<void> {
+  await ticketSignIn(page, await clerkUserFor(key), key);
+}
+
+export async function pageAsExisting(browser: Browser, testInfo: TestInfo, key: string): Promise<Page> {
+  const context = await browser.newContext({ ...testInfo.project.use, baseURL: testInfo.project.use.baseURL });
+  const page = await context.newPage();
+  await signInExisting(page, key);
+  return page;
+}
+
+async function ticketSignIn(page: Page, clerkId: string, key: string): Promise<void> {
   /* Under a parallel run the dev instance's widget occasionally sits on an
      empty card and never consumes the ticket (seen once in ~40 sign-ins).
      A ticket is single-use, so a retry mints a fresh one and reloads — the
@@ -187,7 +209,7 @@ export async function signIn(page: Page, grant: Grant): Promise<void> {
       return;
     } catch (e) {
       if (attempt >= 2) {
-        throw new Error(`Signing in as ${grant.key} never reached a workspace (stuck at ${page.url()}): ${(e as Error).message}`);
+        throw new Error(`Signing in as ${key} never reached a workspace (stuck at ${page.url()}): ${(e as Error).message}`);
       }
     }
   }

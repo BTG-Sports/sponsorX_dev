@@ -19,7 +19,7 @@ export type WorkerJob = "payments.confirm" | "payouts.send" | "sweepDeliveries" 
 
 export async function runWorker<T = unknown>(
   job: WorkerJob,
-  args: { ids?: string[]; tenantIds?: string[]; daysAhead?: number } = {},
+  args: { ids?: string[]; tenantIds?: string[]; daysAhead?: number; at?: string } = {},
 ): Promise<T> {
   try {
     const { stdout } = await run(process.execPath, ["--import", "tsx", SCRIPT, job, JSON.stringify(args)], {

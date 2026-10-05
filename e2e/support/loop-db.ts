@@ -16,7 +16,8 @@
  * already exists and the upserts change nothing. Shared base rows are never
  * deleted.
  */
-import { readFileSync } from "node:fs";
+import { createHash } from "node:crypto";
+import { readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 
 import pg from "pg";
@@ -112,6 +113,39 @@ export async function ensureBase(): Promise<void> {
         `CAMPAIGN_ORDER v1 in ${TENANT} is registered with ${row?.bodyHash}, but the file hashes to ${bodyHash}. ` +
           `Something rewrote the issued hash (a crashed walk?) — restore it before running the loop specs.`,
       );
+    }
+  });
+}
+
+/**
+ * Every agreement in backend/agreements, registered as
+ * `npm run agreement:register` does — the marketplace path signs three more
+ * than the Phase 1 loop (PROPERTY_TERMS, MARKETPLACE_ORDER, GUARDIAN).
+ * The property wizard compares the plain sha256 hex of its file
+ * (onboarding.ts); every other kind the canonical agreement hash.
+ * Idempotent; an issued hash is never rewritten — a mismatch fails loudly.
+ */
+export async function ensureAgreements(): Promise<void> {
+  const dir = path.resolve(__dirname, "../../backend/agreements");
+  await tx(async (c) => {
+    for (const f of readdirSync(dir)) {
+      const m = /^([A-Z_]+)\.v(\d+)\.txt$/.exec(f);
+      if (!m) continue;
+      const [, kind, v] = m;
+      const text = readFileSync(path.join(dir, f), "utf8");
+      const hash = kind === "PROPERTY_TERMS" ? createHash("sha256").update(text).digest("hex") : hashAgreementBody(text);
+      await c.query(
+        `insert into "Agreement"(id, "tenantId", kind, version, "bodyHash", "effectiveAt")
+         values ($1, $2, $3, $4, $5, now() - interval '1 day')
+         on conflict ("tenantId", kind, version) do nothing`,
+        [`e2e_agreement_${kind.toLowerCase()}_v${v}_${TENANT}`, TENANT, kind, Number(v), hash],
+      );
+      const [row] = (await c.query<{ bodyHash: string }>(
+        `select "bodyHash" from "Agreement" where "tenantId" = $1 and kind = $2 and version = $3`, [TENANT, kind, Number(v)],
+      )).rows;
+      if (row?.bodyHash !== hash) {
+        throw new Error(`${kind} v${v} in ${TENANT} is registered with ${row?.bodyHash}, but the file hashes to ${hash}.`);
+      }
     }
   });
 }

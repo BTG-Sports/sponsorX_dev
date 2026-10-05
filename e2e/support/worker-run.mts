@@ -27,7 +27,7 @@ import { sweepDeliveries } from "../../backend/src/domain/delivery.ts";
 import { sweepAutoStaffing } from "../../backend/src/domain/auto-staffing.ts";
 import { providerName } from "../../backend/src/lib/payment-provider.ts";
 
-type Args = { ids?: string[]; tenantIds?: string[]; daysAhead?: number };
+type Args = { ids?: string[]; tenantIds?: string[]; daysAhead?: number; at?: string };
 
 /** name → the worker's handler, as worker/index.mts wires it. */
 const QUEUED: Record<string, (data: Record<string, string>) => Promise<unknown>> = {
@@ -71,7 +71,8 @@ if (job === "sweepDeliveries") {
   /* The sweep takes its clock as an argument: time moves for it alone. */
   result = await sweepDeliveries(new Date(Date.now() + (args.daysAhead ?? 0) * 864e5), { tenantIds: args.tenantIds });
 } else if (job === "sweepAutoStaffing") {
-  result = await sweepAutoStaffing(new Date(), { tenantIds: args.tenantIds });
+  /* Its clock too: an offer expires by time passing, which the sweep is told. */
+  result = await sweepAutoStaffing(args.at ? new Date(args.at) : new Date(), { tenantIds: args.tenantIds });
 } else if (job && QUEUED[job]) {
   if (!args.ids?.length) throw new Error(`${job} needs the ids its jobs name`);
   result = await drain(job === "payouts.send" ? ["payouts.send", "payouts.confirm"] : [job], args.ids);
