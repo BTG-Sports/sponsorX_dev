@@ -29,3 +29,6 @@
   - the "Stripe Test" admin, team, athlete and sponsor, created through the tester facility;
   - five global commission rules (15% / 5% / 2.9%+30¢ / 2% / 10% reserve) on `/admin/commission`.
 - **Stripe settings worth a look:** Checkout first showed Philippine pesos (Stripe guesses the currency from location). Adaptive Pricing can be turned off in Stripe's settings.
+- **2S5-INT-03 · Done.** The owner completed Stripe's hosted onboarding by hand for the test team "Stripe Test Hawks" (account `acct_1UNQnWKA9GFzKcrb`, test bank ••••6789). Stripe shows transfers and payouts as active. SponsorX turned the account **READY** on its own, from the thin webhook, at 07:54:46 UTC.
+  - Only "eventually due" items remain (date of birth and the last 4 of the SSN), and they don't block payouts.
+  - **Stripe's onboarding shows an hCaptcha to automated browsers,** so a person has to finish any onboarding test.

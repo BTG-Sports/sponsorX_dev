@@ -1108,9 +1108,9 @@ Providers retry webhooks and deliver out of order. Every handler must be safe to
 - **Done when:** Payment webhooks are idempotent and correctly update order and payment state under duplicate and out-of-order delivery
 - **Reference:** Spec §3, §12
 
-### ⏸ `2S5-INT-03` · Connected payout account onboarding
+### ✅ `2S5-INT-03` · Connected payout account onboarding
 
-**Order** 39 · **INT** · **Where:** Code + console · **5d** · **Blocked**
+**Order** 39 · **INT** · **Where:** Code + console · **5d** · **Done**
 
 Properties and athletes onboard with the payment provider to receive funds, through the provider's hosted flow. SponsorX stores status only, never credentials.
 
