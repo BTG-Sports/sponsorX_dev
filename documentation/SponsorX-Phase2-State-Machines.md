@@ -171,6 +171,29 @@ and the money waits on Finance's list. A step that fails half-way (the
 database refusing a write) leaves nothing written. The stand-in can be told
 it is down (`STANDIN_OUTAGE`) to prove it on staging.
 
+### Stripe (2S5-INT-01 / -03, 2026-10-06)
+
+With `PAYMENT_PROVIDER=stripe`, the sponsor pays on a hosted Checkout Session
+created for each attempt. These Stripe events move the attempt; nothing else
+does:
+
+- `checkout.session.completed` (paid) gives `payment.succeeded`;
+- `checkout.session.completed` (unpaid) gives `payment.processing`;
+- `async_payment_succeeded` / `_failed` give `payment.succeeded` /
+  `payment.failed`;
+- `expired` gives `payment.failed`.
+
+`payment_intent.payment_failed` is deliberately not applied, because the
+sponsor retries a declined card on the same page. The attempt's `providerRef`
+becomes the PaymentIntent (`pi_…`). Refunds and disputes then name the attempt
+by that PaymentIntent, and by its metadata where Stripe carries it. Two
+neutral events were added:
+
+- `account.updated`, a payee's payout account, ready or not (§6);
+- `provider.notice`, always HELD for BTG.
+
+The full mapping is in documentation/SponsorX-Stripe-Integration.md §4.
+
 ## 6 · Payout (`2S5-BE-04`, `2S5-BE-05`)
 
 `NOT_ELIGIBLE → ELIGIBLE → REQUESTED → APPROVED → PAID`, with `FAILED → REQUESTED`
@@ -260,6 +283,38 @@ and its automatic retry stopped, so it is never paid twice.
   payee fixed their account.
 - A payout sent twice: every move out of `APPROVED`, `SENDING` and `FAILED`
   is conditional on the state it leaves.
+
+**With Stripe (2S5-INT-01 / -03, 2026-10-06).** A hand-over is a **transfer**
+to the payee's connected account, using separate charges and transfers. Its
+idempotency key is `transfer:<payout id>:<hand-over>`, and the payout id is in
+its metadata. These Stripe events map onto the payout events:
+
+- `transfer.created` gives `payout.paid`. The transfer landing in the payee's
+  Stripe balance **is** the paid moment.
+- `transfer.reversed`, in full, gives `payout.returned`.
+- A part reversal is HELD for BTG.
+
+If Stripe refuses a transfer when it is handed over, the payout moves
+`APPROVED → SENDING → FAILED` in one step, with Stripe's reason and a failure
+kind:
+
+- BTG's balance short gives `TEMPORARY`, and the sweep retries it;
+- an account that can't take transfers gives `ACCOUNT`;
+- anything else gives `OTHER`.
+
+**Payout accounts (2S5-INT-03).** These are Accounts v2 recipients with the
+Express dashboard. Stripe refuses v1 account creation for new platforms.
+Onboarding is a hosted Account Link. The account's status
+`NOT_SET_UP → NEEDS_INFO ⇄ READY` moves only on Stripe's word, through the
+`account.updated` neutral event:
+
+- thin `v2.core.account…` events, for which the worker reads the account;
+- or a snapshot `account.updated`.
+
+READY means transfers and payouts are both active and nothing is due from the
+payee. A rejected account is HELD for BTG. A payee who had a stand-in account
+starts again at Stripe: their status goes back to NOT_SET_UP, and the new
+account counts as a change for the 7-day review.
 
 ### Phase 1 earning (2S5-BE-08)
 

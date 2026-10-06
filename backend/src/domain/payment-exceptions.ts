@@ -161,10 +161,12 @@ export const onRefunded: Handler = async (tx, ev, data, now) => {
       select: { id: true },
     });
 
-  /* 1. It confirms a refund SponsorX sent. */
+  /* 1. It confirms a refund SponsorX sent — by its reference, or (2S5-INT-01) by SponsorX's own
+     refund id the provider carried back, which names it even before the worker wrote the reference. */
+  const refundDueId = typeof data.refundDueId === "string" ? data.refundDueId : null;
   const ours = await tx.refundDue.findFirst({
-    /* tenant-scope: this order's own refunds, by the provider's reference. */
-    where: { orderId: a.orderId, reference: refundRef }, select: { id: true },
+    /* tenant-scope: this order's own refunds, by the provider's reference or SponsorX's id. */
+    where: { orderId: a.orderId, OR: [{ reference: refundRef }, ...(refundDueId ? [{ id: refundDueId }] : [])] }, select: { id: true },
   });
   if (ours && !(await tx.paymentRefund.findFirst({ /* tenant-scope: by the RefundDue just found. */ where: { refundDueId: ours.id }, select: { id: true } }))) {
     await record("CONFIRMED", ours.id);

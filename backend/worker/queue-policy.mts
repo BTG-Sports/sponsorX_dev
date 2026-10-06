@@ -27,6 +27,7 @@ export const QUEUE_POLICY: Readonly<Record<string, RetryPolicy>> = {
   "payments.event": { retryLimit: 5, retryDelay: 30, retryBackoff: true },
   "payments.confirm": { retryLimit: 5, retryDelay: 30, retryBackoff: true },
   "payouts.send": { retryLimit: 5, retryDelay: 60, retryBackoff: true },
+  "refunds.send": { retryLimit: 6, retryDelay: 60, retryBackoff: true },
 };
 
 type QueueAdmin = {

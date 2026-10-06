@@ -2,6 +2,8 @@ import { createHmac } from "node:crypto";
 
 import { z } from "zod";
 
+import { stripeConfigProblem } from "./stripe-guard";
+
 /**
  * Environment, validated once at boot. Anything that reads configuration goes
  * through this object — never process.env directly — so a missing or malformed
@@ -151,8 +153,32 @@ const schema = z.object({
      SponsorX's own, clearly labelled, and it moves no money. "none" means no
      provider is connected yet — the buttons say so and nothing is charged or
      sent. Unset: "none" in Railway production, "standin" everywhere else.
-     Stripe joins this list when 2S0-PMO-03 is decided. */
-  PAYMENT_PROVIDER: z.enum(["standin", "none"]).optional(),
+     "stripe" (2S5-INT-01 / -03, Stripe chosen under 2S0-PMO-03) is the real
+     one: hosted Checkout, Connect Express payout accounts, transfers. */
+  PAYMENT_PROVIDER: z.enum(["standin", "none", "stripe"]).optional(),
+  /* 2S5-INT-01 — Stripe. Required when PAYMENT_PROVIDER=stripe; a live key is
+     refused outside Railway production and a test key inside it
+     (config/stripe-guard.ts). Never logged. */
+  STRIPE_SECRET_KEY: z.string().optional(),
+  /* The signing secret of the platform webhook endpoint (checkout, refunds,
+     disputes, transfers) — and, mid-rotation, the old one (2S8-SEC-02). */
+  STRIPE_WEBHOOK_SECRET: z.string().optional(),
+  STRIPE_WEBHOOK_SECRET_PREVIOUS: z.string().optional(),
+  /* 2S5-INT-03 — payees' accounts are Accounts v2, whose changes Stripe
+     sends as THIN events to an event destination with its own signing
+     secret (v2.core.account…). Optional at boot, but without it a payee's
+     payout account never turns READY. Same URL as the platform endpoint. */
+  STRIPE_THIN_WEBHOOK_SECRET: z.string().optional(),
+  STRIPE_THIN_WEBHOOK_SECRET_PREVIOUS: z.string().optional(),
+  /* The signing secret of the CONNECT snapshot endpoint (events on payees'
+     connected accounts: capability.updated, payout.failed). Optional. Stripe
+     signs each endpoint with its own secret; all may point at the same URL. */
+  STRIPE_CONNECT_WEBHOOK_SECRET: z.string().optional(),
+  STRIPE_CONNECT_WEBHOOK_SECRET_PREVIOUS: z.string().optional(),
+  /* On api and web for completeness; hosted Checkout does not need it. */
+  STRIPE_PUBLISHABLE_KEY: z.string().optional(),
+  /* The country new payout accounts are opened in (ISO 3166-1 alpha-2). */
+  STRIPE_CONNECT_COUNTRY: z.string().length(2).default("US"),
   /* Signs the stand-in provider's links. Development default is fine: the
      stand-in is refused in production (below). */
   STANDIN_PROVIDER_SECRET: z.string().default("dev-standin-provider-secret"),
@@ -213,6 +239,10 @@ if (parsed.RAILWAY_ENVIRONMENT_NAME?.toLowerCase() === "production" && parsed.PA
       "only. Refusing to boot.",
   );
 }
+/* 2S5-INT-01 — Stripe's keys: present when Stripe is the provider, and the
+   right mode for the environment (a live key only in production). */
+const stripeProblem = stripeConfigProblem(parsed);
+if (stripeProblem) throw new Error(stripeProblem);
 if (parsed.NODE_ENV === "production" && !parsed.ZOHO_WEBHOOK_SECRET) {
   throw new Error(
     "ZOHO_WEBHOOK_SECRET is not set. The Zoho invoice webhook is a public " +

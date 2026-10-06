@@ -25,7 +25,10 @@
  * adapter (lib/payment-provider.ts `refundCard`) and the row marked SENT at
  * once: the stand-in on staging does it inline, labelled a test; with no
  * provider ("none", production until one is chosen) it stays OPEN for
- * Finance. Everything else — bank transfer, cheque, other, a Zoho invoice —
+ * Finance. With Stripe (2S5-INT-01) the refund is a network call, so it is
+ * QUEUED: the row stays OPEN, marked with the provider, and a `refunds.send`
+ * job (`sendRefund`, the worker) refunds it through Stripe and marks it SENT
+ * with Stripe's reference — or, if Stripe refuses, hands it back to Finance. Everything else — bank transfer, cheque, other, a Zoho invoice —
  * Finance sends by hand and marks sent with the method, a reference and the
  * day (`markRefundSent`, BTG admin and Finance only). A Zoho-invoiced order
  * also needs a credit note in Zoho Books, which the row says.
@@ -37,9 +40,10 @@ import { prisma } from "../db/client";
 import { audit, type AuditActor } from "../db/audit";
 import type { Actor } from "../auth/actor";
 import { assertTenantWide, whereFor } from "../auth/scope";
-import { ProviderUnavailableError, refundCard } from "../lib/payment-provider";
+import { enqueue } from "../db/outbox";
+import { ProviderRefusedError, ProviderUnavailableError, refundCard, sendCardRefund } from "../lib/payment-provider";
 import { looksLikeCardNumber } from "./marketplace-order-rules";
-import { appUrl, orderRef, sponsorRecipient, tell, usd } from "./order-mail";
+import { appUrl, btgAdmins, orderRef, sponsorRecipient, tell, usd } from "./order-mail";
 import { lockCampaign } from "./campaign-stages";
 
 type Tx = Prisma.TransactionClient;
@@ -249,6 +253,16 @@ export async function recordRefund(
       await audit(tx, actor, "refundDue.providerUnavailable", "MarketplaceOrder", orderId, { after: { refundId: row.id, amountCents, error: error.message } });
       return row;
     }
+    if (refunded && "queued" in refunded) {
+      /* 2S5-INT-01 — Stripe: the worker sends it (sendRefund). Marked with the provider while it waits. */
+      await tx.refundDue.updateMany({
+        /* tenant-scope: the row just written, by id, only while still on its way. */
+        where: { id: row.id, state: "OPEN" }, data: { provider: refunded.provider },
+      });
+      await enqueue(tx, order.tenantId, "refunds.send", { refundDueId: row.id });
+      await audit(tx, actor, "refundDue.queuedToProvider", "MarketplaceOrder", orderId, { after: { refundId: row.id, amountCents, provider: refunded.provider } });
+      return row;
+    }
     if (refunded) {
       const sent = await tx.refundDue.updateMany({
         /* tenant-scope: the row just written, by id, only while still on its way. */
@@ -266,6 +280,69 @@ export async function recordRefund(
     }
   }
   return row;
+}
+
+/**
+ * 2S5-INT-01 — the `refunds.send` job: refund a queued card refund through
+ * Stripe, and mark it SENT with Stripe's reference. Under the row's lock for
+ * the whole call, so Finance marking it sent by hand at the same moment waits
+ * and then finds it sent — the card is never refunded twice. Only a row still
+ * OPEN and still queued to this provider is sent. Stripe down: thrown, the
+ * queue retries (the key makes a retry the same refund). Stripe refusing:
+ * the row goes back to Finance's list (provider cleared), with Stripe's
+ * reason on the record, and BTG's admins are told.
+ */
+export async function sendRefund(refundDueId: string, now = new Date()): Promise<{ sent: boolean; refused?: boolean }> {
+  return prisma.$transaction(async (tx) => {
+    const locked = await tx.$queryRaw<Array<{ id: string }>>`SELECT id FROM "RefundDue" WHERE id = ${refundDueId} FOR UPDATE`;
+    if (!locked.length) return { sent: false };
+    const row = await tx.refundDue.findUniqueOrThrow({
+      /* tenant-scope: the refund this server queued, by id, just locked. */
+      where: { id: refundDueId }, select: { id: true, tenantId: true, orderId: true, state: true, provider: true, paidVia: true, amountCents: true, attemptId: true },
+    });
+    if (row.state !== "OPEN" || row.provider !== "stripe" || row.paidVia !== "CARD" || !row.orderId) return { sent: false };
+    const order = await tx.marketplaceOrder.findUniqueOrThrow({
+      /* tenant-scope: the order of the refund just locked. */
+      where: { id: row.orderId }, select: { id: true, tenantId: true, paymentReference: true, createdBy: true, billingEmail: true, billingName: true },
+    });
+    /* The card payment refunded: the attempt the row names (money received after a cancellation), else the one that paid the order. */
+    const attempt = row.attemptId
+      ? await tx.paymentAttempt.findUnique({ /* tenant-scope: the card attempt the refund names. */ where: { id: row.attemptId }, select: { id: true, providerRef: true } })
+      : order.paymentReference
+        ? await tx.paymentAttempt.findFirst({ /* tenant-scope: this order's own attempt, by the reference that paid it. */ where: { orderId: order.id, providerRef: order.paymentReference }, select: { id: true, providerRef: true } })
+        : null;
+    const paymentReference = row.attemptId ? attempt?.providerRef ?? null : order.paymentReference;
+    const backToFinance = async (why: string) => {
+      await tx.refundDue.updateMany({ /* tenant-scope: the row just locked. */ where: { id: row.id, state: "OPEN" }, data: { provider: null } });
+      await audit(tx, { userId: null, tenantId: row.tenantId }, "refundDue.providerRefused", "MarketplaceOrder", order.id, { after: { refundId: row.id, amountCents: row.amountCents, why } });
+      for (const u of await btgAdmins(tx, row.tenantId)) {
+        await tell(tx, { tenantId: row.tenantId, email: u.email }, "refund.providerRefused", row.id, {
+          orderRef: orderRef(order.id), amount: usd(row.amountCents), why, refundsUrl: appUrl("/admin/refunds"),
+        });
+      }
+      return { sent: false, refused: true };
+    };
+    if (!paymentReference) return backToFinance("SponsorX has no Stripe reference for the card payment, so it can't be refunded automatically — send it by hand.");
+    let refunded: { provider: string; reference: string };
+    try {
+      refunded = await sendCardRefund({ refundDueId: row.id, orderId: order.id, attemptId: attempt?.id ?? null, paymentReference, amountCents: row.amountCents });
+    } catch (error) {
+      if (error instanceof ProviderRefusedError) return backToFinance(`Stripe refused the refund: ${error.providerMessage}`.slice(0, 500));
+      throw error;
+    }
+    const sent = await tx.refundDue.updateMany({
+      /* tenant-scope: the row just locked, only while still on its way. */
+      where: { id: row.id, state: "OPEN" },
+      data: { state: "SENT", sentAt: now, sentBy: "system", method: "CARD", reference: refunded.reference, sentOn: new Date(`${dayOf(now)}T00:00:00.000Z`), provider: refunded.provider },
+    });
+    if (!sent.count) return { sent: false };
+    await audit(tx, { userId: null, tenantId: row.tenantId }, "refundDue.sent", "MarketplaceOrder", order.id, {
+      before: { refundId: row.id, state: "OPEN" },
+      after: { refundId: row.id, state: "SENT", method: "CARD", provider: refunded.provider, reference: refunded.reference },
+    });
+    await tellRefundSent(tx, order, row.id, row.amountCents, now);
+    return { sent: true };
+  }, { timeout: 60_000, maxWait: 10_000 });
 }
 
 /**
