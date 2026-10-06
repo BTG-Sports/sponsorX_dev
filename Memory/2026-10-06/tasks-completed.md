@@ -38,3 +38,13 @@
   - **Connect is enabled on live,** with 0 connected accounts. Confirm its business model is "collect payments and pay recipients" at go-live.
   - No live secret key exists yet. Creating one is a go-live step: keys go into Railway production, live webhooks are registered, and `PAYMENT_PROVIDER=stripe` is set on production.
 - **The Stripe CLI** (1.53.0, checksum verified) is installed at `~/.local/bin/stripe`. Browser login shows "CLI disabled" on every BTG environment even though the owner is a Developer, so it's likely an account-owner setting. When needed, use the CLI with the sandbox key read from Railway.
+- **Live Stripe keys are in Railway production,** taken from the owner's clipboard and never shown. The variables were set with `--skip-deploys`.
+  - `STRIPE_SECRET_KEY` (`sk_live_…QUac`, on `api`). It is named "SponsorX production" in Stripe and was created with **full access**, because the Accounts v2 permission mapping for restricted keys was unclear.
+  - `STRIPE_PUBLISHABLE_KEY` (`pk_live_…2Ih2`, on `api` and `web`).
+- **Production still takes no payments.** `PAYMENT_PROVIDER` is unset there (which means `none`), and no live webhooks are registered yet.
+- **Go-live, when the owner decides:**
+  1. Register the live platform webhook and the thin destination from inside the production container.
+  2. Store their secrets in Railway production.
+  3. Set `PAYMENT_PROVIDER=stripe`, then run `npm run deploy production`. A variable change alone rebuilds from `release`.
+  4. Run one small real payment and refund.
+- **New row: 2S8-SEC-06** (Ready). Swap the full-access live key for a restricted one, proven in the sandbox first.
