@@ -68,6 +68,11 @@ The same steps apply to every row below:
 - **Downtime:** none. Both keys work until the old one is deleted.
 - **The publishable key** (`CLERK_PUBLISHABLE_KEY`, `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`) is **not secret**. It only changes if the Clerk instance changes. On `web` it is baked in **at build time**, so changing it needs a rebuild, not just a restart.
 - **Sessions:** there is no app session secret. Clerk issues and verifies sessions. To force everyone to sign in again, revoke sessions in Clerk.
+- **Allowed origins, `CLERK_AUTHORIZED_PARTIES` (2S8-PMO-02, not secret).** This is a comma-separated list of the web origins whose sessions are accepted: the token's `azp` claim. Set it on `api` and `web` with **the same value**.
+  - Unset on `api`, it defaults to `APP_URL`'s origin, plus `http://127.0.0.1:3100`, `http://localhost:3100` and `http://localhost:3000` outside `NODE_ENV=production`.
+  - Unset on `web`, it defaults to `APP_URL`'s origin if `web` has one, and otherwise to no check (Clerk's default); the API still enforces.
+  - A malformed entry stops the API from booting.
+  - Rotating the Clerk key does not touch it. Change it only when a web origin is added or removed: a new custom domain, or the Vercel test deployment. An origin missing from it signs everyone on that origin out of the API.
 
 ### 2 · `DATABASE_URL` (the Postgres password)
 
@@ -232,6 +237,7 @@ Downtime: none for the app. Only the next CI or tracker run is affected.
 - `CLERK_PUBLISHABLE_KEY` / `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`.
 - `ZOHO_NOTIFY_CHANNEL_ID`, `ZOHO_EXPECTED_ORG_ID` and `PUBLIC_INTAKE_TENANT_ID`.
 - `APP_URL`, `API_URL`, `R2_PUBLIC_BASE_URL`, `S3_ENDPOINT` and the bucket names.
+- `CLERK_AUTHORIZED_PARTIES` (see 1).
 - `SUPPORT_EMAIL` and `EMAIL_FROM`.
 - `GEOLITE2_CITY_PATH`. The MaxMind *licence key* used to download the database is a secret, but it is not used by the app.
 

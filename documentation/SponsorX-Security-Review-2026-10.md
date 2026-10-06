@@ -216,7 +216,7 @@ The checks were made against the OWASP Top 10 (2021), plus the ASVS basics that 
   - `x-test-clerk` exists **only** in test files, which `vi.mock` the Clerk module. `src/auth/clerk.ts` has no test branch and never reads `NODE_ENV`, so the header cannot be honoured in production or anywhere else.
   - Disabled accounts are refused.
 - **Fixed (High).** The portal "Log out" button only navigated to `/login`. The Clerk session survived, and `/login` sent the still-signed-in visitor straight back into the portal. On a shared device, the next person was signed in as the previous one.
-- **Owner (Low).** Clerk's `authorizedParties` is not set on the API. Setting it to `APP_URL`'s origin hardens cookie auth. But it must list every web origin that mints sessions (staging, production, the Vercel test environment), or sign-in breaks there.
+- **Owner (Low).** Clerk's `authorizedParties` is not set on the API. Setting it to `APP_URL`'s origin hardens cookie auth. But it must list every web origin that mints sessions (staging, production, the Vercel test environment), or sign-in breaks there. **Decided 2026-10-06 and done:** `CLERK_AUTHORIZED_PARTIES`, on both servers (decision 3 below).
 
 **Fix:**
 - `UserMenu` calls Clerk's `signOut({ redirectUrl: "/" })`.
@@ -441,6 +441,19 @@ Matches are printed masked. **Result on 2026-10-05: 2,220 tracked files, no secr
    - **Done:** the web app now sends `Strict-Transport-Security: max-age=31536000; includeSubDomains` on every path (`frontend/next.config.ts`). Every `sponsorx.net` host must therefore serve HTTPS. `clerk.` and `accounts.` already do (issued certificates, `.claude/stack-decision.md`); any subdomain added later, a CDN for example, needs its certificate before anyone opens it in a browser. Preload is not set: the preload list ships inside browsers and takes months to leave. The API sends no HSTS and still doesn't: it serves only JSON, and its public domain only takes webhooks, so the web app owns the header.
    - **Test:** `frontend/tests/security-review.test.ts`, "A05 · security headers", pins the exact value and that `preload` is absent.
 3. **Clerk `authorizedParties`.** List every web origin that mints sessions before turning it on (§A07).
+   - **Decided (owner, 2026-10-06):** yes. Clerk accepts only session tokens whose `azp` is one of our own web origins.
+   - **Done, API:** `src/auth/clerk.ts` passes `authorizedParties` to `authenticateRequest`, which covers both the Bearer token and the cookie. The list comes from a new variable, `CLERK_AUTHORIZED_PARTIES` (comma-separated origins, normalised; `src/config/authorized-parties.ts`). Unset, it is `APP_URL`'s origin, plus `http://127.0.0.1:3100`, `http://localhost:3100` and `http://localhost:3000` outside `NODE_ENV=production`, so nothing breaks on an environment that hasn't set it. A malformed entry (a path, a bare host, another scheme) refuses to boot.
+   - **Done, web app:** `src/proxy.ts` passes the same list to `clerkMiddleware`, from the same variable and the same rule. It is read at server start. One difference: the web service has no `APP_URL` today. Unset in production, the web app therefore keeps Clerk's default (no check) rather than guess its own public origin from the request, which behind Railway's TLS proxy could come out as `http://` and sign everyone out. The API is the enforcement point either way, because every read goes through it.
+   - **Origins.** Production is `https://sponsorx.net`. No `www` host is used anywhere in the repo or the runbooks; if one is ever added, it must be listed. Staging is `https://web-staging-904a.up.railway.app`. **The Vercel test deployment** must set `CLERK_AUTHORIZED_PARTIES` on its own web project to its own origin. Its origin must also be added to the list on whichever API it calls, or every call it makes is refused.
+   - **e2e:** the harness signs in through `/login?__clerk_ticket=…` at `http://127.0.0.1:3100` and starts the API with `APP_URL` set to that address, under `next dev` and a development API. That origin is in both defaults. A developer whose own `.env` sets `CLERK_AUTHORIZED_PARTIES` must include `http://127.0.0.1:3100` to run e2e.
+   - **Test:** `backend/tests/pmo02-clerk-parties.test.ts`. It runs the **real** `@clerk/backend` verifier, given the test's public key as `jwtKey` (Clerk's networkless verification), with RS256 session tokens signed in the test.
+     - In production, `https://sponsorx.net` is accepted, while a foreign origin, a look-alike (`https://sponsorx.net.evil.example`) and a local origin are refused.
+     - An explicit list (staging plus a Vercel origin) is the whole list.
+     - The three local origins sign in under development.
+     - A badly signed token is refused.
+     - The list rules hold, and a malformed list refuses to boot.
+     - Removing the option from `clerk.ts` in a scratch run failed three of these tests.
+     - `frontend/tests/security-review.test.ts`, "decision 3", pins the web rule and that the proxy passes it.
 4. **Link lifetimes.** Decide how long intake, onboarding, sign-up and sponsor-request links should live. The intake link should also gain a purpose prefix, using the `_PREVIOUS` overlap so links already sent keep working (§A02).
 5. **Profile-claim email.** Should a claimant confirm their email before an advisor can verify the claim (§A01)?
 6. **Production `PAYMENT_PROVIDER`.** Set `PAYMENT_PROVIDER=none` explicitly on Railway production. The stand-in is chosen whenever `RAILWAY_ENVIRONMENT_NAME` is not exactly `production`, so a renamed environment would quietly switch it on. The boot guard only catches an *explicit* `standin`.

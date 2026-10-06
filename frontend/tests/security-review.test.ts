@@ -157,6 +157,29 @@ describe("2S8-PMO-02 decision 1 · the full CSP, report-only", async () => {
   });
 });
 
+describe("2S8-PMO-02 decision 3 · Clerk authorizedParties on the web app", async () => {
+  const { webAuthorizedParties } = await import("@/proxy");
+
+  it("an explicit list wins, normalised to origins", () => {
+    expect(webAuthorizedParties({ NODE_ENV: "production", CLERK_AUTHORIZED_PARTIES: "https://SponsorX.net/, https://web-staging-904a.up.railway.app" })).toEqual([
+      "https://sponsorx.net", "https://web-staging-904a.up.railway.app",
+    ]);
+  });
+
+  it("unset: APP_URL's origin, plus the local web origins (e2e on 127.0.0.1:3100) outside production", () => {
+    expect(webAuthorizedParties({ NODE_ENV: "development" })).toEqual(["http://127.0.0.1:3100", "http://localhost:3100", "http://localhost:3000"]);
+    expect(webAuthorizedParties({ NODE_ENV: "production", APP_URL: "https://sponsorx.net/" })).toEqual(["https://sponsorx.net"]);
+  });
+
+  it("unset in production with no APP_URL: Clerk's default, so nothing breaks (the API still enforces)", () => {
+    expect(webAuthorizedParties({ NODE_ENV: "production" })).toBeUndefined();
+  });
+
+  it("the proxy passes the list to clerkMiddleware", () => {
+    expect(src("src/proxy.ts")).toMatch(/clerkMiddleware\(\{ authorizedParties: webAuthorizedParties\(process\.env\) \}\)/);
+  });
+});
+
 describe("A07 · signing out ends the session", () => {
   it("the portal user menu calls Clerk's signOut and clears our own cookies — not just a navigation", () => {
     const menu = src("src/components/user-menu.tsx");
