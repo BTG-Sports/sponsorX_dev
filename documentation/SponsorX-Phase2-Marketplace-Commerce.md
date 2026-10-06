@@ -1735,7 +1735,7 @@ Production's live Stripe secret key was created on 2026-10-06 with **full access
 
 ### ⏸ `2S8-PMO-02` · Security settings the owner decides
 
-**Order** 62.5 · **PMO** · **Where:** Document · **1d** · **Ready**
+**Order** 62.5 · **PMO** · **Where:** Document · **1d** · **Code review**: all seven decided 2026-10-06; Done once deployed to staging and production
 
 The security review leaves seven decisions to the owner:
 1. A full CSP, in report-only mode first.
@@ -1749,6 +1749,31 @@ The security review leaves seven decisions to the owner:
 - **Depends on:** 2S8-SEC-02
 - **Done when:** Each of the seven decisions is recorded in the security review, and every setting chosen is applied on Railway
 - **Reference:** Security review 2026-10, Decisions for the owner; raised 2026-10-05 by 2S8-SEC-02
+
+### ⏸ `2S8-FE-01` · Expired emailed links: show why and offer a fresh link
+
+**Order** 62.51 · **FE** · **Where:** Code · **2d** · **Ready**
+
+Emailed links now expire after 14 days (2S8-PMO-02, decision 4). When a link page gets `410 link_expired` from the API, show the plain message and a **Send me a fresh link** button, which calls `POST /api/v1/public/links/renew {kind, token}`.
+
+The pages: `/join`, `/join/confirm`, `/guardian/setup`, `/coming-of-age`, `/onboarding/[token]`, `/onboarding/confirm`, `/sponsor-request/[token]`, `/sponsor-request/confirm` and `/guardian/handoff`. Reactivation already has its own page.
+
+- **Depends on:** 2S8-PMO-02
+- **Done when:** Every emailed-link page shows the expired message and can request a fresh link; a fresh link arrives by email
+- **Reference:** Security review 2026-10, decision 4; raised 2026-10-06
+
+### ⏸ `2S8-FE-02` · Profile claim: confirm-your-email screens
+
+**Order** 62.52 · **FE** · **Where:** Code · **1d** · **Ready**
+
+Claimants now confirm their email before the school can verify the claim (2S8-PMO-02, decision 5).
+1. After **That's me** on the claim form, say "check your email". The claim's state is now `PENDING_EMAIL`.
+2. `/athletes/[slug]` reads the `claim=` flag (`confirmed`, `expired-resent`, `closed` or `invalid`) and shows a message.
+3. Build a proper confirmation page that sends the token only when the claimant presses a button (`POST /public/athlete-claims/confirm-email`), so a mail client's link scanner can't confirm a claim by opening the link in advance. Then point the email at that page.
+
+- **Depends on:** 2S8-PMO-02
+- **Done when:** A claimant is told to check their email, confirms on a page with a button, and sees the outcome on the profile
+- **Reference:** Security review 2026-10, decision 5; raised 2026-10-06
 
 ### ⏸ `2S8-OPS-01` · Production readiness and restore test
 
