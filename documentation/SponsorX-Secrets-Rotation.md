@@ -172,8 +172,8 @@ The same steps apply to every row below:
 - **Rotate:**
   1. Generate a new value. On **both** `api` and `worker`, set `INTAKE_TOKEN_SECRET_PREVIOUS` = the current value and `INTAKE_TOKEN_SECRET` = the new value. Deploy.
   2. Check: an old unsubscribe link and an old application link still open. A newly sent link opens too.
-  3. **Keep `_PREVIOUS` for at least 30 days.** The longest-lived dated link is the 30-day hand-off. Several links have no expiry at all, among them unsubscribe and application "continue" (security review §A02).
-  4. After that, delete `INTAKE_TOKEN_SECRET_PREVIOUS` on both services and deploy. Links older than the rotation stop working. A person with such a link uses the "send me a new link" path, or BTG re-sends it.
+  3. **Keep `_PREVIOUS` for at least 14 days.** Since 2S8-PMO-02 (owner decision 4, 2026-10-06), every link except unsubscribe expires 14 days after issue (`LINK_TTL_DAYS`). So after 14 days no unexpired link can still be signed with the old value. **Unsubscribe links never expire**, so deleting `_PREVIOUS` breaks the unsubscribe links in emails sent before the rotation. Keep it longer, 30 days or more, unless the old value leaked (security review §A02).
+  4. After that, delete `INTAKE_TOKEN_SECRET_PREVIOUS` on both services and deploy. Links older than the rotation stop working. A person with such a link uses the "send me a new link" path, or BTG re-sends it. Note that `POST /public/links/renew` verifies the old link's signature, so it works only while `_PREVIOUS` is still set.
 - **Downtime:** none with the overlap. **Without** the overlap, every link already sent breaks at once: unsubscribe links fail, which is a CAN-SPAM problem, and applicants are locked out of their drafts. Always use the overlap unless the old value has leaked.
 - **If it has leaked,** skip the overlap. A leaked value lets anyone forge any of these links, so breaking old links is the lesser harm. Re-send the links that matter.
 
@@ -238,6 +238,7 @@ Downtime: none for the app. Only the next CI or tracker run is affected.
 - `ZOHO_NOTIFY_CHANNEL_ID`, `ZOHO_EXPECTED_ORG_ID` and `PUBLIC_INTAKE_TENANT_ID`.
 - `APP_URL`, `API_URL`, `R2_PUBLIC_BASE_URL`, `S3_ENDPOINT` and the bucket names.
 - `CLERK_AUTHORIZED_PARTIES` (see 1).
+- `LINK_TTL_DAYS` (default 14) and `LEGACY_LINKS_ACCEPTED_UNTIL` (default `2026-10-20T00:00:00Z`). These are the link lifetime and the last moment an undated pre-2S8-PMO-02 link is accepted (see 9). Neither needs setting.
 - `SUPPORT_EMAIL` and `EMAIL_FROM`.
 - `GEOLITE2_CITY_PATH`. The MaxMind *licence key* used to download the database is a secret, but it is not used by the app.
 

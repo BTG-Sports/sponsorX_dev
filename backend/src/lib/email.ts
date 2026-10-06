@@ -135,6 +135,9 @@ export type EmailTemplate =
   | "account.reactivated"
   | "account.reactivationRequested"
   | "account.reactivationDeclined"
+  /* 2S8-PMO-02 — a link that expired (14 days), exchanged for a fresh one
+     emailed to the address on file. */
+  | "link.fresh"
   /* 2S1-BE-14 — BTG admins are told about sensitive profile edits only. */
   | "athlete.sensitiveEdit"
   /* 2S1-BE-15 — the guardian handoff: the new guardian confirms their email;

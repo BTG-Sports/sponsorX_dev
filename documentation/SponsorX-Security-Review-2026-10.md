@@ -70,7 +70,7 @@ The checks were made against the OWASP Top 10 (2021), plus the ASVS basics that 
 **Result:**
 - **Pass:** HMAC-SHA256 throughout, with `timingSafeEqual` and a length check, and no plaintext secrets at rest.
 - **Fixed (High on staging).** The stand-in payment provider signed its links with the public default `dev-standin-provider-secret` unless `STANDIN_PROVIDER_SECRET` was set. Staging runs with `NODE_ENV=production`. Anyone who had read the repo could forge a link that marks a payout account READY or a checkout paid.
-- **Open (Low).** Intake, onboarding, sign-up, sponsor-request and unsubscribe links never expire. The intake HMAC also has no purpose prefix. **Owner:** decide how long each link should live. Unsubscribe links must keep working.
+- **Open (Low).** Intake, onboarding, sign-up, sponsor-request and unsubscribe links never expire. The intake HMAC also has no purpose prefix. **Owner:** decide how long each link should live. Unsubscribe links must keep working. **Decided 2026-10-06 and done:** 14 days, unsubscribe never; the intake link has its purpose prefix (decision 4 below).
 
 **Fix:**
 - With `NODE_ENV=production` and no `STANDIN_PROVIDER_SECRET`, the secret is now derived from `INTAKE_TOKEN_SECRET`, under its own label. That secret is already required to be real in production. So staging is protected without any Railway change, and setting the variable explicitly still takes precedence.
@@ -455,6 +455,46 @@ Matches are printed masked. **Result on 2026-10-05: 2,220 tracked files, no secr
      - Removing the option from `clerk.ts` in a scratch run failed three of these tests.
      - `frontend/tests/security-review.test.ts`, "decision 3", pins the web rule and that the proxy passes it.
 4. **Link lifetimes.** Decide how long intake, onboarding, sign-up and sponsor-request links should live. The intake link should also gain a purpose prefix, using the `_PREVIOUS` overlap so links already sent keep working (§A02).
+   - **Decided (owner, 2026-10-06):** 14 days. Unsubscribe links never expire.
+   - **Done:** one central rule, `backend/src/lib/signed-link.ts`, with `LINK_TTL_DAYS` (default 14, configurable 1–90).
+     - **Covered:** every link a person reaches without signing in: the application continuation (intake), athlete email confirmation, guardian set-up, coming-of-age, property onboarding (resume and email confirmation), sponsor request (browser token and email confirmation), guardian hand-off (browser and email), account reactivation, and the profile-claim confirmation (decision 5).
+     - **Shorter lives are kept.** A link that already had a shorter life keeps it (support: one hour; hand-off email: 7 days; reactivation by address: 24 hours). Longer ones are cut to 14 days (the hand-off browser link was 30 days; the reactivation link in the closure email ran to the end of retention).
+     - **Format:** `<id>.<expiry>.<hmac>`, with the expiry inside the HMAC. Each kind signs its own purpose, plus `v2:` so a dated link can never match an undated one.
+     - **The intake link gained its purpose prefix:** `athlete-intake:`. Before, it signed the bare id.
+     - **Rotation:** verification of every link, old or new, still accepts `INTAKE_TOKEN_SECRET` or `INTAKE_TOKEN_SECRET_PREVIOUS`, so the rotation overlap is untouched.
+   - **Links already sent, and why this is the safe option.** The old links (`<id>.<hmac>`) carry no date, so the server cannot tell one sent yesterday from one sent a year ago. Giving each "its own 14 days" is impossible, and accepting them forever would defeat the decision. They are accepted until one fixed cutoff, `LEGACY_LINKS_ACCEPTED_UNTIL` (default `2026-10-20T00:00:00Z`, the decision plus 14 days), and refused after it. No old link outlives the rule by more than one lifetime. If deploying slips past the cutoff, old links are simply refused from the deploy on, which is the safe direction. The same window applies to a dated link issued under a longer rule (an old 30-day hand-off link, or a reactivation link with no expiry). That window is also what makes lowering `LINK_TTL_DAYS` take effect on links already out. Unsubscribe links (`fan-unsubscribe:`) are not touched and never expire.
+   - **An expired link** is not the same answer as an invalid one. A link whose signature is ours but which is too old answers **410 `link_expired`** with:
+     - a plain message: "This link has expired — links work for 14 days. We can email a fresh one to the address we have on file.";
+     - its `kind`;
+     - `renew: { method, path, body }`, saying how to get a fresh link.
+
+     A bad or tampered link gives each flow's existing "not valid / not found" answer, as before.
+   - **How each flow re-issues.** Most of them used to need a live link to send the next one (the applicant's and the onboarding "resend" both took the current token), so an expired link would have been a dead end. A new public endpoint, `POST /api/v1/public/links/renew {kind, token}` (`backend/src/domain/link-renewal.ts`), fixes that:
+     - **Checks:** the token's signature (its age does not matter), and that the record exists.
+     - **Sends:** a fresh **mailbox** link, by email, to the address on file for that record, never in the answer. Opening that link hands the browser a fresh token, exactly as the first email did:
+       - intake / athlete email → `/join/confirm?t=…`;
+       - guardian set-up → `/guardian/setup?t=…`;
+       - coming-of-age → `/coming-of-age/…`;
+       - onboarding / onboarding email → `/onboarding/confirm?t=…` (an email link renews only for the contact it was sent to);
+       - sponsor request / its email → `/sponsor-request/confirm?t=…`;
+       - hand-off / its email → `/guardian/handoff?e=…`;
+       - profile claim → the claim confirmation (decision 5).
+     - **Limits:** at most one email per record and kind per hour, audited as `link.renewed`, rate-limited, and always `202 {sent:true}`.
+     - **Not covered:** an expired **reactivation** link points to the existing by-address page (`POST /public/account/reactivation-link`), and an expired **support** message token says to send the form again.
+   - **Test:** `backend/tests/pmo02-link-lifetimes.test.ts`.
+     - Every kind is valid at 13 days 23 hours and gives 410 `link_expired`, with its kind and renew path, at 14 days and 1 minute. Reactivation points to its own page.
+     - Support keeps its hour. A moved expiry, a swapped id or a tampered signature reads as invalid, not expired.
+     - Unsubscribe is valid after 1 year and after 5 years.
+     - The intake purpose prefix: an intake token is no other kind, and no other kind is an intake token.
+     - Old undated links of each family are accepted before the cutoff and expired after it, including under `_PREVIOUS` during a rotation. An old 30-day hand-off link and a never-expiring reactivation link get the same window.
+     - `LINK_TTL_DAYS=7` applies to new and outstanding links; `0` refuses to boot.
+     - Over HTTP, against the database:
+       - an expired continuation link answers 410 with the renew hint, while a tampered one is still 404;
+       - renew emails a fresh link to the athlete's address (`link.fresh`), which opens, and audits it;
+       - a second ask within the hour reuses the message key;
+       - tampered, forged and wrong-kind tokens get the same 202 and nothing is sent;
+       - an undated sponsor link is renewed to the request's own address;
+       - an onboarding email link renews only for the current contact.
 5. **Profile-claim email.** Should a claimant confirm their email before an advisor can verify the claim (§A01)?
 6. **Production `PAYMENT_PROVIDER`.** Set `PAYMENT_PROVIDER=none` explicitly on Railway production. The stand-in is chosen whenever `RAILWAY_ENVIRONMENT_NAME` is not exactly `production`, so a renamed environment would quietly switch it on. The boot guard only catches an *explicit* `standin`.
 7. **Staging `STANDIN_PROVIDER_SECRET`.** Staging is now safe without it (the secret is derived), but setting it explicitly makes rotation independent of `INTAKE_TOKEN_SECRET`. It is in the rotation runbook.

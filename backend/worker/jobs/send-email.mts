@@ -641,6 +641,12 @@ ${d.portalUrl ?? ""}
     subject: "Your link to reactivate your SponsorX account",
     text: `Hi ${d.name ?? "there"},\n\nHere is the link you asked for. It works for 24 hours:\n\n${d.reactivateUrl ?? ""}\n\nIf you didn't ask for it, you can ignore this email — nothing changes.\n\n— BTG SponsorX`,
   }),
+  /* 2S8-PMO-02 — a fresh link for one that expired. Same words for every kind;
+     `what` names the thing the link opens. */
+  "link.fresh": (d) => ({
+    subject: "Your new SponsorX link",
+    text: `Hi ${d.name ?? "there"},\n\nYour earlier link to ${d.what ?? "continue on SponsorX"} has expired. Here is a fresh one. It works for ${d.days ?? "14"} days:\n\n${d.url ?? ""}\n\nIf you didn't ask for it, you can ignore this email — nothing changes.\n\n— BTG SponsorX`,
+  }),
   "account.reactivated": (d) => ({
     subject: "Your SponsorX account is back",
     text: `Hi ${d.name ?? "there"},\n\nYour SponsorX account is active again. Sign in with this email address:\n\n${d.portalUrl ?? ""}${d.notes ? `\n\n${d.notes}` : ""}\n\n— BTG SponsorX`,

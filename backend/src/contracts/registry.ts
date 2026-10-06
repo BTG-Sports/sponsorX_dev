@@ -133,6 +133,7 @@ import {
 } from "./payment-events";
 import { SponsorDocumentInput, SponsorEmailConfirmInput, SponsorRequestDecisionInput } from "./sponsor-requests";
 import { RestrictedTextInput, RestrictedWordInput } from "./restricted-words";
+import { LinkRenewInput, LinkRenewReceipt } from "./links";
 import {
   OnboardingConfirmEmailInput, OnboardingDecisionInput, OnboardingDocumentInput, OnboardingStartInput, OnboardingStepInput, OrganizationDocumentInput,
 } from "./onboarding";
@@ -762,6 +763,7 @@ const PATHS: Row[] = [
 
   // 2S8-PMO-02 — security decisions of 2026-10-06
   { method: "post", path: "/public/csp-report", tag: "Public", summary: "A browser's Content-Security-Policy violation report — `report-uri` (application/csp-report) or `report-to` (application/reports+json). The web app forwards its same-origin /api/v1/public/csp-report here. Nothing is stored: each violation is logged as one redacted line (origin and path only, token-like path segments masked, no samples). Rate-limited; the answer is the same whatever arrives.", auth: false, status: 202 },
+  { method: "post", path: "/public/links/renew", tag: "Public", summary: "A link past its 14 days answers 410 `link_expired` with its `kind`. Send that kind and the expired token here: if the token's signature is ours (its age doesn't matter), a fresh link is EMAILED to the address on file for that record — never returned. At most one email per record and kind per hour; audited `link.renewed`. Always `{ sent: true }`. Rate-limited. Kinds: intake, athlete-email, guardian-setup, coming-of-age, onboarding, onboarding-email, sponsor-request, sponsor-request-email, handoff, handoff-email (a reactivation link uses /public/account/reactivation-link).", auth: false, body: LinkRenewInput, status: 202, response: LinkRenewReceipt },
 ];
 
 for (const row of PATHS) {

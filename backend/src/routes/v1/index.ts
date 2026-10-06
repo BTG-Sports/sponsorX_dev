@@ -38,6 +38,7 @@ import { guardianHandoffsRouter } from "./guardian-handoffs";
 import { supportRouter } from "./support";
 import { openapiRouter } from "./openapi";
 import { cspReportRouter } from "./csp-report";
+import { linksRouter } from "./links";
 
 export const v1Router = Router();
 
@@ -161,6 +162,9 @@ v1Router.use("/", auditRouter);
 
 /* 2S8-PMO-02 — the web app's CSP violation reports (report-only), forwarded by the web server. */
 v1Router.use("/", cspReportRouter);
+
+/* 2S8-PMO-02 — an expired link (14 days) exchanged for a fresh one, emailed to the address on file. */
+v1Router.use("/", linksRouter);
 
 /* The published contract, generated from the Zod registry (§38). Public: a
    consumer has to be able to read how to authenticate before it can. */

@@ -9,32 +9,22 @@
  *   - the EMAIL token travels only inside the confirmation email, so using it
  *     proves the contact can read that mailbox. The request token can never
  *     confirm the email.
+ *
+ * 2S8-PMO-02, owner decision 4: both expire 14 days after issue
+ * (lib/signed-link.ts). Opening the emailed link hands out a fresh request
+ * token, and an expired one can be exchanged for a fresh emailed link
+ * (POST /public/links/renew).
+ *
  * Neither is authentication: they grant no role and reach no other record.
  */
-import { createHmac } from "node:crypto";
+import { issueLink, readLink, type LinkKind, type LinkSpec } from "./signed-link";
 
-import { env } from "../config/env";
-import { intakeHmacMatches } from "./intake-secret";
+const spec = (kind: LinkKind, purpose: string): LinkSpec => ({ kind, purpose, legacy: (id) => purpose + id });
 
-type Purpose = "sponsor-request:" | "sponsor-request-email:";
+export const SPONSOR_REQUEST_LINK = spec("sponsor-request", "sponsor-request:");
+export const SPONSOR_EMAIL_LINK = spec("sponsor-request-email", "sponsor-request-email:");
 
-function sign(purpose: Purpose, id: string): string {
-  return createHmac("sha256", env.INTAKE_TOKEN_SECRET).update(purpose + id).digest("base64url");
-}
-
-function issue(purpose: Purpose, id: string): string {
-  return `${id}.${sign(purpose, id)}`;
-}
-
-function read(purpose: Purpose, token: string | undefined | null): string | null {
-  if (!token) return null;
-  const cut = token.lastIndexOf(".");
-  if (cut <= 0) return null;
-  const id = token.slice(0, cut);
-  return intakeHmacMatches(purpose + id, token.slice(cut + 1)) ? id : null;
-}
-
-export const issueSponsorRequestToken = (id: string) => issue("sponsor-request:", id);
-export const readSponsorRequestToken = (t: string | undefined | null) => read("sponsor-request:", t);
-export const issueSponsorEmailToken = (id: string) => issue("sponsor-request-email:", id);
-export const readSponsorEmailToken = (t: string | undefined | null) => read("sponsor-request-email:", t);
+export const issueSponsorRequestToken = (id: string, now?: Date) => issueLink(SPONSOR_REQUEST_LINK, id, { now });
+export const readSponsorRequestToken = (t: string | undefined | null, now?: Date) => readLink(SPONSOR_REQUEST_LINK, t, { now });
+export const issueSponsorEmailToken = (id: string, now?: Date) => issueLink(SPONSOR_EMAIL_LINK, id, { now });
+export const readSponsorEmailToken = (t: string | undefined | null, now?: Date) => readLink(SPONSOR_EMAIL_LINK, t, { now });
