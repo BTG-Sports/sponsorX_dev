@@ -32,3 +32,9 @@
 - **2S5-INT-03 · Done.** The owner completed Stripe's hosted onboarding by hand for the test team "Stripe Test Hawks" (account `acct_1UNQnWKA9GFzKcrb`, test bank ••••6789). Stripe shows transfers and payouts as active. SponsorX turned the account **READY** on its own, from the thin webhook, at 07:54:46 UTC.
   - Only "eventually due" items remain (date of birth and the last 4 of the SSN), and they don't block payouts.
   - **Stripe's onboarding shows an hCaptcha to automated browsers,** so a person has to finish any onboarding test.
+- **BTG's live Stripe account (`acct_1UNCupGfl3hcz7a8`) is activated,** checked by the owner in the dashboard on 2026-10-06.
+  - Settings → Business → Account status shows **Payments** and **Payouts** active, with no open tasks.
+  - Paused, and unused by SponsorX: Affirm, Cartes Bancaires, Cash App Pay, Scalapay, and the optional "Verified" badge.
+  - **Connect is enabled on live,** with 0 connected accounts. Confirm its business model is "collect payments and pay recipients" at go-live.
+  - No live secret key exists yet. Creating one is a go-live step: keys go into Railway production, live webhooks are registered, and `PAYMENT_PROVIDER=stripe` is set on production.
+- **The Stripe CLI** (1.53.0, checksum verified) is installed at `~/.local/bin/stripe`. Browser login shows "CLI disabled" on every BTG environment even though the owner is a Developer, so it's likely an account-owner setting. When needed, use the CLI with the sandbox key read from Railway.
