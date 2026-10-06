@@ -51,6 +51,7 @@ import { assertTenantWide, whereFor } from "../auth/scope";
 import { send } from "../lib/email";
 import { reverseOrder } from "./ledger";
 import { lockOrder, moveOrderIn } from "./marketplace-order";
+import { refuseCardNumber } from "./marketplace-order-rules";
 import { appUrl, btgAdmins, orderRef, tell, usd } from "./order-mail";
 import { resumePayoutsCovering, sendBackPayoutsCovering } from "./payouts";
 import { applied, deferred, findAttempt, held, ignored, type EventRow, type Handler } from "./payment-events";
@@ -389,6 +390,7 @@ export async function reviewDispute(actor: Actor, id: string, note: string, now 
   assertTenantWide(actor, "paymentDispute", "write");
   const text = note.trim();
   if (!text) throw new PaymentExceptionError("Say what was sent to the provider (the evidence) — the next person reads this.", 422);
+  refuseCardNumber(text); // 2S0-SEC-01 (O5)
   await prisma.$transaction(async (tx) => {
     const d = await tx.paymentDispute.findFirst({ where: { ...whereFor(actor, "paymentDispute", "write"), id }, select: { id: true, state: true } });
     if (!d) throw new PaymentExceptionError("No such dispute.", 404);
@@ -414,6 +416,7 @@ export async function resolveDispute(actor: Actor, id: string, input: { note: st
   assertTenantWide(actor, "paymentDispute", "approve");
   const text = input.note.trim();
   if (!text) throw new PaymentExceptionError("Say how it was resolved — the record for whoever looks next.", 422);
+  refuseCardNumber(text); // 2S0-SEC-01 (O5)
   await prisma.$transaction(async (tx) => {
     const found = await tx.paymentDispute.findFirst({ where: { ...whereFor(actor, "paymentDispute", "approve"), id }, select: { id: true, orderId: true } });
     if (!found) throw new PaymentExceptionError("No such dispute.", 404);

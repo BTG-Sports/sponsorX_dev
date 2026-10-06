@@ -8,6 +8,10 @@ export const SUPPORT_TOPICS = ["GUARDIANSHIP", "ACCOUNT", "PAYMENT", "OTHER"] as
 export const SUPPORT_ATTACHMENT_TYPES = ["application/pdf", "image/jpeg", "image/png"] as const;
 export const MAX_SUPPORT_ATTACHMENTS = 3;
 export const MAX_SUPPORT_ATTACHMENT_BYTES = 10 * 1024 * 1024;
+/* 2S0-SEC-01 (O2) — how long an attachment is kept: after its message reached
+   the desk, and after a message that was never sent was started. */
+export const SUPPORT_ATTACHMENT_RETENTION_DAYS = 90;
+export const ABANDONED_SUPPORT_DRAFT_DAYS = 30;
 
 export const SupportAttachmentInput = z
   .object({

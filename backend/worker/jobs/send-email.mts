@@ -37,16 +37,12 @@ export type EmailJob = {
   idempotencyKey: string;
   /** Fan emails only (P6-SEC-03): the claim whose consent this send relies on. */
   fanEventId?: string;
-  /** 2S1-BE-16 — a support message replies to its sender, keeps its thread,
-   *  and carries its private attachments (read here, at send time). */
+  /** 2S1-BE-16 — a support message replies to its sender and keeps its thread.
+   *  2S0-SEC-01 — it no longer carries its attachments: no email does. A job
+   *  queued before that change may still name some; they are not read. */
   replyTo?: string;
   headers?: Record<string, string>;
-  attachments?: { filename: string; key: string; contentType: string }[];
 };
-
-/** Reads a private-bucket object for an attachment. Injected so the handler
- *  stays testable without storage; the worker passes getPrivateObject. */
-export type AttachmentLoader = (key: string) => Promise<Buffer>;
 
 /**
  * Subject and body per template. Data, not code, so adding a message is a
@@ -714,10 +710,12 @@ ${d.portalUrl ?? ""}
   }),
 
   /* 2S1-BE-16 — the contact form. The support mailbox (Zoho Desk or a shared
-     inbox) receives the message with Reply-To set to the sender. */
+     inbox) receives the message with Reply-To set to the sender.
+     2S0-SEC-01 — attachments are NAMED, never attached: BTG opens them on
+     the signed-in support page, each through a five-minute, audited link. */
   "support.message": (d) => ({
     subject: `[${d.topic ?? "Other"}] ${d.name ?? "Someone"} — SponsorX contact form`,
-    text: `From: ${d.name ?? ""} <${d.email ?? ""}>\nTopic: ${d.topic ?? ""}\nSent: ${d.sentAt ?? ""}\nReference: ${d.reference ?? ""}\nAttachments: ${d.attachments || "none"}\n\n${d.message ?? ""}\n\n— Reply to this email to answer ${d.name ?? "them"} directly.`,
+    text: `From: ${d.name ?? ""} <${d.email ?? ""}>\nTopic: ${d.topic ?? ""}\nSent: ${d.sentAt ?? ""}\nReference: ${d.reference ?? ""}\nAttachments: ${d.attachments ? `${d.attachments} — not attached to this email. Open them in SponsorX (BTG sign-in required): ${d.attachmentsUrl || `the support page, reference ${d.reference ?? ""}`}` : "none"}\n\n${d.message ?? ""}\n\n— Reply to this email to answer ${d.name ?? "them"} directly.`,
   }),
   /* 2S8-SEC-02 — this goes to an address nobody has confirmed, from the
      public contact form, so it carries nothing the sender typed: echoing the
@@ -776,7 +774,6 @@ export async function mutedFor(pool: pg.Pool, job: Pick<EmailJob, "tenantId" | "
 export async function handleSendEmail(
   pool: pg.Pool,
   job: EmailJob,
-  loadAttachment?: AttachmentLoader,
 ): Promise<"sent" | "duplicate" | "withdrawn" | "muted"> {
   const build = TEMPLATES[job.template];
   if (!build) {
@@ -827,15 +824,7 @@ export async function handleSendEmail(
     const apiKey = process.env.RESEND_API_KEY;
     if (!apiKey) throw new Error("RESEND_API_KEY is not set.");
 
-    /* 2S1-BE-16 — attachments are read from the private bucket now, not
-       stored in the queue. A read that fails throws, so the job retries. */
-    let attachments: { filename: string; content: Buffer; contentType: string }[] | undefined;
-    if (job.attachments?.length) {
-      if (!loadAttachment) throw new Error(`${job.template} carries attachments but no attachment loader was given.`);
-      attachments = [];
-      for (const a of job.attachments) attachments.push({ filename: a.filename, content: await loadAttachment(a.key), contentType: a.contentType });
-    }
-
+    /* 2S0-SEC-01 — no email carries a file: nothing is read from the private bucket here. */
     const resend = new Resend(apiKey);
     const result = await resend.emails.send({
       from: FROM,
@@ -843,7 +832,6 @@ export async function handleSendEmail(
       subject,
       text,
       ...(job.replyTo ? { replyTo: job.replyTo } : {}),
-      ...(attachments ? { attachments } : {}),
       /* RFC 8058 one-click: mail clients show their own "Unsubscribe" button
          and POST to this URL, which the web app forwards to the API. */
       ...(fan

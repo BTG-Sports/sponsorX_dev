@@ -18,12 +18,13 @@ It builds on the October OWASP review, [SponsorX-Security-Review-2026-10.md](Spo
 **How it was done.**
 - Code reading across `backend/src`, `backend/worker`, `backend/prisma` and `frontend/src`, following Stripe from the "Pay by card" button to the stored event, and every document from upload to deletion.
 - What a real Stripe event carries at rest was checked by sending events full of a sponsor's and a payee's details through the real webhook, then reading every row they touched.
-- One new test file, `backend/tests/payments-pii.test.ts` (18 tests), runs the real API and database. It pins each verdict below. Every **Fixed** item was shown to fail with the fix taken out.
+- One new test file, `backend/tests/payments-pii.test.ts` (25 tests), runs the real API and database. It pins each verdict below. Every **Fixed** item was shown to fail with the fix taken out.
 
 **Result key** (as in the OWASP review):
 - **Pass:** checked, and nothing to fix.
 - **Fixed:** a real finding, fixed here, with a test.
 - **Open:** not fixed here. It has a recommendation and a severity, and waits for the owner's decision at the end of this document.
+- **Accepted:** an open item the owner accepted in writing.
 
 ## Summary
 
@@ -31,11 +32,11 @@ It builds on the October OWASP review, [SponsorX-Security-Review-2026-10.md](Spo
 |---|---|
 | 1. Card data | **Pass**, plus one **Fixed** (Medium): refused webhook deliveries kept the whole Stripe event |
 | 2. Payout account data | **Pass** |
-| 3. Verification documents | **Pass**, plus one **Fixed** (Low): a boot guard so the two buckets can't be crossed. **Open**: support attachments (O1, O2) |
-| 4. Personal data in logs | **Fixed** (Medium): error logs could carry emails, names and dates of birth. **Open**: O3 |
-| 5. Other | **Pass** on access, emails and Zoho. **Open**: O4–O6 |
+| 3. Verification documents | **Pass**, plus three **Fixed**: a boot guard so the two buckets can't be crossed (Low); support attachments no longer emailed (O1, Medium); support attachments now deleted by the retention sweep (O2, Low) |
+| 4. Personal data in logs | **Fixed** (Medium): error logs could carry emails, names and dates of birth. **Accepted**: O3 |
+| 5. Other | **Pass** on access, emails and Zoho. **Fixed**: O4 and O5. **Accepted**: O6 |
 
-The fixes are in commit `094f6b5` (`fix(2S0-SEC-01): …`).
+The first round of fixes is in commit `094f6b5`. The owner decided the open items on 2026-10-06: O1, O2, O4 and O5 were fixed in commit `7058b61`, and O3 and O6 were accepted. Every finding is now closed or accepted in writing.
 
 ---
 
@@ -168,8 +169,8 @@ The documents in scope:
 - Documents are read only through `presignPrivateDownload` (`backend/src/lib/storage.ts:172`). It writes an audit row **before** it returns the link and never records the link itself (`storage.grants.test.ts`).
 - ID, guardianship, organisation, proof-of-business and delivery-proof links live **five minutes** (`SENSITIVE_DOCUMENT_TTL_SECONDS`). Every other private link lives at most 15 minutes.
 - Each read first passes the caller's authorisation: `assertAllowed` / `whereFor` on the owning record (OWASP review §A01).
-- The upload-only flows hand out no download link at all: account documents (read only through BTG's sign-ups desk), organisation documents and support attachments.
-- **Test:** `payments-pii.test.ts`, "every identity, guardianship, organisation and proof document is read through a five-minute signed link".
+- The upload-only flows hand out no download link at all: account documents (read only through BTG's sign-ups desk) and organisation documents. Support attachments are read only through BTG's support desk (O1, below).
+- **Test:** `payments-pii.test.ts`, "every identity, guardianship, organisation and proof document is read through a five-minute signed link". It includes support attachments.
 
 ### Pass: never logged
 
@@ -185,8 +186,11 @@ These are the current rules, documented here.
 | Documents of a closed or rejected account (`AccountDocument`, the profile-change ID, `OnboardingDocument`, `InquiryDocument`, `GuardianHandoffDocument`) | 30 days after the closure (`retainUntil`) | The worker's hourly retention sweep, `purgeExpiredClosures` (`backend/src/domain/account-closure.ts:851`). Objects are deleted first, then their rows; logins are released and the closure is marked PURGED and audited. |
 | Documents of a guardianship hand-off that was declined or cancelled | 30 days after the answer | The same sweep |
 | Documents of a live account | As long as the account is open | Replaced through the portal; deleted 30 days after closure |
-| Support attachments | **Indefinitely** | Nothing. See **O2**. |
+| Support attachments of a message that reached the desk | **90 days** after it was sent (`queuedAt`; `SUPPORT_ATTACHMENT_RETENTION_DAYS`) | The same sweep (`purgeSupportAttachments`). Object first, then the row, audited as `support.attachmentPurged`. The message itself is kept as BTG's record of the contact. See **O2**. |
+| Support attachments of a message that was never sent (its files never all arrived; the sender's link expired after an hour) | **30 days** after it was started (`ABANDONED_SUPPORT_DRAFT_DAYS`) | The same sweep |
 | Refused uploads (wrong type or size) | Not kept | Deleted on confirm (2S8-SEC-03) |
+
+Why 90 days for a sent message: BTG must still be able to open the file while it works the case, for example a disputed guardianship. 30 days, the window the other rules use, would cut that short. An unsent message has no case behind it, so it gets the usual 30 days.
 
 ### Fixed (Low): a boot guard so the two buckets cannot be crossed
 
@@ -201,14 +205,47 @@ These are the current rules, documented here.
 
 **Test:** `payments-pii.test.ts`, block "3 · … the API refuses to boot with the buckets crossed". It checks both refusals, and that the real shapes still boot: MinIO locally, an `r2.dev` address, or a custom domain.
 
-### Open: support attachments (O1, O2)
+### Fixed (Medium), O1: support attachments are no longer emailed
 
-- **O1 (Medium).** A support message's attachments are read from the private bucket by the worker and **emailed as attachments** to `SUPPORT_EMAIL`, BTG's support desk (2S1-BE-16 by design: "nobody is ever handed a link").
-  - The support form exists for disputed guardianships first, so an attachment is likely to be a birth certificate or a court order.
-  - Once mailed, it lives in the desk's mailbox (Zoho Desk or a shared inbox), outside SponsorX's five-minute links, its audit and its retention.
-  - **Recommendation:** email BTG a link to a signed-in admin page that serves the file through `presignPrivateDownload`, instead of the file itself. Or accept it, and set retention on the desk side.
-- **O2 (Low).** `SupportAttachment` is not one of the retention sweep's sources, so its objects are never deleted.
-  - **Recommendation:** add it to `RETAINED_DOCUMENT_SOURCES`, or give it its own window, for example 90 days after the message is queued.
+**Finding.**
+- A support message's attachments were read from the private bucket by the worker and **emailed as attachments** to `SUPPORT_EMAIL`, BTG's support desk (2S1-BE-16 by design: "nobody is ever handed a link").
+- The support form exists for disputed guardianships first, so an attachment is likely to be a birth certificate or a court order.
+- Once mailed, it lived in the desk's mailbox (Zoho Desk or a shared inbox), outside SponsorX's five-minute links, its audit and its retention.
+
+**Fix** (owner's decision, 2026-10-06; commit `7058b61`).
+- **The desk's email names the files and links to BTG's signed-in support page.** The link is `APP_URL/admin/support/<message id>` (`supportPageUrl`, `backend/src/domain/support.ts`). The email says the files are not attached and that a BTG sign-in is needed.
+- **No email can carry a file any more.**
+  - `EmailMessage` (`backend/src/lib/email.ts`) has no `attachments` field.
+  - The worker's sender (`worker/jobs/send-email.mts`) no longer reads the private bucket. A job queued before the change that still names a file is sent without it.
+- **The API serves what the page needs.** Both routes are BTG admin only, through the new `supportMessage` resource (RBAC matrix §27: SUPER_ADMIN any, BTG_ADMIN own-tenant, read only):
+  - `GET /support-messages/:id` returns the sender, topic and text, and each attachment's name, type, size and whether it arrived. It returns no key and no link.
+  - `GET /support-messages/:id/attachments/:attachmentId` returns a **five-minute, audited** signed link (`presignPrivateDownload`, `SENSITIVE_DOCUMENT_TTL_SECONDS`), like every other ID document.
+- No admin support page exists yet, so the screen is a **frontend follow-up** (below).
+
+**Tests:**
+- `payments-pii.test.ts`:
+  - "O1 · BTG's support desk reads a message and opens each attachment through a five-minute, audited link; nobody else can". It covers BTG admin, Finance, the sponsor, another tenant's BTG admin, a made-up id and no sign-in.
+  - "O1 · no email carries a private-bucket file". A static check of the queue, the sender and the worker.
+- `phase2-support.test.ts`, rewritten:
+  - the desk's job carries no file and no key, and links to the page;
+  - the sent email has no attachments and has the link line;
+  - a job queued before the change is sent without its file.
+- `tenant-isolation.test.ts` gained a seeded message and attachment for tenant A. Both new routes are in the cross-tenant and same-tenant sweeps.
+- The `authz.matrix` digest was updated for the new resource, with a note on what moved.
+
+### Fixed (Low), O2: support attachments are deleted by the retention sweep
+
+**Finding.** `SupportAttachment` was not one of the retention sweep's sources, so its objects were never deleted.
+
+**Fix** (owner's decision, 2026-10-06; commit `7058b61`).
+- `purgeSupportAttachments` (`backend/src/domain/account-closure.ts`) runs inside `purgeExpiredClosures`, the hourly retention job. It follows the same pattern as a declined hand-off's documents:
+  - the object is deleted first, then the row, audited;
+  - a failed delete leaves the row for the next run;
+  - running it twice changes nothing;
+  - it is narrowed to one tenant when a test passes it.
+- The retention periods are in the table above: 90 days after sending, or 30 days after an unsent message was started.
+
+**Test:** `payments-pii.test.ts`, "O2 · support attachments are deleted 90 days after the message was sent, or 30 after an unsent one was started — object first, audited, the message kept". It covers both windows, both sides of each, a second run, and a failed delete. `suite-isolation.static` now requires a test's call to be tenant-scoped.
 
 ---
 
@@ -261,7 +298,9 @@ The Stripe message was also kept on the payout or refund that failed (`providerM
 
 Fan addresses stay out of logs and out of the job table (P6-SEC-02/03, `fan-pii.test.ts`, `worker.geo.test.ts`).
 
-### Open: other personal data in error messages (O3)
+### Accepted: other personal data in error messages (O3)
+
+The programme owner accepted this on 2026-10-06, to be revisited with structured logging.
 
 - **O3 (Low).** Masking by pattern catches email addresses and Prisma's echoed arguments. It cannot reliably catch a name, a phone number or a street address that some other library writes into an error message.
 - **Recommendation:** when the log shipper is chosen (2S8-OPS monitoring), move to structured logging with field-level redaction. For example, pino's `redact` over `email`, `name`, `legalName`, `phone`, `address` and `birthDate`. Until then, this static guard keeps every error going through one place.
@@ -279,8 +318,8 @@ Fan addresses stay out of logs and out of the job table (P6-SEC-02/03, `fan-pii.
 
 ### Pass: money-owed-back records hold no personal or bank data
 
-- A lost dispute records `owedBackCents` per payee, plus BTG's note.
-- A `RefundDue` records the method (`BANK_TRANSFER | CHEQUE | CARD | OTHER`) and a reference that is refused if it is a card number.
+- A lost dispute records `owedBackCents` per payee, plus BTG's note. That note now refuses a card number (O5).
+- A `RefundDue` records the method (`BANK_TRANSFER | CHEQUE | CARD | OTHER`) and a reference that is refused if it contains a card number.
 - Neither holds bank details.
 
 ### Pass: payment emails are short
@@ -295,16 +334,58 @@ Fan addresses stay out of logs and out of the job table (P6-SEC-02/03, `fan-pii.
 - Zoho receives sponsor and property contacts (name, email, phone, title) and fan leads with consent (2S6-INT-03).
 - No athlete, minor, date of birth or guardian data goes to Zoho (`zoho-mapping.ts`).
 
-### Open: O4, O5 and O6
+### Fixed (Low), O4: Zoho webhook bodies are trimmed to their ids after 90 days
 
-- **O4 (Low): Zoho webhook payloads are kept for ever.**
-  - `WebhookDelivery` keeps every Zoho delivery's body, RECEIVED or REJECTED. That includes invoice customer names and emails, and CRM contact payloads.
-  - This is deliberate: a payload not yet applied must still be on disk (`zoho-webhooks.ts`). But nothing ever prunes it.
-  - **Recommendation:** a sweep that replaces the payload of an APPLIED or REJECTED delivery older than 90 days with the same id-only record now used for payments.
-- **O5 (Low): free-text notes have no card-number guard.**
-  - Several notes are plain text: BTG's resolution note on a payment event (`resolutionNote`), a dispute's review and resolution notes, and a payout's send-back note.
-  - The reference boxes refuse a card number; these notes do not.
-  - **Recommendation:** run a "contains a Luhn-valid 13–19 digit run" check on those notes (a variant of `looksLikeCardNumber`).
+**Finding.**
+- `WebhookDelivery` kept every Zoho delivery's body for ever.
+- A refused body is whatever was sent. A real Zoho payload that failed to parse carries the customer's name and email; a CRM payload carries contact fields.
+- Keeping a body not yet applied is deliberate: it must still be on disk behind its queued job (`zoho-webhooks.ts`). But nothing ever pruned the finished ones.
+
+**Fix** (owner's decision, 2026-10-06; commit `7058b61`).
+- `trimZohoWebhookBodies` (`backend/src/domain/webhook-retention.ts`) runs in the worker's hourly retention timer.
+- **What it trims:** a **finished** Zoho delivery (APPLIED, REJECTED or FAILED; the ingest jobs never read anything but RECEIVED) that is older than **90 days** (`ZOHO_WEBHOOK_BODY_RETENTION_DAYS`).
+- **What the body becomes:** its ids only (`idsOnly`):
+  - the scalar `id` / `…Id` / `…_id` fields;
+  - a CRM notification's `module`, digit-only `ids` and `operation`;
+  - `trimmed: true`.
+- **What stays the same:**
+  - the row itself, with its source, status, error, signature verdict and received time;
+  - `externalId`, the delivery's own key;
+  - every existing audit row. Each run adds one `webhookDelivery.bodyTrimmed` audit row per tenant, naming the deliveries it trimmed.
+- **What it never touches:** a RECEIVED body (still to be applied), however old.
+- **Batches:** up to 500 rows per run, oldest first. A trimmed row is never picked up again.
+- **Scoping:** the sweep is narrowed by `tenantIds`, like the other sweeps. Zoho deliveries are recorded before their tenant is known (`tenantId` null), so only the worker's unscoped run reaches today's rows; a test passes its own tenant. `suite-isolation.static` now requires a test's call to be tenant-scoped.
+
+**Tests:** `payments-pii.test.ts`:
+- "O4 · finished Zoho webhook bodies older than 90 days are trimmed to their ids …". Applied, refused and failed rows past 90 days are trimmed. A RECEIVED row, a row 89 days old and another tenant's row are untouched. The audit trail only grows. A second run trims nothing.
+- "idsOnly keeps a body's ids and nothing else".
+
+### Fixed (Low), O5: card numbers are refused in BTG's payment notes
+
+**Finding.**
+- Several BTG notes are plain text: the resolution note on a payment event, a dispute's review and resolution notes, a payout's send-back note, an earnings adjustment's reason, and an earning's "paid" reference.
+- The reference boxes refused a card number; these did not.
+
+**Fix** (owner's decision, 2026-10-06; commit `7058b61`).
+- **New check:** `containsCardNumber` (`backend/src/domain/marketplace-order-rules.ts`) runs the existing `looksLikeCardNumber` (Luhn, 13–19 digits) over every stretch of digit groups in the text. So a card is found inside prose, written with spaces or dashes, even when a date runs into it.
+- **New refusal:** `refuseCardNumber` answers **422** (`code: "card_number"`) with a plain message: "That note looks like it contains a card number. SponsorX never stores card or bank numbers — take it out (the payment provider's reference, or the last 4 digits, is enough) and save again."
+- **Applied to:**
+  - `resolvePaymentEvent`;
+  - `reviewDispute` and `resolveDispute`;
+  - `decidePayout` (its note);
+  - `adjustEarning` (its reason);
+  - `transitionEarning` (its reference).
+- **The reference boxes now use the in-text check too:** the billing reference, the manual-payment reference and the refund-sent reference.
+- Notes the system writes itself (a payout sent back after a refund or a lost dispute) carry no free text from a person, so they are not checked.
+
+**Tests:** `payments-pii.test.ts`:
+- "O5 · a card number in BTG's payment, dispute, payout or earnings notes is refused with a 422 and a plain message". It covers all six calls over HTTP, and checks that the same calls with an ordinary note get past the check.
+- "containsCardNumber finds a Luhn-valid card number anywhere in prose …". It checks cards with spaces, dashes and a leading date, and ordinary Stripe ids, dates, invoice numbers and amounts that must pass.
+
+### Accepted: dates of birth are stored, for the age rules (O6)
+
+The programme owner accepted this on 2026-10-06: dates of birth are required for the minor and coming-of-age rules.
+
 - **O6 (Info): dates of birth are stored, for the age rules.**
   - `Athlete.birthDate`, `AthleteClaim.birthDate` and `Student.birthDate` are kept. They decide who is a minor and when they come of age: 2S1-BE-10/-12, guardian consent, and the coming-of-age sweep.
   - They are not payout data and are not sent to Stripe, Zoho or any email.
@@ -315,24 +396,42 @@ Fan addresses stay out of logs and out of the job table (P6-SEC-02/03, `fan-pii.
 
 ## Frontend follow-ups
 
-None. No frontend file exposes card or personal data. The stand-in pages, the checkout gate and the payout screens were read, and no frontend code changed.
+No frontend file exposes card or personal data. The stand-in pages, the checkout gate and the payout screens were read, and no frontend code changed.
+
+One screen is needed for O1:
+
+- **BTG admin: one support message, at `/admin/support/[id]`.** The support desk's email links to this route.
+  - **Who:** BTG admin only, signed in.
+  - **What it shows:** `GET /support-messages/{id}` — the sender, topic, date and text, then a list of attachments (name, type, size, and "never arrived" for one that didn't).
+  - **Opening a file:** an "Open" button per arrived file calls `GET /support-messages/{id}/attachments/{attachmentId}` and opens the returned `url` (it expires in 5 minutes, so it is fetched on click, never on page load).
+  - **Pattern to follow:** the admin guardian hand-off page's document links.
+  - **After deletion:** once the retention sweep deletes the files (O2), the page shows the message with no attachments.
+- Until the screen exists, the API is ready and BTG can open a file through any signed-in API client.
+- The frontend's reference check (`checkout-gate.ts`, `refunds-live.ts`) still checks the whole value only. That is fine because the API is now stricter. To show the same message before submit, it could adopt `containsCardNumber`.
 
 ## Suite figures
 
-All were run on the branch with the fixes:
+All were run on the branch with the fixes.
+
+**After the first round** (`094f6b5`):
 - **Backend:** `tsc` clean, `eslint src tests worker` clean. The full suite was run twice on `sponsorx_test_a`: 180 files and 2,903 tests passed, then 180 and 2,903 again.
 - **Frontend:** `tsc` clean (apart from the known phantom `LayoutProps` / `PageProps`), `eslint src tests` clean, `vitest` 105 files and 1,155 tests passed.
 - **Root:** `npm run secrets:scan` found no secrets in 2,272 tracked files. `npm run audit:check` is clean: 0 in production, and the 5 dev-only highs are the one allowlisted `braces` advisory.
 
+**After the owner's decisions** (`7058b61`):
+- **Backend:** `tsc` clean, `eslint src tests worker` clean. The full suite was run twice on `sponsorx_test_a`: 180 files and 2,910 tests passed, then 180 and 2,910 again.
+- **Frontend:** `tsc` clean (apart from the known phantom `LayoutProps` / `PageProps`), `eslint src tests` clean, `vitest` 105 files and 1,155 tests passed.
+- **Root:** `npm run secrets:scan` found no secrets in 2,274 tracked files. `npm run audit:check` is clean: 0 in production, and the 5 dev-only highs are the one allowlisted `braces` advisory.
+
 ## Accepted in writing by the owner
 
-The owner records a decision against each open item: **Accept** (leave as is, risk understood), **Fix** (raise a task), or **Reject** (the finding is wrong). Nothing below has been decided yet.
+The owner recorded a decision against each open item on 2026-10-06: **Accept** (leave as is, risk understood) or **Fix**. Four were fixed and two accepted, so every finding of this review is closed or accepted in writing.
 
 | # | Finding | Severity | Recommendation | Decision | By / date |
 |---|---|---|---|---|---|
-| O1 | Support attachments, likely guardianship proof such as a birth certificate, are emailed as file attachments to the support desk. There they sit outside SponsorX's private storage and its deletion rules. | Medium | Email a link to a signed-in admin page instead of the file, or accept it and set retention on the desk. | ____________ | ____________ |
-| O2 | Support attachments are never deleted from the private bucket. | Low | Add them to the retention sweep, for example 90 days after sending. | ____________ | ____________ |
-| O3 | Names, phones or addresses that another library puts in an error message are not masked; only emails and Prisma's echoed arguments are. | Low | Structured logging with field-level redaction when the log shipper is chosen. | ____________ | ____________ |
-| O4 | Zoho webhook bodies, which carry contact names and emails, are kept for ever. | Low | Reduce applied or refused deliveries older than 90 days to their ids. | ____________ | ____________ |
-| O5 | BTG's free-text payment notes (event resolution, dispute, payout send-back) don't refuse a card number. | Low | Refuse any note containing a Luhn-valid card-length number. | ____________ | ____________ |
-| O6 | Athletes' and students' dates of birth are stored, for the minor and coming-of-age rules. The brief says "no DOB in any table". | Info | Keep, as §11 needs it. Optionally reduce it to the age band after 18. | ____________ | ____________ |
+| O1 | Support attachments, likely guardianship proof such as a birth certificate, are emailed as file attachments to the support desk. There they sit outside SponsorX's private storage and its deletion rules. | Medium | Email a link to a signed-in admin page instead of the file, or accept it and set retention on the desk. | **Fix.** Fixed in `7058b61`: the email links to `/admin/support/<id>`, and files open through a five-minute, audited link. Tests in §3. | The programme owner, 2026-10-06 |
+| O2 | Support attachments are never deleted from the private bucket. | Low | Add them to the retention sweep, for example 90 days after sending. | **Fix.** Fixed in `7058b61`: deleted 90 days after sending, or 30 after an unsent message was started. Tests in §3. | The programme owner, 2026-10-06 |
+| O3 | Names, phones or addresses that another library puts in an error message are not masked; only emails and Prisma's echoed arguments are. | Low | Structured logging with field-level redaction when the log shipper is chosen. | O3 — accepted by the programme owner, 2026-10-06: revisit with structured logging | The programme owner, 2026-10-06 |
+| O4 | Zoho webhook bodies, which carry contact names and emails, are kept for ever. | Low | Reduce applied or refused deliveries older than 90 days to their ids. | **Fix.** Fixed in `7058b61`: finished deliveries older than 90 days are trimmed to their ids, and audited. Tests in §5. | The programme owner, 2026-10-06 |
+| O5 | BTG's free-text payment notes (event resolution, dispute, payout send-back) don't refuse a card number. | Low | Refuse any note containing a Luhn-valid card-length number. | **Fix.** Fixed in `7058b61`: a card number anywhere in a payment, dispute, payout or earnings note or reference is refused with a 422. Tests in §5. | The programme owner, 2026-10-06 |
+| O6 | Athletes' and students' dates of birth are stored, for the minor and coming-of-age rules. The brief says "no DOB in any table". | Info | Keep, as §11 needs it. Optionally reduce it to the age band after 18. | O6 — accepted by the programme owner, 2026-10-06: dates of birth are required for the minor and coming-of-age rules | The programme owner, 2026-10-06 |

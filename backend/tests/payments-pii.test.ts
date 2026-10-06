@@ -78,7 +78,7 @@ describe("1 · card data never touches our servers (static)", () => {
     for (const f of files) {
       readFileSync(f, "utf8").split("\n").forEach((line, i) => {
         /* The two Luhn guards that REFUSE a card number typed into a reference box are the exception. */
-        if (CARD_FIELD.test(line) && !/looksLikeCardNumber/.test(line)) hits.push(`${f.slice(repo.length + 1)}:${i + 1}: ${line.trim().slice(0, 120)}`);
+        if (CARD_FIELD.test(line) && !/looksLikeCardNumber|readonly code = "card_number"/.test(line)) hits.push(`${f.slice(repo.length + 1)}:${i + 1}: ${line.trim().slice(0, 120)}`);
       });
     }
     expect(hits).toEqual([]);
@@ -182,7 +182,7 @@ describe("3 · verification documents stay private (static)", () => {
   });
 
   it("every identity, guardianship, organisation and proof document is read through a five-minute signed link", () => {
-    const docs = ["onboarding-documents", "athlete-profile-change", "sponsor-requests", "signups-desk", "guardian-handoff", "delivery"];
+    const docs = ["onboarding-documents", "athlete-profile-change", "sponsor-requests", "signups-desk", "guardian-handoff", "delivery", "support"];
     for (const d of docs) {
       const text = read(join(root, "src/domain", `${d}.ts`));
       const grants = [...text.matchAll(/presignPrivateDownload\([^;]*;/g)].map((m) => m[0]);
@@ -191,7 +191,15 @@ describe("3 · verification documents stay private (static)", () => {
     }
     expect(read(join(root, "src/lib/storage.ts"))).toMatch(/export const SENSITIVE_DOCUMENT_TTL_SECONDS = 5 \* 60;/);
     /* The upload-only flows hand out no download link at all. */
-    for (const d of ["account-documents", "organization-documents", "support"]) expect(read(join(root, "src/domain", `${d}.ts`)), d).not.toMatch(/presignPrivateDownload|presignPublicUpload/);
+    for (const d of ["account-documents", "organization-documents"]) expect(read(join(root, "src/domain", `${d}.ts`)), d).not.toMatch(/presignPrivateDownload|presignPublicUpload/);
+  });
+
+  it("O1 · no email carries a private-bucket file: the queue can't name one and the sender can't read one", () => {
+    expect(read(join(root, "src/lib/email.ts"))).not.toMatch(/^\s*attachments\?:/m);
+    const sender = read(join(root, "worker/jobs/send-email.mts"));
+    expect(sender).not.toMatch(/getPrivateObject|loadAttachment|AttachmentLoader|\battachments\b\s*[:?]?\s*[[{(]|\.\.\.\(attachments/);
+    expect(read(join(root, "worker/index.mts"))).toMatch(/handleSendEmail\(pool, job\.data\);/);
+    expect(read(join(root, "src/domain/support.ts"))).not.toMatch(/attachments: files\.map\(\(f\) => \(\{ filename: f\.filename, key/);
   });
 });
 
@@ -410,5 +418,148 @@ describe.skipIf(!hasDatabase)("2S0-SEC-01 · what SponsorX keeps of a Stripe pay
     } finally {
       spy.mockRestore();
     }
+  });
+
+  /* ── the owner's decisions, 2026-10-06 ── */
+
+  const DAY = 86_400_000;
+  async function supportMessage(id: string, o: { state?: "QUEUED" | "DRAFT"; queuedAt?: Date | null; createdAt?: Date; files?: Array<{ id: string; uploaded?: boolean }> } = {}) {
+    await prisma.supportMessage.create({ data: {
+      id, tenantId: T, name: "Rosa Lopez", email: "rosa.lopez@ppii-test.invalid", topic: "GUARDIANSHIP", message: "Here is my daughter's birth certificate.",
+      state: o.state ?? "QUEUED", queuedAt: o.queuedAt === undefined ? new Date() : o.queuedAt, createdAt: o.createdAt ?? new Date(),
+    }, select: { id: true } });
+    for (const f of o.files ?? []) {
+      await prisma.supportAttachment.create({ data: {
+        id: f.id, tenantId: T, messageId: id, filename: `${f.id}.pdf`, contentType: "application/pdf", bytes: 1234,
+        r2Key: `support/${id}/${f.id}/${f.id}.pdf`, uploadedAt: f.uploaded === false ? null : new Date(),
+      }, select: { id: true } });
+    }
+  }
+
+  it("O1 · BTG's support desk reads a message and opens each attachment through a five-minute, audited link; nobody else can", async () => {
+    await supportMessage("ppii_sm_desk", { files: [{ id: "ppii_satt_proof" }, { id: "ppii_satt_pending", uploaded: false }] });
+    const admin = w.id("admin");
+    const view = await w.call("GET", "/support-messages/ppii_sm_desk", admin);
+    expect(view.status, view.text).toBe(200);
+    expect(view.json).toMatchObject({ id: "ppii_sm_desk", topic: "GUARDIANSHIP", topicLabel: "Guardianship", state: "QUEUED" });
+    expect(view.json.attachments.map((a: { id: string; arrived: boolean }) => [a.id, a.arrived])).toEqual([["ppii_satt_proof", true], ["ppii_satt_pending", false]]);
+    /* The page gets names, never a key or a link. */
+    expect(view.text).not.toMatch(/support\/ppii_sm_desk|X-Amz|https?:\/\//);
+
+    const link = await w.call("GET", "/support-messages/ppii_sm_desk/attachments/ppii_satt_proof", admin);
+    expect(link.status, link.text).toBe(200);
+    expect(link.json.expiresInSeconds).toBe(300);
+    expect(new URL(link.json.url).searchParams.get("X-Amz-Expires")).toBe("300");
+    expect(new URL(link.json.url).pathname).toContain("/support/ppii_sm_desk/ppii_satt_proof/");
+    const grant = await prisma.auditLog.findFirst({ where: { tenantId: T, action: "storage.privateDownloadGrant", entity: "SupportAttachment", entityId: "ppii_satt_proof" }, select: { actorId: true, after: true } });
+    expect(grant).toMatchObject({ actorId: admin, after: { ttlSeconds: 300 } });
+    expect(JSON.stringify(grant)).not.toContain("X-Amz-Signature");
+    expect((await w.call("GET", "/support-messages/ppii_sm_desk/attachments/ppii_satt_pending", admin)).status).toBe(409);
+
+    /* Finance, the sponsor and another tenant's BTG admin are all refused, the same way as a made-up id. */
+    for (const who of [w.id("finance"), w.id("buyer"), w.id("other_admin")]) {
+      expect((await w.call("GET", "/support-messages/ppii_sm_desk", who)).status, who).toBe(403);
+      expect((await w.call("GET", "/support-messages/ppii_sm_desk/attachments/ppii_satt_proof", who)).status, who).toBe(403);
+    }
+    expect((await w.call("GET", "/support-messages/ppii_sm_nope", admin)).status).toBe(403);
+    expect((await w.call("GET", "/support-messages/ppii_sm_desk", undefined)).status).toBe(401);
+  });
+
+  it("O2 · support attachments are deleted 90 days after the message was sent, or 30 after an unsent one was started — object first, audited, the message kept", async () => {
+    const now = new Date();
+    await supportMessage("ppii_sm_old", { queuedAt: new Date(now.getTime() - 91 * DAY), createdAt: new Date(now.getTime() - 91 * DAY), files: [{ id: "ppii_satt_old" }] });
+    await supportMessage("ppii_sm_recent", { queuedAt: new Date(now.getTime() - 89 * DAY), createdAt: new Date(now.getTime() - 89 * DAY), files: [{ id: "ppii_satt_recent" }] });
+    await supportMessage("ppii_sm_draft_old", { state: "DRAFT", queuedAt: null, createdAt: new Date(now.getTime() - 31 * DAY), files: [{ id: "ppii_satt_draft_old", uploaded: false }] });
+    await supportMessage("ppii_sm_draft_new", { state: "DRAFT", queuedAt: null, createdAt: new Date(now.getTime() - 29 * DAY), files: [{ id: "ppii_satt_draft_new", uploaded: false }] });
+    const { purgeExpiredClosures } = await import("../src/domain/account-closure");
+    const deleted: string[] = [];
+    const run = await purgeExpiredClosures(prisma, now, async (k) => { deleted.push(k); }, T);
+    expect(run.supportAttachments).toBe(2);
+    expect(deleted.sort()).toEqual(["support/ppii_sm_draft_old/ppii_satt_draft_old/ppii_satt_draft_old.pdf", "support/ppii_sm_old/ppii_satt_old/ppii_satt_old.pdf"]);
+    const left = (await prisma.supportAttachment.findMany({ where: { tenantId: T, id: { startsWith: "ppii_satt_" } }, select: { id: true } })).map((r) => r.id).sort();
+    expect(left).toEqual(expect.arrayContaining(["ppii_satt_recent", "ppii_satt_draft_new"]));
+    expect(left).not.toContain("ppii_satt_old");
+    expect(left).not.toContain("ppii_satt_draft_old");
+    expect(await prisma.supportMessage.count({ where: { tenantId: T, id: { in: ["ppii_sm_old", "ppii_sm_draft_old"] } } })).toBe(2);
+    expect(await prisma.auditLog.count({ where: { tenantId: T, action: "support.attachmentPurged", entityId: { in: ["ppii_sm_old", "ppii_sm_draft_old"] } } })).toBe(2);
+    /* Twice changes nothing; a failed delete leaves the row for next time. */
+    const { purgeSupportAttachments } = await import("../src/domain/account-closure");
+    expect(await purgeSupportAttachments(prisma, now, async () => { throw new Error("must not delete"); }, T)).toBe(0);
+    await supportMessage("ppii_sm_old2", { queuedAt: new Date(now.getTime() - 100 * DAY), files: [{ id: "ppii_satt_old2" }] });
+    await expect(purgeSupportAttachments(prisma, now, async () => { throw new Error("storage down"); }, T)).rejects.toThrow(/storage down/);
+    expect(await prisma.supportAttachment.count({ where: { tenantId: T, id: "ppii_satt_old2" } })).toBe(1);
+  });
+
+  it("O4 · finished Zoho webhook bodies older than 90 days are trimmed to their ids; the row, its status, its external id and the audit trail stay", async () => {
+    const now = new Date();
+    const at = (days: number) => new Date(now.getTime() - days * DAY);
+    const raw = { invoiceId: "ppii_inv_1", dealId: "ppii_deal_1", status: "paid", amount: 5000, customer_name: SPONSOR.name, email: SPONSOR.email, billing_address: { street: SPONSOR.line1 } };
+    await prisma.webhookDelivery.createMany({ data: [
+      { id: "ppii_wd_applied", tenantId: T, source: "zoho", externalId: "ppii_inv_1", signatureOk: true, payload: raw, status: "APPLIED", receivedAt: at(91) },
+      { id: "ppii_wd_rejected", tenantId: T, source: "zoho-crm", externalId: "Contacts:123", signatureOk: false, payload: { module: "Contacts", ids: ["123", "x@y"], operation: "update", First_Name: "Rosa", Email: SPONSOR.email }, status: "REJECTED", error: "channel token did not verify", receivedAt: at(120) },
+      { id: "ppii_wd_failed", tenantId: T, source: "zoho", externalId: "ppii_inv_2", signatureOk: true, payload: { truncated: `{"customer_name":"${SPONSOR.name}"` }, status: "FAILED", receivedAt: at(95) },
+      { id: "ppii_wd_unapplied", tenantId: T, source: "zoho", externalId: "ppii_inv_3", signatureOk: true, payload: raw, status: "RECEIVED", receivedAt: at(200) },
+      { id: "ppii_wd_young", tenantId: T, source: "zoho", externalId: "ppii_inv_4", signatureOk: true, payload: raw, status: "APPLIED", receivedAt: at(89) },
+      { id: "ppii_wd_other_tenant", tenantId: OTHER_T, source: "zoho", externalId: "ppii_inv_5", signatureOk: true, payload: raw, status: "APPLIED", receivedAt: at(300) },
+    ] });
+    const before = await prisma.auditLog.count({ where: { tenantId: { in: [T, OTHER_T] } } });
+    const { trimZohoWebhookBodies } = await import("../src/domain/webhook-retention");
+    expect(await trimZohoWebhookBodies(now, { tenantIds: [T] })).toEqual({ trimmed: 3 });
+
+    const rows = new Map((await prisma.webhookDelivery.findMany({ where: { id: { startsWith: "ppii_wd_" } }, select: { id: true, payload: true, status: true, externalId: true, error: true, signatureOk: true, receivedAt: true } })).map((r) => [r.id, r]));
+    expect(rows.get("ppii_wd_applied")).toMatchObject({ payload: { trimmed: true, invoiceId: "ppii_inv_1", dealId: "ppii_deal_1" }, status: "APPLIED", externalId: "ppii_inv_1", receivedAt: at(91) });
+    expect(Object.keys(rows.get("ppii_wd_applied")!.payload as object).sort()).toEqual(["dealId", "invoiceId", "trimmed"]);
+    expect(rows.get("ppii_wd_rejected")).toMatchObject({ payload: { trimmed: true, module: "Contacts", ids: ["123"], operation: "update" }, status: "REJECTED", error: "channel token did not verify", signatureOk: false });
+    expect(rows.get("ppii_wd_failed")!.payload).toEqual({ trimmed: true });
+    for (const id of ["ppii_wd_applied", "ppii_wd_rejected", "ppii_wd_failed"]) expect(leaks(JSON.stringify(rows.get(id)!.payload)), id).toEqual([]);
+    /* Still to be applied, too young, or another tenant's (outside this run's scope): untouched. */
+    for (const id of ["ppii_wd_unapplied", "ppii_wd_young", "ppii_wd_other_tenant"]) expect(rows.get(id)!.payload, id).toEqual(raw);
+
+    /* The audit trail only grew: one row naming the trimmed deliveries. */
+    expect(await prisma.auditLog.count({ where: { tenantId: { in: [T, OTHER_T] } } })).toBe(before + 1);
+    const trail = await prisma.auditLog.findFirstOrThrow({ where: { tenantId: T, action: "webhookDelivery.bodyTrimmed" }, select: { after: true } });
+    expect((trail.after as { deliveries: string[] }).deliveries.sort()).toEqual(["ppii_wd_applied", "ppii_wd_failed", "ppii_wd_rejected"]);
+    /* A second run finds nothing left to trim. */
+    expect(await trimZohoWebhookBodies(now, { tenantIds: [T] })).toEqual({ trimmed: 0 });
+  });
+
+  it("O5 · a card number in BTG's payment, dispute, payout or earnings notes is refused with a 422 and a plain message", async () => {
+    const card = "Customer read me 4242 4242 4242 4242 on the phone";
+    const admin = w.id("admin");
+    const finance = w.id("finance");
+    const refused = [
+      await w.call("POST", "/payment-events/ppii_evt_x/resolve", admin, { note: card }),
+      await w.call("POST", "/disputes/ppii_dp_x/review", admin, { note: card }),
+      await w.call("POST", "/disputes/ppii_dp_x/resolve", admin, { note: `Lost. ${card}` }),
+      await w.call("POST", "/payouts/ppii_po_x/decision", admin, { decision: "REJECT", note: card }),
+      await w.call("POST", "/earnings/ppii_earn_x/adjustment", admin, { adjustment: 100, reason: card }),
+      await w.call("POST", "/earnings/ppii_earn_x/transition", finance, { to: "PAID", reference: "5555-5555-5555-4444" }),
+    ];
+    for (const r of refused) {
+      expect(r.status, r.text).toBe(422);
+      expect(r.json.error).toMatchObject({ code: "card_number", message: expect.stringMatching(/looks like it contains a card number\. SponsorX never stores card or bank numbers/) });
+    }
+    /* Without the number the same calls get past the check (to "no such record"). */
+    expect((await w.call("POST", "/payment-events/ppii_evt_x/resolve", admin, { note: "Refunded in Stripe, pi_3Nx 2026-10-06, ticket 48213" })).status).not.toBe(422);
+    expect((await w.call("POST", "/payouts/ppii_po_x/decision", admin, { decision: "REJECT", note: "Bank account 1234 closed; ask for new details" })).status).not.toBe(422);
+  });
+});
+
+describe("O4 / O5 · the pure rules", () => {
+  it("containsCardNumber finds a Luhn-valid card number anywhere in prose, written with spaces or dashes, and not other numbers", async () => {
+    const { containsCardNumber, looksLikeCardNumber } = await import("../src/domain/marketplace-order-rules");
+    for (const yes of ["4242424242424242", "card 4242 4242 4242 4242 refunded", "paid 06 10 4242-4242-4242-4242 ok", "amex 3782 822463 10005.", "5555555555554444"]) expect(containsCardNumber(yes), yes).toBe(true);
+    for (const no of ["", null, "Refunded in Stripe, pi_3Nx 2026-10-06, ticket 48213", "4242 4242 4242 4241", "INV-000123, $1,250.00", "Zoho deal 12345"]) expect(containsCardNumber(no), String(no)).toBe(false);
+    /* The whole-value check it builds on is unchanged. */
+    expect(looksLikeCardNumber("4242 4242 4242 4242")).toBe(true);
+    expect(looksLikeCardNumber("card 4242 4242 4242 4242")).toBe(false);
+  });
+
+  it("idsOnly keeps a body's ids and nothing else", async () => {
+    const { idsOnly } = await import("../src/domain/webhook-retention");
+    expect(idsOnly({ invoiceId: "i1", dealId: "d1", customer_id: "c1", amount: 5, name: "Rosa", nested: { id: "n" } })).toEqual({ trimmed: true, invoiceId: "i1", dealId: "d1", customer_id: "c1" });
+    expect(idsOnly({ module: "Deals", ids: ["1", "rosa@x.org"], operation: "insert", channel_id: "77" })).toEqual({ trimmed: true, module: "Deals", ids: ["1"], operation: "insert", channel_id: "77" });
+    expect(idsOnly("plain text")).toEqual({ trimmed: true });
+    expect(idsOnly(["a"])).toEqual({ trimmed: true });
   });
 });

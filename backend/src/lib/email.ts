@@ -277,9 +277,9 @@ export type EmailMessage = {
   /** 2S1-BE-16 — threading headers (Message-ID, In-Reply-To, References), so a
    *  reply from the support desk continues the sender's thread. */
   headers?: Record<string, string>;
-  /** 2S1-BE-16 — private-bucket objects the worker attaches. Keys only: the
-   *  bytes are read by the worker at send time, never stored in the outbox. */
-  attachments?: { filename: string; key: string; contentType: string }[];
+  /* 2S0-SEC-01 — no `attachments`: no email carries a private-bucket file.
+     A support message's files are named in the text and opened on BTG's
+     signed-in page, through a five-minute, audited link (domain/support.ts). */
 };
 
 /**
@@ -311,7 +311,6 @@ export async function send(
     idempotencyKey: message.idempotencyKey,
     ...(message.replyTo ? { replyTo: message.replyTo } : {}),
     ...(message.headers ? { headers: message.headers } : {}),
-    ...(message.attachments?.length ? { attachments: message.attachments } : {}),
   });
 }
 

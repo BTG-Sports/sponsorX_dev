@@ -391,7 +391,13 @@ describe("the whole matrix is pinned", () => {
       // own-tenant read/write (takes it for review); every other cell deny
       // (matrix §26). With its rows removed the grid hashes to the previous
       // 193e39d2e041e519.
-    ).toBe("a5f2afaf1f38bdee");
+      // Updated 2026-10-06 (2S0-SEC-01, the owner's decision on O1): new
+      // `supportMessage` resource — a contact-form message and its
+      // attachments, as BTG's support desk opens them (the desk's email no
+      // longer carries the files). SUPER_ADMIN any read; BTG_ADMIN own-tenant
+      // read; every other cell deny (matrix §27). With its rows removed the
+      // grid hashes to the previous a5f2afaf1f38bdee.
+    ).toBe("8278919e225e694d");
   });
 
   it("covers every pair the §30 acceptance asks for", () => {

@@ -60,6 +60,7 @@ import {
   PAYMENT_EVENT_STATUSES, STANDIN_EVENT_TYPES, type NeutralPaymentEvent, type PaymentEventStatus, type PaymentEventType,
 } from "../contracts/payment-events";
 import { lockOrder } from "./marketplace-order";
+import { refuseCardNumber } from "./marketplace-order-rules";
 import { appUrl, btgAdmins, orderRef, tell, usd } from "./order-mail";
 import { paymentSucceededIn, payoutHandlerFor } from "./payouts";
 import { dismissHeldRefund, exceptionHandlerFor } from "./payment-exceptions";
@@ -506,6 +507,7 @@ export async function resolvePaymentEvent(actor: Actor, id: string, note: string
   assertTenantWide(actor, "paymentEvent", "write");
   const text = note.trim();
   if (!text) throw new PaymentEventError("Say what you did about it — the next person reads this.", 422);
+  refuseCardNumber(text); // 2S0-SEC-01 (O5)
   return prisma.$transaction(async (tx) => {
     const ev = await tx.paymentEvent.findFirst({ where: { ...whereFor(actor, "paymentEvent", "write"), id }, select: LIST });
     if (!ev) throw new PaymentEventError("No such event.", 404);
