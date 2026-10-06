@@ -41,6 +41,7 @@ import {
   type SaleHold,
 } from "./ad-sale-rules";
 import { heldAgainst, kindWords, positionsFor, sellIn } from "./edition";
+import { logError } from "../lib/redact";
 
 type Tx = Prisma.TransactionClient;
 
@@ -231,7 +232,7 @@ export async function startAutoSale(tenantId: string, campaignId: string): Promi
   try {
     return await prisma.$transaction((tx) => autoSellIn(tx, tenantId, campaignId, new Date(), "create"));
   } catch (error) {
-    console.error(`[ad-sale] the automatic sale of ${campaignId} failed; SALES can sell it by hand:`, error);
+    logError(`[ad-sale] the automatic sale of ${campaignId} failed; SALES can sell it by hand:`, error);
     return null;
   }
 }
@@ -267,7 +268,7 @@ export async function sweepHeldSales(now = new Date(), opts: { tenantIds?: strin
       else if (r.outcome === "HELD") out.held++;
     } catch (error) {
       out.failed++;
-      console.error(`[ad-sale] retrying the held sale of ${h.campaignId} failed, will retry:`, error);
+      logError(`[ad-sale] retrying the held sale of ${h.campaignId} failed, will retry:`, error);
     }
   }
   return out;

@@ -43,6 +43,7 @@ import { cancelOrderAsSystem, lockOrder, OrderStateConflictError, payOrderIn } f
 import { remindersDue, usd, zohoInvoicePaid } from "./marketplace-order-rules";
 import { appUrl, orderRef, sellerRecipients, sponsorRecipient, tell, utc } from "./order-mail";
 import { refuseIfBackwards } from "./invoice-replay";
+import { logError } from "../lib/redact";
 
 type Tx = Prisma.TransactionClient;
 
@@ -245,7 +246,7 @@ export async function sweepUnpaidOrders(now = new Date(), opts: { tenantIds?: st
       }
     }).catch((error: unknown) => {
       failed++;
-      console.error(`[unpaid orders] order ${id} failed, will retry next pass:`, error);
+      logError(`[unpaid orders] order ${id} failed, will retry next pass:`, error);
     });
   }
   return { reminded, cancelled, deferred, failed, skipped };
