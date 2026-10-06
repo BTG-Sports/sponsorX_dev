@@ -97,6 +97,66 @@ describe("A05 · security headers", () => {
   });
 });
 
+describe("2S8-PMO-02 decision 1 · the full CSP, report-only", async () => {
+  const { buildReportOnlyCsp, buildSecurityHeaders, clerkFrontendApi, cspReportRewrites, CSP_REPORT_PATH } = await import("../next.config");
+  const pk = (host: string, live = false) => `pk_${live ? "live" : "test"}_${Buffer.from(`${host}$`).toString("base64")}`;
+  const parse = (policy: string) =>
+    Object.fromEntries(policy.split("; ").map((d) => { const [name, ...values] = d.split(" "); return [name!, values]; }));
+  const PROD = { NODE_ENV: "production", NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: pk("clerk.sponsorx.net", true), API_URL: "http://api.railway.internal:8080" };
+
+  it("is sent beside the enforced headers, which are unchanged", () => {
+    const all = Object.fromEntries(buildSecurityHeaders(PROD)[0]!.headers.map((h) => [h.key, h.value]));
+    expect(all["Content-Security-Policy"]).toBe("frame-ancestors 'none'; base-uri 'self'; object-src 'none'");
+    expect(all["X-Frame-Options"]).toBe("DENY");
+    expect(all["Content-Security-Policy-Report-Only"]).toBe(buildReportOnlyCsp(PROD));
+    expect(all["Reporting-Endpoints"]).toBe(`csp="${CSP_REPORT_PATH}"`);
+    /* The live config carries it too. */
+    expect(securityHeaders[0]!.headers.map((h) => h.key)).toContain("Content-Security-Policy-Report-Only");
+  });
+
+  it("reads Clerk's Frontend API host out of the publishable key", () => {
+    expect(clerkFrontendApi(pk("fond-cat-12.clerk.accounts.dev"))).toBe("https://fond-cat-12.clerk.accounts.dev");
+    expect(clerkFrontendApi(pk("clerk.sponsorx.net", true))).toBe("https://clerk.sponsorx.net");
+    expect(clerkFrontendApi("pk_test_x")).toBeNull();
+    expect(clerkFrontendApi(undefined)).toBeNull();
+    expect(clerkFrontendApi(`pk_test_${Buffer.from("evil.example; script-src *$").toString("base64")}`)).toBeNull();
+  });
+
+  it("production: allows exactly what the app loads — Next's inline scripts, Clerk, Turnstile, R2, the inline styles", () => {
+    const d = parse(buildReportOnlyCsp({ ...PROD, R2_PUBLIC_BASE_URL: "https://cdn.sponsorx.net/assets" }));
+    expect(d["default-src"]).toEqual(["'self'"]);
+    expect(d["script-src"]).toEqual(["'self'", "'unsafe-inline'", "https://clerk.sponsorx.net", "https://challenges.cloudflare.com"]);
+    expect(d["style-src"]).toEqual(["'self'", "'unsafe-inline'"]);
+    expect(d["connect-src"]).toEqual(expect.arrayContaining(["'self'", "https://clerk.sponsorx.net", "https://challenges.cloudflare.com", "https://*.r2.cloudflarestorage.com"]));
+    expect(d["frame-src"]).toEqual(expect.arrayContaining(["https://challenges.cloudflare.com", "https://*.r2.cloudflarestorage.com"]));
+    expect(d["img-src"]).toEqual(expect.arrayContaining(["https://img.clerk.com", "https://cdn.sponsorx.net", "data:"]));
+    expect(d["worker-src"]).toEqual(["'self'", "blob:"]);
+    expect(d["font-src"]).toEqual(["'self'", "data:"]);
+    expect(d["object-src"]).toEqual(["'none'"]);
+    expect(d["frame-ancestors"]).toEqual(["'none'"]);
+    expect(d["base-uri"]).toEqual(["'self'"]);
+    expect(d["report-uri"]).toEqual([CSP_REPORT_PATH]);
+    expect(d["report-to"]).toEqual(["csp"]);
+    /* Nothing development-only reaches production. */
+    const flat = Object.values(d).flat().join(" ");
+    expect(flat).not.toMatch(/unsafe-eval|clerk\.accounts\.dev|clerk-telemetry|localhost|127\.0\.0\.1|ws:/);
+  });
+
+  it("a development instance (staging's pk_test_) and next dev get the development hosts", () => {
+    const staging = parse(buildReportOnlyCsp({ NODE_ENV: "production", NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: pk("fond-cat-12.clerk.accounts.dev") }));
+    expect(staging["script-src"]).toEqual(expect.arrayContaining(["https://fond-cat-12.clerk.accounts.dev", "https://*.clerk.accounts.dev"]));
+    expect(staging["script-src"]).not.toContain("'unsafe-eval'");
+    const dev = parse(buildReportOnlyCsp({ NODE_ENV: "development" }));
+    expect(dev["script-src"]).toContain("'unsafe-eval'");
+    expect(dev["connect-src"]).toEqual(expect.arrayContaining(["ws:", "http://127.0.0.1:9100", "http://localhost:9000"]));
+  });
+
+  it("reports go to the API through the web server, at the address the web app already uses", () => {
+    expect(cspReportRewrites(PROD)).toEqual([{ source: CSP_REPORT_PATH, destination: "http://api.railway.internal:8080/api/v1/public/csp-report" }]);
+    expect(cspReportRewrites({})[0]!.destination).toBe("http://localhost:4000/api/v1/public/csp-report");
+  });
+});
+
 describe("A07 · signing out ends the session", () => {
   it("the portal user menu calls Clerk's signOut and clears our own cookies — not just a navigation", () => {
     const menu = src("src/components/user-menu.tsx");

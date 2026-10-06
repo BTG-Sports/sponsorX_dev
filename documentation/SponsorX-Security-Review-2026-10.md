@@ -169,7 +169,7 @@ The checks were made against the OWASP Top 10 (2021), plus the ASVS basics that 
   - `allowedOrigins` is not set, so Next's strict Origin check applies.
   - `/test-provider` pages ship to production, but production uses the `none` provider, so no link can open them.
 - **Fixed (Medium).** Neither server set any security headers, and both advertised their framework in `X-Powered-By`. The fan, unsubscribe and stand-in pages, whose URL **is** the credential, could be framed and could leak the token in the Referer header.
-- **Owner.** A full script/style CSP needs to allow Clerk, Turnstile, the R2 upload host and the inline `<style>` on `/r` and `/u`. Recommendation: roll it out in `Content-Security-Policy-Report-Only` first.
+- **Owner.** A full script/style CSP needs to allow Clerk, Turnstile, the R2 upload host and the inline `<style>` on `/r` and `/u`. Recommendation: roll it out in `Content-Security-Policy-Report-Only` first. **Decided 2026-10-06 and done:** report-only, beside the enforced headers (decision 1 below).
 - **Owner.** HSTS is set **without** `includeSubDomains` and `preload`. Both commit every `sponsorx.net` host to HTTPS. **Decided 2026-10-06:** `includeSubDomains` on, `preload` off (decision 2 below).
 
 **Fix:**
@@ -409,6 +409,33 @@ Matches are printed masked. **Result on 2026-10-05: 2,220 tracked files, no secr
 **All seven were decided by the programme owner on 2026-10-06, and are implemented under 2S8-PMO-02.** Each item says what was decided and what was done.
 
 1. **Full CSP.** Roll out a script/style CSP in report-only mode first. It has to allow Clerk, Turnstile, the R2 upload host and the inline styles on `/r` and `/u` (§A05).
+   - **Decided (owner, 2026-10-06):** yes, report-only first.
+   - **Done:** every web page now carries `Content-Security-Policy-Report-Only` **beside** the enforced headers, which are unchanged (`frontend/next.config.ts`, `buildReportOnlyCsp`). The policy is built at build time from the environment:
+     - `default-src 'self'`.
+     - `script-src 'self' 'unsafe-inline'`, plus Clerk and Turnstile; `'unsafe-eval'` only under `next dev`.
+     - `style-src 'self' 'unsafe-inline'`: the `<style>` on `/u` and several pages, and React `style` attributes.
+     - Clerk: the Frontend API host decoded from `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`, `https://clerk.sponsorx.net` (the production instance), `https://*.clerk.accounts.dev` and `https://clerk-telemetry.com` for a development instance (`pk_test_`), `https://img.clerk.com`, and `worker-src 'self' blob:`.
+     - Turnstile: `https://challenges.cloudflare.com` in `script-src`, `frame-src` and `connect-src`.
+     - R2: `https://*.r2.cloudflarestorage.com` (presigned PUT uploads in `connect-src`; the admin desks frame private presigned links in `frame-src`), `https://*.r2.dev`, and the origins of `R2_PUBLIC_BASE_URL` / `S3_ENDPOINT` when the web service has them (`img-src`, `media-src`). MinIO and the e2e store stand-in are allowed in development only.
+     - Fonts: `'self' data:`. `next/font` self-hosts the Google fonts at build, so no Google host is needed.
+     - Stripe: nothing is embedded. Checkout and Connect onboarding are top-level redirects, but Chrome checks `form-action` on a redirect that follows a native form POST, so `https://checkout.stripe.com` and `https://connect.stripe.com` are listed there.
+     - `frame-ancestors 'none'`, `base-uri 'self'`, `object-src 'none'` are repeated, so this is the whole policy on the day it is enforced.
+   - **Why `'unsafe-inline'` and not nonces.** Next's App Router streams its page data in inline `<script>` tags, and the root layout sets the theme in one. A nonce must be minted per request, which only the proxy can do: a header set in `next.config.ts` is fixed at build time. A nonce also forces every page to render dynamically. And the fan routes `/r`, `/t` and `/u` are deliberately outside the proxy (Addendum A10, `fan-route-budget.test.ts`), so they could never carry one. This is the shape Next's own CSP guide gives for an app without nonces. `'strict-dynamic'` needs a nonce or hash to anchor it, so it is not used either. The policy still restricts *where* scripts load from, and every other directive is strict.
+   - **Reports.** `report-uri /api/v1/public/csp-report` and `report-to csp` (with `Reporting-Endpoints: csp="/api/v1/public/csp-report"`). The browser never talks to the API directly: `API_URL` is the API's private address. So the path is same-origin on the web app, and a `rewrites()` rule in `next.config.ts` forwards it to `${API_URL}/api/v1/public/csp-report`. That is the address the web app already uses, and no new variable is needed. The API endpoint, `POST /api/v1/public/csp-report` (`backend/src/routes/v1/csp-report.ts`, logic in `domain/csp-report.ts`):
+     - reads both `application/csp-report` and `application/reports+json`, 64 kB at most;
+     - stores nothing;
+     - logs one line per violation through the redacting logger: disposition, directive, blocked origin + path, document origin + path, source file + line;
+     - drops query strings, fragments, samples, referrers, user agents and the policy text, masks token-like path segments as `:token` (`/r/…`, `/u/…`, `/onboarding/…`), and masks any email address that is left;
+     - is rate-limited (`csp:report`, 240 a minute). Behind the web server that is one shared bucket, so a flood only drops reports;
+     - answers `202 {received:true}` whatever arrives.
+   - **The API's own CSP.** The API serves only JSON and already enforces `default-src 'none'; frame-ancestors 'none'`, the strictest policy there is. A report-only policy would add nothing, so the API has none.
+   - **Switching to enforce (planned step).** After at least two weeks of reports from staging and production with nothing unexplained:
+     1. Read the `[csp-report]` lines in the Railway logs of the `api` service, and add any genuine source to `buildReportOnlyCsp`.
+     2. In `buildSecurityHeaders`, rename the header key `Content-Security-Policy-Report-Only` to `Content-Security-Policy`, replacing the current three-directive value. The report-only policy already contains those three directives.
+     3. Deploy to staging, run the e2e suite and walk sign-in, an upload, an admin document preview and the `/r` → `/u` fan path, then deploy to production.
+     4. Keep `report-uri` / `report-to`, so blocked loads keep being reported.
+     5. Moving to nonces later is a separate change: a nonce minted in `proxy.ts`, every page dynamic, and the fan routes either brought under the proxy or given a static hash-based policy.
+   - **Test:** `frontend/tests/security-review.test.ts`, "2S8-PMO-02 decision 1". It checks the enforced headers are unchanged and the report-only header and `Reporting-Endpoints` are present, Clerk's host is read from the key (and a hostile key is refused), the exact production directives with no development host in them, the development and staging additions, and the rewrite target. `backend/tests/pmo02-csp-report.test.ts` checks both formats, the redaction (tokens, queries, samples, addresses), one line per violation, the 20-per-request cap, and an HTTP round trip through the real app for both content types, with the same answer each time, the rate-limit key, and 413 for an oversized body.
 2. **HSTS `includeSubDomains` / `preload`.** Both commit every `sponsorx.net` host to HTTPS (§A05).
    - **Decided (owner, 2026-10-06):** `includeSubDomains` yes, `preload` no.
    - **Done:** the web app now sends `Strict-Transport-Security: max-age=31536000; includeSubDomains` on every path (`frontend/next.config.ts`). Every `sponsorx.net` host must therefore serve HTTPS. `clerk.` and `accounts.` already do (issued certificates, `.claude/stack-decision.md`); any subdomain added later, a CDN for example, needs its certificate before anyone opens it in a browser. Preload is not set: the preload list ships inside browsers and takes months to leave. The API sends no HSTS and still doesn't: it serves only JSON, and its public domain only takes webhooks, so the web app owns the header.

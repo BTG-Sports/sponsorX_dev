@@ -759,6 +759,9 @@ const PATHS: Row[] = [
   { method: "get", path: "/support-messages/{id}", tag: "Support", summary: "BTG admin only: one contact-form message — sender, topic, text — and its attachments' names, types, sizes and whether each arrived. No file content and no link (2S0-SEC-01)." },
   { method: "get", path: "/support-messages/{id}/attachments/{attachmentId}", tag: "Support", summary: "BTG admin only: a five-minute, audited link to one attachment in the private bucket — how the support desk opens a guardianship proof or an ID (2S0-SEC-01)." },
   { method: "post", path: "/public/support/messages/{token}/attachments/{attachmentId}/drop", tag: "Public", summary: "Send without an attachment that won't upload (2S1-BE-16).", auth: false },
+
+  // 2S8-PMO-02 — security decisions of 2026-10-06
+  { method: "post", path: "/public/csp-report", tag: "Public", summary: "A browser's Content-Security-Policy violation report — `report-uri` (application/csp-report) or `report-to` (application/reports+json). The web app forwards its same-origin /api/v1/public/csp-report here. Nothing is stored: each violation is logged as one redacted line (origin and path only, token-like path segments masked, no samples). Rate-limited; the answer is the same whatever arrives.", auth: false, status: 202 },
 ];
 
 for (const row of PATHS) {
