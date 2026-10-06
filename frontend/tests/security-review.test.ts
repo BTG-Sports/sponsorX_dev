@@ -98,7 +98,7 @@ describe("A05 · security headers", () => {
 });
 
 describe("2S8-PMO-02 decision 1 · the full CSP, report-only", async () => {
-  const { buildReportOnlyCsp, buildSecurityHeaders, clerkFrontendApi, cspReportRewrites, CSP_REPORT_PATH } = await import("../next.config");
+  const { buildReportOnlyCsp, buildSecurityHeaders, clerkFrontendApi, apiRewrites, CSP_REPORT_PATH } = await import("../next.config");
   const pk = (host: string, live = false) => `pk_${live ? "live" : "test"}_${Buffer.from(`${host}$`).toString("base64")}`;
   const parse = (policy: string) =>
     Object.fromEntries(policy.split("; ").map((d) => { const [name, ...values] = d.split(" "); return [name!, values]; }));
@@ -151,9 +151,13 @@ describe("2S8-PMO-02 decision 1 · the full CSP, report-only", async () => {
     expect(dev["connect-src"]).toEqual(expect.arrayContaining(["ws:", "http://127.0.0.1:9100", "http://localhost:9000"]));
   });
 
-  it("reports go to the API through the web server, at the address the web app already uses", () => {
-    expect(cspReportRewrites(PROD)).toEqual([{ source: CSP_REPORT_PATH, destination: "http://api.railway.internal:8080/api/v1/public/csp-report" }]);
-    expect(cspReportRewrites({})[0]!.destination).toBe("http://localhost:4000/api/v1/public/csp-report");
+  it("reports (and the claim confirmation link, decision 5) go to the API through the web server — those two exact paths only", () => {
+    expect(apiRewrites(PROD)).toEqual([
+      { source: CSP_REPORT_PATH, destination: "http://api.railway.internal:8080/api/v1/public/csp-report" },
+      { source: "/api/v1/public/athlete-claims/confirm", destination: "http://api.railway.internal:8080/api/v1/public/athlete-claims/confirm" },
+    ]);
+    expect(apiRewrites({})[0]!.destination).toBe("http://localhost:4000/api/v1/public/csp-report");
+    for (const r of apiRewrites(PROD)) expect(r.source).not.toMatch(/[:*(]/);
   });
 });
 

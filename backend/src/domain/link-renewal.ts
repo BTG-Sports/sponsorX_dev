@@ -22,6 +22,7 @@
  *   onboarding, onboarding-email         → /onboarding/confirm?t=…   (fresh resume token)
  *   sponsor-request, sponsor-request-email → /sponsor-request/confirm?t=… (fresh request token)
  *   handoff, handoff-email               → /guardian/handoff?e=…     (fresh hand-off token)
+ *   claim-email                          → the claim confirmation (domain/featured.ts renewClaimLink)
  * A reactivation link has its own by-address page (POST
  * /public/account/reactivation-link), and a support message is sent again.
  *
@@ -31,7 +32,7 @@
 import { env } from "../config/env";
 import { audit, type AuditActor } from "../db/audit";
 import { prisma } from "../db/client";
-import { send } from "../lib/email";
+import { alreadyQueued, send } from "../lib/email";
 import { ONBOARDING_EMAIL_LINK, ONBOARDING_LINK, issueOnboardingEmailToken } from "../lib/onboarding-token";
 import { INTAKE_LINK } from "../lib/intake-token";
 import { issuePurposeToken, verifyPurposeToken } from "../lib/purpose-token";
@@ -46,6 +47,7 @@ import {
   splitGuardianSetupSubject,
 } from "../lib/signup-token";
 import { SPONSOR_EMAIL_LINK, SPONSOR_REQUEST_LINK, issueSponsorEmailToken } from "../lib/sponsor-request-token";
+import { renewClaimLink } from "./featured";
 import { primaryEmail } from "./onboarding";
 
 const SYSTEM = (tenantId: string): AuditActor => ({ userId: null, tenantId });
@@ -155,7 +157,7 @@ async function handoff(token: string, purpose: "handoff" | "handoff-email"): Pro
   };
 }
 
-const RESOLVERS: Record<RenewableKind, (token: string) => Promise<Fresh | null>> = {
+const RESOLVERS: Record<Exclude<RenewableKind, "claim-email">, (token: string) => Promise<Fresh | null>> = {
   intake: (t) => athleteApplication(t, INTAKE_LINK),
   "athlete-email": (t) => athleteApplication(t, ATHLETE_EMAIL_LINK),
   "guardian-setup": guardianSetup,
@@ -170,13 +172,20 @@ const RESOLVERS: Record<RenewableKind, (token: string) => Promise<Fresh | null>>
 
 /** Email a fresh link for a genuine one of this kind, whatever its age. Same answer either way. */
 export async function renewLink(kind: RenewableKind, token: string): Promise<{ sent: true }> {
+  /* A profile claim has its own email and state rule (domain/featured.ts). */
+  if (kind === "claim-email") {
+    await renewClaimLink(token);
+    return { sent: true };
+  }
   const fresh = await RESOLVERS[kind](token);
   if (fresh) {
     const hour = Math.floor(Date.now() / 3_600_000);
+    const key = `link.fresh:${kind}:${fresh.entityId}:${hour}`;
     await prisma.$transaction(async (tx) => {
+      /* One per record and kind per hour, however often it is asked for. */
+      if (await alreadyQueued(tx, fresh.tenantId, key)) return;
       await send(tx, fresh.tenantId, {
-        /* One per record and kind per hour, however often it is asked for. */
-        template: "link.fresh", to: fresh.to, idempotencyKey: `link.fresh:${kind}:${fresh.entityId}:${hour}`,
+        template: "link.fresh", to: fresh.to, idempotencyKey: key,
         data: { name: fresh.name, what: fresh.what, url: fresh.url, days: String(linkTtlDays()) },
       });
       await audit(tx, SYSTEM(fresh.tenantId), "link.renewed", fresh.entity, fresh.entityId, { after: { kind } });

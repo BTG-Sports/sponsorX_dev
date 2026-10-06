@@ -165,6 +165,7 @@ The same steps apply to every row below:
   - sponsor requests;
   - athlete email, guardian set-up and coming-of-age links;
   - hand-off, support and reactivation links;
+  - the profile-claim confirmation (2S8-PMO-02);
   - fan unsubscribe links.
   - On staging, if `STANDIN_PROVIDER_SECRET` is unset, the stand-in's secret is **derived** from this one (see 10).
 - **Where it lives:** `api` **and** `worker`, with **the same value on both**. Production refuses to boot with the development default, and refuses to boot if `_PREVIOUS` contains it.
@@ -179,7 +180,7 @@ The same steps apply to every row below:
 
 ### 10 · `STANDIN_PROVIDER_SECRET` (+ `_PREVIOUS`): staging only
 
-- **Where it lives:** `api` and `worker` on **staging**. Production uses `PAYMENT_PROVIDER=none` and refuses `standin`.
+- **Where it lives:** `api` and `worker` on **staging**, **set explicitly since 2026-10-06** (2S8-PMO-02, owner decision 7). Production uses `PAYMENT_PROVIDER=none`, set explicitly on Railway the same day (decision 6), and refuses `standin`.
 - **Owner:** the Railway project admin.
 - **If it is unset:** with `NODE_ENV=production` (staging), it is derived from `INTAKE_TOKEN_SECRET`. So it is not the public development default, but it changes whenever that secret is rotated. Setting it explicitly is recommended, so the two are independent.
 - **Rotate:**

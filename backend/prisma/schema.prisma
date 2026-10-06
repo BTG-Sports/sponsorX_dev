@@ -2149,10 +2149,14 @@ model AthleteClaim {
   birthDate     DateTime?
   ageBand       String?
   rosterMatched Boolean    @default(false)
-  state         ClaimState @default(SUBMITTED)
-  verifiedBy    String?
-  verifiedAt    DateTime?
-  createdAt     DateTime   @default(now())
+  /// 2S8-PMO-02: PENDING_EMAIL until the claimant opens the emailed link;
+  /// only then SUBMITTED, which the advisor sees and may verify (CHECK
+  /// AthleteClaim_confirmed_before_review, migration 20261006100100).
+  state            ClaimState @default(PENDING_EMAIL)
+  emailConfirmedAt DateTime?
+  verifiedBy       String?
+  verifiedAt       DateTime?
+  createdAt        DateTime   @default(now())
 
   athlete Athlete @relation(fields: [athleteId], references: [id])
 
@@ -2160,6 +2164,7 @@ model AthleteClaim {
 }
 
 enum ClaimState {
+  PENDING_EMAIL
   SUBMITTED
   VERIFIED
   REJECTED

@@ -138,6 +138,8 @@ export type EmailTemplate =
   /* 2S8-PMO-02 — a link that expired (14 days), exchanged for a fresh one
      emailed to the address on file. */
   | "link.fresh"
+  /* 2S8-PMO-02 — a profile claimant confirms their email before the school sees the claim. */
+  | "athleteClaim.confirmEmail"
   /* 2S1-BE-14 — BTG admins are told about sensitive profile edits only. */
   | "athlete.sensitiveEdit"
   /* 2S1-BE-15 — the guardian handoff: the new guardian confirms their email;
@@ -325,4 +327,17 @@ export function athleteNotificationKey(
   occurrence: string | number,
 ): string {
   return `${template}:${athleteId}:${occurrence}`;
+}
+
+/**
+ * Has a message with this key already been queued for this tenant? For a
+ * caller that must do something else exactly once alongside the email (the
+ * audit row of a link renewal, 2S8-PMO-02): `send()` always queues, and the
+ * duplicate is dropped later, in the worker.
+ */
+export async function alreadyQueued(tx: Prisma.TransactionClient, tenantId: string, idempotencyKey: string): Promise<boolean> {
+  const n = await tx.outboxJob.count({
+    where: { tenantId, name: "notify.email", payload: { path: ["idempotencyKey"], equals: idempotencyKey } },
+  });
+  return n > 0;
 }

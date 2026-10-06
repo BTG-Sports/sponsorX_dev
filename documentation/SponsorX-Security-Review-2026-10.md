@@ -45,7 +45,7 @@ The checks were made against the OWASP Top 10 (2021), plus the ASVS basics that 
 - **Fixed (Low).** `/t/[code]` passed `..` to the API, and `fetch` resolves that to a different endpoint. It also did not re-check that the destination is http(s).
 - **Fixed (Low).** The admin ID-document action redirected to any URL the API returned.
 - **Fixed (Low), 2S8-SEC-05.** `GET /athletes/:id/rates` answered `200 []` for another athlete in the same tenant but 403 for an id that doesn't exist, which revealed which ids exist. The rates themselves were scoped. `readRateCard` now checks the athlete is within the caller's **own** reach (an athlete's own id, a guardian's ward, BTG's tenant) before it answers. Another athlete's id and a made-up one now give the same 403, word for word. Test: `backend/tests/security-hardening.test.ts`, block "1".
-- **Open (Low).** The public "claim this profile" flow (`/public/athletes/:slug/claim`) puts an unverified email onto the athlete once an advisor approves it. **Owner:** should the claimant confirm the email first?
+- **Open (Low).** The public "claim this profile" flow (`/public/athletes/:slug/claim`) puts an unverified email onto the athlete once an advisor approves it. **Owner:** should the claimant confirm the email first? **Decided 2026-10-06 and done:** yes. The claim is `PENDING_EMAIL`, invisible to the school, until the emailed link is opened (decision 5 below).
 
 **Fix:**
 - `registerCreativeAsset` refuses with `CreativeKeyError` (422) any key outside `t/<tenant>/deliverable/<id>/`, and any key containing `..`, `.` or `\`.
@@ -496,8 +496,35 @@ Matches are printed masked. **Result on 2026-10-05: 2,220 tracked files, no secr
        - an undated sponsor link is renewed to the request's own address;
        - an onboarding email link renews only for the current contact.
 5. **Profile-claim email.** Should a claimant confirm their email before an advisor can verify the claim (§A01)?
+   - **Decided (owner, 2026-10-06):** yes.
+   - **Done:**
+     - **New state.** Migrations `20261006100000` and `20261006100100` add `PENDING_EMAIL` to `ClaimState` (first in the enum) and an `emailConfirmedAt` column, and make `PENDING_EMAIL` the column default. They add `CHECK AthleteClaim_confirmed_before_review`: a claim is `SUBMITTED` (awaiting the advisor) only with `emailConfirmedAt` set.
+     - **Old claims.** Claims that were `SUBMITTED` before the decision never proved their email, so the migration moves them back to `PENDING_EMAIL`. No link was ever sent for them, so the claimant claims again. NEXT has not sold an edition, so none are expected. Verified and rejected claims are untouched.
+     - **Submitting** (`domain/featured.ts`): `submitClaim` creates the claim `PENDING_EMAIL`, audits `athleteClaim.submit`, and queues `athleteClaim.confirmEmail` through the outbox to the claimant. The link is signed and purpose-scoped (`athlete-claim-email:`, `lib/claim-token.ts`) and lives 14 days, like every other link (decision 4). The public answer is `{ id, state: "PENDING_EMAIL" }`, and still never says whether the name is on the roster.
+     - **Confirming:** opening the link moves the claim to `SUBMITTED` with `emailConfirmedAt`, audited as `athleteClaim.emailConfirmed`. It is idempotent.
+     - **The advisor's side:** `GET /claims` (paged and unpaged) neither lists nor counts an unconfirmed claim. `POST /claims/:id/verify` and `/reject` refuse one exactly like a claim that doesn't exist (403), so the advisor learns nothing of it. When one claim is verified, the profile's other claims, pending or submitted, are rejected.
+     - **Where the link lands.** No existing page fits: `/join/confirm`, `/onboarding/confirm` and `/sponsor-request/confirm` are each bound to their own flow, and no screen was built. So the emailed link is on the web app's host, `APP_URL/api/v1/public/athlete-claims/confirm?t=…`, which `next.config.ts` forwards to the API (an exact-path rewrite, like the CSP reports). The API answers **302** to the existing public profile with a flag:
+       - `?claim=confirmed`;
+       - `?claim=closed` (the school already decided);
+       - `?claim=expired-resent`: the link was past 14 days, and a fresh one has just been emailed to the claimant's own address, once an hour, audited as `link.renewed`;
+       - or the home page with `?claim=invalid`.
+       
+       `POST /public/athlete-claims/confirm-email {token}` does the same as JSON for a future page: 400 if bad, 410 `link_expired` if old. `POST /public/links/renew {kind:"claim-email"}` also works.
+   - **Frontend follow-ups:** (a) after "That's me", say "check your email" (the answer's `state` is now `PENDING_EMAIL`); (b) on `/athletes/[slug]`, read the `claim=` flag and say "confirmed, your school will review it", "that link had expired, we've sent a new one", or "already decided"; (c) a proper confirmation page that POSTs the token on a button press, so link scanners in mail clients can't confirm by prefetching the GET link.
+   - **Test:** `backend/tests/pmo02-claim-email.test.ts`, the whole path over HTTP against the database:
+     - a new claim is `PENDING_EMAIL` and the claimant is emailed a 14-day link on the web host;
+     - while unconfirmed, the claim is not listed or counted, and verify and reject are 403, with the athlete untouched;
+     - four kinds of tampered link redirect to `?claim=invalid`, give 400 as JSON, and confirm nothing;
+     - an expired link gives 410 as JSON, and when clicked redirects to `expired-resent` with a fresh link mailed (once an hour, renew included);
+     - the real link confirms, redirects to `?claim=confirmed`, is idempotent and audited, and the claim appears for the advisor;
+     - the claim is then verifiable, and the verification is audited;
+     - the database refuses a `SUBMITTED` claim with no confirmation, and the default is `PENDING_EMAIL`.
+
+     `next-rights.test.ts` now confirms both claims before the school acts.
 6. **Production `PAYMENT_PROVIDER`.** Set `PAYMENT_PROVIDER=none` explicitly on Railway production. The stand-in is chosen whenever `RAILWAY_ENVIRONMENT_NAME` is not exactly `production`, so a renamed environment would quietly switch it on. The boot guard only catches an *explicit* `standin`.
+   - **Decided (owner, 2026-10-06):** yes. **Applied by the lead on Railway:** `PAYMENT_PROVIDER=none` is set explicitly on production. No code change.
 7. **Staging `STANDIN_PROVIDER_SECRET`.** Staging is now safe without it (the secret is derived), but setting it explicitly makes rotation independent of `INTAKE_TOKEN_SECRET`. It is in the rotation runbook.
+   - **Decided (owner, 2026-10-06):** yes. **Applied by the lead on Railway:** `STANDIN_PROVIDER_SECRET` is set explicitly on staging, so rotating it no longer depends on `INTAKE_TOKEN_SECRET` (rotation runbook, section 10). No code change.
 
 ## Follow-ups not done here (each was Open above; struck through when closed)
 

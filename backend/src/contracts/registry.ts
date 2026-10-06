@@ -104,6 +104,7 @@ import {
 } from "./student";
 import {
   AssetCampaignInput,
+  ClaimConfirmInput,
   ClaimInput,
   ContentRightInput,
   ContributionInput,
@@ -503,14 +504,16 @@ const PATHS: Row[] = [
   { method: "post", path: "/edition-assets/{id}/campaign", tag: "Rights", summary: "Use content in a sponsor's campaign — only with a commercial grant (P9-BE-10).", body: AssetCampaignInput },
   { method: "post", path: "/consents", tag: "Rights", summary: "Record consent for a subject with no login — a featured athlete, or a minor via their verified guardian (P9-BE-11). P9-BE-23: the subject's existing edition assets get the consent right it gives, recorded by the system in the same transaction (`autoBasis: CONSENT`), once.", body: SubjectConsentInput, status: 201 },
   { method: "post", path: "/featured-athletes", tag: "Rights", summary: "Editorial features an athlete: FEATURED, read-only, no rates, no invitations (P9-BE-11).", body: FeaturedAthleteInput, status: 201 },
-  { method: "get", path: "/claims", tag: "Rights", summary: "Claims on featured profiles the caller may review. ?page ?size ?state (comma list) → one page, `page`, and `summary: { open, all }` (counts) (2026-09-29)." },
-  { method: "post", path: "/claims/{id}/verify", tag: "Rights", summary: "The school verifies a claim (roster match + advisor) — the profile enters review (P9-BE-11)." },
-  { method: "post", path: "/claims/{id}/reject", tag: "Rights", summary: "Reject a claim." },
+  { method: "get", path: "/claims", tag: "Rights", summary: "Claims on featured profiles the caller may review. ?page ?size ?state (comma list) → one page, `page`, and `summary: { open, all }` (counts) (2026-09-29). A claim whose claimant has not confirmed their email (PENDING_EMAIL) is never listed or counted (2S8-PMO-02)." },
+  { method: "post", path: "/claims/{id}/verify", tag: "Rights", summary: "The school verifies a claim (roster match + advisor) — the profile enters review (P9-BE-11). An unconfirmed (PENDING_EMAIL) claim is refused like one that doesn't exist (2S8-PMO-02)." },
+  { method: "post", path: "/claims/{id}/reject", tag: "Rights", summary: "Reject a claim. Not an unconfirmed (PENDING_EMAIL) one (2S8-PMO-02)." },
   { method: "post", path: "/properties/{id}/roster", tag: "Rights", summary: "A school supplies its roster: names and graduation years (P9-BE-11).", body: RosterInput, status: 201 },
   { method: "post", path: "/editions/{id}/contributions", tag: "Rights", summary: "Record a student's content contribution in units (P9-BE-14).", body: ContributionInput, status: 201 },
   { method: "get", path: "/editions/{id}/school-pools", tag: "Rights", summary: "A regional edition's SALES and CONTENT school pools, resolved by formula (P9-BE-14)." },
   { method: "get", path: "/public/athletes/{slug}", tag: "Public", summary: "A featured or active athlete's public profile — no legal name, contact, age or GPA (P9-BE-11).", auth: false },
-  { method: "post", path: "/public/athletes/{slug}/claim", tag: "Public", summary: "'That's me' — claim a featured profile (P9-BE-11).", auth: false, body: ClaimInput, status: 201 },
+  { method: "post", path: "/public/athletes/{slug}/claim", tag: "Public", summary: "'That's me' — claim a featured profile (P9-BE-11). The claim starts PENDING_EMAIL and a confirmation link (14 days) is emailed to the claimant; the school sees it only once that link is opened (2S8-PMO-02). Answers `{ id, state: \"PENDING_EMAIL\" }`.", auth: false, body: ClaimInput, status: 201 },
+  { method: "get", path: "/public/athlete-claims/confirm", tag: "Public", summary: "The claim confirmation link as clicked (`?t=`), reached through the web app's same path. Answers 302 to the public profile with `?claim=confirmed` (now SUBMITTED, with the school), `closed` (already decided), `expired-resent` (the link was past its 14 days; a fresh one was emailed to the claimant) or, for a link that isn't ours, the home page with `?claim=invalid`. Audited (2S8-PMO-02).", auth: false },
+  { method: "post", path: "/public/athlete-claims/confirm-email", tag: "Public", summary: "The same confirmation as JSON, for a page that calls it: `{ state, slug }`; 400 for a bad link, 410 `link_expired` (kind `claim-email`) for an old one (2S8-PMO-02).", auth: false, body: ClaimConfirmInput },
   // Phase 2 Sprint 1 — external property onboarding
   { method: "post", path: "/public/onboarding", tag: "Public", summary: "An organisation starts onboarding; returns its resume token (2S1-BE-01).", auth: false, body: OnboardingStartInput, status: 201 },
   { method: "get", path: "/public/onboarding/{token}", tag: "Public", summary: "The application so far, what is still missing, and the terms to accept.", auth: false },
@@ -763,7 +766,7 @@ const PATHS: Row[] = [
 
   // 2S8-PMO-02 — security decisions of 2026-10-06
   { method: "post", path: "/public/csp-report", tag: "Public", summary: "A browser's Content-Security-Policy violation report — `report-uri` (application/csp-report) or `report-to` (application/reports+json). The web app forwards its same-origin /api/v1/public/csp-report here. Nothing is stored: each violation is logged as one redacted line (origin and path only, token-like path segments masked, no samples). Rate-limited; the answer is the same whatever arrives.", auth: false, status: 202 },
-  { method: "post", path: "/public/links/renew", tag: "Public", summary: "A link past its 14 days answers 410 `link_expired` with its `kind`. Send that kind and the expired token here: if the token's signature is ours (its age doesn't matter), a fresh link is EMAILED to the address on file for that record — never returned. At most one email per record and kind per hour; audited `link.renewed`. Always `{ sent: true }`. Rate-limited. Kinds: intake, athlete-email, guardian-setup, coming-of-age, onboarding, onboarding-email, sponsor-request, sponsor-request-email, handoff, handoff-email (a reactivation link uses /public/account/reactivation-link).", auth: false, body: LinkRenewInput, status: 202, response: LinkRenewReceipt },
+  { method: "post", path: "/public/links/renew", tag: "Public", summary: "A link past its 14 days answers 410 `link_expired` with its `kind`. Send that kind and the expired token here: if the token's signature is ours (its age doesn't matter), a fresh link is EMAILED to the address on file for that record — never returned. At most one email per record and kind per hour; audited `link.renewed`. Always `{ sent: true }`. Rate-limited. Kinds: intake, athlete-email, guardian-setup, coming-of-age, onboarding, onboarding-email, sponsor-request, sponsor-request-email, handoff, handoff-email, claim-email (a reactivation link uses /public/account/reactivation-link).", auth: false, body: LinkRenewInput, status: 202, response: LinkRenewReceipt },
 ];
 
 for (const row of PATHS) {

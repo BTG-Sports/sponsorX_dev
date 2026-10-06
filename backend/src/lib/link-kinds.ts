@@ -15,6 +15,7 @@ export const LINK_KINDS = [
   "sponsor-request-email",
   "handoff",
   "handoff-email",
+  "claim-email",
   "account-reactivation",
   "support",
 ] as const;

@@ -38,13 +38,13 @@ const nextConfig: NextConfig = {
     return securityHeaders;
   },
 
-  // 2S8-PMO-02 — where the browser sends CSP violation reports. Same-origin,
-  // because the browser never talks to the API directly (API_URL is the
-  // private address the web server uses), so the web server forwards this one
-  // path to the API's POST /api/v1/public/csp-report. Read at build time, like
+  // 2S8-PMO-02 — two exact paths the web server forwards to the API: the
+  // browser's CSP violation reports, and the profile-claim confirmation link
+  // (see apiRewrites). The browser never talks to the API directly (API_URL is
+  // the private address the web server uses). Read at build time, like
   // headers(): Railway passes service variables to the build.
   async rewrites() {
-    return cspReportRewrites(process.env);
+    return apiRewrites(process.env);
   },
 };
 
@@ -53,9 +53,17 @@ type Env = Record<string, string | undefined>;
 /** The web path a browser POSTs violation reports to (forwarded to the API). */
 export const CSP_REPORT_PATH = "/api/v1/public/csp-report";
 
-export function cspReportRewrites(env: Env) {
+/* 2S8-PMO-02, owner decision 5 — the profile-claim confirmation link in the
+   claimant's email. It lands on this host like every other link we send;
+   the API confirms the claim and answers with a redirect to the public
+   profile (`?claim=confirmed`), which passes back through unchanged. No new
+   screen: a page of its own is a frontend follow-up. */
+export const CLAIM_CONFIRM_PATH = "/api/v1/public/athlete-claims/confirm";
+
+/** The only paths the web server forwards to the API. Exact paths, no wildcards. */
+export function apiRewrites(env: Env) {
   const api = (env.API_URL ?? "http://localhost:4000").replace(/\/+$/, "");
-  return [{ source: CSP_REPORT_PATH, destination: `${api}${CSP_REPORT_PATH}` }];
+  return [CSP_REPORT_PATH, CLAIM_CONFIRM_PATH].map((path) => ({ source: path, destination: `${api}${path}` }));
 }
 
 /** `pk_test_<base64("host$")>` → `https://host`, or null for a key that isn't one. */

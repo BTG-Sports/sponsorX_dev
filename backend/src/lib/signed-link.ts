@@ -6,7 +6,7 @@
  * athlete's email confirmation, the guardian's set-up, coming-of-age, a
  * property's onboarding (resume and email confirmation), a sponsor's request
  * (browser token and email confirmation), the guardian hand-off links, the
- * reactivation link. A link that was
+ * reactivation link and the profile-claim confirmation. A link that was
  * already given a shorter life keeps it (support: one hour; reactivation by
  * address: a day). **Unsubscribe links never expire** (unsubscribe-token.ts).
  *
