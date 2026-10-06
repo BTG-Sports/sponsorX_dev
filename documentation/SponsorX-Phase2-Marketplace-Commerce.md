@@ -1691,6 +1691,22 @@ Zoho Books sends no timestamp, so replaying an old, correctly signed invoice web
 - **Done when:** The guard tests fail on an unscoped write and on a same-tenant cross-account read, shown by a deliberately broken route
 - **Reference:** Security review 2026-10, Other checks (Open, Info); raised 2026-10-05 by 2S8-SEC-02
 
+### ⏸ `2S8-SEC-06` · Replace the full-access live Stripe key with a restricted key
+
+**Order** 62.6 · **SEC** · **Where:** Code · **1d** · **Ready**
+
+Production's live Stripe secret key was created on 2026-10-06 with **full access**, because it wasn't clear which restricted-key permissions Accounts v2 payout accounts need. It is stored only in Railway production (`api`).
+
+1. In the sandbox, work out the minimal set: Checkout Sessions, Charges and Refunds, Transfers, Webhook Endpoints, plus whichever Accounts v2 configuration permissions creating a recipient account needs.
+2. Prove the smoke script passes with that set.
+3. The owner creates the restricted live key.
+4. Swap it into Railway production (see the rotation runbook).
+5. Delete the full-access key in Stripe.
+
+- **Depends on:** 2S5-INT-03
+- **Done when:** Production uses a restricted live key that the sandbox smoke run proved sufficient; the full-access live key is deleted in Stripe
+- **Reference:** `documentation/SponsorX-Stripe-Integration.md`, `documentation/SponsorX-Secrets-Rotation.md`; raised 2026-10-06
+
 ### ⏸ `2S8-PMO-02` · Security settings the owner decides
 
 **Order** 62.5 · **PMO** · **Where:** Document · **1d** · **Ready**
