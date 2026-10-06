@@ -115,9 +115,9 @@ The single most important design decision in Phase 2. Order revenue must become 
 - **Done when:** Ledger design reviewed and signed off; the sequential rule order is documented and a worked example reconciles to the cent
 - **Reference:** Spec §7.4
 
-### ⏸ `2S0-PMO-03` · Select the marketplace payment provider
+### ✅ `2S0-PMO-03` · Select the marketplace payment provider
 
-**Order** 3 · **PMO** · **Where:** Vendor console · **3d** · **Blocked**
+**Order** 3 · **PMO** · **Where:** Vendor console · **3d** · **Done**
 
 Choose the provider that handles checkout, connected-account onboarding, platform fees, transfers, refunds and disputes. This decision shapes onboarding, payouts and compliance. Use a hosted or embedded flow so you never touch card data.
 
@@ -1088,9 +1088,9 @@ Built from the Claude Design file OrderCancellations.
 
 *14 tasks · 58 person-days*
 
-### ⏸ `2S5-INT-01` · Payment provider checkout integration
+### ✅ `2S5-INT-01` · Payment provider checkout integration
 
-**Order** 37 · **INT** · **Where:** Code + console · **5d** · **Blocked**
+**Order** 37 · **INT** · **Where:** Code + console · **5d** · **Done**
 
 Hosted or embedded checkout session creation. Card data never reaches your servers.
 
