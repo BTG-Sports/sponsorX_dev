@@ -53,8 +53,10 @@ export async function paymentWorld(o: { T: string; OTHER_T: string; prefix: stri
   const deliver = async (raw: string, opts: { at?: Date; secret?: string; signature?: string | null; provider?: string } = {}) => {
     const t = Math.floor((opts.at ?? new Date()).getTime() / 1000);
     const sig = opts.signature !== undefined ? opts.signature : `t=${t},v1=${createHmac("sha256", opts.secret ?? env.STANDIN_PROVIDER_SECRET).update(`${t}.${raw}`).digest("hex")}`;
+    /* 2S5-INT-01 — Stripe's deliveries carry `Stripe-Signature` (the caller signs them; fake-stripe.ts `stripeSignature`). */
+    const header = opts.provider === "stripe" ? "stripe-signature" : "x-standin-signature";
     const res = await fetch(`${base}/api/v1/webhooks/payments/${opts.provider ?? "standin"}`, {
-      method: "POST", headers: { "content-type": "application/json", ...(sig ? { "x-standin-signature": sig } : {}) }, body: raw,
+      method: "POST", headers: { "content-type": "application/json", ...(sig ? { [header]: sig } : {}) }, body: raw,
     });
     const text = await res.text();
     return { status: res.status, text, json: (() => { try { return JSON.parse(text); } catch { return null; } })() };

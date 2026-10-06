@@ -74,6 +74,8 @@ const HANDLED_JOBS = new Set<string>([
   "payments.event",
   "payouts.send",
   "payouts.confirm",
+  /* 2S5-INT-01 — a card refund, sent through Stripe. */
+  "refunds.send",
 ]);
 import { handleSendEmail, type EmailJob } from "./jobs/send-email.mts";
 import { handleGenerateQr, type QrJob } from "./jobs/generate-qr.mts";
@@ -108,6 +110,7 @@ import { prisma } from "../src/db/client.ts";
 import { ingestZohoInvoice, type ZohoInvoicePayload } from "../src/domain/invoice.ts";
 import { importCohort, type CohortImportJob } from "../src/domain/cohort-import.ts";
 import { completeStandinPayout, confirmPayoutPaid, sendPayout, sweepPayoutRetries } from "../src/domain/payouts.ts";
+import { sendRefund } from "../src/domain/refunds.ts";
 import { processPaymentEvent, retryDeferredPaymentEvents, standinConfirmPayment } from "../src/domain/payment-events.ts";
 import { providerName } from "../src/lib/payment-provider.ts";
 import { redis } from "../src/lib/redis.ts";
@@ -548,6 +551,11 @@ async function main(): Promise<void> {
   await ensureQueue("payouts.confirm");
   await boss.work<{ payoutId: string }>("payouts.confirm", async ([job]) =>
     log(`[worker] payouts.confirm ${JSON.stringify(await confirmPayoutPaid(job.data.payoutId))}`));
+  /* 2S5-INT-01 — a queued card refund, through Stripe. A throw (Stripe down)
+     has written nothing; the queue retries with the same idempotency key. */
+  await ensureQueue("refunds.send");
+  await boss.work<{ refundDueId: string }>("refunds.send", async ([job]) =>
+    log(`[worker] refunds.send ${JSON.stringify(await sendRefund(job.data.refundDueId))}`));
 
   const zohoDeps = { db: prisma, zoho: zohoFromEnv };
   const zohoLog = (name: string, outcome: unknown) =>

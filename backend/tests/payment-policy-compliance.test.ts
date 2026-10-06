@@ -101,18 +101,35 @@ describe("nor anywhere else in the source", () => {
   });
 });
 
-describe("and no payment provider is wired in", () => {
+describe("and only the approved payment provider is wired in — behind one file", () => {
   const pkg = JSON.parse(
     readFileSync(new URL("../package.json", import.meta.url), "utf8"),
   ) as { dependencies?: Record<string, string>; devDependencies?: Record<string, string> };
   const deps = Object.keys({ ...pkg.dependencies, ...pkg.devDependencies });
 
-  /* Addendum A6 again: nothing in Phase 1 moves money. A payment SDK in the
-     dependency list would be the clearest possible signal that changed. */
-  it.each(["stripe", "@stripe/stripe-js", "braintree", "square", "paypal", "plaid", "dwolla"])(
+  /* Addendum A6 held through Phase 1: nothing moved money. Phase 2 does —
+     2S5-INT-01 / -03 connect Stripe, the one SDK the programme owner
+     approved (2026-10-06, 2S0-PMO-03). Any other payment SDK is still a
+     decision nobody made, so it fails here. */
+  it.each(["@stripe/stripe-js", "braintree", "square", "paypal", "plaid", "dwolla"])(
     "does not depend on %s",
     (vendor) => {
       expect(deps).not.toContain(vendor);
     },
   );
+
+  it("depends on Stripe's server SDK, pinned exactly", () => {
+    expect(pkg.dependencies?.stripe).toMatch(/^\d+\.\d+\.\d+$/);
+  });
+
+  /* The SDK is imported by lib/stripe.ts alone; everything else talks to the
+     provider-neutral adapter (lib/payment-provider.ts), so nothing past it
+     can grow a Stripe-shaped dependency — or a card or bank field. */
+  it("imports the Stripe SDK in lib/stripe.ts only", () => {
+    const backend = fileURLToPath(new URL("..", import.meta.url));
+    const files = execSync("grep -rl '' src worker --include='*.ts' --include='*.mts' | grep -v generated", { cwd: backend, encoding: "utf8" })
+      .split("\n").filter(Boolean);
+    const importers = files.filter((f) => /from\s+["']stripe["']/.test(readFileSync(`${backend}/${f}`, "utf8")));
+    expect(importers).toEqual(["src/lib/stripe.ts"]);
+  });
 });
