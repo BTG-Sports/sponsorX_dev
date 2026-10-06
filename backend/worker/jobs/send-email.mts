@@ -200,6 +200,11 @@ ${d.portalUrl ?? ""}
     subject: `A payout of ${d.amount ?? ""} to ${d.payeeName ?? "a payee"} couldn't be sent — it's yours to look at`,
     text: `The payment provider couldn't send a payout of ${d.amount ?? ""} to ${d.payeeName ?? "a payee"}, and SponsorX won't retry it by itself.\n\nWhy: ${d.reason ?? ""}\n\nCheck it with the provider, then retry it — or send it back to the payee with a note:\n\n${d.payoutUrl ?? ""}\n\n— SponsorX`,
   }),
+  /* 2S5-INT-01 — Stripe refused a queued card refund; it is Finance's to send by hand. */
+  "refund.providerRefused": (d) => ({
+    subject: `A refund of ${d.amount ?? ""} on order ${d.orderRef ?? ""} couldn't be sent to the card`,
+    text: `SponsorX tried to refund ${d.amount ?? ""} on order ${d.orderRef ?? ""} to the sponsor's card through Stripe, and it didn't go.\n\nWhy: ${d.why ?? ""}\n\nIt is back on "Refunds to send" — send it another way and mark it sent:\n\n${d.refundsUrl ?? ""}\n\n— SponsorX`,
+  }),
   /* P4-BE-09 — campaigns move on their own: ready for BTG to launch; the
      sponsor's final report is ready. */
   "campaign.readyToLaunch": (d) => ({
