@@ -40,6 +40,8 @@
 
 /** A transaction that calls the provider waits for it, at most PAYMENT_PROVIDER_TIMEOUT_MS (and its own work besides). */
 const providerTx = () => ({ timeout: env.PAYMENT_PROVIDER_TIMEOUT_MS * 2 + 10_000, maxWait: 10_000 });
+import { randomUUID } from "node:crypto";
+
 import type { Prisma } from "../generated/prisma/client";
 import { prisma } from "../db/client";
 import { audit } from "../db/audit";
@@ -49,7 +51,7 @@ import type { Actor } from "../auth/actor";
 import { assertAllowed, can, whereFor } from "../auth/scope";
 import { ForbiddenError } from "../auth/errors";
 import {
-  openCheckout, ProviderRefusedError, providerName, readStandinToken, sendPayoutToProvider, standinLink, standinRef,
+  createPayoutAccount, openCheckout, payoutAccountLinkUrl, payoutAccountStatus, ProviderRefusedError, providerName, readStandinToken, sendPayoutToProvider, standinLink, standinRef,
   StandinTokenError,
 } from "../lib/payment-provider";
 import { postPayout, postPayoutReturn } from "./ledger";
@@ -170,8 +172,7 @@ export async function payoutAccountLink(actor: Actor, returnPath: unknown, now =
   const provider = providerName();
   if (provider === "none") throw providerUnavailable("Payout set-up");
   const back = safeReturnPath(returnPath, payee.payeeType === "ATHLETE" ? "/athlete" : "/property/earnings");
-  /* Payout set-up with Stripe: 2S5-INT-03. */
-  if (provider === "stripe") throw providerUnavailable("Payout set-up");
+  if (provider === "stripe") return { url: await stripeAccountLink(actor, payee, back, now) };
   await prisma.$transaction(async (tx) => {
     const existing = await tx.payoutAccount.findFirst({ where: whereFor(actor, "payoutAccount", "write"), select: { id: true } });
     if (!existing) {
@@ -183,6 +184,51 @@ export async function payoutAccountLink(actor: Actor, returnPath: unknown, now =
     await audit(tx, actor, "payoutAccount.link", "PayoutAccount", `${payee.payeeType}:${payee.payeeId}`, { after: { provider } });
   });
   return { url: standinLink({ kind: "account", payeeType: payee.payeeType, payeeId: payee.payeeId, tenantId: payee.payeeTenantId, returnPath: back }, now) };
+}
+
+/**
+ * 2S5-INT-03 — Stripe: the payee's connected account, opened the first time
+ * they start (an Express account, idempotent per payee — a retry is the same
+ * account), its id stored and nothing else; then the link to Stripe's hosted
+ * onboarding — or, once READY, to their Express dashboard. Stripe's word on
+ * the account (`account.updated`) is what moves its status; SponsorX never
+ * sees a bank detail. Stripe is called outside any transaction, so a slow
+ * Stripe holds no lock: the account is created, then recorded.
+ *
+ * A payee who had an account at another provider (the stand-in, on staging)
+ * starts again at Stripe: NOT_SET_UP, and a new account is a change
+ * (2S5-BE-06's review window).
+ */
+async function stripeAccountLink(actor: Actor, payee: Payee, back: string, now: Date): Promise<string> {
+  const before = await prisma.payoutAccount.findFirst({ where: whereFor(actor, "payoutAccount", "write"), select: { id: true, provider: true, providerAccountId: true, status: true } });
+  let accountRef = before?.provider === "stripe" ? before.providerAccountId : null;
+  if (!accountRef) {
+    /* Stripe asks for a contact for the account: the person setting it up (the payee, a property's manager, a minor's guardian). */
+    const me = await prisma.user.findUnique({ /* tenant-scope: the signed-in user's own row. */ where: { id: actor.userId }, select: { email: true } });
+    if (!me?.email) throw new PayoutError("Your login has no email address, which the payment provider needs to set up payouts — contact BTG support.", 409);
+    accountRef = (await createPayoutAccount({
+      payeeType: payee.payeeType, payeeId: payee.payeeId, tenantId: payee.payeeTenantId, contactEmail: me.email, displayName: await payeeName(prisma, payee),
+    })).accountRef;
+    const opened = accountRef;
+    await prisma.$transaction(async (tx) => {
+      await lockPayee(tx, payee);
+      const row = await tx.payoutAccount.findFirst({ where: whereFor(actor, "payoutAccount", "write"), select: { id: true, provider: true, providerAccountId: true, status: true } });
+      if (row?.provider === "stripe" && row.providerAccountId === opened) return; // recorded by a request at the same moment
+      const data = { provider: "stripe", providerAccountId: opened, status: "NOT_SET_UP", changedAt: row?.providerAccountId ? now : null };
+      if (row) {
+        await tx.payoutAccount.update({ /* tenant-scope: the row just loaded through whereFor(payoutAccount, write). */ where: { id: row.id }, data, select: { id: true } });
+      } else {
+        await tx.payoutAccount.create({ data: { ...data, tenantId: payee.payeeTenantId, payeeType: payee.payeeType, payeeId: payee.payeeId }, select: { id: true } });
+      }
+      await audit(tx, actor, "payoutAccount.open", "PayoutAccount", `${payee.payeeType}:${payee.payeeId}`, {
+        before: row ? { provider: row.provider, status: row.status } : undefined,
+        after: { provider: "stripe", providerAccountId: opened, status: "NOT_SET_UP" },
+      });
+    });
+  }
+  const url = await payoutAccountLinkUrl({ accountRef, returnPath: back, manage: before?.provider === "stripe" && before.status === "READY", requestId: randomUUID() });
+  await prisma.$transaction((tx) => audit(tx, actor, "payoutAccount.link", "PayoutAccount", `${payee.payeeType}:${payee.payeeId}`, { after: { provider: "stripe" } }));
+  return url;
 }
 
 /* ── card payment — 2S5-INT-01 ────────────────────────────────────────── */
@@ -1409,8 +1455,41 @@ export const onPayoutReturned: Handler = async (tx, _ev, data, now) => {
   return applied(`Payout of ${usd(row.amountCents)} returned by the bank — waiting for the payee's payout account`, row.tenantId);
 };
 
+/**
+ * account.updated — 2S5-INT-03: the provider's word on a payee's payout
+ * account, by its account id. Ready or needing information, through
+ * `recordAccountStatus` (the one place it is written — READY again releases
+ * the payouts waiting on it). The same status again changes nothing. An
+ * account SponsorX hasn't recorded yet (the provider faster than our commit)
+ * waits and is tried again; one the payee has since replaced is ignored. An
+ * account the provider rejected is recorded NEEDS_INFO and HELD for BTG: the
+ * payee can't fix that themselves.
+ */
+export const onAccountUpdated: Handler = async (tx, ev, data, now) => {
+  const accountRef = String(data.accountRef);
+  const row = await tx.payoutAccount.findFirst({
+    /* tenant-scope: the payout account a verified provider event names, by the provider's own account id. */
+    where: { provider: ev.provider, providerAccountId: accountRef }, select: { tenantId: true, payeeType: true, payeeId: true, status: true },
+  });
+  if (!row) return deferred("No payout account in SponsorX matches this provider account yet — tried again shortly");
+  /* A thin event only said it changed: the account is read afresh from the provider (the worker, never a request path). */
+  const fresh = data.status === undefined ? await payoutAccountStatus(accountRef) : null;
+  const status = (fresh?.status ?? data.status) === "READY" ? "READY" : "NEEDS_INFO";
+  const reason = fresh ? fresh.reason : typeof data.reason === "string" ? data.reason : null;
+  const rejected = fresh ? fresh.rejected : data.rejected === true;
+  const payee: Payee = { payeeType: row.payeeType as PayeeType, payeeId: row.payeeId, payeeTenantId: row.tenantId };
+  const who = `${await payeeName(tx, payee)}'s payout account`;
+  if (row.status !== status) await recordAccountStatus(tx, payee, { status, provider: ev.provider, providerAccountId: accountRef }, now);
+  if (rejected) {
+    return held(`${who} was rejected by the payment provider${reason ? ` — ${reason}` : ""}. The payee can't fix this themselves: contact them, and check it with the provider.`);
+  }
+  if (row.status === status) return ignored(`${who} is already ${status === "READY" ? "ready" : "waiting on information"}`);
+  return applied(status === "READY" ? `${who} is ready to be paid` : `${who} needs attention${reason ? `: ${reason}` : ""}`);
+};
+
 /** The handlers this module owns, for payment-events.ts (resolved at call time). */
 export function payoutHandlerFor(type: string): Handler | null {
+  if (type === "account.updated") return onAccountUpdated;
   if (type === "payout.paid") return onPayoutPaid;
   if (type === "payout.failed") return onPayoutFailed;
   if (type === "payout.returned") return onPayoutReturned;
