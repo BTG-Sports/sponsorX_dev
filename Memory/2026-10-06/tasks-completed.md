@@ -74,3 +74,4 @@
   - The owner expired the full-access key `sk_live_…QUac`.
   - Production still has `PAYMENT_PROVIDER` unset (`none`). Go-live is deferred, owner's call: possibly after Phase 4.
   - Staging still uses the full sandbox key, `sk_test_…a2Wh`. The restricted sandbox key is kept as `STRIPE_SECRET_KEY_RESTRICTED_TEST` for smoke runs.
+- **2S8-QA-08 · Done.** `private-upload-pins.test.ts` now gives every id, slug and email a per-run random suffix, and its cleanup warns which tables it couldn't clear. The full backend suite passed 5 runs in a row (180 files, 2910 tests each).

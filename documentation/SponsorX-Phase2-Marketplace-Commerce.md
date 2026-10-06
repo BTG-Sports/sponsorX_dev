@@ -1638,9 +1638,9 @@ Two fixes:
 - **Done when:** A database built only by migrations has every rule in prisma/sql; the guard fails on any drift
 - **Reference:** Found 2026-10-03 by a failing phase2-orders test on a fresh database
 
-### ⏸ `2S8-QA-08` · private-upload-pins test fails intermittently in the full suite
+### ✅ `2S8-QA-08` · private-upload-pins test fails intermittently in the full suite
 
-**Order** 60.9 · **QA** · **Where:** Code · **1d** · **Ready**
+**Order** 60.9 · **QA** · **Where:** Code · **1d** · **Done**
 
 `backend/tests/private-upload-pins.test.ts` passes on its own, but has failed in about one in six full parallel runs. The failure is in its setup: a duplicate key on a fixed `pu_` id, after which its 11 tests are skipped. Its cleanup deletes by tenant and ignores errors, so a row that couldn't be deleted survives into the next run.
 
