@@ -29,6 +29,9 @@ Some secrets **check** something that arrives from outside: a Zoho webhook signa
 | `SPONSORX_EDGE_KEY` | `SPONSORX_EDGE_KEY_PREVIOUS` | the web → API forwarded fan address (`lib/client-ip.ts`) |
 | `INTAKE_TOKEN_SECRET` | `INTAKE_TOKEN_SECRET_PREVIOUS` | every emailed link (`lib/intake-secret.ts`) |
 | `STANDIN_PROVIDER_SECRET` | `STANDIN_PROVIDER_SECRET_PREVIOUS` | staging's test-provider links (`lib/payment-provider.ts`) |
+| `STRIPE_WEBHOOK_SECRET` | `STRIPE_WEBHOOK_SECRET_PREVIOUS` | Stripe's platform webhook signature (`lib/stripe.ts`) |
+| `STRIPE_THIN_WEBHOOK_SECRET` | `STRIPE_THIN_WEBHOOK_SECRET_PREVIOUS` | Stripe's thin-event (Accounts v2) destination signature (same file) |
+| `STRIPE_CONNECT_WEBHOOK_SECRET` | `STRIPE_CONNECT_WEBHOOK_SECRET_PREVIOUS` | Stripe's Connect webhook signature (same file) |
 
 ## How to change a variable on Railway
 
@@ -178,6 +181,24 @@ The same steps apply to every row below:
   1. Set `STANDIN_PROVIDER_SECRET_PREVIOUS` = the current value and `STANDIN_PROVIDER_SECRET` = the new value, then deploy.
   2. After **1 hour**, the lifetime of a stand-in link, delete `_PREVIOUS` and deploy.
 - **Downtime:** none. Without the overlap, a test-provider page open at that moment says the link expired; start the payment again.
+
+### 10a · Stripe: `STRIPE_SECRET_KEY`, and the webhook signing secrets (+ `_PREVIOUS`)
+
+- **Where it lives:** `api`. The full setup is in documentation/SponsorX-Stripe-Integration.md.
+- **Owner:** the Railway project admin, together with whoever administers the Stripe account.
+- **Rotate the secret key:**
+  1. In Stripe, roll the key. Stripe keeps the old one valid for the overlap you choose.
+  2. Set `STRIPE_SECRET_KEY` = the new key and deploy.
+  3. Let the old key expire in Stripe.
+
+  The boot guard refuses a live key outside production, and a test key in production.
+- **Rotate a webhook signing secret:**
+  1. In Stripe, roll the destination's secret. Stripe signs with both the old and the new secret during its overlap.
+  2. Set `STRIPE_WEBHOOK_SECRET_PREVIOUS` = the old value and `STRIPE_WEBHOOK_SECRET` = the new value, then deploy.
+  3. After Stripe's overlap ends, delete `_PREVIOUS` and deploy.
+
+  The same steps apply to `STRIPE_THIN_WEBHOOK_SECRET` and `STRIPE_CONNECT_WEBHOOK_SECRET`.
+- **Downtime:** none. A delivery refused in between is retried by Stripe for up to three days, and a redelivery is a no-op once it lands.
 
 ### 11 · `SPONSORX_EDGE_KEY` (+ `_PREVIOUS`)
 

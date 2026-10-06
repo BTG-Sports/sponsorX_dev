@@ -180,8 +180,22 @@ order and asserts every figure in the table.
   paid out of money that went back to the sponsor.
 - **The books still reconcile:** booked − reversed − paid = ledger balance =
   pending, with pending negative by what is owed back.
-- **Not yet:** the provider's dispute fee, and its fee on a refund — trued up
-  with processing when the real provider is connected (2S5-INT-01).
+- **Not yet:** the provider's dispute fee, and its fee on a refund. These are
+  to be trued up with processing now that Stripe is connected (2S5-INT-01);
+  that work is still open (see §6).
+
+## 5b · Where Stripe's money meets the books (2S5-INT-01, 2026-10-06)
+
+- **Separate charges and transfers.** The sponsor's card payment lands in
+  BTG's Stripe balance, which is the moment the order is PAID and its payables
+  become available. A payout is a Stripe **transfer** to the payee's connected
+  account. `transfer.created` is the moment the `PAYOUT` journal posts. A
+  transfer reversed in full mirrors that journal (`payout.returned`).
+- **A card refund** is sent by the worker (`refunds.send`) after the refund
+  path has already posted its `REVERSAL` and written the `RefundDue`. Stripe's
+  `refund.*` event confirms it. It never posts twice.
+- **Nothing about the card or bank** is stored. On SponsorX's side there are
+  only Stripe ids: `pi_…`, `re_…`, `tr_…`, `acct_…`.
 
 ## 6 · Not in this design (named)
 
