@@ -84,7 +84,9 @@ describe("A05 · security headers", () => {
     expect(all["X-Content-Type-Options"]).toBe("nosniff");
     expect(all["X-Frame-Options"]).toBe("DENY");
     expect(all["Content-Security-Policy"]).toContain("frame-ancestors 'none'");
-    expect(all["Strict-Transport-Security"]).toMatch(/max-age=\d{7,}/);
+    /* 2S8-PMO-02 (owner, 2026-10-06): a year, includeSubDomains, never preload. */
+    expect(all["Strict-Transport-Security"]).toBe("max-age=31536000; includeSubDomains");
+    expect(all["Strict-Transport-Security"]).not.toMatch(/preload/);
     expect(all["Referrer-Policy"]).toBe("strict-origin-when-cross-origin");
     for (const source of ["/r/:path*", "/u/:path*", "/test-provider/:path*"]) {
       const rule = rules.find((r) => r.source === source);

@@ -170,7 +170,7 @@ The checks were made against the OWASP Top 10 (2021), plus the ASVS basics that 
   - `/test-provider` pages ship to production, but production uses the `none` provider, so no link can open them.
 - **Fixed (Medium).** Neither server set any security headers, and both advertised their framework in `X-Powered-By`. The fan, unsubscribe and stand-in pages, whose URL **is** the credential, could be framed and could leak the token in the Referer header.
 - **Owner.** A full script/style CSP needs to allow Clerk, Turnstile, the R2 upload host and the inline `<style>` on `/r` and `/u`. Recommendation: roll it out in `Content-Security-Policy-Report-Only` first.
-- **Owner.** HSTS is set **without** `includeSubDomains` and `preload`. Both commit every `sponsorx.net` host to HTTPS.
+- **Owner.** HSTS is set **without** `includeSubDomains` and `preload`. Both commit every `sponsorx.net` host to HTTPS. **Decided 2026-10-06:** `includeSubDomains` on, `preload` off (decision 2 below).
 
 **Fix:**
 - API (`app.ts`):
@@ -406,8 +406,13 @@ Matches are printed masked. **Result on 2026-10-05: 2,220 tracked files, no secr
 
 ## Decisions for the owner
 
+**All seven were decided by the programme owner on 2026-10-06, and are implemented under 2S8-PMO-02.** Each item says what was decided and what was done.
+
 1. **Full CSP.** Roll out a script/style CSP in report-only mode first. It has to allow Clerk, Turnstile, the R2 upload host and the inline styles on `/r` and `/u` (§A05).
 2. **HSTS `includeSubDomains` / `preload`.** Both commit every `sponsorx.net` host to HTTPS (§A05).
+   - **Decided (owner, 2026-10-06):** `includeSubDomains` yes, `preload` no.
+   - **Done:** the web app now sends `Strict-Transport-Security: max-age=31536000; includeSubDomains` on every path (`frontend/next.config.ts`). Every `sponsorx.net` host must therefore serve HTTPS. `clerk.` and `accounts.` already do (issued certificates, `.claude/stack-decision.md`); any subdomain added later, a CDN for example, needs its certificate before anyone opens it in a browser. Preload is not set: the preload list ships inside browsers and takes months to leave. The API sends no HSTS and still doesn't: it serves only JSON, and its public domain only takes webhooks, so the web app owns the header.
+   - **Test:** `frontend/tests/security-review.test.ts`, "A05 · security headers", pins the exact value and that `preload` is absent.
 3. **Clerk `authorizedParties`.** List every web origin that mints sessions before turning it on (§A07).
 4. **Link lifetimes.** Decide how long intake, onboarding, sign-up and sponsor-request links should live. The intake link should also gain a purpose prefix, using the `_PREVIOUS` overlap so links already sent keep working (§A02).
 5. **Profile-claim email.** Should a claimant confirm their email before an advisor can verify the claim (§A01)?

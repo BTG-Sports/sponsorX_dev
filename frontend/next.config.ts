@@ -40,14 +40,18 @@ const nextConfig: NextConfig = {
   },
 };
 
-/* Exported for tests/security-headers.test.ts. HSTS without includeSubDomains
-   and without preload: both are commitments about every sponsorx.net host,
-   which is the owner's call (security review §A05). */
+/* Exported for tests/security-review.test.ts.
+
+   HSTS — 2S8-PMO-02, the programme owner's decision of 2026-10-06: one year,
+   WITH includeSubDomains, so every sponsorx.net host (clerk., accounts.,
+   cdn. and any added later) is HTTPS-only in a browser that has seen this
+   header; and WITHOUT preload. Preload ships in browsers and takes months to
+   undo, so it stays off (security review §A05). */
 export const securityHeaders = [
   {
     source: "/:path*",
     headers: [
-      { key: "Strict-Transport-Security", value: "max-age=31536000" },
+      { key: "Strict-Transport-Security", value: "max-age=31536000; includeSubDomains" },
       { key: "X-Content-Type-Options", value: "nosniff" },
       { key: "X-Frame-Options", value: "DENY" },
       { key: "Content-Security-Policy", value: "frame-ancestors 'none'; base-uri 'self'; object-src 'none'" },
