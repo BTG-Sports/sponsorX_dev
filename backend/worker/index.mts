@@ -101,6 +101,7 @@ import { STUDENT_DIGEST_HOUR_UTC, sendStudentApprovalDigests, sweepStudentAutoma
 import { sweepEditionStages } from "../src/domain/edition-automation.ts";
 import { sweepHeldSales } from "../src/domain/ad-sale-auto.ts";
 import { purgeExpiredClosures } from "../src/domain/account-closure.ts";
+import { trimZohoWebhookBodies } from "../src/domain/webhook-retention.ts";
 import { sweepComingOfAge } from "../src/domain/coming-of-age.ts";
 import { LISTING_DIGEST_HOUR_UTC, sendListingDigests } from "../src/domain/listing.ts";
 import { ORDER_DIGEST_HOUR_UTC, sendOrderApprovalDigests, sweepSellerApprovals } from "../src/domain/order-approval.ts";
@@ -455,8 +456,8 @@ async function main(): Promise<void> {
   await ensureQueue("notify.email");
 
   await boss.work<EmailJob>("notify.email", async ([job]) => {
-    /* 2S1-BE-16 — a support message's attachments are read from the private bucket at send time. */
-    const outcome = await handleSendEmail(pool, job.data, getPrivateObject);
+    /* 2S0-SEC-01 — no email carries a private-bucket file (a support message links to BTG's signed-in page). */
+    const outcome = await handleSendEmail(pool, job.data);
     /* Logged because a duplicate is not a failure — it means the message had
        already gone once, which is what was asked for. Silence here would
        make an at-least-once delivery look like a lost email. */
@@ -905,10 +906,18 @@ async function main(): Promise<void> {
      one is never picked up again, so the extra passes cost nothing. */
   retentionTimer = setInterval(() => {
     void purgeExpiredClosures(prisma)
-      .then(({ closures, files, handoffDocuments }) => {
-        if (closures || handoffDocuments) log(`[worker] retention — ${closures} closed account(s) purged, ${files + handoffDocuments} file(s) deleted`);
+      .then(({ closures, files, handoffDocuments, supportAttachments }) => {
+        if (closures || handoffDocuments || supportAttachments) {
+          log(`[worker] retention — ${closures} closed account(s) purged, ${files + handoffDocuments + supportAttachments} file(s) deleted (${supportAttachments} support attachment(s))`);
+        }
       })
       .catch((error: unknown) => logError("[worker] retention sweep failed, will retry next hour:", error));
+    /* 2S0-SEC-01 (O4) — finished Zoho webhook bodies older than 90 days, trimmed to their ids. */
+    void trimZohoWebhookBodies()
+      .then(({ trimmed }) => {
+        if (trimmed) log(`[worker] retention — ${trimmed} Zoho webhook bod(ies) trimmed to ids`);
+      })
+      .catch((error: unknown) => logError("[worker] Zoho webhook trim failed, will retry next hour:", error));
   }, REMINDER_INTERVAL_MS);
 
   expiryTimer = setInterval(() => {

@@ -188,12 +188,50 @@ export function looksLikeCardNumber(s: string): boolean {
   return sum % 10 === 0;
 }
 
+/**
+ * 2S0-SEC-01 (the owner's decision on O5, 2026-10-06) — a card number
+ * ANYWHERE in a free-text note: every run of digits (spaces and dashes
+ * inside it allowed, as a card is usually written) is split into its digit
+ * groups, and every consecutive stretch of groups 13–19 digits long is put
+ * through `looksLikeCardNumber` — so "paid 06 10 4242 4242 4242 4242" is
+ * caught though a date runs into it. A reference box holds one value, so it
+ * is checked whole; a note is prose, so it is checked stretch by stretch. Pure.
+ */
+export function containsCardNumber(text: string | null | undefined): boolean {
+  for (const run of (text ?? "").match(/\d(?:[\d -]*\d)?/g) ?? []) {
+    const groups = run.split(/[ -]+/);
+    for (let i = 0; i < groups.length; i++) {
+      let digits = "";
+      for (let j = i; j < groups.length && digits.length < 19; j++) {
+        digits += groups[j];
+        if (digits.length >= 13 && digits.length <= 19 && looksLikeCardNumber(digits)) return true;
+      }
+    }
+  }
+  return false;
+}
+
+/** A note or reference that carries a card number: 422, in words BTG can act on. */
+export class CardNumberInTextError extends Error {
+  readonly status = 422;
+  readonly code = "card_number";
+  constructor(what: string) {
+    super(`That ${what} looks like it contains a card number. SponsorX never stores card or bank numbers — take it out (the payment provider's reference, or the last 4 digits, is enough) and save again.`);
+    this.name = "CardNumberInTextError";
+  }
+}
+
+/** Refuses (422) a free-text payment, payout, refund or dispute note that carries a card number. */
+export function refuseCardNumber(text: string | null | undefined, what = "note"): void {
+  if (containsCardNumber(text)) throw new CardNumberInTextError(what);
+}
+
 /** What is wrong with a billing contact, in words the sponsor can act on. Empty means fine. */
 export function billingProblems(b: Partial<BillingContact> | null | undefined): string[] {
   const out: string[] = [];
   if (!b?.name?.trim()) out.push("the billing contact's name");
   if (!b?.email?.trim()) out.push("the billing contact's email");
-  if (b?.reference && looksLikeCardNumber(b.reference)) out.push("a PO or reference that is not a card number — SponsorX never takes card or bank numbers");
+  if (b?.reference && containsCardNumber(b.reference)) out.push("a PO or reference that is not a card number — SponsorX never takes card or bank numbers");
   return out;
 }
 
@@ -212,7 +250,7 @@ export function manualPaymentProblems(p: Partial<ManualPayment> | null | undefin
   const ref = p?.reference?.trim() ?? "";
   if (!ref) out.push("the payment reference");
   else if (ref.length > 200) out.push("a payment reference of at most 200 characters");
-  else if (looksLikeCardNumber(ref)) out.push("a payment reference that is not a card number — SponsorX never takes card or bank numbers");
+  else if (containsCardNumber(ref)) out.push("a payment reference that is not a card number — SponsorX never takes card or bank numbers");
   const day = p?.receivedOn ?? "";
   const when = /^\d{4}-\d{2}-\d{2}$/.test(day) ? new Date(`${day}T00:00:00.000Z`) : null;
   if (!when || Number.isNaN(when.getTime()) || when.toISOString().slice(0, 10) !== day) out.push("the date the payment was received");

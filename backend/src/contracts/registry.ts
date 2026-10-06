@@ -755,7 +755,9 @@ const PATHS: Row[] = [
   // 2S1-BE-16 — contacting BTG support
   { method: "get", path: "/public/support", tag: "Public", summary: "The support address (SUPPORT_EMAIL), whether the mailbox is set up yet, and the topics (2S1-BE-16).", auth: false },
   { method: "post", path: "/public/support/messages", tag: "Public", summary: "A message to BTG support. Queued through the worker to the support mailbox (Reply-To the sender) with a copy to the sender; with attachments, each gets a private-bucket PUT and the message is queued by /send. Rate-limited (2S1-BE-16).", auth: false, body: SupportMessageInput, status: 201 },
-  { method: "post", path: "/public/support/messages/{token}/send", tag: "Public", summary: "Every attachment has uploaded: queue the message (2S1-BE-16).", auth: false },
+  { method: "post", path: "/public/support/messages/{token}/send", tag: "Public", summary: "Every attachment has uploaded: queue the message. The support mailbox's email names the attachments and links to BTG's signed-in support page; it never carries the files (2S1-BE-16, 2S0-SEC-01).", auth: false },
+  { method: "get", path: "/support-messages/{id}", tag: "Support", summary: "BTG admin only: one contact-form message — sender, topic, text — and its attachments' names, types, sizes and whether each arrived. No file content and no link (2S0-SEC-01)." },
+  { method: "get", path: "/support-messages/{id}/attachments/{attachmentId}", tag: "Support", summary: "BTG admin only: a five-minute, audited link to one attachment in the private bucket — how the support desk opens a guardianship proof or an ID (2S0-SEC-01)." },
   { method: "post", path: "/public/support/messages/{token}/attachments/{attachmentId}/drop", tag: "Public", summary: "Send without an attachment that won't upload (2S1-BE-16).", auth: false },
 ];
 
