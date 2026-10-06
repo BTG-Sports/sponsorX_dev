@@ -68,3 +68,9 @@
   - **Waiting on the owner** for the live restricted key.
 - **The smoke script** (`backend/scripts/stripe-sandbox-smoke.mts`) now takes `STRIPE_SMOKE_ADMIN_KEY` for its own setup calls and `STRIPE_SMOKE_LOGIN_ACCOUNT`, which adds check 2c.
 - **Go-live webhooks:** register them in the Dashboard, not through the API, so the runtime key needs no webhook-endpoint permission.
+- **2S8-SEC-06 · Done.**
+  - The owner created the live restricted key "SponsorX production (restricted)" (`rk_live_…QVaC`) with the seven permissions proven in the sandbox, and it is swapped into Railway production `api`.
+  - A read-only check confirmed v2 accounts, refunds and transfers are allowed, while customers and balance are refused (403).
+  - The owner expired the full-access key `sk_live_…QUac`.
+  - Production still has `PAYMENT_PROVIDER` unset (`none`). Go-live is deferred, owner's call: possibly after Phase 4.
+  - Staging still uses the full sandbox key, `sk_test_…a2Wh`. The restricted sandbox key is kept as `STRIPE_SECRET_KEY_RESTRICTED_TEST` for smoke runs.
