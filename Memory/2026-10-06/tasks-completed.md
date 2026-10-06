@@ -48,3 +48,23 @@
   3. Set `PAYMENT_PROVIDER=stripe`, then run `npm run deploy production`. A variable change alone rebuilds from `release`.
   4. Run one small real payment and refund.
 - **New row: 2S8-SEC-06** (Ready). Swap the full-access live key for a restricted one, proven in the sandbox first.
+- **2S0-SEC-01 · Done.** The payments and personal-data review is in `documentation/SponsorX-Payments-PII-Review-2026-10.md`.
+  - **Card data passes.** Checkout is hosted, and stored payment events keep only ids and amounts. Refused webhooks no longer store the raw Stripe event; migration `20261006043000` cleaned up the rows already stored.
+  - **Payout account data passes.** Only the account id and its status are stored.
+  - **Verification documents pass.** They live in the private bucket and are read through audited five-minute links. A new boot guard stops the API starting if the public and private buckets are the same.
+  - **Logs are fixed.** `logError` / `redactForLog` now cover every `console.error`, and Stripe's `scrub` masks emails.
+  - **The owner decided the open findings on 2026-10-06:**
+    - O1 fixed: support files are reached by link, not emailed; new BTG-admin routes `/support-messages/:id`;
+    - O2 fixed: support attachments are deleted after 90 days (30 if the message was never sent);
+    - O4 fixed: Zoho bodies are trimmed to ids after 90 days;
+    - O5 fixed: card numbers are refused in payment notes;
+    - O3 (third-party error text) and O6 (dates of birth are needed) accepted in writing.
+  - Backend tests now total 2910.
+- **New rows:**
+  - **2S1-FE-14** (Ready): the admin support-message page, for HeckerCreatives.
+  - **2S8-QA-08** (Ready): `private-upload-pins` fails in about 1 of 6 full parallel runs.
+- **2S8-SEC-06 is in progress.** The restricted sandbox key `rk_test_…2oCb` is stored on staging as `STRIPE_SECRET_KEY_RESTRICTED_TEST`. The smoke run passed 17/17 with the app's calls on that key alone. The key was refused on `customers.list` and `balance.retrieve`, but `payouts` is allowed: BTG's own payouts come bundled with a required permission, and the money can only go to BTG's verified bank.
+  - **The permissions:** Charges and Refunds W, Accounts v2 R, Recipient Configuration W, Checkout Sessions W, Account Links W, Login Links W, Transfers W, with every "in connected accounts" column None.
+  - **Waiting on the owner** for the live restricted key.
+- **The smoke script** (`backend/scripts/stripe-sandbox-smoke.mts`) now takes `STRIPE_SMOKE_ADMIN_KEY` for its own setup calls and `STRIPE_SMOKE_LOGIN_ACCOUNT`, which adds check 2c.
+- **Go-live webhooks:** register them in the Dashboard, not through the API, so the runtime key needs no webhook-endpoint permission.

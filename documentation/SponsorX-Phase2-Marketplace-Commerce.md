@@ -149,9 +149,9 @@ Phase 1 collected no tax IDs because money moved outside the system. Phase 2 mov
 - **Done when:** Written position on tax ID collection, withholding and 1099 reporting, and which system of record owns each
 - **Reference:** Spec §9, §10
 
-### ⏸ `2S0-SEC-01` · Payments and PII security review
+### ✅ `2S0-SEC-01` · Payments and PII security review
 
-**Order** 6 · **SEC** · **Where:** Code · **3d** · **Blocked**
+**Order** 6 · **SEC** · **Where:** Code · **3d** · **Done**
 
 Review the design before build: card data never touches your servers, payout account data stays at the provider, verification documents are in private storage, PII is masked in logs.
 
@@ -361,6 +361,20 @@ A way to reach BTG for things that must never be automated, starting with disput
 - **Depends on:** 2S1-OPS-01
 - **Done when:** Anyone can send BTG a message with an attachment from the contact page; it reaches the support mailbox through the queue even when the mail service is briefly down; the support address appears on the guardian request page and in decline and rejection emails; the form is rate-limited and stores attachments privately
 - **Reference:** Spec §4, §26, §37; BTG admin review 2026-10-01
+
+### ⏸ `2S1-FE-14` · BTG admin page for a support message and its attachments
+
+**Order** 12.98 · **FE** · **Where:** Code · **1d** · **Ready**
+
+Support-desk emails no longer carry attachments (2S0-SEC-01, finding O1). Instead they link to `/admin/support/<id>`. Build that page:
+- show the sender, topic, text, and each attachment's name, type and size, from `GET /support-messages/:id`;
+- give each file an **Open** button, which fetches `GET /support-messages/:id/attachments/:attachmentId` (a five-minute, audited link).
+
+BTG admin only.
+
+- **Depends on:** 2S0-SEC-01
+- **Done when:** A BTG admin following the support email's link sees the message and opens each attachment; nobody else can
+- **Reference:** `documentation/SponsorX-Payments-PII-Review-2026-10.md` (frontend follow-ups); raised 2026-10-06
 
 ### ⏸ `2S1-OPS-01` · Set up the BTG support mailbox
 
@@ -1623,6 +1637,18 @@ Two fixes:
 - **Depends on:** 2S4-FE-02
 - **Done when:** A database built only by migrations has every rule in prisma/sql; the guard fails on any drift
 - **Reference:** Found 2026-10-03 by a failing phase2-orders test on a fresh database
+
+### ⏸ `2S8-QA-08` · private-upload-pins test fails intermittently in the full suite
+
+**Order** 60.9 · **QA** · **Where:** Code · **1d** · **Ready**
+
+`backend/tests/private-upload-pins.test.ts` passes on its own, but has failed in about one in six full parallel runs. The failure is in its setup: a duplicate key on a fixed `pu_` id, after which its 11 tests are skipped. Its cleanup deletes by tenant and ignores errors, so a row that couldn't be deleted survives into the next run.
+
+Make its ids unique per run, or make the cleanup report what it couldn't delete.
+
+- **Depends on:** 2S8-SEC-03
+- **Done when:** The full backend suite passes 5 runs in a row with this file included
+- **Reference:** raised 2026-10-06; seen twice
 
 ### ⏸ `2S8-SEC-01` · Cross-tenant isolation tests for external parties
 

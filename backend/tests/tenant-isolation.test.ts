@@ -62,7 +62,7 @@ const hasDatabase = await seededDb.databaseAvailable();
 const A = {
   tenant: "ti_tenant_a", sponsor: "ti_sponsor_a", contact: "ti_contact_a", brief: "ti_brief_a",
   campaign: "ti_campaign_a", athlete: "ti_athlete_a", job: "ti_job_a", rate: "ti_rate_a",
-  invite: "ti_invite_a", order: "ti_order_a", deliverable: "ti_deliv_a", asset: "ti_asset_a",
+  invite: "ti_invite_a", order: "ti_order_a", deliverable: "ti_deliv_a",
   link: "ti_link_a", reward: "ti_reward_a", token: "ti_token_a", earning: "ti_earning_a",
   invoice: "ti_invoice_a", guardian: "ti_guardian_a", agreement: "ti_agreement_a", admin: "ti_admin_a",
   publication: "ti_pub_a", edition: "ti_edition_a", slot: "ti_slot_a",
