@@ -10,6 +10,7 @@ import express, { type ErrorRequestHandler } from "express";
 import { errorBody } from "./lib/error-body";
 import { healthRouter } from "./routes/health";
 import { v1Router } from "./routes/v1";
+import { logError } from "./lib/redact";
 
 /** Sent on every API response (2S8-SEC-02). HSTS is the web app's job — it
  *  owns the public hostname; the API's public domain only takes webhooks. */
@@ -67,7 +68,7 @@ export function createApp() {
     const { status, body, headers, reference } = errorBody(err);
     /* The detail stays server-side (QA-03): the caller sees only the
        reference, and this line is where that reference leads. */
-    if (status >= 500) console.error(`[error ${reference}]`, err);
+    if (status >= 500) logError(`[error ${reference}]`, err);
     res.set(headers).status(status).json(body);
   };
   app.use(onError);

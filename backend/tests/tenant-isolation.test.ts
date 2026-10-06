@@ -62,7 +62,7 @@ const hasDatabase = await seededDb.databaseAvailable();
 const A = {
   tenant: "ti_tenant_a", sponsor: "ti_sponsor_a", contact: "ti_contact_a", brief: "ti_brief_a",
   campaign: "ti_campaign_a", athlete: "ti_athlete_a", job: "ti_job_a", rate: "ti_rate_a",
-  invite: "ti_invite_a", order: "ti_order_a", deliverable: "ti_deliv_a", asset: "ti_asset_a",
+  invite: "ti_invite_a", order: "ti_order_a", deliverable: "ti_deliv_a",
   link: "ti_link_a", reward: "ti_reward_a", token: "ti_token_a", earning: "ti_earning_a",
   invoice: "ti_invoice_a", guardian: "ti_guardian_a", agreement: "ti_agreement_a", admin: "ti_admin_a",
   publication: "ti_pub_a", edition: "ti_edition_a", slot: "ti_slot_a",
@@ -108,6 +108,8 @@ const A = {
   paymentEvent: "ti_payment_event_a",
   /* 2S5-BE-03 — a dispute on tenant A's order. */
   dispute: "ti_dispute_a",
+  /* 2S0-SEC-01 — a contact-form message to tenant A's support desk, with an attachment. */
+  supportMessage: "ti_support_message_a", supportAttachment: "ti_support_attachment_a",
 } as const;
 const B = {
   tenant: "ti_tenant_b", sponsor: "ti_sponsor_b", athlete: "ti_athlete_b",
@@ -195,6 +197,8 @@ const PARAM_FOR: Record<string, string> = {
   /* 2S5-INT-02 — BTG's provider-event exceptions. */
   "payment-events": A.paymentEvent,
   disputes: A.dispute,
+  /* 2S0-SEC-01 — BTG's support desk: a message and one of its attachments. */
+  "support-messages": A.supportMessage, attachments: A.supportAttachment,
 };
 
 /**
@@ -531,6 +535,14 @@ describe.skipIf(!hasDatabase)("P8-SEC-02 · tenant B cannot reach tenant A throu
       id: A.dispute, tenantId: t, orderId: A.mktOrder, sponsorId: A.sponsor, provider: "standin", providerDisputeRef: "ti_dp_a", amountCents: 9000,
       reason: "TI secret dispute reason", state: "UNDER_REVIEW", providerOutcome: "LOST", providerClosedAt: new Date(), openedAt: new Date(),
       reviewStartedAt: new Date(), reviewedBy: "ti_a_admin",
+    }, select: { id: true } });
+    /* 2S0-SEC-01 — GET /support-messages/{id} and its attachment's audited link. */
+    await prisma.supportMessage.create({ data: {
+      id: A.supportMessage, tenantId: t, name: "TI Secret Sender", email: "secret@a.invalid", topic: "GUARDIANSHIP", message: "TI Secret support message", state: "QUEUED", queuedAt: new Date(),
+    }, select: { id: true } });
+    await prisma.supportAttachment.create({ data: {
+      id: A.supportAttachment, tenantId: t, messageId: A.supportMessage, filename: "ti-secret-proof.pdf", contentType: "application/pdf", bytes: 100,
+      r2Key: `support/${A.supportMessage}/${A.supportAttachment}/ti-secret-proof.pdf`, uploadedAt: new Date(),
     }, select: { id: true } });
     await prisma.reservation.create({ data: { id: A.dueReservation, tenantId: t, sponsorId: A.sponsor, cartId: A.cart, state: "CONVERTED", convertedAt: new Date(), expiresAt: new Date(Date.now() + 3650 * 864e5) } });
     await prisma.marketplaceOrder.create({ data: {

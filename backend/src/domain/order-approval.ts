@@ -47,6 +47,7 @@ import { assertMayCommit } from "./guardian-acts";
 import { afterSellersAccepted, cancelOrderAsSystem, lockOrder } from "./marketplace-order";
 import { SELLER_APPROVAL_HOURS, usd } from "./marketplace-order-rules";
 import { appUrl, btgAdmins, orderRef, sellerRecipients, sponsorRecipient, tell, utc, type SellerParty } from "./order-mail";
+import { logError } from "../lib/redact";
 
 type Tx = Prisma.TransactionClient;
 const HOUR = 3_600_000;
@@ -372,7 +373,7 @@ export async function sweepSellerApprovals(now = new Date(), opts: { tenantIds?:
       }
     }).catch((error: unknown) => {
       failed++;
-      console.error(`[seller approvals] order ${orderId} failed, will retry next pass:`, error);
+      logError(`[seller approvals] order ${orderId} failed, will retry next pass:`, error);
     });
   }
 
@@ -414,7 +415,7 @@ export async function sweepSellerApprovals(now = new Date(), opts: { tenantIds?:
       }
     }).catch((error: unknown) => {
       failed++;
-      console.error(`[seller approvals] settling order ${orderId} failed, will retry next pass:`, error);
+      logError(`[seller approvals] settling order ${orderId} failed, will retry next pass:`, error);
     });
   }
   return { expired, cancelled, failed, movedOn };
@@ -480,7 +481,7 @@ export async function sendOrderApprovalDigests(now = new Date(), only?: readonly
       return fresh.length;
     }).catch((error: unknown) => {
       failed++;
-      console.error(`[order digest] tenant ${btg} failed, will retry next hour:`, error);
+      logError(`[order digest] tenant ${btg} failed, will retry next hour:`, error);
       return 0;
     });
     if (sent) { tenants++; orders += sent; }

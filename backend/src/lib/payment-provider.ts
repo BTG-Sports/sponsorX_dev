@@ -7,6 +7,7 @@ import {
   accountReadinessV2, classifyStripeError, failureKindFor, mapStripeEvent, stripeClient, verifyStripeWebhook, type AccountReadiness, type FailureKind,
   type StripeIncoming,
 } from "./stripe";
+import { logError } from "./redact";
 
 /**
  * The payment-provider adapter (2S5-INT-01 / -03, 2S5-BE-05).
@@ -236,7 +237,7 @@ async function stripeCall<T>(op: StandinOperation, call: () => Promise<T>): Prom
     } catch (error) {
       if (error instanceof ProviderRefusedError || error instanceof ProviderUnavailableError) throw error;
       const f = classifyStripeError(error);
-      console.error(`[stripe] ${op} ${f.kind}${f.kind === "refused" && f.code ? ` (${f.code})` : ""}: ${f.message}`);
+      logError(`[stripe] ${op} ${f.kind}${f.kind === "refused" && f.code ? ` (${f.code})` : ""}: ${f.message}`);
       if (f.kind === "unavailable") throw new ProviderUnavailableError(op);
       throw new ProviderRefusedError(op, f.code, f.message, failureKindFor(f.code));
     }

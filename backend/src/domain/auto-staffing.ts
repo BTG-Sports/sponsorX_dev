@@ -83,6 +83,7 @@ import {
   staffsAthletes,
   tallyStaffing,
 } from "./auto-staffing-rules";
+import { logError } from "../lib/redact";
 
 type Tx = Prisma.TransactionClient;
 
@@ -377,7 +378,7 @@ export async function startAutoStaffing(tenantId: string, campaignId: string): P
   try {
     return (await autoStaffCampaign(tenantId, campaignId)).state;
   } catch (error) {
-    console.error(`[auto-staffing] starting ${campaignId} failed, the sweep will retry:`, error);
+    logError(`[auto-staffing] starting ${campaignId} failed, the sweep will retry:`, error);
     return null;
   }
 }
@@ -396,7 +397,7 @@ export async function replaceAfterDecline(tx: Tx, tenantId: string, campaignId: 
     return run;
   } catch (error) {
     await tx.$executeRawUnsafe(`ROLLBACK TO SAVEPOINT ${point}`);
-    console.error(`[auto-staffing] replacing on ${campaignId} failed, the sweep will retry:`, error);
+    logError(`[auto-staffing] replacing on ${campaignId} failed, the sweep will retry:`, error);
     return null;
   }
 }
@@ -435,7 +436,7 @@ export async function sweepAutoStaffing(now = new Date(), opts: { tenantIds?: st
         if (run.stopped) out.stopped++;
       } catch (error) {
         out.failed++;
-        console.error(`[auto-staffing] staffing ${c.id} failed, will retry:`, error);
+        logError(`[auto-staffing] staffing ${c.id} failed, will retry:`, error);
       }
     }
   }

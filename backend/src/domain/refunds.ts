@@ -42,7 +42,7 @@ import type { Actor } from "../auth/actor";
 import { assertTenantWide, whereFor } from "../auth/scope";
 import { enqueue } from "../db/outbox";
 import { ProviderRefusedError, ProviderUnavailableError, refundCard, sendCardRefund } from "../lib/payment-provider";
-import { looksLikeCardNumber } from "./marketplace-order-rules";
+import { containsCardNumber } from "./marketplace-order-rules";
 import { appUrl, btgAdmins, orderRef, sponsorRecipient, tell, usd } from "./order-mail";
 import { lockCampaign } from "./campaign-stages";
 
@@ -126,7 +126,7 @@ export function refundSentProblems(p: { method?: string | null; reference?: stri
   const ref = p?.reference?.trim() ?? "";
   if (!ref) out.push("the refund's reference");
   else if (ref.length > 200) out.push("a reference of at most 200 characters");
-  else if (looksLikeCardNumber(ref)) out.push("a reference that is not a card number — SponsorX never takes card or bank numbers");
+  else if (containsCardNumber(ref)) out.push("a reference that is not a card number — SponsorX never takes card or bank numbers");
   const day = p?.sentOn ?? "";
   const when = /^\d{4}-\d{2}-\d{2}$/.test(day) ? new Date(`${day}T00:00:00.000Z`) : null;
   if (!when || Number.isNaN(when.getTime()) || dayOf(when) !== day) out.push("the date it was sent");

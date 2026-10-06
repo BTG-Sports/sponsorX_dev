@@ -32,6 +32,7 @@ import {
   type EditionNextStep,
   type EditionStageChange,
 } from "./edition-automation-rules";
+import { logError } from "../lib/redact";
 
 type Tx = Prisma.TransactionClient;
 type Db = Tx | typeof prisma;
@@ -115,7 +116,7 @@ export async function sweepEditionStages(now = new Date(), opts: { tenantIds?: s
       out.moved += moves.length;
     } catch (error) {
       out.failed++;
-      console.error(`[editions] advancing ${e.id} failed, will retry:`, error);
+      logError(`[editions] advancing ${e.id} failed, will retry:`, error);
     }
   }
   return out;

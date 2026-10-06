@@ -74,7 +74,18 @@ const { acceptPaymentWebhook, processPaymentEvent } = await import("../src/domai
 const { sendPayout } = await import("../src/domain/payouts.ts");
 const { sendRefund } = await import("../src/domain/refunds.ts");
 
-const stripe = stripeClient();
+/* 2S8-SEC-06 — SponsorX's own calls (the adapter) always use STRIPE_SECRET_KEY,
+   which may be a restricted key under test. The script's scaffolding and
+   inspection (creating payments, reading objects back, cleanup) use
+   STRIPE_SMOKE_ADMIN_KEY when set, so a restricted key is proven on exactly
+   the calls the app makes — never widened to let the scaffolding pass. */
+const adminKey = process.env.STRIPE_SMOKE_ADMIN_KEY?.trim();
+if (adminKey && stripeKeyMode(adminKey) !== "test") {
+  console.error("Refusing: STRIPE_SMOKE_ADMIN_KEY must be a test key.");
+  process.exit(2);
+}
+const stripe = adminKey ? new Stripe(adminKey, { telemetry: false }) : stripeClient();
+console.log(`adapter key: ${(env.STRIPE_SECRET_KEY ?? "").startsWith("rk_") ? "restricted" : "full"}; scaffolding key: ${adminKey ? "separate" : "same"}`);
 const tag = randomBytes(4).toString("hex");
 const T = `smoke_stripe_${tag}`;
 const ids = (s: string) => `smoke_${s}_${tag}`;
@@ -143,6 +154,13 @@ async function main() {
     `${express.accountRef} dashboard=${expressAcct.dashboard} configurations=${expressAcct.applied_configurations.join(",")} readiness=${accountReadinessV2(expressAcct).status} (${accountReadinessV2(expressAcct).reason ?? ""})`);
   const linkUrl = await adapter.payoutAccountLinkUrl({ accountRef: express.accountRef, returnPath: "/property/earnings", manage: false, requestId: `smoke-${tag}` });
   check("2b. Account Link for hosted onboarding returned", /^https:\/\/connect\.stripe\.com\//.test(linkUrl), linkUrl.replace(/\/[^/]+$/, "/…"));
+  /* 2c — the login link (manage=true: v1 login_links on a v2 account) needs an
+     ONBOARDED account. Never add it to made.accounts: cleanup would delete it. */
+  const loginAcct = process.env.STRIPE_SMOKE_LOGIN_ACCOUNT?.trim();
+  if (loginAcct) {
+    const url = await adapter.payoutAccountLinkUrl({ accountRef: loginAcct, returnPath: "/property/earnings", manage: true, requestId: `smoke-login-${tag}` });
+    check("2c. Express dashboard login link (v1 login_links on a v2 account)", /^https:\/\/connect\.stripe\.com\//.test(url), url.replace(/\/[^/]+$/, "/…"));
+  }
   await prisma.payoutAccount.create({ data: { tenantId: T, payeeType: "PROPERTY", payeeId: ids("prop_express"), provider: "stripe", providerAccountId: express.accountRef }, select: { id: true } });
 
   /* ── 4. a recipient account onboarded with Stripe's test identity data, then SponsorX's own sendPayout ── */

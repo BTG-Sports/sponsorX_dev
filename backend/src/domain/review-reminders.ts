@@ -25,6 +25,7 @@ import { audit, AUDIT_ACTIONS } from "../db/audit";
 import { send } from "../lib/email";
 import { env } from "../config/env";
 import { REVIEW_REMINDER_HOURS, reviewStage, waitedWords } from "./content-check-rules";
+import { logError } from "../lib/redact";
 
 const BATCH = 500;
 const appUrl = () => env.APP_URL.replace(/\/+$/, "");
@@ -103,7 +104,7 @@ export async function sweepReviewReminders(now = new Date(), opts: { tenantIds?:
       if (sent) out[stage === "BTG" ? "btg" : "sponsor"]++;
     } catch (error) {
       out.failed++;
-      console.error(`[review-reminders] reminding about ${row.id} failed, will retry:`, error);
+      logError(`[review-reminders] reminding about ${row.id} failed, will retry:`, error);
     }
   }
   return out;

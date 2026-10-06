@@ -40,6 +40,7 @@
 import { createApp } from "./app.js";
 import { env } from "./config/env.js";
 import { startWorker, stopWorker } from "../worker/index.mts";
+import { logError } from "./lib/redact.js";
 
 const app = createApp();
 
@@ -53,7 +54,7 @@ const server = app.listen(env.PORT, () => {
    back — which is the behaviour we want, because a deploy whose queue does
    not drain is not a successful deploy. */
 startWorker().catch((error) => {
-  console.error("[combined] worker failed to start:", error);
+  logError("[combined] worker failed to start:", error);
   process.exit(1);
 });
 

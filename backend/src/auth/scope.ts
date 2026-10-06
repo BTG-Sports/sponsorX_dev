@@ -902,6 +902,8 @@ const BUILDERS: Partial<Record<Resource, Builder>> = {
   paymentEvent: tenantScoped,
   /* 2S5-BE-03 — disputes live in the order's books. */
   paymentDispute: tenantScoped,
+  /* 2S0-SEC-01 — a support message lives in the tenant whose form it came through (PUBLIC_INTAKE_TENANT_ID). */
+  supportMessage: tenantScoped,
 
   /* Added with P4-BE-01, the first task to query sponsors.
 

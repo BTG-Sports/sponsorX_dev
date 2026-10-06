@@ -89,6 +89,8 @@ const READ_ONLY = new Set([
   /* 2S5-INT-02 — reads in payment-events.ts. */
   "findAttempt",
   "listPaymentEvents",
+  /* 2S0-SEC-01 — pure: what is kept of a refused delivery's body. */
+  "rejectedDeliveryRecord",
   /* 2S5-INT-02 — delegates: each writes only through acceptPaymentWebhook or
      processPaymentEvent, which audit every row they write (checked above). */
   "retryDeferredPaymentEvents",

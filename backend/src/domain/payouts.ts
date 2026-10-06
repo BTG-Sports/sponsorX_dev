@@ -57,6 +57,7 @@ import {
 import { postPayout, postPayoutReturn } from "./ledger";
 import { recordRefund } from "./refunds";
 import { lockOrder, moveOrderAsSystem, payOrderIn } from "./marketplace-order";
+import { refuseCardNumber } from "./marketplace-order-rules";
 import { appUrl, btgAdmins, tell } from "./order-mail";
 import { assertMayCommit } from "./guardian-acts";
 import { payoutHoldReason } from "./payout-holds";
@@ -66,6 +67,7 @@ import {
   autoApprovalReasons, autoApproveSettings, autoApprovedByTenant, autoWindowFor, claimsMoney, lockPayee, nextChangedAt, planFailure,
   SYSTEM, waitingOnOf, waitingOnWhere, windowStart, type FailureKind, type WaitingOn,
 } from "./payout-auto";
+import { logError } from "../lib/redact";
 
 type Tx = Prisma.TransactionClient;
 type Db = Tx | typeof prisma;
@@ -990,6 +992,7 @@ export async function decidePayout(actor: Actor, id: string, decision: "APPROVE"
   assertAllowed(actor, "payout", "approve");
   const trimmed = note?.trim() || null;
   if (decision === "REJECT" && !trimmed) throw new PayoutError("Say why it's being sent back — the payee reads this note.", 422);
+  refuseCardNumber(trimmed); // 2S0-SEC-01 (O5)
   return prisma.$transaction(async (tx) => {
     const row = await tx.payout.findFirst({ where: { ...whereFor(actor, "payout", "approve"), id }, select: PAYOUT_SELECT });
     if (!row) throw new ForbiddenError("payout", "approve");
@@ -1337,7 +1340,7 @@ export async function sweepPayoutRetries(now = new Date(), opts: { tenantIds?: s
       if (await prisma.$transaction((tx) => autoRetry(tx, id, "SCHEDULE", now))) out.retried++;
     } catch (error) {
       out.failed++;
-      console.error(`[payouts] automatic retry of ${id} failed, will retry next sweep:`, error);
+      logError(`[payouts] automatic retry of ${id} failed, will retry next sweep:`, error);
     }
   }
   return out;
