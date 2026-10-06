@@ -354,6 +354,24 @@ export async function payoutAccountStatus(accountRef: string): Promise<AccountRe
 }
 
 /**
+ * Stripe: whether an account the provider names is one SponsorX opened — the
+ * `sponsorx` tag `createPayoutAccount` puts on every payout account. BTG's
+ * Stripe account can hold other connected accounts; their events are not
+ * SponsorX's to wait for. An account Stripe doesn't have is not ours either.
+ * Stripe down still throws, so the queue retries. Worker only.
+ */
+export async function isSponsorXPayoutAccount(accountRef: string): Promise<boolean> {
+  if (providerName() !== "stripe") return true;
+  try {
+    const account = await stripeCall("account", () => stripeClient().v2.core.accounts.retrieve(accountRef));
+    return (account.metadata as Record<string, string> | null | undefined)?.sponsorx === "payout-account";
+  } catch (error) {
+    if (error instanceof ProviderRefusedError && error.providerCode === "resource_missing") return false;
+    throw error;
+  }
+}
+
+/**
  * Stripe: the link a payee follows — hosted onboarding (an Account Link) to
  * set up or finish, or, once READY, a one-time login to their Express
  * dashboard to manage it. Return and refresh both come back to the payout
