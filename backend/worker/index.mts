@@ -120,13 +120,14 @@ import {
   handlePushTask, renewWatch, runReconciliation, dispatchableJobs,
   type BackfillJob, type DealJob, type IngestCrmJob, type LeadJob, type MarketplaceOrderJob, type RenewalJob, type SponsorJob, type TaskJob,
 } from "./jobs/zoho-sync.mts";
-import { maskEmail, redactEmails } from "../src/lib/redact.ts";
+import { logError, maskEmail, redactEmails } from "../src/lib/redact.ts";
 
 /**
  * 2S8-SEC-05 — every line this worker logs goes through here, so no email
  * address reaches the log in full (security review §A09): recipients are
- * named by their domain only. console.error is left for errors, whose
- * messages are our own.
+ * named by their domain only. Errors go through `logError` (2S0-SEC-01):
+ * their messages are not only our own words — a database or provider error
+ * can quote the value it refused — so they are redacted too.
  */
 function log(line: string): void {
   console.log(redactEmails(line));
@@ -135,7 +136,7 @@ function log(line: string): void {
 const connectionString = process.env.DATABASE_URL;
 
 if (!connectionString) {
-  console.error(
+  logError(
     "[worker] DATABASE_URL is not set — refusing to start. A worker that " +
       "cannot reach the database is not a worker, and failing here makes the " +
       "deploy fail loudly instead of draining nothing in silence.",
@@ -383,7 +384,7 @@ async function tick(): Promise<void> {
     // Log and keep going. A failed sweep leaves its rows undispatched, so the
     // next tick retries them; exiting here would turn a transient database
     // blip into a stopped queue.
-    console.error("[worker] drain failed:", error);
+    logError("[worker] drain failed:", error);
   } finally {
     draining = false;
   }
@@ -411,7 +412,7 @@ async function seedOnBoot(): Promise<void> {
         `${catalogue.sponsorPackages} sponsor packages`,
     );
   } catch (error) {
-    console.error("[worker] catalogue seed failed, continuing to drain anyway:", error);
+    logError("[worker] catalogue seed failed, continuing to drain anyway:", error);
   }
 
   try {
@@ -429,7 +430,7 @@ async function seedOnBoot(): Promise<void> {
       );
     }
   } catch (error) {
-    console.error("[worker] seed failed, continuing to drain anyway:", error);
+    logError("[worker] seed failed, continuing to drain anyway:", error);
   }
 }
 
@@ -439,7 +440,7 @@ async function main(): Promise<void> {
   await boss.start(); // installs pg-boss's own schema — worker only
   log("[worker] pg-boss started; outbox drain every " + DRAIN_INTERVAL_MS + "ms");
 
-  boss.on("error", (error) => console.error("[worker] pg-boss error:", error));
+  boss.on("error", (error) => logError("[worker] pg-boss error:", error));
 
   /* Handlers land with the feature that needs them. The first is email
      (P3-INT-01); zoho.pushCampaign arrives with the Zoho integration and
@@ -599,7 +600,7 @@ async function main(): Promise<void> {
     if (Date.now() - lastWatchRenewal > WATCH_RENEW_EVERY_MS) {
       await renewWatch(zoho)
         .then((r) => { lastWatchRenewal = Date.now(); zohoLog("zoho.watch", r); })
-        .catch((error: unknown) => console.error("[worker] zoho.watch renewal failed:", error));
+        .catch((error: unknown) => logError("[worker] zoho.watch renewal failed:", error));
     }
     await runReconciliation(zohoDeps)
       .then((runs) => runs.forEach((run) => run.reports.forEach((r) => zohoLog("zoho.reconcile", {
@@ -607,7 +608,7 @@ async function main(): Promise<void> {
         missingInZoho: r.missingInZoho.length, unknownInSponsorX: r.unknownInSponsorX.length,
         diverged: r.diverged.length,
       }))))
-      .catch((error: unknown) => console.error("[worker] zoho.reconcile failed:", error));
+      .catch((error: unknown) => logError("[worker] zoho.reconcile failed:", error));
   };
   if (!process.env.ZOHO_CLIENT_ID) {
     log("[worker] Zoho is not configured — CRM sync jobs wait in the outbox; no reconcile or watch.");
@@ -628,7 +629,7 @@ async function main(): Promise<void> {
       geoLookup = cityReaderToLookup(await open(geoPath));
       log(`[worker] GeoLite2 loaded from ${geoPath}`);
     } catch (error) {
-      console.error(
+      logError(
         `[worker] GEOLITE2_CITY_PATH is set to ${geoPath} but the database ` +
           `could not be opened — clicks will record without a location. ` +
           `${(error as Error).message}`,
@@ -705,7 +706,7 @@ async function main(): Promise<void> {
         }
       })
       .catch((error: unknown) => {
-        console.error("[worker] deliverable reminders failed:", error);
+        logError("[worker] deliverable reminders failed:", error);
       });
   }, REMINDER_INTERVAL_MS);
 
@@ -726,7 +727,7 @@ async function main(): Promise<void> {
       })
       .catch((error: unknown) => {
         /* A failed rollup costs a cache miss, nothing more. */
-        console.error("[worker] rollup-metrics failed:", error);
+        logError("[worker] rollup-metrics failed:", error);
       });
   }, ROLLUP_INTERVAL_MS);
 
@@ -746,14 +747,14 @@ async function main(): Promise<void> {
   holdTimer = setInterval(() => {
     void expireReservations(prisma)
       .then(({ expired }) => { if (expired) log(`[worker] reservations — expired ${expired}`); })
-      .catch((error: unknown) => console.error("[worker] reservation expiry failed, will retry next minute:", error));
+      .catch((error: unknown) => logError("[worker] reservation expiry failed, will retry next minute:", error));
   }, 60_000);
 
   const deliverySweep = () =>
     void sweepDeliveries()
       /* 2S4-BE-07/-08/-11 — silence confirms, a side silent 72 hours hands a problem to BTG, reminders at 1 and 3 days, BTG at 7, auto-close. */
       .then((r) => { if (Object.values(r).some((n) => n > 0)) log(`[worker] deliveries ${JSON.stringify(r)}`); })
-      .catch((error: unknown) => console.error("[worker] delivery sweep failed, will retry:", error));
+      .catch((error: unknown) => logError("[worker] delivery sweep failed, will retry:", error));
   deliveryTimer = setInterval(deliverySweep, DELIVERY_SWEEP_INTERVAL_MS);
   setTimeout(deliverySweep, 30_000).unref();
 
@@ -761,7 +762,7 @@ async function main(): Promise<void> {
   const reviewReminderSweep = () =>
     void sweepReviewReminders()
       .then((r) => { if (r.btg || r.sponsor || r.failed) log(`[worker] review reminders ${JSON.stringify(r)}`); })
-      .catch((error: unknown) => console.error("[worker] review reminder sweep failed, will retry:", error));
+      .catch((error: unknown) => logError("[worker] review reminder sweep failed, will retry:", error));
   reviewReminderTimer = setInterval(reviewReminderSweep, REVIEW_REMINDER_SWEEP_INTERVAL_MS);
   setTimeout(reviewReminderSweep, 35_000).unref();
 
@@ -774,7 +775,7 @@ async function main(): Promise<void> {
       .then(({ started, reminded, terminated }) => {
         if (started || reminded || terminated) log(`[worker] coming of age — started ${started}, reminded ${reminded}, terminated ${terminated}`);
       })
-      .catch((error: unknown) => console.error("[worker] coming-of-age sweep failed, will retry next hour:", error));
+      .catch((error: unknown) => logError("[worker] coming-of-age sweep failed, will retry next hour:", error));
   }, REMINDER_INTERVAL_MS);
 
   /* 2S3-BE-06 — BTG's daily summary of the listings that went live on their
@@ -785,7 +786,7 @@ async function main(): Promise<void> {
     if (new Date().getUTCHours() < LISTING_DIGEST_HOUR_UTC) return;
     void sendListingDigests()
       .then(({ tenants, listings }) => { if (tenants) log(`[worker] listing digests — ${tenants} sent, ${listings} listing(s)`); })
-      .catch((error: unknown) => console.error("[worker] listing digest failed, will retry next hour:", error));
+      .catch((error: unknown) => logError("[worker] listing digest failed, will retry next hour:", error));
   }, REMINDER_INTERVAL_MS);
 
   /* 2S4-BE-09 — a seller who never answered declines; 2S4-BE-10 — unpaid
@@ -796,7 +797,7 @@ async function main(): Promise<void> {
         if (sellers.expired || sellers.failed) log(`[worker] seller approvals ${JSON.stringify(sellers)}`);
         if (unpaid.reminded || unpaid.cancelled || unpaid.failed) log(`[worker] unpaid orders ${JSON.stringify(unpaid)}`);
       })
-      .catch((error: unknown) => console.error("[worker] order sweep failed, will retry:", error));
+      .catch((error: unknown) => logError("[worker] order sweep failed, will retry:", error));
   orderTimer = setInterval(orderSweep, ORDER_SWEEP_INTERVAL_MS);
   setTimeout(orderSweep, 45_000).unref();
 
@@ -806,7 +807,7 @@ async function main(): Promise<void> {
   const payoutRetrySweep = () =>
     void sweepPayoutRetries()
       .then((r) => { if (r.retried || r.failed) log(`[worker] payout retries ${JSON.stringify(r)}`); })
-      .catch((error: unknown) => console.error("[worker] payout retry sweep failed, will retry:", error));
+      .catch((error: unknown) => logError("[worker] payout retry sweep failed, will retry:", error));
   payoutRetryTimer = setInterval(payoutRetrySweep, PAYOUT_RETRY_SWEEP_INTERVAL_MS);
   setTimeout(payoutRetrySweep, 50_000).unref();
 
@@ -815,7 +816,7 @@ async function main(): Promise<void> {
   const deferredEventSweep = () =>
     void retryDeferredPaymentEvents()
       .then((r) => { if (r.retried || r.failed) log(`[worker] deferred payment events ${JSON.stringify(r)}`); })
-      .catch((error: unknown) => console.error("[worker] deferred payment event sweep failed, will retry:", error));
+      .catch((error: unknown) => logError("[worker] deferred payment event sweep failed, will retry:", error));
   paymentEventTimer = setInterval(deferredEventSweep, PAYMENT_EVENT_SWEEP_INTERVAL_MS);
   setTimeout(deferredEventSweep, 20_000).unref();
 
@@ -824,7 +825,7 @@ async function main(): Promise<void> {
   const campaignStageSweep = () =>
     void sweepCampaignStages()
       .then((r) => { if (r.moved || r.failed) log(`[worker] campaign stages ${JSON.stringify(r)}`); })
-      .catch((error: unknown) => console.error("[worker] campaign stage sweep failed, will retry:", error));
+      .catch((error: unknown) => logError("[worker] campaign stage sweep failed, will retry:", error));
   campaignStageTimer = setInterval(campaignStageSweep, CAMPAIGN_STAGE_SWEEP_INTERVAL_MS);
   setTimeout(campaignStageSweep, 55_000).unref();
 
@@ -832,7 +833,7 @@ async function main(): Promise<void> {
   const briefRecheck = () =>
     void recheckHeldBriefs()
       .then((r) => { if (r.approved || r.failed) log(`[worker] held briefs ${JSON.stringify(r)}`); })
-      .catch((error: unknown) => console.error("[worker] held-brief re-check failed, will retry tomorrow:", error));
+      .catch((error: unknown) => logError("[worker] held-brief re-check failed, will retry tomorrow:", error));
   briefRecheckTimer = setInterval(briefRecheck, BRIEF_RECHECK_INTERVAL_MS);
   setTimeout(briefRecheck, 60_000).unref();
   /* P4-BE-12 — automatic staffing's safety net: a missed decline's
@@ -841,7 +842,7 @@ async function main(): Promise<void> {
   const autoStaffingSweep = () =>
     void sweepAutoStaffing()
       .then((r) => { if (r.sent || r.skipped || r.stopped || r.failed) log(`[worker] auto staffing ${JSON.stringify(r)}`); })
-      .catch((error: unknown) => console.error("[worker] auto staffing sweep failed, will retry:", error));
+      .catch((error: unknown) => logError("[worker] auto staffing sweep failed, will retry:", error));
   autoStaffingTimer = setInterval(autoStaffingSweep, AUTO_CAMPAIGN_SWEEP_INTERVAL_MS);
   setTimeout(autoStaffingSweep, 60_000).unref();
 
@@ -849,7 +850,7 @@ async function main(): Promise<void> {
   const campaignLaunchSweep = () =>
     void sweepCampaignLaunches()
       .then((r) => { if (r.launched || r.failed) log(`[worker] campaign launches ${JSON.stringify(r)}`); })
-      .catch((error: unknown) => console.error("[worker] campaign launch sweep failed, will retry:", error));
+      .catch((error: unknown) => logError("[worker] campaign launch sweep failed, will retry:", error));
   campaignLaunchTimer = setInterval(campaignLaunchSweep, AUTO_CAMPAIGN_SWEEP_INTERVAL_MS);
   setTimeout(campaignLaunchSweep, 65_000).unref();
 
@@ -859,14 +860,14 @@ async function main(): Promise<void> {
   const studentSweep = () =>
     void sweepStudentAutomation()
       .then((r) => { if (r.approved || r.held || r.activated || r.coded || r.failed) log(`[worker] students ${JSON.stringify(r)}`); })
-      .catch((error: unknown) => console.error("[worker] student sweep failed, will retry:", error));
+      .catch((error: unknown) => logError("[worker] student sweep failed, will retry:", error));
   studentSweepTimer = setInterval(studentSweep, AUTO_CAMPAIGN_SWEEP_INTERVAL_MS);
   setTimeout(studentSweep, 70_000).unref();
   studentDigestTimer = setInterval(() => {
     if (new Date().getUTCHours() < STUDENT_DIGEST_HOUR_UTC) return;
     void sendStudentApprovalDigests()
       .then(({ schools, students }) => { if (schools) log(`[worker] student digests — ${schools} school(s), ${students} student(s)`); })
-      .catch((error: unknown) => console.error("[worker] student digest failed, will retry next hour:", error));
+      .catch((error: unknown) => logError("[worker] student digest failed, will retry next hour:", error));
   }, REMINDER_INTERVAL_MS);
   /* P9-BE-17 / -18 — editions first (an edition opening for sale is what a
      held sale may be waiting for), then the held sales. */
@@ -878,7 +879,7 @@ async function main(): Promise<void> {
           log(`[worker] editions ${JSON.stringify(stages)} held sales ${JSON.stringify(sales)}`);
         }
       })
-      .catch((error: unknown) => console.error("[worker] edition sweep failed, will retry:", error));
+      .catch((error: unknown) => logError("[worker] edition sweep failed, will retry:", error));
   editionTimer = setInterval(editionSweep, EDITION_SWEEP_INTERVAL_MS);
   setTimeout(editionSweep, 70_000).unref();
 
@@ -890,13 +891,13 @@ async function main(): Promise<void> {
     if (new Date().getUTCHours() < ORDER_DIGEST_HOUR_UTC) return;
     void sendOrderApprovalDigests()
       .then(({ tenants, orders }) => { if (tenants) log(`[worker] order digests — ${tenants} sent, ${orders} order(s)`); })
-      .catch((error: unknown) => console.error("[worker] order digest failed, will retry next hour:", error));
+      .catch((error: unknown) => logError("[worker] order digest failed, will retry next hour:", error));
   }, REMINDER_INTERVAL_MS);
 
   cartTimer = setInterval(() => {
     void expireCarts(prisma)
       .then(({ expired }) => { if (expired) log(`[worker] carts — expired ${expired}`); })
-      .catch((error: unknown) => console.error("[worker] cart expiry failed, will retry next hour:", error));
+      .catch((error: unknown) => logError("[worker] cart expiry failed, will retry next hour:", error));
   }, REMINDER_INTERVAL_MS);
 
   /* 2S1-BE-13 — the retention job. Hourly, though the window is whole days:
@@ -907,7 +908,7 @@ async function main(): Promise<void> {
       .then(({ closures, files, handoffDocuments }) => {
         if (closures || handoffDocuments) log(`[worker] retention — ${closures} closed account(s) purged, ${files + handoffDocuments} file(s) deleted`);
       })
-      .catch((error: unknown) => console.error("[worker] retention sweep failed, will retry next hour:", error));
+      .catch((error: unknown) => logError("[worker] retention sweep failed, will retry next hour:", error));
   }, REMINDER_INTERVAL_MS);
 
   expiryTimer = setInterval(() => {
@@ -921,7 +922,7 @@ async function main(): Promise<void> {
         }
       })
       .catch((error: unknown) => {
-        console.error("[worker] invitation expiry failed, will retry next hour:", error);
+        logError("[worker] invitation expiry failed, will retry next hour:", error);
       });
   }, EXPIRY_INTERVAL_MS);
 }
@@ -988,7 +989,7 @@ if (isEntrypoint) {
 
 if (isEntrypoint) {
   main().catch((error) => {
-    console.error("[worker] failed to start:", error);
+    logError("[worker] failed to start:", error);
     process.exit(1);
   });
 }

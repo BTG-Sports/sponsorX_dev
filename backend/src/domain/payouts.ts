@@ -66,6 +66,7 @@ import {
   autoApprovalReasons, autoApproveSettings, autoApprovedByTenant, autoWindowFor, claimsMoney, lockPayee, nextChangedAt, planFailure,
   SYSTEM, waitingOnOf, waitingOnWhere, windowStart, type FailureKind, type WaitingOn,
 } from "./payout-auto";
+import { logError } from "../lib/redact";
 
 type Tx = Prisma.TransactionClient;
 type Db = Tx | typeof prisma;
@@ -1337,7 +1338,7 @@ export async function sweepPayoutRetries(now = new Date(), opts: { tenantIds?: s
       if (await prisma.$transaction((tx) => autoRetry(tx, id, "SCHEDULE", now))) out.retried++;
     } catch (error) {
       out.failed++;
-      console.error(`[payouts] automatic retry of ${id} failed, will retry next sweep:`, error);
+      logError(`[payouts] automatic retry of ${id} failed, will retry next sweep:`, error);
     }
   }
   return out;

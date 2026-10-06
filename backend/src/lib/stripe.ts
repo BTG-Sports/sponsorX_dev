@@ -2,6 +2,7 @@ import Stripe from "stripe";
 
 import { env } from "../config/env";
 import type { NeutralPaymentEvent } from "../contracts/payment-events";
+import { redactEmails } from "./redact";
 import { acceptedSecrets } from "./rotating-secret";
 
 /**
@@ -52,9 +53,14 @@ export function stripeClient(): Stripe {
   return client;
 }
 
-/** Any Stripe key-shaped text in a message, masked: errors are logged and shown, keys never are. */
+/**
+ * Any Stripe key-shaped text in a message, masked: errors are logged and shown, keys never are.
+ * 2S0-SEC-01 — and any email address, masked to its domain: Stripe's refusals can quote the
+ * parameter they refused ("Invalid email address: …"), and the message is logged and kept on
+ * the payout or refund it failed (`providerMessage`), where BTG reads it.
+ */
 export function scrub(text: string): string {
-  return text.replace(/\b(sk|rk|pk)_(live|test)_[0-9A-Za-z*]+/g, "$1_$2_[redacted]").replace(/\bwhsec_[0-9A-Za-z+/=]+/g, "whsec_[redacted]");
+  return redactEmails(text.replace(/\b(sk|rk|pk)_(live|test)_[0-9A-Za-z*]+/g, "$1_$2_[redacted]").replace(/\bwhsec_[0-9A-Za-z+/=]+/g, "whsec_[redacted]"));
 }
 
 /* ── errors → what the adapter does next ─────────────────────────────── */

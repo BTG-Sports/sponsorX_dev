@@ -105,6 +105,7 @@ import { usd } from "./marketplace-order-rules";
 import { recordRefund, refundsForOrders, type RefundCause, type RefundContext, type SponsorRefund } from "./refunds";
 import { SELLER_CANCELLATION_LIMIT, SELLER_CANCELLATION_WINDOW_DAYS } from "./listing-rules";
 import { sellerCancellationCount, sellerOfLine } from "./seller-standing";
+import { logError } from "../lib/redact";
 
 type Tx = Prisma.TransactionClient;
 
@@ -1882,7 +1883,7 @@ export async function sweepDeliveries(now = new Date(), opts: { tenantIds?: stri
       if (done) out.confirmed++;
     } catch (error) {
       out.failed++;
-      console.error(`[delivery] confirming ${id} failed, will retry:`, error);
+      logError(`[delivery] confirming ${id} failed, will retry:`, error);
     }
   }
 
@@ -1910,7 +1911,7 @@ export async function sweepDeliveries(now = new Date(), opts: { tenantIds?: stri
         if (sent) out[count]++;
       } catch (error) {
         out.failed++;
-        console.error(`[delivery] handing issue ${id} to BTG failed, will retry:`, error);
+        logError(`[delivery] handing issue ${id} to BTG failed, will retry:`, error);
       }
     }
   }
@@ -1925,7 +1926,7 @@ export async function sweepDeliveries(now = new Date(), opts: { tenantIds?: stri
       if (await escalateOverdue(id, now)) out.overdueEscalated++;
     } catch (error) {
       out.failed++;
-      console.error(`[delivery] handing overdue ${id} to BTG failed, will retry:`, error);
+      logError(`[delivery] handing overdue ${id} to BTG failed, will retry:`, error);
     }
   }
 
@@ -1944,7 +1945,7 @@ export async function sweepDeliveries(now = new Date(), opts: { tenantIds?: stri
         if (await remindIn(id, now, { userId: null }, mode)) out[count]++;
       } catch (error) {
         out.failed++;
-        console.error(`[delivery] reminding ${id} failed, will retry:`, error);
+        logError(`[delivery] reminding ${id} failed, will retry:`, error);
       }
     }
   }
@@ -1967,7 +1968,7 @@ export async function sweepDeliveries(now = new Date(), opts: { tenantIds?: stri
       /* Moved meanwhile (refunded): nothing was written — not a failure. */
       if (error instanceof OrderStateConflictError) continue;
       out.failed++;
-      console.error(`[delivery] closing ${id} failed, will retry:`, error);
+      logError(`[delivery] closing ${id} failed, will retry:`, error);
     }
   }
   return out;
