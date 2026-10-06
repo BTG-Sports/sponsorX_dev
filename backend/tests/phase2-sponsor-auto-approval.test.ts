@@ -174,7 +174,11 @@ describe.skipIf(!hasDatabase)("2S1-BE-17 · sponsors are approved automatically"
       expect(status).toMatchObject({ state: "NEW", proofUploaded: true, missing: ["confirm your email"] });
       expect((await state(harbor.id)).state).toBe("NEW");
       const c = await confirm(harbor);
-      expect(c).toMatchObject({ state: "APPROVED", emailConfirmed: true, underReview: false, requestToken: harbor.requestToken });
+      expect(c).toMatchObject({ state: "APPROVED", emailConfirmed: true, underReview: false });
+      /* 2S8-PMO-02: tokens now carry their expiry, so the fresh one is a new
+         string — what matters is that it opens this same request. */
+      const { readSponsorRequestToken } = await import("../src/lib/sponsor-request-token");
+      expect(readSponsorRequestToken(c.requestToken)).toBe(harbor.id);
       const row = await state(harbor.id);
       expect(row).toMatchObject({ state: "APPROVED", autoApproved: true, reviewReasons: [] });
       expect(await prisma.sponsor.findUniqueOrThrow({ where: { id: row.sponsorId! }, select: { name: true, categories: true } }))

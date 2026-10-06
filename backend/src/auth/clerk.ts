@@ -56,7 +56,11 @@ export async function authenticateClerkRequest(
     else if (Array.isArray(value)) headers.set(key, value.join(", "));
   }
 
-  const state = await clerk.authenticateRequest(new Request(url, { headers }));
+  /* 2S8-PMO-02, owner decision 3: only a session minted by one of our own
+     web origins (the token's `azp`) is accepted — config/authorized-parties.ts. */
+  const state = await clerk.authenticateRequest(new Request(url, { headers }), {
+    authorizedParties: env.clerkAuthorizedParties,
+  });
   if (!state.isSignedIn) return null;
 
   const { userId } = state.toAuth();

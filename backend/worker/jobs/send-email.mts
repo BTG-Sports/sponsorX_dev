@@ -641,6 +641,18 @@ ${d.portalUrl ?? ""}
     subject: "Your link to reactivate your SponsorX account",
     text: `Hi ${d.name ?? "there"},\n\nHere is the link you asked for. It works for 24 hours:\n\n${d.reactivateUrl ?? ""}\n\nIf you didn't ask for it, you can ignore this email — nothing changes.\n\n— BTG SponsorX`,
   }),
+  /* 2S8-PMO-02 — a fresh link for one that expired. Same words for every kind;
+     `what` names the thing the link opens. */
+  "link.fresh": (d) => ({
+    subject: "Your new SponsorX link",
+    text: `Hi ${d.name ?? "there"},\n\nYour earlier link to ${d.what ?? "continue on SponsorX"} has expired. Here is a fresh one. It works for ${d.days ?? "14"} days:\n\n${d.url ?? ""}\n\nIf you didn't ask for it, you can ignore this email — nothing changes.\n\n— BTG SponsorX`,
+  }),
+  /* 2S8-PMO-02 — "that's me" on a featured profile: the claim reaches the
+     school only once this link is opened. */
+  "athleteClaim.confirmEmail": (d) => ({
+    subject: "Confirm your email to claim your SponsorX profile",
+    text: `Hi ${d.firstName ?? "there"},\n\nYou said a SponsorX profile is yours${d.profileUrl ? ` (${d.profileUrl})` : ""}. Confirm this is your email address and we'll pass your claim to your school:\n\n${d.confirmUrl ?? ""}\n\nThe link works for ${d.days ?? "14"} days. If you didn't make this claim, ignore this email — nothing happens without it.\n\n— BTG SponsorX`,
+  }),
   "account.reactivated": (d) => ({
     subject: "Your SponsorX account is back",
     text: `Hi ${d.name ?? "there"},\n\nYour SponsorX account is active again. Sign in with this email address:\n\n${d.portalUrl ?? ""}${d.notes ? `\n\n${d.notes}` : ""}\n\n— BTG SponsorX`,

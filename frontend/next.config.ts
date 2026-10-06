@@ -29,40 +29,178 @@ const nextConfig: NextConfig = {
   // 2S8-SEC-02 (OWASP A05) — no "X-Powered-By: Next.js" advertising the stack.
   poweredByHeader: false,
 
-  // 2S8-SEC-02 — baseline security headers on every response. Deliberately
-  // NOT a full script/style CSP yet: Clerk, Turnstile, the R2 upload host and
-  // the inline <style> on /r and /u all need allowing, so that lands in
-  // report-only mode first (owner decision, security review §A05). What is
-  // here cannot break a page: no framing of ours anywhere (the admin desks
-  // frame R2 links, never the reverse), no plugins, no <base> hijack.
+  // 2S8-SEC-02 — baseline security headers on every response, ENFORCED. What
+  // is enforced cannot break a page: no framing of ours anywhere (the admin
+  // desks frame R2 links, never the reverse), no plugins, no <base> hijack.
+  // 2S8-PMO-02 adds the full script/style policy beside it in REPORT-ONLY
+  // mode (owner decision 1, 2026-10-06) — see buildReportOnlyCsp below.
   async headers() {
     return securityHeaders;
   },
+
+  // 2S8-PMO-02 — two exact paths the web server forwards to the API: the
+  // browser's CSP violation reports, and the profile-claim confirmation link
+  // (see apiRewrites). The browser never talks to the API directly (API_URL is
+  // the private address the web server uses). Read at build time, like
+  // headers(): Railway passes service variables to the build.
+  async rewrites() {
+    return apiRewrites(process.env);
+  },
 };
 
-/* Exported for tests/security-headers.test.ts. HSTS without includeSubDomains
-   and without preload: both are commitments about every sponsorx.net host,
-   which is the owner's call (security review §A05). */
-export const securityHeaders = [
-  {
-    source: "/:path*",
-    headers: [
-      { key: "Strict-Transport-Security", value: "max-age=31536000" },
-      { key: "X-Content-Type-Options", value: "nosniff" },
-      { key: "X-Frame-Options", value: "DENY" },
-      { key: "Content-Security-Policy", value: "frame-ancestors 'none'; base-uri 'self'; object-src 'none'" },
-      { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
-      { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=()" },
-    ],
-  },
-  /* Pages whose URL IS the credential — the fan's reward link, the
-     unsubscribe link, the stand-in provider's signed pages — send no
-     Referer at all, so the token never reaches another site. Listed after
-     the catch-all so this value wins. */
-  ...["/r/:path*", "/u/:path*", "/test-provider/:path*"].map((source) => ({
-    source,
-    headers: [{ key: "Referrer-Policy", value: "no-referrer" }],
-  })),
-];
+type Env = Record<string, string | undefined>;
+
+/** The web path a browser POSTs violation reports to (forwarded to the API). */
+export const CSP_REPORT_PATH = "/api/v1/public/csp-report";
+
+/* 2S8-PMO-02, owner decision 5 — the profile-claim confirmation link in the
+   claimant's email. It lands on this host like every other link we send;
+   the API confirms the claim and answers with a redirect to the public
+   profile (`?claim=confirmed`), which passes back through unchanged. No new
+   screen: a page of its own is a frontend follow-up. */
+export const CLAIM_CONFIRM_PATH = "/api/v1/public/athlete-claims/confirm";
+
+/** The only paths the web server forwards to the API. Exact paths, no wildcards. */
+export function apiRewrites(env: Env) {
+  const api = (env.API_URL ?? "http://localhost:4000").replace(/\/+$/, "");
+  return [CSP_REPORT_PATH, CLAIM_CONFIRM_PATH].map((path) => ({ source: path, destination: `${api}${path}` }));
+}
+
+/** `pk_test_<base64("host$")>` → `https://host`, or null for a key that isn't one. */
+export function clerkFrontendApi(publishableKey: string | undefined): string | null {
+  const m = /^pk_(?:test|live)_([A-Za-z0-9+/=_-]+)$/.exec(publishableKey ?? "");
+  if (!m) return null;
+  const host = Buffer.from(m[1]!, "base64").toString("utf8").replace(/\$$/, "");
+  return /^[a-z0-9.-]+\.[a-z]{2,}$/i.test(host) ? `https://${host}` : null;
+}
+
+const originOf = (url: string | undefined): string | null => {
+  try {
+    return url ? new URL(url).origin : null;
+  } catch {
+    return null;
+  }
+};
+
+/**
+ * The full Content-Security-Policy, sent as **Report-Only** — 2S8-PMO-02,
+ * owner decision 1 (2026-10-06). Nothing is blocked; every violation is
+ * reported, so the policy can be corrected from real traffic before it is
+ * enforced (the switch is a one-line change, security review "Decisions").
+ *
+ * SCRIPTS: `'self' 'unsafe-inline'`, not nonces. Next's App Router streams
+ * its payload in inline <script> tags and the root layout sets the theme in
+ * one, so a policy without either nonces or 'unsafe-inline' breaks every
+ * page. A nonce is per request: it can only come from the proxy (a header
+ * set here in next.config is fixed at build time), and it forces every page
+ * to render dynamically. The fan routes /r, /t and /u are deliberately
+ * outside the proxy (Addendum A10, frontend/tests/fan-route-budget.test.ts),
+ * so they could never carry one. Next's own guide gives this shape for an
+ * app without nonces. `'unsafe-eval'` is added in `next dev` only (React's
+ * dev tooling needs it).
+ *
+ * Everything else is what the app really loads:
+ *   - Clerk: its Frontend API host (decoded from the publishable key), the
+ *     production instance at clerk.sponsorx.net, *.clerk.accounts.dev for a
+ *     development instance, img.clerk.com for avatars, and blob: workers.
+ *   - Cloudflare Turnstile (Clerk's bot protection): challenges.cloudflare.com
+ *     as a script, a frame and a connection.
+ *   - R2: browsers PUT uploads straight to presigned URLs on
+ *     *.r2.cloudflarestorage.com (connect-src); the admin desks frame private
+ *     presigned links (frame-src); public-bucket logos and images load from
+ *     the R2 public URL (img-src). R2_PUBLIC_BASE_URL / S3_ENDPOINT add a
+ *     custom domain when the web service has them; MinIO and the e2e object
+ *     store stand-in are allowed in development.
+ *   - Inline styles: the <style> on /u (a route handler) and on several
+ *     pages, and React `style` attributes — `style-src 'unsafe-inline'`.
+ *   - Fonts: next/font self-hosts Google Fonts at build, so 'self' only.
+ *   - Stripe's hosted pages are top-level redirects; nothing is embedded. A
+ *     native form POST that redirects there is checked against form-action
+ *     by Chrome, so Checkout and Connect onboarding are listed there.
+ */
+export function buildReportOnlyCsp(env: Env): string {
+  const dev = env.NODE_ENV !== "production";
+  const key = env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY ?? "";
+  const devInstance = dev || key.startsWith("pk_test_");
+  const clerk = [
+    clerkFrontendApi(key),
+    "https://clerk.sponsorx.net",
+    ...(devInstance ? ["https://*.clerk.accounts.dev"] : []),
+  ].filter((h): h is string => Boolean(h));
+  const turnstile = "https://challenges.cloudflare.com";
+  const storage = [
+    "https://*.r2.cloudflarestorage.com",
+    "https://*.r2.dev",
+    originOf(env.R2_PUBLIC_BASE_URL),
+    originOf(env.S3_ENDPOINT),
+    ...(dev ? ["http://localhost:9000", "http://127.0.0.1:9000", "http://127.0.0.1:9100"] : []),
+  ].filter((h): h is string => Boolean(h));
+  const uniq = (xs: string[]) => [...new Set(xs)].join(" ");
+
+  const directives: Array<[string, string[]]> = [
+    ["default-src", ["'self'"]],
+    ["script-src", ["'self'", "'unsafe-inline'", ...(dev ? ["'unsafe-eval'"] : []), ...clerk, turnstile]],
+    ["style-src", ["'self'", "'unsafe-inline'"]],
+    ["img-src", ["'self'", "data:", "blob:", "https://img.clerk.com", ...storage]],
+    ["font-src", ["'self'", "data:"]],
+    ["connect-src", ["'self'", ...clerk, turnstile, ...storage, ...(devInstance ? ["https://clerk-telemetry.com"] : []), ...(dev ? ["ws:"] : [])]],
+    ["frame-src", ["'self'", turnstile, ...storage]],
+    ["media-src", ["'self'", "blob:", ...storage]],
+    ["worker-src", ["'self'", "blob:"]],
+    ["manifest-src", ["'self'"]],
+    ["form-action", ["'self'", "https://checkout.stripe.com", "https://connect.stripe.com"]],
+    /* The three enforced directives, repeated so this is the whole policy
+       the day it is switched to enforce. */
+    ["frame-ancestors", ["'none'"]],
+    ["base-uri", ["'self'"]],
+    ["object-src", ["'none'"]],
+    ["report-uri", [CSP_REPORT_PATH]],
+    ["report-to", ["csp"]],
+  ];
+  return directives.map(([name, values]) => `${name} ${uniq(values)}`).join("; ");
+}
+
+/**
+ * The headers for every path, built from the build's environment.
+ *
+ * HSTS — 2S8-PMO-02, the programme owner's decision of 2026-10-06: one year,
+ * WITH includeSubDomains, so every sponsorx.net host (clerk., accounts. and
+ * any added later) is HTTPS-only in a browser that has seen this header; and
+ * WITHOUT preload. Preload ships in browsers and takes months to undo, so it
+ * stays off (security review §A05).
+ */
+export function buildSecurityHeaders(env: Env) {
+  return [
+    {
+      source: "/:path*",
+      headers: [
+        { key: "Strict-Transport-Security", value: "max-age=31536000; includeSubDomains" },
+        { key: "X-Content-Type-Options", value: "nosniff" },
+        { key: "X-Frame-Options", value: "DENY" },
+        /* ENFORCED, unchanged by 2S8-PMO-02. */
+        { key: "Content-Security-Policy", value: "frame-ancestors 'none'; base-uri 'self'; object-src 'none'" },
+        /* Beside it, the full policy, reporting only (owner decision 1). */
+        { key: "Content-Security-Policy-Report-Only", value: buildReportOnlyCsp(env) },
+        /* The Reporting API's endpoint for `report-to csp`; `report-uri` in
+           the policy is the fallback for browsers without it. A relative URL
+           resolves against the page, so reports stay same-origin. */
+        { key: "Reporting-Endpoints", value: `csp="${CSP_REPORT_PATH}"` },
+        { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+        { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=()" },
+      ],
+    },
+    /* Pages whose URL IS the credential — the fan's reward link, the
+       unsubscribe link, the stand-in provider's signed pages — send no
+       Referer at all, so the token never reaches another site. Listed after
+       the catch-all so this value wins. */
+    ...["/r/:path*", "/u/:path*", "/test-provider/:path*"].map((source) => ({
+      source,
+      headers: [{ key: "Referrer-Policy", value: "no-referrer" }],
+    })),
+  ];
+}
+
+/* Exported for tests/security-review.test.ts. */
+export const securityHeaders = buildSecurityHeaders(process.env);
 
 export default nextConfig;
