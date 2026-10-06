@@ -266,7 +266,15 @@ describe.skipIf(!hasDatabase)("2S5-INT-01 / 2S5-INT-03 · Stripe: checkout, payo
     });
 
     it("an account Stripe hasn't told SponsorX about yet waits; one Stripe rejected is recorded and held for BTG; Stripe down while reading is retried", async () => {
-      expect(await applyThin("v2.core.account.updated", uniq("acct"))).toMatchObject({ status: "DEFERRED" });
+      /* SponsorX's own account (tagged), its row not committed yet: wait for it. */
+      const early = uniq("acct");
+      fake.setAccount(early, "new", { sponsorx: "payout-account" });
+      expect(await applyThin("v2.core.account.updated", early)).toMatchObject({ status: "DEFERRED" });
+      /* Another account on BTG's Stripe (no SponsorX tag), or one Stripe doesn't have: not ours — acknowledged, never chased. */
+      const foreign = uniq("acct");
+      fake.setAccount(foreign, "new", {});
+      expect(await applyThin("v2.core.account.updated", foreign)).toMatchObject({ status: "IGNORED", outcome: expect.stringMatching(/Not a SponsorX payout account/) });
+      expect(await applyThin("v2.core.account.updated", uniq("acct"))).toMatchObject({ status: "IGNORED" });
       const row = await prisma.payoutAccount.findUniqueOrThrow({ where: { payeeType_payeeId: { payeeType: "PROPERTY", payeeId: w.E.property } }, select: { providerAccountId: true } });
       const acct = row.providerAccountId!;
       fake.setAccount(acct, "rejected");

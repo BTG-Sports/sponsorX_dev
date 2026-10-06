@@ -37,6 +37,7 @@ export function fakeStripe(tag: string) {
   const failures: Array<{ path: string; status: number; error: Json }> = [];
   const transfers: Json[] = [];
   const accounts = new Map<string, FakeAccountState>();
+  const accountMeta = new Map<string, Json>();
   const refunds: Json[] = [];
   let n = 0;
   const id = (prefix: string) => `${prefix}_${tag}${++n}${Date.now().toString(36)}`;
@@ -68,13 +69,14 @@ export function fakeStripe(tag: string) {
     if (method === "POST" && path === "/v2/core/accounts") {
       const acct = id("acct");
       accounts.set(acct, "new");
+      accountMeta.set(acct, (json?.metadata as Json | undefined) ?? {});
       return { status: 200, body: v2Account(acct, "new", { contact_email: json?.contact_email, display_name: json?.display_name, metadata: json?.metadata ?? {} }) };
     }
     const v2get = /^\/v2\/core\/accounts\/([^/]+)$/.exec(path);
     if (method === "GET" && v2get) {
       const state = accounts.get(v2get[1]!);
       if (!state) return { status: 404, body: { error: { type: "invalid_request_error", code: "resource_missing", message: `No such account: '${v2get[1]}'` } } };
-      return { status: 200, body: v2Account(v2get[1]!, state) };
+      return { status: 200, body: v2Account(v2get[1]!, state, { metadata: accountMeta.get(v2get[1]!) ?? {} }) };
     }
     if (method === "POST" && path === "/v2/core/account_links") {
       return { status: 200, body: { object: "v2.core.account_link", account: json?.account, url: `https://connect.stripe.com/setup/e/${String(json?.account)}/${id("link")}`, created: new Date().toISOString(), expires_at: new Date().toISOString(), livemode: false, use_case: json?.use_case } };
@@ -166,7 +168,10 @@ export function fakeStripe(tag: string) {
     transfers,
     refunds,
     /** Set how a payee's account stands at "Stripe" (what GET /v2/core/accounts/:id answers). */
-    setAccount: (acct: string, state: FakeAccountState) => accounts.set(acct, state),
+    setAccount: (acct: string, state: FakeAccountState, metadata?: Json) => {
+      accounts.set(acct, state);
+      if (metadata) accountMeta.set(acct, metadata);
+    },
     /** The requests to a path (and method). */
     to: (path: string, method = "POST") => seen.filter((r) => r.path === path && r.method === method),
     /** The next request to `path` answers with this Stripe error. */

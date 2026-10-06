@@ -51,7 +51,7 @@ import type { Actor } from "../auth/actor";
 import { assertAllowed, can, whereFor } from "../auth/scope";
 import { ForbiddenError } from "../auth/errors";
 import {
-  createPayoutAccount, openCheckout, payoutAccountLinkUrl, payoutAccountStatus, ProviderRefusedError, providerName, readStandinToken, sendPayoutToProvider, standinLink, standinRef,
+  createPayoutAccount, isSponsorXPayoutAccount, openCheckout, payoutAccountLinkUrl, payoutAccountStatus, ProviderRefusedError, providerName, readStandinToken, sendPayoutToProvider, standinLink, standinRef,
   StandinTokenError,
 } from "../lib/payment-provider";
 import { postPayout, postPayoutReturn } from "./ledger";
@@ -1471,7 +1471,11 @@ export const onAccountUpdated: Handler = async (tx, ev, data, now) => {
     /* tenant-scope: the payout account a verified provider event names, by the provider's own account id. */
     where: { provider: ev.provider, providerAccountId: accountRef }, select: { tenantId: true, payeeType: true, payeeId: true, status: true },
   });
-  if (!row) return deferred("No payout account in SponsorX matches this provider account yet — tried again shortly");
+  if (!row) {
+    /* Not tagged as SponsorX's: another account on BTG's Stripe — nothing to wait for. */
+    if (!(await isSponsorXPayoutAccount(accountRef))) return ignored("Not a SponsorX payout account — another account on the payment provider; nothing to do");
+    return deferred("No payout account in SponsorX matches this provider account yet — tried again shortly");
+  }
   /* A thin event only said it changed: the account is read afresh from the provider (the worker, never a request path). */
   const fresh = data.status === undefined ? await payoutAccountStatus(accountRef) : null;
   const status = (fresh?.status ?? data.status) === "READY" ? "READY" : "NEEDS_INFO";

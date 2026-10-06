@@ -13,3 +13,22 @@
   - Express connected accounts through Account Links;
   - the Stripe webhook mapped onto the provider-neutral payment events built on 2026-10-05.
 - **New dependency:** the official `stripe` npm package (owner approved).
+- **Stripe went live on staging** (PRs #158 and #159, deployed from `main` 499e0b5). The registered webhooks:
+  - a platform webhook, `we_1UNPhwKA9GZ8RRgKLWZ30ogs`;
+  - an Accounts v2 thin destination, `ed_test_61VWnfIrbv0HeT0L416VWasbA4SQ7QET7g67jFMIqUMq`.
+
+  Both were registered from inside the staging container. Their secrets went straight into Railway (`STRIPE_WEBHOOK_SECRET`, `STRIPE_THIN_WEBHOOK_SECRET`), and `PAYMENT_PROVIDER=stripe` is set on staging only.
+  - **Gotcha:** changing a Railway variable without `--skip-deploys` rebuilds from the `release` branch, which is old code, and the build fails. Always follow it with `npm run deploy staging`.
+- **2S5-INT-01 · Done.** A real purchase on staging, with the test sponsor "Stripe Test Coffee":
+  - the order was $1,000 (SX-BK6HZ86G);
+  - declined card 0002 was refused, then 4242 paid on `checkout.stripe.com`;
+  - SponsorX showed "Paid ✓" within two seconds of the webhook, with PaymentIntent `pi_3UNQsiKA9GZ8RRgK1bwYh0FH`, and the split was exact.
+- **2S5-INT-03 · In progress.** On staging, the onboarding link opens and NEEDS_INFO is recorded. Stripe's hosted onboarding shows an hCaptcha to automated browsers, so a person must finish the test onboarding for "Stripe Test Hawks" to reach READY.
+- **Fix 7105256:** account events for accounts SponsorX didn't open are now ignored, not retried onto BTG's exceptions list.
+- **Staging test data left in place:**
+  - the "Stripe Test" admin, team, athlete and sponsor, created through the tester facility;
+  - five global commission rules (15% / 5% / 2.9%+30¢ / 2% / 10% reserve) on `/admin/commission`.
+- **Stripe settings worth a look:** Checkout first showed Philippine pesos (Stripe guesses the currency from location). Adaptive Pricing can be turned off in Stripe's settings.
+- **2S5-INT-03 · Done.** The owner completed Stripe's hosted onboarding by hand for the test team "Stripe Test Hawks" (account `acct_1UNQnWKA9GFzKcrb`, test bank ••••6789). Stripe shows transfers and payouts as active. SponsorX turned the account **READY** on its own, from the thin webhook, at 07:54:46 UTC.
+  - Only "eventually due" items remain (date of birth and the last 4 of the SSN), and they don't block payouts.
+  - **Stripe's onboarding shows an hCaptcha to automated browsers,** so a person has to finish any onboarding test.
