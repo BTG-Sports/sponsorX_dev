@@ -57,7 +57,7 @@ import {
   parseProviderWebhook, providerName, standinWebhookSignature, verifyProviderWebhook, WebhookPayloadError,
 } from "../lib/payment-provider";
 import {
-  PAYMENT_EVENT_STATUSES, PAYMENT_EVENT_TYPES, type NeutralPaymentEvent, type PaymentEventStatus, type PaymentEventType,
+  PAYMENT_EVENT_STATUSES, STANDIN_EVENT_TYPES, type NeutralPaymentEvent, type PaymentEventStatus, type PaymentEventType,
 } from "../contracts/payment-events";
 import { lockOrder } from "./marketplace-order";
 import { appUrl, btgAdmins, orderRef, tell, usd } from "./order-mail";
@@ -116,7 +116,7 @@ async function recordRejected(provider: string, rawBody: string, signatureOk: bo
 /** What an event is about, as the provider named it. */
 function subjectOf(e: NeutralPaymentEvent): string | null {
   const d = e.data as Record<string, string | undefined>;
-  return (d.disputeRef ?? d.attemptId ?? d.paymentRef ?? d.payoutId ?? d.payoutRef ?? null)?.slice(0, 200) ?? null;
+  return (d.disputeRef ?? d.attemptId ?? d.paymentRef ?? d.payoutId ?? d.payoutRef ?? d.accountRef ?? d.subject ?? null)?.slice(0, 200) ?? null;
 }
 
 export type AcceptedWebhook = { received: true; events: Array<{ id: string; type: PaymentEventType; duplicate: boolean }> };
@@ -287,6 +287,9 @@ const onFailed: Handler = async (tx, ev, data, now) => {
   return applied("The payment failed — the order is still waiting for payment", a.tenantId, a.orderId);
 };
 
+/** provider.notice — always BTG's, in the provider's words as the adapter put them. */
+const onNotice: Handler = async (_tx, _ev, data) => held(typeof data.summary === "string" ? data.summary : "The payment provider reported something SponsorX doesn't act on by itself — check it with the provider.");
+
 /**
  * Every event type's handler. A type with none is held for BTG, never
  * dropped. Resolved at call time, not in a top-level table: the modules that
@@ -297,6 +300,8 @@ function handlerFor(type: string): Handler | null {
     case "payment.processing": return onProcessing;
     case "payment.succeeded": return onSucceeded;
     case "payment.failed": return onFailed;
+    /* 2S5-INT-01 — something the provider reported that SponsorX must not act on by itself. */
+    case "provider.notice": return onNotice;
     /* 2S5-BE-03 — refunds the provider reports, and disputes (payment-exceptions.ts);
        2S5-BE-05 — a payout paid, failed or returned (payouts.ts). */
     default: return exceptionHandlerFor(type) ?? payoutHandlerFor(type);
@@ -562,7 +567,7 @@ export type StandinEventInput = {
 export async function standinSendEvent(actor: Actor, input: StandinEventInput, now = new Date()) {
   assertTenantWide(actor, "paymentEvent", "write");
   if (providerName() !== "standin") throw new PaymentEventError("The test payment provider is switched off here.", 400);
-  if (!(PAYMENT_EVENT_TYPES as readonly string[]).includes(input.type)) throw new PaymentEventError("Unknown event type.", 422);
+  if (!(STANDIN_EVENT_TYPES as readonly string[]).includes(input.type)) throw new PaymentEventError("Unknown event type.", 422);
   const data: Record<string, unknown> = {};
   if (input.type.startsWith("payout.")) {
     if (!input.payoutId) throw new PaymentEventError("Name the payout.", 422);

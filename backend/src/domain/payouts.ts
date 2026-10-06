@@ -30,10 +30,16 @@
  *     to fix their payout account (retried once when it is READY again), or
  *     goes to BTG. BTG can retry any failed payout at any time.
  *
- * All provider traffic goes through lib/payment-provider.ts. On staging the
- * provider is a labelled stand-in that moves no money; in production, until a
- * provider is connected, links are refused and approved payouts wait.
+ * All provider traffic goes through lib/payment-provider.ts. With Stripe
+ * (2S5-INT-01 / -03): the sponsor pays on Stripe's hosted Checkout, a payee
+ * sets up a Connect Express account on Stripe's hosted onboarding, and a
+ * payout is a transfer to that account. On staging the provider may be a
+ * labelled stand-in that moves no money; in production, until a provider is
+ * connected, links are refused and approved payouts wait.
  */
+
+/** A transaction that calls the provider waits for it, at most PAYMENT_PROVIDER_TIMEOUT_MS (and its own work besides). */
+const providerTx = () => ({ timeout: env.PAYMENT_PROVIDER_TIMEOUT_MS * 2 + 10_000, maxWait: 10_000 });
 import type { Prisma } from "../generated/prisma/client";
 import { prisma } from "../db/client";
 import { audit } from "../db/audit";
@@ -42,7 +48,10 @@ import { env } from "../config/env";
 import type { Actor } from "../auth/actor";
 import { assertAllowed, can, whereFor } from "../auth/scope";
 import { ForbiddenError } from "../auth/errors";
-import { openCheckout, providerName, readStandinToken, sendPayoutToProvider, standinLink, standinRef, StandinTokenError } from "../lib/payment-provider";
+import {
+  openCheckout, ProviderRefusedError, providerName, readStandinToken, sendPayoutToProvider, standinLink, standinRef,
+  StandinTokenError,
+} from "../lib/payment-provider";
 import { postPayout, postPayoutReturn } from "./ledger";
 import { recordRefund } from "./refunds";
 import { lockOrder, moveOrderAsSystem, payOrderIn } from "./marketplace-order";
@@ -161,6 +170,8 @@ export async function payoutAccountLink(actor: Actor, returnPath: unknown, now =
   const provider = providerName();
   if (provider === "none") throw providerUnavailable("Payout set-up");
   const back = safeReturnPath(returnPath, payee.payeeType === "ATHLETE" ? "/athlete" : "/property/earnings");
+  /* Payout set-up with Stripe: 2S5-INT-03. */
+  if (provider === "stripe") throw providerUnavailable("Payout set-up");
   await prisma.$transaction(async (tx) => {
     const existing = await tx.payoutAccount.findFirst({ where: whereFor(actor, "payoutAccount", "write"), select: { id: true } });
     if (!existing) {
@@ -273,7 +284,7 @@ export async function startCardPayment(actor: Actor, orderId: string, now = new 
   if (scope !== "own-sponsor" || !actor.sponsorId) throw new ForbiddenError("marketplaceOrder", "write");
   const provider = providerName();
   if (provider === "none") throw providerUnavailable("Card payment");
-  const attempt = await prisma.$transaction(async (tx) => {
+  const opened = await prisma.$transaction(async (tx) => {
     const found = await tx.marketplaceOrder.findFirst({
       where: { ...whereFor(actor, "marketplaceOrder", "write"), id: orderId }, select: { id: true },
     });
@@ -305,11 +316,14 @@ export async function startCardPayment(actor: Actor, orderId: string, now = new 
     });
     await audit(tx, actor, "payment.start", "MarketplaceOrder", order.id, { after: { attemptId: created.id, amountCents: order.totalCents, provider } });
     /* 2S8-QA-02 — the provider's page is opened inside this transaction: if the provider is down,
-       no attempt is recorded and the order is as it was (503, try again). */
-    await openCheckout({ attemptId: created.id, amountCents: order.totalCents });
-    return created;
-  });
-  return { url: standinLink({ kind: "checkout", attemptId: attempt.id, returnPath: `/sponsor/orders/${orderId}?payment=returned` }, now) };
+       no attempt is recorded and the order is as it was (503, try again). 2S5-INT-01 — with
+       Stripe, a hosted Checkout Session for this attempt (lib/payment-provider.ts). */
+    return openCheckout({
+      attemptId: created.id, orderId: order.id, orderRef: orderRef(order.id), amountCents: order.totalCents,
+      returnPath: `/sponsor/orders/${order.id}?payment=returned`, cancelPath: `/sponsor/orders/${order.id}`, now,
+    });
+  }, providerTx());
+  return { url: opened.url };
 }
 
 /**
@@ -1080,7 +1094,7 @@ export async function resumePayoutsCovering(tx: Tx, orderId: string) {
  * hand it over once; a provider that throws (down, timing out) rolls the
  * whole step back and the queue retries it with the same key.
  */
-export async function sendPayout(payoutId: string, now = new Date()): Promise<{ sent: boolean }> {
+export async function sendPayout(payoutId: string, now = new Date()): Promise<{ sent: boolean; refused?: boolean }> {
   const provider = providerName();
   if (provider === "none") return { sent: false };
   return prisma.$transaction(async (tx) => {
@@ -1103,9 +1117,15 @@ export async function sendPayout(payoutId: string, now = new Date()): Promise<{ 
       where: { payeeType_payeeId: { payeeType: row.payeeType, payeeId: row.payeeId } }, select: { providerAccountId: true },
     });
     const attempt = row.sendAttempts + 1;
-    const handed = await sendPayoutToProvider({
-      payoutId: row.id, amountCents: row.amountCents, currency: "USD", accountId: account?.providerAccountId ?? null, idempotencyKey: `${row.id}:${attempt}`,
-    });
+    let handed: Awaited<ReturnType<typeof sendPayoutToProvider>>;
+    try {
+      handed = await sendPayoutToProvider({
+        payoutId: row.id, amountCents: row.amountCents, currency: "USD", accountId: account?.providerAccountId ?? null, idempotencyKey: `${row.id}:${attempt}`,
+      });
+    } catch (error) {
+      if (!(error instanceof ProviderRefusedError)) throw error;
+      return refusedByProvider(tx, row.id, row.sendAttempts, error, now);
+    }
     const moved = await tx.payout.updateMany({
       /* tenant-scope: the row just loaded by id; conditional on its state and hand-over count, so a second job for it finds nothing. */
       where: { id: row.id, state: "APPROVED", sendAttempts: row.sendAttempts },
@@ -1114,7 +1134,31 @@ export async function sendPayout(payoutId: string, now = new Date()): Promise<{ 
     if (!moved.count) return { sent: false };
     await audit(tx, { userId: null, tenantId: row.tenantId }, "payout.send", "Payout", row.id, { after: { provider: handed.provider, providerRef: handed.reference, attempt } });
     return { sent: true };
+  }, providerTx());
+}
+
+/**
+ * 2S5-INT-01 — the provider answered the hand-over and refused it (Stripe: no
+ * destination account, BTG's balance short, an account that can't take
+ * transfers). Retrying the same thing would be refused again, so it is a
+ * payout failure like any the provider reports later — handed over, then
+ * FAILED with Stripe's reason, its kind (lib/stripe.ts `failureKindFor`)
+ * deciding what happens next: retried, waiting for the payee's account, or
+ * BTG's. Conditional on the hand-over count, as the hand-over itself is.
+ */
+async function refusedByProvider(tx: Tx, payoutId: string, sendAttempts: number, error: ProviderRefusedError, now: Date): Promise<{ sent: false; refused: true }> {
+  const moved = await tx.payout.updateMany({
+    /* tenant-scope: the payout this job loaded by id; conditional on its state and hand-over count. */
+    where: { id: payoutId, state: "APPROVED", sendAttempts },
+    data: { state: "SENDING", provider: providerName(), providerRef: null, sentAt: now, sendAttempts: sendAttempts + 1 },
   });
+  if (!moved.count) return { sent: false, refused: true };
+  const row = await tx.payout.findUniqueOrThrow({ /* tenant-scope: the row just moved. */ where: { id: payoutId }, select: PAYOUT_SELECT });
+  await audit(tx, { userId: null, tenantId: row.tenantId }, "payout.send", "Payout", row.id, {
+    after: { provider: providerName(), refused: true, providerCode: error.providerCode, attempt: sendAttempts + 1 },
+  });
+  await payoutFailedIn(tx, row, "SENDING", `The payment provider refused the payout: ${error.providerMessage}`.slice(0, 500), error.kind, now);
+  return { sent: false, refused: true };
 }
 
 /** The provider confirms the money arrived: PAID, the PAYOUT journals, and the payee's email. Idempotent. */
