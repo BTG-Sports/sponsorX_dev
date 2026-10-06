@@ -1717,9 +1717,9 @@ Zoho Books sends no timestamp, so replaying an old, correctly signed invoice web
 - **Done when:** The guard tests fail on an unscoped write and on a same-tenant cross-account read, shown by a deliberately broken route
 - **Reference:** Security review 2026-10, Other checks (Open, Info); raised 2026-10-05 by 2S8-SEC-02
 
-### ⏸ `2S8-SEC-06` · Replace the full-access live Stripe key with a restricted key
+### ✅ `2S8-SEC-06` · Replace the full-access live Stripe key with a restricted key
 
-**Order** 62.6 · **SEC** · **Where:** Code · **1d** · **Ready**
+**Order** 62.6 · **SEC** · **Where:** Code · **1d** · **Done**
 
 Production's live Stripe secret key was created on 2026-10-06 with **full access**, because it wasn't clear which restricted-key permissions Accounts v2 payout accounts need. It is stored only in Railway production (`api`).
 
