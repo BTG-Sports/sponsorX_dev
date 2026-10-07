@@ -11,6 +11,11 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vites
    that never ran passes only off Railway; 503 names what failed and the body
    never carries a host or an error message; /ready is unchanged by any of it.
 
+   P2-OPS-11 adds the queue: it fails when a due job or a dispatchable outbox
+   row has waited past 15 minutes (the worker is not draining), reports depth
+   and the last day's failed jobs, and leaves parked Zoho jobs out when CRM
+   credentials are absent. The 15-minute error rate rides along, never failing.
+
    Mocked at the boundary integration-health.test.ts uses (db client, redis,
    storage). No database rows, so nothing here can collide with a parallel
    file.
@@ -24,6 +29,15 @@ const state = vi.hoisted(() => ({
   archiver: { archivedAgoSeconds: 5 * 60 as number | null, failing: false as boolean | null } as
     | { archivedAgoSeconds: number | null; failing: boolean | null }
     | "throws",
+  queue: {
+    installed: true,
+    jobs: { due: 0, oldestDueSeconds: null as number | null, failed: 0 },
+    outbox: { pending: 0, oldestSeconds: null as number | null },
+  } as
+    | { installed: boolean; jobs: { due: number; oldestDueSeconds: number | null; failed: number }; outbox: { pending: number; oldestSeconds: number | null } }
+    | "throws",
+  /* The values bound into the outbox query — the parked job names. */
+  outboxValues: [] as unknown[],
   statements: [] as string[],
   hits: 0,
 }));
@@ -47,8 +61,18 @@ vi.mock("../src/db/client", () => {
       state.statements.push(strings.join("?"));
       return 0;
     },
-    $queryRaw: async (strings: TemplateStringsArray) => {
-      state.statements.push(strings.join("?"));
+    $queryRaw: async (strings: TemplateStringsArray, ...values: unknown[]) => {
+      const sql = strings.join("?");
+      state.statements.push(sql);
+      if (/pgboss|OutboxJob/.test(sql)) {
+        if (state.queue === "throws") throw new Error(`queue read failed on ${SECRET_HOST}`);
+        if (sql.includes("to_regclass")) return [{ installed: state.queue.installed }];
+        if (sql.includes("OutboxJob")) {
+          state.outboxValues = values;
+          return [state.queue.outbox];
+        }
+        return [state.queue.jobs];
+      }
       if (state.archiver === "throws") throw new Error(`archiver read failed on ${SECRET_HOST}`);
       return [state.archiver];
     },
@@ -63,7 +87,8 @@ vi.mock("../src/db/client", () => {
 
 const { healthRouter } = await import("../src/routes/health");
 const { errorBody } = await import("../src/lib/error-body");
-const { evaluateBackups, BACKUP_RPO_MINUTES } = await import("../src/domain/system-health");
+const { evaluateBackups, evaluateQueue, BACKUP_RPO_MINUTES, DRAIN_STALL_MINUTES } = await import("../src/domain/system-health");
+const { recordResponse, errorRate, resetRequestStats } = await import("../src/lib/request-stats");
 
 let server: Server;
 let base = "";
@@ -91,8 +116,14 @@ beforeEach(() => {
   state.redis = true;
   state.storage = true;
   state.archiver = { archivedAgoSeconds: 5 * 60, failing: false };
+  state.queue = { installed: true, jobs: { due: 0, oldestDueSeconds: null, failed: 0 }, outbox: { pending: 0, oldestSeconds: null } };
+  state.outboxValues = [];
   state.statements = [];
   state.hits = 0;
+  delete process.env.ZOHO_CLIENT_ID;
+  delete process.env.ZOHO_CLIENT_SECRET;
+  delete process.env.ZOHO_REFRESH_TOKEN;
+  resetRequestStats();
 });
 
 async function full() {
@@ -111,15 +142,18 @@ describe("GET /health/full", () => {
         redis: true,
         storage: true,
         backups: { ok: true, configured: true, minutesSinceArchive: 5, failing: false },
+        queue: { ok: true, configured: true, depth: 0, oldestWaitMinutes: 0, failedLast24h: 0 },
       },
+      traffic: { windowMinutes: 15, requests: 0, status5xx: 0, rate: null },
     });
     expect(headers.get("cache-control")).toBe("no-store");
   });
 
-  it("reads the archiver under a short statement timeout", async () => {
+  it("reads the archiver and the queue, each under a short statement timeout", async () => {
     await full();
-    expect(state.statements[0]).toMatch(/SET LOCAL statement_timeout = '2s'/);
-    expect(state.statements[1]).toMatch(/FROM pg_stat_archiver/);
+    expect(state.statements.filter((q) => /SET LOCAL statement_timeout = '2s'/.test(q))).toHaveLength(2);
+    expect(state.statements.some((q) => /FROM pg_stat_archiver/.test(q))).toBe(true);
+    expect(state.statements.some((q) => /FROM pgboss\.job/.test(q))).toBe(true);
   });
 
   it("stale — 61 minutes since the last archive breaks the 60-minute RPO: 503 degraded, backups named", async () => {
@@ -169,7 +203,7 @@ describe("GET /health/full", () => {
     const res = await fetch(`${base}/health/full`);
     const text = await res.text();
     expect(res.status).toBe(503);
-    expect(JSON.parse(text).failed).toEqual(["db", "backups"]);
+    expect(JSON.parse(text).failed).toEqual(["db", "backups", "queue"]);
     expect(text).not.toMatch(/railway|internal|ECONNREFUSED|5432|Error/i);
   });
 
@@ -180,6 +214,71 @@ describe("GET /health/full", () => {
     expect(res.status).toBe(503);
     expect(JSON.parse(text).checks.backups).toEqual({ ok: false, configured: null, minutesSinceArchive: null, failing: null });
     expect(text).not.toMatch(/railway|archiver read failed/i);
+  });
+
+  it("a due job waiting 16 minutes: the worker is not draining — 503, queue named", async () => {
+    state.queue = { installed: true, jobs: { due: 3, oldestDueSeconds: 16 * 60, failed: 0 }, outbox: { pending: 0, oldestSeconds: null } };
+    const { status, body } = await full();
+    expect(status).toBe(503);
+    expect(body.failed).toEqual(["queue"]);
+    expect((body.checks as Record<string, unknown>).queue).toEqual({ ok: false, configured: true, depth: 3, oldestWaitMinutes: 16, failedLast24h: 0 });
+  });
+
+  it("an outbox row waiting 20 minutes: the drain has stopped — 503, depth counts both sides", async () => {
+    state.queue = { installed: true, jobs: { due: 1, oldestDueSeconds: 30, failed: 2 }, outbox: { pending: 4, oldestSeconds: 20 * 60 } };
+    const { status, body } = await full();
+    expect(status).toBe(503);
+    expect((body.checks as Record<string, unknown>).queue).toEqual({ ok: false, configured: true, depth: 5, oldestWaitMinutes: 20, failedLast24h: 2 });
+  });
+
+  it("a backlog that is moving is healthy, and failed jobs are reported without failing the check", async () => {
+    state.queue = { installed: true, jobs: { due: 40, oldestDueSeconds: 90, failed: 7 }, outbox: { pending: 12, oldestSeconds: 5 } };
+    const { status, body } = await full();
+    expect(status).toBe(200);
+    expect((body.checks as Record<string, unknown>).queue).toEqual({ ok: true, configured: true, depth: 52, oldestWaitMinutes: 1, failedLast24h: 7 });
+  });
+
+  it("without CRM credentials the outbox check leaves the parked Zoho jobs out; with them, nothing is left out", async () => {
+    await full();
+    expect(state.outboxValues[0]).toEqual(expect.arrayContaining(["zoho.pushDeal", "zoho.pushSponsor"]));
+    expect(state.outboxValues[0]).not.toContain("notify.email");
+    process.env.ZOHO_CLIENT_ID = "id";
+    process.env.ZOHO_CLIENT_SECRET = "secret";
+    process.env.ZOHO_REFRESH_TOKEN = "refresh";
+    await full();
+    expect(state.outboxValues[0]).toEqual([]);
+  });
+
+  it("pg-boss never installed: fine off Railway, a failure on Railway", async () => {
+    state.queue = { installed: false, jobs: { due: 0, oldestDueSeconds: null, failed: 0 }, outbox: { pending: 0, oldestSeconds: null } };
+    state.env.RAILWAY_ENVIRONMENT_NAME = undefined;
+    state.archiver = { archivedAgoSeconds: null, failing: false };
+    let r = await full();
+    expect(r.status).toBe(200);
+    expect((r.body.checks as Record<string, unknown>).queue).toEqual({ ok: true, configured: false, depth: null, oldestWaitMinutes: null, failedLast24h: null });
+    state.env.RAILWAY_ENVIRONMENT_NAME = "production";
+    state.archiver = { archivedAgoSeconds: 60, failing: false };
+    r = await full();
+    expect(r.status).toBe(503);
+    expect(r.body.failed).toEqual(["queue"]);
+  });
+
+  it("an unreadable queue is a failed queue check, never a leaked message", async () => {
+    state.queue = "throws";
+    const res = await fetch(`${base}/health/full`);
+    const text = await res.text();
+    expect(res.status).toBe(503);
+    expect(JSON.parse(text).checks.queue).toEqual({ ok: false, configured: null, depth: null, oldestWaitMinutes: null, failedLast24h: null });
+    expect(text).not.toMatch(/railway|queue read failed/i);
+  });
+
+  it("reports the API's 5xx rate over 15 minutes and stays 200 however high it is", async () => {
+    for (let i = 0; i < 6; i++) recordResponse(200);
+    for (let i = 0; i < 2; i++) recordResponse(500);
+    recordResponse(404);
+    const { status, body } = await full();
+    expect(status).toBe(200);
+    expect(body.traffic).toEqual({ windowMinutes: 15, requests: 9, status5xx: 2, rate: 0.2222 });
   });
 
   it("is rate-limited like the other public routes", async () => {
@@ -212,5 +311,34 @@ describe("evaluateBackups", () => {
   });
   it("no reading at all is a failure", () => {
     expect(evaluateBackups(null, false).ok).toBe(false);
+  });
+});
+
+describe("evaluateQueue", () => {
+  const reading = { installed: true, dueJobs: 0, oldestDueSeconds: null, outboxPending: 0, oldestOutboxSeconds: null, failedLast24h: 0 };
+  it("the stall threshold is 15 minutes", () => {
+    expect(DRAIN_STALL_MINUTES).toBe(15);
+  });
+  it("15 whole minutes is still draining; 16 is not", () => {
+    expect(evaluateQueue({ ...reading, dueJobs: 1, oldestDueSeconds: 15 * 60 + 59 }, true).ok).toBe(true);
+    expect(evaluateQueue({ ...reading, dueJobs: 1, oldestDueSeconds: 16 * 60 }, true).ok).toBe(false);
+  });
+  it("an empty queue is healthy", () => {
+    expect(evaluateQueue(reading, true)).toEqual({ ok: true, configured: true, depth: 0, oldestWaitMinutes: 0, failedLast24h: 0 });
+  });
+  it("no reading at all is a failure", () => {
+    expect(evaluateQueue(null, false).ok).toBe(false);
+  });
+});
+
+describe("errorRate", () => {
+  it("forgets responses older than the 15-minute window", () => {
+    resetRequestStats();
+    const t0 = Date.UTC(2026, 9, 7, 12, 0, 0);
+    recordResponse(500, t0);
+    recordResponse(200, t0 + 14 * 60_000);
+    expect(errorRate(t0 + 14 * 60_000)).toMatchObject({ requests: 2, status5xx: 1 });
+    expect(errorRate(t0 + 15 * 60_000)).toMatchObject({ requests: 1, status5xx: 0, rate: 0 });
+    expect(errorRate(t0 + 30 * 60_000)).toMatchObject({ requests: 0, rate: null });
   });
 });

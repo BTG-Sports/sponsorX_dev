@@ -11,6 +11,7 @@ import { errorBody } from "./lib/error-body";
 import { healthRouter } from "./routes/health";
 import { v1Router } from "./routes/v1";
 import { logError } from "./lib/redact";
+import { recordResponse } from "./lib/request-stats";
 
 /** Sent on every API response (2S8-SEC-02). HSTS is the web app's job — it
  *  owns the public hostname; the API's public domain only takes webhooks. */
@@ -47,6 +48,14 @@ export function createApp() {
   // Health lives outside /api/v1 so a load balancer can probe it without
   // versioning concerns.
   app.use("/health", healthRouter);
+
+  /* P2-OPS-11 — count every API response for /health/full's error rate.
+     After the health mount on purpose: the monitor's own probes are not
+     traffic. */
+  app.use((_req, res, next) => {
+    res.on("finish", () => recordResponse(res.statusCode));
+    next();
+  });
 
   // The Phase 1 API. Contracts are schema-first (Zod), shared with the
   // frontend — the OpenAPI spec is generated from the same Zod registry.
