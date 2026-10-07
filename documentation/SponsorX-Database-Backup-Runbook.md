@@ -120,6 +120,58 @@ mistake.
 
 ---
 
+## Alerts (2S8-OPS-01)
+
+**What is watched.** Every 15 minutes, `.github/workflows/health-monitor.yml`
+checks staging (`https://web-staging-904a.up.railway.app`) and production
+(`https://sponsorx.net`) from outside, through the public web address:
+
+| Check | Passes when |
+|---|---|
+| `GET /` | the web server answers 200 |
+| `GET /api/v1/public/health` | 200 with `"status":"ok"`. The web server forwards it to the API's `GET /health/full`, which checks Postgres, Redis and storage (as `/health/ready` does) **and the backups** |
+
+**Thresholds.**
+
+- **Backups: 60 minutes,** the RPO. The API reads `pg_stat_archiver`: the
+  check fails when the last successful WAL archive is more than 60 minutes old,
+  or when the archiver's last failure is newer than its last success. On Railway,
+  an archiver that has never archived also fails. Off Railway (local, CI), that
+  case reports `configured: false` and passes.
+- **Each check is tried 3 times** (curl, 2 retries, 10 s to connect, 20 s per
+  attempt). A check counts as failed only when all three attempts fail, so a
+  single blip does not page anyone.
+
+**Where alerts go.** Slack, through the repository secret `SLACK_WEBHOOK_URL`
+(the same webhook as the tracker messages). Messages are sent only when the
+state changes, separately for each environment:
+
+- **SponsorX health alert:** an environment went from healthy to failing. The
+  message names the environment, each failing check with what it saw (for
+  example `answered 503 degraded — failing: backups`), and links the run.
+- **SponsorX recovered:** it is healthy again.
+
+While an environment stays down, the monitor posts nothing more; the run stays
+red in the Actions tab. To see the live detail yourself:
+`curl -s https://sponsorx.net/api/v1/public/health`.
+
+**Send a test alert** (after the workflow is on `main`):
+
+```bash
+gh workflow run health-monitor.yml -f simulate_failure=true
+```
+
+Slack receives one message headed **"[TEST] SponsorX health alert"**, which
+also shows the live status of both environments. A test does not change the
+monitor's state, so it causes no false "recovered" message afterwards.
+
+**If backups alert:** run `railway postgres pitr status --service <Postgres
+service> --environment <env>` and compare `Last archived at`. A quiet database
+writes WAL slowly, so if alerts come at night with no other fault, check that
+the server's `archive_timeout` forces a segment switch at least hourly.
+
+---
+
 ## What is not proven
 
 - **No restore has been tested with real data in it.** The staging database was
