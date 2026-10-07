@@ -6,8 +6,14 @@ environment. Each run checks one environment's web server:
 
   GET /                       must answer 200   (the site is up)
   GET /api/v1/public/health   must answer 200 with {"status": "ok"}
-                              (web -> API -> Postgres, Redis, storage, and the
-                              database's backups no older than 60 minutes)
+                              (web -> API -> Postgres, Redis, storage, the
+                              database's backups no older than 60 minutes, and
+                              — P2-OPS-11 — the worker draining: no due job or
+                              outbox row waiting more than 15 minutes)
+
+The health answer also carries the queue's depth, the jobs that failed in the
+last 24 hours and the API's 5xx rate over 15 minutes. Those figures go into
+the job summary on every run and into the alert; only "not draining" fails.
 
 and posts to Slack only when the state CHANGES:
 
@@ -96,6 +102,32 @@ def curl_fetch(url: str) -> Tuple[int, str]:
             return code, f.read(4096)
 
 
+def figures(doc: object) -> str:
+    """The queue and error-rate numbers (P2-OPS-11), or "" when the answer has none."""
+    if not isinstance(doc, dict):
+        return ""
+    parts = []
+    checks = doc.get("checks")
+    queue = checks.get("queue") if isinstance(checks, dict) else None
+    if isinstance(queue, dict) and isinstance(queue.get("depth"), int):
+        parts.append(f"queue {queue['depth']} waiting, oldest {queue.get('oldestWaitMinutes', '?')} min, "
+                     f"{queue.get('failedLast24h', '?')} failed jobs in 24 h")
+    traffic = doc.get("traffic")
+    if isinstance(traffic, dict) and isinstance(traffic.get("requests"), int):
+        parts.append(f"API 5xx {traffic.get('status5xx', '?')} of {traffic['requests']} "
+                     f"in {traffic.get('windowMinutes', 15)} min")
+    return " · ".join(parts)
+
+
+def failure_name(name: object, doc: object) -> str:
+    """A failed check's name, with what it means where the bare name does not say."""
+    if name == "queue":
+        queue = doc.get("checks", {}).get("queue") if isinstance(doc, dict) else None
+        wait = queue.get("oldestWaitMinutes") if isinstance(queue, dict) else None
+        return f"queue (worker not draining: oldest job waiting {wait} min)" if isinstance(wait, int) else "queue (unreadable)"
+    return str(name)
+
+
 def describe_health(code: int, body: str) -> Tuple[bool, str]:
     if code == 0:
         return False, "no answer (timeout or connection error, after 2 retries)"
@@ -104,13 +136,14 @@ def describe_health(code: int, body: str) -> Tuple[bool, str]:
     except ValueError:
         doc = None
     status = doc.get("status") if isinstance(doc, dict) else None
+    extra = figures(doc)
     if code == 200 and status == "ok":
-        return True, "200 ok"
+        return True, "200 ok" + (f" — {extra}" if extra else "")
     seen = f"answered {code}" + (f" {status}" if isinstance(status, str) else "")
     failed = doc.get("failed") if isinstance(doc, dict) else None
     if isinstance(failed, list) and failed:
-        return False, seen + " — failing: " + ", ".join(str(x) for x in failed)
-    return False, seen
+        seen += " — failing: " + ", ".join(failure_name(x, doc) for x in failed)
+    return False, seen + (f" — {extra}" if extra and isinstance(failed, list) and "queue" in failed else "")
 
 
 def check_environment(base: str, fetch: Fetch) -> List[Result]:
@@ -182,7 +215,7 @@ def alert_text(env: str, base: str, results: Sequence[Result], run_url: str, hea
 
 def recovery_text(env: str, base: str, run_url: str) -> str:
     return (f":white_check_mark: *SponsorX recovered — {env}* ({base}): the site and the "
-            f"full health check (API, database, Redis, storage, backups) pass again. <{run_url}|Monitor run>")
+            f"full health check (API, database, Redis, storage, backups, worker queue) pass again. <{run_url}|Monitor run>")
 
 
 def test_text(live: Dict[str, Tuple[str, List[Result]]], run_url: str) -> str:

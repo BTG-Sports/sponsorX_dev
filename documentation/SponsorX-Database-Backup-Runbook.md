@@ -173,7 +173,7 @@ checks staging (`https://web-staging-904a.up.railway.app`) and production
 | Check | Passes when |
 |---|---|
 | `GET /` | the web server answers 200 |
-| `GET /api/v1/public/health` | 200 with `"status":"ok"`. The web server forwards it to the API's `GET /health/full`, which checks Postgres, Redis and storage (as `/health/ready` does) **and the backups** |
+| `GET /api/v1/public/health` | 200 with `"status":"ok"`. The web server forwards it to the API's `GET /health/full`, which checks Postgres, Redis and storage (as `/health/ready` does), **the backups**, and (P2-OPS-11) **the worker queue**: no due job or outbox row waiting more than 15 minutes. See `SponsorX-Monitoring-Plan.md` |
 
 **Thresholds.**
 

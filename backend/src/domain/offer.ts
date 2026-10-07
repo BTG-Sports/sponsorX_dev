@@ -62,7 +62,7 @@ import { guardianControls } from "./guardian-rules";
 import { athleteFloor, floorProblem, offerParty, PARTY_SELECT } from "./offer-desk";
 import { advanceCampaign, lockCampaignForStaffing } from "./campaign-stages";
 import { replaceAfterDecline } from "./auto-staffing";
-import { readPage, type PageInfo, type PageRequest } from "../lib/paging";
+import { readPage, type PageRequest } from "../lib/paging";
 
 export type OfferState = "DRAFT" | "SENT" | "ACCEPTED" | "DECLINED" | "WITHDRAWN";
 export type OfferDeliverable = { title: string; dueDate: Date };

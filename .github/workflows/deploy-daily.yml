@@ -31,8 +31,14 @@ concurrency:
 
 jobs:
   release:
-    # After CI: only when it passed. By hand: always try (the checks below still apply).
-    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    # After CI: only when it passed, and only the nightly or a hand-started run.
+    # Since P2-OPS-07 (2026-10-07) CI also runs on every push, a merge to
+    # `main` included; that run checks the commit but must not deploy it.
+    # By hand: always try (the checks below still apply).
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+       contains(fromJSON('["schedule","workflow_dispatch"]'), github.event.workflow_run.event))
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -60,9 +66,12 @@ jobs:
 
           # CI's two jobs (ci.yml) must both have run on this commit and passed.
           # Other workflows on the same commit — the tracker jobs, this one —
-          # are not checks of the code and are ignored.
+          # are not checks of the code and are ignored. A commit on `main` is
+          # checked more than once (the push run, then tonight's run), so only
+          # the latest run of each job counts: an earlier failure that tonight's
+          # run has since passed does not hold the deploy back.
           RUNS=$(gh api "repos/$REPO/commits/$SHA/check-runs?per_page=100" \
-            --jq '[.check_runs[] | select((.name | startswith("typecheck")) or (.name | startswith("e2e")))] | map({name, status, conclusion})')
+            --jq '[.check_runs[] | select((.name | startswith("typecheck")) or (.name | startswith("e2e")))] | group_by(.name) | map(max_by(.id) | {name, status, conclusion})')
           echo "CI on ${SHA:0:7}: $RUNS"
           TOTAL=$(echo "$RUNS" | jq 'length')
           GREEN=$(echo "$RUNS" | jq '[.[] | select(.status == "completed" and .conclusion == "success")] | length')
