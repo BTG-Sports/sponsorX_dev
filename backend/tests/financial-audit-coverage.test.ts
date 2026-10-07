@@ -62,6 +62,8 @@ const READ_ONLY = new Set([
   "getInventoryItem",
   "inventoryProblems",
   "listOffers",
+  /* P1-FE-31 — the offers desk's page: a read with counts, nothing written. */
+  "listOffersPage",
   "getOffer",
   "canonicalTerms",
   "termsHashOf",

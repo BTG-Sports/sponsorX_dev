@@ -266,18 +266,23 @@ const listBriefs: RequestHandler = async (req, res) => {
         read(where, BRIEF_SORTS[sort]),
       );
     }
-    /* P1-FE-31 — the desk's tab counts (each state, and held for BTG) and
-       the sports any brief in scope targets, over the whole scope, not the
-       page or the search. */
+    /* P1-FE-31 — the desk's tab counts (each state, and held for BTG) over
+       the whole scope, not the page or the search; and, only when asked
+       (`?facets=sports`), the sports any brief in scope targets — a read of
+       its own, so a caller that doesn't need it (and the paged-read tests,
+       which count the brief reads) never pays for it. */
     const scope = whereFor(actor, "campaignBrief", "read");
+    const wantSports = req.query.facets === "sports";
     const [byState, held, sportRows] = await Promise.all([
       prisma.campaignBrief.groupBy({ by: ["state"], where: scope /* tenant-scope: whereFor(campaignBrief) */, _count: { _all: true } }),
       holds ? prisma.campaignBrief.count({ where: { AND: [scope, { state: "DRAFT", heldAt: { not: null } }] } /* tenant-scope: whereFor(campaignBrief) in scope */ }) : Promise.resolve(0),
-      prisma.campaignBrief.findMany({ where: scope /* tenant-scope: whereFor(campaignBrief) */, select: { sports: true }, take: 500 }),
+      wantSports
+        ? prisma.campaignBrief.findMany({ where: scope /* tenant-scope: whereFor(campaignBrief) */, select: { sports: true }, take: 500 })
+        : Promise.resolve([] as { sports: string[] }[]),
     ]);
     const counts = { held, all: byState.reduce((n, s) => n + s._count._all, 0), ...Object.fromEntries(byState.map((s) => [s.state, s._count._all])) } as Record<string, number>;
     const sports = [...new Set(sportRows.flatMap((r) => r.sports))].sort((a, b) => a.localeCompare(b));
-    res.json({ briefs: await withReadiness(result.rows), page: result.page, counts, facets: { sports } });
+    res.json({ briefs: await withReadiness(result.rows), page: result.page, counts, ...(wantSports ? { facets: { sports } } : {}) });
     return;
   }
 

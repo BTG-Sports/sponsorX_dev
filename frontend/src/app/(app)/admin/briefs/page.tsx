@@ -28,7 +28,7 @@ import { requirePortalAccess } from "@/server/portal";
    which sales also holds — the buttons follow the same rule, and the API
    enforces it regardless.
 
-   Reads  GET /briefs?page&size&sort=newest&q&sport&(held=true|state=…)   { briefs, page, counts, facets }
+   Reads  GET /briefs?page&size&sort=newest&q&sport&facets=sports&(held=true|state=…)   { briefs, page, counts, facets }
    -------------------------------------------------------------------------- */
 
 export const dynamic = "force-dynamic";
@@ -61,7 +61,7 @@ export default async function BriefsPage({ searchParams }: PageProps<"/admin/bri
     </div>
   );
 
-  const res = await apiFetch(`/briefs${apiListQuery(sp, { sort: "newest", q, sport, ...briefTabQuery(tab) })}`);
+  const res = await apiFetch(`/briefs${apiListQuery(sp, { sort: "newest", q, sport, facets: "sports", ...briefTabQuery(tab) })}`);
   if (res.status === 403) {
     return (
       <div className="space-y-6">
@@ -93,7 +93,7 @@ export default async function BriefsPage({ searchParams }: PageProps<"/admin/bri
         rows={data.briefs.map(toBriefRow)}
         page={data.page}
         counts={data.counts}
-        sports={data.facets.sports}
+        sports={data.facets?.sports ?? []}
         tab={tab}
         q={q}
         sport={sport}

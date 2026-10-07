@@ -82,7 +82,7 @@ export type TabKey = "held" | "all" | BriefState;
 
 /** P1-FE-31 — GET /briefs?page=: one tab's page with every tab's count and
  *  the sports any brief in scope targets (the filter's options). */
-export type ApiBriefPage = { briefs: ApiBrief[]; page: PageInfo; counts: Record<TabKey, number>; facets: { sports: string[] } };
+export type ApiBriefPage = { briefs: ApiBrief[]; page: PageInfo; counts: Record<TabKey, number>; /** Only with ?facets=sports. */ facets?: { sports: string[] } };
 
 /** The API query for a desk tab: held = ?held=true, all = nothing, else ?state=. */
 export function briefTabQuery(tab: TabKey): Record<string, string> {
