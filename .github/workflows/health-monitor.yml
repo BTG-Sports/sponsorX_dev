@@ -1,0 +1,131 @@
+# Uptime and backup monitor — 2S8-OPS-01.
+#
+# Every 15 minutes, for staging and for production, through the PUBLIC web
+# address (production's API has no public address of its own):
+#
+#   GET /                       must answer 200
+#   GET /api/v1/public/health   must answer 200 with {"status":"ok"} — the web
+#                               server forwards it to the API's /health/full:
+#                               Postgres, Redis, storage, and backups (the WAL
+#                               archiver's last success no more than 60 minutes
+#                               ago — the RPO — and no failure since)
+#
+# curl gives each check a 10 s connect / 20 s total timeout and 2 retries, so a
+# check fails only when all three attempts do. Results go to the job summary.
+#
+# STATE, AND WHY SLACK HEARS ONLY CHANGES
+#
+# Each environment is its own job, "check (staging)" / "check (production)",
+# and that job's conclusion IS the environment's state: success = ok,
+# failure = failing. A run reads its environment's state from the most recent
+# earlier run on the same branch (`gh run list --workflow health-monitor.yml
+# --branch main` then `gh run view --json jobs`, with `actions: read`), skipping
+# runs where that job was skipped or cancelled, then:
+#
+#   previous  now      Slack
+#   ok        failing  ALERT — what failed, in which environment, run link
+#   failing   failing  nothing (already announced)
+#   failing   ok       RECOVERY message
+#   ok        ok       nothing
+#   unknown   failing  ALERT (first run, or history unreadable)
+#
+# and the job then fails when unhealthy, so the next run sees "failing".
+# Per environment, not per run: staging left broken for a week must not
+# silence a new production outage. If Slack cannot be reached, the job keeps
+# the PREVIOUS state instead (green while down after an undelivered alert,
+# red after an undelivered recovery) so the next run tries the message again;
+# an ::error:: annotation says so. A missing SLACK_WEBHOOK_URL fails every run.
+#
+# THE TEST ALERT — simulate_failure
+#
+#   gh workflow run health-monitor.yml -f simulate_failure=true
+#
+# adds the "test alert" job, which posts one message headed
+# "[TEST] SponsorX health alert" with the live status of both environments.
+# The state reader never reads that job, and the same run's check jobs still
+# record the REAL health — so a test cannot leave "failing" behind for the
+# next scheduled run (no false recovery 15 minutes later), and cannot swallow
+# a real change that happens during it.
+#
+# The unit tests for all of the above run first (scripts/health/tests); if
+# they fail, the checks are skipped — which the state reader also skips.
+# Script: scripts/health/monitor.py. Runbook: documentation/
+# SponsorX-Database-Backup-Runbook.md, "Alerts".
+#
+# GitHub runs scheduled workflows from the default branch only, and may delay
+# a busy-hour run by some minutes; it also pauses schedules in a repository
+# with no activity for 60 days.
+
+name: Health monitor
+
+on:
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch:
+    inputs:
+      simulate_failure:
+        description: "Post a [TEST] SponsorX health alert to Slack (proves delivery; real state untouched)"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+  actions: read # gh run list / gh run view: the previous run's state
+
+# One run at a time per branch, so the previous run has always finished when
+# the next one reads it. Never cancel a run in progress: its conclusion is state.
+concurrency:
+  group: health-monitor-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  selftest:
+    name: selftest
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test the monitor's state logic
+        run: python3 -m unittest discover scripts/health/tests
+
+  check:
+    name: check (${{ matrix.env }}) # the state reader finds jobs by this name
+    needs: selftest
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false # a failing staging must never cancel production's check
+      matrix:
+        include: # keep in step with the test-alert targets below
+          - env: staging
+            base: https://web-staging-904a.up.railway.app
+          - env: production
+            base: https://sponsorx.net
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check ${{ matrix.env }}; alert on a change of state
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        run: >-
+          python3 scripts/health/monitor.py check
+          --env "${{ matrix.env }}"
+          --base "${{ matrix.base }}"
+          --branch "${{ github.ref_name }}"
+
+  test-alert:
+    name: test alert
+    needs: selftest
+    if: github.event_name == 'workflow_dispatch' && inputs.simulate_failure
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Post a [TEST] alert with the live status
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        run: >-
+          python3 scripts/health/monitor.py test-alert
+          --target staging=https://web-staging-904a.up.railway.app
+          --target production=https://sponsorx.net

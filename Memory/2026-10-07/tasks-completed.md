@@ -15,3 +15,21 @@
   - the Stage Progress row is still appended every day.
   - Tests: 23/23 (`DigestOnlyOnQuietDays`).
 - **PR #167** (the release of 2S8-PMO-02 to `main`) is open. #165 merged into main_development just after #166 went to `main`.
+- **Code review rows checked against acceptance.**
+  - **Done:** 2S8-PMO-02, plus 2S3-FE-02, 2S5-FE-03 and 2S5-FE-04 after browser verification on the local stack. The team page equals the ledger: $151.05 booked, $135.64 paid, $15.41 reserve.
+  - **Still in review:**
+    - 2S5-FE-05: no receipt has been delivered on staging, because Resend rejects `@example.com`. Also, the receipt goes to the signed-in user, not the billing contact the checkout copy names.
+    - 2S7-FE-02: the console lacks disputes, payment events, REQUESTED payouts, refunds to send and delivery issues.
+- **2S0-OPS-01 · Done.** The owner agreed RPO ≤ 1 h and RTO ≤ 4 h. PITR on both environments already meets them: `archive_timeout` = 60 s, so a segment is archived every minute.
+- **2S8-OPS-01 · In progress.**
+  - A staging PITR restore into `pg-restore-check-1007` matched live exactly and was queryable in about 9.5 minutes. The service was then deleted.
+  - Rollback took 41 s and roll-forward 51 s. Rollback is code-only across migrations.
+  - **Alerting is built:**
+    - `GET /health/full`, with db, redis, storage and backups (stale after 60 minutes);
+    - the web path `/api/v1/public/health`;
+    - `.github/workflows/health-monitor.yml`, every 15 minutes, with per-environment state, posting to Slack only on change.
+  - **Done after deploy and a test alert:** `gh workflow run health-monitor.yml -f simulate_failure=true`.
+- **2S8-PMO-01 · In progress.** The sign-off record is `documentation/SponsorX-Phase2-Acceptance-Signoff.md`: 12/14 demonstrated, #13 Zoho partly, #11 wallet not built. It still needs real external users on staging, through its 18-step plan, and the owner's sign-off.
+- **The wallet rows' notes are corrected.** They wait on Apple and Google wallet accounts, not on the payment provider.
+- **2S1-OPS-01 is waiting on the owner** to name the inbox `support@sponsorx.net` should forward to. Today `sponsorx.net`, on Cloudflare, has no MX records. Zoho Desk exists (department "iCARRe Foundation") but has no email channel.
+- **Local note:** the scratchpad was wiped. The verification agent left a throwaway embedded Postgres running on 55432 (`scratchpad/pg`), and its worktree is still locked.
