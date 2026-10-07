@@ -786,6 +786,21 @@ Picking anything lights the form: a glow, a pulse, and an "Editing" callout with
 - **Done when:** same reads, server actions and admin-only API; a dashboard header; the page height doesn't grow with the number of countries or places; search by code or name; picking a place is visibly highlighted with next steps; no native checkbox or unstyled inputs left; no horizontal overflow at 390px; `lib/age-table.ts` unit-tested; build, tests and lint green
 - **Reference:** `2S1-FE-07`; `docs/superpowers/specs/2026-10-05-signup-rules-control-panel-design.md`; `frontend/src/components/rules-board.tsx`; `frontend/src/lib/age-table.ts`
 
+### ▶ `P1-ART-18` · Admin portal — every desk, drawer and dialog on the stage
+
+**Order** 32.996 · **ART** · **Where:** Code · **2d** · **Code review** · **Unblocks** 0
+
+Raised 2026-10-07 by the programme owner: redesign the whole admin portal in the Mission Control language, components included. The change is visual only.
+
+- **The stage moves into the shell.** `PortalShell` gains a `stage` flag, which the admin layout sets. The sidebar and top bar become night glass, every `/admin` page is content on the dark stage, and a body-level class puts drawers, dialogs and menus on the stage too, even though they render outside it.
+- **A shared skin** restyles the primitives every desk is built from: `Card`, `Badge`, `SectionHeading`, `HeroBand`, `StatTile`, `Button`, `Tabs`, `BlockedNotice`, page titles, tab strips, native fields, hand-rolled buttons, the drawers and the dialogs.
+- **`/admin`'s hero** becomes a dashboard header: a title row and four tiles.
+- **Dev auth:** an optional `CLERK_CLOCK_SKEW_MS` for the API and the Next middleware, for a developer's drifted PC clock. It's unset in every env file.
+
+- **Depends on:** `P1-ART-14` to `P1-ART-17` (the stage and its first desks)
+- **Done when:** every `/admin` route renders on the stage (27 desks walked, no console errors, no horizontal overflow at 390px); drawers and dialogs are dark in both themes; no read, write or role rule changes; frontend tests, lint and build green
+- **Reference:** `docs/superpowers/specs/2026-10-07-admin-portal-stage-design.md`; `frontend/src/components/portal-shell.tsx`; `frontend/src/components/stage-portals.tsx`; the `.sx-ops` skin in `frontend/src/app/globals.css`
+
 ### ▶ `P1-FE-18` · Apply the SponsorX NEXT UI requirement across the existing pages
 
 **Order** 37.02 · **FE** · **Where:** Code · **2d** · **Ready** · **Unblocks** 5
