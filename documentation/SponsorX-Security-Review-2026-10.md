@@ -45,7 +45,7 @@ The checks were made against the OWASP Top 10 (2021), plus the ASVS basics that 
 - **Fixed (Low).** `/t/[code]` passed `..` to the API, and `fetch` resolves that to a different endpoint. It also did not re-check that the destination is http(s).
 - **Fixed (Low).** The admin ID-document action redirected to any URL the API returned.
 - **Fixed (Low), 2S8-SEC-05.** `GET /athletes/:id/rates` answered `200 []` for another athlete in the same tenant but 403 for an id that doesn't exist, which revealed which ids exist. The rates themselves were scoped. `readRateCard` now checks the athlete is within the caller's **own** reach (an athlete's own id, a guardian's ward, BTG's tenant) before it answers. Another athlete's id and a made-up one now give the same 403, word for word. Test: `backend/tests/security-hardening.test.ts`, block "1".
-- **Open (Low).** The public "claim this profile" flow (`/public/athletes/:slug/claim`) puts an unverified email onto the athlete once an advisor approves it. **Owner:** should the claimant confirm the email first?
+- **Open (Low).** The public "claim this profile" flow (`/public/athletes/:slug/claim`) puts an unverified email onto the athlete once an advisor approves it. **Owner:** should the claimant confirm the email first? **Decided 2026-10-06 and done:** yes. The claim is `PENDING_EMAIL`, invisible to the school, until the emailed link is opened (decision 5 below).
 
 **Fix:**
 - `registerCreativeAsset` refuses with `CreativeKeyError` (422) any key outside `t/<tenant>/deliverable/<id>/`, and any key containing `..`, `.` or `\`.
@@ -70,7 +70,7 @@ The checks were made against the OWASP Top 10 (2021), plus the ASVS basics that 
 **Result:**
 - **Pass:** HMAC-SHA256 throughout, with `timingSafeEqual` and a length check, and no plaintext secrets at rest.
 - **Fixed (High on staging).** The stand-in payment provider signed its links with the public default `dev-standin-provider-secret` unless `STANDIN_PROVIDER_SECRET` was set. Staging runs with `NODE_ENV=production`. Anyone who had read the repo could forge a link that marks a payout account READY or a checkout paid.
-- **Open (Low).** Intake, onboarding, sign-up, sponsor-request and unsubscribe links never expire. The intake HMAC also has no purpose prefix. **Owner:** decide how long each link should live. Unsubscribe links must keep working.
+- **Open (Low).** Intake, onboarding, sign-up, sponsor-request and unsubscribe links never expire. The intake HMAC also has no purpose prefix. **Owner:** decide how long each link should live. Unsubscribe links must keep working. **Decided 2026-10-06 and done:** 14 days, unsubscribe never; the intake link has its purpose prefix (decision 4 below).
 
 **Fix:**
 - With `NODE_ENV=production` and no `STANDIN_PROVIDER_SECRET`, the secret is now derived from `INTAKE_TOKEN_SECRET`, under its own label. That secret is already required to be real in production. So staging is protected without any Railway change, and setting the variable explicitly still takes precedence.
@@ -169,8 +169,8 @@ The checks were made against the OWASP Top 10 (2021), plus the ASVS basics that 
   - `allowedOrigins` is not set, so Next's strict Origin check applies.
   - `/test-provider` pages ship to production, but production uses the `none` provider, so no link can open them.
 - **Fixed (Medium).** Neither server set any security headers, and both advertised their framework in `X-Powered-By`. The fan, unsubscribe and stand-in pages, whose URL **is** the credential, could be framed and could leak the token in the Referer header.
-- **Owner.** A full script/style CSP needs to allow Clerk, Turnstile, the R2 upload host and the inline `<style>` on `/r` and `/u`. Recommendation: roll it out in `Content-Security-Policy-Report-Only` first.
-- **Owner.** HSTS is set **without** `includeSubDomains` and `preload`. Both commit every `sponsorx.net` host to HTTPS.
+- **Owner.** A full script/style CSP needs to allow Clerk, Turnstile, the R2 upload host and the inline `<style>` on `/r` and `/u`. Recommendation: roll it out in `Content-Security-Policy-Report-Only` first. **Decided 2026-10-06 and done:** report-only, beside the enforced headers (decision 1 below).
+- **Owner.** HSTS is set **without** `includeSubDomains` and `preload`. Both commit every `sponsorx.net` host to HTTPS. **Decided 2026-10-06:** `includeSubDomains` on, `preload` off (decision 2 below).
 
 **Fix:**
 - API (`app.ts`):
@@ -216,7 +216,7 @@ The checks were made against the OWASP Top 10 (2021), plus the ASVS basics that 
   - `x-test-clerk` exists **only** in test files, which `vi.mock` the Clerk module. `src/auth/clerk.ts` has no test branch and never reads `NODE_ENV`, so the header cannot be honoured in production or anywhere else.
   - Disabled accounts are refused.
 - **Fixed (High).** The portal "Log out" button only navigated to `/login`. The Clerk session survived, and `/login` sent the still-signed-in visitor straight back into the portal. On a shared device, the next person was signed in as the previous one.
-- **Owner (Low).** Clerk's `authorizedParties` is not set on the API. Setting it to `APP_URL`'s origin hardens cookie auth. But it must list every web origin that mints sessions (staging, production, the Vercel test environment), or sign-in breaks there.
+- **Owner (Low).** Clerk's `authorizedParties` is not set on the API. Setting it to `APP_URL`'s origin hardens cookie auth. But it must list every web origin that mints sessions (staging, production, the Vercel test environment), or sign-in breaks there. **Decided 2026-10-06 and done:** `CLERK_AUTHORIZED_PARTIES`, on both servers (decision 3 below).
 
 **Fix:**
 - `UserMenu` calls Clerk's `signOut({ redirectUrl: "/" })`.
@@ -406,13 +406,125 @@ Matches are printed masked. **Result on 2026-10-05: 2,220 tracked files, no secr
 
 ## Decisions for the owner
 
+**All seven were decided by the programme owner on 2026-10-06, and are implemented under 2S8-PMO-02.** Each item says what was decided and what was done.
+
 1. **Full CSP.** Roll out a script/style CSP in report-only mode first. It has to allow Clerk, Turnstile, the R2 upload host and the inline styles on `/r` and `/u` (§A05).
+   - **Decided (owner, 2026-10-06):** yes, report-only first.
+   - **Done:** every web page now carries `Content-Security-Policy-Report-Only` **beside** the enforced headers, which are unchanged (`frontend/next.config.ts`, `buildReportOnlyCsp`). The policy is built at build time from the environment:
+     - `default-src 'self'`.
+     - `script-src 'self' 'unsafe-inline'`, plus Clerk and Turnstile; `'unsafe-eval'` only under `next dev`.
+     - `style-src 'self' 'unsafe-inline'`: the `<style>` on `/u` and several pages, and React `style` attributes.
+     - Clerk: the Frontend API host decoded from `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`, `https://clerk.sponsorx.net` (the production instance), `https://*.clerk.accounts.dev` and `https://clerk-telemetry.com` for a development instance (`pk_test_`), `https://img.clerk.com`, and `worker-src 'self' blob:`.
+     - Turnstile: `https://challenges.cloudflare.com` in `script-src`, `frame-src` and `connect-src`.
+     - R2: `https://*.r2.cloudflarestorage.com` (presigned PUT uploads in `connect-src`; the admin desks frame private presigned links in `frame-src`), `https://*.r2.dev`, and the origins of `R2_PUBLIC_BASE_URL` / `S3_ENDPOINT` when the web service has them (`img-src`, `media-src`). MinIO and the e2e store stand-in are allowed in development only.
+     - Fonts: `'self' data:`. `next/font` self-hosts the Google fonts at build, so no Google host is needed.
+     - Stripe: nothing is embedded. Checkout and Connect onboarding are top-level redirects, but Chrome checks `form-action` on a redirect that follows a native form POST, so `https://checkout.stripe.com` and `https://connect.stripe.com` are listed there.
+     - `frame-ancestors 'none'`, `base-uri 'self'`, `object-src 'none'` are repeated, so this is the whole policy on the day it is enforced.
+   - **Why `'unsafe-inline'` and not nonces.** Next's App Router streams its page data in inline `<script>` tags, and the root layout sets the theme in one. A nonce must be minted per request, which only the proxy can do: a header set in `next.config.ts` is fixed at build time. A nonce also forces every page to render dynamically. And the fan routes `/r`, `/t` and `/u` are deliberately outside the proxy (Addendum A10, `fan-route-budget.test.ts`), so they could never carry one. This is the shape Next's own CSP guide gives for an app without nonces. `'strict-dynamic'` needs a nonce or hash to anchor it, so it is not used either. The policy still restricts *where* scripts load from, and every other directive is strict.
+   - **Reports.** `report-uri /api/v1/public/csp-report` and `report-to csp` (with `Reporting-Endpoints: csp="/api/v1/public/csp-report"`). The browser never talks to the API directly: `API_URL` is the API's private address. So the path is same-origin on the web app, and a `rewrites()` rule in `next.config.ts` forwards it to `${API_URL}/api/v1/public/csp-report`. That is the address the web app already uses, and no new variable is needed. The API endpoint, `POST /api/v1/public/csp-report` (`backend/src/routes/v1/csp-report.ts`, logic in `domain/csp-report.ts`):
+     - reads both `application/csp-report` and `application/reports+json`, 64 kB at most;
+     - stores nothing;
+     - logs one line per violation through the redacting logger: disposition, directive, blocked origin + path, document origin + path, source file + line;
+     - drops query strings, fragments, samples, referrers, user agents and the policy text, masks token-like path segments as `:token` (`/r/…`, `/u/…`, `/onboarding/…`), and masks any email address that is left;
+     - is rate-limited (`csp:report`, 240 a minute). Behind the web server that is one shared bucket, so a flood only drops reports;
+     - answers `202 {received:true}` whatever arrives.
+   - **The API's own CSP.** The API serves only JSON and already enforces `default-src 'none'; frame-ancestors 'none'`, the strictest policy there is. A report-only policy would add nothing, so the API has none.
+   - **Switching to enforce (planned step).** After at least two weeks of reports from staging and production with nothing unexplained:
+     1. Read the `[csp-report]` lines in the Railway logs of the `api` service, and add any genuine source to `buildReportOnlyCsp`.
+     2. In `buildSecurityHeaders`, rename the header key `Content-Security-Policy-Report-Only` to `Content-Security-Policy`, replacing the current three-directive value. The report-only policy already contains those three directives.
+     3. Deploy to staging, run the e2e suite and walk sign-in, an upload, an admin document preview and the `/r` → `/u` fan path, then deploy to production.
+     4. Keep `report-uri` / `report-to`, so blocked loads keep being reported.
+     5. Moving to nonces later is a separate change: a nonce minted in `proxy.ts`, every page dynamic, and the fan routes either brought under the proxy or given a static hash-based policy.
+   - **Test:** `frontend/tests/security-review.test.ts`, "2S8-PMO-02 decision 1". It checks the enforced headers are unchanged and the report-only header and `Reporting-Endpoints` are present, Clerk's host is read from the key (and a hostile key is refused), the exact production directives with no development host in them, the development and staging additions, and the rewrite target. `backend/tests/pmo02-csp-report.test.ts` checks both formats, the redaction (tokens, queries, samples, addresses), one line per violation, the 20-per-request cap, and an HTTP round trip through the real app for both content types, with the same answer each time, the rate-limit key, and 413 for an oversized body.
 2. **HSTS `includeSubDomains` / `preload`.** Both commit every `sponsorx.net` host to HTTPS (§A05).
+   - **Decided (owner, 2026-10-06):** `includeSubDomains` yes, `preload` no.
+   - **Done:** the web app now sends `Strict-Transport-Security: max-age=31536000; includeSubDomains` on every path (`frontend/next.config.ts`). Every `sponsorx.net` host must therefore serve HTTPS. `clerk.` and `accounts.` already do (issued certificates, `.claude/stack-decision.md`); any subdomain added later, a CDN for example, needs its certificate before anyone opens it in a browser. Preload is not set: the preload list ships inside browsers and takes months to leave. The API sends no HSTS and still doesn't: it serves only JSON, and its public domain only takes webhooks, so the web app owns the header.
+   - **Test:** `frontend/tests/security-review.test.ts`, "A05 · security headers", pins the exact value and that `preload` is absent.
 3. **Clerk `authorizedParties`.** List every web origin that mints sessions before turning it on (§A07).
+   - **Decided (owner, 2026-10-06):** yes. Clerk accepts only session tokens whose `azp` is one of our own web origins.
+   - **Done, API:** `src/auth/clerk.ts` passes `authorizedParties` to `authenticateRequest`, which covers both the Bearer token and the cookie. The list comes from a new variable, `CLERK_AUTHORIZED_PARTIES` (comma-separated origins, normalised; `src/config/authorized-parties.ts`). Unset, it is `APP_URL`'s origin, plus `http://127.0.0.1:3100`, `http://localhost:3100` and `http://localhost:3000` outside `NODE_ENV=production`, so nothing breaks on an environment that hasn't set it. A malformed entry (a path, a bare host, another scheme) refuses to boot.
+   - **Done, web app:** `src/proxy.ts` passes the same list to `clerkMiddleware`, from the same variable and the same rule. It is read at server start. One difference: the web service has no `APP_URL` today. Unset in production, the web app therefore keeps Clerk's default (no check) rather than guess its own public origin from the request, which behind Railway's TLS proxy could come out as `http://` and sign everyone out. The API is the enforcement point either way, because every read goes through it.
+   - **Origins.** Production is `https://sponsorx.net`. No `www` host is used anywhere in the repo or the runbooks; if one is ever added, it must be listed. Staging is `https://web-staging-904a.up.railway.app`. **The Vercel test deployment** must set `CLERK_AUTHORIZED_PARTIES` on its own web project to its own origin. Its origin must also be added to the list on whichever API it calls, or every call it makes is refused.
+   - **e2e:** the harness signs in through `/login?__clerk_ticket=…` at `http://127.0.0.1:3100` and starts the API with `APP_URL` set to that address, under `next dev` and a development API. That origin is in both defaults. A developer whose own `.env` sets `CLERK_AUTHORIZED_PARTIES` must include `http://127.0.0.1:3100` to run e2e.
+   - **Test:** `backend/tests/pmo02-clerk-parties.test.ts`. It runs the **real** `@clerk/backend` verifier, given the test's public key as `jwtKey` (Clerk's networkless verification), with RS256 session tokens signed in the test.
+     - In production, `https://sponsorx.net` is accepted, while a foreign origin, a look-alike (`https://sponsorx.net.evil.example`) and a local origin are refused.
+     - An explicit list (staging plus a Vercel origin) is the whole list.
+     - The three local origins sign in under development.
+     - A badly signed token is refused.
+     - The list rules hold, and a malformed list refuses to boot.
+     - Removing the option from `clerk.ts` in a scratch run failed three of these tests.
+     - `frontend/tests/security-review.test.ts`, "decision 3", pins the web rule and that the proxy passes it.
 4. **Link lifetimes.** Decide how long intake, onboarding, sign-up and sponsor-request links should live. The intake link should also gain a purpose prefix, using the `_PREVIOUS` overlap so links already sent keep working (§A02).
+   - **Decided (owner, 2026-10-06):** 14 days. Unsubscribe links never expire.
+   - **Done:** one central rule, `backend/src/lib/signed-link.ts`, with `LINK_TTL_DAYS` (default 14, configurable 1–90).
+     - **Covered:** every link a person reaches without signing in: the application continuation (intake), athlete email confirmation, guardian set-up, coming-of-age, property onboarding (resume and email confirmation), sponsor request (browser token and email confirmation), guardian hand-off (browser and email), account reactivation, and the profile-claim confirmation (decision 5).
+     - **Shorter lives are kept.** A link that already had a shorter life keeps it (support: one hour; hand-off email: 7 days; reactivation by address: 24 hours). Longer ones are cut to 14 days (the hand-off browser link was 30 days; the reactivation link in the closure email ran to the end of retention).
+     - **Format:** `<id>.<expiry>.<hmac>`, with the expiry inside the HMAC. Each kind signs its own purpose, plus `v2:` so a dated link can never match an undated one.
+     - **The intake link gained its purpose prefix:** `athlete-intake:`. Before, it signed the bare id.
+     - **Rotation:** verification of every link, old or new, still accepts `INTAKE_TOKEN_SECRET` or `INTAKE_TOKEN_SECRET_PREVIOUS`, so the rotation overlap is untouched.
+   - **Links already sent, and why this is the safe option.** The old links (`<id>.<hmac>`) carry no date, so the server cannot tell one sent yesterday from one sent a year ago. Giving each "its own 14 days" is impossible, and accepting them forever would defeat the decision. They are accepted until one fixed cutoff, `LEGACY_LINKS_ACCEPTED_UNTIL` (default `2026-10-20T00:00:00Z`, the decision plus 14 days), and refused after it. No old link outlives the rule by more than one lifetime. If deploying slips past the cutoff, old links are simply refused from the deploy on, which is the safe direction. The same window applies to a dated link issued under a longer rule (an old 30-day hand-off link, or a reactivation link with no expiry). That window is also what makes lowering `LINK_TTL_DAYS` take effect on links already out. Unsubscribe links (`fan-unsubscribe:`) are not touched and never expire.
+   - **An expired link** is not the same answer as an invalid one. A link whose signature is ours but which is too old answers **410 `link_expired`** with:
+     - a plain message: "This link has expired — links work for 14 days. We can email a fresh one to the address we have on file.";
+     - its `kind`;
+     - `renew: { method, path, body }`, saying how to get a fresh link.
+
+     A bad or tampered link gives each flow's existing "not valid / not found" answer, as before.
+   - **How each flow re-issues.** Most of them used to need a live link to send the next one (the applicant's and the onboarding "resend" both took the current token), so an expired link would have been a dead end. A new public endpoint, `POST /api/v1/public/links/renew {kind, token}` (`backend/src/domain/link-renewal.ts`), fixes that:
+     - **Checks:** the token's signature (its age does not matter), and that the record exists.
+     - **Sends:** a fresh **mailbox** link, by email, to the address on file for that record, never in the answer. Opening that link hands the browser a fresh token, exactly as the first email did:
+       - intake / athlete email → `/join/confirm?t=…`;
+       - guardian set-up → `/guardian/setup?t=…`;
+       - coming-of-age → `/coming-of-age/…`;
+       - onboarding / onboarding email → `/onboarding/confirm?t=…` (an email link renews only for the contact it was sent to);
+       - sponsor request / its email → `/sponsor-request/confirm?t=…`;
+       - hand-off / its email → `/guardian/handoff?e=…`;
+       - profile claim → the claim confirmation (decision 5).
+     - **Limits:** at most one email per record and kind per hour, audited as `link.renewed`, rate-limited, and always `202 {sent:true}`.
+     - **Not covered:** an expired **reactivation** link points to the existing by-address page (`POST /public/account/reactivation-link`), and an expired **support** message token says to send the form again.
+   - **Test:** `backend/tests/pmo02-link-lifetimes.test.ts`.
+     - Every kind is valid at 13 days 23 hours and gives 410 `link_expired`, with its kind and renew path, at 14 days and 1 minute. Reactivation points to its own page.
+     - Support keeps its hour. A moved expiry, a swapped id or a tampered signature reads as invalid, not expired.
+     - Unsubscribe is valid after 1 year and after 5 years.
+     - The intake purpose prefix: an intake token is no other kind, and no other kind is an intake token.
+     - Old undated links of each family are accepted before the cutoff and expired after it, including under `_PREVIOUS` during a rotation. An old 30-day hand-off link and a never-expiring reactivation link get the same window.
+     - `LINK_TTL_DAYS=7` applies to new and outstanding links; `0` refuses to boot.
+     - Over HTTP, against the database:
+       - an expired continuation link answers 410 with the renew hint, while a tampered one is still 404;
+       - renew emails a fresh link to the athlete's address (`link.fresh`), which opens, and audits it;
+       - a second ask within the hour reuses the message key;
+       - tampered, forged and wrong-kind tokens get the same 202 and nothing is sent;
+       - an undated sponsor link is renewed to the request's own address;
+       - an onboarding email link renews only for the current contact.
 5. **Profile-claim email.** Should a claimant confirm their email before an advisor can verify the claim (§A01)?
+   - **Decided (owner, 2026-10-06):** yes.
+   - **Done:**
+     - **New state.** Migrations `20261006100000` and `20261006100100` add `PENDING_EMAIL` to `ClaimState` (first in the enum) and an `emailConfirmedAt` column, and make `PENDING_EMAIL` the column default. They add `CHECK AthleteClaim_confirmed_before_review`: a claim is `SUBMITTED` (awaiting the advisor) only with `emailConfirmedAt` set.
+     - **Old claims.** Claims that were `SUBMITTED` before the decision never proved their email, so the migration moves them back to `PENDING_EMAIL`. No link was ever sent for them, so the claimant claims again. NEXT has not sold an edition, so none are expected. Verified and rejected claims are untouched.
+     - **Submitting** (`domain/featured.ts`): `submitClaim` creates the claim `PENDING_EMAIL`, audits `athleteClaim.submit`, and queues `athleteClaim.confirmEmail` through the outbox to the claimant. The link is signed and purpose-scoped (`athlete-claim-email:`, `lib/claim-token.ts`) and lives 14 days, like every other link (decision 4). The public answer is `{ id, state: "PENDING_EMAIL" }`, and still never says whether the name is on the roster.
+     - **Confirming:** opening the link moves the claim to `SUBMITTED` with `emailConfirmedAt`, audited as `athleteClaim.emailConfirmed`. It is idempotent.
+     - **The advisor's side:** `GET /claims` (paged and unpaged) neither lists nor counts an unconfirmed claim. `POST /claims/:id/verify` and `/reject` refuse one exactly like a claim that doesn't exist (403), so the advisor learns nothing of it. When one claim is verified, the profile's other claims, pending or submitted, are rejected.
+     - **Where the link lands.** No existing page fits: `/join/confirm`, `/onboarding/confirm` and `/sponsor-request/confirm` are each bound to their own flow, and no screen was built. So the emailed link is on the web app's host, `APP_URL/api/v1/public/athlete-claims/confirm?t=…`, which `next.config.ts` forwards to the API (an exact-path rewrite, like the CSP reports). The API answers **302** to the existing public profile with a flag:
+       - `?claim=confirmed`;
+       - `?claim=closed` (the school already decided);
+       - `?claim=expired-resent`: the link was past 14 days, and a fresh one has just been emailed to the claimant's own address, once an hour, audited as `link.renewed`;
+       - or the home page with `?claim=invalid`.
+       
+       `POST /public/athlete-claims/confirm-email {token}` does the same as JSON for a future page: 400 if bad, 410 `link_expired` if old. `POST /public/links/renew {kind:"claim-email"}` also works.
+   - **Frontend follow-ups:** (a) after "That's me", say "check your email" (the answer's `state` is now `PENDING_EMAIL`); (b) on `/athletes/[slug]`, read the `claim=` flag and say "confirmed, your school will review it", "that link had expired, we've sent a new one", or "already decided"; (c) a proper confirmation page that POSTs the token on a button press, so link scanners in mail clients can't confirm by prefetching the GET link.
+   - **Test:** `backend/tests/pmo02-claim-email.test.ts`, the whole path over HTTP against the database:
+     - a new claim is `PENDING_EMAIL` and the claimant is emailed a 14-day link on the web host;
+     - while unconfirmed, the claim is not listed or counted, and verify and reject are 403, with the athlete untouched;
+     - four kinds of tampered link redirect to `?claim=invalid`, give 400 as JSON, and confirm nothing;
+     - an expired link gives 410 as JSON, and when clicked redirects to `expired-resent` with a fresh link mailed (once an hour, renew included);
+     - the real link confirms, redirects to `?claim=confirmed`, is idempotent and audited, and the claim appears for the advisor;
+     - the claim is then verifiable, and the verification is audited;
+     - the database refuses a `SUBMITTED` claim with no confirmation, and the default is `PENDING_EMAIL`.
+
+     `next-rights.test.ts` now confirms both claims before the school acts.
 6. **Production `PAYMENT_PROVIDER`.** Set `PAYMENT_PROVIDER=none` explicitly on Railway production. The stand-in is chosen whenever `RAILWAY_ENVIRONMENT_NAME` is not exactly `production`, so a renamed environment would quietly switch it on. The boot guard only catches an *explicit* `standin`.
+   - **Decided (owner, 2026-10-06):** yes. **Applied by the lead on Railway:** `PAYMENT_PROVIDER=none` is set explicitly on production. No code change.
 7. **Staging `STANDIN_PROVIDER_SECRET`.** Staging is now safe without it (the secret is derived), but setting it explicitly makes rotation independent of `INTAKE_TOKEN_SECRET`. It is in the rotation runbook.
+   - **Decided (owner, 2026-10-06):** yes. **Applied by the lead on Railway:** `STANDIN_PROVIDER_SECRET` is set explicitly on staging, so rotating it no longer depends on `INTAKE_TOKEN_SECRET` (rotation runbook, section 10). No code change.
 
 ## Follow-ups not done here (each was Open above; struck through when closed)
 

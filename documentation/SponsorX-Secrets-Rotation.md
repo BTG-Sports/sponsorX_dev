@@ -68,6 +68,11 @@ The same steps apply to every row below:
 - **Downtime:** none. Both keys work until the old one is deleted.
 - **The publishable key** (`CLERK_PUBLISHABLE_KEY`, `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`) is **not secret**. It only changes if the Clerk instance changes. On `web` it is baked in **at build time**, so changing it needs a rebuild, not just a restart.
 - **Sessions:** there is no app session secret. Clerk issues and verifies sessions. To force everyone to sign in again, revoke sessions in Clerk.
+- **Allowed origins, `CLERK_AUTHORIZED_PARTIES` (2S8-PMO-02, not secret).** This is a comma-separated list of the web origins whose sessions are accepted: the token's `azp` claim. Set it on `api` and `web` with **the same value**.
+  - Unset on `api`, it defaults to `APP_URL`'s origin, plus `http://127.0.0.1:3100`, `http://localhost:3100` and `http://localhost:3000` outside `NODE_ENV=production`.
+  - Unset on `web`, it defaults to `APP_URL`'s origin if `web` has one, and otherwise to no check (Clerk's default); the API still enforces.
+  - A malformed entry stops the API from booting.
+  - Rotating the Clerk key does not touch it. Change it only when a web origin is added or removed: a new custom domain, or the Vercel test deployment. An origin missing from it signs everyone on that origin out of the API.
 
 ### 2 · `DATABASE_URL` (the Postgres password)
 
@@ -160,6 +165,7 @@ The same steps apply to every row below:
   - sponsor requests;
   - athlete email, guardian set-up and coming-of-age links;
   - hand-off, support and reactivation links;
+  - the profile-claim confirmation (2S8-PMO-02);
   - fan unsubscribe links.
   - On staging, if `STANDIN_PROVIDER_SECRET` is unset, the stand-in's secret is **derived** from this one (see 10).
 - **Where it lives:** `api` **and** `worker`, with **the same value on both**. Production refuses to boot with the development default, and refuses to boot if `_PREVIOUS` contains it.
@@ -167,14 +173,14 @@ The same steps apply to every row below:
 - **Rotate:**
   1. Generate a new value. On **both** `api` and `worker`, set `INTAKE_TOKEN_SECRET_PREVIOUS` = the current value and `INTAKE_TOKEN_SECRET` = the new value. Deploy.
   2. Check: an old unsubscribe link and an old application link still open. A newly sent link opens too.
-  3. **Keep `_PREVIOUS` for at least 30 days.** The longest-lived dated link is the 30-day hand-off. Several links have no expiry at all, among them unsubscribe and application "continue" (security review §A02).
-  4. After that, delete `INTAKE_TOKEN_SECRET_PREVIOUS` on both services and deploy. Links older than the rotation stop working. A person with such a link uses the "send me a new link" path, or BTG re-sends it.
+  3. **Keep `_PREVIOUS` for at least 14 days.** Since 2S8-PMO-02 (owner decision 4, 2026-10-06), every link except unsubscribe expires 14 days after issue (`LINK_TTL_DAYS`). So after 14 days no unexpired link can still be signed with the old value. **Unsubscribe links never expire**, so deleting `_PREVIOUS` breaks the unsubscribe links in emails sent before the rotation. Keep it longer, 30 days or more, unless the old value leaked (security review §A02).
+  4. After that, delete `INTAKE_TOKEN_SECRET_PREVIOUS` on both services and deploy. Links older than the rotation stop working. A person with such a link uses the "send me a new link" path, or BTG re-sends it. Note that `POST /public/links/renew` verifies the old link's signature, so it works only while `_PREVIOUS` is still set.
 - **Downtime:** none with the overlap. **Without** the overlap, every link already sent breaks at once: unsubscribe links fail, which is a CAN-SPAM problem, and applicants are locked out of their drafts. Always use the overlap unless the old value has leaked.
 - **If it has leaked,** skip the overlap. A leaked value lets anyone forge any of these links, so breaking old links is the lesser harm. Re-send the links that matter.
 
 ### 10 · `STANDIN_PROVIDER_SECRET` (+ `_PREVIOUS`): staging only
 
-- **Where it lives:** `api` and `worker` on **staging**. Production uses `PAYMENT_PROVIDER=none` and refuses `standin`.
+- **Where it lives:** `api` and `worker` on **staging**, **set explicitly since 2026-10-06** (2S8-PMO-02, owner decision 7). Production uses `PAYMENT_PROVIDER=none`, set explicitly on Railway the same day (decision 6), and refuses `standin`.
 - **Owner:** the Railway project admin.
 - **If it is unset:** with `NODE_ENV=production` (staging), it is derived from `INTAKE_TOKEN_SECRET`. So it is not the public development default, but it changes whenever that secret is rotated. Setting it explicitly is recommended, so the two are independent.
 - **Rotate:**
@@ -232,6 +238,8 @@ Downtime: none for the app. Only the next CI or tracker run is affected.
 - `CLERK_PUBLISHABLE_KEY` / `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`.
 - `ZOHO_NOTIFY_CHANNEL_ID`, `ZOHO_EXPECTED_ORG_ID` and `PUBLIC_INTAKE_TENANT_ID`.
 - `APP_URL`, `API_URL`, `R2_PUBLIC_BASE_URL`, `S3_ENDPOINT` and the bucket names.
+- `CLERK_AUTHORIZED_PARTIES` (see 1).
+- `LINK_TTL_DAYS` (default 14) and `LEGACY_LINKS_ACCEPTED_UNTIL` (default `2026-10-20T00:00:00Z`). These are the link lifetime and the last moment an undated pre-2S8-PMO-02 link is accepted (see 9). Neither needs setting.
 - `SUPPORT_EMAIL` and `EMAIL_FROM`.
 - `GEOLITE2_CITY_PATH`. The MaxMind *licence key* used to download the database is a secret, but it is not used by the app.
 

@@ -635,11 +635,23 @@ ${d.portalUrl ?? ""}
   /* 2S1-BE-13 — closing an account and coming back. */
   "account.closed": (d) => ({
     subject: "Your SponsorX account is closed",
-    text: `Hi ${d.name ?? "there"},\n\nYour SponsorX account is closed. You can't sign in, and your listings have stopped.\n\nYour documents are kept until ${d.retainUntil ?? "30 days from today"}, then deleted for good. Changed your mind? Reactivate before then and everything comes back:\n\n${d.reactivateUrl ?? ""}\n\nMoney you already earned is still paid out to your payout account.\n\nQuestions: ${d.supportEmail ?? ""}\n\n— BTG SponsorX`,
+    text: `Hi ${d.name ?? "there"},\n\nYour SponsorX account is closed. You can't sign in, and your listings have stopped.\n\nYour documents are kept until ${d.retainUntil ?? "30 days from today"}, then deleted for good. Changed your mind? Reactivate before then and everything comes back:\n\n${d.reactivateUrl ?? ""}\n\nThis link works for 14 days. If it has expired, contact ${d.supportEmail ?? "BTG support"} and we'll send you a new one.\n\nMoney you already earned is still paid out to your payout account.\n\nQuestions: ${d.supportEmail ?? ""}\n\n— BTG SponsorX`,
   }),
   "account.reactivationLink": (d) => ({
     subject: "Your link to reactivate your SponsorX account",
     text: `Hi ${d.name ?? "there"},\n\nHere is the link you asked for. It works for 24 hours:\n\n${d.reactivateUrl ?? ""}\n\nIf you didn't ask for it, you can ignore this email — nothing changes.\n\n— BTG SponsorX`,
+  }),
+  /* 2S8-PMO-02 — a fresh link for one that expired. Same words for every kind;
+     `what` names the thing the link opens. */
+  "link.fresh": (d) => ({
+    subject: "Your new SponsorX link",
+    text: `Hi ${d.name ?? "there"},\n\nYour earlier link to ${d.what ?? "continue on SponsorX"} has expired. Here is a fresh one. It works for ${d.days ?? "14"} days:\n\n${d.url ?? ""}\n\nIf you didn't ask for it, you can ignore this email — nothing changes.\n\n— BTG SponsorX`,
+  }),
+  /* 2S8-PMO-02 — "that's me" on a featured profile: the claim reaches the
+     school only once this link is opened. */
+  "athleteClaim.confirmEmail": (d) => ({
+    subject: "Confirm your email to claim your SponsorX profile",
+    text: `Hi ${d.firstName ?? "there"},\n\nYou said a SponsorX profile is yours${d.profileUrl ? ` (${d.profileUrl})` : ""}. Confirm this is your email address and we'll pass your claim to your school:\n\n${d.confirmUrl ?? ""}\n\nThe link works for ${d.days ?? "14"} days. If you didn't make this claim, ignore this email — nothing happens without it.\n\n— BTG SponsorX`,
   }),
   "account.reactivated": (d) => ({
     subject: "Your SponsorX account is back",

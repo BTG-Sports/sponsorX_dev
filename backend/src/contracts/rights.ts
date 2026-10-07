@@ -68,6 +68,12 @@ export const ClaimInput = z
   })
   .meta({ id: "ClaimInput", description: "'That's me' — the athlete's own claim on a featured profile." });
 
+/* 2S8-PMO-02, owner decision 5 — the claimant's emailed confirmation link. */
+export const ClaimConfirmInput = z
+  .object({ token: z.string().min(1).max(600) })
+  .strict()
+  .meta({ id: "ClaimConfirmInput", description: "The token from the claim confirmation email (`t=`)." });
+
 export const RosterInput = z
   .object({ entries: z.array(z.object({ legalName: z.string().min(1).max(200), gradYear: z.number().int().min(2020).max(2040).nullable().optional() })).min(1).max(2000) })
   .meta({ id: "RosterInput" });
