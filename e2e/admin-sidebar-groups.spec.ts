@@ -54,6 +54,15 @@ test("P1-ART-21 · the sidebar groups", async ({ browser }, testInfo) => {
   await expect(last).toBeVisible({ timeout: 300 });
   await expect.poll(() => last.evaluate((el) => Number(getComputedStyle(el).opacity)), { timeout: 600 }).toBeGreaterThan(0.9);
 
+  /* hovering a header never widens the sidebar's scroller (owner: an x scrollbar on hover) */
+  await header("System").hover();
+  await admin.waitForTimeout(350);
+  const sideOverflow = await aside.evaluate((el) => {
+    const scroller = el.querySelector("nav")?.parentElement;
+    return scroller ? scroller.scrollWidth - scroller.clientWidth : -1;
+  });
+  expect(sideOverflow).toBe(0);
+
   /* the phone drawer */
   await admin.setViewportSize({ width: 390, height: 844 });
   await admin.getByRole("button", { name: /menu|open navigation/i }).first().click();

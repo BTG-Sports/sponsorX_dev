@@ -137,7 +137,7 @@ function GroupedNav({
               data-holds={holds ? "" : undefined}
               data-open={isOpen ? "" : undefined}
               style={{ animationDelay: `${headDelay}ms` } as CSSProperties}
-              className={`sx-animate sx-nav-head group/head relative flex w-full items-center gap-2 rounded-xl px-2 py-1.5 text-left transition-all duration-300 ${
+              className={`sx-animate sx-nav-head group/head relative flex w-full items-center gap-2 overflow-hidden rounded-xl px-2 py-1.5 text-left transition-all duration-300 ${
                 holds ? `bg-gradient-to-r ${accent.accentWash} to-transparent` : "hover:bg-surface-2/70"
               }`}
             >

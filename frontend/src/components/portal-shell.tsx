@@ -186,7 +186,10 @@ export function PortalShell({
           <span className="h-px flex-1 bg-gradient-to-r from-line to-transparent" />
         </div>
 
-        <div className="relative min-h-0 flex-1 overflow-y-auto">
+        {/* Clips horizontally too: a scroller that only says overflow-y gets
+            overflow-x: auto with it, and anything that leans out a pixel on
+            hover (a label's nudge, a header's light sweep) drew an x scrollbar. */}
+        <div className="relative min-h-0 flex-1 overflow-x-hidden overflow-y-auto">
           <PortalNav
             nav={nav}
             accentBg={accent.bg}
