@@ -40,6 +40,19 @@
   - `support@sponsorx.net` forwards to `infinex1@icarrefound.org`. The owner chose this as a stopgap; Zoho Desk comes later.
   - `SUPPORT_MAILBOX_READY=true` is set on the staging and production `api`.
   - **Staging test:** two contact-form messages went out, one with a PNG that is stored privately and sent as a link. 4/4 emails were sent and none failed, and the owner confirmed delivery.
+- **PR #171's conflicts resolved** (merge `bf2abc9`). Its CI was red for two reasons, both inherited from P1-FE-31 already on `main_development`:
+  - lint: unused `PageInfo` imports in `offer.ts` / `onboarding.ts`. Fixed (`1263686`).
+  - e2e `/admin/audit lists a paged table or an empty state`: in CI the audit log is empty, and `audit-explorer.tsx` shows its own small "No audited changes yet." line, which the spec does not recognise (it expects the house `EmptyState`). **Left for the frontend (HeckerCreatives)** at the owner's say. CI is not yet a required check, so it does not block merging.
+- **P0-OPS-08 · Done.** Every clause is met: domain verified (DKIM and SPF resolve), key and `EMAIL_FROM` set in both environments, and today's support sends reached the infinex1 inbox. DMARC is still absent (optional).
+- **P2-OPS-07 · Code review.** `ci.yml` runs on every push and pull request again, plus the nightly. The repository is public on the Team plan, so minutes are free.
+  - `deploy-daily.yml` deploys only after the nightly or a hand-started run, never after a push run, and reads only the latest run of each job.
+  - Next: the ruleset "CI required" on `main` and `main_development`, requiring `typecheck · lint · unit · authz matrix`.
+- **P2-OPS-11 · Code review.** `/health/full` (public as `/api/v1/public/health`) gains:
+  - `checks.queue`: depth, oldest wait and failed jobs in 24 h. It fails when a due pg-boss job or a dispatchable outbox row waits more than 15 minutes, so the 15-minute monitor posts "worker not draining" to Slack.
+  - `traffic`: API responses and 5xx over 15 minutes.
+  - Parked rows are left out: types with no handler, and Zoho CRM jobs without credentials. The list is in the new `src/lib/zoho-jobs.ts`, so the API still never imports the Zoho client.
+  - Verified on real SQL with pg-boss 12. Staging, read-only: nothing waiting, and 196 failed `notify.email` jobs from 2026-10-06, all to `example.com` test addresses that Resend refuses.
+  - `documentation/SponsorX-Monitoring-Plan.md` is now v1.0. Backend suite 3,007/3,007; monitor tests 22/22.
 
 
 ## HeckerCreatives — P1-ART-18: the whole admin portal on the stage (Code review)
