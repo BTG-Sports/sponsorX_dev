@@ -352,9 +352,9 @@ Every request, decision and switch is audited. BTG admins are emailed with a lin
 - **Done when:** A handoff can happen only after the new guardian's request and the current guardian's Hand off; the current guardian keeps control until the switch, which is atomic; agreed work and earned money stay where they were; a guardian's other children are unaffected; a declined or disputed request goes to BTG support and is never automated; every step is audited
 - **Reference:** Spec §4, §26, §37; BTG admin review 2026-10-01
 
-### ⏸ `2S1-BE-16` · Contacting BTG support
+### ✅ `2S1-BE-16` · Contacting BTG support
 
-**Order** 12.97 · **BE** · **Where:** Code · **2d** · **Ready**
+**Order** 12.97 · **BE** · **Where:** Code · **2d** · **Done**
 
 A way to reach BTG for things that must never be automated, starting with disputed guardianship. A contact form (public, rate-limited) takes a name, an email, the topic (guardianship, account, payment, other), a message and optional attachments. Attachments go to the private storage bucket. Each message is queued through the worker, never sent on the request path, and delivered to the support mailbox (2S1-OPS-01), with the sender's message ID so a reply can continue the thread. The support email address is shown wherever a person might be stuck: the guardian request page, a declined-handoff email, a rejection email, and account pages. Raised 2026-10-01 from the BTG admin review.
 
@@ -376,9 +376,9 @@ BTG admin only.
 - **Done when:** A BTG admin following the support email's link sees the message and opens each attachment; nobody else can
 - **Reference:** `documentation/SponsorX-Payments-PII-Review-2026-10.md` (frontend follow-ups); raised 2026-10-06
 
-### ⏸ `2S1-OPS-01` · Set up the BTG support mailbox
+### ✅ `2S1-OPS-01` · Set up the BTG support mailbox
 
-**Order** 12.98 · **OPS** · **Where:** Vendor console · **1d** · **Ready**
+**Order** 12.98 · **OPS** · **Where:** Vendor console · **1d** · **Done**
 
 Create the support address, for example support@sponsorx.net, and where its mail lands. **Option A, Zoho Desk (recommended):** BTG already runs on Zoho, and Desk turns each email into a tracked ticket with an owner and a status, so the one BTG reviewer sees what's waiting. **Option B:** a plain shared mailbox. Set it up in sandbox or staging first, then production. The sender domain must be verified once the transactional email provider is chosen.
 

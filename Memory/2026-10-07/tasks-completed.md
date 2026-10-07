@@ -35,3 +35,8 @@
 - **Local note:** the scratchpad was wiped. The verification agent left a throwaway embedded Postgres running on 55432 (`scratchpad/pg`), and its worktree is still locked.
 - **2S8-OPS-01 · Done.** Release #170 (`aae0ca2`) is deployed to staging (by the lead) and production (by the owner). `/api/v1/public/health` returns ok in both, with backups archived less than a minute ago. A `[TEST]` alert was delivered to Slack (health-monitor run 37584104464). The monitor now runs every 15 minutes.
 - **2S8-PMO-02's settings are live in production too:** HSTS `includeSubDomains` and the report-only CSP.
+- **2S1-OPS-01 and 2S1-BE-16 · Done.**
+  - Cloudflare Email Routing is enabled on `sponsorx.net` (account Rcarr@icarrefound.org), with MX `route1`–`route3.mx.cloudflare.net`, the SPF record and the `cf2024-1` DKIM key.
+  - `support@sponsorx.net` forwards to `infinex1@icarrefound.org`. The owner chose this as a stopgap; Zoho Desk comes later.
+  - `SUPPORT_MAILBOX_READY=true` is set on the staging and production `api`.
+  - **Staging test:** two contact-form messages went out, one with a PNG that is stored privately and sent as a link. 4/4 emails were sent and none failed, and the owner confirmed delivery.
