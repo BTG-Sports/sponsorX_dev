@@ -1,17 +1,20 @@
 # Continuous integration — P2-OPS-07, §30, Guide §09.
 #
-# Once a day, at 8 pm Manila, the latest `main` is type-checked, linted,
-# unit-tested and permission-tested — and only if `main` has changed since the
-# last deploy. When it passes, deploy-daily.yml ships that commit.
+# Runs on every push to any branch and on every pull request, plus once a day
+# at 8 pm Manila on the latest `main`. The nightly run is skipped when `main`
+# has not changed since the last deploy; when it passes, deploy-daily.yml
+# ships that commit. Push and pull-request runs only check — they never deploy.
 #
-# 2026-10-01, at the user's instruction: the account ran out of GitHub Actions
-# minutes (≈10 minutes a run, 40–80 runs a day on every push and pull
-# request), so CI no longer runs on pushes or pull requests at all — not on
-# working branches, not on `main_development`, not on `main`. Run it by hand
-# any time from the Actions tab ("Run workflow"), and locally as before. Nothing here is a new kind of check: each step is a
-# command that already runs locally. What changes is that it now runs whether
-# anyone remembers or not, on a clean machine, where both people working in
-# this repo can see the result.
+# History: on 2026-10-01 the account ran out of GitHub Actions minutes, so CI
+# was cut to the nightly run and hand-started runs. On 2026-10-07 the
+# repository moved to the BTG-Sports organisation and is public, where
+# standard runners cost no minutes, so CI runs on every commit again.
+#
+# The job "typecheck · lint · unit · authz matrix" is a REQUIRED check on
+# `main` and `main_development` (repository ruleset "CI required", 2026-10-07):
+# a pull request cannot merge into either branch until it passes. Keep the
+# job's name as it is — the ruleset matches on it, and a renamed job leaves
+# the requirement waiting forever for a check that never reports.
 #
 # The permission suite is the one that matters most. It asserts all 1,152
 # role × resource × action pairs against the agreed RBAC matrix, so widening a
@@ -22,6 +25,9 @@
 name: CI
 
 on:
+  push:
+    branches: ["**"]
+  pull_request:
   schedule:
     - cron: "0 12 * * *" # 12:00 UTC = 8:00 pm Manila, every day
   workflow_dispatch:
