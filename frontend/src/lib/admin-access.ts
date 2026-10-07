@@ -44,6 +44,11 @@ export const ADMIN_ACCESS: Record<string, { roles: string[]; who: string }> = {
   "/admin/offers": { roles: ["SUPER_ADMIN", "BTG_ADMIN", "CAMPAIGN_MGR", "SALES"], who: "BTG admins, campaign managers and Sales" },
   "/admin/closed-accounts": { roles: ["SUPER_ADMIN", "BTG_ADMIN"], who: "BTG admins" },
   "/admin/guardian-handoffs": { roles: ["SUPER_ADMIN", "BTG_ADMIN"], who: "BTG admins" },
+  /* 2S5-FE-07 / 2S5-FE-08 — the provider's events and sponsors' disputes: paymentEvent and paymentDispute read are BTG admin and Finance (own tenant) and SUPER_ADMIN; only BTG admin resolves. */
+  "/admin/payments/events": { roles: ["SUPER_ADMIN", "BTG_ADMIN", "FINANCE"], who: "BTG admins and Finance" },
+  "/admin/payments/disputes": { roles: ["SUPER_ADMIN", "BTG_ADMIN", "FINANCE"], who: "BTG admins and Finance" },
+  /* 2S1-FE-14 — a support message and its attachments: supportMessage read is BTG admin (own tenant) and SUPER_ADMIN. */
+  "/admin/support": { roles: ["SUPER_ADMIN", "BTG_ADMIN"], who: "BTG admins" },
   "/admin/next": { roles: ["SUPER_ADMIN", "BTG_ADMIN", "SALES", "FINANCE"], who: "BTG admins, Sales and Finance" },
   /* P9-FE-11 — the API's studentProspect.approve is BTG admin and Sales (own tenant) and SUPER_ADMIN. */
   "/admin/next/prospects": { roles: ["SUPER_ADMIN", "BTG_ADMIN", "SALES"], who: "BTG admins and Sales" },

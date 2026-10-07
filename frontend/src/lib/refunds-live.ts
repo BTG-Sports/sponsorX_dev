@@ -23,6 +23,8 @@ export const REFUND_CAUSES = [
   "EDITION_CANCELLED",
   /* P9-BE-19 — Zoho marked the ad's invoice paid after its edition was cancelled. */
   "PAID_AFTER_EDITION_CANCELLED",
+  /* 2S5-FE-12 / 2S5-BE-03 — the payment provider refunded the card itself: the row arrives SENT, by SYSTEM, with the provider's reference. */
+  "PROVIDER_REFUNDED",
 ] as const;
 export type RefundCause = (typeof REFUND_CAUSES)[number];
 export type RefundState = "OPEN" | "SENT";
@@ -102,6 +104,7 @@ export function causeLabel(cause: string): string {
     case "PAID_AFTER_CANCELLATION": return "Paid after it was cancelled";
     case "EDITION_CANCELLED": return "Edition cancelled";
     case "PAID_AFTER_EDITION_CANCELLED": return "Paid after the edition was cancelled";
+    case "PROVIDER_REFUNDED": return "Provider refund";
     default: return "Refund";
   }
 }
@@ -134,10 +137,18 @@ export function waitingSince(iso: string): string {
   return `Since ${dayOf(iso)}, ${time} UTC`;
 }
 
-/** How a sent refund went, for Finance: "Sent Oct 18 · Bank transfer · RF-20417" — or the stand-in's own words. */
-export function sentWords(r: Pick<ApiRefund, "sent">): string | null {
+/**
+ * How a sent refund went, for Finance: "Sent Oct 18 · Bank transfer · RF-20417"
+ * — or the stand-in's own words. 2S5-FE-12: a refund the provider made itself
+ * (cause PROVIDER_REFUNDED, by SYSTEM to the card) reads "Refunded by the
+ * payment provider · <its reference>".
+ */
+export function sentWords(r: Pick<ApiRefund, "sent"> & Partial<Pick<ApiRefund, "cause">>): string | null {
   const s = r.sent;
   if (!s) return null;
+  if (r.cause === "PROVIDER_REFUNDED" && s.by === "SYSTEM") {
+    return `Refunded by the payment provider${s.reference ? ` · ${s.reference}` : ""}${s.test ? " (test provider)" : ""}`;
+  }
   if (s.by === "SYSTEM") return s.test ? "Refunded automatically (test provider)" : "Refunded automatically to the card";
   return [`Sent${s.on ? ` ${dayOf(s.on)}` : ""}`, METHOD_WORDS[s.method] ?? s.method, s.reference].filter(Boolean).join(" · ");
 }

@@ -39,7 +39,8 @@ export function StripeLinkButton({ cta, action, testBadge }: { cta: AccountPanel
         >
           {pending ? "Opening Stripe…" : cta.label}
         </button>
-        {testBadge && <Badge>{testBadge}</Badge>}
+        {/* The staging badge is a sentence; let it wrap on a phone instead of widening the page. */}
+        {testBadge && <span className="min-w-0 [&>span]:whitespace-normal [&>span]:text-left"><Badge>{testBadge}</Badge></span>}
       </form>
       {cta.disabledNote && <p className="text-[11px] text-muted">{cta.disabledNote}</p>}
       {refusal && (

@@ -2,8 +2,9 @@
 
 import { useEffect, useState, useTransition } from "react";
 
-import { confirmIdAction, nameGuardianAction, requestIdAction, resendAction, signupStatusAction } from "@/app/(public)/join/actions";
+import { confirmIdAction, nameGuardianAction, requestIdAction, resendAction, signupStatusAction, type JoinAnswer } from "@/app/(public)/join/actions";
 import { IdUpload } from "@/components/id-upload";
+import { LinkExpired } from "@/components/link-expired";
 import { checklist, needsGuardian, standing, type ApiSignupStatus } from "@/lib/join-signup";
 
 /* --------------------------------------------------------------------------
@@ -28,6 +29,8 @@ export function JoinChecklist({ token, initial }: { token: string; initial?: Api
   const [s, setS] = useState<ApiSignupStatus | null>(initial ?? null);
   const [error, setError] = useState<string | null>(null);
   const [note, setNote] = useState<string | null>(null);
+  /* 2S8-FE-01: the link this device holds is older than 14 days (the API's 410). */
+  const [expired, setExpired] = useState<string | null>(null);
   const [pending, start] = useTransition();
   const [g, setG] = useState({ legalName: "", email: "", relationship: "PARENT" as "PARENT" | "LEGAL_GUARDIAN" | "AUTHORIZED_REP" });
 
@@ -37,12 +40,15 @@ export function JoinChecklist({ token, initial }: { token: string; initial?: Api
     void signupStatusAction(token).then((r) => {
       if (!live) return;
       if (r.ok) setS(r.data);
+      else if ("expired" in r) setExpired(r.expired.kind);
       else setError(r.message);
     });
     return () => {
       live = false;
     };
   }, [token, initial]);
+
+  if (expired) return <LinkExpired kind={expired} token={token} what="the sign-up link" level="h2" />;
 
   if (!s) {
     return (
@@ -54,12 +60,12 @@ export function JoinChecklist({ token, initial }: { token: string; initial?: Api
 
   const st = standing(s);
   const rows = checklist(s);
-  const run = (f: () => Promise<{ ok: true; data: ApiSignupStatus } | { ok: false; message: string }>, done?: string) =>
+  const run = (f: () => Promise<JoinAnswer<ApiSignupStatus>>, done?: string) =>
     start(async () => {
       setError(null);
       setNote(null);
       const r = await f();
-      if (!r.ok) return setError(r.message);
+      if (!r.ok) return "expired" in r ? setExpired(r.expired.kind) : setError(r.message);
       setS(r.data);
       if (done) setNote(done);
     });

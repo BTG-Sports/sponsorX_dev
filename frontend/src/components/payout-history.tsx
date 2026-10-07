@@ -13,6 +13,11 @@ import { approvalBadge, historyRows, payeeFixPrompt, payoutTracker, type ApiPayo
    is reviewing this payout" on one waiting for BTG (never why), and for a
    payout waiting on the payee's account, "Your payout couldn't be sent —
    fix your payout account" with the link (`fixHref`, the money page).
+
+   2S5-FE-10 — a payout the payee's bank returned (`returnedAt`) reads
+   "Returned by your bank: fix your payout account" (payoutStatus) and the
+   same fix link, with the note that it is sent again once the account is
+   ready (payeeFixPrompt).
    -------------------------------------------------------------------------- */
 
 /** Requested → Approved by BTG → Sent → Paid (2S5-FE-03, design MyMoney). */

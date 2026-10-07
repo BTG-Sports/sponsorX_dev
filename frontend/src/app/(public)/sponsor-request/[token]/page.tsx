@@ -1,7 +1,9 @@
 import Link from "next/link";
 
+import { LinkExpired } from "@/components/link-expired";
 import { SponsorProofUpload } from "@/components/sponsor-proof-upload";
 import { SponsorRequestStanding } from "@/components/sponsor-request-standing";
+import { linkExpiredFrom } from "@/lib/link-expired";
 import { standingOf, type ApiSponsorRequestStatus } from "@/lib/sponsor-request-live";
 import { publicApi } from "../../onboarding/public-api";
 
@@ -46,6 +48,17 @@ export default async function SponsorRequestStatusPage({ params }: { params: Pro
   const { token } = await params;
   const res = await publicApi(`/public/sponsor-requests/${encodeURIComponent(token)}`);
 
+  if (res.status === 410) {
+    /* 2S8-FE-01: older than 14 days — a fresh one can be emailed. */
+    const gone = linkExpiredFrom(410, await res.json().catch(() => null), "sponsor-request");
+    if (gone) {
+      return (
+        <Shell>
+          <LinkExpired kind={gone.kind} token={token} what="the link to your request" />
+        </Shell>
+      );
+    }
+  }
   if (res.status === 400 || res.status === 404) {
     return (
       <Plain title={res.status === 404 ? "This request no longer exists" : "This link isn't valid"}>

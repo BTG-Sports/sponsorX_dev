@@ -41,7 +41,11 @@ const NAV: NavItem[] = [
   /* Money in and out. */
   /* 2S5-FE-01 — BTG admin only; hidden from the other staff roles below. */
   { href: "/admin/commission", label: "Commission", icon: "card", group: "Money", groupIcon: "wallet" },
+  /* 2S5-FE-08 — sponsors' card disputes: frozen money until a BTG admin resolves them (BTG admin and Finance). */
+  { href: "/admin/payments/disputes", label: "Disputes", icon: "flag", group: "Money" },
   { href: "/admin/finance", label: "Finance", icon: "wallet", group: "Money" },
+  /* 2S5-FE-07 — the payment provider's events SponsorX could not apply (BTG admin and Finance). */
+  { href: "/admin/payments/events", label: "Payment events", icon: "card", group: "Money" },
   { href: "/admin/payouts", label: "Payouts", icon: "wallet", group: "Money" },
   /* 2S4-FE-06 — money owed back to sponsors, sent by hand until a payment provider is connected (BTG admin and Finance). */
   { href: "/admin/refunds", label: "Refunds to send", icon: "wallet", group: "Money" },

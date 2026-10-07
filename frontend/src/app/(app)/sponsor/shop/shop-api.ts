@@ -13,7 +13,9 @@ import { refusalFrom } from "@/lib/shop-live";
 
 export type WriteResult<T> =
   | { ok: true; data: T }
-  | { ok: false; status: number; message: string; reasons: string[] };
+  | { ok: false; status: number; message: string; reasons: string[];
+      /** The API's `error.code` when it sent one (2S5-FE-11 reads "busy" on a 503). Undefined otherwise. */
+      code?: string };
 
 export async function shopWrite<T>(
   path: string,
@@ -35,5 +37,6 @@ export async function shopWrite<T>(
     /* no body */
   }
   if (res.ok) return { ok: true, data: parsed as T };
-  return { ok: false, status: res.status, ...refusalFrom(res.status, parsed) };
+  const code = (parsed as { error?: { code?: unknown } } | null)?.error?.code;
+  return { ok: false, status: res.status, ...refusalFrom(res.status, parsed), ...(typeof code === "string" ? { code } : {}) };
 }

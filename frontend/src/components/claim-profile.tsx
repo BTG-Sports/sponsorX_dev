@@ -31,12 +31,17 @@ export function ClaimProfile({ slug, name }: { slug: string; name: string }) {
   const field = "rounded-lg border border-line bg-surface px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-next";
 
   if (done) {
+    /* 2S8-FE-02: the API answers PENDING_EMAIL — nothing moves until the
+       link in the email is confirmed (/athletes/claim/confirm). */
     return (
-      <Card className="border-success/30 bg-success/5" >
-        <p role="status" className="text-sm font-semibold">Claim received</p>
+      <Card className="border-success/30 bg-success/5">
+        <p role="status" className="text-sm font-semibold">Check your email</p>
         <p className="mt-1 text-xs leading-relaxed text-muted">
-          Your school checks it next. You are not signed with anyone, and nobody represents you — this profile stays
-          editorial until every step is done, and anything commercial needs its own yes.
+          We sent a link to {f.email || "the address you gave"}. Your claim moves on to your school once you confirm it there — the link works for 14 days.
+        </p>
+        <p className="mt-2 text-xs leading-relaxed text-muted">
+          You are not signed with anyone, and nobody represents you — this profile stays editorial until every step is done, and anything
+          commercial needs its own yes.
         </p>
       </Card>
     );
