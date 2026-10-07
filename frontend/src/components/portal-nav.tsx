@@ -78,7 +78,7 @@ export function PortalNav({
   if (groups.length === 0) {
     return (
       <nav className="flex-1 space-y-1 px-3 py-2">
-        {nav.map((item, i) => <Item key={item.pending ? item.label : item.href} item={item} i={i} pathname={pathname} rootHref={rootHref} {...accent} />)}
+        {nav.map((item, i) => <Item key={item.pending ? item.label : item.href} item={item} delayMs={80 + i * 40} pathname={pathname} rootHref={rootHref} {...accent} />)}
       </nav>
     );
   }
@@ -107,17 +107,21 @@ function GroupedNav({
     }
   };
 
-  let i = 0;
+  /* Entrance timing: the top items and the group headers stagger down the
+     column on arrival, as the flat nav did. A group's desks are timed from
+     THEIR OWN first row, quick and short (25 ms apart, a quarter second), so
+     opening a group shows it at once — timed from the top of the whole nav,
+     the last group took over a second to appear (owner, 2026-10-07). */
   return (
     <nav className="flex-1 px-3 py-2">
       <div className="space-y-1">
-        {top.map((item) => <Item key={item.href} item={item} i={i++} pathname={pathname} rootHref={rootHref} {...accent} />)}
+        {top.map((item, k) => <Item key={item.href} item={item} delayMs={80 + k * 40} pathname={pathname} rootHref={rootHref} {...accent} />)}
       </div>
-      {groups.map((g) => {
+      {groups.map((g, gi) => {
         const isOpen = open.has(g.key);
         const holds = g.key === here;
         const id = `nav-group-${g.key}`;
-        const headIndex = i++;
+        const headDelay = 80 + (top.length + gi) * 40;
         return (
           <section key={g.key} className="mt-1.5">
             <button
@@ -125,7 +129,7 @@ function GroupedNav({
               onClick={() => toggle(g.key)}
               aria-expanded={isOpen}
               aria-controls={id}
-              style={{ animationDelay: `${80 + headIndex * 40}ms` } as CSSProperties}
+              style={{ animationDelay: `${headDelay}ms` } as CSSProperties}
               className={`sx-animate group/head flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-[10px] font-semibold uppercase tracking-[0.18em] transition-colors ${
                 holds ? accent.accentText : "text-faint hover:text-text"
               }`}
@@ -140,7 +144,7 @@ function GroupedNav({
               </span>
             </button>
             <div id={id} hidden={!isOpen} className="space-y-1 pb-1">
-              {g.items.map((item) => <Item key={item.pending ? item.label : item.href} item={item} i={i++} pathname={pathname} rootHref={rootHref} {...accent} />)}
+              {g.items.map((item, k) => <Item key={item.pending ? item.label : item.href} item={item} delayMs={k * 25} quick pathname={pathname} rootHref={rootHref} {...accent} />)}
             </div>
           </section>
         );
@@ -150,9 +154,9 @@ function GroupedNav({
 }
 
 function Item({
-  item, i, pathname, rootHref, accentBg, accentText, accentDot, accentWash,
-}: { item: NavItem; i: number; pathname: string; rootHref: string } & Accent) {
-  const delay = { animationDelay: `${80 + i * 40}ms` };
+  item, delayMs, quick = false, pathname, rootHref, accentBg, accentText, accentDot, accentWash,
+}: { item: NavItem; delayMs: number; /** A short entrance (a group opening). */ quick?: boolean; pathname: string; rootHref: string } & Accent) {
+  const delay: CSSProperties = { animationDelay: `${delayMs}ms`, ...(quick ? { animationDuration: "0.25s" } : {}) };
 
   if (item.pending) {
     return (

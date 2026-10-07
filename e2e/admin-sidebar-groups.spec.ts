@@ -47,6 +47,13 @@ test("P1-ART-21 · the sidebar groups", async ({ browser }, testInfo) => {
   await header("Intake").click();
   await expect(aside.getByRole("link", { name: "Sponsor requests" })).toBeHidden();
 
+  /* the LAST group's desks show at once when it opens — their entrance is timed from
+     the group's own first row, not the top of the nav (owner: "showing takes to long") */
+  await header("System").click();
+  const last = aside.getByRole("link", { name: "Integrations" });
+  await expect(last).toBeVisible({ timeout: 300 });
+  await expect.poll(() => last.evaluate((el) => Number(getComputedStyle(el).opacity)), { timeout: 600 }).toBeGreaterThan(0.9);
+
   /* the phone drawer */
   await admin.setViewportSize({ width: 390, height: 844 });
   await admin.getByRole("button", { name: /menu|open navigation/i }).first().click();
