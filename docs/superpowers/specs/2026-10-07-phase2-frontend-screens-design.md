@@ -164,3 +164,59 @@ against the running dev servers (`E2E_BASE_URL=http://localhost:3000`),
 seeding what it needs through the API or `e2e/support/loop-db.ts`; screens
 at 1440 and 390; no console errors, no horizontal overflow. The owner's
 own check-list is in the hand-over message.
+
+## The owner's check-list (2026-10-07)
+
+Sign in with the QA accounts (password `SponsorX-Dev-2026!`, code
+`424242`): `qa.p3fe02.admin+clerk_test@example.com` (BTG admin),
+`qa.fe.finance+clerk_test@example.com` (Finance),
+`qa.p3fe03.athlete+clerk_test@example.com` (athlete),
+`qa.fe.sponsor+clerk_test@example.com` (sponsor). Use
+`http://localhost:3000`, not 127.0.0.1. The local API uses the stand-in
+payment provider, so every money event can be raised by hand with
+`POST /api/v1/payment-events/test-provider` as the BTG admin (body
+`{ type, orderId | payoutId, outcome?, kind?, amountCents? }`; types
+`payment.processing|succeeded|failed|refunded`, `dispute.opened|closed`,
+`payout.paid|failed|returned`). The quickest way to get a paid order and a
+payout to point them at is `npx playwright test e2e/marketplace-path.spec.ts`.
+
+1. **Payment events** — `/admin/payments/events`: tiles, tabs, the table.
+   Raise one: `payment.refunded` on a paid order with nothing owed back →
+   a HELD event. Resolve… → note → the row moves to Resolved. As Finance:
+   no button, the line "BTG admin resolves these".
+2. **Disputes** — raise `dispute.opened` on a paid order → `/admin/payments/disputes`
+   Open tab; open it: Take for review → note. Raise `dispute.closed` with
+   `outcome: "LOST"` (and `amountCents` below the order total for a partial
+   loss) → Resolve as the provider's outcome → pick the lines → note.
+   As Finance: no buttons.
+3. **Provider refund** — after the `payment.refunded` above,
+   `/admin/refunds?tab=sent` shows "Provider refund · Refunded by the
+   payment provider · ref" with no Mark refunded.
+4. **Support message** — `/contact`, attach a file, send; the id is in
+   the worker's email log (or `support_messages`); `/admin/support/<id>`
+   as BTG admin: the message and Open on each file (a five-minute link).
+   Finance gets "Outside your role".
+5. **Frozen money** — with the dispute OPEN, the athlete's `/athlete/money`
+   per-order row shows Frozen and "BTG is reviewing a problem with the
+   sponsor's payment"; the requestable balance leaves it out; the checks
+   list shows the dispute check. Property: `/property/earnings` notice.
+6. **Payout attempts and returns** — raise `payout.returned` on a payout:
+   `/admin/payouts/<id>` shows "Handed to the provider N time(s)" and the
+   red "Returned by the bank on …"; the payee's history reads "Returned by
+   your bank: fix your payout account".
+7. **Busy checkout** — restart the API with `PAYMENT_PROVIDER_TIMEOUT_MS=10`
+   and press Pay by card on an unpaid sponsor order: "The payment service
+   is busy. Try again in a minute."; the button stays usable.
+8. **Expired links** — `/join/confirm?t=anything` shows the invalid notice;
+   `npx playwright test e2e/public-links.spec.ts` mints a 15-day-old token
+   and shows the expired notice, presses Send me a fresh link, gets
+   "Sent — check your email".
+9. **Profile claim** — a FEATURED athlete's `/athletes/<slug>`: Claim this
+   profile → "Check your email"; the email's link is now
+   `/athletes/claim/confirm?t=…`: one button, Confirm my email → the
+   profile with the green banner. `?claim=expired-resent|closed|invalid`
+   each show their banner.
+
+Everything at once: `set -a; . ./.env; set +a; E2E_BASE_URL=http://localhost:3000
+E2E_API_URL=http://localhost:4000 npx playwright test e2e/admin-payments-desks.spec.ts
+e2e/payee-money.spec.ts e2e/public-links.spec.ts --project=chromium --workers=1`.
