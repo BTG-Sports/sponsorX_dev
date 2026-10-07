@@ -5,7 +5,7 @@ import { Badge, Card, SectionHeading } from "@/components/ui";
 import { PayoutDecision, PayoutRetry } from "@/components/payout-decision";
 import { PayoutTracker } from "@/components/payout-history";
 import {
-  approvalBadge, auditTrail, payeeKind, payeeShare, payoutStatus, payoutTracker, retryStatus, usd, type ApiPayoutDetail,
+  approvalBadge, attemptsWords, auditTrail, payeeKind, payeeShare, payoutStatus, payoutTracker, retryStatus, returnedLine, usd, type ApiPayoutDetail,
 } from "@/lib/payouts-live";
 import type { ApiLineFinancials } from "@/lib/marketplace-ops-live";
 import { apiFetch } from "@/server/api";
@@ -14,8 +14,11 @@ import { decidePayoutAction, retryPayoutAction } from "../actions";
 /* --------------------------------------------------------------------------
    One payout — 2S5-FE-04 (Claude Design Approvals.dc.html): the payee and
    their payout-account status, each order and the payee's part of its
-   frozen split, the four payout rules checked now, the audit trail, and
-   the decision.
+   frozen split, the five payout rules checked now (2S5-BE-04 adds "No
+   dispute open on its orders"), the audit trail, and the decision.
+   2S5-FE-10 — under the state, how many times it was handed to the
+   provider; a payout the payee's bank returned says so, dated, and the
+   return is in the trail.
 
    Reads  GET /payouts/:id                         payout, account, orders, checks
           GET /marketplace-orders/:id/financials   the split frozen at approval
@@ -52,6 +55,9 @@ export default async function PayoutDetailPage({ params }: { params: Promise<{ i
   const auto = approvalBadge(p);
   const retry = retryStatus(p);
   const reasons = p.state === "REQUESTED" ? (p.reviewReasons ?? []) : [];
+  /* 2S5-FE-10 — hand-overs to the provider, and a return by the payee's bank. */
+  const attempts = attemptsWords(p);
+  const returned = returnedLine(p);
   /* An athlete by first name; a team or school by its whole name. */
   const first = p.payeeType === "ATHLETE" ? (p.payeeName.split(/\s+/)[0] ?? p.payeeName) : p.payeeName;
   const passed = p.checks.filter((c) => c.ok).length;
@@ -138,6 +144,8 @@ export default async function PayoutDetailPage({ params }: { params: Promise<{ i
               {retry ? <Badge tone={retry.tone}>{retry.label}</Badge> : <Badge tone={status.tone}>{p.state === "REQUESTED" ? "Waiting for BTG's decision" : p.state === "APPROVED" ? "Approved — sending soon" : status.label}</Badge>}
               {auto && <Badge tone="accent">✓ {auto}</Badge>}
             </p>
+            {attempts && <p className="mt-2 text-[11px] text-muted">{attempts}</p>}
+            {returned && <p className="mt-1 text-[11px] font-medium text-danger">{returned}</p>}
             {reasons.length > 0 && (
               <div className="mt-3 rounded-lg border border-warn/40 bg-warn/5 px-3 py-2">
                 <p className="text-[11px] font-medium text-warn">Not approved automatically because</p>

@@ -14,6 +14,7 @@
    -------------------------------------------------------------------------- */
 
 import { BRAND_CATEGORIES, categoryLabel, type BrandCategory } from "./brand-categories";
+import type { PageInfo } from "@/lib/list-query";
 
 export type BriefState = "DRAFT" | "QUALIFIED" | "APPROVED" | "CAMPAIGN_CREATED" | "CLOSED";
 
@@ -78,6 +79,15 @@ export const STATE_TONE: Record<BriefState, "warn" | "primary" | "accent" | "neu
  *  taken on by hand, so this is what BTG has to look at. It replaces
  *  P4-FE-08's "Ready for review": a ready brief is now approved on its own. */
 export type TabKey = "held" | "all" | BriefState;
+
+/** P1-FE-31 — GET /briefs?page=: one tab's page with every tab's count and
+ *  the sports any brief in scope targets (the filter's options). */
+export type ApiBriefPage = { briefs: ApiBrief[]; page: PageInfo; counts: Record<TabKey, number>; /** Only with ?facets=sports. */ facets?: { sports: string[] } };
+
+/** The API query for a desk tab: held = ?held=true, all = nothing, else ?state=. */
+export function briefTabQuery(tab: TabKey): Record<string, string> {
+  return tab === "held" ? { held: "true" } : tab === "all" ? {} : { state: tab };
+}
 export const TABS: { key: TabKey; label: string }[] = [
   { key: "held", label: "Held for BTG" },
   { key: "all", label: "All" },

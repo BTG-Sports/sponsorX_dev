@@ -12,10 +12,16 @@ vi.mock("../src/config/env", () => ({ env: { APP_URL: "https://sponsorx.example"
 
 let rows: unknown[] = [];
 let lastWhere: Record<string, unknown> = {};
+let lastArgs: { skip?: number; take?: number } = {};
 vi.mock("../src/db/client", () => ({
   prisma: {
     auditLog: {
-      findMany: (a: { where: Record<string, unknown> }) => ((lastWhere = a.where), Promise.resolve(rows)),
+      /* Honours skip / take so a paged read returns the slice a database would. */
+      findMany: (a: { where: Record<string, unknown>; skip?: number; take?: number }) => (
+        (lastWhere = a.where), (lastArgs = { skip: a.skip, take: a.take }),
+        Promise.resolve(rows.slice(a.skip ?? 0, (a.skip ?? 0) + (a.take ?? rows.length)))
+      ),
+      count: () => Promise.resolve(rows.length),
       groupBy: (a: { by: string[] }) =>
         Promise.resolve(a.by[0] === "entity" ? [{ entity: "Deliverable", _count: { _all: 3 } }] : [{ actorId: "u1", _count: { _all: 2 } }, { actorId: null, _count: { _all: 1 } }]),
     },
@@ -45,6 +51,7 @@ async function call(actor: Actor, query: Record<string, string> = {}) {
 beforeEach(() => {
   rows = [row(1), row(2, null)];
   lastWhere = {};
+  lastArgs = {};
 });
 
 describe("GET /audit-log", () => {
@@ -84,5 +91,20 @@ describe("GET /audit-log", () => {
     const f = (await call(admin)).facets as { entities: unknown[]; actors: unknown[] };
     expect(f.entities).toEqual([{ entity: "Deliverable", count: 3 }]);
     expect(f.actors).toEqual([{ id: "u1", email: "admin@x.test", count: 2 }, { id: "system", email: null, count: 1 }]);
+  });
+
+  it("P1-FE-31 · ?page=1&size=1 answers one row with a counted page, no cursor, and the same facets; without ?page the old keyset shape", async () => {
+    rows = Array.from({ length: 3 }, (_, i) => row(i + 1));
+    const whole = await call(admin);
+    expect(whole.page).toBeUndefined();
+    expect((whole.rows as unknown[]).length).toBe(3);
+    expect(lastArgs.skip).toBeUndefined();
+
+    const paged = await call(admin, { page: "1", size: "1" });
+    expect(paged.page).toEqual({ page: 1, size: 1, total: 3, pages: 3 });
+    expect((paged.rows as Array<{ id: string }>).map((r) => r.id)).toEqual(["al_1"]);
+    expect(paged.nextCursor).toBeNull();
+    expect(paged.facets).toEqual(whole.facets);
+    expect(lastArgs).toEqual({ skip: 0, take: 2 });
   });
 });

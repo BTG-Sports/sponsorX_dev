@@ -182,6 +182,28 @@ describe.skipIf(!hasDatabase)("2S2-FE-03 · requesting a change to an offer", { 
     expect((await call("POST", "/offers/ocr_offer/respond", "ocr_athlete", change("Too late?"))).status).toBe(409);
   });
 
+  it("P1-FE-31 · ?page=1&size=1 answers one row, newest first, with the page and state counts; without ?page the old shape", async () => {
+    const whole = await call("GET", "/offers", "ocr_admin");
+    expect(whole.status, whole.text).toBe(200);
+    expect(whole.json.page).toBeUndefined();
+    expect(whole.json.counts).toBeUndefined();
+    const paged = await call("GET", "/offers?page=1&size=1", "ocr_admin");
+    expect(paged.status, paged.text).toBe(200);
+    const total = whole.json.offers.length;
+    expect(total).toBeGreaterThanOrEqual(1);
+    expect(paged.json.page).toEqual({ page: 1, size: 1, total, pages: total });
+    expect(paged.json.offers).toHaveLength(1);
+    expect(whole.json.offers.map((o: { id: string }) => o.id)).toContain(paged.json.offers[0].id);
+    /* The counts are by state over the whole visible set, and add up to the total. */
+    const byState = whole.json.offers.reduce((m: Record<string, number>, o: { state: string }) => ({ ...m, [o.state]: (m[o.state] ?? 0) + 1 }), {});
+    expect(paged.json.counts).toEqual(byState);
+    expect(Object.values(paged.json.counts as Record<string, number>).reduce((s, n) => s + n, 0)).toBe(total);
+    /* One state narrows the page; the counts stay whole. */
+    const declined = await call("GET", "/offers?page=1&size=1&state=DECLINED", "ocr_admin");
+    expect(declined.json.page.total).toBe(byState.DECLINED ?? 0);
+    expect(declined.json.counts).toEqual(byState);
+  });
+
   it("a minor's change request comes from their verified guardian, as accepting does (2S1-BE-11)", async () => {
     const note = "Can my guardian join the shoot?";
     /* The minor's own login is refused — the guardian negotiates for them. */

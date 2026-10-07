@@ -1,6 +1,8 @@
 import Link from "next/link";
 
 import { ComingOfAgeUpload } from "@/components/coming-of-age-upload";
+import { LinkExpired } from "@/components/link-expired";
+import { linkExpiredFrom } from "@/lib/link-expired";
 import { refusalMessage } from "@/lib/onboarding-live";
 import { dayOf, daysLeft } from "@/lib/account-live";
 import type { ApiComingOfAgePage } from "../actions";
@@ -29,12 +31,22 @@ export default async function ComingOfAgeTokenPage({ params }: { params: Promise
   const { token } = await params;
   const res = await publicApi(`/public/coming-of-age/${encodeURIComponent(token)}`);
   if (!res.ok) {
-    let said: string | undefined;
+    let body: unknown = null;
     try {
-      said = refusalMessage(await res.json());
+      body = await res.json();
     } catch {
       /* no body */
     }
+    /* 2S8-FE-01: older than 14 days — a fresh one can be emailed. */
+    const gone = linkExpiredFrom(res.status, body, "coming-of-age");
+    if (gone) {
+      return (
+        <Shell>
+          <LinkExpired kind={gone.kind} token={token} what="the link to this page" />
+        </Shell>
+      );
+    }
+    const said = refusalMessage(body);
     if (res.status >= 500) throw new Error(`This page couldn't be opened (${res.status}).`);
     return (
       <Shell>

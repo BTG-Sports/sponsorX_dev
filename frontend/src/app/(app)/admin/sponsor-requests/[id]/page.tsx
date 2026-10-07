@@ -114,7 +114,7 @@ export default async function SponsorRequestPage({ params }: { params: Promise<{
     <div className="space-y-6">
       <div>
         <Link href={`${PATH}?tab=${tab}`} className="text-xs text-muted hover:text-text">← {tabLabel(tab)}</Link>
-        <h1 className="mt-2 text-xl font-semibold tracking-tight">{TITLE}</h1>
+        <h1 className="sx-page-title mt-2">{TITLE}</h1>
       </div>
 
       {r.state === "NEW" ? (

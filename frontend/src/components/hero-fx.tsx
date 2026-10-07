@@ -51,7 +51,9 @@ export function whenLoaded(fn: () => void): () => void {
   return () => mo.disconnect();
 }
 
-export function ScrambleText({ text, delay = 0 }: { text: string; delay?: number }) {
+/** `immediate` starts the decode on mount instead of waiting for the loading
+ *  screen — for pages that have none (the admin board, P1-ART-14). */
+export function ScrambleText({ text, delay = 0, immediate = false }: { text: string; delay?: number; immediate?: boolean }) {
   const ref = useRef<HTMLSpanElement>(null);
 
   useEffect(() => {
@@ -75,16 +77,17 @@ export function ScrambleText({ text, delay = 0 }: { text: string; delay?: number
       };
       raf = requestAnimationFrame(tick);
     };
-    const stop = whenLoaded(() => {
+    const start = () => {
       timer = window.setTimeout(run, delay * 1000);
-    });
+    };
+    const stop = immediate ? (start(), () => {}) : whenLoaded(start);
     return () => {
       stop();
       clearTimeout(timer);
       cancelAnimationFrame(raf);
       el.textContent = text;
     };
-  }, [text, delay]);
+  }, [text, delay, immediate]);
 
   return (
     <span className="relative inline-block">

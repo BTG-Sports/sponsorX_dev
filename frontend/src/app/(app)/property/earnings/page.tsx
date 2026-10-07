@@ -5,7 +5,7 @@ import { PayoutHistory } from "@/components/payout-history";
 import { PayoutRequest } from "@/components/payout-request";
 import { PAYOUTS_NOTE, buildEarnings, type ApiAnalytics, type ApiLedger } from "@/lib/property-p2-live";
 import {
-  accountPanel, owedBackNotice, payoutTiles, requestButton, requestOrders, showChecklist, usd, type ApiMyPayouts,
+  accountPanel, frozenNotice, owedBackNotice, payoutTiles, requestButton, requestOrders, showChecklist, usd, type ApiMyPayouts,
 } from "@/lib/payouts-live";
 import { apiFetch } from "@/server/api";
 import { requirePortalAccess } from "@/server/portal";
@@ -29,8 +29,12 @@ import { payoutAccountLinkAction, requestPayoutAction } from "./actions";
                                 (requestPayoutAction; a 409 shows its message)
 
    PROPERTY_MGR only (ledgerEntry / payout / payoutAccount own-property); a
-   403 is a login with no property. Honest gaps: no held / disputed
-   exceptions, no per-athlete split and no fee rates — the API has none.
+   403 is a login with no property. Honest gaps: no per-athlete split and no
+   fee rates — the API has none.
+
+   2S5-FE-09 — there is no per-order list here, so an order whose money a
+   dispute froze (`frozen`) is named, with the amount, in a notice above the
+   request panel; the API's `dispute` check renders in the checklist.
    -------------------------------------------------------------------------- */
 
 export const dynamic = "force-dynamic";
@@ -68,6 +72,8 @@ export default async function PropertyEarningsPage() {
   const linkAction = payoutAccountLinkAction.bind(null, "/property/earnings");
   /* 2S8-QA-05 — a refund after a payout leaves money owed back; never shown as $0. */
   const owedBack = owedBackNotice(me);
+  /* 2S5-FE-09 — money a dispute froze: named with its order(s), left out of the requestable balance by the API. */
+  const frozen = frozenNotice(me);
 
   return (
     <div className="space-y-6">
@@ -75,6 +81,12 @@ export default async function PropertyEarningsPage() {
         {heading}
         <PayoutRequest view={request} amount={usd(me.totals.requestableCents)} orders={requestOrders(me.orders)} action={requestPayoutAction} />
       </div>
+
+      {frozen && (
+        <p role="status" className="rounded-lg border border-warn/30 bg-warn/8 px-3 py-2 text-xs text-warn">
+          {frozen} That money is left out of what you can request until it is resolved.
+        </p>
+      )}
 
       {owedBack && (
         <p role="status" className="rounded-lg border border-warn/30 bg-warn/8 px-3 py-2 text-xs text-warn">

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Badge, Card, Meter } from "@/components/ui";
+import { Badge } from "@/components/ui";
 import { MiniChip, Monogram, initials } from "@/components/hero";
 import {
   CloseIcon,
@@ -31,6 +31,7 @@ import {
 import type { PageInfo } from "@/lib/list-query";
 import {
   AGING_HOURS,
+  waitMeter,
   FACTOR_HINTS,
   STATE_COPY,
   STATE_DETAIL,
@@ -372,7 +373,8 @@ function Desk({
       <div
         role="tablist"
         aria-label="Application queue"
-        className="mb-3 flex w-fit max-w-full flex-wrap gap-1 rounded-lg border border-line bg-surface p-1"
+        /* P1-ART-16 — the Scouting Board's pills (the stage is fixed-dark). */
+        className="mb-4 flex max-w-full flex-wrap gap-1.5"
       >
         {TABS.map((t) => {
           const active = t.key === view.tab;
@@ -384,17 +386,17 @@ function Desk({
               aria-selected={active}
               onClick={() => chooseTab(t.key)}
               className={[
-                "flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-colors",
+                "group inline-flex min-h-9 items-center gap-2 rounded-full border px-3.5 text-xs font-medium transition-[background-color,border-color,color,box-shadow] duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#63b4f8]/70",
                 active
-                  ? "bg-admin/15 text-text"
-                  : "text-muted hover:text-text",
+                  ? "border-[#63b4f8] bg-[#2e9bf5]/25 text-white shadow-[0_0_18px_rgba(46,155,245,.35)]"
+                  : "border-[#63b4f8]/25 bg-[#0a121e]/60 text-[#cfe9ff] hover:border-[#63b4f8]/60 hover:text-white",
               ].join(" ")}
             >
               {t.label}
               <span
                 className={[
-                  "tabular-nums text-[10px]",
-                  active ? "text-text" : "text-faint",
+                  "font-mono tabular-nums text-[11px]",
+                  active ? "text-[#9be0ff]" : "text-[#7e88a0] group-hover:text-[#9be0ff]",
                 ].join(" ")}
               >
                 {tabCounts[t.key]}
@@ -524,9 +526,8 @@ function Desk({
 
       {/* ------------------------------------------------------------ list */}
       <MaybePending paged={paged !== null}>
-      <Card className="p-0">
         {shown.length === 0 ? (
-          <div className="px-4 py-10 text-center">
+          <div className="sx-ops-panel relative px-4 py-12 text-center">
             <p className="text-sm font-medium">
               {isFiltered ? "Nothing matches these filters" : "This queue is clear"}
             </p>
@@ -546,82 +547,103 @@ function Desk({
             )}
           </div>
         ) : (
-          <ul className="divide-y divide-line-soft">
-            {shown.map((a) => {
+          /* P1-ART-16 — the Scouting Board: one glass "player card" per
+             application (1 → 2 → 3 → 4 columns, so 12 / 24 / 60 fill evenly).
+             Each card is still the row's one button, its name led by the
+             athlete's (the e2e loop finds it so), and `Minor` stays exact. */
+          <ul className="grid gap-3.5 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+            {shown.map((a, i) => {
               const s = eff(a);
               const w = wait.get(a.id) ?? 0;
-              const aging = inReview(s) && w > AGING_HOURS;
+              const reviewing = inReview(s);
+              const meter = waitMeter(w);
+              const late = reviewing && meter.overdue;
               return (
-                <li key={a.id}>
+                <li key={a.id} className="sx-ops-in" style={{ "--sx-reveal-delay": `${0.55 + Math.min(i, 11) * 0.05}s` } as React.CSSProperties}>
                   <button
                     type="button"
                     onClick={() => openItem(a.id)}
-                    className="flex w-full flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3.5 text-left transition-colors hover:bg-surface-2/60 focus-visible:bg-surface-2/60 focus-visible:outline-none"
+                    data-spot=""
+                    data-tilt=""
+                    style={{ "--tone": late ? "#fb923c" : "#63b4f8" } as React.CSSProperties}
+                    className={`sx-ops-card group relative flex h-full min-h-[12.5rem] w-full flex-col gap-3 px-5 pb-5 pt-[18px] text-left ${late ? "shadow-[inset_0_3px_0_#f97a1f]" : ""}`}
                   >
-                    <Monogram
-                      text={initials(a.name)}
-                      shape="circle"
-                      tone={
-                        s === "APPROVED"
-                          ? "accent"
-                          : s === "REJECTED"
-                            ? "neutral"
-                            : "primary"
-                      }
-                      className="size-9 text-[10px]"
-                    />
-                    <span className="min-w-0 flex-1">
-                      <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                        <span className="text-xs font-semibold tracking-tight">
+                    <i aria-hidden="true" className="sx-ops-br sx-ops-br-a" />
+                    <i aria-hidden="true" className="sx-ops-br sx-ops-br-b" />
+                    <span className="flex items-start justify-between gap-3">
+                      <span className="min-w-0">
+                        <span className="block text-[10px] font-medium uppercase tracking-[0.24em] text-[#9be0ff]">
+                          {a.sport}
+                        </span>
+                        <span className="mt-1.5 block truncate text-base font-semibold tracking-tight text-white">
                           {a.name}
                         </span>
-                        {a.isMinor && <Badge tone="warn">Minor</Badge>}
-                        {decisions[a.id] === "INFO" && (
-                          <Badge tone="neutral">Info requested</Badge>
+                        <span className="mt-0.5 block truncate text-xs text-[#8a96a3]">
+                          {a.region}
+                          {a.followers !== null && (
+                            <> · {a.followers.toLocaleString("en-US")} followers</>
+                          )}
+                        </span>
+                      </span>
+                      <span className="shrink-0 drop-shadow-[0_0_12px_rgba(46,155,245,.45)]">
+                        {a.score ? (
+                          <ScoreRing value={a.score.total} size={64} strokeWidth={5} textCls="text-base" />
+                        ) : (
+                          <NoScoreRing size={64} />
                         )}
-                        {a.flags.length > 0 && inReview(s) && (
-                          <span className="text-[10px] font-medium text-danger">
-                            ▲ {a.flags.length}{" "}
-                            {a.flags.length === 1 ? "flag" : "flags"}
+                      </span>
+                    </span>
+
+                    <span className="flex flex-wrap items-center gap-1.5">
+                      {a.isMinor && <Badge tone="warn">Minor</Badge>}
+                      {a.isMinor && (
+                        <span className="text-[10px] font-medium text-[#9aa4b2]">
+                          {a.guardianVerified ? "guardian verified" : "guardian pending"}
+                        </span>
+                      )}
+                      {decisions[a.id] === "INFO" && (
+                        <Badge tone="neutral">Info requested</Badge>
+                      )}
+                      {a.flags.length > 0 && reviewing && (
+                        <span className="text-[10px] font-semibold text-[#fca5a5]">
+                          ▲ {a.flags.length}{" "}
+                          {a.flags.length === 1 ? "flag" : "flags"}
+                        </span>
+                      )}
+                    </span>
+
+                    <span className="mt-auto block">
+                      {reviewing ? (
+                        <>
+                          <span className="flex items-center justify-between gap-2 text-[11px]">
+                            <span className={late ? "font-semibold text-[#fdba74]" : "text-[#9aa4b2]"}>
+                              {meter.label}
+                            </span>
+                            <span className="text-[#7e88a0]">submitted {a.submittedAt}</span>
                           </span>
-                        )}
-                      </span>
-                      <span className="mt-0.5 block truncate text-[11px] text-faint">
-                        {a.sport} · {a.region}
-                        {a.followers !== null && (
-                          <> · {a.followers.toLocaleString("en-US")} followers</>
-                        )}{" "}
-                        · submitted {a.submittedAt}
-                      </span>
+                          <span aria-hidden="true" className="relative mt-1.5 block h-1.5 overflow-hidden rounded-full bg-white/[0.07]">
+                            <span
+                              className={`sx-ops-wait absolute inset-y-0 left-0 block rounded-full ${late ? "bg-gradient-to-r from-[#fb923c] to-[#f97a1f] shadow-[0_0_12px_rgba(249,122,31,.8)]" : "bg-gradient-to-r from-[#2e9bf5] to-[#9be0ff] shadow-[0_0_10px_rgba(46,155,245,.7)]"}`}
+                              style={{ width: `${meter.pct}%`, "--sx-reveal-delay": `${0.8 + Math.min(i, 11) * 0.05}s` } as React.CSSProperties}
+                            />
+                          </span>
+                        </>
+                      ) : (
+                        <span className="flex items-center justify-between gap-2">
+                          <Badge tone={STATE_TONE[s]}>{STATE_COPY[s]}</Badge>
+                          <span className="text-[11px] text-[#7e88a0]">submitted {a.submittedAt}</span>
+                        </span>
+                      )}
                     </span>
-                    {aging && <Badge tone="warn">waiting {Math.round(w / 24)}d</Badge>}
-                    {a.score ? (
-                      <ScoreRing value={a.score.total} />
-                    ) : (
-                      <NoScoreRing />
+                    {reviewing && (
+                      <span className="sr-only">{STATE_COPY[s]}</span>
                     )}
-                    <span className="hidden sm:block">
-                      <Badge tone={STATE_TONE[s]}>{STATE_COPY[s]}</Badge>
-                    </span>
-                    <svg
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      className="size-3.5 shrink-0 text-faint"
-                      aria-hidden="true"
-                    >
-                      <path d="m9 5 7 7-7 7" />
-                    </svg>
                   </button>
                 </li>
               );
             })}
           </ul>
         )}
-      </Card>
       </MaybePending>
 
       {paged && (
@@ -775,7 +797,10 @@ function ReviewDrawer({
 
   return (
     <div
-      className={["fixed inset-0 z-50", closing ? "pointer-events-none" : ""].join(" ")}
+      /* `sx-ops` (P1-ART-16): the drawer is portaled to <body>, outside the
+         stage, so it pins the stage's dark tokens itself — a Frost user gets
+         the same night scouting report. */
+      className={["sx-ops fixed inset-0 z-50", closing ? "pointer-events-none" : ""].join(" ")}
       role="dialog"
       aria-modal="true"
       aria-label={`${a.name} — application review`}
@@ -788,7 +813,7 @@ function ReviewDrawer({
         onClick={onRequestClose}
         className={[
           closing ? "sx-backdrop-out" : "sx-backdrop",
-          "absolute inset-0 cursor-default bg-black/55",
+          "absolute inset-0 cursor-default bg-[#02050b]/70",
         ].join(" ")}
       />
 
@@ -798,12 +823,17 @@ function ReviewDrawer({
           /* No overflow on the panel itself — the middle scrolls while the
              header and the decision bar stay pinned, so Approve / Reject is
              always in reach without scrolling past the factor list. */
-          "absolute inset-y-0 right-0 flex w-full max-w-md flex-col border-l border-line bg-surface shadow-2xl",
+          "absolute inset-y-0 right-0 flex w-full max-w-md flex-col overflow-hidden bg-[radial-gradient(80%_40%_at_100%_0%,rgba(46,155,245,.18),transparent_70%),linear-gradient(180deg,#0a1322,#050912)] shadow-[-30px_0_60px_rgba(0,0,0,.55)]",
         ].join(" ")}
         onAnimationEnd={(ev) => {
           if (ev.animationName === "sx-drawer-out") onClosed();
         }}
       >
+        {/* the report's lit left edge */}
+        <span
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-y-0 left-0 w-px bg-gradient-to-b from-[#9be0ff] via-[#2e9bf5]/60 to-[#f97a1f]/50 shadow-[0_0_18px_2px_rgba(46,155,245,.5)]"
+        />
         {/* header */}
         <div className="sx-animate sx-delay-1 flex shrink-0 items-center gap-3 border-b border-line-soft p-5">
           <Monogram
@@ -848,7 +878,9 @@ function ReviewDrawer({
           {a.score && band ? (
             <>
               <div className="flex items-center gap-4">
-                <ScoreRing value={a.score.total} size={72} strokeWidth={6} textCls="text-lg" />
+                <span className="shrink-0 drop-shadow-[0_0_16px_rgba(46,155,245,.55)]">
+                  <ScoreRing value={a.score.total} size={96} strokeWidth={7} textCls="text-2xl" />
+                </span>
                 <div className="min-w-0 flex-1">
                   <p className={`text-sm font-semibold tracking-tight ${RING_TEXT[band.tone]}`}>
                     {band.label}
@@ -859,11 +891,11 @@ function ReviewDrawer({
                 </div>
               </div>
               <ul className="mt-4 space-y-2.5">
-                {a.score.factors.map((f) => (
+                {a.score.factors.map((f, i) => (
                   <li key={f.label}>
                     <div className="flex items-baseline justify-between gap-3 text-[11px]">
-                      <span className="font-medium text-muted">{f.label}</span>
-                      <span className="tabular-nums text-faint">
+                      <span className="font-medium text-[#cfe9ff]">{f.label}</span>
+                      <span className="font-mono tabular-nums text-[#9aa4b2]">
                         {f.value === null ? "not assessed" : f.value}
                       </span>
                     </div>
@@ -871,8 +903,19 @@ function ReviewDrawer({
                       <p className="text-[10px] text-faint">{FACTOR_HINTS[f.label]}</p>
                     )}
                     {f.value !== null && (
-                      <div className="mt-1">
-                        <Meter value={f.value} />
+                      /* P1-ART-16 — a glowing bar that grows in, one after another. */
+                      <div
+                        role="meter"
+                        aria-label={f.label}
+                        aria-valuenow={f.value}
+                        aria-valuemin={0}
+                        aria-valuemax={100}
+                        className="relative mt-1.5 h-1.5 overflow-hidden rounded-full bg-white/[0.07]"
+                      >
+                        <span
+                          className="sx-ops-bar absolute inset-y-0 left-0 block rounded-full bg-gradient-to-r from-[#2e9bf5] to-[#9be0ff] shadow-[0_0_10px_rgba(46,155,245,.75)]"
+                          style={{ width: `${Math.max(0, Math.min(100, f.value))}%`, "--sx-reveal-delay": `${0.2 + i * 0.07}s` } as React.CSSProperties}
+                        />
                       </div>
                     )}
                   </li>
@@ -1027,7 +1070,7 @@ function ReviewDrawer({
                     type="button"
                     disabled={busy !== null}
                     onClick={() => decide("begin")}
-                    className="inline-flex w-full items-center justify-center rounded-lg bg-primary px-3.5 py-2 text-xs font-medium text-cta-ink transition-colors hover:bg-primary-soft disabled:cursor-not-allowed disabled:opacity-40"
+                    className="inline-flex w-full items-center justify-center bg-gradient-to-r from-[#63b4f8] to-[#2e9bf5] px-3.5 py-2.5 text-xs font-semibold text-[#04070e] shadow-[0_0_22px_rgba(46,155,245,.45)] transition-shadow hover:shadow-[0_0_32px_rgba(46,155,245,.7)] [clip-path:polygon(0_0,calc(100%-8px)_0,100%_8px,100%_100%,8px_100%,0_calc(100%-8px))] disabled:cursor-not-allowed disabled:opacity-40"
                   >
                     {busy === "begin" ? "Starting review…" : "Start review"}
                   </button>
@@ -1070,7 +1113,7 @@ function ReviewDrawer({
                       type="button"
                       disabled={busy !== null}
                       onClick={() => decide("approve")}
-                      className="inline-flex flex-1 items-center justify-center rounded-lg bg-primary px-3.5 py-2 text-xs font-medium text-cta-ink transition-colors hover:bg-primary-soft disabled:cursor-not-allowed disabled:opacity-40"
+                      className="inline-flex flex-1 items-center justify-center bg-gradient-to-r from-[#63b4f8] to-[#2e9bf5] px-3.5 py-2.5 text-xs font-semibold text-[#04070e] shadow-[0_0_22px_rgba(46,155,245,.45)] transition-shadow hover:shadow-[0_0_32px_rgba(46,155,245,.7)] [clip-path:polygon(0_0,calc(100%-8px)_0,100%_8px,100%_100%,8px_100%,0_calc(100%-8px))] disabled:cursor-not-allowed disabled:opacity-40"
                     >
                       {busy === "approve" ? "Approving…" : "Approve"}
                     </button>
@@ -1079,7 +1122,7 @@ function ReviewDrawer({
                       disabled={busy !== null || needsNotes}
                       title={needsNotes ? "Write the athlete a note first — it's what they receive." : undefined}
                       onClick={() => decide("changes")}
-                      className="inline-flex items-center justify-center rounded-lg border border-line px-3.5 py-2 text-xs font-medium text-text transition-colors hover:bg-surface-2 disabled:cursor-not-allowed disabled:opacity-40"
+                      className="inline-flex items-center justify-center border border-[#63b4f8]/40 bg-[#0a121e]/60 px-3.5 py-2.5 text-xs font-semibold text-[#cfe9ff] transition-colors hover:border-[#9be0ff] hover:text-white [clip-path:polygon(0_0,calc(100%-8px)_0,100%_8px,100%_100%,8px_100%,0_calc(100%-8px))] disabled:cursor-not-allowed disabled:opacity-40"
                     >
                       {busy === "changes" ? "Sending…" : "Request info"}
                     </button>
@@ -1089,10 +1132,10 @@ function ReviewDrawer({
                       title={needsNotes ? "Write the athlete a note first — it's what they receive." : undefined}
                       onClick={() => (armReject ? decide("reject") : setArmReject(true))}
                       className={[
-                        "inline-flex items-center justify-center rounded-lg px-3.5 py-2 text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-40",
+                        "inline-flex items-center justify-center px-3.5 py-2.5 text-xs font-semibold transition-[background-color,box-shadow,color] [clip-path:polygon(0_0,calc(100%-8px)_0,100%_8px,100%_100%,8px_100%,0_calc(100%-8px))] disabled:cursor-not-allowed disabled:opacity-40",
                         armReject
-                          ? "bg-danger text-white hover:bg-danger/90"
-                          : "text-danger hover:bg-danger/10",
+                          ? "bg-[#ef4444] text-white shadow-[0_0_22px_rgba(239,68,68,.55)] hover:bg-[#dc2626]"
+                          : "border border-[#ef4444]/50 text-[#fca5a5] hover:bg-[#ef4444]/15",
                       ].join(" ")}
                     >
                       {busy === "reject"
@@ -1121,7 +1164,7 @@ function ReviewDrawer({
                       disabled={busy !== null || why !== null}
                       title={why ?? undefined}
                       onClick={() => decide("activate")}
-                      className="inline-flex w-full items-center justify-center rounded-lg bg-primary px-3.5 py-2 text-xs font-medium text-cta-ink transition-colors hover:bg-primary-soft disabled:cursor-not-allowed disabled:opacity-40"
+                      className="inline-flex w-full items-center justify-center bg-gradient-to-r from-[#63b4f8] to-[#2e9bf5] px-3.5 py-2.5 text-xs font-semibold text-[#04070e] shadow-[0_0_22px_rgba(46,155,245,.45)] transition-shadow hover:shadow-[0_0_32px_rgba(46,155,245,.7)] [clip-path:polygon(0_0,calc(100%-8px)_0,100%_8px,100%_100%,8px_100%,0_calc(100%-8px))] disabled:cursor-not-allowed disabled:opacity-40"
                     >
                       {busy === "activate" ? "Activating…" : "Activate athlete"}
                     </button>
@@ -1168,21 +1211,21 @@ function ReviewDrawer({
                       type="button"
                       disabled={blocked}
                       onClick={() => onDecide("APPROVED")}
-                      className="inline-flex flex-1 items-center justify-center rounded-lg bg-primary px-3.5 py-2 text-xs font-medium text-cta-ink transition-colors hover:bg-primary-soft disabled:cursor-not-allowed disabled:opacity-40"
+                      className="inline-flex flex-1 items-center justify-center bg-gradient-to-r from-[#63b4f8] to-[#2e9bf5] px-3.5 py-2.5 text-xs font-semibold text-[#04070e] shadow-[0_0_22px_rgba(46,155,245,.45)] transition-shadow hover:shadow-[0_0_32px_rgba(46,155,245,.7)] [clip-path:polygon(0_0,calc(100%-8px)_0,100%_8px,100%_100%,8px_100%,0_calc(100%-8px))] disabled:cursor-not-allowed disabled:opacity-40"
                     >
                       Approve
                     </button>
                     <button
                       type="button"
                       onClick={() => onDecide("INFO")}
-                      className="inline-flex items-center justify-center rounded-lg border border-line px-3.5 py-2 text-xs font-medium text-text transition-colors hover:bg-surface-2"
+                      className="inline-flex items-center justify-center border border-[#63b4f8]/40 bg-[#0a121e]/60 px-3.5 py-2.5 text-xs font-semibold text-[#cfe9ff] transition-colors hover:border-[#9be0ff] hover:text-white [clip-path:polygon(0_0,calc(100%-8px)_0,100%_8px,100%_100%,8px_100%,0_calc(100%-8px))]"
                     >
                       Request info
                     </button>
                     <button
                       type="button"
                       onClick={() => onDecide("REJECTED")}
-                      className="inline-flex items-center justify-center rounded-lg px-3.5 py-2 text-xs font-medium text-danger transition-colors hover:bg-danger/10"
+                      className="inline-flex items-center justify-center border border-[#ef4444]/50 px-3.5 py-2.5 text-xs font-semibold text-[#fca5a5] transition-colors hover:bg-[#ef4444]/15 [clip-path:polygon(0_0,calc(100%-8px)_0,100%_8px,100%_100%,8px_100%,0_calc(100%-8px))]"
                     >
                       Reject
                     </button>

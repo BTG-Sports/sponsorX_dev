@@ -157,6 +157,20 @@ describe.skipIf(!hasDatabase)("2S1-FE-08 · BTG's Closed accounts desk", { timeo
     expect((await call("GET", "/account-closures?tab=nope", "cad_admin")).status).toBe(400);
   });
 
+  it("P1-FE-31 · ?page=1&size=1 answers one row with the page and the same counts; without ?page the old shape", async () => {
+    const whole = await call("GET", "/account-closures?tab=asking", "cad_admin");
+    expect(whole.status, whole.text).toBe(200);
+    expect(whole.json.page).toBeUndefined();
+    const paged = await call("GET", "/account-closures?tab=asking&page=1&size=1", "cad_admin");
+    expect(paged.status, paged.text).toBe(200);
+    const total = whole.json.closures.length;
+    expect(total).toBeGreaterThanOrEqual(1);
+    expect(paged.json.page).toEqual({ page: 1, size: 1, total, pages: total });
+    expect(paged.json.closures).toHaveLength(1);
+    expect(paged.json.closures[0].id).toBe(whole.json.closures[0].id);
+    expect(paged.json.counts).toEqual(whole.json.counts);
+  });
+
   it("reads one closure with the link to the account's own page, where Reinstate is", async () => {
     const bay = await call("GET", "/account-closures/cad_c_bay", "cad_admin");
     expect(bay.status, bay.text).toBe(200);

@@ -20,6 +20,7 @@
 import { Router, type RequestHandler } from "express";
 
 import { requireActor } from "../../auth/actor";
+import { pageRequest } from "../../lib/paging";
 import {
   HandoffDecisionInput, HandoffDocumentInput, HandoffStaffDecisionInput, HandoffEmailConfirmInput, HandoffListQuery, HandoffLookupQuery, HandoffStartInput, HandoffSubmitInput,
 } from "../../contracts/guardian-handoff";
@@ -65,7 +66,8 @@ const submit: RequestHandler<{ token: string }> = async (req, res) => {
 };
 
 const list: RequestHandler = async (req, res) => {
-  res.json(await listHandoffs(req.actor!, HandoffListQuery.parse(req.query)));
+  /* ?page= turns on the house pager (lib/paging.ts); without it the old whole list. */
+  res.json(await listHandoffs(req.actor!, { group: HandoffListQuery.parse(req.query).group, page: pageRequest(req.query as Record<string, unknown>) ?? undefined }));
 };
 const one: RequestHandler<{ id: string }> = async (req, res) => {
   res.json(await getHandoff(req.actor!, req.params.id));

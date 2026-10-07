@@ -719,6 +719,20 @@ describe.skipIf(!hasDatabase)("2S4-BE-12 / 2S4-BE-13 · cancelling a paid line, 
       expect(zoho).toMatchObject({ paidVia: "ZOHO_INVOICE", zohoNote: "Issue a credit note in Zoho Books for this invoice" });
     });
 
+    it("P1-FE-31 · ?page=1&size=1 answers one row with the page and the same counts; without ?page the old shape", async () => {
+      const whole = await call("GET", "/refunds?state=OPEN", "lc_finance");
+      expect(whole.status, whole.text).toBe(200);
+      expect(whole.json.page).toBeUndefined();
+      const paged = await call("GET", "/refunds?state=OPEN&page=1&size=1", "lc_finance");
+      expect(paged.status, paged.text).toBe(200);
+      const total = whole.json.refunds.length;
+      expect(total).toBeGreaterThanOrEqual(1);
+      expect(paged.json.page).toEqual({ page: 1, size: 1, total, pages: total });
+      expect(paged.json.refunds).toHaveLength(1);
+      expect(paged.json.refunds[0].id).toBe(whole.json.refunds[0].id);
+      expect(paged.json.counts).toEqual(whole.json.counts);
+    });
+
     it("marking one sent: BTG admin and Finance only, with a method, a reference and a date; once; audited; the sponsor emailed", async () => {
       const target = (await call("GET", "/refunds?state=OPEN", "lc_finance")).json.refunds.find((r: { sponsor: { name: string } }) => r.sponsor.name === "Harbor Tea LC");
       const body = { method: "BANK_TRANSFER", reference: "RF-2026-0042", sentOn: today() };

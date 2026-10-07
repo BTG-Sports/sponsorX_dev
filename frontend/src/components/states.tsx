@@ -73,7 +73,7 @@ export function SkeletonChart({ className = "" }: { className?: string }) {
 
 export function SkeletonRows({ rows = 4 }: { rows?: number }) {
   return (
-    <div role="status" className="space-y-3 rounded-xl border border-line bg-surface p-5">
+    <div role="status" className="sx-card space-y-3 rounded-xl border border-line bg-surface p-5">
       <span className="sr-only">Loading…</span>
       {Array.from({ length: rows }, (_, i) => (
         <div key={i} className="flex items-center gap-3">

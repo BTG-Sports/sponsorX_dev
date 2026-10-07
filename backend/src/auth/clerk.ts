@@ -60,6 +60,10 @@ export async function authenticateClerkRequest(
      web origins (the token's `azp`) is accepted — config/authorized-parties.ts. */
   const state = await clerk.authenticateRequest(new Request(url, { headers }), {
     authorizedParties: env.clerkAuthorizedParties,
+    /* A developer's drifted clock makes every token "not active yet" (seen
+       2026-10-07: a PC ten minutes behind). Only a set CLERK_CLOCK_SKEW_MS
+       widens Clerk's default. */
+    ...(env.CLERK_CLOCK_SKEW_MS !== undefined ? { clockSkewInMs: env.CLERK_CLOCK_SKEW_MS } : {}),
   });
   if (!state.isSignedIn) return null;
 

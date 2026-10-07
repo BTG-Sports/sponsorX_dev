@@ -11,6 +11,7 @@
 import { Router, type RequestHandler } from "express";
 
 import { requireActor } from "../../auth/actor";
+import { pageRequest } from "../../lib/paging";
 import { limit } from "../../lib/rate-limit";
 import { WEBHOOK_SIGNATURE_HEADER } from "../../lib/payment-provider";
 import {
@@ -43,14 +44,19 @@ paymentsRouter.post("/webhooks/payments/:provider", (async (req, res) => {
 paymentsRouter.get("/payment-events", requireActor, (async (req, res) => {
   const q = PaymentEventsQuery.parse(req.query);
   const statuses = q.status ? q.status.split(",").map((s) => s.trim()).filter(isPaymentEventStatus) : undefined;
-  res.json(await listPaymentEvents(req.actor!, statuses));
+  res.json(await listPaymentEvents(req.actor!, statuses, {
+    resolved: q.resolved === undefined ? undefined : q.resolved === "true",
+    page: pageRequest(req.query as Record<string, unknown>) ?? undefined,
+  }));
 }) as RequestHandler);
 paymentsRouter.post("/payment-events/:id/resolve", requireActor, (async (req, res) => {
   res.json(await resolvePaymentEvent(req.actor!, req.params.id, PaymentEventResolveInput.parse(req.body).note));
 }) as RequestHandler<Id>);
 
 /* 2S5-BE-03 — disputes, worked by BTG support; never resolved by the system. */
-paymentsRouter.get("/disputes", requireActor, (async (req, res) => { res.json(await listDisputes(req.actor!, DisputesQuery.parse(req.query).state)); }) as RequestHandler);
+paymentsRouter.get("/disputes", requireActor, (async (req, res) => {
+  res.json(await listDisputes(req.actor!, DisputesQuery.parse(req.query).state, pageRequest(req.query as Record<string, unknown>) ?? undefined));
+}) as RequestHandler);
 paymentsRouter.get("/disputes/:id", requireActor, (async (req, res) => { res.json(await getDispute(req.actor!, req.params.id)); }) as RequestHandler<Id>);
 paymentsRouter.post("/disputes/:id/review", requireActor, (async (req, res) => {
   res.json(await reviewDispute(req.actor!, req.params.id, DisputeReviewInput.parse(req.body).note));

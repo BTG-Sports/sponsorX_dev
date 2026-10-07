@@ -89,7 +89,7 @@ export function NextHeading({ title, sub, right }: { title: string; sub: string;
   return (
     <div className="flex flex-wrap items-end justify-between gap-4">
       <div className="min-w-0">
-        <h1 className="text-xl font-semibold tracking-tight">
+        <h1 className="sx-page-title">
           {title}{" "}
           <span className="bg-[linear-gradient(90deg,var(--sx-next-soft),var(--sx-next))] bg-clip-text text-transparent">
             · SponsorX NEXT

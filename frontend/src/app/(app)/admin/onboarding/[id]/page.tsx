@@ -100,7 +100,7 @@ export default async function OnboardingDetailPage({ params }: { params: Promise
 
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-xl font-semibold tracking-tight">{o.orgName}</h1>
+          <h1 className="sx-page-title">{o.orgName}</h1>
           <p className="mt-1 text-xs text-muted">
             {ORG_TYPE_COPY[o.orgType]?.label ?? o.orgType}
             {o.stateCode ? ` · ${o.stateCode}` : ""} · started {dateLabel(o.createdAt)}

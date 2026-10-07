@@ -3,9 +3,12 @@ import { describe, expect, it } from "vitest";
 import {
   NOT_CONNECTED_NOTE,
   PAY_NOTE,
+  PAYMENT_BUSY,
+  PAY_NOT_ALLOWED,
   accountStatusLabel,
   orderTracker,
   parseStandinDetails,
+  payRefusal,
   paymentHint,
   paymentView,
   safeReturnPath,
@@ -157,6 +160,28 @@ describe("orderTracker", () => {
   it("cancelled or refunded: no tracker", () => {
     expect(steps("CANCELLED", pay(null))).toBeNull();
     expect(steps("REFUNDED", pay(null))).toBeNull();
+  });
+});
+
+/* 2S5-FE-11 — the provider is down: 503 { error: { code: "busy" } }, nothing
+   recorded, and the sponsor is told to try again. */
+describe("payRefusal", () => {
+  const apiMessage = "Something went wrong on our side. Nothing was charged. Try again in a minute, or quote ref ABC to BTG.";
+
+  it("a 503 with code busy says the payment service is busy, try again", () => {
+    expect(payRefusal({ status: 503, code: "busy", message: apiMessage })).toBe(PAYMENT_BUSY);
+    expect(PAYMENT_BUSY).toBe("The payment service is busy. Try again in a minute.");
+  });
+
+  it("a 503 without the busy code, and a 409 (provider not connected), keep the API's own words", () => {
+    expect(payRefusal({ status: 503, message: apiMessage })).toBe(apiMessage);
+    expect(payRefusal({ status: 503, code: "other", message: apiMessage })).toBe(apiMessage);
+    expect(payRefusal({ status: 409, code: "busy", message: "The payment provider isn't connected yet." })).toBe("The payment provider isn't connected yet.");
+    expect(payRefusal({ status: 409, message: "This order isn't waiting for payment." })).toBe("This order isn't waiting for payment.");
+  });
+
+  it("a 403 is the role rule in words", () => {
+    expect(payRefusal({ status: 403, message: "x" })).toBe(PAY_NOT_ALLOWED);
   });
 });
 

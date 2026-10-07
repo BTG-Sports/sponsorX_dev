@@ -13,6 +13,7 @@
 import { Router, type RequestHandler } from "express";
 
 import { requireActor } from "../../auth/actor";
+import { pageRequest } from "../../lib/paging";
 import { limit } from "../../lib/rate-limit";
 import { clientIp } from "../../lib/client-ip";
 import {
@@ -40,7 +41,7 @@ import {
   getOnboarding,
   readOnboarding,
   resendOnboardingConfirmation,
-  reviewQueue,
+  reviewQueue, reviewQueuePage,
   saveStep,
   startOnboarding,
   submitOnboarding,
@@ -54,7 +55,9 @@ export const onboardingRouter = Router();
 const queue: RequestHandler = async (req, res) => {
   const state = req.query.state ? OnboardingState.parse(req.query.state) : undefined;
   const list = req.query.list ? OnboardingList.parse(req.query.list) : undefined;
-  res.json({ onboardings: await reviewQueue(req.actor!, state, list) });
+  /* ?page= turns on the house pager (lib/paging.ts), with every tab's count; without it the old whole list. */
+  const page = pageRequest(req.query as Record<string, unknown>);
+  res.json(page ? await reviewQueuePage(req.actor!, page, state, list) : { onboardings: await reviewQueue(req.actor!, state, list) });
 };
 const one: RequestHandler<{ id: string }> = async (req, res) => {
   res.json(await getOnboarding(req.actor!, req.params.id));

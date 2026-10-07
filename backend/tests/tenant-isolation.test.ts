@@ -751,7 +751,9 @@ describe.skipIf(!hasDatabase)("P8-SEC-02 · tenant B cannot reach tenant A throu
            name the organisation to tenant A's admin. Nobody else, nowhere else. */
         /* And, as E's OPERATOR, tenant A's admin reads E's marketplace records —
            inventory and listings — by design (the `operated` scope, matrix §18). */
-        const own = actor.id === A.admin && (r.path.startsWith("/onboarding") || r.path === "/audit-log"
+        /* P1-ART-15 — the New sign-ups stream shows that same onboarding row (tenant A's, the one
+           /onboarding/signups lists), so it may name the organisation to tenant A's admin too. */
+        const own = actor.id === A.admin && (r.path.startsWith("/onboarding") || r.path === "/audit-log" || r.path.startsWith("/signups/stream")
           || r.path.startsWith("/inventory") || r.path.startsWith("/listings"));
         const leaked = own ? [] : secrets.filter((x) => text.includes(x));
         if (leaked.length) failures.push(`${actor.id} ${r.method} ${r.path} → leaked ${leaked.join(", ")}`);

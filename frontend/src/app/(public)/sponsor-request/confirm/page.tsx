@@ -1,6 +1,8 @@
 import Link from "next/link";
 
+import { LinkExpired } from "@/components/link-expired";
 import { SponsorRequestStanding } from "@/components/sponsor-request-standing";
+import { linkExpiredFrom } from "@/lib/link-expired";
 import { refusalMessage } from "@/lib/onboarding-live";
 import { confirmationStatus, type ApiEmailConfirmation } from "@/lib/sponsor-request-live";
 import { publicApi } from "../../onboarding/public-api";
@@ -60,6 +62,17 @@ export default async function ConfirmSponsorEmailPage({ searchParams }: { search
 
   const res = await publicApi("/public/sponsor-requests/confirm-email", { method: "POST", body: JSON.stringify({ token }) });
 
+  if (res.status === 410) {
+    /* 2S8-FE-01: older than 14 days — a fresh one can be emailed. */
+    const gone = linkExpiredFrom(410, await res.json().catch(() => null), "sponsor-request-email");
+    if (gone) {
+      return (
+        <Shell>
+          <LinkExpired kind={gone.kind} token={token} what="the confirmation link" />
+        </Shell>
+      );
+    }
+  }
   if (res.status === 400 || res.status === 404) {
     let said: string | undefined;
     try {

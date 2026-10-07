@@ -8,7 +8,12 @@ import { SPONSOR_REQUEST_STATES } from "../domain/sponsor-request-rules";
    uses. Declining needs a note the business reads. */
 
 export const SponsorRequestListQuery = z
-  .object({ state: z.enum(SPONSOR_REQUEST_STATES).optional() })
+  .object({
+    state: z.enum(SPONSOR_REQUEST_STATES).optional(),
+    /* The house pager (lib/paging.ts): present → one page and its count. */
+    page: z.coerce.number().int().optional(),
+    size: z.coerce.number().int().optional(),
+  })
   .meta({ id: "SponsorRequestListQuery", description: "Which tab of BTG's queue: NEW (waiting, the default), APPROVED, DECLINED or REJECTED." });
 
 export const SponsorRequestDecisionInput = z

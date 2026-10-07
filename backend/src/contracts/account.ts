@@ -38,5 +38,8 @@ export const ClosureListQuery = z
     /* The older filter: the same as tab=asking. */
     requested: z.enum(["true", "false"]).optional(),
     tab: z.enum(CLOSURE_TABS).optional(),
+    /* The house pager (lib/paging.ts): present → one page and its count. */
+    page: z.coerce.number().int().optional(),
+    size: z.coerce.number().int().optional(),
   })
   .meta({ id: "ClosureListQuery", description: "One tab of BTG's Closed accounts desk: asking (to come back), btg (closed by BTG), owner (closed by the owner), age (ended at coming of age) or deleted (files deleted). No tab lists them all." });

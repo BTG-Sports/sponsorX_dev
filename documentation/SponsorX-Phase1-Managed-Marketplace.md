@@ -723,6 +723,144 @@ Raised 2026-10-02 by the programme owner: the sign-in looked plain next to the l
 - **Done when:** Clerk behaviour is unchanged (hash routing, lands on /portal); the stage is fixed-dark in both themes; desktop fits one viewport down to 1366×700 above the footer, with no horizontal overflow at 390px; reduced motion shows the still stage; a hard load of /login shows the boot screen first, and /login ↔ site moves play the transition; transition titles never clip a descender (g, p, y); tests, lint and typecheck green
 - **Reference:** §9 screen 2; `frontend/src/app/login/page.tsx`; `frontend/src/components/login-stage.tsx`; `frontend/src/components/login-fx.tsx`; `frontend/src/lib/page-transition.ts`
 
+### ▶ `P1-ART-14` · Admin Operations Board — "Mission Control" stage redesign
+
+**Order** 32.97 · **ART** · **Where:** Code · **1d** · **Code review** · **Unblocks** 0
+
+Raised 2026-10-05 by the programme owner: give /admin the landing's wow factor. The Operations Board (`P7-FE-06`) is redrawn on a fixed-dark HUD stage in the landing's, /packages' and /login's language, bled to the edges of the portal's content column. The sidebar, top bar and every other admin desk are unchanged. The ground has brand glows, a pointer-led light, the drifting floor grid, rising motes, a scan sweep and an outlined OPS word. The hero has a scrambled live eyebrow with the Postgres provenance pill, a masked headline ("23 things need / BTG's hand today.") and an action ring whose arcs are each queue's share of the total. Below it: queue cards in chamfered glass (count-ups, lit brackets, a pointer spotlight), live campaigns with glowing progress, and Systems as status lights. /admin has its own dark loading skeleton (the `(board)` route group). There are no new figures: the board makes the same three live reads with the same role filtering.
+
+- **Depends on:** `P7-FE-06` (the board and its reads); `P1-ART-13` (the stage pieces it reuses)
+- **Done when:** the same reads and role filtering, with no new figure; fixed-dark in both themes; links to desks a role can't use are hidden; zero actions reads "All clear"; reduced motion shows the still stage; no horizontal overflow at 390px; `boardHeadline` and `ringSegments` unit-tested; build, frontend tests and lint green
+- **Reference:** §23; `docs/superpowers/specs/2026-10-05-admin-ops-stage-design.md`; `frontend/src/components/ops-stage.tsx`; `frontend/src/components/ops-fx.tsx`; `frontend/tests/gap-screens-live.test.ts`
+
+### ▶ `P1-ART-15` · New sign-ups — "Intake Stream" redesign, server-paged
+
+**Order** 32.98 · **ART** · **Where:** Code · **2d** · **Code review** · **Unblocks** 0
+
+Raised 2026-10-05 by the programme owner: redesign /admin/new-signups with the landing's wow factor, and page its lists by the house rule. The desk (`2S1-FE-07`) is redrawn on the Mission Control stage (`P1-ART-14`). It is now one server-paged stream of every kind of sign-up (organisations, athletes, guardians, sponsors), newest first. It replaces four separate sections, each of which read its whole table.
+
+- **Hero:** "N sign-ups approved themselves. / M need you." and the four kind figures, all from a summary read.
+- **Filters:** kind chips with totals, a Needs review toggle and a search. They act instantly, live in the URL, and reset the list to page 1. The old `?tab=` links still land on the same view.
+- **Rows:** held rows are marked. The house pager sits above and below (12 / 24 / 60).
+- **Sensitive profile edits:** a paged panel of its own.
+- **Backend:** `GET /signups/stream` reads six Prisma sources under `whereFor`, merged exactly for each page, with no raw SQL. `GET /signups/stream/summary` gives the figures.
+
+- **Depends on:** `2S1-FE-07` (the desk and its rules); `P1-ART-14` (the stage)
+- **Done when:** every list is server-paged (page, size, kind, Needs review and search run in the database; the figures come from a summary); a page is exact across the four tables (tested); old `?tab=` links still land; no role sees more than before; tenant isolation green; fixed-dark in both themes; no horizontal overflow at 390px; build, tests and lint green
+- **Reference:** `2S1-FE-07`; `docs/superpowers/specs/2026-10-05-new-signups-intake-stream-design.md`; `backend/src/domain/signups-stream.ts`; `backend/tests/signups-stream.test.ts`; `frontend/src/components/intake-stage.tsx`
+
+### ▶ `P1-ART-16` · Athlete applications — "Scouting Board" redesign
+
+**Order** 32.99 · **ART** · **Where:** Code · **1d** · **Code review** · **Unblocks** 0
+
+Raised 2026-10-05 by the programme owner: redesign /admin/applications with the landing's wow factor, in the current theme. The change is visual only; the desk's reads, server paging and review actions are unchanged. The page sits on the admin stage (`P1-ART-14`), full bleed and fixed-dark.
+
+- **Header:** a dashboard header, not a hero; the owner rejected a hero mid-build. It holds the title, the Postgres pill and four KPI tiles from `/applications/summary`.
+- **Tabs:** restyled as stage pills.
+- **The queue:** glass player cards. Each has a score ring, safeguard chips, and a 48-hour bar that turns orange once past 48h. Cards tilt toward the pointer with a spotlight.
+- **The review drawer:** a dark scouting report in both themes, with glowing factor bars and restyled decision buttons. Its text and labels are the same as before.
+
+- **Depends on:** `P3-FE-02` (the desk); `P1-ART-14` (the stage)
+- **Done when:** same reads, paging and review actions; a dashboard header, not a hero; cards keep the row button's accessible name and the exact `Minor` label, so the P3 e2e loop still finds them; the drawer is dark in both themes; no horizontal overflow at 390px; `waitMeter` unit-tested; build, tests and lint green
+- **Reference:** `P3-FE-02`; `docs/superpowers/specs/2026-10-05-applications-scouting-board-design.md`; `frontend/src/components/scout-stage.tsx`; `frontend/src/components/applications-desk.tsx`
+
+### ▶ `P1-ART-17` · Sign-up rules — "Control Panel" redesign, built for scale
+
+**Order** 32.995 · **ART** · **Where:** Code · **1d** · **Code review** · **Unblocks** 0
+
+Raised 2026-10-05 by the programme owner: redesign /admin/new-signups/rules in the same structure as the other admin desks. The page sits on the admin stage as a dashboard:
+
+- **Header:** a back link, the title and four tiles: places in the table, athletes in an unknown place, places that aren't 18, and the minors rule in words.
+- **Minors rule:** a designed switch.
+- **Place form:** mono-caps codes, an age stepper, and Remove with a confirm.
+
+It is built for scale, after the owner asked what happens with more countries and states:
+
+- **Search:** one search across every country, by code or by name.
+- **Country rail:** a list of countries that scrolls inside its own panel.
+- **One country at a time:** its exceptions as big tiles, and the places that follow the default as chips (the first 40, then Show all). The page height doesn't grow with the table.
+
+Picking anything lights the form: a glow, a pulse, and an "Editing" callout with numbered steps. The owner asked twice for a cue that can't be missed.
+
+- **Depends on:** `2S1-FE-07` (the rules and their API); `P1-ART-14` (the stage)
+- **Done when:** same reads, server actions and admin-only API; a dashboard header; the page height doesn't grow with the number of countries or places; search by code or name; picking a place is visibly highlighted with next steps; no native checkbox or unstyled inputs left; no horizontal overflow at 390px; `lib/age-table.ts` unit-tested; build, tests and lint green
+- **Reference:** `2S1-FE-07`; `docs/superpowers/specs/2026-10-05-signup-rules-control-panel-design.md`; `frontend/src/components/rules-board.tsx`; `frontend/src/lib/age-table.ts`
+
+### ▶ `P1-ART-18` · Admin portal — every desk, drawer and dialog on the stage
+
+**Order** 32.996 · **ART** · **Where:** Code · **2d** · **Code review** · **Unblocks** 0
+
+Raised 2026-10-07 by the programme owner: redesign the whole admin portal in the Mission Control language, components included. The change is visual only.
+
+- **The stage moves into the shell.** `PortalShell` gains a `stage` flag, which the admin layout sets. The sidebar and top bar become night glass, every `/admin` page is content on the dark stage, and a body-level class puts drawers, dialogs and menus on the stage too, even though they render outside it.
+- **A shared skin** restyles the primitives every desk is built from: `Card`, `Badge`, `SectionHeading`, `HeroBand`, `StatTile`, `Button`, `Tabs`, `BlockedNotice`, page titles, tab strips, native fields, hand-rolled buttons, the drawers and the dialogs.
+- **`/admin`'s hero** becomes a dashboard header: a title row and four tiles.
+- **Dev auth:** an optional `CLERK_CLOCK_SKEW_MS` for the API and the Next middleware, for a developer's drifted PC clock. It's unset in every env file.
+
+- **Depends on:** `P1-ART-14` to `P1-ART-17` (the stage and its first desks)
+- **Done when:** every `/admin` route renders on the stage (27 desks walked, no console errors, no horizontal overflow at 390px); drawers and dialogs are dark in both themes; no read, write or role rule changes; frontend tests, lint and build green
+- **Reference:** `docs/superpowers/specs/2026-10-07-admin-portal-stage-design.md`; `frontend/src/components/portal-shell.tsx`; `frontend/src/components/stage-portals.tsx`; the `.sx-ops` skin in `frontend/src/app/globals.css`
+
+### ▶ `P1-FE-31` · Admin desks — every list a server-paged table
+
+**Order** 32.997 · **FE** · **Where:** Code · **2d** · **Code review** · **Unblocks** 0
+
+Raised 2026-10-07 by the programme owner: the admin desks that still list whole tables should page "based on our rules and memory", converted to tables only where a table makes the list easier on the eyes.
+
+- **Ten desks** were reading a whole list (or the API's silent cap of 100–500 rows), some counting their tabs from the rows in view: the audit log, briefs, sponsor requests, property verification (eight whole-table reads to count its tabs), payout approvals, refunds, delivery issues, guardian handoffs, closed accounts and offers.
+- **Nine become one shared stage table** (`StageTable` / `PagedTable`): a real `<table>` with the house pager above and below (12 / 24 / 60 a page), stacked into cards on a phone, rows rising in on the stage. **Briefs stays rows** — each carries reasons, a checklist and a detail panel — but is paged like the rest, with its tab, search and sport filter on the server.
+- **The API** gains the house pager on every one of those lists (`?page`, `?size`, `page: {…}`), with tab counts from counts over the whole scope. Offers' tab rules and delivery issues' three lists move to the server; `/onboarding` answers every tab's count in one read; the audit log gets a counted page beside its cursor; `/briefs` gains `?sport=`, counts and a sports facet.
+
+- **Depends on:** `P1-ART-18` (the stage the tables sit on)
+- **Done when:** none of the ten desks reads a whole list; every count on them is the API's; each renders a table (or the briefs' rows) with the pager above and below, or an empty state; no console error, no horizontal overflow; backend static scope tests and one paged-shape test per endpoint green; frontend tests, lint, build green
+- **Reference:** `docs/superpowers/specs/2026-10-07-admin-lists-paged-tables-design.md`; `frontend/src/components/stage-table.tsx`; `backend/src/lib/paging.ts`; `e2e/admin-lists-paged.spec.ts`
+
+### ▶ `P1-ART-19` · Commission desk — the split strip, one kind's rules as a table, add / revise in a dialog
+
+**Order** 32.998 · **ART** · **Where:** Code · **1d** · **Code review** · **Unblocks** 0
+
+Raised 2026-10-07 by the programme owner: `/admin/commission` had too much space — six tall cards, most saying "No rule", an always-open add-rule form, the sample order under it all. Restructure it to be easier on the eyes.
+
+- **The split strip.** Six tiles in one row, in the order money comes off a sale, each headlining the rate for everyone with one line under it (overrides, since when, or "no rule"). The strip answers "how is a sale split?"; a tile picks a kind.
+- **The kind's rules as one table** (the P1-FE-31 stage table): applies to, rate, priority, since, version — highest priority first, earlier versions unfolding under a row.
+- **The sample order beside it**, sticky on a wide screen, the split drawn as a waterfall.
+- **Add and revise in a dialog** in the sign-up rules dialog's shape: named dropdowns, nothing typed that isn't a choice, and "Preview with this rule" against the sample order before saving.
+- Structure and visuals only: the API still decides which rule applies, versions and the split.
+
+- **Depends on:** `P1-ART-18` (the stage), `P1-FE-31` (the stage table)
+- **Done when:** one screen at 1440 for a desk with rules; the strip headlines every kind's rate for everyone; add and revise open a dialog with a preview against the sample order; no console error, no horizontal overflow at 390; unit tests, lint, tsc and build green
+- **Reference:** `docs/superpowers/specs/2026-10-07-commission-desk-design.md`; `frontend/src/components/commission-editor.tsx`, `commission-preview.tsx`, `commission-rule-dialog.tsx`
+
+### ▶ `P1-ART-20` · Marketplace desk — the queue strip, one queue's rows as a panel
+
+**Order** 32.999 · **ART** · **Where:** Code · **1d** · **Code review** · **Unblocks** 0
+
+Raised 2026-10-07 by the programme owner: `/admin/marketplace` had six stat tiles and then six stacked cards each mostly "nothing here" — the same number said twice, two screens to learn that four queues are empty. Restructure it.
+
+- **The queue strip.** Five tiles, one per queue, in the order BTG works them, each with its count, one line of context (the oldest wait, what's live, the latest failure) and a tone for work waiting. A tile is the navigation; the desk opens on the first queue with work in it.
+- **One panel** under it: the picked queue's rows as a stage table (applications, orders, failed payments, payout problems — each with its wait, its reason and its action), or the listing desks' inline-action rows under their three tabs.
+- **Disputes** become one honest line under the strip.
+- The pick lives in the URL (`?queue=`); the listing emails' `?listings=…#listing-…` links still land on the right row. Reads unchanged in substance; two now use the house pager so the counts are the API's.
+
+- **Depends on:** `P1-ART-18` (the stage), `P1-FE-31` (the stage table)
+- **Done when:** one screen at 1440; every tile's count is the API's; a tile switches the panel in place and writes the URL; the listing emails' links still work; no console error, no horizontal overflow at 390; unit tests, lint, tsc and build green
+- **Reference:** `docs/superpowers/specs/2026-10-07-marketplace-desk-design.md`; `frontend/src/components/marketplace-desk.tsx`
+
+### ▶ `P1-ART-21` · Admin sidebar — the desks in collapsible groups, sorted
+
+**Order** 32.9995 · **ART** · **Where:** Code · **0.5d** · **Code review** · **Unblocks** 0
+
+Raised 2026-10-07 by the programme owner: the admin sidebar's 29 links were too many, in build order, and needed collapsing and sorting.
+
+- **Seven groups** in the order BTG works — Intake, Campaigns, Marketplace, Money, Accounts, NEXT, System — Dashboard on top, each group's desks in alphabetical order. The per-role filter is unchanged.
+- **Collapsible.** A group header (caret, name, count) opens and closes its desks. The group holding the open page is open on arrival; the viewer's other choices are remembered per browser, with no hydration mismatch.
+- **The phone drawer** lists the groups with their desks two to a row.
+- Mechanics in `lib/nav-groups.ts` (pure, unit-tested; `NavItem.group`); a nav with no groups renders flat, so the other portals are untouched. A test pins the admin groups' order and A → Z inside each.
+
+- **Depends on:** `P1-ART-18` (the stage)
+- **Done when:** the dashboard shows Dashboard and seven closed groups; a desk opens only its own group; a header toggles and the choice survives a reload; every desk still reachable by every role it's for; tests, lint, tsc and build green
+- **Reference:** `docs/superpowers/specs/2026-10-07-admin-sidebar-groups-design.md`; `frontend/src/lib/nav-groups.ts`; `frontend/src/components/portal-nav.tsx`
+
 ### ▶ `P1-FE-18` · Apply the SponsorX NEXT UI requirement across the existing pages
 
 **Order** 37.02 · **FE** · **Where:** Code · **2d** · **Ready** · **Unblocks** 5

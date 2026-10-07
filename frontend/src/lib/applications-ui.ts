@@ -131,3 +131,13 @@ export function waitHours(submittedAt: string): number {
   const n = Number(m[1]);
   return m[2] === "day" ? n * 24 : n;
 }
+
+/* ------------------------------------------------------ the Scouting Board */
+
+/** P1-ART-16 — a card's 48-hour bar: how full, whether overdue, and its words. */
+export function waitMeter(hours: number): { pct: number; overdue: boolean; label: string } {
+  if (hours <= 0) return { pct: 0, overdue: false, label: "Just in" };
+  if (hours > AGING_HOURS) return { pct: 100, overdue: true, label: `Waiting ${Math.round(hours / 24)}d — past 48h` };
+  return { pct: Math.round((hours / AGING_HOURS) * 100), overdue: false, label: `Waiting ${hours}h` };
+}
+

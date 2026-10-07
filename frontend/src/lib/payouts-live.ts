@@ -12,6 +12,8 @@
    "confirmed by the payment provider". Where the user must act on Stripe the
    CTA names Stripe, ends in "↗" and its aria-label says it leaves SponsorX.
    -------------------------------------------------------------------------- */
+import type { PageInfo } from "@/lib/list-query";
+
 
 import { isSafeLocalPath } from "@/lib/safe-path";
 
@@ -46,6 +48,12 @@ export type ApiPayout = {
   approvedAutomatically?: boolean;
   /** 2S5-BE-07 — who it waits on. */
   waitingOn?: WaitingOn | null;
+  /** 2S5-BE-05 — how many times it was handed to the provider. Optional: older reads. */
+  sendAttempts?: number;
+  /** 2S5-BE-05 — when the payee's bank returned it (null when it never was). */
+  returnedAt?: string | null;
+  /** 2S5-BE-05 — how many times the bank has returned it. */
+  returnCount?: number;
 };
 
 export type ApiPayoutOrder = {
@@ -67,9 +75,13 @@ export type ApiPayoutOrder = {
   balanceCents?: number;
   /** 2S8-QA-05 — how much the payee owes back on this order (0 when nothing). */
   owedBackCents?: number;
+  /** 2S5-BE-04 — the order's money is frozen: a dispute (or a provider refund
+   *  BTG is checking) on the sponsor's payment. `requestableCents` already
+   *  leaves it out. Optional: older reads. */
+  frozen?: boolean;
 };
 
-export type PayoutCheck = { key: "payment" | "delivered" | "account" | "hold" | string; label: string; ok: boolean };
+export type PayoutCheck = { key: "payment" | "delivered" | "account" | "hold" | "problem" | "dispute" | string; label: string; ok: boolean };
 
 /** GET /payouts/me. */
 export type ApiMyPayouts = {
@@ -212,7 +224,7 @@ export function athleteBanner(a: ApiPayoutAccount, opts: { minor?: boolean } = {
 /* ============================================================ payout rows */
 
 /** The payee's words for a payout. 2S5-BE-06 / -07 — never the internal reasons. */
-export function payoutStatus(p: Pick<ApiPayout, "state" | "paidAt" | "decisionNote"> & Partial<Pick<ApiPayout, "approvedAutomatically" | "waitingOn">>): { label: string; tone: Tone } {
+export function payoutStatus(p: Pick<ApiPayout, "state" | "paidAt" | "decisionNote"> & Partial<Pick<ApiPayout, "approvedAutomatically" | "waitingOn" | "returnedAt">>): { label: string; tone: Tone } {
   switch (p.state) {
     case "REQUESTED":
       return { label: "BTG is reviewing this payout", tone: "neutral" };
@@ -229,6 +241,8 @@ export function payoutStatus(p: Pick<ApiPayout, "state" | "paidAt" | "decisionNo
       return { label: note ? `Sent back by BTG: ${note}` : "Sent back by BTG", tone: "warn" };
     }
     case "FAILED":
+      /* 2S5-FE-10 — the bank sent it back: the payee reads that, with the fix. */
+      if (p.returnedAt) return { label: RETURNED_LABEL, tone: "warn" };
       if (p.waitingOn === "PAYEE_ACCOUNT") return { label: PAYEE_FIX_LABEL, tone: "warn" };
       if (p.waitingOn === "SYSTEM_RETRY") return { label: "Couldn't be sent yet — it will be tried again automatically", tone: "warn" };
       return { label: "The payment provider couldn't send this — BTG is looking into it", tone: "danger" };
@@ -240,12 +254,16 @@ export function payoutStatus(p: Pick<ApiPayout, "state" | "paidAt" | "decisionNo
 export const PAYEE_FIX_LABEL = "Your payout couldn't be sent — fix your payout account";
 
 /** 2S5-BE-07 — the payee's "fix your payout account" prompt: only for a payout waiting on their account. */
-export function payeeFixPrompt(p: Pick<ApiPayout, "state"> & Partial<Pick<ApiPayout, "waitingOn">>, href: string) {
-  if (p.state !== "FAILED" || p.waitingOn !== "PAYEE_ACCOUNT") return null;
+export function payeeFixPrompt(p: Pick<ApiPayout, "state"> & Partial<Pick<ApiPayout, "waitingOn" | "returnedAt">>, href: string) {
+  /* 2S5-FE-10 — a payout the bank returned always waits on the payee's account. */
+  const returned = p.state === "FAILED" && Boolean(p.returnedAt);
+  if (!returned && (p.state !== "FAILED" || p.waitingOn !== "PAYEE_ACCOUNT")) return null;
   return {
     label: "Fix your payout account",
     href,
-    note: "Update it on the payment provider's page. As soon as it's ready, we send this payout again — you don't need to request it.",
+    note: returned
+      ? "Your bank sent this payout back. Update your payout account on the payment provider's page — as soon as it's ready, we send it again. You don't need to request it."
+      : "Update it on the payment provider's page. As soon as it's ready, we send this payout again — you don't need to request it.",
   };
 }
 
@@ -324,6 +342,60 @@ export function orderAvailable(o: Pick<ApiPayoutOrder, "availableCents" | "inFli
 export function owedBackNotice(me: Pick<ApiMyPayouts, "totals" | "orders">): string | null {
   const cents = me.totals.owedBackCents ?? me.orders.reduce((s, o) => s + Math.max(0, -orderBalanceCents(o)), 0);
   return owedBackLine(cents);
+}
+
+/* ============================================ frozen money (2S5-FE-09) */
+
+/** The one sentence the payee reads about a frozen order — never the dispute's detail. */
+export const FROZEN_LINE = "BTG is reviewing a problem with the sponsor's payment";
+
+/**
+ * The orders whose money a dispute froze, and how much is held on each: the
+ * payee's balance on the order (available less already requested — the
+ * figure the freeze takes out of the requestable balance), never below $0.
+ * `shareCents` would count money already paid out; `requestableCents` is
+ * already $0 on a frozen order, which is why the page can't read it back.
+ */
+export function frozenOrders(me: Pick<ApiMyPayouts, "orders">): Array<{ orderId: string; orderRef: string; title: string; cents: number; amount: string }> {
+  return me.orders
+    .filter((o) => o.frozen === true)
+    .map((o) => {
+      const cents = Math.max(0, orderBalanceCents(o));
+      return { orderId: o.orderId, orderRef: o.orderRef, title: [o.sponsorName, o.title].filter(Boolean).join(" · ") || o.orderRef, cents, amount: usd(cents) };
+    });
+}
+
+/** The property page's notice: "SX-1 ($450.00) is held — BTG is reviewing…". Null when nothing is frozen. */
+export function frozenNotice(me: Pick<ApiMyPayouts, "orders">): string | null {
+  const rows = frozenOrders(me);
+  if (rows.length === 0) return null;
+  const total = rows.reduce((s, r) => s + r.cents, 0);
+  const names = rows.map((r) => `${r.orderRef} (${r.amount})`).join(", ");
+  const held = rows.length === 1 ? `Order ${names} is held` : `Orders ${names} are held — ${usd(total)} in all`;
+  return `${held}. ${FROZEN_LINE}.`;
+}
+
+/* ================================== send attempts and bank returns (2S5-FE-10) */
+
+/** "Handed to the provider 2 times"; null when it never was. */
+export function attemptsWords(p: Pick<ApiPayout, "sendAttempts">): string | null {
+  const n = p.sendAttempts ?? 0;
+  return n > 0 ? `Handed to the provider ${n} time${n === 1 ? "" : "s"}` : null;
+}
+
+export const RETURNED_LABEL = "Returned by your bank: fix your payout account";
+
+/** The payee's words for a payout the bank sent back; null when it never was. */
+export function returnWords(p: Pick<ApiPayout, "returnedAt">): string | null {
+  return p.returnedAt ? RETURNED_LABEL : null;
+}
+
+/** BTG's line: "Returned by the bank on Oct 3, 2026 (1 time)"; null when it never was. */
+export function returnedLine(p: Pick<ApiPayout, "returnedAt" | "returnCount">): string | null {
+  if (!p.returnedAt) return null;
+  const n = Math.max(1, p.returnCount ?? 1);
+  const on = shortDate(p.returnedAt);
+  return `Returned by the bank${on ? ` on ${on}` : ""} (${n} time${n === 1 ? "" : "s"})`;
 }
 
 export function payoutTiles(me: Pick<ApiMyPayouts, "totals">) {
@@ -456,6 +528,8 @@ export type ApiAdminPayout = ApiPayout & {
 };
 export type ApiPayoutList = {
   payouts: ApiAdminPayout[];
+  /** P1-FE-31 — present on a paged read. */
+  page?: PageInfo;
   counts: Record<string, number>;
   /** 2S5-BE-07 — how many wait on whom; `failed` is the FAILED ones only. Optional: older reads. */
   waiting?: Record<WaitingOn, number> & { failed: Record<WaitingOn, number> };
@@ -481,11 +555,14 @@ export function payeeShare(
 }
 
 /** The payout's own history, in order: who did what, when. */
-export function auditTrail(p: Pick<ApiAdminPayout, "state" | "payeeName" | "requestedAt" | "decidedAt" | "sentAt" | "paidAt" | "decisionNote" | "failureReason" | "approvedAutomatically">) {
+export function auditTrail(p: Pick<ApiAdminPayout, "state" | "payeeName" | "requestedAt" | "decidedAt" | "sentAt" | "paidAt" | "decisionNote" | "failureReason" | "approvedAutomatically"> & Partial<Pick<ApiAdminPayout, "sendAttempts" | "returnedAt" | "returnCount">>) {
   const out: Array<{ what: string; when: string }> = [{ what: `Requested by ${p.payeeName}`, when: stamp(p.requestedAt) }];
   if (p.decidedAt) out.push({ what: p.state === "REJECTED" ? `Sent back by BTG${p.decisionNote ? `: “${p.decisionNote}”` : ""}` : p.approvedAutomatically ? "Approved automatically — every check passed" : "Approved by BTG", when: stamp(p.decidedAt) });
-  if (p.sentAt) out.push({ what: "Handed to the payment provider", when: stamp(p.sentAt) });
+  /* 2S5-FE-10 — the API counts hand-overs; the latest is dated by `sentAt`. */
+  if (p.sentAt) out.push({ what: (p.sendAttempts ?? 0) > 1 ? `Handed to the payment provider (${p.sendAttempts} times — latest)` : "Handed to the payment provider", when: stamp(p.sentAt) });
   if (p.paidAt) out.push({ what: "Paid — confirmed by the payment provider", when: stamp(p.paidAt) });
+  /* 2S5-FE-10 — a bank return: the payout was paid, then came back (the API clears paidAt). */
+  if (p.returnedAt) out.push({ what: `Returned by the payee's bank${(p.returnCount ?? 1) > 1 ? ` (${p.returnCount} times)` : ""}`, when: stamp(p.returnedAt) });
   if (p.state === "FAILED") out.push({ what: `Couldn't send${p.failureReason ? `: ${p.failureReason}` : ""}`, when: "" });
   return out;
 }

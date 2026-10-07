@@ -10,7 +10,15 @@ import {
   waitingSummary,
   type ApiBrief,
 } from "../src/lib/briefs-live";
-import { actionTotal, campaignLines, healthRows, queueCards, type ApiIntegrationHealth } from "../src/lib/ops-board-live";
+import {
+  actionTotal,
+  boardHeadline,
+  campaignLines,
+  healthRows,
+  queueCards,
+  ringSegments,
+  type ApiIntegrationHealth,
+} from "../src/lib/ops-board-live";
 import { buildHome, statusOf } from "../src/lib/athlete-home-live";
 import { buildPropertyHome, shareLabel } from "../src/lib/property-home-live";
 import type { ApiMyProfile } from "../src/lib/profile-live";
@@ -136,6 +144,61 @@ describe("P7-FE-06 · the Operations Board", () => {
     expect(rows.find((r) => r.name === "Worker queue")?.status).toBe("Operational");
     const stale = healthRows({ ...h, queue: { ...h.queue, outboxPending: [{ name: "notify.email", count: 1, oldest: "2026-09-29T09:00:00Z" }] } });
     expect(stale.find((r) => r.name === "Worker queue")?.status).toBe("Degraded");
+  });
+
+  it("campaign lines carry a rounded percent done, 0 when nothing is due", () => {
+    const lines = campaignLines([
+      { campaignId: "a", campaignName: "A", endDate: "2026-11-30T00:00:00Z", deliverablesTotal: 3, deliverablesVerified: 2, deliverablesOverdue: 0 },
+      { campaignId: "b", campaignName: "B", endDate: "2026-11-30T00:00:00Z", deliverablesTotal: 0, deliverablesVerified: 0, deliverablesOverdue: 0 },
+    ]);
+    expect(lines.map((l) => l.pct)).toEqual([67, 0]);
+  });
+});
+
+/* P1-ART-14 — the Mission Control stage's two pure pieces. */
+describe("P1-ART-14 · the Operations Board stage", () => {
+  const C = 2 * Math.PI * 96;
+  const cards = (counts: Partial<Record<"applications" | "approvals" | "briefs" | "finance", number>>) =>
+    queueCards({
+      applications: counts.applications === undefined ? null : { waiting: counts.applications, over48h: 0 },
+      approvals: counts.approvals === undefined ? null : { waiting: counts.approvals },
+      briefs: counts.briefs === undefined ? null : { toQualify: counts.briefs, toMatch: 0 },
+      finance: counts.finance === undefined ? null : { held: counts.finance, disputed: 0 },
+    });
+
+  it("the headline counts the day's actions in words", () => {
+    expect(boardHeadline(23)).toEqual({ lead: "23 things need", hand: "BTG’s hand", tail: "today." });
+    expect(boardHeadline(1)).toEqual({ lead: "1 thing needs", hand: "BTG’s hand", tail: "today." });
+    expect(boardHeadline(0)).toEqual({ lead: "Nothing needs", hand: "BTG’s hand", tail: "right now." });
+    expect(boardHeadline(1234).lead).toBe("1,234 things need");
+  });
+
+  it("a role with no queues gets a headline without a count", () => {
+    expect(boardHeadline(null)).toEqual({ lead: "Operations,", hand: "live", tail: "today." });
+  });
+
+  it("ring arcs are sized by count, gapped, and go round exactly once", () => {
+    const segs = ringSegments(cards({ applications: 7, approvals: 4, briefs: 6, finance: 6 }), C, 4);
+    expect(segs.map((s) => s.key)).toEqual(["applications", "approvals", "briefs", "finance"]);
+    const drawn = segs.reduce((n, s) => n + s.len, 0) + segs.length * 4;
+    expect(drawn).toBeCloseTo(C, 6);
+    expect(segs[0]?.len).toBeCloseTo((7 / 23) * C - 4, 6);
+    expect(segs[0]?.offset).toBe(0);
+    expect(segs[1]?.offset).toBeCloseTo((7 / 23) * C, 6);
+    expect(segs.map((s) => s.color)).toEqual(["#2e9bf5", "#9be0ff", "#fb923c", "#f97a1f"]);
+  });
+
+  it("an empty queue gets no arc, a lone queue closes the circle, and nothing waiting draws nothing", () => {
+    expect(ringSegments(cards({ applications: 3, approvals: 0, finance: 1 }), C, 4).map((s) => s.key)).toEqual(["applications", "finance"]);
+    const lone = ringSegments(cards({ finance: 2 }), C, 4);
+    expect(lone).toHaveLength(1);
+    expect(lone[0]?.len).toBeCloseTo(C, 6);
+    expect(ringSegments(cards({ applications: 0, finance: 0 }), C, 4)).toEqual([]);
+  });
+
+  it("a sliver of a queue still shows as an arc", () => {
+    const segs = ringSegments(cards({ applications: 1, finance: 5000 }), C, 4);
+    expect(segs[0]?.len).toBeGreaterThan(0);
   });
 });
 

@@ -232,7 +232,7 @@ function LiveOpsView({
           <Monogram text={initials(c.sponsorName)} tone="primary" className="size-11 text-xs" />
           <div>
             <div className="flex flex-wrap items-center gap-2">
-              <h1 className="text-xl font-semibold tracking-tight">{c.name}</h1>
+              <h1 className="sx-page-title">{c.name}</h1>
               <Badge tone={STATE_TONE[c.state] ?? "neutral"}>{c.state.toLowerCase()}</Badge>
             </div>
             <p className="mt-0.5 text-xs text-muted">
@@ -365,7 +365,7 @@ export default async function CampaignDashboardPage({
     return (
       <div className="space-y-5">
         <BackLink target={back} />
-        <h1 className="text-xl font-semibold tracking-tight">{live.lacking}</h1>
+        <h1 className="sx-page-title">{live.lacking}</h1>
         <EmptyState
           mark="users"
           title="Campaign operations aren't in your role"
@@ -420,7 +420,7 @@ export default async function CampaignDashboardPage({
           />
           <div>
             <div className="flex flex-wrap items-center gap-2">
-              <h1 className="text-xl font-semibold tracking-tight">{c.name}</h1>
+              <h1 className="sx-page-title">{c.name}</h1>
               <Badge tone="accent">Active</Badge>
             </div>
             <p className="mt-0.5 text-xs text-muted">

@@ -187,3 +187,18 @@ describe("money exceptions", () => {
     expect(payoutProblemSince({ requestedAt, decidedAt: null, sentAt: null })).toBe(requestedAt);
   });
 });
+
+describe("P1-ART-20 · the marketplace desk's queue strip", async () => {
+  const { QUEUES, firstBusyQueue, queueKey } = await import("../src/lib/marketplace-ops-live");
+  it("reads the queue from the URL, and an old ?listings= email link lands on the listings queue", () => {
+    expect(queueKey("payments")).toBe("payments");
+    expect(queueKey("nope")).toBeNull();
+    expect(queueKey(undefined, "held")).toBe("listings");
+    expect(queueKey(undefined, undefined)).toBeNull();
+    expect(QUEUES.map((q) => q.key)).toEqual(["applications", "listings", "orders", "payments", "payouts"]);
+  });
+  it("opens on the first queue with work in it, else applications", () => {
+    expect(firstBusyQueue({ applications: 0, listings: 0, orders: 2, payments: 1, payouts: 0 })).toBe("orders");
+    expect(firstBusyQueue({ applications: null, listings: 0, orders: 0, payments: 0, payouts: 0 })).toBe("applications");
+  });
+});

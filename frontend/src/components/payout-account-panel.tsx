@@ -39,7 +39,8 @@ export function StripeLinkButton({ cta, action, testBadge }: { cta: AccountPanel
         >
           {pending ? "Opening Stripe…" : cta.label}
         </button>
-        {testBadge && <Badge>{testBadge}</Badge>}
+        {/* The staging badge is a sentence; let it wrap on a phone instead of widening the page. */}
+        {testBadge && <span className="min-w-0 max-w-full [&>span]:inline-block [&>span]:max-w-full [&>span]:whitespace-normal [&>span]:text-left"><Badge>{testBadge}</Badge></span>}
       </form>
       {cta.disabledNote && <p className="text-[11px] text-muted">{cta.disabledNote}</p>}
       {refusal && (
@@ -72,7 +73,8 @@ export function PayoutAccountPanel({ view, action }: { view: AccountPanelView; a
           {view.status !== "READY" && <p className="mt-2 text-sm font-medium">{view.headline}</p>}
           <p className="mt-1 text-xs leading-relaxed text-muted">{view.body}</p>
         </div>
-        <div className="shrink-0">
+        {/* Never wider than the panel: on a phone the button and the staging badge wrap under the text (QA 2026-10-07). */}
+        <div className="min-w-0 max-w-full">
           <StripeLinkButton cta={view.cta} action={action} testBadge={view.testBadge} />
         </div>
       </div>

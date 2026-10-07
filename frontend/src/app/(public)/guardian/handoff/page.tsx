@@ -4,8 +4,10 @@ import { redirect } from "next/navigation";
 import { HandoffRequestSteps } from "@/components/handoff-request-steps";
 import { HandoffStartForm } from "@/components/handoff-start-form";
 import { HandoffStatusViews, HandoffTrack } from "@/components/handoff-status";
+import { LinkExpired } from "@/components/link-expired";
 import { Badge, BlockedNotice, Button } from "@/components/ui";
 import { declinedWords, handoffDemo, handoffViews, sampleDeclined, sampleHandoff, sampleSwitched, type ApiHandoffRequest } from "@/lib/guardian-live";
+import { linkExpiredFrom } from "@/lib/link-expired";
 import { refusalMessage } from "@/lib/onboarding-live";
 import { supportContact, type SupportContact } from "@/server/support";
 import { publicApi } from "../../onboarding/public-api";
@@ -123,6 +125,11 @@ export default async function GuardianHandoffPage({ searchParams }: { searchPara
   if (emailToken) {
     const res = await publicApi("/public/guardian-handoffs/confirm-email", { method: "POST", body: JSON.stringify({ token: emailToken }) }).catch(() => null);
     if (!res) throw new Error("The guardian handoff service is unavailable.");
+    if (res.status === 410) {
+      /* 2S8-FE-01: older than 14 days — a fresh one can be emailed. */
+      const gone = linkExpiredFrom(410, await res.json().catch(() => null), "handoff-email");
+      if (gone) return <main className={shell}><LinkExpired kind={gone.kind} token={emailToken} what="the confirmation link" /></main>;
+    }
     if (res.status === 400 || res.status === 404) return <BadLink said={refusalMessage(await res.json().catch(() => null)) ?? undefined} />;
     if (!res.ok) throw new Error(`Confirming the email failed (${res.status}).`);
     const { token } = (await res.json()) as { token: string };
@@ -133,6 +140,11 @@ export default async function GuardianHandoffPage({ searchParams }: { searchPara
   if (token) {
     const res = await publicApi(`/public/guardian-handoffs/${encodeURIComponent(token)}`).catch(() => null);
     if (!res) throw new Error("The guardian handoff service is unavailable.");
+    if (res.status === 410) {
+      /* 2S8-FE-01: older than 14 days — a fresh one can be emailed. */
+      const gone = linkExpiredFrom(410, await res.json().catch(() => null), "handoff");
+      if (gone) return <main className={shell}><LinkExpired kind={gone.kind} token={token} what="the link to your request" /></main>;
+    }
     if (res.status === 400 || res.status === 404) return <BadLink />;
     if (!res.ok) throw new Error(`Request status unavailable (${res.status}).`);
     const r = (await res.json()) as ApiHandoffRequest;

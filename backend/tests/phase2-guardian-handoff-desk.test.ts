@@ -165,6 +165,20 @@ describe.skipIf(!hasDatabase)("2S1-BE-15 · BTG's Guardian handoffs desk", { tim
     expect((await call("GET", "/guardian-handoffs?group=EVERYTHING", "hd_admin")).status).toBe(400);
   });
 
+  it("P1-FE-31 · ?page=1&size=1 answers one row with the page and the same counts; without ?page the old shape", async () => {
+    const whole = await call("GET", "/guardian-handoffs?group=WAITING_FOR_BTG", "hd_admin");
+    expect(whole.status, whole.text).toBe(200);
+    expect(whole.json.page).toBeUndefined();
+    const paged = await call("GET", "/guardian-handoffs?group=WAITING_FOR_BTG&page=1&size=1", "hd_admin");
+    expect(paged.status, paged.text).toBe(200);
+    const total = whole.json.handoffs.length;
+    expect(total).toBeGreaterThanOrEqual(1);
+    expect(paged.json.page).toEqual({ page: 1, size: 1, total, pages: total });
+    expect(paged.json.handoffs).toHaveLength(1);
+    expect(paged.json.handoffs[0].id).toBe(whole.json.handoffs[0].id);
+    expect(paged.json.counts).toEqual(whole.json.counts);
+  });
+
   it("a guardian's and an athlete's answers are unchanged: no desk detail, no counts, nothing before it is sent", async () => {
     for (const who of ["hd_carmen", "hd_jordan"]) {
       const mine = await call("GET", "/guardian-handoffs", who);

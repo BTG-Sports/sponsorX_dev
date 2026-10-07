@@ -17,6 +17,7 @@
 import { Router, type RequestHandler } from "express";
 
 import { requireActor } from "../../auth/actor";
+import { clampPage, pageInfo, pageRequest } from "../../lib/paging";
 import { assertAllowed, whereFor } from "../../auth/scope";
 import { prisma } from "../../db/client";
 
@@ -33,7 +34,9 @@ const listAudit: RequestHandler = async (req, res) => {
   const entityId = str(req.query.entityId);
   const actorId = str(req.query.actorId);
   const action = str(req.query.action, 120);
-  const limit = Math.min(100, Math.max(1, Number(req.query.limit) || 50));
+  /* ?page= turns on the house pager (lib/paging.ts): a counted page instead of the keyset cursor. */
+  const paged = pageRequest(req.query as Record<string, unknown>);
+  const limit = paged ? paged.take : Math.min(100, Math.max(1, Number(req.query.limit) || 50));
   /* cursor = "<iso>|<id>" of the last row the caller saw */
   const cursor = str(req.query.cursor, 300)?.split("|");
   const cursorAt = cursor?.[0] ? new Date(cursor[0]) : null;
@@ -50,11 +53,15 @@ const listAudit: RequestHandler = async (req, res) => {
       : {}),
   };
 
+  /* Paged: count first, so the page is clamped to what exists before it is read. */
+  const total = paged ? await prisma.auditLog.count({ where: { ...where } /* tenant-scope: whereFor(auditLog) in scope */ }) : 0;
+  const pageReq = paged ? clampPage(paged, total) : null;
   const [rows, entities, actors] = await Promise.all([
     prisma.auditLog.findMany({
       where: { ...where },
       select: { id: true, at: true, action: true, entity: true, entityId: true, actorId: true, before: true, after: true },
       orderBy: [{ at: "desc" }, { id: "desc" }],
+      ...(pageReq ? { skip: pageReq.skip } : {}),
       take: limit + 1,
     }),
     /* Facets for the filter menus, over the whole scope (not the page). */
@@ -86,7 +93,8 @@ const listAudit: RequestHandler = async (req, res) => {
       before: r.before,
       after: r.after,
     })),
-    nextCursor: rows.length > limit && last ? `${last.at.toISOString()}|${last.id}` : null,
+    nextCursor: !paged && rows.length > limit && last ? `${last.at.toISOString()}|${last.id}` : null,
+    ...(pageReq ? { page: pageInfo(pageReq, total) } : {}),
     facets: {
       entities: entities.map((e) => ({ entity: e.entity, count: e._count._all })).sort((a, b) => b.count - a.count),
       actors: actors

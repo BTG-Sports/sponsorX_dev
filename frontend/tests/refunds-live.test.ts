@@ -48,6 +48,18 @@ describe("Finance's list", () => {
     expect(sentWords({ sent: { at: "x", on: "2026-10-18", method: "CARD", reference: "re_test_1", by: "SYSTEM", test: true } })).toBe("Refunded automatically (test provider)");
     expect(sentWords({ sent: null })).toBeNull();
   });
+  /* 2S5-FE-12 — a refund the provider made itself arrives SENT, by SYSTEM to the card, with the provider's reference. */
+  it("labels a provider-made refund and names the provider's reference in the Sent cell", () => {
+    expect(REFUND_CAUSES).toContain("PROVIDER_REFUNDED");
+    expect(causeLabel("PROVIDER_REFUNDED")).toBe("Provider refund");
+    const sent = { at: "2026-10-18T10:00:00.000Z", on: "2026-10-18", method: "CARD" as const, reference: "re_1Qx9ZK", by: "SYSTEM" as const, test: false };
+    expect(sentWords({ cause: "PROVIDER_REFUNDED", sent })).toBe("Refunded by the payment provider · re_1Qx9ZK");
+    expect(sentWords({ cause: "PROVIDER_REFUNDED", sent: { ...sent, test: true } })).toBe("Refunded by the payment provider · re_1Qx9ZK (test provider)");
+    expect(sentWords({ cause: "PROVIDER_REFUNDED", sent: { ...sent, reference: null } })).toBe("Refunded by the payment provider");
+    /* Other causes refunded by the system keep their words. */
+    expect(sentWords({ cause: "SPONSOR_CANCELLED", sent: { ...sent, test: false } })).toBe("Refunded automatically to the card");
+    expect(sentWords({ cause: "PROVIDER_REFUNDED", sent: { ...sent, by: "BTG" } })).toBe("Sent Oct 18 · Card · re_1Qx9ZK");
+  });
   it("opens on To send, and Sent by its tab", () => {
     expect(refundTab(undefined).state).toBe("OPEN");
     expect(refundTab("sent").state).toBe("SENT");

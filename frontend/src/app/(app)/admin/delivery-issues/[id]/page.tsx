@@ -61,7 +61,7 @@ export default async function DeliveryIssuePage({ params }: { params: Promise<{ 
     <div className="space-y-5">
       <Link href={PATH} className="text-xs text-muted hover:text-text">← Delivery issues</Link>
       <div className="flex flex-wrap items-center gap-2.5">
-        <h1 className="text-xl font-semibold tracking-tight">{p.orderRef} · {p.line}</h1>
+        <h1 className="sx-page-title">{p.orderRef} · {p.line}</h1>
         <StatePill p={pill} />
       </div>
       <p className="-mt-2 text-xs leading-relaxed text-muted">{lineSummary(p)}</p>

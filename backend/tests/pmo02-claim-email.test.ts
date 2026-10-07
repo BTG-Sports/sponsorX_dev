@@ -117,7 +117,8 @@ describe.skipIf(!hasDatabase)("2S8-PMO-02 · profile claim: email first, then th
     const mail = await claimEmails();
     expect(mail).toHaveLength(1);
     expect(mail[0]).toMatchObject({ to: "maya@family.invalid", data: { firstName: "Maya", days: "14", profileUrl: `https://web.pmo02.example/athletes/${slug}` } });
-    expect(mail[0]!.data.confirmUrl).toMatch(/^https:\/\/web\.pmo02\.example\/api\/v1\/public\/athlete-claims\/confirm\?t=/);
+    /* 2S8-FE-02: the link lands on the web app's own page, whose button POSTs the confirmation. */
+    expect(mail[0]!.data.confirmUrl).toMatch(/^https:\/\/web\.pmo02\.example\/athletes\/claim\/confirm\?t=/);
     expect(readClaimEmailToken(tokenIn(mail[0]!.data.confirmUrl!))).toBe(claimId);
     expect(await auditsOf(claimId)).toEqual(["athleteClaim.submit"]);
   });

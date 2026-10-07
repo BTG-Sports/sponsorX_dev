@@ -48,6 +48,7 @@ import { randomBytes } from "node:crypto";
 
 import type { Prisma } from "../generated/prisma/client";
 import { prisma } from "../db/client";
+import { readPage, type PageInfo, type PageRequest } from "../lib/paging";
 import { audit } from "../db/audit";
 import { enqueue } from "../db/outbox";
 import { env } from "../config/env";
@@ -481,16 +482,29 @@ export const isPaymentEventStatus = (s: unknown): s is PaymentEventStatus => typ
  * GET /payment-events — BTG admin and Finance, in their own books. By
  * default the exceptions nobody has closed: HELD and FAILED (BTG's), and
  * DEFERRED (waiting for what they follow). Counts by status, always.
+ *
+ * 2S5-FE-07 — `resolved` narrows to events a person has closed (true) or
+ * not (false); with `?status` and no `resolved`, both. `page` turns on the
+ * house pager (`page: {…}` in the answer); without it the list stays
+ * unpaged, newest first, capped at 200.
  */
-export async function listPaymentEvents(actor: Actor, statuses?: PaymentEventStatus[]) {
+export async function listPaymentEvents(actor: Actor, statuses?: PaymentEventStatus[], opts: { resolved?: boolean; page?: PageRequest } = {}) {
   assertTenantWide(actor, "paymentEvent", "read");
   const scope = whereFor(actor, "paymentEvent", "read");
-  const filter: Prisma.PaymentEventWhereInput = statuses?.length ? { status: { in: statuses } } : { status: { in: [...EXCEPTIONS] }, resolvedAt: null };
-  const [events, grouped] = await Promise.all([
+  const resolvedAt = opts.resolved === undefined ? {} : { resolvedAt: opts.resolved ? { not: null } : null };
+  const filter: Prisma.PaymentEventWhereInput = statuses?.length
+    ? { status: { in: statuses }, ...resolvedAt }
+    : { status: { in: [...EXCEPTIONS] }, resolvedAt: null, ...resolvedAt };
+  const where: Prisma.PaymentEventWhereInput = { AND: [scope, filter] };
+  const read = (skip: number, take: number) =>
     prisma.paymentEvent.findMany({
-      /* tenant-scope: `scope` is whereFor(paymentEvent, read); the filter only narrows it. */
-      where: { AND: [scope, filter] }, select: LIST, orderBy: { receivedAt: "desc" }, take: 200,
-    }),
+      /* tenant-scope: `scope` is whereFor(paymentEvent, read) inside `where`; the filter only narrows it. */
+      where, select: LIST, orderBy: { receivedAt: "desc" }, skip, take,
+    });
+  const [paged, grouped] = await Promise.all([
+    opts.page
+      ? readPage(opts.page, () => prisma.paymentEvent.count({ where /* tenant-scope: whereFor(paymentEvent, read) in where */ }), read)
+      : read(0, 200).then((rows) => ({ rows, page: null as PageInfo | null })),
     prisma.paymentEvent.groupBy({ /* tenant-scope: whereFor(paymentEvent, read). */ by: ["status"], where: scope, _count: { _all: true } }),
   ]);
   const open = await prisma.paymentEvent.count({ /* tenant-scope: whereFor(paymentEvent, read). */ where: { AND: [scope, { status: { in: ["HELD", "FAILED"] }, resolvedAt: null }] } });
@@ -498,7 +512,8 @@ export async function listPaymentEvents(actor: Actor, statuses?: PaymentEventSta
     counts: Object.fromEntries(PAYMENT_EVENT_STATUSES.map((s) => [s, grouped.find((g) => g.status === s)?._count._all ?? 0])),
     /** HELD or FAILED and not yet closed by a person. */
     waitingOnBtg: open,
-    events,
+    events: paged.rows,
+    ...(paged.page ? { page: paged.page } : {}),
   };
 }
 

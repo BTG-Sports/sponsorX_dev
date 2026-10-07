@@ -117,7 +117,7 @@ export default async function AdminRewardsPage({
     return (
       <div className="space-y-6">
         <div>
-          <h1 className="text-xl font-semibold tracking-tight">Fan Rewards</h1>
+          <h1 className="sx-page-title">Fan Rewards</h1>
           <p className="mt-1 text-xs text-muted">
             QR rewards fans scan at events — reward → per-athlete tokens → scan →
             claim → redeem (§16).
@@ -149,7 +149,7 @@ export default async function AdminRewardsPage({
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-xl font-semibold tracking-tight">Fan Rewards</h1>
+        <h1 className="sx-page-title">Fan Rewards</h1>
         <p className="mt-1 text-xs text-muted">
           QR rewards fans scan at events — reward → per-athlete tokens → scan →
           claim → redeem (§16).

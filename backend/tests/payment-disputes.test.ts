@@ -113,9 +113,29 @@ describe.skipIf(!hasDatabase)("2S5-BE-03 · refunds and disputes", { timeout: 12
       /* The related payout is blocked: not sent while BTG checks it. */
       expect(await sendPayout(p.id)).toEqual({ sent: false });
       expect((await payoutRow(p.id)).state).toBe("APPROVED");
+      /* 2S5-FE-07 — the desk reads it: unpaged by default (no `page`), paged with ?page, and ?resolved narrows. */
+      const ids = (res: { json: { events: { id: string }[] } }) => res.json.events.map((e) => e.id);
+      const unpaged = await w.call("GET", "/payment-events", w.id("finance"));
+      expect(unpaged.status, unpaged.text).toBe(200);
+      expect(unpaged.json.page).toBeUndefined();
+      expect(ids(unpaged)).toContain(r.eventId);
+      const paged = await w.call("GET", "/payment-events?page=1&size=12", w.id("finance"));
+      expect(paged.status, paged.text).toBe(200);
+      expect(paged.json.page).toMatchObject({ page: 1, size: 12 });
+      expect(paged.json.page.total).toBeGreaterThanOrEqual(1);
+      expect(paged.json.waitingOnBtg).toBeGreaterThanOrEqual(1);
+      expect(ids(paged)).toContain(r.eventId);
+      expect(ids(await w.call("GET", "/payment-events?status=HELD,FAILED&resolved=false&page=1", w.id("finance")))).toContain(r.eventId);
+      expect(ids(await w.call("GET", "/payment-events?status=HELD,FAILED&resolved=true&page=1", w.id("finance")))).not.toContain(r.eventId);
+      expect(ids(await w.call("GET", "/payment-events?page=1&size=60", w.id("other_admin")))).not.toContain(r.eventId);
       /* BTG closes it (the provider's refund was a goodwill credit, not this order's money): the payout goes. */
       const closed = await w.call("POST", `/payment-events/${r.eventId}/resolve`, w.id("admin"), { note: "Goodwill credit from BTG's own account; the order stands." });
       expect(closed.status, closed.text).toBe(200);
+      /* Closed: on the Resolved tab, off Needs BTG. */
+      const resolved = await w.call("GET", "/payment-events?status=HELD,FAILED&resolved=true&page=1&size=60", w.id("admin"));
+      expect(resolved.json.events.find((e: { id: string }) => e.id === r.eventId)).toMatchObject({ resolvedBy: expect.any(String), resolutionNote: expect.stringMatching(/Goodwill/) });
+      expect(ids(await w.call("GET", "/payment-events?page=1&size=60", w.id("admin")))).not.toContain(r.eventId);
+      expect(ids(await w.call("GET", "/payment-events?resolved=false&page=1&size=60", w.id("admin")))).not.toContain(r.eventId);
       expect(await prisma.paymentRefund.findFirst({ where: { providerRefundRef: "re_pdx_part" }, select: { outcome: true } })).toEqual({ outcome: "DISMISSED" });
       expect((await w.jobs("payouts.send")).filter((j) => j.payoutId === p.id).length).toBeGreaterThanOrEqual(2);
       expect(await sendPayout(p.id)).toEqual({ sent: true });
@@ -202,6 +222,18 @@ describe.skipIf(!hasDatabase)("2S5-BE-03 · refunds and disputes", { timeout: 12
       const list = (await w.call("GET", "/disputes", w.id("finance"))).json;
       expect(list.disputes.find((x: { id: string }) => x.id === d.id)).toMatchObject({ state: "OPEN", frozen: true, canResolve: false, payouts: [expect.objectContaining({ id: p.id, state: "APPROVED" })] });
       expect((await w.call("GET", "/disputes", w.id("other_admin"))).json.disputes.map((x: { id: string }) => x.id)).not.toContain(d.id);
+      /* 2S5-FE-08 — the desk reads it paged: `page` in the answer, newest opened first, counts from the API; unpaged has no `page`. */
+      expect(list.page).toBeUndefined();
+      const pagedOpen = await w.call("GET", "/disputes?state=OPEN&page=1&size=12", w.id("finance"));
+      expect(pagedOpen.status, pagedOpen.text).toBe(200);
+      expect(pagedOpen.json.page).toMatchObject({ page: 1, size: 12 });
+      expect(pagedOpen.json.page.total).toBeGreaterThanOrEqual(1);
+      expect(pagedOpen.json.counts.OPEN).toBeGreaterThanOrEqual(1);
+      expect(pagedOpen.json.disputes.map((x: { id: string }) => x.id)).toContain(d.id);
+      const opens = pagedOpen.json.disputes.map((x: { openedAt: string }) => Date.parse(x.openedAt));
+      expect(opens).toEqual([...opens].sort((a, b) => b - a));
+      expect((await w.call("GET", "/disputes?state=WON&page=1", w.id("finance"))).json.disputes.map((x: { id: string }) => x.id)).not.toContain(d.id);
+      expect((await w.call("GET", "/disputes?page=1&size=60", w.id("other_admin"))).json.disputes.map((x: { id: string }) => x.id)).not.toContain(d.id);
       expect((await w.call("GET", `/disputes/${d.id}`, w.id("other_admin"))).status).toBe(404);
       for (const who of [w.id("buyer"), w.id("riley")]) expect((await w.call("GET", "/disputes", who)).status, who).toBe(403);
 

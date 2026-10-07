@@ -1,7 +1,9 @@
 import Link from "next/link";
 
 import { GuardianSetupWizard } from "@/components/guardian-setup-wizard";
+import { LinkExpired } from "@/components/link-expired";
 import { BlockedNotice } from "@/components/ui";
+import { linkExpiredFrom } from "@/lib/link-expired";
 import { refusalMessage } from "@/lib/onboarding-live";
 import { sampleGuardianSetup, setupDemo, type ApiGuardianSetupLive } from "@/lib/guardian-live";
 import { publicApi } from "../../onboarding/public-api";
@@ -67,6 +69,17 @@ export default async function GuardianSetupPage({ searchParams }: { searchParams
   }
 
   const res = await publicApi("/public/guardian-setup/open", { method: "POST", body: JSON.stringify({ token }) });
+  if (res.status === 410) {
+    /* 2S8-FE-01: older than 14 days — a fresh one can be emailed. */
+    const gone = linkExpiredFrom(410, await res.json().catch(() => null), "guardian-setup");
+    if (gone) {
+      return (
+        <main className="mx-auto w-full max-w-xl space-y-6 px-4 py-8 sm:px-6 lg:py-12">
+          <LinkExpired kind={gone.kind} token={token} what="the guardian set-up link" />
+        </main>
+      );
+    }
+  }
   if (res.status === 400 || res.status === 404) {
     let said: string | undefined;
     try {

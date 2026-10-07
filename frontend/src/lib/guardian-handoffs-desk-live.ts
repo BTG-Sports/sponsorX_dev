@@ -1,4 +1,5 @@
 import type { ApiHandoffRequest } from "@/lib/guardian-live";
+import type { PageInfo } from "@/lib/list-query";
 import { dayOf, momentOf } from "@/lib/new-signups-live";
 
 /* --------------------------------------------------------------------------
@@ -36,9 +37,9 @@ export type ApiHandoffStaff = {
 };
 
 export type ApiDeskHandoff = ApiHandoffRequest & { staff: ApiHandoffStaff };
-export type ApiHandoffDesk = { handoffs: ApiDeskHandoff[]; counts: Record<HandoffGroup, number> };
+export type ApiHandoffDesk = { handoffs: ApiDeskHandoff[]; counts: Record<HandoffGroup, number>; /** P1-FE-31 — present on a paged read. */ page?: PageInfo };
 
-/** How many rows one tab reads at most (the API's BTG page size). */
+/** How many rows an UNPAGED read returns at most (the API's BTG cap). The desk pages (P1-FE-31), so it never meets it. */
 export const DESK_PAGE = 100;
 
 export const HANDOFF_TABS = [

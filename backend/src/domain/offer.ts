@@ -62,6 +62,7 @@ import { guardianControls } from "./guardian-rules";
 import { athleteFloor, floorProblem, offerParty, PARTY_SELECT } from "./offer-desk";
 import { advanceCampaign, lockCampaignForStaffing } from "./campaign-stages";
 import { replaceAfterDecline } from "./auto-staffing";
+import { readPage, type PageInfo, type PageRequest } from "../lib/paging";
 
 export type OfferState = "DRAFT" | "SENT" | "ACCEPTED" | "DECLINED" | "WITHDRAWN";
 export type OfferDeliverable = { title: string; dueDate: Date };
@@ -215,6 +216,62 @@ export async function listOffers(actor: Actor) {
     where: visibleWhere(actor), select: SELECT, orderBy: { createdAt: "asc" },
   });
   return rows.map((r) => view(actor, r));
+}
+
+/** BTG's offers desk tabs (2S2-FE-03), as WHEREs — the same rules the
+ *  desk used to apply in the browser (frontend lib/admin-offers-live.ts):
+ *  "needs" is a draft or a sent offer with a change request nobody answered;
+ *  "waiting" a sent offer, unexpired, with no open request; "declined" also
+ *  takes a sent offer that lapsed unanswered. */
+export const OFFER_DESK_TABS = ["needs", "drafts", "waiting", "accepted", "declined", "withdrawn"] as const;
+export type OfferDeskTab = (typeof OFFER_DESK_TABS)[number];
+function deskTabWhere(tab: OfferDeskTab, now: Date): Prisma.OfferWhereInput {
+  const openRequest = { changeRequests: { some: { answeredAt: null } } };
+  const noOpenRequest = { changeRequests: { none: { answeredAt: null } } };
+  switch (tab) {
+    case "needs": return { OR: [{ state: "DRAFT" }, { state: "SENT", ...openRequest }] };
+    case "drafts": return { state: "DRAFT" };
+    case "waiting": return { state: "SENT", expiresAt: { gt: now }, ...noOpenRequest };
+    case "accepted": return { state: "ACCEPTED" };
+    case "declined": return { OR: [{ state: "DECLINED" }, { state: "SENT", expiresAt: { lte: now }, ...noOpenRequest }] };
+    case "withdrawn": return { state: "WITHDRAWN" };
+  }
+}
+
+/** The desk's page of offers (the house pager, lib/paging.ts): one state
+ *  (`state`) or one desk tab (`tab`), newest first — change requests the
+ *  longest-waiting first on "needs" — with its count, how many stand in
+ *  each state (`counts`) and in each desk tab (`tabs`). */
+export async function listOffersPage(actor: Actor, page: PageRequest, state?: string, tab?: OfferDeskTab, now = new Date()) {
+  const scope = visibleWhere(actor);
+  const where = { AND: [scope, ...(state ? [{ state: state as Prisma.OfferWhereInput["state"] }] : []), ...(tab ? [deskTabWhere(tab, now)] : [])] };
+  const orderBy: Prisma.OfferOrderByWithRelationInput[] = [{ createdAt: "desc" }];
+  const [paged, byState, ...byTab] = await Promise.all([
+    readPage(
+      page,
+      () => prisma.offer.count({ where /* tenant-scope: visibleWhere is whereFor(offer, read), narrowed. */ }),
+      (skip, take) => prisma.offer.findMany({ where /* tenant-scope: visibleWhere is whereFor(offer, read), narrowed. */, select: SELECT, orderBy, skip, take }),
+    ),
+    prisma.offer.groupBy({ by: ["state"], where: scope /* tenant-scope: visibleWhere is whereFor(offer, read), narrowed. */, _count: { _all: true } }),
+    ...OFFER_DESK_TABS.map((t) => prisma.offer.count({ where: { AND: [scope, deskTabWhere(t, now)] } /* tenant-scope: visibleWhere is whereFor(offer, read), narrowed. */ })),
+  ]);
+  const rows = [...paged.rows];
+  if (tab === "needs") {
+    /* Change requests first, the longest-waiting on top; then drafts, newest first. */
+    const asked = (o: Row) => (o.state === "SENT" ? o.changeRequests.find((r) => !r.answeredAt)?.createdAt.getTime() ?? 0 : 0);
+    rows.sort((a, b) => {
+      const ra = asked(a), rb = asked(b);
+      if (ra && rb) return ra - rb;
+      if (ra || rb) return ra ? -1 : 1;
+      return b.createdAt.getTime() - a.createdAt.getTime();
+    });
+  }
+  return {
+    offers: rows.map((r) => view(actor, r)),
+    page: paged.page,
+    counts: Object.fromEntries(byState.map((s) => [s.state, s._count._all])) as Record<string, number>,
+    tabs: Object.fromEntries(OFFER_DESK_TABS.map((t, i) => [t, byTab[i] as number])) as Record<OfferDeskTab, number>,
+  };
 }
 
 export async function getOffer(actor: Actor, id: string) {

@@ -52,7 +52,7 @@ export default async function IntegrationsPage() {
   const who = await fetchActor();
   const heading = (
     <div>
-      <h1 className="text-xl font-semibold tracking-tight">Integrations</h1>
+      <h1 className="sx-page-title">Integrations</h1>
       <p className="mt-1 text-xs text-muted">
         Zoho sync, inbound webhooks and the worker queue. Zoho never sits on a request path — a queued sync is healthy.
       </p>

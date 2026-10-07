@@ -32,7 +32,7 @@ export default async function EditOfferPage({ params }: { params: Promise<{ id: 
     return (
       <div className="space-y-5">
         <Link href={back} className="text-xs text-muted hover:text-text">← The offer</Link>
-        <h1 className="text-xl font-semibold tracking-tight">{TITLE}</h1>
+        <h1 className="sx-page-title">{TITLE}</h1>
         <EmptyState mark="users" title="Changing offers isn't in your role" hint={READ_ONLY_TIP} action={{ label: "Back to the offer", href: back }} />
       </div>
     );
@@ -53,7 +53,7 @@ export default async function EditOfferPage({ params }: { params: Promise<{ id: 
     return (
       <div className="space-y-5">
         <Link href={back} className="text-xs text-muted hover:text-text">← The offer</Link>
-        <h1 className="text-xl font-semibold tracking-tight">{TITLE}</h1>
+        <h1 className="sx-page-title">{TITLE}</h1>
         <EmptyState mark="inbox" title="This offer is no longer a draft"
           hint="Terms are fixed once sent. To change them, open the offer and send a revised offer." action={{ label: "Open the offer", href: back }} />
       </div>
@@ -65,7 +65,7 @@ export default async function EditOfferPage({ params }: { params: Promise<{ id: 
     <div className="space-y-5">
       <Link href={back} className="text-xs text-muted hover:text-text">← The offer</Link>
       <div>
-        <h1 className="text-xl font-semibold tracking-tight">{TITLE}</h1>
+        <h1 className="sx-page-title">{TITLE}</h1>
         <p className="mt-1 text-xs text-muted">{o.athlete.name} · {o.sponsorName} · {o.campaignName}</p>
       </div>
       <OfferForm offerId={o.id} initial={fieldsOf(o)}
