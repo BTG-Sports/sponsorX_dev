@@ -137,7 +137,7 @@ function GroupedNav({
               data-holds={holds ? "" : undefined}
               data-open={isOpen ? "" : undefined}
               style={{ animationDelay: `${headDelay}ms` } as CSSProperties}
-              className={`sx-animate sx-nav-head group/head relative flex w-full items-center gap-3 rounded-xl px-2.5 py-1.5 text-left transition-all duration-300 ${
+              className={`sx-animate sx-nav-head group/head relative flex w-full items-center gap-2 rounded-xl px-2 py-1.5 text-left transition-all duration-300 ${
                 holds ? `bg-gradient-to-r ${accent.accentWash} to-transparent` : "hover:bg-surface-2/70"
               }`}
             >
@@ -146,7 +146,7 @@ function GroupedNav({
                 className={`absolute left-0 top-1/2 h-5 w-[3px] -translate-y-1/2 rounded-r-full ${accent.accentDot} transition-all duration-300 ${holds ? "scale-y-100 opacity-100" : "scale-y-0 opacity-0"}`}
               />
               <span
-                className={`sx-nav-tile grid size-7 shrink-0 place-items-center rounded-lg border transition-all duration-300 ${
+                className={`sx-nav-tile grid size-6 shrink-0 place-items-center rounded-md border transition-all duration-300 ${
                   holds
                     ? `${accent.accentBg} ${accent.accentText} border-transparent`
                     : isOpen
@@ -156,7 +156,7 @@ function GroupedNav({
               >
                 <Glyph icon={(g.icon as NavIcon | undefined) ?? "grid"} />
               </span>
-              <span className={`min-w-0 flex-1 truncate text-[10px] font-semibold uppercase tracking-[0.12em] transition-colors ${
+              <span className={`min-w-0 flex-1 truncate text-[10px] font-semibold uppercase tracking-[0.1em] transition-colors ${
                 holds ? accent.accentText : isOpen ? "text-text" : "text-muted group-hover/head:text-text"
               }`}>
                 {g.label}
@@ -172,7 +172,7 @@ function GroupedNav({
               </svg>
             </button>
             {/* The desks hang off a track line from the tile. */}
-            <div id={id} hidden={!isOpen} className="sx-nav-track relative ml-[1.3rem] mt-0.5 space-y-0.5 border-l border-line/70 pb-1.5 pl-1.5">
+            <div id={id} hidden={!isOpen} className="sx-nav-track relative ml-[1.25rem] mt-0.5 space-y-0.5 border-l border-line/70 pb-1.5 pl-1">
               {g.items.map((item, k) => <Item key={item.pending ? item.label : item.href} item={item} delayMs={k * 25} quick pathname={pathname} rootHref={rootHref} {...accent} />)}
             </div>
           </section>
