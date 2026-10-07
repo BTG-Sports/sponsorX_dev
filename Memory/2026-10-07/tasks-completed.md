@@ -33,3 +33,5 @@
 - **The wallet rows' notes are corrected.** They wait on Apple and Google wallet accounts, not on the payment provider.
 - **2S1-OPS-01 is waiting on the owner** to name the inbox `support@sponsorx.net` should forward to. Today `sponsorx.net`, on Cloudflare, has no MX records. Zoho Desk exists (department "iCARRe Foundation") but has no email channel.
 - **Local note:** the scratchpad was wiped. The verification agent left a throwaway embedded Postgres running on 55432 (`scratchpad/pg`), and its worktree is still locked.
+- **2S8-OPS-01 · Done.** Release #170 (`aae0ca2`) is deployed to staging (by the lead) and production (by the owner). `/api/v1/public/health` returns ok in both, with backups archived less than a minute ago. A `[TEST]` alert was delivered to Slack (health-monitor run 37584104464). The monitor now runs every 15 minutes.
+- **2S8-PMO-02's settings are live in production too:** HSTS `includeSubDomains` and the report-only CSP.

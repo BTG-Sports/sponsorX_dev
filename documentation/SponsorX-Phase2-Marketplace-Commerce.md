@@ -1775,9 +1775,9 @@ Claimants now confirm their email before the school can verify the claim (2S8-PM
 - **Done when:** A claimant is told to check their email, confirms on a page with a button, and sees the outcome on the profile
 - **Reference:** Security review 2026-10, decision 5; raised 2026-10-06
 
-### ⏸ `2S8-OPS-01` · Production readiness and restore test
+### ✅ `2S8-OPS-01` · Production readiness and restore test
 
-**Order** 63 · **OPS** · **Where:** Vendor console · **3d** · **Blocked**
+**Order** 63 · **OPS** · **Where:** Vendor console · **3d** · **Done**
 
 Verify backups by restoring, test alerts, exercise rollback, confirm RPO/RTO targets are actually met.
 
