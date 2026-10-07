@@ -36,6 +36,8 @@ are the ones a deploy has to set by hand:
 | `SUPPORT_EMAIL` | `api`, `worker` | `support@sponsorx.net` | **2S1-BE-16 / 2S1-OPS-01.** BTG's support mailbox. Contact-form messages are queued to it, with Reply-To set to the sender. The address is also shown on the guardian request page, in decline and rejection emails, and on account pages. It works the same whether it is a Zoho Desk address (mail in becomes a ticket) or a shared mailbox. Set it in staging first, then production. |
 | `SUPPORT_MAILBOX_READY` | `api` | `false` | Set to `true` once 2S1-OPS-01 has the mailbox receiving mail and a test message from the staging contact form has arrived. Until then, the pages say the address is "being set up". |
 
+| `CLERK_AUTHORIZED_PARTIES` | `api`, `web` (same value) | `api`: `APP_URL`'s origin (+ local origins outside production); `web`: `APP_URL`'s origin if set, else no check | **2S8-PMO-02.** Comma-separated web origins whose Clerk sessions are accepted. Production `https://sponsorx.net`; staging `https://web-staging-904a.up.railway.app`, plus the Vercel test origin if that deployment calls the staging API. |
+
 The sender domain behind `EMAIL_FROM` must be verified with the email
 provider before support mail leaves staging (2S1-OPS-01).
 

@@ -20,6 +20,7 @@ import { clientIp } from "../../lib/client-ip";
 import { allowedList, pageRequest } from "../../lib/paging";
 import {
   AssetCampaignInput,
+  ClaimConfirmInput,
   ClaimInput,
   ContentRightInput,
   ContributionInput,
@@ -45,6 +46,8 @@ import {
   publicProfile,
   rejectClaim,
   submitClaim,
+  confirmClaimEmail,
+  confirmClaimFromLink,
   verifyClaim,
 } from "../../domain/featured";
 import { recordContribution, schoolPools, type ContributionKind } from "../../domain/dmv-pools";
@@ -211,7 +214,25 @@ const claim: RequestHandler<{ slug: string }> = async (req, res) => {
   res.status(201).json(await submitClaim(req.params.slug, { ...b, birthDate: toDate(b.birthDate) }));
 };
 
+/** GET /public/athlete-claims/confirm?t= — the emailed link, clicked
+ *  (2S8-PMO-02). The web app forwards this path here; the answer is a
+ *  redirect to the public profile with a `claim=` flag. */
+const confirmFromLink: RequestHandler = async (req, res) => {
+  await limit("athlete:claimConfirm", clientIp(req), 30, 3600);
+  const t = typeof req.query.t === "string" ? req.query.t : "";
+  res.redirect(302, await confirmClaimFromLink(t));
+};
+
+/** POST /public/athlete-claims/confirm-email — the same, as JSON, for a page that calls it. */
+const confirmEmail: RequestHandler = async (req, res) => {
+  await limit("athlete:claimConfirm", clientIp(req), 30, 3600);
+  const r = await confirmClaimEmail(ClaimConfirmInput.parse(req.body).token);
+  res.json({ state: r.state, slug: r.slug });
+};
+
 rightsRouter.get("/public/athletes/:slug", profile);
 rightsRouter.post("/public/athletes/:slug/claim", claim);
+rightsRouter.get("/public/athlete-claims/confirm", confirmFromLink);
+rightsRouter.post("/public/athlete-claims/confirm-email", confirmEmail);
 export { rightsLedger };
 export { claims };

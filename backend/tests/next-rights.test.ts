@@ -263,9 +263,14 @@ describe.skipIf(!hasDatabase)("SponsorX NEXT rights, featured athletes and the D
       /* 1. The athlete: "that's me". Not on the roster → the school cannot verify. */
       const stranger = await call("POST", `/public/athletes/${slug}/claim`, null, { claimantName: "Someone Else", claimantEmail: "x@x.invalid", birthDate: "2010-02-02" });
       expect(Object.keys(stranger.json).sort()).toEqual(["id", "state"]); // the roster answer is never returned
+      /* 2S8-PMO-02: a claim reaches the school only once its email is confirmed. */
+      const { issueClaimEmailToken } = await import("../src/lib/claim-token");
+      const confirmEmail = (id: string) => call("POST", "/public/athlete-claims/confirm-email", null, { token: issueClaimEmailToken(id) });
+      expect((await confirmEmail(stranger.json.id)).json).toEqual({ state: "SUBMITTED", slug });
       expect((await call("POST", `/claims/${stranger.json.id}/verify`, "nx4_advisor")).status).toBe(409);
 
       const mine = await call("POST", `/public/athletes/${slug}/claim`, null, { claimantName: "Maya Thompson", claimantEmail: "maya@family.invalid", birthDate: "2010-02-02" });
+      await confirmEmail(mine.json.id);
       /* 2. The school: only THIS school's advisor verifies. */
       expect((await call("POST", `/claims/${mine.json.id}/verify`, "nx4_advisor_b")).status).toBe(403);
       expect((await call("POST", `/claims/${mine.json.id}/verify`, "nx4_advisor")).json).toEqual({ athleteId, state: "UNDER_REVIEW" });

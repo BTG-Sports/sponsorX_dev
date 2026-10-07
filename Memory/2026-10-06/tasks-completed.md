@@ -75,3 +75,21 @@
   - Production still has `PAYMENT_PROVIDER` unset (`none`). Go-live is deferred, owner's call: possibly after Phase 4.
   - Staging still uses the full sandbox key, `sk_test_…a2Wh`. The restricted sandbox key is kept as `STRIPE_SECRET_KEY_RESTRICTED_TEST` for smoke runs.
 - **2S8-QA-08 · Done.** `private-upload-pins.test.ts` now gives every id, slug and email a per-run random suffix, and its cleanup warns which tables it couldn't clear. The full backend suite passed 5 runs in a row (180 files, 2910 tests each).
+- **2S8-PMO-02 · Code review.** The owner decided all seven security settings on 2026-10-06, each the recommended option. They are recorded in `documentation/SponsorX-Security-Review-2026-10.md`.
+  - **Applied on Railway, with `--skip-deploys`:**
+    - (6) `PAYMENT_PROVIDER=none` on production `api`;
+    - (7) `STANDIN_PROVIDER_SECRET` on staging `api` (random, never shown);
+    - (3) `CLERK_AUTHORIZED_PARTIES` on `api` and `web`: staging `https://web-staging-904a.up.railway.app`, production `https://sponsorx.net`.
+  - **Built:**
+    - (1) a CSP in report-only mode, reporting to `/api/v1/public/csp-report` through a web rewrite;
+    - (2) HSTS `includeSubDomains`, no preload;
+    - (3) `authorizedParties` on the API (`clerk.ts`) and the web (`proxy.ts`);
+    - (4) emailed links last 14 days (`LINK_TTL_DAYS`), with an intake purpose prefix and `POST /public/links/renew`. Old-format links are accepted until `LEGACY_LINKS_ACCEPTED_UNTIL` = 2026-10-20; **if the deploy slips, set it to deploy day + 14.**
+    - (5) profile claims start `PENDING_EMAIL` until the claimant confirms their email. **Claims that were `SUBMITTED` before the change went back to `PENDING_EMAIL`, and those claimants must claim again.**
+  - **Frontend changes for HeckerCreatives (the owner approved security settings):** `frontend/next.config.ts`, which holds the headers and two exact-path rewrites, and `frontend/src/proxy.ts`, which holds `authorizedParties`.
+  - The account-closure email now says its reactivation link lasts 14 days.
+  - **Checks:** backend 2962 tests, frontend 1164 tests, and `npm run build` passes.
+  - **It becomes Done once deployed to staging and production.**
+- **New frontend rows:**
+  - 2S8-FE-01: expired-link pages with a "send me a fresh link" button;
+  - 2S8-FE-02: the profile-claim confirm screens.

@@ -2,6 +2,8 @@ import { createHmac } from "node:crypto";
 
 import { z } from "zod";
 
+import { authorizedPartiesFrom } from "./authorized-parties";
+import { DEFAULT_LEGACY_LINKS_ACCEPTED_UNTIL, DEFAULT_LINK_TTL_DAYS } from "../lib/link-kinds";
 import { stripeConfigProblem } from "./stripe-guard";
 
 /**
@@ -62,9 +64,23 @@ const schema = z.object({
      list allowed. See lib/rotating-secret.ts and
      documentation/SponsorX-Secrets-Rotation.md. */
   INTAKE_TOKEN_SECRET_PREVIOUS: z.string().optional(),
+  /* 2S8-PMO-02, owner decision 4 (2026-10-06) — how long an emailed or
+     handed-out link lives: intake, onboarding, sign-up, sponsor-request,
+     hand-off and reactivation links (lib/signed-link.ts).
+     Unsubscribe links never expire. */
+  LINK_TTL_DAYS: z.coerce.number().int().min(1).max(90).default(DEFAULT_LINK_TTL_DAYS),
+  /* Links issued before the decision carry no date. They are accepted until
+     this instant and refused after it, so none outlives the rule by more
+     than its own lifetime: the default is the decision date plus 14 days. */
+  LEGACY_LINKS_ACCEPTED_UNTIL: z.coerce.date().default(new Date(DEFAULT_LEGACY_LINKS_ACCEPTED_UNTIL)),
 
   CLERK_SECRET_KEY: z.string().min(1, "CLERK_SECRET_KEY is not set"),
   CLERK_PUBLISHABLE_KEY: z.string().min(1, "CLERK_PUBLISHABLE_KEY is not set"),
+  /* 2S8-PMO-02, owner decision 3 — the web origins whose Clerk sessions this
+     API accepts (the token's `azp`), comma-separated. Unset: APP_URL's
+     origin, plus the local web origins outside production
+     (config/authorized-parties.ts). A malformed entry refuses to boot. */
+  CLERK_AUTHORIZED_PARTIES: z.string().optional(),
 
   // Local dev talks to MinIO (docker-compose.yml); staging/production talk to
   // Cloudflare R2 with the same S3 API. Only the endpoint and credentials
@@ -314,4 +330,9 @@ const standinSecret =
     ? createHmac("sha256", parsed.INTAKE_TOKEN_SECRET).update("sponsorx:standin-provider-secret:v1").digest("base64url")
     : parsed.STANDIN_PROVIDER_SECRET;
 
-export const env = { ...parsed, STANDIN_PROVIDER_SECRET: standinSecret };
+export const env = {
+  ...parsed,
+  STANDIN_PROVIDER_SECRET: standinSecret,
+  /* 2S8-PMO-02 — resolved once, so a malformed list fails here, at boot. */
+  clerkAuthorizedParties: authorizedPartiesFrom(parsed.CLERK_AUTHORIZED_PARTIES, parsed.APP_URL, parsed.NODE_ENV),
+};
