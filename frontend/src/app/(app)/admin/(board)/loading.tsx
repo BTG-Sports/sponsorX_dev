@@ -1,5 +1,3 @@
-import { OpsGround } from "@/components/ops-stage";
-
 /* The Operations Board's loading screen (P1-ART-14): the stage's own dark
    ground with ghost blocks where the hero, the four queue cards and the
    lower panels will land — so arriving at /admin never flashes the light
@@ -10,10 +8,8 @@ export default function Loading() {
     <div
       role="status"
       aria-label="Loading the Operations Board"
-      className="sx-ops sx-stage relative isolate -mx-6 -my-6 min-h-[calc(100svh-66px)] overflow-hidden px-5 pb-14 pt-8 sm:px-8 lg:px-10 lg:pt-10"
     >
-      <OpsGround />
-      <div aria-hidden="true" className="relative mx-auto max-w-[1440px]">
+      <div aria-hidden="true">
         <div className="flex flex-col items-start gap-6 sm:flex-row sm:items-center sm:justify-between sm:gap-10">
           <div className="w-full max-w-3xl space-y-4">
             <div className="sx-ops-ghost h-3 w-64 rounded-full" />

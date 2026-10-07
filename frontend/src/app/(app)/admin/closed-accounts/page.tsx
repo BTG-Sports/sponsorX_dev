@@ -32,7 +32,7 @@ export default async function ClosedAccountsPage({ searchParams }: { searchParam
   if (demo === "loading") {
     return (
       <div className="space-y-6">
-        <h1 className="text-xl font-semibold tracking-tight">{TITLE}</h1>
+        <h1 className="sx-page-title">{TITLE}</h1>
         <SkeletonRows rows={4} />
       </div>
     );
@@ -50,7 +50,7 @@ export default async function ClosedAccountsPage({ searchParams }: { searchParam
   return (
     <div className="space-y-5">
       <div>
-        <h1 className="text-xl font-semibold tracking-tight">{TITLE}</h1>
+        <h1 className="sx-page-title">{TITLE}</h1>
         <p className="mt-1 max-w-3xl text-xs leading-relaxed text-muted">
           Every closed account. Files are kept 30 days after closing, then deleted. Accounts BTG closed can only ask to come back; you answer them here.
         </p>

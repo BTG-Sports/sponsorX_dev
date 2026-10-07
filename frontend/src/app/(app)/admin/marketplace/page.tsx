@@ -133,7 +133,7 @@ export default async function MarketplaceOpsPage({ searchParams }: { searchParam
     <div className="space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-xl font-semibold tracking-tight">Marketplace operations</h1>
+          <h1 className="sx-page-title">Marketplace operations</h1>
           <p className="mt-1 text-xs text-muted">Every exception in one place. Act on it here; each action is recorded against the reviewer.</p>
         </div>
         <Link href="/admin/commission" className="text-xs text-primary hover:underline">

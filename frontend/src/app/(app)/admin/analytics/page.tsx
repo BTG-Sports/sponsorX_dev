@@ -63,7 +63,7 @@ export default async function AdminAnalyticsPage({
 
   const heading = (
     <div>
-      <h1 className="text-xl font-semibold tracking-tight">Analytics</h1>
+      <h1 className="sx-page-title">Analytics</h1>
       <p className="mt-1 text-xs text-muted">
         The story of your rewards and the athletes behind them — five
         chapters, read top to bottom.

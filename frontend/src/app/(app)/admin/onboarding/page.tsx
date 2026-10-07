@@ -53,7 +53,7 @@ export default async function OnboardingQueuePage({ searchParams }: { searchPara
   if (responses.some((r) => r.status === 403)) {
     return (
       <div className="space-y-5">
-        <h1 className="text-xl font-semibold tracking-tight">Property verification</h1>
+        <h1 className="sx-page-title">Property verification</h1>
         <EmptyState mark="users" title="Outside your role" hint="The verification queue is read by BTG admins." />
       </div>
     );
@@ -70,7 +70,7 @@ export default async function OnboardingQueuePage({ searchParams }: { searchPara
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-xl font-semibold tracking-tight">Property verification</h1>
+        <h1 className="sx-page-title">Property verification</h1>
         <p className="mt-1 text-xs text-muted">
           Outside teams, schools, events and venues applying to sell on SponsorX. Every decision is recorded against the reviewer.
         </p>

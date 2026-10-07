@@ -2,8 +2,7 @@ import Link from "next/link";
 import type { CSSProperties, ReactNode } from "react";
 
 import { NotInRole, staffWithoutAccess } from "@/components/not-in-role";
-import { OpsStage } from "@/components/ops-fx";
-import { KpiTile, OpsGround } from "@/components/ops-stage";
+import { KpiTile } from "@/components/ops-stage";
 import { RulesBoard } from "@/components/rules-board";
 import { StaffConfirmSwitch } from "@/components/signup-rules-editor";
 import type { AgeRow } from "@/lib/age-table";
@@ -33,23 +32,20 @@ import { apiFetch } from "@/server/api";
 
 export const dynamic = "force-dynamic";
 const PATH = "/admin/new-signups";
-const STAGE = "sx-ops sx-stage relative isolate -mx-6 -my-6 min-h-[calc(100svh-66px)] overflow-hidden px-5 pb-14 pt-8 sm:px-8 lg:px-10 lg:pt-10";
 
 type AgeTable = { rows: AgeRow[]; unknownPlaceAthletes: number };
 
 const at = (seconds: number) => ({ "--sx-reveal-delay": `${seconds}s` }) as CSSProperties;
 
+/** Since P1-ART-18 the stage is the admin shell's; a page is content on it. */
 function Stage({ children }: { children: ReactNode }) {
   return (
-    <OpsStage className={STAGE}>
-      <OpsGround word="" />
-      <div className="relative mx-auto max-w-[1440px]">
-        <Link href={PATH} className="sx-ops-in inline-flex items-center gap-1.5 text-xs text-[#63b4f8] transition-colors hover:text-[#9be0ff]" style={at(0)}>
-          <span aria-hidden="true">←</span> New sign-ups
-        </Link>
-        {children}
-      </div>
-    </OpsStage>
+    <div>
+      <Link href={PATH} className="sx-ops-in inline-flex items-center gap-1.5 text-xs text-[#63b4f8] transition-colors hover:text-[#9be0ff]" style={at(0)}>
+        <span aria-hidden="true">←</span> New sign-ups
+      </Link>
+      {children}
+    </div>
   );
 }
 
@@ -78,10 +74,7 @@ export default async function SignupRulesPage() {
     <Stage>
       <header className="mt-3">
         <div className="sx-ops-in flex flex-wrap items-center gap-3" style={at(0.05)}>
-          <span className="relative flex size-2">
-            <span className="sx-login-ping relative inline-flex size-2 rounded-full bg-[#22c98d] shadow-[0_0_8px_#22c98d]" />
-          </span>
-          <h1 className="text-xl font-semibold tracking-tight text-white sm:text-2xl">Sign-up rules</h1>
+          <h1 className="sx-page-title">Sign-up rules</h1>
           <span className="rounded-full border border-[#9be0ff]/30 bg-[#04080f]/40 px-2.5 py-1 text-[9px] font-medium uppercase tracking-[0.2em] text-[#cfe9ff]">
             Postgres · read {readAt}
           </span>

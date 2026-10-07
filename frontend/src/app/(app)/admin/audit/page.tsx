@@ -21,7 +21,7 @@ export default async function AuditPageRoute({
   const filters = { entity: one(sp.entity), actorId: one(sp.actorId), entityId: one(sp.entityId), action: one(sp.action) };
   const heading = (
     <div>
-      <h1 className="text-xl font-semibold tracking-tight">Audit log</h1>
+      <h1 className="sx-page-title">Audit log</h1>
       <p className="mt-1 text-xs text-muted">
         Every critical change — who did it, to what, and what moved. Written in the same transaction as the change.
       </p>

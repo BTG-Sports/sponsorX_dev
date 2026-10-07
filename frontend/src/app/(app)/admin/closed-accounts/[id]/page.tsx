@@ -51,7 +51,7 @@ export default async function ClosedAccountPage({ params }: { params: Promise<{ 
       <div>
         <Link href={PATH} className="text-xs text-muted hover:text-text">← Closed accounts</Link>
         <div className="mt-2 flex flex-wrap items-center gap-2.5">
-          <h1 className="text-xl font-semibold tracking-tight">{c.name}</h1>
+          <h1 className="sx-page-title">{c.name}</h1>
           <span className="text-xs text-muted">{kindWords(c.kind)}</span>
           <Badge tone={st.tone}><span aria-hidden="true" className="mr-1">{st.mark}</span>{st.label}</Badge>
         </div>

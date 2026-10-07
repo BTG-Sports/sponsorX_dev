@@ -21,7 +21,7 @@ export default async function CommissionPage() {
   const actor = await requirePortalAccess("admin");
   const heading = (
     <div>
-      <h1 className="text-xl font-semibold tracking-tight">Commission rules</h1>
+      <h1 className="sx-page-title">Commission rules</h1>
       <p className="mt-1 text-xs text-muted">
         How each marketplace sale is split — BTG&rsquo;s fees, processing, referral, the reserve, and what the property keeps.
         A change applies to orders approved from then on; approved orders keep the split they were approved with.

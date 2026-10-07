@@ -70,7 +70,7 @@ export default async function GuardianHandoffPage({ params }: { params: Promise<
     <div className="space-y-5">
       <div>
         <Link href={h.state === "HANDED_OFF" ? PATH : `${PATH}?tab=${tabOf(h.state)}`} className="text-xs text-muted hover:text-text">← Guardian handoffs</Link>
-        <h1 className="mt-2 text-xl font-semibold tracking-tight">{TITLE}</h1>
+        <h1 className="sx-page-title mt-2">{TITLE}</h1>
       </div>
 
       <div className="flex flex-wrap items-center gap-2.5">

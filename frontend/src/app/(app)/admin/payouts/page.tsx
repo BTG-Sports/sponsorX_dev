@@ -51,7 +51,7 @@ export default async function PayoutApprovalsPage({ searchParams }: { searchPara
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-xl font-semibold tracking-tight">Payout approvals</h1>
+        <h1 className="sx-page-title">Payout approvals</h1>
         <p className="mt-1 text-xs text-muted">Payouts that pass every check are approved automatically; only the rest wait here for you. Every decision is recorded, automatic or yours.</p>
       </div>
 

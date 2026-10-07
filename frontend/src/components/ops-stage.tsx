@@ -3,7 +3,7 @@
    /admin (P7-FE-06, §23) redesigned in the landing's, /packages' and
    /login's visual language at the programme owner's request. Server
    components; the client islands are ops-fx.tsx (the stage root's pointer
-   light and card spotlights, the count-ups) and the landing's ScrambleText.
+   light and card spotlights, the count-ups).
 
    Same rule as login-stage.tsx: the stage is a fixed-dark "media" ground in
    both themes, so its inks are `on-media` or fixed-dark literals, and `.sx-
@@ -19,8 +19,8 @@
    - OpsGround     brand glows, a light that follows the pointer, the floor
                    grid drifting against the pointer, a horizon line, rising
                    motes, a slow scan sweep, the outlined word OPS.
-   - OpsHero       scrambled eyebrow + provenance pill, the masked two-line
-                   headline, the dek, and the ActionRing.
+   - OpsHeader     the dashboard header: title row + four tiles (what needs
+                   BTG, live campaigns, systems, the ring by queue).
    - QueueDeck     one chamfered glass card per queue the role reads.
    - CampaignPanel / SystemsPanel   the lower row.
    -------------------------------------------------------------------------- */
@@ -28,10 +28,8 @@
 import Link from "next/link";
 import type { CSSProperties, ReactNode } from "react";
 
-import { ScrambleText } from "./hero-fx";
 import { OpsCount } from "./ops-fx";
 import {
-  boardHeadline,
   QUEUE_TONE,
   ringSegments,
   type CampaignLine,
@@ -110,43 +108,73 @@ export function OpsGround({ word = "OPS" }: { word?: string }) {
 
 /* ------------------------------------------------------------------- hero */
 
-export function OpsHero({ cards, total, readAt }: { cards: QueueCard[] | null; total: number | null; readAt: string }) {
-  const h = boardHeadline(total);
+/** A dashboard header, not a hero (owner, 2026-10-05): the title row, then
+ *  four tiles — what needs BTG, the live campaigns, the systems, and the
+ *  action ring by queue. Every figure is one of the board's three reads. */
+export function OpsHeader({
+  cards, total, campaignTotal, rows, readAt,
+}: {
+  cards: QueueCard[] | null;
+  total: number | null;
+  campaignTotal: number | null;
+  rows: HealthRow[] | null;
+  readAt: string;
+}) {
+  const ok = rows ? rows.filter((r) => r.status === "Operational").length : 0;
   return (
-    <div className="flex flex-col items-start gap-6 sm:flex-row sm:items-center sm:justify-between sm:gap-10">
-      <div className="min-w-0 max-w-3xl">
-        <p
-          className="sx-ops-in flex flex-wrap items-center gap-x-3 gap-y-2 text-[11px] font-medium uppercase tracking-[0.32em] text-[#9be0ff]"
-          style={at(0.05)}
-        >
-          <span className="relative flex size-2">
-            <span className="sx-login-ping relative inline-flex size-2 rounded-full bg-[#22c98d] shadow-[0_0_8px_#22c98d]" />
-          </span>
-          <ScrambleText text="BTG · Operations · Live" immediate delay={0.1} />
-          <span className="rounded-full border border-[#9be0ff]/30 bg-[#04080f]/40 px-2 py-0.5 text-[9px] tracking-[0.2em] text-[#cfe9ff]">
-            Postgres · read {readAt}
-          </span>
-        </p>
-
-        <h1 className="mt-4 text-[clamp(34px,4.6vw,68px)] font-bold leading-[1] tracking-tight text-on-media [text-shadow:0_2px_6px_rgba(0,0,0,.6)]">
-          <span className="sx-ops-line block" style={at(0.15)}>
-            {h.lead}
-          </span>
-          <span className="sx-ops-line block" style={at(0.27)}>
-            <span className="sx-hero-gradient sx-hero-shimmer" data-text={h.hand}>
-              {h.hand}
-            </span>{" "}
-            <span className="sx-hero-gradient-accent">{h.tail}</span>
-          </span>
-        </h1>
-
-        <p className="sx-ops-in mt-4 max-w-[520px] text-[15px] leading-relaxed text-on-media/70" style={at(0.4)}>
-          Every figure on this board is a live read. Each panel opens the desk it counts.
-        </p>
+    <header>
+      <div className="sx-ops-in flex flex-wrap items-center gap-3" style={at(0.05)}>
+        <h1 className="sx-page-title">Operations Board</h1>
+        <span className="rounded-full border border-[#9be0ff]/30 bg-[#04080f]/40 px-2.5 py-1 text-[9px] font-medium uppercase tracking-[0.2em] text-[#cfe9ff]">
+          Postgres · read {readAt}
+        </span>
+        <p className="basis-full text-xs text-[#8a96a3] sm:ml-auto sm:basis-auto">What needs BTG&rsquo;s action today. Every figure is a live read.</p>
       </div>
-
-      {cards && total !== null && <ActionRing cards={cards} total={total} />}
-    </div>
+      <dl className="mt-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
+        {cards && total !== null && (
+          <KpiTile
+            label="Needs BTG action"
+            value={total}
+            caption={total ? `across ${cards.length} ${cards.length === 1 ? "queue" : "queues"} · each card opens its desk` : "nothing waiting for BTG"}
+            tone={total ? "orange" : "green"}
+            delay={0.1}
+          />
+        )}
+        {campaignTotal !== null && (
+          <KpiTile label="Live campaigns" value={campaignTotal} caption="matched, accepted and running" tone="blue" delay={0.16} />
+        )}
+        {rows && (
+          <div className="sx-ops-panel sx-ops-in relative px-4 pb-4 pt-3.5" style={at(0.22)}>
+            <span aria-hidden="true" className="absolute inset-x-0 top-0 h-[2px]" style={{ background: ok === rows.length ? "#22c55e" : "#f97a1f", boxShadow: `0 0 10px ${ok === rows.length ? "#22c55e" : "#f97a1f"}` }} />
+            <dt className="text-[10px] font-medium uppercase tracking-[0.22em] text-[#8a96a3]">Systems</dt>
+            <dd className="mt-1.5">
+              <span className={`text-[28px] font-bold leading-none tracking-tight ${ok === rows.length ? "text-[#86efac]" : "text-[#fdba74]"}`}>
+                {ok}<span className="text-base text-[#7e88a0]"> / {rows.length}</span>
+              </span>
+              <span className="mt-1.5 block truncate text-[11px] text-[#7e88a0]">{ok === rows.length ? "all operational" : rows.filter((r) => r.status !== "Operational").map((r) => `${r.name} ${r.status.toLowerCase()}`).join(" · ")}</span>
+            </dd>
+          </div>
+        )}
+        {cards && total !== null && (
+          <div className="sx-ops-panel sx-ops-in relative flex items-center gap-4 px-4 py-3" style={at(0.28)}>
+            <span aria-hidden="true" className="absolute inset-x-0 top-0 h-[2px] bg-[#9be0ff] shadow-[0_0_10px_#9be0ff]" />
+            <ActionRing cards={cards} total={total} compact />
+            <div className="min-w-0">
+              <dt className="text-[10px] font-medium uppercase tracking-[0.22em] text-[#8a96a3]">By queue</dt>
+              <dd className="mt-1.5 space-y-0.5">
+                {cards.map((c) => (
+                  <span key={c.key} className="flex items-center gap-2 text-[11px] text-[#9aa4b2]">
+                    <span aria-hidden="true" className="size-1.5 shrink-0 rounded-full" style={{ background: QUEUE_TONE[c.key] }} />
+                    <span className="truncate">{c.label}</span>
+                    <span className="ml-auto font-mono font-semibold text-[#cfe9ff]">{c.count}</span>
+                  </span>
+                ))}
+              </dd>
+            </div>
+          </div>
+        )}
+      </dl>
+    </header>
   );
 }
 
@@ -156,7 +184,8 @@ const R = 96;
 const C = 2 * Math.PI * R;
 const GAP = 4;
 
-export function ActionRing({ cards, total }: { cards: QueueCard[]; total: number }) {
+/** `compact`: the header tile's small ring. */
+export function ActionRing({ cards, total, compact = false }: { cards: QueueCard[]; total: number; compact?: boolean }) {
   const segs = ringSegments(cards, C, GAP);
   const label =
     total === 0
@@ -167,8 +196,8 @@ export function ActionRing({ cards, total }: { cards: QueueCard[]; total: number
     <div
       role="img"
       aria-label={label}
-      className="sx-ops-in relative size-[clamp(168px,17vw,240px)] shrink-0"
-      style={at(0.3)}
+      className={`relative shrink-0 ${compact ? "size-24" : "sx-ops-in size-[clamp(168px,17vw,240px)]"}`}
+      style={compact ? undefined : at(0.3)}
     >
       <div aria-hidden="true" className="sx-ops-orbit absolute -inset-2.5 rounded-full border border-dashed border-[#9be0ff]/15" />
       <svg
@@ -196,16 +225,18 @@ export function ActionRing({ cards, total }: { cards: QueueCard[]; total: number
       <div aria-hidden="true" className="absolute inset-0 grid place-content-center text-center">
         {total === 0 ? (
           <>
-            <span className="text-[44px] font-bold leading-none text-[#86efac]">✓</span>
-            <span className="mt-2 text-[10px] uppercase tracking-[0.3em] text-[#9aa4b2]">All clear</span>
+            <span className={`font-bold leading-none text-[#86efac] ${compact ? "text-2xl" : "text-[44px]"}`}>✓</span>
+            {!compact && <span className="mt-2 text-[10px] uppercase tracking-[0.3em] text-[#9aa4b2]">All clear</span>}
           </>
         ) : (
           <>
-            <OpsCount value={total} delay={0.5} className="text-[clamp(44px,4.4vw,64px)] font-bold leading-none tracking-tight" />
+            <OpsCount value={total} delay={0.5} className={`font-bold leading-none tracking-tight ${compact ? "text-2xl" : "text-[clamp(44px,4.4vw,64px)]"}`} />
             {/* wraps to two lines inside the phone-size ring */}
-            <span className="mx-auto mt-2 max-w-[6.5rem] text-[10px] uppercase leading-snug tracking-[0.3em] text-[#9aa4b2] sm:max-w-none">
-              Actions waiting
-            </span>
+            {!compact && (
+              <span className="mx-auto mt-2 max-w-[6.5rem] text-[10px] uppercase leading-snug tracking-[0.3em] text-[#9aa4b2] sm:max-w-none">
+                Actions waiting
+              </span>
+            )}
           </>
         )}
       </div>

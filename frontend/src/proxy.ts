@@ -31,7 +31,12 @@
 
 import { clerkMiddleware } from "@clerk/nextjs/server";
 
-export const proxy = clerkMiddleware();
+/* A developer's drifted PC clock makes every session "not active yet" under
+   Clerk's 5 s default (seen 2026-10-07, ten minutes behind): the cookie fails
+   here and Clerk handshakes forever. The API reads the same variable
+   (backend/src/config/env.ts). Unset, nothing changes. */
+const skew = Number(process.env.CLERK_CLOCK_SKEW_MS);
+export const proxy = clerkMiddleware(Number.isFinite(skew) && skew > 0 ? { clockSkewInMs: skew } : {});
 
 export const config = {
   /* Skip Next internals and static assets, then run on everything else. Without

@@ -56,6 +56,10 @@ const schema = z.object({
 
   CLERK_SECRET_KEY: z.string().min(1, "CLERK_SECRET_KEY is not set"),
   CLERK_PUBLISHABLE_KEY: z.string().min(1, "CLERK_PUBLISHABLE_KEY is not set"),
+  /* How far a machine's clock may be from Clerk's before a session token is
+     refused as "not active yet" (Clerk's own default is 5 s). A developer
+     whose PC clock drifts can set this for a local run; unset elsewhere. */
+  CLERK_CLOCK_SKEW_MS: z.coerce.number().int().nonnegative().optional(),
 
   // Local dev talks to MinIO (docker-compose.yml); staging/production talk to
   // Cloudflare R2 with the same S3 API. Only the endpoint and credentials

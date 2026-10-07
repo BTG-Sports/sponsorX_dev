@@ -30,10 +30,7 @@ export function ScoutHeader({ figures, readAt }: { figures: ScoutFigures; readAt
     <header>
       <div className="sx-ops-in flex flex-wrap items-center justify-between gap-3" style={at(0.05)}>
         <div className="flex items-center gap-3">
-          <span className="relative flex size-2">
-            <span className="sx-login-ping relative inline-flex size-2 rounded-full bg-[#22c98d] shadow-[0_0_8px_#22c98d]" />
-          </span>
-          <h1 className="text-xl font-semibold tracking-tight text-white sm:text-2xl">Athlete applications</h1>
+          <h1 className="sx-page-title">Athlete applications</h1>
         </div>
         {readAt && (
           <span className="rounded-full border border-[#9be0ff]/30 bg-[#04080f]/40 px-2.5 py-1 text-[9px] font-medium uppercase tracking-[0.2em] text-[#cfe9ff]">

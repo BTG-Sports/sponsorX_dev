@@ -53,7 +53,12 @@ export async function authenticateClerkRequest(
     else if (Array.isArray(value)) headers.set(key, value.join(", "));
   }
 
-  const state = await clerk.authenticateRequest(new Request(url, { headers }));
+  const state = await clerk.authenticateRequest(new Request(url, { headers }), {
+    /* A developer's drifted clock makes every token "not active yet" (seen
+       2026-10-07: a PC ten minutes behind). Only a set CLERK_CLOCK_SKEW_MS
+       widens Clerk's default. */
+    ...(env.CLERK_CLOCK_SKEW_MS !== undefined ? { clockSkewInMs: env.CLERK_CLOCK_SKEW_MS } : {}),
+  });
   if (!state.isSignedIn) return null;
 
   const { userId } = state.toAuth();

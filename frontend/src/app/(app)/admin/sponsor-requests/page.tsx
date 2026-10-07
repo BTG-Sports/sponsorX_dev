@@ -34,7 +34,7 @@ export default async function SponsorRequestsPage({ searchParams }: { searchPara
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-xl font-semibold tracking-tight">{TITLE}</h1>
+        <h1 className="sx-page-title">{TITLE}</h1>
         <p className="mt-1 text-xs text-muted">Businesses asking to sponsor on SponsorX. Approving opens their account and emails them a sign-in link.</p>
       </div>
 

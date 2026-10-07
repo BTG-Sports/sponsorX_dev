@@ -1,14 +1,12 @@
 import {
   CampaignPanel,
-  OpsGround,
-  OpsHero,
+  OpsHeader,
   OutsideRole,
   QueueDeck,
   StageHeading,
   StageLink,
   SystemsPanel,
 } from "@/components/ops-stage";
-import { OpsStage } from "@/components/ops-fx";
 import {
   actionTotal,
   campaignLines,
@@ -33,10 +31,10 @@ import { mayUse } from "@/lib/admin-access";
    never shows as stale or sample figures.
 
    Since 2026-10-05 (P1-ART-14) it is drawn on the "Mission Control" stage
-   (components/ops-stage.tsx): fixed-dark in both themes and bled to the
-   edges of the content column — hence the negative margins, which cancel
-   PortalShell's <main> padding. The page lives in the (board) route group
-   only so it can have its own dark loading screen; the URL is still /admin.
+   (components/ops-stage.tsx) — since P1-ART-18 the stage is the admin
+   shell's, and this page is content on it: a dashboard header (title + KPI
+   tiles) and the panels. The page lives in the (board) route group only so
+   it can have its own dark loading screen; the URL is still /admin.
    -------------------------------------------------------------------------- */
 
 export const dynamic = "force-dynamic";
@@ -75,11 +73,9 @@ export default async function OperationsBoardPage() {
   const readAt = new Date().toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
 
   return (
-    <OpsStage className="sx-ops sx-stage relative isolate -mx-6 -my-6 min-h-[calc(100svh-66px)] overflow-hidden px-5 pb-14 pt-8 sm:px-8 lg:px-10 lg:pt-10">
-      <OpsGround />
-
-      <div className="relative mx-auto max-w-[1440px]">
-        <OpsHero cards={cards} total={total} readAt={readAt} />
+    <>
+      <div>
+        <OpsHeader cards={cards} total={total} campaignTotal={campaigns ? campaignTotal : null} rows={rows} readAt={readAt} />
 
         {cards && (
           <section className="mt-10">
@@ -121,6 +117,6 @@ export default async function OperationsBoardPage() {
           </section>
         </div>
       </div>
-    </OpsStage>
+    </>
   );
 }

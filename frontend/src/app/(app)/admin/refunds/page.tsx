@@ -37,7 +37,7 @@ export default async function RefundsPage({ searchParams }: { searchParams: Prom
   if (demo === "loading") {
     return (
       <div className="space-y-6">
-        <h1 className="text-xl font-semibold tracking-tight">{TITLE}</h1>
+        <h1 className="sx-page-title">{TITLE}</h1>
         <SkeletonRows rows={3} />
       </div>
     );
@@ -60,7 +60,7 @@ export default async function RefundsPage({ searchParams }: { searchParams: Prom
   return (
     <div className="space-y-5">
       <div>
-        <h1 className="text-xl font-semibold tracking-tight">{TITLE}</h1>
+        <h1 className="sx-page-title">{TITLE}</h1>
         <p className="mt-1 max-w-3xl text-xs leading-relaxed text-muted">
           Money owed back to sponsors, sent by hand for now. Card payments are refunded automatically once the payment provider is connected.
         </p>

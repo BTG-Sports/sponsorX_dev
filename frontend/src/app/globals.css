@@ -2421,3 +2421,291 @@ html[data-sx-loaded] [data-sx-stage][data-armed] .sx-bar { transform: none; }
   .sx-ops-card[data-tilt]:hover,
   .sx-ops-card[data-tilt]:focus-visible { transform: none; }
 }
+
+/* --------------------------------------------------------------------------
+   The admin portal on the stage — the shared skin (P1-ART-18, 2026-10-07).
+   PortalShell puts `.sx-ops` on the whole admin shell (and StagePortals on
+   <body>, so drawers and dialogs portaled there are on the stage too), and
+   these rules restyle the shared primitives every desk is built from —
+   Card, SectionHeading, Badge, HeroBand, StatTile, Button, Tabs,
+   BlockedNotice, the page title, the drawers, the dialogs, the shell's own
+   sidebar and top bar. Scoped to `.sx-ops` so the other portals keep their
+   own look. Everything else (inputs, tables, links, pagers, filters) reads
+   the themed tokens the `.sx-ops` block above re-pins, and goes dark by
+   itself. No clip-paths on the generic surfaces: a dropdown opening inside
+   a Card must not be cut off — the HUD look comes from bracket corners
+   drawn with pseudo-elements instead.
+   -------------------------------------------------------------------------- */
+
+/* panels */
+.sx-ops .sx-card {
+  position: relative;
+  border-radius: 6px;
+  border-color: rgba(99, 180, 248, 0.2);
+  background: linear-gradient(160deg, rgba(18, 30, 48, 0.7), rgba(8, 14, 24, 0.62));
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+}
+.sx-ops .sx-card::before,
+.sx-ops .sx-card::after {
+  content: "";
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  border: 0 solid rgba(99, 180, 248, 0.75);
+  pointer-events: none;
+}
+.sx-ops .sx-card::before { left: -1px; top: -1px; border-left-width: 2px; border-top-width: 2px; }
+.sx-ops .sx-card::after { right: -1px; bottom: -1px; border-right-width: 2px; border-bottom-width: 2px; }
+/* a card inside a card keeps a plain hairline — brackets stack badly */
+.sx-ops .sx-card .sx-card { background: rgba(4, 8, 15, 0.45); }
+.sx-ops .sx-card .sx-card::before,
+.sx-ops .sx-card .sx-card::after { display: none; }
+
+.sx-ops .sx-hero-band {
+  position: relative;
+  border-radius: 6px;
+  border-color: rgba(99, 180, 248, 0.22);
+  background:
+    radial-gradient(70% 80% at 0% 0%, rgba(46, 155, 245, 0.2), transparent 60%),
+    radial-gradient(50% 70% at 100% 100%, rgba(249, 122, 31, 0.14), transparent 60%),
+    linear-gradient(160deg, rgba(18, 30, 48, 0.72), rgba(8, 14, 24, 0.62));
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  overflow: hidden;
+}
+.sx-ops .sx-hero-band::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 2px;
+  background: linear-gradient(90deg, #2e9bf5, #9be0ff 50%, #f97a1f);
+  box-shadow: 0 0 12px rgba(46, 155, 245, 0.7);
+}
+
+.sx-ops .sx-stat { overflow: hidden; }
+.sx-ops .sx-stat::before { display: none; }
+.sx-ops .sx-stat::after {
+  inset: 0 0 auto 0;
+  width: auto;
+  height: 2px;
+  border: 0;
+  background: #2e9bf5;
+  box-shadow: 0 0 10px #2e9bf5;
+}
+.sx-ops .sx-stat-label { letter-spacing: 0.22em; font-size: 10px; color: #8a96a3; }
+
+/* words */
+.sx-ops .sx-section-title {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  color: #cfe9ff;
+}
+.sx-ops .sx-page-title {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  font-size: 1.25rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: #fff;
+}
+@media (min-width: 40rem) { .sx-ops .sx-page-title { font-size: 1.5rem; } }
+.sx-ops .sx-page-title::before {
+  content: "";
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 9999px;
+  background: #22c98d;
+  box-shadow: 0 0 8px #22c98d;
+}
+
+/* chips, notes, tabs */
+.sx-ops .sx-badge { box-shadow: inset 0 0 0 1px color-mix(in srgb, currentColor 32%, transparent); }
+.sx-ops .sx-notice {
+  border-radius: 10px;
+  border-color: rgba(249, 122, 31, 0.45);
+  background: rgba(249, 122, 31, 0.12);
+  color: #fdba74;
+  padding-left: 0.875rem;
+  padding-right: 0.875rem;
+}
+.sx-ops .sx-tabs { border: 0; background: transparent; padding: 0; gap: 0.375rem; }
+.sx-ops .sx-tab {
+  border-radius: 9999px;
+  border: 1px solid rgba(99, 180, 248, 0.25);
+  background: rgba(10, 18, 30, 0.6);
+  color: #cfe9ff;
+  padding: 0.4rem 0.875rem;
+}
+.sx-ops .sx-tab[data-active] {
+  border-color: #63b4f8;
+  background: rgba(46, 155, 245, 0.25);
+  color: #fff;
+  box-shadow: 0 0 18px rgba(46, 155, 245, 0.35);
+}
+
+/* buttons */
+.sx-ops .sx-btn-primary {
+  border-radius: 0;
+  clip-path: polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px));
+  background: linear-gradient(90deg, #63b4f8, #2e9bf5);
+  color: #04070e;
+  font-weight: 600;
+  box-shadow: 0 0 22px rgba(46, 155, 245, 0.45);
+  transition: box-shadow 0.3s ease, filter 0.3s ease;
+}
+.sx-ops .sx-btn-primary:hover { background: linear-gradient(90deg, #63b4f8, #2e9bf5); box-shadow: 0 0 32px rgba(46, 155, 245, 0.7); filter: brightness(1.06); }
+.sx-ops .sx-btn-secondary {
+  border-radius: 0;
+  clip-path: polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px));
+  border-color: rgba(99, 180, 248, 0.4);
+  background: rgba(10, 18, 30, 0.6);
+  color: #cfe9ff;
+  font-weight: 600;
+  transition: border-color 0.25s ease, color 0.25s ease;
+}
+.sx-ops .sx-btn-secondary:hover { border-color: #9be0ff; background: rgba(10, 18, 30, 0.6); color: #fff; }
+
+/* drawers (`.sx-drawer` is every desk's slide-over) and sheets */
+.sx-ops .sx-drawer,
+.sx-ops .sx-drawer-out {
+  border-left-color: transparent;
+  background:
+    radial-gradient(80% 40% at 100% 0%, rgba(46, 155, 245, 0.18), transparent 70%),
+    linear-gradient(180deg, #0a1322, #050912);
+  box-shadow:
+    inset 1px 0 0 rgba(155, 224, 255, 0.55),
+    -30px 0 60px rgba(0, 0, 0, 0.55),
+    inset 3px 0 18px -6px rgba(46, 155, 245, 0.6);
+}
+.sx-ops .sx-match-sheet { background: linear-gradient(180deg, #0a1322, #050912); }
+
+/* dialogs — the panel is the `.sx-pop` child of the dialog's centring box */
+.sx-ops [role="dialog"] > div > .sx-pop,
+.sx-ops [role="dialog"] > .sx-pop {
+  border-color: rgba(99, 180, 248, 0.4);
+  background:
+    radial-gradient(90% 60% at 0% 0%, rgba(46, 155, 245, 0.22), transparent 70%),
+    linear-gradient(160deg, #0c1828, #060b14);
+  box-shadow: 0 0 0 1px rgba(155, 224, 255, 0.12), 0 24px 60px rgba(0, 0, 0, 0.6), 0 0 60px rgba(46, 155, 245, 0.18);
+}
+
+/* the shell itself — sidebar and top bar as night glass */
+.sx-ops .sx-shell-aside {
+  border-right-color: rgba(99, 180, 248, 0.14);
+  background: linear-gradient(180deg, rgba(8, 14, 24, 0.92), rgba(4, 7, 14, 0.96));
+}
+.sx-ops .sx-shell-header {
+  background: rgba(4, 7, 14, 0.72);
+}
+
+/* desks' own tab strips (role=tablist / role=tab) — the same pills as the
+   stage's, whatever utilities the desk wrote */
+.sx-ops [role="tablist"] {
+  border: 0;
+  background: transparent;
+  padding: 0;
+  gap: 0.375rem;
+}
+.sx-ops [role="tab"] {
+  border: 1px solid rgba(99, 180, 248, 0.25);
+  border-radius: 9999px;
+  background: rgba(10, 18, 30, 0.6);
+  color: #cfe9ff;
+  padding: 0.45rem 0.875rem;
+  box-shadow: none;
+  transition: background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease, box-shadow 0.3s ease;
+}
+.sx-ops [role="tab"]:hover { border-color: rgba(99, 180, 248, 0.6); color: #fff; }
+.sx-ops [role="tab"][aria-selected="true"] {
+  border-color: #63b4f8;
+  background: rgba(46, 155, 245, 0.25);
+  color: #fff;
+  box-shadow: 0 0 18px rgba(46, 155, 245, 0.35);
+}
+
+/* native fields a desk still hand-rolls (the designed Dropdown / SearchInput
+   are preferred — memory: prefer-app-like-ux-over-no-js — but a <select>
+   that is still native at least looks like the stage) */
+.sx-ops select,
+.sx-ops input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]),
+.sx-ops textarea {
+  border-color: rgba(99, 180, 248, 0.3);
+  background-color: rgba(4, 8, 15, 0.7);
+  color: #fff;
+  transition: border-color 0.25s ease, box-shadow 0.25s ease;
+}
+.sx-ops select:focus,
+.sx-ops input:not([type="checkbox"]):not([type="radio"]):focus,
+.sx-ops textarea:focus {
+  border-color: #9be0ff;
+  box-shadow: 0 0 0 2px rgba(99, 180, 248, 0.4), 0 0 18px rgba(46, 155, 245, 0.3);
+  outline: none;
+}
+.sx-ops select {
+  -webkit-appearance: none;
+  appearance: none;
+  padding-right: 2rem;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%239be0ff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='m6 9 6 6 6-6'/></svg>");
+  background-repeat: no-repeat;
+  background-position: right 0.6rem center;
+  background-size: 14px;
+}
+.sx-ops select option { background: #060b14; color: #fff; }
+.sx-ops input[type="checkbox"],
+.sx-ops input[type="radio"] { accent-color: #2e9bf5; }
+
+/* hand-rolled primary buttons (`bg-primary` on a button or link) */
+.sx-ops button.bg-primary,
+.sx-ops a.bg-primary {
+  border-radius: 0;
+  clip-path: polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px));
+  background: linear-gradient(90deg, #63b4f8, #2e9bf5);
+  color: #04070e;
+  font-weight: 600;
+  box-shadow: 0 0 22px rgba(46, 155, 245, 0.45);
+  transition: box-shadow 0.3s ease, filter 0.3s ease;
+}
+.sx-ops button.bg-primary:hover,
+.sx-ops a.bg-primary:hover { background: linear-gradient(90deg, #63b4f8, #2e9bf5); box-shadow: 0 0 32px rgba(46, 155, 245, 0.7); filter: brightness(1.06); }
+.sx-ops button.bg-primary:disabled { box-shadow: none; filter: none; }
+/* …and their secondary partners (a bordered button) */
+.sx-ops button.border-line,
+.sx-ops a.border-line { border-color: rgba(99, 180, 248, 0.4); color: #cfe9ff; }
+.sx-ops button.border-line:hover,
+.sx-ops a.border-line:hover { border-color: #9be0ff; background-color: rgba(10, 18, 30, 0.6); color: #fff; }
+
+/* link tab strips — the codebase's idiom for a row of links / spans is a
+   `rounded-lg border border-line bg-surface p-1` box (campaigns, rewards,
+   the NEXT editions); no role=tablist, so match the idiom itself */
+.sx-ops .rounded-lg.border.border-line.bg-surface.p-1 {
+  border: 0;
+  background: transparent;
+  padding: 0;
+  gap: 0.375rem;
+}
+.sx-ops .rounded-lg.border.border-line.bg-surface.p-1 > a,
+.sx-ops .rounded-lg.border.border-line.bg-surface.p-1 > button,
+.sx-ops .rounded-lg.border.border-line.bg-surface.p-1 > span {
+  border: 1px solid rgba(99, 180, 248, 0.25);
+  border-radius: 9999px;
+  background: rgba(10, 18, 30, 0.6);
+  color: #cfe9ff;
+  padding: 0.45rem 0.875rem;
+  transition: background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease, box-shadow 0.3s ease;
+}
+.sx-ops .rounded-lg.border.border-line.bg-surface.p-1 > a:hover,
+.sx-ops .rounded-lg.border.border-line.bg-surface.p-1 > button:hover { border-color: rgba(99, 180, 248, 0.6); color: #fff; }
+.sx-ops .rounded-lg.border.border-line.bg-surface.p-1 > [aria-current],
+.sx-ops .rounded-lg.border.border-line.bg-surface.p-1 > .bg-primary\/15,
+.sx-ops .rounded-lg.border.border-line.bg-surface.p-1 > .bg-admin\/15,
+.sx-ops .rounded-lg.border.border-line.bg-surface.p-1 > .bg-next\/15 {
+  border-color: #63b4f8;
+  background: rgba(46, 155, 245, 0.25);
+  color: #fff;
+  box-shadow: 0 0 18px rgba(46, 155, 245, 0.35);
+}

@@ -1,5 +1,3 @@
-import { OpsGround } from "@/components/ops-stage";
-
 /* New sign-ups' loading screen (P1-ART-15): the stage's dark ground with
    ghost blocks where the title, the four tiles, the filter bar and the stream's rows land, so
    arriving here never flashes the light portal skeleton. Lives in the
@@ -10,10 +8,8 @@ export default function Loading() {
     <div
       role="status"
       aria-label="Loading New sign-ups"
-      className="sx-ops sx-stage relative isolate -mx-6 -my-6 min-h-[calc(100svh-66px)] overflow-hidden px-5 pb-14 pt-8 sm:px-8 lg:px-10 lg:pt-10"
     >
-      <OpsGround word="" />
-      <div aria-hidden="true" className="relative mx-auto max-w-[1440px]">
+      <div aria-hidden="true">
         <div className="flex items-center justify-between gap-3">
           <div className="sx-ops-ghost h-7 w-56 rounded-md" />
           <div className="sx-ops-ghost h-9 w-32" />

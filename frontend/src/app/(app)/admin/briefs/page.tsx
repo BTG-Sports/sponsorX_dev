@@ -38,7 +38,7 @@ export default async function BriefsPage({ searchParams }: PageProps<"/admin/bri
   const heading = (
     <div className="flex flex-wrap items-start justify-between gap-3">
       <div>
-        <h1 className="text-xl font-semibold tracking-tight">Briefs</h1>
+        <h1 className="sx-page-title">Briefs</h1>
         <p className="mt-1 text-xs text-muted">
           Requests that pass every safety check are approved automatically. The ones held for you are listed first, each with why.
         </p>

@@ -37,7 +37,7 @@ export default async function ProspectDeskRoute({
 
   return (
     <div className="space-y-6">
-      <h1 className="text-xl font-semibold tracking-tight">Student prospects</h1>
+      <h1 className="sx-page-title">Student prospects</h1>
       <EmptyState
         mark="chart"
         title="No prospects to show"

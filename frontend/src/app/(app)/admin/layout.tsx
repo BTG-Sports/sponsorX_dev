@@ -71,6 +71,8 @@ export default async function AdminLayout({ children }: LayoutProps<"/admin">) {
       orgName="BTG Sports Group"
       userName={await viewerName("BTG staff")}
       userRole={roleLabel(actor.roles)}
+      /* P1-ART-18 — the whole admin portal on the Mission Control stage. */
+      stage
     >
       {children}
     </PortalShell>

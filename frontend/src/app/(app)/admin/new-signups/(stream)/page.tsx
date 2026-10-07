@@ -1,6 +1,4 @@
 import { NotInRole, staffWithoutAccess } from "@/components/not-in-role";
-import { OpsStage } from "@/components/ops-fx";
-import { OpsGround } from "@/components/ops-stage";
 import { IntakeHeader, StreamNote, StreamRows } from "@/components/intake-stage";
 import { KindChips, ReviewToggle } from "@/components/intake-fx";
 import { ListSearch, PagerRow, PendingList, ServerList } from "@/components/server-pager";
@@ -36,8 +34,6 @@ import { apiFetch } from "@/server/api";
 export const dynamic = "force-dynamic";
 const PATH = "/admin/new-signups";
 const TITLE = "New sign-ups";
-/** The stage, bled to the edges of PortalShell's content column (P1-ART-14). */
-const STAGE = "sx-ops sx-stage relative isolate -mx-6 -my-6 min-h-[calc(100svh-66px)] overflow-hidden px-5 pb-14 pt-8 sm:px-8 lg:px-10 lg:pt-10";
 
 export default async function NewSignupsPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const sp = await searchParams;
@@ -74,10 +70,8 @@ export default async function NewSignupsPage({ searchParams }: { searchParams: P
   const showEdits = !refused && (filter.kind === "" || filter.kind === "ATHLETE" || filter.review);
 
   return (
-    <OpsStage className={STAGE}>
-      {/* A dashboard: the stage's ground, no outlined word behind a hero. */}
-      <OpsGround word="" />
-      <div className="relative mx-auto max-w-[1440px]">
+    <>
+      <div>
         <IntakeHeader summary={summary} readAt={readAt} />
 
         <ServerList>
@@ -126,6 +120,6 @@ export default async function NewSignupsPage({ searchParams }: { searchParams: P
           )}
         </ServerList>
       </div>
-    </OpsStage>
+    </>
   );
 }

@@ -32,7 +32,7 @@ export default async function RestrictedWordsPage({ searchParams }: { searchPara
   if (demo === "loading") {
     return (
       <div className="space-y-6">
-        <h1 className="text-xl font-semibold tracking-tight">{TITLE}</h1>
+        <h1 className="sx-page-title">{TITLE}</h1>
         <SkeletonRows rows={6} />
       </div>
     );
@@ -55,7 +55,7 @@ export default async function RestrictedWordsPage({ searchParams }: { searchPara
   if (demo === "empty" || list.kinds.length === 0) {
     return (
       <div className="space-y-6">
-        <h1 className="text-xl font-semibold tracking-tight">{TITLE}</h1>
+        <h1 className="sx-page-title">{TITLE}</h1>
         <EmptyState mark="inbox" title="No restricted words yet" hint="Words BTG adds here hold a sponsor's description for review instead of approving it by itself." />
       </div>
     );

@@ -42,7 +42,7 @@ export default async function GuardianHandoffsPage({ searchParams }: { searchPar
   if (demo === "loading") {
     return (
       <div className="space-y-6">
-        <h1 className="text-xl font-semibold tracking-tight">{TITLE}</h1>
+        <h1 className="sx-page-title">{TITLE}</h1>
         <SkeletonRows rows={3} />
       </div>
     );
@@ -69,7 +69,7 @@ export default async function GuardianHandoffsPage({ searchParams }: { searchPar
   return (
     <div className="space-y-5">
       <div>
-        <h1 className="text-xl font-semibold tracking-tight">{TITLE}</h1>
+        <h1 className="sx-page-title">{TITLE}</h1>
         <p className="mt-1 max-w-3xl text-xs leading-relaxed text-muted">
           A new guardian asks to take over a minor&rsquo;s account, and the current guardian hands off. Disputes aren&rsquo;t decided here; they come in through support.
         </p>

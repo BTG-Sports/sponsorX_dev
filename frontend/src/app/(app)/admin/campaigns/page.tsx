@@ -122,7 +122,7 @@ function LiveCampaignsList({ list, summary, waiting, sp }: { list: AdminCampaign
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-xl font-semibold tracking-tight">Campaigns</h1>
+        <h1 className="sx-page-title">Campaigns</h1>
         <p className="mt-1 text-xs text-muted">
           {summary.total} {summary.total === 1 ? "campaign" : "campaigns"} — staffing ones open their
           Matching Studio, delivering ones their operations board.
@@ -163,7 +163,7 @@ export default async function CampaignsListPage({
   if (live?.kind === "denied") {
     return (
       <div className="space-y-6">
-        <h1 className="text-xl font-semibold tracking-tight">Campaigns</h1>
+        <h1 className="sx-page-title">Campaigns</h1>
         <EmptyState
           mark="inbox"
           title="Campaigns are outside your role"
@@ -184,7 +184,7 @@ export default async function CampaignsListPage({
     <div className="space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-xl font-semibold tracking-tight">Campaigns</h1>
+          <h1 className="sx-page-title">Campaigns</h1>
           <p className="mt-1 text-xs text-muted">
             {campaigns.length + 1} campaigns · one staffing, {campaigns.length}{" "}
             delivering — pick one to manage matching, delivery, roster and

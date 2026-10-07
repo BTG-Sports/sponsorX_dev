@@ -64,7 +64,7 @@ export default async function OfferPage({ params }: { params: Promise<{ id: stri
       <div className="flex flex-wrap items-start gap-3">
         <div className="min-w-0 flex-1 basis-64">
           <div className="flex flex-wrap items-center gap-2.5">
-            <h1 className="text-xl font-semibold tracking-tight">{o.athlete.name}</h1>
+            <h1 className="sx-page-title">{o.athlete.name}</h1>
             <Badge tone={b.tone}><span aria-hidden="true" className="mr-1">{b.mark}</span>{b.label}</Badge>
           </div>
           <p className="mt-1 text-[13px] text-muted">{o.sponsorName} · {o.campaignName} · {o.jobName}</p>

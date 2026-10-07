@@ -1,6 +1,4 @@
 import { ApplicationsDesk } from "@/components/applications-desk";
-import { OpsStage } from "@/components/ops-fx";
-import { OpsGround } from "@/components/ops-stage";
 import { ScoutHeader } from "@/components/scout-stage";
 import { demoState } from "@/lib/demo";
 import { AGING_HOURS, waitHours } from "@/lib/applications-ui";
@@ -57,9 +55,6 @@ import { NotInRole, staffWithoutAccess } from "@/components/not-in-role";
    client-side desk.
    -------------------------------------------------------------------------- */
 
-/** The stage, bled to the edges of PortalShell's content column (P1-ART-14). */
-const STAGE = "sx-ops sx-stage relative isolate -mx-6 -my-6 min-h-[calc(100svh-66px)] overflow-hidden px-5 pb-14 pt-8 sm:px-8 lg:px-10 lg:pt-10";
-
 type LiveQueue = {
   rows: DeskApp[];
   page: PageInfo;
@@ -101,14 +96,9 @@ async function liveQueue(sp: SearchParams): Promise<LiveQueue | null> {
   };
 }
 
+/** Since P1-ART-18 the stage is the admin shell's; a page is content on it. */
 function Stage({ children }: { children: React.ReactNode }) {
-  return (
-    <OpsStage className={STAGE}>
-      {/* A dashboard: the stage's ground, no outlined word behind a hero. */}
-      <OpsGround word="" />
-      <div className="relative mx-auto max-w-[1440px]">{children}</div>
-    </OpsStage>
-  );
+  return <>{children}</>;
 }
 
 function EmptyQueue({ title }: { title: string }) {

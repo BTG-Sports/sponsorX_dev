@@ -41,7 +41,7 @@ export default async function OffersPage({ searchParams }: { searchParams: Promi
   if (demo === "loading") {
     return (
       <div className="space-y-6">
-        <h1 className="text-xl font-semibold tracking-tight">{TITLE}</h1>
+        <h1 className="sx-page-title">{TITLE}</h1>
         <SkeletonRows rows={3} />
       </div>
     );
@@ -65,7 +65,7 @@ export default async function OffersPage({ searchParams }: { searchParams: Promi
     <div className="space-y-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-xl font-semibold tracking-tight">{TITLE}</h1>
+          <h1 className="sx-page-title">{TITLE}</h1>
           <p className="mt-1 max-w-3xl text-xs leading-relaxed text-muted">
             Formal offers BTG sends athletes. Terms are fixed once sent: to change one, withdraw it and send a revised offer.
           </p>
