@@ -71,6 +71,17 @@ export const AgeRowInput = z
   .strict()
   .meta({ id: "AgeRowInput", description: "A place (a country, or a state within it) and its age of majority." });
 
+/** P1-ART-15 — the New sign-ups stream's filters; page and size are lib/paging.ts's. */
+export const SignupStreamQuery = z
+  .object({
+    page: z.coerce.number().int().optional(),
+    size: z.coerce.number().int().optional(),
+    kind: z.enum(["ORGANIZATION", "ATHLETE", "GUARDIAN", "SPONSOR"]).optional(),
+    review: z.enum(["1", "true", "0", "false"]).optional(),
+    q: z.string().trim().max(100).optional(),
+  })
+  .meta({ id: "SignupStreamQuery", description: "One kind (or all), only what is held for BTG (`review=1`), and a name / email search." });
+
 export const SignupSettingsInput = z
   .object({ staffConfirmMinors: z.boolean() })
   .strict()

@@ -103,6 +103,29 @@ export function livePage(v: unknown): number {
 /** GET /listings/live's page block. */
 export type ApiPage = { page: number; size: number; total: number; pages: number };
 
+/**
+ * The marketplace desk's queues (P1-ART-20) — one tile each on the queue
+ * strip, in the order BTG works them; the picked one's rows show under it.
+ */
+export const QUEUES = [
+  { key: "applications", label: "Property applications", short: "Applications" },
+  { key: "listings", label: "Listings", short: "Listings" },
+  { key: "orders", label: "Orders awaiting approval", short: "Orders" },
+  { key: "payments", label: "Failed payments", short: "Payments" },
+  { key: "payouts", label: "Payout problems", short: "Payouts" },
+] as const;
+export type QueueKey = (typeof QUEUES)[number]["key"];
+/** `?queue=` from the URL; an old `?listings=` link (the listing emails) lands on the listings queue. */
+export function queueKey(v: unknown, listings?: unknown): QueueKey | null {
+  if (QUEUES.some((q) => q.key === v)) return v as QueueKey;
+  if (typeof listings === "string" && listings) return "listings";
+  return null;
+}
+/** The queue the desk opens on when the URL names none: the first with work in it, else applications. */
+export function firstBusyQueue(counts: Record<QueueKey, number | null>): QueueKey {
+  return QUEUES.find((q) => (counts[q.key] ?? 0) > 0)?.key ?? "applications";
+}
+
 /** "Published automatically" or "Approved by BTG" — how a listing went live. */
 export function publishedByLabel(l: { publishedBy?: "AUTOMATIC" | "BTG" | null }): string | null {
   return l.publishedBy === "AUTOMATIC" ? "Published automatically" : l.publishedBy === "BTG" ? "Approved by BTG" : null;

@@ -34,7 +34,7 @@ export function signupStateOf(r: Pick<OnboardingRow, "state" | "flags">): Signup
   return "AUTO_APPROVED";
 }
 
-function signupRow(r: OnboardingRow) {
+export function signupRow(r: OnboardingRow) {
   const state = signupStateOf(r);
   const place = r.stateCode ? ` · ${r.stateCode}` : "";
   return {

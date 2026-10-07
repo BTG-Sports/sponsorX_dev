@@ -137,7 +137,7 @@ function LiveFinance({ books }: { books: LiveBooks }) {
     <ServerList>
     <div className="space-y-6">
       <div>
-        <h1 className="text-xl font-semibold tracking-tight">Finance</h1>
+        <h1 className="sx-page-title">Finance</h1>
         <p className="mt-1 text-xs text-muted">
           Invoice status from Zoho Books and athlete earnings status — §10. SponsorX observes; it does not invoice or pay.
         </p>
@@ -424,7 +424,7 @@ export default async function AdminFinancePage({
 
   const heading = (
     <div>
-      <h1 className="text-xl font-semibold tracking-tight">Finance</h1>
+      <h1 className="sx-page-title">Finance</h1>
       <p className="mt-1 text-xs text-muted">
         Invoice status from Zoho Books and athlete earnings status — §10.
         SponsorX observes; it does not invoice or pay.

@@ -65,7 +65,7 @@ export function LiveProspectDesk({ desk, view }: { desk: ProspectDeskPage; view:
     <ServerList>
       <div className="space-y-6">
         <div>
-          <h1 className="text-xl font-semibold tracking-tight">
+          <h1 className="sx-page-title">
             Student prospects{" "}
             <span className="bg-[linear-gradient(90deg,var(--sx-next-soft),var(--sx-next))] bg-clip-text text-transparent">· SponsorX NEXT</span>
           </h1>

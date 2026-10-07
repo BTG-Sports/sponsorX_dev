@@ -10,6 +10,7 @@
 import { Router, type RequestHandler } from "express";
 
 import { requireActor } from "../../auth/actor";
+import { pageRequest } from "../../lib/paging";
 import { limit } from "../../lib/rate-limit";
 import { clientIp } from "../../lib/client-ip";
 import { PayoutAccountLinkInput, PayoutDecisionInput, PayoutListQuery, StandinAccountInput, StandinCheckoutInput } from "../../contracts/payouts";
@@ -33,7 +34,8 @@ payoutsRouter.post("/payouts", requireActor, (async (req, res) => { res.status(2
 payoutsRouter.get("/payouts", requireActor, (async (req, res) => {
   const q = PayoutListQuery.parse(req.query);
   const states = q.state ? q.state.split(",").map((s) => s.trim()).filter(isPayoutState) : undefined;
-  res.json(await listPayouts(req.actor!, states as PayoutState[] | undefined, q.waitingOn));
+  /* ?page= turns on the house pager (lib/paging.ts); without it the old whole list. */
+  res.json(await listPayouts(req.actor!, states as PayoutState[] | undefined, q.waitingOn, pageRequest(req.query as Record<string, unknown>) ?? undefined));
 }) as RequestHandler);
 payoutsRouter.get("/payouts/:id", requireActor, (async (req, res) => { res.json(await getPayout(req.actor!, req.params.id)); }) as RequestHandler<Id>);
 payoutsRouter.post("/payouts/:id/decision", requireActor, (async (req, res) => {

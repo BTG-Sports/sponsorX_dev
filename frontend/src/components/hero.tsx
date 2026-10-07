@@ -20,7 +20,7 @@ export function HeroBand({
   return (
     <div
       className={[
-        "rounded-2xl border p-5 sm:p-6",
+        "sx-hero-band rounded-2xl border p-5 sm:p-6",
         border,
         "bg-[linear-gradient(120deg,rgba(46,155,245,.18),transparent_55%),linear-gradient(240deg,rgba(249,122,31,.13),transparent_50%)]",
         "bg-surface/40",

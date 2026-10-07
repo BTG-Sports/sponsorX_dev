@@ -1,114 +1,100 @@
-# 2026-10-05
+# 2026-10-07
 
-## rcfworks — tester facility and walkthrough presentation (separate projects, outside this repo)
+- **The SponsorX repository moved to the BTG-Sports organization** (GitHub Team plan, owner `rcarr-crypto`; `infinex1` is also an owner). It is now `github.com/BTG-Sports/sponsorX_dev`, and the old `infinex1/sponsorX_dev` links redirect.
+  - Issues, pull requests, Actions secrets and variables, and collaborators moved with it. CI runs on the new repository.
+  - **Railway:** the Railway GitHub app is installed on BTG-Sports (only this repository). All four services (staging and production, api and web) now point at `BTG-Sports/sponsorX_dev` on the `release` branch. Railway's API refuses repository changes from the CLI (NotAuthorized), so they were made in the dashboard by the owner.
+  - **Deploys:** staging was redeployed from `main` (acbb23a). Production rebuilt the same commit (499e0b5).
+  - This Mac's `origin` and `documentation/SponsorX-Developer-Handoff.md` now use the new address.
+  - **Still to update by hand:** the Vercel test deployment's GitHub connection (HeckerCreatives).
+- **The "SponsorX received this from the payment provider" emails** were noise from the 2026-10-06 Stripe sandbox tests. Sandbox events for test accounts and payments created from this Mac reached staging, failed after 7 tries and emailed BTG admins: 59 events.
+  - The fix that ignores foreign accounts (7105256) is now on staging (PRs #160 → #166, deployed).
+  - The 59 FAILED rows are still on staging's exceptions list; clearing them is offered, not yet done.
+- **Slack tracker broadcast (owner's decision):**
+  - each merge to `main` that changes tasks now posts one Slack message listing them (`tracker-notify.yml`; `--no-slack` removed);
+  - the 8 pm digest posts only on days with none (`tracker_sync.py digest --skip-if-announced`);
+  - the Stage Progress row is still appended every day.
+  - Tests: 23/23 (`DigestOnlyOnQuietDays`).
+- **PR #167** (the release of 2S8-PMO-02 to `main`) is open. #165 merged into main_development just after #166 went to `main`.
+- **Code review rows checked against acceptance.**
+  - **Done:** 2S8-PMO-02, plus 2S3-FE-02, 2S5-FE-03 and 2S5-FE-04 after browser verification on the local stack. The team page equals the ledger: $151.05 booked, $135.64 paid, $15.41 reserve.
+  - **Still in review:**
+    - 2S5-FE-05: no receipt has been delivered on staging, because Resend rejects `@example.com`. Also, the receipt goes to the signed-in user, not the billing contact the checkout copy names.
+    - 2S7-FE-02: the console lacks disputes, payment events, REQUESTED payouts, refunds to send and delivery issues.
+- **2S0-OPS-01 · Done.** The owner agreed RPO ≤ 1 h and RTO ≤ 4 h. PITR on both environments already meets them: `archive_timeout` = 60 s, so a segment is archived every minute.
+- **2S8-OPS-01 · In progress.**
+  - A staging PITR restore into `pg-restore-check-1007` matched live exactly and was queryable in about 9.5 minutes. The service was then deleted.
+  - Rollback took 41 s and roll-forward 51 s. Rollback is code-only across migrations.
+  - **Alerting is built:**
+    - `GET /health/full`, with db, redis, storage and backups (stale after 60 minutes);
+    - the web path `/api/v1/public/health`;
+    - `.github/workflows/health-monitor.yml`, every 15 minutes, with per-environment state, posting to Slack only on change.
+  - **Done after deploy and a test alert:** `gh workflow run health-monitor.yml -f simulate_failure=true`.
+- **2S8-PMO-01 · In progress.** The sign-off record is `documentation/SponsorX-Phase2-Acceptance-Signoff.md`: 12/14 demonstrated, #13 Zoho partly, #11 wallet not built. It still needs real external users on staging, through its 18-step plan, and the owner's sign-off.
+- **The wallet rows' notes are corrected.** They wait on Apple and Google wallet accounts, not on the payment provider.
+- **2S1-OPS-01 is waiting on the owner** to name the inbox `support@sponsorx.net` should forward to. Today `sponsorx.net`, on Cloudflare, has no MX records. Zoho Desk exists (department "iCARRe Foundation") but has no email channel.
+- **Local note:** the scratchpad was wiped. The verification agent left a throwaway embedded Postgres running on 55432 (`scratchpad/pg`), and its worktree is still locked.
 
-- **Tester facility:** `../sponsorX_tester_facility`, its own git repo, local only, with no remote. It is an admin page plus a small backend that create SponsorX test accounts directly in an environment's database and Clerk, the owner's choice of option (b). That means no app change: accounts skip Zoho sync, and app emails to them will bounce.
-  - **Hosted on Railway staging:** the `tester` service, at https://tester-staging-8074.up.railway.app.
-    - Per-person logins (`TESTER_USERS`) for infinex1, infinex2, rcarr and chantelleicarre.
-    - Passwords are in the staging `tester` service variables (`TESTER_PW_*`); they were generated straight into Railway and never shown.
-    - A `/data` volume holds the registry and log. Every action is logged with the operator's email, and writes `testAccount.*` audit rows.
-  - **Sign-in:** "Sign in as" uses one-time Clerk sign-in tokens, so no inbox is needed.
-  - **Kinds:** BTG staff, sponsor, adult athlete, minor athlete with guardian, team, advisor, student, and a story set.
-  - **Production is not connected.** The production DB is unreachable from the staging service, and opening it to the internet was blocked by the safety system. The owner decided staging-only is fine for now. The options, if it's ever needed: a second tester service inside production, or public networking on Postgres-production.
-- **Walkthrough presentation:** `../sponsorX_presentation`, local git only.
-  - A client-only animated deck that plays over the REAL SponsorX pages, captured as static HTML (scripts stripped) from a local stack seeded with the story data. The capture can be re-run from `capture/`.
-  - Part 1 "Everyone joins" is trimmed to 21 slides. Next pulses and glows once a slide's animation finishes.
-  - **Findings for the app:**
-    - "Coffee" isn't a business type (it's filed as Other, then Restaurant).
-    - Stale copy: "BTG verifies every organisation…" on the application page, and "BTG has opened a sponsor account" in the account email.
-    - An overlap on the athlete home ("Coming up" over "Offers waiting").
+## HeckerCreatives — P1-ART-18: the whole admin portal on the stage (Code review)
 
-## Phase 2 Sprint 8 backend close-out (rcfworks)
+The owner asked for the whole admin portal in the Mission Control language, components included, without check-ins. Spec: `docs/superpowers/specs/2026-10-07-admin-portal-stage-design.md`. Branch `feature/P1-ART-18-admin-portal-stage`, stacked on P1-ART-17.
 
-- **2S8-QA-05 · Done.** Three robustness gaps:
-  - Same-name applicants no longer collide on the athlete slug. The insert retries under a savepoint (`athlete-slug-race.test`, 6 concurrent same-name applications).
-  - `seed-personas` runs on a used database. It picks a free slug and skips on an email clash (`pilot-school.test`).
-  - `GET /payouts/me` adds `balanceCents`, `owedBackCents` and `owedBackNote`, and the athlete and property payout pages show money owed back after a refund. Netting money owed back against future payouts is unchanged; that is a policy choice.
-- **2S8-OPS-02 · Code review.**
-  - The new migration `20261005100000_utc_time_zone` sets the database to UTC and redefines `adslot_guard_sale` to use UTC.
-  - `expire-invitations` uses `now() AT TIME ZONE 'UTC'`.
-  - The Prisma and worker pools force `TimeZone=UTC`, and docker-compose and CI are pinned.
-  - `utc-session.test` passes under Manila and Los Angeles sessions.
-  - **It moves to Done after the next staging and production deploy applies the migration.** Staging's DB has no public URL, so it can't be checked from a laptop.
-- **Suite:** 2675 of 2677 pass. The only failures are `next-edition-e2e` clauses 4–5, which were already failing on main; they are part of 2S8-QA-01's "CI green" work.
-- **2S8-QA-01** (the end-to-end marketplace suite and a green CI) and **2S8-SEC-02** (OWASP review, dependency scan, secrets rotation) are in progress.
-- **2S8-QA-01 · Done.** The full marketplace path runs green in CI (run 37281259338: unit, e2e, and the new security job).
-  - **New `e2e/marketplace-path.spec.ts`:** a team and an athlete onboard automatically, then roster, listing and auto-publish. The sponsor buys within the spending limit, and the frozen split is asserted to the cent. Then payment on the stand-in, delivery and confirmation, an automatic payout, the reserve released after the delivery sweep, and the order CLOSED with nobody approving.
-  - **Stale specs updated for automation:** loop-p3, p4, p5 and p7, plus Jan's `next-edition-e2e` clauses 4–5. The automatic artwork licence covers publishing, not reuse in a campaign; BTG still records a reuse right.
-  - **The CI 429s were Clerk's own rate limit,** not ours. The actor lookup called `clerk.users.getUser` on every request; it now fetches the email only when no user is linked yet (`resolve-actor-lazy-email.test`).
-  - **New e2e support:** an in-memory object store stand-in, a worker runner and `signInExisting`.
-- **2S8-SEC-02 · Done.** The review is `documentation/SponsorX-Security-Review-2026-10.md`, and the runbook is `documentation/SponsorX-Secrets-Rotation.md`.
-  - **Fixes, all with tests:**
-    - deliverable file keys pinned to their own folder (a cross-tenant read);
-    - the staging stand-in secret derived instead of the public default;
-    - the contact-form copy no longer echoes the sender's message;
-    - API and web security headers;
-    - webhook signatures checked over the raw body;
-    - webhook-only rate limiting, and rate-limit keys that can't block forever;
-    - logo uploads pinned to type and size.
-  - **Dependencies:** next 16.3.8 fixes the critical `next/og` remote-code-execution advisory, plus vite 7.3.6 and three overrides. The production audit is now 0. One dev-only `braces` advisory is allowlisted until 2027-01-05.
-  - **CI:** a nightly `security` job runs the audit gate and a secret scan over every tracked file.
-  - **Rotation:** five signing secrets accept `<NAME>_PREVIOUS` during a rotation.
-  - **Frontend changes, merged at the owner's request (2026-10-05) — heads-up, HeckerCreatives:**
-    - `user-menu.tsx` and the new `server/sign-out-actions.ts`: Log out now really ends the Clerk session.
-    - `next.config.ts`: security headers.
-    - `app/t/[code]/route.ts`: codes are checked.
-    - the admin sensitive-edit redirect is https-only.
-    - the new `lib/safe-path.ts` is used by `order-payment-live.ts` and `payouts-live.ts`.
-  - **Owner decisions still open (listed in the review):**
-    - a full CSP, report-only first;
-    - HSTS `includeSubDomains` / `preload`;
-    - Clerk `authorizedParties`;
-    - expiry times for intake, onboarding, sign-up and sponsor-request links;
-    - whether a profile claim needs email confirmation;
-    - setting `PAYMENT_PROVIDER=none` explicitly on production;
-    - setting `STANDIN_PROVIDER_SECRET` on staging. The first deploy changes staging's derived value, so test-provider links already sent stop working.
-- **Stage Progress:** the 2026-10-05 row is appended (Phase 1: 265 Done, 47 days left).
-- **PR #153 merged into main_development** (2026-10-05). It is not on `main` yet, so it is not deployed. **2S8-OPS-02 stays Code review** until the next deploy applies the UTC migration on staging and production.
-- **New rows raised by 2S8-SEC-02,** all Ready, Order 62.1–62.5, in the tracker and the Phase 2 plan:
-  - 2S8-SEC-03: private uploads pin their type and size;
-  - 2S8-SEC-04: an invoice webhook replay can't roll an invoice back;
-  - 2S8-SEC-05: small hardening items;
-  - 2S8-QA-07: guard tests cover writes and same-tenant access;
-  - 2S8-PMO-02: the seven security settings the owner decides.
-- **Tracker ranges:** the Phase 2 ranges now end at row 131. That covers the Dashboard formulas, the autofilter, the conditional formatting and the Status list.
-- **Security follow-ups · all Done** (merged 62495d9). Backend 2731/2731 and frontend 1155/1155. Secret scan, audit gate and script tests pass.
-  - **2S8-SEC-03:** all ten private upload URLs are signed for one type and size. Every confirm or register step checks the object (HEAD) and refuses, deletes and audits a mismatch. `tests/support/object-store.ts` is an in-process bucket that checks signatures the way R2 does.
-  - **2S8-SEC-04:** the invoice ingest never moves a stored invoice backwards, and `invoice.staleRefused` is audited. A genuine backwards correction in Zoho is held for BTG too, because Zoho sends no timestamp.
-  - **2S8-SEC-05:**
-    - the rates probe is closed;
-    - the Zoho CRM module and ids are constrained;
-    - the PDF renderer runs with JavaScript off;
-    - worker logs mask email addresses;
-    - `server-only` is on the three `frontend/src/server` files, owner approved — heads-up, HeckerCreatives: the five vitest files that load them mock it;
-    - a new `npm run secrets:scan:history` scanned 868 commits and found nothing.
-  - **2S8-QA-07:**
-    - the static guard now covers writes: 3 writes were fixed to carry the tenant, and 42 were justified one by one;
-    - the isolation test adds a second sponsor and a second athlete in the same tenant, across 197 routes;
-    - no real leak was found.
-- **2S8-PMO-02** (the seven security decisions) stays with the owner.
-- **The payment chain is in progress:** 2S5-INT-02, BE-03, BE-04, BE-05 and 2S8-QA-02.
-- **Payment chain · all Done** (merged cdf89cf), built on the stand-in provider. CI is green (run 37297015366). Backend 2838/2838, frontend 1155/1155.
-  - **2S5-INT-02:** signed payment webhooks with a 5-minute replay window, and one `PaymentEvent` per provider event, applied by the `payments.event` job. States only move forward; early events are deferred, and conflicts are held for BTG.
-  - **2S5-BE-03:** provider refunds reverse the ledger. Disputes go OPEN → UNDER_REVIEW → WON | LOST and are never moved by the system. An open dispute freezes the order's money, and a lost one reverses the books and records money owed back.
-  - **2S5-BE-04:** the dispute clause is added, so eligibility now checks all five conditions.
-  - **2S5-BE-05:** payouts go to the provider with idempotency keys, `payout.paid` / `failed` / `returned` track them to completion, and retries run 1/6/24 hours, then hand over to BTG.
-  - **2S8-QA-02:** a deliberate-breakage suite with a books-balance check after every scenario. The stand-in has `STANDIN_OUTAGE` for outage tests. Wallet provider outages are split out to the new **2S6-QA-01** (Blocked until wallet adapters exist; owner decision).
-  - **Left for Stripe (2S5-INT-01):** the verifier and event mapping (the mapping table is already in `contracts/payment-events.ts`), the adapter calls, metadata, Connect status, and dispute evidence and fees.
-- **Six new frontend rows for HeckerCreatives, all Ready** (owner decision). The API already serves each one:
-  - 2S5-FE-07: BTG's payment exceptions page;
-  - 2S5-FE-08: dispute pages;
-  - 2S5-FE-09: frozen money on the payee page;
-  - 2S5-FE-10: payout attempts and returns;
-  - 2S5-FE-11: checkout "busy, try again";
-  - 2S5-FE-12: provider refunds on Finance's list.
-- **Two merge fixes:**
-  - The payment worker's new log lines now go through the email-masking `log()`, as 2S8-SEC-05 requires.
-  - `loop-p4` was racing the page refresh: the "Declined…" confirmation disappears once the offer leaves "open". The spec now accepts the confirmation or the refreshed status, for accept and decline both.
-- **Release (2026-10-05):** PRs #155 (into main_development) and #156 (into main) were merged at 9865881.
-  - **Staging is deployed and verified.** The API and web are on 9865881, and the 13 pending migrations were applied, including `utc_time_zone` and the three payment migrations. The database reports `TimeZone=UTC` for both the session and the database setting. The API is listening with no errors, and the web app answers 200.
-  - **Production is not yet deployed** (it is still on c46fc85). `npm run deploy production` asks a person to type "yes"; that confirmation is the owner's to give. Once it has run, 2S8-OPS-02 moves to Done.
-- **Production deployed** (the owner ran `npm run deploy production`). The API and web are on 9865881, and all 32 pending migrations were applied, including UTC and the payment ones.
-  - The production database reports `TimeZone=UTC`.
-  - sponsorx.net answers 200 with the new security headers: `X-Frame-Options DENY`, HSTS and nosniff, with no `X-Powered-By`.
-  - **2S8-OPS-02 · Done:** every environment now runs in UTC.
+- **The stage is now the admin shell's.** `PortalShell` takes `stage`; the admin layout sets it. The root carries `.sx-ops`, `<main>` is an `OpsStage` with `OpsGround` (no word), the house padding and 1440px column, no overflow clip (the matching studio's sticky bars need it). The theme toggle is hidden there.
+  - `StagePortals` adds `.sx-ops` to `<body>` while mounted, so drawers, dialogs and menus portaled to the body are on the stage even for Frost users.
+  - The four desks from P1-ART-14…17 drop their own stage wrappers. `/admin`'s hero is now a dashboard header (`OpsHeader`: title + tiles, with a compact ring tile by queue).
+- **A shared skin** in `globals.css` under `.sx-ops`, keyed on marker classes added to the primitives (`sx-card`, `sx-badge`, `sx-section-title`, `sx-hero-band`, `sx-stat`, `sx-btn-*`, `sx-tabs`, `sx-notice`, `sx-page-title`). It also matches `role=tablist/tab`, the `rounded-lg border border-line bg-surface p-1` link-strip idiom, native `select` / `input` / `textarea`, `button.bg-primary` / `button.border-line`, `.sx-drawer`, and `[role=dialog] > div > .sx-pop`.
+  - 52 identical `<h1 className="text-xl font-semibold tracking-tight">` swept to `sx-page-title` across 38 files.
+  - Cards get bracket corners from pseudo-elements, not clip-path, so a dropdown inside a Card isn't cut off.
+  - 24 files still use native `<select>`; they're skinned, not replaced.
+- **Environment, two findings:**
+  1. **Docker Desktop was off.** Started it, `npm run docker:up`, then the API.
+  2. **The PC clock is ~10 minutes behind Clerk's.** Every session token was "not active yet" (API 401; Next's Clerk middleware handshake-looped /login → /portal). `w32tm /resync` needs admin. Added an optional `CLERK_CLOCK_SKEW_MS` to the API (`backend/src/config/env.ts`, `auth/clerk.ts`) and to `frontend/src/proxy.ts`; both servers were started with it for the walk only. The owner should sync the clock. Saved as Claude memory "clock-skew-breaks-clerk".
+- **Verified:**
+  - Frontend 1167 tests, eslint, tsc (frontend and backend).
+  - Playwright sampler as BTG_ADMIN: 27 desks on the stage, `body.sx-ops` true on each, no console errors, overflow 0; the applications drawer and the rules dialog dark; light theme identical; 390px on three pages.
+  - `next build` in a detached worktree: green, all 45 `/admin` routes.
+- **Tracker:** P1-ART-18 is Phase 1 row 294 (Order 32.996, Code review); ranges extended to 294; a 2026-10-07 snapshot row added.
+
+## HeckerCreatives — P1-FE-31: the admin desks' lists as server-paged tables (Code review)
+
+The owner asked whether the admin desks' tables page "based on our rules and memory", then: "convert them to tables with pagination … IF only its needed to be converted to be a table to make it optimized and make it easy on the eyes of the user". Spec: `docs/superpowers/specs/2026-10-07-admin-lists-paged-tables-design.md`. Branch `feature/P1-FE-31-admin-lists-paged`, stacked on P1-ART-18.
+
+- **The audit.** Already server-paged: board, applications, approvals, campaigns, matching studio, finance reconciliation, marketplace, network, new sign-ups (+ sensitive edits), rewards, NEXT prospects; the rules panel pages its places in the browser by the owner's choice. **Not paged — ten desks** reading a whole list (or the API's silent cap of 100–500) and some counting tabs from the rows in view: audit log, briefs, sponsor requests, property verification (eight whole-table reads to count its tabs), payouts, refunds, delivery issues, guardian handoffs, closed accounts, offers.
+- **Nine become one shared stage table** — `frontend/src/components/stage-table.tsx` (`StageTable`, `Tr`, `Td`, `Primary`, `PagedTable`, `TabStrip`/`TabLink`) and `.sx-table` in `globals.css`: a real `<table>`, the house pager above and below, rows rising in on the stage, stacked into cards with `data-label` headers below `md`. **Briefs stays rows** (reasons, checklist, detail panel) but is paged, with tab / search / sport on the server.
+- **The API** gains the house pager (`lib/paging.ts`) on `/sponsor-requests`, `/onboarding` (`reviewQueuePage`, every tab's count), `/payouts`, `/refunds`, `/delivery-issues` (`deliveryIssuesPage`: one tab, counts for all three — `problems`/`settled` page the issues themselves), `/guardian-handoffs`, `/account-closures`, `/offers` (`listOffersPage`: the desk's tab rules moved to WHEREs, `counts` + `tabs`), `/audit-log` (a counted page beside the cursor) and `/briefs` (`?sport=`, `counts`, `facets.sports`). Every new read carries its `tenant-scope:` note.
+  - Found in review (subagent): the audit route's first cut clamped the page before counting, so `?page=2` answered page 1. Fixed: count, clamp, then read.
+- **Verified:** backend tsc + static scope tests + nine endpoint tests (`?page=1&size=1`: one row, the page, counts equal to the unpaged call, no `page` key without `?page`); frontend tsc, eslint, 1167 unit tests; Playwright `e2e/admin-lists-paged.spec.ts` as BTG_ADMIN — ten desks on the stage, table/rows with the pager or an empty state, no console errors, no overflow, `?size=24` honoured, a tab link resets `?page`; `next build` in a detached worktree.
+- **Tracker:** P1-FE-31 is Phase 1 row 295 (Order 32.997, Code review); ranges extended to 295; the 2026-10-07 snapshot row recomputed.
+- **Note for the dev API:** `combined.mts` doesn't watch — it was restarted for the walk. Both servers still run with `CLERK_CLOCK_SKEW_MS=1200000` until the owner syncs the clock.
+
+## HeckerCreatives — P1-ART-19: the commission desk (Code review)
+
+The owner: "/admin/commission page visual design looks shit, too much space, redesign or restructure the page itself to make it easier for the eyes of the user". Spec: `docs/superpowers/specs/2026-10-07-commission-desk-design.md`. Branch `feature/P1-ART-19-commission-desk`, stacked on P1-FE-31.
+
+- **Before:** six tall cards (one per rule kind, most "No rule"), a whole add-rule form always open, the sample order under it — a screen and a half at 1440, four screens on a phone.
+- **Now:** the **split strip** (six tiles in the ledger's order, each headlining the rate for everyone — `kindSummary` in `lib/commission-live.ts`, unit-tested), the **picked kind's rules as a stage table** (earlier versions unfold under a row), the **sample order beside it** (sticky; the split as a waterfall), and **add / revise in a dialog** (`commission-rule-dialog.tsx`, the P1-ART-17 shape; `ComboBox` now exported from `place-dialog.tsx` with `showCode`) that previews the unsaved rule against the sample order.
+- Visuals and structure only — the API contract and actions are unchanged.
+- **Verified:** tsc, eslint, 10 unit tests in `commission-live.test.ts` (render test rewritten for the desk, three `kindSummary` cases added); Playwright pass as BTG_ADMIN at 1440 and 390 (strip, split, dialog with preview and dropdown, Escape closes, no console error, no overflow).
+- **Tracker:** P1-ART-19 is Phase 1 row 296 (Order 32.998, Code review); ranges extended to 296; the 2026-10-07 snapshot row recomputed.
+
+## HeckerCreatives — P1-ART-20: the marketplace desk (Code review)
+
+The owner: "same in /admin/marketplace, the structure looks shit". Spec: `docs/superpowers/specs/2026-10-07-marketplace-desk-design.md`. Branch `feature/P1-ART-20-marketplace-desk`, stacked on P1-ART-19.
+
+- **Before:** six stat tiles, then six stacked full-width cards (applications, listings, orders, failed payments, payout problems, disputes), each mostly a hint and "nothing here" — the same number twice, two screens.
+- **Now:** the **queue strip** — five tiles, one per queue, each with its count, one line of context and a tone for work waiting; a tile is the navigation (`?queue=`, written in place), the desk opens on the first queue with work — and **one panel** under it: a stage table for applications, orders, failed payments and payout problems, or the listing desks' inline-action rows under their three tabs (`components/marketplace-desk.tsx`). Disputes are one line. The listing emails' `?listings=…#listing-…` links still land on the right row.
+- Reads unchanged in substance (one parallel pass; switching reads nothing); `/onboarding` and `/payouts` now read with the house pager so the tiles' counts are the API's.
+- **Verified:** tsc, eslint, 25 unit tests across the two marketplace test files (two `queueKey` / `firstBusyQueue` cases added); Playwright `e2e/admin-marketplace-desk.spec.ts` as BTG_ADMIN at 1440 and 390.
+- **Tracker:** P1-ART-20 is Phase 1 row 297 (Order 32.999, Code review); ranges extended to 297; the 2026-10-07 snapshot row recomputed.
+
+## HeckerCreatives — P1-ART-21: the admin sidebar in collapsible groups, sorted (Code review)
+
+The owner: "restructure the navigation buttons in the side, its too many, if its possible to have a collapsable please do so" and "sort them orderly". Spec: `docs/superpowers/specs/2026-10-07-admin-sidebar-groups-design.md`. Branch `feature/P1-ART-21-admin-sidebar-groups`, stacked on P1-ART-20.
+
+- **Before:** 29 links in one flat column, in build order.
+- **Now:** Dashboard on top, then seven collapsible groups in the order BTG works — Intake, Campaigns, Marketplace, Money, Accounts, NEXT, System — each A → Z inside. The group holding the open page opens on arrival; the viewer's other choices are remembered per browser (`localStorage` read through `useSyncExternalStore`, so no hydration mismatch and no state set in an effect — the lint rule `react-hooks/set-state-in-effect` refused the first cut). The phone drawer lists the groups with their desks two to a row.
+- `NavItem.group` + `lib/nav-groups.ts` (pure); a nav without groups renders flat, so the other portals are untouched. The per-role filter and the commission-only rule are as before (the commission test's regex on the layout still holds).
+- **Verified:** tsc, eslint, `tests/nav-groups.test.ts` (3; one pins the admin groups' order and sorting from the layout source), Playwright `e2e/admin-sidebar-groups.spec.ts` as BTG_ADMIN.
+- **Tracker:** P1-ART-21 is Phase 1 row 298 (Order 32.9995, Code review); ranges extended to 298; the 2026-10-07 snapshot row recomputed.
+- **Follow-up (owner: "showing takes to long when you collapse"):** a group's desks were staggered from the top of the whole nav (`80 + i × 40 ms` over a 0.5 s fade), so the last group took over a second to appear. Now a group's desks are timed from their own first row — 25 ms apart, a quarter-second fade — and only the top items and the group headers stagger down the column on arrival.
+- **Follow-up (owner: "redesign the visual, too plain"):** group headers now read like desk rows — a glyph tile per group (`groupIcon` on one item; `NavGroup.icon`), the name, a count chip, a caret; the group you are in gets the accent rail, wash and a glowing tile; an open group brightens and its desks hang off a cyan track line; hover sweeps a light. The group name is 10px / 0.12em so "Marketplace" fits the 224px rail.
+- **Follow-up (owner: an x scrollbar on the nav when hovering):** the header's hover sweep slides a full-width light past the header's right edge, and the sidebar's scroller only said `overflow-y-auto` — which gives `overflow-x: auto` with it — so the moment of overflow drew a horizontal scrollbar. The header now clips (`overflow-hidden`) and the scroller is `overflow-x-hidden`; the walk hovers a header and pins zero horizontal overflow.

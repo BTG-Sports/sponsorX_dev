@@ -8,7 +8,12 @@ import { REFUND_METHODS, REFUND_STATES } from "../domain/refunds";
    -------------------------------------------------------------------------- */
 
 export const RefundsQuery = z
-  .object({ state: z.enum(REFUND_STATES).optional().describe("OPEN — still to send (oldest first); SENT — sent (latest first). Omitted: both.") })
+  .object({
+    state: z.enum(REFUND_STATES).optional().describe("OPEN — still to send (oldest first); SENT — sent (latest first). Omitted: both."),
+    /* The house pager (lib/paging.ts): present → one page and its count. */
+    page: z.coerce.number().int().optional(),
+    size: z.coerce.number().int().optional(),
+  })
   .meta({ id: "RefundsQuery", description: "Which refunds: still to send, or sent." });
 
 export const RefundSentInput = z

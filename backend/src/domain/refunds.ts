@@ -45,6 +45,7 @@ import { ProviderRefusedError, ProviderUnavailableError, refundCard, sendCardRef
 import { containsCardNumber } from "./marketplace-order-rules";
 import { appUrl, btgAdmins, orderRef, sponsorRecipient, tell, usd } from "./order-mail";
 import { lockCampaign } from "./campaign-stages";
+import { readPage, type PageInfo, type PageRequest } from "../lib/paging";
 
 type Tx = Prisma.TransactionClient;
 type Db = Tx | typeof prisma;
@@ -575,19 +576,26 @@ async function viewsOf(rows: Row[]) {
 }
 
 /** GET /refunds — BTG admin and Finance, tenant-wide: what is still to send (oldest first), or what was sent (latest first). */
-export async function listRefunds(actor: Actor, state?: RefundState) {
+/** `page` (the house pager, lib/paging.ts): one page of the tab and its count instead of the first 500. */
+export async function listRefunds(actor: Actor, state?: RefundState, page?: PageRequest) {
   assertTenantWide(actor, "refundDue", "read");
   const where = whereFor(actor, "refundDue", "read");
-  const rows = await prisma.refundDue.findMany({
-    where: { ...where, ...(state ? { state } : {}) }, select: ROW,
-    orderBy: state === "SENT" ? [{ sentAt: "desc" }] : [{ state: "asc" }, { createdAt: "asc" }], take: 500,
-  });
+  const tabWhere = { ...where, ...(state ? { state } : {}) };
+  const read = (skip: number, take: number) =>
+    prisma.refundDue.findMany({
+      where: tabWhere /* tenant-scope: whereFor(refundDue) in where */, select: ROW,
+      orderBy: state === "SENT" ? [{ sentAt: "desc" }] : [{ state: "asc" }, { createdAt: "asc" }], skip, take,
+    });
+  const paged = page
+    ? await readPage(page, () => prisma.refundDue.count({ where: tabWhere /* tenant-scope: whereFor(refundDue) in where */ }), read)
+    : { rows: await read(0, 500), page: null as PageInfo | null };
+  const rows = paged.rows;
   const [open, sent, owed] = await Promise.all([
     prisma.refundDue.count({ where: { ...where, state: "OPEN" } }),
     prisma.refundDue.count({ where: { ...where, state: "SENT" } }),
     prisma.refundDue.aggregate({ where: { ...where, state: "OPEN" }, _sum: { amountCents: true } }),
   ]);
-  return { counts: { open, sent }, openCents: owed._sum.amountCents ?? 0, refunds: await viewsOf(rows) };
+  return { counts: { open, sent }, openCents: owed._sum.amountCents ?? 0, refunds: await viewsOf(rows), ...(paged.page ? { page: paged.page } : {}) };
 }
 
 export type RefundSentInput = { method: RefundMethod; reference: string; sentOn: string };

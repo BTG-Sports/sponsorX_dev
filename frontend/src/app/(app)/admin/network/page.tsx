@@ -70,7 +70,7 @@ export default async function NetworkPage({ searchParams }: { searchParams: Prom
   const data = await load(await searchParams);
   const heading = (
     <div>
-      <h1 className="text-xl font-semibold tracking-tight">Network</h1>
+      <h1 className="sx-page-title">Network</h1>
       <p className="mt-1 text-xs text-muted">
         How the marketplace itself is doing — who is working, what each job earns, and how well we price reach.
       </p>

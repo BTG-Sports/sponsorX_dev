@@ -268,6 +268,20 @@ describe.skipIf(!hasDatabase)("card payment and payouts over the API", { timeout
       expect((await call("POST", `/payouts/${p.id}/decision`, "po_mgr", { decision: "APPROVE" })).status).toBe(403);
       expect((await call("GET", `/payouts/${p.id}`, "po_mgr")).status).toBe(403);
     });
+
+    it("P1-FE-31 · ?page=1&size=1 answers one row with the page and the same counts; without ?page the old shape", async () => {
+      const whole = await call("GET", "/payouts?state=REQUESTED", "po_admin");
+      expect(whole.status, whole.text).toBe(200);
+      expect(whole.json.page).toBeUndefined();
+      const paged = await call("GET", "/payouts?state=REQUESTED&page=1&size=1", "po_admin");
+      expect(paged.status, paged.text).toBe(200);
+      const total = whole.json.payouts.length;
+      expect(total).toBeGreaterThanOrEqual(1);
+      expect(paged.json.page).toEqual({ page: 1, size: 1, total, pages: total });
+      expect(paged.json.payouts).toHaveLength(1);
+      expect(paged.json.payouts[0].id).toBe(whole.json.payouts[0].id);
+      expect(paged.json.counts).toEqual(whole.json.counts);
+    });
   });
 
   describe("2S5-BE-05 · approval, sending and the provider's confirmation", () => {

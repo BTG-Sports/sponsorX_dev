@@ -26,6 +26,7 @@
    -------------------------------------------------------------------------- */
 
 import { centsFromUsd, dateInput, refusalMessage } from "./inventory-live";
+import type { PageInfo } from "@/lib/list-query";
 
 export { centsFromUsd, dateInput };
 
@@ -163,6 +164,12 @@ export const OFFER_TABS = [
   { key: "withdrawn", label: "Withdrawn" },
 ] as const;
 export type OfferTabKey = (typeof OFFER_TABS)[number]["key"];
+
+/** P1-FE-31 — GET /offers?page=&tab=: one desk tab's page, newest first
+ *  (change requests the longest-waiting first on Needs you), with how many
+ *  stand in each state and in each desk tab. The tab rules (offersByTab
+ *  below) now run on the server. */
+export type ApiStaffOfferPage = { offers: ApiStaffOffer[]; page: PageInfo; counts: Record<string, number>; tabs: Record<OfferTabKey, number> };
 
 export function offerTab(raw: string | string[] | undefined): (typeof OFFER_TABS)[number] {
   const v = Array.isArray(raw) ? raw[0] : raw;

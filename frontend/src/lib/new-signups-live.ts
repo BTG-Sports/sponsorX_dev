@@ -161,3 +161,111 @@ export function sponsorRows(approved: readonly ApiSponsorSignup[], waiting: read
   }));
   return [...heldRows, ...approvedRows];
 }
+
+/* --------------------------------------------------------------------------
+   P1-ART-15 — the Intake Stream: every kind on the desk in one server-paged
+   list (GET /signups/stream, /signups/stream/summary). The URL holds the
+   filters (`kind`, `review=1`, `q`, plus the house `page` / `size`); the old
+   tabs' `?tab=` links (emails carry `?tab=review`) still land on the same
+   view. Pure.
+   -------------------------------------------------------------------------- */
+
+export const STREAM_KINDS = ["ORGANIZATION", "ATHLETE", "GUARDIAN", "SPONSOR"] as const;
+export type StreamKind = (typeof STREAM_KINDS)[number];
+
+export type ApiStreamRow = {
+  kind: StreamKind;
+  id: string;
+  name: string;
+  sub: string;
+  signedUpAt: string;
+  state: SignupState;
+  reasons: string[];
+  flags: string[];
+};
+export type KindFigures = { total: number; held: number; auto: number };
+export type ApiStreamSummary = { kinds: Partial<Record<StreamKind, KindFigures>>; all: KindFigures };
+
+/** The chips, in the desk's order, and each kind's two-letter mark. */
+export const STREAM_CHIPS: readonly { kind: StreamKind | ""; label: string }[] = [
+  { kind: "", label: "All" },
+  { kind: "ORGANIZATION", label: "Organizations" },
+  { kind: "ATHLETE", label: "Athletes" },
+  { kind: "GUARDIAN", label: "Guardians" },
+  { kind: "SPONSOR", label: "Sponsors" },
+];
+const MONO: Record<StreamKind, string> = { ORGANIZATION: "OR", ATHLETE: "AT", GUARDIAN: "GU", SPONSOR: "SP" };
+const KIND_WORD: Record<StreamKind, string> = { ORGANIZATION: "Organization", ATHLETE: "Athlete", GUARDIAN: "Guardian", SPONSOR: "Sponsor" };
+const LEGACY_TAB: Record<string, { kind?: StreamKind; review?: boolean }> = {
+  org: { kind: "ORGANIZATION" }, ath: { kind: "ATHLETE" }, gua: { kind: "GUARDIAN" }, spo: { kind: "SPONSOR" }, review: { review: true },
+};
+
+type Params = Record<string, string | string[] | undefined>;
+const first = (v: string | string[] | undefined) => ((Array.isArray(v) ? v[0] : v) ?? "").trim();
+
+/** The stream's filters from the URL; an explicit filter beats a legacy `?tab=`. */
+export function streamParams(sp: Params): { kind: StreamKind | ""; review: boolean; q: string } {
+  const legacy = LEGACY_TAB[first(sp.tab)] ?? {};
+  const raw = first(sp.kind);
+  const kind = (STREAM_KINDS as readonly string[]).includes(raw) ? (raw as StreamKind) : legacy.kind ?? "";
+  const review = sp.review !== undefined ? first(sp.review) === "1" : Boolean(legacy.review);
+  return { kind, review, q: first(sp.q).slice(0, 100) };
+}
+
+/** `?page&size&kind&review&q` for GET /signups/stream (page always sent: it turns paging on). */
+export function streamApiQuery(sp: Params): string {
+  const { kind, review, q } = streamParams(sp);
+  const p = Number(first(sp.page));
+  const s = Number(first(sp.size));
+  const u = new URLSearchParams({
+    page: String(Number.isInteger(p) && p >= 1 ? p : 1),
+    size: String([12, 24, 60].includes(s) ? s : 12),
+  });
+  if (kind) u.set("kind", kind);
+  if (review) u.set("review", "1");
+  if (q) u.set("q", q);
+  return `?${u}`;
+}
+
+export type StreamRowView = {
+  key: string;
+  kind: StreamKind;
+  mono: string;
+  kindWord: string;
+  name: string;
+  sub: string;
+  when: string;
+  badge: { label: string; tone: "accent" | "warn" | "neutral"; mark: string };
+  reason: string;
+  href: string;
+  /** Held or flagged — what Needs review shows, and the row BTG acts on. */
+  held: boolean;
+};
+
+function streamHref(kind: StreamKind, id: string): string {
+  const e = encodeURIComponent(id);
+  if (kind === "ORGANIZATION") return orgHref(id);
+  if (kind === "SPONSOR") return `/admin/sponsor-requests/${e}`;
+  return `/admin/new-signups/${kind === "ATHLETE" ? "athletes" : "guardians"}/${e}`;
+}
+
+/** One stream row in the desk's words (the same as its old per-kind section). */
+export function streamRowView(r: ApiStreamRow): StreamRowView {
+  const held = r.state === "NEEDS_REVIEW" || r.flags.length > 0;
+  const badge =
+    r.state === "NEEDS_REVIEW" ? { label: "Needs review", tone: "warn" as const, mark: "!" }
+    : r.state === "REJECTED" ? { label: "Rejected", tone: "neutral" as const, mark: "✕" }
+    : r.flags.length ? { label: "Approved · flagged", tone: "warn" as const, mark: "!" }
+    : r.state === "APPROVED" ? { label: "Approved by BTG", tone: "accent" as const, mark: "✓" }
+    : { label: "Approved automatically", tone: "accent" as const, mark: "✓" };
+  const reason = r.reasons.length ? r.reasons.join(" · ")
+    : r.flags.length ? r.flags.join(" · ")
+    : r.state === "NEEDS_REVIEW" ? "Waiting for BTG’s review"
+    : r.state === "REJECTED" ? "Rejected by BTG"
+    : r.state === "APPROVED" ? "Reviewed and approved by BTG"
+    : "All checks passed";
+  return {
+    key: `${r.kind}-${r.id}`, kind: r.kind, mono: MONO[r.kind], kindWord: KIND_WORD[r.kind], name: r.name, sub: r.sub,
+    when: dayOf(r.signedUpAt), badge, reason, href: streamHref(r.kind, r.id), held,
+  };
+}

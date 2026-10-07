@@ -1,9 +1,11 @@
 "use client";
 
-import { useState, useTransition } from "react";
-import { usePathname, useRouter } from "next/navigation";
-import { Badge, Card } from "@/components/ui";
-import { Dropdown, FilterChip, SearchInput } from "@/components/filter-kit";
+import { useState } from "react";
+import { Badge } from "@/components/ui";
+import { Dropdown, FilterChip } from "@/components/filter-kit";
+import { ListSearch, PagerRow, PendingList, ServerList, useListNav } from "@/components/server-pager";
+import { StageTable, Td, Tr, type Column } from "@/components/stage-table";
+import type { PageInfo } from "@/lib/list-query";
 
 /* --------------------------------------------------------------------------
    AuditExplorer — the critical-mutation history (P8-FE-02, §23 §30).
@@ -11,10 +13,13 @@ import { Dropdown, FilterChip, SearchInput } from "@/components/filter-kit";
    Filters apply the moment they change — entity, person, action and a record
    id — and live in the URL, so a filtered history ("everything that happened
    to this order", "everything this reviewer did") is a link you can send.
-   Changing a filter re-reads the first page from the server; "Load more"
-   walks the keyset cursor. Each row opens to its before → after, field by
-   field, because a mutation history that only says "updated" explains
-   nothing.
+   Each row opens to its before → after, field by field, because a mutation
+   history that only says "updated" explains nothing.
+
+   P1-FE-31 — SERVER-PAGED, as a stage table: the house pager above and
+   below (12 / 24 / 60 a page), every control writing the URL through
+   <ServerList>; a filter change resets to page 1. "Load more" on the
+   keyset cursor is gone with it.
    -------------------------------------------------------------------------- */
 
 export type AuditRow = {
@@ -31,6 +36,7 @@ export type AuditRow = {
 export type AuditPage = {
   rows: AuditRow[];
   nextCursor: string | null;
+  page: PageInfo;
   facets: { entities: { entity: string; count: number }[]; actors: { id: string; email: string | null; count: number }[] };
 };
 
@@ -49,46 +55,31 @@ export function diff(before: unknown, after: unknown): { key: string; from: stri
     .map((k) => ({ key: k, from: show(b[k]), to: show(a[k]) }));
 }
 
-export function AuditExplorer({
-  page,
-  filters,
-  loadMore,
-}: {
-  page: AuditPage;
-  filters: Filters;
-  loadMore: (filters: Filters, cursor: string) => Promise<{ ok: true; page: AuditPage } | { ok: false; message: string }>;
-}) {
-  const router = useRouter();
-  const pathname = usePathname();
-  const [pending, start] = useTransition();
-  const [extra, setExtra] = useState<{ key: string; rows: AuditRow[]; cursor: string | null } | null>(null);
+const COLUMNS: Column[] = [
+  { key: "when", label: "When" },
+  { key: "action", label: "Action" },
+  { key: "record", label: "Record" },
+  { key: "who", label: "Who" },
+  { key: "open", label: "Changes", srOnly: true },
+];
+
+export function AuditExplorer({ page, filters }: { page: AuditPage; filters: Filters }) {
+  return (
+    <ServerList>
+      <Explorer page={page} filters={filters} />
+    </ServerList>
+  );
+}
+
+function Explorer({ page, filters }: { page: AuditPage; filters: Filters }) {
+  const { set, pending } = useListNav();
   const [open, setOpen] = useState<string | null>(null);
-  const [err, setErr] = useState<string | null>(null);
-  const [q, setQ] = useState(filters.entityId);
 
-  /* Extra pages belong to the filter set they were loaded under. */
-  const key = JSON.stringify(filters);
-  const more = extra?.key === key ? extra : null;
-  const rows = [...page.rows, ...(more?.rows ?? [])];
-  const cursor = more ? more.cursor : page.nextCursor;
-
-  const apply = (patch: Partial<Filters>) => {
-    const next = { ...filters, ...patch };
-    const p = new URLSearchParams();
-    for (const [k, v] of Object.entries(next)) if (v) p.set(k, v);
-    start(() => router.replace(`${pathname}${p.toString() ? `?${p}` : ""}`, { scroll: false }));
-  };
-
-  const loadNext = async () => {
-    if (!cursor) return;
-    setErr(null);
-    const r = await loadMore(filters, cursor);
-    if (!r.ok) return setErr(r.message);
-    setExtra({ key, rows: [...(more?.rows ?? []), ...r.page.rows], cursor: r.page.nextCursor });
-  };
+  const apply = (patch: Partial<Filters>) => set(Object.fromEntries(Object.entries(patch).map(([k, v]) => [k, v || null])));
 
   const actorLabel = (id: string, email: string | null) => (id === "system" ? "System (worker, webhooks)" : email ?? id);
   const filtered = Boolean(filters.entity || filters.actorId || filters.entityId || filters.action);
+  const rows = page.rows;
 
   return (
     <div className="space-y-4">
@@ -109,16 +100,9 @@ export function AuditExplorer({
           onChange={(v) => apply({ actorId: v })}
           tone="admin"
         />
-        <SearchInput
-          value={q}
-          onChange={(v) => {
-            setQ(v);
-            apply({ entityId: v.trim() });
-          }}
-          placeholder="Record id, e.g. an order or deliverable id"
-          label="Filter by record id"
-          tone="admin"
-        />
+        <div className="min-w-64 flex-1">
+          <ListSearch initial={filters.entityId} param="entityId" placeholder="Record id, e.g. an order or deliverable id" label="Filter by record id" tone="admin" />
+        </div>
         {pending && <span className="text-[11px] text-faint">Filtering…</span>}
       </div>
 
@@ -133,14 +117,14 @@ export function AuditExplorer({
             </FilterChip>
           )}
           {filters.entityId && (
-            <FilterChip label="Clear record id" onClear={() => { setQ(""); apply({ entityId: "" }); }} tone="admin">{filters.entityId}</FilterChip>
+            <FilterChip label="Clear record id" onClear={() => apply({ entityId: "" })} tone="admin">{filters.entityId}</FilterChip>
           )}
           {filters.action && (
             <FilterChip label="Clear action" onClear={() => apply({ action: "" })} tone="admin">{filters.action}*</FilterChip>
           )}
           <button
             type="button"
-            onClick={() => { setQ(""); apply({ entity: "", actorId: "", entityId: "", action: "" }); }}
+            onClick={() => apply({ entity: "", actorId: "", entityId: "", action: "" })}
             className="text-[11px] font-medium text-muted hover:text-text"
           >
             Clear all
@@ -148,86 +132,83 @@ export function AuditExplorer({
         </div>
       )}
 
-      <Card className="p-0">
+      <PagerRow page={page.page} noun="Changes" tone="admin" position="top" filtered={filtered} />
+
+      <PendingList>
         {rows.length === 0 ? (
-          <p className="px-4 py-10 text-center text-xs text-muted">{filtered ? "Nothing matches these filters." : "No audited changes yet."}</p>
+          <div className="sx-card rounded-lg border border-line">
+            <p className="px-4 py-10 text-center text-xs text-muted">{filtered ? "Nothing matches these filters." : "No audited changes yet."}</p>
+          </div>
         ) : (
-          <ul className="divide-y divide-line-soft">
-            {rows.map((r) => {
+          <StageTable label="Audited changes, newest first" columns={COLUMNS}>
+            {rows.flatMap((r, i) => {
               const d = diff(r.before, r.after);
               const isOpen = open === r.id;
-              return (
-                <li key={r.id}>
-                  {/* Sibling buttons, not nested — a button inside a button
-                      is invalid HTML and breaks hydration. */}
-                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1 px-4 py-3 text-xs transition-colors hover:bg-surface-2/40">
+              const main = (
+                <Tr key={r.id} i={i} className={isOpen ? "sx-table-open" : undefined}>
+                  <Td label="When" muted className="whitespace-nowrap tabular-nums">{fmt(r.at)}</Td>
+                  <Td label="Action"><span className="font-mono text-[11px] text-text">{r.action}</span></Td>
+                  <Td label="Record">
                     <button
                       type="button"
-                      onClick={() => setOpen(isOpen ? null : r.id)}
-                      aria-expanded={isOpen}
-                      className="flex min-w-0 flex-wrap items-center gap-x-3 text-left"
-                    >
-                      <span className="w-40 shrink-0 tabular-nums text-faint">{fmt(r.at)}</span>
-                      <span className="font-mono text-[11px] text-text">{r.action}</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setQ(r.entityId);
-                        apply({ entity: r.entity, entityId: r.entityId });
-                      }}
+                      onClick={() => apply({ entity: r.entity, entityId: r.entityId })}
                       className="rounded border border-line px-1.5 py-0.5 text-[10px] text-muted hover:text-text"
                       title="Show this record's whole history"
                     >
                       {r.entity} · {r.entityId.slice(0, 14)}
                     </button>
-                    <span className="ml-auto truncate text-[11px] text-muted">
-                      {r.actor ? r.actor.email ?? r.actor.id : "System"}
-                      {r.actor?.roles?.length ? <span className="ml-1 text-faint">({r.actor.roles.join(", ")})</span> : null}
-                    </span>
-                  </div>
-                  {isOpen && (
-                    <div className="border-t border-line-soft bg-surface-2/30 px-4 py-3">
-                      {d.length === 0 ? (
-                        <p className="text-[11px] text-muted">No field-level change recorded.</p>
-                      ) : (
-                        <dl className="space-y-1 text-[11px]">
-                          {d.map((c) => (
-                            <div key={c.key} className="flex flex-wrap gap-x-2">
-                              <dt className="w-32 shrink-0 font-medium text-muted">{c.key}</dt>
-                              <dd className="min-w-0 break-all">
-                                <span className="text-faint line-through">{c.from}</span>{" "}
-                                <span aria-hidden="true">→</span> <span className="text-text">{c.to}</span>
-                              </dd>
-                            </div>
-                          ))}
-                        </dl>
-                      )}
-                      {!filters.actorId && r.actor && (
-                        <button type="button" onClick={() => apply({ actorId: r.actor!.id })} className="mt-2 text-[11px] font-medium text-admin hover:underline">
-                          Everything this person did →
-                        </button>
-                      )}
-                    </div>
-                  )}
-                </li>
+                  </Td>
+                  <Td label="Who" muted className="max-w-64 truncate">
+                    {r.actor ? r.actor.email ?? r.actor.id : "System"}
+                    {r.actor?.roles?.length ? <span className="ml-1 text-faint">({r.actor.roles.join(", ")})</span> : null}
+                  </Td>
+                  <Td act>
+                    <button
+                      type="button"
+                      onClick={() => setOpen(isOpen ? null : r.id)}
+                      aria-expanded={isOpen}
+                      aria-controls={`audit-${r.id}`}
+                      className="rounded-lg border border-line px-2.5 py-1 text-[11px] font-medium text-text hover:bg-surface-2"
+                    >
+                      {isOpen ? "Hide" : d.length ? `${d.length} field${d.length === 1 ? "" : "s"}` : "Details"}
+                    </button>
+                  </Td>
+                </Tr>
               );
+              if (!isOpen) return [main];
+              const detail = (
+                <tr key={`${r.id}-d`} id={`audit-${r.id}`} className="sx-table-detail">
+                  <Td colSpan={COLUMNS.length}>
+                    {d.length === 0 ? (
+                      <p className="text-[11px] text-muted">No field-level change recorded.</p>
+                    ) : (
+                      <dl className="space-y-1 text-[11px]">
+                        {d.map((c) => (
+                          <div key={c.key} className="flex flex-wrap gap-x-2">
+                            <dt className="w-32 shrink-0 font-medium text-muted">{c.key}</dt>
+                            <dd className="min-w-0 break-all">
+                              <span className="text-faint line-through">{c.from}</span>{" "}
+                              <span aria-hidden="true">→</span> <span className="text-text">{c.to}</span>
+                            </dd>
+                          </div>
+                        ))}
+                      </dl>
+                    )}
+                    {!filters.actorId && r.actor && (
+                      <button type="button" onClick={() => apply({ actorId: r.actor!.id })} className="mt-2 text-[11px] font-medium text-admin hover:underline">
+                        Everything this person did →
+                      </button>
+                    )}
+                  </Td>
+                </tr>
+              );
+              return [main, detail];
             })}
-          </ul>
+          </StageTable>
         )}
-      </Card>
+      </PendingList>
 
-      {err && <p role="alert" className="text-[11px] text-danger">{err}</p>}
-      <div className="flex items-center justify-between">
-        <p className="text-[11px] text-muted">
-          {rows.length} change{rows.length === 1 ? "" : "s"} shown{cursor ? " · more below" : ""}
-        </p>
-        {cursor && (
-          <button type="button" onClick={loadNext} className="rounded-lg border border-line px-3 py-1.5 text-[11px] font-medium text-text hover:bg-surface-2">
-            Load more
-          </button>
-        )}
-      </div>
+      <PagerRow page={page.page} noun="Changes" tone="admin" position="bottom" />
       <Badge tone="neutral">read-only — audit rows are never edited</Badge>
     </div>
   );

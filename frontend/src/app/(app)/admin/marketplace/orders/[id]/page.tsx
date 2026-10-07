@@ -92,7 +92,7 @@ export default async function MarketplaceOrderPage({ params }: { params: Promise
 
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-xl font-semibold tracking-tight">Order {shortId(order.id)}</h1>
+          <h1 className="sx-page-title">Order {shortId(order.id)}</h1>
           <p className="mt-1 text-xs text-muted">
             Placed {dateLabel(order.createdAt)}
             {wait ? ` · waiting ${wait}` : ""} · sponsor{" "}

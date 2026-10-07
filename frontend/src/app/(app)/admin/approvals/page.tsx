@@ -130,7 +130,7 @@ export default async function AdminApprovalsPage({
 
   const heading = (
     <div>
-      <h1 className="text-xl font-semibold tracking-tight">
+      <h1 className="sx-page-title">
         Content approvals
       </h1>
       <p className="mt-1 text-xs text-muted">

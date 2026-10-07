@@ -38,7 +38,7 @@ export default async function NewOfferPage({ searchParams }: { searchParams: Pro
   if (demo === "loading") {
     return (
       <div className="space-y-6">
-        <h1 className="text-xl font-semibold tracking-tight">{TITLE}</h1>
+        <h1 className="sx-page-title">{TITLE}</h1>
         <SkeletonRows rows={4} />
       </div>
     );
@@ -52,7 +52,7 @@ export default async function NewOfferPage({ searchParams }: { searchParams: Pro
     return (
       <div className="space-y-5">
         <Link href={PATH} className="text-xs text-muted hover:text-text">← Offers</Link>
-        <h1 className="text-xl font-semibold tracking-tight">{TITLE}</h1>
+        <h1 className="sx-page-title">{TITLE}</h1>
         <EmptyState mark="users" title="Making offers isn't in your role" hint={READ_ONLY_TIP} action={{ label: "Back to Offers", href: PATH }} />
       </div>
     );
@@ -75,7 +75,7 @@ export default async function NewOfferPage({ searchParams }: { searchParams: Pro
   return (
     <div className="space-y-5">
       <Link href={PATH} className="text-xs text-muted hover:text-text">← Offers</Link>
-      <h1 className="text-xl font-semibold tracking-tight">{TITLE}</h1>
+      <h1 className="sx-page-title">{TITLE}</h1>
       {campaigns.length === 0 ? (
         <EmptyState mark="inbox" title="No campaign to put an offer on" hint="An offer goes on a campaign that is being staffed or running. Create one from an approved brief first."
           action={{ label: "Open campaigns", href: "/admin/campaigns" }} />

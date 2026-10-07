@@ -1,4 +1,5 @@
 import { BRAND_CATEGORIES, categoryLabel, type BrandCategory } from "@/lib/brand-categories";
+import type { PageInfo } from "@/lib/list-query";
 
 /* --------------------------------------------------------------------------
    2S1-FE-03 — BTG's sponsor-request screens (Claude Design
@@ -42,7 +43,7 @@ export type ApiSponsorRequest = {
   reviewReasons: string[];
 };
 
-export type ApiSponsorRequestList = { requests: ApiSponsorRequest[]; counts: Record<SponsorRequestState, number> };
+export type ApiSponsorRequestList = { requests: ApiSponsorRequest[]; counts: Record<SponsorRequestState, number>; /** P1-FE-31 — present on a paged read. */ page?: PageInfo };
 
 export type ApiSponsorRequestDetail = ApiSponsorRequest & {
   phone: string | null;

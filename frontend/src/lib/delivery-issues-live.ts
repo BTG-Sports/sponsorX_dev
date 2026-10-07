@@ -29,6 +29,7 @@
 export const CONFIRM_WINDOW_HOURS = 24;
 
 import type { ApiIssue, ApiTimelineItem, EscalationReason, Settlement } from "@/lib/order-automation-live";
+import type { PageInfo } from "@/lib/list-query";
 
 export type Party = { name: string; sub: string | null };
 
@@ -78,9 +79,13 @@ export type ApiSettledIssue = ApiDeliveryIssue & { settlement: Settlement };
 export type ApiDeliveryDesk = {
   confirmWindowHours: number;
   answerWindowHours?: number;
-  problems: ApiDeliveryIssue[];
+  problems?: ApiDeliveryIssue[];
   settled?: ApiSettledIssue[];
-  overdue: ApiDeliveryIssue[];
+  overdue?: ApiDeliveryIssue[];
+  /** P1-FE-31 — a paged read (?tab=&page=) fills only the asked tab's list, with every tab's count. */
+  tab?: DeliveryTab["key"];
+  counts?: Record<DeliveryTab["key"], number>;
+  page?: PageInfo;
 };
 
 /* ------------------------------------------------------------------ tabs */

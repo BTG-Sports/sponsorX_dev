@@ -2,6 +2,9 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import { Logo } from "./logo";
 import { MobileNav } from "./mobile-nav";
+import { OpsStage } from "./ops-fx";
+import { OpsGround } from "./ops-stage";
+import { StagePortals } from "./stage-portals";
 import { PortalNav, type NavItem } from "./portal-nav";
 import { ThemeToggle } from "./theme-toggle";
 import { UserMenu } from "./user-menu";
@@ -121,6 +124,7 @@ export function PortalShell({
   orgBrand,
   userName,
   userRole,
+  stage = false,
   children,
 }: {
   portal: Portal;
@@ -134,14 +138,18 @@ export function PortalShell({
   orgBrand?: { logoUrl: string | null; primaryColor: string | null };
   userName: string;
   userRole: string;
+  /** P1-ART-18 — the admin portal: the whole shell on the Mission Control
+   *  stage (fixed-dark in both themes), with every page as content on it. */
+  stage?: boolean;
   children: ReactNode;
 }) {
   const accent = ACCENT[portal];
 
   return (
-    <div className="flex min-h-screen">
+    <div className={`flex min-h-screen ${stage ? "sx-ops" : ""}`}>
+      {stage && <StagePortals />}
       {/* ------------------------------------------------------- sidebar */}
-      <aside className="sticky top-0 hidden h-screen w-56 shrink-0 overflow-hidden border-r border-line/70 bg-gradient-to-b from-surface via-surface to-bg md:flex md:flex-col">
+      <aside className="sx-shell-aside sticky top-0 hidden h-screen w-56 shrink-0 overflow-hidden border-r border-line/70 bg-gradient-to-b from-surface via-surface to-bg md:flex md:flex-col">
         {/* atmosphere: accent bloom, gradient edge, portal watermark */}
         <div
           aria-hidden="true"
@@ -178,7 +186,10 @@ export function PortalShell({
           <span className="h-px flex-1 bg-gradient-to-r from-line to-transparent" />
         </div>
 
-        <div className="relative min-h-0 flex-1 overflow-y-auto">
+        {/* Clips horizontally too: a scroller that only says overflow-y gets
+            overflow-x: auto with it, and anything that leans out a pixel on
+            hover (a label's nudge, a header's light sweep) drew an x scrollbar. */}
+        <div className="relative min-h-0 flex-1 overflow-x-hidden overflow-y-auto">
           <PortalNav
             nav={nav}
             accentBg={accent.bg}
@@ -186,6 +197,7 @@ export function PortalShell({
             accentDot={accent.dot}
             accentWash={accent.wash}
             rootHref={rootHref}
+            portal={portal}
           />
         </div>
 
@@ -212,7 +224,7 @@ export function PortalShell({
 
       {/* ----------------------------------------------------- main column */}
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-20 flex items-center justify-between gap-4 bg-surface/70 px-4 py-3 backdrop-blur-xl sm:px-6">
+        <header className="sx-shell-header sticky top-0 z-20 flex items-center justify-between gap-4 bg-surface/70 px-4 py-3 backdrop-blur-xl sm:px-6">
           {/* accent hairline instead of a flat border */}
           <span
             aria-hidden="true"
@@ -248,7 +260,8 @@ export function PortalShell({
           </div>
 
           <div className="flex items-center gap-3">
-            <ThemeToggle />
+            {/* the stage is dark in both themes — no toggle to offer there */}
+            {!stage && <ThemeToggle />}
             {/* Both inert until their features ship — on a phone they only
                crowd the actor's name out of the header, so they wait for sm. */}
             <div className="hidden items-center gap-3 sm:flex">
@@ -271,7 +284,18 @@ export function PortalShell({
           </div>
         </header>
 
-        <main className="min-w-0 flex-1 px-6 py-6">{children}</main>
+        {stage ? (
+          /* The stage: the ground behind every admin page, the house padding
+             and column. No overflow clip here — the ground clips itself, and
+             the desks' sticky toolbars (the matching studio) need the main
+             column unclipped. */
+          <OpsStage className="sx-stage relative isolate flex min-w-0 flex-1 flex-col px-5 pb-14 pt-8 sm:px-8 lg:px-10 lg:pt-10">
+            <OpsGround word="" />
+            <main className="relative mx-auto w-full max-w-[1440px] min-w-0 flex-1">{children}</main>
+          </OpsStage>
+        ) : (
+          <main className="min-w-0 flex-1 px-6 py-6">{children}</main>
+        )}
       </div>
     </div>
   );

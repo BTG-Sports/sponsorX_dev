@@ -14,6 +14,7 @@
    -------------------------------------------------------------------------- */
 
 import { looksLikeCardNumber } from "@/lib/checkout-gate";
+import type { PageInfo } from "@/lib/list-query";
 import { dayOf, money, type Pill } from "@/lib/order-automation-live";
 
 export const REFUND_CAUSES = [
@@ -65,7 +66,7 @@ export type ApiRefund = {
   sent: { at: string | null; on: string | null; method: RefundMethod; reference: string | null; by: "SYSTEM" | "BTG"; test: boolean } | null;
 };
 
-export type ApiRefundList = { counts: { open: number; sent: number }; openCents: number; refunds: ApiRefund[] };
+export type ApiRefundList = { counts: { open: number; sent: number }; openCents: number; refunds: ApiRefund[]; /** P1-FE-31 — present on a paged read. */ page?: PageInfo };
 
 /* ------------------------------------------------------------------ tabs */
 

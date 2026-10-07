@@ -5,6 +5,7 @@
 import { Router, type RequestHandler } from "express";
 
 import { requireActor } from "../../auth/actor";
+import { pageRequest } from "../../lib/paging";
 import { SponsorRequestDecisionInput, SponsorRequestListQuery } from "../../contracts/sponsor-requests";
 import { decideSponsorRequest, getSponsorRequest, listSponsorRequests, viewSponsorDocument } from "../../domain/sponsor-requests";
 
@@ -13,7 +14,8 @@ type Id = { id: string };
 type DocId = { id: string; documentId: string };
 
 sponsorRequestsRouter.get("/sponsor-requests", requireActor, (async (req, res) => {
-  res.json(await listSponsorRequests(req.actor!, SponsorRequestListQuery.parse(req.query).state));
+  /* ?page= turns on the house pager (lib/paging.ts); without it the old whole list. */
+  res.json(await listSponsorRequests(req.actor!, SponsorRequestListQuery.parse(req.query).state, pageRequest(req.query as Record<string, unknown>) ?? undefined));
 }) as RequestHandler);
 sponsorRequestsRouter.get("/sponsor-requests/:id", requireActor, (async (req, res) => {
   res.json(await getSponsorRequest(req.actor!, req.params.id));

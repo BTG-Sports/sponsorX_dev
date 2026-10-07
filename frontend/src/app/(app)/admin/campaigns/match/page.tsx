@@ -125,7 +125,7 @@ export default async function MatchingStudioPage({
         <p className="text-[10px] font-medium uppercase tracking-[0.2em] text-faint">
           Athlete Network · step 3 of 12
         </p>
-        <h1 className="mt-1 text-xl font-semibold tracking-tight">
+        <h1 className="sx-page-title mt-1">
           Matching &amp; roster review
         </h1>
         <p className="mt-1 max-w-2xl text-xs leading-relaxed text-muted">

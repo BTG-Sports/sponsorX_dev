@@ -87,7 +87,7 @@ export default async function RightsLedgerPage({
   const heading = (
     <div className="flex flex-wrap items-end justify-between gap-4">
       <div>
-        <h1 className="text-xl font-semibold tracking-tight">
+        <h1 className="sx-page-title">
           Rights{" "}
           <span className="bg-[linear-gradient(90deg,var(--sx-next-soft),var(--sx-next))] bg-clip-text text-transparent">
             · SponsorX NEXT

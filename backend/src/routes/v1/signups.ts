@@ -24,8 +24,10 @@ import { readIntakeToken } from "../../lib/intake-token";
 import { GuardianInput } from "../../contracts/guardian";
 import {
   AgeRowInput, AthleteDocumentInput, GuardianAgreementInput, GuardianDetailsInput, GuardianDocumentInput, IdDocumentInput,
-  SignupRejectInput, SignupSettingsInput, SignupTokenInput,
+  SignupRejectInput, SignupSettingsInput, SignupStreamQuery, SignupTokenInput,
 } from "../../contracts/signups";
+import { listSignupStream, signupStreamSummary } from "../../domain/signups-stream";
+import { pageRequest } from "../../lib/paging";
 import { ApplicationNotFoundError } from "../../domain/application-intake";
 import {
   confirmAthleteDocument, confirmAthleteEmail, nameGuardianAfterApplying, recheckStaffHeld, requestAthleteDocument,
@@ -148,6 +150,16 @@ signupsRouter.post("/coming-of-age/send-link", requireActor, async (req, res) =>
 /* BTG's New sign-ups desk — athletes and guardians. */
 signupsRouter.get("/signups", requireActor, async (req, res) => {
   res.json(await listSignups(req.actor!));
+});
+/* P1-ART-15 — every kind of sign-up as one server-paged stream, and its figures. */
+signupsRouter.get("/signups/stream", requireActor, async (req, res) => {
+  const q = SignupStreamQuery.parse(req.query);
+  /* Always paged — a desk never renders the whole tenant's history. */
+  const page = pageRequest({ ...req.query, page: req.query.page ?? 1 })!;
+  res.json(await listSignupStream(req.actor!, { kind: q.kind, review: q.review === "1" || q.review === "true", q: q.q || undefined }, page));
+});
+signupsRouter.get("/signups/stream/summary", requireActor, async (req, res) => {
+  res.json(await signupStreamSummary(req.actor!));
 });
 signupsRouter.get<{ id: string }>("/signups/athletes/:id", requireActor, async (req, res) => {
   res.json(await getAthleteSignup(req.actor!, req.params.id));

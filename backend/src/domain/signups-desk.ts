@@ -83,14 +83,14 @@ function guardianState(g: { rejectedAt: Date | null; autoVerified: boolean }): S
   return g.autoVerified ? "AUTO_APPROVED" : "APPROVED";
 }
 
-const LIST_ATHLETE = {
+export const LIST_ATHLETE = {
   id: true, legalName: true, displayName: true, sport: true, school: true, state: true, birthDate: true, majorityAge: true, majorityKnown: true,
   countryCode: true, stateCode: true, reviewReasons: true, autoApproved: true, signupRejectedAt: true, createdAt: true, reviewedAt: true,
   guardian: { select: { legalName: true } }, property: { select: { name: true } },
 } as const;
 
 /** What a row on the desk is. */
-function athleteRow(a: Prisma.AthleteGetPayload<{ select: typeof LIST_ATHLETE }>) {
+export function athleteRow(a: Prisma.AthleteGetPayload<{ select: typeof LIST_ATHLETE }>) {
   const age = ageOf(a.birthDate);
   const minor = requiresGuardian(a);
   const team = a.property?.name ?? a.school;
@@ -106,43 +106,53 @@ function athleteRow(a: Prisma.AthleteGetPayload<{ select: typeof LIST_ATHLETE }>
  * rejected, and anyone in a place the age table doesn't know; and every
  * guardian approved or rejected. Newest first, with the counts the tabs show.
  */
+/** Which athletes are on the desk at all (the stream, signups-stream.ts, reads it too). */
+export const ATHLETE_ON_DESK: Prisma.AthleteWhereInput = {
+  OR: [
+    { autoApproved: true }, { reviewReasons: { isEmpty: false } }, { signupRejectedAt: { not: null } }, { majorityKnown: false },
+    { emailConfirmedAt: { not: null }, state: { in: [...APPROVED_STATES] } },
+  ],
+};
+
+/** An athlete the desk shows under Needs review — `athleteState` NEEDS_REVIEW, or a flag. */
+export const ATHLETE_NEEDS_REVIEW: Prisma.AthleteWhereInput = {
+  OR: [
+    { reviewReasons: { isEmpty: false }, state: { in: ["SUBMITTED", "UNDER_REVIEW"] }, signupRejectedAt: null },
+    { majorityKnown: false },
+  ],
+};
+
+export const LIST_GUARDIAN = {
+  id: true, legalName: true, verifiedAt: true, rejectedAt: true, autoVerified: true,
+  wards: { select: { legalName: true, displayName: true }, orderBy: { createdAt: "asc" } },
+} as const;
+
+export function guardianRow(g: Prisma.GuardianGetPayload<{ select: typeof LIST_GUARDIAN }>) {
+  return {
+    id: g.id, kind: "GUARDIAN" as SignupKind, name: g.legalName,
+    sub: g.wards.length
+      ? `Guardian of ${g.wards[0]!.legalName || g.wards[0]!.displayName}${g.wards.length > 1 ? ` and ${g.wards.length - 1} more` : ""}`
+      : "Guardian",
+    signedUpAt: g.verifiedAt ?? g.rejectedAt!, state: guardianState(g), reasons: [] as string[], flags: [] as string[],
+  };
+}
+
 export async function listSignups(actor: Actor) {
   assertTenantWide(actor, "athleteApplication", "approve");
   assertTenantWide(actor, "guardian", "write");
   const [athletes, guardians] = await Promise.all([
     prisma.athlete.findMany({
-      where: {
-        AND: [
-          whereFor(actor, "athleteApplication", "read"),
-          {
-            OR: [
-              { autoApproved: true }, { reviewReasons: { isEmpty: false } }, { signupRejectedAt: { not: null } }, { majorityKnown: false },
-              { emailConfirmedAt: { not: null }, state: { in: [...APPROVED_STATES] } },
-            ],
-          },
-        ],
-      },
+      where: { AND: [whereFor(actor, "athleteApplication", "read"), ATHLETE_ON_DESK] },
       select: LIST_ATHLETE, orderBy: [{ createdAt: "desc" }, { id: "desc" }], take: 200,
     }),
     prisma.guardian.findMany({
       where: { AND: [whereFor(actor, "guardian", "read"), { OR: [{ verifiedAt: { not: null } }, { rejectedAt: { not: null } }] }] },
-      select: {
-        id: true, legalName: true, verifiedAt: true, rejectedAt: true, autoVerified: true,
-        wards: { select: { legalName: true, displayName: true }, orderBy: { createdAt: "asc" } },
-      },
+      select: LIST_GUARDIAN,
       orderBy: [{ verifiedAt: "desc" }, { id: "desc" }], take: 200,
     }),
   ]);
-  const rows = [
-    ...athletes.map(athleteRow),
-    ...guardians.map((g) => ({
-      id: g.id, kind: "GUARDIAN" as SignupKind, name: g.legalName,
-      sub: g.wards.length
-        ? `Guardian of ${g.wards[0]!.legalName || g.wards[0]!.displayName}${g.wards.length > 1 ? ` and ${g.wards.length - 1} more` : ""}`
-        : "Guardian",
-      signedUpAt: g.verifiedAt ?? g.rejectedAt!, state: guardianState(g), reasons: [] as string[], flags: [] as string[],
-    })),
-  ].sort((x, y) => y.signedUpAt.getTime() - x.signedUpAt.getTime());
+  const rows = [...athletes.map(athleteRow), ...guardians.map(guardianRow)]
+    .sort((x, y) => y.signedUpAt.getTime() - x.signedUpAt.getTime());
   const count = (f: (r: (typeof rows)[number]) => boolean) => rows.filter(f).length;
   return {
     signups: rows,

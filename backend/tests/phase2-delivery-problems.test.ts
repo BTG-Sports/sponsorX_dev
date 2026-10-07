@@ -445,6 +445,25 @@ describe.skipIf(!hasDatabase)("2S4-BE-11 · delivery problems settled between se
     expect((await call("GET", "/delivery-issues", "dp_admin")).json.problems.find((x: { id: string }) => x.id === line)?.escalation.reason).toBe("SPONSOR_NO_ANSWER");
   });
 
+  it("P1-FE-31 · ?page=1&size=1&tab=problems answers one row with the page and every tab's count; without ?page the old three lists", async () => {
+    const whole = await call("GET", "/delivery-issues", "dp_admin");
+    expect(whole.status, whole.text).toBe(200);
+    expect(whole.json.page).toBeUndefined();
+    expect(whole.json.counts).toBeUndefined();
+    expect(Object.keys(whole.json).sort()).toEqual(["answerWindowHours", "confirmWindowHours", "overdue", "problems", "settled"]);
+    const paged = await call("GET", "/delivery-issues?page=1&size=1&tab=problems", "dp_admin");
+    expect(paged.status, paged.text).toBe(200);
+    const total = whole.json.problems.length;
+    expect(total).toBeGreaterThanOrEqual(1);
+    expect(paged.json).toMatchObject({ tab: "problems", confirmWindowHours: whole.json.confirmWindowHours, answerWindowHours: whole.json.answerWindowHours });
+    expect(paged.json.page).toEqual({ page: 1, size: 1, total, pages: total });
+    expect(paged.json.problems).toHaveLength(1);
+    expect(paged.json.problems[0].id).toBe(whole.json.problems[0].id);
+    expect(paged.json.counts).toEqual({ problems: total, settled: whole.json.settled.length, overdue: whole.json.overdue.length });
+    expect(paged.json.settled).toBeUndefined();
+    expect(paged.json.overdue).toBeUndefined();
+  });
+
   describe("overdue sellers — reminders at 1 and 3 days, BTG at 7", () => {
     let line = "";
     let endsOn = new Date();

@@ -17,6 +17,9 @@ export const PayoutListQuery = z
     state: z.string().max(80).optional(),
     /* 2S5-BE-07 — who the payout waits on. BTG = REQUESTED, and FAILED left for BTG. */
     waitingOn: z.enum(["BTG", "SYSTEM_RETRY", "PAYEE_ACCOUNT"]).optional(),
+    /* The house pager (lib/paging.ts): present → one page and its count. */
+    page: z.coerce.number().int().optional(),
+    size: z.coerce.number().int().optional(),
   })
   .meta({ id: "PayoutListQuery", description: "Comma-separated payout states: REQUESTED, APPROVED, SENDING, PAID, REJECTED, FAILED; and optionally who it waits on (BTG, SYSTEM_RETRY, PAYEE_ACCOUNT)." });
 

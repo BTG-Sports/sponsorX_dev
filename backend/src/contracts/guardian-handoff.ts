@@ -65,7 +65,12 @@ export const HandoffStaffDecisionInput = z
 export const HANDOFF_GROUPS = ["WAITING_FOR_BTG", "IN_PROGRESS", "SWITCHED", "DECLINED", "CANCELLED"] as const;
 
 export const HandoffListQuery = z
-  .object({ group: z.enum(HANDOFF_GROUPS).optional() })
+  .object({
+    group: z.enum(HANDOFF_GROUPS).optional(),
+    /* The house pager (lib/paging.ts): present → one page and its count. */
+    page: z.coerce.number().int().optional(),
+    size: z.coerce.number().int().optional(),
+  })
   .meta({
     id: "HandoffListQuery",
     description: "One group of requests: WAITING_FOR_BTG (HANDED_OFF), IN_PROGRESS (REQUESTED — BTG only — and WAITING), SWITCHED, DECLINED or CANCELLED. Omitted: every group.",

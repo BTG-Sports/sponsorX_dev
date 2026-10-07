@@ -2,18 +2,17 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useMemo, useState, useTransition } from "react";
+import { useState, useTransition } from "react";
 
 import { Badge } from "@/components/ui";
 import { Monogram } from "@/components/hero";
+import { ListFilter, ListSearch, PagerRow, PendingList, ServerList, useListNav } from "@/components/server-pager";
 import { moveBriefAction } from "@/app/(app)/admin/briefs/actions";
+import type { PageInfo } from "@/lib/list-query";
 import {
   TABS,
   approvalBadge,
-  filterBriefs,
   nextMoves,
-  sportOptions,
-  tabCounts,
   type BriefRow,
   type BriefState,
   type TabKey,
@@ -21,9 +20,17 @@ import {
 
 /* --------------------------------------------------------------------------
    P4-FE-07 — the Briefs queue's one client island: tabs, search and sport
-   filter over the rows the server read, and the detail panel with Qualify /
-   Approve / Close (with a reason) / Open in Matching Studio. On a wide screen
-   the panel sits beside the list; on a phone it covers the screen.
+   filter, the page of rows the server read, and the detail panel with
+   Qualify / Approve / Close (with a reason) / Open in Matching Studio. On a
+   wide screen the panel sits beside the list; on a phone it covers the
+   screen.
+
+   P1-FE-31 — SERVER-PAGED (memory: pagination-pattern). The tab, search and
+   sport filter write the URL (`?tab`, `?q`, `?sport`) through the house
+   pager's navigation, the server page re-reads it and the API answers one
+   page plus every tab's count: nothing is filtered or counted in the
+   browser. Picking a tab or a filter resets to page 1; the rows dim while
+   the next page loads.
 
    P4-FE-09 — briefs that pass every safety check are approved automatically
    (P4-BE-11). The default tab is "Held for BTG", each card carrying its
@@ -32,31 +39,55 @@ import {
 
 const QUICK_REASONS = ["Budget below the package minimum", "Sponsor went quiet", "Category conflict with an existing sponsor"];
 
-export function BriefsDesk({
+export function BriefsDesk(props: {
+  rows: BriefRow[];
+  page: PageInfo;
+  counts: Record<TabKey, number>;
+  sports: string[];
+  tab: TabKey;
+  q: string;
+  sport: string;
+  canApprove: boolean;
+  canClose: boolean;
+}) {
+  return (
+    <ServerList>
+      <Desk {...props} />
+    </ServerList>
+  );
+}
+
+function Desk({
   rows,
-  initialTab,
+  page,
+  counts,
+  sports,
+  tab,
+  q,
+  sport,
   canApprove,
   canClose,
 }: {
   rows: BriefRow[];
-  initialTab: TabKey;
+  page: PageInfo;
+  counts: Record<TabKey, number>;
+  sports: string[];
+  tab: TabKey;
+  q: string;
+  sport: string;
   canApprove: boolean;
   canClose: boolean;
 }) {
   const router = useRouter();
-  const [tab, setTab] = useState<TabKey>(initialTab);
-  const [q, setQ] = useState("");
-  const [sport, setSport] = useState("");
+  const { set } = useListNav();
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [closing, setClosing] = useState(false);
   const [reason, setReason] = useState("");
   const [message, setMessage] = useState<string | null>(null);
   const [pending, start] = useTransition();
 
-  const counts = useMemo(() => tabCounts(rows), [rows]);
-  const sports = useMemo(() => sportOptions(rows), [rows]);
-  const shown = filterBriefs(rows, { tab, sport, q });
   const sel = rows.find((r) => r.id === selectedId) ?? null;
+  const filtered = Boolean(q || sport);
 
   const pick = (id: string | null) => {
     setSelectedId(id);
@@ -91,112 +122,99 @@ export function BriefsDesk({
             type="button"
             role="tab"
             aria-selected={tab === t.key}
-            onClick={() => setTab(t.key)}
+            onClick={() => set({ tab: t.key === "held" ? null : t.key })}
             className={[
               "flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-medium transition-colors",
               tab === t.key ? "bg-surface-2 text-text" : "text-muted hover:text-text",
             ].join(" ")}
           >
             {t.label}
-            <span className="tabular-nums text-faint">{counts[t.key]}</span>
+            <span className="tabular-nums text-faint">{counts[t.key] ?? 0}</span>
           </button>
         ))}
       </div>
 
-      <div className="flex flex-col gap-2 sm:flex-row">
-        <label className="flex-1">
-          <span className="sr-only">Search briefs</span>
-          <input
-            type="search"
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            placeholder="Search sponsor or package…"
-            className="w-full rounded-lg border border-line bg-surface px-3 py-2 text-xs text-text placeholder:text-faint focus:border-primary/50 focus:outline-none"
-          />
-        </label>
-        <label className="flex items-center gap-2 text-xs text-muted">
-          Sport
-          <select
-            value={sport}
-            onChange={(e) => setSport(e.target.value)}
-            className="rounded-lg border border-line bg-surface px-3 py-2 text-xs text-text"
-          >
-            <option value="">All sports</option>
-            {sports.map((s) => (
-              <option key={s} value={s}>
-                {s}
-              </option>
-            ))}
-          </select>
-        </label>
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+        <div className="flex-1">
+          <ListSearch initial={q} label="Search briefs" placeholder="Search sponsor or objective…" tone="admin" />
+        </div>
+        <ListFilter
+          param="sport"
+          value={sport}
+          label="Sport"
+          allLabel="All sports"
+          options={sports.map((s) => ({ value: s, label: s }))}
+          tone="admin"
+        />
       </div>
-      <p className="text-[11px] text-faint">
-        Showing {shown.length} of {counts[tab]} {tab === "all" ? "briefs" : TABS.find((t) => t.key === tab)?.label.toLowerCase()}
-      </p>
+
+      {rows.length > 0 && <PagerRow page={page} noun="Briefs" tone="admin" position="top" filtered={filtered} />}
 
       <div className={sel ? "lg:grid lg:grid-cols-[minmax(0,1fr)_380px] lg:gap-4" : ""}>
-        <ul className="space-y-2">
-          {shown.length === 0 && (
-            <li className="rounded-xl border border-line bg-surface px-5 py-10 text-center">
-              {tab === "held" && !q && !sport ? (
-                <>
-                  <p className="text-sm font-semibold">Nothing is held for you</p>
-                  <p className="mt-1 text-xs text-muted">
-                    A request lands here when a safety check fails — no package, a budget below the price, too few athletes, a sensitive category or a sponsor on hold. The rest are approved automatically; the All tab shows them.
-                  </p>
-                </>
-              ) : (
-                <>
-                  <p className="text-sm font-semibold">Nothing matches these filters</p>
-                  <p className="mt-1 text-xs text-muted">Try another sport, a sponsor name, or the All tab.</p>
-                </>
-              )}
-            </li>
-          )}
-          {shown.map((b) => (
-            <li key={b.id}>
-              <button
-                type="button"
-                onClick={() => pick(b.id)}
-                aria-pressed={b.id === selectedId}
-                className={[
-                  "flex w-full items-start gap-3 rounded-xl border bg-surface px-4 py-3 text-left transition-colors",
-                  b.id === selectedId ? "border-primary/50" : "border-line hover:border-line-soft hover:bg-surface-2",
-                ].join(" ")}
-              >
-                <Monogram text={b.mono} tone="accent" className="size-9 text-[11px]" />
-                <span className="min-w-0 flex-1">
-                  <span className="flex flex-wrap items-center gap-2">
-                    <span className="truncate text-sm font-semibold">{b.sponsor}</span>
-                    <Badge tone={b.tone}>{b.stateLabel}</Badge>
-                    {/* P4-FE-09 — held for BTG, or approved by the system */}
-                    {b.held && <Badge tone="warn">Held for BTG</Badge>}
-                    {approvalBadge(b) && <Badge tone={approvalBadge(b)!.tone}>{approvalBadge(b)!.label}</Badge>}
-                    <span className="ml-auto text-xs font-semibold tabular-nums">{b.budget}</span>
-                  </span>
-                  <span className="mt-0.5 block truncate text-[11px] text-muted">
-                    {b.packageName}
-                    {b.packagePrice ? ` · ${b.packagePrice}` : ""} · starts {b.start} · {b.duration}
-                  </span>
-                  <span className="mt-0.5 block truncate text-[11px] text-faint">
-                    {b.sports} · {b.geography} · {b.category} · submitted {b.submitted}
-                  </span>
-                  {b.held && b.heldReasons.length > 0 && (
-                    <span className="mt-1.5 block space-y-0.5">
-                      <span className="sr-only">Held because: </span>
-                      {b.heldReasons.map((r) => (
-                        <span key={r} className="flex items-start gap-1.5 text-[11px] leading-snug text-warn [overflow-wrap:anywhere]">
-                          <span aria-hidden="true">!</span>
-                          <span className="min-w-0">{r}</span>
-                        </span>
-                      ))}
+        <PendingList>
+          <ul className="space-y-2">
+            {rows.length === 0 && (
+              <li className="rounded-xl border border-line bg-surface px-5 py-10 text-center">
+                {tab === "held" && !filtered ? (
+                  <>
+                    <p className="text-sm font-semibold">Nothing is held for you</p>
+                    <p className="mt-1 text-xs text-muted">
+                      A request lands here when a safety check fails — no package, a budget below the price, too few athletes, a sensitive category or a sponsor on hold. The rest are approved automatically; the All tab shows them.
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <p className="text-sm font-semibold">Nothing matches these filters</p>
+                    <p className="mt-1 text-xs text-muted">Try another sport, a sponsor name, or the All tab.</p>
+                  </>
+                )}
+              </li>
+            )}
+            {rows.map((b) => (
+              <li key={b.id}>
+                <button
+                  type="button"
+                  onClick={() => pick(b.id)}
+                  aria-pressed={b.id === selectedId}
+                  className={[
+                    "flex w-full items-start gap-3 rounded-xl border bg-surface px-4 py-3 text-left transition-colors",
+                    b.id === selectedId ? "border-primary/50" : "border-line hover:border-line-soft hover:bg-surface-2",
+                  ].join(" ")}
+                >
+                  <Monogram text={b.mono} tone="accent" className="size-9 text-[11px]" />
+                  <span className="min-w-0 flex-1">
+                    <span className="flex flex-wrap items-center gap-2">
+                      <span className="truncate text-sm font-semibold">{b.sponsor}</span>
+                      <Badge tone={b.tone}>{b.stateLabel}</Badge>
+                      {/* P4-FE-09 — held for BTG, or approved by the system */}
+                      {b.held && <Badge tone="warn">Held for BTG</Badge>}
+                      {approvalBadge(b) && <Badge tone={approvalBadge(b)!.tone}>{approvalBadge(b)!.label}</Badge>}
+                      <span className="ml-auto text-xs font-semibold tabular-nums">{b.budget}</span>
                     </span>
-                  )}
-                </span>
-              </button>
-            </li>
-          ))}
-        </ul>
+                    <span className="mt-0.5 block truncate text-[11px] text-muted">
+                      {b.packageName}
+                      {b.packagePrice ? ` · ${b.packagePrice}` : ""} · starts {b.start} · {b.duration}
+                    </span>
+                    <span className="mt-0.5 block truncate text-[11px] text-faint">
+                      {b.sports} · {b.geography} · {b.category} · submitted {b.submitted}
+                    </span>
+                    {b.held && b.heldReasons.length > 0 && (
+                      <span className="mt-1.5 block space-y-0.5">
+                        <span className="sr-only">Held because: </span>
+                        {b.heldReasons.map((r) => (
+                          <span key={r} className="flex items-start gap-1.5 text-[11px] leading-snug text-warn [overflow-wrap:anywhere]">
+                            <span aria-hidden="true">!</span>
+                            <span className="min-w-0">{r}</span>
+                          </span>
+                        ))}
+                      </span>
+                    )}
+                  </span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        </PendingList>
 
         {sel && moves && (
           <aside
@@ -389,6 +407,8 @@ export function BriefsDesk({
           </aside>
         )}
       </div>
+
+      {rows.length > 0 && <PagerRow page={page} noun="Briefs" tone="admin" position="bottom" />}
     </div>
   );
 }

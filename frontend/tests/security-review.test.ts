@@ -197,7 +197,8 @@ describe("2S8-PMO-02 decision 3 · Clerk authorizedParties on the web app", asyn
   });
 
   it("the proxy passes the list to clerkMiddleware", () => {
-    expect(src("src/proxy.ts")).toMatch(/clerkMiddleware\(\{ authorizedParties: webAuthorizedParties\(process\.env\) \}\)/);
+    /* The list is the first option; a developer's CLERK_CLOCK_SKEW_MS may follow it (P1-ART-18). */
+    expect(src("src/proxy.ts")).toMatch(/clerkMiddleware\(\{\s*authorizedParties: webAuthorizedParties\(process\.env\),?/);
   });
 });
 
