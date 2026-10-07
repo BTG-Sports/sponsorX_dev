@@ -831,6 +831,21 @@ Raised 2026-10-07 by the programme owner: `/admin/commission` had too much space
 - **Done when:** one screen at 1440 for a desk with rules; the strip headlines every kind's rate for everyone; add and revise open a dialog with a preview against the sample order; no console error, no horizontal overflow at 390; unit tests, lint, tsc and build green
 - **Reference:** `docs/superpowers/specs/2026-10-07-commission-desk-design.md`; `frontend/src/components/commission-editor.tsx`, `commission-preview.tsx`, `commission-rule-dialog.tsx`
 
+### ▶ `P1-ART-20` · Marketplace desk — the queue strip, one queue's rows as a panel
+
+**Order** 32.999 · **ART** · **Where:** Code · **1d** · **Code review** · **Unblocks** 0
+
+Raised 2026-10-07 by the programme owner: `/admin/marketplace` had six stat tiles and then six stacked cards each mostly "nothing here" — the same number said twice, two screens to learn that four queues are empty. Restructure it.
+
+- **The queue strip.** Five tiles, one per queue, in the order BTG works them, each with its count, one line of context (the oldest wait, what's live, the latest failure) and a tone for work waiting. A tile is the navigation; the desk opens on the first queue with work in it.
+- **One panel** under it: the picked queue's rows as a stage table (applications, orders, failed payments, payout problems — each with its wait, its reason and its action), or the listing desks' inline-action rows under their three tabs.
+- **Disputes** become one honest line under the strip.
+- The pick lives in the URL (`?queue=`); the listing emails' `?listings=…#listing-…` links still land on the right row. Reads unchanged in substance; two now use the house pager so the counts are the API's.
+
+- **Depends on:** `P1-ART-18` (the stage), `P1-FE-31` (the stage table)
+- **Done when:** one screen at 1440; every tile's count is the API's; a tile switches the panel in place and writes the URL; the listing emails' links still work; no console error, no horizontal overflow at 390; unit tests, lint, tsc and build green
+- **Reference:** `docs/superpowers/specs/2026-10-07-marketplace-desk-design.md`; `frontend/src/components/marketplace-desk.tsx`
+
 ### ▶ `P1-FE-18` · Apply the SponsorX NEXT UI requirement across the existing pages
 
 **Order** 37.02 · **FE** · **Where:** Code · **2d** · **Ready** · **Unblocks** 5

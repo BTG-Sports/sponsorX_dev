@@ -41,3 +41,13 @@ The owner: "/admin/commission page visual design looks shit, too much space, red
 - Visuals and structure only — the API contract and actions are unchanged.
 - **Verified:** tsc, eslint, 10 unit tests in `commission-live.test.ts` (render test rewritten for the desk, three `kindSummary` cases added); Playwright pass as BTG_ADMIN at 1440 and 390 (strip, split, dialog with preview and dropdown, Escape closes, no console error, no overflow).
 - **Tracker:** P1-ART-19 is Phase 1 row 296 (Order 32.998, Code review); ranges extended to 296; the 2026-10-07 snapshot row recomputed.
+
+## HeckerCreatives — P1-ART-20: the marketplace desk (Code review)
+
+The owner: "same in /admin/marketplace, the structure looks shit". Spec: `docs/superpowers/specs/2026-10-07-marketplace-desk-design.md`. Branch `feature/P1-ART-20-marketplace-desk`, stacked on P1-ART-19.
+
+- **Before:** six stat tiles, then six stacked full-width cards (applications, listings, orders, failed payments, payout problems, disputes), each mostly a hint and "nothing here" — the same number twice, two screens.
+- **Now:** the **queue strip** — five tiles, one per queue, each with its count, one line of context and a tone for work waiting; a tile is the navigation (`?queue=`, written in place), the desk opens on the first queue with work — and **one panel** under it: a stage table for applications, orders, failed payments and payout problems, or the listing desks' inline-action rows under their three tabs (`components/marketplace-desk.tsx`). Disputes are one line. The listing emails' `?listings=…#listing-…` links still land on the right row.
+- Reads unchanged in substance (one parallel pass; switching reads nothing); `/onboarding` and `/payouts` now read with the house pager so the tiles' counts are the API's.
+- **Verified:** tsc, eslint, 25 unit tests across the two marketplace test files (two `queueKey` / `firstBusyQueue` cases added); Playwright `e2e/admin-marketplace-desk.spec.ts` as BTG_ADMIN at 1440 and 390.
+- **Tracker:** P1-ART-20 is Phase 1 row 297 (Order 32.999, Code review); ranges extended to 297; the 2026-10-07 snapshot row recomputed.
